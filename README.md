@@ -79,12 +79,12 @@ Belge bütünlüğü, kişi eşleştirme, Direkt Belge kuralı, kayıpsız PDF i
 doğrulama **hiçbir koşulda** sonnet'e verilmez. Bir sonnet penceresi DoD kapısını geçemezse
 döngü aynı görevi **opus ile** bir kez daha dener. Ayrıntı: `MASTER-PROMPT.md` §6.
 
-### Karar tabloları (PRD §12)
+### Karar tabloları (PRD §20)
 
 MAX görev sayısı 14'ten 4'e indi — bölerek değil, **kararı önceden verip yazarak**. MRZ alan
 yerleşimi ve kontrol hanesi algoritması, çalışan eşleştirme karar tablosu, işlem seçimi
 tablosu, Direkt Belge izin matrisi ve dosya işlemlerinin kayıpsızlık sözleşmesi artık PRD
-§12'de yazılı. İlgili görev bu tabloyu **zorunlu okuma** olarak taşır.
+§20'de yazılı. İlgili görev bu tabloyu **zorunlu okuma** olarak taşır.
 
 Sonuç: kodlama anında karar verilmiyor, uygulanıyor. Bir görev fazla zor geliyorsa ilk şüphe
 efor seviyesi değil, **eksik spesifikasyondur**.

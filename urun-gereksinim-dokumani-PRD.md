@@ -297,7 +297,7 @@ maliyet paneli gerçek rakam gösteriyor.
 | 10.7.1 | Kuyruk ekranları | Üç kuyruk sekmesi, sayaçlar, öğe detayı ve sayfa görüntüleri | Must (v1) |
 | 10.7.2 | Kuyruktan çalışana atama | Arama ile çalışan seçilir, iki aşamalı onayla atanır | Must (v1) |
 | 10.7.3 | Kuyruktan profil oluşturma | Önerilen profil düzenlenip onaylanabilir; belge içeriği düzenlenemez | Must (v1) |
-| 10.8.1 | İki aşamalı onay mekanizması | Onay metinleri §12.6'daki tablodan **birebir** kullanılır; sunucu tek kullanımlık belirteç ister ve belirteçsiz isteği reddeder | Must (v1) |
+| 10.8.1 | İki aşamalı onay mekanizması | Onay metinleri §20.6'daki tablodan **birebir** kullanılır; sunucu tek kullanımlık belirteç ister ve belirteçsiz isteği reddeder | Must (v1) |
 | 10.8.2 | Belgeyi başka çalışana taşıma | İki onay verilmeden işlem gerçekleşmez; iki profil de güncellenir; olay kullanıcı adıyla loglanır | Must (v1) |
 | 10.9.1 | İçerik düzenlemenin yokluğu (R12) | Panelde belge içeriği düzenleyen hiçbir yol yoktur | Must (v1) |
 | 10.9.2 | Görüntüleme ve indirme logu | Her açma ve indirme kullanıcı ve zamanla kaydedilir | Should (v1) |
@@ -586,16 +586,16 @@ Diğer tüm işler `xhigh` seviyesindedir.
 ### 11.1 Zorluğu spesifikasyona taşınan işler
 
 Aşağıdaki işler ilk değerlendirmede en yüksek eforda görünüyordu. Zorlukları **belirsizlikten
-değil, kararın yazılmamış olmasından** geliyordu. Kararlar §12'deki tablolara yazıldığı için
+değil, kararın yazılmamış olmasından** geliyordu. Kararlar §20'deki tablolara yazıldığı için
 artık `xhigh` seviyesinde uygulanabilirler:
 
 | İş | Kararın yazıldığı yer |
 |---|---|
-| 05.3 MRZ ayrıştırma | §12.1 — alan yerleşimi, kontrol hanesi algoritması, yüzyıl kuralı |
-| 05.5, 05.6, 05.7 eşleştirme ve profil açma | §12.2 — normalizasyon + 8 satırlık karar tablosu |
-| 06.2 işlem seçimi | §12.3 — 7 satırlık karar tablosu |
-| 06.3 Direkt Belge kuralı | §12.4 — izin matrisi + format kontrolü |
-| 07.1–07.6 dosya işlemleri | §12.5 — işlem başına kayıpsızlık sözleşmesi |
+| 05.3 MRZ ayrıştırma | §20.1 — alan yerleşimi, kontrol hanesi algoritması, yüzyıl kuralı |
+| 05.5, 05.6, 05.7 eşleştirme ve profil açma | §20.2 — normalizasyon + 8 satırlık karar tablosu |
+| 06.2 işlem seçimi | §20.3 — 7 satırlık karar tablosu |
+| 06.3 Direkt Belge kuralı | §20.4 — izin matrisi + format kontrolü |
+| 07.1–07.6 dosya işlemleri | §20.5 — işlem başına kayıpsızlık sözleşmesi |
 | 09.3 kabul senaryoları | Üreteç + üç senaryo grubuna bölündü (09.3.1–09.3.4) |
 | 10.7 kuyruk ekranları | Üç bağımsız çözüm akışına bölündü (10.7.1–10.7.3) |
 
@@ -609,7 +609,7 @@ asla verilmez. Etiket biçimi ve tam dağılım `MASTER-PROMPT.md` §6'dadır.
 
 ---
 
-## 12. Karar tabloları (uygulama sözleşmeleri)
+## 20. Karar tabloları (uygulama sözleşmeleri)
 
 > **Bu bölüm neden var.** Otonom yapımda her görev, önceki hiçbir şeyi hatırlamayan temiz bir
 > pencerede çalışır. Kararı kodlama anında verdirmek, her pencerede farklı karar verilmesi
@@ -621,12 +621,12 @@ asla verilmez. Etiket biçimi ve tam dağılım `MASTER-PROMPT.md` §6'dadır.
 
 ---
 
-### 12.1 MRZ okuma ve doğrulama (gereksinim 05.3.1, 05.3.2, 05.3.3)
+### 20.1 MRZ okuma ve doğrulama (gereksinim 05.3.1, 05.3.2, 05.3.3)
 
 MRZ (Machine Readable Zone), ICAO Doc 9303 ile standartlaşmış makine-okunur alandır. Görünen
 metinden **daha güvenilirdir** çünkü kontrol haneleri taşır: okuma hatası sessizce geçmez.
 
-#### 12.1.1 Biçimler
+#### 20.1.1 Biçimler
 
 | Biçim | Satır × karakter | Nerede kullanılır |
 |---|---|---|
@@ -637,7 +637,7 @@ metinden **daha güvenilirdir** çünkü kontrol haneleri taşır: okuma hatası
 Biçim, satır sayısı ve satır uzunluğundan belirlenir. Hiçbirine uymuyorsa MRZ yok sayılır
 (hata değil — belgede MRZ olmayabilir).
 
-#### 12.1.2 Karakter kümesi
+#### 20.1.2 Karakter kümesi
 
 İzinli karakterler: `A-Z`, `0-9`, `<`. Küçük harf, boşluk veya başka karakter varsa satır
 önce büyük harfe çevrilir; hâlâ izinsiz karakter kalıyorsa MRZ **geçersizdir**.
@@ -648,7 +648,7 @@ arasındaki ayraçtır.
 Örnek isim alanı: `VASILIEV<<DMITRY<IVANOVICH<<<<<<<<<<<<<<`
 → soyad `VASILIEV`, verilen adlar `DMITRY IVANOVICH`.
 
-#### 12.1.3 Alan yerleşimi
+#### 20.1.3 Alan yerleşimi
 
 **TD3 (pasaport, 2 satır × 44).** Satır 1: `1` belge kodu (`P`), `2` isteğe bağlı,
 `3-5` veren devlet, `6-44` isim alanı (39 karakter).
@@ -680,7 +680,7 @@ Satır 2 — konumlar birebir:
 `16-18` uyruk, `19-29` isteğe bağlı veri, `30` bileşik kontrol hanesi.
 Satır 3: isim alanı (30 karakter).
 
-#### 12.1.4 Kontrol hanesi algoritması
+#### 20.1.4 Kontrol hanesi algoritması
 
 Tek bir algoritma, her alan için aynı:
 
@@ -703,7 +703,7 @@ standart örneklerden alınmıştır ve algoritmayı sabitler):
 İlk örneğin açılımı: `L`=21×7=147, `8`×3=24, `9`×1=9, `8`×7=56, `9`×3=27, `0`×1=0,
 `2`×7=14, `C`=12×3=36, `3`×1=3 → toplam 316 → 316 mod 10 = **6**.
 
-#### 12.1.5 Bileşik kontrol hanesi
+#### 20.1.5 Bileşik kontrol hanesi
 
 Bileşik hane, satırın birden çok alanını birlikte doğrular. Hesaplanan karakter dizisi
 **bitişik olarak** birleştirilir, sonra 12.1.4 uygulanır.
@@ -719,7 +719,7 @@ Bileşik hane, satırın birden çok alanını birlikte doğrular. Hesaplanan ka
 > sonra üreteçle (09.3.1) üretilmiş bir MRZ üzerinde ileri-geri doğrula: üreteç yazar, ayrıştırıcı
 > okur, iki taraf da aynı haneyi bulmalıdır.
 
-#### 12.1.6 Tarih ve yüzyıl kuralı
+#### 20.1.6 Tarih ve yüzyıl kuralı
 
 Tarihler `YYMMDD`'dir; yüzyıl yazmaz. Kural:
 
@@ -729,12 +729,12 @@ Tarihler `YYMMDD`'dir; yüzyıl yazmaz. Kural:
 - `MM` 01–12, `DD` 01–31 aralığında değilse ve takvimde geçerli bir gün değilse alan
   **okunamadı** sayılır (`legible: false`), MRZ tümüyle geçersiz sayılmaz.
 
-#### 12.1.7 Geçersizlik ve öncelik
+#### 20.1.7 Geçersizlik ve öncelik
 
 - Bir alanın kontrol hanesi tutmuyorsa **o alan** geçersizdir (`legible: false`); MRZ'nin
   tamamı atılmaz, diğer alanlar kullanılabilir.
 - Bileşik hane tutmuyorsa MRZ **bütün olarak şüphelidir**: alanlar kullanılabilir ama
-  `document_number` "temiz" sayılmaz (bkz. §12.2.3) — yani ondan yeni çalışan açılamaz.
+  `document_number` "temiz" sayılmaz (bkz. §20.2.3) — yani ondan yeni çalışan açılamaz.
 - İsteğe bağlı veri alanı tamamen dolgu (`<`) ise kontrol hanesi `<` veya `0` olabilir;
   ikisi de geçerlidir, hata sayılmaz.
 - MRZ ile görünen metin çelişirse **MRZ kazanır**, çelişki `notes` alanına yazılır
@@ -742,9 +742,9 @@ Tarihler `YYMMDD`'dir; yüzyıl yazmaz. Kural:
 
 ---
 
-### 12.2 Çalışan eşleştirme ve profil açma (gereksinim 05.5.1–05.5.3, 05.6.1, 05.7.1)
+### 20.2 Çalışan eşleştirme ve profil açma (gereksinim 05.5.1–05.5.3, 05.6.1, 05.7.1)
 
-#### 12.2.1 Normalizasyon
+#### 20.2.1 Normalizasyon
 
 Karşılaştırmadan önce iki normalizasyon uygulanır.
 
@@ -758,7 +758,7 @@ kelimeleri alfabetik sırala (ad sırası farkı eşleşmeyi bozmasın).
 
 `Дмитрий Васильев`, `VASILIEV DMITRY` ve `Dmitry Vasiliev` aynı anahtara inmelidir.
 
-#### 12.2.2 Karar tablosu
+#### 20.2.2 Karar tablosu
 
 Sırayla değerlendirilir; **ilk uyan satır kazanır**, alttakilere bakılmaz.
 
@@ -769,14 +769,14 @@ Sırayla değerlendirilir; **ilk uyan satır kazanır**, alttakilere bakılmaz.
 | 3 | Numara eşleşmedi; normalize ad-soyad `employee_aliases` içinde eşleşiyor **ve** doğum tarihi eşit, **tek** çalışan | `match` | `name_dob` | `hazir` |
 | 4 | İsim + doğum tarihi **birden fazla** çalışana uyuyor | `none` | — | `unresolved` + `PERSON_AMBIGUOUS` |
 | 5 | Yalnız isim eşleşti (doğum tarihi yok veya farklı) | `none` | — | `unresolved`, gerekçe: "İsim eşleşti ama doğum tarihi veya belge numarası doğrulanamadı" |
-| 6 | Hiç eşleşme yok **ve** temiz belge numarası **var** (§12.2.3) | `create` | — | `hazir` |
+| 6 | Hiç eşleşme yok **ve** temiz belge numarası **var** (§20.2.3) | `create` | — | `hazir` |
 | 7 | Hiç eşleşme yok, temiz numara **yok**, ama ad-soyad okunabildi | `pending` | — | `unresolved`, payload'da önerilen profil |
 | 8 | Kişi hiç tespit edilemedi (ne isim ne numara) | `none` | — | `unresolved` |
 
 Satır 1 ve 3'te eşleşme başarılıysa: belgedeki yeni isim yazımı `employee_aliases`'a, yeni
 belge numarası `employee_identifiers`'a eklenir (gereksinim 05.7.2).
 
-#### 12.2.3 "Temiz belge numarası" tanımı
+#### 20.2.3 "Temiz belge numarası" tanımı
 
 Satır 6'nın kapısı budur; yanlış tanımlanırsa hayalet çalışan doğar. Bir belge numarası
 **ancak** şu üç koşulun hepsi sağlanırsa temizdir:
@@ -785,13 +785,13 @@ Satır 6'nın kapısı budur; yanlış tanımlanırsa hayalet çalışan doğar.
    beklenen bir alan).
 2. Alan `legible: true` ve normalize edildikten sonra **en az 5 karakter**.
 3. MRZ'den geldiyse: hem alan kontrol hanesi hem **bileşik** kontrol hanesi tutuyor
-   (§12.1.7). MRZ yoksa bu koşul atlanır.
+   (§20.1.7). MRZ yoksa bu koşul atlanır.
 
 Üçünden biri sağlanmıyorsa numara temiz değildir → satır 7 (onay bekleyen profil) uygulanır.
 
 ---
 
-### 12.3 İşlem seçimi (gereksinim 06.2.1)
+### 20.3 İşlem seçimi (gereksinim 06.2.1)
 
 Bir belge adayı için hangi fiziksel işlemin uygulanacağı burada belirlenir. Girdi değişkenleri:
 
@@ -813,7 +813,7 @@ Sırayla değerlendirilir; **ilk uyan satır kazanır**.
 | 6 | Tek PDF | Tek sayfa | PDF → JPEG, gömülü tek görüntü **yok** | `render_image` |
 | 7 | Yukarıdakilerin hiçbiri | — | — | işlem yok → `unresolved`, gerekçe yazılır |
 
-Seçilen işlem sonra **§12.4'teki izin matrisinden** geçirilir. Matris reddederse rota
+Seçilen işlem sonra **§20.4'teki izin matrisinden** geçirilir. Matris reddederse rota
 `unresolved` olur; işlem uygulanmaz.
 
 Ayrıca 3, 4, 5 ve 6 numaralı satırlar için seçilen işlem türün `allowed_conversions`
@@ -824,7 +824,7 @@ bu satır uygulanmaz, aday zaten karar motorunda (04.2.1) bölünmüş olmalıd�
 
 ---
 
-### 12.4 Direkt Belge izin matrisi (gereksinim 06.3.1, 06.3.2)
+### 20.4 Direkt Belge izin matrisi (gereksinim 06.3.1, 06.3.2)
 
 `known_document_types.direct` bayrağı bir belge türünün fiziksel bütünlüğünün korunması
 gerektiğini söyler (K3). Matris kesindir:
@@ -845,7 +845,7 @@ yapılamaz", olay `DIRECT_DOC_CHECK`.
 içeriğini değiştirmez — yalnız fazlalığı ayırır. Yasak olan, belgeyi **başka kaynaklardan
 kurmak**tır.
 
-#### 12.4.1 Format kontrolü
+#### 20.4.1 Format kontrolü
 
 Direkt türlerde işlemden önce ayrıca şu kontrol yapılır (gereksinim 06.3.2):
 
@@ -858,7 +858,7 @@ bütünlüğünü bozar (K3).
 
 ---
 
-### 12.5 Dosya işlemlerinde kayıpsızlık sözleşmesi (gereksinim 07.1.1–07.6.1)
+### 20.5 Dosya işlemlerinde kayıpsızlık sözleşmesi (gereksinim 07.1.1–07.6.1)
 
 Her işlem için **hangi yöntemin kullanılacağı** ve **neyin kesinlikle yapılmayacağı**
 aşağıdadır. Ortak kural: hiçbir işlem görüntüyü yeniden kodlamaz, hiçbir işlem sayfa
@@ -885,7 +885,7 @@ metin katmanı, kaynaktaki karşılık gelen sayfanın metin katmanıyla **bireb
 
 `extract` ile aynı yöntem, tek fark birden çok kaynaktan sırayla sayfa alınması. Sıra, plan
 öğesindeki `sources` dizisinin sırasıdır — yeniden sıralama yapılmaz. Yalnız `direct: false`
-türlerde çalışır (§12.4).
+türlerde çalışır (§20.4).
 
 #### `wrap_image` (07.4.1)
 
@@ -913,7 +913,7 @@ Gömülü görüntü yoksa son çare budur ve **kayıplıdır**: sayfa `page.get
 sabit çözünürlükte rasterleştirilip JPEG olarak kaydedilir. DPI ve JPEG kalitesi yapılandırma
 değeridir, görev içinde sabit yazılmaz.
 
-Yalnız türün `allowed_conversions` listesinde `pdf_to_jpeg` varsa seçilebilir (§12.3 satır 6).
+Yalnız türün `allowed_conversions` listesinde `pdf_to_jpeg` varsa seçilebilir (§20.3 satır 6).
 
 #### Ortak: çıktı yazma (07.7.1)
 
@@ -923,7 +923,7 @@ Yazma tamamlandıktan sonra `documents` kaydına kaynak dosya kimliği ve sayfa 
 
 ---
 
-### 12.6 İki aşamalı onay metinleri (gereksinim 10.8.1, 10.8.2, 10.7.2, 10.7.3, 08.4.1, 11.5.2)
+### 20.6 İki aşamalı onay metinleri (gereksinim 10.8.1, 10.8.2, 10.7.2, 10.7.3, 08.4.1, 11.5.2)
 
 K16'daki beş manuel işlemin hepsi iki aşamalı onay ister. Metinler **birebir** aşağıdaki
 gibidir; pencere kendi cümlesini yazmaz. `<…>` yer tutucuları çalışma zamanında doldurulur.
@@ -940,7 +940,7 @@ gibidir; pencere kendi cümlesini yazmaz. `<…>` yer tutucuları çalışma zam
 Kalan üçü aynı kalıptan türetilmiştir: birinci cümle *ne yapılacağını*, ikinci cümle
 *geri dönüşü olmayan sonucu* söyler.
 
-#### 12.6.1 Sunucu tarafı mekanizma
+#### 20.6.1 Sunucu tarafı mekanizma
 
 Onay metinlerini göstermek tek başına yeterli değildir — istemci atlanabilir. Akış:
 
@@ -956,7 +956,7 @@ Onay tamamlandığında `USER_CONFIRMED` olayı yazılır: kullanıcı adı, iş
 birinci ve ikinci onayın zaman damgaları. Ardından işlemin kendi olayı (`MANUAL_MOVE`,
 `MANUAL_ASSIGN`, `MANUAL_APPROVE`, `TYPE_APPROVED`, `ARCHIVED`) düşülür.
 
-#### 12.6.2 Testte doğrulanacak davranış
+#### 20.6.2 Testte doğrulanacak davranış
 
 - Yalnız birinci onayla gönderilen istek **hiçbir değişiklik yapmaz** (S16).
 - Aynı belirteçle ikinci kez gönderilen istek reddedilir.

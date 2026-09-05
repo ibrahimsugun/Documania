@@ -144,7 +144,7 @@ Dağılım: 40 `[SONNET-XHIGH]` · 48 `[OPUS-XHIGH]` · 4 `[OPUS-MAX]` = 92 gör
 
 MRZ ayrıştırma, çalışan eşleştirme, işlem seçimi, Direkt Belge kuralı ve kayıpsız dosya
 işlemleri ilk bakışta en yüksek eforu hak ediyor görünüyordu. Zorlukları **belirsizlikten
-değil, kararın yazılmamış olmasından** geliyordu. Kararlar PRD §12'ye karar tablosu olarak
+değil, kararın yazılmamış olmasından** geliyordu. Kararlar PRD §20'ye karar tablosu olarak
 yazıldığı için bu işler artık `xhigh` seviyesinde uygulanabilir.
 
 **Bunun sonucu bir kural doğurur:** bir görev sana fazla zor geliyorsa, ilk sorun genellikle
