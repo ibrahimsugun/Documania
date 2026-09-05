@@ -1,0 +1,9 @@
+# Kabuk betikleri DAİMA LF olmalı — CRLF ile bash "\r: command not found" verir.
+*.sh text eol=lf
+
+# Markdown ve JSON: depoda LF
+*.md text eol=lf
+*.json text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf
+*.py text eol=lf
