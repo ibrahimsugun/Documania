@@ -129,17 +129,30 @@ başlıktan okur; pencere bunu kendisi değiştiremez.
 kayıpsız PDF işlemlerini veya kimlik doğrulamayı ilgilendiren hiçbir iş. Yanlış yapıldığında
 testin yakalayamayacağı bir hata üretebiliyorsa opus'tur.
 
-**`[OPUS-MAX]` alacak işler** (PRD §11):
+**`[OPUS-MAX]` alacak işler** — yalnız dört tane (PRD §11):
 
-- 04.1, 04.2, 04.3 — gruplama, ardışıklık kuralı, dosyalar arası eşleştirme
-- 05.3, 05.5, 05.6 — MRZ, eşleştirme sırası, otomatik çalışan oluşturma
-- 06.2, 06.3 — işlem seçimi ve Direkt Belge kuralı
-- 07.2, 07.3, 07.5 — PDF sayfa kopyalama, birleştirme, gömülü görüntü çıkarma
-- 09.3 — sentetik belge üreteci ve 16 kabul senaryosunun koşumu
-- 10.7 — kuyruk ekranları ve üç çözüm akışı
-- 12.3 — doğal dil isteğinin araç çağrılarına çevrilmesi
+- **04.1** dosya içi gruplama · **04.2** ardışıklık güvenlik kuralı · **04.3** dosyalar arası gruplama
+- **12.3** doğal dil isteğinin araç çağrılarına çevrilmesi
 
-Dağılım: 38 `[SONNET-XHIGH]` · 34 `[OPUS-XHIGH]` · 14 `[OPUS-MAX]`.
+Ortak özellikleri: **bütün olarak değerlendirilmeleri gerekir.** Parçalara ayrılırsa yargı yok
+olmaz, en az bağlama sahip olan birleştirme adımına taşınır. Bu yüzden bölünmezler ve en
+yüksek eforda çalışırlar.
+
+Dağılım: 39 `[SONNET-XHIGH]` · 48 `[OPUS-XHIGH]` · 4 `[OPUS-MAX]` = 91 görev.
+
+### 6.1 Zorluğu spesifikasyona taşınan işler
+
+MRZ ayrıştırma, çalışan eşleştirme, işlem seçimi, Direkt Belge kuralı ve kayıpsız dosya
+işlemleri ilk bakışta en yüksek eforu hak ediyor görünüyordu. Zorlukları **belirsizlikten
+değil, kararın yazılmamış olmasından** geliyordu. Kararlar PRD §12'ye karar tablosu olarak
+yazıldığı için bu işler artık `xhigh` seviyesinde uygulanabilir.
+
+**Bunun sonucu bir kural doğurur:** bir görev sana fazla zor geliyorsa, ilk sorun genellikle
+efor seviyesi değil, **eksik spesifikasyondur**. Kararı kendin verip devam etme —
+`PLAN.md` §D'ye yaz ki bir sonraki pencere aynı kararı yeniden vermek zorunda kalmasın.
+
+Ayrıca 09.3 (kabul senaryoları) ve 10.7 (kuyruk ekranları) gerçekten ayrı teslimatlar
+içerdiği için görevlere bölündü: `09.3-a…d` ve `10.7-a…c`.
 
 **Retry'de model yükseltme.** Bir sonnet penceresi DoD kapısını geçemezse döngü aynı görevi
 **opus** ile bir kez daha dener (`run-loop.sh`). Sebebi: sonnet'in geçemediği kapı çoğu zaman

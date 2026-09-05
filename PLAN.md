@@ -8,7 +8,7 @@
 
 | Faz | PRD | Genel durum | Must sayacı | Kapanış |
 | --- | --- | --- | --- | --- |
-| Faz 0 — MVP | §5.1 | 0 ✅ · 0 ◐ · 92 ⬜ · 0 🔒 | 0/90 Must | AÇIK |
+| Faz 0 — MVP | §5.1 | 0 ✅ · 0 ◐ · 94 ⬜ · 0 🔒 | 0/92 Must | AÇIK |
 | Faz 1 — v1 | §5.2 | 0 ✅ · 0 ◐ · 0 ⬜ · 30 🔒 | 0/21 Must | AÇIK |
 | Faz 2 — v2 | §5.3 | 0 ✅ · 0 ◐ · 0 ⬜ · 13 🔒 | 0/0 Must | AÇIK |
 | Faz 3 — Enterprise | §5.4 | 0 ✅ · 0 ◐ · 0 ⬜ · 8 🔒 | 0/0 Must | AÇIK |
@@ -57,7 +57,7 @@ panelde `plan-count-drift` bulgusu doğurur.
 | FR-MOD-06 | Plan ve doğrulayıcılar | 0 | 10 |
 | FR-MOD-07 | Uygulayıcı | 0 | 9 |
 | FR-MOD-08 | Kuyruklar ve çözüm | 0 | 5 |
-| FR-MOD-09 | Çalışan profili ve orkestrasyon | 0 | 7 |
+| FR-MOD-09 | Çalışan profili ve orkestrasyon | 0 | 9 |
 | FR-MOD-10 | Web yönetim paneli | 1 | 20 |
 | FR-MOD-11 | Belge türü kataloğu ve öğrenme | 1, 2 | 14 |
 | FR-MOD-12 | Telegram botu | 2 | 9 |
@@ -205,7 +205,9 @@ panelde `plan-count-drift` bulgusu doğurur.
 | 09.2.2 | Uçtan uca orkestrasyon | Must (MVP) | ⬜ |
 | 09.2.3 | Hata dayanıklılığı | Must (MVP) | ⬜ |
 | 09.3.1 | Sentetik belge üreteci | Must (MVP) | ⬜ |
-| 09.3.2 | Kabul senaryosu testleri | Must (MVP) | ⬜ |
+| 09.3.2 | Kabul senaryoları S1–S5 | Must (MVP) | ⬜ |
+| 09.3.3 | Kabul senaryoları S6–S10 | Must (MVP) | ⬜ |
+| 09.3.4 | Kabul senaryoları S11–S15 ve S18 | Must (MVP) | ⬜ |
 
 ## 4. FAZ 1 — v1 (PRD §5.2)
 
@@ -346,22 +348,22 @@ başlığının başında birebir geçer.
 | 04.7 | Word/Excel (Attachment) yolu | 04.7.1 | [SONNET-XHIGH] | 01.2, 00.6 | 0 |
 | 05.1 | İsim normalizasyonu | 05.1.1 | [OPUS-XHIGH] | 00.3 | 0 |
 | 05.2 | Harf çevirisi (Kiril, Arap) | 05.2.1 | [OPUS-XHIGH] | 05.1 | 0 |
-| 05.3 | MRZ ayrıştırma ve kontrol haneleri | 05.3.1, 05.3.2, 05.3.3 | [OPUS-MAX] | 05.1 | 0 |
+| 05.3 | MRZ ayrıştırma ve kontrol haneleri | 05.3.1, 05.3.2, 05.3.3 | [OPUS-XHIGH] | 05.1 | 0 |
 | 05.4 | Kişi anahtarı üretimi | 05.4.1 | [OPUS-XHIGH] | 05.2, 05.3 | 0 |
-| 05.5 | Çalışan eşleştirme sırası | 05.5.1, 05.5.2, 05.5.3 | [OPUS-MAX] | 05.4 | 0 |
-| 05.6 | Otomatik çalışan oluşturma | 05.6.1 | [OPUS-MAX] | 05.5 | 0 |
+| 05.5 | Çalışan eşleştirme sırası | 05.5.1, 05.5.2, 05.5.3 | [OPUS-XHIGH] | 05.4 | 0 |
+| 05.6 | Otomatik çalışan oluşturma | 05.6.1 | [OPUS-XHIGH] | 05.5 | 0 |
 | 05.7 | Onay bekleyen profil ve alias birikimi | 05.7.1, 05.7.2 | [OPUS-XHIGH] | 05.5 | 0 |
 | 06.1 | Plan JSON üretimi ve determinizm | 06.1.1, 06.1.2 | [OPUS-XHIGH] | 04.1, 05.5, 00.6 | 0 |
-| 06.2 | İşlem seçimi | 06.2.1 | [OPUS-MAX] | 06.1 | 0 |
-| 06.3 | Direkt Belge kuralı | 06.3.1, 06.3.2 | [OPUS-MAX] | 06.2 | 0 |
+| 06.2 | İşlem seçimi | 06.2.1 | [OPUS-XHIGH] | 06.1 | 0 |
+| 06.3 | Direkt Belge kuralı | 06.3.1, 06.3.2 | [OPUS-XHIGH] | 06.2 | 0 |
 | 06.4 | Dönüşüm izni kontrolü | 06.4.1 | [OPUS-XHIGH] | 06.2 | 0 |
 | 06.5 | Doğrulayıcı seti | 06.5.1, 06.5.2 | [OPUS-XHIGH] | 06.1, 05.3 | 0 |
 | 06.6 | Yeniden çalıştırma ve yeniden analiz | 06.6.1, 06.6.2 | [OPUS-XHIGH] | 06.1 | 0 |
 | 07.1 | passthrough işlemi | 07.1.1 | [SONNET-XHIGH] | 06.1 | 0 |
-| 07.2 | extract işlemi | 07.2.1 | [OPUS-MAX] | 06.2 | 0 |
-| 07.3 | merge işlemi | 07.3.1 | [OPUS-MAX] | 06.2, 06.3 | 0 |
+| 07.2 | extract işlemi | 07.2.1 | [OPUS-XHIGH] | 06.2 | 0 |
+| 07.3 | merge işlemi | 07.3.1 | [OPUS-XHIGH] | 06.2, 06.3 | 0 |
 | 07.4 | wrap_image işlemi | 07.4.1 | [SONNET-XHIGH] | 06.2 | 0 |
-| 07.5 | extract_image işlemi | 07.5.1 | [OPUS-MAX] | 06.2 | 0 |
+| 07.5 | extract_image işlemi | 07.5.1 | [OPUS-XHIGH] | 06.2 | 0 |
 | 07.6 | render_image işlemi | 07.6.1 | [SONNET-XHIGH] | 06.2, 06.4 | 0 |
 | 07.7 | Çıktı yazma, köken kaydı ve Alinan kopyası | 07.7.1, 07.7.2 | [OPUS-XHIGH] | 07.1, 07.2, 00.5 | 0 |
 | 07.8 | Uygulayıcı idempotenliği | 07.8.1 | [OPUS-XHIGH] | 07.7 | 0 |
@@ -371,21 +373,26 @@ başlığının başında birebir geçer.
 | 08.4 | Arşive taşıma | 08.4.1 | [SONNET-XHIGH] | 08.1 | 0 |
 | 09.1 | profil.md üretimi | 09.1.1, 09.1.2 | [SONNET-XHIGH] | 07.7, 05.7 | 0 |
 | 09.2 | Orkestrasyon ve parti durum makinesi | 09.2.1, 09.2.2, 09.2.3 | [OPUS-XHIGH] | 07.8, 08.1, 09.1 | 0 |
-| 09.3 | Sentetik belge üreteci ve kabul testleri | 09.3.1, 09.3.2 | [OPUS-MAX] | 09.2, 03.6 | 0 |
+| 09.3-a | Sentetik belge üreteci | 09.3.1 | [OPUS-XHIGH] | 09.2, 03.6 | 0 |
+| 09.3-b | Kabul senaryoları S1-S5 | 09.3.2 | [OPUS-XHIGH] | 09.3-a | 0 |
+| 09.3-c | Kabul senaryoları S6-S10 | 09.3.3 | [OPUS-XHIGH] | 09.3-b | 0 |
+| 09.3-d | Kabul senaryoları S11-S15 ve S18 | 09.3.4 | [OPUS-XHIGH] | 09.3-c | 0 |
 | 10.1 | Panel iskeleti ve giriş | 10.1.1, 10.1.2, 10.1.3 | [OPUS-XHIGH] | 09.2 | 1 |
 | 10.2 | Yükleme sayfası | 10.2.1, 10.2.2 | [SONNET-XHIGH] | 10.1, 01.1 | 1 |
 | 10.3 | Yükleme detay sayfası | 10.3.1, 10.3.2 | [SONNET-XHIGH] | 10.1, 09.2 | 1 |
 | 10.4 | Çalışan listesi ve arama | 10.4.1, 10.4.2 | [SONNET-XHIGH] | 10.1, 09.1 | 1 |
 | 10.5 | Çalışan profili sayfası | 10.5.1, 10.5.2, 10.5.3 | [SONNET-XHIGH] | 10.4 | 1 |
 | 10.6 | Belge geçmişi görünümü | 10.6.1 | [SONNET-XHIGH] | 10.3, 07.7 | 1 |
-| 10.7 | Kuyruk ekranları | 10.7.1, 10.7.2, 10.7.3 | [OPUS-MAX] | 10.1, 08.2, 08.3 | 1 |
-| 10.8 | İki aşamalı onay ve manuel taşıma | 10.8.1, 10.8.2 | [OPUS-XHIGH] | 10.5, 10.7 | 1 |
+| 10.7-a | Kuyruk ekranları ve öğe detayı | 10.7.1 | [SONNET-XHIGH] | 10.1, 08.2, 08.3 | 1 |
+| 10.7-b | Kuyruktan çalışana atama akışı | 10.7.2 | [OPUS-XHIGH] | 10.7-a | 1 |
+| 10.7-c | Kuyruktan profil oluşturma akışı | 10.7.3 | [OPUS-XHIGH] | 10.7-b | 1 |
+| 10.8 | İki aşamalı onay ve manuel taşıma | 10.8.1, 10.8.2 | [OPUS-XHIGH] | 10.5, 10.7-c | 1 |
 | 10.9 | İçerik düzenleme yokluğu ve erişim logu | 10.9.1, 10.9.2 | [SONNET-XHIGH] | 10.5 | 1 |
 | 11.1 | Katalog yönetim ekranı | 11.1.1, 11.1.2 | [SONNET-XHIGH] | 10.1, 00.6 | 1 |
 | 11.2 | Örnek belge yükleme | 11.2.1 | [SONNET-XHIGH] | 11.1 | 1 |
 | 11.3 | Tür açıklaması üretimi | 11.3.1 | [OPUS-XHIGH] | 11.2, 03.2 | 1 |
 | 11.4 | Prompt derleyici ve token bütçesi | 11.4.1, 11.4.2 | [OPUS-XHIGH] | 11.1, 03.4 | 1 |
-| 11.5 | Aday tür akışı ve onay | 11.5.1, 11.5.2, 11.5.3, 11.5.4 | [OPUS-XHIGH] | 11.1, 04.6, 10.7 | 1 |
+| 11.5 | Aday tür akışı ve onay | 11.5.1, 11.5.2, 11.5.3, 11.5.4 | [OPUS-XHIGH] | 11.1, 04.6, 10.7-c | 1 |
 | 11.6 | Profil fotoğrafı kural seti | 11.6.1 | [SONNET-XHIGH] | 11.1 | 2 |
 | 11.7 | Profil fotoğrafı görsel kontrolü | 11.7.1, 11.7.2 | [OPUS-XHIGH] | 11.6, 03.7 | 2 |
 | 11.8 | Fotoğraf örneklerinden öğrenme | 11.8.1 | [OPUS-XHIGH] | 11.7, 11.3 | 2 |

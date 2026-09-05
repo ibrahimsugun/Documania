@@ -263,8 +263,10 @@ maliyet paneli gerçek rakam gösteriyor.
 | 09.2.1 | Parti durum makinesi | received → rendering → analyzing → planning → executing → done/partial/failed geçişleri izlenebilir | Must (MVP) |
 | 09.2.2 | Uçtan uca orkestrasyon | Tek çağrıyla parti baştan sona işlenir | Must (MVP) |
 | 09.2.3 | Hata dayanıklılığı | Beklenmeyen hatada parti `failed` olur, dosyalar Inbox'ta kalır, hata loglanır | Must (MVP) |
-| 09.3.1 | Sentetik belge üreteci | Testler gerçek belge kullanmadan çalışır; sahte MRZ dahil belge üretilir | Must (MVP) |
-| 09.3.2 | Kabul senaryosu testleri | §9'daki S1–S15 ve S18 otomatik test olarak vardır ve geçer | Must (MVP) |
+| 09.3.1 | Sentetik belge üreteci | Testler gerçek belge kullanmadan çalışır; kontrol hanesi geçerli sahte MRZ dahil belge üretilir | Must (MVP) |
+| 09.3.2 | Kabul senaryoları S1–S5 | §9'daki S1, S2, S3, S4, S5 otomatik test olarak vardır ve geçer | Must (MVP) |
+| 09.3.3 | Kabul senaryoları S6–S10 | §9'daki S6, S7, S8, S9, S10 otomatik test olarak vardır ve geçer | Must (MVP) |
+| 09.3.4 | Kabul senaryoları S11–S15 ve S18 | §9'daki S11, S12, S13, S14, S15, S18 otomatik test olarak vardır ve geçer | Must (MVP) |
 
 ### FR-MOD-10 — Web yönetim paneli (Faz 1)
 
@@ -546,11 +548,28 @@ pahalı kararlar içerdiği için en yüksek efor seviyesinde çalıştırılmal
 | 05.5.1, 05.5.2, 05.6.1 | Eşleştirme sırası yanlış kurulursa hayalet çalışan veya yanlış birleştirme doğar |
 | 06.2.1, 06.3.1 | İşlem seçimi ile Direkt Belge kuralının kesişimi çok sayıda kombinasyon üretir |
 | 07.2.1, 07.3.1, 07.5.1 | PDF sayfa nesnesi kopyalama ve gömülü görüntü çıkarma kayıpsız olmak zorunda |
-| 09.3.1, 09.3.2 | Sentetik belge üreteci + 16 kabul senaryosunun tamamının koşumu tek görevde toplanır |
-| 10.7.1, 10.7.2, 10.7.3 | Kuyruk ekranları üç farklı çözüm akışını ve iki aşamalı onayı birleştirir |
 | 12.3.1 | Doğal dil isteğinin araç çağrılarına çevrilmesi belirsizlik yönetimi ister |
 
+Bu dört kalemin ortak özelliği: **parçalara ayrılırsa yargı yok olmaz, birleştirme adımına
+taşınır** — ve o adım en az bağlama sahip olandır. Bu yüzden bölünmezler.
+
 Diğer tüm işler `xhigh` seviyesindedir.
+
+### 11.1 Zorluğu spesifikasyona taşınan işler
+
+Aşağıdaki işler ilk değerlendirmede en yüksek eforda görünüyordu. Zorlukları **belirsizlikten
+değil, kararın yazılmamış olmasından** geliyordu. Kararlar §12'deki tablolara yazıldığı için
+artık `xhigh` seviyesinde uygulanabilirler:
+
+| İş | Kararın yazıldığı yer |
+|---|---|
+| 05.3 MRZ ayrıştırma | §12.1 — alan yerleşimi, kontrol hanesi algoritması, yüzyıl kuralı |
+| 05.5, 05.6, 05.7 eşleştirme ve profil açma | §12.2 — normalizasyon + 8 satırlık karar tablosu |
+| 06.2 işlem seçimi | §12.3 — 7 satırlık karar tablosu |
+| 06.3 Direkt Belge kuralı | §12.4 — izin matrisi + format kontrolü |
+| 07.1–07.6 dosya işlemleri | §12.5 — işlem başına kayıpsızlık sözleşmesi |
+| 09.3 kabul senaryoları | Üreteç + üç senaryo grubuna bölündü (09.3.1–09.3.4) |
+| 10.7 kuyruk ekranları | Üç bağımsız çözüm akışına bölündü (10.7.1–10.7.3) |
 
 Orta zorlukta ama dikkat isteyen işler: 00.4.2 (üç alfabede slug), 02.1.1 (DPI ve maliyet
 dengesi), 03.4.1 (prompt disiplini), 06.1.2 (plan determinizmi).
@@ -559,3 +578,317 @@ dengesi), 03.4.1 (prompt disiplini), 06.1.2 (plan determinizmi).
 ve kabul kriteri ölçülebilir mekanik işler daha küçük bir modele verilebilir; belge
 bütünlüğü, kişi eşleştirme, Direkt Belge kuralı, kayıpsız PDF işlemleri ve kimlik doğrulama
 asla verilmez. Etiket biçimi ve tam dağılım `MASTER-PROMPT.md` §6'dadır.
+
+---
+
+## 12. Karar tabloları (uygulama sözleşmeleri)
+
+> **Bu bölüm neden var.** Otonom yapımda her görev, önceki hiçbir şeyi hatırlamayan temiz bir
+> pencerede çalışır. Kararı kodlama anında verdirmek, her pencerede farklı karar verilmesi
+> demektir. Bu yüzden karar burada **bir kez** verilir ve yazılır; pencere yalnız uygular.
+>
+> Tabloları okumadan ilgili kodu yazma. Tabloda karşılığı olmayan bir durumla karşılaşırsan
+> **uydurma**: `PLAN.md` §D'ye sapma olarak yaz, en güvenli davranışı seç (belgeyi kuyruğa al)
+> ve devam et.
+
+---
+
+### 12.1 MRZ okuma ve doğrulama (gereksinim 05.3.1, 05.3.2, 05.3.3)
+
+MRZ (Machine Readable Zone), ICAO Doc 9303 ile standartlaşmış makine-okunur alandır. Görünen
+metinden **daha güvenilirdir** çünkü kontrol haneleri taşır: okuma hatası sessizce geçmez.
+
+#### 12.1.1 Biçimler
+
+| Biçim | Satır × karakter | Nerede kullanılır |
+|---|---|---|
+| TD1 | 3 × 30 | Kimlik kartları, oturum kartları |
+| TD2 | 2 × 36 | Eski tip seyahat belgeleri, bazı kimlikler |
+| TD3 | 2 × 44 | Pasaportlar |
+
+Biçim, satır sayısı ve satır uzunluğundan belirlenir. Hiçbirine uymuyorsa MRZ yok sayılır
+(hata değil — belgede MRZ olmayabilir).
+
+#### 12.1.2 Karakter kümesi
+
+İzinli karakterler: `A-Z`, `0-9`, `<`. Küçük harf, boşluk veya başka karakter varsa satır
+önce büyük harfe çevrilir; hâlâ izinsiz karakter kalıyorsa MRZ **geçersizdir**.
+
+`<` dolgu karakteridir. İsim alanında: `<` tek başına kelime ayracı, `<<` soyad ile ad
+arasındaki ayraçtır.
+
+Örnek isim alanı: `VASILIEV<<DMITRY<IVANOVICH<<<<<<<<<<<<<<`
+→ soyad `VASILIEV`, verilen adlar `DMITRY IVANOVICH`.
+
+#### 12.1.3 Alan yerleşimi
+
+**TD3 (pasaport, 2 satır × 44).** Satır 1: `1` belge kodu (`P`), `2` isteğe bağlı,
+`3-5` veren devlet, `6-44` isim alanı (39 karakter).
+
+Satır 2 — konumlar birebir:
+
+| Konum | Alan |
+|---|---|
+| 1–9 | Belge numarası |
+| 10 | Belge numarası kontrol hanesi |
+| 11–13 | Uyruk |
+| 14–19 | Doğum tarihi (YYMMDD) |
+| 20 | Doğum tarihi kontrol hanesi |
+| 21 | Cinsiyet (`M`, `F` veya `<`) |
+| 22–27 | Son geçerlilik tarihi (YYMMDD) |
+| 28 | Son geçerlilik kontrol hanesi |
+| 29–42 | İsteğe bağlı veri (kişisel numara vb.) |
+| 43 | İsteğe bağlı veri kontrol hanesi |
+| 44 | Bileşik (composite) kontrol hanesi |
+
+**TD2 (2 satır × 36).** Satır 1: `1` belge kodu, `2` isteğe bağlı, `3-5` veren devlet,
+`6-36` isim alanı (31 karakter). Satır 2: `1-9` belge no, `10` kontrol hanesi, `11-13` uyruk,
+`14-19` doğum tarihi, `20` kontrol hanesi, `21` cinsiyet, `22-27` son geçerlilik,
+`28` kontrol hanesi, `29-35` isteğe bağlı veri, `36` bileşik kontrol hanesi.
+
+**TD1 (3 satır × 30).** Satır 1: `1-2` belge kodu, `3-5` veren devlet, `6-14` belge numarası,
+`15` kontrol hanesi, `16-30` isteğe bağlı veri. Satır 2: `1-6` doğum tarihi,
+`7` kontrol hanesi, `8` cinsiyet, `9-14` son geçerlilik, `15` kontrol hanesi,
+`16-18` uyruk, `19-29` isteğe bağlı veri, `30` bileşik kontrol hanesi.
+Satır 3: isim alanı (30 karakter).
+
+#### 12.1.4 Kontrol hanesi algoritması
+
+Tek bir algoritma, her alan için aynı:
+
+1. Karakter değerleri: `0-9` → sayısal değeri · `A-Z` → `10 + (harf - 'A')`, yani `A`=10 …
+   `Z`=35 · `<` → `0`.
+2. Ağırlıklar soldan sağa **7, 3, 1** dizisini tekrarlar (1. karakter 7, 2. karakter 3,
+   3. karakter 1, 4. karakter yine 7 …).
+3. Her karakterin değeri ağırlığıyla çarpılır, hepsi toplanır.
+4. Kontrol hanesi = toplam **mod 10**.
+
+**Zorunlu birim testleri** — bu üç örnek testte birebir bulunmalıdır (ICAO belgelerindeki
+standart örneklerden alınmıştır ve algoritmayı sabitler):
+
+| Girdi | Beklenen kontrol hanesi |
+|---|---|
+| `L898902C3` (belge numarası) | `6` |
+| `690806` (doğum tarihi) | `1` |
+| `940623` (son geçerlilik) | `6` |
+
+İlk örneğin açılımı: `L`=21×7=147, `8`×3=24, `9`×1=9, `8`×7=56, `9`×3=27, `0`×1=0,
+`2`×7=14, `C`=12×3=36, `3`×1=3 → toplam 316 → 316 mod 10 = **6**.
+
+#### 12.1.5 Bileşik kontrol hanesi
+
+Bileşik hane, satırın birden çok alanını birlikte doğrular. Hesaplanan karakter dizisi
+**bitişik olarak** birleştirilir, sonra 12.1.4 uygulanır.
+
+| Biçim | Bileşik hanenin kapsadığı konumlar |
+|---|---|
+| TD3 | Satır 2: 1–10, 14–20, 22–43 |
+| TD2 | Satır 2: 1–10, 14–20, 22–35 |
+| TD1 | Satır 1: 6–30 · Satır 2: 1–7, 9–15, 19–29 |
+
+> **Dikkat — en sık yapılan hata budur.** Aralıklar bitişik değildir; cinsiyet hanesi ve
+> alan kontrol haneleri bilinçli olarak dışarıda/içeride bırakılmıştır. Uygulamayı yazdıktan
+> sonra üreteçle (09.3.1) üretilmiş bir MRZ üzerinde ileri-geri doğrula: üreteç yazar, ayrıştırıcı
+> okur, iki taraf da aynı haneyi bulmalıdır.
+
+#### 12.1.6 Tarih ve yüzyıl kuralı
+
+Tarihler `YYMMDD`'dir; yüzyıl yazmaz. Kural:
+
+- **Son geçerlilik tarihi:** her zaman `20YY`.
+- **Doğum tarihi:** önce `20YY` denenir; sonuç **gelecekte** kalıyorsa `19YY` alınır. Elde
+  edilen tarih 06.5'teki `dob_plausible` doğrulayıcısına da girer (geçmişte ve 16–90 yaş).
+- `MM` 01–12, `DD` 01–31 aralığında değilse ve takvimde geçerli bir gün değilse alan
+  **okunamadı** sayılır (`legible: false`), MRZ tümüyle geçersiz sayılmaz.
+
+#### 12.1.7 Geçersizlik ve öncelik
+
+- Bir alanın kontrol hanesi tutmuyorsa **o alan** geçersizdir (`legible: false`); MRZ'nin
+  tamamı atılmaz, diğer alanlar kullanılabilir.
+- Bileşik hane tutmuyorsa MRZ **bütün olarak şüphelidir**: alanlar kullanılabilir ama
+  `document_number` "temiz" sayılmaz (bkz. §12.2.3) — yani ondan yeni çalışan açılamaz.
+- İsteğe bağlı veri alanı tamamen dolgu (`<`) ise kontrol hanesi `<` veya `0` olabilir;
+  ikisi de geçerlidir, hata sayılmaz.
+- MRZ ile görünen metin çelişirse **MRZ kazanır**, çelişki `notes` alanına yazılır
+  (gereksinim 05.3.3). Bu bir doğrulama hatası değildir, bilgi notudur.
+
+---
+
+### 12.2 Çalışan eşleştirme ve profil açma (gereksinim 05.5.1–05.5.3, 05.6.1, 05.7.1)
+
+#### 12.2.1 Normalizasyon
+
+Karşılaştırmadan önce iki normalizasyon uygulanır.
+
+**Belge numarası normalizasyonu:** büyük harfe çevir, boşluk / tire / nokta / eğik çizgi
+karakterlerini sil. `71 1234567` ve `71-1234567` aynı anahtara iner.
+
+**İsim normalizasyonu (05.1, 05.2):** küçük harfe çevir → aksanları kaldır → Türkçe
+karakterleri karşılıklarına indir (`ç→c`, `ş→s`, `ğ→g`, `ı→i`, `ö→o`, `ü→u`) → Kiril ve Arap
+yazımı ICAO çeviri tablosuyla Latin'e çevir → noktalama ve çoklu boşlukları sadeleştir →
+kelimeleri alfabetik sırala (ad sırası farkı eşleşmeyi bozmasın).
+
+`Дмитрий Васильев`, `VASILIEV DMITRY` ve `Dmitry Vasiliev` aynı anahtara inmelidir.
+
+#### 12.2.2 Karar tablosu
+
+Sırayla değerlendirilir; **ilk uyan satır kazanır**, alttakilere bakılmaz.
+
+| # | Koşul | `employee.action` | `matched_by` | Rota |
+|---|---|---|---|---|
+| 1 | Normalize belge numarası `employee_identifiers` içinde **tam** eşleşiyor ve **tek** çalışana ait | `match` | `document_number` | `hazir` |
+| 2 | Aynı numara **birden fazla** çalışana ait | `none` | — | `unresolved` + `PERSON_AMBIGUOUS` |
+| 3 | Numara eşleşmedi; normalize ad-soyad `employee_aliases` içinde eşleşiyor **ve** doğum tarihi eşit, **tek** çalışan | `match` | `name_dob` | `hazir` |
+| 4 | İsim + doğum tarihi **birden fazla** çalışana uyuyor | `none` | — | `unresolved` + `PERSON_AMBIGUOUS` |
+| 5 | Yalnız isim eşleşti (doğum tarihi yok veya farklı) | `none` | — | `unresolved`, gerekçe: "İsim eşleşti ama doğum tarihi veya belge numarası doğrulanamadı" |
+| 6 | Hiç eşleşme yok **ve** temiz belge numarası **var** (§12.2.3) | `create` | — | `hazir` |
+| 7 | Hiç eşleşme yok, temiz numara **yok**, ama ad-soyad okunabildi | `pending` | — | `unresolved`, payload'da önerilen profil |
+| 8 | Kişi hiç tespit edilemedi (ne isim ne numara) | `none` | — | `unresolved` |
+
+Satır 1 ve 3'te eşleşme başarılıysa: belgedeki yeni isim yazımı `employee_aliases`'a, yeni
+belge numarası `employee_identifiers`'a eklenir (gereksinim 05.7.2).
+
+#### 12.2.3 "Temiz belge numarası" tanımı
+
+Satır 6'nın kapısı budur; yanlış tanımlanırsa hayalet çalışan doğar. Bir belge numarası
+**ancak** şu üç koşulun hepsi sağlanırsa temizdir:
+
+1. Türün `required_fields` listesinde `document_number` **var** (yani bu tür için numara
+   beklenen bir alan).
+2. Alan `legible: true` ve normalize edildikten sonra **en az 5 karakter**.
+3. MRZ'den geldiyse: hem alan kontrol hanesi hem **bileşik** kontrol hanesi tutuyor
+   (§12.1.7). MRZ yoksa bu koşul atlanır.
+
+Üçünden biri sağlanmıyorsa numara temiz değildir → satır 7 (onay bekleyen profil) uygulanır.
+
+---
+
+### 12.3 İşlem seçimi (gereksinim 06.2.1)
+
+Bir belge adayı için hangi fiziksel işlemin uygulanacağı burada belirlenir. Girdi değişkenleri:
+
+- **kaynak sayısı** — adayın sayfaları kaç ayrı dosyadan geliyor
+- **kapsama** — tek kaynağın *tüm* sayfaları mı, yoksa alt kümesi mi
+- **kaynak biçim** — PDF / JPEG / PNG / Office
+- **hedef biçim** — türün `output_format` alanı (`keep` = kaynak biçimi koru)
+- **gömülü görüntü** — sayfa tek bir tam sayfa görüntüden mi oluşuyor (02.5.1'in çıktısı)
+
+Sırayla değerlendirilir; **ilk uyan satır kazanır**.
+
+| # | Kaynak | Kapsama | Kaynak → hedef biçim | Seçilen işlem |
+|---|---|---|---|---|
+| 1 | Tek dosya | Tüm sayfalar | Aynı biçim (veya `output_format: keep`) | `passthrough` |
+| 2 | Tek PDF | Alt küme, **ardışık** | PDF → PDF | `extract` |
+| 3 | Birden çok dosya (aynı parti) | — | → PDF | `merge` |
+| 4 | Tek JPEG/PNG | Tek sayfa | Görüntü → PDF | `wrap_image` |
+| 5 | Tek PDF | Tek sayfa | PDF → JPEG, sayfada gömülü tek görüntü **var** | `extract_image` |
+| 6 | Tek PDF | Tek sayfa | PDF → JPEG, gömülü tek görüntü **yok** | `render_image` |
+| 7 | Yukarıdakilerin hiçbiri | — | — | işlem yok → `unresolved`, gerekçe yazılır |
+
+Seçilen işlem sonra **§12.4'teki izin matrisinden** geçirilir. Matris reddederse rota
+`unresolved` olur; işlem uygulanmaz.
+
+Ayrıca 3, 4, 5 ve 6 numaralı satırlar için seçilen işlem türün `allowed_conversions`
+listesinde bulunmak zorundadır (gereksinim 06.4.1); yoksa `unresolved`.
+
+Satır 2'deki **ardışıklık** şartı K5'tir: sayfalar arasında başka belgeye ait sayfa varsa
+bu satır uygulanmaz, aday zaten karar motorunda (04.2.1) bölünmüş olmalıdır.
+
+---
+
+### 12.4 Direkt Belge izin matrisi (gereksinim 06.3.1, 06.3.2)
+
+`known_document_types.direct` bayrağı bir belge türünün fiziksel bütünlüğünün korunması
+gerektiğini söyler (K3). Matris kesindir:
+
+| İşlem | `direct: true` | `direct: false` |
+|---|---|---|
+| `passthrough` | izinli | izinli |
+| `extract` (tek kaynak, ardışık sayfalar) | **izinli** | izinli |
+| `merge` | yasak | izinli (dönüşüm izinliyse) |
+| `wrap_image` | yasak | izinli (dönüşüm izinliyse) |
+| `extract_image` | yasak | izinli (dönüşüm izinliyse) |
+| `render_image` | yasak | izinli (dönüşüm izinliyse) |
+
+Yasak bir işlem seçilmişse: rota `unresolved`, gerekçe "Direkt Belge: `<işlem>` bu tür için
+yapılamaz", olay `DIRECT_DOC_CHECK`.
+
+**`extract` neden izinli?** Bir dosyanın içinden sayfa çıkarmak belgeye bir şey eklemez ve
+içeriğini değiştirmez — yalnız fazlalığı ayırır. Yasak olan, belgeyi **başka kaynaklardan
+kurmak**tır.
+
+#### 12.4.1 Format kontrolü
+
+Direkt türlerde işlemden önce ayrıca şu kontrol yapılır (gereksinim 06.3.2):
+
+Kaynak dosyanın biçimi türün `expected_file_types` listesinde **yoksa** hiçbir işlem
+uygulanmaz. Rota `unresolved`, gerekçe: `"Direkt Belge: beklenen dosya türü <liste>, gelen
+<biçim>. Uygun formatta yeniden gönderin."`
+
+Bu, sistemin dönüştürerek "kurtarmaya" çalışmasını engeller — dönüştürme bir pasaportun
+bütünlüğünü bozar (K3).
+
+---
+
+### 12.5 Dosya işlemlerinde kayıpsızlık sözleşmesi (gereksinim 07.1.1–07.6.1)
+
+Her işlem için **hangi yöntemin kullanılacağı** ve **neyin kesinlikle yapılmayacağı**
+aşağıdadır. Ortak kural: hiçbir işlem görüntüyü yeniden kodlamaz, hiçbir işlem sayfa
+içeriğini yeniden çizmez (K11).
+
+#### `passthrough` (07.1.1)
+
+Kaynak dosya **bayt bayt** kopyalanır. Yeniden yazma, yeniden kaydetme, kütüphaneden geçirme
+yoktur. Doğrulama: çıktının SHA-256'sı kaynağınkine **eşit** olmalıdır.
+
+#### `extract` (07.2.1)
+
+`pypdf` ile: kaynak `PdfReader`'dan hedef `PdfWriter`'a **sayfa nesnesi** eklenir
+(`writer.add_page(reader.pages[i])`). Sayfa nesnesi kopyalandığı için içerik akışı,
+gömülü fontlar ve görüntüler olduğu gibi taşınır.
+
+**Yapılmayacaklar:** içerik akışını sıkıştırma/yeniden yazma (`compress_content_streams`
+çağrılmaz), sayfayı görüntüye çevirip yeniden PDF'e koyma, sayfa boyutu/döndürme değiştirme.
+
+Doğrulama: çıktının sayfa sayısı beklenen kadar olmalı **ve** her çıktı sayfasının çıkarılan
+metin katmanı, kaynaktaki karşılık gelen sayfanın metin katmanıyla **birebir aynı** olmalıdır.
+
+#### `merge` (07.3.1)
+
+`extract` ile aynı yöntem, tek fark birden çok kaynaktan sırayla sayfa alınması. Sıra, plan
+öğesindeki `sources` dizisinin sırasıdır — yeniden sıralama yapılmaz. Yalnız `direct: false`
+türlerde çalışır (§12.4).
+
+#### `wrap_image` (07.4.1)
+
+`img2pdf.convert()` kullanılır. JPEG girdide görüntü verisi PDF içine **yeniden kodlanmadan**
+gömülür; bu, `Pillow` ile açıp kaydetmenin aksine kayıpsızdır.
+
+**Bilinen tuzak:** `img2pdf` alfa kanalı (şeffaflık) içeren PNG'leri reddeder. Bu durumda
+görüntü kayıpsız biçimde alfasız RGB'ye düzleştirilir (beyaz zemin) ve bu işlem olay loguna
+yazılır. Alfa dışında hiçbir piksel dönüşümü yapılmaz.
+
+#### `extract_image` (07.5.1)
+
+`PyMuPDF` ile: sayfadaki görüntü nesnesinin `xref`'i bulunur, `doc.extract_image(xref)`
+çağrılır. Dönen sözlükteki `image` alanı **orijinal gömülü baytlardır**; `ext` alanı gerçek
+biçimi verir. Bu baytlar diske olduğu gibi yazılır.
+
+**Yapılmayacaklar:** `Pillow` ile açıp kaydetme, yeniden boyutlandırma, kalite ayarı.
+Çıkan biçim JPEG değilse (örn. PNG) dosya uzantısı `ext`'e göre yazılır.
+
+Bu işlem yalnız 02.5.1'in sayfayı "tek tam sayfa görüntü" olarak işaretlediği durumda seçilir.
+
+#### `render_image` (07.6.1)
+
+Gömülü görüntü yoksa son çare budur ve **kayıplıdır**: sayfa `page.get_pixmap(dpi=…)` ile
+sabit çözünürlükte rasterleştirilip JPEG olarak kaydedilir. DPI ve JPEG kalitesi yapılandırma
+değeridir, görev içinde sabit yazılmaz.
+
+Yalnız türün `allowed_conversions` listesinde `pdf_to_jpeg` varsa seçilebilir (§12.3 satır 6).
+
+#### Ortak: çıktı yazma (07.7.1)
+
+Tüm işlemler çıktıyı **atomik** yazar (geçici dosyaya yaz, sonra yeniden adlandır — 00.4.4).
+Yazma tamamlandıktan sonra `documents` kaydına kaynak dosya kimliği ve sayfa aralığı
+(`source_refs_json`) işlenir; `OUTPUT_SAVED` olayı bu köken bilgisiyle loglanır (K15, R13).
