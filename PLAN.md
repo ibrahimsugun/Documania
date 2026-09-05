@@ -406,8 +406,8 @@ Her kapanış, kapattığı gereksinimin `#### K<kod>` bloğuna madde ekler. Blo
 var olan maddeler silinmez. Biçim:
 
 ```
-#### K04.1 — 04.1 · Dosya içi gruplama
-- ✅ ardışık sayfa gruplama — `app/pipeline/group.py` · test `tests/test_group.py` (11) · tm 24
+#### K99.9 — <PRD kodu> · <kısa başlık>        <-- ÖRNEK, gerçek kod değil
+- ✅ <ne yapıldı> — `<dosya>` · test `<test dosyası>` (n) · tm <id>
 ```
 
 _Henüz kanıt yok — ilk görev kapanışıyla dolmaya başlar._
