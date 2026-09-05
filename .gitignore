@@ -1,0 +1,29 @@
+# --- gizli bilgiler ---
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+credentials.json
+
+# --- python ---
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+dist/
+build/
+
+# --- calisma zamani verisi (GERCEK BELGELER - asla commit edilmez) ---
+data/
+
+# --- otonom dongu ---
+.loop-logs/
+
+# --- isletim sistemi ---
+Thumbs.db
+desktop.ini
+.DS_Store
