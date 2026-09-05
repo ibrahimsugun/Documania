@@ -114,21 +114,37 @@ Her görevde bu sıra izlenir:
 Yapay zekâ çağrısı gerektiren her yeni davranış için **önce kayıtlı yanıtla test** yazılır;
 canlı çağrı testi isteğe bağlıdır ve CI'da kapalıdır.
 
-## 6. Efor kapıları
+## 6. Model × efor matrisi
 
-Görev başlığına konan etiket pencere eforunu seçer.
+Görev başlığına konan etiket hem **modeli** hem **eforu** seçer. `run-loop.sh` etiketi
+başlıktan okur; pencere bunu kendisi değiştiremez.
 
-**`[MAX]` alacak işler** (PRD §11):
+| Etiket | Model | Efor | Ne tür iş |
+|---|---|---|---|
+| `[SONNET-XHIGH]` | sonnet | xhigh | Kapsamı net, kabul kriteri ölçülebilir, gizli karmaşıklığı düşük mekanik iş |
+| `[OPUS-XHIGH]` | opus | xhigh | Karar, bütünlük veya kimlik mantığı taşıyan iş |
+| `[OPUS-MAX]` | opus | max | En yüksek belirsizlik ve geri alınması en pahalı kararlar |
 
-- 04.1.1, 04.2.1, 04.3.1 — gruplama ve ardışıklık kuralı
-- 05.3.1, 05.3.2 — MRZ ayrıştırma ve kontrol haneleri
-- 05.5.1, 05.5.2, 05.6.1 — eşleştirme sırası ve çalışan oluşturma
-- 06.2.1, 06.3.1 — işlem seçimi ve Direkt Belge kuralı
-- 07.2.1, 07.3.1, 07.5.1 — PDF sayfa kopyalama, birleştirme, gömülü görüntü çıkarma
-- 10.7.1, 10.7.2, 10.7.3 — kuyruk ekranları ve çözüm akışları
-- 12.3.1 — doğal dil isteğinin araç çağrılarına çevrilmesi
+**Sonnet'e verilmeyen işler:** belge bütünlüğünü, kişi eşleştirmeyi, Direkt Belge kuralını,
+kayıpsız PDF işlemlerini veya kimlik doğrulamayı ilgilendiren hiçbir iş. Yanlış yapıldığında
+testin yakalayamayacağı bir hata üretebiliyorsa opus'tur.
 
-Geri kalan her iş **`[XHIGH]`**.
+**`[OPUS-MAX]` alacak işler** (PRD §11):
+
+- 04.1, 04.2, 04.3 — gruplama, ardışıklık kuralı, dosyalar arası eşleştirme
+- 05.3, 05.5, 05.6 — MRZ, eşleştirme sırası, otomatik çalışan oluşturma
+- 06.2, 06.3 — işlem seçimi ve Direkt Belge kuralı
+- 07.2, 07.3, 07.5 — PDF sayfa kopyalama, birleştirme, gömülü görüntü çıkarma
+- 09.3 — sentetik belge üreteci ve 16 kabul senaryosunun koşumu
+- 10.7 — kuyruk ekranları ve üç çözüm akışı
+- 12.3 — doğal dil isteğinin araç çağrılarına çevrilmesi
+
+Dağılım: 38 `[SONNET-XHIGH]` · 34 `[OPUS-XHIGH]` · 14 `[OPUS-MAX]`.
+
+**Retry'de model yükseltme.** Bir sonnet penceresi DoD kapısını geçemezse döngü aynı görevi
+**opus** ile bir kez daha dener (`run-loop.sh`). Sebebi: sonnet'in geçemediği kapı çoğu zaman
+yetenek sınırıdır, aynı modelle ikinci deneme aynı duvara toslar. Zaten opus olan görevlerde
+model değişmez.
 
 ## 7. Git kuralları
 

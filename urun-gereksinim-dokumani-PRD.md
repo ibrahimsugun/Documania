@@ -546,10 +546,16 @@ pahalı kararlar içerdiği için en yüksek efor seviyesinde çalıştırılmal
 | 05.5.1, 05.5.2, 05.6.1 | Eşleştirme sırası yanlış kurulursa hayalet çalışan veya yanlış birleştirme doğar |
 | 06.2.1, 06.3.1 | İşlem seçimi ile Direkt Belge kuralının kesişimi çok sayıda kombinasyon üretir |
 | 07.2.1, 07.3.1, 07.5.1 | PDF sayfa nesnesi kopyalama ve gömülü görüntü çıkarma kayıpsız olmak zorunda |
+| 09.3.1, 09.3.2 | Sentetik belge üreteci + 16 kabul senaryosunun tamamının koşumu tek görevde toplanır |
 | 10.7.1, 10.7.2, 10.7.3 | Kuyruk ekranları üç farklı çözüm akışını ve iki aşamalı onayı birleştirir |
 | 12.3.1 | Doğal dil isteğinin araç çağrılarına çevrilmesi belirsizlik yönetimi ister |
 
-Diğer tüm işler `[XHIGH]` seviyesindedir.
+Diğer tüm işler `xhigh` seviyesindedir.
 
 Orta zorlukta ama dikkat isteyen işler: 00.4.2 (üç alfabede slug), 02.1.1 (DPI ve maliyet
-dengesi), 03.4.1 (prompt disiplini), 06.1.2 (plan determinizmi), 09.3.1 (sentetik belge üreteci).
+dengesi), 03.4.1 (prompt disiplini), 06.1.2 (plan determinizmi).
+
+**Model seçimi.** Zorluk yalnız eforu değil, işi yapacak **modeli** de belirler. Kapsamı net
+ve kabul kriteri ölçülebilir mekanik işler daha küçük bir modele verilebilir; belge
+bütünlüğü, kişi eşleştirme, Direkt Belge kuralı, kayıpsız PDF işlemleri ve kimlik doğrulama
+asla verilmez. Etiket biçimi ve tam dağılım `MASTER-PROMPT.md` §6'dadır.

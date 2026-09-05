@@ -52,6 +52,33 @@ Panelin kendi ayrıştırıcılarıyla ölçüldü:
 | Bağımlılık grafiği | 0 sorun; sıradaki iş `tm 1` |
 | Teşhis taraması | `errors: []`, critical/high bulgu yok |
 
+## Görev bağlamı ve model seçimi
+
+Her görev **ayrı ve bağlamsız** bir Claude penceresinde çalışır — önceki pencerenin
+hafızası yoktur. Bu yüzden görevin `details` alanı bağlamı tek başına taşır:
+
+```
+KAPSAM · NE YAPILACAK (gereksinim + kabul kriteri) · GİRDİ (üzerine kurduğu, hâlihazırda
+var olan kod ve dosyaları) · ÇIKTI (dokunacağı dosyalar) · BU GÖREVİ BAĞLAYAN KİLİTLİ
+KURALLAR (K/R metinleri birebir gömülü) · PRD'DE AYRICA OKU · İLGİLİ KABUL SENARYOLARI ·
+KAPSAM SINIRI · TUZAKLAR · KAPANIŞ
+```
+
+Ortalama 1.950 karakter. Pencere kuralı okumak için başka dosyaya gitmez; "üzerine ne
+kuruyorum" sorusunun cevabı dosya adlarıyla yazılıdır.
+
+Görev başlığındaki etiket hem **modeli** hem **eforu** seçer:
+
+| Etiket | Adet | Ne tür iş |
+|---|---|---|
+| `[SONNET-XHIGH]` | 38 | Mekanik, kapsamı net, kabul kriteri ölçülebilir |
+| `[OPUS-XHIGH]` | 34 | Karar, bütünlük veya kimlik mantığı taşıyan |
+| `[OPUS-MAX]` | 14 | Gruplama, MRZ, eşleştirme, Direkt Belge, kayıpsız PDF, kuyruk akışları, kabul senaryoları |
+
+Belge bütünlüğü, kişi eşleştirme, Direkt Belge kuralı, kayıpsız PDF işlemleri ve kimlik
+doğrulama **hiçbir koşulda** sonnet'e verilmez. Bir sonnet penceresi DoD kapısını geçemezse
+döngü aynı görevi **opus ile** bir kez daha dener. Ayrıntı: `MASTER-PROMPT.md` §6.
+
 ## Otonom döngüyü başlatma
 
 Paneldeki **Başlat** düğmesi (önerilen — kota kapısı, nazik durdurma ve otomatik devam

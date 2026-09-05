@@ -11,10 +11,17 @@
 set -uo pipefail
 
 # --- Ayarlar -----------------------------------------------------------------
-# Görev başlığındaki etiket eforu seçer (MASTER-PROMPT §6):
-#   [MAX]   → max     (gruplama, MRZ, eşleştirme, PDF kopyalama, kuyruk ekranları)
-#   [XHIGH] → xhigh   (geri kalan her iş; etiket yoksa da bu)
-MODEL="opus"
+# Görev başlığındaki etiket hem MODELİ hem EFORU seçer (MASTER-PROMPT §6):
+#   [SONNET-XHIGH] → sonnet + xhigh   mekanik, kapsamı net iş
+#   [OPUS-XHIGH]   → opus   + xhigh   karar/bütünlük taşıyan iş
+#   [OPUS-MAX]     → opus   + max     gruplama, MRZ, eşleştirme, PDF kopyalama,
+#                                     kuyruk akışları, kabul senaryosu koşumu
+#   [SONNET-MAX]   → sonnet + max     (tanımlı ama kullanılmıyor)
+# Eski tek boyutlu etiketler geriye dönük çalışır: [MAX] → opus+max,
+# [XHIGH] veya etiketsiz → opus+xhigh.
+MODEL="opus"                # varsayılan/geri-uyum modeli
+MODEL_BIG="opus"
+MODEL_SMALL="sonnet"
 EFFORT_MAX="max"            # opus 'max' desteklemiyorsa: "high"
 EFFORT_HIGH="xhigh"
 PERM="bypassPermissions"    # tam otonom, prompt YOK. Güvenli alternatif: "auto"
@@ -49,7 +56,7 @@ COST_HIGH_PCT="${LOOP_COST_HIGH_PCT:-10}"
 # davranışa (temiz çıkış + panelden otomatik devam) dönülür.
 WAIT_RESET_MAX_MIN="${LOOP_WAIT_RESET_MAX_MIN:-90}"
 
-pick_schema='{"type":"object","properties":{"has_task":{"type":"boolean"},"task_id":{"type":"string"},"effort":{"type":"string","enum":["max","high"]},"remaining":{"type":"integer"}},"required":["has_task"]}'
+pick_schema='{"type":"object","properties":{"has_task":{"type":"boolean"},"task_id":{"type":"string"},"model":{"type":"string","enum":["sonnet","opus"]},"effort":{"type":"string","enum":["max","high"]},"remaining":{"type":"integer"}},"required":["has_task"]}'
 result_schema='{"type":"object","properties":{"status":{"type":"string","enum":["done","blocked"]},"task_id":{"type":"string"},"summary":{"type":"string"}},"required":["status"]}'
 
 log(){ echo "[$(date -u +%H:%M:%S)] $*"; }
@@ -164,11 +171,14 @@ boşa yakar. Hiçbir aday doğrulamadan geçmiyorsa has_task=false döndür.
 3) Yoksa bağımlılıkları tamamlanmış, durumu 'pending' olanlardan en yüksek öncelikliyi seç
    (sıra: high > medium > low). Bir üst görevin alt görevleri varsa ALT GÖREVİ seç.
 İş YAPMA, kod okuma/yazma yok.
-Döndür: has_task, task_id, effort, remaining (kalan yapılabilir görev sayısı).
-EFOR seçilen işin BAŞLIĞINDAKİ ETİKETTEN okunur (MASTER-PROMPT §6):
-  [MAX]   -> effort=\"max\"
-  [XHIGH] -> effort=\"high\"   (\"high\" burada xhigh anlamına gelir)
-  Etiket YOKSA veya belirsizse -> effort=\"high\"." \
+Döndür: has_task, task_id, model, effort, remaining (kalan yapılabilir görev sayısı).
+MODEL ve EFOR seçilen işin BAŞLIĞINDAKİ ETİKETTEN okunur (MASTER-PROMPT §6):
+  [SONNET-XHIGH] -> model=\"sonnet\", effort=\"high\"   (\"high\" burada xhigh anlamına gelir)
+  [SONNET-MAX]   -> model=\"sonnet\", effort=\"max\"
+  [OPUS-XHIGH]   -> model=\"opus\",   effort=\"high\"
+  [OPUS-MAX]     -> model=\"opus\",   effort=\"max\"
+Eski tek boyutlu etiketler: [MAX] -> opus+max; [XHIGH] veya etiket YOK -> opus+high.
+Etiket belirsizse GÜVENLİ tarafa düş: model=\"opus\", effort=\"max\"." \
     --model "$MODEL" --effort low --permission-mode "$PERM" --max-turns 10 $ALLOW \
     --output-format json --json-schema "$pick_schema" 2>>"$LOG_DIR/pick.err" \
     | jq -c '.structured_output' 2>/dev/null
@@ -176,14 +186,14 @@ EFOR seçilen işin BAŞLIĞINDAKİ ETİKETTEN okunur (MASTER-PROMPT §6):
 
 # --- Bir görevi temiz pencerede çalıştır (CANLI akar) ------------------------
 stream_task(){
-  local id="$1" eff="$2"
+  local id="$1" eff="$2" mdl="${3:-$MODEL}"
   local logf="$LOG_DIR/task-$id.jsonl"
   : > "$logf"
   claude -p "$(cat "$RUNNER_PROMPT_FILE")
 
 # HEDEF TASK: ${id}
 Yalnız bu görevi baştan sona tamamla, protokolü uygula, en son JSON sonucu döndür." \
-    --model "$MODEL" --effort "$eff" --permission-mode "$PERM" --max-turns "$MAX_TURNS" $ALLOW \
+    --model "$mdl" --effort "$eff" --permission-mode "$PERM" --max-turns "$MAX_TURNS" $ALLOW \
     --output-format stream-json --verbose --json-schema "$result_schema" \
     2>>"$LOG_DIR/task-$id.err" | tee -a "$logf" | pretty
 }
@@ -213,9 +223,13 @@ stop_gate(){
 # iş. Bu kapı kararı pencere AÇILMADAN önce verir.
 # 0 → devam · 1 → kota yetmiyor (çağıran temiz çıkar).
 # Panel kapalı/okunamıyorsa 0 döner (fail-open) — döngü panele bağımlı değildir.
+# $1 = efor · $2 = aşama adı (log için) · $3 = model
 quota_gate(){
-  local stage="$2" need used remaining usage resume_at ovr rounds=0
+  local stage="$2" mdl="${3:-$MODEL_BIG}" need used remaining usage resume_at ovr rounds=0
   if [ "$1" = "$EFFORT_MAX" ]; then need=$((COST_MAX_PCT+RESERVE_PCT)); else need=$((COST_HIGH_PCT+RESERVE_PCT)); fi
+  # sonnet pencereleri opus maliyetinin küçük bir kesri — kapıyı orantılı gevşet,
+  # ama RESERVE_PCT'yi asla yeme (kullanıcının elle kullanımına ayrılmış pay).
+  if [ "$mdl" = "$MODEL_SMALL" ]; then need=$(( (need - RESERVE_PCT) / 3 + RESERVE_PCT )); fi
 
   while : ; do
     # Bekleyişten SONRAKİ ölçüm taze olmalı: panel kullanımı önbellekler,
@@ -307,26 +321,36 @@ while true; do
   remaining=$(echo "$pick" | jq -r '.remaining // "?"')
   eff_label=$(echo "$pick" | jq -r '.effort // "high"')
   [ "$eff_label" = "max" ] && eff="$EFFORT_MAX" || eff="$EFFORT_HIGH"
+  mdl=$(echo "$pick" | jq -r '.model // empty')
+  case "$mdl" in sonnet) mdl="$MODEL_SMALL" ;; opus) mdl="$MODEL_BIG" ;; *) mdl="$MODEL_BIG" ;; esac
 
   # KAPI 1 — görev penceresi açılmadan önce
-  quota_gate "$eff" "görev öncesi" || exit 0
+  quota_gate "$eff" "görev öncesi" "$mdl" || exit 0
   # pick_next sürerken durdurma isteği gelmiş olabilir — pahalı pencereyi
   # açmadan önce son kez bak.
   stop_gate "görev penceresi açılmadan"
 
   log "──────────────────────────────────────────────────────────────"
-  log "▶ Task $task_id  (model=$MODEL, effort=$eff, kalan≈$remaining)  — tek sürekli akış başlıyor (build→doğrulama→kapanış)"
+  log "▶ Task $task_id  (model=$mdl, effort=$eff, kalan≈$remaining)  — tek sürekli akış başlıyor (build→doğrulama→kapanış)"
   start=$SECONDS
-  stream_task "$task_id" "$eff"
+  stream_task "$task_id" "$eff" "$mdl"
   status=$(status_from "$LOG_DIR/task-$task_id.jsonl"); [ -z "$status" ] && status="blocked"
 
   if [ "$status" != "done" ]; then
+    # RETRY'DE MODEL YÜKSELTME: sonnet penceresi kapıyı geçemediyse sorun büyük
+    # olasılıkla yetenek sınırıdır — aynı modelle ikinci kez denemek çoğu zaman
+    # aynı duvara toslar. Retry opus ile açılır. Zaten opus'sa değişmez.
+    if [ "$mdl" = "$MODEL_SMALL" ]; then
+      log "⇧ Retry için model yükseltiliyor: $MODEL_SMALL → $MODEL_BIG."
+      mdl="$MODEL_BIG"
+    fi
+
     # KAPI 2 — retry penceresi açılmadan önce. Bekçinin yapısal olarak giremediği
     # tek nokta burası: iki deneme arasında "BİTTİ" satırı yok.
-    quota_gate "$eff" "retry öncesi" || exit 0
+    quota_gate "$eff" "retry öncesi" "$mdl" || exit 0
 
-    log "⟳ Task $task_id ilk turda geçemedi ($status). 1 kez yeniden deneniyor (temiz pencere)..."
-    stream_task "$task_id" "$eff"
+    log "⟳ Task $task_id ilk turda geçemedi ($status). 1 kez yeniden deneniyor (temiz pencere, model=$mdl)..."
+    stream_task "$task_id" "$eff" "$mdl"
     status=$(status_from "$LOG_DIR/task-$task_id.jsonl"); [ -z "$status" ] && status="blocked"
   fi
 

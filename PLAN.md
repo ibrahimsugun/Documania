@@ -313,92 +313,92 @@ başlığının başında birebir geçer.
 
 | ID | Başlık | PRD | Etiket | Bağımlılık | Faz |
 | --- | --- | --- | --- | --- | --- |
-| 00.1 | Uygulama iskeleti, test ve kapsayıcı altyapısı | 00.1.1, 00.1.2, 00.1.3, 00.1.4 | [XHIGH] | — | 0 |
-| 00.2 | Ortam değişkeni tabanlı yapılandırma | 00.2.1, 00.2.2 | [XHIGH] | 00.1 | 0 |
-| 00.3 | Veri modeli ve göç altyapısı | 00.3.1, 00.3.2, 00.3.3 | [XHIGH] | 00.2 | 0 |
-| 00.4 | Depolama katmanı: yol, slug, adlandırma, atomik yazma | 00.4.1, 00.4.2, 00.4.3, 00.4.4 | [XHIGH] | 00.2 | 0 |
-| 00.5 | Olay logu altyapısı | 00.5.1, 00.5.2 | [XHIGH] | 00.3 | 0 |
-| 00.6 | Belge türü kataloğu ve başlangıç tohumu | 00.6.1, 00.6.2, 00.6.3 | [XHIGH] | 00.3, 00.4 | 0 |
-| 01.1 | Yükleme uç noktası ve parti oluşturma | 01.1.1, 01.1.2 | [XHIGH] | 00.3, 00.4, 00.5 | 0 |
-| 01.2 | İçerik tabanlı dosya türü tespiti | 01.2.1, 01.2.2 | [XHIGH] | 01.1 | 0 |
-| 01.3 | Boyut ve sayfa sınırı denetimi | 01.3.1 | [XHIGH] | 01.1 | 0 |
-| 01.4 | Tekrar yükleme tespiti (SHA-256) | 01.4.1 | [XHIGH] | 01.1 | 0 |
-| 01.5 | Inbox'a değişmez yazma | 01.5.1 | [XHIGH] | 01.1 | 0 |
-| 01.6 | Parti durumu sorgulama | 01.6.1 | [XHIGH] | 01.1 | 0 |
-| 02.1 | PDF sayfa görüntüsü üretimi | 02.1.1 | [XHIGH] | 00.4, 01.5 | 0 |
-| 02.2 | PDF metin katmanı çıkarma | 02.2.1 | [XHIGH] | 02.1 | 0 |
-| 02.3 | Görüntü dosyaları için analiz kopyası | 02.3.1 | [XHIGH] | 02.1 | 0 |
-| 02.4 | Boş sayfa tespiti | 02.4.1 | [XHIGH] | 02.1 | 0 |
-| 02.5 | Gömülü tek görüntü tespiti | 02.5.1 | [XHIGH] | 02.1 | 0 |
-| 03.1 | Sayfa analizi şeması | 03.1.1 | [XHIGH] | 00.6 | 0 |
-| 03.2 | Sağlayıcı soyutlaması ve Anthropic uygulaması | 03.2.1, 03.2.2 | [XHIGH] | 03.1 | 0 |
-| 03.3 | OpenAI sağlayıcı uygulaması | 03.3.1 | [XHIGH] | 03.2 | 0 |
-| 03.4 | Analiz promptu ve disiplin kuralları | 03.4.1 | [XHIGH] | 03.1, 00.6 | 0 |
-| 03.5 | Yeniden deneme ve hata dayanıklılığı | 03.5.1 | [XHIGH] | 03.2 | 0 |
-| 03.6 | Kayıtlı yanıt sağlayıcısı (test altyapısı) | 03.6.1 | [XHIGH] | 03.2 | 0 |
-| 03.7 | Sayfa analizi çalıştırıcı | 03.7.1, 03.7.2 | [XHIGH] | 03.2, 03.4, 03.5, 02.1 | 0 |
-| 04.1 | Dosya içi gruplama ve ön/arka eşleşmesi | 04.1.1, 04.1.2 | [MAX] | 03.7, 00.6 | 0 |
-| 04.2 | Ardışıklık güvenlik kuralı | 04.2.1 | [MAX] | 04.1 | 0 |
-| 04.3 | Dosyalar arası gruplama | 04.3.1, 04.3.2 | [MAX] | 04.1 | 0 |
-| 04.4 | Zorunlu alan okunaklılık kapısı | 04.4.1 | [XHIGH] | 04.1 | 0 |
-| 04.5 | Beklenen sayfa sayısı kontrolü | 04.5.1 | [XHIGH] | 04.1 | 0 |
-| 04.6 | Bilinmeyen tür ve aday tür önerisi | 04.6.1 | [XHIGH] | 04.1 | 0 |
-| 04.7 | Word/Excel (Attachment) yolu | 04.7.1 | [XHIGH] | 01.2, 00.6 | 0 |
-| 05.1 | İsim normalizasyonu | 05.1.1 | [XHIGH] | 00.3 | 0 |
-| 05.2 | Harf çevirisi (Kiril, Arap) | 05.2.1 | [XHIGH] | 05.1 | 0 |
-| 05.3 | MRZ ayrıştırma ve kontrol haneleri | 05.3.1, 05.3.2, 05.3.3 | [MAX] | 05.1 | 0 |
-| 05.4 | Kişi anahtarı üretimi | 05.4.1 | [XHIGH] | 05.2, 05.3 | 0 |
-| 05.5 | Çalışan eşleştirme sırası | 05.5.1, 05.5.2, 05.5.3 | [MAX] | 05.4 | 0 |
-| 05.6 | Otomatik çalışan oluşturma | 05.6.1 | [MAX] | 05.5 | 0 |
-| 05.7 | Onay bekleyen profil ve alias birikimi | 05.7.1, 05.7.2 | [XHIGH] | 05.5 | 0 |
-| 06.1 | Plan JSON üretimi ve determinizm | 06.1.1, 06.1.2 | [XHIGH] | 04.1, 05.5, 00.6 | 0 |
-| 06.2 | İşlem seçimi | 06.2.1 | [MAX] | 06.1 | 0 |
-| 06.3 | Direkt Belge kuralı | 06.3.1, 06.3.2 | [MAX] | 06.2 | 0 |
-| 06.4 | Dönüşüm izni kontrolü | 06.4.1 | [XHIGH] | 06.2 | 0 |
-| 06.5 | Doğrulayıcı seti | 06.5.1, 06.5.2 | [XHIGH] | 06.1, 05.3 | 0 |
-| 06.6 | Yeniden çalıştırma ve yeniden analiz | 06.6.1, 06.6.2 | [XHIGH] | 06.1 | 0 |
-| 07.1 | passthrough işlemi | 07.1.1 | [XHIGH] | 06.1 | 0 |
-| 07.2 | extract işlemi | 07.2.1 | [MAX] | 06.2 | 0 |
-| 07.3 | merge işlemi | 07.3.1 | [MAX] | 06.2, 06.3 | 0 |
-| 07.4 | wrap_image işlemi | 07.4.1 | [XHIGH] | 06.2 | 0 |
-| 07.5 | extract_image işlemi | 07.5.1 | [MAX] | 06.2 | 0 |
-| 07.6 | render_image işlemi | 07.6.1 | [XHIGH] | 06.2, 06.4 | 0 |
-| 07.7 | Çıktı yazma, köken kaydı ve Alinan kopyası | 07.7.1, 07.7.2 | [XHIGH] | 07.1, 07.2, 00.5 | 0 |
-| 07.8 | Uygulayıcı idempotenliği | 07.8.1 | [XHIGH] | 07.7 | 0 |
-| 08.1 | Kuyruğa yönlendirme ve gerekçe dosyası | 08.1.1, 08.1.2 | [XHIGH] | 06.1, 07.7 | 0 |
-| 08.2 | Kuyruk öğesini çalışana atama | 08.2.1 | [XHIGH] | 08.1, 06.6 | 0 |
-| 08.3 | Onay bekleyen profili onaylama | 08.3.1 | [XHIGH] | 08.2, 05.7 | 0 |
-| 08.4 | Arşive taşıma | 08.4.1 | [XHIGH] | 08.1 | 0 |
-| 09.1 | profil.md üretimi | 09.1.1, 09.1.2 | [XHIGH] | 07.7, 05.7 | 0 |
-| 09.2 | Orkestrasyon ve parti durum makinesi | 09.2.1, 09.2.2, 09.2.3 | [XHIGH] | 07.8, 08.1, 09.1 | 0 |
-| 09.3 | Sentetik belge üreteci ve kabul testleri | 09.3.1, 09.3.2 | [XHIGH] | 09.2, 03.6 | 0 |
-| 10.1 | Panel iskeleti ve giriş | 10.1.1, 10.1.2, 10.1.3 | [XHIGH] | 09.2 | 1 |
-| 10.2 | Yükleme sayfası | 10.2.1, 10.2.2 | [XHIGH] | 10.1, 01.1 | 1 |
-| 10.3 | Yükleme detay sayfası | 10.3.1, 10.3.2 | [XHIGH] | 10.1, 09.2 | 1 |
-| 10.4 | Çalışan listesi ve arama | 10.4.1, 10.4.2 | [XHIGH] | 10.1, 09.1 | 1 |
-| 10.5 | Çalışan profili sayfası | 10.5.1, 10.5.2, 10.5.3 | [XHIGH] | 10.4 | 1 |
-| 10.6 | Belge geçmişi görünümü | 10.6.1 | [XHIGH] | 10.3, 07.7 | 1 |
-| 10.7 | Kuyruk ekranları | 10.7.1, 10.7.2, 10.7.3 | [MAX] | 10.1, 08.2, 08.3 | 1 |
-| 10.8 | İki aşamalı onay ve manuel taşıma | 10.8.1, 10.8.2 | [XHIGH] | 10.5, 10.7 | 1 |
-| 10.9 | İçerik düzenleme yokluğu ve erişim logu | 10.9.1, 10.9.2 | [XHIGH] | 10.5 | 1 |
-| 11.1 | Katalog yönetim ekranı | 11.1.1, 11.1.2 | [XHIGH] | 10.1, 00.6 | 1 |
-| 11.2 | Örnek belge yükleme | 11.2.1 | [XHIGH] | 11.1 | 1 |
-| 11.3 | Tür açıklaması üretimi | 11.3.1 | [XHIGH] | 11.2, 03.2 | 1 |
-| 11.4 | Prompt derleyici ve token bütçesi | 11.4.1, 11.4.2 | [XHIGH] | 11.1, 03.4 | 1 |
-| 11.5 | Aday tür akışı ve onay | 11.5.1, 11.5.2, 11.5.3, 11.5.4 | [XHIGH] | 11.1, 04.6, 10.7 | 1 |
-| 11.6 | Profil fotoğrafı kural seti | 11.6.1 | [XHIGH] | 11.1 | 2 |
-| 11.7 | Profil fotoğrafı görsel kontrolü | 11.7.1, 11.7.2 | [XHIGH] | 11.6, 03.7 | 2 |
-| 11.8 | Fotoğraf örneklerinden öğrenme | 11.8.1 | [XHIGH] | 11.7, 11.3 | 2 |
-| 12.1 | Bot iskeleti ve beyaz liste | 12.1.1, 12.1.2 | [XHIGH] | 09.2 | 2 |
-| 12.2 | Telegram üzerinden belge alma | 12.2.1, 12.2.2, 12.2.3 | [XHIGH] | 12.1, 01.1 | 2 |
-| 12.3 | Doğal dil belge istekleri | 12.3.1, 12.3.2, 12.3.3 | [MAX] | 12.1, 10.4 | 2 |
-| 12.4 | Kuyruk ve hata bildirimleri | 12.4.1 | [XHIGH] | 12.1, 08.1 | 2 |
-| 13.1 | Maliyet ölçümü ve görünürlüğü | 13.1.1 | [XHIGH] | 03.7, 10.1 | 3 |
-| 13.2 | Ucuz model ön eleme | 13.2.1, 13.2.2 | [XHIGH] | 13.1, 03.7 | 3 |
-| 13.3 | Kalıcı işçi kuyruğu | 13.3.1 | [XHIGH] | 09.2 | 3 |
-| 13.4 | Erişim logu, yedekleme ve geri yükleme | 13.4.1, 13.4.2 | [XHIGH] | 10.9 | 3 |
-| 13.5 | Üretim dağıtımı | 13.5.1 | [XHIGH] | 10.1 | 3 |
-| 13.6 | İzleme ve uyarılar | 13.6.1 | [XHIGH] | 13.3, 12.4 | 3 |
+| 00.1 | Uygulama iskeleti, test ve kapsayıcı altyapısı | 00.1.1, 00.1.2, 00.1.3, 00.1.4 | [OPUS-XHIGH] | — | 0 |
+| 00.2 | Ortam değişkeni tabanlı yapılandırma | 00.2.1, 00.2.2 | [SONNET-XHIGH] | 00.1 | 0 |
+| 00.3 | Veri modeli ve göç altyapısı | 00.3.1, 00.3.2, 00.3.3 | [OPUS-XHIGH] | 00.2 | 0 |
+| 00.4 | Depolama katmanı: yol, slug, adlandırma, atomik yazma | 00.4.1, 00.4.2, 00.4.3, 00.4.4 | [OPUS-XHIGH] | 00.2 | 0 |
+| 00.5 | Olay logu altyapısı | 00.5.1, 00.5.2 | [SONNET-XHIGH] | 00.3 | 0 |
+| 00.6 | Belge türü kataloğu ve başlangıç tohumu | 00.6.1, 00.6.2, 00.6.3 | [OPUS-XHIGH] | 00.3, 00.4 | 0 |
+| 01.1 | Yükleme uç noktası ve parti oluşturma | 01.1.1, 01.1.2 | [SONNET-XHIGH] | 00.3, 00.4, 00.5 | 0 |
+| 01.2 | İçerik tabanlı dosya türü tespiti | 01.2.1, 01.2.2 | [SONNET-XHIGH] | 01.1 | 0 |
+| 01.3 | Boyut ve sayfa sınırı denetimi | 01.3.1 | [SONNET-XHIGH] | 01.1 | 0 |
+| 01.4 | Tekrar yükleme tespiti (SHA-256) | 01.4.1 | [SONNET-XHIGH] | 01.1 | 0 |
+| 01.5 | Inbox'a değişmez yazma | 01.5.1 | [SONNET-XHIGH] | 01.1 | 0 |
+| 01.6 | Parti durumu sorgulama | 01.6.1 | [SONNET-XHIGH] | 01.1 | 0 |
+| 02.1 | PDF sayfa görüntüsü üretimi | 02.1.1 | [OPUS-XHIGH] | 00.4, 01.5 | 0 |
+| 02.2 | PDF metin katmanı çıkarma | 02.2.1 | [SONNET-XHIGH] | 02.1 | 0 |
+| 02.3 | Görüntü dosyaları için analiz kopyası | 02.3.1 | [SONNET-XHIGH] | 02.1 | 0 |
+| 02.4 | Boş sayfa tespiti | 02.4.1 | [SONNET-XHIGH] | 02.1 | 0 |
+| 02.5 | Gömülü tek görüntü tespiti | 02.5.1 | [OPUS-XHIGH] | 02.1 | 0 |
+| 03.1 | Sayfa analizi şeması | 03.1.1 | [OPUS-XHIGH] | 00.6 | 0 |
+| 03.2 | Sağlayıcı soyutlaması ve Anthropic uygulaması | 03.2.1, 03.2.2 | [OPUS-XHIGH] | 03.1 | 0 |
+| 03.3 | OpenAI sağlayıcı uygulaması | 03.3.1 | [SONNET-XHIGH] | 03.2 | 0 |
+| 03.4 | Analiz promptu ve disiplin kuralları | 03.4.1 | [OPUS-XHIGH] | 03.1, 00.6 | 0 |
+| 03.5 | Yeniden deneme ve hata dayanıklılığı | 03.5.1 | [SONNET-XHIGH] | 03.2 | 0 |
+| 03.6 | Kayıtlı yanıt sağlayıcısı (test altyapısı) | 03.6.1 | [SONNET-XHIGH] | 03.2 | 0 |
+| 03.7 | Sayfa analizi çalıştırıcı | 03.7.1, 03.7.2 | [OPUS-XHIGH] | 03.2, 03.4, 03.5, 02.1 | 0 |
+| 04.1 | Dosya içi gruplama ve ön/arka eşleşmesi | 04.1.1, 04.1.2 | [OPUS-MAX] | 03.7, 00.6 | 0 |
+| 04.2 | Ardışıklık güvenlik kuralı | 04.2.1 | [OPUS-MAX] | 04.1 | 0 |
+| 04.3 | Dosyalar arası gruplama | 04.3.1, 04.3.2 | [OPUS-MAX] | 04.1 | 0 |
+| 04.4 | Zorunlu alan okunaklılık kapısı | 04.4.1 | [OPUS-XHIGH] | 04.1 | 0 |
+| 04.5 | Beklenen sayfa sayısı kontrolü | 04.5.1 | [SONNET-XHIGH] | 04.1 | 0 |
+| 04.6 | Bilinmeyen tür ve aday tür önerisi | 04.6.1 | [OPUS-XHIGH] | 04.1 | 0 |
+| 04.7 | Word/Excel (Attachment) yolu | 04.7.1 | [SONNET-XHIGH] | 01.2, 00.6 | 0 |
+| 05.1 | İsim normalizasyonu | 05.1.1 | [OPUS-XHIGH] | 00.3 | 0 |
+| 05.2 | Harf çevirisi (Kiril, Arap) | 05.2.1 | [OPUS-XHIGH] | 05.1 | 0 |
+| 05.3 | MRZ ayrıştırma ve kontrol haneleri | 05.3.1, 05.3.2, 05.3.3 | [OPUS-MAX] | 05.1 | 0 |
+| 05.4 | Kişi anahtarı üretimi | 05.4.1 | [OPUS-XHIGH] | 05.2, 05.3 | 0 |
+| 05.5 | Çalışan eşleştirme sırası | 05.5.1, 05.5.2, 05.5.3 | [OPUS-MAX] | 05.4 | 0 |
+| 05.6 | Otomatik çalışan oluşturma | 05.6.1 | [OPUS-MAX] | 05.5 | 0 |
+| 05.7 | Onay bekleyen profil ve alias birikimi | 05.7.1, 05.7.2 | [OPUS-XHIGH] | 05.5 | 0 |
+| 06.1 | Plan JSON üretimi ve determinizm | 06.1.1, 06.1.2 | [OPUS-XHIGH] | 04.1, 05.5, 00.6 | 0 |
+| 06.2 | İşlem seçimi | 06.2.1 | [OPUS-MAX] | 06.1 | 0 |
+| 06.3 | Direkt Belge kuralı | 06.3.1, 06.3.2 | [OPUS-MAX] | 06.2 | 0 |
+| 06.4 | Dönüşüm izni kontrolü | 06.4.1 | [OPUS-XHIGH] | 06.2 | 0 |
+| 06.5 | Doğrulayıcı seti | 06.5.1, 06.5.2 | [OPUS-XHIGH] | 06.1, 05.3 | 0 |
+| 06.6 | Yeniden çalıştırma ve yeniden analiz | 06.6.1, 06.6.2 | [OPUS-XHIGH] | 06.1 | 0 |
+| 07.1 | passthrough işlemi | 07.1.1 | [SONNET-XHIGH] | 06.1 | 0 |
+| 07.2 | extract işlemi | 07.2.1 | [OPUS-MAX] | 06.2 | 0 |
+| 07.3 | merge işlemi | 07.3.1 | [OPUS-MAX] | 06.2, 06.3 | 0 |
+| 07.4 | wrap_image işlemi | 07.4.1 | [SONNET-XHIGH] | 06.2 | 0 |
+| 07.5 | extract_image işlemi | 07.5.1 | [OPUS-MAX] | 06.2 | 0 |
+| 07.6 | render_image işlemi | 07.6.1 | [SONNET-XHIGH] | 06.2, 06.4 | 0 |
+| 07.7 | Çıktı yazma, köken kaydı ve Alinan kopyası | 07.7.1, 07.7.2 | [OPUS-XHIGH] | 07.1, 07.2, 00.5 | 0 |
+| 07.8 | Uygulayıcı idempotenliği | 07.8.1 | [OPUS-XHIGH] | 07.7 | 0 |
+| 08.1 | Kuyruğa yönlendirme ve gerekçe dosyası | 08.1.1, 08.1.2 | [SONNET-XHIGH] | 06.1, 07.7 | 0 |
+| 08.2 | Kuyruk öğesini çalışana atama | 08.2.1 | [OPUS-XHIGH] | 08.1, 06.6 | 0 |
+| 08.3 | Onay bekleyen profili onaylama | 08.3.1 | [OPUS-XHIGH] | 08.2, 05.7 | 0 |
+| 08.4 | Arşive taşıma | 08.4.1 | [SONNET-XHIGH] | 08.1 | 0 |
+| 09.1 | profil.md üretimi | 09.1.1, 09.1.2 | [SONNET-XHIGH] | 07.7, 05.7 | 0 |
+| 09.2 | Orkestrasyon ve parti durum makinesi | 09.2.1, 09.2.2, 09.2.3 | [OPUS-XHIGH] | 07.8, 08.1, 09.1 | 0 |
+| 09.3 | Sentetik belge üreteci ve kabul testleri | 09.3.1, 09.3.2 | [OPUS-MAX] | 09.2, 03.6 | 0 |
+| 10.1 | Panel iskeleti ve giriş | 10.1.1, 10.1.2, 10.1.3 | [OPUS-XHIGH] | 09.2 | 1 |
+| 10.2 | Yükleme sayfası | 10.2.1, 10.2.2 | [SONNET-XHIGH] | 10.1, 01.1 | 1 |
+| 10.3 | Yükleme detay sayfası | 10.3.1, 10.3.2 | [SONNET-XHIGH] | 10.1, 09.2 | 1 |
+| 10.4 | Çalışan listesi ve arama | 10.4.1, 10.4.2 | [SONNET-XHIGH] | 10.1, 09.1 | 1 |
+| 10.5 | Çalışan profili sayfası | 10.5.1, 10.5.2, 10.5.3 | [SONNET-XHIGH] | 10.4 | 1 |
+| 10.6 | Belge geçmişi görünümü | 10.6.1 | [SONNET-XHIGH] | 10.3, 07.7 | 1 |
+| 10.7 | Kuyruk ekranları | 10.7.1, 10.7.2, 10.7.3 | [OPUS-MAX] | 10.1, 08.2, 08.3 | 1 |
+| 10.8 | İki aşamalı onay ve manuel taşıma | 10.8.1, 10.8.2 | [OPUS-XHIGH] | 10.5, 10.7 | 1 |
+| 10.9 | İçerik düzenleme yokluğu ve erişim logu | 10.9.1, 10.9.2 | [SONNET-XHIGH] | 10.5 | 1 |
+| 11.1 | Katalog yönetim ekranı | 11.1.1, 11.1.2 | [SONNET-XHIGH] | 10.1, 00.6 | 1 |
+| 11.2 | Örnek belge yükleme | 11.2.1 | [SONNET-XHIGH] | 11.1 | 1 |
+| 11.3 | Tür açıklaması üretimi | 11.3.1 | [OPUS-XHIGH] | 11.2, 03.2 | 1 |
+| 11.4 | Prompt derleyici ve token bütçesi | 11.4.1, 11.4.2 | [OPUS-XHIGH] | 11.1, 03.4 | 1 |
+| 11.5 | Aday tür akışı ve onay | 11.5.1, 11.5.2, 11.5.3, 11.5.4 | [OPUS-XHIGH] | 11.1, 04.6, 10.7 | 1 |
+| 11.6 | Profil fotoğrafı kural seti | 11.6.1 | [SONNET-XHIGH] | 11.1 | 2 |
+| 11.7 | Profil fotoğrafı görsel kontrolü | 11.7.1, 11.7.2 | [OPUS-XHIGH] | 11.6, 03.7 | 2 |
+| 11.8 | Fotoğraf örneklerinden öğrenme | 11.8.1 | [OPUS-XHIGH] | 11.7, 11.3 | 2 |
+| 12.1 | Bot iskeleti ve beyaz liste | 12.1.1, 12.1.2 | [SONNET-XHIGH] | 09.2 | 2 |
+| 12.2 | Telegram üzerinden belge alma | 12.2.1, 12.2.2, 12.2.3 | [SONNET-XHIGH] | 12.1, 01.1 | 2 |
+| 12.3 | Doğal dil belge istekleri | 12.3.1, 12.3.2, 12.3.3 | [OPUS-MAX] | 12.1, 10.4 | 2 |
+| 12.4 | Kuyruk ve hata bildirimleri | 12.4.1 | [SONNET-XHIGH] | 12.1, 08.1 | 2 |
+| 13.1 | Maliyet ölçümü ve görünürlüğü | 13.1.1 | [SONNET-XHIGH] | 03.7, 10.1 | 3 |
+| 13.2 | Ucuz model ön eleme | 13.2.1, 13.2.2 | [OPUS-XHIGH] | 13.1, 03.7 | 3 |
+| 13.3 | Kalıcı işçi kuyruğu | 13.3.1 | [OPUS-XHIGH] | 09.2 | 3 |
+| 13.4 | Erişim logu, yedekleme ve geri yükleme | 13.4.1, 13.4.2 | [SONNET-XHIGH] | 10.9 | 3 |
+| 13.5 | Üretim dağıtımı | 13.5.1 | [SONNET-XHIGH] | 10.1 | 3 |
+| 13.6 | İzleme ve uyarılar | 13.6.1 | [SONNET-XHIGH] | 13.3, 12.4 | 3 |
 
 ## K. Kanıt Geçmişi (evidence log)
 

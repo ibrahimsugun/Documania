@@ -10,7 +10,12 @@ Sırayla:
 
 1. `MASTER-PROMPT.md` — kilitli kararlar (K1–K18), yığın, contract-first sıra, sınırlar.
 2. `CONVENTIONS.md` — DoD kapısı, git kuralları, handoff formatı, kanıt disiplini.
-3. Task Master'dan HEDEF GÖREVİ çek: başlık, detay, test stratejisi, bağımlılıklar, alt görevler.
+3. Task Master'dan HEDEF GÖREVİ çek: başlık, **detay**, test stratejisi, bağımlılıklar.
+   **`details` alanı bu pencerenin ana bağlam taşıyıcısıdır** — tek tek şunları içerir:
+   *KAPSAM · NE YAPILACAK (gereksinim + kabul kriteri) · GİRDİ (üzerine kurduğun, hâlihazırda
+   var olan kod) · ÇIKTI (dokunacağın dosyalar) · BU GÖREVİ BAĞLAYAN KİLİTLİ KURALLAR ·
+   PRD'DE AYRICA OKU · İLGİLİ KABUL SENARYOLARI · KAPSAM SINIRI · TUZAKLAR · KAPANIŞ.*
+   Bu alanı baştan sona oku; başka yerde arama yapmadan önce cevabın burada olup olmadığına bak.
 4. `urun-gereksinim-dokumani-PRD.md` — görevin başlığındaki gereksinim kimliğinin (`05.3.1` gibi)
    **kabul kriterini** oku. Tüm PRD'yi okuma; `grep -n '| 05\.3\.1' urun-gereksinim-dokumani-PRD.md`
    ile hedef satırı bul.
@@ -25,7 +30,9 @@ Sırayla:
 6. `HANDOFF.md` — **tam okuma.** Bloklar newest-first sıralıdır; sana gereken en üstteki birkaç
    blok: `head -60 HANDOFF.md`. Eski bir işi arıyorsan `grep -n 'tm <id>' HANDOFF.md | head -5`.
 7. `git log --oneline -20` + `git status` — repo şu an nerede.
-8. Görevin dokunacağı mevcut dosyalar.
+8. **Görevin `GİRDİ` bölümünde adı geçen dosyaları oku.** Bunlar bağımlı görevlerin ürettiği,
+   senin üzerine inşa edeceğin gerçek koddur — imzaları ve veri yapıları oradadır, tahmin etme.
+   Sonra `ÇIKTI` bölümündeki dosyaların mevcut hâline bak (varsa).
 
 ## 1) Resume kontrolü + durum damgası
 
