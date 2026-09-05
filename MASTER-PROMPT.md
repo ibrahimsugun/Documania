@@ -90,7 +90,7 @@ app/
   db/ storage/ catalog/
   ai/          provider.py anthropic_provider.py openai_provider.py schemas.py prompts/
   pipeline/    render.py analyze.py group.py legibility.py plan.py validate.py execute.py route.py orchestrate.py
-  matching/    names.py mrz.py match.py
+  matching/    names.py mrz.py match.py contacts.py
   profiles/
   web/         routers/ templates/ static/
   telegram/
@@ -138,7 +138,7 @@ Ortak özellikleri: **bütün olarak değerlendirilmeleri gerekir.** Parçalara 
 olmaz, en az bağlama sahip olan birleştirme adımına taşınır. Bu yüzden bölünmezler ve en
 yüksek eforda çalışırlar.
 
-Dağılım: 39 `[SONNET-XHIGH]` · 48 `[OPUS-XHIGH]` · 4 `[OPUS-MAX]` = 91 görev.
+Dağılım: 40 `[SONNET-XHIGH]` · 48 `[OPUS-XHIGH]` · 4 `[OPUS-MAX]` = 92 görev.
 
 ### 6.1 Zorluğu spesifikasyona taşınan işler
 

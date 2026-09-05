@@ -72,9 +72,16 @@ sayılarak** yazılır, tahminle değil. Elle yazılmış sayı paneldeki `plan-
 bulgusunu doğurur. Sayım komutu:
 
 ```bash
-grep -cE '^\| [0-9]{2}\.' PLAN.md          # toplam gereksinim satırı
-grep -cE '^\| [0-9]{2}\..*✅' PLAN.md       # tamamlanan
+# Gereksinim satırı üç parçalı kimlikle başlar (00.1.1); §G düz tablosunun satırları
+# iki parçalıdır (00.1) ve SAYILMAZ — deseni gevşetirsen §G'yi de sayar, sayım şişer.
+grep -cE '^\| [0-9]{2}\.[0-9]+\.[0-9]+ ' PLAN.md              # toplam gereksinim satırı
+grep -cE '^\| [0-9]{2}\.[0-9]+\.[0-9]+ .*✅' PLAN.md           # tamamlanan
+grep -cE '^\| [0-9]{2}\.[0-9]+\.[0-9]+ .*⬜' PLAN.md           # açık
 ```
+
+Faz bazında saymak için önce faz bölümünün satır aralığını bul
+(`grep -n '^## .*FAZ' PLAN.md`), sonra `sed -n '<baş>,<son>p'` ile o aralığı yukarıdaki
+desene ver.
 
 ### 1.4 Kapının önkoşulları
 

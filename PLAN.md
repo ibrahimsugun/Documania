@@ -8,8 +8,8 @@
 
 | Faz | PRD | Genel durum | Must sayacı | Kapanış |
 | --- | --- | --- | --- | --- |
-| Faz 0 — MVP | §5.1 | 0 ✅ · 0 ◐ · 94 ⬜ · 0 🔒 | 0/92 Must | AÇIK |
-| Faz 1 — v1 | §5.2 | 0 ✅ · 0 ◐ · 0 ⬜ · 30 🔒 | 0/21 Must | AÇIK |
+| Faz 0 — MVP | §5.1 | 0 ✅ · 0 ◐ · 102 ⬜ · 0 🔒 | 0/98 Must | AÇIK |
+| Faz 1 — v1 | §5.2 | 0 ✅ · 0 ◐ · 0 ⬜ · 32 🔒 | 0/21 Must | AÇIK |
 | Faz 2 — v2 | §5.3 | 0 ✅ · 0 ◐ · 0 ⬜ · 13 🔒 | 0/0 Must | AÇIK |
 | Faz 3 — Enterprise | §5.4 | 0 ✅ · 0 ◐ · 0 ⬜ · 8 🔒 | 0/0 Must | AÇIK |
 
@@ -51,15 +51,15 @@ panelde `plan-count-drift` bulgusu doğurur.
 | FR-MOD-00 | Altyapı ve iskelet | 0 | 18 |
 | FR-MOD-01 | Yükleme ve Inbox | 0 | 8 |
 | FR-MOD-02 | Sayfa üretimi | 0 | 5 |
-| FR-MOD-03 | Yapay zekâ analiz katmanı | 0 | 9 |
-| FR-MOD-04 | Karar motoru | 0 | 9 |
-| FR-MOD-05 | Kimlik ve çalışan eşleştirme | 0 | 12 |
+| FR-MOD-03 | Yapay zekâ analiz katmanı | 0 | 12 |
+| FR-MOD-04 | Karar motoru | 0 | 10 |
+| FR-MOD-05 | Kimlik ve çalışan eşleştirme | 0 | 15 |
 | FR-MOD-06 | Plan ve doğrulayıcılar | 0 | 10 |
 | FR-MOD-07 | Uygulayıcı | 0 | 9 |
 | FR-MOD-08 | Kuyruklar ve çözüm | 0 | 5 |
-| FR-MOD-09 | Çalışan profili ve orkestrasyon | 0 | 9 |
-| FR-MOD-10 | Web yönetim paneli | 1 | 20 |
-| FR-MOD-11 | Belge türü kataloğu ve öğrenme | 1, 2 | 14 |
+| FR-MOD-09 | Çalışan profili ve orkestrasyon | 0 | 10 |
+| FR-MOD-10 | Web yönetim paneli | 1 | 21 |
+| FR-MOD-11 | Belge türü kataloğu ve öğrenme | 1, 2 | 15 |
 | FR-MOD-12 | Telegram botu | 2 | 9 |
 | FR-MOD-13 | İşletme, maliyet ve dayanıklılık | 3 | 8 |
 
@@ -116,6 +116,9 @@ panelde `plan-count-drift` bulgusu doğurur.
 | PRD | Gereksinim | Öncelik | Durum |
 | --- | --- | --- | --- |
 | 03.1.1 | Sayfa analizi şeması | Must (MVP) | ⬜ |
+| 03.1.2 | Dil ve alfabe tespiti | Must (MVP) | ⬜ |
+| 03.1.3 | Diğer isimler alanı | Must (MVP) | ⬜ |
+| 03.1.4 | İletişim bilgisi alanları | Must (MVP) | ⬜ |
 | 03.2.1 | Sağlayıcı soyutlaması | Must (MVP) | ⬜ |
 | 03.2.2 | Anthropic sağlayıcı | Must (MVP) | ⬜ |
 | 03.3.1 | OpenAI sağlayıcı iskeleti | Should (v1) | ⬜ |
@@ -135,6 +138,7 @@ panelde `plan-count-drift` bulgusu doğurur.
 | 04.3.1 | Dosyalar arası gruplama | Must (MVP) | ⬜ |
 | 04.3.2 | Belirsiz eşleştirmenin reddi | Must (MVP) | ⬜ |
 | 04.4.1 | Zorunlu alan okunaklılık kapısı (R1) | Must (MVP) | ⬜ |
+| 04.4.2 | Kabul kriteri değerlendirmesi | Should (v1) | ⬜ |
 | 04.5.1 | Beklenen sayfa sayısı kontrolü | Must (MVP) | ⬜ |
 | 04.6.1 | Bilinmeyen tür → aday öneri | Must (MVP) | ⬜ |
 | 04.7.1 | Word/Excel yolu (Attachment) | Must (MVP) | ⬜ |
@@ -155,6 +159,9 @@ panelde `plan-count-drift` bulgusu doğurur.
 | 05.6.1 | Otomatik çalışan oluşturma (R9) | Must (MVP) | ⬜ |
 | 05.7.1 | Onay bekleyen profil | Must (MVP) | ⬜ |
 | 05.7.2 | Alias ve numara birikimi | Must (MVP) | ⬜ |
+| 05.8.1 | İletişim bilgisi saklama | Must (MVP) | ⬜ |
+| 05.8.2 | İletişim bilgisi çakışması | Must (MVP) | ⬜ |
+| 05.8.3 | Dil ve alfabe kaydı | Should (v1) | ⬜ |
 
 ### 3.7 FR-MOD-06 — Plan ve doğrulayıcılar
 
@@ -201,6 +208,7 @@ panelde `plan-count-drift` bulgusu doğurur.
 | --- | --- | --- | --- |
 | 09.1.1 | profil.md üretimi | Must (MVP) | ⬜ |
 | 09.1.2 | Orijinal yazım gösterimi | Must (MVP) | ⬜ |
+| 09.1.3 | Profil içeriği eksiksizliği | Must (MVP) | ⬜ |
 | 09.2.1 | Parti durum makinesi | Must (MVP) | ⬜ |
 | 09.2.2 | Uçtan uca orkestrasyon | Must (MVP) | ⬜ |
 | 09.2.3 | Hata dayanıklılığı | Must (MVP) | ⬜ |
@@ -225,6 +233,7 @@ panelde `plan-count-drift` bulgusu doğurur.
 | 10.4.1 | Çalışan listesi | Must (v1) | 🔒 |
 | 10.4.2 | Arama | Must (v1) | 🔒 |
 | 10.5.1 | Çalışan profili sayfası | Must (v1) | 🔒 |
+| 10.5.4 | Profil fotoğrafı yokluğu | Should (v1) | 🔒 |
 | 10.5.2 | Belge listesi ve açma | Must (v1) | 🔒 |
 | 10.5.3 | Profil sayfasından yükleme | Should (v1) | 🔒 |
 | 10.6.1 | Belge geçmişi | Must (v1) | 🔒 |
@@ -242,6 +251,7 @@ panelde `plan-count-drift` bulgusu doğurur.
 | --- | --- | --- | --- |
 | 11.1.1 | Katalog yönetim ekranı | Must (v1) | 🔒 |
 | 11.1.2 | Katalog form doğrulaması | Must (v1) | 🔒 |
+| 11.1.3 | Kabul kriteri düzenleme | Should (v1) | 🔒 |
 | 11.2.1 | Örnek belge yükleme | Should (v1) | 🔒 |
 | 11.3.1 | Tür açıklaması üretimi | Should (v1) | 🔒 |
 | 11.4.1 | Prompt derleyici | Must (v1) | 🔒 |
@@ -304,7 +314,22 @@ Onay beklemeden yapılan varsayımlar buraya numaralı olarak yazılır.
 PRD'den veya kilitli kararlardan her sapma buraya numaralı yazılır (D1, D2…).
 Sapma yazmadan karar değiştirilmez.
 
-_Henüz sapma yok._
+Aşağıdaki üç sapma **ürünün ilk sözlü tanımına** göredir ve kurulum aşamasında,
+kullanıcı onayıyla verilmiştir. PRD ve `MASTER-PROMPT.md` zaten sapılmış hâli yazar;
+bu kayıt neden sapıldığının izlenebilir olması içindir.
+
+- **D1 — Çalışan klasörü adına kalıcı numara eklendi.** İlk tanım `Employees/Ahmet_Cakar/`
+  diyordu. Aynı ad-soyada sahip iki çalışan geldiğinde bu yapı çöker ve iki kişinin
+  belgeleri aynı klasörde birikir. Klasör adı `Ad_Soyad_E0001` oldu; E numarası sistem
+  tarafından verilir ve asla değişmez (K8). İsim yalnız görüntüleme içindir.
+- **D2 — Word ve Excel için format dönüşümü tümüyle kaldırıldı.** İlk tanım §10'da
+  "gerektiğinde formatlar arasında fiziksel dönüşüm" diyordu. Office dosyalarının
+  dönüştürülmesi yeniden render demektir (font ve sayfa kırılımları değişir) ve resmî
+  belgeler bu formatlarda gelmez. Word/Excel artık analiz edilmez, dönüştürülmez;
+  `attachment` türüyle olduğu gibi saklanır (K2). Kullanıcı kararıdır.
+- **D3 — Dört faza bölündü.** İlk tanımda faz yoktu; her şey tek bir hedef olarak
+  anlatılıyordu. Otonom döngünün iş sırası seçebilmesi ve kapanış kapısı
+  işleyebilmesi için PRD §5'te Faz 0-3 tanımlandı. Kapsamda daralma yok; yalnız sıra var.
 
 ## G. İş Kırılımı Dizini
 
@@ -332,7 +357,7 @@ başlığının başında birebir geçer.
 | 02.3 | Görüntü dosyaları için analiz kopyası | 02.3.1 | [SONNET-XHIGH] | 02.1 | 0 |
 | 02.4 | Boş sayfa tespiti | 02.4.1 | [SONNET-XHIGH] | 02.1 | 0 |
 | 02.5 | Gömülü tek görüntü tespiti | 02.5.1 | [OPUS-XHIGH] | 02.1 | 0 |
-| 03.1 | Sayfa analizi şeması | 03.1.1 | [OPUS-XHIGH] | 00.6 | 0 |
+| 03.1 | Sayfa analizi şeması | 03.1.1, 03.1.2, 03.1.3, 03.1.4 | [OPUS-XHIGH] | 00.6 | 0 |
 | 03.2 | Sağlayıcı soyutlaması ve Anthropic uygulaması | 03.2.1, 03.2.2 | [OPUS-XHIGH] | 03.1 | 0 |
 | 03.3 | OpenAI sağlayıcı uygulaması | 03.3.1 | [SONNET-XHIGH] | 03.2 | 0 |
 | 03.4 | Analiz promptu ve disiplin kuralları | 03.4.1 | [OPUS-XHIGH] | 03.1, 00.6 | 0 |
@@ -342,7 +367,7 @@ başlığının başında birebir geçer.
 | 04.1 | Dosya içi gruplama ve ön/arka eşleşmesi | 04.1.1, 04.1.2 | [OPUS-MAX] | 03.7, 00.6 | 0 |
 | 04.2 | Ardışıklık güvenlik kuralı | 04.2.1 | [OPUS-MAX] | 04.1 | 0 |
 | 04.3 | Dosyalar arası gruplama | 04.3.1, 04.3.2 | [OPUS-MAX] | 04.1 | 0 |
-| 04.4 | Zorunlu alan okunaklılık kapısı | 04.4.1 | [OPUS-XHIGH] | 04.1 | 0 |
+| 04.4 | Zorunlu alan okunaklılık kapısı | 04.4.1, 04.4.2 | [OPUS-XHIGH] | 04.1 | 0 |
 | 04.5 | Beklenen sayfa sayısı kontrolü | 04.5.1 | [SONNET-XHIGH] | 04.1 | 0 |
 | 04.6 | Bilinmeyen tür ve aday tür önerisi | 04.6.1 | [OPUS-XHIGH] | 04.1 | 0 |
 | 04.7 | Word/Excel (Attachment) yolu | 04.7.1 | [SONNET-XHIGH] | 01.2, 00.6 | 0 |
@@ -353,7 +378,8 @@ başlığının başında birebir geçer.
 | 05.5 | Çalışan eşleştirme sırası | 05.5.1, 05.5.2, 05.5.3 | [OPUS-XHIGH] | 05.4 | 0 |
 | 05.6 | Otomatik çalışan oluşturma | 05.6.1 | [OPUS-XHIGH] | 05.5 | 0 |
 | 05.7 | Onay bekleyen profil ve alias birikimi | 05.7.1, 05.7.2 | [OPUS-XHIGH] | 05.5 | 0 |
-| 06.1 | Plan JSON üretimi ve determinizm | 06.1.1, 06.1.2 | [OPUS-XHIGH] | 04.1, 05.5, 00.6 | 0 |
+| 05.8 | İletişim bilgisi, dil ve alfabe kaydı | 05.8.1, 05.8.2, 05.8.3 | [SONNET-XHIGH] | 05.5, 00.3 | 0 |
+| 06.1 | Plan JSON üretimi ve determinizm | 06.1.1, 06.1.2 | [OPUS-XHIGH] | 04.1, 04.4, 04.5, 04.6, 05.5, 05.6, 05.7, 00.6 | 0 |
 | 06.2 | İşlem seçimi | 06.2.1 | [OPUS-XHIGH] | 06.1 | 0 |
 | 06.3 | Direkt Belge kuralı | 06.3.1, 06.3.2 | [OPUS-XHIGH] | 06.2 | 0 |
 | 06.4 | Dönüşüm izni kontrolü | 06.4.1 | [OPUS-XHIGH] | 06.2 | 0 |
@@ -371,7 +397,7 @@ başlığının başında birebir geçer.
 | 08.2 | Kuyruk öğesini çalışana atama | 08.2.1 | [OPUS-XHIGH] | 08.1, 06.6 | 0 |
 | 08.3 | Onay bekleyen profili onaylama | 08.3.1 | [OPUS-XHIGH] | 08.2, 05.7 | 0 |
 | 08.4 | Arşive taşıma | 08.4.1 | [SONNET-XHIGH] | 08.1 | 0 |
-| 09.1 | profil.md üretimi | 09.1.1, 09.1.2 | [SONNET-XHIGH] | 07.7, 05.7 | 0 |
+| 09.1 | profil.md üretimi | 09.1.1, 09.1.2, 09.1.3 | [SONNET-XHIGH] | 07.7, 05.7, 05.8 | 0 |
 | 09.2 | Orkestrasyon ve parti durum makinesi | 09.2.1, 09.2.2, 09.2.3 | [OPUS-XHIGH] | 07.8, 08.1, 09.1 | 0 |
 | 09.3-a | Sentetik belge üreteci | 09.3.1 | [OPUS-XHIGH] | 09.2, 03.6 | 0 |
 | 09.3-b | Kabul senaryoları S1-S5 | 09.3.2 | [OPUS-XHIGH] | 09.3-a | 0 |
@@ -381,14 +407,14 @@ başlığının başında birebir geçer.
 | 10.2 | Yükleme sayfası | 10.2.1, 10.2.2 | [SONNET-XHIGH] | 10.1, 01.1 | 1 |
 | 10.3 | Yükleme detay sayfası | 10.3.1, 10.3.2 | [SONNET-XHIGH] | 10.1, 09.2 | 1 |
 | 10.4 | Çalışan listesi ve arama | 10.4.1, 10.4.2 | [SONNET-XHIGH] | 10.1, 09.1 | 1 |
-| 10.5 | Çalışan profili sayfası | 10.5.1, 10.5.2, 10.5.3 | [SONNET-XHIGH] | 10.4 | 1 |
+| 10.5 | Çalışan profili sayfası | 10.5.1, 10.5.4, 10.5.2, 10.5.3 | [SONNET-XHIGH] | 10.4 | 1 |
 | 10.6 | Belge geçmişi görünümü | 10.6.1 | [SONNET-XHIGH] | 10.3, 07.7 | 1 |
 | 10.7-a | Kuyruk ekranları ve öğe detayı | 10.7.1 | [SONNET-XHIGH] | 10.1, 08.2, 08.3 | 1 |
 | 10.7-b | Kuyruktan çalışana atama akışı | 10.7.2 | [OPUS-XHIGH] | 10.7-a | 1 |
 | 10.7-c | Kuyruktan profil oluşturma akışı | 10.7.3 | [OPUS-XHIGH] | 10.7-b | 1 |
 | 10.8 | İki aşamalı onay ve manuel taşıma | 10.8.1, 10.8.2 | [OPUS-XHIGH] | 10.5, 10.7-c | 1 |
 | 10.9 | İçerik düzenleme yokluğu ve erişim logu | 10.9.1, 10.9.2 | [SONNET-XHIGH] | 10.5 | 1 |
-| 11.1 | Katalog yönetim ekranı | 11.1.1, 11.1.2 | [SONNET-XHIGH] | 10.1, 00.6 | 1 |
+| 11.1 | Katalog yönetim ekranı | 11.1.1, 11.1.2, 11.1.3 | [SONNET-XHIGH] | 10.1, 00.6 | 1 |
 | 11.2 | Örnek belge yükleme | 11.2.1 | [SONNET-XHIGH] | 11.1 | 1 |
 | 11.3 | Tür açıklaması üretimi | 11.3.1 | [OPUS-XHIGH] | 11.2, 03.2 | 1 |
 | 11.4 | Prompt derleyici ve token bütçesi | 11.4.1, 11.4.2 | [OPUS-XHIGH] | 11.1, 03.4 | 1 |

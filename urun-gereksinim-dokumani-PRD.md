@@ -143,7 +143,7 @@ maliyet paneli gerçek rakam gösteriyor.
 | 00.4.4 | Bütünlük ve atomik yazma | SHA-256 hesaplanır; yazma kesilirse yarım dosya kalmaz (testle doğrulanır) | Must (MVP) |
 | 00.5.1 | Olay logu altyapısı | §8.3'teki olay türleri sabit listedir; her olay veritabanına yazılır | Must (MVP) |
 | 00.5.2 | Olay bağlamı yöneticisi | Bağlam içinde atılan olaylar upload/file/page alanlarını otomatik taşır | Must (MVP) |
-| 00.6.1 | Katalog şeması ve tutarlılık kuralı | `direct: true` olan türde dönüşüm listesi doluysa katalog yüklemesi reddedilir | Must (MVP) |
+| 00.6.1 | Katalog şeması ve tutarlılık kuralı | §8.6'daki tüm alanlar tanımlıdır (`acceptance_criteria` dahil); `direct: true` olan türde dönüşüm listesi doluysa katalog yüklemesi reddedilir | Must (MVP) |
 | 00.6.2 | Başlangıç belge türleri | En az 8 tür yüklüdür: Russian/Turkish/Serbian Passport, Serbian Residence Card, Serbian Driving License, Work Permit, Profile Picture, Attachment | Must (MVP) |
 | 00.6.3 | Katalog YAML ↔ veritabanı eşitleme | YAML tohumdan yükleme ve veritabanından dışa aktarma iki yönlü çalışır | Should (v1) |
 
@@ -175,6 +175,9 @@ maliyet paneli gerçek rakam gösteriyor.
 | ID | Gereksinim | Kabul kriteri | Öncelik |
 |---|---|---|---|
 | 03.1.1 | Sayfa analizi şeması | Model çıktısı §8.4'teki şemaya uyar; uymayan yanıt reddedilir | Must (MVP) |
+| 03.1.2 | Dil ve alfabe tespiti | Her sayfa için `language` (ISO 639-1) ve `script` (`latin`, `cyrillic`, `arabic`, `other`) alanları döner; tanımlı küme dışında değer reddedilir | Must (MVP) |
+| 03.1.3 | Diğer isimler alanı | İkinci ad, baba adı gibi ek isimler `other_names` alanında ayrı olarak döner ve çalışan kaydına taşınır | Must (MVP) |
+| 03.1.4 | İletişim bilgisi alanları | Belgede telefon, e-posta veya adres varsa `contact` alanında döner; yoksa `null`, uydurulmaz | Must (MVP) |
 | 03.2.1 | Sağlayıcı soyutlaması | Sağlayıcı `.env` ile değişir; boru hattı kodu değişmez | Must (MVP) |
 | 03.2.2 | Anthropic sağlayıcı | Görüntü + metin girdisiyle şemaya uygun yapılandırılmış çıktı üretir | Must (MVP) |
 | 03.3.1 | OpenAI sağlayıcı iskeleti | Aynı arayüzü uygular ve en az bir gerçek çağrıyla doğrulanır | Should (v1) |
@@ -194,6 +197,7 @@ maliyet paneli gerçek rakam gösteriyor.
 | 04.3.1 | Dosyalar arası gruplama | Yalnız `direct: false` türlerde, aynı partideki ayrı dosyalardaki ön ve arka yüz eşleştirilir | Must (MVP) |
 | 04.3.2 | Belirsiz eşleştirmenin reddi | Aynı türden birden fazla ön yüz varsa eşleştirme yapılmaz, hepsi Unresolved'a gider | Must (MVP) |
 | 04.4.1 | Zorunlu alan okunaklılık kapısı (R1) | Zorunlu alanların biri bile okunaksızsa aday Unreadable olur ve eksik alan adları gerekçeye yazılır | Must (MVP) |
+| 04.4.2 | Kabul kriteri değerlendirmesi | Türün `acceptance_criteria` maddeleri varsa her biri değerlendirilir; karşılanmayan madde Unresolved gerekçesine madde adıyla yazılır. Liste boşsa tek ölçüt 04.4.1'dir | Should (v1) |
 | 04.5.1 | Beklenen sayfa sayısı kontrolü | Aday, türün sayfa aralığı dışındaysa Unresolved olur | Must (MVP) |
 | 04.6.1 | Bilinmeyen tür → aday öneri | Katalogda olmayan belge zorla bir türe atanmaz; aday tür olarak kaydedilir ve Unknown'a gider | Must (MVP) |
 | 04.7.1 | Word/Excel yolu (Attachment) | Word ve Excel analiz edilmez, dönüştürülmez; bağlam çalışanı varsa Hazir'a olduğu gibi kaydedilir, yoksa Unresolved'a gider | Must (MVP) |
@@ -214,6 +218,9 @@ maliyet paneli gerçek rakam gösteriyor.
 | 05.6.1 | Otomatik çalışan oluşturma (R9) | Yalnız temiz okunmuş belge numarası varsa yeni çalışan ve klasörü açılır | Must (MVP) |
 | 05.7.1 | Onay bekleyen profil | Numara yoksa profil önerisi Unresolved'a düşer; onaysız çalışan oluşmaz | Must (MVP) |
 | 05.7.2 | Alias ve numara birikimi | Her eşleşmede görülen yeni isim yazımı ve belge numarası çalışana eklenir | Must (MVP) |
+| 05.8.1 | İletişim bilgisi saklama | Analiz edilen belgeden çıkan telefon, e-posta ve adres `employee_contacts` tablosuna kaynak belgesiyle birlikte yazılır | Must (MVP) |
+| 05.8.2 | İletişim bilgisi çakışması | Aynı türden farklı bir değer geldiğinde eski kayıt silinmez; en son görülen `is_current` işaretlenir, öncekiler geçmiş olarak kalır | Must (MVP) |
+| 05.8.3 | Dil ve alfabe kaydı | Belgeden okunan dil ve alfabe belge kaydında saklanır; çalışanın belgelerinde görülen alfabeler profilde listelenebilir | Should (v1) |
 
 ### FR-MOD-06 — Plan ve doğrulayıcılar (Faz 0)
 
@@ -260,6 +267,7 @@ maliyet paneli gerçek rakam gösteriyor.
 |---|---|---|---|
 | 09.1.1 | profil.md üretimi | YAML ön blok + kimlik tablosu + belge listesi içerir; her değişiklikten sonra yeniden üretilir | Must (MVP) |
 | 09.1.2 | Orijinal yazım gösterimi | Latin olmayan isimlerde hem Latin hem orijinal yazım görünür | Must (MVP) |
+| 09.1.3 | Profil içeriği eksiksizliği | profil.md şunların hepsini taşır: ad, soyad, diğer isimler, orijinal yazım, vatandaşlık, doğum tarihi ve hesaplanan yaş, belge numaraları, iletişim bilgileri, belge listesi | Must (MVP) |
 | 09.2.1 | Parti durum makinesi | received → rendering → analyzing → planning → executing → done/partial/failed geçişleri izlenebilir | Must (MVP) |
 | 09.2.2 | Uçtan uca orkestrasyon | Tek çağrıyla parti baştan sona işlenir | Must (MVP) |
 | 09.2.3 | Hata dayanıklılığı | Beklenmeyen hatada parti `failed` olur, dosyalar Inbox'ta kalır, hata loglanır | Must (MVP) |
@@ -281,14 +289,15 @@ maliyet paneli gerçek rakam gösteriyor.
 | 10.3.2 | Yeniden çalıştır / yeniden analiz | İki işlem panelden tetiklenir; yeniden analiz iki aşamalı onay ister | Should (v1) |
 | 10.4.1 | Çalışan listesi | Ad, orijinal yazım, uyruk, belge sayısı ve durum listelenir | Must (v1) |
 | 10.4.2 | Arama | Ad, alias, orijinal yazım, belge numarası ve belge türü üzerinde arama çalışır | Must (v1) |
-| 10.5.1 | Çalışan profili sayfası | CV benzeri kart: fotoğraf, kimlik bilgileri, belge numaraları | Must (v1) |
+| 10.5.1 | Çalışan profili sayfası | CV benzeri kart şunların hepsini gösterir: profil fotoğrafı, ad, soyad, diğer isimler, orijinal yazım, vatandaşlık, doğum tarihi ve yaş, iletişim bilgileri, belge numaraları. Bilinmeyen alan "—" olarak görünür, gizlenmez | Must (v1) |
+| 10.5.4 | Profil fotoğrafı yokluğu | Çalışanın Profile-Picture belgesi yoksa kart yer tutucu gösterir ve eksik belge olarak işaretler | Should (v1) |
 | 10.5.2 | Belge listesi ve açma | Belgeye tıklayınca yeni sekmede açılır; indirilebilir; düzenlenemez | Must (v1) |
 | 10.5.3 | Profil sayfasından yükleme | Yükleme bağlam çalışanıyla yapılır | Should (v1) |
 | 10.6.1 | Belge geçmişi | Bir çıktının kaynak dosya ve sayfaları tıklanarak izlenir | Must (v1) |
 | 10.7.1 | Kuyruk ekranları | Üç kuyruk sekmesi, sayaçlar, öğe detayı ve sayfa görüntüleri | Must (v1) |
 | 10.7.2 | Kuyruktan çalışana atama | Arama ile çalışan seçilir, iki aşamalı onayla atanır | Must (v1) |
 | 10.7.3 | Kuyruktan profil oluşturma | Önerilen profil düzenlenip onaylanabilir; belge içeriği düzenlenemez | Must (v1) |
-| 10.8.1 | İki aşamalı onay mekanizması | Birinci ve ikinci onay metinleri gösterilir; sunucu tek kullanımlık belirteç ister | Must (v1) |
+| 10.8.1 | İki aşamalı onay mekanizması | Onay metinleri §12.6'daki tablodan **birebir** kullanılır; sunucu tek kullanımlık belirteç ister ve belirteçsiz isteği reddeder | Must (v1) |
 | 10.8.2 | Belgeyi başka çalışana taşıma | İki onay verilmeden işlem gerçekleşmez; iki profil de güncellenir; olay kullanıcı adıyla loglanır | Must (v1) |
 | 10.9.1 | İçerik düzenlemenin yokluğu (R12) | Panelde belge içeriği düzenleyen hiçbir yol yoktur | Must (v1) |
 | 10.9.2 | Görüntüleme ve indirme logu | Her açma ve indirme kullanıcı ve zamanla kaydedilir | Should (v1) |
@@ -299,6 +308,7 @@ maliyet paneli gerçek rakam gösteriyor.
 |---|---|---|---|
 | 11.1.1 | Katalog yönetim ekranı | Tür oluşturma, düzenleme ve pasifleştirme panelden yapılır | Must (v1) |
 | 11.1.2 | Katalog form doğrulaması | Direkt türde dönüşüm listesi boş, front_back türde sayfa aralığı 2 olmalı | Must (v1) |
+| 11.1.3 | Kabul kriteri düzenleme | Tür formunda `acceptance_criteria` maddeleri eklenip çıkarılabilir; değişiklik bir sonraki analizde geçerli olur | Should (v1) |
 | 11.2.1 | Örnek belge yükleme | Türe örnek yüklenir; örnekler çalışan verisinden ayrı tutulur ve aramada görünmez | Should (v1) |
 | 11.3.1 | Tür açıklaması üretimi | Örneklerden yapılandırılmış tür açıklaması üretilir ve düzenlenebilir | Should (v1) |
 | 11.4.1 | Prompt derleyici | Aktif türler kompakt katalog metnine derlenir | Must (v1) |
@@ -364,6 +374,7 @@ maliyet paneli gerçek rakam gösteriyor.
 | `employees` | Çalışan ana kaydı | id (E0001), folder_name, given_names, surname, original_script_name, date_of_birth, nationality, status, created_at |
 | `employee_identifiers` | Belge numaraları | employee_id, kind, value, source_document_id |
 | `employee_aliases` | Görülen isim yazımları | employee_id, raw_name, normalized_name, script |
+| `employee_contacts` | İletişim bilgileri | employee_id, kind (`phone`, `email`, `address`), value, source_document_id, first_seen_at, last_seen_at, is_current |
 | `uploads` | Yükleme partisi | id, channel, uploaded_by, context_employee_id, status, created_at |
 | `upload_files` | Kaynak dosyalar | id, upload_id, original_name, stored_path, sha256, mime, page_count, is_duplicate_of |
 | `pages` | Sayfalar | id, file_id, index, image_path, text_layer, is_blank, has_single_embedded_image, analysis_json, analysis_status |
@@ -428,7 +439,12 @@ TYPE_REJECTED · USER_CONFIRMED · PLAN_RERUN · PLAN_REANALYZED · ARCHIVED · 
     "date_of_birth": "1990-04-12",
     "nationality": "RUS",
     "document_number": "71 1234567",
-    "mrz_lines": ["...", "..."]
+    "mrz_lines": ["...", "..."],
+    "contact": {
+      "phone": null,
+      "email": null,
+      "address": "ул. Ленина, д. 5, кв. 12, Москва"
+    }
   },
   "fields": {
     "surname": {"value": "VASILIEV", "legible": true},
@@ -441,6 +457,10 @@ TYPE_REJECTED · USER_CONFIRMED · PLAN_RERUN · PLAN_REANALYZED · ARCHIVED · 
 
 `side`: front · back · single · unknown. `document_type_slug` katalogda bir slug veya null.
 `candidate_type_name` yalnız slug null iken dolar.
+
+`language`: ISO 639-1 kodu (`tr`, `ru`, `sr`, `es`, `en`, `ar` …). `script`: `latin`,
+`cyrillic`, `arabic` veya `other`. `contact`: belgede **açıkça yazılı** iletişim bilgisi;
+yoksa alanlar `null` kalır — çıkarım yapılmaz, uydurulmaz (gereksinim 03.1.4).
 
 ### 8.5 Plan JSON şeması
 
@@ -485,9 +505,17 @@ TYPE_REJECTED · USER_CONFIRMED · PLAN_RERUN · PLAN_REANALYZED · ARCHIVED · 
   required_fields: [surname, given_names, date_of_birth, document_number, expiry_date]
   allowed_conversions: []
   output_format: keep
+  acceptance_criteria:
+    - "Kimlik sayfası tam görünür olmalı, kenarlar kesilmemiş"
+    - "MRZ iki satırı da okunabilir olmalı"
   prompt_description: >
     Kiril ve Latin çift yazımlı kimlik sayfası, sağ altta iki satır MRZ.
 ```
+
+`acceptance_criteria`: şirketin o belge türü için aradığı, **zorunlu alan okunaklılığının
+ötesindeki** koşullar (orijinal tanımdaki "Kabul Kriterleri"). Serbest metin maddeleridir;
+analizciye tür açıklamasıyla birlikte verilir ve karşılanmayan madde `unresolved` gerekçesine
+yazılır. Boş bırakılabilir — o zaman tek ölçüt K1'dir (zorunlu alan okunaklılığı).
 
 ---
 
@@ -892,3 +920,45 @@ Yalnız türün `allowed_conversions` listesinde `pdf_to_jpeg` varsa seçilebili
 Tüm işlemler çıktıyı **atomik** yazar (geçici dosyaya yaz, sonra yeniden adlandır — 00.4.4).
 Yazma tamamlandıktan sonra `documents` kaydına kaynak dosya kimliği ve sayfa aralığı
 (`source_refs_json`) işlenir; `OUTPUT_SAVED` olayı bu köken bilgisiyle loglanır (K15, R13).
+
+---
+
+### 12.6 İki aşamalı onay metinleri (gereksinim 10.8.1, 10.8.2, 10.7.2, 10.7.3, 08.4.1, 11.5.2)
+
+K16'daki beş manuel işlemin hepsi iki aşamalı onay ister. Metinler **birebir** aşağıdaki
+gibidir; pencere kendi cümlesini yazmaz. `<…>` yer tutucuları çalışma zamanında doldurulur.
+
+| İşlem | Birinci onay | İkinci onay |
+|---|---|---|
+| Belgeyi başka çalışana taşı | `Bu belgeyi başka bir çalışana taşımak üzeresiniz. Emin misiniz?` | `Bu işlem sistemdeki belge organizasyonunu değiştirecektir. Son kararınız mı?` |
+| Kuyruk öğesini çalışana ata | `Bu belgeyi <Ad Soyad> çalışanına atamak üzeresiniz. Emin misiniz?` | `Bu işlem sistemdeki belge organizasyonunu değiştirecektir. Son kararınız mı?` |
+| Onay bekleyen profili onayla | `<Ad Soyad> için yeni bir çalışan profili oluşturmak üzeresiniz. Emin misiniz?` | `Bu işlem sistemde kalıcı bir çalışan kaydı oluşturacaktır. Son kararınız mı?` |
+| Yeni belge türünü onayla | `<Tür adı> belge türünü standart türler arasına eklemek üzeresiniz. Emin misiniz?` | `Bu işlem bundan sonraki tüm belge analizlerini etkileyecektir. Son kararınız mı?` |
+| Belgeyi arşive taşı | `Bu belgeyi arşive taşımak üzeresiniz. Emin misiniz?` | `Belge çalışanın Hazır klasöründen çıkacaktır. Son kararınız mı?` |
+
+İlk iki satırdaki metinler ürün tanımında birebir bu şekilde yazılmıştır; **değiştirilmez**.
+Kalan üçü aynı kalıptan türetilmiştir: birinci cümle *ne yapılacağını*, ikinci cümle
+*geri dönüşü olmayan sonucu* söyler.
+
+#### 12.6.1 Sunucu tarafı mekanizma
+
+Onay metinlerini göstermek tek başına yeterli değildir — istemci atlanabilir. Akış:
+
+1. İstemci **birinci** onayı aldıktan sonra sunucuya "hazırlık" isteği gönderir.
+2. Sunucu tek kullanımlık bir **onay belirteci** üretir: rastgele, tahmin edilemez, işlemin
+   kimliğine (işlem türü + hedef kayıt) bağlı ve **10 dakika** geçerli.
+3. İstemci **ikinci** onayı aldıktan sonra asıl isteği bu belirteçle gönderir.
+4. Sunucu belirteci doğrular ve **tüketir** (aynı belirteçle ikinci istek reddedilir).
+5. Belirteçsiz, süresi geçmiş veya başka bir işleme ait belirteçle gelen istek `400` ile
+   reddedilir; işlem yapılmaz.
+
+Onay tamamlandığında `USER_CONFIRMED` olayı yazılır: kullanıcı adı, işlem türü, hedef kayıt,
+birinci ve ikinci onayın zaman damgaları. Ardından işlemin kendi olayı (`MANUAL_MOVE`,
+`MANUAL_ASSIGN`, `MANUAL_APPROVE`, `TYPE_APPROVED`, `ARCHIVED`) düşülür.
+
+#### 12.6.2 Testte doğrulanacak davranış
+
+- Yalnız birinci onayla gönderilen istek **hiçbir değişiklik yapmaz** (S16).
+- Aynı belirteçle ikinci kez gönderilen istek reddedilir.
+- Süresi geçmiş belirteçle gelen istek reddedilir.
+- Başarılı işlemde olay logunda kullanıcı adı ve iki zaman damgası bulunur.

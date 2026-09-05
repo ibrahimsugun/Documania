@@ -11,7 +11,7 @@ ve yaptığı her işi izlenebilir biçimde loglayan bir belge yönetim platform
 
 | Dosya | Ne için |
 |---|---|
-| [`urun-gereksinim-dokumani-PRD.md`](urun-gereksinim-dokumani-PRD.md) | **Ne yapılacak** — 145 numaralı gereksinim, 14 modül, 4 faz, kabul kriterleri, karar tabloları, veri modeli, kabul senaryoları |
+| [`urun-gereksinim-dokumani-PRD.md`](urun-gereksinim-dokumani-PRD.md) | **Ne yapılacak** — 155 numaralı gereksinim, 14 modül, 4 faz, kabul kriterleri, karar tabloları, veri modeli, kabul senaryoları |
 | [`MASTER-PROMPT.md`](MASTER-PROMPT.md) | **Nasıl yapılacak** — K1–K18 kilitli ürün kararları, yığın, contract-first sıra, sınırlar |
 | [`CONVENTIONS.md`](CONVENTIONS.md) | **"Bitti" ne demek** — DoD kapısı (exit code'larla), git, handoff, kanıt disiplini, gizlilik |
 | [`PLAN.md`](PLAN.md) | **Neredeyiz** — faz/modül/gereksinim durum tabloları, §G iş kırılımı, §K kanıt geçmişi |
@@ -45,10 +45,10 @@ Panelin kendi ayrıştırıcılarıyla ölçüldü:
 | Kontrol | Sonuç |
 |---|---|
 | Workspace işaretleri | 9/11 (taskmaster, planMd, runLoop, claudeMd, masterPrompt, conventions, handoff, runnerPrompt, git) — skor 14 |
-| PLAN gereksinim satırı | 145 (PRD kimliksiz 0, damgasız 0) |
+| PLAN gereksinim satırı | 155 (PRD kimliksiz 0, damgasız 0) |
 | Faz özet sayıları | 4 fazın hepsi tablolardan sayılan değerle birebir (`plan-count-drift` yok) |
-| §G düz tablo ↔ görev ağacı | 91 ↔ 91 (`plan-not-imported` yok) |
-| Görev izlenebilirliği | 91/91 görev bir PRD kimliğine bağlı (`orphan-task` yok) |
+| §G düz tablo ↔ görev ağacı | 92 ↔ 92 (`plan-not-imported` yok) |
+| Görev izlenebilirliği | 92/92 görev bir PRD kimliğine bağlı (`orphan-task` yok) |
 | Bağımlılık grafiği | 0 sorun; sıradaki iş `tm 1` |
 | Teşhis taraması | `errors: []`, critical/high bulgu yok |
 
@@ -64,14 +64,14 @@ KURALLAR (K/R metinleri birebir gömülü) · PRD'DE AYRICA OKU · İLGİLİ KAB
 KAPSAM SINIRI · TUZAKLAR · KAPANIŞ
 ```
 
-Ortalama 2.120 karakter. Pencere kuralı okumak için başka dosyaya gitmez; "üzerine ne
+Ortalama 2.160 karakter. Pencere kuralı okumak için başka dosyaya gitmez; "üzerine ne
 kuruyorum" sorusunun cevabı dosya adlarıyla yazılıdır.
 
 Görev başlığındaki etiket hem **modeli** hem **eforu** seçer:
 
 | Etiket | Adet | Ne tür iş |
 |---|---|---|
-| `[SONNET-XHIGH]` | 39 | Mekanik, kapsamı net, kabul kriteri ölçülebilir |
+| `[SONNET-XHIGH]` | 40 | Mekanik, kapsamı net, kabul kriteri ölçülebilir |
 | `[OPUS-XHIGH]` | 48 | Karar, bütünlük veya kimlik mantığı taşıyan |
 | `[OPUS-MAX]` | 4 | Yalnız bütün olarak değerlendirilebilen işler: gruplama üçlüsü (04.1–04.3) ve doğal dil niyeti (12.3) |
 
