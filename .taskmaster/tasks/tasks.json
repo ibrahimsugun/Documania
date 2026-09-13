@@ -33,12 +33,13 @@
         "description": "PRD 00.3.1, 00.3.2, 00.3.3 · FR-MOD-00 (Altyapı ve iskelet) · Faz 0.",
         "details": "KAPSAM: PRD 00.3.1, 00.3.2, 00.3.3 (FR-MOD-00 — Altyapı ve iskelet, Faz 0).\n\nNE YAPILACAK — GEREKSİNİMLER VE KABUL KRİTERLERİ:\n- 00.3.1 — Veri modeli (§8'deki 15 tablo)\n  Kabul: Tüm tablolar SQLAlchemy modeli olarak vardır ve ilişkiler testte doğrulanır\n- 00.3.2 — Göç altyapısı\n  Kabul: `alembic upgrade head` hem SQLite hem PostgreSQL üzerinde temiz çalışır\n- 00.3.3 — Çalışan numarası üretici\n  Kabul: `E0001` biçiminde artan, tekil; eşzamanlı 50 çağrıda çakışma yok\n\nGİRDİ — ÜZERİNE KURULDUĞU İŞLER (bu kod ZATEN VAR; yazmadan önce OKU):\n- 00.2 (Ortam değişkeni tabanlı yapılandırma) → app/config.py, .env.example\n\nÇIKTI — DOKUNULACAK YÜZEY: app/db/models.py, app/db/session.py, alembic/\n\nKARAR TABLOSU: bu görev için ayrı karar tablosu yok; kabul kriterleri ve kilitli kurallar yeterli.\n\nBU GÖREVİ BAĞLAYAN KİLİTLİ KURALLAR: özel kural yok. Genel sınırlar MASTER-PROMPT §8'de.\n\nPRD'DE AYRICA OKU: §8.1 (veritabanı tabloları)\n\nİLGİLİ KABUL SENARYOSU: doğrudan yok. Kabul kriterleri yukarıda.\n\nSIRA (MASTER-PROMPT §5, contract-first): sözleşme/şema → Alembic göçü (gerekiyorsa) → çekirdek + unit test → entegrasyon + testi → arayüz.\n\nKAPSAM SINIRI: yalnız yukarıdaki PRD kimlikleri. Başka gereksinimin işini yapma; yolda gördüğün kusuru düzeltme, yeni görev olarak aç (CONVENTIONS §5). Kilitli teknik kararları (MASTER-PROMPT §4) tartışma; yanlış görünüyorsa uygula ve PLAN.md §D'ye sapma yaz.\n\nTUZAKLAR: belge içeriğini değiştiren kod yazma — kırpma, döndürme (EXIF dışında), kontrast, metin yazma, form doldurma yok (K11/K17). Gerçek kimlik belgesi kullanma; test verisi tests/fixtures/gen.py ile üretilen sentetik belgelerdir (CONVENTIONS §6). Yapay zekâ çağrısı testte canlı yapılmaz, kayıtlı yanıt sağlayıcısı kullanılır. Test/build komutlarını arka plana atma — pencere ölür.\n\nKAPANIŞ: PLAN.md'de 00.3.1, 00.3.2, 00.3.3 satırlarının damgasını '✅ → K00.3' yap ve '## K. Kanıt Geçmişi' bölümünde '#### K00.3' bloğuna kanıt maddesi ekle (blok yoksa aç). Faz özet tablosundaki sayıları SAYARAK güncelle. Ayrıntı: CONVENTIONS §1.2-1.3.",
         "testStrategy": "CONVENTIONS §1 DoD kapısı: ruff check . · ruff format --check . · python -m compileall -q app tests · pytest -q -m \"not live\" · alembic upgrade head · python -c \"import app.main\" — hepsi exit 0.\nAyrıca bu görevin kendi kabul kriterleri:\n- 00.3.1: Tüm tablolar SQLAlchemy modeli olarak vardır ve ilişkiler testte doğrulanır\n- 00.3.2: `alembic upgrade head` hem SQLite hem PostgreSQL üzerinde temiz çalışır\n- 00.3.3: `E0001` biçiminde artan, tekil; eşzamanlı 50 çağrıda çakışma yok",
-        "status": "pending",
+        "status": "in-progress",
         "dependencies": [
           "2"
         ],
         "priority": "high",
-        "subtasks": []
+        "subtasks": [],
+        "updatedAt": "2026-09-13T23:15:04.355Z"
       },
       {
         "id": "4",
@@ -1252,7 +1253,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-09-13T23:14:01.833Z",
+      "lastModified": "2026-09-13T23:15:04.356Z",
       "taskCount": 92,
       "completedCount": 2,
       "tags": [

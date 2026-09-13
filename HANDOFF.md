@@ -18,6 +18,12 @@ Blok biçimi `CONVENTIONS.md` §3'te tanımlıdır:
 
 ## Task log (newest-first)
 
+## 3 — 00.3 Veri modeli ve göç altyapısı — done — 2026-09-14
+- Yapıldı: §8.1'deki 16 tablo `app/db/models.py`'da (UTC zaman tipi, sabit kısıt adları, silme kaskadı yok) + `app/db/session.py` (motor/oturum, `get_session` FastAPI bağımlılığı) + Alembic zinciri `0001` + `allocate_employee_number` (E0001, eşzamanlılıkta çakışmasız).
+- Doğrulama: ruff check/format, compileall, `pytest -q -m "not live"` (36 geçti, 2 PG testi ortam değişkeni yokken atlanır), kapsam %99, temiz SQLite'ta `alembic upgrade head` exit 0, `import app.main` exit 0; geçici `postgres:16-alpine` üzerinde `alembic upgrade head` + `alembic check` + PG testleri (`BELGEEE_TEST_POSTGRES_URL`) yeşil.
+- Varsayımlar: PLAN §C3–C5 (metin `uploads.id`, CHECK yalnız PRD'de harfiyen yazılı kümelerde, SQLite `BEGIN IMMEDIATE`, `queue_items`'ın plan sürümü bağı); §D4: PRD "15 tablo" der ama §8.1'de 16 tablo var, 16'sı modellendi.
+- Sonraki pencereye not: Çalışan eklerken numarayı `allocate_employee_number(session)` ile al ve `Employee`'yi aynı işlemde ekleyip commit et; şema değişikliği yalnız yeni Alembic göçüyle (`alembic revision --autogenerate`, ruff kancası kurulu), SQLite'ta açık oturum yazarları beklettiği için oturumları kısa tutun.
+
 ## 2 — 00.2 Ortam değişkeni tabanlı yapılandırma — done — 2026-09-14
 - Yapıldı: pydantic-settings tabanlı `Settings` (`app/config.py`) — zorunlu `database_url`, varsayılanlı `app_env`/`data_dir`, `.env` veya ortam değişkeninden okunur; `.env.example` şablonu eklendi.
 - Doğrulama: ruff check/format, compileall, `pytest -q -m "not live"` (6 test, +4 yeni), `--cov-fail-under=70` (%93); `import app.main` exit 0. `alembic upgrade head` henüz yok (00.3.2), §1.1 gereği atlandı (00.1'de de aynı gerekçeyle atlanmıştı).

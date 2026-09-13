@@ -11,6 +11,9 @@ dependencies = [
     "fastapi>=0.141",
     "uvicorn[standard]>=0.52",
     "pydantic-settings>=2.6",
+    "sqlalchemy>=2.0",
+    "alembic>=1.16",
+    "psycopg[binary]>=3.2",
 ]
 
 [project.optional-dependencies]
@@ -41,3 +44,7 @@ target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "W", "F", "I", "B", "UP"]
+
+[tool.ruff.lint.isort]
+# Kökteki alembic/ göç dizini paketin kendisiyle karışmasın.
+known-third-party = ["alembic"]

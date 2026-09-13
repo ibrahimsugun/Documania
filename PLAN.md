@@ -8,7 +8,7 @@
 
 | Faz | PRD | Genel durum | Must sayacı | Kapanış |
 | --- | --- | --- | --- | --- |
-| Faz 0 — MVP | §5.1 | 6 ✅ · 0 ◐ · 96 ⬜ · 0 🔒 | 6/98 Must | AÇIK |
+| Faz 0 — MVP | §5.1 | 9 ✅ · 0 ◐ · 93 ⬜ · 0 🔒 | 9/98 Must | AÇIK |
 | Faz 1 — v1 | §5.2 | 0 ✅ · 0 ◐ · 0 ⬜ · 32 🔒 | 0/21 Must | AÇIK |
 | Faz 2 — v2 | §5.3 | 0 ✅ · 0 ◐ · 0 ⬜ · 13 🔒 | 0/0 Must | AÇIK |
 | Faz 3 — Enterprise | §5.4 | 0 ✅ · 0 ◐ · 0 ⬜ · 8 🔒 | 0/0 Must | AÇIK |
@@ -75,9 +75,9 @@ panelde `plan-count-drift` bulgusu doğurur.
 | 00.1.4 | Lint ve biçim kapısı | Must (MVP) | ✅ → K00.1 |
 | 00.2.1 | Ortam değişkeni tabanlı yapılandırma | Must (MVP) | ✅ → K00.2 |
 | 00.2.2 | Eksik zorunlu ayarda anlaşılır hata | Must (MVP) | ✅ → K00.2 |
-| 00.3.1 | Veri modeli (§8'deki 15 tablo) | Must (MVP) | ⬜ |
-| 00.3.2 | Göç altyapısı | Must (MVP) | ⬜ |
-| 00.3.3 | Çalışan numarası üretici | Must (MVP) | ⬜ |
+| 00.3.1 | Veri modeli (§8'deki 15 tablo) | Must (MVP) | ✅ → K00.3 |
+| 00.3.2 | Göç altyapısı | Must (MVP) | ✅ → K00.3 |
+| 00.3.3 | Çalışan numarası üretici | Must (MVP) | ✅ → K00.3 |
 | 00.4.1 | Veri dizini otomatik oluşturma | Must (MVP) | ⬜ |
 | 00.4.2 | İsim sadeleştirme (slug) | Must (MVP) | ⬜ |
 | 00.4.3 | Çıktı adlandırma ve sıra eki | Must (MVP) | ⬜ |
@@ -308,6 +308,18 @@ Onay beklemeden yapılan varsayımlar buraya numaralı olarak yazılır.
 - **C1** — Geliştirme ortamında PostgreSQL yerine SQLite kullanılır; şema farkları
   Alembic göçleriyle iki motorda da doğrulanır (NFR-05).
 - **C2** — Uzak git deposu tanımlı değildir; kapanışta push adımı atlanır (CONVENTIONS §2).
+- **C3** — Veri modeli (tm 3): `uploads.id` metin kimliktir (Plan JSON `upload_id` ve
+  `Inbox/<upload_id>/` gereği; üretimi 01.1'in işi), diğer tablolar tamsayı kimlik taşır.
+  §8.1'de alan listesi olmayan ama §8'in başka yerinde tanımlı iki alan eklendi:
+  `employees.other_names` (§8.4, 03.1.3) ve `known_document_types.acceptance_criteria`
+  (§8.6, 00.6.1). DB düzeyinde CHECK kısıtı yalnız değer kümesi PRD'de harfiyen yazılı
+  alanlarda var: `uploads.status` (09.2.1), `employee_contacts.kind` (§8.1),
+  `queue_items.kind` (§8.5 route). Diğer durum alanları serbest metin + varsayılandır.
+- **C4** — SQLite motoru (`app/db/session.py`) her işlemi `BEGIN IMMEDIATE` ile açar; E
+  numarası üreticisinin eşzamanlılık garantisi buna, PostgreSQL'de ise işlem ömürlü
+  advisory kilide dayanır. Yan etkisi: SQLite'ta açık kalan oturum diğer yazarları bekletir.
+- **C5** — `queue_items` §8.1'deki alanlarla (upload_id + plan_item_id) plana bağlanır;
+  K18 plan sürümleri arasında öğe kimliği ayrımı gerekirse 06.6.2 göçle `plan_id` ekler.
 
 ## D. Sapmalar
 
@@ -330,6 +342,10 @@ bu kayıt neden sapıldığının izlenebilir olması içindir.
 - **D3 — Dört faza bölündü.** İlk tanımda faz yoktu; her şey tek bir hedef olarak
   anlatılıyordu. Otonom döngünün iş sırası seçebilmesi ve kapanış kapısı
   işleyebilmesi için PRD §5'te Faz 0-3 tanımlandı. Kapsamda daralma yok; yalnız sıra var.
+- **D4 — PRD'de tablo sayısı çelişkisi (tm 3).** 00.3.1 "§8'deki 15 tablo" der; §8.1
+  tablosu ise 16 tablo listeler (`employee_contacts` 05.8 ile sonradan eklenmiş). §8.1
+  listesi esas alındı, 16 tablonun hepsi modellendi. PRD metninin düzeltilmesi insana
+  bırakıldı.
 
 ## G. İş Kırılımı Dizini
 
@@ -451,3 +467,8 @@ var olan maddeler silinmez. Biçim:
 
 #### K00.2 — 00.2.1, 00.2.2 · Ortam değişkeni tabanlı yapılandırma
 - ✅ pydantic-settings tabanlı `Settings` (`.env` + ortam değişkeni, zorunlu `database_url`, varsayılanlı `app_env`/`data_dir`); eksik zorunlu değişkende değişken adını söyleyen `RuntimeError` — `app/config.py` · `.env.example` · test `tests/test_config.py` (4) · tm 2
+
+#### K00.3 — 00.3.1, 00.3.2, 00.3.3 · Veri modeli ve göç altyapısı
+- ✅ §8.1'deki 16 tablo SQLAlchemy 2.x modeli (isimlendirme kuralı, UTC zaman tipi, silme kaskadı yok); iki yönlü ilişkiler, FK/CHECK/UNIQUE kısıtları testte doğrulandı — `app/db/models.py` · `app/db/session.py` · test `tests/db/test_models.py` (11) · `tests/db/test_session.py` (4) · tm 3
+- ✅ Alembic zinciri (`0001`): temiz SQLite ve PostgreSQL 16 üzerinde `alembic upgrade head` exit 0, `alembic check` şema farkı yok, `DATABASE_URL` CLI yolu — `alembic.ini` · `alembic/env.py` · `alembic/versions/0001_initial_schema.py` · test `tests/db/test_migrations.py` (5; PG testi `BELGEEE_TEST_POSTGRES_URL` ile, geçici `postgres:16-alpine` üzerinde koşuldu) · tm 3
+- ✅ `allocate_employee_number`: `E0001` biçimi, sayısal artış (`E9999 → E10000`), eşzamanlı 50 çağrıda çakışma yok (SQLite `BEGIN IMMEDIATE`, PG advisory kilit; kilitsiz kontrol denemesinde PG 46/50, SQLite 21/50 çakıştı) — `app/db/models.py` · test `tests/db/test_employee_number.py` (12; PG eşzamanlılık testi PG 16'da yeşil) · tm 3
