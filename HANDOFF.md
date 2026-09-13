@@ -18,6 +18,12 @@ Blok biçimi `CONVENTIONS.md` §3'te tanımlıdır:
 
 ## Task log (newest-first)
 
+## 2 — 00.2 Ortam değişkeni tabanlı yapılandırma — done — 2026-09-14
+- Yapıldı: pydantic-settings tabanlı `Settings` (`app/config.py`) — zorunlu `database_url`, varsayılanlı `app_env`/`data_dir`, `.env` veya ortam değişkeninden okunur; `.env.example` şablonu eklendi.
+- Doğrulama: ruff check/format, compileall, `pytest -q -m "not live"` (6 test, +4 yeni), `--cov-fail-under=70` (%93); `import app.main` exit 0. `alembic upgrade head` henüz yok (00.3.2), §1.1 gereği atlandı (00.1'de de aynı gerekçeyle atlanmıştı).
+- Varsayımlar: `app/config.py` bilinçli olarak `app/main.py`'a bağlanmadı — ÇIKTI yalnız `app/config.py` + `.env.example`; gerçek kullanım (DB engine, storage yolu) 00.3/00.4'ün işi. Gerçek bir `.env` dosyası oluşturulmadı; testler kendi ortamını izole kurar (`_env_file` override).
+- Sonraki pencereye not: 00.3 (veri modeli/göç) ve 00.4 (depolama) `app.config.get_settings()` ile `database_url`/`data_dir` alanlarını tüketecek — yeni ayar gerekirse `Settings`e alan ekleyin, başka yerde ortam değişkeni okumayın.
+
 ## 1 — 00.1 Uygulama iskeleti, test ve kapsayıcı altyapısı — done — 2026-09-14
 - Yapıldı: `pyproject.toml` (Python 3.12, FastAPI/uvicorn; dev: pytest, pytest-cov, httpx2, ruff), `app/main.py` (`create_app()` + `GET /health`), `tests/` (conftest `client` fiksturu), `Dockerfile` (python:3.12-slim, root olmayan kullanıcı, HEALTHCHECK), `docker-compose.yml`, `.dockerignore` (data/ imaja girmez).
 - Doğrulama: ruff check/format, compileall, `pytest -q -m "not live"` (2 test), `--cov-fail-under=70` (%100), `import app.main` hepsi exit 0; `docker compose up -d --build` → healthy, `/health` 200 `{"status":"ok"}`. `alembic upgrade head` henüz yok (00.3.2), §1.1 gereği atlandı.

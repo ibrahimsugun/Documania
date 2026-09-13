@@ -8,7 +8,7 @@
 
 | Faz | PRD | Genel durum | Must sayacı | Kapanış |
 | --- | --- | --- | --- | --- |
-| Faz 0 — MVP | §5.1 | 4 ✅ · 0 ◐ · 98 ⬜ · 0 🔒 | 4/98 Must | AÇIK |
+| Faz 0 — MVP | §5.1 | 6 ✅ · 0 ◐ · 96 ⬜ · 0 🔒 | 6/98 Must | AÇIK |
 | Faz 1 — v1 | §5.2 | 0 ✅ · 0 ◐ · 0 ⬜ · 32 🔒 | 0/21 Must | AÇIK |
 | Faz 2 — v2 | §5.3 | 0 ✅ · 0 ◐ · 0 ⬜ · 13 🔒 | 0/0 Must | AÇIK |
 | Faz 3 — Enterprise | §5.4 | 0 ✅ · 0 ◐ · 0 ⬜ · 8 🔒 | 0/0 Must | AÇIK |
@@ -73,8 +73,8 @@ panelde `plan-count-drift` bulgusu doğurur.
 | 00.1.2 | Bağımlılık yönetimi ve test komutu | Must (MVP) | ✅ → K00.1 |
 | 00.1.3 | Docker Compose ile ayağa kalkma | Must (MVP) | ✅ → K00.1 |
 | 00.1.4 | Lint ve biçim kapısı | Must (MVP) | ✅ → K00.1 |
-| 00.2.1 | Ortam değişkeni tabanlı yapılandırma | Must (MVP) | ⬜ |
-| 00.2.2 | Eksik zorunlu ayarda anlaşılır hata | Must (MVP) | ⬜ |
+| 00.2.1 | Ortam değişkeni tabanlı yapılandırma | Must (MVP) | ✅ → K00.2 |
+| 00.2.2 | Eksik zorunlu ayarda anlaşılır hata | Must (MVP) | ✅ → K00.2 |
 | 00.3.1 | Veri modeli (§8'deki 15 tablo) | Must (MVP) | ⬜ |
 | 00.3.2 | Göç altyapısı | Must (MVP) | ⬜ |
 | 00.3.3 | Çalışan numarası üretici | Must (MVP) | ⬜ |
@@ -448,3 +448,6 @@ var olan maddeler silinmez. Biçim:
 - ✅ pyproject.toml bağımlılıkları (Python 3.12, dev: pytest/pytest-cov/httpx2/ruff), `live` işareti kayıtlı, çıplak `pytest` exit 0 — `pyproject.toml` · test `tests/test_health.py` (2) · tm 1
 - ✅ `docker compose up -d --build` → konteyner healthy, `curl /health` 200 `{"status":"ok"}`; `docker compose config` exit 0 — `Dockerfile` · `docker-compose.yml` · `.dockerignore` · tm 1
 - ✅ `ruff check .` exit 0 · `ruff format --check .` exit 0 · compileall exit 0 · kapsam %100 — `pyproject.toml` [tool.ruff] · tm 1
+
+#### K00.2 — 00.2.1, 00.2.2 · Ortam değişkeni tabanlı yapılandırma
+- ✅ pydantic-settings tabanlı `Settings` (`.env` + ortam değişkeni, zorunlu `database_url`, varsayılanlı `app_env`/`data_dir`); eksik zorunlu değişkende değişken adını söyleyen `RuntimeError` — `app/config.py` · `.env.example` · test `tests/test_config.py` (4) · tm 2
