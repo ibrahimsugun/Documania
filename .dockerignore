@@ -1,0 +1,19 @@
+# Yapı bağlamına yalnız pyproject.toml ve app/ girer.
+# data/ gerçek belgeler taşır: imaja ASLA girmez.
+data/
+.env
+.env.*
+.git/
+.venv/
+venv/
+.loop-logs/
+.taskmaster/
+.pytest_cache/
+.ruff_cache/
+**/__pycache__/
+*.egg-info/
+build/
+dist/
+docs/
+tests/
+*.md

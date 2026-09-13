@@ -1,0 +1,42 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "belgeee"
+version = "0.1.0"
+description = "Çalışan belgelerini içeriğinden anlayıp doğru çalışana yerleştiren belge yönetim sistemi"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "fastapi>=0.141",
+    "uvicorn[standard]>=0.52",
+]
+
+[project.optional-dependencies]
+dev = [
+    "httpx2>=2.0",
+    "pytest>=9.0",
+    "pytest-cov>=7.0",
+    "ruff>=0.16",
+]
+
+[tool.setuptools.packages.find]
+include = ["app*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-ra --strict-markers"
+markers = [
+    "live: canlı dış servis (yapay zekâ sağlayıcısı vb.) çağırır; DoD kapısında -m \"not live\" ile dışarıda bırakılır",
+]
+
+[tool.coverage.run]
+source = ["app"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "B", "UP"]
