@@ -47,12 +47,13 @@
         "description": "PRD 00.4.1, 00.4.2, 00.4.3, 00.4.4 · FR-MOD-00 (Altyapı ve iskelet) · Faz 0.",
         "details": "KAPSAM: PRD 00.4.1, 00.4.2, 00.4.3, 00.4.4 (FR-MOD-00 — Altyapı ve iskelet, Faz 0).\n\nNE YAPILACAK — GEREKSİNİMLER VE KABUL KRİTERLERİ:\n- 00.4.1 — Veri dizini otomatik oluşturma\n  Kabul: Uygulama açılışında §8.2'deki ağaç eksiksiz oluşur\n- 00.4.2 — İsim sadeleştirme (slug)\n  Kabul: Türkçe, Kiril ve Arap isimler `[A-Za-z0-9_-]` kümesine iner; testte üç alfabe için doğrulanır\n- 00.4.3 — Çıktı adlandırma ve sıra eki\n  Kabul: Aynı türden ikinci belge `-2`, üçüncü `-3` eki alır; mevcut dosyanın üzerine yazılmaz\n- 00.4.4 — Bütünlük ve atomik yazma\n  Kabul: SHA-256 hesaplanır; yazma kesilirse yarım dosya kalmaz (testle doğrulanır)\n\nGİRDİ — ÜZERİNE KURULDUĞU İŞLER (bu kod ZATEN VAR; yazmadan önce OKU):\n- 00.2 (Ortam değişkeni tabanlı yapılandırma) → app/config.py, .env.example\n\nÇIKTI — DOKUNULACAK YÜZEY: app/storage/\n\nKARAR TABLOSU: bu görev için ayrı karar tablosu yok; kabul kriterleri ve kilitli kurallar yeterli.\n\nBU GÖREVİ BAĞLAYAN KİLİTLİ KURALLAR (MASTER-PROMPT §3 — tartışma, uygula):\n- K8: Klasör: Ad_Soyad_E0001 (E numarası asla değişmez). Dosya: Ad_Soyad-Belge-Turu.pdf. Aynı türden ikinci belge -2, üçüncü -3 eki alır.\n- K10: Orijinal dosya dokunulmazdır. Inbox'a yazılır, çözülünce çalışanın Alinan klasörüne kopyalanır. SHA-256 ile tekrar yükleme tespit edilir.\n\nPRD'DE AYRICA OKU: §8.2 (veri dizini yapısı)\n\nİLGİLİ KABUL SENARYOSU: doğrudan yok. Kabul kriterleri yukarıda.\n\nSIRA (MASTER-PROMPT §5, contract-first): sözleşme/şema → Alembic göçü (gerekiyorsa) → çekirdek + unit test → entegrasyon + testi → arayüz.\n\nKAPSAM SINIRI: yalnız yukarıdaki PRD kimlikleri. Başka gereksinimin işini yapma; yolda gördüğün kusuru düzeltme, yeni görev olarak aç (CONVENTIONS §5). Kilitli teknik kararları (MASTER-PROMPT §4) tartışma; yanlış görünüyorsa uygula ve PLAN.md §D'ye sapma yaz.\n\nTUZAKLAR: belge içeriğini değiştiren kod yazma — kırpma, döndürme (EXIF dışında), kontrast, metin yazma, form doldurma yok (K11/K17). Gerçek kimlik belgesi kullanma; test verisi tests/fixtures/gen.py ile üretilen sentetik belgelerdir (CONVENTIONS §6). Yapay zekâ çağrısı testte canlı yapılmaz, kayıtlı yanıt sağlayıcısı kullanılır. Test/build komutlarını arka plana atma — pencere ölür.\n\nKAPANIŞ: PLAN.md'de 00.4.1, 00.4.2, 00.4.3, 00.4.4 satırlarının damgasını '✅ → K00.4' yap ve '## K. Kanıt Geçmişi' bölümünde '#### K00.4' bloğuna kanıt maddesi ekle (blok yoksa aç). Faz özet tablosundaki sayıları SAYARAK güncelle. Ayrıntı: CONVENTIONS §1.2-1.3.",
         "testStrategy": "CONVENTIONS §1 DoD kapısı: ruff check . · ruff format --check . · python -m compileall -q app tests · pytest -q -m \"not live\" · alembic upgrade head · python -c \"import app.main\" — hepsi exit 0.\nAyrıca bu görevin kendi kabul kriterleri:\n- 00.4.1: Uygulama açılışında §8.2'deki ağaç eksiksiz oluşur\n- 00.4.2: Türkçe, Kiril ve Arap isimler `[A-Za-z0-9_-]` kümesine iner; testte üç alfabe için doğrulanır\n- 00.4.3: Aynı türden ikinci belge `-2`, üçüncü `-3` eki alır; mevcut dosyanın üzerine yazılmaz\n- 00.4.4: SHA-256 hesaplanır; yazma kesilirse yarım dosya kalmaz (testle doğrulanır)",
-        "status": "pending",
+        "status": "in-progress",
         "dependencies": [
           "2"
         ],
         "priority": "high",
-        "subtasks": []
+        "subtasks": [],
+        "updatedAt": "2026-09-13T23:42:37.850Z"
       },
       {
         "id": "5",
@@ -1253,7 +1254,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-09-13T23:35:54.496Z",
+      "lastModified": "2026-09-13T23:42:37.850Z",
       "taskCount": 92,
       "completedCount": 3,
       "tags": [

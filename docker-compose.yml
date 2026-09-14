@@ -4,4 +4,11 @@ services:
     image: belgeee:dev
     ports:
       - "8000:8000"
+    environment:
+      DATABASE_URL: sqlite:////srv/data/belgeee.db
+    volumes:
+      - data:/srv/data
     restart: unless-stopped
+
+volumes:
+  data:

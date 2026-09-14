@@ -18,6 +18,12 @@ Blok biçimi `CONVENTIONS.md` §3'te tanımlıdır:
 
 ## Task log (newest-first)
 
+## 4 — 00.4 Depolama katmanı: yol, slug, adlandırma, atomik yazma — done — 2026-09-14
+- Yapıldı: `app/storage/` — `DataLayout` (§8.2 yolları, açılışta `prepare_data_dir` ile FastAPI lifespan'de ağaç kurulumu), `slugify` (Türkçe/Kiril/Arap → `[A-Za-z0-9_-]`), K8 adları (`employee_folder_name`, `document_stem`, `-2`/`-3`), atomik yazma (`write_file`/`copy_file`/`write_sequenced` sabit bağla üzerine yazmadan, `replace_file` türev dosyalar için, SHA-256 yazarken); kapsayıcıya `/srv/data` volume + `DATABASE_URL` eklendi.
+- Doğrulama: ruff check/format, compileall, `pytest -q -m "not live"` (140 geçti, +104 depolama durumu; 2 PG testi atlandı), kapsam %98.9, temiz SQLite'ta `alembic upgrade head`, `import app.main`, `docker compose config` exit 0; `docker compose up --build` → healthy + `/srv/data` ağacı; POSIX yazma yolu Linux kapsayıcısında elle denendi.
+- Varsayımlar: PLAN §C6 (slug çeviri tabloları ve harf büyüklüğü, 64 karakter sınırı, sıra ekinde uzantıdan bağımsız + ilk boş ek, hard link zorunluluğu, 1 saatlik geçici dosya temizliği).
+- Sonraki pencereye not: Yol yalnız `DataLayout` yöntemleriyle kurulur; orijinal/çıktı dosyası daima `write_file`/`copy_file`/`write_sequenced` ile yazılır (`StoredFile.sha256` + `sequence_no` döner), `replace_file` yalnız `profil.md`/`reason.json`/katalog dışa aktarımı içindir. Uygulama artık açılışta `DATABASE_URL` ister (import için gerekmez).
+
 ## 3 — 00.3 Veri modeli ve göç altyapısı — done — 2026-09-14
 - Yapıldı: §8.1'deki 16 tablo `app/db/models.py`'da (UTC zaman tipi, sabit kısıt adları, silme kaskadı yok) + `app/db/session.py` (motor/oturum, `get_session` FastAPI bağımlılığı) + Alembic zinciri `0001` + `allocate_employee_number` (E0001, eşzamanlılıkta çakışmasız).
 - Doğrulama: ruff check/format, compileall, `pytest -q -m "not live"` (36 geçti, 2 PG testi ortam değişkeni yokken atlanır), kapsam %99, temiz SQLite'ta `alembic upgrade head` exit 0, `import app.main` exit 0; geçici `postgres:16-alpine` üzerinde `alembic upgrade head` + `alembic check` + PG testleri (`BELGEEE_TEST_POSTGRES_URL`) yeşil.

@@ -11,8 +11,12 @@ COPY pyproject.toml ./
 COPY app ./app
 RUN pip install .
 
-RUN useradd --create-home --uid 10001 belgeee
+# Veri dizini (PRD §8.2) açılışta uygulama kullanıcısıyla kurulur; kök sahipliği burada verilir.
+RUN useradd --create-home --uid 10001 belgeee \
+    && mkdir /srv/data \
+    && chown belgeee:belgeee /srv/data
 USER belgeee
+ENV DATA_DIR=/srv/data
 
 EXPOSE 8000
 

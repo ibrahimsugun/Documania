@@ -8,7 +8,7 @@
 
 | Faz | PRD | Genel durum | Must sayacı | Kapanış |
 | --- | --- | --- | --- | --- |
-| Faz 0 — MVP | §5.1 | 9 ✅ · 0 ◐ · 93 ⬜ · 0 🔒 | 9/98 Must | AÇIK |
+| Faz 0 — MVP | §5.1 | 13 ✅ · 0 ◐ · 89 ⬜ · 0 🔒 | 13/98 Must | AÇIK |
 | Faz 1 — v1 | §5.2 | 0 ✅ · 0 ◐ · 0 ⬜ · 32 🔒 | 0/21 Must | AÇIK |
 | Faz 2 — v2 | §5.3 | 0 ✅ · 0 ◐ · 0 ⬜ · 13 🔒 | 0/0 Must | AÇIK |
 | Faz 3 — Enterprise | §5.4 | 0 ✅ · 0 ◐ · 0 ⬜ · 8 🔒 | 0/0 Must | AÇIK |
@@ -78,10 +78,10 @@ panelde `plan-count-drift` bulgusu doğurur.
 | 00.3.1 | Veri modeli (§8'deki 15 tablo) | Must (MVP) | ✅ → K00.3 |
 | 00.3.2 | Göç altyapısı | Must (MVP) | ✅ → K00.3 |
 | 00.3.3 | Çalışan numarası üretici | Must (MVP) | ✅ → K00.3 |
-| 00.4.1 | Veri dizini otomatik oluşturma | Must (MVP) | ⬜ |
-| 00.4.2 | İsim sadeleştirme (slug) | Must (MVP) | ⬜ |
-| 00.4.3 | Çıktı adlandırma ve sıra eki | Must (MVP) | ⬜ |
-| 00.4.4 | Bütünlük ve atomik yazma | Must (MVP) | ⬜ |
+| 00.4.1 | Veri dizini otomatik oluşturma | Must (MVP) | ✅ → K00.4 |
+| 00.4.2 | İsim sadeleştirme (slug) | Must (MVP) | ✅ → K00.4 |
+| 00.4.3 | Çıktı adlandırma ve sıra eki | Must (MVP) | ✅ → K00.4 |
+| 00.4.4 | Bütünlük ve atomik yazma | Must (MVP) | ✅ → K00.4 |
 | 00.5.1 | Olay logu altyapısı | Must (MVP) | ⬜ |
 | 00.5.2 | Olay bağlamı yöneticisi | Must (MVP) | ⬜ |
 | 00.6.1 | Katalog şeması ve tutarlılık kuralı | Must (MVP) | ⬜ |
@@ -320,6 +320,15 @@ Onay beklemeden yapılan varsayımlar buraya numaralı olarak yazılır.
   advisory kilide dayanır. Yan etkisi: SQLite'ta açık kalan oturum diğer yazarları bekletir.
 - **C5** — `queue_items` §8.1'deki alanlarla (upload_id + plan_item_id) plana bağlanır;
   K18 plan sürümleri arasında öğe kimliği ayrımı gerekirse 06.6.2 göçle `plan_id` ekler.
+- **C6** — Depolama (tm 4): slug Türkçe harfleri §20.2.1 eşlemesiyle, Rusça Kiril'i ICAO
+  9303 eşlemesiyle, Arapçayı sade ünsüz eşlemesiyle (ICAO'nun `X`'li biçimi değil) Latin'e
+  indirir; tablo dışı yazıdan (ör. Çince) karakter kalmazsa `SlugError` verir. Kişi adı
+  kelimeleri büyük harfle başlar (`VASILEV → Vasilev`), isimdeki tire `_` olur, isim ve etiket
+  parçaları 64 karakterle sınırlıdır. Sıra eki: aynı gövdeli dosya uzantısı farklı da olsa
+  (`.jpeg`/`.png`) aynı türden sayılır, karşılaştırma harf büyüklüğüne duyarsızdır, arada boş
+  kalmış ilk ek kullanılır. Yeni dosya sabit bağla (`os.link`) yayınlanır — hard link
+  desteklemeyen dosya sisteminde yazma açık hatayla durur. Öldürülmüş yazmanın gizli geçici
+  dosyası açılışta, 1 saatten eskiyse silinir. Kapsayıcı `/srv/data` adlı volume kullanır.
 
 ## D. Sapmalar
 
@@ -472,3 +481,9 @@ var olan maddeler silinmez. Biçim:
 - ✅ §8.1'deki 16 tablo SQLAlchemy 2.x modeli (isimlendirme kuralı, UTC zaman tipi, silme kaskadı yok); iki yönlü ilişkiler, FK/CHECK/UNIQUE kısıtları testte doğrulandı — `app/db/models.py` · `app/db/session.py` · test `tests/db/test_models.py` (11) · `tests/db/test_session.py` (4) · tm 3
 - ✅ Alembic zinciri (`0001`): temiz SQLite ve PostgreSQL 16 üzerinde `alembic upgrade head` exit 0, `alembic check` şema farkı yok, `DATABASE_URL` CLI yolu — `alembic.ini` · `alembic/env.py` · `alembic/versions/0001_initial_schema.py` · test `tests/db/test_migrations.py` (5; PG testi `BELGEEE_TEST_POSTGRES_URL` ile, geçici `postgres:16-alpine` üzerinde koşuldu) · tm 3
 - ✅ `allocate_employee_number`: `E0001` biçimi, sayısal artış (`E9999 → E10000`), eşzamanlı 50 çağrıda çakışma yok (SQLite `BEGIN IMMEDIATE`, PG advisory kilit; kilitsiz kontrol denemesinde PG 46/50, SQLite 21/50 çakıştı) — `app/db/models.py` · test `tests/db/test_employee_number.py` (12; PG eşzamanlılık testi PG 16'da yeşil) · tm 3
+
+#### K00.4 — 00.4.1–00.4.4 · Depolama katmanı: yol, slug, adlandırma, atomik yazma
+- ✅ 00.4.1 uygulama açılışında (FastAPI lifespan) §8.2'nin sabit ağacı kurulur, tekrar açılış mevcut dosyaya dokunmaz; kimlikli yollar (`Inbox/<upload_id>`, `Employees/<klasör>/Alinan|Hazir|profil.md`, kuyruk + `reason.json`, `Archive/<yyyy-mm>`, `catalog.yaml`, `examples/<slug>`, `cache/pages/<file_id>`) tek yerden, `..`/`/` içeren parça reddedilerek üretilir; kapsayıcıda `docker compose up --build` → healthy, `/srv/data` ağacı kuruldu — `app/storage/layout.py` · `app/main.py` · `Dockerfile` · `docker-compose.yml` · test `tests/storage/test_layout.py` (9 fonksiyon / 19 durum) · tm 4
+- ✅ 00.4.2 Türkçe, Kiril (Rusça/Ukraynaca/Sırpça/Kazakça) ve Arap (hareke, sunum biçimi, Arap-Hint rakamı dahil) isimler `[A-Za-z0-9_-]` kümesine iner; Latin-1/Latin Genişletilmiş, Kiril, Arapça ve Arapça sunum biçimi bloklarının her karakteri testte taranır — `app/storage/slug.py` · test `tests/storage/test_slug.py` (11 fonksiyon / 36 durum) · tm 4
+- ✅ 00.4.3 `Ad_Soyad_E0001` klasör ve `Ad_Soyad-Belge-Turu.ext` dosya adı; aynı türden ikinci belge `-2`, üçüncü `-3`; mevcut dosyanın üzerine yazılmaz (farklı harf büyüklüğü, farklı uzantı, tarama sonrası yarış ve 16 eşzamanlı yazar dahil) — `app/storage/naming.py` · `app/storage/atomic.py` · test `tests/storage/test_naming.py` (10 fonksiyon / 26 durum) · `tests/storage/test_atomic.py` (21 fonksiyon / 23 durum) · tm 4
+- ✅ 00.4.4 SHA-256 yazarken hesaplanır (`sha256_file` ile eşit); istisna, `KeyboardInterrupt`, `fsync`/yayın hatası ve **öldürülen alt süreçte** hedef adda yarım dosya kalmaz, geçici dosya silinir/açılışta temizlenir; `replace_file` kesilirse eski içerik korunur; POSIX yolu (`os.link` + dizin `fsync`) Linux kapsayıcısında elle doğrulandı — `app/storage/atomic.py` · test `tests/storage/test_atomic.py` · tm 4
