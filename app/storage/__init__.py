@@ -15,6 +15,7 @@ from app.storage.atomic import (
 )
 from app.storage.filetype import FileKind, UnsupportedFileTypeError, detect_file_kind
 from app.storage.hashing import find_original_by_sha256
+from app.storage.inbox import write_to_inbox
 from app.storage.layout import DataLayout, prepare_data_dir
 from app.storage.naming import (
     document_stem,
@@ -45,4 +46,5 @@ __all__ = [
     "slugify",
     "write_file",
     "write_sequenced",
+    "write_to_inbox",
 ]

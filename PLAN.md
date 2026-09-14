@@ -8,7 +8,7 @@
 
 | Faz | PRD | Genel durum | Must sayacı | Kapanış |
 | --- | --- | --- | --- | --- |
-| Faz 0 — MVP | §5.1 | 24 ✅ · 0 ◐ · 78 ⬜ · 0 🔒 | 23/98 Must | AÇIK |
+| Faz 0 — MVP | §5.1 | 25 ✅ · 0 ◐ · 77 ⬜ · 0 🔒 | 24/98 Must | AÇIK |
 | Faz 1 — v1 | §5.2 | 0 ✅ · 0 ◐ · 0 ⬜ · 32 🔒 | 0/21 Must | AÇIK |
 | Faz 2 — v2 | §5.3 | 0 ✅ · 0 ◐ · 0 ⬜ · 13 🔒 | 0/0 Must | AÇIK |
 | Faz 3 — Enterprise | §5.4 | 0 ✅ · 0 ◐ · 0 ⬜ · 8 🔒 | 0/0 Must | AÇIK |
@@ -98,7 +98,7 @@ panelde `plan-count-drift` bulgusu doğurur.
 | 01.2.2 | Desteklenmeyen türün reddi | Must (MVP) | ✅ → K01.2 |
 | 01.3.1 | Boyut ve sayfa sınırı | Must (MVP) | ✅ → K01.3 |
 | 01.4.1 | Tekrar yükleme tespiti | Must (MVP) | ✅ → K01.4 |
-| 01.5.1 | Inbox'a değişmez yazma | Must (MVP) | ⬜ |
+| 01.5.1 | Inbox'a değişmez yazma | Must (MVP) | ✅ → K01.5 |
 | 01.6.1 | Parti durumu sorgulama | Must (MVP) | ⬜ |
 
 ### 3.3 FR-MOD-02 — Sayfa üretimi
@@ -536,3 +536,6 @@ var olan maddeler silinmez. Biçim:
 
 #### K01.4 — 01.4.1 · Tekrar yükleme tespiti (SHA-256)
 - ✅ `find_original_by_sha256`: aynı SHA-256 daha önce yüklenmişse özgün (`is_duplicate_of IS NULL`) satırı döner, zincirlenmeyi önlemek için tekrarın kendisi asla kök sayılmaz; yükleme uç noktası her dosya için bu sorguyu çalıştırır — eşleşme varsa dosya yine K10 gereği değişmeden Inbox'a yazılır, `UploadFile.is_duplicate_of` kök satıra bağlanır ve `FILE_UPLOADED` yerine `FILE_DUPLICATE` olayı (`duplicate_of_file_id` verisiyle) yazılır; analiz adımı henüz yok, bu bayrağı okuyup atlamak sonraki bir görevin işi — `app/storage/hashing.py` · `app/web/routers/uploads.py` · test `tests/storage/test_hashing.py` (4) · `tests/web/test_uploads.py` (+2) · tm 10
+
+#### K01.5 — 01.5.1 · Inbox'a değişmez yazma
+- ✅ `write_to_inbox(layout, upload_id, name, content)` — `Inbox/<upload_id>/<name>` yoluna `write_file`'ın sabit bağ garantisiyle yazar; aynı ada ikinci yazma denemesi `FileExistsError` ile reddedilir, orijinal içerik değişmeden kalır. Yükleme uç noktası artık `inbox_dir / name` ile elle yol kurup `write_file` çağırmak yerine bu sarmalayıcıyı kullanıyor (yol kuralı tek yerde, MASTER-PROMPT §4) — `app/storage/inbox.py` · `app/web/routers/uploads.py` · test `tests/storage/test_inbox.py` (3) · tm 11

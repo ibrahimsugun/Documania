@@ -18,6 +18,12 @@ Blok biçimi `CONVENTIONS.md` §3'te tanımlıdır:
 
 ## Task log (newest-first)
 
+## 11 — 01.5 Inbox'a değişmez yazma — done — 2026-09-14
+- Yapıldı: `write_to_inbox(layout, upload_id, name, content)` (`app/storage/inbox.py`) — Inbox yazımını tek bir yüzeye topladı; `write_file`'ın sabit bağ garantisi sayesinde aynı `Inbox/<upload_id>/<name>` yoluna ikinci yazma `FileExistsError` ile reddedilir. Yükleme uç noktası artık elle `inbox_dir / name` kurup `write_file` çağırmak yerine bunu kullanıyor.
+- Doğrulama: ruff check/format, compileall, `pytest -q -m "not live"` (283 geçti, +3 Inbox durumu; 3 PG testi ortam değişkeni yokken atlandı), kapsam %99.05 (`app/storage/inbox.py` %100), temiz SQLite'ta `alembic upgrade head`, `import app.main` — hepsi exit 0.
+- Varsayımlar: yok — davranış (K10 immutable yazma) zaten tm 7'de doğru kurulmuştu, bu görev onu adlandırılmış/test edilmiş bir yüzeye çıkardı.
+- Sonraki pencereye not: Inbox'a yazan her yeni kod `app.storage.write_to_inbox` çağırmalı, doğrudan `write_file(layout.upload_inbox_dir(...) / name, ...)` kurmamalı.
+
 ## 10 — 01.4 Tekrar yükleme tespiti (SHA-256) — done — 2026-09-14
 - Yapıldı: `find_original_by_sha256` (K10) — aynı SHA-256'nın daha önce yüklenmiş özgün satırını bulur (zincirlenmeyi önlemek için yalnız `is_duplicate_of IS NULL` satırlara bakar); yükleme uç noktasına bağlandı — eşleşme varsa dosya yine değişmeden Inbox'a yazılır, `UploadFile.is_duplicate_of` kök satıra işaret eder, `FILE_UPLOADED` yerine `FILE_DUPLICATE` olayı (`duplicate_of_file_id` verisiyle) yazılır.
 - Doğrulama: ruff check/format, compileall, `pytest -q -m "not live"` (280 geçti, +6 tekrar tespiti durumu; 3 PG testi ortam değişkeni yokken atlandı), kapsam %99.22 (`app/storage/hashing.py` ve `app/web/routers/uploads.py` %100), temiz SQLite'ta `alembic upgrade head`, `import app.main` — hepsi exit 0.

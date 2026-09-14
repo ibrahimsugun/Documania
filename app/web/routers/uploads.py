@@ -31,7 +31,7 @@ from app.storage import (
     UnsupportedFileTypeError,
     detect_file_kind,
     find_original_by_sha256,
-    write_file,
+    write_to_inbox,
 )
 
 router = APIRouter(prefix="/api/uploads", tags=["uploads"])
@@ -113,10 +113,9 @@ async def create_upload(
     )
     session.flush()
 
-    inbox_dir = layout.upload_inbox_dir(upload_id)
     with event_context(upload_id=upload_id):
         for file, name, content in zip(files, names, contents, strict=True):
-            stored = write_file(inbox_dir / name, content)
+            stored = write_to_inbox(layout, upload_id, name, content)
             # K10: içerik hâlâ değişmez biçimde Inbox'a yazılır; tekrar yalnız işaretlenir,
             # dosya reddedilmez. Analiz adımı (henüz yok) `is_duplicate_of` alanına bakarak
             # bu satırı atlayacak.
