@@ -8,7 +8,7 @@
 
 | Faz | PRD | Genel durum | Must sayacı | Kapanış |
 | --- | --- | --- | --- | --- |
-| Faz 0 — MVP | §5.1 | 13 ✅ · 0 ◐ · 89 ⬜ · 0 🔒 | 13/98 Must | AÇIK |
+| Faz 0 — MVP | §5.1 | 15 ✅ · 0 ◐ · 87 ⬜ · 0 🔒 | 15/98 Must | AÇIK |
 | Faz 1 — v1 | §5.2 | 0 ✅ · 0 ◐ · 0 ⬜ · 32 🔒 | 0/21 Must | AÇIK |
 | Faz 2 — v2 | §5.3 | 0 ✅ · 0 ◐ · 0 ⬜ · 13 🔒 | 0/0 Must | AÇIK |
 | Faz 3 — Enterprise | §5.4 | 0 ✅ · 0 ◐ · 0 ⬜ · 8 🔒 | 0/0 Must | AÇIK |
@@ -82,8 +82,8 @@ panelde `plan-count-drift` bulgusu doğurur.
 | 00.4.2 | İsim sadeleştirme (slug) | Must (MVP) | ✅ → K00.4 |
 | 00.4.3 | Çıktı adlandırma ve sıra eki | Must (MVP) | ✅ → K00.4 |
 | 00.4.4 | Bütünlük ve atomik yazma | Must (MVP) | ✅ → K00.4 |
-| 00.5.1 | Olay logu altyapısı | Must (MVP) | ⬜ |
-| 00.5.2 | Olay bağlamı yöneticisi | Must (MVP) | ⬜ |
+| 00.5.1 | Olay logu altyapısı | Must (MVP) | ✅ → K00.5 |
+| 00.5.2 | Olay bağlamı yöneticisi | Must (MVP) | ✅ → K00.5 |
 | 00.6.1 | Katalog şeması ve tutarlılık kuralı | Must (MVP) | ⬜ |
 | 00.6.2 | Başlangıç belge türleri | Must (MVP) | ⬜ |
 | 00.6.3 | Katalog YAML ↔ veritabanı eşitleme | Should (v1) | ⬜ |
@@ -487,3 +487,7 @@ var olan maddeler silinmez. Biçim:
 - ✅ 00.4.2 Türkçe, Kiril (Rusça/Ukraynaca/Sırpça/Kazakça) ve Arap (hareke, sunum biçimi, Arap-Hint rakamı dahil) isimler `[A-Za-z0-9_-]` kümesine iner; Latin-1/Latin Genişletilmiş, Kiril, Arapça ve Arapça sunum biçimi bloklarının her karakteri testte taranır — `app/storage/slug.py` · test `tests/storage/test_slug.py` (11 fonksiyon / 36 durum) · tm 4
 - ✅ 00.4.3 `Ad_Soyad_E0001` klasör ve `Ad_Soyad-Belge-Turu.ext` dosya adı; aynı türden ikinci belge `-2`, üçüncü `-3`; mevcut dosyanın üzerine yazılmaz (farklı harf büyüklüğü, farklı uzantı, tarama sonrası yarış ve 16 eşzamanlı yazar dahil) — `app/storage/naming.py` · `app/storage/atomic.py` · test `tests/storage/test_naming.py` (10 fonksiyon / 26 durum) · `tests/storage/test_atomic.py` (21 fonksiyon / 23 durum) · tm 4
 - ✅ 00.4.4 SHA-256 yazarken hesaplanır (`sha256_file` ile eşit); istisna, `KeyboardInterrupt`, `fsync`/yayın hatası ve **öldürülen alt süreçte** hedef adda yarım dosya kalmaz, geçici dosya silinir/açılışta temizlenir; `replace_file` kesilirse eski içerik korunur; POSIX yolu (`os.link` + dizin `fsync`) Linux kapsayıcısında elle doğrulandı — `app/storage/atomic.py` · test `tests/storage/test_atomic.py` · tm 4
+
+#### K00.5 — 00.5.1, 00.5.2 · Olay logu altyapısı
+- ✅ 00.5.1 PRD §8.3'teki 37 olay türü `EventType(enum.StrEnum)` sabit listesi; `record_event` her olayı `events` tablosuna yazar — `app/events.py` · test `tests/test_events.py` (7) · tm 5
+- ✅ 00.5.2 `event_context` (contextvar tabanlı, iç içe kullanımda belirtilmeyen alanları dıştan miras alır) içinde atılan olaylar upload/file/page alanlarını açıkça verilmedikçe otomatik taşır — `app/events.py` · test `tests/test_events.py` (7) · tm 5

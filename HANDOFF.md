@@ -18,6 +18,12 @@ Blok biçimi `CONVENTIONS.md` §3'te tanımlıdır:
 
 ## Task log (newest-first)
 
+## 5 — 00.5 Olay logu altyapısı — done — 2026-09-14
+- Yapıldı: `app/events.py` — PRD §8.3'teki 37 olay türü için `EventType(enum.StrEnum)`, `record_event` (bir olayı `events` tablosuna yazar) ve `event_context` (contextvar tabanlı, upload/file/page alanlarını içteki `record_event` çağrılarına açıkça verilmedikçe otomatik taşıyan, iç içe kullanımda belirtilmeyen alanları dıştan miras alan bağlam yöneticisi).
+- Doğrulama: ruff check/format, compileall, `pytest -q -m "not live"` (147 geçti, +7 olay testi), kapsam %98.71 (`app/events.py` %100), temiz SQLite'ta `alembic upgrade head`, `import app.main` — hepsi exit 0.
+- Varsayımlar: yok.
+- Sonraki pencereye not: Olay atan her pipeline adımı `record_event(session, EventType.X, ...)` çağırır; upload/file/page bağlamını elle her çağrıda tekrarlamak yerine ilgili blok `with event_context(upload_id=..., file_id=..., page_index=...):` ile sarılır.
+
 ## 4 — 00.4 Depolama katmanı: yol, slug, adlandırma, atomik yazma — done — 2026-09-14
 - Yapıldı: `app/storage/` — `DataLayout` (§8.2 yolları, açılışta `prepare_data_dir` ile FastAPI lifespan'de ağaç kurulumu), `slugify` (Türkçe/Kiril/Arap → `[A-Za-z0-9_-]`), K8 adları (`employee_folder_name`, `document_stem`, `-2`/`-3`), atomik yazma (`write_file`/`copy_file`/`write_sequenced` sabit bağla üzerine yazmadan, `replace_file` türev dosyalar için, SHA-256 yazarken); kapsayıcıya `/srv/data` volume + `DATABASE_URL` eklendi.
 - Doğrulama: ruff check/format, compileall, `pytest -q -m "not live"` (140 geçti, +104 depolama durumu; 2 PG testi atlandı), kapsam %98.9, temiz SQLite'ta `alembic upgrade head`, `import app.main`, `docker compose config` exit 0; `docker compose up --build` → healthy + `/srv/data` ağacı; POSIX yazma yolu Linux kapsayıcısında elle denendi.
