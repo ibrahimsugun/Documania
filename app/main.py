@@ -8,6 +8,7 @@ from fastapi import FastAPI
 from app.catalog import install_seed_catalog
 from app.config import Settings, get_settings
 from app.storage import prepare_data_dir
+from app.web.routers import uploads
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -20,6 +21,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         yield
 
     application = FastAPI(title="belgeee", lifespan=lifespan)
+    application.include_router(uploads.router)
 
     @application.get("/health")
     def health() -> dict[str, str]:

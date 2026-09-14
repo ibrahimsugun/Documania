@@ -18,6 +18,12 @@ Blok biçimi `CONVENTIONS.md` §3'te tanımlıdır:
 
 ## Task log (newest-first)
 
+## 7 — 01.1 Yükleme uç noktası ve parti oluşturma — done — 2026-09-14
+- Yapıldı: `POST /api/uploads` — çoklu dosyayı tek partide kabul eder, her dosyayı `Inbox/<upload_id>/<orijinal_ad>` altına yazar (K10), `upload_id`'yi `u_yyyymmdd_0001` biçiminde günlük sıfırlanan sırayla üretir (`allocate_upload_id`), `context_employee_id` verilirse partiye kaydeder.
+- Doğrulama: ruff check/format, compileall, `pytest -q -m "not live"` (255 geçti, +23 yükleme durumu; 3 PG testi ortam değişkeni yokken atlandı), kapsam %98.96, temiz SQLite'ta `alembic upgrade head`, `import app.main` — hepsi exit 0.
+- Varsayımlar: `channel="web"` sabit (istekte alan yok, panel/bot dışı kanal şimdilik tanımlı değil); dosya `mime` alanı istemcinin bildirdiği `content_type` — içerik tabanlı tespit 01.2'nin işi; sahibi belirsiz dosyanın `context_employee_id`'ye atanması FR-MOD-05 eşleştirme boru hattının işi, bu görev yalnız alanı partiye kaydeder.
+- Sonraki pencereye not: `python-multipart` bağımlılığı eklendi (dosya/form alanı FastAPI'de bunsuz ayrıştırılamaz). Router testleri gerçek `DATABASE_URL`/`DATA_DIR` gerektirmez — `app.dependency_overrides[get_session]`/`[get_layout]` ile (`tests/web/conftest.py`) geçici SQLite + geçici veri dizinine bağlanır; sonraki 01.x görevleri (içerik tespiti, boyut/sayfa sınırı, tekrar tespiti, durum sorgulama) aynı `app/web/routers/uploads.py` dosyasına eklenir.
+
 ## 6 — 00.6 Belge türü kataloğu ve başlangıç tohumu — done — 2026-09-14
 - Yapıldı: `app/catalog/` — §8.6 pydantic sözleşmesi (`direct: true` + dolu `allowed_conversions` tüm kataloğu reddeder), 8 türlük paketli tohum `seed_catalog.yaml` (açılışta `data/KnownDocuments/catalog.yaml` yoksa yazılır), YAML ↔ DB eşitleme (`import_catalog`/`export_catalog`) ve `python -m app.catalog import|export` komutu.
 - Doğrulama: ruff check/format, compileall, `pytest -q -m "not live"` (234 geçti, +87 katalog durumu; 2 PG testi atlandı), kapsam %99, temiz SQLite'ta `alembic upgrade head` + `alembic check`, `import app.main`, CLI import→export bayt bayt tohuma eşit, wheel'de tohum dosyası var — hepsi exit 0.

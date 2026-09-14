@@ -1,0 +1,49 @@
+"""Router testleri için: gerçek `DATABASE_URL`/`DATA_DIR` ortam değişkeni gerektirmeyen,
+`app.dependency_overrides` ile geçici SQLite + geçici veri dizinine bağlanan `TestClient`.
+"""
+
+from collections.abc import Iterator
+from pathlib import Path
+
+import pytest
+from fastapi.testclient import TestClient
+from sqlalchemy import Engine
+from sqlalchemy.orm import Session, sessionmaker
+
+from app.db.models import Base
+from app.db.session import create_db_engine, create_session_factory, get_session
+from app.main import create_app
+from app.storage import DataLayout, prepare_data_dir
+from app.web.routers.uploads import get_layout
+
+
+@pytest.fixture
+def engine(tmp_path: Path) -> Iterator[Engine]:
+    db_engine = create_db_engine(f"sqlite:///{(tmp_path / 'uploads-test.db').as_posix()}")
+    Base.metadata.create_all(db_engine)
+    yield db_engine
+    db_engine.dispose()
+
+
+@pytest.fixture
+def session_factory(engine: Engine) -> sessionmaker[Session]:
+    return create_session_factory(engine)
+
+
+@pytest.fixture
+def layout(tmp_path: Path) -> DataLayout:
+    return prepare_data_dir(tmp_path / "data")
+
+
+@pytest.fixture
+def client(session_factory: sessionmaker[Session], layout: DataLayout) -> Iterator[TestClient]:
+    app = create_app()
+
+    def _override_get_session() -> Iterator[Session]:
+        with session_factory() as session:
+            yield session
+
+    app.dependency_overrides[get_session] = _override_get_session
+    app.dependency_overrides[get_layout] = lambda: layout
+    yield TestClient(app)
+    app.dependency_overrides.clear()

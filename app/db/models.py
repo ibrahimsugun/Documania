@@ -434,3 +434,33 @@ def allocate_employee_number(session: Session) -> str:
     sequence = cast(func.substr(Employee.id, len(EMPLOYEE_NUMBER_PREFIX) + 1), Integer)
     current = session.scalar(select(func.max(sequence)))
     return format_employee_number((current or 0) + 1)
+
+
+# --- yükleme parti kimliği üretici (01.1.1) ------------------------------------------------
+
+UPLOAD_ID_PREFIX = "u"
+_UPLOAD_ID_LOCK_KEY = zlib.crc32(b"belgeee.uploads.id")
+
+
+def format_upload_id(day: date, sequence: int) -> str:
+    """`(2026-09-05, 1) → u_20260905_0001` (PRD §8.5 örneği)."""
+    if sequence < 1:
+        raise ValueError(f"Yükleme sıra numarası 1 veya büyük olmalı: {sequence}")
+    return f"{UPLOAD_ID_PREFIX}_{day:%Y%m%d}_{sequence:04d}"
+
+
+def allocate_upload_id(session: Session, *, today: date | None = None) -> str:
+    """Bu partinin `upload_id`'sini verir; sıra numarası her gün 1'den başlar.
+
+    Sözleşme ve eşzamanlılık garantisi `allocate_employee_number` ile aynıdır: dönen
+    kimlikle `Upload` **aynı işlemde** eklenip commit edilir; tahsis işlem sonuna kadar
+    kilitlidir (SQLite `BEGIN IMMEDIATE`, PostgreSQL işlem ömürlü advisory kilit).
+    """
+    if session.get_bind().dialect.name == "postgresql":
+        session.execute(select(func.pg_advisory_xact_lock(_UPLOAD_ID_LOCK_KEY)))
+    session.flush()
+    day = today or utcnow().date()
+    prefix = f"{UPLOAD_ID_PREFIX}_{day:%Y%m%d}_"
+    sequence = cast(func.substr(Upload.id, len(prefix) + 1), Integer)
+    current = session.scalar(select(func.max(sequence)).where(Upload.id.like(f"{prefix}%")))
+    return format_upload_id(day, (current or 0) + 1)

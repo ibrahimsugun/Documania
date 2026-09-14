@@ -8,7 +8,7 @@
 
 | Faz | PRD | Genel durum | Must sayacı | Kapanış |
 | --- | --- | --- | --- | --- |
-| Faz 0 — MVP | §5.1 | 18 ✅ · 0 ◐ · 84 ⬜ · 0 🔒 | 17/98 Must | AÇIK |
+| Faz 0 — MVP | §5.1 | 20 ✅ · 0 ◐ · 82 ⬜ · 0 🔒 | 19/98 Must | AÇIK |
 | Faz 1 — v1 | §5.2 | 0 ✅ · 0 ◐ · 0 ⬜ · 32 🔒 | 0/21 Must | AÇIK |
 | Faz 2 — v2 | §5.3 | 0 ✅ · 0 ◐ · 0 ⬜ · 13 🔒 | 0/0 Must | AÇIK |
 | Faz 3 — Enterprise | §5.4 | 0 ✅ · 0 ◐ · 0 ⬜ · 8 🔒 | 0/0 Must | AÇIK |
@@ -92,8 +92,8 @@ panelde `plan-count-drift` bulgusu doğurur.
 
 | PRD | Gereksinim | Öncelik | Durum |
 | --- | --- | --- | --- |
-| 01.1.1 | Çoklu dosya yükleme uç noktası | Must (MVP) | ⬜ |
-| 01.1.2 | Bağlam çalışanı ile yükleme | Must (MVP) | ⬜ |
+| 01.1.1 | Çoklu dosya yükleme uç noktası | Must (MVP) | ✅ → K01.1 |
+| 01.1.2 | Bağlam çalışanı ile yükleme | Must (MVP) | ✅ → K01.1 |
 | 01.2.1 | İçerik tabanlı tür tespiti | Must (MVP) | ⬜ |
 | 01.2.2 | Desteklenmeyen türün reddi | Must (MVP) | ⬜ |
 | 01.3.1 | Boyut ve sayfa sınırı | Must (MVP) | ⬜ |
@@ -517,3 +517,6 @@ var olan maddeler silinmez. Biçim:
 - ✅ 00.6.1 pydantic sözleşme §8.6'nın tüm alanlarını (`acceptance_criteria` dahil) ve `known_document_types`'ın her sütununu tanımlar; `direct: true` türde `allowed_conversions` doluysa katalog bütün olarak reddedilir (yanındaki geçerli kayıt da yüklenmez, CLI exit 1, DB'de 0 satır); geçersiz enum/tip/eksik alan/yazım hatalı anahtar/tekrar/sayfa aralığı hata satırıyla reddedilir — `app/catalog/schema.py` · test `tests/catalog/test_schema.py` (14 fonksiyon / 47 durum) · tm 6
 - ✅ 00.6.2 8 türlük tohum: Russian/Turkish/Serbian Passport, Serbian Residence Card, Serbian Driving License, Work Permit, Profile Picture, Attachment; `russian_passport` §8.6 örneğine eşit; açılışta `data/KnownDocuments/catalog.yaml` yoksa yazılır, varsa korunur; temiz SQLite'ta `alembic upgrade head` + `python -m app.catalog import` → 8 tür; wheel içinde `app/catalog/seed_catalog.yaml` var — `app/catalog/seed_catalog.yaml` · `app/catalog/yaml_io.py` · `app/main.py` · `pyproject.toml` · test `tests/catalog/test_seed.py` (11) · tm 6
 - ✅ 00.6.3 YAML → DB (slug'a göre ekle/güncelle, katalogda olmayan türe dokunmaz) ve DB → YAML (atomik `replace_file`); tohum → DB → dışa aktarım bayt bayt aynı (testte ve CLI ile elle), DB'deki düzenleme dışa aktarımla YAML'a geçer, tekrarlanan içe aktarma değişiklik yapmaz; `python -m app.catalog import|export` — `app/catalog/sync.py` · `app/catalog/yaml_io.py` · `app/catalog/__main__.py` · test `tests/catalog/test_sync.py` (9) · `tests/catalog/test_yaml_io.py` (10 fonksiyon / 12 durum) · `tests/catalog/test_cli.py` (8) · tm 6
+
+#### K01.1 — 01.1.1, 01.1.2 · Yükleme uç noktası ve parti oluşturma
+- ✅ `POST /api/uploads`: çoklu dosyayı tek partide kabul eder, her dosyayı `Inbox/<upload_id>/<orijinal_ad>` altına değişmez yazar (K10, `write_file`), `sha256`/`mime` ile `upload_files` satırı açar, her dosya için `FILE_UPLOADED` olayı yazar; `upload_id` `u_yyyymmdd_0001` biçiminde günlük sıfırlanan sırayla üretilir (`allocate_upload_id`, `allocate_employee_number` ile aynı kilit deseni); istek `context_employee_id` taşıyabilir ve partiye kaydedilir (var olmayan çalışan 404), aynı partide aynı adda dosya ve yol ayracı/`..` içeren ad 400 ile reddedilir — `app/web/routers/uploads.py` · `app/db/models.py` (`allocate_upload_id`) · `app/main.py` · test `tests/web/test_uploads.py` (9) · `tests/db/test_upload_id.py` (13; PG eşzamanlılık testi `BELGEEE_TEST_POSTGRES_URL` ile) · tm 7
