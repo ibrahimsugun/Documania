@@ -18,6 +18,12 @@ Blok biçimi `CONVENTIONS.md` §3'te tanımlıdır:
 
 ## Task log (newest-first)
 
+## 8 — 01.2 İçerik tabanlı dosya türü tespiti — done — 2026-09-14
+- Yapıldı: `detect_file_kind(content)` — yalnız içerik baytlarına bakarak PDF/JPEG/PNG (imza), DOCX/XLSX (ZIP içi `word/document.xml`/`xl/workbook.xml`) ve eski DOC/XLS'i (CFBF içi UTF-16LE `WordDocument`/`Workbook`/`Book` akış adı) tanır; yedi türün dışındaki içerik `UnsupportedFileTypeError` ile Türkçe anlaşılır mesajla reddedilir.
+- Doğrulama: ruff check/format, compileall, `pytest -q -m "not live"` (269 geçti, +14 dosya türü durumu; 3 PG testi ortam değişkeni yokken atlandı), kapsam %99.19 (`app/storage/filetype.py` %100), temiz SQLite'ta `alembic upgrade head`, `import app.main` — hepsi exit 0.
+- Varsayımlar: Görevin ÇIKTI'sı yalnız `app/storage/filetype.py` olduğu için `uploads.py`'ye entegre edilmedi (mime alanı hâlâ istemcinin bildirdiği `content_type`); tm 9 (01.3) zaten `uploads.py`'ye dokunuyor, kablolama muhtemelen o veya sonraki bir görevin işi.
+- Sonraki pencereye not: Tür tespiti `app.storage.detect_file_kind` / `FileKind` / `UnsupportedFileTypeError` olarak dışa açık; yükleme akışına bağlamak isteyen görev `app/web/routers/uploads.py`'de `file.content_type` yerine bunu çağırmalı.
+
 ## 7 — 01.1 Yükleme uç noktası ve parti oluşturma — done — 2026-09-14
 - Yapıldı: `POST /api/uploads` — çoklu dosyayı tek partide kabul eder, her dosyayı `Inbox/<upload_id>/<orijinal_ad>` altına yazar (K10), `upload_id`'yi `u_yyyymmdd_0001` biçiminde günlük sıfırlanan sırayla üretir (`allocate_upload_id`), `context_employee_id` verilirse partiye kaydeder.
 - Doğrulama: ruff check/format, compileall, `pytest -q -m "not live"` (255 geçti, +23 yükleme durumu; 3 PG testi ortam değişkeni yokken atlandı), kapsam %98.96, temiz SQLite'ta `alembic upgrade head`, `import app.main` — hepsi exit 0.

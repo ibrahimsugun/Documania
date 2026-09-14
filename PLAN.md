@@ -8,7 +8,7 @@
 
 | Faz | PRD | Genel durum | Must sayacı | Kapanış |
 | --- | --- | --- | --- | --- |
-| Faz 0 — MVP | §5.1 | 20 ✅ · 0 ◐ · 82 ⬜ · 0 🔒 | 19/98 Must | AÇIK |
+| Faz 0 — MVP | §5.1 | 22 ✅ · 0 ◐ · 80 ⬜ · 0 🔒 | 21/98 Must | AÇIK |
 | Faz 1 — v1 | §5.2 | 0 ✅ · 0 ◐ · 0 ⬜ · 32 🔒 | 0/21 Must | AÇIK |
 | Faz 2 — v2 | §5.3 | 0 ✅ · 0 ◐ · 0 ⬜ · 13 🔒 | 0/0 Must | AÇIK |
 | Faz 3 — Enterprise | §5.4 | 0 ✅ · 0 ◐ · 0 ⬜ · 8 🔒 | 0/0 Must | AÇIK |
@@ -94,8 +94,8 @@ panelde `plan-count-drift` bulgusu doğurur.
 | --- | --- | --- | --- |
 | 01.1.1 | Çoklu dosya yükleme uç noktası | Must (MVP) | ✅ → K01.1 |
 | 01.1.2 | Bağlam çalışanı ile yükleme | Must (MVP) | ✅ → K01.1 |
-| 01.2.1 | İçerik tabanlı tür tespiti | Must (MVP) | ⬜ |
-| 01.2.2 | Desteklenmeyen türün reddi | Must (MVP) | ⬜ |
+| 01.2.1 | İçerik tabanlı tür tespiti | Must (MVP) | ✅ → K01.2 |
+| 01.2.2 | Desteklenmeyen türün reddi | Must (MVP) | ✅ → K01.2 |
 | 01.3.1 | Boyut ve sayfa sınırı | Must (MVP) | ⬜ |
 | 01.4.1 | Tekrar yükleme tespiti | Must (MVP) | ⬜ |
 | 01.5.1 | Inbox'a değişmez yazma | Must (MVP) | ⬜ |
@@ -520,3 +520,6 @@ var olan maddeler silinmez. Biçim:
 
 #### K01.1 — 01.1.1, 01.1.2 · Yükleme uç noktası ve parti oluşturma
 - ✅ `POST /api/uploads`: çoklu dosyayı tek partide kabul eder, her dosyayı `Inbox/<upload_id>/<orijinal_ad>` altına değişmez yazar (K10, `write_file`), `sha256`/`mime` ile `upload_files` satırı açar, her dosya için `FILE_UPLOADED` olayı yazar; `upload_id` `u_yyyymmdd_0001` biçiminde günlük sıfırlanan sırayla üretilir (`allocate_upload_id`, `allocate_employee_number` ile aynı kilit deseni); istek `context_employee_id` taşıyabilir ve partiye kaydedilir (var olmayan çalışan 404), aynı partide aynı adda dosya ve yol ayracı/`..` içeren ad 400 ile reddedilir — `app/web/routers/uploads.py` · `app/db/models.py` (`allocate_upload_id`) · `app/main.py` · test `tests/web/test_uploads.py` (9) · `tests/db/test_upload_id.py` (13; PG eşzamanlılık testi `BELGEEE_TEST_POSTGRES_URL` ile) · tm 7
+
+#### K01.2 — 01.2.1, 01.2.2 · İçerik tabanlı dosya türü tespiti
+- ✅ `detect_file_kind(content)` yalnız ilk baytlardaki imzaya bakar, dosya adı/uzantısı hiç okunmaz — PDF/JPEG/PNG imzası doğrudan, OOXML (DOCX/XLSX) ZIP içindeki `word/document.xml`/`xl/workbook.xml` yoluyla, eski ikili DOC/XLS (CFBF) UTF-16LE `WordDocument`/`Workbook`/`Book` akış adıyla ayırt edilir (K2: DOC/XLS/DOCX/XLSX yalnız tanınır, analiz edilmez); yedi türün dışındaki her içerik (boş, düz metin, bozuk zip, isimsiz OLE) `UnsupportedFileTypeError` ile anlaşılır Türkçe mesajla reddedilir — `app/storage/filetype.py` · test `tests/storage/test_filetype.py` (10 fonksiyon / 14 durum) · tm 8

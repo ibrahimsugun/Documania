@@ -13,6 +13,7 @@ from app.storage.atomic import (
     write_file,
     write_sequenced,
 )
+from app.storage.filetype import FileKind, UnsupportedFileTypeError, detect_file_kind
 from app.storage.layout import DataLayout, prepare_data_dir
 from app.storage.naming import (
     document_stem,
@@ -24,9 +25,12 @@ from app.storage.slug import SlugError, slugify
 
 __all__ = [
     "DataLayout",
+    "FileKind",
     "SlugError",
     "StoredFile",
+    "UnsupportedFileTypeError",
     "copy_file",
+    "detect_file_kind",
     "document_stem",
     "employee_folder_name",
     "person_slug",
