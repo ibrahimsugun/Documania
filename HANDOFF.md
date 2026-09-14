@@ -18,6 +18,12 @@ Blok biçimi `CONVENTIONS.md` §3'te tanımlıdır:
 
 ## Task log (newest-first)
 
+## 18 — 03.1 Sayfa analizi şeması — done — 2026-09-14
+- Yapıldı: `app/ai/schemas.py` — §8.4 pydantic sözleşmesi (`PageAnalysis`, `PagePerson`, `PageContact`, `FieldReading`, `Script`, `Side`, ISO 639-1 kümesi) ve yanıt kabul girişi `validate_page_analysis(data, known_slugs=…)`; uymayan yanıt `PageAnalysisError` (her ihlal konumuyla, değersiz mesaj) ile reddedilir, `PagePerson.employee_fields()` kişiyi `employees` sütunlarına (`other_names` dahil) eşler.
+- Doğrulama: ruff check/format, compileall, `pytest -q -m "not live"` (567 geçti, +165 durum; 3 PG testi ortam değişkeni yokken atlandı), kapsam %99.35 (`app/ai` %100), temiz SQLite'ta `alembic upgrade head` (göç yok), `import app.main` — hepsi exit 0.
+- Varsayımlar: PLAN.md §C12 — tüm §8.4 anahtarları zorunlu, `person`/`contact` hep nesne, okunmayan değer `null`; metinsiz sayfada `language`/`script` `null` olabilir; `legible: true` ⇔ `value` dolu; slug katalog denetimi yalnız yanıt kabulünde (saklanan `analysis_json` katalogsuz `PageAnalysis.model_validate` ile okunur).
+- Sonraki pencereye not: 03.2 yapılandırılmış çıktı için `PageAnalysis.model_json_schema()`'yı kullanmalı (tüm anahtarlar `required`, `language`/`script`/`side` `enum`); sağlayıcı yanıtı mutlaka `validate_page_analysis`'ten geçmeli — `known_slugs` analizde prompta verilen kataloğun slug'larıdır. MRZ satır biçimi şemada denetlenmez (05.3'ün işi).
+
 ## 17 — 02.5 Gömülü tek görüntü tespiti — done — 2026-09-14
 - Yapıldı: `single_full_page_image_xref`/`detect_pdf_single_image_pages`/`mark_upload_file_single_image_pages` (`app/pipeline/render.py`) — sayfa MuPDF kayıt aygıtıyla (`_PaintRecorder`, `pymupdf.mupdf.FzDevice2`) çalıştırılır; yalnız çıkarılan görüntünün sayfada görünenle aynı olduğu kesinse `pages.has_single_embedded_image=True` yazılır ve xref döner.
 - Doğrulama: ruff check/format, compileall, `pytest -q -m "not live"` (402 geçti, +38 durum; 3 PG testi ortam değişkeni yokken atlandı), kapsam %99.30 (yeni kod %100), temiz SQLite'ta `alembic upgrade head` (göç yok), `import app.main` — hepsi exit 0.

@@ -8,7 +8,7 @@
 
 | Faz | PRD | Genel durum | Must sayacı | Kapanış |
 | --- | --- | --- | --- | --- |
-| Faz 0 — MVP | §5.1 | 31 ✅ · 0 ◐ · 71 ⬜ · 0 🔒 | 30/98 Must | AÇIK |
+| Faz 0 — MVP | §5.1 | 35 ✅ · 0 ◐ · 67 ⬜ · 0 🔒 | 34/98 Must | AÇIK |
 | Faz 1 — v1 | §5.2 | 0 ✅ · 0 ◐ · 0 ⬜ · 32 🔒 | 0/21 Must | AÇIK |
 | Faz 2 — v2 | §5.3 | 0 ✅ · 0 ◐ · 0 ⬜ · 13 🔒 | 0/0 Must | AÇIK |
 | Faz 3 — Enterprise | §5.4 | 0 ✅ · 0 ◐ · 0 ⬜ · 8 🔒 | 0/0 Must | AÇIK |
@@ -115,10 +115,10 @@ panelde `plan-count-drift` bulgusu doğurur.
 
 | PRD | Gereksinim | Öncelik | Durum |
 | --- | --- | --- | --- |
-| 03.1.1 | Sayfa analizi şeması | Must (MVP) | ⬜ |
-| 03.1.2 | Dil ve alfabe tespiti | Must (MVP) | ⬜ |
-| 03.1.3 | Diğer isimler alanı | Must (MVP) | ⬜ |
-| 03.1.4 | İletişim bilgisi alanları | Must (MVP) | ⬜ |
+| 03.1.1 | Sayfa analizi şeması | Must (MVP) | ✅ → K03.1 |
+| 03.1.2 | Dil ve alfabe tespiti | Must (MVP) | ✅ → K03.1 |
+| 03.1.3 | Diğer isimler alanı | Must (MVP) | ✅ → K03.1 |
+| 03.1.4 | İletişim bilgisi alanları | Must (MVP) | ✅ → K03.1 |
 | 03.2.1 | Sağlayıcı soyutlaması | Must (MVP) | ⬜ |
 | 03.2.2 | Anthropic sağlayıcı | Must (MVP) | ⬜ |
 | 03.3.1 | OpenAI sağlayıcı iskeleti | Should (v1) | ⬜ |
@@ -386,6 +386,23 @@ Onay beklemeden yapılan varsayımlar buraya numaralı olarak yazılır.
   kırpmalar yalnız sayfayı kaplayan dikdörtgen; karışım modu normal, grup opak; sayfanın tek görüntü
   nesnesi (satır içi değil) ve `SMask`/`Mask`/`Decode`/`SMaskInData` anahtarı yok. Tolerans
   yapılandırma değeri değil modül sabitidir: işletme ayarı değil, geometri eşiğidir.
+- **C12** — Sayfa analizi şeması (tm 18, 03.1.x): §8.4 örnekten öte kural vermez; "uymayan yanıt
+  reddedilir" şöyle okundu — §8.4'ün her anahtarı zorunludur (eksik anahtar varsayılanla
+  doldurulmaz), tanımsız anahtar ve tip zorlaması reddedilir, `person` ve `person.contact` her
+  zaman nesnedir, okunmayan değer `null`dır (boş metin, boş `mrz_lines` listesi reddedilir).
+  `language`/`script` sayfada dili belirlenecek metin yoksa `null` olabilir — değer zorunlu
+  olsaydı fotoğraf/boş sayfada model uydurmak zorunda kalırdı (03.4.1 "tahmin etme"); anahtar yine
+  zorunludur ve dolu değer kapalı kümededir. ISO 639-1 kümesi kayıttaki 183 kodun kendisidir
+  (kaldırılmış `bh`/`iw`/`in`/`ji`/`mo`/`sh` yok), yalnız küçük harf. `fields` okumasında
+  `legible: true` ⇔ `value` dolu: okunamayan alanın değeri taşınmaz. `document_type_slug`
+  katalogdaki slug'lara karşı yalnız yanıt kabulünde (`validate_page_analysis`) denetlenir;
+  saklanan `analysis_json` katalogsuz okunur (tür sonradan kaldırılmış olabilir). PRD'nin
+  sessiz kaldığı biçimler DB sütunlarına sığacak ve standarda uyacak kadar dar tutuldu: tarih
+  yalnız `YYYY-AA-GG` ve takvimde geçerli, `nationality` ICAO 9303 kodu (1–3 büyük harf; `D`
+  Almanya), isimler 255, belge numarası 128 karakter (§8.1 sütunları). MRZ satırlarının biçimi ve
+  karakter kümesi şemada denetlenmez — §20.1.1 "uymuyorsa MRZ yok sayılır, hata değil" 05.3'ün
+  işidir. İletişim alanları olduğu gibi taşınır (e-posta/telefon biçimi denetlenmez).
+  Reddetme mesajları alan konumu ve kuralı söyler, gelen değeri tekrarlamaz (CONVENTIONS §6).
 
 ## D. Sapmalar
 
@@ -599,3 +616,9 @@ var olan maddeler silinmez. Biçim:
 
 #### K02.5 — 02.5.1 · Gömülü tek görüntü tespiti
 - ✅ `single_full_page_image_xref`/`detect_pdf_single_image_pages`/`mark_upload_file_single_image_pages` (`app/pipeline/render.py`) — sayfa MuPDF kayıt aygıtıyla (`_PaintRecorder`) çalıştırılır; tam bir görüntü çizimi, başka görünür komut yok, döndürme/aynalama/alfa yok, sayfa kutusunu 1 pt toleransla birebir kaplıyor, kırpma yalnız sayfayı kaplayan dikdörtgen, tek görüntü nesnesi ve maske/`Decode` anahtarı yoksa görüntünün `xref`'i döner, aksi halde işaret verilmez (ölçüt ve gerekçe: C11). İşaretli sayfanın xref'inden `extract_image` orijinal JPEG baytlarını birebir veriyor (testte doğrulandı — §20.5 girdisi). 8 olumlu (JPEG/PNG tam sayfa, görünmez OCR metni, sayfayı kaplayan kırpma, sayfa saydamlık grubu, tolerans içi kenar, kırpma kutusuna oturan görüntü, Pillow PDF çıktısı) ve 23 olumsuz sentetik durumun her biri hedeflenen kuralla reddedildi (boş/metin/çizim, küçük/kenar boşluklu görüntü, görünür metin, çizim, iki görüntü, kullanılmayan ikinci kaynak, aynı görüntü iki kez, açıklama notu, 90° ve aynalı yerleştirme, `/Rotate`, alfa kanallı PNG, `Decode`, renk anahtarı maskesi, dar ve dikdörtgen olmayan kırpma, yarı saydam çizim, Multiply karışımı, satır içi görüntü, kırpma kutusundan taşan görüntü). `mark_upload_file_single_image_pages` yalnız `pages.has_single_embedded_image`'e dokunur (render/metin/boş sayfa alanları değişmez), var olan satırı günceller; PRD §8.3'te tür olmadığı için olay yazmaz (§D6). Göç yok (sütun 00.3'te vardı). Oturum commit edilmez — `app/pipeline/render.py` · test `tests/pipeline/test_render.py` (+7 fonksiyon / 38 durum) · tm 17
+
+#### K03.1 — 03.1.1–03.1.4 · Sayfa analizi şeması
+- ✅ §8.4 pydantic sözleşmesi (`PageAnalysis`/`PagePerson`/`PageContact`/`FieldReading`, `extra="forbid"`, dondurulmuş) ve yanıt kabul girişi `validate_page_analysis(data, known_slugs=…)` — JSON metni, bayt veya çözülmüş nesne alır; §8.4 örneği harfiyen kabul edilir, şema anahtarları örneğin anahtarlarıyla birebir aynıdır; eksik/tanımsız anahtar, tip zorlaması (`"false"`, `"0"`, `True` sayı), negatif `page_index`, tanımsız `side`, geçersiz tarih (`12.04.1990`, `1990-02-30`, Unix zaman damgası, `datetime`), JSON olmayan/nesne olmayan yanıt `PageAnalysisError` ile her ihlal konumuyla reddedilir, mesajda kişisel değer yok; katalogda olmayan `document_type_slug` (tohum kataloğuna karşı) ve slug ile birlikte dolu `candidate_type_name` reddedilir, saklanan `analysis_json` katalogsuz geri okunur; `legible: true` ⇔ `value` dolu; JSON şeması tüm anahtarları `required`, kapalı kümeleri `enum` olarak verir (03.2 yapılandırılmış çıktı girdisi). Kurallar: C12 — `app/ai/schemas.py` · `app/ai/__init__.py` · test `tests/ai/test_schemas.py` (45 fonksiyon / 165 durum) · tm 18
+- ✅ 03.1.2 `language` ISO 639-1 kayıt kümesi (183 kod, küçük harf; `xx`/`RU`/`rus`/`ru-RU`/kaldırılmış `sh`/`iw` reddedilir), `script` `latin`·`cyrillic`·`arabic`·`other` (`greek`/`Latin` reddedilir); metinsiz sayfada ikisi `null` olabilir, anahtar yine zorunlu — `app/ai/schemas.py` · test `tests/ai/test_schemas.py` · tm 18
+- ✅ 03.1.3 `person.other_names` `given_names`'ten ayrı döner; `PagePerson.employee_fields()` alanları `employees` sütun adlarıdır ve geçici SQLite'ta `Employee` kaydına yazılıp geri okunduğunda `other_names`/`original_script_name`/`date_of_birth`/`nationality` korunur — `app/ai/schemas.py` · test `tests/ai/test_schemas.py` · tm 18
+- ✅ 03.1.4 `person.contact` `phone`/`email`/`address` belgede yazılıysa döner, yoksa `null` (anahtar zorunlu, `contact: null` veya boş metin reddedilir); alan adları `ContactKind` değerleriyle birebir aynı (05.8.1 doğrudan eşler) — `app/ai/schemas.py` · test `tests/ai/test_schemas.py` · tm 18
