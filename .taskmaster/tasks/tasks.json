@@ -245,13 +245,13 @@
         "description": "PRD 03.1.1, 03.1.2, 03.1.3, 03.1.4 · FR-MOD-03 (Yapay zekâ analiz katmanı) · Faz 0.",
         "details": "KAPSAM: PRD 03.1.1, 03.1.2, 03.1.3, 03.1.4 (FR-MOD-03 — Yapay zekâ analiz katmanı, Faz 0).\n\nNE YAPILACAK — GEREKSİNİMLER VE KABUL KRİTERLERİ:\n- 03.1.1 — Sayfa analizi şeması\n  Kabul: Model çıktısı §8.4'teki şemaya uyar; uymayan yanıt reddedilir\n- 03.1.2 — Dil ve alfabe tespiti\n  Kabul: Her sayfa için `language` (ISO 639-1) ve `script` (`latin`, `cyrillic`, `arabic`, `other`) alanları döner; tanımlı küme dışında değer reddedilir\n- 03.1.3 — Diğer isimler alanı\n  Kabul: İkinci ad, baba adı gibi ek isimler `other_names` alanında ayrı olarak döner ve çalışan kaydına taşınır\n- 03.1.4 — İletişim bilgisi alanları\n  Kabul: Belgede telefon, e-posta veya adres varsa `contact` alanında döner; yoksa `null`, uydurulmaz\n\nGİRDİ — ÜZERİNE KURULDUĞU İŞLER (bu kod ZATEN VAR; yazmadan önce OKU):\n- 00.6 (Belge türü kataloğu ve başlangıç tohumu) → app/catalog/, data/KnownDocuments/catalog.yaml\n\nÇIKTI — DOKUNULACAK YÜZEY: app/ai/schemas.py\n\nKARAR TABLOSU: bu görev için ayrı karar tablosu yok; kabul kriterleri ve kilitli kurallar yeterli.\n\nBU GÖREVİ BAĞLAYAN KİLİTLİ KURALLAR: özel kural yok. Genel sınırlar MASTER-PROMPT §8'de.\n\nPRD'DE AYRICA OKU: §8.4 (sayfa analizi şeması)\n\nİLGİLİ KABUL SENARYOSU: doğrudan yok. Kabul kriterleri yukarıda.\n\nSIRA (MASTER-PROMPT §5, contract-first): sözleşme/şema → Alembic göçü (gerekiyorsa) → çekirdek + unit test → entegrasyon + testi → arayüz.\n\nKAPSAM SINIRI: yalnız yukarıdaki PRD kimlikleri. Başka gereksinimin işini yapma; yolda gördüğün kusuru düzeltme, yeni görev olarak aç (CONVENTIONS §5). Kilitli teknik kararları (MASTER-PROMPT §4) tartışma; yanlış görünüyorsa uygula ve PLAN.md §D'ye sapma yaz.\n\nTUZAKLAR: belge içeriğini değiştiren kod yazma — kırpma, döndürme (EXIF dışında), kontrast, metin yazma, form doldurma yok (K11/K17). Gerçek kimlik belgesi kullanma; test verisi tests/fixtures/gen.py ile üretilen sentetik belgelerdir (CONVENTIONS §6). Yapay zekâ çağrısı testte canlı yapılmaz, kayıtlı yanıt sağlayıcısı kullanılır. Test/build komutlarını arka plana atma — pencere ölür.\n\nKAPANIŞ: PLAN.md'de 03.1.1, 03.1.2, 03.1.3, 03.1.4 satırlarının damgasını '✅ → K03.1' yap ve '## K. Kanıt Geçmişi' bölümünde '#### K03.1' bloğuna kanıt maddesi ekle (blok yoksa aç). Faz özet tablosundaki sayıları SAYARAK güncelle. Ayrıntı: CONVENTIONS §1.2-1.3.",
         "testStrategy": "CONVENTIONS §1 DoD kapısı: ruff check . · ruff format --check . · python -m compileall -q app tests · pytest -q -m \"not live\" · alembic upgrade head · python -c \"import app.main\" — hepsi exit 0.\nAyrıca bu görevin kendi kabul kriterleri:\n- 03.1.1: Model çıktısı §8.4'teki şemaya uyar; uymayan yanıt reddedilir\n- 03.1.2: Her sayfa için `language` (ISO 639-1) ve `script` (`latin`, `cyrillic`, `arabic`, `other`) alanları döner; tanımlı küme dışında değer reddedilir\n- 03.1.3: İkinci ad, baba adı gibi ek isimler `other_names` alanında ayrı olarak döner ve çalışan kaydına taşınır\n- 03.1.4: Belgede telefon, e-posta veya adres varsa `contact` alanında döner; yoksa `null`, uydurulmaz",
-        "status": "in-progress",
+        "status": "done",
         "dependencies": [
           "6"
         ],
         "priority": "high",
         "subtasks": [],
-        "updatedAt": "2026-09-14T09:30:37.700Z"
+        "updatedAt": "2026-09-14T09:44:58.714Z"
       },
       {
         "id": "19",
@@ -1266,9 +1266,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-09-14T09:30:37.701Z",
+      "lastModified": "2026-09-14T09:44:58.715Z",
       "taskCount": 92,
-      "completedCount": 17,
+      "completedCount": 18,
       "tags": [
         "master"
       ]
