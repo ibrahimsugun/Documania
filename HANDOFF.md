@@ -18,6 +18,12 @@ Blok biçimi `CONVENTIONS.md` §3'te tanımlıdır:
 
 ## Task log (newest-first)
 
+## 21 — 03.4 Analiz promptu ve disiplin kuralları — done — 2026-09-14
+- Yapıldı: `app/ai/prompts/page_analysis.md` — "Tahmin etme", "Okuyamadığını `legible: false` yap", "Katalogda yoksa aday öner" kurallarını alan açıklamalarından önce taşıyan sağlayıcıdan bağımsız sistem talimatı; `build_page_analysis_instructions(catalog)` (`app/ai/prompts/page_analysis.py`) tek `{{catalog}}` yuvasına etkin + `analyze: true` türleri slug sırasıyla yazar ve metinle aynı `known_slugs`'ı döner.
+- Doğrulama: ruff check/format, compileall, `pytest -q -m "not live"` (683 geçti, +34 durum; 3 PG testi atlandı), kapsam %99.42 (`app/ai/prompts` %100), temiz SQLite'ta `alembic upgrade head` (göç yok), `import app.main` — hepsi exit 0. Canlı prompt testi (`-m live`) anahtar olmadığı için koşulmadı.
+- Varsayımlar: PLAN.md §C14 — katalog talimata sade liste olarak girer (kompakt derleme 11.4), `attachment`/pasif tür sunulmaz; `fields` sayfa başınadır ve bu sayfada okunmayan (yüzde bulunmayan dahil) zorunlu alan `legible: false`'tur; `continues_previous_page` emin değilse `false`; görünen alan ve MRZ birbirinden doldurulmaz.
+- Sonraki pencereye not: 03.7 `PageAnalysisRequest(instructions=ins.text, known_slugs=ins.known_slugs, …)` ile ikisini birlikte vermeli ve `prompt`'a `page_index`'i, varsa metin katmanını ve önceki sayfa özetini yazmalı (talimat bunlara atıf yapar); 04.4 okunaklılığı adayın sayfaları üzerinden birleştirmeli (arka yüzdeki `legible: false` alanın o yüzde olmaması olabilir). İlk anahtarlı ortamda `pytest -m live tests/ai/test_prompts.py`.
+
 ## 19 — 03.2 Sağlayıcı soyutlaması ve Anthropic uygulaması — done — 2026-09-14
 - Yapıldı: `app/ai/provider.py` — sağlayıcıdan bağımsız `PageAnalysisRequest`/`PageImage`, yanıt kabulü ortak ve atlanamaz `AnalysisProvider.analyze_page` (§8.4 + katalog + `page_index` eşitliği), `ProviderError` aileleri ve `AI_PROVIDER` ile seçilen `create_provider`/`PROVIDER_FACTORIES`; `app/ai/anthropic_provider.py` — görüntü + metni zorlanmış `record_page_analysis` aracıyla (şema `PageAnalysis.model_json_schema()`) gönderip doğrulanmış `PageAnalysis` döner.
 - Doğrulama: ruff check/format, compileall, `pytest -q -m "not live"` (649 geçti, +82 durum; 3 PG testi atlandı), kapsam %99.41 (yeni modüller %100), temiz SQLite'ta `alembic upgrade head` (göç yok), `import app.main` — hepsi exit 0. Canlı Anthropic testi (`-m live`) anahtar olmadığı için koşulmadı.

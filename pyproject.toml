@@ -36,6 +36,8 @@ include = ["app*"]
 [tool.setuptools.package-data]
 # Başlangıç katalog tohumu (PRD 00.6.2) kurulu pakette de bulunmalı.
 "app.catalog" = ["seed_catalog.yaml"]
+# Sayfa analizi talimatı (PRD 03.4.1) kodla birlikte yüklenir.
+"app.ai.prompts" = ["*.md"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -1,5 +1,7 @@
-"""Yapay zekâ analiz katmanı: sayfa analizi sözleşmesi (03.1) ve sağlayıcı soyutlaması (03.2)."""
+"""Yapay zekâ analiz katmanı: sayfa analizi sözleşmesi (03.1), sağlayıcı soyutlaması (03.2) ve
+analiz talimatı (03.4)."""
 
+from app.ai.prompts import PageAnalysisInstructions, build_page_analysis_instructions
 from app.ai.provider import (
     PROVIDER_FACTORIES,
     AnalysisProvider,
@@ -33,6 +35,7 @@ __all__ = [
     "FieldReading",
     "PageAnalysis",
     "PageAnalysisError",
+    "PageAnalysisInstructions",
     "PageAnalysisRequest",
     "PageContact",
     "PageImage",
@@ -44,6 +47,7 @@ __all__ = [
     "ProviderServerError",
     "Script",
     "Side",
+    "build_page_analysis_instructions",
     "create_provider",
     "validate_page_analysis",
 ]
