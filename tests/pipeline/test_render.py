@@ -1,5 +1,6 @@
 """02.1.1 — PDF sayfa görüntüsü, 02.2.1 — PDF metin katmanı, 02.3.1 — görüntü analiz kopyası."""
 
+from io import BytesIO
 from pathlib import Path
 
 import pymupdf
@@ -13,9 +14,12 @@ from app.db.models import Event, Page, Upload, UploadFile
 from app.events import EventType
 from app.pipeline.render import (
     RenderError,
+    detect_pdf_blank_pages,
     extract_page_text,
     extract_pdf_text,
     extract_upload_file_text,
+    is_page_blank,
+    mark_upload_file_blank_pages,
     render_image_copy,
     render_image_file,
     render_pdf_pages,
@@ -39,6 +43,18 @@ def _source(tmp_path: Path, content: bytes, name: str = "belge.pdf") -> Path:
     path = tmp_path / name
     path.write_bytes(content)
     return path
+
+
+def _pdf_with_embedded_image_bytes() -> bytes:
+    """Tek sayfalı PDF: metinsiz/çizimsiz ama gömülü bir görüntü taşır (boş sayılmamalı)."""
+    document = pymupdf.open()
+    page = document.new_page(width=A4[0], height=A4[1])
+    image_buffer = BytesIO()
+    Image.new("RGB", (10, 10), "white").save(image_buffer, format="PNG")
+    page.insert_image(pymupdf.Rect(0, 0, 100, 100), stream=image_buffer.getvalue())
+    content = document.tobytes()
+    document.close()
+    return content
 
 
 def _render(
@@ -550,3 +566,106 @@ def test_render_image_file_rejects_non_image_without_side_effects(
     assert upload_file.page_count is None
     assert session.scalar(select(func.count()).select_from(Page)) == 0
     assert session.scalar(select(func.count()).select_from(Event)) == 0
+
+
+# --- boş sayfa tespiti (02.4.1) ------------------------------------------------------------
+
+
+def test_is_page_blank_true_for_page_without_content() -> None:
+    document = pymupdf.open(stream=make_pdf_bytes(1), filetype="pdf")
+    with document:
+        assert is_page_blank(document[0]) is True
+
+
+def test_is_page_blank_false_when_text_present() -> None:
+    document = pymupdf.open(stream=make_text_pdf_bytes(["merhaba"]), filetype="pdf")
+    with document:
+        assert is_page_blank(document[0]) is False
+
+
+def test_is_page_blank_false_when_drawing_present() -> None:
+    document = pymupdf.open(stream=make_half_filled_pdf_bytes(), filetype="pdf")
+    with document:
+        assert is_page_blank(document[0]) is False
+
+
+def test_is_page_blank_false_when_image_present() -> None:
+    document = pymupdf.open(stream=_pdf_with_embedded_image_bytes(), filetype="pdf")
+    with document:
+        assert is_page_blank(document[0]) is False
+
+
+def test_detect_pdf_blank_pages_matches_page_content(tmp_path: Path) -> None:
+    content = make_text_pdf_bytes(["birinci sayfa", None, "üçüncü sayfa"])
+    blanks = detect_pdf_blank_pages(_source(tmp_path, content))
+
+    assert blanks == [False, True, False]
+
+
+@pytest.mark.parametrize(
+    ("content", "message"),
+    [
+        (b"\xff\xd8\xff\xe0 sentetik", "PDF değil"),
+        (make_sized_pdf_bytes([A4], password="sentetik"), "parola"),
+    ],
+    ids=["jpeg", "parolali"],
+)
+def test_detect_pdf_blank_pages_raises_render_error(
+    tmp_path: Path, content: bytes, message: str
+) -> None:
+    with pytest.raises(RenderError, match=message):
+        detect_pdf_blank_pages(_source(tmp_path, content))
+
+
+def test_mark_upload_file_blank_pages_writes_flag_and_event(
+    session: Session, layout: DataLayout
+) -> None:
+    content = make_text_pdf_bytes(["metin var", None])
+    upload_file = _stored_upload_file(session, layout, content, name="karma.pdf")
+    render_upload_file(session, layout, _settings(), upload_file)
+    session.commit()
+
+    pages = mark_upload_file_blank_pages(session, layout, upload_file)
+    session.commit()
+
+    assert [page.index for page in pages] == [0, 1]
+    assert pages[0].is_blank is False
+    assert pages[1].is_blank is True
+    # Boş sayfa işaretleme render adımının ürettiği alanlara dokunmaz.
+    assert all(page.image_path is not None for page in pages)
+
+    events = session.scalars(
+        select(Event).where(Event.type == EventType.PAGE_BLANK.value).order_by(Event.id)
+    ).all()
+    assert [(e.upload_id, e.file_id, e.page_index) for e in events] == [
+        (upload_file.upload_id, upload_file.id, 1),
+    ]
+
+
+def test_mark_upload_file_blank_pages_does_not_create_duplicate_rows(
+    session: Session, layout: DataLayout
+) -> None:
+    upload_file = _stored_upload_file(session, layout, make_text_pdf_bytes(["a", "b"]))
+    render_upload_file(session, layout, _settings(), upload_file)
+    session.commit()
+    first_ids = [page.id for page in upload_file.pages]
+
+    mark_upload_file_blank_pages(session, layout, upload_file)
+    session.commit()
+
+    assert [page.id for page in upload_file.pages] == first_ids
+    assert session.scalar(select(func.count()).select_from(Page)) == 2
+
+
+def test_mark_upload_file_blank_pages_creates_page_rows_when_none_rendered_yet(
+    session: Session, layout: DataLayout
+) -> None:
+    upload_file = _stored_upload_file(session, layout, make_text_pdf_bytes(["a", None]))
+
+    pages = mark_upload_file_blank_pages(session, layout, upload_file)
+    session.commit()
+
+    assert [page.index for page in pages] == [0, 1]
+    assert pages[0].is_blank is False
+    assert pages[1].is_blank is True
+    assert all(page.image_path is None for page in pages)

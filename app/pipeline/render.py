@@ -22,6 +22,10 @@ Görüntü dosyası (JPEG/PNG) analiz kopyası yalnız EXIF yönelim etiketini f
 uygular (Pillow `ImageOps.exif_transpose` — K11'in izin verdiği tek Pillow kullanımı: ölçme/
 EXIF/biçim, düzenleme değil). Kopya kaynağın kendi biçiminde `cache/pages/<file_id>/0000.<uzantı>`
 altına yazılır; orijinal dosyaya dokunulmaz (K10).
+
+Boş sayfa tespiti (02.4.1) PDF'in kendi içerik nesnelerine bakar: metin katmanı, gömülü görüntü
+ve çizim üçü de yoksa sayfa boştur. OCR veya piksel analizi yapılmaz (K11); boş sayfa hata
+sayılmaz, yalnız `pages.is_blank` alanına işaretlenir ve `PAGE_BLANK` olayı yazılır.
 """
 
 from __future__ import annotations
@@ -255,6 +259,55 @@ def render_image_copy(
     path = layout.page_image_path(file_id, 0, extension=extension)
     replace_file(path, buffer.getvalue())
     return RenderedPage(index=0, path=path, width=width, height=height)
+
+
+def is_page_blank(page: pymupdf.Page) -> bool:
+    """Sayfa fiziksel olarak boş mu: metin katmanı, gömülü görüntü veya çizim yoksa evet (02.4.1).
+
+    Yalnız PDF'in kendi içerik nesnelerine bakar (OCR/piksel analizi yapmaz — K11). Metin
+    katmanı olmayan taranmış bir sayfa (02.2.1) gömülü bir görüntü taşıyorsa boş SAYILMAZ.
+    """
+    if page.get_text().strip():
+        return False
+    if page.get_images():
+        return False
+    if page.get_drawings():
+        return False
+    return True
+
+
+def detect_pdf_blank_pages(source: Path) -> list[bool]:
+    """`source` PDF'inin her sayfasının boş olup olmadığını sayfa sırasıyla döner (02.4.1)."""
+    content = source.read_bytes()
+    with _open_pdf(content) as document:
+        return [is_page_blank(page) for page in document]
+
+
+def mark_upload_file_blank_pages(
+    session: Session, layout: DataLayout, upload_file: UploadFile
+) -> list[Page]:
+    """Yüklenmiş PDF'in boş sayfalarını `pages.is_blank`'e işaretler (02.4.1).
+
+    Boş bulunan her sayfa için `PAGE_BLANK` olayı yazılır (K15); boş sayfa hata sayılmaz.
+    Analizciye gönderilmemesi bu alanı okuyacak orkestrasyonun (09.x) işidir, burada yapılmaz.
+    Var olan `Page` satırı güncellenir, yenisi açılmaz; sayfanın diğer alanlarına dokunulmaz —
+    `extract_upload_file_text`'in sözleşmesiyle simetrik. Oturum commit edilmez.
+    """
+    blanks = detect_pdf_blank_pages(layout.resolve(upload_file.stored_path))
+    existing = {page.index: page for page in upload_file.pages}
+    pages: list[Page] = []
+    with event_context(upload_id=upload_file.upload_id, file_id=upload_file.id):
+        for index, blank in enumerate(blanks):
+            page = existing.get(index)
+            if page is None:
+                page = Page(file=upload_file, index=index)
+                session.add(page)
+            page.is_blank = blank
+            if blank:
+                record_event(session, EventType.PAGE_BLANK, page_index=index)
+            pages.append(page)
+    session.flush()
+    return pages
 
 
 def render_image_file(

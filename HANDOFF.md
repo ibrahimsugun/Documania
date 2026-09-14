@@ -18,6 +18,12 @@ Blok biçimi `CONVENTIONS.md` §3'te tanımlıdır:
 
 ## Task log (newest-first)
 
+## 16 — 02.4 Boş sayfa tespiti — done — 2026-09-14
+- Yapıldı: `is_page_blank`/`detect_pdf_blank_pages`/`mark_upload_file_blank_pages` (`app/pipeline/render.py`) — sayfa yalnız metin katmanı, gömülü görüntü ve çizimin üçü de yoksa boş sayılır (PDF içerik nesnelerine bakar, OCR/piksel analizi yok); boş bulunan sayfaya `pages.is_blank=True` yazılır ve `PAGE_BLANK` olayı atılır, hata fırlatılmaz.
+- Doğrulama: ruff check/format, compileall, `pytest -q -m "not live"` (364 geçti, +10 durum; 3 PG testi ortam değişkeni yokken atlandı), kapsam %99.11 (`app/pipeline/render.py` %99, yeni kod %100), temiz SQLite'ta `alembic upgrade head` (göç yok — `is_blank` sütunu zaten 00.3'te vardı), `import app.main` — hepsi exit 0.
+- Varsayımlar: PRD/karar tablosu eşik/algoritma vermiyor; "fiziksel boş" PDF'in kendi içerik nesnelerine (metin/görüntü/çizim) bakılarak, piksel analizi olmadan belirlendi (K11) — metinsiz taranmış sayfa (02.2.1) gömülü görüntü taşıyorsa boş sayılmaz. `mark_upload_file_blank_pages` `extract_upload_file_text` ile simetrik: var olan `Page` satırını günceller, yalnız `is_blank`'e dokunur, `render_upload_file`'ın alanlarına dokunmaz.
+- Sonraki pencereye not: "Analizciye gönderilmez" kabul kriterinin ikinci yarısı henüz bağlanmadı — 03.7 (sayfa analizi çalıştırıcı) veya 09.x orkestrasyonu `pages.is_blank`'i okuyup atlamalı. 02.5 (gömülü tek görüntü tespiti) aynı `Page` satırlarına yazacak, yenisini açmamalı.
+
 ## 15 — 02.3 Görüntü dosyaları için analiz kopyası — done — 2026-09-14
 - Yapıldı: `render_image_copy`/`render_image_file` (`app/pipeline/render.py`) — JPEG/PNG'nin EXIF yönelimi Pillow `ImageOps.exif_transpose` ile fiziksel olarak uygulanmış kopyası kaynağın kendi biçiminde `cache/pages/<file_id>/0000.<uzantı>` altına yazılır (K10: orijinale dokunulmaz), `pages`/`page_count=1` yazılır, `PAGE_RENDERED` olayı atılır (02.1 ile aynı sözleşme).
 - Doğrulama: ruff check/format, compileall, `pytest -q -m "not live"` (354 geçti, +10 durum; 3 PG testi ortam değişkeni yokken atlandı), kapsam %99.10 (`app/pipeline/render.py` %99, `app/storage/layout.py` %100), temiz SQLite'ta `alembic upgrade head`, `import app.main` — hepsi exit 0.
