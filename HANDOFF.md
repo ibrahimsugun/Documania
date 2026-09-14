@@ -18,6 +18,12 @@ Blok biçimi `CONVENTIONS.md` §3'te tanımlıdır:
 
 ## Task log (newest-first)
 
+## 22 — 03.5 Yeniden deneme ve hata dayanıklılığı — done — 2026-09-14
+- Yapıldı: `AnalysisProvider.analyze_page`'e (`app/ai/provider.py`) hız sınırı (429) ve 5xx'te en fazla 3 deneme yapan geri çekilmeli (`time.sleep`, 1 sn/2 sn üstel) `_request_analysis_with_retry` sarmalayıcısı eklendi; bağlantı hatası, diğer 4xx ve `PageAnalysisError` yeniden denenmez.
+- Doğrulama: ruff check/format, compileall, `pytest -q -m "not live"` (694 geçti, +11 durum net; 3 PG testi atlandı), kapsam %99.32 (`app/ai/provider.py` %100), temiz SQLite'ta `alembic upgrade head`, `import app.main` — hepsi exit 0.
+- Varsayımlar: PLAN.md §C15 — yalnız `ProviderRateLimitError`/`ProviderServerError` yeniden denenir (PRD kabul kriteri yalnız bunları sayıyor; C13'ün bıraktığı karar); geri çekilme sabit üstel (1 sn/2 sn), `Retry-After` okunmaz, süre ayarlanamaz.
+- Sonraki pencereye not: `tests/ai/conftest.py`'deki `no_sleep` fixture'ı (`app.ai.provider.time.sleep` monkeypatch) yeniden deneme geciktiren her yeni AI testinde kullanılmalı — mock'lanmadan `analyze_page` çağıran bir test hız sınırı/5xx senaryosunda gerçekten uyur. 03.7 (sayfa analizi çalıştırıcı) `analyze_page`'i doğrudan çağırabilir, ayrı bir yeniden deneme katmanına gerek yok.
+
 ## 21 — 03.4 Analiz promptu ve disiplin kuralları — done — 2026-09-14
 - Yapıldı: `app/ai/prompts/page_analysis.md` — "Tahmin etme", "Okuyamadığını `legible: false` yap", "Katalogda yoksa aday öner" kurallarını alan açıklamalarından önce taşıyan sağlayıcıdan bağımsız sistem talimatı; `build_page_analysis_instructions(catalog)` (`app/ai/prompts/page_analysis.py`) tek `{{catalog}}` yuvasına etkin + `analyze: true` türleri slug sırasıyla yazar ve metinle aynı `known_slugs`'ı döner.
 - Doğrulama: ruff check/format, compileall, `pytest -q -m "not live"` (683 geçti, +34 durum; 3 PG testi atlandı), kapsam %99.42 (`app/ai/prompts` %100), temiz SQLite'ta `alembic upgrade head` (göç yok), `import app.main` — hepsi exit 0. Canlı prompt testi (`-m live`) anahtar olmadığı için koşulmadı.

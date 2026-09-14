@@ -13,14 +13,19 @@ Sorumluluk ayrımı:
 - Yanıt kabulü ortaktır ve atlanamaz: `analyze_page` sağlayıcının ham yapılandırılmış çıktısını
   `validate_page_analysis`'ten geçirir, istenen sayfanın yanıtı olduğunu denetler. Somut
   sağlayıcı yalnız `_request_analysis`'i uygular.
-- İki hata ailesi ayrıdır: çağrı tamamlanamadıysa `ProviderError` (yanıt yok; hız sınırı, 5xx
-  ve bağlantı alt türleri 03.5'in yeniden deneme kararına girer), yanıt geldi ama şemaya
+- İki hata ailesi ayrıdır: çağrı tamamlanamadıysa `ProviderError` (yanıt yok; hız sınırı ve
+  5xx `analyze_page` içinde geri çekilmeli yeniden denenir — 03.5.1), yanıt geldi ama şemaya
   uymuyorsa `PageAnalysisError` (yeniden sormak yerine reddedilir).
+- Yeniden deneme yalnız `ProviderRateLimitError` (429) ve `ProviderServerError` (5xx) içindir.
+  `ProviderConnectionError` ve diğer `ProviderError` alt türleri kalıcı kabul edilir ve ilk
+  denemede yükselir — tekrar denense de aynı sonucu verme ihtimalleri yeniden deneme maliyetini
+  haklı çıkarmaz.
 """
 
 from __future__ import annotations
 
 import abc
+import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import ClassVar, Literal, final
@@ -59,6 +64,15 @@ class ProviderServerError(ProviderError):
 
 class ProviderConnectionError(ProviderError):
     """Sağlayıcıya ulaşılamadı veya istek zaman aşımına uğradı; HTTP yanıtı yok."""
+
+
+MAX_ANALYSIS_ATTEMPTS = 3
+"""Hız sınırı (429) ve sağlayıcı hatası (5xx) için toplam deneme sayısı (03.5.1)."""
+
+RETRY_BACKOFF_SECONDS = 1.0
+"""İlk yeniden denemeden önceki bekleme; her sonraki denemede ikiye katlanır."""
+
+_RETRYABLE_ERRORS: tuple[type[ProviderError], ...] = (ProviderRateLimitError, ProviderServerError)
 
 
 @dataclass(frozen=True, slots=True)
@@ -127,10 +141,12 @@ class AnalysisProvider(abc.ABC):
     def analyze_page(self, request: PageAnalysisRequest) -> PageAnalysis:
         """Sayfayı analiz ettirir ve §8.4'e uyan yanıtı döner.
 
-        Çağrı tamamlanamazsa `ProviderError`, yanıt şemaya veya isteğe uymazsa
-        `PageAnalysisError` fırlatır. Yanıt düzeltilmez, eksik alan doldurulmaz.
+        Hız sınırı (429) ve sağlayıcı hatasında (5xx) en fazla `MAX_ANALYSIS_ATTEMPTS`
+        deneme geri çekilmeli yapılır (03.5.1); son denemede de başarısız olursa aynı hata
+        yükselir. Diğer `ProviderError` alt türleri ve `PageAnalysisError` yeniden denenmez.
+        Yanıt düzeltilmez, eksik alan doldurulmaz.
         """
-        raw = self._request_analysis(request)
+        raw = self._request_analysis_with_retry(request)
         analysis = validate_page_analysis(raw, known_slugs=request.known_slugs)
         if analysis.page_index != request.page_index:
             # Değerler sayfa sırasıdır, kişisel veri taşımaz.
@@ -142,13 +158,23 @@ class AnalysisProvider(abc.ABC):
             )
         return analysis
 
+    def _request_analysis_with_retry(self, request: PageAnalysisRequest) -> object:
+        """`_request_analysis`'i hız sınırı/5xx'te geri çekilmeli yeniden dener (03.5.1)."""
+        for attempt in range(1, MAX_ANALYSIS_ATTEMPTS + 1):
+            try:
+                return self._request_analysis(request)
+            except _RETRYABLE_ERRORS:
+                if attempt == MAX_ANALYSIS_ATTEMPTS:
+                    raise
+                time.sleep(RETRY_BACKOFF_SECONDS * 2 ** (attempt - 1))
+
     @abc.abstractmethod
     def _request_analysis(self, request: PageAnalysisRequest) -> object:
         """Sağlayıcıyı bir kez çağırır, yapılandırılmış çıktıyı doğrulamadan döner.
 
         Dönüş JSON metni veya çözülmüş JSON nesnesidir. Çağrı tamamlanamazsa `ProviderError`
         (uygun alt türüyle), yanıtta yapılandırılmış çıktı yoksa `PageAnalysisError` fırlatır.
-        Kendi içinde yeniden deneme yapmaz (03.5).
+        Kendi içinde yeniden deneme yapmaz — yeniden deneme `analyze_page`'in işidir (03.5).
         """
 
 

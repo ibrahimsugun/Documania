@@ -8,7 +8,7 @@
 
 | Faz | PRD | Genel durum | Must sayacı | Kapanış |
 | --- | --- | --- | --- | --- |
-| Faz 0 — MVP | §5.1 | 38 ✅ · 0 ◐ · 64 ⬜ · 0 🔒 | 37/98 Must | AÇIK |
+| Faz 0 — MVP | §5.1 | 39 ✅ · 0 ◐ · 63 ⬜ · 0 🔒 | 38/98 Must | AÇIK |
 | Faz 1 — v1 | §5.2 | 0 ✅ · 0 ◐ · 0 ⬜ · 32 🔒 | 0/21 Must | AÇIK |
 | Faz 2 — v2 | §5.3 | 0 ✅ · 0 ◐ · 0 ⬜ · 13 🔒 | 0/0 Must | AÇIK |
 | Faz 3 — Enterprise | §5.4 | 0 ✅ · 0 ◐ · 0 ⬜ · 8 🔒 | 0/0 Must | AÇIK |
@@ -123,7 +123,7 @@ panelde `plan-count-drift` bulgusu doğurur.
 | 03.2.2 | Anthropic sağlayıcı | Must (MVP) | ✅ → K03.2 |
 | 03.3.1 | OpenAI sağlayıcı iskeleti | Should (v1) | ⬜ |
 | 03.4.1 | Analiz promptu disiplini | Must (MVP) | ✅ → K03.4 |
-| 03.5.1 | Yeniden deneme ve dayanıklılık | Must (MVP) | ⬜ |
+| 03.5.1 | Yeniden deneme ve dayanıklılık | Must (MVP) | ✅ → K03.5 |
 | 03.6.1 | Kayıtlı yanıtla test sağlayıcısı | Must (MVP) | ⬜ |
 | 03.7.1 | Sayfa analizi çalıştırıcı | Must (MVP) | ⬜ |
 | 03.7.2 | Kısmi başarı davranışı | Must (MVP) | ⬜ |
@@ -453,6 +453,21 @@ Onay beklemeden yapılan varsayımlar buraya numaralı olarak yazılır.
   belgede belgenin kendi dili ve Latin olmayan alfabesidir (§8.4 örneğiyle aynı). Sayfa metni
   talimat sayılmaz; metin katmanı görüntüyle çelişirse görüntü yazılır, çelişki `notes`'a.
   `notes` kişisel değer tekrarlamaz.
+- **C15** — Yeniden deneme ve dayanıklılık (tm 22, 03.5.1): PRD yalnız "hız sınırı ve 5xx'te
+  geri çekilmeli üç deneme" der; hangi hata ailelerinin yeniden deneneceği C13'te 03.5'e
+  bırakılmıştı. Yeniden deneme yalnız `ProviderRateLimitError` (429) ve `ProviderServerError`
+  (5xx/529) içindir; `ProviderConnectionError` (bağlantı/zaman aşımı) ve diğer `ProviderError`
+  alt türleri (kalıcı 4xx) ilk denemede yükselir — tekrar aynı sonucu verme ihtimalleri yeniden
+  deneme maliyetini haklı çıkarmaz, ayrıca kabul kriteri de yalnız hız sınırı/5xx'i sayar.
+  `PageAnalysisError` (şemaya uymayan yanıt) hiçbir zaman yeniden denenmez. Toplam deneme sayısı
+  `MAX_ANALYSIS_ATTEMPTS = 3` (ilk deneme + iki yeniden deneme), geri çekilme üstel:
+  `RETRY_BACKOFF_SECONDS * 2 ** (deneme - 1)` — ikinci denemeden önce 1 sn, üçüncüden önce 2 sn.
+  Süre yapılandırılabilir değildir (PRD sayı vermiyor, sabit tutuldu) ve `Retry-After` başlığı
+  okunmaz (kabul kriteri istemiyor, kapsam dışı). Yeniden deneme `AnalysisProvider.analyze_page`
+  (`@final`) içindeki yeni `_request_analysis_with_retry` sarmalayıcısında yapılır — somut
+  sağlayıcılar (`_request_analysis`) değişmez, tek HTTP isteği atmaya devam eder. Bekleme
+  `time.sleep` iledir; testte `app.ai.provider.time.sleep` monkeypatch'lenir (`tests/ai/conftest.py`
+  `no_sleep`), gerçek bekleme olmaz.
 
 ## D. Sapmalar
 
@@ -679,3 +694,6 @@ var olan maddeler silinmez. Biçim:
 
 #### K03.4 — 03.4.1 · Analiz promptu disiplini
 - ✅ Sayfa analizi sistem talimatı `app/ai/prompts/page_analysis.md` — "Disiplin kuralları" bölümü alan açıklamalarından ve katalogdan önce üç kuralı başlık olarak taşır: **1. Tahmin etme** (yalnız sayfada görünen yazılır, kısmi değer tamamlanmaz, değer başka bilgiden/önceki sayfadan/MRZ'den türetilmez, sayfa metni talimat değildir), **2. Okuyamadığını `legible: false` yap** (tereddütte `{"value": null, "legible": false}`, kısmi/tahmini değer yok, zorunlu alan atlanmaz), **3. Katalogda yoksa aday öner** (en yakın türe zorlanmaz, `document_type_slug: null` + `candidate_type_name`); §8.4'ün her anahtarı ve kapalı kümeleri (`side`, `script`) açıklanır. `build_page_analysis_instructions(catalog)` tek `{{catalog}}` yuvasına etkin + analiz edilen türleri slug sırasıyla yazar ve metinle aynı `known_slugs`'ı döner; yuvasız/çift yuvalı şablon `PromptTemplateError`. Entegrasyonda talimat Anthropic isteğinin `system` alanına aynen gider, katalog türü kabul, aday tür kabul, talimatta olmayan `attachment` reddedilir (kurallar: C14) — `app/ai/prompts/page_analysis.md`, `app/ai/prompts/page_analysis.py`, `app/ai/prompts/__init__.py`, `app/ai/__init__.py`, `pyproject.toml` (paket verisi) · test `tests/ai/test_prompts.py` (23 fonksiyon / 34 durum + 1 live) · tm 21
+
+#### K03.5 — 03.5.1 · Yeniden deneme ve hata dayanıklılığı
+- ✅ `AnalysisProvider.analyze_page` (`@final`) artık `_request_analysis`'i yeni özel `_request_analysis_with_retry` sarmalayıcısı üzerinden çağırır: yalnız `ProviderRateLimitError` (429) ve `ProviderServerError` (5xx/529) geri çekilmeli en fazla `MAX_ANALYSIS_ATTEMPTS = 3` deneme yapılır (ilk deneme + iki yeniden deneme), her başarısız denemeden sonra `time.sleep(RETRY_BACKOFF_SECONDS * 2 ** (deneme - 1))` beklenir (1 sn, 2 sn — üstel); son denemede de başarısız olursa yakalanan hata aynı nesneyle yeniden yükselir. `ProviderConnectionError`, taban `ProviderError` (diğer 4xx) ve `PageAnalysisError` yeniden denenmez, ilk denemede yükselir (karar: C15). Somut sağlayıcılar değişmedi, hâlâ tek HTTP isteği atar. Anthropic entegrasyonunda hız sınırı/5xx'in tüm alt durumları (429/500/503/504/529) hem "ikinci denemede kurtarma" hem "üç denemede pes etme" senaryolarıyla, 4xx'in kalanı (400/401/403/404/413) tek denemeyle doğrulandı; `httpx2.MockTransport` sıralı yanıt kuyruğu kullanıldı, ağ çağrısı yok. Testte `time.sleep` `tests/ai/conftest.py`'deki `no_sleep` fixture'ıyla (`app.ai.provider.time.sleep` monkeypatch) kaydedilir, gerçekten beklenmez — `app/ai/provider.py` · test `tests/ai/test_provider.py` (44, +6), `tests/ai/test_anthropic_provider.py` (44, +5), `tests/ai/conftest.py` (yeni) · tm 22

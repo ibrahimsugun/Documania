@@ -21,12 +21,15 @@ from app.ai import (
     PageAnalysisRequest,
     PageImage,
     ProviderConfigError,
+    ProviderConnectionError,
     ProviderError,
     ProviderRateLimitError,
+    ProviderServerError,
     create_provider,
     validate_page_analysis,
 )
 from app.ai.anthropic_provider import TOOL_NAME, AnthropicProvider
+from app.ai.provider import MAX_ANALYSIS_ATTEMPTS, RETRY_BACKOFF_SECONDS
 from app.config import Settings, load_settings
 from tests.ai.payloads import (
     SLUGS,
@@ -53,6 +56,24 @@ class CannedProvider(AnalysisProvider):
         if isinstance(self.response, Exception):
             raise self.response
         return self.response
+
+
+class QueuedProvider(AnalysisProvider):
+    """Her çağrıda sırayla bir sonraki yanıtı/hatayı döner (03.5.1 yeniden deneme senaryoları)."""
+
+    name = "kuyruklu"
+
+    def __init__(self, responses: list[object], *, model: str = "kuyruklu-model") -> None:
+        super().__init__(model=model)
+        self._responses = list(responses)
+        self.requests: list[PageAnalysisRequest] = []
+
+    def _request_analysis(self, request: PageAnalysisRequest) -> object:
+        self.requests.append(request)
+        response = self._responses.pop(0)
+        if isinstance(response, Exception):
+            raise response
+        return response
 
 
 def settings(**overrides: object) -> Settings:
@@ -204,20 +225,86 @@ def test_rejection_does_not_echo_personal_values() -> None:
     assert SYNTHETIC_DOCUMENT_NUMBER not in str(caught.value)
 
 
-def test_provider_error_passes_through_unchanged() -> None:
-    error = ProviderRateLimitError("hız sınırı", status_code=429)
-
-    with pytest.raises(ProviderRateLimitError) as caught:
-        CannedProvider(error).analyze_page(page_request())
-
-    assert caught.value is error
-    assert isinstance(caught.value, ProviderError)
-    assert caught.value.status_code == 429
-
-
 def test_provider_requires_model_name() -> None:
     with pytest.raises(ValueError, match="model"):
         CannedProvider(analysis_payload(), model="")
+
+
+# --- Yeniden deneme (03.5.1) --------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "error",
+    [
+        ProviderRateLimitError("hız sınırı", status_code=429),
+        ProviderServerError("sunucu hatası", status_code=503),
+    ],
+    ids=["hiz-siniri", "5xx"],
+)
+def test_analyze_page_retries_and_succeeds(error: ProviderError, no_sleep: list[float]) -> None:
+    provider = QueuedProvider([error, error, analysis_payload()])
+    request = page_request()
+
+    analysis = provider.analyze_page(request)
+
+    assert isinstance(analysis, PageAnalysis)
+    assert provider.requests == [request, request, request]
+    assert no_sleep == [RETRY_BACKOFF_SECONDS, RETRY_BACKOFF_SECONDS * 2]
+
+
+@pytest.mark.parametrize(
+    "error",
+    [
+        ProviderRateLimitError("hız sınırı", status_code=429),
+        ProviderServerError("sunucu hatası", status_code=503),
+    ],
+    ids=["hiz-siniri", "5xx"],
+)
+def test_analyze_page_gives_up_after_max_attempts(
+    error: ProviderError, no_sleep: list[float]
+) -> None:
+    provider = QueuedProvider([error, error, error])
+
+    with pytest.raises(type(error)) as caught:
+        provider.analyze_page(page_request())
+
+    assert caught.value is error
+    assert isinstance(caught.value, ProviderError)
+    assert len(provider.requests) == MAX_ANALYSIS_ATTEMPTS == 3
+    assert len(no_sleep) == MAX_ANALYSIS_ATTEMPTS - 1
+
+
+@pytest.mark.parametrize(
+    "error",
+    [
+        ProviderConnectionError("bağlantı yok"),
+        ProviderError("bilinmeyen 4xx", status_code=400),
+    ],
+    ids=["baglanti", "diger-4xx"],
+)
+def test_analyze_page_does_not_retry_non_retryable_provider_errors(
+    error: ProviderError, no_sleep: list[float]
+) -> None:
+    provider = CannedProvider(error)
+
+    with pytest.raises(type(error)) as caught:
+        provider.analyze_page(page_request())
+
+    assert caught.value is error
+    assert len(provider.requests) == 1
+    assert no_sleep == []
+
+
+def test_analyze_page_does_not_retry_page_analysis_error(no_sleep: list[float]) -> None:
+    error = PageAnalysisError(["yanıt: analiz aracı çağrısı tamamlanmadı"])
+    provider = CannedProvider(error)
+
+    with pytest.raises(PageAnalysisError) as caught:
+        provider.analyze_page(page_request())
+
+    assert caught.value is error
+    assert len(provider.requests) == 1
+    assert no_sleep == []
 
 
 # --- `.env` ile sağlayıcı seçimi ---------------------------------------------------------------

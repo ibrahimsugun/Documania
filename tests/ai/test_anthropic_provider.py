@@ -32,6 +32,7 @@ from app.ai import (
     validate_page_analysis,
 )
 from app.ai.anthropic_provider import ANALYSIS_TOOL, TOOL_NAME, AnthropicProvider
+from app.ai.provider import MAX_ANALYSIS_ATTEMPTS, RETRY_BACKOFF_SECONDS
 from app.ai.schemas import ISO_639_1_CODES
 from app.config import Settings, load_settings
 from tests.ai.payloads import (
@@ -248,7 +249,36 @@ def test_response_without_single_completed_tool_call_is_rejected(
     assert len(api.requests) == 1
 
 
-# --- Çağrı hataları: tek deneme, türüne göre ProviderError --------------------------------------
+# --- Çağrı hataları: türüne göre ProviderError, hız sınırı/5xx'te 03.5.1 yeniden denemesi -------
+
+
+@pytest.mark.parametrize(
+    ("status", "error_type"),
+    [
+        (400, "invalid_request_error"),
+        (401, "authentication_error"),
+        (403, "permission_error"),
+        (404, "not_found_error"),
+        (413, "request_too_large"),
+    ],
+)
+def test_non_retryable_status_errors_map_to_provider_error_without_retry(
+    status: int, error_type: str
+) -> None:
+    response = api_error(status, error_type)
+    response.headers["retry-after"] = "0"
+    api = FakeApi(response)
+
+    with pytest.raises(ProviderError) as caught:
+        api.provider().analyze_page(page_request())
+
+    assert type(caught.value) is ProviderError
+    assert caught.value.status_code == status
+    assert f"HTTP {status}" in str(caught.value)
+    assert f"{error_type}: sağlayıcı açıklaması" in str(caught.value)
+    assert isinstance(caught.value.__cause__, anthropic.APIStatusError)
+    # 03.5.1 yalnız hız sınırı/5xx'i yeniden dener; diğer 4xx SDK'ya ikinci istek göndermez.
+    assert len(api.requests) == 1
 
 
 @pytest.mark.parametrize(
@@ -259,30 +289,46 @@ def test_response_without_single_completed_tool_call_is_rejected(
         (503, "api_error", ProviderServerError),
         (504, "timeout_error", ProviderServerError),
         (529, "overloaded_error", ProviderServerError),
-        (400, "invalid_request_error", ProviderError),
-        (401, "authentication_error", ProviderError),
-        (403, "permission_error", ProviderError),
-        (404, "not_found_error", ProviderError),
-        (413, "request_too_large", ProviderError),
     ],
 )
-def test_api_status_errors_map_to_provider_errors_without_sdk_retry(
-    status: int, error_type: str, expected: type[ProviderError]
+def test_retryable_status_errors_recover_on_retry(
+    status: int, error_type: str, expected: type[ProviderError], no_sleep: list[float]
 ) -> None:
     response = api_error(status, error_type)
     response.headers["retry-after"] = "0"
     api = FakeApi(response, message([tool_use(analysis_payload())]))
+
+    analysis = api.provider().analyze_page(page_request())
+
+    assert isinstance(analysis, PageAnalysis)
+    # İlk deneme `expected` türünde hataya düşer, 03.5.1 geri çekilmeli ikinci denemeyi yapar.
+    assert len(api.requests) == 2
+    assert no_sleep == [RETRY_BACKOFF_SECONDS]
+
+
+@pytest.mark.parametrize(
+    ("status", "error_type", "expected"),
+    [
+        (429, "rate_limit_error", ProviderRateLimitError),
+        (500, "api_error", ProviderServerError),
+        (503, "api_error", ProviderServerError),
+        (504, "timeout_error", ProviderServerError),
+        (529, "overloaded_error", ProviderServerError),
+    ],
+)
+def test_retryable_status_errors_give_up_after_max_attempts(
+    status: int, error_type: str, expected: type[ProviderError], no_sleep: list[float]
+) -> None:
+    response = api_error(status, error_type)
+    api = FakeApi(response, api_error(status, error_type), api_error(status, error_type))
 
     with pytest.raises(ProviderError) as caught:
         api.provider().analyze_page(page_request())
 
     assert type(caught.value) is expected
     assert caught.value.status_code == status
-    assert f"HTTP {status}" in str(caught.value)
-    assert f"{error_type}: sağlayıcı açıklaması" in str(caught.value)
-    assert isinstance(caught.value.__cause__, anthropic.APIStatusError)
-    # Yeniden deneme 03.5'in işidir; SDK ikinci isteği göndermez.
-    assert len(api.requests) == 1
+    assert len(api.requests) == MAX_ANALYSIS_ATTEMPTS == 3
+    assert len(no_sleep) == MAX_ANALYSIS_ATTEMPTS - 1
 
 
 @pytest.mark.parametrize(
@@ -290,13 +336,16 @@ def test_api_status_errors_map_to_provider_errors_without_sdk_retry(
     [b"<html>Bad Gateway</html>", b'{"type": "error"}', b'{"error": {}}'],
     ids=["html", "hata-nesnesi-yok", "bos-hata"],
 )
-def test_status_error_without_api_error_detail(body: bytes) -> None:
-    api = FakeApi(httpx2.Response(502, content=body))
+def test_status_error_without_api_error_detail(body: bytes, no_sleep: list[float]) -> None:
+    # 502 sağlayıcı hatasıdır (ProviderServerError) ve 03.5.1 gereği yeniden denenir; üç deneme
+    # de aynı ayrıntısız gövdeyi döner.
+    api = FakeApi(*(httpx2.Response(502, content=body) for _ in range(MAX_ANALYSIS_ATTEMPTS)))
 
     with pytest.raises(ProviderServerError) as caught:
         api.provider().analyze_page(page_request())
 
     assert str(caught.value) == "Anthropic isteği başarısız: HTTP 502"
+    assert len(api.requests) == MAX_ANALYSIS_ATTEMPTS
 
 
 @pytest.mark.parametrize(
