@@ -1,0 +1,24 @@
+{
+  "page_index": 2,
+  "is_blank": false,
+  "is_readable": true,
+  "language": null,
+  "script": null,
+  "document_type_slug": "profile_picture",
+  "candidate_type_name": null,
+  "side": "single",
+  "continues_previous_page": false,
+  "person": {
+    "surname": null,
+    "given_names": null,
+    "other_names": null,
+    "original_script_name": null,
+    "date_of_birth": null,
+    "nationality": null,
+    "document_number": null,
+    "mrz_lines": null,
+    "contact": {"phone": null, "email": null, "address": null}
+  },
+  "fields": {},
+  "notes": null
+}

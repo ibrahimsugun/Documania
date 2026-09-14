@@ -8,7 +8,7 @@
 
 | Faz | PRD | Genel durum | Must sayacı | Kapanış |
 | --- | --- | --- | --- | --- |
-| Faz 0 — MVP | §5.1 | 42 ✅ · 0 ◐ · 60 ⬜ · 0 🔒 | 41/98 Must | AÇIK |
+| Faz 0 — MVP | §5.1 | 44 ✅ · 0 ◐ · 58 ⬜ · 0 🔒 | 43/98 Must | AÇIK |
 | Faz 1 — v1 | §5.2 | 0 ✅ · 0 ◐ · 0 ⬜ · 32 🔒 | 0/21 Must | AÇIK |
 | Faz 2 — v2 | §5.3 | 0 ✅ · 0 ◐ · 0 ⬜ · 13 🔒 | 0/0 Must | AÇIK |
 | Faz 3 — Enterprise | §5.4 | 0 ✅ · 0 ◐ · 0 ⬜ · 8 🔒 | 0/0 Must | AÇIK |
@@ -132,8 +132,8 @@ panelde `plan-count-drift` bulgusu doğurur.
 
 | PRD | Gereksinim | Öncelik | Durum |
 | --- | --- | --- | --- |
-| 04.1.1 | Dosya içi gruplama | Must (MVP) | ⬜ |
-| 04.1.2 | Ön/arka yüz yapısı | Must (MVP) | ⬜ |
+| 04.1.1 | Dosya içi gruplama | Must (MVP) | ✅ → K04.1 |
+| 04.1.2 | Ön/arka yüz yapısı | Must (MVP) | ✅ → K04.1 |
 | 04.2.1 | Ardışıklık güvenlik kuralı (R6) | Must (MVP) | ⬜ |
 | 04.3.1 | Dosyalar arası gruplama | Must (MVP) | ⬜ |
 | 04.3.2 | Belirsiz eşleştirmenin reddi | Must (MVP) | ⬜ |
@@ -522,6 +522,40 @@ Onay beklemeden yapılan varsayımlar buraya numaralı olarak yazılır.
   yeniden analiz edilir (`done` atlanmaz, K18). Oturum commit edilmez (render adımlarıyla simetrik);
   SQLite `BEGIN IMMEDIATE` (C4) altında analiz boyunca açık işlem diğer yazarları bekletir — işlem
   sınırını (ör. sayfa başına commit) 09.2 belirlemeli.
+- **C18** — Dosya içi gruplama (tm 25, 04.1.x): PRD "ardışık, aynı tür, aynı kişi" ve "ön/arka sıralı
+  eşleşir" der; ardışıklığın, kişi aynılığının ve yüz yapısının ölçütü yazılı değil. Giriş
+  `group_upload(session, upload, catalog=)` (tekrar dosyası atlanır; katalog `export_catalog`), saf
+  çekirdek `group_file_pages(file_id, pages, catalog=)`; çıktı `UploadGrouping.files` →
+  `FileGrouping` (`candidates`, `blank_pages`, `unanalyzed_pages`) → `DocumentCandidate.pages`
+  (`CandidatePage`: `file_id`, `index`, `analysis` — dosya kimliği sayfadadır ki 04.3 dosyalar arası
+  adayı aynı tiple kursun). Sayfa açık adaya ancak beş koşul birden sağlanırsa katılır.
+  **(1) Ardışık:** adayın son sayfası bu sayfadan hemen önce analize gönderilen sayfadır. 02.4 boş
+  sayfası analize gitmez ve başka belgeye ait sayfa sayılmaz (C17'nin bıraktığı K5 sorusu): zinciri
+  kırmaz, adaya girmez — aday sayfa listesi bu yüzden boş sayfayı atlayabilir (`[0, 2]`), 06.2/06.3
+  bunu ardışık alt küme okumalı, boş sayfa çıktıya girmez (S8). Analizi başarısız/yapılmamış sayfa
+  (içeriği bilinmez, başka belge olabilir) ve analizcinin boş dediği, hiçbir değer okumadığı sayfa
+  (sonraki sayfanın devam işareti ona göre verilmiştir) zinciri kırar, aday olmaz; tür, kişi değeri
+  veya okunaklı alan taşıyan çelişkili "boş" yanıt normal sayfadır. **(2) Devam:**
+  `continues_previous_page: true` — kabul kriterinin "ardışık"ı bu işaretle okunur; `false` aynı
+  kişinin art arda taranmış iki aynı tür belgesini ayırır (C14). **(3) Aynı tür:** aynı slug; slug'sız
+  sayfada harf büyüklüğü/boşluk farkı yok sayılan aynı aday tür adı; türü belirlenemeyen sayfa hiç
+  gruplanmaz. **(4) Yüz yapısı:** katalogda `front_back` türde yalnız `[front]` adayına `back`
+  katılır — arkadan sonra gelen ön, tamamlanmış çifte üçüncü sayfa, `single`/`unknown` yüz eşleşmez
+  (`F F B` → `[F] [F B]`); tek yüzlü ve katalog dışı türde yüz sınır değildir; katalogda bulunmayan
+  slug gruplanmaz. `expected_pages` gruplamada uygulanmaz: sınırda bölmek geçerli görünen iki belge
+  üretirdi, aralık dışı aday 04.5'te Unresolved olur. **(5) Aynı kişi:** iki sayfada da dolu olan
+  belge numarası (§20.2.1 normalizasyonu), doğum tarihi, soyad, ad ve orijinal yazım çelişmez. İsim
+  harf büyüklüğü, aksan (NFKD), Türkçe `ı`, noktalama ve kelime sırasından arındırılmış kelime
+  kümesidir; biri ötekini kapsıyorsa çelişki yoktur (ikinci adı yazılmamış sayfa). Değeri olmayan
+  sayfa (kart arka yüzü) çelişmez; sayfa adayın her sayfasıyla karşılaştırılır. Alfabeler arası
+  çeviri 05.1/05.2'nindir; MRZ, uyruk ve kişi dışı alanlar (`expiry_date`) karşılaştırılmaz — aynı
+  kişinin iki kartının yüzlerini ayırmak devam işaretine ve yüz sırasına kalır. Eksik aday (yalnız ön
+  ya da arka, aralık dışı) aday olarak döner; rotası 04.2 (araya belge), 04.3 (başka dosyadaki eş),
+  04.5 (sayfa sayısı) kararıdır. **Olay:** aday başına katalog türünde `DOC_TYPE_DETERMINED`, değilse
+  `DOC_TYPE_UNKNOWN` (`page_index` ilk sayfa; veri `document_type_slug`/`candidate_type_name`,
+  `pages`, `sides` — kişisel değer yok); 04.6 aday tür kaydını ve `CANDIDATE_TYPE_PROPOSED`'ı ekler,
+  `DOC_TYPE_UNKNOWN`'u ikinci kez yazmamalı. Saklanan analiz katalogsuz okunur (C12); şemaya uymayan
+  `analysis_json` değer taşımayan `StoredAnalysisError` ile durur. Oturum commit edilmez.
 
 ## D. Sapmalar
 
@@ -758,3 +792,8 @@ var olan maddeler silinmez. Biçim:
 #### K03.7 — 03.7.1–03.7.2 · Sayfa analizi çalıştırıcı
 - ✅ 03.7.1 `analyze_upload` (`app/pipeline/analyze.py`) partinin sayfalarını dosya (`upload_files.id`) ve sayfa (`pages.index`) sırasıyla tek tek `AnalysisProvider.analyze_page`'e verir; istek önbellekteki sayfa görüntüsünü, 03.4 talimatını + `known_slugs`'ı ve `build_page_prompt` metnini (sayfa sırası, aynı dosyada analize gönderilen önceki sayfanın özeti, varsa PDF metin katmanı) taşır. Özet (`summarize_page_analysis`) önceki sayfanın doğrulanmış analizinden deterministik üretilir, kişisel değer taşımaz (ad/numara/doğum tarihi/orijinal yazım/adres/MRZ/not önceki sayfanın özetinde ve olaylarda geçmiyor — testle doğrulandı), dosya sınırında sıfırlanır; ilk sayfada "yok", önceki sayfa başarısızsa "analizi başarısız" yazılır. Boş sayfa ve tekrar dosyası analize gitmez (`skipped`), boş sayfa özet zincirini kırmaz. Başarılı sayfa `analysis_json` + `done` + `PAGE_ANALYZED`, okunamayan sayfa ayrıca `PAGE_UNREADABLE`. Kayıtlı sağlayıcıyla (sentetik PDF/JPEG/PNG, gerçek render adımları) çok dosyalı sıra, talimat/görüntü/metin katmanı, ön/arka kayıtlarıyla özet akışı doğrulandı (kurallar: C17) — `app/pipeline/analyze.py` · test `tests/pipeline/test_analyze.py` (23) · tm 24
 - ✅ 03.7.2 Sayfa hatası (`PageAnalysisError` şemaya uymayan kayıt, 3 denemeden sonra `ProviderServerError`, `ProviderConnectionError`, eksik/üretilmemiş/geçersiz sayfa görüntüsü) yalnız o sayfayı `failed` yapar (`analysis_json` boşaltılır, `PAGE_ANALYSIS_FAILED` sağlayıcı/model/hata türü/HTTP durumuyla), kalan sayfalar tamamlanır ve parti `partial` olur; tüm sayfalar başarılıysa parti durumu değişmez; beklenmeyen hata (`RecordingExhaustedError`) yutulmaz, parti `partial` işaretlenmez (09.2.3'e kalır) — `app/pipeline/analyze.py` · test `tests/pipeline/test_analyze.py` · tm 24
+
+#### K04.1 — 04.1.1, 04.1.2 · Dosya içi gruplama ve ön/arka eşleşmesi
+- ✅ 04.1.1 `group_file_pages`/`group_upload` (`app/pipeline/group.py`) dosyanın analiz edilmiş sayfalarını sırayla belge adaylarına ayırır: sayfa açık adaya yalnız ardışıksa (araya yalnız 02.4 boş sayfası girebilir; analizi başarısız/yapılmamış ve analizcinin boş dediği sayfa zinciri kırar, aday olmaz), `continues_previous_page` doğruysa, türü aynıysa (slug ya da normalize aday tür adı) ve iki sayfada da yazılı kimlik değeri (normalize belge numarası, doğum tarihi, soyad/ad/orijinal yazım kelime kümesi) çelişmiyorsa katılır; aynı kişinin devam etmeyen iki pasaportu, farklı tür, çelişen kişi (6 durum) ve belirlenemeyen tür ayrı aday kalır, yalnız yazım farkı (boşluk/tire/nokta, aksan, `ı`, kelime sırası, eksik ikinci ad, Kiril harf büyüklüğü — 8 durum) bölmez, beklenen sayfa sayısında bölünmez; `group_upload` tekrar dosyasını atlar, boş/başarısız/analizsiz sayfaları ayrı listeler, aday başına kişisel değer taşımayan `DOC_TYPE_DETERMINED`/`DOC_TYPE_UNKNOWN` yazar, şemaya uymayan saklı analizde değersiz `StoredAnalysisError` verir (kurallar: C18). 5 kural bozulması (devam işareti, yüz yapısı, kişi çelişkisi, boş okuma, normalizasyon) bellekte ayrı ayrı denendi, her biri testte kırmızı — `app/pipeline/group.py` · test `tests/pipeline/test_group.py` (31 fonksiyon / 55 durum) · tm 25
+- ✅ 04.1.2 katalogda `front_back` türde ön yüz ve onu izleyen arka yüz sırayla tek adayda eşleşir (`sides` `(front, back)`, ehliyet ve oturum izni); araya giren boş sayfa eşleşmeyi bozmaz, `F B F B` iki çift olur; `B F`, devam etmeyen arka, tamamlanmış çifte üçüncü sayfa, `single`/`unknown` yüz ve başka numaralı arka eşleşmez, `F F B` → `[F] [F B]` — `app/pipeline/group.py` · test `tests/pipeline/test_group.py` · tm 25
+- ✅ S4: 5 sayfalık sentetik PDF (ehliyet ön, ehliyet arka, foto, oturum ön, oturum arka) gerçek render/metin/boş sayfa adımlarından ve yeni kayıtlı yanıtlarla `analyze_upload`'dan geçip `group_upload` ile üç bağımsız aday verir — `serbian_driving_license` [0, 1] (front, back), `profile_picture` [2], `serbian_residence_card` [3, 4] (front, back); üç `DOC_TYPE_DETERMINED` olayında kişisel değer yok — `tests/fixtures/ai/recordings/s4_sequential_pdf/{0..4}.json` · test `tests/pipeline/test_group.py` · tm 25

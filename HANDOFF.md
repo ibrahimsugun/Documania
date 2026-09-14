@@ -18,6 +18,12 @@ Blok biçimi `CONVENTIONS.md` §3'te tanımlıdır:
 
 ## Task log (newest-first)
 
+## 25 — 04.1 Dosya içi gruplama ve ön/arka eşleşmesi — done — 2026-09-14
+- Yapıldı: `app/pipeline/group.py` — `group_file_pages` (saf çekirdek) ve `group_upload` bir dosyanın analiz edilmiş sayfalarını belge adaylarına ayırır: ardışık (yalnız 02.4 boş sayfası atlanır), `continues_previous_page: true`, aynı tür ve kimlik değerleri çelişmeyen sayfa açık adaya katılır; `front_back` türde ön yüz onu izleyen arka yüzle sırayla eşleşir; aday başına `DOC_TYPE_DETERMINED`/`DOC_TYPE_UNKNOWN` yazılır. S4 kayıtları eklendi (`tests/fixtures/ai/recordings/s4_sequential_pdf`).
+- Doğrulama: ruff check/format, compileall, `pytest -q -m "not live"` (780 geçti, +55; 3 PG testi atlandı), kapsam %99.42 (`app/pipeline/group.py` %100), temiz SQLite'ta `alembic upgrade head` (göç yok), `import app.main` — hepsi exit 0; 5 kural bozulması bellekte denendi, her biri testte kırmızı.
+- Varsayımlar: PLAN.md §C18 — "ardışık" devam işaretiyle okunur (`false` böler, C14); analizi başarısız ve analizcinin boş dediği sayfa zinciri kırar; sayfa sayısı sınırında bölünmez; kişi çelişkisi yalnız iki sayfada da dolu belge numarası/doğum tarihi/ad alanlarında (isimde kelime kümesi kapsama); katalog dışı türde yüz sınır değil.
+- Sonraki pencereye not: 04.2/04.3 `FileGrouping.candidates` üzerinde çalışmalı — eksik yüzlü aday (`sides == (front,)` ya da `(back,)`) 04.1'de aday olarak kalır, rota vermez; `CandidatePage.file_id` dosyalar arası adayı aynı tiple kurmaya izin verir; aday sayfa listesi boş sayfayı atlayabilir (`[0, 2]`), 06.2 bunu ardışık alt küme okumalı; 04.6 `DOC_TYPE_UNKNOWN`'u yeniden yazmamalı.
+
 ## 24 — 03.7 Sayfa analizi çalıştırıcı — done — 2026-09-14
 - Yapıldı: `analyze_upload` (`app/pipeline/analyze.py`) partinin boş olmayan, tekrar olmayan sayfalarını dosya/sayfa sırasıyla tek tek analiz eder; istek metnine sayfa sırası, aynı dosyadaki önceki analiz edilen sayfanın kişisel değer taşımayan yapısal özeti ve metin katmanı girer; sayfa hatası o sayfayı `failed` + `PAGE_ANALYSIS_FAILED` yapar, diğerleri tamamlanır ve parti `partial` olur.
 - Doğrulama: ruff check/format, compileall, `pytest -q -m "not live"` (725 geçti, +23; 3 PG testi atlandı), kapsam %99.38 (`app/pipeline/analyze.py` %100), temiz SQLite'ta `alembic upgrade head` (göç yok), `import app.main` — hepsi exit 0.

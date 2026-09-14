@@ -1,0 +1,30 @@
+{
+  "page_index": 1,
+  "is_blank": false,
+  "is_readable": true,
+  "language": "sr",
+  "script": "latin",
+  "document_type_slug": "serbian_driving_license",
+  "candidate_type_name": null,
+  "side": "back",
+  "continues_previous_page": true,
+  "person": {
+    "surname": null,
+    "given_names": null,
+    "other_names": null,
+    "original_script_name": null,
+    "date_of_birth": null,
+    "nationality": null,
+    "document_number": null,
+    "mrz_lines": null,
+    "contact": {"phone": null, "email": null, "address": null}
+  },
+  "fields": {
+    "surname": {"value": null, "legible": false},
+    "given_names": {"value": null, "legible": false},
+    "date_of_birth": {"value": null, "legible": false},
+    "document_number": {"value": null, "legible": false},
+    "expiry_date": {"value": null, "legible": false}
+  },
+  "notes": "Arka yüzde yalnız ehliyet sınıfları tablosu var; zorunlu alanlar ön yüzde."
+}
