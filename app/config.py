@@ -20,6 +20,10 @@ class Settings(BaseSettings):
     app_env: Literal["development", "production"] = "development"
     database_url: str
     data_dir: Path = Path("data")
+    # PRD 01.3.1 sayı vermez; MB/sayfa sınırları burada varsayılan olarak sabitlenir
+    # (bkz. PLAN.md §C8), ortam değişkeniyle ortama göre değiştirilebilir.
+    max_upload_file_size_bytes: int = 20 * 1024 * 1024
+    max_upload_pdf_pages: int = 30
 
 
 def load_settings(**overrides: object) -> Settings:

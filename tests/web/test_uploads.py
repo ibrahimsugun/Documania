@@ -1,16 +1,18 @@
-"""01.1.1, 01.1.2 — çoklu dosya yükleme uç noktası ve bağlam çalışanı ile yükleme."""
+"""01.1.1, 01.1.2, 01.3.1 — çoklu dosya yükleme, bağlam çalışanı, boyut/sayfa sınırı."""
 
 from pathlib import Path
 
 import pytest
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
-from app.config import get_settings
+from app.config import Settings, get_settings
 from app.db.models import Employee, Event, Upload, UploadFile
 from app.storage import DataLayout, sha256_bytes
 from app.web.routers.uploads import get_layout
+from tests.fixtures.gen import make_pdf_bytes
 
 
 def test_get_layout_uses_settings_data_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -132,3 +134,57 @@ def test_no_files_does_not_create_upload_row(
 
     with session_factory() as session:
         assert session.scalar(select(Upload)) is None
+
+
+def _with_settings(app: FastAPI, **overrides: object) -> None:
+    app.dependency_overrides[get_settings] = lambda: Settings(database_url="sqlite://", **overrides)
+
+
+def test_oversized_file_is_rejected_and_told_to_split(
+    app: FastAPI, client: TestClient, session_factory: sessionmaker[Session]
+) -> None:
+    _with_settings(app, max_upload_file_size_bytes=10)
+
+    response = client.post("/api/uploads", files=_files(("buyuk.pdf", b"0123456789A")))
+
+    assert response.status_code == 400
+    assert "böl" in response.json()["detail"].lower()
+    with session_factory() as session:
+        assert session.scalar(select(Upload)) is None
+
+
+def test_file_at_exact_size_limit_is_accepted(app: FastAPI, client: TestClient) -> None:
+    _with_settings(app, max_upload_file_size_bytes=10)
+
+    response = client.post("/api/uploads", files=_files(("tam.pdf", b"0123456789")))
+
+    assert response.status_code == 201
+
+
+def test_pdf_over_page_limit_is_rejected_and_told_to_split(
+    app: FastAPI, client: TestClient, session_factory: sessionmaker[Session]
+) -> None:
+    _with_settings(app, max_upload_pdf_pages=2)
+
+    response = client.post("/api/uploads", files=_files(("cok-sayfali.pdf", make_pdf_bytes(3))))
+
+    assert response.status_code == 400
+    assert "böl" in response.json()["detail"].lower()
+    with session_factory() as session:
+        assert session.scalar(select(Upload)) is None
+
+
+def test_pdf_at_exact_page_limit_is_accepted(app: FastAPI, client: TestClient) -> None:
+    _with_settings(app, max_upload_pdf_pages=2)
+
+    response = client.post("/api/uploads", files=_files(("iki-sayfali.pdf", make_pdf_bytes(2))))
+
+    assert response.status_code == 201
+
+
+def test_non_pdf_content_is_not_page_checked(app: FastAPI, client: TestClient) -> None:
+    _with_settings(app, max_upload_pdf_pages=1)
+
+    response = client.post("/api/uploads", files=_files(("foto.jpg", b"\xff\xd8\xff test bytes")))
+
+    assert response.status_code == 201

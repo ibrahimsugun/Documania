@@ -8,7 +8,7 @@
 
 | Faz | PRD | Genel durum | Must sayacı | Kapanış |
 | --- | --- | --- | --- | --- |
-| Faz 0 — MVP | §5.1 | 22 ✅ · 0 ◐ · 80 ⬜ · 0 🔒 | 21/98 Must | AÇIK |
+| Faz 0 — MVP | §5.1 | 23 ✅ · 0 ◐ · 79 ⬜ · 0 🔒 | 22/98 Must | AÇIK |
 | Faz 1 — v1 | §5.2 | 0 ✅ · 0 ◐ · 0 ⬜ · 32 🔒 | 0/21 Must | AÇIK |
 | Faz 2 — v2 | §5.3 | 0 ✅ · 0 ◐ · 0 ⬜ · 13 🔒 | 0/0 Must | AÇIK |
 | Faz 3 — Enterprise | §5.4 | 0 ✅ · 0 ◐ · 0 ⬜ · 8 🔒 | 0/0 Must | AÇIK |
@@ -96,7 +96,7 @@ panelde `plan-count-drift` bulgusu doğurur.
 | 01.1.2 | Bağlam çalışanı ile yükleme | Must (MVP) | ✅ → K01.1 |
 | 01.2.1 | İçerik tabanlı tür tespiti | Must (MVP) | ✅ → K01.2 |
 | 01.2.2 | Desteklenmeyen türün reddi | Must (MVP) | ✅ → K01.2 |
-| 01.3.1 | Boyut ve sayfa sınırı | Must (MVP) | ⬜ |
+| 01.3.1 | Boyut ve sayfa sınırı | Must (MVP) | ✅ → K01.3 |
 | 01.4.1 | Tekrar yükleme tespiti | Must (MVP) | ⬜ |
 | 01.5.1 | Inbox'a değişmez yazma | Must (MVP) | ⬜ |
 | 01.6.1 | Parti durumu sorgulama | Must (MVP) | ⬜ |
@@ -344,6 +344,13 @@ Onay beklemeden yapılan varsayımlar buraya numaralı olarak yazılır.
   ülke kodsuz, direkt kapalı; Profile Picture çıktı jpeg + `[extract_image, render_image]` (K12,
   S3); Attachment yalnız doc/docx/xls/xlsx, `analyze: false`, direkt. YAML için PyYAML
   bağımlılığı eklendi (§4'te YAML kütüphanesi kilitli değil).
+- **C8** — Boyut/sayfa sınırı (tm 9, 01.3.1): PRD sayı vermez. Ortam değişkeniyle değiştirilebilir
+  varsayılan olarak dosya başına 20 MiB (`MAX_UPLOAD_FILE_SIZE_BYTES`) ve PDF başına 30 sayfa
+  (`MAX_UPLOAD_PDF_PAGES`) seçildi — kimlik belgesi taramaları için cömert, yanlışlıkla tüm bir
+  cilt/klasörün yüklenmesini yine de yakalayan bir eşik. Sayfa sayısı yalnız içerik `detect_file_kind`
+  ile PDF olarak tanınırsa `pypdf.PdfReader` ile sayılır; PDF imzalı ama yapısal olarak
+  çözülemeyen içerikte sayfa denetimi atlanır (boyut denetimi yine de uygulanır). Kesin sayılar
+  insan onayına açıktır.
 
 ## D. Sapmalar
 
@@ -523,3 +530,6 @@ var olan maddeler silinmez. Biçim:
 
 #### K01.2 — 01.2.1, 01.2.2 · İçerik tabanlı dosya türü tespiti
 - ✅ `detect_file_kind(content)` yalnız ilk baytlardaki imzaya bakar, dosya adı/uzantısı hiç okunmaz — PDF/JPEG/PNG imzası doğrudan, OOXML (DOCX/XLSX) ZIP içindeki `word/document.xml`/`xl/workbook.xml` yoluyla, eski ikili DOC/XLS (CFBF) UTF-16LE `WordDocument`/`Workbook`/`Book` akış adıyla ayırt edilir (K2: DOC/XLS/DOCX/XLSX yalnız tanınır, analiz edilmez); yedi türün dışındaki her içerik (boş, düz metin, bozuk zip, isimsiz OLE) `UnsupportedFileTypeError` ile anlaşılır Türkçe mesajla reddedilir — `app/storage/filetype.py` · test `tests/storage/test_filetype.py` (10 fonksiyon / 14 durum) · tm 8
+
+#### K01.3 — 01.3.1 · Boyut ve sayfa sınırı denetimi
+- ✅ Her dosya diske yazılmadan/parti oluşturulmadan önce boyut (`max_upload_file_size_bytes`, varsayılan 20 MiB) ve, içerik `detect_file_kind` ile PDF tespit edilirse, sayfa sayısı (`max_upload_pdf_pages`, varsayılan 30, `pypdf.PdfReader` ile sayılır) denetlenir; sınırı aşan tek dosya bile olsa 400 döner, kullanıcıya dosyayı bölmesi söylenir, parti/DB satırı hiç oluşmaz; PDF imzalı ama pypdf ile çözülemeyen içerikte (ör. sentetik olmayan test baytı) sayfa denetimi sessizce atlanır — `app/config.py` · `app/web/routers/uploads.py` · `pyproject.toml` (pypdf) · test `tests/web/test_uploads.py` (+6) · tm 9

@@ -18,6 +18,12 @@ Blok biçimi `CONVENTIONS.md` §3'te tanımlıdır:
 
 ## Task log (newest-first)
 
+## 9 — 01.3 Boyut ve sayfa sınırı denetimi — done — 2026-09-14
+- Yapıldı: Yükleme uç noktasına 01.3.1 boyut/sayfa sınırı denetimi eklendi — her dosya diske yazılmadan önce boyut (`Settings.max_upload_file_size_bytes`) ve, içerik PDF ise (`detect_file_kind`), sayfa sayısı (`Settings.max_upload_pdf_pages`, `pypdf.PdfReader`) kontrol edilir; sınırı aşan tek dosya bile partiyi tamamen reddeder (400 + "bölüp tekrar yükleyin") ve hiçbir DB satırı/dosya yazılmaz.
+- Doğrulama: ruff check/format, compileall, `pytest -q -m "not live"` (274 geçti, +6 sınır durumu; 3 PG testi ortam değişkeni yokken atlandı), kapsam %99.03 (`app/web/routers/uploads.py` %100), temiz SQLite'ta `alembic upgrade head`, `import app.main` — hepsi exit 0.
+- Varsayımlar: PRD 01.3.1 sayı vermez; varsayılan 20 MiB / 30 sayfa seçildi, `.env` ile değiştirilebilir (PLAN.md §C8). PDF imzalı ama pypdf ile çözülemeyen (gerçek yapılı olmayan) içerikte sayfa denetimi atlanır, yalnız boyut denetimi uygulanır. `tests/fixtures/gen.py` bu görevle ilk kez oluşturuldu (`make_pdf_bytes`) — CONVENTIONS §6'nın öngördüğü sentetik belge üretici, yalnız gerçek pypdf ile okunabilir boş sayfalı PDF üretir.
+- Sonraki pencereye not: `app/web/routers/uploads.py`'de `get_settings` artık `Depends(get_settings)` ile enjekte ediliyor (önceden düz çağrıydı) — testte `app.dependency_overrides[get_settings]` ile geçersiz kılınıyor (`tests/web/conftest.py`); yeni bir `app` fixture eklendi, `client` fixture ondan türetiliyor. `pyproject.toml`'a `pypdf` bağımlılığı eklendi (MASTER-PROMPT §4'teki kilitli PDF kütüphanesi, ilk kez kullanıldı).
+
 ## 8 — 01.2 İçerik tabanlı dosya türü tespiti — done — 2026-09-14
 - Yapıldı: `detect_file_kind(content)` — yalnız içerik baytlarına bakarak PDF/JPEG/PNG (imza), DOCX/XLSX (ZIP içi `word/document.xml`/`xl/workbook.xml`) ve eski DOC/XLS'i (CFBF içi UTF-16LE `WordDocument`/`Workbook`/`Book` akış adı) tanır; yedi türün dışındaki içerik `UnsupportedFileTypeError` ile Türkçe anlaşılır mesajla reddedilir.
 - Doğrulama: ruff check/format, compileall, `pytest -q -m "not live"` (269 geçti, +14 dosya türü durumu; 3 PG testi ortam değişkeni yokken atlandı), kapsam %99.19 (`app/storage/filetype.py` %100), temiz SQLite'ta `alembic upgrade head`, `import app.main` — hepsi exit 0.

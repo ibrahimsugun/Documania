@@ -6,10 +6,12 @@ from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from sqlalchemy import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
+from app.config import Settings, get_settings
 from app.db.models import Base
 from app.db.session import create_db_engine, create_session_factory, get_session
 from app.main import create_app
@@ -36,14 +38,22 @@ def layout(tmp_path: Path) -> DataLayout:
 
 
 @pytest.fixture
-def client(session_factory: sessionmaker[Session], layout: DataLayout) -> Iterator[TestClient]:
-    app = create_app()
+def app(session_factory: sessionmaker[Session], layout: DataLayout) -> FastAPI:
+    application = create_app()
 
     def _override_get_session() -> Iterator[Session]:
         with session_factory() as session:
             yield session
 
-    app.dependency_overrides[get_session] = _override_get_session
-    app.dependency_overrides[get_layout] = lambda: layout
+    application.dependency_overrides[get_session] = _override_get_session
+    application.dependency_overrides[get_layout] = lambda: layout
+    # Gerçek DATABASE_URL/.env gerektirmesin diye varsayılan sınırlarla (01.3.1) sabit ayar;
+    # sınır testleri kendi override'ını `app.dependency_overrides[get_settings]` ile ekler.
+    application.dependency_overrides[get_settings] = lambda: Settings(database_url="sqlite://")
+    return application
+
+
+@pytest.fixture
+def client(app: FastAPI) -> Iterator[TestClient]:
     yield TestClient(app)
     app.dependency_overrides.clear()
