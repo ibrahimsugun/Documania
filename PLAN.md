@@ -8,7 +8,7 @@
 
 | Faz | PRD | Genel durum | Must sayacı | Kapanış |
 | --- | --- | --- | --- | --- |
-| Faz 0 — MVP | §5.1 | 30 ✅ · 0 ◐ · 72 ⬜ · 0 🔒 | 29/98 Must | AÇIK |
+| Faz 0 — MVP | §5.1 | 31 ✅ · 0 ◐ · 71 ⬜ · 0 🔒 | 30/98 Must | AÇIK |
 | Faz 1 — v1 | §5.2 | 0 ✅ · 0 ◐ · 0 ⬜ · 32 🔒 | 0/21 Must | AÇIK |
 | Faz 2 — v2 | §5.3 | 0 ✅ · 0 ◐ · 0 ⬜ · 13 🔒 | 0/0 Must | AÇIK |
 | Faz 3 — Enterprise | §5.4 | 0 ✅ · 0 ◐ · 0 ⬜ · 8 🔒 | 0/0 Must | AÇIK |
@@ -109,7 +109,7 @@ panelde `plan-count-drift` bulgusu doğurur.
 | 02.2.1 | PDF metin katmanı çıkarma | Must (MVP) | ✅ → K02.2 |
 | 02.3.1 | Görüntü dosyaları için analiz kopyası | Must (MVP) | ✅ → K02.3 |
 | 02.4.1 | Boş sayfa tespiti | Must (MVP) | ✅ → K02.4 |
-| 02.5.1 | Gömülü tek görüntü tespiti | Must (MVP) | ⬜ |
+| 02.5.1 | Gömülü tek görüntü tespiti | Must (MVP) | ✅ → K02.5 |
 
 ### 3.4 FR-MOD-03 — Yapay zekâ analiz katmanı
 
@@ -373,6 +373,19 @@ Onay beklemeden yapılan varsayımlar buraya numaralı olarak yazılır.
   yeniden üretilir. `render_upload_file` `pages` satırlarını açar/günceller, `page_count`'u
   doldurur, sayfa başına `PAGE_RENDERED` olayı yazar; parti durum geçişi (`rendering`) ve
   tekrar dosyaları (`is_duplicate_of`) atlama kararı orkestrasyonun (09.2.x) işidir.
+- **C11** — Gömülü tek görüntü tespiti (tm 17, 02.5.1): PRD "tek tam sayfa görüntü"nün ölçütünü
+  vermez; işaret `extract_image`'ı (§20.5) seçtiği için ölçüt "çıkarılan orijinal baytlar
+  sayfada görünenle aynı mı" olarak kuruldu ve belirsizlikte işaret VERİLMEZ — yanlış işaret
+  görünen içeriği (damga, not, kırpma) sessizce düşürür, eksik işaret yalnız kayıplı ama sayfaya
+  sadık `render_image`'a düşer. Sayfa MuPDF ile çalıştırılıp çizim komutları kaydedilir
+  (`pymupdf.mupdf.FzDevice2`; yüksek düzey API sabit alfa, yumuşak maske ve dikdörtgen olmayan
+  kırpmayı göstermiyor). İşaret için: `/Rotate` yok; açıklamalar dahil tam bir görüntü çizimi,
+  başka görünür komut yok (görünmez OCR metni serbest — PDF→JPEG'de iki işlem de metin katmanını
+  taşımaz); görüntü döndürülmemiş/aynalanmamış, tam opak, sayfa kutusuyla her kenarda
+  `FULL_PAGE_TOLERANCE_PT = 1.0` pt içinde eşit (300 DPI taramada sayfa boyutu yuvarlaması);
+  kırpmalar yalnız sayfayı kaplayan dikdörtgen; karışım modu normal, grup opak; sayfanın tek görüntü
+  nesnesi (satır içi değil) ve `SMask`/`Mask`/`Decode`/`SMaskInData` anahtarı yok. Tolerans
+  yapılandırma değeri değil modül sabitidir: işletme ayarı değil, geometri eşiğidir.
 
 ## D. Sapmalar
 
@@ -583,3 +596,6 @@ var olan maddeler silinmez. Biçim:
 
 #### K02.4 — 02.4.1 · Boş sayfa tespiti
 - ✅ `is_page_blank`/`detect_pdf_blank_pages`/`mark_upload_file_blank_pages` (`app/pipeline/render.py`) — sayfa yalnız metin katmanı, gömülü görüntü ve çizimin üçü de yoksa boş sayılır (PDF'in kendi içerik nesnelerine bakar, OCR/piksel analizi yapılmaz — K11); taranmış (metinsiz) ama gömülü görüntü taşıyan sayfa boş SAYILMAZ. `mark_upload_file_blank_pages` var olan `Page` satırını günceller (yoksa açar), yalnız `is_blank`'e dokunur — `image_path`/`text_layer` render/metin adımlarının alanı, `extract_upload_file_text`'in sözleşmesiyle simetrik. Boş bulunan her sayfa için `PAGE_BLANK` olayı yazılır (K15); hata sayılmaz — `RenderError` yalnız dosya PDF değilse/bozuksa/parolalıysa fırlar, boş sayfa bunlardan biri değildir. Analizciye gönderilmemesi (kabul kriterinin ikinci yarısı) bu alanı okuyacak orkestrasyonun (09.x) işi, burada henüz bağlanmadı. Oturum commit edilmez — `app/pipeline/render.py` · test `tests/pipeline/test_render.py` (+9 fonksiyon) · tm 16
+
+#### K02.5 — 02.5.1 · Gömülü tek görüntü tespiti
+- ✅ `single_full_page_image_xref`/`detect_pdf_single_image_pages`/`mark_upload_file_single_image_pages` (`app/pipeline/render.py`) — sayfa MuPDF kayıt aygıtıyla (`_PaintRecorder`) çalıştırılır; tam bir görüntü çizimi, başka görünür komut yok, döndürme/aynalama/alfa yok, sayfa kutusunu 1 pt toleransla birebir kaplıyor, kırpma yalnız sayfayı kaplayan dikdörtgen, tek görüntü nesnesi ve maske/`Decode` anahtarı yoksa görüntünün `xref`'i döner, aksi halde işaret verilmez (ölçüt ve gerekçe: C11). İşaretli sayfanın xref'inden `extract_image` orijinal JPEG baytlarını birebir veriyor (testte doğrulandı — §20.5 girdisi). 8 olumlu (JPEG/PNG tam sayfa, görünmez OCR metni, sayfayı kaplayan kırpma, sayfa saydamlık grubu, tolerans içi kenar, kırpma kutusuna oturan görüntü, Pillow PDF çıktısı) ve 23 olumsuz sentetik durumun her biri hedeflenen kuralla reddedildi (boş/metin/çizim, küçük/kenar boşluklu görüntü, görünür metin, çizim, iki görüntü, kullanılmayan ikinci kaynak, aynı görüntü iki kez, açıklama notu, 90° ve aynalı yerleştirme, `/Rotate`, alfa kanallı PNG, `Decode`, renk anahtarı maskesi, dar ve dikdörtgen olmayan kırpma, yarı saydam çizim, Multiply karışımı, satır içi görüntü, kırpma kutusundan taşan görüntü). `mark_upload_file_single_image_pages` yalnız `pages.has_single_embedded_image`'e dokunur (render/metin/boş sayfa alanları değişmez), var olan satırı günceller; PRD §8.3'te tür olmadığı için olay yazmaz (§D6). Göç yok (sütun 00.3'te vardı). Oturum commit edilmez — `app/pipeline/render.py` · test `tests/pipeline/test_render.py` (+7 fonksiyon / 38 durum) · tm 17

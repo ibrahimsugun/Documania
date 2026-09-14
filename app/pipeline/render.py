@@ -26,6 +26,13 @@ altına yazılır; orijinal dosyaya dokunulmaz (K10).
 Boş sayfa tespiti (02.4.1) PDF'in kendi içerik nesnelerine bakar: metin katmanı, gömülü görüntü
 ve çizim üçü de yoksa sayfa boştur. OCR veya piksel analizi yapılmaz (K11); boş sayfa hata
 sayılmaz, yalnız `pages.is_blank` alanına işaretlenir ve `PAGE_BLANK` olayı yazılır.
+
+Gömülü tek görüntü tespiti (02.5.1) sayfanın tek bir tam sayfa görüntüden oluşup oluşmadığını
+`pages.has_single_embedded_image`'e işaretler; `extract_image` (§20.5, 07.5.1) yalnız bu işaretli
+sayfada seçilir. Karar sayfa MuPDF ile çalıştırılırken çizim komutları kaydedilerek verilir —
+görüntüye bakılmaz, yalnız sayfanın ne çizdiğine bakılır. Emin olunamayan her durumda işaret
+verilmez: yanlış işaret sayfada görünen içeriğin bir kısmını sessizce düşürür, eksik işaret
+yalnız kayıplı ama sayfaya sadık `render_image`'a düşer.
 """
 
 from __future__ import annotations
@@ -56,6 +63,16 @@ POINTS_PER_INCH = 72
 # 02.3.1: analiz kopyası kaynağın kendi biçimini korur — PDF render'ının aksine JPEG'e
 # dönüştürülmez (PNG şeffaflığı/kaybı gibi bir dönüşüm kararı gerektirmez).
 _IMAGE_COPY_EXTENSIONS: dict[FileKind, str] = {FileKind.JPEG: "jpg", FileKind.PNG: "png"}
+
+# 02.5.1: görüntünün sayfa kutusunu "tam" kaplaması için her kenarda izin verilen en büyük fark
+# (nokta). Sayfa boyutunun yuvarlanmasını tolere eder (300 DPI A4 taraması 595,2 pt → 595);
+# 1 pt ≈ 0,35 mm, 300 DPI'da ~4 piksel.
+FULL_PAGE_TOLERANCE_PT = 1.0
+
+# 02.5.1: görüntü nesnesinin sayfadaki görünüşünü baytlarından farklı kılan anahtarlar —
+# yumuşak/renk anahtarı maskesi ve renk çözme dizisi. Biri varsa çıkarılan baytlar sayfada
+# görüneni vermez.
+_IMAGE_APPEARANCE_KEYS = ("SMask", "Mask", "Decode", "SMaskInData")
 
 
 class RenderError(ValueError):
@@ -306,6 +323,149 @@ def mark_upload_file_blank_pages(
             if blank:
                 record_event(session, EventType.PAGE_BLANK, page_index=index)
             pages.append(page)
+    session.flush()
+    return pages
+
+
+class _PaintRecorder(pymupdf.mupdf.FzDevice2):
+    """Sayfa çalıştırılırken MuPDF'in çizim komutlarını kaydeden aygıt (02.5.1).
+
+    Yalnız karar için gereken tutulur: her görüntü çiziminin dönüşüm matrisi ve alfası, her
+    dikdörtgen kırpmanın sınırı. Görüntünün görünüşünü değiştirebilecek her başka komut —
+    görünür metin, yol, gölgeleme, görüntü maskesi, yumuşak maske, desen, dikdörtgen olmayan
+    kırpma, normal dışı karışım veya yarı saydam grup — `disqualified`'ı işaretler. Görünmez metin
+    (OCR katmanı), katman işaretleri ve kırpma/grup kapanışları görünüşü değiştirmez, sayılmaz.
+    """
+
+    _DISQUALIFYING_CALLS = (
+        "fill_path",
+        "stroke_path",
+        "clip_stroke_path",
+        "fill_text",
+        "stroke_text",
+        "clip_text",
+        "clip_stroke_text",
+        "fill_shade",
+        "fill_image_mask",
+        "clip_image_mask",
+        "begin_mask",
+        "begin_tile",
+    )
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.images: list[tuple[pymupdf.Matrix, float]] = []
+        self.clip_rects: list[pymupdf.Rect] = []
+        self.disqualified = False
+        # MuPDF yalnız açıkça etkinleştirilen sanal yöntemleri Python'a yönlendirir.
+        for name in ("fill_image", "clip_path", "begin_group", *self._DISQUALIFYING_CALLS):
+            getattr(self, f"use_virtual_{name}")()
+
+    def _disqualify(self, *args: object) -> int:
+        self.disqualified = True
+        return 0  # `begin_tile` önbellek kimliği bekler; 0 = önbellekte yok, içerik çalışır.
+
+    fill_path = stroke_path = clip_stroke_path = _disqualify
+    fill_text = stroke_text = clip_text = clip_stroke_text = _disqualify
+    fill_shade = fill_image_mask = clip_image_mask = begin_mask = begin_tile = _disqualify
+
+    def fill_image(self, ctx, image, ctm, alpha, color_params) -> None:
+        m = pymupdf.mupdf.FzMatrix(ctm)
+        self.images.append((pymupdf.Matrix(m.a, m.b, m.c, m.d, m.e, m.f), alpha))
+
+    def clip_path(self, ctx, path, even_odd, ctm, scissor) -> None:
+        if not pymupdf.mupdf.ll_fz_path_is_rect(path, ctm):
+            self.disqualified = True
+            return
+        bounds = pymupdf.mupdf.ll_fz_bound_path(path, None, ctm)
+        self.clip_rects.append(pymupdf.Rect(bounds.x0, bounds.y0, bounds.x1, bounds.y1))
+
+    def begin_group(self, ctx, area, colorspace, isolated, knockout, blendmode, alpha) -> None:
+        if blendmode != pymupdf.mupdf.FZ_BLEND_NORMAL or alpha < 1:
+            self.disqualified = True
+
+
+def _covers(outer: pymupdf.Rect, inner: pymupdf.Rect) -> bool:
+    tolerance = FULL_PAGE_TOLERANCE_PT
+    return (
+        outer.x0 - tolerance <= inner.x0
+        and outer.y0 - tolerance <= inner.y0
+        and outer.x1 + tolerance >= inner.x1
+        and outer.y1 + tolerance >= inner.y1
+    )
+
+
+def single_full_page_image_xref(page: pymupdf.Page) -> int | None:
+    """Sayfa tek bir tam sayfa gömülü görüntüden oluşuyorsa görüntünün `xref`'ini döner (02.5.1).
+
+    `extract_image` (§20.5) bu xref'in orijinal baytlarını çıkarır; bu yüzden xref yalnız çıkan
+    görüntünün sayfada görünenle aynı olduğu kesinse döner, aksi halde `None`. Koşulların hepsi:
+
+    - sayfa `/Rotate` taşımaz;
+    - sayfa (açıklamalar dahil) tam olarak bir görüntü çizer ve başka görünür bir şey çizmez
+      (görünmez OCR metni serbest — PDF→JPEG'de iki işlem de metin katmanını taşımaz);
+    - görüntü döndürülmeden/aynalanmadan, tam opak çizilir ve sayfa kutusunu her kenarda
+      `FULL_PAGE_TOLERANCE_PT` içinde kaplar; kırpma varsa yalnız sayfayı kaplayan dikdörtgendir;
+    - çizilen görüntü sayfanın tek görüntü nesnesidir (satır içi görüntü değil) ve görünüşünü
+      baytlarından farklı kılan maske/`Decode` anahtarı taşımaz.
+    """
+    if page.rotation:
+        return None
+    recorder = _PaintRecorder()
+    mupdf = pymupdf.mupdf
+    mupdf.fz_run_page(page.this, recorder, mupdf.FzMatrix(), mupdf.FzCookie())
+    mupdf.fz_close_device(recorder)
+    if recorder.disqualified or len(recorder.images) != 1:
+        return None
+    matrix, alpha = recorder.images[0]
+    if alpha < 1 or matrix.b or matrix.c or matrix.a <= 0 or matrix.d <= 0:
+        return None
+    image_rect = pymupdf.Rect(0, 0, 1, 1) * matrix
+    page_rect = page.rect
+    if not (_covers(image_rect, page_rect) and _covers(page_rect, image_rect)):
+        return None
+    if not all(_covers(clip, page_rect) for clip in recorder.clip_rects):
+        return None
+
+    images = page.get_images(full=True)
+    if len(images) != 1:
+        return None
+    xref = images[0][0]
+    if any(page.parent.xref_get_key(xref, key)[0] != "null" for key in _IMAGE_APPEARANCE_KEYS):
+        return None
+    # Çizilen görüntü bu nesne mi — kaynakta kullanılmayan bir görüntü + satır içi görüntü değil.
+    if len(page.get_image_rects(xref)) != 1:
+        return None
+    return xref
+
+
+def detect_pdf_single_image_pages(source: Path) -> list[bool]:
+    """`source` PDF'inin her sayfası tek tam sayfa görüntü mü, sayfa sırasıyla döner (02.5.1)."""
+    content = source.read_bytes()
+    with _open_pdf(content) as document:
+        return [single_full_page_image_xref(page) is not None for page in document]
+
+
+def mark_upload_file_single_image_pages(
+    session: Session, layout: DataLayout, upload_file: UploadFile
+) -> list[Page]:
+    """Yüklenmiş PDF'in tek tam sayfa görüntülü sayfalarını `has_single_embedded_image`'e yazar.
+
+    02.5.1: bu işaret işlem seçiminin (§20.3 satır 5/6) girdisidir. PRD §8.3'ün kapalı olay
+    listesinde bu tespit için tür yok; olay yazılmaz (bkz. PLAN.md §D6). Var olan `Page` satırı
+    güncellenir, yenisi açılmaz; sayfanın diğer alanlarına dokunulmaz —
+    `mark_upload_file_blank_pages`'in sözleşmesiyle simetrik. Oturum commit edilmez.
+    """
+    flags = detect_pdf_single_image_pages(layout.resolve(upload_file.stored_path))
+    existing = {page.index: page for page in upload_file.pages}
+    pages: list[Page] = []
+    for index, flag in enumerate(flags):
+        page = existing.get(index)
+        if page is None:
+            page = Page(file=upload_file, index=index)
+            session.add(page)
+        page.has_single_embedded_image = flag
+        pages.append(page)
     session.flush()
     return pages
 

@@ -1,5 +1,7 @@
-"""02.1.1 — PDF sayfa görüntüsü, 02.2.1 — PDF metin katmanı, 02.3.1 — görüntü analiz kopyası."""
+"""02.1.1 — PDF sayfa görüntüsü, 02.2.1 — PDF metin katmanı, 02.3.1 — görüntü analiz kopyası,
+02.4.1 — boş sayfa, 02.5.1 — gömülü tek görüntü tespiti."""
 
+from collections.abc import Callable
 from io import BytesIO
 from pathlib import Path
 
@@ -15,16 +17,19 @@ from app.events import EventType
 from app.pipeline.render import (
     RenderError,
     detect_pdf_blank_pages,
+    detect_pdf_single_image_pages,
     extract_page_text,
     extract_pdf_text,
     extract_upload_file_text,
     is_page_blank,
     mark_upload_file_blank_pages,
+    mark_upload_file_single_image_pages,
     render_image_copy,
     render_image_file,
     render_pdf_pages,
     render_scale,
     render_upload_file,
+    single_full_page_image_xref,
 )
 from app.storage import DataLayout, FileKind, detect_file_kind, sha256_file, write_to_inbox
 from tests.fixtures.gen import (
@@ -669,3 +674,309 @@ def test_mark_upload_file_blank_pages_creates_page_rows_when_none_rendered_yet(
     assert pages[0].is_blank is False
     assert pages[1].is_blank is True
     assert all(page.image_path is None for page in pages)
+
+
+# --- gömülü tek görüntü tespiti (02.5.1) -----------------------------------------------------
+
+PageEdit = Callable[[pymupdf.Document, pymupdf.Page, int], None]
+
+
+def _image_page_pdf_bytes(
+    edit: PageEdit | None = None,
+    *,
+    image: bytes | None = None,
+    size: tuple[float, float] = A4,
+    rect: tuple[float, float, float, float] | None = None,
+) -> bytes:
+    """Tek sayfalı PDF: sentetik görüntü sayfaya (varsayılan tüm sayfa kutusu) gömülür.
+
+    Tarayıcı çıktısı gibi "tek tam sayfa görüntü" sayfasıdır; `edit(document, page, xref)`
+    sayfayı bu tabandan saptırmak (metin, kırpma, maske eklemek vb.) için kullanılır.
+    """
+    document = pymupdf.open()
+    page = document.new_page(width=size[0], height=size[1])
+    xref = page.insert_image(
+        pymupdf.Rect(rect) if rect is not None else page.rect,
+        stream=image if image is not None else make_half_filled_image_bytes(size=(60, 85)),
+        keep_proportion=False,
+    )
+    if edit is not None:
+        edit(document, page, xref)
+    content = document.tobytes()
+    document.close()
+    return content
+
+
+def _set_content(document: pymupdf.Document, page: pymupdf.Page, stream: bytes) -> None:
+    document.update_stream(page.get_contents()[0], stream)
+
+
+def _wrap_content(before: bytes, after: bytes = b"") -> PageEdit:
+    def edit(document: pymupdf.Document, page: pymupdf.Page, xref: int) -> None:
+        original = document.xref_stream(page.get_contents()[0])
+        _set_content(document, page, before + b"\n" + original + b"\n" + after)
+
+    return edit
+
+
+def _with_ext_gstate(gstate: str) -> PageEdit:
+    def edit(document: pymupdf.Document, page: pymupdf.Page, xref: int) -> None:
+        gs_xref = document.get_new_xref()
+        document.update_object(gs_xref, gstate)
+        resources = int(document.xref_get_key(page.xref, "Resources")[1].split()[0])
+        document.xref_set_key(resources, "ExtGState", f"<</GS0 {gs_xref} 0 R>>")
+        _wrap_content(b"/GS0 gs")(document, page, xref)
+
+    return edit
+
+
+def _draw_image_with(matrix: bytes) -> PageEdit:
+    def edit(document: pymupdf.Document, page: pymupdf.Page, xref: int) -> None:
+        name = page.get_images(full=True)[0][7].encode()
+        _set_content(document, page, b"q " + matrix + b" cm /" + name + b" Do Q")
+
+    return edit
+
+
+def _drawn_twice(document: pymupdf.Document, page: pymupdf.Page, xref: int) -> None:
+    original = document.xref_stream(page.get_contents()[0])
+    _set_content(document, page, original + b"\n" + original)
+
+
+def _inline_image_only(document: pymupdf.Document, page: pymupdf.Page, xref: int) -> None:
+    # Kaynakta görüntü nesnesi durur ama çizilen, xref'i olmayan satır içi görüntüdür.
+    inline = b"q 595 0 0 842 0 0 cm BI /W 2 /H 2 /CS /G /BPC 8 ID \x00\xff\xff\x00 EI Q"
+    _set_content(document, page, inline)
+
+
+def _second_image(document: pymupdf.Document, page: pymupdf.Page, xref: int) -> None:
+    page.insert_image(pymupdf.Rect(20, 20, 80, 80), stream=make_half_filled_image_bytes("PNG"))
+
+
+def _unused_second_image(document: pymupdf.Document, page: pymupdf.Page, xref: int) -> None:
+    # Sayfa yalnız ilk görüntüyü çizer; ikincisi kaynaklarda kullanılmadan durur.
+    name = page.get_images(full=True)[0][7].encode()
+    _second_image(document, page, xref)
+    for contents in page.get_contents():
+        document.update_stream(contents, b"")
+    _set_content(document, page, b"q 595 0 0 842 0 0 cm /" + name + b" Do Q")
+
+
+def _cropbox_inside_image(document: pymupdf.Document, page: pymupdf.Page, xref: int) -> None:
+    page.set_cropbox(pymupdf.Rect(50, 50, page.rect.width - 50, page.rect.height - 50))
+
+
+def _cropped_page_with_image_on_cropbox() -> bytes:
+    document = pymupdf.open()
+    page = document.new_page(width=700, height=900)
+    page.set_cropbox(pymupdf.Rect(50, 50, 645, 892))
+    page.insert_image(page.rect, stream=make_half_filled_image_bytes(), keep_proportion=False)
+    content = document.tobytes()
+    document.close()
+    return content
+
+
+def _pillow_pdf_bytes() -> bytes:
+    buffer = BytesIO()
+    with Image.open(BytesIO(make_half_filled_image_bytes(size=(600, 850)))) as image:
+        image.save(buffer, format="PDF", resolution=72.0)
+    return buffer.getvalue()
+
+
+def _rgba_png_bytes() -> bytes:
+    buffer = BytesIO()
+    Image.new("RGBA", (40, 60), (0, 0, 0, 128)).save(buffer, format="PNG")
+    return buffer.getvalue()
+
+
+def _edited(edit: PageEdit) -> Callable[[], bytes]:
+    return lambda: _image_page_pdf_bytes(edit)
+
+
+# (kimlik, PDF üretici, tek tam sayfa görüntü mü)
+SINGLE_IMAGE_CASES: list[tuple[str, Callable[[], bytes], bool]] = [
+    ("jpeg_tam_sayfa", _image_page_pdf_bytes, True),
+    (
+        "png_tam_sayfa",
+        lambda: _image_page_pdf_bytes(image=make_half_filled_image_bytes("PNG")),
+        True,
+    ),
+    (
+        "gorunmez_ocr_metni",
+        _edited(lambda d, p, x: p.insert_text((72, 72), "ocr", render_mode=3)),
+        True,
+    ),
+    ("sayfayi_kaplayan_kirpma", _edited(_wrap_content(b"q 0 0 595 842 re W n", b"Q")), True),
+    (
+        "sayfa_saydamlik_grubu",
+        _edited(
+            lambda d, p, x: d.xref_set_key(p.xref, "Group", "<</S/Transparency/CS/DeviceRGB>>")
+        ),
+        True,
+    ),
+    (
+        "tolerans_icinde_kenar_farki",
+        lambda: _image_page_pdf_bytes(rect=(0.6, 0.6, A4[0] - 0.6, A4[1] - 0.6)),
+        True,
+    ),
+    ("kirpma_kutusuna_oturan_goruntu", _cropped_page_with_image_on_cropbox, True),
+    ("pillow_pdf_ciktisi", _pillow_pdf_bytes, True),
+    ("bos_sayfa", lambda: make_pdf_bytes(1), False),
+    ("yalniz_metin", lambda: make_text_pdf_bytes(["metin"]), False),
+    ("yalniz_cizim", make_half_filled_pdf_bytes, False),
+    ("kucuk_goruntu", _pdf_with_embedded_image_bytes, False),
+    (
+        "tolerans_disinda_kenar_boslugu",
+        lambda: _image_page_pdf_bytes(rect=(2, 2, A4[0] - 2, A4[1] - 2)),
+        False,
+    ),
+    ("goruntu_ve_gorunur_metin", _edited(lambda d, p, x: p.insert_text((72, 72), "damga")), False),
+    (
+        "goruntu_ve_cizim",
+        _edited(lambda d, p, x: p.draw_rect(pymupdf.Rect(10, 10, 50, 50), color=(1, 0, 0))),
+        False,
+    ),
+    ("iki_goruntu", _edited(_second_image), False),
+    ("kullanilmayan_ikinci_goruntu_kaynagi", _edited(_unused_second_image), False),
+    ("ayni_goruntu_iki_kez", _edited(_drawn_twice), False),
+    (
+        "aciklama_notu",
+        _edited(lambda d, p, x: p.add_rect_annot(pymupdf.Rect(10, 10, 50, 50))),
+        False,
+    ),
+    ("doksan_derece_yerlestirme", _edited(_draw_image_with(b"0 842 -595 0 595 0")), False),
+    ("aynalanmis_yerlestirme", _edited(_draw_image_with(b"595 0 0 -842 0 842")), False),
+    ("sayfa_rotate_90", _edited(lambda d, p, x: p.set_rotation(90)), False),
+    ("alfa_kanalli_png", lambda: _image_page_pdf_bytes(image=_rgba_png_bytes()), False),
+    ("decode_dizisi", _edited(lambda d, p, x: d.xref_set_key(x, "Decode", "[1 0 1 0 1 0]")), False),
+    (
+        "renk_anahtari_maskesi",
+        _edited(lambda d, p, x: d.xref_set_key(x, "Mask", "[0 9 0 9 0 9]")),
+        False,
+    ),
+    ("sayfadan_dar_kirpma", _edited(_wrap_content(b"q 0 0 300 842 re W n", b"Q")), False),
+    (
+        "dikdortgen_olmayan_kirpma",
+        _edited(
+            _wrap_content(
+                b"q 297.5 842 m 595 842 595 0 297.5 0 c 0 0 0 842 297.5 842 c h W n", b"Q"
+            )
+        ),
+        False,
+    ),
+    ("yari_saydam_cizim", _edited(_with_ext_gstate("<</Type/ExtGState/ca 0.5>>")), False),
+    ("normal_disi_karisim", _edited(_with_ext_gstate("<</Type/ExtGState/BM/Multiply>>")), False),
+    ("satir_ici_goruntu", _edited(_inline_image_only), False),
+    ("kirpma_kutusundan_tasan_goruntu", _edited(_cropbox_inside_image), False),
+]
+
+
+@pytest.mark.parametrize(
+    ("build", "expected"),
+    [(build, expected) for _, build, expected in SINGLE_IMAGE_CASES],
+    ids=[case_id for case_id, _, _ in SINGLE_IMAGE_CASES],
+)
+def test_single_full_page_image_xref_only_for_page_made_of_one_full_page_image(
+    build: Callable[[], bytes], expected: bool
+) -> None:
+    document = pymupdf.open(stream=build(), filetype="pdf")
+    with document:
+        page = document[0]
+        xref = single_full_page_image_xref(page)
+
+        assert (xref is not None) is expected
+        if expected:
+            assert xref == page.get_images(full=True)[0][0]
+
+
+def test_single_full_page_image_xref_points_to_original_embedded_bytes() -> None:
+    image = make_half_filled_image_bytes("JPEG", size=(60, 85))
+    document = pymupdf.open(stream=_image_page_pdf_bytes(image=image), filetype="pdf")
+    with document:
+        xref = single_full_page_image_xref(document[0])
+
+        assert xref is not None
+        # §20.5 extract_image: işaretli sayfanın xref'i orijinal gömülü baytları verir.
+        extracted = document.extract_image(xref)
+        assert extracted["image"] == image
+        assert extracted["ext"] == "jpeg"
+
+
+def _image_text_blank_pdf_bytes() -> bytes:
+    document = pymupdf.open(stream=_image_page_pdf_bytes(), filetype="pdf")
+    text_page = document.new_page(width=A4[0], height=A4[1])
+    text_page.insert_text((72, 72), "ikinci sayfa")
+    document.new_page(width=A4[0], height=A4[1])
+    content = document.tobytes()
+    document.close()
+    return content
+
+
+def test_detect_pdf_single_image_pages_matches_page_content(tmp_path: Path) -> None:
+    flags = detect_pdf_single_image_pages(_source(tmp_path, _image_text_blank_pdf_bytes()))
+
+    assert flags == [True, False, False]
+
+
+@pytest.mark.parametrize(
+    ("content", "message"),
+    [
+        (b"\xff\xd8\xff\xe0 sentetik", "PDF değil"),
+        (make_sized_pdf_bytes([A4], password="sentetik"), "parola"),
+    ],
+    ids=["jpeg", "parolali"],
+)
+def test_detect_pdf_single_image_pages_raises_render_error(
+    tmp_path: Path, content: bytes, message: str
+) -> None:
+    with pytest.raises(RenderError, match=message):
+        detect_pdf_single_image_pages(_source(tmp_path, content))
+
+
+def test_mark_upload_file_single_image_pages_writes_flag_without_touching_other_fields(
+    session: Session, layout: DataLayout
+) -> None:
+    upload_file = _stored_upload_file(session, layout, _image_text_blank_pdf_bytes())
+    render_upload_file(session, layout, _settings(), upload_file)
+    extract_upload_file_text(session, layout, upload_file)
+    mark_upload_file_blank_pages(session, layout, upload_file)
+    session.commit()
+    before = [(page.image_path, page.text_layer, page.is_blank) for page in upload_file.pages]
+    event_count = session.scalar(select(func.count()).select_from(Event))
+
+    pages = mark_upload_file_single_image_pages(session, layout, upload_file)
+    session.commit()
+
+    assert [page.index for page in pages] == [0, 1, 2]
+    assert [page.has_single_embedded_image for page in pages] == [True, False, False]
+    assert [(page.image_path, page.text_layer, page.is_blank) for page in pages] == before
+    # PRD §8.3'ün kapalı listesinde bu tespit için olay türü yok (PLAN.md §D6).
+    assert session.scalar(select(func.count()).select_from(Event)) == event_count
+
+
+def test_mark_upload_file_single_image_pages_does_not_create_duplicate_rows(
+    session: Session, layout: DataLayout
+) -> None:
+    upload_file = _stored_upload_file(session, layout, _image_text_blank_pdf_bytes())
+    render_upload_file(session, layout, _settings(), upload_file)
+    session.commit()
+    first_ids = [page.id for page in upload_file.pages]
+
+    mark_upload_file_single_image_pages(session, layout, upload_file)
+    session.commit()
+
+    assert [page.id for page in upload_file.pages] == first_ids
+    assert session.scalar(select(func.count()).select_from(Page)) == 3
+
+
+def test_mark_upload_file_single_image_pages_creates_page_rows_when_none_rendered_yet(
+    session: Session, layout: DataLayout
+) -> None:
+    upload_file = _stored_upload_file(session, layout, _image_page_pdf_bytes())
+
+    pages = mark_upload_file_single_image_pages(session, layout, upload_file)
+    session.commit()
+
+    assert [page.index for page in pages] == [0]
+    assert pages[0].has_single_embedded_image is True
+    assert pages[0].image_path is None

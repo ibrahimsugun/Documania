@@ -18,6 +18,12 @@ Blok biçimi `CONVENTIONS.md` §3'te tanımlıdır:
 
 ## Task log (newest-first)
 
+## 17 — 02.5 Gömülü tek görüntü tespiti — done — 2026-09-14
+- Yapıldı: `single_full_page_image_xref`/`detect_pdf_single_image_pages`/`mark_upload_file_single_image_pages` (`app/pipeline/render.py`) — sayfa MuPDF kayıt aygıtıyla (`_PaintRecorder`, `pymupdf.mupdf.FzDevice2`) çalıştırılır; yalnız çıkarılan görüntünün sayfada görünenle aynı olduğu kesinse `pages.has_single_embedded_image=True` yazılır ve xref döner.
+- Doğrulama: ruff check/format, compileall, `pytest -q -m "not live"` (402 geçti, +38 durum; 3 PG testi ortam değişkeni yokken atlandı), kapsam %99.30 (yeni kod %100), temiz SQLite'ta `alembic upgrade head` (göç yok), `import app.main` — hepsi exit 0.
+- Varsayımlar: PRD ölçüt vermiyor; belirsizlikte işaret verilmez (yanlış işaret görünen içeriği düşürür, eksik işaret yalnız `render_image`'a düşer). Görünmez OCR metni serbest, tolerans 1 pt modül sabiti; tüm kurallar PLAN.md §C11. Olay yazılmıyor (§D6, 02.4'teki soru ile aynı).
+- Sonraki pencereye not: 07.5.1 (`extract_image`) xref'i yeniden aramak yerine `single_full_page_image_xref(page)`'i çağırmalı — işaretle aynı kuralı paylaşır; `None` dönerse `render_image`'a düşülür. Orkestrasyona (09.x) bağlanmadı.
+
 ## 16 — 02.4 Boş sayfa tespiti — done — 2026-09-14
 - Yapıldı: `is_page_blank`/`detect_pdf_blank_pages`/`mark_upload_file_blank_pages` (`app/pipeline/render.py`) — sayfa yalnız metin katmanı, gömülü görüntü ve çizimin üçü de yoksa boş sayılır (PDF içerik nesnelerine bakar, OCR/piksel analizi yok); boş bulunan sayfaya `pages.is_blank=True` yazılır ve `PAGE_BLANK` olayı atılır, hata fırlatılmaz.
 - Doğrulama: ruff check/format, compileall, `pytest -q -m "not live"` (364 geçti, +10 durum; 3 PG testi ortam değişkeni yokken atlandı), kapsam %99.11 (`app/pipeline/render.py` %99, yeni kod %100), temiz SQLite'ta `alembic upgrade head` (göç yok — `is_blank` sütunu zaten 00.3'te vardı), `import app.main` — hepsi exit 0.
