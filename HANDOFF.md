@@ -18,6 +18,12 @@ Blok biçimi `CONVENTIONS.md` §3'te tanımlıdır:
 
 ## Task log (newest-first)
 
+## 19 — 03.2 Sağlayıcı soyutlaması ve Anthropic uygulaması — done — 2026-09-14
+- Yapıldı: `app/ai/provider.py` — sağlayıcıdan bağımsız `PageAnalysisRequest`/`PageImage`, yanıt kabulü ortak ve atlanamaz `AnalysisProvider.analyze_page` (§8.4 + katalog + `page_index` eşitliği), `ProviderError` aileleri ve `AI_PROVIDER` ile seçilen `create_provider`/`PROVIDER_FACTORIES`; `app/ai/anthropic_provider.py` — görüntü + metni zorlanmış `record_page_analysis` aracıyla (şema `PageAnalysis.model_json_schema()`) gönderip doğrulanmış `PageAnalysis` döner.
+- Doğrulama: ruff check/format, compileall, `pytest -q -m "not live"` (649 geçti, +82 durum; 3 PG testi atlandı), kapsam %99.41 (yeni modüller %100), temiz SQLite'ta `alembic upgrade head` (göç yok), `import app.main` — hepsi exit 0. Canlı Anthropic testi (`-m live`) anahtar olmadığı için koşulmadı.
+- Varsayımlar: PLAN.md §C13 — katı `output_config.format` yerine zorlanmış araç çağrısı (§8.4 `fields` sözlüğü katı şemaya sığmıyor), düşünme kapalı, SDK yeniden denemesi kapalı (`max_retries=0`), varsayılan model `claude-opus-5`; yeni bağımlılık `anthropic>=1.5` (yerelde `uv pip install --python .venv/Scripts/python.exe -e ".[dev]"`).
+- Sonraki pencereye not: 03.5 yeniden denemeyi `analyze_page` çevresine kurmalı ve `ProviderRateLimitError`/`ProviderServerError`'ı yakalamalı (`PageAnalysisError` yeniden denenmez); 03.3 `openai`'yi `PROVIDER_FACTORIES`'e ekler; 03.4/03.7 prompta sayfa sırasını yazmalı, yanıtın `page_index`'i istekle eşleşmezse reddedilir. İlk anahtarlı ortamda `pytest -m live tests/ai/test_anthropic_provider.py` ile araç şemasının API'ce kabulü doğrulanmalı.
+
 ## 18 — 03.1 Sayfa analizi şeması — done — 2026-09-14
 - Yapıldı: `app/ai/schemas.py` — §8.4 pydantic sözleşmesi (`PageAnalysis`, `PagePerson`, `PageContact`, `FieldReading`, `Script`, `Side`, ISO 639-1 kümesi) ve yanıt kabul girişi `validate_page_analysis(data, known_slugs=…)`; uymayan yanıt `PageAnalysisError` (her ihlal konumuyla, değersiz mesaj) ile reddedilir, `PagePerson.employee_fields()` kişiyi `employees` sütunlarına (`other_names` dahil) eşler.
 - Doğrulama: ruff check/format, compileall, `pytest -q -m "not live"` (567 geçti, +165 durum; 3 PG testi ortam değişkeni yokken atlandı), kapsam %99.35 (`app/ai` %100), temiz SQLite'ta `alembic upgrade head` (göç yok), `import app.main` — hepsi exit 0.

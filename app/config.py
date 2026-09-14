@@ -10,7 +10,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
-from pydantic import Field, ValidationError
+from pydantic import Field, SecretStr, ValidationError
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -29,6 +29,13 @@ class Settings(BaseSettings):
     page_render_dpi: int = Field(default=200, gt=0)
     page_render_max_long_edge_px: int = Field(default=1568, gt=0)
     page_render_jpeg_quality: int = Field(default=90, ge=1, le=100)
+    # PRD 03.2.1 — sayfa analizi sağlayıcısı adıyla seçilir (`app.ai.provider.create_provider`);
+    # sağlayıcıya özgü anahtar/model yalnız o sağlayıcı kurulurken okunur (bkz. PLAN.md §C13).
+    ai_provider: str = Field(default="anthropic", pattern=r"^[a-z][a-z0-9_]*$")
+    ai_max_output_tokens: int = Field(default=4096, gt=0)
+    ai_request_timeout_seconds: float = Field(default=120.0, gt=0)
+    anthropic_api_key: SecretStr | None = None
+    anthropic_model: str = Field(default="claude-opus-5", min_length=1)
 
 
 def load_settings(**overrides: object) -> Settings:

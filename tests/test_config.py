@@ -97,3 +97,63 @@ def test_invalid_page_render_settings_rejected(
 
     with pytest.raises(ValidationError, match=name.lower()):
         load_settings(_env_file=None)
+
+
+AI_VARIABLES = (
+    "AI_PROVIDER",
+    "AI_MAX_OUTPUT_TOKENS",
+    "AI_REQUEST_TIMEOUT_SECONDS",
+    "ANTHROPIC_API_KEY",
+    "ANTHROPIC_MODEL",
+)
+
+
+def test_ai_settings_have_defaults_and_read_environment(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("DATABASE_URL", "sqlite:///./data/test.db")
+    for name in AI_VARIABLES:
+        monkeypatch.delenv(name, raising=False)
+
+    defaults = load_settings(_env_file=None)
+    monkeypatch.setenv("AI_PROVIDER", "openai")
+    monkeypatch.setenv("AI_MAX_OUTPUT_TOKENS", "1024")
+    monkeypatch.setenv("AI_REQUEST_TIMEOUT_SECONDS", "30.5")
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
+    monkeypatch.setenv("ANTHROPIC_MODEL", "claude-test")
+    configured = load_settings(_env_file=None)
+
+    assert (defaults.ai_provider, defaults.ai_max_output_tokens) == ("anthropic", 4096)
+    assert defaults.ai_request_timeout_seconds == 120.0
+    assert (defaults.anthropic_api_key, defaults.anthropic_model) == (None, "claude-opus-5")
+    assert (configured.ai_provider, configured.ai_max_output_tokens) == ("openai", 1024)
+    assert configured.ai_request_timeout_seconds == 30.5
+    assert configured.anthropic_api_key is not None
+    assert configured.anthropic_api_key.get_secret_value() == "test-key"
+    assert configured.anthropic_model == "claude-test"
+
+
+def test_env_example_documents_ai_settings() -> None:
+    example = (Path(__file__).resolve().parents[1] / ".env.example").read_text(encoding="utf-8")
+    assigned = {line.split("=", 1)[0] for line in example.splitlines() if "=" in line}
+
+    assert set(AI_VARIABLES) <= assigned
+    # Gerçek anahtar şablona yazılmaz.
+    assert "ANTHROPIC_API_KEY=\n" in example
+
+
+@pytest.mark.parametrize(
+    ("name", "value"),
+    [
+        ("AI_PROVIDER", "Anthropic"),
+        ("AI_MAX_OUTPUT_TOKENS", "0"),
+        ("AI_REQUEST_TIMEOUT_SECONDS", "0"),
+        ("ANTHROPIC_MODEL", ""),
+    ],
+)
+def test_invalid_ai_settings_rejected(
+    monkeypatch: pytest.MonkeyPatch, name: str, value: str
+) -> None:
+    monkeypatch.setenv("DATABASE_URL", "sqlite:///./data/test.db")
+    monkeypatch.setenv(name, value)
+
+    with pytest.raises(ValidationError, match=name.lower()):
+        load_settings(_env_file=None)

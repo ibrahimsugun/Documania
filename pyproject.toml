@@ -19,6 +19,7 @@ dependencies = [
     "pypdf>=5.0",
     "pymupdf>=1.24",
     "pillow>=11.0",
+    "anthropic>=1.5",
 ]
 
 [project.optional-dependencies]

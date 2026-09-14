@@ -1,0 +1,403 @@
+"""03.2.2 — Anthropic sağlayıcı görüntü + metin girdisiyle şemaya uygun yapılandırılmış çıktı
+üretir.
+
+API ağ yerine `httpx2.MockTransport` ile karşılanır: istek gövdesi (görüntü, metin, zorlanmış
+araç, şema) ve yanıt eşlemesi gerçek SDK istemcisinden geçer. Canlı çağrı `live` işaretlidir.
+"""
+
+from __future__ import annotations
+
+import base64
+import json
+import os
+from collections.abc import Callable
+from typing import Any
+
+import anthropic
+import httpx2
+import pytest
+
+from app.ai import (
+    PageAnalysis,
+    PageAnalysisError,
+    PageAnalysisRequest,
+    PageImage,
+    ProviderConfigError,
+    ProviderConnectionError,
+    ProviderError,
+    ProviderRateLimitError,
+    ProviderServerError,
+    Script,
+    Side,
+    validate_page_analysis,
+)
+from app.ai.anthropic_provider import ANALYSIS_TOOL, TOOL_NAME, AnthropicProvider
+from app.ai.schemas import ISO_639_1_CODES
+from app.config import Settings, load_settings
+from tests.ai.payloads import (
+    SLUGS,
+    SYNTHETIC_DOCUMENT_NUMBER,
+    SYNTHETIC_SURNAME,
+    analysis_payload,
+    page_request,
+)
+from tests.fixtures.gen import make_half_filled_image_bytes
+
+Handler = Callable[[httpx2.Request], httpx2.Response]
+
+
+def settings(**overrides: Any) -> Settings:
+    values: dict[str, Any] = {
+        "database_url": "sqlite://",
+        "anthropic_api_key": "test-key",
+        "anthropic_model": "claude-test",
+        "ai_max_output_tokens": 2048,
+        "ai_request_timeout_seconds": 30.0,
+    }
+    values.update(overrides)
+    return load_settings(_env_file=None, **values)
+
+
+class FakeApi:
+    """Messages API yerine geçer; her isteği saklar, sıradaki yanıtı döner."""
+
+    def __init__(self, *responses: httpx2.Response | Exception) -> None:
+        self.responses = list(responses)
+        self.requests: list[httpx2.Request] = []
+
+    def __call__(self, request: httpx2.Request) -> httpx2.Response:
+        self.requests.append(request)
+        response = self.responses.pop(0)
+        if isinstance(response, Exception):
+            raise response
+        return response
+
+    def provider(self, **overrides: Any) -> AnthropicProvider:
+        client = httpx2.Client(transport=httpx2.MockTransport(self))
+        return AnthropicProvider.from_settings(settings(**overrides), http_client=client)
+
+    def body(self, index: int = 0) -> dict[str, Any]:
+        return json.loads(self.requests[index].content)
+
+
+def message(
+    content: list[dict[str, Any]], *, stop_reason: str | None = "tool_use"
+) -> httpx2.Response:
+    return httpx2.Response(
+        200,
+        json={
+            "id": "msg_test",
+            "type": "message",
+            "role": "assistant",
+            "model": "claude-test",
+            "content": content,
+            "stop_reason": stop_reason,
+            "stop_sequence": None,
+            "usage": {"input_tokens": 1200, "output_tokens": 300},
+        },
+    )
+
+
+def tool_use(payload: object, *, name: str = TOOL_NAME, block_id: str = "toolu_1") -> dict:
+    return {"type": "tool_use", "id": block_id, "name": name, "input": payload}
+
+
+def api_error(status: int, error_type: str, text: str = "sağlayıcı açıklaması") -> httpx2.Response:
+    return httpx2.Response(
+        status, json={"type": "error", "error": {"type": error_type, "message": text}}
+    )
+
+
+# --- İstek: görüntü + metin, zorlanmış analiz aracı --------------------------------------------
+
+
+@pytest.mark.parametrize(("fmt", "media_type"), [("JPEG", "image/jpeg"), ("PNG", "image/png")])
+def test_request_sends_image_then_text_with_forced_analysis_tool(fmt: str, media_type: str) -> None:
+    api = FakeApi(message([tool_use(analysis_payload())]))
+    image_bytes = make_half_filled_image_bytes(fmt)
+    request = PageAnalysisRequest(
+        page_index=0,
+        image=PageImage(image_bytes),
+        instructions="Sistem talimatı: tahmin etme.",
+        prompt="Sayfa 1 / metin katmanı: yok",
+        known_slugs=SLUGS,
+    )
+
+    api.provider().analyze_page(request)
+
+    assert len(api.requests) == 1
+    sent = api.requests[0]
+    assert sent.method == "POST"
+    assert sent.url.path == "/v1/messages"
+    assert sent.headers["x-api-key"] == "test-key"
+    body = api.body()
+    assert body["model"] == "claude-test"
+    assert body["max_tokens"] == 2048
+    assert body["system"] == "Sistem talimatı: tahmin etme."
+    image_block, text_block = body["messages"][0]["content"]
+    assert body["messages"][0]["role"] == "user" and len(body["messages"]) == 1
+    assert image_block["type"] == "image"
+    assert image_block["source"]["type"] == "base64"
+    assert image_block["source"]["media_type"] == media_type
+    assert base64.b64decode(image_block["source"]["data"]) == image_bytes
+    assert text_block == {"type": "text", "text": "Sayfa 1 / metin katmanı: yok"}
+    assert body["tools"] == [
+        {
+            "name": TOOL_NAME,
+            "description": ANALYSIS_TOOL["description"],
+            "input_schema": PageAnalysis.model_json_schema(),
+        }
+    ]
+    assert body["tool_choice"] == {
+        "type": "tool",
+        "name": TOOL_NAME,
+        "disable_parallel_tool_use": True,
+    }
+    assert body["thinking"] == {"type": "disabled"}
+    assert "output_config" not in body
+
+
+def test_tool_schema_is_the_page_analysis_contract() -> None:
+    schema = ANALYSIS_TOOL["input_schema"]
+    defs = schema["$defs"]
+
+    assert schema["type"] == "object"
+    assert schema["additionalProperties"] is False
+    assert set(schema["required"]) == set(analysis_payload())
+    assert set(defs["PagePerson"]["required"]) == set(analysis_payload()["person"])
+    assert defs["Script"]["enum"] == [s.value for s in Script]
+    assert defs["Side"]["enum"] == [s.value for s in Side]
+    language = schema["properties"]["language"]["anyOf"][0]
+    assert set(language["enum"]) == ISO_639_1_CODES
+    # `fields` alan adı anahtarlı sözlüktür (tanımlı `properties` yok); katı şema her nesnede
+    # `additionalProperties: false` istediği için onu boş nesneye indirirdi.
+    fields = schema["properties"]["fields"]
+    assert "properties" not in fields
+    assert fields["patternProperties"] == {"^[a-z][a-z0-9_]*$": {"$ref": "#/$defs/FieldReading"}}
+
+
+# --- Yanıt: yapılandırılmış çıktı → doğrulanmış PageAnalysis ----------------------------------
+
+
+def test_tool_input_becomes_schema_conforming_page_analysis() -> None:
+    payload = analysis_payload(page_index=4, side="front", continues_previous_page=True)
+    api = FakeApi(message([{"type": "text", "text": "Kaydediyorum."}, tool_use(payload)]))
+
+    analysis = api.provider().analyze_page(page_request(page_index=4))
+
+    assert isinstance(analysis, PageAnalysis)
+    assert analysis == validate_page_analysis(payload, known_slugs=SLUGS)
+    assert analysis.page_index == 4
+    assert analysis.side is Side.FRONT
+    assert analysis.person.surname == SYNTHETIC_SURNAME
+
+
+@pytest.mark.parametrize(
+    ("payload", "location"),
+    [
+        (analysis_payload(script="greek"), "script"),
+        (analysis_payload(language="xx"), "language"),
+        (analysis_payload(document_type_slug="bilinmeyen_tur"), "document_type_slug"),
+        (analysis_payload(page_index=7), "page_index"),
+        ({k: v for k, v in analysis_payload().items() if k != "person"}, "person"),
+        (
+            analysis_payload(fields={"surname": {"value": "X", "legible": False}}),
+            "fields.surname",
+        ),
+    ],
+    ids=["alfabe", "dil", "katalog-disi", "baska-sayfa", "eksik-kisi", "okunaksiz-deger"],
+)
+def test_non_conforming_tool_input_is_rejected(payload: dict, location: str) -> None:
+    api = FakeApi(message([tool_use(payload)]))
+
+    with pytest.raises(PageAnalysisError) as caught:
+        api.provider().analyze_page(page_request())
+
+    assert any(problem.startswith(location) for problem in caught.value.problems)
+    assert SYNTHETIC_SURNAME not in str(caught.value)
+    assert SYNTHETIC_DOCUMENT_NUMBER not in str(caught.value)
+
+
+@pytest.mark.parametrize(
+    ("content", "stop_reason", "expected"),
+    [
+        ([tool_use({"page_index": 0})], "max_tokens", "stop_reason=max_tokens"),
+        ([], "refusal", "stop_reason=refusal"),
+        ([{"type": "text", "text": "Sayfa boş görünüyor."}], "end_turn", "stop_reason=end_turn"),
+        ([tool_use(analysis_payload())], None, "stop_reason=None"),
+        (
+            [tool_use(analysis_payload()), tool_use(analysis_payload(), block_id="toolu_2")],
+            "tool_use",
+            "2 araç çağrısı",
+        ),
+        ([tool_use(analysis_payload(), name="baska_arac")], "tool_use", "1 araç çağrısı"),
+    ],
+    ids=["kesik", "ret", "aracsiz", "durum-yok", "iki-cagri", "baska-arac"],
+)
+def test_response_without_single_completed_tool_call_is_rejected(
+    content: list[dict[str, Any]], stop_reason: str | None, expected: str
+) -> None:
+    api = FakeApi(message(content, stop_reason=stop_reason))
+
+    with pytest.raises(PageAnalysisError) as caught:
+        api.provider().analyze_page(page_request())
+
+    assert len(caught.value.problems) == 1
+    assert caught.value.problems[0].startswith("yanıt:")
+    assert expected in caught.value.problems[0]
+    assert len(api.requests) == 1
+
+
+# --- Çağrı hataları: tek deneme, türüne göre ProviderError --------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("status", "error_type", "expected"),
+    [
+        (429, "rate_limit_error", ProviderRateLimitError),
+        (500, "api_error", ProviderServerError),
+        (503, "api_error", ProviderServerError),
+        (504, "timeout_error", ProviderServerError),
+        (529, "overloaded_error", ProviderServerError),
+        (400, "invalid_request_error", ProviderError),
+        (401, "authentication_error", ProviderError),
+        (403, "permission_error", ProviderError),
+        (404, "not_found_error", ProviderError),
+        (413, "request_too_large", ProviderError),
+    ],
+)
+def test_api_status_errors_map_to_provider_errors_without_sdk_retry(
+    status: int, error_type: str, expected: type[ProviderError]
+) -> None:
+    response = api_error(status, error_type)
+    response.headers["retry-after"] = "0"
+    api = FakeApi(response, message([tool_use(analysis_payload())]))
+
+    with pytest.raises(ProviderError) as caught:
+        api.provider().analyze_page(page_request())
+
+    assert type(caught.value) is expected
+    assert caught.value.status_code == status
+    assert f"HTTP {status}" in str(caught.value)
+    assert f"{error_type}: sağlayıcı açıklaması" in str(caught.value)
+    assert isinstance(caught.value.__cause__, anthropic.APIStatusError)
+    # Yeniden deneme 03.5'in işidir; SDK ikinci isteği göndermez.
+    assert len(api.requests) == 1
+
+
+@pytest.mark.parametrize(
+    "body",
+    [b"<html>Bad Gateway</html>", b'{"type": "error"}', b'{"error": {}}'],
+    ids=["html", "hata-nesnesi-yok", "bos-hata"],
+)
+def test_status_error_without_api_error_detail(body: bytes) -> None:
+    api = FakeApi(httpx2.Response(502, content=body))
+
+    with pytest.raises(ProviderServerError) as caught:
+        api.provider().analyze_page(page_request())
+
+    assert str(caught.value) == "Anthropic isteği başarısız: HTTP 502"
+
+
+@pytest.mark.parametrize(
+    "error",
+    [httpx2.ConnectError("bağlantı yok"), httpx2.ReadTimeout("zaman aşımı")],
+    ids=["baglanti", "zaman-asimi"],
+)
+def test_transport_failures_map_to_connection_error_without_retry(error: Exception) -> None:
+    api = FakeApi(error, message([tool_use(analysis_payload())]))
+
+    with pytest.raises(ProviderConnectionError) as caught:
+        api.provider().analyze_page(page_request())
+
+    assert caught.value.status_code is None
+    assert isinstance(caught.value.__cause__, anthropic.APIConnectionError)
+    assert len(api.requests) == 1
+
+
+def test_other_sdk_errors_map_to_provider_error() -> None:
+    class BrokenMessages:
+        def create(self, **_: object) -> object:
+            raise anthropic.AnthropicError("beklenmeyen")
+
+    class BrokenClient:
+        messages = BrokenMessages()
+
+    provider = AnthropicProvider(
+        BrokenClient(),  # type: ignore[arg-type]
+        model="claude-test",
+        max_output_tokens=10,
+    )
+
+    with pytest.raises(ProviderError) as caught:
+        provider.analyze_page(page_request())
+
+    assert type(caught.value) is ProviderError
+    assert str(caught.value) == "Anthropic isteği başarısız: AnthropicError"
+
+
+# --- Ayarlardan kurulum ------------------------------------------------------------------------
+
+
+def test_from_settings_configures_client_from_env_values() -> None:
+    provider = AnthropicProvider.from_settings(
+        settings(
+            anthropic_api_key="  test-key \n",
+            anthropic_model="claude-ayar",
+            ai_max_output_tokens=1000,
+            ai_request_timeout_seconds=12.5,
+        )
+    )
+
+    assert provider.name == "anthropic"
+    assert provider.model == "claude-ayar"
+    assert provider._max_output_tokens == 1000
+    assert provider._client.api_key == "test-key"
+    assert provider._client.max_retries == 0
+    assert provider._client.timeout == 12.5
+
+
+@pytest.mark.parametrize("key", [None, "", "   "], ids=["yok", "bos", "bosluk"])
+def test_from_settings_requires_api_key(key: str | None) -> None:
+    with pytest.raises(ProviderConfigError, match="ANTHROPIC_API_KEY"):
+        AnthropicProvider.from_settings(settings(anthropic_api_key=key))
+
+
+def test_api_key_is_not_exposed_by_settings_repr() -> None:
+    configured = settings(anthropic_api_key="sk-ant-test-gizli")
+
+    assert "sk-ant-test-gizli" not in repr(configured)
+
+
+def test_constructor_rejects_non_positive_output_tokens() -> None:
+    client = anthropic.Anthropic(api_key="test-key")
+
+    with pytest.raises(ValueError, match="max_output_tokens"):
+        AnthropicProvider(client, model="claude-test", max_output_tokens=0)
+
+
+# --- Canlı çağrı (DoD kapısında dışarıda) ------------------------------------------------------
+
+
+@pytest.mark.live
+def test_live_anthropic_returns_schema_conforming_analysis() -> None:
+    api_key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
+    if not api_key:
+        pytest.skip("ANTHROPIC_API_KEY tanımlı değil")
+    live_settings = load_settings(
+        _env_file=None, database_url="sqlite://", anthropic_api_key=api_key
+    )
+    provider = AnthropicProvider.from_settings(live_settings)
+    request = page_request(
+        instructions=(
+            "Bir belge sayfasının görüntüsünü analiz et ve sonucu record_page_analysis aracıyla "
+            "kaydet. Okuyamadığın veya sayfada yazılı olmayan her değer null olsun; tahmin etme. "
+            "Katalogdaki türlerden biri değilse document_type_slug null olsun. Katalog: "
+            + ", ".join(SLUGS)
+        ),
+        prompt="page_index: 0. Sayfanın metin katmanı yok.",
+    )
+
+    analysis = provider.analyze_page(request)
+
+    assert analysis.page_index == 0

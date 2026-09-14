@@ -8,7 +8,7 @@
 
 | Faz | PRD | Genel durum | Must sayacı | Kapanış |
 | --- | --- | --- | --- | --- |
-| Faz 0 — MVP | §5.1 | 35 ✅ · 0 ◐ · 67 ⬜ · 0 🔒 | 34/98 Must | AÇIK |
+| Faz 0 — MVP | §5.1 | 37 ✅ · 0 ◐ · 65 ⬜ · 0 🔒 | 36/98 Must | AÇIK |
 | Faz 1 — v1 | §5.2 | 0 ✅ · 0 ◐ · 0 ⬜ · 32 🔒 | 0/21 Must | AÇIK |
 | Faz 2 — v2 | §5.3 | 0 ✅ · 0 ◐ · 0 ⬜ · 13 🔒 | 0/0 Must | AÇIK |
 | Faz 3 — Enterprise | §5.4 | 0 ✅ · 0 ◐ · 0 ⬜ · 8 🔒 | 0/0 Must | AÇIK |
@@ -119,8 +119,8 @@ panelde `plan-count-drift` bulgusu doğurur.
 | 03.1.2 | Dil ve alfabe tespiti | Must (MVP) | ✅ → K03.1 |
 | 03.1.3 | Diğer isimler alanı | Must (MVP) | ✅ → K03.1 |
 | 03.1.4 | İletişim bilgisi alanları | Must (MVP) | ✅ → K03.1 |
-| 03.2.1 | Sağlayıcı soyutlaması | Must (MVP) | ⬜ |
-| 03.2.2 | Anthropic sağlayıcı | Must (MVP) | ⬜ |
+| 03.2.1 | Sağlayıcı soyutlaması | Must (MVP) | ✅ → K03.2 |
+| 03.2.2 | Anthropic sağlayıcı | Must (MVP) | ✅ → K03.2 |
 | 03.3.1 | OpenAI sağlayıcı iskeleti | Should (v1) | ⬜ |
 | 03.4.1 | Analiz promptu disiplini | Must (MVP) | ⬜ |
 | 03.5.1 | Yeniden deneme ve dayanıklılık | Must (MVP) | ⬜ |
@@ -403,6 +403,34 @@ Onay beklemeden yapılan varsayımlar buraya numaralı olarak yazılır.
   karakter kümesi şemada denetlenmez — §20.1.1 "uymuyorsa MRZ yok sayılır, hata değil" 05.3'ün
   işidir. İletişim alanları olduğu gibi taşınır (e-posta/telefon biçimi denetlenmez).
   Reddetme mesajları alan konumu ve kuralı söyler, gelen değeri tekrarlamaz (CONVENTIONS §6).
+- **C13** — Sağlayıcı soyutlaması ve Anthropic (tm 19, 03.2.x): PRD arayüzü tanımlamaz. Boru hattı
+  yalnız `create_provider(settings).analyze_page(PageAnalysisRequest)` çağırır; istek sağlayıcıdan
+  bağımsızdır (0 tabanlı `page_index`, JPEG/PNG `PageImage` — ortam türü baytlardan çıkarılır,
+  çağırandan alınmaz —, sistem talimatı `instructions`, sayfaya özgü `prompt`, katalog
+  `known_slugs`). Talimat ve metnin içeriği 03.4/03.7'nindir; sağlayıcı yalnız API biçimine
+  yerleştirir. Yanıt kabulü ortak ve atlanamaz (`@final analyze_page`): `validate_page_analysis`
+  + yanıtın `page_index`'i istenen sayfaya eşit olmalı (başka sayfanın yanıtı 04.1 gruplamasını
+  bozar; bu yüzden 03.4/03.7 prompta sayfa sırasını yazmalı). Sağlayıcı `AI_PROVIDER` adıyla
+  seçilir (küçük harf tanımlayıcı, varsayılan `anthropic`), ad kayıt defteri
+  `PROVIDER_FACTORIES`'tir — 03.3 `openai`'yi buraya ekler; sağlayıcıya özgü ayarlar kendi
+  önekini taşır (`ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL`) ki geçiş tek değişkenle olsun. Anahtar
+  yalnız o sağlayıcı kurulurken zorunludur (`ProviderConfigError`), `Settings` onsuz yüklenir.
+  Varsayılanlar: `ANTHROPIC_MODEL=claude-opus-5` (en yetenekli güncel model; ucuz model ön elemesi
+  13.2.1'in işi), `AI_MAX_OUTPUT_TOKENS=4096`, `AI_REQUEST_TIMEOUT_SECONDS=120`. Hata aileleri
+  ayrı: çağrı tamamlanmadıysa `ProviderError` (`ProviderRateLimitError` 429, `ProviderServerError`
+  5xx/529, `ProviderConnectionError` bağlantı/zaman aşımı, diğer 4xx taban tür) — 03.5 bunlardan
+  hangisini yeniden deneyeceğini seçer; yanıt geldi ama uymuyorsa `PageAnalysisError`. SDK'nın
+  kendi yeniden denemesi kapalı (`max_retries=0`), iki katman üst üste denemesin. Anthropic
+  yapılandırılmış çıktısı API'nin katı `output_config.format` şemasıyla DEĞİL, zorlanmış tek araç
+  çağrısıyla alınır (`record_page_analysis`, `input_schema=PageAnalysis.model_json_schema()`,
+  `tool_choice` sabit, paralel çağrı kapalı): katı şema her nesnede `additionalProperties: false`
+  ister, §8.4 `fields` ise `patternProperties` ile tanımlı alan adı sözlüğüdür ve katı şemada boş
+  nesneye iner. Araç şeması katı olmadığından uyum `validate_page_analysis`'e dayanır. Zorlanmış araç
+  seçimi genişletilmiş düşünmeyle kullanılamadığı için `thinking` açıkça kapalıdır. Kabul edilen
+  tek yanıt: `stop_reason == "tool_use"` ve tam bir `record_page_analysis` çağrısı; `max_tokens`
+  (kesik), `refusal`, araçsız veya çok çağrılı yanıt `PageAnalysisError` olur. Hata mesajı HTTP
+  durumunu ve API hata türü/açıklamasını taşır, istek içeriğini taşımaz. Anthropic SDK
+  (`anthropic>=1.5`, taşıma `httpx2`) yalnız bu sağlayıcı seçilince içe aktarılır.
 
 ## D. Sapmalar
 
@@ -622,3 +650,7 @@ var olan maddeler silinmez. Biçim:
 - ✅ 03.1.2 `language` ISO 639-1 kayıt kümesi (183 kod, küçük harf; `xx`/`RU`/`rus`/`ru-RU`/kaldırılmış `sh`/`iw` reddedilir), `script` `latin`·`cyrillic`·`arabic`·`other` (`greek`/`Latin` reddedilir); metinsiz sayfada ikisi `null` olabilir, anahtar yine zorunlu — `app/ai/schemas.py` · test `tests/ai/test_schemas.py` · tm 18
 - ✅ 03.1.3 `person.other_names` `given_names`'ten ayrı döner; `PagePerson.employee_fields()` alanları `employees` sütun adlarıdır ve geçici SQLite'ta `Employee` kaydına yazılıp geri okunduğunda `other_names`/`original_script_name`/`date_of_birth`/`nationality` korunur — `app/ai/schemas.py` · test `tests/ai/test_schemas.py` · tm 18
 - ✅ 03.1.4 `person.contact` `phone`/`email`/`address` belgede yazılıysa döner, yoksa `null` (anahtar zorunlu, `contact: null` veya boş metin reddedilir); alan adları `ContactKind` değerleriyle birebir aynı (05.8.1 doğrudan eşler) — `app/ai/schemas.py` · test `tests/ai/test_schemas.py` · tm 18
+
+#### K03.2 — 03.2.1–03.2.2 · Sağlayıcı soyutlaması ve Anthropic sağlayıcı
+- ✅ 03.2.1 sağlayıcıdan bağımsız istek/yanıt sözleşmesi (`PageAnalysisRequest`, `PageImage`, `AnalysisProvider.analyze_page` — ortak ve atlanamaz yanıt kabulü: §8.4 şeması, istek kataloğu, `page_index` eşitliği), hata aileleri (`ProviderError` → hız sınırı/5xx/bağlantı alt türleri; `ProviderConfigError`) ve `AI_PROVIDER` adıyla `create_provider` kayıt defteri; aynı boru hattı fonksiyonu yalnız `.env` dosyası değişerek Anthropic ve kayıtlı test sağlayıcısıyla çalışır, bilinmeyen ad/eksik anahtar anlaşılır hata verir (bkz. C13) — `app/ai/provider.py`, `app/config.py`, `.env.example` · test `tests/ai/test_provider.py` (38), `tests/test_config.py` (+6) · tm 19
+- ✅ 03.2.2 `AnthropicProvider` — Messages API'ye önce base64 sayfa görüntüsü (JPEG/PNG), sonra sayfa metni, `system` talimatı; zorlanmış tek `record_page_analysis` aracı (`input_schema` = `PageAnalysis.model_json_schema()`, düşünme kapalı) ile yapılandırılmış çıktı alınır ve doğrulanmış `PageAnalysis` döner; kesik/ret/araçsız/çok çağrılı yanıt ve şemaya uymayan araç girdisi reddedilir, 429 → `ProviderRateLimitError`, 5xx/529 → `ProviderServerError`, bağlantı/zaman aşımı → `ProviderConnectionError`, SDK yeniden denemesi kapalı (tek HTTP isteği doğrulandı); gerçek SDK istemcisi `httpx2.MockTransport` ile ağsız sınandı, canlı test `live` işaretli ve anahtar yokken atlanır (bu pencerede koşulmadı) — `app/ai/anthropic_provider.py`, `pyproject.toml` (`anthropic>=1.5`) · test `tests/ai/test_anthropic_provider.py` (38 + 1 live) · tm 19
