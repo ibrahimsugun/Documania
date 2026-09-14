@@ -152,11 +152,17 @@ class DataLayout:
     def page_cache_dir(self, file_id: int | str) -> Path:
         return self.page_cache / _segment(str(file_id), "file_id")
 
-    def page_image_path(self, file_id: int | str, page_index: int) -> Path:
-        """`cache/pages/<file_id>/0000.jpg` — 0 tabanlı sayfa sırasıyla analiz görüntüsü."""
+    def page_image_path(
+        self, file_id: int | str, page_index: int, extension: str = PAGE_IMAGE_EXTENSION
+    ) -> Path:
+        """`cache/pages/<file_id>/0000.<extension>` — 0 tabanlı sayfa sırasıyla analiz görüntüsü.
+
+        `extension` varsayılanı PDF sayfa render'ının her zaman ürettiği `jpg`'dir; görüntü
+        dosyası analiz kopyası (02.3.1) kaynağın kendi biçimini (`jpg`/`png`) kullanır.
+        """
         if page_index < 0:
             raise ValueError(f"Geçersiz sayfa sırası: {page_index!r}")
-        return self.page_cache_dir(file_id) / f"{page_index:04d}.{PAGE_IMAGE_EXTENSION}"
+        return self.page_cache_dir(file_id) / f"{page_index:04d}.{extension}"
 
     # --- veritabanında saklanan göreli yollar -----------------------------------------------
 

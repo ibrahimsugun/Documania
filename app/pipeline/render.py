@@ -1,4 +1,5 @@
-"""Sayfa üretimi — PDF sayfa görüntüsü (PRD 02.1.1) ve metin katmanı (PRD 02.2.1).
+"""Sayfa üretimi — PDF sayfa görüntüsü (PRD 02.1.1), metin katmanı (PRD 02.2.1) ve görüntü
+dosyaları için analiz kopyası (PRD 02.3.1).
 
 Inbox'taki PDF'in her sayfası analiz için `cache/pages/<file_id>/<sayfa>.jpg` olarak render
 edilir (§8.2). Ölçek iki yapılandırma değerinden gelir:
@@ -16,6 +17,11 @@ atomik olarak yeniden üretilir.
 
 Metin katmanı çıkarma yalnız PDF'in kendi gömülü metin nesnelerini okur (OCR yapmaz, içerik
 üretmez — K11). Metin katmanı olmayan (taranmış) sayfada `text_layer` boş (`None`) kalır.
+
+Görüntü dosyası (JPEG/PNG) analiz kopyası yalnız EXIF yönelim etiketini fiziksel olarak
+uygular (Pillow `ImageOps.exif_transpose` — K11'in izin verdiği tek Pillow kullanımı: ölçme/
+EXIF/biçim, düzenleme değil). Kopya kaynağın kendi biçiminde `cache/pages/<file_id>/0000.<uzantı>`
+altına yazılır; orijinal dosyaya dokunulmaz (K10).
 """
 
 from __future__ import annotations
@@ -23,9 +29,11 @@ from __future__ import annotations
 from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
+from io import BytesIO
 from pathlib import Path
 
 import pymupdf
+from PIL import Image, ImageOps
 from sqlalchemy.orm import Session
 
 from app.config import Settings
@@ -41,6 +49,10 @@ from app.storage import (
 
 POINTS_PER_INCH = 72
 
+# 02.3.1: analiz kopyası kaynağın kendi biçimini korur — PDF render'ının aksine JPEG'e
+# dönüştürülmez (PNG şeffaflığı/kaybı gibi bir dönüşüm kararı gerektirmez).
+_IMAGE_COPY_EXTENSIONS: dict[FileKind, str] = {FileKind.JPEG: "jpg", FileKind.PNG: "png"}
+
 
 class RenderError(ValueError):
     """Dosyadan sayfa görüntüsü üretilemiyor: PDF değil, bozuk, parolalı veya sayfasız."""
@@ -48,13 +60,16 @@ class RenderError(ValueError):
 
 @dataclass(frozen=True)
 class RenderedPage:
-    """Üretilen analiz görüntüsü; uzun kenar sınırı devreye girerse `dpi` ayardan düşüktür."""
+    """Üretilen analiz görüntüsü; uzun kenar sınırı devreye girerse `dpi` ayardan düşüktür.
+
+    Görüntü dosyası analiz kopyalarında (02.3.1) ölçek kavramı yok — `dpi` `None` kalır.
+    """
 
     index: int
     path: Path
     width: int
     height: int
-    dpi: float
+    dpi: float | None = None
 
 
 def render_scale(page_rect: pymupdf.Rect, dpi: int, max_long_edge: int) -> float:
@@ -208,3 +223,72 @@ def render_upload_file(
 def _long_edge_px(page_rect: pymupdf.Rect, scale: float) -> int:
     pixel_box = (page_rect * pymupdf.Matrix(scale, scale)).irect
     return max(pixel_box.width, pixel_box.height)
+
+
+def render_image_copy(
+    source: Path, layout: DataLayout, file_id: int, *, jpeg_quality: int
+) -> RenderedPage:
+    """`source` görüntüsünün (JPEG/PNG) EXIF yönelimi uygulanmış analiz kopyasını üretir (02.3.1).
+
+    Kopya `cache/pages/<file_id>/0000.<uzantı>` altına kaynağın kendi biçiminde yazılır; kaynağa
+    dokunulmaz (K10). Yalnız EXIF yönelim etiketi fiziksel olarak uygulanır — kırpma, boyutlandırma,
+    kontrast gibi başka bir piksel dönüşümü yapılmaz (K11). Yönelim etiketi yoksa (ya da zaten
+    normalse) kopya kaynakla görsel olarak aynıdır.
+    """
+    content = source.read_bytes()
+    try:
+        kind = detect_file_kind(content)
+    except UnsupportedFileTypeError:
+        kind = None
+    extension = _IMAGE_COPY_EXTENSIONS.get(kind)
+    if extension is None:
+        raise RenderError("Dosya görüntü değil; analiz kopyası yalnız JPEG/PNG için üretilir.")
+
+    with Image.open(BytesIO(content)) as image:
+        image_format = image.format
+        oriented = ImageOps.exif_transpose(image)
+        width, height = oriented.size
+        buffer = BytesIO()
+        save_kwargs = {"quality": jpeg_quality} if kind is FileKind.JPEG else {}
+        oriented.save(buffer, format=image_format, **save_kwargs)
+
+    path = layout.page_image_path(file_id, 0, extension=extension)
+    replace_file(path, buffer.getvalue())
+    return RenderedPage(index=0, path=path, width=width, height=height)
+
+
+def render_image_file(
+    session: Session, layout: DataLayout, settings: Settings, upload_file: UploadFile
+) -> list[Page]:
+    """Yüklenmiş görüntü dosyasının (JPEG/PNG) analiz kopyasını üretir; `pages`/`page_count` yazar.
+
+    Tek sayfalık `PAGE_RENDERED` olayı dosyaya bağlı yazılır (K15). Yeniden çalıştırmada var olan
+    `Page` satırı (index 0) güncellenir, yenisi açılmaz; sayfanın diğer alanlarına dokunulmaz.
+    Oturum commit edilmez — işlem sınırı çağıranındır.
+    """
+    item = render_image_copy(
+        layout.resolve(upload_file.stored_path),
+        layout,
+        upload_file.id,
+        jpeg_quality=settings.page_render_jpeg_quality,
+    )
+    existing = {page.index: page for page in upload_file.pages}
+    with event_context(upload_id=upload_file.upload_id, file_id=upload_file.id):
+        page = existing.get(item.index)
+        if page is None:
+            page = Page(file=upload_file, index=item.index)
+            session.add(page)
+        page.image_path = item.path.relative_to(layout.root).as_posix()
+        record_event(
+            session,
+            EventType.PAGE_RENDERED,
+            page_index=item.index,
+            data={
+                "image_path": page.image_path,
+                "width": item.width,
+                "height": item.height,
+            },
+        )
+        upload_file.page_count = 1
+        session.flush()
+    return [page]

@@ -10,6 +10,7 @@ from collections.abc import Sequence
 from io import BytesIO
 
 import pymupdf
+from PIL import Image, ImageDraw
 from pypdf import PdfWriter
 
 A4 = (595.0, 842.0)
@@ -53,6 +54,27 @@ def make_text_pdf_bytes(pages: Sequence[str | None], size: tuple[float, float] =
     content = document.tobytes()
     document.close()
     return content
+
+
+def make_half_filled_image_bytes(
+    fmt: str = "JPEG", size: tuple[int, int] = (200, 100), *, orientation: int | None = None
+) -> bytes:
+    """Sol yarısı siyah, sağ yarısı beyaz `fmt` (JPEG/PNG) görüntü.
+
+    `orientation` verilirse EXIF `Orientation` etiketi (0x0112) olarak gömülür — render testleri
+    bununla analiz kopyasının yönelimi fiziksel olarak uyguladığını doğrular.
+    """
+    width, height = size
+    image = Image.new("RGB", (width, height), "white")
+    ImageDraw.Draw(image).rectangle([0, 0, width // 2 - 1, height - 1], fill="black")
+    save_kwargs: dict[str, object] = {}
+    if orientation is not None:
+        exif = image.getexif()
+        exif[0x0112] = orientation
+        save_kwargs["exif"] = exif
+    buffer = BytesIO()
+    image.save(buffer, format=fmt, **save_kwargs)
+    return buffer.getvalue()
 
 
 def make_half_filled_pdf_bytes(width: float = A4[0], height: float = A4[1]) -> bytes:

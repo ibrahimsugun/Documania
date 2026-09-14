@@ -18,6 +18,12 @@ Blok biçimi `CONVENTIONS.md` §3'te tanımlıdır:
 
 ## Task log (newest-first)
 
+## 15 — 02.3 Görüntü dosyaları için analiz kopyası — done — 2026-09-14
+- Yapıldı: `render_image_copy`/`render_image_file` (`app/pipeline/render.py`) — JPEG/PNG'nin EXIF yönelimi Pillow `ImageOps.exif_transpose` ile fiziksel olarak uygulanmış kopyası kaynağın kendi biçiminde `cache/pages/<file_id>/0000.<uzantı>` altına yazılır (K10: orijinale dokunulmaz), `pages`/`page_count=1` yazılır, `PAGE_RENDERED` olayı atılır (02.1 ile aynı sözleşme).
+- Doğrulama: ruff check/format, compileall, `pytest -q -m "not live"` (354 geçti, +10 durum; 3 PG testi ortam değişkeni yokken atlandı), kapsam %99.10 (`app/pipeline/render.py` %99, `app/storage/layout.py` %100), temiz SQLite'ta `alembic upgrade head`, `import app.main` — hepsi exit 0.
+- Varsayımlar: analiz kopyası kaynağın biçimini korur (JPEG→jpg, PNG→png), PDF render'ının aksine JPEG'e dönüştürülmez — PNG alfa/format dönüşümü kararı gerektirmediği için (bkz. PLAN.md §K02.3). Bunun için `DataLayout.page_image_path`'e geriye dönük uyumlu `extension` parametresi eklendi (yol kuralı MASTER-PROMPT §4 — görevin ÇIKTI alanı yalnız render.py'yi listeliyordu ama yol üretimi app/storage/ dışında yapılamaz).
+- Sonraki pencereye not: 02.4 (boş sayfa) ve 02.5 (gömülü tek görüntü) hem PDF hem görüntü dosyası `Page` satırlarını (index 0 dahil) güncelleyecek; hangi adımın PDF mi görüntü mü işlediğine karar veren yönlendirme (hangi dosya türünde `render_upload_file` mi `render_image_file` mi çağrılacağı) henüz 09.x orkestrasyonunun işi, burada bağlanmadı.
+
 ## 14 — 02.2 PDF metin katmanı çıkarma — done — 2026-09-14
 - Yapıldı: `app/pipeline/render.py`'ye `extract_page_text`/`extract_pdf_text`/`extract_upload_file_text` eklendi — PyMuPDF `get_text()` ile sayfanın gömülü metin katmanı okunur, boşsa (taranmış sayfa) `text_layer` `None` kalır; `render_pdf_pages`'in PDF açma/doğrulama mantığı `_open_pdf` ortak yardımcısına çıkarıldı.
 - Doğrulama: ruff check/format, compileall, `pytest -q -m "not live"` (344 geçti, +9 durum; 3 PG testi ortam değişkeni yokken atlandı), kapsam %99.38 (`app/pipeline/render.py` %100), temiz SQLite'ta `alembic upgrade head`, `import app.main` — hepsi exit 0.

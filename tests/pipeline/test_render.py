@@ -1,9 +1,10 @@
-"""02.1.1 — PDF sayfa görüntüsü, 02.2.1 — PDF metin katmanı çıkarma."""
+"""02.1.1 — PDF sayfa görüntüsü, 02.2.1 — PDF metin katmanı, 02.3.1 — görüntü analiz kopyası."""
 
 from pathlib import Path
 
 import pymupdf
 import pytest
+from PIL import Image
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -15,6 +16,8 @@ from app.pipeline.render import (
     extract_page_text,
     extract_pdf_text,
     extract_upload_file_text,
+    render_image_copy,
+    render_image_file,
     render_pdf_pages,
     render_scale,
     render_upload_file,
@@ -22,6 +25,7 @@ from app.pipeline.render import (
 from app.storage import DataLayout, FileKind, detect_file_kind, sha256_file, write_to_inbox
 from tests.fixtures.gen import (
     A4,
+    make_half_filled_image_bytes,
     make_half_filled_pdf_bytes,
     make_pdf_bytes,
     make_sized_pdf_bytes,
@@ -31,8 +35,8 @@ from tests.fixtures.gen import (
 ID_CARD = (243.0, 153.0)  # 85,6 × 54 mm
 
 
-def _source(tmp_path: Path, content: bytes) -> Path:
-    path = tmp_path / "belge.pdf"
+def _source(tmp_path: Path, content: bytes, name: str = "belge.pdf") -> Path:
+    path = tmp_path / name
     path.write_bytes(content)
     return path
 
@@ -61,7 +65,12 @@ def _settings(**overrides: object) -> Settings:
 
 
 def _stored_upload_file(
-    session: Session, layout: DataLayout, content: bytes, name: str = "tarama.pdf"
+    session: Session,
+    layout: DataLayout,
+    content: bytes,
+    name: str = "tarama.pdf",
+    *,
+    mime: str = "application/pdf",
 ) -> UploadFile:
     upload = Upload(id="u_20260914_0001", channel="web")
     stored = write_to_inbox(layout, upload.id, name, content)
@@ -70,7 +79,7 @@ def _stored_upload_file(
         original_name=name,
         stored_path=stored.path.relative_to(layout.root).as_posix(),
         sha256=stored.sha256,
-        mime="application/pdf",
+        mime=mime,
     )
     session.add(upload_file)
     session.flush()
@@ -418,3 +427,126 @@ def test_extract_upload_file_text_creates_page_rows_when_none_rendered_yet(
     assert pages[0].text_layer is not None
     assert pages[1].text_layer is None
     assert all(page.image_path is None for page in pages)
+
+
+# --- görüntü dosyası analiz kopyası (02.3.1) ---------------------------------------------------
+
+
+def test_image_copy_applies_exif_orientation(tmp_path: Path, layout: DataLayout) -> None:
+    """Orijinalde sol yarı siyah; 180° EXIF yönelimiyle kopyada sağ yarı siyah olmalı."""
+    content = make_half_filled_image_bytes(orientation=3)
+    source = _source(tmp_path, content, name="foto.jpg")
+
+    page = render_image_copy(source, layout, file_id=1, jpeg_quality=95)
+
+    with Image.open(page.path) as image:
+        rgb = image.convert("RGB")
+        assert rgb.getpixel((10, 50)) == (255, 255, 255)
+        assert rgb.getpixel((190, 50)) == (0, 0, 0)
+
+
+def test_image_copy_without_exif_orientation_matches_source_layout(
+    tmp_path: Path, layout: DataLayout
+) -> None:
+    content = make_half_filled_image_bytes()
+    source = _source(tmp_path, content, name="foto.jpg")
+
+    page = render_image_copy(source, layout, file_id=1, jpeg_quality=95)
+
+    with Image.open(page.path) as image:
+        rgb = image.convert("RGB")
+        assert rgb.getpixel((10, 50)) == (0, 0, 0)
+        assert rgb.getpixel((190, 50)) == (255, 255, 255)
+
+
+@pytest.mark.parametrize(("fmt", "extension"), [("JPEG", "jpg"), ("PNG", "png")])
+def test_image_copy_keeps_source_format(
+    tmp_path: Path, layout: DataLayout, fmt: str, extension: str
+) -> None:
+    content = make_half_filled_image_bytes(fmt=fmt)
+    source = _source(tmp_path, content, name=f"foto.{extension}")
+
+    page = render_image_copy(source, layout, file_id=7, jpeg_quality=95)
+
+    assert page.path == layout.page_cache / "7" / f"0000.{extension}"
+    assert detect_file_kind(page.path.read_bytes()) is (
+        FileKind.JPEG if extension == "jpg" else FileKind.PNG
+    )
+
+
+def test_image_copy_does_not_touch_source_file(tmp_path: Path, layout: DataLayout) -> None:
+    content = make_half_filled_image_bytes(orientation=6)
+    source = _source(tmp_path, content, name="foto.jpg")
+    before = sha256_file(source)
+
+    render_image_copy(source, layout, file_id=1, jpeg_quality=95)
+
+    assert sha256_file(source) == before
+    assert source.read_bytes() == content
+
+
+def test_image_copy_rejects_non_image_content(tmp_path: Path, layout: DataLayout) -> None:
+    source = _source(tmp_path, make_pdf_bytes(1), name="belge.jpg")
+
+    with pytest.raises(RenderError, match="görüntü değil"):
+        render_image_copy(source, layout, file_id=1, jpeg_quality=95)
+
+
+def test_render_image_file_records_page_page_count_and_event(
+    session: Session, layout: DataLayout
+) -> None:
+    content = make_half_filled_image_bytes(orientation=3)
+    upload_file = _stored_upload_file(session, layout, content, name="foto.jpg", mime="image/jpeg")
+
+    pages = render_image_file(session, layout, _settings(), upload_file)
+    session.commit()
+
+    assert upload_file.page_count == 1
+    [row] = session.scalars(select(Page).where(Page.file_id == upload_file.id)).all()
+    assert pages == [row]
+    assert row.index == 0
+    assert row.image_path == f"cache/pages/{upload_file.id}/0000.jpg"
+    assert layout.resolve(row.image_path).is_file()
+
+    [event] = session.scalars(
+        select(Event).where(Event.type == EventType.PAGE_RENDERED.value)
+    ).all()
+    assert (event.upload_id, event.file_id, event.page_index) == (
+        upload_file.upload_id,
+        upload_file.id,
+        0,
+    )
+    assert event.data_json["image_path"] == row.image_path
+
+
+def test_render_image_file_again_keeps_existing_page_row(
+    session: Session, layout: DataLayout
+) -> None:
+    upload_file = _stored_upload_file(
+        session, layout, make_half_filled_image_bytes(), name="foto.jpg", mime="image/jpeg"
+    )
+    render_image_file(session, layout, _settings(), upload_file)
+    session.commit()
+    first_id = upload_file.pages[0].id
+    upload_file.pages[0].is_blank = True
+    session.commit()
+
+    render_image_file(session, layout, _settings(), upload_file)
+    session.commit()
+
+    assert [page.id for page in upload_file.pages] == [first_id]
+    assert upload_file.pages[0].is_blank is True
+    assert session.scalar(select(func.count()).select_from(Page)) == 1
+
+
+def test_render_image_file_rejects_non_image_without_side_effects(
+    session: Session, layout: DataLayout
+) -> None:
+    upload_file = _stored_upload_file(session, layout, make_pdf_bytes(1), name="belge.jpg")
+
+    with pytest.raises(RenderError, match="görüntü değil"):
+        render_image_file(session, layout, _settings(), upload_file)
+
+    assert upload_file.page_count is None
+    assert session.scalar(select(func.count()).select_from(Page)) == 0
+    assert session.scalar(select(func.count()).select_from(Event)) == 0

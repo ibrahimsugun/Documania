@@ -147,6 +147,14 @@ def test_page_image_path(tmp_path: Path) -> None:
         layout.page_image_path(42, -1)
 
 
+def test_page_image_path_accepts_extension_override(tmp_path: Path) -> None:
+    layout = DataLayout(tmp_path)
+
+    assert layout.page_image_path(42, 0, extension="png") == (
+        tmp_path / "cache" / "pages" / "42" / "0000.png"
+    )
+
+
 def test_resolve_relative_stored_path(tmp_path: Path) -> None:
     layout = DataLayout(tmp_path)
 

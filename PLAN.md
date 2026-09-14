@@ -8,7 +8,7 @@
 
 | Faz | PRD | Genel durum | Must sayacı | Kapanış |
 | --- | --- | --- | --- | --- |
-| Faz 0 — MVP | §5.1 | 28 ✅ · 0 ◐ · 74 ⬜ · 0 🔒 | 27/98 Must | AÇIK |
+| Faz 0 — MVP | §5.1 | 29 ✅ · 0 ◐ · 73 ⬜ · 0 🔒 | 28/98 Must | AÇIK |
 | Faz 1 — v1 | §5.2 | 0 ✅ · 0 ◐ · 0 ⬜ · 32 🔒 | 0/21 Must | AÇIK |
 | Faz 2 — v2 | §5.3 | 0 ✅ · 0 ◐ · 0 ⬜ · 13 🔒 | 0/0 Must | AÇIK |
 | Faz 3 — Enterprise | §5.4 | 0 ✅ · 0 ◐ · 0 ⬜ · 8 🔒 | 0/0 Must | AÇIK |
@@ -107,7 +107,7 @@ panelde `plan-count-drift` bulgusu doğurur.
 | --- | --- | --- | --- |
 | 02.1.1 | PDF sayfa görüntüsü üretimi | Must (MVP) | ✅ → K02.1 |
 | 02.2.1 | PDF metin katmanı çıkarma | Must (MVP) | ✅ → K02.2 |
-| 02.3.1 | Görüntü dosyaları için analiz kopyası | Must (MVP) | ⬜ |
+| 02.3.1 | Görüntü dosyaları için analiz kopyası | Must (MVP) | ✅ → K02.3 |
 | 02.4.1 | Boş sayfa tespiti | Must (MVP) | ⬜ |
 | 02.5.1 | Gömülü tek görüntü tespiti | Must (MVP) | ⬜ |
 
@@ -577,3 +577,6 @@ var olan maddeler silinmez. Biçim:
 
 #### K02.2 — 02.2.1 · PDF metin katmanı çıkarma
 - ✅ `extract_page_text`/`extract_pdf_text`/`extract_upload_file_text` (`app/pipeline/render.py`) — PyMuPDF `page.get_text()` ile sayfanın gömülü metin katmanı okunur (OCR yapılmaz, içerik üretilmez, K11); yalnız boşluktan ibaret/boş sonuç `text_layer`'ı `None` bırakır, taranmış (metin katmansız) sayfa böylece boş kalır. `render_pdf_pages`'in PDF açma/doğrulama mantığı (`_open_pdf`) iki fonksiyon arasında paylaşılacak şekilde ortak bir yardımcıya çıkarıldı, davranış ve hata mesajları değişmedi. `extract_upload_file_text` var olan `Page` satırını günceller (render'da oluşturulmuşsa), yoksa açar; yalnız `text_layer`'a dokunur, `image_path`/`page_count` gibi render'a ait alanları değiştirmez — `render_upload_file`'ın "diğer alanlara dokunulmaz" sözleşmesiyle simetrik. PRD §8.3'ün kapalı olay listesinde metin katmanı için ayrı bir olay türü yok; bu adım yeni olay atmıyor (bkz. §D). Oturum commit edilmez, çağıran sınırı belirler — `app/pipeline/render.py` · test `tests/pipeline/test_render.py` (+8 fonksiyon) · `tests/fixtures/gen.py` (`make_text_pdf_bytes`) · tm 14
+
+#### K02.3 — 02.3.1 · Görüntü dosyaları için analiz kopyası
+- ✅ `render_image_copy`/`render_image_file` (`app/pipeline/render.py`) — JPEG/PNG içeriği Pillow ile açılır, `ImageOps.exif_transpose` yalnız EXIF `Orientation` etiketini fiziksel olarak uygular (K11'in izin verdiği tek Pillow kullanımı: EXIF; kırpma/kontrast/boyutlandırma yok), kopya kaynağın kendi biçiminde (`jpg`/`png`, format dönüşümü yok) `cache/pages/<file_id>/0000.<uzantı>` altına atomik yazılır; sentetik 180°/90° EXIF etiketli görüntülerle piksel konumu doğrulandı (`tests/fixtures/gen.py::make_half_filled_image_bytes`). Inbox orijinaline dokunulmaz (SHA-256 testle doğrulandı, K10). PDF/desteklenmeyen içerik `RenderError` ile reddedilir. `render_image_file` tek sayfalık (index 0) `Page` satırını (yeniden çalıştırmada aynı satır, diğer alanlar korunur) ve `page_count=1`'i yazar, `PAGE_RENDERED` olayı (`image_path`/`width`/`height`) atar — 02.1'in PDF render'ıyla aynı olay türü ve alan sözleşmesi. `DataLayout.page_image_path`'e geriye dönük uyumlu `extension` parametresi eklendi (yol kuralı, MASTER-PROMPT §4 — biçim uzantısı da tek yerde üretilir); `RenderedPage.dpi` görüntü kopyalarında ölçek kavramı olmadığı için opsiyonel oldu — `app/pipeline/render.py` · `app/storage/layout.py` (`page_image_path`) · `pyproject.toml` (pillow) · test `tests/pipeline/test_render.py` (+8 fonksiyon/9 durum) · `tests/storage/test_layout.py` (+1) · `tests/fixtures/gen.py` (`make_half_filled_image_bytes`) · tm 15
