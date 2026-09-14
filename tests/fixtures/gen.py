@@ -43,6 +43,18 @@ def make_sized_pdf_bytes(
     return buffer.getvalue()
 
 
+def make_text_pdf_bytes(pages: Sequence[str | None], size: tuple[float, float] = A4) -> bytes:
+    """Sayfa başına verilen metni gömer; `None` sayfa metinsiz kalır (taranmış sayfa)."""
+    document = pymupdf.open()
+    for text in pages:
+        page = document.new_page(width=size[0], height=size[1])
+        if text is not None:
+            page.insert_text((72, 72), text)
+    content = document.tobytes()
+    document.close()
+    return content
+
+
 def make_half_filled_pdf_bytes(width: float = A4[0], height: float = A4[1]) -> bytes:
     """Tek sayfalı PDF: sol yarı siyah dolgulu, sağ yarının üst şeridinde ince çizgiler.
 

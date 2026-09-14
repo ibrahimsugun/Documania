@@ -1,4 +1,4 @@
-"""Sayfa üretimi — PDF sayfa görüntüsü (PRD 02.1.1).
+"""Sayfa üretimi — PDF sayfa görüntüsü (PRD 02.1.1) ve metin katmanı (PRD 02.2.1).
 
 Inbox'taki PDF'in her sayfası analiz için `cache/pages/<file_id>/<sayfa>.jpg` olarak render
 edilir (§8.2). Ölçek iki yapılandırma değerinden gelir:
@@ -13,10 +13,15 @@ Görüntü yalnız analiz kopyasıdır, çıktı belge değildir. Orijinal PDF'e
 oranı korunur, sayfa kırpılmaz, PDF'in kendi `/Rotate` değeri dışında döndürülmez, içerik
 değiştirilmez (K11). Önbellek türev veridir: aynı dosya yeniden render edilirse görüntüler
 atomik olarak yeniden üretilir.
+
+Metin katmanı çıkarma yalnız PDF'in kendi gömülü metin nesnelerini okur (OCR yapmaz, içerik
+üretmez — K11). Metin katmanı olmayan (taranmış) sayfada `text_layer` boş (`None`) kalır.
 """
 
 from __future__ import annotations
 
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -68,17 +73,9 @@ def render_scale(page_rect: pymupdf.Rect, dpi: int, max_long_edge: int) -> float
     return scale
 
 
-def render_pdf_pages(
-    source: Path,
-    layout: DataLayout,
-    file_id: int,
-    *,
-    dpi: int,
-    max_long_edge: int,
-    jpeg_quality: int,
-) -> list[RenderedPage]:
-    """`source` PDF'inin her sayfasını `layout.page_image_path(file_id, i)` altına JPEG yazar."""
-    content = source.read_bytes()
+@contextmanager
+def _open_pdf(content: bytes) -> Iterator[pymupdf.Document]:
+    """`content`'i PDF olarak açar; tür/bozukluk/parola/sayfa sayısı burada denetlenir."""
     try:
         kind = detect_file_kind(content)
     except UnsupportedFileTypeError:
@@ -91,13 +88,27 @@ def render_pdf_pages(
         document = pymupdf.open(stream=content, filetype="pdf")
     except RuntimeError as exc:
         raise RenderError("PDF açılamadı; dosya bozuk olabilir.") from exc
-
-    rendered: list[RenderedPage] = []
     with document:
         if document.needs_pass:
             raise RenderError("PDF parola korumalı; sayfa görüntüsü üretilemez.")
         if document.page_count == 0:
             raise RenderError("PDF'te sayfa yok.")
+        yield document
+
+
+def render_pdf_pages(
+    source: Path,
+    layout: DataLayout,
+    file_id: int,
+    *,
+    dpi: int,
+    max_long_edge: int,
+    jpeg_quality: int,
+) -> list[RenderedPage]:
+    """`source` PDF'inin her sayfasını `layout.page_image_path(file_id, i)` altına JPEG yazar."""
+    content = source.read_bytes()
+    rendered: list[RenderedPage] = []
+    with _open_pdf(content) as document:
         for page in document:
             scale = render_scale(page.rect, dpi, max_long_edge)
             pixmap = page.get_pixmap(matrix=pymupdf.Matrix(scale, scale), alpha=False)
@@ -113,6 +124,42 @@ def render_pdf_pages(
                 )
             )
     return rendered
+
+
+def extract_page_text(page: pymupdf.Page) -> str | None:
+    """Sayfanın gömülü metin katmanını döner; katman yoksa (taranmış sayfa) `None`."""
+    text = page.get_text()
+    return text if text.strip() else None
+
+
+def extract_pdf_text(source: Path) -> list[str | None]:
+    """`source` PDF'inin her sayfasının metin katmanını sayfa sırasıyla döner (02.2.1)."""
+    content = source.read_bytes()
+    with _open_pdf(content) as document:
+        return [extract_page_text(page) for page in document]
+
+
+def extract_upload_file_text(
+    session: Session, layout: DataLayout, upload_file: UploadFile
+) -> list[Page]:
+    """Yüklenmiş PDF'in metin katmanını `pages.text_layer`'a yazar (02.2.1).
+
+    Metin katmanı olmayan (taranmış) sayfada `text_layer` `None` kalır. Var olan `Page` satırı
+    güncellenir, yenisi açılmaz; sayfanın diğer alanlarına dokunulmaz. Oturum commit edilmez —
+    işlem sınırı çağıranındır.
+    """
+    texts = extract_pdf_text(layout.resolve(upload_file.stored_path))
+    existing = {page.index: page for page in upload_file.pages}
+    pages: list[Page] = []
+    for index, text in enumerate(texts):
+        page = existing.get(index)
+        if page is None:
+            page = Page(file=upload_file, index=index)
+            session.add(page)
+        page.text_layer = text
+        pages.append(page)
+    session.flush()
+    return pages
 
 
 def render_upload_file(

@@ -1,4 +1,4 @@
-"""02.1.1 — PDF sayfa görüntüsü: yapılandırılmış DPI'da render, uzun kenar sınırına küçültme."""
+"""02.1.1 — PDF sayfa görüntüsü, 02.2.1 — PDF metin katmanı çıkarma."""
 
 from pathlib import Path
 
@@ -10,13 +10,22 @@ from sqlalchemy.orm import Session
 from app.config import Settings
 from app.db.models import Event, Page, Upload, UploadFile
 from app.events import EventType
-from app.pipeline.render import RenderError, render_pdf_pages, render_scale, render_upload_file
+from app.pipeline.render import (
+    RenderError,
+    extract_page_text,
+    extract_pdf_text,
+    extract_upload_file_text,
+    render_pdf_pages,
+    render_scale,
+    render_upload_file,
+)
 from app.storage import DataLayout, FileKind, detect_file_kind, sha256_file, write_to_inbox
 from tests.fixtures.gen import (
     A4,
     make_half_filled_pdf_bytes,
     make_pdf_bytes,
     make_sized_pdf_bytes,
+    make_text_pdf_bytes,
 )
 
 ID_CARD = (243.0, 153.0)  # 85,6 × 54 mm
@@ -306,3 +315,106 @@ def test_render_upload_file_rejects_non_pdf_without_side_effects(
     assert upload_file.page_count is None
     assert session.scalar(select(func.count()).select_from(Page)) == 0
     assert session.scalar(select(func.count()).select_from(Event)) == 0
+
+
+# --- metin katmanı ------------------------------------------------------------------------------
+
+
+def test_extract_page_text_returns_text_when_present() -> None:
+    document = pymupdf.open(stream=make_text_pdf_bytes(["merhaba dünya"]), filetype="pdf")
+    with document:
+        [text] = [extract_page_text(page) for page in document]
+
+    assert text is not None
+    assert "merhaba" in text
+
+
+def test_extract_page_text_is_none_for_scanned_page() -> None:
+    document = pymupdf.open(stream=make_text_pdf_bytes([None]), filetype="pdf")
+    with document:
+        [text] = [extract_page_text(page) for page in document]
+
+    assert text is None
+
+
+def test_extract_pdf_text_matches_text_layer_per_page(tmp_path: Path) -> None:
+    content = make_text_pdf_bytes(["birinci sayfa", None, "üçüncü sayfa"])
+    texts = extract_pdf_text(_source(tmp_path, content))
+
+    assert texts[1] is None
+    assert texts[0] is not None and "birinci" in texts[0]
+    assert texts[2] is not None and "üçüncü" in texts[2]
+
+
+@pytest.mark.parametrize(
+    ("content", "message"),
+    [
+        (b"\xff\xd8\xff\xe0 sentetik", "PDF değil"),
+        (make_sized_pdf_bytes([A4], password="sentetik"), "parola"),
+    ],
+    ids=["jpeg", "parolali"],
+)
+def test_extract_pdf_text_raises_render_error(tmp_path: Path, content: bytes, message: str) -> None:
+    with pytest.raises(RenderError, match=message):
+        extract_pdf_text(_source(tmp_path, content))
+
+
+def test_extract_upload_file_text_writes_text_layer_on_rendered_pages(
+    session: Session, layout: DataLayout
+) -> None:
+    content = make_text_pdf_bytes(["gömülü metin burada", None])
+    upload_file = _stored_upload_file(session, layout, content, name="taranmis.pdf")
+    render_upload_file(session, layout, _settings(), upload_file)
+    session.commit()
+
+    pages = extract_upload_file_text(session, layout, upload_file)
+    session.commit()
+
+    assert [page.index for page in pages] == [0, 1]
+    assert pages[0].text_layer is not None and "gömülü metin" in pages[0].text_layer
+    assert pages[1].text_layer is None
+    # Metin çıkarma render adımının ürettiği alanlara dokunmaz.
+    assert all(page.image_path is not None for page in pages)
+
+
+def test_extract_upload_file_text_does_not_create_duplicate_rows(
+    session: Session, layout: DataLayout
+) -> None:
+    upload_file = _stored_upload_file(session, layout, make_text_pdf_bytes(["a", "b"]))
+    render_upload_file(session, layout, _settings(), upload_file)
+    session.commit()
+    first_ids = [page.id for page in upload_file.pages]
+
+    extract_upload_file_text(session, layout, upload_file)
+    session.commit()
+
+    assert [page.id for page in upload_file.pages] == first_ids
+    assert session.scalar(select(func.count()).select_from(Page)) == 2
+
+
+def test_extract_upload_file_text_does_not_touch_image_path(
+    session: Session, layout: DataLayout
+) -> None:
+    upload_file = _stored_upload_file(session, layout, make_text_pdf_bytes(["a"]))
+    render_upload_file(session, layout, _settings(), upload_file)
+    session.commit()
+    original_image_path = upload_file.pages[0].image_path
+
+    extract_upload_file_text(session, layout, upload_file)
+    session.commit()
+
+    assert upload_file.pages[0].image_path == original_image_path
+
+
+def test_extract_upload_file_text_creates_page_rows_when_none_rendered_yet(
+    session: Session, layout: DataLayout
+) -> None:
+    upload_file = _stored_upload_file(session, layout, make_text_pdf_bytes(["a", None]))
+
+    pages = extract_upload_file_text(session, layout, upload_file)
+    session.commit()
+
+    assert [page.index for page in pages] == [0, 1]
+    assert pages[0].text_layer is not None
+    assert pages[1].text_layer is None
+    assert all(page.image_path is None for page in pages)
