@@ -8,7 +8,7 @@
 
 | Faz | PRD | Genel durum | Must sayacı | Kapanış |
 | --- | --- | --- | --- | --- |
-| Faz 0 — MVP | §5.1 | 45 ✅ · 0 ◐ · 57 ⬜ · 0 🔒 | 44/98 Must | AÇIK |
+| Faz 0 — MVP | §5.1 | 47 ✅ · 0 ◐ · 55 ⬜ · 0 🔒 | 46/98 Must | AÇIK |
 | Faz 1 — v1 | §5.2 | 0 ✅ · 0 ◐ · 0 ⬜ · 32 🔒 | 0/21 Must | AÇIK |
 | Faz 2 — v2 | §5.3 | 0 ✅ · 0 ◐ · 0 ⬜ · 13 🔒 | 0/0 Must | AÇIK |
 | Faz 3 — Enterprise | §5.4 | 0 ✅ · 0 ◐ · 0 ⬜ · 8 🔒 | 0/0 Must | AÇIK |
@@ -135,8 +135,8 @@ panelde `plan-count-drift` bulgusu doğurur.
 | 04.1.1 | Dosya içi gruplama | Must (MVP) | ✅ → K04.1 |
 | 04.1.2 | Ön/arka yüz yapısı | Must (MVP) | ✅ → K04.1 |
 | 04.2.1 | Ardışıklık güvenlik kuralı (R6) | Must (MVP) | ✅ → K04.2 |
-| 04.3.1 | Dosyalar arası gruplama | Must (MVP) | ⬜ |
-| 04.3.2 | Belirsiz eşleştirmenin reddi | Must (MVP) | ⬜ |
+| 04.3.1 | Dosyalar arası gruplama | Must (MVP) | ✅ → K04.3 |
+| 04.3.2 | Belirsiz eşleştirmenin reddi | Must (MVP) | ✅ → K04.3 |
 | 04.4.1 | Zorunlu alan okunaklılık kapısı (R1) | Must (MVP) | ⬜ |
 | 04.4.2 | Kabul kriteri değerlendirmesi | Should (v1) | ⬜ |
 | 04.5.1 | Beklenen sayfa sayısı kontrolü | Must (MVP) | ⬜ |
@@ -593,6 +593,55 @@ Onay beklemeden yapılan varsayımlar buraya numaralı olarak yazılır.
   ayrı tür yok (D6 ile aynı soru); hüküm adayın kendi `DOC_TYPE_DETERMINED` olayına
   `contiguity_violation` verisi (`rule`, `queue`, `counterparts`, `intervening_pages`,
   `unanalyzed_pages` — değer yok) ve `message = reason` olarak yazılır, yeni olay türü eklenmedi.
+- **C20** — Dosyalar arası gruplama (tm 27, 04.3.1, 04.3.2): PRD "yalnız `direct: false` türlerde aynı
+  partideki ayrı dosyalardaki ön ve arka yüz eşleştirilir" ve "aynı türden birden fazla ön yüz varsa
+  eşleştirme yapılmaz, hepsi Unresolved'a gider" der; hangi yüzün eş beklediği, çokluğun neyi
+  saydığı, birden fazla arka yüz, analizi olmayan ya da türü kesin olmayan sayfaların etkisi ve K4'teki
+  "ardışıklık kuralı yine geçerlidir"in dosyalar arasında ne demek olduğu yazılı değil. Saf çekirdek
+  `group_across_files(groupings, catalog=)` (dosyalar `file_id` sırasına dizilir, tekrar eden dosya
+  `ValueError`); `group_upload` bütün dosyaları gruplayıp onu çağırır, olayları sonra yazar (şemaya
+  uymayan saklı analiz hiç olay yazılmadan durur). Eşleşen yüzler dosyalarının
+  `FileGrouping.candidates`'inden çıkar, `UploadGrouping.cross_file_candidates`'e tek
+  `DocumentCandidate` olarak girer (sayfalar önce ön, sonra arka yüz; `file_ids` iki dosya);
+  `UploadGrouping.candidates` dosya adaylarını dosya sırasıyla, ardından dosyalar arası adayları ön
+  yüzün yerine göre verir. **Eş bekleyen yüz:** katalogda
+  `sides: front_back` ve `direct: false` türün yalnız `(front,)` ya da `(back,)` yüzlü adayı;
+  tamamlanmış çift eş beklemez ve sayılmaz. Direkt Belge'ye başka dosyadan sayfa eklenmez (K3):
+  yüzleri eksik aday kalır, hüküm yok (04.5/06.3). Tek yüzlü, katalog dışı ve türü belirlenemeyen
+  adaylar dosyalar arasında eşleşmez. **Ardışıklık dosya içidir:** yükleme sırası belge yapısı değildir
+  (S5'te `arka.jpg` önce yüklenebilir), dosyalar arasına ardışıklık uygulanmaz; K4'ün "yine geçerli"si
+  R6 işaretli parçanın (C19) dosyalar arası eşleşmemesidir — parça eşleşmez ama türün eksik yüzü
+  olarak sayılır (asıl eşi başka dosyadaki yüz de olabilir). **Eşleşme** yalnız şu hâlde yapılır:
+  türün partide tam bir eksik ön ve bir eksik arka yüzü var, ikisi de R6 işaretsiz ve ayrı dosyalarda,
+  C18 5. koşuldaki kimlik değerleri çelişmiyor ve partide başka yüz olabilecek sayfa yok. **Başka yüz
+  olabilecek sayfa:** (a) türün yüzü `single`/`unknown` okunmuş sayfası; (b) partide analizi
+  başarısız/yapılmamış sayfa — içeriği bilinmez (C18/C19 ile aynı tutum; parti zaten `partial`);
+  (c) katalog türü verilmemiş (slug `null` — türü belirlenemeyen ya da aday tür adlı — veya slug'ı
+  katalogda olmayan) ve yüzü `single` okunmamış sayfa: 03.4 kural 3 analizciye emin olmadığı katalog
+  türünü aday adla yazdırır, kartın emin olunmayan yüzü böyle görünür; tek yüzlü okunmuş katalog dışı
+  belge (diploma) kart yüzü olamaz. Başka katalog türü (analizci emindir), başka `front_back` türün
+  yüzleri ve boş sayfa (02.4 ya da analizcinin boş dediği) engel değildir; aday tür onaylanıp parti
+  yeniden analiz edilince (K18) engel kalkar. **Belirsiz eşleştirme (04.3.2):** ayrı dosyalarda R6
+  işaretsiz bir ön ve bir arka yüz varken (eşleşebilecek yüz çifti) türün birden fazla eksik ön **ya da
+  arka** yüzü (arka yüzde kimlik yazmaz; hangi arka yüzün ön yüzle aynı karta ait olduğu da bilinemez,
+  R7) veya (a)–(c) engeli varsa eşleştirme yapılmaz. Kimlik değerleri çoklukta dikkate alınmaz — PRD
+  "birden fazla ön yüz varsa" der, istisna vermez. Türün R6 işaretsiz bütün eksik yüzleri (aynı
+  dosyada bitişik eksik parçalar dahil) `DocumentCandidate.ambiguous_pairing` taşır
+  (`AmbiguousPairing`: `face`, `fronts`, `backs`, `unoriented_pages`, `unanalyzed_pages`,
+  `uncertain_type_pages` — `PageRef(file_id, index)` listeleri; `queue = unresolved`, `reason`); R6
+  işaretli parça yalnız kendi hükmünü taşır, listelerde yer alır. Eşleşebilecek yüz çifti yoksa (yalnız
+  ön yüzler, eksik yüzler aynı dosyada, karşı yüz yalnız R6 parçası) hüküm verilmez, eksik aday 04.5'in;
+  tek ön ve tek arka yüzün kimliği çelişiyorsa aynı kart değildir, işaretsiz ayrı kalır. Türler
+  birbirinden bağımsızdır; (b) ve (c) her türe uygulanır. **Gerekçe:** "Belirsiz ön/arka yüz
+  eşleştirmesi: bu yüz (dosya X, sayfa N) partide tek anlamlı bir eşle eşleştirilemiyor.", boş olmayan
+  listeler ve "Yüzler dosyalar arasında otomatik eşleştirilmez."; dosya `upload_files.id`, sayfa
+  numarası 1'den. Özgün dosya adı (kişi adı taşıyabilir, CONVENTIONS §6), tür ve kişi değeri metne
+  girmez. **Olay:** dosyalar arası aday `DOC_TYPE_DETERMINED`'ı ilk sayfanın (ön yüz) dosyası ve
+  sırasıyla yazar, sayfaları `pages` yerine Plan JSON biçimindeki `sources` (`[{file_id, pages}]`) ile
+  taşır; belirsizlik hükmü adayın kendi olayına `ambiguous_pairing` verisi (`queue` ve
+  `{file_id, page_index}` listeleri) ve `message = reason` olarak yazılır — §8.3'te ayrı tür yok (C19).
+  Kuyruk kaydı (08.1) ve S5'in fiziksel çıktısı (iki JPEG'in kayıpsız sarılıp birleştirilmesi: 06.2
+  satır 3 `merge`, 07.3/07.4) sonraki görevlerindir.
 
 ## D. Sapmalar
 
@@ -838,3 +887,8 @@ var olan maddeler silinmez. Biçim:
 #### K04.2 — 04.2.1 · Ardışıklık güvenlik kuralı (R6)
 - ✅ 04.2.1 `group_file_pages` (`app/pipeline/group.py`) aynı dosyada aynı belgenin parçası olabilen ve arasına başka belge girmiş adayları birleştirmeden `DocumentCandidate.contiguity_violation` (`ContiguityViolation`, `rule = "R6"`, `queue = unresolved`, değer taşımayan `reason`) ile işaretler; parça çifti: aynı katalog türü, tek belgede birleşebilir yapı (`front_back`'te yalnız ön + yalnız arka, sıra fark etmez; tek yüzlüde toplam sayfa ≤ `expected_pages.max`), çelişmeyen kimlik ve arada başka aday ya da analizsiz sayfa; bitişik/yalnız boş sayfayla ayrılmış eksik parçalar, iki ön yüz, tamamlanmış çift, yüzü belirsiz sayfa, başka tür/kişi, sayfa sınırını aşan, 1 sayfalık, katalog dışı, türü belirsiz ve katalogda olmayan tür (15 durum) parça sayılmaz; birden çok karşı parça ve araya girenler (öteki parçalar hariç) listelenir; gerekçe kural + 1'den başlayan sayfa numaraları. Hüküm adayın `DOC_TYPE_DETERMINED` olayına `contiguity_violation` verisi ve `message = reason` olarak yazılır, kişisel değer yok (kurallar: C19). 10 kural bozulması (bitişik parça, analizsiz sayfa, kişi çelişkisi, yüz sırası, sayfa sınırı, işaretleme, karşı parçayı araya sayma, olay verisi, katalogda olmayan slug, katalog dışı tür) bellekte ayrı ayrı denendi, her biri testte kırmızı — `app/pipeline/group.py` · test `tests/pipeline/test_group.py` (44 fonksiyon / 85 durum, +13 / +30) · tm 26
 - ✅ S3: 6 sayfalık sentetik PDF (ehliyet ön, foto, başka belge, oturum ön, oturum arka, ehliyet arka) gerçek render/metin/boş sayfa adımlarından ve yeni kayıtlı yanıtlarla `analyze_upload` → `group_upload`: adaylar (0'dan sıra) [0] [1] [2] [3, 4] [5]; oturum izni [3, 4] (front, back) ve foto [1] işaretsiz, sayfa 3 ([2]) katalog türünde (`work_permit`) `DOC_TYPE_DETERMINED`, katalog dışı türde `DOC_TYPE_UNKNOWN` ile işaretsiz; ehliyet 1 ve 6 ([0], [5]) birleştirilmez, ikisi de R6 ile Unresolved (karşı parça birbirleri, araya giren [1, 2, 3, 4]) ve olay mesajı gerekçedir; ön ve arka yüz ayrı dosyalardaysa kural uygulanmaz (04.3) — `tests/fixtures/ai/recordings/s3_interleaved_pdf/{0..5}.json` · test `tests/pipeline/test_group.py` · tm 26
+
+#### K04.3 — 04.3.1, 04.3.2 · Dosyalar arası gruplama ve belirsiz eşleştirmenin reddi
+- ✅ 04.3.1 `group_across_files` (`app/pipeline/group.py`, `group_upload` üzerinden) katalogda `front_back` ve `direct: false` türde partinin ayrı dosyalarındaki eksik ön ve arka yüzü tek `DocumentCandidate`'e (önce ön, sonra arka; `UploadGrouping.cross_file_candidates`, yüzler dosya adaylarından çıkar) eşleştirir; eşleşme tek anlamlıysa yapılır: türün partide tek eksik ön ve tek eksik arka yüzü, ikisi R6 işaretsiz ve ayrı dosyada, kimlik çelişmiyor, partide başka yüz olabilecek sayfa (türün `single`/`unknown` yüzlü sayfası, analizsiz sayfa, katalog türü verilmemiş ve tek yüzlü okunmamış sayfa) yok. Yükleme sırası fark etmez (ehliyet ve oturum izni, iki yönde); çok sayfalı dosyanın içindeki yüz eşleşir, öteki adaylar yerinde kalır; aynı dosyadaki yüzler (bitişik, ters), Direkt Belge (`direct: true`), tek yüzlü tür (ön/arka okunmuş dahil), farklı tür, katalog dışı, türü belirsiz, yüzü belirsiz, yalnız ön yüzler ve kimliği çelişen yüzler eşleşmez ve hüküm almaz; tamamlanmış çift, başka katalog türleri, tek yüzlü katalog dışı belge ve boş sayfalar eşleşmeyi engellemez; türler birbirinden bağımsız eşleşir; dosya gruplamaları `file_id` sırasına dizilir, tekrar eden dosya reddedilir. Olay: dosyalar arası aday `DOC_TYPE_DETERMINED`'ı ön yüzün dosyası/sayfasıyla ve `sources` (`[{file_id, pages}]`) verisiyle yazar, kişisel değer yok (kurallar: C20) — `app/pipeline/group.py` · test `tests/pipeline/test_group.py` (67 fonksiyon / 132 durum, +23 / +47) · tm 27
+- ✅ 04.3.2 eşleşebilecek yüz çifti varken türün birden fazla eksik ön yüzü (aynı ya da farklı kişi), birden fazla eksik arka yüzü veya başka yüz olabilecek sayfa varsa eşleştirme yapılmaz; türün R6 işaretsiz bütün eksik yüzleri `DocumentCandidate.ambiguous_pairing` (`AmbiguousPairing`: `face`, `fronts`, `backs`, `unoriented_pages`, `unanalyzed_pages`, `uncertain_type_pages`; `queue = unresolved`, dosya kimliği ve 1'den sayfa numarasıyla değersiz `reason`) ile Unresolved'a gider (iki kart, bir ön iki arka, aynı dosyada iki ön yüz, aynı dosyada eşleşmemiş arka yüz, 7 engel durumu, katalogda olmayan slug); R6 parçası eşleşmez, yalnız kendi hükmünü taşır ama eksik yüz olarak sayılır; bir türün belirsizliği öteki türün eşleşmesini durdurmaz. Hüküm adayın `DOC_TYPE_DETERMINED` olayına `ambiguous_pairing` verisi ve `message = reason` olarak yazılır. Entegrasyon: iki kişinin ehliyet ön yüzü + tek arka yüz (üç JPEG) → üç yüz de gerekçesiyle Unresolved, olaylarda kişisel değer yok; analizi başarısız fotoğraflı partide (`partial`) ön/arka yüz eşleşmez, gerekçe analizsiz sayfayı listeler. 23 kural bozulması (Direkt Belge, tek yüzlü tür, ayrı dosya şartı, R6 parçasını saymama, R6 parçasını eşleştirme, tamamlanmış çifti sayma, kimlik çelişkisi, üç engel türü, tek yüzlü katalog dışı belgeyi engel sayma, katalogda olmayan slug, yalnız ön yüz çokluğu, yüz sırası, eşleşebilecek çift şartı, olay `sources`/verisi/mesajı/dosyası, R6 parçasına belirsizlik hükmü, dosya sırası, tekrar dosya, eşleşen yüzün dosyada kalması) bellekte ayrı ayrı denendi, her biri testte kırmızı — `app/pipeline/group.py` · test `tests/pipeline/test_group.py` · tm 27
+- ✅ S5: aynı partide `on.jpg` (ehliyet ön) ve `arka.jpg` (ehliyet arka) sentetik JPEG, gerçek görüntü analiz kopyası adımından ve yeni kayıtlı yanıtlarla `analyze_upload` → `group_upload`: iki yükleme sırasında da tek `serbian_driving_license` adayı (Driving License, `direct: false`) — sayfalar (on.jpg, 0) front, (arka.jpg, 0) back; dosya adaylarında yüz kalmaz, tek `DOC_TYPE_DETERMINED` olayı ön yüzün dosyasına `sources` ile yazılır, kişisel değer yok. Kayıpsız sarma ve birleştirme (çıktı PDF) 06.2/07.3/07.4'ün işi — `tests/fixtures/ai/recordings/s5_front_back_images/{0,1}.json` · test `tests/pipeline/test_group.py` · tm 27

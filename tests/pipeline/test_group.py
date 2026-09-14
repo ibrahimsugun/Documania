@@ -1,10 +1,13 @@
 """04.1.1 — ardışık, aynı tür ve aynı kişiye ait sayfalar tek belge adayı olur; 04.1.2 —
 `front_back` türlerde ön ve arka yüz sıralı biçimde eşleşir; 04.2.1 — araya başka belge girmiş
-parçalar otomatik birleştirilmez, gerekçesiyle Unresolved'a gider. Kabul senaryoları: S3, S4.
+parçalar otomatik birleştirilmez, gerekçesiyle Unresolved'a gider; 04.3.1 — yalnız `direct: false`
+türlerde aynı partideki ayrı dosyalardaki ön ve arka yüz eşleştirilir; 04.3.2 — aynı türden birden
+fazla ön yüz varsa eşleştirme yapılmaz, hepsi Unresolved'a gider. Kabul senaryoları: S3, S4, S5.
 
-Birim testleri `group_file_pages`'e sentetik analizler verir. Entegrasyon testleri sentetik
-PDF/JPEG'i gerçek render adımlarından ve kayıtlı yanıt sağlayıcısıyla (03.6) analizden geçirip
-`group_upload`'u veritabanı üzerinde koşar — gerçek kişi/belge yok, ağ çağrısı yok.
+Birim testleri `group_file_pages`'e ve `group_across_files`'a sentetik analizler verir. Entegrasyon
+testleri sentetik PDF/JPEG'i gerçek render adımlarından ve kayıtlı yanıt sağlayıcısıyla (03.6)
+analizden geçirip `group_upload`'u veritabanı üzerinde koşar — gerçek kişi/belge yok, ağ çağrısı
+yok.
 """
 
 from __future__ import annotations
@@ -19,16 +22,21 @@ from sqlalchemy.orm import Session
 
 from app.ai import PageAnalysis, Side, build_page_analysis_instructions
 from app.ai.recording_provider import RecordingProvider
-from app.catalog import load_seed_catalog, validate_catalog
+from app.catalog import Catalog, load_seed_catalog, validate_catalog
 from app.config import Settings
 from app.db.models import Event, QueueKind, Upload, UploadFile, UploadStatus
 from app.events import EventType
 from app.pipeline.analyze import analyze_upload
 from app.pipeline.group import (
+    AmbiguousPairing,
     ContiguityViolation,
+    DocumentCandidate,
     FileGrouping,
     GroupingPage,
+    PageRef,
     StoredAnalysisError,
+    UploadGrouping,
+    group_across_files,
     group_file_pages,
     group_upload,
 )
@@ -124,6 +132,40 @@ def _layout(grouping: FileGrouping) -> list[tuple[int, ...]]:
 
 def _violations(grouping: FileGrouping) -> list[ContiguityViolation | None]:
     return [candidate.contiguity_violation for candidate in grouping.candidates]
+
+
+def _file(file_id: int, *pages: GroupingPage, catalog: Catalog = CATALOG) -> FileGrouping:
+    return group_file_pages(file_id, pages, catalog=catalog)
+
+
+def _files(*files: list[GroupingPage]) -> list[FileGrouping]:
+    """Dosya kimlikleri 1'den, verilen sırayla."""
+    return [_file(file_id, *pages) for file_id, pages in enumerate(files, start=1)]
+
+
+def _across(*files: FileGrouping, catalog: Catalog = CATALOG) -> UploadGrouping:
+    return group_across_files(files, catalog=catalog)
+
+
+def _refs(candidate: DocumentCandidate) -> list[tuple[int, int]]:
+    return [(page.file_id, page.index) for page in candidate.pages]
+
+
+def _marked(grouping: UploadGrouping) -> dict[PageRef, AmbiguousPairing]:
+    """Belirsiz eşleştirmeye takılan adaylar, ilk sayfalarıyla."""
+    return {
+        PageRef(candidate.pages[0].file_id, candidate.pages[0].index): candidate.ambiguous_pairing
+        for candidate in grouping.candidates
+        if candidate.ambiguous_pairing is not None
+    }
+
+
+def _catalog_with(slug: str, **changes: Any) -> Catalog:
+    entries = [entry.model_dump(mode="json") for entry in CATALOG]
+    for entry in entries:
+        if entry["slug"] == slug:
+            entry.update(changes)
+    return validate_catalog(entries)
 
 
 # --- 04.1.1 dosya içi gruplama ----------------------------------------------------------------
@@ -726,6 +768,476 @@ def test_violation_reason_names_rule_pieces_and_pages_between(
     assert violation.reason == reason
 
 
+# --- 04.3.1 dosyalar arası gruplama -----------------------------------------------------------
+
+
+@pytest.mark.parametrize("slug", [LICENSE, RESIDENCE])
+@pytest.mark.parametrize(
+    ("front_file", "back_file"), [(1, 2), (2, 1)], ids=["on-once-yuklendi", "arka-once-yuklendi"]
+)
+def test_s5_front_and_back_in_separate_files_form_one_candidate(
+    slug: str, front_file: int, back_file: int
+) -> None:
+    # S5: aynı partide `on.jpg` ve `arka.jpg`. Yükleme sırası belge yapısı değildir; aday önce ön,
+    # sonra arka yüzü taşır.
+    grouping = _across(
+        _file(front_file, _front(0, slug=slug)),
+        _file(back_file, _back(0, slug=slug, continues=False)),
+    )
+
+    (candidate,) = grouping.cross_file_candidates
+    assert _refs(candidate) == [(front_file, 0), (back_file, 0)]
+    assert candidate.file_ids == (front_file, back_file)
+    assert candidate.sides == (Side.FRONT, Side.BACK)
+    assert candidate.document_type_slug == slug
+    assert (candidate.contiguity_violation, candidate.ambiguous_pairing) == (None, None)
+    assert [file_grouping.file_id for file_grouping in grouping.files] == [1, 2]
+    assert all(file_grouping.candidates == () for file_grouping in grouping.files)
+    assert grouping.candidates == (candidate,)
+
+
+def test_faces_inside_multi_page_files_pair_and_other_candidates_stay() -> None:
+    grouping = _across(
+        _file(1, _photo(0), _front(1), _page(2, PASSPORT)),
+        _file(2, _page(0, PERMIT), _back(1, continues=False)),
+    )
+
+    assert [_layout(file_grouping) for file_grouping in grouping.files] == [[(0,), (2,)], [(0,)]]
+    assert [_refs(candidate) for candidate in grouping.candidates] == [
+        [(1, 0)],
+        [(1, 2)],
+        [(2, 0)],
+        [(1, 1), (2, 1)],
+    ]
+    assert grouping.candidates[0].file_ids == (1,)
+
+
+@pytest.mark.parametrize(
+    "files",
+    [
+        pytest.param([[_front(0), _back(1, continues=False)]], id="bitisik"),
+        pytest.param([[_back(0, continues=False), _front(1, continues=True)]], id="bitisik-ters"),
+        pytest.param(
+            [[_front(0), _back(1, continues=False)], [_photo(0)]], id="baska-dosyada-foto"
+        ),
+    ],
+)
+def test_faces_in_the_same_file_are_not_paired_across_files(
+    files: list[list[GroupingPage]],
+) -> None:
+    grouping = _across(*_files(*files))
+
+    assert grouping.cross_file_candidates == ()
+    assert _layout(grouping.files[0]) == [(0,), (1,)]
+    assert _marked(grouping) == {}
+
+
+def test_direct_document_faces_in_separate_files_are_not_paired() -> None:
+    # K3: Direkt Belge'ye başka dosyadan sayfa eklenmez; yüzler eksik aday kalır (04.5).
+    catalog = _catalog_with(LICENSE, direct=True, allowed_conversions=[])
+
+    grouping = _across(
+        _file(1, _front(0), catalog=catalog),
+        _file(2, _back(0, continues=False), catalog=catalog),
+        catalog=catalog,
+    )
+
+    assert grouping.cross_file_candidates == ()
+    assert [_refs(candidate) for candidate in grouping.candidates] == [[(1, 0)], [(2, 0)]]
+    assert _marked(grouping) == {}
+
+
+@pytest.mark.parametrize(
+    "files",
+    [
+        pytest.param([[_page(0)], [_page(0, continues=True)]], id="tek-yuzlu-tur"),
+        pytest.param(
+            [[_page(0, side="front")], [_page(0, side="back", person=NO_PERSON)]],
+            id="tek-yuzlu-turde-on-ve-arka-okunmus",
+        ),
+        pytest.param([[_front(0)], [_back(0, slug=RESIDENCE, continues=False)]], id="farkli-tur"),
+        pytest.param(
+            [
+                [_page(0, None, side="front", candidate_type_name="Bosnian Identity Card")],
+                [_page(0, None, side="back", candidate_type_name="Bosnian Identity Card")],
+            ],
+            id="katalog-disi-tur",
+        ),
+        pytest.param(
+            [[_page(0, None, side="front")], [_page(0, None, side="back", person=NO_PERSON)]],
+            id="tur-belirsiz",
+        ),
+        pytest.param(
+            [[_front(0)], [_page(0, LICENSE, side="unknown", person=NO_PERSON)]],
+            id="yuzu-belirsiz",
+        ),
+        pytest.param([[_front(0)], [_front(0)]], id="yalniz-on-yuzler"),
+    ],
+)
+def test_only_a_front_and_a_back_of_a_catalog_type_pair_across_files(
+    files: list[list[GroupingPage]],
+) -> None:
+    grouping = _across(*_files(*files))
+
+    assert grouping.cross_file_candidates == ()
+    assert len(grouping.candidates) == 2
+    assert _marked(grouping) == {}
+
+
+def test_faces_showing_different_persons_are_not_paired() -> None:
+    # Arka yüzde başka bir belge numarası yazılı: aynı kart değildir, işaretsiz ayrı kalır (04.5).
+    other = {**NO_PERSON, "document_number": "00 0000009"}
+
+    grouping = _across(_file(1, _front(0)), _file(2, _page(0, LICENSE, side="back", person=other)))
+
+    assert grouping.cross_file_candidates == ()
+    assert [_refs(candidate) for candidate in grouping.candidates] == [[(1, 0)], [(2, 0)]]
+    assert _marked(grouping) == {}
+
+
+def test_complete_pair_does_not_compete_for_faces_in_other_files() -> None:
+    grouping = _across(
+        _file(1, _front(0), _back(1)),
+        _file(2, _front(0)),
+        _file(3, _back(0, continues=False)),
+    )
+
+    assert [_refs(candidate) for candidate in grouping.candidates] == [
+        [(1, 0), (1, 1)],
+        [(2, 0), (3, 0)],
+    ]
+    assert grouping.files[0].candidates[0].sides == (Side.FRONT, Side.BACK)
+    assert _marked(grouping) == {}
+
+
+def test_confidently_typed_documents_and_blank_pages_do_not_block_pairing() -> None:
+    # Başka katalog türü, tek yüzlü katalog dışı belge, başka türün yüzleri ve boş sayfa bu türün
+    # yüzü olamaz.
+    grouping = _across(
+        _file(1, _front(0)),
+        _file(2, _back(0, continues=False)),
+        _file(
+            3,
+            _page(0, PASSPORT),
+            _photo(1),
+            GroupingPage(2, is_blank=True),
+            _page(3, None, person=NO_PERSON, **BLANK_READING),
+            _page(4, None, candidate_type_name="Peruvian Diploma", person=NO_PERSON, fields={}),
+            _front(5, slug=RESIDENCE),
+            _back(6, slug=RESIDENCE),
+            _front(7, slug=RESIDENCE),
+        ),
+    )
+
+    (candidate,) = grouping.cross_file_candidates
+    assert _refs(candidate) == [(1, 0), (2, 0)]
+    assert _layout(grouping.files[2]) == [(0,), (1,), (4,), (5, 6), (7,)]
+    assert _marked(grouping) == {}
+
+
+def test_each_type_pairs_on_its_own_in_order_of_front_faces() -> None:
+    grouping = _across(
+        _file(1, _back(0, slug=RESIDENCE, continues=False)),
+        _file(2, _front(0)),
+        _file(3, _front(0, slug=RESIDENCE)),
+        _file(4, _back(0, continues=False)),
+    )
+
+    assert [_refs(candidate) for candidate in grouping.cross_file_candidates] == [
+        [(2, 0), (4, 0)],
+        [(3, 0), (1, 0)],
+    ]
+    assert [candidate.document_type_slug for candidate in grouping.cross_file_candidates] == [
+        LICENSE,
+        RESIDENCE,
+    ]
+    assert all(file_grouping.candidates == () for file_grouping in grouping.files)
+
+
+def test_file_groupings_are_read_in_file_order_whatever_the_input_order() -> None:
+    files = [_file(5, _photo(0)), _file(2, _back(0, continues=False)), _file(3, _front(0))]
+
+    grouping = group_across_files(iter(files), catalog=CATALOG)
+
+    assert [file_grouping.file_id for file_grouping in grouping.files] == [2, 3, 5]
+    assert [_refs(candidate) for candidate in grouping.candidates] == [[(5, 0)], [(3, 0), (2, 0)]]
+
+
+def test_repeated_file_is_rejected() -> None:
+    with pytest.raises(ValueError, match="birden fazla"):
+        _across(_file(1, _front(0)), _file(1, _back(0)))
+
+
+def test_upload_grouping_without_files_has_no_candidates() -> None:
+    grouping = group_across_files([], catalog=CATALOG)
+
+    assert (grouping.files, grouping.cross_file_candidates, grouping.candidates) == ((), (), ())
+
+
+# --- 04.3.2 belirsiz eşleştirmenin reddi ------------------------------------------------------
+
+
+def _ambiguities(
+    faces: list[tuple[int, int]],
+    fronts: list[tuple[int, int]],
+    backs: list[tuple[int, int]],
+    **pages: Any,
+) -> dict[PageRef, AmbiguousPairing]:
+    front_refs = tuple(PageRef(*ref) for ref in fronts)
+    back_refs = tuple(PageRef(*ref) for ref in backs)
+    blockers = {name: tuple(PageRef(*ref) for ref in refs) for name, refs in pages.items()}
+    return {
+        PageRef(*face): AmbiguousPairing(PageRef(*face), front_refs, back_refs, **blockers)
+        for face in faces
+    }
+
+
+@pytest.mark.parametrize(
+    "second_front_person",
+    [
+        pytest.param({}, id="ayni-kisi"),
+        pytest.param({"surname": "DENEMEVA", "document_number": "00 0000002"}, id="baska-kisi"),
+    ],
+)
+def test_several_fronts_of_a_type_are_not_paired_and_all_go_to_unresolved(
+    second_front_person: dict[str, Any],
+) -> None:
+    # 04.3.2: arka yüzde kimlik yazmaz; hangi ön yüzle aynı karta ait olduğu bilinemez.
+    grouping = _across(
+        _file(1, _front(0)),
+        _file(2, _page(0, LICENSE, side="front", person=second_front_person)),
+        _file(3, _back(0, continues=False)),
+    )
+
+    assert grouping.cross_file_candidates == ()
+    assert len(grouping.candidates) == 3
+    faces = [(1, 0), (2, 0), (3, 0)]
+    assert _marked(grouping) == _ambiguities(faces, fronts=[(1, 0), (2, 0)], backs=[(3, 0)])
+    first = grouping.candidates[0].ambiguous_pairing
+    assert first is not None and first.queue is QueueKind.UNRESOLVED
+
+
+@pytest.mark.parametrize(
+    ("files", "fronts", "backs"),
+    [
+        pytest.param(
+            [[_front(0)], [_back(0, continues=False)], [_front(0)], [_back(0, continues=False)]],
+            [(1, 0), (3, 0)],
+            [(2, 0), (4, 0)],
+            id="iki-kart",
+        ),
+        pytest.param(
+            [[_front(0)], [_back(0, continues=False)], [_back(0, continues=False)]],
+            [(1, 0)],
+            [(2, 0), (3, 0)],
+            id="bir-on-iki-arka",
+        ),
+        pytest.param(
+            [[_front(0), _photo(1), _front(2)], [_back(0, continues=False)]],
+            [(1, 0), (1, 2)],
+            [(2, 0)],
+            id="iki-on-yuz-ayni-dosyada",
+        ),
+        pytest.param(
+            [[_front(0), _back(1, continues=False)], [_back(0, continues=False)]],
+            [(1, 0)],
+            [(1, 1), (2, 0)],
+            id="ayni-dosyada-eslesmemis-arka",
+        ),
+    ],
+)
+def test_more_than_one_unpaired_front_or_back_makes_pairing_ambiguous(
+    files: list[list[GroupingPage]], fronts: list[tuple[int, int]], backs: list[tuple[int, int]]
+) -> None:
+    grouping = _across(*_files(*files))
+
+    assert grouping.cross_file_candidates == ()
+    assert _marked(grouping) == _ambiguities([*fronts, *backs], fronts, backs)
+
+
+def test_contiguity_pieces_are_never_paired_but_count_as_unpaired_faces() -> None:
+    # Ardışıklık kuralına takılan parça dosyalar arası eşleşmez; eşi aynı dosyada olabileceği için
+    # başka dosyalardaki yüzlerin eşleşmesini de belirsiz yapar. Parça yalnız R6 hükmünü taşır.
+    grouping = _across(
+        _file(1, _front(0), _photo(1), _back(2, continues=False)),
+        _file(2, _front(0)),
+        _file(3, _back(0, continues=False)),
+    )
+
+    assert grouping.cross_file_candidates == ()
+    front_piece, photo, back_piece = grouping.files[0].candidates
+    assert front_piece.contiguity_violation is not None
+    assert back_piece.contiguity_violation is not None
+    assert photo.contiguity_violation is None
+    assert _marked(grouping) == _ambiguities(
+        [(2, 0), (3, 0)], fronts=[(1, 0), (2, 0)], backs=[(1, 2), (3, 0)]
+    )
+
+
+@pytest.mark.parametrize(
+    "other_file",
+    [
+        pytest.param([_back(0, continues=False)], id="arka-yuz"),
+        pytest.param([_front(0)], id="on-yuz"),
+    ],
+)
+def test_contiguity_piece_and_a_face_in_another_file_are_not_judged(
+    other_file: list[GroupingPage],
+) -> None:
+    # Eşleşebilecek yüz çifti yok: parçalar R6 ile Unresolved'da, öteki yüz eksik aday (04.5).
+    grouping = _across(*_files([_front(0), _photo(1), _back(2, continues=False)], other_file))
+
+    assert grouping.cross_file_candidates == ()
+    assert [candidate.contiguity_violation is not None for candidate in grouping.candidates] == [
+        True,
+        False,
+        True,
+        False,
+    ]
+    assert _marked(grouping) == {}
+
+
+@pytest.mark.parametrize(
+    ("files", "blockers"),
+    [
+        pytest.param(
+            [[_front(0)], [_back(0, continues=False)], [_page(0, LICENSE, side="unknown")]],
+            {"unoriented_pages": [(3, 0)]},
+            id="turun-yuzu-belirsiz-sayfasi",
+        ),
+        pytest.param(
+            [[_front(0)], [_back(0, continues=False)], [_page(0, LICENSE, side="single")]],
+            {"unoriented_pages": [(3, 0)]},
+            id="turun-tek-yuzlu-okunmus-sayfasi",
+        ),
+        pytest.param(
+            [[_front(0)], [_back(0, continues=False)], [_photo(0), GroupingPage(1)]],
+            {"unanalyzed_pages": [(3, 1)]},
+            id="analizsiz-sayfa",
+        ),
+        pytest.param(
+            [[_front(0), GroupingPage(1)], [_back(0, continues=False)]],
+            {"unanalyzed_pages": [(1, 1)]},
+            id="on-yuzun-dosyasinda-analizsiz-sayfa",
+        ),
+        pytest.param(
+            [[_front(0)], [_back(0, continues=False)], [_page(0, None, side="unknown")]],
+            {"uncertain_type_pages": [(3, 0)]},
+            id="turu-belirsiz-sayfa",
+        ),
+        pytest.param(
+            [
+                [_front(0)],
+                [_back(0, continues=False)],
+                [
+                    _page(0, None, candidate_type_name="Employment Contract"),
+                    _page(1, None, side="back", candidate_type_name="Driving License", fields={}),
+                ],
+            ],
+            {"uncertain_type_pages": [(3, 1)]},
+            id="aday-turlu-kart-yuzu",
+        ),
+        pytest.param(
+            [
+                [_front(0), GroupingPage(1)],
+                [_back(0, continues=False), _page(1, LICENSE, side="unknown", person=NO_PERSON)],
+                [_page(0, None, side="front"), GroupingPage(1)],
+            ],
+            {
+                "unoriented_pages": [(2, 1)],
+                "unanalyzed_pages": [(1, 1), (3, 1)],
+                "uncertain_type_pages": [(3, 0)],
+            },
+            id="hepsi",
+        ),
+    ],
+)
+def test_page_that_may_be_another_face_makes_pairing_ambiguous(
+    files: list[list[GroupingPage]], blockers: dict[str, list[tuple[int, int]]]
+) -> None:
+    # Tek ön ve tek arka yüz ayrı dosyalarda; ama partide bu türün yüzü olmadığı kesin olmayan bir
+    # sayfa var: eşleştirme tahmin olurdu.
+    grouping = _across(*_files(*files))
+
+    assert grouping.cross_file_candidates == ()
+    assert _marked(grouping) == _ambiguities(
+        [(1, 0), (2, 0)], fronts=[(1, 0)], backs=[(2, 0)], **blockers
+    )
+
+
+def test_page_whose_slug_is_missing_from_catalog_makes_pairing_ambiguous() -> None:
+    catalog = validate_catalog(
+        [entry.model_dump(mode="json") for entry in CATALOG if entry.slug != PERMIT]
+    )
+
+    grouping = _across(
+        _file(1, _front(0), catalog=catalog),
+        _file(2, _back(0, continues=False), catalog=catalog),
+        _file(3, _page(0, side="unknown"), _page(1, continues=True), catalog=catalog),
+        catalog=catalog,
+    )
+
+    assert grouping.cross_file_candidates == ()
+    assert _marked(grouping) == _ambiguities(
+        [(1, 0), (2, 0)], fronts=[(1, 0)], backs=[(2, 0)], uncertain_type_pages=[(3, 0)]
+    )
+
+
+def test_ambiguity_of_one_type_does_not_stop_pairing_of_another() -> None:
+    grouping = _across(
+        _file(1, _front(0)),
+        _file(2, _front(0)),
+        _file(3, _back(0, continues=False)),
+        _file(4, _front(0, slug=RESIDENCE)),
+        _file(5, _back(0, slug=RESIDENCE, continues=False)),
+    )
+
+    (residence,) = grouping.cross_file_candidates
+    assert _refs(residence) == [(4, 0), (5, 0)]
+    assert residence.ambiguous_pairing is None
+    assert set(_marked(grouping)) == {PageRef(1, 0), PageRef(2, 0), PageRef(3, 0)}
+
+
+@pytest.mark.parametrize(
+    ("ambiguity", "reason"),
+    [
+        pytest.param(
+            AmbiguousPairing(
+                face=PageRef(11, 0),
+                fronts=(PageRef(11, 0), PageRef(13, 0)),
+                backs=(PageRef(12, 0),),
+            ),
+            "Belirsiz ön/arka yüz eşleştirmesi: bu yüz (dosya 11, sayfa 1) partide tek anlamlı bir "
+            "eşle eşleştirilemiyor. Eşleşmemiş ön yüzler: dosya 11, sayfa 1; dosya 13, sayfa 1. "
+            "Eşleşmemiş arka yüzler: dosya 12, sayfa 1. Yüzler dosyalar arasında otomatik "
+            "eşleştirilmez.",
+            id="iki-on-yuz",
+        ),
+        pytest.param(
+            AmbiguousPairing(
+                face=PageRef(12, 2),
+                fronts=(PageRef(11, 0),),
+                backs=(PageRef(12, 2),),
+                unoriented_pages=(PageRef(14, 0),),
+                unanalyzed_pages=(PageRef(11, 1), PageRef(15, 3)),
+                uncertain_type_pages=(PageRef(16, 0),),
+            ),
+            "Belirsiz ön/arka yüz eşleştirmesi: bu yüz (dosya 12, sayfa 3) partide tek anlamlı bir "
+            "eşle eşleştirilemiyor. Eşleşmemiş ön yüzler: dosya 11, sayfa 1. Eşleşmemiş arka "
+            "yüzler: dosya 12, sayfa 3. Aynı türün yüzü ön ya da arka okunmamış sayfaları: dosya "
+            "14, sayfa 1. Analizi yapılamamış sayfalar: dosya 11, sayfa 2; dosya 15, sayfa 4. Türü "
+            "kesin belirlenemeyen sayfalar: dosya 16, sayfa 1. Yüzler dosyalar arasında otomatik "
+            "eşleştirilmez.",
+            id="baska-yuz-olabilecek-sayfalar",
+        ),
+    ],
+)
+def test_ambiguous_pairing_reason_lists_faces_and_pages_that_may_be_faces(
+    ambiguity: AmbiguousPairing, reason: str
+) -> None:
+    assert ambiguity.reason == reason
+
+
 # --- entegrasyon: veritabanı, render, kayıtlı yanıt --------------------------------------------
 
 
@@ -932,7 +1444,8 @@ def test_s3_license_pieces_go_to_unresolved_with_reason(
 def test_pieces_in_different_files_are_not_judged_by_contiguity(
     session: Session, layout: DataLayout, tmp_path: Path
 ) -> None:
-    # Ardışıklık dosyadaki sayfa sırasıdır; başka dosyadaki eş dosyalar arası gruplamanın (04.3).
+    # Ardışıklık dosyadaki sayfa sırasıdır; başka dosyadaki eşle dosyalar arası gruplama (04.3)
+    # eşleştirir.
     upload = _upload(
         session,
         layout,
@@ -956,10 +1469,209 @@ def test_pieces_in_different_files_are_not_judged_by_contiguity(
 
     grouping = group_upload(session, upload, catalog=CATALOG)
 
-    assert [_layout(file_grouping) for file_grouping in grouping.files] == [[(0,), (1,)], [(0,)]]
+    front_file, back_file = upload.files
+    assert [_layout(file_grouping) for file_grouping in grouping.files] == [[(1,)], []]
+    (card,) = grouping.cross_file_candidates
+    assert _refs(card) == [(front_file.id, 0), (back_file.id, 0)]
     assert all(candidate.contiguity_violation is None for candidate in grouping.candidates)
     events = _events(session, EventType.DOC_TYPE_DETERMINED)
+    assert [(event.file_id, event.page_index) for event in events] == [
+        (front_file.id, 1),
+        (front_file.id, 0),
+    ]
     assert all("contiguity_violation" not in event.data_json for event in events)
+
+
+S5_RECORDINGS = RECORDINGS / "s5_front_back_images"
+S5_PERSONAL_VALUES = ("SIDOROV", "IVAN", "1985-05-05", "000123456", "2031-06-30")
+
+
+def _recording(directory: Path, number: int) -> dict[str, Any]:
+    return json.loads((directory / f"{number}.json").read_text(encoding="utf-8"))
+
+
+@pytest.mark.parametrize("back_uploaded_first", [False, True], ids=["on-once", "arka-once"])
+def test_s5_front_and_back_images_form_one_driving_license_candidate(
+    session: Session, layout: DataLayout, tmp_path: Path, back_uploaded_first: bool
+) -> None:
+    # S5: aynı partide `on.jpg` ve `arka.jpg` ehliyet (Direkt Belge kapalı) → tek Driving License
+    # adayı, önce ön sonra arka yüz. Kayıpsız sarma ve birleştirme işlem seçimi (06.2) ve
+    # uygulayıcının (07.3, 07.4) işidir.
+    entry = CATALOG.get(LICENSE)
+    assert entry is not None and not entry.direct and entry.file_label == "Driving License"
+    front = ("on.jpg", make_half_filled_image_bytes("JPEG", size=(300, 190)))
+    back = ("arka.jpg", make_half_filled_image_bytes("JPEG", size=(310, 195)))
+    if back_uploaded_first:
+        upload = _upload(session, layout, [back, front])
+        responses = [_recording(S5_RECORDINGS, 1), _recording(S5_RECORDINGS, 0)]
+        provider = _recordings(tmp_path, responses)
+        back_file, front_file = upload.files
+    else:
+        upload = _upload(session, layout, [front, back])
+        provider = RecordingProvider.from_directory(S5_RECORDINGS)
+        front_file, back_file = upload.files
+    analyze_upload(session, layout, upload, provider=provider, instructions=INSTRUCTIONS)
+
+    grouping = group_upload(session, upload, catalog=CATALOG)
+
+    assert all(file_grouping.candidates == () for file_grouping in grouping.files)
+    (card,) = grouping.candidates
+    assert grouping.cross_file_candidates == (card,)
+    assert _refs(card) == [(front_file.id, 0), (back_file.id, 0)]
+    assert card.document_type_slug == LICENSE
+    assert card.sides == (Side.FRONT, Side.BACK)
+    assert (card.contiguity_violation, card.ambiguous_pairing) == (None, None)
+    (determined,) = _events(session, EventType.DOC_TYPE_DETERMINED)
+    assert (determined.upload_id, determined.file_id, determined.page_index) == (
+        UPLOAD_ID,
+        front_file.id,
+        0,
+    )
+    assert determined.message is None
+    assert determined.data_json == {
+        "document_type_slug": LICENSE,
+        "sources": [
+            {"file_id": front_file.id, "pages": [0]},
+            {"file_id": back_file.id, "pages": [0]},
+        ],
+        "sides": ["front", "back"],
+    }
+    assert not _events(session, EventType.DOC_TYPE_UNKNOWN)
+    logged = json.dumps(determined.data_json)
+    for value in S5_PERSONAL_VALUES:
+        assert value not in logged
+
+
+def _ambiguity_event_data(
+    side: str, fronts: list[int], backs: list[int], unanalyzed: list[tuple[int, int]]
+) -> dict[str, Any]:
+    return {
+        "document_type_slug": LICENSE,
+        "pages": [0],
+        "sides": [side],
+        "ambiguous_pairing": {
+            "queue": "unresolved",
+            "fronts": [{"file_id": file_id, "page_index": 0} for file_id in fronts],
+            "backs": [{"file_id": file_id, "page_index": 0} for file_id in backs],
+            "unoriented_pages": [],
+            "unanalyzed_pages": [
+                {"file_id": file_id, "page_index": index} for file_id, index in unanalyzed
+            ],
+            "uncertain_type_pages": [],
+        },
+    }
+
+
+def test_several_license_fronts_in_a_batch_go_to_unresolved_with_reason(
+    session: Session, layout: DataLayout, tmp_path: Path
+) -> None:
+    # 04.3.2: iki kişinin ehliyet ön yüzü ve tek arka yüz aynı partide — hangi ön yüzün arka yüzle
+    # aynı karta ait olduğu bilinemez; eşleştirme yapılmaz, üç yüz de gerekçesiyle Unresolved'a.
+    other_person = {
+        "surname": "DENEMEVA",
+        "given_names": "ORNEK",
+        "original_script_name": None,
+        "date_of_birth": "1991-02-02",
+        "document_number": "00 0000002",
+    }
+    upload = _upload(
+        session,
+        layout,
+        [
+            ("on-1.jpg", make_half_filled_image_bytes("JPEG", size=(300, 190))),
+            ("on-2.jpg", make_half_filled_image_bytes("JPEG", size=(310, 195))),
+            ("arka.jpg", make_half_filled_image_bytes("JPEG", size=(320, 200))),
+        ],
+    )
+    responses = [
+        _payload(0, LICENSE, side="front"),
+        _payload(0, LICENSE, side="front", person=other_person),
+        _payload(0, LICENSE, side="back", person=NO_PERSON),
+    ]
+    analyze_upload(
+        session,
+        layout,
+        upload,
+        provider=_recordings(tmp_path, responses),
+        instructions=INSTRUCTIONS,
+    )
+
+    grouping = group_upload(session, upload, catalog=CATALOG)
+
+    first, second, back = (upload_file.id for upload_file in upload.files)
+    assert grouping.cross_file_candidates == ()
+    expected = [
+        AmbiguousPairing(
+            face=PageRef(file_id, 0),
+            fronts=(PageRef(first, 0), PageRef(second, 0)),
+            backs=(PageRef(back, 0),),
+        )
+        for file_id in (first, second, back)
+    ]
+    assert [candidate.ambiguous_pairing for candidate in grouping.candidates] == expected
+    determined = _events(session, EventType.DOC_TYPE_DETERMINED)
+    assert [(event.file_id, event.page_index, event.message) for event in determined] == [
+        (ambiguity.face.file_id, 0, ambiguity.reason) for ambiguity in expected
+    ]
+    assert [event.data_json for event in determined] == [
+        _ambiguity_event_data(side, [first, second], [back], [])
+        for side in ("front", "front", "back")
+    ]
+    logged = json.dumps(
+        [(event.data_json, event.message) for event in determined], ensure_ascii=False
+    )
+    for value in (
+        SYNTHETIC_SURNAME,
+        SYNTHETIC_DOCUMENT_NUMBER,
+        "1990-01-01",
+        "DENEMEVA",
+        "00 0000002",
+        "1991-02-02",
+    ):
+        assert value not in logged
+
+
+def test_failed_page_analysis_in_the_batch_keeps_faces_unpaired(
+    session: Session, layout: DataLayout, tmp_path: Path
+) -> None:
+    # Analizi başarısız fotoğraf aslında başka bir ehliyetin yüzü olabilir (parti `partial`);
+    # eşleştirme tahmin olurdu, yüzler gerekçesiyle Unresolved'a gider.
+    upload = _upload(
+        session,
+        layout,
+        [
+            ("on.jpg", make_half_filled_image_bytes("JPEG", size=(300, 190))),
+            ("arka.jpg", make_half_filled_image_bytes("JPEG", size=(310, 195))),
+            ("foto.jpg", make_half_filled_image_bytes("JPEG", size=(320, 200))),
+        ],
+    )
+    broken = _payload(0, PHOTO, person=NO_PERSON, fields={})
+    del broken["side"]
+    responses = [_recording(S5_RECORDINGS, 0), _recording(S5_RECORDINGS, 1), broken]
+    result = analyze_upload(
+        session,
+        layout,
+        upload,
+        provider=_recordings(tmp_path, responses),
+        instructions=INSTRUCTIONS,
+    )
+    assert result.is_partial
+
+    grouping = group_upload(session, upload, catalog=CATALOG)
+
+    front, back, photo = (upload_file.id for upload_file in upload.files)
+    assert grouping.cross_file_candidates == ()
+    assert grouping.files[2].unanalyzed_pages == (0,)
+    determined = _events(session, EventType.DOC_TYPE_DETERMINED)
+    assert [event.data_json for event in determined] == [
+        _ambiguity_event_data(side, [front], [back], [(photo, 0)]) for side in ("front", "back")
+    ]
+    assert all("Analizi yapılamamış sayfalar" in (event.message or "") for event in determined)
+    logged = json.dumps(
+        [(event.data_json, event.message) for event in determined], ensure_ascii=False
+    )
+    for value in S5_PERSONAL_VALUES:
+        assert value not in logged
 
 
 def test_group_upload_reads_blank_failed_duplicate_and_catalog_less_pages(

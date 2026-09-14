@@ -1,5 +1,5 @@
-"""Dosya içi gruplama, ön/arka yüz eşleşmesi ve ardışıklık güvenlik kuralı — PRD 04.1.1, 04.1.2,
-04.2.1.
+"""Dosya içi ve dosyalar arası gruplama, ön/arka yüz eşleşmesi, ardışıklık güvenlik kuralı ve
+belirsiz eşleştirmenin reddi — PRD 04.1.1, 04.1.2, 04.2.1, 04.3.1, 04.3.2.
 
 Bir dosyanın analiz edilmiş sayfaları `pages.index` sırasıyla **belge adaylarına** ayrılır (§4:
 karar motorunun aynı belgeye ait olduğuna hükmettiği sayfa grubu). Sayfa açık adaya ancak aşağıdaki
@@ -50,10 +50,39 @@ olabiliyor ve aralarına başka bir belge girmişse parçalar birleştirilmez; h
 Gerekçe (`ContiguityViolation.reason`) kuralı, parçanın ve öteki parçaların sayfalarını ve araya
 girenleri kullanıcının gördüğü sayfa numarasıyla (1'den) yazar; kişisel değer taşımaz.
 
-`group_upload` partinin tekrar olmayan dosyalarını ayrı ayrı gruplar ve her aday için bir olay
-yazar: katalog türünde `DOC_TYPE_DETERMINED`, değilse `DOC_TYPE_UNKNOWN` (veri: slug veya aday tür
-adı, sayfalar, yüzler — kişisel değer yok). Ardışıklık kuralına takılan adayın olayı ayrıca kuralın
-verisini ve gerekçeyi taşır. Oturum commit edilmez; işlem sınırı çağıranındır.
+**Dosyalar arası gruplama (04.3.1, K4):** partinin ayrı dosyalarındaki ön ve arka yüz yalnız
+katalogda `sides: front_back` ve `direct: false` olan türde tek adayda — önce ön, sonra arka yüz —
+eşleşir. Direkt Belge'ye başka dosyadan sayfa eklenmez (K3); tek yüzlü, katalog dışı ve türü
+belirlenemeyen adayın dosyalar arası yapısı bilinmez. Dosyaların yükleme sırası belge yapısı
+değildir (arka yüz önce yüklenebilir). Ardışıklık dosya içidir: kuralına takılan parça eşleşmez,
+eşi aynı dosyada araya belge girmiş hâlde durur. Eşleşme yalnız **tek anlamlıysa** yapılır: türün
+partide eşi olmayan tam bir ön ve bir arka yüzü vardır (tamamlanmış çift sayılmaz, ardışıklık
+kuralına takılan parça sayılır), ikisi ayrı dosyalardadır, 5. koşuldaki kimlik değerleri çelişmez
+ve partide başka yüz olabilecek sayfa yoktur:
+
+- türün yüzü ön ya da arka okunmamış (`single`/`unknown`) sayfası;
+- analizi olmayan sayfa — içeriği bilinmez;
+- katalog türü verilmemiş (türü belirlenemeyen, aday tür adlı ya da slug'ı katalogda olmayan) ve
+  tek yüzlü okunmamış sayfa — analizci emin olmadığı türü aday tür adıyla yazar (03.4), kartın
+  emin olunmayan yüzü böyle görünür.
+
+Başka katalog türü, tek yüzlü katalog dışı belge ve boş sayfa engel değildir.
+
+**Belirsiz eşleştirmenin reddi (04.3.2):** ayrı dosyalarda eşleşebilecek bir ön ve arka yüz varken
+eşleşme tek anlamlı değilse — türün birden fazla ön ya da arka yüzü veya başka yüz olabilecek sayfa
+varsa — eşleştirme yapılmaz; türün ardışıklık kuralına takılmamış bütün eksik yüzleri
+`ambiguous_pairing` taşır ve Unresolved'a gider (ardışıklık kuralına takılanlar zaten oradadır).
+Gerekçe (`AmbiguousPairing.reason`) yüzleri ve engelleri dosya kimliği ve 1'den başlayan sayfa
+numarasıyla yazar. Kimlik değerleri çelişen tek ön ve tek arka yüz aynı belge değildir, işaretsiz
+ayrı kalır. Eşleşebilecek yüz yoksa (ör. yalnız ön yüzler) hüküm verilmez; eksik yüz 04.5'in
+işidir.
+
+`group_upload` partinin tekrar olmayan dosyalarını ayrı ayrı gruplar, ayrı dosyalardaki yüzleri
+eşleştirir ve her aday için bir olay yazar: katalog türünde `DOC_TYPE_DETERMINED`, değilse
+`DOC_TYPE_UNKNOWN` (veri: slug veya aday tür adı, sayfalar, yüzler — kişisel değer yok). Dosyalar
+arası adayın olayı ilk sayfasının (ön yüz) dosyasına yazılır ve kaynaklarını `sources` olarak taşır.
+Ardışıklık kuralına ya da belirsiz eşleştirmeye takılan adayın olayı ayrıca kuralın verisini ve
+gerekçeyi taşır. Oturum commit edilmez; işlem sınırı çağıranındır.
 """
 
 from __future__ import annotations
@@ -78,6 +107,8 @@ from app.pipeline.analyze import PageAnalysisStatus
 _NUMBER_SEPARATORS = re.compile(r"[\s./-]+")
 _NON_WORD = re.compile(r"[\W_]+")
 _NAME_FIELDS = ("surname", "given_names", "original_script_name")
+# Adayın partideki yeri: (dosya sırası, dosyadaki aday sırası).
+_Slot = tuple[int, int]
 
 
 class StoredAnalysisError(ValueError):
@@ -100,6 +131,14 @@ class CandidatePage:
     file_id: int
     index: int
     analysis: PageAnalysis = field(repr=False)
+
+
+@dataclass(frozen=True, slots=True, order=True)
+class PageRef:
+    """Partideki bir sayfa: kaynak dosya (`upload_files.id`) ve dosyadaki sıra (`pages.index`)."""
+
+    file_id: int
+    index: int
 
 
 @dataclass(frozen=True, slots=True)
@@ -141,15 +180,63 @@ class ContiguityViolation:
 
 
 @dataclass(frozen=True, slots=True)
-class DocumentCandidate:
-    """Aynı belgeye ait olduğuna hükmedilen sayfalar, kaynaktaki sırasıyla.
+class AmbiguousPairing:
+    """04.3.2: yüz, partinin ayrı dosyalarındaki yüzlerle tek anlamlı eşleştirilemiyor.
 
-    `contiguity_violation` doluysa aday, araya başka belge girmiş bir belgenin parçasıdır: çıktı
-    üretilmez, gerekçesiyle Unresolved'a gider (04.2.1).
+    Eşleştirme yapılmaz; yüz Unresolved'a gider. `face` bu adayın sayfasıdır; `fronts` ve `backs`
+    türün partide eşi olmayan bütün ön ve arka yüzleri (bu yüz ve ardışıklık kuralına takılanlar
+    dahil), `unoriented_pages` türün yüzü ön ya da arka okunmamış sayfaları, `unanalyzed_pages`
+    partide analizi olmayan, `uncertain_type_pages` katalog türü verilmemiş ve tek yüzlü okunmamış
+    sayfalardır. Hepsi partideki sırasıyladır.
+    """
+
+    queue: ClassVar[QueueKind] = QueueKind.UNRESOLVED
+
+    face: PageRef
+    fronts: tuple[PageRef, ...]
+    backs: tuple[PageRef, ...]
+    unoriented_pages: tuple[PageRef, ...] = ()
+    unanalyzed_pages: tuple[PageRef, ...] = ()
+    uncertain_type_pages: tuple[PageRef, ...] = ()
+
+    @property
+    def reason(self) -> str:
+        """Değer taşımayan gerekçe; dosyadaki sayfa numarası kullanıcının gördüğü gibi 1'den."""
+        sentences = [
+            f"Belirsiz ön/arka yüz eşleştirmesi: bu yüz ({_page_refs((self.face,))}) partide tek "
+            "anlamlı bir eşle eşleştirilemiyor.",
+            f"Eşleşmemiş ön yüzler: {_page_refs(self.fronts)}.",
+            f"Eşleşmemiş arka yüzler: {_page_refs(self.backs)}.",
+        ]
+        for label, refs in (
+            ("Aynı türün yüzü ön ya da arka okunmamış sayfaları", self.unoriented_pages),
+            ("Analizi yapılamamış sayfalar", self.unanalyzed_pages),
+            ("Türü kesin belirlenemeyen sayfalar", self.uncertain_type_pages),
+        ):
+            if refs:
+                sentences.append(f"{label}: {_page_refs(refs)}.")
+        sentences.append("Yüzler dosyalar arasında otomatik eşleştirilmez.")
+        return " ".join(sentences)
+
+
+@dataclass(frozen=True, slots=True)
+class DocumentCandidate:
+    """Aynı belgeye ait olduğuna hükmedilen sayfalar, belgedeki sırasıyla.
+
+    Sayfalar tek dosyadan dosyadaki sırasıyla ya da dosyalar arası eşleşmede (04.3.1) iki dosyadan
+    önce ön, sonra arka yüz olarak gelir. `contiguity_violation` doluysa aday, araya başka belge
+    girmiş bir belgenin parçasıdır (04.2.1); `ambiguous_pairing` doluysa yüz partide tek anlamlı bir
+    eşle eşleştirilemedi (04.3.2). İkisinde de çıktı üretilmez, gerekçesiyle Unresolved'a gider.
     """
 
     pages: tuple[CandidatePage, ...]
     contiguity_violation: ContiguityViolation | None = None
+    ambiguous_pairing: AmbiguousPairing | None = None
+
+    @property
+    def file_ids(self) -> tuple[int, ...]:
+        """Adayın kaynak dosyaları, sayfa sırasında ilk görüldükleri sırayla."""
+        return tuple(dict.fromkeys(page.file_id for page in self.pages))
 
     @property
     def document_type_slug(self) -> str | None:
@@ -167,7 +254,11 @@ class DocumentCandidate:
 
 @dataclass(frozen=True, slots=True)
 class FileGrouping:
-    """Tek dosyanın gruplaması; boş ve analizsiz sayfalar hiçbir adaya girmez."""
+    """Tek dosyanın gruplaması; boş ve analizsiz sayfalar hiçbir adaya girmez.
+
+    Başka dosyadaki yüzle eşleşen yüz (04.3.1) dosyanın adaylarından çıkar, partinin dosyalar arası
+    adayına girer.
+    """
 
     file_id: int
     candidates: tuple[DocumentCandidate, ...]
@@ -177,31 +268,40 @@ class FileGrouping:
 
 @dataclass(frozen=True, slots=True)
 class UploadGrouping:
-    """Partinin tekrar olmayan dosyalarının gruplaması, dosya sırasıyla."""
+    """Parti gruplaması: tekrar olmayan dosyalar (dosya sırasıyla) ve dosyalar arası adaylar."""
 
     files: tuple[FileGrouping, ...]
+    cross_file_candidates: tuple[DocumentCandidate, ...] = ()
 
     @property
     def candidates(self) -> tuple[DocumentCandidate, ...]:
-        return tuple(candidate for grouping in self.files for candidate in grouping.candidates)
+        """Bütün adaylar: dosyaların adayları dosya sırasıyla, ardından dosyalar arası adaylar."""
+        return (
+            *(candidate for grouping in self.files for candidate in grouping.candidates),
+            *self.cross_file_candidates,
+        )
 
 
 def group_upload(session: Session, upload: Upload, *, catalog: Catalog) -> UploadGrouping:
-    """Partinin her dosyasını ayrı gruplar (04.1, 04.2) ve her adayı olay loguna yazar.
+    """Partinin her dosyasını ayrı gruplar (04.1, 04.2), ayrı dosyalardaki yüzleri eşleştirir (04.3)
+    ve her adayı olay loguna yazar.
 
     Tekrar dosyası (01.4.1) gruplanmaz: analiz edilmemiştir ve çıktı üretmez. `catalog`, türlerin
-    yüz yapısının okunduğu güncel katalogdur (`export_catalog(session)`).
+    yüz yapısının okunduğu güncel katalogdur (`export_catalog(session)`). Olaylar bütün dosyalar
+    gruplandıktan sonra yazılır: şemaya uymayan saklı analiz hiçbir olay yazılmadan durdurur.
     """
-    groupings: list[FileGrouping] = []
-    for upload_file in upload.files:
-        if upload_file.is_duplicate_of is not None:
-            continue
-        grouping = group_file_pages(upload_file.id, _grouping_pages(upload_file), catalog=catalog)
-        with event_context(upload_id=upload_file.upload_id, file_id=upload_file.id):
-            for candidate in grouping.candidates:
-                _record_candidate(session, candidate)
-        groupings.append(grouping)
-    return UploadGrouping(tuple(groupings))
+    grouping = group_across_files(
+        (
+            group_file_pages(upload_file.id, _grouping_pages(upload_file), catalog=catalog)
+            for upload_file in upload.files
+            if upload_file.is_duplicate_of is None
+        ),
+        catalog=catalog,
+    )
+    with event_context(upload_id=upload.id):
+        for candidate in grouping.candidates:
+            _record_candidate(session, candidate)
+    return grouping
 
 
 def group_file_pages(
@@ -242,6 +342,70 @@ def group_file_pages(
         _mark_contiguity_violations(candidates, unanalyzed, catalog),
         tuple(blank),
         tuple(unanalyzed),
+    )
+
+
+def group_across_files(groupings: Iterable[FileGrouping], *, catalog: Catalog) -> UploadGrouping:
+    """Partinin dosya gruplamalarında ayrı dosyalardaki ön ve arka yüzü eşleştirir (04.3.1).
+
+    Tek anlamlı olmayan eşleştirme yapılmaz, yüzler `ambiguous_pairing` ile işaretlenir (04.3.2);
+    kurallar modül açıklamasındadır. Dosyalar `file_id` (yükleme) sırasıyla döner.
+    """
+    files = sorted(groupings, key=lambda grouping: grouping.file_id)
+    if len({grouping.file_id for grouping in files}) != len(files):
+        raise ValueError("Aynı partide bir dosya birden fazla kez verildi")
+    # Türden bağımsız olarak partide başka bir yüz olabilecek sayfalar.
+    unanalyzed = tuple(
+        PageRef(grouping.file_id, index)
+        for grouping in files
+        for index in grouping.unanalyzed_pages
+    )
+    uncertain_type = tuple(
+        _page_ref(page)
+        for grouping in files
+        for candidate in grouping.candidates
+        if _catalog_entry(candidate, catalog) is None
+        for page in candidate.pages
+        if page.analysis.side is not Side.SINGLE
+    )
+    cross_file: list[DocumentCandidate] = []
+    paired: set[_Slot] = set()
+    ambiguous: dict[_Slot, AmbiguousPairing] = {}
+    for faces in _unpaired_faces(files, catalog):
+        open_fronts, open_backs = _open_faces(faces.fronts), _open_faces(faces.backs)
+        if not any(front[0] != back[0] for front in open_fronts for back in open_backs):
+            continue
+        unambiguous = len(faces.fronts) == len(faces.backs) == 1 and not (
+            faces.unoriented or unanalyzed or uncertain_type
+        )
+        if unambiguous:
+            ((front_slot, front),) = faces.fronts.items()
+            ((back_slot, back),) = faces.backs.items()
+            if not _identity_conflict(
+                front.pages[0].analysis.person, back.pages[0].analysis.person
+            ):
+                cross_file.append(DocumentCandidate((*front.pages, *back.pages)))
+                paired.update((front_slot, back_slot))
+            continue
+        fronts = tuple(_page_ref(candidate.pages[0]) for candidate in faces.fronts.values())
+        backs = tuple(_page_ref(candidate.pages[0]) for candidate in faces.backs.values())
+        for slot, candidate in (*open_fronts.items(), *open_backs.items()):
+            ambiguous[slot] = AmbiguousPairing(
+                face=_page_ref(candidate.pages[0]),
+                fronts=fronts,
+                backs=backs,
+                unoriented_pages=tuple(faces.unoriented),
+                unanalyzed_pages=unanalyzed,
+                uncertain_type_pages=uncertain_type,
+            )
+    return UploadGrouping(
+        tuple(
+            replace(
+                grouping, candidates=_remaining_candidates(position, grouping, paired, ambiguous)
+            )
+            for position, grouping in enumerate(files)
+        ),
+        tuple(sorted(cross_file, key=lambda candidate: _page_ref(candidate.pages[0]))),
     )
 
 
@@ -397,6 +561,72 @@ def _page_numbers(indexes: Iterable[int]) -> str:
     return "sayfa " + ", ".join(str(index + 1) for index in indexes)
 
 
+@dataclass(slots=True)
+class _TypeFaces:
+    """Bir türün partide eşi olmayan ön/arka yüzleri ve yüzü ön ya da arka okunmamış sayfaları."""
+
+    fronts: dict[_Slot, DocumentCandidate] = field(default_factory=dict)
+    backs: dict[_Slot, DocumentCandidate] = field(default_factory=dict)
+    unoriented: list[PageRef] = field(default_factory=list)
+
+
+def _unpaired_faces(files: Sequence[FileGrouping], catalog: Catalog) -> list[_TypeFaces]:
+    # Yalnız dosyalar arası eşleşebilen türler: katalogda `front_back`, Direkt Belge değil (K3).
+    # Tamamlanmış çift eş beklemez; öteki yüz yapıları türün yüzü belirsiz sayfalarıdır.
+    by_type: dict[str, _TypeFaces] = {}
+    for file_position, grouping in enumerate(files):
+        for position, candidate in enumerate(grouping.candidates):
+            entry = _catalog_entry(candidate, catalog)
+            if entry is None or entry.direct or entry.sides != Sides.FRONT_BACK:
+                continue
+            faces = by_type.setdefault(entry.slug, _TypeFaces())
+            if candidate.sides == (Side.FRONT,):
+                faces.fronts[file_position, position] = candidate
+            elif candidate.sides == (Side.BACK,):
+                faces.backs[file_position, position] = candidate
+            elif candidate.sides != (Side.FRONT, Side.BACK):
+                faces.unoriented.extend(_page_ref(page) for page in candidate.pages)
+    return list(by_type.values())
+
+
+def _open_faces(faces: dict[_Slot, DocumentCandidate]) -> dict[_Slot, DocumentCandidate]:
+    # Ardışıklık kuralına takılan parça dosyalar arası eşleşmez: eşi aynı dosyada durur (K5).
+    return {
+        slot: candidate
+        for slot, candidate in faces.items()
+        if candidate.contiguity_violation is None
+    }
+
+
+def _remaining_candidates(
+    file_position: int,
+    grouping: FileGrouping,
+    paired: set[_Slot],
+    ambiguous: dict[_Slot, AmbiguousPairing],
+) -> tuple[DocumentCandidate, ...]:
+    remaining: list[DocumentCandidate] = []
+    for position, candidate in enumerate(grouping.candidates):
+        slot = (file_position, position)
+        if slot in ambiguous:
+            remaining.append(replace(candidate, ambiguous_pairing=ambiguous[slot]))
+        elif slot not in paired:
+            remaining.append(candidate)
+    return tuple(remaining)
+
+
+def _catalog_entry(candidate: DocumentCandidate, catalog: Catalog) -> CatalogEntry | None:
+    slug = candidate.document_type_slug
+    return None if slug is None else catalog.get(slug)
+
+
+def _page_ref(page: CandidatePage) -> PageRef:
+    return PageRef(page.file_id, page.index)
+
+
+def _page_refs(refs: Iterable[PageRef]) -> str:
+    return "; ".join(f"dosya {ref.file_id}, sayfa {ref.index + 1}" for ref in refs)
+
+
 def _reads_as_blank(analysis: PageAnalysis) -> bool:
     # Çelişkili yanıt (boş denmiş ama tür, kişi değeri veya okunaklı alan var) boş sayılmaz.
     person = analysis.person.model_dump()
@@ -436,21 +666,30 @@ def _stored_analysis(page: Page) -> PageAnalysis | None:
 
 def _record_candidate(session: Session, candidate: DocumentCandidate) -> None:
     # Olay verisi kişisel değer taşımaz (CONVENTIONS §6); değerler `pages.analysis_json`'dadır.
-    data: dict[str, object] = {
-        "pages": [page.index for page in candidate.pages],
-        "sides": [side.value for side in candidate.sides],
-    }
+    data: dict[str, object] = {}
     if candidate.document_type_slug is not None:
         event_type = EventType.DOC_TYPE_DETERMINED
-        data = {"document_type_slug": candidate.document_type_slug, **data}
+        data["document_type_slug"] = candidate.document_type_slug
     else:
         event_type = EventType.DOC_TYPE_UNKNOWN
-        data = {"candidate_type_name": candidate.candidate_type_name, **data}
-    message = None
+        data["candidate_type_name"] = candidate.candidate_type_name
+    if len(candidate.file_ids) == 1:
+        data["pages"] = [page.index for page in candidate.pages]
+    else:
+        # Dosyalar arası aday (04.3.1): olay ilk sayfanın dosyasına yazılır, kaynaklar veridedir.
+        data["sources"] = [
+            {
+                "file_id": file_id,
+                "pages": [page.index for page in candidate.pages if page.file_id == file_id],
+            }
+            for file_id in candidate.file_ids
+        ]
+    data["sides"] = [side.value for side in candidate.sides]
+    # §8.3'te ardışıklık ve belirsiz eşleştirme hükmüne ayrı olay türü yok; hüküm adayın kendi
+    # olayına yazılır. Kuyruk kaydı ve `QUEUED_UNRESOLVED` planlamadan sonra kuyruğun işidir.
+    reasons: list[str] = []
     violation = candidate.contiguity_violation
     if violation is not None:
-        # §8.3'te ardışıklık hükmüne ayrı olay türü yok; hüküm adayın kendi olayına yazılır.
-        # Kuyruk kaydı ve `QUEUED_UNRESOLVED` planlamadan sonra kuyruğa yönlendirmenin işidir.
         data["contiguity_violation"] = {
             "rule": violation.rule,
             "queue": violation.queue.value,
@@ -458,7 +697,28 @@ def _record_candidate(session: Session, candidate: DocumentCandidate) -> None:
             "intervening_pages": list(violation.intervening_pages),
             "unanalyzed_pages": list(violation.unanalyzed_pages),
         }
-        message = violation.reason
+        reasons.append(violation.reason)
+    ambiguity = candidate.ambiguous_pairing
+    if ambiguity is not None:
+        data["ambiguous_pairing"] = {
+            "queue": ambiguity.queue.value,
+            "fronts": _page_ref_data(ambiguity.fronts),
+            "backs": _page_ref_data(ambiguity.backs),
+            "unoriented_pages": _page_ref_data(ambiguity.unoriented_pages),
+            "unanalyzed_pages": _page_ref_data(ambiguity.unanalyzed_pages),
+            "uncertain_type_pages": _page_ref_data(ambiguity.uncertain_type_pages),
+        }
+        reasons.append(ambiguity.reason)
+    first = candidate.pages[0]
     record_event(
-        session, event_type, page_index=candidate.pages[0].index, message=message, data=data
+        session,
+        event_type,
+        file_id=first.file_id,
+        page_index=first.index,
+        message=" ".join(reasons) or None,
+        data=data,
     )
+
+
+def _page_ref_data(refs: Iterable[PageRef]) -> list[dict[str, int]]:
+    return [{"file_id": ref.file_id, "page_index": ref.index} for ref in refs]
