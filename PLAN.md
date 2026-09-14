@@ -8,7 +8,7 @@
 
 | Faz | PRD | Genel durum | Must sayacı | Kapanış |
 | --- | --- | --- | --- | --- |
-| Faz 0 — MVP | §5.1 | 40 ✅ · 0 ◐ · 62 ⬜ · 0 🔒 | 39/98 Must | AÇIK |
+| Faz 0 — MVP | §5.1 | 42 ✅ · 0 ◐ · 60 ⬜ · 0 🔒 | 41/98 Must | AÇIK |
 | Faz 1 — v1 | §5.2 | 0 ✅ · 0 ◐ · 0 ⬜ · 32 🔒 | 0/21 Must | AÇIK |
 | Faz 2 — v2 | §5.3 | 0 ✅ · 0 ◐ · 0 ⬜ · 13 🔒 | 0/0 Must | AÇIK |
 | Faz 3 — Enterprise | §5.4 | 0 ✅ · 0 ◐ · 0 ⬜ · 8 🔒 | 0/0 Must | AÇIK |
@@ -125,8 +125,8 @@ panelde `plan-count-drift` bulgusu doğurur.
 | 03.4.1 | Analiz promptu disiplini | Must (MVP) | ✅ → K03.4 |
 | 03.5.1 | Yeniden deneme ve dayanıklılık | Must (MVP) | ✅ → K03.5 |
 | 03.6.1 | Kayıtlı yanıtla test sağlayıcısı | Must (MVP) | ✅ → K03.6 |
-| 03.7.1 | Sayfa analizi çalıştırıcı | Must (MVP) | ⬜ |
-| 03.7.2 | Kısmi başarı davranışı | Must (MVP) | ⬜ |
+| 03.7.1 | Sayfa analizi çalıştırıcı | Must (MVP) | ✅ → K03.7 |
+| 03.7.2 | Kısmi başarı davranışı | Must (MVP) | ✅ → K03.7 |
 
 ### 3.5 FR-MOD-04 — Karar motoru
 
@@ -486,6 +486,42 @@ Onay beklemeden yapılan varsayımlar buraya numaralı olarak yazılır.
   İki örnek kayıt eklendi: `russian_passport/0.json` (tek sayfa) ve
   `serbian_residence_card/{0,1}.json` (ön/arka, `continues_previous_page` ikinci sayfada `true`) —
   ikisi de sentetik, gerçek kişi/belge yok (CONVENTIONS §6).
+- **C17** — Sayfa analizi çalıştırıcı (tm 24, 03.7.x): PRD yalnız "sırayla, önceki sayfa özetiyle"
+  ve "başarısız sayfada parti `partial`" der; özetin içeriği, analize hangi sayfaların gideceği ve
+  `partial`'ın yazılma anı yazılı değil. Giriş `analyze_upload(session, layout, upload, provider=,
+  instructions=)`; talimat çağırandan gelir (09.2 `build_page_analysis_instructions(export_catalog(
+  session))` kurar). Sıra: dosyalar `upload_files.id`, sayfalar `pages.index`, aynı anda tek istek.
+  **Gönderilmeyen sayfa:** tekrar dosyasının sayfaları (01.4.1 — K01.4 bu atlamayı analiz adımına
+  bırakmıştı) ve boş sayfa (02.4.1); ikisi de `analysis_status = skipped`, `analysis_json` boş, yeni
+  olay yok (tespitleri zaten loglu). `analysis_status` kümesi `pending`·`done`·`failed`·`skipped`
+  (`PageAnalysisStatus`; DB CHECK yok, C3). **Özet** önceki sayfanın doğrulanmış analizinden
+  deterministik üretilir, yapay zekâya yazdırılmaz ve kişisel değer taşımaz — önceki sayfa başka
+  çalışana ait olabilir, sağlayıcıya yalnız işlenen sayfanın verisi gider (CONVENTIONS §6): tür
+  (slug / aday adı / belirlenemedi), `side`, `continues_previous_page`, boş/okunabilir, dil/alfabe,
+  ad·belge numarası·MRZ yazılı mı (evet/hayır), okunaklı ve okunaksız zorunlu alan adları; `notes`
+  girmez. Özet dosya sınırında sıfırlanır (dosyalar arası eşleştirme 04.3'ün). Boş sayfa zinciri
+  kırmaz, atlanan boş sayfaların sırası metinde yazılır; bu yüzden `continues_previous_page`
+  "analize gönderilen bir önceki sayfanın devamı" anlamındadır — 04.1 bunu boş sayfaları atlayarak
+  okumalı (dupleks taramada kartın iki yüzü arasına boş sayfa girer; boş sayfanın K5'teki "başka
+  belgeye ait sayfa" sayılıp sayılmayacağı 04.1'in kararıdır). Önceki sayfanın analizi başarısızsa
+  özet verilmez, bu metinde söylenir, daha eski sayfanın özeti yerine konmaz. **Başarısızlık** yalnız
+  `ProviderError` (03.5 yeniden denemesinden sonra), `PageAnalysisError` ve `PageImageError`
+  (görüntü üretilmemiş, dosya yok, JPEG/PNG değil, geçersiz yol): sayfa `failed`, eski
+  `analysis_json` boşaltılır, `PAGE_ANALYSIS_FAILED` (mesaj hata metnidir — C12/C13 gereği değer
+  taşımaz; veri `provider`, `model`, `error` türü, varsa `status_code`). Başka istisna yakalanmaz;
+  partinin `failed` olması 09.2.3'ündür. Kalıcı sağlayıcı hatası (ör. 401) da sayfa hatasıdır: her
+  sayfa bir istek atar; toplu erken durdurma 09.2.3'e bırakıldı. **`partial`:** en az bir sayfa
+  başarısızsa — hepsi başarısız olsa da (kabul kriterinin harfi) — `uploads.status = partial`
+  analizin sonunda yazılır; hepsi başarılıysa durum değişmez. `partial` 09.2.1'de son durum
+  olduğundan 09.2 bu değeri (veya `UploadAnalysisResult.is_partial`) koruyarak başarılı sayfalarla
+  planlamaya devam etmeli ve partiyi sonunda `done` yerine `partial` bırakmalı. **Başarılı sayfa:**
+  `analysis_json = PageAnalysis.model_dump(mode="json")`, `done`, `PAGE_ANALYZED` (veri `provider`,
+  `model`, `document_type_slug`, `side`, `is_readable` — kişisel değer yok); `is_readable: false`
+  ise ayrıca `PAGE_UNREADABLE` (sayfa düzeyi olgu; Unreadable kuyruk kararı 04.4'ün). Token
+  kullanımı yazılmaz — sağlayıcı arayüzü döndürmüyor (13.1). Yeniden çalıştırmada uygun her sayfa
+  yeniden analiz edilir (`done` atlanmaz, K18). Oturum commit edilmez (render adımlarıyla simetrik);
+  SQLite `BEGIN IMMEDIATE` (C4) altında analiz boyunca açık işlem diğer yazarları bekletir — işlem
+  sınırını (ör. sayfa başına commit) 09.2 belirlemeli.
 
 ## D. Sapmalar
 
@@ -718,3 +754,7 @@ var olan maddeler silinmez. Biçim:
 
 #### K03.6 — 03.6.1 · Kayıtlı yanıt sağlayıcısı (test altyapısı)
 - ✅ `RecordingProvider` (`app/ai/recording_provider.py`) — `AnalysisProvider`'ı ağsız uygular: `_request_analysis` `tests/fixtures/ai/recordings/<senaryo>/<sıra>.json` dosyasını (`0.json`, `1.json`, ...) ayrıştırmadan okuyup döner, ortak `validate_page_analysis` yanıtı doğrular. `from_directory` dosya adına göre sıralı yükler; kayıttan fazla istek `RecordingExhaustedError`, boş/yok dizin `RecordingNotFoundError`. `PROVIDER_FACTORIES`'e eklenmedi (C16) — test doğrudan `RecordingProvider.from_directory(...)` çağırır. İki sentetik kayıt: `russian_passport/0.json` (tek sayfa), `serbian_residence_card/{0,1}.json` (ön/arka). Kurallar ve gerekçe: C16 — `app/ai/recording_provider.py` · `tests/fixtures/ai/recordings/russian_passport/0.json` · `tests/fixtures/ai/recordings/serbian_residence_card/{0,1}.json` · test `tests/ai/test_recording_provider.py` (8 fonksiyon) · tm 23
+
+#### K03.7 — 03.7.1–03.7.2 · Sayfa analizi çalıştırıcı
+- ✅ 03.7.1 `analyze_upload` (`app/pipeline/analyze.py`) partinin sayfalarını dosya (`upload_files.id`) ve sayfa (`pages.index`) sırasıyla tek tek `AnalysisProvider.analyze_page`'e verir; istek önbellekteki sayfa görüntüsünü, 03.4 talimatını + `known_slugs`'ı ve `build_page_prompt` metnini (sayfa sırası, aynı dosyada analize gönderilen önceki sayfanın özeti, varsa PDF metin katmanı) taşır. Özet (`summarize_page_analysis`) önceki sayfanın doğrulanmış analizinden deterministik üretilir, kişisel değer taşımaz (ad/numara/doğum tarihi/orijinal yazım/adres/MRZ/not önceki sayfanın özetinde ve olaylarda geçmiyor — testle doğrulandı), dosya sınırında sıfırlanır; ilk sayfada "yok", önceki sayfa başarısızsa "analizi başarısız" yazılır. Boş sayfa ve tekrar dosyası analize gitmez (`skipped`), boş sayfa özet zincirini kırmaz. Başarılı sayfa `analysis_json` + `done` + `PAGE_ANALYZED`, okunamayan sayfa ayrıca `PAGE_UNREADABLE`. Kayıtlı sağlayıcıyla (sentetik PDF/JPEG/PNG, gerçek render adımları) çok dosyalı sıra, talimat/görüntü/metin katmanı, ön/arka kayıtlarıyla özet akışı doğrulandı (kurallar: C17) — `app/pipeline/analyze.py` · test `tests/pipeline/test_analyze.py` (23) · tm 24
+- ✅ 03.7.2 Sayfa hatası (`PageAnalysisError` şemaya uymayan kayıt, 3 denemeden sonra `ProviderServerError`, `ProviderConnectionError`, eksik/üretilmemiş/geçersiz sayfa görüntüsü) yalnız o sayfayı `failed` yapar (`analysis_json` boşaltılır, `PAGE_ANALYSIS_FAILED` sağlayıcı/model/hata türü/HTTP durumuyla), kalan sayfalar tamamlanır ve parti `partial` olur; tüm sayfalar başarılıysa parti durumu değişmez; beklenmeyen hata (`RecordingExhaustedError`) yutulmaz, parti `partial` işaretlenmez (09.2.3'e kalır) — `app/pipeline/analyze.py` · test `tests/pipeline/test_analyze.py` · tm 24

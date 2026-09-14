@@ -18,6 +18,12 @@ Blok biçimi `CONVENTIONS.md` §3'te tanımlıdır:
 
 ## Task log (newest-first)
 
+## 24 — 03.7 Sayfa analizi çalıştırıcı — done — 2026-09-14
+- Yapıldı: `analyze_upload` (`app/pipeline/analyze.py`) partinin boş olmayan, tekrar olmayan sayfalarını dosya/sayfa sırasıyla tek tek analiz eder; istek metnine sayfa sırası, aynı dosyadaki önceki analiz edilen sayfanın kişisel değer taşımayan yapısal özeti ve metin katmanı girer; sayfa hatası o sayfayı `failed` + `PAGE_ANALYSIS_FAILED` yapar, diğerleri tamamlanır ve parti `partial` olur.
+- Doğrulama: ruff check/format, compileall, `pytest -q -m "not live"` (725 geçti, +23; 3 PG testi atlandı), kapsam %99.38 (`app/pipeline/analyze.py` %100), temiz SQLite'ta `alembic upgrade head` (göç yok), `import app.main` — hepsi exit 0.
+- Varsayımlar: PLAN.md §C17 — boş sayfa/tekrar dosyası `skipped`; özet deterministik ve değersiz (tür, yüz, dil, alan adları, evet/hayır), boş sayfa zinciri kırmaz, dosya sınırında sıfırlanır; yakalanan hatalar yalnız `ProviderError`/`PageAnalysisError`/`PageImageError`; `partial` tüm sayfalar başarısızken de yazılır, başarıda durum değişmez; oturum commit edilmez.
+- Sonraki pencereye not: 04.1 `continues_previous_page`'i "analize gönderilen önceki sayfanın devamı" olarak okumalı (boş sayfalar atlanmış); 09.2 analizden önce `analyzing`'i kendisi yazmalı, `partial`'ı planlama/uygulama boyunca koruyup sonda `done` yerine bırakmalı ve SQLite kilidi için işlem sınırını (sayfa başına commit) belirlemeli.
+
 ## 23 — 03.6 Kayıtlı yanıt sağlayıcısı (test altyapısı) — done — 2026-09-14
 - Yapıldı: `RecordingProvider` (`app/ai/recording_provider.py`) — `AnalysisProvider`'ı ağ çağrısı yapmadan uygular, `tests/fixtures/ai/recordings/<senaryo>/<sıra>.json` kayıtlarını dosya adına göre sıralı okuyup ortak `validate_page_analysis`'ten geçirir; iki sentetik kayıt (`russian_passport`, `serbian_residence_card` ön/arka) eklendi.
 - Doğrulama: ruff check/format, compileall, `pytest -q -m "not live"` (702 geçti, +8 durum; 3 PG testi atlandı), kapsam %99.44 (`app/ai/recording_provider.py` %100), temiz SQLite'ta `alembic upgrade head` (göç yok), `import app.main` — hepsi exit 0.
