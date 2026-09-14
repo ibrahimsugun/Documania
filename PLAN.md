@@ -8,7 +8,7 @@
 
 | Faz | PRD | Genel durum | Must sayacı | Kapanış |
 | --- | --- | --- | --- | --- |
-| Faz 0 — MVP | §5.1 | 47 ✅ · 0 ◐ · 55 ⬜ · 0 🔒 | 46/98 Must | AÇIK |
+| Faz 0 — MVP | §5.1 | 49 ✅ · 0 ◐ · 53 ⬜ · 0 🔒 | 47/98 Must | AÇIK |
 | Faz 1 — v1 | §5.2 | 0 ✅ · 0 ◐ · 0 ⬜ · 32 🔒 | 0/21 Must | AÇIK |
 | Faz 2 — v2 | §5.3 | 0 ✅ · 0 ◐ · 0 ⬜ · 13 🔒 | 0/0 Must | AÇIK |
 | Faz 3 — Enterprise | §5.4 | 0 ✅ · 0 ◐ · 0 ⬜ · 8 🔒 | 0/0 Must | AÇIK |
@@ -137,8 +137,8 @@ panelde `plan-count-drift` bulgusu doğurur.
 | 04.2.1 | Ardışıklık güvenlik kuralı (R6) | Must (MVP) | ✅ → K04.2 |
 | 04.3.1 | Dosyalar arası gruplama | Must (MVP) | ✅ → K04.3 |
 | 04.3.2 | Belirsiz eşleştirmenin reddi | Must (MVP) | ✅ → K04.3 |
-| 04.4.1 | Zorunlu alan okunaklılık kapısı (R1) | Must (MVP) | ⬜ |
-| 04.4.2 | Kabul kriteri değerlendirmesi | Should (v1) | ⬜ |
+| 04.4.1 | Zorunlu alan okunaklılık kapısı (R1) | Must (MVP) | ✅ → K04.4 |
+| 04.4.2 | Kabul kriteri değerlendirmesi | Should (v1) | ✅ → K04.4 |
 | 04.5.1 | Beklenen sayfa sayısı kontrolü | Must (MVP) | ⬜ |
 | 04.6.1 | Bilinmeyen tür → aday öneri | Must (MVP) | ⬜ |
 | 04.7.1 | Word/Excel yolu (Attachment) | Must (MVP) | ⬜ |
@@ -642,6 +642,46 @@ Onay beklemeden yapılan varsayımlar buraya numaralı olarak yazılır.
   `{file_id, page_index}` listeleri) ve `message = reason` olarak yazılır — §8.3'te ayrı tür yok (C19).
   Kuyruk kaydı (08.1) ve S5'in fiziksel çıktısı (iki JPEG'in kayıpsız sarılıp birleştirilmesi: 06.2
   satır 3 `merge`, 07.3/07.4) sonraki görevlerindir.
+- **C21** — Zorunlu alan okunaklılık kapısı ve kabul kriterleri (tm 28, 04.4.1, 04.4.2): PRD "zorunlu
+  alanların biri bile okunaksızsa Unreadable, eksik alan adları gerekçeye" ve "her madde değerlendirilir,
+  karşılanmayan madde Unresolved gerekçesine adıyla" der; okumaların sayfalar arasında nasıl
+  birleşeceği, maddenin kim tarafından ve hangi alanla değerlendirildiği ve iki hükmün önceliği yazılı
+  değil. Saf çekirdek `check_legibility(candidate, catalog=)` → `LegibilityCheck` (`document_type_slug`,
+  `illegible_fields: IllegibleRequiredFields | None` — `rule = "R1"`, `queue = unreadable`, `fields`;
+  `unmet_criteria: UnmetAcceptanceCriteria | None` — `queue = unresolved`, `criteria`; `accepted`,
+  `queue`, `reason`). Katalog türünde olmayan aday (aday tür adlı, türü belirlenemeyen, slug'ı katalogda
+  olmayan) `None` — zorunlu alanı bilinmez, 04.6'nın. Tür ve maddeler güncel katalogdan okunur.
+  **Birleştirme:** alan adayın herhangi bir sayfasında `legible: true` ise okunaklıdır (C14: bu yüzde
+  bulunmayan alan da `false` okunur); hiçbir sayfada okunaklı olmayan ya da anahtarı hiç yazılmamış
+  zorunlu alan okunamayandır. Okunaklı okuma yalnız kendi yanıtı `is_readable: true` ve `is_blank:
+  false` olan sayfadan sayılır — "bütün olarak okunamıyor/boş" diyen yanıttaki okunaklı alan çelişkidir
+  (R7). `is_readable` tek başına rota vermez: zorunlu alanı olmayan türde (foto) kapı yok (K1, güven
+  skoru yok). **Gerekçe:** tam olarak `Okunamayan alanlar: <alanlar>` (S9 metni), alanlar katalogdaki
+  `required_fields` sırasıyla, virgülle; kural `rule` alanındadır. **Kabul kriterleri:** §8.4'te madde
+  sonucu için alan yok ve §8.4 değiştirilmedi (değişiklik insan kararı olurdu); maddeler 03.4 gereği
+  analizciye tür tanımıyla gider ve analizci karşılanmayanı zaten `notes`'a yazar. Değerlendirme bu
+  kanaldır: analiz talimatının `notes` açıklamasına alt madde eklendi — bu sayfada açıkça karşılanmayan
+  her madde katalogdaki metniyle, kelimesi kelimesine `Karşılanmayan kabul kriteri: <madde>` biçiminde
+  yazılır; karşılanan ve konusu bu sayfada olmayabilecek madde yazılmaz. Madde, adayın **bir** sayfasının
+  notunda kelime dizisi olarak geçiyorsa karşılanmamıştır; geçmiyorsa karşılanmıştır (analizciye yalnız
+  açıkça karşılanmayanı yazması söylenir). Kelime dizisi: NFKD + birleşik işaretler atılır, casefold,
+  `ı`→`i`, harf/rakam dışı her şey ayraç — harf büyüklüğü, aksan, noktalama, boşluk farkı yok sayılır;
+  eksik/ek almış kelime, farklı sıra veya başka sözcükler eşleşmez. Notlar sayfa sayfa aranır (iki
+  sayfanın notundan madde kurulmaz). Uzun madde önce aranır; uzun maddenin eşleştiği aralığın içinde
+  kalan kısa madde ayrıca sayılmaz, yalnız örtüşen (birbirini kapsamayan) maddeler ikisi de sayılır.
+  Aynı kelime dizisine inen maddeler birlikte hüküm alır; gerekçede tek satıra indirilmiş metin tekrar
+  etmez; kelimesi olmayan madde (`***`) alıntılanamaz, hiç karşılanmamış sayılmaz. Liste boşsa yalnız
+  R1. **Gerekçe:** `Karşılanmayan kabul kriterleri: "<madde>"; "<madde>"` (katalog sırası, tek satır).
+  **Öncelik:** iki ölçüt her zaman değerlendirilir; ikisi de sağlanmıyorsa `queue`/`reason` Unreadable'ın
+  (K1 tek kabul ölçütü, maddeler "onun ötesindeki" koşullar — §8.6), öteki hüküm nesnede kalır. Hüküm
+  adayın bütün belge olduğu varsayımıyla verilir: yalnız arka yüzden oluşan eksik aday "okunamayan
+  alanlar" alır — 06.1 yapısal hükümleri (R6 C19, 04.3.2 C20, 04.5 sayfa sayısı) bu kapıdan önce
+  uygulamalı. 06.5 `required_fields` doğrulayıcısı bu sonucu kullanmalı ve rotayı Unresolved değil
+  Unreadable yapmalı (K1, 06.5.2'nin genel "Unresolved"ı bu doğrulayıcıya uygulanmaz). **Olay:** modül
+  saf işlevdir, olay yazmaz — §8.3'te okunaklılık hükmüne ayrı tür yok; `PAGE_UNREADABLE` sayfa
+  olgusudur (03.7), hüküm plana (`validations`, `route_reason`, `PLAN_CREATED`) ve kuyruk kaydına
+  (`QUEUED_UNREADABLE`/`QUEUED_UNRESOLVED`, 08.1) geçer. Sonuç `DocumentCandidate`'e alan olarak
+  eklenmedi (group.py'ye dokunulmadı); 06.1 aday başına çağırır.
 
 ## D. Sapmalar
 
@@ -892,3 +932,8 @@ var olan maddeler silinmez. Biçim:
 - ✅ 04.3.1 `group_across_files` (`app/pipeline/group.py`, `group_upload` üzerinden) katalogda `front_back` ve `direct: false` türde partinin ayrı dosyalarındaki eksik ön ve arka yüzü tek `DocumentCandidate`'e (önce ön, sonra arka; `UploadGrouping.cross_file_candidates`, yüzler dosya adaylarından çıkar) eşleştirir; eşleşme tek anlamlıysa yapılır: türün partide tek eksik ön ve tek eksik arka yüzü, ikisi R6 işaretsiz ve ayrı dosyada, kimlik çelişmiyor, partide başka yüz olabilecek sayfa (türün `single`/`unknown` yüzlü sayfası, analizsiz sayfa, katalog türü verilmemiş ve tek yüzlü okunmamış sayfa) yok. Yükleme sırası fark etmez (ehliyet ve oturum izni, iki yönde); çok sayfalı dosyanın içindeki yüz eşleşir, öteki adaylar yerinde kalır; aynı dosyadaki yüzler (bitişik, ters), Direkt Belge (`direct: true`), tek yüzlü tür (ön/arka okunmuş dahil), farklı tür, katalog dışı, türü belirsiz, yüzü belirsiz, yalnız ön yüzler ve kimliği çelişen yüzler eşleşmez ve hüküm almaz; tamamlanmış çift, başka katalog türleri, tek yüzlü katalog dışı belge ve boş sayfalar eşleşmeyi engellemez; türler birbirinden bağımsız eşleşir; dosya gruplamaları `file_id` sırasına dizilir, tekrar eden dosya reddedilir. Olay: dosyalar arası aday `DOC_TYPE_DETERMINED`'ı ön yüzün dosyası/sayfasıyla ve `sources` (`[{file_id, pages}]`) verisiyle yazar, kişisel değer yok (kurallar: C20) — `app/pipeline/group.py` · test `tests/pipeline/test_group.py` (67 fonksiyon / 132 durum, +23 / +47) · tm 27
 - ✅ 04.3.2 eşleşebilecek yüz çifti varken türün birden fazla eksik ön yüzü (aynı ya da farklı kişi), birden fazla eksik arka yüzü veya başka yüz olabilecek sayfa varsa eşleştirme yapılmaz; türün R6 işaretsiz bütün eksik yüzleri `DocumentCandidate.ambiguous_pairing` (`AmbiguousPairing`: `face`, `fronts`, `backs`, `unoriented_pages`, `unanalyzed_pages`, `uncertain_type_pages`; `queue = unresolved`, dosya kimliği ve 1'den sayfa numarasıyla değersiz `reason`) ile Unresolved'a gider (iki kart, bir ön iki arka, aynı dosyada iki ön yüz, aynı dosyada eşleşmemiş arka yüz, 7 engel durumu, katalogda olmayan slug); R6 parçası eşleşmez, yalnız kendi hükmünü taşır ama eksik yüz olarak sayılır; bir türün belirsizliği öteki türün eşleşmesini durdurmaz. Hüküm adayın `DOC_TYPE_DETERMINED` olayına `ambiguous_pairing` verisi ve `message = reason` olarak yazılır. Entegrasyon: iki kişinin ehliyet ön yüzü + tek arka yüz (üç JPEG) → üç yüz de gerekçesiyle Unresolved, olaylarda kişisel değer yok; analizi başarısız fotoğraflı partide (`partial`) ön/arka yüz eşleşmez, gerekçe analizsiz sayfayı listeler. 23 kural bozulması (Direkt Belge, tek yüzlü tür, ayrı dosya şartı, R6 parçasını saymama, R6 parçasını eşleştirme, tamamlanmış çifti sayma, kimlik çelişkisi, üç engel türü, tek yüzlü katalog dışı belgeyi engel sayma, katalogda olmayan slug, yalnız ön yüz çokluğu, yüz sırası, eşleşebilecek çift şartı, olay `sources`/verisi/mesajı/dosyası, R6 parçasına belirsizlik hükmü, dosya sırası, tekrar dosya, eşleşen yüzün dosyada kalması) bellekte ayrı ayrı denendi, her biri testte kırmızı — `app/pipeline/group.py` · test `tests/pipeline/test_group.py` · tm 27
 - ✅ S5: aynı partide `on.jpg` (ehliyet ön) ve `arka.jpg` (ehliyet arka) sentetik JPEG, gerçek görüntü analiz kopyası adımından ve yeni kayıtlı yanıtlarla `analyze_upload` → `group_upload`: iki yükleme sırasında da tek `serbian_driving_license` adayı (Driving License, `direct: false`) — sayfalar (on.jpg, 0) front, (arka.jpg, 0) back; dosya adaylarında yüz kalmaz, tek `DOC_TYPE_DETERMINED` olayı ön yüzün dosyasına `sources` ile yazılır, kişisel değer yok. Kayıpsız sarma ve birleştirme (çıktı PDF) 06.2/07.3/07.4'ün işi — `tests/fixtures/ai/recordings/s5_front_back_images/{0,1}.json` · test `tests/pipeline/test_group.py` · tm 27
+
+#### K04.4 — 04.4.1, 04.4.2 · Zorunlu alan okunaklılık kapısı ve kabul kriteri değerlendirmesi
+- ✅ 04.4.1 `check_legibility` (`app/pipeline/legibility.py`) katalog türündeki adayın zorunlu alanlarını sayfaları üzerinden birleştirir (alan bir sayfada okunaklıysa okunaklı; ön/arka yüz ve dosyalar arası aday dahil); hiçbir sayfada okunaklı olmayan ya da hiç yazılmamış alan varsa `IllegibleRequiredFields` (`rule = "R1"`, `queue = unreadable`) ve gerekçe `Okunamayan alanlar: <alanlar>` katalog sırasıyla; türün dışındaki alanlar, zorunlu alanı olmayan türde `is_readable` rota vermez; kendi yanıtı okunamaz/boş diyen sayfanın okunaklı alanına güvenilmez; aday tür adlı, türü belirlenemeyen ve slug'ı katalogda olmayan aday değerlendirilmez (`None`); zorunlu alanlar güncel katalogdan okunur (kurallar: C21) — `app/pipeline/legibility.py` · test `tests/pipeline/test_legibility.py` (32 fonksiyon / 55 durum) · tm 28
+- ✅ 04.4.2 türün `acceptance_criteria` maddelerinin her biri adayın sayfa notlarında aranır: analizcinin katalog metniyle yazdığı madde (harf büyüklüğü, aksan, noktalama, boşluk farkı yok sayılarak kelime dizisi) `UnmetAcceptanceCriteria` (`queue = unresolved`) ve gerekçe `Karşılanmayan kabul kriterleri: "<madde>"` katalog sırasıyla; başka sözcüklerle/eksik/ek almış/farklı sırayla yazılan, iki sayfanın notuna bölünen ve daha uzun maddenin içinde kalan madde sayılmaz, örtüşen maddeler ikisi de sayılır, kelimesiz madde alıntılanamaz; liste boşsa tek ölçüt R1; iki ölçüt de sağlanmıyorsa kuyruk Unreadable, iki hüküm de nesnede. Analiz talimatının `notes` açıklaması karşılanmayan maddeyi `Karşılanmayan kabul kriteri: <madde>` biçiminde kelimesi kelimesine yazdırır; talimattaki biçim karar motorunda tanınıyor (testte talimattan okunarak). Modül olay yazmaz (entegrasyonda olay sayısı değişmiyor). 19 kural bozulması (güvenilmeyen/boş sayfa okuması, birleştirme, katalog sırası, öncelik, kapsama iki biçimde, `ı`/aksan/noktalama normalizasyonu, tekilleştirme, kelimesiz madde, tek satır, uzun madde önceliği, sayfa notlarını birleştirme, iki gerekçe metni, kriteri yok sayma, katalogsuz yargı) bellekte ayrı ayrı denendi, her biri testte kırmızı — `app/pipeline/legibility.py` · `app/ai/prompts/page_analysis.md` · test `tests/pipeline/test_legibility.py` · `tests/ai/test_prompts.py` (+1) · tm 28
+- ✅ S9: tek sayfalık sentetik PDF gerçek render/metin/boş sayfa adımlarından ve yeni kayıtlı yanıtla (belge numarası `legible: false`, MRZ okunamıyor ve MRZ maddesi notta) `analyze_upload` → `group_upload` → `check_legibility`: `russian_passport` adayı Unreadable, gerekçe tam olarak `Okunamayan alanlar: document_number`; MRZ kabul kriteri ayrıca karşılanmamış olarak nesnede; gerekçelerde kişisel değer yok. Kayıtlı pasaport yanıtı kenar maddesiyle Unresolved, notsuz kabul; S5 dosyalar arası ehliyet kartı ön yüzdeki okumalarla kabul — `tests/fixtures/ai/recordings/s9_blurred_passport/0.json` · test `tests/pipeline/test_legibility.py` · tm 28

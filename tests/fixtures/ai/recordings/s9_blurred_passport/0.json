@@ -1,0 +1,30 @@
+{
+  "page_index": 0,
+  "is_blank": false,
+  "is_readable": true,
+  "language": "ru",
+  "script": "cyrillic",
+  "document_type_slug": "russian_passport",
+  "candidate_type_name": null,
+  "side": "single",
+  "continues_previous_page": false,
+  "person": {
+    "surname": "ORNEKOVA",
+    "given_names": "TEST",
+    "other_names": null,
+    "original_script_name": "Орнекова Тест",
+    "date_of_birth": "1990-01-01",
+    "nationality": "RUS",
+    "document_number": null,
+    "mrz_lines": null,
+    "contact": {"phone": null, "email": null, "address": null}
+  },
+  "fields": {
+    "surname": {"value": "ORNEKOVA", "legible": true},
+    "given_names": {"value": "TEST", "legible": true},
+    "date_of_birth": {"value": "1990-01-01", "legible": true},
+    "document_number": {"value": null, "legible": false},
+    "expiry_date": {"value": "2030-01-01", "legible": true}
+  },
+  "notes": "Belge numarası ve MRZ bölgesi bulanık, karakterler seçilemiyor. Karşılanmayan kabul kriteri: MRZ iki satırı da okunabilir olmalı"
+}

@@ -159,6 +159,16 @@ def test_every_schema_key_is_described_in_prompt(model: type) -> None:
     assert missing == []
 
 
+def test_notes_report_unmet_acceptance_criteria_word_for_word() -> None:
+    # 04.4.2: karar motoru karşılanmayan maddeyi `notes`'taki katalog metninden tanır.
+    fields = flat(section(TEMPLATE, "## Yanıt alanları"))
+
+    assert "`Karşılanmayan kabul kriteri: <katalogdaki madde metni>`" in fields
+    assert "katalogda yazıldığı gibi, kelimesi kelimesine yaz" in fields
+    assert "maddeyi kısaltma, başka sözcüklerle anlatma" in fields
+    assert "Karşılanan maddeyi ve konusu bu sayfada olmayabilecek maddeyi" in fields
+
+
 @pytest.mark.parametrize("value", [*Side, *Script], ids=str)
 def test_closed_value_sets_are_listed_in_prompt(value: str) -> None:
     assert f"`{value}`" in section(TEMPLATE, "## Yanıt alanları")

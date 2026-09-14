@@ -118,6 +118,11 @@ anahtar eklenmez.
   parlama var mı, metin katmanı görüntüyle çelişiyor mu, türün kabul kriterlerinden hangisi açıkça
   karşılanmıyor. Notta isim, numara, tarih gibi kişisel değerleri tekrar yazma. Söylenecek bir şey
   yoksa `null`.
+  - Türün kabul kriterlerinden bu sayfada açıkça karşılanmayan her birini katalogda yazıldığı gibi,
+    kelimesi kelimesine yaz: `Karşılanmayan kabul kriteri: <katalogdaki madde metni>`. Sistem
+    karşılanmayan maddeyi bu metinden tanır; maddeyi kısaltma, başka sözcüklerle anlatma.
+    Karşılanan maddeyi ve konusu bu sayfada olmayabilecek maddeyi (ör. kartın öteki yüzündeki MRZ)
+    yazma.
 
 ## Belge türü kataloğu
 

@@ -388,12 +388,13 @@
         "description": "PRD 04.4.1, 04.4.2 · FR-MOD-04 (Karar motoru) · Faz 0.",
         "details": "KAPSAM: PRD 04.4.1, 04.4.2 (FR-MOD-04 — Karar motoru, Faz 0).\n\nNE YAPILACAK — GEREKSİNİMLER VE KABUL KRİTERLERİ:\n- 04.4.1 — Zorunlu alan okunaklılık kapısı (R1)\n  Kabul: Zorunlu alanların biri bile okunaksızsa aday Unreadable olur ve eksik alan adları gerekçeye yazılır\n- 04.4.2 — Kabul kriteri değerlendirmesi\n  Kabul: Türün `acceptance_criteria` maddeleri varsa her biri değerlendirilir; karşılanmayan madde Unresolved gerekçesine madde adıyla yazılır. Liste boşsa tek ölçüt 04.4.1'dir\n\nGİRDİ — ÜZERİNE KURULDUĞU İŞLER (bu kod ZATEN VAR; yazmadan önce OKU):\n- 04.1 (Dosya içi gruplama ve ön/arka eşleşmesi) → app/pipeline/group.py\n\nÇIKTI — DOKUNULACAK YÜZEY: app/pipeline/legibility.py\n\nKARAR TABLOSU: bu görev için ayrı karar tablosu yok; kabul kriterleri ve kilitli kurallar yeterli.\n\nBU GÖREVİ BAĞLAYAN KİLİTLİ KURALLAR (MASTER-PROMPT §3 — tartışma, uygula):\n- K1: Zorunlu alanların hepsi okunaklıysa belge kabul edilir; biri bile okunamıyorsa Unreadable. Ayrı güven skoru YOK.\n\nPRD'DE AYRICA OKU: §8.4 (sayfa analizi şeması) · §8.6 (katalog kaydı biçimi)\n\nİLGİLİ KABUL SENARYOLARI (PRD §9) — bu görevin gerçek sınavı: S9. Senaryo metnini PRD §9 tablosundan oku; testin bu davranışı doğrulamalı.\n\nSIRA (MASTER-PROMPT §5, contract-first): sözleşme/şema → Alembic göçü (gerekiyorsa) → çekirdek + unit test → entegrasyon + testi → arayüz.\n\nKAPSAM SINIRI: yalnız yukarıdaki PRD kimlikleri. Başka gereksinimin işini yapma; yolda gördüğün kusuru düzeltme, yeni görev olarak aç (CONVENTIONS §5). Kilitli teknik kararları (MASTER-PROMPT §4) tartışma; yanlış görünüyorsa uygula ve PLAN.md §D'ye sapma yaz.\n\nTUZAKLAR: belge içeriğini değiştiren kod yazma — kırpma, döndürme (EXIF dışında), kontrast, metin yazma, form doldurma yok (K11/K17). Gerçek kimlik belgesi kullanma; test verisi tests/fixtures/gen.py ile üretilen sentetik belgelerdir (CONVENTIONS §6). Yapay zekâ çağrısı testte canlı yapılmaz, kayıtlı yanıt sağlayıcısı kullanılır. Test/build komutlarını arka plana atma — pencere ölür.\n\nKAPANIŞ: PLAN.md'de 04.4.1, 04.4.2 satırlarının damgasını '✅ → K04.4' yap ve '## K. Kanıt Geçmişi' bölümünde '#### K04.4' bloğuna kanıt maddesi ekle (blok yoksa aç). Faz özet tablosundaki sayıları SAYARAK güncelle. Ayrıntı: CONVENTIONS §1.2-1.3.",
         "testStrategy": "CONVENTIONS §1 DoD kapısı: ruff check . · ruff format --check . · python -m compileall -q app tests · pytest -q -m \"not live\" · alembic upgrade head · python -c \"import app.main\" — hepsi exit 0.\nAyrıca bu görevin kendi kabul kriterleri:\n- 04.4.1: Zorunlu alanların biri bile okunaksızsa aday Unreadable olur ve eksik alan adları gerekçeye yazılır\n- 04.4.2: Türün `acceptance_criteria` maddeleri varsa her biri değerlendirilir; karşılanmayan madde Unresolved gerekçesine madde adıyla yazılır. Liste boşsa tek ölçüt 04.4.1'dir",
-        "status": "pending",
+        "status": "in-progress",
         "dependencies": [
           "25"
         ],
         "priority": "high",
-        "subtasks": []
+        "subtasks": [],
+        "updatedAt": "2026-09-14T21:48:08.478Z"
       },
       {
         "id": "29",
@@ -1273,7 +1274,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-09-14T21:46:44.722Z",
+      "lastModified": "2026-09-14T21:48:08.479Z",
       "taskCount": 92,
       "completedCount": 26,
       "tags": [
