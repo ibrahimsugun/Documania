@@ -1,0 +1,147 @@
+# belgeee — belge türü kataloğu (PRD §8.6).
+# Tohum ve dışa aktarım dosyası. Veritabanına yükleme: `python -m app.catalog import`;
+# veritabanından yeniden üretme: `python -m app.catalog export`.
+# Dosya bütün olarak doğrulanır: tek kayıt geçersizse hiçbir kayıt yüklenmez.
+# Direkt Belge kuralı: `direct: true` olan türde `allowed_conversions: []` olmalıdır.
+- slug: attachment
+  name: Attachment
+  file_label: Attachment
+  country: null
+  description: Word veya Excel eki (CV, form vb.). Analiz edilmez, dönüştürülmez; olduğu gibi saklanır (K2).
+  expected_file_types: [doc, docx, xls, xlsx]
+  expected_pages: null
+  sides: single
+  direct: true
+  analyze: false
+  required_fields: []
+  allowed_conversions: []
+  output_format: keep
+  acceptance_criteria: []
+  prompt_description: null
+  photo_rules: null
+  active: true
+- slug: profile_picture
+  name: Profile Picture
+  file_label: Profile Picture
+  country: null
+  description: Çalışanın vesikalık veya portre fotoğrafı.
+  expected_file_types: [jpeg, png, pdf]
+  expected_pages: {min: 1, max: 1}
+  sides: single
+  direct: false
+  analyze: true
+  required_fields: []
+  allowed_conversions: [extract_image, render_image]
+  output_format: jpeg
+  acceptance_criteria: []
+  prompt_description: Tek bir kişinin yüzünü gösteren vesikalık veya portre fotoğrafı; sayfada belge metni veya form alanı yoktur.
+  photo_rules: null
+  active: true
+- slug: russian_passport
+  name: Russian Passport
+  file_label: Passport
+  country: RU
+  description: Rusya Federasyonu yurt dışı pasaportunun kimlik sayfası.
+  expected_file_types: [pdf, jpeg]
+  expected_pages: {min: 1, max: 1}
+  sides: single
+  direct: true
+  analyze: true
+  required_fields: [surname, given_names, date_of_birth, document_number, expiry_date]
+  allowed_conversions: []
+  output_format: keep
+  acceptance_criteria:
+    - Kimlik sayfası tam görünür olmalı, kenarlar kesilmemiş
+    - MRZ iki satırı da okunabilir olmalı
+  prompt_description: Kiril ve Latin çift yazımlı kimlik sayfası, sağ altta iki satır MRZ.
+  photo_rules: null
+  active: true
+- slug: serbian_driving_license
+  name: Serbian Driving License
+  file_label: Driving License
+  country: RS
+  description: Sırbistan sürücü belgesi (vozačka dozvola); ön ve arka yüzlü kart.
+  expected_file_types: [pdf, jpeg, png]
+  expected_pages: {min: 2, max: 2}
+  sides: front_back
+  direct: false
+  analyze: true
+  required_fields: [surname, given_names, date_of_birth, document_number, expiry_date]
+  allowed_conversions: [merge, wrap_image]
+  output_format: pdf
+  acceptance_criteria: []
+  prompt_description: 'Sırbistan sürücü belgesi kartı (VOZAČKA DOZVOLA). Ön yüzde fotoğraf ve numaralı alanlar: 1 soyad, 2 ad, 3 doğum tarihi, 4b geçerlilik sonu, 5 belge numarası. Arka yüzde ehliyet sınıfları tablosu.'
+  photo_rules: null
+  active: true
+- slug: serbian_passport
+  name: Serbian Passport
+  file_label: Passport
+  country: RS
+  description: Sırbistan Cumhuriyeti pasaportunun kimlik sayfası.
+  expected_file_types: [pdf, jpeg]
+  expected_pages: {min: 1, max: 1}
+  sides: single
+  direct: true
+  analyze: true
+  required_fields: [surname, given_names, date_of_birth, document_number, expiry_date]
+  allowed_conversions: []
+  output_format: keep
+  acceptance_criteria:
+    - Kimlik sayfası tam görünür olmalı, kenarlar kesilmemiş
+    - MRZ iki satırı da okunabilir olmalı
+  prompt_description: Sırpça (Kiril ve Latin) ve İngilizce yazımlı kimlik sayfası (ПАСОШ / PASOŠ / PASSPORT), altta iki satır MRZ, ülke kodu SRB.
+  photo_rules: null
+  active: true
+- slug: serbian_residence_card
+  name: Serbian Residence Card
+  file_label: Residence Card
+  country: RS
+  description: Sırbistan'da yabancılara verilen oturma izni kartı; ön ve arka yüzlü.
+  expected_file_types: [pdf, jpeg, png]
+  expected_pages: {min: 2, max: 2}
+  sides: front_back
+  direct: false
+  analyze: true
+  required_fields: [surname, given_names, date_of_birth, document_number, expiry_date]
+  allowed_conversions: [merge, wrap_image]
+  output_format: pdf
+  acceptance_criteria: []
+  prompt_description: Sırbistan oturma izni kartı. Ön yüzde fotoğraf, soyad, ad, doğum tarihi, kart numarası ve geçerlilik sonu; arka yüzde ek bilgiler ve varsa MRZ.
+  photo_rules: null
+  active: true
+- slug: turkish_passport
+  name: Turkish Passport
+  file_label: Passport
+  country: TR
+  description: Türkiye Cumhuriyeti pasaportunun kimlik sayfası.
+  expected_file_types: [pdf, jpeg]
+  expected_pages: {min: 1, max: 1}
+  sides: single
+  direct: true
+  analyze: true
+  required_fields: [surname, given_names, date_of_birth, document_number, expiry_date]
+  allowed_conversions: []
+  output_format: keep
+  acceptance_criteria:
+    - Kimlik sayfası tam görünür olmalı, kenarlar kesilmemiş
+    - MRZ iki satırı da okunabilir olmalı
+  prompt_description: Türkçe ve İngilizce yazımlı kimlik sayfası (PASAPORT / PASSPORT), altta iki satır MRZ, ülke kodu TUR.
+  photo_rules: null
+  active: true
+- slug: work_permit
+  name: Work Permit
+  file_label: Work Permit
+  country: null
+  description: Yetkili makamca verilmiş çalışma izni belgesi.
+  expected_file_types: [pdf, jpeg, png]
+  expected_pages: {min: 1, max: 2}
+  sides: single
+  direct: false
+  analyze: true
+  required_fields: [surname, given_names, document_number, expiry_date]
+  allowed_conversions: [merge, wrap_image]
+  output_format: pdf
+  acceptance_criteria: []
+  prompt_description: Yetkili makamca verilmiş çalışma izni; kişinin soyadı ve adı, izin numarası ve geçerlilik tarihleri yazılıdır.
+  photo_rules: null
+  active: true

@@ -18,6 +18,12 @@ Blok biçimi `CONVENTIONS.md` §3'te tanımlıdır:
 
 ## Task log (newest-first)
 
+## 6 — 00.6 Belge türü kataloğu ve başlangıç tohumu — done — 2026-09-14
+- Yapıldı: `app/catalog/` — §8.6 pydantic sözleşmesi (`direct: true` + dolu `allowed_conversions` tüm kataloğu reddeder), 8 türlük paketli tohum `seed_catalog.yaml` (açılışta `data/KnownDocuments/catalog.yaml` yoksa yazılır), YAML ↔ DB eşitleme (`import_catalog`/`export_catalog`) ve `python -m app.catalog import|export` komutu.
+- Doğrulama: ruff check/format, compileall, `pytest -q -m "not live"` (234 geçti, +87 katalog durumu; 2 PG testi atlandı), kapsam %99, temiz SQLite'ta `alembic upgrade head` + `alembic check`, `import app.main`, CLI import→export bayt bayt tohuma eşit, wheel'de tohum dosyası var — hepsi exit 0.
+- Varsayımlar: PLAN §C7 (ek tutarlılık kuralları, tohum değerleri, DB'ye yükleme açılışta değil komutla); §D5: `allowed_conversions` işlem adı taşır (§20.3), §20.5'teki `pdf_to_jpeg` adı kullanılmadı.
+- Sonraki pencereye not: Türün kurallarını `CatalogEntry` üzerinden okuyun (`export_catalog(session).get(slug)`); dönüşüm izni `operation in entry.allowed_conversions` (`Conversion` enum). Tohum pasaportları §8.6 gibi `[pdf, jpeg]` bekler — S6 ("katalog yalnız PDF bekliyor") senaryo testi kendi pasaport kaydını kurmalı.
+
 ## 5 — 00.5 Olay logu altyapısı — done — 2026-09-14
 - Yapıldı: `app/events.py` — PRD §8.3'teki 37 olay türü için `EventType(enum.StrEnum)`, `record_event` (bir olayı `events` tablosuna yazar) ve `event_context` (contextvar tabanlı, upload/file/page alanlarını içteki `record_event` çağrılarına açıkça verilmedikçe otomatik taşıyan, iç içe kullanımda belirtilmeyen alanları dıştan miras alan bağlam yöneticisi).
 - Doğrulama: ruff check/format, compileall, `pytest -q -m "not live"` (147 geçti, +7 olay testi), kapsam %98.71 (`app/events.py` %100), temiz SQLite'ta `alembic upgrade head`, `import app.main` — hepsi exit 0.

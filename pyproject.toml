@@ -14,6 +14,7 @@ dependencies = [
     "sqlalchemy>=2.0",
     "alembic>=1.16",
     "psycopg[binary]>=3.2",
+    "pyyaml>=6.0",
 ]
 
 [project.optional-dependencies]
@@ -26,6 +27,10 @@ dev = [
 
 [tool.setuptools.packages.find]
 include = ["app*"]
+
+[tool.setuptools.package-data]
+# Başlangıç katalog tohumu (PRD 00.6.2) kurulu pakette de bulunmalı.
+"app.catalog" = ["seed_catalog.yaml"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -8,7 +8,7 @@
 
 | Faz | PRD | Genel durum | Must sayacı | Kapanış |
 | --- | --- | --- | --- | --- |
-| Faz 0 — MVP | §5.1 | 15 ✅ · 0 ◐ · 87 ⬜ · 0 🔒 | 15/98 Must | AÇIK |
+| Faz 0 — MVP | §5.1 | 18 ✅ · 0 ◐ · 84 ⬜ · 0 🔒 | 17/98 Must | AÇIK |
 | Faz 1 — v1 | §5.2 | 0 ✅ · 0 ◐ · 0 ⬜ · 32 🔒 | 0/21 Must | AÇIK |
 | Faz 2 — v2 | §5.3 | 0 ✅ · 0 ◐ · 0 ⬜ · 13 🔒 | 0/0 Must | AÇIK |
 | Faz 3 — Enterprise | §5.4 | 0 ✅ · 0 ◐ · 0 ⬜ · 8 🔒 | 0/0 Must | AÇIK |
@@ -84,9 +84,9 @@ panelde `plan-count-drift` bulgusu doğurur.
 | 00.4.4 | Bütünlük ve atomik yazma | Must (MVP) | ✅ → K00.4 |
 | 00.5.1 | Olay logu altyapısı | Must (MVP) | ✅ → K00.5 |
 | 00.5.2 | Olay bağlamı yöneticisi | Must (MVP) | ✅ → K00.5 |
-| 00.6.1 | Katalog şeması ve tutarlılık kuralı | Must (MVP) | ⬜ |
-| 00.6.2 | Başlangıç belge türleri | Must (MVP) | ⬜ |
-| 00.6.3 | Katalog YAML ↔ veritabanı eşitleme | Should (v1) | ⬜ |
+| 00.6.1 | Katalog şeması ve tutarlılık kuralı | Must (MVP) | ✅ → K00.6 |
+| 00.6.2 | Başlangıç belge türleri | Must (MVP) | ✅ → K00.6 |
+| 00.6.3 | Katalog YAML ↔ veritabanı eşitleme | Should (v1) | ✅ → K00.6 |
 
 ### 3.2 FR-MOD-01 — Yükleme ve Inbox
 
@@ -329,6 +329,21 @@ Onay beklemeden yapılan varsayımlar buraya numaralı olarak yazılır.
   kalmış ilk ek kullanılır. Yeni dosya sabit bağla (`os.link`) yayınlanır — hard link
   desteklemeyen dosya sisteminde yazma açık hatayla durur. Öldürülmüş yazmanın gizli geçici
   dosyası açılışta, 1 saatten eskiyse silinir. Kapsayıcı `/srv/data` adlı volume kullanır.
+- **C7** — Katalog (tm 6): `allowed_conversions` §20.3 satır 3–6'daki işlem adlarını taşır
+  (`merge`, `wrap_image`, `extract_image`, `render_image`; bkz. D5). 00.6.1'deki Direkt Belge
+  kuralına ek tutarlılık kuralları: `analyze: false` ⇒ `required_fields` boş, slug tekil,
+  listelerde tekrar yok, `expected_pages` ya iki sınırıyla ya `null` (sınır yok); bilinmeyen
+  anahtar ve YAML'da tekrarlanan anahtar reddedilir. `front_back` ⇒ 2 sayfa kuralı 11.1.2'ye
+  bırakıldı (tohum ona uyar). Veri dizini git dışı olduğu için tohum paket içindedir
+  (`app/catalog/seed_catalog.yaml`); açılışta `data/KnownDocuments/catalog.yaml` yoksa oraya
+  yazılır, varsa korunur. Veritabanına yükleme açılışta değil `python -m app.catalog import`
+  ile yapılır (kapsayıcı göç koşmadan açılıyor). İçe aktarma katalogda olmayan türe dokunmaz
+  (silme/pasifleştirme yok); dışa aktarma slug sırasıyla kanonik YAML üretir. Tohum değerleri:
+  pasaportlar §8.6 örneği gibi direkt, `[pdf, jpeg]`, çıktı `keep`, iki kabul kriteri; oturma
+  izni ve ehliyet `front_back`, direkt kapalı, `[merge, wrap_image]`, çıktı pdf (S5); Work Permit
+  ülke kodsuz, direkt kapalı; Profile Picture çıktı jpeg + `[extract_image, render_image]` (K12,
+  S3); Attachment yalnız doc/docx/xls/xlsx, `analyze: false`, direkt. YAML için PyYAML
+  bağımlılığı eklendi (§4'te YAML kütüphanesi kilitli değil).
 
 ## D. Sapmalar
 
@@ -355,6 +370,12 @@ bu kayıt neden sapıldığının izlenebilir olması içindir.
   tablosu ise 16 tablo listeler (`employee_contacts` 05.8 ile sonradan eklenmiş). §8.1
   listesi esas alındı, 16 tablonun hepsi modellendi. PRD metninin düzeltilmesi insana
   bırakıldı.
+- **D5 — `allowed_conversions` sözlüğünde PRD içi çelişki (tm 6).** §20.3 "3, 4, 5 ve 6
+  numaralı satırlar için seçilen işlem türün `allowed_conversions` listesinde bulunmak
+  zorundadır" der (liste işlem adı taşır); §20.5 `render_image` için "listede `pdf_to_jpeg`
+  varsa" der (dönüşüm adı). §20.3 karar tablosu esas alındı: değerler `merge`, `wrap_image`,
+  `extract_image`, `render_image`; `pdf_to_jpeg` şemada yoktur ve reddedilir, 06.4.1 kontrolü
+  "seçilen işlem ∈ liste" olur. PRD §20.5 metninin düzeltilmesi insana bırakıldı.
 
 ## G. İş Kırılımı Dizini
 
@@ -491,3 +512,8 @@ var olan maddeler silinmez. Biçim:
 #### K00.5 — 00.5.1, 00.5.2 · Olay logu altyapısı
 - ✅ 00.5.1 PRD §8.3'teki 37 olay türü `EventType(enum.StrEnum)` sabit listesi; `record_event` her olayı `events` tablosuna yazar — `app/events.py` · test `tests/test_events.py` (7) · tm 5
 - ✅ 00.5.2 `event_context` (contextvar tabanlı, iç içe kullanımda belirtilmeyen alanları dıştan miras alır) içinde atılan olaylar upload/file/page alanlarını açıkça verilmedikçe otomatik taşır — `app/events.py` · test `tests/test_events.py` (7) · tm 5
+
+#### K00.6 — 00.6.1, 00.6.2, 00.6.3 · Belge türü kataloğu ve başlangıç tohumu
+- ✅ 00.6.1 pydantic sözleşme §8.6'nın tüm alanlarını (`acceptance_criteria` dahil) ve `known_document_types`'ın her sütununu tanımlar; `direct: true` türde `allowed_conversions` doluysa katalog bütün olarak reddedilir (yanındaki geçerli kayıt da yüklenmez, CLI exit 1, DB'de 0 satır); geçersiz enum/tip/eksik alan/yazım hatalı anahtar/tekrar/sayfa aralığı hata satırıyla reddedilir — `app/catalog/schema.py` · test `tests/catalog/test_schema.py` (14 fonksiyon / 47 durum) · tm 6
+- ✅ 00.6.2 8 türlük tohum: Russian/Turkish/Serbian Passport, Serbian Residence Card, Serbian Driving License, Work Permit, Profile Picture, Attachment; `russian_passport` §8.6 örneğine eşit; açılışta `data/KnownDocuments/catalog.yaml` yoksa yazılır, varsa korunur; temiz SQLite'ta `alembic upgrade head` + `python -m app.catalog import` → 8 tür; wheel içinde `app/catalog/seed_catalog.yaml` var — `app/catalog/seed_catalog.yaml` · `app/catalog/yaml_io.py` · `app/main.py` · `pyproject.toml` · test `tests/catalog/test_seed.py` (11) · tm 6
+- ✅ 00.6.3 YAML → DB (slug'a göre ekle/güncelle, katalogda olmayan türe dokunmaz) ve DB → YAML (atomik `replace_file`); tohum → DB → dışa aktarım bayt bayt aynı (testte ve CLI ile elle), DB'deki düzenleme dışa aktarımla YAML'a geçer, tekrarlanan içe aktarma değişiklik yapmaz; `python -m app.catalog import|export` — `app/catalog/sync.py` · `app/catalog/yaml_io.py` · `app/catalog/__main__.py` · test `tests/catalog/test_sync.py` (9) · `tests/catalog/test_yaml_io.py` (10 fonksiyon / 12 durum) · `tests/catalog/test_cli.py` (8) · tm 6
