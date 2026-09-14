@@ -1,0 +1,30 @@
+{
+  "page_index": 3,
+  "is_blank": false,
+  "is_readable": true,
+  "language": "sr",
+  "script": "latin",
+  "document_type_slug": "serbian_residence_card",
+  "candidate_type_name": null,
+  "side": "front",
+  "continues_previous_page": false,
+  "person": {
+    "surname": "SIDOROV",
+    "given_names": "IVAN",
+    "other_names": null,
+    "original_script_name": null,
+    "date_of_birth": "1985-05-05",
+    "nationality": "RUS",
+    "document_number": "AB1234567",
+    "mrz_lines": null,
+    "contact": {"phone": null, "email": null, "address": null}
+  },
+  "fields": {
+    "surname": {"value": "SIDOROV", "legible": true},
+    "given_names": {"value": "IVAN", "legible": true},
+    "date_of_birth": {"value": "1985-05-05", "legible": true},
+    "document_number": {"value": "AB1234567", "legible": true},
+    "expiry_date": {"value": null, "legible": false}
+  },
+  "notes": null
+}

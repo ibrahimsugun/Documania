@@ -1,0 +1,29 @@
+{
+  "page_index": 2,
+  "is_blank": false,
+  "is_readable": true,
+  "language": "sr",
+  "script": "latin",
+  "document_type_slug": "work_permit",
+  "candidate_type_name": null,
+  "side": "single",
+  "continues_previous_page": false,
+  "person": {
+    "surname": "SIDOROV",
+    "given_names": "IVAN",
+    "other_names": null,
+    "original_script_name": null,
+    "date_of_birth": null,
+    "nationality": "RUS",
+    "document_number": "WP-0000042",
+    "mrz_lines": null,
+    "contact": {"phone": null, "email": null, "address": null}
+  },
+  "fields": {
+    "surname": {"value": "SIDOROV", "legible": true},
+    "given_names": {"value": "IVAN", "legible": true},
+    "document_number": {"value": "WP-0000042", "legible": true},
+    "expiry_date": {"value": "2027-03-31", "legible": true}
+  },
+  "notes": null
+}

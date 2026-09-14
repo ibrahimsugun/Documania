@@ -1,5 +1,6 @@
 """04.1.1 — ardışık, aynı tür ve aynı kişiye ait sayfalar tek belge adayı olur; 04.1.2 —
-`front_back` türlerde ön ve arka yüz sıralı biçimde eşleşir. Kabul senaryosu: S4.
+`front_back` türlerde ön ve arka yüz sıralı biçimde eşleşir; 04.2.1 — araya başka belge girmiş
+parçalar otomatik birleştirilmez, gerekçesiyle Unresolved'a gider. Kabul senaryoları: S3, S4.
 
 Birim testleri `group_file_pages`'e sentetik analizler verir. Entegrasyon testleri sentetik
 PDF/JPEG'i gerçek render adımlarından ve kayıtlı yanıt sağlayıcısıyla (03.6) analizden geçirip
@@ -20,10 +21,11 @@ from app.ai import PageAnalysis, Side, build_page_analysis_instructions
 from app.ai.recording_provider import RecordingProvider
 from app.catalog import load_seed_catalog, validate_catalog
 from app.config import Settings
-from app.db.models import Event, Upload, UploadFile, UploadStatus
+from app.db.models import Event, QueueKind, Upload, UploadFile, UploadStatus
 from app.events import EventType
 from app.pipeline.analyze import analyze_upload
 from app.pipeline.group import (
+    ContiguityViolation,
     FileGrouping,
     GroupingPage,
     StoredAnalysisError,
@@ -51,6 +53,7 @@ LICENSE = "serbian_driving_license"  # front_back
 RESIDENCE = "serbian_residence_card"  # front_back
 PERMIT = "work_permit"  # single, 1–2 sayfa
 PASSPORT = "russian_passport"  # single, 1 sayfa
+PHOTO = "profile_picture"  # single, 1 sayfa
 
 NO_PERSON: dict[str, Any] = {
     "surname": None,
@@ -107,12 +110,20 @@ def _back(index: int, *, slug: str = LICENSE, continues: bool = True) -> Groupin
     return _page(index, slug, side="back", continues=continues, person=NO_PERSON)
 
 
+def _photo(index: int) -> GroupingPage:
+    return _page(index, PHOTO, person=NO_PERSON, fields={})
+
+
 def _group(*pages: GroupingPage) -> FileGrouping:
     return group_file_pages(FILE_ID, pages, catalog=CATALOG)
 
 
 def _layout(grouping: FileGrouping) -> list[tuple[int, ...]]:
     return [tuple(page.index for page in candidate.pages) for candidate in grouping.candidates]
+
+
+def _violations(grouping: FileGrouping) -> list[ContiguityViolation | None]:
+    return [candidate.contiguity_violation for candidate in grouping.candidates]
 
 
 # --- 04.1.1 dosya içi gruplama ----------------------------------------------------------------
@@ -453,6 +464,268 @@ def test_back_showing_another_persons_number_is_not_paired() -> None:
     assert _layout(grouping) == [(0,), (1,)]
 
 
+# --- 04.2.1 ardışıklık güvenlik kuralı --------------------------------------------------------
+
+
+@pytest.mark.parametrize("back_continues", [False, True])
+def test_s3_card_faces_with_other_documents_between_go_to_unresolved(back_continues: bool) -> None:
+    # S3: ehliyet ön, foto, başka belge, oturum ön, oturum arka, ehliyet arka. Arka yüzün devam
+    # işareti önceki sayfaya (oturum izni) göredir; yanlışlıkla `true` gelse de birleştirilmez.
+    grouping = _group(
+        _front(0),
+        _photo(1),
+        _page(2, PERMIT),
+        _front(3, slug=RESIDENCE),
+        _back(4, slug=RESIDENCE),
+        _back(5, continues=back_continues),
+    )
+
+    assert _layout(grouping) == [(0,), (1,), (2,), (3, 4), (5,)]
+    assert _violations(grouping) == [
+        ContiguityViolation(pages=(0,), counterparts=((5,),), intervening_pages=(1, 2, 3, 4)),
+        None,
+        None,
+        None,
+        ContiguityViolation(pages=(5,), counterparts=((0,),), intervening_pages=(1, 2, 3, 4)),
+    ]
+    front = grouping.candidates[0].contiguity_violation
+    assert front is not None
+    assert (front.rule, front.queue) == ("R6", QueueKind.UNRESOLVED)
+    assert grouping.candidates[3].sides == (Side.FRONT, Side.BACK)
+
+
+def test_back_scanned_before_its_front_is_also_a_piece() -> None:
+    # Arka yüzü önce taranmış kart da aynı karttır; bitişik olsaydı 04.1 eşleştirmezdi (sıra), araya
+    # belge girince gerekçe ardışıklıktır.
+    grouping = _group(_back(0, continues=False), _photo(1), _front(2))
+
+    assert _violations(grouping) == [
+        ContiguityViolation(pages=(0,), counterparts=((2,),), intervening_pages=(1,)),
+        None,
+        ContiguityViolation(pages=(2,), counterparts=((0,),), intervening_pages=(1,)),
+    ]
+
+
+@pytest.mark.parametrize(
+    ("pages", "expected"),
+    [
+        pytest.param(
+            [_front(0), GroupingPage(1), _back(2)],
+            [
+                ContiguityViolation(pages=(0,), counterparts=((2,),), unanalyzed_pages=(1,)),
+                ContiguityViolation(pages=(2,), counterparts=((0,),), unanalyzed_pages=(1,)),
+            ],
+            id="yalniz-analizsiz",
+        ),
+        pytest.param(
+            [_front(0), _photo(1), GroupingPage(2), _back(3, continues=False)],
+            [
+                ContiguityViolation(
+                    pages=(0,), counterparts=((3,),), intervening_pages=(1,), unanalyzed_pages=(2,)
+                ),
+                None,
+                ContiguityViolation(
+                    pages=(3,), counterparts=((0,),), intervening_pages=(1,), unanalyzed_pages=(2,)
+                ),
+            ],
+            id="belge-ve-analizsiz",
+        ),
+    ],
+)
+def test_unanalyzed_page_between_pieces_may_be_another_document(
+    pages: list[GroupingPage], expected: list[ContiguityViolation | None]
+) -> None:
+    # Analizi başarısız sayfanın içeriği bilinmez; araya başka belge girmiş olabilir (K5).
+    grouping = _group(*pages)
+
+    assert _violations(grouping) == expected
+
+
+def test_blank_pages_between_pieces_are_not_other_documents() -> None:
+    grouping = _group(
+        _front(0),
+        GroupingPage(1, is_blank=True),
+        _photo(2),
+        _page(3, None, person=NO_PERSON, **BLANK_READING),
+        _back(4, continues=False),
+    )
+
+    assert grouping.blank_pages == (1, 3)
+    assert _violations(grouping) == [
+        ContiguityViolation(pages=(0,), counterparts=((4,),), intervening_pages=(2,)),
+        None,
+        ContiguityViolation(pages=(4,), counterparts=((0,),), intervening_pages=(2,)),
+    ]
+
+
+@pytest.mark.parametrize(
+    "pages",
+    [
+        pytest.param([_front(0), _back(1, continues=False)], id="bitisik"),
+        pytest.param(
+            [_front(0), GroupingPage(1, is_blank=True), _back(2, continues=False)], id="bos-sayfa"
+        ),
+        pytest.param(
+            [
+                _front(0),
+                _page(1, None, continues=True, person=NO_PERSON, **BLANK_READING),
+                _back(2),
+            ],
+            id="analizcinin-bos-dedigi-sayfa",
+        ),
+        pytest.param([_back(0, continues=False), _front(1, continues=True)], id="bitisik-ters"),
+    ],
+)
+def test_pieces_with_no_document_between_are_not_violations(pages: list[GroupingPage]) -> None:
+    # Eksik parçalar ayrı kalır ama araya belge girmemiştir; rotaları sayfa sayısı/yüz kontrolünün.
+    grouping = _group(*pages)
+
+    assert len(grouping.candidates) == 2
+    assert _violations(grouping) == [None, None]
+
+
+@pytest.mark.parametrize(
+    "pages",
+    [
+        pytest.param([_front(0), _photo(1), _front(2)], id="iki-on-yuz"),
+        pytest.param(
+            [_front(0), _back(1), _photo(2), _back(3, continues=False)], id="tam-cift-ve-arka"
+        ),
+        pytest.param([_front(0), _photo(1), _front(2), _back(3)], id="on-ve-tam-cift"),
+        pytest.param(
+            [_front(0), _photo(1), _page(2, LICENSE, side="unknown", person=NO_PERSON)],
+            id="yuzu-belirsiz",
+        ),
+        pytest.param(
+            [_front(0), _photo(1), _back(2, slug=RESIDENCE, continues=False)], id="baska-tur"
+        ),
+        pytest.param(
+            [
+                _front(0),
+                _photo(1),
+                _page(2, LICENSE, side="back", person={**NO_PERSON, "document_number": "00 09"}),
+            ],
+            id="baska-kisi",
+        ),
+        pytest.param(
+            [_page(0), _page(1, continues=True), _photo(2), _page(3)], id="sayfa-siniri-asilir"
+        ),
+        pytest.param([_page(0, PASSPORT), _photo(1), _page(2, PASSPORT)], id="tek-sayfalik-tur"),
+        pytest.param(
+            [
+                _page(0, None, candidate_type_name="Peruvian Diploma", fields={}),
+                _photo(1),
+                _page(2, None, candidate_type_name="Peruvian Diploma", fields={}),
+            ],
+            id="katalog-disi-tur",
+        ),
+        pytest.param([_page(0, None), _photo(1), _page(2, None)], id="tur-belirsiz"),
+    ],
+)
+def test_candidates_that_cannot_be_one_document_are_not_pieces(pages: list[GroupingPage]) -> None:
+    grouping = _group(*pages)
+
+    assert all(violation is None for violation in _violations(grouping))
+
+
+def test_single_sided_pieces_fitting_one_document_go_to_unresolved() -> None:
+    # 1–2 sayfalık çalışma izni: iki ayrı izin mi, araya foto girmiş tek izin mi bilinemez (R7).
+    grouping = _group(_page(0), _photo(1), _page(2))
+
+    assert _violations(grouping) == [
+        ContiguityViolation(pages=(0,), counterparts=((2,),), intervening_pages=(1,)),
+        None,
+        ContiguityViolation(pages=(2,), counterparts=((0,),), intervening_pages=(1,)),
+    ]
+
+
+def test_type_without_page_range_has_no_page_limit_for_pieces() -> None:
+    entries = [entry.model_dump(mode="json") for entry in CATALOG]
+    for entry in entries:
+        if entry["slug"] == PERMIT:
+            entry["expected_pages"] = None
+    catalog = validate_catalog(entries)
+    pages = [_page(0), _page(1, continues=True), _photo(2), _page(3)]
+
+    grouping = group_file_pages(FILE_ID, pages, catalog=catalog)
+
+    assert _violations(grouping) == [
+        ContiguityViolation(pages=(0, 1), counterparts=((3,),), intervening_pages=(2,)),
+        None,
+        ContiguityViolation(pages=(3,), counterparts=((0, 1),), intervening_pages=(2,)),
+    ]
+
+
+def test_slug_missing_from_catalog_is_not_judged_for_pieces() -> None:
+    catalog = validate_catalog(
+        [entry.model_dump(mode="json") for entry in CATALOG if entry.slug != LICENSE]
+    )
+
+    grouping = group_file_pages(
+        FILE_ID, [_front(0), _photo(1), _back(2, continues=False)], catalog=catalog
+    )
+
+    assert _violations(grouping) == [None, None, None]
+
+
+def test_piece_lists_every_counterpart_and_only_other_documents_between() -> None:
+    grouping = _group(
+        _front(0),
+        _photo(1),
+        _back(2, continues=False),
+        _page(3, PASSPORT),
+        _back(4, continues=False),
+    )
+
+    assert _violations(grouping) == [
+        # Öteki parçalar arada kalsa da başka belge sayılmaz.
+        ContiguityViolation(pages=(0,), counterparts=((2,), (4,)), intervening_pages=(1, 3)),
+        None,
+        ContiguityViolation(pages=(2,), counterparts=((0,),), intervening_pages=(1,)),
+        None,
+        # İki arka yüz aynı belgenin parçası olamaz: yakındaki arka yüz buradan bakınca başka belge.
+        ContiguityViolation(pages=(4,), counterparts=((0,),), intervening_pages=(1, 2, 3)),
+    ]
+
+
+@pytest.mark.parametrize(
+    ("violation", "reason"),
+    [
+        pytest.param(
+            ContiguityViolation(pages=(0,), counterparts=((5,),), intervening_pages=(1, 2, 3, 4)),
+            "Ardışıklık güvenlik kuralı (R6): bu parça (sayfa 1) ile aynı belgeye ait olabilecek "
+            "parça (sayfa 6) arasında başka belgeye ait sayfa (sayfa 2, 3, 4, 5) var; parçalar "
+            "otomatik birleştirilmez.",
+            id="s3",
+        ),
+        pytest.param(
+            ContiguityViolation(pages=(2,), counterparts=((0,),), unanalyzed_pages=(1,)),
+            "Ardışıklık güvenlik kuralı (R6): bu parça (sayfa 3) ile aynı belgeye ait olabilecek "
+            "parça (sayfa 1) arasında analizi yapılamamış, başka belgeye ait olabilecek sayfa "
+            "(sayfa 2) var; parçalar otomatik birleştirilmez.",
+            id="analizsiz-sayfa",
+        ),
+        pytest.param(
+            ContiguityViolation(
+                pages=(0, 1),
+                counterparts=((3,), (6, 7)),
+                intervening_pages=(2, 5),
+                unanalyzed_pages=(4,),
+            ),
+            "Ardışıklık güvenlik kuralı (R6): bu parça (sayfa 1, 2) ile aynı belgeye ait "
+            "olabilecek parçalar (sayfa 4; sayfa 7, 8) arasında başka belgeye ait sayfa "
+            "(sayfa 3, 6) ve analizi yapılamamış, başka belgeye ait olabilecek sayfa (sayfa 5) "
+            "var; parçalar otomatik birleştirilmez.",
+            id="birden-cok-parca",
+        ),
+    ],
+)
+def test_violation_reason_names_rule_pieces_and_pages_between(
+    violation: ContiguityViolation, reason: str
+) -> None:
+    assert violation.reason == reason
+
+
 # --- entegrasyon: veritabanı, render, kayıtlı yanıt --------------------------------------------
 
 
@@ -543,6 +816,150 @@ def test_s4_sequential_pdf_yields_three_independent_candidates(
     logged = json.dumps([event.data_json for event in determined])
     for value in ("SIDOROV", "IVAN", "1985-05-05", "000123456", "AB1234567", "Belgrade"):
         assert value not in logged
+
+
+S3_RECORDINGS = RECORDINGS / "s3_interleaved_pdf"
+S3_PERSONAL_VALUES = (
+    "SIDOROV",
+    "IVAN",
+    "1985-05-05",
+    "000123456",
+    "AB1234567",
+    "WP-0000042",
+    "Belgrade",
+)
+
+
+def _piece_event_data(
+    pages: list[int], sides: list[str], counterparts: list[list[int]]
+) -> dict[str, Any]:
+    return {
+        "document_type_slug": LICENSE,
+        "pages": pages,
+        "sides": sides,
+        "contiguity_violation": {
+            "rule": "R6",
+            "queue": "unresolved",
+            "counterparts": counterparts,
+            "intervening_pages": [1, 2, 3, 4],
+            "unanalyzed_pages": [],
+        },
+    }
+
+
+@pytest.mark.parametrize("third_page_known", [True, False], ids=["bilinen-tur", "katalog-disi"])
+def test_s3_license_pieces_go_to_unresolved_with_reason(
+    session: Session, layout: DataLayout, tmp_path: Path, third_page_known: bool
+) -> None:
+    # S3: 6 sayfalık PDF — ehliyet ön, foto, başka belge, oturum ön, oturum arka, ehliyet arka.
+    # Beklenen: oturum izni (4-5) ve foto (2) aday; ehliyet 1 ve 6 Unresolved (R6); sayfa 3
+    # türüne göre (katalog türü ya da aday tür) kendi yolunda.
+    pdf = make_text_pdf_bytes(
+        ["EHLIYET ON", "FOTOGRAF", "BASKA BELGE", "OTURUM ON", "OTURUM ARKA", "EHLIYET ARKA"]
+    )
+    upload = _upload(session, layout, [("belgeler.pdf", pdf)])
+    if third_page_known:
+        provider = RecordingProvider.from_directory(S3_RECORDINGS)
+    else:
+        responses = [
+            json.loads((S3_RECORDINGS / f"{number}.json").read_text(encoding="utf-8"))
+            for number in range(6)
+        ]
+        responses[2] = _payload(
+            2, None, candidate_type_name="Peruvian Diploma", person=NO_PERSON, fields={}
+        )
+        provider = _recordings(tmp_path, responses)
+    analyze_upload(session, layout, upload, provider=provider, instructions=INSTRUCTIONS)
+
+    grouping = group_upload(session, upload, catalog=CATALOG)
+
+    file_id = upload.files[0].id
+    (file_grouping,) = grouping.files
+    assert _layout(file_grouping) == [(0,), (1,), (2,), (3, 4), (5,)]
+    license_front, photo, other, residence, license_back = file_grouping.candidates
+    assert (photo.document_type_slug, residence.document_type_slug) == (PHOTO, RESIDENCE)
+    assert residence.sides == (Side.FRONT, Side.BACK)
+    assert (other.document_type_slug is not None) is third_page_known
+    for candidate in (photo, other, residence):
+        assert candidate.contiguity_violation is None
+    front_violation = license_front.contiguity_violation
+    back_violation = license_back.contiguity_violation
+    assert front_violation == ContiguityViolation(
+        pages=(0,), counterparts=((5,),), intervening_pages=(1, 2, 3, 4)
+    )
+    assert back_violation == ContiguityViolation(
+        pages=(5,), counterparts=((0,),), intervening_pages=(1, 2, 3, 4)
+    )
+    assert "(R6)" in front_violation.reason
+    assert "bu parça (sayfa 1)" in front_violation.reason
+    assert "bu parça (sayfa 6)" in back_violation.reason
+
+    determined = _events(session, EventType.DOC_TYPE_DETERMINED)
+    by_page = {event.page_index: event for event in determined}
+    assert sorted(by_page) == ([0, 1, 2, 3, 5] if third_page_known else [0, 1, 3, 5])
+    assert all(event.file_id == file_id for event in determined)
+    assert by_page[0].data_json == _piece_event_data([0], ["front"], [[5]])
+    assert by_page[5].data_json == _piece_event_data([5], ["back"], [[0]])
+    assert (by_page[0].message, by_page[5].message) == (
+        front_violation.reason,
+        back_violation.reason,
+    )
+    assert by_page[3].data_json == {
+        "document_type_slug": RESIDENCE,
+        "pages": [3, 4],
+        "sides": ["front", "back"],
+    }
+    assert by_page[1].message is None and by_page[3].message is None
+    unknown = _events(session, EventType.DOC_TYPE_UNKNOWN)
+    if third_page_known:
+        assert not unknown
+        assert by_page[2].data_json == {
+            "document_type_slug": PERMIT,
+            "pages": [2],
+            "sides": ["single"],
+        }
+    else:
+        assert [(event.page_index, event.message) for event in unknown] == [(2, None)]
+        assert "contiguity_violation" not in unknown[0].data_json
+    logged = json.dumps(
+        [(event.data_json, event.message) for event in (*determined, *unknown)],
+        ensure_ascii=False,
+    )
+    for value in S3_PERSONAL_VALUES:
+        assert value not in logged
+
+
+def test_pieces_in_different_files_are_not_judged_by_contiguity(
+    session: Session, layout: DataLayout, tmp_path: Path
+) -> None:
+    # Ardışıklık dosyadaki sayfa sırasıdır; başka dosyadaki eş dosyalar arası gruplamanın (04.3).
+    upload = _upload(
+        session,
+        layout,
+        [
+            ("on.pdf", make_text_pdf_bytes(["ON YUZ", "FOTOGRAF"])),
+            ("arka.pdf", make_text_pdf_bytes(["ARKA YUZ"])),
+        ],
+    )
+    responses = [
+        _payload(0, LICENSE, side="front"),
+        _payload(1, PHOTO, person=NO_PERSON, fields={}),
+        _payload(0, LICENSE, side="back", person=NO_PERSON),
+    ]
+    analyze_upload(
+        session,
+        layout,
+        upload,
+        provider=_recordings(tmp_path, responses),
+        instructions=INSTRUCTIONS,
+    )
+
+    grouping = group_upload(session, upload, catalog=CATALOG)
+
+    assert [_layout(file_grouping) for file_grouping in grouping.files] == [[(0,), (1,)], [(0,)]]
+    assert all(candidate.contiguity_violation is None for candidate in grouping.candidates)
+    events = _events(session, EventType.DOC_TYPE_DETERMINED)
+    assert all("contiguity_violation" not in event.data_json for event in events)
 
 
 def test_group_upload_reads_blank_failed_duplicate_and_catalog_less_pages(

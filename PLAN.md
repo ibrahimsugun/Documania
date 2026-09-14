@@ -8,7 +8,7 @@
 
 | Faz | PRD | Genel durum | Must sayacı | Kapanış |
 | --- | --- | --- | --- | --- |
-| Faz 0 — MVP | §5.1 | 44 ✅ · 0 ◐ · 58 ⬜ · 0 🔒 | 43/98 Must | AÇIK |
+| Faz 0 — MVP | §5.1 | 45 ✅ · 0 ◐ · 57 ⬜ · 0 🔒 | 44/98 Must | AÇIK |
 | Faz 1 — v1 | §5.2 | 0 ✅ · 0 ◐ · 0 ⬜ · 32 🔒 | 0/21 Must | AÇIK |
 | Faz 2 — v2 | §5.3 | 0 ✅ · 0 ◐ · 0 ⬜ · 13 🔒 | 0/0 Must | AÇIK |
 | Faz 3 — Enterprise | §5.4 | 0 ✅ · 0 ◐ · 0 ⬜ · 8 🔒 | 0/0 Must | AÇIK |
@@ -134,7 +134,7 @@ panelde `plan-count-drift` bulgusu doğurur.
 | --- | --- | --- | --- |
 | 04.1.1 | Dosya içi gruplama | Must (MVP) | ✅ → K04.1 |
 | 04.1.2 | Ön/arka yüz yapısı | Must (MVP) | ✅ → K04.1 |
-| 04.2.1 | Ardışıklık güvenlik kuralı (R6) | Must (MVP) | ⬜ |
+| 04.2.1 | Ardışıklık güvenlik kuralı (R6) | Must (MVP) | ✅ → K04.2 |
 | 04.3.1 | Dosyalar arası gruplama | Must (MVP) | ⬜ |
 | 04.3.2 | Belirsiz eşleştirmenin reddi | Must (MVP) | ⬜ |
 | 04.4.1 | Zorunlu alan okunaklılık kapısı (R1) | Must (MVP) | ⬜ |
@@ -556,6 +556,43 @@ Onay beklemeden yapılan varsayımlar buraya numaralı olarak yazılır.
   `pages`, `sides` — kişisel değer yok); 04.6 aday tür kaydını ve `CANDIDATE_TYPE_PROPOSED`'ı ekler,
   `DOC_TYPE_UNKNOWN`'u ikinci kez yazmamalı. Saklanan analiz katalogsuz okunur (C12); şemaya uymayan
   `analysis_json` değer taşımayan `StoredAnalysisError` ile durur. Oturum commit edilmez.
+- **C19** — Ardışıklık güvenlik kuralı (tm 26, 04.2.1): PRD "araya başka belge girmiş parçalar otomatik
+  birleştirilmez, gerekçesiyle Unresolved'a gider" der; hangi adayların aynı belgenin parçası
+  sayılacağı, "başka belge"nin ne olduğu ve Unresolved'a gitmenin karar motorunda neye karşılık
+  geldiği yazılı değil. 04.1 parçaları zaten birleştirmez (C18); 04.2 onları **işaretler**:
+  `group_file_pages` sonunda aynı dosyadaki aynı slug'lı her aday çifti denenir, parça sayılan adaya
+  `DocumentCandidate.contiguity_violation` (`ContiguityViolation`: `pages`, `counterparts`,
+  `intervening_pages`, `unanalyzed_pages`; `rule = "R6"`, `queue = QueueKind.UNRESOLVED`, `reason`)
+  konur. Adaylar, sıraları ve aradaki belgeler değişmez (S3: foto ve oturum izni aday kalır, sayfa 3
+  kendi türüyle). **Parça çifti** dört koşulun hepsidir. (1) Aynı slug ve slug katalogda: katalog
+  dışı (aday tür adı) ve türü belirlenemeyen adayın yüz/sayfa yapısı bilinmez, hüküm verilmez —
+  Unknown rotası 04.6'nın, tür onayı ve yeniden analizden (K18) sonra kural katalog yapısıyla
+  işler. (2) Tek belgede birleşebilir: `front_back` türde biri yalnız `(front,)`, öteki yalnız
+  `(back,)` — sıra fark etmez (arka yüzü önce taranmış kart da aynı karttır); tamamlanmış çift ve
+  `single`/`unknown` yüzlü aday parça değildir. Tek yüzlü türde toplam sayfa ≤ `expected_pages.max`
+  (aralık yoksa sınır yok) — iki parçanın her biri tek başına aralıkta olsa da (1+1 sayfalık
+  çalışma izni) iki belge mi araya belge girmiş tek belge mi bilinemez, kuyruğa gider (R7);
+  1 sayfalık türde (pasaport, foto) iki aday parça olamaz. (3) Kimlik değerleri iki parçanın hiçbir
+  sayfa çiftinde çelişmez (C18 5. koşulu). (4) Araya belge girmiş: iki parça arasında başka bir aday
+  (türü ne olursa olsun, aynı türden başka aday dahil) ya da analizi başarısız/yapılmamış sayfa
+  (içeriği bilinmez, K5 — C18 ile tutarlı) vardır; 02.4 boş sayfası ve analizcinin boş dediği sayfa
+  belge değildir, sayılmaz ve listelenmez. Bitişik ya da yalnız boş sayfayla ayrılmış eksik parçalar
+  (`F B` devam etmeyen, `B F`) bu kuralın konusu değildir; rotaları sayfa sayısı (04.5) / yüz
+  doğrulayıcısıdır (06.5). Kural dosya içidir: başka dosyadaki eş 04.3'ündür. Aday birden çok
+  parçayla çift olabilir (`F x B y B`: ön yüz iki arka yüzle, iki arka yüz birbirinin parçası
+  değil); `counterparts` hepsini, `intervening_pages` aradaki adayların sayfalarını (öteki parçalar
+  hariç), `unanalyzed_pages` aradaki analizsiz sayfaları taşır. **Gerekçe** (`reason`): kural,
+  parçanın ve öteki parçaların sayfaları, araya girenler; metinde sayfa numarası 1'den başlar
+  (kullanıcının PDF görüntüleyicide gördüğü ve S3'ün "ehliyet 1 ve 6"sı), yapılandırılmış alanlar
+  `pages.index`'tir (0'dan). Tür ve kişi tahmini metne girmez (plan öğesi taşır, 08.1.2 birleştirir);
+  kişisel değer yok. **Unresolved'a gitmek** bu aşamada karar motorunun hükmüdür: kuyruk kaydı,
+  klasör kopyası ve `QUEUED_UNRESOLVED` planlamadan sonra 08.1'in işidir (K9). 06.1 dolu
+  `contiguity_violation`'lı adaya `route: unresolved`, `route_reason: reason` yazmalı; başka bir
+  kontrol bu adayı Hazir'a çeviremez. 04.3 işaretli parçayı dosyalar arası eşleştirmeye sokmamalı —
+  eşi aynı dosyada, araya belge girmiş hâlde durmaktadır. **Olay:** §8.3'te ardışıklık hükmüne
+  ayrı tür yok (D6 ile aynı soru); hüküm adayın kendi `DOC_TYPE_DETERMINED` olayına
+  `contiguity_violation` verisi (`rule`, `queue`, `counterparts`, `intervening_pages`,
+  `unanalyzed_pages` — değer yok) ve `message = reason` olarak yazılır, yeni olay türü eklenmedi.
 
 ## D. Sapmalar
 
@@ -797,3 +834,7 @@ var olan maddeler silinmez. Biçim:
 - ✅ 04.1.1 `group_file_pages`/`group_upload` (`app/pipeline/group.py`) dosyanın analiz edilmiş sayfalarını sırayla belge adaylarına ayırır: sayfa açık adaya yalnız ardışıksa (araya yalnız 02.4 boş sayfası girebilir; analizi başarısız/yapılmamış ve analizcinin boş dediği sayfa zinciri kırar, aday olmaz), `continues_previous_page` doğruysa, türü aynıysa (slug ya da normalize aday tür adı) ve iki sayfada da yazılı kimlik değeri (normalize belge numarası, doğum tarihi, soyad/ad/orijinal yazım kelime kümesi) çelişmiyorsa katılır; aynı kişinin devam etmeyen iki pasaportu, farklı tür, çelişen kişi (6 durum) ve belirlenemeyen tür ayrı aday kalır, yalnız yazım farkı (boşluk/tire/nokta, aksan, `ı`, kelime sırası, eksik ikinci ad, Kiril harf büyüklüğü — 8 durum) bölmez, beklenen sayfa sayısında bölünmez; `group_upload` tekrar dosyasını atlar, boş/başarısız/analizsiz sayfaları ayrı listeler, aday başına kişisel değer taşımayan `DOC_TYPE_DETERMINED`/`DOC_TYPE_UNKNOWN` yazar, şemaya uymayan saklı analizde değersiz `StoredAnalysisError` verir (kurallar: C18). 5 kural bozulması (devam işareti, yüz yapısı, kişi çelişkisi, boş okuma, normalizasyon) bellekte ayrı ayrı denendi, her biri testte kırmızı — `app/pipeline/group.py` · test `tests/pipeline/test_group.py` (31 fonksiyon / 55 durum) · tm 25
 - ✅ 04.1.2 katalogda `front_back` türde ön yüz ve onu izleyen arka yüz sırayla tek adayda eşleşir (`sides` `(front, back)`, ehliyet ve oturum izni); araya giren boş sayfa eşleşmeyi bozmaz, `F B F B` iki çift olur; `B F`, devam etmeyen arka, tamamlanmış çifte üçüncü sayfa, `single`/`unknown` yüz ve başka numaralı arka eşleşmez, `F F B` → `[F] [F B]` — `app/pipeline/group.py` · test `tests/pipeline/test_group.py` · tm 25
 - ✅ S4: 5 sayfalık sentetik PDF (ehliyet ön, ehliyet arka, foto, oturum ön, oturum arka) gerçek render/metin/boş sayfa adımlarından ve yeni kayıtlı yanıtlarla `analyze_upload`'dan geçip `group_upload` ile üç bağımsız aday verir — `serbian_driving_license` [0, 1] (front, back), `profile_picture` [2], `serbian_residence_card` [3, 4] (front, back); üç `DOC_TYPE_DETERMINED` olayında kişisel değer yok — `tests/fixtures/ai/recordings/s4_sequential_pdf/{0..4}.json` · test `tests/pipeline/test_group.py` · tm 25
+
+#### K04.2 — 04.2.1 · Ardışıklık güvenlik kuralı (R6)
+- ✅ 04.2.1 `group_file_pages` (`app/pipeline/group.py`) aynı dosyada aynı belgenin parçası olabilen ve arasına başka belge girmiş adayları birleştirmeden `DocumentCandidate.contiguity_violation` (`ContiguityViolation`, `rule = "R6"`, `queue = unresolved`, değer taşımayan `reason`) ile işaretler; parça çifti: aynı katalog türü, tek belgede birleşebilir yapı (`front_back`'te yalnız ön + yalnız arka, sıra fark etmez; tek yüzlüde toplam sayfa ≤ `expected_pages.max`), çelişmeyen kimlik ve arada başka aday ya da analizsiz sayfa; bitişik/yalnız boş sayfayla ayrılmış eksik parçalar, iki ön yüz, tamamlanmış çift, yüzü belirsiz sayfa, başka tür/kişi, sayfa sınırını aşan, 1 sayfalık, katalog dışı, türü belirsiz ve katalogda olmayan tür (15 durum) parça sayılmaz; birden çok karşı parça ve araya girenler (öteki parçalar hariç) listelenir; gerekçe kural + 1'den başlayan sayfa numaraları. Hüküm adayın `DOC_TYPE_DETERMINED` olayına `contiguity_violation` verisi ve `message = reason` olarak yazılır, kişisel değer yok (kurallar: C19). 10 kural bozulması (bitişik parça, analizsiz sayfa, kişi çelişkisi, yüz sırası, sayfa sınırı, işaretleme, karşı parçayı araya sayma, olay verisi, katalogda olmayan slug, katalog dışı tür) bellekte ayrı ayrı denendi, her biri testte kırmızı — `app/pipeline/group.py` · test `tests/pipeline/test_group.py` (44 fonksiyon / 85 durum, +13 / +30) · tm 26
+- ✅ S3: 6 sayfalık sentetik PDF (ehliyet ön, foto, başka belge, oturum ön, oturum arka, ehliyet arka) gerçek render/metin/boş sayfa adımlarından ve yeni kayıtlı yanıtlarla `analyze_upload` → `group_upload`: adaylar (0'dan sıra) [0] [1] [2] [3, 4] [5]; oturum izni [3, 4] (front, back) ve foto [1] işaretsiz, sayfa 3 ([2]) katalog türünde (`work_permit`) `DOC_TYPE_DETERMINED`, katalog dışı türde `DOC_TYPE_UNKNOWN` ile işaretsiz; ehliyet 1 ve 6 ([0], [5]) birleştirilmez, ikisi de R6 ile Unresolved (karşı parça birbirleri, araya giren [1, 2, 3, 4]) ve olay mesajı gerekçedir; ön ve arka yüz ayrı dosyalardaysa kural uygulanmaz (04.3) — `tests/fixtures/ai/recordings/s3_interleaved_pdf/{0..5}.json` · test `tests/pipeline/test_group.py` · tm 26

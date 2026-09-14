@@ -1,4 +1,5 @@
-"""Dosya içi gruplama ve ön/arka yüz eşleşmesi — PRD 04.1.1, 04.1.2.
+"""Dosya içi gruplama, ön/arka yüz eşleşmesi ve ardışıklık güvenlik kuralı — PRD 04.1.1, 04.1.2,
+04.2.1.
 
 Bir dosyanın analiz edilmiş sayfaları `pages.index` sırasıyla **belge adaylarına** ayrılır (§4:
 karar motorunun aynı belgeye ait olduğuna hükmettiği sayfa grubu). Sayfa açık adaya ancak aşağıdaki
@@ -27,12 +28,32 @@ koşulların hepsi sağlanırsa katılır; biri bile sağlanmazsa yeni aday baş
    çelişkidir (ikinci adı yazılmamış sayfa çelişmez). Değeri olmayan sayfa (ör. kartın arka yüzü)
    çelişmez. Katılacak sayfa adayın her sayfasıyla karşılaştırılır.
 
-Aday eksik olabilir (yalnız ön ya da yalnız arka yüz, beklenen sayfa sayısı dışında); bu modül rota
-seçmez: araya başka belge girmesi 04.2'nin, başka dosyadaki eş 04.3'ün, sayfa sayısı 04.5'in işidir.
+Aday eksik olabilir (yalnız ön ya da yalnız arka yüz, beklenen sayfa sayısı dışında); gruplama onu
+tamamlamaz. Başka dosyadaki eş 04.3'ün, sayfa sayısı 04.5'in işidir.
+
+**Ardışıklık güvenlik kuralı (04.2.1, R6/K5):** aynı dosyadaki iki aday aynı belgenin parçaları
+olabiliyor ve aralarına başka bir belge girmişse parçalar birleştirilmez; her biri
+`contiguity_violation` taşır ve Unresolved'a gider. Adaylar, sıraları ve aradaki belgeler değişmez.
+İki aday şu koşulların hepsinde aynı belgenin parçası olabilir:
+
+- **Aynı katalog türü.** Katalog dışı ve türü belirlenemeyen adayın yüz ve sayfa yapısı bilinmez;
+  parça olup olmadığına hükmedilmez (rotası 04.6'nın).
+- **Tek belgede birleşebilir.** `front_back` türde biri yalnız ön, öteki yalnız arka yüzdür — sıra
+  fark etmez, arka yüzü önce taranmış kart da aynı karttır. Tek yüzlü türde toplam sayfa sayısı
+  türün en fazla sayfa sayısını aşmaz (aralık yoksa sınır yoktur); iki parçanın her biri tek başına
+  aralıkta olsa da iki belge mi tek belge mi olduğu bilinemez, kuyruğa gider (R7).
+- **Aynı kişi.** 5. koşuldaki kimlik değerleri iki parçanın hiçbir sayfa çiftinde çelişmez.
+- **Araya belge girmiş.** İki parça arasında başka bir aday (türü ne olursa olsun) ya da analizi
+  olmayan, içeriği bilinmediği için başka belge olabilecek sayfa vardır. Boş sayfa belge değildir:
+  yalnız boş sayfayla ayrılmış ya da bitişik eksik parçalar bu kuralın konusu değildir.
+
+Gerekçe (`ContiguityViolation.reason`) kuralı, parçanın ve öteki parçaların sayfalarını ve araya
+girenleri kullanıcının gördüğü sayfa numarasıyla (1'den) yazar; kişisel değer taşımaz.
 
 `group_upload` partinin tekrar olmayan dosyalarını ayrı ayrı gruplar ve her aday için bir olay
 yazar: katalog türünde `DOC_TYPE_DETERMINED`, değilse `DOC_TYPE_UNKNOWN` (veri: slug veya aday tür
-adı, sayfalar, yüzler — kişisel değer yok). Oturum commit edilmez; işlem sınırı çağıranındır.
+adı, sayfalar, yüzler — kişisel değer yok). Ardışıklık kuralına takılan adayın olayı ayrıca kuralın
+verisini ve gerekçeyi taşır. Oturum commit edilmez; işlem sınırı çağıranındır.
 """
 
 from __future__ import annotations
@@ -40,14 +61,16 @@ from __future__ import annotations
 import re
 import unicodedata
 from collections.abc import Iterable, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
+from itertools import combinations
+from typing import ClassVar
 
 from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
 from app.ai.schemas import PageAnalysis, PagePerson, Side
-from app.catalog import Catalog, Sides
-from app.db.models import Page, Upload, UploadFile
+from app.catalog import Catalog, CatalogEntry, Sides
+from app.db.models import Page, QueueKind, Upload, UploadFile
 from app.events import EventType, event_context, record_event
 from app.pipeline.analyze import PageAnalysisStatus
 
@@ -80,10 +103,53 @@ class CandidatePage:
 
 
 @dataclass(frozen=True, slots=True)
+class ContiguityViolation:
+    """R6 (K5): aday, aynı dosyada araya başka belge girmiş bir belgenin parçası olabilir (04.2.1).
+
+    Parça otomatik birleştirilmez ve Unresolved'a gider. Alanlar dosyadaki sayfa sıralarıdır
+    (`pages.index`): `pages` bu parçanın, `counterparts` aynı belgeye ait olabilecek öteki
+    parçaların (dosya sırasıyla) sayfaları; `intervening_pages` aradaki başka belgelerin,
+    `unanalyzed_pages` aradaki analizi olmayan sayfalardır. Boş sayfa ikisinde de yer almaz.
+    """
+
+    rule: ClassVar[str] = "R6"
+    queue: ClassVar[QueueKind] = QueueKind.UNRESOLVED
+
+    pages: tuple[int, ...]
+    counterparts: tuple[tuple[int, ...], ...]
+    intervening_pages: tuple[int, ...] = ()
+    unanalyzed_pages: tuple[int, ...] = ()
+
+    @property
+    def reason(self) -> str:
+        """Değer taşımayan gerekçe; sayfa numarası kullanıcının gördüğü gibi 1'den başlar."""
+        between: list[str] = []
+        if self.intervening_pages:
+            between.append(f"başka belgeye ait sayfa ({_page_numbers(self.intervening_pages)})")
+        if self.unanalyzed_pages:
+            between.append(
+                "analizi yapılamamış, başka belgeye ait olabilecek sayfa "
+                f"({_page_numbers(self.unanalyzed_pages)})"
+            )
+        others = "; ".join(_page_numbers(pages) for pages in self.counterparts)
+        piece = "parça" if len(self.counterparts) == 1 else "parçalar"
+        return (
+            f"Ardışıklık güvenlik kuralı ({self.rule}): bu parça ({_page_numbers(self.pages)}) "
+            f"ile aynı belgeye ait olabilecek {piece} ({others}) arasında {' ve '.join(between)} "
+            "var; parçalar otomatik birleştirilmez."
+        )
+
+
+@dataclass(frozen=True, slots=True)
 class DocumentCandidate:
-    """Aynı belgeye ait olduğuna hükmedilen sayfalar, kaynaktaki sırasıyla."""
+    """Aynı belgeye ait olduğuna hükmedilen sayfalar, kaynaktaki sırasıyla.
+
+    `contiguity_violation` doluysa aday, araya başka belge girmiş bir belgenin parçasıdır: çıktı
+    üretilmez, gerekçesiyle Unresolved'a gider (04.2.1).
+    """
 
     pages: tuple[CandidatePage, ...]
+    contiguity_violation: ContiguityViolation | None = None
 
     @property
     def document_type_slug(self) -> str | None:
@@ -121,7 +187,7 @@ class UploadGrouping:
 
 
 def group_upload(session: Session, upload: Upload, *, catalog: Catalog) -> UploadGrouping:
-    """Partinin her dosyasını ayrı gruplar (04.1) ve her adayı olay loguna yazar.
+    """Partinin her dosyasını ayrı gruplar (04.1, 04.2) ve her adayı olay loguna yazar.
 
     Tekrar dosyası (01.4.1) gruplanmaz: analiz edilmemiştir ve çıktı üretmez. `catalog`, türlerin
     yüz yapısının okunduğu güncel katalogdur (`export_catalog(session)`).
@@ -141,7 +207,10 @@ def group_upload(session: Session, upload: Upload, *, catalog: Catalog) -> Uploa
 def group_file_pages(
     file_id: int, pages: Iterable[GroupingPage], *, catalog: Catalog
 ) -> FileGrouping:
-    """Tek dosyanın sayfalarını belge adaylarına ayırır; kurallar modül açıklamasındadır."""
+    """Tek dosyanın sayfalarını belge adaylarına ayırır; kurallar modül açıklamasındadır.
+
+    Araya başka belge girmiş parçalar `contiguity_violation` ile işaretlenir (04.2.1).
+    """
     ordered = sorted(pages, key=lambda page: page.index)
     if len({page.index for page in ordered}) != len(ordered):
         raise ValueError("Aynı dosyada bir sayfa sırası birden fazla kez verildi")
@@ -168,7 +237,12 @@ def group_file_pages(
             current = [CandidatePage(file_id, page.index, analysis)]
     if current:
         candidates.append(DocumentCandidate(tuple(current)))
-    return FileGrouping(file_id, tuple(candidates), tuple(blank), tuple(unanalyzed))
+    return FileGrouping(
+        file_id,
+        _mark_contiguity_violations(candidates, unanalyzed, catalog),
+        tuple(blank),
+        tuple(unanalyzed),
+    )
 
 
 def _joins(candidate: Sequence[CandidatePage], analysis: PageAnalysis, catalog: Catalog) -> bool:
@@ -235,6 +309,94 @@ def _name_words(value: str | None) -> frozenset[str]:
     return frozenset(_NON_WORD.sub(" ", letters.replace("ı", "i")).split())
 
 
+def _mark_contiguity_violations(
+    candidates: Sequence[DocumentCandidate], unanalyzed: Sequence[int], catalog: Catalog
+) -> tuple[DocumentCandidate, ...]:
+    # Adaylar dosya sırasındadır ve sayfa aralıkları örtüşmez: iki adayın arasındaki adaylar
+    # listede de aralarındadır.
+    positions_by_type: dict[str, list[int]] = {}
+    for position, candidate in enumerate(candidates):
+        if candidate.document_type_slug is not None:
+            positions_by_type.setdefault(candidate.document_type_slug, []).append(position)
+    counterparts: dict[int, list[int]] = {}
+    for slug, positions in positions_by_type.items():
+        entry = catalog.get(slug)
+        if entry is None:
+            continue
+        for first, second in combinations(positions, 2):
+            if _separated(candidates, unanalyzed, first, second) and _may_be_one_document(
+                candidates[first], candidates[second], entry
+            ):
+                counterparts.setdefault(first, []).append(second)
+                counterparts.setdefault(second, []).append(first)
+    marked = list(candidates)
+    for position, others in counterparts.items():
+        marked[position] = replace(
+            candidates[position],
+            contiguity_violation=_violation(candidates, unanalyzed, position, sorted(others)),
+        )
+    return tuple(marked)
+
+
+def _separated(
+    candidates: Sequence[DocumentCandidate], unanalyzed: Sequence[int], first: int, second: int
+) -> bool:
+    # Aradaki aday başka belgedir; aday yoksa aradaki analizsiz sayfa başka belge olabilir (K5).
+    # Boş sayfa belge değildir.
+    if second - first > 1:
+        return True
+    after, before = candidates[first].pages[-1].index, candidates[second].pages[0].index
+    return any(after < index < before for index in unanalyzed)
+
+
+def _may_be_one_document(
+    first: DocumentCandidate, second: DocumentCandidate, entry: CatalogEntry
+) -> bool:
+    if entry.sides == Sides.FRONT_BACK:
+        fits = {first.sides, second.sides} == {(Side.FRONT,), (Side.BACK,)}
+    else:
+        limit = entry.expected_pages
+        fits = limit is None or len(first.pages) + len(second.pages) <= limit.max
+    return fits and not any(
+        _identity_conflict(page.analysis.person, other.analysis.person)
+        for page in first.pages
+        for other in second.pages
+    )
+
+
+def _violation(
+    candidates: Sequence[DocumentCandidate],
+    unanalyzed: Sequence[int],
+    position: int,
+    others: Sequence[int],
+) -> ContiguityViolation:
+    between: set[int] = set()
+    unanalyzed_between: set[int] = set()
+    for other in others:
+        low, high = sorted((position, other))
+        between.update(range(low + 1, high))
+        after, before = candidates[low].pages[-1].index, candidates[high].pages[0].index
+        unanalyzed_between.update(index for index in unanalyzed if after < index < before)
+    # Öteki parça, daha uzaktaki bir parçayla arada kalsa da "başka belge" diye ayrıca sayılmaz.
+    between.difference_update(others)
+    return ContiguityViolation(
+        pages=_indexes(candidates[position]),
+        counterparts=tuple(_indexes(candidates[other]) for other in others),
+        intervening_pages=tuple(
+            sorted(page.index for inner in between for page in candidates[inner].pages)
+        ),
+        unanalyzed_pages=tuple(sorted(unanalyzed_between)),
+    )
+
+
+def _indexes(candidate: DocumentCandidate) -> tuple[int, ...]:
+    return tuple(page.index for page in candidate.pages)
+
+
+def _page_numbers(indexes: Iterable[int]) -> str:
+    return "sayfa " + ", ".join(str(index + 1) for index in indexes)
+
+
 def _reads_as_blank(analysis: PageAnalysis) -> bool:
     # Çelişkili yanıt (boş denmiş ama tür, kişi değeri veya okunaklı alan var) boş sayılmaz.
     person = analysis.person.model_dump()
@@ -284,4 +446,19 @@ def _record_candidate(session: Session, candidate: DocumentCandidate) -> None:
     else:
         event_type = EventType.DOC_TYPE_UNKNOWN
         data = {"candidate_type_name": candidate.candidate_type_name, **data}
-    record_event(session, event_type, page_index=candidate.pages[0].index, data=data)
+    message = None
+    violation = candidate.contiguity_violation
+    if violation is not None:
+        # §8.3'te ardışıklık hükmüne ayrı olay türü yok; hüküm adayın kendi olayına yazılır.
+        # Kuyruk kaydı ve `QUEUED_UNRESOLVED` planlamadan sonra kuyruğa yönlendirmenin işidir.
+        data["contiguity_violation"] = {
+            "rule": violation.rule,
+            "queue": violation.queue.value,
+            "counterparts": [list(pages) for pages in violation.counterparts],
+            "intervening_pages": list(violation.intervening_pages),
+            "unanalyzed_pages": list(violation.unanalyzed_pages),
+        }
+        message = violation.reason
+    record_event(
+        session, event_type, page_index=candidate.pages[0].index, message=message, data=data
+    )
