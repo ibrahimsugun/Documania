@@ -75,13 +75,14 @@
         "description": "PRD 00.6.1, 00.6.2, 00.6.3 · FR-MOD-00 (Altyapı ve iskelet) · Faz 0.",
         "details": "KAPSAM: PRD 00.6.1, 00.6.2, 00.6.3 (FR-MOD-00 — Altyapı ve iskelet, Faz 0).\n\nNE YAPILACAK — GEREKSİNİMLER VE KABUL KRİTERLERİ:\n- 00.6.1 — Katalog şeması ve tutarlılık kuralı\n  Kabul: §8.6'daki tüm alanlar tanımlıdır (`acceptance_criteria` dahil); `direct: true` olan türde dönüşüm listesi doluysa katalog yüklemesi reddedilir\n- 00.6.2 — Başlangıç belge türleri\n  Kabul: En az 8 tür yüklüdür: Russian/Turkish/Serbian Passport, Serbian Residence Card, Serbian Driving License, Work Permit, Profile Picture, Attachment\n- 00.6.3 — Katalog YAML ↔ veritabanı eşitleme\n  Kabul: YAML tohumdan yükleme ve veritabanından dışa aktarma iki yönlü çalışır\n\nGİRDİ — ÜZERİNE KURULDUĞU İŞLER (bu kod ZATEN VAR; yazmadan önce OKU):\n- 00.3 (Veri modeli ve göç altyapısı) → app/db/models.py, app/db/session.py, alembic/\n- 00.4 (Depolama katmanı: yol, slug, adlandırma, atomik yazma) → app/storage/\n\nÇIKTI — DOKUNULACAK YÜZEY: app/catalog/, data/KnownDocuments/catalog.yaml\n\nKARAR TABLOSU: bu görev için ayrı karar tablosu yok; kabul kriterleri ve kilitli kurallar yeterli.\n\nBU GÖREVİ BAĞLAYAN KİLİTLİ KURALLAR (MASTER-PROMPT §3 — tartışma, uygula):\n- K3: Direkt Belge AÇIK: çıktı tek kaynaktan ardışık sayfalardır. Başka dosyadan sayfa eklenmez, format dönüştürülmez, görüntü yeniden kodlanmaz. Sayfa çıkarmak serbesttir. Beklenen dosya türü tutmuyorsa Unresolved + 'uygun formatta yeniden gönderin'.\n- K4: Direkt Belge KAPALI: aynı partideki farklı dosyalardan sayfalar birleştirilebilir, türün izin verdiği dönüşümler yapılabilir. Ardışıklık kuralı yine geçerli.\n- K12: Yalnız türün izinli dönüşümler listesindeki dönüşümler yapılır. PDF→JPEG kayıplıdır: yalnız görsel türlerde ve sabit çözünürlükle. Sayfada gömülü tek görüntü varsa render yerine o görüntü kayıpsız çıkarılır.\n\nPRD'DE AYRICA OKU: §8.6 (katalog kaydı biçimi)\n\nİLGİLİ KABUL SENARYOSU: doğrudan yok. Kabul kriterleri yukarıda.\n\nSIRA (MASTER-PROMPT §5, contract-first): sözleşme/şema → Alembic göçü (gerekiyorsa) → çekirdek + unit test → entegrasyon + testi → arayüz.\n\nKAPSAM SINIRI: yalnız yukarıdaki PRD kimlikleri. Başka gereksinimin işini yapma; yolda gördüğün kusuru düzeltme, yeni görev olarak aç (CONVENTIONS §5). Kilitli teknik kararları (MASTER-PROMPT §4) tartışma; yanlış görünüyorsa uygula ve PLAN.md §D'ye sapma yaz.\n\nTUZAKLAR: belge içeriğini değiştiren kod yazma — kırpma, döndürme (EXIF dışında), kontrast, metin yazma, form doldurma yok (K11/K17). Gerçek kimlik belgesi kullanma; test verisi tests/fixtures/gen.py ile üretilen sentetik belgelerdir (CONVENTIONS §6). Yapay zekâ çağrısı testte canlı yapılmaz, kayıtlı yanıt sağlayıcısı kullanılır. Test/build komutlarını arka plana atma — pencere ölür.\n\nKAPANIŞ: PLAN.md'de 00.6.1, 00.6.2, 00.6.3 satırlarının damgasını '✅ → K00.6' yap ve '## K. Kanıt Geçmişi' bölümünde '#### K00.6' bloğuna kanıt maddesi ekle (blok yoksa aç). Faz özet tablosundaki sayıları SAYARAK güncelle. Ayrıntı: CONVENTIONS §1.2-1.3.",
         "testStrategy": "CONVENTIONS §1 DoD kapısı: ruff check . · ruff format --check . · python -m compileall -q app tests · pytest -q -m \"not live\" · alembic upgrade head · python -c \"import app.main\" — hepsi exit 0.\nAyrıca bu görevin kendi kabul kriterleri:\n- 00.6.1: §8.6'daki tüm alanlar tanımlıdır (`acceptance_criteria` dahil); `direct: true` olan türde dönüşüm listesi doluysa katalog yüklemesi reddedilir\n- 00.6.2: En az 8 tür yüklüdür: Russian/Turkish/Serbian Passport, Serbian Residence Card, Serbian Driving License, Work Permit, Profile Picture, Attachment\n- 00.6.3: YAML tohumdan yükleme ve veritabanından dışa aktarma iki yönlü çalışır",
-        "status": "pending",
+        "status": "done",
         "dependencies": [
           "3",
           "4"
         ],
         "priority": "high",
-        "subtasks": []
+        "subtasks": [],
+        "updatedAt": "2026-09-14T00:28:07.293Z"
       },
       {
         "id": "7",
@@ -1255,9 +1256,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-09-14T00:09:14.298Z",
+      "lastModified": "2026-09-14T00:28:07.293Z",
       "taskCount": 92,
-      "completedCount": 5,
+      "completedCount": 6,
       "tags": [
         "master"
       ]
