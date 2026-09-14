@@ -18,6 +18,12 @@ Blok biçimi `CONVENTIONS.md` §3'te tanımlıdır:
 
 ## Task log (newest-first)
 
+## 10 — 01.4 Tekrar yükleme tespiti (SHA-256) — done — 2026-09-14
+- Yapıldı: `find_original_by_sha256` (K10) — aynı SHA-256'nın daha önce yüklenmiş özgün satırını bulur (zincirlenmeyi önlemek için yalnız `is_duplicate_of IS NULL` satırlara bakar); yükleme uç noktasına bağlandı — eşleşme varsa dosya yine değişmeden Inbox'a yazılır, `UploadFile.is_duplicate_of` kök satıra işaret eder, `FILE_UPLOADED` yerine `FILE_DUPLICATE` olayı (`duplicate_of_file_id` verisiyle) yazılır.
+- Doğrulama: ruff check/format, compileall, `pytest -q -m "not live"` (280 geçti, +6 tekrar tespiti durumu; 3 PG testi ortam değişkeni yokken atlandı), kapsam %99.22 (`app/storage/hashing.py` ve `app/web/routers/uploads.py` %100), temiz SQLite'ta `alembic upgrade head`, `import app.main` — hepsi exit 0.
+- Varsayımlar: Analiz boru hattı henüz yok (Faz 0'ın sonraki bir görevi); bu görev yalnız tespit + işaretleme + olay logunu yapar, "analiz edilmez" kısmı ileride `is_duplicate_of` alanını okuyacak analiz adımının sorumluluğu. Görevin ÇIKTI listesindeki `app/storage/hashing.py` yeni bir dosya olarak açıldı — SHA-256 hesaplama zaten `app/storage/atomic.py`'de vardı, bu modül yalnız DB'de eşleşen özgün satırı arayan sorguyu taşır.
+- Sonraki pencereye not: Tekrar kontrolü dosya adına değil yalnız içerik SHA-256'sına bakar, farklı partiler arasında da çalışır; ileride analiz/plan adımı `UploadFile.is_duplicate_of is not None` olan satırları atlamalı, `EventType.FILE_DUPLICATE` zaten olay logunda.
+
 ## 9 — 01.3 Boyut ve sayfa sınırı denetimi — done — 2026-09-14
 - Yapıldı: Yükleme uç noktasına 01.3.1 boyut/sayfa sınırı denetimi eklendi — her dosya diske yazılmadan önce boyut (`Settings.max_upload_file_size_bytes`) ve, içerik PDF ise (`detect_file_kind`), sayfa sayısı (`Settings.max_upload_pdf_pages`, `pypdf.PdfReader`) kontrol edilir; sınırı aşan tek dosya bile partiyi tamamen reddeder (400 + "bölüp tekrar yükleyin") ve hiçbir DB satırı/dosya yazılmaz.
 - Doğrulama: ruff check/format, compileall, `pytest -q -m "not live"` (274 geçti, +6 sınır durumu; 3 PG testi ortam değişkeni yokken atlandı), kapsam %99.03 (`app/web/routers/uploads.py` %100), temiz SQLite'ta `alembic upgrade head`, `import app.main` — hepsi exit 0.

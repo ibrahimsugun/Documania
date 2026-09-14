@@ -14,6 +14,7 @@ from app.storage.atomic import (
     write_sequenced,
 )
 from app.storage.filetype import FileKind, UnsupportedFileTypeError, detect_file_kind
+from app.storage.hashing import find_original_by_sha256
 from app.storage.layout import DataLayout, prepare_data_dir
 from app.storage.naming import (
     document_stem,
@@ -33,6 +34,7 @@ __all__ = [
     "detect_file_kind",
     "document_stem",
     "employee_folder_name",
+    "find_original_by_sha256",
     "person_slug",
     "prepare_data_dir",
     "remove_partial_writes",

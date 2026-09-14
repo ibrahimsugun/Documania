@@ -25,7 +25,14 @@ from app.config import Settings, get_settings
 from app.db.models import Employee, Upload, UploadFile, allocate_upload_id
 from app.db.session import get_session
 from app.events import EventType, event_context, record_event
-from app.storage import DataLayout, FileKind, UnsupportedFileTypeError, detect_file_kind, write_file
+from app.storage import (
+    DataLayout,
+    FileKind,
+    UnsupportedFileTypeError,
+    detect_file_kind,
+    find_original_by_sha256,
+    write_file,
+)
 
 router = APIRouter(prefix="/api/uploads", tags=["uploads"])
 
@@ -110,16 +117,30 @@ async def create_upload(
     with event_context(upload_id=upload_id):
         for file, name, content in zip(files, names, contents, strict=True):
             stored = write_file(inbox_dir / name, content)
+            # K10: içerik hâlâ değişmez biçimde Inbox'a yazılır; tekrar yalnız işaretlenir,
+            # dosya reddedilmez. Analiz adımı (henüz yok) `is_duplicate_of` alanına bakarak
+            # bu satırı atlayacak.
+            original = find_original_by_sha256(session, stored.sha256)
             upload_file = UploadFile(
                 upload_id=upload_id,
                 original_name=name,
                 stored_path=stored.path.relative_to(layout.root).as_posix(),
                 sha256=stored.sha256,
                 mime=file.content_type or "application/octet-stream",
+                is_duplicate_of=original.id if original is not None else None,
             )
             session.add(upload_file)
             session.flush()
-            record_event(session, EventType.FILE_UPLOADED, file_id=upload_file.id, message=name)
+            if original is not None:
+                record_event(
+                    session,
+                    EventType.FILE_DUPLICATE,
+                    file_id=upload_file.id,
+                    message=name,
+                    data={"duplicate_of_file_id": original.id},
+                )
+            else:
+                record_event(session, EventType.FILE_UPLOADED, file_id=upload_file.id, message=name)
 
     session.commit()
     return UploadCreateResponse(upload_id=upload_id)

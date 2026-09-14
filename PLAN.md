@@ -8,7 +8,7 @@
 
 | Faz | PRD | Genel durum | Must sayacı | Kapanış |
 | --- | --- | --- | --- | --- |
-| Faz 0 — MVP | §5.1 | 23 ✅ · 0 ◐ · 79 ⬜ · 0 🔒 | 22/98 Must | AÇIK |
+| Faz 0 — MVP | §5.1 | 24 ✅ · 0 ◐ · 78 ⬜ · 0 🔒 | 23/98 Must | AÇIK |
 | Faz 1 — v1 | §5.2 | 0 ✅ · 0 ◐ · 0 ⬜ · 32 🔒 | 0/21 Must | AÇIK |
 | Faz 2 — v2 | §5.3 | 0 ✅ · 0 ◐ · 0 ⬜ · 13 🔒 | 0/0 Must | AÇIK |
 | Faz 3 — Enterprise | §5.4 | 0 ✅ · 0 ◐ · 0 ⬜ · 8 🔒 | 0/0 Must | AÇIK |
@@ -97,7 +97,7 @@ panelde `plan-count-drift` bulgusu doğurur.
 | 01.2.1 | İçerik tabanlı tür tespiti | Must (MVP) | ✅ → K01.2 |
 | 01.2.2 | Desteklenmeyen türün reddi | Must (MVP) | ✅ → K01.2 |
 | 01.3.1 | Boyut ve sayfa sınırı | Must (MVP) | ✅ → K01.3 |
-| 01.4.1 | Tekrar yükleme tespiti | Must (MVP) | ⬜ |
+| 01.4.1 | Tekrar yükleme tespiti | Must (MVP) | ✅ → K01.4 |
 | 01.5.1 | Inbox'a değişmez yazma | Must (MVP) | ⬜ |
 | 01.6.1 | Parti durumu sorgulama | Must (MVP) | ⬜ |
 
@@ -533,3 +533,6 @@ var olan maddeler silinmez. Biçim:
 
 #### K01.3 — 01.3.1 · Boyut ve sayfa sınırı denetimi
 - ✅ Her dosya diske yazılmadan/parti oluşturulmadan önce boyut (`max_upload_file_size_bytes`, varsayılan 20 MiB) ve, içerik `detect_file_kind` ile PDF tespit edilirse, sayfa sayısı (`max_upload_pdf_pages`, varsayılan 30, `pypdf.PdfReader` ile sayılır) denetlenir; sınırı aşan tek dosya bile olsa 400 döner, kullanıcıya dosyayı bölmesi söylenir, parti/DB satırı hiç oluşmaz; PDF imzalı ama pypdf ile çözülemeyen içerikte (ör. sentetik olmayan test baytı) sayfa denetimi sessizce atlanır — `app/config.py` · `app/web/routers/uploads.py` · `pyproject.toml` (pypdf) · test `tests/web/test_uploads.py` (+6) · tm 9
+
+#### K01.4 — 01.4.1 · Tekrar yükleme tespiti (SHA-256)
+- ✅ `find_original_by_sha256`: aynı SHA-256 daha önce yüklenmişse özgün (`is_duplicate_of IS NULL`) satırı döner, zincirlenmeyi önlemek için tekrarın kendisi asla kök sayılmaz; yükleme uç noktası her dosya için bu sorguyu çalıştırır — eşleşme varsa dosya yine K10 gereği değişmeden Inbox'a yazılır, `UploadFile.is_duplicate_of` kök satıra bağlanır ve `FILE_UPLOADED` yerine `FILE_DUPLICATE` olayı (`duplicate_of_file_id` verisiyle) yazılır; analiz adımı henüz yok, bu bayrağı okuyup atlamak sonraki bir görevin işi — `app/storage/hashing.py` · `app/web/routers/uploads.py` · test `tests/storage/test_hashing.py` (4) · `tests/web/test_uploads.py` (+2) · tm 10

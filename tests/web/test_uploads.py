@@ -188,3 +188,68 @@ def test_non_pdf_content_is_not_page_checked(app: FastAPI, client: TestClient) -
     response = client.post("/api/uploads", files=_files(("foto.jpg", b"\xff\xd8\xff test bytes")))
 
     assert response.status_code == 201
+
+
+def test_duplicate_content_in_second_upload_is_flagged(
+    client: TestClient, layout: DataLayout, session_factory: sessionmaker[Session]
+) -> None:
+    """S2 — aynı dosya ikinci kez yükleniyor: tekrar tespit edilir, ikinci kopya reddedilmez."""
+    content = b"%PDF-1.4 pasaport"
+    first_upload_id = client.post("/api/uploads", files=_files(("pasaport.pdf", content))).json()[
+        "upload_id"
+    ]
+    second_response = client.post("/api/uploads", files=_files(("pasaport-2.pdf", content)))
+
+    assert second_response.status_code == 201
+    second_upload_id = second_response.json()["upload_id"]
+
+    with session_factory() as session:
+        first_file = session.scalar(
+            select(UploadFile).where(UploadFile.upload_id == first_upload_id)
+        )
+        second_file = session.scalar(
+            select(UploadFile).where(UploadFile.upload_id == second_upload_id)
+        )
+        assert first_file is not None
+        assert second_file is not None
+        assert first_file.is_duplicate_of is None
+        assert second_file.is_duplicate_of == first_file.id
+
+        first_events = session.scalars(
+            select(Event).where(Event.upload_id == first_upload_id)
+        ).all()
+        second_events = session.scalars(
+            select(Event).where(Event.upload_id == second_upload_id)
+        ).all()
+        assert [event.type for event in first_events] == ["FILE_UPLOADED"]
+        assert [event.type for event in second_events] == ["FILE_DUPLICATE"]
+        assert second_events[0].data_json == {"duplicate_of_file_id": first_file.id}
+
+    # Orijinal dosya değişmeden Inbox'a yazılmaya devam eder (K10) — tekrar reddedilmez.
+    second_inbox = layout.upload_inbox_dir(second_upload_id)
+    assert (second_inbox / "pasaport-2.pdf").read_bytes() == content
+
+
+def test_third_identical_upload_points_to_first_not_second(
+    client: TestClient, session_factory: sessionmaker[Session]
+) -> None:
+    """Zincirlenme yok: art arda gelen tekrarların hepsi kök (ilk) dosyaya bağlanır."""
+    content = b"ucuncu tekrar testi"
+    first_upload_id = client.post("/api/uploads", files=_files(("a.pdf", content))).json()[
+        "upload_id"
+    ]
+    client.post("/api/uploads", files=_files(("b.pdf", content)))
+    third_upload_id = client.post("/api/uploads", files=_files(("c.pdf", content))).json()[
+        "upload_id"
+    ]
+
+    with session_factory() as session:
+        first_file = session.scalar(
+            select(UploadFile).where(UploadFile.upload_id == first_upload_id)
+        )
+        third_file = session.scalar(
+            select(UploadFile).where(UploadFile.upload_id == third_upload_id)
+        )
+        assert first_file is not None
+        assert third_file is not None
+        assert third_file.is_duplicate_of == first_file.id
