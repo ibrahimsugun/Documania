@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from app.config import Settings, get_settings
 from app.db.models import Employee, Event, Page, Upload, UploadFile
+from app.pipeline.render import render_upload_file
 from app.storage import DataLayout, sha256_bytes
 from app.web.routers.uploads import get_layout
 from tests.fixtures.gen import make_pdf_bytes
@@ -312,6 +313,33 @@ def test_get_upload_status_counts_rendered_files_via_pages(
     response = client.get(f"/api/uploads/{upload_id}")
 
     assert response.json()["progress"] == {"total_files": 2, "rendered_files": 1}
+
+
+def test_get_upload_status_reflects_rendered_pdf_pages(
+    client: TestClient, session_factory: sessionmaker[Session], layout: DataLayout
+) -> None:
+    """02.1.1 — yüklenen PDF render edilince durum sorgusu sayfa sayısını ve ilerlemeyi görür."""
+    upload_id = client.post(
+        "/api/uploads",
+        files=_files(("tarama.pdf", make_pdf_bytes(2)), ("foto.jpg", b"\xff\xd8\xff test")),
+    ).json()["upload_id"]
+
+    with session_factory() as session:
+        pdf = session.scalars(
+            select(UploadFile).where(
+                UploadFile.upload_id == upload_id, UploadFile.original_name == "tarama.pdf"
+            )
+        ).one()
+        render_upload_file(session, layout, Settings(database_url="sqlite://"), pdf)
+        session.commit()
+
+    body = client.get(f"/api/uploads/{upload_id}").json()
+
+    assert body["progress"] == {"total_files": 2, "rendered_files": 1}
+    assert {file["original_name"]: file["page_count"] for file in body["files"]} == {
+        "tarama.pdf": 2,
+        "foto.jpg": None,
+    }
 
 
 def test_get_upload_status_404_for_unknown_upload(client: TestClient) -> None:

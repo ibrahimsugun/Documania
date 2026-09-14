@@ -1,5 +1,6 @@
 """00.4.1 — uygulama açılışında §8.2 veri dizini ağacı eksiksiz oluşur."""
 
+import os
 from datetime import date, datetime
 from pathlib import Path
 
@@ -133,3 +134,49 @@ def test_path_segments_cannot_escape_data_root(tmp_path: Path, segment: str) -> 
             build(segment)
     with pytest.raises(ValueError, match="yol parçası"):
         layout.queue_dir("unknown", segment)
+    with pytest.raises(ValueError, match="yol parçası"):
+        layout.page_image_path(segment, 0)
+
+
+def test_page_image_path(tmp_path: Path) -> None:
+    layout = DataLayout(tmp_path)
+
+    assert layout.page_image_path(42, 0) == tmp_path / "cache" / "pages" / "42" / "0000.jpg"
+    assert layout.page_image_path("42", 29) == tmp_path / "cache" / "pages" / "42" / "0029.jpg"
+    with pytest.raises(ValueError, match="sayfa sırası"):
+        layout.page_image_path(42, -1)
+
+
+def test_resolve_relative_stored_path(tmp_path: Path) -> None:
+    layout = DataLayout(tmp_path)
+
+    assert layout.resolve("Inbox/u_20260914_0001/pasaport ön yüz.pdf") == (
+        tmp_path / "Inbox" / "u_20260914_0001" / "pasaport ön yüz.pdf"
+    )
+    assert layout.resolve("cache/pages/7/0000.jpg") == layout.page_image_path(7, 0)
+
+
+@pytest.mark.parametrize(
+    "relative",
+    [
+        "",
+        "/etc/passwd",
+        "../Inbox/a.pdf",
+        "Inbox/../../a.pdf",
+        "Inbox/./a.pdf",
+        "Inbox//a.pdf",
+        "Inbox/",
+        "Inbox\\a.pdf",
+        pytest.param(
+            "C:/Windows/a.pdf",
+            marks=pytest.mark.skipif(os.name != "nt", reason="sürücü parçası yalnız Windows'ta"),
+        ),
+        pytest.param(
+            "Inbox/Z:a.pdf",
+            marks=pytest.mark.skipif(os.name != "nt", reason="sürücü parçası yalnız Windows'ta"),
+        ),
+    ],
+)
+def test_resolve_rejects_paths_outside_data_root(tmp_path: Path, relative: str) -> None:
+    with pytest.raises(ValueError, match="göreli yol"):
+        DataLayout(tmp_path).resolve(relative)

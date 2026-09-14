@@ -18,6 +18,12 @@ Blok biçimi `CONVENTIONS.md` §3'te tanımlıdır:
 
 ## Task log (newest-first)
 
+## 13 — 02.1 PDF sayfa görüntüsü üretimi — done — 2026-09-14
+- Yapıldı: `app/pipeline/render.py` — PyMuPDF ile her PDF sayfası `PAGE_RENDER_DPI`'da render edilir, uzun kenar `PAGE_RENDER_MAX_LONG_EDGE_PX`'i aşacaksa ölçek sınıra küçültülür, JPEG `cache/pages/<file_id>/0000.jpg` altına atomik yazılır; `render_upload_file` `pages` satırlarını + `page_count`'u yazar ve sayfa başına `PAGE_RENDERED` olayı atar. Yol kuralı için `DataLayout.page_image_path` ve DB'deki göreli yolu kökten kaçmadan çözen `DataLayout.resolve` eklendi.
+- Doğrulama: ruff check/format, compileall, `pytest -q -m "not live"` (335 geçti, +48 durum; 3 PG testi ortam değişkeni yokken atlandı), kapsam %99.21 (`app/pipeline/render.py` %100), temiz SQLite'ta `alembic upgrade head`, `import app.main` — hepsi exit 0. Şema değişmedi, göç yok.
+- Varsayımlar: PLAN.md §C10 — varsayılan 200 DPI / 1568 px uzun kenar / JPEG kalite 90; küçültme render ölçeğine uygulanır (yeniden örnekleme yok); önbellek türev veri olduğu için yeniden render `replace_file` ile üzerine yazar.
+- Sonraki pencereye not: `pymupdf` bağımlılığı eklendi (yerelde `uv pip install --python .venv/Scripts/python.exe -e ".[dev]"`). `render_upload_file` commit etmez ve PDF olmayan dosyada `RenderError` verir — görüntü dosyaları 02.3.1'in, parti durumu/tekrar dosyası atlama 09.2.x orkestrasyonunun işi; 02.2/02.4/02.5 aynı `Page` satırlarına yazmalı, yenisini açmamalı.
+
 ## 12 — 01.6 Parti durumu sorgulama — done — 2026-09-14
 - Yapıldı: `GET /api/uploads/{upload_id}` (`app/web/routers/uploads.py`) — bilinmeyen `upload_id` için 404, aksi halde parti `status`, `files` listesi (ad/mime/sha256/page_count/is_duplicate) ve `progress` (`total_files`, `rendered_files`) döner.
 - Doğrulama: ruff check/format, compileall, `pytest -q -m "not live"` (287 geçti, +4 durum sorgulama; 3 PG testi ortam değişkeni yokken atlandı), kapsam %99.23 (`app/web/routers/uploads.py` %100), temiz SQLite'ta `alembic upgrade head`, `import app.main` — hepsi exit 0.

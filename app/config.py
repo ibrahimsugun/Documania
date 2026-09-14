@@ -10,7 +10,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
-from pydantic import ValidationError
+from pydantic import Field, ValidationError
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -24,6 +24,11 @@ class Settings(BaseSettings):
     # (bkz. PLAN.md §C8), ortam değişkeniyle ortama göre değiştirilebilir.
     max_upload_file_size_bytes: int = 20 * 1024 * 1024
     max_upload_pdf_pages: int = 30
+    # PRD 02.1.1 — analiz için sayfa görüntüsü: bu DPI'da render edilir, uzun kenar sınırı
+    # aşılırsa küçültülür; önbellek JPEG kalitesi (bkz. PLAN.md §C10).
+    page_render_dpi: int = Field(default=200, gt=0)
+    page_render_max_long_edge_px: int = Field(default=1568, gt=0)
+    page_render_jpeg_quality: int = Field(default=90, ge=1, le=100)
 
 
 def load_settings(**overrides: object) -> Settings:

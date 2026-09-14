@@ -45,6 +45,7 @@ CATALOG_FILE = "catalog.yaml"
 EXAMPLES = "examples"
 CACHE = "cache"
 PAGES = "pages"
+PAGE_IMAGE_EXTENSION = "jpg"
 
 # Plan JSON `route` / `queue_items.kind` değeri → kuyruk dizini (PRD §8.5).
 _QUEUE_DIRS = {"unknown": UNKNOWN, "unreadable": UNREADABLE, "unresolved": UNRESOLVED}
@@ -150,6 +151,28 @@ class DataLayout:
 
     def page_cache_dir(self, file_id: int | str) -> Path:
         return self.page_cache / _segment(str(file_id), "file_id")
+
+    def page_image_path(self, file_id: int | str, page_index: int) -> Path:
+        """`cache/pages/<file_id>/0000.jpg` — 0 tabanlı sayfa sırasıyla analiz görüntüsü."""
+        if page_index < 0:
+            raise ValueError(f"Geçersiz sayfa sırası: {page_index!r}")
+        return self.page_cache_dir(file_id) / f"{page_index:04d}.{PAGE_IMAGE_EXTENSION}"
+
+    # --- veritabanında saklanan göreli yollar -----------------------------------------------
+
+    def resolve(self, relative_path: str) -> Path:
+        """Veri köküne göreli saklanan yolu (`stored_path`, `image_path`) mutlak yola çevirir.
+
+        Mutlak yol, `..`/`.` parçası, ters bölü veya kökten kaçan (ör. Windows sürücü) parça
+        reddedilir — veritabanındaki bir değer veri dizininin dışını gösteremez.
+        """
+        parts = relative_path.split("/")
+        if "\\" in relative_path or any(part in {"", ".", ".."} for part in parts):
+            raise ValueError(f"Geçersiz göreli yol: {relative_path!r}")
+        path = self.root.joinpath(*parts)
+        if not path.is_relative_to(self.root) or path.relative_to(self.root).parts != tuple(parts):
+            raise ValueError(f"Geçersiz göreli yol: {relative_path!r}")
+        return path
 
 
 def prepare_data_dir(root: Path) -> DataLayout:

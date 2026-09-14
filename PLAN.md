@@ -8,7 +8,7 @@
 
 | Faz | PRD | Genel durum | Must sayacı | Kapanış |
 | --- | --- | --- | --- | --- |
-| Faz 0 — MVP | §5.1 | 26 ✅ · 0 ◐ · 76 ⬜ · 0 🔒 | 25/98 Must | AÇIK |
+| Faz 0 — MVP | §5.1 | 27 ✅ · 0 ◐ · 75 ⬜ · 0 🔒 | 26/98 Must | AÇIK |
 | Faz 1 — v1 | §5.2 | 0 ✅ · 0 ◐ · 0 ⬜ · 32 🔒 | 0/21 Must | AÇIK |
 | Faz 2 — v2 | §5.3 | 0 ✅ · 0 ◐ · 0 ⬜ · 13 🔒 | 0/0 Must | AÇIK |
 | Faz 3 — Enterprise | §5.4 | 0 ✅ · 0 ◐ · 0 ⬜ · 8 🔒 | 0/0 Must | AÇIK |
@@ -105,7 +105,7 @@ panelde `plan-count-drift` bulgusu doğurur.
 
 | PRD | Gereksinim | Öncelik | Durum |
 | --- | --- | --- | --- |
-| 02.1.1 | PDF sayfa görüntüsü üretimi | Must (MVP) | ⬜ |
+| 02.1.1 | PDF sayfa görüntüsü üretimi | Must (MVP) | ✅ → K02.1 |
 | 02.2.1 | PDF metin katmanı çıkarma | Must (MVP) | ⬜ |
 | 02.3.1 | Görüntü dosyaları için analiz kopyası | Must (MVP) | ⬜ |
 | 02.4.1 | Boş sayfa tespiti | Must (MVP) | ⬜ |
@@ -358,6 +358,21 @@ Onay beklemeden yapılan varsayımlar buraya numaralı olarak yazılır.
   doldurulmuyor (hâlâ hep `null`) — dolduran kod ayrı bir görevin işi. `rendered_files`
   02.x sayfa üretimi devreye girdiğinde otomatik doğru sayar; daha zengin bir ilerleme
   modeli (analiz/plan/uygulama aşaması bazında) gerekirse ileriki bir görev bu alanı genişletir.
+- **C10** — PDF sayfa görüntüsü (tm 13, 02.1.1): PRD DPI, uzun kenar ve görüntü biçimi vermez.
+  Ortam değişkeniyle değiştirilebilir varsayılanlar: `PAGE_RENDER_DPI=200`,
+  `PAGE_RENDER_MAX_LONG_EDGE_PX=1568` (Anthropic görüntü girdisinin sunucu tarafında
+  küçültmeden kabul ettiği uzun kenar; daha büyüğü maliyet/gecikme ekler, okunaklılık katmaz),
+  `PAGE_RENDER_JPEG_QUALITY=90`. Önbellek biçimi JPEG seçildi: sağlayıcı maliyeti piksel
+  boyutuna bağlıdır, biçime değil; taranmış renkli sayfada PNG, istek başına görüntü bayt
+  sınırına (Anthropic 5 MB) yaklaşabilir. Görüntü yalnız analiz kopyasıdır, çıktı belge
+  değildir — kayıplı biçim K12'yi ilgilendirmez (07.6.1 `render_image` kendi ayarını kullanır).
+  "Küçültme" render ölçeğine uygulanır: uzun kenar sınırı aşılacaksa sayfa doğrudan sınır
+  boyutunda rasterleştirilir, büyük görüntü üretilip yeniden örneklenmez (aynı piksel boyutu,
+  daha az bellek, Pillow'a gerek yok). Sayfa görüntüsü `cache/pages/<file_id>/0000.jpg`
+  (0 tabanlı sıra) adını alır ve türev veri olduğu için yeniden render'da `replace_file` ile
+  yeniden üretilir. `render_upload_file` `pages` satırlarını açar/günceller, `page_count`'u
+  doldurur, sayfa başına `PAGE_RENDERED` olayı yazar; parti durum geçişi (`rendering`) ve
+  tekrar dosyaları (`is_duplicate_of`) atlama kararı orkestrasyonun (09.2.x) işidir.
 
 ## D. Sapmalar
 
@@ -549,3 +564,6 @@ var olan maddeler silinmez. Biçim:
 
 #### K01.6 — 01.6.1 · Parti durumu sorgulama
 - ✅ `GET /api/uploads/{upload_id}` — parti bulunamazsa 404, aksi halde `status` (`Upload.status`), `files` listesi (`id`, `original_name`, `mime`, `sha256`, `page_count`, `is_duplicate`) ve `progress` (`total_files`, `rendered_files` — en az bir `Page` satırı olan dosya sayısı, bkz. C9) döner — `app/web/routers/uploads.py` · test `tests/web/test_uploads.py` (+4) · tm 12
+
+#### K02.1 — 02.1.1 · PDF sayfa görüntüsü üretimi
+- ✅ PyMuPDF ile her PDF sayfası `PAGE_RENDER_DPI`'da render edilir; o çözünürlükte uzun kenar `PAGE_RENDER_MAX_LONG_EDGE_PX`'i aşacaksa ölçek uzun kenar tam sınıra oturacak kadar küçültülür (A4 200 DPI → 1109×1568, yatay ve `/Rotate` 90/270 sayfada genişlik sınıra iner, 15 tuhaf sayfa boyutunda uzun kenar sınırı hiç aşmaz, MuPDF'in dışa piksel yuvarlaması düzeltilir), en-boy oranı korunur, kırpma/döndürme yok (sol yarısı siyah sentetik sayfada piksel konumu doğrulandı), Inbox orijinalinin SHA-256'sı değişmez; JPEG `cache/pages/<file_id>/0000.jpg` altına atomik yazılır; PDF olmayan (JPEG/PNG baytlarını MuPDF'in PDF diye açmasına karşı imza denetimi), bozuk, sayfasız ve parolalı dosya `RenderError` ile reddedilir; `render_upload_file` `pages` satırlarını (yeniden çalıştırmada aynı satırlar, diğer alanlar korunur) ve `page_count`'u yazar, sayfa başına `PAGE_RENDERED` olayı (`image_path`/`width`/`height`/`dpi`) atar; durum sorgusu render sonrası `page_count` ve `rendered_files`'ı görür. Ayarlar ve gerekçe: C10 — `app/pipeline/render.py` · `app/storage/layout.py` (`page_image_path`, `resolve`) · `app/config.py` · `.env.example` · `pyproject.toml` (pymupdf) · test `tests/pipeline/test_render.py` (18 fonksiyon / 30 durum) · `tests/storage/test_layout.py` (+3) · `tests/test_config.py` (+2) · `tests/web/test_uploads.py` (+1) · tm 13
