@@ -8,7 +8,7 @@
 
 | Faz | PRD | Genel durum | Must sayacı | Kapanış |
 | --- | --- | --- | --- | --- |
-| Faz 0 — MVP | §5.1 | 25 ✅ · 0 ◐ · 77 ⬜ · 0 🔒 | 24/98 Must | AÇIK |
+| Faz 0 — MVP | §5.1 | 26 ✅ · 0 ◐ · 76 ⬜ · 0 🔒 | 25/98 Must | AÇIK |
 | Faz 1 — v1 | §5.2 | 0 ✅ · 0 ◐ · 0 ⬜ · 32 🔒 | 0/21 Must | AÇIK |
 | Faz 2 — v2 | §5.3 | 0 ✅ · 0 ◐ · 0 ⬜ · 13 🔒 | 0/0 Must | AÇIK |
 | Faz 3 — Enterprise | §5.4 | 0 ✅ · 0 ◐ · 0 ⬜ · 8 🔒 | 0/0 Must | AÇIK |
@@ -99,7 +99,7 @@ panelde `plan-count-drift` bulgusu doğurur.
 | 01.3.1 | Boyut ve sayfa sınırı | Must (MVP) | ✅ → K01.3 |
 | 01.4.1 | Tekrar yükleme tespiti | Must (MVP) | ✅ → K01.4 |
 | 01.5.1 | Inbox'a değişmez yazma | Must (MVP) | ✅ → K01.5 |
-| 01.6.1 | Parti durumu sorgulama | Must (MVP) | ⬜ |
+| 01.6.1 | Parti durumu sorgulama | Must (MVP) | ✅ → K01.6 |
 
 ### 3.3 FR-MOD-02 — Sayfa üretimi
 
@@ -351,6 +351,13 @@ Onay beklemeden yapılan varsayımlar buraya numaralı olarak yazılır.
   ile PDF olarak tanınırsa `pypdf.PdfReader` ile sayılır; PDF imzalı ama yapısal olarak
   çözülemeyen içerikte sayfa denetimi atlanır (boyut denetimi yine de uygulanır). Kesin sayılar
   insan onayına açıktır.
+- **C9** — Parti durumu sorgulama (tm 12, 01.6.1): PRD "ilerleme" alanının biçimini vermez.
+  Sayfa üretimi (02.x) ve sonraki analiz/plan adımları henüz yok; bu yüzden "ilerleme"
+  şimdilik `progress.total_files` / `progress.rendered_files` (en az bir `Page` satırı
+  oluşmuş dosya sayısı) olarak dar tutuldu. `UploadFile.page_count` alanı bu görevde
+  doldurulmuyor (hâlâ hep `null`) — dolduran kod ayrı bir görevin işi. `rendered_files`
+  02.x sayfa üretimi devreye girdiğinde otomatik doğru sayar; daha zengin bir ilerleme
+  modeli (analiz/plan/uygulama aşaması bazında) gerekirse ileriki bir görev bu alanı genişletir.
 
 ## D. Sapmalar
 
@@ -539,3 +546,6 @@ var olan maddeler silinmez. Biçim:
 
 #### K01.5 — 01.5.1 · Inbox'a değişmez yazma
 - ✅ `write_to_inbox(layout, upload_id, name, content)` — `Inbox/<upload_id>/<name>` yoluna `write_file`'ın sabit bağ garantisiyle yazar; aynı ada ikinci yazma denemesi `FileExistsError` ile reddedilir, orijinal içerik değişmeden kalır. Yükleme uç noktası artık `inbox_dir / name` ile elle yol kurup `write_file` çağırmak yerine bu sarmalayıcıyı kullanıyor (yol kuralı tek yerde, MASTER-PROMPT §4) — `app/storage/inbox.py` · `app/web/routers/uploads.py` · test `tests/storage/test_inbox.py` (3) · tm 11
+
+#### K01.6 — 01.6.1 · Parti durumu sorgulama
+- ✅ `GET /api/uploads/{upload_id}` — parti bulunamazsa 404, aksi halde `status` (`Upload.status`), `files` listesi (`id`, `original_name`, `mime`, `sha256`, `page_count`, `is_duplicate`) ve `progress` (`total_files`, `rendered_files` — en az bir `Page` satırı olan dosya sayısı, bkz. C9) döner — `app/web/routers/uploads.py` · test `tests/web/test_uploads.py` (+4) · tm 12

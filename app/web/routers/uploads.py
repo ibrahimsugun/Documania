@@ -43,6 +43,27 @@ class UploadCreateResponse(BaseModel):
     upload_id: str
 
 
+class UploadFileStatusResponse(BaseModel):
+    id: int
+    original_name: str
+    mime: str
+    sha256: str
+    page_count: int | None
+    is_duplicate: bool
+
+
+class UploadProgressResponse(BaseModel):
+    total_files: int
+    rendered_files: int
+
+
+class UploadStatusResponse(BaseModel):
+    upload_id: str
+    status: str
+    files: list[UploadFileStatusResponse]
+    progress: UploadProgressResponse
+
+
 def get_layout() -> DataLayout:
     return DataLayout(get_settings().data_dir)
 
@@ -143,3 +164,34 @@ async def create_upload(
 
     session.commit()
     return UploadCreateResponse(upload_id=upload_id)
+
+
+@router.get("/{upload_id}", response_model=UploadStatusResponse)
+def get_upload_status(
+    upload_id: str,
+    session: Annotated[Session, Depends(get_session)],
+) -> UploadStatusResponse:
+    """01.6.1 — parti durumu, dosyaları ve dosya başına sayfa üretim ilerlemesini döner."""
+    upload = session.get(Upload, upload_id)
+    if upload is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Parti bulunamadı.")
+
+    files = [
+        UploadFileStatusResponse(
+            id=file.id,
+            original_name=file.original_name,
+            mime=file.mime,
+            sha256=file.sha256,
+            page_count=file.page_count,
+            is_duplicate=file.is_duplicate_of is not None,
+        )
+        for file in upload.files
+    ]
+    rendered_files = sum(1 for file in upload.files if len(file.pages) > 0)
+
+    return UploadStatusResponse(
+        upload_id=upload.id,
+        status=upload.status,
+        files=files,
+        progress=UploadProgressResponse(total_files=len(files), rendered_files=rendered_files),
+    )

@@ -1,4 +1,5 @@
-"""01.1.1, 01.1.2, 01.3.1 — çoklu dosya yükleme, bağlam çalışanı, boyut/sayfa sınırı."""
+"""01.1.1, 01.1.2, 01.3.1, 01.6.1 — çoklu dosya yükleme, bağlam çalışanı, boyut/sayfa
+sınırı, parti durumu sorgulama."""
 
 from pathlib import Path
 
@@ -9,7 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.config import Settings, get_settings
-from app.db.models import Employee, Event, Upload, UploadFile
+from app.db.models import Employee, Event, Page, Upload, UploadFile
 from app.storage import DataLayout, sha256_bytes
 from app.web.routers.uploads import get_layout
 from tests.fixtures.gen import make_pdf_bytes
@@ -253,3 +254,67 @@ def test_third_identical_upload_points_to_first_not_second(
         assert first_file is not None
         assert third_file is not None
         assert third_file.is_duplicate_of == first_file.id
+
+
+def test_get_upload_status_returns_status_files_and_progress(client: TestClient) -> None:
+    upload_id = client.post(
+        "/api/uploads",
+        files=_files(("pasaport.pdf", b"%PDF-1.4 test"), ("foto.jpg", b"\xff\xd8\xff test")),
+    ).json()["upload_id"]
+
+    response = client.get(f"/api/uploads/{upload_id}")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["upload_id"] == upload_id
+    assert body["status"] == "received"
+    assert [f["original_name"] for f in body["files"]] == ["pasaport.pdf", "foto.jpg"]
+    assert body["files"][0]["sha256"] == sha256_bytes(b"%PDF-1.4 test")
+    assert body["files"][0]["mime"] == "application/octet-stream"
+    assert body["files"][0]["is_duplicate"] is False
+    assert body["progress"] == {"total_files": 2, "rendered_files": 0}
+
+
+def test_get_upload_status_marks_duplicate_files(client: TestClient) -> None:
+    content = b"tekrar iceren dosya"
+    first_upload_id = client.post("/api/uploads", files=_files(("a.pdf", content))).json()[
+        "upload_id"
+    ]
+    second_upload_id = client.post("/api/uploads", files=_files(("b.pdf", content))).json()[
+        "upload_id"
+    ]
+
+    response = client.get(f"/api/uploads/{second_upload_id}")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["files"][0]["is_duplicate"] is True
+
+    first_response = client.get(f"/api/uploads/{first_upload_id}")
+    assert first_response.json()["files"][0]["is_duplicate"] is False
+
+
+def test_get_upload_status_counts_rendered_files_via_pages(
+    client: TestClient, session_factory: sessionmaker[Session]
+) -> None:
+    upload_id = client.post(
+        "/api/uploads",
+        files=_files(("a.pdf", b"%PDF-1.4 a"), ("b.pdf", b"%PDF-1.4 b")),
+    ).json()["upload_id"]
+
+    with session_factory() as session:
+        files = session.scalars(
+            select(UploadFile).where(UploadFile.upload_id == upload_id).order_by(UploadFile.id)
+        ).all()
+        session.add(Page(file_id=files[0].id, index=0))
+        session.commit()
+
+    response = client.get(f"/api/uploads/{upload_id}")
+
+    assert response.json()["progress"] == {"total_files": 2, "rendered_files": 1}
+
+
+def test_get_upload_status_404_for_unknown_upload(client: TestClient) -> None:
+    response = client.get("/api/uploads/u_yoktur")
+
+    assert response.status_code == 404

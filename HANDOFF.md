@@ -18,6 +18,12 @@ Blok biçimi `CONVENTIONS.md` §3'te tanımlıdır:
 
 ## Task log (newest-first)
 
+## 12 — 01.6 Parti durumu sorgulama — done — 2026-09-14
+- Yapıldı: `GET /api/uploads/{upload_id}` (`app/web/routers/uploads.py`) — bilinmeyen `upload_id` için 404, aksi halde parti `status`, `files` listesi (ad/mime/sha256/page_count/is_duplicate) ve `progress` (`total_files`, `rendered_files`) döner.
+- Doğrulama: ruff check/format, compileall, `pytest -q -m "not live"` (287 geçti, +4 durum sorgulama; 3 PG testi ortam değişkeni yokken atlandı), kapsam %99.23 (`app/web/routers/uploads.py` %100), temiz SQLite'ta `alembic upgrade head`, `import app.main` — hepsi exit 0.
+- Varsayımlar: PRD "ilerleme" alanının biçimini vermiyor; sayfa üretimi (02.x) henüz yok, bu yüzden `progress.rendered_files` en az bir `Page` satırı oluşmuş dosya sayısı olarak dar tutuldu (PLAN.md §C9).
+- Sonraki pencereye not: `UploadFile.page_count` bu görevde doldurulmadı (hâlâ `null`) — 02.x sayfa üretimi geldiğinde hem onu hem `progress.rendered_files`'ı besleyecek, response şemasını değiştirmeye gerek yok.
+
 ## 11 — 01.5 Inbox'a değişmez yazma — done — 2026-09-14
 - Yapıldı: `write_to_inbox(layout, upload_id, name, content)` (`app/storage/inbox.py`) — Inbox yazımını tek bir yüzeye topladı; `write_file`'ın sabit bağ garantisi sayesinde aynı `Inbox/<upload_id>/<name>` yoluna ikinci yazma `FileExistsError` ile reddedilir. Yükleme uç noktası artık elle `inbox_dir / name` kurup `write_file` çağırmak yerine bunu kullanıyor.
 - Doğrulama: ruff check/format, compileall, `pytest -q -m "not live"` (283 geçti, +3 Inbox durumu; 3 PG testi ortam değişkeni yokken atlandı), kapsam %99.05 (`app/storage/inbox.py` %100), temiz SQLite'ta `alembic upgrade head`, `import app.main` — hepsi exit 0.
