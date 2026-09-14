@@ -328,7 +328,7 @@
         "description": "PRD 03.7.1, 03.7.2 · FR-MOD-03 (Yapay zekâ analiz katmanı) · Faz 0.",
         "details": "KAPSAM: PRD 03.7.1, 03.7.2 (FR-MOD-03 — Yapay zekâ analiz katmanı, Faz 0).\n\nNE YAPILACAK — GEREKSİNİMLER VE KABUL KRİTERLERİ:\n- 03.7.1 — Sayfa analizi çalıştırıcı\n  Kabul: Sayfalar sırayla, önceki sayfa özetiyle analiz edilir\n- 03.7.2 — Kısmi başarı davranışı\n  Kabul: Bir sayfanın analizi başarısız olursa parti `partial` olur, diğer sayfalar tamamlanır\n\nGİRDİ — ÜZERİNE KURULDUĞU İŞLER (bu kod ZATEN VAR; yazmadan önce OKU):\n- 03.2 (Sağlayıcı soyutlaması ve Anthropic uygulaması) → app/ai/provider.py, app/ai/anthropic_provider.py\n- 03.4 (Analiz promptu ve disiplin kuralları) → app/ai/prompts/page_analysis.md\n- 03.5 (Yeniden deneme ve hata dayanıklılığı) → app/ai/provider.py\n- 02.1 (PDF sayfa görüntüsü üretimi) → app/pipeline/render.py\n\nÇIKTI — DOKUNULACAK YÜZEY: app/pipeline/analyze.py\n\nKARAR TABLOSU: bu görev için ayrı karar tablosu yok; kabul kriterleri ve kilitli kurallar yeterli.\n\nBU GÖREVİ BAĞLAYAN KİLİTLİ KURALLAR (MASTER-PROMPT §3 — tartışma, uygula):\n- K1: Zorunlu alanların hepsi okunaklıysa belge kabul edilir; biri bile okunamıyorsa Unreadable. Ayrı güven skoru YOK.\n\nPRD'DE AYRICA OKU: §8.4 (sayfa analizi şeması)\n\nİLGİLİ KABUL SENARYOSU: doğrudan yok. Kabul kriterleri yukarıda.\n\nSIRA (MASTER-PROMPT §5, contract-first): sözleşme/şema → Alembic göçü (gerekiyorsa) → çekirdek + unit test → entegrasyon + testi → arayüz.\n\nKAPSAM SINIRI: yalnız yukarıdaki PRD kimlikleri. Başka gereksinimin işini yapma; yolda gördüğün kusuru düzeltme, yeni görev olarak aç (CONVENTIONS §5). Kilitli teknik kararları (MASTER-PROMPT §4) tartışma; yanlış görünüyorsa uygula ve PLAN.md §D'ye sapma yaz.\n\nTUZAKLAR: belge içeriğini değiştiren kod yazma — kırpma, döndürme (EXIF dışında), kontrast, metin yazma, form doldurma yok (K11/K17). Gerçek kimlik belgesi kullanma; test verisi tests/fixtures/gen.py ile üretilen sentetik belgelerdir (CONVENTIONS §6). Yapay zekâ çağrısı testte canlı yapılmaz, kayıtlı yanıt sağlayıcısı kullanılır. Test/build komutlarını arka plana atma — pencere ölür.\n\nKAPANIŞ: PLAN.md'de 03.7.1, 03.7.2 satırlarının damgasını '✅ → K03.7' yap ve '## K. Kanıt Geçmişi' bölümünde '#### K03.7' bloğuna kanıt maddesi ekle (blok yoksa aç). Faz özet tablosundaki sayıları SAYARAK güncelle. Ayrıntı: CONVENTIONS §1.2-1.3.",
         "testStrategy": "CONVENTIONS §1 DoD kapısı: ruff check . · ruff format --check . · python -m compileall -q app tests · pytest -q -m \"not live\" · alembic upgrade head · python -c \"import app.main\" — hepsi exit 0.\nAyrıca bu görevin kendi kabul kriterleri:\n- 03.7.1: Sayfalar sırayla, önceki sayfa özetiyle analiz edilir\n- 03.7.2: Bir sayfanın analizi başarısız olursa parti `partial` olur, diğer sayfalar tamamlanır",
-        "status": "in-progress",
+        "status": "done",
         "dependencies": [
           "19",
           "21",
@@ -337,7 +337,7 @@
         ],
         "priority": "high",
         "subtasks": [],
-        "updatedAt": "2026-09-14T10:41:10.775Z"
+        "updatedAt": "2026-09-14T10:54:59.333Z"
       },
       {
         "id": "25",
@@ -1270,9 +1270,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-09-14T10:41:10.776Z",
+      "lastModified": "2026-09-14T10:54:59.334Z",
       "taskCount": 92,
-      "completedCount": 22,
+      "completedCount": 23,
       "tags": [
         "master"
       ]
