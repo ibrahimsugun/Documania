@@ -18,6 +18,12 @@ Blok biçimi `CONVENTIONS.md` §3'te tanımlıdır:
 
 ## Task log (newest-first)
 
+## 23 — 03.6 Kayıtlı yanıt sağlayıcısı (test altyapısı) — done — 2026-09-14
+- Yapıldı: `RecordingProvider` (`app/ai/recording_provider.py`) — `AnalysisProvider`'ı ağ çağrısı yapmadan uygular, `tests/fixtures/ai/recordings/<senaryo>/<sıra>.json` kayıtlarını dosya adına göre sıralı okuyup ortak `validate_page_analysis`'ten geçirir; iki sentetik kayıt (`russian_passport`, `serbian_residence_card` ön/arka) eklendi.
+- Doğrulama: ruff check/format, compileall, `pytest -q -m "not live"` (702 geçti, +8 durum; 3 PG testi atlandı), kapsam %99.44 (`app/ai/recording_provider.py` %100), temiz SQLite'ta `alembic upgrade head` (göç yok), `import app.main` — hepsi exit 0.
+- Varsayımlar: PLAN.md §C16 — kayıt sırası dosya adına göredir (`0.json`, `1.json`, ...) ve `analyze_page` çağrı sırasıyla eşlenir; `PROVIDER_FACTORIES`'e eklenmedi, sağlayıcı doğrudan `RecordingProvider.from_directory(...)` ile kurulur.
+- Sonraki pencereye not: 03.7 (sayfa analizi çalıştırıcı) ve sonrası, canlı sağlayıcı yerine `RecordingProvider.from_directory(tests/fixtures/ai/recordings/<senaryo>)` kullanarak uçtan uca ağsız test yazabilir; yeni senaryo eklerken dosyaları `0.json`, `1.json` sırasıyla adlandırmalı.
+
 ## 22 — 03.5 Yeniden deneme ve hata dayanıklılığı — done — 2026-09-14
 - Yapıldı: `AnalysisProvider.analyze_page`'e (`app/ai/provider.py`) hız sınırı (429) ve 5xx'te en fazla 3 deneme yapan geri çekilmeli (`time.sleep`, 1 sn/2 sn üstel) `_request_analysis_with_retry` sarmalayıcısı eklendi; bağlantı hatası, diğer 4xx ve `PageAnalysisError` yeniden denenmez.
 - Doğrulama: ruff check/format, compileall, `pytest -q -m "not live"` (694 geçti, +11 durum net; 3 PG testi atlandı), kapsam %99.32 (`app/ai/provider.py` %100), temiz SQLite'ta `alembic upgrade head`, `import app.main` — hepsi exit 0.

@@ -8,7 +8,7 @@
 
 | Faz | PRD | Genel durum | Must sayacı | Kapanış |
 | --- | --- | --- | --- | --- |
-| Faz 0 — MVP | §5.1 | 39 ✅ · 0 ◐ · 63 ⬜ · 0 🔒 | 38/98 Must | AÇIK |
+| Faz 0 — MVP | §5.1 | 40 ✅ · 0 ◐ · 62 ⬜ · 0 🔒 | 39/98 Must | AÇIK |
 | Faz 1 — v1 | §5.2 | 0 ✅ · 0 ◐ · 0 ⬜ · 32 🔒 | 0/21 Must | AÇIK |
 | Faz 2 — v2 | §5.3 | 0 ✅ · 0 ◐ · 0 ⬜ · 13 🔒 | 0/0 Must | AÇIK |
 | Faz 3 — Enterprise | §5.4 | 0 ✅ · 0 ◐ · 0 ⬜ · 8 🔒 | 0/0 Must | AÇIK |
@@ -124,7 +124,7 @@ panelde `plan-count-drift` bulgusu doğurur.
 | 03.3.1 | OpenAI sağlayıcı iskeleti | Should (v1) | ⬜ |
 | 03.4.1 | Analiz promptu disiplini | Must (MVP) | ✅ → K03.4 |
 | 03.5.1 | Yeniden deneme ve dayanıklılık | Must (MVP) | ✅ → K03.5 |
-| 03.6.1 | Kayıtlı yanıtla test sağlayıcısı | Must (MVP) | ⬜ |
+| 03.6.1 | Kayıtlı yanıtla test sağlayıcısı | Must (MVP) | ✅ → K03.6 |
 | 03.7.1 | Sayfa analizi çalıştırıcı | Must (MVP) | ⬜ |
 | 03.7.2 | Kısmi başarı davranışı | Must (MVP) | ⬜ |
 
@@ -468,6 +468,24 @@ Onay beklemeden yapılan varsayımlar buraya numaralı olarak yazılır.
   sağlayıcılar (`_request_analysis`) değişmez, tek HTTP isteği atmaya devam eder. Bekleme
   `time.sleep` iledir; testte `app.ai.provider.time.sleep` monkeypatch'lenir (`tests/ai/conftest.py`
   `no_sleep`), gerçek bekleme olmaz.
+- **C16** — Kayıtlı yanıt sağlayıcısı (tm 23, 03.6.1): PRD yalnız "testler ağ erişimi olmadan
+  çalışır ve deterministik sonuç verir" der, arayüz vermez. `tests/ai/test_provider.py`'deki
+  `CannedProvider`/`QueuedProvider` yanıtı Python değişmezi olarak taşıyıp yalnız provider.py'nin
+  kendi testleri içindir; 03.6 bunun yerine `app/ai/recording_provider.py`'de paylaşılan bir
+  `RecordingProvider` kurar — kayıt diskteki `tests/fixtures/ai/recordings/<senaryo>/<sıra>.json`
+  dosyasıdır (`0.json`, `1.json`, ...), sıradaki her `analyze_page` çağrısına dosya adına göre
+  sıralı karşılık gelir (03.7'nin sayfaları sırayla analiz etmesiyle simetrik). İçerik
+  ayrıştırılmadan `AnalysisProvider.analyze_page`'e döner — doğrulama tek yerde
+  (`validate_page_analysis`) kalır, kayıtlı sağlayıcı kendi kabulünü yazmaz; bozuk/eksik kayıt
+  orada `PageAnalysisError` olur (somut sağlayıcılarla aynı sorumluluk ayrımı). Kayıt sayısından
+  fazla istek `RecordingExhaustedError`, boş/yok dizin `RecordingNotFoundError` — sessiz tekrar
+  veya boş sağlayıcı yok, eksik test hazırlığı DoD'da fark edilsin diye. `PROVIDER_FACTORIES`'e
+  eklenmedi: o kayıt defteri `.env`'den seçilen gerçek sağlayıcılar içindir (03.3 `openai`);
+  bu sağlayıcı bir dizin yolu ister, testin kendisi `RecordingProvider.from_directory(...)`'yi
+  doğrudan çağırır, gerekiyorsa `monkeypatch.setitem(PROVIDER_FACTORIES, ...)` ile enjekte eder.
+  İki örnek kayıt eklendi: `russian_passport/0.json` (tek sayfa) ve
+  `serbian_residence_card/{0,1}.json` (ön/arka, `continues_previous_page` ikinci sayfada `true`) —
+  ikisi de sentetik, gerçek kişi/belge yok (CONVENTIONS §6).
 
 ## D. Sapmalar
 
@@ -697,3 +715,6 @@ var olan maddeler silinmez. Biçim:
 
 #### K03.5 — 03.5.1 · Yeniden deneme ve hata dayanıklılığı
 - ✅ `AnalysisProvider.analyze_page` (`@final`) artık `_request_analysis`'i yeni özel `_request_analysis_with_retry` sarmalayıcısı üzerinden çağırır: yalnız `ProviderRateLimitError` (429) ve `ProviderServerError` (5xx/529) geri çekilmeli en fazla `MAX_ANALYSIS_ATTEMPTS = 3` deneme yapılır (ilk deneme + iki yeniden deneme), her başarısız denemeden sonra `time.sleep(RETRY_BACKOFF_SECONDS * 2 ** (deneme - 1))` beklenir (1 sn, 2 sn — üstel); son denemede de başarısız olursa yakalanan hata aynı nesneyle yeniden yükselir. `ProviderConnectionError`, taban `ProviderError` (diğer 4xx) ve `PageAnalysisError` yeniden denenmez, ilk denemede yükselir (karar: C15). Somut sağlayıcılar değişmedi, hâlâ tek HTTP isteği atar. Anthropic entegrasyonunda hız sınırı/5xx'in tüm alt durumları (429/500/503/504/529) hem "ikinci denemede kurtarma" hem "üç denemede pes etme" senaryolarıyla, 4xx'in kalanı (400/401/403/404/413) tek denemeyle doğrulandı; `httpx2.MockTransport` sıralı yanıt kuyruğu kullanıldı, ağ çağrısı yok. Testte `time.sleep` `tests/ai/conftest.py`'deki `no_sleep` fixture'ıyla (`app.ai.provider.time.sleep` monkeypatch) kaydedilir, gerçekten beklenmez — `app/ai/provider.py` · test `tests/ai/test_provider.py` (44, +6), `tests/ai/test_anthropic_provider.py` (44, +5), `tests/ai/conftest.py` (yeni) · tm 22
+
+#### K03.6 — 03.6.1 · Kayıtlı yanıt sağlayıcısı (test altyapısı)
+- ✅ `RecordingProvider` (`app/ai/recording_provider.py`) — `AnalysisProvider`'ı ağsız uygular: `_request_analysis` `tests/fixtures/ai/recordings/<senaryo>/<sıra>.json` dosyasını (`0.json`, `1.json`, ...) ayrıştırmadan okuyup döner, ortak `validate_page_analysis` yanıtı doğrular. `from_directory` dosya adına göre sıralı yükler; kayıttan fazla istek `RecordingExhaustedError`, boş/yok dizin `RecordingNotFoundError`. `PROVIDER_FACTORIES`'e eklenmedi (C16) — test doğrudan `RecordingProvider.from_directory(...)` çağırır. İki sentetik kayıt: `russian_passport/0.json` (tek sayfa), `serbian_residence_card/{0,1}.json` (ön/arka). Kurallar ve gerekçe: C16 — `app/ai/recording_provider.py` · `tests/fixtures/ai/recordings/russian_passport/0.json` · `tests/fixtures/ai/recordings/serbian_residence_card/{0,1}.json` · test `tests/ai/test_recording_provider.py` (8 fonksiyon) · tm 23
