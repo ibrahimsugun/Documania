@@ -61,12 +61,13 @@
         "description": "PRD 00.5.1, 00.5.2 · FR-MOD-00 (Altyapı ve iskelet) · Faz 0.",
         "details": "KAPSAM: PRD 00.5.1, 00.5.2 (FR-MOD-00 — Altyapı ve iskelet, Faz 0).\n\nNE YAPILACAK — GEREKSİNİMLER VE KABUL KRİTERLERİ:\n- 00.5.1 — Olay logu altyapısı\n  Kabul: §8.3'teki olay türleri sabit listedir; her olay veritabanına yazılır\n- 00.5.2 — Olay bağlamı yöneticisi\n  Kabul: Bağlam içinde atılan olaylar upload/file/page alanlarını otomatik taşır\n\nGİRDİ — ÜZERİNE KURULDUĞU İŞLER (bu kod ZATEN VAR; yazmadan önce OKU):\n- 00.3 (Veri modeli ve göç altyapısı) → app/db/models.py, app/db/session.py, alembic/\n\nÇIKTI — DOKUNULACAK YÜZEY: app/events.py\n\nKARAR TABLOSU: bu görev için ayrı karar tablosu yok; kabul kriterleri ve kilitli kurallar yeterli.\n\nBU GÖREVİ BAĞLAYAN KİLİTLİ KURALLAR: özel kural yok. Genel sınırlar MASTER-PROMPT §8'de.\n\nPRD'DE AYRICA OKU: §8.3 (olay türleri listesi)\n\nİLGİLİ KABUL SENARYOSU: doğrudan yok. Kabul kriterleri yukarıda.\n\nSIRA (MASTER-PROMPT §5, contract-first): sözleşme/şema → Alembic göçü (gerekiyorsa) → çekirdek + unit test → entegrasyon + testi → arayüz.\n\nKAPSAM SINIRI: yalnız yukarıdaki PRD kimlikleri. Başka gereksinimin işini yapma; yolda gördüğün kusuru düzeltme, yeni görev olarak aç (CONVENTIONS §5). Kilitli teknik kararları (MASTER-PROMPT §4) tartışma; yanlış görünüyorsa uygula ve PLAN.md §D'ye sapma yaz.\n\nTUZAKLAR: belge içeriğini değiştiren kod yazma — kırpma, döndürme (EXIF dışında), kontrast, metin yazma, form doldurma yok (K11/K17). Gerçek kimlik belgesi kullanma; test verisi tests/fixtures/gen.py ile üretilen sentetik belgelerdir (CONVENTIONS §6). Yapay zekâ çağrısı testte canlı yapılmaz, kayıtlı yanıt sağlayıcısı kullanılır. Test/build komutlarını arka plana atma — pencere ölür.\n\nKAPANIŞ: PLAN.md'de 00.5.1, 00.5.2 satırlarının damgasını '✅ → K00.5' yap ve '## K. Kanıt Geçmişi' bölümünde '#### K00.5' bloğuna kanıt maddesi ekle (blok yoksa aç). Faz özet tablosundaki sayıları SAYARAK güncelle. Ayrıntı: CONVENTIONS §1.2-1.3.",
         "testStrategy": "CONVENTIONS §1 DoD kapısı: ruff check . · ruff format --check . · python -m compileall -q app tests · pytest -q -m \"not live\" · alembic upgrade head · python -c \"import app.main\" — hepsi exit 0.\nAyrıca bu görevin kendi kabul kriterleri:\n- 00.5.1: §8.3'teki olay türleri sabit listedir; her olay veritabanına yazılır\n- 00.5.2: Bağlam içinde atılan olaylar upload/file/page alanlarını otomatik taşır",
-        "status": "pending",
+        "status": "done",
         "dependencies": [
           "3"
         ],
         "priority": "high",
-        "subtasks": []
+        "subtasks": [],
+        "updatedAt": "2026-09-14T00:09:14.297Z"
       },
       {
         "id": "6",
@@ -1254,9 +1255,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-09-14T00:03:00.428Z",
+      "lastModified": "2026-09-14T00:09:14.298Z",
       "taskCount": 92,
-      "completedCount": 4,
+      "completedCount": 5,
       "tags": [
         "master"
       ]
