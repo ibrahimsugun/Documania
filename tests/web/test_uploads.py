@@ -1,20 +1,29 @@
-"""01.1.1, 01.1.2, 01.3.1, 01.6.1 — çoklu dosya yükleme, bağlam çalışanı, boyut/sayfa
-sınırı, parti durumu sorgulama."""
+"""01.1.1, 01.1.2, 01.3.1, 01.6.1, 06.6.1, 06.6.2 — çoklu dosya yükleme, bağlam çalışanı,
+boyut/sayfa sınırı, parti durumu sorgulama, planı yeniden çalıştırma ve yeniden analiz."""
 
+import copy
+from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 import pytest
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session, sessionmaker
 
+from app.ai import PROVIDER_FACTORIES, AnalysisProvider, build_page_analysis_instructions
+from app.ai.recording_provider import RecordingProvider
+from app.catalog import import_catalog, load_seed_catalog
 from app.config import Settings, get_settings
-from app.db.models import Employee, Event, Page, Upload, UploadFile
+from app.db.models import Document, DocumentStatus, Employee, Event, Page, Plan, Upload, UploadFile
+from app.events import EventType
+from app.pipeline.analyze import analyze_upload
+from app.pipeline.plan import PlanDocument, create_plan, read_plan
 from app.pipeline.render import render_upload_file
 from app.storage import DataLayout, sha256_bytes
-from app.web.routers.uploads import get_layout
-from tests.fixtures.gen import make_pdf_bytes
+from app.web.routers.uploads import get_analysis_provider, get_layout, get_plan_executor
+from tests.fixtures.gen import make_pdf_bytes, make_text_pdf_bytes
 
 
 def test_get_layout_uses_settings_data_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -346,3 +355,266 @@ def test_get_upload_status_404_for_unknown_upload(client: TestClient) -> None:
     response = client.get("/api/uploads/u_yoktur")
 
     assert response.status_code == 404
+
+
+# --- 06.6.1, 06.6.2 — planı yeniden çalıştırma ve yeniden analiz --------------------------------
+
+RECORDINGS = Path(__file__).resolve().parents[2] / "tests" / "fixtures" / "ai" / "recordings"
+CATALOG = load_seed_catalog()
+
+
+@dataclass
+class _Executor:
+    """`PlanExecutor` yerine: uygulanan planı kaydeder, çıktı üretmez (07.x henüz yok)."""
+
+    calls: list[tuple[int, str]] = field(default_factory=list)
+    fail: bool = False
+
+    def __call__(
+        self, session: Session, layout: DataLayout, plan: Plan, document: PlanDocument
+    ) -> None:
+        assert document == read_plan(plan)
+        self.calls.append((plan.id, plan.plan_hash))
+        if self.fail:
+            raise RuntimeError("uygulayıcı durdu")
+
+
+def _recording() -> RecordingProvider:
+    return RecordingProvider.from_directory(RECORDINGS / "russian_passport")
+
+
+def _planned_upload(
+    client: TestClient, session_factory: sessionmaker[Session], layout: DataLayout
+) -> tuple[str, int]:
+    """Yüklenen sentetik pasaport render edilir, kayıtlı yanıtla analiz edilir, planı dondurulur."""
+    upload_id = client.post(
+        "/api/uploads", files=_files(("pasaport.pdf", make_text_pdf_bytes(["PASAPORT"])))
+    ).json()["upload_id"]
+    with session_factory() as session:
+        import_catalog(session, CATALOG)
+        upload = session.get_one(Upload, upload_id)
+        render_upload_file(session, layout, Settings(database_url="sqlite://"), upload.files[0])
+        analyze_upload(
+            session,
+            layout,
+            upload,
+            provider=_recording(),
+            instructions=build_page_analysis_instructions(CATALOG),
+        )
+        plan = create_plan(session, layout, upload, catalog=CATALOG, model="recording")
+        session.commit()
+        return upload_id, plan.id
+
+
+def _count_rows(session: Session, model: type[Any]) -> int:
+    return session.scalar(select(func.count()).select_from(model)) or 0
+
+
+def _event_types(session: Session, upload_id: str) -> list[str]:
+    return list(
+        session.scalars(select(Event.type).where(Event.upload_id == upload_id).order_by(Event.id))
+    )
+
+
+def test_rerun_applies_the_current_plan_without_building_an_ai_provider(
+    app: FastAPI,
+    client: TestClient,
+    session_factory: sessionmaker[Session],
+    layout: DataLayout,
+) -> None:
+    upload_id, plan_id = _planned_upload(client, session_factory, layout)
+    executor = _Executor()
+    providers: list[AnalysisProvider] = []
+
+    def _provider() -> AnalysisProvider:
+        providers.append(_recording())
+        return providers[-1]
+
+    app.dependency_overrides[get_plan_executor] = lambda: executor
+    app.dependency_overrides[get_analysis_provider] = _provider
+
+    response = client.post(f"/api/uploads/{upload_id}/rerun")
+
+    assert response.status_code == 200
+    with session_factory() as session:
+        plan = session.get_one(Plan, plan_id)
+        assert response.json() == {
+            "upload_id": upload_id,
+            "plan_id": plan_id,
+            "version": 1,
+            "plan_hash": plan.plan_hash,
+        }
+        assert executor.calls == [(plan_id, plan.plan_hash)]
+        assert providers == []
+        assert plan.executed_at is not None
+        assert _count_rows(session, Plan) == 1
+        types = _event_types(session, upload_id)
+        assert types[-1] == EventType.PLAN_RERUN
+        assert types.count(EventType.PAGE_ANALYZED) == 1
+
+
+def test_rerun_and_reanalysis_of_an_unknown_upload_are_404(
+    app: FastAPI, client: TestClient
+) -> None:
+    app.dependency_overrides[get_plan_executor] = _Executor
+    app.dependency_overrides[get_analysis_provider] = _recording
+
+    for action in ("rerun", "reanalyze"):
+        assert client.post(f"/api/uploads/u_yoktur/{action}").status_code == 404
+
+
+def test_rerun_and_reanalysis_without_a_plan_are_409_and_call_nothing(
+    app: FastAPI, client: TestClient, session_factory: sessionmaker[Session]
+) -> None:
+    upload_id = client.post("/api/uploads", files=_files(("a.pdf", b"%PDF-1.4 a"))).json()[
+        "upload_id"
+    ]
+    executor, provider = _Executor(), _recording()
+    app.dependency_overrides[get_plan_executor] = lambda: executor
+    app.dependency_overrides[get_analysis_provider] = lambda: provider
+
+    for action in ("rerun", "reanalyze"):
+        response = client.post(f"/api/uploads/{upload_id}/{action}")
+        assert response.status_code == 409
+        assert response.json()["detail"].startswith(f"Partinin planı yok (parti {upload_id})")
+
+    assert (executor.calls, provider.requests) == ([], [])
+    with session_factory() as session:
+        assert _event_types(session, upload_id) == [EventType.FILE_UPLOADED]
+
+
+def test_rerun_of_a_changed_plan_is_409_and_commits_nothing(
+    app: FastAPI,
+    client: TestClient,
+    session_factory: sessionmaker[Session],
+    layout: DataLayout,
+) -> None:
+    upload_id, plan_id = _planned_upload(client, session_factory, layout)
+    with session_factory() as session:
+        plan = session.get_one(Plan, plan_id)
+        changed = copy.deepcopy(plan.json)
+        changed["items"][0]["target_name"] = "Baska_Kisi-Passport.pdf"
+        plan.json = changed
+        session.commit()
+    executor = _Executor()
+    app.dependency_overrides[get_plan_executor] = lambda: executor
+
+    response = client.post(f"/api/uploads/{upload_id}/rerun")
+
+    assert response.status_code == 409
+    assert "hash'i kaydıyla uyuşmuyor" in response.json()["detail"]
+    assert "Baska" not in response.json()["detail"]
+    assert executor.calls == []
+    with session_factory() as session:
+        assert EventType.PLAN_RERUN not in _event_types(session, upload_id)
+        assert session.get_one(Plan, plan_id).executed_at is None
+
+
+@pytest.mark.parametrize("action", ["rerun", "reanalyze"])
+def test_without_a_plan_executor_the_plan_is_not_applied(
+    action: str,
+    app: FastAPI,
+    client: TestClient,
+    session_factory: sessionmaker[Session],
+    layout: DataLayout,
+) -> None:
+    upload_id, _ = _planned_upload(client, session_factory, layout)
+    provider = _recording()
+    app.dependency_overrides[get_analysis_provider] = lambda: provider
+    with session_factory() as session:
+        before = _event_types(session, upload_id)
+
+    response = client.post(f"/api/uploads/{upload_id}/{action}")
+
+    assert response.status_code == 503
+    assert response.json()["detail"] == "Plan uygulayıcısı henüz kurulmadı; plan uygulanamaz."
+    assert provider.requests == []
+    with session_factory() as session:
+        assert _event_types(session, upload_id) == before
+        assert _count_rows(session, Plan) == 1
+
+
+def test_failed_rerun_commits_nothing(
+    app: FastAPI,
+    client: TestClient,
+    session_factory: sessionmaker[Session],
+    layout: DataLayout,
+) -> None:
+    upload_id, plan_id = _planned_upload(client, session_factory, layout)
+    app.dependency_overrides[get_plan_executor] = lambda: _Executor(fail=True)
+
+    with pytest.raises(RuntimeError, match="uygulayıcı durdu"):
+        client.post(f"/api/uploads/{upload_id}/rerun")
+
+    with session_factory() as session:
+        assert EventType.PLAN_RERUN not in _event_types(session, upload_id)
+        assert session.get_one(Plan, plan_id).executed_at is None
+
+
+def test_reanalysis_opens_the_next_version_and_marks_old_outputs_as_old_version(
+    app: FastAPI,
+    client: TestClient,
+    session_factory: sessionmaker[Session],
+    layout: DataLayout,
+) -> None:
+    upload_id, plan_id = _planned_upload(client, session_factory, layout)
+    old_path = "Employees/Test_Ornekova_E0001/Hazir/Test_Ornekova-Passport.pdf"
+    with session_factory() as session:
+        old = Document(
+            employee_id="E0001",
+            type_slug="russian_passport",
+            path=old_path,
+            format="pdf",
+            plan_id=plan_id,
+            source_refs_json=[{"item_id": "i1", "file_id": 1, "pages": [0]}],
+        )
+        session.add(old)
+        session.commit()
+        old_id = old.id
+    executor, provider = _Executor(), _recording()
+    app.dependency_overrides[get_plan_executor] = lambda: executor
+    app.dependency_overrides[get_analysis_provider] = lambda: provider
+
+    response = client.post(f"/api/uploads/{upload_id}/reanalyze")
+
+    assert response.status_code == 200
+    assert len(provider.requests) == 1
+    with session_factory() as session:
+        first = session.get_one(Plan, plan_id)
+        second = session.scalars(select(Plan).where(Plan.version == 2)).one()
+        assert response.json() == {
+            "upload_id": upload_id,
+            "plan_id": second.id,
+            "version": 2,
+            "plan_hash": second.plan_hash,
+            "previous_plan_id": plan_id,
+            "previous_version": 1,
+            "superseded_document_ids": [old_id],
+        }
+        assert executor.calls == [(second.id, second.plan_hash)]
+        assert (first.executed_at, second.executed_at is not None) == (None, True)
+        stored = session.get_one(Document, old_id)
+        assert (stored.status, stored.path) == (DocumentStatus.SUPERSEDED, old_path)
+        types = _event_types(session, upload_id)
+        assert types[-2:] == [EventType.PLAN_CREATED, EventType.PLAN_REANALYZED]
+        assert types.count(EventType.PAGE_ANALYZED) == 2
+
+
+def test_analysis_provider_dependency_builds_the_configured_provider(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    provider = _recording()
+    monkeypatch.setitem(PROVIDER_FACTORIES, "kayitli", lambda settings: provider)
+
+    def settings(**changes: Any) -> Settings:
+        return Settings(_env_file=None, database_url="sqlite://", **changes)
+
+    assert get_analysis_provider(settings(ai_provider="kayitli")) is provider
+    for changes, message in (
+        ({"ai_provider": "yok"}, "Bilinmeyen AI_PROVIDER 'yok'"),
+        ({"ai_provider": "anthropic"}, "ANTHROPIC_API_KEY tanımlı olmalı"),
+    ):
+        with pytest.raises(HTTPException) as raised:
+            get_analysis_provider(settings(**changes))
+        assert raised.value.status_code == 503
+        assert message in str(raised.value.detail)

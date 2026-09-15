@@ -33,7 +33,7 @@ def _assert_schema_matches_models(database_url: str) -> None:
             assert tables == set(Base.metadata.tables) | {"alembic_version"}
             context = MigrationContext.configure(connection, opts={"compare_type": True})
             assert compare_metadata(context, Base.metadata) == []
-            assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "0001"
+            assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "0002"
     finally:
         engine.dispose()
 
@@ -64,6 +64,41 @@ def test_migrated_schema_keeps_check_constraints(sqlite_url: str) -> None:
                 ),
                 {"i": "u_1", "c": "web", "s": "bitti", "t": "2026-09-05 00:00:00"},
             )
+    finally:
+        engine.dispose()
+
+
+def test_queue_item_plan_id_migration_keeps_existing_rows_both_ways(sqlite_url: str) -> None:
+    # 0002 SQLite'ta tabloyu batch kipinde yeniden kurar; var olan kuyruk kaydı kaybolmamalı.
+    config = _alembic_config(sqlite_url)
+    command.upgrade(config, "0001")
+    engine = create_engine(sqlite_url)
+    row = "SELECT upload_id, plan_item_id, kind, reason FROM queue_items"
+    try:
+        with engine.begin() as connection:
+            connection.execute(
+                text(
+                    "INSERT INTO uploads (id, channel, status, created_at) "
+                    "VALUES ('u_1', 'web', 'received', '2026-09-05 00:00:00')"
+                )
+            )
+            connection.execute(
+                text(
+                    "INSERT INTO queue_items (upload_id, plan_item_id, kind, reason) "
+                    "VALUES ('u_1', 'i2', 'unresolved', 'R6')"
+                )
+            )
+
+        command.upgrade(config, "head")
+        with engine.connect() as connection:
+            assert connection.execute(text(row)).all() == [("u_1", "i2", "unresolved", "R6")]
+            assert connection.scalar(text("SELECT plan_id FROM queue_items")) is None
+
+        command.downgrade(config, "0001")
+        with engine.connect() as connection:
+            assert connection.execute(text(row)).all() == [("u_1", "i2", "unresolved", "R6")]
+            columns = {column["name"] for column in inspect(connection).get_columns("queue_items")}
+            assert "plan_id" not in columns
     finally:
         engine.dispose()
 

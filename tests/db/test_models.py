@@ -12,6 +12,7 @@ from app.db.models import (
     Base,
     CandidateDocumentType,
     Document,
+    DocumentStatus,
     Employee,
     EmployeeAlias,
     EmployeeContact,
@@ -111,7 +112,9 @@ def test_relationships_navigate_in_both_directions(engine: Engine) -> None:
         contact = EmployeeContact(
             employee=employee, kind="email", value="test@example.invalid", source_document=document
         )
-        queue_item = QueueItem(upload=upload, plan_item_id="i2", kind="unresolved", reason="R6")
+        queue_item = QueueItem(
+            upload=upload, plan=plan_v1, plan_item_id="i2", kind="unresolved", reason="R6"
+        )
         candidate = CandidateDocumentType(
             proposed_name="Test Card", normalized_name="test card", first_seen_upload=upload
         )
@@ -154,6 +157,7 @@ def test_relationships_navigate_in_both_directions(engine: Engine) -> None:
         assert all(p.upload is upload for p in upload.plans)
         assert [q.plan_item_id for q in upload.queue_items] == ["i2"]
         assert upload.queue_items[0].upload is upload
+        assert upload.queue_items[0].plan is upload.plans[0]
 
         original, duplicate = upload.files
         assert original.upload is upload
@@ -182,10 +186,14 @@ def test_defaults_are_applied(session: Session) -> None:
     employee = _employee()
     upload = Upload(id="u_20260905_0002", channel="web")
     doc_type = _document_type()
-    session.add_all([employee, upload, doc_type])
+    document = Document(
+        employee=employee, document_type=doc_type, path="a", format="pdf", source_refs_json=[]
+    )
+    session.add_all([employee, upload, doc_type, document])
     session.commit()
 
     assert employee.status == "active"
+    assert (document.status, document.sequence_no) == (DocumentStatus.ACTIVE, 1)
     assert employee.created_at.tzinfo is UTC
     assert upload.status == "received"
     assert doc_type.active is True

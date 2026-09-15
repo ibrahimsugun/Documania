@@ -113,6 +113,18 @@ class QueueKind(enum.StrEnum):
     UNRESOLVED = "unresolved"
 
 
+class DocumentStatus(enum.StrEnum):
+    """Çıktı belgesi durumu (§8.1 `documents.status`).
+
+    Belge `active` yazılır. Parti yeniden analiz edilince önceki plan sürümlerinin etkin çıktıları
+    "eski sürüm" (`superseded`) işaretlenir; satır ve dosya silinmez, yeniden adlandırılmaz (K18,
+    06.6.2).
+    """
+
+    ACTIVE = "active"
+    SUPERSEDED = "superseded"
+
+
 class CandidateTypeStatus(enum.StrEnum):
     """Aday tür durumu (§8.1 `candidate_document_types.status`).
 
@@ -288,7 +300,7 @@ class Document(Base):
     plan_id: Mapped[int | None] = mapped_column(ForeignKey("plans.id"))
     # K15: her çıktı kaynak dosya ve sayfa aralığına bağlanır.
     source_refs_json: Mapped[list[dict[str, Any]]] = mapped_column(JSON)
-    status: Mapped[str] = mapped_column(String(16), default="active")
+    status: Mapped[str] = mapped_column(String(16), default=DocumentStatus.ACTIVE.value)
     created_at: Mapped[datetime] = mapped_column(UtcDateTime, default=utcnow)
 
     employee: Mapped[Employee] = relationship(back_populates="documents")
@@ -302,6 +314,10 @@ class QueueItem(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     upload_id: Mapped[str] = mapped_column(ForeignKey("uploads.id"), index=True)
+    # K18: plan öğesi kimlikleri (`i1`, `i2`…) partinin plan sürümleri arasında tekrar eder;
+    # öğeyi yalnız `plan_id` + `plan_item_id` birlikte gösterir. Kaydı yazan (08.1) ikisini de
+    # yazar; partinin güncel planına ait olmayan öğe eski sürümdür (06.6.2).
+    plan_id: Mapped[int | None] = mapped_column(ForeignKey("plans.id"), index=True)
     plan_item_id: Mapped[str | None] = mapped_column(String(64))
     kind: Mapped[str] = mapped_column(String(16))
     reason: Mapped[str] = mapped_column(Text)
@@ -310,6 +326,7 @@ class QueueItem(Base):
     resolved_by: Mapped[str | None] = mapped_column(String(255))
 
     upload: Mapped[Upload] = relationship(back_populates="queue_items")
+    plan: Mapped[Plan | None] = relationship()
 
 
 class KnownDocumentType(Base):

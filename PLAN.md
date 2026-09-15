@@ -8,7 +8,7 @@
 
 | Faz | PRD | Genel durum | Must sayacı | Kapanış |
 | --- | --- | --- | --- | --- |
-| Faz 0 — MVP | §5.1 | 75 ✅ · 0 ◐ · 27 ⬜ · 0 🔒 | 72/98 Must | AÇIK |
+| Faz 0 — MVP | §5.1 | 77 ✅ · 0 ◐ · 25 ⬜ · 0 🔒 | 74/98 Must | AÇIK |
 | Faz 1 — v1 | §5.2 | 0 ✅ · 0 ◐ · 0 ⬜ · 32 🔒 | 0/21 Must | AÇIK |
 | Faz 2 — v2 | §5.3 | 0 ✅ · 0 ◐ · 0 ⬜ · 13 🔒 | 0/0 Must | AÇIK |
 | Faz 3 — Enterprise | §5.4 | 0 ✅ · 0 ◐ · 0 ⬜ · 8 🔒 | 0/0 Must | AÇIK |
@@ -175,8 +175,8 @@ panelde `plan-count-drift` bulgusu doğurur.
 | 06.4.1 | Dönüşüm izni kontrolü | Must (MVP) | ✅ → K06.4 |
 | 06.5.1 | Doğrulayıcı seti | Must (MVP) | ✅ → K06.5 |
 | 06.5.2 | Doğrulama başarısızlığı | Must (MVP) | ✅ → K06.5 |
-| 06.6.1 | Planı yeniden çalıştırma | Must (MVP) | ⬜ |
-| 06.6.2 | Yeniden analiz ve sürüm | Must (MVP) | ⬜ |
+| 06.6.1 | Planı yeniden çalıştırma | Must (MVP) | ✅ → K06.6 |
+| 06.6.2 | Yeniden analiz ve sürüm | Must (MVP) | ✅ → K06.6 |
 
 ### 3.8 FR-MOD-07 — Uygulayıcı
 
@@ -1072,6 +1072,38 @@ Onay beklemeden yapılan varsayımlar buraya numaralı olarak yazılır.
   ile reddedildiği için §20.3 satır 7'nin "kaynak biçimi tanınmadı" gerekçesi planlayıcıda oluşmaz (saf
   `select_operation`'da durur); 06.2 plan testleri satır 7'yi PNG→JPEG ile sınar. §20.1.6'nın yüzyıl testi: iki
   yüzyıl da (1925/2025) 16–90 dışında kaldığından belge Unresolved, yüzyıl seçimi kişi tahmininde görünür.
+- **C35** — Yeniden çalıştırma ve yeniden analiz (tm 45, 06.6.1, 06.6.2): PRD "mevcut plan yeniden uygulanır;
+  yapay zekâ çağrılmaz; ikinci kopya üretilmez" ve "yeni plan sürümü açılır; eski çıktılar silinmez, eski sürüm
+  işaretlenir" der; uygulayıcı (07.x) henüz yok, "güncel plan", "eski sürüm"ün değeri ve kapsamı, planı olmayan
+  partinin yeniden analizi, yeniden analizin planı uygulayıp uygulamadığı ve olay verisi yazılı değil.
+  `app/pipeline/orchestrate.py`. **Güncel plan** partinin en yüksek sürümüdür (`current_plan`); eski planlar
+  değişmez. **Uygulayıcı portu** `PlanExecutor(session, layout, plan, document)`: doğrulanmış planı ve kaydını
+  alır, yapay zekâ çağırmaz, planı değiştirmez, plan öğesi başına idempotenttir (07.8.1), commit etmez; 07.x
+  çıktıları ve 08.1 kuyruk kayıtları bu tek adımda uygulanır, 09.2 bağlar. Uygulama bitince `plans.executed_at`
+  son uygulamanın zamanıdır. **Yeniden çalıştırma** (`rerun_plan`): güncel plan `read_plan` ile doğrulanır (plan
+  yoksa `NoPlanError`, değişmişse `PlanIntegrityError`; ikisinde de olay yok, uygulayıcı çağrılmaz), `PLAN_RERUN`
+  (veri `plan_id`, `version`, `plan_hash`) yazılır ve aynı kayıt uygulayıcıya verilir. Sağlayıcı parametresi yok;
+  analiz, gruplama, eşleştirme ve planlama yürümez (çalışan açma, profil önerisi, birikim tekrarlanmaz). "İkinci
+  kopya üretilmez" bu katmanda aynı plan kimliği ve hash'le uygulamadır; dosya düzeyindeki garanti 07.8.1'indir —
+  yeniden planlama aynı içerikte bile yeni sürüm ve hash doğurur, öğeleri uygulanmamış görünür. **Yeniden
+  analiz** (`reanalyze_upload`): yalnız planı olan partide (planı olmayan partiyi işlemek 09.2'nin; sağlayıcı
+  çağrılmadan `NoPlanError`). Sayfalar `analyze_upload` ile yeniden analiz edilir (tekrar dosyası ve boş sayfa yine
+  atlanır; render, boş sayfa ve gömülü görüntü tespiti yapay zekâ dışı ve belirleyici olduğu için yeniden
+  yapılmaz), `create_plan` sürüm +1 açar (model `provider.model`, katalog analizinkiyle aynı), partinin önceki
+  sürümlerine bağlı `active` çıktılar `superseded` olur (`DocumentStatus`; satır, dosya ve ad yerinde; başka
+  partinin, plana bağlı olmayan ve zaten eski olan çıktıya dokunulmaz), `PLAN_REANALYZED` (veri yeni ve önceki
+  planın kimliği ile sürümü, `plan_hash`, `model`, `pages` analyzed/failed/skipped, `superseded_document_ids`;
+  mesaj yok) yazılır ve yeni plan aynı işlemde uygulanır. Yeni analiz bağlayıcıdır: sayfa bu kez analiz edilemese
+  de sürüm açılır ve eski çıktı eski sürüm olur (K18 koşul koymaz; kısmi başarı `partial` ve olay verisinde
+  görünür). Eski sürüm işaretlemesi yeni sürümün değil yeniden analizin sonucudur: 08.2'nin elle atamayla açacağı
+  sürüm önceki çıktıları eski yapmamalı. **Kuyruk (C5'in sorusu):** plan öğesi kimlikleri (`i1`…) sürümler
+  arasında tekrar ettiği için göç `0002` `queue_items.plan_id`'yi (boş olabilir, `plans`'a FK, indeksli) ekler;
+  kaydı yazan 08.1 doldurur. Kuyruk öğesine durum sütunu eklenmedi: güncel plana ait olmayan öğe eski sürümdür,
+  08.2 onu yürütmemeli. **API:** `POST /api/uploads/{id}/rerun` (sağlayıcı bağımlılığı yok) ve `/reanalyze`
+  (`get_analysis_provider` → `create_provider`, kurulamazsa 503; katalog `export_catalog`); iş tek işlemde, yalnız
+  başarıda commit; bilinmeyen parti 404, plan yok ya da değişmiş 409. `get_plan_executor` uygulayıcı bağlanana
+  kadar 503 verir — iki uç nokta bugün çalışan uygulamada planı uygulamaz. Parti durumu değişmez (09.2.1).
+  SQLite'ta yeniden analiz yapay zekâ çağrıları boyunca yazma kilidini tutar (C4); arka plan işleyişi 09.2/13.3'ün.
 
 ## D. Sapmalar
 
@@ -1506,3 +1538,9 @@ var olan maddeler silinmez. Biçim:
 #### K06.5 — 06.5.1, 06.5.2 · Doğrulayıcı seti
 - ✅ 06.5.1 yedi saf doğrulayıcı, 06.5.1 sırasıyla (`ValidationName`): `required_fields` (04.4.1 hükmü, Unreadable), `page_count` (04.5.1 hükmü), `sides` (`front_back` türde tam `(front, back)`), `direct_single_source` (Direkt türde tek kaynak, arada yalnız boş sayfa), `file_type` (her türde içerik biçimi `expected_file_types`'ta, Direkt türde §20.4.1), `mrz_checksum` (§20.1.7: alan/isteğe bağlı veri/bileşik hanesi tutmayan ya da izin verilmeyen karakterli MRZ geçmez; MRZ'siz, biçimi tanınmayan, güvenilmeyen sayfa ve görünen metinle çelişki hata değil), `dob_plausible` (§20.1.6: kişi anahtarının doğum tarihi referans günden önce ve 16–90 yaş, iki uç dahil, 29 Şubat dahil); her biri geçen ve kalan örnekle, gerekçesi kişisel değer taşımadan (C34) — `app/pipeline/validate.py` · test `tests/pipeline/test_validate.py` (67) · tm 44
 - ✅ 06.5.2 planlayıcı katalog türündeki bütün adayı önce yapı (`page_count`, `sides`), sonra öteki doğrulayıcılardan geçirir, sonucu öğenin `validations`'ına yazar; geçmeyen doğrulama öğeyi kuyruğa gönderir (`required_fields` Unreadable, öteki altısı Unresolved), gerekçe doğrulayıcı sırasıyla `route_reason`'a eklenir, `VALIDATION_FAILED` (item_id, validation, tür, kuyruk) yazılır, çalışan açılmaz; kaynak doğrulaması geçmeyen belgede işlem seçilmez; Word/Excel eki kaynak doğrulayıcılarından geçer; sözleşme `hazir` öğede dolu ve hepsi `ok` doğrulama, tekrarsız ve sıralı ad ister. Gerçek dosyalarla: yalnız ön yüzlü oturma kartı, satırı eksik sayfayla dağılmış pasaport, yalnız PDF bekleyen izin JPEG'i, bileşik hanesi tutmayan pasaport (D16), 15 yaş doğum tarihli izin Unresolved'a gider; S6 ve MRZ yüzyılı testleri yeni hükümle güncellendi. `plan.py` ve `validate.py` satır+dal kapsamı %100, 19 kural bozulması geçici olarak denendi, her biri testte kırmızı — `app/pipeline/plan.py` · test `tests/pipeline/test_plan.py` (164, +17) · tm 44
+
+#### K06.6 — 06.6.1, 06.6.2 · Yeniden çalıştırma ve yeniden analiz
+- ✅ 06.6.1 `rerun_plan(session, layout, upload, *, executor)` (`app/pipeline/orchestrate.py`) partinin güncel planını (`current_plan`, en yüksek sürüm) `read_plan` ile doğrular, `PLAN_RERUN` yazar ve aynı `plans` kaydını `PlanExecutor` portuna verir, `executed_at`'i günceller; sağlayıcı almaz, analiz/gruplama/eşleştirme/planlama yürümez (sağlayıcıya giden istek testi düşürür; plan, çalışan, aday tür ve analizler değişmez, yeni olay yalnız `PLAN_RERUN`); plan yoksa `NoPlanError`, değişmiş plan `PlanIntegrityError` — olay ve uygulama yok; S18 plan katmanında: öğe başına idempotent sahte uygulayıcıyla iki yeniden çalıştırma aynı çıktıyı, tek dosyayı ve aynı baytları bırakır (dosya düzeyi garanti 07.8.1, uçtan uca S18 09.3-d; C35) · test `tests/pipeline/test_orchestrate.py` (11) · tm 45
+- ✅ 06.6.2 `reanalyze_upload(session, layout, upload, *, provider, catalog, executor, reference_date=None)` planı olan partiyi sağlayıcıya yeniden gönderir (planı yoksa sağlayıcı çağrılmadan `NoPlanError`), `create_plan` ile sürüm +1 açar, önceki sürümlerin `active` çıktılarını `DocumentStatus.SUPERSEDED` yapar — satır, yol ve dosya baytları yerinde, başka partinin/plansız/zaten eski çıktıya dokunulmaz — `PLAN_REANALYZED` yazar ve yeni planı uygular; planın açtığı çalışan yeni sürümde numarasından bulunur (ikinci çalışan yok), yeni çıktı `-2` adını alır, sonraki yeniden çalıştırma yeni sürümü ikinci kopyasız uygular; analiz edilemeyen sayfada da sürüm açılır, parti `partial`. Göç `0002` `queue_items.plan_id` (C5) · test `tests/pipeline/test_orchestrate.py`, `tests/db/test_migrations.py` (+1: 0001↔0002 kayıt korunur), `tests/db/test_models.py` · tm 45
+- ✅ API `POST /api/uploads/{id}/rerun` (sağlayıcı bağımlılığı yok) ve `POST /api/uploads/{id}/reanalyze` (`get_analysis_provider`, kurulamazsa 503) tek işlemde çalışır, yalnız başarıda commit; bilinmeyen parti 404, plan yok/değişmiş 409, uygulayıcı hatasında hiçbir şey yazılmaz; `get_plan_executor` uygulayıcı bağlanana kadar 503 — `app/web/routers/uploads.py` · test `tests/web/test_uploads.py` (+9) · tm 45
+- ✅ Kapı: 1824 geçti (+21), kapsam %99.72 (`orchestrate.py` ve `uploads.py` %100); 11 kural bozulması (bütünlükten önce olay, durum/parti filtresi, `executed_at`, en eski plan, işaretleme yok, planı sormadan analiz, yeniden planlama, rerun'da sağlayıcı bağımlılığı, commit yok, model) geçici olarak denendi, her biri testte kırmızı · tm 45

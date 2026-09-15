@@ -1,4 +1,5 @@
-"""Yükleme uç noktası — çoklu dosya partisi oluşturma (PRD 01.1.1, 01.1.2, 01.3.1).
+"""Yükleme uç noktası — çoklu dosya partisi oluşturma (PRD 01.1.1, 01.1.2, 01.3.1), planı yeniden
+çalıştırma ve yeniden analiz (06.6.1, 06.6.2).
 
 Her dosya `Inbox/<upload_id>/<orijinal_ad>` altına değişmez biçimde yazılır (K10); yol yalnız
 `app.storage.DataLayout` üzerinden kurulur. `context_employee_id` verilirse partiye bağlanır —
@@ -7,6 +8,12 @@ işidir.
 
 Boyut ve (PDF için) sayfa sınırı (01.3.1) her dosya diske yazılmadan/partiye kaydedilmeden önce
 denetlenir; sınırı aşan tek dosya olsa bile parti hiç oluşturulmaz.
+
+`POST /{upload_id}/rerun` güncel planı yeniden uygular; yapay zekâ sağlayıcısı bu uç noktanın
+bağımlılıkları arasında yoktur. `POST /{upload_id}/reanalyze` partiyi yeniden analiz eder ve yeni
+plan sürümünü açar (`app.pipeline.orchestrate`). İkisi de işi tek işlemde yapar: hata olursa
+hiçbir şey commit edilmez. Planı uygulayan adım `get_plan_executor` bağımlılığıdır; uygulayıcı
+(FR-MOD-07, 08.1; 09.2 bağlar) kurulana kadar iki uç nokta da 503 döner.
 """
 
 from __future__ import annotations
@@ -21,10 +28,14 @@ from pypdf import PdfReader
 from pypdf.errors import PdfReadError
 from sqlalchemy.orm import Session
 
+from app.ai.provider import AnalysisProvider, ProviderConfigError, create_provider
+from app.catalog import export_catalog
 from app.config import Settings, get_settings
 from app.db.models import Employee, Upload, UploadFile, allocate_upload_id
 from app.db.session import get_session
 from app.events import EventType, event_context, record_event
+from app.pipeline.orchestrate import NoPlanError, PlanExecutor, reanalyze_upload, rerun_plan
+from app.pipeline.plan import PlanIntegrityError
 from app.storage import (
     DataLayout,
     FileKind,
@@ -64,8 +75,46 @@ class UploadStatusResponse(BaseModel):
     progress: UploadProgressResponse
 
 
+class PlanRunResponse(BaseModel):
+    upload_id: str
+    plan_id: int
+    version: int
+    plan_hash: str
+
+
+class ReanalysisResponse(PlanRunResponse):
+    previous_plan_id: int
+    previous_version: int
+    superseded_document_ids: list[int]
+
+
 def get_layout() -> DataLayout:
     return DataLayout(get_settings().data_dir)
+
+
+def get_plan_executor() -> PlanExecutor:
+    """Planı uygulayan adım (06.6). Uygulayıcı henüz kurulmadı: 07.x/09.2 bu bağımlılığı bağlar."""
+    raise HTTPException(
+        status.HTTP_503_SERVICE_UNAVAILABLE,
+        "Plan uygulayıcısı henüz kurulmadı; plan uygulanamaz.",
+    )
+
+
+def get_analysis_provider(
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> AnalysisProvider:
+    """`.env`'deki `AI_PROVIDER` sağlayıcısı (03.2.1); kurulamıyorsa 503."""
+    try:
+        return create_provider(settings)
+    except ProviderConfigError as exc:
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, str(exc)) from None
+
+
+def _get_upload(session: Session, upload_id: str) -> Upload:
+    upload = session.get(Upload, upload_id)
+    if upload is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Parti bulunamadı.")
+    return upload
 
 
 def _validated_name(file: FastAPIFile) -> str:
@@ -172,9 +221,7 @@ def get_upload_status(
     session: Annotated[Session, Depends(get_session)],
 ) -> UploadStatusResponse:
     """01.6.1 — parti durumu, dosyaları ve dosya başına sayfa üretim ilerlemesini döner."""
-    upload = session.get(Upload, upload_id)
-    if upload is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Parti bulunamadı.")
+    upload = _get_upload(session, upload_id)
 
     files = [
         UploadFileStatusResponse(
@@ -194,4 +241,59 @@ def get_upload_status(
         status=upload.status,
         files=files,
         progress=UploadProgressResponse(total_files=len(files), rendered_files=rendered_files),
+    )
+
+
+@router.post("/{upload_id}/rerun", response_model=PlanRunResponse)
+def rerun_upload_plan(
+    upload_id: str,
+    session: Annotated[Session, Depends(get_session)],
+    layout: Annotated[DataLayout, Depends(get_layout)],
+    executor: Annotated[PlanExecutor, Depends(get_plan_executor)],
+) -> PlanRunResponse:
+    """06.6.1 — güncel planı yapay zekâ çağırmadan yeniden uygular; plan yok/değişmiş: 409."""
+    upload = _get_upload(session, upload_id)
+    try:
+        run = rerun_plan(session, layout, upload, executor=executor)
+    except (NoPlanError, PlanIntegrityError) as exc:
+        raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from None
+    session.commit()
+    return PlanRunResponse(
+        upload_id=upload.id,
+        plan_id=run.plan.id,
+        version=run.plan.version,
+        plan_hash=run.plan.plan_hash,
+    )
+
+
+@router.post("/{upload_id}/reanalyze", response_model=ReanalysisResponse)
+def reanalyze_upload_plan(
+    upload_id: str,
+    session: Annotated[Session, Depends(get_session)],
+    layout: Annotated[DataLayout, Depends(get_layout)],
+    executor: Annotated[PlanExecutor, Depends(get_plan_executor)],
+    provider: Annotated[AnalysisProvider, Depends(get_analysis_provider)],
+) -> ReanalysisResponse:
+    """06.6.2 — partiyi yeniden analiz eder, yeni plan sürümünü açar; plan yoksa 409."""
+    upload = _get_upload(session, upload_id)
+    try:
+        reanalysis = reanalyze_upload(
+            session,
+            layout,
+            upload,
+            provider=provider,
+            catalog=export_catalog(session),
+            executor=executor,
+        )
+    except NoPlanError as exc:
+        raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from None
+    session.commit()
+    return ReanalysisResponse(
+        upload_id=upload.id,
+        plan_id=reanalysis.plan.id,
+        version=reanalysis.plan.version,
+        plan_hash=reanalysis.plan.plan_hash,
+        previous_plan_id=reanalysis.previous_plan.id,
+        previous_version=reanalysis.previous_plan.version,
+        superseded_document_ids=list(reanalysis.superseded_document_ids),
     )
