@@ -622,14 +622,14 @@
         "description": "PRD 06.5.1, 06.5.2 · FR-MOD-06 (Plan ve doğrulayıcılar) · Faz 0.",
         "details": "KAPSAM: PRD 06.5.1, 06.5.2 (FR-MOD-06 — Plan ve doğrulayıcılar, Faz 0).\n\nNE YAPILACAK — GEREKSİNİMLER VE KABUL KRİTERLERİ:\n- 06.5.1 — Doğrulayıcı seti\n  Kabul: required_fields, page_count, sides, direct_single_source, file_type, mrz_checksum, dob_plausible doğrulayıcıları çalışır\n- 06.5.2 — Doğrulama başarısızlığı\n  Kabul: Başarısız doğrulama rotayı Unresolved yapar ve gerekçe yazılır\n\nGİRDİ — ÜZERİNE KURULDUĞU İŞLER (bu kod ZATEN VAR; yazmadan önce OKU):\n- 06.1 (Plan JSON üretimi ve determinizm) → app/pipeline/plan.py\n- 05.3 (MRZ ayrıştırma ve kontrol haneleri) → app/matching/mrz.py\n\nÇIKTI — DOKUNULACAK YÜZEY: app/pipeline/validate.py\n\nZORUNLU OKUMA — BU GÖREVİN KARAR TABLOSU: urun-gereksinim-dokumani-PRD.md §20.1.7 (MRZ geçersizlik) ve §20.1.6 (tarih/yüzyıl kuralı)\nKarar zaten verilmiş ve yazılmıştır; senden beklenen onu UYGULAMAK. Tabloyu okumadan kod yazma. Tabloda karşılığı olmayan bir durumla karşılaşırsan UYDURMA: en güvenli davranışı seç (belgeyi kuyruğa al) ve PLAN.md §D'ye sapma yaz.\n\nBU GÖREVİ BAĞLAYAN KİLİTLİ KURALLAR (MASTER-PROMPT §3 — tartışma, uygula):\n- K1: Zorunlu alanların hepsi okunaklıysa belge kabul edilir; biri bile okunamıyorsa Unreadable. Ayrı güven skoru YOK.\n- K3: Direkt Belge AÇIK: çıktı tek kaynaktan ardışık sayfalardır. Başka dosyadan sayfa eklenmez, format dönüştürülmez, görüntü yeniden kodlanmaz. Sayfa çıkarmak serbesttir. Beklenen dosya türü tutmuyorsa Unresolved + 'uygun formatta yeniden gönderin'.\n\nPRD'DE AYRICA OKU: §8.5 (plan JSON şeması) · §8.6 (katalog kaydı biçimi)\n\nİLGİLİ KABUL SENARYOSU: doğrudan yok. Kabul kriterleri yukarıda.\n\nSIRA (MASTER-PROMPT §5, contract-first): sözleşme/şema → Alembic göçü (gerekiyorsa) → çekirdek + unit test → entegrasyon + testi → arayüz.\n\nKAPSAM SINIRI: yalnız yukarıdaki PRD kimlikleri. Başka gereksinimin işini yapma; yolda gördüğün kusuru düzeltme, yeni görev olarak aç (CONVENTIONS §5). Kilitli teknik kararları (MASTER-PROMPT §4) tartışma; yanlış görünüyorsa uygula ve PLAN.md §D'ye sapma yaz.\n\nTUZAKLAR: belge içeriğini değiştiren kod yazma — kırpma, döndürme (EXIF dışında), kontrast, metin yazma, form doldurma yok (K11/K17). Gerçek kimlik belgesi kullanma; test verisi tests/fixtures/gen.py ile üretilen sentetik belgelerdir (CONVENTIONS §6). Yapay zekâ çağrısı testte canlı yapılmaz, kayıtlı yanıt sağlayıcısı kullanılır. Test/build komutlarını arka plana atma — pencere ölür.\n\nKAPANIŞ: PLAN.md'de 06.5.1, 06.5.2 satırlarının damgasını '✅ → K06.5' yap ve '## K. Kanıt Geçmişi' bölümünde '#### K06.5' bloğuna kanıt maddesi ekle (blok yoksa aç). Faz özet tablosundaki sayıları SAYARAK güncelle. Ayrıntı: CONVENTIONS §1.2-1.3.",
         "testStrategy": "CONVENTIONS §1 DoD kapısı: ruff check . · ruff format --check . · python -m compileall -q app tests · pytest -q -m \"not live\" · alembic upgrade head · python -c \"import app.main\" — hepsi exit 0.\nAyrıca bu görevin kendi kabul kriterleri:\n- 06.5.1: required_fields, page_count, sides, direct_single_source, file_type, mrz_checksum, dob_plausible doğrulayıcıları çalışır\n- 06.5.2: Başarısız doğrulama rotayı Unresolved yapar ve gerekçe yazılır",
-        "status": "in-progress",
+        "status": "done",
         "dependencies": [
           "40",
           "34"
         ],
         "priority": "high",
         "subtasks": [],
-        "updatedAt": "2026-09-15T11:43:46.750Z"
+        "updatedAt": "2026-09-15T12:23:25.631Z"
       },
       {
         "id": "45",
@@ -1290,9 +1290,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-09-15T11:43:46.750Z",
+      "lastModified": "2026-09-15T12:23:25.632Z",
       "taskCount": 92,
-      "completedCount": 42,
+      "completedCount": 43,
       "tags": [
         "master"
       ]
