@@ -18,6 +18,12 @@ Blok biçimi `CONVENTIONS.md` §3'te tanımlıdır:
 
 ## Task log (newest-first)
 
+## 43 — 06.4 Dönüşüm izni kontrolü — done — 2026-09-15
+- Yapıldı: `app/pipeline/plan.py` — `check_conversion(operation, *, entry)` §20.3 satır 3–6'nın işlemlerini (`CONVERSION_OPERATIONS`) türün `allowed_conversions`'ında arar, yoksa `ConversionNotAllowed`; `_Planner._operation` bunu Direkt Belge matrisinden sonra uygular, ret işlemi ve hedefi plandan siler, belgeyi Unresolved'a gönderir, çalışan açmaz.
+- Doğrulama: ruff check/format, compileall, `pytest -q -m "not live" --cov=app --cov-fail-under=70` (1719 geçti, +18; 4 PG testi atlandı), kapsam %99.65 (`plan.py` %100), temiz SQLite'ta `alembic upgrade head` (göç yok), `import app.main` — hepsi exit 0; 9 kural bozulması geçici olarak denendi, her biri testte kırmızı.
+- Varsayımlar: PLAN.md §C33 — sıra format → §20.3 → matris → dönüşüm izni, ilk ret keser; izinsiz satırdan sonraki satıra düşülmez (izinsiz `extract_image` `render_image`'a dönmez, K12); gerekçe "Dönüşüm izni yok (06.4.1): … (allowed_conversions: a/b). Belge dönüştürülmez.", boş liste `boş`; olay yok (§8.3'te tür yok, D6/D11), `DIRECT_DOC_CHECK` `direct: false` türde kullanılmadı.
+- Sonraki pencereye not: 06.5 doğrulayıcıları `hazir` öğenin `validations`'ını doldurmalı; işlem hükümleri artık tamam (`_operation` dört adım), uygulayıcı (07.x) plandaki `operation`'ı yeniden seçmeden ya da izin kontrol etmeden yürütmeli.
+
 ## 42 — 06.3 Direkt Belge kuralı — done — 2026-09-15
 - Yapıldı: `app/pipeline/plan.py` — `check_direct_file_types` (06.3.2, §20.4.1) ve `check_direct_operation` (06.3.1, §20.4 matrisi) saf kontrolleri; `_Planner._operation` Direkt türde önce içerikten okunan kaynak biçimini `expected_file_types`'la karşılaştırır ("Uygun formatta yeniden gönderin.", S6), sonra §20.3'ün seçtiği işlemi matristen geçirir (yalnız `passthrough`/`extract`); ret işlemi ve hedefi siler, belgeyi Unresolved'a gönderir, çalışan açmaz ve `DIRECT_DOC_CHECK` yazar.
 - Doğrulama: ruff check/format, compileall, `pytest -q -m "not live" --cov=app --cov-fail-under=70` (1701 geçti, +20; 4 PG testi atlandı), kapsam %99.65 (`plan.py` satır+dal %100), temiz SQLite'ta `alembic upgrade head` (göç yok), `import app.main` — hepsi exit 0; 14 kural bozulması geçici olarak denendi, 13'ü testte kırmızı (kalan eşdeğer).

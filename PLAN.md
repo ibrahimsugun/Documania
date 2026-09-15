@@ -8,7 +8,7 @@
 
 | Faz | PRD | Genel durum | Must sayacı | Kapanış |
 | --- | --- | --- | --- | --- |
-| Faz 0 — MVP | §5.1 | 72 ✅ · 0 ◐ · 30 ⬜ · 0 🔒 | 69/98 Must | AÇIK |
+| Faz 0 — MVP | §5.1 | 73 ✅ · 0 ◐ · 29 ⬜ · 0 🔒 | 70/98 Must | AÇIK |
 | Faz 1 — v1 | §5.2 | 0 ✅ · 0 ◐ · 0 ⬜ · 32 🔒 | 0/21 Must | AÇIK |
 | Faz 2 — v2 | §5.3 | 0 ✅ · 0 ◐ · 0 ⬜ · 13 🔒 | 0/0 Must | AÇIK |
 | Faz 3 — Enterprise | §5.4 | 0 ✅ · 0 ◐ · 0 ⬜ · 8 🔒 | 0/0 Must | AÇIK |
@@ -172,7 +172,7 @@ panelde `plan-count-drift` bulgusu doğurur.
 | 06.2.1 | İşlem seçimi | Must (MVP) | ✅ → K06.2 |
 | 06.3.1 | Direkt Belge kuralı (R5) | Must (MVP) | ✅ → K06.3 |
 | 06.3.2 | Direkt Belge format kontrolü | Must (MVP) | ✅ → K06.3 |
-| 06.4.1 | Dönüşüm izni kontrolü | Must (MVP) | ⬜ |
+| 06.4.1 | Dönüşüm izni kontrolü | Must (MVP) | ✅ → K06.4 |
 | 06.5.1 | Doğrulayıcı seti | Must (MVP) | ⬜ |
 | 06.5.2 | Doğrulama başarısızlığı | Must (MVP) | ⬜ |
 | 06.6.1 | Planı yeniden çalıştırma | Must (MVP) | ⬜ |
@@ -1007,6 +1007,26 @@ Onay beklemeden yapılan varsayımlar buraya numaralı olarak yazılır.
   `output_format: pdf|jpeg` verilmesine izin verir; o türde beklenen ama çıktı biçiminden farklı biçimde gelen
   belge format kontrolünü geçip matriste (`wrap_image`/`extract_image`/`render_image`) reddedilir — tablolar
   yazıldığı gibi uygulandı; tohum katalogdaki Direkt türlerin hepsi `keep`.
+- **C33** — Dönüşüm izni kontrolü (tm 43, 06.4.1): §20.3 "3, 4, 5 ve 6 numaralı satırlar için seçilen işlem
+  türün `allowed_conversions` listesinde bulunmak zorundadır; yoksa `unresolved`" der; kontrolün matrise göre
+  sırası, izinsiz satırdan sonraki satıra düşülüp düşülmeyeceği, gerekçe metni ve olayı yazılı değil. Saf
+  çekirdek (`app/pipeline/plan.py`): `CONVERSION_OPERATIONS = {merge, wrap_image, extract_image,
+  render_image}` (katalogdaki `Conversion` adlarıyla aynı, D5); `check_conversion(operation, *, entry)` →
+  `ConversionNotAllowed` (`queue = unresolved`, `operation`, türün `allowed_conversions`'ı, `reason`) ya da
+  `None`; `passthrough` ve `extract` dönüşüm değildir, liste boş olsa da `None`. **Sıra:** `_Planner._operation`'da
+  format kontrolü → §20.3 → Direkt Belge matrisi → dönüşüm izni; ilk ret sonrakini keser. Matris önce: §20.4
+  `direct: false` sütununun "dönüşüm izinliyse" şartı matrisin ardından okundu; Direkt türün listesi şemaca
+  boş olduğundan orada yalnız matris gerekçesi yazılır. **Düşme yok:** ilk uyan satırın işlemi izinsizse başka
+  satır denenmez — gömülü tek görüntülü sayfada (satır 5) `extract_image` izni yoksa `render_image` (satır 6)
+  izinli olsa da seçilmez; K12 render'ı yalnız gömülü görüntü yokken kabul eder. K12'nin "yalnız görsel
+  türlerde" şartı için katalogda ayrı bayrak yok; şart türün `allowed_conversions`'ı ile uygulanır.
+  **Gerekçe:** `Dönüşüm izni yok (06.4.1): <işlem> bu türün izinli dönüşümleri arasında değil
+  (allowed_conversions: <liste>). Belge dönüştürülmez.` — liste katalog sırasıyla `/` ile (C32 ile aynı), boş
+  liste `boş`; kişisel değer yok. Gerekçe okunaklılık gerekçelerinin ardından gelir; rota Unresolved, işlem ve
+  hedef plana girmez, çalışan açılmaz, kimlik ve iletişim bilgisi birikmez, eşleşme kişi tahmini kalır (C31
+  ile aynı yol). Word/Excel eki tüm dosyayı aldığı için satır 3–6'ya hiç uymaz; kontrol ona da uygulanır ama
+  ret doğmaz. **Olay:** yok — §8.3'te dönüşüm izni için tür yok (D6/D11 sorusu); `DIRECT_DOC_CHECK` Direkt
+  Belge'nin olayıdır, `direct: false` türde kullanılmadı. Ret planın gerekçesinde durur (`PLAN_CREATED`).
 
 ## D. Sapmalar
 
@@ -1419,3 +1439,6 @@ var olan maddeler silinmez. Biçim:
 #### K06.3 — 06.3.1, 06.3.2 · Direkt Belge kuralı
 - ✅ 06.3.1 `check_direct_operation(operation, *, entry)` §20.4 matrisini uygular: `direct: true` türde yalnız `passthrough` ve `extract` izinli, `merge`/`wrap_image`/`extract_image`/`render_image` `DirectOperationForbidden` ("Direkt Belge: <işlem> bu tür için yapılamaz."); `direct: false` türde matris reddetmez (06.4). Planlayıcı §20.3'ün seçtiği işlemi matristen geçirir: ret işlemi ve hedefi plandan siler, belge Unresolved'a gider, çalışan açılmaz, `DIRECT_DOC_CHECK` yazılır; JPEG çıktılı Direkt türde gömülü görüntü çıkarma ve render, PDF çıktılı Direkt türde görüntü sarma gerçek dosyalarla reddedildi; S7 `extract` olaysız geçer (C32) — `app/pipeline/plan.py` · test `tests/pipeline/test_plan.py` (129, +20) · tm 42
 - ✅ 06.3.2 `check_direct_file_types(sources, *, entry)` §20.4.1'i işlem seçiminden önce uygular: Direkt türde içerikten tespit edilen kaynak biçimi `expected_file_types`'ta yoksa (tanınmayan biçim dahil) işlem seçilmez, gerekçe "Direkt Belge: beklenen dosya türü pdf, gelen jpeg. Uygun formatta yeniden gönderin.", rota Unresolved, `DIRECT_DOC_CHECK`. S6: yalnız PDF bekleyen pasaport JPEG geldi → Unresolved, dönüşüm yok, işlem/hedef yok, çalışan açılmaz, kayıtlı çalışan yalnız kişi tahmini; format gerekçesi okunaklılık gerekçesinin ardından gelir ve satır 7'yi keser. `plan.py` satır+dal kapsamı %100, 14 kural bozulması geçici olarak denendi, 13'ü testte kırmızı (kalan eşdeğer: ret varken seçimi taşımak öğeyi değiştirmez) — `app/pipeline/plan.py` · test `tests/pipeline/test_plan.py` · tm 42
+
+#### K06.4 — 06.4.1 · Dönüşüm izni kontrolü
+- ✅ 06.4.1 `check_conversion(operation, *, entry)` §20.3 satır 3–6'nın işlemlerini (`CONVERSION_OPERATIONS`: `merge`, `wrap_image`, `extract_image`, `render_image`, katalogdaki `Conversion` adları) türün `allowed_conversions`'ında arar; listede yoksa `ConversionNotAllowed` ("Dönüşüm izni yok (06.4.1): <işlem> bu türün izinli dönüşümleri arasında değil (allowed_conversions: merge). Belge dönüştürülmez."), `passthrough`/`extract` boş listede de izinli. Planlayıcı kontrolü Direkt Belge matrisinden sonra uygular, ilk ret keser: izinsiz dönüşüm plana girmez, belge Unresolved'a gider, çalışan açılmaz, kimlik ve iletişim bilgisi birikmez, kayıtlı çalışan kişi tahmini kalır, olay yok (C33). Gerçek dosyalarla: `merge`'e izinli çalışma izni JPEG'i sarılmaz, `wrap_image`'a izinli oturum kartının ayrı yüzleri birleştirilmez, tohum katalogdaki `wrap_image` izni Hazir'a gider; JPEG çıktılı türde gömülü tek görüntülü sayfanın izinsiz `extract_image`'ı `render_image`'a düşmez, görüntüsüz sayfanın `render_image`'ı kendi iznini ister; gerekçe okunaklılık gerekçesinin ardından gelir. `plan.py` satır+dal kapsamı %100, 9 kural bozulması (kontrolün kaldırılması, matrisle sıra, liste ayırıcısı, boş liste yazımı, eksik dönüşüm, `passthrough`/`extract`'ın dönüşüm sayılması, listedekinin reddi, gerekçedeki liste, kuyruk) geçici olarak denendi, her biri testte kırmızı — `app/pipeline/plan.py` · test `tests/pipeline/test_plan.py` (147, +18) · tm 43

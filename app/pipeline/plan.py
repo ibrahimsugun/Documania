@@ -1,5 +1,5 @@
-"""Plan JSON üretimi, belirleyicilik, işlem seçimi ve Direkt Belge kuralı — PRD 06.1.1, 06.1.2,
-06.2.1, 06.3.1, 06.3.2 (§8.5, §20.3, §20.4; K3, K9, K11, K12, R5, R10, R7).
+"""Plan JSON üretimi, belirleyicilik, işlem seçimi, Direkt Belge kuralı ve dönüşüm izni — PRD
+06.1.1, 06.1.2, 06.2.1, 06.3.1, 06.3.2, 06.4.1 (§8.5, §20.3, §20.4; K3, K9, K11, K12, R5, R10, R7).
 
 Karar motorunun bir parti için verdiği bütün kararlar tek bir **Plan JSON**'da dondurulur (K9):
 uygulayıcı (07.x) ve kuyruk (08.1) planı yürütür, yapay zekâya ya da eşleştirmeye yeniden sormaz.
@@ -29,9 +29,9 @@ bütün hükümlerin gerekçeleri (`route_reason`) aynı sırayla birleşir:
    seçimi ona uygulanmaz (yalnız arka yüzden oluşan parça "okunamayan alanlar" almaz).
 3. Okunaklılık kapısı (04.4) — zorunlu alan okunmuyorsa `unreadable`, kabul kriteri karşılanmıyorsa
    `unresolved`. MRZ önceliği (05.3.3) kapıdan ve kişi anahtarından önce her sayfaya uygulanır.
-4. İşlem — Direkt Belge format kontrolü (06.3.2), işlem seçimi (06.2.1) ve Direkt Belge matrisi
-   (06.3.1): format tutmuyorsa, §20.3'te uyan satır yoksa (satır 7) ya da matris işlemi yasaklıyorsa
-   `unresolved`.
+4. İşlem — Direkt Belge format kontrolü (06.3.2), işlem seçimi (06.2.1), Direkt Belge matrisi
+   (06.3.1) ve dönüşüm izni (06.4.1): format tutmuyorsa, §20.3'te uyan satır yoksa (satır 7), matris
+   işlemi yasaklıyorsa ya da dönüşüm türün `allowed_conversions`'ında değilse `unresolved`.
 5. Çalışan kararı (§20.2.2).
 
 Hiçbir hüküm yoksa rota `hazir`dır.
@@ -66,7 +66,16 @@ Format tutarsa §20.3 işlemi seçer ve izin matrisi uygulanır: Direkt Belge'de
 format tutmayan belgede işlem seçilmez, uyan satırı olmayan belgede matris denenmez. Ret gerekçesi
 okunaklılık gerekçelerinin ardından gelir ve `DIRECT_DOC_CHECK` olayına adayın ilk sayfasıyla (ekte
 dosyayla) yazılır; izinli işlem olay atmaz, planda durur. `direct: false` sütununun "dönüşüm
-izinliyse" şartı (`allowed_conversions`) 06.4'ündür.
+izinliyse" şartı (`allowed_conversions`) 06.4.1'indir.
+
+**Dönüşüm izni (06.4.1).** §20.3 satır 3–6'nın işlemleri — `merge`, `wrap_image`, `extract_image`,
+`render_image` — dönüşümdür (K12) ve türün `allowed_conversions` listesinde bulunmak zorundadır;
+`passthrough` ve `extract` dönüşüm değildir, her türde izinlidir. Kontrol matristen sonra yapılır
+(Direkt Belge'nin listesi boştur ve matris dönüşümü zaten reddeder). Listede olmayan dönüşüm plana
+girmez, başka bir satıra düşülmez — gömülü tek görüntülü sayfada izinsiz `extract_image` yerine
+`render_image` denenmez (K12) — ve belge dönüştürülmeden gerekçesiyle Unresolved'a gider. Gerekçe
+okunaklılık gerekçelerinin ardından gelir. Olay atılmaz: §8.3'te dönüşüm izni için tür yoktur, ret
+planın gerekçesinde durur.
 
 **Çalışan.** Her analizli adayın kişi anahtarı (05.4) kayıtlı çalışanlarla eşleştirilir (05.5).
 Kararın yan etkileri yalnız belge düzeyinde kabul edilen adayda (1–4'te hükmü olmayan) yürür:
@@ -122,7 +131,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.ai.schemas import PageAnalysis
-from app.catalog import Catalog, CatalogEntry, FileType, OutputFormat
+from app.catalog import Catalog, CatalogEntry, Conversion, FileType, OutputFormat
 from app.catalog.schema import FieldName, Slug, Text
 from app.db.models import Employee, Plan, QueueKind, Upload, UploadFile
 from app.events import EventType, event_context, record_event
@@ -474,8 +483,8 @@ def select_operation(
 
     `sources` öğenin en az bir kaynak dosyasıdır (plandaki `sources` sırasıyla); `output_format`
     türün çıktı biçimidir. Saf işlevdir. Direkt Belge kuralı (06.3: `check_direct_file_types` önce,
-    `check_direct_operation` sonra) ve dönüşüm izni (06.4) planlayıcıda uygulanır; bu işlev onlara
-    bakmaz.
+    `check_direct_operation` sonra) ve dönüşüm izni (06.4.1: `check_conversion`) planlayıcıda
+    uygulanır; bu işlev onlara bakmaz.
     """
     target = _target_format(sources, output_format)
     operation = _table_operation(sources, target)
@@ -612,12 +621,55 @@ def check_direct_operation(
     """Direkt Belge izin matrisi (06.3.1, §20.4); §20.3'ün seçtiği işleme uygulanır.
 
     `direct: true` türde yalnız `passthrough` ve `extract` izinlidir. `direct: false` türde matris
-    her işleme izin verir; dönüşümün türün `allowed_conversions`'ında olması 06.4'ün kontrolüdür.
-    Saf işlevdir.
+    her işleme izin verir; dönüşümün türün `allowed_conversions`'ında olması 06.4.1'in kontrolüdür
+    (`check_conversion`). Saf işlevdir.
     """
     if not entry.direct or operation in DIRECT_OPERATIONS:
         return None
     return DirectOperationForbidden(operation)
+
+
+# --- dönüşüm izni (06.4.1, §20.3) --------------------------------------------------------------
+
+# §20.3 satır 3–6'nın işlemleri; adları katalogdaki `Conversion` değerleridir (K12, D5).
+CONVERSION_OPERATIONS = frozenset(
+    {Operation.MERGE, Operation.WRAP_IMAGE, Operation.EXTRACT_IMAGE, Operation.RENDER_IMAGE}
+)
+
+
+@dataclass(frozen=True, slots=True)
+class ConversionNotAllowed:
+    """§20.3 (06.4.1): seçilen dönüşüm türün `allowed_conversions`'ında yok (K12).
+
+    İşlem uygulanmaz ve başka bir satıra düşülmez; belge dönüştürülmez, gerekçesiyle Unresolved'a
+    gider. `allowed_conversions` türün listesidir (boş olabilir). Gerekçe kişisel değer taşımaz.
+    """
+
+    queue: ClassVar[QueueKind] = QueueKind.UNRESOLVED
+
+    operation: Operation
+    allowed_conversions: tuple[Conversion, ...]
+
+    @property
+    def reason(self) -> str:
+        allowed = "/".join(conversion.value for conversion in self.allowed_conversions) or "boş"
+        return (
+            f"Dönüşüm izni yok (06.4.1): {self.operation.value} bu türün izinli dönüşümleri "
+            f"arasında değil (allowed_conversions: {allowed}). Belge dönüştürülmez."
+        )
+
+
+def check_conversion(operation: Operation, *, entry: CatalogEntry) -> ConversionNotAllowed | None:
+    """Dönüşüm izni kontrolü (06.4.1, §20.3); Direkt Belge matrisinden sonra uygulanır.
+
+    `passthrough` ve `extract` dönüşüm değildir, her türde `None`. Satır 3–6'nın işlemi türün
+    `allowed_conversions`'ında değilse ret. Saf işlevdir.
+    """
+    if operation not in CONVERSION_OPERATIONS:
+        return None
+    if Conversion(operation.value) in entry.allowed_conversions:
+        return None
+    return ConversionNotAllowed(operation, entry.allowed_conversions)
 
 
 # --- plan üretimi (06.1.1) ---------------------------------------------------------------------
@@ -901,8 +953,9 @@ class _Planner:
     def _operation(
         self, entry: CatalogEntry, sources: Sequence[PlanSource]
     ) -> tuple[SelectedOperation | None, list[_Verdict]]:
-        # Direkt Belge format kontrolü (06.3.2) → §20.3 → Direkt Belge matrisi (06.3.1). İlk ret
-        # sonraki adımı keser: işlem yok ve belgeyi Unresolved'a gönderen tek hüküm.
+        # Direkt Belge format kontrolü (06.3.2) → §20.3 → Direkt Belge matrisi (06.3.1) → dönüşüm
+        # izni (06.4.1). İlk ret sonraki adımı keser: işlem yok ve belgeyi Unresolved'a gönderen
+        # tek hüküm.
         operation_sources = [self._operation_source(source) for source in sources]
         mismatch = check_direct_file_types(operation_sources, entry=entry)
         if mismatch is not None:
@@ -917,6 +970,9 @@ class _Planner:
                 entry, operation_sources, forbidden, operation=selection.operation
             )
             return None, [_Verdict(forbidden.queue, forbidden.reason)]
+        not_allowed = check_conversion(selection.operation, entry=entry)
+        if not_allowed is not None:
+            return None, [_Verdict(not_allowed.queue, not_allowed.reason)]
         return selection, []
 
     def _record_direct_refusal(

@@ -1,5 +1,5 @@
-"""Plan JSON üretimi, belirleyicilik, işlem seçimi ve Direkt Belge kuralı — PRD 06.1.1, 06.1.2,
-06.2.1, 06.3.1, 06.3.2 (§8.5, §20.3, §20.4; K3, K9, R5, R10, R7).
+"""Plan JSON üretimi, belirleyicilik, işlem seçimi, Direkt Belge kuralı ve dönüşüm izni — PRD
+06.1.1, 06.1.2, 06.2.1, 06.3.1, 06.3.2, 06.4.1 (§8.5, §20.3, §20.4; K3, K9, K12, R5, R10, R7).
 
 Sayfa analizleri kayıtlı yanıt biçimindeki sentetik sözlüklerdir, dosyalar `tests/fixtures/gen.py`
 ile üretilir (CONVENTIONS §6). Plan üretimi sayfaları veritabanından okur; render ve analiz adımları
@@ -29,6 +29,7 @@ from app.ai.recording_provider import RecordingProvider
 from app.catalog import (
     Catalog,
     CatalogEntry,
+    Conversion,
     FileType,
     OutputFormat,
     load_seed_catalog,
@@ -65,7 +66,9 @@ from app.matching.names import normalize_name
 from app.pipeline.analyze import analyze_upload
 from app.pipeline.group import AttachmentWithoutContext
 from app.pipeline.plan import (
+    CONVERSION_OPERATIONS,
     DIRECT_OPERATIONS,
+    ConversionNotAllowed,
     DirectFileTypeMismatch,
     DirectOperationForbidden,
     NoApplicableOperation,
@@ -78,6 +81,7 @@ from app.pipeline.plan import (
     PlanSource,
     Route,
     SelectedOperation,
+    check_conversion,
     check_direct_file_types,
     check_direct_operation,
     create_plan,
@@ -1976,6 +1980,247 @@ def test_direct_type_with_jpeg_output_neither_extracts_the_image_nor_renders_the
         (event.page_index, event.data_json and event.data_json["operation"]) for event in events
     ] == [(0, "extract_image"), (1, "render_image")]
     _assert_no_personal_values(session)
+
+
+# --- 06.4.1 dönüşüm izni (§20.3) ----------------------------------------------------------------
+
+PERMIT_NUMBER = "WP-0000042"
+
+
+def _not_allowed(operation: str, allowed: str) -> str:
+    return (
+        f"Dönüşüm izni yok (06.4.1): {operation} bu türün izinli dönüşümleri arasında değil "
+        f"(allowed_conversions: {allowed}). Belge dönüştürülmez."
+    )
+
+
+def _permit_entry(*allowed: str, **changes: Any) -> CatalogEntry:
+    return _entry(PERMIT, _catalog_with(PERMIT, allowed_conversions=list(allowed), **changes))
+
+
+def test_conversions_are_the_operations_of_rows_3_to_6_under_their_catalog_names() -> None:
+    assert (
+        frozenset(
+            {Operation.MERGE, Operation.WRAP_IMAGE, Operation.EXTRACT_IMAGE, Operation.RENDER_IMAGE}
+        )
+        == CONVERSION_OPERATIONS
+    )
+    assert {operation.value for operation in CONVERSION_OPERATIONS} == {
+        conversion.value for conversion in Conversion
+    }
+
+
+@pytest.mark.parametrize("operation", [Operation.PASSTHROUGH, Operation.EXTRACT])
+@pytest.mark.parametrize("direct", [False, True], ids=["not-direct", "direct"])
+def test_passthrough_and_extract_are_not_conversions_and_need_no_permission(
+    operation: Operation, direct: bool
+) -> None:
+    entry = _entry(PASSPORT) if direct else _permit_entry()
+
+    assert entry.allowed_conversions == ()
+    assert check_conversion(operation, entry=entry) is None
+
+
+@pytest.mark.parametrize("operation", sorted(CONVERSION_OPERATIONS))
+def test_conversion_is_allowed_only_when_the_type_lists_it(operation: Operation) -> None:
+    others = [conversion.value for conversion in Conversion if conversion.value != operation.value]
+    listed = _permit_entry(operation.value)
+    unlisted = _permit_entry(*others)
+
+    refusal = check_conversion(operation, entry=unlisted)
+
+    assert check_conversion(operation, entry=listed) is None
+    assert refusal == ConversionNotAllowed(operation, unlisted.allowed_conversions)
+    assert refusal.queue is QueueKind.UNRESOLVED
+    assert refusal.reason == _not_allowed(operation.value, "/".join(others))
+
+
+@pytest.mark.parametrize("direct", [False, True], ids=["not-direct", "direct"])
+def test_type_without_conversions_allows_none_and_says_the_list_is_empty(direct: bool) -> None:
+    entry = _entry(PASSPORT) if direct else _permit_entry()
+
+    refusals = [check_conversion(operation, entry=entry) for operation in Operation]
+
+    assert [refusal.operation for refusal in refusals if refusal is not None] == [
+        operation for operation in Operation if operation in CONVERSION_OPERATIONS
+    ]
+    assert check_conversion(Operation.MERGE, entry=entry) == ConversionNotAllowed(
+        Operation.MERGE, ()
+    )
+    assert ConversionNotAllowed(Operation.MERGE, ()).reason == _not_allowed("merge", "boş")
+
+
+def test_listed_conversion_stays_in_the_plan(session: Session, layout: DataLayout) -> None:
+    # Tohum katalog çalışma iznine `wrap_image` izni verir: JPEG izin belgesi PDF'e sarılır.
+    upload = _upload(
+        session, layout, _image(_page(PERMIT, person=_person(document_number=PERMIT_NUMBER)))
+    )
+    (file_id,) = _file_ids(upload)
+
+    document = _plan(session, layout, upload)
+
+    assert _entry(PERMIT).allowed_conversions == (Conversion.MERGE, Conversion.WRAP_IMAGE)
+    assert document.items == (
+        _item(
+            "i1",
+            [(file_id, (0,))],
+            slug=PERMIT,
+            employee=_created(),
+            route=Route.READY,
+            operation=Operation.WRAP_IMAGE,
+            target=("pdf", "Test_Ornekova-Work-Permit.pdf"),
+        ),
+    )
+
+
+@pytest.mark.parametrize("registered", [False, True], ids=["nobody", "number-registered"])
+def test_image_is_not_wrapped_when_the_type_does_not_allow_it(
+    session: Session, layout: DataLayout, registered: bool
+) -> None:
+    # 06.4.1: JPEG çalışma izni §20.3 satır 4'e (`wrap_image`) uyar, tür yalnız `merge`'e izin
+    # verir. İşlem ve hedef plana girmez, belge dönüştürülmeden Unresolved'a gider; çalışan açılmaz,
+    # kimlik ve iletişim bilgisi birikmez, kayıtlı çalışan kişi tahmini kalır. Tür Direkt Belge
+    # değildir: `DIRECT_DOC_CHECK` yok; §8.3'te dönüşüm izni için olay türü yok.
+    if registered:
+        _employee(session, numbers=(PERMIT_NUMBER,))
+    catalog = _catalog_with(PERMIT, allowed_conversions=["merge"])
+    permit = _page(PERMIT, person=_person(document_number=PERMIT_NUMBER))
+    permit["person"]["contact"]["phone"] = PHONE
+    upload = _upload(session, layout, _image(permit))
+    (file_id,) = _file_ids(upload)
+
+    document = _plan(session, layout, upload, catalog=catalog)
+
+    assert document.items == (
+        _item(
+            "i1",
+            [(file_id, (0,))],
+            slug=PERMIT,
+            employee=_matched() if registered else NOBODY,
+            reason=_not_allowed("wrap_image", "merge"),
+        ),
+    )
+    assert _count(session, Employee) == int(registered)
+    assert (
+        _count(session, EmployeeAlias),
+        _count(session, EmployeeIdentifier),
+        _count(session, EmployeeContact),
+    ) == (int(registered), int(registered), 0)
+    assert list(layout.employees.iterdir()) == []
+    assert _events(session, EventType.EMPLOYEE_CREATED) == []
+    assert _events(session, EventType.EMPLOYEE_PENDING) == []
+    assert _events(session, EventType.DIRECT_DOC_CHECK) == []
+    assert [event.type for event in _events(session)][-1] == EventType.PLAN_CREATED
+    _assert_no_personal_values(session)
+
+
+def test_front_and_back_are_not_merged_when_the_type_does_not_allow_it(
+    session: Session, layout: DataLayout
+) -> None:
+    # S5'in partisi: ayrı dosyalardaki ön ve arka yüz §20.3 satır 3'e (`merge`) uyar; tür yalnız
+    # `wrap_image`'a izin verir. Sayfalar birleştirilmez, yüzler tek öğe olarak Unresolved'a gider.
+    catalog = _catalog_with(RESIDENCE, allowed_conversions=["wrap_image"])
+    upload = _upload(
+        session,
+        layout,
+        _image(_page(RESIDENCE, side="front")),
+        _image(_back(RESIDENCE, continues=False), "PNG"),
+    )
+    front, back = _file_ids(upload)
+
+    document = _plan(session, layout, upload, catalog=catalog)
+
+    assert document.items == (
+        _item(
+            "i1",
+            [(front, (0,)), (back, (0,))],
+            slug=RESIDENCE,
+            reason=_not_allowed("merge", "wrap_image"),
+        ),
+    )
+    assert _count(session, Employee) == 0
+
+
+@pytest.mark.parametrize(
+    "allowed",
+    [
+        pytest.param("render_image", id="no-render-instead-of-an-unlisted-extract"),
+        pytest.param("extract_image", id="no-render-without-its-own-permission"),
+    ],
+)
+def test_pdf_page_to_jpeg_needs_the_permission_of_the_row_it_matches(
+    session: Session, layout: DataLayout, allowed: str
+) -> None:
+    # K12: gömülü tek görüntülü sayfa satır 5'e (`extract_image`) uyar; izni yoksa kayıplı render'a
+    # (satır 6) düşülmez. Görüntüsüz sayfanın `render_image`'ı da kendi iznini ister. İzinli sayfa
+    # planda kalır ve çalışanı açar; öteki sayfa yalnız kişi tahminidir.
+    catalog = _catalog_with(PERMIT, output_format="jpeg", allowed_conversions=[allowed])
+    permit = _page(PERMIT, person=_person(document_number=PERMIT_NUMBER))
+    upload = _upload(
+        session, layout, _File(pages=(permit, permit), content=_image_then_text_pdf_bytes())
+    )
+    (upload_file,) = upload.files
+    mark_upload_file_single_image_pages(session, layout, upload_file)
+
+    document = _plan(session, layout, upload, catalog=catalog)
+
+    file_id = upload_file.id
+    target = ("jpeg", "Test_Ornekova-Work-Permit.jpeg")
+    if allowed == "render_image":
+        expected = (
+            _item(
+                "i1",
+                [(file_id, (0,))],
+                slug=PERMIT,
+                reason=_not_allowed("extract_image", "render_image"),
+            ),
+            _item(
+                "i2",
+                [(file_id, (1,))],
+                slug=PERMIT,
+                employee=_created(),
+                route=Route.READY,
+                operation=Operation.RENDER_IMAGE,
+                target=target,
+            ),
+        )
+    else:
+        expected = (
+            _item(
+                "i1",
+                [(file_id, (0,))],
+                slug=PERMIT,
+                employee=_created(),
+                route=Route.READY,
+                operation=Operation.EXTRACT_IMAGE,
+                target=target,
+            ),
+            _item(
+                "i2",
+                [(file_id, (1,))],
+                slug=PERMIT,
+                employee=_matched("E0001"),
+                reason=_not_allowed("render_image", "extract_image"),
+            ),
+        )
+    assert document.items == expected
+    assert _count(session, Employee) == 1
+
+
+def test_conversion_refusal_follows_the_legibility_gate(
+    session: Session, layout: DataLayout
+) -> None:
+    # Okunamayan alan kuyruğu seçer; dönüşüm izni gerekçesi ardından gelir.
+    catalog = _catalog_with(PERMIT, allowed_conversions=[])
+    upload = _upload(session, layout, _image(_page(PERMIT, illegible=("expiry_date",))))
+
+    (item,) = _plan(session, layout, upload, catalog=catalog).items
+
+    assert (item.route, item.operation, item.route_reason) == (
+        Route.UNREADABLE,
+        None,
+        f"Okunamayan alanlar: expiry_date {_not_allowed('wrap_image', 'boş')}",
+    )
 
 
 # --- entegrasyon: gerçek render ve kayıtlı yanıt → plan ---------------------------------------
