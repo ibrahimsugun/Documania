@@ -8,7 +8,7 @@
 
 | Faz | PRD | Genel durum | Must sayacı | Kapanış |
 | --- | --- | --- | --- | --- |
-| Faz 0 — MVP | §5.1 | 67 ✅ · 0 ◐ · 35 ⬜ · 0 🔒 | 64/98 Must | AÇIK |
+| Faz 0 — MVP | §5.1 | 69 ✅ · 0 ◐ · 33 ⬜ · 0 🔒 | 66/98 Must | AÇIK |
 | Faz 1 — v1 | §5.2 | 0 ✅ · 0 ◐ · 0 ⬜ · 32 🔒 | 0/21 Must | AÇIK |
 | Faz 2 — v2 | §5.3 | 0 ✅ · 0 ◐ · 0 ⬜ · 13 🔒 | 0/0 Must | AÇIK |
 | Faz 3 — Enterprise | §5.4 | 0 ✅ · 0 ◐ · 0 ⬜ · 8 🔒 | 0/0 Must | AÇIK |
@@ -167,8 +167,8 @@ panelde `plan-count-drift` bulgusu doğurur.
 
 | PRD | Gereksinim | Öncelik | Durum |
 | --- | --- | --- | --- |
-| 06.1.1 | Plan JSON üretimi (R10) | Must (MVP) | ⬜ |
-| 06.1.2 | Plan determinizmi | Must (MVP) | ⬜ |
+| 06.1.1 | Plan JSON üretimi (R10) | Must (MVP) | ✅ → K06.1 |
+| 06.1.2 | Plan determinizmi | Must (MVP) | ✅ → K06.1 |
 | 06.2.1 | İşlem seçimi | Must (MVP) | ⬜ |
 | 06.3.1 | Direkt Belge kuralı (R5) | Must (MVP) | ⬜ |
 | 06.3.2 | Direkt Belge format kontrolü | Must (MVP) | ⬜ |
@@ -913,6 +913,41 @@ Onay beklemeden yapılan varsayımlar buraya numaralı olarak yazılır.
   numara pratikte satır 3'te birikir. Commit ve olay yok (D11). **Bağlama (06.1):** aday başına
   `match_employee` → `match` ise `accumulate_identity`; `NO_MATCH` ise `resolve_unmatched` → `create`'te
   `create_employee`, `pending`'de `propose_pending_profile`.
+- **C30** — Plan JSON üretimi ve belirleyicilik (tm 40, 06.1.1, 06.1.2): §8.5 şemayı ve iki kabul kriterini
+  yazar; planın neyi kapsadığı, alanların hangi adımda dolduğu, hükümlerin önceliği, yan etkilerin sırası ve
+  hash'in girdisi yazılı değil. `create_plan(session, layout, upload, *, catalog, model=None,
+  reference_date=None)` (`app/pipeline/plan.py`) şöyle okur. **Sözleşme:** `PlanDocument` → `PlanItem`
+  (`PlanSource`, `PlanEmployee`, `PlanValidation`), pydantic, `extra=forbid`, her anahtar zorunlu; `Operation`,
+  `Route` (`READY = "hazir"`), `EmployeeAction`/`MatchedBy` 05.5'ten. Değişmezler: `hazir` öğenin çalışanı
+  (`match`/`create`) var, gerekçesi yok; öteki rotada gerekçe zorunlu, hedef yok; `target_name`'in uzantısı
+  `target_format`; `employee_id` yalnız `match`/`create`'te, `matched_by` yalnız `match`'te; bir sayfa tek
+  öğededir, `pages: []` bütün dosyadır ve o dosyanın başka öğesi olamaz; sayfalar artan. **Kapsam:** plan
+  partinin bütün dosya ve sayfalarını kapsar — her aday, Word/Excel eki (`pages: []`), dosya başına boş
+  sayfalar (`skip`, S8), dosya başına analizi yapılamamış sayfalar ve sayfasız tanınmayan dosya (`unresolved`,
+  D14), tekrar yükleme (`skip`, S2). Sıra `(file_id, ilk sayfa)` (dosya öğesi -1), `item_id` `i1…`; kararlar
+  bu sırayla verilir (aynı partide açılan çalışan sonraki öğede bulunur). **Alanlar:** `document_type_slug`
+  yalnız katalog türünde (bilinmeyen türde `null`, aday adı gerekçede); `operation` `null` (06.2), `validations`
+  boş (06.5); `target_format` türün `output_format`'ı, `keep` kaynak dosyaların içerikten tespit edilen ortak
+  biçimi (farklı ya da tanınmıyorsa `null`, rota yine `hazir` — 06.2 karar verir); `target_name`
+  `sequenced_filename(document_stem(çalışan kaydının adı, soyadı, file_label), 1, biçim)` — okumadan değil
+  kayıttan, sıra eki yazma anında diskte (07.7). Word/Excel ekinin sahibi bağlam çalışanıdır: `match`,
+  `matched_by: null`. **Öncelik:** bilinmeyen tür → yapısal hüküm (R6, 04.3.2, 04.5; okunaklılık kapısı
+  uygulanmaz, C21) → okunaklılık (önce `unreadable`) → çalışan kararı. Rota ilk hükmün kuyruğu, `route_reason`
+  kuyruğa gönderen bütün hükümlerin gerekçesi aynı sırayla boşlukla. MRZ önceliği kapıdan ve anahtardan önce
+  her sayfaya (C25). **Çalışan:** her analizli aday `match_employee`'den geçer (olayı yazılır); yan etkiler
+  (`accumulate_identity`, `accumulate_contacts`, `create_employee`, `propose_pending_profile`) yalnız belge
+  düzeyinde hükmü olmayan adayda (D13). Kuyruğa giden adayda satır 1/3 hükmü kişi tahmini olarak `match` +
+  çalışan kalır (08.1.2), öteki hükümlerde `none`; satır 2/4/5 ve çelişkili anahtarın gerekçesi eklenir,
+  `resolve_unmatched` uygulanmaz. Önerilen profil (satır 7) plana girmez (§8.5'te alanı yok); 08.1 aynı saf
+  adımlarla (`build_person_key(..., today=<referans gün>)` → `resolve_unmatched`) yeniden kurabilir.
+  **Belirleyicilik:** girdi saklanan analizler, katalog, planlama anındaki çalışan kayıtları ve partidir;
+  `plan_hash` = SHA-256(`json.dumps(model_dump(mode="json"), sort_keys=True, separators=(",", ":"),
+  ensure_ascii=False)`), sürüm ve model hash'e girer. MRZ doğum yüzyılının referansı `reference_date` yoksa
+  `uploads.created_at` günüdür (UTC) — saat plana girmez. Planın açtığı çalışan sonraki planlamanın girdisini
+  değiştirir: aynı parti yeniden planlanırsa sürüm +1 (K18), yeniden çalıştırma mevcut planı `read_plan` ile
+  okur (06.6.1). `read_plan(row)` sözleşmeyi, parti/sürüm/modeli ve hash'i doğrular; `PlanIntegrityError`
+  değer taşımaz. **Olay:** `PLAN_CREATED` (veri `plan_id`, `version`, `plan_hash`, `model`, `items`, rota
+  başına `routes`; mesaj yok); kuyruk kaydı ve `QUEUED_*` 08.1'in. Parti durumu değişmez (09.2), commit yok.
 
 ## D. Sapmalar
 
@@ -1018,6 +1053,33 @@ bu kayıt neden sapıldığının izlenebilir olması içindir.
   ve çalışanla `PERSON_MATCHED`'te zaten var, yeni tür eklenmedi ve başka bir türün anlamı zorlanmadı —
   hangi yazımın hangi belgeden geldiği logda yok. Karar insana bırakıldı: okunaklı ama temiz olmayan numara
   da eklenmeli mi; §8.3'e çalışan kaydı güncellemesi için bir olay türü eklenmeli mi.
+- **D12 — Kişi taşımayan belge (profil fotoğrafı) S3/S4'ün beklediği çıktıyı vermiyor (06.1, tm 40).** §9
+  S3 "Profile-Picture.jpeg (2)", S4 "Üç bağımsız çıktı" bekler; fotoğrafta ne isim ne numara vardır ve
+  §20.2.2 satır 8 "kişi hiç tespit edilemedi → `none`, `unresolved`" der. Sahibi aynı dosya ya da partideki
+  kimlikli belgelerden çıkarmak (tek kişi varsayımı) veya yükleme bağlamını (K2 yalnız Word/Excel için
+  yazar) analizli belgeye genişletmek PRD'de yok; ikisi de uydurma olurdu. Tablo uygulandı: fotoğraf
+  Unresolved'a gider (`test_s4_recorded_pdf_with_registered_employee_plans_three_documents` sabitler), S3/S4'ün
+  fotoğraf çıktısı bu hâliyle 09.3-b'de tutmaz. Ayrıca S3 kaydında kayıtlı çalışan yoksa çalışma izni
+  (doğum tarihi yok) çalışanı açar ve oturma izni onunla yalnız isimden eşleşir (satır 5, Unresolved) — S3
+  testi çalışanı numaralarıyla önceden kaydetmeli. Karar insana bırakıldı: kişi taşımayan tür için sahip
+  kuralı (bağlam çalışanı, aynı dosyada tek çalışana bağlanan kimlikli belge ya da yalnız İK ataması)
+  tanımlanmalı mı; S3/S4 beklentisi buna göre mi okunmalı.
+- **D13 — Kuyruğa giden belgeden çalışan açılmıyor, kimlik ve iletişim bilgisi birikmiyor (06.1, tm 40).**
+  §20.2.2 satır 6 "hiç eşleşme yok ve temiz numara var → `create`" ve satır 1/3 birikimi (05.7.2) belge
+  düzeyindeki hükümleri (04.2–04.6) anmaz; hangisinin önce uygulanacağı yazılı değil. Zorunlu alanı okunmayan
+  (K1), kabul kriteri karşılanmayan, parça ya da sayfa sayısı tutmayan belgeden çalışan açılırsa Hazir'ında
+  belgesi olmayan, okuması doğrulanmamış bir profil doğar (R9'un "temiz" şartı yalnız numaraya bakar); birikim
+  de doğrulanmamış yazımı ya da numarayı çalışana bağlar (D11 gerekçesi). Güvenli yön seçildi: yan etkiler
+  yalnız belge düzeyinde hükmü olmayan adayda yürür; kuyruğa giden adayda yalnız `match_employee` çalışır ve
+  hükmü kişi tahmini olarak öğede kalır. Aynı kişinin kabul edilen belgesi geldiğinde çalışan açılır. Karar
+  insana bırakıldı: kuyruğa giden belgenin temiz numarası da çalışan açmalı mı.
+- **D14 — Analizi yapılamamış sayfa ve işlenemeyen dosya Unresolved öğesi oldu (06.1, tm 40).** PRD kısmi
+  analizde (03.7.2) başarısız sayfanın ve sayfası üretilmemiş, Word/Excel olarak da tanınmayan dosyanın
+  rotasını yazmaz; plana girmezlerse sessizce kaybolurlar (R7). Güvenli yön seçildi: dosya başına tek
+  `unresolved` öğesi (sayfalar ya da `pages: []`), tür `null`, çalışan `none`; Unknown seçilmedi — türü
+  tespit edilmemiş belge aday tür onayı akışına (11.5) girmesin. Boş sayfa (S8) ve tekrar dosyası (S2) çıktı
+  ve kuyruk üretmeyen `skip` öğesidir (`skip` §8.5'te var; kaynak plan onu boş sayfa için yazmıştı). Karar
+  insana bırakıldı: başarısız sayfa için ayrı kuyruk ya da otomatik yeniden analiz istenir mi.
 
 ## G. İş Kırılımı Dizini
 
@@ -1278,3 +1340,7 @@ var olan maddeler silinmez. Biçim:
 #### K05.8 — 05.8.1, 05.8.2, 05.8.3 · İletişim bilgisi, dil ve alfabe kaydı
 - ✅ 05.8.1, 05.8.2 `record_contact_sighting(session, *, employee_id, kind, value, source_document_id=None)` (`app/db/models.py`) `employee_contacts`'ı günceller: türün güncel (`is_current`) kaydı aynı değeri taşıyorsa yalnız `last_seen_at` ilerler (`changed: False`, yeni satır yok); farklı değerde güncel kayıt kapatılır (`is_current: False`) ve yeni değer ayrı bir satır olarak eklenir — eski kayıt silinmez, geçmiş kalır (K16). `app/matching/contacts.py` — `collect_contacts(analyses)` adayın sayfalarından (`person.contact`, §8.4) her tür (`phone`, `email`, `address`) için en son görülen değeri toplar; boş/okunamaz sayfa okunmaz (K1), yazılmayan tür sözlükte yer almaz. `accumulate_contacts(session, employee_id, analyses, *, source_document_id=None)` her okunan türü `record_contact_sighting`'e yazar, bu çağrıda güncel satırı değişen türleri döner. `source_document_id` bu aşamada (05.5–05.7, çıktı belgesi henüz yok) boştur — `employee_identifiers`/`employee_aliases`'ın izlediği örüntüyle aynı (D11); olay yazılmaz (§8.3'te tür yok, D6/D11 ile aynı gerekçe) — `app/db/models.py`, `app/matching/contacts.py` · test `tests/db/test_contact_sighting.py` (6), `tests/matching/test_contacts.py` (12) · tm 39
 - ✅ 05.8.3 `employee_aliases.script` artık dolu: `_detect_script(text)` (`app/matching/match.py`) yazımın ilk harfinin Unicode adına bakar (`LATIN`/`CYRILLIC`/`ARABIC` önekiyle başlıyorsa o alfabe, harf varsa ama önek tutmuyorsa `other`, hiç harf yoksa `None`); `create_employee` ve `accumulate_identity` her alias yazarken bunu kullanır. Sayfa kaydının dili ve alfabesi (`pages.analysis_json.language`/`.script`) 03.1.2 ile zaten saklanıyordu — bu görev yalnız çalışan düzeyinde (`employee_aliases`) alfabe bilgisini ekledi ki 09.1 profil üretimi çalışanın belgelerinde görülen alfabeleri listeleyebilsin. İlk harften önceki rakam/noktalama atlanır (`007 BOND` → `latin`), hiç harf yoksa `None` (`007 1990`) — `app/matching/match.py` · test `tests/matching/test_employee_creation.py` (+4: iki alfabe + iki kenar durumu), `tests/matching/test_pending_profile_and_aliases.py` (güncellenen `script` beklentisi) · tm 39
+
+#### K06.1 — 06.1.1, 06.1.2 · Plan JSON üretimi ve determinizm
+- ✅ 06.1.1 `create_plan(session, layout, upload, *, catalog, model, reference_date)` partiyi gruplar ve her aday (dosya içi/dosyalar arası), Word/Excel eki, boş sayfa (`skip`), analizi yapılamamış sayfa ve işlenemeyen dosya (`unresolved`, D14) ve tekrar yükleme (`skip`) için `sources`, `operation` (06.2'ye kadar `null`), `target_format`/`target_name` (çalışan kaydının adıyla K8, `keep` içerikten), `employee` ve `route`/`route_reason` taşıyan §8.5 öğesi üretir; rota önceliği bilinmeyen tür → yapısal hüküm → okunaklılık (MRZ önceliği önce) → çalışan kararı, yan etkiler yalnız kabul edilen adayda (D13); `plans`'a sürümüyle yazar, `PLAN_CREATED` — `app/pipeline/plan.py` · test `tests/pipeline/test_plan.py` (67) · tm 40
+- ✅ 06.1.2 `plan_hash` kanonik JSON'un (sıralı anahtar, boşluksuz, UTF-8) SHA-256'sı: geri alınıp aynı analizlerden yeniden üretilen plan ve ayrı veritabanında anahtar sırası değiştirilmiş analizlerden üretilen plan aynı bayt ve hash'i verir, analiz değişince hash değişir; MRZ yüzyılı saat değil partinin alındığı günle seçilir; `read_plan` saklanan planı sözleşme, parti/sürüm/model ve hash ile doğrular (`PlanIntegrityError`); `plan.py` satır+dal kapsamı %100, 22 kural bozulması geçici olarak denendi, her biri testte kırmızı — `app/pipeline/plan.py` · test `tests/pipeline/test_plan.py` · tm 40
