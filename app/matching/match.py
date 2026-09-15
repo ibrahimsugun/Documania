@@ -1,4 +1,5 @@
-"""Kişi anahtarı ve çalışan eşleştirme sırası — PRD 05.4.1, 05.5.1–05.5.3 (§20.2; K6, R7, R8).
+"""Kişi anahtarı, çalışan eşleştirme sırası ve otomatik çalışan oluşturma — PRD 05.4.1,
+05.5.1–05.5.3, 05.6.1 (§20.2; K6, K7, K8, R7, R8, R9).
 
 Bir belge adayının (04.1–04.3) sayfalarından çalışan eşleştirmesinin (05.5) ve profil açmanın
 (05.6, 05.7) okuyacağı tek anahtar üretilir: **belge numaraları**, **normalize ad-soyad**, **doğum
@@ -32,6 +33,11 @@ ibaret numara okuma sayılmaz. Aynı anahtara inen okumalar tek değerdir; farkl
 - Orijinal yazım görüldüğü gibi, ICAO Latin karşılığıyla (`TransliteratedName`, 05.2.1) ve
   normalize anahtarıyla saklanır.
 
+Anahtar ayrıca yeni çalışan kaydının (03.1.3, `employee_fields`) okumalarını taşır: `surname` ve
+`given_names` parçanın anahtara inen ilk okuması, yazıldığı gibi; `other_names` isim anahtarıyla,
+`nationality` ICAO uyruk koduyla (`RUS`, `D`) karşılaştırılır. Bu iki alan kimlik alanı değildir:
+okunmazsa ya da çelişirse `None` olur, `conflicts`'e yazılmaz.
+
 `mrz_allows_clean_document_number` adayın bütün sayfalarında §20.2.3'ün üçüncü koşulunun
 (`MrzResolution.allows_clean_document_number`) sağlandığını söyler. Numaranın temiz sayılması
 (tür, uzunluk) 05.6'nın kararıdır. `build_person_key` saf işlevdir: veritabanına ve olay loguna
@@ -58,6 +64,17 @@ hiçbir satıra girmeden Unresolved'a gider (PLAN.md D8). Karşılaştırma tam 
 alias'lar yazan adımın (05.6, 05.7.2) §20.2.1 ile normalize ettiği biçimde saklanır. Her hüküm olay
 loguna yazılır — eşleşme `PERSON_MATCHED`, belirsiz eşleşme `PERSON_AMBIGUOUS`, öteki hükümler
 `PERSON_NOT_MATCHED`; olay kişisel değer taşımaz, yalnız kural, E numaraları ve alan adları.
+
+**Otomatik çalışan oluşturma (05.6, R9).** §20.2.2 satır 6 — hiç eşleşme yok **ve** temiz belge
+numarası var — yeni çalışanı ve klasörünü açar. Numara §20.2.3'ün üç koşuluyla temizdir
+(`clean_document_number`): türün `required_fields`'ında `document_number` var, numara okunaklı ve
+normalize hâli en az 5 karakter, MRZ'den geldiyse alan ve bileşik haneleri tutuyor. Klasör adı
+(K8) ad-soyaddan kurulduğu için ad-soyadı okunmamış ya da klasör adına çevrilemeyen anahtardan da
+çalışan açılmaz (PLAN.md D9). `can_create_employee` bu kararı yan etkisiz verir; `create_employee`
+hükmü veritabanında yeniden değerlendirir, satır 6 uymuyorsa hiçbir şey yazmadan reddeder, uyuyorsa
+E numarası verir (K8), çalışan kaydını, isim yazımlarını (`employee_aliases`), temiz numarayı
+(`employee_identifiers`) ve `Employees/<Ad_Soyad_E0001>/` klasörünü açar, `EMPLOYEE_CREATED` yazar.
+Satır 7–8 (onay bekleyen profil, kişi tespit edilemedi) 05.7'nindir.
 """
 
 from __future__ import annotations
@@ -72,7 +89,14 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.ai.schemas import PageAnalysis
-from app.db.models import Employee, EmployeeAlias, EmployeeIdentifier, QueueKind
+from app.catalog import CatalogEntry
+from app.db.models import (
+    Employee,
+    EmployeeAlias,
+    EmployeeIdentifier,
+    QueueKind,
+    allocate_employee_number,
+)
 from app.events import EventType, record_event
 from app.matching.mrz import MRZ_FIELDS, MrzResolution, MrzStatus, apply_mrz_priority
 from app.matching.names import (
@@ -81,18 +105,23 @@ from app.matching.names import (
     normalize_name,
     transliterate_name,
 )
+from app.storage import DataLayout, SlugError, employee_folder_name, person_slug
 
 DOCUMENT_NUMBER = "document_number"
 SURNAME = "surname"
 GIVEN_NAMES = "given_names"
 DATE_OF_BIRTH = "date_of_birth"
 ORIGINAL_SCRIPT_NAME = "original_script_name"
+OTHER_NAMES = "other_names"
+NATIONALITY = "nationality"
 # Anahtarın okuduğu §8.4 `person` alanları; `conflicts` bu sırayla yazılır.
 KEY_FIELDS = (DOCUMENT_NUMBER, SURNAME, GIVEN_NAMES, DATE_OF_BIRTH, ORIGINAL_SCRIPT_NAME)
 
 # §20.2.1 belge numarası normalizasyonu: boşluk, tire, nokta, eğik çizgi silinir.
 _NUMBER_SEPARATORS = re.compile(r"[\s./-]+")
 _ISO_DATE = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}")
+# ICAO 9303 uyruk kodu (§8.4 `nationality`): üç harf, Almanya için tek harf.
+_NATIONALITY = re.compile(r"[A-Z]{1,3}")
 
 
 @dataclass(frozen=True, slots=True)
@@ -110,7 +139,11 @@ class DocumentNumberKey:
 
 @dataclass(frozen=True, slots=True)
 class PersonKey:
-    """Belge adayının kişi anahtarı (05.4.1); alanların kuralları modül açıklamasındadır."""
+    """Belge adayının kişi anahtarı (05.4.1); alanların kuralları modül açıklamasındadır.
+
+    `surname`, `given_names`, `other_names` ve `nationality` karşılaştırmaya girmez; yeni çalışan
+    kaydının (05.6) okumalarıdır.
+    """
 
     document_numbers: tuple[DocumentNumberKey, ...]
     normalized_name: str | None
@@ -119,6 +152,10 @@ class PersonKey:
     normalized_original_name: str | None
     mrz_allows_clean_document_number: bool
     conflicts: tuple[str, ...]
+    surname: str | None = None
+    given_names: str | None = None
+    other_names: str | None = None
+    nationality: str | None = None
 
     @property
     def name_keys(self) -> tuple[str, ...]:
@@ -126,6 +163,18 @@ class PersonKey:
         önce ad-soyad, sonra orijinal yazım."""
         keys = (self.normalized_name, self.normalized_original_name)
         return tuple(dict.fromkeys(key for key in keys if key is not None))
+
+    def employee_fields(self) -> dict[str, str | date | None]:
+        """Çalışan kaydına taşınan alanlar (03.1.3); anahtarlar `employees` sütun adlarıdır."""
+        original = self.original_script_name
+        return {
+            SURNAME: self.surname,
+            GIVEN_NAMES: self.given_names,
+            OTHER_NAMES: self.other_names,
+            ORIGINAL_SCRIPT_NAME: None if original is None else original.original,
+            DATE_OF_BIRTH: self.date_of_birth,
+            NATIONALITY: self.nationality,
+        }
 
 
 def normalize_document_number(value: str) -> str:
@@ -149,6 +198,8 @@ def build_person_key(analyses: Iterable[PageAnalysis], *, today: date | None = N
     given_names = _collect(pages, GIVEN_NAMES, _name_key)
     births = _collect(pages, DATE_OF_BIRTH, _date_key)
     originals = _collect(pages, ORIGINAL_SCRIPT_NAME, _name_key)
+    other_names = _collect(pages, OTHER_NAMES, _name_key)
+    nationalities = _collect(pages, NATIONALITY, _nationality_key)
     collected = {
         DOCUMENT_NUMBER: numbers,
         SURNAME: surnames,
@@ -179,6 +230,10 @@ def build_person_key(analyses: Iterable[PageAnalysis], *, today: date | None = N
             resolution.allows_clean_document_number for resolution in resolutions
         ),
         conflicts=tuple(name for name in KEY_FIELDS if len(collected[name]) > 1),
+        surname=_single_reading(surnames),
+        given_names=_single_reading(given_names),
+        other_names=_single_reading(other_names),
+        nationality=_single(nationalities),
     )
 
 
@@ -250,8 +305,18 @@ def _date_key(raw: str | date, language: str | None) -> date | None:
         return None
 
 
+def _nationality_key(raw: str | date, language: str | None) -> str | None:
+    code = str(raw).upper()
+    return code if _NATIONALITY.fullmatch(code) else None
+
+
 def _single[K](collected: dict[K, _Reading]) -> K | None:
     return next(iter(collected)) if len(collected) == 1 else None
+
+
+def _single_reading[K](collected: dict[K, _Reading]) -> str | None:
+    # Tekil alanın anahtara inen ilk okuması, yazıldığı gibi.
+    return str(next(iter(collected.values())).raw) if len(collected) == 1 else None
 
 
 # --- çalışan eşleştirme sırası (05.5) ------------------------------------------------------
@@ -443,3 +508,119 @@ def _decide(session: Session, key: PersonKey) -> EmployeeMatch:
 def _employee_ids(ids: Iterable[str]) -> tuple[str, ...]:
     # Tekrarsız, E numarası sırasıyla (`E9999` < `E10000`): hüküm sorgu sırasına bağlı kalmaz.
     return tuple(sorted(set(ids), key=lambda employee_id: (len(employee_id), employee_id)))
+
+
+# --- otomatik çalışan oluşturma (05.6) -------------------------------------------------------
+
+# §20.2.3 koşul 2: normalize numara en az bu kadar karakterdir.
+CLEAN_DOCUMENT_NUMBER_MIN_LENGTH = 5
+
+
+class EmployeeCreationRefusedError(ValueError):
+    """`create_employee` §20.2.2 satır 6'nın uymadığı anahtarla çağrıldı (R9); hiçbir şey yazılmadı.
+
+    Mesaj yalnız ret gerekçesini taşır (hüküm, koşul), kişisel değer taşımaz.
+    """
+
+
+@dataclass(frozen=True, slots=True)
+class _NewEmployee:
+    document_number: str
+    given_names: str
+    surname: str
+    normalized_name: str
+
+
+def clean_document_number(key: PersonKey, entry: CatalogEntry) -> str | None:
+    """§20.2.3: anahtarın belge numarası temizse normalize değerini, değilse `None` döner.
+
+    `entry` adayın katalog türüdür. Koşullar: (1) türün `required_fields`'ında `document_number`
+    var; (2) numara okunaklı (`DocumentNumberKey.legible`) ve normalize hâli en az 5 karakter;
+    (3) MRZ'den okunduysa alan ve bileşik kontrol haneleri tutuyor
+    (`mrz_allows_clean_document_number`). Anahtarda tek numara olmalıdır: birden fazla numara
+    çelişkidir (D8), hangisinin temiz olduğu seçilmez.
+    """
+    if DOCUMENT_NUMBER not in entry.required_fields or len(key.document_numbers) != 1:
+        return None
+    (number,) = key.document_numbers
+    if not number.legible or len(number.value) < CLEAN_DOCUMENT_NUMBER_MIN_LENGTH:
+        return None
+    return number.value if key.mrz_allows_clean_document_number else None
+
+
+def can_create_employee(key: PersonKey, match: EmployeeMatch, *, entry: CatalogEntry) -> bool:
+    """§20.2.2 satır 6 uyuyor mu: `match` hiç eşleşme bulmadı, numara temiz, ad-soyad klasör adı
+    verecek biçimde okunmuş (D9). Yan etkisizdir; `employee.action: create` kararı budur."""
+    return not isinstance(_new_employee(key, match, entry), str)
+
+
+def create_employee(
+    session: Session,
+    layout: DataLayout,
+    key: PersonKey,
+    *,
+    entry: CatalogEntry,
+    file_id: int | None = None,
+    page_index: int | None = None,
+) -> Employee:
+    """§20.2.2 satır 6: temiz belge numaralı, kayıtlı çalışanla eşleşmeyen anahtardan yeni çalışan
+    ve klasörünü açar (05.6.1, R9, K7).
+
+    Hüküm çağıranın elindeki eşleştirmeye güvenilmeden veritabanında yeniden değerlendirilir (olay
+    yazılmaz): satır 6 uymuyorsa `EmployeeCreationRefusedError` — kayıt, klasör ve olay yazılmaz.
+    Uyuyorsa aynı işlemde:
+
+    - `allocate_employee_number` ile E numarası (K8) ve `Ad_Soyad_E0001` klasör adı,
+    - `employees` satırı `PersonKey.employee_fields()` okumalarıyla,
+    - `employee_aliases`: `Ad Soyad` yazımı ve varsa orijinal yazım, anahtarın normalize değeriyle
+      (aynı yazım bir kez),
+    - `employee_identifiers`: temiz numara §20.2.1 normalize değeriyle, `kind` türün slug'ı,
+    - `Employees/<klasör>/Alinan/` ve `Hazir/` dizinleri,
+    - `EMPLOYEE_CREATED` olayı (`employee_id` sütunu; veri `action`, `document_type_slug`).
+
+    `file_id`/`page_index` olayın yeridir (adayın ilk sayfası); verilmezse etkin `event_context`ten
+    alınır. Oturum commit edilmez; dizin işlem geri alınsa da diskte kalır (boş klasör).
+    """
+    new = _new_employee(key, _decide(session, key), entry)
+    if isinstance(new, str):
+        raise EmployeeCreationRefusedError(f"Yeni çalışan açılmaz (§20.2.2 satır 6, R9): {new}.")
+    employee_id = allocate_employee_number(session)
+    folder_name = employee_folder_name(new.given_names, new.surname, employee_id)
+    employee = Employee(id=employee_id, folder_name=folder_name, **key.employee_fields())
+    session.add(employee)
+    spellings = {f"{new.given_names} {new.surname}": new.normalized_name}
+    original, normalized_original = key.original_script_name, key.normalized_original_name
+    if original is not None and normalized_original is not None:
+        spellings.setdefault(original.original, normalized_original)
+    for raw_name, normalized in spellings.items():
+        session.add(EmployeeAlias(employee=employee, raw_name=raw_name, normalized_name=normalized))
+    session.add(EmployeeIdentifier(employee=employee, kind=entry.slug, value=new.document_number))
+    session.flush()
+    layout.ensure_employee_tree(folder_name)
+    record_event(
+        session,
+        EventType.EMPLOYEE_CREATED,
+        file_id=file_id,
+        page_index=page_index,
+        employee_id=employee_id,
+        data={"action": EmployeeAction.CREATE.value, "document_type_slug": entry.slug},
+    )
+    return employee
+
+
+def _new_employee(key: PersonKey, match: EmployeeMatch, entry: CatalogEntry) -> _NewEmployee | str:
+    # Satır 6 uyuyorsa açılacak çalışanın zorunlu değerleri, uymuyorsa kişisel değer taşımayan
+    # ret gerekçesi.
+    if match.rule is not MatchRule.NO_MATCH:
+        return f"eşleştirme hükmü {match.rule.value}"
+    number = clean_document_number(key, entry)
+    if number is None:
+        return "temiz belge numarası yok (§20.2.3)"
+    given_names, surname, normalized_name = key.given_names, key.surname, key.normalized_name
+    if given_names is None or surname is None or normalized_name is None:
+        return "ad-soyad okunmadı"
+    try:
+        person_slug(given_names, surname)
+    except SlugError:
+        return "ad-soyad klasör adına çevrilemiyor (K8)"
+    return _NewEmployee(number, given_names, surname, normalized_name)

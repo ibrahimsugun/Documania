@@ -516,12 +516,13 @@
         "description": "PRD 05.6.1 · FR-MOD-05 (Kimlik ve çalışan eşleştirme) · Faz 0.",
         "details": "KAPSAM: PRD 05.6.1 (FR-MOD-05 — Kimlik ve çalışan eşleştirme, Faz 0).\n\nNE YAPILACAK — GEREKSİNİMLER VE KABUL KRİTERLERİ:\n- 05.6.1 — Otomatik çalışan oluşturma (R9)\n  Kabul: Yalnız temiz okunmuş belge numarası varsa yeni çalışan ve klasörü açılır\n\nGİRDİ — ÜZERİNE KURULDUĞU İŞLER (bu kod ZATEN VAR; yazmadan önce OKU):\n- 05.5 (Çalışan eşleştirme sırası) → app/matching/match.py\n\nÇIKTI — DOKUNULACAK YÜZEY: app/matching/match.py, app/storage/\n\nZORUNLU OKUMA — BU GÖREVİN KARAR TABLOSU: urun-gereksinim-dokumani-PRD.md §20.2.2 satır 6 ve §20.2.3 (temiz belge numarasının üç koşulu)\nKarar zaten verilmiş ve yazılmıştır; senden beklenen onu UYGULAMAK. Tabloyu okumadan kod yazma. Tabloda karşılığı olmayan bir durumla karşılaşırsan UYDURMA: en güvenli davranışı seç (belgeyi kuyruğa al) ve PLAN.md §D'ye sapma yaz.\n\nBU GÖREVİ BAĞLAYAN KİLİTLİ KURALLAR (MASTER-PROMPT §3 — tartışma, uygula):\n- K7: Otomatik yeni çalışan YALNIZ temiz okunmuş belge numarası varsa açılır; yoksa 'onay bekleyen profil' olarak Unresolved'a düşer.\n\nPRD'DE AYRICA OKU: yalnız yukarıdaki gereksinim satırları yeterli.\n\nİLGİLİ KABUL SENARYOLARI (PRD §9) — bu görevin gerçek sınavı: S11. Senaryo metnini PRD §9 tablosundan oku; testin bu davranışı doğrulamalı.\n\nSIRA (MASTER-PROMPT §5, contract-first): sözleşme/şema → Alembic göçü (gerekiyorsa) → çekirdek + unit test → entegrasyon + testi → arayüz.\n\nKAPSAM SINIRI: yalnız yukarıdaki PRD kimlikleri. Başka gereksinimin işini yapma; yolda gördüğün kusuru düzeltme, yeni görev olarak aç (CONVENTIONS §5). Kilitli teknik kararları (MASTER-PROMPT §4) tartışma; yanlış görünüyorsa uygula ve PLAN.md §D'ye sapma yaz.\n\nTUZAKLAR: belge içeriğini değiştiren kod yazma — kırpma, döndürme (EXIF dışında), kontrast, metin yazma, form doldurma yok (K11/K17). Gerçek kimlik belgesi kullanma; test verisi tests/fixtures/gen.py ile üretilen sentetik belgelerdir (CONVENTIONS §6). Yapay zekâ çağrısı testte canlı yapılmaz, kayıtlı yanıt sağlayıcısı kullanılır. Test/build komutlarını arka plana atma — pencere ölür.\n\nKAPANIŞ: PLAN.md'de 05.6.1 satırlarının damgasını '✅ → K05.6' yap ve '## K. Kanıt Geçmişi' bölümünde '#### K05.6' bloğuna kanıt maddesi ekle (blok yoksa aç). Faz özet tablosundaki sayıları SAYARAK güncelle. Ayrıntı: CONVENTIONS §1.2-1.3.",
         "testStrategy": "CONVENTIONS §1 DoD kapısı: ruff check . · ruff format --check . · python -m compileall -q app tests · pytest -q -m \"not live\" · alembic upgrade head · python -c \"import app.main\" — hepsi exit 0.\nAyrıca bu görevin kendi kabul kriterleri:\n- 05.6.1: Yalnız temiz okunmuş belge numarası varsa yeni çalışan ve klasörü açılır",
-        "status": "pending",
+        "status": "in-progress",
         "dependencies": [
           "36"
         ],
         "priority": "high",
-        "subtasks": []
+        "subtasks": [],
+        "updatedAt": "2026-09-15T07:14:13.241Z"
       },
       {
         "id": "38",
@@ -1282,7 +1283,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-09-15T07:12:41.534Z",
+      "lastModified": "2026-09-15T07:14:13.241Z",
       "taskCount": 92,
       "completedCount": 35,
       "tags": [

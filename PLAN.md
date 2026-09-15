@@ -8,7 +8,7 @@
 
 | Faz | PRD | Genel durum | Must sayacı | Kapanış |
 | --- | --- | --- | --- | --- |
-| Faz 0 — MVP | §5.1 | 61 ✅ · 0 ◐ · 41 ⬜ · 0 🔒 | 59/98 Must | AÇIK |
+| Faz 0 — MVP | §5.1 | 62 ✅ · 0 ◐ · 40 ⬜ · 0 🔒 | 60/98 Must | AÇIK |
 | Faz 1 — v1 | §5.2 | 0 ✅ · 0 ◐ · 0 ⬜ · 32 🔒 | 0/21 Must | AÇIK |
 | Faz 2 — v2 | §5.3 | 0 ✅ · 0 ◐ · 0 ⬜ · 13 🔒 | 0/0 Must | AÇIK |
 | Faz 3 — Enterprise | §5.4 | 0 ✅ · 0 ◐ · 0 ⬜ · 8 🔒 | 0/0 Must | AÇIK |
@@ -156,7 +156,7 @@ panelde `plan-count-drift` bulgusu doğurur.
 | 05.5.1 | Eşleştirme sırası | Must (MVP) | ✅ → K05.5 |
 | 05.5.2 | Yalnız isim eşleşmesinin reddi (R8) | Must (MVP) | ✅ → K05.5 |
 | 05.5.3 | Belirsiz eşleşme | Must (MVP) | ✅ → K05.5 |
-| 05.6.1 | Otomatik çalışan oluşturma (R9) | Must (MVP) | ⬜ |
+| 05.6.1 | Otomatik çalışan oluşturma (R9) | Must (MVP) | ✅ → K05.6 |
 | 05.7.1 | Onay bekleyen profil | Must (MVP) | ⬜ |
 | 05.7.2 | Alias ve numara birikimi | Must (MVP) | ⬜ |
 | 05.8.1 | İletişim bilgisi saklama | Must (MVP) | ⬜ |
@@ -857,6 +857,33 @@ Onay beklemeden yapılan varsayımlar buraya numaralı olarak yazılır.
   `PERSON_NOT_MATCHED`; veri `rule`, varsa `matched_by`, `queue`, `employee_ids`, `conflicts`;
   gerekçe `message`. `PERSON_IDENTIFIED` bu adımda yazılmaz. Olay dışında yazmaz (alias/numara
   birikimi 05.7.2, kuyruk kaydı 08.1), commit etmez; boru hattına bağlanması 06.1'in.
+- **C28** — Otomatik çalışan oluşturma (tm 37, 05.6.1): §20.2.2 satır 6 ve §20.2.3 kararı yazar ama
+  kararın nerede verildiğini, yeni çalışan kaydının hangi okumalarla dolduğunu ve neyin yazıldığını
+  yazmaz; `app/matching/match.py` şöyle uygular. **Temiz numara** (`clean_document_number(key,
+  entry)`): `entry` adayın katalog türü; üç koşul harfiyen (`document_number ∈ required_fields`;
+  `DocumentNumberKey.legible` ve normalize hâli ≥ 5 karakter; `mrz_allows_clean_document_number`) ve
+  anahtarda **tek** numara — birden fazla numara çelişkidir (D8), biri seçilmez. **Karar**
+  (`can_create_employee(key, match, *, entry)`, yan etkisiz — 06.1'in `employee.action: create`
+  kararı): hüküm `NO_MATCH`, numara temiz, ad-soyad okunmuş ve klasör adı veriyor (D9). **Yazma**
+  (`create_employee(session, layout, key, *, entry, file_id, page_index)`): çağıranın eşleştirmesine
+  güvenmez, tabloyu veritabanında olaysız yeniden değerlendirir — aynı partide aynı yeni kişinin ikinci
+  belgesi artık satır 1'e uyar ve reddedilir (mükerrer çalışan doğmaz); ret `EmployeeCreationRefusedError`
+  (`ValueError`), mesajı yalnız hüküm/koşul, hiçbir şey yazılmaz. Uyarsa aynı işlemde E numarası
+  (`allocate_employee_number`), `employee_folder_name` (K8), `employees` satırı
+  `PersonKey.employee_fields()` ile (03.1.3 alanları), `employee_aliases`'a `"<given_names> <surname>"`
+  (anahtarın ad-soyad normalize değeriyle) ve varsa orijinal yazım (kendi normalize değeriyle; aynı
+  ham yazım bir kez; `script` boş — 05.8.3'ün), `employee_identifiers`'a temiz numara (`kind` = tür
+  slug'ı, `source_document_id` boş — belge satırı 07.7'de doğar), flush, `ensure_employee_tree`
+  (`Alinan/`, `Hazir/`), `EMPLOYEE_CREATED` (`employee_id` sütunu; veri `action: create`,
+  `document_type_slug`; mesaj yok, kişisel değer ve klasör adı yok). Commit etmez; dizin işlem geri
+  alınsa da diskte boş kalır (dosya sistemi işleme bağlı değil), aynı E numarası sonraki çağrıya yine
+  verilir. `profil.md` (09.1.1), Hazir çıktısı ve Alinan kopyası (07.x), kuyruk kaydı (08.1) ve boru
+  hattına bağlama (06.1) sonraki görevlerin. **Kayıt okumaları:** 05.4 anahtarına eşleştirmeye girmeyen
+  dört alan eklendi — `surname`/`given_names` parçanın anahtara inen ilk okuması yazıldığı gibi (MRZ
+  önceliği aynen); `other_names` isim anahtarıyla (aksan/harf büyüklüğü farkı tek okuma),
+  `nationality` yalnız ICAO kodu biçimindeki okuma (`[A-Z]{1,3}`, büyük harfe çevrilir; `Russian
+  Federation` gibi metin okuma sayılmaz), MRZ taşıyorsa MRZ'den. İkisi kimlik alanı değildir: çelişirse
+  `None`, `conflicts`'e girmez (05.5 hükmü değişmez).
 
 ## D. Sapmalar
 
@@ -925,6 +952,19 @@ bu kayıt neden sapıldığının izlenebilir olması içindir.
   çelişen sayfaları zaten birleştirmediği için durum seyrektir (MRZ ya da `fields` okuması `person`'dan
   farklıysa doğar). Karar insana bırakıldı: yalnız orijinal yazım çelişkisi gibi zararsız görünen
   durumlar için tabloya satır eklenmeli mi.
+- **D9 — Ad-soyadı okunmamış temiz numaralı belgeden çalışan açılmıyor (05.6.1, tm 37).** §20.2.2 satır
+  6 yalnız "hiç eşleşme yok ve temiz belge numarası var" der; ad-soyad şartı yazmaz. Ama çalışan klasörü
+  `Ad_Soyad_E0001` (K8) ve `employees.given_names`/`surname` zorunlu: ad ya da soyadı okunmamış
+  (`required_fields`'ında numara olup isim olmayan bir tür, ya da isim parçası kelimesiz) veya klasör
+  adına çevrilemeyen (slug'da karakter kalmayan, ör. Çince) anahtardan klasör kurulamaz. Tabloda
+  karşılığı yok; görev kuralı gereği en güvenli yön seçildi: çalışan **açılmaz**
+  (`can_create_employee` yanlış, `create_employee` reddeder), isim uydurulmaz, numaradan klasör adı
+  türetilmez. Tohum katalogda numara isteyen her tür ad ve soyadı da ister ve 04.4 kapısı okunamayan
+  zorunlu alanı Unreadable'a gönderir; durum bugün yalnız katalog dışı düzenlemeyle ya da slug'a
+  çevrilemeyen yazıyla doğar. Bu belgenin hangi rotaya gideceği (satır 7'nin "ad-soyad okunabildi"
+  şartı sağlanmadığı için onay bekleyen profil değil; satır 8 de "ne isim ne numara" der) 05.7'nin
+  kararıdır — güvenli yön Unresolved, `action: none`. Karar insana bırakıldı: satır 6'ya ad-soyad şartı
+  yazılmalı mı, çevrilemeyen yazı için klasör adı kuralı tanımlanmalı mı.
 
 ## G. İş Kırılımı Dizini
 
@@ -1172,3 +1212,7 @@ var olan maddeler silinmez. Biçim:
 - ✅ 05.5.1 `match_employee(session, key, *, file_id, page_index)` (`app/matching/match.py`) 05.4 kişi anahtarını kayıtlı çalışanlarla §20.2.2 sırasıyla karşılaştırır, ilk uyan satır kazanır: satır 1 anahtarın numarası `employee_identifiers.value` ile tam eşit ve tek çalışana ait → `EmployeeMatch(document_number)`, `action: match`, `matched_by: document_number`; satır 3 numara eşleşmedi ya da yok, `name_keys`'ten (ad-soyad, orijinal yazım) biri `employee_aliases.normalized_name` ile eşit ve doğum tarihi eşit tek çalışan → `name_dob`. Numara başka bir çalışanın isim + doğum tarihinden önce gelir; aynı çalışanın aynı numaralı iki kaydı tek sahiptir; Kiril orijinal yazımlı alias, Latin anahtarla ve tersi eşleşir; alt/üst küme isim, çalışanın alias'sız ad sütunları ve normalize edilmemiş saklı numara eşleşmez. Hiçbir satır uymazsa `no_match` (`action`/`queue` boş; satır 6–8 05.6/05.7'nin). Hüküm `PERSON_MATCHED` olayına (`employee_id` sütunu, veri `rule`, `matched_by`, `employee_ids`) yazılır; olay dışında yazmaz, commit etmez (kurallar: C27) — `app/matching/match.py` · test `tests/matching/test_employee_match.py` · tm 36
 - ✅ 05.5.2 / S10: yalnız isim eşleşmesi (doğum tarihi belgede yok, çalışanda yok, ikisinde yok ya da farklı; eşleşmeyen numaralı ve numarasız) → `name_only`, `action: none`, `QueueKind.UNRESOLVED`, gerekçe PRD metniyle başlar (`İsim eşleşti ama doğum tarihi veya belge numarası doğrulanamadı. İsmi eşleşen çalışan: E0001. …`), `PERSON_NOT_MATCHED`; çalışan, alias ya da numara eklenmez, satır 6'ya inilmez. Çelişkili anahtar (numara, doğum tarihi, isim çelişkisi) numara tek bir çalışana ait olsa bile hiçbir satır denenmeden `conflicting_key` ile Unresolved'a gider (D8) — `app/matching/match.py` · test `tests/matching/test_employee_match.py` · tm 36
 - ✅ 05.5.3 / S12: numara birden fazla çalışana ait (isim + doğum tarihi tek çalışana uysa bile) → `document_number_ambiguous`; isim + doğum tarihi birden fazla çalışana uyuyor → `name_dob_ambiguous`; ikisi de `action: none`, Unresolved, E numaraları sayısal sırayla gerekçede, `PERSON_AMBIGUOUS` olayında `message` + `employee_ids`. S12: aynı isimli iki çalışandan doğum tarihi birine uyan eşleşir (iki yönde), ikisine uyarsa belirsiz, hiçbirine uymazsa `name_only` (iki çalışan da gerekçede). Entegrasyon: sentetik PDF gerçek render adımlarından ve `russian_passport` kaydıyla analizden geçer, `group_upload` → `build_person_key` → `match_employee` S1 (numara), S10, S12 (bir/iki çalışan) hükümlerini verir; olay parti, dosya ve sayfaya bağlı, kişisel değer (ad, numara, doğum tarihi) taşımaz, yeni çalışan açılmaz. 16 kural bozulması (belirsiz numaranın satır 3'e düşmesi, çelişki kontrolü, boş doğum tarihinin eşit sayılması, belirsiz ismin eşleşme sayılması, yalnız isimin `no_match`'e ya da numaralıyken satır 6'ya inmesi, gerekçe metni, E numarası sırası, tekrarsızlık, belirsiz isim olay türü, yalnız ad-soyad anahtarıyla arama, `no_match`'in kuyruğa alınması, ismin numaradan önce denenmesi, olayda `queue`, belirsizde `employee_id`, anahtarın bütün numaralarıyla arama) geçici olarak denendi, her biri testte kırmızı — `app/matching/match.py` · test `tests/matching/test_employee_match.py` (17 fonksiyon / 40 durum), `tests/matching/conftest.py` · tm 36
+
+#### K05.6 — 05.6.1 · Otomatik çalışan oluşturma
+- ✅ 05.6.1 `clean_document_number(key, entry)` (`app/matching/match.py`) §20.2.3'ün üç koşulunu uygular: türün `required_fields`'ında `document_number` (tohumda `profile_picture` ya da numarasız kopya → temiz değil), numara okunaklı ve normalize hâli en az 5 karakter (`AB123` temiz, `AB12` değil), MRZ alan ve bileşik haneleri tutuyor; anahtarda tek numara (iki numara çelişki, D8). `can_create_employee(key, match, *, entry)` §20.2.2 satır 6'yı yan etkisiz verir: yalnız `NO_MATCH` hükmü (satır 1–5 ve çelişkili anahtarın her biri yanlış), temiz numara, okunmuş ve klasör adı veren ad-soyad (D9). `create_employee(session, layout, key, *, entry, file_id, page_index)` tabloyu veritabanında yeniden değerlendirir; uyarsa E numarası (`E0041` varken `E0042`), `Test_Ornekova_E0001` klasörü (`Alinan/`, `Hazir/`), `employees` satırı (ad, soyad, diğer isimler, orijinal yazım, doğum tarihi, uyruk), `employee_aliases` (`Ad Soyad` + orijinal yazım, aynı yazım bir kez), `employee_identifiers` (tür slug'ı, normalize numara) ve `EMPLOYEE_CREATED` (kişisel değer yok) yazar, commit etmez; açılan çalışanı sonraki belge numarasından, ad-soyad + doğum tarihinden ve orijinal yazımından bulur (05.5), aynı anahtarla ikinci çağrı `eşleştirme hükmü document_number` ile reddedilir. Ret (`EmployeeCreationRefusedError`: kayıtlı numara, yalnız isim, çelişkili anahtar, okunaksız/eksik numara, MRZ hanesi, numarasız tür, okunmamış ad-soyad, klasör adına çevrilemeyen isim) hiçbir kayıt, alias, numara, olay ya da klasör yazmaz ve mesajında kişisel değer yoktur. 05.4 anahtarına yeni çalışan kaydının eşleştirmeye girmeyen okumaları eklendi (`surname`, `given_names` ilk okuma yazıldığı gibi, `other_names`, ICAO kodu biçimindeki `nationality`, MRZ önceliğiyle; çelişki `None`, `conflicts`'e girmez; `employee_fields()` sırası `EMPLOYEE_FIELDS`), üç tam anahtar testi yeni alanlarla güncellendi (kurallar: C28). 21 kural bozulması (5 karakter sınırı, `required_fields` koşulu, okunaklılık, MRZ koşulu, tek numara, `NO_MATCH` koşulu, çağıranın hükmüne güvenme, ad-soyad okunması, klasör adı denetimi, orijinal yazım alias'ı, alias yazım sırası, numara `kind`'ı, klasör açma, olay verisi, E numarası tahsisi, uyruk anahtarı ve biçimi, ilk okuma, orijinal yazım yerine Latin karşılığı, diğer isimlerin isim anahtarı) geçici olarak denendi, 20'si testte kırmızı; hayatta kalan (aynı ham yazıma iki normalize değer) oluşturulabilen bir anahtarda farklılaşmıyor — `app/matching/match.py` · test `tests/matching/test_employee_creation.py` (15 fonksiyon / 41 durum), `tests/matching/test_person_key.py` (41 / 61, +6 / +11) · tm 37
+- ✅ S11 (çalışan ve klasör düzeyi): sentetik PDF gerçek render adımlarından ve `russian_passport` kaydıyla analizden geçer, kayıtlı çalışan yokken `group_upload` → `build_person_key` → `match_employee` (`no_match`, `PERSON_NOT_MATCHED`) → `create_employee` E0001'i `Test_Ornekova_E0001` klasörüyle açar; olay zinciri parti, dosya ve sayfaya bağlı, kişisel değer taşımaz; commit sonrası aynı anahtar numarasından E0001'le eşleşir. S13 kaydı `Iulia_Testova_Shchelkina_E0001` açar ve orijinal yazımı (`Тестова-Щёлкина Юлья`) çalışan kaydında saklar. S9 bulanık pasaportunun numarası okunamadığı için (isim okunmuş olsa da) çalışan ve klasör açılmaz (R9). `profil.md` (09.1.1), belgenin Hazir çıktısı (07.x) ve boru hattına bağlama (06.1) sonraki görevlerin — `tests/fixtures/ai/recordings/russian_passport/0.json`, `s13_cyrillic_name/0.json`, `s9_blurred_passport/0.json` · test `tests/matching/test_employee_creation.py` · tm 37

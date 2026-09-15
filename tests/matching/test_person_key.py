@@ -14,7 +14,7 @@ from typing import Any
 
 import pytest
 
-from app.ai import PageAnalysis
+from app.ai import EMPLOYEE_FIELDS, PageAnalysis
 from app.ai.schemas import validate_page_analysis
 from app.catalog import load_seed_catalog
 from app.matching.match import (
@@ -125,6 +125,10 @@ def test_recorded_cyrillic_passport_gives_the_full_key() -> None:
         normalized_original_name="iulia shchelkina testova",
         mrz_allows_clean_document_number=True,
         conflicts=(),
+        surname="TESTOVA-SHCHELKINA",
+        given_names="IULIA",
+        other_names=None,
+        nationality="RUS",
     )
     assert key.name_keys == ("iulia shchelkina testova",)
 
@@ -148,6 +152,10 @@ def test_front_and_back_of_a_grouped_residence_card_give_one_key() -> None:
         normalized_original_name=None,
         mrz_allows_clean_document_number=True,
         conflicts=(),
+        surname="SIDOROV",
+        given_names="IVAN",
+        other_names=None,
+        nationality="RUS",
     )
 
 
@@ -218,6 +226,88 @@ def test_other_names_do_not_enter_the_name_key() -> None:
     key = _key(_page(other_names="IVANOVNA"))
 
     assert key.normalized_name == "ornekova test"
+
+
+# --- yeni çalışan kaydının okumaları (03.1.3, 05.6) -----------------------------------------------
+
+
+def test_employee_fields_are_the_first_readings_as_written() -> None:
+    page = _page(
+        fields=_readings(surname="ORNEKOVA", given_names="TEST"),
+        surname="Örnekova",
+        given_names="Test",
+        other_names="Ivánovna",
+    )
+
+    # Diğer isimler de isim anahtarıyla karşılaştırılır: aksan farkı çelişki değildir.
+    key = _key(page, _page(fields={}, surname="ORNEKOVA", other_names="IVANOVNA"))
+
+    assert key.employee_fields() == {
+        "surname": "Örnekova",
+        "given_names": "Test",
+        "other_names": "Ivánovna",
+        "original_script_name": "Орнекова Тест",
+        "date_of_birth": date(1990, 1, 1),
+        "nationality": "RUS",
+    }
+    assert tuple(key.employee_fields()) == EMPLOYEE_FIELDS
+    assert key.conflicts == ()
+
+
+def test_empty_key_has_empty_employee_fields() -> None:
+    assert build_person_key([]).employee_fields() == dict.fromkeys(EMPLOYEE_FIELDS)
+
+
+@pytest.mark.parametrize("field", ["surname", "given_names"])
+def test_disagreeing_name_part_has_no_reading(field: str) -> None:
+    key = _key(_page(fields={}), _page(fields={}, **{field: "BASKA"}))
+
+    assert key.conflicts == (field,)
+    assert getattr(key, field) is None
+
+
+def test_other_names_and_nationality_that_disagree_are_empty_but_not_conflicts() -> None:
+    key = _key(
+        _page(fields={}, other_names="IVANOVNA", nationality="RUS"),
+        _page(fields={}, other_names="PETROVNA", nationality="SRB"),
+    )
+
+    assert (key.other_names, key.nationality, key.conflicts) == (None, None, ())
+    assert key.normalized_name == "ornekova test"
+
+
+@pytest.mark.parametrize(
+    ("person", "reading", "expected"),
+    [
+        ("RUS", {"value": "Russian Federation", "legible": True}, "RUS"),
+        (None, {"value": "Russian Federation", "legible": True}, None),
+        (None, {"value": "rus", "legible": True}, "RUS"),
+        ("RUS", {"value": "rus", "legible": True}, "RUS"),
+        ("RUS", {"value": None, "legible": False}, None),
+    ],
+    ids=[
+        "country-name-beside-code",
+        "country-name-only",
+        "lowercase-code",
+        "same-code",
+        "illegible",
+    ],
+)
+def test_nationality_is_read_only_as_an_icao_code(
+    person: str | None, reading: dict[str, Any], expected: str | None
+) -> None:
+    key = _key(_page(fields={"nationality": reading}, nationality=person))
+
+    assert (key.nationality, key.conflicts) == (expected, ())
+
+
+def test_mrz_nationality_wins_over_the_visible_code() -> None:
+    own_page = _page(nationality="SRB", mrz=make_mrz(MrzFormat.TD3, **PASSPORT))
+    front = _page(top={"side": "front"}, nationality="SRB")
+
+    assert _key(own_page).nationality == "RUS"
+    assert _key(front, _mrz_back()).nationality == "RUS"
+    assert _key(front, _mrz_back(nationality="D<<")).nationality == "D"
 
 
 def test_parts_are_normalized_with_their_pages_language() -> None:
@@ -472,6 +562,11 @@ def test_mrz_on_the_back_wins_over_the_visible_text_of_the_front() -> None:
         normalized_original_name="ornekova test",
         mrz_allows_clean_document_number=True,
         conflicts=(),
+        # Adın ve uyruğun görünen yazımı da MRZ'den.
+        surname="ORNEKOVA",
+        given_names="TEST",
+        other_names=None,
+        nationality="RUS",
     )
 
 
