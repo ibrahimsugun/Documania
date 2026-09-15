@@ -6,9 +6,9 @@ Tek istisna K3'tür: `merge` Direkt Belge türünde çalışmaz (07.3.1) — pla
 tür Direkt Belge yapılmış olsa bile belge başka kaynaklardan kurulmaz.
 Ortak kural (K11): hiçbir işlem içeriği üretmez, kırpmaz ya da değiştirmez.
 
-Şimdilik `passthrough` (07.1.1), `extract` (07.2.1) ve `merge` (07.3.1) uygulanır. Öteki işlemler
-(`wrap_image`, `extract_image`, `render_image`) ve ortak çıktı yazma — köken kaydı, `documents`
-satırı, `OUTPUT_SAVED` olayı, `Alinan` kopyası (07.7.1) — sonraki görevlerdedir.
+Şimdilik `passthrough` (07.1.1), `extract` (07.2.1), `merge` (07.3.1) ve `wrap_image` (07.4.1)
+uygulanır. Öteki işlemler (`extract_image`, `render_image`) ve ortak çıktı yazma — köken kaydı,
+`documents` satırı, `OUTPUT_SAVED` olayı, `Alinan` kopyası (07.7.1) — sonraki görevlerdedir.
 """
 
 from __future__ import annotations
@@ -78,6 +78,15 @@ class MergeIntegrityError(RuntimeError):
     gelen kaynak sayfaya uymuyor.
 
     Sayfa nesnesi kopyasında bu beklenmez; çıktı yayınlanmaz.
+    """
+
+
+class WrapImageSourceError(ValueError):
+    """wrap_image (07.4.1): kaynak okunabilir bir JPEG/PNG değil ya da görüntüsü img2pdf ile
+    kayıpsız PDF'e sarılamıyor (açılamayan/bozuk dosya, aynalı/geçersiz EXIF yönelimi, >8 bit
+    alfa kanalı — D17/D18).
+
+    Hedefe hiçbir şey yazılmaz; belge kuyruğa gider, tahmin edilmez.
     """
 
 
@@ -197,6 +206,37 @@ def execute_merge(sources: Sequence[MergeSource], destination: Path, *, direct: 
     return write_file(destination, output)
 
 
+def execute_wrap_image(source: Path, destination: Path) -> StoredFile:
+    """Kaynak JPEG/PNG'yi kayıpsız biçimde tek sayfalık bir PDF'e sarar (07.4.1, §20.5).
+
+    Yöntem `img2pdf.convert()` — `merge`'ün görüntü kaynağıyla ortak (`_wrap_image_to_pdf`,
+    D17): JPEG akışı yeniden kodlanmadan PDF içine gömülür; PNG pikselleri kayıpsız taşınır, 8
+    bit alfa kanalı ayrı bir `/SMask` görüntüsünde saklanır. EXIF yönelimi img2pdf varsayılanıyla
+    yalnız sayfanın `/Rotate` değerine yazılır, piksel döndürülmez.
+
+    **Beyaz zemine düzleştirme uygulanmaz.** §20.5 img2pdf'in alfa kanallı PNG'leri reddettiğini
+    ve bu durumda düzleştirme yapılacağını söyler; D17 img2pdf 0.6.3'ün yalnız >8 bit alfada
+    (`AlphaChannelError`) reddettiğini bulmuştur. Düzleştirme bir piksel dönüşümüdür; K11 içeriği
+    hiçbir koşulda değiştirmez ve izinli işlemler listesinde alfa kompozisyonu yoktur —
+    `MASTER-PROMPT.md` §2 çelişki sırasında kilitli kural PRD metninin önündedir (D18). Bu yüzden
+    img2pdf'in sarılamadığı görüntü (>8 bit alfa dahil) düzleştirilmeye çalışılmaz;
+    `WrapImageSourceError` verir ve belge kuyruğa gider (tahmin edilmez).
+
+    Kaynak JPEG/PNG değilse de `WrapImageSourceError`. Hedef zaten varsa `write_file`'ın
+    `FileExistsError`'ı (üzerine yazma yok).
+    """
+    content = source.read_bytes()
+    if _file_kind(content) not in (FileKind.JPEG, FileKind.PNG):
+        raise WrapImageSourceError("wrap_image kaynağı JPEG ya da PNG değil")
+    try:
+        output = _wrap_image_to_pdf(content)
+    except _IMAGE_WRAP_ERRORS as exc:
+        raise WrapImageSourceError(
+            f"wrap_image kaynağı görüntüsü kayıpsız PDF'e sarılamadı: {type(exc).__name__}"
+        ) from exc
+    return write_file(destination, output)
+
+
 # img2pdf'in kayıpsız saramadığı görüntü için verdiği hatalar; ortak bir taban sınıfları yok.
 _IMAGE_WRAP_ERRORS = (
     img2pdf.ImageOpenError,
@@ -207,6 +247,15 @@ _IMAGE_WRAP_ERRORS = (
     img2pdf.NegativeDimensionError,
     img2pdf.PdfTooLargeError,
 )
+
+
+def _wrap_image_to_pdf(content: bytes) -> bytes:
+    """JPEG/PNG baytlarını img2pdf ile kayıpsız tek sayfalık PDF'e sarar (§20.5 wrap_image yöntemi).
+
+    `merge` ve `wrap_image`'in ortak çekirdeği (D17/D18): sarılamayan görüntü için
+    `_IMAGE_WRAP_ERRORS` olduğu gibi yükselir, çağıran kendi hata türüne çevirir.
+    """
+    return img2pdf.convert(content)
 
 
 @dataclass(frozen=True, slots=True)
@@ -242,7 +291,7 @@ def _merge_source_pdf(content: bytes, *, where: str) -> bytes:
     if kind not in (FileKind.JPEG, FileKind.PNG):
         raise MergeSourceError(f"merge kaynağı{where} PDF, JPEG ya da PNG değil")
     try:
-        return img2pdf.convert(content)
+        return _wrap_image_to_pdf(content)
     except _IMAGE_WRAP_ERRORS as exc:
         raise MergeSourceError(
             f"merge kaynağı{where} görüntüsü kayıpsız PDF'e sarılamadı: {type(exc).__name__}"

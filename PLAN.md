@@ -8,7 +8,7 @@
 
 | Faz | PRD | Genel durum | Must sayacı | Kapanış |
 | --- | --- | --- | --- | --- |
-| Faz 0 — MVP | §5.1 | 80 ✅ · 0 ◐ · 22 ⬜ · 0 🔒 | 77/98 Must | AÇIK |
+| Faz 0 — MVP | §5.1 | 81 ✅ · 0 ◐ · 21 ⬜ · 0 🔒 | 78/98 Must | AÇIK |
 | Faz 1 — v1 | §5.2 | 0 ✅ · 0 ◐ · 0 ⬜ · 32 🔒 | 0/21 Must | AÇIK |
 | Faz 2 — v2 | §5.3 | 0 ✅ · 0 ◐ · 0 ⬜ · 13 🔒 | 0/0 Must | AÇIK |
 | Faz 3 — Enterprise | §5.4 | 0 ✅ · 0 ◐ · 0 ⬜ · 8 🔒 | 0/0 Must | AÇIK |
@@ -185,7 +185,7 @@ panelde `plan-count-drift` bulgusu doğurur.
 | 07.1.1 | passthrough | Must (MVP) | ✅ → K07.1 |
 | 07.2.1 | extract | Must (MVP) | ✅ → K07.2 |
 | 07.3.1 | merge | Must (MVP) | ✅ → K07.3 |
-| 07.4.1 | wrap_image | Must (MVP) | ⬜ |
+| 07.4.1 | wrap_image | Must (MVP) | ✅ → K07.4 |
 | 07.5.1 | extract_image | Must (MVP) | ⬜ |
 | 07.6.1 | render_image | Must (MVP) | ⬜ |
 | 07.7.1 | Çıktı yazma ve köken (R13) | Must (MVP) | ⬜ |
@@ -1310,6 +1310,17 @@ bu kayıt neden sapıldığının izlenebilir olması içindir.
   olur. Düzleştirme bir piksel dönüşümüdür ve artık gerekmediği için uydurulmadı. Karar insana ve 07.4'e
   bırakıldı: `/SMask` saklama kabul mü, yoksa §20.5'teki düzleştirme + olay kütüphane reddetmese de mi
   uygulanmalı (o zaman `merge`'ün görüntü sarması da aynı yola bağlanmalı).
+- **D18 — §20.5'in beyaz zemine düzleştirmesi uygulanmadı: K11 içeriği hiçbir koşulda değiştirmez,
+  MASTER-PROMPT çelişkide PRD'nin önünde (07.4.1, tm 49).** D17'nin sorusu buradaydı: img2pdf 0.6.3 yalnız
+  >8 bit alfalı PNG'de (`AlphaChannelError`) reddeder, 8 bit alfayı `/SMask` olarak kayıpsız saklar. §20.5
+  "alfa kanalı içeren PNG'ler... alfasız RGB'ye (beyaz zemin) düzleştirilir" der — bu bir piksel dönüşümüdür.
+  K11 "İçerik hiçbir koşulda üretilmez, kırpılmaz veya değiştirilmez" der ve izinli işlemler listesinde alfa
+  kompozisyonu yoktur; `MASTER-PROMPT.md` §2 çelişki sırası "bu dosya (MASTER-PROMPT) > PRD > PLAN.md" —
+  kilitli kural PRD metnini geçersiz kılar. Karar: `execute_wrap_image` (ve `merge`'ün paylaştığı
+  `_wrap_image_to_pdf`) >8 bit alfalı PNG'de ya da img2pdf'in sarılamadığı başka görüntüde düzleştirme
+  denemez, `WrapImageSourceError`/`MergeSourceError` verir; belge kuyruğa gider, tahmin edilmez
+  (CLAUDE.md'nin değişmez kuralı). 8 bit alfalı PNG (yaygın durum) zaten reddedilmediği için D17'nin
+  gözlemi (`/SMask`, düzleştirme yok) değişmedi.
 
 ## G. İş Kırılımı Dizini
 
@@ -1605,3 +1616,6 @@ var olan maddeler silinmez. Biçim:
 - ✅ `execute_merge(sources, destination, *, direct)` (`app/pipeline/execute.py`, `MergeSource(path, pages)`) plan öğesinin en az iki kaynağının sayfalarını `sources` sırasıyla, kaynak içinde `pages` sırasıyla tek PDF'te birleştirir — yeniden sıralama yok (iki yönde doğrulandı); yöntem `extract`'la ortak çekirdek (`_copy_pages`, pypdf sayfa nesnesi kopyası, `compress_content_streams` yok): PDF sayfalarının içerik akışı, görüntü baytları, boyutu ve `/Rotate`'i aynen taşınır. Yalnız `direct: false` türde: `direct` doğruysa kaynaklar okunmadan `DirectDocumentMergeError` (K3; tohum katalogda `russian_passport` Direkt, `serbian_driving_license` değil). JPEG/PNG kaynak önce `img2pdf` ile kayıpsız sarılır: JPEG akışı kaynak baytlarıyla birebir, PNG pikselleri birebir, görüntü sayfayı tam kaplar, EXIF 6 yalnız `/Rotate 90`; alfalı PNG renk + `/SMask` olarak birebir (D17). Aynalı/geçersiz EXIF, bozuk görüntü, Word, tanınmayan içerik, bozuk/parolalı PDF, okuyucu uyuşmazlığı ve olmayan sayfa `MergeSourceError` (`sources[i]` konumuyla, dosya adı yok); tek/boş kaynak listesi ve geçersiz sayfa seçimi okumadan `ValueError`; çıktı sayfa sayısı ve sayfa başına metin katmanı yayından önce doğrulanır (`MergeIntegrityError`, hedefe yazma yok), hedef varsa `FileExistsError` (C37). Bağımlılık `img2pdf>=0.6` (K14) — `app/pipeline/execute.py` · `pyproject.toml` · test `tests/pipeline/test_execute.py` (62, +31) · tm 48
 - ✅ S5 plan → uygulayıcı: aynı partide sentetik `on.jpg` (ehliyet ön) ve `arka.jpg` (ehliyet arka), iki yükleme sırasında da gerçek görüntü analiz kopyası + kayıtlı yanıtlarla `analyze_upload` → `create_plan`: tek `serbian_driving_license` öğesi `hazir`, `merge`, `pdf`, `…-Driving-License.pdf`, kaynaklar önce ön yüz; öğenin kaynakları Inbox yollarına çözülüp `execute_merge(direct=entry.direct)` ile yürütülür → tek 2 sayfalık PDF, sayfa 0 ön yüzün, sayfa 1 arka yüzün JPEG baytlarını birebir gömülü taşır (kayıpsız sarma ve birleştirme). Çıktının `Hazir/` yeri, köken kaydı ve `Alinan` kopyası 07.7'nin, uçtan uca S5 09.3'ün · test `tests/pipeline/test_execute.py` (`test_s5_planned_merge_item_yields_one_driving_license_pdf`, 2) · tm 48
 - ✅ Kapı: `execute.py` satır+dal kapsamı %100; 16 kural bozulması (Direkt Belge bekçisi, tek kaynak, yol adına göre sıralama, okuduktan sonra sayfa denetimi, sıkıştırma, EXIF'i yok sayma, EXIF'i uygulamama, görüntüyü Pillow ile yeniden kodlama, tür denetimi, sarma hatasını yakalamama, sayfa aralığı, çıktı doğrulaması, okuyucu uyumu, mesajda kaynak konumu, hata sınıfı, metin katmanı denetimi) geçici olarak denendi, her biri yalnız `merge` testleriyle kırmızı · tm 48
+
+#### K07.4 — 07.4.1 · wrap_image işlemi
+- ✅ `execute_wrap_image(source, destination)` (`app/pipeline/execute.py`) kaynak JPEG/PNG'yi `img2pdf.convert()` ile kayıpsız tek sayfalık PDF'e sarar; JPEG akışı yeniden kodlanmadan gömülür, PNG pikselleri kayıpsız taşınır, EXIF yönelimi yalnız `/Rotate`'e yazılır (piksel döndürülmez). Yöntem `merge`'ün görüntü sarma yoluyla ortak çekirdekte (`_wrap_image_to_pdf`) paylaşılır — D17'nin kararı ikisine birden uygulanır. Kaynak JPEG/PNG değilse ya da img2pdf'in yedi hata sınıfından biriyle sarılamıyorsa (açılamayan/bozuk görüntü, aynalı/geçersiz EXIF, >8 bit alfa → `AlphaChannelError`) `WrapImageSourceError`; hedefe hiçbir şey yazılmaz, belge kuyruğa gider (tahmin edilmez). **D18:** §20.5 alfa reddinde beyaz zemine düzleştirmeyi ister; bu bir piksel dönüşümüdür ve K11'in izinli işlemler listesinde yoktur — `MASTER-PROMPT.md` §2 çelişki sırasında (bu dosya > PRD) kilitli kural kazanır, düzleştirme uygulanmadı; >8 bit alfalı PNG de öteki sarılamayan görüntüler gibi `WrapImageSourceError` ile kuyruğa gider. 8 bit alfalı PNG (yaygın durum) img2pdf tarafından zaten reddedilmediği için D17'deki gibi `/SMask` olarak kayıpsız saklanmaya devam eder. `execute.py` satır+dal kapsamı %100 — `app/pipeline/execute.py` · test `tests/pipeline/test_execute.py` (75, +13) · tm 49

@@ -4,6 +4,8 @@
 07.2.1 — extract: sayfa nesnesi kopyası, render yok, metin katmanı korunur (S7).
 07.3.1 — merge: yalnız Direkt Belge olmayan türde, kaynaklar plan sırasıyla; görüntü kayıpsız
 sarılır (S5).
+07.4.1 — wrap_image: tek JPEG/PNG kayıpsız tek sayfalık PDF'e sarılır, alfa `/SMask` olarak
+saklanır, beyaz zemine düzleştirme yapılmaz (§D17/§D18).
 """
 
 from io import BytesIO
@@ -26,9 +28,11 @@ from app.pipeline.execute import (
     MergeSource,
     MergeSourceError,
     PassthroughIntegrityError,
+    WrapImageSourceError,
     execute_extract,
     execute_merge,
     execute_passthrough,
+    execute_wrap_image,
 )
 from app.pipeline.plan import Operation, Route, create_plan, read_plan
 from app.storage import DataLayout, StoredFile, sha256_file
@@ -766,6 +770,138 @@ def test_execute_merge_does_not_overwrite_existing_destination(tmp_path: Path) -
 
     assert destination.read_bytes() == b"onceden var olan icerik"
     assert sorted(path.name for path in tmp_path.iterdir()) == ["a.pdf", "b.pdf", "hedef.pdf"]
+
+
+# --- 07.4.1 — wrap_image ---
+
+
+def test_execute_wrap_image_wraps_jpeg_losslessly_onto_a_single_page(tmp_path: Path) -> None:
+    content = make_half_filled_image_bytes("JPEG", (300, 190))
+    source = _source(tmp_path, content, "foto.jpg")
+    destination = tmp_path / "Hazir" / "Ornek_Kisi-Profile-Picture.pdf"
+
+    stored = execute_wrap_image(source, destination)
+
+    assert stored.path == destination
+    assert stored.sha256 == sha256_file(destination)
+    assert stored.size == destination.stat().st_size
+    with _open(destination) as out:
+        assert out.page_count == 1
+        # Kayıpsız sarma: JPEG baytları yeniden kodlanmadan gömülü; sayfa görüntünün kendisidir.
+        assert _raw_images(out, 0) == [content]
+        assert _embedded_images(out, 0) == [content]
+        (image,) = out[0].get_images(full=True)
+        assert out[0].get_image_bbox(image) == out[0].rect
+        assert out[0].rotation == 0
+        assert out[0].get_text() == ""
+    assert source.read_bytes() == content
+
+
+def test_execute_wrap_image_wraps_png_pixels_losslessly(tmp_path: Path) -> None:
+    content = make_half_filled_image_bytes("PNG", (120, 80))
+    source = _source(tmp_path, content, "foto.png")
+    destination = tmp_path / "hedef.pdf"
+
+    execute_wrap_image(source, destination)
+
+    with _open(destination) as out:
+        (image,) = out[0].get_images(full=True)
+        pixmap = pymupdf.Pixmap(out, image[0])
+        with Image.open(BytesIO(content)) as original:
+            assert (pixmap.width, pixmap.height) == original.size
+            assert pixmap.samples == original.convert("RGB").tobytes()
+
+
+def test_execute_wrap_image_keeps_exif_rotation_only_on_page_rotate(tmp_path: Path) -> None:
+    turned = make_half_filled_image_bytes("JPEG", (120, 80), orientation=6)
+    source = _source(tmp_path, turned, "donuk.jpg")
+    destination = tmp_path / "hedef.pdf"
+
+    execute_wrap_image(source, destination)
+
+    with _open(destination) as out:
+        # EXIF yönelimi yalnız `/Rotate`: JPEG baytları değişmez, pikseller döndürülmez.
+        assert _raw_images(out, 0) == [turned]
+        assert out[0].rotation == 90
+
+
+def test_execute_wrap_image_keeps_png_alpha_as_soft_mask_without_flattening(tmp_path: Path) -> None:
+    # img2pdf 0.6 alfa kanallı PNG'yi reddetmez; saydamlık ayrı `/SMask` görüntüsünde kayıpsız
+    # saklanır, beyaz zemine düzleştirme yapılmaz — `merge`'le paylaşılan yol (PLAN.md §D17/§D18).
+    image = Image.new("RGBA", (60, 40), (255, 255, 255, 0))
+    ImageDraw.Draw(image).rectangle([0, 0, 29, 39], fill=(0, 0, 0, 255))
+    buffer = BytesIO()
+    image.save(buffer, format="PNG")
+    source = _source(tmp_path, buffer.getvalue(), "saydam.png")
+    destination = tmp_path / "hedef.pdf"
+
+    execute_wrap_image(source, destination)
+
+    with _open(destination) as out:
+        (embedded,) = out[0].get_images(full=True)
+        xref, smask = embedded[0], embedded[1]
+        assert smask != 0
+        assert pymupdf.Pixmap(out, xref).samples == image.convert("RGB").tobytes()
+        assert pymupdf.Pixmap(out, smask).samples == image.getchannel("A").tobytes()
+
+
+@pytest.mark.parametrize(
+    ("content", "message"),
+    [
+        pytest.param(make_docx_bytes(), "JPEG ya da PNG değil", id="docx"),
+        pytest.param(b"duz metin, taninmayan tur", "JPEG ya da PNG değil", id="taninmayan"),
+        pytest.param(make_pdf_bytes(), "JPEG ya da PNG değil", id="pdf"),
+        pytest.param(
+            make_half_filled_image_bytes("JPEG")[:40],
+            "sarılamadı: ImageOpenError",
+            id="bozuk-jpeg",
+        ),
+        pytest.param(
+            b"\x89PNG\r\n\x1a\n" + b"x" * 100, "sarılamadı: ImageOpenError", id="bozuk-png"
+        ),
+        pytest.param(
+            make_half_filled_image_bytes("JPEG", orientation=2),
+            "sarılamadı: ExifOrientationError",
+            id="aynali-exif",
+        ),
+        pytest.param(
+            make_half_filled_image_bytes("PNG", orientation=9),
+            "sarılamadı: ExifOrientationError",
+            id="gecersiz-exif",
+        ),
+    ],
+)
+def test_execute_wrap_image_rejects_unreadable_source(
+    tmp_path: Path, content: bytes, message: str
+) -> None:
+    source = _source(tmp_path, content, "kaynak-goruntu")
+    destination = tmp_path / "hedef.pdf"
+
+    with pytest.raises(WrapImageSourceError, match=message):
+        execute_wrap_image(source, destination)
+
+    assert not destination.exists()
+
+
+def test_execute_wrap_image_leaves_source_untouched(tmp_path: Path) -> None:
+    content = make_half_filled_image_bytes("PNG")
+    source = _source(tmp_path, content, "foto.png")
+
+    execute_wrap_image(source, tmp_path / "hedef.pdf")
+
+    assert source.read_bytes() == content
+
+
+def test_execute_wrap_image_does_not_overwrite_existing_destination(tmp_path: Path) -> None:
+    source = _source(tmp_path, make_half_filled_image_bytes("JPEG"), "foto.jpg")
+    destination = tmp_path / "hedef.pdf"
+    destination.write_bytes(b"onceden var olan icerik")
+
+    with pytest.raises(FileExistsError):
+        execute_wrap_image(source, destination)
+
+    assert destination.read_bytes() == b"onceden var olan icerik"
+    assert sorted(path.name for path in tmp_path.iterdir()) == ["foto.jpg", "hedef.pdf"]
 
 
 @pytest.mark.parametrize("back_uploaded_first", [False, True], ids=["on-once", "arka-once"])
