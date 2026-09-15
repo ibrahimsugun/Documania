@@ -1,5 +1,6 @@
-"""Dosya içi ve dosyalar arası gruplama, ön/arka yüz eşleşmesi, ardışıklık güvenlik kuralı ve
-belirsiz eşleştirmenin reddi — PRD 04.1.1, 04.1.2, 04.2.1, 04.3.1, 04.3.2.
+"""Dosya içi ve dosyalar arası gruplama, ön/arka yüz eşleşmesi, ardışıklık güvenlik kuralı,
+belirsiz eşleştirmenin reddi ve beklenen sayfa sayısı kontrolü — PRD 04.1.1, 04.1.2, 04.2.1,
+04.3.1, 04.3.2, 04.5.1.
 
 Bir dosyanın analiz edilmiş sayfaları `pages.index` sırasıyla **belge adaylarına** ayrılır (§4:
 karar motorunun aynı belgeye ait olduğuna hükmettiği sayfa grubu). Sayfa açık adaya ancak aşağıdaki
@@ -77,12 +78,21 @@ numarasıyla yazar. Kimlik değerleri çelişen tek ön ve tek arka yüz aynı b
 ayrı kalır. Eşleşebilecek yüz yoksa (ör. yalnız ön yüzler) hüküm verilmez; eksik yüz 04.5'in
 işidir.
 
+**Beklenen sayfa sayısı kontrolü (04.5.1):** dosya içi ve dosyalar arası gruplama bittikten sonra,
+başka bir kuralla (04.2.1/04.3.2) zaten işaretlenmemiş ve katalogda türü belirlenmiş her adayın
+sayfa sayısı türün `expected_pages` aralığıyla (§8.6) karşılaştırılır — `direct: false` türde
+eşleşememiş tek ön ya da tek arka yüz (04.3.2'nin hüküm vermediği, eşleşebilecek karşı yüzün hiç
+olmadığı durum) tam burada yakalanır. Aralık tanımlı değilse (`expected_pages: null`) sınır yoktur.
+Dışındaysa aday `page_count_violation` taşır ve Unresolved'a gider; aday bölünmez ya da otomatik
+tamamlanmaz. Gerekçe (`PageCountViolation.reason`) sayfa sayısını ve beklenen aralığı yazar; kişisel
+değer taşımaz. Katalog dışı ve türü belirlenemeyen aday (04.6'nın) yargılanmaz.
+
 `group_upload` partinin tekrar olmayan dosyalarını ayrı ayrı gruplar, ayrı dosyalardaki yüzleri
 eşleştirir ve her aday için bir olay yazar: katalog türünde `DOC_TYPE_DETERMINED`, değilse
 `DOC_TYPE_UNKNOWN` (veri: slug veya aday tür adı, sayfalar, yüzler — kişisel değer yok). Dosyalar
 arası adayın olayı ilk sayfasının (ön yüz) dosyasına yazılır ve kaynaklarını `sources` olarak taşır.
-Ardışıklık kuralına ya da belirsiz eşleştirmeye takılan adayın olayı ayrıca kuralın verisini ve
-gerekçeyi taşır. Oturum commit edilmez; işlem sınırı çağıranındır.
+Ardışıklık kuralına, belirsiz eşleştirmeye ya da beklenen sayfa sayısı kontrolüne takılan adayın
+olayı ayrıca kuralın verisini ve gerekçeyi taşır. Oturum commit edilmez; işlem sınırı çağıranındır.
 """
 
 from __future__ import annotations
@@ -220,18 +230,50 @@ class AmbiguousPairing:
 
 
 @dataclass(frozen=True, slots=True)
+class PageCountViolation:
+    """04.5.1: adayın sayfa sayısı türün `expected_pages` aralığı (§8.6) dışında.
+
+    Aday otomatik tamamlanmaz ya da bölünmez; gerekçesiyle Unresolved'a gider. `pages` adayın
+    sayfalarıdır (dosya kimliği ve dosyadaki sırasıyla, adaydaki sırayla); `expected_min`/
+    `expected_max` türün kataloğundaki aralıktır.
+    """
+
+    queue: ClassVar[QueueKind] = QueueKind.UNRESOLVED
+
+    pages: tuple[PageRef, ...]
+    expected_min: int
+    expected_max: int
+
+    @property
+    def reason(self) -> str:
+        """Değer taşımayan gerekçe; sayfa sayısı ve beklenen aralık."""
+        expected = (
+            f"{self.expected_min} sayfa"
+            if self.expected_min == self.expected_max
+            else f"{self.expected_min}-{self.expected_max} sayfa"
+        )
+        return (
+            f"Beklenen sayfa sayısı kontrolü (04.5.1): bu aday {len(self.pages)} sayfa "
+            f"({_page_refs(self.pages)}) taşıyor, tür {expected} bekliyor."
+        )
+
+
+@dataclass(frozen=True, slots=True)
 class DocumentCandidate:
     """Aynı belgeye ait olduğuna hükmedilen sayfalar, belgedeki sırasıyla.
 
     Sayfalar tek dosyadan dosyadaki sırasıyla ya da dosyalar arası eşleşmede (04.3.1) iki dosyadan
     önce ön, sonra arka yüz olarak gelir. `contiguity_violation` doluysa aday, araya başka belge
     girmiş bir belgenin parçasıdır (04.2.1); `ambiguous_pairing` doluysa yüz partide tek anlamlı bir
-    eşle eşleştirilemedi (04.3.2). İkisinde de çıktı üretilmez, gerekçesiyle Unresolved'a gider.
+    eşle eşleştirilemedi (04.3.2); `page_count_violation` doluysa sayfa sayısı türün beklenen
+    aralığı dışındadır (04.5.1, yalnız öteki ikisi boşken değerlendirilir). Hiçbirinde çıktı
+    üretilmez, gerekçesiyle Unresolved'a gider.
     """
 
     pages: tuple[CandidatePage, ...]
     contiguity_violation: ContiguityViolation | None = None
     ambiguous_pairing: AmbiguousPairing | None = None
+    page_count_violation: PageCountViolation | None = None
 
     @property
     def file_ids(self) -> tuple[int, ...]:
@@ -401,11 +443,16 @@ def group_across_files(groupings: Iterable[FileGrouping], *, catalog: Catalog) -
     return UploadGrouping(
         tuple(
             replace(
-                grouping, candidates=_remaining_candidates(position, grouping, paired, ambiguous)
+                grouping,
+                candidates=_mark_page_count_violations(
+                    _remaining_candidates(position, grouping, paired, ambiguous), catalog
+                ),
             )
             for position, grouping in enumerate(files)
         ),
-        tuple(sorted(cross_file, key=lambda candidate: _page_ref(candidate.pages[0]))),
+        _mark_page_count_violations(
+            sorted(cross_file, key=lambda candidate: _page_ref(candidate.pages[0])), catalog
+        ),
     )
 
 
@@ -614,6 +661,37 @@ def _remaining_candidates(
     return tuple(remaining)
 
 
+def _mark_page_count_violations(
+    candidates: Iterable[DocumentCandidate], catalog: Catalog
+) -> tuple[DocumentCandidate, ...]:
+    """04.5.1: türün `expected_pages` aralığı dışındaki adayı işaretler.
+
+    Başka bir kuralla (04.2.1/04.3.2) zaten Unresolved'a giden aday atlanır — gerekçe oradadır.
+    """
+    marked: list[DocumentCandidate] = []
+    for candidate in candidates:
+        if candidate.contiguity_violation is not None or candidate.ambiguous_pairing is not None:
+            marked.append(candidate)
+            continue
+        entry = _catalog_entry(candidate, catalog)
+        limit = entry.expected_pages if entry is not None else None
+        count = len(candidate.pages)
+        if limit is not None and not (limit.min <= count <= limit.max):
+            marked.append(
+                replace(
+                    candidate,
+                    page_count_violation=PageCountViolation(
+                        pages=tuple(_page_ref(page) for page in candidate.pages),
+                        expected_min=limit.min,
+                        expected_max=limit.max,
+                    ),
+                )
+            )
+        else:
+            marked.append(candidate)
+    return tuple(marked)
+
+
 def _catalog_entry(candidate: DocumentCandidate, catalog: Catalog) -> CatalogEntry | None:
     slug = candidate.document_type_slug
     return None if slug is None else catalog.get(slug)
@@ -709,6 +787,15 @@ def _record_candidate(session: Session, candidate: DocumentCandidate) -> None:
             "uncertain_type_pages": _page_ref_data(ambiguity.uncertain_type_pages),
         }
         reasons.append(ambiguity.reason)
+    page_count = candidate.page_count_violation
+    if page_count is not None:
+        data["page_count_violation"] = {
+            "queue": page_count.queue.value,
+            "pages": _page_ref_data(page_count.pages),
+            "expected_min": page_count.expected_min,
+            "expected_max": page_count.expected_max,
+        }
+        reasons.append(page_count.reason)
     first = candidate.pages[0]
     record_event(
         session,

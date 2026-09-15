@@ -2,7 +2,8 @@
 `front_back` türlerde ön ve arka yüz sıralı biçimde eşleşir; 04.2.1 — araya başka belge girmiş
 parçalar otomatik birleştirilmez, gerekçesiyle Unresolved'a gider; 04.3.1 — yalnız `direct: false`
 türlerde aynı partideki ayrı dosyalardaki ön ve arka yüz eşleştirilir; 04.3.2 — aynı türden birden
-fazla ön yüz varsa eşleştirme yapılmaz, hepsi Unresolved'a gider. Kabul senaryoları: S3, S4, S5.
+fazla ön yüz varsa eşleştirme yapılmaz, hepsi Unresolved'a gider; 04.5.1 — aday, türün sayfa
+aralığı dışındaysa Unresolved olur. Kabul senaryoları: S3, S4, S5.
 
 Birim testleri `group_file_pages`'e ve `group_across_files`'a sentetik analizler verir. Entegrasyon
 testleri sentetik PDF/JPEG'i gerçek render adımlarından ve kayıtlı yanıt sağlayıcısıyla (03.6)
@@ -33,6 +34,7 @@ from app.pipeline.group import (
     DocumentCandidate,
     FileGrouping,
     GroupingPage,
+    PageCountViolation,
     PageRef,
     StoredAnalysisError,
     UploadGrouping,
@@ -1236,6 +1238,174 @@ def test_ambiguous_pairing_reason_lists_faces_and_pages_that_may_be_faces(
     ambiguity: AmbiguousPairing, reason: str
 ) -> None:
     assert ambiguity.reason == reason
+
+
+# --- 04.5.1 beklenen sayfa sayısı kontrolü ------------------------------------------------------
+
+
+def test_lone_front_with_no_counterpart_anywhere_is_a_page_count_violation() -> None:
+    # 04.3.2 yalnız eşleşebilecek karşı yüz varken hüküm verir; karşı yüz partide hiç yoksa 04.5'in.
+    grouping = _across(_file(1, _front(0)))
+
+    assert grouping.cross_file_candidates == ()
+    (candidate,) = grouping.candidates
+    assert (candidate.contiguity_violation, candidate.ambiguous_pairing) == (None, None)
+    assert candidate.page_count_violation == PageCountViolation(
+        pages=(PageRef(1, 0),), expected_min=2, expected_max=2
+    )
+    assert candidate.page_count_violation.queue is QueueKind.UNRESOLVED
+
+
+def test_adjacent_front_and_back_are_each_a_page_count_violation() -> None:
+    # Bitişik eksik parçalar R6'nın konusu değildir (araya belge girmemiş); sayfa sayısı 04.5'in.
+    grouping = _across(_file(1, _front(0), _back(1, continues=False)))
+
+    (front, back) = grouping.files[0].candidates
+    assert (front.contiguity_violation, front.ambiguous_pairing) == (None, None)
+    assert (back.contiguity_violation, back.ambiguous_pairing) == (None, None)
+    assert front.page_count_violation == PageCountViolation(
+        pages=(PageRef(1, 0),), expected_min=2, expected_max=2
+    )
+    assert back.page_count_violation == PageCountViolation(
+        pages=(PageRef(1, 1),), expected_min=2, expected_max=2
+    )
+
+
+def test_single_sided_candidate_beyond_the_expected_maximum_is_a_page_count_violation() -> None:
+    entry = CATALOG.get(PERMIT)
+    assert entry is not None and entry.expected_pages is not None
+    assert (entry.expected_pages.min, entry.expected_pages.max) == (1, 2)
+    file_grouping = _file(1, _page(0), _page(1, continues=True), _page(2, continues=True))
+    assert _layout(file_grouping) == [(0, 1, 2)]  # gruplama sayfa sayısıyla bölmez (04.1.2 notu)
+
+    grouping = _across(file_grouping)
+
+    (candidate,) = grouping.candidates
+    assert candidate.page_count_violation == PageCountViolation(
+        pages=(PageRef(1, 0), PageRef(1, 1), PageRef(1, 2)), expected_min=1, expected_max=2
+    )
+
+
+@pytest.mark.parametrize("page_count", [1, 2], ids=["alt-sinir", "ust-sinir"])
+def test_single_sided_candidate_within_range_is_not_a_page_count_violation(page_count: int) -> None:
+    pages = [_page(0), *(_page(i, continues=True) for i in range(1, page_count))]
+
+    grouping = _across(_file(1, *pages))
+
+    (candidate,) = grouping.candidates
+    assert candidate.page_count_violation is None
+
+
+def test_type_without_page_range_has_no_page_count_limit() -> None:
+    catalog = _catalog_with(PERMIT, expected_pages=None)
+    file_grouping = group_file_pages(
+        FILE_ID, [_page(0), _page(1, continues=True), _page(2, continues=True)], catalog=catalog
+    )
+
+    grouping = group_across_files([file_grouping], catalog=catalog)
+
+    (candidate,) = grouping.candidates
+    assert candidate.page_count_violation is None
+
+
+def test_slug_missing_from_catalog_is_not_judged_for_page_count() -> None:
+    catalog = validate_catalog(
+        [entry.model_dump(mode="json") for entry in CATALOG if entry.slug != PERMIT]
+    )
+    file_grouping = group_file_pages(FILE_ID, [_page(0)], catalog=catalog)
+
+    grouping = group_across_files([file_grouping], catalog=catalog)
+
+    (candidate,) = grouping.candidates
+    assert candidate.document_type_slug == PERMIT
+    assert candidate.page_count_violation is None
+
+
+def test_candidate_type_name_without_catalog_entry_is_not_judged_for_page_count() -> None:
+    grouping = _across(_file(1, _page(0, None, candidate_type_name="Peruvian Diploma", fields={})))
+
+    (candidate,) = grouping.candidates
+    assert candidate.page_count_violation is None
+
+
+def test_contiguity_violation_pieces_are_not_also_page_count_violations() -> None:
+    # R6 zaten Unresolved'a gönderir; aynı adaya iki gerekçe eklenmez.
+    grouping = _across(_file(1, _front(0), _photo(1), _back(2, continues=False)))
+
+    front, photo, back = grouping.files[0].candidates
+    assert front.contiguity_violation is not None and back.contiguity_violation is not None
+    assert (front.page_count_violation, back.page_count_violation) == (None, None)
+    assert photo.contiguity_violation is None and photo.page_count_violation is None
+
+
+def test_ambiguous_pairing_faces_are_not_also_page_count_violations() -> None:
+    # 04.3.2 zaten Unresolved'a gönderir; aynı adaya iki gerekçe eklenmez.
+    grouping = _across(
+        _file(1, _front(0)),
+        _file(2, _page(0, LICENSE, side="front")),
+        _file(3, _back(0, continues=False)),
+    )
+
+    assert all(candidate.ambiguous_pairing is not None for candidate in grouping.candidates)
+    assert all(candidate.page_count_violation is None for candidate in grouping.candidates)
+
+
+@pytest.mark.parametrize(
+    ("violation", "reason"),
+    [
+        pytest.param(
+            PageCountViolation(pages=(PageRef(1, 0),), expected_min=2, expected_max=2),
+            "Beklenen sayfa sayısı kontrolü (04.5.1): bu aday 1 sayfa (dosya 1, sayfa 1) "
+            "taşıyor, tür 2 sayfa bekliyor.",
+            id="sabit-aralik",
+        ),
+        pytest.param(
+            PageCountViolation(
+                pages=(PageRef(1, 0), PageRef(1, 1), PageRef(1, 2)), expected_min=1, expected_max=2
+            ),
+            "Beklenen sayfa sayısı kontrolü (04.5.1): bu aday 3 sayfa (dosya 1, sayfa 1; dosya 1, "
+            "sayfa 2; dosya 1, sayfa 3) taşıyor, tür 1-2 sayfa bekliyor.",
+            id="degisken-aralik",
+        ),
+    ],
+)
+def test_page_count_violation_reason_names_count_and_expected_range(
+    violation: PageCountViolation, reason: str
+) -> None:
+    assert violation.reason == reason
+
+
+def test_group_upload_marks_a_lone_face_with_no_counterpart_as_a_page_count_violation(
+    session: Session, layout: DataLayout, tmp_path: Path
+) -> None:
+    # Partide arka yüz hiç yok: 04.3.2 hüküm vermez (eşleşebilecek karşı yüz yok); sayfa sayısı
+    # kontrolü (04.5.1) Unresolved'a gönderir.
+    upload = _upload(session, layout, [("on.pdf", make_text_pdf_bytes(["ON YUZ"]))])
+    provider = _recordings(tmp_path, [_payload(0, LICENSE, side="front")])
+    analyze_upload(session, layout, upload, provider=provider, instructions=INSTRUCTIONS)
+
+    grouping = group_upload(session, upload, catalog=CATALOG)
+
+    file_id = upload.files[0].id
+    (candidate,) = grouping.candidates
+    assert candidate.ambiguous_pairing is None
+    violation = candidate.page_count_violation
+    assert violation == PageCountViolation(
+        pages=(PageRef(file_id, 0),), expected_min=2, expected_max=2
+    )
+    (determined,) = _events(session, EventType.DOC_TYPE_DETERMINED)
+    assert determined.message == violation.reason
+    assert determined.data_json == {
+        "document_type_slug": LICENSE,
+        "pages": [0],
+        "sides": ["front"],
+        "page_count_violation": {
+            "queue": "unresolved",
+            "pages": [{"file_id": file_id, "page_index": 0}],
+            "expected_min": 2,
+            "expected_max": 2,
+        },
+    }
 
 
 # --- entegrasyon: veritabanı, render, kayıtlı yanıt --------------------------------------------
