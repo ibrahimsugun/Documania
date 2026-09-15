@@ -1,4 +1,5 @@
-"""Plan JSON üretimi ve belirleyicilik — PRD 06.1.1, 06.1.2 (§8.5; K9, R10, R7).
+"""Plan JSON üretimi, belirleyicilik ve işlem seçimi — PRD 06.1.1, 06.1.2, 06.2.1 (§8.5, §20.3;
+K9, K11, K12, R10, R7).
 
 Karar motorunun bir parti için verdiği bütün kararlar tek bir **Plan JSON**'da dondurulur (K9):
 uygulayıcı (07.x) ve kuyruk (08.1) planı yürütür, yapay zekâya ya da eşleştirmeye yeniden sormaz.
@@ -24,16 +25,37 @@ bütün hükümlerin gerekçeleri (`route_reason`) aynı sırayla birleşir:
 
 1. Bilinmeyen tür (04.6.1) → `unknown`.
 2. Yapısal hüküm — ardışıklık (04.2.1), belirsiz eşleştirme (04.3.2), sayfa sayısı (04.5.1) →
-   `unresolved`. Yapısal hükümlü aday eksik ya da parça bir belgedir: okunaklılık kapısı ona
-   uygulanmaz (yalnız arka yüzden oluşan parça "okunamayan alanlar" almaz).
+   `unresolved`. Yapısal hükümlü aday eksik ya da parça bir belgedir: okunaklılık kapısı ve işlem
+   seçimi ona uygulanmaz (yalnız arka yüzden oluşan parça "okunamayan alanlar" almaz).
 3. Okunaklılık kapısı (04.4) — zorunlu alan okunmuyorsa `unreadable`, kabul kriteri karşılanmıyorsa
    `unresolved`. MRZ önceliği (05.3.3) kapıdan ve kişi anahtarından önce her sayfaya uygulanır.
-4. Çalışan kararı (§20.2.2).
+4. İşlem seçimi (06.2.1) — §20.3'te uyan satır yoksa (satır 7) `unresolved`.
+5. Çalışan kararı (§20.2.2).
 
 Hiçbir hüküm yoksa rota `hazir`dır.
 
+**İşlem (06.2.1).** `select_operation` belge adayının ve Word/Excel ekinin fiziksel işlemini §20.3
+karar tablosuyla seçer; satırlar sırayla denenir, ilk uyan kazanır:
+
+1. Tek dosya, dosyanın tüm sayfaları, hedef biçim kaynağınki → `passthrough` (Word/Excel eki dahil).
+2. Tek PDF, sayfalarının ardışık alt kümesi, hedef PDF → `extract`.
+3. Birden çok dosya, hedef PDF → `merge`.
+4. Tek JPEG/PNG, tek sayfa, hedef PDF → `wrap_image`.
+5. Tek PDF, tek sayfa, hedef JPEG, sayfa tek tam sayfa gömülü görüntü (02.5.1) → `extract_image`.
+6. Tek PDF, tek sayfa, hedef JPEG, gömülü tek görüntü yok → `render_image`.
+7. Hiçbiri → işlem yok, `unresolved`; gerekçe kaynakları, kapsamayı ve hedef biçimi yazar.
+
+Kaynak biçimi içerikten tespit edilir (01.2.1); istemcinin bildirdiği `mime`'a güvenilmez. Hedef
+biçim türün `output_format`'ıdır; `keep` kaynakların ortak biçimidir — kaynaklar farklı biçimdeyse
+ya da biçimi tanınmıyorsa hedef yoktur ve hiçbir satır uymaz. Kapsama dosyanın sayfa satırlarıyla
+ve `page_count`'uyla ölçülür: dosyanın adayda olmayan tek bir sayfası (boş sayfa dahil) adayı alt
+küme yapar, boş sayfa çıktıya girmez (S8). Ardışıklık K5'tir: alınan sayfaların arasında boş sayfa
+dışında sayfa yoksa ardışıktır. Seçim okunaklılık kapısından sonra, çalışan kararından önce yapılır:
+işlemi olmayan belgeden çalışan açılmaz, kimlik birikmez. İşlem ve hedef yalnız `hazir` öğede plana
+girer; kuyruğa giden öğenin işlemi yoktur (§20.4: reddedilen işlem uygulanmaz).
+
 **Çalışan.** Her analizli adayın kişi anahtarı (05.4) kayıtlı çalışanlarla eşleştirilir (05.5).
-Kararın yan etkileri yalnız belge düzeyinde kabul edilen adayda (1–3'te hükmü olmayan) yürür:
+Kararın yan etkileri yalnız belge düzeyinde kabul edilen adayda (1–4'te hükmü olmayan) yürür:
 satır 1/3 eşleşmesinde yeni isim yazımı, temiz numara ve iletişim bilgisi çalışana eklenir (05.7.2,
 05.8); eşleşme yoksa satır 6'da çalışan açılır (05.6), satır 7'de profil onaya önerilir (05.7.1),
 satır 8 ve tablo dışı eksik kişi Unresolved'a gider. Kuyruğa giden adaydan çalışan açılmaz, profil
@@ -42,12 +64,13 @@ belgenin okumasına güvenilmez. Eşleştirme hükmü o adayda yalnız kişi tah
 (08.1.2): satır 1/3'te `match` ve çalışan, öteki hükümlerde `none`; eşleştirme hükmü de kuyruğa
 gönderiyorsa (satır 2, 4, 5, çelişkili anahtar) gerekçesi eklenir. Word/Excel ekinin sahibi partinin
 bağlam çalışanıdır (`match`, `matched_by: null`); bağlam yoksa ek Unresolved'a gider (04.7.1).
+İşlemi olmayan ekte işlem gerekçesi sahiplik gerekçesinden önce gelir; bağlam çalışanı kişi tahmini
+kalır.
 
-**Hedef.** Yalnız `hazir` öğede dolar. `target_format` türün `output_format`'ıdır; `keep` kaynak
-dosyaların içeriğinden tespit edilen biçimdir, kaynaklar farklı biçimdeyse boş kalır. `target_name`
-çalışan kaydının ad-soyadı ve türün `file_label`'ıyla K8 adıdır (`Ad_Soyad-Passport.pdf`); sıra eki
-(`-2`) plana girmez, yazma anında diskte seçilir (00.4.3, 07.7). `operation` bu adımda boştur —
-işlem seçimi 06.2'nin (§20.3); `validations` 06.5'in.
+**Hedef.** Yalnız `hazir` öğede dolar ve orada zorunludur. `target_format` seçilen işlemin hedef
+biçimidir (yukarıda). `target_name` çalışan kaydının ad-soyadı ve türün `file_label`'ıyla K8 adıdır
+(`Ad_Soyad-Passport.pdf`); sıra eki (`-2`) plana girmez, yazma anında diskte seçilir (00.4.3, 07.7).
+`validations` 06.5'indir.
 
 **Belirleyicilik (06.1.2).** Plan yalnız kalıcı girdilerin işlevidir: saklanan sayfa analizleri,
 güncel katalog, planlama anındaki çalışan kayıtları ve parti (bağlam çalışanı, dosyalar). Zaman
@@ -69,7 +92,7 @@ from dataclasses import dataclass, replace
 from datetime import date
 from functools import partial
 from itertools import pairwise
-from typing import Annotated
+from typing import Annotated, ClassVar
 
 from pydantic import (
     BaseModel,
@@ -129,7 +152,7 @@ from app.storage import (
 
 
 class Operation(enum.StrEnum):
-    """Plan JSON `operation` (§8.5); seçimi §20.3'e göre 06.2'nindir."""
+    """Plan JSON `operation` (§8.5): K11'in izin verdiği fiziksel işlemler; seçimi §20.3."""
 
     PASSTHROUGH = "passthrough"
     EXTRACT = "extract"
@@ -221,8 +244,9 @@ class PlanValidation(BaseModel):
 class PlanItem(BaseModel):
     """Planın tek öğesi (§8.5): kaynak, işlem, hedef, çalışan ve rota.
 
-    `hazir` öğenin çalışanı vardır (`match`/`create`) ve gerekçesi yoktur; kuyruğa ya da atlamaya
-    giden öğenin gerekçesi zorunludur, hedefi yoktur. `target_name`'in uzantısı `target_format`'tır.
+    `hazir` öğenin çalışanı (`match`/`create`), işlemi ve hedefi vardır, gerekçesi yoktur; kuyruğa
+    ya da atlamaya giden öğenin gerekçesi zorunludur, işlemi ve hedefi yoktur — uygulanmayacak işlem
+    plana girmez. `target_name`'in uzantısı `target_format`'tır.
     """
 
     model_config = ConfigDict(extra="forbid", frozen=True)
@@ -248,9 +272,15 @@ class PlanItem(BaseModel):
                 raise ValueError("hazir öğede route_reason boş olmalı")
             if self.employee.employee_id is None:
                 raise ValueError("hazir öğenin çalışanı olmalı (match veya create, R7)")
+            if self.operation is None:
+                raise ValueError("hazir öğede operation zorunlu (06.2.1)")
+            if self.target_name is None:
+                raise ValueError("hazir öğede target_format ve target_name zorunlu")
         else:
             if self.route_reason is None:
                 raise ValueError("hazir olmayan öğede route_reason zorunlu")
+            if self.operation is not None:
+                raise ValueError("operation yalnız hazir öğede dolar")
             if self.target_format is not None or self.target_name is not None:
                 raise ValueError("hedef yalnız hazir öğede dolar")
         if self.target_name is not None and (
@@ -350,6 +380,144 @@ def read_plan(row: Plan) -> PlanDocument:
     return document
 
 
+# --- işlem seçimi (06.2.1, §20.3) --------------------------------------------------------------
+
+
+@dataclass(frozen=True, slots=True)
+class OperationSource:
+    """İşlem seçiminin okuduğu tek kaynak dosya (§20.3 girdileri).
+
+    `kind` içerikten tespit edilen biçimdir (01.2.1); tanınmıyorsa `None`. `pages` öğenin bu
+    dosyadan aldığı sayfalardır (`pages.index`); boşsa dosya bütün olarak alınır (Word/Excel, K2).
+    `file_pages` dosyanın bütün sayfaları, `blank_pages` boş sayfaları (02.4.1 ve analizcinin boş
+    dediği; başka belgeye ait sayılmaz), `single_image_pages` tek tam sayfa gömülü görüntüden oluşan
+    sayfalarıdır (02.5.1).
+    """
+
+    file_id: int
+    kind: FileKind | None
+    pages: tuple[int, ...] = ()
+    file_pages: frozenset[int] = frozenset()
+    blank_pages: frozenset[int] = frozenset()
+    single_image_pages: frozenset[int] = frozenset()
+
+    @property
+    def whole(self) -> bool:
+        """Kapsama: dosyanın bütün sayfaları mı alınıyor; alınmayan tek sayfa alt küme yapar."""
+        return not self.pages or frozenset(self.pages) == self.file_pages
+
+    @property
+    def contiguous(self) -> bool:
+        """Ardışıklık (K5): alınan sayfaların arasında yalnız boş sayfa olabilir."""
+        taken = frozenset(self.pages)
+        if not taken:
+            return True
+        return taken.union(self.blank_pages).issuperset(range(min(taken), max(taken) + 1))
+
+
+@dataclass(frozen=True, slots=True)
+class SelectedOperation:
+    """§20.3 satır 1–6'nın seçtiği işlem ve çıktının biçimi."""
+
+    operation: Operation
+    target_format: FileType
+
+
+@dataclass(frozen=True, slots=True)
+class NoApplicableOperation:
+    """§20.3 satır 7: kaynak, kapsama ve biçim için tabloda uyan işlem yok; belge dönüştürülmez.
+
+    Belge gerekçesiyle Unresolved'a gider. `sources` öğenin kaynaklarıdır; `target_format` türün
+    hedef biçimidir (`keep`'te kaynakların ortak biçimi yoksa `None`). Gerekçe dosya kimliği, 1'den
+    başlayan sayfa numarası ve biçim taşır; kişisel değer taşımaz.
+    """
+
+    queue: ClassVar[QueueKind] = QueueKind.UNRESOLVED
+
+    sources: tuple[OperationSource, ...]
+    target_format: FileType | None
+
+    @property
+    def reason(self) -> str:
+        label = "Kaynak" if len(self.sources) == 1 else "Kaynaklar"
+        described = "; ".join(_operation_source_text(source) for source in self.sources)
+        if self.target_format is not None:
+            target = self.target_format.value
+        elif any(source.kind is None for source in self.sources):
+            target = "belirlenemedi (output_format: keep, kaynak biçimi tanınmadı)"
+        else:
+            target = "belirlenemedi (output_format: keep, kaynaklar farklı biçimde)"
+        return (
+            f"İşlem seçilemedi (06.2.1): {label}: {described}. Hedef biçim: {target}. §20.3'te bu "
+            "kaynak, kapsama ve biçim için uyan fiziksel işlem yok; belge dönüştürülmez."
+        )
+
+
+def select_operation(
+    sources: Sequence[OperationSource], *, output_format: OutputFormat
+) -> SelectedOperation | NoApplicableOperation:
+    """Öğenin fiziksel işlemini §20.3 karar tablosuyla seçer (06.2.1); kurallar modül açıklamasında.
+
+    `sources` öğenin en az bir kaynak dosyasıdır (plandaki `sources` sırasıyla); `output_format`
+    türün çıktı biçimidir. Saf işlevdir. Direkt Belge matrisi (06.3) ve dönüşüm izni (06.4) seçilen
+    işleme sonradan uygulanır; bu işlev onlara bakmaz.
+    """
+    target = _target_format(sources, output_format)
+    operation = _table_operation(sources, target)
+    if operation is None or target is None:
+        return NoApplicableOperation(tuple(sources), target)
+    return SelectedOperation(operation, target)
+
+
+def _target_format(
+    sources: Sequence[OperationSource], output_format: OutputFormat
+) -> FileType | None:
+    # Hedef biçim türün `output_format`'ıdır; `keep` kaynakların ortak biçimidir.
+    if output_format is not OutputFormat.KEEP:
+        return FileType(output_format.value)
+    kinds = {source.kind for source in sources}
+    if len(kinds) != 1:
+        return None
+    (kind,) = kinds
+    return None if kind is None else FileType(kind.value)
+
+
+def _table_operation(
+    sources: Sequence[OperationSource], target: FileType | None
+) -> Operation | None:
+    # §20.3 satırları sırayla, ilk uyan kazanır. Satır 3 dışındaki satırlar tek dosya ister; satır
+    # 3'ün yeri sonucu değiştirmez.
+    if len(sources) > 1:
+        return Operation.MERGE if target is FileType.PDF else None  # satır 3
+    (source,) = sources
+    kind = None if source.kind is None else FileType(source.kind.value)
+    single_page = len(source.pages) == 1
+    if kind is not None and kind is target and source.whole:
+        return Operation.PASSTHROUGH  # satır 1
+    if kind is FileType.PDF and target is FileType.PDF and not source.whole and source.contiguous:
+        return Operation.EXTRACT  # satır 2
+    if kind in (FileType.JPEG, FileType.PNG) and single_page and target is FileType.PDF:
+        return Operation.WRAP_IMAGE  # satır 4
+    if kind is FileType.PDF and single_page and target is FileType.JPEG:
+        if source.pages[0] in source.single_image_pages:
+            return Operation.EXTRACT_IMAGE  # satır 5
+        return Operation.RENDER_IMAGE  # satır 6
+    return None  # satır 7
+
+
+def _operation_source_text(source: OperationSource) -> str:
+    kind = "biçimi tanınmadı" if source.kind is None else source.kind.value
+    if not source.pages:
+        return f"dosya {source.file_id} ({kind}, bütün dosya)"
+    if source.whole:
+        coverage = "dosyanın tüm sayfaları"
+    elif source.contiguous:
+        coverage = "dosyanın ardışık alt kümesi"
+    else:
+        coverage = "dosyanın ardışık olmayan alt kümesi"
+    return f"{_pages_text(source.file_id, source.pages)} ({kind}, {coverage})"
+
+
 # --- plan üretimi (06.1.1) ---------------------------------------------------------------------
 
 
@@ -379,12 +547,13 @@ def create_plan(
         session,
         layout,
         upload,
+        grouping,
         catalog=catalog,
         today=reference_date if reference_date is not None else upload.created_at.date(),
     )
     with event_context(upload_id=upload.id):
         document = PlanDocument(
-            upload_id=upload.id, version=version, model=model, items=planner.items(grouping)
+            upload_id=upload.id, version=version, model=model, items=planner.items()
         )
         row = Plan(
             upload_id=upload.id,
@@ -425,13 +594,14 @@ _Subject = tuple[tuple[int, int], Callable[[str], PlanItem]]
 
 
 class _Planner:
-    """Tek planlamanın durumu: katalog, referans gün ve dosya biçimi önbelleği."""
+    """Tek planlamanın durumu: gruplama, katalog, referans gün ve dosya biçimi önbelleği."""
 
     def __init__(
         self,
         session: Session,
         layout: DataLayout,
         upload: Upload,
+        grouping: UploadGrouping,
         *,
         catalog: Catalog,
         today: date,
@@ -439,14 +609,19 @@ class _Planner:
         self._session = session
         self._layout = layout
         self._upload = upload
+        self._grouping = grouping
         self._catalog = catalog
         self._today = today
         self._files = {upload_file.id: upload_file for upload_file in upload.files}
+        self._blank_pages = {
+            file_grouping.file_id: frozenset(file_grouping.blank_pages)
+            for file_grouping in grouping.files
+        }
         self._kinds: dict[int, FileKind | None] = {}
 
-    def items(self, grouping: UploadGrouping) -> tuple[PlanItem, ...]:
+    def items(self) -> tuple[PlanItem, ...]:
         # Kararlar öğe sırasıyla verilir: yan etki (yeni çalışan) sonraki öğenin kararına girer.
-        subjects = sorted(self._subjects(grouping), key=lambda subject: subject[0])
+        subjects = sorted(self._subjects(self._grouping), key=lambda subject: subject[0])
         return tuple(build(f"i{number}") for number, (_, build) in enumerate(subjects, start=1))
 
     def _subjects(self, grouping: UploadGrouping) -> Iterator[_Subject]:
@@ -475,15 +650,23 @@ class _Planner:
         key = build_person_key(analyses, today=self._today)
         match = match_employee(self._session, key, file_id=first.file_id, page_index=first.index)
         entry = self._entry(candidate)
-        verdicts = self._document_verdicts(candidate)
+        sources = tuple(
+            PlanSource(
+                file_id=file_id,
+                pages=tuple(page.index for page in candidate.pages if page.file_id == file_id),
+            )
+            for file_id in candidate.file_ids
+        )
+        verdicts, selected = self._document_verdicts(candidate, entry, sources)
         if entry is None or verdicts:
             # Belge kabul edilmedi: eşleştirme hükmü yalnız kişi tahminidir, yan etki yok.
             guess = _verdict_of(match)
             if guess is not None:
                 verdicts.append(guess)
-            return self._item(item_id, candidate, entry, _employee_guess(match), verdicts)
+            return self._item(item_id, sources, entry, _employee_guess(match), verdicts, None)
         employee, verdict = self._decide_employee(key, match, entry, analyses, first)
-        return self._item(item_id, candidate, entry, employee, [] if verdict is None else [verdict])
+        verdicts = [] if verdict is None else [verdict]
+        return self._item(item_id, sources, entry, employee, verdicts, selected)
 
     def _mrz_resolved(self, page: CandidatePage) -> CandidatePage:
         return replace(page, analysis=apply_mrz_priority(page.analysis, today=self._today).analysis)
@@ -494,10 +677,16 @@ class _Planner:
             return None
         return self._catalog.get(slug)
 
-    def _document_verdicts(self, candidate: DocumentCandidate) -> list[_Verdict]:
+    def _document_verdicts(
+        self,
+        candidate: DocumentCandidate,
+        entry: CatalogEntry | None,
+        sources: Sequence[PlanSource],
+    ) -> tuple[list[_Verdict], SelectedOperation | None]:
+        # Belge düzeyindeki hükümler (çalışan kararından önce) ve kabul edilen belgenin işlemi.
         unknown = candidate.unknown_type
         if unknown is not None:
-            return [_Verdict(unknown.queue, unknown.reason)]
+            return [_Verdict(unknown.queue, unknown.reason)], None
         structural = [
             _Verdict(verdict.queue, verdict.reason)
             for verdict in (
@@ -507,11 +696,15 @@ class _Planner:
             )
             if verdict is not None
         ]
-        if structural:
-            return structural
+        if structural or entry is None:
+            return structural, None
         check = check_legibility(candidate, catalog=self._catalog)
         gates = () if check is None else (check.illegible_fields, check.unmet_criteria)
-        return [_Verdict(verdict.queue, verdict.reason) for verdict in gates if verdict is not None]
+        verdicts = [
+            _Verdict(verdict.queue, verdict.reason) for verdict in gates if verdict is not None
+        ]
+        selected, refusal = self._operation(entry, sources)
+        return [*verdicts, *refusal], selected
 
     def _decide_employee(
         self,
@@ -560,30 +753,24 @@ class _Planner:
     def _item(
         self,
         item_id: str,
-        candidate: DocumentCandidate,
+        sources: tuple[PlanSource, ...],
         entry: CatalogEntry | None,
         employee: PlanEmployee,
         verdicts: Sequence[_Verdict],
+        selected: SelectedOperation | None,
     ) -> PlanItem:
-        file_ids = candidate.file_ids
-        sources = tuple(
-            PlanSource(
-                file_id=file_id,
-                pages=tuple(page.index for page in candidate.pages if page.file_id == file_id),
-            )
-            for file_id in file_ids
-        )
         slug = None if entry is None else entry.slug
-        if verdicts or entry is None or employee.employee_id is None:
+        if verdicts or entry is None or selected is None or employee.employee_id is None:
             return _queued_item(item_id, slug, sources, employee, verdicts)
-        target_format, target_name = self._target(entry, employee.employee_id, file_ids)
+        owner = self._session.get_one(Employee, employee.employee_id)
+        stem = document_stem(owner.given_names, owner.surname, entry.file_label)
         return PlanItem(
             item_id=item_id,
             document_type_slug=slug,
             sources=sources,
-            operation=None,
-            target_format=target_format,
-            target_name=target_name,
+            operation=selected.operation,
+            target_format=selected.target_format,
+            target_name=sequenced_filename(stem, 1, selected.target_format.value),
             employee=employee,
             route=Route.READY,
             route_reason=None,
@@ -594,51 +781,49 @@ class _Planner:
 
     def _attachment_item(self, item_id: str, *, attachment: AttachmentFile) -> PlanItem:
         sources = (PlanSource(file_id=attachment.file_id, pages=()),)
-        slug = attachment.document_type_slug
+        entry = self._catalog.get(attachment.document_type_slug)
+        selected, verdicts = self._operation(entry, sources)
         unresolved = attachment.unresolved
         if unresolved is not None:
             # Bağlam çalışanı olmadan yüklenen ekin sahibi belirsizdir.
-            verdict = _Verdict(unresolved.queue, unresolved.reason)
-            return _queued_item(item_id, slug, sources, _NO_EMPLOYEE, [verdict])
+            verdicts.append(_Verdict(unresolved.queue, unresolved.reason))
+            return self._item(item_id, sources, entry, _NO_EMPLOYEE, verdicts, selected)
         # Sahibi partinin bağlam çalışanıdır (`unresolved` boşsa doludur); belge kimliğiyle
         # eşleştirilmedi, `matched_by` boş kalır.
         owner = self._upload.context_employee_id
         employee = PlanEmployee(action=EmployeeAction.MATCH, employee_id=owner, matched_by=None)
-        entry = self._catalog.get(slug)
-        target_format, target_name = self._target(entry, owner, (attachment.file_id,))
-        return PlanItem(
-            item_id=item_id,
-            document_type_slug=slug,
-            sources=sources,
-            operation=None,
-            target_format=target_format,
-            target_name=target_name,
-            employee=employee,
-            route=Route.READY,
-            route_reason=None,
-            validations=(),
+        return self._item(item_id, sources, entry, employee, verdicts, selected)
+
+    # --- işlem --------------------------------------------------------------------------------
+
+    def _operation(
+        self, entry: CatalogEntry, sources: Sequence[PlanSource]
+    ) -> tuple[SelectedOperation | None, list[_Verdict]]:
+        # §20.3; uyan satır yoksa (satır 7) işlem yok ve belgeyi Unresolved'a gönderen hüküm.
+        selection = select_operation(
+            [self._operation_source(source) for source in sources],
+            output_format=entry.output_format,
         )
+        if isinstance(selection, NoApplicableOperation):
+            return None, [_Verdict(selection.queue, selection.reason)]
+        return selection, []
 
-    # --- hedef --------------------------------------------------------------------------------
-
-    def _target(
-        self, entry: CatalogEntry, employee_id: str, file_ids: Iterable[int]
-    ) -> tuple[FileType | None, str | None]:
-        target_format = self._target_format(entry, file_ids)
-        if target_format is None:
-            return None, None
-        owner = self._session.get_one(Employee, employee_id)
-        stem = document_stem(owner.given_names, owner.surname, entry.file_label)
-        return target_format, sequenced_filename(stem, 1, target_format.value)
-
-    def _target_format(self, entry: CatalogEntry, file_ids: Iterable[int]) -> FileType | None:
-        if entry.output_format is not OutputFormat.KEEP:
-            return FileType(entry.output_format.value)
-        kinds = {self._file_kind(file_id) for file_id in file_ids}
-        if len(kinds) != 1:
-            return None
-        (kind,) = kinds
-        return None if kind is None else FileType(kind.value)
+    def _operation_source(self, source: PlanSource) -> OperationSource:
+        upload_file = self._files[source.file_id]
+        pages = upload_file.pages
+        return OperationSource(
+            file_id=source.file_id,
+            kind=self._file_kind(source.file_id),
+            pages=source.pages,
+            # Satırı açılmamış sayfa da dosyanındır: kapsamayı alt kümeye çevirir.
+            file_pages=frozenset(page.index for page in pages).union(
+                range(upload_file.page_count or 0)
+            ),
+            blank_pages=self._blank_pages.get(source.file_id, frozenset()),
+            single_image_pages=frozenset(
+                page.index for page in pages if page.has_single_embedded_image
+            ),
+        )
 
     def _file_kind(self, file_id: int) -> FileKind | None:
         # Biçim içerikten okunur (01.2.1); istemcinin bildirdiği `mime`'a güvenilmez.

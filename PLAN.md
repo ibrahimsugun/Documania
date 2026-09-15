@@ -8,7 +8,7 @@
 
 | Faz | PRD | Genel durum | Must sayacı | Kapanış |
 | --- | --- | --- | --- | --- |
-| Faz 0 — MVP | §5.1 | 69 ✅ · 0 ◐ · 33 ⬜ · 0 🔒 | 66/98 Must | AÇIK |
+| Faz 0 — MVP | §5.1 | 70 ✅ · 0 ◐ · 32 ⬜ · 0 🔒 | 67/98 Must | AÇIK |
 | Faz 1 — v1 | §5.2 | 0 ✅ · 0 ◐ · 0 ⬜ · 32 🔒 | 0/21 Must | AÇIK |
 | Faz 2 — v2 | §5.3 | 0 ✅ · 0 ◐ · 0 ⬜ · 13 🔒 | 0/0 Must | AÇIK |
 | Faz 3 — Enterprise | §5.4 | 0 ✅ · 0 ◐ · 0 ⬜ · 8 🔒 | 0/0 Must | AÇIK |
@@ -169,7 +169,7 @@ panelde `plan-count-drift` bulgusu doğurur.
 | --- | --- | --- | --- |
 | 06.1.1 | Plan JSON üretimi (R10) | Must (MVP) | ✅ → K06.1 |
 | 06.1.2 | Plan determinizmi | Must (MVP) | ✅ → K06.1 |
-| 06.2.1 | İşlem seçimi | Must (MVP) | ⬜ |
+| 06.2.1 | İşlem seçimi | Must (MVP) | ✅ → K06.2 |
 | 06.3.1 | Direkt Belge kuralı (R5) | Must (MVP) | ⬜ |
 | 06.3.2 | Direkt Belge format kontrolü | Must (MVP) | ⬜ |
 | 06.4.1 | Dönüşüm izni kontrolü | Must (MVP) | ⬜ |
@@ -948,6 +948,38 @@ Onay beklemeden yapılan varsayımlar buraya numaralı olarak yazılır.
   okur (06.6.1). `read_plan(row)` sözleşmeyi, parti/sürüm/modeli ve hash'i doğrular; `PlanIntegrityError`
   değer taşımaz. **Olay:** `PLAN_CREATED` (veri `plan_id`, `version`, `plan_hash`, `model`, `items`, rota
   başına `routes`; mesaj yok); kuyruk kaydı ve `QUEUED_*` 08.1'in. Parti durumu değişmez (09.2), commit yok.
+- **C31** — İşlem seçimi (tm 41, 06.2.1): §20.3 yedi satırı ve girdi değişkenlerini yazar; "tüm sayfalar",
+  "ardışık", "tek sayfa"nın ölçütü, `keep`'te hedef biçimin nasıl okunacağı, Word/Excel'in hangi satıra
+  düştüğü, satır 7'nin rota önceliği ve gerekçesi yazılı değil. Saf çekirdek `select_operation(sources, *,
+  output_format)` (`app/pipeline/plan.py`) → `SelectedOperation(operation, target_format)` ya da
+  `NoApplicableOperation` (`queue = unresolved`, `reason`); girdi `OperationSource` (`file_id`, içerikten
+  `kind` ya da `None`, `pages`, `file_pages`, `blank_pages`, `single_image_pages`). **Kapsama:** dosyanın
+  sayfaları `pages` satırları ∪ `range(page_count)`; aday hepsini alıyorsa "tüm sayfalar", `pages: []` (ek)
+  bütün dosyadır. Adayda olmayan boş sayfa (02.4.1 ya da analizcinin boş dediği) adayı alt küme yapar: PDF'te
+  `extract`, boş sayfa çıktıya girmez (S8) — sonunda boş sayfası olan tek sayfalık pasaport PDF'i
+  `passthrough` değil `extract` olur; satırı açılmamış sayfa da alt küme yapar (bütün dosya kopyalanmaz).
+  **Ardışık:** alınan en küçük ve en büyük sayfa arasındaki her sayfa alınmış ya da boş sayfadır (C18'in
+  `[0, 2]`'si ardışık); analizsiz sayfa ya da başka belge araya girerse satır 2 uymaz. **Tek sayfa:** adayın
+  tek sayfası (dosya çok sayfalı olabilir, S3/S4 fotoğrafı); satır 5/6 o sayfanın
+  `has_single_embedded_image`'ına bakar — işaret yazılmamışsa `render_image` (C11'in güvenli yönü).
+  **Hedef biçim:** `output_format` pdf/jpeg ise o; `keep` kaynakların içerikten tespit edilen ortak biçimi,
+  farklı ya da tanınmayan biçimde hedef yok ve hiçbir satır uymaz. "Aynı biçim" kaynak = hedef demektir
+  (PNG ≠ JPEG). Word/Excel eki `keep` türde satır 1 `passthrough` (S15), PDF isteyen türde satır 7 (K2).
+  Satır 3 yalnız "birden çok dosya → PDF" okur; ardışıklık gruplamanındır (K4/K5). **Öncelik:** bilinmeyen
+  tür ve yapısal hükümlü adaya uygulanmaz; okunaklılık kapısından sonra, çalışan kararından önce yürür —
+  işlemi olmayan belgeden çalışan açılmaz, kimlik ve iletişim bilgisi birikmez (D13 gerekçesi), eşleşme kişi
+  tahmini kalır. Gerekçe okunaklılık gerekçelerinin ardından, eşleştirme gerekçesinden önce gelir; ekte
+  sahiplik (bağlamsız ek) gerekçesinden önce, bağlam çalışanı `match` tahmini kalır. **Gerekçe:**
+  `İşlem seçilemedi (06.2.1): Kaynak(lar): dosya N, sayfa … (<biçim | biçimi tanınmadı>, dosyanın tüm
+  sayfaları | ardışık alt kümesi | ardışık olmayan alt kümesi | bütün dosya). Hedef biçim: <biçim |
+  belirlenemedi (…)>. §20.3'te … uyan fiziksel işlem yok; belge dönüştürülmez.` — kişisel değer yok.
+  **Sözleşme:** `hazir` öğede `operation`, `target_format`, `target_name` zorunlu; kuyruğa ya da atlamaya
+  giden öğede `operation` boş (uygulanmayacak işlem plana girmez, §20.4). C30'daki "`keep` farklı biçimde
+  hedef boş, rota yine `hazir`" kalktı: o durum satır 7'dir. Satır 5'te `target_format` türün biçimidir
+  (`jpeg`); gömülü görüntü başka biçimdeyse uzantıyı `ext`'e göre yazmak 07.5.1'in (§20.5) — plan gömülü
+  görüntünün biçimini okumaz. **Olay:** yok (§8.3'te tür yok; seçim `PLAN_CREATED`'in planında). Direkt
+  Belge matrisi ve format kontrolü (06.3) ile `allowed_conversions` (06.4) seçilen işlemi
+  `_Planner._operation`'da hükme çevirmeli.
 
 ## D. Sapmalar
 
@@ -1080,6 +1112,15 @@ bu kayıt neden sapıldığının izlenebilir olması içindir.
   tespit edilmemiş belge aday tür onayı akışına (11.5) girmesin. Boş sayfa (S8) ve tekrar dosyası (S2) çıktı
   ve kuyruk üretmeyen `skip` öğesidir (`skip` §8.5'te var; kaynak plan onu boş sayfa için yazmıştı). Karar
   insana bırakıldı: başarısız sayfa için ayrı kuyruk ya da otomatik yeniden analiz istenir mi.
+- **D15 — PNG profil fotoğrafı §20.3'te hiçbir işleme uymuyor (06.2.1, tm 41).** Tohum katalog (C7)
+  `profile_picture` için `expected_file_types: [jpeg, png, pdf]`, `output_format: jpeg`,
+  `allowed_conversions: [extract_image, render_image]` der. §20.3'te PNG kaynaktan JPEG hedefe satır yok:
+  satır 1 aynı biçim, satır 4 PDF hedef, satır 5/6 PDF kaynak ister; PNG'yi JPEG'e yeniden kodlamak K11'in
+  izinli işlemleri arasında da yok. Tablo uygulandı, dönüşüm uydurulmadı: PNG profil fotoğrafı satır 7 ile
+  Unresolved'a gider (`test_without_a_matching_row_no_operation_is_selected_and_the_reason_is_written[png-to-jpeg]`).
+  Bugün fotoğraf kişi taşımadığı için zaten Unresolved'dadır (D12); D12 çözülse de PNG fotoğraf kuyruğa düşer.
+  Karar insana bırakıldı: `profile_picture` çıktısı `keep` mi olmalı, `png` beklenen türlerden mi çıkmalı,
+  yoksa tabloya (kayıplı) bir PNG→JPEG satırı mı eklenmeli.
 
 ## G. İş Kırılımı Dizini
 
@@ -1344,3 +1385,6 @@ var olan maddeler silinmez. Biçim:
 #### K06.1 — 06.1.1, 06.1.2 · Plan JSON üretimi ve determinizm
 - ✅ 06.1.1 `create_plan(session, layout, upload, *, catalog, model, reference_date)` partiyi gruplar ve her aday (dosya içi/dosyalar arası), Word/Excel eki, boş sayfa (`skip`), analizi yapılamamış sayfa ve işlenemeyen dosya (`unresolved`, D14) ve tekrar yükleme (`skip`) için `sources`, `operation` (06.2'ye kadar `null`), `target_format`/`target_name` (çalışan kaydının adıyla K8, `keep` içerikten), `employee` ve `route`/`route_reason` taşıyan §8.5 öğesi üretir; rota önceliği bilinmeyen tür → yapısal hüküm → okunaklılık (MRZ önceliği önce) → çalışan kararı, yan etkiler yalnız kabul edilen adayda (D13); `plans`'a sürümüyle yazar, `PLAN_CREATED` — `app/pipeline/plan.py` · test `tests/pipeline/test_plan.py` (67) · tm 40
 - ✅ 06.1.2 `plan_hash` kanonik JSON'un (sıralı anahtar, boşluksuz, UTF-8) SHA-256'sı: geri alınıp aynı analizlerden yeniden üretilen plan ve ayrı veritabanında anahtar sırası değiştirilmiş analizlerden üretilen plan aynı bayt ve hash'i verir, analiz değişince hash değişir; MRZ yüzyılı saat değil partinin alındığı günle seçilir; `read_plan` saklanan planı sözleşme, parti/sürüm/model ve hash ile doğrular (`PlanIntegrityError`); `plan.py` satır+dal kapsamı %100, 22 kural bozulması geçici olarak denendi, her biri testte kırmızı — `app/pipeline/plan.py` · test `tests/pipeline/test_plan.py` · tm 40
+
+#### K06.2 — 06.2.1 · İşlem seçimi
+- ✅ 06.2.1 `select_operation(sources, *, output_format)` §20.3 karar tablosunu sırayla uygular (ilk uyan satır): tek dosyanın tüm sayfaları aynı biçimde (ya da `keep`) `passthrough` (S1, Word/Excel eki S15), tek PDF'in ardışık alt kümesi — boş sayfa arada ya da dışarıda kalabilir — `extract` (S4, S7, S8), birden çok dosya → PDF `merge` (S5), tek JPEG/PNG → PDF `wrap_image`, tek PDF sayfası → JPEG gömülü tek görüntüde `extract_image`, yoksa `render_image` (gerçek PDF'ten 02.5.1 işaretiyle); uyan satır yoksa `NoApplicableOperation` Unresolved gerekçesi (dosya, sayfa, biçim, kapsama, hedef; kişisel değer yok). Planlayıcı kapsamayı sayfa satırları ∪ `page_count`'la, boş sayfaları gruplamadan, biçimi içerikten okur; seçim yapısal hükümlü adaya uygulanmaz, okunaklılıktan sonra ve çalışan kararından önce yürür (işlemi olmayan belgeden çalışan açılmaz); `hazir` öğede `operation`/hedef zorunlu, kuyruk öğesinde `operation` boş (C31, D15). `plan.py` satır+dal kapsamı %100, 21 kural bozulması geçici olarak denendi, her biri testte kırmızı — `app/pipeline/plan.py` · test `tests/pipeline/test_plan.py` (109, +42) · tm 41

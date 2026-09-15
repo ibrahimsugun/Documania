@@ -1,8 +1,10 @@
-"""Plan JSON üretimi ve belirleyicilik — PRD 06.1.1, 06.1.2 (§8.5; K9, R10, R7).
+"""Plan JSON üretimi, belirleyicilik ve işlem seçimi — PRD 06.1.1, 06.1.2, 06.2.1 (§8.5, §20.3;
+K9, R10, R7).
 
 Sayfa analizleri kayıtlı yanıt biçimindeki sentetik sözlüklerdir, dosyalar `tests/fixtures/gen.py`
 ile üretilir (CONVENTIONS §6). Plan üretimi sayfaları veritabanından okur; render ve analiz adımları
-yalnız S4 entegrasyon testinde gerçek hâliyle çalışır.
+yalnız S4 entegrasyon testinde, gömülü görüntü tespiti (02.5.1) işlem seçimi testinde gerçek hâliyle
+çalışır.
 """
 
 from __future__ import annotations
@@ -10,12 +12,13 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
-from collections.abc import Iterator
+from collections.abc import Iterable, Iterator
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any
 
+import pymupdf
 import pytest
 from pydantic import ValidationError
 from sqlalchemy import func, select
@@ -23,7 +26,7 @@ from sqlalchemy.orm import Session
 
 from app.ai import build_page_analysis_instructions
 from app.ai.recording_provider import RecordingProvider
-from app.catalog import Catalog, load_seed_catalog, validate_catalog
+from app.catalog import Catalog, FileType, OutputFormat, load_seed_catalog, validate_catalog
 from app.config import Settings
 from app.db.models import (
     Base,
@@ -35,6 +38,7 @@ from app.db.models import (
     Event,
     Page,
     Plan,
+    QueueKind,
     Upload,
     UploadFile,
     UploadStatus,
@@ -54,23 +58,29 @@ from app.matching.names import normalize_name
 from app.pipeline.analyze import analyze_upload
 from app.pipeline.group import AttachmentWithoutContext
 from app.pipeline.plan import (
+    NoApplicableOperation,
     Operation,
+    OperationSource,
     PlanDocument,
     PlanEmployee,
     PlanIntegrityError,
     PlanItem,
     PlanSource,
     Route,
+    SelectedOperation,
     create_plan,
     read_plan,
+    select_operation,
 )
 from app.pipeline.render import (
     extract_upload_file_text,
     mark_upload_file_blank_pages,
+    mark_upload_file_single_image_pages,
     render_upload_file,
 )
-from app.storage import DataLayout, prepare_data_dir, write_to_inbox
+from app.storage import DataLayout, FileKind, prepare_data_dir, write_to_inbox
 from tests.fixtures.gen import (
+    A4,
     make_docx_bytes,
     make_half_filled_image_bytes,
     make_pdf_bytes,
@@ -332,6 +342,7 @@ def _item(
     employee: PlanEmployee = NOBODY,
     route: Route = Route.UNRESOLVED,
     reason: str | None = None,
+    operation: Operation | None = None,
     target: tuple[str | None, str | None] = (None, None),
 ) -> PlanItem:
     target_format, target_name = target
@@ -340,7 +351,7 @@ def _item(
             "item_id": item_id,
             "document_type_slug": slug,
             "sources": [{"file_id": file_id, "pages": pages} for file_id, pages in sources],
-            "operation": None,
+            "operation": operation,
             "target_format": target_format,
             "target_name": target_name,
             "employee": employee.model_dump(mode="json"),
@@ -400,7 +411,7 @@ def _item_data(**changes: Any) -> dict[str, Any]:
         "item_id": "i1",
         "document_type_slug": PASSPORT,
         "sources": [{"file_id": 1, "pages": [0]}],
-        "operation": None,
+        "operation": "passthrough",
         "target_format": "pdf",
         "target_name": "Test_Ornekova-Passport.pdf",
         "employee": {"action": "create", "employee_id": "E0001", "matched_by": None},
@@ -423,7 +434,12 @@ def _document_data(*items: dict[str, Any], **changes: Any) -> dict[str, Any]:
     return data
 
 
-QUEUED = {"route": "unresolved", "route_reason": "Gerekçe.", "target_format": None}
+QUEUED = {
+    "route": "unresolved",
+    "route_reason": "Gerekçe.",
+    "operation": None,
+    "target_format": None,
+}
 
 
 def test_contract_value_sets_are_those_of_the_prd() -> None:
@@ -512,6 +528,10 @@ def test_prd_example_item_is_a_valid_plan_item() -> None:
         ),
         ({**QUEUED, "target_name": None, "route_reason": None}, "route_reason zorunlu"),
         (QUEUED, "hedef yalnız hazir öğede"),
+        ({**QUEUED, "target_name": None, "operation": "extract"}, "operation yalnız hazir öğede"),
+        ({"operation": None}, "hazir öğede operation zorunlu"),
+        ({"target_format": None, "target_name": None}, "hazir öğede target_format ve target_name"),
+        ({"target_name": None}, "hazir öğede target_format ve target_name"),
         ({"target_format": "jpeg"}, "uzantısı target_format"),
         ({"target_format": None}, "uzantısı target_format"),
         ({"target_name": "../Passport.pdf"}, "target_name"),
@@ -520,13 +540,6 @@ def test_prd_example_item_is_a_valid_plan_item() -> None:
 def test_invalid_item_is_rejected(changes: dict[str, Any], message: str) -> None:
     with pytest.raises(ValidationError, match=message):
         PlanItem.model_validate(_item_data(**changes))
-
-
-def test_ready_item_may_wait_for_its_target() -> None:
-    # `keep` türde farklı biçimli kaynaklar: hedef biçimi bu adımda seçilmez.
-    item = PlanItem.model_validate(_item_data(target_format=None, target_name=None))
-
-    assert (item.route, item.target_format, item.target_name) == (Route.READY, None, None)
 
 
 @pytest.mark.parametrize(
@@ -593,6 +606,7 @@ def test_clean_passport_without_registered_employee_is_frozen_as_a_plan(
     session: Session, layout: DataLayout
 ) -> None:
     # S11: temiz numara, kayıtlı çalışan yok → yeni çalışan, klasör, iletişim bilgisi; belge Hazir.
+    # S1: tek sayfalık pasaport PDF'i `passthrough`.
     passport = _passport()
     passport["person"]["contact"]["phone"] = PHONE
     upload = _upload(session, layout, _pdf(passport))
@@ -608,6 +622,7 @@ def test_clean_passport_without_registered_employee_is_frozen_as_a_plan(
             slug=PASSPORT,
             employee=_created(),
             route=Route.READY,
+            operation=Operation.PASSTHROUGH,
             target=("pdf", "Test_Ornekova-Passport.pdf"),
         ),
     )
@@ -672,6 +687,7 @@ def test_every_page_and_file_of_the_upload_belongs_to_exactly_one_item(
             slug=PERMIT,
             employee=_created(),
             route=Route.READY,
+            operation=Operation.EXTRACT,
             target=("pdf", "Test_Ornekova-Work-Permit.pdf"),
         ),
         _item(
@@ -733,6 +749,7 @@ def test_number_match_is_ready_for_the_registered_employee_and_accumulates(
             slug=PASSPORT,
             employee=_matched(),
             route=Route.READY,
+            operation=Operation.PASSTHROUGH,
             target=("pdf", "Kayitli_Kisi-Passport.pdf"),
         ),
     )
@@ -898,9 +915,13 @@ def test_structural_verdicts_precede_the_legibility_gate_and_open_nobody(
     assert list(identifiers) == ["WP0000042"]
 
 
+@pytest.mark.parametrize("output_format", ["pdf", "jpeg"])
 def test_page_count_outside_the_range_goes_to_unresolved(
-    session: Session, layout: DataLayout
+    session: Session, layout: DataLayout, output_format: str
 ) -> None:
+    # Parça ya da eksik belgeye işlem seçimi uygulanmaz: üç sayfa JPEG'e çevrilemez ama gerekçe
+    # yalnız yapısal hükmü taşır.
+    catalog = _catalog_with(PERMIT, output_format=output_format)
     person = _person(document_number="WP-0000042")
     upload = _upload(
         session,
@@ -908,7 +929,7 @@ def test_page_count_outside_the_range_goes_to_unresolved(
         _pdf(*[_page(PERMIT, person=person, continues=index > 0) for index in range(3)]),
     )
 
-    (item,) = _plan(session, layout, upload).items
+    (item,) = _plan(session, layout, upload, catalog=catalog).items
 
     assert (item.route, item.employee, item.sources[0].pages) == (
         Route.UNRESOLVED,
@@ -917,6 +938,7 @@ def test_page_count_outside_the_range_goes_to_unresolved(
     )
     assert item.route_reason is not None
     assert item.route_reason.startswith("Beklenen sayfa sayısı kontrolü (04.5.1)")
+    assert "İşlem seçilemedi" not in item.route_reason
     assert _count(session, Employee) == 0
 
 
@@ -969,7 +991,7 @@ def test_unknown_type_goes_to_unknown_with_a_person_guess(
 def test_front_and_back_images_become_one_ready_pdf_item(
     session: Session, layout: DataLayout
 ) -> None:
-    # S5: ayrı dosyalardaki ön ve arka yüz tek öğe; kaynaklar önce ön yüzün dosyası.
+    # S5: ayrı dosyalardaki ön ve arka yüz tek öğe; kaynaklar önce ön yüzün dosyası; `merge`.
     upload = _upload(
         session,
         layout,
@@ -987,6 +1009,7 @@ def test_front_and_back_images_become_one_ready_pdf_item(
             slug=RESIDENCE,
             employee=_created(),
             route=Route.READY,
+            operation=Operation.MERGE,
             target=("pdf", "Test_Ornekova-Residence-Card.pdf"),
         ),
     )
@@ -1001,8 +1024,9 @@ def test_keep_output_takes_the_format_of_the_source_content(
 
     (item,) = _plan(session, layout, upload, catalog=catalog).items
 
-    assert (item.route, item.target_format, item.target_name) == (
+    assert (item.route, item.operation, item.target_format, item.target_name) == (
         Route.READY,
+        Operation.PASSTHROUGH,
         extension,
         f"Test_Ornekova-Passport.{extension}",
     )
@@ -1016,41 +1040,15 @@ def test_same_type_twice_gets_the_same_target_name_without_a_sequence_suffix(
 
     items = _plan(session, layout, upload).items
 
-    assert [(item.employee, item.target_name) for item in items] == [
-        (_created(), "Test_Ornekova-Passport.pdf"),
-        (_matched("E0001"), "Test_Ornekova-Passport.pdf"),
+    assert [(item.employee, item.operation, item.target_name) for item in items] == [
+        (_created(), Operation.EXTRACT, "Test_Ornekova-Passport.pdf"),
+        (_matched("E0001"), Operation.EXTRACT, "Test_Ornekova-Passport.pdf"),
     ]
 
 
-def test_keep_output_of_unrecognized_source_content_leaves_the_target_open(
-    session: Session, layout: DataLayout
-) -> None:
-    upload = _upload(session, layout, _File(pages=(_passport(),), content=b"tanimsiz icerik"))
-
-    (item,) = _plan(session, layout, upload).items
-
-    assert (item.route, item.target_format, item.target_name) == (Route.READY, None, None)
-
-
-def test_keep_output_of_sources_in_different_formats_leaves_the_target_open(
-    session: Session, layout: DataLayout
-) -> None:
-    catalog = _catalog_with(RESIDENCE, output_format="keep")
-    upload = _upload(
-        session,
-        layout,
-        _image(_page(RESIDENCE, side="front")),
-        _image(_back(RESIDENCE, continues=False), "PNG"),
-    )
-
-    (item,) = _plan(session, layout, upload, catalog=catalog).items
-
-    assert (item.route, item.employee) == (Route.READY, _created())
-    assert (item.target_format, item.target_name) == (None, None)
-
-
 def test_attachment_belongs_to_the_context_employee(session: Session, layout: DataLayout) -> None:
-    # S15 / 04.7.1: profil sayfasından yüklenen Word eki bağlam çalışanının Hazir'ına gider.
+    # S15 / 04.7.1: profil sayfasından yüklenen Word eki bağlam çalışanının Hazir'ına değişmeden
+    # (`passthrough`) gider.
     _employee(session)
     upload = _upload(session, layout, _File(content=make_docx_bytes()), context_employee_id="E0007")
     (file_id,) = _file_ids(upload)
@@ -1064,6 +1062,7 @@ def test_attachment_belongs_to_the_context_employee(session: Session, layout: Da
             slug="attachment",
             employee=_matched(by=None),
             route=Route.READY,
+            operation=Operation.PASSTHROUGH,
             target=("docx", "Kayitli_Kisi-Attachment.docx"),
         ),
     )
@@ -1086,9 +1085,14 @@ def test_decisions_follow_item_order_so_a_new_employee_is_found_by_the_next_item
 
     items = _plan(session, layout, upload).items
 
-    assert [(item.item_id, item.employee, item.target_name) for item in items] == [
-        ("i1", _created(), "Test_Ornekova-Passport.pdf"),
-        ("i2", _matched("E0001", MatchedBy.NAME_DOB), "Test_Ornekova-Residence-Card.pdf"),
+    assert [(item.item_id, item.employee, item.operation, item.target_name) for item in items] == [
+        ("i1", _created(), Operation.EXTRACT, "Test_Ornekova-Passport.pdf"),
+        (
+            "i2",
+            _matched("E0001", MatchedBy.NAME_DOB),
+            Operation.EXTRACT,
+            "Test_Ornekova-Residence-Card.pdf",
+        ),
     ]
     assert items[1].sources == (PlanSource(file_id=_file_ids(upload)[0], pages=(1, 2)),)
     assert _count(session, Employee) == 1
@@ -1286,6 +1290,457 @@ def test_stored_plan_breaking_the_contract_is_not_read_and_not_repeated(frozen: 
     assert "Ornekova" not in str(raised.value)
 
 
+# --- 06.2.1 işlem seçimi (§20.3) ----------------------------------------------------------------
+
+PDF, JPEG, PNG, DOCX = FileKind.PDF, FileKind.JPEG, FileKind.PNG, FileKind.DOCX
+KEEP, TO_PDF, TO_JPEG = OutputFormat.KEEP, OutputFormat.PDF, OutputFormat.JPEG
+NO_OPERATION = "İşlem seçilemedi (06.2.1): "
+NO_OPERATION_TAIL = (
+    "§20.3'te bu kaynak, kapsama ve biçim için uyan fiziksel işlem yok; belge dönüştürülmez."
+)
+
+
+def _source(
+    kind: FileKind | None,
+    pages: tuple[int, ...] = (0,),
+    *,
+    file_id: int = 1,
+    file_pages: Iterable[int] | None = None,
+    blank: Iterable[int] = (),
+    single_image: Iterable[int] = (),
+) -> OperationSource:
+    """Kaynak dosya; `file_pages` verilmezse dosya yalnız alınan sayfalardan oluşur."""
+    return OperationSource(
+        file_id=file_id,
+        kind=kind,
+        pages=pages,
+        file_pages=frozenset(pages if file_pages is None else file_pages),
+        blank_pages=frozenset(blank),
+        single_image_pages=frozenset(single_image),
+    )
+
+
+@pytest.mark.parametrize(
+    ("sources", "output_format", "operation", "target_format"),
+    [
+        # Satır 1: tek dosya, tüm sayfalar, aynı biçim (ya da `keep`).
+        pytest.param([_source(PDF)], KEEP, Operation.PASSTHROUGH, "pdf", id="1-pdf-keep"),
+        pytest.param(
+            [_source(PDF, (0, 1, 2))], TO_PDF, Operation.PASSTHROUGH, "pdf", id="1-pdf-all-pages"
+        ),
+        pytest.param([_source(JPEG)], KEEP, Operation.PASSTHROUGH, "jpeg", id="1-jpeg-keep"),
+        pytest.param([_source(PNG)], KEEP, Operation.PASSTHROUGH, "png", id="1-png-keep"),
+        pytest.param([_source(JPEG)], TO_JPEG, Operation.PASSTHROUGH, "jpeg", id="1-jpeg-to-jpeg"),
+        pytest.param([_source(DOCX, ())], KEEP, Operation.PASSTHROUGH, "docx", id="1-word-file"),
+        pytest.param(
+            [_source(PDF, single_image=(0,))],
+            TO_PDF,
+            Operation.PASSTHROUGH,
+            "pdf",
+            id="1-image-page-pdf-to-pdf",
+        ),
+        # Satır 2: tek PDF, ardışık alt küme, PDF → PDF.
+        pytest.param(
+            [_source(PDF, (1,), file_pages=range(3))],
+            KEEP,
+            Operation.EXTRACT,
+            "pdf",
+            id="2-page-inside-pdf",
+        ),
+        pytest.param(
+            [_source(PDF, (1, 2), file_pages=range(4))],
+            TO_PDF,
+            Operation.EXTRACT,
+            "pdf",
+            id="2-contiguous-pages",
+        ),
+        pytest.param(
+            [_source(PDF, (0, 2), file_pages=range(3), blank=(1,))],
+            TO_PDF,
+            Operation.EXTRACT,
+            "pdf",
+            id="2-blank-page-between",
+        ),
+        pytest.param(
+            [_source(PDF, (0,), file_pages=range(2), blank=(1,))],
+            KEEP,
+            Operation.EXTRACT,
+            "pdf",
+            id="2-trailing-blank-page-left-out",
+        ),
+        pytest.param(
+            [_source(PDF, (1,), file_pages=range(3), single_image=(1,))],
+            TO_PDF,
+            Operation.EXTRACT,
+            "pdf",
+            id="2-image-page-to-pdf",
+        ),
+        # Satır 3: birden çok dosya → PDF.
+        pytest.param(
+            [_source(JPEG), _source(PNG, file_id=2)], TO_PDF, Operation.MERGE, "pdf", id="3-images"
+        ),
+        pytest.param(
+            [_source(PDF, (0, 1)), _source(PDF, file_id=2)],
+            KEEP,
+            Operation.MERGE,
+            "pdf",
+            id="3-pdfs-keep",
+        ),
+        # Satır 4: tek JPEG/PNG, tek sayfa, görüntü → PDF.
+        pytest.param([_source(JPEG)], TO_PDF, Operation.WRAP_IMAGE, "pdf", id="4-jpeg"),
+        pytest.param([_source(PNG)], TO_PDF, Operation.WRAP_IMAGE, "pdf", id="4-png"),
+        # Satır 5: tek PDF, tek sayfa, PDF → JPEG, gömülü tek görüntü var.
+        pytest.param(
+            [_source(PDF, single_image=(0,))],
+            TO_JPEG,
+            Operation.EXTRACT_IMAGE,
+            "jpeg",
+            id="5-single-page-pdf",
+        ),
+        pytest.param(
+            [_source(PDF, (2,), file_pages=range(5), single_image=(1, 2))],
+            TO_JPEG,
+            Operation.EXTRACT_IMAGE,
+            "jpeg",
+            id="5-page-inside-pdf",
+        ),
+        # Satır 6: tek PDF, tek sayfa, PDF → JPEG, gömülü tek görüntü yok.
+        pytest.param([_source(PDF)], TO_JPEG, Operation.RENDER_IMAGE, "jpeg", id="6-single-page"),
+        pytest.param(
+            [_source(PDF, (2,), file_pages=range(5), single_image=(1, 3))],
+            TO_JPEG,
+            Operation.RENDER_IMAGE,
+            "jpeg",
+            id="6-only-other-pages-are-images",
+        ),
+    ],
+)
+def test_operation_is_selected_by_the_first_matching_row(
+    sources: list[OperationSource],
+    output_format: OutputFormat,
+    operation: Operation,
+    target_format: str,
+) -> None:
+    selection = select_operation(sources, output_format=output_format)
+
+    assert selection == SelectedOperation(operation, FileType(target_format))
+
+
+@pytest.mark.parametrize(
+    ("sources", "output_format", "described"),
+    [
+        pytest.param(
+            [_source(PNG, file_id=3)],
+            TO_JPEG,
+            "Kaynak: dosya 3, sayfa 1 (png, dosyanın tüm sayfaları). Hedef biçim: jpeg. ",
+            id="png-to-jpeg",
+        ),
+        pytest.param(
+            [_source(DOCX, (), file_id=4)],
+            TO_PDF,
+            "Kaynak: dosya 4 (docx, bütün dosya). Hedef biçim: pdf. ",
+            id="word-to-pdf",
+        ),
+        pytest.param(
+            [_source(PDF, (0, 1))],
+            TO_JPEG,
+            "Kaynak: dosya 1, sayfa 1, 2 (pdf, dosyanın tüm sayfaları). Hedef biçim: jpeg. ",
+            id="two-pages-to-jpeg",
+        ),
+        pytest.param(
+            [_source(PDF, (1, 2), file_pages=range(4))],
+            TO_JPEG,
+            "Kaynak: dosya 1, sayfa 2, 3 (pdf, dosyanın ardışık alt kümesi). Hedef biçim: jpeg. ",
+            id="subset-to-jpeg",
+        ),
+        pytest.param(
+            [_source(PDF, (0, 2), file_pages=range(3))],
+            TO_PDF,
+            "Kaynak: dosya 1, sayfa 1, 3 (pdf, dosyanın ardışık olmayan alt kümesi). "
+            "Hedef biçim: pdf. ",
+            id="page-between-is-not-blank",
+        ),
+        pytest.param(
+            [_source(JPEG), _source(JPEG, file_id=2)],
+            KEEP,
+            "Kaynaklar: dosya 1, sayfa 1 (jpeg, dosyanın tüm sayfaları); dosya 2, sayfa 1 (jpeg, "
+            "dosyanın tüm sayfaları). Hedef biçim: jpeg. ",
+            id="several-files-to-jpeg",
+        ),
+        pytest.param(
+            [_source(JPEG), _source(PNG, file_id=2)],
+            KEEP,
+            "Hedef biçim: belirlenemedi (output_format: keep, kaynaklar farklı biçimde). ",
+            id="keep-different-formats",
+        ),
+        pytest.param(
+            [_source(None)],
+            KEEP,
+            "Kaynak: dosya 1, sayfa 1 (biçimi tanınmadı, dosyanın tüm sayfaları). Hedef biçim: "
+            "belirlenemedi (output_format: keep, kaynak biçimi tanınmadı). ",
+            id="keep-unrecognized",
+        ),
+        pytest.param(
+            [_source(None)],
+            TO_PDF,
+            "(biçimi tanınmadı, dosyanın tüm sayfaları). Hedef biçim: pdf. ",
+            id="unrecognized-to-pdf",
+        ),
+    ],
+)
+def test_without_a_matching_row_no_operation_is_selected_and_the_reason_is_written(
+    sources: list[OperationSource], output_format: OutputFormat, described: str
+) -> None:
+    # Satır 7: işlem yok → Unresolved; gerekçe kaynağı, kapsamayı ve hedef biçimi yazar.
+    selection = select_operation(sources, output_format=output_format)
+
+    assert isinstance(selection, NoApplicableOperation)
+    assert selection.queue is QueueKind.UNRESOLVED
+    assert (selection.target_format is None) == ("belirlenemedi" in described)
+    assert selection.reason.startswith(NO_OPERATION)
+    assert selection.reason.endswith(described + NO_OPERATION_TAIL)
+
+
+def test_whole_file_source_is_whole_and_contiguous() -> None:
+    source = OperationSource(file_id=1, kind=FileKind.DOCX)
+
+    assert (source.whole, source.contiguous) == (True, True)
+
+
+def test_s7_passport_page_inside_a_multi_page_pdf_is_extracted_without_render(
+    session: Session, layout: DataLayout
+) -> None:
+    upload = _upload(session, layout, _pdf(_photo(), _passport(), _photo()))
+    (file_id,) = _file_ids(upload)
+
+    items = _plan(session, layout, upload).items
+
+    assert items[1] == _item(
+        "i2",
+        [(file_id, (1,))],
+        slug=PASSPORT,
+        employee=_created(),
+        route=Route.READY,
+        operation=Operation.EXTRACT,
+        target=("pdf", "Test_Ornekova-Passport.pdf"),
+    )
+    assert [(item.route, item.operation) for item in (items[0], items[2])] == [
+        (Route.UNRESOLVED, None),
+        (Route.UNRESOLVED, None),
+    ]
+
+
+def test_s8_blank_page_between_the_faces_stays_out_of_the_extracted_document(
+    session: Session, layout: DataLayout
+) -> None:
+    # Dupleks taramada kartın yüzleri arasındaki boş sayfa başka belge değildir (K5): aday `[0, 2]`
+    # ardışık alt kümedir, `extract` boş sayfayı çıktıya almaz; boş sayfa atlanır.
+    upload = _upload(session, layout, _pdf(_page(LICENSE, side="front"), BLANK, _back(LICENSE)))
+    (file_id,) = _file_ids(upload)
+
+    document = _plan(session, layout, upload)
+
+    assert document.items == (
+        _item(
+            "i1",
+            [(file_id, (0, 2))],
+            slug=LICENSE,
+            employee=_created(),
+            route=Route.READY,
+            operation=Operation.EXTRACT,
+            target=("pdf", "Test_Ornekova-Driving-License.pdf"),
+        ),
+        _item(
+            "i2",
+            [(file_id, (1,))],
+            route=Route.SKIP,
+            reason=f"Boş sayfa (dosya {file_id}, sayfa 2): atlanır; çıktıya ve kuyruğa girmez, "
+            "hata sayılmaz.",
+        ),
+    )
+
+
+def _image_then_text_pdf_bytes() -> bytes:
+    """İki sayfalık PDF: 1. sayfa tek tam sayfa gömülü görüntü (tarama), 2. sayfa metin."""
+    document = pymupdf.open()
+    scanned = document.new_page(width=A4[0], height=A4[1])
+    scanned.insert_image(
+        scanned.rect, stream=make_half_filled_image_bytes(size=(60, 85)), keep_proportion=False
+    )
+    document.new_page(width=A4[0], height=A4[1]).insert_text((72, 72), "METIN SAYFASI")
+    content = document.tobytes()
+    document.close()
+    return content
+
+
+def test_pdf_page_to_jpeg_extracts_the_embedded_image_or_renders_the_page(
+    session: Session, layout: DataLayout
+) -> None:
+    # K12: JPEG çıktılı türde gömülü tek görüntülü sayfanın görüntüsü kayıpsız çıkarılır, öteki
+    # sayfa render edilir. İşaret gerçek PDF içeriğinden 02.5.1 ile okunur.
+    catalog = _catalog_with(
+        PERMIT, output_format="jpeg", allowed_conversions=["extract_image", "render_image"]
+    )
+    permit = _page(PERMIT, person=_person(document_number="WP-0000042"))
+    upload = _upload(
+        session, layout, _File(pages=(permit, permit), content=_image_then_text_pdf_bytes())
+    )
+    (upload_file,) = upload.files
+    mark_upload_file_single_image_pages(session, layout, upload_file)
+
+    document = _plan(session, layout, upload, catalog=catalog)
+
+    target = ("jpeg", "Test_Ornekova-Work-Permit.jpeg")
+    assert document.items == (
+        _item(
+            "i1",
+            [(upload_file.id, (0,))],
+            slug=PERMIT,
+            employee=_created(),
+            route=Route.READY,
+            operation=Operation.EXTRACT_IMAGE,
+            target=target,
+        ),
+        _item(
+            "i2",
+            [(upload_file.id, (1,))],
+            slug=PERMIT,
+            employee=_matched("E0001"),
+            route=Route.READY,
+            operation=Operation.RENDER_IMAGE,
+            target=target,
+        ),
+    )
+
+
+def test_page_without_a_page_row_makes_the_document_a_subset(
+    session: Session, layout: DataLayout
+) -> None:
+    # Render sayfa sayısını yazdı ama ikinci sayfanın satırı yok: dosya bütün olarak kopyalanmaz,
+    # yalnız alınan sayfa çıkarılır.
+    upload = _upload(session, layout, _File(pages=(_passport(),), content=make_pdf_bytes(2)))
+    upload.files[0].page_count = 2
+
+    (item,) = _plan(session, layout, upload).items
+
+    assert (item.route, item.operation, item.sources) == (
+        Route.READY,
+        Operation.EXTRACT,
+        (PlanSource(file_id=upload.files[0].id, pages=(0,)),),
+    )
+
+
+def test_document_without_an_operation_goes_to_unresolved_and_opens_nobody(
+    session: Session, layout: DataLayout
+) -> None:
+    # Satır 7: `keep` türde içeriği tanınmayan kaynağın hedef biçimi yok. İşlem seçimi çalışan
+    # kararından önce yapılır: temiz numaralı belgeden çalışan açılmaz.
+    upload = _upload(session, layout, _File(pages=(_passport(),), content=b"tanimsiz icerik"))
+    (file_id,) = _file_ids(upload)
+
+    document = _plan(session, layout, upload)
+
+    assert document.items == (
+        _item(
+            "i1",
+            [(file_id, (0,))],
+            slug=PASSPORT,
+            reason=f"{NO_OPERATION}Kaynak: dosya {file_id}, sayfa 1 (biçimi tanınmadı, dosyanın "
+            "tüm sayfaları). Hedef biçim: belirlenemedi (output_format: keep, kaynak biçimi "
+            f"tanınmadı). {NO_OPERATION_TAIL}",
+        ),
+    )
+    assert (_count(session, Employee), _count(session, EmployeeIdentifier)) == (0, 0)
+    assert _events(session, EventType.EMPLOYEE_CREATED) == []
+    assert list(layout.employees.iterdir()) == []
+
+
+@pytest.mark.parametrize("registered", [False, True], ids=["nobody", "number-registered"])
+def test_front_and_back_in_different_formats_without_a_common_format_are_not_converted(
+    session: Session, layout: DataLayout, registered: bool
+) -> None:
+    # `keep` türde JPEG ön yüz ve PNG arka yüzün ortak biçimi yok: işlem yok, Unresolved. Kayıtlı
+    # çalışan yalnız kişi tahminidir; yazım ya da numara birikmez.
+    if registered:
+        _employee(session, numbers=(NUMBER,))
+    catalog = _catalog_with(RESIDENCE, output_format="keep")
+    upload = _upload(
+        session,
+        layout,
+        _image(_page(RESIDENCE, side="front")),
+        _image(_back(RESIDENCE, continues=False), "PNG"),
+    )
+    front, back = _file_ids(upload)
+
+    (item,) = _plan(session, layout, upload, catalog=catalog).items
+
+    assert item == _item(
+        "i1",
+        [(front, (0,)), (back, (0,))],
+        slug=RESIDENCE,
+        employee=_matched() if registered else NOBODY,
+        reason=f"{NO_OPERATION}Kaynaklar: dosya {front}, sayfa 1 (jpeg, dosyanın tüm sayfaları); "
+        f"dosya {back}, sayfa 1 (png, dosyanın tüm sayfaları). Hedef biçim: belirlenemedi "
+        f"(output_format: keep, kaynaklar farklı biçimde). {NO_OPERATION_TAIL}",
+    )
+    assert _count(session, Employee) == int(registered)
+    assert (_count(session, EmployeeAlias), _count(session, EmployeeIdentifier)) == (
+        int(registered),
+        int(registered),
+    )
+    assert list(layout.employees.iterdir()) == []
+
+
+def test_no_operation_verdict_follows_the_legibility_gate(
+    session: Session, layout: DataLayout
+) -> None:
+    # Okunamayan alan kuyruğu seçer; işlem gerekçesi ardından eklenir.
+    upload = _upload(
+        session,
+        layout,
+        _File(pages=(_illegible_expiry(_passport()),), content=b"tanimsiz icerik"),
+    )
+
+    (item,) = _plan(session, layout, upload).items
+
+    assert item.route is Route.UNREADABLE
+    assert item.route_reason is not None
+    assert item.route_reason.startswith(f"Okunamayan alanlar: expiry_date {NO_OPERATION}")
+    assert item.route_reason.endswith(NO_OPERATION_TAIL)
+
+
+@pytest.mark.parametrize("context", [True, False], ids=["context", "no-context"])
+def test_attachment_without_an_operation_goes_to_unresolved(
+    session: Session, layout: DataLayout, context: bool
+) -> None:
+    # K2: Word eki dönüştürülmez; tür PDF çıktısı isterse işlem yok. Bağlam çalışanı kişi tahmini
+    # kalır; bağlam yoksa sahiplik gerekçesi işlem gerekçesinin ardından gelir.
+    _employee(session)
+    catalog = _catalog_with("attachment", output_format="pdf")
+    upload = _upload(
+        session,
+        layout,
+        _File(content=make_docx_bytes()),
+        context_employee_id="E0007" if context else None,
+    )
+    (file_id,) = _file_ids(upload)
+
+    (item,) = _plan(session, layout, upload, catalog=catalog).items
+
+    no_operation = (
+        f"{NO_OPERATION}Kaynak: dosya {file_id} (docx, bütün dosya). Hedef biçim: pdf. "
+        f"{NO_OPERATION_TAIL}"
+    )
+    ownerless = AttachmentWithoutContext(file_id, "attachment").reason
+    assert item == _item(
+        "i1",
+        [(file_id, ())],
+        slug="attachment",
+        employee=_matched(by=None) if context else NOBODY,
+        reason=no_operation if context else f"{no_operation} {ownerless}",
+    )
+
+
 # --- entegrasyon: gerçek render ve kayıtlı yanıt → plan ---------------------------------------
 
 
@@ -1334,6 +1789,7 @@ def test_s4_recorded_pdf_with_registered_employee_plans_three_documents(
             slug=LICENSE,
             employee=_matched(),
             route=Route.READY,
+            operation=Operation.EXTRACT,
             target=("pdf", "Kayitli_Kisi-Driving-License.pdf"),
         ),
         _item("i2", [(file_id, (2,))], slug=PHOTO, reason=NO_PERSON_REASON),
@@ -1343,6 +1799,7 @@ def test_s4_recorded_pdf_with_registered_employee_plans_three_documents(
             slug=RESIDENCE,
             employee=_matched(),
             route=Route.READY,
+            operation=Operation.EXTRACT,
             target=("pdf", "Kayitli_Kisi-Residence-Card.pdf"),
         ),
     )
