@@ -6,9 +6,9 @@ Tek istisna K3'tür: `merge` Direkt Belge türünde çalışmaz (07.3.1) — pla
 tür Direkt Belge yapılmış olsa bile belge başka kaynaklardan kurulmaz.
 Ortak kural (K11): hiçbir işlem içeriği üretmez, kırpmaz ya da değiştirmez.
 
-Şimdilik `passthrough` (07.1.1), `extract` (07.2.1), `merge` (07.3.1), `wrap_image` (07.4.1) ve
-`extract_image` (07.5.1) uygulanır. Öteki işlem (`render_image`) ve ortak çıktı yazma — köken
-kaydı, `documents` satırı, `OUTPUT_SAVED` olayı, `Alinan` kopyası (07.7.1) — sonraki görevlerdedir.
+Şimdilik `passthrough` (07.1.1), `extract` (07.2.1), `merge` (07.3.1), `wrap_image` (07.4.1),
+`extract_image` (07.5.1) ve `render_image` (07.6.1) uygulanır. Ortak çıktı yazma — köken kaydı,
+`documents` satırı, `OUTPUT_SAVED` olayı, `Alinan` kopyası (07.7.1) — sonraki görevdedir.
 """
 
 from __future__ import annotations
@@ -106,6 +106,14 @@ class ExtractImageIntegrityError(RuntimeError):
     akışın orijinal baytlarına, PNG gömülü görüntünün piksellerine birebir uymuyor.
 
     Çıktı yayınlanmaz; belge kuyruğa gider.
+    """
+
+
+class RenderImageSourceError(ValueError):
+    """render_image (07.6.1): kaynak okunabilir bir PDF değil, açılamıyor (bozuk, parola korumalı)
+    ya da istenen sayfa kaynakta yok.
+
+    Hedefe hiçbir şey yazılmaz.
     """
 
 
@@ -394,6 +402,43 @@ def _png_matches_pixels(image: bytes, reference: pymupdf.Pixmap) -> bool:
         if reference.n == 1 and decoded.mode == "RGB":
             return all(channel.tobytes() == reference.samples for channel in decoded.split())
         return False
+
+
+def execute_render_image(
+    source: Path, destination: Path, *, page: int, dpi: int, jpeg_quality: int
+) -> StoredFile:
+    """Kaynak PDF'in `page` sayfasını sabit çözünürlükte JPEG'e rasterleştirir (07.6.1, §20.5).
+
+    Gömülü tek görüntü yoksa son çaredir ve **kayıplıdır**: sayfa `page.get_pixmap(dpi=…)` ile
+    sabit çözünürlükte render edilir ve JPEG olarak kaydedilir. `dpi` ve `jpeg_quality` çağıranın
+    verdiği yapılandırma değerleridir (`Settings.render_image_dpi`,
+    `Settings.render_image_jpeg_quality`); burada sabit yazılmaz.
+
+    `page` plan kaynağının tek sayfasıdır (`PlanSource.pages`, 0 tabanlı `pages.index`); negatifse
+    `ValueError`. Dosya çok sayfalı olabilir (S3/S4); yalnız planlanan sayfa render edilir, ötekiler
+    okunmaz.
+
+    Kaynak PDF değilse, açılamıyorsa (bozuk, parola korumalı) ya da sayfa kaynakta yoksa
+    `RenderImageSourceError`; hedefe hiçbir şey yazılmaz. Hedef zaten varsa `write_file`'ın
+    `FileExistsError`'ı (üzerine yazma yok).
+    """
+    if page < 0:
+        raise ValueError("render_image sayfası 0 veya büyük olmalı")
+    content = source.read_bytes()
+    # MuPDF JPEG/PNG baytlarını da tek sayfalık belge olarak açar; tür önce içerik imzasından.
+    if _file_kind(content) is not FileKind.PDF:
+        raise RenderImageSourceError("render_image kaynağı PDF değil")
+    with _open_pdf(
+        content, operation="render_image", where="", error=RenderImageSourceError
+    ) as document:
+        if page >= document.page_count:
+            raise RenderImageSourceError(
+                f"render_image sayfası kaynakta yok: sayfa {page}, "
+                f"kaynak {document.page_count} sayfa"
+            )
+        pixmap = document[page].get_pixmap(dpi=dpi, alpha=False)
+        image = pixmap.tobytes("jpeg", jpg_quality=jpeg_quality)
+    return write_file(destination, image)
 
 
 @dataclass(frozen=True, slots=True)

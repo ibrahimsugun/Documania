@@ -29,6 +29,11 @@ class Settings(BaseSettings):
     page_render_dpi: int = Field(default=200, gt=0)
     page_render_max_long_edge_px: int = Field(default=1568, gt=0)
     page_render_jpeg_quality: int = Field(default=90, ge=1, le=100)
+    # PRD 07.6.1, §20.5 — `render_image` çıktısı: bu DPI'da rasterleştirilir, bu JPEG kalitesiyle
+    # kaydedilir. Analiz önbelleğinin (`page_render_*`) ayarından bağımsızdır (bkz. PLAN.md §C10):
+    # o bir analiz kopyası, bu yayınlanan çıktı belgesidir.
+    render_image_dpi: int = Field(default=200, gt=0)
+    render_image_jpeg_quality: int = Field(default=90, ge=1, le=100)
     # PRD 03.2.1 — sayfa analizi sağlayıcısı adıyla seçilir (`app.ai.provider.create_provider`);
     # sağlayıcıya özgü anahtar/model yalnız o sağlayıcı kurulurken okunur (bkz. PLAN.md §C13).
     ai_provider: str = Field(default="anthropic", pattern=r"^[a-z][a-z0-9_]*$")

@@ -8,6 +8,8 @@ sarılır (S5).
 saklanır, beyaz zemine düzleştirme yapılmaz (§D17/§D18).
 07.5.1 — extract_image: tek tam sayfa gömülü görüntü orijinal baytlarıyla (JPEG) ya da kayıpsız
 pikselleriyle (PNG, uzantı `ext`'e göre) çıkarılır; kanıtlanamayan çıktı yayınlanmaz (§D19).
+07.6.1 — render_image: gömülü tek görüntü yoksa son çare, planlanan sayfa yapılandırılan DPI ve
+JPEG kalitesiyle rasterleştirilir (kayıplı, K12 kapsamında).
 """
 
 import zlib
@@ -34,11 +36,13 @@ from app.pipeline.execute import (
     MergeSource,
     MergeSourceError,
     PassthroughIntegrityError,
+    RenderImageSourceError,
     WrapImageSourceError,
     execute_extract,
     execute_extract_image,
     execute_merge,
     execute_passthrough,
+    execute_render_image,
     execute_wrap_image,
 )
 from app.pipeline.plan import Operation, Route, create_plan, read_plan
@@ -48,6 +52,7 @@ from tests.fixtures.gen import (
     A4,
     make_docx_bytes,
     make_half_filled_image_bytes,
+    make_half_filled_pdf_bytes,
     make_pdf_bytes,
     make_sized_pdf_bytes,
     make_text_pdf_bytes,
@@ -1438,3 +1443,201 @@ def test_planned_extract_image_item_yields_the_embedded_jpeg_of_its_page(
 
     assert stored.path == destination
     assert destination.read_bytes() == make_half_filled_image_bytes(size=(60, 85))
+
+
+# --- 07.6.1 — render_image ---------------------------------------------------------------------
+
+
+def _two_page_geometry_pdf_bytes() -> bytes:
+    """İki sayfalık PDF: 1. sayfa sol yarı, 2. sayfa sağ yarı siyah — sayfa seçimini kanıtlar."""
+    document = pymupdf.open()
+    left = document.new_page(width=A4[0], height=A4[1])
+    left.draw_rect(pymupdf.Rect(0, 0, A4[0] / 2, A4[1]), color=(0, 0, 0), fill=(0, 0, 0))
+    right = document.new_page(width=A4[0], height=A4[1])
+    right.draw_rect(pymupdf.Rect(A4[0] / 2, 0, A4[0], A4[1]), color=(0, 0, 0), fill=(0, 0, 0))
+    content = document.tobytes()
+    document.close()
+    return content
+
+
+def _rasterized(path: Path) -> pymupdf.Pixmap:
+    return pymupdf.Pixmap(str(path))
+
+
+def test_execute_render_image_rasterizes_the_page_without_cropping_or_rotating(
+    tmp_path: Path,
+) -> None:
+    """Sol yarısı siyah sayfa: görüntü kırpılmamış, döndürülmemiş, aynalanmamış olmalı (K11)."""
+    source = _source(tmp_path, make_half_filled_pdf_bytes())
+    destination = tmp_path / "Hazir" / "hedef.jpeg"
+
+    stored = execute_render_image(source, destination, page=0, dpi=100, jpeg_quality=90)
+
+    assert stored.path == destination
+    assert detect_file_kind(destination.read_bytes()) is FileKind.JPEG
+    image = _rasterized(destination)
+    assert max(image.pixel(image.width // 4, image.height // 2)) < 40
+    assert min(image.pixel(image.width * 3 // 4, image.height // 2)) > 215
+
+
+def test_execute_render_image_takes_the_planned_page_of_a_multi_page_pdf(tmp_path: Path) -> None:
+    # Dosya çok sayfalı olabilir (S3/S4); yalnız planlanan sayfa render edilir.
+    source = _source(tmp_path, _two_page_geometry_pdf_bytes())
+
+    stored0 = execute_render_image(
+        source, tmp_path / "sayfa0.jpeg", page=0, dpi=100, jpeg_quality=90
+    )
+    stored1 = execute_render_image(
+        source, tmp_path / "sayfa1.jpeg", page=1, dpi=100, jpeg_quality=90
+    )
+    first = _rasterized(stored0.path)
+    second = _rasterized(stored1.path)
+
+    assert max(first.pixel(first.width // 4, first.height // 2)) < 40
+    assert min(first.pixel(first.width * 3 // 4, first.height // 2)) > 215
+    assert min(second.pixel(second.width // 4, second.height // 2)) > 215
+    assert max(second.pixel(second.width * 3 // 4, second.height // 2)) < 40
+
+
+def test_execute_render_image_applies_the_configured_dpi(tmp_path: Path) -> None:
+    source = _source(tmp_path, make_half_filled_pdf_bytes())
+    with pymupdf.open(stream=source.read_bytes(), filetype="pdf") as document:
+        expected_low = document[0].get_pixmap(dpi=75, alpha=False)
+        expected_high = document[0].get_pixmap(dpi=150, alpha=False)
+
+    low = execute_render_image(source, tmp_path / "dusuk.jpeg", page=0, dpi=75, jpeg_quality=90)
+    high = execute_render_image(source, tmp_path / "yuksek.jpeg", page=0, dpi=150, jpeg_quality=90)
+
+    assert (_rasterized(low.path).width, _rasterized(low.path).height) == (
+        expected_low.width,
+        expected_low.height,
+    )
+    assert (_rasterized(high.path).width, _rasterized(high.path).height) == (
+        expected_high.width,
+        expected_high.height,
+    )
+
+
+def test_execute_render_image_applies_the_configured_jpeg_quality(tmp_path: Path) -> None:
+    source = _source(tmp_path, make_half_filled_pdf_bytes())
+
+    low = execute_render_image(source, tmp_path / "dusuk.jpeg", page=0, dpi=150, jpeg_quality=10)
+    high = execute_render_image(source, tmp_path / "yuksek.jpeg", page=0, dpi=150, jpeg_quality=100)
+
+    assert low.path.stat().st_size < high.path.stat().st_size
+
+
+def test_execute_render_image_leaves_source_untouched(tmp_path: Path) -> None:
+    content = make_half_filled_pdf_bytes()
+    source = _source(tmp_path, content)
+
+    execute_render_image(source, tmp_path / "hedef.jpeg", page=0, dpi=100, jpeg_quality=90)
+
+    assert source.read_bytes() == content
+
+
+@pytest.mark.parametrize(
+    ("content", "message"),
+    [
+        pytest.param(make_half_filled_image_bytes("JPEG"), "PDF değil", id="jpeg"),
+        pytest.param(make_half_filled_image_bytes("PNG"), "PDF değil", id="png"),
+        pytest.param(make_docx_bytes(), "PDF değil", id="docx"),
+        pytest.param(b"duz metin, taninmayan tur", "PDF değil", id="taninmayan"),
+        pytest.param(b"%PDF-1.7\ngarbage garbage\n", "açılamadı", id="mupdf-acamiyor"),
+        pytest.param(make_sized_pdf_bytes([A4], password="gizli"), "parola", id="parola"),
+    ],
+)
+def test_execute_render_image_rejects_unreadable_source(
+    tmp_path: Path, content: bytes, message: str
+) -> None:
+    source = _source(tmp_path, content)
+    destination = tmp_path / "Hazir" / "hedef.jpeg"
+
+    with pytest.raises(RenderImageSourceError, match=message):
+        execute_render_image(source, destination, page=0, dpi=100, jpeg_quality=90)
+
+    assert not destination.parent.exists()
+    assert _files(tmp_path) == ["kaynak.pdf"]
+
+
+def test_execute_render_image_opens_owner_password_only_pdf(tmp_path: Path) -> None:
+    with pymupdf.open(stream=make_half_filled_pdf_bytes(), filetype="pdf") as document:
+        encrypted = document.tobytes(
+            encryption=pymupdf.PDF_ENCRYPT_AES_256, owner_pw="sahip", user_pw=""
+        )
+    source = _source(tmp_path, encrypted)
+
+    stored = execute_render_image(source, tmp_path / "hedef.jpeg", page=0, dpi=100, jpeg_quality=90)
+
+    assert detect_file_kind(stored.path.read_bytes()) is FileKind.JPEG
+
+
+def test_execute_render_image_rejects_page_missing_from_source(tmp_path: Path) -> None:
+    source = _source(tmp_path, make_half_filled_pdf_bytes())
+
+    with pytest.raises(RenderImageSourceError, match="sayfa 1, kaynak 1 sayfa"):
+        execute_render_image(source, tmp_path / "hedef.jpeg", page=1, dpi=100, jpeg_quality=90)
+
+    assert _files(tmp_path) == ["kaynak.pdf"]
+
+
+def test_execute_render_image_rejects_negative_page(tmp_path: Path) -> None:
+    source = _source(tmp_path, make_half_filled_pdf_bytes())
+
+    with pytest.raises(ValueError, match="0 veya büyük"):
+        execute_render_image(source, tmp_path / "hedef.jpeg", page=-1, dpi=100, jpeg_quality=90)
+
+
+def test_execute_render_image_does_not_overwrite_existing_destination(tmp_path: Path) -> None:
+    source = _source(tmp_path, make_half_filled_pdf_bytes())
+    destination = tmp_path / "hedef.jpeg"
+    destination.write_bytes(b"onceden var olan icerik")
+
+    with pytest.raises(FileExistsError):
+        execute_render_image(source, destination, page=0, dpi=100, jpeg_quality=90)
+
+    assert destination.read_bytes() == b"onceden var olan icerik"
+    assert _files(tmp_path) == ["hedef.jpeg", "kaynak.pdf"]
+
+
+def test_planned_render_image_item_yields_a_raster_of_the_planned_page(
+    session: Session, layout: DataLayout, tmp_path: Path
+) -> None:
+    # §20.3 satır 6 → uygulayıcı: JPEG çıktılı türde gömülü tek görüntüsü olmayan sayfanın işlemi
+    # `render_image`'dır; uygulayıcı o sayfayı yapılandırılan DPI/kalitede rasterleştirir. Yeri,
+    # köken kaydı ve `Alinan` 07.7'nin.
+    catalog = _catalog_with(
+        PERMIT, output_format="jpeg", allowed_conversions=["extract_image", "render_image"]
+    )
+    permit = _page(PERMIT, person=_person(document_number="WP-0000042"))
+    upload = _upload_with_analyses(
+        session, layout, _File(pages=(permit, permit), content=_image_then_text_pdf_bytes())
+    )
+    (upload_file,) = upload.files
+    mark_upload_file_single_image_pages(session, layout, upload_file)
+
+    item = _plan(session, layout, upload, catalog=catalog).items[1]
+
+    assert (item.route, item.operation, item.target_format) == (
+        Route.READY,
+        Operation.RENDER_IMAGE,
+        "jpeg",
+    )
+    ((file_id, pages),) = [(source.file_id, source.pages) for source in item.sources]
+    assert (file_id, pages) == (upload_file.id, (1,))
+    destination = tmp_path / "Hazir" / item.target_name
+
+    stored = execute_render_image(
+        layout.resolve(upload_file.stored_path),
+        destination,
+        page=pages[0],
+        dpi=100,
+        jpeg_quality=90,
+    )
+
+    assert stored.path == destination
+    assert detect_file_kind(destination.read_bytes()) is FileKind.JPEG
+    with pymupdf.open(stream=layout.resolve(upload_file.stored_path).read_bytes()) as source_doc:
+        expected = source_doc[1].get_pixmap(dpi=100, alpha=False)
+    rendered = _rasterized(destination)
+    assert (rendered.width, rendered.height) == (expected.width, expected.height)

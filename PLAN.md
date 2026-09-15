@@ -8,7 +8,7 @@
 
 | Faz | PRD | Genel durum | Must sayacı | Kapanış |
 | --- | --- | --- | --- | --- |
-| Faz 0 — MVP | §5.1 | 82 ✅ · 0 ◐ · 20 ⬜ · 0 🔒 | 79/98 Must | AÇIK |
+| Faz 0 — MVP | §5.1 | 83 ✅ · 0 ◐ · 19 ⬜ · 0 🔒 | 80/98 Must | AÇIK |
 | Faz 1 — v1 | §5.2 | 0 ✅ · 0 ◐ · 0 ⬜ · 32 🔒 | 0/21 Must | AÇIK |
 | Faz 2 — v2 | §5.3 | 0 ✅ · 0 ◐ · 0 ⬜ · 13 🔒 | 0/0 Must | AÇIK |
 | Faz 3 — Enterprise | §5.4 | 0 ✅ · 0 ◐ · 0 ⬜ · 8 🔒 | 0/0 Must | AÇIK |
@@ -187,7 +187,7 @@ panelde `plan-count-drift` bulgusu doğurur.
 | 07.3.1 | merge | Must (MVP) | ✅ → K07.3 |
 | 07.4.1 | wrap_image | Must (MVP) | ✅ → K07.4 |
 | 07.5.1 | extract_image | Must (MVP) | ✅ → K07.5 |
-| 07.6.1 | render_image | Must (MVP) | ⬜ |
+| 07.6.1 | render_image | Must (MVP) | ✅ → K07.6 |
 | 07.7.1 | Çıktı yazma ve köken (R13) | Must (MVP) | ⬜ |
 | 07.7.2 | Alinan kopyası | Must (MVP) | ⬜ |
 | 07.8.1 | İdempotenlik | Must (MVP) | ⬜ |
@@ -1654,3 +1654,6 @@ var olan maddeler silinmez. Biçim:
 - ✅ `execute_extract_image(source, destination, *, page)` (`app/pipeline/execute.py`) sayfanın tek tam sayfa gömülü görüntüsünün `xref`'ini 02.5.1'in kuralıyla (`single_full_page_image_xref`) bulur ve `doc.extract_image(xref)` baytlarını Pillow'dan geçirmeden yazar: gömülü JPEG PDF'teki ham akışın baytlarıyla birebir (kabul kriteri), JPEG olmayan görüntü `.png` uzantısıyla ve gömülü görüntünün pikselleriyle birebir; tek tam sayfa görüntü olmayan sayfa `render_image`'a düşmez, `ExtractImageSourceError` (C38). **D19:** PyMuPDF'in CMYK JPEG'i yeniden kodlaması, zincirli süzgeç ve CMYK→RGB renk dönüşümü `ExtractImageIntegrityError`; JPEG 2000 ve 16 bit örnek `ExtractImageSourceError` — hepsi yayından önce yakalanır, belge kuyruğa gider. `execute.py` satır+dal kapsamı %100 — `app/pipeline/execute.py` · test `tests/pipeline/test_execute.py` (109, +34) · tm 50
 - ✅ Plan → uygulayıcı: JPEG çıktılı türde gerçek PDF içeriğinden işaretlenen (02.5.1) sayfanın `extract_image` öğesi planın `target_name`'iyle o sayfanın gömülü JPEG'ini orijinal baytlarıyla yazar (`test_planned_extract_image_item_yields_the_embedded_jpeg_of_its_page`) · tm 50
 - ✅ Kapı: 13 kural bozulması (ham akış karşılaştırması, uzantı, 02.5.1 kuralı, 8 bit sınırı, PNG piksel denetimi, bayt imzası, gri→RGB kanal denetimi, boyut denetimi, JPEG 2000 reddi, PDF imzası, sayfa aralığı, MuPDF hatası, negatif sayfa) geçici olarak denendi, her biri `extract_image` testleriyle kırmızı · tm 50
+
+#### K07.6 — 07.6.1 · render_image işlemi
+- ✅ `execute_render_image(source, destination, *, page, dpi, jpeg_quality)` (`app/pipeline/execute.py`) gömülü tek görüntü yoksa son çare: `document[page].get_pixmap(dpi=dpi, alpha=False)` ile sayfayı sabit çözünürlükte rasterleştirir, `pixmap.tobytes("jpeg", jpg_quality=jpeg_quality)` ile kayıplı JPEG yazar (§20.5, kabul kriteri). `dpi`/`jpeg_quality` planlayıcı gibi çağırana bırakılan yapılandırma değeridir — görevde sabit yazılmaz; `Settings.render_image_dpi`/`render_image_jpeg_quality` (varsayılan 200/90, `RENDER_IMAGE_DPI`/`RENDER_IMAGE_JPEG_QUALITY`) analiz önbelleğinin (`page_render_*`, 02.1.1) ayarından bağımsız yeni alanlardır (bkz. PLAN.md §C10). Kaynak PDF değilse, açılamıyorsa (bozuk, sahip parolalı açılır ama kullanıcı parolalı `parola korumalı` reddedilir) ya da sayfa kaynakta yoksa `RenderImageSourceError`, hedefe hiçbir şey yazılmaz; negatif sayfa `ValueError`; hedef varsa `write_file`'ın `FileExistsError`'ı. Dosya çok sayfalı olabilir (S3/S4), yalnız planlanan sayfa okunur — iki farklı geometrili sayfa içeren sentetik PDF ile sayfa seçiminin karıştırılmadığı kanıtlandı; DPI/kalite ayarının pikselde ve dosya boyutunda etkisi bağımsız `page.get_pixmap`/dosya boyutu karşılaştırmasıyla doğrulandı. Plan → uygulayıcı: JPEG çıktılı türde gömülü görüntüsü olmayan (02.5.1 işaretsiz) sayfanın `render_image` öğesi planın sayfasını rasterleştirir (`test_planned_render_image_item_yields_a_raster_of_the_planned_page`). `execute.py` satır+dal kapsamı %100 — `app/pipeline/execute.py` · `app/config.py` (`render_image_dpi`, `render_image_jpeg_quality`) · `.env.example` · test `tests/pipeline/test_execute.py` (125, +16) · tm 51
