@@ -193,6 +193,22 @@ class Catalog(RootModel[tuple[CatalogEntry, ...]]):
     def get(self, slug: str) -> CatalogEntry | None:
         return next((entry for entry in self.root if entry.slug == slug), None)
 
+    def unanalyzed_entry_for(self, file_type: FileType) -> CatalogEntry | None:
+        """`analyze: false` olan ve `file_type`i `expected_file_types`de taşıyan kaydı döner.
+
+        K2: Word/Excel gibi analiz edilmeyen türler sayfa analizinden değil, içerik türünden
+        eşlenir (04.7.1). `analyze: true` türler bu eşlemeye girmez — onların türü sayfa
+        analiziyle belirlenir.
+        """
+        return next(
+            (
+                entry
+                for entry in self.root
+                if not entry.analyze and file_type in entry.expected_file_types
+            ),
+            None,
+        )
+
 
 def validate_catalog(data: object) -> Catalog:
     """Ham kayıt listesini doğrular; tek kayıt bile geçersizse tüm katalog reddedilir."""

@@ -29,6 +29,7 @@ from app.config import Settings
 from app.db.models import (
     CandidateDocumentType,
     CandidateTypeStatus,
+    Employee,
     Event,
     QueueKind,
     Upload,
@@ -39,6 +40,8 @@ from app.events import EventType
 from app.pipeline.analyze import analyze_upload
 from app.pipeline.group import (
     AmbiguousPairing,
+    AttachmentFile,
+    AttachmentWithoutContext,
     ContiguityViolation,
     DocumentCandidate,
     FileGrouping,
@@ -60,7 +63,14 @@ from app.pipeline.render import (
 )
 from app.storage import DataLayout, FileKind, detect_file_kind, write_to_inbox
 from tests.ai.payloads import SYNTHETIC_DOCUMENT_NUMBER, SYNTHETIC_SURNAME, analysis_payload
-from tests.fixtures.gen import make_half_filled_image_bytes, make_text_pdf_bytes
+from tests.fixtures.gen import (
+    make_docx_bytes,
+    make_half_filled_image_bytes,
+    make_legacy_doc_bytes,
+    make_legacy_xls_bytes,
+    make_text_pdf_bytes,
+    make_xlsx_bytes,
+)
 
 ROOT = Path(__file__).resolve().parents[2]
 RECORDINGS = ROOT / "tests" / "fixtures" / "ai" / "recordings"
@@ -1394,7 +1404,7 @@ def test_group_upload_marks_a_lone_face_with_no_counterpart_as_a_page_count_viol
     provider = _recordings(tmp_path, [_payload(0, LICENSE, side="front")])
     analyze_upload(session, layout, upload, provider=provider, instructions=INSTRUCTIONS)
 
-    grouping = group_upload(session, upload, catalog=CATALOG)
+    grouping = group_upload(session, upload, catalog=CATALOG, layout=layout)
 
     file_id = upload.files[0].id
     (candidate,) = grouping.candidates
@@ -1593,15 +1603,28 @@ def _settings() -> Settings:
     return Settings(_env_file=None, database_url="sqlite://")
 
 
+_ATTACHMENT_KINDS = (FileKind.DOC, FileKind.DOCX, FileKind.XLS, FileKind.XLSX)
+
+
 def _upload(
     session: Session,
     layout: DataLayout,
     files: list[tuple[str, bytes]],
     *,
     upload_id: str = UPLOAD_ID,
+    context_employee_id: str | None = None,
 ) -> Upload:
-    """Partiyi Inbox'a yazar ve her dosyanın sayfalarını gerçek render adımlarıyla üretir."""
-    upload = Upload(id=upload_id, channel="web", status=UploadStatus.ANALYZING.value)
+    """Partiyi Inbox'a yazar ve her dosyanın sayfalarını gerçek render adımlarıyla üretir.
+
+    Word/Excel içeriği (K2) hiç render edilmez: dosya sayfasız kalır, tıpkı gerçek boru
+    hattında olduğu gibi (04.7.1).
+    """
+    upload = Upload(
+        id=upload_id,
+        channel="web",
+        status=UploadStatus.ANALYZING.value,
+        context_employee_id=context_employee_id,
+    )
     session.add(upload)
     for name, content in files:
         stored = write_to_inbox(layout, upload.id, name, content)
@@ -1619,7 +1642,7 @@ def _upload(
             render_upload_file(session, layout, _settings(), upload_file)
             extract_upload_file_text(session, layout, upload_file)
             mark_upload_file_blank_pages(session, layout, upload_file)
-        else:
+        elif kind not in _ATTACHMENT_KINDS:
             render_image_file(session, layout, _settings(), upload_file)
     session.flush()
     return upload
@@ -1649,7 +1672,7 @@ def test_s4_sequential_pdf_yields_three_independent_candidates(
     provider = RecordingProvider.from_directory(RECORDINGS / "s4_sequential_pdf")
     analyze_upload(session, layout, upload, provider=provider, instructions=INSTRUCTIONS)
 
-    grouping = group_upload(session, upload, catalog=CATALOG)
+    grouping = group_upload(session, upload, catalog=CATALOG, layout=layout)
 
     file_id = upload.files[0].id
     (file_grouping,) = grouping.files
@@ -1737,7 +1760,7 @@ def test_s3_license_pieces_go_to_unresolved_with_reason(
         provider = _recordings(tmp_path, responses)
     analyze_upload(session, layout, upload, provider=provider, instructions=INSTRUCTIONS)
 
-    grouping = group_upload(session, upload, catalog=CATALOG)
+    grouping = group_upload(session, upload, catalog=CATALOG, layout=layout)
 
     file_id = upload.files[0].id
     (file_grouping,) = grouping.files
@@ -1832,7 +1855,7 @@ def test_pieces_in_different_files_are_not_judged_by_contiguity(
         instructions=INSTRUCTIONS,
     )
 
-    grouping = group_upload(session, upload, catalog=CATALOG)
+    grouping = group_upload(session, upload, catalog=CATALOG, layout=layout)
 
     front_file, back_file = upload.files
     assert [_layout(file_grouping) for file_grouping in grouping.files] == [[(1,)], []]
@@ -1877,7 +1900,7 @@ def test_s5_front_and_back_images_form_one_driving_license_candidate(
         front_file, back_file = upload.files
     analyze_upload(session, layout, upload, provider=provider, instructions=INSTRUCTIONS)
 
-    grouping = group_upload(session, upload, catalog=CATALOG)
+    grouping = group_upload(session, upload, catalog=CATALOG, layout=layout)
 
     assert all(file_grouping.candidates == () for file_grouping in grouping.files)
     (card,) = grouping.candidates
@@ -1961,7 +1984,7 @@ def test_several_license_fronts_in_a_batch_go_to_unresolved_with_reason(
         instructions=INSTRUCTIONS,
     )
 
-    grouping = group_upload(session, upload, catalog=CATALOG)
+    grouping = group_upload(session, upload, catalog=CATALOG, layout=layout)
 
     first, second, back = (upload_file.id for upload_file in upload.files)
     assert grouping.cross_file_candidates == ()
@@ -2022,7 +2045,7 @@ def test_failed_page_analysis_in_the_batch_keeps_faces_unpaired(
     )
     assert result.is_partial
 
-    grouping = group_upload(session, upload, catalog=CATALOG)
+    grouping = group_upload(session, upload, catalog=CATALOG, layout=layout)
 
     front, back, photo = (upload_file.id for upload_file in upload.files)
     assert grouping.cross_file_candidates == ()
@@ -2072,7 +2095,7 @@ def test_group_upload_reads_blank_failed_duplicate_and_catalog_less_pages(
         instructions=INSTRUCTIONS,
     )
 
-    grouping = group_upload(session, upload, catalog=CATALOG)
+    grouping = group_upload(session, upload, catalog=CATALOG, layout=layout)
 
     assert [file_grouping.file_id for file_grouping in grouping.files] == [
         card_file.id,
@@ -2132,7 +2155,7 @@ def test_s14_catalog_less_peruvian_diploma_goes_to_unknown_as_a_candidate_type(
     provider = RecordingProvider.from_directory(S14_RECORDINGS)
     analyze_upload(session, layout, upload, provider=provider, instructions=INSTRUCTIONS)
 
-    grouping = group_upload(session, upload, catalog=CATALOG)
+    grouping = group_upload(session, upload, catalog=CATALOG, layout=layout)
 
     file_id = upload.files[0].id
     (page,) = upload.files[0].pages
@@ -2200,9 +2223,9 @@ def test_regrouping_the_same_upload_does_not_count_the_candidate_type_again(
     upload = _diploma_upload(session, layout)
     provider = RecordingProvider.from_directory(S14_RECORDINGS)
     analyze_upload(session, layout, upload, provider=provider, instructions=INSTRUCTIONS)
-    first = group_upload(session, upload, catalog=CATALOG)
+    first = group_upload(session, upload, catalog=CATALOG, layout=layout)
 
-    second = group_upload(session, upload, catalog=CATALOG)
+    second = group_upload(session, upload, catalog=CATALOG, layout=layout)
 
     (page,) = upload.files[0].pages
     (record,) = _candidate_types(session)
@@ -2218,7 +2241,7 @@ def test_the_same_candidate_type_in_other_documents_is_counted_on_one_record(
     first_upload = _diploma_upload(session, layout)
     provider = RecordingProvider.from_directory(S14_RECORDINGS)
     analyze_upload(session, layout, first_upload, provider=provider, instructions=INSTRUCTIONS)
-    group_upload(session, first_upload, catalog=CATALOG)
+    group_upload(session, first_upload, catalog=CATALOG, layout=layout)
     # İkinci partide iki ayrı diploma; analizci adı başka yazımla verir.
     second_upload = _diploma_upload(session, layout, upload_id="u_20260914_0002", pages=2)
     responses = [
@@ -2233,7 +2256,7 @@ def test_the_same_candidate_type_in_other_documents_is_counted_on_one_record(
         instructions=INSTRUCTIONS,
     )
 
-    grouping = group_upload(session, second_upload, catalog=CATALOG)
+    grouping = group_upload(session, second_upload, catalog=CATALOG, layout=layout)
 
     (first_page,) = first_upload.files[0].pages
     second_pages = second_upload.files[0].pages
@@ -2284,7 +2307,7 @@ def test_s14_reanalysis_after_type_approval_leaves_unknown(
     upload = _diploma_upload(session, layout)
     provider = RecordingProvider.from_directory(S14_RECORDINGS)
     analyze_upload(session, layout, upload, provider=provider, instructions=INSTRUCTIONS)
-    group_upload(session, upload, catalog=CATALOG)
+    group_upload(session, upload, catalog=CATALOG, layout=layout)
     approved = _approved_catalog()
     reanalysis = {
         **_recording(S14_RECORDINGS, 0),
@@ -2304,7 +2327,7 @@ def test_s14_reanalysis_after_type_approval_leaves_unknown(
         instructions=build_page_analysis_instructions(approved),
     )
 
-    grouping = group_upload(session, upload, catalog=approved)
+    grouping = group_upload(session, upload, catalog=approved, layout=layout)
 
     (candidate,) = grouping.candidates
     assert (candidate.document_type_slug, candidate.unknown_type) == (DIPLOMA, None)
@@ -2334,7 +2357,7 @@ def test_group_upload_sends_undetermined_and_stale_types_to_unknown_without_prop
     )
 
     # Pasaport türü analizden sonra katalogdan kalkmış.
-    grouping = group_upload(session, upload, catalog=_catalog_without(PASSPORT))
+    grouping = group_upload(session, upload, catalog=_catalog_without(PASSPORT), layout=layout)
 
     file_id = upload.files[0].id
     undetermined, stale = grouping.candidates
@@ -2376,7 +2399,7 @@ def test_group_upload_sends_undetermined_and_stale_types_to_unknown_without_prop
 def test_pages_not_yet_analyzed_form_no_candidates(session: Session, layout: DataLayout) -> None:
     upload = _upload(session, layout, [("tarama.pdf", make_text_pdf_bytes(["A", "B"]))])
 
-    grouping = group_upload(session, upload, catalog=CATALOG)
+    grouping = group_upload(session, upload, catalog=CATALOG, layout=layout)
 
     (file_grouping,) = grouping.files
     assert file_grouping.candidates == ()
@@ -2400,7 +2423,7 @@ def test_invalid_stored_analysis_is_rejected_without_personal_values(
     session.flush()
 
     with pytest.raises(StoredAnalysisError) as raised:
-        group_upload(session, upload, catalog=CATALOG)
+        group_upload(session, upload, catalog=CATALOG, layout=layout)
 
     message = str(raised.value)
     assert f"(dosya {upload.files[0].id}, sayfa 0)" in message
@@ -2408,4 +2431,152 @@ def test_invalid_stored_analysis_is_rejected_without_personal_values(
     assert "person.date_of_birth:" in message
     for value in (SYNTHETIC_SURNAME, SYNTHETIC_DOCUMENT_NUMBER, "01.01.1990"):
         assert value not in message
+    assert not _events(session, EventType.DOC_TYPE_DETERMINED)
+
+
+# --- 04.7.1: Word/Excel eki yolu (K2, attachment). Kabul senaryosu: S15. -----------------------
+
+ATTACHMENT_SLUG = "attachment"
+
+
+def _employee(session: Session, employee_id: str = "E0001") -> Employee:
+    employee = Employee(
+        id=employee_id, folder_name=f"Test_Kisi_{employee_id}", given_names="Test", surname="Kisi"
+    )
+    session.add(employee)
+    session.flush()
+    return employee
+
+
+@pytest.mark.parametrize(
+    "make_bytes", [make_docx_bytes, make_xlsx_bytes, make_legacy_doc_bytes, make_legacy_xls_bytes]
+)
+def test_word_and_excel_content_classifies_as_the_attachment_type(
+    session: Session, layout: DataLayout, make_bytes: Any
+) -> None:
+    # K2: Word/Excel hiç render/analiz edilmez; içerik imzasından (uzantı değil) katalogdaki
+    # `attachment` türüne eşlenir (04.7.1).
+    _employee(session)
+    upload = _upload(session, layout, [("ek.bin", make_bytes())], context_employee_id="E0001")
+
+    grouping = group_upload(session, upload, catalog=CATALOG, layout=layout)
+
+    file_id = upload.files[0].id
+    assert not upload.files[0].pages
+    assert grouping.attachments == (
+        AttachmentFile(file_id=file_id, document_type_slug=ATTACHMENT_SLUG),
+    )
+    assert grouping.candidates == ()
+
+
+def test_s15_word_cv_with_context_employee_is_kept_ready_without_matching(
+    session: Session, layout: DataLayout
+) -> None:
+    # S15 (bağlam çalışanı var, ör. profil sayfasından yükleme — 10.5.3): Word CV bir çalışan
+    # bağlamıyla yüklendi → attachment aday olduğu gibi Hazir'a kaydedilecek şekilde işaretsiz
+    # kalır; kişi eşleştirme veya kabul kriteri değerlendirmesinden geçmez (K2).
+    _employee(session)
+    upload = _upload(
+        session, layout, [("ozgecmis.docx", make_docx_bytes())], context_employee_id="E0001"
+    )
+
+    grouping = group_upload(session, upload, catalog=CATALOG, layout=layout)
+
+    (attachment,) = grouping.attachments
+    assert attachment.unresolved is None
+    (event,) = _events(session, EventType.DOC_TYPE_DETERMINED)
+    assert (event.file_id, event.message, event.data_json) == (
+        upload.files[0].id,
+        None,
+        {"document_type_slug": ATTACHMENT_SLUG},
+    )
+
+
+def test_s15_word_cv_without_context_employee_goes_to_unresolved(
+    session: Session, layout: DataLayout
+) -> None:
+    # S15 (genel yükleme): bağlam çalışanı yok, sahibi belirlenemez → Unresolved; belge yine
+    # analiz edilmez/dönüştürülmez, olduğu gibi kalır (K2).
+    upload = _upload(session, layout, [("ozgecmis.docx", make_docx_bytes())])
+
+    grouping = group_upload(session, upload, catalog=CATALOG, layout=layout)
+
+    (attachment,) = grouping.attachments
+    assert attachment.unresolved == AttachmentWithoutContext(
+        file_id=upload.files[0].id, document_type_slug=ATTACHMENT_SLUG
+    )
+    assert attachment.unresolved.queue is QueueKind.UNRESOLVED
+    (event,) = _events(session, EventType.DOC_TYPE_DETERMINED)
+    assert event.message == attachment.unresolved.reason
+    assert event.data_json == {
+        "document_type_slug": ATTACHMENT_SLUG,
+        "unresolved": {"queue": "unresolved"},
+    }
+
+
+def test_attachment_and_page_based_candidates_coexist_in_the_same_upload(
+    session: Session, layout: DataLayout, tmp_path: Path
+) -> None:
+    # Aynı partide bir pasaport PDF'i sayfa tabanlı gruplamadan, bir Word eki attachment yolundan
+    # geçer; ikisi birbirini etkilemez.
+    _employee(session)
+    upload = _upload(
+        session,
+        layout,
+        [
+            ("pasaport.pdf", make_text_pdf_bytes(["PASAPORT"])),
+            ("ozgecmis.docx", make_docx_bytes()),
+        ],
+        context_employee_id="E0001",
+    )
+    provider = _recordings(tmp_path, [_payload(0, PASSPORT)])
+    analyze_upload(session, layout, upload, provider=provider, instructions=INSTRUCTIONS)
+
+    grouping = group_upload(session, upload, catalog=CATALOG, layout=layout)
+
+    (candidate,) = grouping.candidates
+    assert candidate.document_type_slug == PASSPORT
+    (attachment,) = grouping.attachments
+    assert (attachment.document_type_slug, attachment.unresolved) == (ATTACHMENT_SLUG, None)
+
+
+def test_content_that_matches_no_unanalyzed_catalog_entry_yields_no_attachment(
+    session: Session, layout: DataLayout
+) -> None:
+    # Word içeriği tanınır ama katalogda `attachment` (tek `analyze: false` kayıt) yoksa eşi
+    # bulunamaz; aday üretilmez — bu görevin kapsamı yalnız katalogda `analyze: false` eşleşen
+    # türlerdir (04.7.1 dışı, dokunulmaz).
+    upload = _upload(session, layout, [("cv.docx", make_docx_bytes())])
+
+    grouping = group_upload(
+        session, upload, catalog=_catalog_without(ATTACHMENT_SLUG), layout=layout
+    )
+
+    assert grouping.attachments == ()
+    assert grouping.candidates == ()
+    assert not _events(session, EventType.DOC_TYPE_DETERMINED)
+
+
+def test_unsupported_content_with_no_pages_yields_no_attachment(
+    session: Session, layout: DataLayout
+) -> None:
+    # 01.2.2: desteklenmeyen içerik sayfasız kalır; attachment eşleşmesi denenir ama içerik
+    # yedi türden hiçbirine uymadığı için bulunamaz — aday da üretilmez.
+    upload = Upload(id=UPLOAD_ID, channel="web")
+    session.add(upload)
+    stored = write_to_inbox(layout, upload.id, "bozuk.bin", b"gecersiz icerik, hicbir imzaya uymaz")
+    upload_file = UploadFile(
+        upload=upload,
+        original_name="bozuk.bin",
+        stored_path=stored.path.relative_to(layout.root).as_posix(),
+        sha256=stored.sha256,
+        mime="application/octet-stream",
+    )
+    session.add(upload_file)
+    session.flush()
+
+    grouping = group_upload(session, upload, catalog=CATALOG, layout=layout)
+
+    assert grouping.attachments == ()
+    assert grouping.candidates == ()
     assert not _events(session, EventType.DOC_TYPE_DETERMINED)

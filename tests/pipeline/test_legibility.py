@@ -480,7 +480,7 @@ def test_s9_blurred_passport_goes_to_unreadable_naming_the_illegible_field(
     upload = _upload(session, layout, [("pasaport.pdf", pdf)])
     provider = RecordingProvider.from_directory(RECORDINGS / "s9_blurred_passport")
     analyze_upload(session, layout, upload, provider=provider, instructions=INSTRUCTIONS)
-    (candidate,) = group_upload(session, upload, catalog=CATALOG).candidates
+    (candidate,) = group_upload(session, upload, catalog=CATALOG, layout=layout).candidates
     events = _event_count(session)
 
     check = check_legibility(candidate, catalog=CATALOG)
@@ -522,7 +522,7 @@ def test_analysed_passport_is_judged_by_its_acceptance_criteria(
     upload = _upload(session, layout, [("pasaport.pdf", make_text_pdf_bytes(["PASAPORT"]))])
     provider = _recordings(tmp_path, [recording])
     analyze_upload(session, layout, upload, provider=provider, instructions=INSTRUCTIONS)
-    (candidate,) = group_upload(session, upload, catalog=CATALOG).candidates
+    (candidate,) = group_upload(session, upload, catalog=CATALOG, layout=layout).candidates
 
     check = check_legibility(candidate, catalog=CATALOG)
 
@@ -539,7 +539,7 @@ def test_s5_card_paired_across_files_reads_required_fields_from_its_front(
     upload = _upload(session, layout, [front, back])
     provider = RecordingProvider.from_directory(RECORDINGS / "s5_front_back_images")
     analyze_upload(session, layout, upload, provider=provider, instructions=INSTRUCTIONS)
-    (card,) = group_upload(session, upload, catalog=CATALOG).candidates
+    (card,) = group_upload(session, upload, catalog=CATALOG, layout=layout).candidates
     assert len(card.file_ids) == 2
 
     check = check_legibility(card, catalog=CATALOG)

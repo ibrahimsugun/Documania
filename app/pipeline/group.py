@@ -1,6 +1,6 @@
 """Dosya içi ve dosyalar arası gruplama, ön/arka yüz eşleşmesi, ardışıklık güvenlik kuralı,
-belirsiz eşleştirmenin reddi, beklenen sayfa sayısı kontrolü ve bilinmeyen tür — PRD 04.1.1,
-04.1.2, 04.2.1, 04.3.1, 04.3.2, 04.5.1, 04.6.1.
+belirsiz eşleştirmenin reddi, beklenen sayfa sayısı kontrolü, bilinmeyen tür ve Word/Excel eki
+yolu — PRD 04.1.1, 04.1.2, 04.2.1, 04.3.1, 04.3.2, 04.5.1, 04.6.1, 04.7.1.
 
 Bir dosyanın analiz edilmiş sayfaları `pages.index` sırasıyla **belge adaylarına** ayrılır (§4:
 karar motorunun aynı belgeye ait olduğuna hükmettiği sayfa grubu). Sayfa açık adaya ancak aşağıdaki
@@ -94,6 +94,16 @@ katalog türüne, aday tür adına ya da en yakın türe eşlenmez, slug'ı boş
 katalog türünün yapısına dayandığı için bu adayı yargılamaz; hüküm tektir. Gerekçe
 (`UnknownDocumentType.reason`) sayfaları ve önerilen aday tür adını yazar; kişisel değer taşımaz.
 
+**Word/Excel eki (04.7.1, K2):** hiç sayfası olmayan dosya (K2: Word/Excel render/analiz
+edilmez) içerik imzasından (`detect_file_kind`) tespit edilir; katalogda `analyze: false` olan ve
+o içerik türünü `expected_file_types`'ta taşıyan kayıtla (tohumda yalnız `attachment`) eşleşirse
+`AttachmentFile` üretilir. Sayfalara ayrılmaz, kişi/kabul kriteri değerlendirilmez, dönüştürülmez
+(K2). Partinin bağlam çalışanı (`Upload.context_employee_id`) doluysa belge olduğu gibi Hazir'a
+kaydedilecek şekilde `unresolved` boş kalır; boşsa sahibi belirsiz olduğu için `unresolved` dolar
+ve gerekçesiyle Unresolved'a gider — fiziksel kopyalama sonraki görevin (07.x) işidir. Eşleşen bir
+`analyze: false` kayıt yoksa (K2 dışı içerik) dosya sayfasız ve adaysız kalır; bu görevin kapsamı
+yalnız Word/Excel'dir.
+
 `group_upload` partinin tekrar olmayan dosyalarını ayrı ayrı gruplar, ayrı dosyalardaki yüzleri
 eşleştirir ve her aday için bir olay yazar: katalog türünde `DOC_TYPE_DETERMINED`, değilse
 `DOC_TYPE_UNKNOWN` (veri: slug veya aday tür adı, sayfalar, yüzler — kişisel değer yok). Dosyalar
@@ -101,8 +111,9 @@ arası adayın olayı ilk sayfasının (ön yüz) dosyasına yazılır ve kaynak
 Ardışıklık kuralına, belirsiz eşleştirmeye, beklenen sayfa sayısı kontrolüne ya da bilinmeyen türe
 takılan adayın olayı ayrıca kuralın verisini ve gerekçeyi taşır. Aday tür adı olan bilinmeyen tür
 adayında önerilen tür `candidate_document_types`'a aday tür olarak kaydedilir
-(`record_candidate_type_sighting`) ve görülme sayıldıysa `CANDIDATE_TYPE_PROPOSED` yazılır. Oturum
-commit edilmez; işlem sınırı çağıranındır.
+(`record_candidate_type_sighting`) ve görülme sayıldıysa `CANDIDATE_TYPE_PROPOSED` yazılır. Word/
+Excel eki de kendi dosyasına `DOC_TYPE_DETERMINED` yazar (veri: slug, bağlam yoksa `unresolved`).
+Oturum commit edilmez; işlem sınırı çağıranındır.
 """
 
 from __future__ import annotations
@@ -118,7 +129,7 @@ from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
 from app.ai.schemas import PageAnalysis, PagePerson, Side
-from app.catalog import Catalog, CatalogEntry, Sides
+from app.catalog import Catalog, CatalogEntry, FileType, Sides
 from app.db.models import (
     Page,
     QueueKind,
@@ -129,6 +140,7 @@ from app.db.models import (
 )
 from app.events import EventType, event_context, record_event
 from app.pipeline.analyze import PageAnalysisStatus
+from app.storage import DataLayout, UnsupportedFileTypeError, detect_file_kind
 
 # §20.2.1: belge numarası büyük harfe çevrilir; boşluk, tire, nokta ve eğik çizgi silinir.
 _NUMBER_SEPARATORS = re.compile(r"[\s./-]+")
@@ -308,6 +320,44 @@ class UnknownDocumentType:
 
 
 @dataclass(frozen=True, slots=True)
+class AttachmentWithoutContext:
+    """04.7.1 (K2): Word/Excel eki bir çalışan bağlamı olmadan yüklendi, sahibi belirsiz.
+
+    Belge analiz edilmez, dönüştürülmez, olduğu gibi saklanır (K2); yalnız sahibi bilinmediği
+    için Unresolved'a gider. `reason` kişisel değer taşımaz.
+    """
+
+    queue: ClassVar[QueueKind] = QueueKind.UNRESOLVED
+
+    file_id: int
+    document_type_slug: str
+
+    @property
+    def reason(self) -> str:
+        return (
+            "Word/Excel eki (04.7.1): parti bir çalışan bağlamıyla yüklenmedi, sahibi "
+            "belirlenemedi; belge analiz edilmez, dönüştürülmez, gerekçesiyle kuyruğa alınır."
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class AttachmentFile:
+    """04.7.1 (K2): Word/Excel eki — analiz edilmeden, dönüştürülmeden bütün dosya taşınır.
+
+    PDF/JPEG/PNG'nin aksine sayfa render/analiz adımından hiç geçmez; sayfalara ayrılmaz.
+    `document_type_slug` katalogda içerik türünü (`expected_file_types`) taşıyan `analyze: false`
+    kayıttır (`Catalog.unanalyzed_entry_for`). `unresolved` doluysa parti bağlam çalışanı olmadan
+    yüklendi (`Upload.context_employee_id` boş) ve belge Unresolved'a gider; boşsa bağlam çalışanı
+    bilindiği için belge olduğu gibi Hazir'a kaydedilir — kişi eşleştirme veya kabul kriteri
+    değerlendirmesinden geçmez (K2).
+    """
+
+    file_id: int
+    document_type_slug: str
+    unresolved: AttachmentWithoutContext | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class DocumentCandidate:
     """Aynı belgeye ait olduğuna hükmedilen sayfalar, belgedeki sırasıyla.
 
@@ -362,10 +412,12 @@ class FileGrouping:
 
 @dataclass(frozen=True, slots=True)
 class UploadGrouping:
-    """Parti gruplaması: tekrar olmayan dosyalar (dosya sırasıyla) ve dosyalar arası adaylar."""
+    """Parti gruplaması: tekrar olmayan dosyalar (dosya sırasıyla), dosyalar arası adaylar ve
+    Word/Excel ekleri (04.7.1, dosya sırasıyla)."""
 
     files: tuple[FileGrouping, ...]
     cross_file_candidates: tuple[DocumentCandidate, ...] = ()
+    attachments: tuple[AttachmentFile, ...] = ()
 
     @property
     def candidates(self) -> tuple[DocumentCandidate, ...]:
@@ -376,24 +428,37 @@ class UploadGrouping:
         )
 
 
-def group_upload(session: Session, upload: Upload, *, catalog: Catalog) -> UploadGrouping:
+def group_upload(
+    session: Session, upload: Upload, *, catalog: Catalog, layout: DataLayout
+) -> UploadGrouping:
     """Partinin her dosyasını ayrı gruplar (04.1, 04.2, 04.6), ayrı dosyalardaki yüzleri
-    eşleştirir (04.3), sayfa sayısını denetler (04.5) ve her adayı olay loguna yazar.
+    eşleştirir (04.3), sayfa sayısını denetler (04.5), Word/Excel eklerini sınıflar (04.7) ve
+    her adayı olay loguna yazar.
 
     Tekrar dosyası (01.4.1) gruplanmaz: analiz edilmemiştir ve çıktı üretmez. `catalog`, türlerin
-    yüz yapısının okunduğu güncel katalogdur (`export_catalog(session)`). Bilinmeyen tür adayının
-    önerdiği tür aday tür olarak kaydedilir; dönen gruplamada `unknown_type.candidate_type_id`
-    doludur. Kayıtlar ve olaylar bütün dosyalar gruplandıktan sonra yazılır: şemaya uymayan saklı
-    analiz hiçbir şey yazılmadan durdurur.
+    yüz yapısının okunduğu güncel katalogdur (`export_catalog(session)`). Hiç sayfası olmayan
+    dosya (K2: Word/Excel render edilmez) `layout`taki içeriğinden Word/Excel eki olup olmadığı
+    için sınanır (04.7.1); eşleşmezse gruplamaya girmez (bu görevin kapsamı dışı). Bilinmeyen tür
+    adayının önerdiği tür aday tür olarak kaydedilir; dönen gruplamada
+    `unknown_type.candidate_type_id` doludur. Kayıtlar ve olaylar bütün dosyalar gruplandıktan
+    sonra yazılır: şemaya uymayan saklı analiz hiçbir şey yazılmadan durdurur.
     """
+    non_duplicates = [
+        upload_file for upload_file in upload.files if upload_file.is_duplicate_of is None
+    ]
     grouping = group_across_files(
         (
             group_file_pages(upload_file.id, _grouping_pages(upload_file), catalog=catalog)
-            for upload_file in upload.files
-            if upload_file.is_duplicate_of is None
+            for upload_file in non_duplicates
         ),
         catalog=catalog,
     )
+    attachments = [
+        attachment
+        for upload_file in non_duplicates
+        if not upload_file.pages
+        and (attachment := _classify_attachment(layout, upload_file, catalog)) is not None
+    ]
     page_ids = {
         (page.file_id, page.index): page.id
         for upload_file in upload.files
@@ -414,7 +479,10 @@ def group_upload(session: Session, upload: Upload, *, catalog: Catalog) -> Uploa
             _record_candidate(session, upload.id, candidate, page_ids)
             for candidate in grouping.cross_file_candidates
         )
-    return UploadGrouping(files, cross_file)
+        attached = tuple(
+            _record_attachment(session, upload, attachment) for attachment in attachments
+        )
+    return UploadGrouping(files, cross_file, attached)
 
 
 def group_file_pages(
@@ -950,3 +1018,45 @@ def _record_type_event(session: Session, candidate: DocumentCandidate) -> None:
 
 def _page_ref_data(refs: Iterable[PageRef]) -> list[dict[str, int]]:
     return [{"file_id": ref.file_id, "page_index": ref.index} for ref in refs]
+
+
+def _classify_attachment(
+    layout: DataLayout, upload_file: UploadFile, catalog: Catalog
+) -> AttachmentFile | None:
+    """04.7.1: dosya içeriği Word/Excel imzasıysa ve katalogda `analyze: false` bir tür
+    eşleşiyorsa `AttachmentFile` döner; eşleşmiyorsa `None` (bu görevin kapsamı dışı)."""
+    content = layout.resolve(upload_file.stored_path).read_bytes()
+    try:
+        kind = detect_file_kind(content)
+    except UnsupportedFileTypeError:
+        return None
+    entry = catalog.unanalyzed_entry_for(FileType(kind.value))
+    if entry is None:
+        return None
+    return AttachmentFile(file_id=upload_file.id, document_type_slug=entry.slug)
+
+
+def _record_attachment(
+    session: Session, upload: Upload, attachment: AttachmentFile
+) -> AttachmentFile:
+    """04.7.1: bağlam çalışanı yoksa `unresolved`i doldurur ve `DOC_TYPE_DETERMINED` yazar."""
+    if upload.context_employee_id is None:
+        attachment = replace(
+            attachment,
+            unresolved=AttachmentWithoutContext(
+                file_id=attachment.file_id, document_type_slug=attachment.document_type_slug
+            ),
+        )
+    data: dict[str, object] = {"document_type_slug": attachment.document_type_slug}
+    message = None
+    if attachment.unresolved is not None:
+        data["unresolved"] = {"queue": attachment.unresolved.queue.value}
+        message = attachment.unresolved.reason
+    record_event(
+        session,
+        EventType.DOC_TYPE_DETERMINED,
+        file_id=attachment.file_id,
+        message=message,
+        data=data,
+    )
+    return attachment

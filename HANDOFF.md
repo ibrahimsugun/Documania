@@ -18,6 +18,12 @@ Blok biçimi `CONVENTIONS.md` §3'te tanımlıdır:
 
 ## Task log (newest-first)
 
+## 31 — 04.7 Word/Excel (Attachment) yolu — done — 2026-09-15
+- Yapıldı: `Catalog.unanalyzed_entry_for` (`app/catalog/schema.py`) içerik türünü `analyze: false` katalog kaydına eşler; `group_upload` (`app/pipeline/group.py`) hiç sayfası olmayan her dosyayı (K2: Word/Excel render/analiz edilmez) gerçek içeriğinden sınar, eşleşirse `AttachmentFile` üretir — bağlam çalışanı (`Upload.context_employee_id`) doluysa işaretsiz (Hazir'a hazır), boşsa `AttachmentWithoutContext` ile Unresolved. `group_upload` imzasına `layout: DataLayout` eklendi.
+- Doğrulama: ruff check/format, compileall, `pytest -q -m "not live"` (966 geçti, +9; 4 PG testi atlandı), kapsam %99.47 (`app/pipeline/group.py` %100), temiz SQLite'ta `alembic upgrade head` (göç yok), `import app.main` — hepsi exit 0.
+- Varsayımlar: fiziksel Hazir kopyalaması (K10/K11) ve kuyruk kaydı (`QUEUED_UNRESOLVED`) sonraki görevlerin (07.x/08.1), tıpkı 04.1–04.6'daki diğer hükümler gibi; eşleşen `analyze: false` katalog kaydı yoksa (desteklenmeyen içerik ya da `attachment` tanımsız) aday üretilmez, bu görevin kapsamı dışı.
+- Sonraki pencereye not: `group_upload`'un imzası değişti (`layout` zorunlu keyword-only oldu) — yeni çağıranlar bunu geçmeli; 06.1 rota atarken `unresolved` dolu `AttachmentFile`'a `route: unresolved, route_reason: reason` yazmalı, boşsa `route: hazir` — sayfa tabanlı adaylardan farklı olarak kişi eşleştirme/plan JSON alanları (`document_type_slug` dışında) hiç üretilmez.
+
 ## 30 — 04.6 Bilinmeyen tür ve aday tür önerisi — done — 2026-09-15
 - Yapıldı: `group_file_pages` (`app/pipeline/group.py`) güncel katalogda türü olmayan her adayı (aday tür adlı, türü belirlenemeyen, slug'ı katalogdan kalkmış) zorla bir türe atamadan `unknown_type` (`UnknownDocumentType`: `queue=unknown`, değersiz `reason`) ile işaretler; `group_upload` aday tür adını `record_candidate_type_sighting` (`app/db/models.py`, kilitli upsert) ile `candidate_document_types`'a yazar, `DOC_TYPE_UNKNOWN`'a `unknown_type` verisi + mesaj, sayılan görülmede `CANDIDATE_TYPE_PROPOSED` ekler. S14 kaydı eklendi (`tests/fixtures/ai/recordings/s14_peruvian_diploma`).
 - Doğrulama: ruff check/format, compileall, `pytest -q -m "not live"` (957 geçti, +31; 4 PG testi atlandı), kapsam %99.55 (`app/pipeline/group.py` %100; `models.py`'de yalnız PG dalları eksik), temiz SQLite'ta `alembic upgrade head` (göç yok), `import app.main` — hepsi exit 0; 7 kural bozulması geçici olarak denendi, her biri testte kırmızı.

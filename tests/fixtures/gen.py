@@ -6,6 +6,7 @@ içindir; içerik boş sayfa ya da geometrik desendir, hiçbir kişisel veri ta�
 
 from __future__ import annotations
 
+import zipfile
 from collections.abc import Sequence
 from io import BytesIO
 
@@ -93,3 +94,31 @@ def make_half_filled_pdf_bytes(width: float = A4[0], height: float = A4[1]) -> b
     content = document.tobytes()
     document.close()
     return content
+
+
+def _zip_with(*entries: str) -> bytes:
+    buffer = BytesIO()
+    with zipfile.ZipFile(buffer, "w") as archive:
+        for entry in entries:
+            archive.writestr(entry, "sentetik icerik")
+    return buffer.getvalue()
+
+
+def make_docx_bytes() -> bytes:
+    """Word (OOXML) içerik imzasını taşıyan en küçük ZIP (K2 — analiz edilmez)."""
+    return _zip_with("[Content_Types].xml", "word/document.xml")
+
+
+def make_xlsx_bytes() -> bytes:
+    """Excel (OOXML) içerik imzasını taşıyan en küçük ZIP (K2 — analiz edilmez)."""
+    return _zip_with("[Content_Types].xml", "xl/workbook.xml")
+
+
+def make_legacy_doc_bytes() -> bytes:
+    """Eski ikili Word (CFBF/OLE) içerik imzası (K2 — analiz edilmez)."""
+    return b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1" + b"\x00" * 32 + "WordDocument".encode("utf-16-le")
+
+
+def make_legacy_xls_bytes() -> bytes:
+    """Eski ikili Excel (CFBF/OLE) içerik imzası (K2 — analiz edilmez)."""
+    return b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1" + b"\x00" * 32 + "Workbook".encode("utf-16-le")
