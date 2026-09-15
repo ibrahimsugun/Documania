@@ -18,6 +18,12 @@ Blok biçimi `CONVENTIONS.md` §3'te tanımlıdır:
 
 ## Task log (newest-first)
 
+## 33 — 05.2 Harf çevirisi (Kiril, Arap) — done — 2026-09-15
+- Yapıldı: `transliterate_name(text, *, language=None)` (`app/matching/names.py`) Kiril'i ICAO Doc 9303 Tablo B (varsayılan sütun + `be/bg/mk/sr/uk` istisnaları), Arapçayı Tablo C MRZ sütunu (şedde ikiler, `ة` sonda `XAH`) ile Latin'e çevirip `TransliteratedName(original, latin)` döner; `normalize_name(*parts, language=None)` çeviriyi aksan atmadan önce uygular. S13 kaydı eklendi (`tests/fixtures/ai/recordings/s13_cyrillic_name`).
+- Doğrulama: ruff check/format, compileall, `pytest -q -m "not live"` (1165 geçti, +155; 4 PG testi atlandı), kapsam %99.49 (`app/matching/names.py` %100), temiz SQLite'ta `alembic upgrade head` (göç yok), `import app.main` — hepsi exit 0; 17 kural bozulması geçici olarak denendi, her biri testte kırmızı.
+- Varsayımlar: PLAN.md §C24 — tablo kod noktasıyla okunur; `Ь` yazılmaz, `Ћ → C`, ayrışan harf temel harfiyle, diğer tablo dışı harf olduğu gibi; Arapça slug'dan (C6) farklı olarak `X`'li MRZ biçimi; 05.1'in şedde testi güncellendi. §D7 — PRD örneği (`Dmitry Vasiliev` = `Дмитрий Васильев`) ICAO ile tutmuyor, varyant katlaması uydurulmadı; Sırpça `Г = H` gibi tablo kusurları yazıldığı gibi uygulandı — insan kararı bekliyor.
+- Sonraki pencereye not: 05.4 anahtarı üretirken `language=PageAnalysis.language`'ı `normalize_name`'e geçmeli (yoksa Ukraynaca/Sırpça Kiril, belgenin Latin yazımıyla eşleşmez) ve `original_script_name`'i `transliterate_name` ile saklamalı; 05.3 için: mevcut `russian_passport` kaydının MRZ'sindeki dört kontrol hanesi de (belge no, doğum, son kullanma, bileşik) tutmuyor; S13 kaydınınkiler doğru.
+
 ## 32 — 05.1 İsim normalizasyonu — done — 2026-09-15
 - Yapıldı: yeni `app/matching/` paketi; `normalize_name(*parts)` (`app/matching/names.py`) isim parçalarını §20.2.1 sırasıyla tek anahtara indirir — uyumluluk katlaması + işaret atma (aksan), Türkçe/ayrışmayan Latin harf tablosu, kesme işareti ve görünmez karakter silme, noktalama/çoklu boşluk → tek ayırıcı, alfabetik kelime sırası; kelimesiz isimde `EmptyNameError`.
 - Doğrulama: ruff check/format, compileall, `pytest -q -m "not live"` (1010 geçti, +44; 4 PG testi atlandı), kapsam %99 (`app/matching/names.py` %100), temiz SQLite'ta `alembic upgrade head` (göç yok), `import app.main` — hepsi exit 0; 11 kural bozulması geçici olarak denendi, her biri testte kırmızı.

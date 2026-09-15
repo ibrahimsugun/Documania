@@ -94,9 +94,10 @@ def test_compatibility_forms_fold_to_plain_letters() -> None:
 
 
 def test_marks_that_split_nothing_are_removed() -> None:
-    # Birleştirici işaret (U+034F) ve Arapça harekeler kelimeyi bölmeden düşer.
+    # Birleştirici işaret (U+034F) ve Arapça harekeler kelimeyi bölmeden düşer; şedde ise
+    # harfi ikiler (ICAO Tablo C, bkz. test_transliteration).
     assert _same_key("A\u034fli", "Ali") == "ali"
-    assert normalize_name("مُحَمَّد") == normalize_name("محمد")
+    assert normalize_name("مُحَمَد") == normalize_name("محمد")
 
 
 def test_apostrophe_revealed_by_folding_does_not_split_the_word() -> None:
@@ -104,11 +105,11 @@ def test_apostrophe_revealed_by_folding_does_not_split_the_word() -> None:
     assert normalize_name("Vanŉ") == normalize_name("Vann")
 
 
-def test_non_latin_letters_are_kept_and_folded() -> None:
-    # Latin'e çeviri 05.2'nindir; o olmadan da harfler düşmez, büyüklük ve sıra yine katlanır.
-    cyrillic = normalize_name("Дмитрий Васильев")
-    assert normalize_name("ВАСИЛЬЕВ ДМИТРИЙ") == cyrillic
-    assert normalize_name("Иван Петров") != cyrillic
+def test_letters_without_a_transliteration_are_kept_and_folded() -> None:
+    # Çeviri tablosu olmayan yazı (Grekçe) düşmez; büyüklük ve sıra yine katlanır.
+    greek = normalize_name("Γιώργος Παπαδόπουλος")
+    assert normalize_name("ΠΑΠΑΔΟΠΟΥΛΟΣ ΓΙΩΡΓΟΣ") == greek
+    assert normalize_name("Νίκος Παπαδόπουλος") != greek
 
 
 @pytest.mark.parametrize(

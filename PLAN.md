@@ -8,7 +8,7 @@
 
 | Faz | PRD | Genel durum | Must sayacı | Kapanış |
 | --- | --- | --- | --- | --- |
-| Faz 0 — MVP | §5.1 | 53 ✅ · 0 ◐ · 49 ⬜ · 0 🔒 | 51/98 Must | AÇIK |
+| Faz 0 — MVP | §5.1 | 54 ✅ · 0 ◐ · 48 ⬜ · 0 🔒 | 52/98 Must | AÇIK |
 | Faz 1 — v1 | §5.2 | 0 ✅ · 0 ◐ · 0 ⬜ · 32 🔒 | 0/21 Must | AÇIK |
 | Faz 2 — v2 | §5.3 | 0 ✅ · 0 ◐ · 0 ⬜ · 13 🔒 | 0/0 Must | AÇIK |
 | Faz 3 — Enterprise | §5.4 | 0 ✅ · 0 ◐ · 0 ⬜ · 8 🔒 | 0/0 Must | AÇIK |
@@ -148,7 +148,7 @@ panelde `plan-count-drift` bulgusu doğurur.
 | PRD | Gereksinim | Öncelik | Durum |
 | --- | --- | --- | --- |
 | 05.1.1 | İsim normalizasyonu | Must (MVP) | ✅ → K05.1 |
-| 05.2.1 | Harf çevirisi | Must (MVP) | ⬜ |
+| 05.2.1 | Harf çevirisi | Must (MVP) | ✅ → K05.2 |
 | 05.3.1 | MRZ ayrıştırma | Must (MVP) | ⬜ |
 | 05.3.2 | MRZ kontrol hanesi doğrulaması | Must (MVP) | ⬜ |
 | 05.3.3 | MRZ önceliği | Must (MVP) | ⬜ |
@@ -737,6 +737,37 @@ Onay beklemeden yapılan varsayımlar buraya numaralı olarak yazılır.
   noktalama/görünmez karakter, hiç parça yok) `EmptyNameError` (`ValueError`) verir; boş anahtar
   döndürülmez ki iki okunamayan isim birbiriyle "eşleşmesin" (§20.2.2 satır 8 çağıranın kararıdır).
   Modül saf fonksiyondur: veritabanı, olay ve göç yok.
+- **C24** — Harf çevirisi (tm 33, 05.2.1): §20.2.1 "ICAO çeviri tablosu" der, tabloyu vermez.
+  Kaynak ICAO Doc 9303 Bölüm 3 (8. baskı) §6'dır: Tablo B (Kiril) ve Tablo C (Arap, MRZ sütunu),
+  `transliterate_name` / `normalize_name` (`app/matching/names.py`). **Anahtar Unicode kod
+  noktasıdır**, basılı glif değil: tablonun `0402` satırında glif `Ћ` basılı, değer `D` — `Ђ`
+  (U+0402) `D` olur. **Tabloda satırı olmayan harfler:** `Ь` yazılmaz (Rus/Ukrayna/Belarus ICAO
+  uygulamalarında atılır; tutulsaydı `Васильев` pasaportun `VASILEV` yazımıyla hiç eşleşmezdi),
+  `Ћ` `C` olur (Sırp Latin karşılığı `Ć`, Tablo A'da `C`; `-ић` soyadları için). Satırı olmayan ama
+  Unicode'da temel harf + işarete ayrışan harf (`Ѓ Ѝ Ӣ Ӯ Ӂ`) temel harfin satırıyla çevrilir. Başka
+  tablo dışı harf (Kazakça `Қ Ә Ө Ү`, Grekçe) **tahminle Latin'e indirilmez**, olduğu gibi kalır:
+  aynı yazımla eşleşir, Latin yazımla eşleşmez (yanlış eşleşme yerine eşleşmeme). **Dil
+  istisnaları** tabloda yazılı olduğu için uygulanır; dil `language` (ISO 639-1, büyük/küçük harf
+  duyarsız, `PageAnalysis.language`) ile gelir — `be` (`Ё IO`, `Г H`), `bg` (`Щ SHT`), `mk` (`Ќ KJ`,
+  `Џ DJ`, `Х H`, `Ц C`, `Ғ GJ`), `sr` (`Г H`, `Ж Z`, `Х H`, `Ц C`, `Ч C`, `Ш S`), `uk` (`Г H`,
+  `И Y`); başka dil ya da dil yok → varsayılan sütun. Ukraynaca "first character" kelimenin ilk
+  harfi okunur (tire/boşluk kelime böler, kesme işareti bölmez: `Мар'яна → Mar'iana`, `Ющенко-Ярова
+  → Yushchenko-Yarova`). **Arap:** Tablo C'nin MRZ sütunu (`X`'li geri çevrilebilir biçim), çünkü
+  C6'daki sade ünsüz biçimi `ح`/`ه`'yi aynı `h`'ye indirir — eşleştirme anahtarında daha çok
+  çakışma; slug (C6) ile anahtar Arapçada farklı yazar, ikisi farklı iştir. "(Not encoded)"
+  satırları (harekeler, sükun, üst elif, tatvil, `ڜ ڢ ڧ ڨ`) boş karşılıktır; şedde tablonun
+  örneğindeki gibi önceki harfin karşılığını tekrarlar (`عبّاس → EBBAS`, `فضّة → FXDZXDZXAH`),
+  araya giren hareke ikilemeyi kesmez, önünde harf yoksa yazılmaz — bu yüzden harekeli `مُحَمَّد`
+  (`mxhmmd`) harekesiz `محمد` (`mxhmd`) ile eşleşmez (05.1 testi buna göre güncellendi). `ة`
+  arkasından (hareke, tatvil, kesme işareti atlanarak) harf/rakam gelmiyorsa `XAH`, geliyorsa
+  `XTA`. Arap sunum biçimleri (U+FB50–FDFF, U+FE70–FEFE) NFKC ile açılır, sonra NFC (`ا + ٓ → آ`,
+  `и + ̆ → й`). **Sıra:** çeviri §20.2.1'deki yerinden (aksan atmadan sonra) öne alındı, çünkü
+  `й`/`ё`/`ї` ve şedde aksan atılınca kaybolur; tablo çıktısı ASCII olduğundan varsayılan sütunda
+  sonuç aynıdır. **Orijinal yazım:** `TransliteratedName(original, latin)` — `original` verilen
+  metnin kendisi (NFC bile uygulanmaz), `latin` yalnız Kiril/Arap harfleri çevrilmiş hâli; Kiril
+  büyük harfin çok harfli karşılığı komşu harf büyükse büyük (`ЖУКОВ → ZHUKOV`), değilse baş harfi
+  büyük (`Жуков → Zhukov`), Arap karşılığı tablodaki gibi büyük. Veritabanına/profile yazma
+  (`employee_aliases.raw_name`, profil.md) 05.7.2 / 09.1'in; hangi alanın anahtara gireceği 05.4'ün.
 
 ## D. Sapmalar
 
@@ -776,6 +807,24 @@ bu kayıt neden sapıldığının izlenebilir olması içindir.
   `pages.text_layer`'ı yazıyor; sayfanın üretilmiş olması zaten `PAGE_RENDERED` ile loglanmış
   durumda. Aynı soru 02.4/02.5'te de çıkar (kapalı listede `PAGE_BLANK` var, gömülü görüntü
   tespiti için yok) — karar insana bırakıldı, gerekirse §8.3 listesine yeni tür eklenmeli.
+- **D7 — §20.2.1'in isim örneği kendi istediği ICAO tablosuyla çelişiyor (05.2.1, tm 33).** PRD
+  "Kiril ve Arap yazımı ICAO çeviri tablosuyla Latin'e çevir" der ve hemen ardından
+  "`Дмитрий Васильев`, `VASILIEV DMITRY` ve `Dmitry Vasiliev` aynı anahtara inmelidir" der. ICAO
+  Doc 9303 Tablo B `Дмитрий Васильев`'i `DMITRII VASILEV` yapar (`ий → II`, `Ь` yazılmaz); iki Latin
+  örnek ICAO dışı İngilizce yazımdır ve ayrı anahtardır (`dmitry vasiliev` ≠ `dmitrii vasilev`).
+  Örneği tutturmak `y/ii/i`, `ie/e` gibi PRD'de olmayan bir yazım varyantı katlaması uydurmak
+  demekti; bu da farklı kişilerin isimlerini birleştirip yanlış eşleşme yüzeyini büyütür. Tablo
+  uygulandı, katlama eklenmedi: Kiril yazım, 2014 sonrası Rus pasaportunun ICAO Latin yazımı
+  (`VASILEV DMITRII`) ve MRZ'si ile aynı anahtara iner; eski/İngilizce yazımla inmez
+  (`test_non_icao_spelling_is_not_folded_into_the_icao_key` bunu sabitler). Eşleşmemek güvenli
+  yöndür (satır 5–8: Unresolved/onay bekleyen profil; satır 6'da temiz numara varsa mükerrer
+  profil, İK taşımasıyla düzelir). Aynı belgede hem Latin hem orijinal yazım varsa ikisinin de
+  alias olarak birikmesi (05.7.2) iki yazımı aynı çalışana bağlar. **Ayrıca tablonun kendi
+  kusurları** tabloda yazıldığı gibi uygulandı: Sırpça `Г = H` (Sırp Latin yazısında `G`'dir —
+  `Горан → Horan`), Makedonca `GJ` notu `Ѓ` (U+0403) yerine `Ғ` (U+0492) satırında, `Һ = C`, `0402`
+  satırında glif `Ћ` (C24'te kod noktası esas alındı). Karar insana bırakıldı: PRD örneği ICAO
+  yazımına düzeltilmeli mi, yoksa bir varyant katlaması mı tanımlanmalı; Sırpça `Г` istisnası
+  kaldırılmalı mı.
 
 ## G. İş Kırılımı Dizini
 
@@ -1006,3 +1055,7 @@ var olan maddeler silinmez. Biçim:
 
 #### K05.1 — 05.1.1 · İsim normalizasyonu
 - ✅ 05.1.1 `normalize_name(*parts)` (`app/matching/names.py`) isim parçalarını §20.2.1 sırasıyla tek eşleştirme anahtarına indirir: Unicode uyumluluk katlaması (NFKD + casefold) ve `Mn`/`Me` işaretlerinin atılması (aksan), Türkçe harfler (`ç ş ğ ı ö ü`) ve ayrışmayan Latin harfleri (`ł ø æ đ þ`…) tabloyla, kesme işaretleri ve görünmez biçim karakterleri kelimeyi bölmeden silinir, diğer noktalama ve çoklu boşluk tek ayırıcı olur, kelimeler alfabetik sıralanıp tek boşlukla birleşir. `José Müller`/`JOSE MULLER`, `IŞIK`/`Işık`/`İŞIK`/`isik`, `O'Brien`/`O´Brien`/`OBRIEN`, `Jean-Pierre Dupont`/`DUPONT<<JEAN<PIERRE`, `Dmitry Vasiliev`/`VASILIEV, DMITRY` ve parça sırası (`("Dmitry", "Vasiliev")`) aynı anahtara iner; farklı isimler (`Yılmaz`/`Yılmazer`, `Ali Ali Veli`/`Ali Veli`, `Ana-Maria`/`Anamaria`) ayrı kalır, anahtar idempotenttir, kelimesiz isim `EmptyNameError` verir. Latin dışı harfler düşürülmez, çeviri 05.2'nin (bkz. C23). 11 kural bozulması (sıralama, Türkçe/Latin tablo, iki kesme işareti silme adımı, `Cf`, çift katlama, `combining` yerine kategori, casefold, boş anahtar, kelime tekrarı) geçici olarak denendi, her biri testte kırmızı — `app/matching/names.py` · test `tests/matching/test_names.py` (14 fonksiyon / 44 durum) · tm 32
+
+#### K05.2 — 05.2.1 · Harf çevirisi
+- ✅ 05.2.1 `transliterate_name(text, *, language=None)` (`app/matching/names.py`) Kiril yazımı ICAO Doc 9303 Bölüm 3 §6 Tablo B'yle (varsayılan sütun + `be`/`bg`/`mk`/`sr`/`uk` dil istisnaları, Ukraynaca kelime başı `YE YI Y YU YA`), Arap yazımı Tablo C'nin MRZ sütunuyla (hareke/tatvil yazılmaz, şedde ikiler, `ة` ad parçası sonunda `XAH`, sunum biçimleri açılır) Latin karşılığına çevirir ve `TransliteratedName(original, latin)` döner — `original` verilen metnin dokunulmamış hâli (NFD girdi bile olduğu gibi), dondurulmuş. `normalize_name(*parts, language=None)` çeviriyi aksan atmadan önce uygular: `Дмитрий Васильев`/`ВАСИЛЬЕВ ДМИТРИЙ`/`VASILEV DMITRII`/`VASILEV<<DMITRII` → `dmitrii vasilev`, `Микола Григоренко` (`uk`) = `HRYHORENKO MYKOLA`, `Живковић Чедомир` (`sr`) = `ŽIVKOVIĆ ČEDOMIR`, `محمد علي` = `علي مُحَمَد` = `ELY MXHMD`; dil yalnız Kiril harflerini etkiler, anahtar idempotent. Tablo dışı: `Ь` yazılmaz, `Ћ → C`, ayrışan harf temel harfiyle, diğerleri (`Қ`, Grekçe) olduğu gibi kalır (C24). PRD örneğinin ICAO dışı `Dmitry Vasiliev` yazımı ayrı anahtar kalır (D7). 05.1'in `مُحَمَّد == محمد` testi şedde kuralı gereği harekeli ama şeddesiz yazımla güncellendi. Bütün Rus alfabesi, Tablo B'nin diğer 16 satırı ve Tablo C'nin 80 satırı (78'i NFC ve NFD girdiyle tek tek; `ة` ve şedde kural testinde) doğrulanır. 17 kural bozulması (şedde, `XAH`, Ukraynaca kelime başı, `uk`/`sr` istisnası, `Ь`, `Ћ`, `Һ`, büyük harf kuralı, ayrışma yedeği, sunum biçimi, kesme işaretinin kelimeyi bölmemesi, harekenin saydamlığı, dilin harf büyüklüğü, katlamadan sonra çeviri, orijinalin NFC'lenmesi, tablo dışı harfin Latin'e indirilmesi) geçici olarak denendi, her biri testte kırmızı — `app/matching/names.py` · test `tests/matching/test_transliteration.py` (15 fonksiyon / 155 durum), `tests/matching/test_names.py` (14 / 44, 2 test güncellendi) · tm 33
+- ✅ S13 (isim düzeyi): sentetik Kiril isimli Rus pasaportu kaydı (`Тестова-Щёлкина Юлья`, Latin alanlar ve MRZ ICAO yazımıyla) §8.4 yanıt kabul girişinden (`validate_page_analysis`) geçer; `transliterate_name` orijinali aynen saklar ve `Testova-Shchelkina Iulia` verir; Kiril orijinal, Latin alanlar, çeviri ve MRZ ad alanı aynı anahtara (`iulia shchelkina testova`) iner; Latin alanlardan, çevrilmiş Kiril parçalardan ve doğrudan Kiril parçalardan (00.4.2 slug) aynı Latin klasör adı `Iulia_Testova_Shchelkina_E0001` çıkar. Orijinal yazımın profile (profil.md, 09.1.2/09.1.3) ve `employee_aliases`'a (05.7.2) yazılması sonraki görevlerin — `tests/fixtures/ai/recordings/s13_cyrillic_name/0.json` · test `tests/matching/test_transliteration.py` · tm 33

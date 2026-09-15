@@ -1,0 +1,33 @@
+{
+  "page_index": 0,
+  "is_blank": false,
+  "is_readable": true,
+  "language": "ru",
+  "script": "cyrillic",
+  "document_type_slug": "russian_passport",
+  "candidate_type_name": null,
+  "side": "single",
+  "continues_previous_page": false,
+  "person": {
+    "surname": "TESTOVA-SHCHELKINA",
+    "given_names": "IULIA",
+    "other_names": null,
+    "original_script_name": "Тестова-Щёлкина Юлья",
+    "date_of_birth": "1992-03-15",
+    "nationality": "RUS",
+    "document_number": "00 0000013",
+    "mrz_lines": [
+      "P<RUSTESTOVA<SHCHELKINA<<IULIA<<<<<<<<<<<<<<",
+      "0000000136RUS9203158F3203156<<<<<<<<<<<<<<04"
+    ],
+    "contact": {"phone": null, "email": null, "address": null}
+  },
+  "fields": {
+    "surname": {"value": "TESTOVA-SHCHELKINA", "legible": true},
+    "given_names": {"value": "IULIA", "legible": true},
+    "date_of_birth": {"value": "1992-03-15", "legible": true},
+    "document_number": {"value": "00 0000013", "legible": true},
+    "expiry_date": {"value": "2032-03-15", "legible": true}
+  },
+  "notes": null
+}
