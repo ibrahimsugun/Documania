@@ -3,7 +3,8 @@
 parçalar otomatik birleştirilmez, gerekçesiyle Unresolved'a gider; 04.3.1 — yalnız `direct: false`
 türlerde aynı partideki ayrı dosyalardaki ön ve arka yüz eşleştirilir; 04.3.2 — aynı türden birden
 fazla ön yüz varsa eşleştirme yapılmaz, hepsi Unresolved'a gider; 04.5.1 — aday, türün sayfa
-aralığı dışındaysa Unresolved olur. Kabul senaryoları: S3, S4, S5.
+aralığı dışındaysa Unresolved olur; 04.6.1 — katalogda olmayan belge zorla bir türe atanmaz, aday
+tür olarak kaydedilir ve Unknown'a gider. Kabul senaryoları: S3, S4, S5, S14.
 
 Birim testleri `group_file_pages`'e ve `group_across_files`'a sentetik analizler verir. Entegrasyon
 testleri sentetik PDF/JPEG'i gerçek render adımlarından ve kayıtlı yanıt sağlayıcısıyla (03.6)
@@ -25,7 +26,15 @@ from app.ai import PageAnalysis, Side, build_page_analysis_instructions
 from app.ai.recording_provider import RecordingProvider
 from app.catalog import Catalog, load_seed_catalog, validate_catalog
 from app.config import Settings
-from app.db.models import Event, QueueKind, Upload, UploadFile, UploadStatus
+from app.db.models import (
+    CandidateDocumentType,
+    CandidateTypeStatus,
+    Event,
+    QueueKind,
+    Upload,
+    UploadFile,
+    UploadStatus,
+)
 from app.events import EventType
 from app.pipeline.analyze import analyze_upload
 from app.pipeline.group import (
@@ -37,6 +46,7 @@ from app.pipeline.group import (
     PageCountViolation,
     PageRef,
     StoredAnalysisError,
+    UnknownDocumentType,
     UploadGrouping,
     group_across_files,
     group_file_pages,
@@ -1408,6 +1418,174 @@ def test_group_upload_marks_a_lone_face_with_no_counterpart_as_a_page_count_viol
     }
 
 
+# --- 04.6.1 bilinmeyen tür ---------------------------------------------------------------------
+
+
+def _catalog_without(slug: str) -> Catalog:
+    return validate_catalog(
+        [entry.model_dump(mode="json") for entry in CATALOG if entry.slug != slug]
+    )
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        pytest.param("Peruvian Diploma", id="katalogda-benzeri-yok"),
+        pytest.param("Russian Passport", id="katalog-turunun-adi"),
+        pytest.param(PASSPORT, id="katalog-slugi"),
+    ],
+)
+def test_catalog_less_candidate_is_not_forced_into_a_type_and_goes_to_unknown(name: str) -> None:
+    # Aday tür adı katalogdaki bir türün adına ya da slug'ına benzese de o türe eşlenmez (R7).
+    grouping = _group(_page(0, None, candidate_type_name=name, fields={}))
+
+    (candidate,) = grouping.candidates
+    assert candidate.document_type_slug is None
+    assert candidate.unknown_type == UnknownDocumentType(
+        pages=(PageRef(FILE_ID, 0),), candidate_type_name=name
+    )
+    assert candidate.unknown_type.queue is QueueKind.UNKNOWN
+    assert candidate.unknown_type.candidate_type_id is None
+    assert (
+        candidate.contiguity_violation,
+        candidate.ambiguous_pairing,
+        candidate.page_count_violation,
+    ) == (None, None, None)
+
+
+def test_multi_page_catalog_less_candidate_gets_one_verdict_for_all_its_pages() -> None:
+    grouping = _group(
+        _page(0, None, candidate_type_name="Peruvian Diploma", fields={}),
+        _page(1, None, continues=True, candidate_type_name="PERUVIAN  diploma", fields={}),
+    )
+
+    (candidate,) = grouping.candidates
+    assert candidate.unknown_type == UnknownDocumentType(
+        pages=(PageRef(FILE_ID, 0), PageRef(FILE_ID, 1)), candidate_type_name="Peruvian Diploma"
+    )
+
+
+def test_page_whose_type_is_undetermined_goes_to_unknown_without_a_proposal() -> None:
+    grouping = _group(_page(0, None, fields={}), _page(1, None, continues=True, fields={}))
+
+    assert [candidate.unknown_type for candidate in grouping.candidates] == [
+        UnknownDocumentType(pages=(PageRef(FILE_ID, 0),)),
+        UnknownDocumentType(pages=(PageRef(FILE_ID, 1),)),
+    ]
+
+
+def test_slug_missing_from_the_current_catalog_goes_to_unknown() -> None:
+    # Saklanan analiz katalogsuz okunur (C12); tür analizden sonra katalogdan kalkmış olabilir.
+    grouping = group_file_pages(FILE_ID, [_page(0, PASSPORT)], catalog=_catalog_without(PASSPORT))
+
+    (candidate,) = grouping.candidates
+    assert candidate.document_type_slug == PASSPORT
+    assert candidate.unknown_type == UnknownDocumentType(
+        pages=(PageRef(FILE_ID, 0),), document_type_slug=PASSPORT
+    )
+
+
+def test_catalog_type_candidates_are_never_unknown() -> None:
+    grouping = _across(
+        _file(
+            1,
+            _front(0),
+            _photo(1),
+            _page(2),
+            _front(3, slug=RESIDENCE),
+            _back(4, slug=RESIDENCE),
+            _back(5, continues=False),
+        ),
+        _file(2, _page(0, PASSPORT), _front(1)),
+        _file(3, _back(0)),
+    )
+
+    assert len(grouping.candidates) == 8
+    assert all(candidate.unknown_type is None for candidate in grouping.candidates)
+
+
+def test_unknown_type_is_the_only_verdict_of_a_catalog_less_candidate() -> None:
+    # Ardışıklık, dosyalar arası eşleştirme ve sayfa sayısı katalog türünün yapısına dayanır;
+    # katalog dışı kart yüzleri araya belge girse, ayrı dosyalarda dursa ya da aday uzun olsa da
+    # yalnız Unknown'a gider.
+    bosnian = {"candidate_type_name": "Bosnian Identity Card", "fields": {}}
+    diploma = {"candidate_type_name": "Peruvian Diploma", "fields": {}}
+    grouping = _across(
+        _file(
+            1,
+            _page(0, None, side="front", **bosnian),
+            _photo(1),
+            _page(2, None, side="back", **bosnian),
+        ),
+        _file(
+            2,
+            _page(0, None, side="back", **bosnian),
+            _page(1, None, **diploma),
+            *(_page(index, None, continues=True, **diploma) for index in range(2, 6)),
+        ),
+    )
+
+    assert grouping.cross_file_candidates == ()
+    assert [_refs(candidate) for candidate in grouping.candidates] == [
+        [(1, 0)],
+        [(1, 1)],
+        [(1, 2)],
+        [(2, 0)],
+        [(2, 1), (2, 2), (2, 3), (2, 4), (2, 5)],
+    ]
+    assert [candidate.unknown_type is not None for candidate in grouping.candidates] == [
+        True,
+        False,
+        True,
+        True,
+        True,
+    ]
+    for candidate in grouping.candidates:
+        assert (
+            candidate.contiguity_violation,
+            candidate.ambiguous_pairing,
+            candidate.page_count_violation,
+        ) == (None, None, None)
+
+
+@pytest.mark.parametrize(
+    ("verdict", "reason"),
+    [
+        pytest.param(
+            UnknownDocumentType(pages=(PageRef(3, 0),), candidate_type_name="Peruvian  Diploma"),
+            "Bilinmeyen belge türü (04.6.1): bu adayın (dosya 3, sayfa 1) türü katalogda yok; "
+            'önerilen aday tür: "Peruvian Diploma". Belge katalogdaki bir türe zorla atanmaz.',
+            id="aday-tur",
+        ),
+        pytest.param(
+            UnknownDocumentType(
+                pages=(PageRef(3, 1), PageRef(3, 2)), candidate_type_name="Employment Contract"
+            ),
+            "Bilinmeyen belge türü (04.6.1): bu adayın (dosya 3, sayfa 2; dosya 3, sayfa 3) türü "
+            'katalogda yok; önerilen aday tür: "Employment Contract". Belge katalogdaki bir türe '
+            "zorla atanmaz.",
+            id="cok-sayfali",
+        ),
+        pytest.param(
+            UnknownDocumentType(pages=(PageRef(3, 0),), document_type_slug=PASSPORT),
+            "Bilinmeyen belge türü (04.6.1): bu adayın (dosya 3, sayfa 1) analizde yazılan türü "
+            "(russian_passport) güncel katalogda yok. Belge katalogdaki bir türe zorla atanmaz.",
+            id="katalogdan-kalkmis-slug",
+        ),
+        pytest.param(
+            UnknownDocumentType(pages=(PageRef(3, 4),)),
+            "Bilinmeyen belge türü (04.6.1): bu adayın (dosya 3, sayfa 5) türü belirlenemedi. "
+            "Belge katalogdaki bir türe zorla atanmaz.",
+            id="tur-belirlenemedi",
+        ),
+    ],
+)
+def test_unknown_type_reason_names_pages_and_the_proposed_type(
+    verdict: UnknownDocumentType, reason: str
+) -> None:
+    assert verdict.reason == reason
+
+
 # --- entegrasyon: veritabanı, render, kayıtlı yanıt --------------------------------------------
 
 
@@ -1415,9 +1593,15 @@ def _settings() -> Settings:
     return Settings(_env_file=None, database_url="sqlite://")
 
 
-def _upload(session: Session, layout: DataLayout, files: list[tuple[str, bytes]]) -> Upload:
+def _upload(
+    session: Session,
+    layout: DataLayout,
+    files: list[tuple[str, bytes]],
+    *,
+    upload_id: str = UPLOAD_ID,
+) -> Upload:
     """Partiyi Inbox'a yazar ve her dosyanın sayfalarını gerçek render adımlarıyla üretir."""
-    upload = Upload(id=UPLOAD_ID, channel="web", status=UploadStatus.ANALYZING.value)
+    upload = Upload(id=upload_id, channel="web", status=UploadStatus.ANALYZING.value)
     session.add(upload)
     for name, content in files:
         stored = write_to_inbox(layout, upload.id, name, content)
@@ -1562,6 +1746,10 @@ def test_s3_license_pieces_go_to_unresolved_with_reason(
     assert (photo.document_type_slug, residence.document_type_slug) == (PHOTO, RESIDENCE)
     assert residence.sides == (Side.FRONT, Side.BACK)
     assert (other.document_type_slug is not None) is third_page_known
+    # Sayfa 3 katalog türündeyse kendi yolunda (Hazir adayı), değilse Unknown (04.6.1).
+    assert (other.unknown_type is None) is third_page_known
+    for candidate in (license_front, photo, residence, license_back):
+        assert candidate.unknown_type is None
     for candidate in (photo, other, residence):
         assert candidate.contiguity_violation is None
     front_violation = license_front.contiguity_violation
@@ -1601,8 +1789,15 @@ def test_s3_license_pieces_go_to_unresolved_with_reason(
             "sides": ["single"],
         }
     else:
-        assert [(event.page_index, event.message) for event in unknown] == [(2, None)]
+        assert other.unknown_type is not None
+        assert [(event.page_index, event.message) for event in unknown] == [
+            (2, other.unknown_type.reason)
+        ]
         assert "contiguity_violation" not in unknown[0].data_json
+        assert unknown[0].data_json["unknown_type"] == {
+            "queue": "unknown",
+            "candidate_type_id": other.unknown_type.candidate_type_id,
+        }
     logged = json.dumps(
         [(event.data_json, event.message) for event in (*determined, *unknown)],
         ensure_ascii=False,
@@ -1895,12 +2090,287 @@ def test_group_upload_reads_blank_failed_duplicate_and_catalog_less_pages(
         {"document_type_slug": LICENSE, "pages": [0, 2], "sides": ["front", "back"]},
     )
     (unknown,) = _events(session, EventType.DOC_TYPE_UNKNOWN)
+    (diploma_candidate,) = image_grouping.candidates
+    assert diploma_candidate.unknown_type is not None
     assert (unknown.upload_id, unknown.file_id, unknown.page_index, unknown.data_json) == (
         UPLOAD_ID,
         image_file.id,
         0,
-        {"candidate_type_name": "Peruvian Diploma", "pages": [0], "sides": ["single"]},
+        {
+            "candidate_type_name": "Peruvian Diploma",
+            "pages": [0],
+            "sides": ["single"],
+            "unknown_type": {
+                "queue": "unknown",
+                "candidate_type_id": diploma_candidate.unknown_type.candidate_type_id,
+            },
+        },
     )
+
+
+S14_RECORDINGS = RECORDINGS / "s14_peruvian_diploma"
+S14_PERSONAL_VALUES = ("PRUEBA", "ANA", "1995-03-15", "DIP-0000077")
+DIPLOMA = "peruvian_diploma"
+
+
+def _diploma_upload(
+    session: Session, layout: DataLayout, *, upload_id: str = UPLOAD_ID, pages: int = 1
+) -> Upload:
+    pdf = make_text_pdf_bytes(["DIPLOMA"] * pages)
+    return _upload(session, layout, [("diploma.pdf", pdf)], upload_id=upload_id)
+
+
+def _candidate_types(session: Session) -> list[CandidateDocumentType]:
+    return list(session.scalars(select(CandidateDocumentType).order_by(CandidateDocumentType.id)))
+
+
+def test_s14_catalog_less_peruvian_diploma_goes_to_unknown_as_a_candidate_type(
+    session: Session, layout: DataLayout
+) -> None:
+    # S14: katalogda olmayan tür (Peru diploması) → Unknown + aday tür.
+    upload = _diploma_upload(session, layout)
+    provider = RecordingProvider.from_directory(S14_RECORDINGS)
+    analyze_upload(session, layout, upload, provider=provider, instructions=INSTRUCTIONS)
+
+    grouping = group_upload(session, upload, catalog=CATALOG)
+
+    file_id = upload.files[0].id
+    (page,) = upload.files[0].pages
+    (record,) = _candidate_types(session)
+    (candidate,) = grouping.candidates
+    assert candidate.document_type_slug is None
+    assert candidate.unknown_type == UnknownDocumentType(
+        pages=(PageRef(file_id, 0),),
+        candidate_type_name="Peruvian Diploma",
+        candidate_type_id=record.id,
+    )
+    assert candidate.unknown_type.queue is QueueKind.UNKNOWN
+    assert (
+        record.proposed_name,
+        record.normalized_name,
+        record.first_seen_upload_id,
+        record.sample_page_ids,
+        record.seen_count,
+        record.status,
+        record.description,
+    ) == (
+        "Peruvian Diploma",
+        "peruvian diploma",
+        UPLOAD_ID,
+        [page.id],
+        1,
+        CandidateTypeStatus.PENDING,
+        None,
+    )
+    assert not _events(session, EventType.DOC_TYPE_DETERMINED)
+    (unknown,) = _events(session, EventType.DOC_TYPE_UNKNOWN)
+    assert (unknown.upload_id, unknown.file_id, unknown.page_index) == (UPLOAD_ID, file_id, 0)
+    assert unknown.message == candidate.unknown_type.reason
+    assert unknown.data_json == {
+        "candidate_type_name": "Peruvian Diploma",
+        "pages": [0],
+        "sides": ["single"],
+        "unknown_type": {"queue": "unknown", "candidate_type_id": record.id},
+    }
+    (proposed,) = _events(session, EventType.CANDIDATE_TYPE_PROPOSED)
+    assert proposed.id > unknown.id
+    assert (proposed.upload_id, proposed.file_id, proposed.page_index, proposed.message) == (
+        UPLOAD_ID,
+        file_id,
+        0,
+        None,
+    )
+    assert proposed.data_json == {
+        "candidate_type_id": record.id,
+        "candidate_type_name": "Peruvian Diploma",
+        "pages": [0],
+        "created": True,
+        "seen_count": 1,
+    }
+    logged = json.dumps(
+        [(event.data_json, event.message) for event in (unknown, proposed)], ensure_ascii=False
+    )
+    for value in S14_PERSONAL_VALUES:
+        assert value not in logged
+
+
+def test_regrouping_the_same_upload_does_not_count_the_candidate_type_again(
+    session: Session, layout: DataLayout
+) -> None:
+    upload = _diploma_upload(session, layout)
+    provider = RecordingProvider.from_directory(S14_RECORDINGS)
+    analyze_upload(session, layout, upload, provider=provider, instructions=INSTRUCTIONS)
+    first = group_upload(session, upload, catalog=CATALOG)
+
+    second = group_upload(session, upload, catalog=CATALOG)
+
+    (page,) = upload.files[0].pages
+    (record,) = _candidate_types(session)
+    assert (record.seen_count, record.sample_page_ids) == (1, [page.id])
+    assert second.candidates[0].unknown_type == first.candidates[0].unknown_type
+    assert len(_events(session, EventType.DOC_TYPE_UNKNOWN)) == 2
+    assert len(_events(session, EventType.CANDIDATE_TYPE_PROPOSED)) == 1
+
+
+def test_the_same_candidate_type_in_other_documents_is_counted_on_one_record(
+    session: Session, layout: DataLayout, tmp_path: Path
+) -> None:
+    first_upload = _diploma_upload(session, layout)
+    provider = RecordingProvider.from_directory(S14_RECORDINGS)
+    analyze_upload(session, layout, first_upload, provider=provider, instructions=INSTRUCTIONS)
+    group_upload(session, first_upload, catalog=CATALOG)
+    # İkinci partide iki ayrı diploma; analizci adı başka yazımla verir.
+    second_upload = _diploma_upload(session, layout, upload_id="u_20260914_0002", pages=2)
+    responses = [
+        {**_recording(S14_RECORDINGS, 0), "page_index": index, "candidate_type_name": name}
+        for index, name in enumerate(["PERUVIAN  DIPLOMA", "peruvian diploma"])
+    ]
+    analyze_upload(
+        session,
+        layout,
+        second_upload,
+        provider=_recordings(tmp_path, responses),
+        instructions=INSTRUCTIONS,
+    )
+
+    grouping = group_upload(session, second_upload, catalog=CATALOG)
+
+    (first_page,) = first_upload.files[0].pages
+    second_pages = second_upload.files[0].pages
+    (record,) = _candidate_types(session)
+    assert (record.proposed_name, record.first_seen_upload_id) == ("Peruvian Diploma", UPLOAD_ID)
+    assert record.sample_page_ids == [first_page.id, *(page.id for page in second_pages)]
+    assert record.seen_count == 3
+    assert [candidate.unknown_type.candidate_type_id for candidate in grouping.candidates] == [
+        record.id,
+        record.id,
+    ]
+    proposals = [
+        event.data_json
+        for event in _events(session, EventType.CANDIDATE_TYPE_PROPOSED)
+        if event.upload_id == second_upload.id
+    ]
+    assert [(data["created"], data["seen_count"]) for data in proposals] == [(False, 2), (False, 3)]
+    assert [data["candidate_type_name"] for data in proposals] == [
+        "PERUVIAN  DIPLOMA",
+        "peruvian diploma",
+    ]
+
+
+def _approved_catalog() -> Catalog:
+    # Aday tür onaylandıktan sonra (11.5.2) katalogda bulunabilecek tür; onay bu görevin işi değil.
+    diploma = {
+        "slug": DIPLOMA,
+        "name": "Peruvian Diploma",
+        "file_label": "Diploma",
+        "country": "PE",
+        "expected_file_types": ["pdf", "jpeg"],
+        "expected_pages": {"min": 1, "max": 1},
+        "sides": "single",
+        "direct": False,
+        "analyze": True,
+        "required_fields": ["surname", "given_names"],
+        "allowed_conversions": [],
+        "output_format": "keep",
+    }
+    return validate_catalog([*(entry.model_dump(mode="json") for entry in CATALOG), diploma])
+
+
+def test_s14_reanalysis_after_type_approval_leaves_unknown(
+    session: Session, layout: DataLayout, tmp_path: Path
+) -> None:
+    # S14 devamı: tür kataloğa girip parti yeniden analiz edilince (K18) aday katalog türünü alır ve
+    # Unknown'dan çıkar; aday tür kaydı yeniden sayılmaz. Hazir çıktısı sonraki görevlerindir.
+    upload = _diploma_upload(session, layout)
+    provider = RecordingProvider.from_directory(S14_RECORDINGS)
+    analyze_upload(session, layout, upload, provider=provider, instructions=INSTRUCTIONS)
+    group_upload(session, upload, catalog=CATALOG)
+    approved = _approved_catalog()
+    reanalysis = {
+        **_recording(S14_RECORDINGS, 0),
+        "document_type_slug": DIPLOMA,
+        "candidate_type_name": None,
+        "fields": {
+            "surname": {"value": "PRUEBA", "legible": True},
+            "given_names": {"value": "ANA", "legible": True},
+        },
+        "notes": None,
+    }
+    analyze_upload(
+        session,
+        layout,
+        upload,
+        provider=_recordings(tmp_path, [reanalysis]),
+        instructions=build_page_analysis_instructions(approved),
+    )
+
+    grouping = group_upload(session, upload, catalog=approved)
+
+    (candidate,) = grouping.candidates
+    assert (candidate.document_type_slug, candidate.unknown_type) == (DIPLOMA, None)
+    (determined,) = _events(session, EventType.DOC_TYPE_DETERMINED)
+    assert (determined.message, determined.data_json) == (
+        None,
+        {"document_type_slug": DIPLOMA, "pages": [0], "sides": ["single"]},
+    )
+    (record,) = _candidate_types(session)
+    assert record.seen_count == 1
+    assert len(_events(session, EventType.CANDIDATE_TYPE_PROPOSED)) == 1
+
+
+def test_group_upload_sends_undetermined_and_stale_types_to_unknown_without_proposals(
+    session: Session, layout: DataLayout, tmp_path: Path
+) -> None:
+    upload = _upload(
+        session, layout, [("tarama.pdf", make_text_pdf_bytes(["BELIRSIZ", "PASAPORT"]))]
+    )
+    responses = [_payload(0, None, fields={}), _payload(1, PASSPORT)]
+    analyze_upload(
+        session,
+        layout,
+        upload,
+        provider=_recordings(tmp_path, responses),
+        instructions=INSTRUCTIONS,
+    )
+
+    # Pasaport türü analizden sonra katalogdan kalkmış.
+    grouping = group_upload(session, upload, catalog=_catalog_without(PASSPORT))
+
+    file_id = upload.files[0].id
+    undetermined, stale = grouping.candidates
+    assert undetermined.unknown_type == UnknownDocumentType(pages=(PageRef(file_id, 0),))
+    assert stale.unknown_type == UnknownDocumentType(
+        pages=(PageRef(file_id, 1),), document_type_slug=PASSPORT
+    )
+    assert _candidate_types(session) == []
+    assert not _events(session, EventType.CANDIDATE_TYPE_PROPOSED)
+    assert not _events(session, EventType.DOC_TYPE_DETERMINED)
+    no_record = {"queue": "unknown", "candidate_type_id": None}
+    assert [
+        (event.page_index, event.message, event.data_json)
+        for event in _events(session, EventType.DOC_TYPE_UNKNOWN)
+    ] == [
+        (
+            0,
+            undetermined.unknown_type.reason,
+            {
+                "candidate_type_name": None,
+                "pages": [0],
+                "sides": ["single"],
+                "unknown_type": no_record,
+            },
+        ),
+        (
+            1,
+            stale.unknown_type.reason,
+            {
+                "document_type_slug": PASSPORT,
+                "pages": [1],
+                "sides": ["single"],
+                "unknown_type": no_record,
+            },
+        ),
+    ]
 
 
 def test_pages_not_yet_analyzed_form_no_candidates(session: Session, layout: DataLayout) -> None:

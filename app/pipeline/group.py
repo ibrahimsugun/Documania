@@ -1,6 +1,6 @@
 """Dosya içi ve dosyalar arası gruplama, ön/arka yüz eşleşmesi, ardışıklık güvenlik kuralı,
-belirsiz eşleştirmenin reddi ve beklenen sayfa sayısı kontrolü — PRD 04.1.1, 04.1.2, 04.2.1,
-04.3.1, 04.3.2, 04.5.1.
+belirsiz eşleştirmenin reddi, beklenen sayfa sayısı kontrolü ve bilinmeyen tür — PRD 04.1.1,
+04.1.2, 04.2.1, 04.3.1, 04.3.2, 04.5.1, 04.6.1.
 
 Bir dosyanın analiz edilmiş sayfaları `pages.index` sırasıyla **belge adaylarına** ayrılır (§4:
 karar motorunun aynı belgeye ait olduğuna hükmettiği sayfa grubu). Sayfa açık adaya ancak aşağıdaki
@@ -85,14 +85,24 @@ eşleşememiş tek ön ya da tek arka yüz (04.3.2'nin hüküm vermediği, eşle
 olmadığı durum) tam burada yakalanır. Aralık tanımlı değilse (`expected_pages: null`) sınır yoktur.
 Dışındaysa aday `page_count_violation` taşır ve Unresolved'a gider; aday bölünmez ya da otomatik
 tamamlanmaz. Gerekçe (`PageCountViolation.reason`) sayfa sayısını ve beklenen aralığı yazar; kişisel
-değer taşımaz. Katalog dışı ve türü belirlenemeyen aday (04.6'nın) yargılanmaz.
+değer taşımaz. Katalog dışı ve türü belirlenemeyen aday (04.6.1'in) yargılanmaz.
+
+**Bilinmeyen tür (04.6.1, R7):** türü güncel katalogda olmayan her dosya adayı — analizcinin aday
+tür adı yazdığı, türünü hiç belirleyemediği ya da analizde yazılan slug'ı katalogdan kalkmış olan —
+`unknown_type` taşır ve Unknown'a gider. Aday katalogdaki bir türe zorla atanmaz: benzer adlı
+katalog türüne, aday tür adına ya da en yakın türe eşlenmez, slug'ı boş kalır. Yukarıdaki kurallar
+katalog türünün yapısına dayandığı için bu adayı yargılamaz; hüküm tektir. Gerekçe
+(`UnknownDocumentType.reason`) sayfaları ve önerilen aday tür adını yazar; kişisel değer taşımaz.
 
 `group_upload` partinin tekrar olmayan dosyalarını ayrı ayrı gruplar, ayrı dosyalardaki yüzleri
 eşleştirir ve her aday için bir olay yazar: katalog türünde `DOC_TYPE_DETERMINED`, değilse
 `DOC_TYPE_UNKNOWN` (veri: slug veya aday tür adı, sayfalar, yüzler — kişisel değer yok). Dosyalar
 arası adayın olayı ilk sayfasının (ön yüz) dosyasına yazılır ve kaynaklarını `sources` olarak taşır.
-Ardışıklık kuralına, belirsiz eşleştirmeye ya da beklenen sayfa sayısı kontrolüne takılan adayın
-olayı ayrıca kuralın verisini ve gerekçeyi taşır. Oturum commit edilmez; işlem sınırı çağıranındır.
+Ardışıklık kuralına, belirsiz eşleştirmeye, beklenen sayfa sayısı kontrolüne ya da bilinmeyen türe
+takılan adayın olayı ayrıca kuralın verisini ve gerekçeyi taşır. Aday tür adı olan bilinmeyen tür
+adayında önerilen tür `candidate_document_types`'a aday tür olarak kaydedilir
+(`record_candidate_type_sighting`) ve görülme sayıldıysa `CANDIDATE_TYPE_PROPOSED` yazılır. Oturum
+commit edilmez; işlem sınırı çağıranındır.
 """
 
 from __future__ import annotations
@@ -109,7 +119,14 @@ from sqlalchemy.orm import Session
 
 from app.ai.schemas import PageAnalysis, PagePerson, Side
 from app.catalog import Catalog, CatalogEntry, Sides
-from app.db.models import Page, QueueKind, Upload, UploadFile
+from app.db.models import (
+    Page,
+    QueueKind,
+    Upload,
+    UploadFile,
+    normalize_candidate_type_name,
+    record_candidate_type_sighting,
+)
 from app.events import EventType, event_context, record_event
 from app.pipeline.analyze import PageAnalysisStatus
 
@@ -259,6 +276,38 @@ class PageCountViolation:
 
 
 @dataclass(frozen=True, slots=True)
+class UnknownDocumentType:
+    """04.6.1 (R7): adayın türü güncel katalogda yok; zorla bir türe atanmaz, Unknown'a gider.
+
+    `pages` adayın sayfalarıdır (dosya kimliği ve dosyadaki sırasıyla, adaydaki sırayla).
+    `candidate_type_name` analizcinin önerdiği aday tür adıdır (ilk sayfada yazıldığı gibi);
+    `document_type_slug` analizde yazılmış ama katalogda bulunmayan slug'dır (katalog analizden
+    sonra değişmiş). İkisi de boşsa türü belirlenemedi. `candidate_type_id` önerilen türün aday tür
+    kaydıdır (`candidate_document_types.id`); yalnız `group_upload` kaydı yazdıktan sonra dolar.
+    """
+
+    queue: ClassVar[QueueKind] = QueueKind.UNKNOWN
+
+    pages: tuple[PageRef, ...]
+    candidate_type_name: str | None = None
+    document_type_slug: str | None = None
+    candidate_type_id: int | None = None
+
+    @property
+    def reason(self) -> str:
+        """Değer taşımayan gerekçe; sayfalar dosya kimliği ve 1'den başlayan sayfa numarasıyla."""
+        subject = f"Bilinmeyen belge türü (04.6.1): bu adayın ({_page_refs(self.pages)})"
+        if self.candidate_type_name is not None:
+            name = " ".join(self.candidate_type_name.split())
+            finding = f'türü katalogda yok; önerilen aday tür: "{name}".'
+        elif self.document_type_slug is not None:
+            finding = f"analizde yazılan türü ({self.document_type_slug}) güncel katalogda yok."
+        else:
+            finding = "türü belirlenemedi."
+        return f"{subject} {finding} Belge katalogdaki bir türe zorla atanmaz."
+
+
+@dataclass(frozen=True, slots=True)
 class DocumentCandidate:
     """Aynı belgeye ait olduğuna hükmedilen sayfalar, belgedeki sırasıyla.
 
@@ -266,14 +315,17 @@ class DocumentCandidate:
     önce ön, sonra arka yüz olarak gelir. `contiguity_violation` doluysa aday, araya başka belge
     girmiş bir belgenin parçasıdır (04.2.1); `ambiguous_pairing` doluysa yüz partide tek anlamlı bir
     eşle eşleştirilemedi (04.3.2); `page_count_violation` doluysa sayfa sayısı türün beklenen
-    aralığı dışındadır (04.5.1, yalnız öteki ikisi boşken değerlendirilir). Hiçbirinde çıktı
-    üretilmez, gerekçesiyle Unresolved'a gider.
+    aralığı dışındadır (04.5.1, yalnız öteki ikisi boşken değerlendirilir). Bu üçünde gerekçesiyle
+    Unresolved'a gider. `unknown_type` doluysa türü katalogda yoktur ve Unknown'a gider (04.6.1);
+    öteki üç hüküm yalnız katalog türüne verildiği için onlarla birlikte bulunmaz. Hiçbirinde çıktı
+    üretilmez.
     """
 
     pages: tuple[CandidatePage, ...]
     contiguity_violation: ContiguityViolation | None = None
     ambiguous_pairing: AmbiguousPairing | None = None
     page_count_violation: PageCountViolation | None = None
+    unknown_type: UnknownDocumentType | None = None
 
     @property
     def file_ids(self) -> tuple[int, ...]:
@@ -325,12 +377,14 @@ class UploadGrouping:
 
 
 def group_upload(session: Session, upload: Upload, *, catalog: Catalog) -> UploadGrouping:
-    """Partinin her dosyasını ayrı gruplar (04.1, 04.2), ayrı dosyalardaki yüzleri eşleştirir (04.3)
-    ve her adayı olay loguna yazar.
+    """Partinin her dosyasını ayrı gruplar (04.1, 04.2, 04.6), ayrı dosyalardaki yüzleri
+    eşleştirir (04.3), sayfa sayısını denetler (04.5) ve her adayı olay loguna yazar.
 
     Tekrar dosyası (01.4.1) gruplanmaz: analiz edilmemiştir ve çıktı üretmez. `catalog`, türlerin
-    yüz yapısının okunduğu güncel katalogdur (`export_catalog(session)`). Olaylar bütün dosyalar
-    gruplandıktan sonra yazılır: şemaya uymayan saklı analiz hiçbir olay yazılmadan durdurur.
+    yüz yapısının okunduğu güncel katalogdur (`export_catalog(session)`). Bilinmeyen tür adayının
+    önerdiği tür aday tür olarak kaydedilir; dönen gruplamada `unknown_type.candidate_type_id`
+    doludur. Kayıtlar ve olaylar bütün dosyalar gruplandıktan sonra yazılır: şemaya uymayan saklı
+    analiz hiçbir şey yazılmadan durdurur.
     """
     grouping = group_across_files(
         (
@@ -340,10 +394,27 @@ def group_upload(session: Session, upload: Upload, *, catalog: Catalog) -> Uploa
         ),
         catalog=catalog,
     )
+    page_ids = {
+        (page.file_id, page.index): page.id
+        for upload_file in upload.files
+        for page in upload_file.pages
+    }
     with event_context(upload_id=upload.id):
-        for candidate in grouping.candidates:
-            _record_candidate(session, candidate)
-    return grouping
+        files = tuple(
+            replace(
+                file_grouping,
+                candidates=tuple(
+                    _record_candidate(session, upload.id, candidate, page_ids)
+                    for candidate in file_grouping.candidates
+                ),
+            )
+            for file_grouping in grouping.files
+        )
+        cross_file = tuple(
+            _record_candidate(session, upload.id, candidate, page_ids)
+            for candidate in grouping.cross_file_candidates
+        )
+    return UploadGrouping(files, cross_file)
 
 
 def group_file_pages(
@@ -351,7 +422,8 @@ def group_file_pages(
 ) -> FileGrouping:
     """Tek dosyanın sayfalarını belge adaylarına ayırır; kurallar modül açıklamasındadır.
 
-    Araya başka belge girmiş parçalar `contiguity_violation` ile işaretlenir (04.2.1).
+    Araya başka belge girmiş parçalar `contiguity_violation` (04.2.1), türü katalogda olmayan
+    adaylar `unknown_type` (04.6.1) ile işaretlenir.
     """
     ordered = sorted(pages, key=lambda page: page.index)
     if len({page.index for page in ordered}) != len(ordered):
@@ -381,7 +453,7 @@ def group_file_pages(
         candidates.append(DocumentCandidate(tuple(current)))
     return FileGrouping(
         file_id,
-        _mark_contiguity_violations(candidates, unanalyzed, catalog),
+        _mark_unknown_types(_mark_contiguity_violations(candidates, unanalyzed, catalog), catalog),
         tuple(blank),
         tuple(unanalyzed),
     )
@@ -471,7 +543,8 @@ def _type_key(analysis: PageAnalysis) -> tuple[str, str] | None:
     if analysis.document_type_slug is not None:
         return ("slug", analysis.document_type_slug)
     if analysis.candidate_type_name is not None:
-        return ("candidate", " ".join(analysis.candidate_type_name.casefold().split()))
+        # Aday tür kaydının tekillik anahtarıyla aynı: aynı adayın sayfaları tek kayda iner.
+        return ("candidate", normalize_candidate_type_name(analysis.candidate_type_name))
     return None
 
 
@@ -692,6 +765,25 @@ def _mark_page_count_violations(
     return tuple(marked)
 
 
+def _mark_unknown_types(
+    candidates: Iterable[DocumentCandidate], catalog: Catalog
+) -> tuple[DocumentCandidate, ...]:
+    """04.6.1: türü katalogda olmayan adayı işaretler; aday hiçbir türe atanmaz."""
+    return tuple(
+        candidate
+        if _catalog_entry(candidate, catalog) is not None
+        else replace(
+            candidate,
+            unknown_type=UnknownDocumentType(
+                pages=tuple(_page_ref(page) for page in candidate.pages),
+                candidate_type_name=candidate.candidate_type_name,
+                document_type_slug=candidate.document_type_slug,
+            ),
+        )
+        for candidate in candidates
+    )
+
+
 def _catalog_entry(candidate: DocumentCandidate, catalog: Catalog) -> CatalogEntry | None:
     slug = candidate.document_type_slug
     return None if slug is None else catalog.get(slug)
@@ -742,14 +834,55 @@ def _stored_analysis(page: Page) -> PageAnalysis | None:
         ) from None
 
 
-def _record_candidate(session: Session, candidate: DocumentCandidate) -> None:
+def _record_candidate(
+    session: Session,
+    upload_id: str,
+    candidate: DocumentCandidate,
+    page_ids: dict[tuple[int, int], int],
+) -> DocumentCandidate:
+    unknown = candidate.unknown_type
+    first = candidate.pages[0]
+    sighting = None
+    if unknown is not None and unknown.candidate_type_name is not None:
+        # 04.6.1: önerilen tür aday tür olarak kaydedilir; belge o türe de atanmaz.
+        sighting = record_candidate_type_sighting(
+            session,
+            proposed_name=unknown.candidate_type_name,
+            upload_id=upload_id,
+            page_id=page_ids[first.file_id, first.index],
+        )
+        candidate = replace(
+            candidate, unknown_type=replace(unknown, candidate_type_id=sighting.candidate_type.id)
+        )
+    _record_type_event(session, candidate)
+    if sighting is not None and sighting.counted:
+        record_event(
+            session,
+            EventType.CANDIDATE_TYPE_PROPOSED,
+            file_id=first.file_id,
+            page_index=first.index,
+            data={
+                "candidate_type_id": sighting.candidate_type.id,
+                "candidate_type_name": candidate.candidate_type_name,
+                "pages": [page.index for page in candidate.pages],
+                "created": sighting.created,
+                "seen_count": sighting.candidate_type.seen_count,
+            },
+        )
+    return candidate
+
+
+def _record_type_event(session: Session, candidate: DocumentCandidate) -> None:
     # Olay verisi kişisel değer taşımaz (CONVENTIONS §6); değerler `pages.analysis_json`'dadır.
     data: dict[str, object] = {}
+    event_type = (
+        EventType.DOC_TYPE_DETERMINED
+        if candidate.unknown_type is None
+        else EventType.DOC_TYPE_UNKNOWN
+    )
     if candidate.document_type_slug is not None:
-        event_type = EventType.DOC_TYPE_DETERMINED
         data["document_type_slug"] = candidate.document_type_slug
     else:
-        event_type = EventType.DOC_TYPE_UNKNOWN
         data["candidate_type_name"] = candidate.candidate_type_name
     if len(candidate.file_ids) == 1:
         data["pages"] = [page.index for page in candidate.pages]
@@ -763,8 +896,9 @@ def _record_candidate(session: Session, candidate: DocumentCandidate) -> None:
             for file_id in candidate.file_ids
         ]
     data["sides"] = [side.value for side in candidate.sides]
-    # §8.3'te ardışıklık ve belirsiz eşleştirme hükmüne ayrı olay türü yok; hüküm adayın kendi
-    # olayına yazılır. Kuyruk kaydı ve `QUEUED_UNRESOLVED` planlamadan sonra kuyruğun işidir.
+    # §8.3'te ardışıklık, belirsiz eşleştirme ve sayfa sayısı hükmüne ayrı olay türü yok; hüküm
+    # adayın kendi olayına yazılır. Kuyruk kaydı ve `QUEUED_UNRESOLVED`/`QUEUED_UNKNOWN`
+    # planlamadan sonra kuyruğun işidir (08.1).
     reasons: list[str] = []
     violation = candidate.contiguity_violation
     if violation is not None:
@@ -796,6 +930,13 @@ def _record_candidate(session: Session, candidate: DocumentCandidate) -> None:
             "expected_max": page_count.expected_max,
         }
         reasons.append(page_count.reason)
+    unknown = candidate.unknown_type
+    if unknown is not None:
+        data["unknown_type"] = {
+            "queue": unknown.queue.value,
+            "candidate_type_id": unknown.candidate_type_id,
+        }
+        reasons.append(unknown.reason)
     first = candidate.pages[0]
     record_event(
         session,

@@ -1,0 +1,24 @@
+{
+  "page_index": 0,
+  "is_blank": false,
+  "is_readable": true,
+  "language": "es",
+  "script": "latin",
+  "document_type_slug": null,
+  "candidate_type_name": "Peruvian Diploma",
+  "side": "single",
+  "continues_previous_page": false,
+  "person": {
+    "surname": "PRUEBA",
+    "given_names": "ANA",
+    "other_names": null,
+    "original_script_name": null,
+    "date_of_birth": "1995-03-15",
+    "nationality": null,
+    "document_number": "DIP-0000077",
+    "mrz_lines": null,
+    "contact": {"phone": null, "email": null, "address": null}
+  },
+  "fields": {},
+  "notes": "Katalogda Peru diploması türü yok; belge aday tür olarak önerildi."
+}

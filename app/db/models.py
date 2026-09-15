@@ -1,4 +1,5 @@
-"""Veri modeli — PRD §8.1 tabloları (00.3.1) ve çalışan numarası üretici (00.3.3).
+"""Veri modeli — PRD §8.1 tabloları (00.3.1), çalışan numarası üretici (00.3.3) ve aday tür
+kaydı (04.6.1).
 
 Silme yoktur, arşiv vardır (K16): ilişkilerde silme kaskadı tanımlanmaz.
 Dosya yolu burada üretilmez (yol kuralı: `app/storage/`); yol sütunları yalnız saklar.
@@ -9,6 +10,7 @@ from __future__ import annotations
 
 import enum
 import zlib
+from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from typing import Any
 
@@ -109,6 +111,18 @@ class QueueKind(enum.StrEnum):
     UNKNOWN = "unknown"
     UNREADABLE = "unreadable"
     UNRESOLVED = "unresolved"
+
+
+class CandidateTypeStatus(enum.StrEnum):
+    """Aday tür durumu (§8.1 `candidate_document_types.status`).
+
+    Kayıt `pending` açılır; onay (11.5.2, `TYPE_APPROVED`) ve ret (11.5.4, `TYPE_REJECTED`)
+    insanın kararıdır. Türün yeniden görülmesi durumu değiştirmez.
+    """
+
+    PENDING = "pending"
+    APPROVED = "approved"
+    REJECTED = "rejected"
 
 
 # --- çalışan -----------------------------------------------------------------------------
@@ -325,6 +339,14 @@ class KnownDocumentType(Base):
 
 
 class CandidateDocumentType(Base):
+    """Katalogda olmayan, analizcinin önerdiği belge türü (04.6.1).
+
+    Kayıt `record_candidate_type_sighting` ile yazılır. `normalized_name` tekillik anahtarıdır
+    (`normalize_candidate_type_name`), `proposed_name` ilk görüldüğü yazımdır. `sample_page_ids`
+    türün görüldüğü her belge adayının ilk sayfasını (`pages.id`) görülme sırasıyla taşır;
+    `seen_count` bu görülmelerin sayısıdır.
+    """
+
     __tablename__ = "candidate_document_types"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -334,7 +356,7 @@ class CandidateDocumentType(Base):
     first_seen_upload_id: Mapped[str] = mapped_column(ForeignKey("uploads.id"))
     sample_page_ids: Mapped[list[int]] = mapped_column(JSON, default=list)
     seen_count: Mapped[int] = mapped_column(Integer, default=1)
-    status: Mapped[str] = mapped_column(String(16), default="pending")
+    status: Mapped[str] = mapped_column(String(16), default=CandidateTypeStatus.PENDING.value)
 
     first_seen_upload: Mapped[Upload] = relationship()
 
@@ -464,3 +486,74 @@ def allocate_upload_id(session: Session, *, today: date | None = None) -> str:
     sequence = cast(func.substr(Upload.id, len(prefix) + 1), Integer)
     current = session.scalar(select(func.max(sequence)).where(Upload.id.like(f"{prefix}%")))
     return format_upload_id(day, (current or 0) + 1)
+
+
+# --- aday tür kaydı (04.6.1) -----------------------------------------------------------------
+
+_CANDIDATE_TYPE_LOCK_KEY = zlib.crc32(b"belgeee.candidate_document_types.normalized_name")
+
+
+def normalize_candidate_type_name(name: str) -> str:
+    """Aday tür adının tekillik anahtarı: harf büyüklüğü ve boşluk farkı yok sayılır.
+
+    Dosya içi gruplamanın (04.1.1) aynı tür saydığı iki ad aynı anahtara iner.
+    """
+    normalized = " ".join(name.casefold().split())
+    if not normalized:
+        raise ValueError("Aday tür adı boş olamaz")
+    return normalized
+
+
+@dataclass(frozen=True, slots=True)
+class CandidateTypeSighting:
+    """`record_candidate_type_sighting` sonucu.
+
+    `created`: kayıt bu çağrıda açıldı. `counted`: görülme bu çağrıda sayıldı — aynı ilk sayfa
+    daha önce sayılmışsa (ör. aynı parti yeniden gruplandıysa) `False`.
+    """
+
+    candidate_type: CandidateDocumentType
+    created: bool
+    counted: bool
+
+
+def record_candidate_type_sighting(
+    session: Session, *, proposed_name: str, upload_id: str, page_id: int
+) -> CandidateTypeSighting:
+    """Katalog dışı bir belge adayının önerdiği türü aday tür olarak kaydeder (04.6.1).
+
+    `page_id` adayın ilk sayfasıdır (`pages.id`). Ad kayıtlı değilse kayıt `pending` açılır
+    (`first_seen_upload_id = upload_id`); kayıtlıysa ve sayfa henüz sayılmadıysa sayfa
+    `sample_page_ids`'e eklenir ve `seen_count` artar. Ad, durum ve ilk görülen parti değişmez:
+    reddedilen aday yeniden görülünce listeye geri düşmez (11.5.4).
+
+    Sözleşme ve eşzamanlılık garantisi `allocate_employee_number` ile aynıdır: aynı adı aynı anda
+    kaydeden işlemler sıraya girer (SQLite `BEGIN IMMEDIATE`, PostgreSQL işlem ömürlü advisory
+    kilit), tekillik ihlali yerine tek kayıt ve doğru sayı oluşur.
+    """
+    normalized = normalize_candidate_type_name(proposed_name)
+    if session.get_bind().dialect.name == "postgresql":
+        session.execute(select(func.pg_advisory_xact_lock(_CANDIDATE_TYPE_LOCK_KEY)))
+    session.flush()
+    candidate_type = session.scalar(
+        select(CandidateDocumentType).where(CandidateDocumentType.normalized_name == normalized)
+    )
+    if candidate_type is None:
+        candidate_type = CandidateDocumentType(
+            proposed_name=" ".join(proposed_name.split()),
+            normalized_name=normalized,
+            first_seen_upload_id=upload_id,
+            sample_page_ids=[page_id],
+            seen_count=1,
+            status=CandidateTypeStatus.PENDING.value,
+        )
+        session.add(candidate_type)
+        session.flush()
+        return CandidateTypeSighting(candidate_type, created=True, counted=True)
+    if page_id in candidate_type.sample_page_ids:
+        return CandidateTypeSighting(candidate_type, created=False, counted=False)
+    # JSON sütunu yerinde değişikliği izlemez; liste yeniden atanır.
+    candidate_type.sample_page_ids = [*candidate_type.sample_page_ids, page_id]
+    candidate_type.seen_count += 1
+    session.flush()
+    return CandidateTypeSighting(candidate_type, created=False, counted=True)

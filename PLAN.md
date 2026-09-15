@@ -8,7 +8,7 @@
 
 | Faz | PRD | Genel durum | Must sayacı | Kapanış |
 | --- | --- | --- | --- | --- |
-| Faz 0 — MVP | §5.1 | 50 ✅ · 0 ◐ · 52 ⬜ · 0 🔒 | 48/98 Must | AÇIK |
+| Faz 0 — MVP | §5.1 | 51 ✅ · 0 ◐ · 51 ⬜ · 0 🔒 | 49/98 Must | AÇIK |
 | Faz 1 — v1 | §5.2 | 0 ✅ · 0 ◐ · 0 ⬜ · 32 🔒 | 0/21 Must | AÇIK |
 | Faz 2 — v2 | §5.3 | 0 ✅ · 0 ◐ · 0 ⬜ · 13 🔒 | 0/0 Must | AÇIK |
 | Faz 3 — Enterprise | §5.4 | 0 ✅ · 0 ◐ · 0 ⬜ · 8 🔒 | 0/0 Must | AÇIK |
@@ -140,7 +140,7 @@ panelde `plan-count-drift` bulgusu doğurur.
 | 04.4.1 | Zorunlu alan okunaklılık kapısı (R1) | Must (MVP) | ✅ → K04.4 |
 | 04.4.2 | Kabul kriteri değerlendirmesi | Should (v1) | ✅ → K04.4 |
 | 04.5.1 | Beklenen sayfa sayısı kontrolü | Must (MVP) | ✅ → K04.5 |
-| 04.6.1 | Bilinmeyen tür → aday öneri | Must (MVP) | ⬜ |
+| 04.6.1 | Bilinmeyen tür → aday öneri | Must (MVP) | ✅ → K04.6 |
 | 04.7.1 | Word/Excel yolu (Attachment) | Must (MVP) | ⬜ |
 
 ### 3.6 FR-MOD-05 — Kimlik ve çalışan eşleştirme
@@ -682,6 +682,44 @@ Onay beklemeden yapılan varsayımlar buraya numaralı olarak yazılır.
   olgusudur (03.7), hüküm plana (`validations`, `route_reason`, `PLAN_CREATED`) ve kuyruk kaydına
   (`QUEUED_UNREADABLE`/`QUEUED_UNRESOLVED`, 08.1) geçer. Sonuç `DocumentCandidate`'e alan olarak
   eklenmedi (group.py'ye dokunulmadı); 06.1 aday başına çağırır.
+- **C22** — Bilinmeyen tür ve aday tür önerisi (tm 30, 04.6.1): PRD "katalogda olmayan belge zorla bir
+  türe atanmaz; aday tür olarak kaydedilir ve Unknown'a gider" der; hangi adayın katalogda olmayan
+  sayıldığı, önerecek adı olmayan adayın, aday tür kaydının tekillik ve sayım kuralının ve aynı partinin
+  yeniden gruplanmasının ne yapacağı yazılı değil. **Kapsam:** güncel katalogda türü olmayan her dosya
+  adayı `DocumentCandidate.unknown_type` (`UnknownDocumentType`: `pages`, `candidate_type_name`,
+  `document_type_slug`, `candidate_type_id`; `queue = unknown`, `reason`) taşır — (a) analizcinin aday
+  tür adı yazdığı (slug `null`), (b) türünü hiç belirleyemediği (ikisi de `null`, boş okunmamış), (c)
+  analizde yazılan slug'ı güncel katalogda olmayan aday (saklanan analiz katalogsuz okunur, C12). İşaret
+  `group_file_pages`'te verilir; dosyalar arası aday hep katalog türüdür. **Zorla atanmaz:** aday tür
+  adı katalogdaki bir türün adına ya da slug'ına benzese de (`Russian Passport`) eşlenmez, slug boş
+  kalır — türü seçmek analizcinin (03.4 kural 3) ve onaydan sonra yeniden analizin (K18, 11.5.3)
+  işidir. Pasif ama katalogda duran tür katalog türü sayılır (gruplama değişmedi). **Tek hüküm:** R6
+  (C19), 04.3.2 (C20) ve 04.5 katalog türünün yapısını ister; `unknown_type` onlarla birlikte bulunmaz.
+  (b)'de sayfa `is_readable: false` olsa da kuyruk Unknown'dır: K1'in Unreadable'ı türü bilinen belgenin
+  zorunlu alanıdır, neden `analysis_json.notes`'tadır. **Aday tür kaydı** yalnız (a)'da, `group_upload`
+  içinde `record_candidate_type_sighting` (`app/db/models.py`) ile yazılır. Tekillik anahtarı
+  `normalize_candidate_type_name` (casefold + boşluk sadeleştirme) — 04.1 gruplama anahtarıyla aynıdır,
+  aynı adayın sayfaları tek kayda iner; noktalama/aksan farkı ayrı ad sayılır. `proposed_name` ilk
+  görülen yazım (boşlukları sadeleşmiş), `first_seen_upload_id` ilk parti, `description` boş (tür
+  açıklaması 11.3'ün; `notes` konmaz). **Görülme** belge adayı başınadır: adayın ilk sayfasının
+  `pages.id`'si `sample_page_ids`'e eklenir ve `seen_count` artar; sayfa zaten listedeyse sayılmaz —
+  aynı partinin yeniden gruplanması ya da yeniden analizi sayıyı şişirmez. Bu yüzden liste sınırsızdır
+  (görülme başına bir tamsayı); 11.5.1 örnek olarak ilk birkaçını gösterir, 11.5.3 ilişkili sayfaları
+  buradan bulabilir. Yeniden görülme adı, ilk partiyi ve **durumu** değiştirmez (`CandidateTypeStatus`:
+  `pending`/`approved`/`rejected`, kararlar 11.5.2/11.5.4) — reddedilen aday listeye geri düşmez. Durum
+  kümesine CHECK kısıtı eklenmedi, göç yok (`pages.analysis_status` deseni). Eşzamanlılık
+  `allocate_employee_number` ile aynıdır (SQLite `BEGIN IMMEDIATE`, PostgreSQL advisory kilit).
+  **Olay:** katalog türü olmayan her adayın olayı `DOC_TYPE_UNKNOWN`'dur ((c) artık `DETERMINED`
+  değil) ve `unknown_type` verisi (`queue`, `candidate_type_id` — (b)/(c)'de `null`) ile `message =
+  reason` taşır; ikinci `DOC_TYPE_UNKNOWN` yazılmaz. Görülme sayıldıysa ardından
+  `CANDIDATE_TYPE_PROPOSED` (adayın ilk sayfası; veri `candidate_type_id`, `candidate_type_name`,
+  `pages`, `created`, `seen_count`; mesaj yok) yazılır, sayılmayan tekrarda yazılmaz. **Gerekçe:**
+  `Bilinmeyen belge türü (04.6.1): bu adayın (dosya X, sayfa N) türü katalogda yok; önerilen aday tür:
+  "<ad>". Belge katalogdaki bir türe zorla atanmaz.` — (c) `analizde yazılan türü (<slug>) güncel
+  katalogda yok.`, (b) `türü belirlenemedi.`; aday tür adı analizcinin tür adıdır, olay verisinde C18'den
+  beri vardır. **Sonrası:** 06.1 `unknown_type` dolu adaya `route: unknown`, `route_reason: reason`
+  yazmalı; kuyruk kaydı, `QUEUED_UNKNOWN` ve `Unknown/<upload_id>/` kopyası 08.1'in; S14'ün "onay ve
+  yeniden analizden sonra Hazir" kısmı 11.5.2/11.5.3 ve 06–07'nindir.
 
 ## D. Sapmalar
 
@@ -940,3 +978,7 @@ var olan maddeler silinmez. Biçim:
 
 #### K04.5 — 04.5.1 · Beklenen sayfa sayısı kontrolü
 - ✅ 04.5.1 dosya içi ve dosyalar arası gruplama bittikten sonra `group_across_files` (`app/pipeline/group.py`, `group_upload` üzerinden) başka bir kuralla (04.2.1/04.3.2) zaten işaretlenmemiş ve katalogda türü belirlenmiş her adayın sayfa sayısını türün `expected_pages` aralığıyla karşılaştırır; dışındaysa `DocumentCandidate.page_count_violation` (`PageCountViolation`: `queue = unresolved`, sayfalar + beklenen aralık, değer taşımayan `reason`) ile Unresolved'a gider — eşleşebilecek karşı yüzü partide hiç olmayan tek ön/arka yüz (04.3.2'nin hüküm vermediği durum) ve bitişik ama araya belge girmemiş eksik parçalar burada yakalanır; aralık tanımsız (`expected_pages: null`), katalog dışı/türü belirlenemeyen aday ya da zaten R6/04.3.2 ile işaretli aday yargılanmaz (iki gerekçe eklenmez). Hüküm adayın `DOC_TYPE_DETERMINED` olayına `page_count_violation` verisi ve `message = reason` olarak yazılır, kişisel değer yok. `group_file_pages` tek başına sayfa sayısıyla bölmez (04.1.2 notu); sınır yalnız `group_across_files`/`group_upload` çıktısında uygulanır — `app/pipeline/group.py` · test `tests/pipeline/test_group.py` (78 fonksiyon / 145 durum, +11 / +13) · tm 29
+
+#### K04.6 — 04.6.1 · Bilinmeyen tür ve aday tür önerisi
+- ✅ 04.6.1 `group_file_pages` (`app/pipeline/group.py`, `group_upload` üzerinden) güncel katalogda türü olmayan her adayı (aday tür adlı, türü belirlenemeyen, slug'ı katalogdan kalkmış) `DocumentCandidate.unknown_type` (`UnknownDocumentType`: `queue = unknown`, değer taşımayan `reason`) ile Unknown'a gönderir; aday katalog türüne zorla atanmaz (katalog türünün adı ya da slug'ı gibi yazılmış aday adı da eşlenmez, slug boş kalır) ve R6/04.3.2/04.5 hükümleri ona verilmez. `group_upload` aday tür adını `record_candidate_type_sighting` (`app/db/models.py`) ile `candidate_document_types`'a yazar: harf büyüklüğü/boşluk farkı yok sayılan tek kayıt (`normalize_candidate_type_name`), `pending`, ilk parti, adayın ilk sayfası `sample_page_ids`'te, `seen_count`; aynı sayfa ikinci kez sayılmaz, yeniden görülme durumu (reddedilmiş/onaylanmış) değiştirmez, eşzamanlı 20 görülme SQLite'ta tek kayıt ve doğru sayı verir. Hüküm `DOC_TYPE_UNKNOWN` olayına `unknown_type` verisi (`queue`, `candidate_type_id`) ve `message = reason` olarak, sayılan görülme ardından `CANDIDATE_TYPE_PROPOSED` olarak yazılır; kişisel değer yok (bkz. C22) — `app/pipeline/group.py`, `app/db/models.py` · test `tests/pipeline/test_group.py` (90 fonksiyon / 162 durum, +12 / +17), `tests/db/test_candidate_types.py` (15; PostgreSQL eşzamanlılık durumu ortam değişkeni yokken atlanır) · tm 30
+- ✅ S14: tek sayfalık sentetik PDF gerçek render/metin/boş sayfa adımlarından ve yeni kayıtlı yanıtla (Peru diploması: slug `null`, `candidate_type_name: "Peruvian Diploma"`) `analyze_upload` → `group_upload`: aday Unknown (slug boş, gerekçede önerilen aday tür), `candidate_document_types`'ta `Peruvian Diploma` (`pending`, `seen_count` 1, örnek sayfa diplomanın sayfası), `DOC_TYPE_UNKNOWN` ardından `CANDIDATE_TYPE_PROPOSED`, `DOC_TYPE_DETERMINED` yok; aynı parti yeniden gruplanınca sayı artmaz, başka partideki iki diploma (başka yazımla) aynı kayıtta 3'e çıkar; tür kataloğa eklenip sayfa yeniden analiz edilince (K18) aday `peruvian_diploma` ile `DOC_TYPE_DETERMINED` alır, Unknown'dan çıkar ve kayıt yeniden sayılmaz. Onay akışı (11.5.2) ve Hazir çıktısı (06–07) sonraki görevlerin — `tests/fixtures/ai/recordings/s14_peruvian_diploma/0.json` · test `tests/pipeline/test_group.py` · tm 30
