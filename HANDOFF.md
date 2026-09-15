@@ -18,6 +18,12 @@ Blok biçimi `CONVENTIONS.md` §3'te tanımlıdır:
 
 ## Task log (newest-first)
 
+## 46 — 07.1 passthrough işlemi — done — 2026-09-15
+- Yapıldı: `app/pipeline/execute.py` — `execute_passthrough(source, destination)` kaynağı `copy_file` ile bayt bayt, atomik olarak kopyalar; yayınlanan dosyanın SHA-256'sı kopyadan önceki kaynak hash'iyle karşılaştırılır, eşleşmezse `PassthroughIntegrityError`.
+- Doğrulama: ruff check/format, compileall, `pytest -q -m "not live" --cov=app --cov-fail-under=70` (1828 geçti, +4), kapsam %99.73 (`execute.py` %100), temiz SQLite'ta `alembic upgrade head` (0001→0002), `import app.main` — hepsi exit 0.
+- Varsayımlar: 07.7.1 (çıktı yazma, köken kaydı, `documents`/`OUTPUT_SAVED`, `Alinan` kopyası) ve 07.8.1 (idempotenlik) bu görevin kapsamı dışında bırakıldı — `execute.py` şimdilik yalnız işlemin çekirdeğini taşıyor, DB'ye ya da olay logına dokunmuyor; hedef zaten varsa `copy_file`'ın `FileExistsError`'ı olduğu gibi yükseliyor (üzerine yazma yok).
+- Sonraki pencereye not: 07.2–07.6 aynı dosyada (`app/pipeline/execute.py`) kendi çekirdek işlevlerini eklemeli; 07.7 bunları `PlanItem.operation`'a göre çağırıp hedef yolu (K8 adlandırma, `layout.ready_dir`), `documents` satırını ve `Alinan` kopyasını yazmalı — `PlanExecutor` portu (`orchestrate.py`) hâlâ bağlanmadı, `get_plan_executor` 503 veriyor.
+
 ## 45 — 06.6 Yeniden çalıştırma ve yeniden analiz — done — 2026-09-15
 - Yapıldı: `app/pipeline/orchestrate.py` — `PlanExecutor` portu, `current_plan`, `rerun_plan` (güncel planı `read_plan` ile doğrular, `PLAN_RERUN`, aynı kaydı sağlayıcısız ve planlamasız uygular) ve `reanalyze_upload` (planı olan partide yeniden analiz → sürüm +1 → önceki sürümlerin `active` çıktıları `DocumentStatus.SUPERSEDED` → `PLAN_REANALYZED` → uygulama); göç `0002` `queue_items.plan_id`; `POST /api/uploads/{id}/rerun` ve `/reanalyze`.
 - Doğrulama: ruff check/format, compileall, `pytest -q -m "not live" --cov=app --cov-fail-under=70` (1824 geçti, +21; 4 PG testi atlandı), kapsam %99.72 (`orchestrate.py`, `uploads.py` %100), temiz SQLite'ta `alembic upgrade head` (0001 → 0002), `import app.main` — hepsi exit 0; 11 kural bozulması geçici olarak denendi, her biri testte kırmızı.

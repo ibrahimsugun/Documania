@@ -8,7 +8,7 @@
 
 | Faz | PRD | Genel durum | Must sayacı | Kapanış |
 | --- | --- | --- | --- | --- |
-| Faz 0 — MVP | §5.1 | 77 ✅ · 0 ◐ · 25 ⬜ · 0 🔒 | 74/98 Must | AÇIK |
+| Faz 0 — MVP | §5.1 | 78 ✅ · 0 ◐ · 24 ⬜ · 0 🔒 | 75/98 Must | AÇIK |
 | Faz 1 — v1 | §5.2 | 0 ✅ · 0 ◐ · 0 ⬜ · 32 🔒 | 0/21 Must | AÇIK |
 | Faz 2 — v2 | §5.3 | 0 ✅ · 0 ◐ · 0 ⬜ · 13 🔒 | 0/0 Must | AÇIK |
 | Faz 3 — Enterprise | §5.4 | 0 ✅ · 0 ◐ · 0 ⬜ · 8 🔒 | 0/0 Must | AÇIK |
@@ -182,7 +182,7 @@ panelde `plan-count-drift` bulgusu doğurur.
 
 | PRD | Gereksinim | Öncelik | Durum |
 | --- | --- | --- | --- |
-| 07.1.1 | passthrough | Must (MVP) | ⬜ |
+| 07.1.1 | passthrough | Must (MVP) | ✅ → K07.1 |
 | 07.2.1 | extract | Must (MVP) | ⬜ |
 | 07.3.1 | merge | Must (MVP) | ⬜ |
 | 07.4.1 | wrap_image | Must (MVP) | ⬜ |
@@ -1544,3 +1544,6 @@ var olan maddeler silinmez. Biçim:
 - ✅ 06.6.2 `reanalyze_upload(session, layout, upload, *, provider, catalog, executor, reference_date=None)` planı olan partiyi sağlayıcıya yeniden gönderir (planı yoksa sağlayıcı çağrılmadan `NoPlanError`), `create_plan` ile sürüm +1 açar, önceki sürümlerin `active` çıktılarını `DocumentStatus.SUPERSEDED` yapar — satır, yol ve dosya baytları yerinde, başka partinin/plansız/zaten eski çıktıya dokunulmaz — `PLAN_REANALYZED` yazar ve yeni planı uygular; planın açtığı çalışan yeni sürümde numarasından bulunur (ikinci çalışan yok), yeni çıktı `-2` adını alır, sonraki yeniden çalıştırma yeni sürümü ikinci kopyasız uygular; analiz edilemeyen sayfada da sürüm açılır, parti `partial`. Göç `0002` `queue_items.plan_id` (C5) · test `tests/pipeline/test_orchestrate.py`, `tests/db/test_migrations.py` (+1: 0001↔0002 kayıt korunur), `tests/db/test_models.py` · tm 45
 - ✅ API `POST /api/uploads/{id}/rerun` (sağlayıcı bağımlılığı yok) ve `POST /api/uploads/{id}/reanalyze` (`get_analysis_provider`, kurulamazsa 503) tek işlemde çalışır, yalnız başarıda commit; bilinmeyen parti 404, plan yok/değişmiş 409, uygulayıcı hatasında hiçbir şey yazılmaz; `get_plan_executor` uygulayıcı bağlanana kadar 503 — `app/web/routers/uploads.py` · test `tests/web/test_uploads.py` (+9) · tm 45
 - ✅ Kapı: 1824 geçti (+21), kapsam %99.72 (`orchestrate.py` ve `uploads.py` %100); 11 kural bozulması (bütünlükten önce olay, durum/parti filtresi, `executed_at`, en eski plan, işaretleme yok, planı sormadan analiz, yeniden planlama, rerun'da sağlayıcı bağımlılığı, commit yok, model) geçici olarak denendi, her biri testte kırmızı · tm 45
+
+#### K07.1 — 07.1.1 · passthrough işlemi
+- ✅ `execute_passthrough(source, destination)` (`app/pipeline/execute.py`) kaynağı `copy_file` ile bayt bayt, atomik olarak hedefe kopyalar (yeniden yazma/yeniden kodlama yok, K10/K11); yayınlanan dosyanın SHA-256'sı kopyadan önce hesaplanan kaynak hash'iyle karşılaştırılır, eşleşmezse `PassthroughIntegrityError` — hedef zaten varsa `copy_file`'ın `FileExistsError`'ı olduğu gibi yükselir (üzerine yazma yok). Yalnız işlemin çekirdeği: çıktı yazma, köken kaydı, `documents`/`OUTPUT_SAVED` ve `Alinan` kopyası 07.7'nindir; işlem seçimi ve izinleri planlayıcının (06.2–06.4), bu görev planı yeniden sormaz. `execute.py` satır+dal kapsamı %100 — `app/pipeline/execute.py` · test `tests/pipeline/test_execute.py` (4) · tm 46
