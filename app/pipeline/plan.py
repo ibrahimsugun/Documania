@@ -1,5 +1,6 @@
-"""Plan JSON üretimi, belirleyicilik, işlem seçimi, Direkt Belge kuralı ve dönüşüm izni — PRD
-06.1.1, 06.1.2, 06.2.1, 06.3.1, 06.3.2, 06.4.1 (§8.5, §20.3, §20.4; K3, K9, K11, K12, R5, R10, R7).
+"""Plan JSON üretimi, belirleyicilik, işlem seçimi, Direkt Belge kuralı, dönüşüm izni ve doğrulama —
+PRD 06.1.1, 06.1.2, 06.2.1, 06.3.1, 06.3.2, 06.4.1, 06.5.1, 06.5.2 (§8.5, §20.1.6, §20.1.7, §20.3,
+§20.4; K1, K3, K9, K11, K12, R5, R10, R7).
 
 Karar motorunun bir parti için verdiği bütün kararlar tek bir **Plan JSON**'da dondurulur (K9):
 uygulayıcı (07.x) ve kuyruk (08.1) planı yürütür, yapay zekâya ya da eşleştirmeye yeniden sormaz.
@@ -24,14 +25,20 @@ verilir ve kararlar da bu sırayla alınır: aynı partide açılan çalışan s
 bütün hükümlerin gerekçeleri (`route_reason`) aynı sırayla birleşir:
 
 1. Bilinmeyen tür (04.6.1) → `unknown`.
-2. Yapısal hüküm — ardışıklık (04.2.1), belirsiz eşleştirme (04.3.2), sayfa sayısı (04.5.1) →
-   `unresolved`. Yapısal hükümlü aday eksik ya da parça bir belgedir: okunaklılık kapısı ve işlem
-   seçimi ona uygulanmaz (yalnız arka yüzden oluşan parça "okunamayan alanlar" almaz).
-3. Okunaklılık kapısı (04.4) — zorunlu alan okunmuyorsa `unreadable`, kabul kriteri karşılanmıyorsa
-   `unresolved`. MRZ önceliği (05.3.3) kapıdan ve kişi anahtarından önce her sayfaya uygulanır.
-4. İşlem — Direkt Belge format kontrolü (06.3.2), işlem seçimi (06.2.1), Direkt Belge matrisi
-   (06.3.1) ve dönüşüm izni (06.4.1): format tutmuyorsa, §20.3'te uyan satır yoksa (satır 7), matris
-   işlemi yasaklıyorsa ya da dönüşüm türün `allowed_conversions`'ında değilse `unresolved`.
+2. Yapısal hüküm — ardışıklık (04.2.1), belirsiz eşleştirme (04.3.2), yapı doğrulayıcıları: sayfa
+   sayısı (`page_count`, 04.5.1) ve yüzler (`sides`) → `unresolved`. Yapısal hükümlü aday eksik ya
+   da parça bir belgedir: okunaklılık kapısı, öteki doğrulayıcılar ve işlem seçimi ona uygulanmaz
+   (yalnız arka yüzden oluşan parça "okunamayan alanlar" almaz).
+3. Okunaklılık kapısı ve doğrulayıcılar (04.4, 06.5.1) — zorunlu alan okunmuyorsa
+   (`required_fields`) `unreadable`; kabul kriteri karşılanmıyorsa, Direkt Belge tek kaynağın
+   ardışık sayfaları değilse (`direct_single_source`), kaynak biçimi beklenmiyorsa (`file_type`;
+   Direkt Belge'de 06.3.2), MRZ kontrol hanesi tutmuyorsa (`mrz_checksum`) ya da doğum tarihi
+   inanılır değilse (`dob_plausible`) `unresolved`. MRZ önceliği (05.3.3) kapıdan ve kişi
+   anahtarından önce her sayfaya uygulanır.
+4. İşlem — işlem seçimi (06.2.1), Direkt Belge matrisi (06.3.1) ve dönüşüm izni (06.4.1): §20.3'te
+   uyan satır yoksa (satır 7), matris işlemi yasaklıyorsa ya da dönüşüm türün
+   `allowed_conversions`'ında değilse `unresolved`. Kaynak doğrulayıcılarından
+   (`direct_single_source`, `file_type`) biri geçmeyen belgede işlem seçilmez.
 5. Çalışan kararı (§20.2.2).
 
 Hiçbir hüküm yoksa rota `hazir`dır.
@@ -57,9 +64,10 @@ işlemi olmayan belgeden çalışan açılmaz, kimlik birikmez. İşlem ve hedef
 girer; kuyruğa giden öğenin işlemi yoktur (§20.4: reddedilen işlem uygulanmaz).
 
 **Direkt Belge (06.3.1, 06.3.2).** `direct: true` türün (K3) işlemi §20.4'ten geçer; belge adayı
-da Word/Excel eki de. Önce format kontrolü (§20.4.1): kaynaklardan birinin içerikten tespit edilen
-biçimi türün `expected_file_types`'ında yoksa — tanınmayan biçim de yoktur — işlem seçilmez ve belge
-"Uygun formatta yeniden gönderin." gerekçesiyle Unresolved'a gider; dönüştürülerek kurtarılmaz (S6).
+da Word/Excel eki de. Önce format kontrolü (§20.4.1; türün `file_type` doğrulaması): kaynaklardan
+birinin içerikten tespit edilen biçimi türün `expected_file_types`'ında yoksa — tanınmayan biçim de
+yoktur — işlem seçilmez ve belge "Uygun formatta yeniden gönderin." gerekçesiyle Unresolved'a gider;
+dönüştürülerek kurtarılmaz (S6).
 Format tutarsa §20.3 işlemi seçer ve izin matrisi uygulanır: Direkt Belge'de yalnız `passthrough` ve
 `extract` (tek kaynağın sayfaları olduğu gibi) izinlidir; `merge`, `wrap_image`, `extract_image` ve
 `render_image` yasaktır, işlem plana girmez, belge Unresolved'a gider. İlk ret sonraki adımı keser:
@@ -93,7 +101,24 @@ kalır.
 **Hedef.** Yalnız `hazir` öğede dolar ve orada zorunludur. `target_format` seçilen işlemin hedef
 biçimidir (yukarıda). `target_name` çalışan kaydının ad-soyadı ve türün `file_label`'ıyla K8 adıdır
 (`Ad_Soyad-Passport.pdf`); sıra eki (`-2`) plana girmez, yazma anında diskte seçilir (00.4.3, 07.7).
-`validations` 06.5'indir.
+
+**Doğrulama (06.5.1, 06.5.2).** Doğrulayıcılar `app/pipeline/validate.py`'dedir; sonuçları
+öğenin `validations`'ına adı ve `ok` değeriyle, 06.5.1 sırasıyla (`ValidationName`) girer. Katalog
+türündeki belge adayı önce yapı doğrulayıcılarından (`page_count`, `sides`) geçer: biri geçmezse
+aday eksik ya da parça bir belgedir, öğe yalnız bu ikisini taşır ve sonraki adımlar uygulanmaz.
+Geçerse yedisinin hepsinden geçer; kaynak doğrulayıcıları (`direct_single_source`, `file_type`)
+işlem seçiminden önce değerlendirilir. Word/Excel eki (K2: sayfası ve analizi yok) yalnız kaynak
+doğrulayıcılarından geçer. Bilinmeyen tür, ardışıklık ya da belirsiz eşleştirme hükmü taşıyan aday
+ile boş sayfa, analizsiz sayfa ve dosya öğeleri doğrulanmaz (`validations: []`). Geçmeyen doğrulama
+öğeyi kuyruğa gönderir — `required_fields` Unreadable'a (K1), öteki altısı Unresolved'a — ve
+gerekçesi doğrulayıcı sırasıyla `route_reason`'a eklenir; kabul kriteri gerekçesi
+`required_fields`'ınkinin hemen ardından, işlem gerekçesi doğrulayıcılarınkinden sonra gelir. Her
+geçmeyen doğrulama `VALIDATION_FAILED` olayına öğenin ilk sayfasıyla (ekte dosyasıyla) yazılır:
+mesaj gerekçe, veri `item_id`, `validation`, `document_type_slug`, `queue`. Direkt Belge'nin
+`file_type` reddi §20.4.1'in gerekçesini ve `DIRECT_DOC_CHECK` olayını da taşır. Doğrulaması
+geçmeyen belgeden çalışan açılmaz, kimlik ya da iletişim bilgisi birikmez (D13). `hazir` öğe
+doğrulanmış öğedir: `validations` doludur ve hepsi `ok`; sözleşme aksini reddeder, uygulayıcı
+doğrulanmamış öğeyi yürütmez.
 
 **Belirleyicilik (06.1.2).** Plan yalnız kalıcı girdilerin işlevidir: saklanan sayfa analizleri,
 güncel katalog, planlama anındaki çalışan kayıtları ve parti (bağlam çalışanı, dosyalar). Zaman
@@ -132,7 +157,7 @@ from sqlalchemy.orm import Session
 
 from app.ai.schemas import PageAnalysis
 from app.catalog import Catalog, CatalogEntry, Conversion, FileType, OutputFormat
-from app.catalog.schema import FieldName, Slug, Text
+from app.catalog.schema import Slug, Text
 from app.db.models import Employee, Plan, QueueKind, Upload, UploadFile
 from app.events import EventType, event_context, record_event
 from app.matching.contacts import accumulate_contacts
@@ -161,6 +186,19 @@ from app.pipeline.group import (
     group_upload,
 )
 from app.pipeline.legibility import check_legibility
+from app.pipeline.validate import (
+    Validation,
+    ValidationName,
+    check_direct_single_source,
+    check_dob_plausible,
+    check_file_type,
+    check_mrz_checksum,
+    check_page_count,
+    check_required_fields,
+    check_sides,
+    file_types_text,
+    unexpected_file_types,
+)
 from app.storage import (
     DataLayout,
     FileKind,
@@ -256,20 +294,24 @@ class PlanEmployee(BaseModel):
 
 
 class PlanValidation(BaseModel):
-    """Plan JSON `validations` satırı (§8.5); doğrulayıcılar 06.5'indir."""
+    """Plan JSON `validations` satırı (§8.5): doğrulayıcının adı (06.5.1) ve sonucu."""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
-    name: FieldName
+    name: ValidationName
     ok: StrictBool
 
 
-class PlanItem(BaseModel):
-    """Planın tek öğesi (§8.5): kaynak, işlem, hedef, çalışan ve rota.
+_VALIDATION_ORDER = tuple(ValidationName)
 
-    `hazir` öğenin çalışanı (`match`/`create`), işlemi ve hedefi vardır, gerekçesi yoktur; kuyruğa
-    ya da atlamaya giden öğenin gerekçesi zorunludur, işlemi ve hedefi yoktur — uygulanmayacak işlem
-    plana girmez. `target_name`'in uzantısı `target_format`'tır.
+
+class PlanItem(BaseModel):
+    """Planın tek öğesi (§8.5): kaynak, işlem, hedef, çalışan, rota ve doğrulamalar.
+
+    `hazir` öğenin çalışanı (`match`/`create`), işlemi ve hedefi vardır, gerekçesi yoktur ve
+    doğrulanmıştır (`validations` dolu, hepsi `ok` — 06.5.2); kuyruğa ya da atlamaya giden öğenin
+    gerekçesi zorunludur, işlemi ve hedefi yoktur — uygulanmayacak işlem plana girmez.
+    `target_name`'in uzantısı `target_format`'tır. Doğrulamalar tekrarsız ve 06.5.1 sırasıyladır.
     """
 
     model_config = ConfigDict(extra="forbid", frozen=True)
@@ -290,6 +332,9 @@ class PlanItem(BaseModel):
         file_ids = [source.file_id for source in self.sources]
         if len(set(file_ids)) != len(file_ids):
             raise ValueError("bir dosya sources'ta bir kez geçer")
+        names = [validation.name for validation in self.validations]
+        if names != sorted(set(names), key=_VALIDATION_ORDER.index):
+            raise ValueError("validations tekrarsız ve 06.5.1 sırasıyla olmalı")
         if self.route is Route.READY:
             if self.route_reason is not None:
                 raise ValueError("hazir öğede route_reason boş olmalı")
@@ -299,6 +344,10 @@ class PlanItem(BaseModel):
                 raise ValueError("hazir öğede operation zorunlu (06.2.1)")
             if self.target_name is None:
                 raise ValueError("hazir öğede target_format ve target_name zorunlu")
+            if not self.validations or not all(validation.ok for validation in self.validations):
+                raise ValueError(
+                    "hazir öğe doğrulanmış olmalı: validations dolu ve hepsi ok (06.5.2)"
+                )
         else:
             if self.route_reason is None:
                 raise ValueError("hazir olmayan öğede route_reason zorunlu")
@@ -565,14 +614,9 @@ class DirectFileTypeMismatch:
 
     @property
     def reason(self) -> str:
-        expected = "/".join(file_type.value for file_type in self.expected_file_types)
-        received = "/".join(
-            "tanınmayan biçim" if file_type is None else file_type.value
-            for file_type in self.received
-        )
         return (
-            f"Direkt Belge: beklenen dosya türü {expected}, gelen {received}. Uygun formatta "
-            "yeniden gönderin."
+            f"Direkt Belge: beklenen dosya türü {file_types_text(self.expected_file_types)}, gelen "
+            f"{file_types_text(self.received)}. Uygun formatta yeniden gönderin."
         )
 
 
@@ -601,18 +645,15 @@ def check_direct_file_types(
 
     `direct: false` türde ya da her kaynağın içerikten tespit edilen biçimi (01.2.1) türün
     `expected_file_types`'ında olduğunda `None`. Tanınmayan biçim beklenen türlerden değildir. Saf
-    işlevdir.
+    işlevdir. Direkt Belge türünün `file_type` doğrulamasıdır (06.5.1); öteki türlerde aynı kontrol
+    `app.pipeline.validate.check_file_type`'tır.
     """
     if not entry.direct:
         return None
-    received: dict[FileType | None, None] = {}
-    for source in sources:
-        kind = None if source.kind is None else FileType(source.kind.value)
-        if kind not in entry.expected_file_types:
-            received[kind] = None
+    received = unexpected_file_types(sources, entry=entry)
     if not received:
         return None
-    return DirectFileTypeMismatch(entry.expected_file_types, tuple(received))
+    return DirectFileTypeMismatch(entry.expected_file_types, received)
 
 
 def check_direct_operation(
@@ -811,16 +852,17 @@ class _Planner:
             )
             for file_id in candidate.file_ids
         )
-        verdicts, selected = self._document_verdicts(candidate, entry, sources)
+        verdicts, selected, validations = self._document_verdicts(candidate, entry, sources, key)
         if entry is None or verdicts:
             # Belge kabul edilmedi: eşleştirme hükmü yalnız kişi tahminidir, yan etki yok.
             guess = _verdict_of(match)
             if guess is not None:
                 verdicts.append(guess)
-            return self._item(item_id, sources, entry, _employee_guess(match), verdicts, None)
+            employee = _employee_guess(match)
+            return self._item(item_id, sources, entry, employee, verdicts, None, validations)
         employee, verdict = self._decide_employee(key, match, entry, analyses, first)
         verdicts = [] if verdict is None else [verdict]
-        return self._item(item_id, sources, entry, employee, verdicts, selected)
+        return self._item(item_id, sources, entry, employee, verdicts, selected, validations)
 
     def _mrz_resolved(self, page: CandidatePage) -> CandidatePage:
         return replace(page, analysis=apply_mrz_priority(page.analysis, today=self._today).analysis)
@@ -836,29 +878,51 @@ class _Planner:
         candidate: DocumentCandidate,
         entry: CatalogEntry | None,
         sources: Sequence[PlanSource],
-    ) -> tuple[list[_Verdict], SelectedOperation | None]:
-        # Belge düzeyindeki hükümler (çalışan kararından önce) ve kabul edilen belgenin işlemi.
+        key: PersonKey,
+    ) -> tuple[list[_Verdict], SelectedOperation | None, tuple[Validation, ...]]:
+        # Belge düzeyindeki hükümler (çalışan kararından önce), kabul edilen belgenin işlemi ve
+        # doğrulamalar (06.5.1).
         unknown = candidate.unknown_type
         if unknown is not None:
-            return [_Verdict(unknown.queue, unknown.reason)], None
+            return [_Verdict(unknown.queue, unknown.reason)], None, ()
         structural = [
             _Verdict(verdict.queue, verdict.reason)
-            for verdict in (
-                candidate.contiguity_violation,
-                candidate.ambiguous_pairing,
-                candidate.page_count_violation,
-            )
+            for verdict in (candidate.contiguity_violation, candidate.ambiguous_pairing)
             if verdict is not None
         ]
         if structural or entry is None:
-            return structural, None
+            return structural, None, ()
+        shape = (
+            Validation(ValidationName.PAGE_COUNT, check_page_count(candidate)),
+            Validation(ValidationName.SIDES, check_sides(candidate, entry=entry)),
+        )
+        if not all(validation.ok for validation in shape):
+            # Eksik ya da parça belge: okunaklılık, öteki doğrulayıcılar ve işlem uygulanmaz.
+            return _failed(shape), None, shape
         check = check_legibility(candidate, catalog=self._catalog)
-        gates = () if check is None else (check.illegible_fields, check.unmet_criteria)
+        operation_sources = [self._operation_source(source) for source in sources]
+        single_source, file_type = self._source_validations(entry, operation_sources)
+        required = Validation(ValidationName.REQUIRED_FIELDS, check_required_fields(check))
+        content = (
+            Validation(
+                ValidationName.MRZ_CHECKSUM, check_mrz_checksum(candidate, today=self._today)
+            ),
+            Validation(
+                ValidationName.DOB_PLAUSIBLE,
+                check_dob_plausible(key.date_of_birth, today=self._today),
+            ),
+        )
+        unmet = None if check is None else check.unmet_criteria
         verdicts = [
-            _Verdict(verdict.queue, verdict.reason) for verdict in gates if verdict is not None
+            *_failed((required,)),
+            *([] if unmet is None else [_Verdict(unmet.queue, unmet.reason)]),
+            *_failed((single_source, file_type, *content)),
         ]
-        selected, refusal = self._operation(entry, sources)
-        return [*verdicts, *refusal], selected
+        selected, refusal = self._checked_operation(
+            entry, operation_sources, (single_source, file_type)
+        )
+        validations = (required, *shape, single_source, file_type, *content)
+        return [*verdicts, *refusal], selected, validations
 
     def _decide_employee(
         self,
@@ -912,10 +976,16 @@ class _Planner:
         employee: PlanEmployee,
         verdicts: Sequence[_Verdict],
         selected: SelectedOperation | None,
+        validations: Sequence[Validation],
     ) -> PlanItem:
         slug = None if entry is None else entry.slug
+        if entry is not None:
+            self._record_validation_failures(item_id, entry, sources[0], validations)
+        checked = tuple(
+            PlanValidation(name=validation.name, ok=validation.ok) for validation in validations
+        )
         if verdicts or entry is None or selected is None or employee.employee_id is None:
-            return _queued_item(item_id, slug, sources, employee, verdicts)
+            return _queued_item(item_id, slug, sources, employee, verdicts, checked)
         owner = self._session.get_one(Employee, employee.employee_id)
         stem = document_stem(owner.given_names, owner.surname, entry.file_label)
         return PlanItem(
@@ -928,39 +998,94 @@ class _Planner:
             employee=employee,
             route=Route.READY,
             route_reason=None,
-            validations=(),
+            validations=checked,
         )
+
+    def _record_validation_failures(
+        self,
+        item_id: str,
+        entry: CatalogEntry,
+        first: PlanSource,
+        validations: Sequence[Validation],
+    ) -> None:
+        # 06.5.2: her geçmeyen doğrulama öğenin ilk sayfasıyla (ekte dosyasıyla) loga yazılır.
+        for validation in validations:
+            failure = validation.failure
+            if failure is None:
+                continue
+            record_event(
+                self._session,
+                EventType.VALIDATION_FAILED,
+                file_id=first.file_id,
+                page_index=first.pages[0] if first.pages else None,
+                message=failure.reason,
+                data={
+                    "item_id": item_id,
+                    "validation": validation.name.value,
+                    "document_type_slug": entry.slug,
+                    "queue": failure.queue.value,
+                },
+            )
 
     # --- Word/Excel eki -----------------------------------------------------------------------
 
     def _attachment_item(self, item_id: str, *, attachment: AttachmentFile) -> PlanItem:
+        # K2: sayfası ve analizi olmayan ek yalnız kaynak doğrulayıcılarından geçer.
         sources = (PlanSource(file_id=attachment.file_id, pages=()),)
         entry = self._catalog.get(attachment.document_type_slug)
-        selected, verdicts = self._operation(entry, sources)
+        operation_sources = [self._operation_source(source) for source in sources]
+        validations = self._source_validations(entry, operation_sources)
+        selected, refusal = self._checked_operation(entry, operation_sources, validations)
+        verdicts = [*_failed(validations), *refusal]
         unresolved = attachment.unresolved
         if unresolved is not None:
             # Bağlam çalışanı olmadan yüklenen ekin sahibi belirsizdir.
             verdicts.append(_Verdict(unresolved.queue, unresolved.reason))
-            return self._item(item_id, sources, entry, _NO_EMPLOYEE, verdicts, selected)
+            return self._item(
+                item_id, sources, entry, _NO_EMPLOYEE, verdicts, selected, validations
+            )
         # Sahibi partinin bağlam çalışanıdır (`unresolved` boşsa doludur); belge kimliğiyle
         # eşleştirilmedi, `matched_by` boş kalır.
         owner = self._upload.context_employee_id
         employee = PlanEmployee(action=EmployeeAction.MATCH, employee_id=owner, matched_by=None)
-        return self._item(item_id, sources, entry, employee, verdicts, selected)
+        return self._item(item_id, sources, entry, employee, verdicts, selected, validations)
 
     # --- işlem --------------------------------------------------------------------------------
 
-    def _operation(
-        self, entry: CatalogEntry, sources: Sequence[PlanSource]
+    def _source_validations(
+        self, entry: CatalogEntry, sources: Sequence[OperationSource]
+    ) -> tuple[Validation, Validation]:
+        # `direct_single_source` ve `file_type` (06.5.1). Direkt Belge'de `file_type` §20.4.1'in
+        # format kontrolüdür: gerekçesi o bölümün, reddi `DIRECT_DOC_CHECK`'e de yazılır (06.3.2).
+        single_source = check_direct_single_source(sources, entry=entry)
+        if entry.direct:
+            mismatch = check_direct_file_types(sources, entry=entry)
+            if mismatch is not None:
+                self._record_direct_refusal(entry, sources, mismatch, operation=None)
+        else:
+            mismatch = check_file_type(sources, entry=entry)
+        return (
+            Validation(ValidationName.DIRECT_SINGLE_SOURCE, single_source),
+            Validation(ValidationName.FILE_TYPE, mismatch),
+        )
+
+    def _checked_operation(
+        self,
+        entry: CatalogEntry,
+        operation_sources: Sequence[OperationSource],
+        source_validations: Sequence[Validation],
     ) -> tuple[SelectedOperation | None, list[_Verdict]]:
-        # Direkt Belge format kontrolü (06.3.2) → §20.3 → Direkt Belge matrisi (06.3.1) → dönüşüm
+        # İşlem yalnız kaynak doğrulayıcılarından geçen belgede seçilir; geçmeyenin hükmü onundur.
+        if not all(validation.ok for validation in source_validations):
+            return None, []
+        return self._operation(entry, operation_sources)
+
+    def _operation(
+        self, entry: CatalogEntry, operation_sources: Sequence[OperationSource]
+    ) -> tuple[SelectedOperation | None, list[_Verdict]]:
+        # Kaynak doğrulamasından geçen belgede §20.3 → Direkt Belge matrisi (06.3.1) → dönüşüm
         # izni (06.4.1). İlk ret sonraki adımı keser: işlem yok ve belgeyi Unresolved'a gönderen
         # tek hüküm.
-        operation_sources = [self._operation_source(source) for source in sources]
-        mismatch = check_direct_file_types(operation_sources, entry=entry)
-        if mismatch is not None:
-            self._record_direct_refusal(entry, operation_sources, mismatch, operation=None)
-            return None, [_Verdict(mismatch.queue, mismatch.reason)]
         selection = select_operation(operation_sources, output_format=entry.output_format)
         if isinstance(selection, NoApplicableOperation):
             return None, [_Verdict(selection.queue, selection.reason)]
@@ -1032,6 +1157,15 @@ class _Planner:
         return self._kinds[file_id]
 
 
+def _failed(validations: Iterable[Validation]) -> list[_Verdict]:
+    # Geçmeyen doğrulamaların hükümleri, doğrulayıcı sırasıyla (06.5.2).
+    return [
+        _Verdict(validation.failure.queue, validation.failure.reason)
+        for validation in validations
+        if validation.failure is not None
+    ]
+
+
 def _verdict_of(decision: EmployeeMatch | UnmatchedResolution) -> _Verdict | None:
     # Çalışan kararı belgeyi kuyruğa gönderiyorsa hüküm; Hazir'a giden kararda `None`.
     if decision.queue is None or decision.reason is None:
@@ -1054,6 +1188,7 @@ def _queued_item(
     sources: tuple[PlanSource, ...],
     employee: PlanEmployee,
     verdicts: Sequence[_Verdict],
+    validations: tuple[PlanValidation, ...],
 ) -> PlanItem:
     return PlanItem(
         item_id=item_id,
@@ -1065,7 +1200,7 @@ def _queued_item(
         employee=employee,
         route=Route(verdicts[0].queue.value),
         route_reason=" ".join(verdict.reason for verdict in verdicts),
-        validations=(),
+        validations=validations,
     )
 
 

@@ -1,5 +1,6 @@
-"""Plan JSON üretimi, belirleyicilik, işlem seçimi, Direkt Belge kuralı ve dönüşüm izni — PRD
-06.1.1, 06.1.2, 06.2.1, 06.3.1, 06.3.2, 06.4.1 (§8.5, §20.3, §20.4; K3, K9, K12, R5, R10, R7).
+"""Plan JSON üretimi, belirleyicilik, işlem seçimi, Direkt Belge kuralı, dönüşüm izni ve doğrulama —
+PRD 06.1.1, 06.1.2, 06.2.1, 06.3.1, 06.3.2, 06.4.1, 06.5.1, 06.5.2 (§8.5, §20.1.6, §20.1.7, §20.3,
+§20.4; K1, K3, K9, K12, R5, R10, R7). Doğrulayıcıların birim testleri `test_validate.py`'dedir.
 
 Sayfa analizleri kayıtlı yanıt biçimindeki sentetik sözlüklerdir, dosyalar `tests/fixtures/gen.py`
 ile üretilir (CONVENTIONS §6). Plan üretimi sayfaları veritabanından okur; render ve analiz adımları
@@ -94,6 +95,7 @@ from app.pipeline.render import (
     mark_upload_file_single_image_pages,
     render_upload_file,
 )
+from app.pipeline.validate import ValidationName
 from app.storage import DataLayout, FileKind, prepare_data_dir, write_to_inbox
 from tests.fixtures.gen import (
     A4,
@@ -150,6 +152,9 @@ NO_PERSON: dict[str, Any] = {
 }
 NOBODY = PlanEmployee(action=EmployeeAction.NONE, employee_id=None, matched_by=None)
 UNMET_MRZ = "MRZ iki satırı da okunabilir olmalı"
+ALL_CHECKS = tuple(ValidationName)
+SOURCE_CHECKS = (ValidationName.DIRECT_SINGLE_SOURCE, ValidationName.FILE_TYPE)
+SHAPE_CHECKS = (ValidationName.PAGE_COUNT, ValidationName.SIDES)
 
 
 def _person(**changes: Any) -> dict[str, Any]:
@@ -360,8 +365,14 @@ def _item(
     reason: str | None = None,
     operation: Operation | None = None,
     target: tuple[str | None, str | None] = (None, None),
+    failed: Iterable[ValidationName] = (),
+    validated: Iterable[ValidationName] | None = None,
 ) -> PlanItem:
+    """Beklenen öğe; `validated` verilmezse katalog türü yedi, Word/Excel eki iki doğrulayıcıdan,
+    türsüz öğe hiçbirinden geçmiştir (06.5.1). `failed` geçmeyen doğrulayıcılardır."""
     target_format, target_name = target
+    if validated is None:
+        validated = () if slug is None else SOURCE_CHECKS if slug == "attachment" else ALL_CHECKS
     return PlanItem.model_validate(
         {
             "item_id": item_id,
@@ -373,7 +384,7 @@ def _item(
             "employee": employee.model_dump(mode="json"),
             "route": route,
             "route_reason": reason,
-            "validations": [],
+            "validations": [{"name": name, "ok": name not in failed} for name in validated],
         }
     )
 
@@ -433,7 +444,7 @@ def _item_data(**changes: Any) -> dict[str, Any]:
         "employee": {"action": "create", "employee_id": "E0001", "matched_by": None},
         "route": "hazir",
         "route_reason": None,
-        "validations": [],
+        "validations": [{"name": "required_fields", "ok": True}],
     }
     data.update(changes)
     return data
@@ -551,6 +562,27 @@ def test_prd_example_item_is_a_valid_plan_item() -> None:
         ({"target_format": "jpeg"}, "uzantısı target_format"),
         ({"target_format": None}, "uzantısı target_format"),
         ({"target_name": "../Passport.pdf"}, "target_name"),
+        # 06.5.2: `hazir` öğe doğrulanmıştır; doğrulamalar tekrarsız ve 06.5.1 sırasıyla.
+        ({"validations": []}, "hazir öğe doğrulanmış olmalı"),
+        (
+            {
+                "validations": [
+                    {"name": "required_fields", "ok": True},
+                    {"name": "dob_plausible", "ok": False},
+                ]
+            },
+            "hazir öğe doğrulanmış olmalı",
+        ),
+        (
+            {"validations": [{"name": "sides", "ok": True}, {"name": "page_count", "ok": True}]},
+            "06.5.1 sırasıyla",
+        ),
+        (
+            {"validations": [{"name": "sides", "ok": True}, {"name": "sides", "ok": True}]},
+            "tekrarsız",
+        ),
+        ({"validations": [{"name": "photo_quality", "ok": True}]}, "validations.0.name"),
+        ({"validations": [{"name": "sides", "ok": "true"}]}, "validations.0.ok"),
     ],
 )
 def test_invalid_item_is_rejected(changes: dict[str, Any], message: str) -> None:
@@ -833,6 +865,7 @@ def test_unreadable_document_opens_and_accumulates_nothing_but_keeps_the_person_
             employee=_matched() if registered else NOBODY,
             route=Route.UNREADABLE,
             reason="Okunamayan alanlar: expiry_date",
+            failed=(ValidationName.REQUIRED_FIELDS,),
         ),
     )
     assert _count(session, Employee) == int(registered)
@@ -842,6 +875,18 @@ def test_unreadable_document_opens_and_accumulates_nothing_but_keeps_the_person_
     )
     assert _count(session, EmployeeContact) == 0
     assert list(layout.employees.iterdir()) == []
+    (event,) = _events(session, EventType.VALIDATION_FAILED)
+    assert (event.file_id, event.page_index, event.message) == (
+        file_id,
+        0,
+        "Okunamayan alanlar: expiry_date",
+    )
+    assert event.data_json == {
+        "item_id": "i1",
+        "validation": "required_fields",
+        "document_type_slug": PASSPORT,
+        "queue": "unreadable",
+    }
 
 
 def test_every_verdict_sending_the_document_to_a_queue_is_in_the_reason(
@@ -882,18 +927,26 @@ def test_unmet_acceptance_criterion_alone_goes_to_unresolved(
 def test_mrz_priority_is_applied_before_the_legibility_gate(
     session: Session, layout: DataLayout
 ) -> None:
-    # 05.3.3 / §20.1.7: numara hanesi tutmayan MRZ görünen okunaklı numarayı okunamadı yapar.
+    # 05.3.3 / §20.1.7: numara hanesi tutmayan MRZ görünen okunaklı numarayı okunamadı yapar (K1
+    # kuyruğu seçer); aynı MRZ `mrz_checksum` doğrulamasından da geçmez (05.3.2).
     passport = _passport()
     line = passport["person"]["mrz_lines"][1]
     passport["person"]["mrz_lines"][1] = line[:9] + "2" + line[10:]
     upload = _upload(session, layout, _pdf(passport))
+    (file_id,) = _file_ids(upload)
 
     (item,) = _plan(session, layout, upload).items
 
     assert (item.route, item.route_reason) == (
         Route.UNREADABLE,
-        "Okunamayan alanlar: document_number",
+        "Okunamayan alanlar: document_number MRZ kontrol hanesi doğrulaması (06.5.1, "
+        f"mrz_checksum): dosya {file_id}, sayfa 1: tutmayan kontrol haneleri document_number, "
+        "composite. Kontrol hanesi tutmayan MRZ geçersiz sayılır.",
     )
+    assert [(check.name, check.ok) for check in item.validations if not check.ok] == [
+        (ValidationName.REQUIRED_FIELDS, False),
+        (ValidationName.MRZ_CHECKSUM, False),
+    ]
     assert _count(session, Employee) == 0
 
 
@@ -924,6 +977,8 @@ def test_structural_verdicts_precede_the_legibility_gate_and_open_nobody(
         assert piece.route_reason is not None
         assert piece.route_reason.startswith("Ardışıklık güvenlik kuralı (R6)")
         assert "Okunamayan alanlar" not in piece.route_reason
+        # Parça bütün belge değildir: doğrulayıcılardan geçmez (06.5).
+        assert piece.validations == ()
     assert [item.sources for item in items] == [
         (PlanSource(file_id=file_id, pages=(page,)),) for page in range(3)
     ]
@@ -981,6 +1036,7 @@ def test_ambiguous_pairing_and_unanalyzed_page_go_to_unresolved(
     for face in items[:2]:
         assert face.route_reason is not None
         assert face.route_reason.startswith("Belirsiz ön/arka yüz eşleştirmesi")
+        assert face.validations == ()
     assert _count(session, Employee) == 0
 
 
@@ -999,6 +1055,7 @@ def test_unknown_type_goes_to_unknown_with_a_person_guess(
     guess = _matched(by=MatchedBy.NAME_DOB) if registered else NOBODY
     assert (item.document_type_slug, item.route, item.employee) == (None, Route.UNKNOWN, guess)
     assert item.route_reason is not None and '"Peruvian Diploma"' in item.route_reason
+    assert item.validations == ()
     assert _count(session, CandidateDocumentType) == 1
     assert _count(session, EmployeeAlias) == int(registered)
     _assert_no_personal_values(session)
@@ -1121,6 +1178,12 @@ def test_decisions_follow_item_order_so_a_new_employee_is_found_by_the_next_item
     ]
 
 
+DOB_OUT_OF_RANGE = (
+    "Doğum tarihi doğrulaması (06.5.1, dob_plausible): okunan doğum tarihi referans güne göre "
+    "16–90 yaş aralığı dışında; tarih yanlış okunmuş olabilir."
+)
+
+
 def _mrz_passport(birth: str) -> dict[str, Any]:
     passport = _passport()
     passport["person"]["mrz_lines"] = make_mrz(
@@ -1138,11 +1201,8 @@ def _mrz_passport(birth: str) -> dict[str, Any]:
 
 
 @pytest.mark.parametrize(
-    ("reference_date", "employee", "route"),
-    [
-        (None, _matched(by=MatchedBy.NAME_DOB), Route.READY),
-        (date(2026, 9, 15), NOBODY, Route.UNRESOLVED),
-    ],
+    ("reference_date", "employee"),
+    [(None, _matched(by=MatchedBy.NAME_DOB)), (date(2026, 9, 15), NOBODY)],
     ids=["upload-day", "explicit-day"],
 )
 def test_mrz_century_is_chosen_with_the_day_the_upload_was_received(
@@ -1150,16 +1210,22 @@ def test_mrz_century_is_chosen_with_the_day_the_upload_was_received(
     layout: DataLayout,
     reference_date: date | None,
     employee: PlanEmployee,
-    route: Route,
 ) -> None:
-    # §20.1.6: MRZ `250101` 2024'te alınan partide 1925, 2026'ya göre 2025'tir. Saat plana girmez.
+    # §20.1.6: MRZ `250101` 2024'te alınan partide 1925, 2026'ya göre 2025'tir; kayıtlı çalışanla
+    # ad + doğum tarihinden eşleşme yalnız ilkinde tutar. Saat plana girmez. İki yüzyıl da 16–90
+    # yaş dışında kalır: tarih `dob_plausible`'dan geçmez, eşleşme kişi tahminidir.
     _employee(session, born=date(1925, 1, 1))
     received = datetime(2024, 6, 1, 12, 0, tzinfo=UTC)
     upload = _upload(session, layout, _pdf(_mrz_passport("250101")), created_at=received)
 
     (item,) = _plan(session, layout, upload, reference_date=reference_date).items
 
-    assert (item.employee, item.route) == (employee, route)
+    assert (item.employee, item.route) == (employee, Route.UNRESOLVED)
+    assert [check.name for check in item.validations if not check.ok] == [
+        ValidationName.DOB_PLAUSIBLE
+    ]
+    assert item.route_reason is not None
+    assert item.route_reason.startswith(DOB_OUT_OF_RANGE)
 
 
 def test_new_plan_of_the_same_upload_takes_the_next_version(
@@ -1313,6 +1379,10 @@ KEEP, TO_PDF, TO_JPEG = OutputFormat.KEEP, OutputFormat.PDF, OutputFormat.JPEG
 NO_OPERATION = "İşlem seçilemedi (06.2.1): "
 NO_OPERATION_TAIL = (
     "§20.3'te bu kaynak, kapsama ve biçim için uyan fiziksel işlem yok; belge dönüştürülmez."
+)
+# PNG'yi bekleyen, JPEG çıktılı, Direkt olmayan pasaport: PNG kaynak §20.3 satır 7'ye düşer.
+PNG_TO_JPEG_PASSPORT = _catalog_with(
+    PASSPORT, direct=False, expected_file_types=["pdf", "jpeg", "png"], output_format="jpeg"
 )
 
 
@@ -1651,23 +1721,21 @@ def test_page_without_a_page_row_makes_the_document_a_subset(
 def test_document_without_an_operation_goes_to_unresolved_and_opens_nobody(
     session: Session, layout: DataLayout
 ) -> None:
-    # Satır 7: `keep` türde içeriği tanınmayan kaynağın hedef biçimi yok. İşlem seçimi çalışan
-    # kararından önce yapılır: temiz numaralı belgeden çalışan açılmaz. Tür Direkt Belge değil —
-    # Direkt Belge'de aynı kaynak format kontrolünde (06.3.2) reddedilir.
-    catalog = _catalog_with(PASSPORT, direct=False)
-    upload = _upload(session, layout, _File(pages=(_passport(),), content=b"tanimsiz icerik"))
+    # Satır 7: JPEG çıktılı türde PNG kaynağa uyan satır yok (D15). İşlem seçimi çalışan kararından
+    # önce yapılır: temiz numaralı belgeden çalışan açılmaz. Tür Direkt Belge değil — Direkt
+    # Belge'de aynı kaynak matriste (06.3.1) reddedilir.
+    upload = _upload(session, layout, _image(_passport(), "PNG"))
     (file_id,) = _file_ids(upload)
 
-    document = _plan(session, layout, upload, catalog=catalog)
+    document = _plan(session, layout, upload, catalog=PNG_TO_JPEG_PASSPORT)
 
     assert document.items == (
         _item(
             "i1",
             [(file_id, (0,))],
             slug=PASSPORT,
-            reason=f"{NO_OPERATION}Kaynak: dosya {file_id}, sayfa 1 (biçimi tanınmadı, dosyanın "
-            "tüm sayfaları). Hedef biçim: belirlenemedi (output_format: keep, kaynak biçimi "
-            f"tanınmadı). {NO_OPERATION_TAIL}",
+            reason=f"{NO_OPERATION}Kaynak: dosya {file_id}, sayfa 1 (png, dosyanın tüm sayfaları). "
+            f"Hedef biçim: jpeg. {NO_OPERATION_TAIL}",
         ),
     )
     assert (_count(session, Employee), _count(session, EmployeeIdentifier)) == (0, 0)
@@ -1715,13 +1783,9 @@ def test_no_operation_verdict_follows_the_legibility_gate(
     session: Session, layout: DataLayout
 ) -> None:
     # Okunamayan alan kuyruğu seçer; işlem gerekçesi ardından eklenir.
-    upload = _upload(
-        session,
-        layout,
-        _File(pages=(_illegible_expiry(_passport()),), content=b"tanimsiz icerik"),
-    )
+    upload = _upload(session, layout, _image(_illegible_expiry(_passport()), "PNG"))
 
-    (item,) = _plan(session, layout, upload, catalog=_catalog_with(PASSPORT, direct=False)).items
+    (item,) = _plan(session, layout, upload, catalog=PNG_TO_JPEG_PASSPORT).items
 
     assert item.route is Route.UNREADABLE
     assert item.route_reason is not None
@@ -1869,6 +1933,7 @@ def test_s6_direct_passport_in_an_unexpected_format_goes_to_unresolved_without_c
             slug=PASSPORT,
             employee=_matched() if registered else NOBODY,
             reason=reason,
+            failed=(ValidationName.FILE_TYPE,),
         ),
     )
     assert _count(session, Employee) == int(registered)
@@ -1892,10 +1957,14 @@ def test_s6_direct_passport_in_an_unexpected_format_goes_to_unresolved_without_c
         "file_types": ["jpeg"],
         "queue": "unresolved",
     }
-    assert [e.type for e in _events(session)][-2:] == [
+    assert [e.type for e in _events(session)][-3:] == [
         EventType.DIRECT_DOC_CHECK,
+        EventType.VALIDATION_FAILED,
         EventType.PLAN_CREATED,
     ]
+    (failure,) = _events(session, EventType.VALIDATION_FAILED)
+    assert (failure.file_id, failure.page_index, failure.message) == (file_id, 0, reason)
+    assert failure.data_json is not None and failure.data_json["validation"] == "file_type"
     _assert_no_personal_values(session)
 
 
@@ -2221,6 +2290,305 @@ def test_conversion_refusal_follows_the_legibility_gate(
         None,
         f"Okunamayan alanlar: expiry_date {_not_allowed('wrap_image', 'boş')}",
     )
+
+
+# --- 06.5 doğrulayıcılar ve doğrulama başarısızlığı ---------------------------------------------
+
+
+def _validation_failures(session: Session) -> list[tuple[int | None, str | None, Any]]:
+    return [
+        (event.page_index, event.message, event.data_json)
+        for event in _events(session, EventType.VALIDATION_FAILED)
+    ]
+
+
+def _failure_data(item_id: str, validation: str, slug: str, queue: str = "unresolved") -> Any:
+    return {
+        "item_id": item_id,
+        "validation": validation,
+        "document_type_slug": slug,
+        "queue": queue,
+    }
+
+
+def test_ready_document_passed_all_seven_validators_in_their_order(
+    session: Session, layout: DataLayout
+) -> None:
+    upload = _upload(session, layout, _pdf(_passport()))
+
+    (item,) = _plan(session, layout, upload).items
+
+    assert item.route is Route.READY
+    assert [(check.name.value, check.ok) for check in item.validations] == [
+        ("required_fields", True),
+        ("page_count", True),
+        ("sides", True),
+        ("direct_single_source", True),
+        ("file_type", True),
+        ("mrz_checksum", True),
+        ("dob_plausible", True),
+    ]
+    assert _events(session, EventType.VALIDATION_FAILED) == []
+
+
+def test_queued_item_carries_its_failed_validations() -> None:
+    item = PlanItem.model_validate(
+        _item_data(
+            **QUEUED,
+            target_name=None,
+            validations=[{"name": "page_count", "ok": False}, {"name": "sides", "ok": False}],
+        )
+    )
+
+    assert [check.ok for check in item.validations] == [False, False]
+
+
+@pytest.mark.parametrize(
+    ("expected_pages", "failed"),
+    [
+        pytest.param({"min": 1, "max": 2}, (ValidationName.SIDES,), id="sides-only"),
+        pytest.param(
+            {"min": 2, "max": 2},
+            (ValidationName.PAGE_COUNT, ValidationName.SIDES),
+            id="page-count-and-sides",
+        ),
+    ],
+)
+def test_front_back_card_without_its_back_goes_to_unresolved_and_opens_nobody(
+    session: Session,
+    layout: DataLayout,
+    expected_pages: dict[str, int],
+    failed: tuple[ValidationName, ...],
+) -> None:
+    # 06.5.1 `sides`: oturma izninin yalnız ön yüzü. Aralık bir sayfaya izin verse de belge
+    # eksiktir; yapı doğrulaması geçmeyen adaya okunaklılık, öteki doğrulayıcılar ve işlem
+    # uygulanmaz, temiz numarası çalışan açmaz. Gerekçeler doğrulayıcı sırasıyla (06.5.2).
+    catalog = _catalog_with(RESIDENCE, expected_pages=expected_pages)
+    upload = _upload(session, layout, _pdf(_page(RESIDENCE, side="front")))
+    (file_id,) = _file_ids(upload)
+
+    document = _plan(session, layout, upload, catalog=catalog)
+
+    sides = (
+        "Yüz doğrulaması (06.5.1, sides): tür önce bir ön, sonra bir arka yüz bekliyor (front, "
+        f"back); bu adayın yüzleri: dosya {file_id}, sayfa 1: front."
+    )
+    page_count = (
+        f"Beklenen sayfa sayısı kontrolü (04.5.1): bu aday 1 sayfa (dosya {file_id}, sayfa 1) "
+        "taşıyor, tür 2 sayfa bekliyor."
+    )
+    reasons = [page_count, sides] if ValidationName.PAGE_COUNT in failed else [sides]
+    assert document.items == (
+        _item(
+            "i1",
+            [(file_id, (0,))],
+            slug=RESIDENCE,
+            reason=" ".join(reasons),
+            validated=SHAPE_CHECKS,
+            failed=failed,
+        ),
+    )
+    assert (_count(session, Employee), _count(session, EmployeeIdentifier)) == (0, 0)
+    assert _validation_failures(session) == [
+        (0, reason, _failure_data("i1", name.value, RESIDENCE))
+        for name, reason in zip(failed, reasons, strict=True)
+    ]
+    _assert_no_personal_values(session)
+
+
+def test_direct_document_from_scattered_pages_goes_to_unresolved_without_an_operation(
+    session: Session, layout: DataLayout
+) -> None:
+    # 06.5.1 `direct_single_source` (K3, K5): render üç sayfa yazdı, ikinci sayfanın satırı yok.
+    # Pasaportun iki sayfası arasındaki sayfanın içeriği bilinmez: çıktı ardışık sayfalardan
+    # kurulamaz, işlem seçilmez, çalışan açılmaz.
+    catalog = _catalog_with(PASSPORT, expected_pages={"min": 1, "max": 2})
+    upload = _upload(
+        session,
+        layout,
+        _File(
+            pages=(_passport(), _passport(continues_previous_page=True)), content=make_pdf_bytes(3)
+        ),
+    )
+    (upload_file,) = upload.files
+    upload_file.page_count = 3
+    upload_file.pages[1].index = 2
+    session.flush()
+
+    document = _plan(session, layout, upload, catalog=catalog)
+
+    reason = (
+        "Direkt Belge tek kaynak doğrulaması (06.5.1, direct_single_source): çıktı tek kaynak "
+        f"dosyanın ardışık sayfalarından oluşur (K3); dosya {upload_file.id}, sayfa 1, 3 ardışık "
+        "değil."
+    )
+    assert document.items == (
+        _item(
+            "i1",
+            [(upload_file.id, (0, 2))],
+            slug=PASSPORT,
+            reason=reason,
+            failed=(ValidationName.DIRECT_SINGLE_SOURCE,),
+        ),
+    )
+    assert _count(session, Employee) == 0
+    assert _validation_failures(session) == [
+        (0, reason, _failure_data("i1", "direct_single_source", PASSPORT))
+    ]
+
+
+@pytest.mark.parametrize("registered", [False, True], ids=["nobody", "number-registered"])
+def test_non_direct_document_in_an_unexpected_format_goes_to_unresolved_without_conversion(
+    session: Session, layout: DataLayout, registered: bool
+) -> None:
+    # 06.5.1 `file_type`: tür yalnız PDF bekler, JPEG geldi. `wrap_image` izinli olsa da belge
+    # dönüştürülerek kurtarılmaz; işlem seçilmez, çalışan açılmaz. Direkt Belge değil:
+    # `DIRECT_DOC_CHECK` yok.
+    if registered:
+        _employee(session, numbers=(PERMIT_NUMBER,))
+    catalog = _catalog_with(PERMIT, expected_file_types=["pdf"])
+    permit = _page(PERMIT, person=_person(document_number=PERMIT_NUMBER))
+    upload = _upload(session, layout, _image(permit))
+    (file_id,) = _file_ids(upload)
+
+    document = _plan(session, layout, upload, catalog=catalog)
+
+    reason = (
+        "Dosya türü doğrulaması (06.5.1, file_type): beklenen dosya türü pdf, gelen jpeg. "
+        f"{UPLOAD_AGAIN}"
+    )
+    assert document.items == (
+        _item(
+            "i1",
+            [(file_id, (0,))],
+            slug=PERMIT,
+            employee=_matched() if registered else NOBODY,
+            reason=reason,
+            failed=(ValidationName.FILE_TYPE,),
+        ),
+    )
+    assert _count(session, Employee) == int(registered)
+    assert _events(session, EventType.DIRECT_DOC_CHECK) == []
+    assert _validation_failures(session) == [(0, reason, _failure_data("i1", "file_type", PERMIT))]
+
+
+@pytest.mark.parametrize("registered", [False, True], ids=["nobody", "number-registered"])
+def test_passport_whose_mrz_composite_digit_fails_goes_to_unresolved_and_opens_nobody(
+    session: Session, layout: DataLayout, registered: bool
+) -> None:
+    # 05.3.2 / §20.1.7 / PLAN.md D16: yalnız bileşik hane tutmuyor. Alanlar okunaklı kalır (K1
+    # geçer, Unreadable değil) ama MRZ geçersiz sayılır: belge Unresolved'a gider, temiz görünen
+    # numara çalışan açmaz; kayıtlı çalışan kişi tahminidir.
+    if registered:
+        _employee(session, numbers=(NUMBER,))
+    passport = _passport()
+    line = passport["person"]["mrz_lines"][1]
+    passport["person"]["mrz_lines"][1] = line[:-1] + ("5" if line[-1] != "5" else "6")
+    upload = _upload(session, layout, _pdf(passport))
+    (file_id,) = _file_ids(upload)
+
+    document = _plan(session, layout, upload)
+
+    reason = (
+        f"MRZ kontrol hanesi doğrulaması (06.5.1, mrz_checksum): dosya {file_id}, sayfa 1: "
+        "tutmayan kontrol haneleri composite. Kontrol hanesi tutmayan MRZ geçersiz sayılır."
+    )
+    assert document.items == (
+        _item(
+            "i1",
+            [(file_id, (0,))],
+            slug=PASSPORT,
+            employee=_matched() if registered else NOBODY,
+            reason=reason,
+            failed=(ValidationName.MRZ_CHECKSUM,),
+        ),
+    )
+    assert _count(session, Employee) == int(registered)
+    assert _events(session, EventType.EMPLOYEE_PENDING) == []
+    assert _validation_failures(session) == [
+        (0, reason, _failure_data("i1", "mrz_checksum", PASSPORT))
+    ]
+    _assert_no_personal_values(session)
+
+
+def test_implausible_date_of_birth_goes_to_unresolved_not_unreadable(
+    session: Session, layout: DataLayout
+) -> None:
+    # 06.5.1 `dob_plausible` (§20.1.6): partinin alındığı gün 16. doğum gününden bir gün önce. Tarih
+    # okunmuştur (Unreadable değil) ama inanılır değildir; temiz numaralı izin çalışan açmaz.
+    born = "2010-09-16"
+    received = datetime(2026, 9, 15, 23, 59, tzinfo=UTC)
+    permit = _page(PERMIT, person=_person(date_of_birth=born, document_number=PERMIT_NUMBER))
+    upload = _upload(session, layout, _pdf(permit), created_at=received)
+    (file_id,) = _file_ids(upload)
+
+    document = _plan(session, layout, upload)
+
+    assert document.items == (
+        _item(
+            "i1",
+            [(file_id, (0,))],
+            slug=PERMIT,
+            reason=DOB_OUT_OF_RANGE,
+            failed=(ValidationName.DOB_PLAUSIBLE,),
+        ),
+    )
+    assert _count(session, Employee) == 0
+    assert _validation_failures(session) == [
+        (0, DOB_OUT_OF_RANGE, _failure_data("i1", "dob_plausible", PERMIT))
+    ]
+    assert born not in json.dumps([event.data_json for event in _events(session)])
+
+
+def test_failed_validations_are_written_in_their_order_after_the_gate_and_before_the_person(
+    session: Session, layout: DataLayout
+) -> None:
+    # 06.5.2: okunamayan alan kuyruğu seçer (K1); kabul kriteri, Direkt Belge format reddi ve
+    # inanılır olmayan doğum tarihi gerekçeye doğrulayıcı sırasıyla, eşleştirme gerekçesi en sona
+    # eklenir. Her geçmeyen doğrulama kendi olayını yazar.
+    _employee(session, born=date(1980, 1, 1))
+    catalog = _catalog_with(PASSPORT, expected_file_types=["pdf"])
+    passport = _illegible_expiry(_passport(notes=f"Karşılanmayan kabul kriteri: {UNMET_MRZ}"))
+    passport["person"]["date_of_birth"] = "2031-01-01"
+    passport["fields"]["date_of_birth"] = {"value": "2031-01-01", "legible": True}
+    upload = _upload(session, layout, _image(passport))
+    (file_id,) = _file_ids(upload)
+
+    (item,) = _plan(session, layout, upload, catalog=catalog).items
+
+    illegible = "Okunamayan alanlar: expiry_date"
+    direct = f"Direkt Belge: beklenen dosya türü pdf, gelen jpeg. {UPLOAD_AGAIN}"
+    future = (
+        "Doğum tarihi doğrulaması (06.5.1, dob_plausible): okunan doğum tarihi geçmişte değil; "
+        "tarih yanlış okunmuş olabilir."
+    )
+    assert item == _item(
+        "i1",
+        [(file_id, (0,))],
+        slug=PASSPORT,
+        route=Route.UNREADABLE,
+        reason=f'{illegible} Karşılanmayan kabul kriterleri: "{UNMET_MRZ}" {direct} {future} '
+        f"{NAME_ONLY_REASON}. İsmi eşleşen çalışan: E0007. Yalnız isim eşleşmesi otomatik "
+        "eşleştirme sayılmaz (R8).",
+        failed=(
+            ValidationName.REQUIRED_FIELDS,
+            ValidationName.FILE_TYPE,
+            ValidationName.DOB_PLAUSIBLE,
+        ),
+    )
+    assert _validation_failures(session) == [
+        (0, illegible, _failure_data("i1", "required_fields", PASSPORT, "unreadable")),
+        (0, direct, _failure_data("i1", "file_type", PASSPORT)),
+        (0, future, _failure_data("i1", "dob_plausible", PASSPORT)),
+    ]
+    assert [event.type for event in _events(session)][-5:] == [
+        EventType.DIRECT_DOC_CHECK,
+        EventType.VALIDATION_FAILED,
+        EventType.VALIDATION_FAILED,
+        EventType.VALIDATION_FAILED,
+        EventType.PLAN_CREATED,
+    ]
+    assert "2031-01-01" not in json.dumps([event.data_json for event in _events(session)])
 
 
 # --- entegrasyon: gerçek render ve kayıtlı yanıt → plan ---------------------------------------

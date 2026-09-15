@@ -18,6 +18,12 @@ Blok biçimi `CONVENTIONS.md` §3'te tanımlıdır:
 
 ## Task log (newest-first)
 
+## 44 — 06.5 Doğrulayıcı seti — done — 2026-09-15
+- Yapıldı: `app/pipeline/validate.py` — yedi saf doğrulayıcı (`required_fields`, `page_count`, `sides`, `direct_single_source`, `file_type`, `mrz_checksum`, `dob_plausible`; `ValidationName` 06.5.1 sırası); `app/pipeline/plan.py` katalog türündeki adayı önce yapı (`page_count`/`sides`), sonra öteki doğrulayıcılardan geçirip `validations`'a yazar, geçmeyeni kuyruğa gönderir (`required_fields` Unreadable, öteki Unresolved), gerekçeyi sırayla ekler, `VALIDATION_FAILED` atar; sözleşme `hazir` öğede dolu ve hepsi `ok` doğrulama ister.
+- Doğrulama: ruff check/format, compileall, `pytest -q -m "not live" --cov=app --cov-fail-under=70` (1803 geçti, +84; 4 PG testi atlandı), kapsam %99.72 (`plan.py`, `validate.py` satır+dal %100), temiz SQLite'ta `alembic upgrade head` (göç yok), `import app.main` — hepsi exit 0; 19 kural bozulması geçici olarak denendi, her biri testte kırmızı.
+- Varsayımlar: PLAN.md §C34 — ölçütler, uygulama kapsamı (ek yalnız kaynak doğrulayıcıları; bilinmeyen tür/R6/04.3.2/sayfa öğeleri `[]`), gerekçe metinleri, `file_type` her türde, `VALIDATION_FAILED` her başarısızlıkta; §D16 — hanesi tutmayan MRZ (bileşik dahil) belgeyi Unresolved'a gönderir, §20.1.7/§20.2.3'ün satır 7 okuması o belgede çalışmaz (insan kararı).
+- Sonraki pencereye not: 06.6/07.x uygulayıcısı yalnız `route: hazir` öğeyi yürütmeli — `read_plan` doğrulanmamış ya da doğrulaması geçmeyen `hazir` öğeyi zaten reddeder; 08.1 kuyruk kaydı gerekçeyi `route_reason`'dan, geçmeyen doğrulayıcıları `validations`'tan (`ok: false`) okuyabilir.
+
 ## 43 — 06.4 Dönüşüm izni kontrolü — done — 2026-09-15
 - Yapıldı: `app/pipeline/plan.py` — `check_conversion(operation, *, entry)` §20.3 satır 3–6'nın işlemlerini (`CONVERSION_OPERATIONS`) türün `allowed_conversions`'ında arar, yoksa `ConversionNotAllowed`; `_Planner._operation` bunu Direkt Belge matrisinden sonra uygular, ret işlemi ve hedefi plandan siler, belgeyi Unresolved'a gönderir, çalışan açmaz.
 - Doğrulama: ruff check/format, compileall, `pytest -q -m "not live" --cov=app --cov-fail-under=70` (1719 geçti, +18; 4 PG testi atlandı), kapsam %99.65 (`plan.py` %100), temiz SQLite'ta `alembic upgrade head` (göç yok), `import app.main` — hepsi exit 0; 9 kural bozulması geçici olarak denendi, her biri testte kırmızı.

@@ -8,7 +8,7 @@
 
 | Faz | PRD | Genel durum | Must sayacı | Kapanış |
 | --- | --- | --- | --- | --- |
-| Faz 0 — MVP | §5.1 | 73 ✅ · 0 ◐ · 29 ⬜ · 0 🔒 | 70/98 Must | AÇIK |
+| Faz 0 — MVP | §5.1 | 75 ✅ · 0 ◐ · 27 ⬜ · 0 🔒 | 72/98 Must | AÇIK |
 | Faz 1 — v1 | §5.2 | 0 ✅ · 0 ◐ · 0 ⬜ · 32 🔒 | 0/21 Must | AÇIK |
 | Faz 2 — v2 | §5.3 | 0 ✅ · 0 ◐ · 0 ⬜ · 13 🔒 | 0/0 Must | AÇIK |
 | Faz 3 — Enterprise | §5.4 | 0 ✅ · 0 ◐ · 0 ⬜ · 8 🔒 | 0/0 Must | AÇIK |
@@ -173,8 +173,8 @@ panelde `plan-count-drift` bulgusu doğurur.
 | 06.3.1 | Direkt Belge kuralı (R5) | Must (MVP) | ✅ → K06.3 |
 | 06.3.2 | Direkt Belge format kontrolü | Must (MVP) | ✅ → K06.3 |
 | 06.4.1 | Dönüşüm izni kontrolü | Must (MVP) | ✅ → K06.4 |
-| 06.5.1 | Doğrulayıcı seti | Must (MVP) | ⬜ |
-| 06.5.2 | Doğrulama başarısızlığı | Must (MVP) | ⬜ |
+| 06.5.1 | Doğrulayıcı seti | Must (MVP) | ✅ → K06.5 |
+| 06.5.2 | Doğrulama başarısızlığı | Must (MVP) | ✅ → K06.5 |
 | 06.6.1 | Planı yeniden çalıştırma | Must (MVP) | ⬜ |
 | 06.6.2 | Yeniden analiz ve sürüm | Must (MVP) | ⬜ |
 
@@ -1027,6 +1027,51 @@ Onay beklemeden yapılan varsayımlar buraya numaralı olarak yazılır.
   ile aynı yol). Word/Excel eki tüm dosyayı aldığı için satır 3–6'ya hiç uymaz; kontrol ona da uygulanır ama
   ret doğmaz. **Olay:** yok — §8.3'te dönüşüm izni için tür yok (D6/D11 sorusu); `DIRECT_DOC_CHECK` Direkt
   Belge'nin olayıdır, `direct: false` türde kullanılmadı. Ret planın gerekçesinde durur (`PLAN_CREATED`).
+- **C34** — Doğrulayıcı seti ve doğrulama başarısızlığı (tm 44, 06.5.1, 06.5.2): PRD yedi doğrulayıcının adını,
+  §20.1.6 `dob_plausible`'ın "geçmişte ve 16–90 yaş" ölçütünü, §20.1.7 MRZ hanelerinin sonucunu verir; her
+  doğrulayıcının neyi ölçtüğü, hangi öğeye uygulandığı, var olan hükümlerle (04.4, 04.5, 06.3.2) ilişkisi,
+  sırası, gerekçesi ve olayı yazılı değil. Saf çekirdek `app/pipeline/validate.py`: `ValidationName` (06.5.1
+  sırası), `Validation(name, failure)`, `check_*` işlevleri geçerse `None`, geçmezse `queue` + `reason` taşıyan
+  hüküm. **Ölçütler:** `required_fields` = 04.4.1 hükmü (`IllegibleRequiredFields`, Unreadable — C21); `page_count`
+  = 04.5.1 hükmü (`PageCountViolation`); `sides` yalnız `front_back` türde yüzler tam `(front, back)` (yalnız ön/
+  arka, ters sıra, `single`/`unknown` yüz, fazla sayfa geçmez), tek yüzlü türde geçer; `direct_single_source`
+  yalnız `direct: true` türde tek kaynak ve C31 ardışıklığı (arada yalnız boş sayfa); `file_type` her türde
+  içerikten tespit edilen biçim `expected_file_types`'ta (tanınmayan biçim geçmez) — §20.4.1'in "ayrıca"sı Direkt
+  türe format reddini ve `DIRECT_DOC_CHECK`'i ekler, doğrulayıcının kendisini sınırlamaz; `mrz_checksum` sayfa
+  başına `apply_mrz_priority` durumu: `READ`'de `failed_checks` (alan, isteğe bağlı veri, bileşik) boş olmalı,
+  `INVALID` (§20.1.2 izin verilmeyen karakter) geçmez, `ABSENT`/`UNRECOGNIZED` (§20.1.1 "hata değil")/`UNTRUSTED`
+  (C21) doğrulayıcıya girmez, görünen metinle çelişki hata değil; `dob_plausible` kişi anahtarının doğum tarihi
+  (MRZ önce, yüzyıl §20.1.6), referans gün (partinin alındığı gün) öncesi ve tamamlanmış yılla 16 ≤ yaş ≤ 90,
+  okunmamış/çelişen tarih girmez (çelişki D8'in). **Uygulama:** katalog türündeki aday (ardışıklık/belirsiz
+  eşleştirme hükmü yoksa) önce `page_count` + `sides`; biri geçmezse öğe yalnız bu ikisini taşır, okunaklılık,
+  öteki doğrulayıcılar ve işlem uygulanmaz (eski yapısal hüküm yolu). Geçerse yedisi de; `direct_single_source`
+  ya da `file_type` geçmezse §20.3 denenmez. Word/Excel eki yalnız bu iki kaynak doğrulayıcısını taşır (K2: sayfa
+  ve analiz yok, ekin türü içerik türünden eşlendiği için pratikte geçer). Bilinmeyen tür, R6/04.3.2 parçası, boş/
+  analizsiz sayfa, tekrar ve işlenemeyen dosya öğeleri `validations: []`. **Rota ve gerekçe:** geçmeyen doğrulama
+  bir hükümdür — `required_fields` Unreadable, öteki altısı Unresolved (06.5.2); gerekçeler 06.5.1 sırasıyla,
+  kabul kriteri `required_fields`'ın hemen ardından, işlem reddi doğrulayıcılardan sonra, eşleştirme gerekçesi
+  en sonda. Metinler: `Yüz doğrulaması (06.5.1, sides): tür önce bir ön, sonra bir arka yüz
+  bekliyor (front, back); bu adayın yüzleri: dosya N, sayfa M: <yüz>.` · `Direkt Belge tek kaynak doğrulaması
+  (06.5.1, direct_single_source): çıktı tek kaynak dosyanın ardışık sayfalarından oluşur (K3); belgenin sayfaları
+  N kaynak dosyadan geliyor; dosya N, sayfa … ardışık değil.` · `Dosya türü doğrulaması (06.5.1, file_type):
+  beklenen dosya türü <tür/tür>, gelen <biçim>. Uygun formatta yeniden gönderin.` (Direkt türde §20.4.1 metni) ·
+  `MRZ kontrol hanesi doğrulaması (06.5.1, mrz_checksum): dosya N, sayfa M: tutmayan kontrol haneleri <alanlar> |
+  izin verilmeyen karakter var, kontrol haneleri doğrulanamadı. Kontrol hanesi tutmayan MRZ geçersiz sayılır.` ·
+  `Doğum tarihi doğrulaması (06.5.1, dob_plausible): okunan doğum tarihi geçmişte değil | referans güne göre 16–90
+  yaş aralığı dışında; tarih yanlış okunmuş olabilir.` — tarih, yaş, MRZ değeri yok. Yan etki D13 yolundadır:
+  doğrulaması geçmeyen belgeden çalışan açılmaz, profil önerilmez, kimlik/iletişim birikmez, eşleşme kişi tahmini
+  kalır. **Sözleşme:** `PlanValidation.name` artık `ValidationName`; `PlanItem` doğrulamaları tekrarsız ve 06.5.1
+  sırasıyla ister, `hazir` öğede `validations` dolu ve hepsi `ok` olmalı (PRD §8.5 örneğindeki tek maddelik liste
+  geçerli kalır; "yedisi de" sözleşmeye yazılmadı). **Olay:** her geçmeyen doğrulama bir `VALIDATION_FAILED`
+  (§8.3) — öğenin ilk sayfası (ekte dosya, `page_index` boş), mesaj gerekçe, veri `item_id`, `validation`,
+  `document_type_slug`, `queue`; `required_fields` ve `page_count` için de yazılır (C21'in "okunaklılığa olay
+  yok"u o modülün kendisi içindi; artık hükmün doğrulayıcı olayı var). Direkt türün format reddi önce
+  `DIRECT_DOC_CHECK`, sonra `VALIDATION_FAILED` yazar. **Yan değişiklikler:** biçim listesi metni
+  (`file_types_text`) ve beklenmeyen biçim toplama (`unexpected_file_types`) `validate.py`'ye alındı,
+  `check_direct_file_types` onları kullanır (davranış aynı). Tanınmayan içerikli kaynak artık her türde `file_type`
+  ile reddedildiği için §20.3 satır 7'nin "kaynak biçimi tanınmadı" gerekçesi planlayıcıda oluşmaz (saf
+  `select_operation`'da durur); 06.2 plan testleri satır 7'yi PNG→JPEG ile sınar. §20.1.6'nın yüzyıl testi: iki
+  yüzyıl da (1925/2025) 16–90 dışında kaldığından belge Unresolved, yüzyıl seçimi kişi tahmininde görünür.
 
 ## D. Sapmalar
 
@@ -1168,6 +1213,21 @@ bu kayıt neden sapıldığının izlenebilir olması içindir.
   Bugün fotoğraf kişi taşımadığı için zaten Unresolved'dadır (D12); D12 çözülse de PNG fotoğraf kuyruğa düşer.
   Karar insana bırakıldı: `profile_picture` çıktısı `keep` mi olmalı, `png` beklenen türlerden mi çıkmalı,
   yoksa tabloya (kayıplı) bir PNG→JPEG satırı mı eklenmeli.
+- **D16 — MRZ kontrol hanesi tutmayan belge Unresolved'a gidiyor, çalışan kararına ulaşmıyor (06.5, tm 44).**
+  §20.1.7 alan hanesi tutmazsa yalnız "o alan geçersizdir, diğer alanlar kullanılabilir", bileşik hane tutmazsa
+  "alanlar kullanılabilir ama `document_number` temiz sayılmaz" der; §20.2.3 temiz olmayan numarada satır 7'yi
+  (onay bekleyen profil) uygular. Aynı PRD 05.3.2'de "kontrol hanesi tutmayan MRZ geçersiz sayılır", 06.5.2'de
+  "başarısız doğrulama rotayı Unresolved yapar" der; §20.1.7'nin "hata sayılmaz / doğrulama hatası değildir"
+  istisnaları (dolgu isteğe bağlı veri, görünen metinle çelişki) öteki durumların doğrulama hatası olduğunu
+  gösterir. Güvenli yön seçildi: herhangi bir hane tutmazsa `mrz_checksum` geçmez, belge Unresolved'a gider;
+  §20.1.7'nin okuma sonuçları (alan okunamadı, numara temiz değil) 05.3.3'te ayrıca uygulanmaya devam eder
+  (zorunlu alansa Unreadable önce). Sonuç: bileşik hanesi tutmayan yeni kişinin belgesi satır 7'ye değil (D13
+  gereği kuyruğa giden belgeden profil önerilmez) doğrulama gerekçesiyle Unresolved'a gider; kayıtlı çalışanla
+  numarası eşleşen ama bileşik hanesi tutmayan belge de Hazir'a değil Unresolved'a gider (kişi tahmini `match`).
+  Zorunlu olmayan bir alanın hanesi tutmayan belge de Unresolved'dır. Pratikte tek karakterlik okuma hatası hem
+  alan hem bileşik haneyi bozar. Karar insana bırakıldı: `mrz_checksum` yalnız belge düzeyinde hükme (bileşik
+  hane / geçersiz MRZ) mi bakmalı, alan hanesi hatası yalnız alanı mı düşürmeli, bileşik hane hatasında belge
+  çalışan kararına (satır 1/3 eşleşme, satır 7 profil) devam mı etmeli.
 
 ## G. İş Kırılımı Dizini
 
@@ -1442,3 +1502,7 @@ var olan maddeler silinmez. Biçim:
 
 #### K06.4 — 06.4.1 · Dönüşüm izni kontrolü
 - ✅ 06.4.1 `check_conversion(operation, *, entry)` §20.3 satır 3–6'nın işlemlerini (`CONVERSION_OPERATIONS`: `merge`, `wrap_image`, `extract_image`, `render_image`, katalogdaki `Conversion` adları) türün `allowed_conversions`'ında arar; listede yoksa `ConversionNotAllowed` ("Dönüşüm izni yok (06.4.1): <işlem> bu türün izinli dönüşümleri arasında değil (allowed_conversions: merge). Belge dönüştürülmez."), `passthrough`/`extract` boş listede de izinli. Planlayıcı kontrolü Direkt Belge matrisinden sonra uygular, ilk ret keser: izinsiz dönüşüm plana girmez, belge Unresolved'a gider, çalışan açılmaz, kimlik ve iletişim bilgisi birikmez, kayıtlı çalışan kişi tahmini kalır, olay yok (C33). Gerçek dosyalarla: `merge`'e izinli çalışma izni JPEG'i sarılmaz, `wrap_image`'a izinli oturum kartının ayrı yüzleri birleştirilmez, tohum katalogdaki `wrap_image` izni Hazir'a gider; JPEG çıktılı türde gömülü tek görüntülü sayfanın izinsiz `extract_image`'ı `render_image`'a düşmez, görüntüsüz sayfanın `render_image`'ı kendi iznini ister; gerekçe okunaklılık gerekçesinin ardından gelir. `plan.py` satır+dal kapsamı %100, 9 kural bozulması (kontrolün kaldırılması, matrisle sıra, liste ayırıcısı, boş liste yazımı, eksik dönüşüm, `passthrough`/`extract`'ın dönüşüm sayılması, listedekinin reddi, gerekçedeki liste, kuyruk) geçici olarak denendi, her biri testte kırmızı — `app/pipeline/plan.py` · test `tests/pipeline/test_plan.py` (147, +18) · tm 43
+
+#### K06.5 — 06.5.1, 06.5.2 · Doğrulayıcı seti
+- ✅ 06.5.1 yedi saf doğrulayıcı, 06.5.1 sırasıyla (`ValidationName`): `required_fields` (04.4.1 hükmü, Unreadable), `page_count` (04.5.1 hükmü), `sides` (`front_back` türde tam `(front, back)`), `direct_single_source` (Direkt türde tek kaynak, arada yalnız boş sayfa), `file_type` (her türde içerik biçimi `expected_file_types`'ta, Direkt türde §20.4.1), `mrz_checksum` (§20.1.7: alan/isteğe bağlı veri/bileşik hanesi tutmayan ya da izin verilmeyen karakterli MRZ geçmez; MRZ'siz, biçimi tanınmayan, güvenilmeyen sayfa ve görünen metinle çelişki hata değil), `dob_plausible` (§20.1.6: kişi anahtarının doğum tarihi referans günden önce ve 16–90 yaş, iki uç dahil, 29 Şubat dahil); her biri geçen ve kalan örnekle, gerekçesi kişisel değer taşımadan (C34) — `app/pipeline/validate.py` · test `tests/pipeline/test_validate.py` (67) · tm 44
+- ✅ 06.5.2 planlayıcı katalog türündeki bütün adayı önce yapı (`page_count`, `sides`), sonra öteki doğrulayıcılardan geçirir, sonucu öğenin `validations`'ına yazar; geçmeyen doğrulama öğeyi kuyruğa gönderir (`required_fields` Unreadable, öteki altısı Unresolved), gerekçe doğrulayıcı sırasıyla `route_reason`'a eklenir, `VALIDATION_FAILED` (item_id, validation, tür, kuyruk) yazılır, çalışan açılmaz; kaynak doğrulaması geçmeyen belgede işlem seçilmez; Word/Excel eki kaynak doğrulayıcılarından geçer; sözleşme `hazir` öğede dolu ve hepsi `ok` doğrulama, tekrarsız ve sıralı ad ister. Gerçek dosyalarla: yalnız ön yüzlü oturma kartı, satırı eksik sayfayla dağılmış pasaport, yalnız PDF bekleyen izin JPEG'i, bileşik hanesi tutmayan pasaport (D16), 15 yaş doğum tarihli izin Unresolved'a gider; S6 ve MRZ yüzyılı testleri yeni hükümle güncellendi. `plan.py` ve `validate.py` satır+dal kapsamı %100, 19 kural bozulması geçici olarak denendi, her biri testte kırmızı — `app/pipeline/plan.py` · test `tests/pipeline/test_plan.py` (164, +17) · tm 44
