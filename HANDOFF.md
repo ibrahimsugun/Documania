@@ -18,6 +18,12 @@ Blok biçimi `CONVENTIONS.md` §3'te tanımlıdır:
 
 ## Task log (newest-first)
 
+## 32 — 05.1 İsim normalizasyonu — done — 2026-09-15
+- Yapıldı: yeni `app/matching/` paketi; `normalize_name(*parts)` (`app/matching/names.py`) isim parçalarını §20.2.1 sırasıyla tek anahtara indirir — uyumluluk katlaması + işaret atma (aksan), Türkçe/ayrışmayan Latin harf tablosu, kesme işareti ve görünmez karakter silme, noktalama/çoklu boşluk → tek ayırıcı, alfabetik kelime sırası; kelimesiz isimde `EmptyNameError`.
+- Doğrulama: ruff check/format, compileall, `pytest -q -m "not live"` (1010 geçti, +44; 4 PG testi atlandı), kapsam %99 (`app/matching/names.py` %100), temiz SQLite'ta `alembic upgrade head` (göç yok), `import app.main` — hepsi exit 0; 11 kural bozulması geçici olarak denendi, her biri testte kırmızı.
+- Varsayımlar: PLAN.md §C23 — kesme işareti kelimeyi birleştirir, tire/virgül/MRZ `<` böler; rakam ve tekrarlanan kelime korunur; `ü → u` (MRZ `UE` yazımı eşleşmez); Latin dışı harfler 05.2'ye kadar katlanmış hâliyle kalır; boş anahtar döndürülmez.
+- Sonraki pencereye not: 05.2 harf çevirisini `_fold` ile `_LETTERS` çevirisinin ardından, kelimelere bölmeden önce eklemeli (harekeler ve `й` üzerindeki işaret zaten atılmış gelir) ve `test_non_latin_letters_are_kept_and_folded` testi çeviri sonrasında da geçer; 05.4/05.5 `normalize_name`'i `EmptyNameError` yakalayarak çağırmalı, anahtarı `employee_aliases.normalized_name` ile tam eşitlikle karşılaştırmalı.
+
 ## 31 — 04.7 Word/Excel (Attachment) yolu — done — 2026-09-15
 - Yapıldı: `Catalog.unanalyzed_entry_for` (`app/catalog/schema.py`) içerik türünü `analyze: false` katalog kaydına eşler; `group_upload` (`app/pipeline/group.py`) hiç sayfası olmayan her dosyayı (K2: Word/Excel render/analiz edilmez) gerçek içeriğinden sınar, eşleşirse `AttachmentFile` üretir — bağlam çalışanı (`Upload.context_employee_id`) doluysa işaretsiz (Hazir'a hazır), boşsa `AttachmentWithoutContext` ile Unresolved. `group_upload` imzasına `layout: DataLayout` eklendi.
 - Doğrulama: ruff check/format, compileall, `pytest -q -m "not live"` (966 geçti, +9; 4 PG testi atlandı), kapsam %99.47 (`app/pipeline/group.py` %100), temiz SQLite'ta `alembic upgrade head` (göç yok), `import app.main` — hepsi exit 0.

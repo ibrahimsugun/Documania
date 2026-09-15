@@ -445,12 +445,13 @@
         "description": "PRD 05.1.1 · FR-MOD-05 (Kimlik ve çalışan eşleştirme) · Faz 0.",
         "details": "KAPSAM: PRD 05.1.1 (FR-MOD-05 — Kimlik ve çalışan eşleştirme, Faz 0).\n\nNE YAPILACAK — GEREKSİNİMLER VE KABUL KRİTERLERİ:\n- 05.1.1 — İsim normalizasyonu\n  Kabul: Aksan, noktalama ve sıra farkları aynı anahtara iner\n\nGİRDİ — ÜZERİNE KURULDUĞU İŞLER (bu kod ZATEN VAR; yazmadan önce OKU):\n- 00.3 (Veri modeli ve göç altyapısı) → app/db/models.py, app/db/session.py, alembic/\n\nÇIKTI — DOKUNULACAK YÜZEY: app/matching/names.py\n\nZORUNLU OKUMA — BU GÖREVİN KARAR TABLOSU: urun-gereksinim-dokumani-PRD.md §20.2.1 (isim normalizasyon kuralları)\nKarar zaten verilmiş ve yazılmıştır; senden beklenen onu UYGULAMAK. Tabloyu okumadan kod yazma. Tabloda karşılığı olmayan bir durumla karşılaşırsan UYDURMA: en güvenli davranışı seç (belgeyi kuyruğa al) ve PLAN.md §D'ye sapma yaz.\n\nBU GÖREVİ BAĞLAYAN KİLİTLİ KURALLAR (MASTER-PROMPT §3 — tartışma, uygula):\n- K6: Eşleştirme sırası: önce belge numarası, sonra normalize ad-soyad + doğum tarihi. Yalnız isim eşleşmesi otomatik eşleştirme SAYILMAZ. MRZ varsa görünen metinden önce okunur.\n\nPRD'DE AYRICA OKU: yalnız yukarıdaki gereksinim satırları yeterli.\n\nİLGİLİ KABUL SENARYOSU: doğrudan yok. Kabul kriterleri yukarıda.\n\nSIRA (MASTER-PROMPT §5, contract-first): sözleşme/şema → Alembic göçü (gerekiyorsa) → çekirdek + unit test → entegrasyon + testi → arayüz.\n\nKAPSAM SINIRI: yalnız yukarıdaki PRD kimlikleri. Başka gereksinimin işini yapma; yolda gördüğün kusuru düzeltme, yeni görev olarak aç (CONVENTIONS §5). Kilitli teknik kararları (MASTER-PROMPT §4) tartışma; yanlış görünüyorsa uygula ve PLAN.md §D'ye sapma yaz.\n\nTUZAKLAR: belge içeriğini değiştiren kod yazma — kırpma, döndürme (EXIF dışında), kontrast, metin yazma, form doldurma yok (K11/K17). Gerçek kimlik belgesi kullanma; test verisi tests/fixtures/gen.py ile üretilen sentetik belgelerdir (CONVENTIONS §6). Yapay zekâ çağrısı testte canlı yapılmaz, kayıtlı yanıt sağlayıcısı kullanılır. Test/build komutlarını arka plana atma — pencere ölür.\n\nKAPANIŞ: PLAN.md'de 05.1.1 satırlarının damgasını '✅ → K05.1' yap ve '## K. Kanıt Geçmişi' bölümünde '#### K05.1' bloğuna kanıt maddesi ekle (blok yoksa aç). Faz özet tablosundaki sayıları SAYARAK güncelle. Ayrıntı: CONVENTIONS §1.2-1.3.",
         "testStrategy": "CONVENTIONS §1 DoD kapısı: ruff check . · ruff format --check . · python -m compileall -q app tests · pytest -q -m \"not live\" · alembic upgrade head · python -c \"import app.main\" — hepsi exit 0.\nAyrıca bu görevin kendi kabul kriterleri:\n- 05.1.1: Aksan, noktalama ve sıra farkları aynı anahtara iner",
-        "status": "pending",
+        "status": "in-progress",
         "dependencies": [
           "3"
         ],
         "priority": "high",
-        "subtasks": []
+        "subtasks": [],
+        "updatedAt": "2026-09-15T05:21:31.234Z"
       },
       {
         "id": "33",
@@ -1277,7 +1278,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-09-15T05:20:01.776Z",
+      "lastModified": "2026-09-15T05:21:31.234Z",
       "taskCount": 92,
       "completedCount": 30,
       "tags": [

@@ -8,7 +8,7 @@
 
 | Faz | PRD | Genel durum | Must sayacı | Kapanış |
 | --- | --- | --- | --- | --- |
-| Faz 0 — MVP | §5.1 | 52 ✅ · 0 ◐ · 50 ⬜ · 0 🔒 | 50/98 Must | AÇIK |
+| Faz 0 — MVP | §5.1 | 53 ✅ · 0 ◐ · 49 ⬜ · 0 🔒 | 51/98 Must | AÇIK |
 | Faz 1 — v1 | §5.2 | 0 ✅ · 0 ◐ · 0 ⬜ · 32 🔒 | 0/21 Must | AÇIK |
 | Faz 2 — v2 | §5.3 | 0 ✅ · 0 ◐ · 0 ⬜ · 13 🔒 | 0/0 Must | AÇIK |
 | Faz 3 — Enterprise | §5.4 | 0 ✅ · 0 ◐ · 0 ⬜ · 8 🔒 | 0/0 Must | AÇIK |
@@ -147,7 +147,7 @@ panelde `plan-count-drift` bulgusu doğurur.
 
 | PRD | Gereksinim | Öncelik | Durum |
 | --- | --- | --- | --- |
-| 05.1.1 | İsim normalizasyonu | Must (MVP) | ⬜ |
+| 05.1.1 | İsim normalizasyonu | Must (MVP) | ✅ → K05.1 |
 | 05.2.1 | Harf çevirisi | Must (MVP) | ⬜ |
 | 05.3.1 | MRZ ayrıştırma | Must (MVP) | ⬜ |
 | 05.3.2 | MRZ kontrol hanesi doğrulaması | Must (MVP) | ⬜ |
@@ -720,6 +720,23 @@ Onay beklemeden yapılan varsayımlar buraya numaralı olarak yazılır.
   beri vardır. **Sonrası:** 06.1 `unknown_type` dolu adaya `route: unknown`, `route_reason: reason`
   yazmalı; kuyruk kaydı, `QUEUED_UNKNOWN` ve `Unknown/<upload_id>/` kopyası 08.1'in; S14'ün "onay ve
   yeniden analizden sonra Hazir" kısmı 11.5.2/11.5.3 ve 06–07'nindir.
+- **C23** — İsim normalizasyonu (tm 32, 05.1.1): §20.2.1 adımları sırayla yazar ama "aksan" ve
+  "noktalama"yı tanımlamaz. `normalize_name(*parts)` (`app/matching/names.py`) şöyle okur: **aksan**
+  Unicode uyumluluk katlaması (NFKD + casefold, iki tur) sonrası bütün `Mn`/`Me` işaretleridir
+  (`İ → i`, `ß → ss`, `ﬁ → fi`, Arapça hareke); ayrışmayan Latin harfleri (`ł ø đ ð ħ ŧ ŋ → l o d d h
+  t n`, `æ œ þ → ae oe th`) tabloyla iner. Almanca `ü → u`dur, `ue` değil (§20.2.1 Türkçe eşlemesiyle
+  aynı) — MRZ'nin `MUELLER` yazımı `Müller` ile aynı anahtara inmez; bu 05.3/05.4'ün MRZ önceliğine
+  kalır. **Noktalama:** kesme işaretleri (`' ’ ´ ʼ ʿ ʾ ＇`…) ve görünmez biçim karakterleri (`Cf`:
+  yumuşak tire, sıfır genişlikli boşluk, BOM) kelimeyi bölmeden silinir (`O'Brien → obrien`, ICAO MRZ
+  yazımıyla aynı); harf ve rakam dışındaki her karakter (tire, virgül, nokta, MRZ `<`) kelime
+  ayırıcıdır (`Ana-Maria` ≠ `Anamaria`). Rakam kelimede kalır, tekrarlanan kelime korunur (`Ali Ali
+  Veli` ≠ `Ali Veli`), kelimeler kod noktası sırasıyla dizilir ve tek boşlukla birleşir. Parçalar
+  (`given_names`, `surname`…) tek isim sayılır, `None` atlanır; hangi alanların anahtara gireceği
+  05.4'ündür. **Latin dışı harfler** 05.2 gelene kadar olduğu gibi (katlanmış) kalır: düşürülmez, çünkü
+  düşürmek bütün Kiril isimleri aynı boş anahtara indirirdi. **Kelimesiz isim** (boş, yalnız
+  noktalama/görünmez karakter, hiç parça yok) `EmptyNameError` (`ValueError`) verir; boş anahtar
+  döndürülmez ki iki okunamayan isim birbiriyle "eşleşmesin" (§20.2.2 satır 8 çağıranın kararıdır).
+  Modül saf fonksiyondur: veritabanı, olay ve göç yok.
 
 ## D. Sapmalar
 
@@ -986,3 +1003,6 @@ var olan maddeler silinmez. Biçim:
 #### K04.7 — 04.7.1 · Word/Excel (Attachment) yolu
 - ✅ 04.7.1 `Catalog.unanalyzed_entry_for` (`app/catalog/schema.py`) `analyze: false` olan ve verilen içerik türünü (`FileType`) `expected_file_types`'ta taşıyan katalog kaydını döner (tohumda yalnız `attachment`). `group_upload` (`app/pipeline/group.py`) hiç sayfası olmayan her dosyayı (K2: Word/Excel render/analiz edilmez) `layout`taki gerçek içeriğinden `detect_file_kind` ile sınar; eşleşirse `AttachmentFile` üretir — sayfalara ayrılmaz, kişi eşleştirme/kabul kriteri değerlendirilmez, dönüştürülmez. Partinin `Upload.context_employee_id`'si doluysa `unresolved` boş kalır (olduğu gibi Hazir'a kaydedilecek şekilde işaretsiz; fiziksel kopyalama 07.x'in işi); boşsa `AttachmentWithoutContext` (`queue = unresolved`, değer taşımayan `reason`) doldurulur. Her iki durumda da dosyaya `DOC_TYPE_DETERMINED` yazılır (veri: `document_type_slug`, varsa `unresolved.queue`). Eşleşen `analyze: false` kayıt yoksa (desteklenmeyen içerik ya da katalogda `attachment` tanımsız) aday üretilmez — bu görevin kapsamı dışı. `group_upload` imzasına `layout: DataLayout` eklendi (16 mevcut çağıran güncellendi) — `app/pipeline/group.py`, `app/catalog/schema.py` · test `tests/pipeline/test_group.py` (+9 durum), `tests/pipeline/test_legibility.py` (imza güncellemesi) · tm 31
 - ✅ S15: Word CV (`.docx`, gerçek OOXML imzası) bağlam çalışanıyla (profil sayfası benzeri yükleme, 10.5.3) yüklenince attachment aday `unresolved` boş kalır ve olduğu gibi Hazir'a hazır işaretlenir; bağlam çalışanı olmadan (genel yükleme) yüklenince `AttachmentWithoutContext` ile Unresolved'a gider. Legacy Word/Excel (OLE imzası) ve OOXML Excel de aynı `attachment` türüne eşlenir; sayfa tabanlı bir pasaport adayıyla aynı partide birlikte var olabilirler — `tests/fixtures/gen.py` (`make_docx_bytes`, `make_xlsx_bytes`, `make_legacy_doc_bytes`, `make_legacy_xls_bytes`) · test `tests/pipeline/test_group.py` · tm 31
+
+#### K05.1 — 05.1.1 · İsim normalizasyonu
+- ✅ 05.1.1 `normalize_name(*parts)` (`app/matching/names.py`) isim parçalarını §20.2.1 sırasıyla tek eşleştirme anahtarına indirir: Unicode uyumluluk katlaması (NFKD + casefold) ve `Mn`/`Me` işaretlerinin atılması (aksan), Türkçe harfler (`ç ş ğ ı ö ü`) ve ayrışmayan Latin harfleri (`ł ø æ đ þ`…) tabloyla, kesme işaretleri ve görünmez biçim karakterleri kelimeyi bölmeden silinir, diğer noktalama ve çoklu boşluk tek ayırıcı olur, kelimeler alfabetik sıralanıp tek boşlukla birleşir. `José Müller`/`JOSE MULLER`, `IŞIK`/`Işık`/`İŞIK`/`isik`, `O'Brien`/`O´Brien`/`OBRIEN`, `Jean-Pierre Dupont`/`DUPONT<<JEAN<PIERRE`, `Dmitry Vasiliev`/`VASILIEV, DMITRY` ve parça sırası (`("Dmitry", "Vasiliev")`) aynı anahtara iner; farklı isimler (`Yılmaz`/`Yılmazer`, `Ali Ali Veli`/`Ali Veli`, `Ana-Maria`/`Anamaria`) ayrı kalır, anahtar idempotenttir, kelimesiz isim `EmptyNameError` verir. Latin dışı harfler düşürülmez, çeviri 05.2'nin (bkz. C23). 11 kural bozulması (sıralama, Türkçe/Latin tablo, iki kesme işareti silme adımı, `Cf`, çift katlama, `combining` yerine kategori, casefold, boş anahtar, kelime tekrarı) geçici olarak denendi, her biri testte kırmızı — `app/matching/names.py` · test `tests/matching/test_names.py` (14 fonksiyon / 44 durum) · tm 32
