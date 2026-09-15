@@ -8,7 +8,7 @@
 
 | Faz | PRD | Genel durum | Must sayacı | Kapanış |
 | --- | --- | --- | --- | --- |
-| Faz 0 — MVP | §5.1 | 57 ✅ · 0 ◐ · 45 ⬜ · 0 🔒 | 55/98 Must | AÇIK |
+| Faz 0 — MVP | §5.1 | 58 ✅ · 0 ◐ · 44 ⬜ · 0 🔒 | 56/98 Must | AÇIK |
 | Faz 1 — v1 | §5.2 | 0 ✅ · 0 ◐ · 0 ⬜ · 32 🔒 | 0/21 Must | AÇIK |
 | Faz 2 — v2 | §5.3 | 0 ✅ · 0 ◐ · 0 ⬜ · 13 🔒 | 0/0 Must | AÇIK |
 | Faz 3 — Enterprise | §5.4 | 0 ✅ · 0 ◐ · 0 ⬜ · 8 🔒 | 0/0 Must | AÇIK |
@@ -152,7 +152,7 @@ panelde `plan-count-drift` bulgusu doğurur.
 | 05.3.1 | MRZ ayrıştırma | Must (MVP) | ✅ → K05.3 |
 | 05.3.2 | MRZ kontrol hanesi doğrulaması | Must (MVP) | ✅ → K05.3 |
 | 05.3.3 | MRZ önceliği | Must (MVP) | ✅ → K05.3 |
-| 05.4.1 | Kişi anahtarı | Must (MVP) | ⬜ |
+| 05.4.1 | Kişi anahtarı | Must (MVP) | ✅ → K05.4 |
 | 05.5.1 | Eşleştirme sırası | Must (MVP) | ⬜ |
 | 05.5.2 | Yalnız isim eşleşmesinin reddi (R8) | Must (MVP) | ⬜ |
 | 05.5.3 | Belirsiz eşleşme | Must (MVP) | ⬜ |
@@ -807,6 +807,34 @@ Onay beklemeden yapılan varsayımlar buraya numaralı olarak yazılır.
   doğrulanır. Modül saf işlevdir: olay, veritabanı, göç yok; boru hattına bağlanması (04.4 kapısından
   ve 05.4 anahtarından önce) 05.4/06.1'in. `russian_passport` kaydının dört hatalı hanesi düzeltildi
   (görünen değerler aynı).
+- **C26** — Kişi anahtarı (tm 35, 05.4.1): PRD anahtarın dört parçasını sayar ama nereden ve nasıl
+  okunacağını yazmaz; `build_person_key(analyses, *, today)` (`app/matching/match.py`) şöyle okur.
+  **Birim** belge adayıdır (sayfa analizleri belgedeki sırasıyla): kartın ön ve arka yüzü tek anahtar
+  verir, parçalar adayın farklı sayfalarından gelebilir. **MRZ önce (K6):** her sayfaya
+  `apply_mrz_priority` uygulanır (idempotent, çağıran önceden uygulamışsa sonuç aynı); aday tek belge
+  olduğu için MRZ önceliği sayfalar arasında da geçerlidir — MRZ'si okunmuş ve alan için kullanılabilir
+  değer taşıyan sayfa varsa `document_number`/`surname`/`given_names`/`date_of_birth` yalnız o
+  sayfalardan okunur, ön yüzün farklı görünen okuması anahtara girmez (gruplama kimliği çelişen
+  sayfaları zaten birleştirmez). MRZ alanı taşımıyorsa (hane tutmadı, `<<` yok) alan bütün sayfalardan
+  okunur. **Okuma:** `person` değeri ve okunaklı `fields` okuması (§8.4'te iki yer); boş/okunamaz diyen
+  sayfanın okumasına güvenilmez (C21); sayfa alanı `legible: false` yazıyorsa o sayfanın `person`
+  değeri de girmez (K1), öteki yüzün okunamadı yazması ön yüzü etkilemez. **Karşılaştırma anahtarı:**
+  numara §20.2.1 (`normalize_document_number`: büyük harf, `[\s./-]` silinir — `mrz.py` ile aynı
+  küme), isim parçası sayfanın `language`'ıyla `normalize_name`, doğum tarihi takvim günü (`fields`
+  metni yalnız geçerli `YYYY-AA-GG`). Kelimesiz isim ve ayırıcıdan ibaret numara okuma değildir.
+  **Çelişki:** farklı anahtar kalan alanın adı `conflicts`'e (sabit sıra) yazılır; ad-soyad, doğum
+  tarihi ve orijinal yazım tekildir, çelişirse `None` (tahminle seçilmez; alt küme isim `TEST` / `TEST
+  ANNA` de çelişkidir); belge numaraları PRD'deki gibi çoğuldur, her farklı numara sayfa sırasıyla
+  kalır — birden fazla numara çelişkidir, yorumu 05.5/05.6'nın. **Ad-soyad** = `given_names` +
+  `surname`, ikisi de okunmuşsa (tek parçalı isim anahtar vermez, eşleşmeme yönü); `other_names`
+  girmez. **Orijinal yazım** ilk okunduğu gibi `TransliteratedName` (sayfanın diliyle) + normalize
+  anahtar; `name_keys` ad-soyad ve orijinal yazım anahtarlarını tekrarsız verir (D7 gibi ICAO dışı
+  Latin yazımda iki anahtar). **Numara başına `legible`:** bir sayfanın okunaklı `fields.document_number`
+  okuması da bu değere iniyorsa doğru (§20.2.3 koşul 2'nin okunaklılık kısmı); yalnız `person`'dan
+  okunan numara okunaklı sayılmaz. **`mrz_allows_clean_document_number`:** adayın bütün sayfalarında
+  (güvenilmeyenler dahil) `allows_clean_document_number`. Temiz numara kararı (tür, 5 karakter)
+  05.6'nın, eşleştirme 05.5'in. Modül saf işlevdir: olay, veritabanı, göç yok; boru hattına bağlanması
+  05.5/06.1'in.
 
 ## D. Sapmalar
 
@@ -1103,3 +1131,6 @@ var olan maddeler silinmez. Biçim:
 - ✅ 05.3.1 `parse_mrz(lines, *, today)` (`app/matching/mrz.py`) biçimi satır sayısı ve uzunluğundan belirler (TD1 3×30, TD2 2×36, TD3 2×44; uymayan satırlar `None`, hata değil), ASCII küçük harfi büyütür, `A-Z 0-9 <` dışında karakter kalırsa `InvalidMrzError` (mesajda satır numarası, değer yok) verir ve §20.1.3 konumlarından `Mrz` döner: belge kodu, veren devlet, soyad/verilen adlar (ilk `<<` ayırır, `<` kelime ayracı, `<<` yoksa yalnız soyad), belge numarası, uyruk (`D<<` → `D`), doğum, cinsiyet, son geçerlilik, isteğe bağlı veri (TD1'de iki alan). ICAO Doc 9303'ün kurgusal UTO örnekleri (TD3, TD2, TD1) alan alan okunur; testteki yazıcı alanları anlamlarıyla birleştirip bu üç örneği birebir üretir ve üç biçimde her alanı ileri-geri doğrular (kurallar: C25) — `app/matching/mrz.py` · test `tests/matching/test_mrz.py` · tm 34
 - ✅ 05.3.2 `compute_check_digit` §20.1.4'ün üç zorunlu örneğini (`L898902C3` → 6, `690806` → 1, `940623` → 6) ve değer/ağırlık dizisini verir. Hanesi tutmayan alan yalnız kendisi okunamadı sayılır (`failed_checks`, `illegible_fields`, değer `None`), diğer alanlar kullanılır; bileşik hane tutmazsa değerler kalır ama `composite_valid` yanlış; tümüyle dolgu isteğe bağlı verinin hanesi `<` veya `0`. Her biçimde her konumdaki tek karakter bozulunca yalnız o konumu kapsayan hanelerin tutmadığı doğrulanır — §20.1.5'in bitişik olmayan aralıkları dahil (TD3 iki kez, TD2, TD1: 338 konum). Tarih: son geçerlilik her zaman `20YY`, doğum `20YY` gelecekteyse `19YY` (bugün gelecek değil; `000229` 1999 sonunda okunamadı); takvimde geçersiz ya da harfli tarih alanı okunamadı yapar, MRZ'yi reddetmez; rakamlı isim alanı, bozuk uyruk ve boş numara da okunamadı — `app/matching/mrz.py` · test `tests/matching/test_mrz.py` · tm 34
 - ✅ 05.3.3 `apply_mrz_priority(analysis, *, today)` MRZ'nin altı alanını `person` ve `fields` okumalarıyla karşılaştırır: aynı anahtara inen görünen yazım olduğu gibi kalır (`00 0000001`, tireli/aksanlı isim, `other_names`'te ayrı okunmuş baba adı, sayfa diliyle çevrilen Ukraynaca Kiril ad); çelişkide MRZ değeri iki yere de yazılır ve `notes`'a `MRZ ile görünen metin çelişiyor, MRZ değeri kullanıldı: <alanlar>.` eklenir (alan adı, kişisel değer yok; analizci notu başta korunur; ikinci uygulama sonucu değiştirmez); okunamayan görünen okuma MRZ'den notsuz doldurulur; MRZ'nin okunamadı saydığı alan görünen okuma okunaklı olsa da `legible: false`. Biçime uymayan MRZ yok sayılır, izinsiz karakterli MRZ kullanılmaz (ikisi de bilgi notuyla), boş/okunamaz sayfanın MRZ'sine güvenilmez; `MrzResolution.allows_clean_document_number` §20.2.3'ün üçüncü koşulunu verir. Entegrasyon: bütün kayıtlı yanıtlardaki MRZ'ler (dört hatalı hanesi düzeltilen `russian_passport` ve S13) geçerli ve görünen metinle çelişmiyor; kayıtlı pasaportun numara hanesi bozulunca 04.4 kapısı `Okunamayan alanlar: document_number` verir, görünen numarası bulanık pasaport geçerli MRZ'den okunup kapıdan geçer. 26 kural bozulması (ağırlık dizisi, dolgu değeri, üç biçimin bileşik aralıkları, TD2 uyruk konumu, dolgu hanesi, doğum yüzyılı sınırı, son geçerlilik yüzyılı, büyük harf, isim ayracı, isimde rakam, MRZ'nin kazanması, geçersiz alanın yazılması, baba adı, numara normalizasyonu, not tekrarı, güvenilmeyen sayfa, geçersiz ve bileşik hanesi tutmayan MRZ'de temiz numara, karışık satır uzunluğu, `<` hanesi, boş numara, uyruk biçimi, görünmeyen okumanın doldurulması, isim dili) geçici olarak denendi, her biri testte kırmızı — `app/matching/mrz.py`, `tests/fixtures/ai/recordings/russian_passport/0.json` · test `tests/matching/test_mrz.py` (50 fonksiyon / 182 durum) · tm 34
+
+#### K05.4 — 05.4.1 · Kişi anahtarı
+- ✅ 05.4.1 `build_person_key(analyses, *, today)` (`app/matching/match.py`) belge adayının sayfa analizlerinden `PersonKey` üretir: belge numaraları (§20.2.1 `normalize_document_number`, tekrarsız, sayfa sırasıyla, numara başına okunaklı `fields` okumasından gelip gelmediği), normalize ad-soyad (`given_names` + `surname`, sayfanın diliyle; `other_names` girmez), doğum tarihi, orijinal yazım (`TransliteratedName` + normalize anahtar), `name_keys`, `mrz_allows_clean_document_number` (§20.2.3 koşul 3, bütün sayfalar) ve sayfalar arası çelişen alanlar (`conflicts`; tekil alan `None` olur). MRZ önce okunur (K6): her sayfaya `apply_mrz_priority` uygulanır ve MRZ'si alanı taşıyan sayfa varsa alan yalnız oradan okunur — arka yüz MRZ'si ön yüzün görünen metnini yener, MRZ'nin taşımadığı alan (hanesi tutmayan numara, `<<`'süz ad) bütün sayfalardan okunur; boş/okunamaz sayfaya güvenilmez, sayfanın okunamadı dediği `person` değeri girmez. Kayıtlı yanıtlar: S13 Kiril pasaportu tam anahtar (`000000013`, `iulia shchelkina testova`, 1992-03-15, `Тестова-Щёлкина Юлья` → `Testova-Shchelkina Iulia`); `group_file_pages` ile gruplanan Sırp oturum kartı ön+arka ve `group_across_files` ile eşlenen S5 ehliyet yüzleri tek anahtar verir. Ukraynaca Kiril parça MRZ yazımıyla aynı anahtara iner, D7 yazımında iki isim anahtarı çıkar, `today` MRZ doğum yüzyılını seçer. 22 kural bozulması (sayfalar arası MRZ önceliği, okunamadı vetosu, güvenilmeyen sayfa, MRZ önceliğinin hiç uygulanmaması, `today`, isim/çeviri dili, `legible` birikimi (iki biçim), çelişkide ilk değer (doğum, orijinal yazım), çelişki eşiği, bayrağın yalnız güvenilir sayfalardan hesaplanması, numara ayırıcı kümesi, büyük harf, boş numara/isim, ISO tarih katılığı, `name_keys` tekrarı, MRZ'nin değer taşıması koşulu, `person` önceliği, tek parçalı ad) geçici olarak denendi, her biri testte kırmızı (kurallar: C26) — `app/matching/match.py` · test `tests/matching/test_person_key.py` (35 fonksiyon / 50 durum) · tm 35
