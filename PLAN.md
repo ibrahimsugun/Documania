@@ -8,7 +8,7 @@
 
 | Faz | PRD | Genel durum | Must sayacı | Kapanış |
 | --- | --- | --- | --- | --- |
-| Faz 0 — MVP | §5.1 | 54 ✅ · 0 ◐ · 48 ⬜ · 0 🔒 | 52/98 Must | AÇIK |
+| Faz 0 — MVP | §5.1 | 57 ✅ · 0 ◐ · 45 ⬜ · 0 🔒 | 55/98 Must | AÇIK |
 | Faz 1 — v1 | §5.2 | 0 ✅ · 0 ◐ · 0 ⬜ · 32 🔒 | 0/21 Must | AÇIK |
 | Faz 2 — v2 | §5.3 | 0 ✅ · 0 ◐ · 0 ⬜ · 13 🔒 | 0/0 Must | AÇIK |
 | Faz 3 — Enterprise | §5.4 | 0 ✅ · 0 ◐ · 0 ⬜ · 8 🔒 | 0/0 Must | AÇIK |
@@ -149,9 +149,9 @@ panelde `plan-count-drift` bulgusu doğurur.
 | --- | --- | --- | --- |
 | 05.1.1 | İsim normalizasyonu | Must (MVP) | ✅ → K05.1 |
 | 05.2.1 | Harf çevirisi | Must (MVP) | ✅ → K05.2 |
-| 05.3.1 | MRZ ayrıştırma | Must (MVP) | ⬜ |
-| 05.3.2 | MRZ kontrol hanesi doğrulaması | Must (MVP) | ⬜ |
-| 05.3.3 | MRZ önceliği | Must (MVP) | ⬜ |
+| 05.3.1 | MRZ ayrıştırma | Must (MVP) | ✅ → K05.3 |
+| 05.3.2 | MRZ kontrol hanesi doğrulaması | Must (MVP) | ✅ → K05.3 |
+| 05.3.3 | MRZ önceliği | Must (MVP) | ✅ → K05.3 |
 | 05.4.1 | Kişi anahtarı | Must (MVP) | ⬜ |
 | 05.5.1 | Eşleştirme sırası | Must (MVP) | ⬜ |
 | 05.5.2 | Yalnız isim eşleşmesinin reddi (R8) | Must (MVP) | ⬜ |
@@ -768,6 +768,45 @@ Onay beklemeden yapılan varsayımlar buraya numaralı olarak yazılır.
   büyük harfin çok harfli karşılığı komşu harf büyükse büyük (`ЖУКОВ → ZHUKOV`), değilse baş harfi
   büyük (`Жуков → Zhukov`), Arap karşılığı tablodaki gibi büyük. Veritabanına/profile yazma
   (`employee_aliases.raw_name`, profil.md) 05.7.2 / 09.1'in; hangi alanın anahtara gireceği 05.4'ün.
+- **C25** — MRZ ayrıştırma, kontrol haneleri ve MRZ önceliği (tm 34, 05.3.1–05.3.3): §20.1 biçimi,
+  konumları, algoritmayı ve sonuçları yazar; tablonun sessiz kaldığı yerler şöyle okundu
+  (`app/matching/mrz.py`). **Biçim ve karakter:** biçim önce satır sayısı + uzunluktan (her satır
+  aynı uzunlukta) belirlenir, sonra karakter kümesine bakılır — sonda boşluk/satır sonu taşıyan satır
+  "biçime uymuyor"dur. Yalnız ASCII `a-z` büyütülür; `ı`, `ß`, Kiril `А`, tam genişlikli `Ａ` büyütmeyle
+  izinli harfe dönüştürülmez, geçersizdir. Belge kodu 1–2. konumlar birlikte (`P`, `I`, `AC`); dolgu
+  değerlerin sağından atılır; cinsiyet `M`/`F` dışında `None`. İsteğe bağlı veri hanesi yalnız TD3'te
+  vardır (tablo TD1/TD2'ye hane vermez). PRD'nin 05.3.2 satırı "kontrol hanesi tutmayan MRZ geçersiz"
+  der; ayrıntılı §20.1.7 uygulandı: alan hanesi tutmuyorsa yalnız o alan okunamadı, bileşik tutmuyorsa
+  MRZ şüpheli (§20.1.5'teki "12.1.4" atfı 20.1.4 okundu). **Değeri kullanılamayan alan:** §20.1.6'nın
+  tarih ölçüsü (okunamadı, MRZ geçersiz değil) biçimce bozuk diğer değerlere de uygulandı — rakam
+  taşıyan isim alanı (soyad ve adlar birlikte), 1–3 harf olmayan uyruk, boş belge numarası; TD1'in 9
+  karakteri aşan numara taşması (hane yerinde `<`) tabloda yok, hane tutmadığı için okunamadı sayılır.
+  Son geçerlilikte `<<<<<<` de okunamadır. **Öncelik (05.3.3):** MRZ'nin taşıdığı altı alan
+  (`surname`, `given_names`, `document_number`, `nationality`, `date_of_birth`, `expiry_date`) `person`
+  ve türün `fields` okumasıyla karşılaştırılır. K6 "MRZ önce okunur" gereği MRZ birincil okumadır:
+  görünen okuma yoksa MRZ değeri notsuz yazılır; aynı anahtara iniyorsa görünen yazım olduğu gibi
+  kalır (`00 0000001`, `TESTOVA-SHCHELKINA`, `ÖRNEKOVA`); bir yerde bile çelişiyorsa iki yere de MRZ
+  yazılır, alan adı nota. MRZ'nin okunamadı saydığı alan görünen okuma okunaklı olsa bile
+  `legible: false`/`null` olur (§20.1.7 "o alan geçersizdir") — tür zorunlu tutuyorsa K1 gereği
+  Unreadable, güvenli yön. **Karşılaştırma:** belge numarası §20.2.1 normalizasyonuyla; isim
+  `normalize_name` ile, görünen yazım sayfanın `language`'ıyla (Ukraynaca `Григоренко = HRYHORENKO`);
+  verilen adlar MRZ'nin ikincil tanımlayıcısı `given_names` ya da `given_names + other_names` ile aynı
+  anahtara iniyorsa çelişmez (MRZ baba adını yazabilir de yazmayabilir de); çelişkide `other_names`
+  değiştirilmez. Tarih ISO metni, uyruk birebir. Kelimesiz görünen okuma çelişkidir. MRZ'de boş isim
+  parçası (`<<` yok → verilen ad yok) "MRZ bu alanı taşımıyor" sayılır, görünen okuma kalır. Almanca
+  `MÜLLER`/`MUELLER` çelişir, MRZ kazanır (C23). ICAO isim kısaltması (39 karakteri aşan isim) ayrıca
+  tanınmaz: kısaltılmış MRZ ismi çelişki olarak kazanır — eşleşmeme yönüdür. **Durumlar:** MRZ yok →
+  dokunulmaz; biçime uymuyor → yok sayılır, bilgi notu, §20.2.3 koşul 3 atlanır (tablo "hata değil"
+  der); izinsiz karakter → MRZ kullanılmaz, görünen okuma kalır, not; sayfa `is_blank`/`is_readable:
+  false` → MRZ'ye güvenilmez (C21), dokunulmaz. **§20.2.3 koşul 3** (`allows_clean_document_number`):
+  MRZ yok/yok sayıldıysa doğru; okunduysa numara hanesi ve bileşik hane tutmalı; geçersiz ya da
+  güvenilmeyen MRZ'de yanlış (tablo bu durumu yazmaz; hayalet çalışan riskine karşı bileşik hane
+  hatasıyla aynı yönde). **Notlar** yalnız alan adı taşır, sabit dört cümle (kontrol hanesi, bileşik,
+  geçersiz değer, çelişki); analizcinin notu başta korunur, var olan cümle yeniden eklenmez
+  (idempotent); kabul kriteri metni içermez (04.4.2 tanımasını etkilemez). Sonuç yeniden §8.4 şemasıyla
+  doğrulanır. Modül saf işlevdir: olay, veritabanı, göç yok; boru hattına bağlanması (04.4 kapısından
+  ve 05.4 anahtarından önce) 05.4/06.1'in. `russian_passport` kaydının dört hatalı hanesi düzeltildi
+  (görünen değerler aynı).
 
 ## D. Sapmalar
 
@@ -1059,3 +1098,8 @@ var olan maddeler silinmez. Biçim:
 #### K05.2 — 05.2.1 · Harf çevirisi
 - ✅ 05.2.1 `transliterate_name(text, *, language=None)` (`app/matching/names.py`) Kiril yazımı ICAO Doc 9303 Bölüm 3 §6 Tablo B'yle (varsayılan sütun + `be`/`bg`/`mk`/`sr`/`uk` dil istisnaları, Ukraynaca kelime başı `YE YI Y YU YA`), Arap yazımı Tablo C'nin MRZ sütunuyla (hareke/tatvil yazılmaz, şedde ikiler, `ة` ad parçası sonunda `XAH`, sunum biçimleri açılır) Latin karşılığına çevirir ve `TransliteratedName(original, latin)` döner — `original` verilen metnin dokunulmamış hâli (NFD girdi bile olduğu gibi), dondurulmuş. `normalize_name(*parts, language=None)` çeviriyi aksan atmadan önce uygular: `Дмитрий Васильев`/`ВАСИЛЬЕВ ДМИТРИЙ`/`VASILEV DMITRII`/`VASILEV<<DMITRII` → `dmitrii vasilev`, `Микола Григоренко` (`uk`) = `HRYHORENKO MYKOLA`, `Живковић Чедомир` (`sr`) = `ŽIVKOVIĆ ČEDOMIR`, `محمد علي` = `علي مُحَمَد` = `ELY MXHMD`; dil yalnız Kiril harflerini etkiler, anahtar idempotent. Tablo dışı: `Ь` yazılmaz, `Ћ → C`, ayrışan harf temel harfiyle, diğerleri (`Қ`, Grekçe) olduğu gibi kalır (C24). PRD örneğinin ICAO dışı `Dmitry Vasiliev` yazımı ayrı anahtar kalır (D7). 05.1'in `مُحَمَّد == محمد` testi şedde kuralı gereği harekeli ama şeddesiz yazımla güncellendi. Bütün Rus alfabesi, Tablo B'nin diğer 16 satırı ve Tablo C'nin 80 satırı (78'i NFC ve NFD girdiyle tek tek; `ة` ve şedde kural testinde) doğrulanır. 17 kural bozulması (şedde, `XAH`, Ukraynaca kelime başı, `uk`/`sr` istisnası, `Ь`, `Ћ`, `Һ`, büyük harf kuralı, ayrışma yedeği, sunum biçimi, kesme işaretinin kelimeyi bölmemesi, harekenin saydamlığı, dilin harf büyüklüğü, katlamadan sonra çeviri, orijinalin NFC'lenmesi, tablo dışı harfin Latin'e indirilmesi) geçici olarak denendi, her biri testte kırmızı — `app/matching/names.py` · test `tests/matching/test_transliteration.py` (15 fonksiyon / 155 durum), `tests/matching/test_names.py` (14 / 44, 2 test güncellendi) · tm 33
 - ✅ S13 (isim düzeyi): sentetik Kiril isimli Rus pasaportu kaydı (`Тестова-Щёлкина Юлья`, Latin alanlar ve MRZ ICAO yazımıyla) §8.4 yanıt kabul girişinden (`validate_page_analysis`) geçer; `transliterate_name` orijinali aynen saklar ve `Testova-Shchelkina Iulia` verir; Kiril orijinal, Latin alanlar, çeviri ve MRZ ad alanı aynı anahtara (`iulia shchelkina testova`) iner; Latin alanlardan, çevrilmiş Kiril parçalardan ve doğrudan Kiril parçalardan (00.4.2 slug) aynı Latin klasör adı `Iulia_Testova_Shchelkina_E0001` çıkar. Orijinal yazımın profile (profil.md, 09.1.2/09.1.3) ve `employee_aliases`'a (05.7.2) yazılması sonraki görevlerin — `tests/fixtures/ai/recordings/s13_cyrillic_name/0.json` · test `tests/matching/test_transliteration.py` · tm 33
+
+#### K05.3 — 05.3.1, 05.3.2, 05.3.3 · MRZ ayrıştırma, kontrol haneleri ve MRZ önceliği
+- ✅ 05.3.1 `parse_mrz(lines, *, today)` (`app/matching/mrz.py`) biçimi satır sayısı ve uzunluğundan belirler (TD1 3×30, TD2 2×36, TD3 2×44; uymayan satırlar `None`, hata değil), ASCII küçük harfi büyütür, `A-Z 0-9 <` dışında karakter kalırsa `InvalidMrzError` (mesajda satır numarası, değer yok) verir ve §20.1.3 konumlarından `Mrz` döner: belge kodu, veren devlet, soyad/verilen adlar (ilk `<<` ayırır, `<` kelime ayracı, `<<` yoksa yalnız soyad), belge numarası, uyruk (`D<<` → `D`), doğum, cinsiyet, son geçerlilik, isteğe bağlı veri (TD1'de iki alan). ICAO Doc 9303'ün kurgusal UTO örnekleri (TD3, TD2, TD1) alan alan okunur; testteki yazıcı alanları anlamlarıyla birleştirip bu üç örneği birebir üretir ve üç biçimde her alanı ileri-geri doğrular (kurallar: C25) — `app/matching/mrz.py` · test `tests/matching/test_mrz.py` · tm 34
+- ✅ 05.3.2 `compute_check_digit` §20.1.4'ün üç zorunlu örneğini (`L898902C3` → 6, `690806` → 1, `940623` → 6) ve değer/ağırlık dizisini verir. Hanesi tutmayan alan yalnız kendisi okunamadı sayılır (`failed_checks`, `illegible_fields`, değer `None`), diğer alanlar kullanılır; bileşik hane tutmazsa değerler kalır ama `composite_valid` yanlış; tümüyle dolgu isteğe bağlı verinin hanesi `<` veya `0`. Her biçimde her konumdaki tek karakter bozulunca yalnız o konumu kapsayan hanelerin tutmadığı doğrulanır — §20.1.5'in bitişik olmayan aralıkları dahil (TD3 iki kez, TD2, TD1: 338 konum). Tarih: son geçerlilik her zaman `20YY`, doğum `20YY` gelecekteyse `19YY` (bugün gelecek değil; `000229` 1999 sonunda okunamadı); takvimde geçersiz ya da harfli tarih alanı okunamadı yapar, MRZ'yi reddetmez; rakamlı isim alanı, bozuk uyruk ve boş numara da okunamadı — `app/matching/mrz.py` · test `tests/matching/test_mrz.py` · tm 34
+- ✅ 05.3.3 `apply_mrz_priority(analysis, *, today)` MRZ'nin altı alanını `person` ve `fields` okumalarıyla karşılaştırır: aynı anahtara inen görünen yazım olduğu gibi kalır (`00 0000001`, tireli/aksanlı isim, `other_names`'te ayrı okunmuş baba adı, sayfa diliyle çevrilen Ukraynaca Kiril ad); çelişkide MRZ değeri iki yere de yazılır ve `notes`'a `MRZ ile görünen metin çelişiyor, MRZ değeri kullanıldı: <alanlar>.` eklenir (alan adı, kişisel değer yok; analizci notu başta korunur; ikinci uygulama sonucu değiştirmez); okunamayan görünen okuma MRZ'den notsuz doldurulur; MRZ'nin okunamadı saydığı alan görünen okuma okunaklı olsa da `legible: false`. Biçime uymayan MRZ yok sayılır, izinsiz karakterli MRZ kullanılmaz (ikisi de bilgi notuyla), boş/okunamaz sayfanın MRZ'sine güvenilmez; `MrzResolution.allows_clean_document_number` §20.2.3'ün üçüncü koşulunu verir. Entegrasyon: bütün kayıtlı yanıtlardaki MRZ'ler (dört hatalı hanesi düzeltilen `russian_passport` ve S13) geçerli ve görünen metinle çelişmiyor; kayıtlı pasaportun numara hanesi bozulunca 04.4 kapısı `Okunamayan alanlar: document_number` verir, görünen numarası bulanık pasaport geçerli MRZ'den okunup kapıdan geçer. 26 kural bozulması (ağırlık dizisi, dolgu değeri, üç biçimin bileşik aralıkları, TD2 uyruk konumu, dolgu hanesi, doğum yüzyılı sınırı, son geçerlilik yüzyılı, büyük harf, isim ayracı, isimde rakam, MRZ'nin kazanması, geçersiz alanın yazılması, baba adı, numara normalizasyonu, not tekrarı, güvenilmeyen sayfa, geçersiz ve bileşik hanesi tutmayan MRZ'de temiz numara, karışık satır uzunluğu, `<` hanesi, boş numara, uyruk biçimi, görünmeyen okumanın doldurulması, isim dili) geçici olarak denendi, her biri testte kırmızı — `app/matching/mrz.py`, `tests/fixtures/ai/recordings/russian_passport/0.json` · test `tests/matching/test_mrz.py` (50 fonksiyon / 182 durum) · tm 34
