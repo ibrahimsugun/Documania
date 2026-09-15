@@ -2,20 +2,25 @@
 
 Bu modül planlayıcının (`app/pipeline/plan.py`) `operation` alanına yazdığı kararı yürütür;
 işlemi yeniden seçmez ya da izinlerini yeniden denetlemez (06.2.1–06.4.1 planlayıcının işidir).
+Tek istisna K3'tür: `merge` Direkt Belge türünde çalışmaz (07.3.1) — plan dondurulduktan sonra
+tür Direkt Belge yapılmış olsa bile belge başka kaynaklardan kurulmaz.
 Ortak kural (K11): hiçbir işlem içeriği üretmez, kırpmaz ya da değiştirmez.
 
-Şimdilik `passthrough` (07.1.1) ve `extract` (07.2.1) uygulanır. Öteki işlemler (`merge`,
-`wrap_image`, `extract_image`, `render_image`) ve ortak çıktı yazma — köken kaydı, `documents`
+Şimdilik `passthrough` (07.1.1), `extract` (07.2.1) ve `merge` (07.3.1) uygulanır. Öteki işlemler
+(`wrap_image`, `extract_image`, `render_image`) ve ortak çıktı yazma — köken kaydı, `documents`
 satırı, `OUTPUT_SAVED` olayı, `Alinan` kopyası (07.7.1) — sonraki görevlerdedir.
 """
 
 from __future__ import annotations
 
 from collections.abc import Sequence
+from contextlib import ExitStack
+from dataclasses import dataclass
 from io import BytesIO
 from itertools import pairwise
 from pathlib import Path
 
+import img2pdf
 import pymupdf
 from pypdf import PdfReader, PdfWriter
 from pypdf.errors import PyPdfError
@@ -51,6 +56,40 @@ class ExtractIntegrityError(RuntimeError):
 
     Sayfa nesnesi kopyasında bu beklenmez; çıktı yayınlanmaz.
     """
+
+
+class DirectDocumentMergeError(ValueError):
+    """merge (07.3.1, §20.4, K3): Direkt Belge türünde belge başka kaynaklardan kurulmaz.
+
+    Hiçbir kaynak okunmaz, hedefe hiçbir şey yazılmaz.
+    """
+
+
+class MergeSourceError(ValueError):
+    """merge (07.3.1): bir kaynak okunabilir bir PDF/JPEG/PNG değil, görüntüsü kayıpsız sarılamıyor
+    ya da istenen sayfa kaynakta yok.
+
+    Hedefe hiçbir şey yazılmaz.
+    """
+
+
+class MergeIntegrityError(RuntimeError):
+    """merge (07.3.1, §20.5): çıktının sayfa sayısı ya da bir sayfasının metin katmanı karşılık
+    gelen kaynak sayfaya uymuyor.
+
+    Sayfa nesnesi kopyasında bu beklenmez; çıktı yayınlanmaz.
+    """
+
+
+@dataclass(frozen=True, slots=True)
+class MergeSource:
+    """merge'ün tek kaynağı: dosya ve ondan alınan sayfalar (`PlanSource.pages`).
+
+    Sayfalar 0 tabanlı, artan ve tekrarsızdır; JPEG/PNG kaynağın tek sayfası `0`'dır.
+    """
+
+    path: Path
+    pages: tuple[int, ...]
 
 
 def execute_passthrough(source: Path, destination: Path) -> StoredFile:
@@ -89,80 +128,225 @@ def execute_extract(source: Path, destination: Path, *, pages: Sequence[int]) ->
     olmalıdır; değilse `ExtractIntegrityError`. Hatada hedefe hiçbir şey yazılmaz. Geçen çıktı
     `write_file` ile atomik yayınlanır; hedef zaten varsa `FileExistsError` (üzerine yazma yok).
     """
-    selected = tuple(pages)
-    if not selected:
-        raise ValueError("extract en az bir sayfa ister")
-    if selected[0] < 0 or any(first >= second for first, second in pairwise(selected)):
-        raise ValueError("extract sayfaları 0 veya büyük, artan sırada ve tekrarsız olmalı")
-
+    selected = _page_selection(pages, subject="extract")
     content = source.read_bytes()
-    with _open_source(content) as source_document:
-        reader = _read_source(content, expected_page_count=source_document.page_count)
-        if selected[-1] >= source_document.page_count:
-            raise ExtractSourceError(
-                f"extract sayfası kaynakta yok: sayfa {selected[-1]}, "
-                f"kaynak {source_document.page_count} sayfa"
-            )
-        writer = PdfWriter()
-        for index in selected:
-            writer.add_page(reader.pages[index])
-        buffer = BytesIO()
-        writer.write(buffer)
-        output = buffer.getvalue()
-        _verify_extract(source_document, output, selected)
+    # MuPDF JPEG/PNG baytlarını da tek sayfalık belge olarak açar; tür önce içerik imzasından.
+    if _file_kind(content) is not FileKind.PDF:
+        raise ExtractSourceError("extract kaynağı PDF değil")
+    output = _copy_pages(
+        [_PdfPages(content, selected)],
+        operation="extract",
+        source_error=ExtractSourceError,
+        integrity_error=ExtractIntegrityError,
+    )
     return write_file(destination, output)
 
 
-def _open_source(content: bytes) -> pymupdf.Document:
+def execute_merge(sources: Sequence[MergeSource], destination: Path, *, direct: bool) -> StoredFile:
+    """Birden çok kaynağın sayfalarını sırayla tek bir PDF'te birleştirir (07.3.1, §20.5).
+
+    Yalnız `direct: false` türde çalışır: `direct` belge türünün katalogdaki bayrağıdır; doğruysa
+    hiçbir kaynak okunmadan `DirectDocumentMergeError` (K3, §20.4).
+
+    `sources` plan öğesinin `sources` dizisidir (aynı partinin dosyaları, K4) ve en az iki kaynak
+    ister. Sayfalar bu dizinin sırasıyla, her kaynağın içinde `pages` sırasıyla alınır — yeniden
+    sıralama yapılmaz. Her kaynağın sayfa seçimi `execute_extract`'takiyle aynı kurala uyar; aksi
+    `ValueError` (kaynaklar okunmadan).
+
+    Yöntem `extract` ile aynıdır: PDF kaynağın sayfası pypdf sayfa nesnesi olarak kopyalanır.
+    JPEG/PNG kaynak önce `img2pdf.convert()` ile tek sayfalık PDF'e kayıpsız sarılır — JPEG
+    baytları yeniden kodlanmadan gömülür, EXIF yönelimi (1/3/6/8) yalnız sayfanın `/Rotate`
+    değerine yazılır — ve o sayfa aynı biçimde kopyalanır (S5). Hiçbir sayfa render edilmez,
+    içerik akışı sıkıştırılmaz, görüntü yeniden kodlanmaz (K11).
+
+    Kaynak PDF/JPEG/PNG değilse, açılamıyorsa (bozuk, parola korumalı), iki okuyucu sayfa sayısında
+    anlaşamıyorsa, görüntüsü kayıpsız sarılamıyorsa (okunamayan görüntü, aynalı ya da geçersiz EXIF
+    yönelimi) ya da istenen sayfa kaynakta yoksa `MergeSourceError`; mesaj kaynağı `sources[i]`
+    konumuyla anar, dosya yolunu taşımaz.
+
+    Doğrulama çıktı yayınlanmadan bellekte yapılır: çıktının sayfa sayısı alınan sayfaların
+    toplamı olmalı ve her çıktı sayfasının metin katmanı karşılık gelen kaynak sayfanınkiyle
+    **birebir aynı** olmalıdır; değilse `MergeIntegrityError`. Hatada hedefe hiçbir şey
+    yazılmaz. Geçen çıktı `write_file` ile atomik yayınlanır; hedef zaten varsa `FileExistsError`
+    (üzerine yazma yok).
+    """
+    if direct:
+        raise DirectDocumentMergeError(
+            "merge Direkt Belge türünde yapılamaz (§20.4, K3): belge başka kaynaklardan kurulmaz"
+        )
+    if len(sources) < 2:
+        raise ValueError("merge en az iki kaynak ister")
+    selections = [
+        _page_selection(source.pages, subject=f"merge sources[{position}]")
+        for position, source in enumerate(sources)
+    ]
+    pdf_pages = [
+        _PdfPages(
+            _merge_source_pdf(source.path.read_bytes(), where=f" sources[{position}]"),
+            selected,
+            where=f" sources[{position}]",
+        )
+        for position, (source, selected) in enumerate(zip(sources, selections, strict=True))
+    ]
+    output = _copy_pages(
+        pdf_pages,
+        operation="merge",
+        source_error=MergeSourceError,
+        integrity_error=MergeIntegrityError,
+    )
+    return write_file(destination, output)
+
+
+# img2pdf'in kayıpsız saramadığı görüntü için verdiği hatalar; ortak bir taban sınıfları yok.
+_IMAGE_WRAP_ERRORS = (
+    img2pdf.ImageOpenError,
+    img2pdf.ExifOrientationError,
+    img2pdf.AlphaChannelError,
+    img2pdf.JpegColorspaceError,
+    img2pdf.UnsupportedColorspaceError,
+    img2pdf.NegativeDimensionError,
+    img2pdf.PdfTooLargeError,
+)
+
+
+@dataclass(frozen=True, slots=True)
+class _PdfPages:
+    """Sayfaları kopyalanacak tek kaynak: PDF baytları, alınan sayfalar ve mesajdaki konumu."""
+
+    content: bytes
+    pages: tuple[int, ...]
+    where: str = ""
+
+
+def _page_selection(pages: Sequence[int], *, subject: str) -> tuple[int, ...]:
+    selected = tuple(pages)
+    if not selected:
+        raise ValueError(f"{subject} en az bir sayfa ister")
+    if selected[0] < 0 or any(first >= second for first, second in pairwise(selected)):
+        raise ValueError(f"{subject} sayfaları 0 veya büyük, artan sırada ve tekrarsız olmalı")
+    return selected
+
+
+def _file_kind(content: bytes) -> FileKind | None:
     try:
-        kind = detect_file_kind(content)
+        return detect_file_kind(content)
     except UnsupportedFileTypeError:
-        kind = None
-    # MuPDF JPEG/PNG baytlarını da tek sayfalık belge olarak açar; tür önce içerik imzasından.
-    if kind is not FileKind.PDF:
-        raise ExtractSourceError("extract kaynağı PDF değil")
+        return None
+
+
+def _merge_source_pdf(content: bytes, *, where: str) -> bytes:
+    # PDF olduğu gibi; JPEG/PNG kayıpsız sarılır (§20.5 wrap_image yöntemi). Tür içerik imzasından.
+    kind = _file_kind(content)
+    if kind is FileKind.PDF:
+        return content
+    if kind not in (FileKind.JPEG, FileKind.PNG):
+        raise MergeSourceError(f"merge kaynağı{where} PDF, JPEG ya da PNG değil")
+    try:
+        return img2pdf.convert(content)
+    except _IMAGE_WRAP_ERRORS as exc:
+        raise MergeSourceError(
+            f"merge kaynağı{where} görüntüsü kayıpsız PDF'e sarılamadı: {type(exc).__name__}"
+        ) from exc
+
+
+def _copy_pages(
+    sources: Sequence[_PdfPages],
+    *,
+    operation: str,
+    source_error: type[Exception],
+    integrity_error: type[Exception],
+) -> bytes:
+    """Kaynakların sayfalarını sırayla pypdf sayfa nesnesi olarak kopyalar ve çıktıyı doğrular.
+
+    `extract` ve `merge`'ün ortak yöntemi (§20.5). Çıktı baytları döner; hiçbir şey yazılmaz.
+    """
+    writer = PdfWriter()
+    expected: list[tuple[pymupdf.Document, int, str]] = []
+    with ExitStack() as stack:
+        for source in sources:
+            document = stack.enter_context(
+                _open_pdf(
+                    source.content, operation=operation, where=source.where, error=source_error
+                )
+            )
+            reader = _read_pdf(
+                source.content,
+                expected_page_count=document.page_count,
+                operation=operation,
+                where=source.where,
+                error=source_error,
+            )
+            if source.pages[-1] >= document.page_count:
+                raise source_error(
+                    f"{operation} sayfası kaynakta yok: sayfa {source.pages[-1]}, "
+                    f"kaynak{source.where} {document.page_count} sayfa"
+                )
+            for index in source.pages:
+                writer.add_page(reader.pages[index])
+                expected.append((document, index, source.where))
+        buffer = BytesIO()
+        writer.write(buffer)
+        output = buffer.getvalue()
+        _verify_pages(output, expected, operation=operation, error=integrity_error)
+    return output
+
+
+def _open_pdf(
+    content: bytes, *, operation: str, where: str, error: type[Exception]
+) -> pymupdf.Document:
     try:
         document = pymupdf.open(stream=content, filetype="pdf")
     except RuntimeError as exc:
-        raise ExtractSourceError("extract kaynağı açılamadı; PDF bozuk olabilir") from exc
+        raise error(f"{operation} kaynağı{where} açılamadı; PDF bozuk olabilir") from exc
     if document.needs_pass:
         document.close()
-        raise ExtractSourceError("extract kaynağı parola korumalı")
+        raise error(f"{operation} kaynağı{where} parola korumalı")
     return document
 
 
-def _read_source(content: bytes, *, expected_page_count: int) -> PdfReader:
+def _read_pdf(
+    content: bytes,
+    *,
+    expected_page_count: int,
+    operation: str,
+    where: str,
+    error: type[Exception],
+) -> PdfReader:
     try:
         reader = PdfReader(BytesIO(content))
         page_count = len(reader.pages)
     except PyPdfError as exc:
-        raise ExtractSourceError("extract kaynağı pypdf ile okunamadı") from exc
+        raise error(f"{operation} kaynağı{where} pypdf ile okunamadı") from exc
     if page_count != expected_page_count:
         # Bozuk PDF'i iki kütüphane farklı onarabilir; o zaman plandaki sayfa dizini pypdf'te
         # başka bir sayfayı gösterebilir — tahmin edilmez.
-        raise ExtractSourceError(
-            f"extract kaynağının sayfa sayısı okuyucular arasında farklı: "
+        raise error(
+            f"{operation} kaynağı{where} okuyucular arasında farklı sayfa sayısı veriyor: "
             f"MuPDF {expected_page_count}, pypdf {page_count}"
         )
     return reader
 
 
-def _verify_extract(
-    source_document: pymupdf.Document, output: bytes, selected: tuple[int, ...]
+def _verify_pages(
+    output: bytes,
+    expected: Sequence[tuple[pymupdf.Document, int, str]],
+    *,
+    operation: str,
+    error: type[Exception],
 ) -> None:
     try:
         output_document = pymupdf.open(stream=output, filetype="pdf")
     except RuntimeError as exc:
-        raise ExtractIntegrityError("extract çıktısı PDF olarak açılamadı") from exc
+        raise error(f"{operation} çıktısı PDF olarak açılamadı") from exc
     with output_document:
-        if output_document.page_count != len(selected):
-            raise ExtractIntegrityError(
-                f"extract sayfa sayısı hatası: beklenen {len(selected)}, "
+        if output_document.page_count != len(expected):
+            raise error(
+                f"{operation} sayfa sayısı hatası: beklenen {len(expected)}, "
                 f"çıktı {output_document.page_count}"
             )
-        for output_index, source_index in enumerate(selected):
+        for output_index, (source_document, source_index, where) in enumerate(expected):
             if output_document[output_index].get_text() != source_document[source_index].get_text():
-                raise ExtractIntegrityError(
-                    f"extract metin katmanı hatası: çıktı sayfası {output_index}, "
-                    f"kaynak sayfası {source_index}"
+                raise error(
+                    f"{operation} metin katmanı hatası: çıktı sayfası {output_index}, "
+                    f"kaynak{where} sayfası {source_index}"
                 )

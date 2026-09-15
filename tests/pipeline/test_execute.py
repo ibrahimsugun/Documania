@@ -2,6 +2,8 @@
 
 07.1.1 — passthrough: bayt bayt kopya, SHA-256 eşitliği.
 07.2.1 — extract: sayfa nesnesi kopyası, render yok, metin katmanı korunur (S7).
+07.3.1 — merge: yalnız Direkt Belge olmayan türde, kaynaklar plan sırasıyla; görüntü kayıpsız
+sarılır (S5).
 """
 
 from io import BytesIO
@@ -9,17 +11,27 @@ from pathlib import Path
 
 import pymupdf
 import pytest
+from PIL import Image, ImageDraw
 from pypdf import PageObject, PdfReader, PdfWriter
+from sqlalchemy.orm import Session
 
 import app.pipeline.execute as execute_module
+from app.ai.recording_provider import RecordingProvider
+from app.pipeline.analyze import analyze_upload
 from app.pipeline.execute import (
+    DirectDocumentMergeError,
     ExtractIntegrityError,
     ExtractSourceError,
+    MergeIntegrityError,
+    MergeSource,
+    MergeSourceError,
     PassthroughIntegrityError,
     execute_extract,
+    execute_merge,
     execute_passthrough,
 )
-from app.storage import StoredFile, sha256_file
+from app.pipeline.plan import Operation, Route, create_plan, read_plan
+from app.storage import DataLayout, StoredFile, sha256_file
 from tests.fixtures.gen import (
     A4,
     make_docx_bytes,
@@ -27,6 +39,16 @@ from tests.fixtures.gen import (
     make_pdf_bytes,
     make_sized_pdf_bytes,
     make_text_pdf_bytes,
+)
+from tests.pipeline.test_group import (
+    CATALOG,
+    INSTRUCTIONS,
+    LICENSE,
+    PASSPORT,
+    S5_RECORDINGS,
+    _recording,
+    _recordings,
+    _upload,
 )
 
 
@@ -418,3 +440,380 @@ def test_execute_extract_verifies_output_before_publishing(
 
     assert not destination.exists()
     assert [path.name for path in tmp_path.iterdir()] == ["kaynak.pdf"]
+
+
+# --- 07.3.1 — merge ---
+
+
+def _texts(path: Path) -> list[str]:
+    with _open(path) as document:
+        return [page.get_text() for page in document]
+
+
+def _text_pdf(tmp_path: Path, name: str, *texts: str) -> Path:
+    return _source(tmp_path, make_text_pdf_bytes(texts), name)
+
+
+def test_execute_merge_wraps_front_and_back_images_losslessly_into_one_pdf_s5(
+    tmp_path: Path,
+) -> None:
+    front = make_half_filled_image_bytes("JPEG", (300, 190))
+    back = make_half_filled_image_bytes("JPEG", (310, 195))
+    sources = [
+        MergeSource(_source(tmp_path, front, "on.jpg"), (0,)),
+        MergeSource(_source(tmp_path, back, "arka.jpg"), (0,)),
+    ]
+    destination = tmp_path / "Hazir" / "Ornek_Kisi-Driving-License.pdf"
+
+    stored = execute_merge(sources, destination, direct=False)
+
+    assert stored.path == destination
+    assert stored.sha256 == sha256_file(destination)
+    assert stored.size == destination.stat().st_size
+    with _open(destination) as out:
+        assert out.page_count == 2
+        # Kayıpsız sarma: JPEG baytları yeniden kodlanmadan gömülü; sayfa görüntünün kendisidir.
+        assert [_raw_images(out, index) for index in (0, 1)] == [[front], [back]]
+        assert [_embedded_images(out, index) for index in (0, 1)] == [[front], [back]]
+        for page in out:
+            (image,) = page.get_images(full=True)
+            assert page.get_image_bbox(image) == page.rect
+            assert page.rotation == 0
+            assert page.get_text() == ""
+    assert [source.path.read_bytes() for source in sources] == [front, back]
+
+
+@pytest.mark.parametrize("reverse", [False, True], ids=["a-b", "b-a"])
+def test_execute_merge_takes_pages_in_sources_order_without_reordering(
+    tmp_path: Path, reverse: bool
+) -> None:
+    first = MergeSource(_text_pdf(tmp_path, "a.pdf", "SENTETIK A0", "SENTETIK A1", "A2"), (0, 2))
+    second = MergeSource(_text_pdf(tmp_path, "b.pdf", "SENTETIK B0", "SENTETIK B1"), (0, 1))
+    sources = [second, first] if reverse else [first, second]
+    destination = tmp_path / "hedef.pdf"
+
+    execute_merge(sources, destination, direct=False)
+
+    a_pages = ["SENTETIK A0\n", "A2\n"]
+    b_pages = ["SENTETIK B0\n", "SENTETIK B1\n"]
+    assert _texts(destination) == (b_pages + a_pages if reverse else a_pages + b_pages)
+
+
+def test_execute_merge_copies_pdf_page_objects_and_wraps_images_without_reencoding(
+    tmp_path: Path,
+) -> None:
+    content, jpeg = _multi_page_pdf_bytes()
+    png = make_half_filled_image_bytes("PNG", (120, 80))
+    turned = make_half_filled_image_bytes("JPEG", (120, 80), orientation=6)
+    pdf = _source(tmp_path, content)
+    sources = [
+        MergeSource(pdf, (1, 2)),
+        MergeSource(_source(tmp_path, png, "foto.png"), (0,)),
+        MergeSource(_source(tmp_path, turned, "donuk.jpg"), (0,)),
+    ]
+    destination = tmp_path / "hedef.pdf"
+
+    execute_merge(sources, destination, direct=False)
+
+    with _open(pdf) as src, _open(destination) as out:
+        assert out.page_count == 4
+        # PDF sayfaları sayfa nesnesi kopyası: içerik akışı, görüntü, boyut ve döndürme aynı.
+        for output_index, source_index in ((0, 1), (1, 2)):
+            assert out[output_index].get_text() == src[source_index].get_text()
+            assert _raw_contents(out, output_index) == _raw_contents(src, source_index)
+            assert _raw_images(out, output_index) == _raw_images(src, source_index)
+            assert out[output_index].rotation == src[source_index].rotation
+            assert out[output_index].mediabox == src[source_index].mediabox
+        assert _embedded_images(out, 0) == [jpeg]
+        # PNG kayıpsız: gömülü görüntünün pikselleri kaynağınkiyle birebir aynı.
+        (image,) = out[2].get_images(full=True)
+        pixmap = pymupdf.Pixmap(out, image[0])
+        with Image.open(BytesIO(png)) as original:
+            assert (pixmap.width, pixmap.height) == original.size
+            assert pixmap.samples == original.convert("RGB").tobytes()
+        # EXIF yönelimi yalnız `/Rotate`: JPEG baytları değişmez, pikseller döndürülmez.
+        assert _raw_images(out, 3) == [turned]
+        assert out[3].rotation == 90
+
+
+def test_execute_merge_keeps_png_alpha_as_soft_mask_without_flattening(tmp_path: Path) -> None:
+    # img2pdf 0.6 alfa kanallı PNG'yi reddetmez; saydamlığı ayrı `/SMask` görüntüsünde saklar.
+    # Renk ve alfa kanalları kayıpsız ayrılır, beyaz zemine düzleştirme yapılmaz (PLAN.md §D17).
+    image = Image.new("RGBA", (60, 40), (255, 255, 255, 0))
+    ImageDraw.Draw(image).rectangle([0, 0, 29, 39], fill=(0, 0, 0, 255))
+    buffer = BytesIO()
+    image.save(buffer, format="PNG")
+    sources = [
+        MergeSource(_text_pdf(tmp_path, "a.pdf", "SENTETIK A"), (0,)),
+        MergeSource(_source(tmp_path, buffer.getvalue(), "saydam.png"), (0,)),
+    ]
+    destination = tmp_path / "hedef.pdf"
+
+    execute_merge(sources, destination, direct=False)
+
+    with _open(destination) as out:
+        (embedded,) = out[1].get_images(full=True)
+        xref, smask = embedded[0], embedded[1]
+        assert smask != 0
+        assert pymupdf.Pixmap(out, xref).samples == image.convert("RGB").tobytes()
+        assert pymupdf.Pixmap(out, smask).samples == image.getchannel("A").tobytes()
+
+
+def test_execute_merge_does_not_compress_content_streams(tmp_path: Path, monkeypatch) -> None:
+    content, _jpeg = _multi_page_pdf_bytes(compressed=False)
+    sources = [
+        MergeSource(_source(tmp_path, content), (0, 1)),
+        MergeSource(_source(tmp_path, make_half_filled_image_bytes("JPEG"), "on.jpg"), (0,)),
+    ]
+
+    def _forbidden(*_args, **_kwargs) -> None:
+        raise AssertionError("compress_content_streams çağrılmamalı (§20.5)")
+
+    monkeypatch.setattr(PageObject, "compress_content_streams", _forbidden)
+
+    execute_merge(sources, tmp_path / "hedef.pdf", direct=False)
+
+    with _open(sources[0].path) as src, _open(tmp_path / "hedef.pdf") as out:
+        assert _raw_contents(out, 1) == _raw_contents(src, 1)
+
+
+def test_execute_merge_refuses_direct_document_types_without_reading_sources(
+    tmp_path: Path,
+) -> None:
+    # 07.3.1 / §20.4 / K3: Direkt Belge başka kaynaklardan kurulmaz. Kaynaklar okunsaydı olmayan
+    # dosya `FileNotFoundError` verirdi.
+    passport, license_ = CATALOG.get(PASSPORT), CATALOG.get(LICENSE)
+    assert passport is not None and passport.direct
+    assert license_ is not None and not license_.direct
+    sources = [MergeSource(tmp_path / "yok-1.jpg", (0,)), MergeSource(tmp_path / "yok-2.jpg", (0,))]
+    destination = tmp_path / "hedef.pdf"
+
+    with pytest.raises(DirectDocumentMergeError, match="Direkt Belge"):
+        execute_merge(sources, destination, direct=passport.direct)
+
+    assert list(tmp_path.iterdir()) == []
+
+
+@pytest.mark.parametrize("count", [0, 1])
+def test_execute_merge_requires_at_least_two_sources(tmp_path: Path, count: int) -> None:
+    source = MergeSource(_text_pdf(tmp_path, "a.pdf", "SENTETIK A"), (0,))
+    destination = tmp_path / "hedef.pdf"
+
+    with pytest.raises(ValueError, match="en az iki kaynak"):
+        execute_merge([source] * count, destination, direct=False)
+
+    assert not destination.exists()
+
+
+@pytest.mark.parametrize("pages", [(), (-1,), (1, 0), (0, 0)])
+def test_execute_merge_rejects_invalid_page_selection_before_reading_sources(
+    tmp_path: Path, pages: tuple[int, ...]
+) -> None:
+    sources = [
+        MergeSource(tmp_path / "yok-1.pdf", (0,)),
+        MergeSource(tmp_path / "yok-2.pdf", pages),
+    ]
+    destination = tmp_path / "hedef.pdf"
+
+    with pytest.raises(ValueError, match=r"merge sources\[1\]"):
+        execute_merge(sources, destination, direct=False)
+
+    assert list(tmp_path.iterdir()) == []
+
+
+@pytest.mark.parametrize(
+    ("content", "message"),
+    [
+        pytest.param(make_docx_bytes(), "PDF, JPEG ya da PNG değil", id="docx"),
+        pytest.param(b"duz metin, taninmayan tur", "PDF, JPEG ya da PNG değil", id="taninmayan"),
+        pytest.param(b"%PDF-1.7\ngarbage garbage\n", "açılamadı", id="mupdf-acamiyor"),
+        pytest.param(
+            b"%PDF-1.7\n1 0 obj\n<< /Type /Catalog >>\nendobj\n%%EOF\n",
+            "pypdf ile okunamadı",
+            id="pypdf-okuyamiyor",
+        ),
+        pytest.param(make_sized_pdf_bytes([A4], password="gizli"), "parola", id="parola"),
+        pytest.param(
+            make_half_filled_image_bytes("JPEG")[:40], "sarılamadı: ImageOpenError", id="bozuk-jpeg"
+        ),
+        pytest.param(
+            b"\x89PNG\r\n\x1a\n" + b"x" * 100, "sarılamadı: ImageOpenError", id="bozuk-png"
+        ),
+        pytest.param(
+            make_half_filled_image_bytes("JPEG", orientation=2),
+            "sarılamadı: ExifOrientationError",
+            id="aynali-exif",
+        ),
+        pytest.param(
+            make_half_filled_image_bytes("PNG", orientation=9),
+            "sarılamadı: ExifOrientationError",
+            id="gecersiz-exif",
+        ),
+    ],
+)
+def test_execute_merge_rejects_unreadable_source(
+    tmp_path: Path, content: bytes, message: str
+) -> None:
+    sources = [
+        MergeSource(_text_pdf(tmp_path, "a.pdf", "SENTETIK A"), (0,)),
+        MergeSource(_source(tmp_path, content, "kaynak-2"), (0,)),
+    ]
+    destination = tmp_path / "hedef.pdf"
+
+    with pytest.raises(MergeSourceError, match=message) as raised:
+        execute_merge(sources, destination, direct=False)
+
+    assert "merge kaynağı sources[1] " in str(raised.value)
+    assert "kaynak-2" not in str(raised.value)
+    assert not destination.exists()
+
+
+@pytest.mark.parametrize(
+    ("content", "pages", "message"),
+    [
+        pytest.param(
+            make_half_filled_image_bytes("JPEG"),
+            (1,),
+            "sayfa 1, kaynak sources[1] 1 sayfa",
+            id="jpeg",
+        ),
+        pytest.param(
+            make_text_pdf_bytes(["B0", "B1"]),
+            (1, 2),
+            "sayfa 2, kaynak sources[1] 2 sayfa",
+            id="pdf",
+        ),
+    ],
+)
+def test_execute_merge_rejects_page_missing_from_source(
+    tmp_path: Path, content: bytes, pages: tuple[int, ...], message: str
+) -> None:
+    sources = [
+        MergeSource(_text_pdf(tmp_path, "a.pdf", "SENTETIK A"), (0,)),
+        MergeSource(_source(tmp_path, content, "kaynak-2"), pages),
+    ]
+    destination = tmp_path / "hedef.pdf"
+
+    with pytest.raises(MergeSourceError, match="kaynakta yok") as raised:
+        execute_merge(sources, destination, direct=False)
+
+    assert message in str(raised.value)
+    assert not destination.exists()
+
+
+def test_execute_merge_rejects_page_count_disagreement_between_readers(
+    tmp_path: Path, monkeypatch
+) -> None:
+    content, _jpeg = _multi_page_pdf_bytes()
+    sources = [
+        MergeSource(_source(tmp_path, content), (1,)),
+        MergeSource(_text_pdf(tmp_path, "b.pdf", "SENTETIK B0", "SENTETIK B1"), (0,)),
+    ]
+    destination = tmp_path / "hedef.pdf"
+
+    class _ShortReader(PdfReader):
+        """Bozuk PDF'i MuPDF'ten farklı onaran okuyucu: son sayfayı görmez."""
+
+        @property
+        def pages(self):
+            return super().pages[:-1]
+
+    monkeypatch.setattr(execute_module, "PdfReader", _ShortReader)
+
+    with pytest.raises(MergeSourceError, match="MuPDF 4, pypdf 3") as raised:
+        execute_merge(sources, destination, direct=False)
+
+    assert "sources[0]" in str(raised.value)
+    assert not destination.exists()
+
+
+@pytest.mark.parametrize(
+    ("writer", "message"),
+    [
+        (_ExtraPageWriter, "sayfa sayısı hatası: beklenen 3"),
+        (_WrongPageWriter, "metin katmanı hatası: çıktı sayfası 1, kaynak sources[0] sayfası 1"),
+        (_GarbageWriter, "çıktısı PDF olarak açılamadı"),
+    ],
+)
+def test_execute_merge_verifies_output_before_publishing(
+    tmp_path: Path, monkeypatch, writer, message: str
+) -> None:
+    sources = [
+        MergeSource(_text_pdf(tmp_path, "a.pdf", "SENTETIK A0", "SENTETIK A1"), (0, 1)),
+        MergeSource(_text_pdf(tmp_path, "b.pdf", "SENTETIK B0"), (0,)),
+    ]
+    destination = tmp_path / "hedef.pdf"
+    monkeypatch.setattr(execute_module, "PdfWriter", writer)
+
+    with pytest.raises(MergeIntegrityError) as raised:
+        execute_merge(sources, destination, direct=False)
+
+    assert message in str(raised.value)
+    assert not destination.exists()
+    assert sorted(path.name for path in tmp_path.iterdir()) == ["a.pdf", "b.pdf"]
+
+
+def test_execute_merge_does_not_overwrite_existing_destination(tmp_path: Path) -> None:
+    sources = [
+        MergeSource(_text_pdf(tmp_path, "a.pdf", "SENTETIK A"), (0,)),
+        MergeSource(_text_pdf(tmp_path, "b.pdf", "SENTETIK B"), (0,)),
+    ]
+    destination = tmp_path / "hedef.pdf"
+    destination.write_bytes(b"onceden var olan icerik")
+
+    with pytest.raises(FileExistsError):
+        execute_merge(sources, destination, direct=False)
+
+    assert destination.read_bytes() == b"onceden var olan icerik"
+    assert sorted(path.name for path in tmp_path.iterdir()) == ["a.pdf", "b.pdf", "hedef.pdf"]
+
+
+@pytest.mark.parametrize("back_uploaded_first", [False, True], ids=["on-once", "arka-once"])
+def test_s5_planned_merge_item_yields_one_driving_license_pdf(
+    session: Session, layout: DataLayout, tmp_path: Path, back_uploaded_first: bool
+) -> None:
+    # S5 plan → uygulayıcı: aynı partide `on.jpg` ve `arka.jpg` ehliyet (Direkt Belge kapalı)
+    # planda tek `merge` öğesidir; uygulayıcı sırayı yükleme sırasından değil öğenin `sources`'undan
+    # alır (önce ön yüz). Çıktının yeri, köken kaydı ve `Alinan` kopyası 07.7'nindir.
+    front = ("on.jpg", make_half_filled_image_bytes("JPEG", size=(300, 190)))
+    back = ("arka.jpg", make_half_filled_image_bytes("JPEG", size=(310, 195)))
+    if back_uploaded_first:
+        upload = _upload(session, layout, [back, front])
+        responses = [_recording(S5_RECORDINGS, 1), _recording(S5_RECORDINGS, 0)]
+        provider = _recordings(tmp_path, responses)
+    else:
+        upload = _upload(session, layout, [front, back])
+        provider = RecordingProvider.from_directory(S5_RECORDINGS)
+    analyze_upload(session, layout, upload, provider=provider, instructions=INSTRUCTIONS)
+
+    (item,) = read_plan(create_plan(session, layout, upload, catalog=CATALOG)).items
+
+    entry = CATALOG.get(LICENSE)
+    assert entry is not None and not entry.direct
+    assert (item.document_type_slug, item.route, item.operation, item.target_format) == (
+        LICENSE,
+        Route.READY,
+        Operation.MERGE,
+        "pdf",
+    )
+    assert item.target_name is not None and item.target_name.endswith("-Driving-License.pdf")
+    files = {upload_file.id: upload_file for upload_file in upload.files}
+    assert [files[source.file_id].original_name for source in item.sources] == [
+        "on.jpg",
+        "arka.jpg",
+    ]
+    destination = tmp_path / "Hazir" / item.target_name
+
+    execute_merge(
+        [
+            MergeSource(layout.resolve(files[source.file_id].stored_path), source.pages)
+            for source in item.sources
+        ],
+        destination,
+        direct=entry.direct,
+    )
+
+    assert [path.name for path in destination.parent.iterdir()] == [item.target_name]
+    with _open(destination) as out:
+        assert out.page_count == 2
+        assert [_raw_images(out, index) for index in (0, 1)] == [[front[1]], [back[1]]]

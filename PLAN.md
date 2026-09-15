@@ -8,7 +8,7 @@
 
 | Faz | PRD | Genel durum | Must sayacı | Kapanış |
 | --- | --- | --- | --- | --- |
-| Faz 0 — MVP | §5.1 | 79 ✅ · 0 ◐ · 23 ⬜ · 0 🔒 | 76/98 Must | AÇIK |
+| Faz 0 — MVP | §5.1 | 80 ✅ · 0 ◐ · 22 ⬜ · 0 🔒 | 77/98 Must | AÇIK |
 | Faz 1 — v1 | §5.2 | 0 ✅ · 0 ◐ · 0 ⬜ · 32 🔒 | 0/21 Must | AÇIK |
 | Faz 2 — v2 | §5.3 | 0 ✅ · 0 ◐ · 0 ⬜ · 13 🔒 | 0/0 Must | AÇIK |
 | Faz 3 — Enterprise | §5.4 | 0 ✅ · 0 ◐ · 0 ⬜ · 8 🔒 | 0/0 Must | AÇIK |
@@ -184,7 +184,7 @@ panelde `plan-count-drift` bulgusu doğurur.
 | --- | --- | --- | --- |
 | 07.1.1 | passthrough | Must (MVP) | ✅ → K07.1 |
 | 07.2.1 | extract | Must (MVP) | ✅ → K07.2 |
-| 07.3.1 | merge | Must (MVP) | ⬜ |
+| 07.3.1 | merge | Must (MVP) | ✅ → K07.3 |
 | 07.4.1 | wrap_image | Must (MVP) | ⬜ |
 | 07.5.1 | extract_image | Must (MVP) | ⬜ |
 | 07.6.1 | render_image | Must (MVP) | ⬜ |
@@ -1119,6 +1119,31 @@ Onay beklemeden yapılan varsayımlar buraya numaralı olarak yazılır.
   (boş kullanıcı parolalı) PDF iki okuyucuda da açılır ve çıkarılır; çıktı şifrelenmez (içerik değişmez).
   Sayfa boyutu, `/Rotate` ve sayfa ağacından kalıtılan özellikler pypdf'in sayfa nesnesine taşınır. Hatanın
   kuyruğa/olaya çevrilmesi 07.7/09.2'nin; bu görev DB'ye ve olay logına dokunmaz.
+- **C37** — merge işlemi (tm 48, 07.3.1): §20.5 "`extract` ile aynı yöntem, birden çok kaynaktan sırayla; sıra
+  `sources` dizisidir; yalnız `direct: false`" der; S5 iki JPEG'in "kayıpsız sarma ve birleştirme"sini bekler.
+  Görüntü kaynağının nasıl birleşeceği, uygulayıcının Direkt Belge'yi yeniden denetleyip denetlemeyeceği, kaynak
+  sayısı alt sınırı, EXIF yönelimi ve doğrulama yazılı değil. `execute_merge(sources, destination, *, direct)`
+  (`app/pipeline/execute.py`), `MergeSource(path, pages)`: `sources` plan öğesinin `sources`'u, **en az iki
+  kaynak** (§20.3 satır 3; aksi `ValueError`); sayfalar dizinin sırasıyla, kaynağın içinde `pages` sırasıyla —
+  yeniden sıralama yok; her kaynağın sayfa seçimi C36'daki kural, kaynaklar okunmadan denetlenir. **Direkt
+  Belge:** `direct` türün güncel katalogdaki bayrağı; doğruysa hiçbir kaynak okunmadan
+  `DirectDocumentMergeError` — planlayıcı matrisi zaten reddeder (06.3.1), bekçi plan dondurulduktan sonra
+  Direkt Belge yapılmış türde yeniden çalıştırmayı (06.6.1) K3'e karşı korur. "Aynı parti" (K4) uygulayıcıda
+  denetlenmez, plan öğesinin kaynaklarıdır. **Yöntem:** PDF kaynak `extract`'la ortak çekirdekten (`_copy_pages`)
+  sayfa nesnesi olarak kopyalanır; JPEG/PNG kaynak (tek sayfa, `0`) önce `img2pdf.convert()` ile tek sayfalık
+  PDF'e sarılır (§20.5 `wrap_image` yöntemi; K14 yığınındaki `img2pdf` bu görevde `pyproject.toml`'a eklendi) ve
+  o sayfa aynı biçimde kopyalanır — JPEG baytları gömülü akışta birebir, PNG pikselleri kayıpsız, sayfa
+  görüntünün kendi boyutunda (A4'e yerleştirme yok). EXIF yönelimi img2pdf varsayılanıyla: 1/3/6/8 yalnız
+  `/Rotate` (pikseller döndürülmez); aynalı (2/4/5/7) ya da geçersiz değer kayıpsız temsil edilemediği ya da
+  analiz kopyasıyla (02.3.1, `exif_transpose`) aynı görünüm garanti edilemediği için `MergeSourceError` — tahmin
+  yok. Karışık PDF + görüntü kaynakları birleşir (K4). **Kaynak hatası** (`MergeSourceError`, `ValueError`):
+  PDF/JPEG/PNG olmayan içerik, açılamayan/parolalı PDF, okuyucu uyuşmazlığı, sarılamayan görüntü (img2pdf'in yedi
+  hata sınıfı; adı mesajda), olmayan sayfa; mesaj kaynağı `sources[i]` (0 tabanlı) konumuyla anar, dosya yolu ya
+  da özgün adı taşımaz. **Doğrulama** C36'daki gibi yayından önce bellekte: çıktı sayfa sayısı alınan sayfaların
+  toplamı, her çıktı sayfasının MuPDF metin katmanı karşılık gelen kaynak sayfanınkiyle (görüntüde sarılmış
+  sayfanınkiyle) birebir aynı; değilse `MergeIntegrityError`, hedefe yazma yok; hedef varsa `FileExistsError`.
+  Görüntü baytlarının birebirliği çalışma anında ayrıca ölçülmez, testte kanıtlanır. Alfa kanallı PNG: §D17.
+  DB, olay logu, hedef yolu ve `Alinan` kopyası 07.7'nin.
 
 ## D. Sapmalar
 
@@ -1275,6 +1300,16 @@ bu kayıt neden sapıldığının izlenebilir olması içindir.
   alan hem bileşik haneyi bozar. Karar insana bırakıldı: `mrz_checksum` yalnız belge düzeyinde hükme (bileşik
   hane / geçersiz MRZ) mi bakmalı, alan hanesi hatası yalnız alanı mı düşürmeli, bileşik hane hatasında belge
   çalışan kararına (satır 1/3 eşleşme, satır 7 profil) devam mı etmeli.
+- **D17 — img2pdf alfa kanallı PNG'yi reddetmiyor; saydamlık düzleştirilmeden `/SMask` olarak saklanıyor (07.3.1,
+  tm 48).** §20.5 `wrap_image` "img2pdf alfa kanalı içeren PNG'leri reddeder; görüntü alfasız RGB'ye (beyaz zemin)
+  düzleştirilir ve olay loguna yazılır" der. Kurulu img2pdf 0.6.3 8 bit RGBA/LA PNG'yi reddetmez: renk kanallarını
+  ve alfa kanalını ayrı iki kayıpsız görüntüye (`/SMask`) böler; yalnız 8 bitten derin alfalı görüntüde
+  `AlphaChannelError` verir. `merge` kütüphanenin davranışını olduğu gibi kullandı: alfalı PNG düzleştirilmez,
+  olay atılmaz, renk ve alfa pikselleri kaynakla birebir
+  (`test_execute_merge_keeps_png_alpha_as_soft_mask_without_flattening`); `AlphaChannelError` `MergeSourceError`
+  olur. Düzleştirme bir piksel dönüşümüdür ve artık gerekmediği için uydurulmadı. Karar insana ve 07.4'e
+  bırakıldı: `/SMask` saklama kabul mü, yoksa §20.5'teki düzleştirme + olay kütüphane reddetmese de mi
+  uygulanmalı (o zaman `merge`'ün görüntü sarması da aynı yola bağlanmalı).
 
 ## G. İş Kırılımı Dizini
 
@@ -1565,3 +1600,8 @@ var olan maddeler silinmez. Biçim:
 
 #### K07.2 — 07.2.1 · extract işlemi
 - ✅ `execute_extract(source, destination, *, pages)` (`app/pipeline/execute.py`) kaynak PDF'in `PlanSource.pages` sayfalarını pypdf sayfa nesnesi kopyasıyla (`writer.add_page(reader.pages[i])`, `compress_content_streams` yok) yeni PDF'e çıkarır; sayfa render edilmez, içerik akışı ve gömülü görüntü baytları, boyut, `/Rotate` ve sayfa ağacından kalıtılan özellikler aynen taşınır (K3/K11). Doğrulama yayından önce bellekte: çıktı sayfa sayısı `len(pages)` ve her sayfanın MuPDF metin katmanı kaynağındakiyle birebir aynı, değilse `ExtractIntegrityError` ve hedefe yazma yok; geçen çıktı `write_file` ile atomik, üzerine yazma yok. PDF olmayan/bozuk/parolalı kaynak, olmayan sayfa ve okuyucular arası sayfa sayısı farkı `ExtractSourceError`, geçersiz sayfa seçimi `ValueError` (C36). S7 işlem katmanında: 4 sayfalık sentetik PDF'in pasaport sayfası tek sayfa çıkarılır — metin katmanı eşit, içerik akışı ve JPEG ham baytları kaynağınkiyle aynı (render yok); uçtan uca S7 09.3-c'nin. `execute.py` satır+dal kapsamı %100; 11 kural bozulması (sıkıştırma, yeniden sıralama, döndürmeyi içeriğe aktarma, metin/sayfa sayısı/okuyucu uyumu/aralık/tür/negatif/sıra denetimini kaldırma, doğrulamadan önce yayın) geçici olarak denendi, her biri testte kırmızı — `app/pipeline/execute.py` · test `tests/pipeline/test_execute.py` (31, +27) · tm 47
+
+#### K07.3 — 07.3.1 · merge işlemi
+- ✅ `execute_merge(sources, destination, *, direct)` (`app/pipeline/execute.py`, `MergeSource(path, pages)`) plan öğesinin en az iki kaynağının sayfalarını `sources` sırasıyla, kaynak içinde `pages` sırasıyla tek PDF'te birleştirir — yeniden sıralama yok (iki yönde doğrulandı); yöntem `extract`'la ortak çekirdek (`_copy_pages`, pypdf sayfa nesnesi kopyası, `compress_content_streams` yok): PDF sayfalarının içerik akışı, görüntü baytları, boyutu ve `/Rotate`'i aynen taşınır. Yalnız `direct: false` türde: `direct` doğruysa kaynaklar okunmadan `DirectDocumentMergeError` (K3; tohum katalogda `russian_passport` Direkt, `serbian_driving_license` değil). JPEG/PNG kaynak önce `img2pdf` ile kayıpsız sarılır: JPEG akışı kaynak baytlarıyla birebir, PNG pikselleri birebir, görüntü sayfayı tam kaplar, EXIF 6 yalnız `/Rotate 90`; alfalı PNG renk + `/SMask` olarak birebir (D17). Aynalı/geçersiz EXIF, bozuk görüntü, Word, tanınmayan içerik, bozuk/parolalı PDF, okuyucu uyuşmazlığı ve olmayan sayfa `MergeSourceError` (`sources[i]` konumuyla, dosya adı yok); tek/boş kaynak listesi ve geçersiz sayfa seçimi okumadan `ValueError`; çıktı sayfa sayısı ve sayfa başına metin katmanı yayından önce doğrulanır (`MergeIntegrityError`, hedefe yazma yok), hedef varsa `FileExistsError` (C37). Bağımlılık `img2pdf>=0.6` (K14) — `app/pipeline/execute.py` · `pyproject.toml` · test `tests/pipeline/test_execute.py` (62, +31) · tm 48
+- ✅ S5 plan → uygulayıcı: aynı partide sentetik `on.jpg` (ehliyet ön) ve `arka.jpg` (ehliyet arka), iki yükleme sırasında da gerçek görüntü analiz kopyası + kayıtlı yanıtlarla `analyze_upload` → `create_plan`: tek `serbian_driving_license` öğesi `hazir`, `merge`, `pdf`, `…-Driving-License.pdf`, kaynaklar önce ön yüz; öğenin kaynakları Inbox yollarına çözülüp `execute_merge(direct=entry.direct)` ile yürütülür → tek 2 sayfalık PDF, sayfa 0 ön yüzün, sayfa 1 arka yüzün JPEG baytlarını birebir gömülü taşır (kayıpsız sarma ve birleştirme). Çıktının `Hazir/` yeri, köken kaydı ve `Alinan` kopyası 07.7'nin, uçtan uca S5 09.3'ün · test `tests/pipeline/test_execute.py` (`test_s5_planned_merge_item_yields_one_driving_license_pdf`, 2) · tm 48
+- ✅ Kapı: `execute.py` satır+dal kapsamı %100; 16 kural bozulması (Direkt Belge bekçisi, tek kaynak, yol adına göre sıralama, okuduktan sonra sayfa denetimi, sıkıştırma, EXIF'i yok sayma, EXIF'i uygulamama, görüntüyü Pillow ile yeniden kodlama, tür denetimi, sarma hatasını yakalamama, sayfa aralığı, çıktı doğrulaması, okuyucu uyumu, mesajda kaynak konumu, hata sınıfı, metin katmanı denetimi) geçici olarak denendi, her biri yalnız `merge` testleriyle kırmızı · tm 48
