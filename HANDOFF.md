@@ -18,6 +18,12 @@ Blok biçimi `CONVENTIONS.md` §3'te tanımlıdır:
 
 ## Task log (newest-first)
 
+## 50 — 07.5 extract_image işlemi — done — 2026-09-15
+- Yapıldı: `app/pipeline/execute.py` — `execute_extract_image(source, destination, *, page)` sayfanın `xref`'ini 02.5.1'in kuralıyla (`single_full_page_image_xref`) yeniden bulur, `doc.extract_image` baytlarını Pillow'dan geçirmeden yazar; JPEG gömülü ham akışla birebir, JPEG olmayan görüntü `.png` uzantısıyla (yol `StoredFile.path`) ve gömülü görüntünün pikselleriyle birebir; kural tutmayan sayfa render'a düşmez (`ExtractImageSourceError`), kanıtlanamayan çıktı yayınlanmaz (`ExtractImageIntegrityError`).
+- Doğrulama: ruff check/format, compileall, `pytest -q -m "not live" --cov=app --cov-fail-under=70` (1933 geçti, +34; 4 PG testi atlandı), kapsam %99.74 (`execute.py` satır+dal %100), temiz SQLite'ta `alembic upgrade head` (0001→0002), `import app.main` — hepsi exit 0; 13 kural bozulması geçici olarak denendi, her biri testte kırmızı.
+- Varsayımlar: PLAN.md §C38 — `page` tek 0 tabanlı sayfa; uzantı uygulayıcıda gerçek biçime göre değişir. §D19 — PyMuPDF CMYK JPEG'i yeniden kodluyor, CMYK'yi RGB'ye çeviriyor, 16 biti 8 bite indiriyor: bunlar, zincirli süzgeç ve JPEG 2000 kuyruğa gidiyor (insan kararı bekliyor).
+- Sonraki pencereye not: 07.7 `extract_image` öğesinde hedef adı plandan (`.jpeg`) alıp yayınlanan gerçek adı `StoredFile.path`'ten okumalı (PNG çıkabilir); `ExtractImageSourceError`/`ExtractImageIntegrityError`'ı kuyruğa çevirmek onun işi. 07.6 `render_image` K12 gereği `extract_image` başarısız olduğunda yedek olarak çağrılmamalı.
+
 ## 49 — 07.4 wrap_image işlemi — done — 2026-09-15
 - Yapıldı: `app/pipeline/execute.py` — `execute_wrap_image(source, destination)` kaynak JPEG/PNG'yi `img2pdf.convert()` ile kayıpsız tek sayfalık PDF'e sarar; `merge`'ün görüntü sarma yoluyla ortak çekirdekte (`_wrap_image_to_pdf`) paylaşılır (D17'nin kararı ikisine birden uygulandı). Kaynak JPEG/PNG değilse ya da img2pdf sarımayı reddederse (açılamayan/bozuk görüntü, aynalı/geçersiz EXIF, >8 bit alfa) `WrapImageSourceError`; hedefe yazma yok.
 - Doğrulama: ruff check/format, compileall, `pytest -q -m "not live" --cov=app --cov-fail-under=70` (1899 geçti, +13), kapsam %99.69 (`execute.py` satır+dal %100), temiz SQLite'ta `alembic upgrade head` (0001→0002), `import app.main` — hepsi exit 0.

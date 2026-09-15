@@ -6,8 +6,12 @@
 sarılır (S5).
 07.4.1 — wrap_image: tek JPEG/PNG kayıpsız tek sayfalık PDF'e sarılır, alfa `/SMask` olarak
 saklanır, beyaz zemine düzleştirme yapılmaz (§D17/§D18).
+07.5.1 — extract_image: tek tam sayfa gömülü görüntü orijinal baytlarıyla (JPEG) ya da kayıpsız
+pikselleriyle (PNG, uzantı `ext`'e göre) çıkarılır; kanıtlanamayan çıktı yayınlanmaz (§D19).
 """
 
+import zlib
+from collections.abc import Callable
 from io import BytesIO
 from pathlib import Path
 
@@ -22,6 +26,8 @@ from app.ai.recording_provider import RecordingProvider
 from app.pipeline.analyze import analyze_upload
 from app.pipeline.execute import (
     DirectDocumentMergeError,
+    ExtractImageIntegrityError,
+    ExtractImageSourceError,
     ExtractIntegrityError,
     ExtractSourceError,
     MergeIntegrityError,
@@ -30,12 +36,14 @@ from app.pipeline.execute import (
     PassthroughIntegrityError,
     WrapImageSourceError,
     execute_extract,
+    execute_extract_image,
     execute_merge,
     execute_passthrough,
     execute_wrap_image,
 )
 from app.pipeline.plan import Operation, Route, create_plan, read_plan
-from app.storage import DataLayout, StoredFile, sha256_file
+from app.pipeline.render import mark_upload_file_single_image_pages
+from app.storage import DataLayout, FileKind, StoredFile, detect_file_kind, sha256_file
 from tests.fixtures.gen import (
     A4,
     make_docx_bytes,
@@ -54,6 +62,17 @@ from tests.pipeline.test_group import (
     _recordings,
     _upload,
 )
+from tests.pipeline.test_plan import (
+    PERMIT,
+    _catalog_with,
+    _File,
+    _image_then_text_pdf_bytes,
+    _page,
+    _person,
+    _plan,
+)
+from tests.pipeline.test_plan import _upload as _upload_with_analyses
+from tests.pipeline.test_render import _image_page_pdf_bytes
 
 
 def _source(tmp_path: Path, content: bytes, name: str = "kaynak.pdf") -> Path:
@@ -146,15 +165,25 @@ def _inherited_attributes_pdf_bytes() -> bytes:
         b"BT /F1 18 Tf 72 500 Td (SENTETIK BIR) Tj ET",
         b"BT /F1 18 Tf 72 500 Td (SENTETIK IKI) Tj ET",
     ]
-    bodies = [
-        b"<< /Type /Catalog /Pages 2 0 R >>",
-        b"<< /Type /Pages /Kids [3 0 R 4 0 R] /Count 2 /MediaBox [0 0 400 700] /Rotate 270"
-        b" /Resources << /Font << /F1 5 0 R >> >> >>",
-        b"<< /Type /Page /Parent 2 0 R /Contents 6 0 R >>",
-        b"<< /Type /Page /Parent 2 0 R /Contents 7 0 R >>",
-        b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
-        *(b"<< /Length %d >>\nstream\n%s\nendstream" % (len(data), data) for data in streams),
-    ]
+    return _pdf_from_objects(
+        [
+            b"<< /Type /Catalog /Pages 2 0 R >>",
+            b"<< /Type /Pages /Kids [3 0 R 4 0 R] /Count 2 /MediaBox [0 0 400 700] /Rotate 270"
+            b" /Resources << /Font << /F1 5 0 R >> >> >>",
+            b"<< /Type /Page /Parent 2 0 R /Contents 6 0 R >>",
+            b"<< /Type /Page /Parent 2 0 R /Contents 7 0 R >>",
+            b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+            *(_stream_object(b"", data) for data in streams),
+        ]
+    )
+
+
+def _stream_object(keys: bytes, data: bytes) -> bytes:
+    return b"<< %s /Length %d >>\nstream\n%s\nendstream" % (keys, len(data), data)
+
+
+def _pdf_from_objects(bodies: list[bytes]) -> bytes:
+    """Nesne gövdelerinden (1'den numaralı) çapraz başvuru tablolu PDF baytları."""
     out = bytearray(b"%PDF-1.7\n")
     offsets = []
     for number, body in enumerate(bodies, start=1):
@@ -953,3 +982,459 @@ def test_s5_planned_merge_item_yields_one_driving_license_pdf(
     with _open(destination) as out:
         assert out.page_count == 2
         assert [_raw_images(out, index) for index in (0, 1)] == [[front[1]], [back[1]]]
+
+
+# --- 07.5.1 — extract_image ---
+
+
+def _image_bytes(image: Image.Image, fmt: str) -> bytes:
+    buffer = BytesIO()
+    image.save(buffer, format=fmt)
+    return buffer.getvalue()
+
+
+def _raw_image_pdf_bytes(keys: bytes, data: bytes, size: tuple[int, int] = (4, 2)) -> bytes:
+    """Tek sayfalık el yapımı PDF: sayfayı tam kaplayan tek bir görüntü nesnesi (tarama sayfası).
+
+    `keys` görüntünün renk uzayı/örnek derinliği/süzgeç anahtarları, `data` akışın dosyadaki
+    baytlarıdır — PyMuPDF'in görüntü gömme yolunun üretmediği görüntüler (DeviceGray, 1 bit,
+    Indexed, CMYK, 16 bit) için.
+    """
+    width, height = size
+    drawing = b"q 595 0 0 842 0 0 cm /Im0 Do Q"
+    return _pdf_from_objects(
+        [
+            b"<< /Type /Catalog /Pages 2 0 R >>",
+            b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+            b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842]"
+            b" /Resources << /XObject << /Im0 5 0 R >> >> /Contents 4 0 R >>",
+            _stream_object(b"", drawing),
+            _stream_object(
+                b"/Type /XObject /Subtype /Image /Width %d /Height %d %s" % (width, height, keys),
+                data,
+            ),
+        ]
+    )
+
+
+GRAY_SAMPLES = bytes([0, 50, 100, 150, 200, 250, 30, 255])
+
+
+def _gray_gradient() -> Image.Image:
+    image = Image.new("L", (256, 4))
+    image.putdata([value for _row in range(4) for value in range(256)])
+    return image
+
+
+def _rgb(gray: bytes) -> bytes:
+    return bytes(value for value in gray for _channel in range(3))
+
+
+def _rgb_png_case() -> tuple[bytes, bytes]:
+    png = make_half_filled_image_bytes("PNG", (60, 85))
+    with Image.open(BytesIO(png)) as image:
+        return _image_page_pdf_bytes(image=png), image.convert("RGB").tobytes()
+
+
+def _icc_gray_png_case() -> tuple[bytes, bytes]:
+    gradient = _gray_gradient()
+    return _image_page_pdf_bytes(image=_image_bytes(gradient, "PNG")), _rgb(gradient.tobytes())
+
+
+# (kimlik, (PDF, çıktının RGB örnekleri) üretici)
+PNG_EXTRACT_CASES: list[tuple[str, Callable[[], tuple[bytes, bytes]]]] = [
+    ("rgb_png", _rgb_png_case),
+    # MuPDF ICCBased gri görüntüyü RGB PNG'ye yazar; her kanal gri değerin kendisidir.
+    ("icc_gri_png", _icc_gray_png_case),
+    (
+        "devicegray_flate",
+        lambda: (
+            _raw_image_pdf_bytes(
+                b"/ColorSpace /DeviceGray /BitsPerComponent 8 /Filter /FlateDecode",
+                zlib.compress(GRAY_SAMPLES),
+            ),
+            _rgb(GRAY_SAMPLES),
+        ),
+    ),
+    (
+        "tek_bit",
+        lambda: (
+            _raw_image_pdf_bytes(
+                b"/ColorSpace /DeviceGray /BitsPerComponent 1", bytes([0b10100000, 0b01010000])
+            ),
+            _rgb(bytes([255, 0, 255, 0, 0, 255, 0, 255])),
+        ),
+    ),
+    (
+        "indexed",
+        lambda: (
+            _raw_image_pdf_bytes(
+                b"/ColorSpace [/Indexed /DeviceRGB 1 <FF000000FF00>] /BitsPerComponent 8",
+                bytes([0, 1, 0, 1, 1, 0, 1, 0]),
+            ),
+            bytes([255, 0, 0, 0, 255, 0]) * 2 + bytes([0, 255, 0, 255, 0, 0]) * 2,
+        ),
+    ),
+]
+
+
+def _files(directory: Path) -> list[str]:
+    return sorted(path.name for path in directory.iterdir())
+
+
+def test_execute_extract_image_writes_the_embedded_jpeg_with_its_original_bytes(
+    tmp_path: Path,
+) -> None:
+    jpeg = make_half_filled_image_bytes("JPEG", (60, 85))
+    content = _image_page_pdf_bytes(image=jpeg)
+    source = _source(tmp_path, content)
+    destination = tmp_path / "Hazir" / "Ornek_Kisi-Profile-Picture.jpeg"
+
+    stored = execute_extract_image(source, destination, page=0)
+
+    assert stored.path == destination
+    assert stored.sha256 == sha256_file(destination)
+    assert stored.size == destination.stat().st_size
+    # Orijinal baytlar: gömülen JPEG ve PDF'teki gömülü akışın ham baytları birebir.
+    assert destination.read_bytes() == jpeg
+    with _open(source) as src:
+        assert _raw_images(src, 0) == [jpeg]
+    assert _files(destination.parent) == ["Ornek_Kisi-Profile-Picture.jpeg"]
+    assert source.read_bytes() == content
+
+
+def test_execute_extract_image_takes_the_planned_page_of_a_multi_page_pdf(tmp_path: Path) -> None:
+    # Fotoğraf çok sayfalı dosyanın bir sayfası olabilir (S3/S4); yalnız o sayfanın görüntüsü
+    # alınır, öteki sayfaların görüntüleri değil.
+    first = make_half_filled_image_bytes("JPEG", (60, 85))
+    photo = make_half_filled_image_bytes("JPEG", (90, 120))
+    document = pymupdf.open()
+    for image in (first, photo):
+        page = document.new_page(width=A4[0], height=A4[1])
+        page.insert_image(page.rect, stream=image, keep_proportion=False)
+    document.new_page(width=A4[0], height=A4[1]).insert_text((72, 72), "SENTETIK METIN")
+    source = _source(tmp_path, document.tobytes())
+    document.close()
+    destination = tmp_path / "hedef.jpeg"
+
+    execute_extract_image(source, destination, page=1)
+
+    assert destination.read_bytes() == photo
+
+
+@pytest.mark.parametrize(
+    "build", [build for _, build in PNG_EXTRACT_CASES], ids=[case for case, _ in PNG_EXTRACT_CASES]
+)
+def test_execute_extract_image_writes_non_jpeg_image_losslessly_with_png_extension(
+    tmp_path: Path, build: Callable[[], tuple[bytes, bytes]]
+) -> None:
+    content, expected_rgb = build()
+    source = _source(tmp_path, content)
+    destination = tmp_path / "Hazir" / "Ornek_Kisi-Profile-Picture.jpeg"
+
+    stored = execute_extract_image(source, destination, page=0)
+
+    # §20.5: çıkan biçim JPEG değilse uzantı `ext`'e göre yazılır; planın `.jpeg` adı kullanılmaz.
+    assert stored.path == destination.with_name("Ornek_Kisi-Profile-Picture.png")
+    assert _files(destination.parent) == ["Ornek_Kisi-Profile-Picture.png"]
+    output = stored.path.read_bytes()
+    assert detect_file_kind(output) is FileKind.PNG
+    assert stored.sha256 == sha256_file(stored.path)
+    with Image.open(BytesIO(output)) as extracted:
+        assert extracted.mode in ("L", "RGB")
+        assert extracted.convert("RGB").tobytes() == expected_rgb
+
+
+def test_execute_extract_image_does_not_open_and_save_with_pillow(
+    tmp_path: Path, monkeypatch
+) -> None:
+    jpeg = make_half_filled_image_bytes("JPEG", (60, 85))
+    png_content, _rgb_samples = _rgb_png_case()
+    jpeg_source = _source(tmp_path, _image_page_pdf_bytes(image=jpeg), "jpeg.pdf")
+    png_source = _source(tmp_path, png_content, "png.pdf")
+
+    def _refuse_save(*_args: object, **_kwargs: object) -> None:
+        raise AssertionError("Pillow ile kaydetme yapılmaz (§20.5)")
+
+    monkeypatch.setattr(Image.Image, "save", _refuse_save)
+
+    assert execute_extract_image(jpeg_source, tmp_path / "a.jpeg", page=0).path.name == "a.jpeg"
+    assert execute_extract_image(png_source, tmp_path / "b.jpeg", page=0).path.name == "b.png"
+    assert (tmp_path / "a.jpeg").read_bytes() == jpeg
+
+
+@pytest.mark.parametrize(
+    "content",
+    [
+        pytest.param(make_text_pdf_bytes(["SENTETIK METIN"]), id="yalniz-metin"),
+        pytest.param(make_pdf_bytes(1), id="bos-sayfa"),
+        pytest.param(
+            _image_page_pdf_bytes(lambda d, p, x: p.insert_text((72, 72), "damga")),
+            id="goruntu-ve-gorunur-metin",
+        ),
+        pytest.param(_image_page_pdf_bytes(rect=(2, 2, A4[0] - 2, A4[1] - 2)), id="kenar-boslugu"),
+        pytest.param(
+            _image_page_pdf_bytes(lambda d, p, x: d.xref_set_key(x, "Decode", "[1 0 1 0 1 0]")),
+            id="decode-dizisi",
+        ),
+    ],
+)
+def test_execute_extract_image_refuses_page_that_is_not_a_single_full_page_image(
+    tmp_path: Path, content: bytes
+) -> None:
+    # K12: çıkan görüntünün sayfada görünenle aynı olduğu kesin değilse çıkarılmaz ve sayfa render
+    # edilmez — belge kuyruğa gider.
+    source = _source(tmp_path, content)
+    destination = tmp_path / "Hazir" / "hedef.jpeg"
+
+    with pytest.raises(ExtractImageSourceError, match="tek tam sayfa gömülü görüntü değil"):
+        execute_extract_image(source, destination, page=0)
+
+    assert not destination.parent.exists()
+
+
+def test_execute_extract_image_refuses_the_page_with_image_and_text_of_a_multi_page_pdf(
+    tmp_path: Path,
+) -> None:
+    content, _jpeg = _multi_page_pdf_bytes()
+    source = _source(tmp_path, content)
+    destination = tmp_path / "hedef.jpeg"
+
+    with pytest.raises(ExtractImageSourceError, match="sayfası 1 tek tam sayfa"):
+        execute_extract_image(source, destination, page=1)
+
+    assert _files(tmp_path) == ["kaynak.pdf"]
+
+
+@pytest.mark.parametrize(
+    ("content", "message"),
+    [
+        pytest.param(make_half_filled_image_bytes("JPEG"), "PDF değil", id="jpeg"),
+        pytest.param(make_half_filled_image_bytes("PNG"), "PDF değil", id="png"),
+        pytest.param(make_docx_bytes(), "PDF değil", id="docx"),
+        pytest.param(b"duz metin, taninmayan tur", "PDF değil", id="taninmayan"),
+        pytest.param(b"%PDF-1.7\ngarbage garbage\n", "açılamadı", id="mupdf-acamiyor"),
+        pytest.param(make_sized_pdf_bytes([A4], password="gizli"), "parola", id="parola"),
+    ],
+)
+def test_execute_extract_image_rejects_unreadable_source(
+    tmp_path: Path, content: bytes, message: str
+) -> None:
+    source = _source(tmp_path, content)
+    destination = tmp_path / "hedef.jpeg"
+
+    with pytest.raises(ExtractImageSourceError, match=message):
+        execute_extract_image(source, destination, page=0)
+
+    assert _files(tmp_path) == ["kaynak.pdf"]
+
+
+def test_execute_extract_image_rejects_page_missing_from_source(tmp_path: Path) -> None:
+    source = _source(tmp_path, _image_page_pdf_bytes())
+
+    with pytest.raises(ExtractImageSourceError, match="sayfa 1, kaynak 1 sayfa"):
+        execute_extract_image(source, tmp_path / "hedef.jpeg", page=1)
+
+    assert _files(tmp_path) == ["kaynak.pdf"]
+
+
+def test_execute_extract_image_rejects_negative_page(tmp_path: Path) -> None:
+    source = _source(tmp_path, _image_page_pdf_bytes())
+
+    with pytest.raises(ValueError, match="0 veya büyük"):
+        execute_extract_image(source, tmp_path / "hedef.jpeg", page=-1)
+
+
+def test_execute_extract_image_opens_owner_password_only_pdf(tmp_path: Path) -> None:
+    jpeg = make_half_filled_image_bytes("JPEG", (60, 85))
+    with pymupdf.open(stream=_image_page_pdf_bytes(image=jpeg), filetype="pdf") as document:
+        encrypted = document.tobytes(
+            encryption=pymupdf.PDF_ENCRYPT_AES_256, owner_pw="sahip", user_pw=""
+        )
+    source = _source(tmp_path, encrypted)
+    destination = tmp_path / "hedef.jpeg"
+
+    execute_extract_image(source, destination, page=0)
+
+    assert destination.read_bytes() == jpeg
+
+
+def _jpeg2000_page_pdf_bytes() -> bytes:
+    image = Image.new("RGB", (60, 85), "white")
+    ImageDraw.Draw(image).rectangle([0, 0, 29, 84], fill="black")
+    return _image_page_pdf_bytes(image=_image_bytes(image, "JPEG2000"))
+
+
+@pytest.mark.parametrize(
+    ("build", "message"),
+    [
+        # D19: JPEG 2000 sistemin tanıdığı bir çıktı biçimi değil.
+        pytest.param(_jpeg2000_page_pdf_bytes, "JPEG ya da PNG değil: jpx", id="jpeg2000"),
+        # D19: MuPDF 16 bitlik örneği 8 bite indirerek PNG'ye yazar.
+        pytest.param(
+            lambda: _raw_image_pdf_bytes(
+                b"/ColorSpace /DeviceGray /BitsPerComponent 16", bytes(range(16))
+            ),
+            "16 bit; PNG'ye kayıpsız yazılamaz",
+            id="16-bit",
+        ),
+        pytest.param(
+            lambda: _raw_image_pdf_bytes(
+                b"/ColorSpace /DeviceRGB /BitsPerComponent 3", bytes(range(24))
+            ),
+            "MuPDF ile okunamadı: FzErrorArgument",
+            id="okunamayan-goruntu",
+        ),
+    ],
+)
+def test_execute_extract_image_rejects_image_that_cannot_be_extracted_losslessly(
+    tmp_path: Path, build: Callable[[], bytes], message: str
+) -> None:
+    source = _source(tmp_path, build())
+
+    with pytest.raises(ExtractImageSourceError, match=message):
+        execute_extract_image(source, tmp_path / "hedef.jpeg", page=0)
+
+    assert _files(tmp_path) == ["kaynak.pdf"]
+
+
+def _flate_wrapped_jpeg_stream(document: pymupdf.Document, xref: int) -> None:
+    document.update_stream(xref, zlib.compress(document.xref_stream_raw(xref)), compress=False)
+    document.xref_set_key(xref, "Filter", "[/FlateDecode /DCTDecode]")
+
+
+@pytest.mark.parametrize(
+    ("build", "message"),
+    [
+        # PyMuPDF CMYK JPEG'i orijinal baytlarıyla vermez, kalite 95 ile yeniden kodlar (D19).
+        pytest.param(
+            lambda: _image_page_pdf_bytes(
+                lambda d, p, x: d.xref_set_key(x, "Decode", "null"),
+                image=_image_bytes(Image.new("CMYK", (60, 85), (0, 0, 0, 255)), "JPEG"),
+            ),
+            "JPEG baytları gömülü akışın orijinal baytları değil",
+            id="cmyk-jpeg-yeniden-kodlanir",
+        ),
+        # Zincirli süzgeçte dosyadaki ham baytlar JPEG değil; orijinallik kanıtlanamaz (D19).
+        pytest.param(
+            lambda: _image_page_pdf_bytes(lambda d, p, x: _flate_wrapped_jpeg_stream(d, x)),
+            "JPEG baytları gömülü akışın orijinal baytları değil",
+            id="zincirli-suzgec",
+        ),
+        # MuPDF CMYK pikselleri PNG için RGB'ye çevirir — renk dönüşümü (D19).
+        pytest.param(
+            lambda: _raw_image_pdf_bytes(
+                b"/ColorSpace /DeviceCMYK /BitsPerComponent 8", bytes(range(32))
+            ),
+            "PNG pikselleri gömülü görüntünün piksellerine uymuyor",
+            id="cmyk-pikseller-rgb-ye-cevrilir",
+        ),
+    ],
+)
+def test_execute_extract_image_refuses_output_that_is_not_the_embedded_image(
+    tmp_path: Path, build: Callable[[], bytes], message: str
+) -> None:
+    source = _source(tmp_path, build())
+
+    with pytest.raises(ExtractImageIntegrityError, match=message):
+        execute_extract_image(source, tmp_path / "hedef.jpeg", page=0)
+
+    assert _files(tmp_path) == ["kaynak.pdf"]
+
+
+def _other_png(size: tuple[int, int]) -> bytes:
+    return _image_bytes(Image.new("RGB", size, "red"), "PNG")
+
+
+def _transposed_png() -> bytes:
+    """`_rgb_png_case` görüntüsünün örnekleri birebir aynı, boyutu 60×85 yerine 85×60."""
+    _content, samples = _rgb_png_case()
+    return _image_bytes(Image.frombytes("RGB", (85, 60), samples), "PNG")
+
+
+@pytest.mark.parametrize(
+    ("build", "changes", "message"),
+    [
+        pytest.param(
+            lambda: _image_page_pdf_bytes(image=make_half_filled_image_bytes("JPEG", (60, 85))),
+            {"image": make_half_filled_image_bytes("PNG", (60, 85))},
+            "biçimi jpeg değil",
+            id="ext-ile-uyusmayan-bayt",
+        ),
+        pytest.param(
+            lambda: _rgb_png_case()[0],
+            {"image": _other_png((60, 85))},
+            "PNG pikselleri",
+            id="farkli-pikseller",
+        ),
+        pytest.param(
+            lambda: _rgb_png_case()[0],
+            {"image": _transposed_png()},
+            "PNG pikselleri",
+            id="ayni-ornekler-farkli-boyut",
+        ),
+    ],
+)
+def test_execute_extract_image_verifies_extracted_bytes_before_publishing(
+    tmp_path: Path, monkeypatch, build: Callable[[], bytes], changes: dict, message: str
+) -> None:
+    source = _source(tmp_path, build())
+    original = pymupdf.Document.extract_image
+
+    def _tampered(self: pymupdf.Document, xref: int) -> dict:
+        return {**original(self, xref), **changes}
+
+    monkeypatch.setattr(pymupdf.Document, "extract_image", _tampered)
+
+    with pytest.raises(ExtractImageIntegrityError, match=message):
+        execute_extract_image(source, tmp_path / "hedef.jpeg", page=0)
+
+    assert _files(tmp_path) == ["kaynak.pdf"]
+
+
+def test_execute_extract_image_does_not_overwrite_existing_destination(tmp_path: Path) -> None:
+    source = _source(tmp_path, _image_page_pdf_bytes())
+    destination = tmp_path / "hedef.jpeg"
+    destination.write_bytes(b"onceden var olan icerik")
+
+    with pytest.raises(FileExistsError):
+        execute_extract_image(source, destination, page=0)
+
+    assert destination.read_bytes() == b"onceden var olan icerik"
+    assert _files(tmp_path) == ["hedef.jpeg", "kaynak.pdf"]
+
+
+def test_planned_extract_image_item_yields_the_embedded_jpeg_of_its_page(
+    session: Session, layout: DataLayout, tmp_path: Path
+) -> None:
+    # §20.3 satır 5 → uygulayıcı: JPEG çıktılı türde tek tam sayfa gömülü görüntülü sayfanın işlemi
+    # `extract_image`'dir (işaret gerçek PDF içeriğinden 02.5.1 ile); uygulayıcı o sayfanın gömülü
+    # JPEG'ini planın adıyla, orijinal baytlarıyla yazar. Yeri, köken kaydı ve `Alinan` 07.7'nin.
+    catalog = _catalog_with(
+        PERMIT, output_format="jpeg", allowed_conversions=["extract_image", "render_image"]
+    )
+    permit = _page(PERMIT, person=_person(document_number="WP-0000042"))
+    upload = _upload_with_analyses(
+        session, layout, _File(pages=(permit, permit), content=_image_then_text_pdf_bytes())
+    )
+    (upload_file,) = upload.files
+    mark_upload_file_single_image_pages(session, layout, upload_file)
+
+    item = _plan(session, layout, upload, catalog=catalog).items[0]
+
+    assert (item.route, item.operation, item.target_format) == (
+        Route.READY,
+        Operation.EXTRACT_IMAGE,
+        "jpeg",
+    )
+    assert item.target_name == "Test_Ornekova-Work-Permit.jpeg"
+    ((file_id, pages),) = [(source.file_id, source.pages) for source in item.sources]
+    assert (file_id, pages) == (upload_file.id, (0,))
+    destination = tmp_path / "Hazir" / item.target_name
+
+    stored = execute_extract_image(
+        layout.resolve(upload_file.stored_path), destination, page=pages[0]
+    )
+
+    assert stored.path == destination
+    assert destination.read_bytes() == make_half_filled_image_bytes(size=(60, 85))

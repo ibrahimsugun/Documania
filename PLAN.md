@@ -8,7 +8,7 @@
 
 | Faz | PRD | Genel durum | Must sayacı | Kapanış |
 | --- | --- | --- | --- | --- |
-| Faz 0 — MVP | §5.1 | 81 ✅ · 0 ◐ · 21 ⬜ · 0 🔒 | 78/98 Must | AÇIK |
+| Faz 0 — MVP | §5.1 | 82 ✅ · 0 ◐ · 20 ⬜ · 0 🔒 | 79/98 Must | AÇIK |
 | Faz 1 — v1 | §5.2 | 0 ✅ · 0 ◐ · 0 ⬜ · 32 🔒 | 0/21 Must | AÇIK |
 | Faz 2 — v2 | §5.3 | 0 ✅ · 0 ◐ · 0 ⬜ · 13 🔒 | 0/0 Must | AÇIK |
 | Faz 3 — Enterprise | §5.4 | 0 ✅ · 0 ◐ · 0 ⬜ · 8 🔒 | 0/0 Must | AÇIK |
@@ -186,7 +186,7 @@ panelde `plan-count-drift` bulgusu doğurur.
 | 07.2.1 | extract | Must (MVP) | ✅ → K07.2 |
 | 07.3.1 | merge | Must (MVP) | ✅ → K07.3 |
 | 07.4.1 | wrap_image | Must (MVP) | ✅ → K07.4 |
-| 07.5.1 | extract_image | Must (MVP) | ⬜ |
+| 07.5.1 | extract_image | Must (MVP) | ✅ → K07.5 |
 | 07.6.1 | render_image | Must (MVP) | ⬜ |
 | 07.7.1 | Çıktı yazma ve köken (R13) | Must (MVP) | ⬜ |
 | 07.7.2 | Alinan kopyası | Must (MVP) | ⬜ |
@@ -1144,6 +1144,21 @@ Onay beklemeden yapılan varsayımlar buraya numaralı olarak yazılır.
   sayfanınkiyle) birebir aynı; değilse `MergeIntegrityError`, hedefe yazma yok; hedef varsa `FileExistsError`.
   Görüntü baytlarının birebirliği çalışma anında ayrıca ölçülmez, testte kanıtlanır. Alfa kanallı PNG: §D17.
   DB, olay logu, hedef yolu ve `Alinan` kopyası 07.7'nin.
+- **C38** — extract_image işlemi (tm 50, 07.5.1): §20.5 yöntemi (görüntü nesnesinin `xref`'i, `doc.extract_image`,
+  baytlar olduğu gibi, JPEG değilse uzantı `ext`'e göre; Pillow ile kaydetme/boyutlandırma/kalite yok) yazılı;
+  işlevin girdisi, `xref`'in nasıl bulunacağı, uzantının kimde değişeceği, doğrulama ve okunamayan kaynak yazılı
+  değil. `execute_extract_image(source, destination, *, page)` (`app/pipeline/execute.py`): `page`
+  `PlanSource.pages`'in tek sayfası (0 tabanlı; negatif `ValueError`), dosya çok sayfalı olabilir (S3/S4).
+  **xref:** 02.5.1'in kuralı (`single_full_page_image_xref`) uygulayıcıda sayfanın kendisinden yeniden koşulur —
+  yalnız çıkan görüntünün sayfada görünenle aynı olduğu kesinse `xref` vardır; kural tutmazsa
+  `ExtractImageSourceError` ve `render_image`'a düşülmez (K12, C33). **Uzantı:** `destination` planın hedefidir
+  (`target_name`, `.jpeg`); yayınlanan dosya aynı dizin ve gövdeyle gerçek biçimin uzantısını alır
+  (`jpeg`/`png`, `FileKind` değeri), yol `StoredFile.path`'te döner. Sıra eki ve dizin 07.7'nin — `write_sequenced`
+  gövdeyi uzantıdan bağımsız saydığı için `.jpeg` için boş bulunan gövde `.png` için de boştur. **Kaynak hatası**
+  (`ExtractImageSourceError`): PDF olmayan içerik, açılamayan/parolalı PDF, olmayan sayfa, tek tam sayfa görüntü
+  olmayan sayfa, MuPDF'in sayfayı ya da görüntüyü okuyamaması (`FzErrorBase`), JPEG/PNG dışı `ext`, 8 bitten
+  derin örnek; sahip parolalı PDF çıkarılır. **Doğrulama** yayından önce bellekte, ölçütleri §D19. Hatada hedefe
+  yazma yok; hedef varsa `FileExistsError`. DB, olay logu, hedef yolu ve `Alinan` kopyası 07.7'nin.
 
 ## D. Sapmalar
 
@@ -1321,6 +1336,21 @@ bu kayıt neden sapıldığının izlenebilir olması içindir.
   denemez, `WrapImageSourceError`/`MergeSourceError` verir; belge kuyruğa gider, tahmin edilmez
   (CLAUDE.md'nin değişmez kuralı). 8 bit alfalı PNG (yaygın durum) zaten reddedilmediği için D17'nin
   gözlemi (`/SMask`, düzleştirme yok) değişmedi.
+- **D19 — PyMuPDF `extract_image` her görüntüde orijinal gömülü baytları vermiyor; kanıtlanamayan çıktı kuyruğa
+  gidiyor (07.5.1, tm 50).** §20.5 "dönen `image` alanı orijinal gömülü baytlardır; `ext` gerçek biçimi verir;
+  JPEG değilse uzantı `ext`'e göre yazılır" der. Kurulu PyMuPDF 1.28.2 (`_make_image_dict`): DCTDecode/JPXDecode
+  akışın sıkıştırılmış tamponunu olduğu gibi döndürür, ama CMYK JPEG'i (4 bileşen) kalite 95 ile **yeniden
+  kodlar**; Flate/LZW/CCITT/JBIG2/süzgeçsiz görüntüde gömülü bir dosya yoktur, çözülmüş pikselleri PNG'ye yazar —
+  gri/RGB/Indexed/1 bit birebir (ICCBased gri üç RGB kanalına aynı değerle), ama CMYK'yi RGB'ye **çevirir**, 16
+  bitlik örneği 8 bite **indirir**. Bunlar K11/K12'nin kayıpsızlığını sessizce bozar. Güvenli yön seçildi: çıktı
+  yalnız JPEG ya da PNG; yayından önce JPEG baytları PDF'teki ham akışla birebir aynı olmalı (CMYK yeniden
+  kodlaması ve `[/FlateDecode /DCTDecode]` gibi zincirli süzgeç — ham bayt JPEG değil, orijinallik dosyadan
+  kanıtlanamaz — `ExtractImageIntegrityError`), PNG pikselleri MuPDF'in gömülü görüntüden çözdüğü piksellerle
+  birebir aynı olmalı (renk dönüşümü `ExtractImageIntegrityError`; boyut ve kip de karşılaştırılır, Pillow yalnız
+  ölçer); 8 bitten derin görüntü ve JPEG 2000 (`jpx` — `detect_file_kind` tanımaz, K2'nin biçimlerinden değil)
+  `ExtractImageSourceError`. Hepsinde belge kuyruğa gider, render'a düşülmez (K12, C33). Karar insana bırakıldı:
+  JPEG 2000 çıktısı kabul mü; zincirli süzgeçteki ve CMYK JPEG'in orijinal baytları ham akıştan süzgeç çözülerek
+  mi çıkarılmalı; Flate görüntünün kayıpsız PNG'si "orijinal bayt" sayılır mı (bugün sayılıyor).
 
 ## G. İş Kırılımı Dizini
 
@@ -1619,3 +1649,8 @@ var olan maddeler silinmez. Biçim:
 
 #### K07.4 — 07.4.1 · wrap_image işlemi
 - ✅ `execute_wrap_image(source, destination)` (`app/pipeline/execute.py`) kaynak JPEG/PNG'yi `img2pdf.convert()` ile kayıpsız tek sayfalık PDF'e sarar; JPEG akışı yeniden kodlanmadan gömülür, PNG pikselleri kayıpsız taşınır, EXIF yönelimi yalnız `/Rotate`'e yazılır (piksel döndürülmez). Yöntem `merge`'ün görüntü sarma yoluyla ortak çekirdekte (`_wrap_image_to_pdf`) paylaşılır — D17'nin kararı ikisine birden uygulanır. Kaynak JPEG/PNG değilse ya da img2pdf'in yedi hata sınıfından biriyle sarılamıyorsa (açılamayan/bozuk görüntü, aynalı/geçersiz EXIF, >8 bit alfa → `AlphaChannelError`) `WrapImageSourceError`; hedefe hiçbir şey yazılmaz, belge kuyruğa gider (tahmin edilmez). **D18:** §20.5 alfa reddinde beyaz zemine düzleştirmeyi ister; bu bir piksel dönüşümüdür ve K11'in izinli işlemler listesinde yoktur — `MASTER-PROMPT.md` §2 çelişki sırasında (bu dosya > PRD) kilitli kural kazanır, düzleştirme uygulanmadı; >8 bit alfalı PNG de öteki sarılamayan görüntüler gibi `WrapImageSourceError` ile kuyruğa gider. 8 bit alfalı PNG (yaygın durum) img2pdf tarafından zaten reddedilmediği için D17'deki gibi `/SMask` olarak kayıpsız saklanmaya devam eder. `execute.py` satır+dal kapsamı %100 — `app/pipeline/execute.py` · test `tests/pipeline/test_execute.py` (75, +13) · tm 49
+
+#### K07.5 — 07.5.1 · extract_image işlemi
+- ✅ `execute_extract_image(source, destination, *, page)` (`app/pipeline/execute.py`) sayfanın tek tam sayfa gömülü görüntüsünün `xref`'ini 02.5.1'in kuralıyla (`single_full_page_image_xref`) bulur ve `doc.extract_image(xref)` baytlarını Pillow'dan geçirmeden yazar: gömülü JPEG PDF'teki ham akışın baytlarıyla birebir (kabul kriteri), JPEG olmayan görüntü `.png` uzantısıyla ve gömülü görüntünün pikselleriyle birebir; tek tam sayfa görüntü olmayan sayfa `render_image`'a düşmez, `ExtractImageSourceError` (C38). **D19:** PyMuPDF'in CMYK JPEG'i yeniden kodlaması, zincirli süzgeç ve CMYK→RGB renk dönüşümü `ExtractImageIntegrityError`; JPEG 2000 ve 16 bit örnek `ExtractImageSourceError` — hepsi yayından önce yakalanır, belge kuyruğa gider. `execute.py` satır+dal kapsamı %100 — `app/pipeline/execute.py` · test `tests/pipeline/test_execute.py` (109, +34) · tm 50
+- ✅ Plan → uygulayıcı: JPEG çıktılı türde gerçek PDF içeriğinden işaretlenen (02.5.1) sayfanın `extract_image` öğesi planın `target_name`'iyle o sayfanın gömülü JPEG'ini orijinal baytlarıyla yazar (`test_planned_extract_image_item_yields_the_embedded_jpeg_of_its_page`) · tm 50
+- ✅ Kapı: 13 kural bozulması (ham akış karşılaştırması, uzantı, 02.5.1 kuralı, 8 bit sınırı, PNG piksel denetimi, bayt imzası, gri→RGB kanal denetimi, boyut denetimi, JPEG 2000 reddi, PDF imzası, sayfa aralığı, MuPDF hatası, negatif sayfa) geçici olarak denendi, her biri `extract_image` testleriyle kırmızı · tm 50

@@ -6,9 +6,9 @@ Tek istisna K3'tür: `merge` Direkt Belge türünde çalışmaz (07.3.1) — pla
 tür Direkt Belge yapılmış olsa bile belge başka kaynaklardan kurulmaz.
 Ortak kural (K11): hiçbir işlem içeriği üretmez, kırpmaz ya da değiştirmez.
 
-Şimdilik `passthrough` (07.1.1), `extract` (07.2.1), `merge` (07.3.1) ve `wrap_image` (07.4.1)
-uygulanır. Öteki işlemler (`extract_image`, `render_image`) ve ortak çıktı yazma — köken kaydı,
-`documents` satırı, `OUTPUT_SAVED` olayı, `Alinan` kopyası (07.7.1) — sonraki görevlerdedir.
+Şimdilik `passthrough` (07.1.1), `extract` (07.2.1), `merge` (07.3.1), `wrap_image` (07.4.1) ve
+`extract_image` (07.5.1) uygulanır. Öteki işlem (`render_image`) ve ortak çıktı yazma — köken
+kaydı, `documents` satırı, `OUTPUT_SAVED` olayı, `Alinan` kopyası (07.7.1) — sonraki görevlerdedir.
 """
 
 from __future__ import annotations
@@ -22,9 +22,11 @@ from pathlib import Path
 
 import img2pdf
 import pymupdf
+from PIL import Image
 from pypdf import PdfReader, PdfWriter
 from pypdf.errors import PyPdfError
 
+from app.pipeline.render import single_full_page_image_xref
 from app.storage import (
     FileKind,
     StoredFile,
@@ -87,6 +89,23 @@ class WrapImageSourceError(ValueError):
     alfa kanalı — D17/D18).
 
     Hedefe hiçbir şey yazılmaz; belge kuyruğa gider, tahmin edilmez.
+    """
+
+
+class ExtractImageSourceError(ValueError):
+    """extract_image (07.5.1): kaynak okunabilir bir PDF değil, istenen sayfa yok, sayfa tek tam
+    sayfa gömülü görüntü değil (02.5.1) ya da gömülü görüntü JPEG/PNG olarak kayıpsız çıkarılamıyor
+    (JPEG/PNG dışı biçim, 8 bitten derin örnek, MuPDF'in okuyamadığı görüntü — D19).
+
+    Hedefe hiçbir şey yazılmaz; sayfa `render_image`'a düşmez (K12), belge kuyruğa gider.
+    """
+
+
+class ExtractImageIntegrityError(RuntimeError):
+    """extract_image (§20.5, D19): çıkarılan baytlar gömülü görüntünün kendisi değil — JPEG gömülü
+    akışın orijinal baytlarına, PNG gömülü görüntünün piksellerine birebir uymuyor.
+
+    Çıktı yayınlanmaz; belge kuyruğa gider.
     """
 
 
@@ -256,6 +275,125 @@ def _wrap_image_to_pdf(content: bytes) -> bytes:
     `_IMAGE_WRAP_ERRORS` olduğu gibi yükselir, çağıran kendi hata türüne çevirir.
     """
     return img2pdf.convert(content)
+
+
+def execute_extract_image(source: Path, destination: Path, *, page: int) -> StoredFile:
+    """Kaynak PDF'in `page` sayfasındaki gömülü görüntüyü orijinal baytlarıyla çıkarır (07.5.1,
+    §20.5).
+
+    `page` plan kaynağının tek sayfasıdır (`PlanSource.pages`, 0 tabanlı `pages.index`); negatifse
+    `ValueError`. Dosya çok sayfalı olabilir (S3/S4).
+
+    Yöntem PyMuPDF'tir: sayfadaki görüntü nesnesinin `xref`'i 02.5.1'in kuralıyla
+    (`single_full_page_image_xref`) bulunur ve `doc.extract_image(xref)` çağrılır; dönen `image`
+    baytları diske olduğu gibi yazılır. Sayfa tek tam sayfa gömülü görüntü değilse — çıkan
+    görüntünün sayfada görünenle aynı olduğu kesin değilse — `ExtractImageSourceError`; sayfa
+    render edilmez (K12: başka satıra düşülmez). Pillow ile açıp kaydetme, yeniden boyutlandırma,
+    kalite ayarı yoktur (K11).
+
+    Çıkan biçim `ext`'ten okunur ve yalnız JPEG ya da PNG kabul edilir; başka biçim (JPEG 2000) ya
+    da 8 bitten derin örnekli görüntü (MuPDF PNG'ye 8 bite indirerek yazar)
+    `ExtractImageSourceError` (D19). Yayınlanan dosyanın uzantısı bu gerçek biçimdir (§20.5):
+    `destination`'ın dizini ve gövdesi korunur, uzantısı `jpeg`/`png` olur — planın
+    `target_format`'ı `jpeg`'dir, gömülü PNG `.png` olarak yazılır. Yayınlanan yol
+    `StoredFile.path`'tir.
+
+    Doğrulama yayından önce bellekte yapılır (D19): baytların içerik imzası `ext`'in biçimi olmalı;
+    JPEG baytları PDF'teki gömülü akışın ham baytlarıyla **birebir aynı**, PNG'nin pikselleri
+    MuPDF'in gömülü görüntüden çözdüğü piksellerle **birebir aynı** olmalıdır. Değilse — PyMuPDF
+    CMYK JPEG'i yeniden kodlar, CMYK pikselleri RGB'ye çevirir — `ExtractImageIntegrityError`.
+    Hatada hedefe hiçbir şey yazılmaz; hedef zaten varsa `write_file`'ın `FileExistsError`'ı
+    (üzerine yazma yok).
+
+    Kaynak PDF değilse, açılamıyorsa (bozuk, parola korumalı), sayfa kaynakta yoksa ya da MuPDF
+    sayfayı veya görüntüyü okuyamıyorsa da `ExtractImageSourceError`.
+    """
+    if page < 0:
+        raise ValueError("extract_image sayfası 0 veya büyük olmalı")
+    content = source.read_bytes()
+    # MuPDF JPEG/PNG baytlarını da tek sayfalık belge olarak açar; tür önce içerik imzasından.
+    if _file_kind(content) is not FileKind.PDF:
+        raise ExtractImageSourceError("extract_image kaynağı PDF değil")
+    with _open_pdf(
+        content, operation="extract_image", where="", error=ExtractImageSourceError
+    ) as document:
+        if page >= document.page_count:
+            raise ExtractImageSourceError(
+                f"extract_image sayfası kaynakta yok: sayfa {page}, "
+                f"kaynak {document.page_count} sayfa"
+            )
+        try:
+            image, kind = _extract_embedded_image(document, page)
+        except pymupdf.mupdf.FzErrorBase as exc:
+            raise ExtractImageSourceError(
+                f"extract_image sayfası {page} MuPDF ile okunamadı: {type(exc).__name__}"
+            ) from exc
+    return write_file(destination.with_suffix(f".{kind.value}"), image)
+
+
+# `extract_image`'in `ext`'i → kabul edilen çıktı biçimi (D19). PDF'teki görüntü akışından PyMuPDF
+# yalnız `jpeg` (DCTDecode), `jpx` (JPXDecode) ya da çözülmüş piksellerden `png` döndürür.
+_EXTRACTED_IMAGE_KINDS: dict[str, FileKind] = {"jpeg": FileKind.JPEG, "png": FileKind.PNG}
+
+# MuPDF pixmap bileşen sayısı → aynı örnekleri taşıyan PNG kipi.
+_PIXMAP_MODES: dict[int, str] = {1: "L", 3: "RGB"}
+
+
+def _extract_embedded_image(document: pymupdf.Document, page: int) -> tuple[bytes, FileKind]:
+    """Sayfanın tek tam sayfa gömülü görüntüsünü `extract_image` ile çıkarır ve doğrular (§20.5).
+
+    Çıkan baytlar ve biçimleri döner; hiçbir şey yazılmaz.
+    """
+    xref = single_full_page_image_xref(document[page])
+    if xref is None:
+        raise ExtractImageSourceError(
+            f"extract_image sayfası {page} tek tam sayfa gömülü görüntü değil (02.5.1); "
+            "sayfa render edilmez (K12)"
+        )
+    extracted = document.extract_image(xref)
+    kind = _EXTRACTED_IMAGE_KINDS.get(extracted["ext"])
+    if kind is None:
+        raise ExtractImageSourceError(
+            f"extract_image gömülü görüntüsü JPEG ya da PNG değil: {extracted['ext']}"
+        )
+    image = extracted["image"]
+    if _file_kind(image) is not kind:
+        raise ExtractImageIntegrityError(f"extract_image baytlarının biçimi {kind.value} değil")
+    if kind is FileKind.JPEG:
+        # JPEG gömülü akışın kendisidir: PDF'teki ham baytlar birebir, yeniden kodlama yok.
+        if image != document.xref_stream_raw(xref):
+            raise ExtractImageIntegrityError(
+                "extract_image JPEG baytları gömülü akışın orijinal baytları değil"
+            )
+        return image, kind
+    # PNG akışta dosya olarak yoktur; MuPDF çözdüğü pikselleri yazar. 8 bitten derin örnek 8 bite
+    # indirilir — kayıptır ve piksel karşılaştırması onu göremez (iki taraf da 8 bit).
+    if extracted["bpc"] > 8:
+        raise ExtractImageSourceError(
+            f"extract_image gömülü görüntüsü {extracted['bpc']} bit; PNG'ye kayıpsız yazılamaz"
+        )
+    if not _png_matches_pixels(image, pymupdf.Pixmap(document, xref)):
+        raise ExtractImageIntegrityError(
+            "extract_image PNG pikselleri gömülü görüntünün piksellerine uymuyor"
+        )
+    return image, kind
+
+
+def _png_matches_pixels(image: bytes, reference: pymupdf.Pixmap) -> bool:
+    """PNG'nin pikselleri MuPDF'in gömülü görüntüden çözdüğü piksellerle birebir aynı mı.
+
+    Pillow yalnız ölçer (boyut, kip, örnekler); görüntü kaydedilmez. MuPDF ICCBased gri görüntüyü
+    RGB PNG'ye yazar — o zaman her kanal gri değerin kendisi olmalıdır. Başka her kip farkı
+    (CMYK'nin RGB'ye çevrilmesi gibi) uyuşmazlıktır.
+    """
+    with Image.open(BytesIO(image)) as decoded:
+        if decoded.size != (reference.width, reference.height):
+            return False
+        if decoded.mode == _PIXMAP_MODES.get(reference.n):
+            return decoded.tobytes() == reference.samples
+        if reference.n == 1 and decoded.mode == "RGB":
+            return all(channel.tobytes() == reference.samples for channel in decoded.split())
+        return False
 
 
 @dataclass(frozen=True, slots=True)
