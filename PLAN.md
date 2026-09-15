@@ -8,7 +8,7 @@
 
 | Faz | PRD | Genel durum | Must sayacı | Kapanış |
 | --- | --- | --- | --- | --- |
-| Faz 0 — MVP | §5.1 | 62 ✅ · 0 ◐ · 40 ⬜ · 0 🔒 | 60/98 Must | AÇIK |
+| Faz 0 — MVP | §5.1 | 64 ✅ · 0 ◐ · 38 ⬜ · 0 🔒 | 62/98 Must | AÇIK |
 | Faz 1 — v1 | §5.2 | 0 ✅ · 0 ◐ · 0 ⬜ · 32 🔒 | 0/21 Must | AÇIK |
 | Faz 2 — v2 | §5.3 | 0 ✅ · 0 ◐ · 0 ⬜ · 13 🔒 | 0/0 Must | AÇIK |
 | Faz 3 — Enterprise | §5.4 | 0 ✅ · 0 ◐ · 0 ⬜ · 8 🔒 | 0/0 Must | AÇIK |
@@ -157,8 +157,8 @@ panelde `plan-count-drift` bulgusu doğurur.
 | 05.5.2 | Yalnız isim eşleşmesinin reddi (R8) | Must (MVP) | ✅ → K05.5 |
 | 05.5.3 | Belirsiz eşleşme | Must (MVP) | ✅ → K05.5 |
 | 05.6.1 | Otomatik çalışan oluşturma (R9) | Must (MVP) | ✅ → K05.6 |
-| 05.7.1 | Onay bekleyen profil | Must (MVP) | ⬜ |
-| 05.7.2 | Alias ve numara birikimi | Must (MVP) | ⬜ |
+| 05.7.1 | Onay bekleyen profil | Must (MVP) | ✅ → K05.7 |
+| 05.7.2 | Alias ve numara birikimi | Must (MVP) | ✅ → K05.7 |
 | 05.8.1 | İletişim bilgisi saklama | Must (MVP) | ⬜ |
 | 05.8.2 | İletişim bilgisi çakışması | Must (MVP) | ⬜ |
 | 05.8.3 | Dil ve alfabe kaydı | Should (v1) | ⬜ |
@@ -884,6 +884,35 @@ Onay beklemeden yapılan varsayımlar buraya numaralı olarak yazılır.
   `nationality` yalnız ICAO kodu biçimindeki okuma (`[A-Z]{1,3}`, büyük harfe çevrilir; `Russian
   Federation` gibi metin okuma sayılmaz), MRZ taşıyorsa MRZ'den. İkisi kimlik alanı değildir: çelişirse
   `None`, `conflicts`'e girmez (05.5 hükmü değişmez).
+- **C29** — Onay bekleyen profil ve alias birikimi (tm 38, 05.7.1, 05.7.2): §20.2.2 satır 7–8 ve "satır 1
+  ve 3'te eşleşme başarılıysa yeni isim yazımı ve numara eklenir" kararı yazar ama önerilen profilin
+  içeriğini, neyin yazıldığını, birikimin neyi "yeni" saydığını ve olayları yazmaz; `app/matching/match.py`
+  şöyle uygular. **Karar** (`resolve_unmatched(key, match, *, entry)`, yan etkisiz, yalnız `NO_MATCH`
+  hükmüne — öteki hükümde `ValueError`): `UnmatchedResolution` `EmployeeMatch` ile aynı `action`/`queue`/
+  `reason`'ı verir. `create` satır 6'dır (`can_create_employee` ile aynı karar); `pending_profile` satır 7 —
+  temiz numara yok, ad-soyad klasör adı verecek biçimde okunmuş (D10); `no_person` satır 8 — ne ad/soyad
+  parçası, ne orijinal yazım, ne numara (yalnız doğum tarihi kişi değildir); `incomplete_person` tablo
+  dışı (D9, D10). Gerekçe kişisel değer taşımaz. **Önerilen profil** (`ProposedProfile`): `create_employee`'nin
+  çalışan kaydına yazdığı okumalar (`given_names`, `surname`, `other_names`, `original_script_name`,
+  `date_of_birth`, `nationality`) ve onayda `employee_aliases`'a yazılacak `(raw_name, normalized_name)`
+  çiftleri (`Ad Soyad` + orijinal yazım; orijinal yazımın anahtarı sayfanın diliyle normalize edildiğinden
+  onayda yeniden hesaplanmamalı). Temiz olmayan numara profile girmez. `payload()` JSON uyumlu
+  `{"proposed_profile": {...}}` verir (tarih ISO): 08.1 kuyruk kaydının `payload_json`'una koymalı, 08.3
+  onayda buradan okumalı. **Yazma** (`propose_pending_profile(session, key, *, entry, file_id,
+  page_index)`): tabloyu veritabanında olaysız yeniden değerlendirir — satır 7 uymuyorsa
+  `PendingProfileRefusedError` (mesaj yalnız hüküm/karar adı), uyuyorsa yalnız `EMPLOYEE_PENDING`
+  (`employee_id` boş; veri `action: pending`, `queue: unresolved`, `document_type_slug`; mesaj gerekçe).
+  Çalışan, alias, numara ve klasör yazılmaz, commit yok; aynı kişinin her numarasız belgesi ayrı öneridir.
+  Satır 8 ve eksik kişi için ayrı olay yok: hüküm `PERSON_NOT_MATCHED`'te, kuyruk olayı 08.1'in.
+  **Birikim** (`accumulate_identity(session, key, *, entry)`): tabloyu olaysız yeniden değerlendirir, satır
+  1/3 değilse `IdentityAccumulationRefusedError`; eşleşen çalışana belgedeki yazımlardan (`Ad Soyad`,
+  orijinal yazım; anahtarın normalize değeriyle, `script` boş) çalışanda aynı **ham** yazımı olmayanları,
+  numarayı ise yalnız §20.2.3'e göre temizse (D11) ve çalışanda aynı **değer** hiçbir türle kayıtlı
+  değilse (`kind` tür slug'ı, `source_document_id` boş) ekler. `IdentityAccumulation(employee_id, aliases,
+  identifiers)` eklenenleri verir; tekrar çağrı boş döner. Satır 1'de numara zaten kayıtlı olduğundan
+  numara pratikte satır 3'te birikir. Commit ve olay yok (D11). **Bağlama (06.1):** aday başına
+  `match_employee` → `match` ise `accumulate_identity`; `NO_MATCH` ise `resolve_unmatched` → `create`'te
+  `create_employee`, `pending`'de `propose_pending_profile`.
 
 ## D. Sapmalar
 
@@ -965,6 +994,30 @@ bu kayıt neden sapıldığının izlenebilir olması içindir.
   şartı sağlanmadığı için onay bekleyen profil değil; satır 8 de "ne isim ne numara" der) 05.7'nin
   kararıdır — güvenli yön Unresolved, `action: none`. Karar insana bırakıldı: satır 6'ya ad-soyad şartı
   yazılmalı mı, çevrilemeyen yazı için klasör adı kuralı tanımlanmalı mı.
+- **D10 — Satır 7–8'in arasında kalan eksik kişi Unresolved'a alındı, satır 7'ye klasör adı şartı
+  okundu (05.7.1, tm 38).** Satır 7 "hiç eşleşme yok, temiz numara yok, ama ad-soyad okunabildi", satır 8
+  "ne isim ne numara" der; arada kalan anahtarlar tabloda yok: (a) temiz numara var ama ad-soyad okunmamış
+  ya da klasör adına çevrilemiyor (D9'da satır 6'dan çıkan durum; satır 7 temiz numaranın olmamasını
+  ister); (b) ad-soyad okunmamış ama temiz olmayan bir numara, orijinal yazım ya da tek bir ad/soyad parçası
+  okunmuş (satır 8'in "ne isim ne numara"sı tutmaz). Görev kuralı gereği en güvenli yön seçildi:
+  `incomplete_person`, `action: none`, Unresolved, gerekçede okunamayan ve temiz numaranın varlığı (değer
+  yok); profil **önerilmez**. Satır 7'nin "ad-soyad okunabildi" şartı D9'daki gibi okundu: ad-soyadı klasör
+  adına çevrilemeyen (ör. Çince) anahtar da onay bekleyen profil olmaz — onay (08.3.1) çalışanı
+  `Ad_Soyad_E0001` klasörüyle açacağından onaylanamayacak öneri üretilmedi. İki yön de belgeyi Unresolved'a
+  götürür, fark yalnız öneridir. Karar insana bırakıldı: eksik kişi için tabloya satır eklenmeli mi;
+  çevrilemeyen yazıya klasör adı kuralı (D9) tanımlanırsa satır 7 genişletilmeli mi.
+- **D11 — Birikimde yalnız temiz numara ekleniyor ve ayrı olay atılmıyor (05.7.2, tm 38).** PRD "Satır 1
+  ve 3'te eşleşme başarılıysa … yeni belge numarası `employee_identifiers`'a eklenir" der, okumanın
+  kalitesini yazmaz. Okunaksız, 5 karakterden kısa ya da MRZ haneleri tutmayan yanlış bir okuma çalışana
+  eklenirse, gerçek numarası o okumaya denk gelen başka bir kişinin belgesi sonradan satır 1'le bu çalışana
+  **otomatik** eşleşir ve yanlış çalışanın Hazir'ına düşer; eklenmezse en kötü sonuç o numarayla gelen
+  belgenin isim + doğum tarihine, Unresolved'a ya da mükerrer profile düşmesidir (İK taşımasıyla düzelir,
+  D7). Güvenli yön seçildi: numara yalnız §20.2.3'ün üç koşulunu sağlıyorsa eklenir; isim yazımları
+  koşulsuz eklenir (isim tek başına eşleşme vermez, R8). **Olay:** K15 her adımın loglanmasını ister ama
+  §8.3'ün kapalı listesinde alias/numara eklemeye tür yok (D6 ile aynı soru); eşleştirme hükmü dosya, sayfa
+  ve çalışanla `PERSON_MATCHED`'te zaten var, yeni tür eklenmedi ve başka bir türün anlamı zorlanmadı —
+  hangi yazımın hangi belgeden geldiği logda yok. Karar insana bırakıldı: okunaklı ama temiz olmayan numara
+  da eklenmeli mi; §8.3'e çalışan kaydı güncellemesi için bir olay türü eklenmeli mi.
 
 ## G. İş Kırılımı Dizini
 
@@ -1216,3 +1269,8 @@ var olan maddeler silinmez. Biçim:
 #### K05.6 — 05.6.1 · Otomatik çalışan oluşturma
 - ✅ 05.6.1 `clean_document_number(key, entry)` (`app/matching/match.py`) §20.2.3'ün üç koşulunu uygular: türün `required_fields`'ında `document_number` (tohumda `profile_picture` ya da numarasız kopya → temiz değil), numara okunaklı ve normalize hâli en az 5 karakter (`AB123` temiz, `AB12` değil), MRZ alan ve bileşik haneleri tutuyor; anahtarda tek numara (iki numara çelişki, D8). `can_create_employee(key, match, *, entry)` §20.2.2 satır 6'yı yan etkisiz verir: yalnız `NO_MATCH` hükmü (satır 1–5 ve çelişkili anahtarın her biri yanlış), temiz numara, okunmuş ve klasör adı veren ad-soyad (D9). `create_employee(session, layout, key, *, entry, file_id, page_index)` tabloyu veritabanında yeniden değerlendirir; uyarsa E numarası (`E0041` varken `E0042`), `Test_Ornekova_E0001` klasörü (`Alinan/`, `Hazir/`), `employees` satırı (ad, soyad, diğer isimler, orijinal yazım, doğum tarihi, uyruk), `employee_aliases` (`Ad Soyad` + orijinal yazım, aynı yazım bir kez), `employee_identifiers` (tür slug'ı, normalize numara) ve `EMPLOYEE_CREATED` (kişisel değer yok) yazar, commit etmez; açılan çalışanı sonraki belge numarasından, ad-soyad + doğum tarihinden ve orijinal yazımından bulur (05.5), aynı anahtarla ikinci çağrı `eşleştirme hükmü document_number` ile reddedilir. Ret (`EmployeeCreationRefusedError`: kayıtlı numara, yalnız isim, çelişkili anahtar, okunaksız/eksik numara, MRZ hanesi, numarasız tür, okunmamış ad-soyad, klasör adına çevrilemeyen isim) hiçbir kayıt, alias, numara, olay ya da klasör yazmaz ve mesajında kişisel değer yoktur. 05.4 anahtarına yeni çalışan kaydının eşleştirmeye girmeyen okumaları eklendi (`surname`, `given_names` ilk okuma yazıldığı gibi, `other_names`, ICAO kodu biçimindeki `nationality`, MRZ önceliğiyle; çelişki `None`, `conflicts`'e girmez; `employee_fields()` sırası `EMPLOYEE_FIELDS`), üç tam anahtar testi yeni alanlarla güncellendi (kurallar: C28). 21 kural bozulması (5 karakter sınırı, `required_fields` koşulu, okunaklılık, MRZ koşulu, tek numara, `NO_MATCH` koşulu, çağıranın hükmüne güvenme, ad-soyad okunması, klasör adı denetimi, orijinal yazım alias'ı, alias yazım sırası, numara `kind`'ı, klasör açma, olay verisi, E numarası tahsisi, uyruk anahtarı ve biçimi, ilk okuma, orijinal yazım yerine Latin karşılığı, diğer isimlerin isim anahtarı) geçici olarak denendi, 20'si testte kırmızı; hayatta kalan (aynı ham yazıma iki normalize değer) oluşturulabilen bir anahtarda farklılaşmıyor — `app/matching/match.py` · test `tests/matching/test_employee_creation.py` (15 fonksiyon / 41 durum), `tests/matching/test_person_key.py` (41 / 61, +6 / +11) · tm 37
 - ✅ S11 (çalışan ve klasör düzeyi): sentetik PDF gerçek render adımlarından ve `russian_passport` kaydıyla analizden geçer, kayıtlı çalışan yokken `group_upload` → `build_person_key` → `match_employee` (`no_match`, `PERSON_NOT_MATCHED`) → `create_employee` E0001'i `Test_Ornekova_E0001` klasörüyle açar; olay zinciri parti, dosya ve sayfaya bağlı, kişisel değer taşımaz; commit sonrası aynı anahtar numarasından E0001'le eşleşir. S13 kaydı `Iulia_Testova_Shchelkina_E0001` açar ve orijinal yazımı (`Тестова-Щёлкина Юлья`) çalışan kaydında saklar. S9 bulanık pasaportunun numarası okunamadığı için (isim okunmuş olsa da) çalışan ve klasör açılmaz (R9). `profil.md` (09.1.1), belgenin Hazir çıktısı (07.x) ve boru hattına bağlama (06.1) sonraki görevlerin — `tests/fixtures/ai/recordings/russian_passport/0.json`, `s13_cyrillic_name/0.json`, `s9_blurred_passport/0.json` · test `tests/matching/test_employee_creation.py` · tm 37
+
+#### K05.7 — 05.7.1, 05.7.2 · Onay bekleyen profil ve alias birikimi
+- ✅ 05.7.1 `resolve_unmatched(key, match, *, entry)` (`app/matching/match.py`) `NO_MATCH` hükmünü §20.2.2 satır 6–8'e çevirir ve `EmployeeMatch` ile aynı `action`/`queue`/`reason`'ı verir: temiz numara yokken (okunaksız, 4 karakter, MRZ hanesi, numarasız tür, numara yok) okunmuş ad-soyad → `pending_profile` (`pending`, Unresolved, `PENDING_PROFILE_REASON`, `ProposedProfile`); temiz numara ve klasör adı → `create` (`can_create_employee` ile aynı karar); ne isim ne numara (yalnız doğum tarihi dahil) → `no_person`; klasör adı kurulamayan ya da eksik okunan kişi → `incomplete_person` (`none`, Unresolved, profil yok; D9, D10); öteki hükümde `ValueError`. `ProposedProfile` çalışan kaydı okumalarını ve onayda yazılacak `(raw_name, normalized_name)` çiftlerini taşır (orijinal yazımın anahtarı sayfa diliyle — Ukraynaca örnek), numara taşımaz; `payload()` JSON uyumlu `proposed_profile`. `propose_pending_profile(session, key, *, entry, file_id, page_index)` tabloyu veritabanında yeniden değerlendirir, yalnız `EMPLOYEE_PENDING` yazar (kişisel değer yok): çalışan, alias, numara, klasör oluşmaz, commit yok, aynı anahtardan `create_employee` hâlâ reddedilir; kayıtlı numara, isim + doğum tarihi, yalnız isim, çelişkili anahtar, temiz numara, kişisiz ve eksik anahtarda `PendingProfileRefusedError` hiçbir şey yazmaz (kurallar: C29) — test `tests/matching/test_pending_profile_and_aliases.py` (25 fonksiyon / 61 durum) · tm 38
+- ✅ 05.7.2 `accumulate_identity(session, key, *, entry)` satır 1 ve 3'teki eşleşmeyi veritabanında yeniden değerlendirir ve eşleşen çalışana yalnız yeni ham isim yazımlarını (`Ad Soyad`, orijinal yazım; aynı normalize anahtarlı farklı yazım da yeni) ve §20.2.3'e göre temiz, çalışanda hiçbir türle kayıtlı olmayan numarayı (tür slug'ı, normalize) ekler, `IdentityAccumulation` döner; numarayla eşleşmede numara yeniden yazılmaz, tekrar çağrı boş döner, başka çalışana dokunulmaz, temiz olmayan numara eklenmez (D11), olay ve commit yok; eşleşme yoksa (hiç eşleşme, yalnız isim, iki belirsizlik, çelişkili anahtar) `IdentityAccumulationRefusedError` hiçbir şey yazmaz. 20 kural bozulması (temiz numara şartı, bilinen numara/yazım denetimi, orijinal yazım, eşleşme şartı, satır 6/7 ayrımı, klasör adı şartı, satır 8 koşulları, kuyruk ve eylem, veritabanında yeniden değerlendirme, olay türü ve verisi, tarih biçimi, profil alanı, hüküm denetimi, numara türü, çoklu yazım, eksik kişi gerekçesi) geçici olarak denendi, her biri testte kırmızı — `app/matching/match.py` · test `tests/matching/test_pending_profile_and_aliases.py` · tm 38
+- ✅ S9 (profil düzeyi) ve birikim zinciri: bulanık pasaport kaydı gerçek render ve kayıtlı yanıtla `group_upload` → `build_person_key` → `match_employee` (`no_match`) → `resolve_unmatched` (`pending_profile`) → `propose_pending_profile`'dan geçer; önerilen profil kayıttaki okumaları taşır, çalışan ve klasör açılmaz, `PERSON_NOT_MATCHED` ve `EMPLOYEE_PENDING` parti/dosya/sayfaya bağlı ve kişisel değersiz. `russian_passport` kaydı yalnız isim + doğum tarihiyle bilinen çalışana satır 3'le eşleşip `00 0000001` okumasını normalize `000000001` olarak biriktirir, sonraki numaralı anahtar satır 1'le eşleşir. Aynı kişinin temiz numaralı belgesi çalışanı açınca numarasız belge satır 3'le eşleşir, profil önerisi reddedilir, birikim boş döner. Kuyruk kaydı (08.1), onay (08.3) ve boru hattına bağlama (06.1) sonraki görevlerin — `tests/fixtures/ai/recordings/s9_blurred_passport/0.json`, `russian_passport/0.json` · test `tests/matching/test_pending_profile_and_aliases.py` · tm 38

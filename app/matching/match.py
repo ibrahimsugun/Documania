@@ -1,5 +1,5 @@
-"""Kişi anahtarı, çalışan eşleştirme sırası ve otomatik çalışan oluşturma — PRD 05.4.1,
-05.5.1–05.5.3, 05.6.1 (§20.2; K6, K7, K8, R7, R8, R9).
+"""Kişi anahtarı, çalışan eşleştirme sırası, otomatik çalışan oluşturma, onay bekleyen profil ve
+alias birikimi — PRD 05.4.1, 05.5.1–05.5.3, 05.6.1, 05.7.1, 05.7.2 (§20.2; K6, K7, K8, R7, R8, R9).
 
 Bir belge adayının (04.1–04.3) sayfalarından çalışan eşleştirmesinin (05.5) ve profil açmanın
 (05.6, 05.7) okuyacağı tek anahtar üretilir: **belge numaraları**, **normalize ad-soyad**, **doğum
@@ -58,12 +58,13 @@ sırasıyla karşılaştırır; ilk uyan satır kazanır, alttakilere bakılmaz:
    otomatik eşleştirme sayılmaz, alttaki satırlara da inilmez — yeni çalışan açılmaz.
 
 Hiçbiri uymazsa hüküm `NO_MATCH`'tir: satır 6–8 (yeni çalışan, onay bekleyen profil, kişi tespit
-edilemedi) temiz numara tanımına (§20.2.3) bağlıdır ve 05.6/05.7'nin kararıdır. Tabloda karşılığı
-olmayan **çelişkili anahtar** (`conflicts` dolu: adayın sayfaları bir kimlik alanını farklı okuyor)
-hiçbir satıra girmeden Unresolved'a gider (PLAN.md D8). Karşılaştırma tam eşitliktir: numara ve
-alias'lar yazan adımın (05.6, 05.7.2) §20.2.1 ile normalize ettiği biçimde saklanır. Her hüküm olay
-loguna yazılır — eşleşme `PERSON_MATCHED`, belirsiz eşleşme `PERSON_AMBIGUOUS`, öteki hükümler
-`PERSON_NOT_MATCHED`; olay kişisel değer taşımaz, yalnız kural, E numaraları ve alan adları.
+edilemedi) temiz numara tanımına (§20.2.3) bağlıdır ve `resolve_unmatched`'in kararıdır. Tabloda
+karşılığı olmayan **çelişkili anahtar** (`conflicts` dolu: adayın sayfaları bir kimlik alanını
+farklı okuyor) hiçbir satıra girmeden Unresolved'a gider (PLAN.md D8). Karşılaştırma tam eşitliktir:
+numara ve alias'lar yazan adımın (05.6, 05.7.2) §20.2.1 ile normalize ettiği biçimde saklanır. Her
+hüküm olay loguna yazılır — eşleşme `PERSON_MATCHED`, belirsiz eşleşme `PERSON_AMBIGUOUS`, öteki
+hükümler `PERSON_NOT_MATCHED`; olay kişisel değer taşımaz, yalnız kural, E numaraları ve alan
+adları.
 
 **Otomatik çalışan oluşturma (05.6, R9).** §20.2.2 satır 6 — hiç eşleşme yok **ve** temiz belge
 numarası var — yeni çalışanı ve klasörünü açar. Numara §20.2.3'ün üç koşuluyla temizdir
@@ -74,7 +75,21 @@ normalize hâli en az 5 karakter, MRZ'den geldiyse alan ve bileşik haneleri tut
 hükmü veritabanında yeniden değerlendirir, satır 6 uymuyorsa hiçbir şey yazmadan reddeder, uyuyorsa
 E numarası verir (K8), çalışan kaydını, isim yazımlarını (`employee_aliases`), temiz numarayı
 (`employee_identifiers`) ve `Employees/<Ad_Soyad_E0001>/` klasörünü açar, `EMPLOYEE_CREATED` yazar.
-Satır 7–8 (onay bekleyen profil, kişi tespit edilemedi) 05.7'nindir.
+
+**Onay bekleyen profil (05.7.1, K7).** `resolve_unmatched` `NO_MATCH` hükmünü satır 6–8'e çevirir:
+temiz numara ve klasör adı veren ad-soyad → satır 6 (`create`); temiz numara yok ama ad-soyad klasör
+adı verecek biçimde okunmuş → satır 7 (`pending`, Unresolved, önerilen profil); ne isim ne numara
+okunmuş → satır 8 (`none`, Unresolved). Tabloda karşılığı olmayan eksik kişi — temiz numara var ama
+ad-soyad kullanılamıyor (D9), ya da ad-soyad kullanılamıyor ama bir numara veya isim okunmuş (D10) —
+`none` ile Unresolved'a gider, profil önerilmez. `propose_pending_profile` satır 7'yi veritabanında
+yeniden değerlendirir ve yalnız `EMPLOYEE_PENDING` olayını yazar: çalışan, isim yazımı, numara ve
+klasör onaysız oluşmaz; önerilen profil kuyruk kaydının payload'ına girer (08.1), çalışan onayla
+açılır (08.3).
+
+**Alias ve numara birikimi (05.7.2).** Satır 1 ve 3'teki eşleşmede `accumulate_identity` belgedeki
+yeni isim yazımlarını `employee_aliases`'a, yeni belge numarasını `employee_identifiers`'a ekler.
+Numara yalnız §20.2.3'e göre temizse eklenir: yanlış okunmuş numara başka birinin belgesini satır
+1'le bu çalışana bağlayabilir (D11).
 """
 
 from __future__ import annotations
@@ -393,7 +408,7 @@ class EmployeeMatch:
         """Eşleşmede `match`, Unresolved'a giden hükümde `none`.
 
         `NO_MATCH`'te `None`'dır: satır 6–8'in eylemi (`create`, `pending`, `none`) bu adımda
-        verilmez, 05.6/05.7 temiz numara ve okunan ad-soyadla belirler.
+        verilmez, `resolve_unmatched` temiz numara ve okunan ad-soyadla belirler.
         """
         if self.rule is MatchRule.NO_MATCH:
             return None
@@ -443,8 +458,9 @@ def match_employee(
 ) -> EmployeeMatch:
     """Kişi anahtarını kayıtlı çalışanlarla §20.2.2 sırasıyla eşleştirir, hükmü olay loguna yazar.
 
-    Olay dışında veritabanına yazmaz: eşleşmede alias ve numara birikimi (05.7.2), yeni çalışan
-    (05.6) ve kuyruk kaydı (08.1) sonraki adımlardır. `file_id`/`page_index` olayın yeridir
+    Olay dışında veritabanına yazmaz: eşleşmede alias ve numara birikimi (`accumulate_identity`),
+    yeni çalışan (`create_employee`), onay bekleyen profil (`propose_pending_profile`) ve kuyruk
+    kaydı (08.1) sonraki adımlardır. `file_id`/`page_index` olayın yeridir
     (adayın ilk sayfası); verilmezse etkin `event_context`ten alınır. Oturum commit edilmez.
     """
     result = _decide(session, key)
@@ -524,11 +540,17 @@ class EmployeeCreationRefusedError(ValueError):
 
 
 @dataclass(frozen=True, slots=True)
-class _NewEmployee:
-    document_number: str
+class _ProfileName:
+    # Klasör adı veren ad-soyad okuması (K8, D9).
     given_names: str
     surname: str
     normalized_name: str
+
+
+@dataclass(frozen=True, slots=True)
+class _NewEmployee:
+    document_number: str
+    name: _ProfileName
 
 
 def clean_document_number(key: PersonKey, entry: CatalogEntry) -> str | None:
@@ -585,14 +607,10 @@ def create_employee(
     if isinstance(new, str):
         raise EmployeeCreationRefusedError(f"Yeni çalışan açılmaz (§20.2.2 satır 6, R9): {new}.")
     employee_id = allocate_employee_number(session)
-    folder_name = employee_folder_name(new.given_names, new.surname, employee_id)
+    folder_name = employee_folder_name(new.name.given_names, new.name.surname, employee_id)
     employee = Employee(id=employee_id, folder_name=folder_name, **key.employee_fields())
     session.add(employee)
-    spellings = {f"{new.given_names} {new.surname}": new.normalized_name}
-    original, normalized_original = key.original_script_name, key.normalized_original_name
-    if original is not None and normalized_original is not None:
-        spellings.setdefault(original.original, normalized_original)
-    for raw_name, normalized in spellings.items():
+    for raw_name, normalized in _spellings(key).items():
         session.add(EmployeeAlias(employee=employee, raw_name=raw_name, normalized_name=normalized))
     session.add(EmployeeIdentifier(employee=employee, kind=entry.slug, value=new.document_number))
     session.flush()
@@ -616,6 +634,12 @@ def _new_employee(key: PersonKey, match: EmployeeMatch, entry: CatalogEntry) -> 
     number = clean_document_number(key, entry)
     if number is None:
         return "temiz belge numarası yok (§20.2.3)"
+    name = _profile_name(key)
+    return name if isinstance(name, str) else _NewEmployee(number, name)
+
+
+def _profile_name(key: PersonKey) -> _ProfileName | str:
+    # Ad-soyad okunmuş ve klasör adı veriyorsa değerleri, değilse kişisel değer taşımayan sorun.
     given_names, surname, normalized_name = key.given_names, key.surname, key.normalized_name
     if given_names is None or surname is None or normalized_name is None:
         return "ad-soyad okunmadı"
@@ -623,4 +647,292 @@ def _new_employee(key: PersonKey, match: EmployeeMatch, entry: CatalogEntry) -> 
         person_slug(given_names, surname)
     except SlugError:
         return "ad-soyad klasör adına çevrilemiyor (K8)"
-    return _NewEmployee(number, given_names, surname, normalized_name)
+    return _ProfileName(given_names, surname, normalized_name)
+
+
+def _spellings(key: PersonKey) -> dict[str, str]:
+    # Belgedeki isim yazımları (ham → normalize anahtar), aynı ham yazım bir kez: önce
+    # `Ad Soyad`, sonra orijinal yazım.
+    spellings: dict[str, str] = {}
+    given_names, surname, normalized_name = key.given_names, key.surname, key.normalized_name
+    if given_names is not None and surname is not None and normalized_name is not None:
+        spellings[f"{given_names} {surname}"] = normalized_name
+    original, normalized_original = key.original_script_name, key.normalized_original_name
+    if original is not None and normalized_original is not None:
+        spellings.setdefault(original.original, normalized_original)
+    return spellings
+
+
+# --- onay bekleyen profil (05.7.1) -----------------------------------------------------------
+
+
+class UnmatchedRule(enum.StrEnum):
+    """`NO_MATCH` hükmünün §20.2.2 satır 6–8 karşılığı ya da tablo dışı eksik kişi (D9, D10)."""
+
+    CREATE = "create"  # satır 6
+    PENDING_PROFILE = "pending_profile"  # satır 7
+    NO_PERSON = "no_person"  # satır 8
+    INCOMPLETE_PERSON = "incomplete_person"  # tabloda yok: D9, D10
+
+
+PENDING_PROFILE_REASON = (
+    "Onay bekleyen profil: kayıtlı çalışanla eşleşme yok ve temiz belge numarası yok (§20.2.3). "
+    "Yeni çalışan yalnız onayla açılır (K7)."
+)
+NO_PERSON_REASON = "Kişi tespit edilemedi: belgede ne ad-soyad ne belge numarası okundu."
+
+
+class PendingProfileRefusedError(ValueError):
+    """`propose_pending_profile` §20.2.2 satır 7'nin uymadığı anahtarla çağrıldı; hiçbir şey
+    yazılmadı. Mesaj yalnız ret gerekçesini taşır, kişisel değer taşımaz."""
+
+
+@dataclass(frozen=True, slots=True)
+class ProposedProfile:
+    """§20.2.2 satır 7'nin önerilen profili: onayla (08.3) açılacak çalışanın okumaları.
+
+    Alanlar `create_employee`'nin çalışan kaydına yazdıklarıdır (`PersonKey.employee_fields()`);
+    `aliases` onayda `employee_aliases`'a yazılacak `(raw_name, normalized_name)` çiftleridir
+    (orijinal yazımın anahtarı sayfanın diliyle normalize edildiği için yeniden hesaplanmaz).
+    Belge numarası taşınmaz: temiz değildir (§20.2.3). Kişisel değer taşır — olay loguna yazılmaz,
+    yalnız kuyruk kaydının payload'ına girer.
+    """
+
+    given_names: str
+    surname: str
+    other_names: str | None
+    original_script_name: str | None
+    date_of_birth: date | None
+    nationality: str | None
+    aliases: tuple[tuple[str, str], ...]
+
+    def payload(self) -> dict[str, object]:
+        """Kuyruk kaydı payload'ının JSON uyumlu `proposed_profile` bölümü (08.1)."""
+        born = self.date_of_birth
+        return {
+            "proposed_profile": {
+                GIVEN_NAMES: self.given_names,
+                SURNAME: self.surname,
+                OTHER_NAMES: self.other_names,
+                ORIGINAL_SCRIPT_NAME: self.original_script_name,
+                DATE_OF_BIRTH: None if born is None else born.isoformat(),
+                NATIONALITY: self.nationality,
+                "aliases": [
+                    {"raw_name": raw_name, "normalized_name": normalized}
+                    for raw_name, normalized in self.aliases
+                ],
+            }
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class UnmatchedResolution:
+    """`NO_MATCH` hükmünün satır 6–8 kararı (05.6, 05.7.1); `EmployeeMatch` ile aynı `action`,
+    `queue` ve `reason` okumalarını verir.
+
+    `proposed_profile` yalnız satır 7'de doludur. `detail` eksik kişide okunamayanı söyler
+    (kişisel değer yok).
+    """
+
+    rule: UnmatchedRule
+    proposed_profile: ProposedProfile | None = None
+    detail: str | None = None
+
+    @property
+    def action(self) -> EmployeeAction:
+        match self.rule:
+            case UnmatchedRule.CREATE:
+                return EmployeeAction.CREATE
+            case UnmatchedRule.PENDING_PROFILE:
+                return EmployeeAction.PENDING
+            case _:
+                return EmployeeAction.NONE
+
+    @property
+    def queue(self) -> QueueKind | None:
+        """Satır 6 Hazir'a gider (`None`); onay bekleyen profil ve kişisiz belge Unresolved'a."""
+        return None if self.rule is UnmatchedRule.CREATE else QueueKind.UNRESOLVED
+
+    @property
+    def reason(self) -> str | None:
+        match self.rule:
+            case UnmatchedRule.PENDING_PROFILE:
+                return PENDING_PROFILE_REASON
+            case UnmatchedRule.NO_PERSON:
+                return NO_PERSON_REASON
+            case UnmatchedRule.INCOMPLETE_PERSON:
+                return (
+                    f"Kişi eksik okundu: kayıtlı çalışanla eşleşme yok, {self.detail}. "
+                    "Yeni çalışan açılmaz, profil önerilmez."
+                )
+            case _:
+                return None
+
+
+def resolve_unmatched(
+    key: PersonKey, match: EmployeeMatch, *, entry: CatalogEntry
+) -> UnmatchedResolution:
+    """§20.2.2 satır 6–8: hiç eşleşme bulunmayan anahtarın çalışan kararını verir (yan etkisiz).
+
+    - Satır 6 (`create`): temiz numara (§20.2.3) ve klasör adı veren ad-soyad
+      (`can_create_employee`).
+    - Satır 7 (`pending`, Unresolved): temiz numara yok, ad-soyad klasör adı verecek biçimde
+      okunmuş; önerilen profil kararın içindedir.
+    - Satır 8 (`none`, Unresolved): ne ad ya da soyad parçası, ne orijinal yazım, ne belge numarası
+      okunmuş.
+    - Eksik kişi (`none`, Unresolved; tabloda yok): temiz numara var ama ad-soyad okunmamış ya da
+      klasör adı vermiyor (D9); ya da ad-soyad kullanılamıyor ama bir numara veya isim okunmuş
+      (D10).
+
+    `match` `NO_MATCH` değilse satır 1–5 ya da çelişkili anahtar hükmü verilmiştir; `ValueError`.
+    """
+    if match.rule is not MatchRule.NO_MATCH:
+        raise ValueError(
+            "§20.2.2 satır 6–8 yalnız eşleşme bulunmayan hükme uygulanır: "
+            f"eşleştirme hükmü {match.rule.value}"
+        )
+    number = clean_document_number(key, entry)
+    name = _profile_name(key)
+    if not isinstance(name, str):
+        if number is not None:
+            return UnmatchedResolution(UnmatchedRule.CREATE)
+        return UnmatchedResolution(UnmatchedRule.PENDING_PROFILE, _proposed_profile(key, name))
+    read_nothing = (
+        not key.document_numbers
+        and not key.name_keys
+        and key.surname is None
+        and key.given_names is None
+    )
+    if read_nothing:
+        return UnmatchedResolution(UnmatchedRule.NO_PERSON)
+    numbered = "var" if number is not None else "yok"
+    return UnmatchedResolution(
+        UnmatchedRule.INCOMPLETE_PERSON, detail=f"{name}, temiz belge numarası {numbered}"
+    )
+
+
+def propose_pending_profile(
+    session: Session,
+    key: PersonKey,
+    *,
+    entry: CatalogEntry,
+    file_id: int | None = None,
+    page_index: int | None = None,
+) -> ProposedProfile:
+    """§20.2.2 satır 7: temiz numarası olmayan, kayıtlı çalışanla eşleşmeyen anahtarın profilini
+    onaya önerir (05.7.1, K7).
+
+    Hüküm veritabanında olaysız yeniden değerlendirilir: satır 7 uymuyorsa (eşleşme var, satır 6,
+    satır 8 ya da eksik kişi) `PendingProfileRefusedError` — hiçbir şey yazılmaz. Uyuyorsa yalnız
+    `EMPLOYEE_PENDING` olayı yazılır (veri `action`, `queue`, `document_type_slug`; mesaj gerekçe;
+    kişisel değer yok). Çalışan, isim yazımı, numara ve klasör yazılmaz — onaysız çalışan oluşmaz.
+    Kuyruk kaydı (08.1) ve onay (08.3) sonraki adımlardır. Oturum commit edilmez.
+    """
+    match = _decide(session, key)
+    if match.rule is not MatchRule.NO_MATCH:
+        raise _pending_refused(f"eşleştirme hükmü {match.rule.value}")
+    resolution = resolve_unmatched(key, match, entry=entry)
+    profile = resolution.proposed_profile
+    if profile is None:
+        raise _pending_refused(f"satır 6–8 kararı {resolution.rule.value}")
+    record_event(
+        session,
+        EventType.EMPLOYEE_PENDING,
+        file_id=file_id,
+        page_index=page_index,
+        message=resolution.reason,
+        data={
+            "action": resolution.action.value,
+            "queue": QueueKind.UNRESOLVED.value,
+            "document_type_slug": entry.slug,
+        },
+    )
+    return profile
+
+
+def _pending_refused(verdict: str) -> PendingProfileRefusedError:
+    return PendingProfileRefusedError(
+        f"Onay bekleyen profil önerilmez (§20.2.2 satır 7, K7): {verdict}."
+    )
+
+
+def _proposed_profile(key: PersonKey, name: _ProfileName) -> ProposedProfile:
+    original = key.original_script_name
+    return ProposedProfile(
+        given_names=name.given_names,
+        surname=name.surname,
+        other_names=key.other_names,
+        original_script_name=None if original is None else original.original,
+        date_of_birth=key.date_of_birth,
+        nationality=key.nationality,
+        aliases=tuple(_spellings(key).items()),
+    )
+
+
+# --- alias ve numara birikimi (05.7.2) -------------------------------------------------------
+
+
+class IdentityAccumulationRefusedError(ValueError):
+    """`accumulate_identity` §20.2.2 satır 1 ya da 3'e uymayan anahtarla çağrıldı; hiçbir şey
+    yazılmadı. Mesaj yalnız hükmü taşır, kişisel değer taşımaz."""
+
+
+@dataclass(frozen=True, slots=True)
+class IdentityAccumulation:
+    """Eşleşen çalışana eklenenler (05.7.2): `aliases` yeni ham isim yazımları, `identifiers` yeni
+    belge numaralarının §20.2.1 normalize değerleri; yeni bir şey yoksa boştur."""
+
+    employee_id: str
+    aliases: tuple[str, ...] = ()
+    identifiers: tuple[str, ...] = ()
+
+
+def accumulate_identity(
+    session: Session, key: PersonKey, *, entry: CatalogEntry
+) -> IdentityAccumulation:
+    """§20.2.2 satır 1 ve 3'teki eşleşmede belgedeki yeni isim yazımını `employee_aliases`'a, yeni
+    belge numarasını `employee_identifiers`'a ekler (05.7.2).
+
+    Hüküm veritabanında olaysız yeniden değerlendirilir: satır 1 ya da 3 uymuyorsa
+    `IdentityAccumulationRefusedError` — hiçbir şey yazılmaz. Uyuyorsa eşleşen çalışana:
+
+    - `employee_aliases`: `Ad Soyad` yazımı ve orijinal yazım, anahtarın normalize değeriyle —
+      çalışanda aynı ham yazım (`raw_name`) yoksa; `script` boş (05.8.3),
+    - `employee_identifiers`: numara yalnız §20.2.3'e göre temizse (`clean_document_number`),
+      çalışanda aynı değer yoksa; `kind` türün slug'ı, `source_document_id` boş (D11).
+
+    `entry` adayın katalog türüdür. Tekrar çağrı bir şey eklemez. Olay yazılmaz (§8.3'te tür yok,
+    D11); oturum commit edilmez.
+    """
+    match = _decide(session, key)
+    employee_id = match.employee_id
+    if employee_id is None:
+        raise IdentityAccumulationRefusedError(
+            "İsim yazımı ve belge numarası eklenmez (§20.2.2 satır 1, 3): "
+            f"eşleştirme hükmü {match.rule.value}."
+        )
+    employee = session.get_one(Employee, employee_id)
+    # Bilinen değerler veritabanından okunur (autoflush): yüklü ilişki koleksiyonu bayat olabilir.
+    known_names = set(
+        session.scalars(select(EmployeeAlias.raw_name).where(EmployeeAlias.employee == employee))
+    )
+    known_numbers = set(
+        session.scalars(
+            select(EmployeeIdentifier.value).where(EmployeeIdentifier.employee == employee)
+        )
+    )
+    aliases = [
+        (raw_name, normalized)
+        for raw_name, normalized in _spellings(key).items()
+        if raw_name not in known_names
+    ]
+    for raw_name, normalized in aliases:
+        session.add(EmployeeAlias(employee=employee, raw_name=raw_name, normalized_name=normalized))
+    number = clean_document_number(key, entry)
+    identifiers = () if number is None or number in known_numbers else (number,)
+    for value in identifiers:
+        session.add(EmployeeIdentifier(employee=employee, kind=entry.slug, value=value))
+    session.flush()
+    return IdentityAccumulation(
+        employee_id, tuple(raw_name for raw_name, _ in aliases), identifiers
+    )
