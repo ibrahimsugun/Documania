@@ -544,13 +544,14 @@
         "description": "PRD 05.8.1, 05.8.2, 05.8.3 · FR-MOD-05 (Kimlik ve çalışan eşleştirme) · Faz 0.",
         "details": "KAPSAM: PRD 05.8.1, 05.8.2, 05.8.3 (FR-MOD-05 — Kimlik ve çalışan eşleştirme, Faz 0).\n\nNE YAPILACAK — GEREKSİNİMLER VE KABUL KRİTERLERİ:\n- 05.8.1 — İletişim bilgisi saklama\n  Kabul: Analiz edilen belgeden çıkan telefon, e-posta ve adres `employee_contacts` tablosuna kaynak belgesiyle birlikte yazılır\n- 05.8.2 — İletişim bilgisi çakışması\n  Kabul: Aynı türden farklı bir değer geldiğinde eski kayıt silinmez; en son görülen `is_current` işaretlenir, öncekiler geçmiş olarak kalır\n- 05.8.3 — Dil ve alfabe kaydı\n  Kabul: Belgeden okunan dil ve alfabe belge kaydında saklanır; çalışanın belgelerinde görülen alfabeler profilde listelenebilir\n\nGİRDİ — ÜZERİNE KURULDUĞU İŞLER (bu kod ZATEN VAR; yazmadan önce OKU):\n- 05.5 (Çalışan eşleştirme sırası) → app/matching/match.py\n- 00.3 (Veri modeli ve göç altyapısı) → app/db/models.py, app/db/session.py, alembic/\n\nÇIKTI — DOKUNULACAK YÜZEY: app/matching/contacts.py, app/db/models.py\n\nKARAR TABLOSU: bu görev için ayrı karar tablosu yok; kabul kriterleri ve kilitli kurallar yeterli.\n\nBU GÖREVİ BAĞLAYAN KİLİTLİ KURALLAR: özel kural yok. Genel sınırlar MASTER-PROMPT §8'de.\n\nPRD'DE AYRICA OKU: §8.1 (veritabanı tabloları) · §8.4 (sayfa analizi şeması)\n\nİLGİLİ KABUL SENARYOSU: doğrudan yok. Kabul kriterleri yukarıda.\n\nSIRA (MASTER-PROMPT §5, contract-first): sözleşme/şema → Alembic göçü (gerekiyorsa) → çekirdek + unit test → entegrasyon + testi → arayüz.\n\nKAPSAM SINIRI: yalnız yukarıdaki PRD kimlikleri. Başka gereksinimin işini yapma; yolda gördüğün kusuru düzeltme, yeni görev olarak aç (CONVENTIONS §5). Kilitli teknik kararları (MASTER-PROMPT §4) tartışma; yanlış görünüyorsa uygula ve PLAN.md §D'ye sapma yaz.\n\nTUZAKLAR: belge içeriğini değiştiren kod yazma — kırpma, döndürme (EXIF dışında), kontrast, metin yazma, form doldurma yok (K11/K17). Gerçek kimlik belgesi kullanma; test verisi tests/fixtures/gen.py ile üretilen sentetik belgelerdir (CONVENTIONS §6). Yapay zekâ çağrısı testte canlı yapılmaz, kayıtlı yanıt sağlayıcısı kullanılır. Test/build komutlarını arka plana atma — pencere ölür.\n\nKAPANIŞ: PLAN.md'de 05.8.1, 05.8.2, 05.8.3 satırlarının damgasını '✅ → K05.8' yap ve '## K. Kanıt Geçmişi' bölümünde '#### K05.8' bloğuna kanıt maddesi ekle (blok yoksa aç). Faz özet tablosundaki sayıları SAYARAK güncelle. Ayrıntı: CONVENTIONS §1.2-1.3.",
         "testStrategy": "CONVENTIONS §1 DoD kapısı: ruff check . · ruff format --check . · python -m compileall -q app tests · pytest -q -m \"not live\" · alembic upgrade head · python -c \"import app.main\" — hepsi exit 0.\nAyrıca bu görevin kendi kabul kriterleri:\n- 05.8.1: Analiz edilen belgeden çıkan telefon, e-posta ve adres `employee_contacts` tablosuna kaynak belgesiyle birlikte yazılır\n- 05.8.2: Aynı türden farklı bir değer geldiğinde eski kayıt silinmez; en son görülen `is_current` işaretlenir, öncekiler geçmiş olarak kalır\n- 05.8.3: Belgeden okunan dil ve alfabe belge kaydında saklanır; çalışanın belgelerinde görülen alfabeler profilde listelenebilir",
-        "status": "pending",
+        "status": "done",
         "dependencies": [
           "36",
           "3"
         ],
         "priority": "high",
-        "subtasks": []
+        "subtasks": [],
+        "updatedAt": "2026-09-15T09:57:52.075Z"
       },
       {
         "id": "40",
@@ -1284,9 +1285,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-09-15T09:38:03.471Z",
+      "lastModified": "2026-09-15T09:57:52.075Z",
       "taskCount": 92,
-      "completedCount": 37,
+      "completedCount": 38,
       "tags": [
         "master"
       ]
