@@ -8,7 +8,7 @@
 
 | Faz | PRD | Genel durum | Must sayacı | Kapanış |
 | --- | --- | --- | --- | --- |
-| Faz 0 — MVP | §5.1 | 58 ✅ · 0 ◐ · 44 ⬜ · 0 🔒 | 56/98 Must | AÇIK |
+| Faz 0 — MVP | §5.1 | 61 ✅ · 0 ◐ · 41 ⬜ · 0 🔒 | 59/98 Must | AÇIK |
 | Faz 1 — v1 | §5.2 | 0 ✅ · 0 ◐ · 0 ⬜ · 32 🔒 | 0/21 Must | AÇIK |
 | Faz 2 — v2 | §5.3 | 0 ✅ · 0 ◐ · 0 ⬜ · 13 🔒 | 0/0 Must | AÇIK |
 | Faz 3 — Enterprise | §5.4 | 0 ✅ · 0 ◐ · 0 ⬜ · 8 🔒 | 0/0 Must | AÇIK |
@@ -153,9 +153,9 @@ panelde `plan-count-drift` bulgusu doğurur.
 | 05.3.2 | MRZ kontrol hanesi doğrulaması | Must (MVP) | ✅ → K05.3 |
 | 05.3.3 | MRZ önceliği | Must (MVP) | ✅ → K05.3 |
 | 05.4.1 | Kişi anahtarı | Must (MVP) | ✅ → K05.4 |
-| 05.5.1 | Eşleştirme sırası | Must (MVP) | ⬜ |
-| 05.5.2 | Yalnız isim eşleşmesinin reddi (R8) | Must (MVP) | ⬜ |
-| 05.5.3 | Belirsiz eşleşme | Must (MVP) | ⬜ |
+| 05.5.1 | Eşleştirme sırası | Must (MVP) | ✅ → K05.5 |
+| 05.5.2 | Yalnız isim eşleşmesinin reddi (R8) | Must (MVP) | ✅ → K05.5 |
+| 05.5.3 | Belirsiz eşleşme | Must (MVP) | ✅ → K05.5 |
 | 05.6.1 | Otomatik çalışan oluşturma (R9) | Must (MVP) | ⬜ |
 | 05.7.1 | Onay bekleyen profil | Must (MVP) | ⬜ |
 | 05.7.2 | Alias ve numara birikimi | Must (MVP) | ⬜ |
@@ -835,6 +835,28 @@ Onay beklemeden yapılan varsayımlar buraya numaralı olarak yazılır.
   (güvenilmeyenler dahil) `allows_clean_document_number`. Temiz numara kararı (tür, 5 karakter)
   05.6'nın, eşleştirme 05.5'in. Modül saf işlevdir: olay, veritabanı, göç yok; boru hattına bağlanması
   05.5/06.1'in.
+- **C27** — Çalışan eşleştirme sırası (tm 36, 05.5.1–05.5.3): §20.2.2 satırları yazar ama karşılaştırmanın
+  biçimini, satır 6–8'le sınırı ve olayları yazmaz; `match_employee(session, key, *, file_id,
+  page_index)` (`app/matching/match.py`) şöyle uygular. **Kapsam:** satır 1–5 ve çelişkili anahtar (D8);
+  hiçbir satır uymazsa hüküm `NO_MATCH`, `action`/`queue` boş — satır 6–8'in eylemi (`create`,
+  `pending`, `none`) temiz numara tanımına bağlı olduğu için 05.6/05.7'nin. **Numara:** anahtarın
+  numaraları `employee_identifiers.value` ile **tam eşitlikle** karşılaştırılır, `kind` bakılmaz (tablo
+  türe sınırlamaz); yazan adım (05.6, 05.7.2) değeri §20.2.1 ile normalize saklamalı — `00 0000001`
+  diye saklanmış değer eşleşmez. Aynı çalışanın aynı numaralı iki kaydı tek sahiptir. Numaranın
+  `legible` bayrağı eşleştirmede aranmaz (tablo yalnız satır 6 için ister). **İsim:** `name_keys`'in
+  (ad-soyad ve orijinal yazım) herhangi biri `employee_aliases.normalized_name` ile tam eşit olmalı;
+  çalışanın `given_names`/`surname` sütunlarına bakılmaz (tablo alias der) — çalışan açan adım (05.6,
+  11.x onayı) adını alias olarak da yazmalı. Alt küme/üst küme isim eşleşme değildir. **Doğum
+  tarihi:** belgede ya da çalışanda yoksa "eşit" sayılmaz → satır 5. Satır 3 çalışanın kayıtlı başka bir
+  numarası olmasına bakmaz. **Hüküm:** `EmployeeMatch(rule, employee_ids, conflicts)`; `employee_ids`
+  E numarası sırasıyla (`E9999 < E10000`) — eşleşmede tek çalışan, belirsizde uyanların hepsi, yalnız
+  isimde ismi eşleşenlerin hepsi (İK kuyrukta kimi kontrol edeceğini görsün). `matched_by`/`action`
+  §8.5 değerleridir. **Gerekçe** kişisel değer taşımaz (alan adı, E numarası); satır 5'in gerekçesi
+  PRD metniyle başlar. **Olay:** her hüküm tek olay — satır 1/3 `PERSON_MATCHED` (`employee_id`
+  sütunu dolu), satır 2/4 `PERSON_AMBIGUOUS`, satır 5, çelişkili anahtar ve `NO_MATCH`
+  `PERSON_NOT_MATCHED`; veri `rule`, varsa `matched_by`, `queue`, `employee_ids`, `conflicts`;
+  gerekçe `message`. `PERSON_IDENTIFIED` bu adımda yazılmaz. Olay dışında yazmaz (alias/numara
+  birikimi 05.7.2, kuyruk kaydı 08.1), commit etmez; boru hattına bağlanması 06.1'in.
 
 ## D. Sapmalar
 
@@ -892,6 +914,17 @@ bu kayıt neden sapıldığının izlenebilir olması içindir.
   satırında glif `Ћ` (C24'te kod noktası esas alındı). Karar insana bırakıldı: PRD örneği ICAO
   yazımına düzeltilmeli mi, yoksa bir varyant katlaması mı tanımlanmalı; Sırpça `Г` istisnası
   kaldırılmalı mı.
+- **D8 — Çelişkili kişi anahtarı §20.2.2'de yok, Unresolved'a alındı (05.5, tm 36).** 05.4 anahtarı
+  adayın sayfaları bir kimlik alanını (belge numarası, ad/soyad, doğum tarihi, orijinal yazım) farklı
+  okuduğunda alanı `conflicts`'e yazar; iki farklı numara taşıyan anahtar için satır 1'in "normalize
+  belge numarası" tekil değildir, isim/doğum tarihi çelişkisi de sayfaların iki kişiye ait
+  olabileceğini söyler. Tablo bu durumu yazmaz. Görev kuralı gereği en güvenli yön seçildi: `conflicts`
+  doluysa **hiçbir satır denenmeden** hüküm `conflicting_key`, `action: none`, Unresolved, gerekçede
+  çelişen alan adları, olay `PERSON_NOT_MATCHED` — numara tek bir çalışana ait olsa bile otomatik
+  eşleştirilmez, yeni çalışan/onay bekleyen profil de açılmaz. Gruplama (04.1) `person` değerleri
+  çelişen sayfaları zaten birleştirmediği için durum seyrektir (MRZ ya da `fields` okuması `person`'dan
+  farklıysa doğar). Karar insana bırakıldı: yalnız orijinal yazım çelişkisi gibi zararsız görünen
+  durumlar için tabloya satır eklenmeli mi.
 
 ## G. İş Kırılımı Dizini
 
@@ -1134,3 +1167,8 @@ var olan maddeler silinmez. Biçim:
 
 #### K05.4 — 05.4.1 · Kişi anahtarı
 - ✅ 05.4.1 `build_person_key(analyses, *, today)` (`app/matching/match.py`) belge adayının sayfa analizlerinden `PersonKey` üretir: belge numaraları (§20.2.1 `normalize_document_number`, tekrarsız, sayfa sırasıyla, numara başına okunaklı `fields` okumasından gelip gelmediği), normalize ad-soyad (`given_names` + `surname`, sayfanın diliyle; `other_names` girmez), doğum tarihi, orijinal yazım (`TransliteratedName` + normalize anahtar), `name_keys`, `mrz_allows_clean_document_number` (§20.2.3 koşul 3, bütün sayfalar) ve sayfalar arası çelişen alanlar (`conflicts`; tekil alan `None` olur). MRZ önce okunur (K6): her sayfaya `apply_mrz_priority` uygulanır ve MRZ'si alanı taşıyan sayfa varsa alan yalnız oradan okunur — arka yüz MRZ'si ön yüzün görünen metnini yener, MRZ'nin taşımadığı alan (hanesi tutmayan numara, `<<`'süz ad) bütün sayfalardan okunur; boş/okunamaz sayfaya güvenilmez, sayfanın okunamadı dediği `person` değeri girmez. Kayıtlı yanıtlar: S13 Kiril pasaportu tam anahtar (`000000013`, `iulia shchelkina testova`, 1992-03-15, `Тестова-Щёлкина Юлья` → `Testova-Shchelkina Iulia`); `group_file_pages` ile gruplanan Sırp oturum kartı ön+arka ve `group_across_files` ile eşlenen S5 ehliyet yüzleri tek anahtar verir. Ukraynaca Kiril parça MRZ yazımıyla aynı anahtara iner, D7 yazımında iki isim anahtarı çıkar, `today` MRZ doğum yüzyılını seçer. 22 kural bozulması (sayfalar arası MRZ önceliği, okunamadı vetosu, güvenilmeyen sayfa, MRZ önceliğinin hiç uygulanmaması, `today`, isim/çeviri dili, `legible` birikimi (iki biçim), çelişkide ilk değer (doğum, orijinal yazım), çelişki eşiği, bayrağın yalnız güvenilir sayfalardan hesaplanması, numara ayırıcı kümesi, büyük harf, boş numara/isim, ISO tarih katılığı, `name_keys` tekrarı, MRZ'nin değer taşıması koşulu, `person` önceliği, tek parçalı ad) geçici olarak denendi, her biri testte kırmızı (kurallar: C26) — `app/matching/match.py` · test `tests/matching/test_person_key.py` (35 fonksiyon / 50 durum) · tm 35
+
+#### K05.5 — 05.5.1, 05.5.2, 05.5.3 · Çalışan eşleştirme sırası
+- ✅ 05.5.1 `match_employee(session, key, *, file_id, page_index)` (`app/matching/match.py`) 05.4 kişi anahtarını kayıtlı çalışanlarla §20.2.2 sırasıyla karşılaştırır, ilk uyan satır kazanır: satır 1 anahtarın numarası `employee_identifiers.value` ile tam eşit ve tek çalışana ait → `EmployeeMatch(document_number)`, `action: match`, `matched_by: document_number`; satır 3 numara eşleşmedi ya da yok, `name_keys`'ten (ad-soyad, orijinal yazım) biri `employee_aliases.normalized_name` ile eşit ve doğum tarihi eşit tek çalışan → `name_dob`. Numara başka bir çalışanın isim + doğum tarihinden önce gelir; aynı çalışanın aynı numaralı iki kaydı tek sahiptir; Kiril orijinal yazımlı alias, Latin anahtarla ve tersi eşleşir; alt/üst küme isim, çalışanın alias'sız ad sütunları ve normalize edilmemiş saklı numara eşleşmez. Hiçbir satır uymazsa `no_match` (`action`/`queue` boş; satır 6–8 05.6/05.7'nin). Hüküm `PERSON_MATCHED` olayına (`employee_id` sütunu, veri `rule`, `matched_by`, `employee_ids`) yazılır; olay dışında yazmaz, commit etmez (kurallar: C27) — `app/matching/match.py` · test `tests/matching/test_employee_match.py` · tm 36
+- ✅ 05.5.2 / S10: yalnız isim eşleşmesi (doğum tarihi belgede yok, çalışanda yok, ikisinde yok ya da farklı; eşleşmeyen numaralı ve numarasız) → `name_only`, `action: none`, `QueueKind.UNRESOLVED`, gerekçe PRD metniyle başlar (`İsim eşleşti ama doğum tarihi veya belge numarası doğrulanamadı. İsmi eşleşen çalışan: E0001. …`), `PERSON_NOT_MATCHED`; çalışan, alias ya da numara eklenmez, satır 6'ya inilmez. Çelişkili anahtar (numara, doğum tarihi, isim çelişkisi) numara tek bir çalışana ait olsa bile hiçbir satır denenmeden `conflicting_key` ile Unresolved'a gider (D8) — `app/matching/match.py` · test `tests/matching/test_employee_match.py` · tm 36
+- ✅ 05.5.3 / S12: numara birden fazla çalışana ait (isim + doğum tarihi tek çalışana uysa bile) → `document_number_ambiguous`; isim + doğum tarihi birden fazla çalışana uyuyor → `name_dob_ambiguous`; ikisi de `action: none`, Unresolved, E numaraları sayısal sırayla gerekçede, `PERSON_AMBIGUOUS` olayında `message` + `employee_ids`. S12: aynı isimli iki çalışandan doğum tarihi birine uyan eşleşir (iki yönde), ikisine uyarsa belirsiz, hiçbirine uymazsa `name_only` (iki çalışan da gerekçede). Entegrasyon: sentetik PDF gerçek render adımlarından ve `russian_passport` kaydıyla analizden geçer, `group_upload` → `build_person_key` → `match_employee` S1 (numara), S10, S12 (bir/iki çalışan) hükümlerini verir; olay parti, dosya ve sayfaya bağlı, kişisel değer (ad, numara, doğum tarihi) taşımaz, yeni çalışan açılmaz. 16 kural bozulması (belirsiz numaranın satır 3'e düşmesi, çelişki kontrolü, boş doğum tarihinin eşit sayılması, belirsiz ismin eşleşme sayılması, yalnız isimin `no_match`'e ya da numaralıyken satır 6'ya inmesi, gerekçe metni, E numarası sırası, tekrarsızlık, belirsiz isim olay türü, yalnız ad-soyad anahtarıyla arama, `no_match`'in kuyruğa alınması, ismin numaradan önce denenmesi, olayda `queue`, belirsizde `employee_id`, anahtarın bütün numaralarıyla arama) geçici olarak denendi, her biri testte kırmızı — `app/matching/match.py` · test `tests/matching/test_employee_match.py` (17 fonksiyon / 40 durum), `tests/matching/conftest.py` · tm 36
