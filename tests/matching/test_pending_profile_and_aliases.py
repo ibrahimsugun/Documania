@@ -522,8 +522,8 @@ def test_number_match_adds_the_new_spellings(session: Session) -> None:
         (alias.raw_name, alias.normalized_name, alias.script) for alias in employee.aliases
     } == {
         ("BASKA YAZIM", "baska yazim", None),
-        ("TEST ORNEKOVA", NAME, None),
-        (CYRILLIC, NAME, None),
+        ("TEST ORNEKOVA", NAME, "latin"),
+        (CYRILLIC, NAME, "cyrillic"),
     }
     assert [(number.kind, number.value) for number in employee.identifiers] == [
         ("russian_passport", NUMBER)

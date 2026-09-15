@@ -241,7 +241,10 @@ def test_clean_number_without_registered_employee_opens_employee_and_folder(
         employee.nationality,
     ) == ("TEST", "ORNEKOVA", "IVANOVNA", CYRILLIC, BORN, "RUS")
     aliases = {(alias.raw_name, alias.normalized_name, alias.script) for alias in employee.aliases}
-    assert aliases == {("TEST ORNEKOVA", "ornekova test", None), (CYRILLIC, "ornekova test", None)}
+    assert aliases == {
+        ("TEST ORNEKOVA", "ornekova test", "latin"),
+        (CYRILLIC, "ornekova test", "cyrillic"),
+    }
     assert [
         (number.kind, number.value, number.source_document_id) for number in employee.identifiers
     ] == [("russian_passport", NUMBER, None)]
@@ -307,6 +310,45 @@ def test_each_spelling_is_one_alias(
 
     assert {alias.raw_name for alias in employee.aliases} == expected
     assert _count(session, EmployeeAlias) == len(expected)
+
+
+@pytest.mark.parametrize(
+    ("original", "expected"),
+    [
+        ("عبدالله محمد", "arabic"),
+        ("Δημήτρης Παπαδόπουλος", "other"),
+    ],
+    ids=["arabic", "greek-other"],
+)
+def test_alias_script_matches_the_original_writing_system(
+    session: Session, layout: DataLayout, original: str, expected: str
+) -> None:
+    # 05.8.3: `employee_aliases.script` yazımın alfabesidir; ICAO tablosunun dışındaki alfabeler
+    # (Arapça dışında) `other`'dır.
+    employee = create_employee(session, layout, _key(original=original), entry=PASSPORT)
+
+    scripts = {alias.raw_name: alias.script for alias in employee.aliases}
+    assert scripts["TEST ORNEKOVA"] == "latin"
+    assert scripts[original] == expected
+
+
+@pytest.mark.parametrize(
+    ("given_names", "surname", "expected"),
+    [
+        ("007", "BOND", "latin"),
+        ("007", "1990", None),
+    ],
+    ids=["leading-digits-before-a-letter", "no-letter-at-all"],
+)
+def test_alias_script_skips_leading_non_letters_and_is_none_without_any(
+    session: Session, layout: DataLayout, given_names: str, surname: str, expected: str | None
+) -> None:
+    key = _key(given_names=given_names, surname=surname, original=None)
+
+    employee = create_employee(session, layout, key, entry=PASSPORT)
+
+    (alias,) = employee.aliases
+    assert alias.script == expected
 
 
 def test_employee_is_named_after_the_latin_reading_and_keeps_the_original(

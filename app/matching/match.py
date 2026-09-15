@@ -96,6 +96,7 @@ from __future__ import annotations
 
 import enum
 import re
+import unicodedata
 from collections.abc import Callable, Iterable, Iterator, Sequence
 from dataclasses import dataclass
 from datetime import date
@@ -103,7 +104,7 @@ from datetime import date
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.ai.schemas import PageAnalysis
+from app.ai.schemas import PageAnalysis, Script
 from app.catalog import CatalogEntry
 from app.db.models import (
     Employee,
@@ -595,7 +596,7 @@ def create_employee(
     - `allocate_employee_number` ile E numarası (K8) ve `Ad_Soyad_E0001` klasör adı,
     - `employees` satırı `PersonKey.employee_fields()` okumalarıyla,
     - `employee_aliases`: `Ad Soyad` yazımı ve varsa orijinal yazım, anahtarın normalize değeriyle
-      (aynı yazım bir kez),
+      (aynı yazım bir kez), `script` yazımın alfabesiyle (`_detect_script`, 05.8.3),
     - `employee_identifiers`: temiz numara §20.2.1 normalize değeriyle, `kind` türün slug'ı,
     - `Employees/<klasör>/Alinan/` ve `Hazir/` dizinleri,
     - `EMPLOYEE_CREATED` olayı (`employee_id` sütunu; veri `action`, `document_type_slug`).
@@ -611,7 +612,14 @@ def create_employee(
     employee = Employee(id=employee_id, folder_name=folder_name, **key.employee_fields())
     session.add(employee)
     for raw_name, normalized in _spellings(key).items():
-        session.add(EmployeeAlias(employee=employee, raw_name=raw_name, normalized_name=normalized))
+        session.add(
+            EmployeeAlias(
+                employee=employee,
+                raw_name=raw_name,
+                normalized_name=normalized,
+                script=_detect_script(raw_name),
+            )
+        )
     session.add(EmployeeIdentifier(employee=employee, kind=entry.slug, value=new.document_number))
     session.flush()
     layout.ensure_employee_tree(folder_name)
@@ -661,6 +669,27 @@ def _spellings(key: PersonKey) -> dict[str, str]:
     if original is not None and normalized_original is not None:
         spellings.setdefault(original.original, normalized_original)
     return spellings
+
+
+def _detect_script(text: str) -> str | None:
+    """Yazımın alfabesi (05.8.3, `employee_aliases.script`): ilk harfin Unicode adı sınanır.
+
+    Harf çevirisi (05.2.1) zaten Kiril/Arap harflerini kod noktasına göre tanıyordu; isim
+    çoğunlukla tek alfabededir, ilk harf yeter. `Script`'in kapalı kümesi dışındaki alfabeler
+    (Yunan, CJK…) `other`. Harfsiz yazımda (yalnız rakam/noktalama) `None`.
+    """
+    for char in text:
+        if not char.isalpha():
+            continue
+        name = unicodedata.name(char, "")
+        if name.startswith("LATIN"):
+            return Script.LATIN.value
+        if name.startswith("CYRILLIC"):
+            return Script.CYRILLIC.value
+        if name.startswith("ARABIC"):
+            return Script.ARABIC.value
+        return Script.OTHER.value
+    return None
 
 
 # --- onay bekleyen profil (05.7.1) -----------------------------------------------------------
@@ -897,7 +926,8 @@ def accumulate_identity(
     `IdentityAccumulationRefusedError` — hiçbir şey yazılmaz. Uyuyorsa eşleşen çalışana:
 
     - `employee_aliases`: `Ad Soyad` yazımı ve orijinal yazım, anahtarın normalize değeriyle —
-      çalışanda aynı ham yazım (`raw_name`) yoksa; `script` boş (05.8.3),
+      çalışanda aynı ham yazım (`raw_name`) yoksa; `script` yazımın alfabesidir (`_detect_script`,
+      05.8.3),
     - `employee_identifiers`: numara yalnız §20.2.3'e göre temizse (`clean_document_number`),
       çalışanda aynı değer yoksa; `kind` türün slug'ı, `source_document_id` boş (D11).
 
@@ -927,7 +957,14 @@ def accumulate_identity(
         if raw_name not in known_names
     ]
     for raw_name, normalized in aliases:
-        session.add(EmployeeAlias(employee=employee, raw_name=raw_name, normalized_name=normalized))
+        session.add(
+            EmployeeAlias(
+                employee=employee,
+                raw_name=raw_name,
+                normalized_name=normalized,
+                script=_detect_script(raw_name),
+            )
+        )
     number = clean_document_number(key, entry)
     identifiers = () if number is None or number in known_numbers else (number,)
     for value in identifiers:

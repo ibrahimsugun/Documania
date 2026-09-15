@@ -557,3 +557,59 @@ def record_candidate_type_sighting(
     candidate_type.seen_count += 1
     session.flush()
     return CandidateTypeSighting(candidate_type, created=False, counted=True)
+
+
+# --- iletişim bilgisi birikimi (05.8.1, 05.8.2) ---------------------------------------------
+
+
+@dataclass(frozen=True, slots=True)
+class ContactSighting:
+    """`record_contact_sighting` sonucu. `changed`: bu çağrıda yeni güncel satır açıldı (05.8.2);
+    aynı değer tekrar görüldüyse yalnız `last_seen_at` ilerler, `changed: False`."""
+
+    contact: EmployeeContact
+    changed: bool
+
+
+def record_contact_sighting(
+    session: Session,
+    *,
+    employee_id: str,
+    kind: str,
+    value: str,
+    source_document_id: int | None = None,
+) -> ContactSighting:
+    """Çalışanın iletişim bilgisini günceller (`employee_contacts`; 05.8.1, 05.8.2).
+
+    Türün (`phone`/`email`/`address`) güncel (`is_current`) kaydı aynı değeri taşıyorsa yalnız
+    `last_seen_at` ilerletilir — yeni satır açılmaz. Farklı bir değer geldiyse güncel kayıt
+    kapatılır (`is_current: False`) ve yeni değer ayrı bir satır olarak eklenir: eski kayıt
+    silinmez ya da üzerine yazılmaz (K16), geçmiş olarak kalır. Çalışanın o türde hiç kaydı
+    yoksa yalnız yeni satır açılır. Oturum commit edilmez.
+    """
+    now = utcnow()
+    current = session.scalar(
+        select(EmployeeContact).where(
+            EmployeeContact.employee_id == employee_id,
+            EmployeeContact.kind == kind,
+            EmployeeContact.is_current.is_(True),
+        )
+    )
+    if current is not None and current.value == value:
+        current.last_seen_at = now
+        session.flush()
+        return ContactSighting(current, changed=False)
+    if current is not None:
+        current.is_current = False
+    contact = EmployeeContact(
+        employee_id=employee_id,
+        kind=kind,
+        value=value,
+        source_document_id=source_document_id,
+        first_seen_at=now,
+        last_seen_at=now,
+        is_current=True,
+    )
+    session.add(contact)
+    session.flush()
+    return ContactSighting(contact, changed=True)
