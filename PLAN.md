@@ -8,7 +8,7 @@
 
 | Faz | PRD | Genel durum | Must sayacı | Kapanış |
 | --- | --- | --- | --- | --- |
-| Faz 0 — MVP | §5.1 | 70 ✅ · 0 ◐ · 32 ⬜ · 0 🔒 | 67/98 Must | AÇIK |
+| Faz 0 — MVP | §5.1 | 72 ✅ · 0 ◐ · 30 ⬜ · 0 🔒 | 69/98 Must | AÇIK |
 | Faz 1 — v1 | §5.2 | 0 ✅ · 0 ◐ · 0 ⬜ · 32 🔒 | 0/21 Must | AÇIK |
 | Faz 2 — v2 | §5.3 | 0 ✅ · 0 ◐ · 0 ⬜ · 13 🔒 | 0/0 Must | AÇIK |
 | Faz 3 — Enterprise | §5.4 | 0 ✅ · 0 ◐ · 0 ⬜ · 8 🔒 | 0/0 Must | AÇIK |
@@ -170,8 +170,8 @@ panelde `plan-count-drift` bulgusu doğurur.
 | 06.1.1 | Plan JSON üretimi (R10) | Must (MVP) | ✅ → K06.1 |
 | 06.1.2 | Plan determinizmi | Must (MVP) | ✅ → K06.1 |
 | 06.2.1 | İşlem seçimi | Must (MVP) | ✅ → K06.2 |
-| 06.3.1 | Direkt Belge kuralı (R5) | Must (MVP) | ⬜ |
-| 06.3.2 | Direkt Belge format kontrolü | Must (MVP) | ⬜ |
+| 06.3.1 | Direkt Belge kuralı (R5) | Must (MVP) | ✅ → K06.3 |
+| 06.3.2 | Direkt Belge format kontrolü | Must (MVP) | ✅ → K06.3 |
 | 06.4.1 | Dönüşüm izni kontrolü | Must (MVP) | ⬜ |
 | 06.5.1 | Doğrulayıcı seti | Must (MVP) | ⬜ |
 | 06.5.2 | Doğrulama başarısızlığı | Must (MVP) | ⬜ |
@@ -980,6 +980,33 @@ Onay beklemeden yapılan varsayımlar buraya numaralı olarak yazılır.
   görüntünün biçimini okumaz. **Olay:** yok (§8.3'te tür yok; seçim `PLAN_CREATED`'in planında). Direkt
   Belge matrisi ve format kontrolü (06.3) ile `allowed_conversions` (06.4) seçilen işlemi
   `_Planner._operation`'da hükme çevirmeli.
+- **C32** — Direkt Belge kuralı (tm 42, 06.3.1, 06.3.2): §20.4 matrisi ve §20.4.1 format kontrolünü yazar;
+  kontrollerin birbirine ve §20.3'e göre sırası, format kontrolünün hangi biçimi okuyacağı, çok kaynaklı ve
+  tanınmayan biçimli kaynağın gerekçesi, format reddinin olayı ve izinli kontrolün loglanıp loglanmayacağı
+  yazılı değil. Saf çekirdek (`app/pipeline/plan.py`): `check_direct_file_types(sources, *, entry)` →
+  `DirectFileTypeMismatch` (`queue = unresolved`, `check = "file_type"`, `reason`) ya da `None`;
+  `check_direct_operation(operation, *, entry)` → `DirectOperationForbidden` (`check = "operation"`) ya da
+  `None`; `DIRECT_OPERATIONS = {passthrough, extract}`. **Sıra:** `_Planner._operation`'da format kontrolü →
+  §20.3 → matris; ilk ret sonraki adımı keser (format tutmayan belgede satır 7 denenmez, uyan satırı olmayan
+  belgede matris denenmez) ve öğenin tek işlem hükmü olur. İşlem adımının yeri C31'deki gibi okunaklılık
+  kapısından sonra, çalışan kararından önce — "işlemden önce" (§20.4.1) yalnız işlem seçimine göre okundu;
+  okunamayan JPEG pasaport `unreadable` rotasını alır, format gerekçesi ardından gelir. Belge adayına da
+  Word/Excel ekine de uygulanır (`attachment` `direct: true`; ekin türü içerik türünden eşlendiği için format
+  kontrolünü hep geçer); yapısal hükümlü ve bilinmeyen türlü adaya işlem adımı uygulanmadığından uygulanmaz.
+  **Biçim:** içerikten tespit edilen biçim (01.2.1), kaynak başına; tanınmayan biçim beklenen türlerden
+  değildir (ret). **Gerekçe:** `Direkt Belge: beklenen dosya türü <tür/tür>, gelen <biçim>. Uygun formatta
+  yeniden gönderin.` — liste `expected_file_types` sırasıyla `/` ile birleşir (virgül `, gelen` ile karışır),
+  `<biçim>` yalnız beklenmeyen kaynakların biçimleri, kaynak sırasıyla, tekrarsız, `/` ile; tanınmayan
+  `tanınmayan biçim`. Matris gerekçesi `Direkt Belge: <işlem> bu tür için yapılamaz.` — PRD'deki ters tırnak
+  biçimlendirme sayıldı, cümle sonuna nokta kondu (gerekçeler boşlukla birleşir). Kişisel değer yok.
+  **Olay:** `DIRECT_DOC_CHECK` yalnız retlerde — matris reddi (§20.4) ve aynı bölümün format reddi — adayın
+  ilk kaynağının ilk sayfasıyla (ekte `page_index` boş), `message` gerekçe, veri `document_type_slug`,
+  `check`, `operation` (format reddinde `null`), `expected_file_types`, kaynak başına `file_types` (tanınmayan
+  `null`), `queue`. İzinli kontrol olay atmaz (işlem `PLAN_CREATED`'in planında). `direct: false` sütununun
+  "dönüşüm izinliyse" şartı 06.4.1'indir; matris o sütunda reddetmez. Katalog şeması `direct: true` türe
+  `output_format: pdf|jpeg` verilmesine izin verir; o türde beklenen ama çıktı biçiminden farklı biçimde gelen
+  belge format kontrolünü geçip matriste (`wrap_image`/`extract_image`/`render_image`) reddedilir — tablolar
+  yazıldığı gibi uygulandı; tohum katalogdaki Direkt türlerin hepsi `keep`.
 
 ## D. Sapmalar
 
@@ -1388,3 +1415,7 @@ var olan maddeler silinmez. Biçim:
 
 #### K06.2 — 06.2.1 · İşlem seçimi
 - ✅ 06.2.1 `select_operation(sources, *, output_format)` §20.3 karar tablosunu sırayla uygular (ilk uyan satır): tek dosyanın tüm sayfaları aynı biçimde (ya da `keep`) `passthrough` (S1, Word/Excel eki S15), tek PDF'in ardışık alt kümesi — boş sayfa arada ya da dışarıda kalabilir — `extract` (S4, S7, S8), birden çok dosya → PDF `merge` (S5), tek JPEG/PNG → PDF `wrap_image`, tek PDF sayfası → JPEG gömülü tek görüntüde `extract_image`, yoksa `render_image` (gerçek PDF'ten 02.5.1 işaretiyle); uyan satır yoksa `NoApplicableOperation` Unresolved gerekçesi (dosya, sayfa, biçim, kapsama, hedef; kişisel değer yok). Planlayıcı kapsamayı sayfa satırları ∪ `page_count`'la, boş sayfaları gruplamadan, biçimi içerikten okur; seçim yapısal hükümlü adaya uygulanmaz, okunaklılıktan sonra ve çalışan kararından önce yürür (işlemi olmayan belgeden çalışan açılmaz); `hazir` öğede `operation`/hedef zorunlu, kuyruk öğesinde `operation` boş (C31, D15). `plan.py` satır+dal kapsamı %100, 21 kural bozulması geçici olarak denendi, her biri testte kırmızı — `app/pipeline/plan.py` · test `tests/pipeline/test_plan.py` (109, +42) · tm 41
+
+#### K06.3 — 06.3.1, 06.3.2 · Direkt Belge kuralı
+- ✅ 06.3.1 `check_direct_operation(operation, *, entry)` §20.4 matrisini uygular: `direct: true` türde yalnız `passthrough` ve `extract` izinli, `merge`/`wrap_image`/`extract_image`/`render_image` `DirectOperationForbidden` ("Direkt Belge: <işlem> bu tür için yapılamaz."); `direct: false` türde matris reddetmez (06.4). Planlayıcı §20.3'ün seçtiği işlemi matristen geçirir: ret işlemi ve hedefi plandan siler, belge Unresolved'a gider, çalışan açılmaz, `DIRECT_DOC_CHECK` yazılır; JPEG çıktılı Direkt türde gömülü görüntü çıkarma ve render, PDF çıktılı Direkt türde görüntü sarma gerçek dosyalarla reddedildi; S7 `extract` olaysız geçer (C32) — `app/pipeline/plan.py` · test `tests/pipeline/test_plan.py` (129, +20) · tm 42
+- ✅ 06.3.2 `check_direct_file_types(sources, *, entry)` §20.4.1'i işlem seçiminden önce uygular: Direkt türde içerikten tespit edilen kaynak biçimi `expected_file_types`'ta yoksa (tanınmayan biçim dahil) işlem seçilmez, gerekçe "Direkt Belge: beklenen dosya türü pdf, gelen jpeg. Uygun formatta yeniden gönderin.", rota Unresolved, `DIRECT_DOC_CHECK`. S6: yalnız PDF bekleyen pasaport JPEG geldi → Unresolved, dönüşüm yok, işlem/hedef yok, çalışan açılmaz, kayıtlı çalışan yalnız kişi tahmini; format gerekçesi okunaklılık gerekçesinin ardından gelir ve satır 7'yi keser. `plan.py` satır+dal kapsamı %100, 14 kural bozulması geçici olarak denendi, 13'ü testte kırmızı (kalan eşdeğer: ret varken seçimi taşımak öğeyi değiştirmez) — `app/pipeline/plan.py` · test `tests/pipeline/test_plan.py` · tm 42

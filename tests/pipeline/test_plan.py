@@ -1,5 +1,5 @@
-"""Plan JSON üretimi, belirleyicilik ve işlem seçimi — PRD 06.1.1, 06.1.2, 06.2.1 (§8.5, §20.3;
-K9, R10, R7).
+"""Plan JSON üretimi, belirleyicilik, işlem seçimi ve Direkt Belge kuralı — PRD 06.1.1, 06.1.2,
+06.2.1, 06.3.1, 06.3.2 (§8.5, §20.3, §20.4; K3, K9, R5, R10, R7).
 
 Sayfa analizleri kayıtlı yanıt biçimindeki sentetik sözlüklerdir, dosyalar `tests/fixtures/gen.py`
 ile üretilir (CONVENTIONS §6). Plan üretimi sayfaları veritabanından okur; render ve analiz adımları
@@ -26,7 +26,14 @@ from sqlalchemy.orm import Session
 
 from app.ai import build_page_analysis_instructions
 from app.ai.recording_provider import RecordingProvider
-from app.catalog import Catalog, FileType, OutputFormat, load_seed_catalog, validate_catalog
+from app.catalog import (
+    Catalog,
+    CatalogEntry,
+    FileType,
+    OutputFormat,
+    load_seed_catalog,
+    validate_catalog,
+)
 from app.config import Settings
 from app.db.models import (
     Base,
@@ -58,6 +65,9 @@ from app.matching.names import normalize_name
 from app.pipeline.analyze import analyze_upload
 from app.pipeline.group import AttachmentWithoutContext
 from app.pipeline.plan import (
+    DIRECT_OPERATIONS,
+    DirectFileTypeMismatch,
+    DirectOperationForbidden,
     NoApplicableOperation,
     Operation,
     OperationSource,
@@ -68,6 +78,8 @@ from app.pipeline.plan import (
     PlanSource,
     Route,
     SelectedOperation,
+    check_direct_file_types,
+    check_direct_operation,
     create_plan,
     read_plan,
     select_operation,
@@ -1528,6 +1540,8 @@ def test_s7_passport_page_inside_a_multi_page_pdf_is_extracted_without_render(
         (Route.UNRESOLVED, None),
         (Route.UNRESOLVED, None),
     ]
+    # Direkt Belge'de `extract` izinlidir (06.3.1): ret olayı yok.
+    assert _events(session, EventType.DIRECT_DOC_CHECK) == []
 
 
 def test_s8_blank_page_between_the_faces_stays_out_of_the_extracted_document(
@@ -1634,11 +1648,13 @@ def test_document_without_an_operation_goes_to_unresolved_and_opens_nobody(
     session: Session, layout: DataLayout
 ) -> None:
     # Satır 7: `keep` türde içeriği tanınmayan kaynağın hedef biçimi yok. İşlem seçimi çalışan
-    # kararından önce yapılır: temiz numaralı belgeden çalışan açılmaz.
+    # kararından önce yapılır: temiz numaralı belgeden çalışan açılmaz. Tür Direkt Belge değil —
+    # Direkt Belge'de aynı kaynak format kontrolünde (06.3.2) reddedilir.
+    catalog = _catalog_with(PASSPORT, direct=False)
     upload = _upload(session, layout, _File(pages=(_passport(),), content=b"tanimsiz icerik"))
     (file_id,) = _file_ids(upload)
 
-    document = _plan(session, layout, upload)
+    document = _plan(session, layout, upload, catalog=catalog)
 
     assert document.items == (
         _item(
@@ -1701,7 +1717,7 @@ def test_no_operation_verdict_follows_the_legibility_gate(
         _File(pages=(_illegible_expiry(_passport()),), content=b"tanimsiz icerik"),
     )
 
-    (item,) = _plan(session, layout, upload).items
+    (item,) = _plan(session, layout, upload, catalog=_catalog_with(PASSPORT, direct=False)).items
 
     assert item.route is Route.UNREADABLE
     assert item.route_reason is not None
@@ -1739,6 +1755,227 @@ def test_attachment_without_an_operation_goes_to_unresolved(
         employee=_matched(by=None) if context else NOBODY,
         reason=no_operation if context else f"{no_operation} {ownerless}",
     )
+
+
+# --- 06.3 Direkt Belge (§20.4) ------------------------------------------------------------------
+
+UPLOAD_AGAIN = "Uygun formatta yeniden gönderin."
+
+
+def _entry(slug: str, catalog: Catalog = CATALOG) -> CatalogEntry:
+    entry = catalog.get(slug)
+    assert entry is not None
+    return entry
+
+
+def _forbidden(operation: str) -> str:
+    return f"Direkt Belge: {operation} bu tür için yapılamaz."
+
+
+def test_direct_document_keeps_only_passthrough_and_extract() -> None:
+    assert frozenset({Operation.PASSTHROUGH, Operation.EXTRACT}) == DIRECT_OPERATIONS
+
+
+@pytest.mark.parametrize(
+    ("operation", "allowed"),
+    [
+        (Operation.PASSTHROUGH, True),
+        (Operation.EXTRACT, True),
+        (Operation.MERGE, False),
+        (Operation.WRAP_IMAGE, False),
+        (Operation.EXTRACT_IMAGE, False),
+        (Operation.RENDER_IMAGE, False),
+    ],
+)
+def test_direct_document_matrix_forbids_merge_wrap_and_render(
+    operation: Operation, allowed: bool
+) -> None:
+    # §20.4: Direkt Belge'de tek kaynağın sayfaları olduğu gibi alınır; belge başka kaynaklardan
+    # kurulmaz, biçimi değişmez. `direct: false` sütununda matris reddetmez (dönüşüm izni 06.4'ün).
+    refusal = check_direct_operation(operation, entry=_entry(PASSPORT))
+
+    assert check_direct_operation(operation, entry=_entry(LICENSE)) is None
+    if allowed:
+        assert refusal is None
+    else:
+        assert refusal == DirectOperationForbidden(operation)
+        assert refusal.queue is QueueKind.UNRESOLVED
+        assert refusal.reason == _forbidden(operation.value)
+
+
+@pytest.mark.parametrize(
+    ("slug", "sources", "received"),
+    [
+        pytest.param(PASSPORT, [_source(PDF)], None, id="pdf-expected"),
+        pytest.param(PASSPORT, [_source(JPEG)], None, id="jpeg-expected"),
+        pytest.param(PASSPORT, [_source(PDF), _source(JPEG, file_id=2)], None, id="all-expected"),
+        pytest.param("attachment", [_source(DOCX, ())], None, id="word-attachment"),
+        pytest.param(LICENSE, [_source(DOCX, ())], None, id="not-direct"),
+        pytest.param(PASSPORT, [_source(PNG)], "png", id="png-not-expected"),
+        pytest.param(PASSPORT, [_source(None)], "tanınmayan biçim", id="unrecognized"),
+        pytest.param(
+            PASSPORT,
+            [
+                _source(PDF),
+                _source(PNG, file_id=2),
+                _source(None, file_id=3),
+                _source(PNG, file_id=4),
+            ],
+            "png/tanınmayan biçim",
+            id="unexpected-sources-once-in-order",
+        ),
+    ],
+)
+def test_direct_document_source_must_be_an_expected_file_type(
+    slug: str, sources: list[OperationSource], received: str | None
+) -> None:
+    # §20.4.1: kaynak biçimi (içerikten) türün `expected_file_types`'ında değilse işlem yok.
+    mismatch = check_direct_file_types(sources, entry=_entry(slug))
+
+    if received is None:
+        assert mismatch is None
+    else:
+        assert isinstance(mismatch, DirectFileTypeMismatch)
+        assert mismatch.queue is QueueKind.UNRESOLVED
+        assert mismatch.reason == (
+            f"Direkt Belge: beklenen dosya türü pdf/jpeg, gelen {received}. {UPLOAD_AGAIN}"
+        )
+
+
+@pytest.mark.parametrize("registered", [False, True], ids=["nobody", "number-registered"])
+def test_s6_direct_passport_in_an_unexpected_format_goes_to_unresolved_without_conversion(
+    session: Session, layout: DataLayout, registered: bool
+) -> None:
+    # S6 / K3: katalog pasaportu yalnız PDF bekler, JPEG geldi. `keep` türde satır 1 uyardı; format
+    # kontrolü işlemden önce keser: işlem ve hedef yok, çalışan açılmaz, kimlik birikmez. Kayıtlı
+    # çalışan yalnız kişi tahminidir.
+    if registered:
+        _employee(session, numbers=(NUMBER,))
+    catalog = _catalog_with(PASSPORT, expected_file_types=["pdf"])
+    upload = _upload(session, layout, _image(_passport()))
+    (file_id,) = _file_ids(upload)
+
+    document = _plan(session, layout, upload, catalog=catalog)
+
+    reason = f"Direkt Belge: beklenen dosya türü pdf, gelen jpeg. {UPLOAD_AGAIN}"
+    assert document.items == (
+        _item(
+            "i1",
+            [(file_id, (0,))],
+            slug=PASSPORT,
+            employee=_matched() if registered else NOBODY,
+            reason=reason,
+        ),
+    )
+    assert _count(session, Employee) == int(registered)
+    assert (_count(session, EmployeeAlias), _count(session, EmployeeIdentifier)) == (
+        int(registered),
+        int(registered),
+    )
+    assert list(layout.employees.iterdir()) == []
+    (event,) = _events(session, EventType.DIRECT_DOC_CHECK)
+    assert (event.upload_id, event.file_id, event.page_index, event.message) == (
+        UPLOAD_ID,
+        file_id,
+        0,
+        reason,
+    )
+    assert event.data_json == {
+        "document_type_slug": PASSPORT,
+        "check": "file_type",
+        "operation": None,
+        "expected_file_types": ["pdf"],
+        "file_types": ["jpeg"],
+        "queue": "unresolved",
+    }
+    assert [e.type for e in _events(session)][-2:] == [
+        EventType.DIRECT_DOC_CHECK,
+        EventType.PLAN_CREATED,
+    ]
+    _assert_no_personal_values(session)
+
+
+def test_file_type_refusal_follows_the_legibility_gate_and_no_operation_row_is_tried(
+    session: Session, layout: DataLayout
+) -> None:
+    # §20.4.1 işlemden önce: tanınmayan içerikli Direkt Belge'de satır 7 denenmez; gerekçe yalnız
+    # format kontrolünündür ve okunaklılık gerekçesinin ardından gelir.
+    upload = _upload(
+        session,
+        layout,
+        _File(pages=(_illegible_expiry(_passport()),), content=b"tanimsiz icerik"),
+    )
+
+    (item,) = _plan(session, layout, upload).items
+
+    assert (item.route, item.operation, item.route_reason) == (
+        Route.UNREADABLE,
+        None,
+        "Okunamayan alanlar: expiry_date Direkt Belge: beklenen dosya türü pdf/jpeg, gelen "
+        f"tanınmayan biçim. {UPLOAD_AGAIN}",
+    )
+    (event,) = _events(session, EventType.DIRECT_DOC_CHECK)
+    assert event.data_json is not None
+    assert (event.data_json["check"], event.data_json["file_types"]) == ("file_type", [None])
+
+
+def test_direct_type_with_pdf_output_does_not_wrap_an_image(
+    session: Session, layout: DataLayout
+) -> None:
+    # 06.3.1: format beklenen türlerden (JPEG) ama §20.3 satır 4 `wrap_image` Direkt Belge'de yasak.
+    catalog = _catalog_with(PASSPORT, output_format="pdf")
+    upload = _upload(session, layout, _image(_passport()))
+    (file_id,) = _file_ids(upload)
+
+    document = _plan(session, layout, upload, catalog=catalog)
+
+    assert document.items == (
+        _item("i1", [(file_id, (0,))], slug=PASSPORT, reason=_forbidden("wrap_image")),
+    )
+    assert _count(session, Employee) == 0
+    (event,) = _events(session, EventType.DIRECT_DOC_CHECK)
+    assert (event.file_id, event.page_index, event.message) == (
+        file_id,
+        0,
+        _forbidden("wrap_image"),
+    )
+    assert event.data_json == {
+        "document_type_slug": PASSPORT,
+        "check": "operation",
+        "operation": "wrap_image",
+        "expected_file_types": ["pdf", "jpeg"],
+        "file_types": ["jpeg"],
+        "queue": "unresolved",
+    }
+
+
+def test_direct_type_with_jpeg_output_neither_extracts_the_image_nor_renders_the_page(
+    session: Session, layout: DataLayout
+) -> None:
+    # 06.3.1 / K12: JPEG çıktılı Direkt Belge türünde gömülü görüntü çıkarılmaz (satır 5), sayfa
+    # render edilmez (satır 6); işlem plana girmez, belge Unresolved'a gider, çalışan açılmaz.
+    catalog = _catalog_with(PASSPORT, output_format="jpeg")
+    upload = _upload(
+        session,
+        layout,
+        _File(pages=(_passport(), _passport()), content=_image_then_text_pdf_bytes()),
+    )
+    (upload_file,) = upload.files
+    mark_upload_file_single_image_pages(session, layout, upload_file)
+
+    document = _plan(session, layout, upload, catalog=catalog)
+
+    file_id = upload_file.id
+    assert document.items == (
+        _item("i1", [(file_id, (0,))], slug=PASSPORT, reason=_forbidden("extract_image")),
+        _item("i2", [(file_id, (1,))], slug=PASSPORT, reason=_forbidden("render_image")),
+    )
+    assert _count(session, Employee) == 0
+    events = _events(session, EventType.DIRECT_DOC_CHECK)
+    assert [
+        (event.page_index, event.data_json and event.data_json["operation"]) for event in events
+    ] == [(0, "extract_image"), (1, "render_image")]
+    _assert_no_personal_values(session)
 
 
 # --- entegrasyon: gerçek render ve kayıtlı yanıt → plan ---------------------------------------

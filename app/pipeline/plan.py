@@ -1,5 +1,5 @@
-"""Plan JSON üretimi, belirleyicilik ve işlem seçimi — PRD 06.1.1, 06.1.2, 06.2.1 (§8.5, §20.3;
-K9, K11, K12, R10, R7).
+"""Plan JSON üretimi, belirleyicilik, işlem seçimi ve Direkt Belge kuralı — PRD 06.1.1, 06.1.2,
+06.2.1, 06.3.1, 06.3.2 (§8.5, §20.3, §20.4; K3, K9, K11, K12, R5, R10, R7).
 
 Karar motorunun bir parti için verdiği bütün kararlar tek bir **Plan JSON**'da dondurulur (K9):
 uygulayıcı (07.x) ve kuyruk (08.1) planı yürütür, yapay zekâya ya da eşleştirmeye yeniden sormaz.
@@ -29,7 +29,9 @@ bütün hükümlerin gerekçeleri (`route_reason`) aynı sırayla birleşir:
    seçimi ona uygulanmaz (yalnız arka yüzden oluşan parça "okunamayan alanlar" almaz).
 3. Okunaklılık kapısı (04.4) — zorunlu alan okunmuyorsa `unreadable`, kabul kriteri karşılanmıyorsa
    `unresolved`. MRZ önceliği (05.3.3) kapıdan ve kişi anahtarından önce her sayfaya uygulanır.
-4. İşlem seçimi (06.2.1) — §20.3'te uyan satır yoksa (satır 7) `unresolved`.
+4. İşlem — Direkt Belge format kontrolü (06.3.2), işlem seçimi (06.2.1) ve Direkt Belge matrisi
+   (06.3.1): format tutmuyorsa, §20.3'te uyan satır yoksa (satır 7) ya da matris işlemi yasaklıyorsa
+   `unresolved`.
 5. Çalışan kararı (§20.2.2).
 
 Hiçbir hüküm yoksa rota `hazir`dır.
@@ -53,6 +55,18 @@ küme yapar, boş sayfa çıktıya girmez (S8). Ardışıklık K5'tir: alınan s
 dışında sayfa yoksa ardışıktır. Seçim okunaklılık kapısından sonra, çalışan kararından önce yapılır:
 işlemi olmayan belgeden çalışan açılmaz, kimlik birikmez. İşlem ve hedef yalnız `hazir` öğede plana
 girer; kuyruğa giden öğenin işlemi yoktur (§20.4: reddedilen işlem uygulanmaz).
+
+**Direkt Belge (06.3.1, 06.3.2).** `direct: true` türün (K3) işlemi §20.4'ten geçer; belge adayı
+da Word/Excel eki de. Önce format kontrolü (§20.4.1): kaynaklardan birinin içerikten tespit edilen
+biçimi türün `expected_file_types`'ında yoksa — tanınmayan biçim de yoktur — işlem seçilmez ve belge
+"Uygun formatta yeniden gönderin." gerekçesiyle Unresolved'a gider; dönüştürülerek kurtarılmaz (S6).
+Format tutarsa §20.3 işlemi seçer ve izin matrisi uygulanır: Direkt Belge'de yalnız `passthrough` ve
+`extract` (tek kaynağın sayfaları olduğu gibi) izinlidir; `merge`, `wrap_image`, `extract_image` ve
+`render_image` yasaktır, işlem plana girmez, belge Unresolved'a gider. İlk ret sonraki adımı keser:
+format tutmayan belgede işlem seçilmez, uyan satırı olmayan belgede matris denenmez. Ret gerekçesi
+okunaklılık gerekçelerinin ardından gelir ve `DIRECT_DOC_CHECK` olayına adayın ilk sayfasıyla (ekte
+dosyayla) yazılır; izinli işlem olay atmaz, planda durur. `direct: false` sütununun "dönüşüm
+izinliyse" şartı (`allowed_conversions`) 06.4'ündür.
 
 **Çalışan.** Her analizli adayın kişi anahtarı (05.4) kayıtlı çalışanlarla eşleştirilir (05.5).
 Kararın yan etkileri yalnız belge düzeyinde kabul edilen adayda (1–4'te hükmü olmayan) yürür:
@@ -459,8 +473,9 @@ def select_operation(
     """Öğenin fiziksel işlemini §20.3 karar tablosuyla seçer (06.2.1); kurallar modül açıklamasında.
 
     `sources` öğenin en az bir kaynak dosyasıdır (plandaki `sources` sırasıyla); `output_format`
-    türün çıktı biçimidir. Saf işlevdir. Direkt Belge matrisi (06.3) ve dönüşüm izni (06.4) seçilen
-    işleme sonradan uygulanır; bu işlev onlara bakmaz.
+    türün çıktı biçimidir. Saf işlevdir. Direkt Belge kuralı (06.3: `check_direct_file_types` önce,
+    `check_direct_operation` sonra) ve dönüşüm izni (06.4) planlayıcıda uygulanır; bu işlev onlara
+    bakmaz.
     """
     target = _target_format(sources, output_format)
     operation = _table_operation(sources, target)
@@ -516,6 +531,93 @@ def _operation_source_text(source: OperationSource) -> str:
     else:
         coverage = "dosyanın ardışık olmayan alt kümesi"
     return f"{_pages_text(source.file_id, source.pages)} ({kind}, {coverage})"
+
+
+# --- Direkt Belge (06.3.1, 06.3.2, §20.4) ------------------------------------------------------
+
+# §20.4 `direct: true` sütunu: yalnız tek kaynağın sayfaları olduğu gibi alınır (K3).
+DIRECT_OPERATIONS = frozenset({Operation.PASSTHROUGH, Operation.EXTRACT})
+
+
+@dataclass(frozen=True, slots=True)
+class DirectFileTypeMismatch:
+    """§20.4.1 (06.3.2): Direkt Belge kaynağının biçimi türün `expected_file_types`'ında yok.
+
+    İşlem seçilmez ve uygulanmaz; belge dönüştürülerek kurtarılmaz (K3), gerekçesiyle Unresolved'a
+    gider. `received` beklenmeyen kaynakların biçimleridir (tanınmayan biçim `None`), kaynak
+    sırasıyla ve tekrarsız. Gerekçe kişisel değer taşımaz.
+    """
+
+    queue: ClassVar[QueueKind] = QueueKind.UNRESOLVED
+    check: ClassVar[str] = "file_type"
+
+    expected_file_types: tuple[FileType, ...]
+    received: tuple[FileType | None, ...]
+
+    @property
+    def reason(self) -> str:
+        expected = "/".join(file_type.value for file_type in self.expected_file_types)
+        received = "/".join(
+            "tanınmayan biçim" if file_type is None else file_type.value
+            for file_type in self.received
+        )
+        return (
+            f"Direkt Belge: beklenen dosya türü {expected}, gelen {received}. Uygun formatta "
+            "yeniden gönderin."
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class DirectOperationForbidden:
+    """§20.4 (06.3.1): seçilen işlem Direkt Belge türünde yasak.
+
+    Birleştirme, sarma, gömülü görüntü çıkarma ve render belgeyi başka kaynaklardan kurar ya da
+    biçimini değiştirir (K3); işlem uygulanmaz, belge gerekçesiyle Unresolved'a gider.
+    """
+
+    queue: ClassVar[QueueKind] = QueueKind.UNRESOLVED
+    check: ClassVar[str] = "operation"
+
+    operation: Operation
+
+    @property
+    def reason(self) -> str:
+        return f"Direkt Belge: {self.operation.value} bu tür için yapılamaz."
+
+
+def check_direct_file_types(
+    sources: Sequence[OperationSource], *, entry: CatalogEntry
+) -> DirectFileTypeMismatch | None:
+    """Direkt Belge format kontrolü (06.3.2, §20.4.1); işlem seçiminden önce yapılır.
+
+    `direct: false` türde ya da her kaynağın içerikten tespit edilen biçimi (01.2.1) türün
+    `expected_file_types`'ında olduğunda `None`. Tanınmayan biçim beklenen türlerden değildir. Saf
+    işlevdir.
+    """
+    if not entry.direct:
+        return None
+    received: dict[FileType | None, None] = {}
+    for source in sources:
+        kind = None if source.kind is None else FileType(source.kind.value)
+        if kind not in entry.expected_file_types:
+            received[kind] = None
+    if not received:
+        return None
+    return DirectFileTypeMismatch(entry.expected_file_types, tuple(received))
+
+
+def check_direct_operation(
+    operation: Operation, *, entry: CatalogEntry
+) -> DirectOperationForbidden | None:
+    """Direkt Belge izin matrisi (06.3.1, §20.4); §20.3'ün seçtiği işleme uygulanır.
+
+    `direct: true` türde yalnız `passthrough` ve `extract` izinlidir. `direct: false` türde matris
+    her işleme izin verir; dönüşümün türün `allowed_conversions`'ında olması 06.4'ün kontrolüdür.
+    Saf işlevdir.
+    """
+    if not entry.direct or operation in DIRECT_OPERATIONS:
+        return None
+    return DirectOperationForbidden(operation)
 
 
 # --- plan üretimi (06.1.1) ---------------------------------------------------------------------
@@ -799,14 +901,51 @@ class _Planner:
     def _operation(
         self, entry: CatalogEntry, sources: Sequence[PlanSource]
     ) -> tuple[SelectedOperation | None, list[_Verdict]]:
-        # §20.3; uyan satır yoksa (satır 7) işlem yok ve belgeyi Unresolved'a gönderen hüküm.
-        selection = select_operation(
-            [self._operation_source(source) for source in sources],
-            output_format=entry.output_format,
-        )
+        # Direkt Belge format kontrolü (06.3.2) → §20.3 → Direkt Belge matrisi (06.3.1). İlk ret
+        # sonraki adımı keser: işlem yok ve belgeyi Unresolved'a gönderen tek hüküm.
+        operation_sources = [self._operation_source(source) for source in sources]
+        mismatch = check_direct_file_types(operation_sources, entry=entry)
+        if mismatch is not None:
+            self._record_direct_refusal(entry, operation_sources, mismatch, operation=None)
+            return None, [_Verdict(mismatch.queue, mismatch.reason)]
+        selection = select_operation(operation_sources, output_format=entry.output_format)
         if isinstance(selection, NoApplicableOperation):
             return None, [_Verdict(selection.queue, selection.reason)]
+        forbidden = check_direct_operation(selection.operation, entry=entry)
+        if forbidden is not None:
+            self._record_direct_refusal(
+                entry, operation_sources, forbidden, operation=selection.operation
+            )
+            return None, [_Verdict(forbidden.queue, forbidden.reason)]
         return selection, []
+
+    def _record_direct_refusal(
+        self,
+        entry: CatalogEntry,
+        sources: Sequence[OperationSource],
+        refusal: DirectFileTypeMismatch | DirectOperationForbidden,
+        *,
+        operation: Operation | None,
+    ) -> None:
+        # §20.4: ret `DIRECT_DOC_CHECK`'e adayın ilk sayfasıyla (ekte dosyayla) yazılır.
+        first = sources[0]
+        record_event(
+            self._session,
+            EventType.DIRECT_DOC_CHECK,
+            file_id=first.file_id,
+            page_index=first.pages[0] if first.pages else None,
+            message=refusal.reason,
+            data={
+                "document_type_slug": entry.slug,
+                "check": refusal.check,
+                "operation": None if operation is None else operation.value,
+                "expected_file_types": [file_type.value for file_type in entry.expected_file_types],
+                "file_types": [
+                    None if source.kind is None else source.kind.value for source in sources
+                ],
+                "queue": refusal.queue.value,
+            },
+        )
 
     def _operation_source(self, source: PlanSource) -> OperationSource:
         upload_file = self._files[source.file_id]
