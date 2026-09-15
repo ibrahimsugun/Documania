@@ -19,13 +19,16 @@ import pytest
 from app.storage import atomic
 from app.storage.atomic import (
     CHUNK_SIZE,
+    ContentMismatchError,
     copy_file,
+    is_partial_write,
     remove_partial_writes,
     replace_file,
     sha256_bytes,
     sha256_file,
     write_file,
     write_sequenced,
+    write_unique,
 )
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -301,6 +304,94 @@ def test_invalid_stem_rejected_before_writing(tmp_path: Path) -> None:
     with pytest.raises(ValueError):
         write_sequenced(tmp_path, "../Inbox/x", "pdf", b"veri")
     assert list(tmp_path.iterdir()) == []
+
+
+def test_sequenced_write_publishes_content_matching_expected_hash(tmp_path: Path) -> None:
+    stored = write_sequenced(tmp_path, STEM, "pdf", b"veri", expected_sha256=sha256_bytes(b"veri"))
+
+    assert stored.path.read_bytes() == b"veri"
+
+
+def test_sequenced_write_with_unexpected_hash_publishes_nothing(tmp_path: Path) -> None:
+    with pytest.raises(ContentMismatchError):
+        write_sequenced(tmp_path, STEM, "pdf", b"degismis", expected_sha256=sha256_bytes(b"veri"))
+
+    assert list(tmp_path.iterdir()) == []
+
+
+# --- K8 dışı adla çakışmasız yayın (Alinan kopyası, 07.7.2) ----------------------------------
+
+
+def test_write_unique_keeps_the_given_name(tmp_path: Path) -> None:
+    stored = write_unique(tmp_path / "Alinan", "Tarama 01 (скан).pdf", b"orijinal")
+
+    assert stored.path == tmp_path / "Alinan" / "Tarama 01 (скан).pdf"
+    assert (stored.sha256, stored.size, stored.sequence_no) == (sha256_bytes(b"orijinal"), 8, 1)
+    assert stored.path.read_bytes() == b"orijinal"
+
+
+@pytest.mark.parametrize(
+    ("name", "second", "third"),
+    [
+        ("tarama.pdf", "tarama-2.pdf", "tarama-3.pdf"),
+        ("arsiv.tar.gz", "arsiv.tar-2.gz", "arsiv.tar-3.gz"),
+        ("dosya-0", "dosya-0-2", "dosya-0-3"),
+    ],
+)
+def test_write_unique_suffixes_the_stem_when_name_is_taken(
+    tmp_path: Path, name: str, second: str, third: str
+) -> None:
+    stored = [write_unique(tmp_path, name, content) for content in (b"bir", b"iki", b"uc")]
+
+    assert [s.path.name for s in stored] == [name, second, third]
+    assert [s.sequence_no for s in stored] == [1, 2, 3]
+    assert [s.path.read_bytes() for s in stored] == [b"bir", b"iki", b"uc"]
+
+
+def test_write_unique_counts_other_case_as_taken_but_not_other_extension(tmp_path: Path) -> None:
+    (tmp_path / "TARAMA.PDF").write_bytes(b"eski")
+    (tmp_path / "tarama.jpg").write_bytes(b"baska uzanti")
+
+    stored = write_unique(tmp_path, "tarama.pdf", b"yeni")
+
+    assert stored.path.name == "tarama-2.pdf"
+    assert (tmp_path / "TARAMA.PDF").read_bytes() == b"eski"
+
+
+def test_write_unique_name_taken_after_directory_scan_is_not_overwritten(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    winner = tmp_path / "tarama.pdf"
+    winner.write_bytes(b"kazanan")
+    monkeypatch.setattr(atomic, "_names_in_use", lambda _directory: set())
+
+    stored = write_unique(tmp_path, "tarama.pdf", b"kaybeden")
+
+    assert stored.path.name == "tarama-2.pdf"
+    assert winner.read_bytes() == b"kazanan"
+
+
+def test_write_unique_with_unexpected_hash_publishes_nothing(tmp_path: Path) -> None:
+    with pytest.raises(ContentMismatchError):
+        write_unique(tmp_path, "tarama.pdf", b"degismis", expected_sha256=sha256_bytes(b"veri"))
+
+    assert list(tmp_path.iterdir()) == []
+
+
+@pytest.mark.parametrize("name", ["", ".", "..", "../x.pdf", "Alt/x.pdf", "Alt\\x.pdf"])
+def test_write_unique_rejects_names_that_are_not_one_path_segment(
+    tmp_path: Path, name: str
+) -> None:
+    with pytest.raises(ValueError):
+        write_unique(tmp_path, name, b"veri")
+
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_is_partial_write_matches_only_temporary_names() -> None:
+    assert is_partial_write(f".belgeee-{'0a' * 16}.part")
+    assert not is_partial_write("tarama.part")
+    assert not is_partial_write(f".belgeee-{'0a' * 16}.pdf")
 
 
 # --- yeniden üretilen türev dosyalar --------------------------------------------------------

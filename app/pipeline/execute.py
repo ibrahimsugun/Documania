@@ -6,13 +6,43 @@ Tek istisna K3'tür: `merge` Direkt Belge türünde çalışmaz (07.3.1) — pla
 tür Direkt Belge yapılmış olsa bile belge başka kaynaklardan kurulmaz.
 Ortak kural (K11): hiçbir işlem içeriği üretmez, kırpmaz ya da değiştirmez.
 
-Şimdilik `passthrough` (07.1.1), `extract` (07.2.1), `merge` (07.3.1), `wrap_image` (07.4.1),
-`extract_image` (07.5.1) ve `render_image` (07.6.1) uygulanır. Ortak çıktı yazma — köken kaydı,
-`documents` satırı, `OUTPUT_SAVED` olayı, `Alinan` kopyası (07.7.1) — sonraki görevdedir.
+İşlemler: `passthrough` (07.1.1), `extract` (07.2.1), `merge` (07.3.1), `wrap_image` (07.4.1),
+`extract_image` (07.5.1), `render_image` (07.6.1). `execute_<işlem>` işlevleri yalnız işlemin
+çekirdeğidir: verilen hedefe yazar, veritabanına ve olay logına dokunmaz.
+
+**Ortak çıktı yazma (07.7.1, 07.7.2; §20.5).** `execute_ready_item` planın tek `hazir` öğesini
+uygular:
+
+1. Öğenin çalışanı, belge türü ve kaynak dosyaları veritabanından bulunur; dosya planın partisinin
+   olmalıdır (`PlanItemReferenceError`). Inbox'taki her kaynağın SHA-256'sı yüklemede kaydedilenle
+   aynı olmalıdır (K10, `SourceIntegrityError`). İkisi de hiçbir şey yazılmadan reddeder.
+2. İşlem plandaki `operation`'dır, yeniden seçilmez; `merge`'ün Direkt Belge bekçisi türün güncel
+   `direct` bayrağıdır. Çıktı çalışanın `Hazir/` klasörüne planın `target_name`'iyle **atomik**
+   yazılır (00.4.4): gövde doluysa K8 sıra eki diskte seçilir (`-2`, `-3`; `write_sequenced`),
+   `extract_image` uzantıyı gerçek biçimden alır (§20.5). İşlem hatası olduğu gibi yükselir; hiçbir
+   çıktı, kopya, satır ya da olay kalmaz — kuyruğa çevirmek çağıranındır (08.1, 09.2).
+3. Çıktı yayınlandıktan sonra (belge çözüldü, K10) her kaynak dosya `sources` sırasıyla çalışanın
+   `Alinan/` klasörüne kopyalanır; aynı SHA-256 orada varsa tekrar kopyalanmaz (`copy_to_received`).
+   Aynı çalışana kopyalayan işlemler PostgreSQL'de çalışan başına işlem ömürlü advisory kilitle
+   sıraya girer; SQLite işlemi `BEGIN IMMEDIATE` ile yazma kilidini zaten tutar.
+4. `documents` satırı (`active`) yazılır: çalışan, tür, veri köküne göreli yol, gerçek biçim, sıra
+   numarası, plan kimliği ve köken — `source_refs_json` öğenin `sources`'udur (`file_id` ve 0
+   tabanlı `pages`; bütün dosyada `[]`), sırası korunur (K15, R13).
+5. İşlemin §8.3 olayı (`PAGE_EXTRACTED`, `PAGES_MERGED`, `IMAGE_WRAPPED`, `IMAGE_EXTRACTED`,
+   `IMAGE_RENDERED`; `passthrough`'un türü yok) ve `OUTPUT_SAVED` yazılır. İkisi de partinin,
+   ilk kaynağın dosyası ve ilk sayfasıyla, `document_id` ve `employee_id` sütunlarıyla; veri köken
+   bilgisidir — `item_id`, `plan_id`, `sources`; `OUTPUT_SAVED` ayrıca tür, işlem, biçim, sıra
+   numarası, çıktının SHA-256'sı ve kaynak başına Alinan sonucu (`file_id`, `copied`). Mesaj yok;
+   yol ve ad kişi adı taşıdığı için olaya girmez (CONVENTIONS §6).
+
+Oturum commit edilmez. Dosya sistemi işleme bağlı değildir: işlem geri alınırsa yayınlanan çıktı ve
+kopya diskte kalır. Aynı öğeyi ikinci kez uygulamamak (07.8.1) çağıranın işidir; bu işlev ikinci
+çağrıda `-2` ekli ikinci çıktı üretir.
 """
 
 from __future__ import annotations
 
+import zlib
 from collections.abc import Sequence
 from contextlib import ExitStack
 from dataclasses import dataclass
@@ -25,16 +55,35 @@ import pymupdf
 from PIL import Image
 from pypdf import PdfReader, PdfWriter
 from pypdf.errors import PyPdfError
+from sqlalchemy import func, select
+from sqlalchemy.orm import Session
 
+from app.db.models import (
+    Document,
+    DocumentStatus,
+    Employee,
+    KnownDocumentType,
+    Plan,
+    UploadFile,
+)
+from app.events import EventType, record_event
+from app.pipeline.plan import Operation, PlanItem, Route
 from app.pipeline.render import single_full_page_image_xref
 from app.storage import (
+    ContentMismatchError,
+    DataLayout,
     FileKind,
+    ReceivedCopy,
     StoredFile,
     UnsupportedFileTypeError,
     copy_file,
+    copy_to_received,
     detect_file_kind,
+    iter_file_chunks,
     sha256_file,
+    split_document_filename,
     write_file,
+    write_sequenced,
 )
 
 
@@ -117,6 +166,32 @@ class RenderImageSourceError(ValueError):
     """
 
 
+class PlanItemReferenceError(LookupError):
+    """07.7: `hazir` öğenin gösterdiği kayıt yok — çalışan (`employee.employee_id`), belge türü
+    (`document_type_slug`) ya da kaynak dosya (`sources[i].file_id`; planın partisinde değilse de).
+
+    Hiçbir kaynak okunmaz, hiçbir şey yazılmaz.
+    """
+
+
+class SourceIntegrityError(RuntimeError):
+    """07.7 (K10): Inbox'taki kaynak dosyanın SHA-256'sı yüklemede kaydedilenle
+    (`upload_files.sha256`) eşleşmiyor — orijinal değişmiş.
+
+    İşlem yürütülmez, hiçbir şey yazılmaz.
+    """
+
+
+@dataclass(frozen=True, slots=True)
+class ExecutedItem:
+    """`execute_ready_item` sonucu: çıktı belgesi satırı, yayınlanan çıktı ve kaynakların Alinan
+    kopyaları (`sources` sırasıyla)."""
+
+    document: Document
+    output: StoredFile
+    received: tuple[ReceivedCopy, ...]
+
+
 @dataclass(frozen=True, slots=True)
 class MergeSource:
     """merge'ün tek kaynağı: dosya ve ondan alınan sayfalar (`PlanSource.pages`).
@@ -136,7 +211,10 @@ def execute_passthrough(source: Path, destination: Path) -> StoredFile:
     SHA-256'sı kaynağınkine **eşit** olmalıdır; değilse `PassthroughIntegrityError`.
     """
     expected_sha256 = sha256_file(source)
-    stored = copy_file(source, destination)
+    return _verified_passthrough(copy_file(source, destination), expected_sha256)
+
+
+def _verified_passthrough(stored: StoredFile, expected_sha256: str) -> StoredFile:
     if stored.sha256 != expected_sha256:
         raise PassthroughIntegrityError(
             f"passthrough bütünlük hatası: kaynak {expected_sha256}, çıktı {stored.sha256}"
@@ -164,18 +242,21 @@ def execute_extract(source: Path, destination: Path, *, pages: Sequence[int]) ->
     olmalıdır; değilse `ExtractIntegrityError`. Hatada hedefe hiçbir şey yazılmaz. Geçen çıktı
     `write_file` ile atomik yayınlanır; hedef zaten varsa `FileExistsError` (üzerine yazma yok).
     """
+    return write_file(destination, _extract_output(source, pages))
+
+
+def _extract_output(source: Path, pages: Sequence[int]) -> bytes:
     selected = _page_selection(pages, subject="extract")
     content = source.read_bytes()
     # MuPDF JPEG/PNG baytlarını da tek sayfalık belge olarak açar; tür önce içerik imzasından.
     if _file_kind(content) is not FileKind.PDF:
         raise ExtractSourceError("extract kaynağı PDF değil")
-    output = _copy_pages(
+    return _copy_pages(
         [_PdfPages(content, selected)],
         operation="extract",
         source_error=ExtractSourceError,
         integrity_error=ExtractIntegrityError,
     )
-    return write_file(destination, output)
 
 
 def execute_merge(sources: Sequence[MergeSource], destination: Path, *, direct: bool) -> StoredFile:
@@ -206,6 +287,10 @@ def execute_merge(sources: Sequence[MergeSource], destination: Path, *, direct: 
     yazılmaz. Geçen çıktı `write_file` ile atomik yayınlanır; hedef zaten varsa `FileExistsError`
     (üzerine yazma yok).
     """
+    return write_file(destination, _merge_output(sources, direct=direct))
+
+
+def _merge_output(sources: Sequence[MergeSource], *, direct: bool) -> bytes:
     if direct:
         raise DirectDocumentMergeError(
             "merge Direkt Belge türünde yapılamaz (§20.4, K3): belge başka kaynaklardan kurulmaz"
@@ -224,13 +309,12 @@ def execute_merge(sources: Sequence[MergeSource], destination: Path, *, direct: 
         )
         for position, (source, selected) in enumerate(zip(sources, selections, strict=True))
     ]
-    output = _copy_pages(
+    return _copy_pages(
         pdf_pages,
         operation="merge",
         source_error=MergeSourceError,
         integrity_error=MergeIntegrityError,
     )
-    return write_file(destination, output)
 
 
 def execute_wrap_image(source: Path, destination: Path) -> StoredFile:
@@ -252,16 +336,19 @@ def execute_wrap_image(source: Path, destination: Path) -> StoredFile:
     Kaynak JPEG/PNG değilse de `WrapImageSourceError`. Hedef zaten varsa `write_file`'ın
     `FileExistsError`'ı (üzerine yazma yok).
     """
+    return write_file(destination, _wrap_image_output(source))
+
+
+def _wrap_image_output(source: Path) -> bytes:
     content = source.read_bytes()
     if _file_kind(content) not in (FileKind.JPEG, FileKind.PNG):
         raise WrapImageSourceError("wrap_image kaynağı JPEG ya da PNG değil")
     try:
-        output = _wrap_image_to_pdf(content)
+        return _wrap_image_to_pdf(content)
     except _IMAGE_WRAP_ERRORS as exc:
         raise WrapImageSourceError(
             f"wrap_image kaynağı görüntüsü kayıpsız PDF'e sarılamadı: {type(exc).__name__}"
         ) from exc
-    return write_file(destination, output)
 
 
 # img2pdf'in kayıpsız saramadığı görüntü için verdiği hatalar; ortak bir taban sınıfları yok.
@@ -316,6 +403,11 @@ def execute_extract_image(source: Path, destination: Path, *, page: int) -> Stor
     Kaynak PDF değilse, açılamıyorsa (bozuk, parola korumalı), sayfa kaynakta yoksa ya da MuPDF
     sayfayı veya görüntüyü okuyamıyorsa da `ExtractImageSourceError`.
     """
+    image, kind = _extract_image_output(source, page)
+    return write_file(destination.with_suffix(f".{kind.value}"), image)
+
+
+def _extract_image_output(source: Path, page: int) -> tuple[bytes, FileKind]:
     if page < 0:
         raise ValueError("extract_image sayfası 0 veya büyük olmalı")
     content = source.read_bytes()
@@ -331,12 +423,11 @@ def execute_extract_image(source: Path, destination: Path, *, page: int) -> Stor
                 f"kaynak {document.page_count} sayfa"
             )
         try:
-            image, kind = _extract_embedded_image(document, page)
+            return _extract_embedded_image(document, page)
         except pymupdf.mupdf.FzErrorBase as exc:
             raise ExtractImageSourceError(
                 f"extract_image sayfası {page} MuPDF ile okunamadı: {type(exc).__name__}"
             ) from exc
-    return write_file(destination.with_suffix(f".{kind.value}"), image)
 
 
 # `extract_image`'in `ext`'i → kabul edilen çıktı biçimi (D19). PDF'teki görüntü akışından PyMuPDF
@@ -422,6 +513,12 @@ def execute_render_image(
     `RenderImageSourceError`; hedefe hiçbir şey yazılmaz. Hedef zaten varsa `write_file`'ın
     `FileExistsError`'ı (üzerine yazma yok).
     """
+    return write_file(
+        destination, _render_image_output(source, page, dpi=dpi, jpeg_quality=jpeg_quality)
+    )
+
+
+def _render_image_output(source: Path, page: int, *, dpi: int, jpeg_quality: int) -> bytes:
     if page < 0:
         raise ValueError("render_image sayfası 0 veya büyük olmalı")
     content = source.read_bytes()
@@ -437,8 +534,207 @@ def execute_render_image(
                 f"kaynak {document.page_count} sayfa"
             )
         pixmap = document[page].get_pixmap(dpi=dpi, alpha=False)
-        image = pixmap.tobytes("jpeg", jpg_quality=jpeg_quality)
-    return write_file(destination, image)
+        return pixmap.tobytes("jpeg", jpg_quality=jpeg_quality)
+
+
+# §8.3: işlemin kendi olayı. `passthrough`'un olay türü yoktur; çıktısı yalnız `OUTPUT_SAVED` atar.
+_OPERATION_EVENTS: dict[Operation, EventType] = {
+    Operation.EXTRACT: EventType.PAGE_EXTRACTED,
+    Operation.MERGE: EventType.PAGES_MERGED,
+    Operation.WRAP_IMAGE: EventType.IMAGE_WRAPPED,
+    Operation.EXTRACT_IMAGE: EventType.IMAGE_EXTRACTED,
+    Operation.RENDER_IMAGE: EventType.IMAGE_RENDERED,
+}
+
+_RECEIVED_LOCK_NAMESPACE = "belgeee.employees.received"
+
+
+def execute_ready_item(
+    session: Session,
+    layout: DataLayout,
+    plan: Plan,
+    item: PlanItem,
+    *,
+    render_image_dpi: int,
+    render_image_jpeg_quality: int,
+) -> ExecutedItem:
+    """Planın `hazir` öğesini uygular: çıktıyı `Hazir/`'a atomik yazar, kökenini kaydeder ve
+    kaynakları `Alinan/`'a kopyalar (07.7.1, 07.7.2; §20.5). Sözleşmesi modül açıklamasındadır.
+
+    `item` `plan`'ın doğrulanmış (`read_plan`) öğesidir. `render_image_dpi` ve
+    `render_image_jpeg_quality` `render_image` işleminin yapılandırma değerleridir
+    (`Settings.render_image_dpi`, `Settings.render_image_jpeg_quality`).
+
+    `hazir` olmayan ya da türsüz öğe, tek kaynaklı işlemde (`merge` dışındakiler) birden çok kaynak
+    ve `extract_image`/`render_image`'da tek olmayan sayfa `ValueError`. Bunlarda, kayıt ve kaynak
+    hatalarında ve işlem hatalarında (`passthrough`'un bütünlük hatası dahil, yayından önce
+    denetlenir) hiçbir şey yazılmaz. Oturum commit edilmez.
+    """
+    operation, target_name = item.operation, item.target_name
+    if (
+        item.route is not Route.READY
+        or item.document_type_slug is None
+        or operation is None
+        or target_name is None
+        or item.employee.employee_id is None
+    ):
+        raise ValueError("Yalnız çalışanı, türü, işlemi ve hedefi olan hazir öğe uygulanır")
+    employee = session.get(Employee, item.employee.employee_id)
+    if employee is None:
+        raise PlanItemReferenceError(f"{item.item_id} öğesinin çalışanı kayıtlı değil")
+    document_type = session.get(KnownDocumentType, item.document_type_slug)
+    if document_type is None:
+        raise PlanItemReferenceError(f"{item.item_id} öğesinin belge türü katalogda yok")
+    sources = _item_sources(session, layout, plan, item)
+
+    _lock_received_copies(session, employee.id)
+    output = _write_ready_output(
+        operation,
+        target_name,
+        sources,
+        directory=layout.ready_dir(employee.folder_name),
+        direct=document_type.direct,
+        render_image_dpi=render_image_dpi,
+        render_image_jpeg_quality=render_image_jpeg_quality,
+    )
+    received = tuple(
+        copy_to_received(layout, employee.folder_name, source.path, sha256=source.sha256)
+        for source in sources
+    )
+
+    source_refs = [source.model_dump(mode="json") for source in item.sources]
+    output_format = output.path.suffix.removeprefix(".")
+    document = Document(
+        employee_id=employee.id,
+        type_slug=document_type.slug,
+        path=layout.relative(output.path),
+        format=output_format,
+        sequence_no=output.sequence_no,
+        plan_id=plan.id,
+        source_refs_json=source_refs,
+        status=DocumentStatus.ACTIVE.value,
+    )
+    session.add(document)
+    session.flush()
+
+    first = item.sources[0]
+    origin = {
+        "upload_id": plan.upload_id,
+        "file_id": first.file_id,
+        "page_index": first.pages[0] if first.pages else None,
+        "document_id": document.id,
+        "employee_id": employee.id,
+    }
+    provenance = {"item_id": item.item_id, "plan_id": plan.id, "sources": source_refs}
+    operation_event = _OPERATION_EVENTS.get(operation)
+    if operation_event is not None:
+        record_event(session, operation_event, **origin, data=provenance)
+    record_event(
+        session,
+        EventType.OUTPUT_SAVED,
+        **origin,
+        data={
+            **provenance,
+            "document_type_slug": document_type.slug,
+            "operation": operation.value,
+            "format": output_format,
+            "sequence_no": output.sequence_no,
+            "sha256": output.sha256,
+            "received": [
+                {"file_id": source.file_id, "copied": received_copy.copied}
+                for source, received_copy in zip(item.sources, received, strict=True)
+            ],
+        },
+    )
+    return ExecutedItem(document, output, received)
+
+
+@dataclass(frozen=True, slots=True)
+class _ItemSource:
+    """Öğenin doğrulanmış tek kaynağı: Inbox yolu, alınan sayfalar ve yüklemede kaydedilen hash."""
+
+    path: Path
+    pages: tuple[int, ...]
+    sha256: str
+
+
+def _item_sources(
+    session: Session, layout: DataLayout, plan: Plan, item: PlanItem
+) -> list[_ItemSource]:
+    files: list[UploadFile] = []
+    for position, source in enumerate(item.sources):
+        upload_file = session.get(UploadFile, source.file_id)
+        if upload_file is None or upload_file.upload_id != plan.upload_id:
+            raise PlanItemReferenceError(
+                f"{item.item_id} öğesinin sources[{position}] dosyası planın partisinde yok"
+            )
+        files.append(upload_file)
+    sources: list[_ItemSource] = []
+    for position, (source, upload_file) in enumerate(zip(item.sources, files, strict=True)):
+        path = layout.resolve(upload_file.stored_path)
+        if sha256_file(path) != upload_file.sha256:
+            raise SourceIntegrityError(
+                f"{item.item_id} öğesinin sources[{position}] kaynağı yüklemede kaydedilen "
+                "SHA-256'yı taşımıyor (K10)"
+            )
+        sources.append(_ItemSource(path, source.pages, upload_file.sha256))
+    return sources
+
+
+def _lock_received_copies(session: Session, employee_id: str) -> None:
+    # `copy_to_received`'ın hash taraması ile yayını arasına aynı çalışana kopyalayan başka işlem
+    # girmesin. SQLite işlemi `BEGIN IMMEDIATE` ile yazma kilidini zaten baştan tutar.
+    if session.get_bind().dialect.name == "postgresql":
+        key = zlib.crc32(f"{_RECEIVED_LOCK_NAMESPACE}.{employee_id}".encode())
+        session.execute(select(func.pg_advisory_xact_lock(key)))
+
+
+def _write_ready_output(
+    operation: Operation,
+    target_name: str,
+    sources: Sequence[_ItemSource],
+    *,
+    directory: Path,
+    direct: bool,
+    render_image_dpi: int,
+    render_image_jpeg_quality: int,
+) -> StoredFile:
+    """İşlemi yürütür, çıktıyı `directory`'ye planın adıyla ve K8 sıra ekiyle atomik yayınlar."""
+    stem, extension = split_document_filename(target_name)
+    if operation is Operation.MERGE:
+        merged = _merge_output(
+            [MergeSource(source.path, source.pages) for source in sources], direct=direct
+        )
+        return write_sequenced(directory, stem, extension, merged)
+    if len(sources) != 1:
+        raise ValueError(f"{operation.value} tek kaynak ister: {len(sources)} kaynak")
+    (source,) = sources
+    if operation is Operation.PASSTHROUGH:
+        try:
+            return write_sequenced(
+                directory,
+                stem,
+                extension,
+                iter_file_chunks(source.path),
+                expected_sha256=source.sha256,
+            )
+        except ContentMismatchError as exc:
+            raise PassthroughIntegrityError(f"passthrough bütünlük hatası: {exc}") from exc
+    if operation is Operation.EXTRACT:
+        extracted = _extract_output(source.path, source.pages)
+        return write_sequenced(directory, stem, extension, extracted)
+    if operation is Operation.WRAP_IMAGE:
+        return write_sequenced(directory, stem, extension, _wrap_image_output(source.path))
+    if len(source.pages) != 1:
+        raise ValueError(f"{operation.value} tek sayfa ister: {len(source.pages)} sayfa")
+    (page,) = source.pages
+    if operation is Operation.EXTRACT_IMAGE:
+        image, kind = _extract_image_output(source.path, page)
+        return write_sequenced(directory, stem, kind.value, image)
+    rendered = _render_image_output(
+        source.path, page, dpi=render_image_dpi, jpeg_quality=render_image_jpeg_quality
+    )
+    return write_sequenced(directory, stem, extension, rendered)
 
 
 @dataclass(frozen=True, slots=True)

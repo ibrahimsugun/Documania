@@ -8,7 +8,7 @@
 
 | Faz | PRD | Genel durum | Must sayacı | Kapanış |
 | --- | --- | --- | --- | --- |
-| Faz 0 — MVP | §5.1 | 83 ✅ · 0 ◐ · 19 ⬜ · 0 🔒 | 80/98 Must | AÇIK |
+| Faz 0 — MVP | §5.1 | 85 ✅ · 0 ◐ · 17 ⬜ · 0 🔒 | 82/98 Must | AÇIK |
 | Faz 1 — v1 | §5.2 | 0 ✅ · 0 ◐ · 0 ⬜ · 32 🔒 | 0/21 Must | AÇIK |
 | Faz 2 — v2 | §5.3 | 0 ✅ · 0 ◐ · 0 ⬜ · 13 🔒 | 0/0 Must | AÇIK |
 | Faz 3 — Enterprise | §5.4 | 0 ✅ · 0 ◐ · 0 ⬜ · 8 🔒 | 0/0 Must | AÇIK |
@@ -188,8 +188,8 @@ panelde `plan-count-drift` bulgusu doğurur.
 | 07.4.1 | wrap_image | Must (MVP) | ✅ → K07.4 |
 | 07.5.1 | extract_image | Must (MVP) | ✅ → K07.5 |
 | 07.6.1 | render_image | Must (MVP) | ✅ → K07.6 |
-| 07.7.1 | Çıktı yazma ve köken (R13) | Must (MVP) | ⬜ |
-| 07.7.2 | Alinan kopyası | Must (MVP) | ⬜ |
+| 07.7.1 | Çıktı yazma ve köken (R13) | Must (MVP) | ✅ → K07.7 |
+| 07.7.2 | Alinan kopyası | Must (MVP) | ✅ → K07.7 |
 | 07.8.1 | İdempotenlik | Must (MVP) | ⬜ |
 
 ### 3.9 FR-MOD-08 — Kuyruklar ve çözüm
@@ -1159,6 +1159,44 @@ Onay beklemeden yapılan varsayımlar buraya numaralı olarak yazılır.
   olmayan sayfa, MuPDF'in sayfayı ya da görüntüyü okuyamaması (`FzErrorBase`), JPEG/PNG dışı `ext`, 8 bitten
   derin örnek; sahip parolalı PDF çıkarılır. **Doğrulama** yayından önce bellekte, ölçütleri §D19. Hatada hedefe
   yazma yok; hedef varsa `FileExistsError`. DB, olay logu, hedef yolu ve `Alinan` kopyası 07.7'nin.
+- **C39** — Çıktı yazma, köken kaydı ve Alinan kopyası (tm 52, 07.7.1, 07.7.2): §20.5 "tüm işlemler çıktıyı atomik
+  yazar; `documents` kaydına kaynak dosya kimliği ve sayfa aralığı (`source_refs_json`) işlenir; `OUTPUT_SAVED` bu
+  köken bilgisiyle loglanır" ve 07.7.2 "kaynak `Alinan/`'a kopyalanır; aynı hash tekrar kopyalanmaz" der; işlevin
+  girdisi, `source_refs_json` biçimi, sıra ekinin nasıl seçileceği, Alinan kopyasının adı ve tekilliğin kapsamı,
+  işlem olayları, olay verisi ve hata davranışı yazılı değil. `execute_ready_item(session, layout, plan, item, *,
+  render_image_dpi, render_image_jpeg_quality)` (`app/pipeline/execute.py`) tek `hazir` öğeyi uygular; plan
+  düzeyindeki `PlanExecutor` (idempotenlik 07.8.1, kuyruk 08.1, bağlama 09.2) bu görevde kurulmadı. **Girdi:**
+  `hazir` olmayan, türsüz, işlemsiz ya da hedefsiz öğe `ValueError`; çalışan (`employees`), tür
+  (`known_document_types` — `merge`'ün `direct` bekçisi güncel satırın bayrağı) ya da kaynak dosya yoksa veya dosya
+  planın partisinde değilse `PlanItemReferenceError` (kaynak okunmadan). **K10 kaynak doğrulaması:** Inbox'taki her
+  kaynağın SHA-256'sı `upload_files.sha256` ile aynı olmalı, değilse `SourceIntegrityError` — köken ve Alinan
+  tekilliği bu hash'e dayanır. **Çıktı:** `layout.ready_dir(folder_name)` altına `write_sequenced` ile — plan
+  `target_name`'i gövde + uzantıya ayrılır (`split_document_filename`), gövde doluysa K8 eki diskte (`-2`),
+  `extract_image` uzantıyı gerçek biçimden alır (`.png`); `execute_<işlem>` çekirdekleri bayt üreten iç işlevlere
+  ayrıldı, dışa açık imzaları değişmedi. `passthrough` içeriği yayından önce kaynak hash'iyle karşılaştırılır
+  (`write_sequenced(expected_sha256=…)`, tutmazsa `PassthroughIntegrityError`, yayın yok). Tek kaynaklı işlemde
+  (`merge` dışı) birden çok kaynak, `extract_image`/`render_image`'da tek olmayan sayfa `ValueError`. İşlem hataları
+  olduğu gibi yükselir; bunlarda ve yukarıdaki retlerde çıktı, kopya, satır ve olay yazılmaz (kuyruğa çevirmek
+  08.1/09.2'nin). **Alinan:** çıktı yayınlandıktan sonra (belge çözüldü) her kaynak `sources` sırasıyla
+  `copy_to_received` (`app/storage/received.py`) ile çalışanın `Alinan/`'ına; ad Inbox'taki addır (`upload_files`
+  satırındaki `stored_path`'in son parçası, orijinal ad), dolu ve içerik başkaysa `ad-2.uzantı` (`write_unique`,
+  harf büyüklüğüne duyarsız, üzerine yazma yok). **Tekillik** çalışan klasöründe diskten: aynı boydaki
+  dosyalardan biri aynı SHA-256'yı taşıyorsa (adı ne olursa olsun, başka partiden de) kopyalanmaz; geçici `.part`
+  dosyaları sayılmaz; kopya yayından önce beklenen hash'le doğrulanır (`ContentMismatchError`). Aynı dosyadan
+  iki çalışanın belgesi çıkarsa her çalışana ayrı kopya. Tarama ile yayın arası: PostgreSQL'de çalışan başına
+  işlem ömürlü advisory kilit (`pg_advisory_xact_lock`), SQLite'ta `BEGIN IMMEDIATE`. **`documents`:**
+  `employee_id`, `type_slug`, `path` veri köküne göreli POSIX (`DataLayout.relative`, `resolve`'un tersi),
+  `format` yayınlanan dosyanın uzantısı, `sequence_no`, `plan_id`, `status: active`, `source_refs_json` öğenin
+  `sources`'u olduğu gibi — `[{"file_id", "pages"}]`, 0 tabanlı sayfalar, bütün dosyada `[]`, sıra plan
+  sırası. `employee_identifiers.source_document_id` geriye doldurulmadı (C28'in boş bıraktığı alan; hangi numaranın
+  hangi çıktıdan geldiği bu katmanda bilinmez). **Olaylar:** işlemin §8.3 türü (`PAGE_EXTRACTED`, `PAGES_MERGED`,
+  `IMAGE_WRAPPED`, `IMAGE_EXTRACTED`, `IMAGE_RENDERED`; `passthrough`'un türü yok) sonra `OUTPUT_SAVED`; ikisi de
+  `upload_id`, ilk kaynağın `file_id`'si ve ilk sayfası (bütün dosyada boş), `document_id`, `employee_id`
+  sütunlarıyla, mesajsız. Veri `item_id`, `plan_id`, `sources`; `OUTPUT_SAVED` ayrıca `document_type_slug`,
+  `operation`, `format`, `sequence_no`, `sha256` (çıktı) ve `received` (`file_id`, `copied`) — §8.3'te Alinan
+  kopyası için tür olmadığından sonucu buraya girer. Yol, hedef adı ve klasör adı kişi adı taşıdığı için olaya
+  girmez. `render_image` DPI/kalitesi çağırandan (`Settings.render_image_*`). Commit yok; dosya sistemi işleme
+  bağlı değil. İkinci çağrı `-2` ekli ikinci çıktı üretir — "ikinci dosya üretilmez" 07.8.1'in.
 
 ## D. Sapmalar
 
@@ -1657,3 +1695,8 @@ var olan maddeler silinmez. Biçim:
 
 #### K07.6 — 07.6.1 · render_image işlemi
 - ✅ `execute_render_image(source, destination, *, page, dpi, jpeg_quality)` (`app/pipeline/execute.py`) gömülü tek görüntü yoksa son çare: `document[page].get_pixmap(dpi=dpi, alpha=False)` ile sayfayı sabit çözünürlükte rasterleştirir, `pixmap.tobytes("jpeg", jpg_quality=jpeg_quality)` ile kayıplı JPEG yazar (§20.5, kabul kriteri). `dpi`/`jpeg_quality` planlayıcı gibi çağırana bırakılan yapılandırma değeridir — görevde sabit yazılmaz; `Settings.render_image_dpi`/`render_image_jpeg_quality` (varsayılan 200/90, `RENDER_IMAGE_DPI`/`RENDER_IMAGE_JPEG_QUALITY`) analiz önbelleğinin (`page_render_*`, 02.1.1) ayarından bağımsız yeni alanlardır (bkz. PLAN.md §C10). Kaynak PDF değilse, açılamıyorsa (bozuk, sahip parolalı açılır ama kullanıcı parolalı `parola korumalı` reddedilir) ya da sayfa kaynakta yoksa `RenderImageSourceError`, hedefe hiçbir şey yazılmaz; negatif sayfa `ValueError`; hedef varsa `write_file`'ın `FileExistsError`'ı. Dosya çok sayfalı olabilir (S3/S4), yalnız planlanan sayfa okunur — iki farklı geometrili sayfa içeren sentetik PDF ile sayfa seçiminin karıştırılmadığı kanıtlandı; DPI/kalite ayarının pikselde ve dosya boyutunda etkisi bağımsız `page.get_pixmap`/dosya boyutu karşılaştırmasıyla doğrulandı. Plan → uygulayıcı: JPEG çıktılı türde gömülü görüntüsü olmayan (02.5.1 işaretsiz) sayfanın `render_image` öğesi planın sayfasını rasterleştirir (`test_planned_render_image_item_yields_a_raster_of_the_planned_page`). `execute.py` satır+dal kapsamı %100 — `app/pipeline/execute.py` · `app/config.py` (`render_image_dpi`, `render_image_jpeg_quality`) · `.env.example` · test `tests/pipeline/test_execute.py` (125, +16) · tm 51
+
+#### K07.7 — 07.7.1, 07.7.2 · Çıktı yazma, köken kaydı ve Alinan kopyası
+- ✅ `execute_ready_item(session, layout, plan, item, *, render_image_dpi, render_image_jpeg_quality)` (`app/pipeline/execute.py`) `hazir` öğenin işlemini plandaki `operation`'la yürütür, çıktıyı çalışanın `Hazir/`'ına `write_sequenced` ile atomik ve K8 sıra ekiyle yazar (`extract_image` gerçek uzantı), `documents` satırına `source_refs_json` = öğenin `sources`'u (`file_id`, 0 tabanlı `pages`) işler, işlem olayı + `OUTPUT_SAVED` (köken verisi, kişisel değer yok) yazar; Inbox kaynağının hash'i `upload_files.sha256` ile doğrulanır (K10), ret ve işlem hatasında hiçbir şey yazılmaz — test `tests/pipeline/test_execute_output.py` (24; S5 merge, passthrough, extract `-2`, extract_image/render_image, wrap_image, gömülü PNG `-2.png`, Word eki `pages: []`) · tm 52
+- ✅ Alinan kopyası `copy_to_received` (`app/storage/received.py`): Inbox adıyla, dolu adda `ad-2.uzantı` (`write_unique`, `app/storage/atomic.py`); aynı SHA-256 çalışan klasöründe varsa (başka ad/parti dahil) kopyalanmaz, kopya yayından önce hash'le doğrulanır; çalışan başına ayrı kopya, PostgreSQL'de çalışan başına advisory kilit — test `tests/storage/test_received.py` (8), `tests/storage/test_atomic.py` (+16), `tests/storage/test_layout.py` (+4, `DataLayout.relative`), `tests/storage/test_naming.py` (+6, `split_document_filename`) · tm 52
+- ✅ Kapı: 2007 geçti (+58; 4 PG testi atlandı), kapsam %99 (`execute.py`, `received.py`, `layout.py`, `naming.py` %100); 12 kural bozulması (Alinan tekilliği, köken sırası, K10 hash denetimi, PNG uzantısı, advisory kilit koşulu, işlem olayı, beklenen hash, dosyanın partisi, passthrough yayın öncesi hash, `direct` bayrağı, Alinan kopyası, olay sayfası) her biri testte kırmızı · tm 52

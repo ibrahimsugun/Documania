@@ -188,3 +188,21 @@ def test_resolve_relative_stored_path(tmp_path: Path) -> None:
 def test_resolve_rejects_paths_outside_data_root(tmp_path: Path, relative: str) -> None:
     with pytest.raises(ValueError, match="göreli yol"):
         DataLayout(tmp_path).resolve(relative)
+
+
+def test_relative_is_the_inverse_of_resolve(tmp_path: Path) -> None:
+    layout = DataLayout(tmp_path)
+    output = layout.ready_dir("Ahmet_Cakar_E0001") / "Ahmet_Cakar-Passport-2.pdf"
+
+    relative = layout.relative(output)
+
+    assert relative == "Employees/Ahmet_Cakar_E0001/Hazir/Ahmet_Cakar-Passport-2.pdf"
+    assert layout.resolve(relative) == output
+
+
+@pytest.mark.parametrize("outside", ["..", "../Inbox/a.pdf", "."])
+def test_relative_rejects_paths_outside_or_at_data_root(tmp_path: Path, outside: str) -> None:
+    layout = DataLayout(tmp_path / "data")
+
+    with pytest.raises(ValueError):
+        layout.relative(layout.root / outside)

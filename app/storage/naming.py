@@ -66,3 +66,14 @@ def sequenced_stem(stem: str, sequence_no: int) -> str:
 def sequenced_filename(stem: str, sequence_no: int, extension: str) -> str:
     """`Ad_Soyad-Passport.pdf`, `Ad_Soyad-Passport-2.pdf`…"""
     return f"{sequenced_stem(stem, sequence_no)}.{normalize_extension(extension)}"
+
+
+def split_document_filename(name: str) -> tuple[str, str]:
+    """Sıra eksiz K8 adını gövde ve uzantıya ayırır: `Ad_Soyad-Passport.pdf → (…-Passport, pdf)`.
+
+    Planın `target_name`'idir; gövde ya da uzantı K8 kalıbına uymuyorsa `ValueError`.
+    """
+    stem, dot, extension = name.rpartition(".")
+    if not dot:
+        raise ValueError(f"Dosya adında uzantı yok: {name!r}")
+    return sequenced_stem(stem, 1), normalize_extension(extension)

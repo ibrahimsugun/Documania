@@ -180,6 +180,16 @@ class DataLayout:
             raise ValueError(f"Geçersiz göreli yol: {relative_path!r}")
         return path
 
+    def relative(self, path: Path) -> str:
+        """Veri kökü altındaki yolu veritabanında saklanan göreli biçime çevirir (`resolve`'un
+        tersi).
+
+        Kökün dışındaki ya da kökün kendisi olan yol `ValueError`; dönen değer `resolve`'dan geçer.
+        """
+        relative_path = Path(path).relative_to(self.root).as_posix()
+        self.resolve(relative_path)
+        return relative_path
+
 
 def prepare_data_dir(root: Path) -> DataLayout:
     """Uygulama açılışı: §8.2 ağacını kurar, öldürülmüş yazmalardan kalanları temizler."""

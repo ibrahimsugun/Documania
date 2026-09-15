@@ -10,6 +10,7 @@ from app.storage.naming import (
     person_slug,
     sequenced_filename,
     sequenced_stem,
+    split_document_filename,
 )
 
 
@@ -70,3 +71,29 @@ def test_extension_normalized() -> None:
 def test_invalid_extension_rejected(extension: str) -> None:
     with pytest.raises(ValueError, match="uzantısı"):
         normalize_extension(extension)
+
+
+def test_planned_target_name_splits_into_stem_and_extension() -> None:
+    assert split_document_filename("Ahmet_Cakar-Residence-Card.pdf") == (
+        "Ahmet_Cakar-Residence-Card",
+        "pdf",
+    )
+    assert split_document_filename("Ahmet_Cakar-Profile-Picture.jpeg") == (
+        "Ahmet_Cakar-Profile-Picture",
+        "jpeg",
+    )
+
+
+@pytest.mark.parametrize(
+    ("name", "message"),
+    [
+        ("Ahmet_Cakar-Passport", "uzantı yok"),
+        ("../Ahmet_Cakar-Passport.pdf", "gövdesi"),
+        ("Ahmet Cakar-Passport.pdf", "gövdesi"),
+        (".pdf", "gövdesi"),
+        ("Ahmet_Cakar-Passport.p/df", "uzantısı"),
+    ],
+)
+def test_invalid_target_name_rejected(name: str, message: str) -> None:
+    with pytest.raises(ValueError, match=message):
+        split_document_filename(name)
