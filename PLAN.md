@@ -8,7 +8,7 @@
 
 | Faz | PRD | Genel durum | Must sayacı | Kapanış |
 | --- | --- | --- | --- | --- |
-| Faz 0 — MVP | §5.1 | 78 ✅ · 0 ◐ · 24 ⬜ · 0 🔒 | 75/98 Must | AÇIK |
+| Faz 0 — MVP | §5.1 | 79 ✅ · 0 ◐ · 23 ⬜ · 0 🔒 | 76/98 Must | AÇIK |
 | Faz 1 — v1 | §5.2 | 0 ✅ · 0 ◐ · 0 ⬜ · 32 🔒 | 0/21 Must | AÇIK |
 | Faz 2 — v2 | §5.3 | 0 ✅ · 0 ◐ · 0 ⬜ · 13 🔒 | 0/0 Must | AÇIK |
 | Faz 3 — Enterprise | §5.4 | 0 ✅ · 0 ◐ · 0 ⬜ · 8 🔒 | 0/0 Must | AÇIK |
@@ -183,7 +183,7 @@ panelde `plan-count-drift` bulgusu doğurur.
 | PRD | Gereksinim | Öncelik | Durum |
 | --- | --- | --- | --- |
 | 07.1.1 | passthrough | Must (MVP) | ✅ → K07.1 |
-| 07.2.1 | extract | Must (MVP) | ⬜ |
+| 07.2.1 | extract | Must (MVP) | ✅ → K07.2 |
 | 07.3.1 | merge | Must (MVP) | ⬜ |
 | 07.4.1 | wrap_image | Must (MVP) | ⬜ |
 | 07.5.1 | extract_image | Must (MVP) | ⬜ |
@@ -1104,6 +1104,21 @@ Onay beklemeden yapılan varsayımlar buraya numaralı olarak yazılır.
   başarıda commit; bilinmeyen parti 404, plan yok ya da değişmiş 409. `get_plan_executor` uygulayıcı bağlanana
   kadar 503 verir — iki uç nokta bugün çalışan uygulamada planı uygulamaz. Parti durumu değişmez (09.2.1).
   SQLite'ta yeniden analiz yapay zekâ çağrıları boyunca yazma kilidini tutar (C4); arka plan işleyişi 09.2/13.3'ün.
+- **C36** — extract işlemi (tm 47, 07.2.1): §20.5 yöntemi (`writer.add_page(reader.pages[i])`), yasakları ve
+  doğrulamayı (sayfa sayısı + sayfa başına metin katmanı birebir) yazar; işlevin girdisi, sayfa dizininin tabanı,
+  hangi metin çıkarıcıyla karşılaştırılacağı, doğrulamanın yayından önce mi sonra mı yapılacağı ve okunamayan
+  kaynak yazılı değil. `execute_extract(source, destination, *, pages)` (`app/pipeline/execute.py`): `pages`
+  `PlanSource.pages`'tir — 0 tabanlı `pages.index`, artan ve tekrarsız (boş, negatif, azalan ya da tekrarlı
+  `ValueError`); verilen sırayla alınır, yeniden sıralanmaz; bitişik olması istenmez (aradaki boş sayfa, C31).
+  **Metin katmanı** MuPDF `page.get_text()`'in ham çıktısıdır (02.2.1'in çıkarıcısı, boşluk normalleştirmesi
+  olmadan — daha katı). **Doğrulama çıktı yayınlanmadan bellekte** yapılır; geçmeyen çıktı (`ExtractIntegrityError`)
+  hedefe hiç yazılmaz, geçen `write_file` ile atomik yayınlanır, hedef varsa `FileExistsError`. **Kaynak**
+  içerik imzası PDF değilse, MuPDF açamıyor ya da parola istiyorsa, pypdf okuyamıyorsa, istenen sayfa yoksa ya
+  da iki okuyucu sayfa sayısında anlaşamıyorsa `ExtractSourceError` — sayfa dizinleri MuPDF'ten (render) gelir,
+  bozuk PDF'i pypdf farklı onarırsa dizin başka sayfayı gösterebilir, tahmin edilmez. Yalnız sahip parolalı
+  (boş kullanıcı parolalı) PDF iki okuyucuda da açılır ve çıkarılır; çıktı şifrelenmez (içerik değişmez).
+  Sayfa boyutu, `/Rotate` ve sayfa ağacından kalıtılan özellikler pypdf'in sayfa nesnesine taşınır. Hatanın
+  kuyruğa/olaya çevrilmesi 07.7/09.2'nin; bu görev DB'ye ve olay logına dokunmaz.
 
 ## D. Sapmalar
 
@@ -1547,3 +1562,6 @@ var olan maddeler silinmez. Biçim:
 
 #### K07.1 — 07.1.1 · passthrough işlemi
 - ✅ `execute_passthrough(source, destination)` (`app/pipeline/execute.py`) kaynağı `copy_file` ile bayt bayt, atomik olarak hedefe kopyalar (yeniden yazma/yeniden kodlama yok, K10/K11); yayınlanan dosyanın SHA-256'sı kopyadan önce hesaplanan kaynak hash'iyle karşılaştırılır, eşleşmezse `PassthroughIntegrityError` — hedef zaten varsa `copy_file`'ın `FileExistsError`'ı olduğu gibi yükselir (üzerine yazma yok). Yalnız işlemin çekirdeği: çıktı yazma, köken kaydı, `documents`/`OUTPUT_SAVED` ve `Alinan` kopyası 07.7'nindir; işlem seçimi ve izinleri planlayıcının (06.2–06.4), bu görev planı yeniden sormaz. `execute.py` satır+dal kapsamı %100 — `app/pipeline/execute.py` · test `tests/pipeline/test_execute.py` (4) · tm 46
+
+#### K07.2 — 07.2.1 · extract işlemi
+- ✅ `execute_extract(source, destination, *, pages)` (`app/pipeline/execute.py`) kaynak PDF'in `PlanSource.pages` sayfalarını pypdf sayfa nesnesi kopyasıyla (`writer.add_page(reader.pages[i])`, `compress_content_streams` yok) yeni PDF'e çıkarır; sayfa render edilmez, içerik akışı ve gömülü görüntü baytları, boyut, `/Rotate` ve sayfa ağacından kalıtılan özellikler aynen taşınır (K3/K11). Doğrulama yayından önce bellekte: çıktı sayfa sayısı `len(pages)` ve her sayfanın MuPDF metin katmanı kaynağındakiyle birebir aynı, değilse `ExtractIntegrityError` ve hedefe yazma yok; geçen çıktı `write_file` ile atomik, üzerine yazma yok. PDF olmayan/bozuk/parolalı kaynak, olmayan sayfa ve okuyucular arası sayfa sayısı farkı `ExtractSourceError`, geçersiz sayfa seçimi `ValueError` (C36). S7 işlem katmanında: 4 sayfalık sentetik PDF'in pasaport sayfası tek sayfa çıkarılır — metin katmanı eşit, içerik akışı ve JPEG ham baytları kaynağınkiyle aynı (render yok); uçtan uca S7 09.3-c'nin. `execute.py` satır+dal kapsamı %100; 11 kural bozulması (sıkıştırma, yeniden sıralama, döndürmeyi içeriğe aktarma, metin/sayfa sayısı/okuyucu uyumu/aralık/tür/negatif/sıra denetimini kaldırma, doğrulamadan önce yayın) geçici olarak denendi, her biri testte kırmızı — `app/pipeline/execute.py` · test `tests/pipeline/test_execute.py` (31, +27) · tm 47

@@ -18,6 +18,12 @@ Blok biçimi `CONVENTIONS.md` §3'te tanımlıdır:
 
 ## Task log (newest-first)
 
+## 47 — 07.2 extract işlemi — done — 2026-09-15
+- Yapıldı: `app/pipeline/execute.py` — `execute_extract(source, destination, *, pages)` kaynak PDF'in plan sayfalarını pypdf sayfa nesnesi kopyasıyla (render/sıkıştırma/döndürme yok) yeni PDF'e çıkarır; çıktının sayfa sayısı ve sayfa başına MuPDF metin katmanı yayından önce bellekte doğrulanır (`ExtractIntegrityError`), okunamayan kaynak/olmayan sayfa `ExtractSourceError`, geçersiz seçim `ValueError`; hatada hedefe hiçbir şey yazılmaz.
+- Doğrulama: ruff check/format, compileall, `pytest -q -m "not live" --cov=app --cov-fail-under=70` (1855 geçti, +27; 4 PG testi atlandı), kapsam %99.73 (`execute.py` satır+dal %100), temiz SQLite'ta `alembic upgrade head` (0001→0002), `import app.main` — hepsi exit 0; 11 kural bozulması geçici olarak denendi, her biri testte kırmızı.
+- Varsayımlar: PLAN.md §C36 — `pages` 0 tabanlı, artan, tekrarsız ve verilen sırayla; metin katmanı ham `get_text()`; MuPDF ile pypdf kaynağın sayfa sayısında anlaşmazsa Unresolved'a götürecek hata (tahmin yok); sahip parolalı PDF çıkarılır. DB/olay logu/`Alinan` 07.7'nin.
+- Sonraki pencereye not: 07.3 `merge` aynı yöntemi birden çok kaynakla kullanmalı — `_open_source`/`_read_source`/`_verify_extract` kaynak başına yeniden kullanılabilir; 07.7 `PlanSource.pages`'i doğrudan `pages=`'e verebilir, `ExtractSourceError`'ı kuyruğa çevirmek onun işi.
+
 ## 46 — 07.1 passthrough işlemi — done — 2026-09-15
 - Yapıldı: `app/pipeline/execute.py` — `execute_passthrough(source, destination)` kaynağı `copy_file` ile bayt bayt, atomik olarak kopyalar; yayınlanan dosyanın SHA-256'sı kopyadan önceki kaynak hash'iyle karşılaştırılır, eşleşmezse `PassthroughIntegrityError`.
 - Doğrulama: ruff check/format, compileall, `pytest -q -m "not live" --cov=app --cov-fail-under=70` (1828 geçti, +4), kapsam %99.73 (`execute.py` %100), temiz SQLite'ta `alembic upgrade head` (0001→0002), `import app.main` — hepsi exit 0.
