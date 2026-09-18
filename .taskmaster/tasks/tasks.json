@@ -752,13 +752,13 @@
         "description": "PRD 07.8.1 · FR-MOD-07 (Uygulayıcı) · Faz 0.",
         "details": "KAPSAM: PRD 07.8.1 (FR-MOD-07 — Uygulayıcı, Faz 0).\n\nNE YAPILACAK — GEREKSİNİMLER VE KABUL KRİTERLERİ:\n- 07.8.1 — İdempotenlik\n  Kabul: Aynı plan ikinci kez uygulanınca ikinci dosya üretilmez\n\nGİRDİ — ÜZERİNE KURULDUĞU İŞLER (bu kod ZATEN VAR; yazmadan önce OKU):\n- 07.7 (Çıktı yazma, köken kaydı ve Alinan kopyası) → app/pipeline/execute.py, app/storage/\n\nÇIKTI — DOKUNULACAK YÜZEY: app/pipeline/execute.py\n\nKARAR TABLOSU: bu görev için ayrı karar tablosu yok; kabul kriterleri ve kilitli kurallar yeterli.\n\nBU GÖREVİ BAĞLAYAN KİLİTLİ KURALLAR (MASTER-PROMPT §3 — tartışma, uygula):\n- K9: Yapay zekâ analizi Plan JSON olarak dondurulur; uygulayıcı planı yapay zekâya tekrar sormadan yürütür.\n\nPRD'DE AYRICA OKU: yalnız yukarıdaki gereksinim satırları yeterli.\n\nİLGİLİ KABUL SENARYOLARI (PRD §9) — bu görevin gerçek sınavı: S18. Senaryo metnini PRD §9 tablosundan oku; testin bu davranışı doğrulamalı.\n\nSIRA (MASTER-PROMPT §5, contract-first): sözleşme/şema → Alembic göçü (gerekiyorsa) → çekirdek + unit test → entegrasyon + testi → arayüz.\n\nKAPSAM SINIRI: yalnız yukarıdaki PRD kimlikleri. Başka gereksinimin işini yapma; yolda gördüğün kusuru düzeltme, yeni görev olarak aç (CONVENTIONS §5). Kilitli teknik kararları (MASTER-PROMPT §4) tartışma; yanlış görünüyorsa uygula ve PLAN.md §D'ye sapma yaz.\n\nTUZAKLAR: belge içeriğini değiştiren kod yazma — kırpma, döndürme (EXIF dışında), kontrast, metin yazma, form doldurma yok (K11/K17). Gerçek kimlik belgesi kullanma; test verisi tests/fixtures/gen.py ile üretilen sentetik belgelerdir (CONVENTIONS §6). Yapay zekâ çağrısı testte canlı yapılmaz, kayıtlı yanıt sağlayıcısı kullanılır. Test/build komutlarını arka plana atma — pencere ölür.\n\nKAPANIŞ: PLAN.md'de 07.8.1 satırlarının damgasını '✅ → K07.8' yap ve '## K. Kanıt Geçmişi' bölümünde '#### K07.8' bloğuna kanıt maddesi ekle (blok yoksa aç). Faz özet tablosundaki sayıları SAYARAK güncelle. Ayrıntı: CONVENTIONS §1.2-1.3.",
         "testStrategy": "CONVENTIONS §1 DoD kapısı: ruff check . · ruff format --check . · python -m compileall -q app tests · pytest -q -m \"not live\" · alembic upgrade head · python -c \"import app.main\" — hepsi exit 0.\nAyrıca bu görevin kendi kabul kriterleri:\n- 07.8.1: Aynı plan ikinci kez uygulanınca ikinci dosya üretilmez",
-        "status": "in-progress",
+        "status": "done",
         "dependencies": [
           "52"
         ],
         "priority": "high",
         "subtasks": [],
-        "updatedAt": "2026-09-18T09:51:24.825Z"
+        "updatedAt": "2026-09-18T10:12:27.101Z"
       },
       {
         "id": "54",
@@ -1298,9 +1298,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-09-18T09:51:24.826Z",
+      "lastModified": "2026-09-18T10:12:27.102Z",
       "taskCount": 92,
-      "completedCount": 51,
+      "completedCount": 52,
       "tags": [
         "master"
       ]
