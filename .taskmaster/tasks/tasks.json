@@ -766,14 +766,14 @@
         "description": "PRD 08.1.1, 08.1.2 · FR-MOD-08 (Kuyruklar ve çözüm) · Faz 0.",
         "details": "KAPSAM: PRD 08.1.1, 08.1.2 (FR-MOD-08 — Kuyruklar ve çözüm, Faz 0).\n\nNE YAPILACAK — GEREKSİNİMLER VE KABUL KRİTERLERİ:\n- 08.1.1 — Kuyruğa yönlendirme (R7)\n  Kabul: Unknown/Unreadable/Unresolved klasörüne kaynak kopyası ve gerekçe dosyası yazılır\n- 08.1.2 — Gerekçe içeriği\n  Kabul: Gerekçe hangi sayfalar, hangi kural, hangi tür ve kişi tahmini olduğunu içerir\n\nGİRDİ — ÜZERİNE KURULDUĞU İŞLER (bu kod ZATEN VAR; yazmadan önce OKU):\n- 06.1 (Plan JSON üretimi ve determinizm) → app/pipeline/plan.py\n- 07.7 (Çıktı yazma, köken kaydı ve Alinan kopyası) → app/pipeline/execute.py, app/storage/\n\nÇIKTI — DOKUNULACAK YÜZEY: app/pipeline/route.py\n\nKARAR TABLOSU: bu görev için ayrı karar tablosu yok; kabul kriterleri ve kilitli kurallar yeterli.\n\nBU GÖREVİ BAĞLAYAN KİLİTLİ KURALLAR (MASTER-PROMPT §3 — tartışma, uygula):\n- R7: Emin değilse kuyruğa: kişisi veya türü belirlenemeyen belge çalışan klasörüne rastgele YERLEŞTİRİLMEZ. Unknown/Unreadable/Unresolved'a alınır ve gerekçe yazılır. Tahmin etmek, kuyruğa almaktan daha kötüdür.\n- K15: Her adım events tablosuna yazılır. Üretilen her çıktı, kaynak dosya ve sayfa aralığına bağlanır.\n\nPRD'DE AYRICA OKU: §8.2 (veri dizini yapısı)\n\nİLGİLİ KABUL SENARYOSU: doğrudan yok. Kabul kriterleri yukarıda.\n\nSIRA (MASTER-PROMPT §5, contract-first): sözleşme/şema → Alembic göçü (gerekiyorsa) → çekirdek + unit test → entegrasyon + testi → arayüz.\n\nKAPSAM SINIRI: yalnız yukarıdaki PRD kimlikleri. Başka gereksinimin işini yapma; yolda gördüğün kusuru düzeltme, yeni görev olarak aç (CONVENTIONS §5). Kilitli teknik kararları (MASTER-PROMPT §4) tartışma; yanlış görünüyorsa uygula ve PLAN.md §D'ye sapma yaz.\n\nTUZAKLAR: belge içeriğini değiştiren kod yazma — kırpma, döndürme (EXIF dışında), kontrast, metin yazma, form doldurma yok (K11/K17). Gerçek kimlik belgesi kullanma; test verisi tests/fixtures/gen.py ile üretilen sentetik belgelerdir (CONVENTIONS §6). Yapay zekâ çağrısı testte canlı yapılmaz, kayıtlı yanıt sağlayıcısı kullanılır. Test/build komutlarını arka plana atma — pencere ölür.\n\nKAPANIŞ: PLAN.md'de 08.1.1, 08.1.2 satırlarının damgasını '✅ → K08.1' yap ve '## K. Kanıt Geçmişi' bölümünde '#### K08.1' bloğuna kanıt maddesi ekle (blok yoksa aç). Faz özet tablosundaki sayıları SAYARAK güncelle. Ayrıntı: CONVENTIONS §1.2-1.3.",
         "testStrategy": "CONVENTIONS §1 DoD kapısı: ruff check . · ruff format --check . · python -m compileall -q app tests · pytest -q -m \"not live\" · alembic upgrade head · python -c \"import app.main\" — hepsi exit 0.\nAyrıca bu görevin kendi kabul kriterleri:\n- 08.1.1: Unknown/Unreadable/Unresolved klasörüne kaynak kopyası ve gerekçe dosyası yazılır\n- 08.1.2: Gerekçe hangi sayfalar, hangi kural, hangi tür ve kişi tahmini olduğunu içerir",
-        "status": "in-progress",
+        "status": "done",
         "dependencies": [
           "40",
           "52"
         ],
         "priority": "high",
         "subtasks": [],
-        "updatedAt": "2026-09-18T10:27:06.994Z"
+        "updatedAt": "2026-09-18T10:34:37.155Z"
       },
       {
         "id": "55",
@@ -1299,9 +1299,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-09-18T10:27:06.996Z",
+      "lastModified": "2026-09-18T10:34:37.155Z",
       "taskCount": 92,
-      "completedCount": 52,
+      "completedCount": 53,
       "tags": [
         "master"
       ]
