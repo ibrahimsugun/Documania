@@ -679,26 +679,33 @@ def build_detail_view(session: Session, upload: Upload) -> DetailView:
 # --- 10.3.2: iki aşamalı onay belirteci --------------------------------------------------------
 
 
-def _confirmation_mac(request: Request, upload_id: str, plan_id: int, issued: int) -> str:
-    """Belirtecin imzası: işlem + parti + güncel plan + üretim anı, oturum çerezinden türetilen
+def _confirmation_mac(request: Request, subject: str, issued: int) -> str:
+    """Belirtecin imzası: işlem + hedef (`subject`) + üretim anı, oturum çerezinden türetilen
     anahtarla. Çerez yalnız tarayıcıda ve sunucuda bilinir; başka oturum belirteç üretemez."""
     cookie = request.cookies.get(SESSION_COOKIE)
     if not cookie:
         raise ConfirmationRefusedError("Oturum çerezi yok.")
     key = hashlib.sha256(cookie.encode("utf-8")).digest()
-    message = f"{REANALYZE_OPERATION}:{upload_id}:{plan_id}:{issued}".encode()
+    message = f"{subject}:{issued}".encode()
     return hmac.new(key, message, hashlib.sha256).hexdigest()
 
 
-def issue_confirmation(request: Request, upload_id: str, plan_id: int) -> str:
-    """Birinci onaydan sonra ikinci onay formuna konan belirteç (§20.6.1 adım 2)."""
+def reanalysis_subject(upload_id: str, plan_id: int) -> str:
+    """Yeniden analiz belirtecinin bağlı olduğu işlem ve hedef: parti + güncel plan."""
+    return f"{REANALYZE_OPERATION}:{upload_id}:{plan_id}"
+
+
+def issue_confirmation(request: Request, subject: str) -> str:
+    """Birinci onaydan sonra ikinci onay formuna konan belirteç (§20.6.1 adım 2).
+
+    `subject` işlemi ve hedefini adlandırır (`reanalysis_subject`, kuyruk atamasında
+    `app.web.routers.queue`); başka işlemin belirteci bu işlemde geçmez.
+    """
     issued = int(utcnow().timestamp())
-    return f"{issued}.{_confirmation_mac(request, upload_id, plan_id, issued)}"
+    return f"{issued}.{_confirmation_mac(request, subject, issued)}"
 
 
-def check_confirmation(
-    request: Request, upload_id: str, plan_id: int, token: str | None
-) -> datetime:
+def check_confirmation(request: Request, subject: str, token: str | None) -> datetime:
     """Belirteci doğrular ve birinci onayın anını döner; geçersizse `ConfirmationRefusedError`."""
     if not token:
         raise ConfirmationRefusedError("Belirteç yok.")
@@ -706,7 +713,7 @@ def check_confirmation(
     if not issued_text.isdecimal():
         raise ConfirmationRefusedError("Belirteç biçimi geçersiz.")
     issued = int(issued_text)
-    expected = _confirmation_mac(request, upload_id, plan_id, issued)
+    expected = _confirmation_mac(request, subject, issued)
     if not hmac.compare_digest(mac, expected):
         raise ConfirmationRefusedError("Belirteç bu işleme ait değil.")
     first_confirmed = datetime.fromtimestamp(issued, tz=UTC)
@@ -843,7 +850,7 @@ def prepare_reanalysis(
     """10.3.2 — birinci onaydan sonra ikinci onay formunu ve onay belirtecini verir (§20.6.1)."""
     try:
         _upload, plan = _actionable_upload(session, upload_id)
-        token = issue_confirmation(request, upload_id, plan.id)
+        token = issue_confirmation(request, reanalysis_subject(upload_id, plan.id))
     except HTTPException as exc:
         return _action_result(request, exc.status_code, error=str(exc.detail))
     except ConfirmationRefusedError as exc:
@@ -877,7 +884,9 @@ def reanalyze_upload_page(
     """
     try:
         upload, plan = _actionable_upload(session, upload_id)
-        first_confirmed = check_confirmation(request, upload_id, plan.id, confirmation)
+        first_confirmed = check_confirmation(
+            request, reanalysis_subject(upload_id, plan.id), confirmation
+        )
         if isinstance(provider, ProviderConfigError):
             raise ReanalysisProviderError(str(provider))
         # §20.6.1: onay tamamlanınca `USER_CONFIRMED` (kullanıcı adı, işlem, hedef, iki onayın

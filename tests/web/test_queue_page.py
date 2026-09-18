@@ -631,15 +631,23 @@ def test_item_events_are_only_those_of_that_item(
 # --- sınırlar ----------------------------------------------------------------------------------
 
 
-def test_queue_screens_are_read_only(app: FastAPI) -> None:
-    # 10.7.1 yalnız gösterir: atama ve onay eylemleri 10.7.2/10.7.3'tür; sayfa yolları yalnız GET.
+def test_queue_screens_are_read_only_except_the_assignment_steps(app: FastAPI) -> None:
+    # 10.7.1 yalnız gösterir; tek eylem 10.7.2'nin iki onaylı atamasıdır (`test_queue_assign.py`).
+    # Belge içeriğini düzenleyen yol yoktur (K17).
     methods = {
         path: set(operations)
         for path, operations in app.openapi()["paths"].items()
         if path.startswith("/queues")
     }
 
-    assert methods == {"/queues": {"get"}, "/queues/{queue_item_id}": {"get"}}
+    assert methods == {
+        "/queues": {"get"},
+        "/queues/{queue_item_id}": {"get"},
+        "/queues/{queue_item_id}/assign/employees": {"get"},
+        "/queues/{queue_item_id}/assign/confirm": {"get"},
+        "/queues/{queue_item_id}/assign/prepare": {"post"},
+        "/queues/{queue_item_id}/assign": {"post"},
+    }
 
 
 def test_queue_screens_require_a_session(app: FastAPI) -> None:

@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {# Kuyruk öğesi detayı (10.7.1): gerekçe, tür ve kişi tahmini, kaynak dosyalar ve sayfa görüntüleri.
-   Sayfa yalnız okur; belge içeriği ve kuyruk kaydı değiştirilmez. #}
+   Belge içeriği değiştirilmez; tek eylem bekleyen öğeyi çalışana atamaktır (10.7.2, iki onaylı). #}
 {% block title %}{{ "Kuyruk öğesi " ~ item.id if item else "Kuyruk öğesi bulunamadı" }}{% endblock %}
 {% block content %}
 {% if error %}
@@ -31,6 +31,32 @@
   <dt>Kişi tahmini</dt><dd>{{ item.employee_guess or "—" }}</dd>
   <dt>Gerekçe</dt><dd class="reason-text">{{ item.reason }}</dd>
 </dl>
+
+{% if item.can_assign or item.assign_note %}
+{# 10.7.2: çalışan aranarak seçilir, iki aşamalı onayla atanır (§20.6). HTMX 4xx/5xx yanıtını
+   değiştirmez; adımların hata metni görünsün. #}
+<section id="assign" class="actions" aria-labelledby="assign-title"
+         hx-on::before-swap="if (event.detail.xhr.status >= 400) { event.detail.shouldSwap = true; event.detail.isError = false; }">
+  <h2 id="assign-title">Çalışana ata</h2>
+  {% if item.can_assign %}
+  <div id="assign-search">
+    <form class="search" role="search"
+          hx-get="/queues/{{ item.id }}/assign/employees" hx-trigger="input changed delay:300ms, submit"
+          hx-target="#assign-results" hx-swap="innerHTML" hx-sync="this:replace">
+      <label for="assign-q">Çalışan ara</label>
+      <input type="search" id="assign-q" name="q" maxlength="100"
+             placeholder="Ad, alias, orijinal yazım, belge numarası veya belge türü" autocomplete="off">
+      <button type="submit">Ara</button>
+    </form>
+  </div>
+  <div id="assign-results" aria-live="polite"></div>
+  <div id="assign-step" class="action-result" aria-live="polite"></div>
+  <p class="hint">Atama iki onay ister. Çıktı öğenin donmuş planından üretilir, yapay zekâ çağrılmaz; belge içeriği değişmez.</p>
+  {% else %}
+  <p class="notice">{{ item.assign_note }}</p>
+  {% endif %}
+</section>
+{% endif %}
 
 <section id="sources" aria-labelledby="sources-title">
   <h2 id="sources-title">Kaynak dosyalar ve sayfalar</h2>

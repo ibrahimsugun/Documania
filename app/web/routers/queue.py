@@ -27,6 +27,26 @@ K16: her iki işlem de iki aşamalı onay ister ve kullanıcı adıyla loglanır
 adı `get_confirmed_actor` bağımlılığıdır; uç noktalar yalnız oturumu açık kullanıcıya açıktır
 (10.1.2, `app.main`), onay belirteci (10.8.1, §20.6.1) kurulana kadar 503 döner — onaysız işlem
 yapılmaz.
+
+**Kuyruktan çalışana atama (10.7.2).** Panel akışı öğe detayında durur ve yalnız *bekleyen*, türü
+belli öğede açılır (türsüz öğenin çıktısı adlandırılamaz, K8; `assign_queue_item` onu reddeder):
+
+1. `GET /queues/{id}/assign/employees?q=` çalışanı 10.4.2'nin aramasıyla (`list_employees`) bulur;
+   boş aramada liste gelmez — çalışan aranarak seçilir.
+2. `GET /queues/{id}/assign/confirm?employee_id=` seçilen çalışanla **birinci** onay metnini verir.
+3. `POST /queues/{id}/assign/prepare` birinci onaydan sonra **ikinci** onay metnini ve onay
+   belirtecini verir (§20.6.1 adım 1–2).
+4. `POST /queues/{id}/assign` ikinci onaydan sonra belirteçle gelir: belirteç doğrulanır, önce
+   `USER_CONFIRMED` (kullanıcı adı, işlem, hedef, iki onayın zamanı), sonra `assign_queue_item`'ın
+   `MANUAL_ASSIGN`'ı yazılır; iş tek işlemdedir, hata olursa onay olayı dahil hiçbir şey commit
+   edilmez.
+
+Onay metinleri §20.6'dan birebirdir. Belirteç 10.3.2'ninkidir (`issue_confirmation`, PLAN.md §D23):
+oturuma, işleme ve hedefe (kuyruk öğesi + çalışan) bağlı, 10 dakika geçerli; belirteçsiz, süresi
+geçmiş, başka öğeye, başka çalışana ya da başka oturuma ait istek 400 ve hiçbir şey yapılmaz.
+Başarılı atama öğeyi çözdüğü için aynı belirteçle ikinci istek reddedilir (409; PLAN.md §D24).
+Adımların hepsi öğeyi yeniden denetler: öğe yoksa 404, çözülmüş, eski sürüm ya da türsüzse 409,
+çalışan yoksa 404 — yanıt `queue_assign.html` parçasıdır (HTMX hedefi).
 """
 
 from __future__ import annotations
@@ -34,21 +54,32 @@ from __future__ import annotations
 import enum
 from dataclasses import dataclass
 from datetime import datetime
+from pathlib import PurePosixPath
 from typing import Annotated, Any
 from urllib.parse import urlencode
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request, status
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, ConfigDict, ValidationError
 from sqlalchemy import ColumnElement, Select, and_, exists, func, or_, select
 from sqlalchemy.orm import Session, aliased
 
 from app.config import Settings, get_settings
-from app.db.models import Employee, Event, KnownDocumentType, Plan, QueueItem, QueueKind, UploadFile
+from app.db.models import (
+    Employee,
+    Event,
+    KnownDocumentType,
+    Plan,
+    QueueItem,
+    QueueKind,
+    UploadFile,
+    utcnow,
+)
 from app.db.session import get_session
-from app.events import EventType
+from app.events import EventType, record_event
 from app.pipeline.plan import PlanEmployee, PlanIntegrityError
 from app.pipeline.route import (
+    AssignedItem,
     AssigneeNotFoundError,
     QueueAssignmentError,
     QueueItemNotFoundError,
@@ -64,13 +95,18 @@ from app.storage import (
 )
 from app.web.auth import PanelUser, require_panel_user
 from app.web.routers.documents import SourceView, _reference, _source_view
+from app.web.routers.employees import MAX_QUERY_LENGTH, EmployeeListing, list_employees
 from app.web.routers.upload_page import (
+    CONFIRMATION_REFUSED,
     QUEUE_LABELS,
+    ConfirmationRefusedError,
     EventView,
     _event_place,
     _format_ts,
     _plan_employee_text,
     _source_text,
+    check_confirmation,
+    issue_confirmation,
 )
 from app.web.routers.uploads import get_layout
 from app.web.templating import MENU_BY_KEY, render_page
@@ -114,22 +150,23 @@ def get_confirmed_actor() -> str:
     )
 
 
-@router.post("/{queue_item_id}/assign", response_model=QueueAssignmentResponse)
-def assign_queue_item_to_employee(
+def _assign(
+    session: Session,
+    layout: DataLayout,
+    settings: Settings,
     queue_item_id: int,
-    request: QueueAssignmentRequest,
-    session: Annotated[Session, Depends(get_session)],
-    layout: Annotated[DataLayout, Depends(get_layout)],
-    settings: Annotated[Settings, Depends(get_settings)],
-    actor: Annotated[str, Depends(get_confirmed_actor)],
-) -> QueueAssignmentResponse:
-    """08.2.1 — kuyruk öğesini çalışana atar; çıktı üretilir, yapay zekâ çağrılmaz."""
+    employee_id: str,
+    *,
+    actor: str,
+) -> AssignedItem:
+    """`assign_queue_item`'ı çağırır; öğe ya da çalışan yoksa 404, atanamıyorsa 409 ve nedeni.
+    Oturum commit edilmez; hata olursa hiçbir şey yazılmadı."""
     try:
-        assigned = assign_queue_item(
+        return assign_queue_item(
             session,
             layout,
             queue_item_id,
-            request.employee_id,
+            employee_id,
             actor=actor,
             render_image_dpi=settings.render_image_dpi,
             render_image_jpeg_quality=settings.render_image_jpeg_quality,
@@ -143,6 +180,19 @@ def assign_queue_item_to_employee(
         QueueSourceIntegrityError,
     ) as exc:
         raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from None
+
+
+@router.post("/{queue_item_id}/assign", response_model=QueueAssignmentResponse)
+def assign_queue_item_to_employee(
+    queue_item_id: int,
+    request: QueueAssignmentRequest,
+    session: Annotated[Session, Depends(get_session)],
+    layout: Annotated[DataLayout, Depends(get_layout)],
+    settings: Annotated[Settings, Depends(get_settings)],
+    actor: Annotated[str, Depends(get_confirmed_actor)],
+) -> QueueAssignmentResponse:
+    """08.2.1 — kuyruk öğesini çalışana atar; çıktı üretilir, yapay zekâ çağrılmaz."""
+    assigned = _assign(session, layout, settings, queue_item_id, request.employee_id, actor=actor)
     session.commit()
     queue_item, document = assigned.queue_item, assigned.executed.document
     assert queue_item.plan_id is not None and queue_item.plan_item_id is not None
@@ -236,6 +286,7 @@ _ITEM_EVENTS = (
     EventType.QUEUED_UNREADABLE.value,
     EventType.QUEUED_UNRESOLVED.value,
     *_RESOLVING_EVENTS,
+    EventType.USER_CONFIRMED.value,
 )
 
 
@@ -307,6 +358,8 @@ class QueueItemView:
     document_id: int | None
     note: str | None
     events: list[EventView]
+    can_assign: bool
+    assign_note: str | None
 
 
 def _queue_url(kind: str, state: QueueState = QueueState.OPEN, page: int = 1) -> str:
@@ -523,19 +576,25 @@ def list_queue(
     )
 
 
+def _mentions_item(event: Event, queue_item_id: int) -> bool:
+    data = event.data_json
+    if not isinstance(data, dict):
+        return False
+    if event.type == EventType.USER_CONFIRMED.value:
+        target = data.get("target")
+        return isinstance(target, dict) and target.get("queue_item_id") == queue_item_id
+    return data.get("queue_item_id") == queue_item_id
+
+
 def _item_events(session: Session, queue_item: QueueItem) -> list[Event]:
-    """Öğeyi anan olaylar: kuyruğa alınması ve çözümü. Olayın verisi `queue_item_id` taşır."""
+    """Öğeyi anan olaylar: kuyruğa alınması, onayı ve çözümü. Olayın verisi `queue_item_id`
+    taşır; onay olayında (`USER_CONFIRMED`, §20.6.1) hedefin içindedir."""
     events = session.scalars(
         select(Event)
         .where(Event.upload_id == queue_item.upload_id, Event.type.in_(_ITEM_EVENTS))
         .order_by(Event.ts, Event.id)
     )
-    return [
-        event
-        for event in events
-        if isinstance(event.data_json, dict)
-        and event.data_json.get("queue_item_id") == queue_item.id
-    ]
+    return [event for event in events if _mentions_item(event, queue_item.id)]
 
 
 def build_item_view(session: Session, queue_item_id: int) -> QueueItemView | None:
@@ -573,6 +632,12 @@ def build_item_view(session: Session, queue_item_id: int) -> QueueItemView | Non
         resolved=_resolved_text(queue_item),
         document_id=resolution.document_id if resolution is not None else None,
         note=SUPERSEDED_NOTE if state is QueueState.SUPERSEDED else None,
+        can_assign=_assign_refusal(session, queue_item) is None,
+        assign_note=(
+            TYPELESS_NOTE
+            if state is QueueState.OPEN and _type_slug(queue_item.payload_json) is None
+            else None
+        ),
         events=[
             EventView(
                 ts=_format_ts(event.ts),
@@ -626,3 +691,210 @@ def queue_item_page(
             error=QUEUE_ITEM_NOT_FOUND,
         )
     return render_page(request, "queue_item.html", user=user, active=entry.key, item=view)
+
+
+# --- 10.7.2: kuyruktan çalışana atama -----------------------------------------------------------
+
+ASSIGN_OPERATION = "assign"
+# §20.6: metinler birebir; `<Ad Soyad>` seçilen çalışanın adıyla doldurulur.
+ASSIGN_FIRST_CONFIRMATION = "Bu belgeyi {name} çalışanına atamak üzeresiniz. Emin misiniz?"
+ASSIGN_SECOND_CONFIRMATION = (
+    "Bu işlem sistemdeki belge organizasyonunu değiştirecektir. Son kararınız mı?"
+)
+RESOLVED_NOTE = "Bu öğe zaten çözülmüş; yeniden atanamaz."
+TYPELESS_NOTE = (
+    "Belge türü belirlenmediği için bu öğe bir çalışana atanamaz: "
+    "çıktının adı ve işlemi belge türünden seçilir (K8)."
+)
+ASSIGNEE_NOT_FOUND = "Çalışan bulunamadı."
+
+
+@dataclass(frozen=True, slots=True)
+class AssigneeView:
+    id: str
+    name: str
+
+
+def _assign_refusal(session: Session, queue_item: QueueItem) -> str | None:
+    """Öğe panelden atanamıyorsa nedeni: çözülmüş, eski sürüm (K18) ya da türsüz (K8)."""
+    state = _item_state(session, queue_item)
+    if state is QueueState.RESOLVED:
+        return RESOLVED_NOTE
+    if state is QueueState.SUPERSEDED:
+        return SUPERSEDED_NOTE
+    if _type_slug(queue_item.payload_json) is None:
+        return TYPELESS_NOTE
+    return None
+
+
+def _assignable_item(session: Session, queue_item_id: int) -> QueueItem:
+    """Atanabilecek (bekleyen, türü belli) kuyruk öğesi; yoksa 404, atanamıyorsa 409."""
+    queue_item = session.get(QueueItem, queue_item_id)
+    if queue_item is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, QUEUE_ITEM_NOT_FOUND)
+    refusal = _assign_refusal(session, queue_item)
+    if refusal is not None:
+        raise HTTPException(status.HTTP_409_CONFLICT, refusal)
+    return queue_item
+
+
+def _assignee(session: Session, employee_id: str) -> AssigneeView:
+    employee = session.get(Employee, employee_id)
+    if employee is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, ASSIGNEE_NOT_FOUND)
+    return AssigneeView(id=employee.id, name=f"{employee.given_names} {employee.surname}")
+
+
+def assignment_subject(queue_item_id: int, employee_id: str) -> str:
+    """Atama belirtecinin bağlı olduğu işlem ve hedef: kuyruk öğesi + seçilen çalışan."""
+    return f"{ASSIGN_OPERATION}:{queue_item_id}:{employee_id}"
+
+
+def _assign_result(
+    request: Request, status_code: int, queue_item_id: int, **context: object
+) -> HTMLResponse:
+    """`queue_assign.html` parçası (HTMX hedefi: öğe detayındaki `#assign-results` ya da
+    `#assign-step`)."""
+    return render_page(
+        request,
+        "queue_assign.html",
+        user=None,
+        status_code=status_code,
+        queue_item_id=queue_item_id,
+        **context,
+    )
+
+
+@pages_router.get("/queues/{queue_item_id}/assign/employees", response_class=HTMLResponse)
+def assignment_search(
+    queue_item_id: int,
+    request: Request,
+    _user: CurrentUser,
+    session: Annotated[Session, Depends(get_session)],
+    q: Annotated[str, Query(max_length=MAX_QUERY_LENGTH)] = "",
+) -> HTMLResponse:
+    """10.7.2 — atanacak çalışanı arar (10.4.2'nin araması); boş aramada liste gelmez."""
+    listing: EmployeeListing | None = None
+    try:
+        _assignable_item(session, queue_item_id)
+        if q.strip():
+            listing = list_employees(session, q)
+    except HTTPException as exc:
+        return _assign_result(request, exc.status_code, queue_item_id, error=str(exc.detail))
+    finally:
+        session.rollback()
+    return _assign_result(request, status.HTTP_200_OK, queue_item_id, search=True, listing=listing)
+
+
+@pages_router.get("/queues/{queue_item_id}/assign/confirm", response_class=HTMLResponse)
+def assignment_first_confirmation(
+    queue_item_id: int,
+    request: Request,
+    _user: CurrentUser,
+    session: Annotated[Session, Depends(get_session)],
+    employee_id: Annotated[str, Query(max_length=MAX_QUERY_LENGTH)],
+) -> HTMLResponse:
+    """10.7.2 — seçilen çalışanla birinci onay metni (§20.6); hiçbir şey değişmez."""
+    try:
+        _assignable_item(session, queue_item_id)
+        assignee = _assignee(session, employee_id)
+    except HTTPException as exc:
+        return _assign_result(request, exc.status_code, queue_item_id, error=str(exc.detail))
+    finally:
+        session.rollback()
+    return _assign_result(
+        request,
+        status.HTTP_200_OK,
+        queue_item_id,
+        assignee=assignee,
+        first_confirmation=ASSIGN_FIRST_CONFIRMATION.format(name=assignee.name),
+    )
+
+
+@pages_router.post("/queues/{queue_item_id}/assign/prepare", response_class=HTMLResponse)
+def prepare_assignment(
+    queue_item_id: int,
+    request: Request,
+    _user: CurrentUser,
+    session: Annotated[Session, Depends(get_session)],
+    employee_id: Annotated[str, Form(max_length=MAX_QUERY_LENGTH)],
+) -> HTMLResponse:
+    """10.7.2 — birinci onaydan sonra ikinci onay metnini ve onay belirtecini verir (§20.6.1)."""
+    try:
+        _assignable_item(session, queue_item_id)
+        assignee = _assignee(session, employee_id)
+        token = issue_confirmation(request, assignment_subject(queue_item_id, assignee.id))
+    except HTTPException as exc:
+        return _assign_result(request, exc.status_code, queue_item_id, error=str(exc.detail))
+    except ConfirmationRefusedError as exc:
+        return _assign_result(request, status.HTTP_400_BAD_REQUEST, queue_item_id, error=str(exc))
+    finally:
+        session.rollback()
+    return _assign_result(
+        request,
+        status.HTTP_200_OK,
+        queue_item_id,
+        assignee=assignee,
+        second_confirmation=ASSIGN_SECOND_CONFIRMATION,
+        confirmation=token,
+    )
+
+
+@pages_router.post("/queues/{queue_item_id}/assign", response_class=HTMLResponse)
+def assign_from_queue(
+    queue_item_id: int,
+    request: Request,
+    user: CurrentUser,
+    session: Annotated[Session, Depends(get_session)],
+    layout: Annotated[DataLayout, Depends(get_layout)],
+    settings: Annotated[Settings, Depends(get_settings)],
+    employee_id: Annotated[str, Form(max_length=MAX_QUERY_LENGTH)],
+    confirmation: Annotated[str | None, Form()] = None,
+) -> HTMLResponse:
+    """10.7.2 — ikinci onayın belirteciyle öğeyi çalışana atar (08.2.1; K16).
+
+    Belirteç yoksa, süresi geçmişse ya da başka öğeye, çalışana veya oturuma aitse hiçbir şey
+    yapılmaz (400). Onay olayı ve atama tek işlemdedir: atama düşerse onay olayı da yazılmaz.
+    """
+    try:
+        queue_item = _assignable_item(session, queue_item_id)
+        first_confirmed = check_confirmation(
+            request, assignment_subject(queue_item_id, employee_id), confirmation
+        )
+        # §20.6.1: onay tamamlanınca `USER_CONFIRMED` (kullanıcı adı, işlem, hedef, iki onayın
+        # zamanı), ardından işlemin kendi olayı (`MANUAL_ASSIGN`) düşer.
+        record_event(
+            session,
+            EventType.USER_CONFIRMED,
+            upload_id=queue_item.upload_id,
+            actor=user.username,
+            data={
+                "operation": ASSIGN_OPERATION,
+                "target": {"queue_item_id": queue_item.id, "employee_id": employee_id},
+                "first_confirmed_at": first_confirmed.isoformat(),
+                "second_confirmed_at": utcnow().isoformat(),
+            },
+        )
+        assigned = _assign(
+            session, layout, settings, queue_item_id, employee_id, actor=user.username
+        )
+        assignee = _assignee(session, employee_id)
+    except HTTPException as exc:
+        session.rollback()
+        return _assign_result(request, exc.status_code, queue_item_id, error=str(exc.detail))
+    except ConfirmationRefusedError:
+        session.rollback()
+        return _assign_result(
+            request, status.HTTP_400_BAD_REQUEST, queue_item_id, error=CONFIRMATION_REFUSED
+        )
+    session.commit()
+    document = assigned.executed.document
+    return _assign_result(
+        request,
+        status.HTTP_200_OK,
+        queue_item_id,
+        assignee=assignee,
+        done=True,
+        document_id=document.id,
+        file_name=PurePosixPath(document.path).name,
+    )

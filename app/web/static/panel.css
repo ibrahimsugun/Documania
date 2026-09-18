@@ -268,3 +268,9 @@ button {
 .states a.active { color: #1f2937; font-weight: 600; text-decoration: none; }
 
 .reason-text { white-space: pre-wrap; overflow-wrap: anywhere; }
+
+/* Kuyruktan çalışana atama (10.7.2) */
+
+.confirm .assignee { flex-basis: 100%; margin: 0; }
+
+.assignees { margin-bottom: 0.75rem; }
