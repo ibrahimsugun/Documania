@@ -1,5 +1,6 @@
 """08.3.1 — onay bekleyen profili onaylama: onay sonrası çalışan oluşur ve belge ona bağlanır
-(§20.2.2 satır 7; K7, K9, K16; fiziksel kurallar K3, K5, K11, K12 onayda da geçerlidir).
+(§20.2.2 satır 7; K7, K9, K16; fiziksel kurallar K3, K5, K11, K12 onayda da geçerlidir). 10.7.3 —
+önerilen profil düzenlenip onaylanır, belge içeriği düzenlenemez (K17).
 
 Onay bekleyen profiller gerçek planlayıcıdan (06.1) ve kuyruğa yönlendirmeden (08.1) geçer; sayfa
 analizleri kayıtlı yanıt biçimindeki sentetik sözlüklerdir, dosyalar `tests/fixtures/gen.py` ile
@@ -32,7 +33,7 @@ from app.db.models import (
     Upload,
 )
 from app.events import EventType
-from app.matching.match import EmployeeAction
+from app.matching.match import EmployeeAction, ProfileFields
 from app.matching.names import normalize_name
 from app.pipeline.execute import ExtractSourceError
 from app.pipeline.plan import Operation, Route, create_plan, read_plan
@@ -46,6 +47,7 @@ from app.pipeline.route import (
     QueueSourceIntegrityError,
     approve_queued_profile,
     assign_queue_item,
+    review_queued_profile,
     route_queue_item,
 )
 from app.storage import DataLayout, sha256_file
@@ -536,3 +538,142 @@ def test_approval_leaves_the_transaction_to_the_caller(
     assert _count(session, Employee) == 0
     assert _count(session, Document) == 0
     assert _events(session, EventType.MANUAL_APPROVE) == []
+
+
+# --- 10.7.3: önerilen profil düzenlenip onaylanır; belge içeriği düzenlenemez ------------------
+
+
+def test_edited_profile_changes_the_employee_record_but_not_the_document(
+    session: Session, layout: DataLayout, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # İK önerinin soyadını ve doğum tarihini düzeltir: çalışan kaydı ve çıktının K8 adı düzeltmeyi
+    # taşır; çıktı yine kaynak sayfanın baytlarıdır, analizler ve plan değişmez (K9, K11, K17).
+    upload, plan, (queued,) = _queued(session, layout, _pdf(_pending()))
+    (upload_file,) = upload.files
+    frozen = (copy.deepcopy(plan.json), plan.plan_hash)
+    analyses = [copy.deepcopy(page.analysis_json) for page in session.scalars(select(Page))]
+    proposal = review_queued_profile(session, queued.id)
+    fields = ProfileFields(
+        given_names=proposal.given_names,
+        surname="ORNEKOVIC",
+        date_of_birth=date(1990, 2, 1),
+        nationality=proposal.nationality,
+    )
+    _forbid_ai(monkeypatch)
+
+    approved = approve_queued_profile(
+        session,
+        layout,
+        queued.id,
+        actor=ACTOR,
+        render_image_dpi=100,
+        render_image_jpeg_quality=90,
+        fields=fields,
+    )
+
+    employee = approved.employee
+    folder = "Test_Ornekovic_E0001"
+    assert (employee.folder_name, employee.surname, employee.date_of_birth) == (
+        folder,
+        "ORNEKOVIC",
+        date(1990, 2, 1),
+    )
+    output = layout.ready_dir(folder) / "Test_Ornekovic-Work-Permit.pdf"
+    assert _files(layout.ready_dir(folder)) == [output.name]
+    assert sha256_file(output) == upload_file.sha256
+    document = approved.executed.document
+    assert (document.employee_id, document.type_slug, document.source_refs_json) == (
+        NEW,
+        PERMIT,
+        [{"file_id": upload_file.id, "pages": [0]}],
+    )
+    assert [copy.deepcopy(page.analysis_json) for page in session.scalars(select(Page))] == analyses
+    assert (plan.json, plan.plan_hash) == frozen
+    (created,) = _events(session, EventType.EMPLOYEE_CREATED)
+    assert created.data_json == {
+        "action": "pending",
+        "document_type_slug": PERMIT,
+        "edited_fields": ["surname", "date_of_birth"],
+    }
+    assert queued.resolved_by == ACTOR
+    _assert_no_personal_values(session)
+
+
+def test_review_shows_the_proposal_the_approval_would_write_and_writes_nothing(
+    session: Session, layout: DataLayout, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _, _, (queued,) = _queued(session, layout, _pdf(_pending()))
+    state = _state(session, layout)
+    _forbid_ai(monkeypatch)
+
+    proposal = review_queued_profile(session, queued.id)
+
+    assert (
+        proposal.given_names,
+        proposal.surname,
+        proposal.date_of_birth,
+        proposal.nationality,
+    ) == (GIVEN, SURNAME, date.fromisoformat(BORN), "RUS")
+    assert _state(session, layout) == state
+    approved = _approve(session, layout, queued.id)
+    assert approved.employee.surname == proposal.surname
+
+
+def test_review_refuses_what_the_approval_refuses(session: Session, layout: DataLayout) -> None:
+    upload, _, (pending, unreadable) = _queued(
+        session, layout, _pdf(_pending()), _pdf(_page(PERMIT, illegible=("surname",)))
+    )
+    state = _state(session, layout)
+
+    with pytest.raises(QueueItemNotApprovableError, match="onay bekleyen profil değil"):
+        review_queued_profile(session, unreadable.id)
+    with pytest.raises(QueueItemNotApprovableError, match="Profil alanları geçersiz"):
+        review_queued_profile(
+            session, pending.id, fields=ProfileFields(given_names="", surname=SURNAME)
+        )
+    with pytest.raises(QueueItemNotFoundError):
+        review_queued_profile(session, pending.id + 100)
+    assert _state(session, layout) == state
+
+    _approve(session, layout, pending.id)
+    with pytest.raises(QueueItemResolvedError):
+        review_queued_profile(session, pending.id)
+    newer = create_plan(session, layout, upload, catalog=CATALOG, model=MODEL)
+    assert newer.version == 2
+    with pytest.raises(QueueItemSupersededError):
+        review_queued_profile(session, unreadable.id)
+
+
+def test_edited_profile_matching_a_registered_employee_opens_no_employee(
+    session: Session, layout: DataLayout
+) -> None:
+    # Düzeltilmiş ad-soyad + doğum tarihi kayıtlı çalışana uyuyor: ikinci çalışan açılmaz.
+    _, _, (queued,) = _queued(session, layout, _pdf(_pending()))
+    employee = Employee(
+        id="E0042", folder_name="Kayitli_Kisi_E0042", given_names="KAYITLI", surname="KISI"
+    )
+    employee.date_of_birth = date(1985, 5, 5)
+    session.add(employee)
+    session.add(
+        EmployeeAlias(
+            employee=employee,
+            raw_name="KAYITLI KISI",
+            normalized_name=normalize_name("KAYITLI", "KISI"),
+        )
+    )
+    session.flush()
+    state = _state(session, layout)
+    fields = ProfileFields(given_names="KAYITLI", surname="KISI", date_of_birth=date(1985, 5, 5))
+
+    with pytest.raises(QueueItemNotApprovableError, match=r"name_dob \(E0042\)"):
+        approve_queued_profile(
+            session,
+            layout,
+            queued.id,
+            actor=ACTOR,
+            render_image_dpi=100,
+            render_image_jpeg_quality=90,
+            fields=fields,
+        )
+
+    assert _state(session, layout) == state

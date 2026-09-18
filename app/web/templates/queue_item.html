@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {# Kuyruk öğesi detayı (10.7.1): gerekçe, tür ve kişi tahmini, kaynak dosyalar ve sayfa görüntüleri.
-   Belge içeriği değiştirilmez; tek eylem bekleyen öğeyi çalışana atamaktır (10.7.2, iki onaylı). #}
+   Belge içeriği değiştirilmez; eylemler bekleyen öğeyi çalışana atamak (10.7.2) ve onay bekleyen
+   profili düzenleyip onaylamaktır (10.7.3), ikisi de iki onaylı. #}
 {% block title %}{{ "Kuyruk öğesi " ~ item.id if item else "Kuyruk öğesi bulunamadı" }}{% endblock %}
 {% block content %}
 {% if error %}
@@ -31,6 +32,21 @@
   <dt>Kişi tahmini</dt><dd>{{ item.employee_guess or "—" }}</dd>
   <dt>Gerekçe</dt><dd class="reason-text">{{ item.reason }}</dd>
 </dl>
+
+{% if item.profile_form or item.profile_note %}
+{# 10.7.3: önerilen profil düzenlenip iki aşamalı onayla (§20.6) çalışan olarak açılır; belge
+   içeriği formda yoktur (K17). HTMX 4xx/5xx yanıtını değiştirmez; adımların hata metni görünsün. #}
+<section id="new-profile" class="actions" aria-labelledby="new-profile-title"
+         hx-on::before-swap="if (event.detail.xhr.status >= 400) { event.detail.shouldSwap = true; event.detail.isError = false; }">
+  <h2 id="new-profile-title">Profil oluştur</h2>
+  {% if item.profile_form %}
+  <p class="hint">Alanlar belgeden okunan önerilen profille dolu; çalışan kaydına yazılmadan önce düzeltilebilir. Belge içeriği değişmez: çıktı kaynak sayfalardan olduğu gibi üretilir, yalnız adı çalışanın adından verilir (K8).</p>
+  {% with queue_item_id=item.id, profile_form=item.profile_form %}{% include "queue_new_profile.html" %}{% endwith %}
+  {% else %}
+  <p class="notice">{{ item.profile_note }}</p>
+  {% endif %}
+</section>
+{% endif %}
 
 {% if item.can_assign or item.assign_note %}
 {# 10.7.2: çalışan aranarak seçilir, iki aşamalı onayla atanır (§20.6). HTMX 4xx/5xx yanıtını

@@ -68,6 +68,9 @@ insanın seçtiği kayıtlı çalışan değil onayla açılan çalışandır:
 - Çıktı atamadaki gibi yazılır; belgedeki iletişim bilgisi yeni çalışana eklenir (05.8, satır 6
   gibi; `source_document_id` çıktının satırı). Kuyruk kaydı çözülür, `MANUAL_APPROVE` kullanıcı
   adıyla yazılır.
+- İK önerilen profili onaydan önce düzeltebilir (10.7.3, `ProfileFields`): düzeltme çalışan
+  kaydına ve çıktının K8 adına gider; belge içeriği, sayfa okumaları ve plan değişmez (K9, K17).
+  Panel öneriyi onaydan önce `review_queued_profile` ile yazmadan gösterir.
 
 İki aşamalı onay (K16, §20.6.1) ve `USER_CONFIRMED` onay mekanizmasınındır (10.8.1): bu işlevler
 onaylanmış kullanıcının adını (`actor`) alır. Aynı öğeyi eşzamanlı çözen ikinci işlem kuyruk
@@ -96,9 +99,13 @@ from app.events import EventType, event_context, record_event
 from app.matching.contacts import accumulate_contacts
 from app.matching.match import (
     EmployeeAction,
+    PersonKey,
     ProfileApprovalRefusedError,
+    ProfileFields,
+    ProposedProfile,
     approve_pending_profile,
     build_person_key,
+    review_pending_profile,
 )
 from app.pipeline.analyze import PageAnalysisStatus
 from app.pipeline.execute import (
@@ -421,6 +428,30 @@ class ApprovedProfile:
     executed: ExecutedItem
 
 
+def review_queued_profile(
+    session: Session, queue_item_id: int, *, fields: ProfileFields | None = None
+) -> ProposedProfile:
+    """Kuyruk öğesinin onaya sunulan profili (10.7.3): onayın okuyacağı öneri, hiçbir şey
+    yazılmadan.
+
+    Onayın ön denetimleri — öğe güncel planın çözülmemiş, `employee.action: pending` öğesi, türü
+    katalogda, sayfa analizleri okunuyor, satır 7 hâlâ uyuyor ve `fields` (İK'nın düzeltmesi)
+    geçerli ve kayıtlı bir çalışana uymuyor — aynı hatalarla yapılır (`approve_queued_profile`);
+    fiziksel işlem ve Inbox denetimleri onayın kendisindedir. Profil onaydaki gibi saklanan
+    analizlerden kurulur, yapay zekâ çağrılmaz (K9). Kuyruk satırı kilitlenmez; oturum commit
+    edilmez.
+    """
+    queue_item = _unresolved_queue_item(session, queue_item_id, lock=False)
+    plan, _, item = _queued_plan_item(session, queue_item)
+    _require_pending(queue_item, item)
+    entry = _assignable_entry(session, queue_item, item)
+    _, key = _profile_key(session, queue_item, plan, item)
+    try:
+        return review_pending_profile(session, key, entry=entry, fields=fields)
+    except ProfileApprovalRefusedError as exc:
+        raise _not_approvable(queue_item, str(exc)) from exc
+
+
 def approve_queued_profile(
     session: Session,
     layout: DataLayout,
@@ -429,16 +460,20 @@ def approve_queued_profile(
     actor: str,
     render_image_dpi: int,
     render_image_jpeg_quality: int,
+    fields: ProfileFields | None = None,
 ) -> ApprovedProfile:
-    """Onay bekleyen profili onaylar: çalışan açılır ve belge ona bağlanır (08.3.1).
+    """Onay bekleyen profili onaylar: çalışan açılır ve belge ona bağlanır (08.3.1, 10.7.3).
 
     Kurallar modül açıklamasındadır. `actor` iki aşamalı onayı (K16) tamamlamış kullanıcının
     adıdır; boşsa `ValueError`. `render_image_dpi` ve `render_image_jpeg_quality` `render_image`
-    işleminin ayarlarıdır.
+    işleminin ayarlarıdır. `fields` İK'nın düzelttiği profildir (`approve_pending_profile`);
+    verilmezse öneri olduğu gibi yazılır. Düzeltme yalnız çalışan kaydını ve çıktının K8 adını
+    değiştirir: çıktı yine kaynak sayfalardan planın işlemiyle üretilir (K11, K17).
 
     Kuyruk kaydı yoksa `QueueItemNotFoundError`; öğe çözülmüşse `QueueItemResolvedError`, güncel
     plana ait değilse `QueueItemSupersededError`, onay bekleyen profil değilse, sayfa analizleri
-    okunamıyorsa ya da satır 7 artık uymuyorsa `QueueItemNotApprovableError`, çıktı üretilemiyorsa
+    okunamıyorsa, satır 7 artık uymuyorsa ya da onaylanan alanlar geçersizse veya kayıtlı bir
+    çalışana uyuyorsa `QueueItemNotApprovableError`, çıktı üretilemiyorsa
     `QueueItemNotAssignableError`; saklanan plan değişmişse `PlanIntegrityError`, kaynak partide
     yoksa ya da Inbox'taki içerik değişmişse (K10) `QueueItemReferenceError` /
     `QueueSourceIntegrityError`. Hepsinde çağıran işlemi geri alır; işlem çalışan açıldıktan sonra
@@ -448,16 +483,9 @@ def approve_queued_profile(
     _require_actor(actor)
     queue_item = _unresolved_queue_item(session, queue_item_id)
     plan, document, item = _queued_plan_item(session, queue_item)
-    if item.employee.action is not EmployeeAction.PENDING:
-        raise _not_approvable(
-            queue_item,
-            "öğe onay bekleyen profil değil (§20.2.2 satır 7); belge kayıtlı çalışana atanır",
-        )
+    _require_pending(queue_item, item)
     entry, selected = _item_output(session, layout, queue_item, plan, document, item)
-    analyses = _item_analyses(session, queue_item, item)
-    # Planlayıcının anahtarı: MRZ doğum tarihinin yüzyılı partinin alındığı günle seçilir (§20.1.6).
-    upload = session.get_one(Upload, plan.upload_id)
-    key = build_person_key(analyses, today=upload.created_at.date())
+    analyses, key = _profile_key(session, queue_item, plan, item)
     first = item.sources[0]
     try:
         with event_context(upload_id=plan.upload_id):
@@ -467,6 +495,7 @@ def approve_queued_profile(
                 key,
                 entry=entry,
                 actor=actor,
+                fields=fields,
                 file_id=first.file_id,
                 page_index=first.pages[0] if first.pages else None,
             )
@@ -494,6 +523,23 @@ def approve_queued_profile(
 
 def _not_approvable(queue_item: QueueItem, reason: str) -> QueueItemNotApprovableError:
     return QueueItemNotApprovableError(f"Kuyruk öğesi {queue_item.id} onaylanamaz: {reason}")
+
+
+def _require_pending(queue_item: QueueItem, item: PlanItem) -> None:
+    if item.employee.action is not EmployeeAction.PENDING:
+        raise _not_approvable(
+            queue_item,
+            "öğe onay bekleyen profil değil (§20.2.2 satır 7); belge kayıtlı çalışana atanır",
+        )
+
+
+def _profile_key(
+    session: Session, queue_item: QueueItem, plan: Plan, item: PlanItem
+) -> tuple[list[PageAnalysis], PersonKey]:
+    # Planlayıcının anahtarı: MRZ doğum tarihinin yüzyılı partinin alındığı günle seçilir (§20.1.6).
+    analyses = _item_analyses(session, queue_item, item)
+    upload = session.get_one(Upload, plan.upload_id)
+    return analyses, build_person_key(analyses, today=upload.created_at.date())
 
 
 def _item_analyses(session: Session, queue_item: QueueItem, item: PlanItem) -> list[PageAnalysis]:
@@ -530,9 +576,10 @@ def _require_actor(actor: str) -> None:
         raise ValueError("Manuel işlem kullanıcı adıyla loglanır (K16): actor boş olamaz")
 
 
-def _unresolved_queue_item(session: Session, queue_item_id: int) -> QueueItem:
-    # Aynı öğeyi eşzamanlı çözen işlem bu satırın kilidinde bekler ve öğeyi çözülmüş görür.
-    queue_item = session.get(QueueItem, queue_item_id, with_for_update=True, populate_existing=True)
+def _unresolved_queue_item(session: Session, queue_item_id: int, *, lock: bool = True) -> QueueItem:
+    # Aynı öğeyi eşzamanlı çözen işlem bu satırın kilidinde bekler ve öğeyi çözülmüş görür; yalnız
+    # okuyan önizleme (`review_queued_profile`) kilitlemez.
+    queue_item = session.get(QueueItem, queue_item_id, with_for_update=lock, populate_existing=lock)
     if queue_item is None:
         raise QueueItemNotFoundError(f"Kuyruk öğesi bulunamadı: {queue_item_id}")
     if queue_item.resolved_at is not None:

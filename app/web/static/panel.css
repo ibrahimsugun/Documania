@@ -274,3 +274,21 @@ button {
 .confirm .assignee { flex-basis: 100%; margin: 0; }
 
 .assignees { margin-bottom: 0.75rem; }
+
+/* Kuyruktan profil oluşturma (10.7.3) */
+
+.profile-edit { display: grid; grid-template-columns: max-content minmax(12rem, 28rem); align-items: start; gap: 0.5rem 1rem; }
+
+.profile-edit label { padding-top: 0.45rem; color: #6b7280; }
+
+.profile-edit .field { display: flex; flex-direction: column; gap: 0.2rem; }
+
+.profile-edit input { padding: 0.45rem; border: 1px solid #d0d7de; border-radius: 4px; font: inherit; }
+
+.profile-edit button { grid-column: 2; justify-self: start; }
+
+.confirm .profile-summary { flex-basis: 100%; }
+
+.edited { margin-left: 0.4rem; padding: 0 0.35rem; border-radius: 4px; background: #fff8e6; color: #92400e; font-size: 0.85em; }
+
+.field-errors { margin: 0.25rem 0 0; color: #b42318; }

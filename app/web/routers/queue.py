@@ -1,5 +1,5 @@
-"""Kuyruk ekranları (PRD 10.7.1) ile kuyruk uç noktaları — kuyruk öğesini çalışana atama (PRD
-08.2.1) ve belgeyi arşive taşıma (PRD 08.4.1; K16, §20.6).
+"""Kuyruk ekranları (PRD 10.7.1–10.7.3) ile kuyruk uç noktaları — kuyruk öğesini çalışana atama
+(PRD 08.2.1) ve belgeyi arşive taşıma (PRD 08.4.1; K16, §20.6).
 
 **Kuyruk ekranları (10.7.1).** `GET /queues?tab=&state=&page=` üç kuyruğu (Unknown, Unreadable,
 Unresolved; R7) sekme olarak gösterir; her sekmenin başlığında **bekleyen** öğe sayısı durur. Bir
@@ -47,13 +47,39 @@ geçmiş, başka öğeye, başka çalışana ya da başka oturuma ait istek 400 
 Başarılı atama öğeyi çözdüğü için aynı belirteçle ikinci istek reddedilir (409; PLAN.md §D24).
 Adımların hepsi öğeyi yeniden denetler: öğe yoksa 404, çözülmüş, eski sürüm ya da türsüzse 409,
 çalışan yoksa 404 — yanıt `queue_assign.html` parçasıdır (HTMX hedefi).
+
+**Kuyruktan profil oluşturma (10.7.3).** Onay bekleyen profil (§20.2.2 satır 7, K7) öğesinin
+detayında önerilen profil düzenlenebilir bir formla gelir: öneri onaydaki gibi saklanan sayfa
+analizlerinden kurulur (`review_queued_profile`; yapay zekâ çağrılmaz, K9). Form yalnız çalışan
+kaydının altı alanını taşır (ad, soyad, diğer isimler, orijinal yazım, doğum tarihi, vatandaşlık);
+belge içeriği — sayfalar, tür, sayfa okumaları — formda yoktur ve düzenlenemez (K17), başka form
+alanı okunmaz. Çıktı yine kaynak sayfalardan planın işlemiyle üretilir; düzeltme yalnız çalışan
+kaydına ve çıktının K8 adına gider.
+
+1. `POST /queues/{id}/profile/confirm` düzenlenen alanlarla **birinci** onay metnini (§20.6,
+   `<Ad Soyad>` onaylanan ad-soyad) ve öneriden farklı alanları gösterir; alan geçersizse 422 ve
+   alan alan sorunlar.
+2. `POST /queues/{id}/profile/prepare` **ikinci** onay metnini ve belirteci verir.
+3. `POST /queues/{id}/profile` belirteçle gelir: önce `USER_CONFIRMED` (işlem `approve_profile`,
+   hedef öğe; profil değerleri olaya girmez), sonra `approve_queued_profile`'ın `EMPLOYEE_CREATED`
+   (düzeltilen alanların adları) ve `MANUAL_APPROVE`'u tek işlemde yazılır.
+
+Belirteç atamanınkiyle aynı mekanizmadır; konusu kuyruk öğesi + onaylanan alanların özetidir
+(`profile_subject`): ikinci onaydan sonra değiştirilen alan, başka öğe, işlem ya da oturum 400.
+Her adım öğeyi ve düzeltilen profili onayın hükmüyle yeniden denetler: öğe yoksa 404; çözülmüş,
+eski sürüm, onay bekleyen profil değil, satır 7 artık uymuyor ya da düzeltilen ad/doğum tarihi
+kayıtlı bir çalışana uyuyorsa (ikinci çalışan açılmaz; belge o çalışana atanır) 409 — yanıt
+`queue_new_profile.html` parçasıdır.
 """
 
 from __future__ import annotations
 
 import enum
+import hashlib
+import json
+import re
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import PurePosixPath
 from typing import Annotated, Any
 from urllib.parse import urlencode
@@ -77,15 +103,33 @@ from app.db.models import (
 )
 from app.db.session import get_session
 from app.events import EventType, record_event
+from app.matching.match import (
+    DATE_OF_BIRTH,
+    GIVEN_NAMES,
+    NATIONALITY,
+    ORIGINAL_SCRIPT_NAME,
+    OTHER_NAMES,
+    PROFILE_FIELDS,
+    PROFILE_TEXT_MAX_LENGTH,
+    SURNAME,
+    EmployeeAction,
+    ProfileFields,
+    ProposedProfile,
+    check_profile_fields,
+    edited_profile_fields,
+)
 from app.pipeline.plan import PlanEmployee, PlanIntegrityError
 from app.pipeline.route import (
+    ApprovedProfile,
     AssignedItem,
     AssigneeNotFoundError,
     QueueAssignmentError,
     QueueItemNotFoundError,
     QueueItemReferenceError,
     QueueSourceIntegrityError,
+    approve_queued_profile,
     assign_queue_item,
+    review_queued_profile,
 )
 from app.storage import (
     DataLayout,
@@ -360,6 +404,8 @@ class QueueItemView:
     events: list[EventView]
     can_assign: bool
     assign_note: str | None
+    profile_form: list[ProfileFieldView] | None
+    profile_note: str | None
 
 
 def _queue_url(kind: str, state: QueueState = QueueState.OPEN, page: int = 1) -> str:
@@ -613,6 +659,7 @@ def build_item_view(session: Session, queue_item_id: int) -> QueueItemView | Non
         ),
         None,
     )
+    profile_form, profile_note = _profile_section(session, queue_item, state)
     return QueueItemView(
         id=queue_item.id,
         kind=queue_item.kind,
@@ -638,6 +685,8 @@ def build_item_view(session: Session, queue_item_id: int) -> QueueItemView | Non
             if state is QueueState.OPEN and _type_slug(queue_item.payload_json) is None
             else None
         ),
+        profile_form=profile_form,
+        profile_note=profile_note,
         events=[
             EventView(
                 ts=_format_ts(event.ts),
@@ -895,6 +944,413 @@ def assign_from_queue(
         queue_item_id,
         assignee=assignee,
         done=True,
+        document_id=document.id,
+        file_name=PurePosixPath(document.path).name,
+    )
+
+
+# --- 10.7.3: kuyruktan profil oluşturma ---------------------------------------------------------
+
+PROFILE_OPERATION = "approve_profile"
+# §20.6 "Onay bekleyen profili onayla": metinler birebir; `<Ad Soyad>` onaylanan ad-soyadla dolar.
+PROFILE_FIRST_CONFIRMATION = (
+    "{name} için yeni bir çalışan profili oluşturmak üzeresiniz. Emin misiniz?"
+)
+PROFILE_SECOND_CONFIRMATION = (
+    "Bu işlem sistemde kalıcı bir çalışan kaydı oluşturacaktır. Son kararınız mı?"
+)
+PROFILE_RESOLVED_NOTE = "Bu öğe zaten çözülmüş; profil oluşturulamaz."
+NOT_PENDING_NOTE = (
+    "Bu öğe onay bekleyen profil değil (§20.2.2 satır 7): kişisi yeni çalışan olarak açılmaz, "
+    "belge kayıtlı bir çalışana atanır."
+)
+INVALID_PROFILE = "Profil alanları geçersiz; düzeltip yeniden gönderin."
+BAD_DATE = "YYYY-AA-GG biçiminde bir tarih olmalı"
+PROFILE_LABELS = {
+    GIVEN_NAMES: "Ad",
+    SURNAME: "Soyad",
+    OTHER_NAMES: "Diğer isimler",
+    ORIGINAL_SCRIPT_NAME: "Orijinal yazım",
+    DATE_OF_BIRTH: "Doğum tarihi",
+    NATIONALITY: "Vatandaşlık",
+}
+_PROFILE_HINTS = {
+    ORIGINAL_SCRIPT_NAME: "Belgedeki Latin olmayan yazım (ör. Kiril)",
+    NATIONALITY: "ICAO kodu (ör. RUS, SRB, D)",
+}
+_ISO_DATE = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}")
+
+
+@dataclass(frozen=True, slots=True)
+class ProfileFieldView:
+    """Düzenleme formunun bir alanı. Form yalnız çalışan kaydının altı alanını taşır; belgenin
+    içeriği (sayfalar, tür, okumalar) formda yoktur (K17)."""
+
+    name: str
+    label: str
+    value: str
+    input_type: str
+    required: bool
+    maxlength: int
+    hint: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class ProfileRowView:
+    """Onay adımlarında gösterilen alan: onaylanacak değer ve öneriden farklı olup olmadığı."""
+
+    label: str
+    value: str
+    edited: bool
+
+
+class _ProfileFormError(Exception):
+    """Formun alanları geçersiz: alan adı → sorun (kişisel değer yok)."""
+
+    def __init__(self, errors: dict[str, str]) -> None:
+        super().__init__(INVALID_PROFILE)
+        self.errors = errors
+
+
+def profile_form(
+    given_names: Annotated[str, Form()] = "",
+    surname: Annotated[str, Form()] = "",
+    other_names: Annotated[str, Form()] = "",
+    original_script_name: Annotated[str, Form()] = "",
+    date_of_birth: Annotated[str, Form()] = "",
+    nationality: Annotated[str, Form()] = "",
+) -> dict[str, str]:
+    """Formun profil alanları, kırpılmış (`PROFILE_FIELDS` anahtarlı). Başka form alanı okunmaz:
+    tür, sayfa ya da belge içeriği bu akışla gönderilemez (K17)."""
+    return {
+        GIVEN_NAMES: given_names.strip(),
+        SURNAME: surname.strip(),
+        OTHER_NAMES: other_names.strip(),
+        ORIGINAL_SCRIPT_NAME: original_script_name.strip(),
+        DATE_OF_BIRTH: date_of_birth.strip(),
+        NATIONALITY: nationality.strip().upper(),
+    }
+
+
+ProfileValues = Annotated[dict[str, str], Depends(profile_form)]
+
+
+def _parse_profile(values: dict[str, str]) -> ProfileFields:
+    """Formun değerlerinden onaylanacak profil; geçersizse `_ProfileFormError`
+    (`check_profile_fields` + tarih biçimi). Boş isteğe bağlı alan `None`'dır."""
+    errors: dict[str, str] = {}
+    born: date | None = None
+    text = values[DATE_OF_BIRTH]
+    if text:
+        try:
+            if not _ISO_DATE.fullmatch(text):
+                raise ValueError(text)
+            born = date.fromisoformat(text)
+        except ValueError:
+            errors[DATE_OF_BIRTH] = BAD_DATE
+    fields = ProfileFields(
+        given_names=values[GIVEN_NAMES],
+        surname=values[SURNAME],
+        other_names=values[OTHER_NAMES] or None,
+        original_script_name=values[ORIGINAL_SCRIPT_NAME] or None,
+        date_of_birth=born,
+        nationality=values[NATIONALITY] or None,
+    )
+    errors = {**check_profile_fields(fields), **errors}
+    if errors:
+        raise _ProfileFormError(errors)
+    return fields
+
+
+def _profile_values(fields: ProfileFields) -> dict[str, str]:
+    return {name: value or "" for name, value in fields.values().items()}
+
+
+def profile_subject(queue_item_id: int, fields: ProfileFields) -> str:
+    """Profil onayı belirtecinin bağlı olduğu işlem ve hedef: kuyruk öğesi + onaylanan alanların
+    özeti. İkinci onaydan sonra bir alan değişirse belirteç geçmez; değerler belirtece girmez."""
+    canonical = json.dumps(fields.values(), ensure_ascii=False, sort_keys=True)
+    digest = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+    return f"{PROFILE_OPERATION}:{queue_item_id}:{digest}"
+
+
+def _proposes_profile(payload: Any) -> bool:
+    guess = _employee_guess(payload)
+    return guess is not None and guess.action is EmployeeAction.PENDING
+
+
+def _profile_refusal(session: Session, queue_item: QueueItem) -> str | None:
+    """Öğeden profil oluşturulamıyorsa nedeni: çözülmüş, eski sürüm (K18) ya da onay bekleyen
+    profil değil (§20.2.2 satır 7)."""
+    state = _item_state(session, queue_item)
+    if state is QueueState.RESOLVED:
+        return PROFILE_RESOLVED_NOTE
+    if state is QueueState.SUPERSEDED:
+        return SUPERSEDED_NOTE
+    if not _proposes_profile(queue_item.payload_json):
+        return NOT_PENDING_NOTE
+    return None
+
+
+def _reviewed_profile(
+    session: Session, queue_item_id: int, fields: ProfileFields | None = None
+) -> ProposedProfile:
+    """Onayın okuyacağı öneri (`review_queued_profile`): öğe yoksa 404, onaylanamıyorsa (satır 7
+    artık uymuyor, düzeltilen profil kayıtlı çalışana uyuyor…) 409 ve nedeni."""
+    try:
+        return review_queued_profile(session, queue_item_id, fields=fields)
+    except QueueItemNotFoundError:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, QUEUE_ITEM_NOT_FOUND) from None
+    except (QueueAssignmentError, PlanIntegrityError) as exc:
+        raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from None
+
+
+def _confirmed_profile(
+    session: Session, queue_item_id: int, values: dict[str, str]
+) -> tuple[QueueItem, ProfileFields, ProposedProfile]:
+    """Adımların ortak denetimi: öğe (404/409), formun alanları (`_ProfileFormError`) ve onayın
+    hükmü düzeltilen profille (409)."""
+    queue_item = session.get(QueueItem, queue_item_id)
+    if queue_item is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, QUEUE_ITEM_NOT_FOUND)
+    refusal = _profile_refusal(session, queue_item)
+    if refusal is not None:
+        raise HTTPException(status.HTTP_409_CONFLICT, refusal)
+    fields = _parse_profile(values)
+    return queue_item, fields, _reviewed_profile(session, queue_item_id, fields)
+
+
+def _profile_section(
+    session: Session, queue_item: QueueItem, state: QueueState
+) -> tuple[list[ProfileFieldView] | None, str | None]:
+    """Öğe detayındaki profil bölümü: bekleyen onay bekleyen profil öğesinde öneriyle dolu form ya
+    da neden onaylanamadığı; öteki öğelerde bölüm yok (`None, None`)."""
+    if state is not QueueState.OPEN or not _proposes_profile(queue_item.payload_json):
+        return None, None
+    try:
+        proposal = _reviewed_profile(session, queue_item.id)
+    except HTTPException as exc:
+        return None, str(exc.detail)
+    return _profile_form_fields(_profile_values(proposal.fields())), None
+
+
+def _profile_form_fields(values: dict[str, str]) -> list[ProfileFieldView]:
+    return [
+        ProfileFieldView(
+            name=name,
+            label=PROFILE_LABELS[name],
+            value=values[name],
+            input_type="date" if name == DATE_OF_BIRTH else "text",
+            required=name in (GIVEN_NAMES, SURNAME),
+            maxlength=3 if name == NATIONALITY else PROFILE_TEXT_MAX_LENGTH,
+            hint=_PROFILE_HINTS.get(name),
+        )
+        for name in PROFILE_FIELDS
+    ]
+
+
+def _profile_rows(proposal: ProposedProfile, fields: ProfileFields) -> list[ProfileRowView]:
+    edited = edited_profile_fields(proposal, fields)
+    return [
+        ProfileRowView(
+            label=PROFILE_LABELS[name],
+            value=_profile_text(name, value),
+            edited=name in edited,
+        )
+        for name, value in fields.values().items()
+    ]
+
+
+def _profile_text(name: str, value: str | None) -> str:
+    if value is None:
+        return "—"
+    if name == DATE_OF_BIRTH:
+        return date.fromisoformat(value).strftime("%d.%m.%Y")
+    return value
+
+
+def _profile_result(
+    request: Request, status_code: int, queue_item_id: int, **context: object
+) -> HTMLResponse:
+    """`queue_new_profile.html` parçası (HTMX hedefi: öğe detayındaki `#profile-step`)."""
+    return render_page(
+        request,
+        "queue_new_profile.html",
+        user=None,
+        status_code=status_code,
+        queue_item_id=queue_item_id,
+        **context,
+    )
+
+
+def _invalid_profile(request: Request, queue_item_id: int, errors: dict[str, str]) -> HTMLResponse:
+    return _profile_result(
+        request,
+        status.HTTP_422_UNPROCESSABLE_CONTENT,
+        queue_item_id,
+        error=INVALID_PROFILE,
+        field_errors=[
+            (PROFILE_LABELS[name], errors[name]) for name in PROFILE_FIELDS if name in errors
+        ],
+    )
+
+
+def _steps_context(fields: ProfileFields, proposal: ProposedProfile) -> dict[str, object]:
+    # Onay adımlarının ortak içeriği: onaylanacak değerler ve bir sonraki adıma taşınan alanlar.
+    return {"rows": _profile_rows(proposal, fields), "hidden": _profile_values(fields)}
+
+
+@pages_router.post("/queues/{queue_item_id}/profile/confirm", response_class=HTMLResponse)
+def profile_first_confirmation(
+    queue_item_id: int,
+    request: Request,
+    _user: CurrentUser,
+    session: Annotated[Session, Depends(get_session)],
+    values: ProfileValues,
+) -> HTMLResponse:
+    """10.7.3 — düzenlenen profille birinci onay metni (§20.6); hiçbir şey değişmez."""
+    try:
+        _, fields, proposal = _confirmed_profile(session, queue_item_id, values)
+    except HTTPException as exc:
+        return _profile_result(request, exc.status_code, queue_item_id, error=str(exc.detail))
+    except _ProfileFormError as exc:
+        return _invalid_profile(request, queue_item_id, exc.errors)
+    finally:
+        session.rollback()
+    return _profile_result(
+        request,
+        status.HTTP_200_OK,
+        queue_item_id,
+        first_confirmation=PROFILE_FIRST_CONFIRMATION.format(
+            name=f"{fields.given_names} {fields.surname}"
+        ),
+        **_steps_context(fields, proposal),
+    )
+
+
+@pages_router.post("/queues/{queue_item_id}/profile/prepare", response_class=HTMLResponse)
+def prepare_profile(
+    queue_item_id: int,
+    request: Request,
+    _user: CurrentUser,
+    session: Annotated[Session, Depends(get_session)],
+    values: ProfileValues,
+) -> HTMLResponse:
+    """10.7.3 — birinci onaydan sonra ikinci onay metnini ve onaylanan alanlara bağlı onay
+    belirtecini verir (§20.6.1)."""
+    try:
+        _, fields, proposal = _confirmed_profile(session, queue_item_id, values)
+        token = issue_confirmation(request, profile_subject(queue_item_id, fields))
+    except HTTPException as exc:
+        return _profile_result(request, exc.status_code, queue_item_id, error=str(exc.detail))
+    except _ProfileFormError as exc:
+        return _invalid_profile(request, queue_item_id, exc.errors)
+    except ConfirmationRefusedError as exc:
+        return _profile_result(request, status.HTTP_400_BAD_REQUEST, queue_item_id, error=str(exc))
+    finally:
+        session.rollback()
+    return _profile_result(
+        request,
+        status.HTTP_200_OK,
+        queue_item_id,
+        second_confirmation=PROFILE_SECOND_CONFIRMATION,
+        confirmation=token,
+        **_steps_context(fields, proposal),
+    )
+
+
+def _approve_profile(
+    session: Session,
+    layout: DataLayout,
+    settings: Settings,
+    queue_item_id: int,
+    fields: ProfileFields,
+    *,
+    actor: str,
+) -> ApprovedProfile:
+    """`approve_queued_profile`'ı çağırır; öğe yoksa 404, onaylanamıyorsa 409 ve nedeni. Oturum
+    commit edilmez; hata olursa hiçbir şey yazılmadı."""
+    try:
+        return approve_queued_profile(
+            session,
+            layout,
+            queue_item_id,
+            actor=actor,
+            render_image_dpi=settings.render_image_dpi,
+            render_image_jpeg_quality=settings.render_image_jpeg_quality,
+            fields=fields,
+        )
+    except QueueItemNotFoundError as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from None
+    except (
+        QueueAssignmentError,
+        PlanIntegrityError,
+        QueueItemReferenceError,
+        QueueSourceIntegrityError,
+    ) as exc:
+        raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from None
+
+
+@pages_router.post("/queues/{queue_item_id}/profile", response_class=HTMLResponse)
+def create_profile_from_queue(
+    queue_item_id: int,
+    request: Request,
+    user: CurrentUser,
+    session: Annotated[Session, Depends(get_session)],
+    layout: Annotated[DataLayout, Depends(get_layout)],
+    settings: Annotated[Settings, Depends(get_settings)],
+    values: ProfileValues,
+    confirmation: Annotated[str | None, Form()] = None,
+) -> HTMLResponse:
+    """10.7.3 — ikinci onayın belirteciyle önerilen (düzenlenmiş olabilir) profili onaylar:
+    çalışan açılır, belge ona bağlanır (08.3.1; K7, K16).
+
+    Belirteç yoksa, süresi geçmişse ya da başka öğeye, başka alan değerlerine, başka işleme veya
+    oturuma aitse hiçbir şey yapılmaz (400). Onay olayı ve onay tek işlemdedir: onay düşerse onay
+    olayı da yazılmaz. Belge içeriği değişmez: çıktı kaynak sayfalardan planın işlemiyle üretilir.
+    """
+    try:
+        queue_item, fields, _ = _confirmed_profile(session, queue_item_id, values)
+        first_confirmed = check_confirmation(
+            request, profile_subject(queue_item_id, fields), confirmation
+        )
+        # §20.6.1: onay tamamlanınca `USER_CONFIRMED` (kullanıcı adı, işlem, hedef, iki onayın
+        # zamanı), ardından işlemin kendi olayı (`MANUAL_APPROVE`) düşer. Profil değerleri
+        # olaya girmez (CONVENTIONS §6).
+        record_event(
+            session,
+            EventType.USER_CONFIRMED,
+            upload_id=queue_item.upload_id,
+            actor=user.username,
+            data={
+                "operation": PROFILE_OPERATION,
+                "target": {"queue_item_id": queue_item.id},
+                "first_confirmed_at": first_confirmed.isoformat(),
+                "second_confirmed_at": utcnow().isoformat(),
+            },
+        )
+        approved = _approve_profile(
+            session, layout, settings, queue_item_id, fields, actor=user.username
+        )
+    except HTTPException as exc:
+        session.rollback()
+        return _profile_result(request, exc.status_code, queue_item_id, error=str(exc.detail))
+    except _ProfileFormError as exc:
+        session.rollback()
+        return _invalid_profile(request, queue_item_id, exc.errors)
+    except ConfirmationRefusedError:
+        session.rollback()
+        return _profile_result(
+            request, status.HTTP_400_BAD_REQUEST, queue_item_id, error=CONFIRMATION_REFUSED
+        )
+    session.commit()
+    employee, document = approved.employee, approved.executed.document
+    return _profile_result(
+        request,
+        status.HTTP_200_OK,
+        queue_item_id,
+        done=True,
+        employee=AssigneeView(id=employee.id, name=f"{employee.given_names} {employee.surname}"),
         document_id=document.id,
         file_name=PurePosixPath(document.path).name,
     )

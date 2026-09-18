@@ -90,7 +90,10 @@ açılır (08.3).
 **Profil onayı (08.3.1, K16).** `approve_pending_profile` satır 7'yi onay anında veritabanında
 yeniden değerlendirir — öneriden sonra kişi kayıtlı bir çalışanla eşleşiyorsa (ör. aynı kişinin
 öteki belgesi onaylandı) ikinci çalışan açılmaz — ve uyuyorsa önerilen profilden çalışanı açar:
-satır 6'nın (`create_employee`) yazdıklarının hepsi, temiz olmayan belge numarası hariç.
+satır 6'nın (`create_employee`) yazdıklarının hepsi, temiz olmayan belge numarası hariç. İK önerinin
+çalışan kaydına yazılacak alanlarını (`ProfileFields`) onaydan önce düzeltebilir (10.7.3): düzeltme
+yalnız çalışan kaydını değiştirir, belge içeriğini ve okumalarını değil (K17); düzeltilmiş ad ya da
+doğum tarihi kayıtlı bir çalışana uyuyorsa (satır 3–5) ikinci çalışan açılmaz.
 
 **Alias ve numara birikimi (05.7.2).** Satır 1 ve 3'teki eşleşmede `accumulate_identity` belgedeki
 yeni isim yazımlarını `employee_aliases`'a, yeni belge numarasını `employee_identifiers`'a ekler.
@@ -506,16 +509,21 @@ def _decide(session: Session, key: PersonKey) -> EmployeeMatch:
             return EmployeeMatch(MatchRule.DOCUMENT_NUMBER, owners)
         if owners:
             return EmployeeMatch(MatchRule.DOCUMENT_NUMBER_AMBIGUOUS, owners)
-    if not key.name_keys:
+    return _decide_by_name(session, key.name_keys, key.date_of_birth)
+
+
+def _decide_by_name(session: Session, name_keys: Sequence[str], born: date | None) -> EmployeeMatch:
+    # §20.2.2 satır 3–5: isim anahtarlarından biri bir alias'la eşleşiyor mu, doğum tarihi tutuyor
+    # mu. Profil onayı (08.3.1, 10.7.3) çalışana yazılacak yazımları da bununla sınar.
+    if not name_keys:
         return EmployeeMatch(MatchRule.NO_MATCH)
     named = session.execute(
         select(Employee.id, Employee.date_of_birth)
         .join(EmployeeAlias, EmployeeAlias.employee_id == Employee.id)
-        .where(EmployeeAlias.normalized_name.in_(key.name_keys))
+        .where(EmployeeAlias.normalized_name.in_(name_keys))
     ).all()
     if not named:
         return EmployeeMatch(MatchRule.NO_MATCH)
-    born = key.date_of_birth
     fitting = _employee_ids(
         employee_id for employee_id, birth in named if born is not None and birth == born
     )
@@ -741,6 +749,17 @@ class ProposedProfile:
     nationality: str | None
     aliases: tuple[tuple[str, str], ...]
 
+    def fields(self) -> ProfileFields:
+        """Önerinin çalışan kaydına yazılacak alanları: panelin düzenleme formunun başlangıcı."""
+        return ProfileFields(
+            given_names=self.given_names,
+            surname=self.surname,
+            other_names=self.other_names,
+            original_script_name=self.original_script_name,
+            date_of_birth=self.date_of_birth,
+            nationality=self.nationality,
+        )
+
     def payload(self) -> dict[str, object]:
         """Kuyruk kaydı payload'ının JSON uyumlu `proposed_profile` bölümü (08.1)."""
         born = self.date_of_birth
@@ -912,6 +931,156 @@ class ProfileApprovalRefusedError(ValueError):
     hiçbir şey yazılmadı. Mesaj yalnız hükmü taşır, kişisel değer taşımaz."""
 
 
+# Düzenlenebilir profil alanları (10.7.3), formdaki ve olay verisindeki sırasıyla.
+PROFILE_FIELDS = (
+    GIVEN_NAMES,
+    SURNAME,
+    OTHER_NAMES,
+    ORIGINAL_SCRIPT_NAME,
+    DATE_OF_BIRTH,
+    NATIONALITY,
+)
+# `employees` isim sütunları `String(255)`dir.
+PROFILE_TEXT_MAX_LENGTH = 255
+_REQUIRED_NAMES = (GIVEN_NAMES, SURNAME)
+
+
+@dataclass(frozen=True, slots=True)
+class ProfileFields:
+    """İK'nın onayladığı profil (10.7.3): önerilen profilin (`ProposedProfile.fields()`) çalışan
+    kaydına yazılacak alanları, panelde düzeltilmiş olabilir.
+
+    Yalnız çalışan kaydıdır: belge içeriği (sayfalar, tür, sayfa okumaları, plan) bununla
+    değişmez (K9, K17). Belge numarası alanı yoktur: temiz olmayan numara yazılmaz (§20.2.3, D11).
+    Kişisel değer taşır — olay loguna yalnız alan adları girer.
+    """
+
+    given_names: str
+    surname: str
+    other_names: str | None = None
+    original_script_name: str | None = None
+    date_of_birth: date | None = None
+    nationality: str | None = None
+
+    def values(self) -> dict[str, str | None]:
+        """JSON uyumlu değerler (`PROFILE_FIELDS` sırasıyla; tarih `YYYY-AA-GG`)."""
+        born = self.date_of_birth
+        return {
+            GIVEN_NAMES: self.given_names,
+            SURNAME: self.surname,
+            OTHER_NAMES: self.other_names,
+            ORIGINAL_SCRIPT_NAME: self.original_script_name,
+            DATE_OF_BIRTH: None if born is None else born.isoformat(),
+            NATIONALITY: self.nationality,
+        }
+
+
+class ProfileFieldsError(ProfileApprovalRefusedError):
+    """Onaylanan profilin alanları çalışan kaydına yazılamaz; `errors` alan adı → sorun.
+
+    Mesaj ve `errors` kişisel değer taşımaz. Hiçbir şey yazılmadı.
+    """
+
+    def __init__(self, errors: dict[str, str]) -> None:
+        self.errors = errors
+        problems = "; ".join(f"{name}: {problem}" for name, problem in errors.items())
+        super().__init__(f"Profil alanları geçersiz: {problems}.")
+
+
+def check_profile_fields(fields: ProfileFields, *, today: date | None = None) -> dict[str, str]:
+    """Onaylanacak profilin sorunları (10.7.3): alan adı → sorun; boş sözlük geçerlidir.
+
+    Ad ve soyad zorunludur; isim alanları boş, 255 karakterden uzun, denetim karakterli ya da
+    harfsiz/rakamsız olamaz (alias anahtarı çıkmalı, §20.2.1) ve ad-soyad klasör adı vermelidir
+    (K8). Doğum tarihi `today`den (verilmezse bugün) sonra olamaz; vatandaşlık ICAO kodudur
+    (`RUS`, `D`). İsteğe bağlı alan yoksa `None`'dır, boş metin değil. Kişisel değer dönmez.
+    """
+    errors: dict[str, str] = {}
+    names = {
+        GIVEN_NAMES: fields.given_names,
+        SURNAME: fields.surname,
+        OTHER_NAMES: fields.other_names,
+        ORIGINAL_SCRIPT_NAME: fields.original_script_name,
+    }
+    for name, value in names.items():
+        if value is None and name not in _REQUIRED_NAMES:
+            continue
+        problem = _name_problem(value)
+        if problem is not None:
+            errors[name] = problem
+    if not errors.keys() & _REQUIRED_NAMES:
+        try:
+            person_slug(fields.given_names, fields.surname)
+        except SlugError:
+            errors[GIVEN_NAMES] = "ad-soyad klasör adına çevrilemiyor (K8)"
+    born = fields.date_of_birth
+    if born is not None and born > (today or date.today()):
+        errors[DATE_OF_BIRTH] = "gelecekte olamaz"
+    nationality = fields.nationality
+    if nationality is not None and not _NATIONALITY.fullmatch(nationality):
+        errors[NATIONALITY] = "ICAO uyruk kodu olmalı (1–3 büyük harf, ör. RUS, D)"
+    return errors
+
+
+def _name_problem(value: str | None) -> str | None:
+    if value is None or not value.strip():
+        return "boş olamaz"
+    if len(value) > PROFILE_TEXT_MAX_LENGTH:
+        return f"en fazla {PROFILE_TEXT_MAX_LENGTH} karakter olabilir"
+    if any(unicodedata.category(char) == "Cc" for char in value):
+        return "denetim karakteri içeremez"
+    try:
+        normalize_name(value)
+    except EmptyNameError:
+        return "harf ya da rakam içermiyor"
+    return None
+
+
+def edited_profile_fields(profile: ProposedProfile, fields: ProfileFields) -> tuple[str, ...]:
+    """Önerilen profilden farklı onaylanan alanların adları (`PROFILE_FIELDS` sırasıyla)."""
+    proposed, confirmed = profile.fields().values(), fields.values()
+    return tuple(name for name in PROFILE_FIELDS if proposed[name] != confirmed[name])
+
+
+def review_pending_profile(
+    session: Session, key: PersonKey, *, entry: CatalogEntry, fields: ProfileFields | None = None
+) -> ProposedProfile:
+    """Onay anındaki önerilen profil (08.3.1, 10.7.3): onayın hükmü olaysız verilir, hiçbir şey
+    yazılmaz.
+
+    Satır 7 veritabanında yeniden değerlendirilir; artık uymuyorsa (kişi kayıtlı bir çalışanla
+    eşleşiyor, satır 6, satır 8 ya da eksik kişi) `ProfileApprovalRefusedError`. `fields` İK'nın
+    düzelttiği profildir: `check_profile_fields`'tan geçmezse `ProfileFieldsError`, çalışana
+    yazılacak yazımlar doğum tarihiyle kayıtlı bir çalışana uyuyorsa (satır 3–5; hükmün dayandığı
+    E numaralarıyla) `ProfileApprovalRefusedError`. Panel öneriyi ve düzeltmeyi onaydan önce bununla
+    sınar; `approve_pending_profile` aynı hükmü E numarası kilidinin içinde yeniden verir.
+    """
+    if fields is not None:
+        errors = check_profile_fields(fields)
+        if errors:
+            raise ProfileFieldsError(errors)
+    match = _decide(session, key)
+    if match.rule is not MatchRule.NO_MATCH:
+        raise _approval_refused(f"eşleştirme hükmü {match.rule.value}")
+    resolution = resolve_unmatched(key, match, entry=entry)
+    profile = resolution.proposed_profile
+    if profile is None:
+        raise _approval_refused(f"satır 6–8 kararı {resolution.rule.value}")
+    confirmed = profile.fields() if fields is None else fields
+    # Belgenin yazımları satır 7'de kimseye uymadı; düzeltilmiş yazım ya da doğum tarihi uyabilir.
+    verdict = _decide_by_name(
+        session,
+        tuple(dict.fromkeys(_employee_aliases(profile, confirmed).values())),
+        confirmed.date_of_birth,
+    )
+    if verdict.rule is not MatchRule.NO_MATCH:
+        raise _approval_refused(
+            "onaylanan profil kayıtlı çalışanla eşleşiyor: eşleştirme hükmü "
+            f"{verdict.rule.value} ({', '.join(verdict.employee_ids)})"
+        )
+    return profile
+
+
 def approve_pending_profile(
     session: Session,
     layout: DataLayout,
@@ -919,24 +1088,34 @@ def approve_pending_profile(
     *,
     entry: CatalogEntry,
     actor: str,
+    fields: ProfileFields | None = None,
     file_id: int | None = None,
     page_index: int | None = None,
 ) -> Employee:
-    """Onay bekleyen profili İK'nın onayıyla çalışana çevirir (08.3.1; §20.2.2 satır 7, K7, K16).
+    """Onay bekleyen profili İK'nın onayıyla çalışana çevirir (08.3.1, 10.7.3; §20.2.2 satır 7,
+    K7, K16).
 
     `actor` iki aşamalı onayı tamamlamış kullanıcının adıdır; boşsa `ValueError`. Hüküm çağıranın
-    elindeki öneriye güvenilmeden veritabanında olaysız yeniden değerlendirilir: satır 7 artık
-    uymuyorsa `ProfileApprovalRefusedError` — kayıt, klasör ve olay yazılmaz. Öneriden sonra kişinin
-    numarası ya da ismi kayıtlı bir çalışanda görünüyorsa (satır 1–5) yeni çalışan açılmaz; belge
-    çalışana atanarak çözülür (08.2.1). Uyuyorsa aynı işlemde:
+    elindeki öneriye güvenilmeden veritabanında olaysız yeniden değerlendirilir
+    (`review_pending_profile`): satır 7 artık uymuyorsa `ProfileApprovalRefusedError` — kayıt,
+    klasör ve olay yazılmaz. Öneriden sonra kişinin numarası ya da ismi kayıtlı bir çalışanda
+    görünüyorsa (satır 1–5) yeni çalışan açılmaz; belge çalışana atanarak çözülür (08.2.1).
+
+    `fields` İK'nın panelde düzelttiği profildir (10.7.3); verilmezse önerinin alanları yazılır.
+    Verilirse `check_profile_fields`'tan geçmelidir (`ProfileFieldsError`) ve çalışana yazılacak
+    bütün yazımlar doğum tarihiyle birlikte satır 3–5'e karşı yeniden sınanır: düzeltilmiş ad ya
+    da doğum tarihi kayıtlı bir çalışana uyuyorsa ikinci çalışan açılmaz
+    (`ProfileApprovalRefusedError`, hükmün dayandığı E numaralarıyla). Uyuyorsa aynı işlemde:
 
     - `allocate_employee_number` ile E numarası (K8) ve `Ad_Soyad_E0001` klasör adı,
-    - `employees` satırı önerilen profilin (`ProposedProfile`) okumalarıyla,
-    - `employee_aliases`: profilin yazımları (`Ad Soyad` ve varsa orijinal yazım, anahtarın
-      normalize değeriyle), `script` yazımın alfabesiyle,
+    - `employees` satırı onaylanan alanlarla,
+    - `employee_aliases`: belgenin yazımları (`Ad Soyad` ve varsa orijinal yazım, anahtarın
+      normalize değeriyle) ve düzeltilmiş ad-soyad ya da orijinal yazım belgede yoksa o yazım
+      (§20.2.1 normalize değeriyle), `script` yazımın alfabesiyle,
     - `Employees/<klasör>/Alinan/` ve `Hazir/` dizinleri,
     - `EMPLOYEE_CREATED` olayı kullanıcı adıyla (`employee_id` sütunu; veri `action: pending`,
-      `document_type_slug`).
+      `document_type_slug`; öneriden farklı onaylanan alan varsa adları `edited_fields`'ta —
+      değerleri değil).
 
     Belge numarası yazılmaz: temiz değildir (§20.2.3) ve yanlış okunmuş numara başka birinin
     belgesini satır 1'le bu çalışana bağlayabilir (D11). `entry` belgenin katalog türüdür;
@@ -948,26 +1127,23 @@ def approve_pending_profile(
     # E numarası hükümden önce ayrılır: tahsis kilidi işlem sonuna kadar tutulur, aynı kişinin
     # eşzamanlı ikinci onayı hükmü ilk onayın commit'inden sonra okur ve satır 3/5'e düşer.
     employee_id = allocate_employee_number(session)
-    match = _decide(session, key)
-    if match.rule is not MatchRule.NO_MATCH:
-        raise _approval_refused(f"eşleştirme hükmü {match.rule.value}")
-    resolution = resolve_unmatched(key, match, entry=entry)
-    profile = resolution.proposed_profile
-    if profile is None:
-        raise _approval_refused(f"satır 6–8 kararı {resolution.rule.value}")
-    folder_name = employee_folder_name(profile.given_names, profile.surname, employee_id)
+    profile = review_pending_profile(session, key, entry=entry, fields=fields)
+    confirmed = profile.fields() if fields is None else fields
+    edited = edited_profile_fields(profile, confirmed)
+    aliases = _employee_aliases(profile, confirmed)
+    folder_name = employee_folder_name(confirmed.given_names, confirmed.surname, employee_id)
     employee = Employee(
         id=employee_id,
         folder_name=folder_name,
-        given_names=profile.given_names,
-        surname=profile.surname,
-        other_names=profile.other_names,
-        original_script_name=profile.original_script_name,
-        date_of_birth=profile.date_of_birth,
-        nationality=profile.nationality,
+        given_names=confirmed.given_names,
+        surname=confirmed.surname,
+        other_names=confirmed.other_names,
+        original_script_name=confirmed.original_script_name,
+        date_of_birth=confirmed.date_of_birth,
+        nationality=confirmed.nationality,
     )
     session.add(employee)
-    for raw_name, normalized in profile.aliases:
+    for raw_name, normalized in aliases.items():
         session.add(
             EmployeeAlias(
                 employee=employee,
@@ -978,6 +1154,12 @@ def approve_pending_profile(
         )
     session.flush()
     layout.ensure_employee_tree(folder_name)
+    data: dict[str, object] = {
+        "action": EmployeeAction.PENDING.value,
+        "document_type_slug": entry.slug,
+    }
+    if edited:
+        data["edited_fields"] = list(edited)
     record_event(
         session,
         EventType.EMPLOYEE_CREATED,
@@ -985,9 +1167,23 @@ def approve_pending_profile(
         page_index=page_index,
         employee_id=employee_id,
         actor=actor,
-        data={"action": EmployeeAction.PENDING.value, "document_type_slug": entry.slug},
+        data=data,
     )
     return employee
+
+
+def _employee_aliases(profile: ProposedProfile, fields: ProfileFields) -> dict[str, str]:
+    # Çalışana yazılacak yazımlar (ham → normalize anahtar): önce belgeninkiler (anahtarı sayfanın
+    # diliyle normalize edildi), sonra belgede olmayan onaylanmış ad-soyad ve orijinal yazım
+    # (§20.2.1).
+    aliases = dict(profile.aliases)
+    name = f"{fields.given_names} {fields.surname}"
+    if name not in aliases:
+        aliases[name] = normalize_name(fields.given_names, fields.surname)
+    original = fields.original_script_name
+    if original is not None and original not in aliases:
+        aliases[original] = normalize_name(original)
+    return aliases
 
 
 def _approval_refused(verdict: str) -> ProfileApprovalRefusedError:
