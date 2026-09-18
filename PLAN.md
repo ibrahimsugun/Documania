@@ -8,7 +8,7 @@
 
 | Faz | PRD | Genel durum | Must sayacı | Kapanış |
 | --- | --- | --- | --- | --- |
-| Faz 0 — MVP | §5.1 | 86 ✅ · 0 ◐ · 16 ⬜ · 0 🔒 | 83/98 Must | AÇIK |
+| Faz 0 — MVP | §5.1 | 88 ✅ · 0 ◐ · 14 ⬜ · 0 🔒 | 85/98 Must | AÇIK |
 | Faz 1 — v1 | §5.2 | 0 ✅ · 0 ◐ · 0 ⬜ · 32 🔒 | 0/21 Must | AÇIK |
 | Faz 2 — v2 | §5.3 | 0 ✅ · 0 ◐ · 0 ⬜ · 13 🔒 | 0/0 Must | AÇIK |
 | Faz 3 — Enterprise | §5.4 | 0 ✅ · 0 ◐ · 0 ⬜ · 8 🔒 | 0/0 Must | AÇIK |
@@ -196,8 +196,8 @@ panelde `plan-count-drift` bulgusu doğurur.
 
 | PRD | Gereksinim | Öncelik | Durum |
 | --- | --- | --- | --- |
-| 08.1.1 | Kuyruğa yönlendirme (R7) | Must (MVP) | ⬜ |
-| 08.1.2 | Gerekçe içeriği | Must (MVP) | ⬜ |
+| 08.1.1 | Kuyruğa yönlendirme (R7) | Must (MVP) | ✅ → K08.1 |
+| 08.1.2 | Gerekçe içeriği | Must (MVP) | ✅ → K08.1 |
 | 08.2.1 | Kuyruk öğesini çalışana atama | Must (MVP) | ⬜ |
 | 08.3.1 | Onay bekleyen profili onaylama | Must (MVP) | ⬜ |
 | 08.4.1 | Arşive taşıma (R11) | Must (MVP) | ⬜ |
@@ -1419,6 +1419,18 @@ bu kayıt neden sapıldığının izlenebilir olması içindir.
   `ExtractImageSourceError`. Hepsinde belge kuyruğa gider, render'a düşülmez (K12, C33). Karar insana bırakıldı:
   JPEG 2000 çıktısı kabul mü; zincirli süzgeçteki ve CMYK JPEG'in orijinal baytları ham akıştan süzgeç çözülerek
   mi çıkarılmalı; Flate görüntünün kayıpsız PNG'si "orijinal bayt" sayılır mı (bugün sayılıyor).
+- **D20 — `queue_items.payload_json`'da onay bekleyen profilin tam içeriği yok (08.1.1, 08.1.2, tm 54).**
+  C29 (05.7.1) "önerilen profil plana girmez; 08.1 aynı saf adımlarla (`build_person_key` →
+  `resolve_unmatched`) yeniden kurabilir" diyordu. `route_queue_item` (`app/pipeline/route.py`) bunu
+  yapmadı: `ProposedProfile`'ı yeniden kurmak `app.matching.match`'e ve öğenin sayfa analizlerine
+  (`pages.analysis_json`) bağımlılık ister — bu görevin GİRDİ'sü yalnız `plan.py` (§8.5 `PlanItem`) ve
+  `execute.py`/`storage`'dı (Task Master görev detayı), eşleştirme modülü değil. `payload_json` (ve
+  `reason.json`) şimdilik yalnız plan öğesinin kendi taşıdığı `document_type_slug`, `sources` ve
+  `employee_guess` (`PlanEmployee`) üçlüsünü yazıyor; bu 08.1.1/08.1.2'nin kabul kriterini (hangi
+  sayfalar, hangi kural, hangi tür, kişi tahmini) karşılıyor ama satır 7'nin önerilen profilini
+  (ad-soyad, orijinal yazım, doğum tarihi, uyruk, alias adayları) taşımıyor. 08.3 (onay bekleyen
+  profili onaylama) bu içeriğe ihtiyaç duyarsa ya `route_queue_item`'a eşleştirme bağımlılığı eklemeli
+  ya da C29'un önerdiği gibi saf adımları kendi görevinde yeniden kurmalı. Karar insana bırakıldı.
 
 ## G. İş Kırılımı Dizini
 
@@ -1736,3 +1748,9 @@ var olan maddeler silinmez. Biçim:
 - ✅ Geri alınmış uygulamanın diskte kalan çıktısı ikinci kez yazılmaz, kaydedilir: `find_sequenced(directory, stem, extension, *, sha256, size)` (`app/storage/atomic.py`) K8 adıyla aynı içerikli dosyaları bulur, `documents.path`'in göstermediği ilki benimsenir; iki aynı sayfanın çıktıları ve eski plan sürümünün dosyası birbirine verilmez. `wrap_image` sarması belirleyici (`Engine.internal`, `nodate`) — sahte saatle iki sarım aynı bayt, trailer'da `/ID` yok — test `tests/storage/test_atomic.py` (+17), `tests/pipeline/test_execute_idempotency.py` · tm 53
 - ✅ S18: gerçek uygulayıcıyla (`rerun_plan` + `hazir` öğeleri `execute_ready_item`) iki yeniden çalıştırma — sağlayıcı çağrılmaz, aynı satır ve yol, `Hazir/`'da tek dosya kaynağıyla birebir, 2 `OUTPUT_SKIPPED`, 1 `OUTPUT_SAVED`, tek plan; iki eşzamanlı işlem (SQLite, iki oturum) tek çıktı yayınlar · tm 53
 - ✅ Kapı: 2049 geçti (+42; 4 PG testi atlandı), kapsam %99.71 (`execute.py` %100); 11 kural bozulması (denetimsiz uygulama, benimsemesiz yeniden yazım, kayıtlı dosyayı benimseme, pikepdf yazıcısı, `nodate`'siz sarım, pikepdf+`nodate`, atlama olayı, durum süzgeci, sahip süzgeci, kilitten önce denetim, atlamada kaynak okuma) her biri testte kırmızı · tm 53
+
+#### K08.1 — 08.1.1, 08.1.2 · Kuyruğa yönlendirme ve gerekçe dosyası
+- ✅ `route_queue_item(session, layout, plan, item)` (`app/pipeline/route.py`) planın `unknown`/`unreadable`/`unresolved` öğesini kuyruğa alır (07.7'nin `execute_ready_item`'ıyla aynı tanecik): öğenin kaynak dosyaları `Unknown/`/`Unreadable/`/`Unresolved/<upload_id>/`'a Alinan'daki kuralla kopyalanır (orijinal ad, `write_unique`, aynı SHA-256 tekrar kopyalanmaz), `queue_items` satırı (`upload_id`, `plan_id`, `plan_item_id`, `kind`, `reason`, `payload_json`) yazılır ve §8.3 olayı (`QUEUED_UNKNOWN`/`QUEUED_UNREADABLE`/`QUEUED_UNRESOLVED`; mesaj `route_reason`, veri kişisel değer taşımaz) atılır. Plan öğesi başına idempotent (`queue_items.plan_id` + `plan_item_id`): aynı öğe ikinci kez kuyruğa alınmaya çalışılırsa kaynak okunmaz, hiçbir şey yazılmaz, önceki satır döner (`RoutedItem.applied` yanlış) — 06.6.1'in yeniden çalıştırması ikinci kopya üretmez.
+- ✅ Gerekçe dosyası (08.1.2, K9): `reason.json` (`layout.queue_reason_path`) o (parti, kuyruk türü) çiftindeki **bütün** `queue_items` satırlarından `replace_file` ile baştan üretilir — türetilmiş dosya (`app/storage/atomic.py`'nin kuralı); her girdi `plan_item_id`, `reason` (route_reason — hangi sayfalar/hangi kural), `document_type_slug` (hangi tür; bilinmeyen türde `null`) ve `employee_guess` (kişi tahmini — `PlanEmployee`) taşır; aynı üçlü `queue_items.payload_json`'a da yazılır. Aynı yapı olay verisine de girer.
+- ✅ Kapı: 2064 geçti (+15), kapsam %99.71 (`route.py` satır+dal %100) — test `tests/pipeline/test_route.py` (15: kaynak kopyası ve kuyruk satırı, tür/kişi tahmini `null`/dolu, olay verisi ve `page_index` boş dosya, gerekçe dosyasının dört alanı, aynı türden birden çok öğenin birikmesi, iki farklı kuyruk türünün ayrı dosyası, aynı kaynak dosyanın iki öğe arasında tek kopyalanması, idempotenlik, `hazir`/`skip` reddi, planın partisinde olmayan/başka partiye ait/hash'i tutmayan kaynak hatası, S14 bilinmeyen türün gerçek `create_plan` çıktısıyla uçtan uca kuyruğa alınması) · tm 54
+- ✅ Kapsam dışı (PLAN.md §D20): önerilen profilin tam içeriği (§20.2.2 satır 7, `ProposedProfile`) bu görevde yeniden kurulmadı — eşleştirme modülüne ve sayfa analizlerine bağımlılık ister, bu görevin GİRDİ'sü yalnız `plan.py`/`execute.py`/`storage`'dı. `payload_json`/`reason.json` şimdilik yalnız plan öğesinin kendi taşıdığı `document_type_slug`/`sources`/`employee_guess` üçlüsünü yazıyor; karar insana bırakıldı (08.3'ün kapsamı).
