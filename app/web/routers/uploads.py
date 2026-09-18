@@ -12,8 +12,9 @@ denetlenir; sınırı aşan tek dosya olsa bile parti hiç oluşturulmaz.
 `POST /{upload_id}/rerun` güncel planı yeniden uygular; yapay zekâ sağlayıcısı bu uç noktanın
 bağımlılıkları arasında yoktur. `POST /{upload_id}/reanalyze` partiyi yeniden analiz eder ve yeni
 plan sürümünü açar (`app.pipeline.orchestrate`). İkisi de işi tek işlemde yapar: hata olursa
-hiçbir şey commit edilmez. Planı uygulayan adım `get_plan_executor` bağımlılığıdır; uygulayıcı
-(FR-MOD-07, 08.1; 09.2 bağlar) kurulana kadar iki uç nokta da 503 döner.
+hiçbir şey commit edilmez. Planı uygulayan adım `get_plan_executor` bağımlılığıdır — uygulamanın
+uygulayıcısı (`plan_executor`: çıktılar 07.x, kuyruk 08.1, profil 09.1; 09.2 bağlar). Plan öğesini
+yürütemeyen hata (kayıt, Inbox bütünlüğü K10, işlem) 409 döner.
 """
 
 from __future__ import annotations
@@ -34,7 +35,14 @@ from app.config import Settings, get_settings
 from app.db.models import Employee, Upload, UploadFile, allocate_upload_id
 from app.db.session import get_session
 from app.events import EventType, event_context, record_event
-from app.pipeline.orchestrate import NoPlanError, PlanExecutor, reanalyze_upload, rerun_plan
+from app.pipeline.orchestrate import (
+    PLAN_EXECUTION_ERRORS,
+    NoPlanError,
+    PlanExecutor,
+    plan_executor,
+    reanalyze_upload,
+    rerun_plan,
+)
 from app.pipeline.plan import PlanIntegrityError
 from app.storage import (
     DataLayout,
@@ -92,12 +100,9 @@ def get_layout() -> DataLayout:
     return DataLayout(get_settings().data_dir)
 
 
-def get_plan_executor() -> PlanExecutor:
-    """Planı uygulayan adım (06.6). Uygulayıcı henüz kurulmadı: 07.x/09.2 bu bağımlılığı bağlar."""
-    raise HTTPException(
-        status.HTTP_503_SERVICE_UNAVAILABLE,
-        "Plan uygulayıcısı henüz kurulmadı; plan uygulanamaz.",
-    )
+def get_plan_executor(settings: Annotated[Settings, Depends(get_settings)]) -> PlanExecutor:
+    """Planı uygulayan adım (06.6): uygulamanın uygulayıcısı, `render_image` ayarları `.env`'den."""
+    return plan_executor(settings)
 
 
 def get_analysis_provider(
@@ -251,11 +256,12 @@ def rerun_upload_plan(
     layout: Annotated[DataLayout, Depends(get_layout)],
     executor: Annotated[PlanExecutor, Depends(get_plan_executor)],
 ) -> PlanRunResponse:
-    """06.6.1 — güncel planı yapay zekâ çağırmadan yeniden uygular; plan yok/değişmiş: 409."""
+    """06.6.1 — güncel planı yapay zekâ çağırmadan yeniden uygular; plan yok/değişmiş/öğe
+    yürütülemiyor: 409."""
     upload = _get_upload(session, upload_id)
     try:
         run = rerun_plan(session, layout, upload, executor=executor)
-    except (NoPlanError, PlanIntegrityError) as exc:
+    except (NoPlanError, PlanIntegrityError, *PLAN_EXECUTION_ERRORS) as exc:
         raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from None
     session.commit()
     return PlanRunResponse(
@@ -274,7 +280,8 @@ def reanalyze_upload_plan(
     executor: Annotated[PlanExecutor, Depends(get_plan_executor)],
     provider: Annotated[AnalysisProvider, Depends(get_analysis_provider)],
 ) -> ReanalysisResponse:
-    """06.6.2 — partiyi yeniden analiz eder, yeni plan sürümünü açar; plan yoksa 409."""
+    """06.6.2 — partiyi yeniden analiz eder, yeni plan sürümünü açar; plan yok/öğe yürütülemiyor:
+    409."""
     upload = _get_upload(session, upload_id)
     try:
         reanalysis = reanalyze_upload(
@@ -285,7 +292,7 @@ def reanalyze_upload_plan(
             catalog=export_catalog(session),
             executor=executor,
         )
-    except NoPlanError as exc:
+    except (NoPlanError, *PLAN_EXECUTION_ERRORS) as exc:
         raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from None
     session.commit()
     return ReanalysisResponse(

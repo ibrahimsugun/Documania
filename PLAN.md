@@ -8,7 +8,7 @@
 
 | Faz | PRD | Genel durum | Must sayacı | Kapanış |
 | --- | --- | --- | --- | --- |
-| Faz 0 — MVP | §5.1 | 94 ✅ · 0 ◐ · 8 ⬜ · 0 🔒 | 91/98 Must | AÇIK |
+| Faz 0 — MVP | §5.1 | 97 ✅ · 0 ◐ · 5 ⬜ · 0 🔒 | 94/98 Must | AÇIK |
 | Faz 1 — v1 | §5.2 | 0 ✅ · 0 ◐ · 0 ⬜ · 32 🔒 | 0/21 Must | AÇIK |
 | Faz 2 — v2 | §5.3 | 0 ✅ · 0 ◐ · 0 ⬜ · 13 🔒 | 0/0 Must | AÇIK |
 | Faz 3 — Enterprise | §5.4 | 0 ✅ · 0 ◐ · 0 ⬜ · 8 🔒 | 0/0 Must | AÇIK |
@@ -209,9 +209,9 @@ panelde `plan-count-drift` bulgusu doğurur.
 | 09.1.1 | profil.md üretimi | Must (MVP) | ✅ → K09.1 |
 | 09.1.2 | Orijinal yazım gösterimi | Must (MVP) | ✅ → K09.1 |
 | 09.1.3 | Profil içeriği eksiksizliği | Must (MVP) | ✅ → K09.1 |
-| 09.2.1 | Parti durum makinesi | Must (MVP) | ⬜ |
-| 09.2.2 | Uçtan uca orkestrasyon | Must (MVP) | ⬜ |
-| 09.2.3 | Hata dayanıklılığı | Must (MVP) | ⬜ |
+| 09.2.1 | Parti durum makinesi | Must (MVP) | ✅ → K09.2 |
+| 09.2.2 | Uçtan uca orkestrasyon | Must (MVP) | ✅ → K09.2 |
+| 09.2.3 | Hata dayanıklılığı | Must (MVP) | ✅ → K09.2 |
 | 09.3.1 | Sentetik belge üreteci | Must (MVP) | ⬜ |
 | 09.3.2 | Kabul senaryoları S1–S5 | Must (MVP) | ⬜ |
 | 09.3.3 | Kabul senaryoları S6–S10 | Must (MVP) | ⬜ |
@@ -1298,6 +1298,44 @@ Onay beklemeden yapılan varsayımlar buraya numaralı olarak yazılır.
   yok:** görevin çıktı yüzeyi `route.py`/`match.py`'dir; uç nokta (`POST /api/queue/{id}/approve`, K16 onayı
   `get_confirmed_actor`) 10.7-c/10.8'in işi.
 
+- **C43** — Orkestrasyon ve parti durum makinesi (tm 59, 09.2.1, 09.2.2, 09.2.3): PRD durum zincirini, "tek
+  çağrıyla" işlemeyi ve "beklenmeyen hatada `failed`, dosyalar Inbox'ta, hata loglanır"ı yazar; geçişlerin nasıl
+  izleneceği, işlem sınırı, hangi hatanın "beklenmeyen" sayılacağı, uygulayıcının kuyruk/atla rotaları ve profilin ne
+  zaman yeniden üretileceği yazılı değil. `process_upload(session, layout, upload, *, settings, provider) ->
+  ProcessedUpload`, `execute_plan`/`plan_executor(settings)`, `UPLOAD_TRANSITIONS`/`check_transition`
+  (`app/pipeline/orchestrate.py`). **Durum makinesi:** zincir + bitmemiş her durumdan `failed`; `done`/`partial`/
+  `failed`'dan çıkış yok. **İzlenebilirlik:** her geçiş `uploads.status`'a yazılıp hemen commit edilir — durum her an
+  başka oturumdan (`GET /api/uploads/{id}`) görünür; geçiş olayı yok (D21). **İşlem sınırı:** `process_upload`
+  kendisi commit eder, geçiş başına bir işlem; analiz adımı tek işlemdir (sayfa başına commit `analyze_upload`'a
+  kanca ister — SQLite'ta analiz boyunca yazma kilidi tutulur, C17'nin sorusu arka plan işleyişiyle 13.3'e kaldı).
+  **Başlangıç:** parti satırı `FOR UPDATE` (SQLite `BEGIN IMMEDIATE`) ile yeniden okunur; `received` değilse
+  `UploadTransitionError`, iz yok — aynı partiyi alan ikinci işleyici bekler ve işlenmiş görür. **Render:** tekrar
+  dosyası atlanır; tür içerik imzasından (01.2.1): PDF → render + metin katmanı + boş sayfa + gömülü tek görüntü,
+  JPEG/PNG → analiz kopyası, Word/Excel ve tanınmayan içerik sayfasız. `RenderError` (bozuk/parolalı PDF) ve Pillow'un
+  `UnidentifiedImageError`'ı dosya başına SAVEPOINT'te geri alınır, parti durmaz, dosya sayfasız kalır → plan
+  "işlenemeyen dosya" Unresolved (D14); ret için olay yok (§8.3'te tür yok; gerekçe planda ve `QUEUED_UNRESOLVED`'da).
+  **Analiz ve plan:** katalog (`export_catalog`) bir kez okunur, analiz talimatı ve plan aynı kataloğu kullanır;
+  planın modeli `provider.model`, MRZ referans günü `create_plan`'in varsayılanı. **Sonuç:** analizde başarısız sayfa
+  varsa `partial`, yoksa `done`; analizin erken yazdığı `partial` bir sonraki geçişle ezilir, commit edilmez.
+  **Uygulayıcı:** `hazir` → `execute_ready_item`, kuyruk rotaları → `route_queue_item`, `skip` → `OUTPUT_SKIPPED`
+  (C40'ın öngördüğü gibi `document_id`'siz; mesaj öğenin gerekçesi, veri `item_id`, `plan_id`, `route: skip`,
+  `sources`; yeniden çalıştırmada uygulanmış `hazir` öğe gibi yeniden yazılır). Sonra partinin herhangi bir plan
+  sürümünden çıktısı olan her çalışanın `profil.md`'si `write_profile` ile yeniden üretilir (yeniden analizde eski
+  sürüm çıktısının sahibi dahil, 09.1.1). `get_plan_executor` artık bu uygulayıcıdır (503 kalktı); `rerun`/`reanalyze`
+  uç noktaları `PLAN_EXECUTION_ERRORS`'u (`EXECUTION_ERRORS` + `QueueItemReferenceError`/`QueueSourceIntegrityError`)
+  409'a çevirir. **Hata (09.2.3):** `Exception` alt sınıfı her hata beklenmeyendir — uygulayıcının `EXECUTION_ERRORS`'u
+  da: öğe kuyruğa çevrilmez (kuyruk kaydı planın aynı rotalı öğesini göstermeli, C41; `hazir` öğenin kaydı ne atanır
+  ne onaylanırdı), belge tahmin edilmez, uygulama durur. Adımın işi geri alınır, parti `failed`, `PIPELINE_FAILED`
+  (`stage`; `error` tam tür adı; `traceback` en içteki 20 çerçeve `dosya:satır işlev`; mesaj yalnız `app.`
+  modüllerinde tanımlı hatada `str(exc)`, dış hatada boş — SQL parametresi ve dosya yolu kişi adı taşır, CONVENTIONS
+  §6) yazılıp commit edilir; hata yeniden fırlatılmaz. Plan `executing`'e geçişle commit edildiği için yürütmede
+  durmuş parti `rerun` ile kurtarılır (diskte kalan çıktı benimsenir, 07.8.1). **Açık kalanlar:** (1) plan
+  dondurulmadan `failed` olan partinin yeniden işleme yolu yok — `process_upload` yalnız `received`, `rerun`/
+  `reanalyze` plan ister, aynı dosyalar yeniden yüklenirse tekrar sayılıp atlanır (13.3/insan kararı); (2)
+  `rerun`/`reanalyze` parti durumunu değiştirmez (06.6): kurtarılan parti `failed` görünür (10.3.2 karar verebilir);
+  (3) `process_upload` API'ye bağlanmadı — `POST /api/uploads` partiyi `received` bırakır, tetikleme (arka plan, yeni
+  oturum, sağlayıcı) 10.2/13.3'ün; (4) manuel işlemler (08.2/08.3/08.4) profili yeniden üretmiyor — tm 93 açıldı.
+
 ## D. Sapmalar
 
 PRD'den veya kilitli kararlardan her sapma buraya numaralı yazılır (D1, D2…).
@@ -1505,6 +1543,15 @@ bu kayıt neden sapıldığının izlenebilir olması içindir.
   anında yeniden değerlendirir; `payload_json`/`reason.json` hâlâ profili taşımıyor. Panel (10.7-a) öneriyi
   göstermek isterse aynı yeniden kurulumu kullanmalı; payload'a yazılıp yazılmayacağı insanın kararı.
 
+- **D21 — Parti durum geçişi olay loguna yazılmıyor (09.2.1, tm 59).** K15 "her adım events tablosuna yazılır",
+  09.2.1 "geçişler izlenebilir" der; §8.3'ün kapalı listesinde durum geçişi için tür yok (D6 ile aynı soru), en
+  yakın aday `PIPELINE_FAILED` yalnız hataya aittir. Geçişler bu yüzden `uploads.status`'a yazılıp her geçişte commit
+  edilerek izlenir — durum her an sorgulanabilir (`docs/UYGULAMA-PLANI-KAYNAK.md` 1.14: "durum her an
+  sorgulanabiliyor"); adımların olayları (`PAGE_RENDERED`, `PAGE_ANALYZED`, `PLAN_CREATED`, `OUTPUT_SAVED`/
+  `OUTPUT_SKIPPED`/`QUEUED_*`) ve `PIPELINE_FAILED.data.stage` tarihçeyi verir. Eksik kalan: sayfası ya da öğesi
+  olmayan adımın zaman damgalı izi yok (ör. yalnız Word dosyalı partide render ve analiz). Zaman damgalı geçiş
+  tarihçesi gerekiyorsa §8.3'e tür (ör. `UPLOAD_STATUS_CHANGED`) eklenmeli — karar insana bırakıldı.
+
 ## G. İş Kırılımı Dizini
 
 Task Master'a aktarımın kaynağı budur. Her satır bir görevdir; `ID` sütunu görev
@@ -1573,6 +1620,7 @@ başlığının başında birebir geçer.
 | 08.4 | Arşive taşıma | 08.4.1 | [SONNET-XHIGH] | 08.1 | 0 |
 | 09.1 | profil.md üretimi | 09.1.1, 09.1.2, 09.1.3 | [SONNET-XHIGH] | 07.7, 05.7, 05.8 | 0 |
 | 09.2 | Orkestrasyon ve parti durum makinesi | 09.2.1, 09.2.2, 09.2.3 | [OPUS-XHIGH] | 07.8, 08.1, 09.1 | 0 |
+| 09.1-b | Manuel işlemlerden sonra profil.md yeniden üretimi | 09.1.1 | [SONNET-XHIGH] | 09.2 | 0 |
 | 09.3-a | Sentetik belge üreteci | 09.3.1 | [OPUS-XHIGH] | 09.2, 03.6 | 0 |
 | 09.3-b | Kabul senaryoları S1-S5 | 09.3.2 | [OPUS-XHIGH] | 09.3-a | 0 |
 | 09.3-c | Kabul senaryoları S6-S10 | 09.3.3 | [OPUS-XHIGH] | 09.3-b | 0 |
@@ -1846,3 +1894,9 @@ var olan maddeler silinmez. Biçim:
 #### K09.1 — 09.1.1, 09.1.2, 09.1.3 · profil.md üretimi
 - ✅ `render_profile(session, employee, *, today=None)` (`app/profiles/render.py`) `profil.md` içeriğini çalışanın güncel veritabanı kaydından baştan üretir — kısmi güncelleme yoktur, bu yüzden herhangi bir değişiklikten sonra çağrı güncel hâli verir (09.1.1). Sıra: YAML ön blok (`employee_id`, `folder_name`, `given_names`, `surname`, `other_names`, `original_script_name`, `nationality`, `date_of_birth`, hesaplanan `age`, `document_numbers`, `contacts`), `## Kimlik` tablosu (aynı alanlar + iletişim satırları, okunmayan `—`) ve `## Belgeler` tablosu (tür adı, dosya adı, durum, tarih; belge yoksa "Henüz belge yok."). `given_names`/`surname` belgeden okunan yazımdır, `original_script_name` doluysa Latin olmayan asıl yazım ayrıca görünür — ikisi birlikte göründüğü için 09.1.2 ayrı dönüştürme istemez. `calculate_age(date_of_birth, *, today)` tam yaşı verir. `write_profile(session, layout, employee, *, today=None)` çıktıyı `layout.profile_path(employee.folder_name)`'e `replace_file` ile atomik yazar (dosya varsa baştan üretilir, elle düzenleme beklenmez — §8.2).
 - ✅ Kapı: ruff check/format, compileall, `pytest -q -m "not live" --cov=app --cov-fail-under=70` (2157 geçti, +14; 4 PG testi atlandı), kapsam %99.73 (`app/profiles/render.py` %100), temiz SQLite'ta `alembic upgrade head` (0001→0002, bu görevde göç yok), `import app.main` — hepsi exit 0 — test `tests/profiles/test_render.py` (14: YAML ön blok + kimlik tablosu + belge listesi, Latin olmayan isimde ikisi bir arada, yalnız Latin isimde orijinal yazım yer tutucusu, eksiksizlik, okunmayan alan yer tutucusu, yalnız güncel iletişim satırı, `calculate_age` 4 durum, `write_profile` yayın yolu + değişiklik sonrası yeniden üretim + eski içerik kalmaması, birden fazla belge durumu) · tm 58
+
+#### K09.2 — 09.2.1, 09.2.2, 09.2.3 · Orkestrasyon ve parti durum makinesi
+- ✅ Durum makinesi `UPLOAD_TRANSITIONS` + `check_transition` (`app/pipeline/orchestrate.py`): `received → rendering → analyzing → planning → executing → done/partial`, bitmemiş her durumdan `failed`, son durumlardan çıkış yok; her geçiş `uploads.status`'a yazılıp commit edilir (geçiş olayı yok, D21) — test `tests/pipeline/test_process_upload.py` (tablo, 6 ret, zincir; commit sırası motorun `commit` olayıyla; analiz sürerken ayrı bağlantı `analyzing` okur) · tm 59
+- ✅ `process_upload(session, layout, upload, *, settings, provider)` `received` partiyi tek çağrıda render → analiz → plan → uygulama → `done`/`partial` götürür (yalnız `received`, satır kilidiyle; render reddi partiyi durdurmaz); `execute_plan`/`plan_executor` hazir → çıktı, kuyruk rotaları → `route_queue_item`, skip → `OUTPUT_SKIPPED`, sonra partinin çalışanlarının `profil.md`'si; `get_plan_executor` gerçek uygulayıcı, yürütülemeyen öğe 409 (`app/web/routers/uploads.py`) — test `tests/pipeline/test_process_upload.py` (uçtan uca pasaport + boş sayfa + Word, S2, S5, kısmi analiz, render reddi, yalnız `received`, yeniden analizde profil) · `tests/web/test_uploads.py` (gerçek uygulayıcıyla rerun, 409) · tm 59
+- ✅ 09.2.3: dört adımın her birinde beklenmeyen hata adımın veritabanı işini geri alır, partiyi `failed` yapar, Inbox'ı bayt bayt bırakır, `PIPELINE_FAILED` (`stage`, `error`, `traceback`; dış hata metni ve kişisel değer yok) yazar; uygulamanın kendi hatası (K10 Inbox değişmiş) metniyle loglanır; yürütmede duran parti `rerun` ile ikinci dosya olmadan kurtarılır · tm 59
+- ✅ Kapı: ruff check/format, compileall, `pytest -q -m "not live" --cov=app --cov-fail-under=70` (2184 geçti, +27; 4 PG testi atlandı), kapsam %99.74 (`orchestrate.py` %100, `uploads.py` %100), temiz SQLite'ta `alembic upgrade head` (0001→0002, göç yok), `import app.main` — hepsi exit 0; 8 kural bozulması (dış hata metni, geri alma, render reddi, `partial`, profil, geçiş commit'i, skip izi, tekrar dosyası) testte kırmızı · tm 59

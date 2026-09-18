@@ -510,28 +510,58 @@ def test_rerun_of_a_changed_plan_is_409_and_commits_nothing(
         assert session.get_one(Plan, plan_id).executed_at is None
 
 
+def test_rerun_applies_the_plan_with_the_application_executor(
+    client: TestClient, session_factory: sessionmaker[Session], layout: DataLayout
+) -> None:
+    # 09.2: `get_plan_executor` uygulamanın uygulayıcısıdır — çıktı, köken, Alinan ve profil.md.
+    upload_id, plan_id = _planned_upload(client, session_factory, layout)
+    folder = layout.employee_dir("Test_Ornekova_E0001")
+
+    first = client.post(f"/api/uploads/{upload_id}/rerun")
+    second = client.post(f"/api/uploads/{upload_id}/rerun")
+
+    assert (first.status_code, second.status_code) == (200, 200)
+    assert sorted(path.name for path in (folder / "Hazir").iterdir()) == [
+        "Test_Ornekova-Passport.pdf"
+    ]
+    assert (folder / "profil.md").is_file()
+    with session_factory() as session:
+        (output,) = session.scalars(select(Document)).all()
+        assert (output.plan_id, output.source_refs_json) == (
+            plan_id,
+            [{"file_id": 1, "pages": [0]}],
+        )
+        types = _event_types(session, upload_id)
+        assert types.count(EventType.OUTPUT_SAVED) == 1
+        assert types.count(EventType.OUTPUT_SKIPPED) == 1
+        assert session.get_one(Plan, plan_id).executed_at is not None
+
+
 @pytest.mark.parametrize("action", ["rerun", "reanalyze"])
-def test_without_a_plan_executor_the_plan_is_not_applied(
+def test_an_item_that_cannot_be_executed_is_409_and_commits_nothing(
     action: str,
     app: FastAPI,
     client: TestClient,
     session_factory: sessionmaker[Session],
     layout: DataLayout,
 ) -> None:
+    # K10: Inbox'taki kaynak yüklemeden sonra değişmişse öğe yürütülmez, belge tahmin edilmez.
     upload_id, _ = _planned_upload(client, session_factory, layout)
     provider = _recording()
     app.dependency_overrides[get_analysis_provider] = lambda: provider
     with session_factory() as session:
         before = _event_types(session, upload_id)
+        stored = layout.resolve(session.get_one(Upload, upload_id).files[0].stored_path)
+    stored.write_bytes(make_text_pdf_bytes(["DEGISMIS"]))
 
     response = client.post(f"/api/uploads/{upload_id}/{action}")
 
-    assert response.status_code == 503
-    assert response.json()["detail"] == "Plan uygulayıcısı henüz kurulmadı; plan uygulanamaz."
-    assert provider.requests == []
+    assert response.status_code == 409
+    assert "SHA-256" in response.json()["detail"]
     with session_factory() as session:
         assert _event_types(session, upload_id) == before
         assert _count_rows(session, Plan) == 1
+        assert _count_rows(session, Document) == 0
 
 
 def test_failed_rerun_commits_nothing(

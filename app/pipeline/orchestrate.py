@@ -1,4 +1,52 @@
-"""Planı yeniden çalıştırma ve partiyi yeniden analiz — PRD 06.6.1, 06.6.2 (K9, K18, S18).
+"""Parti orkestrasyonu ve durum makinesi, planı yeniden çalıştırma ve partiyi yeniden analiz —
+PRD 09.2.1, 09.2.2, 09.2.3, 06.6.1, 06.6.2 (K9, K10, K15, K18, S18).
+
+**Durum makinesi (09.2.1).** Parti `received → rendering → analyzing → planning → executing →
+done | partial` yolunu izler; bitmemiş her durumdan `failed`'a geçilir, son durumlardan (`done`,
+`partial`, `failed`) çıkış yoktur (`UPLOAD_TRANSITIONS`). Her geçiş `uploads.status`'a yazılır ve
+hemen commit edilir: durum her an başka bir oturumdan sorgulanabilir (`GET /api/uploads/{id}`,
+01.6.1) ve adımın veritabanı işi (sayfalar, analizler, plan) geçişle birlikte kalıcı olur. §8.3'ün
+kapalı listesinde durum geçişi için olay türü yoktur (PLAN.md §D21): geçişin izi sütunun kendisi,
+adımların olayları (`PAGE_RENDERED`, `PAGE_ANALYZED`, `PLAN_CREATED`, `OUTPUT_SAVED`, `QUEUED_*`…)
+ve hatada `PIPELINE_FAILED`'ın `stage`'idir.
+
+**Uçtan uca işleme (09.2.2).** `process_upload` `received` partiyi tek çağrıda baştan sona işler;
+başka durumdaki parti işlenmez (`UploadTransitionError`, iz bırakmaz — ikinci bir işleyici partinin
+satır kilidinde bekler ve partiyi işlenmiş görür):
+
+1. `rendering` — tekrar olmayan her dosya içerik imzasıyla (01.2.1) ayrılır: PDF'in sayfa
+   görüntüsü (02.1), metin katmanı (02.2), boş sayfa (02.4) ve gömülü tek görüntü (02.5)
+   işaretleri; JPEG/PNG'nin analiz kopyası (02.3). Word/Excel (K2) ve tanınmayan içerik render
+   edilmez; tekrar dosyası (01.4.1) atlanır. Render'ın reddettiği dosya (bozuk ya da parolalı PDF —
+   `RenderError`; çözülemeyen görüntü) partiyi durdurmaz: yazdığı her şey geri alınır, dosya
+   sayfasız kalır ve plan onu "işlenemeyen dosya" olarak Unresolved'a gönderir (R7, D14).
+2. `analyzing` — sayfalar güncel katalogla (`export_catalog`) analiz edilir (03.7).
+3. `planning` — aynı katalogla plan üretilir ve dondurulur (06.1, K9); planın modeli
+   sağlayıcınınkidir.
+4. `executing` — plan `execute_plan` ile uygulanır (`Settings.render_image_*`).
+5. Sonuç: en az bir sayfanın analizi başarısızsa `partial` (03.7.2), değilse `done`. Kuyruğa giden
+   öğe hata değildir. Analiz kısmi başarıda `partial`'ı erkenden yazar; son durum olduğu için o
+   değer bir sonraki geçişin altında kalır ve yürütmeden sonra yeniden yazılır.
+
+**Hata dayanıklılığı (09.2.3).** Adım beklenmeyen bir hatayla durursa o adımın veritabanı işi geri
+alınır, parti `failed` olur ve `PIPELINE_FAILED` yazılır; önceki adımların commit edilmiş işi kalır
+(yürütmede durmuş partinin planı yeniden çalıştırılabilir). Inbox'a hiçbir adım yazmaz (K10):
+dosyalar olduğu gibi kalır. Olay verisi `stage` (partinin durduğu durum), `error` (hata türünün
+tam adı) ve `traceback` (değer taşımayan `dosya:satır işlev` çerçeveleri). Mesaj yalnız uygulamanın
+kendi hatalarında hata metnidir — bu metinler kişisel değer taşımaz (C12, C13); dış kütüphanenin
+metni (SQL parametresi, kişi adı taşıyan dosya yolu) yazılmaz (CONVENTIONS §6). Hata yeniden
+fırlatılmaz, sonuç `ProcessedUpload`'dadır. Dosya sistemi işleme bağlı değildir: geri alınan
+yürütmenin diske yazdığı çıktı kalır ve yeniden uygulamada benimsenir (07.8.1).
+
+**Uygulayıcı.** `PlanExecutor` planı uygulayan adımdır. Sözleşmesi: doğrulanmış planı ve kaydını
+alır, yapay zekâ çağırmaz, planı değiştirmez, plan öğesi başına idempotenttir (07.8.1) ve oturumu
+commit etmez. Uygulama bitince `plans.executed_at` son uygulamanın zamanı olur. `execute_plan`
+(`plan_executor(settings)`) öğeleri plan sırasıyla yürütür: `hazir` → `execute_ready_item` (07.7,
+07.8), `unknown`/`unreadable`/`unresolved` → `route_queue_item` (08.1), `skip` → yalnız
+`OUTPUT_SKIPPED` (belgesiz; mesaj öğenin gerekçesi, veri `route: skip`). Öğeyi yürütemeyen hata
+(`PLAN_EXECUTION_ERRORS`) belge tahmin ettirmez, uygulamayı durdurur. Sonra partinin çıktısı olan
+her çalışanın `profil.md`'si yeniden üretilir (09.1.1) — yeniden analizde eski sürüm işaretlenen
+çıktının sahibi dahil.
 
 **Güncel plan.** Partinin güncel planı en yüksek sürümlü `plans` kaydıdır; eski sürümler
 değiştirilmez ve silinmez.
@@ -18,13 +66,8 @@ yeni analizlerden bir sonraki plan sürümü üretilir (06.1, K18), önceki sür
 (`documents.status = active`) "eski sürüm" (`superseded`) işaretlenir ve yeni plan uygulanır.
 Eski çıktı silinmez, taşınmaz, yeniden adlandırılmaz: satırı ve dosyası yerinde kalır, temizlik
 İK'nın arşive taşımasıdır. Başka partinin ve plana bağlı olmayan çıktıya dokunulmaz. Planı
-olmayan partiyi baştan işlemek orkestrasyonun (09.2) işidir; yeniden analiz sağlayıcıyı çağırmadan
+olmayan partiyi baştan işlemek `process_upload`'ın işidir; yeniden analiz sağlayıcıyı çağırmadan
 reddeder. Eski sürümün kuyruk kaydı `queue_items.plan_id` ile ayrılır (güncel plana ait değil).
-
-**Uygulayıcı.** `PlanExecutor` planı uygulayan adımdır — çıktılar (07.x), kuyruk kayıtları (08.1);
-09.2 bunları tek adımda birleştirir. Sözleşmesi: doğrulanmış planı ve kaydını alır, yapay zekâ
-çağırmaz, planı değiştirmez, plan öğesi başına idempotenttir (07.8.1) ve oturumu commit etmez.
-Uygulama bitince `plans.executed_at` son uygulamanın zamanı olur.
 
 **Olay.** `PLAN_RERUN` doğrulamadan sonra, uygulayıcıdan önce yazılır: veri `plan_id`, `version`,
 `plan_hash`. `PLAN_REANALYZED` yeni plan (`PLAN_CREATED`) ve eski sürüm işaretlemesinden sonra,
@@ -32,27 +75,85 @@ uygulayıcıdan önce yazılır: veri yeni ve önceki planın kimliği ile sür�
 sayfa sonuç sayıları ve eski sürüm işaretlenen çıktıların kimlikleri. Mesaj yok, kişisel değer
 yok. Uygulayıcının olayları partinin bağlamında yazılır.
 
-Parti durumuna dokunulmaz (09.2.1); yalnız analiz kısmi başarıda `partial` yazar (03.7.2). Oturum
-commit edilmez — işlem sınırı çağıranındır; hata olursa hiçbir iz kalmaz.
+Yeniden çalıştırma ve yeniden analiz parti durumuna dokunmaz (yalnız analiz kısmi başarıda
+`partial` yazar, 03.7.2) ve oturumu commit etmez — işlem sınırı çağıranındır; hata olursa hiçbir iz
+kalmaz. `process_upload` ise işlem sınırını kendisi çizer: her geçişte commit eder.
 """
 
 from __future__ import annotations
 
+import traceback
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import date
-from typing import Protocol
+from functools import partial
+from pathlib import PurePath
+from types import MappingProxyType
+from typing import Any, Protocol
 
+from PIL import UnidentifiedImageError
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.ai.prompts import build_page_analysis_instructions
 from app.ai.provider import AnalysisProvider
-from app.catalog import Catalog
-from app.db.models import Document, DocumentStatus, Plan, Upload, utcnow
+from app.catalog import Catalog, export_catalog
+from app.config import Settings
+from app.db.models import (
+    Document,
+    DocumentStatus,
+    Employee,
+    Plan,
+    Upload,
+    UploadFile,
+    UploadStatus,
+    utcnow,
+)
 from app.events import EventType, event_context, record_event
 from app.pipeline.analyze import UploadAnalysisResult, analyze_upload
-from app.pipeline.plan import PlanDocument, create_plan, read_plan
-from app.storage import DataLayout
+from app.pipeline.execute import EXECUTION_ERRORS, execute_ready_item
+from app.pipeline.plan import PlanDocument, PlanItem, Route, create_plan, read_plan
+from app.pipeline.render import (
+    RenderError,
+    extract_upload_file_text,
+    mark_upload_file_blank_pages,
+    mark_upload_file_single_image_pages,
+    render_image_file,
+    render_upload_file,
+)
+from app.pipeline.route import QueueItemReferenceError, QueueSourceIntegrityError, route_queue_item
+from app.profiles import write_profile
+from app.storage import DataLayout, FileKind, UnsupportedFileTypeError, detect_file_kind
+
+# 09.2.1: bitmemiş her durumdan `failed`'a geçilir; `done`, `partial` ve `failed` son durumdur.
+UPLOAD_TRANSITIONS: Mapping[UploadStatus, frozenset[UploadStatus]] = MappingProxyType(
+    {
+        UploadStatus.RECEIVED: frozenset({UploadStatus.RENDERING, UploadStatus.FAILED}),
+        UploadStatus.RENDERING: frozenset({UploadStatus.ANALYZING, UploadStatus.FAILED}),
+        UploadStatus.ANALYZING: frozenset({UploadStatus.PLANNING, UploadStatus.FAILED}),
+        UploadStatus.PLANNING: frozenset({UploadStatus.EXECUTING, UploadStatus.FAILED}),
+        UploadStatus.EXECUTING: frozenset(
+            {UploadStatus.DONE, UploadStatus.PARTIAL, UploadStatus.FAILED}
+        ),
+        UploadStatus.DONE: frozenset(),
+        UploadStatus.PARTIAL: frozenset(),
+        UploadStatus.FAILED: frozenset(),
+    }
+)
+
+# Plan öğesini yürütemeyen hatalar: kayıt, kaynak bütünlüğü (K10) ve işlem. Hiçbir şey
+# yazılmamıştır; belge tahmin edilmez, uygulama durur (`process_upload`'da parti `failed`).
+PLAN_EXECUTION_ERRORS: tuple[type[Exception], ...] = (
+    *EXECUTION_ERRORS,
+    QueueItemReferenceError,
+    QueueSourceIntegrityError,
+)
+
+# Render adımının dosyayı reddetmesi: dosya sayfasız kalır, parti sürer (R7, D14).
+_RENDER_REFUSALS = (RenderError, UnidentifiedImageError)
+_IMAGE_KINDS = frozenset({FileKind.JPEG, FileKind.PNG})
+# `PIPELINE_FAILED.data.traceback`'te tutulan en içteki çerçeve sayısı.
+_TRACEBACK_FRAMES = 20
 
 
 class PlanExecutor(Protocol):
@@ -65,6 +166,25 @@ class PlanExecutor(Protocol):
 
 class NoPlanError(LookupError):
     """Partinin planı yok: yeniden çalıştırılacak ya da yeniden analiz edilecek sürüm bulunmadı."""
+
+
+class UploadTransitionError(ValueError):
+    """09.2.1: parti bulunduğu durumdan istenen duruma geçemez — ör. işlenmiş parti yeniden
+    işlenmez."""
+
+
+@dataclass(frozen=True, slots=True)
+class ProcessedUpload:
+    """`process_upload` sonucu.
+
+    `status` partinin son durumudur (`done`, `partial` ya da `failed`). `plan` partinin commit
+    edilmiş planıdır; parti plan dondurulmadan durduysa `None`. `failed_stage` yalnız `failed`
+    sonucunda dolar: partinin durduğu adımın durumu.
+    """
+
+    status: UploadStatus
+    plan: Plan | None
+    failed_stage: UploadStatus | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -88,6 +208,215 @@ class Reanalysis:
     previous_plan: Plan
     superseded_document_ids: tuple[int, ...]
     analysis: UploadAnalysisResult
+
+
+# --- durum makinesi ve uçtan uca işleme (09.2) --------------------------------------------------
+
+
+def check_transition(current: UploadStatus, target: UploadStatus) -> None:
+    """`current` durumundaki parti `target`'a geçemiyorsa `UploadTransitionError` (09.2.1)."""
+    if target not in UPLOAD_TRANSITIONS[current]:
+        raise UploadTransitionError(
+            f"Parti '{current.value}' durumundan '{target.value}' durumuna geçemez (09.2.1)."
+        )
+
+
+def process_upload(
+    session: Session,
+    layout: DataLayout,
+    upload: Upload,
+    *,
+    settings: Settings,
+    provider: AnalysisProvider,
+) -> ProcessedUpload:
+    """`received` partiyi tek çağrıda render eder, analiz eder, planlar ve uygular (09.2.2).
+
+    Kurallar modül açıklamasındadır. Parti `received` değilse — başka bir işleyici almış ya da
+    işlenmiş — hiçbir şey yazılmadan `UploadTransitionError`. Adımlardan biri beklenmeyen bir
+    hatayla durursa parti `failed` olur ve `PIPELINE_FAILED` yazılır (09.2.3); hata yeniden
+    fırlatılmaz. Her geçiş commit edilir.
+    """
+    stage = _begin(session, upload)
+    plan: Plan | None = None
+    with event_context(upload_id=upload.id):
+        try:
+            _render_upload(session, layout, settings, upload)
+            stage = _advance(session, upload, stage, UploadStatus.ANALYZING)
+
+            catalog = export_catalog(session)
+            analysis = analyze_upload(
+                session,
+                layout,
+                upload,
+                provider=provider,
+                instructions=build_page_analysis_instructions(catalog),
+            )
+            stage = _advance(session, upload, stage, UploadStatus.PLANNING)
+
+            plan = create_plan(session, layout, upload, catalog=catalog, model=provider.model)
+            stage = _advance(session, upload, stage, UploadStatus.EXECUTING)
+
+            _execute(session, layout, plan, read_plan(plan), executor=plan_executor(settings))
+            outcome = UploadStatus.PARTIAL if analysis.is_partial else UploadStatus.DONE
+            stage = _advance(session, upload, stage, outcome)
+        except Exception as exc:
+            session.rollback()
+            _record_failure(session, upload, stage, exc)
+            # Plan yalnız `executing`'e geçişle commit edilmiştir; öncesinde geri alındı.
+            committed = plan if stage is UploadStatus.EXECUTING else None
+            return ProcessedUpload(UploadStatus.FAILED, committed, failed_stage=stage)
+    return ProcessedUpload(stage, plan)
+
+
+def execute_plan(
+    session: Session,
+    layout: DataLayout,
+    plan: Plan,
+    document: PlanDocument,
+    *,
+    render_image_dpi: int,
+    render_image_jpeg_quality: int,
+) -> None:
+    """Planın öğelerini plan sırasıyla yürütür ve partinin çalışan profillerini yeniden üretir.
+
+    `PlanExecutor` sözleşmesine uyar (modül açıklaması); `render_image_*` `render_image` işleminin
+    yapılandırma değerleridir. Öğeyi yürütemeyen hata (`PLAN_EXECUTION_ERRORS`) olduğu gibi
+    yükselir. Oturum commit edilmez.
+    """
+    for item in document.items:
+        if item.route is Route.READY:
+            execute_ready_item(
+                session,
+                layout,
+                plan,
+                item,
+                render_image_dpi=render_image_dpi,
+                render_image_jpeg_quality=render_image_jpeg_quality,
+            )
+        elif item.route is Route.SKIP:
+            _record_skip(session, plan, item)
+        else:
+            route_queue_item(session, layout, plan, item)
+    _write_profiles(session, layout, plan.upload_id)
+
+
+def plan_executor(settings: Settings) -> PlanExecutor:
+    """Uygulamanın `PlanExecutor`'ı: `execute_plan`, `render_image` ayarları `settings`'ten."""
+    return partial(
+        execute_plan,
+        render_image_dpi=settings.render_image_dpi,
+        render_image_jpeg_quality=settings.render_image_jpeg_quality,
+    )
+
+
+def _begin(session: Session, upload: Upload) -> UploadStatus:
+    # Satır kilidi (PostgreSQL `FOR UPDATE`; SQLite `BEGIN IMMEDIATE`): aynı partiyi alan ikinci
+    # işleyici bekler, sonra partiyi `received` dışında görür.
+    session.refresh(upload, with_for_update=True)
+    try:
+        check_transition(UploadStatus(upload.status), UploadStatus.RENDERING)
+    except UploadTransitionError:
+        session.rollback()
+        raise
+    return _advance(session, upload, UploadStatus.RECEIVED, UploadStatus.RENDERING)
+
+
+def _advance(
+    session: Session, upload: Upload, current: UploadStatus, target: UploadStatus
+) -> UploadStatus:
+    check_transition(current, target)
+    upload.status = target.value
+    session.commit()
+    return target
+
+
+def _render_upload(
+    session: Session, layout: DataLayout, settings: Settings, upload: Upload
+) -> None:
+    for upload_file in upload.files:
+        if upload_file.is_duplicate_of is not None:
+            continue  # 01.4.1: tekrar dosyası analiz edilmez, plan onu `skip` eder.
+        kind = _content_kind(layout, upload_file)
+        if kind is not FileKind.PDF and kind not in _IMAGE_KINDS:
+            continue  # K2: Word/Excel render edilmez; tanınmayan içerik de sayfasız kalır.
+        try:
+            with session.begin_nested():
+                if kind is FileKind.PDF:
+                    render_upload_file(session, layout, settings, upload_file)
+                    extract_upload_file_text(session, layout, upload_file)
+                    mark_upload_file_blank_pages(session, layout, upload_file)
+                    mark_upload_file_single_image_pages(session, layout, upload_file)
+                else:
+                    render_image_file(session, layout, settings, upload_file)
+        except _RENDER_REFUSALS:
+            continue
+
+
+def _content_kind(layout: DataLayout, upload_file: UploadFile) -> FileKind | None:
+    content = layout.resolve(upload_file.stored_path).read_bytes()
+    try:
+        return detect_file_kind(content)
+    except UnsupportedFileTypeError:
+        return None
+
+
+def _record_failure(session: Session, upload: Upload, stage: UploadStatus, exc: Exception) -> None:
+    check_transition(stage, UploadStatus.FAILED)
+    upload.status = UploadStatus.FAILED.value
+    kind = type(exc)
+    frames = traceback.extract_tb(exc.__traceback__)[-_TRACEBACK_FRAMES:]
+    record_event(
+        session,
+        EventType.PIPELINE_FAILED,
+        upload_id=upload.id,
+        # Uygulamanın kendi hata metni kişisel değer taşımaz (C12, C13); dış hatanınki taşıyabilir.
+        message=(str(exc) or None) if kind.__module__.partition(".")[0] == "app" else None,
+        data={
+            "stage": stage.value,
+            "error": f"{kind.__module__}.{kind.__qualname__}",
+            "traceback": [
+                f"{PurePath(frame.filename).name}:{frame.lineno} {frame.name}" for frame in frames
+            ],
+        },
+    )
+    session.commit()
+
+
+def _record_skip(session: Session, plan: Plan, item: PlanItem) -> None:
+    # `skip` öğe (boş sayfa S8, tekrar yükleme S2) çıktı ve kuyruk kaydı üretmez; yalnız izi kalır.
+    first = item.sources[0]
+    data: dict[str, Any] = {
+        "item_id": item.item_id,
+        "plan_id": plan.id,
+        "route": item.route.value,
+        "sources": [source.model_dump(mode="json") for source in item.sources],
+    }
+    record_event(
+        session,
+        EventType.OUTPUT_SKIPPED,
+        upload_id=plan.upload_id,
+        file_id=first.file_id,
+        page_index=first.pages[0] if first.pages else None,
+        message=item.route_reason,
+        data=data,
+    )
+
+
+def _write_profiles(session: Session, layout: DataLayout, upload_id: str) -> None:
+    # 09.1.1: partinin herhangi bir plan sürümünden çıktısı olan her çalışanın profili güncellenir.
+    owners = (
+        select(Document.employee_id)
+        .join(Plan, Document.plan_id == Plan.id)
+        .where(Plan.upload_id == upload_id)
+    )
+    employees = session.scalars(
+        select(Employee).where(Employee.id.in_(owners)).order_by(Employee.id)
+    )
+    for employee in employees:
+        write_profile(session, layout, employee)
+
+
+# --- yeniden çalıştırma ve yeniden analiz (06.6) -----------------------------------------------
 
 
 def current_plan(session: Session, upload: Upload) -> Plan | None:
