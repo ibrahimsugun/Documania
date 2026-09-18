@@ -1,4 +1,4 @@
-"""Yükleme sayfası ve canlı ilerleme görünümü (PRD 10.2.1, 10.2.2).
+"""Yükleme sayfası, canlı ilerleme görünümü ve yükleme detayı (PRD 10.2.1, 10.2.2, 10.3.1, 10.3.2).
 
 `GET /upload` sürükle-bırak çoklu yükleme formunu ve isteğe bağlı çalışan seçimini çizer.
 `POST /upload` (HTMX) dosyaları `POST /api/uploads` ile aynı işlevle (`create_upload`) partiye
@@ -11,31 +11,75 @@ yenileme durur.
 
 Yapay zekâ sağlayıcısı kurulamıyorsa (`AI_PROVIDER` eksik anahtar) parti yine de alınır — dosya
 Inbox'ta güvende kalır — ama işlenmez; kullanıcıya bu söylenir ve yenileme başlatılmaz.
+
+`GET /uploads/{upload_id}` yükleme detay sayfasıdır (10.3.1): partinin sayfa küçük resimleri, güncel
+planın öğeleri, çıktıları (belgeler ve kuyruğa alınanlar) ve olay zaman çizelgesi tek sayfada
+görünür. Sayfa görüntüsü `GET /uploads/{upload_id}/pages/{page_id}/image`'dan gelir: analiz
+kopyasıdır (`cache/pages/`), belgenin kendisi değil; küçültmeyi tarayıcı yapar, sunucu görüntüyü
+işlemez (K11, K17).
+
+`POST /uploads/{upload_id}/rerun` güncel planı yapay zekâ çağırmadan yeniden uygular (06.6.1);
+`POST /uploads/{upload_id}/reanalyze` partiyi yeniden analiz edip yeni plan sürümünü açar (06.6.2,
+K18). Yeniden analiz iki aşamalı onay ister (10.3.2): istemci birinci onaydan sonra
+`POST .../reanalyze/prepare` ile onay belirteci alır, ikinci onaydan sonra asıl isteği bu belirteçle
+gönderir; belirteçsiz, süresi geçmiş ya da başka işleme ait belirteçle gelen istek 400 ile
+reddedilir ve hiçbir şey yapılmaz. Belirteç partinin güncel planına bağlıdır: yeniden analiz
+yeni plan açtığı için aynı belirteç ikinci kez işe yaramaz. İşlemlerin ikisi de yalnız son
+durumdaki (`done`, `partial`, `failed`) ve planı olan partide yapılır: süren partinin üzerine
+yazılmaz.
 """
 
 from __future__ import annotations
 
+import hashlib
+import hmac
 from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
 from typing import Annotated
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
-from fastapi.responses import HTMLResponse
-from sqlalchemy import select
+from fastapi import APIRouter, BackgroundTasks, Depends, Form, HTTPException, Request, status
+from fastapi.responses import FileResponse, HTMLResponse
+from sqlalchemy import or_, select
 from sqlalchemy.orm import Session, sessionmaker
 from starlette.datastructures import UploadFile as StarletteUploadFile
 
-from app.ai.provider import ProviderConfigError, create_provider
+from app.ai.provider import AnalysisProvider, ProviderConfigError, create_provider
+from app.catalog import export_catalog
 from app.config import Settings, get_settings
-from app.db.models import Employee, Upload, UploadStatus
+from app.db.models import (
+    Document,
+    DocumentStatus,
+    Employee,
+    Event,
+    Page,
+    Plan,
+    Upload,
+    UploadFile,
+    UploadStatus,
+    utcnow,
+)
 from app.db.session import get_session, get_session_factory
-from app.pipeline.orchestrate import UploadTransitionError, process_upload
+from app.events import EventType, record_event
+from app.pipeline.analyze import PageAnalysisStatus
+from app.pipeline.orchestrate import (
+    PLAN_EXECUTION_ERRORS,
+    NoPlanError,
+    PlanExecutor,
+    UploadTransitionError,
+    current_plan,
+    process_upload,
+    reanalyze_upload,
+    rerun_plan,
+)
+from app.pipeline.plan import PlanDocument, PlanEmployee, PlanIntegrityError, Route, read_plan
 from app.storage import DataLayout
-from app.web.auth import PanelUser, require_panel_user
+from app.web.auth import SESSION_COOKIE, PanelUser, require_panel_user
 from app.web.routers.uploads import (
     UploadFileStatusResponse,
     create_upload,
     get_layout,
+    get_plan_executor,
     get_upload_status,
 )
 from app.web.templating import MENU_BY_KEY, render_page
@@ -233,3 +277,650 @@ def upload_progress(
     except HTTPException as exc:
         return _result(request, exc.status_code, error=str(exc.detail))
     return _result(request, progress=view, poll=not view.final)
+
+
+# --- 10.3: yükleme detay sayfası ---------------------------------------------------------------
+
+ROUTE_LABELS: dict[str, str] = {
+    Route.READY.value: "Hazır",
+    Route.UNKNOWN.value: "Unknown kuyruğu",
+    Route.UNREADABLE.value: "Unreadable kuyruğu",
+    Route.UNRESOLVED.value: "Unresolved kuyruğu",
+    Route.SKIP.value: "Atlandı",
+}
+QUEUE_LABELS = {"unknown": "Unknown", "unreadable": "Unreadable", "unresolved": "Unresolved"}
+EMPLOYEE_ACTION_LABELS = {
+    "match": "Eşleşti",
+    "create": "Yeni çalışan",
+    "pending": "Onay bekleyen profil",
+    "none": "Çalışan yok",
+}
+MATCHED_BY_LABELS = {"document_number": "belge numarası", "name_dob": "ad-soyad + doğum tarihi"}
+DOCUMENT_STATUS_LABELS = {
+    DocumentStatus.ACTIVE.value: "Etkin",
+    DocumentStatus.SUPERSEDED.value: "Eski sürüm",
+    DocumentStatus.ARCHIVED.value: "Arşivlendi",
+}
+PAGE_STATUS_LABELS = {
+    PageAnalysisStatus.PENDING.value: "Bekliyor",
+    PageAnalysisStatus.DONE.value: "Analiz edildi",
+    PageAnalysisStatus.SKIPPED.value: "Atlandı",
+    PageAnalysisStatus.FAILED.value: "Analiz edilemedi",
+}
+
+# Onay metinleri (10.3.2). §20.6 tablosu yalnız K16'nın beş manuel işlemini kapsar; yeniden analiz
+# onları bu kalıpla tamamlar: birinci cümle ne yapılacağını, ikinci geri dönüşü olmayan sonucu
+# söyler (PLAN.md §D23).
+REANALYZE_FIRST_CONFIRMATION = "Bu partiyi yeniden analiz etmek üzeresiniz. Emin misiniz?"
+REANALYZE_SECOND_CONFIRMATION = (
+    "Bu işlem partiye yeni bir plan sürümü açacak; önceki sürümün çıktıları "
+    '"eski sürüm" olarak işaretlenecektir. Son kararınız mı?'
+)
+REANALYZE_OPERATION = "reanalyze"
+CONFIRMATION_TTL = timedelta(minutes=10)  # §20.6.1
+
+UPLOAD_NOT_FOUND = "Parti bulunamadı."
+PAGE_IMAGE_NOT_FOUND = "Sayfa görüntüsü bulunamadı."
+BUSY_MESSAGE = "Parti hâlâ işleniyor; işlem bittikten sonra yeniden çalıştırılabilir."
+NO_PLAN_MESSAGE = (
+    "Partinin planı yok; yeniden çalıştırılacak ya da yeniden analiz edilecek bir sürüm bulunmuyor."
+)
+CONFIRMATION_REFUSED = "Onay geçersiz: belirteç yok, süresi geçmiş ya da bu işleme ait değil."
+
+
+class ConfirmationRefusedError(ValueError):
+    """İkinci onayla gelen belirteç doğrulanamadı; işlem yapılmaz."""
+
+
+class ReanalysisProviderError(RuntimeError):
+    """Yeniden analiz için yapay zekâ sağlayıcısı kurulamadı."""
+
+
+@dataclass(frozen=True, slots=True)
+class PageView:
+    id: int
+    number: int  # 1 tabanlı; `pages.index` 0 tabanlıdır
+    status_label: str
+    is_blank: bool
+    has_image: bool
+    item_id: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class FileView:
+    id: int
+    name: str
+    page_count: int | None
+    is_duplicate: bool
+    pages: list[PageView]
+
+
+@dataclass(frozen=True, slots=True)
+class ItemView:
+    item_id: str
+    type_slug: str | None
+    sources: list[str]
+    operation: str | None
+    target_name: str | None
+    employee: str
+    route: str
+    route_label: str
+    reason: str | None
+    validations: list[tuple[str, bool]]
+
+
+@dataclass(frozen=True, slots=True)
+class PlanView:
+    version: int
+    model: str | None
+    plan_hash: str
+    created_at: str
+    executed_at: str | None
+    items: list[ItemView]
+    older_versions: int
+    error: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class OutputView:
+    id: int
+    employee: str
+    type_slug: str
+    path: str
+    format: str
+    sequence_no: int
+    status: str
+    status_label: str
+    plan_version: int | None
+    sources: list[str]
+
+
+@dataclass(frozen=True, slots=True)
+class QueueView:
+    id: int
+    kind_label: str
+    plan_version: int | None
+    item_id: str | None
+    reason: str
+    resolved: str | None
+    current: bool
+
+
+@dataclass(frozen=True, slots=True)
+class EventView:
+    ts: str
+    ts_iso: str
+    type: str
+    actor: str
+    place: str | None
+    message: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class DetailView:
+    upload_id: str
+    status: str
+    label: str
+    final: bool
+    channel: str
+    created_at: str
+    context_employee: str | None
+    files: list[FileView]
+    plan: PlanView | None
+    outputs: list[OutputView]
+    queue: list[QueueView]
+    events: list[EventView]
+    blocked_reason: str | None
+
+
+def _format_ts(moment: datetime) -> str:
+    return f"{moment:%Y-%m-%d %H:%M:%S} UTC"
+
+
+def _page_ranges(pages: tuple[int, ...] | list[int]) -> str:
+    """0 tabanlı sayfa sıralarını insanın okuyacağı 1 tabanlı aralığa çevirir: `[0, 1, 2, 4]` →
+    `s. 1–3, 5`; sayfa listesi boşsa dosya bütün olarak alınmıştır."""
+    if not pages:
+        return "tüm dosya"
+    runs: list[list[int]] = []
+    for page in sorted(pages):
+        if runs and page == runs[-1][-1] + 1:
+            runs[-1].append(page)
+        else:
+            runs.append([page])
+    parts = [f"{run[0] + 1}" if len(run) == 1 else f"{run[0] + 1}–{run[-1] + 1}" for run in runs]
+    return "s. " + ", ".join(parts)
+
+
+def _source_text(files: dict[int, UploadFile], file_id: int, pages: list[int]) -> str:
+    upload_file = files.get(file_id)
+    name = upload_file.original_name if upload_file is not None else f"dosya {file_id}"
+    return f"{name} · {_page_ranges(pages)}"
+
+
+def _employee_label(employees: dict[str, Employee], employee_id: str) -> str:
+    employee = employees.get(employee_id)
+    if employee is None:
+        return employee_id
+    return f"{employee_id} — {employee.given_names} {employee.surname}"
+
+
+def _plan_employee_text(employee: PlanEmployee, employees: dict[str, Employee]) -> str:
+    text = EMPLOYEE_ACTION_LABELS[employee.action.value]
+    if employee.employee_id is not None:
+        text += f" · {_employee_label(employees, employee.employee_id)}"
+    if employee.matched_by is not None:
+        text += f" ({MATCHED_BY_LABELS[employee.matched_by.value]})"
+    return text
+
+
+def _plan_view(
+    plan: Plan,
+    upload: Upload,
+    files: dict[int, UploadFile],
+    employees: dict[str, Employee],
+    document: PlanDocument | None,
+    error: str | None,
+) -> PlanView:
+    items = [
+        ItemView(
+            item_id=item.item_id,
+            type_slug=item.document_type_slug,
+            sources=[
+                _source_text(files, source.file_id, list(source.pages)) for source in item.sources
+            ],
+            operation=item.operation.value if item.operation is not None else None,
+            target_name=item.target_name,
+            employee=_plan_employee_text(item.employee, employees),
+            route=item.route.value,
+            route_label=ROUTE_LABELS[item.route.value],
+            reason=item.route_reason,
+            validations=[(check.name.value, check.ok) for check in item.validations],
+        )
+        for item in (document.items if document is not None else ())
+    ]
+    return PlanView(
+        version=plan.version,
+        model=plan.model,
+        plan_hash=plan.plan_hash,
+        created_at=_format_ts(plan.created_at),
+        executed_at=_format_ts(plan.executed_at) if plan.executed_at is not None else None,
+        items=items,
+        older_versions=sum(1 for other in upload.plans if other.version < plan.version),
+        error=error,
+    )
+
+
+def _page_items(document: PlanDocument | None) -> dict[tuple[int, int], str]:
+    """`(file_id, sayfa sırası)` → sayfayı alan plan öğesinin kimliği."""
+    owners: dict[tuple[int, int], str] = {}
+    for item in document.items if document is not None else ():
+        for source in item.sources:
+            for index in source.pages:
+                owners[(source.file_id, index)] = item.item_id
+    return owners
+
+
+def _event_place(event: Event, files: dict[int, UploadFile]) -> str | None:
+    if event.file_id is None:
+        return None
+    upload_file = files.get(event.file_id)
+    name = upload_file.original_name if upload_file is not None else f"dosya {event.file_id}"
+    if event.page_index is None:
+        return name
+    return f"{name} · s. {event.page_index + 1}"
+
+
+def _page_view(page: Page, item_id: str | None) -> PageView:
+    return PageView(
+        id=page.id,
+        number=page.index + 1,
+        status_label=PAGE_STATUS_LABELS.get(page.analysis_status, page.analysis_status),
+        is_blank=page.is_blank,
+        has_image=page.image_path is not None,
+        item_id=item_id,
+    )
+
+
+def build_detail_view(session: Session, upload: Upload) -> DetailView:
+    """Partinin sayfalarını, güncel planını, çıktılarını ve olaylarını tek görünüme toplar.
+
+    Saklanan plan doğrulanamıyorsa (`PlanIntegrityError`) sayfa yine açılır: öğeler yerine nedeni
+    gösterilir — uygulayıcı da bu planı yürütmez (K9).
+    """
+    files = {upload_file.id: upload_file for upload_file in upload.files}
+    plan = current_plan(session, upload)
+    document: PlanDocument | None = None
+    plan_error: str | None = None
+    if plan is not None:
+        try:
+            document = read_plan(plan)
+        except PlanIntegrityError as exc:
+            plan_error = str(exc)
+    plan_versions = {row.id: row.version for row in upload.plans}
+    outputs = list(
+        session.scalars(
+            select(Document).where(Document.plan_id.in_(list(plan_versions))).order_by(Document.id)
+        )
+    )
+    events = list(
+        session.scalars(
+            select(Event)
+            .where(
+                or_(
+                    Event.upload_id == upload.id,
+                    Event.document_id.in_([output.id for output in outputs]),
+                )
+            )
+            .order_by(Event.ts, Event.id)
+        )
+    )
+
+    employee_ids = {output.employee_id for output in outputs}
+    if upload.context_employee_id is not None:
+        employee_ids.add(upload.context_employee_id)
+    if document is not None:
+        employee_ids.update(
+            item.employee.employee_id
+            for item in document.items
+            if item.employee.employee_id is not None
+        )
+    employees = {
+        employee.id: employee
+        for employee in session.scalars(select(Employee).where(Employee.id.in_(employee_ids)))
+    }
+
+    owners = _page_items(document)
+    current_status = UploadStatus(upload.status)
+    blocked_reason = None
+    if current_status not in FINAL_STATUSES:
+        blocked_reason = BUSY_MESSAGE
+    elif plan is None:
+        blocked_reason = NO_PLAN_MESSAGE
+    return DetailView(
+        upload_id=upload.id,
+        status=current_status.value,
+        label=STATUS_LABELS[current_status],
+        final=current_status in FINAL_STATUSES,
+        channel=upload.channel,
+        created_at=_format_ts(upload.created_at),
+        context_employee=(
+            _employee_label(employees, upload.context_employee_id)
+            if upload.context_employee_id is not None
+            else None
+        ),
+        files=[
+            FileView(
+                id=upload_file.id,
+                name=upload_file.original_name,
+                page_count=upload_file.page_count,
+                is_duplicate=upload_file.is_duplicate_of is not None,
+                pages=[
+                    _page_view(page, owners.get((upload_file.id, page.index)))
+                    for page in upload_file.pages
+                ],
+            )
+            for upload_file in upload.files
+        ],
+        plan=(
+            _plan_view(plan, upload, files, employees, document, plan_error)
+            if plan is not None
+            else None
+        ),
+        outputs=[
+            OutputView(
+                id=output.id,
+                employee=_employee_label(employees, output.employee_id),
+                type_slug=output.type_slug,
+                path=output.path,
+                format=output.format,
+                sequence_no=output.sequence_no,
+                status=output.status,
+                status_label=DOCUMENT_STATUS_LABELS.get(output.status, output.status),
+                plan_version=plan_versions.get(output.plan_id) if output.plan_id else None,
+                sources=[
+                    _source_text(files, int(ref["file_id"]), list(ref.get("pages", [])))
+                    for ref in output.source_refs_json
+                ],
+            )
+            for output in outputs
+        ],
+        queue=[
+            QueueView(
+                id=row.id,
+                kind_label=QUEUE_LABELS.get(row.kind, row.kind),
+                plan_version=plan_versions.get(row.plan_id) if row.plan_id else None,
+                item_id=row.plan_item_id,
+                reason=row.reason,
+                resolved=(
+                    f"{_format_ts(row.resolved_at)} · {row.resolved_by}"
+                    if row.resolved_at is not None
+                    else None
+                ),
+                current=plan is not None and row.plan_id == plan.id,
+            )
+            for row in upload.queue_items
+        ],
+        events=[
+            EventView(
+                ts=_format_ts(event.ts),
+                ts_iso=event.ts.isoformat(),
+                type=event.type,
+                actor=event.actor,
+                place=_event_place(event, files),
+                message=event.message,
+            )
+            for event in events
+        ],
+        blocked_reason=blocked_reason,
+    )
+
+
+# --- 10.3.2: iki aşamalı onay belirteci --------------------------------------------------------
+
+
+def _confirmation_mac(request: Request, upload_id: str, plan_id: int, issued: int) -> str:
+    """Belirtecin imzası: işlem + parti + güncel plan + üretim anı, oturum çerezinden türetilen
+    anahtarla. Çerez yalnız tarayıcıda ve sunucuda bilinir; başka oturum belirteç üretemez."""
+    cookie = request.cookies.get(SESSION_COOKIE)
+    if not cookie:
+        raise ConfirmationRefusedError("Oturum çerezi yok.")
+    key = hashlib.sha256(cookie.encode("utf-8")).digest()
+    message = f"{REANALYZE_OPERATION}:{upload_id}:{plan_id}:{issued}".encode()
+    return hmac.new(key, message, hashlib.sha256).hexdigest()
+
+
+def issue_confirmation(request: Request, upload_id: str, plan_id: int) -> str:
+    """Birinci onaydan sonra ikinci onay formuna konan belirteç (§20.6.1 adım 2)."""
+    issued = int(utcnow().timestamp())
+    return f"{issued}.{_confirmation_mac(request, upload_id, plan_id, issued)}"
+
+
+def check_confirmation(
+    request: Request, upload_id: str, plan_id: int, token: str | None
+) -> datetime:
+    """Belirteci doğrular ve birinci onayın anını döner; geçersizse `ConfirmationRefusedError`."""
+    if not token:
+        raise ConfirmationRefusedError("Belirteç yok.")
+    issued_text, _, mac = token.partition(".")
+    if not issued_text.isdecimal():
+        raise ConfirmationRefusedError("Belirteç biçimi geçersiz.")
+    issued = int(issued_text)
+    expected = _confirmation_mac(request, upload_id, plan_id, issued)
+    if not hmac.compare_digest(mac, expected):
+        raise ConfirmationRefusedError("Belirteç bu işleme ait değil.")
+    first_confirmed = datetime.fromtimestamp(issued, tz=UTC)
+    if not timedelta(0) <= utcnow() - first_confirmed <= CONFIRMATION_TTL:
+        raise ConfirmationRefusedError("Belirtecin süresi geçmiş.")
+    return first_confirmed
+
+
+def get_reanalysis_provider(
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> AnalysisProvider | ProviderConfigError:
+    """Yeniden analizin sağlayıcısı; kurulamazsa nedenini taşıyan hata (kullanıcıya gösterilir)."""
+    try:
+        return create_provider(settings)
+    except ProviderConfigError as exc:
+        return exc
+
+
+ReanalysisProvider = Annotated[
+    AnalysisProvider | ProviderConfigError, Depends(get_reanalysis_provider)
+]
+
+
+# --- 10.3: uç noktalar -------------------------------------------------------------------------
+
+
+def _action_result(request: Request, status_code: int, **context: object) -> HTMLResponse:
+    """`upload_action_result.html` parçası (HTMX hedefi: sayfadaki `#action-result`)."""
+    return render_page(
+        request, "upload_action_result.html", user=None, status_code=status_code, **context
+    )
+
+
+@router.get("/uploads/{upload_id}", response_class=HTMLResponse)
+def upload_detail(
+    upload_id: str,
+    request: Request,
+    user: CurrentUser,
+    session: Annotated[Session, Depends(get_session)],
+) -> HTMLResponse:
+    upload = session.get(Upload, upload_id)
+    entry = MENU_BY_KEY["uploads"]
+    if upload is None:
+        return render_page(
+            request,
+            "upload_detail.html",
+            user=user,
+            active=entry.key,
+            status_code=status.HTTP_404_NOT_FOUND,
+            error=UPLOAD_NOT_FOUND,
+        )
+    view = build_detail_view(session, upload)
+    # Okuma işlemi de SQLite'ta yazma kilidini tutar (`app.db.session`): sayfa çizilirken
+    # arka plandaki bir işleyici beklemesin.
+    session.rollback()
+    return render_page(
+        request,
+        "upload_detail.html",
+        user=user,
+        active=entry.key,
+        detail=view,
+        first_confirmation=REANALYZE_FIRST_CONFIRMATION,
+    )
+
+
+@router.get("/uploads/{upload_id}/pages/{page_id}/image")
+def upload_page_image(
+    upload_id: str,
+    page_id: int,
+    layout: Annotated[DataLayout, Depends(get_layout)],
+    session: Annotated[Session, Depends(get_session)],
+) -> FileResponse:
+    """Sayfanın analiz görüntüsü (K10: orijinal değil, `cache/pages/` kopyası). Sayfa bu partiye
+    ait değilse ya da görüntüsü yoksa 404."""
+    page = session.get(Page, page_id)
+    image_path = page.image_path if page is not None and page.file.upload_id == upload_id else None
+    session.rollback()
+    if image_path is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, PAGE_IMAGE_NOT_FOUND)
+    try:
+        path = layout.resolve(image_path)
+    except ValueError:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, PAGE_IMAGE_NOT_FOUND) from None
+    if not path.is_file():
+        raise HTTPException(status.HTTP_404_NOT_FOUND, PAGE_IMAGE_NOT_FOUND)
+    return FileResponse(path, headers={"X-Content-Type-Options": "nosniff"})
+
+
+def _actionable_upload(session: Session, upload_id: str) -> tuple[Upload, Plan]:
+    """İşlem yapılabilecek partiyi ve güncel planını döner; yoksa `HTTPException`."""
+    upload = session.get(Upload, upload_id)
+    if upload is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, UPLOAD_NOT_FOUND)
+    if UploadStatus(upload.status) not in FINAL_STATUSES:
+        raise HTTPException(status.HTTP_409_CONFLICT, BUSY_MESSAGE)
+    plan = current_plan(session, upload)
+    if plan is None:
+        raise HTTPException(status.HTTP_409_CONFLICT, NO_PLAN_MESSAGE)
+    return upload, plan
+
+
+@router.post("/uploads/{upload_id}/rerun", response_class=HTMLResponse)
+def rerun_upload(
+    upload_id: str,
+    request: Request,
+    _user: CurrentUser,
+    session: Annotated[Session, Depends(get_session)],
+    layout: Annotated[DataLayout, Depends(get_layout)],
+    executor: Annotated[PlanExecutor, Depends(get_plan_executor)],
+) -> HTMLResponse:
+    """10.3.2 — güncel planı yapay zekâ çağırmadan yeniden uygular (06.6.1)."""
+    try:
+        upload, _plan = _actionable_upload(session, upload_id)
+        run = rerun_plan(session, layout, upload, executor=executor)
+    except HTTPException as exc:
+        session.rollback()
+        return _action_result(request, exc.status_code, error=str(exc.detail))
+    except (NoPlanError, PlanIntegrityError, *PLAN_EXECUTION_ERRORS) as exc:
+        session.rollback()
+        return _action_result(request, status.HTTP_409_CONFLICT, error=str(exc))
+    session.commit()
+    return _action_result(
+        request, status.HTTP_200_OK, upload_id=upload_id, done="rerun", version=run.plan.version
+    )
+
+
+@router.post("/uploads/{upload_id}/reanalyze/prepare", response_class=HTMLResponse)
+def prepare_reanalysis(
+    upload_id: str,
+    request: Request,
+    _user: CurrentUser,
+    session: Annotated[Session, Depends(get_session)],
+) -> HTMLResponse:
+    """10.3.2 — birinci onaydan sonra ikinci onay formunu ve onay belirtecini verir (§20.6.1)."""
+    try:
+        _upload, plan = _actionable_upload(session, upload_id)
+        token = issue_confirmation(request, upload_id, plan.id)
+    except HTTPException as exc:
+        return _action_result(request, exc.status_code, error=str(exc.detail))
+    except ConfirmationRefusedError as exc:
+        return _action_result(request, status.HTTP_400_BAD_REQUEST, error=str(exc))
+    finally:
+        session.rollback()
+    return _action_result(
+        request,
+        status.HTTP_200_OK,
+        upload_id=upload_id,
+        second_confirmation=REANALYZE_SECOND_CONFIRMATION,
+        confirmation=token,
+    )
+
+
+@router.post("/uploads/{upload_id}/reanalyze", response_class=HTMLResponse)
+def reanalyze_upload_page(
+    upload_id: str,
+    request: Request,
+    user: CurrentUser,
+    session: Annotated[Session, Depends(get_session)],
+    layout: Annotated[DataLayout, Depends(get_layout)],
+    executor: Annotated[PlanExecutor, Depends(get_plan_executor)],
+    provider: ReanalysisProvider,
+    confirmation: Annotated[str | None, Form()] = None,
+) -> HTMLResponse:
+    """10.3.2 — partiyi yeniden analiz eder, yeni plan sürümünü açar (06.6.2, K18).
+
+    İkinci onayın belirteci olmadan hiçbir şey yapılmaz (400). Belirteç partinin güncel planına
+    bağlıdır, yeniden analiz planı değiştirir: aynı belirteç ikinci kez geçmez.
+    """
+    try:
+        upload, plan = _actionable_upload(session, upload_id)
+        first_confirmed = check_confirmation(request, upload_id, plan.id, confirmation)
+        if isinstance(provider, ProviderConfigError):
+            raise ReanalysisProviderError(str(provider))
+        # §20.6.1: onay tamamlanınca `USER_CONFIRMED` (kullanıcı adı, işlem, hedef, iki onayın
+        # zamanı), ardından işlemin kendi olayı (`PLAN_REANALYZED`) düşer.
+        record_event(
+            session,
+            EventType.USER_CONFIRMED,
+            upload_id=upload.id,
+            actor=user.username,
+            data={
+                "operation": REANALYZE_OPERATION,
+                "target": {"upload_id": upload.id, "plan_id": plan.id},
+                "first_confirmed_at": first_confirmed.isoformat(),
+                "second_confirmed_at": utcnow().isoformat(),
+            },
+        )
+        reanalysis = reanalyze_upload(
+            session,
+            layout,
+            upload,
+            provider=provider,
+            catalog=export_catalog(session),
+            executor=executor,
+        )
+    except HTTPException as exc:
+        session.rollback()
+        return _action_result(request, exc.status_code, error=str(exc.detail))
+    except ConfirmationRefusedError:
+        session.rollback()
+        return _action_result(request, status.HTTP_400_BAD_REQUEST, error=CONFIRMATION_REFUSED)
+    except ReanalysisProviderError as exc:
+        session.rollback()
+        return _action_result(request, status.HTTP_503_SERVICE_UNAVAILABLE, error=str(exc))
+    except (NoPlanError, *PLAN_EXECUTION_ERRORS) as exc:
+        session.rollback()
+        return _action_result(request, status.HTTP_409_CONFLICT, error=str(exc))
+    session.commit()
+    return _action_result(
+        request,
+        status.HTTP_200_OK,
+        upload_id=upload_id,
+        done="reanalyze",
+        version=reanalysis.plan.version,
+        previous_version=reanalysis.previous_plan.version,
+        superseded=len(reanalysis.superseded_document_ids),
+    )

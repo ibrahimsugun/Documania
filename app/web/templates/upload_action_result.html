@@ -1,0 +1,16 @@
+{# Yükleme detayındaki işlemlerin sonucu (10.3.2): hata, ikinci onay formu ya da işlem özeti. #}
+{% if error %}
+<p class="error" role="alert">{{ error }}</p>
+{% elif second_confirmation %}
+<form class="confirm" hx-post="/uploads/{{ upload_id }}/reanalyze"
+      hx-target="#action-result" hx-swap="innerHTML" hx-disabled-elt="find button[type=submit]">
+  <p class="confirm-text" role="alert">{{ second_confirmation }}</p>
+  <input type="hidden" name="confirmation" value="{{ confirmation }}">
+  <button type="submit">Evet, yeniden analiz et</button>
+  <a href="/uploads/{{ upload_id }}">Vazgeç</a>
+</form>
+{% elif done == "rerun" %}
+<p class="notice notice-success" role="status">Plan (sürüm {{ version }}) yeniden uygulandı. <a href="/uploads/{{ upload_id }}">Sayfayı yenileyin</a>.</p>
+{% elif done == "reanalyze" %}
+<p class="notice notice-success" role="status">Parti yeniden analiz edildi: yeni plan sürümü {{ version }} (önceki: {{ previous_version }}); {{ superseded }} çıktı "eski sürüm" olarak işaretlendi. <a href="/uploads/{{ upload_id }}">Sayfayı yenileyin</a>.</p>
+{% endif %}

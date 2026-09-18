@@ -9,7 +9,7 @@
 | Faz | PRD | Genel durum | Must sayacı | Kapanış |
 | --- | --- | --- | --- | --- |
 | Faz 0 — MVP | §5.1 | 100 ✅ · 1 ◐ · 1 ⬜ · 0 🔒 | 97/98 Must | AÇIK |
-| Faz 1 — v1 | §5.2 | 5 ✅ · 0 ◐ · 0 ⬜ · 27 🔒 | 4/21 Must | AÇIK |
+| Faz 1 — v1 | §5.2 | 7 ✅ · 0 ◐ · 0 ⬜ · 25 🔒 | 5/21 Must | AÇIK |
 | Faz 2 — v2 | §5.3 | 0 ✅ · 0 ◐ · 0 ⬜ · 13 🔒 | 0/0 Must | AÇIK |
 | Faz 3 — Enterprise | §5.4 | 0 ✅ · 0 ◐ · 0 ⬜ · 8 🔒 | 0/0 Must | AÇIK |
 
@@ -228,8 +228,8 @@ panelde `plan-count-drift` bulgusu doğurur.
 | 10.1.3 | İlk kullanıcı oluşturma | Must (v1) | ✅ → K10.1 |
 | 10.2.1 | Yükleme sayfası | Must (v1) | ✅ → K10.2 |
 | 10.2.2 | İlerleme görünümü | Should (v1) | ✅ → K10.2 |
-| 10.3.1 | Yükleme detay sayfası | Must (v1) | 🔒 |
-| 10.3.2 | Yeniden çalıştır / yeniden analiz | Should (v1) | 🔒 |
+| 10.3.1 | Yükleme detay sayfası | Must (v1) | ✅ → K10.3 |
+| 10.3.2 | Yeniden çalıştır / yeniden analiz | Should (v1) | ✅ → K10.3 |
 | 10.4.1 | Çalışan listesi | Must (v1) | 🔒 |
 | 10.4.2 | Arama | Must (v1) | 🔒 |
 | 10.5.1 | Çalışan profili sayfası | Must (v1) | 🔒 |
@@ -1393,6 +1393,29 @@ Onay beklemeden yapılan varsayımlar buraya numaralı olarak yazılır.
   çağrıları boyunca tutar (C43); durum sorgusu da `BEGIN IMMEDIATE` açtığı için o sürede en çok `busy_timeout` (30 sn)
   bekler, HTMX son görünümü korur ve sonraki turda yeniden dener. PostgreSQL'de bu yok. **Açık:** parti `uploaded_by`
   yazılmıyor (API de yazmıyordu; PRD 01.x/10.2 istemiyor) — panel kullanıcısını partiye bağlamak isteniyorsa ayrı gereksinim.
+- **C47** — Yükleme detay sayfası ve yeniden çalıştır / yeniden analiz (tm 66, 10.3.1, 10.3.2): PRD yalnız kabul cümlelerini
+  verir; sayfanın adresi, neyi göstereceği ve işlemlerin ne zaman yapılabileceği yazılı değil. **Sayfa:**
+  `GET /uploads/{upload_id}` (`upload_page.py`, `upload_detail.html`; "Yüklemeler" menüsü aktif) dört bölümü tek sayfada
+  çizer: sayfalar, plan, çıktılar, olay zaman çizelgesi. `/uploads` (liste) hâlâ yer tutucudur — PRD 10.3 liste istemez; ilerleme
+  parçası (`upload_result.html`) artık ayrıntıya bağlanır (C46'daki "bağlantı yok" kapandı). Parti yoksa 404 + iletişim metni.
+  **Sayfalar:** dosya başına küçük resimler; küçük resim `GET /uploads/{id}/pages/{page_id}/image` ile sunulan **analiz
+  kopyasıdır** (`cache/pages/`, K10: orijinal değil) ve tarayıcıda CSS ile küçülür — sunucu görüntüyü işlemez (K11, K17). Sayfa
+  başka partiye aitse, görüntüsü yoksa, yolu veri dizininden kaçıyorsa (`DataLayout.resolve`) ya da dosya yoksa 404. Sayfanın
+  altında durumu (analiz edildi/atlandı/…), "Boş" ve sayfayı alan plan öğesinin kimliği görünür. Sayfası olmayan dosya (Word/Excel,
+  tekrar, henüz render edilmemiş) için neden yazılır. **Plan:** güncel (en yüksek sürümlü) plan; eski sürümler yalnız sayılır,
+  öğeleri gösterilmez. Öğe: kimlik, tür, kaynak (dosya adı + 1 tabanlı sayfa aralığı), işlem, hedef ad, çalışan kararı, rota
+  (+ gerekçe) ve doğrulamalar. Saklanan plan doğrulanamazsa (`PlanIntegrityError`) sayfa yine açılır, öğeler yerine neden gösterilir
+  (uygulayıcı da o planı yürütmez, K9). **Çıktılar:** belgeler partinin **tüm** plan sürümlerinden gelir ("Etkin"/"Eski sürüm"/
+  "Arşivlendi", K18) ve kuyruğa alınanlar (Unknown/Unreadable/Unresolved; eski sürümün öğesi "eski sürüm") ayrı tabloda —
+  ikisi de "çıktı" sayıldı. Belge dosyasına bağlantı **yok**: açma/indirme ve erişim logu 10.5.2/10.9.2'nin işi (`access_log.document_id`
+  gerektirir). **Zaman çizelgesi:** partinin `upload_id`'li olayları + çıktı belgelerine bağlı olaylar, `ts, id` sırasıyla (UTC).
+  **İşlemler:** `POST /uploads/{id}/rerun` (06.6.1, tek adım) ve `POST /uploads/{id}/reanalyze` (06.6.2, iki aşamalı; D23) yalnız
+  **son durumdaki** (`done`/`partial`/`failed`) ve **planı olan** partide yapılır — süren partiyi (`received`…`executing`) ezmemek
+  için; değilse 409 ve neden. İşlem sayfada `#action-result` parçasına yazılır (HTMX; 4xx/5xx parçası `hx-on::before-swap` ile açılır).
+  Uygulayıcı `get_plan_executor`, kataloğu `export_catalog`; iş tek işlemde, hata olursa hiçbir şey commit edilmez (onay olayı dahil).
+  **Açıklar:** (1) `rerun`/`reanalyze` parti durumunu değiştirmez (C43): yürütmede durup `rerun` ile kurtarılan parti `failed`
+  görünmeye devam eder — `orchestrate.py`'ye dokunmak kapsam dışıydı, karar insana; (2) `PLAN_RERUN` olayının `actor`'ü `system`
+  (`rerun_plan` kullanıcı adı almaz) — panelden kimin çalıştırdığı yalnız yeniden analizde (`USER_CONFIRMED`) kayıtlı.
 
 ## D. Sapmalar
 
@@ -1616,6 +1639,21 @@ bu kayıt neden sapıldığının izlenebilir olması içindir.
   `token_hash`, `created_at`, `expires_at`, `revoked_at`); `tests/db/test_models.py` onu §8.1 dışı tablo olarak ayrıca
   sayar. İmzalı istemci çerezi (Starlette `SessionMiddleware`) seçilseydi tablo gerekmezdi ama oturum sunucuda
   kapatılamazdı (çıkıştan sonra çalınmış çerez geçerli kalır). §8.1'e eklenip eklenmeyeceği insanın kararı.
+
+- **D23 — Yeniden analizin iki aşamalı onayı: metinler PRD'de yok, belirteç 10.8.1 gelmeden kuruldu (10.3.2, tm 66).**
+  10.3.2 "yeniden analiz iki aşamalı onay ister" der; §20.6 tablosu yalnız K16'nın beş manuel işlemini kapsar (yeniden analiz
+  onlardan değil) ve §20.6.1'in sunucu belirteci 10.8.1'in işidir (henüz yok). Kararlar: **(a) Metinler** §20.6 kalıbıyla yazıldı
+  (birinci cümle ne yapılacağını, ikinci geri dönüşü olmayan sonucu söyler): `Bu partiyi yeniden analiz etmek üzeresiniz. Emin
+  misiniz?` / `Bu işlem partiye yeni bir plan sürümü açacak; önceki sürümün çıktıları "eski sürüm" olarak işaretlenecektir. Son
+  kararınız mı?` **(b) Sunucu tarafında zorlanır:** birinci onaydan sonra `POST .../reanalyze/prepare` belirteç verir, ikinci
+  onaydan sonra `POST .../reanalyze` belirteçle gelir; belirteçsiz/süresi geçmiş (10 dk)/başka partiye ya da başka oturuma ait
+  istek 400 ve hiçbir şey yapılmaz. Belirteç saklanmaz: `HMAC-SHA256(oturum çerezinin özeti, işlem + parti + güncel plan kimliği
+  + üretim anı)`; çerez yalnız tarayıcıda ve sunucuda bilinir. **(c) Tek kullanımlık DEĞİL:** §20.6.1 adım 4 (belirteç tüketilir)
+  için sunucu tarafı depo gerekirdi (yeni tablo/göç, kapsam dışı); yerine belirteç *güncel plana* bağlıdır ve yeniden analiz yeni
+  plan sürümü açtığı için başarılı işlemden sonra aynı belirteç geçmez (testli). Başarısız işlemde (rollback) plan değişmediğinden
+  aynı belirteç 10 dk içinde yeniden denenebilir. **(d)** `USER_CONFIRMED` bu yolda zaten yazılır (§20.6.1: kullanıcı adı, işlem,
+  hedef, iki onayın zamanı) ve `PLAN_REANALYZED`'dan önce düşer. 10.8.1 gelince bu belirteç onun mekanizmasıyla değiştirilmeli ve
+  `USER_CONFIRMED` çift yazılmamalı; yeniden analizin onay metinlerinin §20.6 tablosuna eklenip eklenmeyeceği insanın kararı.
 
 ## G. İş Kırılımı Dizini
 
@@ -1995,3 +2033,8 @@ var olan maddeler silinmez. Biçim:
 - ✅ 10.2.1 yükleme sayfası: `app/web/routers/upload_page.py` (`GET /upload` form + çalışan listesi, `POST /upload` HTMX gönderimi — `create_upload`'ı çağırır, sınır/Inbox/tekrar mantığı tek yerde), `app/web/templates/upload.html` + `upload_result.html`, `app/web/static/upload.js` (sürükle-bırak; art arda bırakılanlar birikir, aynı ad+boyut tekrarlanmaz, seçilenler listelenir), `app/web/static/htmx.min.js` (HTMX 2.0.4), isteğe bağlı çalışan → `uploads.context_employee_id` · test `tests/web/test_upload_page.py` (31) · tm 65
 - ✅ 10.2.2 ilerleme görünümü: `GET /upload/{id}/progress` parçası `hx-trigger="every 2s"` ile yenilenir, son durumda (`done`/`partial`/`failed`) durur; parti `POST /upload` sonrası `process_upload` ile arka planda `received → … → done` ilerler (`get_upload_processor`) — gerçek tarayıcıda (Chromium, CDP) iki dosyayı sürükleyip bırakma → gönderim → "Alındı → Tamamlandı" doğrulandı · test `tests/web/test_upload_page.py` (kayıtlı sağlayıcıyla uçtan uca) · tm 65
 - ✅ Kapı: ruff check/format, compileall, `pytest -q -m "not live" --cov=app --cov-fail-under=70` (2370 geçti, +31; 2 beklenen xfail D12; 4 PG testi atlandı), kapsam %99.74 (`upload_page.py` %100), temiz SQLite'ta `alembic upgrade head`, `import app.main` — hepsi exit 0; 6 geçici kural bozulmasının (boş çalışan dizesi, son durumda yenileme, arka plan işleyicisi, boş adlı parça, `failed` aşama şeridi, başkasının aldığı parti) her biri testte kırmızı
+
+#### K10.3 — 10.3.1, 10.3.2 · Yükleme detay sayfası ve yeniden çalıştır / yeniden analiz
+- ✅ 10.3.1 yükleme detay sayfası: `app/web/routers/upload_page.py` (`GET /uploads/{id}` → `build_detail_view`; `GET /uploads/{id}/pages/{page_id}/image` analiz kopyasını sunar, başka partinin/yolu kaçan/eksik görüntü 404) + `app/web/templates/upload_detail.html` — sayfa küçük resimleri (durum, "Boş", sayfayı alan plan öğesi), güncel planın öğeleri (tür, kaynak, işlem, hedef, çalışan, rota + gerekçe, doğrulamalar), çıktılar (tüm sürümlerin belgeleri "Etkin"/"Eski sürüm" + kuyruğa alınanlar) ve olay zaman çizelgesi tek sayfada; bozuk plan sayfayı düşürmez · test `tests/web/test_upload_detail.py` (35, hepsi bu dosyada) · tm 66
+- ✅ 10.3.2 yeniden çalıştır / yeniden analiz: `POST /uploads/{id}/rerun` (`rerun_plan`, yapay zekâ yok) ve `POST /uploads/{id}/reanalyze/prepare` + `POST /uploads/{id}/reanalyze` (`reanalyze_upload`) — birinci onay `<details>` içinde, hazırlık isteği ikinci onay formunu ve belirteci verir, belirteçsiz/süresi geçmiş/başka partiye ya da oturuma ait/kullanılmış belirteç 400 ve hiçbir şey yapılmaz; onay `USER_CONFIRMED` (kullanıcı adı, işlem, hedef, iki zaman) yazar; yalnız son durumdaki ve planı olan partide (409), sağlayıcı kurulamazsa 503, hata olursa rollback (onay olayı dahil) — D23 · test `tests/web/test_upload_detail.py` · tm 66
+- ✅ Kapı: ruff check/format, compileall, `pytest -q -m "not live" --cov=app --cov-fail-under=70` (2405 geçti, +35; 2 beklenen xfail D12; 4 PG testi atlandı), kapsam %99.75 (`upload_page.py` %100), temiz SQLite'ta `alembic upgrade head` (göç yok), `import app.main` — hepsi exit 0; 6 geçici kural bozulmasının (belirteç doğrulaması atlandı, belirteç plana bağlı değil, süresiz belirteç, süren partiye işlem, başka partinin sayfa görüntüsü, onay olayı yok) her biri testte kırmızı; gerçek Chrome'da (CDP) detay sayfası → küçük resim yüklenir → yeniden çalıştır → birinci onay → ikinci onay metni birebir → bayat belirteçle 400 hata parçası sayfada görünür → temiz akışta yeni plan sürümü ve "Eski sürüm" çıktı elle doğrulandı

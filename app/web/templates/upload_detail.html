@@ -1,0 +1,191 @@
+{% extends "base.html" %}
+{# Yükleme detay sayfası (10.3.1): sayfa küçük resimleri, plan öğeleri, çıktılar ve olay zaman
+   çizelgesi tek sayfada. İşlemler (10.3.2) HTMX ile `#action-result`'a yazılır. #}
+{% block title %}{% if detail %}Parti {{ detail.upload_id }}{% else %}Parti{% endif %}{% endblock %}
+{% block content %}
+<p class="back"><a href="/uploads">← Yüklemeler</a></p>
+{% if error %}
+<h1>Parti</h1>
+<p class="error" role="alert">{{ error }}</p>
+{% else %}
+<h1>Parti {{ detail.upload_id }}</h1>
+<p class="status status-{{ detail.status }}" role="status">{{ detail.label }}</p>
+<dl class="meta">
+  <dt>Kanal</dt><dd>{{ detail.channel }}</dd>
+  <dt>Alındı</dt><dd>{{ detail.created_at }}</dd>
+  {% if detail.context_employee %}<dt>Bağlam çalışanı</dt><dd>{{ detail.context_employee }}</dd>{% endif %}
+</dl>
+
+{# HTMX 4xx/5xx yanıtını değiştirmez; işlem parçalarının hata metni görünsün. #}
+<section id="actions" class="actions" aria-labelledby="actions-title"
+         hx-on::before-swap="if (event.detail.xhr.status >= 400) { event.detail.shouldSwap = true; event.detail.isError = false; }">
+  <h2 id="actions-title">İşlemler</h2>
+  {% if detail.blocked_reason %}
+  <p class="notice">{{ detail.blocked_reason }}</p>
+  {% else %}
+  <div class="action-buttons">
+    <button type="button" id="rerun-button"
+            hx-post="/uploads/{{ detail.upload_id }}/rerun"
+            hx-target="#action-result" hx-swap="innerHTML" hx-disabled-elt="this">Yeniden çalıştır</button>
+    <details class="reanalyze" id="reanalyze-step">
+      <summary>Yeniden analiz et</summary>
+      <p class="confirm-text">{{ first_confirmation }}</p>
+      <button type="button" id="reanalyze-continue"
+              hx-post="/uploads/{{ detail.upload_id }}/reanalyze/prepare"
+              hx-target="#action-result" hx-swap="innerHTML" hx-disabled-elt="this">Evet, devam et</button>
+    </details>
+  </div>
+  <p class="hint">Yeniden çalıştırma güncel planı yapay zekâya sormadan yeniden uygular. Yeniden analiz partiyi yeniden değerlendirir ve yeni bir plan sürümü açar; eski çıktılar silinmez.</p>
+  {% endif %}
+  <div id="action-result" class="action-result" aria-live="polite"></div>
+</section>
+
+<section id="pages" aria-labelledby="pages-title">
+  <h2 id="pages-title">Sayfalar</h2>
+  {% for file in detail.files %}
+  <article class="file" id="file-{{ file.id }}">
+    <h3>{{ file.name }}
+      {% if file.is_duplicate %}<span class="badge">Daha önce yüklenmiş</span>{% endif %}
+      <span class="count">{% if file.page_count is not none %}{{ file.page_count }} sayfa{% endif %}</span>
+    </h3>
+    {% if file.pages %}
+    <ul class="thumbs">
+      {% for page in file.pages %}
+      <li class="thumb">
+        {% if page.has_image %}
+        <a href="/uploads/{{ detail.upload_id }}/pages/{{ page.id }}/image" target="_blank" rel="noopener">
+          <img src="/uploads/{{ detail.upload_id }}/pages/{{ page.id }}/image" loading="lazy"
+               alt="{{ file.name }} — sayfa {{ page.number }}">
+        </a>
+        {% else %}
+        <span class="no-image">Görüntü yok</span>
+        {% endif %}
+        <span class="caption">Sayfa {{ page.number }}</span>
+        <span class="badges">
+          <span class="badge badge-neutral">{{ page.status_label }}</span>
+          {% if page.is_blank %}<span class="badge badge-neutral">Boş</span>{% endif %}
+          {% if page.item_id %}<span class="badge badge-neutral">{{ page.item_id }}</span>{% endif %}
+        </span>
+      </li>
+      {% endfor %}
+    </ul>
+    {% elif file.is_duplicate %}
+    <p class="placeholder">Tekrar dosya: işlenmedi, sayfa görüntüsü yok.</p>
+    {% else %}
+    <p class="placeholder">Sayfa görüntüsü yok: dosya analiz edilmiyor ya da sayfaları henüz hazırlanmadı.</p>
+    {% endif %}
+  </article>
+  {% else %}
+  <p class="placeholder">Bu partide dosya yok.</p>
+  {% endfor %}
+</section>
+
+<section id="plan" aria-labelledby="plan-title">
+  <h2 id="plan-title">Plan</h2>
+  {% if not detail.plan %}
+  <p class="placeholder">Bu parti için henüz plan yok.</p>
+  {% else %}
+  {% set plan = detail.plan %}
+  <p class="plan-meta">
+    Sürüm {{ plan.version }}{% if plan.older_versions %} · {{ plan.older_versions }} eski sürüm var{% endif %}
+    · Model: {{ plan.model or "—" }}
+    · Oluşturuldu: {{ plan.created_at }}
+    · {% if plan.executed_at %}Uygulandı: {{ plan.executed_at }}{% else %}Uygulanmadı{% endif %}
+    · <code title="{{ plan.plan_hash }}">{{ plan.plan_hash[:12] }}</code>
+  </p>
+  {% if plan.error %}<p class="error" role="alert">{{ plan.error }}</p>{% endif %}
+  {% if plan.items %}
+  <table class="items">
+    <thead>
+      <tr><th>Öğe</th><th>Tür</th><th>Kaynak</th><th>İşlem</th><th>Hedef</th><th>Çalışan</th><th>Rota</th><th>Doğrulamalar</th></tr>
+    </thead>
+    <tbody>
+      {% for item in plan.items %}
+      <tr id="item-{{ item.item_id }}" class="route-{{ item.route }}">
+        <td>{{ item.item_id }}</td>
+        <td>{{ item.type_slug or "—" }}</td>
+        <td>{% for source in item.sources %}<div>{{ source }}</div>{% endfor %}</td>
+        <td>{{ item.operation or "—" }}</td>
+        <td>{{ item.target_name or "—" }}</td>
+        <td>{{ item.employee }}</td>
+        <td>{{ item.route_label }}{% if item.reason %}<div class="reason">{{ item.reason }}</div>{% endif %}</td>
+        <td>
+          {% for name, ok in item.validations %}<span class="check {{ 'check-ok' if ok else 'check-fail' }}">{{ '✓' if ok else '✗' }} {{ name }}</span> {% else %}—{% endfor %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% elif not plan.error %}
+  <p class="placeholder">Planda öğe yok.</p>
+  {% endif %}
+  {% endif %}
+</section>
+
+<section id="outputs" aria-labelledby="outputs-title">
+  <h2 id="outputs-title">Çıktılar</h2>
+  <h3>Belgeler</h3>
+  {% if detail.outputs %}
+  <table class="outputs">
+    <thead>
+      <tr><th>Çalışan</th><th>Tür</th><th>Dosya</th><th>Sıra</th><th>Durum</th><th>Plan</th><th>Kaynak</th></tr>
+    </thead>
+    <tbody>
+      {% for output in detail.outputs %}
+      <tr id="output-{{ output.id }}" class="output-{{ output.status }}">
+        <td>{{ output.employee }}</td>
+        <td>{{ output.type_slug }}</td>
+        <td>{{ output.path }}</td>
+        <td>{{ output.sequence_no }}</td>
+        <td>{{ output.status_label }}</td>
+        <td>{% if output.plan_version is not none %}Sürüm {{ output.plan_version }}{% else %}—{% endif %}</td>
+        <td>{% for source in output.sources %}<div>{{ source }}</div>{% endfor %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="placeholder">Bu partiden henüz belge çıktısı yok.</p>
+  {% endif %}
+  <h3>Kuyruğa alınanlar</h3>
+  {% if detail.queue %}
+  <table class="queue">
+    <thead>
+      <tr><th>Kuyruk</th><th>Plan</th><th>Gerekçe</th><th>Çözüm</th></tr>
+    </thead>
+    <tbody>
+      {% for row in detail.queue %}
+      <tr id="queue-{{ row.id }}"{% if not row.current %} class="output-superseded"{% endif %}>
+        <td>{{ row.kind_label }}</td>
+        <td>{% if row.plan_version is not none %}Sürüm {{ row.plan_version }}{% if not row.current %} (eski sürüm){% endif %}{% else %}—{% endif %}{% if row.item_id %} · {{ row.item_id }}{% endif %}</td>
+        <td>{{ row.reason }}</td>
+        <td>{{ row.resolved or "Bekliyor" }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="placeholder">Bu partiden kuyruğa alınan öğe yok.</p>
+  {% endif %}
+</section>
+
+<section id="timeline" aria-labelledby="timeline-title">
+  <h2 id="timeline-title">Olay zaman çizelgesi</h2>
+  {% if detail.events %}
+  <ol class="timeline">
+    {% for event in detail.events %}
+    <li class="event">
+      <time datetime="{{ event.ts_iso }}">{{ event.ts }}</time>
+      <span class="event-type">{{ event.type }}</span>
+      <span class="actor">{{ event.actor }}</span>
+      {% if event.place %}<span class="place">{{ event.place }}</span>{% endif %}
+      {% if event.message %}<span class="message">{{ event.message }}</span>{% endif %}
+    </li>
+    {% endfor %}
+  </ol>
+  {% else %}
+  <p class="placeholder">Bu parti için olay yok.</p>
+  {% endif %}
+</section>
+{% endif %}
+{% endblock %}
