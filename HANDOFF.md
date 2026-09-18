@@ -18,6 +18,12 @@ Blok biçimi `CONVENTIONS.md` §3'te tanımlıdır:
 
 ## Task log (newest-first)
 
+## 62 — 09.3-c Kabul senaryoları S6–S10 — done — 2026-09-18
+- Yapıldı: `tests/test_scenarios_s06_s10.py` — S6–S10 yükleme uç noktası + `process_upload` ile uçtan uca (dosya ve kayıtlı yanıt `gen.py`'den), beşi de PRD beklentisini birebir tutar: S6 JPEG pasaport Unresolved + "Uygun formatta yeniden gönderin.", dönüşüm yok; S7 tek sayfa `extract`, render yok; S8 boş sayfa `skip`, hata değil; S9 Unreadable "Okunamayan alanlar: document_number"; S10 yalnız isim → Unresolved, eşleştirme ve yeni çalışan yok.
+- Doğrulama: ruff check/format, compileall, `pytest -q -m "not live" --cov=app --cov-fail-under=70` (2270 geçti, +9; 2 beklenen xfail D12; 4 PG atlandı), kapsam %99.78, temiz SQLite'ta `alembic upgrade head`, `import app.main` — hepsi exit 0.
+- Varsayımlar: S6'nın "katalog yalnız PDF bekliyor" koşulu tohum kataloğunda yok (pasaport `pdf`/`jpeg`); test güncel katalogda (DB) pasaportun `expected_file_types`'ını `[pdf]` yapar. S6/S9 kayıtlı çalışanlı ve çalışansız, S8 iki boş sayfa düzeni, S10 doğum tarihi yok/farklı olarak parametreli.
+- Sonraki pencereye not: fikstürler ve yardımcılar `tests/test_scenarios_s01_s05.py`'den gelir (fikstürler modül adına atanarak: `session = s01_s05.session` — doğrudan `import` ruff F811 verir); boş sayfalı kaynakta S1–S5'in `_assert_page_copy`'si çalışmaz (içerik akışı yok), bu dosyadaki yerel sürümü kullanın.
+
 ## 61 — 09.3-b Kabul senaryoları S1–S5 — done — 2026-09-18
 - Yapıldı: `tests/test_scenarios_s01_s05.py` — S1–S5 gerçek yükleme uç noktası + `process_upload` ile uçtan uca (dosya ve kayıtlı yanıt `gen.py`'den); S1/S2/S5 PRD beklentisini birebir tutar, S3/S4'te fotoğraf dışındaki her beklenti (R6 parçaları, Residence-Card 4-5, sayfa 3 Hazir/Unknown, bayt bayt sayfa kopyası) yeşil.
 - Doğrulama: ruff check/format, compileall, `pytest -q -m "not live" --cov=app --cov-fail-under=70` (2261 geçti, +7; 2 beklenen xfail; 4 PG atlandı), kapsam %99.74, temiz SQLite'ta `alembic upgrade head`, `import app.main` — hepsi exit 0.
