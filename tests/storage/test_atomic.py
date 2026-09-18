@@ -20,7 +20,9 @@ from app.storage import atomic
 from app.storage.atomic import (
     CHUNK_SIZE,
     ContentMismatchError,
+    StoredFile,
     copy_file,
+    find_sequenced,
     is_partial_write,
     remove_partial_writes,
     replace_file,
@@ -317,6 +319,99 @@ def test_sequenced_write_with_unexpected_hash_publishes_nothing(tmp_path: Path) 
         write_sequenced(tmp_path, STEM, "pdf", b"degismis", expected_sha256=sha256_bytes(b"veri"))
 
     assert list(tmp_path.iterdir()) == []
+
+
+# --- sıra ekiyle yayınlanmış aynı içeriği bulma (07.8.1) -------------------------------------
+
+
+def _find(
+    directory: Path, content: bytes, *, stem: str = STEM, extension: str = "pdf"
+) -> list[StoredFile]:
+    return find_sequenced(
+        directory, stem, extension, sha256=sha256_bytes(content), size=len(content)
+    )
+
+
+def test_find_sequenced_returns_the_files_write_sequenced_published_with_that_content(
+    tmp_path: Path,
+) -> None:
+    published = [write_sequenced(tmp_path, STEM, "pdf", content) for content in (b"a", b"b", b"a")]
+
+    found = _find(tmp_path, b"a")
+
+    assert found == [published[0], published[2]]
+    assert [(stored.path.name, stored.sequence_no) for stored in found] == [
+        (f"{STEM}.pdf", 1),
+        (f"{STEM}-3.pdf", 3),
+    ]
+    assert _find(tmp_path, b"c") == []
+
+
+def test_find_sequenced_orders_by_sequence_number_not_by_name(tmp_path: Path) -> None:
+    for sequence_no in (10, 2, 9):
+        (tmp_path / f"{STEM}-{sequence_no}.pdf").write_bytes(b"ayni")
+
+    assert [stored.sequence_no for stored in _find(tmp_path, b"ayni")] == [2, 9, 10]
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        f"{STEM}.jpeg",  # başka uzantı
+        f"{STEM}.PDF",  # write_sequenced uzantıyı küçük harfle yazar
+        f"{STEM.lower()}.pdf",  # gövde birebir değil
+        f"{STEM}-1.pdf",  # birinci belge eksizdir
+        f"{STEM}-02.pdf",  # baştaki sıfır
+        f"{STEM}-2x.pdf",
+        f"{STEM}-.pdf",
+        f"{STEM}-Back.pdf",  # başka türün gövdesi
+        f"{STEM}2.pdf",
+        f"Baska-{STEM}.pdf",
+        f"{STEM}",
+        f".belgeee-{'0a' * 16}.part",
+    ],
+)
+def test_find_sequenced_ignores_names_write_sequenced_would_not_publish(
+    tmp_path: Path, name: str
+) -> None:
+    (tmp_path / name).write_bytes(b"ayni")
+
+    assert _find(tmp_path, b"ayni") == []
+
+
+def test_find_sequenced_ignores_other_content_directories_and_a_missing_directory(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / f"{STEM}.pdf").write_bytes(b"baska")  # aynı boy, başka içerik
+    (tmp_path / f"{STEM}-2.pdf").write_bytes(b"ayni-degil")  # başka boy
+    (tmp_path / f"{STEM}-3.pdf").mkdir()
+
+    assert _find(tmp_path, b"ayni") == []
+    assert _find(tmp_path / "yok", b"ayni") == []
+
+
+def test_find_sequenced_hashes_only_files_of_the_same_size(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    (tmp_path / f"{STEM}.pdf").write_bytes(b"x" * 100)
+    target = write_sequenced(tmp_path, STEM, "pdf", b"ayni")
+    hashed: list[Path] = []
+
+    def _recording_sha256_file(path: Path) -> str:
+        hashed.append(path)
+        return sha256_file(path)
+
+    monkeypatch.setattr(atomic, "sha256_file", _recording_sha256_file)
+
+    assert _find(tmp_path, b"ayni") == [target]
+    assert hashed == [target.path]
+
+
+def test_find_sequenced_rejects_an_invalid_stem_or_extension(tmp_path: Path) -> None:
+    with pytest.raises(ValueError):
+        _find(tmp_path, b"veri", stem="../Inbox/x")
+    with pytest.raises(ValueError):
+        _find(tmp_path, b"veri", extension="p/f")
 
 
 # --- K8 dışı adla çakışmasız yayın (Alinan kopyası, 07.7.2) ----------------------------------

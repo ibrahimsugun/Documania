@@ -8,7 +8,7 @@
 
 | Faz | PRD | Genel durum | Must sayacı | Kapanış |
 | --- | --- | --- | --- | --- |
-| Faz 0 — MVP | §5.1 | 85 ✅ · 0 ◐ · 17 ⬜ · 0 🔒 | 82/98 Must | AÇIK |
+| Faz 0 — MVP | §5.1 | 86 ✅ · 0 ◐ · 16 ⬜ · 0 🔒 | 83/98 Must | AÇIK |
 | Faz 1 — v1 | §5.2 | 0 ✅ · 0 ◐ · 0 ⬜ · 32 🔒 | 0/21 Must | AÇIK |
 | Faz 2 — v2 | §5.3 | 0 ✅ · 0 ◐ · 0 ⬜ · 13 🔒 | 0/0 Must | AÇIK |
 | Faz 3 — Enterprise | §5.4 | 0 ✅ · 0 ◐ · 0 ⬜ · 8 🔒 | 0/0 Must | AÇIK |
@@ -190,7 +190,7 @@ panelde `plan-count-drift` bulgusu doğurur.
 | 07.6.1 | render_image | Must (MVP) | ✅ → K07.6 |
 | 07.7.1 | Çıktı yazma ve köken (R13) | Must (MVP) | ✅ → K07.7 |
 | 07.7.2 | Alinan kopyası | Must (MVP) | ✅ → K07.7 |
-| 07.8.1 | İdempotenlik | Must (MVP) | ⬜ |
+| 07.8.1 | İdempotenlik | Must (MVP) | ✅ → K07.8 |
 
 ### 3.9 FR-MOD-08 — Kuyruklar ve çözüm
 
@@ -1197,6 +1197,36 @@ Onay beklemeden yapılan varsayımlar buraya numaralı olarak yazılır.
   kopyası için tür olmadığından sonucu buraya girer. Yol, hedef adı ve klasör adı kişi adı taşıdığı için olaya
   girmez. `render_image` DPI/kalitesi çağırandan (`Settings.render_image_*`). Commit yok; dosya sistemi işleme
   bağlı değil. İkinci çağrı `-2` ekli ikinci çıktı üretir — "ikinci dosya üretilmez" 07.8.1'in.
+- **C40** — Uygulayıcı idempotenliği (tm 53, 07.8.1, S18): PRD "aynı plan ikinci kez uygulanınca ikinci dosya
+  üretilmez" der; "uygulanmış öğe"nin neyle tanınacağı, uygulanmış öğede ne yazılacağı, geri alınmış uygulamanın
+  diskte kalan çıktısı ve eşzamanlı uygulama yazılı değil. `execute_ready_item` (`app/pipeline/execute.py`) plan
+  öğesi başına idempotenttir; plan düzeyi `PlanExecutor` hâlâ 09.2'nin. **Tanıma:** `documents.plan_id` = planın
+  kimliği ve `source_refs_json` = öğenin `sources`'u olan satır (`executed_document`) — göç yok, `documents`'a
+  öğe kimliği sütunu eklenmedi: `PlanDocument` bir sayfayı en fazla bir öğeye bağladığı için bu eşleşme tekildir.
+  Satırın durumuna ve sahibine bakılmaz (eski sürüm, ileride arşiv ya da başka çalışana taşıma da uygulanmış
+  sayılır; öğe yeniden uygulanıp çıktı ilk çalışana geri getirilmez). **Uygulanmış öğe:** kaynak okunmaz (Inbox
+  sonradan değişmiş olsa da `SourceIntegrityError` yok), işlem yürümez, diske, `documents`'a ve Alinan'a hiçbir
+  şey yazılmaz; `OUTPUT_SKIPPED` (§8.3'te tanımlı, anlamı yazılı değildi) partinin, ilk kaynağın dosyası ve ilk
+  sayfasıyla, var olan satırın `document_id`'si ve **şimdiki** sahibi (`employee_id`) ile, mesajsız, veri
+  `item_id`, `plan_id`, `sources` yazılır; sonuç `ExecutedItem(document=var olan satır, output=None,
+  received=())`, `applied` yanlış. 09.2 atlama rotası (`skip`) için bu olayı kullanırsa `document_id`'siz yazar.
+  **Geri alınmış uygulama:** dosya sistemi işleme bağlı olmadığından çıktı ve Alinan kopyası diskte kalır,
+  satır ve olaylar kalmaz. Yeniden uygulamada işlem yürür; `Hazir/`'da aynı gövdeyle (`stem.ext`, `stem-N.ext`
+  birebir — `find_sequenced`, `app/storage/atomic.py`), aynı boy ve SHA-256'yla duran ve hiçbir `documents.path`
+  satırının göstermediği dosya varsa (en küçük sıra) yeni dosya yazılmaz, o dosya kaydedilir: `documents`
+  satırı, işlem olayı ve `OUTPUT_SAVED` olağan biçimde yazılır (veride benimseme ayrıca işaretlenmez),
+  `received` `copied: false` gösterir. Başka satırın gösterdiği dosya benimsenmez — başka öğenin (iki aynı
+  sayfa) ya da eski sürümün (K18) çıktısı içerik aynı olsa da; yeni plan sürümü yine `-2` alır. **Belirleyicilik**
+  bunun önkoşulu: altı işlem aynı girdiden aynı baytları üretir; `wrap_image` (ve `merge`'ün görüntü sarması)
+  img2pdf'in kendi yazıcısıyla (`Engine.internal`) ve `nodate=True` ile sarılır — varsayılan pikepdf yazıcısı
+  oluşturma tarihi ve zamana bağlı `/ID` yazıyordu (img2pdf 0.6.3 pikepdf sürümünü dize olarak karşılaştırdığı
+  için `"10.13" >= "6.2.0"` yanlış, `deterministic_id` istenmiyor). Görüntü verisi yazıcıdan bağımsız taşınır;
+  07.3/07.4'ün 125 testi değişmeden yeşil. pypdf/PyMuPDF/img2pdf sürümü değişirse eski geri alınmış çıktı
+  tanınmayabilir (o durumda `-2`). **Eşzamanlılık:** çalışan kilidi (`_lock_employee_outputs`, eski adı
+  `_lock_received_copies`; PostgreSQL advisory ad alanı `belgeee.employees.outputs`) denetimden önce alınır;
+  aynı öğeyi eşzamanlı uygulayan ikinci işlem ilkinin commit'ini bekler ve satırını görür (SQLite `BEGIN
+  IMMEDIATE`). Kalan açık: K16 taşıması (10.x) çalışana dosya yayınlarken aynı kilidi almazsa, satırı henüz
+  güncellenmemiş birebir aynı içerikli dosya benimsenebilir — taşıma bu kilidi almalı.
 
 ## D. Sapmalar
 
@@ -1700,3 +1730,9 @@ var olan maddeler silinmez. Biçim:
 - ✅ `execute_ready_item(session, layout, plan, item, *, render_image_dpi, render_image_jpeg_quality)` (`app/pipeline/execute.py`) `hazir` öğenin işlemini plandaki `operation`'la yürütür, çıktıyı çalışanın `Hazir/`'ına `write_sequenced` ile atomik ve K8 sıra ekiyle yazar (`extract_image` gerçek uzantı), `documents` satırına `source_refs_json` = öğenin `sources`'u (`file_id`, 0 tabanlı `pages`) işler, işlem olayı + `OUTPUT_SAVED` (köken verisi, kişisel değer yok) yazar; Inbox kaynağının hash'i `upload_files.sha256` ile doğrulanır (K10), ret ve işlem hatasında hiçbir şey yazılmaz — test `tests/pipeline/test_execute_output.py` (24; S5 merge, passthrough, extract `-2`, extract_image/render_image, wrap_image, gömülü PNG `-2.png`, Word eki `pages: []`) · tm 52
 - ✅ Alinan kopyası `copy_to_received` (`app/storage/received.py`): Inbox adıyla, dolu adda `ad-2.uzantı` (`write_unique`, `app/storage/atomic.py`); aynı SHA-256 çalışan klasöründe varsa (başka ad/parti dahil) kopyalanmaz, kopya yayından önce hash'le doğrulanır; çalışan başına ayrı kopya, PostgreSQL'de çalışan başına advisory kilit — test `tests/storage/test_received.py` (8), `tests/storage/test_atomic.py` (+16), `tests/storage/test_layout.py` (+4, `DataLayout.relative`), `tests/storage/test_naming.py` (+6, `split_document_filename`) · tm 52
 - ✅ Kapı: 2007 geçti (+58; 4 PG testi atlandı), kapsam %99 (`execute.py`, `received.py`, `layout.py`, `naming.py` %100); 12 kural bozulması (Alinan tekilliği, köken sırası, K10 hash denetimi, PNG uzantısı, advisory kilit koşulu, işlem olayı, beklenen hash, dosyanın partisi, passthrough yayın öncesi hash, `direct` bayrağı, Alinan kopyası, olay sayfası) her biri testte kırmızı · tm 52
+
+#### K07.8 — 07.8.1 · Uygulayıcı idempotenliği
+- ✅ `execute_ready_item` (`app/pipeline/execute.py`) plan öğesi başına idempotent: öğenin önceki uygulaması `executed_document(session, plan, item)` ile (`documents.plan_id` + `source_refs_json`) çalışan kilidinin altında bulunur; bulunursa kaynak okunmaz, işlem yürümez, hiçbir dosya/satır yazılmaz, `OUTPUT_SKIPPED` loglanır ve `ExecutedItem(document, None, ())` (`applied` yanlış) döner. Kabul kriteri: altı işlemin her biri commit sonrası iki kez daha uygulanınca `Hazir/`/`Alinan/` bayt bayt aynı, tek satır, tek `OUTPUT_SAVED` (bkz. PLAN.md §C40) — test `tests/pipeline/test_execute_idempotency.py` (25) · tm 53
+- ✅ Geri alınmış uygulamanın diskte kalan çıktısı ikinci kez yazılmaz, kaydedilir: `find_sequenced(directory, stem, extension, *, sha256, size)` (`app/storage/atomic.py`) K8 adıyla aynı içerikli dosyaları bulur, `documents.path`'in göstermediği ilki benimsenir; iki aynı sayfanın çıktıları ve eski plan sürümünün dosyası birbirine verilmez. `wrap_image` sarması belirleyici (`Engine.internal`, `nodate`) — sahte saatle iki sarım aynı bayt, trailer'da `/ID` yok — test `tests/storage/test_atomic.py` (+17), `tests/pipeline/test_execute_idempotency.py` · tm 53
+- ✅ S18: gerçek uygulayıcıyla (`rerun_plan` + `hazir` öğeleri `execute_ready_item`) iki yeniden çalıştırma — sağlayıcı çağrılmaz, aynı satır ve yol, `Hazir/`'da tek dosya kaynağıyla birebir, 2 `OUTPUT_SKIPPED`, 1 `OUTPUT_SAVED`, tek plan; iki eşzamanlı işlem (SQLite, iki oturum) tek çıktı yayınlar · tm 53
+- ✅ Kapı: 2049 geçti (+42; 4 PG testi atlandı), kapsam %99.71 (`execute.py` %100); 11 kural bozulması (denetimsiz uygulama, benimsemesiz yeniden yazım, kayıtlı dosyayı benimseme, pikepdf yazıcısı, `nodate`'siz sarım, pikepdf+`nodate`, atlama olayı, durum süzgeci, sahip süzgeci, kilitten önce denetim, atlamada kaynak okuma) her biri testte kırmızı · tm 53

@@ -829,8 +829,8 @@ def test_received_copies_of_an_employee_are_serialized_on_postgresql(
         execute=statements.append,
     )
 
-    execute_module._lock_received_copies(session, "E0001")  # type: ignore[arg-type]
-    execute_module._lock_received_copies(session, "E0002")  # type: ignore[arg-type]
+    execute_module._lock_employee_outputs(session, "E0001")  # type: ignore[arg-type]
+    execute_module._lock_employee_outputs(session, "E0002")  # type: ignore[arg-type]
 
     assert len(statements) == 2 * locks
     if locks:

@@ -23,8 +23,9 @@ uygular:
    çıktı, kopya, satır ya da olay kalmaz — kuyruğa çevirmek çağıranındır (08.1, 09.2).
 3. Çıktı yayınlandıktan sonra (belge çözüldü, K10) her kaynak dosya `sources` sırasıyla çalışanın
    `Alinan/` klasörüne kopyalanır; aynı SHA-256 orada varsa tekrar kopyalanmaz (`copy_to_received`).
-   Aynı çalışana kopyalayan işlemler PostgreSQL'de çalışan başına işlem ömürlü advisory kilitle
-   sıraya girer; SQLite işlemi `BEGIN IMMEDIATE` ile yazma kilidini zaten tutar.
+   Aynı çalışana yazan uygulamalar (idempotenlik denetimi, çıktı, kopya) PostgreSQL'de çalışan
+   başına işlem ömürlü advisory kilitle sıraya girer; SQLite işlemi `BEGIN IMMEDIATE` ile yazma
+   kilidini zaten tutar.
 4. `documents` satırı (`active`) yazılır: çalışan, tür, veri köküne göreli yol, gerçek biçim, sıra
    numarası, plan kimliği ve köken — `source_refs_json` öğenin `sources`'udur (`file_id` ve 0
    tabanlı `pages`; bütün dosyada `[]`), sırası korunur (K15, R13).
@@ -36,14 +37,32 @@ uygular:
    yol ve ad kişi adı taşıdığı için olaya girmez (CONVENTIONS §6).
 
 Oturum commit edilmez. Dosya sistemi işleme bağlı değildir: işlem geri alınırsa yayınlanan çıktı ve
-kopya diskte kalır. Aynı öğeyi ikinci kez uygulamamak (07.8.1) çağıranın işidir; bu işlev ikinci
-çağrıda `-2` ekli ikinci çıktı üretir.
+kopya diskte kalır.
+
+**İdempotenlik (07.8.1, S18).** Aynı plan ikinci kez uygulanınca ikinci dosya üretilmez:
+
+- Öğe, planın kimliği ve kaynaklarıyla tanınır: `documents.plan_id` planın, `source_refs_json`
+  öğenin `sources`'u olan satır o öğenin çıktısıdır (`executed_document`). Plan bir sayfayı en
+  fazla bir öğeye bağladığı için (`PlanDocument`) bu eşleşme tekildir; satırın durumu ve sahibi
+  sonradan değişmiş olabilir (eski sürüm, arşiv, başka çalışana taşıma — K16, K18), yine o öğenin
+  çıktısıdır. Böyle satır varsa öğe yeniden uygulanmaz: kaynak okunmaz, işlem yürümez, diske ve
+  `documents`'a hiçbir şey yazılmaz; `OUTPUT_SKIPPED` o satırla loglanır ve satır döner.
+- Uygulama geri alınmışsa (işlem commit edilmeden öldü ya da geri alındı) çıktı diskte kalmış,
+  satırı yoktur. Yeniden uygulamada işlem yürür; aynı gövdeyle ve aynı SHA-256'yla `Hazir/`'da
+  duran ve hiçbir `documents` satırının göstermediği dosya varsa yeni dosya yazılmaz, o dosya
+  çıktı olarak kaydedilir (`find_sequenced`) — Alinan tekilliği gibi doğruluk kaynağı disktir.
+  Bu yüzden işlemlerin çıktısı aynı girdiden aynı baytlardır; `wrap_image` tarih ve rastgele
+  kimlik taşımasın diye img2pdf'in kendi yazıcısıyla ve tarihsiz sarılır. Başka bir satırın
+  gösterdiği dosya — başka öğenin ya da eski sürümün çıktısı, içeriği aynı olsa da — benimsenmez;
+  o durumda K8 eki yine diskte seçilir.
+- Denetim ile yayın aynı çalışan kilidinin altındadır (madde 3): aynı öğeyi eşzamanlı uygulayan
+  ikinci işlem ilki commit edilince onun satırını görür.
 """
 
 from __future__ import annotations
 
 import zlib
-from collections.abc import Sequence
+from collections.abc import Iterator, Sequence
 from contextlib import ExitStack
 from dataclasses import dataclass
 from io import BytesIO
@@ -79,7 +98,9 @@ from app.storage import (
     copy_file,
     copy_to_received,
     detect_file_kind,
+    find_sequenced,
     iter_file_chunks,
+    sha256_bytes,
     sha256_file,
     split_document_filename,
     write_file,
@@ -185,11 +206,20 @@ class SourceIntegrityError(RuntimeError):
 @dataclass(frozen=True, slots=True)
 class ExecutedItem:
     """`execute_ready_item` sonucu: çıktı belgesi satırı, yayınlanan çıktı ve kaynakların Alinan
-    kopyaları (`sources` sırasıyla)."""
+    kopyaları (`sources` sırasıyla).
+
+    Öğe bu planla daha önce uygulanmışsa (07.8.1) `document` o uygulamanın satırıdır, `output`
+    `None` ve `received` boştur: bu çağrı diske dokunmadı.
+    """
 
     document: Document
-    output: StoredFile
+    output: StoredFile | None
     received: tuple[ReceivedCopy, ...]
+
+    @property
+    def applied(self) -> bool:
+        """Öğe bu çağrıda uygulandı; `False` ise önceki uygulamanın çıktısı döndü."""
+        return self.output is not None
 
 
 @dataclass(frozen=True, slots=True)
@@ -368,8 +398,14 @@ def _wrap_image_to_pdf(content: bytes) -> bytes:
 
     `merge` ve `wrap_image`'in ortak çekirdeği (D17/D18): sarılamayan görüntü için
     `_IMAGE_WRAP_ERRORS` olduğu gibi yükselir, çağıran kendi hata türüne çevirir.
+
+    Aynı görüntü her seferinde aynı baytlara sarılır (07.8.1): img2pdf'in kendi yazıcısı
+    (`Engine.internal`) kimlik (`/ID`) yazmaz ve `nodate` oluşturma/değişiklik tarihini dışarıda
+    bırakır. Varsayılan pikepdf yazıcısı her çağrıda başka `/ID` üretir — img2pdf 0.6.3 pikepdf
+    sürümünü dize olarak karşılaştırdığı için (`"10…" >= "6.2.0"` yanlış) belirleyici kimlik
+    istenmez. Görüntü verisinin taşınması yazıcıdan bağımsızdır.
     """
-    return img2pdf.convert(content)
+    return img2pdf.convert(content, engine=img2pdf.Engine.internal, nodate=True)
 
 
 def execute_extract_image(source: Path, destination: Path, *, page: int) -> StoredFile:
@@ -546,7 +582,9 @@ _OPERATION_EVENTS: dict[Operation, EventType] = {
     Operation.RENDER_IMAGE: EventType.IMAGE_RENDERED,
 }
 
-_RECEIVED_LOCK_NAMESPACE = "belgeee.employees.received"
+# Aynı çalışana yazan uygulamalar — idempotenlik denetimi, çıktının yayını, Alinan kopyası — sıraya
+# girer (PostgreSQL advisory kilidinin ad alanı).
+_EMPLOYEE_LOCK_NAMESPACE = "belgeee.employees.outputs"
 
 
 def execute_ready_item(
@@ -560,6 +598,11 @@ def execute_ready_item(
 ) -> ExecutedItem:
     """Planın `hazir` öğesini uygular: çıktıyı `Hazir/`'a atomik yazar, kökenini kaydeder ve
     kaynakları `Alinan/`'a kopyalar (07.7.1, 07.7.2; §20.5). Sözleşmesi modül açıklamasındadır.
+
+    İdempotenttir (07.8.1): öğe bu planla daha önce uygulanmışsa (`executed_document`) kaynak
+    okunmaz, hiçbir şey yazılmaz; `OUTPUT_SKIPPED` loglanır ve o uygulamanın satırı döner
+    (`ExecutedItem.applied` yanlış). Geri alınmış bir uygulamadan diskte kalan aynı çıktı ikinci
+    kez yazılmaz, kaydedilir.
 
     `item` `plan`'ın doğrulanmış (`read_plan`) öğesidir. `render_image_dpi` ve
     `render_image_jpeg_quality` `render_image` işleminin yapılandırma değerleridir
@@ -585,24 +628,45 @@ def execute_ready_item(
     document_type = session.get(KnownDocumentType, item.document_type_slug)
     if document_type is None:
         raise PlanItemReferenceError(f"{item.item_id} öğesinin belge türü katalogda yok")
-    sources = _item_sources(session, layout, plan, item)
 
-    _lock_received_copies(session, employee.id)
-    output = _write_ready_output(
+    _lock_employee_outputs(session, employee.id)
+    source_refs = _source_refs(item)
+    first = item.sources[0]
+    origin = {
+        "upload_id": plan.upload_id,
+        "file_id": first.file_id,
+        "page_index": first.pages[0] if first.pages else None,
+    }
+    provenance = {"item_id": item.item_id, "plan_id": plan.id, "sources": source_refs}
+    existing = executed_document(session, plan, item)
+    if existing is not None:
+        record_event(
+            session,
+            EventType.OUTPUT_SKIPPED,
+            **origin,
+            document_id=existing.id,
+            employee_id=existing.employee_id,
+            data=provenance,
+        )
+        return ExecutedItem(existing, None, ())
+
+    sources = _item_sources(session, layout, plan, item)
+    ready = _ready_output(
         operation,
         target_name,
         sources,
-        directory=layout.ready_dir(employee.folder_name),
         direct=document_type.direct,
         render_image_dpi=render_image_dpi,
         render_image_jpeg_quality=render_image_jpeg_quality,
+    )
+    output = _publish_ready_output(
+        session, layout, ready, directory=layout.ready_dir(employee.folder_name)
     )
     received = tuple(
         copy_to_received(layout, employee.folder_name, source.path, sha256=source.sha256)
         for source in sources
     )
 
-    source_refs = [source.model_dump(mode="json") for source in item.sources]
     output_format = output.path.suffix.removeprefix(".")
     document = Document(
         employee_id=employee.id,
@@ -617,22 +681,22 @@ def execute_ready_item(
     session.add(document)
     session.flush()
 
-    first = item.sources[0]
-    origin = {
-        "upload_id": plan.upload_id,
-        "file_id": first.file_id,
-        "page_index": first.pages[0] if first.pages else None,
-        "document_id": document.id,
-        "employee_id": employee.id,
-    }
-    provenance = {"item_id": item.item_id, "plan_id": plan.id, "sources": source_refs}
     operation_event = _OPERATION_EVENTS.get(operation)
     if operation_event is not None:
-        record_event(session, operation_event, **origin, data=provenance)
+        record_event(
+            session,
+            operation_event,
+            **origin,
+            document_id=document.id,
+            employee_id=employee.id,
+            data=provenance,
+        )
     record_event(
         session,
         EventType.OUTPUT_SAVED,
         **origin,
+        document_id=document.id,
+        employee_id=employee.id,
         data={
             **provenance,
             "document_type_slug": document_type.slug,
@@ -647,6 +711,28 @@ def execute_ready_item(
         },
     )
     return ExecutedItem(document, output, received)
+
+
+def executed_document(session: Session, plan: Plan, item: PlanItem) -> Document | None:
+    """Öğenin bu planla önceki uygulamasının çıktı satırı; uygulanmamışsa `None` (07.8.1).
+
+    Satır planın kimliği (`documents.plan_id`) ve öğenin kaynaklarıyla (`source_refs_json`) bulunur;
+    plan bir sayfayı en fazla bir öğeye bağladığı için eşleşme tekildir. Satırın durumuna ve
+    sahibine bakılmaz: eski sürüm, arşivlenmiş ya da başka çalışana taşınmış çıktı da öğenin
+    uygulandığını gösterir. `item` `plan`'ın öğesidir.
+    """
+    source_refs = _source_refs(item)
+    documents = session.scalars(
+        select(Document).where(Document.plan_id == plan.id).order_by(Document.id)
+    )
+    return next(
+        (document for document in documents if document.source_refs_json == source_refs), None
+    )
+
+
+def _source_refs(item: PlanItem) -> list[dict[str, object]]:
+    # K15 köken: öğenin `sources`'u olduğu gibi — `file_id`, 0 tabanlı `pages`, plan sırası.
+    return [source.model_dump(mode="json") for source in item.sources]
 
 
 @dataclass(frozen=True, slots=True)
@@ -681,60 +767,111 @@ def _item_sources(
     return sources
 
 
-def _lock_received_copies(session: Session, employee_id: str) -> None:
-    # `copy_to_received`'ın hash taraması ile yayını arasına aynı çalışana kopyalayan başka işlem
-    # girmesin. SQLite işlemi `BEGIN IMMEDIATE` ile yazma kilidini zaten baştan tutar.
+def _lock_employee_outputs(session: Session, employee_id: str) -> None:
+    # İdempotenlik denetimi (07.8.1) ile çıktının yayını ve `copy_to_received`'ın hash taraması ile
+    # yayını arasına aynı çalışana yazan başka işlem girmesin; aynı öğeyi eşzamanlı uygulayan ikinci
+    # işlem ilkinin satırını görür. SQLite işlemi `BEGIN IMMEDIATE` ile yazma kilidini zaten baştan
+    # tutar.
     if session.get_bind().dialect.name == "postgresql":
-        key = zlib.crc32(f"{_RECEIVED_LOCK_NAMESPACE}.{employee_id}".encode())
+        key = zlib.crc32(f"{_EMPLOYEE_LOCK_NAMESPACE}.{employee_id}".encode())
         session.execute(select(func.pg_advisory_xact_lock(key)))
 
 
-def _write_ready_output(
+@dataclass(frozen=True, slots=True)
+class _ReadyOutput:
+    """Yayınlanacak çıktı: K8 gövdesi, gerçek uzantısı, içeriği ve içeriğin SHA-256'sı ile boyu.
+
+    `expected_sha256` doluysa içerik akıştır ve yayından önce o hash'le karşılaştırılır
+    (`passthrough`).
+    """
+
+    stem: str
+    extension: str
+    content: bytes | Iterator[bytes]
+    sha256: str
+    size: int
+    expected_sha256: str | None = None
+
+
+def _ready_output(
     operation: Operation,
     target_name: str,
     sources: Sequence[_ItemSource],
     *,
-    directory: Path,
     direct: bool,
     render_image_dpi: int,
     render_image_jpeg_quality: int,
-) -> StoredFile:
-    """İşlemi yürütür, çıktıyı `directory`'ye planın adıyla ve K8 sıra ekiyle atomik yayınlar."""
+) -> _ReadyOutput:
+    """İşlemi yürütür ve çıktısını planın adıyla yayına hazırlar; diske yazmaz."""
     stem, extension = split_document_filename(target_name)
     if operation is Operation.MERGE:
         merged = _merge_output(
             [MergeSource(source.path, source.pages) for source in sources], direct=direct
         )
-        return write_sequenced(directory, stem, extension, merged)
+        return _in_memory(stem, extension, merged)
     if len(sources) != 1:
         raise ValueError(f"{operation.value} tek kaynak ister: {len(sources)} kaynak")
     (source,) = sources
     if operation is Operation.PASSTHROUGH:
-        try:
-            return write_sequenced(
-                directory,
-                stem,
-                extension,
-                iter_file_chunks(source.path),
-                expected_sha256=source.sha256,
-            )
-        except ContentMismatchError as exc:
-            raise PassthroughIntegrityError(f"passthrough bütünlük hatası: {exc}") from exc
+        # Kaynak belleğe alınmaz, akışla kopyalanır; içeriği yüklemede kaydedilen ve az önce
+        # doğrulanan hash'tir.
+        return _ReadyOutput(
+            stem,
+            extension,
+            iter_file_chunks(source.path),
+            sha256=source.sha256,
+            size=source.path.stat().st_size,
+            expected_sha256=source.sha256,
+        )
     if operation is Operation.EXTRACT:
-        extracted = _extract_output(source.path, source.pages)
-        return write_sequenced(directory, stem, extension, extracted)
+        return _in_memory(stem, extension, _extract_output(source.path, source.pages))
     if operation is Operation.WRAP_IMAGE:
-        return write_sequenced(directory, stem, extension, _wrap_image_output(source.path))
+        return _in_memory(stem, extension, _wrap_image_output(source.path))
     if len(source.pages) != 1:
         raise ValueError(f"{operation.value} tek sayfa ister: {len(source.pages)} sayfa")
     (page,) = source.pages
     if operation is Operation.EXTRACT_IMAGE:
         image, kind = _extract_image_output(source.path, page)
-        return write_sequenced(directory, stem, kind.value, image)
+        return _in_memory(stem, kind.value, image)
     rendered = _render_image_output(
         source.path, page, dpi=render_image_dpi, jpeg_quality=render_image_jpeg_quality
     )
-    return write_sequenced(directory, stem, extension, rendered)
+    return _in_memory(stem, extension, rendered)
+
+
+def _in_memory(stem: str, extension: str, content: bytes) -> _ReadyOutput:
+    return _ReadyOutput(stem, extension, content, sha256=sha256_bytes(content), size=len(content))
+
+
+def _publish_ready_output(
+    session: Session, layout: DataLayout, output: _ReadyOutput, *, directory: Path
+) -> StoredFile:
+    """Çıktıyı `directory`'ye planın adıyla ve K8 sıra ekiyle atomik yayınlar.
+
+    Aynı içerik bu gövdeyle diskte duruyor ve hiçbir `documents` satırı onu göstermiyorsa — geri
+    alınmış bir uygulamanın çıktısı — yeni dosya yazılmaz, o dosya döner (07.8.1).
+    """
+    for candidate in find_sequenced(
+        directory, output.stem, output.extension, sha256=output.sha256, size=output.size
+    ):
+        if not _is_recorded(session, layout, candidate.path):
+            return candidate
+    try:
+        return write_sequenced(
+            directory,
+            output.stem,
+            output.extension,
+            output.content,
+            expected_sha256=output.expected_sha256,
+        )
+    except ContentMismatchError as exc:
+        # Beklenen hash'i yalnız `passthrough` verir.
+        raise PassthroughIntegrityError(f"passthrough bütünlük hatası: {exc}") from exc
+
+
+def _is_recorded(session: Session, layout: DataLayout, path: Path) -> bool:
+    recorded = select(Document.id).where(Document.path == layout.relative(path)).limit(1)
+    return session.scalar(recorded) is not None
 
 
 @dataclass(frozen=True, slots=True)

@@ -13,6 +13,9 @@ yazarken hesaplanır, veri diske zorlanır (`fsync`) ve ancak sonra hedef ada ya
 Sonuç: hedef adda ya eksiksiz dosya vardır ya hiç dosya yoktur. Yazma süreç içinde kesilirse
 (istisna, `KeyboardInterrupt`) geçici dosya da silinir. Süreç dışarıdan öldürülürse geride
 yalnız gizli geçici dosya kalır; açılışta `remove_partial_writes` onu temizler.
+
+`find_sequenced` `write_sequenced`'ın bir gövdeyle yayınlamış olabileceği aynı içerikli dosyaları
+bulur: uygulayıcı, işlemi geri alınmış bir uygulamadan kalan çıktıyı ikinci kez yazmaz (07.8.1).
 """
 
 from __future__ import annotations
@@ -37,6 +40,8 @@ PARTIAL_WRITE_MAX_AGE = timedelta(hours=1)
 _TEMP_PREFIX = ".belgeee-"
 _TEMP_SUFFIX = ".part"
 _TEMP_NAME = re.compile(r"\.belgeee-[0-9a-f]{32}\.part")
+# K8 sıra eki: `-2`, `-3`… — `-1` ve baştaki sıfır (`-02`) `write_sequenced`'ın ürettiği ad değil.
+_SEQUENCE_NUMBER = re.compile(r"[2-9]|[1-9][0-9]+")
 
 type Content = bytes | Iterable[bytes]
 
@@ -127,6 +132,36 @@ def write_sequenced(
             return StoredFile(target, sha256, size, sequence_no)
     finally:
         temp.unlink(missing_ok=True)
+
+
+def find_sequenced(
+    directory: Path, stem: str, extension: str, *, sha256: str, size: int
+) -> list[StoredFile]:
+    """`write_sequenced(directory, stem, extension, …)`'in yayınlamış olabileceği ve içeriği
+    `sha256` olan dosyalar, sıra numarasına göre artan (07.8.1).
+
+    Ad tam olarak `stem.ext` ya da `stem-N.ext`'tir (N ≥ 2, eksiz; K8) — `write_sequenced`'ın
+    ürettiği biçim, harf büyüklüğü dahil. Yalnız boyu tutan dosyalar hash'lenir; yayınlanmamış
+    geçici dosyalar ve dizinler sayılmaz. Dizin yoksa boş liste.
+    """
+    extension = normalize_extension(extension)
+    sequenced_stem(stem, 1)  # gövdeyi doğrula
+    try:
+        with os.scandir(directory) as entries:
+            candidates = sorted(
+                (sequence_no, Path(entry.path))
+                for entry in entries
+                if (sequence_no := _sequence_no(entry.name, stem, extension)) is not None
+                and entry.is_file(follow_symlinks=False)
+                and entry.stat(follow_symlinks=False).st_size == size
+            )
+    except FileNotFoundError:
+        return []
+    return [
+        StoredFile(path, sha256, size, sequence_no)
+        for sequence_no, path in candidates
+        if sha256_file(path) == sha256
+    ]
 
 
 def write_unique(
@@ -236,6 +271,21 @@ def _check_expected_sha256(sha256: str, expected_sha256: str | None) -> None:
 def _names_in_use(directory: Path) -> set[str]:
     with os.scandir(directory) as entries:
         return {entry.name.casefold() for entry in entries}
+
+
+def _sequence_no(name: str, stem: str, extension: str) -> int | None:
+    """`name` `sequenced_filename(stem, n, extension)` ise `n`, değilse `None`."""
+    name_stem = name.removesuffix(f".{extension}")
+    if name_stem == name:
+        return None
+    if name_stem == stem:
+        return 1
+    if not name_stem.startswith(f"{stem}-"):
+        return None
+    number = name_stem[len(stem) + 1 :]
+    if _SEQUENCE_NUMBER.fullmatch(number) is None:
+        return None
+    return int(number)
 
 
 def _stems_in_use(directory: Path) -> set[str]:
