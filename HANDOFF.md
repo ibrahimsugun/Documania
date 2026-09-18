@@ -18,6 +18,12 @@ Blok biçimi `CONVENTIONS.md` §3'te tanımlıdır:
 
 ## Task log (newest-first)
 
+## 61 — 09.3-b Kabul senaryoları S1–S5 — done — 2026-09-18
+- Yapıldı: `tests/test_scenarios_s01_s05.py` — S1–S5 gerçek yükleme uç noktası + `process_upload` ile uçtan uca (dosya ve kayıtlı yanıt `gen.py`'den); S1/S2/S5 PRD beklentisini birebir tutar, S3/S4'te fotoğraf dışındaki her beklenti (R6 parçaları, Residence-Card 4-5, sayfa 3 Hazir/Unknown, bayt bayt sayfa kopyası) yeşil.
+- Doğrulama: ruff check/format, compileall, `pytest -q -m "not live" --cov=app --cov-fail-under=70` (2261 geçti, +7; 2 beklenen xfail; 4 PG atlandı), kapsam %99.74, temiz SQLite'ta `alembic upgrade head`, `import app.main` — hepsi exit 0.
+- Varsayımlar: "kayıtlı çalışan" testte E numarası + klasör + `Ad Soyad` yazımı + belge numaralarıyla önceden yazılır (S3'te çalışma izni numarası dahil — doğum tarihi yok, yoksa satır 5); S1 "olay zinciri tam" = üretilen zincir (`PERSON_IDENTIFIED` yazılmıyor, `DIRECT_DOC_CHECK` yalnız retlerde — önceki kararlar).
+- Sonraki pencereye not: 09.3.2 ◐ — S3 "Profile-Picture.jpeg (2)" ve S4 üçüncü çıktısı §D12 (kişi taşımayan fotoğrafın sahibi) insan kararı bekliyor; `test_s3_s4_the_photo_page_becomes_the_employee_s_profile_picture` `strict` xfail, D12 uygulanınca XPASS ile kırılır ve işaret kaldırılmalı. 09.3-c/d aynı dosyadaki `_upload`/`_register_employee` kalıbını kullanabilir.
+
 ## 60 — 09.3-a Sentetik belge üreteci — done — 2026-09-18
 - Yapıldı: `tests/fixtures/gen.py`'ye 09.3.1 katmanı — ayrıştırıcıdan bağımsız MRZ yazıcısı (`make_mrz_lines` TD1/TD2/TD3, `mrz_check_digit`) ve kimlikli sentetik sayfalar (`passport_page`, `driving_license_pages`, `residence_card_pages` isteğe bağlı TD1, `work_permit_page`, `unknown_document_page`, `profile_picture_page`, `blank_page`, genel `document_page`); her `SyntheticPage` görünür metni ve §8.4 kayıtlı yanıtını aynı değerlerden taşır, `make_document_pdf_bytes`/`make_page_image_bytes` belirleyici dosya, `recorded_provider(dir, *dosyalar)` çağrı sırasıyla `RecordingProvider` kurar.
 - Doğrulama: ruff check/format, compileall, `pytest -q -m "not live" --cov=app --cov-fail-under=70` (2254 geçti, +70; 4 PG testi atlandı), kapsam %99.74, temiz SQLite'ta `alembic upgrade head` (0001→0002, göç yok), `import app.main` — hepsi exit 0; ICAO örnekleri birebir, `parse_mrz` ileri-geri, depodaki 8 kayıt dizini üreteçle birebir, test ağacında belge dosyası yok.

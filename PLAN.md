@@ -8,7 +8,7 @@
 
 | Faz | PRD | Genel durum | Must sayacı | Kapanış |
 | --- | --- | --- | --- | --- |
-| Faz 0 — MVP | §5.1 | 98 ✅ · 0 ◐ · 4 ⬜ · 0 🔒 | 95/98 Must | AÇIK |
+| Faz 0 — MVP | §5.1 | 98 ✅ · 1 ◐ · 3 ⬜ · 0 🔒 | 95/98 Must | AÇIK |
 | Faz 1 — v1 | §5.2 | 0 ✅ · 0 ◐ · 0 ⬜ · 32 🔒 | 0/21 Must | AÇIK |
 | Faz 2 — v2 | §5.3 | 0 ✅ · 0 ◐ · 0 ⬜ · 13 🔒 | 0/0 Must | AÇIK |
 | Faz 3 — Enterprise | §5.4 | 0 ✅ · 0 ◐ · 0 ⬜ · 8 🔒 | 0/0 Must | AÇIK |
@@ -213,7 +213,7 @@ panelde `plan-count-drift` bulgusu doğurur.
 | 09.2.2 | Uçtan uca orkestrasyon | Must (MVP) | ✅ → K09.2 |
 | 09.2.3 | Hata dayanıklılığı | Must (MVP) | ✅ → K09.2 |
 | 09.3.1 | Sentetik belge üreteci | Must (MVP) | ✅ → K09.3-a |
-| 09.3.2 | Kabul senaryoları S1–S5 | Must (MVP) | ⬜ |
+| 09.3.2 | Kabul senaryoları S1–S5 | Must (MVP) | ◐ → K09.3-b |
 | 09.3.3 | Kabul senaryoları S6–S10 | Must (MVP) | ⬜ |
 | 09.3.4 | Kabul senaryoları S11–S15 ve S18 | Must (MVP) | ⬜ |
 
@@ -1906,3 +1906,8 @@ var olan maddeler silinmez. Biçim:
 - ✅ Kimlikli sentetik sayfalar: `SyntheticPerson` (kayıtlardaki kurgusal kişiler), `document_page` + `passport_page` (TD3), `driving_license_pages`, `residence_card_pages` (isteğe bağlı TD1), `work_permit_page`, `unknown_document_page`, `profile_picture_page`, `blank_page`; her sayfa görünür metni ve §8.4 kayıtlı yanıtını aynı değerlerden taşır (bulanık alan leke + `legible: false`), `make_document_pdf_bytes`/`make_page_image_bytes` belirleyici PDF/JPEG/PNG, `batch_analyses`/`write_recordings`/`recorded_provider` çağrı sırasıyla kayıtlı yanıt; depodaki 8 kayıt dizininin hepsi üreteçle birebir yeniden üretilir, test ağacında belge dosyası yok — test `tests/fixtures/test_gen.py` (68) · tm 60
 - ✅ Üretilen parti `process_upload`'dan geçer: pasaport + boş sayfa Hazir'a extract ile, çok dosyalı partide boş/tek görüntü tespiti ve istek sırası (`page_index` 0, 2, 3, 4, 5, 0) üreteçle tutar — test `tests/pipeline/test_synthetic_documents.py` (2) · tm 60
 - ✅ Kapı: ruff check/format, compileall, `pytest -q -m "not live" --cov=app --cov-fail-under=70` (2254 geçti, +70; 4 PG testi atlandı), kapsam %99.74, temiz SQLite'ta `alembic upgrade head` (0001→0002, göç yok), `import app.main` — hepsi exit 0 · tm 60
+
+#### K09.3-b — 09.3.2 · Kabul senaryoları S1–S5
+- ✅ S1, S2, S5 PRD beklentisiyle birebir: partiler gerçek yükleme uç noktasıyla (`POST /api/uploads`) açılır, `process_upload`'dan geçer, dosyalar ve kayıtlı yanıtlar `gen.py`'den. S1: kayıtlı çalışanın (numarası `employee_identifiers`'ta) pasaportu `passthrough` ile `Hazir/Test_Ornekova-Passport.pdf` (yüklenen baytların kendisi), `Alinan/` kopyası, olay zinciri `FILE_UPLOADED → PAGE_RENDERED → PAGE_ANALYZED → DOC_TYPE_DETERMINED → PERSON_MATCHED → PLAN_CREATED → OUTPUT_SAVED` (kişisel değer yok). S2: aynı dosya `FILE_DUPLICATE`, sağlayıcı hiç çağrılmaz, sayfa/çıktı/Alinan kopyası yok, tek `skip` öğesi. S5: `on.jpg` + `arka.jpg` tek `Driving-License.pdf` (`merge`), sayfalarda yüklenen JPEG'lerin baytları olduğu gibi — test `tests/test_scenarios_s01_s05.py` · tm 61
+- ◐ S3/S4: oturma izni sayfa 4-5 (S3/S4) ve ehliyet 1-2 (S4) `extract` ile içerik akışları bayt bayt kaynakla aynı; S3 ehliyet 1 ve 6 ayrı Unresolved (R6), sayfa 3 çalışma izni Hazir'a / katalog dışı tür Unknown'a (iki parametre). **Eksik:** fotoğraf sayfası (S3 sayfa 2, S4 sayfa 3) kişi taşımadığı için §20.2.2 satır 8 gereği Unresolved'a gider — `Profile-Picture.jpeg` otomatik üretilmez (§D12, insan kararı bekliyor). PRD beklentisi `strict` xfail testi olarak duruyor (D12 uygulanınca XPASS testi kırar); İK atamasıyla (08.2) çıktı sayfa 2'nin gömülü görüntüsünden kayıpsız (`extract_image`) üretildiği ayrıca doğrulandı — test `tests/test_scenarios_s01_s05.py` · tm 61
+- ✅ Kapı: ruff check/format, compileall, `pytest -q -m "not live" --cov=app --cov-fail-under=70` (2261 geçti, +7; 2 beklenen xfail D12; 4 PG testi atlandı), kapsam %99.74, temiz SQLite'ta `alembic upgrade head` (0001→0002, göç yok), `import app.main` — hepsi exit 0 · tm 61
