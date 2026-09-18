@@ -1,5 +1,6 @@
-"""Kişi anahtarı, çalışan eşleştirme sırası, otomatik çalışan oluşturma, onay bekleyen profil ve
-alias birikimi — PRD 05.4.1, 05.5.1–05.5.3, 05.6.1, 05.7.1, 05.7.2 (§20.2; K6, K7, K8, R7, R8, R9).
+"""Kişi anahtarı, çalışan eşleştirme sırası, otomatik çalışan oluşturma, onay bekleyen profil,
+profil onayı ve alias birikimi — PRD 05.4.1, 05.5.1–05.5.3, 05.6.1, 05.7.1, 05.7.2, 08.3.1 (§20.2;
+K6, K7, K8, K16, R7, R8, R9).
 
 Bir belge adayının (04.1–04.3) sayfalarından çalışan eşleştirmesinin (05.5) ve profil açmanın
 (05.6, 05.7) okuyacağı tek anahtar üretilir: **belge numaraları**, **normalize ad-soyad**, **doğum
@@ -85,6 +86,11 @@ ad-soyad kullanılamıyor (D9), ya da ad-soyad kullanılamıyor ama bir numara v
 yeniden değerlendirir ve yalnız `EMPLOYEE_PENDING` olayını yazar: çalışan, isim yazımı, numara ve
 klasör onaysız oluşmaz; önerilen profil kuyruk kaydının payload'ına girer (08.1), çalışan onayla
 açılır (08.3).
+
+**Profil onayı (08.3.1, K16).** `approve_pending_profile` satır 7'yi onay anında veritabanında
+yeniden değerlendirir — öneriden sonra kişi kayıtlı bir çalışanla eşleşiyorsa (ör. aynı kişinin
+öteki belgesi onaylandı) ikinci çalışan açılmaz — ve uyuyorsa önerilen profilden çalışanı açar:
+satır 6'nın (`create_employee`) yazdıklarının hepsi, temiz olmayan belge numarası hariç.
 
 **Alias ve numara birikimi (05.7.2).** Satır 1 ve 3'teki eşleşmede `accumulate_identity` belgedeki
 yeni isim yazımlarını `employee_aliases`'a, yeni belge numarasını `employee_identifiers`'a ekler.
@@ -895,6 +901,98 @@ def _proposed_profile(key: PersonKey, name: _ProfileName) -> ProposedProfile:
         date_of_birth=key.date_of_birth,
         nationality=key.nationality,
         aliases=tuple(_spellings(key).items()),
+    )
+
+
+# --- onay bekleyen profili onaylama (08.3.1) -------------------------------------------------
+
+
+class ProfileApprovalRefusedError(ValueError):
+    """`approve_pending_profile` §20.2.2 satır 7'nin onay anında uymadığı anahtarla çağrıldı;
+    hiçbir şey yazılmadı. Mesaj yalnız hükmü taşır, kişisel değer taşımaz."""
+
+
+def approve_pending_profile(
+    session: Session,
+    layout: DataLayout,
+    key: PersonKey,
+    *,
+    entry: CatalogEntry,
+    actor: str,
+    file_id: int | None = None,
+    page_index: int | None = None,
+) -> Employee:
+    """Onay bekleyen profili İK'nın onayıyla çalışana çevirir (08.3.1; §20.2.2 satır 7, K7, K16).
+
+    `actor` iki aşamalı onayı tamamlamış kullanıcının adıdır; boşsa `ValueError`. Hüküm çağıranın
+    elindeki öneriye güvenilmeden veritabanında olaysız yeniden değerlendirilir: satır 7 artık
+    uymuyorsa `ProfileApprovalRefusedError` — kayıt, klasör ve olay yazılmaz. Öneriden sonra kişinin
+    numarası ya da ismi kayıtlı bir çalışanda görünüyorsa (satır 1–5) yeni çalışan açılmaz; belge
+    çalışana atanarak çözülür (08.2.1). Uyuyorsa aynı işlemde:
+
+    - `allocate_employee_number` ile E numarası (K8) ve `Ad_Soyad_E0001` klasör adı,
+    - `employees` satırı önerilen profilin (`ProposedProfile`) okumalarıyla,
+    - `employee_aliases`: profilin yazımları (`Ad Soyad` ve varsa orijinal yazım, anahtarın
+      normalize değeriyle), `script` yazımın alfabesiyle,
+    - `Employees/<klasör>/Alinan/` ve `Hazir/` dizinleri,
+    - `EMPLOYEE_CREATED` olayı kullanıcı adıyla (`employee_id` sütunu; veri `action: pending`,
+      `document_type_slug`).
+
+    Belge numarası yazılmaz: temiz değildir (§20.2.3) ve yanlış okunmuş numara başka birinin
+    belgesini satır 1'le bu çalışana bağlayabilir (D11). `entry` belgenin katalog türüdür;
+    `file_id`/`page_index` olayın yeridir, verilmezse etkin `event_context`ten alınır. Oturum
+    commit edilmez; dizin işlem geri alınsa da diskte kalır (boş klasör).
+    """
+    if not actor.strip():
+        raise ValueError("Manuel işlem kullanıcı adıyla loglanır (K16): actor boş olamaz")
+    # E numarası hükümden önce ayrılır: tahsis kilidi işlem sonuna kadar tutulur, aynı kişinin
+    # eşzamanlı ikinci onayı hükmü ilk onayın commit'inden sonra okur ve satır 3/5'e düşer.
+    employee_id = allocate_employee_number(session)
+    match = _decide(session, key)
+    if match.rule is not MatchRule.NO_MATCH:
+        raise _approval_refused(f"eşleştirme hükmü {match.rule.value}")
+    resolution = resolve_unmatched(key, match, entry=entry)
+    profile = resolution.proposed_profile
+    if profile is None:
+        raise _approval_refused(f"satır 6–8 kararı {resolution.rule.value}")
+    folder_name = employee_folder_name(profile.given_names, profile.surname, employee_id)
+    employee = Employee(
+        id=employee_id,
+        folder_name=folder_name,
+        given_names=profile.given_names,
+        surname=profile.surname,
+        other_names=profile.other_names,
+        original_script_name=profile.original_script_name,
+        date_of_birth=profile.date_of_birth,
+        nationality=profile.nationality,
+    )
+    session.add(employee)
+    for raw_name, normalized in profile.aliases:
+        session.add(
+            EmployeeAlias(
+                employee=employee,
+                raw_name=raw_name,
+                normalized_name=normalized,
+                script=_detect_script(raw_name),
+            )
+        )
+    session.flush()
+    layout.ensure_employee_tree(folder_name)
+    record_event(
+        session,
+        EventType.EMPLOYEE_CREATED,
+        file_id=file_id,
+        page_index=page_index,
+        employee_id=employee_id,
+        actor=actor,
+        data={"action": EmployeeAction.PENDING.value, "document_type_slug": entry.slug},
+    )
+    return employee
+
+
+def _approval_refused(verdict: str) -> ProfileApprovalRefusedError:
+    return ProfileApprovalRefusedError(
+        f"Onay bekleyen profil onaylanmaz (§20.2.2 satır 7, K7): {verdict}."
     )
 
 

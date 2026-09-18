@@ -8,7 +8,7 @@
 
 | Faz | PRD | Genel durum | Must sayacı | Kapanış |
 | --- | --- | --- | --- | --- |
-| Faz 0 — MVP | §5.1 | 89 ✅ · 0 ◐ · 13 ⬜ · 0 🔒 | 86/98 Must | AÇIK |
+| Faz 0 — MVP | §5.1 | 90 ✅ · 0 ◐ · 12 ⬜ · 0 🔒 | 87/98 Must | AÇIK |
 | Faz 1 — v1 | §5.2 | 0 ✅ · 0 ◐ · 0 ⬜ · 32 🔒 | 0/21 Must | AÇIK |
 | Faz 2 — v2 | §5.3 | 0 ✅ · 0 ◐ · 0 ⬜ · 13 🔒 | 0/0 Must | AÇIK |
 | Faz 3 — Enterprise | §5.4 | 0 ✅ · 0 ◐ · 0 ⬜ · 8 🔒 | 0/0 Must | AÇIK |
@@ -199,7 +199,7 @@ panelde `plan-count-drift` bulgusu doğurur.
 | 08.1.1 | Kuyruğa yönlendirme (R7) | Must (MVP) | ✅ → K08.1 |
 | 08.1.2 | Gerekçe içeriği | Must (MVP) | ✅ → K08.1 |
 | 08.2.1 | Kuyruk öğesini çalışana atama | Must (MVP) | ✅ → K08.2 |
-| 08.3.1 | Onay bekleyen profili onaylama | Must (MVP) | ⬜ |
+| 08.3.1 | Onay bekleyen profili onaylama | Must (MVP) | ✅ → K08.3 |
 | 08.4.1 | Arşive taşıma (R11) | Must (MVP) | ⬜ |
 
 ### 3.10 FR-MOD-09 — Çalışan profili ve orkestrasyon
@@ -1267,6 +1267,37 @@ Onay beklemeden yapılan varsayımlar buraya numaralı olarak yazılır.
   ya da çalışan yok 404; atanamaz/çözülmüş/eski sürüm/plan değişmiş/Inbox değişmiş 409; iş tek işlemde, yalnız
   başarıda commit. Sağlayıcı bağımlılığı yok.
 
+- **C42** — Onay bekleyen profili onaylama (tm 56, 08.3.1): PRD yalnız "onay sonrası çalışan oluşur ve belge ona
+  bağlanır" der; önerilen profilin onayda nereden okunacağı, hükmün onay anında yeniden değerlendirilip
+  değerlendirilmeyeceği, belgenin nasıl bağlanacağı ve hangi olayların yazılacağı yazılı değil.
+  `approve_queued_profile(session, layout, queue_item_id, *, actor, render_image_dpi, render_image_jpeg_quality)`
+  (`app/pipeline/route.py`) + `approve_pending_profile(session, layout, key, *, entry, actor, file_id, page_index)`
+  (`app/matching/match.py`). **Profilin kaynağı (§D20'nin ikinci yolu):** payload'a yazılmadı; onay öğenin
+  sayfalarının saklanan analizlerinden (`sources` sırasıyla, katalogsuz — C12) planlayıcının saf adımıyla
+  (`build_person_key`; MRZ yüzyılı partinin `created_at` günü, `create_plan`'in varsayılanı — `reference_date`
+  planda saklanmaz) yeniden kurar; yapay zekâ çağrılmaz. Analiz yok/başarısız/§8.4'e uymuyorsa
+  `QueueItemNotApprovableError` (değer mesaja girmez). **Onaylanabilir öğe:** güncel planın çözülmemiş,
+  `employee.action: pending` öğesi; öteki kuyruk öğeleri (satır 5 dahil) atanır (08.2.1). **Hüküm onay anında
+  yeniden:** satır 7 veritabanında olaysız yeniden değerlendirilir; uymuyorsa (kişi öneriden sonra kayıtlı bir
+  çalışanla eşleşiyor — ör. aynı kişinin öteki önerisi onaylandı — ya da katalog değişti)
+  `ProfileApprovalRefusedError` → `QueueItemNotApprovableError`, hiçbir şey yazılmaz: aynı kişinin ikinci önerisi
+  ikinci çalışan açmaz, belge ilk onayda açılan çalışana atanır. E numarası hükümden önce ayrılır
+  (`allocate_employee_number`'ın kilidi — PostgreSQL advisory, SQLite `BEGIN IMMEDIATE`): eşzamanlı ikinci onay
+  hükmü ilk onayın commit'inden sonra okur. **Sıra:** tür, fiziksel işlem (atamanın kuralları, C41) ve "çıktı zaten
+  var mı" denetimleri çalışan açılmadan önce yapılır, ret çalışan açtırmaz; işlem çalışan açıldıktan sonra
+  düşerse çağıran geri alır, boş klasör diskte kalır (`create_employee` ile aynı). **Çalışan:** satır 6'nın
+  yazdıkları, numara hariç — `ProposedProfile` alanları, yazımları (`script` ile), `Alinan/` + `Hazir/`; temiz
+  olmayan numara yazılmaz (D11). Belgede açıkça yazılı iletişim bilgisi satır 6'daki gibi eklenir (05.8;
+  `source_document_id` çıktının satırı). **Bağlama:** atamanın çekirdeği (`_resolve_with_output`,
+  `assign_queue_item` ile ortak; atamanın davranışı değişmedi): K8 adı yeni çalışanın ad-soyadıyla, köken
+  `plan_id` + `source_refs_json`, yeni plan sürümü açılmaz, kuyruk kaydı `resolved_at`/`resolved_by`, `reason.json`
+  yeniden üretilir. **Olaylar:** `EMPLOYEE_CREATED` (`actor` kullanıcı adı; veri `action: pending`,
+  `document_type_slug`) → işlem olayı + `OUTPUT_SAVED` (`system`) → `MANUAL_APPROVE` (`actor`, `document_id`, yeni
+  `employee_id`; veri `MANUAL_ASSIGN`'ınkiyle aynı alanlar); kişisel değer yok. Hata sınıfı
+  `QueueItemNotApprovableError` `QueueAssignmentError`'ın altında (onay da belgeyi bir çalışana bağlar). **API
+  yok:** görevin çıktı yüzeyi `route.py`/`match.py`'dir; uç nokta (`POST /api/queue/{id}/approve`, K16 onayı
+  `get_confirmed_actor`) 10.7-c/10.8'in işi.
+
 ## D. Sapmalar
 
 PRD'den veya kilitli kararlardan her sapma buraya numaralı yazılır (D1, D2…).
@@ -1470,6 +1501,9 @@ bu kayıt neden sapıldığının izlenebilir olması içindir.
   (ad-soyad, orijinal yazım, doğum tarihi, uyruk, alias adayları) taşımıyor. 08.3 (onay bekleyen
   profili onaylama) bu içeriğe ihtiyaç duyarsa ya `route_queue_item`'a eşleştirme bağımlılığı eklemeli
   ya da C29'un önerdiği gibi saf adımları kendi görevinde yeniden kurmalı. Karar insana bırakıldı.
+  **08.3 (tm 56):** ikinci yol seçildi (C42) — onay profili saklanan analizlerden yeniden kurar ve hükmü onay
+  anında yeniden değerlendirir; `payload_json`/`reason.json` hâlâ profili taşımıyor. Panel (10.7-a) öneriyi
+  göstermek isterse aynı yeniden kurulumu kullanmalı; payload'a yazılıp yazılmayacağı insanın kararı.
 
 ## G. İş Kırılımı Dizini
 
@@ -1798,3 +1832,8 @@ var olan maddeler silinmez. Biçim:
 - ✅ `assign_queue_item(session, layout, queue_item_id, employee_id, *, actor, render_image_dpi, render_image_jpeg_quality)` (`app/pipeline/route.py`) partinin güncel planının çözülmemiş kuyruk öğesini insanın seçtiği çalışana atar: çıktı `execute_item` (`app/pipeline/execute.py`, `execute_ready_item`'ın `ItemDecision`'lı çekirdeği) ile atanan çalışanın `Hazir/`'ına K8 adıyla yazılır, kaynak `Alinan/`'a kopyalanır, `documents` dondurulmuş planın kimliği ve öğenin kaynaklarıyla kaydedilir; yapay zekâ çağrılmaz, plan sürümü açılmaz, plan ve analizler değişmez (K9). Kuyruk kaydı `resolved_at`/`resolved_by`, `MANUAL_ASSIGN` kullanıcı adıyla ve `document_id`'yle yazılır, `reason.json` çözülen öğeyi işaretler (kopya silinmez, K16). Türsüz öğe atanmaz; işlem planlayıcının kuralıyla seçilir (kaynak doğrulayıcıları, §20.3, Direkt Belge matrisi, dönüşüm izni — K3, K5, K11, K12 insan kararıyla aşılmaz; boş sayfalar planın `skip` öğelerinden, `operation_source` planlayıcıyla ortak); içerik/kişi hükümleri aşılır (PLAN.md §C41).
 - ✅ `POST /api/queue/{queue_item_id}/assign` (`app/web/routers/queue.py`): gövde `employee_id`; K16 onaylanmış kullanıcı adı `get_confirmed_actor`'dan — oturum (10.1.2) ve onay belirteci (10.8.1) bağlanana kadar 503; yok 404, atanamaz/çözülmüş/eski sürüm/plan ya da Inbox değişmiş 409, yalnız başarıda commit, sağlayıcı bağımlılığı yok.
 - ✅ Kapı: 2097 geçti (+33), kapsam %99.72 (`route.py`, `queue.py`, `execute.py`, `plan.py` %100) — test `tests/pipeline/test_route_assign.py` (25: Unreadable öğe atanınca çıktı + köken + `MANUAL_ASSIGN` ve sağlayıcıya istek yok/analiz ve plan değişmedi, boş sayfalı kartta `extract` (S8), bağlamsız Word eki `passthrough` (S15), `reason.json` işaretlemesi, yeniden yönlendirmede yeni yazım yok, bilinmeyen tür/S6/§20.3 satır 7/tanınmayan biçim/planlamadan sonra Direkt Belge ya da dönüşüm izni değişen katalog/katalogda olmayan tür/işlem hatası/Inbox değişmiş reddi ve hiçbir şey yazılmaması, çözülmüş/çıktısı olan/eski sürüm/plansız/planla uyuşmayan kayıt, değişmiş plan, bilinmeyen öğe/çalışan, boş kullanıcı adı, işlem sınırı çağıranda) · `tests/web/test_queue.py` (8: onaysız 503 ve değişiklik yok, 200 + commit + sağlayıcı kurulmadı, ikinci atama 409, türsüz öğe 409, 404 ×2, 422 ×2); 9 kural bozulması geçici olarak denendi, her biri testte kırmızı · tm 55.
+
+#### K08.3 — 08.3.1 · Onay bekleyen profili onaylama
+- ✅ `approve_queued_profile(session, layout, queue_item_id, *, actor, render_image_dpi, render_image_jpeg_quality)` (`app/pipeline/route.py`) güncel planın çözülmemiş `employee.action: pending` kuyruk öğesini onaylar: önerilen profil öğenin saklanan sayfa analizlerinden `build_person_key` ile yeniden kurulur (yapay zekâ çağrılmaz, plan ve analizler değişmez — K9), tür/fiziksel işlem/çıktı denetimleri çalışan açılmadan önce yapılır, çalışan `approve_pending_profile` (`app/matching/match.py`) ile açılır ve belge atamanın ortak çekirdeğiyle (`_resolve_with_output`) onun `Hazir/`'ına K8 adıyla yazılır, kaynak `Alinan/`'a kopyalanır; kuyruk kaydı `resolved_at`/`resolved_by`, `MANUAL_APPROVE` kullanıcı adıyla yazılır, belgedeki iletişim bilgisi yeni çalışana eklenir (PLAN.md §C42, §D20).
+- ✅ `approve_pending_profile(session, layout, key, *, entry, actor, file_id, page_index)` satır 7'yi onay anında veritabanında yeniden değerlendirir (kişi öneriden sonra kayıtlı çalışanla eşleşiyorsa `ProfileApprovalRefusedError`, hiçbir şey yazılmaz — aynı kişinin ikinci önerisi ikinci çalışan açmaz); uyuyorsa E numarası (hükümden önce, tahsis kilidiyle), `ProposedProfile` alanlarıyla `employees` satırı, yazımlar (`script` ile), `Alinan/`+`Hazir/` ve kullanıcı adlı `EMPLOYEE_CREATED`; temiz olmayan numara yazılmaz (D11).
+- ✅ Kapı: 2131 geçti (+34; 4 PG testi atlandı), kapsam %99.72 (`route.py` satır+dal %100, `match.py` yeni kod %100) — test `tests/pipeline/test_route_approve.py` (19: onay sonrası çalışan + çıktı + köken + iletişim bilgisi + `EMPLOYEE_CREATED`/`OUTPUT_SAVED`/`MANUAL_APPROVE` ve sağlayıcıya istek yok/analiz ve plan değişmedi, boş sayfalı kartta `extract`, aynı kişinin ikinci önerisinin reddi ve yeni çalışana atanması, öneriden sonra kaydedilen kişi, Unreadable ve yalnız isim öğesinin reddi, dönüşüm izni ve Inbox değişikliğinde çalışan açılmaması, analiz yok/başarısız/şemaya uymuyor, işlem hatasında çağıranın geri alması, çözülmüş/yeniden yönlendirilmiş/eski sürüm/bilinmeyen öğe, boş kullanıcı adı ×2, işlem sınırı çağıranda) · `tests/matching/test_profile_approval.py` (15: profilden çalışan, sıradaki E numarası, satır 7 dışı yedi hükmün reddi, ikinci onayın reddi ×2, boş kullanıcı adı ×2, commit yok, kayıtlı yanıtlı pasaport önerisinin onayı); 6 kural bozulması (pending denetimi, yeniden değerlendirme, denetimlerin çalışandan sonra yapılması, iletişim bilgisi, olay türü, `actor`) geçici olarak denendi, her biri testte kırmızı · tm 56

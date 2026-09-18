@@ -1,4 +1,5 @@
-"""Kuyruğa yönlendirme ve gerekçe dosyası — PRD 08.1.1, 08.1.2 (§8.2, §8.3; K9, K10, K15, R7).
+"""Kuyruğa yönlendirme, gerekçe dosyası, kuyruk öğesini çalışana atama ve onay bekleyen profili
+onaylama — PRD 08.1.1, 08.1.2, 08.2.1, 08.3.1 (§8.2, §8.3, §20.2.2; K7, K9, K10, K15, K16, R7).
 
 Planlayıcının (`app/pipeline/plan.py`) `unknown`/`unreadable`/`unresolved` rotasına yolladığı her
 öğe `route_queue_item` ile kuyruğa alınır (07.7'nin `execute_ready_item`'ıyla aynı tanecik: tek
@@ -22,10 +23,10 @@ tahmini — yalnız satır 1/3 eşleşmesinde dolu, öbür türlü `action: none
 (`RoutedItem.applied` yanlış) — planın yeniden çalıştırılması (06.6.1) ikinci kopya üretmez ve
 `reason.json`'ı gereksiz yeniden yazmaz.
 
-**Kapsam dışı.** Onay bekleyen profilin tam içeriği (§20.2.2 satır 7, `ProposedProfile.payload()`)
-bu görevin girdisinde değildir — yeniden kurmak `app.matching.match`'e ve sayfa analizlerine
-bağımlılık ister (bu görevin GİRDİ'sü yalnız `plan.py`/`execute.py`/`storage`). `employee_guess`
-şimdilik yalnız plan öğesinin taşıdığı `action`/`employee_id`/`matched_by` üçlüsüdür; PLAN.md §D20.
+**Önerilen profil payload'da yok.** Onay bekleyen profilin tam içeriği (§20.2.2 satır 7,
+`ProposedProfile.payload()`) kuyruk kaydına yazılmaz; `employee_guess` plan öğesinin taşıdığı
+`action`/`employee_id`/`matched_by` üçlüsüdür (PLAN.md §D20). Onay (08.3.1) profili saklanan sayfa
+analizlerinden yeniden kurar (PLAN.md §C42).
 
 **Kuyruk öğesini çalışana atama (08.2.1; K9, K16).** `assign_queue_item` insanın kararını (öğenin
 sahibi) uygular: çıktı üretilir, yapay zekâ çağrılmaz. Atama yalnız sahibi karara bağlar; geri
@@ -50,8 +51,26 @@ kalanı donmuş plandandır ve yeniden sorulmaz:
   `reason.json` yeniden üretilir (çözülen öğe `resolved_at`/`resolved_by` taşır). Kuyruk
   klasöründeki kaynak kopyası silinmez (K16).
 
-İki aşamalı onay (K16, §20.6.1) ve `USER_CONFIRMED` onay mekanizmasınındır (10.8.1): bu işlev
-onaylanmış kullanıcının adını (`actor`) alır. Aynı öğeyi eşzamanlı atayan ikinci işlem kuyruk
+**Onay bekleyen profili onaylama (08.3.1; K7, K16).** `approve_queued_profile` İK'nın onayıyla
+satır 7'nin önerdiği çalışanı açar ve belgeyi ona bağlar; atamanın bütün kuralları geçerlidir, sahip
+insanın seçtiği kayıtlı çalışan değil onayla açılan çalışandır:
+
+- Yalnız güncel planın `employee.action: pending` öğesi onaylanır; öteki kuyruk öğesinin kişisi
+  onayla açılmaz, belge kayıtlı çalışana atanır (08.2.1).
+- Tür, işlem ve çıktı denetimleri çalışan açılmadan önce yapılır: fiziksel kural reddi çalışan
+  açtırmaz.
+- Profil planlayıcının saf adımlarıyla yeniden kurulur (PLAN.md §C29, §C42): öğenin sayfalarının
+  saklanan analizleri (belgedeki sırasıyla) → `build_person_key` (MRZ yüzyılı partinin alındığı
+  gün, `create_plan`'in varsayılanı). Yapay zekâ çağrılmaz, plan ve analizler değişmez (K9).
+- Çalışanı `approve_pending_profile` (`app/matching/match.py`) açar: satır 7 onay anında yeniden
+  değerlendirilir; kişi öneriden sonra kayıtlı bir çalışanla eşleşiyorsa (aynı kişinin öteki
+  belgesi onaylandı) ikinci çalışan açılmaz, öğe onaylanmaz — o çalışana atanır.
+- Çıktı atamadaki gibi yazılır; belgedeki iletişim bilgisi yeni çalışana eklenir (05.8, satır 6
+  gibi; `source_document_id` çıktının satırı). Kuyruk kaydı çözülür, `MANUAL_APPROVE` kullanıcı
+  adıyla yazılır.
+
+İki aşamalı onay (K16, §20.6.1) ve `USER_CONFIRMED` onay mekanizmasınındır (10.8.1): bu işlevler
+onaylanmış kullanıcının adını (`actor`) alır. Aynı öğeyi eşzamanlı çözen ikinci işlem kuyruk
 satırının kilidinde bekler ve öğeyi çözülmüş görür (PostgreSQL `FOR UPDATE`; SQLite `BEGIN
 IMMEDIATE`).
 
@@ -66,12 +85,22 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from pydantic import ValidationError
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.ai.schemas import PageAnalysis
 from app.catalog import CatalogEntry, export_catalog
-from app.db.models import Employee, Plan, QueueItem, UploadFile, utcnow
-from app.events import EventType, record_event
+from app.db.models import Employee, Page, Plan, QueueItem, Upload, UploadFile, utcnow
+from app.events import EventType, event_context, record_event
+from app.matching.contacts import accumulate_contacts
+from app.matching.match import (
+    EmployeeAction,
+    ProfileApprovalRefusedError,
+    approve_pending_profile,
+    build_person_key,
+)
+from app.pipeline.analyze import PageAnalysisStatus
 from app.pipeline.execute import (
     EXECUTION_ERRORS,
     ExecutedItem,
@@ -133,23 +162,31 @@ class AssigneeNotFoundError(LookupError):
 
 
 class QueueAssignmentError(ValueError):
-    """08.2.1: kuyruk öğesi çalışana atanamıyor; hiçbir şey yazılmadı.
+    """08.2.1, 08.3.1: kuyruk öğesi bir çalışana — insanın seçtiğine ya da onayla açılana —
+    bağlanamıyor; hiçbir şey yazılmadı.
 
     Mesaj nedeni söyler (dosya kimliği, sayfa, kural); kişisel değer taşımaz (CONVENTIONS §6).
     """
 
 
 class QueueItemResolvedError(QueueAssignmentError):
-    """08.2.1: öğe zaten çözülmüş — atanmış (`resolved_at`) ya da çıktısı üretilmiş."""
+    """08.2.1, 08.3.1: öğe zaten çözülmüş — atanmış ya da onaylanmış (`resolved_at`) veya çıktısı
+    üretilmiş."""
 
 
 class QueueItemSupersededError(QueueAssignmentError):
-    """08.2.1 (K18): öğe partinin güncel planına ait değil; eski sürümün öğesi atanmaz."""
+    """08.2.1, 08.3.1 (K18): öğe partinin güncel planına ait değil; eski sürümün öğesi çözülmez."""
 
 
 class QueueItemNotAssignableError(QueueAssignmentError):
-    """08.2.1: öğeden çıktı üretilemiyor — türü yok, fiziksel kurallardan biri (K3, K5, K11, K12)
-    işlemi reddediyor ya da işlem belgeyi üretemedi."""
+    """08.2.1, 08.3.1: öğeden çıktı üretilemiyor — türü yok, fiziksel kurallardan biri (K3, K5,
+    K11, K12) işlemi reddediyor ya da işlem belgeyi üretemedi."""
+
+
+class QueueItemNotApprovableError(QueueAssignmentError):
+    """08.3.1: öğenin profili onaylanamıyor — öğe onay bekleyen profil değil, sayfa analizleri
+    okunamıyor ya da §20.2.2 satır 7 onay anında artık uymuyor (kişi kayıtlı bir çalışanla
+    eşleşiyor, hüküm değişti)."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -345,24 +382,198 @@ def assign_queue_item(
     kaynak partide yoksa ya da Inbox'taki içerik değişmişse (K10) `QueueItemReferenceError` /
     `QueueSourceIntegrityError`. Hepsinde hiçbir şey yazılmaz. Oturum commit edilmez.
     """
-    if not actor.strip():
-        raise ValueError("Manuel işlem kullanıcı adıyla loglanır (K16): actor boş olamaz")
-    # Aynı öğeyi eşzamanlı atayan işlem bu satırın kilidinde bekler ve öğeyi çözülmüş görür.
-    queue_item = session.get(QueueItem, queue_item_id, with_for_update=True, populate_existing=True)
-    if queue_item is None:
-        raise QueueItemNotFoundError(f"Kuyruk öğesi bulunamadı: {queue_item_id}")
-    if queue_item.resolved_at is not None:
-        raise QueueItemResolvedError(f"Kuyruk öğesi {queue_item.id} zaten çözülmüş")
+    _require_actor(actor)
+    queue_item = _unresolved_queue_item(session, queue_item_id)
     employee = session.get(Employee, employee_id)
     if employee is None:
         raise AssigneeNotFoundError(f"Çalışan bulunamadı: {employee_id}")
 
     plan, document, item = _queued_plan_item(session, queue_item)
+    entry, selected = _item_output(session, layout, queue_item, plan, document, item)
+    executed = _resolve_with_output(
+        session,
+        layout,
+        queue_item,
+        plan,
+        item,
+        entry,
+        selected,
+        employee,
+        actor=actor,
+        event_type=EventType.MANUAL_ASSIGN,
+        render_image_dpi=render_image_dpi,
+        render_image_jpeg_quality=render_image_jpeg_quality,
+    )
+    return AssignedItem(queue_item, selected.operation, executed)
+
+
+# --- onay bekleyen profili onaylama (08.3.1) --------------------------------------------------
+
+
+@dataclass(frozen=True, slots=True)
+class ApprovedProfile:
+    """`approve_queued_profile` sonucu: çözülen kuyruk kaydı, onayla açılan çalışan, seçilen işlem
+    ve yazılan çıktı."""
+
+    queue_item: QueueItem
+    employee: Employee
+    operation: Operation
+    executed: ExecutedItem
+
+
+def approve_queued_profile(
+    session: Session,
+    layout: DataLayout,
+    queue_item_id: int,
+    *,
+    actor: str,
+    render_image_dpi: int,
+    render_image_jpeg_quality: int,
+) -> ApprovedProfile:
+    """Onay bekleyen profili onaylar: çalışan açılır ve belge ona bağlanır (08.3.1).
+
+    Kurallar modül açıklamasındadır. `actor` iki aşamalı onayı (K16) tamamlamış kullanıcının
+    adıdır; boşsa `ValueError`. `render_image_dpi` ve `render_image_jpeg_quality` `render_image`
+    işleminin ayarlarıdır.
+
+    Kuyruk kaydı yoksa `QueueItemNotFoundError`; öğe çözülmüşse `QueueItemResolvedError`, güncel
+    plana ait değilse `QueueItemSupersededError`, onay bekleyen profil değilse, sayfa analizleri
+    okunamıyorsa ya da satır 7 artık uymuyorsa `QueueItemNotApprovableError`, çıktı üretilemiyorsa
+    `QueueItemNotAssignableError`; saklanan plan değişmişse `PlanIntegrityError`, kaynak partide
+    yoksa ya da Inbox'taki içerik değişmişse (K10) `QueueItemReferenceError` /
+    `QueueSourceIntegrityError`. Hepsinde çağıran işlemi geri alır; işlem çalışan açıldıktan sonra
+    düşerse (`QueueItemNotAssignableError`) boş çalışan klasörü diskte kalır. Oturum commit
+    edilmez.
+    """
+    _require_actor(actor)
+    queue_item = _unresolved_queue_item(session, queue_item_id)
+    plan, document, item = _queued_plan_item(session, queue_item)
+    if item.employee.action is not EmployeeAction.PENDING:
+        raise _not_approvable(
+            queue_item,
+            "öğe onay bekleyen profil değil (§20.2.2 satır 7); belge kayıtlı çalışana atanır",
+        )
+    entry, selected = _item_output(session, layout, queue_item, plan, document, item)
+    analyses = _item_analyses(session, queue_item, item)
+    # Planlayıcının anahtarı: MRZ doğum tarihinin yüzyılı partinin alındığı günle seçilir (§20.1.6).
+    upload = session.get_one(Upload, plan.upload_id)
+    key = build_person_key(analyses, today=upload.created_at.date())
+    first = item.sources[0]
+    try:
+        with event_context(upload_id=plan.upload_id):
+            employee = approve_pending_profile(
+                session,
+                layout,
+                key,
+                entry=entry,
+                actor=actor,
+                file_id=first.file_id,
+                page_index=first.pages[0] if first.pages else None,
+            )
+    except ProfileApprovalRefusedError as exc:
+        raise _not_approvable(queue_item, str(exc)) from exc
+
+    executed = _resolve_with_output(
+        session,
+        layout,
+        queue_item,
+        plan,
+        item,
+        entry,
+        selected,
+        employee,
+        actor=actor,
+        event_type=EventType.MANUAL_APPROVE,
+        render_image_dpi=render_image_dpi,
+        render_image_jpeg_quality=render_image_jpeg_quality,
+    )
+    # Satır 6'da açılan çalışan gibi (05.8): belgede açıkça yazılı iletişim bilgisi eklenir.
+    accumulate_contacts(session, employee.id, analyses, source_document_id=executed.document.id)
+    return ApprovedProfile(queue_item, employee, selected.operation, executed)
+
+
+def _not_approvable(queue_item: QueueItem, reason: str) -> QueueItemNotApprovableError:
+    return QueueItemNotApprovableError(f"Kuyruk öğesi {queue_item.id} onaylanamaz: {reason}")
+
+
+def _item_analyses(session: Session, queue_item: QueueItem, item: PlanItem) -> list[PageAnalysis]:
+    # Planlayıcının kişi anahtarına verdiği okumalar: öğenin sayfaları belgedeki sırasıyla
+    # (`sources` adayın sırasıyla, dosya başına), saklanan analizleriyle — katalogsuz okunur (C12).
+    analyses: list[PageAnalysis] = []
+    for source in item.sources:
+        for index in source.pages:
+            where = f"dosya {source.file_id}, sayfa {index}"
+            page = session.scalar(
+                select(Page).where(Page.file_id == source.file_id, Page.index == index)
+            )
+            if (
+                page is None
+                or page.analysis_status != PageAnalysisStatus.DONE
+                or page.analysis_json is None
+            ):
+                raise _not_approvable(queue_item, f"saklanan sayfa analizi yok ({where})")
+            try:
+                analyses.append(PageAnalysis.model_validate(page.analysis_json))
+            except ValidationError:
+                # Gelen değer mesaja konmaz (CONVENTIONS §6).
+                raise _not_approvable(
+                    queue_item, f"saklanan sayfa analizi §8.4 şemasına uymuyor ({where})"
+                ) from None
+    return analyses
+
+
+# --- atama ve onayın ortak adımları -----------------------------------------------------------
+
+
+def _require_actor(actor: str) -> None:
+    if not actor.strip():
+        raise ValueError("Manuel işlem kullanıcı adıyla loglanır (K16): actor boş olamaz")
+
+
+def _unresolved_queue_item(session: Session, queue_item_id: int) -> QueueItem:
+    # Aynı öğeyi eşzamanlı çözen işlem bu satırın kilidinde bekler ve öğeyi çözülmüş görür.
+    queue_item = session.get(QueueItem, queue_item_id, with_for_update=True, populate_existing=True)
+    if queue_item is None:
+        raise QueueItemNotFoundError(f"Kuyruk öğesi bulunamadı: {queue_item_id}")
+    if queue_item.resolved_at is not None:
+        raise QueueItemResolvedError(f"Kuyruk öğesi {queue_item.id} zaten çözülmüş")
+    return queue_item
+
+
+def _item_output(
+    session: Session,
+    layout: DataLayout,
+    queue_item: QueueItem,
+    plan: Plan,
+    document: PlanDocument,
+    item: PlanItem,
+) -> tuple[CatalogEntry, SelectedOperation]:
+    # Çıktının türü ve fiziksel işlemi; öğenin bu planla çıktısı varsa (07.8.1) ikinci çıktı ya da
+    # başka sahip yazılmaz.
     entry = _assignable_entry(session, queue_item, item)
     selected = _assigned_operation(session, layout, queue_item, plan, document, item, entry)
     if executed_document(session, plan, item) is not None:
         raise QueueItemResolvedError(f"Kuyruk öğesi {queue_item.id}'in çıktısı zaten üretilmiş")
+    return entry, selected
 
+
+def _resolve_with_output(
+    session: Session,
+    layout: DataLayout,
+    queue_item: QueueItem,
+    plan: Plan,
+    item: PlanItem,
+    entry: CatalogEntry,
+    selected: SelectedOperation,
+    employee: Employee,
+    *,
+    actor: str,
+    event_type: EventType,
+    render_image_dpi: int,
+    render_image_jpeg_quality: int,
+) -> ExecutedItem:
+    """Öğenin çıktısını `employee`'ye yazar, kuyruk kaydını çözer ve manuel işlemin olayını
+    (`MANUAL_ASSIGN`, `MANUAL_APPROVE`) kullanıcı adıyla atar."""
     stem = document_stem(employee.given_names, employee.surname, entry.file_label)
     decision = ItemDecision(
         employee_id=employee.id,
@@ -389,7 +600,7 @@ def assign_queue_item(
     first = item.sources[0]
     record_event(
         session,
-        EventType.MANUAL_ASSIGN,
+        event_type,
         upload_id=plan.upload_id,
         file_id=first.file_id,
         page_index=first.pages[0] if first.pages else None,
@@ -406,7 +617,7 @@ def assign_queue_item(
         },
     )
     _replace_reason_file(session, layout, plan.upload_id, queue_item.kind)
-    return AssignedItem(queue_item, selected.operation, executed)
+    return executed
 
 
 def _queued_plan_item(
