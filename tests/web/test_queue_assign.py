@@ -3,8 +3,9 @@
 
 Kuyruk öğesi gerçek planlayıcıdan (06.1) ve kuyruğa yönlendirmeden (08.1) geçer (`_queued_item`:
 zorunlu alanı okunamayan sentetik çalışma izni, Unreadable); sayfa analizleri saklanmış sentetik
-yanıtlardır, yapay zekâ sağlayıcısı çağrılmaz. Onay belirteci oturum çerezinden türetilir; oturum
-bağımlılığı testte geçersiz kılındığı için çerez elle konur. Gerçek kimlik belgesi kullanılmaz.
+yanıtlardır, yapay zekâ sağlayıcısı çağrılmaz. Onay belirteci 10.8.1'in tek kullanımlık
+belirtecidir ve oturum çerezine bağlıdır; oturum bağımlılığı testte geçersiz kılındığı için çerez
+elle konur. Gerçek kimlik belgesi kullanılmaz.
 """
 
 from __future__ import annotations
@@ -18,15 +19,14 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, sessionmaker
-from starlette.requests import Request
 
-import app.web.routers.upload_page as upload_page
+import app.web.confirm as confirm
 from app.db.models import Document, Employee, Event, QueueItem, QueueKind, utcnow
 from app.events import EventType
 from app.storage import DataLayout, sha256_file
 from app.web.auth import SESSION_COOKIE, get_current_user
+from app.web.confirm import CONFIRMATION_REFUSED, Operation, second_text
 from app.web.routers.queue import (
-    ASSIGN_SECOND_CONFIRMATION,
     ASSIGNEE_NOT_FOUND,
     QUEUE_ITEM_NOT_FOUND,
     RESOLVED_NOTE,
@@ -34,16 +34,11 @@ from app.web.routers.queue import (
     TYPELESS_NOTE,
     assignment_subject,
 )
-from app.web.routers.upload_page import (
-    CONFIRMATION_REFUSED,
-    issue_confirmation,
-    reanalysis_subject,
-)
-from tests.web.conftest import SIGNED_IN
+from app.web.routers.upload_page import reanalysis_subject
+from tests.web.conftest import SESSION, SIGNED_IN, issue_token
 from tests.web.test_queue import PERMIT, TARGET, TARGET_FOLDER, _queued_item, _refuse_provider
 from tests.web.test_queue_page import _payload, _plan, _queue_item, _source_file, _upload
 
-SESSION = "oturum-bir"
 TARGET_NAME = "Kayitli Kisi"
 OTHER = "E0043"
 # §20.6 — birebir; `<Ad Soyad>` seçilen çalışanın adıyla dolar.
@@ -262,7 +257,7 @@ def test_first_confirmation_gives_the_second_one_with_a_token_and_changes_nothin
 
     assert response.status_code == 200
     html = response.text
-    assert SECOND_TEXT == ASSIGN_SECOND_CONFIRMATION
+    assert SECOND_TEXT == second_text(Operation.ASSIGN)
     assert f'<p class="confirm-text" role="alert">{SECOND_TEXT}</p>' in html
     assert f'hx-post="/queues/{item_id}/assign"' in html
     assert f'<input type="hidden" name="employee_id" value="{TARGET}">' in html
@@ -378,11 +373,8 @@ def test_an_expired_token_is_refused(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     token = _prepare(client, item_id)
-    monkeypatch.setattr(
-        upload_page,
-        "utcnow",
-        lambda: utcnow() + upload_page.CONFIRMATION_TTL + timedelta(seconds=5),
-    )
+    later = utcnow() + confirm.CONFIRMATION_TTL + timedelta(seconds=5)
+    monkeypatch.setattr(confirm, "utcnow", lambda: later)
 
     response = _assign(client, item_id, token)
 
@@ -411,18 +403,17 @@ def test_a_token_is_bound_to_its_employee_its_item_and_its_session(
 def test_a_token_of_another_operation_is_refused(
     client: TestClient, session_factory: sessionmaker[Session], item_id: int
 ) -> None:
-    # Aynı oturumun yeniden analiz belirteci (10.3.2) atamada geçmez: belirteç işleme bağlıdır.
-    request = Request(
-        {"type": "http", "headers": [(b"cookie", f"{SESSION_COOKIE}={SESSION}".encode())]}
-    )
+    # Aynı oturumun yeniden analiz belirteci (10.3.2) ve aynı hedefe başka işlem belirteci
+    # atamada geçmez: belirteç işleme bağlıdır.
     with session_factory() as session:
         upload_id = session.get_one(QueueItem, item_id).upload_id
-    foreign = issue_confirmation(request, reanalysis_subject(upload_id, 1))
-    own = issue_confirmation(request, assignment_subject(item_id, TARGET))
+    foreign = issue_token(session_factory, Operation.REANALYZE, reanalysis_subject(upload_id, 1))
+    same_target = issue_token(session_factory, Operation.MOVE, assignment_subject(item_id, TARGET))
+    own = issue_token(session_factory, Operation.ASSIGN, assignment_subject(item_id, TARGET))
 
-    response = _assign(client, item_id, foreign)
-
-    assert response.status_code == 400
+    for token in (foreign, same_target):
+        response = _assign(client, item_id, token)
+        assert response.status_code == 400
     _unchanged(session_factory, item_id)
     assert _assign(client, item_id, own).status_code == 200
 
@@ -450,6 +441,8 @@ def test_a_failed_assignment_does_not_keep_the_confirmation_event(
 
     assert response.status_code == 409
     _unchanged(session_factory, broken)
+    # Belirteç de tüketilmedi: aynı onaylanmış işlem yeniden denenince yine atamaya ulaşır (409).
+    assert _assign(client, broken, token).status_code == 409
 
 
 # --- atanamayan öğe, bilinmeyen kayıt -------------------------------------------------------------

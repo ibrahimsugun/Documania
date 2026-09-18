@@ -33,7 +33,7 @@ def _assert_schema_matches_models(database_url: str) -> None:
             assert tables == set(Base.metadata.tables) | {"alembic_version"}
             context = MigrationContext.configure(connection, opts={"compare_type": True})
             assert compare_metadata(context, Base.metadata) == []
-            assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "0003"
+            assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "0004"
     finally:
         engine.dispose()
 
@@ -127,6 +127,40 @@ def test_user_sessions_migration_is_reversible_and_keeps_users(sqlite_url: str) 
         with engine.connect() as connection:
             assert "user_sessions" not in inspect(connection).get_table_names()
             assert connection.execute(text(user)).all() == [("yonetici", "admin")]
+    finally:
+        engine.dispose()
+
+
+def test_confirmation_tokens_migration_is_reversible_and_keeps_sessions(sqlite_url: str) -> None:
+    # 0004 yalnız onay belirteci tablosunu ekler (10.8.1); var olan oturuma dokunmaz.
+    config = _alembic_config(sqlite_url)
+    command.upgrade(config, "0003")
+    engine = create_engine(sqlite_url)
+    session_row = "SELECT user_id, token_hash FROM user_sessions"
+    try:
+        with engine.begin() as connection:
+            connection.execute(
+                text(
+                    "INSERT INTO users (id, username, password_hash, role) "
+                    "VALUES (1, 'yonetici', 'hash', 'admin')"
+                )
+            )
+            connection.execute(
+                text(
+                    "INSERT INTO user_sessions (user_id, token_hash, created_at, expires_at) "
+                    "VALUES (1, 'ozet', '2026-09-19 00:00:00', '2026-09-20 00:00:00')"
+                )
+            )
+
+        command.upgrade(config, "head")
+        with engine.connect() as connection:
+            assert "confirmation_tokens" in inspect(connection).get_table_names()
+            assert connection.execute(text(session_row)).all() == [(1, "ozet")]
+
+        command.downgrade(config, "0003")
+        with engine.connect() as connection:
+            assert "confirmation_tokens" not in inspect(connection).get_table_names()
+            assert connection.execute(text(session_row)).all() == [(1, "ozet")]
     finally:
         engine.dispose()
 

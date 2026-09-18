@@ -1,5 +1,5 @@
 """Depolama katmanı: veri dizini yolları, slug, adlandırma, atomik yazma (PRD 00.4), Alinan kopyası
-(07.7.2), arşive taşıma (08.4.1).
+(07.7.2), arşive taşıma (08.4.1), belgeyi başka çalışana taşıma (10.8.2).
 
 Dosya yolu üreten tek yer bu pakettir (MASTER-PROMPT §4 yol kuralı).
 """
@@ -28,6 +28,12 @@ from app.storage.filetype import FileKind, UnsupportedFileTypeError, detect_file
 from app.storage.hashing import find_original_by_sha256
 from app.storage.inbox import write_to_inbox
 from app.storage.layout import DataLayout, prepare_data_dir
+from app.storage.move import (
+    DocumentNotMovableError,
+    MovedDocument,
+    MoveTargetNotFoundError,
+    move_document,
+)
 from app.storage.naming import (
     document_stem,
     employee_folder_name,
@@ -44,7 +50,10 @@ __all__ = [
     "DataLayout",
     "DocumentNotArchivableError",
     "DocumentNotFoundError",
+    "DocumentNotMovableError",
     "FileKind",
+    "MoveTargetNotFoundError",
+    "MovedDocument",
     "ReceivedCopy",
     "SlugError",
     "StoredFile",
@@ -58,6 +67,7 @@ __all__ = [
     "find_original_by_sha256",
     "find_sequenced",
     "iter_file_chunks",
+    "move_document",
     "person_slug",
     "prepare_data_dir",
     "remove_partial_writes",

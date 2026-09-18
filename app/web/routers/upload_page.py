@@ -22,20 +22,18 @@ işlemez (K11, K17).
 `POST /uploads/{upload_id}/reanalyze` partiyi yeniden analiz edip yeni plan sürümünü açar (06.6.2,
 K18). Yeniden analiz iki aşamalı onay ister (10.3.2): istemci birinci onaydan sonra
 `POST .../reanalyze/prepare` ile onay belirteci alır, ikinci onaydan sonra asıl isteği bu belirteçle
-gönderir; belirteçsiz, süresi geçmiş ya da başka işleme ait belirteçle gelen istek 400 ile
-reddedilir ve hiçbir şey yapılmaz. Belirteç partinin güncel planına bağlıdır: yeniden analiz
-yeni plan açtığı için aynı belirteç ikinci kez işe yaramaz. İşlemlerin ikisi de yalnız son
+gönderir; belirteçsiz, süresi geçmiş, kullanılmış ya da başka işleme ait belirteçle gelen istek 400
+ile reddedilir ve hiçbir şey yapılmaz. Belirteç 10.8.1'in tek kullanımlık belirtecidir
+(`app.web.confirm`); partiye ve güncel planına bağlıdır. İşlemlerin ikisi de yalnız son
 durumdaki (`done`, `partial`, `failed`) ve planı olan partide yapılır: süren partinin üzerine
 yazılmaz.
 """
 
 from __future__ import annotations
 
-import hashlib
-import hmac
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
+from datetime import datetime
 from typing import Annotated
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Form, HTTPException, Request, status
@@ -57,10 +55,8 @@ from app.db.models import (
     Upload,
     UploadFile,
     UploadStatus,
-    utcnow,
 )
 from app.db.session import get_session, get_session_factory
-from app.events import EventType, record_event
 from app.pipeline.analyze import PageAnalysisStatus
 from app.pipeline.orchestrate import (
     PLAN_EXECUTION_ERRORS,
@@ -74,7 +70,14 @@ from app.pipeline.orchestrate import (
 )
 from app.pipeline.plan import PlanDocument, PlanEmployee, PlanIntegrityError, Route, read_plan
 from app.storage import DataLayout
-from app.web.auth import SESSION_COOKIE, PanelUser, require_panel_user
+from app.web.auth import PanelUser, require_panel_user
+from app.web.confirm import (
+    CONFIRMATION_REFUSED,
+    ConfirmationRefusedError,
+    Operation,
+    confirm_operation,
+    issue_confirmation,
+)
 from app.web.routers.uploads import (
     UploadFileStatusResponse,
     create_upload,
@@ -316,8 +319,6 @@ REANALYZE_SECOND_CONFIRMATION = (
     "Bu işlem partiye yeni bir plan sürümü açacak; önceki sürümün çıktıları "
     '"eski sürüm" olarak işaretlenecektir. Son kararınız mı?'
 )
-REANALYZE_OPERATION = "reanalyze"
-CONFIRMATION_TTL = timedelta(minutes=10)  # §20.6.1
 
 UPLOAD_NOT_FOUND = "Parti bulunamadı."
 PAGE_IMAGE_NOT_FOUND = "Sayfa görüntüsü bulunamadı."
@@ -325,11 +326,6 @@ BUSY_MESSAGE = "Parti hâlâ işleniyor; işlem bittikten sonra yeniden çalış
 NO_PLAN_MESSAGE = (
     "Partinin planı yok; yeniden çalıştırılacak ya da yeniden analiz edilecek bir sürüm bulunmuyor."
 )
-CONFIRMATION_REFUSED = "Onay geçersiz: belirteç yok, süresi geçmiş ya da bu işleme ait değil."
-
-
-class ConfirmationRefusedError(ValueError):
-    """İkinci onayla gelen belirteç doğrulanamadı; işlem yapılmaz."""
 
 
 class ReanalysisProviderError(RuntimeError):
@@ -679,47 +675,10 @@ def build_detail_view(session: Session, upload: Upload) -> DetailView:
 # --- 10.3.2: iki aşamalı onay belirteci --------------------------------------------------------
 
 
-def _confirmation_mac(request: Request, subject: str, issued: int) -> str:
-    """Belirtecin imzası: işlem + hedef (`subject`) + üretim anı, oturum çerezinden türetilen
-    anahtarla. Çerez yalnız tarayıcıda ve sunucuda bilinir; başka oturum belirteç üretemez."""
-    cookie = request.cookies.get(SESSION_COOKIE)
-    if not cookie:
-        raise ConfirmationRefusedError("Oturum çerezi yok.")
-    key = hashlib.sha256(cookie.encode("utf-8")).digest()
-    message = f"{subject}:{issued}".encode()
-    return hmac.new(key, message, hashlib.sha256).hexdigest()
-
-
 def reanalysis_subject(upload_id: str, plan_id: int) -> str:
-    """Yeniden analiz belirtecinin bağlı olduğu işlem ve hedef: parti + güncel plan."""
-    return f"{REANALYZE_OPERATION}:{upload_id}:{plan_id}"
-
-
-def issue_confirmation(request: Request, subject: str) -> str:
-    """Birinci onaydan sonra ikinci onay formuna konan belirteç (§20.6.1 adım 2).
-
-    `subject` işlemi ve hedefini adlandırır (`reanalysis_subject`, kuyruk atamasında
-    `app.web.routers.queue`); başka işlemin belirteci bu işlemde geçmez.
-    """
-    issued = int(utcnow().timestamp())
-    return f"{issued}.{_confirmation_mac(request, subject, issued)}"
-
-
-def check_confirmation(request: Request, subject: str, token: str | None) -> datetime:
-    """Belirteci doğrular ve birinci onayın anını döner; geçersizse `ConfirmationRefusedError`."""
-    if not token:
-        raise ConfirmationRefusedError("Belirteç yok.")
-    issued_text, _, mac = token.partition(".")
-    if not issued_text.isdecimal():
-        raise ConfirmationRefusedError("Belirteç biçimi geçersiz.")
-    issued = int(issued_text)
-    expected = _confirmation_mac(request, subject, issued)
-    if not hmac.compare_digest(mac, expected):
-        raise ConfirmationRefusedError("Belirteç bu işleme ait değil.")
-    first_confirmed = datetime.fromtimestamp(issued, tz=UTC)
-    if not timedelta(0) <= utcnow() - first_confirmed <= CONFIRMATION_TTL:
-        raise ConfirmationRefusedError("Belirtecin süresi geçmiş.")
-    return first_confirmed
+    """Yeniden analiz belirtecinin bağlı olduğu hedef: parti + güncel plan (10.8.1 belirteci,
+    işlem `Operation.REANALYZE`). Plan değişmişse belirteç geçmez."""
+    return f"{upload_id}:{plan_id}"
 
 
 def get_reanalysis_provider(
@@ -844,25 +803,29 @@ def rerun_upload(
 def prepare_reanalysis(
     upload_id: str,
     request: Request,
-    _user: CurrentUser,
+    user: CurrentUser,
     session: Annotated[Session, Depends(get_session)],
 ) -> HTMLResponse:
-    """10.3.2 — birinci onaydan sonra ikinci onay formunu ve onay belirtecini verir (§20.6.1)."""
+    """10.3.2 — birinci onaydan sonra ikinci onay formunu ve tek kullanımlık onay belirtecini
+    verir (§20.6.1)."""
     try:
         _upload, plan = _actionable_upload(session, upload_id)
-        token = issue_confirmation(request, reanalysis_subject(upload_id, plan.id))
+        issued = issue_confirmation(
+            session, request, user, Operation.REANALYZE, reanalysis_subject(upload_id, plan.id)
+        )
     except HTTPException as exc:
+        session.rollback()
         return _action_result(request, exc.status_code, error=str(exc.detail))
     except ConfirmationRefusedError as exc:
-        return _action_result(request, status.HTTP_400_BAD_REQUEST, error=str(exc))
-    finally:
         session.rollback()
+        return _action_result(request, status.HTTP_400_BAD_REQUEST, error=str(exc))
+    session.commit()
     return _action_result(
         request,
         status.HTTP_200_OK,
         upload_id=upload_id,
         second_confirmation=REANALYZE_SECOND_CONFIRMATION,
-        confirmation=token,
+        confirmation=issued.token,
     )
 
 
@@ -879,30 +842,25 @@ def reanalyze_upload_page(
 ) -> HTMLResponse:
     """10.3.2 — partiyi yeniden analiz eder, yeni plan sürümünü açar (06.6.2, K18).
 
-    İkinci onayın belirteci olmadan hiçbir şey yapılmaz (400). Belirteç partinin güncel planına
-    bağlıdır, yeniden analiz planı değiştirir: aynı belirteç ikinci kez geçmez.
+    İkinci onayın belirteci olmadan hiçbir şey yapılmaz (400). Belirteç tek kullanımlıktır ve
+    partinin güncel planına bağlıdır: aynı belirteç ikinci kez geçmez.
     """
     try:
         upload, plan = _actionable_upload(session, upload_id)
-        first_confirmed = check_confirmation(
-            request, reanalysis_subject(upload_id, plan.id), confirmation
+        # §20.6.1: belirteç tüketilir ve `USER_CONFIRMED` (kullanıcı adı, işlem, hedef, iki onayın
+        # zamanı) yazılır, ardından işlemin kendi olayı (`PLAN_REANALYZED`) düşer.
+        confirm_operation(
+            session,
+            request,
+            user,
+            Operation.REANALYZE,
+            reanalysis_subject(upload_id, plan.id),
+            confirmation,
+            event_target={"upload_id": upload.id, "plan_id": plan.id},
+            upload_id=upload.id,
         )
         if isinstance(provider, ProviderConfigError):
             raise ReanalysisProviderError(str(provider))
-        # §20.6.1: onay tamamlanınca `USER_CONFIRMED` (kullanıcı adı, işlem, hedef, iki onayın
-        # zamanı), ardından işlemin kendi olayı (`PLAN_REANALYZED`) düşer.
-        record_event(
-            session,
-            EventType.USER_CONFIRMED,
-            upload_id=upload.id,
-            actor=user.username,
-            data={
-                "operation": REANALYZE_OPERATION,
-                "target": {"upload_id": upload.id, "plan_id": plan.id},
-                "first_confirmed_at": first_confirmed.isoformat(),
-                "second_confirmed_at": utcnow().isoformat(),
-            },
-        )
         reanalysis = reanalyze_upload(
             session,
             layout,

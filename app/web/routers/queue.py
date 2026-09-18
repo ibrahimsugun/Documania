@@ -23,10 +23,14 @@ kural reddi, plan ya da Inbox değişmiş) 409 ve nedeni.
 durumunu günceller (`app.storage.archive_document`, R11); belge silinmez. Belge yoksa 404, etkin
 değilse (zaten arşivlenmiş ya da eski sürüm) 409.
 
-K16: her iki işlem de iki aşamalı onay ister ve kullanıcı adıyla loglanır. Onaylanmış kullanıcının
-adı `get_confirmed_actor` bağımlılığıdır; uç noktalar yalnız oturumu açık kullanıcıya açıktır
-(10.1.2, `app.main`), onay belirteci (10.8.1, §20.6.1) kurulana kadar 503 döner — onaysız işlem
-yapılmaz.
+K16: her iki işlem de iki aşamalı onay ister ve kullanıcı adıyla loglanır (10.8.1,
+`app.web.confirm`). Uç noktalar yalnız oturumu açık kullanıcıya açıktır (10.1.2, `app.main`).
+İstemci birinci onaydan sonra hazırlık isteği gönderir — `POST /api/queue/{id}/assign/prepare`
+(gövde `employee_id`) ya da `POST /api/queue/documents/{id}/archive/prepare` — ve §20.6'nın iki
+metnini, tek kullanımlık belirteci ve son geçerlilik anını alır; asıl istek belirteci
+`X-Confirmation-Token` başlığında taşır. Belirteçsiz, süresi geçmiş, kullanılmış ya da başka
+işleme, hedefe veya oturuma ait belirteçle gelen istek 400 ve hiçbir şey yapılmaz; başarılı istek
+önce `USER_CONFIRMED`, sonra işlemin kendi olayını (`MANUAL_ASSIGN`, `ARCHIVED`) tek işlemde yazar.
 
 **Kuyruktan çalışana atama (10.7.2).** Panel akışı öğe detayında durur ve yalnız *bekleyen*, türü
 belli öğede açılır (türsüz öğenin çıktısı adlandırılamaz, K8; `assign_queue_item` onu reddeder):
@@ -41,10 +45,11 @@ belli öğede açılır (türsüz öğenin çıktısı adlandırılamaz, K8; `as
    `MANUAL_ASSIGN`'ı yazılır; iş tek işlemdedir, hata olursa onay olayı dahil hiçbir şey commit
    edilmez.
 
-Onay metinleri §20.6'dan birebirdir. Belirteç 10.3.2'ninkidir (`issue_confirmation`, PLAN.md §D23):
-oturuma, işleme ve hedefe (kuyruk öğesi + çalışan) bağlı, 10 dakika geçerli; belirteçsiz, süresi
-geçmiş, başka öğeye, başka çalışana ya da başka oturuma ait istek 400 ve hiçbir şey yapılmaz.
-Başarılı atama öğeyi çözdüğü için aynı belirteçle ikinci istek reddedilir (409; PLAN.md §D24).
+Onay metinleri §20.6'dan birebirdir (`app.web.confirm`). Belirteç 10.8.1'in tek kullanımlık
+belirtecidir: oturuma, işleme ve hedefe (kuyruk öğesi + çalışan) bağlı, 10 dakika geçerli;
+belirteçsiz, süresi geçmiş, kullanılmış, başka öğeye, başka çalışana ya da başka oturuma ait istek
+400 ve hiçbir şey yapılmaz. Başarılı atama öğeyi çözdüğü için aynı belirteçle ikinci istek öğe
+denetiminde 409 ile reddedilir.
 Adımların hepsi öğeyi yeniden denetler: öğe yoksa 404, çözülmüş, eski sürüm ya da türsüzse 409,
 çalışan yoksa 404 — yanıt `queue_assign.html` parçasıdır (HTMX hedefi).
 
@@ -64,7 +69,7 @@ kaydına ve çıktının K8 adına gider.
    hedef öğe; profil değerleri olaya girmez), sonra `approve_queued_profile`'ın `EMPLOYEE_CREATED`
    (düzeltilen alanların adları) ve `MANUAL_APPROVE`'u tek işlemde yazılır.
 
-Belirteç atamanınkiyle aynı mekanizmadır; konusu kuyruk öğesi + onaylanan alanların özetidir
+Belirteç atamanınkiyle aynı mekanizmadır; hedefi kuyruk öğesi + onaylanan alanların özetidir
 (`profile_subject`): ikinci onaydan sonra değiştirilen alan, başka öğe, işlem ya da oturum 400.
 Her adım öğeyi ve düzeltilen profili onayın hükmüyle yeniden denetler: öğe yoksa 404; çözülmüş,
 eski sürüm, onay bekleyen profil değil, satır 7 artık uymuyor ya da düzeltilen ad/doğum tarihi
@@ -84,7 +89,7 @@ from pathlib import PurePosixPath
 from typing import Annotated, Any
 from urllib.parse import urlencode
 
-from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request, status
+from fastapi import APIRouter, Depends, Form, Header, HTTPException, Query, Request, status
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, ConfigDict, ValidationError
 from sqlalchemy import ColumnElement, Select, and_, exists, func, or_, select
@@ -92,6 +97,8 @@ from sqlalchemy.orm import Session, aliased
 
 from app.config import Settings, get_settings
 from app.db.models import (
+    Document,
+    DocumentStatus,
     Employee,
     Event,
     KnownDocumentType,
@@ -99,10 +106,9 @@ from app.db.models import (
     QueueItem,
     QueueKind,
     UploadFile,
-    utcnow,
 )
 from app.db.session import get_session
-from app.events import EventType, record_event
+from app.events import EventType
 from app.matching.match import (
     DATE_OF_BIRTH,
     GIVEN_NAMES,
@@ -134,23 +140,28 @@ from app.pipeline.route import (
 from app.storage import (
     DataLayout,
     DocumentNotArchivableError,
-    DocumentNotFoundError,
     archive_document,
 )
-from app.web.auth import PanelUser, require_panel_user
+from app.web.auth import PanelUser, require_api_user, require_panel_user
+from app.web.confirm import (
+    CONFIRMATION_HEADER,
+    CONFIRMATION_REFUSED,
+    ConfirmationRefusedError,
+    Operation,
+    confirm_operation,
+    first_text,
+    issue_confirmation,
+    second_text,
+)
 from app.web.routers.documents import SourceView, _reference, _source_view
 from app.web.routers.employees import MAX_QUERY_LENGTH, EmployeeListing, list_employees
 from app.web.routers.upload_page import (
-    CONFIRMATION_REFUSED,
     QUEUE_LABELS,
-    ConfirmationRefusedError,
     EventView,
     _event_place,
     _format_ts,
     _plan_employee_text,
     _source_text,
-    check_confirmation,
-    issue_confirmation,
 )
 from app.web.routers.uploads import get_layout
 from app.web.templating import MENU_BY_KEY, render_page
@@ -159,6 +170,8 @@ router = APIRouter(prefix="/api/queue", tags=["queue"])
 pages_router = APIRouter(tags=["queue-pages"])
 
 CurrentUser = Annotated[PanelUser, Depends(require_panel_user)]
+ApiUser = Annotated[PanelUser, Depends(require_api_user)]
+ConfirmationHeader = Annotated[str | None, Header(alias=CONFIRMATION_HEADER)]
 
 
 class QueueAssignmentRequest(BaseModel):
@@ -181,16 +194,56 @@ class QueueAssignmentResponse(BaseModel):
     resolved_by: str
 
 
-def get_confirmed_actor() -> str:
-    """K16: iki aşamalı onayı (§20.6.1) tamamlamış kullanıcının adı.
+class ConfirmationResponse(BaseModel):
+    """Hazırlık isteğinin yanıtı (§20.6.1 adım 2): §20.6'nın iki onay metni, tek kullanımlık
+    belirteç (asıl istekte `X-Confirmation-Token` başlığı) ve son geçerlilik anı."""
 
-    Oturum (10.1.2) kuruldu, onay belirteci (10.8.1) henüz yok; manuel işlem onaysız yapılmaz: 503.
-    10.8.1 bu bağımlılığı belirteci doğrulayıp tüketen, `USER_CONFIRMED`'ı yazan ve oturumdaki
-    kullanıcının (`app.web.auth.require_api_user`) adını döndüren hâliyle bağlar.
-    """
-    raise HTTPException(
-        status.HTTP_503_SERVICE_UNAVAILABLE,
-        "İki aşamalı onay mekanizması henüz kurulmadı; manuel işlem yapılamaz.",
+    operation: str
+    first_confirmation: str
+    second_confirmation: str
+    confirmation: str
+    expires_at: datetime
+
+
+def _confirm_api(
+    session: Session,
+    request: Request,
+    user: PanelUser,
+    operation: Operation,
+    target: str,
+    token: str | None,
+    **event: Any,
+) -> None:
+    """API isteğinin belirtecini tüketir ve `USER_CONFIRMED`'ı yazar; geçersizse 400 (hiçbir şey
+    yazılmaz, oturum geri alınır)."""
+    try:
+        confirm_operation(session, request, user, operation, target, token, **event)
+    except ConfirmationRefusedError:
+        session.rollback()
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, CONFIRMATION_REFUSED) from None
+
+
+def _issued(
+    session: Session,
+    request: Request,
+    user: PanelUser,
+    operation: Operation,
+    target: str,
+    **texts: str,
+) -> ConfirmationResponse:
+    """Hazırlık isteği: belirteci üretir ve commit eder; oturum çerezi yoksa 400."""
+    try:
+        issued = issue_confirmation(session, request, user, operation, target)
+    except ConfirmationRefusedError as exc:
+        session.rollback()
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from None
+    session.commit()
+    return ConfirmationResponse(
+        operation=operation.value,
+        first_confirmation=first_text(operation, **texts),
+        second_confirmation=second_text(operation, **texts),
+        confirmation=issued.token,
+        expires_at=issued.expires_at,
     )
 
 
@@ -226,17 +279,66 @@ def _assign(
         raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from None
 
 
+@router.post("/{queue_item_id}/assign/prepare", response_model=ConfirmationResponse)
+def prepare_queue_assignment(
+    queue_item_id: int,
+    body: QueueAssignmentRequest,
+    request: Request,
+    user: ApiUser,
+    session: Annotated[Session, Depends(get_session)],
+) -> ConfirmationResponse:
+    """08.2.1 / 10.8.1 — atamanın hazırlığı: onay metinleri ve tek kullanımlık belirteç. Öğe ya
+    da çalışan yoksa 404, öğe atanamıyorsa 409; hiçbir şey atanmaz."""
+    try:
+        _assignable_item(session, queue_item_id)
+        assignee = _assignee(session, body.employee_id)
+    except HTTPException:
+        session.rollback()
+        raise
+    return _issued(
+        session,
+        request,
+        user,
+        Operation.ASSIGN,
+        assignment_subject(queue_item_id, assignee.id),
+        name=assignee.name,
+    )
+
+
 @router.post("/{queue_item_id}/assign", response_model=QueueAssignmentResponse)
 def assign_queue_item_to_employee(
     queue_item_id: int,
-    request: QueueAssignmentRequest,
+    body: QueueAssignmentRequest,
+    request: Request,
+    user: ApiUser,
     session: Annotated[Session, Depends(get_session)],
     layout: Annotated[DataLayout, Depends(get_layout)],
     settings: Annotated[Settings, Depends(get_settings)],
-    actor: Annotated[str, Depends(get_confirmed_actor)],
+    token: ConfirmationHeader = None,
 ) -> QueueAssignmentResponse:
-    """08.2.1 — kuyruk öğesini çalışana atar; çıktı üretilir, yapay zekâ çağrılmaz."""
-    assigned = _assign(session, layout, settings, queue_item_id, request.employee_id, actor=actor)
+    """08.2.1 — kuyruk öğesini çalışana atar; çıktı üretilir, yapay zekâ çağrılmaz. İkinci onayın
+    belirteci olmadan hiçbir şey yapılmaz (400); onay olayı ve atama tek işlemdedir."""
+    queue_item = session.get(QueueItem, queue_item_id)
+    if queue_item is None:
+        session.rollback()
+        raise HTTPException(status.HTTP_404_NOT_FOUND, QUEUE_ITEM_NOT_FOUND)
+    _confirm_api(
+        session,
+        request,
+        user,
+        Operation.ASSIGN,
+        assignment_subject(queue_item_id, body.employee_id),
+        token,
+        event_target={"queue_item_id": queue_item_id, "employee_id": body.employee_id},
+        upload_id=queue_item.upload_id,
+    )
+    try:
+        assigned = _assign(
+            session, layout, settings, queue_item_id, body.employee_id, actor=user.username
+        )
+    except HTTPException:
+        session.rollback()
+        raise
     session.commit()
     queue_item, document = assigned.queue_item, assigned.executed.document
     assert queue_item.plan_id is not None and queue_item.plan_item_id is not None
@@ -266,19 +368,72 @@ class DocumentArchiveResponse(BaseModel):
     archived_at: datetime
 
 
+def _archivable_document(session: Session, document_id: int) -> Document:
+    """Arşivlenebilecek (etkin) belge; yoksa 404, etkin değilse 409."""
+    document = session.get(Document, document_id)
+    if document is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, f"Belge bulunamadı: {document_id}")
+    if document.status != DocumentStatus.ACTIVE.value:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            f"Belge {document.id} arşivlenemez: durum {document.status!r} "
+            "(yalnız etkin belge arşivlenir)",
+        )
+    return document
+
+
+def archive_subject(document_id: int) -> str:
+    """Arşiv belirtecinin bağlı olduğu hedef: belge."""
+    return str(document_id)
+
+
+@router.post("/documents/{document_id}/archive/prepare", response_model=ConfirmationResponse)
+def prepare_document_archive(
+    document_id: int,
+    request: Request,
+    user: ApiUser,
+    session: Annotated[Session, Depends(get_session)],
+) -> ConfirmationResponse:
+    """08.4.1 / 10.8.1 — arşivin hazırlığı: onay metinleri ve tek kullanımlık belirteç. Belge
+    yoksa 404, etkin değilse 409; hiçbir şey taşınmaz."""
+    try:
+        _archivable_document(session, document_id)
+    except HTTPException:
+        session.rollback()
+        raise
+    return _issued(session, request, user, Operation.ARCHIVE, archive_subject(document_id))
+
+
 @router.post("/documents/{document_id}/archive", response_model=DocumentArchiveResponse)
 def archive_document_endpoint(
     document_id: int,
+    request: Request,
+    user: ApiUser,
     session: Annotated[Session, Depends(get_session)],
     layout: Annotated[DataLayout, Depends(get_layout)],
-    actor: Annotated[str, Depends(get_confirmed_actor)],
+    token: ConfirmationHeader = None,
 ) -> DocumentArchiveResponse:
-    """08.4.1 — etkin belgeyi `Archive/<yyyy-mm>/`'e taşır; belge silinmez, durumu güncellenir."""
+    """08.4.1 — etkin belgeyi `Archive/<yyyy-mm>/`'e taşır; belge silinmez, durumu güncellenir.
+    İkinci onayın belirteci olmadan hiçbir şey yapılmaz (400); onay olayı ve arşiv tek işlemde."""
+    document = session.get(Document, document_id)
+    if document is None:
+        session.rollback()
+        raise HTTPException(status.HTTP_404_NOT_FOUND, f"Belge bulunamadı: {document_id}")
+    _confirm_api(
+        session,
+        request,
+        user,
+        Operation.ARCHIVE,
+        archive_subject(document_id),
+        token,
+        event_target={"document_id": document_id},
+        document_id=document_id,
+        employee_id=document.employee_id,
+    )
     try:
-        archived = archive_document(session, layout, document_id, actor=actor)
-    except DocumentNotFoundError as exc:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from None
+        archived = archive_document(session, layout, document_id, actor=user.username)
     except DocumentNotArchivableError as exc:
+        session.rollback()
         raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from None
     session.commit()
     document = archived.document
@@ -288,7 +443,7 @@ def archive_document_endpoint(
         type_slug=document.type_slug,
         path=document.path,
         status=document.status,
-        archived_by=actor,
+        archived_by=user.username,
         archived_at=archived.event.ts,
     )
 
@@ -744,12 +899,7 @@ def queue_item_page(
 
 # --- 10.7.2: kuyruktan çalışana atama -----------------------------------------------------------
 
-ASSIGN_OPERATION = "assign"
-# §20.6: metinler birebir; `<Ad Soyad>` seçilen çalışanın adıyla doldurulur.
-ASSIGN_FIRST_CONFIRMATION = "Bu belgeyi {name} çalışanına atamak üzeresiniz. Emin misiniz?"
-ASSIGN_SECOND_CONFIRMATION = (
-    "Bu işlem sistemdeki belge organizasyonunu değiştirecektir. Son kararınız mı?"
-)
+# §20.6: metinler birebir `app.web.confirm`'dadır; `<Ad Soyad>` seçilen çalışanın adıyla dolar.
 RESOLVED_NOTE = "Bu öğe zaten çözülmüş; yeniden atanamaz."
 TYPELESS_NOTE = (
     "Belge türü belirlenmediği için bu öğe bir çalışana atanamaz: "
@@ -795,8 +945,9 @@ def _assignee(session: Session, employee_id: str) -> AssigneeView:
 
 
 def assignment_subject(queue_item_id: int, employee_id: str) -> str:
-    """Atama belirtecinin bağlı olduğu işlem ve hedef: kuyruk öğesi + seçilen çalışan."""
-    return f"{ASSIGN_OPERATION}:{queue_item_id}:{employee_id}"
+    """Atama belirtecinin (`Operation.ASSIGN`) bağlı olduğu hedef: kuyruk öğesi + seçilen
+    çalışan."""
+    return f"{queue_item_id}:{employee_id}"
 
 
 def _assign_result(
@@ -856,7 +1007,7 @@ def assignment_first_confirmation(
         status.HTTP_200_OK,
         queue_item_id,
         assignee=assignee,
-        first_confirmation=ASSIGN_FIRST_CONFIRMATION.format(name=assignee.name),
+        first_confirmation=first_text(Operation.ASSIGN, name=assignee.name),
     )
 
 
@@ -864,28 +1015,32 @@ def assignment_first_confirmation(
 def prepare_assignment(
     queue_item_id: int,
     request: Request,
-    _user: CurrentUser,
+    user: CurrentUser,
     session: Annotated[Session, Depends(get_session)],
     employee_id: Annotated[str, Form(max_length=MAX_QUERY_LENGTH)],
 ) -> HTMLResponse:
-    """10.7.2 — birinci onaydan sonra ikinci onay metnini ve onay belirtecini verir (§20.6.1)."""
+    """10.7.2 — birinci onaydan sonra ikinci onay metnini ve tek kullanımlık onay belirtecini
+    verir (§20.6.1)."""
     try:
         _assignable_item(session, queue_item_id)
         assignee = _assignee(session, employee_id)
-        token = issue_confirmation(request, assignment_subject(queue_item_id, assignee.id))
+        issued = issue_confirmation(
+            session, request, user, Operation.ASSIGN, assignment_subject(queue_item_id, assignee.id)
+        )
     except HTTPException as exc:
+        session.rollback()
         return _assign_result(request, exc.status_code, queue_item_id, error=str(exc.detail))
     except ConfirmationRefusedError as exc:
-        return _assign_result(request, status.HTTP_400_BAD_REQUEST, queue_item_id, error=str(exc))
-    finally:
         session.rollback()
+        return _assign_result(request, status.HTTP_400_BAD_REQUEST, queue_item_id, error=str(exc))
+    session.commit()
     return _assign_result(
         request,
         status.HTTP_200_OK,
         queue_item_id,
         assignee=assignee,
-        second_confirmation=ASSIGN_SECOND_CONFIRMATION,
-        confirmation=token,
+        second_confirmation=second_text(Operation.ASSIGN),
+        confirmation=issued.token,
     )
 
 
@@ -902,27 +1057,23 @@ def assign_from_queue(
 ) -> HTMLResponse:
     """10.7.2 — ikinci onayın belirteciyle öğeyi çalışana atar (08.2.1; K16).
 
-    Belirteç yoksa, süresi geçmişse ya da başka öğeye, çalışana veya oturuma aitse hiçbir şey
-    yapılmaz (400). Onay olayı ve atama tek işlemdedir: atama düşerse onay olayı da yazılmaz.
+    Belirteç yoksa, süresi geçmişse, kullanılmışsa ya da başka öğeye, çalışana veya oturuma
+    aitse hiçbir şey yapılmaz (400). Belirtecin tüketilmesi, onay olayı ve atama tek işlemdedir:
+    atama düşerse onay olayı da yazılmaz, belirteç tüketilmemiş kalır.
     """
     try:
         queue_item = _assignable_item(session, queue_item_id)
-        first_confirmed = check_confirmation(
-            request, assignment_subject(queue_item_id, employee_id), confirmation
-        )
-        # §20.6.1: onay tamamlanınca `USER_CONFIRMED` (kullanıcı adı, işlem, hedef, iki onayın
-        # zamanı), ardından işlemin kendi olayı (`MANUAL_ASSIGN`) düşer.
-        record_event(
+        # §20.6.1: belirteç tüketilir ve `USER_CONFIRMED` (kullanıcı adı, işlem, hedef, iki onayın
+        # zamanı) yazılır, ardından işlemin kendi olayı (`MANUAL_ASSIGN`) düşer.
+        confirm_operation(
             session,
-            EventType.USER_CONFIRMED,
+            request,
+            user,
+            Operation.ASSIGN,
+            assignment_subject(queue_item_id, employee_id),
+            confirmation,
+            event_target={"queue_item_id": queue_item.id, "employee_id": employee_id},
             upload_id=queue_item.upload_id,
-            actor=user.username,
-            data={
-                "operation": ASSIGN_OPERATION,
-                "target": {"queue_item_id": queue_item.id, "employee_id": employee_id},
-                "first_confirmed_at": first_confirmed.isoformat(),
-                "second_confirmed_at": utcnow().isoformat(),
-            },
         )
         assigned = _assign(
             session, layout, settings, queue_item_id, employee_id, actor=user.username
@@ -951,14 +1102,8 @@ def assign_from_queue(
 
 # --- 10.7.3: kuyruktan profil oluşturma ---------------------------------------------------------
 
-PROFILE_OPERATION = "approve_profile"
-# §20.6 "Onay bekleyen profili onayla": metinler birebir; `<Ad Soyad>` onaylanan ad-soyadla dolar.
-PROFILE_FIRST_CONFIRMATION = (
-    "{name} için yeni bir çalışan profili oluşturmak üzeresiniz. Emin misiniz?"
-)
-PROFILE_SECOND_CONFIRMATION = (
-    "Bu işlem sistemde kalıcı bir çalışan kaydı oluşturacaktır. Son kararınız mı?"
-)
+# §20.6 "Onay bekleyen profili onayla": metinler birebir `app.web.confirm`'dadır; `<Ad Soyad>`
+# onaylanan ad-soyadla dolar.
 PROFILE_RESOLVED_NOTE = "Bu öğe zaten çözülmüş; profil oluşturulamaz."
 NOT_PENDING_NOTE = (
     "Bu öğe onay bekleyen profil değil (§20.2.2 satır 7): kişisi yeni çalışan olarak açılmaz, "
@@ -1067,11 +1212,12 @@ def _profile_values(fields: ProfileFields) -> dict[str, str]:
 
 
 def profile_subject(queue_item_id: int, fields: ProfileFields) -> str:
-    """Profil onayı belirtecinin bağlı olduğu işlem ve hedef: kuyruk öğesi + onaylanan alanların
-    özeti. İkinci onaydan sonra bir alan değişirse belirteç geçmez; değerler belirtece girmez."""
+    """Profil onayı belirtecinin (`Operation.APPROVE_PROFILE`) bağlı olduğu hedef: kuyruk öğesi +
+    onaylanan alanların özeti. İkinci onaydan sonra bir alan değişirse belirteç geçmez; değerler
+    belirtece girmez."""
     canonical = json.dumps(fields.values(), ensure_ascii=False, sort_keys=True)
     digest = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
-    return f"{PROFILE_OPERATION}:{queue_item_id}:{digest}"
+    return f"{queue_item_id}:{digest}"
 
 
 def _proposes_profile(payload: Any) -> bool:
@@ -1221,8 +1367,8 @@ def profile_first_confirmation(
         request,
         status.HTTP_200_OK,
         queue_item_id,
-        first_confirmation=PROFILE_FIRST_CONFIRMATION.format(
-            name=f"{fields.given_names} {fields.surname}"
+        first_confirmation=first_text(
+            Operation.APPROVE_PROFILE, name=f"{fields.given_names} {fields.surname}"
         ),
         **_steps_context(fields, proposal),
     )
@@ -1232,29 +1378,37 @@ def profile_first_confirmation(
 def prepare_profile(
     queue_item_id: int,
     request: Request,
-    _user: CurrentUser,
+    user: CurrentUser,
     session: Annotated[Session, Depends(get_session)],
     values: ProfileValues,
 ) -> HTMLResponse:
-    """10.7.3 — birinci onaydan sonra ikinci onay metnini ve onaylanan alanlara bağlı onay
-    belirtecini verir (§20.6.1)."""
+    """10.7.3 — birinci onaydan sonra ikinci onay metnini ve onaylanan alanlara bağlı tek
+    kullanımlık onay belirtecini verir (§20.6.1)."""
     try:
         _, fields, proposal = _confirmed_profile(session, queue_item_id, values)
-        token = issue_confirmation(request, profile_subject(queue_item_id, fields))
+        issued = issue_confirmation(
+            session,
+            request,
+            user,
+            Operation.APPROVE_PROFILE,
+            profile_subject(queue_item_id, fields),
+        )
     except HTTPException as exc:
+        session.rollback()
         return _profile_result(request, exc.status_code, queue_item_id, error=str(exc.detail))
     except _ProfileFormError as exc:
+        session.rollback()
         return _invalid_profile(request, queue_item_id, exc.errors)
     except ConfirmationRefusedError as exc:
-        return _profile_result(request, status.HTTP_400_BAD_REQUEST, queue_item_id, error=str(exc))
-    finally:
         session.rollback()
+        return _profile_result(request, status.HTTP_400_BAD_REQUEST, queue_item_id, error=str(exc))
+    session.commit()
     return _profile_result(
         request,
         status.HTTP_200_OK,
         queue_item_id,
-        second_confirmation=PROFILE_SECOND_CONFIRMATION,
-        confirmation=token,
+        second_confirmation=second_text(Operation.APPROVE_PROFILE),
+        confirmation=issued.token,
         **_steps_context(fields, proposal),
     )
 
@@ -1305,29 +1459,25 @@ def create_profile_from_queue(
     """10.7.3 — ikinci onayın belirteciyle önerilen (düzenlenmiş olabilir) profili onaylar:
     çalışan açılır, belge ona bağlanır (08.3.1; K7, K16).
 
-    Belirteç yoksa, süresi geçmişse ya da başka öğeye, başka alan değerlerine, başka işleme veya
-    oturuma aitse hiçbir şey yapılmaz (400). Onay olayı ve onay tek işlemdedir: onay düşerse onay
-    olayı da yazılmaz. Belge içeriği değişmez: çıktı kaynak sayfalardan planın işlemiyle üretilir.
+    Belirteç yoksa, süresi geçmişse, kullanılmışsa ya da başka öğeye, başka alan değerlerine,
+    başka işleme veya oturuma aitse hiçbir şey yapılmaz (400). Belirtecin tüketilmesi, onay olayı ve
+    onay tek işlemdedir: onay düşerse onay olayı da yazılmaz. Belge içeriği değişmez: çıktı kaynak
+    sayfalardan planın işlemiyle üretilir.
     """
     try:
         queue_item, fields, _ = _confirmed_profile(session, queue_item_id, values)
-        first_confirmed = check_confirmation(
-            request, profile_subject(queue_item_id, fields), confirmation
-        )
-        # §20.6.1: onay tamamlanınca `USER_CONFIRMED` (kullanıcı adı, işlem, hedef, iki onayın
-        # zamanı), ardından işlemin kendi olayı (`MANUAL_APPROVE`) düşer. Profil değerleri
+        # §20.6.1: belirteç tüketilir ve `USER_CONFIRMED` (kullanıcı adı, işlem, hedef, iki onayın
+        # zamanı) yazılır, ardından işlemin kendi olayı (`MANUAL_APPROVE`) düşer. Profil değerleri
         # olaya girmez (CONVENTIONS §6).
-        record_event(
+        confirm_operation(
             session,
-            EventType.USER_CONFIRMED,
+            request,
+            user,
+            Operation.APPROVE_PROFILE,
+            profile_subject(queue_item_id, fields),
+            confirmation,
+            event_target={"queue_item_id": queue_item.id},
             upload_id=queue_item.upload_id,
-            actor=user.username,
-            data={
-                "operation": PROFILE_OPERATION,
-                "target": {"queue_item_id": queue_item.id},
-                "first_confirmed_at": first_confirmed.isoformat(),
-                "second_confirmed_at": utcnow().isoformat(),
-            },
         )
         approved = _approve_profile(
             session, layout, settings, queue_item_id, fields, actor=user.username

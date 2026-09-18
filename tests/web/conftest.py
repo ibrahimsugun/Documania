@@ -13,16 +13,40 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from sqlalchemy import Engine
 from sqlalchemy.orm import Session, sessionmaker
+from starlette.requests import Request
 
 from app.config import Settings, get_settings
 from app.db.models import Base
 from app.db.session import create_db_engine, create_session_factory, get_session
 from app.main import create_app
 from app.storage import DataLayout, prepare_data_dir
-from app.web.auth import PanelUser, get_current_user
+from app.web.auth import SESSION_COOKIE, PanelUser, get_current_user
+from app.web.confirm import Operation, issue_confirmation
 from app.web.routers.uploads import get_layout
 
 SIGNED_IN = PanelUser(id=1, username="test-yonetici", role="admin")
+# Onay belirteci oturum çerezine bağlıdır (10.8.1); oturum bağımlılığı testte geçersiz kılındığı
+# için çerez elle konur.
+SESSION = "oturum-bir"
+
+
+def issue_token(
+    session_factory: sessionmaker[Session],
+    operation: Operation,
+    target: str,
+    *,
+    cookie: str = SESSION,
+    user: PanelUser = SIGNED_IN,
+) -> str:
+    """Hazırlık adımını atlayarak `operation` + `target` için tek kullanımlık onay belirteci üretir
+    (başka işlemin ya da hazırlığı reddedilen hedefin belirtecini sınamak için)."""
+    request = Request(
+        {"type": "http", "headers": [(b"cookie", f"{SESSION_COOKIE}={cookie}".encode())]}
+    )
+    with session_factory() as session:
+        issued = issue_confirmation(session, request, user, operation, target)
+        session.commit()
+    return issued.token
 
 
 @pytest.fixture

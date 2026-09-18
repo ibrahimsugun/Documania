@@ -1,5 +1,5 @@
 """Veri modeli — PRD §8.1 tabloları (00.3.1), çalışan numarası üretici (00.3.3), aday tür
-kaydı (04.6.1) ve panel oturumu (10.1.2).
+kaydı (04.6.1), panel oturumu (10.1.2) ve iki aşamalı onayın belirteci (10.8.1).
 
 Silme yoktur, arşiv vardır (K16): ilişkilerde silme kaskadı tanımlanmaz.
 Dosya yolu burada üretilmez (yol kuralı: `app/storage/`); yol sütunları yalnız saklar.
@@ -455,6 +455,29 @@ class UserSession(Base):
     revoked_at: Mapped[datetime | None] = mapped_column(UtcDateTime)
 
     user: Mapped[User] = relationship()
+
+
+class ConfirmationToken(Base):
+    """İki aşamalı onayın tek kullanımlık belirteci (10.8.1, PRD §20.6.1; PLAN.md §C54).
+
+    Birinci onaydan sonra üretilir (`created_at` birinci onayın anıdır); oturuma (çerezin SHA-256
+    özeti), kullanıcıya, işleme (`operation`) ve hedef kayda (`target`) bağlıdır ve `expires_at`'e
+    kadar geçerlidir. İkinci onayla gelen istek belirteci tüketir (`consumed_at`): tüketilmiş,
+    süresi geçmiş ya da başka oturuma veya işleme ait belirteç reddedilir. Belirtecin kendisi
+    değil SHA-256 özeti saklanır; satır silinmez.
+    """
+
+    __tablename__ = "confirmation_tokens"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True)
+    session_hash: Mapped[str] = mapped_column(String(64))
+    username: Mapped[str] = mapped_column(String(150))
+    operation: Mapped[str] = mapped_column(String(32))
+    target: Mapped[str] = mapped_column(String(255))
+    created_at: Mapped[datetime] = mapped_column(UtcDateTime, default=utcnow)
+    expires_at: Mapped[datetime] = mapped_column(UtcDateTime)
+    consumed_at: Mapped[datetime | None] = mapped_column(UtcDateTime)
 
 
 class TelegramUser(Base):

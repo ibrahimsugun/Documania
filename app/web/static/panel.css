@@ -292,3 +292,7 @@ button {
 .edited { margin-left: 0.4rem; padding: 0 0.35rem; border-radius: 4px; background: #fff8e6; color: #92400e; font-size: 0.85em; }
 
 .field-errors { margin: 0.25rem 0 0; color: #b42318; }
+
+/* Belgeyi başka çalışana taşıma (10.8.2) */
+
+.assignees .owner { color: #6b7280; font-size: 0.9em; }

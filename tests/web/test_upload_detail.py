@@ -20,6 +20,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, sessionmaker
 
+import app.web.confirm as confirm
 from app.ai import PROVIDER_FACTORIES
 from app.ai.provider import ProviderConfigError
 from app.ai.recording_provider import RecordingProvider
@@ -612,7 +613,7 @@ def test_confirmed_reanalysis_opens_a_new_plan_version_and_marks_old_outputs_sup
     assert "Eski sürüm" in page.text
 
 
-def test_a_token_works_once_because_the_reanalysis_replaces_the_plan_it_is_bound_to(
+def test_a_token_works_once(
     client: TestClient,
     session_factory: sessionmaker[Session],
     layout: DataLayout,
@@ -646,11 +647,8 @@ def test_an_expired_token_is_refused(
 ) -> None:
     upload_id = _processed(client, session_factory, layout, tmp_path)
     token = _prepare_token(client, upload_id)
-    monkeypatch.setattr(
-        upload_page,
-        "utcnow",
-        lambda: utcnow() + upload_page.CONFIRMATION_TTL + timedelta(seconds=5),
-    )
+    later = utcnow() + confirm.CONFIRMATION_TTL + timedelta(seconds=5)
+    monkeypatch.setattr(confirm, "utcnow", lambda: later)
 
     response = client.post(f"/uploads/{upload_id}/reanalyze", data={"confirmation": token})
 

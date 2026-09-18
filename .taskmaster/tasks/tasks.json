@@ -1046,13 +1046,14 @@
         "description": "PRD 10.8.1, 10.8.2 · FR-MOD-10 (Web yönetim paneli) · Faz 1.",
         "details": "KAPSAM: PRD 10.8.1, 10.8.2 (FR-MOD-10 — Web yönetim paneli, Faz 1).\n\nNE YAPILACAK — GEREKSİNİMLER VE KABUL KRİTERLERİ:\n- 10.8.1 — İki aşamalı onay mekanizması\n  Kabul: Onay metinleri §20.6'daki tablodan **birebir** kullanılır; sunucu tek kullanımlık belirteç ister ve belirteçsiz isteği reddeder\n- 10.8.2 — Belgeyi başka çalışana taşıma\n  Kabul: İki onay verilmeden işlem gerçekleşmez; iki profil de güncellenir; olay kullanıcı adıyla loglanır\n\nGİRDİ — ÜZERİNE KURULDUĞU İŞLER (bu kod ZATEN VAR; yazmadan önce OKU):\n- 10.5 (Çalışan profili sayfası) → app/web/routers/employees.py, app/web/templates/profile.html\n- 10.7-c (Kuyruktan profil oluşturma akışı) → app/web/routers/queue.py, app/web/templates/queue_new_profile.html\n\nÇIKTI — DOKUNULACAK YÜZEY: app/web/confirm.py, app/web/routers/documents.py\n\nZORUNLU OKUMA — BU GÖREVİN KARAR TABLOSU: urun-gereksinim-dokumani-PRD.md §20.6 (beş işlemin onay metinleri — BİREBİR kullanılacak), §20.6.1 (tek kullanımlık belirteç), §20.6.2 (testte doğrulanacak davranış)\nKarar zaten verilmiş ve yazılmıştır; senden beklenen onu UYGULAMAK. Tabloyu okumadan kod yazma. Tabloda karşılığı olmayan bir durumla karşılaşırsan UYDURMA: en güvenli davranışı seç (belgeyi kuyruğa al) ve PLAN.md §D'ye sapma yaz.\n\nBU GÖREVİ BAĞLAYAN KİLİTLİ KURALLAR (MASTER-PROMPT §3 — tartışma, uygula):\n- K16: Manuel işlemler yalnız: belgeyi başka çalışana taşı, kuyruk öğesini ata, onay bekleyen profili onayla, yeni türü onayla, arşive taşı. SİLME YOK. Hepsi iki aşamalı onay ister ve kullanıcı adıyla loglanır.\n\nPRD'DE AYRICA OKU: yalnız yukarıdaki gereksinim satırları yeterli.\n\nİLGİLİ KABUL SENARYOLARI (PRD §9) — bu görevin gerçek sınavı: S16. Senaryo metnini PRD §9 tablosundan oku; testin bu davranışı doğrulamalı.\n\nSIRA (MASTER-PROMPT §5, contract-first): sözleşme/şema → Alembic göçü (gerekiyorsa) → çekirdek + unit test → entegrasyon + testi → arayüz.\n\nKAPSAM SINIRI: yalnız yukarıdaki PRD kimlikleri. Başka gereksinimin işini yapma; yolda gördüğün kusuru düzeltme, yeni görev olarak aç (CONVENTIONS §5). Kilitli teknik kararları (MASTER-PROMPT §4) tartışma; yanlış görünüyorsa uygula ve PLAN.md §D'ye sapma yaz.\n\nTUZAKLAR: belge içeriğini değiştiren kod yazma — kırpma, döndürme (EXIF dışında), kontrast, metin yazma, form doldurma yok (K11/K17). Gerçek kimlik belgesi kullanma; test verisi tests/fixtures/gen.py ile üretilen sentetik belgelerdir (CONVENTIONS §6). Yapay zekâ çağrısı testte canlı yapılmaz, kayıtlı yanıt sağlayıcısı kullanılır. Test/build komutlarını arka plana atma — pencere ölür.\n\nKAPANIŞ: PLAN.md'de 10.8.1, 10.8.2 satırlarının damgasını '✅ → K10.8' yap ve '## K. Kanıt Geçmişi' bölümünde '#### K10.8' bloğuna kanıt maddesi ekle (blok yoksa aç). Faz özet tablosundaki sayıları SAYARAK güncelle. Ayrıntı: CONVENTIONS §1.2-1.3.",
         "testStrategy": "CONVENTIONS §1 DoD kapısı: ruff check . · ruff format --check . · python -m compileall -q app tests · pytest -q -m \"not live\" · alembic upgrade head · python -c \"import app.main\" — hepsi exit 0.\nAyrıca bu görevin kendi kabul kriterleri:\n- 10.8.1: Onay metinleri §20.6'daki tablodan **birebir** kullanılır; sunucu tek kullanımlık belirteç ister ve belirteçsiz isteği reddeder\n- 10.8.2: İki onay verilmeden işlem gerçekleşmez; iki profil de güncellenir; olay kullanıcı adıyla loglanır",
-        "status": "pending",
+        "status": "in-progress",
         "dependencies": [
           "68",
           "72"
         ],
         "priority": "high",
-        "subtasks": []
+        "subtasks": [],
+        "updatedAt": "2026-09-18T22:20:12.748Z"
       },
       {
         "id": "74",
@@ -1343,7 +1344,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-09-18T22:18:48.485Z",
+      "lastModified": "2026-09-18T22:20:12.748Z",
       "taskCount": 94,
       "completedCount": 71,
       "tags": [

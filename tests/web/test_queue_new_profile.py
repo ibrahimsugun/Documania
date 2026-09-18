@@ -3,9 +3,9 @@ düzenlenemez (K7, K16, K17, §20.6, §20.6.1, §20.6.2).
 
 Onay bekleyen profil öğesi gerçek planlayıcıdan (06.1) ve kuyruğa yönlendirmeden (08.1) geçer
 (`_pending_items`: numarası temiz olmayan sentetik çalışma izni, §20.2.2 satır 7); sayfa analizleri
-saklanmış sentetik yanıtlardır, yapay zekâ sağlayıcısı çağrılmaz. Onay belirteci oturum çerezinden
-türetilir; oturum bağımlılığı testte geçersiz kılındığı için çerez elle konur. Gerçek kimlik belgesi
-kullanılmaz.
+saklanmış sentetik yanıtlardır, yapay zekâ sağlayıcısı çağrılmaz. Onay belirteci 10.8.1'in tek
+kullanımlık belirtecidir ve oturum çerezine bağlıdır; oturum bağımlılığı testte geçersiz kılındığı
+için çerez elle konur. Gerçek kimlik belgesi kullanılmaz.
 """
 
 from __future__ import annotations
@@ -21,10 +21,9 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, sessionmaker
-from starlette.requests import Request
 
+import app.web.confirm as confirm
 import app.web.routers.queue as queue_module
-import app.web.routers.upload_page as upload_page
 from app.catalog import import_catalog
 from app.db.models import (
     Document,
@@ -42,17 +41,15 @@ from app.pipeline.plan import create_plan, read_plan
 from app.pipeline.route import QueueItemNotFoundError, route_queue_item
 from app.storage import DataLayout, sha256_file
 from app.web.auth import SESSION_COOKIE, get_current_user
+from app.web.confirm import CONFIRMATION_REFUSED, Operation, first_text, second_text
 from app.web.routers.queue import (
     NOT_PENDING_NOTE,
-    PROFILE_FIRST_CONFIRMATION,
     PROFILE_RESOLVED_NOTE,
-    PROFILE_SECOND_CONFIRMATION,
     QUEUE_ITEM_NOT_FOUND,
     SUPERSEDED_NOTE,
     assignment_subject,
     profile_subject,
 )
-from app.web.routers.upload_page import CONFIRMATION_REFUSED, issue_confirmation
 from tests.pipeline.test_plan import (
     BORN,
     CATALOG,
@@ -65,10 +62,9 @@ from tests.pipeline.test_plan import (
     _person,
 )
 from tests.pipeline.test_plan import _upload as _upload_with_analyses
-from tests.web.conftest import SIGNED_IN
+from tests.web.conftest import SESSION, SIGNED_IN, issue_token
 from tests.web.test_queue import _queued_item, _refuse_provider
 
-SESSION = "oturum-bir"
 # §20.2.3 koşul 2: normalize hâli 5 karakterden kısa numara temiz değildir → satır 7.
 SHORT_NUMBER = "AB12"
 NEW = "E0001"
@@ -282,7 +278,7 @@ def test_first_confirmation_shows_the_edited_profile_verbatim_and_changes_nothin
 
     assert response.status_code == 200, response.text
     html = response.text
-    assert FIRST_TEXT == PROFILE_FIRST_CONFIRMATION.format(name=f"{GIVEN} {EDITED_SURNAME}")
+    assert FIRST_TEXT == first_text(Operation.APPROVE_PROFILE, name=f"{GIVEN} {EDITED_SURNAME}")
     assert f'<p class="confirm-text" role="alert">{FIRST_TEXT}</p>' in html
     assert f'hx-post="/queues/{item_id}/profile/prepare"' in html
     # Onaylanacak değerler ve öneriden farklı olanlar gösterilir; formun değerleri taşınır.
@@ -319,7 +315,9 @@ def test_invalid_fields_are_listed_at_every_step_and_change_nothing(
     client: TestClient, session_factory: sessionmaker[Session], item_id: int
 ) -> None:
     values = {**EDITED, "given_names": " ", "date_of_birth": "01.02.1990", "nationality": "RUS1"}
-    token = issue_confirmation(_request(), profile_subject(item_id, _fields(EDITED)))
+    token = issue_token(
+        session_factory, Operation.APPROVE_PROFILE, profile_subject(item_id, _fields(EDITED))
+    )
 
     responses = [
         _confirm(client, item_id, values),
@@ -345,7 +343,7 @@ def test_first_confirmation_gives_the_second_one_with_a_token_and_changes_nothin
 
     assert response.status_code == 200
     html = response.text
-    assert SECOND_TEXT == PROFILE_SECOND_CONFIRMATION
+    assert SECOND_TEXT == second_text(Operation.APPROVE_PROFILE)
     assert f'<p class="confirm-text" role="alert">{SECOND_TEXT}</p>' in html
     assert f'hx-post="/queues/{item_id}/profile"' in html
     hidden = _hidden(html)
@@ -499,12 +497,6 @@ def test_document_content_cannot_be_sent_with_the_profile(
 # --- belirteç kuralları (§20.6.1 adım 4–5, §20.6.2) -----------------------------------------------
 
 
-def _request(session: str = SESSION) -> Request:
-    return Request(
-        {"type": "http", "headers": [(b"cookie", f"{SESSION_COOKIE}={session}".encode())]}
-    )
-
-
 def _fields(values: dict[str, str]) -> ProfileFields:
     return ProfileFields(
         given_names=values["given_names"],
@@ -551,15 +543,20 @@ def test_a_token_is_bound_to_its_item_its_operation_and_its_session(
 ) -> None:
     item_id, other_item = _pending_items(session_factory, layout, count=2)
     token = _prepare(client, item_id)
-    # Aynı oturumun atama belirteci (10.7.2) profil onayında geçmez.
-    foreign = issue_confirmation(_request(), assignment_subject(item_id, "E0042"))
+    # Aynı oturumun atama belirteci (10.7.2) ve aynı hedefe başka işlem belirteci profil
+    # onayında geçmez.
+    foreign = issue_token(session_factory, Operation.ASSIGN, assignment_subject(item_id, "E0042"))
+    same_target = issue_token(
+        session_factory, Operation.ASSIGN, profile_subject(item_id, _fields(EDITED))
+    )
 
     wrong_item = _create(client, other_item, token)
     other_operation = _create(client, item_id, foreign)
+    other_operation_same_target = _create(client, item_id, same_target)
     client.cookies.set(SESSION_COOKIE, "oturum-iki")
     other_session = _create(client, item_id, token)
 
-    for response in (wrong_item, other_operation, other_session):
+    for response in (wrong_item, other_operation, other_operation_same_target, other_session):
         assert response.status_code == 400, response.text
     _unchanged(session_factory, item_id)
     _unchanged(session_factory, other_item)
@@ -589,11 +586,8 @@ def test_an_expired_token_is_refused(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     token = _prepare(client, item_id)
-    monkeypatch.setattr(
-        upload_page,
-        "utcnow",
-        lambda: utcnow() + upload_page.CONFIRMATION_TTL + timedelta(seconds=5),
-    )
+    later = utcnow() + confirm.CONFIRMATION_TTL + timedelta(seconds=5)
+    monkeypatch.setattr(confirm, "utcnow", lambda: later)
 
     response = _create(client, item_id, token)
 
@@ -644,7 +638,9 @@ def test_edited_profile_matching_a_registered_employee_is_refused_at_every_step(
         "surname": "KISI",
         "date_of_birth": "1985-05-05",
     }
-    token = issue_confirmation(_request(), profile_subject(item_id, _fields(values)))
+    token = issue_token(
+        session_factory, Operation.APPROVE_PROFILE, profile_subject(item_id, _fields(values))
+    )
 
     responses = [
         _confirm(client, item_id, values),
@@ -659,8 +655,12 @@ def test_edited_profile_matching_a_registered_employee_is_refused_at_every_step(
     _unchanged(session_factory, item_id, employees=1)
 
 
-def _steps(client: TestClient, queue_item_id: int) -> list[Any]:
-    token = issue_confirmation(_request(), profile_subject(queue_item_id, _fields(EDITED)))
+def _steps(
+    client: TestClient, session_factory: sessionmaker[Session], queue_item_id: int
+) -> list[Any]:
+    token = issue_token(
+        session_factory, Operation.APPROVE_PROFILE, profile_subject(queue_item_id, _fields(EDITED))
+    )
     return [
         _confirm(client, queue_item_id, EDITED),
         client.post(f"/queues/{queue_item_id}/profile/prepare", data=EDITED),
@@ -673,7 +673,7 @@ def test_every_step_refuses_an_item_that_proposes_no_profile(
 ) -> None:
     queue_item_id = _queued_item(session_factory, layout)  # Unreadable, satır 7 değil
 
-    for response in _steps(client, queue_item_id):
+    for response in _steps(client, session_factory, queue_item_id):
         assert response.status_code == 409
         assert NOT_PENDING_NOTE in response.text
     _unchanged(session_factory, queue_item_id, employees=1)
@@ -687,7 +687,7 @@ def test_every_step_refuses_a_superseded_item(
         create_plan(session, layout, upload, catalog=CATALOG, model=MODEL)
         session.commit()
 
-    for response in _steps(client, item_id):
+    for response in _steps(client, session_factory, item_id):
         assert response.status_code == 409
         assert SUPERSEDED_NOTE in response.text
     _unchanged(session_factory, item_id)
@@ -696,7 +696,7 @@ def test_every_step_refuses_a_superseded_item(
 def test_every_step_reports_a_missing_item(
     client: TestClient, session_factory: sessionmaker[Session], item_id: int
 ) -> None:
-    for response in _steps(client, item_id + 100):
+    for response in _steps(client, session_factory, item_id + 100):
         assert response.status_code == 404
         assert QUEUE_ITEM_NOT_FOUND in response.text
     _unchanged(session_factory, item_id)

@@ -36,13 +36,13 @@ from app.db.models import (
 from app.events import EventType
 from app.pipeline.orchestrate import process_upload
 from app.storage import DataLayout
-from app.web.auth import get_current_user
+from app.web.auth import SESSION_COOKIE, get_current_user
+from app.web.confirm import CONFIRMATION_HEADER
 from app.web.routers.queue import (
     CORRUPT_SOURCE,
     PAGE_SIZE,
     QUEUE_ITEM_NOT_FOUND,
     SUPERSEDED_NOTE,
-    get_confirmed_actor,
 )
 from tests.fixtures.gen import (
     PERSON_ORNEKOVA,
@@ -50,7 +50,8 @@ from tests.fixtures.gen import (
     passport_page,
     recorded_provider,
 )
-from tests.web.test_queue import ACTOR, TARGET
+from tests.web.conftest import SESSION
+from tests.web.test_queue import ACTOR, TARGET, USER
 from tests.web.test_queue import _queued_item as _pipeline_queued_item
 
 SETTINGS = Settings(_env_file=None, database_url="sqlite://")
@@ -501,8 +502,15 @@ def test_resolved_item_shows_who_resolved_it_and_links_to_the_output_history(
     layout: DataLayout,
 ) -> None:
     item_id = _pipeline_queued_item(session_factory, layout)
-    app.dependency_overrides[get_confirmed_actor] = lambda: ACTOR  # 10.8.1'in yerine
-    assigned = client.post(f"/api/queue/{item_id}/assign", json={"employee_id": TARGET})
+    # İki aşamalı onay (10.8.1): hazırlık belirteci verir, atama onu başlıkta taşır.
+    app.dependency_overrides[get_current_user] = lambda: USER
+    client.cookies.set(SESSION_COOKIE, SESSION)
+    prepared = client.post(f"/api/queue/{item_id}/assign/prepare", json={"employee_id": TARGET})
+    assigned = client.post(
+        f"/api/queue/{item_id}/assign",
+        json={"employee_id": TARGET},
+        headers={CONFIRMATION_HEADER: prepared.json()["confirmation"]},
+    )
     assert assigned.status_code == 200, assigned.text
     document_id: int = assigned.json()["document_id"]
 
