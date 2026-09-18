@@ -18,6 +18,12 @@ Blok biçimi `CONVENTIONS.md` §3'te tanımlıdır:
 
 ## Task log (newest-first)
 
+## 58 — 09.1 profil.md üretimi — done — 2026-09-18
+- Yapıldı: `app/profiles/render.py` — `render_profile(session, employee, *, today=None)` çalışanın güncel kaydından (kimlik, alias sayılmaz, `employee_identifiers`, güncel `employee_contacts`, `documents`+`known_document_types`) YAML ön blok + `## Kimlik` tablosu + `## Belgeler` tablosunu baştan üretir; `write_profile` bunu `layout.profile_path`'e `replace_file` ile atomik yazar. `original_script_name` doluyken `given_names`/`surname` (Latin) ile birlikte ayrıca göründüğü için 09.1.2 ek dönüştürme istemedi.
+- Doğrulama: ruff check/format, compileall, `pytest -q -m "not live" --cov=app --cov-fail-under=70` (2157 geçti, +14; 4 PG testi atlandı), kapsam %99.73 (`app/profiles/render.py` %100), temiz SQLite'ta `alembic upgrade head` (0001→0002, bu görevde göç yok), `import app.main` — hepsi exit 0.
+- Varsayımlar: dosya yoksa 09.1 kapsamında kimse çağırmıyor — `write_profile`'ı çalışan açma/onay/eşleştirme/uygulayıcı akışlarına bağlamak bu görevin GİRDİ'sü değildi (`tests/matching/test_employee_creation.py:255-256` `create_employee`'nin profil.md yazmadığını zaten doğruluyordu); belge listesi çalışanın **bütün** belgelerini durumuyla (`active`/`superseded`/`archived`) gösterir, filtrelenmez — PRD yalnız "belge listesi" diyor, K18 eski çıktıyı sildirmiyor.
+- Sonraki pencereye not: 09.2 (orkestrasyon) her aşamadan sonra `write_profile`'ı çağırmalı ("her değişiklikten sonra yeniden üretilir" — 09.1.1); bugün hiçbir çağıran yok, `profil.md` yalnız bu görevin testlerinde üretiliyor.
+
 ## 57 — 08.4 Arşive taşıma — done — 2026-09-18
 - Yapıldı: `archive_document` (`app/storage/archive.py`) etkin belgeyi `write_unique` ile `Archive/<yyyy-mm>/`'e taşır (yayından sonra kaynak silinir — gerçek taşıma, K11), `documents.path`/`status` (`archived`) günceller, `ARCHIVED` olayını kullanıcı adıyla yazar; uç nokta `POST /api/queue/documents/{document_id}/archive` (`app/web/routers/queue.py`), K16 onayı `get_confirmed_actor`'dan (10.8.1 bağlanana kadar 503).
 - Doğrulama: ruff check/format, compileall, `pytest -q -m "not live" --cov=app --cov-fail-under=70` (2143 geçti, +12; 4 PG testi atlandı), kapsam %99.73 (`archive.py`/`queue.py` %100), temiz SQLite'ta `alembic upgrade head` (0001→0002, bu görevde göç yok — `DocumentStatus.ARCHIVED` yeni değer, `documents.status`'ta CHECK kısıtı yok), `import app.main` — hepsi exit 0.

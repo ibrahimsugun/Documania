@@ -8,7 +8,7 @@
 
 | Faz | PRD | Genel durum | Must sayacı | Kapanış |
 | --- | --- | --- | --- | --- |
-| Faz 0 — MVP | §5.1 | 91 ✅ · 0 ◐ · 11 ⬜ · 0 🔒 | 88/98 Must | AÇIK |
+| Faz 0 — MVP | §5.1 | 94 ✅ · 0 ◐ · 8 ⬜ · 0 🔒 | 91/98 Must | AÇIK |
 | Faz 1 — v1 | §5.2 | 0 ✅ · 0 ◐ · 0 ⬜ · 32 🔒 | 0/21 Must | AÇIK |
 | Faz 2 — v2 | §5.3 | 0 ✅ · 0 ◐ · 0 ⬜ · 13 🔒 | 0/0 Must | AÇIK |
 | Faz 3 — Enterprise | §5.4 | 0 ✅ · 0 ◐ · 0 ⬜ · 8 🔒 | 0/0 Must | AÇIK |
@@ -206,9 +206,9 @@ panelde `plan-count-drift` bulgusu doğurur.
 
 | PRD | Gereksinim | Öncelik | Durum |
 | --- | --- | --- | --- |
-| 09.1.1 | profil.md üretimi | Must (MVP) | ⬜ |
-| 09.1.2 | Orijinal yazım gösterimi | Must (MVP) | ⬜ |
-| 09.1.3 | Profil içeriği eksiksizliği | Must (MVP) | ⬜ |
+| 09.1.1 | profil.md üretimi | Must (MVP) | ✅ → K09.1 |
+| 09.1.2 | Orijinal yazım gösterimi | Must (MVP) | ✅ → K09.1 |
+| 09.1.3 | Profil içeriği eksiksizliği | Must (MVP) | ✅ → K09.1 |
 | 09.2.1 | Parti durum makinesi | Must (MVP) | ⬜ |
 | 09.2.2 | Uçtan uca orkestrasyon | Must (MVP) | ⬜ |
 | 09.2.3 | Hata dayanıklılığı | Must (MVP) | ⬜ |
@@ -1842,3 +1842,7 @@ var olan maddeler silinmez. Biçim:
 - ✅ `archive_document(session, layout, document_id, *, actor, today=None)` (`app/storage/archive.py`) etkin (`DocumentStatus.ACTIVE`) belgeyi `Archive/<yyyy-mm>/`'e taşır (R11, K11): kaynak `write_unique` ile hedefe yayınlanır (K8'deki gibi `-2`, `-3`… ekiyle çakışmasız, `expected_sha256` ile bütünlük doğrulanır), yayın bittikten sonra kaynak silinir — gerçek bir taşıma, kopya bırakılmaz; `documents.path`/`status` (`archived`) güncellenir, satır/köken/sıra numarası silinmez ya da yeniden adlandırılmaz (K18'deki gibi). Belge satırı `with_for_update` ile kilitlenir (eşzamanlı ikinci çağrı belgeyi arşivlenmiş görür). Yalnız `active` belge arşivlenir; zaten arşivlenmiş ya da eski sürüm (`superseded`) `DocumentNotArchivableError`, kayıt yoksa `DocumentNotFoundError`; K16 gereği `actor` boşsa `ValueError`. Başarıyla biten işlem `ARCHIVED` olayını (K15) kullanıcı adı, belge ve çalışan kimliğiyle yazar. Oturum commit edilmez.
 - ✅ `POST /api/queue/documents/{document_id}/archive` (`app/web/routers/queue.py`): gövde yok; K16 onaylanmış kullanıcı adı `get_confirmed_actor`'dan — oturum (10.1.2) ve onay belirteci (10.8.1) bağlanana kadar 503; belge yoksa 404, etkin değilse (zaten arşivlenmiş/eski sürüm) 409, yalnız başarıda commit.
 - ✅ Kapı: 2143 geçti (+12), kapsam %99.73 (`archive.py`, `queue.py` %100) — test `tests/storage/test_archive.py` (8: arşive taşıma + durum/yol güncellemesi + kaynağın silinmesi + `ARCHIVED` olayı, bulunamayan belge, eski sürüm/zaten arşivlenmiş belgenin reddi ×2, ikinci arşivlemenin reddi, boş kullanıcı adı ×2, işlem sınırı çağıranda) · `tests/web/test_queue.py` (+4: onaysız 503 ve değişiklik yok, 200 + durum/dosya taşınması + olay, ikinci arşivleme 409, bilinmeyen belge 404) · tm 57
+
+#### K09.1 — 09.1.1, 09.1.2, 09.1.3 · profil.md üretimi
+- ✅ `render_profile(session, employee, *, today=None)` (`app/profiles/render.py`) `profil.md` içeriğini çalışanın güncel veritabanı kaydından baştan üretir — kısmi güncelleme yoktur, bu yüzden herhangi bir değişiklikten sonra çağrı güncel hâli verir (09.1.1). Sıra: YAML ön blok (`employee_id`, `folder_name`, `given_names`, `surname`, `other_names`, `original_script_name`, `nationality`, `date_of_birth`, hesaplanan `age`, `document_numbers`, `contacts`), `## Kimlik` tablosu (aynı alanlar + iletişim satırları, okunmayan `—`) ve `## Belgeler` tablosu (tür adı, dosya adı, durum, tarih; belge yoksa "Henüz belge yok."). `given_names`/`surname` belgeden okunan yazımdır, `original_script_name` doluysa Latin olmayan asıl yazım ayrıca görünür — ikisi birlikte göründüğü için 09.1.2 ayrı dönüştürme istemez. `calculate_age(date_of_birth, *, today)` tam yaşı verir. `write_profile(session, layout, employee, *, today=None)` çıktıyı `layout.profile_path(employee.folder_name)`'e `replace_file` ile atomik yazar (dosya varsa baştan üretilir, elle düzenleme beklenmez — §8.2).
+- ✅ Kapı: ruff check/format, compileall, `pytest -q -m "not live" --cov=app --cov-fail-under=70` (2157 geçti, +14; 4 PG testi atlandı), kapsam %99.73 (`app/profiles/render.py` %100), temiz SQLite'ta `alembic upgrade head` (0001→0002, bu görevde göç yok), `import app.main` — hepsi exit 0 — test `tests/profiles/test_render.py` (14: YAML ön blok + kimlik tablosu + belge listesi, Latin olmayan isimde ikisi bir arada, yalnız Latin isimde orijinal yazım yer tutucusu, eksiksizlik, okunmayan alan yer tutucusu, yalnız güncel iletişim satırı, `calculate_age` 4 durum, `write_profile` yayın yolu + değişiklik sonrası yeniden üretim + eski içerik kalmaması, birden fazla belge durumu) · tm 58

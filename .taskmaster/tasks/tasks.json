@@ -825,14 +825,15 @@
         "description": "PRD 09.1.1, 09.1.2, 09.1.3 · FR-MOD-09 (Çalışan profili ve orkestrasyon) · Faz 0.",
         "details": "KAPSAM: PRD 09.1.1, 09.1.2, 09.1.3 (FR-MOD-09 — Çalışan profili ve orkestrasyon, Faz 0).\n\nNE YAPILACAK — GEREKSİNİMLER VE KABUL KRİTERLERİ:\n- 09.1.1 — profil.md üretimi\n  Kabul: YAML ön blok + kimlik tablosu + belge listesi içerir; her değişiklikten sonra yeniden üretilir\n- 09.1.2 — Orijinal yazım gösterimi\n  Kabul: Latin olmayan isimlerde hem Latin hem orijinal yazım görünür\n- 09.1.3 — Profil içeriği eksiksizliği\n  Kabul: profil.md şunların hepsini taşır: ad, soyad, diğer isimler, orijinal yazım, vatandaşlık, doğum tarihi ve hesaplanan yaş, belge numaraları, iletişim bilgileri, belge listesi\n\nGİRDİ — ÜZERİNE KURULDUĞU İŞLER (bu kod ZATEN VAR; yazmadan önce OKU):\n- 07.7 (Çıktı yazma, köken kaydı ve Alinan kopyası) → app/pipeline/execute.py, app/storage/\n- 05.7 (Onay bekleyen profil ve alias birikimi) → app/matching/match.py\n- 05.8 (İletişim bilgisi, dil ve alfabe kaydı) → app/matching/contacts.py, app/db/models.py\n\nÇIKTI — DOKUNULACAK YÜZEY: app/profiles/\n\nKARAR TABLOSU: bu görev için ayrı karar tablosu yok; kabul kriterleri ve kilitli kurallar yeterli.\n\nBU GÖREVİ BAĞLAYAN KİLİTLİ KURALLAR: özel kural yok. Genel sınırlar MASTER-PROMPT §8'de.\n\nPRD'DE AYRICA OKU: §8.2 (veri dizini yapısı) · §8.1 (veritabanı tabloları)\n\nİLGİLİ KABUL SENARYOSU: doğrudan yok. Kabul kriterleri yukarıda.\n\nSIRA (MASTER-PROMPT §5, contract-first): sözleşme/şema → Alembic göçü (gerekiyorsa) → çekirdek + unit test → entegrasyon + testi → arayüz.\n\nKAPSAM SINIRI: yalnız yukarıdaki PRD kimlikleri. Başka gereksinimin işini yapma; yolda gördüğün kusuru düzeltme, yeni görev olarak aç (CONVENTIONS §5). Kilitli teknik kararları (MASTER-PROMPT §4) tartışma; yanlış görünüyorsa uygula ve PLAN.md §D'ye sapma yaz.\n\nTUZAKLAR: belge içeriğini değiştiren kod yazma — kırpma, döndürme (EXIF dışında), kontrast, metin yazma, form doldurma yok (K11/K17). Gerçek kimlik belgesi kullanma; test verisi tests/fixtures/gen.py ile üretilen sentetik belgelerdir (CONVENTIONS §6). Yapay zekâ çağrısı testte canlı yapılmaz, kayıtlı yanıt sağlayıcısı kullanılır. Test/build komutlarını arka plana atma — pencere ölür.\n\nKAPANIŞ: PLAN.md'de 09.1.1, 09.1.2, 09.1.3 satırlarının damgasını '✅ → K09.1' yap ve '## K. Kanıt Geçmişi' bölümünde '#### K09.1' bloğuna kanıt maddesi ekle (blok yoksa aç). Faz özet tablosundaki sayıları SAYARAK güncelle. Ayrıntı: CONVENTIONS §1.2-1.3.",
         "testStrategy": "CONVENTIONS §1 DoD kapısı: ruff check . · ruff format --check . · python -m compileall -q app tests · pytest -q -m \"not live\" · alembic upgrade head · python -c \"import app.main\" — hepsi exit 0.\nAyrıca bu görevin kendi kabul kriterleri:\n- 09.1.1: YAML ön blok + kimlik tablosu + belge listesi içerir; her değişiklikten sonra yeniden üretilir\n- 09.1.2: Latin olmayan isimlerde hem Latin hem orijinal yazım görünür\n- 09.1.3: profil.md şunların hepsini taşır: ad, soyad, diğer isimler, orijinal yazım, vatandaşlık, doğum tarihi ve hesaplanan yaş, belge numaraları, iletişim bilgileri, belge listesi",
-        "status": "pending",
+        "status": "in-progress",
         "dependencies": [
           "52",
           "38",
           "39"
         ],
         "priority": "high",
-        "subtasks": []
+        "subtasks": [],
+        "updatedAt": "2026-09-18T11:48:14.031Z"
       },
       {
         "id": "59",
@@ -1302,7 +1303,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-09-18T11:35:48.092Z",
+      "lastModified": "2026-09-18T11:48:14.032Z",
       "taskCount": 92,
       "completedCount": 56,
       "tags": [
