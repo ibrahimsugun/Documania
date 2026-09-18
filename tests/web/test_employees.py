@@ -160,10 +160,13 @@ def seeded(session_factory: sessionmaker[Session]) -> None:
 
 
 def _rows(html: str) -> list[list[str]]:
-    """Tablo gövdesinin her satırının hücre metinleri."""
+    """Tablo gövdesinin her satırının hücre metinleri (bağlantı etiketleri atılmış)."""
     body = html.split("<tbody>", 1)[1].split("</tbody>", 1)[0]
     return [
-        [re.sub(r"\s+", " ", cell).strip() for cell in re.findall(r"<td>(.*?)</td>", row, re.S)]
+        [
+            re.sub(r"\s+", " ", re.sub(r"<[^>]+>", "", cell)).strip()
+            for cell in re.findall(r"<td>(.*?)</td>", row, re.S)
+        ]
         for row in re.findall(r"<tr>(.*?)</tr>", body, re.S)
     ]
 

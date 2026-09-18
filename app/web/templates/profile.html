@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{# Çalışan profili (10.5.1-10.5.4): CV benzeri kart, belge listesi ve bağlam çalışanıyla yükleme.
+   Bilinmeyen alan "—" görünür, gizlenmez. Sayfa yalnız okur; belge içeriğini değiştiren yol yok. #}
+{% block title %}{{ profile.name if profile else "Çalışan bulunamadı" }}{% endblock %}
+{% block content %}
+<p class="back"><a href="/employees">← Çalışanlar</a></p>
+{% if error %}
+<h1>Çalışan</h1>
+<p class="error" role="alert">{{ error }}</p>
+{% else %}
+<h1>{{ profile.name }}</h1>
+<p class="profile-meta">{{ profile.id }} · {{ profile.status_label }}</p>
+
+<section class="profile-card" aria-label="Çalışan kartı">
+  <div class="profile-photo">
+    {% if profile.photo_url %}
+    <img src="{{ profile.photo_url }}" alt="{{ profile.name }} profil fotoğrafı">
+    {% else %}
+    <div class="photo-placeholder" role="img" aria-label="Profil fotoğrafı yok">
+      <span>Fotoğraf yok</span>
+    </div>
+    {% endif %}
+    {% if profile.photo_missing %}
+    <p class="missing" role="status"><span class="badge badge-missing">Eksik belge</span> Profile Picture</p>
+    {% endif %}
+  </div>
+  <dl class="profile-fields">
+    <dt>Ad</dt><dd>{{ profile.given_names or "—" }}</dd>
+    <dt>Soyad</dt><dd>{{ profile.surname or "—" }}</dd>
+    <dt>Diğer isimler</dt><dd>{{ profile.other_names or "—" }}</dd>
+    <dt>Orijinal yazım</dt><dd>{{ profile.original_script_name or "—" }}</dd>
+    <dt>Vatandaşlık</dt><dd>{{ profile.nationality or "—" }}</dd>
+    <dt>Doğum tarihi</dt><dd>{{ profile.date_of_birth.strftime("%d.%m.%Y") if profile.date_of_birth else "—" }}</dd>
+    <dt>Yaş</dt><dd>{{ profile.age if profile.age is not none else "—" }}</dd>
+    {% for group in profile.contacts %}
+    <dt>{{ group.label }}</dt>
+    <dd>{% if group.values %}{% for value in group.values %}{% if not loop.first %}<br>{% endif %}{{ value }}{% endfor %}{% else %}—{% endif %}</dd>
+    {% endfor %}
+    <dt>Belge numaraları</dt>
+    <dd>
+      {% if profile.identifiers %}
+      <ul class="numbers">
+        {% for number in profile.identifiers %}
+        <li><span class="number-kind">{{ number.label }}</span> {{ number.value }}</li>
+        {% endfor %}
+      </ul>
+      {% else %}—{% endif %}
+    </dd>
+  </dl>
+</section>
+
+<section class="profile-documents">
+  <h2>Belgeler <span class="count">{{ profile.documents|length }}</span></h2>
+  {% if profile.documents %}
+  <table class="outputs">
+    <thead>
+      <tr><th>Tür</th><th>Dosya</th><th>Biçim</th><th>Durum</th><th>Tarih</th><th></th></tr>
+    </thead>
+    <tbody>
+      {% for document in profile.documents %}
+      <tr{% if document.status != "active" %} class="output-superseded"{% endif %}>
+        <td>{{ document.type_name }}</td>
+        <td>{% if document.available %}<a href="/employees/{{ profile.id }}/documents/{{ document.id }}/file" target="_blank" rel="noopener">{{ document.file_name }}</a>{% else %}{{ document.file_name }}{% endif %}</td>
+        <td>{{ document.format }}</td>
+        <td>{{ document.status_label }}</td>
+        <td>{{ document.created_on.strftime("%d.%m.%Y") }}</td>
+        <td class="doc-actions">
+          {% if document.available %}
+          <a href="/employees/{{ profile.id }}/documents/{{ document.id }}/download">İndir</a>
+          {% else %}
+          <span class="reason">Dosya bulunamadı</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="placeholder">Henüz belge yok.</p>
+  {% endif %}
+</section>
+
+<section class="profile-upload">
+  <h2>Belge yükle</h2>
+  <form id="upload-form" class="upload-form"
+        hx-post="/upload" hx-encoding="multipart/form-data"
+        hx-target="#upload-result" hx-swap="innerHTML"
+        hx-disabled-elt="find button[type=submit]">
+    <input type="hidden" name="context_employee_id" value="{{ profile.id }}">
+    <label class="dropzone" id="dropzone" for="files">
+      <strong>Dosyaları buraya sürükleyip bırakın</strong>
+      <span>ya da seçmek için tıklayın · birden çok dosya seçilebilir</span>
+      <small>PDF, JPEG, PNG · Word ve Excel olduğu gibi saklanır</small>
+      <input id="files" name="files" type="file" multiple
+             accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx">
+    </label>
+    <ul id="file-list" class="file-list" aria-live="polite"></ul>
+    <p class="hint">Yükleme {{ profile.name }} ({{ profile.id }}) çalışanı bağlamıyla yapılır: sahibi belgeden anlaşılamayan dosyalar ona atanır.</p>
+    <button type="submit">Yükle</button>
+  </form>
+  <section id="upload-result" class="upload-result" aria-live="polite"></section>
+</section>
+{% endif %}
+{% endblock %}
+{% block scripts %}
+<script src="/static/upload.js" defer></script>
+{% endblock %}

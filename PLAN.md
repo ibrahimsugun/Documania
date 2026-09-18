@@ -9,7 +9,7 @@
 | Faz | PRD | Genel durum | Must sayacı | Kapanış |
 | --- | --- | --- | --- | --- |
 | Faz 0 — MVP | §5.1 | 100 ✅ · 1 ◐ · 1 ⬜ · 0 🔒 | 97/98 Must | AÇIK |
-| Faz 1 — v1 | §5.2 | 9 ✅ · 0 ◐ · 0 ⬜ · 23 🔒 | 7/21 Must | AÇIK |
+| Faz 1 — v1 | §5.2 | 13 ✅ · 0 ◐ · 0 ⬜ · 19 🔒 | 9/21 Must | AÇIK |
 | Faz 2 — v2 | §5.3 | 0 ✅ · 0 ◐ · 0 ⬜ · 13 🔒 | 0/0 Must | AÇIK |
 | Faz 3 — Enterprise | §5.4 | 0 ✅ · 0 ◐ · 0 ⬜ · 8 🔒 | 0/0 Must | AÇIK |
 
@@ -232,10 +232,10 @@ panelde `plan-count-drift` bulgusu doğurur.
 | 10.3.2 | Yeniden çalıştır / yeniden analiz | Should (v1) | ✅ → K10.3 |
 | 10.4.1 | Çalışan listesi | Must (v1) | ✅ → K10.4 |
 | 10.4.2 | Arama | Must (v1) | ✅ → K10.4 |
-| 10.5.1 | Çalışan profili sayfası | Must (v1) | 🔒 |
-| 10.5.4 | Profil fotoğrafı yokluğu | Should (v1) | 🔒 |
-| 10.5.2 | Belge listesi ve açma | Must (v1) | 🔒 |
-| 10.5.3 | Profil sayfasından yükleme | Should (v1) | 🔒 |
+| 10.5.1 | Çalışan profili sayfası | Must (v1) | ✅ → K10.5 |
+| 10.5.4 | Profil fotoğrafı yokluğu | Should (v1) | ✅ → K10.5 |
+| 10.5.2 | Belge listesi ve açma | Must (v1) | ✅ → K10.5 |
+| 10.5.3 | Profil sayfasından yükleme | Should (v1) | ✅ → K10.5 |
 | 10.6.1 | Belge geçmişi | Must (v1) | 🔒 |
 | 10.7.1 | Kuyruk ekranları | Must (v1) | 🔒 |
 | 10.7.2 | Kuyruktan çalışana atama | Must (v1) | 🔒 |
@@ -1440,6 +1440,33 @@ Onay beklemeden yapılan varsayımlar buraya numaralı olarak yazılır.
   düşebilir — CONVENTIONS §6 uygulama günlüğünü ve olay logunu kapsar, bu sayfa `q`'yu ne loglar ne olaya yazar; POST'a çevirmek adres/
   geri düğmesi/yer imini bozar (10.1 testleri `/employees?q=…&page=…` adresini bekler), karar insana.
 
+- **C49** — Çalışan profili sayfası (tm 68, 10.5.1, 10.5.4, 10.5.2, 10.5.3): PRD yalnız kabul cümlelerini verir; adresler, alanların
+  gösterimi, "güncel" fotoğrafın tanımı ve belge sunumunun kuralları yazılı değil. **Adresler** (`app/web/routers/employees.py`,
+  `profile.html`; hepsi yalnız `GET`): `/employees/{id}` profil sayfası, `.../photo` kart fotoğrafı, `.../documents/{doc_id}/file` açma
+  (satır içi), `.../documents/{doc_id}/download` indirme (ek). Çalışan listesinde No ve Ad artık profile bağlanır (C48 açığı (1) kapandı);
+  bilinmeyen çalışan 404 + "Çalışan bulunamadı." sayfası. **Kart:** PRD'nin saydığı her alan görünür, boş olan "—" (gizlenmez): Ad ve Soyad
+  ayrı satır, Diğer isimler, Orijinal yazım, Vatandaşlık (saklandığı gibi), Doğum tarihi (GG.AA.YYYY; `profil.md` ISO kullanır) ve Yaş
+  (`calculate_age`, 09.1.3 — sunucunun bugünü), Telefon/E-posta/Adres (yalnız `is_current` olanlar, `profil.md` ile aynı; türde birden çok
+  güncel değer alt alta, eski numara kartta yok), Belge numaraları (`employee_identifiers`; etiket katalogdaki tür adıdır çünkü `kind` tür
+  slug'ıdır, katalogda yoksa ham `kind`). **Fotoğraf (10.5.4):** güncel fotoğraf = çalışanın en yeni **etkin** `profile_picture` belgesi
+  (`created_at`, `id`); eski sürüm ve arşivlenmiş sayılmaz. "Eksik belge · Profile Picture" rozeti yalnız etkin fotoğraf **kaydı** yoksa
+  çıkar; kayıt var ama dosya diskte yok ya da biçimi görüntü değil (pdf) ise yer tutucu çizilir, rozet çıkmaz (belge listesi sorunu
+  "Dosya bulunamadı" ile gösterir) — kırık `<img>` çizilmez. Fotoğraf `file`'dan ayrı `/photo` adresindedir ki 10.9.2 profil sayfasını
+  çizmeyi "belgeyi açma" saymasın; **10.9.2 `file` ve `download`'a log eklemeli, `photo`'nun loglanıp loglanmayacağı orada karara bağlanır.**
+  **Belge listesi (10.5.2):** çalışanın **tüm** belgeleri (etkin/"Eski sürüm"/"Arşivlendi"; C48'in "profil sayfası tüm durumları listeler"
+  sözü), yeniden eskiye; Tür (katalog adı), Dosya, Biçim, Durum, Tarih. Dosya adı yeni sekmede (`target="_blank" rel="noopener"`) açar,
+  "İndir" ayrı bağlantıdır; eski/arşiv sönük çizilir. Dosya yoksa ya da kayıtlı yol veri dizininden kaçıyorsa (`DataLayout.resolve`)
+  bağlantı çizilmez ("Dosya bulunamadı") ve uç nokta 404 verir; belge başka çalışana aitse 404. Sunum: ortam türü uzantı tablosundan
+  (`pdf`, `jpg`/`jpeg`, `png`), dosya içeriğinden değil; başka biçim (Word/Excel, K2) `file`'da da ek olarak iner; `nosniff` +
+  `Cache-Control: private, no-store`; sunucu bayt bayt dosyayı verir (K10, K17). "Düzenlenemez": dört yolun hiçbiri `GET dışı`
+  yöntem kabul etmez (test OpenAPI şemasından sınar; 10.9.1 kendi kabulünü ayrıca yazar). **Yükleme (10.5.3):** profil sayfasında
+  `/upload` formunun aynısı (dropzone + `upload.js`, aynı kimlikler) — çalışan seçici yok, gizli `context_employee_id` profilin
+  çalışanıdır; `POST /upload`'a gider, ilerleme aynı sayfada `#upload-result`'ta. Bu form `upload.html`'in kopyasıdır (görevin dokunma
+  yüzeyi `upload.html`'i kapsamıyordu); ikisi birlikte değişmeli. **Açıklar:** (1) yükleme bitince profilin belge listesi kendiliğinden
+  yenilenmez (sayfa yenilenir ya da ilerleme parçasındaki parti ayrıntısına gidilir); (2) belgenin kaynak dosya/sayfa geçmişi
+  bağlantısı 10.6.1'in; (3) tarayıcıda yalnız statik çizim (headless Chrome, kart + yer tutucu) görüldü, HTMX yükleme akışı tarayıcıda
+  yeniden denenmedi — 10.2'de doğrulanan `upload.js`/HTMX kalıbı aynen kullanıldı, sınama `TestClient` ile.
+
 ## D. Sapmalar
 
 PRD'den veya kilitli kararlardan her sapma buraya numaralı yazılır (D1, D2…).
@@ -2066,3 +2093,10 @@ var olan maddeler silinmez. Biçim:
 - ✅ 10.4.1 çalışan listesi: `app/web/routers/employees.py` (`GET /employees` → `list_employees`; No, Ad, Orijinal yazım, Uyruk, Belge sayısı (yalnız etkin belge), Durum; soyad/ad sırası, 25'lik sayfalar, boş dizin ve eşleşmeme iletileri) + `app/web/templates/employees.html` / `employees_results.html`; `panel.py`'deki yer tutucu kaldırıldı, `app/main.py` yönlendiriciyi oturuma bağlar, `panel.css` tablo/arama/sayfalama stili · test `tests/web/test_employees.py` (60) · tm 67
 - ✅ 10.4.2 arama: `q` terimlere bölünür (terimler VE, alanlar VEYA; en çok 6 terim, 100 karakter) ve ad/diğer isimler, alias (ham + `normalize_name` anahtarı: harf büyüklüğü, aksan, Kiril↔Latin), orijinal yazım, belge numarası (`normalize_document_number` ile ayırıcı farkı yok) ve belge türü (ad/dosya etiketi/slug, etkin belge; `İkamet` Python katlamasıyla) üzerinde çalışır; `%`/`_` LIKE kaçışlı; HTMX parçası (`HX-Request`, `Vary`, geçmiş geri yüklemesi tam sayfa) — gerçek Chrome'da (CDP) yazarak arama, adres güncelleme, tam yenileme olmadan sonuç, eşleşmeyen ileti, temizleme ve geri tuşu doğrulandı · test `tests/web/test_employees.py` · tm 67
 - ✅ Kapı: ruff check/format, compileall, `pytest -q -m "not live" --cov=app --cov-fail-under=70` (2465 geçti, +60; 2 beklenen xfail D12; 4 PG testi atlandı), kapsam %99.75 (`employees.py` %100), temiz SQLite'ta `alembic upgrade head` (göç yok), `import app.main` — hepsi exit 0; 12 geçici kural bozulmasının (belge sayısı eski/arşiv dahil, tür araması eski sürüm dahil, alias anahtarı yok, LIKE kaçışı yok, terimler VEYA, numara normalize yok, `Vary` yok, geçmiş geri yüklemesi parça alır, sayfa kelepçesi yok, harf duyarlı sıra, tür katlaması yok, terim sınırı yok) her biri testte kırmızı · tm 67
+
+#### K10.5 — 10.5.1, 10.5.4, 10.5.2, 10.5.3 · Çalışan profili sayfası
+- ✅ 10.5.1 çalışan profili kartı: `app/web/routers/employees.py` (`GET /employees/{id}` → `build_profile`; fotoğraf, ad, soyad, diğer isimler, orijinal yazım, vatandaşlık, doğum tarihi + yaş (`calculate_age`), Telefon/E-posta/Adres (yalnız güncel), belge numaraları (etiket katalog tür adı); boş alan "—", gizlenmez; bilinmeyen çalışan 404 sayfası) + `app/web/templates/profile.html`; `employees_results.html` No ve Ad'ı profile bağlar, `panel.css` kart/belge/yükleme stili — C49 · test `tests/web/test_profile.py` (26, hepsi bu dosyada) · tm 68
+- ✅ 10.5.4 profil fotoğrafı yokluğu: kart en yeni **etkin** `profile_picture` belgesini `GET /employees/{id}/photo` ile gösterir (bayt bayt dosya); etkin kayıt yoksa (yalnız eski sürüm/arşiv dahil) yer tutucu + "Eksik belge · Profile Picture" rozeti, kayıt var ama dosya yok/görüntü değilse yer tutucu ve rozetsiz, kırık `<img>` yok; `/photo` 404 · test `tests/web/test_profile.py` · tm 68
+- ✅ 10.5.2 belge listesi ve açma: çalışanın tüm belgeleri (etkin/eski sürüm/arşivlendi; tür, dosya, biçim, durum, tarih), dosya adı `target="_blank" rel="noopener"` ile yeni sekmede açar (`.../documents/{id}/file`, satır içi), ayrı "İndir" (`.../download`, ek, dosya adıyla); Word/Excel her koşulda indirme; ortam türü uzantı tablosundan, `nosniff` + `Cache-Control: private, no-store`, içerik bayt bayt; başka çalışanın belgesi / kaydı olmayan / dosyası olmayan / yolu veri dizininden kaçan belge 404; düzenleme yolu yok — dört profil yolu yalnız `GET` (POST/PUT/PATCH/DELETE 405, OpenAPI şeması doğrular) · test `tests/web/test_profile.py` · tm 68
+- ✅ 10.5.3 profil sayfasından yükleme: profil sayfası `/upload` formunu gizli `context_employee_id` (çalışan seçici yok) ile taşır, `POST /upload`'a gider; sayfanın verdiği alanla yapılan yükleme partiyi o çalışanın bağlamıyla açar, ilerleme aynı sayfada — C49 · test `tests/web/test_profile.py` · tm 68
+- ✅ Kapı: ruff check/format, compileall, `pytest -q -m "not live" --cov=app --cov-fail-under=70` (2491 geçti, +26; 2 beklenen xfail D12; 4 PG testi atlandı), kapsam %99.76 (`employees.py` %100), temiz SQLite'ta `alembic upgrade head` (göç yok), `import app.main` — hepsi exit 0; 7 geçici kural bozulmasının (sahip denetimi yok, fotoğraf durum süzgeci yok, eski iletişim bilgisi görünür, açma "ek" olarak iner, yaş yanlış gün, `no-store` yok, `/photo` görüntü olmayanı da sunar) her biri testte kırmızı; headless Chrome'da (statik çizim) kart + fotoğraf + belge tablosu + yükleme formu ve yer tutucu/"Eksik belge"/"—" görünümü elle görüldü · tm 68

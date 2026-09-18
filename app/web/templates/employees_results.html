@@ -10,8 +10,8 @@
   <tbody>
     {% for row in listing.rows %}
     <tr>
-      <td>{{ row.id }}</td>
-      <td>{{ row.name }}</td>
+      <td><a href="/employees/{{ row.id }}">{{ row.id }}</a></td>
+      <td><a href="/employees/{{ row.id }}">{{ row.name }}</a></td>
       <td>{{ row.original_script_name or "—" }}</td>
       <td>{{ row.nationality or "—" }}</td>
       <td>{{ row.document_count }}</td>

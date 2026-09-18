@@ -210,3 +210,35 @@ button {
 .search input[type="search"] { flex: 1; min-width: 16rem; max-width: 40rem; padding: 0.45rem; border: 1px solid #d0d7de; border-radius: 4px; font: inherit; }
 
 .pager { display: flex; align-items: center; gap: 1rem; margin-top: 0.75rem; }
+
+/* Çalışan profili (10.5) */
+
+.back { margin: 0 0 0.5rem; }
+
+.profile-meta { margin: -0.5rem 0 1rem; color: #6b7280; }
+
+.profile-card { display: flex; flex-wrap: wrap; gap: 1.5rem; padding: 1rem; background: #fff; border: 1px solid #d0d7de; border-radius: 6px; }
+
+.profile-photo { display: flex; flex-direction: column; align-items: center; gap: 0.5rem; width: 10rem; }
+
+.profile-photo img { display: block; width: 10rem; max-height: 13rem; object-fit: contain; background: #eef0f3; border: 1px solid #d0d7de; border-radius: 4px; }
+
+.photo-placeholder { display: flex; align-items: center; justify-content: center; width: 10rem; height: 13rem; color: #6b7280; background: #eef0f3; border: 1px dashed #9aa4b2; border-radius: 4px; }
+
+.missing { margin: 0; font-size: 0.9em; }
+
+.badge-missing { background: #fff8e6; color: #92400e; }
+
+.profile-fields { display: grid; grid-template-columns: max-content 1fr; gap: 0.35rem 1.25rem; flex: 1; min-width: 16rem; margin: 0; }
+
+.profile-fields dt { color: #6b7280; }
+
+.profile-fields dd { margin: 0; }
+
+.numbers { margin: 0; padding: 0; list-style: none; }
+
+.number-kind { color: #6b7280; }
+
+.profile-documents, .profile-upload { margin-top: 1.5rem; }
+
+.doc-actions { white-space: nowrap; }
