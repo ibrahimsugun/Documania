@@ -8,7 +8,7 @@
 
 | Faz | PRD | Genel durum | Must sayacı | Kapanış |
 | --- | --- | --- | --- | --- |
-| Faz 0 — MVP | §5.1 | 97 ✅ · 0 ◐ · 5 ⬜ · 0 🔒 | 94/98 Must | AÇIK |
+| Faz 0 — MVP | §5.1 | 98 ✅ · 0 ◐ · 4 ⬜ · 0 🔒 | 95/98 Must | AÇIK |
 | Faz 1 — v1 | §5.2 | 0 ✅ · 0 ◐ · 0 ⬜ · 32 🔒 | 0/21 Must | AÇIK |
 | Faz 2 — v2 | §5.3 | 0 ✅ · 0 ◐ · 0 ⬜ · 13 🔒 | 0/0 Must | AÇIK |
 | Faz 3 — Enterprise | §5.4 | 0 ✅ · 0 ◐ · 0 ⬜ · 8 🔒 | 0/0 Must | AÇIK |
@@ -212,7 +212,7 @@ panelde `plan-count-drift` bulgusu doğurur.
 | 09.2.1 | Parti durum makinesi | Must (MVP) | ✅ → K09.2 |
 | 09.2.2 | Uçtan uca orkestrasyon | Must (MVP) | ✅ → K09.2 |
 | 09.2.3 | Hata dayanıklılığı | Must (MVP) | ✅ → K09.2 |
-| 09.3.1 | Sentetik belge üreteci | Must (MVP) | ⬜ |
+| 09.3.1 | Sentetik belge üreteci | Must (MVP) | ✅ → K09.3-a |
 | 09.3.2 | Kabul senaryoları S1–S5 | Must (MVP) | ⬜ |
 | 09.3.3 | Kabul senaryoları S6–S10 | Must (MVP) | ⬜ |
 | 09.3.4 | Kabul senaryoları S11–S15 ve S18 | Must (MVP) | ⬜ |
@@ -1900,3 +1900,9 @@ var olan maddeler silinmez. Biçim:
 - ✅ `process_upload(session, layout, upload, *, settings, provider)` `received` partiyi tek çağrıda render → analiz → plan → uygulama → `done`/`partial` götürür (yalnız `received`, satır kilidiyle; render reddi partiyi durdurmaz); `execute_plan`/`plan_executor` hazir → çıktı, kuyruk rotaları → `route_queue_item`, skip → `OUTPUT_SKIPPED`, sonra partinin çalışanlarının `profil.md`'si; `get_plan_executor` gerçek uygulayıcı, yürütülemeyen öğe 409 (`app/web/routers/uploads.py`) — test `tests/pipeline/test_process_upload.py` (uçtan uca pasaport + boş sayfa + Word, S2, S5, kısmi analiz, render reddi, yalnız `received`, yeniden analizde profil) · `tests/web/test_uploads.py` (gerçek uygulayıcıyla rerun, 409) · tm 59
 - ✅ 09.2.3: dört adımın her birinde beklenmeyen hata adımın veritabanı işini geri alır, partiyi `failed` yapar, Inbox'ı bayt bayt bırakır, `PIPELINE_FAILED` (`stage`, `error`, `traceback`; dış hata metni ve kişisel değer yok) yazar; uygulamanın kendi hatası (K10 Inbox değişmiş) metniyle loglanır; yürütmede duran parti `rerun` ile ikinci dosya olmadan kurtarılır · tm 59
 - ✅ Kapı: ruff check/format, compileall, `pytest -q -m "not live" --cov=app --cov-fail-under=70` (2184 geçti, +27; 4 PG testi atlandı), kapsam %99.74 (`orchestrate.py` %100, `uploads.py` %100), temiz SQLite'ta `alembic upgrade head` (0001→0002, göç yok), `import app.main` — hepsi exit 0; 8 kural bozulması (dış hata metni, geri alma, render reddi, `partial`, profil, geçiş commit'i, skip izi, tekrar dosyası) testte kırmızı · tm 59
+
+#### K09.3-a — 09.3.1 · Sentetik belge üreteci
+- ✅ MRZ yazıcısı `make_mrz_lines` (TD1/TD2/TD3) ve `mrz_check_digit` (`tests/fixtures/gen.py`) §20.1.3–§20.1.5'i ayrıştırıcıdan bağımsız uygular (alanlar anlamlarıyla birleşir, bileşik hane kapsanan alanların bitişik birleşimi; sığmayan alan kesilmez, reddedilir); ICAO "Utopia" örneklerini birebir üretir, `parse_mrz` üretilen her MRZ'yi aynı değerlere ve tutan hanelere geri okur, yazılan her haneyi bozmak yalnız o alanı + bileşik haneyi düşürür — test `tests/fixtures/test_gen.py` · tm 60
+- ✅ Kimlikli sentetik sayfalar: `SyntheticPerson` (kayıtlardaki kurgusal kişiler), `document_page` + `passport_page` (TD3), `driving_license_pages`, `residence_card_pages` (isteğe bağlı TD1), `work_permit_page`, `unknown_document_page`, `profile_picture_page`, `blank_page`; her sayfa görünür metni ve §8.4 kayıtlı yanıtını aynı değerlerden taşır (bulanık alan leke + `legible: false`), `make_document_pdf_bytes`/`make_page_image_bytes` belirleyici PDF/JPEG/PNG, `batch_analyses`/`write_recordings`/`recorded_provider` çağrı sırasıyla kayıtlı yanıt; depodaki 8 kayıt dizininin hepsi üreteçle birebir yeniden üretilir, test ağacında belge dosyası yok — test `tests/fixtures/test_gen.py` (68) · tm 60
+- ✅ Üretilen parti `process_upload`'dan geçer: pasaport + boş sayfa Hazir'a extract ile, çok dosyalı partide boş/tek görüntü tespiti ve istek sırası (`page_index` 0, 2, 3, 4, 5, 0) üreteçle tutar — test `tests/pipeline/test_synthetic_documents.py` (2) · tm 60
+- ✅ Kapı: ruff check/format, compileall, `pytest -q -m "not live" --cov=app --cov-fail-under=70` (2254 geçti, +70; 4 PG testi atlandı), kapsam %99.74, temiz SQLite'ta `alembic upgrade head` (0001→0002, göç yok), `import app.main` — hepsi exit 0 · tm 60
