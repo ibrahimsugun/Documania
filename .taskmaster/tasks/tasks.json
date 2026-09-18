@@ -958,13 +958,14 @@
         "description": "PRD 10.4.1, 10.4.2 · FR-MOD-10 (Web yönetim paneli) · Faz 1.",
         "details": "KAPSAM: PRD 10.4.1, 10.4.2 (FR-MOD-10 — Web yönetim paneli, Faz 1).\n\nNE YAPILACAK — GEREKSİNİMLER VE KABUL KRİTERLERİ:\n- 10.4.1 — Çalışan listesi\n  Kabul: Ad, orijinal yazım, uyruk, belge sayısı ve durum listelenir\n- 10.4.2 — Arama\n  Kabul: Ad, alias, orijinal yazım, belge numarası ve belge türü üzerinde arama çalışır\n\nGİRDİ — ÜZERİNE KURULDUĞU İŞLER (bu kod ZATEN VAR; yazmadan önce OKU):\n- 10.1 (Panel iskeleti ve giriş) → app/web/, app/web/templates/base.html\n- 09.1 (profil.md üretimi) → app/profiles/\n\nÇIKTI — DOKUNULACAK YÜZEY: app/web/routers/employees.py, app/web/templates/employees.html\n\nKARAR TABLOSU: bu görev için ayrı karar tablosu yok; kabul kriterleri ve kilitli kurallar yeterli.\n\nBU GÖREVİ BAĞLAYAN KİLİTLİ KURALLAR: özel kural yok. Genel sınırlar MASTER-PROMPT §8'de.\n\nPRD'DE AYRICA OKU: yalnız yukarıdaki gereksinim satırları yeterli.\n\nİLGİLİ KABUL SENARYOSU: doğrudan yok. Kabul kriterleri yukarıda.\n\nSIRA (MASTER-PROMPT §5, contract-first): sözleşme/şema → Alembic göçü (gerekiyorsa) → çekirdek + unit test → entegrasyon + testi → arayüz.\n\nKAPSAM SINIRI: yalnız yukarıdaki PRD kimlikleri. Başka gereksinimin işini yapma; yolda gördüğün kusuru düzeltme, yeni görev olarak aç (CONVENTIONS §5). Kilitli teknik kararları (MASTER-PROMPT §4) tartışma; yanlış görünüyorsa uygula ve PLAN.md §D'ye sapma yaz.\n\nTUZAKLAR: belge içeriğini değiştiren kod yazma — kırpma, döndürme (EXIF dışında), kontrast, metin yazma, form doldurma yok (K11/K17). Gerçek kimlik belgesi kullanma; test verisi tests/fixtures/gen.py ile üretilen sentetik belgelerdir (CONVENTIONS §6). Yapay zekâ çağrısı testte canlı yapılmaz, kayıtlı yanıt sağlayıcısı kullanılır. Test/build komutlarını arka plana atma — pencere ölür.\n\nKAPANIŞ: PLAN.md'de 10.4.1, 10.4.2 satırlarının damgasını '✅ → K10.4' yap ve '## K. Kanıt Geçmişi' bölümünde '#### K10.4' bloğuna kanıt maddesi ekle (blok yoksa aç). Faz özet tablosundaki sayıları SAYARAK güncelle. Ayrıntı: CONVENTIONS §1.2-1.3.",
         "testStrategy": "CONVENTIONS §1 DoD kapısı: ruff check . · ruff format --check . · python -m compileall -q app tests · pytest -q -m \"not live\" · alembic upgrade head · python -c \"import app.main\" — hepsi exit 0.\nAyrıca bu görevin kendi kabul kriterleri:\n- 10.4.1: Ad, orijinal yazım, uyruk, belge sayısı ve durum listelenir\n- 10.4.2: Ad, alias, orijinal yazım, belge numarası ve belge türü üzerinde arama çalışır",
-        "status": "pending",
+        "status": "in-progress",
         "dependencies": [
           "64",
           "58"
         ],
         "priority": "high",
-        "subtasks": []
+        "subtasks": [],
+        "updatedAt": "2026-09-18T19:52:09.966Z"
       },
       {
         "id": "68",
@@ -1337,7 +1338,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-09-18T17:05:18.030Z",
+      "lastModified": "2026-09-18T19:52:09.966Z",
       "taskCount": 94,
       "completedCount": 65,
       "tags": [

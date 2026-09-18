@@ -175,9 +175,9 @@ button {
 
 .badge-neutral { background: #eef0f3; color: #4b5563; }
 
-.items, .outputs, .queue { width: 100%; border-collapse: collapse; background: #fff; }
+.items, .outputs, .queue, .employees { width: 100%; border-collapse: collapse; background: #fff; }
 
-.items th, .items td, .outputs th, .outputs td, .queue th, .queue td { padding: 0.35rem 0.5rem; text-align: left; vertical-align: top; border-bottom: 1px solid #eef0f3; }
+.items th, .items td, .outputs th, .outputs td, .queue th, .queue td, .employees th, .employees td { padding: 0.35rem 0.5rem; text-align: left; vertical-align: top; border-bottom: 1px solid #eef0f3; }
 
 .reason { color: #6b7280; font-size: 0.9em; }
 
@@ -202,3 +202,11 @@ button {
 .actor { color: #6b7280; }
 
 .place { color: #0b5cad; }
+
+/* Çalışan listesi ve arama (10.4) */
+
+.search { display: flex; align-items: center; flex-wrap: wrap; gap: 0.5rem; margin: 0 0 1rem; }
+
+.search input[type="search"] { flex: 1; min-width: 16rem; max-width: 40rem; padding: 0.45rem; border: 1px solid #d0d7de; border-radius: 4px; font: inherit; }
+
+.pager { display: flex; align-items: center; gap: 1rem; margin-top: 0.75rem; }

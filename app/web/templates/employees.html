@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{# Çalışan listesi ve arama (10.4.1, 10.4.2). Arama HTMX ile `#employee-results`'ı yeniler ve adresi
+   günceller; JavaScript olmadan da form gönderimi aynı adrese gider. #}
+{% block title %}{{ entry.label }}{% endblock %}
+{% block content %}
+<h1>{{ entry.label }}</h1>
+<form class="search" method="get" action="/employees" role="search"
+      hx-get="/employees" hx-trigger="input changed delay:300ms, submit"
+      hx-target="#employee-results" hx-push-url="true" hx-sync="this:replace">
+  <label for="employee-q">Ara</label>
+  <input type="search" id="employee-q" name="q" value="{{ listing.query }}" maxlength="100"
+         placeholder="Ad, alias, orijinal yazım, belge numarası veya belge türü" autocomplete="off">
+  <button type="submit">Ara</button>
+</form>
+<div id="employee-results" aria-live="polite">
+  {% include "employees_results.html" %}
+</div>
+{% endblock %}

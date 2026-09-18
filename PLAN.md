@@ -9,7 +9,7 @@
 | Faz | PRD | Genel durum | Must sayacı | Kapanış |
 | --- | --- | --- | --- | --- |
 | Faz 0 — MVP | §5.1 | 100 ✅ · 1 ◐ · 1 ⬜ · 0 🔒 | 97/98 Must | AÇIK |
-| Faz 1 — v1 | §5.2 | 7 ✅ · 0 ◐ · 0 ⬜ · 25 🔒 | 5/21 Must | AÇIK |
+| Faz 1 — v1 | §5.2 | 9 ✅ · 0 ◐ · 0 ⬜ · 23 🔒 | 7/21 Must | AÇIK |
 | Faz 2 — v2 | §5.3 | 0 ✅ · 0 ◐ · 0 ⬜ · 13 🔒 | 0/0 Must | AÇIK |
 | Faz 3 — Enterprise | §5.4 | 0 ✅ · 0 ◐ · 0 ⬜ · 8 🔒 | 0/0 Must | AÇIK |
 
@@ -230,8 +230,8 @@ panelde `plan-count-drift` bulgusu doğurur.
 | 10.2.2 | İlerleme görünümü | Should (v1) | ✅ → K10.2 |
 | 10.3.1 | Yükleme detay sayfası | Must (v1) | ✅ → K10.3 |
 | 10.3.2 | Yeniden çalıştır / yeniden analiz | Should (v1) | ✅ → K10.3 |
-| 10.4.1 | Çalışan listesi | Must (v1) | 🔒 |
-| 10.4.2 | Arama | Must (v1) | 🔒 |
+| 10.4.1 | Çalışan listesi | Must (v1) | ✅ → K10.4 |
+| 10.4.2 | Arama | Must (v1) | ✅ → K10.4 |
 | 10.5.1 | Çalışan profili sayfası | Must (v1) | 🔒 |
 | 10.5.4 | Profil fotoğrafı yokluğu | Should (v1) | 🔒 |
 | 10.5.2 | Belge listesi ve açma | Must (v1) | 🔒 |
@@ -1417,6 +1417,29 @@ Onay beklemeden yapılan varsayımlar buraya numaralı olarak yazılır.
   görünmeye devam eder — `orchestrate.py`'ye dokunmak kapsam dışıydı, karar insana; (2) `PLAN_RERUN` olayının `actor`'ü `system`
   (`rerun_plan` kullanıcı adı almaz) — panelden kimin çalıştırdığı yalnız yeniden analizde (`USER_CONFIRMED`) kayıtlı.
 
+- **C48** — Çalışan listesi ve arama (tm 67, 10.4.1, 10.4.2): PRD yalnız kabul cümlelerini verir; adres, "belge sayısı" ve
+  "durum" sütunlarının anlamı, aramanın terim kuralı ve sıralama yazılı değil. **Sayfa:** `GET /employees?q=&page=`
+  (`app/web/routers/employees.py`, `employees.html` + parça `employees_results.html`; `panel.py`'deki yer tutucu kalktı, "Çalışanlar"
+  menüsü aktif); sayfa başına 25 kayıt, sayfa sayısını aşan `page` son sayfaya iner, `page<1` 422, `q` en çok 100 karakter (422).
+  **Sütunlar:** No (E numarası), Ad (`given_names surname`), Orijinal yazım, Uyruk (saklandığı gibi), Belge sayısı, Durum. **Belge sayısı**
+  yalnız *etkin* belgelerdir (`documents.status = active`): eski sürüm (K18) ve arşive taşınan (K16) çalışanın klasöründe durmadığı için
+  sayılmaz — profil sayfası (10.5.2) tüm durumları listeler. **Durum** `employees.status`'tur: bugün yalnız `active` yazılıyor ("Aktif");
+  tanınmayan değer ham gösterilir. Sıra soyad, ad, E numarası (harf büyüklüğü yok sayılır; SQLite `lower()` ASCII dışını küçültmez —
+  Ç/Ö/Ş/Ü/İ ile başlayan soyad geliştirme veritabanında sona düşer, PostgreSQL'de veritabanı kolasyonu belirler).
+  **Arama:** metin boşlukla terimlere ayrılır (en çok 6), her terim çalışanın en az bir alanında geçmeli (terimler VE, alanlar VEYA):
+  `ivan petrov` sırayla bağımsızdır, `ivan pasaport` pasaportu olan Ivan'ı bulur. Alanlar: `given_names`/`surname`/`other_names`/
+  `original_script_name` ve alias `raw_name` (büyük/küçük harf duyarsız alt dize) + alias `normalize_name` anahtarı (aksan, harf büyüklüğü
+  ve Kiril↔Latin farkı yok sayılır — bu yüzden çalışan açılırken alias yazılması (05.6) aramanın önkoşuludur); belge numarası
+  `employee_identifiers.value` üzerinde alt dize, terim saklama biçimine (`normalize_document_number`) indirilir; belge türü katalog
+  adı/dosya etiketi/slug'ı (Python'da isim katlamasıyla, `İkamet` SQLite'ta SQL ile karşılaştırılamaz) ve çalışanın **etkin** bir belgesinin
+  o türde olması. `%`/`_` düz karakterdir (LIKE kaçışı). Çalışan numarası (E0001) PRD'nin arama alanları arasında olmadığı için aranmaz —
+  istenirse tek yüklem. HTMX araması (`input changed delay:300ms`) yalnız `#employee-results` parçasını yeniler ve adresi günceller;
+  yanıt `Vary: HX-Request` taşır, geçmiş geri yüklemesi tam sayfa alır; JavaScript kapalıyken form gönderimi aynı adrese gider.
+  **Açıklar:** (1) satırlar profile bağlanmıyor — profil sayfası (10.5.1) henüz yok, ölü bağlantı konmadı; 10.5.1 ad/E numarasını
+  `/employees/{id}`'ye bağlamalı; (2) arama metni adreste (GET) durur: belge numarası uvicorn erişim günlüğüne ve tarayıcı geçmişine
+  düşebilir — CONVENTIONS §6 uygulama günlüğünü ve olay logunu kapsar, bu sayfa `q`'yu ne loglar ne olaya yazar; POST'a çevirmek adres/
+  geri düğmesi/yer imini bozar (10.1 testleri `/employees?q=…&page=…` adresini bekler), karar insana.
+
 ## D. Sapmalar
 
 PRD'den veya kilitli kararlardan her sapma buraya numaralı yazılır (D1, D2…).
@@ -2038,3 +2061,8 @@ var olan maddeler silinmez. Biçim:
 - ✅ 10.3.1 yükleme detay sayfası: `app/web/routers/upload_page.py` (`GET /uploads/{id}` → `build_detail_view`; `GET /uploads/{id}/pages/{page_id}/image` analiz kopyasını sunar, başka partinin/yolu kaçan/eksik görüntü 404) + `app/web/templates/upload_detail.html` — sayfa küçük resimleri (durum, "Boş", sayfayı alan plan öğesi), güncel planın öğeleri (tür, kaynak, işlem, hedef, çalışan, rota + gerekçe, doğrulamalar), çıktılar (tüm sürümlerin belgeleri "Etkin"/"Eski sürüm" + kuyruğa alınanlar) ve olay zaman çizelgesi tek sayfada; bozuk plan sayfayı düşürmez · test `tests/web/test_upload_detail.py` (35, hepsi bu dosyada) · tm 66
 - ✅ 10.3.2 yeniden çalıştır / yeniden analiz: `POST /uploads/{id}/rerun` (`rerun_plan`, yapay zekâ yok) ve `POST /uploads/{id}/reanalyze/prepare` + `POST /uploads/{id}/reanalyze` (`reanalyze_upload`) — birinci onay `<details>` içinde, hazırlık isteği ikinci onay formunu ve belirteci verir, belirteçsiz/süresi geçmiş/başka partiye ya da oturuma ait/kullanılmış belirteç 400 ve hiçbir şey yapılmaz; onay `USER_CONFIRMED` (kullanıcı adı, işlem, hedef, iki zaman) yazar; yalnız son durumdaki ve planı olan partide (409), sağlayıcı kurulamazsa 503, hata olursa rollback (onay olayı dahil) — D23 · test `tests/web/test_upload_detail.py` · tm 66
 - ✅ Kapı: ruff check/format, compileall, `pytest -q -m "not live" --cov=app --cov-fail-under=70` (2405 geçti, +35; 2 beklenen xfail D12; 4 PG testi atlandı), kapsam %99.75 (`upload_page.py` %100), temiz SQLite'ta `alembic upgrade head` (göç yok), `import app.main` — hepsi exit 0; 6 geçici kural bozulmasının (belirteç doğrulaması atlandı, belirteç plana bağlı değil, süresiz belirteç, süren partiye işlem, başka partinin sayfa görüntüsü, onay olayı yok) her biri testte kırmızı; gerçek Chrome'da (CDP) detay sayfası → küçük resim yüklenir → yeniden çalıştır → birinci onay → ikinci onay metni birebir → bayat belirteçle 400 hata parçası sayfada görünür → temiz akışta yeni plan sürümü ve "Eski sürüm" çıktı elle doğrulandı
+
+#### K10.4 — 10.4.1, 10.4.2 · Çalışan listesi ve arama
+- ✅ 10.4.1 çalışan listesi: `app/web/routers/employees.py` (`GET /employees` → `list_employees`; No, Ad, Orijinal yazım, Uyruk, Belge sayısı (yalnız etkin belge), Durum; soyad/ad sırası, 25'lik sayfalar, boş dizin ve eşleşmeme iletileri) + `app/web/templates/employees.html` / `employees_results.html`; `panel.py`'deki yer tutucu kaldırıldı, `app/main.py` yönlendiriciyi oturuma bağlar, `panel.css` tablo/arama/sayfalama stili · test `tests/web/test_employees.py` (60) · tm 67
+- ✅ 10.4.2 arama: `q` terimlere bölünür (terimler VE, alanlar VEYA; en çok 6 terim, 100 karakter) ve ad/diğer isimler, alias (ham + `normalize_name` anahtarı: harf büyüklüğü, aksan, Kiril↔Latin), orijinal yazım, belge numarası (`normalize_document_number` ile ayırıcı farkı yok) ve belge türü (ad/dosya etiketi/slug, etkin belge; `İkamet` Python katlamasıyla) üzerinde çalışır; `%`/`_` LIKE kaçışlı; HTMX parçası (`HX-Request`, `Vary`, geçmiş geri yüklemesi tam sayfa) — gerçek Chrome'da (CDP) yazarak arama, adres güncelleme, tam yenileme olmadan sonuç, eşleşmeyen ileti, temizleme ve geri tuşu doğrulandı · test `tests/web/test_employees.py` · tm 67
+- ✅ Kapı: ruff check/format, compileall, `pytest -q -m "not live" --cov=app --cov-fail-under=70` (2465 geçti, +60; 2 beklenen xfail D12; 4 PG testi atlandı), kapsam %99.75 (`employees.py` %100), temiz SQLite'ta `alembic upgrade head` (göç yok), `import app.main` — hepsi exit 0; 12 geçici kural bozulmasının (belge sayısı eski/arşiv dahil, tür araması eski sürüm dahil, alias anahtarı yok, LIKE kaçışı yok, terimler VEYA, numara normalize yok, `Vary` yok, geçmiş geri yüklemesi parça alır, sayfa kelepçesi yok, harf duyarlı sıra, tür katlaması yok, terim sınırı yok) her biri testte kırmızı · tm 67

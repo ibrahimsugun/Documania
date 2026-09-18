@@ -1,0 +1,30 @@
+{# Çalışan listesi parçası: sayı, tablo ve sayfalama. HTMX araması yalnız bunu yeniler. #}
+{% if listing.total == 0 %}
+<p class="placeholder">{% if listing.query %}“{{ listing.query }}” ile eşleşen çalışan yok.{% else %}Henüz çalışan yok.{% endif %}</p>
+{% else %}
+<p class="count">{{ listing.total }} çalışan{% if listing.query %} bulundu{% endif %}</p>
+<table class="employees">
+  <thead>
+    <tr><th>No</th><th>Ad</th><th>Orijinal yazım</th><th>Uyruk</th><th>Belge sayısı</th><th>Durum</th></tr>
+  </thead>
+  <tbody>
+    {% for row in listing.rows %}
+    <tr>
+      <td>{{ row.id }}</td>
+      <td>{{ row.name }}</td>
+      <td>{{ row.original_script_name or "—" }}</td>
+      <td>{{ row.nationality or "—" }}</td>
+      <td>{{ row.document_count }}</td>
+      <td>{{ row.status_label }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% if listing.page_count > 1 %}
+<nav class="pager" aria-label="Sayfalama">
+  {% if listing.previous_url %}<a href="{{ listing.previous_url }}" rel="prev">← Önceki</a>{% endif %}
+  <span>Sayfa {{ listing.page }} / {{ listing.page_count }}</span>
+  {% if listing.next_url %}<a href="{{ listing.next_url }}" rel="next">Sonraki →</a>{% endif %}
+</nav>
+{% endif %}
+{% endif %}
