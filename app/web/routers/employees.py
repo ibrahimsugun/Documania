@@ -31,8 +31,10 @@ işaretler (10.5.4). Belge listesi çalışanın **tüm** belgelerini (etkin, es
 gösterir; her belge yeni sekmede açılır (`.../file`) ve indirilir (`.../download`), ikisi de
 yalnız `GET`'tir — panelde belge içeriğini değiştiren yol yoktur (10.5.2, K17). Fotoğraf ayrı bir
 adresten (`.../photo`) sunulur: profil sayfasını çizmek belgeyi "açmak" sayılmasın (10.9.2 açma ve
-indirmeyi loglar, sayfa görüntülemeyi değil). Profil sayfası bağlam çalışanıyla yükleme formu
-taşır (10.5.3): form `POST /upload`'a çalışan kimliğini gizli alanla gönderir.
+indirmeyi loglar, sayfa görüntülemeyi değil): `.../file` `view`, `.../download` `download` olarak
+`access_log`'a kullanıcı ve zamanla yazılır (`app.web.access`), satır sunmadan önce commit edilir.
+Profil sayfası bağlam çalışanıyla yükleme formu taşır (10.5.3): form `POST /upload`'a çalışan
+kimliğini gizli alanla gönderir.
 """
 
 from __future__ import annotations
@@ -49,6 +51,7 @@ from sqlalchemy import ColumnElement, and_, exists, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.db.models import (
+    AccessAction,
     ContactKind,
     Document,
     DocumentStatus,
@@ -63,6 +66,7 @@ from app.matching.match import normalize_document_number
 from app.matching.names import EmptyNameError, normalize_name
 from app.profiles.render import calculate_age
 from app.storage import DataLayout
+from app.web.access import record_access
 from app.web.auth import PanelUser, require_panel_user
 from app.web.routers.upload_page import DOCUMENT_STATUS_LABELS
 from app.web.routers.uploads import get_layout
@@ -504,18 +508,29 @@ def _file_response(stored: StoredDocument, *, disposition: str) -> FileResponse:
 
 
 def _employee_document(
-    session: Session, layout: DataLayout, employee_id: str, document_id: int
+    session: Session,
+    layout: DataLayout,
+    employee_id: str,
+    document_id: int,
+    *,
+    user: PanelUser,
+    action: AccessAction,
 ) -> StoredDocument:
-    """Belge bu çalışana ait değilse, kaydı ya da dosyası yoksa 404."""
+    """Belgeyi erişim logunu yazarak çözer (10.9.2); belge bu çalışana ait değilse, kaydı ya da
+    dosyası yoksa 404 ve log yazılmaz.
+
+    Satır sunmadan **önce** yazılır ve commit edilir: log yazılamazsa istek düşer, belge gitmez.
+    """
     document = session.scalars(
         select(Document).where(Document.id == document_id, Document.employee_id == employee_id)
     ).first()
     stored = _stored_document(layout, document) if document is not None else None
-    session.rollback()
-    if document is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, DOCUMENT_NOT_FOUND)
-    if stored is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, FILE_NOT_FOUND)
+    if document is None or stored is None:
+        session.rollback()
+        detail = DOCUMENT_NOT_FOUND if document is None else FILE_NOT_FOUND
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail)
+    record_access(session, user_id=user.id, document_id=document.id, action=action)
+    session.commit()
     return stored
 
 
@@ -523,26 +538,36 @@ def _employee_document(
 def open_document(
     employee_id: str,
     document_id: int,
+    user: CurrentUser,
     session: Annotated[Session, Depends(get_session)],
     layout: Annotated[DataLayout, Depends(get_layout)],
 ) -> FileResponse:
-    """10.5.2 — belgeyi tarayıcıda açar (profil sayfası bağlantıyı yeni sekmede açtırır)."""
-    return _file_response(
-        _employee_document(session, layout, employee_id, document_id), disposition="inline"
+    """10.5.2 — belgeyi tarayıcıda açar (profil sayfası bağlantıyı yeni sekmede açtırır).
+
+    Açış `access_log`'a `view` olarak yazılır (10.9.2).
+    """
+    stored = _employee_document(
+        session, layout, employee_id, document_id, user=user, action=AccessAction.VIEW
     )
+    return _file_response(stored, disposition="inline")
 
 
 @router.get("/employees/{employee_id}/documents/{document_id}/download")
 def download_document(
     employee_id: str,
     document_id: int,
+    user: CurrentUser,
     session: Annotated[Session, Depends(get_session)],
     layout: Annotated[DataLayout, Depends(get_layout)],
 ) -> FileResponse:
-    """10.5.2 — belgeyi dosya adıyla indirtir."""
-    return _file_response(
-        _employee_document(session, layout, employee_id, document_id), disposition="attachment"
+    """10.5.2 — belgeyi dosya adıyla indirtir.
+
+    İndirme `access_log`'a `download` olarak yazılır (10.9.2).
+    """
+    stored = _employee_document(
+        session, layout, employee_id, document_id, user=user, action=AccessAction.DOWNLOAD
     )
+    return _file_response(stored, disposition="attachment")
 
 
 @router.get("/employees/{employee_id}/photo")

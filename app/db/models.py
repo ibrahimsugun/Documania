@@ -406,7 +406,27 @@ class Event(Base):
     employee: Mapped[Employee | None] = relationship()
 
 
+class AccessAction(enum.StrEnum):
+    """Belgeye erişimin türü (`access_log.action`, 10.9.2): belge açıldı ya da indirildi."""
+
+    VIEW = "view"
+    DOWNLOAD = "download"
+
+
+class AccessChannel(enum.StrEnum):
+    """Belgeye erişilen kanal (`access_log.channel`): panel ya da bot (12.3.3)."""
+
+    WEB = "web"
+    TELEGRAM = "telegram"
+
+
 class AccessLog(Base):
+    """Belge erişim logu (10.9.2): kim, hangi belgeyi, ne zaman, hangi kanaldan açtı ya da indirdi.
+
+    Satırı `app.web.access.record_access` yazar; silinmez ve değiştirilmez. `action` ve `channel`
+    değerleri `AccessAction` / `AccessChannel`'dan gelir.
+    """
+
     __tablename__ = "access_log"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)

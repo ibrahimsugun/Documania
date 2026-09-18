@@ -16,7 +16,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from starlette.requests import Request
 
 from app.config import Settings, get_settings
-from app.db.models import Base
+from app.db.models import Base, User
 from app.db.session import create_db_engine, create_session_factory, get_session
 from app.main import create_app
 from app.storage import DataLayout, prepare_data_dir
@@ -69,6 +69,18 @@ def layout(tmp_path: Path) -> DataLayout:
 
 @pytest.fixture
 def app(session_factory: sessionmaker[Session], layout: DataLayout) -> FastAPI:
+    # Belge açma/indirme erişim logu (10.9.2) `users` satırına bağlanır: oturumdaki test kullanıcısı
+    # veritabanında da vardır.
+    with session_factory() as session:
+        session.add(
+            User(
+                id=SIGNED_IN.id,
+                username=SIGNED_IN.username,
+                password_hash="test-parolasi-yok",
+                role=SIGNED_IN.role,
+            )
+        )
+        session.commit()
     application = create_app()
 
     def _override_get_session() -> Iterator[Session]:
