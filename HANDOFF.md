@@ -18,6 +18,12 @@ Blok biçimi `CONVENTIONS.md` §3'te tanımlıdır:
 
 ## Task log (newest-first)
 
+## 63 — 09.3-d Kabul senaryoları S11–S15 ve S18 — done — 2026-09-18
+- Yapıldı: `tests/test_scenarios_s11_s18.py` — S11 (yeni çalışan + klasör + `profil.md`, belge Hazir'da), S12 (doğum tarihi uyan adaşa eşleşir; ikisine/hiçbirine uyarsa Unresolved), S13 (Latin klasör/dosya adı, profilde Kiril orijinal), S14 (Unknown + aday tür → katalog + `reanalyze` uç noktası → plan v2'de Hazir), S15 (bağlamlı Word CV Hazir'da bayt bayt / genel yüklemede Unresolved), S18 (`rerun` uç noktası iki kez: sağlayıcı yok, veri dizini bayt bayt aynı) uçtan uca.
+- Doğrulama: ruff check/format, compileall, `pytest -q -m "not live" --cov=app --cov-fail-under=70` (2283 geçti, +13; 2 beklenen xfail D12; 4 PG atlandı), kapsam %99.74, temiz SQLite'ta `alembic upgrade head`, `import app.main` — hepsi exit 0; 7 geçici kural bozulmasının her biri testte kırmızı.
+- Varsayımlar: PLAN.md §C44 — S14 onayı (11.5.2, Faz 1) sonucuyla kurulur: tür `import_catalog` ile güncel kataloğa eklenir, aday kaydı `pending` kalır; S15 "profil sayfası" = `context_employee_id`. Çalışan kaydı belgedeki yazımı (`TEST`/`ORNEKOVA`) taşır, Latin biçim yalnız klasör/dosya adında.
+- Sonraki pencereye not: 11.5.2 uygulanınca `_approve_diploma_type` onay fonksiyonuna çevrilmeli. Test oturumunda okuma yaptıktan sonra uç nokta çağırmadan önce `session.commit()` gerekir (SQLite `BEGIN IMMEDIATE` — açık okuma işlemi uç noktanın yazmasını kilitler).
+
 ## 62 — 09.3-c Kabul senaryoları S6–S10 — done — 2026-09-18
 - Yapıldı: `tests/test_scenarios_s06_s10.py` — S6–S10 yükleme uç noktası + `process_upload` ile uçtan uca (dosya ve kayıtlı yanıt `gen.py`'den), beşi de PRD beklentisini birebir tutar: S6 JPEG pasaport Unresolved + "Uygun formatta yeniden gönderin.", dönüşüm yok; S7 tek sayfa `extract`, render yok; S8 boş sayfa `skip`, hata değil; S9 Unreadable "Okunamayan alanlar: document_number"; S10 yalnız isim → Unresolved, eşleştirme ve yeni çalışan yok.
 - Doğrulama: ruff check/format, compileall, `pytest -q -m "not live" --cov=app --cov-fail-under=70` (2270 geçti, +9; 2 beklenen xfail D12; 4 PG atlandı), kapsam %99.78, temiz SQLite'ta `alembic upgrade head`, `import app.main` — hepsi exit 0.

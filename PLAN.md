@@ -8,7 +8,7 @@
 
 | Faz | PRD | Genel durum | Must sayacı | Kapanış |
 | --- | --- | --- | --- | --- |
-| Faz 0 — MVP | §5.1 | 99 ✅ · 1 ◐ · 2 ⬜ · 0 🔒 | 96/98 Must | AÇIK |
+| Faz 0 — MVP | §5.1 | 100 ✅ · 1 ◐ · 1 ⬜ · 0 🔒 | 97/98 Must | AÇIK |
 | Faz 1 — v1 | §5.2 | 0 ✅ · 0 ◐ · 0 ⬜ · 32 🔒 | 0/21 Must | AÇIK |
 | Faz 2 — v2 | §5.3 | 0 ✅ · 0 ◐ · 0 ⬜ · 13 🔒 | 0/0 Must | AÇIK |
 | Faz 3 — Enterprise | §5.4 | 0 ✅ · 0 ◐ · 0 ⬜ · 8 🔒 | 0/0 Must | AÇIK |
@@ -215,7 +215,7 @@ panelde `plan-count-drift` bulgusu doğurur.
 | 09.3.1 | Sentetik belge üreteci | Must (MVP) | ✅ → K09.3-a |
 | 09.3.2 | Kabul senaryoları S1–S5 | Must (MVP) | ◐ → K09.3-b |
 | 09.3.3 | Kabul senaryoları S6–S10 | Must (MVP) | ✅ → K09.3-c |
-| 09.3.4 | Kabul senaryoları S11–S15 ve S18 | Must (MVP) | ⬜ |
+| 09.3.4 | Kabul senaryoları S11–S15 ve S18 | Must (MVP) | ✅ → K09.3-d |
 
 ## 4. FAZ 1 — v1 (PRD §5.2)
 
@@ -1336,6 +1336,15 @@ Onay beklemeden yapılan varsayımlar buraya numaralı olarak yazılır.
   (3) `process_upload` API'ye bağlanmadı — `POST /api/uploads` partiyi `received` bırakır, tetikleme (arka plan, yeni
   oturum, sağlayıcı) 10.2/13.3'ün; (4) manuel işlemler (08.2/08.3/08.4) profili yeniden üretmiyor — tm 93 açıldı.
 
+- **C44** — Kabul senaryoları S11–S15, S18 (tm 63, 09.3.4): S14 "onay ve yeniden analizden sonra Hazir" ister;
+  aday türün onay ekranı ve iki aşamalı onayı 11.5.2'dir (Faz 1, 🔒), kabul kriteri onayın sonucunu yazar: "Onay
+  sonrası tür katalogda". Faz 0'da tür kataloğa İK'nın katalog eşitlemesiyle (00.6.3) girer; senaryo testi onayı bu
+  sonucuyla kurar — `peruvian_diploma` güncel kataloğa (`import_catalog`) eklenir, aday tür kaydı `pending` kalır —
+  ve partiyi gerçek `POST /api/uploads/{id}/reanalyze` uç noktasından geçirir. 11.5.2 geldiğinde testin onay adımı
+  onay fonksiyonuna çevrilmeli. S15'in "profil sayfasından" yüklemesi (10.5.3, Faz 1 ekranı) yükleme uç noktasının
+  `context_employee_id` alanıdır. Çalışan kaydı belgedeki yazımı olduğu gibi taşır (`TEST`/`ORNEKOVA`); Latin
+  biçimlenmiş yalnız klasör ve dosya adıdır (K8).
+
 ## D. Sapmalar
 
 PRD'den veya kilitli kararlardan her sapma buraya numaralı yazılır (D1, D2…).
@@ -1915,3 +1924,7 @@ var olan maddeler silinmez. Biçim:
 #### K09.3-c — 09.3.3 · Kabul senaryoları S6–S10
 - ✅ S6–S10 PRD §9 beklentisiyle birebir, S1–S5 ile aynı gerçek yoldan (yükleme uç noktası → `process_upload`; dosya ve kayıtlı yanıtlar `gen.py`'den). S6: katalogda pasaport `expected_file_types: [pdf]` yapılır, JPEG pasaport Unresolved'a (`Direkt Belge: beklenen dosya türü pdf, gelen jpeg. Uygun formatta yeniden gönderin.`), JPEG kuyrukta bayt bayt, veri dizininde PDF/çıktı/sarma yok. S7: 4 sayfalık PDF'in 2. sayfası `extract` ile tek sayfalık `Passport.pdf` — içerik akışı bayt bayt kaynak, metin katmanı ve MRZ duruyor, görüntü yok, `IMAGE_RENDERED` yok. S8: boş sayfa (kartın yüzleri arasında / iki belge arasında) analize gitmez, tek `skip` öğesi, hiçbir çıktıya girmez, parti `done`, hata ve kuyruk yok. S9: bulanık numara + MRZ → Unreadable, gerekçe `Okunamayan alanlar: document_number` ile başlar; çalışan açılmaz/önerilmez. S10: yalnız isim eşleşmesi (doğum tarihi yok / farklı, numara temiz) → Unresolved (satır 5, R8), `match` ve yeni çalışan yok, kayıtlı çalışana numara/yazım eklenmez — test `tests/test_scenarios_s06_s10.py` (9) · tm 62
 - ✅ Kapı: ruff check/format, compileall, `pytest -q -m "not live" --cov=app --cov-fail-under=70` (2270 geçti, +9; 2 beklenen xfail D12; 4 PG testi atlandı), kapsam %99.78, temiz SQLite'ta `alembic upgrade head` (0001→0002, göç yok), `import app.main` — hepsi exit 0 · tm 62
+
+#### K09.3-d — 09.3.4 · Kabul senaryoları S11–S15 ve S18
+- ✅ S11–S15 ve S18 PRD §9 beklentisiyle, S1–S10 ile aynı gerçek yoldan (yükleme uç noktası → `process_upload`; dosya ve kayıtlı yanıtlar `gen.py`'den; yeniden analiz/çalıştırma parti uç noktalarından). S11: temiz pasaport numarası, eşleşen kayıt yok (boş veritabanı / başka kayıtlı çalışan) → satır 6 `create`, yeni E numarası, K8 klasörü, `profil.md` (kimlik, numara, belge satırı), belge `Hazir`'da passthrough, `Alinan`'da kopya. S12: aynı isimli iki çalışandan doğum tarihi uyan eşleşir (iki yönde, numara ona eklenir); ikisine uyarsa `name_dob_ambiguous`, hiçbirine uymazsa `name_only` → Unresolved, yeni çalışan yok. S13: Kiril isimli pasaport → `Iulia_Testova_Shchelkina_E0001` / `Iulia_Testova_Shchelkina-Passport.pdf` (ASCII), profilde Latin ad ve `Тестова-Щёлкина Юлья` birlikte. S14: Peru diploması Unknown + aday tür (`pending`, örnek sayfa, `CANDIDATE_TYPE_PROPOSED`); tür kataloğa eklenip (C44) yeniden analiz edilince plan v2'de ad + doğum tarihiyle kayıtlı çalışanın `Hazir/Ana_Prueba-Diploma.pdf`'i, eski plan ve Unknown kopyası yerinde (K18), aday yeniden sayılmaz. S15: Word CV (docx / eski doc) bağlam çalışanıyla `Hazir/Ivan_Sidorov-Attachment.<uzantı>` bayt bayt, analiz/render yok; genel yüklemede Unresolved, dönüştürülmeden kuyrukta. S18: hazir + kuyruk + skip öğeli parti `rerun` uç noktasıyla iki kez yeniden çalıştırılır — sağlayıcı çağrılmaz, aynı plan/çıktı/kuyruk satırları, veri dizini bayt bayt aynı, `-2` yok, olaylar yalnız `PLAN_RERUN` + 3 `OUTPUT_SKIPPED`. 7 kural bozulması (profil yazılmaması, belirsiz isim+doğum tarihinin eşleşme sayılması, yalnız ismin yeni çalışana inmesi, idempotenliğin kalkması, eki bağlamın yok/hep sayılması, yeniden analizin tohum kataloğuyla yapılması) geçici olarak denendi, her biri testte kırmızı — test `tests/test_scenarios_s11_s18.py` (13) · tm 63
+- ✅ Kapı: ruff check/format, compileall, `pytest -q -m "not live" --cov=app --cov-fail-under=70` (2283 geçti, +13; 2 beklenen xfail D12; 4 PG testi atlandı), kapsam %99.74, temiz SQLite'ta `alembic upgrade head` (0001→0002, göç yok), `import app.main` — hepsi exit 0 · tm 63
