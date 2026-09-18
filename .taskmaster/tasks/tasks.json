@@ -781,14 +781,14 @@
         "description": "PRD 08.2.1 · FR-MOD-08 (Kuyruklar ve çözüm) · Faz 0.",
         "details": "KAPSAM: PRD 08.2.1 (FR-MOD-08 — Kuyruklar ve çözüm, Faz 0).\n\nNE YAPILACAK — GEREKSİNİMLER VE KABUL KRİTERLERİ:\n- 08.2.1 — Kuyruk öğesini çalışana atama\n  Kabul: Atama sonrası çıktı üretilir ve yapay zekâ çağrılmaz\n\nGİRDİ — ÜZERİNE KURULDUĞU İŞLER (bu kod ZATEN VAR; yazmadan önce OKU):\n- 08.1 (Kuyruğa yönlendirme ve gerekçe dosyası) → app/pipeline/route.py\n- 06.6 (Yeniden çalıştırma ve yeniden analiz) → app/pipeline/orchestrate.py, app/web/routers/uploads.py\n\nÇIKTI — DOKUNULACAK YÜZEY: app/pipeline/route.py, app/web/routers/queue.py\n\nKARAR TABLOSU: bu görev için ayrı karar tablosu yok; kabul kriterleri ve kilitli kurallar yeterli.\n\nBU GÖREVİ BAĞLAYAN KİLİTLİ KURALLAR (MASTER-PROMPT §3 — tartışma, uygula):\n- K16: Manuel işlemler yalnız: belgeyi başka çalışana taşı, kuyruk öğesini ata, onay bekleyen profili onayla, yeni türü onayla, arşive taşı. SİLME YOK. Hepsi iki aşamalı onay ister ve kullanıcı adıyla loglanır.\n\nPRD'DE AYRICA OKU: yalnız yukarıdaki gereksinim satırları yeterli.\n\nİLGİLİ KABUL SENARYOSU: doğrudan yok. Kabul kriterleri yukarıda.\n\nSIRA (MASTER-PROMPT §5, contract-first): sözleşme/şema → Alembic göçü (gerekiyorsa) → çekirdek + unit test → entegrasyon + testi → arayüz.\n\nKAPSAM SINIRI: yalnız yukarıdaki PRD kimlikleri. Başka gereksinimin işini yapma; yolda gördüğün kusuru düzeltme, yeni görev olarak aç (CONVENTIONS §5). Kilitli teknik kararları (MASTER-PROMPT §4) tartışma; yanlış görünüyorsa uygula ve PLAN.md §D'ye sapma yaz.\n\nTUZAKLAR: belge içeriğini değiştiren kod yazma — kırpma, döndürme (EXIF dışında), kontrast, metin yazma, form doldurma yok (K11/K17). Gerçek kimlik belgesi kullanma; test verisi tests/fixtures/gen.py ile üretilen sentetik belgelerdir (CONVENTIONS §6). Yapay zekâ çağrısı testte canlı yapılmaz, kayıtlı yanıt sağlayıcısı kullanılır. Test/build komutlarını arka plana atma — pencere ölür.\n\nKAPANIŞ: PLAN.md'de 08.2.1 satırlarının damgasını '✅ → K08.2' yap ve '## K. Kanıt Geçmişi' bölümünde '#### K08.2' bloğuna kanıt maddesi ekle (blok yoksa aç). Faz özet tablosundaki sayıları SAYARAK güncelle. Ayrıntı: CONVENTIONS §1.2-1.3.",
         "testStrategy": "CONVENTIONS §1 DoD kapısı: ruff check . · ruff format --check . · python -m compileall -q app tests · pytest -q -m \"not live\" · alembic upgrade head · python -c \"import app.main\" — hepsi exit 0.\nAyrıca bu görevin kendi kabul kriterleri:\n- 08.2.1: Atama sonrası çıktı üretilir ve yapay zekâ çağrılmaz",
-        "status": "in-progress",
+        "status": "done",
         "dependencies": [
           "54",
           "45"
         ],
         "priority": "high",
         "subtasks": [],
-        "updatedAt": "2026-09-18T10:35:52.143Z"
+        "updatedAt": "2026-09-18T11:01:13.915Z"
       },
       {
         "id": "56",
@@ -1300,9 +1300,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-09-18T10:35:52.144Z",
+      "lastModified": "2026-09-18T11:01:13.916Z",
       "taskCount": 92,
-      "completedCount": 53,
+      "completedCount": 54,
       "tags": [
         "master"
       ]
