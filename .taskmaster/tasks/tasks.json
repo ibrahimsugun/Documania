@@ -811,12 +811,13 @@
         "description": "PRD 08.4.1 · FR-MOD-08 (Kuyruklar ve çözüm) · Faz 0.",
         "details": "KAPSAM: PRD 08.4.1 (FR-MOD-08 — Kuyruklar ve çözüm, Faz 0).\n\nNE YAPILACAK — GEREKSİNİMLER VE KABUL KRİTERLERİ:\n- 08.4.1 — Arşive taşıma (R11)\n  Kabul: Belge silinmez, `Archive/<yyyy-mm>/` altına taşınır ve durumu güncellenir\n\nGİRDİ — ÜZERİNE KURULDUĞU İŞLER (bu kod ZATEN VAR; yazmadan önce OKU):\n- 08.1 (Kuyruğa yönlendirme ve gerekçe dosyası) → app/pipeline/route.py\n\nÇIKTI — DOKUNULACAK YÜZEY: app/storage/, app/web/routers/queue.py\n\nZORUNLU OKUMA — BU GÖREVİN KARAR TABLOSU: urun-gereksinim-dokumani-PRD.md §20.6 (arşive taşıma onay metinleri) ve §20.6.1 (belirteç mekanizması)\nKarar zaten verilmiş ve yazılmıştır; senden beklenen onu UYGULAMAK. Tabloyu okumadan kod yazma. Tabloda karşılığı olmayan bir durumla karşılaşırsan UYDURMA: en güvenli davranışı seç (belgeyi kuyruğa al) ve PLAN.md §D'ye sapma yaz.\n\nBU GÖREVİ BAĞLAYAN KİLİTLİ KURALLAR (MASTER-PROMPT §3 — tartışma, uygula):\n- K16: Manuel işlemler yalnız: belgeyi başka çalışana taşı, kuyruk öğesini ata, onay bekleyen profili onayla, yeni türü onayla, arşive taşı. SİLME YOK. Hepsi iki aşamalı onay ister ve kullanıcı adıyla loglanır.\n\nPRD'DE AYRICA OKU: §8.2 (veri dizini yapısı)\n\nİLGİLİ KABUL SENARYOSU: doğrudan yok. Kabul kriterleri yukarıda.\n\nSIRA (MASTER-PROMPT §5, contract-first): sözleşme/şema → Alembic göçü (gerekiyorsa) → çekirdek + unit test → entegrasyon + testi → arayüz.\n\nKAPSAM SINIRI: yalnız yukarıdaki PRD kimlikleri. Başka gereksinimin işini yapma; yolda gördüğün kusuru düzeltme, yeni görev olarak aç (CONVENTIONS §5). Kilitli teknik kararları (MASTER-PROMPT §4) tartışma; yanlış görünüyorsa uygula ve PLAN.md §D'ye sapma yaz.\n\nTUZAKLAR: belge içeriğini değiştiren kod yazma — kırpma, döndürme (EXIF dışında), kontrast, metin yazma, form doldurma yok (K11/K17). Gerçek kimlik belgesi kullanma; test verisi tests/fixtures/gen.py ile üretilen sentetik belgelerdir (CONVENTIONS §6). Yapay zekâ çağrısı testte canlı yapılmaz, kayıtlı yanıt sağlayıcısı kullanılır. Test/build komutlarını arka plana atma — pencere ölür.\n\nKAPANIŞ: PLAN.md'de 08.4.1 satırlarının damgasını '✅ → K08.4' yap ve '## K. Kanıt Geçmişi' bölümünde '#### K08.4' bloğuna kanıt maddesi ekle (blok yoksa aç). Faz özet tablosundaki sayıları SAYARAK güncelle. Ayrıntı: CONVENTIONS §1.2-1.3.",
         "testStrategy": "CONVENTIONS §1 DoD kapısı: ruff check . · ruff format --check . · python -m compileall -q app tests · pytest -q -m \"not live\" · alembic upgrade head · python -c \"import app.main\" — hepsi exit 0.\nAyrıca bu görevin kendi kabul kriterleri:\n- 08.4.1: Belge silinmez, `Archive/<yyyy-mm>/` altına taşınır ve durumu güncellenir",
-        "status": "pending",
+        "status": "done",
         "dependencies": [
           "54"
         ],
         "priority": "high",
-        "subtasks": []
+        "subtasks": [],
+        "updatedAt": "2026-09-18T11:35:48.092Z"
       },
       {
         "id": "58",
@@ -1301,9 +1302,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-09-18T11:20:20.192Z",
+      "lastModified": "2026-09-18T11:35:48.092Z",
       "taskCount": 92,
-      "completedCount": 55,
+      "completedCount": 56,
       "tags": [
         "master"
       ]
