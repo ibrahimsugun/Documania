@@ -118,11 +118,13 @@ class DocumentStatus(enum.StrEnum):
 
     Belge `active` yazılır. Parti yeniden analiz edilince önceki plan sürümlerinin etkin çıktıları
     "eski sürüm" (`superseded`) işaretlenir; satır ve dosya silinmez, yeniden adlandırılmaz (K18,
-    06.6.2).
+    06.6.2). Yalnız `active` belge arşivlenir (K16, 08.4.1); arşive taşınan belge `archived`
+    işaretlenir, satır ve dosya yine silinmez.
     """
 
     ACTIVE = "active"
     SUPERSEDED = "superseded"
+    ARCHIVED = "archived"
 
 
 class CandidateTypeStatus(enum.StrEnum):

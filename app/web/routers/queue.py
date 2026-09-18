@@ -1,4 +1,5 @@
-"""Kuyruk uç noktaları — kuyruk öğesini çalışana atama (PRD 08.2.1; K16, §20.6).
+"""Kuyruk uç noktaları — kuyruk öğesini çalışana atama (PRD 08.2.1) ve belgeyi arşive taşıma
+(PRD 08.4.1; K16, §20.6).
 
 `POST /api/queue/{queue_item_id}/assign` öğeyi gövdedeki çalışana atar ve çıktısını yapay zekâ
 çağırmadan üretir (`app.pipeline.route.assign_queue_item`); yapay zekâ sağlayıcısı bu uç noktanın
@@ -6,9 +7,13 @@ bağımlılıkları arasında yoktur. İş tek işlemde yapılır: hata olursa h
 Kuyruk öğesi ya da çalışan yoksa 404; öğe atanamıyorsa (çözülmüş, eski sürüm, türsüz, fiziksel
 kural reddi, plan ya da Inbox değişmiş) 409 ve nedeni.
 
-K16: manuel işlem iki aşamalı onay ister ve kullanıcı adıyla loglanır. Onaylanmış kullanıcının adı
-`get_confirmed_actor` bağımlılığıdır; oturum (10.1.2) ve onay belirteci (10.8.1, §20.6.1) kurulana
-kadar 503 döner — onaysız atama yapılmaz.
+`POST /api/queue/documents/{document_id}/archive` etkin belgeyi `Archive/<yyyy-mm>/`'e taşır ve
+durumunu günceller (`app.storage.archive_document`, R11); belge silinmez. Belge yoksa 404, etkin
+değilse (zaten arşivlenmiş ya da eski sürüm) 409.
+
+K16: her iki işlem de iki aşamalı onay ister ve kullanıcı adıyla loglanır. Onaylanmış kullanıcının
+adı `get_confirmed_actor` bağımlılığıdır; oturum (10.1.2) ve onay belirteci (10.8.1, §20.6.1)
+kurulana kadar 503 döner — onaysız işlem yapılmaz.
 """
 
 from __future__ import annotations
@@ -31,7 +36,12 @@ from app.pipeline.route import (
     QueueSourceIntegrityError,
     assign_queue_item,
 )
-from app.storage import DataLayout
+from app.storage import (
+    DataLayout,
+    DocumentNotArchivableError,
+    DocumentNotFoundError,
+    archive_document,
+)
 from app.web.routers.uploads import get_layout
 
 router = APIRouter(prefix="/api/queue", tags=["queue"])
@@ -115,4 +125,41 @@ def assign_queue_item_to_employee(
         operation=assigned.operation.value,
         resolved_at=queue_item.resolved_at,
         resolved_by=queue_item.resolved_by,
+    )
+
+
+class DocumentArchiveResponse(BaseModel):
+    document_id: int
+    employee_id: str
+    type_slug: str
+    path: str
+    status: str
+    archived_by: str
+    archived_at: datetime
+
+
+@router.post("/documents/{document_id}/archive", response_model=DocumentArchiveResponse)
+def archive_document_endpoint(
+    document_id: int,
+    session: Annotated[Session, Depends(get_session)],
+    layout: Annotated[DataLayout, Depends(get_layout)],
+    actor: Annotated[str, Depends(get_confirmed_actor)],
+) -> DocumentArchiveResponse:
+    """08.4.1 — etkin belgeyi `Archive/<yyyy-mm>/`'e taşır; belge silinmez, durumu güncellenir."""
+    try:
+        archived = archive_document(session, layout, document_id, actor=actor)
+    except DocumentNotFoundError as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from None
+    except DocumentNotArchivableError as exc:
+        raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from None
+    session.commit()
+    document = archived.document
+    return DocumentArchiveResponse(
+        document_id=document.id,
+        employee_id=document.employee_id,
+        type_slug=document.type_slug,
+        path=document.path,
+        status=document.status,
+        archived_by=actor,
+        archived_at=archived.event.ts,
     )

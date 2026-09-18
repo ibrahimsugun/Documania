@@ -1,4 +1,5 @@
-"""08.2.1 — `POST /api/queue/{id}/assign`: kuyruk öğesini çalışana atama (K16, §20.6).
+"""08.2.1 — `POST /api/queue/{id}/assign`: kuyruk öğesini çalışana atama ve 08.4.1 —
+`POST /api/queue/documents/{id}/archive`: belgeyi arşive taşıma (K16, §20.6).
 
 Kuyruk öğesi gerçek planlayıcıdan (06.1) ve kuyruğa yönlendirmeden (08.1) geçer; sayfa analizleri
 saklanmış sentetik yanıtlardır, sağlayıcı çağrılmaz. İki aşamalı onay (10.8.1) henüz yok: onaylanmış
@@ -18,7 +19,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 import app.ai.provider as provider_module
 from app.catalog import import_catalog
-from app.db.models import Document, Employee, Event, QueueItem
+from app.db.models import Document, DocumentStatus, Employee, Event, KnownDocumentType, QueueItem
 from app.events import EventType
 from app.pipeline.plan import create_plan, read_plan
 from app.pipeline.route import route_queue_item
@@ -213,3 +214,115 @@ def test_malformed_request_is_rejected(
 
     assert response.status_code == 422
     _unchanged(session_factory, queue_item_id)
+
+
+# --- 08.4.1: POST /api/queue/documents/{id}/archive -----------------------------------------
+
+ARCHIVE_TYPE = "test_passport"
+
+
+def _archivable_document(session_factory: sessionmaker[Session], layout: DataLayout) -> int:
+    """Çalışanın `Hazir/`'ında fiziksel dosyası olan, etkin tek bir belge; commit edilir."""
+    with session_factory() as session:
+        session.add(
+            Employee(id=TARGET, folder_name=TARGET_FOLDER, given_names="Kayitli", surname="Kisi")
+        )
+        session.add(
+            KnownDocumentType(
+                slug=ARCHIVE_TYPE,
+                name="Test Passport",
+                file_label="Passport",
+                sides="single",
+                direct=True,
+                analyze=True,
+                output_format="keep",
+            )
+        )
+        session.flush()
+        layout.ensure_employee_tree(TARGET_FOLDER)
+        path = layout.ready_dir(TARGET_FOLDER) / "Kayitli_Kisi-Passport.pdf"
+        path.write_bytes(b"belge icerigi")
+        document = Document(
+            employee_id=TARGET,
+            type_slug=ARCHIVE_TYPE,
+            path=layout.relative(path),
+            format="pdf",
+            source_refs_json=[{"file_id": 1, "pages": [0]}],
+        )
+        session.add(document)
+        session.commit()
+        return document.id
+
+
+def test_archive_without_two_step_confirmation_changes_nothing(
+    client: TestClient, session_factory: sessionmaker[Session], layout: DataLayout
+) -> None:
+    document_id = _archivable_document(session_factory, layout)
+
+    response = client.post(f"/api/queue/documents/{document_id}/archive")
+
+    assert response.status_code == 503
+    assert "İki aşamalı onay" in response.json()["detail"]
+    with session_factory() as session:
+        document = session.get_one(Document, document_id)
+        assert document.status == DocumentStatus.ACTIVE.value
+        assert session.scalars(select(Event).where(Event.type == EventType.ARCHIVED)).all() == []
+
+
+@pytest.mark.usefixtures("confirmed")
+def test_archive_moves_the_document_and_updates_its_status(
+    client: TestClient, session_factory: sessionmaker[Session], layout: DataLayout
+) -> None:
+    document_id = _archivable_document(session_factory, layout)
+
+    response = client.post(f"/api/queue/documents/{document_id}/archive")
+
+    assert response.status_code == 200
+    body = response.json()
+    with session_factory() as session:
+        document = session.get_one(Document, document_id)
+        (manual,) = session.scalars(select(Event).where(Event.type == EventType.ARCHIVED)).all()
+        assert body == {
+            "document_id": document_id,
+            "employee_id": TARGET,
+            "type_slug": ARCHIVE_TYPE,
+            "path": document.path,
+            "status": DocumentStatus.ARCHIVED.value,
+            "archived_by": ACTOR,
+            "archived_at": body["archived_at"],
+        }
+        assert document.status == DocumentStatus.ARCHIVED.value
+        archived_path = layout.resolve(document.path)
+        assert archived_path.read_bytes() == b"belge icerigi"
+        assert archived_path.parent.parent == layout.archive
+        assert list(layout.ready_dir(TARGET_FOLDER).iterdir()) == []
+        assert (manual.actor, manual.document_id, manual.employee_id) == (
+            ACTOR,
+            document_id,
+            TARGET,
+        )
+
+
+@pytest.mark.usefixtures("confirmed")
+def test_second_archive_is_a_conflict(
+    client: TestClient, session_factory: sessionmaker[Session], layout: DataLayout
+) -> None:
+    document_id = _archivable_document(session_factory, layout)
+    assert client.post(f"/api/queue/documents/{document_id}/archive").status_code == 200
+
+    response = client.post(f"/api/queue/documents/{document_id}/archive")
+
+    assert response.status_code == 409
+    assert "yalnız etkin belge arşivlenir" in response.json()["detail"]
+
+
+@pytest.mark.usefixtures("confirmed")
+def test_unknown_document_is_not_found(
+    client: TestClient, session_factory: sessionmaker[Session], layout: DataLayout
+) -> None:
+    document_id = _archivable_document(session_factory, layout)
+
+    response = client.post(f"/api/queue/documents/{document_id + 100}/archive")
+
+    assert response.status_code == 404
+    assert "Belge bulunamadı" in response.json()["detail"]

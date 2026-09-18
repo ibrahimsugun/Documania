@@ -1,9 +1,15 @@
 """Depolama katmanı: veri dizini yolları, slug, adlandırma, atomik yazma (PRD 00.4), Alinan kopyası
-(07.7.2).
+(07.7.2), arşive taşıma (08.4.1).
 
 Dosya yolu üreten tek yer bu pakettir (MASTER-PROMPT §4 yol kuralı).
 """
 
+from app.storage.archive import (
+    ArchivedDocument,
+    DocumentNotArchivableError,
+    DocumentNotFoundError,
+    archive_document,
+)
 from app.storage.atomic import (
     ContentMismatchError,
     StoredFile,
@@ -33,13 +39,17 @@ from app.storage.received import ReceivedCopy, copy_to_received
 from app.storage.slug import SlugError, slugify
 
 __all__ = [
+    "ArchivedDocument",
     "ContentMismatchError",
     "DataLayout",
+    "DocumentNotArchivableError",
+    "DocumentNotFoundError",
     "FileKind",
     "ReceivedCopy",
     "SlugError",
     "StoredFile",
     "UnsupportedFileTypeError",
+    "archive_document",
     "copy_file",
     "copy_to_received",
     "detect_file_kind",

@@ -8,7 +8,7 @@
 
 | Faz | PRD | Genel durum | Must sayacı | Kapanış |
 | --- | --- | --- | --- | --- |
-| Faz 0 — MVP | §5.1 | 90 ✅ · 0 ◐ · 12 ⬜ · 0 🔒 | 87/98 Must | AÇIK |
+| Faz 0 — MVP | §5.1 | 91 ✅ · 0 ◐ · 11 ⬜ · 0 🔒 | 88/98 Must | AÇIK |
 | Faz 1 — v1 | §5.2 | 0 ✅ · 0 ◐ · 0 ⬜ · 32 🔒 | 0/21 Must | AÇIK |
 | Faz 2 — v2 | §5.3 | 0 ✅ · 0 ◐ · 0 ⬜ · 13 🔒 | 0/0 Must | AÇIK |
 | Faz 3 — Enterprise | §5.4 | 0 ✅ · 0 ◐ · 0 ⬜ · 8 🔒 | 0/0 Must | AÇIK |
@@ -200,7 +200,7 @@ panelde `plan-count-drift` bulgusu doğurur.
 | 08.1.2 | Gerekçe içeriği | Must (MVP) | ✅ → K08.1 |
 | 08.2.1 | Kuyruk öğesini çalışana atama | Must (MVP) | ✅ → K08.2 |
 | 08.3.1 | Onay bekleyen profili onaylama | Must (MVP) | ✅ → K08.3 |
-| 08.4.1 | Arşive taşıma (R11) | Must (MVP) | ⬜ |
+| 08.4.1 | Arşive taşıma (R11) | Must (MVP) | ✅ → K08.4 |
 
 ### 3.10 FR-MOD-09 — Çalışan profili ve orkestrasyon
 
@@ -1837,3 +1837,8 @@ var olan maddeler silinmez. Biçim:
 - ✅ `approve_queued_profile(session, layout, queue_item_id, *, actor, render_image_dpi, render_image_jpeg_quality)` (`app/pipeline/route.py`) güncel planın çözülmemiş `employee.action: pending` kuyruk öğesini onaylar: önerilen profil öğenin saklanan sayfa analizlerinden `build_person_key` ile yeniden kurulur (yapay zekâ çağrılmaz, plan ve analizler değişmez — K9), tür/fiziksel işlem/çıktı denetimleri çalışan açılmadan önce yapılır, çalışan `approve_pending_profile` (`app/matching/match.py`) ile açılır ve belge atamanın ortak çekirdeğiyle (`_resolve_with_output`) onun `Hazir/`'ına K8 adıyla yazılır, kaynak `Alinan/`'a kopyalanır; kuyruk kaydı `resolved_at`/`resolved_by`, `MANUAL_APPROVE` kullanıcı adıyla yazılır, belgedeki iletişim bilgisi yeni çalışana eklenir (PLAN.md §C42, §D20).
 - ✅ `approve_pending_profile(session, layout, key, *, entry, actor, file_id, page_index)` satır 7'yi onay anında veritabanında yeniden değerlendirir (kişi öneriden sonra kayıtlı çalışanla eşleşiyorsa `ProfileApprovalRefusedError`, hiçbir şey yazılmaz — aynı kişinin ikinci önerisi ikinci çalışan açmaz); uyuyorsa E numarası (hükümden önce, tahsis kilidiyle), `ProposedProfile` alanlarıyla `employees` satırı, yazımlar (`script` ile), `Alinan/`+`Hazir/` ve kullanıcı adlı `EMPLOYEE_CREATED`; temiz olmayan numara yazılmaz (D11).
 - ✅ Kapı: 2131 geçti (+34; 4 PG testi atlandı), kapsam %99.72 (`route.py` satır+dal %100, `match.py` yeni kod %100) — test `tests/pipeline/test_route_approve.py` (19: onay sonrası çalışan + çıktı + köken + iletişim bilgisi + `EMPLOYEE_CREATED`/`OUTPUT_SAVED`/`MANUAL_APPROVE` ve sağlayıcıya istek yok/analiz ve plan değişmedi, boş sayfalı kartta `extract`, aynı kişinin ikinci önerisinin reddi ve yeni çalışana atanması, öneriden sonra kaydedilen kişi, Unreadable ve yalnız isim öğesinin reddi, dönüşüm izni ve Inbox değişikliğinde çalışan açılmaması, analiz yok/başarısız/şemaya uymuyor, işlem hatasında çağıranın geri alması, çözülmüş/yeniden yönlendirilmiş/eski sürüm/bilinmeyen öğe, boş kullanıcı adı ×2, işlem sınırı çağıranda) · `tests/matching/test_profile_approval.py` (15: profilden çalışan, sıradaki E numarası, satır 7 dışı yedi hükmün reddi, ikinci onayın reddi ×2, boş kullanıcı adı ×2, commit yok, kayıtlı yanıtlı pasaport önerisinin onayı); 6 kural bozulması (pending denetimi, yeniden değerlendirme, denetimlerin çalışandan sonra yapılması, iletişim bilgisi, olay türü, `actor`) geçici olarak denendi, her biri testte kırmızı · tm 56
+
+#### K08.4 — 08.4.1 · Arşive taşıma
+- ✅ `archive_document(session, layout, document_id, *, actor, today=None)` (`app/storage/archive.py`) etkin (`DocumentStatus.ACTIVE`) belgeyi `Archive/<yyyy-mm>/`'e taşır (R11, K11): kaynak `write_unique` ile hedefe yayınlanır (K8'deki gibi `-2`, `-3`… ekiyle çakışmasız, `expected_sha256` ile bütünlük doğrulanır), yayın bittikten sonra kaynak silinir — gerçek bir taşıma, kopya bırakılmaz; `documents.path`/`status` (`archived`) güncellenir, satır/köken/sıra numarası silinmez ya da yeniden adlandırılmaz (K18'deki gibi). Belge satırı `with_for_update` ile kilitlenir (eşzamanlı ikinci çağrı belgeyi arşivlenmiş görür). Yalnız `active` belge arşivlenir; zaten arşivlenmiş ya da eski sürüm (`superseded`) `DocumentNotArchivableError`, kayıt yoksa `DocumentNotFoundError`; K16 gereği `actor` boşsa `ValueError`. Başarıyla biten işlem `ARCHIVED` olayını (K15) kullanıcı adı, belge ve çalışan kimliğiyle yazar. Oturum commit edilmez.
+- ✅ `POST /api/queue/documents/{document_id}/archive` (`app/web/routers/queue.py`): gövde yok; K16 onaylanmış kullanıcı adı `get_confirmed_actor`'dan — oturum (10.1.2) ve onay belirteci (10.8.1) bağlanana kadar 503; belge yoksa 404, etkin değilse (zaten arşivlenmiş/eski sürüm) 409, yalnız başarıda commit.
+- ✅ Kapı: 2143 geçti (+12), kapsam %99.73 (`archive.py`, `queue.py` %100) — test `tests/storage/test_archive.py` (8: arşive taşıma + durum/yol güncellemesi + kaynağın silinmesi + `ARCHIVED` olayı, bulunamayan belge, eski sürüm/zaten arşivlenmiş belgenin reddi ×2, ikinci arşivlemenin reddi, boş kullanıcı adı ×2, işlem sınırı çağıranda) · `tests/web/test_queue.py` (+4: onaysız 503 ve değişiklik yok, 200 + durum/dosya taşınması + olay, ikinci arşivleme 409, bilinmeyen belge 404) · tm 57

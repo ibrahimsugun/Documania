@@ -18,6 +18,12 @@ Blok biçimi `CONVENTIONS.md` §3'te tanımlıdır:
 
 ## Task log (newest-first)
 
+## 57 — 08.4 Arşive taşıma — done — 2026-09-18
+- Yapıldı: `archive_document` (`app/storage/archive.py`) etkin belgeyi `write_unique` ile `Archive/<yyyy-mm>/`'e taşır (yayından sonra kaynak silinir — gerçek taşıma, K11), `documents.path`/`status` (`archived`) günceller, `ARCHIVED` olayını kullanıcı adıyla yazar; uç nokta `POST /api/queue/documents/{document_id}/archive` (`app/web/routers/queue.py`), K16 onayı `get_confirmed_actor`'dan (10.8.1 bağlanana kadar 503).
+- Doğrulama: ruff check/format, compileall, `pytest -q -m "not live" --cov=app --cov-fail-under=70` (2143 geçti, +12; 4 PG testi atlandı), kapsam %99.73 (`archive.py`/`queue.py` %100), temiz SQLite'ta `alembic upgrade head` (0001→0002, bu görevde göç yok — `DocumentStatus.ARCHIVED` yeni değer, `documents.status`'ta CHECK kısıtı yok), `import app.main` — hepsi exit 0.
+- Varsayımlar: ÇIKTI notu (`app/storage/`, `app/web/routers/queue.py`) route.py'yi kapsamıyordu; çekirdek mantık bu yüzden `route.py`'ye değil `app/storage/archive.py`'ye eklendi (assign/approve'un aksine, belge kuyruk öğesi değil zaten üretilmiş `Document` satırıdır). Belge satırı `with_for_update` ile kilitlenir; eşzamanlı ikinci çağrı arşivlenmiş görür.
+- Sonraki pencereye not: uç nokta `/api/queue` prefix'i altında `/documents/{id}/archive` yolunu kullanıyor (main.py'ye yeni router eklenmedi); panel tarafı (10.7 kuyruk ekranları) bu yolu ve K16 iki aşamalı onay metnini (§20.6 son satır) kullanmalı.
+
 ## 56 — 08.3 Onay bekleyen profili onaylama — done — 2026-09-18
 - Yapıldı: `approve_queued_profile` (`app/pipeline/route.py`) güncel planın `employee.action: pending` kuyruk öğesini onaylar — profil saklanan sayfa analizlerinden `build_person_key` ile yeniden kurulur, tür/işlem/çıktı denetimleri çalışandan önce yapılır, çalışanı `approve_pending_profile` (`app/matching/match.py`; satır 7 onay anında yeniden değerlendirilir, numara yazılmaz) açar, belge atamayla ortak `_resolve_with_output` çekirdeğiyle ona bağlanır, iletişim bilgisi eklenir, `EMPLOYEE_CREATED` + `MANUAL_APPROVE` kullanıcı adıyla yazılır.
 - Doğrulama: ruff check/format, compileall, `pytest -q -m "not live" --cov=app --cov-fail-under=70` (2131 geçti, +34; 4 PG testi atlandı), kapsam %99.72 (`route.py` %100), temiz SQLite'ta `alembic upgrade head` (0001→0002, göç yok), `import app.main` — hepsi exit 0; 6 kural bozulması testte kırmızı.
