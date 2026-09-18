@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}Panel{% endblock %} · belgeee</title>
   <link rel="stylesheet" href="/static/panel.css">
+  <script src="/static/htmx.min.js" defer></script>
 </head>
 <body>
   {% if user %}
@@ -24,5 +25,6 @@
   <main class="content">
     {% block content %}{% endblock %}
   </main>
+  {% block scripts %}{% endblock %}
 </body>
 </html>

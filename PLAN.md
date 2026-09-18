@@ -9,7 +9,7 @@
 | Faz | PRD | Genel durum | Must sayacı | Kapanış |
 | --- | --- | --- | --- | --- |
 | Faz 0 — MVP | §5.1 | 100 ✅ · 1 ◐ · 1 ⬜ · 0 🔒 | 97/98 Must | AÇIK |
-| Faz 1 — v1 | §5.2 | 3 ✅ · 0 ◐ · 0 ⬜ · 29 🔒 | 3/21 Must | AÇIK |
+| Faz 1 — v1 | §5.2 | 5 ✅ · 0 ◐ · 0 ⬜ · 27 🔒 | 4/21 Must | AÇIK |
 | Faz 2 — v2 | §5.3 | 0 ✅ · 0 ◐ · 0 ⬜ · 13 🔒 | 0/0 Must | AÇIK |
 | Faz 3 — Enterprise | §5.4 | 0 ✅ · 0 ◐ · 0 ⬜ · 8 🔒 | 0/0 Must | AÇIK |
 
@@ -226,8 +226,8 @@ panelde `plan-count-drift` bulgusu doğurur.
 | 10.1.1 | Panel iskeleti ve gezinme | Must (v1) | ✅ → K10.1 |
 | 10.1.2 | Oturum tabanlı giriş | Must (v1) | ✅ → K10.1 |
 | 10.1.3 | İlk kullanıcı oluşturma | Must (v1) | ✅ → K10.1 |
-| 10.2.1 | Yükleme sayfası | Must (v1) | 🔒 |
-| 10.2.2 | İlerleme görünümü | Should (v1) | 🔒 |
+| 10.2.1 | Yükleme sayfası | Must (v1) | ✅ → K10.2 |
+| 10.2.2 | İlerleme görünümü | Should (v1) | ✅ → K10.2 |
 | 10.3.1 | Yükleme detay sayfası | Must (v1) | 🔒 |
 | 10.3.2 | Yeniden çalıştır / yeniden analiz | Should (v1) | 🔒 |
 | 10.4.1 | Çalışan listesi | Must (v1) | 🔒 |
@@ -1367,6 +1367,33 @@ Onay beklemeden yapılan varsayımlar buraya numaralı olarak yazılır.
   alınmaz). Komut ilk kullanıcıyla sınırlanmadı — başka kullanıcı yönetimi yolu olmadığı için sonraki yöneticiler de
   aynı komutla açılır; aynı ad reddedilir. Rol yalnız `admin` (`UserRole`); rol ayrımı PRD'de yok.
 
+- **C46** — Yükleme sayfası ve canlı ilerleme (tm 65, 10.2.1, 10.2.2): PRD yalnız kabul cümlelerini verir; parti
+  oluşunca işlemenin kim tarafından başlatılacağı, ilerlemenin nasıl yenileneceği ve HTMX'in nasıl geleceği yazılı değil.
+  **Sayfa:** `GET /upload` (`app/web/routers/upload_page.py`, `upload.html`; `panel.py`'deki yer tutucu kalktı) sürükle-bırak
+  bölgesi + çoklu dosya alanı + isteğe bağlı çalışan seçimi (boş seçenek "belirtme"; liste tüm çalışanlar, `folder_name`
+  sırasıyla) çizer. **Gönderim:** `POST /upload` (HTMX, `hx-encoding=multipart`) `POST /api/uploads`'ın işlevini
+  (`create_upload`) doğrudan çağırır — boyut/sayfa sınırı, Inbox'a değişmez yazma, tekrar tespiti ve olaylar kopyalanmadı;
+  uç noktanın hataları (400/404) sayfada hata parçası olur. Form `request.form()` ile elle okunur: tarayıcı dosya seçilmeden
+  gönderince adı boş tek parça yollar, Starlette bunu düz alan sayar ve bildirimli `list[UploadFile]` 422 verirdi; boş adlı
+  parça ayıklanır, hiç dosya kalmazsa 400 "Yüklenecek dosya seçilmedi.". Seçimsiz çalışan alanı boş dize gelir → `None`.
+  **İşleme:** tm 59'un açık bıraktığı tetikleme (C43 açık kalan 3) bu yolda kapandı: `POST /upload` parti oluştuktan sonra
+  `process_upload`'ı FastAPI `BackgroundTasks` ile (iş parçacığı havuzunda) başlatır; işleyici kendi oturumunu
+  `get_session_factory()`'den açar, sağlayıcıyı `create_provider(settings)` kurar (`get_upload_processor`). Sağlayıcı
+  kurulamazsa (eksik anahtar) parti yine de alınır — dosya Inbox'ta, K10 — ama işlenmez; kullanıcıya bu söylenir ve yenileme
+  başlatılmaz. `POST /api/uploads` değişmedi: partiyi hâlâ `received` bırakır. Uygulama yeniden başlarsa yarım kalan parti
+  kendiliğinden devam etmez — kalıcı işçi kuyruğu 13.3.1'in (Could, v3). **İlerleme:** `GET /upload/{id}/progress`
+  `get_upload_status`'u (01.6.1) parçaya çevirir; parça kendini `hx-trigger="every 2s"` ile `outerHTML` yeniler, parti
+  `done`/`partial`/`failed` olunca öznitelikler yoktur ve yenileme durur. Aşama şeridi `received → rendering → analyzing →
+  planning → executing` (geçilenler "done", süren "current"); `failed`'da hangi aşamada durduğu bilinmez (`PIPELINE_FAILED.stage`
+  10.3.1 zaman çizelgesinin), şerit tümüyle "todo" kalır. "Sayfaları hazırlanan dosya" sayacı yalnız süren partide ve tekrar
+  dosyaları hariç gösterilir (tekrar ve Word/Excel hiç render edilmez, bitince "1 / 2" kalırdı). Parti ayrıntı sayfasına
+  bağlantı yok (10.3.1). **HTMX:** MASTER-PROMPT §4'ün HTMX'i `app/web/static/htmx.min.js` (2.0.4, tek dosya) olarak depoya
+  alındı — CDN yok, panel ağsız açılır; `base.html` her sayfada yükler. HTMX 4xx yanıtı değiştirmez; `upload.js` yalnız 4xx
+  için `htmx:beforeSwap`'ta değişimi açar (hata parçası görünsün). **SQLite:** analiz adımı yazma kilidini yapay zekâ
+  çağrıları boyunca tutar (C43); durum sorgusu da `BEGIN IMMEDIATE` açtığı için o sürede en çok `busy_timeout` (30 sn)
+  bekler, HTMX son görünümü korur ve sonraki turda yeniden dener. PostgreSQL'de bu yok. **Açık:** parti `uploaded_by`
+  yazılmıyor (API de yazmıyordu; PRD 01.x/10.2 istemiyor) — panel kullanıcısını partiye bağlamak isteniyorsa ayrı gereksinim.
+
 ## D. Sapmalar
 
 PRD'den veya kilitli kararlardan her sapma buraya numaralı yazılır (D1, D2…).
@@ -1963,3 +1990,8 @@ var olan maddeler silinmez. Biçim:
 - ✅ 10.1.2 oturum tabanlı giriş: `app/web/auth.py` (argon2id parola, `user_sessions`'ta belirtecin SHA-256 özeti, süre/çıkış ile kapanma; `get_current_user` → `require_panel_user` 303 girişe / `require_api_user` 401), `app/web/routers/auth.py` (`GET/POST /login`, `POST /logout`; `next` yalnız yerel yol), göç `alembic/versions/0003_user_sessions.py`, `SESSION_MAX_AGE_SECONDS` (`app/config.py`); `app/main.py` panel ve `/api/*` yönlendiricilerini oturuma bağlar, `/docs`/`/openapi.json` kapalı — uygulamanın bütün yolları (`app.openapi()`) oturumsuz denenir: açık yalnız giriş/çıkış ve `/health`, sayfalar girişe, API 401 · test `tests/web/test_auth.py` (46), `tests/db/test_migrations.py` (+1), `tests/test_config.py` (+1) · tm 64
 - ✅ 10.1.3 ilk yönetici: `python -m app.web create-admin --username AD [--password-stdin]` (`app/web/__main__.py`; parola gizli iki kez ya da standart girdiden, argüman değil; kısa parola/boşluklu ya da alınmış ad çıkış 1, hiçbir şey yazılmaz) — ayrı süreçte göçlü temiz veritabanında açılan yönetici panele girip beş menüyü açar · test `tests/web/test_admin_cli.py` (8) · tm 64
 - ✅ Kapı: ruff check/format, compileall, `pytest -q -m "not live" --cov=app --cov-fail-under=70` (2339 geçti, +56; 2 beklenen xfail D12; 4 PG testi atlandı), kapsam %99.73, temiz SQLite'ta `alembic upgrade head` (0001→0003), `import app.main` — hepsi exit 0; 6 geçici kural bozulmasının (API korumasız, panel korumasız, açık yönlendirme, kapalı ya da süresi dolmuş oturum geçerli, üretimde Secure yok) her biri testte kırmızı. Mevcut API test fikstürleri (`tests/web/conftest.py`, `tests/test_scenarios_s01_s05.py`) oturumu açık kullanıcıyla gelir. · tm 64
+
+#### K10.2 — 10.2.1, 10.2.2 · Yükleme sayfası ve ilerleme görünümü
+- ✅ 10.2.1 yükleme sayfası: `app/web/routers/upload_page.py` (`GET /upload` form + çalışan listesi, `POST /upload` HTMX gönderimi — `create_upload`'ı çağırır, sınır/Inbox/tekrar mantığı tek yerde), `app/web/templates/upload.html` + `upload_result.html`, `app/web/static/upload.js` (sürükle-bırak; art arda bırakılanlar birikir, aynı ad+boyut tekrarlanmaz, seçilenler listelenir), `app/web/static/htmx.min.js` (HTMX 2.0.4), isteğe bağlı çalışan → `uploads.context_employee_id` · test `tests/web/test_upload_page.py` (31) · tm 65
+- ✅ 10.2.2 ilerleme görünümü: `GET /upload/{id}/progress` parçası `hx-trigger="every 2s"` ile yenilenir, son durumda (`done`/`partial`/`failed`) durur; parti `POST /upload` sonrası `process_upload` ile arka planda `received → … → done` ilerler (`get_upload_processor`) — gerçek tarayıcıda (Chromium, CDP) iki dosyayı sürükleyip bırakma → gönderim → "Alındı → Tamamlandı" doğrulandı · test `tests/web/test_upload_page.py` (kayıtlı sağlayıcıyla uçtan uca) · tm 65
+- ✅ Kapı: ruff check/format, compileall, `pytest -q -m "not live" --cov=app --cov-fail-under=70` (2370 geçti, +31; 2 beklenen xfail D12; 4 PG testi atlandı), kapsam %99.74 (`upload_page.py` %100), temiz SQLite'ta `alembic upgrade head`, `import app.main` — hepsi exit 0; 6 geçici kural bozulmasının (boş çalışan dizesi, son durumda yenileme, arka plan işleyicisi, boş adlı parça, `failed` aşama şeridi, başkasının aldığı parti) her biri testte kırmızı

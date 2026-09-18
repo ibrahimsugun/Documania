@@ -65,3 +65,62 @@ button {
 }
 
 .error { color: #b42318; }
+
+/* Yükleme sayfası (10.2) */
+
+.upload-form { display: flex; flex-direction: column; gap: 0.5rem; max-width: 40rem; }
+
+.dropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 2rem 1rem;
+  text-align: center;
+  background: #fff;
+  border: 2px dashed #9aa4b2;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.dropzone.dragover { border-color: #0b5cad; background: #eef5fc; }
+
+.dropzone input[type="file"] { max-width: 100%; margin-top: 0.5rem; }
+
+.dropzone small, .hint { color: #6b7280; }
+
+.file-list { margin: 0; padding-left: 1.25rem; }
+
+.upload-form select { padding: 0.45rem; border: 1px solid #d0d7de; border-radius: 4px; font: inherit; }
+
+.upload-form button[type="submit"] { align-self: flex-start; }
+
+.upload-result { margin-top: 1.5rem; }
+
+.progress { padding: 1rem; background: #fff; border: 1px solid #d0d7de; border-radius: 6px; }
+
+.progress h2 { margin: 0 0 0.5rem; font-size: 1rem; }
+
+.status { font-weight: 600; }
+
+.status-done { color: #1a7f37; }
+
+.status-partial { color: #9a6700; }
+
+.status-failed { color: #b42318; }
+
+.notice { color: #9a6700; }
+
+.steps { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 0.75rem 0; padding: 0; list-style: none; }
+
+.step { padding: 0.25rem 0.6rem; border-radius: 4px; background: #eef0f3; color: #6b7280; }
+
+.step-done { background: #dcf3e4; color: #1a7f37; }
+
+.step-current { background: #0b5cad; color: #fff; }
+
+.files { width: 100%; border-collapse: collapse; }
+
+.files th, .files td { padding: 0.35rem 0.5rem; text-align: left; border-bottom: 1px solid #eef0f3; }
+
+.badge { padding: 0.1rem 0.4rem; border-radius: 4px; background: #fff3cd; color: #7a5d00; font-size: 0.85em; }

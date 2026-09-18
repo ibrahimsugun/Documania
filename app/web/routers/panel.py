@@ -3,8 +3,8 @@ Yüklemeler.
 
 Her sayfa oturum ister (10.1.2): yönlendirici `app.main`'de `require_panel_user` ile bağlanır,
 oturumsuz istek giriş sayfasına gider. Bölümlerin içeriği kendi gereksinimlerinindir (10.2
-yükleme, 10.3 yükleme ayrıntısı, 10.4 çalışan listesi, 10.7 kuyruklar, 11.1 katalog); o işler
-gelene kadar sayfa bölümün adını gösterir.
+yükleme — `upload_page.py`, 10.3 yükleme ayrıntısı, 10.4 çalışan listesi, 10.7 kuyruklar, 11.1
+katalog); içeriği gelmemiş bölümde sayfa yalnız bölümün adını gösterir.
 """
 
 from __future__ import annotations
@@ -31,11 +31,6 @@ def _section(request: Request, user: PanelUser, key: str) -> HTMLResponse:
 def home(_user: CurrentUser) -> RedirectResponse:
     """Panelin girişi menünün ilk bölümüdür."""
     return RedirectResponse(PANEL_MENU[0].path, status.HTTP_303_SEE_OTHER)
-
-
-@router.get("/upload", response_class=HTMLResponse)
-def upload_page(request: Request, user: CurrentUser) -> HTMLResponse:
-    return _section(request, user, "upload")
 
 
 @router.get("/employees", response_class=HTMLResponse)

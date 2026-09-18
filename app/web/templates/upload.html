@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}{{ entry.label }}{% endblock %}
+{% block content %}
+<h1>{{ entry.label }}</h1>
+<form id="upload-form" class="upload-form"
+      hx-post="/upload" hx-encoding="multipart/form-data"
+      hx-target="#upload-result" hx-swap="innerHTML"
+      hx-disabled-elt="find button[type=submit]">
+  <label class="dropzone" id="dropzone" for="files">
+    <strong>Dosyaları buraya sürükleyip bırakın</strong>
+    <span>ya da seçmek için tıklayın · birden çok dosya seçilebilir</span>
+    <small>PDF, JPEG, PNG · Word ve Excel olduğu gibi saklanır</small>
+    <input id="files" name="files" type="file" multiple
+           accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx">
+  </label>
+  <ul id="file-list" class="file-list" aria-live="polite"></ul>
+  <label for="context_employee_id">Çalışan <span class="hint">(isteğe bağlı)</span></label>
+  <select id="context_employee_id" name="context_employee_id">
+    <option value="">Belirtme — sahibi belgeden bulunsun</option>
+    {% for employee in employees %}
+    <option value="{{ employee.id }}">{{ employee.id }} — {{ employee.given_names }} {{ employee.surname }}</option>
+    {% endfor %}
+  </select>
+  <p class="hint">Bir çalışan seçerseniz, sahibi belgeden anlaşılamayan dosyalar ona atanır.</p>
+  <button type="submit">Yükle</button>
+</form>
+<section id="upload-result" class="upload-result" aria-live="polite"></section>
+{% endblock %}
+{% block scripts %}
+<script src="/static/upload.js" defer></script>
+{% endblock %}

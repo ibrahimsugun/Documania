@@ -11,7 +11,7 @@ from app.catalog import install_seed_catalog
 from app.config import Settings, get_settings
 from app.storage import prepare_data_dir
 from app.web.auth import LoginRequiredError, login_url, require_api_user, require_panel_user
-from app.web.routers import auth, panel, queue, uploads
+from app.web.routers import auth, panel, queue, upload_page, uploads
 
 
 def _redirect_to_login(_request: Request, exc: Exception) -> RedirectResponse:
@@ -37,6 +37,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     application.mount("/static", StaticFiles(packages=[("app.web", "static")]), name="static")
     application.include_router(auth.router)
     application.include_router(panel.router, dependencies=[Depends(require_panel_user)])
+    application.include_router(upload_page.router, dependencies=[Depends(require_panel_user)])
     application.include_router(uploads.router, dependencies=[Depends(require_api_user)])
     application.include_router(queue.router, dependencies=[Depends(require_api_user)])
 
