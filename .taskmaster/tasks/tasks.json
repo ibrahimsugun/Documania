@@ -1032,13 +1032,13 @@
         "description": "PRD 10.7.3 · FR-MOD-10 (Web yönetim paneli) · Faz 1.",
         "details": "KAPSAM: PRD 10.7.3 (FR-MOD-10 — Web yönetim paneli, Faz 1).\n\nNE YAPILACAK — GEREKSİNİMLER VE KABUL KRİTERLERİ:\n- 10.7.3 — Kuyruktan profil oluşturma\n  Kabul: Önerilen profil düzenlenip onaylanabilir; belge içeriği düzenlenemez\n\nGİRDİ — ÜZERİNE KURULDUĞU İŞLER (bu kod ZATEN VAR; yazmadan önce OKU):\n- 10.7-b (Kuyruktan çalışana atama akışı) → app/web/routers/queue.py, app/web/templates/queue_assign.html\n\nÇIKTI — DOKUNULACAK YÜZEY: app/web/routers/queue.py, app/web/templates/queue_new_profile.html\n\nZORUNLU OKUMA — BU GÖREVİN KARAR TABLOSU: urun-gereksinim-dokumani-PRD.md §20.6 (profil oluşturma onay metinleri — BİREBİR kullanılacak) ve §20.6.1\nKarar zaten verilmiş ve yazılmıştır; senden beklenen onu UYGULAMAK. Tabloyu okumadan kod yazma. Tabloda karşılığı olmayan bir durumla karşılaşırsan UYDURMA: en güvenli davranışı seç (belgeyi kuyruğa al) ve PLAN.md §D'ye sapma yaz.\n\nBU GÖREVİ BAĞLAYAN KİLİTLİ KURALLAR (MASTER-PROMPT §3 — tartışma, uygula):\n- K16: Manuel işlemler yalnız: belgeyi başka çalışana taşı, kuyruk öğesini ata, onay bekleyen profili onayla, yeni türü onayla, arşive taşı. SİLME YOK. Hepsi iki aşamalı onay ister ve kullanıcı adıyla loglanır.\n- R7: Emin değilse kuyruğa: kişisi veya türü belirlenemeyen belge çalışan klasörüne rastgele YERLEŞTİRİLMEZ. Unknown/Unreadable/Unresolved'a alınır ve gerekçe yazılır. Tahmin etmek, kuyruğa almaktan daha kötüdür.\n\nPRD'DE AYRICA OKU: yalnız yukarıdaki gereksinim satırları yeterli.\n\nİLGİLİ KABUL SENARYOSU: doğrudan yok. Kabul kriterleri yukarıda.\n\nSIRA (MASTER-PROMPT §5, contract-first): sözleşme/şema → Alembic göçü (gerekiyorsa) → çekirdek + unit test → entegrasyon + testi → arayüz.\n\nKAPSAM SINIRI: yalnız yukarıdaki PRD kimlikleri. Başka gereksinimin işini yapma; yolda gördüğün kusuru düzeltme, yeni görev olarak aç (CONVENTIONS §5). Kilitli teknik kararları (MASTER-PROMPT §4) tartışma; yanlış görünüyorsa uygula ve PLAN.md §D'ye sapma yaz.\n\nTUZAKLAR: belge içeriğini değiştiren kod yazma — kırpma, döndürme (EXIF dışında), kontrast, metin yazma, form doldurma yok (K11/K17). Gerçek kimlik belgesi kullanma; test verisi tests/fixtures/gen.py ile üretilen sentetik belgelerdir (CONVENTIONS §6). Yapay zekâ çağrısı testte canlı yapılmaz, kayıtlı yanıt sağlayıcısı kullanılır. Test/build komutlarını arka plana atma — pencere ölür.\n\nKAPANIŞ: PLAN.md'de 10.7.3 satırlarının damgasını '✅ → K10.7-c' yap ve '## K. Kanıt Geçmişi' bölümünde '#### K10.7-c' bloğuna kanıt maddesi ekle (blok yoksa aç). Faz özet tablosundaki sayıları SAYARAK güncelle. Ayrıntı: CONVENTIONS §1.2-1.3.",
         "testStrategy": "CONVENTIONS §1 DoD kapısı: ruff check . · ruff format --check . · python -m compileall -q app tests · pytest -q -m \"not live\" · alembic upgrade head · python -c \"import app.main\" — hepsi exit 0.\nAyrıca bu görevin kendi kabul kriterleri:\n- 10.7.3: Önerilen profil düzenlenip onaylanabilir; belge içeriği düzenlenemez",
-        "status": "in-progress",
+        "status": "done",
         "dependencies": [
           "71"
         ],
         "priority": "high",
         "subtasks": [],
-        "updatedAt": "2026-09-18T21:42:55.910Z"
+        "updatedAt": "2026-09-18T22:18:48.485Z"
       },
       {
         "id": "73",
@@ -1343,9 +1343,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-09-18T21:42:55.911Z",
+      "lastModified": "2026-09-18T22:18:48.485Z",
       "taskCount": 94,
-      "completedCount": 70,
+      "completedCount": 71,
       "tags": [
         "master"
       ]
