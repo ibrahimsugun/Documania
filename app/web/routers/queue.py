@@ -12,8 +12,9 @@ durumunu günceller (`app.storage.archive_document`, R11); belge silinmez. Belge
 değilse (zaten arşivlenmiş ya da eski sürüm) 409.
 
 K16: her iki işlem de iki aşamalı onay ister ve kullanıcı adıyla loglanır. Onaylanmış kullanıcının
-adı `get_confirmed_actor` bağımlılığıdır; oturum (10.1.2) ve onay belirteci (10.8.1, §20.6.1)
-kurulana kadar 503 döner — onaysız işlem yapılmaz.
+adı `get_confirmed_actor` bağımlılığıdır; uç noktalar yalnız oturumu açık kullanıcıya açıktır
+(10.1.2, `app.main`), onay belirteci (10.8.1, §20.6.1) kurulana kadar 503 döner — onaysız işlem
+yapılmaz.
 """
 
 from __future__ import annotations
@@ -70,9 +71,9 @@ class QueueAssignmentResponse(BaseModel):
 def get_confirmed_actor() -> str:
     """K16: iki aşamalı onayı (§20.6.1) tamamlamış kullanıcının adı.
 
-    Oturum (10.1.2) ve onay belirteci (10.8.1) henüz kurulmadı; manuel işlem onaysız yapılmaz: 503.
-    10.8.1 bu bağımlılığı belirteci doğrulayıp tüketen, `USER_CONFIRMED`'ı yazan ve kullanıcı adını
-    döndüren hâliyle bağlar.
+    Oturum (10.1.2) kuruldu, onay belirteci (10.8.1) henüz yok; manuel işlem onaysız yapılmaz: 503.
+    10.8.1 bu bağımlılığı belirteci doğrulayıp tüketen, `USER_CONFIRMED`'ı yazan ve oturumdaki
+    kullanıcının (`app.web.auth.require_api_user`) adını döndüren hâliyle bağlar.
     """
     raise HTTPException(
         status.HTTP_503_SERVICE_UNAVAILABLE,

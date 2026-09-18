@@ -47,6 +47,9 @@ SECTION_8_1_TABLES = {
     "users",
     "telegram_users",
 }
+# §8.1 dışında, kilitli karardan doğan tablolar: panel oturumu (MASTER-PROMPT §4 "sunucu tarafı
+# oturum çerezi", 10.1.2; PLAN.md §C45, §D22).
+BEYOND_SECTION_8_1_TABLES = {"user_sessions"}
 
 
 def _employee(number: str = "E0001") -> Employee:
@@ -68,7 +71,7 @@ def _document_type(slug: str = "test_passport") -> KnownDocumentType:
 
 
 def test_metadata_defines_every_section_8_1_table() -> None:
-    assert set(Base.metadata.tables) == SECTION_8_1_TABLES
+    assert set(Base.metadata.tables) == SECTION_8_1_TABLES | BEYOND_SECTION_8_1_TABLES
 
 
 def test_relationships_navigate_in_both_directions(engine: Engine) -> None:

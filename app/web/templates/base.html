@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Panel{% endblock %} · belgeee</title>
+  <link rel="stylesheet" href="/static/panel.css">
+</head>
+<body>
+  {% if user %}
+  <header class="topbar">
+    <a class="brand" href="/">belgeee</a>
+    <nav class="menu" aria-label="Ana menü">
+      {% for entry in menu %}
+      <a href="{{ entry.path }}"{% if entry.key == active %} class="active" aria-current="page"{% endif %}>{{ entry.label }}</a>
+      {% endfor %}
+    </nav>
+    <form class="session" method="post" action="/logout">
+      <span class="username">{{ user.username }}</span>
+      <button type="submit">Çıkış</button>
+    </form>
+  </header>
+  {% endif %}
+  <main class="content">
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

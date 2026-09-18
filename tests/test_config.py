@@ -157,3 +157,22 @@ def test_invalid_ai_settings_rejected(
 
     with pytest.raises(ValidationError, match=name.lower()):
         load_settings(_env_file=None)
+
+
+def test_session_lifetime_has_a_default_reads_environment_and_is_documented(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # 10.1.2: panel oturumunun ömrü.
+    monkeypatch.setenv("DATABASE_URL", "sqlite:///./data/test.db")
+    monkeypatch.delenv("SESSION_MAX_AGE_SECONDS", raising=False)
+    assert load_settings(_env_file=None).session_max_age_seconds == 12 * 60 * 60
+
+    monkeypatch.setenv("SESSION_MAX_AGE_SECONDS", "900")
+    assert load_settings(_env_file=None).session_max_age_seconds == 900
+
+    monkeypatch.setenv("SESSION_MAX_AGE_SECONDS", "0")
+    with pytest.raises(ValidationError, match="session_max_age_seconds"):
+        load_settings(_env_file=None)
+
+    example = (Path(__file__).resolve().parents[1] / ".env.example").read_text(encoding="utf-8")
+    assert "SESSION_MAX_AGE_SECONDS=43200\n" in example

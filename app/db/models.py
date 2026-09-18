@@ -1,5 +1,5 @@
-"""Veri modeli — PRD §8.1 tabloları (00.3.1), çalışan numarası üretici (00.3.3) ve aday tür
-kaydı (04.6.1).
+"""Veri modeli — PRD §8.1 tabloları (00.3.1), çalışan numarası üretici (00.3.3), aday tür
+kaydı (04.6.1) ve panel oturumu (10.1.2).
 
 Silme yoktur, arşiv vardır (K16): ilişkilerde silme kaskadı tanımlanmaz.
 Dosya yolu burada üretilmez (yol kuralı: `app/storage/`); yol sütunları yalnız saklar.
@@ -420,6 +420,12 @@ class AccessLog(Base):
     document: Mapped[Document] = relationship()
 
 
+class UserRole(enum.StrEnum):
+    """Panel kullanıcısının rolü (`users.role`). Komut satırı ilk yöneticiyi açar (10.1.3)."""
+
+    ADMIN = "admin"
+
+
 class User(Base):
     __tablename__ = "users"
 
@@ -429,6 +435,26 @@ class User(Base):
     role: Mapped[str] = mapped_column(String(32))
 
     telegram_accounts: Mapped[list[TelegramUser]] = relationship(back_populates="user")
+
+
+class UserSession(Base):
+    """Panel oturumu (10.1.2): MASTER-PROMPT §4 "sunucu tarafı oturum çerezi" (PLAN.md §C45).
+
+    Çerez yalnız rastgele belirteci taşır; burada belirtecin SHA-256 özeti durur, belirtecin
+    kendisi saklanmaz. Oturum süresi dolunca ya da çıkışta (`revoked_at`) geçersizdir; satır
+    silinmez.
+    """
+
+    __tablename__ = "user_sessions"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True)
+    created_at: Mapped[datetime] = mapped_column(UtcDateTime, default=utcnow)
+    expires_at: Mapped[datetime] = mapped_column(UtcDateTime)
+    revoked_at: Mapped[datetime | None] = mapped_column(UtcDateTime)
+
+    user: Mapped[User] = relationship()
 
 
 class TelegramUser(Base):

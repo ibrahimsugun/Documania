@@ -9,7 +9,7 @@
 | Faz | PRD | Genel durum | Must sayacı | Kapanış |
 | --- | --- | --- | --- | --- |
 | Faz 0 — MVP | §5.1 | 100 ✅ · 1 ◐ · 1 ⬜ · 0 🔒 | 97/98 Must | AÇIK |
-| Faz 1 — v1 | §5.2 | 0 ✅ · 0 ◐ · 0 ⬜ · 32 🔒 | 0/21 Must | AÇIK |
+| Faz 1 — v1 | §5.2 | 3 ✅ · 0 ◐ · 0 ⬜ · 29 🔒 | 3/21 Must | AÇIK |
 | Faz 2 — v2 | §5.3 | 0 ✅ · 0 ◐ · 0 ⬜ · 13 🔒 | 0/0 Must | AÇIK |
 | Faz 3 — Enterprise | §5.4 | 0 ✅ · 0 ◐ · 0 ⬜ · 8 🔒 | 0/0 Must | AÇIK |
 
@@ -223,9 +223,9 @@ panelde `plan-count-drift` bulgusu doğurur.
 
 | PRD | Gereksinim | Öncelik | Durum |
 | --- | --- | --- | --- |
-| 10.1.1 | Panel iskeleti ve gezinme | Must (v1) | 🔒 |
-| 10.1.2 | Oturum tabanlı giriş | Must (v1) | 🔒 |
-| 10.1.3 | İlk kullanıcı oluşturma | Must (v1) | 🔒 |
+| 10.1.1 | Panel iskeleti ve gezinme | Must (v1) | ✅ → K10.1 |
+| 10.1.2 | Oturum tabanlı giriş | Must (v1) | ✅ → K10.1 |
+| 10.1.3 | İlk kullanıcı oluşturma | Must (v1) | ✅ → K10.1 |
 | 10.2.1 | Yükleme sayfası | Must (v1) | 🔒 |
 | 10.2.2 | İlerleme görünümü | Should (v1) | 🔒 |
 | 10.3.1 | Yükleme detay sayfası | Must (v1) | 🔒 |
@@ -1345,6 +1345,28 @@ Onay beklemeden yapılan varsayımlar buraya numaralı olarak yazılır.
   `context_employee_id` alanıdır. Çalışan kaydı belgedeki yazımı olduğu gibi taşır (`TEST`/`ORNEKOVA`); Latin
   biçimlenmiş yalnız klasör ve dosya adıdır (K8).
 
+- **C45** — Panel iskeleti ve giriş (tm 64, 10.1.1, 10.1.2, 10.1.3): PRD yalnız kabul cümlelerini verir; oturumun
+  deposu, ömrü, "panel yolu"nun kapsamı ve ilk yönetici komutunun biçimi yazılı değil. **Oturum:** MASTER-PROMPT §4
+  "sunucu tarafı oturum çerezi" — çerez (`belgeee_session`; HttpOnly, SameSite=Lax, üretimde Secure) yalnız
+  `secrets.token_urlsafe(32)` belirtecini taşır, sunucuda `user_sessions` satırı durur (belirtecin SHA-256 özeti,
+  `expires_at`, çıkışta `revoked_at`; satır silinmez). Tablo §8.1'de yok → D22. Ömür `SESSION_MAX_AGE_SECONDS`
+  (varsayılan 12 saat, kayan değil). Her girişte yeni belirteç; tarayıcıda kalan önceki oturum kapanır. Parola argon2id
+  (`argon2-cffi` varsayılanları; eski parametreli özet doğru girişte yeniden özetlenir), en az 8 karakter; bilinmeyen
+  kullanıcı adında da sahte doğrulama yapılır ve hata iletisi hangi alanın yanlış olduğunu söylemez (401). Giriş/çıkış
+  olayı yazılmaz — §8.3'ün kapalı listesinde tür yok (D21 ile aynı soru). **Kapsam:** "girişsiz hiçbir panel yolu
+  açılmaz" panelin arka ucu olan `/api/*` uç noktalarını da kapsar (oturumsuz 401), panel sayfaları giriş sayfasına
+  303 ile yönlendirir ve dönüşte istenen sayfayı açar (`next` yalnız bu sitedeki yol — açık yönlendirme yok).
+  Oturumsuz açık kalanlar yalnız `GET/POST /login`, `POST /logout`, `GET /health` (kapsayıcı sağlık denetimi) ve
+  `/static` (stil dosyası); FastAPI'nin `/docs`, `/redoc`, `/openapi.json` sayfaları kapatıldı. Bağlama
+  `app.main`'de yönlendirici düzeyindedir; `tests/web/test_auth.py` uygulamanın bütün yollarını (`app.openapi()`)
+  oturumsuz dener. **Menü:** Yükle `/upload`, Çalışanlar `/employees`, Kuyruklar `/queues`, Belge Türleri
+  `/document-types`, Yüklemeler `/uploads`; `/` Yükle'ye gider. Bölüm içerikleri kendi gereksinimlerinin (10.2, 10.3,
+  10.4, 10.7, 11.1) — o işler gelene kadar sayfa yalnız bölüm başlığını gösterir (`section.html`). HTMX henüz
+  eklenmedi (etkileşimli ilk sayfa 10.2'nin). **İlk yönetici:** `python -m app.web create-admin --username AD`
+  (parola terminalden iki kez gizli sorulur ya da `--password-stdin` ile standart girdiden okunur; argüman olarak
+  alınmaz). Komut ilk kullanıcıyla sınırlanmadı — başka kullanıcı yönetimi yolu olmadığı için sonraki yöneticiler de
+  aynı komutla açılır; aynı ad reddedilir. Rol yalnız `admin` (`UserRole`); rol ayrımı PRD'de yok.
+
 ## D. Sapmalar
 
 PRD'den veya kilitli kararlardan her sapma buraya numaralı yazılır (D1, D2…).
@@ -1560,6 +1582,13 @@ bu kayıt neden sapıldığının izlenebilir olması içindir.
   `OUTPUT_SKIPPED`/`QUEUED_*`) ve `PIPELINE_FAILED.data.stage` tarihçeyi verir. Eksik kalan: sayfası ya da öğesi
   olmayan adımın zaman damgalı izi yok (ör. yalnız Word dosyalı partide render ve analiz). Zaman damgalı geçiş
   tarihçesi gerekiyorsa §8.3'e tür (ör. `UPLOAD_STATUS_CHANGED`) eklenmeli — karar insana bırakıldı.
+
+- **D22 — `user_sessions` tablosu PRD §8.1'de yok (10.1.2, tm 64).** MASTER-PROMPT §4 panel girişini "sunucu tarafı
+  oturum çerezi" olarak kilitler; sunucu tarafı oturumun bir deposu olmalı, §8.1 ise yalnız `users` tablosunu sayar.
+  Kilitli karar PRD'den önce geldiği için (MASTER-PROMPT §2) tablo göç 0003 ile eklendi (`id`, `user_id`,
+  `token_hash`, `created_at`, `expires_at`, `revoked_at`); `tests/db/test_models.py` onu §8.1 dışı tablo olarak ayrıca
+  sayar. İmzalı istemci çerezi (Starlette `SessionMiddleware`) seçilseydi tablo gerekmezdi ama oturum sunucuda
+  kapatılamazdı (çıkıştan sonra çalınmış çerez geçerli kalır). §8.1'e eklenip eklenmeyeceği insanın kararı.
 
 ## G. İş Kırılımı Dizini
 
@@ -1928,3 +1957,9 @@ var olan maddeler silinmez. Biçim:
 #### K09.3-d — 09.3.4 · Kabul senaryoları S11–S15 ve S18
 - ✅ S11–S15 ve S18 PRD §9 beklentisiyle, S1–S10 ile aynı gerçek yoldan (yükleme uç noktası → `process_upload`; dosya ve kayıtlı yanıtlar `gen.py`'den; yeniden analiz/çalıştırma parti uç noktalarından). S11: temiz pasaport numarası, eşleşen kayıt yok (boş veritabanı / başka kayıtlı çalışan) → satır 6 `create`, yeni E numarası, K8 klasörü, `profil.md` (kimlik, numara, belge satırı), belge `Hazir`'da passthrough, `Alinan`'da kopya. S12: aynı isimli iki çalışandan doğum tarihi uyan eşleşir (iki yönde, numara ona eklenir); ikisine uyarsa `name_dob_ambiguous`, hiçbirine uymazsa `name_only` → Unresolved, yeni çalışan yok. S13: Kiril isimli pasaport → `Iulia_Testova_Shchelkina_E0001` / `Iulia_Testova_Shchelkina-Passport.pdf` (ASCII), profilde Latin ad ve `Тестова-Щёлкина Юлья` birlikte. S14: Peru diploması Unknown + aday tür (`pending`, örnek sayfa, `CANDIDATE_TYPE_PROPOSED`); tür kataloğa eklenip (C44) yeniden analiz edilince plan v2'de ad + doğum tarihiyle kayıtlı çalışanın `Hazir/Ana_Prueba-Diploma.pdf`'i, eski plan ve Unknown kopyası yerinde (K18), aday yeniden sayılmaz. S15: Word CV (docx / eski doc) bağlam çalışanıyla `Hazir/Ivan_Sidorov-Attachment.<uzantı>` bayt bayt, analiz/render yok; genel yüklemede Unresolved, dönüştürülmeden kuyrukta. S18: hazir + kuyruk + skip öğeli parti `rerun` uç noktasıyla iki kez yeniden çalıştırılır — sağlayıcı çağrılmaz, aynı plan/çıktı/kuyruk satırları, veri dizini bayt bayt aynı, `-2` yok, olaylar yalnız `PLAN_RERUN` + 3 `OUTPUT_SKIPPED`. 7 kural bozulması (profil yazılmaması, belirsiz isim+doğum tarihinin eşleşme sayılması, yalnız ismin yeni çalışana inmesi, idempotenliğin kalkması, eki bağlamın yok/hep sayılması, yeniden analizin tohum kataloğuyla yapılması) geçici olarak denendi, her biri testte kırmızı — test `tests/test_scenarios_s11_s18.py` (13) · tm 63
 - ✅ Kapı: ruff check/format, compileall, `pytest -q -m "not live" --cov=app --cov-fail-under=70` (2283 geçti, +13; 2 beklenen xfail D12; 4 PG testi atlandı), kapsam %99.74, temiz SQLite'ta `alembic upgrade head` (0001→0002, göç yok), `import app.main` — hepsi exit 0 · tm 63
+
+#### K10.1 — 10.1.1, 10.1.2, 10.1.3 · Panel iskeleti ve giriş
+- ✅ 10.1.1 panel iskeleti: `app/web/templates/base.html` (üst çubuk: menü + kullanıcı adı + çıkış; girişsiz sayfada menü çizilmez), menü tek yerde `PANEL_MENU` (`app/web/templating.py`, Jinja2 otomatik kaçış, paketle yüklenen şablonlar), sayfalar `app/web/routers/panel.py` (`/upload`, `/employees`, `/queues`, `/document-types`, `/uploads`; `/` → Yükle; içerik gelene kadar `section.html`), tek stil dosyası `app/web/static/panel.css` — beş menü girişten sonra 200 açılır, bulunulan bölüm işaretli · test `tests/web/test_auth.py` · tm 64
+- ✅ 10.1.2 oturum tabanlı giriş: `app/web/auth.py` (argon2id parola, `user_sessions`'ta belirtecin SHA-256 özeti, süre/çıkış ile kapanma; `get_current_user` → `require_panel_user` 303 girişe / `require_api_user` 401), `app/web/routers/auth.py` (`GET/POST /login`, `POST /logout`; `next` yalnız yerel yol), göç `alembic/versions/0003_user_sessions.py`, `SESSION_MAX_AGE_SECONDS` (`app/config.py`); `app/main.py` panel ve `/api/*` yönlendiricilerini oturuma bağlar, `/docs`/`/openapi.json` kapalı — uygulamanın bütün yolları (`app.openapi()`) oturumsuz denenir: açık yalnız giriş/çıkış ve `/health`, sayfalar girişe, API 401 · test `tests/web/test_auth.py` (46), `tests/db/test_migrations.py` (+1), `tests/test_config.py` (+1) · tm 64
+- ✅ 10.1.3 ilk yönetici: `python -m app.web create-admin --username AD [--password-stdin]` (`app/web/__main__.py`; parola gizli iki kez ya da standart girdiden, argüman değil; kısa parola/boşluklu ya da alınmış ad çıkış 1, hiçbir şey yazılmaz) — ayrı süreçte göçlü temiz veritabanında açılan yönetici panele girip beş menüyü açar · test `tests/web/test_admin_cli.py` (8) · tm 64
+- ✅ Kapı: ruff check/format, compileall, `pytest -q -m "not live" --cov=app --cov-fail-under=70` (2339 geçti, +56; 2 beklenen xfail D12; 4 PG testi atlandı), kapsam %99.73, temiz SQLite'ta `alembic upgrade head` (0001→0003), `import app.main` — hepsi exit 0; 6 geçici kural bozulmasının (API korumasız, panel korumasız, açık yönlendirme, kapalı ya da süresi dolmuş oturum geçerli, üretimde Secure yok) her biri testte kırmızı. Mevcut API test fikstürleri (`tests/web/conftest.py`, `tests/test_scenarios_s01_s05.py`) oturumu açık kullanıcıyla gelir. · tm 64

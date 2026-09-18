@@ -33,7 +33,7 @@ def _assert_schema_matches_models(database_url: str) -> None:
             assert tables == set(Base.metadata.tables) | {"alembic_version"}
             context = MigrationContext.configure(connection, opts={"compare_type": True})
             assert compare_metadata(context, Base.metadata) == []
-            assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "0002"
+            assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "0003"
     finally:
         engine.dispose()
 
@@ -99,6 +99,34 @@ def test_queue_item_plan_id_migration_keeps_existing_rows_both_ways(sqlite_url: 
             assert connection.execute(text(row)).all() == [("u_1", "i2", "unresolved", "R6")]
             columns = {column["name"] for column in inspect(connection).get_columns("queue_items")}
             assert "plan_id" not in columns
+    finally:
+        engine.dispose()
+
+
+def test_user_sessions_migration_is_reversible_and_keeps_users(sqlite_url: str) -> None:
+    # 0003 yalnız oturum tablosunu ekler (10.1.2); var olan panel kullanıcısına dokunmaz.
+    config = _alembic_config(sqlite_url)
+    command.upgrade(config, "0002")
+    engine = create_engine(sqlite_url)
+    user = "SELECT username, role FROM users"
+    try:
+        with engine.begin() as connection:
+            connection.execute(
+                text(
+                    "INSERT INTO users (username, password_hash, role) "
+                    "VALUES ('yonetici', 'hash', 'admin')"
+                )
+            )
+
+        command.upgrade(config, "head")
+        with engine.connect() as connection:
+            assert "user_sessions" in inspect(connection).get_table_names()
+            assert connection.execute(text(user)).all() == [("yonetici", "admin")]
+
+        command.downgrade(config, "0002")
+        with engine.connect() as connection:
+            assert "user_sessions" not in inspect(connection).get_table_names()
+            assert connection.execute(text(user)).all() == [("yonetici", "admin")]
     finally:
         engine.dispose()
 

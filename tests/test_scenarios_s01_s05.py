@@ -56,6 +56,7 @@ from app.pipeline.orchestrate import ProcessedUpload, current_plan, process_uplo
 from app.pipeline.plan import Operation, PlanItem, Route, read_plan
 from app.pipeline.route import assign_queue_item
 from app.storage import DataLayout, employee_folder_name, prepare_data_dir
+from app.web.auth import PanelUser, get_current_user
 from app.web.routers.uploads import get_layout
 from tests.fixtures.gen import (
     PERSON_ORNEKOVA,
@@ -76,6 +77,7 @@ from tests.fixtures.gen import (
 
 CATALOG = load_seed_catalog()
 SETTINGS = Settings(_env_file=None, database_url="sqlite://")
+SIGNED_IN = PanelUser(id=1, username="ik-uzmani", role="admin")
 
 PASSPORT_NUMBER = "00 0000001"
 LICENSE_NUMBER = "000123456"
@@ -135,6 +137,8 @@ def client(engine: Engine, layout: DataLayout) -> Iterator[TestClient]:
     application.dependency_overrides[get_session] = _override_get_session
     application.dependency_overrides[get_layout] = lambda: layout
     application.dependency_overrides[get_settings] = lambda: SETTINGS
+    # Uç noktalar oturum ister (10.1.2); senaryolar panel kullanıcısı olarak yükler.
+    application.dependency_overrides[get_current_user] = lambda: SIGNED_IN
     yield TestClient(application)
     application.dependency_overrides.clear()
 
