@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{# Kuyruk ekranları (10.7.1): üç kuyruk sekmesi, bekleyen sayaçları ve seçilen kuyruğun öğeleri.
+   Sayfa yalnız okur; atama ve onay eylemleri 10.7.2/10.7.3'ün işidir. #}
+{% block title %}{{ entry.label }}{% endblock %}
+{% block content %}
+<h1>{{ entry.label }}</h1>
+<nav class="tabs" aria-label="Kuyruklar">
+  {% for tab in listing.tabs %}
+  <a href="{{ tab.url }}"{% if tab.active %} class="active" aria-current="page"{% endif %}>{{ tab.label }} <span class="counter" title="Bekleyen öğe">{{ tab.open_count }}</span></a>
+  {% endfor %}
+</nav>
+<p class="hint">{{ listing.hint }}</p>
+<nav class="states" aria-label="Öğe durumu">
+  {% for state in listing.states %}
+  <a href="{{ state.url }}"{% if state.active %} class="active" aria-current="true"{% endif %}>{{ state.label }} ({{ state.count }})</a>
+  {% endfor %}
+</nav>
+
+{% if listing.total == 0 %}
+<p class="placeholder">{{ listing.label }} kuyruğunda {{ listing.state_label | lower }} öğe yok.</p>
+{% else %}
+<table class="queue-items">
+  <thead>
+    <tr>
+      <th>No</th><th>Parti</th><th>Belge türü</th><th>Kişi tahmini</th><th>Kaynak</th><th>Gerekçe</th>
+      {% if listing.state == "resolved" %}<th>Çözüldü</th>{% endif %}
+    </tr>
+  </thead>
+  <tbody>
+    {% for row in listing.rows %}
+    <tr>
+      <td><a href="{{ row.url }}">{{ row.id }}</a></td>
+      <td>
+        <a href="/uploads/{{ row.upload_id }}">{{ row.upload_id }}</a>
+        {% if row.plan_version is not none %}<span class="reason">plan {{ row.plan_version }}{% if row.item_id %} · {{ row.item_id }}{% endif %}</span>{% endif %}
+      </td>
+      <td>{{ row.type_name or "Belirlenmedi" }}</td>
+      <td>{{ row.employee_guess or "—" }}</td>
+      <td>
+        {% for source in row.sources %}<div>{{ source }}</div>{% else %}—{% endfor %}
+      </td>
+      <td class="reason-text">{{ row.reason }}</td>
+      {% if listing.state == "resolved" %}<td>{{ row.resolved }}</td>{% endif %}
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% if listing.page_count > 1 %}
+<nav class="pager" aria-label="Sayfalama">
+  {% if listing.previous_url %}<a href="{{ listing.previous_url }}" rel="prev">← Önceki</a>{% endif %}
+  <span>Sayfa {{ listing.page }} / {{ listing.page_count }}</span>
+  {% if listing.next_url %}<a href="{{ listing.next_url }}" rel="next">Sonraki →</a>{% endif %}
+</nav>
+{% endif %}
+{% endif %}
+{% endblock %}

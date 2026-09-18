@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{# Kuyruk öğesi detayı (10.7.1): gerekçe, tür ve kişi tahmini, kaynak dosyalar ve sayfa görüntüleri.
+   Sayfa yalnız okur; belge içeriği ve kuyruk kaydı değiştirilmez. #}
+{% block title %}{{ "Kuyruk öğesi " ~ item.id if item else "Kuyruk öğesi bulunamadı" }}{% endblock %}
+{% block content %}
+{% if error %}
+<p class="back"><a href="/queues">← Kuyruklar</a></p>
+<h1>Kuyruk öğesi</h1>
+<p class="error" role="alert">{{ error }}</p>
+{% else %}
+<p class="back"><a href="{{ item.tab_url }}">← {{ item.kind_label }} kuyruğu</a></p>
+<h1>Kuyruk öğesi {{ item.id }}</h1>
+{% if item.note %}<p class="notice" role="note">{{ item.note }}</p>{% endif %}
+<dl class="meta">
+  <dt>Kuyruk</dt><dd>{{ item.kind_label }}</dd>
+  <dt>Durum</dt><dd>{{ item.state_label }}</dd>
+  {% if item.resolved %}
+  <dt>Çözüldü</dt>
+  <dd>
+    {{ item.resolved }}
+    {% if item.document_id %}· <a href="/documents/{{ item.document_id }}/history">çıktının geçmişi</a>{% endif %}
+  </dd>
+  {% endif %}
+  <dt>Parti</dt>
+  <dd>
+    <a href="/uploads/{{ item.upload_id }}">{{ item.upload_id }}</a>
+    {% if item.plan_version is not none %}· plan sürüm {{ item.plan_version }}{% endif %}
+    {% if item.item_id %}· <a href="/uploads/{{ item.upload_id }}#item-{{ item.item_id }}">plan öğesi {{ item.item_id }}</a>{% endif %}
+  </dd>
+  <dt>Belge türü</dt><dd>{{ item.type_name or "Belirlenmedi" }}</dd>
+  <dt>Kişi tahmini</dt><dd>{{ item.employee_guess or "—" }}</dd>
+  <dt>Gerekçe</dt><dd class="reason-text">{{ item.reason }}</dd>
+</dl>
+
+<section id="sources" aria-labelledby="sources-title">
+  <h2 id="sources-title">Kaynak dosyalar ve sayfalar</h2>
+  {% for source in item.sources %}
+  <article class="file source">
+    <h3>
+      {% if source.file_url %}<a href="{{ source.file_url }}">{{ source.file_name }}</a>{% else %}{{ source.file_name }}{% endif %}
+      {% if source.range_text %}<span class="count">{{ source.range_text }}</span>{% endif %}
+    </h3>
+    {% if source.note %}<p class="placeholder">{{ source.note }}</p>{% endif %}
+    {% if source.pages %}
+    <ul class="thumbs">
+      {% for page in source.pages %}
+      <li class="thumb">
+        {% if page.image_url %}
+        <a href="{{ page.image_url }}" target="_blank" rel="noopener">
+          <img src="{{ page.image_url }}" loading="lazy" alt="{{ source.file_name }} — sayfa {{ page.number }}">
+        </a>
+        {% else %}
+        <span class="no-image">Görüntü yok</span>
+        {% endif %}
+        <span class="caption">Sayfa {{ page.number }}</span>
+      </li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+  </article>
+  {% else %}
+  <p class="placeholder">Bu öğe için kaynak kaydı yok.</p>
+  {% endfor %}
+</section>
+
+<section id="timeline" aria-labelledby="timeline-title">
+  <h2 id="timeline-title">Olaylar</h2>
+  {% if item.events %}
+  <ol class="timeline">
+    {% for event in item.events %}
+    <li class="event">
+      <time datetime="{{ event.ts_iso }}">{{ event.ts }}</time>
+      <span class="event-type">{{ event.type }}</span>
+      <span class="actor">{{ event.actor }}</span>
+      {% if event.place %}<span class="place">{{ event.place }}</span>{% endif %}
+      {% if event.message %}<span class="message">{{ event.message }}</span>{% endif %}
+    </li>
+    {% endfor %}
+  </ol>
+  {% else %}
+  <p class="placeholder">Bu öğe için olay yok.</p>
+  {% endif %}
+</section>
+{% endif %}
+{% endblock %}

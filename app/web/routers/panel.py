@@ -4,7 +4,7 @@ Yüklemeler.
 Her sayfa oturum ister (10.1.2): yönlendirici `app.main`'de `require_panel_user` ile bağlanır,
 oturumsuz istek giriş sayfasına gider. Bölümlerin içeriği kendi gereksinimlerinindir (10.2
 yükleme — `upload_page.py`, 10.3 yükleme ayrıntısı, 10.4 çalışan listesi — `employees.py`, 10.7
-kuyruklar, 11.1 katalog); içeriği gelmemiş bölümde sayfa yalnız bölümün adını gösterir.
+kuyruklar — `queue.py`, 11.1 katalog); içeriği gelmemiş bölümde sayfa yalnız bölümün adını gösterir.
 """
 
 from __future__ import annotations
@@ -31,11 +31,6 @@ def _section(request: Request, user: PanelUser, key: str) -> HTMLResponse:
 def home(_user: CurrentUser) -> RedirectResponse:
     """Panelin girişi menünün ilk bölümüdür."""
     return RedirectResponse(PANEL_MENU[0].path, status.HTTP_303_SEE_OTHER)
-
-
-@router.get("/queues", response_class=HTMLResponse)
-def queues_page(request: Request, user: CurrentUser) -> HTMLResponse:
-    return _section(request, user, "queues")
 
 
 @router.get("/document-types", response_class=HTMLResponse)

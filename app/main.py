@@ -40,6 +40,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     application.include_router(upload_page.router, dependencies=[Depends(require_panel_user)])
     application.include_router(employees.router, dependencies=[Depends(require_panel_user)])
     application.include_router(documents.router, dependencies=[Depends(require_panel_user)])
+    application.include_router(queue.pages_router, dependencies=[Depends(require_panel_user)])
     application.include_router(uploads.router, dependencies=[Depends(require_api_user)])
     application.include_router(queue.router, dependencies=[Depends(require_api_user)])
 

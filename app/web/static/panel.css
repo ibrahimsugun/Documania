@@ -175,9 +175,9 @@ button {
 
 .badge-neutral { background: #eef0f3; color: #4b5563; }
 
-.items, .outputs, .queue, .employees { width: 100%; border-collapse: collapse; background: #fff; }
+.items, .outputs, .queue, .queue-items, .employees { width: 100%; border-collapse: collapse; background: #fff; }
 
-.items th, .items td, .outputs th, .outputs td, .queue th, .queue td, .employees th, .employees td { padding: 0.35rem 0.5rem; text-align: left; vertical-align: top; border-bottom: 1px solid #eef0f3; }
+.items th, .items td, .outputs th, .outputs td, .queue th, .queue td, .queue-items th, .queue-items td, .employees th, .employees td { padding: 0.35rem 0.5rem; text-align: left; vertical-align: top; border-bottom: 1px solid #eef0f3; }
 
 .reason { color: #6b7280; font-size: 0.9em; }
 
@@ -248,3 +248,23 @@ button {
 .doc-actions a + a { margin-left: 0.6rem; }
 
 .source h3 { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.25rem 0.75rem; }
+
+/* Kuyruk ekranları (10.7) */
+
+.tabs { display: flex; flex-wrap: wrap; gap: 0.25rem; margin: 0 0 0.75rem; border-bottom: 2px solid #d0d7de; }
+
+.tabs a { padding: 0.45rem 0.9rem; border-radius: 4px 4px 0 0; text-decoration: none; color: #1f2937; }
+
+.tabs a:hover { background: #eef0f3; }
+
+.tabs a.active { background: #1f2937; color: #f9fafb; }
+
+.counter { display: inline-block; min-width: 1.4em; padding: 0 0.4em; border-radius: 999px; background: #fff3cd; color: #7a5d00; font-size: 0.85em; text-align: center; font-variant-numeric: tabular-nums; }
+
+.tabs a.active .counter { background: #f9fafb; color: #1f2937; }
+
+.states { display: flex; flex-wrap: wrap; gap: 0.75rem; margin: 0 0 1rem; }
+
+.states a.active { color: #1f2937; font-weight: 600; text-decoration: none; }
+
+.reason-text { white-space: pre-wrap; overflow-wrap: anywhere; }
