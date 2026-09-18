@@ -578,6 +578,35 @@ def _table_operation(
     return None  # satır 7
 
 
+def operation_source(
+    upload_file: UploadFile,
+    source: PlanSource,
+    *,
+    kind: FileKind | None,
+    blank_pages: frozenset[int],
+) -> OperationSource:
+    """Plan kaynağının §20.3 girdisi: `upload_file` kaynağın dosyası, `kind` içerikten tespit
+    edilen biçimi (01.2.1), `blank_pages` dosyanın boş sayfalarıdır.
+
+    Planlayıcı ve kuyruk ataması (08.2.1) kaynağı bu tek kuralla kurar. Dosyanın sayfaları ve tek
+    tam sayfa gömülü görüntülü sayfaları (02.5.1) `pages` satırlarından okunur. Saf işlevdir.
+    """
+    pages = upload_file.pages
+    return OperationSource(
+        file_id=source.file_id,
+        kind=kind,
+        pages=source.pages,
+        # Satırı açılmamış sayfa da dosyanındır: kapsamayı alt kümeye çevirir.
+        file_pages=frozenset(page.index for page in pages).union(
+            range(upload_file.page_count or 0)
+        ),
+        blank_pages=blank_pages,
+        single_image_pages=frozenset(
+            page.index for page in pages if page.has_single_embedded_image
+        ),
+    )
+
+
 def _operation_source_text(source: OperationSource) -> str:
     kind = "biçimi tanınmadı" if source.kind is None else source.kind.value
     if not source.pages:
@@ -1129,20 +1158,11 @@ class _Planner:
         )
 
     def _operation_source(self, source: PlanSource) -> OperationSource:
-        upload_file = self._files[source.file_id]
-        pages = upload_file.pages
-        return OperationSource(
-            file_id=source.file_id,
+        return operation_source(
+            self._files[source.file_id],
+            source,
             kind=self._file_kind(source.file_id),
-            pages=source.pages,
-            # Satırı açılmamış sayfa da dosyanındır: kapsamayı alt kümeye çevirir.
-            file_pages=frozenset(page.index for page in pages).union(
-                range(upload_file.page_count or 0)
-            ),
             blank_pages=self._blank_pages.get(source.file_id, frozenset()),
-            single_image_pages=frozenset(
-                page.index for page in pages if page.has_single_embedded_image
-            ),
         )
 
     def _file_kind(self, file_id: int) -> FileKind | None:

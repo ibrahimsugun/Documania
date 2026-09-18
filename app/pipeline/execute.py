@@ -11,7 +11,9 @@ Ortak kural (K11): hiçbir işlem içeriği üretmez, kırpmaz ya da değiştirm
 çekirdeğidir: verilen hedefe yazar, veritabanına ve olay logına dokunmaz.
 
 **Ortak çıktı yazma (07.7.1, 07.7.2; §20.5).** `execute_ready_item` planın tek `hazir` öğesini
-uygular:
+uygular. Çekirdeği `execute_item`'dır: kaynak ve köken plan öğesinden, sahip, tür, işlem ve hedef
+ad karardan (`ItemDecision`) gelir — `hazir` öğede karar planın kendisidir, kuyruk öğesinde
+insanın atamasıdır (08.2.1, `app.pipeline.route.assign_queue_item`). Adımlar ikisinde de aynıdır:
 
 1. Öğenin çalışanı, belge türü ve kaynak dosyaları veritabanından bulunur; dosya planın partisinin
    olmalıdır (`PlanItemReferenceError`). Inbox'taki her kaynağın SHA-256'sı yüklemede kaydedilenle
@@ -201,6 +203,24 @@ class SourceIntegrityError(RuntimeError):
 
     İşlem yürütülmez, hiçbir şey yazılmaz.
     """
+
+
+# `execute_item`'ın öğeyi uygulayamadığında verdiği hatalar (kayıt, kaynak bütünlüğü, işlem): hiçbir
+# şey yazılmamıştır ve belge tahmin edilmez — kuyruğa çevirmek ya da reddetmek çağıranındır.
+EXECUTION_ERRORS: tuple[type[Exception], ...] = (
+    PlanItemReferenceError,
+    SourceIntegrityError,
+    PassthroughIntegrityError,
+    ExtractSourceError,
+    ExtractIntegrityError,
+    DirectDocumentMergeError,
+    MergeSourceError,
+    MergeIntegrityError,
+    WrapImageSourceError,
+    ExtractImageSourceError,
+    ExtractImageIntegrityError,
+    RenderImageSourceError,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -614,18 +634,61 @@ def execute_ready_item(
     denetlenir) hiçbir şey yazılmaz. Oturum commit edilmez.
     """
     operation, target_name = item.operation, item.target_name
+    employee_id, document_type_slug = item.employee.employee_id, item.document_type_slug
     if (
         item.route is not Route.READY
-        or item.document_type_slug is None
+        or document_type_slug is None
         or operation is None
         or target_name is None
-        or item.employee.employee_id is None
+        or employee_id is None
     ):
         raise ValueError("Yalnız çalışanı, türü, işlemi ve hedefi olan hazir öğe uygulanır")
-    employee = session.get(Employee, item.employee.employee_id)
+    return execute_item(
+        session,
+        layout,
+        plan,
+        item,
+        ItemDecision(employee_id, document_type_slug, operation, target_name),
+        render_image_dpi=render_image_dpi,
+        render_image_jpeg_quality=render_image_jpeg_quality,
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class ItemDecision:
+    """Öğenin uygulanacak kararı: sahibi, belge türü, fiziksel işlemi ve sıra eksiz K8 hedef adı.
+
+    `hazir` öğede planın kendisidir; kuyruk öğesinde insanın atamasıdır (08.2.1).
+    """
+
+    employee_id: str
+    document_type_slug: str
+    operation: Operation
+    target_name: str
+
+
+def execute_item(
+    session: Session,
+    layout: DataLayout,
+    plan: Plan,
+    item: PlanItem,
+    decision: ItemDecision,
+    *,
+    render_image_dpi: int,
+    render_image_jpeg_quality: int,
+) -> ExecutedItem:
+    """`plan`'ın öğesini `decision`'la uygular — `execute_ready_item`'ın çekirdeği (07.7, 07.8).
+
+    Kaynaklar (`item.sources`) ve köken (`item_id`, `plan.id`) plandan, sahip, tür, işlem ve hedef
+    ad `decision`'dan gelir; öğenin rotasına bakılmaz — kararın doğruluğu çağıranındır
+    (`execute_ready_item` planın `hazir` öğesi, 08.2.1 insanın ataması). Sözleşme, idempotenlik ve
+    hatalar `execute_ready_item`'la aynıdır. Oturum commit edilmez.
+    """
+    operation, target_name = decision.operation, decision.target_name
+    employee = session.get(Employee, decision.employee_id)
     if employee is None:
         raise PlanItemReferenceError(f"{item.item_id} öğesinin çalışanı kayıtlı değil")
-    document_type = session.get(KnownDocumentType, item.document_type_slug)
+    document_type = session.get(KnownDocumentType, decision.document_type_slug)
     if document_type is None:
         raise PlanItemReferenceError(f"{item.item_id} öğesinin belge türü katalogda yok")
 

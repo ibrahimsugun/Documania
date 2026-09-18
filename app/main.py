@@ -8,7 +8,7 @@ from fastapi import FastAPI
 from app.catalog import install_seed_catalog
 from app.config import Settings, get_settings
 from app.storage import prepare_data_dir
-from app.web.routers import uploads
+from app.web.routers import queue, uploads
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -22,6 +22,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     application = FastAPI(title="belgeee", lifespan=lifespan)
     application.include_router(uploads.router)
+    application.include_router(queue.router)
 
     @application.get("/health")
     def health() -> dict[str, str]:

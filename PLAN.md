@@ -8,7 +8,7 @@
 
 | Faz | PRD | Genel durum | Must sayacı | Kapanış |
 | --- | --- | --- | --- | --- |
-| Faz 0 — MVP | §5.1 | 88 ✅ · 0 ◐ · 14 ⬜ · 0 🔒 | 85/98 Must | AÇIK |
+| Faz 0 — MVP | §5.1 | 89 ✅ · 0 ◐ · 13 ⬜ · 0 🔒 | 86/98 Must | AÇIK |
 | Faz 1 — v1 | §5.2 | 0 ✅ · 0 ◐ · 0 ⬜ · 32 🔒 | 0/21 Must | AÇIK |
 | Faz 2 — v2 | §5.3 | 0 ✅ · 0 ◐ · 0 ⬜ · 13 🔒 | 0/0 Must | AÇIK |
 | Faz 3 — Enterprise | §5.4 | 0 ✅ · 0 ◐ · 0 ⬜ · 8 🔒 | 0/0 Must | AÇIK |
@@ -198,7 +198,7 @@ panelde `plan-count-drift` bulgusu doğurur.
 | --- | --- | --- | --- |
 | 08.1.1 | Kuyruğa yönlendirme (R7) | Must (MVP) | ✅ → K08.1 |
 | 08.1.2 | Gerekçe içeriği | Must (MVP) | ✅ → K08.1 |
-| 08.2.1 | Kuyruk öğesini çalışana atama | Must (MVP) | ⬜ |
+| 08.2.1 | Kuyruk öğesini çalışana atama | Must (MVP) | ✅ → K08.2 |
 | 08.3.1 | Onay bekleyen profili onaylama | Must (MVP) | ⬜ |
 | 08.4.1 | Arşive taşıma (R11) | Must (MVP) | ⬜ |
 
@@ -1227,6 +1227,45 @@ Onay beklemeden yapılan varsayımlar buraya numaralı olarak yazılır.
   aynı öğeyi eşzamanlı uygulayan ikinci işlem ilkinin commit'ini bekler ve satırını görür (SQLite `BEGIN
   IMMEDIATE`). Kalan açık: K16 taşıması (10.x) çalışana dosya yayınlarken aynı kilidi almazsa, satırı henüz
   güncellenmemiş birebir aynı içerikli dosya benimsenebilir — taşıma bu kilidi almalı.
+- **C41** — Kuyruk öğesini çalışana atama (tm 55, 08.2.1): PRD yalnız "atama sonrası çıktı üretilir ve yapay zekâ
+  çağrılmaz" der; atamanın plana nasıl yazılacağı, hangi öğenin atanabileceği, hangi hükümlerin insan kararıyla
+  aşılacağı, işlemin nereden geleceği ve kuyruk kaydının ne olacağı yazılı değil. `assign_queue_item(session,
+  layout, queue_item_id, employee_id, *, actor, render_image_dpi, render_image_jpeg_quality)`
+  (`app/pipeline/route.py`). **Plan sürümü açılmaz** (C35'in "08.2'nin elle atamayla açacağı sürüm" öngörüsünün
+  tersine): yeni sürüm güncel planı değiştirir, partinin öteki kuyruk kayıtlarını eski sürüm yapar (C35: eski
+  sürümün öğesi yürütülmez) ve öteki `hazir` öğeleri uygulanmamış gösterir (07.8.1 tanıması `plan_id`'ye bağlı,
+  yeniden çalıştırma ikinci kopya üretirdi). İnsan kararı kuyruk kaydında (`resolved_at`, `resolved_by`) ve
+  `MANUAL_ASSIGN`'da donar; çıktı dondurulmuş planın kimliği ve öğenin kaynaklarıyla kaydedilir (`documents.plan_id`
+  + `source_refs_json`), böylece yeniden çalıştırma (06.6.1) öğeyi yeniden üretmez (`route_queue_item` var olan
+  kaydı döner) ve yeniden analiz (06.6.2, K18) atanmış çıktıyı da eski sürüm yapar. **Atanabilir öğe:** partinin
+  güncel planının (en yüksek sürüm) çözülmemiş kuyruk öğesi; kayıt planın aynı rotalı öğesini göstermeli, plan
+  `read_plan` ile doğrulanır (K9). Türsüz öğe (bilinmeyen tür, analizsiz sayfa, işlenemeyen dosya) atanmaz: K8 adı
+  ve §20.3 hedef biçimi türden gelir; tür onaylanıp yeniden analiz edilmelidir. Tür güncel katalogdan
+  (`export_catalog`) okunur. **Aşılan ve aşılmayan hükümler:** atama yalnız sahibi karara bağlar. İçerik ve kişi
+  hükümleri (okunaklılık K1, kabul kriteri, MRZ, doğum tarihi, sayfa sayısı, yüzler, eşleştirme — satır 2/4/5/7/8,
+  ardışıklık ihlalinin tek parçası) insan kararıyla aşılır; fiziksel kurallar aşılmaz: işlem planlayıcının kuralıyla
+  ve sırasıyla yeniden seçilir — kaynak doğrulayıcıları (`direct_single_source`, `file_type`; Direkt Belge'de
+  §20.4.1 → S6 atamada da dönüştürülmez), §20.3, Direkt Belge matrisi, dönüşüm izni (güncel katalogla). Ret
+  planlayıcının gerekçesiyle `QueueItemNotAssignableError` verir, olay yazılmaz. §20.3'ün boş sayfa girdisi planın
+  `skip` öğelerinden okunur (S8: boş sayfalar tek `skip` öğesidir; tekrar dosyası `skip`'i bütün dosyadır, sayfa
+  katmaz) — gruplama yeniden koşulmaz. Planlayıcının `_operation_source`'u saf `operation_source`'a (`plan.py`)
+  ayrıldı, iki taraf aynı kuralla kurar. **Uygulama:** `execute_ready_item`'ın gövdesi `execute_item(…, decision:
+  ItemDecision)`'a ayrıldı (`execute.py`; davranış değişmedi): sahip/tür/işlem/K8 adı karardan, kaynak ve köken
+  plandan. `hazir` olmayan öğeye `hazir` kılığı giydirilmedi (sözleşme doğrulamalarının hepsini `ok` ister).
+  Uygulayıcının işlem/kayıt/bütünlük hataları `EXECUTION_ERRORS` demetinde toplandı (09.2 kuyruğa çevirirken de
+  kullanabilir); atamada `QueueItemNotAssignableError`'a çevrilir. Aynı öğenin çıktısı varsa (07.8.1 tanıması)
+  atama reddedilir — başka sahibe ikinci çıktı yazılmaz. **Olay:** işlem olayı ve `OUTPUT_SAVED` (`actor`
+  `system`) → `MANUAL_ASSIGN`: `actor` kullanıcı adı, parti, ilk kaynağın dosyası/sayfası, `document_id`, atanan
+  `employee_id`; veri `queue_item_id`, `queue`, `plan_id`, `item_id`, `document_type_slug`, `operation`; mesaj yok.
+  **Kuyruk klasörü:** kaynak kopyası silinmez (K16); `reason.json` yeniden üretilir ve her girdi `resolved_at`
+  (ISO, UTC) ve `resolved_by` taşır (çözülmemişte `null`). **Eşzamanlılık:** kuyruk satırı `FOR UPDATE` +
+  `populate_existing` ile okunur (PostgreSQL; SQLite `BEGIN IMMEDIATE`), ikinci atama çözülmüş görür. **K16 / API:**
+  iki aşamalı onay ve `USER_CONFIRMED` 10.8.1'in; çekirdek onaylanmış kullanıcı adını (`actor`, boş olamaz) alır.
+  `POST /api/queue/{id}/assign` (`app/web/routers/queue.py`, gövde yalnız `employee_id`, fazla alan 422):
+  kullanıcı adı `get_confirmed_actor` bağımlılığından gelir ve oturum (10.1.2) + onay belirteci (10.8.1)
+  bağlanana kadar 503 verir — çalışan uygulamada onaysız atama yapılmaz (`get_plan_executor` örneği). Kuyruk öğesi
+  ya da çalışan yok 404; atanamaz/çözülmüş/eski sürüm/plan değişmiş/Inbox değişmiş 409; iş tek işlemde, yalnız
+  başarıda commit. Sağlayıcı bağımlılığı yok.
 
 ## D. Sapmalar
 
@@ -1754,3 +1793,8 @@ var olan maddeler silinmez. Biçim:
 - ✅ Gerekçe dosyası (08.1.2, K9): `reason.json` (`layout.queue_reason_path`) o (parti, kuyruk türü) çiftindeki **bütün** `queue_items` satırlarından `replace_file` ile baştan üretilir — türetilmiş dosya (`app/storage/atomic.py`'nin kuralı); her girdi `plan_item_id`, `reason` (route_reason — hangi sayfalar/hangi kural), `document_type_slug` (hangi tür; bilinmeyen türde `null`) ve `employee_guess` (kişi tahmini — `PlanEmployee`) taşır; aynı üçlü `queue_items.payload_json`'a da yazılır. Aynı yapı olay verisine de girer.
 - ✅ Kapı: 2064 geçti (+15), kapsam %99.71 (`route.py` satır+dal %100) — test `tests/pipeline/test_route.py` (15: kaynak kopyası ve kuyruk satırı, tür/kişi tahmini `null`/dolu, olay verisi ve `page_index` boş dosya, gerekçe dosyasının dört alanı, aynı türden birden çok öğenin birikmesi, iki farklı kuyruk türünün ayrı dosyası, aynı kaynak dosyanın iki öğe arasında tek kopyalanması, idempotenlik, `hazir`/`skip` reddi, planın partisinde olmayan/başka partiye ait/hash'i tutmayan kaynak hatası, S14 bilinmeyen türün gerçek `create_plan` çıktısıyla uçtan uca kuyruğa alınması) · tm 54
 - ✅ Kapsam dışı (PLAN.md §D20): önerilen profilin tam içeriği (§20.2.2 satır 7, `ProposedProfile`) bu görevde yeniden kurulmadı — eşleştirme modülüne ve sayfa analizlerine bağımlılık ister, bu görevin GİRDİ'sü yalnız `plan.py`/`execute.py`/`storage`'dı. `payload_json`/`reason.json` şimdilik yalnız plan öğesinin kendi taşıdığı `document_type_slug`/`sources`/`employee_guess` üçlüsünü yazıyor; karar insana bırakıldı (08.3'ün kapsamı).
+
+#### K08.2 — 08.2.1 · Kuyruk öğesini çalışana atama
+- ✅ `assign_queue_item(session, layout, queue_item_id, employee_id, *, actor, render_image_dpi, render_image_jpeg_quality)` (`app/pipeline/route.py`) partinin güncel planının çözülmemiş kuyruk öğesini insanın seçtiği çalışana atar: çıktı `execute_item` (`app/pipeline/execute.py`, `execute_ready_item`'ın `ItemDecision`'lı çekirdeği) ile atanan çalışanın `Hazir/`'ına K8 adıyla yazılır, kaynak `Alinan/`'a kopyalanır, `documents` dondurulmuş planın kimliği ve öğenin kaynaklarıyla kaydedilir; yapay zekâ çağrılmaz, plan sürümü açılmaz, plan ve analizler değişmez (K9). Kuyruk kaydı `resolved_at`/`resolved_by`, `MANUAL_ASSIGN` kullanıcı adıyla ve `document_id`'yle yazılır, `reason.json` çözülen öğeyi işaretler (kopya silinmez, K16). Türsüz öğe atanmaz; işlem planlayıcının kuralıyla seçilir (kaynak doğrulayıcıları, §20.3, Direkt Belge matrisi, dönüşüm izni — K3, K5, K11, K12 insan kararıyla aşılmaz; boş sayfalar planın `skip` öğelerinden, `operation_source` planlayıcıyla ortak); içerik/kişi hükümleri aşılır (PLAN.md §C41).
+- ✅ `POST /api/queue/{queue_item_id}/assign` (`app/web/routers/queue.py`): gövde `employee_id`; K16 onaylanmış kullanıcı adı `get_confirmed_actor`'dan — oturum (10.1.2) ve onay belirteci (10.8.1) bağlanana kadar 503; yok 404, atanamaz/çözülmüş/eski sürüm/plan ya da Inbox değişmiş 409, yalnız başarıda commit, sağlayıcı bağımlılığı yok.
+- ✅ Kapı: 2097 geçti (+33), kapsam %99.72 (`route.py`, `queue.py`, `execute.py`, `plan.py` %100) — test `tests/pipeline/test_route_assign.py` (25: Unreadable öğe atanınca çıktı + köken + `MANUAL_ASSIGN` ve sağlayıcıya istek yok/analiz ve plan değişmedi, boş sayfalı kartta `extract` (S8), bağlamsız Word eki `passthrough` (S15), `reason.json` işaretlemesi, yeniden yönlendirmede yeni yazım yok, bilinmeyen tür/S6/§20.3 satır 7/tanınmayan biçim/planlamadan sonra Direkt Belge ya da dönüşüm izni değişen katalog/katalogda olmayan tür/işlem hatası/Inbox değişmiş reddi ve hiçbir şey yazılmaması, çözülmüş/çıktısı olan/eski sürüm/plansız/planla uyuşmayan kayıt, değişmiş plan, bilinmeyen öğe/çalışan, boş kullanıcı adı, işlem sınırı çağıranda) · `tests/web/test_queue.py` (8: onaysız 503 ve değişiklik yok, 200 + commit + sağlayıcı kurulmadı, ikinci atama 409, türsüz öğe 409, 404 ×2, 422 ×2); 9 kural bozulması geçici olarak denendi, her biri testte kırmızı · tm 55.
