@@ -511,7 +511,10 @@ def test_document_whose_file_is_gone_is_listed_without_links(
 
     assert "kayip.pdf" in section
     assert "Dosya bulunamadı" in section
-    assert f"/documents/{document_id}/" not in section
+    assert f"/documents/{document_id}/file" not in section
+    assert f"/documents/{document_id}/download" not in section
+    # Geçmiş (10.6.1) dosyaya bağlı değildir: dosyası kaybolan belgenin de kökeni izlenir.
+    assert f'<a href="/documents/{document_id}/history">Geçmiş</a>' in section
     assert client.get(f"/employees/E0001/documents/{document_id}/file").status_code == 404
 
 

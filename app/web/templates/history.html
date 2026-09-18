@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{# Belge geçmişi (10.6.1): çıktının kaynak dosyaları ve sayfaları tıklanarak izlenir. Sayfa yalnız
+   okur; köken kaydı ve belge içeriği değiştirilmez. #}
+{% block title %}{{ "Belge geçmişi · " ~ history.type_name if history else "Belge bulunamadı" }}{% endblock %}
+{% block content %}
+{% if error %}
+<p class="back"><a href="/employees">← Çalışanlar</a></p>
+<h1>Belge geçmişi</h1>
+<p class="error" role="alert">{{ error }}</p>
+{% else %}
+<p class="back"><a href="/employees/{{ history.employee_id }}">← {{ history.employee }}</a></p>
+<h1>Belge geçmişi</h1>
+<dl class="meta">
+  <dt>Çalışan</dt><dd><a href="/employees/{{ history.employee_id }}">{{ history.employee }}</a></dd>
+  <dt>Tür</dt><dd>{{ history.type_name }}</dd>
+  <dt>Çıktı</dt>
+  <dd>{% if history.open_url %}<a href="{{ history.open_url }}" target="_blank" rel="noopener">{{ history.file_name }}</a>{% else %}{{ history.file_name }} <span class="reason">(dosya bulunamadı)</span>{% endif %}</dd>
+  <dt>Biçim</dt><dd>{{ history.format }}</dd>
+  <dt>Sıra</dt><dd>{{ history.sequence_no }}</dd>
+  <dt>Durum</dt><dd>{{ history.status_label }}</dd>
+  <dt>Oluşturuldu</dt><dd>{{ history.created_at }}</dd>
+  {% if history.plan_version is not none %}<dt>Plan</dt><dd>Sürüm {{ history.plan_version }}</dd>{% endif %}
+  {% if history.upload_id %}
+  <dt>Parti</dt>
+  <dd>
+    <a href="/uploads/{{ history.upload_id }}">{{ history.upload_id }}</a>
+    {% if history.item_id %}· <a href="/uploads/{{ history.upload_id }}#item-{{ history.item_id }}">plan öğesi {{ history.item_id }}</a>{% endif %}
+  </dd>
+  {% endif %}
+</dl>
+
+<section id="sources" aria-labelledby="sources-title">
+  <h2 id="sources-title">Kaynak dosyalar ve sayfalar</h2>
+  {% for source in history.sources %}
+  <article class="file source">
+    <h3>
+      {% if source.file_url %}<a href="{{ source.file_url }}">{{ source.file_name }}</a>{% else %}{{ source.file_name }}{% endif %}
+      {% if source.range_text %}<span class="count">{{ source.range_text }}</span>{% endif %}
+    </h3>
+    {% if source.note %}<p class="placeholder">{{ source.note }}</p>{% endif %}
+    {% if source.pages %}
+    <ul class="thumbs">
+      {% for page in source.pages %}
+      <li class="thumb">
+        {% if page.image_url %}
+        <a href="{{ page.image_url }}" target="_blank" rel="noopener">
+          <img src="{{ page.image_url }}" loading="lazy" alt="{{ source.file_name }} — sayfa {{ page.number }}">
+        </a>
+        {% else %}
+        <span class="no-image">Görüntü yok</span>
+        {% endif %}
+        <span class="caption">Sayfa {{ page.number }}</span>
+      </li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+  </article>
+  {% else %}
+  <p class="placeholder">Bu çıktı için kaynak kaydı yok.</p>
+  {% endfor %}
+</section>
+
+<section id="timeline" aria-labelledby="timeline-title">
+  <h2 id="timeline-title">Olaylar</h2>
+  {% if history.events %}
+  <ol class="timeline">
+    {% for event in history.events %}
+    <li class="event">
+      <time datetime="{{ event.ts_iso }}">{{ event.ts }}</time>
+      <span class="event-type">{{ event.type }}</span>
+      <span class="actor">{{ event.actor }}</span>
+      {% if event.place %}<span class="place">{{ event.place }}</span>{% endif %}
+      {% if event.message %}<span class="message">{{ event.message }}</span>{% endif %}
+    </li>
+    {% endfor %}
+  </ol>
+  {% else %}
+  <p class="placeholder">Bu belge için olay yok.</p>
+  {% endif %}
+</section>
+{% endif %}
+{% endblock %}

@@ -242,3 +242,9 @@ button {
 .profile-documents, .profile-upload { margin-top: 1.5rem; }
 
 .doc-actions { white-space: nowrap; }
+
+/* Belge geçmişi (10.6) */
+
+.doc-actions a + a { margin-left: 0.6rem; }
+
+.source h3 { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.25rem 0.75rem; }

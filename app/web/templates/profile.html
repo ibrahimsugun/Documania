@@ -65,6 +65,7 @@
         <td>{{ document.status_label }}</td>
         <td>{{ document.created_on.strftime("%d.%m.%Y") }}</td>
         <td class="doc-actions">
+          <a href="/documents/{{ document.id }}/history">Geçmiş</a>
           {% if document.available %}
           <a href="/employees/{{ profile.id }}/documents/{{ document.id }}/download">İndir</a>
           {% else %}

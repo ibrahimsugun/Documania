@@ -128,7 +128,7 @@
   {% if detail.outputs %}
   <table class="outputs">
     <thead>
-      <tr><th>Çalışan</th><th>Tür</th><th>Dosya</th><th>Sıra</th><th>Durum</th><th>Plan</th><th>Kaynak</th></tr>
+      <tr><th>Çalışan</th><th>Tür</th><th>Dosya</th><th>Sıra</th><th>Durum</th><th>Plan</th><th>Kaynak</th><th></th></tr>
     </thead>
     <tbody>
       {% for output in detail.outputs %}
@@ -140,6 +140,7 @@
         <td>{{ output.status_label }}</td>
         <td>{% if output.plan_version is not none %}Sürüm {{ output.plan_version }}{% else %}—{% endif %}</td>
         <td>{% for source in output.sources %}<div>{{ source }}</div>{% endfor %}</td>
+        <td><a href="/documents/{{ output.id }}/history">Geçmiş</a></td>
       </tr>
       {% endfor %}
     </tbody>

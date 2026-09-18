@@ -9,7 +9,7 @@
 | Faz | PRD | Genel durum | Must sayacı | Kapanış |
 | --- | --- | --- | --- | --- |
 | Faz 0 — MVP | §5.1 | 100 ✅ · 1 ◐ · 1 ⬜ · 0 🔒 | 97/98 Must | AÇIK |
-| Faz 1 — v1 | §5.2 | 13 ✅ · 0 ◐ · 0 ⬜ · 19 🔒 | 9/21 Must | AÇIK |
+| Faz 1 — v1 | §5.2 | 14 ✅ · 0 ◐ · 0 ⬜ · 18 🔒 | 10/21 Must | AÇIK |
 | Faz 2 — v2 | §5.3 | 0 ✅ · 0 ◐ · 0 ⬜ · 13 🔒 | 0/0 Must | AÇIK |
 | Faz 3 — Enterprise | §5.4 | 0 ✅ · 0 ◐ · 0 ⬜ · 8 🔒 | 0/0 Must | AÇIK |
 
@@ -236,7 +236,7 @@ panelde `plan-count-drift` bulgusu doğurur.
 | 10.5.4 | Profil fotoğrafı yokluğu | Should (v1) | ✅ → K10.5 |
 | 10.5.2 | Belge listesi ve açma | Must (v1) | ✅ → K10.5 |
 | 10.5.3 | Profil sayfasından yükleme | Should (v1) | ✅ → K10.5 |
-| 10.6.1 | Belge geçmişi | Must (v1) | 🔒 |
+| 10.6.1 | Belge geçmişi | Must (v1) | ✅ → K10.6 |
 | 10.7.1 | Kuyruk ekranları | Must (v1) | 🔒 |
 | 10.7.2 | Kuyruktan çalışana atama | Must (v1) | 🔒 |
 | 10.7.3 | Kuyruktan profil oluşturma | Must (v1) | 🔒 |
@@ -1466,6 +1466,23 @@ Onay beklemeden yapılan varsayımlar buraya numaralı olarak yazılır.
   yenilenmez (sayfa yenilenir ya da ilerleme parçasındaki parti ayrıntısına gidilir); (2) belgenin kaynak dosya/sayfa geçmişi
   bağlantısı 10.6.1'in; (3) tarayıcıda yalnız statik çizim (headless Chrome, kart + yer tutucu) görüldü, HTMX yükleme akışı tarayıcıda
   yeniden denenmedi — 10.2'de doğrulanan `upload.js`/HTMX kalıbı aynen kullanıldı, sınama `TestClient` ile.
+- **C50** — Belge geçmişi görünümü (tm 69, 10.6.1): PRD yalnız "bir çıktının kaynak dosya ve sayfaları tıklanarak izlenir" der; adres ve
+  "tıklanarak izlenir"in sınırı yazılı değil. **Adres** (`app/web/routers/documents.py`, `history.html`; yalnız `GET`, K17):
+  `/documents/{id}/history`, menüde "Çalışanlar" etkin; bilinmeyen belge 404 + "Belge bulunamadı.". **İz** `documents.source_refs_json`'dan
+  (K15, 07.7.1) okunur, köken kaydının sırasıyla: kaynak dosya adı yükleme detay sayfasındaki bölümüne (`/uploads/{id}#file-N`), her kaynak
+  sayfa sayfa görüntüsüne (`/uploads/{id}/pages/{page_id}/image`, 10.3.1'in analiz kopyası) bağlanır; boş `pages` bütün dosyadır ve dosyanın
+  bütün sayfaları listelenir; sayfa satırı ya da görüntüsü yoksa "Görüntü yok" (bağlantısız); dosya kaydı yok ya da kayıt bozuksa sayfa
+  düşmez, o kayıt bağlantısız notla yazılır. Ayrıca çıktının kendisi (çalışan, tür, dosya + açma, durum, plan sürümü), partiye ve plan
+  öğesine (`#item-<id>`; kimlik `OUTPUT_SAVED` olayının `item_id`'sinden, olay yoksa bağlantı çizilmez) bağlantı ve `events.document_id`'si
+  bu belge olan olaylar görünür. Eski sürüm ve arşivlenmiş belgenin de geçmişi açılır. **Kaynak dosyanın kendisi (Inbox orijinali)
+  sunulmaz:** belge sunan yeni yol 10.9.2 erişim logu gelmeden açılmadı; orijinali indirtmek istenirse 10.9.2 ile birlikte karar insanın.
+  **Girişler:** görevin dokunma yüzeyi `documents.py` ve `history.html`'di; sayfaya panelden ulaşılsın diye `app/main.py` yönlendiriciyi
+  bağlar, `profile.html` belge listesine ve `upload_detail.html` çıktı tablosuna "Geçmiş" bağlantısı, `panel.css`'e iki kural eklendi.
+  `tests/web/test_profile.py`'deki "dosyası kayıp belge bağlantısız" testi `/documents/{id}/` yerine `file`/`download` yollarını sınayacak
+  şekilde daraltıldı (geçmiş bağlantısı dosyaya bağlı değildir, kayıp dosyalı belgede de durur). `documents.py` diğer iki yönlendiricinin
+  `_format_ts`, `_page_ranges`, `_event_place`, `_employee_label` ve `_stored_file` yardımcılarını içe aktarır (biçimler detay sayfasıyla aynı
+  kalsın). **Açıklar:** (1) tarayıcıda çizim görülmedi, sınama `TestClient` ile; (2) izde Alinan kopyası ve yeniden analizde yerine geçen
+  yeni belge gösterilmez; (3) geçmiş sayfasını görüntülemek erişim logu yazmaz (belge açılmıyor).
 
 ## D. Sapmalar
 
@@ -2100,3 +2117,7 @@ var olan maddeler silinmez. Biçim:
 - ✅ 10.5.2 belge listesi ve açma: çalışanın tüm belgeleri (etkin/eski sürüm/arşivlendi; tür, dosya, biçim, durum, tarih), dosya adı `target="_blank" rel="noopener"` ile yeni sekmede açar (`.../documents/{id}/file`, satır içi), ayrı "İndir" (`.../download`, ek, dosya adıyla); Word/Excel her koşulda indirme; ortam türü uzantı tablosundan, `nosniff` + `Cache-Control: private, no-store`, içerik bayt bayt; başka çalışanın belgesi / kaydı olmayan / dosyası olmayan / yolu veri dizininden kaçan belge 404; düzenleme yolu yok — dört profil yolu yalnız `GET` (POST/PUT/PATCH/DELETE 405, OpenAPI şeması doğrular) · test `tests/web/test_profile.py` · tm 68
 - ✅ 10.5.3 profil sayfasından yükleme: profil sayfası `/upload` formunu gizli `context_employee_id` (çalışan seçici yok) ile taşır, `POST /upload`'a gider; sayfanın verdiği alanla yapılan yükleme partiyi o çalışanın bağlamıyla açar, ilerleme aynı sayfada — C49 · test `tests/web/test_profile.py` · tm 68
 - ✅ Kapı: ruff check/format, compileall, `pytest -q -m "not live" --cov=app --cov-fail-under=70` (2491 geçti, +26; 2 beklenen xfail D12; 4 PG testi atlandı), kapsam %99.76 (`employees.py` %100), temiz SQLite'ta `alembic upgrade head` (göç yok), `import app.main` — hepsi exit 0; 7 geçici kural bozulmasının (sahip denetimi yok, fotoğraf durum süzgeci yok, eski iletişim bilgisi görünür, açma "ek" olarak iner, yaş yanlış gün, `no-store` yok, `/photo` görüntü olmayanı da sunar) her biri testte kırmızı; headless Chrome'da (statik çizim) kart + fotoğraf + belge tablosu + yükleme formu ve yer tutucu/"Eksik belge"/"—" görünümü elle görüldü · tm 68
+
+#### K10.6 — 10.6.1 · Belge geçmişi görünümü
+- ✅ 10.6.1 belge geçmişi: `app/web/routers/documents.py` (`GET /documents/{id}/history` → `build_history`; çıktı (çalışan, tür, dosya + açma, durum, plan sürümü), kaynak dosyalar ve sayfalar (`source_refs_json`: dosya adı → `/uploads/{id}#file-N`, her sayfa → sayfa görüntüsü; boş sayfa listesi = bütün dosya; sıra köken kaydındaki gibi; eksik/bozuk kayıt bağlantısız notla yazılır), parti ve plan öğesi bağlantısı, belgenin kendi olayları; bilinmeyen belge 404; yalnız `GET`) + `app/web/templates/history.html`; `app/main.py` yönlendiriciyi oturuma bağlar, profil belge listesi ve yükleme detayı çıktı tablosu "Geçmiş" bağlantısı taşır — C50 · test `tests/web/test_documents.py` (29) · tm 69
+- ✅ Kapı: ruff check/format, compileall, `pytest -q -m "not live" --cov=app --cov-fail-under=70` (2520 geçti, +29; 2 beklenen xfail D12; 4 PG testi atlandı), kapsam %99.76 (`documents.py` %100), temiz SQLite'ta `alembic upgrade head` (göç yok), `import app.main` — hepsi exit 0; 9 geçici kural bozulmasının (alınmayan sayfalar da izde, bütün dosya boş liste, dosya bölümü çapası yok, olaylar süzülmemiş, görüntüsüz sayfa bağlantılı, sayfa bağlantısı yanlış partiye, `bool` dosya kimliği kabul, kaynak sırası ters, kayıp çıktıya açma bağlantısı) her biri testte kırmızı · tm 69
