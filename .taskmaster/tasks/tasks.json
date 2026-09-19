@@ -1132,7 +1132,7 @@
         "description": "PRD 11.5.1, 11.5.2, 11.5.3, 11.5.4 · FR-MOD-11 (Belge türü kataloğu ve öğrenme) · Faz 1.",
         "details": "KAPSAM: PRD 11.5.1, 11.5.2, 11.5.3, 11.5.4 (FR-MOD-11 — Belge türü kataloğu ve öğrenme, Faz 1).\n\nNE YAPILACAK — GEREKSİNİMLER VE KABUL KRİTERLERİ:\n- 11.5.1 — Aday tür listesi\n  Kabul: Aday türler adı, görülme sayısı ve örnek sayfalarıyla listelenir\n- 11.5.2 — Aday türü onaylama\n  Kabul: Onay sonrası tür katalogda; iki aşamalı onay istenir\n- 11.5.3 — Onay sonrası yeniden analiz\n  Kabul: Aday ile ilişkili Unknown öğeleri toplu yeniden analiz edilebilir\n- 11.5.4 — Aday türü reddetme\n  Kabul: Reddedilen aday tekrar listeye düşmez\n\nGİRDİ — ÜZERİNE KURULDUĞU İŞLER (bu kod ZATEN VAR; yazmadan önce OKU):\n- 11.1 (Katalog yönetim ekranı) → app/web/routers/catalog.py, app/catalog/\n- 04.6 (Bilinmeyen tür ve aday tür önerisi) → app/pipeline/group.py, app/db/models.py\n- 10.7-c (Kuyruktan profil oluşturma akışı) → app/web/routers/queue.py, app/web/templates/queue_new_profile.html\n\nÇIKTI — DOKUNULACAK YÜZEY: app/web/routers/catalog.py, app/db/models.py\n\nZORUNLU OKUMA — BU GÖREVİN KARAR TABLOSU: urun-gereksinim-dokumani-PRD.md §20.6 (yeni belge türü onay metinleri) ve §20.6.1\nKarar zaten verilmiş ve yazılmıştır; senden beklenen onu UYGULAMAK. Tabloyu okumadan kod yazma. Tabloda karşılığı olmayan bir durumla karşılaşırsan UYDURMA: en güvenli davranışı seç (belgeyi kuyruğa al) ve PLAN.md §D'ye sapma yaz.\n\nBU GÖREVİ BAĞLAYAN KİLİTLİ KURALLAR (MASTER-PROMPT §3 — tartışma, uygula):\n- K16: Manuel işlemler yalnız: belgeyi başka çalışana taşı, kuyruk öğesini ata, onay bekleyen profili onayla, yeni türü onayla, arşive taşı. SİLME YOK. Hepsi iki aşamalı onay ister ve kullanıcı adıyla loglanır.\n\nPRD'DE AYRICA OKU: §8.6 (katalog kaydı biçimi)\n\nİLGİLİ KABUL SENARYOSU: doğrudan yok. Kabul kriterleri yukarıda.\n\nSIRA (MASTER-PROMPT §5, contract-first): sözleşme/şema → Alembic göçü (gerekiyorsa) → çekirdek + unit test → entegrasyon + testi → arayüz.\n\nKAPSAM SINIRI: yalnız yukarıdaki PRD kimlikleri. Başka gereksinimin işini yapma; yolda gördüğün kusuru düzeltme, yeni görev olarak aç (CONVENTIONS §5). Kilitli teknik kararları (MASTER-PROMPT §4) tartışma; yanlış görünüyorsa uygula ve PLAN.md §D'ye sapma yaz.\n\nTUZAKLAR: belge içeriğini değiştiren kod yazma — kırpma, döndürme (EXIF dışında), kontrast, metin yazma, form doldurma yok (K11/K17). Gerçek kimlik belgesi kullanma; test verisi tests/fixtures/gen.py ile üretilen sentetik belgelerdir (CONVENTIONS §6). Yapay zekâ çağrısı testte canlı yapılmaz, kayıtlı yanıt sağlayıcısı kullanılır. Test/build komutlarını arka plana atma — pencere ölür.\n\nKAPANIŞ: PLAN.md'de 11.5.1, 11.5.2, 11.5.3, 11.5.4 satırlarının damgasını '✅ → K11.5' yap ve '## K. Kanıt Geçmişi' bölümünde '#### K11.5' bloğuna kanıt maddesi ekle (blok yoksa aç). Faz özet tablosundaki sayıları SAYARAK güncelle. Ayrıntı: CONVENTIONS §1.2-1.3.",
         "testStrategy": "CONVENTIONS §1 DoD kapısı: ruff check . · ruff format --check . · python -m compileall -q app tests · pytest -q -m \"not live\" · alembic upgrade head · python -c \"import app.main\" — hepsi exit 0.\nAyrıca bu görevin kendi kabul kriterleri:\n- 11.5.1: Aday türler adı, görülme sayısı ve örnek sayfalarıyla listelenir\n- 11.5.2: Onay sonrası tür katalogda; iki aşamalı onay istenir\n- 11.5.3: Aday ile ilişkili Unknown öğeleri toplu yeniden analiz edilebilir\n- 11.5.4: Reddedilen aday tekrar listeye düşmez",
-        "status": "in-progress",
+        "status": "done",
         "dependencies": [
           "75",
           "30",
@@ -1140,7 +1140,7 @@
         ],
         "priority": "high",
         "subtasks": [],
-        "updatedAt": "2026-09-19T02:01:58.209Z"
+        "updatedAt": "2026-09-19T02:43:12.847Z"
       },
       {
         "id": "80",
@@ -1360,9 +1360,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-09-19T02:01:58.209Z",
+      "lastModified": "2026-09-19T02:43:12.847Z",
       "taskCount": 95,
-      "completedCount": 76,
+      "completedCount": 77,
       "tags": [
         "master"
       ]
