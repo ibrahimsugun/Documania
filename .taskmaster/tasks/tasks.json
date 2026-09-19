@@ -1325,13 +1325,13 @@
         "description": "PRD 09.1.1 · FR-MOD-09 (Çalışan profili ve orkestrasyon) · Faz 0. tm 59'da görülen kusurdan açıldı (CONVENTIONS §5).",
         "details": "KAPSAM: PRD 09.1.1 (profil.md 'her değişiklikten sonra yeniden üretilir') — yalnız manuel işlem yolları.\n\nNE YAPILACAK — GEREKSİNİM VE KABUL KRİTERİ:\n* 09.1.1 — profil.md üretimi. Kabul: YAML ön blok + kimlik tablosu + belge listesi içerir; her değişiklikten sonra yeniden üretilir.\nBugün profil.md yalnız parti işlenirken, yeniden çalıştırmada ve yeniden analizde (app/pipeline/orchestrate.py execute_plan → _write_profiles, tm 59) yeniden üretiliyor. Manuel işlemler profili güncellemiyor: assign_queue_item (08.2.1) ve approve_queued_profile (08.3.1; app/pipeline/route.py) çalışana yeni çıktı ve (onayda) yeni çalışan/iletişim bilgisi yazar; archive_document (08.4.1; app/storage/archive.py) belgenin durumunu ve yolunu değiştirir. Üçünden sonra etkilenen çalışanın profil.md'si write_profile ile yeniden üretilmeli (arşivde belgenin sahibi; atamada/onayda çıktının sahibi).\n\nGİRDİ (bu kod ZATEN VAR; yazmadan önce OKU): app/profiles/render.py (write_profile), app/pipeline/route.py (assign_queue_item, approve_queued_profile, _resolve_with_output), app/storage/archive.py (archive_document), app/pipeline/orchestrate.py (_write_profiles örneği).\n\nÇIKTI — DOKUNULACAK YÜZEY: app/pipeline/route.py, app/storage/archive.py (+ testleri).\n\nBU GÖREVİ BAĞLAYAN KİLİTLİ KURALLAR: K16 (manuel işlemler, iki aşamalı onay 10.8'in), K17 (içerik düzenlenemez; profil yalnız veritabanından üretilir).\n\nKAPSAM SINIRI: yalnız profil yeniden üretimi; K16 taşıması (MANUAL_MOVE, 10.x) henüz yok — o görev kendi yolunda aynı çağrıyı yapmalı. Oturum commit edilmez (çağıranın işlem sınırı), profil dosyası diske atomik (replace_file) yazılır.\n\nTUZAKLAR: gerçek kimlik belgesi kullanma; testte yapay zekâ çağrısı yok. Test/build komutlarını arka plana atma.\n\nKAPANIŞ: PLAN.md K09.1 bloğuna kanıt maddesi ekle (09.1.1 satırı zaten ✅ → K09.1; damga değişmez). Faz özet tablosunu SAYARAK doğrula.",
         "testStrategy": "",
-        "status": "in-progress",
+        "status": "done",
         "dependencies": [
           "59"
         ],
         "priority": "high",
         "subtasks": [],
-        "updatedAt": "2026-09-19T02:44:18.008Z"
+        "updatedAt": "2026-09-19T03:06:34.572Z"
       },
       {
         "id": "94",
@@ -1361,9 +1361,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-09-19T02:44:18.009Z",
+      "lastModified": "2026-09-19T03:06:34.573Z",
       "taskCount": 95,
-      "completedCount": 77,
+      "completedCount": 78,
       "tags": [
         "master"
       ]
