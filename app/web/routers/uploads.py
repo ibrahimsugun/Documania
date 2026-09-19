@@ -9,6 +9,11 @@ işidir.
 Boyut ve (PDF için) sayfa sınırı (01.3.1) her dosya diske yazılmadan/partiye kaydedilmeden önce
 denetlenir; sınırı aşan tek dosya olsa bile parti hiç oluşturulmaz.
 
+Partiyi kuran çekirdek `store_upload`'dır (eşzamanlı, HTTP'den bağımsız): web uç noktası ve Telegram
+botu (12.2.1) aynı doğrulamadan, aynı Inbox yazımından ve aynı tekrar tespitinden geçer; yalnız
+`channel`/`uploaded_by` değişir. Hata `HTTPException` olarak yükselir, `detail` kullanıcıya
+gösterilecek Türkçe iletidir.
+
 `POST /{upload_id}/rerun` güncel planı yeniden uygular; yapay zekâ sağlayıcısı bu uç noktanın
 bağımlılıkları arasında yoktur. `POST /{upload_id}/reanalyze` partiyi yeniden analiz eder ve yeni
 plan sürümünü açar (`app.pipeline.orchestrate`). İkisi de işi tek işlemde yapar: hata olursa
@@ -19,6 +24,8 @@ yürütemeyen hata (kayıt, Inbox bütünlüğü K10, işlem) 409 döner.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+from dataclasses import dataclass
 from io import BytesIO
 from typing import Annotated
 
@@ -56,6 +63,15 @@ from app.storage import (
 router = APIRouter(prefix="/api/uploads", tags=["uploads"])
 
 UPLOAD_CHANNEL = "web"
+
+
+@dataclass(frozen=True, slots=True)
+class IncomingFile:
+    """Partiye girecek dosya: adı, baytları ve istemcinin bildirdiği içerik türü."""
+
+    name: str
+    content: bytes
+    content_type: str | None
 
 
 class UploadCreateResponse(BaseModel):
@@ -122,9 +138,8 @@ def _get_upload(session: Session, upload_id: str) -> Upload:
     return upload
 
 
-def _validated_name(file: FastAPIFile) -> str:
+def _validated_name(name: str) -> str:
     """Orijinal adı sözleşmeye uygun hâlde döner; yol ayracı/`..` içeriyorsa reddeder."""
-    name = file.filename
     if not name or "/" in name or "\\" in name or name in {".", ".."}:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Geçersiz dosya adı.")
     return name
@@ -161,36 +176,46 @@ def _check_size_and_page_limits(name: str, content: bytes, settings: Settings) -
         )
 
 
-@router.post("", response_model=UploadCreateResponse, status_code=status.HTTP_201_CREATED)
-async def create_upload(
-    files: Annotated[list[FastAPIFile], File()],
-    session: Annotated[Session, Depends(get_session)],
-    layout: Annotated[DataLayout, Depends(get_layout)],
-    settings: Annotated[Settings, Depends(get_settings)],
-    context_employee_id: Annotated[str | None, Form()] = None,
-) -> UploadCreateResponse:
-    names = [_validated_name(file) for file in files]
+def store_upload(
+    session: Session,
+    layout: DataLayout,
+    settings: Settings,
+    files: Sequence[IncomingFile],
+    *,
+    channel: str,
+    uploaded_by: str | None = None,
+    context_employee_id: str | None = None,
+) -> str:
+    """Dosyaları tek parti olarak Inbox'a yazar, kaydeder ve commit eder; `upload_id` döner.
+
+    Ad, boyut/sayfa sınırı (01.3.1) ve bağlam çalışanı doğrulanır; biri tutmazsa `HTTPException`
+    ve hiçbir şey yazılmaz. Tekrar (01.4.1) yalnız işaretlenir, dosya yine Inbox'a yazılır (K10).
+    """
+    names = [_validated_name(file.name) for file in files]
     if len(set(names)) != len(names):
         raise HTTPException(
             status.HTTP_400_BAD_REQUEST, "Aynı partide aynı adda birden çok dosya olamaz."
         )
-
-    contents = [await file.read() for file in files]
-    for name, content in zip(names, contents, strict=True):
-        _check_size_and_page_limits(name, content, settings)
+    for name, file in zip(names, files, strict=True):
+        _check_size_and_page_limits(name, file.content, settings)
 
     if context_employee_id is not None and session.get(Employee, context_employee_id) is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "context_employee_id bulunamadı.")
 
     upload_id = allocate_upload_id(session)
     session.add(
-        Upload(id=upload_id, channel=UPLOAD_CHANNEL, context_employee_id=context_employee_id)
+        Upload(
+            id=upload_id,
+            channel=channel,
+            uploaded_by=uploaded_by,
+            context_employee_id=context_employee_id,
+        )
     )
     session.flush()
 
     with event_context(upload_id=upload_id):
-        for file, name, content in zip(files, names, contents, strict=True):
-            stored = write_to_inbox(layout, upload_id, name, content)
+        for name, file in zip(names, files, strict=True):
+            stored = write_to_inbox(layout, upload_id, name, file.content)
             # K10: içerik hâlâ değişmez biçimde Inbox'a yazılır; tekrar yalnız işaretlenir,
             # dosya reddedilmez. Analiz adımı (henüz yok) `is_duplicate_of` alanına bakarak
             # bu satırı atlayacak.
@@ -217,6 +242,28 @@ async def create_upload(
                 record_event(session, EventType.FILE_UPLOADED, file_id=upload_file.id, message=name)
 
     session.commit()
+    return upload_id
+
+
+@router.post("", response_model=UploadCreateResponse, status_code=status.HTTP_201_CREATED)
+async def create_upload(
+    files: Annotated[list[FastAPIFile], File()],
+    session: Annotated[Session, Depends(get_session)],
+    layout: Annotated[DataLayout, Depends(get_layout)],
+    settings: Annotated[Settings, Depends(get_settings)],
+    context_employee_id: Annotated[str | None, Form()] = None,
+) -> UploadCreateResponse:
+    incoming = [
+        IncomingFile(file.filename or "", await file.read(), file.content_type) for file in files
+    ]
+    upload_id = store_upload(
+        session,
+        layout,
+        settings,
+        incoming,
+        channel=UPLOAD_CHANNEL,
+        context_employee_id=context_employee_id,
+    )
     return UploadCreateResponse(upload_id=upload_id)
 
 

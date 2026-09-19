@@ -2,7 +2,8 @@
 
 Gerçek `Application` kurulur (kapı ve işleyiciler gerçek), yalnız HTTP aktarıcısı sahtedir;
 güncelleme Telegram'dan gelmiş gibi `process_update` ile verilir ve botun gönderdiği Bot API
-çağrıları okunur.
+çağrıları okunur. Dosya indirme de sahtedir: `FakeTelegram.files` (`file_id` → bayt) `getFile` ve
+dosya adresinden döner.
 """
 
 import asyncio
@@ -19,10 +20,14 @@ from telegram import Update
 from telegram.ext import Application, ApplicationBuilder
 from telegram.request import BaseRequest, RequestData
 
+from app.ai.provider import AnalysisProvider, ProviderConfigError
+from app.catalog import import_catalog, load_seed_catalog
 from app.config import Settings
 from app.db.models import Base, TelegramUser, User
 from app.db.session import create_db_engine, create_session_factory
+from app.storage import DataLayout, prepare_data_dir
 from app.telegram.bot import BotConfig, BotMode, build_application
+from app.telegram.handlers import DocumentIntake, ProviderFactory
 
 TOKEN = "123456:TEST-token-degeri"
 LISTED_ID = 5_000_000_001
@@ -34,6 +39,11 @@ class FakeTelegram(BaseRequest):
     """Bot API'yi taklit eder: her çağrıyı `(yöntem, parametreler)` olarak kaydeder."""
 
     calls: list[tuple[str, dict[str, Any]]] = field(default_factory=list)
+    # `file_id` → indirilecek bayt. Kaydı olmayan kimlik için `getFile` "file is too big" döner.
+    files: dict[str, bytes] = field(default_factory=dict)
+    # `file_id` → indirme (dosya adresi) isteğinde dönülecek Bot API hata iletisi.
+    download_errors: dict[str, str] = field(default_factory=dict)
+    fail_send: bool = False
 
     @property
     def read_timeout(self) -> float:
@@ -51,11 +61,36 @@ class FakeTelegram(BaseRequest):
         name = url.rsplit("/", 1)[-1]
         parameters = dict(request_data.parameters) if request_data else {}
         self.calls.append((name, parameters))
+        if "/file/bot" in url:  # `getFile`'ın döndürdüğü adresten indirme: ham bayt
+            if name in self.download_errors:
+                return 400, _error(self.download_errors[name])
+            return 200, self.files[name]
+        if name == "getFile":
+            file_id = parameters["file_id"]
+            if file_id not in self.files:
+                return 400, _error("Bad Request: file is too big")
+            result: Any = {
+                "file_id": file_id,
+                "file_unique_id": f"u-{file_id}",
+                "file_size": len(self.files[file_id]),
+                "file_path": f"documents/{file_id}",
+            }
+            return 200, json.dumps({"ok": True, "result": result}).encode()
+        if name == "sendMessage" and self.fail_send:
+            return 400, _error("Bad Request: chat not found")
         return 200, json.dumps({"ok": True, "result": _result(name, parameters)}).encode()
+
+    def sent_texts(self) -> list[str]:
+        """Botun gönderdiği ileti metinleri, gönderim sırasıyla."""
+        return [parameters["text"] for name, parameters in self.calls if name == "sendMessage"]
 
     def methods(self) -> list[str]:
         """`getMe` (başlatma) dışında botun Telegram'a yaptığı çağrılar."""
         return [name for name, _ in self.calls if name != "getMe"]
+
+
+def _error(description: str) -> bytes:
+    return json.dumps({"ok": False, "error_code": 400, "description": description}).encode()
 
 
 def _result(name: str, parameters: dict[str, Any]) -> Any:
@@ -94,6 +129,75 @@ def message_update(
     return {"update_id": update_id, key: body}
 
 
+def _media_message(
+    user_id: int,
+    message_id: int,
+    media: dict[str, Any],
+    *,
+    media_group_id: str | None,
+    chat_type: str,
+) -> dict[str, Any]:
+    body: dict[str, Any] = {
+        "message_id": message_id,
+        "date": 1_700_000_000,
+        "chat": {"id": user_id, "type": chat_type},
+        "from": {"id": user_id, "is_bot": False, "first_name": "Deneme"},
+        **media,
+    }
+    if media_group_id is not None:
+        body["media_group_id"] = media_group_id
+    return body
+
+
+def document_update(
+    update_id: int,
+    user_id: int,
+    file_id: str,
+    file_name: str | None = "belge.pdf",
+    *,
+    message_id: int | None = None,
+    media_group_id: str | None = None,
+    mime_type: str | None = "application/pdf",
+    file_size: int | None = None,
+    chat_type: str = "private",
+) -> dict[str, Any]:
+    """Dosya eki (belge) içeren mesaj; albüm dosyası için `media_group_id` verilir."""
+    document: dict[str, Any] = {"file_id": file_id, "file_unique_id": f"u-{file_id}"}
+    optional = {"file_name": file_name, "mime_type": mime_type, "file_size": file_size}
+    document.update({key: value for key, value in optional.items() if value is not None})
+    message = _media_message(
+        user_id,
+        message_id if message_id is not None else update_id,
+        {"document": document},
+        media_group_id=media_group_id,
+        chat_type=chat_type,
+    )
+    return {"update_id": update_id, "message": message}
+
+
+def photo_update(
+    update_id: int,
+    user_id: int,
+    file_id: str,
+    *,
+    message_id: int | None = None,
+    media_group_id: str | None = None,
+) -> dict[str, Any]:
+    """Fotoğraf mesajı: Telegram aynı görüntünün küçükten büyüğe iki boyutunu gönderir."""
+    sizes = [
+        {"file_id": f"{file_id}-k", "file_unique_id": f"u-{file_id}-k", "width": 90, "height": 90},
+        {"file_id": file_id, "file_unique_id": f"u-{file_id}", "width": 800, "height": 800},
+    ]
+    message = _media_message(
+        user_id,
+        message_id if message_id is not None else update_id,
+        {"photo": sizes},
+        media_group_id=media_group_id,
+        chat_type="private",
+    )
+    return {"update_id": update_id, "message": message}
+
+
 def callback_update(update_id: int, user_id: int) -> dict[str, Any]:
     return {
         "update_id": update_id,
@@ -116,16 +220,24 @@ def callback_update(update_id: int, user_id: int) -> dict[str, Any]:
 class BotHarness:
     application: Application
     telegram: FakeTelegram
+    intake: DocumentIntake | None = None
 
-    def feed(self, *updates: dict[str, Any]) -> None:
-        """Güncellemeleri sırayla işletir (başlatma/kapatma dahil, tek olay döngüsünde)."""
+    def feed(self, *updates: dict[str, Any], pause: float = 0.0) -> None:
+        """Güncellemeleri sırayla işletir (başlatma/kapatma dahil, tek olay döngüsünde).
+
+        `pause` iki güncelleme arasında beklenen saniyedir (albüm dosyalarının gecikmeli gelmesi).
+        Belge alma arka plan işi başlatır; kapatmadan önce bitmesi beklenir."""
 
         async def _run() -> None:
             await self.application.initialize()
             try:
-                for body in updates:
+                for index, body in enumerate(updates):
+                    if index and pause:
+                        await asyncio.sleep(pause)
                     update = Update.de_json(body, self.application.bot)
                     await self.application.process_update(update)
+                if self.intake is not None:
+                    await self.intake.join()
             finally:
                 await self.application.shutdown()
 
@@ -179,6 +291,61 @@ def make_bot(session_factory: sessionmaker[Session]) -> Callable[..., BotHarness
 @pytest.fixture
 def bot(make_bot: Callable[..., BotHarness]) -> BotHarness:
     return make_bot()
+
+
+@dataclass
+class IntakeBot(BotHarness):
+    """Belge alma bağlı bot: partiler `layout` altına yazılır."""
+
+    layout: DataLayout | None = None
+
+
+@pytest.fixture
+def make_intake_bot(
+    session_factory: sessionmaker[Session], tmp_path: Path
+) -> Callable[..., IntakeBot]:
+    """`DocumentIntake` bağlı bot: katalog yüklü, veri dizini geçici, ağ yok.
+
+    `provider` verilmezse sağlayıcı hiç kurulamaz (`ProviderConfigError`)."""
+    with session_factory() as session:
+        import_catalog(session, load_seed_catalog())
+        session.commit()
+
+    def _make(
+        provider: AnalysisProvider | None = None,
+        *,
+        provider_factory: ProviderFactory | None = None,
+        group_wait: float = 0.05,
+        **settings_overrides: object,
+    ) -> IntakeBot:
+        layout = prepare_data_dir(tmp_path / "data")
+        settings = bot_settings(data_dir=layout.root, **settings_overrides)
+        telegram = FakeTelegram()
+        intake = DocumentIntake(
+            session_factory,
+            layout,
+            settings,
+            provider_factory=provider_factory or _factory_of(provider),
+            group_wait=group_wait,
+        )
+        application = build_application(
+            polling_config(),
+            session_factory,
+            builder=ApplicationBuilder().request(telegram).get_updates_request(telegram),
+            intake=intake,
+        )
+        return IntakeBot(application, telegram, intake, layout)
+
+    return _make
+
+
+def _factory_of(provider: AnalysisProvider | None) -> ProviderFactory:
+    def factory(_settings: Settings) -> AnalysisProvider:
+        if provider is None:
+            raise ProviderConfigError("Sağlayıcı kurulamadı (test).")
+        return provider
+
+    return factory
 
 
 def bot_settings(**overrides: object) -> Settings:

@@ -12,6 +12,9 @@ belirsiz ya da özel sohbet dışından gelen güncelleme için `ApplicationHand
 hiçbir işleyici çalışmaz — yani hiçbir yanıt gitmez. Kapı hata durumunda da kapalıdır (veritabanı
 okunamazsa güncelleme reddedilir). **Yeni işleyici `GATE_GROUP`'tan büyük bir gruba eklenir**;
 kapıdan önceki bir gruba konan işleyici beyaz listeyi atlar.
+
+Belge alma (12.2) `app.telegram.handlers.DocumentIntake`'tedir; `build_application`'a verilirse
+`HANDLER_GROUP`'a eklenir. Verilmezse bot yalnız komutlara yanıt verir.
 """
 
 from __future__ import annotations
@@ -42,6 +45,8 @@ from telegram.ext import (
 from app.config import Settings, get_settings
 from app.db.models import TelegramUser
 from app.db.session import get_session_factory
+from app.storage import prepare_data_dir
+from app.telegram.handlers import DocumentIntake
 
 logger = logging.getLogger(__name__)
 
@@ -198,8 +203,10 @@ def build_application(
     session_factory: sessionmaker[Session],
     *,
     builder: ApplicationBuilder | None = None,
+    intake: DocumentIntake | None = None,
 ) -> Application:
-    """Beyaz liste kapısı ve komut işleyicileriyle bot uygulamasını kurar (ağa çıkmaz).
+    """Beyaz liste kapısı, komut ve (`intake` verilirse) belge işleyicileriyle bot uygulamasını
+    kurar (ağa çıkmaz).
 
     `builder` testte sahte bir aktarıcıyla ön ayarlı gelir; verilmezse varsayılan kurulur."""
     application = (builder or ApplicationBuilder()).token(config.token).build()
@@ -207,6 +214,8 @@ def build_application(
         TypeHandler(Update, WhitelistGate(session_factory), block=True), group=GATE_GROUP
     )
     application.add_handler(CommandHandler(["start", "yardim"], _send_help), group=HANDLER_GROUP)
+    if intake is not None:
+        intake.register(application, group=HANDLER_GROUP)
 
     secrets = config.secrets()
 
@@ -242,12 +251,15 @@ def main() -> int:
     for name in _TRANSPORT_LOGGERS:
         logging.getLogger(name).setLevel(logging.WARNING)
     try:
-        config = load_bot_config(get_settings())
+        settings = get_settings()
+        config = load_bot_config(settings)
     except RuntimeError as exc:  # BotConfigError ve eksik DATABASE_URL (00.2.2)
         print(exc, file=sys.stderr)
         return 1
     logger.info("Bot başlıyor (mod: %s)", config.mode)
-    run(build_application(config, get_session_factory()), config)
+    session_factory = get_session_factory()
+    intake = DocumentIntake(session_factory, prepare_data_dir(settings.data_dir), settings)
+    run(build_application(config, session_factory, intake=intake), config)
     return 0
 
 

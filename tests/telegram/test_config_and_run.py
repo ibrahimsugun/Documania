@@ -10,12 +10,14 @@ from pathlib import Path
 from unittest.mock import MagicMock, create_autospec
 
 import pytest
-from telegram.ext import Application, ApplicationBuilder
+from telegram.ext import Application, ApplicationBuilder, CommandHandler, MessageHandler
 
 from app.config import get_settings
 from app.telegram import bot as bot_module
 from app.telegram.bot import (
+    GATE_GROUP,
     HANDLED_UPDATES,
+    HANDLER_GROUP,
     BotConfig,
     BotConfigError,
     BotMode,
@@ -221,6 +223,10 @@ def test_main_starts_the_bot_and_keeps_the_token_out_of_transport_logs(
     [(application, config)] = started
     assert config.mode is BotMode.POLLING
     assert application.bot.token == TOKEN
+    # 12.2: belge/fotoğraf işleyicisi komutlarla aynı grupta, beyaz liste kapısının arkasında bağlı.
+    kinds = {type(handler) for handler in application.handlers[HANDLER_GROUP]}
+    assert MessageHandler in kinds and CommandHandler in kinds
+    assert all(not isinstance(h, MessageHandler) for h in application.handlers[GATE_GROUP])
     # httpx her isteği `.../bot<TOKEN>/...` adresiyle INFO'ya yazar; ana işlev bunu susturur.
     assert logging.getLogger("httpx").getEffectiveLevel() >= logging.WARNING
     assert logging.getLogger("httpcore").getEffectiveLevel() >= logging.WARNING
