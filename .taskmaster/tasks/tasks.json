@@ -1326,14 +1326,14 @@
         "description": "PRD 13.6.1 · FR-MOD-13 (İşletme, maliyet ve dayanıklılık) · Faz 3.",
         "details": "KAPSAM: PRD 13.6.1 (FR-MOD-13 — İşletme, maliyet ve dayanıklılık, Faz 3).\n\nNE YAPILACAK — GEREKSİNİMLER VE KABUL KRİTERLERİ:\n- 13.6.1 — İzleme ve uyarı\n  Kabul: Hata, disk doluluğu ve kuyruk uzunluğu için uyarı üretilir\n\nGİRDİ — ÜZERİNE KURULDUĞU İŞLER (bu kod ZATEN VAR; yazmadan önce OKU):\n- 13.3 (Kalıcı işçi kuyruğu) → app/worker/\n- 12.4 (Kuyruk ve hata bildirimleri) → app/telegram/notify.py\n\nÇIKTI — DOKUNULACAK YÜZEY: app/worker/, app/telegram/notify.py\n\nKARAR TABLOSU: bu görev için ayrı karar tablosu yok; kabul kriterleri ve kilitli kurallar yeterli.\n\nBU GÖREVİ BAĞLAYAN KİLİTLİ KURALLAR: özel kural yok. Genel sınırlar MASTER-PROMPT §8'de.\n\nPRD'DE AYRICA OKU: yalnız yukarıdaki gereksinim satırları yeterli.\n\nİLGİLİ KABUL SENARYOSU: doğrudan yok. Kabul kriterleri yukarıda.\n\nSIRA (MASTER-PROMPT §5, contract-first): sözleşme/şema → Alembic göçü (gerekiyorsa) → çekirdek + unit test → entegrasyon + testi → arayüz.\n\nKAPSAM SINIRI: yalnız yukarıdaki PRD kimlikleri. Başka gereksinimin işini yapma; yolda gördüğün kusuru düzeltme, yeni görev olarak aç (CONVENTIONS §5). Kilitli teknik kararları (MASTER-PROMPT §4) tartışma; yanlış görünüyorsa uygula ve PLAN.md §D'ye sapma yaz.\n\nTUZAKLAR: belge içeriğini değiştiren kod yazma — kırpma, döndürme (EXIF dışında), kontrast, metin yazma, form doldurma yok (K11/K17). Gerçek kimlik belgesi kullanma; test verisi tests/fixtures/gen.py ile üretilen sentetik belgelerdir (CONVENTIONS §6). Yapay zekâ çağrısı testte canlı yapılmaz, kayıtlı yanıt sağlayıcısı kullanılır. Test/build komutlarını arka plana atma — pencere ölür.\n\nKAPANIŞ: PLAN.md'de 13.6.1 satırlarının damgasını '✅ → K13.6' yap ve '## K. Kanıt Geçmişi' bölümünde '#### K13.6' bloğuna kanıt maddesi ekle (blok yoksa aç). Faz özet tablosundaki sayıları SAYARAK güncelle. Ayrıntı: CONVENTIONS §1.2-1.3.",
         "testStrategy": "CONVENTIONS §1 DoD kapısı: ruff check . · ruff format --check . · python -m compileall -q app tests · pytest -q -m \"not live\" · alembic upgrade head · python -c \"import app.main\" — hepsi exit 0.\nAyrıca bu görevin kendi kabul kriterleri:\n- 13.6.1: Hata, disk doluluğu ve kuyruk uzunluğu için uyarı üretilir",
-        "status": "in-progress",
+        "status": "done",
         "dependencies": [
           "89",
           "86"
         ],
         "priority": "low",
         "subtasks": [],
-        "updatedAt": "2026-09-19T15:38:15.346Z"
+        "updatedAt": "2026-09-19T16:13:34.549Z"
       },
       {
         "id": "93",
@@ -1389,9 +1389,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-09-19T15:38:15.346Z",
+      "lastModified": "2026-09-19T16:13:34.549Z",
       "taskCount": 96,
-      "completedCount": 93,
+      "completedCount": 94,
       "tags": [
         "master"
       ]
