@@ -1,0 +1,18 @@
+{# Kabul kriteri madde listesi (11.1.3). Tür formunun içinde durur; "Madde ekle" ve "Çıkar" HTMX ile
+   yalnız bu parçayı yeniler (kaydetmez), formun geri kalanı yerinde kalır — htmx formun değerlerini
+   kendisi gönderir. Boş madde kaydedilmez: JavaScript kapalıyken maddeyi silmek için metnini boşaltmak,
+   eklemek için sondaki boş alanı doldurmak yeter. #}
+<div id="criteria">
+  <ul class="criteria-list">
+    {% for text in criteria %}
+    <li>
+      <input type="text" name="acceptance_criteria" value="{{ text }}"
+             aria-label="Kabul kriteri {{ loop.index }}" autocomplete="off">
+      <button type="button" class="link-button" hx-post="/document-types/criteria/remove"
+              hx-vals='{"index": {{ loop.index0 }}}' hx-target="#criteria" hx-swap="outerHTML">Çıkar</button>
+    </li>
+    {% endfor %}
+  </ul>
+  <button type="button" hx-post="/document-types/criteria/add"
+          hx-target="#criteria" hx-swap="outerHTML">Madde ekle</button>
+</div>

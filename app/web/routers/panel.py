@@ -33,11 +33,6 @@ def home(_user: CurrentUser) -> RedirectResponse:
     return RedirectResponse(PANEL_MENU[0].path, status.HTTP_303_SEE_OTHER)
 
 
-@router.get("/document-types", response_class=HTMLResponse)
-def document_types_page(request: Request, user: CurrentUser) -> HTMLResponse:
-    return _section(request, user, "document_types")
-
-
 @router.get("/uploads", response_class=HTMLResponse)
 def uploads_page(request: Request, user: CurrentUser) -> HTMLResponse:
     return _section(request, user, "uploads")

@@ -1,0 +1,693 @@
+"""11.1.1, 11.1.2, 11.1.3 — Belge Türleri ekranı: tür oluşturma, düzenleme ve pasifleştirme panelden
+yapılır; Direkt türde dönüşüm listesi boş, `front_back` türde sayfa aralığı 2 olmalıdır; kabul
+kriteri maddeleri eklenip çıkarılır ve değişiklik bir sonraki analizde geçerli olur.
+
+Yalnız `TestClient`: tarayıcıda çizim görülmedi."""
+
+from __future__ import annotations
+
+import re
+from pathlib import Path
+from typing import Any
+
+import pytest
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
+from sqlalchemy import func, select
+from sqlalchemy.orm import Session, sessionmaker
+
+from app.ai.prompts.page_analysis import build_page_analysis_instructions
+from app.ai.recording_provider import RecordingProvider
+from app.catalog import TypeNotFoundError, export_catalog, import_catalog, load_seed_catalog
+from app.config import Settings
+from app.db.models import KnownDocumentType, Upload, UploadFile
+from app.pipeline.orchestrate import process_upload
+from app.storage import DataLayout, find_original_by_sha256, write_to_inbox
+from tests.fixtures.gen import make_text_pdf_bytes
+
+ROOT = Path(__file__).resolve().parents[2]
+RECORDINGS = ROOT / "tests" / "fixtures" / "ai" / "recordings"
+SETTINGS = Settings(_env_file=None, database_url="sqlite://")
+TEMPLATES = ROOT / "app" / "web" / "templates"
+
+EDGE = "Kimlik sayfası tam görünür olmalı, kenarlar kesilmemiş"
+MRZ = "MRZ iki satırı da okunabilir olmalı"
+
+
+def _data(**overrides: Any) -> dict[str, Any]:
+    """Tür formunun gönderdiği alanlar; `None` verilen alan hiç gönderilmez (işaretsiz kutu)."""
+    data: dict[str, Any] = {
+        "slug": "sample_card",
+        "name": "Sample Card",
+        "file_label": "Sample Card",
+        "country": "RS",
+        "description": "",
+        "expected_file_types": ["pdf", "jpeg"],
+        "pages_min": "1",
+        "pages_max": "2",
+        "sides": "single",
+        "analyze": "on",
+        "required_fields": "surname, document_number",
+        "allowed_conversions": ["merge", "wrap_image"],
+        "output_format": "pdf",
+        "acceptance_criteria": ["Kenarlar görünür", "Yüz net"],
+        "prompt_description": "",
+    }
+    data.update(overrides)
+    return {key: value for key, value in data.items() if value is not None}
+
+
+def _rows(session_factory: sessionmaker[Session]) -> dict[str, KnownDocumentType]:
+    with session_factory() as session:
+        rows = {row.slug: row for row in session.scalars(select(KnownDocumentType))}
+        session.expunge_all()
+    return rows
+
+
+def _create(client: TestClient, **overrides: Any) -> None:
+    response = client.post("/document-types", data=_data(**overrides), follow_redirects=False)
+    assert response.status_code == 303, response.text
+
+
+@pytest.fixture
+def seeded(session_factory: sessionmaker[Session]) -> None:
+    with session_factory() as session:
+        import_catalog(session, load_seed_catalog())
+        session.commit()
+
+
+# --- 11.1.1: liste --------------------------------------------------------------------------------
+
+
+def test_list_shows_every_type_with_its_state(client: TestClient, seeded: None) -> None:
+    page = client.get("/document-types")
+
+    assert page.status_code == 200
+    assert "<title>Belge Türleri · belgeee</title>" in page.text
+    for entry in load_seed_catalog():
+        assert f"<code>{entry.slug}</code>" in page.text
+    assert 'href="/document-types/new"' in page.text
+    assert "Tutarsız kayıt" not in page.text
+
+
+def test_empty_catalog_says_so_and_still_offers_a_new_type(client: TestClient) -> None:
+    page = client.get("/document-types")
+
+    assert page.status_code == 200
+    assert "Katalogda henüz tür yok." in page.text
+    assert 'href="/document-types/new"' in page.text
+
+
+def test_passive_types_stay_in_the_list_marked_passive(client: TestClient) -> None:
+    _create(client)
+    client.post("/document-types/sample_card/deactivate")
+
+    page = client.get("/document-types")
+
+    assert "<code>sample_card</code>" in page.text
+    assert 'class="type-passive"' in page.text
+    assert "Pasif" in page.text
+    assert 'action="/document-types/sample_card/activate"' in page.text
+    assert "/deactivate" not in page.text
+
+
+def test_inconsistent_stored_type_is_flagged_and_listed(
+    client: TestClient, session_factory: sessionmaker[Session]
+) -> None:
+    _create(client)
+    with session_factory() as session:
+        session.get_one(KnownDocumentType, "sample_card").direct = True  # dönüşümler dolu kaldı
+        session.commit()
+
+    page = client.get("/document-types")
+
+    assert page.status_code == 200
+    assert "Tutarsız kayıt" in page.text
+    assert "allowed_conversions boş olmalı" in page.text
+
+
+def test_notice_names_the_type_and_ignores_unknown_notices(client: TestClient) -> None:
+    _create(client, name="<b>Kart</b>")
+
+    page = client.get("/document-types?notice=created&slug=sample_card")
+    assert "&lt;b&gt;Kart&lt;/b&gt;: Tür oluşturuldu." in page.text
+    assert "<b>Kart</b>" not in page.text
+
+    other = client.get("/document-types?notice=%3Cscript%3E&slug=sample_card")
+    assert 'role="status"' not in other.text
+    assert client.get("/document-types?notice=" + "x" * 33).status_code == 422
+
+
+# --- 11.1.1: oluşturma ----------------------------------------------------------------------------
+
+
+def test_new_type_form_offers_every_catalog_field(client: TestClient) -> None:
+    page = client.get("/document-types/new")
+
+    assert page.status_code == 200
+    for name in (
+        "slug",
+        "name",
+        "file_label",
+        "country",
+        "description",
+        "expected_file_types",
+        "pages_min",
+        "pages_max",
+        "sides",
+        "direct",
+        "analyze",
+        "required_fields",
+        "allowed_conversions",
+        "output_format",
+        "acceptance_criteria",
+        "prompt_description",
+    ):
+        assert f'name="{name}"' in page.text, name
+    assert '<form class="type-form" method="post" action="/document-types">' in page.text
+    # Belge içeriği ya da etkinlik formdan değişmez.
+    assert 'name="active"' not in page.text
+    assert 'name="photo_rules"' not in page.text
+
+
+def test_creating_a_type_stores_it_and_returns_to_the_list(
+    client: TestClient, session_factory: sessionmaker[Session]
+) -> None:
+    response = client.post(
+        "/document-types",
+        data=_data(country="rs", pages_min="1", pages_max="2", direct=None),
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 303
+    assert response.headers["location"] == "/document-types?notice=created&slug=sample_card"
+    row = _rows(session_factory)["sample_card"]
+    assert (row.name, row.file_label, row.country) == ("Sample Card", "Sample Card", "RS")
+    assert row.expected_file_types == ["pdf", "jpeg"]
+    assert (row.expected_pages_min, row.expected_pages_max) == (1, 2)
+    assert (row.sides, row.direct, row.analyze, row.active) == ("single", False, True, True)
+    assert row.required_fields == ["surname", "document_number"]
+    assert row.allowed_conversions == ["merge", "wrap_image"]
+    assert row.acceptance_criteria == ["Kenarlar görünür", "Yüz net"]
+    assert row.photo_rules is None
+    with session_factory() as session:
+        assert export_catalog(session).slugs() == ("sample_card",)
+    assert "Tür oluşturuldu." in client.get(response.headers["location"]).text
+
+
+def test_a_direct_type_without_conversions_is_created(
+    client: TestClient, session_factory: sessionmaker[Session]
+) -> None:
+    _create(client, direct="on", allowed_conversions=None)
+
+    row = _rows(session_factory)["sample_card"]
+    assert (row.direct, row.allowed_conversions) == (True, [])
+
+
+def test_a_front_back_type_with_two_pages_is_created(
+    client: TestClient, session_factory: sessionmaker[Session]
+) -> None:
+    _create(client, sides="front_back", pages_min="2", pages_max="2")
+
+    row = _rows(session_factory)["sample_card"]
+    assert (row.sides, row.expected_pages_min, row.expected_pages_max) == ("front_back", 2, 2)
+
+
+# --- 11.1.2: form doğrulaması ---------------------------------------------------------------------
+
+
+def test_direct_type_with_conversions_is_refused_and_nothing_is_stored(
+    client: TestClient, session_factory: sessionmaker[Session]
+) -> None:
+    response = client.post(
+        "/document-types", data=_data(direct="on", allowed_conversions=["merge"])
+    )
+
+    assert response.status_code == 422
+    assert "Tür kaydedilmedi" in response.text
+    assert "Direkt Belge (direct: true) türünde allowed_conversions boş olmalı" in response.text
+    assert _rows(session_factory) == {}
+    # Girilen değerler kaybolmaz.
+    assert 'value="sample_card"' in response.text
+    assert re.search(r'name="direct"\s+checked', response.text)
+    assert re.search(r'value="merge"\s+checked', response.text)
+    assert 'value="Kenarlar görünür"' in response.text
+
+
+@pytest.mark.parametrize(("low", "high"), [("1", "1"), ("1", "2"), ("2", "3"), ("", "")])
+def test_front_back_type_with_another_page_range_is_refused(
+    client: TestClient, session_factory: sessionmaker[Session], low: str, high: str
+) -> None:
+    response = client.post(
+        "/document-types",
+        data=_data(sides="front_back", pages_min=low, pages_max=high),
+    )
+
+    assert response.status_code == 422
+    assert "expected_pages tam iki sayfa olmalı" in response.text
+    assert _rows(session_factory) == {}
+
+
+def test_every_broken_field_is_reported_together(client: TestClient) -> None:
+    response = client.post(
+        "/document-types",
+        data=_data(
+            slug="Bad Slug",
+            name=" ",
+            expected_file_types=None,
+            pages_min="x",
+            required_fields="Surname",
+            output_format="png",
+        ),
+    )
+
+    assert response.status_code == 422
+    for message in (
+        "küçük harfle başlamalı",
+        "boş olamaz",
+        "en az bir seçim yapılmalı",
+        "sayfa sayıları tam sayı olmalı",
+        "geçersiz alan adı &#39;Surname&#39;",
+        "geçersiz seçim",
+    ):
+        assert message in response.text, message
+    assert response.text.count('class="field-error"') == 6
+
+
+def test_duplicate_slug_is_a_conflict_and_the_stored_type_is_kept(
+    client: TestClient, session_factory: sessionmaker[Session]
+) -> None:
+    _create(client)
+
+    response = client.post("/document-types", data=_data(name="Başkası"))
+
+    assert response.status_code == 409
+    assert "zaten var" in response.text
+    assert _rows(session_factory)["sample_card"].name == "Sample Card"
+
+
+def test_the_address_of_the_new_type_form_cannot_be_a_slug(client: TestClient) -> None:
+    response = client.post("/document-types", data=_data(slug="new"))
+
+    assert response.status_code == 422
+    assert "ayrılmış bir ad" in response.text
+
+
+def test_rejected_form_escapes_what_was_typed(client: TestClient) -> None:
+    response = client.post(
+        "/document-types",
+        data=_data(
+            name='"><script>alert(1)</script>',
+            acceptance_criteria=['"><img src=x onerror=alert(1)>'],
+            direct="on",
+        ),
+    )
+
+    assert response.status_code == 422
+    assert "<script>alert(1)</script>" not in response.text
+    assert "<img src=x" not in response.text
+    assert "&lt;script&gt;alert(1)&lt;/script&gt;" in response.text
+
+
+# --- 11.1.1: düzenleme ----------------------------------------------------------------------------
+
+
+def test_edit_form_is_filled_from_the_stored_type(client: TestClient) -> None:
+    _create(
+        client,
+        sides="front_back",
+        pages_min="2",
+        pages_max="2",
+        description="Açıklama",
+        prompt_description="Analizciye not",
+    )
+
+    page = client.get("/document-types/sample_card")
+
+    assert page.status_code == 200
+    assert (
+        '<form class="type-form" method="post" action="/document-types/sample_card">' in page.text
+    )
+    assert "<code>sample_card</code>" in page.text  # slug değişmez: alan değil, metin
+    assert 'name="slug"' not in page.text
+    assert 'value="Sample Card"' in page.text
+    assert 'value="Açıklama"' in page.text
+    assert 'value="surname, document_number"' in page.text
+    assert 'value="Analizciye not"' in page.text
+    assert 'name="pages_min" value="2"' in page.text
+    assert '<option value="front_back" selected>' in page.text
+    assert re.search(r'value="merge"\s+checked', page.text)
+    assert not re.search(r'name="direct"\s+checked', page.text)
+    assert 'value="Kenarlar görünür"' in page.text and 'value="Yüz net"' in page.text
+
+
+def test_unknown_type_is_a_404_on_every_route(client: TestClient) -> None:
+    assert client.get("/document-types/nope").status_code == 404
+    assert client.post("/document-types/nope", data=_data(slug="nope")).status_code == 404
+    assert client.post("/document-types/nope/deactivate").status_code == 404
+    assert client.post("/document-types/nope/activate").status_code == 404
+
+
+def test_updating_a_type_writes_the_form_and_keeps_the_slug_from_the_address(
+    client: TestClient, session_factory: sessionmaker[Session]
+) -> None:
+    _create(client)
+
+    response = client.post(
+        "/document-types/sample_card",
+        data=_data(
+            slug="baska_slug",
+            name="Yeni Ad",
+            pages_min="1",
+            pages_max="3",
+            allowed_conversions=["render_image"],
+            required_fields="surname",
+        ),
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 303
+    assert response.headers["location"] == "/document-types?notice=updated&slug=sample_card"
+    rows = _rows(session_factory)
+    assert set(rows) == {"sample_card"}
+    row = rows["sample_card"]
+    assert (row.name, row.expected_pages_max, row.required_fields) == ("Yeni Ad", 3, ["surname"])
+    assert row.allowed_conversions == ["render_image"]
+    assert (
+        "bir sonraki analizden itibaren geçerlidir" in client.get(response.headers["location"]).text
+    )
+
+
+def test_a_type_that_disappears_while_saving_is_a_404_and_nothing_is_kept(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _create(client)
+
+    def vanished(_session: Session, _entry: object) -> bool:
+        raise TypeNotFoundError("sample_card")
+
+    monkeypatch.setattr("app.web.routers.catalog.update_type", vanished)
+
+    assert client.post("/document-types/sample_card", data=_data()).status_code == 404
+
+
+def test_updating_leaves_activity_and_photo_rules_to_their_own_actions(
+    client: TestClient, session_factory: sessionmaker[Session]
+) -> None:
+    _create(client)
+    client.post("/document-types/sample_card/deactivate")
+    with session_factory() as session:
+        session.get_one(KnownDocumentType, "sample_card").photo_rules = {"face_visible": True}
+        session.commit()
+
+    # Form bu alanları taşımaz; gönderilse de okunmaz.
+    client.post(
+        "/document-types/sample_card",
+        data=_data(name="Ad", active="on", photo_rules='{"face_visible": false}'),
+    )
+
+    row = _rows(session_factory)["sample_card"]
+    assert (row.name, row.active, row.photo_rules) == ("Ad", False, {"face_visible": True})
+
+
+def test_an_invalid_update_changes_nothing_and_redraws_the_form(
+    client: TestClient, session_factory: sessionmaker[Session]
+) -> None:
+    _create(client)
+
+    response = client.post(
+        "/document-types/sample_card",
+        data=_data(name="Değişmesin", direct="on", allowed_conversions=["merge"]),
+    )
+
+    assert response.status_code == 422
+    assert "allowed_conversions boş olmalı" in response.text
+    assert 'value="Değişmesin"' in response.text
+    assert _rows(session_factory)["sample_card"].name == "Sample Card"
+
+
+def test_a_stored_type_that_breaks_the_catalog_rules_opens_and_is_fixed_by_saving(
+    client: TestClient, session_factory: sessionmaker[Session]
+) -> None:
+    _create(client)
+    with session_factory() as session:
+        session.get_one(KnownDocumentType, "sample_card").direct = True
+        session.commit()
+    with session_factory() as session, pytest.raises(Exception, match="allowed_conversions"):
+        export_catalog(session)  # analiz kataloğu bu satır yüzünden okunamıyor
+
+    page = client.get("/document-types/sample_card")
+
+    assert page.status_code == 200
+    assert "Kayıtlı tür şu an katalog kurallarına uymuyor" in page.text
+    assert "allowed_conversions boş olmalı" in page.text
+    client.post("/document-types/sample_card", data=_data(direct="on", allowed_conversions=None))
+    with session_factory() as session:
+        assert export_catalog(session).get("sample_card").allowed_conversions == ()  # type: ignore[union-attr]
+
+
+# --- 11.1.1: pasifleştirme ------------------------------------------------------------------------
+
+
+def test_deactivating_keeps_the_type_and_takes_it_out_of_the_analysis(
+    client: TestClient, session_factory: sessionmaker[Session]
+) -> None:
+    _create(client)
+
+    response = client.post("/document-types/sample_card/deactivate", follow_redirects=False)
+
+    assert response.status_code == 303
+    assert response.headers["location"] == "/document-types?notice=deactivated&slug=sample_card"
+    assert _rows(session_factory)["sample_card"].active is False
+    with session_factory() as session:
+        catalog = export_catalog(session)
+        assert catalog.get("sample_card") is not None  # silinmedi
+        assert "sample_card" not in build_page_analysis_instructions(catalog).known_slugs
+    assert "yeni belgelere atanmaz" in client.get(response.headers["location"]).text
+
+
+def test_a_passive_type_can_be_activated_again(
+    client: TestClient, session_factory: sessionmaker[Session]
+) -> None:
+    _create(client)
+    client.post("/document-types/sample_card/deactivate")
+
+    response = client.post("/document-types/sample_card/activate", follow_redirects=False)
+
+    assert response.headers["location"] == "/document-types?notice=activated&slug=sample_card"
+    assert _rows(session_factory)["sample_card"].active is True
+    with session_factory() as session:
+        catalog = export_catalog(session)
+        assert "sample_card" in build_page_analysis_instructions(catalog).known_slugs
+
+
+def test_deactivating_twice_is_harmless(client: TestClient) -> None:
+    _create(client)
+
+    first = client.post("/document-types/sample_card/deactivate", follow_redirects=False)
+    second = client.post("/document-types/sample_card/deactivate", follow_redirects=False)
+
+    assert first.status_code == second.status_code == 303
+
+
+def test_there_is_no_way_to_delete_a_type(
+    app: FastAPI, client: TestClient, session_factory: sessionmaker[Session]
+) -> None:
+    _create(client)
+
+    for method in ("DELETE", "PUT", "PATCH"):
+        assert client.request(method, "/document-types/sample_card").status_code == 405
+    paths = app.openapi()["paths"]
+    assert [path for path in paths if path.startswith("/document-types") and "delete" in path] == []
+    with session_factory() as session:
+        assert session.scalar(select(func.count()).select_from(KnownDocumentType)) == 1
+
+
+def test_catalog_forms_carry_no_multiline_text_field_and_post_to_plain_paths() -> None:
+    # 10.9.1 kilidi şablonlarda çok satırlı metin alanına ve hesaplanmış `action` yoluna izin
+    # vermez.
+    for name in ("catalog.html", "catalog_form.html", "catalog_criteria.html"):
+        html = (TEMPLATES / name).read_text(encoding="utf-8")
+        assert "<textarea" not in html, name
+        assert 'action="{{' not in html, name
+
+
+# --- 11.1.3: kabul kriteri maddeleri --------------------------------------------------------------
+
+
+def test_the_form_ends_the_criteria_with_a_blank_row_for_adding_without_scripts(
+    client: TestClient,
+) -> None:
+    _create(client)
+
+    page = client.get("/document-types/sample_card")
+
+    rows = re.findall(r'name="acceptance_criteria" value="([^"]*)"', page.text)
+    assert rows == ["Kenarlar görünür", "Yüz net", ""]
+    assert 'hx-post="/document-types/criteria/add"' in page.text
+    assert page.text.count('hx-post="/document-types/criteria/remove"') == 3
+
+
+def test_add_returns_the_list_with_one_more_blank_row_and_saves_nothing(
+    client: TestClient, session_factory: sessionmaker[Session]
+) -> None:
+    _create(client)
+
+    response = client.post(
+        "/document-types/criteria/add", data={"acceptance_criteria": ["Bir", "İki"]}
+    )
+
+    assert response.status_code == 200
+    assert response.text.lstrip().startswith('<div id="criteria">')
+    assert re.findall(r'name="acceptance_criteria" value="([^"]*)"', response.text) == [
+        "Bir",
+        "İki",
+        "",
+    ]
+    assert _rows(session_factory)["sample_card"].acceptance_criteria == [
+        "Kenarlar görünür",
+        "Yüz net",
+    ]
+
+
+def test_add_to_an_empty_list_gives_one_blank_row(client: TestClient) -> None:
+    response = client.post("/document-types/criteria/add")
+
+    assert re.findall(r'name="acceptance_criteria" value="([^"]*)"', response.text) == [""]
+
+
+def test_remove_drops_the_chosen_row_only(client: TestClient) -> None:
+    response = client.post(
+        "/document-types/criteria/remove",
+        data={"index": "1", "acceptance_criteria": ["Bir", "İki", "Üç"]},
+    )
+
+    assert re.findall(r'name="acceptance_criteria" value="([^"]*)"', response.text) == [
+        "Bir",
+        "Üç",
+    ]
+    # Kalan satırların çıkarma düğmeleri yeni sıraya göre numaralanır.
+    assert re.findall(r"hx-vals='\{\"index\": (\d+)\}'", response.text) == ["0", "1"]
+
+
+def test_remove_outside_the_list_changes_nothing_and_a_negative_index_is_refused(
+    client: TestClient,
+) -> None:
+    kept = client.post(
+        "/document-types/criteria/remove", data={"index": "9", "acceptance_criteria": ["Bir"]}
+    )
+
+    assert re.findall(r'name="acceptance_criteria" value="([^"]*)"', kept.text) == ["Bir"]
+    refused = client.post(
+        "/document-types/criteria/remove", data={"index": "-1", "acceptance_criteria": ["Bir"]}
+    )
+    assert refused.status_code == 422
+
+
+def test_criteria_fragment_escapes_the_text(client: TestClient) -> None:
+    response = client.post(
+        "/document-types/criteria/add", data={"acceptance_criteria": ['"><script>x</script>']}
+    )
+
+    assert "<script>" not in response.text
+    assert "&#34;&gt;&lt;script&gt;x&lt;/script&gt;" in response.text
+
+
+def test_saving_adds_and_removes_criteria_and_drops_blank_rows(
+    client: TestClient, session_factory: sessionmaker[Session]
+) -> None:
+    _create(client, acceptance_criteria=["Bir", "İki", "Üç"])
+
+    client.post(
+        "/document-types/sample_card",
+        data=_data(acceptance_criteria=["Bir", "", "Üç", "Dört", "   "]),
+    )
+
+    assert _rows(session_factory)["sample_card"].acceptance_criteria == ["Bir", "Üç", "Dört"]
+
+
+def test_all_criteria_can_be_removed(
+    client: TestClient, session_factory: sessionmaker[Session]
+) -> None:
+    _create(client)
+
+    client.post("/document-types/sample_card", data=_data(acceptance_criteria=None))
+
+    assert _rows(session_factory)["sample_card"].acceptance_criteria == []
+    with session_factory() as session:
+        assert export_catalog(session).get("sample_card").acceptance_criteria == ()  # type: ignore[union-attr]
+
+
+def _section(instructions: str, slug: str) -> str:
+    """Talimatın `slug` türüne ayrılmış bölümü (tohumda birkaç tür aynı maddeyi taşır)."""
+    start = instructions.index(f"### `{slug}`")
+    end = instructions.find("\n### ", start + 1)
+    return instructions[start : end if end != -1 else None]
+
+
+def _passport_batch(session: Session, layout: DataLayout) -> Upload:
+    upload = Upload(id="u_20260918_0001", channel="web")
+    session.add(upload)
+    session.flush()
+    content = make_text_pdf_bytes(["PASAPORT"])
+    stored = write_to_inbox(layout, upload.id, "pasaport.pdf", content)
+    original = find_original_by_sha256(session, stored.sha256)
+    session.add(
+        UploadFile(
+            upload=upload,
+            original_name="pasaport.pdf",
+            stored_path=layout.relative(stored.path),
+            sha256=stored.sha256,
+            mime="application/pdf",
+            is_duplicate_of=None if original is None else original.id,
+        )
+    )
+    session.commit()
+    return upload
+
+
+def test_an_edit_reaches_the_next_analysis_and_only_that_one(
+    client: TestClient,
+    seeded: None,
+    session_factory: sessionmaker[Session],
+    layout: DataLayout,
+) -> None:
+    with session_factory() as session:
+        before = build_page_analysis_instructions(export_catalog(session)).text
+    assert EDGE in before and MRZ in before
+
+    # Pasaportun kabul kriterlerinden biri çıkarılır, bir yenisi eklenir (panelden).
+    passport = client.get("/document-types/russian_passport")
+    assert f'value="{EDGE}"' in passport.text
+    response = client.post(
+        "/document-types/russian_passport",
+        data=_data(
+            slug="russian_passport",
+            name="Russian Passport",
+            file_label="Passport",
+            country="RU",
+            pages_min="1",
+            pages_max="1",
+            direct="on",
+            allowed_conversions=None,
+            output_format="keep",
+            required_fields="surname, given_names, date_of_birth, document_number, expiry_date",
+            acceptance_criteria=[MRZ, "Fotoğraf parlamasız olmalı"],
+        ),
+        follow_redirects=False,
+    )
+    assert response.status_code == 303, response.text
+
+    with session_factory() as session:
+        provider = RecordingProvider.from_directory(RECORDINGS / "russian_passport")
+        upload = _passport_batch(session, layout)
+        process_upload(session, layout, upload, settings=SETTINGS, provider=provider)
+
+    (request,) = provider.requests
+    passport_section = _section(request.instructions, "russian_passport")
+    assert "Fotoğraf parlamasız olmalı" in passport_section
+    assert MRZ in passport_section
+    assert EDGE not in passport_section  # çıkarılan madde bu analize girmedi
+    # Aynı maddeyi taşıyan öbür türlere dokunulmadı; önceki analizin talimatı da olduğu gibi.
+    assert EDGE in request.instructions
+    assert EDGE in _section(before, "russian_passport")

@@ -355,6 +355,12 @@ REVIEWED_MUTATING_ROUTES: dict[tuple[str, str], str] = {
     ("POST", "/api/queue/documents/{document_id}/archive/prepare"): "onay belirteci",
     ("POST", "/documents/{document_id}/move"): "başka çalışana taşıma (K16)",
     ("POST", "/documents/{document_id}/move/prepare"): "onay belirteci",
+    ("POST", "/document-types"): "katalog kaydı: tür oluşturma (11.1.1)",
+    ("POST", "/document-types/{slug}"): "katalog kaydı: tür düzenleme (11.1.1)",
+    ("POST", "/document-types/{slug}/deactivate"): "katalog kaydı: pasifleştirme (11.1.1)",
+    ("POST", "/document-types/{slug}/activate"): "katalog kaydı: etkinleştirme (11.1.1)",
+    ("POST", "/document-types/criteria/add"): "kabul kriteri listesi, kaydetmez (11.1.3)",
+    ("POST", "/document-types/criteria/remove"): "kabul kriteri listesi, kaydetmez (11.1.3)",
 }
 
 # "assign" içindeki "sign" düzenleme sayılmasın: sözcük başı ve sonu harf olmayan sınırdır.

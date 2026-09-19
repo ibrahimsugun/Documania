@@ -32,6 +32,7 @@ from pydantic import (
     field_validator,
     model_validator,
 )
+from pydantic_core import PydanticCustomError
 
 from app.storage import SlugError, slugify
 
@@ -117,6 +118,9 @@ class PageRange(BaseModel):
         return self
 
 
+CONSISTENCY_ERROR = "catalog_consistency"
+
+
 class CatalogEntry(BaseModel):
     """Tek belge türü — §8.6 alanları; veritabanı karşılığı `known_document_types` (§8.1)."""
 
@@ -155,16 +159,37 @@ class CatalogEntry(BaseModel):
             raise ValueError(f"file_label dosya adına çevrilemiyor: {exc}") from None
         return value
 
-    @model_validator(mode="after")
-    def _consistent(self) -> CatalogEntry:
+    def consistency_problems(self) -> list[tuple[str, str]]:
+        """Alanlar arası tutarlılık ihlalleri: `(alan, mesaj)` çiftleri, yoksa boş liste.
+
+        Doğrulama tek hata fırlatabildiği için ihlaller tek `catalog_consistency` hatasında
+        toplanır; panel formu (11.1.2) `ctx["problems"]`tan her ihlali kendi alanına yazar.
+        """
+        problems: list[tuple[str, str]] = []
         if self.direct and self.allowed_conversions:
             names = ", ".join(self.allowed_conversions)
-            raise ValueError(
-                f"Direkt Belge (direct: true) türünde allowed_conversions boş olmalı; "
-                f"verilen: {names}"
+            problems.append(
+                (
+                    "allowed_conversions",
+                    f"Direkt Belge (direct: true) türünde allowed_conversions boş olmalı; "
+                    f"verilen: {names}",
+                )
             )
         if not self.analyze and self.required_fields:
-            raise ValueError("analyze: false olan türde required_fields boş olmalı")
+            problems.append(
+                ("required_fields", "analyze: false olan türde required_fields boş olmalı")
+            )
+        return problems
+
+    @model_validator(mode="after")
+    def _consistent(self) -> CatalogEntry:
+        problems = self.consistency_problems()
+        if problems:
+            raise PydanticCustomError(
+                CONSISTENCY_ERROR,
+                "{message}",
+                {"message": "; ".join(text for _, text in problems), "problems": problems},
+            )
         return self
 
 

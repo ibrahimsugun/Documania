@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+{# Tür formu (11.1.1, 11.1.2, 11.1.3): oluşturma ve düzenleme aynı formdur. Doğrulama sunucudadır
+   (`app.catalog.form`): reddedilen form girilen değerlerle yeniden çizilir, her mesaj kendi alanının
+   yanında görünür. Belge içeriği formda yok (K17). Alanlar tek satırlık girdidir: şablonlarda çok
+   satırlı metin alanı yoktur (10.9.1 kilidi), form `action` yolları düz metin yazılır. #}
+{% macro errors(name) %}{% for message in problems.get(name, []) %}<small class="field-error" role="alert">{{ message }}</small>{% endfor %}{% endmacro %}
+{% block title %}{{ "Yeni belge türü" if is_new else "Belge türünü düzenle" }}{% endblock %}
+{% block content %}
+<p class="back"><a href="/document-types">← Belge Türleri</a></p>
+<h1>{{ "Yeni belge türü" if is_new else "Belge türünü düzenle" }}</h1>
+{% if problems %}
+<p class="error" role="alert">Tür kaydedilmedi: alanların altındaki uyarıları düzeltin.</p>
+{% endif %}
+{% if current_problems and not problems %}
+<div class="error" role="alert">
+  <p>Kayıtlı tür şu an katalog kurallarına uymuyor; analiz kataloğu okuyamaz. Alanları düzeltip kaydedin:</p>
+  <ul>{% for problem in current_problems %}<li>{{ problem }}</li>{% endfor %}</ul>
+</div>
+{% endif %}
+{% if is_new %}
+<form class="type-form" method="post" action="/document-types">
+{% else %}
+<form class="type-form" method="post" action="/document-types/{{ slug|urlencode }}">
+{% endif %}
+  <label for="type-slug">Slug</label>
+  <div class="field">
+    {% if is_new %}
+    <input type="text" id="type-slug" name="slug" value="{{ form.slug }}" maxlength="64" required
+           pattern="[a-z][a-z0-9_]*" autocomplete="off">
+    <small class="hint">Benzersiz kimlik (ör. <code>russian_passport</code>); küçük harfle başlar, sonradan değişmez.</small>
+    {% else %}
+    <code>{{ slug }}</code>
+    <small class="hint">Slug sonradan değişmez.</small>
+    {% endif %}
+    {{ errors("slug") }}
+  </div>
+
+  <label for="type-name">Ad</label>
+  <div class="field">
+    <input type="text" id="type-name" name="name" value="{{ form.name }}" maxlength="255" required autocomplete="off">
+    {{ errors("name") }}
+  </div>
+
+  <label for="type-file-label">Dosya etiketi</label>
+  <div class="field">
+    <input type="text" id="type-file-label" name="file_label" value="{{ form.file_label }}" maxlength="255" required autocomplete="off">
+    <small class="hint">Çıktı dosya adına girer: <code>Ad_Soyad-Etiket.pdf</code>.</small>
+    {{ errors("file_label") }}
+  </div>
+
+  <label for="type-country">Ülke</label>
+  <div class="field">
+    <input type="text" id="type-country" name="country" value="{{ form.country }}" maxlength="2" autocomplete="off" placeholder="RU">
+    <small class="hint">İki harfli ülke kodu; boş bırakılabilir.</small>
+    {{ errors("country") }}
+  </div>
+
+  <label for="type-description">Açıklama</label>
+  <div class="field">
+    <input type="text" id="type-description" name="description" value="{{ form.description }}" autocomplete="off">
+    {{ errors("description") }}
+  </div>
+
+  <span class="label">Beklenen dosya türleri</span>
+  <div class="field">
+    <span class="choices">
+      {% for value, label in file_types.items() %}
+      <label class="choice"><input type="checkbox" name="expected_file_types" value="{{ value.value }}"{% if value.value in form.expected_file_types %} checked{% endif %}> {{ label }}</label>
+      {% endfor %}
+    </span>
+    {{ errors("expected_file_types") }}
+  </div>
+
+  <span class="label">Beklenen sayfa sayısı</span>
+  <div class="field">
+    <span class="pages">
+      <input type="number" name="pages_min" value="{{ form.pages_min }}" min="1" aria-label="En az sayfa">
+      –
+      <input type="number" name="pages_max" value="{{ form.pages_max }}" min="1" aria-label="En çok sayfa">
+    </span>
+    <small class="hint">Ön ve arka yüzlü türde tam iki sayfa (2 – 2) olmalıdır.</small>
+    {{ errors("expected_pages") }}
+  </div>
+
+  <label for="type-sides">Yüz yapısı</label>
+  <div class="field">
+    <select id="type-sides" name="sides">
+      {% for value, label in sides_options.items() %}
+      <option value="{{ value.value }}"{% if value.value == form.sides %} selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+    {{ errors("sides") }}
+  </div>
+
+  <span class="label">Direkt Belge</span>
+  <div class="field">
+    <label class="choice"><input type="checkbox" name="direct"{% if form.direct %} checked{% endif %}> Direkt Belge</label>
+    <small class="hint">Çıktı tek kaynak dosyadan alınan ardışık sayfalardır; birleştirme ve format dönüşümü yapılmaz — dönüşüm listesi boş olmalıdır.</small>
+    {{ errors("direct") }}
+  </div>
+
+  <span class="label">Analiz</span>
+  <div class="field">
+    <label class="choice"><input type="checkbox" name="analyze"{% if form.analyze %} checked{% endif %}> Belge analiz edilir</label>
+    <small class="hint">Analiz edilmeyen türde (Word/Excel eki) zorunlu alan bulunmaz.</small>
+    {{ errors("analyze") }}
+  </div>
+
+  <label for="type-required-fields">Zorunlu alanlar</label>
+  <div class="field">
+    <input type="text" id="type-required-fields" name="required_fields" value="{{ form.required_fields }}" autocomplete="off" spellcheck="false" placeholder="surname, given_names, document_number">
+    <small class="hint">Alan adlarını virgülle ayırın (küçük harf, rakam, alt çizgi). Hepsi okunaklıysa belge kabul edilir.</small>
+    {{ errors("required_fields") }}
+  </div>
+
+  <span class="label">İzinli dönüşümler</span>
+  <div class="field">
+    <span class="choices">
+      {% for value, label in conversions.items() %}
+      <label class="choice"><input type="checkbox" name="allowed_conversions" value="{{ value.value }}"{% if value.value in form.allowed_conversions %} checked{% endif %}> {{ label }}</label>
+      {% endfor %}
+    </span>
+    {{ errors("allowed_conversions") }}
+  </div>
+
+  <label for="type-output-format">Çıktı biçimi</label>
+  <div class="field">
+    <select id="type-output-format" name="output_format">
+      {% for value, label in output_formats.items() %}
+      <option value="{{ value.value }}"{% if value.value == form.output_format %} selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+    {{ errors("output_format") }}
+  </div>
+
+  <span class="label">Kabul kriterleri</span>
+  <div class="field">
+    {% include "catalog_criteria.html" %}
+    <small class="hint">Zorunlu alan okunaklılığının ötesindeki koşullar; analizciye tür açıklamasıyla verilir, karşılanmayan madde Unresolved gerekçesine yazılır. Boş bırakılabilir. Değişiklik bir sonraki analizden itibaren geçerlidir.</small>
+    {{ errors("acceptance_criteria") }}
+  </div>
+
+  <label for="type-prompt-description">Analizci için açıklama</label>
+  <div class="field">
+    <input type="text" id="type-prompt-description" name="prompt_description" value="{{ form.prompt_description }}" autocomplete="off">
+    <small class="hint">Belgenin nasıl göründüğünü anlatan kısa metin (ör. "Kiril ve Latin çift yazımlı, sağ altta iki satır MRZ").</small>
+    {{ errors("prompt_description") }}
+  </div>
+
+  <div class="form-actions">
+    <button type="submit">Kaydet</button>
+    <a href="/document-types">Vazgeç</a>
+  </div>
+</form>
+{% endblock %}
