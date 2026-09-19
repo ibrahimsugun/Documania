@@ -1,6 +1,6 @@
-"""Plan JSON üretimi, belirleyicilik, işlem seçimi, Direkt Belge kuralı, dönüşüm izni ve doğrulama —
-PRD 06.1.1, 06.1.2, 06.2.1, 06.3.1, 06.3.2, 06.4.1, 06.5.1, 06.5.2 (§8.5, §20.1.6, §20.1.7, §20.3,
-§20.4; K1, K3, K9, K11, K12, R5, R10, R7).
+"""Plan JSON üretimi, belirleyicilik, işlem seçimi, Direkt Belge kuralı, dönüşüm izni, doğrulama ve
+profil fotoğrafı kuralları — PRD 06.1.1, 06.1.2, 06.2.1, 06.3.1, 06.3.2, 06.4.1, 06.5.1, 06.5.2,
+11.7.1 (§8.5, §20.1.6, §20.1.7, §20.3, §20.4; K1, K3, K9, K11, K12, R5, R10, R7).
 
 Karar motorunun bir parti için verdiği bütün kararlar tek bir **Plan JSON**'da dondurulur (K9):
 uygulayıcı (07.x) ve kuyruk (08.1) planı yürütür, yapay zekâya ya da eşleştirmeye yeniden sormaz.
@@ -34,7 +34,8 @@ bütün hükümlerin gerekçeleri (`route_reason`) aynı sırayla birleşir:
    ardışık sayfaları değilse (`direct_single_source`), kaynak biçimi beklenmiyorsa (`file_type`;
    Direkt Belge'de 06.3.2), MRZ kontrol hanesi tutmuyorsa (`mrz_checksum`) ya da doğum tarihi
    inanılır değilse (`dob_plausible`) `unresolved`. MRZ önceliği (05.3.3) kapıdan ve kişi
-   anahtarından önce her sayfaya uygulanır.
+   anahtarından önce her sayfaya uygulanır. Fotoğraf türünde açık bir kural `fail` ya da
+   değerlendirilmemişse (11.7.1) `unresolved`; gerekçesi doğrulayıcılarınkinden sonra gelir.
 4. İşlem — işlem seçimi (06.2.1), Direkt Belge matrisi (06.3.1) ve dönüşüm izni (06.4.1): §20.3'te
    uyan satır yoksa (satır 7), matris işlemi yasaklıyorsa ya da dönüşüm türün
    `allowed_conversions`'ında değilse `unresolved`. Kaynak doğrulayıcılarından
@@ -84,6 +85,20 @@ girmez, başka bir satıra düşülmez — gömülü tek görüntülü sayfada i
 `render_image` denenmez (K12) — ve belge dönüştürülmeden gerekçesiyle Unresolved'a gider. Gerekçe
 okunaklılık gerekçelerinin ardından gelir. Olay atılmaz: §8.3'te dönüşüm izni için tür yoktur, ret
 planın gerekçesinde durur.
+
+**Profil fotoğrafı (11.7.1, 11.7.2).** Kural seti olan türün (`PHOTO_RULE_TYPES`) belge adayı,
+yapı doğrulamasından geçtiyse, türün **planlama anındaki** açık kurallarıyla (`enabled_photo_rules`)
+değerlendirilir; kurallar adayın sayfalarına analizde saklanan kontrolden okunur
+(`pages.photo_check_json`, `app.pipeline.analyze`) — yapay zekâya yeniden sorulmaz (K9).
+`check_photo_rules`: bir sayfada `fail` olan kural ihlaldir; bir sayfada sonucu olmayan açık kural
+(kontrol yok, okunamıyor ya da o kural sorulmamış) değerlendirilmemiştir — ikisi de belgeyi
+Unresolved'a gönderir, emin olunamayan fotoğraf Hazir'a girmez. `unsure` yalnız nottur, rota
+vermez; notu sayfanın kaydında durur. Kapalı kural, sonucu saklı olsa da okunmaz. Gerekçe kural
+adlarını katalog sırasıyla yazar (ölçülen çözünürlük sistemin notuyla); yapay zekânın notu
+gerekçeye girmez. Kuyruğa giden fotoğrafın sahibi aynı dosyadan alınmaz (aşağıda: belge düzeyindeki
+ret). Fotoğraf kural yüzünden değiştirilmez: kırpma, düzeltme, arka plan değişikliği işlemi yoktur
+(11.7.2, K11); Hazir'a giden fotoğrafın çıktısı §20.3'ün seçtiği işlemle kaynaktan üretilir. Olay
+atılmaz (§8.3'te tür yok): hüküm planın gerekçesinde ve kuyruk olayında durur.
 
 **Çalışan.** Her analizli adayın kişi anahtarı (05.4) kayıtlı çalışanlarla eşleştirilir (05.5).
 Kararın yan etkileri yalnız belge düzeyinde kabul edilen adayda (1–4'te hükmü olmayan) yürür:
@@ -167,8 +182,15 @@ from pydantic import (
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.ai.photo_check import PhotoCheck, PhotoRuleResult, PhotoRuleVerdict
 from app.ai.schemas import PageAnalysis
 from app.catalog import Catalog, CatalogEntry, Conversion, FileType, OutputFormat
+from app.catalog.photo_rules import (
+    PHOTO_RULE_TYPES,
+    RESOLUTION_RULE,
+    PhotoRuleSetting,
+    enabled_photo_rules,
+)
 from app.catalog.schema import Slug, Text
 from app.db.models import Employee, Plan, QueueKind, Upload, UploadFile
 from app.events import EventType, event_context, record_event
@@ -755,6 +777,75 @@ def check_conversion(operation: Operation, *, entry: CatalogEntry) -> Conversion
     return ConversionNotAllowed(operation, entry.allowed_conversions)
 
 
+# --- profil fotoğrafı kuralları (11.7.1) -------------------------------------------------------
+
+
+@dataclass(frozen=True, slots=True)
+class PhotoRulesNotMet:
+    """11.7.1: fotoğraf türündeki adayın açık kurallarından biri `fail` ya da değerlendirilmemiş.
+
+    Belge gerekçesiyle Unresolved'a gider; fotoğraf değiştirilmez (11.7.2). `failed` ihlal edilen
+    kuralların, `unchecked` sonucu olmayan kuralların metnidir, ikisi de katalog sırasıyla. Gerekçe
+    kural adlarını taşır (çözünürlükte ölçülen boyutla); kişisel değer ve yapay zekâ notu taşımaz.
+    """
+
+    queue: ClassVar[QueueKind] = QueueKind.UNRESOLVED
+
+    failed: tuple[str, ...]
+    unchecked: tuple[str, ...]
+
+    @property
+    def reason(self) -> str:
+        parts: list[str] = []
+        if self.failed:
+            parts.append(f"Fotoğraf kurallarına uymuyor (11.7.1): {'; '.join(self.failed)}.")
+        if self.unchecked:
+            parts.append(
+                f"Fotoğraf kuralları değerlendirilmedi (11.7.1): {', '.join(self.unchecked)}."
+            )
+        return " ".join(parts)
+
+
+def check_photo_rules(
+    rules: Sequence[PhotoRuleSetting], checks: Sequence[PhotoCheck | None]
+) -> PhotoRulesNotMet | None:
+    """Fotoğraf türündeki adayın açık kurallarını sayfalarının saklanan kontrolleriyle karşılaştırır
+    (11.7.1); saf işlevdir.
+
+    `rules` türün planlama anındaki açık kurallarıdır (katalog sırasıyla), `checks` adayın
+    sayfalarının kontrolleri, sayfa sırasıyla (`None`: kontrol yok ya da okunamadı). Bir sayfada
+    `fail` olan kural ihlaldir; bir sayfada sonucu olmayan kural değerlendirilmemiştir. İkisi de
+    yoksa `None` — `unsure` yalnız nottur, kapalı kurala bakılmaz.
+    """
+    failed: list[str] = []
+    unchecked: list[str] = []
+    for rule in rules:
+        verdicts = [None if check is None else check.verdict(rule.id) for check in checks]
+        violation = next(
+            (
+                verdict
+                for verdict in verdicts
+                if verdict is not None and verdict.result is PhotoRuleResult.FAIL
+            ),
+            None,
+        )
+        if violation is not None:
+            failed.append(_photo_rule_text(rule, violation))
+        elif any(verdict is None for verdict in verdicts):
+            unchecked.append(rule.label)
+    if not failed and not unchecked:
+        return None
+    return PhotoRulesNotMet(tuple(failed), tuple(unchecked))
+
+
+def _photo_rule_text(rule: PhotoRuleSetting, verdict: PhotoRuleVerdict) -> str:
+    # Çözünürlüğün notu sistemin kendi ölçümüdür (`measure_resolution`); öteki notlar yapay
+    # zekânındır ve gerekçeye girmez.
+    if rule.id == RESOLUTION_RULE and verdict.note is not None:
+        return f"{rule.label} ({verdict.note.rstrip('.')})"
+    return rule.label
+
+
 # --- plan üretimi (06.1.1) ---------------------------------------------------------------------
 
 
@@ -1018,16 +1109,40 @@ class _Planner:
             ),
         )
         unmet = None if check is None else check.unmet_criteria
+        photo = self._photo_rules_not_met(candidate, entry)
         verdicts = [
             *_failed((required,)),
             *([] if unmet is None else [_Verdict(unmet.queue, unmet.reason)]),
             *_failed((single_source, file_type, *content)),
+            *([] if photo is None else [_Verdict(photo.queue, photo.reason)]),
         ]
         selected, refusal = self._checked_operation(
             entry, operation_sources, (single_source, file_type)
         )
         validations = (required, *shape, single_source, file_type, *content)
         return [*verdicts, *refusal], selected, validations
+
+    def _photo_rules_not_met(
+        self, candidate: DocumentCandidate, entry: CatalogEntry
+    ) -> PhotoRulesNotMet | None:
+        # 11.7.1: türün planlama anındaki açık kuralları, sayfalara analizde saklanan kontrolle.
+        if entry.slug not in PHOTO_RULE_TYPES:
+            return None
+        rules = enabled_photo_rules(entry.photo_rules)
+        if not rules:
+            return None
+        checks = [self._stored_photo_check(page.file_id, page.index) for page in candidate.pages]
+        return check_photo_rules(rules, checks)
+
+    def _stored_photo_check(self, file_id: int, index: int) -> PhotoCheck | None:
+        page = next((row for row in self._files[file_id].pages if row.index == index), None)
+        if page is None or page.photo_check_json is None:
+            return None
+        try:
+            return PhotoCheck.model_validate(page.photo_check_json)
+        except ValidationError:
+            # Okunamayan kayıt değerlendirme sayılmaz: kuralları değerlendirilmemiştir.
+            return None
 
     def _decide_employee(
         self,

@@ -17,6 +17,10 @@ Tür açıklaması (11.3.1) aynı biçimde istenir: kullanıcı mesajında tür�
 birkaç görüntü), sonra türe özgü metin; zorlanmış işlev `DESCRIPTION_TOOL_NAME`, parametre şeması
 `TypeDescription.model_json_schema()`.
 
+Fotoğraf kontrolü (11.7.1) de aynı biçimdedir: kullanıcı mesajında fotoğraf sayfasının görüntüsü,
+sonra değerlendirilecek kuralların metni; zorlanmış işlev `PHOTO_CHECK_TOOL_NAME`, parametre şeması
+`PhotoCheck.model_json_schema()`.
+
 SDK'nın kendi yeniden denemesi kapalıdır (`max_retries=0`): geri çekilmeli deneme 03.5'in işidir,
 iki katman üst üste denemesin. İstek `store=False` gider: sayfa görüntüsü kimlik belgesi olabilir,
 sağlayıcı tarafında saklanmasını istemiyoruz (CONVENTIONS §6).
@@ -35,10 +39,12 @@ from openai.types.chat import (
     ChatCompletionMessageParam,
 )
 
+from app.ai.photo_check import PhotoCheck, PhotoCheckError
 from app.ai.provider import (
     AnalysisProvider,
     PageAnalysisRequest,
     PageImage,
+    PhotoCheckRequest,
     ProviderConfigError,
     ProviderConnectionError,
     ProviderError,
@@ -80,6 +86,21 @@ DESCRIPTION_TOOL: ChatCompletionFunctionToolParam = {
     },
 }
 
+PHOTO_CHECK_TOOL_NAME = "record_photo_check"
+
+PHOTO_CHECK_TOOL: ChatCompletionFunctionToolParam = {
+    "type": "function",
+    "function": {
+        "name": PHOTO_CHECK_TOOL_NAME,
+        "description": (
+            "Profil fotoğrafının kurallara göre değerlendirmesini kaydeder. Argümanlar, sorulan "
+            "her kural için bir satır taşıyan tek bir nesnedir."
+        ),
+        "parameters": PhotoCheck.model_json_schema(),
+        "strict": False,
+    },
+}
+
 _UNFINISHED_FINISH_REASONS = frozenset({"length", "content_filter"})
 """`length` kesik argüman, `content_filter` süzülmüş çıktıdır — araç çağrısı varmış gibi görünse de
 kabul edilmez. (Zorlanmış işlev seçiminde `finish_reason` `tool_calls` yerine `stop` gelebilir; bu
@@ -90,7 +111,8 @@ _PERMANENT_RATE_LIMIT_CODES = frozenset({"insufficient_quota"})
 
 
 class OpenAIProvider(AnalysisProvider):
-    """OpenAI Chat Completions API ile sayfa analizi ve tür açıklaması (`AI_PROVIDER=openai`)."""
+    """OpenAI Chat Completions API ile sayfa analizi, tür açıklaması ve fotoğraf kontrolü
+    (`AI_PROVIDER=openai`)."""
 
     name = "openai"
 
@@ -145,6 +167,16 @@ class OpenAIProvider(AnalysisProvider):
             DESCRIPTION_TOOL,
             label="tür açıklaması işlevi",
             error=TypeDescriptionError,
+        )
+
+    def _request_photo_check(self, request: PhotoCheckRequest) -> object:
+        return self._forced_function_call(
+            request.instructions,
+            (request.image,),
+            request.prompt,
+            PHOTO_CHECK_TOOL,
+            label="fotoğraf kontrolü işlevi",
+            error=PhotoCheckError,
         )
 
     def _forced_function_call(

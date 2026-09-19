@@ -22,6 +22,8 @@ from app.ai import (
     PageAnalysisError,
     PageAnalysisRequest,
     PageImage,
+    PhotoCheck,
+    PhotoCheckError,
     ProviderConfigError,
     ProviderConnectionError,
     ProviderError,
@@ -32,12 +34,15 @@ from app.ai import (
     TypeDescription,
     TypeDescriptionError,
     validate_page_analysis,
+    validate_photo_check,
     validate_type_description,
 )
 from app.ai.anthropic_provider import (
     ANALYSIS_TOOL,
     DESCRIPTION_TOOL,
     DESCRIPTION_TOOL_NAME,
+    PHOTO_CHECK_TOOL,
+    PHOTO_CHECK_TOOL_NAME,
     TOOL_NAME,
     AnthropicProvider,
 )
@@ -45,6 +50,7 @@ from app.ai.provider import MAX_ANALYSIS_ATTEMPTS, RETRY_BACKOFF_SECONDS
 from app.ai.schemas import ISO_639_1_CODES
 from app.config import Settings, load_settings
 from tests.ai.payloads import (
+    PHOTO_RULES,
     SLUGS,
     SYNTHETIC_DOCUMENT_NUMBER,
     SYNTHETIC_SURNAME,
@@ -52,6 +58,8 @@ from tests.ai.payloads import (
     description_payload,
     description_request,
     page_request,
+    photo_check_payload,
+    photo_check_request,
 )
 from tests.fixtures.gen import make_half_filled_image_bytes
 
@@ -513,6 +521,65 @@ def test_description_status_errors_are_retried_like_analysis(no_sleep: list[floa
 
     assert len(api.requests) == 2
     assert no_sleep == [RETRY_BACKOFF_SECONDS]
+
+
+# --- Fotoğraf kontrolü (11.7.1): tek görüntü + kurallar, zorlanmış kontrol aracı ----------------
+
+
+def test_photo_check_request_sends_image_then_rules_with_forced_photo_check_tool() -> None:
+    api = FakeApi(message([tool_use(photo_check_payload(), name=PHOTO_CHECK_TOOL_NAME)]))
+    request = photo_check_request(fmt="PNG", instructions="Foto talimatı", prompt="Kurallar")
+
+    check = api.provider().check_photo(request)
+
+    assert check == validate_photo_check(photo_check_payload(), rules=PHOTO_RULES)
+    body = api.body()
+    assert body["system"] == "Foto talimatı"
+    image_block, text_block = body["messages"][0]["content"]
+    assert image_block["source"]["media_type"] == "image/png"
+    assert base64.b64decode(image_block["source"]["data"]) == request.image.data
+    assert text_block == {"type": "text", "text": "Kurallar"}
+    assert body["tools"] == [json.loads(json.dumps(PHOTO_CHECK_TOOL))]
+    assert body["tools"][0]["input_schema"] == PhotoCheck.model_json_schema()
+    assert body["tool_choice"] == {
+        "type": "tool",
+        "name": PHOTO_CHECK_TOOL_NAME,
+        "disable_parallel_tool_use": True,
+    }
+    assert body["thinking"] == {"type": "disabled"}
+
+
+@pytest.mark.parametrize(
+    ("content", "stop_reason", "expected"),
+    [
+        (
+            [tool_use(photo_check_payload(), name=PHOTO_CHECK_TOOL_NAME)],
+            "max_tokens",
+            "fotoğraf kontrolü aracı çağrısı tamamlanmadı (stop_reason=max_tokens)",
+        ),
+        ([tool_use(photo_check_payload())], "tool_use", "1 araç çağrısı"),
+    ],
+    ids=["kesik", "analiz-araci"],
+)
+def test_photo_check_response_without_photo_check_tool_call_is_rejected(
+    content: list[dict[str, Any]], stop_reason: str, expected: str
+) -> None:
+    api = FakeApi(message(content, stop_reason=stop_reason))
+
+    with pytest.raises(PhotoCheckError) as caught:
+        api.provider().check_photo(photo_check_request())
+
+    assert caught.value.problems[0].startswith("yanıt:")
+    assert expected in caught.value.problems[0]
+
+
+def test_photo_check_answering_other_rules_is_rejected() -> None:
+    api = FakeApi(message([tool_use(photo_check_payload(), name=PHOTO_CHECK_TOOL_NAME)]))
+
+    with pytest.raises(PhotoCheckError) as caught:
+        api.provider().check_photo(photo_check_request(rules=("face_visible",)))
+
+    assert caught.value.problems == ["rules: sorulmayan 2 kural yanıtlandı"]
 
 
 # --- Canlı çağrı (DoD kapısında dışarıda) ------------------------------------------------------

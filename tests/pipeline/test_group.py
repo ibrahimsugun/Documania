@@ -70,6 +70,7 @@ from tests.fixtures.gen import (
     make_legacy_xls_bytes,
     make_text_pdf_bytes,
     make_xlsx_bytes,
+    photo_check_response,
 )
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -1662,14 +1663,18 @@ def _events(session: Session, event_type: EventType) -> list[Event]:
 
 
 def test_s4_sequential_pdf_yields_three_independent_candidates(
-    session: Session, layout: DataLayout
+    session: Session, layout: DataLayout, tmp_path: Path
 ) -> None:
-    # S4: 5 sayfalık sıralı PDF — ehliyet ön, ehliyet arka, foto, oturum ön, oturum arka.
+    # S4: 5 sayfalık sıralı PDF — ehliyet ön, ehliyet arka, foto, oturum ön, oturum arka. Fotoğraf
+    # kontrolünün kaydı (11.7.1) fotoğraf sayfasının analizinden hemen sonra gelir.
     pdf = make_text_pdf_bytes(
         ["EHLIYET ON YUZ", "EHLIYET ARKA YUZ", "FOTOGRAF", "OTURUM IZNI ON", "OTURUM IZNI ARKA"]
     )
     upload = _upload(session, layout, [("belgeler.pdf", pdf)])
-    provider = RecordingProvider.from_directory(RECORDINGS / "s4_sequential_pdf")
+    check = tmp_path / "fotograf-kontrolu.json"
+    check.write_text(json.dumps(photo_check_response()), encoding="utf-8")
+    analyses = sorted((RECORDINGS / "s4_sequential_pdf").glob("*.json"))
+    provider = RecordingProvider([*analyses[:3], check, *analyses[3:]])
     analyze_upload(session, layout, upload, provider=provider, instructions=INSTRUCTIONS)
 
     grouping = group_upload(session, upload, catalog=CATALOG, layout=layout)
@@ -1747,17 +1752,17 @@ def test_s3_license_pieces_go_to_unresolved_with_reason(
         ["EHLIYET ON", "FOTOGRAF", "BASKA BELGE", "OTURUM ON", "OTURUM ARKA", "EHLIYET ARKA"]
     )
     upload = _upload(session, layout, [("belgeler.pdf", pdf)])
-    if third_page_known:
-        provider = RecordingProvider.from_directory(S3_RECORDINGS)
-    else:
-        responses = [
-            json.loads((S3_RECORDINGS / f"{number}.json").read_text(encoding="utf-8"))
-            for number in range(6)
-        ]
+    responses = [
+        json.loads((S3_RECORDINGS / f"{number}.json").read_text(encoding="utf-8"))
+        for number in range(6)
+    ]
+    if not third_page_known:
         responses[2] = _payload(
             2, None, candidate_type_name="Peruvian Diploma", person=NO_PERSON, fields={}
         )
-        provider = _recordings(tmp_path, responses)
+    # Fotoğraf kontrolünün kaydı (11.7.1) fotoğraf sayfasının analizinden hemen sonra gelir.
+    responses.insert(2, photo_check_response())
+    provider = _recordings(tmp_path, responses)
     analyze_upload(session, layout, upload, provider=provider, instructions=INSTRUCTIONS)
 
     grouping = group_upload(session, upload, catalog=CATALOG, layout=layout)
@@ -1845,6 +1850,7 @@ def test_pieces_in_different_files_are_not_judged_by_contiguity(
     responses = [
         _payload(0, LICENSE, side="front"),
         _payload(1, PHOTO, person=NO_PERSON, fields={}),
+        photo_check_response(),
         _payload(0, LICENSE, side="back", person=NO_PERSON),
     ]
     analyze_upload(

@@ -27,6 +27,12 @@ yapılandırılmış `TypeDescription` üretir. Sözleşme sayfa analizininkiyle
 (`validate_type_description`) ve yeniden deneme ortak, somut sağlayıcı yalnız
 `_request_description`'ı uygular; şemaya uymayan yanıt `TypeDescriptionError`'dır. Bu işi
 uygulamayan sağlayıcı (test sağlayıcıları) `ProviderError` verir.
+
+**Fotoğraf kontrolü (11.7.1).** Üçüncü iş: `check_photo(PhotoCheckRequest)` fotoğraf türündeki bir
+sayfanın görüntüsünü katalogda açık olan kurallara göre değerlendirtir, her kural için
+`pass`/`fail`/`unsure` alır (`PhotoCheck`). Yanıt kabulü (`validate_photo_check`: sorulan her kural
+bir kez, başkası yok) ve yeniden deneme ortaktır; somut sağlayıcı `_request_photo_check`'i uygular,
+şemaya uymayan yanıt `PhotoCheckError`'dır. Uygulamayan sağlayıcı `ProviderError` verir.
 """
 
 from __future__ import annotations
@@ -37,6 +43,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import ClassVar, Literal, final
 
+from app.ai.photo_check import PhotoCheck, validate_photo_check
 from app.ai.schemas import PageAnalysis, PageAnalysisError, validate_page_analysis
 from app.ai.type_description import TypeDescription, validate_type_description
 from app.config import Settings
@@ -162,6 +169,39 @@ class TypeDescriptionRequest:
         object.__setattr__(self, "images", images)
 
 
+@dataclass(frozen=True, slots=True, kw_only=True)
+class PhotoCheckRequest:
+    """Fotoğraf kontrolü isteği (11.7.1); hiçbir alanı sağlayıcıya özgü değildir.
+
+    - `image`: fotoğraf sayfasının analiz görüntüsü (sayfa analizine giden görüntünün aynısı).
+    - `instructions`: sistem talimatı (`app.ai.prompts.photo_check`).
+    - `prompt`: değerlendirilecek kuralların metni (kimlik, ad, açıklama).
+    - `rules`: sorulan kural kimlikleri, metindeki sırayla; yanıt tam olarak bunları taşımalı.
+    """
+
+    image: PageImage
+    instructions: str = field(repr=False)
+    prompt: str = field(repr=False)
+    rules: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.image, PageImage):
+            raise TypeError("image bir PageImage olmalı")
+        if not self.instructions.strip():
+            raise ValueError("instructions boş olamaz")
+        if not self.prompt.strip():
+            raise ValueError("prompt boş olamaz")
+        if isinstance(self.rules, str):
+            raise TypeError("rules tek bir metin değil, kural kimliği koleksiyonu olmalı")
+        # Çağıran liste verebilir; istek değişmez olsun diye demete çevrilir.
+        rules = tuple(self.rules)
+        if not rules:
+            raise ValueError("rules en az bir kural içermeli")
+        if len(set(rules)) != len(rules):
+            raise ValueError("rules tekrarsız olmalı")
+        object.__setattr__(self, "rules", rules)
+
+
 class AnalysisProvider(abc.ABC):
     """Sayfa analizi sağlayıcısı. `name` `AI_PROVIDER` değeridir, `model` kullanılan modeldir."""
 
@@ -206,6 +246,17 @@ class AnalysisProvider(abc.ABC):
         """
         return validate_type_description(_with_retry(self._request_description, request))
 
+    @final
+    def check_photo(self, request: PhotoCheckRequest) -> PhotoCheck:
+        """Fotoğrafı sorulan kurallara göre değerlendirtir (11.7.1).
+
+        Yeniden deneme `analyze_page`'teki gibidir (03.5.1). Yanıt `validate_photo_check`'ten geçer:
+        sorulan her kural tam bir kez, başka kural yok; uymayan yanıt `PhotoCheckError` olur,
+        düzeltilmez.
+        """
+        raw = _with_retry(self._request_photo_check, request)
+        return validate_photo_check(raw, rules=request.rules)
+
     @abc.abstractmethod
     def _request_analysis(self, request: PageAnalysisRequest) -> object:
         """Sağlayıcıyı bir kez çağırır, yapılandırılmış çıktıyı doğrulamadan döner.
@@ -220,6 +271,12 @@ class AnalysisProvider(abc.ABC):
         döner (sözleşmesi `_request_analysis`'inkidir; yapılandırılmış çıktı yoksa
         `TypeDescriptionError`). Varsayılan: sağlayıcı bu işi yapmaz."""
         raise ProviderError(f"'{self.name}' sağlayıcısı tür açıklaması üretmiyor")
+
+    def _request_photo_check(self, request: PhotoCheckRequest) -> object:
+        """Fotoğraf kontrolü için sağlayıcıyı bir kez çağırır, yapılandırılmış çıktıyı doğrulamadan
+        döner (sözleşmesi `_request_analysis`'inkidir; yapılandırılmış çıktı yoksa
+        `PhotoCheckError`). Varsayılan: sağlayıcı bu işi yapmaz."""
+        raise ProviderError(f"'{self.name}' sağlayıcısı fotoğraf kontrolü yapmıyor")
 
 
 def _with_retry[R](call: Callable[[R], object], request: R) -> object:

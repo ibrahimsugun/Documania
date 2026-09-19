@@ -9,7 +9,9 @@
   şeyi birlikte taşır: sayfaya yazılanı (görünür metin, MRZ, fotoğraf) ve analizcinin o sayfa için
   döndüreceği kayıtlı yanıtı (§8.4). İkisi aynı değerlerden üretildiği için birbirini tutar;
   kabul senaryoları dosyayı `make_document_pdf_bytes`/`make_page_image_bytes` ile, sağlayıcıyı
-  `recorded_provider` ile kurar (yapay zekâ canlı çağrılmaz).
+  `recorded_provider` ile kurar (yapay zekâ canlı çağrılmaz). Vesikalık sayfası ayrıca fotoğraf
+  kontrolünün (11.7.1) kayıtlı yanıtını taşır; sağlayıcı onu sayfanın analizinin hemen ardından
+  verir.
 
 MRZ (§20.1) burada ayrıştırıcıdan (`app.matching.mrz`) **bağımsız** yazılır: kontrol hanesi
 §20.1.4, bileşik hane §20.1.5, alan konumları §20.1.3. Üreteç alanları anlamlarıyla birleştirir,
@@ -39,6 +41,7 @@ from pypdf import PdfWriter
 
 from app.ai.recording_provider import RecordingProvider
 from app.catalog import load_seed_catalog
+from app.catalog.photo_rules import RESOLUTION_RULE, enabled_photo_rules
 
 A4 = (595.0, 842.0)
 
@@ -333,7 +336,10 @@ class SyntheticPage:
     görüntü — 02.5.1). `reading` kayıtlı yanıttır (JSON; `page_index` ve
     `continues_previous_page` dosyadaki yerine göre `analysis` ile yazılır); `None` ise sayfa
     boştur ve analize gitmez (02.4.1). Aynı belgenin sayfaları aynı `document_key`'i taşır,
-    `part` belgedeki sırasıdır.
+    `part` belgedeki sırasıdır. `photo_check` fotoğraf kontrolünün (11.7.1) kayıtlı yanıtıdır
+    (JSON); doluysa sağlayıcı onu bu sayfanın analizinden hemen sonra verir (`batch_responses`).
+    `portrait` vesikalığın (boyut, kişi sayısı) tanımıdır: görüntü dosyası hâli aynı tanımdan
+    istenen biçimde üretilir (`make_page_image_bytes`).
     """
 
     title: str = ""
@@ -345,10 +351,16 @@ class SyntheticPage:
     reading: str | None = None
     document_key: int | None = None
     part: int = 0
+    photo_check: str | None = None
+    portrait: tuple[tuple[int, int], int] | None = None
 
     @property
     def is_blank(self) -> bool:
         return self.reading is None
+
+    def with_photo_check(self, response: Mapping[str, Any] | None) -> SyntheticPage:
+        """Fotoğraf kontrolünün kayıtlı yanıtı değişmiş kopya; `None` kontrol isteği beklemez."""
+        return replace(self, photo_check=None if response is None else _dump_reading(response))
 
     def analysis(
         self, page_index: int = 0, *, continues_previous_page: bool = False
@@ -699,21 +711,87 @@ def unknown_document_page(
     )
 
 
-def make_portrait_image_bytes(fmt: str = "JPEG", size: tuple[int, int] = (300, 400)) -> bytes:
-    """Vesikalık yerine geçen siluet: düz fon üzerinde baş ve omuz elipsleri (yüz yok)."""
+# Vesikalığın varsayılan boyutu: tohum kataloğunun asgari çözünürlüğünü (400×400, 11.6.1) karşılar.
+PORTRAIT_SIZE = (480, 600)
+
+# Tohum kataloğunda (`photo_rules: null`, varsayılan kurallar) yapay zekâya sorulan fotoğraf
+# kuralları (11.7.1): açık kurallar, katalog sırasıyla; asgari çözünürlük sorulmaz, ölçülür.
+ASKED_PHOTO_RULES = tuple(
+    rule.id for rule in enabled_photo_rules(None) if rule.id != RESOLUTION_RULE
+)
+_PHOTO_NOTES = {
+    "face_visible": "Yüz görünmüyor.",
+    "single_person": "Fotoğrafta iki kişi var.",
+    "neutral_expression": "Yüz ifadesi nötr değil.",
+    "plain_background": "Arka plan sade değil.",
+    "no_sunglasses": "Güneş gözlüğü var.",
+    "no_head_covering": "Baş örtüsü var.",
+}
+
+
+def make_portrait_image_bytes(
+    fmt: str = "JPEG", size: tuple[int, int] = PORTRAIT_SIZE, *, people: int = 1
+) -> bytes:
+    """Vesikalık yerine geçen siluet: düz fon üzerinde baş ve omuz elipsleri (yüz yok).
+
+    `people` yan yana çizilen siluet sayısıdır ("iki kişi" fotoğrafı, 11.7.1).
+    """
     width, height = size
     image = Image.new("RGB", size, (214, 226, 238))
     draw = ImageDraw.Draw(image)
-    draw.ellipse([width * 0.18, height * 0.62, width * 0.82, height * 1.3], fill=(88, 96, 110))
-    draw.ellipse([width * 0.32, height * 0.16, width * 0.68, height * 0.6], fill=(172, 160, 148))
+    step = width / people
+    for number in range(people):
+        left, scale = number * step, step
+        draw.ellipse(
+            [left + scale * 0.18, height * 0.62, left + scale * 0.82, height * 1.3],
+            fill=(88, 96, 110),
+        )
+        draw.ellipse(
+            [left + scale * 0.32, height * 0.16, left + scale * 0.68, height * 0.6],
+            fill=(172, 160, 148),
+        )
     buffer = BytesIO()
     image.save(buffer, format=fmt)
     return buffer.getvalue()
 
 
-def profile_picture_page() -> SyntheticPage:
-    """Yalnız vesikalık görüntüsünden oluşan sayfa; kişi ve zorunlu alan taşımaz."""
-    return replace(document_page("profile_picture", title=""), photo=make_portrait_image_bytes())
+def photo_check_response(
+    results: Mapping[str, str] | None = None, *, rules: Sequence[str] = ASKED_PHOTO_RULES
+) -> dict[str, Any]:
+    """Fotoğraf kontrolünün (11.7.1) kayıtlı yanıtı: sorulan her kural için bir satır, sırayla.
+
+    `results` kural → `pass`/`fail`/`unsure`; verilmeyen kural `pass`tır. `fail` ve `unsure`
+    satırı kısa bir not taşır.
+    """
+    given = dict(results or {})
+    unknown = sorted(set(given) - set(rules))
+    if unknown:
+        raise ValueError(f"sorulmayan kural: {', '.join(unknown)}")
+    lines = []
+    for rule in rules:
+        result = given.get(rule, "pass")
+        note = None if result == "pass" else _PHOTO_NOTES.get(rule, "Sentetik test notu.")
+        lines.append({"rule": rule, "result": result, "note": note})
+    return {"rules": lines}
+
+
+def profile_picture_page(
+    *,
+    size: tuple[int, int] = PORTRAIT_SIZE,
+    people: int = 1,
+    photo_check: Mapping[str, Any] | None = None,
+) -> SyntheticPage:
+    """Yalnız vesikalık görüntüsünden oluşan sayfa; kişi ve zorunlu alan taşımaz.
+
+    `photo_check` fotoğraf kontrolünün kayıtlı yanıtıdır; verilmezse sorulan her kural `pass`
+    (`photo_check_response()`). Kontrol isteği beklenmiyorsa `with_photo_check(None)`.
+    """
+    response = photo_check_response() if photo_check is None else photo_check
+    return replace(
+        document_page("profile_picture", title=""),
+        photo=make_portrait_image_bytes(size=size, people=people),
+        portrait=(size, people),
+    ).with_photo_check(response)
 
 
 def blank_page() -> SyntheticPage:
@@ -744,11 +822,25 @@ def file_analyses(pages: Sequence[SyntheticPage]) -> list[dict[str, Any]]:
 
 
 def batch_analyses(*files: Sequence[SyntheticPage]) -> list[dict[str, Any]]:
-    """Partinin kayıtlı yanıtları, sağlayıcının çağrılma sırasıyla: dosya sırası, sonra sayfa.
+    """Partinin sayfa analizi yanıtları, çağrılma sırasıyla: dosya sırası, sonra sayfa.
 
     Analiz edilmeyen dosya (Word/Excel eki, tekrar yükleme) boş dizi olarak verilir.
     """
     return [analysis for pages in files for analysis in file_analyses(pages)]
+
+
+def batch_responses(*files: Sequence[SyntheticPage]) -> list[dict[str, Any]]:
+    """Sağlayıcının bütün kayıtlı yanıtları, çağrılma sırasıyla: sayfa analizleri
+    (`batch_analyses`) ve fotoğraf kontrolü yanıtı olan sayfada analizin hemen ardından o yanıt
+    (11.7.1)."""
+    responses: list[dict[str, Any]] = []
+    for pages in files:
+        analyzed = [page for page in pages if not page.is_blank]
+        for page, analysis in zip(analyzed, file_analyses(pages), strict=True):
+            responses.append(analysis)
+            if page.photo_check is not None:
+                responses.append(json.loads(page.photo_check))
+    return responses
 
 
 def write_recordings(directory: Path, analyses: Sequence[Mapping[str, Any]]) -> Path:
@@ -767,8 +859,9 @@ def write_recordings(directory: Path, analyses: Sequence[Mapping[str, Any]]) -> 
 
 
 def recorded_provider(directory: Path, *files: Sequence[SyntheticPage]) -> RecordingProvider:
-    """Partinin kayıtlı yanıtlarını `directory`'ye yazar ve onları okuyan sağlayıcıyı döner."""
-    return RecordingProvider.from_directory(write_recordings(directory, batch_analyses(*files)))
+    """Partinin kayıtlı yanıtlarını (`batch_responses`) `directory`'ye yazar ve onları okuyan
+    sağlayıcıyı döner."""
+    return RecordingProvider.from_directory(write_recordings(directory, batch_responses(*files)))
 
 
 _MARGIN = 56.0
@@ -841,7 +934,8 @@ def make_page_image_bytes(page: SyntheticPage, fmt: str = "JPEG", *, dpi: int = 
     if fmt not in ("JPEG", "PNG"):
         raise ValueError("görüntü biçimi JPEG veya PNG olmalı")
     if page.photo is not None:
-        return make_portrait_image_bytes(fmt)
+        size, people = page.portrait or (PORTRAIT_SIZE, 1)
+        return make_portrait_image_bytes(fmt, size, people=people)
     with pymupdf.open(stream=make_document_pdf_bytes([page]), filetype="pdf") as document:
         pixmap = document[0].get_pixmap(dpi=dpi)
     return pixmap.tobytes("jpeg" if fmt == "JPEG" else "png")

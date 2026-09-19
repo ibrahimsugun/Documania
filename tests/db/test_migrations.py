@@ -33,7 +33,7 @@ def _assert_schema_matches_models(database_url: str) -> None:
             assert tables == set(Base.metadata.tables) | {"alembic_version"}
             context = MigrationContext.configure(connection, opts={"compare_type": True})
             assert compare_metadata(context, Base.metadata) == []
-            assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "0004"
+            assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "0005"
     finally:
         engine.dispose()
 
@@ -161,6 +161,50 @@ def test_confirmation_tokens_migration_is_reversible_and_keeps_sessions(sqlite_u
         with engine.connect() as connection:
             assert "confirmation_tokens" not in inspect(connection).get_table_names()
             assert connection.execute(text(session_row)).all() == [(1, "ozet")]
+    finally:
+        engine.dispose()
+
+
+def test_photo_check_migration_is_reversible_and_keeps_page_analyses(sqlite_url: str) -> None:
+    # 0005 `pages`'e boş `photo_check_json` ekler (11.7.1); var olan sayfanın analizi kalır.
+    config = _alembic_config(sqlite_url)
+    command.upgrade(config, "0004")
+    engine = create_engine(sqlite_url)
+    page_row = 'SELECT file_id, "index", analysis_json, analysis_status FROM pages'
+    expected = [(1, 0, '{"page_index": 0}', "done")]
+    try:
+        with engine.begin() as connection:
+            connection.execute(
+                text(
+                    "INSERT INTO uploads (id, channel, status, created_at) "
+                    "VALUES ('u_1', 'web', 'done', '2026-09-05 00:00:00')"
+                )
+            )
+            connection.execute(
+                text(
+                    "INSERT INTO upload_files (id, upload_id, original_name, stored_path, sha256, "
+                    "mime) VALUES (1, 'u_1', 'a.pdf', 'Inbox/u_1/a.pdf', :sha, 'application/pdf')"
+                ),
+                {"sha": "0" * 64},
+            )
+            connection.execute(
+                text(
+                    'INSERT INTO pages (file_id, "index", is_blank, has_single_embedded_image, '
+                    "analysis_json, analysis_status) "
+                    "VALUES (1, 0, 0, 0, '{\"page_index\": 0}', 'done')"
+                )
+            )
+
+        command.upgrade(config, "head")
+        with engine.connect() as connection:
+            assert connection.execute(text(page_row)).all() == expected
+            assert connection.scalar(text("SELECT photo_check_json FROM pages")) is None
+
+        command.downgrade(config, "0004")
+        with engine.connect() as connection:
+            assert connection.execute(text(page_row)).all() == expected
+            columns = {column["name"] for column in inspect(connection).get_columns("pages")}
+            assert "photo_check_json" not in columns
     finally:
         engine.dispose()
 

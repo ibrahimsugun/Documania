@@ -25,6 +25,8 @@ from app.ai import (
     PageAnalysisError,
     PageAnalysisRequest,
     PageImage,
+    PhotoCheck,
+    PhotoCheckError,
     ProviderConfigError,
     ProviderConnectionError,
     ProviderError,
@@ -36,6 +38,7 @@ from app.ai import (
     TypeDescriptionError,
     create_provider,
     validate_page_analysis,
+    validate_photo_check,
     validate_type_description,
 )
 from app.ai import anthropic_provider as anthropic_module
@@ -43,6 +46,8 @@ from app.ai.openai_provider import (
     ANALYSIS_TOOL,
     DESCRIPTION_TOOL,
     DESCRIPTION_TOOL_NAME,
+    PHOTO_CHECK_TOOL,
+    PHOTO_CHECK_TOOL_NAME,
     TOOL_NAME,
     OpenAIProvider,
 )
@@ -50,6 +55,7 @@ from app.ai.provider import MAX_ANALYSIS_ATTEMPTS, RETRY_BACKOFF_SECONDS
 from app.ai.schemas import ISO_639_1_CODES
 from app.config import Settings, load_settings
 from tests.ai.payloads import (
+    PHOTO_RULES,
     SLUGS,
     SYNTHETIC_DOCUMENT_NUMBER,
     SYNTHETIC_SURNAME,
@@ -57,6 +63,8 @@ from tests.ai.payloads import (
     description_payload,
     description_request,
     page_request,
+    photo_check_payload,
+    photo_check_request,
 )
 from tests.fixtures.gen import make_half_filled_image_bytes
 
@@ -717,6 +725,70 @@ def test_description_exhausted_quota_is_not_retried(no_sleep: list[float]) -> No
     assert not isinstance(caught.value, ProviderRateLimitError)
     assert len(api.requests) == 1
     assert no_sleep == []
+
+
+# --- Fotoğraf kontrolü (11.7.1): tek görüntü + kurallar, zorlanmış kontrol işlevi ---------------
+
+
+def test_photo_check_request_sends_image_then_rules_with_forced_function() -> None:
+    api = FakeApi(
+        completion(tool_calls=[function_call(photo_check_payload(), name=PHOTO_CHECK_TOOL_NAME)])
+    )
+    request = photo_check_request(instructions="Foto talimatı", prompt="Kurallar")
+
+    check = api.provider().check_photo(request)
+
+    assert check == validate_photo_check(photo_check_payload(), rules=PHOTO_RULES)
+    body = api.body()
+    system, user = body["messages"]
+    assert system == {"role": "system", "content": "Foto talimatı"}
+    image_part, text_part = user["content"]
+    prefix = "data:image/jpeg;base64,"
+    url = image_part["image_url"]["url"]
+    assert base64.b64decode(url.removeprefix(prefix)) == request.image.data
+    assert image_part["image_url"]["detail"] == "high"
+    assert text_part == {"type": "text", "text": "Kurallar"}
+    assert body["tools"] == [json.loads(json.dumps(PHOTO_CHECK_TOOL))]
+    assert body["tools"][0]["function"]["parameters"] == PhotoCheck.model_json_schema()
+    assert body["tool_choice"] == {"type": "function", "function": {"name": PHOTO_CHECK_TOOL_NAME}}
+    assert body["store"] is False
+
+
+@pytest.mark.parametrize(
+    ("response", "expected"),
+    [
+        (
+            completion(
+                tool_calls=[function_call('{"rules": [', name=PHOTO_CHECK_TOOL_NAME)],
+                finish_reason="length",
+            ),
+            "fotoğraf kontrolü işlevi çağrısı tamamlanmadı (finish_reason=length)",
+        ),
+        (completion(tool_calls=[function_call(photo_check_payload())]), "1 araç çağrısı"),
+    ],
+    ids=["kesik", "analiz-islevi"],
+)
+def test_photo_check_response_without_photo_check_function_call_is_rejected(
+    response: httpx2.Response, expected: str
+) -> None:
+    api = FakeApi(response)
+
+    with pytest.raises(PhotoCheckError) as caught:
+        api.provider().check_photo(photo_check_request())
+
+    assert caught.value.problems[0].startswith("yanıt:")
+    assert expected in caught.value.problems[0]
+
+
+def test_photo_check_arguments_that_do_not_conform_are_rejected() -> None:
+    payload = photo_check_payload()
+    payload["rules"][0]["result"] = "belki"
+    api = FakeApi(completion(tool_calls=[function_call(payload, name=PHOTO_CHECK_TOOL_NAME)]))
+
+    with pytest.raises(PhotoCheckError) as caught:
+        api.provider().check_photo(photo_check_request())
+
+    assert any(problem.startswith("rules.0.result") for problem in caught.value.problems)
 
 
 # --- Canlı çağrı (DoD kapısında dışarıda) ------------------------------------------------------

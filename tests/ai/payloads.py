@@ -1,11 +1,11 @@
-"""Sağlayıcı testleri için §8.4'e ve tür açıklaması şemasına (11.3.1) uyan sentetik yanıt ve
-istek (gerçek kişi yok)."""
+"""Sağlayıcı testleri için §8.4'e, tür açıklaması (11.3.1) ve fotoğraf kontrolü (11.7.1) şemalarına
+uyan sentetik yanıt ve istek (gerçek kişi yok)."""
 
 from __future__ import annotations
 
 from typing import Any
 
-from app.ai import PageAnalysisRequest, PageImage, TypeDescriptionRequest
+from app.ai import PageAnalysisRequest, PageImage, PhotoCheckRequest, TypeDescriptionRequest
 from app.catalog import load_seed_catalog
 from tests.fixtures.gen import make_half_filled_image_bytes
 
@@ -97,4 +97,37 @@ def description_request(
         ),
         instructions=instructions,
         prompt=prompt,
+    )
+
+
+PHOTO_RULES = ("face_visible", "single_person", "no_sunglasses")
+
+
+def photo_check_payload(**results: str) -> dict[str, Any]:
+    """Fotoğraf kontrolü şemasına (11.7.1) uyan sentetik yanıt, `PHOTO_RULES` sırasıyla; verilmeyen
+    kural `pass`. Her çağrıda yeni bir sözlük."""
+    return {
+        "rules": [
+            {
+                "rule": rule,
+                "result": results.get(rule, "pass"),
+                "note": None if results.get(rule, "pass") == "pass" else "Kısa gerekçe.",
+            }
+            for rule in PHOTO_RULES
+        ]
+    }
+
+
+def photo_check_request(
+    *,
+    fmt: str = "JPEG",
+    instructions: str = "Fotoğraf kontrolü talimatı (test).",
+    prompt: str = "Değerlendirilecek kurallar (test).",
+    rules: tuple[str, ...] = PHOTO_RULES,
+) -> PhotoCheckRequest:
+    return PhotoCheckRequest(
+        image=PageImage(make_half_filled_image_bytes(fmt)),
+        instructions=instructions,
+        prompt=prompt,
+        rules=rules,
     )

@@ -266,6 +266,9 @@ class Page(Base):
     has_single_embedded_image: Mapped[bool] = mapped_column(Boolean, default=False)
     analysis_json: Mapped[dict[str, Any] | None] = mapped_column(JSON)
     analysis_status: Mapped[str] = mapped_column(String(16), default="pending")
+    # 11.7.1: fotoğraf türündeki sayfanın kural değerlendirmesi (`app.ai.photo_check.PhotoCheck`);
+    # fotoğraf kontrolü yapılmayan sayfada boş.
+    photo_check_json: Mapped[dict[str, Any] | None] = mapped_column(JSON)
 
     file: Mapped[UploadFile] = relationship(back_populates="pages")
 

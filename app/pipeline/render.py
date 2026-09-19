@@ -33,6 +33,10 @@ sayfada seçilir. Karar sayfa MuPDF ile çalıştırılırken çizim komutları 
 görüntüye bakılmaz, yalnız sayfanın ne çizdiğine bakılır. Emin olunamayan her durumda işaret
 verilmez: yanlış işaret sayfada görünen içeriğin bir kısmını sessizce düşürür, eksik işaret
 yalnız kayıplı ama sayfaya sadık `render_image`'a düşer.
+
+Fotoğrafın piksel boyutu (11.7.1, `photo_pixel_size`) profil fotoğrafının asgari çözünürlük
+kuralı için ölçülür: yalnız okunur — görüntü çözülüp yeniden yazılmaz, dosyaya ve önbelleğe
+dokunulmaz (K11).
 """
 
 from __future__ import annotations
@@ -73,6 +77,11 @@ FULL_PAGE_TOLERANCE_PT = 1.0
 # yumuşak/renk anahtarı maskesi ve renk çözme dizisi. Biri varsa çıkarılan baytlar sayfada
 # görüneni vermez.
 _IMAGE_APPEARANCE_KEYS = ("SMask", "Mask", "Decode", "SMaskInData")
+
+# EXIF yönelim etiketi; 5–8 görüntüyü çeyrek tur döndürür (görünen genişlik ile yükseklik yer
+# değiştirir).
+_EXIF_ORIENTATION = 0x0112
+_QUARTER_TURN_ORIENTATIONS = frozenset({5, 6, 7, 8})
 
 
 class RenderError(ValueError):
@@ -477,6 +486,46 @@ def single_full_page_image_xref(page: pymupdf.Page) -> int | None:
     if len(page.get_image_rects(xref)) != 1:
         return None
     return xref
+
+
+def photo_pixel_size(content: bytes, page_index: int) -> tuple[int, int] | None:
+    """Fotoğraf sayfasının kendi piksel boyutu `(genişlik, yükseklik)` — 11.7.1'in asgari
+    çözünürlük ölçümü. Yalnız okunur: hiçbir şey yazılmaz, görüntü değişmez (K11).
+
+    - JPEG/PNG dosyası (tek sayfa, `page_index` 0): görüntünün EXIF yönelimiyle görünen boyutu;
+      çeyrek tur döndüren yönelimde genişlik ile yükseklik yer değiştirir. Pikseller çözülmez.
+    - PDF sayfası tek tam sayfa gömülü görüntüden oluşuyorsa (02.5.1): o görüntü nesnesinin piksel
+      boyutu — `extract_image`'in (§20.5) çıkaracağı görüntünün kendisi.
+    - Öteki PDF sayfası: `None`. Sayfanın kendine ait bir piksel boyutu yoktur; çıktı sabit
+      çözünürlükte render edilir (K12) ve ölçüm fotoğraf hakkında bir şey söylemez.
+
+    İçerik görüntü ya da PDF değilse, açılamıyorsa veya sayfa yoksa `RenderError`; çözülemeyen
+    görüntüde Pillow'un hatası yükselir.
+    """
+    try:
+        kind = detect_file_kind(content)
+    except UnsupportedFileTypeError:
+        kind = None
+    if kind in _IMAGE_COPY_EXTENSIONS:
+        if page_index != 0:
+            raise RenderError("Görüntü dosyasının tek sayfası vardır.")
+        with Image.open(BytesIO(content)) as image:
+            width, height = image.size
+            orientation = image.getexif().get(_EXIF_ORIENTATION)
+        if orientation in _QUARTER_TURN_ORIENTATIONS:
+            return height, width
+        return width, height
+    with _open_pdf(content) as document:
+        if not 0 <= page_index < document.page_count:
+            raise RenderError("PDF'te istenen sayfa yok.")
+        page = document[page_index]
+        xref = single_full_page_image_xref(page)
+        if xref is None:
+            return None
+        # `single_full_page_image_xref` sayfanın tek görüntü nesnesini doğruladı: (xref, smask,
+        # genişlik, yükseklik, …).
+        (image_info,) = page.get_images(full=True)
+        return image_info[2], image_info[3]
 
 
 def detect_pdf_single_image_pages(source: Path) -> list[bool]:

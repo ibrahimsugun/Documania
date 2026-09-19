@@ -12,7 +12,9 @@ Sahibini aynı yüklenen dosyadaki kimlikli belgelerden alır: dosyanın kişi o
 tek bir kayıtlı çalışana satır 1/3 ile bağlıysa ve en az biri Hazir'a gidiyorsa fotoğraf o
 çalışanın `Profile-Picture.jpeg`'idir — sayfanın gömülü görüntüsü kayıpsız çıkarılır
 (`extract_image`, K12). Kayıtlı çalışan yoksa dosyada o bağ kurulmaz, fotoğraf Unresolved kalır ve
-İK atamasıyla (08.2) aynı çıktı üretilir.
+İK atamasıyla (08.2) aynı çıktı üretilir. Fotoğraf ayrıca katalogdaki kurallarla denetlenir
+(11.7.1; kayıtlı kontrol yanıtı analizinin ardından gelir): kural ihlali olan fotoğraf sahibi
+olsa da Unresolved'da kalır ve değiştirilmez (11.7.2).
 """
 
 from __future__ import annotations
@@ -67,6 +69,7 @@ from tests.fixtures.gen import (
     make_page_image_bytes,
     make_portrait_image_bytes,
     passport_page,
+    photo_check_response,
     profile_picture_page,
     recorded_provider,
     residence_card_pages,
@@ -662,6 +665,89 @@ def test_s3_without_a_registered_employee_the_photo_stays_queued_and_hr_assigns_
     assert document.path.endswith("-Profile-Picture.jpeg")
     assert layout.resolve(document.path).read_bytes() == make_portrait_image_bytes()
     assert document.source_refs_json == [{"file_id": 1, "pages": [1]}]
+
+
+# --- 11.7: kural ihlali olan fotoğraf Hazir'a girmez, değiştirilmez ------------------------------
+
+
+@pytest.mark.parametrize(
+    ("photo", "portrait", "reason"),
+    [
+        pytest.param(
+            lambda: profile_picture_page(
+                people=2, photo_check=photo_check_response({"single_person": "fail"})
+            ),
+            ((480, 600), 2),
+            "Fotoğraf kurallarına uymuyor (11.7.1): Tek kişi.",
+            id="iki-kisi",
+        ),
+        pytest.param(
+            lambda: profile_picture_page(size=(300, 400)),
+            ((300, 400), 1),
+            "Fotoğraf kurallarına uymuyor (11.7.1): Asgari çözünürlük (300×400 piksel; asgari "
+            "400×400).",
+            id="dusuk-cozunurluk",
+        ),
+    ],
+)
+def test_s4_photo_breaking_a_rule_stays_out_of_hazir_and_is_not_changed(
+    session: Session,
+    layout: DataLayout,
+    client: TestClient,
+    tmp_path: Path,
+    photo: Callable[[], SyntheticPage],
+    portrait: tuple[tuple[int, int], int],
+    reason: str,
+) -> None:
+    # PRD 11.7.1 ve Faz 2 kapanışı: kural ihlali olan fotoğraf Hazir'a girmez, gerekçesi yazılıdır;
+    # dosyanın kayıtlı sahibi (D29) ihlali ezmez. 11.7.2: fotoğraf kırpılmaz, düzeltilmez — İK
+    # yine de atarsa çıktı gömülü görüntünün kendisidir.
+    employee = _register_sidorov(session, layout)
+    pages = [*_license(), photo(), *_residence()]
+    upload, content = _run_pdf_batch(session, layout, client, tmp_path, pages)
+
+    license_item, photo_item, residence_item = _items(session, upload)
+    assert (photo_item.route, photo_item.route_reason, photo_item.employee.action) == (
+        Route.UNRESOLVED,
+        reason,
+        EmployeeAction.NONE,
+    )
+    assert (license_item.route, residence_item.route) == (Route.READY, Route.READY)
+    assert _names(layout.ready_dir(SIDOROV_FOLDER)) == [LICENSE_OUTPUT, RESIDENCE_OUTPUT]
+    queued = _queued(session, upload)["i2"]
+    assert (queued.kind, queued.reason) == ("unresolved", reason)
+    (queued_event,) = [
+        event
+        for event in _events(session, upload)
+        if event.type == EventType.QUEUED_UNRESOLVED and event.page_index == 2
+    ]
+    assert queued_event.message == reason
+    (analyzed,) = [
+        event
+        for event in _events(session, upload)
+        if event.type == EventType.PAGE_ANALYZED and event.page_index == 2
+    ]
+    assert "fail" in analyzed.data_json["photo_check"].values()
+    # Kaynak ve gömülü fotoğraf olduğu gibi kalır (K10, 11.7.2).
+    (upload_file,) = upload.files
+    assert layout.resolve(upload_file.stored_path).read_bytes() == content
+    size, people = portrait
+    original_photo = make_portrait_image_bytes(size=size, people=people)
+    assert _embedded_images(layout.resolve(upload_file.stored_path))[2] == [original_photo]
+
+    assigned = assign_queue_item(
+        session,
+        layout,
+        queued.id,
+        employee.id,
+        actor="ik.kullanici",
+        render_image_dpi=SETTINGS.render_image_dpi,
+        render_image_jpeg_quality=SETTINGS.render_image_jpeg_quality,
+    )
+    session.commit()
+
+    assert assigned.operation is Operation.EXTRACT_IMAGE
+    assert layout.resolve(assigned.executed.document.path).read_bytes() == original_photo
 
 
 # --- S5: aynı partide ön ve arka yüz görüntüsü ---------------------------------------------------

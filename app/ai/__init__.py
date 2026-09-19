@@ -1,12 +1,21 @@
 """Yapay zekâ analiz katmanı: sayfa analizi sözleşmesi (03.1), sağlayıcı soyutlaması (03.2),
-analiz talimatı (03.4) ve tür açıklaması sözleşmesi (11.3.1)."""
+analiz talimatı (03.4), tür açıklaması sözleşmesi (11.3.1) ve fotoğraf kontrolü sözleşmesi
+(11.7.1)."""
 
+from app.ai.photo_check import (
+    PhotoCheck,
+    PhotoCheckError,
+    PhotoRuleResult,
+    PhotoRuleVerdict,
+    validate_photo_check,
+)
 from app.ai.prompts import PageAnalysisInstructions, build_page_analysis_instructions
 from app.ai.provider import (
     PROVIDER_FACTORIES,
     AnalysisProvider,
     PageAnalysisRequest,
     PageImage,
+    PhotoCheckRequest,
     ProviderConfigError,
     ProviderConnectionError,
     ProviderError,
@@ -50,6 +59,11 @@ __all__ = [
     "PageContact",
     "PageImage",
     "PagePerson",
+    "PhotoCheck",
+    "PhotoCheckError",
+    "PhotoCheckRequest",
+    "PhotoRuleResult",
+    "PhotoRuleVerdict",
     "ProviderConfigError",
     "ProviderConnectionError",
     "ProviderError",
@@ -63,5 +77,6 @@ __all__ = [
     "build_page_analysis_instructions",
     "create_provider",
     "validate_page_analysis",
+    "validate_photo_check",
     "validate_type_description",
 ]

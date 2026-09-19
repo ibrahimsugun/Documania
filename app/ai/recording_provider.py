@@ -10,12 +10,15 @@ JSON dosyalarını okuyan, başka test modüllerinin de kullanabileceği paylaş
 
 Bir kayıt dizini, sıradaki her `analyze_page` çağrısına karşılık gelen sayfanın ham yanıtını
 taşıyan `<sıra>.json` dosyalarından oluşur (`0.json`, `1.json`, ...) ve dosya adına göre
-sıralı okunur. Tür açıklaması isteği (`describe_type`, 11.3.1) aynı sıradan bir kayıt alır:
-kayıtlar istek türüne bakılmadan geldiği sırayla dağıtılır. İçerik ayrıştırılmadan olduğu gibi
-döner — doğrulama `AnalysisProvider.analyze_page` içindeki `validate_page_analysis`'in (tür
-açıklamasında `validate_type_description`'ın) işidir (bozuk kayıt orada `PageAnalysisError` olur,
-burada değil — somut sağlayıcılarla aynı sorumluluk ayrımı, bkz. `provider.py`). Tür açıklaması
-kayıtları sayfa analizi kayıtlarından ayrı dizindedir (`tests/fixtures/ai/type_descriptions/`).
+sıralı okunur. Tür açıklaması isteği (`describe_type`, 11.3.1) ve fotoğraf kontrolü isteği
+(`check_photo`, 11.7.1) aynı sıradan bir kayıt alır: kayıtlar istek türüne bakılmadan geldiği
+sırayla dağıtılır — fotoğraf türündeki sayfanın kontrol kaydı o sayfanın analiz kaydının hemen
+ardından gelir. İçerik ayrıştırılmadan olduğu gibi döner — doğrulama
+`AnalysisProvider.analyze_page` içindeki `validate_page_analysis`'in (tür açıklamasında
+`validate_type_description`'ın, fotoğraf kontrolünde `validate_photo_check`'in) işidir (bozuk kayıt
+orada `PageAnalysisError` olur, burada değil — somut sağlayıcılarla aynı sorumluluk ayrımı, bkz.
+`provider.py`). Tür açıklaması kayıtları sayfa analizi kayıtlarından ayrı dizindedir
+(`tests/fixtures/ai/type_descriptions/`).
 
 `AI_PROVIDER` kayıt defterine (`PROVIDER_FACTORIES`) eklenmez: bu sağlayıcının kurulması bir
 dizin yolu ister, `.env`'den okunacak bir ayar değil, testin kendisidir. Testler
@@ -29,7 +32,12 @@ from __future__ import annotations
 from collections.abc import Sequence
 from pathlib import Path
 
-from app.ai.provider import AnalysisProvider, PageAnalysisRequest, TypeDescriptionRequest
+from app.ai.provider import (
+    AnalysisProvider,
+    PageAnalysisRequest,
+    PhotoCheckRequest,
+    TypeDescriptionRequest,
+)
 
 
 class RecordingNotFoundError(RuntimeError):
@@ -53,6 +61,7 @@ class RecordingProvider(AnalysisProvider):
         self._served = 0
         self.requests: list[PageAnalysisRequest] = []
         self.description_requests: list[TypeDescriptionRequest] = []
+        self.photo_check_requests: list[PhotoCheckRequest] = []
 
     @classmethod
     def from_directory(cls, directory: Path, *, model: str = "recording") -> RecordingProvider:
@@ -71,6 +80,10 @@ class RecordingProvider(AnalysisProvider):
 
     def _request_description(self, request: TypeDescriptionRequest) -> object:
         self.description_requests.append(request)
+        return self._next_recording()
+
+    def _request_photo_check(self, request: PhotoCheckRequest) -> object:
+        self.photo_check_requests.append(request)
         return self._next_recording()
 
     def _next_recording(self) -> str:

@@ -15,6 +15,10 @@ Tür açıklaması (11.3.1) aynı biçimde istenir: kullanıcı turunda türün 
 birkaç görüntü), sonra türe özgü metin; zorlanmış araç `DESCRIPTION_TOOL_NAME`, girdi şeması
 `TypeDescription.model_json_schema()`.
 
+Fotoğraf kontrolü (11.7.1) de aynı biçimdedir: kullanıcı turunda fotoğraf sayfasının görüntüsü,
+sonra değerlendirilecek kuralların metni; zorlanmış araç `PHOTO_CHECK_TOOL_NAME`, girdi şeması
+`PhotoCheck.model_json_schema()`.
+
 SDK'nın kendi yeniden denemesi kapalıdır (`max_retries=0`): geri çekilmeli deneme 03.5'in işidir,
 iki katman üst üste denemesin.
 """
@@ -29,10 +33,12 @@ import anthropic
 import httpx2
 from anthropic.types import Message, MessageParam, ToolParam
 
+from app.ai.photo_check import PhotoCheck, PhotoCheckError
 from app.ai.provider import (
     AnalysisProvider,
     PageAnalysisRequest,
     PageImage,
+    PhotoCheckRequest,
     ProviderConfigError,
     ProviderConnectionError,
     ProviderError,
@@ -66,9 +72,21 @@ DESCRIPTION_TOOL: ToolParam = {
     "input_schema": TypeDescription.model_json_schema(),
 }
 
+PHOTO_CHECK_TOOL_NAME = "record_photo_check"
+
+PHOTO_CHECK_TOOL: ToolParam = {
+    "name": PHOTO_CHECK_TOOL_NAME,
+    "description": (
+        "Profil fotoğrafının kurallara göre değerlendirmesini kaydeder. Girdi, sorulan her kural "
+        "için bir satır taşıyan tek bir nesnedir."
+    ),
+    "input_schema": PhotoCheck.model_json_schema(),
+}
+
 
 class AnthropicProvider(AnalysisProvider):
-    """Anthropic Messages API ile sayfa analizi ve tür açıklaması (`AI_PROVIDER=anthropic`)."""
+    """Anthropic Messages API ile sayfa analizi, tür açıklaması ve fotoğraf kontrolü
+    (`AI_PROVIDER=anthropic`)."""
 
     name = "anthropic"
 
@@ -123,6 +141,16 @@ class AnthropicProvider(AnalysisProvider):
             DESCRIPTION_TOOL,
             label="tür açıklaması aracı",
             error=TypeDescriptionError,
+        )
+
+    def _request_photo_check(self, request: PhotoCheckRequest) -> object:
+        return self._forced_tool_call(
+            request.instructions,
+            (request.image,),
+            request.prompt,
+            PHOTO_CHECK_TOOL,
+            label="fotoğraf kontrolü aracı",
+            error=PhotoCheckError,
         )
 
     def _forced_tool_call(

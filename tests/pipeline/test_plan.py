@@ -1,11 +1,13 @@
-"""Plan JSON üretimi, belirleyicilik, işlem seçimi, Direkt Belge kuralı, dönüşüm izni ve doğrulama —
-PRD 06.1.1, 06.1.2, 06.2.1, 06.3.1, 06.3.2, 06.4.1, 06.5.1, 06.5.2 (§8.5, §20.1.6, §20.1.7, §20.3,
-§20.4; K1, K3, K9, K12, R5, R10, R7). Doğrulayıcıların birim testleri `test_validate.py`'dedir.
+"""Plan JSON üretimi, belirleyicilik, işlem seçimi, Direkt Belge kuralı, dönüşüm izni, doğrulama ve
+profil fotoğrafı kuralları — PRD 06.1.1, 06.1.2, 06.2.1, 06.3.1, 06.3.2, 06.4.1, 06.5.1, 06.5.2,
+11.7.1 (§8.5, §20.1.6, §20.1.7, §20.3, §20.4; K1, K3, K9, K12, R5, R10, R7). Doğrulayıcıların birim
+testleri `test_validate.py`'dedir.
 
 Sayfa analizleri kayıtlı yanıt biçimindeki sentetik sözlüklerdir, dosyalar `tests/fixtures/gen.py`
 ile üretilir (CONVENTIONS §6). Plan üretimi sayfaları veritabanından okur; render ve analiz adımları
 yalnız S4 entegrasyon testinde, gömülü görüntü tespiti (02.5.1) işlem seçimi testinde gerçek hâliyle
-çalışır.
+çalışır. Fotoğraf sayfasına analiz adımının saklayacağı kontrol (`pages.photo_check_json`) de
+yazılır: tohum kataloğunun açık kurallarının hepsi `pass` (`_photo_check`), testin verdiği değilse.
 """
 
 from __future__ import annotations
@@ -25,7 +27,7 @@ from pydantic import ValidationError
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.ai import build_page_analysis_instructions
+from app.ai import PhotoCheck, build_page_analysis_instructions
 from app.ai.recording_provider import RecordingProvider
 from app.catalog import (
     Catalog,
@@ -33,6 +35,7 @@ from app.catalog import (
     Conversion,
     FileType,
     OutputFormat,
+    enabled_photo_rules,
     load_seed_catalog,
     validate_catalog,
 )
@@ -75,6 +78,7 @@ from app.pipeline.plan import (
     NoApplicableOperation,
     Operation,
     OperationSource,
+    PhotoRulesNotMet,
     PlanDocument,
     PlanEmployee,
     PlanIntegrityError,
@@ -85,6 +89,7 @@ from app.pipeline.plan import (
     check_conversion,
     check_direct_file_types,
     check_direct_operation,
+    check_photo_rules,
     create_plan,
     read_plan,
     select_operation,
@@ -103,6 +108,7 @@ from tests.fixtures.gen import (
     make_half_filled_image_bytes,
     make_pdf_bytes,
     make_text_pdf_bytes,
+    photo_check_response,
 )
 from tests.matching.test_mrz import make_mrz
 
@@ -225,6 +231,17 @@ def _photo() -> dict[str, Any]:
     return _page(PHOTO, person=copy.deepcopy(NO_PERSON))
 
 
+def _photo_check(**results: str) -> dict[str, Any]:
+    """Analizin fotoğraf sayfasına sakladığı kontrol (11.7.1): tohum kataloğunun açık kuralları
+    katalog sırasıyla; `results`'ta verilmeyen kural `pass`."""
+    return {
+        "rules": [
+            {"rule": rule.id, "result": results.get(rule.id, "pass"), "note": None}
+            for rule in enabled_photo_rules(None)
+        ]
+    }
+
+
 def _passport(**top: Any) -> dict[str, Any]:
     """Kayıtlı pasaport yanıtı (MRZ haneleri geçerli, temiz numara)."""
     text = (RECORDINGS / "russian_passport" / "0.json").read_text(encoding="utf-8")
@@ -245,6 +262,9 @@ class _File:
     pages: tuple[dict[str, Any] | str, ...] = ()
     content: bytes = field(default_factory=make_pdf_bytes)
     duplicate_of: int | None = None  # partideki sırası
+    # Sayfa sırası → saklanan fotoğraf kontrolü (`None`: kontrol yok); verilmeyen fotoğraf
+    # sayfasında `_photo_check()`.
+    photo_checks: dict[int, dict[str, Any] | None] = field(default_factory=dict)
 
 
 def _pdf(*pages: dict[str, Any] | str) -> _File:
@@ -294,12 +314,15 @@ def _upload(
             else:
                 assert isinstance(page, dict)
                 analysis = {**page, "page_index": index}
+                # Analiz adımı fotoğraf türündeki sayfanın kontrolünü saklar (11.7.1).
+                default = _photo_check() if page["document_type_slug"] == PHOTO else None
                 session.add(
                     Page(
                         file=row,
                         index=index,
                         analysis_json=_reordered(analysis) if reorder_keys else analysis,
                         analysis_status="done",
+                        photo_check_json=spec.photo_checks.get(index, default),
                     )
                 )
     session.flush()
@@ -2806,15 +2829,244 @@ def test_photo_that_reads_a_person_keeps_its_own_match(
     assert (photo.route, photo.employee) == (Route.READY, _matched(by=MatchedBy.NAME_DOB))
 
 
+# --- profil fotoğrafı kuralları (11.7.1) ------------------------------------------------------
+
+ALL_PHOTO_RULE_LABELS = (
+    "Yüz görünür, Tek kişi, Nötr ifade, Sade arka plan, Asgari çözünürlük, Güneş gözlüğü yok"
+)
+
+
+def _photo_with_owner(
+    session: Session, layout: DataLayout, check: dict[str, Any] | None
+) -> tuple[int, Upload]:
+    # Fotoğraf + kayıtlı çalışanın pasaportu aynı dosyada: kural olmasa fotoğraf o çalışanla
+    # Hazir'a giderdi (D29).
+    _employee(session, numbers=(NUMBER,))
+    upload = _upload(
+        session,
+        layout,
+        _File(pages=(_photo(), _passport()), content=make_pdf_bytes(2), photo_checks={0: check}),
+    )
+    (file_id,) = _file_ids(upload)
+    return file_id, upload
+
+
+@pytest.mark.parametrize(
+    ("results", "reason"),
+    [
+        pytest.param(
+            {"single_person": "fail"},
+            "Fotoğraf kurallarına uymuyor (11.7.1): Tek kişi.",
+            id="iki-kisi",
+        ),
+        pytest.param(
+            {"no_sunglasses": "fail", "face_visible": "fail", "plain_background": "unsure"},
+            "Fotoğraf kurallarına uymuyor (11.7.1): Yüz görünür; Güneş gözlüğü yok.",
+            id="katalog-sirasiyla-unsure-yazilmaz",
+        ),
+    ],
+)
+def test_photo_breaking_a_rule_goes_to_unresolved_with_the_rule_names(
+    session: Session, layout: DataLayout, results: dict[str, str], reason: str
+) -> None:
+    # 11.7.1: `fail` varsa Unresolved; gerekçe kural adlarıyla, katalog sırasıyla. Belge düzeyindeki
+    # ret sahibi ezer (D29): fotoğraf kimseye verilmez, işlemi ve hedefi yok, çalışan açılmaz.
+    file_id, upload = _photo_with_owner(session, layout, _photo_check(**results))
+
+    photo, passport = _plan(session, layout, upload).items
+
+    assert photo == _item("i1", [(file_id, (0,))], slug=PHOTO, reason=reason)
+    assert passport.route is Route.READY
+    assert _events(session, EventType.VALIDATION_FAILED) == []
+    assert _count(session, Employee) == 1
+
+
+def test_photo_below_the_minimum_resolution_names_the_measured_size(
+    session: Session, layout: DataLayout
+) -> None:
+    # Çözünürlüğün notu sistemin kendi ölçümüdür ve gerekçeye girer; yapay zekânın notu girmez.
+    check = _photo_check(min_resolution="fail", single_person="fail")
+    check["rules"][1]["note"] = "Arka planda ORNEKOVA yazan bir kişi var."
+    check["rules"][4]["note"] = "300×400 piksel; asgari 400×400."
+    file_id, upload = _photo_with_owner(session, layout, check)
+
+    photo, _ = _plan(session, layout, upload).items
+
+    assert photo.route_reason == (
+        "Fotoğraf kurallarına uymuyor (11.7.1): Tek kişi; Asgari çözünürlük (300×400 piksel; "
+        "asgari 400×400)."
+    )
+    _assert_no_personal_values(session)
+
+
+def test_unsure_rule_is_only_a_note_and_the_photo_goes_to_hazir(
+    session: Session, layout: DataLayout
+) -> None:
+    # 11.7.1: `unsure` rota vermez; fotoğraf dosyanın kayıtlı çalışanıyla Hazir'a gider.
+    check = _photo_check(neutral_expression="unsure", min_resolution="unsure")
+    file_id, upload = _photo_with_owner(session, layout, check)
+
+    photo, _ = _plan(session, layout, upload).items
+
+    assert photo == _item(
+        "i1",
+        [(file_id, (0,))],
+        slug=PHOTO,
+        employee=_matched(by=None),
+        route=Route.READY,
+        operation=Operation.RENDER_IMAGE,
+        target=PHOTO_TARGET,
+    )
+
+
+def _without(check: dict[str, Any], rule: str) -> dict[str, Any]:
+    check["rules"] = [line for line in check["rules"] if line["rule"] != rule]
+    return check
+
+
+@pytest.mark.parametrize(
+    ("check", "reason"),
+    [
+        pytest.param(
+            None,
+            f"Fotoğraf kuralları değerlendirilmedi (11.7.1): {ALL_PHOTO_RULE_LABELS}.",
+            id="kontrol-yok",
+        ),
+        pytest.param(
+            {"rules": "bozuk"},
+            f"Fotoğraf kuralları değerlendirilmedi (11.7.1): {ALL_PHOTO_RULE_LABELS}.",
+            id="kayit-okunamiyor",
+        ),
+        pytest.param(
+            _without(_photo_check(), "no_sunglasses"),
+            "Fotoğraf kuralları değerlendirilmedi (11.7.1): Güneş gözlüğü yok.",
+            id="bir-kural-eksik",
+        ),
+        pytest.param(
+            _without(_photo_check(single_person="fail"), "face_visible"),
+            "Fotoğraf kurallarına uymuyor (11.7.1): Tek kişi. Fotoğraf kuralları "
+            "değerlendirilmedi (11.7.1): Yüz görünür.",
+            id="ihlal-ve-eksik",
+        ),
+    ],
+)
+def test_photo_whose_open_rules_were_not_evaluated_goes_to_unresolved(
+    session: Session, layout: DataLayout, check: dict[str, Any] | None, reason: str
+) -> None:
+    # Emin olunamayan fotoğraf Hazir'a girmez: açık kuralın saklı sonucu yoksa kural
+    # değerlendirilmemiştir.
+    file_id, upload = _photo_with_owner(session, layout, check)
+
+    photo, _ = _plan(session, layout, upload).items
+
+    assert photo == _item("i1", [(file_id, (0,))], slug=PHOTO, reason=reason)
+
+
+@pytest.mark.parametrize(
+    ("photo_rules", "check", "route", "reason"),
+    [
+        pytest.param(
+            {"single_person": {"enabled": False}},
+            _photo_check(single_person="fail"),
+            Route.READY,
+            None,
+            id="kapali-kuralin-fail-sonucu-okunmaz",
+        ),
+        pytest.param(
+            {"no_head_covering": {"enabled": True}},
+            _photo_check(),
+            Route.UNRESOLVED,
+            "Fotoğraf kuralları değerlendirilmedi (11.7.1): Baş örtüsü yok.",
+            id="sonradan-acilan-kural-degerlendirilmemis",
+        ),
+        pytest.param(
+            {rule.id: {"enabled": False} for rule in enabled_photo_rules(None)},
+            None,
+            Route.READY,
+            None,
+            id="butun-kurallar-kapali",
+        ),
+    ],
+)
+def test_photo_rules_are_those_open_in_the_catalog_at_planning_time(
+    session: Session,
+    layout: DataLayout,
+    photo_rules: dict[str, Any],
+    check: dict[str, Any] | None,
+    route: Route,
+    reason: str | None,
+) -> None:
+    catalog = _catalog_with(PHOTO, photo_rules=photo_rules)
+    _, upload = _photo_with_owner(session, layout, check)
+
+    photo, _ = _plan(session, layout, upload, catalog=catalog).items
+
+    assert (photo.route, photo.route_reason) == (route, reason)
+
+
+def test_photo_rule_reason_follows_the_validators_and_precedes_the_operation_refusal(
+    session: Session, layout: DataLayout
+) -> None:
+    # Fotoğraf kuralı içerik hükmüdür: doğrulayıcı gerekçelerinden sonra, işlem gerekçesinden önce.
+    catalog = _catalog_with(PHOTO, allowed_conversions=["extract_image"])
+    _, upload = _photo_with_owner(session, layout, _photo_check(single_person="fail"))
+
+    photo, _ = _plan(session, layout, upload, catalog=catalog).items
+
+    assert photo.route_reason == (
+        "Fotoğraf kurallarına uymuyor (11.7.1): Tek kişi. "
+        + _not_allowed("render_image", "extract_image")
+    )
+
+
+def test_only_photo_types_are_held_by_photo_rules(session: Session, layout: DataLayout) -> None:
+    # Kural seti yalnız `PHOTO_RULE_TYPES`'tadır: başka türün `photo_rules`'u okunmaz.
+    catalog = _catalog_with(PASSPORT, photo_rules={"face_visible": {"enabled": True}})
+    _employee(session, numbers=(NUMBER,))
+    upload = _upload(session, layout, _pdf(_passport()))
+
+    (passport,) = _plan(session, layout, upload, catalog=catalog).items
+
+    assert passport.route is Route.READY
+
+
+def test_check_photo_rules_reads_every_page_of_the_candidate() -> None:
+    rules = enabled_photo_rules(None)
+    passed = PhotoCheck.model_validate(_photo_check(plain_background="unsure"))
+    failed = PhotoCheck.model_validate(_photo_check(single_person="fail"))
+
+    assert check_photo_rules(rules, [passed, passed]) is None
+    assert check_photo_rules((), [None]) is None
+    verdict = check_photo_rules(rules, [passed, failed, None])
+    assert verdict == PhotoRulesNotMet(
+        failed=("Tek kişi",),
+        unchecked=(
+            "Yüz görünür",
+            "Nötr ifade",
+            "Sade arka plan",
+            "Asgari çözünürlük",
+            "Güneş gözlüğü yok",
+        ),
+    )
+    assert verdict.queue is QueueKind.UNRESOLVED
+    # Notu olmayan çözünürlük ihlali yalnız adıyla yazılır.
+    unmeasured = PhotoCheck.model_validate(_photo_check(min_resolution="fail"))
+    assert check_photo_rules(rules, [unmeasured]) == PhotoRulesNotMet(
+        failed=("Asgari çözünürlük",), unchecked=()
+    )
+
+
 # --- entegrasyon: gerçek render ve kayıtlı yanıt → plan ---------------------------------------
 
 
 def test_s4_recorded_pdf_with_registered_employee_plans_three_documents(
-    session: Session, layout: DataLayout
+    session: Session, layout: DataLayout, tmp_path: Path
 ) -> None:
     # S4: ehliyet ön/arka, foto, oturum ön/arka. Ehliyet ve oturum izni numarasından kayıtlı
     # çalışanın Hazir'ına; fotoğrafta kişi yok (§20.2.2 satır 8), sahibi aynı dosyanın o çalışanı
-    # (D29). Metin sayfası gömülü görüntü taşımaz: fotoğraf render edilir.
+    # (D29). Metin sayfası gömülü görüntü taşımaz: fotoğraf render edilir. Fotoğraf kontrolünün
+    # kaydı fotoğraf sayfasının analizinden hemen sonra gelir (11.7.1); sayfa tek gömülü görüntü
+    # olmadığı için çözünürlük `unsure` — yalnız not, fotoğraf Hazir'a gider.
     _employee(
         session,
         names=("Ivan Sidorov",),
@@ -2840,12 +3092,20 @@ def test_s4_recorded_pdf_with_registered_employee_plans_three_documents(
     render_upload_file(session, layout, settings, upload_file)
     extract_upload_file_text(session, layout, upload_file)
     mark_upload_file_blank_pages(session, layout, upload_file)
-    provider = RecordingProvider.from_directory(RECORDINGS / "s4_sequential_pdf")
+    check = tmp_path / "fotograf-kontrolu.json"
+    check.write_text(json.dumps(photo_check_response()), encoding="utf-8")
+    analyses = sorted((RECORDINGS / "s4_sequential_pdf").glob("*.json"))
+    provider = RecordingProvider([*analyses[:3], check, *analyses[3:]])
     instructions = build_page_analysis_instructions(CATALOG)
     analyze_upload(session, layout, upload, provider=provider, instructions=instructions)
 
     row = create_plan(session, layout, upload, catalog=CATALOG, model=provider.model)
     session.commit()
+
+    photo_page = session.scalars(select(Page).where(Page.index == 2)).one()
+    assert photo_page.photo_check_json is not None
+    resolution = photo_page.photo_check_json["rules"][4]
+    assert (resolution["rule"], resolution["result"]) == ("min_resolution", "unsure")
 
     file_id = upload_file.id
     assert read_plan(row).items == (
