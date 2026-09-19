@@ -220,6 +220,75 @@ def test_request_sends_image_then_text_with_forced_analysis_function(
     assert "response_format" not in body
 
 
+LIVE_REASONING_REFUSAL = (
+    "Function tools with reasoning_effort are not supported for gpt-5.6-luna in "
+    "/v1/chat/completions. To use function tools, use /v1/responses or set "
+    "reasoning_effort to 'none'."
+)
+
+
+def reasoning_rule_api(reply: httpx2.Response) -> Handler:
+    """Canlı API'nin (tm 96) kuralı: işlevli Chat Completions isteği `reasoning_effort: none`
+    olmadan 400 ile reddedilir; kural sağlanırsa `reply` döner."""
+
+    def handler(request: httpx2.Request) -> httpx2.Response:
+        body = json.loads(request.content)
+        if body.get("tools") and body.get("reasoning_effort") != "none":
+            return api_error(400, "invalid_request_error", None, LIVE_REASONING_REFUSAL)
+        return reply
+
+    return handler
+
+
+def provider_behind(handler: Handler) -> OpenAIProvider:
+    client = httpx2.Client(transport=httpx2.MockTransport(handler))
+    return OpenAIProvider.from_settings(settings(), http_client=client)
+
+
+def test_analysis_request_disables_reasoning_so_the_live_api_accepts_the_function() -> None:
+    api = reasoning_rule_api(completion(tool_calls=[function_call(analysis_payload())]))
+
+    analysis = provider_behind(api).analyze_page(page_request())
+
+    assert analysis == validate_page_analysis(analysis_payload(), known_slugs=SLUGS)
+
+
+@pytest.mark.parametrize(
+    "call",
+    [
+        pytest.param(
+            lambda provider: provider.describe_type(description_request()),
+            id="tur-aciklamasi",
+        ),
+        pytest.param(
+            lambda provider: provider.check_photo(photo_check_request()), id="fotograf-kontrolu"
+        ),
+        pytest.param(
+            lambda provider: provider.read_document_query(query_request()), id="belge-istegi"
+        ),
+    ],
+)
+def test_every_function_request_carries_reasoning_none(
+    call: Callable[[OpenAIProvider], object],
+) -> None:
+    payloads = {
+        DESCRIPTION_TOOL_NAME: description_payload(),
+        PHOTO_CHECK_TOOL_NAME: photo_check_payload(),
+        DOCUMENT_QUERY_TOOL_NAME: query_payload(),
+    }
+    sent: list[dict[str, Any]] = []
+
+    def handler(request: httpx2.Request) -> httpx2.Response:
+        body = json.loads(request.content)
+        sent.append(body)
+        name = body["tool_choice"]["function"]["name"]
+        return completion(tool_calls=[function_call(payloads[name], name=name)])
+
+    call(provider_behind(handler))
+
+    assert [body["reasoning_effort"] for body in sent] == ["none"]
+
+
 def test_tool_schema_is_the_page_analysis_contract() -> None:
     schema = ANALYSIS_TOOL["function"]["parameters"]
     defs = schema["$defs"]

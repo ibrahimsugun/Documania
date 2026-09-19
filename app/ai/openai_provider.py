@@ -27,6 +27,10 @@ işlev `DOCUMENT_QUERY_TOOL_NAME`, parametre şeması `DocumentQuery.model_json_
 SDK'nın kendi yeniden denemesi kapalıdır (`max_retries=0`): geri çekilmeli deneme 03.5'in işidir,
 iki katman üst üste denemesin. İstek `store=False` gider: sayfa görüntüsü kimlik belgesi olabilir,
 sağlayıcı tarafında saklanmasını istemiyoruz (CONVENTIONS §6).
+
+İstek `reasoning_effort="none"` gider: canlı API (gpt-5.6-luna, tm 96) işlevli Chat Completions
+isteğini, akıl yürütme eforu `none` değilse 400 ile reddeder. Yanıtın kabulü akıl yürütmeye
+dayanmaz: her yanıt `validate_*` şemasından geçer.
 """
 
 from __future__ import annotations
@@ -263,6 +267,8 @@ class OpenAIProvider(AnalysisProvider):
                 tool_choice={"type": "function", "function": {"name": name}},
                 parallel_tool_calls=False,
                 store=False,
+                # Akıl yürütmeli modeller işlevi yalnız bu değerle kabul eder (modül belgesi).
+                reasoning_effort="none",
             )
         except openai.APIStatusError as exc:
             raise _status_error(exc) from exc
