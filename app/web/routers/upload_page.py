@@ -3,14 +3,16 @@
 `GET /upload` sürükle-bırak çoklu yükleme formunu ve isteğe bağlı çalışan seçimini çizer.
 `POST /upload` (HTMX) dosyaları `POST /api/uploads` ile aynı işlevle (`create_upload`) partiye
 çevirir — boyut/sayfa sınırı (01.3.1), Inbox'a değişmez yazma (K10) ve tekrar tespiti (01.4.1)
-orada kalır, burada kopyalanmaz. Parti oluşunca `process_upload` (09.2.2) arka planda başlar ve
-yanıt ilerleme görünümüdür. `GET /upload/{upload_id}/progress` parti durumunu (`GET
+orada kalır, burada kopyalanmaz. Parti oluşunca kuyruktaki işi (13.3.1) arka planda alınıp
+işlenir (09.2.2; iş bu arada panelin kuyruk döngüsüne geçtiyse o işler) ve yanıt ilerleme
+görünümüdür. `GET /upload/{upload_id}/progress` parti durumunu (`GET
 /api/uploads/{id}`, 01.6.1) HTMX'in iki saniyede bir yenilediği parçaya çevirir; parti son
 duruma (`done`, `partial`, `failed`) varınca parça yenileme öznitelikleri olmadan gelir ve
 yenileme durur.
 
 Yapay zekâ sağlayıcısı kurulamıyorsa (`AI_PROVIDER` eksik anahtar) parti yine de alınır — dosya
-Inbox'ta güvende kalır — ama işlenmez; kullanıcıya bu söylenir ve yenileme başlatılmaz.
+Inbox'ta güvende kalır, işi kuyrukta bekler — ama işlenmez; kullanıcıya bu söylenir ve yenileme
+başlatılmaz.
 
 `GET /uploads/{upload_id}` yükleme detay sayfasıdır (10.3.1): partinin sayfa küçük resimleri, güncel
 planın öğeleri, çıktıları (belgeler ve kuyruğa alınanlar) ve olay zaman çizelgesi tek sayfada
@@ -62,9 +64,7 @@ from app.pipeline.orchestrate import (
     PLAN_EXECUTION_ERRORS,
     NoPlanError,
     PlanExecutor,
-    UploadTransitionError,
     current_plan,
-    process_upload,
     reanalyze_upload,
     rerun_plan,
 )
@@ -86,6 +86,7 @@ from app.web.routers.uploads import (
     get_upload_status,
 )
 from app.web.templating import MENU_BY_KEY, render_page
+from app.worker import claim_and_run
 
 router = APIRouter(tags=["upload-page"])
 
@@ -170,8 +171,9 @@ def get_upload_processor(
     """Partiyi arka planda işleyen adım; sağlayıcı kurulamazsa nedenini taşıyan hata döner.
 
     İşleyici isteğin oturumunu kullanmaz: yanıt gittikten sonra çalışır, kendi oturumunu açar.
-    `process_upload` beklenmeyen hatayı partiyi `failed` yaparak kaydeder (09.2.3); yalnızca
-    partiyi başka bir işleyicinin almış olması sessizce geçilir.
+    Partinin kuyrukta bekleyen işini alır ve işler (13.3.1, `claim_and_run`); beklenmeyen hata
+    partiyi `failed` yapar (09.2.3). İş beklemiyorsa — başka bir işleyici almış, parti işlenmiş ya
+    da yok — sessizce geçilir.
     """
     try:
         provider = create_provider(settings)
@@ -179,14 +181,7 @@ def get_upload_processor(
         return exc
 
     def process(upload_id: str) -> None:
-        with session_factory() as session:
-            upload = session.get(Upload, upload_id)
-            if upload is None:
-                return
-            try:
-                process_upload(session, layout, upload, settings=settings, provider=provider)
-            except UploadTransitionError:
-                return
+        claim_and_run(session_factory, layout, upload_id, settings=settings, provider=provider)
 
     return process
 

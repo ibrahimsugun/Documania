@@ -12,7 +12,9 @@ denetlenir; sınırı aşan tek dosya olsa bile parti hiç oluşturulmaz.
 Partiyi kuran çekirdek `store_upload`'dır (eşzamanlı, HTTP'den bağımsız): web uç noktası ve Telegram
 botu (12.2.1) aynı doğrulamadan, aynı Inbox yazımından ve aynı tekrar tespitinden geçer; yalnız
 `channel`/`uploaded_by` değişir. Hata `HTTPException` olarak yükselir, `detail` kullanıcıya
-gösterilecek Türkçe iletidir.
+gösterilecek Türkçe iletidir. Partinin işi aynı işlemde kalıcı işçi kuyruğuna girer (13.3.1,
+`app.worker`): parti hangi kanaldan gelirse gelsin kuyruktaki işleyici onu işler; uygulama yeniden
+başlasa da iş kaybolmaz.
 
 `POST /{upload_id}/rerun` güncel planı yeniden uygular; yapay zekâ sağlayıcısı bu uç noktanın
 bağımlılıkları arasında yoktur. `POST /{upload_id}/reanalyze` partiyi yeniden analiz eder ve yeni
@@ -59,6 +61,7 @@ from app.storage import (
     find_original_by_sha256,
     write_to_inbox,
 )
+from app.worker.queue import claim_upload, enqueue_upload
 
 router = APIRouter(prefix="/api/uploads", tags=["uploads"])
 
@@ -185,11 +188,15 @@ def store_upload(
     channel: str,
     uploaded_by: str | None = None,
     context_employee_id: str | None = None,
+    claimed_by: str | None = None,
 ) -> str:
     """Dosyaları tek parti olarak Inbox'a yazar, kaydeder ve commit eder; `upload_id` döner.
 
     Ad, boyut/sayfa sınırı (01.3.1) ve bağlam çalışanı doğrulanır; biri tutmazsa `HTTPException`
     ve hiçbir şey yazılmaz. Tekrar (01.4.1) yalnız işaretlenir, dosya yine Inbox'a yazılır (K10).
+    Partinin işi aynı işlemde kuyruğa girer (13.3.1); `claimed_by` verilirse iş bu kimlikle alınmış
+    olarak açılır — partiyi kendisi hemen işleyecek olan çağıran (Telegram botu) kuyruk döngüsüyle
+    yarışmaz.
     """
     names = [_validated_name(file.name) for file in files]
     if len(set(names)) != len(names):
@@ -212,6 +219,11 @@ def store_upload(
         )
     )
     session.flush()
+    enqueue_upload(session, upload_id)
+    if claimed_by is not None:
+        claim_upload(
+            session, upload_id, token=claimed_by, lease_seconds=settings.worker_lease_seconds
+        )
 
     with event_context(upload_id=upload_id):
         for name, file in zip(names, files, strict=True):

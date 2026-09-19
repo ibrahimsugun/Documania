@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Iterator
-from datetime import date
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -23,7 +23,7 @@ from app.ai import PROVIDER_FACTORIES
 from app.ai.provider import ProviderConfigError
 from app.catalog import import_catalog, load_seed_catalog
 from app.config import Settings, get_settings
-from app.db.models import Employee, Event, Upload, UploadFile, UploadStatus
+from app.db.models import Employee, Event, JobStatus, Upload, UploadFile, UploadJob, UploadStatus
 from app.db.session import get_session_factory
 from app.events import EventType
 from app.storage import DataLayout
@@ -296,6 +296,8 @@ def test_batch_is_kept_but_not_processed_when_no_provider_can_be_built(
     assert POLLING not in response.text  # hiç işlenmeyecek parti için yenileme başlatılmaz
     with session_factory() as session:
         assert session.scalars(select(Upload)).one().status == UploadStatus.RECEIVED
+        # 13.3.1: işi kuyrukta bekler; sağlayıcısı olan işleyici onu sonra işler.
+        assert session.scalars(select(UploadJob)).one().status == JobStatus.QUEUED
 
 
 def test_file_names_are_escaped_in_the_view(client: TestClient, processor: _Processor) -> None:
@@ -481,6 +483,9 @@ def test_uploaded_batch_is_processed_in_the_background_and_the_view_reaches_done
         assert upload.status == UploadStatus.DONE
         types = set(session.scalars(select(Event.type).where(Event.upload_id == upload.id)))
         assert {EventType.FILE_UPLOADED, EventType.PLAN_CREATED, EventType.OUTPUT_SAVED} <= types
+        # 13.3.1: arka plan işleyicisi partinin kuyruktaki işini aldı ve bitirdi.
+        job = session.scalars(select(UploadJob)).one()
+        assert (job.upload_id, job.status, job.attempts) == (upload.id, JobStatus.FINISHED, 1)
 
 
 def test_processor_skips_a_batch_somebody_else_already_took(
@@ -498,6 +503,35 @@ def test_processor_skips_a_batch_somebody_else_already_took(
 
     with session_factory() as session:
         assert session.get_one(Upload, "u_20260101_001").status == UploadStatus.DONE
+        assert session.scalar(select(func.count()).select_from(Event)) == 0
+
+
+def test_processor_leaves_a_batch_whose_job_another_worker_holds(
+    session_factory: sessionmaker[Session], layout: DataLayout, recorded_processing: None
+) -> None:
+    # 13.3.1: panelin kuyruk döngüsü (ya da başka bir süreç) işi arka plan işinden önce almış.
+    settings = Settings(_env_file=None, database_url="sqlite://", ai_provider="kayitli")
+    processor = get_upload_processor(settings, layout, session_factory)
+    assert not isinstance(processor, ProviderConfigError)
+    with session_factory() as session:
+        session.add(Upload(id="u_20260101_001", channel="web"))
+        session.flush()
+        session.add(
+            UploadJob(
+                upload_id="u_20260101_001",
+                status=JobStatus.RUNNING.value,
+                attempts=1,
+                claimed_by="baska-isleyici",
+                lease_expires_at=datetime.now(UTC) + timedelta(minutes=5),
+            )
+        )
+        session.commit()
+
+    processor("u_20260101_001")
+
+    with session_factory() as session:
+        assert session.get_one(Upload, "u_20260101_001").status == UploadStatus.RECEIVED
+        assert session.scalars(select(UploadJob)).one().claimed_by == "baska-isleyici"
         assert session.scalar(select(func.count()).select_from(Event)) == 0
 
 

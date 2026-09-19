@@ -523,7 +523,7 @@ def test_an_unexpected_error_fails_the_upload_keeps_the_inbox_and_is_logged(
     assert failed.data_json["stage"] == stage.value
     assert failed.data_json["error"] == f"{__name__}._Unexpected"
     assert failed.data_json["traceback"][-1].startswith("test_process_upload.py:")
-    assert any(frame.endswith(" process_upload") for frame in failed.data_json["traceback"])
+    assert any(frame.endswith(" _process_stages") for frame in failed.data_json["traceback"])
     _assert_no_personal_values(_events(session))
     # Durduğu adımın veritabanı işi geri alındı; öncekilerin işi kaldı.
     pages = list(session.scalars(select(Page).order_by(Page.index)))

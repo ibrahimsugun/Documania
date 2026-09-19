@@ -16,7 +16,18 @@ from app.ai import PROVIDER_FACTORIES, AnalysisProvider, build_page_analysis_ins
 from app.ai.recording_provider import RecordingProvider
 from app.catalog import import_catalog, load_seed_catalog
 from app.config import Settings, get_settings
-from app.db.models import Document, DocumentStatus, Employee, Event, Page, Plan, Upload, UploadFile
+from app.db.models import (
+    Document,
+    DocumentStatus,
+    Employee,
+    Event,
+    JobStatus,
+    Page,
+    Plan,
+    Upload,
+    UploadFile,
+    UploadJob,
+)
 from app.events import EventType
 from app.pipeline.analyze import analyze_upload
 from app.pipeline.plan import PlanDocument, create_plan, read_plan
@@ -145,6 +156,34 @@ def test_no_files_does_not_create_upload_row(
 
     with session_factory() as session:
         assert session.scalar(select(Upload)) is None
+
+
+def test_every_batch_enters_the_worker_queue_in_the_same_commit(
+    client: TestClient, session_factory: sessionmaker[Session]
+) -> None:
+    # 13.3.1: iş partiyle birlikte kalıcıdır; uygulama hemen ardından dursa da parti kaybolmaz.
+    response = client.post("/api/uploads", files=_files(("a.pdf", make_pdf_bytes(1))))
+
+    upload_id = response.json()["upload_id"]
+    with session_factory() as session:
+        job = session.scalars(select(UploadJob)).one()
+        assert (job.upload_id, job.status, job.attempts, job.claimed_by) == (
+            upload_id,
+            JobStatus.QUEUED,
+            0,
+            None,
+        )
+
+
+def test_a_refused_batch_leaves_no_job_behind(
+    app: FastAPI, client: TestClient, session_factory: sessionmaker[Session]
+) -> None:
+    _with_settings(app, max_upload_file_size_bytes=10)
+
+    client.post("/api/uploads", files=_files(("buyuk.pdf", b"0123456789A")))
+
+    with session_factory() as session:
+        assert session.scalar(select(func.count()).select_from(UploadJob)) == 0
 
 
 def _with_settings(app: FastAPI, **overrides: object) -> None:

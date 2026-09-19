@@ -2,9 +2,12 @@
 
 Bota gönderilen her belge ve fotoğraf, web yüklemesiyle aynı boru hattından geçer (12.2.1):
 `app.web.routers.uploads.store_upload` (boyut/sayfa sınırı, Inbox'a değişmez yazma, tekrar
-tespiti) ile partiye çevrilir, sonra `process_upload` ile render → analiz → plan → uygulama
-adımlarından geçer. Yalnız kanal (`uploads.channel = telegram`) ve yükleyen (beyaz listedeki
-kullanıcının panel kullanıcı adı) farklıdır. Bot dosyayı olduğu gibi indirir ve saklar; içeriğe
+tespiti) ile partiye çevrilir, sonra render → analiz → plan → uygulama adımlarından geçer. Partinin
+kalıcı işçi kuyruğundaki işi (13.3.1) botun kimliğiyle alınmış olarak açılır ve bot onu hemen
+kendisi işler (`app.worker.run_claimed_upload`); bot işin ortasında durursa kirası dolan işi panelin
+kuyruk döngüsü kaldığı aşamadan sürdürür (o partinin özeti gönderilmez). Yalnız kanal
+(`uploads.channel = telegram`) ve yükleyen (beyaz listedeki kullanıcının panel kullanıcı adı)
+farklıdır. Bot dosyayı olduğu gibi indirir ve saklar; içeriğe
 hiçbir işlem yapmaz (K11, K17). Fotoğraf olarak gönderilen görüntüyü Telegram kendisi yeniden
 kodlayıp küçültür — bunun önüne geçilemez; belge olarak (dosya eki) gönderilen bayt bayt korunur.
 
@@ -51,13 +54,13 @@ from app.db.models import (
     Document,
     QueueItem,
     TelegramUser,
-    Upload,
     UploadFile,
     UploadStatus,
 )
-from app.pipeline.orchestrate import ProcessedUpload, process_upload
+from app.pipeline.orchestrate import ProcessedUpload
 from app.storage import DataLayout
 from app.web.routers.uploads import IncomingFile, store_upload
+from app.worker import Claim, new_claim_token, release_claim, run_claimed_upload
 
 logger = logging.getLogger(__name__)
 
@@ -91,6 +94,9 @@ TOO_LARGE_TEXT = (
 )
 DOWNLOAD_FAILED_TEXT = "'{name}' dosyası Telegram'dan indirilemedi. Lütfen tekrar gönderin."
 FAILURE_TEXT = "Dosyalar işlenirken beklenmeyen bir hata oluştu. Lütfen tekrar deneyin."
+HANDED_OVER_TEXT = (
+    "Parti {upload_id}: işleme başka bir işleyiciye geçti; sonucu panelde görebilirsiniz."
+)
 NO_OUTPUT_TEXT = "Yeni belge çıkmadı."
 
 
@@ -325,12 +331,13 @@ class DocumentIntake:
         self, bot: Bot, chat_id: int, telegram_id: int, files: Sequence[TelegramFile]
     ) -> str:
         incoming = await self._download(bot, files)
+        token = new_claim_token()
         try:
-            upload_id = await asyncio.to_thread(self._store, telegram_id, incoming)
+            upload_id = await asyncio.to_thread(self._store, telegram_id, incoming, token)
         except HTTPException as exc:  # sınır aşımı gibi kullanıcıya söylenecek ret (01.3.1)
             raise _Refused(str(exc.detail)) from None
         await _send(bot, chat_id, RECEIVED_TEXT.format(count=len(incoming)))
-        return await asyncio.to_thread(self._run_pipeline, upload_id, len(incoming))
+        return await asyncio.to_thread(self._run_pipeline, Claim(upload_id, token), len(incoming))
 
     async def _download(self, bot: Bot, files: Sequence[TelegramFile]) -> list[IncomingFile]:
         limit = self._settings.max_upload_file_size_bytes
@@ -351,7 +358,7 @@ class DocumentIntake:
             incoming.append(IncomingFile(file.name, content, file.mime))
         return incoming
 
-    def _store(self, telegram_id: int, files: list[IncomingFile]) -> str:
+    def _store(self, telegram_id: int, files: list[IncomingFile], token: str) -> str:
         with self._session_factory() as session:
             row = session.get(TelegramUser, telegram_id)
             return store_upload(
@@ -361,9 +368,10 @@ class DocumentIntake:
                 files,
                 channel=UPLOAD_CHANNEL,
                 uploaded_by=row.user.username if row is not None else None,
+                claimed_by=token,  # 13.3.1: iş bota alınmış açılır, kuyruk döngüsü onu almaz
             )
 
-    def _run_pipeline(self, upload_id: str, file_count: int) -> str:
+    def _run_pipeline(self, claim: Claim, file_count: int) -> str:
         """Partiyi web ile aynı adımlardan geçirir ve özet metnini döner (iş parçacığında)."""
         try:
             provider = self._provider_factory(self._settings)
@@ -371,15 +379,18 @@ class DocumentIntake:
             logger.error(
                 "Telegram partisi işlenemedi: sağlayıcı kurulamadı (%s)", type(exc).__name__
             )
-            return UNPROCESSED_TEXT.format(upload_id=upload_id, count=file_count)
+            # İş kuyruğa geri döner: sağlayıcısı olan bir işleyici partiyi sonra işler (13.3.1).
+            with self._session_factory() as session:
+                release_claim(session, claim)
+                session.commit()
+            return UNPROCESSED_TEXT.format(upload_id=claim.upload_id, count=file_count)
+        processed = run_claimed_upload(
+            self._session_factory, self._layout, claim, settings=self._settings, provider=provider
+        )
+        if processed is None:  # iş bu arada başka bir işleyiciye geçti
+            return HANDED_OVER_TEXT.format(upload_id=claim.upload_id)
         with self._session_factory() as session:
-            upload = session.get_one(Upload, upload_id)
-            # Yeni açılan parti `received`'dır; ikinci bir işleyici yok. Yine de başka durumdaysa
-            # `UploadTransitionError` yükselir ve `_handle` genel hata iletisini gönderir.
-            processed = process_upload(
-                session, self._layout, upload, settings=self._settings, provider=provider
-            )
-            return build_summary(session, upload_id, processed)
+            return build_summary(session, claim.upload_id, processed)
 
 
 def _too_large(name: str, limit: int) -> str:

@@ -33,7 +33,7 @@ def _assert_schema_matches_models(database_url: str) -> None:
             assert tables == set(Base.metadata.tables) | {"alembic_version"}
             context = MigrationContext.configure(connection, opts={"compare_type": True})
             assert compare_metadata(context, Base.metadata) == []
-            assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "0005"
+            assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "0006"
     finally:
         engine.dispose()
 
@@ -205,6 +205,64 @@ def test_photo_check_migration_is_reversible_and_keeps_page_analyses(sqlite_url:
             assert connection.execute(text(page_row)).all() == expected
             columns = {column["name"] for column in inspect(connection).get_columns("pages")}
             assert "photo_check_json" not in columns
+    finally:
+        engine.dispose()
+
+
+def test_upload_jobs_migration_queues_every_unfinished_batch_and_is_reversible(
+    sqlite_url: str,
+) -> None:
+    # 0006 kalıcı işçi kuyruğunu açar (13.3.1): göçten önce yarıda kalmış ya da hiç işlenmemiş
+    # parti kuyruğa girer, bitmiş partiye iş açılmaz.
+    config = _alembic_config(sqlite_url)
+    command.upgrade(config, "0005")
+    engine = create_engine(sqlite_url)
+    statuses = {
+        "u_1": ("received", "2026-09-05 08:00:00"),
+        "u_2": ("analyzing", "2026-09-05 07:00:00"),
+        "u_3": ("executing", "2026-09-05 09:00:00"),
+        "u_4": ("done", "2026-09-05 06:00:00"),
+        "u_5": ("partial", "2026-09-05 06:00:00"),
+        "u_6": ("failed", "2026-09-05 06:00:00"),
+    }
+    upload_row = "SELECT id, status FROM uploads ORDER BY id"
+    try:
+        with engine.begin() as connection:
+            for upload_id, (status, created_at) in statuses.items():
+                connection.execute(
+                    text(
+                        "INSERT INTO uploads (id, channel, status, created_at) "
+                        "VALUES (:i, 'web', :s, :t)"
+                    ),
+                    {"i": upload_id, "s": status, "t": created_at},
+                )
+
+        command.upgrade(config, "head")
+        with engine.connect() as connection:
+            jobs = connection.execute(
+                text(
+                    "SELECT upload_id, status, attempts, claimed_by, lease_expires_at, "
+                    "enqueued_at FROM upload_jobs ORDER BY id"
+                )
+            ).all()
+            assert [tuple(job) for job in jobs] == [
+                ("u_2", "queued", 0, None, None, "2026-09-05 07:00:00"),
+                ("u_1", "queued", 0, None, None, "2026-09-05 08:00:00"),
+                ("u_3", "queued", 0, None, None, "2026-09-05 09:00:00"),
+            ]
+            before = connection.execute(text(upload_row)).all()
+        with pytest.raises(IntegrityError), engine.begin() as connection:
+            connection.execute(
+                text(
+                    "INSERT INTO upload_jobs (upload_id, status, attempts, enqueued_at) "
+                    "VALUES ('u_4', 'bekliyor', 0, '2026-09-05 00:00:00')"
+                )
+            )
+
+        command.downgrade(config, "0005")
+        with engine.connect() as connection:
+            assert "upload_jobs" not in inspect(connection).get_table_names()
+            assert connection.execute(text(upload_row)).all() == before
     finally:
         engine.dispose()
 

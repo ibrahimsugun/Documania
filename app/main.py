@@ -22,6 +22,7 @@ from app.web.routers import (
     upload_page,
     uploads,
 )
+from app.worker import start_worker
 
 
 def _redirect_to_login(_request: Request, exc: Exception) -> RedirectResponse:
@@ -34,9 +35,16 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def lifespan(_application: FastAPI) -> AsyncIterator[None]:
         # Ayarlar içe aktarmada değil açılışta okunur: `import app.main` ortam değişkeni
         # olmadan da çalışır, eksik değişken ise sunucu açılırken anlaşılır hata verir (00.2.2).
-        layout = prepare_data_dir((settings or get_settings()).data_dir)  # 00.4.1: §8.2 ağacı
+        resolved = settings or get_settings()
+        layout = prepare_data_dir(resolved.data_dir)  # 00.4.1: §8.2 ağacı
         install_seed_catalog(layout)  # 00.6.2: KnownDocuments/catalog.yaml yoksa tohum
-        yield
+        # 13.3.1: kalıcı işçi kuyruğu — yarıda kalmış ve bekleyen partiler açılışta sürdürülür.
+        worker = start_worker(resolved, layout)
+        try:
+            yield
+        finally:
+            if worker is not None:
+                worker.stop()
 
     # 10.1.2: girişsiz hiçbir panel yolu açılmaz — otomatik API belgesi sayfaları da kapalı.
     application = FastAPI(

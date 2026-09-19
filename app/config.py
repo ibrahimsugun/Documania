@@ -68,6 +68,15 @@ class Settings(BaseSettings):
     # Fiyat sağlayıcıya ait olduğundan kodda sabit değer yoktur; tablo boşsa ya da model
     # tabloda değilse panel token sayılarını gösterir, maliyeti hesaplamaz (bkz. PLAN.md §C70).
     ai_model_prices: dict[str, ModelPrice] = Field(default_factory=dict)
+    # PRD 13.3.1 — kalıcı işçi kuyruğu (`app.worker`). Panel süreci kuyruktaki partileri kendi
+    # işleyicisiyle işler (`WORKER_ENABLED`, açılışta başlar). İşi alan işleyici kirasını
+    # (`WORKER_LEASE_SECONDS`) her geçişte ve kiranın üçte birinde bir yeniler; kirası dolan iş
+    # sahipsiz sayılır ve yeniden alınır. Kirası `WORKER_MAX_ATTEMPTS` kez dolan işten vazgeçilir,
+    # parti `failed` olur. Kuyruk `WORKER_POLL_SECONDS` aralıkla taranır (bkz. PLAN.md §C72).
+    worker_enabled: bool = True
+    worker_lease_seconds: int = Field(default=120, ge=10)
+    worker_max_attempts: int = Field(default=3, ge=1)
+    worker_poll_seconds: float = Field(default=5.0, gt=0)
     # PRD 10.1.2 — panel oturumunun ömrü (saniye); süre dolunca yeniden giriş istenir. PRD süre
     # vermez, varsayılan bir iş günü (bkz. PLAN.md §C45).
     session_max_age_seconds: int = Field(default=12 * 60 * 60, gt=0)

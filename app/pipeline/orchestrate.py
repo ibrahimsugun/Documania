@@ -1,5 +1,6 @@
-"""Parti orkestrasyonu ve durum makinesi, planı yeniden çalıştırma ve partiyi yeniden analiz —
-PRD 09.2.1, 09.2.2, 09.2.3, 06.6.1, 06.6.2 (K9, K10, K15, K18, S18).
+"""Parti orkestrasyonu ve durum makinesi, yarım kalan partiyi sürdürme, planı yeniden çalıştırma
+ve partiyi yeniden analiz — PRD 09.2.1, 09.2.2, 09.2.3, 13.3.1, 06.6.1, 06.6.2 (K9, K10, K15, K18,
+S18).
 
 **Durum makinesi (09.2.1).** Parti `received → rendering → analyzing → planning → executing →
 done | partial` yolunu izler; bitmemiş her durumdan `failed`'a geçilir, son durumlardan (`done`,
@@ -38,6 +39,22 @@ kendi hatalarında hata metnidir — bu metinler kişisel değer taşımaz (C12,
 metni (SQL parametresi, kişi adı taşıyan dosya yolu) yazılmaz (CONVENTIONS §6). Hata yeniden
 fırlatılmaz, sonuç `ProcessedUpload`'dadır. Dosya sistemi işleme bağlı değildir: geri alınan
 yürütmenin diske yazdığı çıktı kalır ve yeniden uygulamada benimsenir (07.8.1).
+
+**Yarım kalan partiyi sürdürme (13.3.1).** Süreç bir adımın ortasında durursa (yeniden başlatma,
+çökme) o adımın işlemi hiç commit edilmez; parti son commit edilen durumda kalır ve önceki adımların
+işi kalıcıdır. `resume_upload` partiyi o durumdan sürdürür: `received` baştan işlenir, `rendering`
+render'dan, `analyzing` analizden (analiz tek işlem olduğu için bütün sayfalar yeniden analiz
+edilir), `planning` planlamadan devam eder. `executing`'deki partinin planı geçişle commit
+edilmiştir: plan yeniden üretilmez, yapay zekâ çağrılmaz, commit edilmiş plan olduğu gibi uygulanır
+(K9; yarım kalan uygulamanın diske yazdığı çıktı benimsenir, 07.8.1). Sonuç analizi başarısız sayfa
+varsa `partial`'dır. Son durumdaki parti sürdürülmez (`UploadTransitionError`). Sürdürmenin ayrı
+olayı yoktur (§8.3 listesi kapalı); izi işçi kuyruğunun iş kaydındadır (`app.worker`).
+
+**Geçiş kancası (13.3.1).** `checkpoint` verilirse `process_upload`/`resume_upload`'ın commit ettiği
+her işlemde (geçişler ve `failed` kaydı) commit'ten hemen önce partinin yazılmakta olan durumuyla
+çağrılır. Aynı işleme kendi yazısını ekleyebilir (işçinin kirası, işin bitişi) ve
+`ProcessingWithdrawn` fırlatarak partiyi geri çekebilir: işlem geri alınır, parti `failed`
+yapılmaz, son commit edilen durumunda kalır ve hata çağırana yükselir.
 
 **Uygulayıcı.** `PlanExecutor` planı uygulayan adımdır. Sözleşmesi: doğrulanmış planı ve kaydını
 alır, yapay zekâ çağırmaz, planı değiştirmez, plan öğesi başına idempotenttir (07.8.1) ve oturumu
@@ -85,7 +102,7 @@ kalmaz. `process_upload` ise işlem sınırını kendisi çizer: her geçişte c
 from __future__ import annotations
 
 import traceback
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import date
 from functools import partial
@@ -105,6 +122,7 @@ from app.db.models import (
     Document,
     DocumentStatus,
     Employee,
+    Page,
     Plan,
     Upload,
     UploadFile,
@@ -112,7 +130,7 @@ from app.db.models import (
     utcnow,
 )
 from app.events import EventType, event_context, record_event
-from app.pipeline.analyze import UploadAnalysisResult, analyze_upload
+from app.pipeline.analyze import PageAnalysisStatus, UploadAnalysisResult, analyze_upload
 from app.pipeline.execute import EXECUTION_ERRORS, execute_ready_item
 from app.pipeline.plan import PlanDocument, PlanItem, Route, create_plan, read_plan
 from app.pipeline.render import (
@@ -164,6 +182,16 @@ class PlanExecutor(Protocol):
     def __call__(
         self, session: Session, layout: DataLayout, plan: Plan, document: PlanDocument
     ) -> None: ...
+
+
+Checkpoint = Callable[[Session, UploadStatus], None]
+"""Geçiş kancası (13.3.1): commit edilecek her işlemde, commit'ten önce, partinin yazılmakta olan
+durumuyla çağrılır; sözleşmesi modül açıklamasında."""
+
+
+class ProcessingWithdrawn(RuntimeError):
+    """13.3.1: geçiş kancası partiyi geri çekti (ör. iş başka bir işleyiciye geçti). Parti `failed`
+    yapılmaz; son commit edilen durumunda kalır."""
 
 
 class NoPlanError(LookupError):
@@ -230,40 +258,112 @@ def process_upload(
     *,
     settings: Settings,
     provider: AnalysisProvider,
+    checkpoint: Checkpoint | None = None,
 ) -> ProcessedUpload:
     """`received` partiyi tek çağrıda render eder, analiz eder, planlar ve uygular (09.2.2).
 
     Kurallar modül açıklamasındadır. Parti `received` değilse — başka bir işleyici almış ya da
     işlenmiş — hiçbir şey yazılmadan `UploadTransitionError`. Adımlardan biri beklenmeyen bir
     hatayla durursa parti `failed` olur ve `PIPELINE_FAILED` yazılır (09.2.3); hata yeniden
-    fırlatılmaz. Her geçiş commit edilir.
+    fırlatılmaz. Her geçiş commit edilir; `checkpoint` her commit'ten önce çağrılır (13.3.1).
     """
-    stage = _begin(session, upload)
+    stage = _begin(session, upload, checkpoint)
+    return _process_stages(
+        session, layout, upload, stage, settings=settings, provider=provider, checkpoint=checkpoint
+    )
+
+
+def resume_upload(
+    session: Session,
+    layout: DataLayout,
+    upload: Upload,
+    *,
+    settings: Settings,
+    provider: AnalysisProvider,
+    checkpoint: Checkpoint | None = None,
+) -> ProcessedUpload:
+    """Bitmemiş partiyi durduğu aşamadan sonuna kadar işler (13.3.1).
+
+    `received` parti `process_upload` gibi baştan işlenir; ara durumdaki parti modül açıklamasındaki
+    kurallarla sürdürülür (`executing`'de yapay zekâ çağrılmaz, commit edilmiş plan uygulanır). Son
+    durumdaki parti için hiçbir şey yazılmadan `UploadTransitionError`. Hata dayanıklılığı ve
+    `checkpoint` `process_upload`'dakiyle aynıdır.
+    """
+    session.refresh(upload, with_for_update=True)
+    stage = UploadStatus(upload.status)
+    if not UPLOAD_TRANSITIONS[stage]:
+        session.rollback()
+        raise UploadTransitionError(
+            f"Parti '{stage.value}' durumunda; son durumdaki parti sürdürülmez (13.3.1)."
+        )
+    if stage is UploadStatus.RECEIVED:
+        stage = _advance(session, upload, stage, UploadStatus.RENDERING, checkpoint)
+    return _process_stages(
+        session, layout, upload, stage, settings=settings, provider=provider, checkpoint=checkpoint
+    )
+
+
+def fail_upload(session: Session, upload: Upload, exc: Exception) -> UploadStatus:
+    """Bitmemiş partiyi `failed` yapar ve `PIPELINE_FAILED` yazar (09.2.3); commit etmez.
+
+    Olay verisi `process_upload`'ın hata kaydıyla aynıdır (modül açıklaması); `stage` partinin şu
+    anki durumudur ve döndürülür. Son durumdaki parti için `UploadTransitionError`.
+    """
+    stage = UploadStatus(upload.status)
+    _mark_failed(session, upload, stage, exc)
+    return stage
+
+
+def _process_stages(
+    session: Session,
+    layout: DataLayout,
+    upload: Upload,
+    stage: UploadStatus,
+    *,
+    settings: Settings,
+    provider: AnalysisProvider,
+    checkpoint: Checkpoint | None,
+) -> ProcessedUpload:
+    # `stage` partinin commit edilmiş durumudur: o aşamanın işi yapılır, sonrakiler sırayla gelir.
     plan: Plan | None = None
+    catalog: Catalog | None = None
     with event_context(upload_id=upload.id):
         try:
-            _render_upload(session, layout, settings, upload)
-            stage = _advance(session, upload, stage, UploadStatus.ANALYZING)
+            if stage is UploadStatus.RENDERING:
+                _render_upload(session, layout, settings, upload)
+                stage = _advance(session, upload, stage, UploadStatus.ANALYZING, checkpoint)
 
-            catalog = export_catalog(session)
-            analysis = analyze_upload(
-                session,
-                layout,
-                upload,
-                provider=provider,
-                instructions=build_page_analysis_instructions(catalog),
-            )
-            stage = _advance(session, upload, stage, UploadStatus.PLANNING)
+            if stage is UploadStatus.ANALYZING:
+                catalog = export_catalog(session)
+                analyze_upload(
+                    session,
+                    layout,
+                    upload,
+                    provider=provider,
+                    instructions=build_page_analysis_instructions(catalog),
+                )
+                stage = _advance(session, upload, stage, UploadStatus.PLANNING, checkpoint)
 
-            plan = create_plan(session, layout, upload, catalog=catalog, model=provider.model)
-            stage = _advance(session, upload, stage, UploadStatus.EXECUTING)
+            if stage is UploadStatus.PLANNING:
+                if catalog is None:
+                    catalog = export_catalog(session)
+                plan = create_plan(session, layout, upload, catalog=catalog, model=provider.model)
+                stage = _advance(session, upload, stage, UploadStatus.EXECUTING, checkpoint)
+            else:
+                # K9: `executing`'deki partinin planı geçişle commit edilmiştir; yeniden üretilmez.
+                plan = _require_current_plan(session, upload)
 
             _execute(session, layout, plan, read_plan(plan), executor=plan_executor(settings))
-            outcome = UploadStatus.PARTIAL if analysis.is_partial else UploadStatus.DONE
-            stage = _advance(session, upload, stage, outcome)
+            outcome = (
+                UploadStatus.PARTIAL if _has_failed_page(session, upload) else UploadStatus.DONE
+            )
+            stage = _advance(session, upload, stage, outcome, checkpoint)
+        except ProcessingWithdrawn:
+            session.rollback()
+            raise
         except Exception as exc:
             session.rollback()
-            _record_failure(session, upload, stage, exc)
+            _record_failure(session, upload, stage, exc, checkpoint)
             # Plan yalnız `executing`'e geçişle commit edilmiştir; öncesinde geri alındı.
             committed = plan if stage is UploadStatus.EXECUTING else None
             return ProcessedUpload(UploadStatus.FAILED, committed, failed_stage=stage)
@@ -311,7 +411,7 @@ def plan_executor(settings: Settings) -> PlanExecutor:
     )
 
 
-def _begin(session: Session, upload: Upload) -> UploadStatus:
+def _begin(session: Session, upload: Upload, checkpoint: Checkpoint | None) -> UploadStatus:
     # Satır kilidi (PostgreSQL `FOR UPDATE`; SQLite `BEGIN IMMEDIATE`): aynı partiyi alan ikinci
     # işleyici bekler, sonra partiyi `received` dışında görür.
     session.refresh(upload, with_for_update=True)
@@ -320,16 +420,45 @@ def _begin(session: Session, upload: Upload) -> UploadStatus:
     except UploadTransitionError:
         session.rollback()
         raise
-    return _advance(session, upload, UploadStatus.RECEIVED, UploadStatus.RENDERING)
+    return _advance(session, upload, UploadStatus.RECEIVED, UploadStatus.RENDERING, checkpoint)
 
 
 def _advance(
-    session: Session, upload: Upload, current: UploadStatus, target: UploadStatus
+    session: Session,
+    upload: Upload,
+    current: UploadStatus,
+    target: UploadStatus,
+    checkpoint: Checkpoint | None,
 ) -> UploadStatus:
     check_transition(current, target)
     upload.status = target.value
-    session.commit()
+    _commit(session, target, checkpoint)
     return target
+
+
+def _commit(session: Session, status: UploadStatus, checkpoint: Checkpoint | None) -> None:
+    if checkpoint is not None:
+        try:
+            checkpoint(session, status)
+        except ProcessingWithdrawn:
+            session.rollback()
+            raise
+    session.commit()
+
+
+def _has_failed_page(session: Session, upload: Upload) -> bool:
+    # 03.7.2: analizi başarısız bir sayfa partiyi `partial` yapar. Sayfaların durumundan okunur:
+    # sürdürülen partinin analizi bu çağrıda değil, önceki bir işlemde yapılmış olabilir.
+    failed = (
+        select(Page.id)
+        .join(UploadFile, Page.file_id == UploadFile.id)
+        .where(
+            UploadFile.upload_id == upload.id,
+            Page.analysis_status == PageAnalysisStatus.FAILED.value,
+        )
+        .limit(1)
+    )
+    return session.scalar(failed) is not None
 
 
 def _render_upload(
@@ -362,7 +491,18 @@ def _content_kind(layout: DataLayout, upload_file: UploadFile) -> FileKind | Non
         return None
 
 
-def _record_failure(session: Session, upload: Upload, stage: UploadStatus, exc: Exception) -> None:
+def _record_failure(
+    session: Session,
+    upload: Upload,
+    stage: UploadStatus,
+    exc: Exception,
+    checkpoint: Checkpoint | None,
+) -> None:
+    _mark_failed(session, upload, stage, exc)
+    _commit(session, UploadStatus.FAILED, checkpoint)
+
+
+def _mark_failed(session: Session, upload: Upload, stage: UploadStatus, exc: Exception) -> None:
     check_transition(stage, UploadStatus.FAILED)
     upload.status = UploadStatus.FAILED.value
     kind = type(exc)
@@ -381,7 +521,6 @@ def _record_failure(session: Session, upload: Upload, stage: UploadStatus, exc: 
             ],
         },
     )
-    session.commit()
 
 
 def _record_skip(session: Session, plan: Plan, item: PlanItem) -> None:

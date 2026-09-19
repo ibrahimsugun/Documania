@@ -1,5 +1,6 @@
 """Veri modeli — PRD §8.1 tabloları (00.3.1), çalışan numarası üretici (00.3.3), aday tür
-kaydı (04.6.1) ve kararı (11.5), panel oturumu (10.1.2) ve iki aşamalı onayın belirteci (10.8.1).
+kaydı (04.6.1) ve kararı (11.5), panel oturumu (10.1.2), iki aşamalı onayın belirteci (10.8.1) ve
+kalıcı işçi kuyruğu (13.3.1).
 
 Silme yoktur, arşiv vardır (K16): ilişkilerde silme kaskadı tanımlanmaz.
 Dosya yolu burada üretilmez (yol kuralı: `app/storage/`); yol sütunları yalnız saklar.
@@ -503,6 +504,47 @@ class ConfirmationToken(Base):
     created_at: Mapped[datetime] = mapped_column(UtcDateTime, default=utcnow)
     expires_at: Mapped[datetime] = mapped_column(UtcDateTime)
     consumed_at: Mapped[datetime | None] = mapped_column(UtcDateTime)
+
+
+class JobStatus(enum.StrEnum):
+    """Kalıcı işçi kuyruğundaki işin durumu (`upload_jobs.status`, PRD 13.3.1; `app.worker`).
+
+    İş, parti açıldığı işlemde `queued` yazılır. Bir işleyici işi alınca `running` olur ve kirasını
+    (`lease_expires_at`) tutar; parti son duruma (`done`, `partial`, `failed`) vardığı işlemde iş
+    `finished` olur. Kirası dolmuş `running` iş sahipsiz sayılır ve yeniden alınır; alınıp
+    bitirilemeden kirası en çok izin verilen deneme kadar dolan işten vazgeçilir (`abandoned`) ve
+    parti `failed` olur.
+    """
+
+    QUEUED = "queued"
+    RUNNING = "running"
+    FINISHED = "finished"
+    ABANDONED = "abandoned"
+
+
+class UploadJob(Base):
+    """Partiyi işleme işi (13.3.1): uygulama yeniden başlasa da yarım kalan parti kaybolmasın diye
+    işin kendisi veritabanında durur (PLAN.md §C72).
+
+    Parti başına tek iş vardır. `claimed_by` işi son alan işleyicinin tek kullanımlık kimliğidir
+    (her alışta yenisi): işleyici partinin her geçişini ancak iş hâlâ bu kimlikteyken commit eder.
+    `attempts` işin kaç kez alındığıdır. Satır silinmez.
+    """
+
+    __tablename__ = "upload_jobs"
+    __table_args__ = (CheckConstraint(_one_of("status", JobStatus), name="status"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    upload_id: Mapped[str] = mapped_column(ForeignKey("uploads.id"), unique=True)
+    status: Mapped[str] = mapped_column(String(16), default=JobStatus.QUEUED.value, index=True)
+    attempts: Mapped[int] = mapped_column(Integer, default=0)
+    claimed_by: Mapped[str | None] = mapped_column(String(128))
+    lease_expires_at: Mapped[datetime | None] = mapped_column(UtcDateTime)
+    enqueued_at: Mapped[datetime] = mapped_column(UtcDateTime, default=utcnow)
+    claimed_at: Mapped[datetime | None] = mapped_column(UtcDateTime)
+    finished_at: Mapped[datetime | None] = mapped_column(UtcDateTime)
+
+    upload: Mapped[Upload] = relationship()
 
 
 class TelegramUser(Base):

@@ -19,13 +19,23 @@ from sqlalchemy.orm import Session, selectinload, sessionmaker
 from telegram import Update
 
 from app.ai.recording_provider import RecordingProvider
-from app.db.models import Document, Event, QueueItem, Upload, UploadFile, UploadStatus
+from app.db.models import (
+    Document,
+    Event,
+    JobStatus,
+    QueueItem,
+    Upload,
+    UploadFile,
+    UploadJob,
+    UploadStatus,
+)
 from app.events import EventType
 from app.pipeline.orchestrate import ProcessedUpload
 from app.telegram import handlers
 from app.telegram.handlers import (
     DOWNLOAD_FAILED_TEXT,
     FAILURE_TEXT,
+    HANDED_OVER_TEXT,
     NO_OUTPUT_TEXT,
     TelegramFile,
     build_summary,
@@ -85,6 +95,11 @@ def all_uploads(session_factory: sessionmaker[Session]) -> list[Upload]:
         return list(session.scalars(query))
 
 
+def the_job(session_factory: sessionmaker[Session]) -> UploadJob:
+    with session_factory() as session:
+        return session.scalars(select(UploadJob)).one()
+
+
 def file_names(session_factory: sessionmaker[Session], upload_id: str) -> list[str]:
     with session_factory() as session:
         return list(
@@ -132,6 +147,52 @@ def test_document_goes_through_the_same_pipeline_as_a_web_upload(
         (document,) = session.scalars(select(Document)).all()
     assert document.status == "active"
     assert len(provider.requests) == 1  # sayfa analizi kayıtlı yanıtla; canlı çağrı yok
+    # 13.3.1: partinin işi bota alınmış açıldı ve bot onu bitirdi.
+    job = the_job(session_factory)
+    assert (job.upload_id, job.status, job.attempts) == (upload.id, JobStatus.FINISHED, 1)
+
+
+def test_the_bot_s_batch_is_claimed_when_it_is_stored_so_no_other_worker_takes_it(
+    make_intake_bot: Callable[..., IntakeBot],
+    session_factory: sessionmaker[Session],
+    listed: None,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # 13.3.1: parti kaydedildiği işlemde iş botundur; kuyruk döngüsü onu bekleyen iş sanıp almaz.
+    seen: list[UploadJob] = []
+    real_run = handlers.run_claimed_upload
+
+    def inspect_then_run(*args: object, **kwargs: object) -> object:
+        seen.append(the_job(session_factory))
+        return real_run(*args, **kwargs)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(handlers, "run_claimed_upload", inspect_then_run)
+    bot = make_intake_bot(provider_for(tmp_path, [passport()]))
+    bot.telegram.files["f1"] = passport_pdf()
+
+    bot.feed(document_update(1, LISTED_ID, "f1", "pasaport.pdf"))
+
+    (job,) = seen
+    assert (job.status, job.attempts) == (JobStatus.RUNNING, 1)
+    assert job.claimed_by is not None and job.lease_expires_at is not None
+
+
+def test_a_batch_taken_over_by_another_worker_is_reported_as_such(
+    make_intake_bot: Callable[..., IntakeBot],
+    session_factory: sessionmaker[Session],
+    listed: None,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(handlers, "run_claimed_upload", lambda *_args, **_kwargs: None)
+    bot = make_intake_bot(provider_for(tmp_path, [passport()]))
+    bot.telegram.files["f1"] = passport_pdf()
+
+    bot.feed(document_update(1, LISTED_ID, "f1", "pasaport.pdf"))
+
+    (upload,) = all_uploads(session_factory)
+    assert bot.telegram.sent_texts()[-1] == HANDED_OVER_TEXT.format(upload_id=upload.id)
 
 
 def test_photo_is_stored_as_its_largest_size_under_a_generated_name(
@@ -653,6 +714,9 @@ def test_without_a_provider_the_files_are_kept_and_the_user_is_told(
         f"Parti {upload.id}: 1 dosya alındı ve saklandı, ama yapay zekâ sağlayıcısı "
         "kurulamadığı için işlenmiyor. Yöneticiye bildirin."
     )
+    # 13.3.1: iş kuyruğa geri döndü; sağlayıcısı olan işleyici partiyi sonra işler.
+    job = the_job(session_factory)
+    assert (job.status, job.claimed_by, job.lease_expires_at) == (JobStatus.QUEUED, None, None)
 
 
 def test_an_unexpected_error_is_reported_without_leaking_its_text(

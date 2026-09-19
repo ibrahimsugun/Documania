@@ -349,3 +349,64 @@ def test_env_example_documents_model_prices_with_a_working_example(
     prices = load_settings(_env_file=env_file).ai_model_prices
 
     assert set(prices) == {"claude-opus-5"}
+
+
+WORKER_VARIABLES = (
+    "WORKER_ENABLED",
+    "WORKER_LEASE_SECONDS",
+    "WORKER_MAX_ATTEMPTS",
+    "WORKER_POLL_SECONDS",
+)
+
+
+def test_worker_settings_have_defaults_read_the_environment_and_are_documented(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # 13.3.1: kalıcı işçi kuyruğu.
+    monkeypatch.setenv("DATABASE_URL", "sqlite:///./data/test.db")
+    for name in WORKER_VARIABLES:
+        monkeypatch.delenv(name, raising=False)
+    defaults = load_settings(_env_file=None)
+    assert (
+        defaults.worker_enabled,
+        defaults.worker_lease_seconds,
+        defaults.worker_max_attempts,
+        defaults.worker_poll_seconds,
+    ) == (True, 120, 3, 5.0)
+
+    for name, value in zip(WORKER_VARIABLES, ("false", "300", "5", "0.5"), strict=True):
+        monkeypatch.setenv(name, value)
+    configured = load_settings(_env_file=None)
+    assert (
+        configured.worker_enabled,
+        configured.worker_lease_seconds,
+        configured.worker_max_attempts,
+        configured.worker_poll_seconds,
+    ) == (False, 300, 5, 0.5)
+
+    example = (Path(__file__).resolve().parents[1] / ".env.example").read_text(encoding="utf-8")
+    for line in (
+        "WORKER_ENABLED=true",
+        "WORKER_LEASE_SECONDS=120",
+        "WORKER_MAX_ATTEMPTS=3",
+        "WORKER_POLL_SECONDS=5",
+    ):
+        assert f"\n{line}\n" in example
+
+
+@pytest.mark.parametrize(
+    ("name", "value"),
+    [
+        ("WORKER_LEASE_SECONDS", "9"),
+        ("WORKER_MAX_ATTEMPTS", "0"),
+        ("WORKER_POLL_SECONDS", "0"),
+    ],
+)
+def test_invalid_worker_settings_rejected(
+    monkeypatch: pytest.MonkeyPatch, name: str, value: str
+) -> None:
+    monkeypatch.setenv("DATABASE_URL", "sqlite:///./data/test.db")
+    monkeypatch.setenv(name, value)
+
+    with pytest.raises(ValidationError, match=name.lower()):
+        load_settings(_env_file=None)

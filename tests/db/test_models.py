@@ -48,9 +48,9 @@ SECTION_8_1_TABLES = {
     "telegram_users",
 }
 # §8.1 dışında, kilitli karardan doğan tablolar: panel oturumu (MASTER-PROMPT §4 "sunucu tarafı
-# oturum çerezi", 10.1.2; PLAN.md §C45, §D22) ve iki aşamalı onayın tek kullanımlık belirteci
-# (§20.6.1, 10.8.1; PLAN.md §C54, §D26).
-BEYOND_SECTION_8_1_TABLES = {"user_sessions", "confirmation_tokens"}
+# oturum çerezi", 10.1.2; PLAN.md §C45, §D22), iki aşamalı onayın tek kullanımlık belirteci
+# (§20.6.1, 10.8.1; PLAN.md §C54, §D26) ve kalıcı işçi kuyruğu (13.3.1; PLAN.md §C72, §D43).
+BEYOND_SECTION_8_1_TABLES = {"user_sessions", "confirmation_tokens", "upload_jobs"}
 
 
 def _employee(number: str = "E0001") -> Employee:
