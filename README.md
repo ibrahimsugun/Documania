@@ -105,6 +105,73 @@ yaptırır, DoD kapısından geçirir ve `PLAN.md` + `HANDOFF.md` + commit ile k
 **Durdurma:** paneldeki *nazik durdurma*. Panel `.loop-logs/STOP-REQUESTED` bayrağını bırakır,
 script bunu görev sınırında görüp kendi temiz çıkar — çalışan hiçbir pencere kesilmez.
 
+## Üretim dağıtımı (PRD 13.5.1)
+
+Alan adı ve HTTPS ile **tek komutla** dağıtım: PostgreSQL 16, şema göçü, panel ve HTTPS'i
+sonlandıran Caddy (sertifikayı Let's Encrypt'ten kendisi alır ve yeniler) birlikte kalkar.
+
+**Ön koşullar:** Docker Engine + Docker Compose **2.24 veya üstü**; alan adının DNS A/AAAA kaydı
+sunucuyu göstermeli; sunucuda 80 ve 443 dışarıya açık olmalı.
+
+**1. Ayar.** Depoyu sunucuya alıp `cp .env.example .env` yapın ve `.env`'de şunları doldurun
+(`.env.example` sonundaki "Üretim dağıtımı" bölümünde satır satır açıklanmıştır; `#`'ler kaldırılır):
+
+| Değişken | Ne |
+|---|---|
+| `APP_ENV=production` | Panel çerezi yalnız HTTPS'te gider; bot webhook kipine geçer |
+| `DOMAIN` | Panelin alan adı (`belge.sirket.com`) |
+| `ACME_EMAIL` | Sertifika uyarıları için e-posta |
+| `POSTGRES_PASSWORD` | `openssl rand -hex 24` çıktısı (yalnız harf/rakam) |
+| `APP_DATABASE_URL` | `postgresql+psycopg://belgeee:<POSTGRES_PASSWORD>@db:5432/belgeee` |
+| `ANTHROPIC_API_KEY` (ya da `AI_PROVIDER=openai` + `OPENAI_API_KEY`) | Yapay zekâ sağlayıcısı; boşsa panel açılır ama partiler kuyrukta bekler |
+
+**2. Tek komut:**
+
+```bash
+docker compose --profile production up -d --build
+```
+
+Sırayla `preflight` (ayar denetimi — eksik ya da tutarsız ayarda komut anlaşılır bir hatayla
+durur) → `db` → `migrate` (`alembic upgrade head`) → `app` → `caddy` çalışır. Komut bitince
+`https://<DOMAIN>` açılır; HTTP istekleri HTTPS'e yönlendirilir.
+
+**3. İlk yönetici** (panel girişsiz açılmaz; parola terminalden gizli sorulur):
+
+```bash
+docker compose exec app python -m app.web create-admin --username <ad>
+```
+
+**4. Doğrulama:**
+
+```bash
+curl -fsS https://<DOMAIN>/health          # {"status":"ok"}
+curl -sI  http://<DOMAIN>/health           # 308 → https://<DOMAIN>/health
+docker compose --profile production ps -a  # app healthy, migrate exited (0)
+```
+
+**Güncelleme:** `git pull` sonra aynı komut (`docker compose --profile production up -d --build`);
+`migrate` yeni göçleri uygular, veri hacimleri (`data`, `pgdata`, `caddy_data`) korunur.
+**Durdurma:** `docker compose --profile production down` — **`-v` vermeyin**: hacimler yüklenen
+belgeleri, veritabanını ve sertifikayı taşır (`-v` hepsini siler).
+
+**Telegram botu (isteğe bağlı):** komuta `--profile telegram` eklenir; `TELEGRAM_BOT_TOKEN` ve
+`TELEGRAM_WEBHOOK_SECRET` `.env`'e yazılır. Webhook adresi varsayılan olarak
+`https://<DOMAIN>/telegram/webhook`'tur; Caddy `/telegram/*` yolunu bota yönlendirir.
+
+**Yedekleme:** gece yedeği ve geri yükleme prosedürü [`docs/YEDEKLEME.md`](docs/YEDEKLEME.md)'de
+(Compose kurulumuna özgü ayarlar orada). Zamanlayıcı (cron) sunucuya elle kurulur.
+
+**Ağ yüzeyi:** dışarıya yalnız Caddy'nin 80/443'ü açılır. Panel (`8000`) ve PostgreSQL (`5432`)
+yalnız `127.0.0.1`'e yayınlanır (ssh tüneli, sunucudaki yedek betiği için). Bu değişiklikle
+geliştirmede de panel yalnız `http://127.0.0.1:8000`'den açılır.
+
+**Bu depoda denenen ve denenmeyen:** yığın yerelde `DOMAIN=localhost` ile (Caddy'nin kendi yerel
+sertifika otoritesi) uçtan uca ayağa kaldırılıp HTTPS, HTTP→HTTPS yönlendirmesi, `Secure` çerezli
+giriş ve göçlerin gerçek PostgreSQL 16'da çalışması doğrulandı. **Gerçek bir alan adında Let's
+Encrypt sertifikası alma bu depoda denenmedi** (production dağıtımı ve DNS bu deponun sınırı
+dışındadır); Let's Encrypt'in yinelenen sertifika sınırı nedeniyle `caddy_data` hacmini gereksiz
+yere silmeyin.
+
 ## Bilinmesi gerekenler
 
 - **Uzak git deposu tanımlı değil.** Kapanışta push adımı atlanır, commit yeterlidir

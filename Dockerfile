@@ -11,6 +11,11 @@ COPY pyproject.toml ./
 COPY app ./app
 RUN pip install .
 
+# Şema göçleri (13.5.1): uygulama şemayı kendisi kurmaz; Compose'taki `migrate` adımı bu imajdan
+# `alembic upgrade head` çalıştırır.
+COPY alembic.ini ./
+COPY alembic ./alembic
+
 # Veri dizini (PRD §8.2) açılışta uygulama kullanıcısıyla kurulur; kök sahipliği burada verilir.
 RUN useradd --create-home --uid 10001 belgeee \
     && mkdir /srv/data \

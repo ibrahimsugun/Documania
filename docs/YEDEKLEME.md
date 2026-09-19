@@ -70,6 +70,26 @@ sonraki geceye kalır.
 
 Yedeğin işe yaradığını **haftada bir** geri yükleme provasıyla doğrulayın (aşağıda).
 
+### Docker Compose üretim dağıtımında (13.5.1)
+
+`docker compose --profile production up -d --build` ile kurulan sunucuda uygulama ve PostgreSQL
+konteynerdedir, betikler ise **sunucunun kendisinde** (konteyner dışında) çalışır:
+
+- **Veritabanı:** `db` servisi `127.0.0.1:5432`'yi yalnız bu makineye yayınlar; betik `pg_dump` ile
+  buradan bağlanır (`postgresql-client` sunucuya kurulur). `.env`'e `DATABASE_URL=postgresql://belgeee:<POSTGRES_PASSWORD>@127.0.0.1:5432/belgeee`
+  yazılır. Konteynerdeki uygulama bu satırı kullanmaz (`APP_DATABASE_URL` kullanır).
+- **Veri dizini:** `data` adlı Docker hacmi. `.env`'e `DATA_DIR=` olarak hacmin diskteki yolu yazılır:
+  `docker volume inspect belgeee_data --format '{{ .Mountpoint }}'` (Linux'ta genelde
+  `/var/lib/docker/volumes/belgeee_data/_data`; hacim adı Compose proje adından, yani depo
+  klasörünün adından gelir). Dosyalar konteyner kullanıcısına (uid 10001) aittir; cron `root` ile
+  koşmalıdır.
+- **Geri yükleme:** önce `docker compose --profile production stop app bot caddy` (db çalışır
+  kalır), betik, sonra `docker compose --profile production up -d`. Şemayı `migrate` adımı `up`'ta
+  zaten `alembic upgrade head` ile günceller (aşağıdaki 4. adım ayrıca gerekmez).
+
+Bu kurulum yerelde `DOMAIN=localhost` ile ayağa kaldırılıp panele girildi; yedek betiklerinin
+gerçek PostgreSQL konteynerine karşı koşusu **denenmedi** (aşağıdaki "Deneme kaydı" sınırı geçerli).
+
 ## Geri yükleme prosedürü
 
 Uygulamayı **durdurun** (`docker compose stop app bot` ya da servis neyse). Sonra hedef sunucuda,

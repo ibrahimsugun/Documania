@@ -1,0 +1,33 @@
+# belgeee — ters vekil (PRD 13.5.1). Alan adı için HTTPS sertifikasını Caddy kendisi alır ve yeniler
+# (Let's Encrypt); HTTP isteklerini HTTPS'e yönlendirir. Alan adı ve e-posta koda yazılmaz:
+# docker-compose.yml `production` profilinde DOMAIN ve ACME_EMAIL ortam değişkenlerinden gelir.
+{
+	# Sertifika süresi/iptal uyarıları bu adrese gider.
+	email {$ACME_EMAIL}
+}
+
+{$DOMAIN} {
+	encode zstd gzip
+
+	header {
+		# Tarayıcı bu alan adına bir yıl boyunca yalnız HTTPS ile gitsin.
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		# Panel sayfaları başka bir sitenin çerçevesinde açılamaz.
+		X-Frame-Options "SAMEORIGIN"
+		Referrer-Policy "same-origin"
+		-Server
+	}
+
+	# Telegram webhook'u (12.1.1): bot ayrı servistir; TLS burada sonlanır, bot düz HTTP dinler.
+	# TELEGRAM_WEBHOOK_URL'nin yolu /telegram/ ile başlamalıdır (docker-compose.yml varsayılanı
+	# https://<DOMAIN>/telegram/webhook). Bot çalışmıyorsa (telegram profili kapalı) bu yollar 502 verir.
+	handle /telegram/* {
+		reverse_proxy bot:8443
+	}
+
+	# Panel ve API.
+	handle {
+		reverse_proxy app:8000
+	}
+}

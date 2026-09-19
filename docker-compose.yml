@@ -1,34 +1,163 @@
+# belgeee — Docker Compose.
+#
+# Geliştirme (varsayılan): `docker compose up -d --build` → panel http://127.0.0.1:8000, SQLite.
+#
+# Üretim (PRD 13.5.1, alan adı + HTTPS, tek komut): `.env`'e DOMAIN, ACME_EMAIL, POSTGRES_PASSWORD,
+# APP_ENV=production ve APP_DATABASE_URL yazılır (.env.example'daki "Üretim dağıtımı" bölümü),
+# sonra:
+#
+#     docker compose --profile production up -d --build
+#
+# Bu komut PostgreSQL 16'yı (`db`), şema göçünü (`migrate`), paneli (`app`) ve HTTPS'i sonlandıran
+# Caddy'yi (`caddy`, sertifikayı kendisi alır ve yeniler) ayağa kaldırır. Telegram botu ayrı ve
+# isteğe bağlıdır: `--profile telegram` eklenir. Ayrıntı: README.md "Üretim dağıtımı".
+
+x-app: &app
+  build: .
+  image: belgeee:dev
+  # Uygulama ayarları (API anahtarları, model adları, işçi kuyruğu…) .env'den gelir; dosya yoksa
+  # varsayılanlarla açılır. Aşağıdaki `environment` değerleri .env'deki aynı adlı satırlara baskındır:
+  # yerel geliştirme .env'indeki `DATABASE_URL=sqlite:///./data/…` ve `DATA_DIR` konteynere geçmez.
+  env_file:
+    - path: .env
+      required: false
+  environment: &app-env
+    APP_ENV: ${APP_ENV:-development}
+    # Konteynerin veritabanı: varsayılan SQLite; üretimde .env'deki APP_DATABASE_URL (db servisi).
+    DATABASE_URL: ${APP_DATABASE_URL:-sqlite:////srv/data/belgeee.db}
+    DATA_DIR: /srv/data
+  volumes:
+    - data:/srv/data
+
 services:
+  # Şema göçü: uygulama şemayı kendisi kurmaz. Tek seferlik çalışır; app ve bot bunun başarıyla
+  # bitmesini bekler. Yeniden çalıştırmak zararsızdır (`alembic upgrade head` idempotenttir).
+  migrate:
+    <<: *app
+    command: ["alembic", "upgrade", "head"]
+    depends_on:
+      preflight:
+        condition: service_completed_successfully
+        required: false # preflight ve db yalnız production profilinde vardır
+      db:
+        condition: service_healthy
+        required: false
+    healthcheck:
+      disable: true
+    restart: "no"
+
   app:
-    build: .
-    image: belgeee:dev
+    <<: *app
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
     ports:
-      - "8000:8000"
-    environment:
-      DATABASE_URL: sqlite:////srv/data/belgeee.db
-    volumes:
-      - data:/srv/data
+      # Yalnız bu makineden (ssh tüneli, hata ayıklama). Dışarıya açılan yol Caddy'nin 443'üdür;
+      # panel HTTPS'siz hiçbir ağ arayüzünde yayınlanmaz.
+      - "127.0.0.1:8000:8000"
     restart: unless-stopped
 
   # 12.1.1: bot panelden ayrı servis. İsteğe bağlı (v2): `docker compose --profile telegram up`.
-  # Panelle aynı veritabanını ve veri hacmini kullanır; APP_ENV=production'da webhook dinler.
+  # Panelle aynı veritabanını ve veri hacmini kullanır; APP_ENV=production'da webhook dinler ve
+  # Caddy `/telegram/*` yolunu buraya yönlendirir.
   bot:
-    build: .
-    image: belgeee:dev
+    <<: *app
     profiles: ["telegram"]
     command: ["python", "-m", "app.telegram.bot"]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
     environment:
-      DATABASE_URL: sqlite:////srv/data/belgeee.db
-      APP_ENV: ${APP_ENV:-development}
+      <<: *app-env
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
-      TELEGRAM_WEBHOOK_URL: ${TELEGRAM_WEBHOOK_URL:-}
+      # Telegram'ın çağıracağı genel adres: Caddy'nin dışarı açtığı alan adı + /telegram/ yolu.
+      TELEGRAM_WEBHOOK_URL: ${TELEGRAM_WEBHOOK_URL:-https://${DOMAIN:-localhost}/telegram/webhook}
       TELEGRAM_WEBHOOK_SECRET: ${TELEGRAM_WEBHOOK_SECRET:-}
       TELEGRAM_WEBHOOK_LISTEN: 0.0.0.0
-    volumes:
-      - data:/srv/data
+      TELEGRAM_WEBHOOK_PORT: 8443
     healthcheck:
       disable: true
     restart: unless-stopped
 
+  # --- Üretim (13.5.1): `docker compose --profile production up -d --build` ------------------------
+
+  # Ayar denetimi: eksik ya da tutarsız üretim ayarında `up` anlaşılır bir hata ile durur; yoksa
+  # Caddy boş alan adıyla, uygulama development kipinde sessizce açılırdı. (`${VAR:?}` burada
+  # kullanılamaz: Compose onu etkin olmayan profillerde de yorumlar ve geliştirme akışını bozar.)
+  preflight:
+    image: caddy:2-alpine
+    profiles: ["production"]
+    environment:
+      DOMAIN: ${DOMAIN:-}
+      ACME_EMAIL: ${ACME_EMAIL:-}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-}
+      APP_ENV: ${APP_ENV:-development}
+      APP_DATABASE_URL: ${APP_DATABASE_URL:-}
+    entrypoint:
+      - sh
+      - -c
+      - |
+        fail() { echo "HATA (üretim dağıtımı): $$1 Bkz. .env.example, 'Üretim dağıtımı' bölümü." >&2; exit 1; }
+        [ -n "$$DOMAIN" ] || fail ".env'de DOMAIN yok (ör. belge.sirket.com)."
+        [ -n "$$ACME_EMAIL" ] || fail ".env'de ACME_EMAIL yok (sertifika uyarıları için)."
+        [ -n "$$POSTGRES_PASSWORD" ] || fail ".env'de POSTGRES_PASSWORD yok."
+        [ "$$APP_ENV" = "production" ] || fail ".env'de APP_ENV=production olmalı (şu an: $$APP_ENV)."
+        case "$$APP_DATABASE_URL" in
+          postgresql*"$$POSTGRES_PASSWORD"*@db:5432/*) ;;
+          *) fail "APP_DATABASE_URL, db servisindeki PostgreSQL'i ve POSTGRES_PASSWORD'ü göstermeli." ;;
+        esac
+        echo "üretim ayarları tamam: $$DOMAIN"
+    restart: "no"
+
+  # PostgreSQL 16 (MASTER-PROMPT §4). Parola .env'den gelir; kodda ve depoda yoktur.
+  db:
+    image: postgres:16-alpine
+    profiles: ["production"]
+    depends_on:
+      preflight:
+        condition: service_completed_successfully
+    environment:
+      POSTGRES_USER: belgeee
+      POSTGRES_DB: belgeee
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      # Yalnız bu makineden: sunucudaki gece yedeği (`scripts/backup.sh`, pg_dump) buradan bağlanır
+      # (docs/YEDEKLEME.md). Dışarıya açılmaz.
+      - "127.0.0.1:5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U belgeee -d belgeee"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    restart: unless-stopped
+
+  # HTTPS ve alan adı: 80/443'ü yalnız bu servis açar. Sertifika Let's Encrypt'ten alınır ve
+  # yenilenir; `caddy_data` hacmi silinirse sertifika yeniden istenir (sağlayıcı sınırlarına dikkat).
+  caddy:
+    image: caddy:2-alpine
+    profiles: ["production"]
+    depends_on:
+      preflight:
+        condition: service_completed_successfully
+      app:
+        condition: service_healthy
+    environment:
+      DOMAIN: ${DOMAIN:-}
+      ACME_EMAIL: ${ACME_EMAIL:-}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp" # HTTP/3
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    restart: unless-stopped
+
 volumes:
   data:
+  pgdata:
+  caddy_data:
+  caddy_config:
