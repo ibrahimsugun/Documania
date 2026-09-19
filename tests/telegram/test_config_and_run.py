@@ -237,6 +237,8 @@ def test_main_starts_the_bot_and_keeps_the_token_out_of_transport_logs(
         not isinstance(h, MessageHandler | CallbackQueryHandler)
         for h in application.handlers[GATE_GROUP]
     )
+    # 12.4: kuyruk/hata bildirimi işleyici değil arka plan taramasıdır; botla başlar ve durur.
+    assert application.post_init is not None and application.post_shutdown is not None
     # httpx her isteği `.../bot<TOKEN>/...` adresiyle INFO'ya yazar; ana işlev bunu susturur.
     assert logging.getLogger("httpx").getEffectiveLevel() >= logging.WARNING
     assert logging.getLogger("httpcore").getEffectiveLevel() >= logging.WARNING

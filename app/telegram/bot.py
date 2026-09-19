@@ -15,7 +15,9 @@ kapıdan önceki bir gruba konan işleyici beyaz listeyi atlar.
 
 Belge alma (12.2) `app.telegram.handlers.DocumentIntake`'te, doğal dil belge istekleri (12.3)
 `app.telegram.intent.DocumentRequests`'tedir; `build_application`'a verilenler `HANDLER_GROUP`'a
-eklenir. Hiçbiri verilmezse bot yalnız komutlara yanıt verir.
+eklenir. Kuyruk ve hata bildirimleri (12.4) `app.telegram.notify.Notifier`'dır: güncelleme
+işleyicisi değil, botla birlikte başlayıp duran bir arka plan taramasıdır. Hiçbiri verilmezse bot
+yalnız komutlara yanıt verir.
 """
 
 from __future__ import annotations
@@ -49,6 +51,7 @@ from app.db.session import get_session_factory
 from app.storage import prepare_data_dir
 from app.telegram.handlers import DocumentIntake
 from app.telegram.intent import DocumentRequests
+from app.telegram.notify import Notifier
 
 logger = logging.getLogger(__name__)
 
@@ -65,6 +68,8 @@ HELP_TEXT = (
     "gönderilen dosyalar tek parti sayılır; işlem bitince sonucu yazarım.\n\n"
     "Belge istemek: kimin hangi belgesini istediğinizi yazın, örneğin “Ahmet Çakar'ın ehliyetini "
     "göster”. Birden çok sonuç bulunursa hangisini istediğinizi sorarım.\n\n"
+    "Bildirimler: kuyruğa yeni öğe düşünce ya da bir parti işlenemeyince size kendiliğimden "
+    "yazarım.\n\n"
     "Komutlar:\n"
     "/start, /yardim — bu mesaj"
 )
@@ -211,9 +216,11 @@ def build_application(
     builder: ApplicationBuilder | None = None,
     intake: DocumentIntake | None = None,
     document_requests: DocumentRequests | None = None,
+    notifier: Notifier | None = None,
 ) -> Application:
     """Beyaz liste kapısı, komut, (`intake` verilirse) belge alma ve (`document_requests`
-    verilirse) belge isteği işleyicileriyle bot uygulamasını kurar (ağa çıkmaz).
+    verilirse) belge isteği işleyicileriyle bot uygulamasını kurar (ağa çıkmaz); `notifier`
+    verilirse bot başlarken bildirim taraması açılır, dururken kapanır (12.4).
 
     `builder` testte sahte bir aktarıcıyla ön ayarlı gelir; verilmezse varsayılan kurulur."""
     application = (builder or ApplicationBuilder()).token(config.token).build()
@@ -225,6 +232,8 @@ def build_application(
         intake.register(application, group=HANDLER_GROUP)
     if document_requests is not None:
         document_requests.register(application, group=HANDLER_GROUP)
+    if notifier is not None:
+        notifier.register(application)
 
     secrets = config.secrets()
 
@@ -271,7 +280,11 @@ def main() -> int:
     intake = DocumentIntake(session_factory, layout, settings)
     document_requests = DocumentRequests(session_factory, layout, settings)
     application = build_application(
-        config, session_factory, intake=intake, document_requests=document_requests
+        config,
+        session_factory,
+        intake=intake,
+        document_requests=document_requests,
+        notifier=Notifier(session_factory),
     )
     run(application, config)
     return 0
