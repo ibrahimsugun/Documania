@@ -15,6 +15,7 @@ from datetime import date
 from typing import Any
 
 import pytest
+import yaml
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -50,6 +51,7 @@ from app.pipeline.route import (
     review_queued_profile,
     route_queue_item,
 )
+from app.profiles import render_profile
 from app.storage import DataLayout, sha256_file
 from tests.fixtures.gen import make_text_pdf_bytes
 from tests.pipeline.test_execute import _files, _open
@@ -266,6 +268,39 @@ def test_approval_opens_the_employee_and_binds_the_document(
     assert (plan.json, plan.plan_hash) == frozen
     assert _count(session, Plan) == 1
     _assert_no_personal_values(session)
+
+
+# --- 09.1.1: onaydan sonra açılan çalışanın profili üretilir ----------------------------------
+
+
+def test_approval_writes_the_new_employees_profile(session: Session, layout: DataLayout) -> None:
+    # Profil çıktı ve belgeden eklenen iletişim bilgisi yazıldıktan sonra üretilir.
+    contact = {"phone": PHONE, "email": None, "address": None}
+    _, _, (queued,) = _queued(session, layout, _pdf(_pending(contact=contact)))
+
+    approved = _approve(session, layout, queued.id)
+
+    text = layout.profile_path(FOLDER).read_text(encoding="utf-8")
+    assert text == render_profile(session, approved.employee)
+    front_matter = yaml.safe_load(text.split("---\n")[1])
+    assert (front_matter["employee_id"], front_matter["folder_name"]) == (NEW, FOLDER)
+    assert front_matter["contacts"] == [{"kind": "phone", "value": PHONE}]
+    assert "| Work Permit | Test_Ornekova-Work-Permit.pdf | active |" in text
+    assert sorted(path.name for path in layout.employee_dir(FOLDER).iterdir()) == [
+        "Alinan",
+        "Hazir",
+        "profil.md",
+    ]
+
+
+def test_refused_approval_does_not_write_a_profile(session: Session, layout: DataLayout) -> None:
+    _, _, (queued,) = _queued(session, layout, _image(_pending()))
+    import_catalog(session, _catalog_with(PERMIT, allowed_conversions=["merge"]))
+
+    with pytest.raises(QueueItemNotAssignableError, match="Dönüşüm izni yok"):
+        _approve(session, layout, queued.id)
+
+    assert _files(layout.employees) == []
 
 
 def test_blank_page_between_the_faces_stays_out_of_the_approved_output(

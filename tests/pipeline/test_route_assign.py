@@ -39,6 +39,7 @@ from app.pipeline.route import (
     assign_queue_item,
     route_queue_item,
 )
+from app.profiles import render_profile
 from app.storage import DataLayout, sha256_file
 from tests.fixtures.gen import make_docx_bytes, make_text_pdf_bytes
 from tests.pipeline.test_execute import _files, _open
@@ -295,6 +296,47 @@ def test_rerouting_the_assigned_item_writes_nothing_new(
 
     assert not routed.applied and routed.queue_item is queued
     assert _state(session, layout) == state
+
+
+# --- 09.1.1: atamadan sonra çalışanın profili yeniden üretilir --------------------------------
+
+
+def test_assignment_regenerates_the_assigned_employees_profile(
+    session: Session, layout: DataLayout
+) -> None:
+    _, _, (queued,) = _queued(session, layout, _pdf(_page(PERMIT, illegible=("surname",))))
+    profile = layout.profile_path(TARGET_FOLDER)
+    profile.write_text("bayat profil", encoding="utf-8")  # baştan üretilir
+    bystander = Employee(id="E0043", folder_name="Baska_Kisi_E0043", given_names="B", surname="K")
+    session.add(bystander)
+    session.flush()
+    layout.ensure_employee_tree(bystander.folder_name)
+
+    _assign(session, layout, queued.id)
+
+    text = profile.read_text(encoding="utf-8")
+    assert text == render_profile(session, session.get_one(Employee, TARGET))
+    assert f"employee_id: {TARGET}\n" in text
+    assert "| Work Permit | Kayitli_Kisi-Work-Permit.pdf | active |" in text
+    # Yalnız çıktının sahibi yeniden üretilir; geçici dosya kalmaz.
+    assert not layout.profile_path(bystander.folder_name).exists()
+    assert sorted(path.name for path in layout.employee_dir(TARGET_FOLDER).iterdir()) == [
+        "Alinan",
+        "Hazir",
+        "profil.md",
+    ]
+
+
+def test_refused_assignment_does_not_write_the_profile(
+    session: Session, layout: DataLayout
+) -> None:
+    text = (RECORDINGS / "s14_peruvian_diploma" / "0.json").read_text(encoding="utf-8")
+    _, _, (queued,) = _queued(session, layout, _pdf(json.loads(text)))
+
+    with pytest.raises(QueueItemNotAssignableError):
+        _assign(session, layout, queued.id)
+
+    assert not layout.profile_path(TARGET_FOLDER).exists()
 
 
 # --- insan kararı aşamaz: tür ve fiziksel kurallar ------------------------------------------

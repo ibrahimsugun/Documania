@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 from app.db.models import Base, Document, DocumentStatus, Employee, Event, KnownDocumentType
 from app.db.session import create_db_engine, create_session_factory
 from app.events import EventType
+from app.profiles import render_profile
 from app.storage import (
     ArchivedDocument,
     DataLayout,
@@ -177,3 +178,51 @@ def test_archiving_leaves_the_transaction_to_the_caller(
 
     assert session.get_one(Document, document.id).status == DocumentStatus.ACTIVE.value
     assert session.scalars(select(Event).where(Event.type == EventType.ARCHIVED)).all() == []
+
+
+# --- 09.1.1: arşivden sonra sahibin profili yeniden üretilir ----------------------------------
+
+
+def test_archiving_regenerates_the_owners_profile(session: Session, layout: DataLayout) -> None:
+    employee = _employee(session)
+    document = _document(session, layout)
+    profile = layout.profile_path(FOLDER)
+    profile.write_text("bayat profil", encoding="utf-8")  # baştan üretilir
+    bystander = Employee(id="E0002", folder_name="Baska_Kisi_E0002", given_names="B", surname="K")
+    session.add(bystander)
+    session.flush()
+    layout.ensure_employee_tree(bystander.folder_name)
+
+    archive_document(session, layout, document.id, actor=ACTOR, today=date(2026, 3, 5))
+
+    text = profile.read_text(encoding="utf-8")
+    assert text == render_profile(session, employee)
+    assert f"employee_id: {EMPLOYEE_ID}\n" in text
+    assert "| Test Passport | Test_Kisi-Passport.pdf | archived |" in text
+    # Yalnız belgenin sahibi yeniden üretilir; geçici dosya kalmaz.
+    assert not layout.profile_path(bystander.folder_name).exists()
+    assert sorted(path.name for path in layout.employee_dir(FOLDER).iterdir()) == [
+        "Hazir",
+        "profil.md",
+    ]
+
+
+@pytest.mark.parametrize(
+    "status",
+    [DocumentStatus.SUPERSEDED, DocumentStatus.ARCHIVED],
+    ids=["superseded", "already-archived"],
+)
+def test_refused_archiving_does_not_touch_the_profile(
+    session: Session, layout: DataLayout, status: DocumentStatus
+) -> None:
+    _employee(session)
+    document = _document(session, layout, status=status)
+
+    with pytest.raises(DocumentNotArchivableError):
+        archive_document(session, layout, document.id, actor=ACTOR)
+    with pytest.raises(ValueError, match="K16"):
+        archive_document(session, layout, document.id, actor="")
+    with pytest.raises(DocumentNotFoundError):
+        archive_document(session, layout, 999, actor=ACTOR)
+
+    assert not layout.profile_path(FOLDER).exists()

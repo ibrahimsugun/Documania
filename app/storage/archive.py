@@ -10,6 +10,11 @@ yeniden adlandırılmaz).
 
 Yalnız `active` durumundaki belge arşivlenir: zaten arşivlenmiş ya da eski sürüm (`superseded`,
 K18) belge `DocumentNotArchivableError`.
+
+Belgenin durumu ve yolu değiştiği için sahibinin `profil.md`'si son adım olarak yeniden üretilir
+(09.1.1; `app.profiles.write_profile`, yalnız veritabanından, K17). Oturum commit edilmediği için
+çağıran commit'ten önce işlemi geri alırsa `profil.md` bir sonraki yeniden üretime kadar bayat
+kalır (PLAN.md §D31); dosya taşıması zaten geri alınmaz.
 """
 
 from __future__ import annotations
@@ -19,7 +24,7 @@ from datetime import date
 
 from sqlalchemy.orm import Session
 
-from app.db.models import Document, DocumentStatus, Event, utcnow
+from app.db.models import Document, DocumentStatus, Employee, Event, utcnow
 from app.events import EventType, record_event
 from app.storage.atomic import iter_file_chunks, sha256_file, write_unique
 from app.storage.layout import DataLayout
@@ -56,9 +61,14 @@ def archive_document(
     `today` ay dizinini seçer, varsayılanı taşımanın yapıldığı gündür (UTC).
 
     Belge kaydı yoksa `DocumentNotFoundError`; `active` değilse (zaten arşivlenmiş ya da eski
-    sürüm) `DocumentNotArchivableError` — hiçbir şey taşınmaz. Oturum commit edilmez. Aynı belgeyi
-    eşzamanlı arşivleyen ikinci işlem satırın kilidinde bekler ve belgeyi arşivlenmiş görür.
+    sürüm) `DocumentNotArchivableError` — hiçbir şey taşınmaz. Başarıdan sonra belgenin sahibinin
+    `profil.md`'si yeniden üretilir (09.1.1). Oturum commit edilmez. Aynı belgeyi eşzamanlı
+    arşivleyen ikinci işlem satırın kilidinde bekler ve belgeyi arşivlenmiş görür.
     """
+    # `app.profiles` `app.storage`'ı içe aktarır; üst düzeyde içe aktarmak paket başlatmada döngü
+    # kurar.
+    from app.profiles import write_profile
+
     if not actor.strip():
         raise ValueError("Manuel işlem kullanıcı adıyla loglanır (K16): actor boş olamaz")
     document = session.get(Document, document_id, with_for_update=True, populate_existing=True)
@@ -88,4 +98,6 @@ def archive_document(
         actor=actor,
         data={"document_id": document.id, "path": document.path},
     )
+    # 09.1.1: profil belgenin yeni durumunu ve dosya adını gösterir; son adım.
+    write_profile(session, layout, session.get_one(Employee, document.employee_id))
     return ArchivedDocument(document, event)
