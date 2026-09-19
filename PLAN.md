@@ -8,7 +8,7 @@
 
 | Faz | PRD | Genel durum | Must sayacı | Kapanış |
 | --- | --- | --- | --- | --- |
-| Faz 0 — MVP | §5.1 | 101 ✅ · 1 ◐ · 0 ⬜ · 0 🔒 | 98/98 Must | AÇIK |
+| Faz 0 — MVP | §5.1 | 100 ✅ · 2 ◐ · 0 ⬜ · 0 🔒 | 97/98 Must | AÇIK |
 | Faz 1 — v1 | §5.2 | 32 ✅ · 0 ◐ · 0 ⬜ · 0 🔒 | 21/21 Must | AÇIK |
 | Faz 2 — v2 | §5.3 | 1 ✅ · 0 ◐ · 0 ⬜ · 12 🔒 | 0/0 Must | AÇIK |
 | Faz 3 — Enterprise | §5.4 | 0 ✅ · 0 ◐ · 0 ⬜ · 8 🔒 | 0/0 Must | AÇIK |
@@ -95,7 +95,7 @@ panelde `plan-count-drift` bulgusu doğurur.
 | 01.1.1 | Çoklu dosya yükleme uç noktası | Must (MVP) | ✅ → K01.1 |
 | 01.1.2 | Bağlam çalışanı ile yükleme | Must (MVP) | ✅ → K01.1 |
 | 01.2.1 | İçerik tabanlı tür tespiti | Must (MVP) | ✅ → K01.2 |
-| 01.2.2 | Desteklenmeyen türün reddi | Must (MVP) | ✅ → K01.2 |
+| 01.2.2 | Desteklenmeyen türün reddi | Must (MVP) | ◐ → K01.2 |
 | 01.3.1 | Boyut ve sayfa sınırı | Must (MVP) | ✅ → K01.3 |
 | 01.4.1 | Tekrar yükleme tespiti | Must (MVP) | ✅ → K01.4 |
 | 01.5.1 | Inbox'a değişmez yazma | Must (MVP) | ✅ → K01.5 |
@@ -1797,6 +1797,8 @@ bu kayıt neden sapıldığının izlenebilir olması içindir.
 - **D35 — Fotoğraf kural setinin varsayılanları, biçimi ve olay kaydı PRD'de yok (11.6.1, tm 80).**
   (a) Kaynak plan baş örtüsü için "kabul durumu (şirket kararı)" der; PRD karar vermez. Kural "Baş örtüsü yok" biçiminde tanımlandı ve **varsayılan KAPALI**: İK açana kadar hiçbir fotoğrafı bu yüzden elemez; yönünün (kabul edilmez) ve açılıp açılmayacağının kararı insanın. Asgari çözünürlük için PRD/kaynak sayı vermez: ilk değer 400×400 piksel uydurma bir başlangıçtır, panelden değişir. (b) Kayıt boşken (`photo_rules: null` — tohum ve bugünkü kurulumlar) kurallar **varsayılanındadır**: 11.7 geldiğinde İK hiç kaydetmemiş olsa da altı kural etkin olur; "hiç kaydedilmedi" "kural yok" demek değildir. İstenmiyorsa tohuma boş bir küme yazmak ya da varsayılanları kapatmak insanın kararı. (c) Kural kimlikleri ve `{kural: {enabled}}` biçimi PRD §8.6'da yok (yalnız `photo_rules` sütununun adı var); kaynak plan `photo_rules: []` (liste) demişti, PRD/şema sözlük olduğu için sözlük kullanıldı. 11.7 kuralları bu biçimden `enabled_photo_rules` ile okumalı. (d) K15 "her adım `events` tablosuna yazılır" der; §8.3'ün kapalı listesinde kural değişikliği olayı yoktur (D28, D33 emsali): kural setini kimin, ne zaman değiştirdiği kaydedilmiyor; yeni olay türü insanın kararı. (e) Kurallar yalnız `profile_picture`'da (`PHOTO_RULE_TYPES`); başka bir görsel tür açılırsa kümeye eklenmesi gerekir. Görevin yüzeyi dışında `app/web/templates/catalog_form.html` + yeni `catalog_photo_rules.html`, `panel.css`, `app/catalog/__init__.py` (dışa aktarım), `tests/web/test_access_log.py` (10.9.1 kilidine bir yeni POST yolu) dokunuldu; tür sayfası artık `?notice=` alır. Tarayıcıda çizim görülmedi (yalnız `TestClient`).
 
+- **01.1.1/01.2.2 çelişki denetimi (2026-09-19, panel bulgusu: açık tm 94 ↔ PLAN.md:95, :98 ✅):** kod 01.1.1'i doğruladı (kabul yeşil, ✅ kaldı; Windows'ta yasak karakterli ad → 500 kabulün dışında bir sağlamlık kusuru, yeniden üretildi) ama 01.2.2 ✅ erkendi — `POST /api/uploads` desteklenmeyen içeriği 201 ile Inbox'a alıyor, kullanıcıya mesaj yok (K01.2); 01.2.2 ◐'ye çekildi, tm 94 açık kaldı ve yalnız kalan iki parçaya (ad doğrulaması + yüklemede tür reddi) daraltıldı, yeni görev açılmadı.
+
 ## G. İş Kırılımı Dizini
 
 Task Master'a aktarımın kaynağı budur. Her satır bir görevdir; `ID` sütunu görev
@@ -1941,9 +1943,11 @@ var olan maddeler silinmez. Biçim:
 
 #### K01.1 — 01.1.1, 01.1.2 · Yükleme uç noktası ve parti oluşturma
 - ✅ `POST /api/uploads`: çoklu dosyayı tek partide kabul eder, her dosyayı `Inbox/<upload_id>/<orijinal_ad>` altına değişmez yazar (K10, `write_file`), `sha256`/`mime` ile `upload_files` satırı açar, her dosya için `FILE_UPLOADED` olayı yazar; `upload_id` `u_yyyymmdd_0001` biçiminde günlük sıfırlanan sırayla üretilir (`allocate_upload_id`, `allocate_employee_number` ile aynı kilit deseni); istek `context_employee_id` taşıyabilir ve partiye kaydedilir (var olmayan çalışan 404), aynı partide aynı adda dosya ve yol ayracı/`..` içeren ad 400 ile reddedilir — `app/web/routers/uploads.py` · `app/db/models.py` (`allocate_upload_id`) · `app/main.py` · test `tests/web/test_uploads.py` (9) · `tests/db/test_upload_id.py` (13; PG eşzamanlılık testi `BELGEEE_TEST_POSTGRES_URL` ile) · tm 7
+- ✅ Çelişki denetimi (2026-09-19, panel bulgusu: açık tm 94 ↔ PLAN.md:95 ✅): 01.1.1'in kabulü (çoklu dosya tek parti, `upload_id` döner) koda karşı yeniden koşuldu — `tests/web/test_uploads.py` + `tests/storage/test_filetype.py` + `tests/db/test_upload_id.py` 57 geçti, 1 PG atlandı; damga ✅ kaldı. Kabulün dışında kalan sağlamlık kusuru yeniden üretildi: Windows'ta yasak karakter (`<` `>` `:` `?` `*` vb.) içeren ad (`a<b.pdf`) `_validated_name`'den geçer, `write_file` → `os.link` `OSError` (WinError 123) → 500; kalan iş tm 94 (1) — `app/web/routers/uploads.py` · tm 94
 
 #### K01.2 — 01.2.1, 01.2.2 · İçerik tabanlı dosya türü tespiti
 - ✅ `detect_file_kind(content)` yalnız ilk baytlardaki imzaya bakar, dosya adı/uzantısı hiç okunmaz — PDF/JPEG/PNG imzası doğrudan, OOXML (DOCX/XLSX) ZIP içindeki `word/document.xml`/`xl/workbook.xml` yoluyla, eski ikili DOC/XLS (CFBF) UTF-16LE `WordDocument`/`Workbook`/`Book` akış adıyla ayırt edilir (K2: DOC/XLS/DOCX/XLSX yalnız tanınır, analiz edilmez); yedi türün dışındaki her içerik (boş, düz metin, bozuk zip, isimsiz OLE) `UnsupportedFileTypeError` ile anlaşılır Türkçe mesajla reddedilir — `app/storage/filetype.py` · test `tests/storage/test_filetype.py` (10 fonksiyon / 14 durum) · tm 8
+- ◐ Çelişki denetimi (2026-09-19, panel bulgusu: açık tm 94 ↔ PLAN.md:98 ✅): 01.2.2'nin kabulü ("yedi tür dışındaki dosya anlaşılır mesajla reddedilir") uçtan uca karşılanmıyor, ✅ erkendi. Tespit işlevi reddediyor, ama yükleme uç noktası onu reddetmek için çağırmıyor (`_pdf_page_count` hatayı yutar): düz metin `notlar.txt` → `POST /api/uploads` 201, dosya Inbox'a yazılır, `GET /api/uploads/{id}` `page_count: null` ile sessizce `received`, kullanıcı mesaj görmez; `/upload` sayfasının `accept=` süzgeci yalnız tarayıcıda. EKSİK: yedi tür dışındaki içerik yüklemede 400 + `detect_file_kind` mesajıyla, 01.3.1 emsaliyle hep-ya-hiç reddedilmeli (parti, `upload_files` satırı, olay ve Inbox dizini oluşmadan) ve bunun uç nokta testi yazılmalı. Kalan iş tm 94 (2) — `app/web/routers/uploads.py` · test yok · tm 94
 
 #### K01.3 — 01.3.1 · Boyut ve sayfa sınırı denetimi
 - ✅ Her dosya diske yazılmadan/parti oluşturulmadan önce boyut (`max_upload_file_size_bytes`, varsayılan 20 MiB) ve, içerik `detect_file_kind` ile PDF tespit edilirse, sayfa sayısı (`max_upload_pdf_pages`, varsayılan 30, `pypdf.PdfReader` ile sayılır) denetlenir; sınırı aşan tek dosya bile olsa 400 döner, kullanıcıya dosyayı bölmesi söylenir, parti/DB satırı hiç oluşmaz; PDF imzalı ama pypdf ile çözülemeyen içerikte (ör. sentetik olmayan test baytı) sayfa denetimi sessizce atlanır — `app/config.py` · `app/web/routers/uploads.py` · `pyproject.toml` (pypdf) · test `tests/web/test_uploads.py` (+6) · tm 9
