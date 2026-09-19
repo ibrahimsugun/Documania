@@ -41,6 +41,9 @@ class Settings(BaseSettings):
     ai_request_timeout_seconds: float = Field(default=120.0, gt=0)
     anthropic_api_key: SecretStr | None = None
     anthropic_model: str = Field(default="claude-opus-5", min_length=1)
+    # PRD 03.3.1 — ikincil sağlayıcı; anahtar yalnız `AI_PROVIDER=openai` iken zorunludur.
+    openai_api_key: SecretStr | None = None
+    openai_model: str = Field(default="gpt-5.5", min_length=1)
     # PRD 10.1.2 — panel oturumunun ömrü (saniye); süre dolunca yeniden giriş istenir. PRD süre
     # vermez, varsayılan bir iş günü (bkz. PLAN.md §C45).
     session_max_age_seconds: int = Field(default=12 * 60 * 60, gt=0)

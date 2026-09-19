@@ -105,6 +105,8 @@ AI_VARIABLES = (
     "AI_REQUEST_TIMEOUT_SECONDS",
     "ANTHROPIC_API_KEY",
     "ANTHROPIC_MODEL",
+    "OPENAI_API_KEY",
+    "OPENAI_MODEL",
 )
 
 
@@ -119,16 +121,22 @@ def test_ai_settings_have_defaults_and_read_environment(monkeypatch: pytest.Monk
     monkeypatch.setenv("AI_REQUEST_TIMEOUT_SECONDS", "30.5")
     monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
     monkeypatch.setenv("ANTHROPIC_MODEL", "claude-test")
+    monkeypatch.setenv("OPENAI_API_KEY", "test-openai-key")
+    monkeypatch.setenv("OPENAI_MODEL", "gpt-test")
     configured = load_settings(_env_file=None)
 
     assert (defaults.ai_provider, defaults.ai_max_output_tokens) == ("anthropic", 4096)
     assert defaults.ai_request_timeout_seconds == 120.0
     assert (defaults.anthropic_api_key, defaults.anthropic_model) == (None, "claude-opus-5")
+    assert (defaults.openai_api_key, defaults.openai_model) == (None, "gpt-5.5")
     assert (configured.ai_provider, configured.ai_max_output_tokens) == ("openai", 1024)
     assert configured.ai_request_timeout_seconds == 30.5
     assert configured.anthropic_api_key is not None
     assert configured.anthropic_api_key.get_secret_value() == "test-key"
     assert configured.anthropic_model == "claude-test"
+    assert configured.openai_api_key is not None
+    assert configured.openai_api_key.get_secret_value() == "test-openai-key"
+    assert configured.openai_model == "gpt-test"
 
 
 def test_env_example_documents_ai_settings() -> None:
@@ -147,6 +155,7 @@ def test_env_example_documents_ai_settings() -> None:
         ("AI_MAX_OUTPUT_TOKENS", "0"),
         ("AI_REQUEST_TIMEOUT_SECONDS", "0"),
         ("ANTHROPIC_MODEL", ""),
+        ("OPENAI_MODEL", ""),
     ],
 )
 def test_invalid_ai_settings_rejected(

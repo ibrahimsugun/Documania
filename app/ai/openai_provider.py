@@ -1,0 +1,180 @@
+"""OpenAI sağlayıcısı — PRD 03.3.1.
+
+`AnalysisProvider`'ın ikinci somut uygulaması (`AI_PROVIDER=openai`); Anthropic ile aynı sözleşme
+ve aynı hata aileleri, yalnız API biçimi farklıdır. Chat Completions API'ye tek bir istek gider:
+`system` mesajında sistem talimatı, kullanıcı mesajında önce sayfa görüntüsü (base64 veri URL'si),
+sonra sayfaya özgü metin. İstek içeriği `PageAnalysisRequest`'ten olduğu gibi alınır, burada
+talimat yazılmaz (03.4).
+
+Yapılandırılmış çıktı Anthropic'teki gibi zorlanmış araç çağrısıyla alınır: tek işlev
+(`TOOL_NAME`), parametre şeması `PageAnalysis.model_json_schema()`, `tool_choice` bu işleve sabit.
+Katı mod (`strict`) kapalıdır: katı şema her nesnede `additionalProperties: false` ister ve
+`patternProperties`'i kabul etmez, §8.4'ün `fields`'ı ise alan adı anahtarlı bir sözlüktür (§C13).
+Modelin işlev argümanları ham yanıttır; kabulü `AnalysisProvider.analyze_page`
+`validate_page_analysis` ile yapar.
+
+SDK'nın kendi yeniden denemesi kapalıdır (`max_retries=0`): geri çekilmeli deneme 03.5'in işidir,
+iki katman üst üste denemesin. İstek `store=False` gider: sayfa görüntüsü kimlik belgesi olabilir,
+sağlayıcı tarafında saklanmasını istemiyoruz (CONVENTIONS §6).
+"""
+
+from __future__ import annotations
+
+import base64
+
+import httpx2
+import openai
+from openai.types.chat import (
+    ChatCompletion,
+    ChatCompletionFunctionToolParam,
+    ChatCompletionMessageParam,
+)
+
+from app.ai.provider import (
+    AnalysisProvider,
+    PageAnalysisRequest,
+    ProviderConfigError,
+    ProviderConnectionError,
+    ProviderError,
+    ProviderRateLimitError,
+    ProviderServerError,
+)
+from app.ai.schemas import PageAnalysis, PageAnalysisError
+from app.config import Settings
+
+TOOL_NAME = "record_page_analysis"
+
+ANALYSIS_TOOL: ChatCompletionFunctionToolParam = {
+    "type": "function",
+    "function": {
+        "name": TOOL_NAME,
+        "description": (
+            "Tek sayfanın analiz sonucunu kaydeder. Argümanlar, sayfa analizi şemasındaki her "
+            "anahtarı taşıyan tek bir nesnedir."
+        ),
+        "parameters": PageAnalysis.model_json_schema(),
+        "strict": False,
+    },
+}
+
+_UNFINISHED_FINISH_REASONS = frozenset({"length", "content_filter"})
+"""`length` kesik argüman, `content_filter` süzülmüş çıktıdır — araç çağrısı varmış gibi görünse de
+kabul edilmez. (Zorlanmış işlev seçiminde `finish_reason` `tool_calls` yerine `stop` gelebilir; bu
+yüzden kabul ölçütü `finish_reason` değil, tek ve tam bir işlev çağrısıdır.)"""
+
+_PERMANENT_RATE_LIMIT_CODES = frozenset({"insufficient_quota"})
+"""429 ile dönen ama beklemekle geçmeyen durumlar (kota/bakiye bitti): yeniden denenmez."""
+
+
+class OpenAIProvider(AnalysisProvider):
+    """OpenAI Chat Completions API ile sayfa analizi (`AI_PROVIDER=openai`)."""
+
+    name = "openai"
+
+    def __init__(self, client: openai.OpenAI, *, model: str, max_output_tokens: int) -> None:
+        super().__init__(model=model)
+        if max_output_tokens <= 0:
+            raise ValueError("max_output_tokens pozitif olmalı")
+        self._client = client
+        self._max_output_tokens = max_output_tokens
+
+    @classmethod
+    def from_settings(
+        cls, settings: Settings, *, http_client: httpx2.Client | None = None
+    ) -> OpenAIProvider:
+        """Ayarlardan istemci kurar; `OPENAI_API_KEY` boşsa `ProviderConfigError`.
+
+        `http_client` yalnız taşıma katmanını değiştirmek içindir (test, vekil).
+        """
+        api_key = settings.openai_api_key
+        if api_key is None or not api_key.get_secret_value().strip():
+            raise ProviderConfigError(
+                "AI_PROVIDER=openai için OPENAI_API_KEY tanımlı olmalı. "
+                "Bkz. .env.example dosyasındaki açıklama."
+            )
+        client = openai.OpenAI(
+            api_key=api_key.get_secret_value().strip(),
+            max_retries=0,
+            timeout=settings.ai_request_timeout_seconds,
+            http_client=http_client,
+        )
+        return cls(
+            client,
+            model=settings.openai_model,
+            max_output_tokens=settings.ai_max_output_tokens,
+        )
+
+    def _request_analysis(self, request: PageAnalysisRequest) -> object:
+        data_url = (
+            f"data:{request.image.media_type};base64,"
+            f"{base64.b64encode(request.image.data).decode('ascii')}"
+        )
+        messages: list[ChatCompletionMessageParam] = [
+            {"role": "system", "content": request.instructions},
+            {
+                "role": "user",
+                "content": [
+                    # Kimlik belgesindeki küçük yazıların okunması için en yüksek ayrıntı.
+                    {"type": "image_url", "image_url": {"url": data_url, "detail": "high"}},
+                    {"type": "text", "text": request.prompt},
+                ],
+            },
+        ]
+        try:
+            response = self._client.chat.completions.create(
+                model=self.model,
+                max_completion_tokens=self._max_output_tokens,
+                messages=messages,
+                tools=[ANALYSIS_TOOL],
+                tool_choice={"type": "function", "function": {"name": TOOL_NAME}},
+                parallel_tool_calls=False,
+                store=False,
+            )
+        except openai.APIStatusError as exc:
+            raise _status_error(exc) from exc
+        except openai.APIConnectionError as exc:
+            raise ProviderConnectionError(f"OpenAI'ye ulaşılamadı: {type(exc).__name__}") from exc
+        except openai.OpenAIError as exc:
+            raise ProviderError(f"OpenAI isteği başarısız: {type(exc).__name__}") from exc
+        return _tool_arguments(response)
+
+
+def _status_error(exc: openai.APIStatusError) -> ProviderError:
+    status = exc.status_code
+    message = f"OpenAI isteği başarısız: HTTP {status}{_error_detail(exc.body)}"
+    if status == 429 and exc.code not in _PERMANENT_RATE_LIMIT_CODES:
+        return ProviderRateLimitError(message, status_code=status)
+    if status >= 500:
+        return ProviderServerError(message, status_code=status)
+    return ProviderError(message, status_code=status)
+
+
+def _error_detail(body: object) -> str:
+    # SDK hata gövdesini açar: {"message": ..., "type": ..., "code": ...}. Gövde isteğin
+    # içeriğini (görüntü, metin) tekrarlamaz; yalnız tür, kod ve açıklama alınır.
+    if not isinstance(body, dict):
+        return ""
+    parts = [str(body[key]) for key in ("type", "code", "message") if body.get(key)]
+    return f" ({': '.join(parts)})" if parts else ""
+
+
+def _tool_arguments(response: ChatCompletion) -> object:
+    """Yanıttaki tek analiz işlevi çağrısının argümanları; tamamlanmadıysa yanıt reddedilir."""
+    if len(response.choices) != 1:
+        raise PageAnalysisError([f"yanıt: tek seçenek beklenir ({len(response.choices)} seçenek)"])
+    choice = response.choices[0]
+    if choice.finish_reason in _UNFINISHED_FINISH_REASONS:
+        raise PageAnalysisError(
+            [f"yanıt: analiz işlevi çağrısı tamamlanmadı (finish_reason={choice.finish_reason})"]
+        )
+    calls = choice.message.tool_calls or []
+    if len(calls) != 1 or calls[0].type != "function" or calls[0].function.name != TOOL_NAME:
+        # Ret (`refusal`) ve işlevsiz yanıt (`stop`) buraya düşer; ret metni mesaja alınmaz.
+        reason = "refusal" if choice.message.refusal else choice.finish_reason
+        raise PageAnalysisError(
+            [
+                f"yanıt: yalnız bir '{TOOL_NAME}' çağrısı olmalı "
+                f"({len(calls)} araç çağrısı, finish_reason={reason})"
+            ]
+        )
+    return calls[0].function.arguments

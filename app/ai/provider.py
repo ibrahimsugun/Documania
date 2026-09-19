@@ -188,8 +188,16 @@ def _anthropic(settings: Settings) -> AnalysisProvider:
     return AnthropicProvider.from_settings(settings)
 
 
+def _openai(settings: Settings) -> AnalysisProvider:
+    # SDK yalnız bu sağlayıcı seçildiğinde içe aktarılır.
+    from app.ai.openai_provider import OpenAIProvider
+
+    return OpenAIProvider.from_settings(settings)
+
+
 PROVIDER_FACTORIES: dict[str, ProviderFactory] = {
     "anthropic": _anthropic,
+    "openai": _openai,
 }
 
 
