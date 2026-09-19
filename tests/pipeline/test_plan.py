@@ -2591,6 +2591,221 @@ def test_failed_validations_are_written_in_their_order_after_the_gate_and_before
     assert "2031-01-01" not in json.dumps([event.data_json for event in _events(session)])
 
 
+# --- D29 kişi taşımayan belgenin sahibi (§9 S3/S4) ---------------------------------------------
+
+SIDOROV = _person(
+    surname="SIDOROV", given_names="IVAN", date_of_birth="1985-05-05", document_number=PERMIT_NUMBER
+)
+PHOTO_TARGET = ("jpeg", "Kayitli_Kisi-Profile-Picture.jpeg")
+
+
+def _person_events(session: Session) -> list[tuple[EventType, int | None, str | None]]:
+    person = {EventType.PERSON_MATCHED, EventType.PERSON_NOT_MATCHED, EventType.EMPLOYEE_CREATED}
+    return [
+        (EventType(event.type), event.page_index, event.employee_id)
+        for event in _events(session)
+        if event.type in person
+    ]
+
+
+def _no_owner(item_id: str, file_id: int, page: int) -> PlanItem:
+    return _item(item_id, [(file_id, (page,))], slug=PHOTO, reason=NO_PERSON_REASON)
+
+
+def test_photo_takes_the_owner_of_the_registered_identity_document_in_the_same_file(
+    session: Session, layout: DataLayout
+) -> None:
+    # S3/S4: fotoğraf dosyada kimlikli belgeden ÖNCE gelir; sahibi o belgenin hükmü belli olunca
+    # bulunur, öğe kimlikleri ve sırası değişmez. Gömülü tek görüntülü sayfa kayıpsız çıkarılır
+    # (K12). Eşleştirme kimlikten değil: `matched_by` boş; olay atılmaz, kimlik/iletişim birikmez.
+    _employee(session, numbers=(NUMBER,))
+    contact = {"phone": PHONE, "email": None, "address": None}
+    photo = _page(PHOTO, person={**copy.deepcopy(NO_PERSON), "contact": contact})
+    upload = _upload(
+        session, layout, _File(pages=(photo, _passport()), content=_image_then_text_pdf_bytes())
+    )
+    (upload_file,) = upload.files
+    mark_upload_file_single_image_pages(session, layout, upload_file)
+    file_id = upload_file.id
+
+    document = _plan(session, layout, upload)
+
+    assert document.items == (
+        _item(
+            "i1",
+            [(file_id, (0,))],
+            slug=PHOTO,
+            employee=_matched(by=None),
+            route=Route.READY,
+            operation=Operation.EXTRACT_IMAGE,
+            target=PHOTO_TARGET,
+        ),
+        _item(
+            "i2",
+            [(file_id, (1,))],
+            slug=PASSPORT,
+            employee=_matched(),
+            route=Route.READY,
+            operation=Operation.EXTRACT,
+            target=("pdf", "Kayitli_Kisi-Passport.pdf"),
+        ),
+    )
+    assert _person_events(session) == [
+        (EventType.PERSON_NOT_MATCHED, 0, None),
+        (EventType.PERSON_MATCHED, 1, "E0007"),
+    ]
+    assert _count(session, EmployeeContact) == 0
+    _assert_no_personal_values(session)
+
+
+def test_queued_identity_document_guessing_the_same_employee_does_not_block_the_owner(
+    session: Session, layout: DataLayout
+) -> None:
+    # Okunaklılığı geçmeyen pasaport kuyruğa gider ama kişi tahmini aynı çalışandır (satır 1): dosya
+    # yine tek çalışanındır, Hazir'a giden pasaport sahibi verir.
+    _employee(session, numbers=(NUMBER,))
+    upload = _upload(session, layout, _pdf(_photo(), _passport(), _illegible_expiry(_passport())))
+    (file_id,) = _file_ids(upload)
+
+    photo, passport, unreadable = _plan(session, layout, upload).items
+
+    assert photo == _item(
+        "i1",
+        [(file_id, (0,))],
+        slug=PHOTO,
+        employee=_matched(by=None),
+        route=Route.READY,
+        operation=Operation.RENDER_IMAGE,
+        target=PHOTO_TARGET,
+    )
+    assert (passport.route, passport.employee) == (Route.READY, _matched())
+    assert (unreadable.route, unreadable.employee) == (Route.UNREADABLE, _matched())
+
+
+@pytest.mark.parametrize(
+    ("pages", "registered"),
+    [
+        pytest.param(
+            (_photo(), _passport(), _page(PERMIT, person=SIDOROV)),
+            ((NUMBER,), (PERMIT_NUMBER,)),
+            id="iki-farkli-calisan-hazir",
+        ),
+        pytest.param(
+            (_photo(), _passport(), _page(PERMIT, person=SIDOROV, illegible=("expiry_date",))),
+            ((NUMBER,), (PERMIT_NUMBER,)),
+            id="kuyruktaki-belge-baska-calisani-tahmin-ediyor",
+        ),
+        pytest.param(
+            (
+                _photo(),
+                _passport(),
+                _page(PERMIT, person=_person(date_of_birth=None, document_number="AB12")),
+            ),
+            ((NUMBER,),),
+            id="kuyruktaki-belgenin-kisisi-yalniz-isimden",
+        ),
+        pytest.param(
+            (_photo(), _illegible_expiry(_passport())),
+            ((NUMBER,),),
+            id="hazir-a-giden-kimlikli-belge-yok",
+        ),
+        pytest.param((_photo(), _passport()), (), id="yalniz-yeni-calisan"),
+        pytest.param(
+            (_photo(), _passport(), _passport()), (), id="yeni-calisan-ve-ona-eslesen-belge"
+        ),
+        pytest.param((_photo(), BLANK), ((NUMBER,),), id="dosyada-kimlikli-belge-yok"),
+    ],
+)
+def test_photo_stays_unresolved_unless_the_file_belongs_to_one_registered_employee(
+    session: Session,
+    layout: DataLayout,
+    pages: tuple[dict[str, Any] | str, ...],
+    registered: tuple[tuple[str, ...], ...],
+) -> None:
+    # D29 koşul 3: dosyanın kişi okunan adaylarının hepsi tek bir kayıtlı çalışana satır 1/3 ile
+    # bağlı ve en az biri Hazir'da olmalı. İkinci çalışan, kişisi doğrulanamayan belge, yalnız
+    # kuyruk, yeni açılan çalışan (satır 6) ya da kimliksiz dosya sahip vermez: satır 8 kalır.
+    for number, numbers in enumerate(registered, start=7):
+        _employee(session, f"E{number:04d}", numbers=numbers)
+    upload = _upload(session, layout, _pdf(*pages))
+    (file_id,) = _file_ids(upload)
+
+    items = _plan(session, layout, upload).items
+
+    assert items[0] == _no_owner("i1", file_id, 0)
+    assert [item.item_id for item in items] == [f"i{number}" for number in range(1, len(items) + 1)]
+
+
+def test_identity_document_in_another_file_of_the_upload_gives_no_owner(
+    session: Session, layout: DataLayout
+) -> None:
+    # Partinin başka dosyası sayılmaz: fotoğraf kendi dosyasında yalnızdır. Bağlam çalışanı da
+    # (K2 yalnız Word/Excel için) analizli belgeye sahip vermez.
+    _employee(session, numbers=(NUMBER,))
+    upload = _upload(
+        session, layout, _pdf(_photo()), _pdf(_passport()), context_employee_id="E0007"
+    )
+    photo_file, passport_file = _file_ids(upload)
+
+    photo, passport = _plan(session, layout, upload).items
+
+    assert photo == _no_owner("i1", photo_file, 0)
+    assert (passport.sources[0].file_id, passport.route) == (passport_file, Route.READY)
+
+
+def test_type_that_carries_a_person_is_not_assigned_when_nothing_personal_was_read(
+    session: Session, layout: DataLayout
+) -> None:
+    # D29 koşul 1: zorunlu alanı olan tür kişi taşır; ad ve numara okunmadıysa (satır 8) sahibi
+    # tahmin edilmez (R7). Aynı dosyadaki fotoğraf sahibini yine alır.
+    catalog = _catalog_with(PERMIT, required_fields=["expiry_date"])
+    _employee(session, numbers=(NUMBER,))
+    permit = _page(PERMIT, person=copy.deepcopy(NO_PERSON))
+    permit["fields"] = {"expiry_date": {"value": "2030-01-01", "legible": True}}
+    upload = _upload(session, layout, _pdf(_photo(), _passport(), permit))
+    (file_id,) = _file_ids(upload)
+
+    photo, _, nameless = _plan(session, layout, upload, catalog=catalog).items
+
+    assert (photo.route, photo.employee) == (Route.READY, _matched(by=None))
+    assert nameless == _item("i3", [(file_id, (2,))], slug=PERMIT, reason=NO_PERSON_REASON)
+
+
+def test_photo_rejected_at_document_level_keeps_its_reason_even_with_an_owner_in_the_file(
+    session: Session, layout: DataLayout
+) -> None:
+    # D29 koşul 4: kural yalnız kişi hükmünü değiştirir. İzinsiz dönüşüm (06.4.1) belgeyi reddeder;
+    # dosyanın sahibi olsa da fotoğraf dönüştürülmez, gerekçesi aynı kalır.
+    catalog = _catalog_with(PHOTO, allowed_conversions=["extract_image"])
+    _employee(session, numbers=(NUMBER,))
+    upload = _upload(session, layout, _pdf(_photo(), _passport()))
+    (file_id,) = _file_ids(upload)
+
+    photo, passport = _plan(session, layout, upload, catalog=catalog).items
+
+    assert photo == _item(
+        "i1",
+        [(file_id, (0,))],
+        slug=PHOTO,
+        reason=_not_allowed("render_image", "extract_image"),
+    )
+    assert passport.route is Route.READY
+
+
+def test_photo_that_reads_a_person_keeps_its_own_match(
+    session: Session, layout: DataLayout
+) -> None:
+    # D29 koşul 2: kural yalnız satır 8'e düşen adaya uygulanır. Kişi okunan fotoğrafın hükmü
+    # kendi anahtarınındır (satır 3: ad-soyad + doğum tarihi).
+    _employee(session, numbers=(NUMBER,))
+    named = _page(PHOTO, person=_person(document_number=None, nationality=None))
+    upload = _upload(session, layout, _pdf(named, _passport()))
+
+    photo, _ = _plan(session, layout, upload).items
+
+    assert (photo.route, photo.employee) == (Route.READY, _matched(by=MatchedBy.NAME_DOB))
+
+
 # --- entegrasyon: gerçek render ve kayıtlı yanıt → plan ---------------------------------------
 
 
@@ -2598,7 +2813,8 @@ def test_s4_recorded_pdf_with_registered_employee_plans_three_documents(
     session: Session, layout: DataLayout
 ) -> None:
     # S4: ehliyet ön/arka, foto, oturum ön/arka. Ehliyet ve oturum izni numarasından kayıtlı
-    # çalışanın Hazir'ına; fotoğrafta kişi yok, §20.2.2 satır 8 gereği Unresolved (PLAN.md D12).
+    # çalışanın Hazir'ına; fotoğrafta kişi yok (§20.2.2 satır 8), sahibi aynı dosyanın o çalışanı
+    # (D29). Metin sayfası gömülü görüntü taşımaz: fotoğraf render edilir.
     _employee(
         session,
         names=("Ivan Sidorov",),
@@ -2642,7 +2858,15 @@ def test_s4_recorded_pdf_with_registered_employee_plans_three_documents(
             operation=Operation.EXTRACT,
             target=("pdf", "Kayitli_Kisi-Driving-License.pdf"),
         ),
-        _item("i2", [(file_id, (2,))], slug=PHOTO, reason=NO_PERSON_REASON),
+        _item(
+            "i2",
+            [(file_id, (2,))],
+            slug=PHOTO,
+            employee=_matched(by=None),
+            route=Route.READY,
+            operation=Operation.RENDER_IMAGE,
+            target=("jpeg", "Kayitli_Kisi-Profile-Picture.jpeg"),
+        ),
         _item(
             "i3",
             [(file_id, (3, 4))],

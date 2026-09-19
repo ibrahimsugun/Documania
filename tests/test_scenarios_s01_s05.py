@@ -7,13 +7,12 @@ sentetik sayfa tanımlarından üretilir; yapay zekâ canlı çağrılmaz, gerç
 (CONVENTIONS §6). "Kayıtlı çalışan" İK'nın bildiği kayıttır: E numarası, klasörü, isim yazımı ve
 belge numaraları (`employee_identifiers`) yüklemeden önce yazılır.
 
-**S3/S4 fotoğrafı (PLAN.md D12).** Vesikalıkta ne isim ne numara vardır; §20.2.2 satır 8 onu
-Unresolved'a gönderir, sahibini aynı dosyadaki kimlikli belgelerden çıkaran bir kural PRD'de
-yoktur. Bu yüzden S3'ün "Profile-Picture.jpeg (2)" ve S4'ün üçüncü çıktısı otomatik üretilmez:
-senaryo testleri fotoğrafın bugünkü rotasını sabitler, PRD beklentisi `strict` xfail olarak
-durur (D12 kararı uygulanınca XPASS testi kırar ve işaret kaldırılır). Fotoğrafın çıktısı fiziksel
-olarak üretilebilir: İK öğeyi çalışana atadığında (08.2) sayfa 2'nin gömülü görüntüsü kayıpsız
-`Profile-Picture.jpeg` olur.
+**S3/S4 fotoğrafı (PLAN.md D12, D29).** Vesikalıkta ne isim ne numara vardır (§20.2.2 satır 8).
+Sahibini aynı yüklenen dosyadaki kimlikli belgelerden alır: dosyanın kişi okunan adaylarının hepsi
+tek bir kayıtlı çalışana satır 1/3 ile bağlıysa ve en az biri Hazir'a gidiyorsa fotoğraf o
+çalışanın `Profile-Picture.jpeg`'idir — sayfanın gömülü görüntüsü kayıpsız çıkarılır
+(`extract_image`, K12). Kayıtlı çalışan yoksa dosyada o bağ kurulmaz, fotoğraf Unresolved kalır ve
+İK atamasıyla (08.2) aynı çıktı üretilir.
 """
 
 from __future__ import annotations
@@ -32,7 +31,7 @@ from sqlalchemy import Engine, select
 from sqlalchemy.orm import Session
 
 from app.ai.recording_provider import RecordingProvider
-from app.catalog import import_catalog, load_seed_catalog
+from app.catalog import FileType, import_catalog, load_seed_catalog
 from app.config import Settings, get_settings
 from app.db.models import (
     Base,
@@ -53,7 +52,7 @@ from app.main import create_app
 from app.matching.match import EmployeeAction, MatchedBy, normalize_document_number
 from app.matching.names import normalize_name
 from app.pipeline.orchestrate import ProcessedUpload, current_plan, process_upload
-from app.pipeline.plan import Operation, PlanItem, Route, read_plan
+from app.pipeline.plan import Operation, PlanEmployee, PlanItem, Route, read_plan
 from app.pipeline.route import assign_queue_item
 from app.storage import DataLayout, employee_folder_name, prepare_data_dir
 from app.web.auth import PanelUser, get_current_user
@@ -93,12 +92,9 @@ LICENSE_OUTPUT = "Ivan_Sidorov-Driving-License.pdf"
 RESIDENCE_OUTPUT = "Ivan_Sidorov-Residence-Card.pdf"
 PERMIT_OUTPUT = "Ivan_Sidorov-Work-Permit.pdf"
 PHOTO_OUTPUT = "Ivan_Sidorov-Profile-Picture.jpeg"
+PHOTO = "profile_picture"
 R6_REASON = "Ardışıklık güvenlik kuralı (R6)"
 NO_PERSON_REASON = "Kişi tespit edilemedi: belgede ne ad-soyad ne belge numarası okundu."
-D12 = (
-    "PLAN.md D12: kişi taşımayan fotoğrafın sahibi için kural yok; §20.2.2 satır 8 onu "
-    "Unresolved'a gönderir"
-)
 
 
 # --- ortam: geçici veritabanı, veri dizini ve gerçek yükleme uç noktası -------------------------
@@ -469,6 +465,20 @@ def _assert_page_copy(output: Path, source: bytes, pages: Sequence[int]) -> None
     assert _page_contents(output) == [source_pages[index] for index in pages]
 
 
+def _assert_photo_item(item: PlanItem, employee: Employee) -> None:
+    """Fotoğraf kayıtlı çalışanın Hazir'ına gider: gömülü görüntü kayıpsız çıkarılır (K12). Sahibi
+    kimliğinden eşleşmedi, aynı dosyanın kimlikli belgelerinden alındı (`matched_by` boş, D29)."""
+    assert (item.document_type_slug, item.route, item.route_reason) == (PHOTO, Route.READY, None)
+    assert (item.operation, item.target_format, item.target_name) == (
+        Operation.EXTRACT_IMAGE,
+        FileType.JPEG,
+        PHOTO_OUTPUT,
+    )
+    assert item.employee == PlanEmployee(
+        action=EmployeeAction.MATCH, employee_id=employee.id, matched_by=None
+    )
+
+
 @pytest.mark.parametrize(
     ("third", "third_route"),
     [
@@ -490,7 +500,7 @@ def test_s3_interleaved_pdf_splits_documents_and_queues_the_license_pieces(
     items = _items(session, upload)
     assert [(item.item_id, item.sources[0].pages, item.route) for item in items] == [
         ("i1", (0,), Route.UNRESOLVED),
-        ("i2", (1,), Route.UNRESOLVED),
+        ("i2", (1,), Route.READY),
         ("i3", (2,), third_route),
         ("i4", (3, 4), Route.READY),
         ("i5", (5,), Route.UNRESOLVED),
@@ -522,7 +532,7 @@ def test_s3_interleaved_pdf_splits_documents_and_queues_the_license_pieces(
             PERMIT_OUTPUT,
         )
         _assert_page_copy(hazir / PERMIT_OUTPUT, content, [2])
-        assert _names(hazir) == [RESIDENCE_OUTPUT, PERMIT_OUTPUT]
+        assert _names(hazir) == [PHOTO_OUTPUT, RESIDENCE_OUTPUT, PERMIT_OUTPUT]
     else:
         assert other.document_type_slug is None
         assert other.route_reason is not None
@@ -530,14 +540,14 @@ def test_s3_interleaved_pdf_splits_documents_and_queues_the_license_pieces(
         assert '"Peruvian Diploma"' in other.route_reason
         assert queued["i3"].kind == "unknown"
         assert _names(layout.queue_dir("unknown", upload.id)) == ["belgeler.pdf", "reason.json"]
-        assert _names(hazir) == [RESIDENCE_OUTPUT]
+        assert _names(hazir) == [PHOTO_OUTPUT, RESIDENCE_OUTPUT]
 
-    # Fotoğraf (sayfa 2): kişi taşımıyor, sahibi kurala bağlı değil — Unresolved (D12).
-    assert (photo.document_type_slug, photo.route_reason) == ("profile_picture", NO_PERSON_REASON)
+    # Fotoğraf (sayfa 2): kişi taşımıyor; dosyanın kimlikli belgeleri tek kayıtlı çalışana bağlı,
+    # sahibi o (D29). Sayfa 3'ün türü sonucu değiştirmez.
+    _assert_photo_item(photo, employee)
 
     assert {key: row.kind for key, row in queued.items() if key != "i3"} == {
         "i1": "unresolved",
-        "i2": "unresolved",
         "i5": "unresolved",
     }
     unresolved = layout.queue_dir("unresolved", upload.id)
@@ -575,21 +585,22 @@ def test_s4_sequential_pdf_yields_three_independent_documents(
     hazir = layout.ready_dir(SIDOROV_FOLDER)
     _assert_page_copy(hazir / LICENSE_OUTPUT, content, [0, 1])
     _assert_page_copy(hazir / RESIDENCE_OUTPUT, content, [3, 4])
+    # Üçüncü belge fotoğraf: kişi taşımıyor, sahibi dosyadaki ehliyet ve oturma izninin çalışanı
+    # (D29); kuyruk boş.
+    _assert_photo_item(photo, employee)
     assert [(row.type_slug, row.source_refs_json) for row in _outputs(session)] == [
         ("serbian_driving_license", [{"file_id": 1, "pages": [0, 1]}]),
+        ("profile_picture", [{"file_id": 1, "pages": [2]}]),
         ("serbian_residence_card", [{"file_id": 1, "pages": [3, 4]}]),
     ]
-
-    # Üçüncü belge fotoğraf: kişi taşımıyor, Unresolved (D12).
-    assert (photo.route, photo.route_reason) == (Route.UNRESOLVED, NO_PERSON_REASON)
-    assert {key: row.kind for key, row in _queued(session, upload).items()} == {"i2": "unresolved"}
+    assert _names(hazir) == [LICENSE_OUTPUT, PHOTO_OUTPUT, RESIDENCE_OUTPUT]
+    assert _queued(session, upload) == {}
     _assert_no_personal_values(_events(session, upload), SIDOROV_PERSONAL)
 
 
-@pytest.mark.xfail(strict=True, raises=AssertionError, reason=D12)
 @pytest.mark.parametrize(
-    "pages",
-    [pytest.param(_s3_pages_with_work_permit, id="S3"), pytest.param(_s4_pages, id="S4")],
+    ("pages", "photo_page"),
+    [pytest.param(_s3_pages_with_work_permit, 1, id="S3"), pytest.param(_s4_pages, 2, id="S4")],
 )
 def test_s3_s4_the_photo_page_becomes_the_employee_s_profile_picture(
     session: Session,
@@ -597,27 +608,49 @@ def test_s3_s4_the_photo_page_becomes_the_employee_s_profile_picture(
     client: TestClient,
     tmp_path: Path,
     pages: Callable[[], list[SyntheticPage]],
+    photo_page: int,
 ) -> None:
-    # PRD §9: S3 "Profile-Picture.jpeg (2)", S4 "Üç bağımsız çıktı".
-    _register_sidorov(session, layout)
-    _run_pdf_batch(session, layout, client, tmp_path, pages())
-
-    assert PHOTO_OUTPUT in _names(layout.ready_dir(SIDOROV_FOLDER))
-
-
-def test_s3_the_queued_photo_assigned_by_hr_is_extracted_losslessly_from_page_2(
-    session: Session, layout: DataLayout, client: TestClient, tmp_path: Path
-) -> None:
-    # D12'nin açık bıraktığı yalnız sahiptir: öğe çalışana atanınca (08.2) çıktı sayfa 2'nin gömülü
+    # PRD §9: S3 "Profile-Picture.jpeg (2)", S4 "Üç bağımsız çıktı". Çıktı sayfanın gömülü
     # görüntüsünün kendisidir — render yok, yeniden kodlama yok (K12).
     employee = _register_sidorov(session, layout)
+    upload, _ = _run_pdf_batch(session, layout, client, tmp_path, pages())
+
+    (photo,) = [item for item in _items(session, upload) if item.document_type_slug == PHOTO]
+    _assert_photo_item(photo, employee)
+    assert [(source.file_id, source.pages) for source in photo.sources] == [(1, (photo_page,))]
+    assert photo.item_id not in _queued(session, upload)
+    output = layout.ready_dir(SIDOROV_FOLDER) / PHOTO_OUTPUT
+    assert output.read_bytes() == make_portrait_image_bytes()
+    (document,) = [row for row in _outputs(session) if row.type_slug == PHOTO]
+    assert (document.employee_id, document.format, document.source_refs_json) == (
+        employee.id,
+        "jpeg",
+        [{"file_id": 1, "pages": [photo_page]}],
+    )
+
+
+def test_s3_without_a_registered_employee_the_photo_stays_queued_and_hr_assigns_it_losslessly(
+    session: Session, layout: DataLayout, client: TestClient, tmp_path: Path
+) -> None:
+    # Kayıtlı çalışan yok: ehliyet ön yüzü kimseyle eşleşmez, çalışma izni çalışanı açar (satır
+    # 6) — dosyada tek çalışana satır 1/3 ile bağlanan kimlik yok, fotoğrafın sahibi bulunmaz ve
+    # satır 8 ile Unresolved kalır (D29). İK öğeyi çalışana atayınca (08.2) çıktı sayfa 2'nin
+    # gömülü görüntüsünün kendisidir — render yok, yeniden kodlama yok (K12).
     upload, _ = _run_pdf_batch(session, layout, client, tmp_path, _s3_pages_with_work_permit())
+    _, photo, permit, _, _ = _items(session, upload)
+    assert (photo.route, photo.route_reason, photo.employee.action) == (
+        Route.UNRESOLVED,
+        NO_PERSON_REASON,
+        EmployeeAction.NONE,
+    )
+    assert (permit.route, permit.employee.action) == (Route.READY, EmployeeAction.CREATE)
+    assert permit.employee.employee_id is not None
 
     assigned = assign_queue_item(
         session,
         layout,
         _queued(session, upload)["i2"].id,
-        employee.id,
+        permit.employee.employee_id,
         actor="ik.kullanici",
         render_image_dpi=SETTINGS.render_image_dpi,
         render_image_jpeg_quality=SETTINGS.render_image_jpeg_quality,
@@ -625,9 +658,10 @@ def test_s3_the_queued_photo_assigned_by_hr_is_extracted_losslessly_from_page_2(
     session.commit()
 
     assert assigned.operation is Operation.EXTRACT_IMAGE
-    photo = layout.ready_dir(SIDOROV_FOLDER) / PHOTO_OUTPUT
-    assert photo.read_bytes() == make_portrait_image_bytes()
-    assert assigned.executed.document.source_refs_json == [{"file_id": 1, "pages": [1]}]
+    document = assigned.executed.document
+    assert document.path.endswith("-Profile-Picture.jpeg")
+    assert layout.resolve(document.path).read_bytes() == make_portrait_image_bytes()
+    assert document.source_refs_json == [{"file_id": 1, "pages": [1]}]
 
 
 # --- S5: aynı partide ön ve arka yüz görüntüsü ---------------------------------------------------

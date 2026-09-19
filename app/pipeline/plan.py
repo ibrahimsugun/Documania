@@ -93,10 +93,22 @@ satır 8 ve tablo dışı eksik kişi Unresolved'a gider. Kuyruğa giden adaydan
 önerilmez, kimlik ya da iletişim bilgisi birikmez — yapısı veya okunaklılığı kabul edilmemiş
 belgenin okumasına güvenilmez. Eşleştirme hükmü o adayda yalnız kişi tahmini olarak kalır
 (08.1.2): satır 1/3'te `match` ve çalışan, öteki hükümlerde `none`; eşleştirme hükmü de kuyruğa
-gönderiyorsa (satır 2, 4, 5, çelişkili anahtar) gerekçesi eklenir. Word/Excel ekinin sahibi partinin
-bağlam çalışanıdır (`match`, `matched_by: null`); bağlam yoksa ek Unresolved'a gider (04.7.1).
-İşlemi olmayan ekte işlem gerekçesi sahiplik gerekçesinden önce gelir; bağlam çalışanı kişi tahmini
-kalır.
+gönderiyorsa (satır 2, 4, 5, çelişkili anahtar) gerekçesi eklenir.
+
+**Kişi taşımayan belgenin sahibi (D29, §9 S3/S4).** Zorunlu alanı olmayan türün (profil
+fotoğrafı) belge düzeyinde kabul edilmiş, satır 8'e düşen adayı — ne numara ne isim okunmuş —
+aynı yüklenen dosyadaki kimlikli adaylardan sahip alır: o dosyanın sayfasını taşıyan, kişi anahtarı
+bir şey okumuş adayların hepsi tek bir kayıtlı çalışana satır 1/3 ile bağlıysa (kuyruğa gidende kişi
+tahmini) ve en az biri Hazir'a gidiyorsa öğe o çalışanla (`match`, `matched_by: null`) Hazir'a
+gider. Yeni açılan çalışan (satır 6), onay bekleyen profil, belirsiz, yalnız isim ya da çelişkili
+hüküm, ikinci bir çalışan, partinin başka dosyası ve bağlam çalışanı sahip vermez; o zaman satır 8
+(Unresolved) aynen kalır. Kural yalnız kişi hükmünü değiştirir: belge düzeyindeki ret (işlem,
+dosya türü) onu ezer, kimlik ve iletişim bilgisi birikmez, olay atılmaz. Sahip, kimlikli adayların
+hükmü belli olduktan sonra, ikinci geçişte bulunur; öğe kimlikleri ve sırası değişmez.
+
+Word/Excel ekinin sahibi partinin bağlam çalışanıdır (`match`, `matched_by: null`); bağlam yoksa ek
+Unresolved'a gider (04.7.1). İşlemi olmayan ekte işlem gerekçesi sahiplik gerekçesinden önce gelir;
+bağlam çalışanı kişi tahmini kalır.
 
 **Hedef.** Yalnız `hazir` öğede dolar ve orada zorunludur. `target_format` seçilen işlemin hedef
 biçimidir (yukarıda). `target_name` çalışan kaydının ad-soyadı ve türün `file_label`'ıyla K8 adıdır
@@ -274,7 +286,8 @@ class PlanEmployee(BaseModel):
     """Plan JSON `employee` (§8.5, §20.2.2).
 
     `employee_id` yalnız `match` ve `create` kararında doludur ve orada zorunludur; `matched_by`
-    yalnız `match`'te dolabilir (bağlam çalışanına verilen Word/Excel ekinde boştur).
+    yalnız `match`'te dolabilir (bağlam çalışanına verilen Word/Excel ekinde ve sahibini aynı
+    dosyadan alan kişisiz belgede — D29 — boştur).
     """
 
     model_config = ConfigDict(extra="forbid", frozen=True)
@@ -812,6 +825,17 @@ class _Verdict:
     reason: str
 
 
+@dataclass(frozen=True, slots=True)
+class _Ownerless:
+    """Belge düzeyinde kabul edilmiş, kişi taşımayan türün §20.2.2 satır 8 adayı: sahibi bulunursa
+    öğeyi yeniden kurmak için gerekenler (D29)."""
+
+    sources: tuple[PlanSource, ...]
+    entry: CatalogEntry
+    selected: SelectedOperation | None
+    validations: tuple[Validation, ...]
+
+
 _NO_EMPLOYEE = PlanEmployee(action=EmployeeAction.NONE, employee_id=None, matched_by=None)
 # Öğenin partideki yeri — (dosya, ilk sayfa); bütün dosyayı alan öğe -1'dedir — ve kurucusu.
 _Subject = tuple[tuple[int, int], Callable[[str], PlanItem]]
@@ -842,11 +866,17 @@ class _Planner:
             for file_grouping in grouping.files
         }
         self._kinds: dict[int, FileKind | None] = {}
+        # Kişi anahtarı bir şey okumuş adaylar ve sahibi aynı dosyadan aranacak kişisiz adaylar.
+        self._person_items: set[str] = set()
+        self._ownerless: dict[str, _Ownerless] = {}
 
     def items(self) -> tuple[PlanItem, ...]:
         # Kararlar öğe sırasıyla verilir: yan etki (yeni çalışan) sonraki öğenin kararına girer.
         subjects = sorted(self._subjects(self._grouping), key=lambda subject: subject[0])
-        return tuple(build(f"i{number}") for number, (_, build) in enumerate(subjects, start=1))
+        items = [build(f"i{number}") for number, (_, build) in enumerate(subjects, start=1)]
+        # İkinci geçiş: kişi taşımayan adayın sahibi, dosyadaki kimlikli adayların hükmü belli
+        # olduktan sonra bulunur; öğe kimlikleri ve sırası değişmez.
+        return tuple(self._owned(item, items) for item in items)
 
     def _subjects(self, grouping: UploadGrouping) -> Iterator[_Subject]:
         for candidate in grouping.candidates:
@@ -873,6 +903,9 @@ class _Planner:
         first = candidate.pages[0]
         key = build_person_key(analyses, today=self._today)
         match = match_employee(self._session, key, file_id=first.file_id, page_index=first.index)
+        nobody = _reads_no_person(key, match)
+        if not nobody:
+            self._person_items.add(item_id)
         entry = self._entry(candidate)
         sources = tuple(
             PlanSource(
@@ -891,7 +924,50 @@ class _Planner:
             return self._item(item_id, sources, entry, employee, verdicts, None, validations)
         employee, verdict = self._decide_employee(key, match, entry, analyses, first)
         verdicts = [] if verdict is None else [verdict]
+        if nobody and not entry.required_fields:
+            # Kişi taşımayan türün satır 8 adayı: sahibi ikinci geçişte aynı dosyadan aranır.
+            self._ownerless[item_id] = _Ownerless(sources, entry, selected, validations)
         return self._item(item_id, sources, entry, employee, verdicts, selected, validations)
+
+    def _owned(self, item: PlanItem, items: Sequence[PlanItem]) -> PlanItem:
+        # Kişisiz adayın sahibi bulunursa öğe Hazir'a o çalışanla yeniden kurulur; hükmü yalnız
+        # satır 8'di (belge düzeyinde kabul), başka ret gerekçesi yok. Kimlik ve iletişim bilgisi
+        # birikmez: belgede kişi anahtarı yoktur.
+        ownerless = self._ownerless.get(item.item_id)
+        owner = None if ownerless is None else self._file_owner(ownerless.sources, items)
+        if ownerless is None or owner is None:
+            return item
+        employee = PlanEmployee(action=EmployeeAction.MATCH, employee_id=owner, matched_by=None)
+        return self._item(
+            item.item_id,
+            ownerless.sources,
+            ownerless.entry,
+            employee,
+            [],
+            ownerless.selected,
+            ownerless.validations,
+        )
+
+    def _file_owner(self, sources: Sequence[PlanSource], items: Sequence[PlanItem]) -> str | None:
+        # Aynı yüklenen dosyadaki kimlikli adayların hepsi — Hazir'a gideni de kuyruğa gideni de —
+        # tek bir kayıtlı çalışana satır 1/3 ile bağlıysa (kuyruktakinde kişi tahmini) ve en az
+        # biri Hazir'a gidiyorsa sahip odur. Yeni açılan çalışan, onay bekleyen profil, belirsiz
+        # ya da yalnız isim hükmü ve ikinci bir çalışan sahip vermez.
+        files = {source.file_id for source in sources}
+        people = [
+            other
+            for other in items
+            if other.item_id in self._person_items
+            and files.intersection(source.file_id for source in other.sources)
+        ]
+        owners = {
+            other.employee.employee_id if other.employee.matched_by is not None else None
+            for other in people
+        }
+        if len(owners) != 1 or not any(other.route is Route.READY for other in people):
+            return None
+        (owner,) = owners
+        return owner
 
     def _mrz_resolved(self, page: CandidatePage) -> CandidatePage:
         return replace(page, analysis=apply_mrz_priority(page.analysis, today=self._today).analysis)
@@ -1191,6 +1267,17 @@ def _verdict_of(decision: EmployeeMatch | UnmatchedResolution) -> _Verdict | Non
     if decision.queue is None or decision.reason is None:
         return None
     return _Verdict(decision.queue, decision.reason)
+
+
+def _reads_no_person(key: PersonKey, match: EmployeeMatch) -> bool:
+    # §20.2.2 satır 8'in koşulu (`resolve_unmatched`'in `NO_PERSON`'ı): eşleşme yok ve anahtar ne
+    # belge numarası, ne isim anahtarı, ne ad ya da soyad okumuş.
+    return match.rule is MatchRule.NO_MATCH and not (
+        key.document_numbers
+        or key.name_keys
+        or key.surname is not None
+        or key.given_names is not None
+    )
 
 
 def _employee_guess(match: EmployeeMatch) -> PlanEmployee:

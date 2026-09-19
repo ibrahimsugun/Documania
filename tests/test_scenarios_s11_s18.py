@@ -77,6 +77,7 @@ from tests.test_scenarios_s01_s05 import (
     ORNEKOVA_PERSONAL,
     PASSPORT_NUMBER,
     PASSPORT_OUTPUT,
+    PHOTO_OUTPUT,
     SIDOROV_FOLDER,
     SIDOROV_PERSONAL,
     _assert_no_personal_values,
@@ -825,15 +826,18 @@ def test_s15_word_cv_from_a_general_upload_goes_to_unresolved_unchanged(
 
 
 def _s18_pages() -> list[SyntheticPage]:
-    """Ehliyet ön/arka, vesikalık, boş sayfa, oturma izni ön/arka: planda hazir, kuyruk ve skip
-    öğeleri birlikte."""
+    """Ehliyet ön/arka, vesikalık, boş sayfa, katalog dışı belge, oturma izni ön/arka: planda hazir
+    (vesikalık aynı dosyanın kayıtlı çalışanına — D29), kuyruk ve skip öğeleri birlikte."""
     license_pages = driving_license_pages(
         PERSON_SIDOROV, document_number=LICENSE_NUMBER, expiry_date=date(2031, 6, 30)
     )
     residence = residence_card_pages(
         PERSON_SIDOROV, document_number=RESIDENCE_NUMBER, expiry_date=date(2029, 12, 31)
     )
-    return [*license_pages, profile_picture_page(), blank_page(), *residence]
+    diploma = unknown_document_page(
+        PERSON_SIDOROV, candidate_type_name="Peruvian Diploma", title="DIPLOMA"
+    )
+    return [*license_pages, profile_picture_page(), blank_page(), diploma, *residence]
 
 
 def _state(session: Session, upload: Upload) -> dict[str, Any]:
@@ -870,12 +874,13 @@ def test_s18_rerunning_the_existing_plan_gives_the_same_outputs_without_the_prov
     items = read_plan(plan).items
     assert [(item.route, item.target_name) for item in items] == [
         (Route.READY, LICENSE_OUTPUT),
-        (Route.UNRESOLVED, None),
+        (Route.READY, PHOTO_OUTPUT),
         (Route.SKIP, None),
+        (Route.UNKNOWN, None),
         (Route.READY, RESIDENCE_OUTPUT),
     ]
     hazir = layout.ready_dir(SIDOROV_FOLDER)
-    assert _names(hazir) == [LICENSE_OUTPUT, RESIDENCE_OUTPUT]
+    assert _names(hazir) == [LICENSE_OUTPUT, PHOTO_OUTPUT, RESIDENCE_OUTPUT]
     analyzed = len(first.requests)
     before_files = _files(layout.root)
     before_state = _state(session, upload)
@@ -903,7 +908,7 @@ def test_s18_rerunning_the_existing_plan_gives_the_same_outputs_without_the_prov
     after_files = _files(layout.root)
     assert after_files == before_files
     assert not [path for path in after_files if re.search(r"-2\.[a-z]+$", path)]
-    assert _names(hazir) == [LICENSE_OUTPUT, RESIDENCE_OUTPUT]
+    assert _names(hazir) == [LICENSE_OUTPUT, PHOTO_OUTPUT, RESIDENCE_OUTPUT]
 
     # Olaylar: her yeniden çalıştırmada `PLAN_RERUN`, uygulanmış hazir ve skip öğeleri için
     # `OUTPUT_SKIPPED`; yeni çıktı, kopya, kuyruk olayı ve analiz yok.
@@ -913,12 +918,13 @@ def test_s18_rerunning_the_existing_plan_gives_the_same_outputs_without_the_prov
         EventType.OUTPUT_SKIPPED,
         EventType.OUTPUT_SKIPPED,
         EventType.OUTPUT_SKIPPED,
+        EventType.OUTPUT_SKIPPED,
     ]
     assert _event_types(later) == rerun_types * 2
     reruns = [row for row in later if row.type == EventType.PLAN_RERUN]
     assert [row.data_json for row in reruns] == [
         {"plan_id": plan.id, "version": 1, "plan_hash": plan.plan_hash}
     ] * 2
-    skipped_documents = sorted(row.document_id for row in later[:4] if row.document_id is not None)
+    skipped_documents = sorted(row.document_id for row in later[:5] if row.document_id is not None)
     assert skipped_documents == sorted(row[0] for row in before_state["outputs"])
     _assert_no_personal_values(later, SIDOROV_PERSONAL)
