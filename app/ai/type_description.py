@@ -2,7 +2,8 @@
 
 Bir belge türünün örneklerinden (11.2.1) yapay zekâya ürettirilen **yapılandırılmış** açıklama.
 Açıklama türü tanır, kişiyi değil: belgenin düzeni, üzerinde basılı başlıklar, diller ve alfabeler,
-alanların sayfadaki yeri, MRZ'nin varlığı ve ön/arka yüz farkı. Katalogda metin olarak
+alanların sayfadaki yeri, MRZ'nin varlığı ve ön/arka yüz farkı; fotoğraf türünde (11.8.1) ayrıca
+şirketin kabul ettiği fotoğrafın tanımı (`accepted_photo`). Katalogda metin olarak
 (`prompt_description`, §8.6) saklanır; metne çeviren `app.catalog.describe`'dır.
 
 Kurallar sayfa analizi sözleşmesiyle (§8.4, `app.ai.schemas`) aynı ölçüdedir:
@@ -13,7 +14,9 @@ Kurallar sayfa analizi sözleşmesiyle (§8.4, `app.ai.schemas`) aynı ölçüde
 - Dil ISO 639-1 kodu, alfabe `latin` · `cyrillic` · `arabic` · `other`; listelerde tekrar yoktur.
 - Metinler kısadır (üst sınırlar alanlarda): açıklama her analiz talimatına girer ve katalog
   metninin token bütçesini (11.4.2) paylaşır.
-- `mrz` belgede MRZ yoksa `null`dır; `side_differences` tek yüzlü belgede `null`dır.
+- `mrz` belgede MRZ yoksa `null`dır; `side_differences` tek yüzlü belgede `null`dır;
+  `accepted_photo` fotoğraf türü olmayan belgede `null`dır (denetimi istek bağlamını bilen
+  `app.catalog.describe` yapar).
 
 Hata mesajlarına yanıttaki değer konmaz: örnek belge üzerindeki kişisel değer (ad, numara) yanıta
 sızmışsa loga ve ekrana taşınmaz (CONVENTIONS §6).
@@ -108,6 +111,9 @@ class TypeDescription(BaseModel):
     field_locations: Annotated[tuple[FieldLocation, ...], Field(max_length=MAX_FIELD_LOCATIONS)]
     mrz: MrzDescription | None
     side_differences: Summary | None
+    # 11.8.1: kabul edilen fotoğrafların ortak görünüşü (çerçeve, arka plan, ışık); fotoğraf
+    # türü olmayan belgede `null`.
+    accepted_photo: Summary | None
 
     @model_validator(mode="after")
     def _one_location_per_field(self) -> TypeDescription:

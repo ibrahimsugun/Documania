@@ -114,6 +114,16 @@ def test_text_is_stripped() -> None:
     assert description.side_differences == "Arkada MRZ"
 
 
+def test_the_accepted_photo_definition_is_optional_short_text() -> None:
+    # 11.8.1: fotoğraf türünde şirketin kabul ettiği fotoğrafın tanımı; öteki türlerde `null`.
+    described = validate_type_description(
+        description_payload(accepted_photo="  Omuzdan yukarı, düz açık arka plan  ")
+    )
+
+    assert described.accepted_photo == "Omuzdan yukarı, düz açık arka plan"
+    assert validate_type_description(description_payload()).accepted_photo is None
+
+
 def test_a_validated_model_is_revalidated() -> None:
     description = validate_type_description(description_payload())
 
@@ -164,6 +174,9 @@ def test_a_validated_model_is_revalidated() -> None:
         ({"mrz": {"line_count": True, "location": "altta"}}, "mrz.line_count"),
         ({"mrz": {"line_count": 2}}, "mrz.location"),
         ({"side_differences": ""}, "side_differences"),
+        ({"accepted_photo": " "}, "accepted_photo"),
+        ({"accepted_photo": "x" * 201}, "accepted_photo"),
+        ({"accepted_photo": ["Sade arka plan"]}, "accepted_photo"),
         ({"notes": "fazladan"}, "notes"),
     ],
     ids=[
@@ -189,6 +202,9 @@ def test_a_validated_model_is_revalidated() -> None:
         "mrz-bool",
         "mrz-yeri-yok",
         "yuz-farki-bos",
+        "kabul-fotografi-bos",
+        "kabul-fotografi-uzun",
+        "kabul-fotografi-liste",
         "tanimsiz-anahtar",
     ],
 )
@@ -205,7 +221,16 @@ def test_non_conforming_payload_is_rejected_with_location(
 
 @pytest.mark.parametrize(
     "key",
-    ["layout", "headings", "languages", "scripts", "field_locations", "mrz", "side_differences"],
+    [
+        "layout",
+        "headings",
+        "languages",
+        "scripts",
+        "field_locations",
+        "mrz",
+        "side_differences",
+        "accepted_photo",
+    ],
 )
 def test_every_key_is_required(key: str) -> None:
     payload = description_payload()

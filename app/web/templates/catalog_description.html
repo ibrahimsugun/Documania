@@ -1,11 +1,14 @@
 {# Örneklerden üretilen tür açıklaması (11.3.1): yapılandırılmış hâli ve girdisi. Metni formun
    "Analizci için açıklama" alanına yazılmıştır; kaydedilmedi — İK düzenleyip Kaydet'e basar. Belge
-   içeriği gösterilmez ve değişmez (K17): yalnız yapay zekânın türe ilişkin anlatımıdır. #}
+   içeriği gösterilmez ve değişmez (K17): yalnız yapay zekânın türe ilişkin anlatımıdır. Fotoğraf
+   türünde girdiye kabul edilen fotoğraflar da girer ve şirketin kabul ettiği fotoğrafın tanımı
+   ayrıca gösterilir (11.8.1). #}
 {% set described = generated.description %}
 <section class="generated-description" id="description">
   <p class="notice notice-success" role="status">
-    Açıklama {{ generated.pages|length }} örnek sayfadan üretildi ve "Analizci için açıklama" alanına
-    yazıldı. <strong>Henüz kaydedilmedi:</strong> metni gözden geçirip gerekirse düzenleyin, sonra
+    Açıklama {{ generated.pages|length }} örnek sayfadan{% if generated.photos %} ve
+    {{ generated.photos|length }} kabul edilen fotoğraftan{% endif %} üretildi ve "Analizci için
+    açıklama" alanına yazıldı. <strong>Henüz kaydedilmedi:</strong> metni gözden geçirip gerekirse düzenleyin, sonra
     Kaydet'e basın. Örnekteki kişiye ait bir değer (ad, numara, tarih) metne girdiyse silin.
   </p>
   <dl class="description-parts">
@@ -33,15 +36,26 @@
     <dd>{% if described.mrz %}{{ described.mrz.line_count }} satır, {{ described.mrz.location }}{% else %}Yok{% endif %}</dd>
     <dt>Ön/arka yüz</dt>
     <dd>{{ described.side_differences or "—" }}</dd>
+    {% if accepted_photos %}
+    <dt>Kabul edilen fotoğraf</dt>
+    <dd>{{ described.accepted_photo or "—" }}</dd>
+    {% endif %}
   </dl>
   <p class="hint">
+    {% if generated.pages %}
     Kullanılan örnek sayfalar:
     {% for page in generated.pages %}<code>{{ page.example }}</code> (s. {{ page.page }}){% if not loop.last %}, {% endif %}{% endfor %}.
+    {% endif %}
     {% if generated.omitted %}Sınır ({{ max_description_pages }} sayfa) yüzünden {{ generated.omitted }} sayfa gönderilmedi.{% endif %}
+    {% if generated.photos %}
+    Kullanılan kabul edilen fotoğraflar:
+    {% for document_id in generated.photos %}<a href="/documents/{{ document_id }}/history">belge {{ document_id }}</a>{% if not loop.last %}, {% endif %}{% endfor %}.
+    {% endif %}
+    {% if generated.photos_omitted %}Sınır yüzünden {{ generated.photos_omitted }} kabul edilen fotoğraf gönderilmedi.{% endif %}
   </p>
   {% if generated.skipped %}
   <div class="notice" role="note">
-    <p>Açılamayan örnekler atlandı:</p>
+    <p>Açılamayan örnekler{% if accepted_photos %} ve fotoğraflar{% endif %} atlandı:</p>
     <ul>{% for message in generated.skipped %}<li>{{ message }}</li>{% endfor %}</ul>
   </div>
   {% endif %}

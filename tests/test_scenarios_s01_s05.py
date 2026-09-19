@@ -14,7 +14,8 @@ tek bir kayıtlı çalışana satır 1/3 ile bağlıysa ve en az biri Hazir'a gi
 (`extract_image`, K12). Kayıtlı çalışan yoksa dosyada o bağ kurulmaz, fotoğraf Unresolved kalır ve
 İK atamasıyla (08.2) aynı çıktı üretilir. Fotoğraf ayrıca katalogdaki kurallarla denetlenir
 (11.7.1; kayıtlı kontrol yanıtı analizinin ardından gelir): kural ihlali olan fotoğraf sahibi
-olsa da Unresolved'da kalır ve değiştirilmez (11.7.2).
+olsa da Unresolved'da kalır ve değiştirilmez (11.7.2). Her açık kuraldan geçip Hazir'a giren
+fotoğraf örnek işaretlenir ve Profile Picture'ın tür açıklamasını besler (11.8.1).
 """
 
 from __future__ import annotations
@@ -32,8 +33,10 @@ from pypdf import PdfReader
 from sqlalchemy import Engine, select
 from sqlalchemy.orm import Session
 
+from app.ai import AnalysisProvider, PageAnalysisRequest, TypeDescriptionRequest
 from app.ai.recording_provider import RecordingProvider
 from app.catalog import FileType, import_catalog, load_seed_catalog
+from app.catalog.describe import accepted_photos, describe_type
 from app.config import Settings, get_settings
 from app.db.models import (
     Base,
@@ -42,6 +45,7 @@ from app.db.models import (
     EmployeeAlias,
     EmployeeIdentifier,
     Event,
+    KnownDocumentType,
     Page,
     QueueItem,
     Upload,
@@ -55,10 +59,12 @@ from app.matching.match import EmployeeAction, MatchedBy, normalize_document_num
 from app.matching.names import normalize_name
 from app.pipeline.orchestrate import ProcessedUpload, current_plan, process_upload
 from app.pipeline.plan import Operation, PlanEmployee, PlanItem, Route, read_plan
+from app.pipeline.render import image_copy
 from app.pipeline.route import assign_queue_item
 from app.storage import DataLayout, employee_folder_name, prepare_data_dir
 from app.web.auth import PanelUser, get_current_user
 from app.web.routers.uploads import get_layout
+from tests.ai.payloads import description_payload
 from tests.fixtures.gen import (
     PERSON_ORNEKOVA,
     PERSON_SIDOROV,
@@ -748,6 +754,118 @@ def test_s4_photo_breaking_a_rule_stays_out_of_hazir_and_is_not_changed(
 
     assert assigned.operation is Operation.EXTRACT_IMAGE
     assert layout.resolve(assigned.executed.document.path).read_bytes() == original_photo
+
+
+# --- 11.8: kabul edilen fotoğraf örnek işaretlenir ve açıklamayı besler --------------------------
+
+
+class _Describer(AnalysisProvider):
+    """Ağsız test sağlayıcısı: tür açıklaması isteğini saklar, verilen yanıtı döner."""
+
+    name = "aciklayan"
+
+    def __init__(self, response: object) -> None:
+        super().__init__(model="aciklayan-model")
+        self.response = response
+        self.descriptions: list[TypeDescriptionRequest] = []
+
+    def _request_analysis(self, request: PageAnalysisRequest) -> object:
+        raise AssertionError("sayfa analizi istenmemeli")
+
+    def _request_description(self, request: TypeDescriptionRequest) -> object:
+        self.descriptions.append(request)
+        return self.response
+
+
+@pytest.mark.parametrize(
+    ("photo", "marked"),
+    [
+        pytest.param(profile_picture_page, True, id="kurallardan-gecti"),
+        pytest.param(
+            lambda: profile_picture_page(
+                photo_check=photo_check_response({"plain_background": "unsure"})
+            ),
+            False,
+            id="emin-degil-hazirda-ama-ornek-degil",
+        ),
+        pytest.param(
+            lambda: profile_picture_page(
+                people=2, photo_check=photo_check_response({"single_person": "fail"})
+            ),
+            False,
+            id="kural-ihlali-ik-atasa-da-ornek-degil",
+        ),
+    ],
+)
+def test_s4_an_accepted_photo_is_marked_as_example_and_feeds_the_description(
+    session: Session,
+    layout: DataLayout,
+    client: TestClient,
+    tmp_path: Path,
+    photo: Callable[[], SyntheticPage],
+    marked: bool,
+) -> None:
+    # PRD 11.8.1: kabul edilen fotoğraf (her açık kural `pass`, Hazir'da) örnek işaretlenir ve
+    # açıklamayı besler. `unsure` fotoğraf Hazir'a girer ama kabulü kesin değildir; kural ihlali
+    # olan fotoğrafı İK atasa da örnek olmaz.
+    employee = _register_sidorov(session, layout)
+    upload, _ = _run_pdf_batch(
+        session, layout, client, tmp_path, [*_license(), photo(), *_residence()]
+    )
+    queued = _queued(session, upload)
+    if "i2" in queued:
+        assign_queue_item(
+            session,
+            layout,
+            queued["i2"].id,
+            employee.id,
+            actor="ik.kullanici",
+            render_image_dpi=SETTINGS.render_image_dpi,
+            render_image_jpeg_quality=SETTINGS.render_image_jpeg_quality,
+        )
+        session.commit()
+    (document,) = [row for row in _outputs(session) if row.type_slug == PHOTO]
+    stored_rules = session.get_one(KnownDocumentType, PHOTO).photo_rules
+
+    photos = accepted_photos(session, PHOTO, stored_rules)
+
+    if not marked:
+        assert photos == ()
+        return
+    assert [item.document_id for item in photos] == [document.id]
+    output = layout.resolve(document.path)
+    content = output.read_bytes()
+    definition = "Omuzdan yukarı, yüz ortada; düz açık arka plan"
+    provider = _Describer(
+        description_payload(
+            layout="Vesikalık fotoğraf; metin yok",
+            headings=[],
+            languages=[],
+            scripts=[],
+            field_locations=[],
+            mrz=None,
+            accepted_photo=definition,
+        )
+    )
+    entry = CATALOG.get(PHOTO)
+    assert entry is not None
+
+    generated = describe_type(entry, layout, SETTINGS, provider, photos=photos)
+
+    (request,) = provider.descriptions
+    # Gönderilen, Hazir'daki fotoğrafın (gömülü görüntünün kayıpsız çıkarılmışı) analiz kopyasıdır.
+    assert [image.data for image in request.images] == [
+        image_copy(content, jpeg_quality=SETTINGS.page_render_jpeg_quality).content
+    ]
+    assert request.prompt.splitlines()[-1] == "1. kabul edilen fotoğraf 1"
+    for value in (*SIDOROV_PERSONAL, SIDOROV_FOLDER, PHOTO_OUTPUT, employee.id):
+        assert value not in request.prompt, value
+    assert generated.photos == (document.id,)
+    assert generated.text.endswith(f"Kabul edilen fotoğraf: {definition}.")
+    # Fotoğraf değişmez (K11); açıklama kaydedilmez (tür formu İK'nındır).
+    assert output.read_bytes() == content == make_portrait_image_bytes()
+    session.expire_all()
+    assert session.get_one(KnownDocumentType, PHOTO).prompt_description == entry.prompt_description
 
 
 # --- S5: aynı partide ön ve arka yüz görüntüsü ---------------------------------------------------

@@ -79,6 +79,7 @@ def description_payload(**top: Any) -> dict[str, Any]:
         ],
         "mrz": {"line_count": 2, "location": "sayfanın altında"},
         "side_differences": None,
+        "accepted_photo": None,
     }
     data.update(top)
     return data

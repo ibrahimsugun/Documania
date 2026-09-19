@@ -4,6 +4,8 @@ Talimat metni aynı dizindeki `type_description.md`'dir: yapay zekâya bir belge
 sayfalarından yapılandırılmış açıklama (`app.ai.type_description.TypeDescription`) yazdırır. Üç
 kural taşır: türü anlat kişiyi değil (örnekteki kişisel değer açıklamaya girmez), kısa yaz (açıklama
 katalog metninin token bütçesini paylaşır, 11.4.2), serbest metin Türkçe ve basılı başlık aslıyla.
+Fotoğraf türünde ("Fotoğraf türü: evet") kabul edilen fotoğrafların ortak çekim özelliklerini
+`accepted_photo`'ya yazdırır; fotoğraftaki kişi tarif edilmez (11.8.1).
 
 Metin sabittir, yuvası yoktur: türe özgü bilgiler (ad, ülke, yüz yapısı, zorunlu alanlar,
 görüntülerin sırası) isteğin kullanıcı metnindedir (`app.catalog.describe`).

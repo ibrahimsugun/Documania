@@ -38,6 +38,15 @@ formdaki tür bilgileriyle (ad, ülke, yüzler, zorunlu alanlar) istenir, bu yü
 doğrulanır (geçersizse 422, istek gitmez). Örnek yoksa 422, sağlayıcı kurulamıyorsa 503, sağlayıcı
 yanıt vermez ya da yanıt şemaya uymazsa 502; hiçbirinde bir şey yazılmaz.
 
+**Kabul edilen fotoğraflar (11.8.1).** Fotoğraf türünün düzenleme sayfasında "Kabul edilen
+fotoğraflar" bölümü, açık kuralların hepsinden `pass` almış ve Hazir'da duran (`active`)
+fotoğrafları örnek olarak işaretli gösterir (`app.catalog.describe.accepted_photos`; sayı + en yeni
+`MAX_DESCRIPTION_PAGES` tanesi belgenin köken sayfasına bağlantıyla). "Örneklerden açıklama üret"
+düğmesi türün yüklenmiş örneği olmasa da kabul edilen fotoğraf varken çıkar ve bu fotoğrafları örnek
+sayfalarla birlikte yapay zekâya verir; üretilen metne şirketin kabul ettiği fotoğrafın tanımı
+girer. İşaret ayrı bir kayıt değildir, her istekte kural setine göre yeniden çıkarılır; fotoğraf
+dosyası değişmez, kopyalanmaz.
+
 **Fotoğraf kuralları (11.6.1).** Profile Picture türünün düzenleme sayfasında
 (`app.catalog.photo_rules.PHOTO_RULE_TYPES`) "Fotoğraf kuralları" bölümü kural setini gösterir:
 her kural bir işaret kutusudur (yüz görünür, tek kişi, nötr ifade, sade arka plan, asgari
@@ -135,9 +144,11 @@ from app.catalog import (
 from app.catalog.describe import (
     MAX_DESCRIPTION_PAGES,
     SCRIPT_LABELS,
+    AcceptedPhoto,
     GeneratedDescription,
     NoExamplePagesError,
     TypeNotAnalyzedError,
+    accepted_photos,
     describe_type,
 )
 from app.config import Settings, get_settings
@@ -399,21 +410,45 @@ def _examples_context(
     }
 
 
+def _accepted_photos(
+    session: Session, slug: str, stored: dict[str, Any] | None
+) -> tuple[AcceptedPhoto, ...]:
+    """Türün örnek işaretlenen kabul edilmiş fotoğrafları (11.8.1). Okuma SQLite'ta yazma kilidini
+    tutar: işlem hemen bırakılır (çağıranın bekleyen yazması olmamalı)."""
+    try:
+        return accepted_photos(session, slug, stored)
+    finally:
+        session.rollback()
+
+
 def _photo_context(
+    session: Session,
     slug: str,
     stored: dict[str, Any] | None,
     *,
     form: PhotoRulesForm | None = None,
     problems: dict[str, list[str]] | None = None,
+    accepted: tuple[AcceptedPhoto, ...] | None = None,
 ) -> dict[str, Any]:
-    """Düzenleme sayfasının fotoğraf kuralları bölümünün bağlamı; türün kuralı yoksa boş.
-    `stored` kayıtlı `photo_rules`, `form` reddedilen formun girilen değerleridir (kayıtlıyı
-    gölgeler)."""
+    """Düzenleme sayfasının fotoğraf kuralları ve kabul edilen fotoğraflar (11.8.1) bölümlerinin
+    bağlamı; türün kuralı yoksa boş. `stored` kayıtlı `photo_rules`, `form` reddedilen formun
+    girilen değerleridir (kayıtlıyı gölgeler); `accepted` önceden okunmuş kabul edilen fotoğraflar
+    (verilmezse okunur)."""
     if slug not in PHOTO_RULE_TYPES:
         return {}
     settings = read_photo_rules(stored)
     shown = form or PhotoRulesForm.from_settings(settings)
+    if accepted is None:
+        accepted = _accepted_photos(session, slug, stored)
     return {
+        "accepted_photos": {
+            "count": len(accepted),
+            "listed": [
+                {"document_id": photo.document_id, "date": f"{photo.created_at:%Y-%m-%d}"}
+                for photo in accepted[:MAX_DESCRIPTION_PAGES]
+            ],
+            "more": max(0, len(accepted) - MAX_DESCRIPTION_PAGES),
+        },
         "photo_rules": {
             "rules": [
                 {
@@ -428,7 +463,7 @@ def _photo_context(
             "min_width_px": shown.min_width_px,
             "min_height_px": shown.min_height_px,
             "problems": problems or {},
-        }
+        },
     }
 
 
@@ -564,7 +599,7 @@ def type_page(
         slug=slug,
         current_problems=record_problems(record),
         examples=_examples_context(layout, slug),
-        photo=_photo_context(slug, record["photo_rules"]),
+        photo=_photo_context(session, slug, record["photo_rules"]),
         notice_text=TYPE_PAGE_NOTICES.get(notice or ""),
     )
 
@@ -595,7 +630,7 @@ def update_type_endpoint(
             problems=exc.problems,
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             examples=_examples_context(layout, slug),
-            photo=_photo_context(slug, record["photo_rules"]),
+            photo=_photo_context(session, slug, record["photo_rules"]),
         )
     try:
         update_type(session, entry)
@@ -658,7 +693,7 @@ def save_photo_rules(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             examples=_examples_context(layout, slug),
             photo=_photo_context(
-                slug, record["photo_rules"], form=submitted, problems=exc.problems
+                session, slug, record["photo_rules"], form=submitted, problems=exc.problems
             ),
         )
     set_photo_rules(session, slug, rules)
@@ -723,7 +758,7 @@ async def upload_examples(
                 status.HTTP_422_UNPROCESSABLE_CONTENT if chosen else status.HTTP_400_BAD_REQUEST
             ),
             examples=_examples_context(layout, slug, errors=errors),
-            photo=_photo_context(slug, record["photo_rules"]),
+            photo=_photo_context(session, slug, record["photo_rules"]),
         )
     stored = [store_example(layout, slug, name, content, kind) for name, content, kind in checked]
     return _form_page(
@@ -733,7 +768,7 @@ async def upload_examples(
         slug=slug,
         current_problems=record_problems(record),
         examples=_examples_context(layout, slug, stored=stored),
-        photo=_photo_context(slug, record["photo_rules"]),
+        photo=_photo_context(session, slug, record["photo_rules"]),
     )
 
 
@@ -773,14 +808,17 @@ def generate_description(
     form: SubmittedForm,
     provider: DescriptionProvider,
 ) -> HTMLResponse:
-    """11.3.1 — türün örneklerinden yapılandırılmış açıklama üretir ve metnini formun
-    `prompt_description` alanına yazarak formu yeniden çizer. **Kaydetmez:** İK düzenleyip kaydeder.
+    """11.3.1 — türün örneklerinden (fotoğraf türünde ayrıca kabul edilen fotoğraflardan, 11.8.1)
+    yapılandırılmış açıklama üretir ve metnini formun `prompt_description` alanına yazarak formu
+    yeniden çizer. **Kaydetmez:** İK düzenleyip kaydeder.
 
-    Formdaki (kaydedilmemiş) değerler korunur ve açıklama onlarla istenir. Veritabanı işlemi
-    sağlayıcı çağrısından önce bırakılır (`_known_type`): uzun süren çağrı yazma kilidi tutmaz.
+    Formdaki (kaydedilmemiş) değerler korunur ve açıklama onlarla istenir; kabul edilen fotoğraflar
+    türün kayıtlı kurallarıyla seçilir. Veritabanı işlemi sağlayıcı çağrısından önce bırakılır
+    (`_known_type`, `_accepted_photos`): uzun süren çağrı yazma kilidi tutmaz.
     """
     form = replace(form, slug=slug)
     record = _known_type(session, slug)
+    photos = _accepted_photos(session, slug, record["photo_rules"])
 
     def page(
         status_code: int,
@@ -799,7 +837,7 @@ def generate_description(
             current_problems=record_problems(record),
             status_code=status_code,
             examples=_examples_context(layout, slug),
-            photo=_photo_context(slug, record["photo_rules"]),
+            photo=_photo_context(session, slug, record["photo_rules"], accepted=photos),
             generated=generated,
             description_error=error,
         )
@@ -818,7 +856,7 @@ def generate_description(
             error=DESCRIPTION_PROVIDER_UNAVAILABLE.format(detail=provider),
         )
     try:
-        generated = describe_type(entry, layout, settings, provider)
+        generated = describe_type(entry, layout, settings, provider, photos=photos)
     except TypeNotAnalyzedError:
         return page(status.HTTP_422_UNPROCESSABLE_CONTENT, error=DESCRIPTION_NOT_ANALYZED)
     except NoExamplePagesError as exc:
