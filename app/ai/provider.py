@@ -20,6 +20,13 @@ Sorumluluk ayrımı:
   `ProviderConnectionError` ve diğer `ProviderError` alt türleri kalıcı kabul edilir ve ilk
   denemede yükselir — tekrar denense de aynı sonucu verme ihtimalleri yeniden deneme maliyetini
   haklı çıkarmaz.
+
+**Tür açıklaması (11.3.1).** Aynı sağlayıcı ikinci bir iş yapar: `describe_type
+(TypeDescriptionRequest)` bir belge türünün örnek sayfalarından (birkaç görüntü tek istekte)
+yapılandırılmış `TypeDescription` üretir. Sözleşme sayfa analizininkiyle aynıdır — yanıt kabulü
+(`validate_type_description`) ve yeniden deneme ortak, somut sağlayıcı yalnız
+`_request_description`'ı uygular; şemaya uymayan yanıt `TypeDescriptionError`'dır. Bu işi
+uygulamayan sağlayıcı (test sağlayıcıları) `ProviderError` verir.
 """
 
 from __future__ import annotations
@@ -31,6 +38,7 @@ from dataclasses import dataclass, field
 from typing import ClassVar, Literal, final
 
 from app.ai.schemas import PageAnalysis, PageAnalysisError, validate_page_analysis
+from app.ai.type_description import TypeDescription, validate_type_description
 from app.config import Settings
 from app.storage.filetype import FileKind, UnsupportedFileTypeError, detect_file_kind
 
@@ -127,6 +135,33 @@ class PageAnalysisRequest:
         object.__setattr__(self, "known_slugs", frozenset(self.known_slugs))
 
 
+@dataclass(frozen=True, slots=True, kw_only=True)
+class TypeDescriptionRequest:
+    """Tür açıklaması isteği (11.3.1); hiçbir alanı sağlayıcıya özgü değildir.
+
+    - `images`: türün örnek sayfaları, istemde anlatılan sırayla (en az bir).
+    - `instructions`: sistem talimatı (`app.ai.prompts.type_description`).
+    - `prompt`: türe özgü metin (ad, ülke, yüz yapısı, zorunlu alanlar, görüntülerin sırası).
+    """
+
+    images: tuple[PageImage, ...]
+    instructions: str = field(repr=False)
+    prompt: str = field(repr=False)
+
+    def __post_init__(self) -> None:
+        # Çağıran liste verebilir; istek değişmez olsun diye demete çevrilir.
+        images = tuple(self.images)
+        if not images:
+            raise ValueError("images en az bir görüntü içermeli")
+        if not all(isinstance(image, PageImage) for image in images):
+            raise TypeError("images yalnız PageImage içermeli")
+        if not self.instructions.strip():
+            raise ValueError("instructions boş olamaz")
+        if not self.prompt.strip():
+            raise ValueError("prompt boş olamaz")
+        object.__setattr__(self, "images", images)
+
+
 class AnalysisProvider(abc.ABC):
     """Sayfa analizi sağlayıcısı. `name` `AI_PROVIDER` değeridir, `model` kullanılan modeldir."""
 
@@ -160,13 +195,16 @@ class AnalysisProvider(abc.ABC):
 
     def _request_analysis_with_retry(self, request: PageAnalysisRequest) -> object:
         """`_request_analysis`'i hız sınırı/5xx'te geri çekilmeli yeniden dener (03.5.1)."""
-        for attempt in range(1, MAX_ANALYSIS_ATTEMPTS + 1):
-            try:
-                return self._request_analysis(request)
-            except _RETRYABLE_ERRORS:
-                if attempt == MAX_ANALYSIS_ATTEMPTS:
-                    raise
-                time.sleep(RETRY_BACKOFF_SECONDS * 2 ** (attempt - 1))
+        return _with_retry(self._request_analysis, request)
+
+    @final
+    def describe_type(self, request: TypeDescriptionRequest) -> TypeDescription:
+        """Türün örnek sayfalarından yapılandırılmış tür açıklaması ürettirir (11.3.1).
+
+        Yeniden deneme `analyze_page`'teki gibidir (03.5.1). Yanıt `validate_type_description`'dan
+        geçer; uymayan yanıt `TypeDescriptionError` olur, düzeltilmez.
+        """
+        return validate_type_description(_with_retry(self._request_description, request))
 
     @abc.abstractmethod
     def _request_analysis(self, request: PageAnalysisRequest) -> object:
@@ -176,6 +214,24 @@ class AnalysisProvider(abc.ABC):
         (uygun alt türüyle), yanıtta yapılandırılmış çıktı yoksa `PageAnalysisError` fırlatır.
         Kendi içinde yeniden deneme yapmaz — yeniden deneme `analyze_page`'in işidir (03.5).
         """
+
+    def _request_description(self, request: TypeDescriptionRequest) -> object:
+        """Tür açıklaması için sağlayıcıyı bir kez çağırır, yapılandırılmış çıktıyı doğrulamadan
+        döner (sözleşmesi `_request_analysis`'inkidir; yapılandırılmış çıktı yoksa
+        `TypeDescriptionError`). Varsayılan: sağlayıcı bu işi yapmaz."""
+        raise ProviderError(f"'{self.name}' sağlayıcısı tür açıklaması üretmiyor")
+
+
+def _with_retry[R](call: Callable[[R], object], request: R) -> object:
+    """`call(request)`'i hız sınırı (429) ve sağlayıcı hatasında (5xx) geri çekilmeli yeniden dener
+    (03.5.1); son denemede de başarısız olursa aynı hata yükselir."""
+    for attempt in range(1, MAX_ANALYSIS_ATTEMPTS + 1):
+        try:
+            return call(request)
+        except _RETRYABLE_ERRORS:
+            if attempt == MAX_ANALYSIS_ATTEMPTS:
+                raise
+            time.sleep(RETRY_BACKOFF_SECONDS * 2 ** (attempt - 1))
 
 
 ProviderFactory = Callable[[Settings], AnalysisProvider]

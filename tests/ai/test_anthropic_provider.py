@@ -29,9 +29,18 @@ from app.ai import (
     ProviderServerError,
     Script,
     Side,
+    TypeDescription,
+    TypeDescriptionError,
     validate_page_analysis,
+    validate_type_description,
 )
-from app.ai.anthropic_provider import ANALYSIS_TOOL, TOOL_NAME, AnthropicProvider
+from app.ai.anthropic_provider import (
+    ANALYSIS_TOOL,
+    DESCRIPTION_TOOL,
+    DESCRIPTION_TOOL_NAME,
+    TOOL_NAME,
+    AnthropicProvider,
+)
 from app.ai.provider import MAX_ANALYSIS_ATTEMPTS, RETRY_BACKOFF_SECONDS
 from app.ai.schemas import ISO_639_1_CODES
 from app.config import Settings, load_settings
@@ -40,6 +49,8 @@ from tests.ai.payloads import (
     SYNTHETIC_DOCUMENT_NUMBER,
     SYNTHETIC_SURNAME,
     analysis_payload,
+    description_payload,
+    description_request,
     page_request,
 )
 from tests.fixtures.gen import make_half_filled_image_bytes
@@ -423,6 +434,85 @@ def test_constructor_rejects_non_positive_output_tokens() -> None:
 
     with pytest.raises(ValueError, match="max_output_tokens"):
         AnthropicProvider(client, model="claude-test", max_output_tokens=0)
+
+
+# --- Tür açıklaması (11.3.1): birkaç görüntü + metin, zorlanmış açıklama aracı -----------------
+
+
+def test_description_request_sends_images_in_order_then_text_with_forced_description_tool() -> None:
+    api = FakeApi(message([tool_use(description_payload(), name=DESCRIPTION_TOOL_NAME)]))
+    request = description_request(images=3, instructions="Tür talimatı", prompt="Tür metni")
+
+    description = api.provider().describe_type(request)
+
+    assert description == validate_type_description(description_payload())
+    body = api.body()
+    assert body["system"] == "Tür talimatı"
+    *image_blocks, text_block = body["messages"][0]["content"]
+    assert len(body["messages"]) == 1
+    assert [block["type"] for block in image_blocks] == ["image"] * 3
+    assert [base64.b64decode(block["source"]["data"]) for block in image_blocks] == [
+        image.data for image in request.images
+    ]
+    assert [block["source"]["media_type"] for block in image_blocks] == [
+        image.media_type for image in request.images
+    ]
+    assert text_block == {"type": "text", "text": "Tür metni"}
+    assert body["tools"] == [json.loads(json.dumps(DESCRIPTION_TOOL))]
+    assert body["tools"][0]["input_schema"] == TypeDescription.model_json_schema()
+    assert body["tool_choice"] == {
+        "type": "tool",
+        "name": DESCRIPTION_TOOL_NAME,
+        "disable_parallel_tool_use": True,
+    }
+    assert body["thinking"] == {"type": "disabled"}
+
+
+@pytest.mark.parametrize(
+    ("content", "stop_reason", "expected"),
+    [
+        (
+            [tool_use(description_payload(), name=DESCRIPTION_TOOL_NAME)],
+            "max_tokens",
+            "tür açıklaması aracı çağrısı tamamlanmadı (stop_reason=max_tokens)",
+        ),
+        ([tool_use(description_payload())], "tool_use", "1 araç çağrısı"),
+    ],
+    ids=["kesik", "analiz-araci"],
+)
+def test_description_response_without_description_tool_call_is_rejected(
+    content: list[dict[str, Any]], stop_reason: str, expected: str
+) -> None:
+    api = FakeApi(message(content, stop_reason=stop_reason))
+
+    with pytest.raises(TypeDescriptionError) as caught:
+        api.provider().describe_type(description_request())
+
+    assert caught.value.problems[0].startswith("yanıt:")
+    assert expected in caught.value.problems[0]
+
+
+def test_non_conforming_description_is_rejected() -> None:
+    api = FakeApi(
+        message([tool_use(description_payload(mrz={"line_count": 5}), name=DESCRIPTION_TOOL_NAME)])
+    )
+
+    with pytest.raises(TypeDescriptionError) as caught:
+        api.provider().describe_type(description_request())
+
+    assert any(problem.startswith("mrz") for problem in caught.value.problems)
+
+
+def test_description_status_errors_are_retried_like_analysis(no_sleep: list[float]) -> None:
+    api = FakeApi(
+        api_error(529, "overloaded_error"),
+        message([tool_use(description_payload(), name=DESCRIPTION_TOOL_NAME)]),
+    )
+
+    api.provider().describe_type(description_request())
+
+    assert len(api.requests) == 2
+    assert no_sleep == [RETRY_BACKOFF_SECONDS]
 
 
 # --- Canlı çağrı (DoD kapısında dışarıda) ------------------------------------------------------

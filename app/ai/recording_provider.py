@@ -10,9 +10,12 @@ JSON dosyalarını okuyan, başka test modüllerinin de kullanabileceği paylaş
 
 Bir kayıt dizini, sıradaki her `analyze_page` çağrısına karşılık gelen sayfanın ham yanıtını
 taşıyan `<sıra>.json` dosyalarından oluşur (`0.json`, `1.json`, ...) ve dosya adına göre
-sıralı okunur. İçerik ayrıştırılmadan olduğu gibi döner — doğrulama `AnalysisProvider.
-analyze_page` içindeki `validate_page_analysis`'in işidir (bozuk kayıt orada `PageAnalysisError`
-olur, burada değil — somut sağlayıcılarla aynı sorumluluk ayrımı, bkz. `provider.py`).
+sıralı okunur. Tür açıklaması isteği (`describe_type`, 11.3.1) aynı sıradan bir kayıt alır:
+kayıtlar istek türüne bakılmadan geldiği sırayla dağıtılır. İçerik ayrıştırılmadan olduğu gibi
+döner — doğrulama `AnalysisProvider.analyze_page` içindeki `validate_page_analysis`'in (tür
+açıklamasında `validate_type_description`'ın) işidir (bozuk kayıt orada `PageAnalysisError` olur,
+burada değil — somut sağlayıcılarla aynı sorumluluk ayrımı, bkz. `provider.py`). Tür açıklaması
+kayıtları sayfa analizi kayıtlarından ayrı dizindedir (`tests/fixtures/ai/type_descriptions/`).
 
 `AI_PROVIDER` kayıt defterine (`PROVIDER_FACTORIES`) eklenmez: bu sağlayıcının kurulması bir
 dizin yolu ister, `.env`'den okunacak bir ayar değil, testin kendisidir. Testler
@@ -26,7 +29,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from pathlib import Path
 
-from app.ai.provider import AnalysisProvider, PageAnalysisRequest
+from app.ai.provider import AnalysisProvider, PageAnalysisRequest, TypeDescriptionRequest
 
 
 class RecordingNotFoundError(RuntimeError):
@@ -47,7 +50,9 @@ class RecordingProvider(AnalysisProvider):
         if not recordings:
             raise RecordingNotFoundError("recordings boş olamaz")
         self._recordings = list(recordings)
+        self._served = 0
         self.requests: list[PageAnalysisRequest] = []
+        self.description_requests: list[TypeDescriptionRequest] = []
 
     @classmethod
     def from_directory(cls, directory: Path, *, model: str = "recording") -> RecordingProvider:
@@ -61,8 +66,16 @@ class RecordingProvider(AnalysisProvider):
         return cls(recordings, model=model)
 
     def _request_analysis(self, request: PageAnalysisRequest) -> object:
-        index = len(self.requests)
         self.requests.append(request)
+        return self._next_recording()
+
+    def _request_description(self, request: TypeDescriptionRequest) -> object:
+        self.description_requests.append(request)
+        return self._next_recording()
+
+    def _next_recording(self) -> str:
+        index = self._served
+        self._served += 1
         if index >= len(self._recordings):
             raise RecordingExhaustedError(
                 f"{len(self._recordings)} kayıt yüklendi, {index + 1}. istek için kayıt yok"

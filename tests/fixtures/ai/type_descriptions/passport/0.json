@@ -1,0 +1,34 @@
+{
+  "layout": "Tek sayfalık pasaport kimlik sayfası; üstte başlık, altında etiketli satırlar",
+  "headings": [
+    "ПАСПОРТ",
+    "PASSPORT"
+  ],
+  "languages": [
+    "ru",
+    "en"
+  ],
+  "scripts": [
+    "cyrillic",
+    "latin"
+  ],
+  "field_locations": [
+    {
+      "field": "surname",
+      "location": "başlığın altında, ilk etiketli satır"
+    },
+    {
+      "field": "given_names",
+      "location": "soyadı satırının altında"
+    },
+    {
+      "field": "document_number",
+      "location": "etiketli satırların ortasında"
+    }
+  ],
+  "mrz": {
+    "line_count": 2,
+    "location": "sayfanın altında, eş aralıklı yazıyla"
+  },
+  "side_differences": null
+}

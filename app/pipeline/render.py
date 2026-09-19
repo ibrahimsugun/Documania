@@ -132,6 +132,12 @@ def _open_pdf(content: bytes) -> Iterator[pymupdf.Document]:
         yield document
 
 
+def _rasterize(page: pymupdf.Page, dpi: int, max_long_edge: int) -> tuple[pymupdf.Pixmap, float]:
+    """Sayfanın `render_scale` ölçeğindeki görüntüsü ve ölçek."""
+    scale = render_scale(page.rect, dpi, max_long_edge)
+    return page.get_pixmap(matrix=pymupdf.Matrix(scale, scale), alpha=False), scale
+
+
 def render_pdf_pages(
     source: Path,
     layout: DataLayout,
@@ -146,8 +152,7 @@ def render_pdf_pages(
     rendered: list[RenderedPage] = []
     with _open_pdf(content) as document:
         for page in document:
-            scale = render_scale(page.rect, dpi, max_long_edge)
-            pixmap = page.get_pixmap(matrix=pymupdf.Matrix(scale, scale), alpha=False)
+            pixmap, scale = _rasterize(page, dpi, max_long_edge)
             path = layout.page_image_path(file_id, page.number)
             replace_file(path, pixmap.tobytes("jpeg", jpg_quality=jpeg_quality))
             rendered.append(
@@ -160,6 +165,25 @@ def render_pdf_pages(
                 )
             )
     return rendered
+
+
+def render_pdf_images(
+    content: bytes, *, dpi: int, max_long_edge: int, jpeg_quality: int, max_pages: int
+) -> tuple[list[bytes], int]:
+    """PDF'in ilk `max_pages` sayfasının JPEG görüntüsü, bellekte (diske ve önbelleğe yazmadan),
+    ve PDF'in toplam sayfa sayısı. Ölçek ve biçim `render_pdf_pages`'inkidir; tür açıklaması
+    (11.3.1) örnek belgelerin sayfalarını bununla yapay zekâya verir. PDF açılamazsa `RenderError`.
+    """
+    if max_pages < 0:
+        raise ValueError("max_pages 0 veya pozitif olmalı")
+    with _open_pdf(content) as document:
+        images = [
+            _rasterize(document[index], dpi, max_long_edge)[0].tobytes(
+                "jpeg", jpg_quality=jpeg_quality
+            )
+            for index in range(min(max_pages, document.page_count))
+        ]
+        return images, document.page_count
 
 
 def extract_page_text(page: pymupdf.Page) -> str | None:
@@ -256,7 +280,26 @@ def render_image_copy(
     kontrast gibi başka bir piksel dönüşümü yapılmaz (K11). Yönelim etiketi yoksa (ya da zaten
     normalse) kopya kaynakla görsel olarak aynıdır.
     """
-    content = source.read_bytes()
+    copy = image_copy(source.read_bytes(), jpeg_quality=jpeg_quality)
+    path = layout.page_image_path(file_id, 0, extension=copy.extension)
+    replace_file(path, copy.content)
+    return RenderedPage(index=0, path=path, width=copy.width, height=copy.height)
+
+
+@dataclass(frozen=True)
+class ImageCopy:
+    """Görüntü dosyasının bellekteki analiz kopyası (`image_copy`)."""
+
+    content: bytes
+    extension: str
+    width: int
+    height: int
+
+
+def image_copy(content: bytes, *, jpeg_quality: int) -> ImageCopy:
+    """JPEG/PNG baytlarının EXIF yönelimi uygulanmış analiz kopyası, bellekte (02.3.1; kurallar
+    `render_image_copy`'nin). Görüntü değilse `RenderError`; çözülemeyen görüntüde Pillow'un hatası
+    yükselir."""
     try:
         kind = detect_file_kind(content)
     except UnsupportedFileTypeError:
@@ -272,10 +315,7 @@ def render_image_copy(
         buffer = BytesIO()
         save_kwargs = {"quality": jpeg_quality} if kind is FileKind.JPEG else {}
         oriented.save(buffer, format=image_format, **save_kwargs)
-
-    path = layout.page_image_path(file_id, 0, extension=extension)
-    replace_file(path, buffer.getvalue())
-    return RenderedPage(index=0, path=path, width=width, height=height)
+    return ImageCopy(content=buffer.getvalue(), extension=extension, width=width, height=height)
 
 
 def is_page_blank(page: pymupdf.Page) -> bool:

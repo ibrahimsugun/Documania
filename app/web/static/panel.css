@@ -346,3 +346,13 @@ form.inline { display: inline; margin: 0 0 0 0.6rem; }
 .example-list { margin: 0 0 1rem; padding-left: 1.25rem; }
 
 .example-form { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 1rem; }
+
+.generated-description { margin: 1rem 0 1.5rem; }
+
+.description-parts { display: grid; grid-template-columns: max-content 1fr; gap: 0.3rem 1rem; margin: 0.75rem 0; }
+
+.description-parts dt { font-weight: 600; }
+
+.description-parts dd { margin: 0; }
+
+.description-parts ul { margin: 0; padding-left: 1.25rem; }

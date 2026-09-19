@@ -1,0 +1,48 @@
+{# Örneklerden üretilen tür açıklaması (11.3.1): yapılandırılmış hâli ve girdisi. Metni formun
+   "Analizci için açıklama" alanına yazılmıştır; kaydedilmedi — İK düzenleyip Kaydet'e basar. Belge
+   içeriği gösterilmez ve değişmez (K17): yalnız yapay zekânın türe ilişkin anlatımıdır. #}
+{% set described = generated.description %}
+<section class="generated-description" id="description">
+  <p class="notice notice-success" role="status">
+    Açıklama {{ generated.pages|length }} örnek sayfadan üretildi ve "Analizci için açıklama" alanına
+    yazıldı. <strong>Henüz kaydedilmedi:</strong> metni gözden geçirip gerekirse düzenleyin, sonra
+    Kaydet'e basın. Örnekteki kişiye ait bir değer (ad, numara, tarih) metne girdiyse silin.
+  </p>
+  <dl class="description-parts">
+    <dt>Düzen</dt>
+    <dd>{{ described.layout }}</dd>
+    <dt>Başlıklar</dt>
+    <dd>{{ described.headings|join(" / ") if described.headings else "—" }}</dd>
+    <dt>Dil</dt>
+    <dd>{{ described.languages|join(", ") if described.languages else "—" }}</dd>
+    <dt>Alfabe</dt>
+    <dd>
+      {% for script in described.scripts %}{{ script_labels[script] }}{% if not loop.last %}, {% endif %}{% else %}—{% endfor %}
+    </dd>
+    <dt>Alanların yeri</dt>
+    <dd>
+      {% if described.field_locations %}
+      <ul>
+        {% for item in described.field_locations %}
+        <li><code>{{ item.field }}</code> — {{ item.location }}</li>
+        {% endfor %}
+      </ul>
+      {% else %}—{% endif %}
+    </dd>
+    <dt>MRZ</dt>
+    <dd>{% if described.mrz %}{{ described.mrz.line_count }} satır, {{ described.mrz.location }}{% else %}Yok{% endif %}</dd>
+    <dt>Ön/arka yüz</dt>
+    <dd>{{ described.side_differences or "—" }}</dd>
+  </dl>
+  <p class="hint">
+    Kullanılan örnek sayfalar:
+    {% for page in generated.pages %}<code>{{ page.example }}</code> (s. {{ page.page }}){% if not loop.last %}, {% endif %}{% endfor %}.
+    {% if generated.omitted %}Sınır ({{ max_description_pages }} sayfa) yüzünden {{ generated.omitted }} sayfa gönderilmedi.{% endif %}
+  </p>
+  {% if generated.skipped %}
+  <div class="notice" role="note">
+    <p>Açılamayan örnekler atlandı:</p>
+    <ul>{% for message in generated.skipped %}<li>{{ message }}</li>{% endfor %}</ul>
+  </div>
+  {% endif %}
+</section>

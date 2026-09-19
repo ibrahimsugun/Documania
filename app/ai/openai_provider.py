@@ -13,6 +13,10 @@ Katı mod (`strict`) kapalıdır: katı şema her nesnede `additionalProperties:
 Modelin işlev argümanları ham yanıttır; kabulü `AnalysisProvider.analyze_page`
 `validate_page_analysis` ile yapar.
 
+Tür açıklaması (11.3.1) aynı biçimde istenir: kullanıcı mesajında türün örnek sayfaları (sırayla,
+birkaç görüntü), sonra türe özgü metin; zorlanmış işlev `DESCRIPTION_TOOL_NAME`, parametre şeması
+`TypeDescription.model_json_schema()`.
+
 SDK'nın kendi yeniden denemesi kapalıdır (`max_retries=0`): geri çekilmeli deneme 03.5'in işidir,
 iki katman üst üste denemesin. İstek `store=False` gider: sayfa görüntüsü kimlik belgesi olabilir,
 sağlayıcı tarafında saklanmasını istemiyoruz (CONVENTIONS §6).
@@ -21,6 +25,7 @@ sağlayıcı tarafında saklanmasını istemiyoruz (CONVENTIONS §6).
 from __future__ import annotations
 
 import base64
+from collections.abc import Callable, Sequence
 
 import httpx2
 import openai
@@ -33,13 +38,16 @@ from openai.types.chat import (
 from app.ai.provider import (
     AnalysisProvider,
     PageAnalysisRequest,
+    PageImage,
     ProviderConfigError,
     ProviderConnectionError,
     ProviderError,
     ProviderRateLimitError,
     ProviderServerError,
+    TypeDescriptionRequest,
 )
 from app.ai.schemas import PageAnalysis, PageAnalysisError
+from app.ai.type_description import TypeDescription, TypeDescriptionError
 from app.config import Settings
 
 TOOL_NAME = "record_page_analysis"
@@ -57,6 +65,21 @@ ANALYSIS_TOOL: ChatCompletionFunctionToolParam = {
     },
 }
 
+DESCRIPTION_TOOL_NAME = "record_type_description"
+
+DESCRIPTION_TOOL: ChatCompletionFunctionToolParam = {
+    "type": "function",
+    "function": {
+        "name": DESCRIPTION_TOOL_NAME,
+        "description": (
+            "Belge türünün örneklerinden çıkarılan yapılandırılmış açıklamayı kaydeder. "
+            "Argümanlar, tür açıklaması şemasındaki her anahtarı taşıyan tek bir nesnedir."
+        ),
+        "parameters": TypeDescription.model_json_schema(),
+        "strict": False,
+    },
+}
+
 _UNFINISHED_FINISH_REASONS = frozenset({"length", "content_filter"})
 """`length` kesik argüman, `content_filter` süzülmüş çıktıdır — araç çağrısı varmış gibi görünse de
 kabul edilmez. (Zorlanmış işlev seçiminde `finish_reason` `tool_calls` yerine `stop` gelebilir; bu
@@ -67,7 +90,7 @@ _PERMANENT_RATE_LIMIT_CODES = frozenset({"insufficient_quota"})
 
 
 class OpenAIProvider(AnalysisProvider):
-    """OpenAI Chat Completions API ile sayfa analizi (`AI_PROVIDER=openai`)."""
+    """OpenAI Chat Completions API ile sayfa analizi ve tür açıklaması (`AI_PROVIDER=openai`)."""
 
     name = "openai"
 
@@ -105,18 +128,53 @@ class OpenAIProvider(AnalysisProvider):
         )
 
     def _request_analysis(self, request: PageAnalysisRequest) -> object:
-        data_url = (
-            f"data:{request.image.media_type};base64,"
-            f"{base64.b64encode(request.image.data).decode('ascii')}"
+        return self._forced_function_call(
+            request.instructions,
+            (request.image,),
+            request.prompt,
+            ANALYSIS_TOOL,
+            label="analiz işlevi",
+            error=PageAnalysisError,
         )
+
+    def _request_description(self, request: TypeDescriptionRequest) -> object:
+        return self._forced_function_call(
+            request.instructions,
+            request.images,
+            request.prompt,
+            DESCRIPTION_TOOL,
+            label="tür açıklaması işlevi",
+            error=TypeDescriptionError,
+        )
+
+    def _forced_function_call(
+        self,
+        instructions: str,
+        images: Sequence[PageImage],
+        prompt: str,
+        tool: ChatCompletionFunctionToolParam,
+        *,
+        label: str,
+        error: Callable[[list[str]], Exception],
+    ) -> object:
+        """Görüntüler (sırayla) ve metinle tek istek; `tool` işlevi zorlanır, argümanları
+        doğrulanmadan döner. Yanıtta tek ve tam bir `tool` çağrısı yoksa `error` (`label` mesajdaki
+        işlev adıdır)."""
+        name = tool["function"]["name"]
         messages: list[ChatCompletionMessageParam] = [
-            {"role": "system", "content": request.instructions},
+            {"role": "system", "content": instructions},
             {
                 "role": "user",
                 "content": [
                     # Kimlik belgesindeki küçük yazıların okunması için en yüksek ayrıntı.
-                    {"type": "image_url", "image_url": {"url": data_url, "detail": "high"}},
-                    {"type": "text", "text": request.prompt},
+                    *(
+                        {
+                            "type": "image_url",
+                            "image_url": {"url": _data_url(image), "detail": "high"},
+                        }
+                        for image in images
+                    ),
+                    {"type": "text", "text": prompt},
                 ],
             },
         ]
@@ -125,8 +183,8 @@ class OpenAIProvider(AnalysisProvider):
                 model=self.model,
                 max_completion_tokens=self._max_output_tokens,
                 messages=messages,
-                tools=[ANALYSIS_TOOL],
-                tool_choice={"type": "function", "function": {"name": TOOL_NAME}},
+                tools=[tool],
+                tool_choice={"type": "function", "function": {"name": name}},
                 parallel_tool_calls=False,
                 store=False,
             )
@@ -136,7 +194,11 @@ class OpenAIProvider(AnalysisProvider):
             raise ProviderConnectionError(f"OpenAI'ye ulaşılamadı: {type(exc).__name__}") from exc
         except openai.OpenAIError as exc:
             raise ProviderError(f"OpenAI isteği başarısız: {type(exc).__name__}") from exc
-        return _tool_arguments(response)
+        return _tool_arguments(response, name, label, error)
+
+
+def _data_url(image: PageImage) -> str:
+    return f"data:{image.media_type};base64,{base64.b64encode(image.data).decode('ascii')}"
 
 
 def _status_error(exc: openai.APIStatusError) -> ProviderError:
@@ -158,22 +220,23 @@ def _error_detail(body: object) -> str:
     return f" ({': '.join(parts)})" if parts else ""
 
 
-def _tool_arguments(response: ChatCompletion) -> object:
-    """Yanıttaki tek analiz işlevi çağrısının argümanları; tamamlanmadıysa yanıt reddedilir."""
+def _tool_arguments(
+    response: ChatCompletion, name: str, label: str, error: Callable[[list[str]], Exception]
+) -> object:
+    """Yanıttaki tek `name` işlevi çağrısının argümanları; tamamlanmadıysa yanıt `error` ile
+    reddedilir."""
     if len(response.choices) != 1:
-        raise PageAnalysisError([f"yanıt: tek seçenek beklenir ({len(response.choices)} seçenek)"])
+        raise error([f"yanıt: tek seçenek beklenir ({len(response.choices)} seçenek)"])
     choice = response.choices[0]
     if choice.finish_reason in _UNFINISHED_FINISH_REASONS:
-        raise PageAnalysisError(
-            [f"yanıt: analiz işlevi çağrısı tamamlanmadı (finish_reason={choice.finish_reason})"]
-        )
+        raise error([f"yanıt: {label} çağrısı tamamlanmadı (finish_reason={choice.finish_reason})"])
     calls = choice.message.tool_calls or []
-    if len(calls) != 1 or calls[0].type != "function" or calls[0].function.name != TOOL_NAME:
+    if len(calls) != 1 or calls[0].type != "function" or calls[0].function.name != name:
         # Ret (`refusal`) ve işlevsiz yanıt (`stop`) buraya düşer; ret metni mesaja alınmaz.
         reason = "refusal" if choice.message.refusal else choice.finish_reason
-        raise PageAnalysisError(
+        raise error(
             [
-                f"yanıt: yalnız bir '{TOOL_NAME}' çağrısı olmalı "
+                f"yanıt: yalnız bir '{name}' çağrısı olmalı "
                 f"({len(calls)} araç çağrısı, finish_reason={reason})"
             ]
         )

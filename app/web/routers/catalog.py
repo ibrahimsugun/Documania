@@ -27,6 +27,17 @@ hep-ya-hiçtir: bir dosya reddedilirse (tür PDF/JPEG/PNG dışı, bozuk, boş, 
 hiçbiri yazılmaz ve hata dosya başına bildirilir; aynı içerik ikinci kez yazılmaz. Silme ve
 düzenleme yolu yok.
 
+**Tür açıklaması (11.3.1).** Düzenleme sayfasındaki formun "Örneklerden açıklama üret" düğmesi formu
+`POST /document-types/{slug}/description`'a gönderir: türün örnek sayfaları (en çok
+`MAX_DESCRIPTION_PAGES`) yapay zekâya verilir, yapılandırılmış açıklama (düzen, başlıklar, dil ve
+alfabe, alanların yeri, MRZ, ön/arka yüz farkı) üretilir ve metni formun "Analizci için açıklama"
+(`prompt_description`) alanına yazılarak form yeniden çizilir; yapılandırılmış hâli ve kullanılan
+sayfalar formun üstünde gösterilir. **Kaydedilmez:** İK metni düzenleyip "Kaydet" ile türü
+kaydeder (yukarıdaki düzenleme yolu, 11.1.1). Formdaki kaydedilmemiş değerler korunur; açıklama
+formdaki tür bilgileriyle (ad, ülke, yüzler, zorunlu alanlar) istenir, bu yüzden form önce
+doğrulanır (geçersizse 422, istek gitmez). Örnek yoksa 422, sağlayıcı kurulamıyorsa 503, sağlayıcı
+yanıt vermez ya da yanıt şemaya uymazsa 502; hiçbirinde bir şey yazılmaz.
+
 **Aday türler (11.5).** Analizcinin önerdiği katalog dışı türler (04.6.1) `GET
 /document-types/candidate-types`'ta listelenir (11.5.1): bekleyen adaylar adı, görülme sayısı, örnek
 sayfaları (analiz kopyası, `/uploads/{id}/pages/{page_id}/image`) ve bekleyen Unknown öğe sayısıyla;
@@ -71,7 +82,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 from starlette.datastructures import UploadFile as StarletteUploadFile
 
-from app.ai.provider import ProviderConfigError
+from app.ai.provider import AnalysisProvider, ProviderConfigError, ProviderError, create_provider
+from app.ai.type_description import TypeDescriptionError
 from app.catalog import (
     DETAIL_SAMPLE_LIMIT,
     CandidateDecidedError,
@@ -102,6 +114,14 @@ from app.catalog import (
     suggested_form,
     summarize_candidates,
     update_type,
+)
+from app.catalog.describe import (
+    MAX_DESCRIPTION_PAGES,
+    SCRIPT_LABELS,
+    GeneratedDescription,
+    NoExamplePagesError,
+    TypeNotAnalyzedError,
+    describe_type,
 )
 from app.config import Settings, get_settings
 from app.db.models import (
@@ -197,6 +217,26 @@ NOTICES = {
 EXAMPLE_NOT_FOUND = "Örnek belge bulunamadı"
 NO_EXAMPLE_FILE = "Dosya seçilmedi."
 
+# --- 11.3: tür açıklaması -----------------------------------------------------------------------
+
+DESCRIPTION_INVALID_FORM = "Açıklama üretilmedi: önce alanların altındaki uyarıları düzeltin."
+DESCRIPTION_NOT_ANALYZED = (
+    "Açıklama üretilmedi: analiz edilmeyen türün açıklaması analizde kullanılmaz."
+)
+DESCRIPTION_NO_EXAMPLES = (
+    "Açıklama üretilmedi: bu türün açılabilen örneği yok. Önce örnek belge yükleyin."
+)
+DESCRIPTION_PROVIDER_UNAVAILABLE = (
+    "Açıklama üretilmedi: yapay zekâ sağlayıcısı kurulamadı. {detail}"
+)
+DESCRIPTION_PROVIDER_FAILED = (
+    "Açıklama üretilmedi: yapay zekâ sağlayıcısı yanıt vermedi ({detail}). Biraz sonra yeniden "
+    "deneyin."
+)
+DESCRIPTION_REJECTED = (
+    "Açıklama üretilmedi: yapay zekânın yanıtı tür açıklaması şemasına uymadı. Yeniden deneyin."
+)
+
 # --- 11.5: aday türler ---------------------------------------------------------------------------
 
 CANDIDATES_PATH = f"{LIST_PATH}/candidate-types"
@@ -282,9 +322,12 @@ def _form_page(
     current_problems: tuple[str, ...] = (),
     status_code: int = status.HTTP_200_OK,
     examples: dict[str, Any] | None = None,
+    generated: GeneratedDescription | None = None,
+    description_error: str | None = None,
 ) -> HTMLResponse:
     """Tür formunu çizer. `slug` düzenlenen türdür (yeni türde `None`); `examples` düzenleme
-    sayfasının örnek belge bölümünün bağlamıdır (`_examples_context`)."""
+    sayfasının örnek belge bölümünün bağlamıdır (`_examples_context`); `generated` örneklerden
+    üretilen (kaydedilmemiş) tür açıklaması, `description_error` üretilemediyse nedeni."""
     return render_page(
         request,
         "catalog_form.html",
@@ -295,6 +338,10 @@ def _form_page(
         current_problems=current_problems,
         **_fields_context(form, problems),
         **(examples or {}),
+        generated=generated,
+        description_error=description_error,
+        script_labels=SCRIPT_LABELS,
+        max_description_pages=MAX_DESCRIPTION_PAGES,
         is_new=slug is None,
     )
 
@@ -586,6 +633,90 @@ def example_file(slug: str, name: str, session: DbSession, layout: Layout) -> Fi
     if path is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, EXAMPLE_NOT_FOUND)
     return FileResponse(path, headers={"X-Content-Type-Options": "nosniff"})
+
+
+def get_description_provider(settings: AppSettings) -> AnalysisProvider | ProviderConfigError:
+    """Tür açıklamasının (11.3.1) sağlayıcısı; kurulamazsa nedenini taşıyan hata (kullanıcıya
+    gösterilir)."""
+    try:
+        return create_provider(settings)
+    except ProviderConfigError as exc:
+        return exc
+
+
+DescriptionProvider = Annotated[
+    AnalysisProvider | ProviderConfigError, Depends(get_description_provider)
+]
+
+
+@router.post(f"{LIST_PATH}/{{slug}}/description", response_class=HTMLResponse)
+def generate_description(
+    slug: str,
+    request: Request,
+    user: CurrentUser,
+    session: DbSession,
+    layout: Layout,
+    settings: AppSettings,
+    form: SubmittedForm,
+    provider: DescriptionProvider,
+) -> HTMLResponse:
+    """11.3.1 — türün örneklerinden yapılandırılmış açıklama üretir ve metnini formun
+    `prompt_description` alanına yazarak formu yeniden çizer. **Kaydetmez:** İK düzenleyip kaydeder.
+
+    Formdaki (kaydedilmemiş) değerler korunur ve açıklama onlarla istenir. Veritabanı işlemi
+    sağlayıcı çağrısından önce bırakılır (`_known_type`): uzun süren çağrı yazma kilidi tutmaz.
+    """
+    form = replace(form, slug=slug)
+    record = _known_type(session, slug)
+
+    def page(
+        status_code: int,
+        *,
+        problems: dict[str, list[str]] | None = None,
+        generated: GeneratedDescription | None = None,
+        error: str | None = None,
+    ) -> HTMLResponse:
+        shown = form if generated is None else replace(form, prompt_description=generated.text)
+        return _form_page(
+            request,
+            user,
+            shown,
+            slug=slug,
+            problems=problems,
+            current_problems=record_problems(record),
+            status_code=status_code,
+            examples=_examples_context(layout, slug),
+            generated=generated,
+            description_error=error,
+        )
+
+    try:
+        entry = build_entry(form)
+    except TypeFormError as exc:
+        return page(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            problems=exc.problems,
+            error=DESCRIPTION_INVALID_FORM,
+        )
+    if isinstance(provider, ProviderConfigError):
+        return page(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            error=DESCRIPTION_PROVIDER_UNAVAILABLE.format(detail=provider),
+        )
+    try:
+        generated = describe_type(entry, layout, settings, provider)
+    except TypeNotAnalyzedError:
+        return page(status.HTTP_422_UNPROCESSABLE_CONTENT, error=DESCRIPTION_NOT_ANALYZED)
+    except NoExamplePagesError as exc:
+        error = " ".join((DESCRIPTION_NO_EXAMPLES, *exc.skipped))
+        return page(status.HTTP_422_UNPROCESSABLE_CONTENT, error=error)
+    except ProviderError as exc:
+        return page(
+            status.HTTP_502_BAD_GATEWAY, error=DESCRIPTION_PROVIDER_FAILED.format(detail=exc)
+        )
+    except TypeDescriptionError:
+        return page(status.HTTP_502_BAD_GATEWAY, error=DESCRIPTION_REJECTED)
+    return page(status.HTTP_200_OK, generated=generated)
 
 
 def _criteria_fragment(request: Request, user: PanelUser, items: list[str]) -> HTMLResponse:

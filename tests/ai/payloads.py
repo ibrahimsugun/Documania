@@ -1,10 +1,11 @@
-"""Sağlayıcı testleri için §8.4'e uyan sentetik yanıt ve sayfa isteği (gerçek kişi yok)."""
+"""Sağlayıcı testleri için §8.4'e ve tür açıklaması şemasına (11.3.1) uyan sentetik yanıt ve
+istek (gerçek kişi yok)."""
 
 from __future__ import annotations
 
 from typing import Any
 
-from app.ai import PageAnalysisRequest, PageImage
+from app.ai import PageAnalysisRequest, PageImage, TypeDescriptionRequest
 from app.catalog import load_seed_catalog
 from tests.fixtures.gen import make_half_filled_image_bytes
 
@@ -62,4 +63,38 @@ def page_request(
         instructions=instructions,
         prompt=prompt,
         known_slugs=known_slugs,
+    )
+
+
+def description_payload(**top: Any) -> dict[str, Any]:
+    """Tür açıklaması şemasına (11.3.1) uyan sentetik yanıt; her çağrıda yeni bir sözlük."""
+    data: dict[str, Any] = {
+        "layout": "Pasaport kimlik sayfası, yatay; fotoğraf solda, etiketli satırlar sağda",
+        "headings": ["ПАСПОРТ", "PASSPORT"],
+        "languages": ["ru", "en"],
+        "scripts": ["cyrillic", "latin"],
+        "field_locations": [
+            {"field": "surname", "location": "fotoğrafın sağında, ilk satır"},
+            {"field": "document_number", "location": "sağ üst köşe"},
+        ],
+        "mrz": {"line_count": 2, "location": "sayfanın altında"},
+        "side_differences": None,
+    }
+    data.update(top)
+    return data
+
+
+def description_request(
+    *,
+    images: int = 1,
+    instructions: str = "Tür açıklaması talimatı (test).",
+    prompt: str = "Belge türü: Russian Passport (test).",
+) -> TypeDescriptionRequest:
+    return TypeDescriptionRequest(
+        images=tuple(
+            PageImage(make_half_filled_image_bytes("PNG" if index % 2 else "JPEG"))
+            for index in range(images)
+        ),
+        instructions=instructions,
+        prompt=prompt,
     )

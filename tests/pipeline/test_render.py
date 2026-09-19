@@ -21,11 +21,13 @@ from app.pipeline.render import (
     extract_page_text,
     extract_pdf_text,
     extract_upload_file_text,
+    image_copy,
     is_page_blank,
     mark_upload_file_blank_pages,
     mark_upload_file_single_image_pages,
     render_image_copy,
     render_image_file,
+    render_pdf_images,
     render_pdf_pages,
     render_scale,
     render_upload_file,
@@ -270,6 +272,67 @@ def test_unrenderable_file_raises_render_error(
     assert list(layout.page_cache.iterdir()) == []
 
 
+# --- bellekte render (tür açıklaması girdisi, 11.3.1) -------------------------------------------
+
+
+def test_render_pdf_images_returns_first_pages_as_jpeg_and_the_page_count(
+    tmp_path: Path, layout: DataLayout
+) -> None:
+    content = make_sized_pdf_bytes([A4, ID_CARD, A4])
+
+    images, page_count = render_pdf_images(
+        content, dpi=200, max_long_edge=1568, jpeg_quality=90, max_pages=2
+    )
+
+    assert page_count == 3
+    assert len(images) == 2
+    on_disk = [page.path.read_bytes() for page in _render(_source(tmp_path, content), layout)[:2]]
+    # Diske yazan render ile aynı ölçek ve biçim.
+    assert [detect_file_kind(image) for image in images] == [FileKind.JPEG, FileKind.JPEG]
+    for image, written in zip(images, on_disk, strict=True):
+        with Image.open(BytesIO(image)) as memory, Image.open(BytesIO(written)) as disk:
+            assert memory.size == disk.size
+
+
+def test_render_pdf_images_writes_nothing_and_can_only_count(layout: DataLayout) -> None:
+    images, page_count = render_pdf_images(
+        make_pdf_bytes(4), dpi=72, max_long_edge=500, jpeg_quality=80, max_pages=0
+    )
+
+    assert (images, page_count) == ([], 4)
+    assert list(layout.page_cache.iterdir()) == []
+
+
+def test_render_pdf_images_respects_the_long_edge_limit() -> None:
+    (image,), _ = render_pdf_images(
+        make_sized_pdf_bytes([A4]), dpi=300, max_long_edge=400, jpeg_quality=80, max_pages=5
+    )
+
+    with Image.open(BytesIO(image)) as opened:
+        assert max(opened.size) <= 400
+
+
+@pytest.mark.parametrize(
+    ("content", "message"),
+    [
+        (make_half_filled_image_bytes("JPEG"), "PDF değil"),
+        (b"%PDF-1.4 bozuk", "açılamadı"),
+        (make_sized_pdf_bytes([A4], password="sentetik"), "parola"),
+    ],
+    ids=["jpeg", "bozuk", "parolali"],
+)
+def test_render_pdf_images_raises_render_error(content: bytes, message: str) -> None:
+    with pytest.raises(RenderError, match=message):
+        render_pdf_images(content, dpi=72, max_long_edge=500, jpeg_quality=80, max_pages=1)
+
+
+def test_render_pdf_images_rejects_negative_page_limit() -> None:
+    with pytest.raises(ValueError, match="max_pages"):
+        render_pdf_images(
+            make_pdf_bytes(), dpi=72, max_long_edge=500, jpeg_quality=80, max_pages=-1
+        )
+
+
 # --- veritabanı bağlama -----------------------------------------------------------------------
 
 
@@ -504,6 +567,27 @@ def test_image_copy_does_not_touch_source_file(tmp_path: Path, layout: DataLayou
 
     assert sha256_file(source) == before
     assert source.read_bytes() == content
+
+
+@pytest.mark.parametrize(("fmt", "extension"), [("JPEG", "jpg"), ("PNG", "png")])
+def test_in_memory_image_copy_matches_the_cached_copy(
+    tmp_path: Path, layout: DataLayout, fmt: str, extension: str
+) -> None:
+    content = make_half_filled_image_bytes(fmt=fmt, orientation=3)
+
+    copy = image_copy(content, jpeg_quality=95)
+    page = render_image_copy(
+        _source(tmp_path, content, f"foto.{extension}"), layout, 1, jpeg_quality=95
+    )
+
+    assert copy.content == page.path.read_bytes()
+    assert (copy.extension, copy.width, copy.height) == (extension, page.width, page.height)
+
+
+@pytest.mark.parametrize("content", [make_pdf_bytes(1), b"duz metin"], ids=["pdf", "metin"])
+def test_in_memory_image_copy_rejects_non_image_content(content: bytes) -> None:
+    with pytest.raises(RenderError, match="görüntü değil"):
+        image_copy(content, jpeg_quality=95)
 
 
 def test_image_copy_rejects_non_image_content(tmp_path: Path, layout: DataLayout) -> None:

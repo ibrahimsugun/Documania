@@ -1,5 +1,6 @@
 {% extends "base.html" %}
-{# Tür formu (11.1.1, 11.1.2, 11.1.3): oluşturma ve düzenleme aynı formdur. Doğrulama sunucudadır
+{# Tür formu (11.1.1, 11.1.2, 11.1.3): oluşturma ve düzenleme aynı formdur. Düzenlemede örneklerden
+   üretilen açıklama (11.3.1) formun üstünde gösterilir ve "Analizci için açıklama" alanına yazılır. Doğrulama sunucudadır
    (`app.catalog.form`): reddedilen form girilen değerlerle yeniden çizilir, her mesaj kendi alanının
    yanında görünür. Belge içeriği formda yok (K17). Alanlar tek satırlık girdidir: şablonlarda çok
    satırlı metin alanı yoktur (10.9.1 kilidi), form `action` yolları düz metin yazılır. #}
@@ -16,6 +17,12 @@
   <ul>{% for problem in current_problems %}<li>{{ problem }}</li>{% endfor %}</ul>
 </div>
 {% endif %}
+{% if description_error %}
+<p class="error" role="alert">{{ description_error }}</p>
+{% endif %}
+{% if generated %}
+{% include "catalog_description.html" %}
+{% endif %}
 {% if is_new %}
 <form class="type-form" method="post" action="/document-types">
 {% else %}
@@ -25,6 +32,10 @@
 
   <div class="form-actions">
     <button type="submit">Kaydet</button>
+    {% if not is_new and examples and form.analyze %}
+    {# 11.3.1: formu (kaydetmeden) açıklama üretimine gönderir; üretilen metin bu alana yazılır. #}
+    <button type="submit" formaction="/document-types/{{ slug|urlencode }}/description">Örneklerden açıklama üret</button>
+    {% endif %}
     <a href="/document-types">Vazgeç</a>
   </div>
 </form>

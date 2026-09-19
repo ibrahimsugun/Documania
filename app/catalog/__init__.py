@@ -1,7 +1,11 @@
 """Belge türü kataloğu: şema ve tutarlılık kuralı (00.6.1), başlangıç tohumu (00.6.2),
 YAML ↔ veritabanı eşitleme (00.6.3), panelden yönetim ve form doğrulaması (11.1), analiz
 talimatına giren kompakt katalog metni ve token bütçesi (11.4), aday tür listesi, onayı ve reddi
-(11.5)."""
+(11.5).
+
+Örneklerden tür açıklaması üretimi (11.3) burada dışa aktarılmaz, `app.catalog.describe`'dan alınır:
+yapay zekâ katmanını (`app.ai`) içe aktarır, `app.ai` da bu paketi — paket başlatılırken döngü
+olmasın."""
 
 from app.catalog.candidates import (
     DETAIL_SAMPLE_LIMIT,

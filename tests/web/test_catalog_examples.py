@@ -214,11 +214,13 @@ def test_examples_placed_by_hand_are_listed_and_a_rejected_edit_still_shows_them
 
 
 def test_uploading_an_example_does_not_touch_the_type_record(client: TestClient) -> None:
-    before = client.get(f"/document-types/{SLUG}").text.split('id="examples"')[0]
+    # Form alanları karşılaştırılır; düğmeler değil — örnek varken "Örneklerden açıklama üret"
+    # düğmesi çıkar (11.3.1).
+    before = client.get(f"/document-types/{SLUG}").text.split('class="form-actions"')[0]
 
     _upload(client, ("sayfa.png", make_portrait_image_bytes("PNG")))
 
-    after = client.get(f"/document-types/{SLUG}").text.split('id="examples"')[0]
+    after = client.get(f"/document-types/{SLUG}").text.split('class="form-actions"')[0]
     assert after == before
 
 

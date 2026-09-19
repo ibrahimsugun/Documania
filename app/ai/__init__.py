@@ -1,5 +1,5 @@
-"""Yapay zekâ analiz katmanı: sayfa analizi sözleşmesi (03.1), sağlayıcı soyutlaması (03.2) ve
-analiz talimatı (03.4)."""
+"""Yapay zekâ analiz katmanı: sayfa analizi sözleşmesi (03.1), sağlayıcı soyutlaması (03.2),
+analiz talimatı (03.4) ve tür açıklaması sözleşmesi (11.3.1)."""
 
 from app.ai.prompts import PageAnalysisInstructions, build_page_analysis_instructions
 from app.ai.provider import (
@@ -12,6 +12,7 @@ from app.ai.provider import (
     ProviderError,
     ProviderRateLimitError,
     ProviderServerError,
+    TypeDescriptionRequest,
     create_provider,
 )
 from app.ai.schemas import (
@@ -26,13 +27,22 @@ from app.ai.schemas import (
     Side,
     validate_page_analysis,
 )
+from app.ai.type_description import (
+    FieldLocation,
+    MrzDescription,
+    TypeDescription,
+    TypeDescriptionError,
+    validate_type_description,
+)
 
 __all__ = [
     "EMPLOYEE_FIELDS",
     "ISO_639_1_CODES",
     "PROVIDER_FACTORIES",
     "AnalysisProvider",
+    "FieldLocation",
     "FieldReading",
+    "MrzDescription",
     "PageAnalysis",
     "PageAnalysisError",
     "PageAnalysisInstructions",
@@ -47,7 +57,11 @@ __all__ = [
     "ProviderServerError",
     "Script",
     "Side",
+    "TypeDescription",
+    "TypeDescriptionError",
+    "TypeDescriptionRequest",
     "build_page_analysis_instructions",
     "create_provider",
     "validate_page_analysis",
+    "validate_type_description",
 ]

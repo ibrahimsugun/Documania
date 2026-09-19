@@ -32,11 +32,20 @@ from app.ai import (
     ProviderServerError,
     Script,
     Side,
+    TypeDescription,
+    TypeDescriptionError,
     create_provider,
     validate_page_analysis,
+    validate_type_description,
 )
 from app.ai import anthropic_provider as anthropic_module
-from app.ai.openai_provider import ANALYSIS_TOOL, TOOL_NAME, OpenAIProvider
+from app.ai.openai_provider import (
+    ANALYSIS_TOOL,
+    DESCRIPTION_TOOL,
+    DESCRIPTION_TOOL_NAME,
+    TOOL_NAME,
+    OpenAIProvider,
+)
 from app.ai.provider import MAX_ANALYSIS_ATTEMPTS, RETRY_BACKOFF_SECONDS
 from app.ai.schemas import ISO_639_1_CODES
 from app.config import Settings, load_settings
@@ -45,6 +54,8 @@ from tests.ai.payloads import (
     SYNTHETIC_DOCUMENT_NUMBER,
     SYNTHETIC_SURNAME,
     analysis_payload,
+    description_payload,
+    description_request,
     page_request,
 )
 from tests.fixtures.gen import make_half_filled_image_bytes
@@ -622,6 +633,90 @@ def test_provider_switches_to_openai_with_env_file_without_pipeline_change(
     assert analysis.side is Side.FRONT
     assert len(api.requests) == 1
     assert api.body()["model"] == "gpt-env"
+
+
+# --- Tür açıklaması (11.3.1): birkaç görüntü + metin, zorlanmış açıklama işlevi ----------------
+
+
+def test_description_request_sends_images_in_order_then_text_with_forced_function() -> None:
+    api = FakeApi(
+        completion(tool_calls=[function_call(description_payload(), name=DESCRIPTION_TOOL_NAME)])
+    )
+    request = description_request(images=2, instructions="Tür talimatı", prompt="Tür metni")
+
+    description = api.provider().describe_type(request)
+
+    assert description == validate_type_description(description_payload())
+    body = api.body()
+    system, user = body["messages"]
+    assert system == {"role": "system", "content": "Tür talimatı"}
+    *image_parts, text_part = user["content"]
+    assert [part["type"] for part in image_parts] == ["image_url"] * 2
+    for part, image in zip(image_parts, request.images, strict=True):
+        prefix = f"data:{image.media_type};base64,"
+        assert part["image_url"]["url"].startswith(prefix)
+        assert base64.b64decode(part["image_url"]["url"].removeprefix(prefix)) == image.data
+        assert part["image_url"]["detail"] == "high"
+    assert text_part == {"type": "text", "text": "Tür metni"}
+    assert body["tools"] == [json.loads(json.dumps(DESCRIPTION_TOOL))]
+    assert body["tools"][0]["function"]["parameters"] == TypeDescription.model_json_schema()
+    assert body["tool_choice"] == {"type": "function", "function": {"name": DESCRIPTION_TOOL_NAME}}
+    assert body["parallel_tool_calls"] is False
+    assert body["store"] is False
+
+
+@pytest.mark.parametrize(
+    ("response", "expected"),
+    [
+        (
+            completion(
+                tool_calls=[function_call('{"layout": "Ka', name=DESCRIPTION_TOOL_NAME)],
+                finish_reason="length",
+            ),
+            "tür açıklaması işlevi çağrısı tamamlanmadı (finish_reason=length)",
+        ),
+        (completion(tool_calls=[function_call(description_payload())]), "1 araç çağrısı"),
+        (completion(finish_reason="stop", refusal="Yardımcı olamam."), "finish_reason=refusal"),
+    ],
+    ids=["kesik", "analiz-islevi", "ret"],
+)
+def test_description_response_without_description_function_call_is_rejected(
+    response: httpx2.Response, expected: str
+) -> None:
+    api = FakeApi(response)
+
+    with pytest.raises(TypeDescriptionError) as caught:
+        api.provider().describe_type(description_request())
+
+    assert caught.value.problems[0].startswith("yanıt:")
+    assert expected in caught.value.problems[0]
+    assert "Yardımcı olamam" not in str(caught.value)
+
+
+def test_description_arguments_that_do_not_conform_are_rejected() -> None:
+    api = FakeApi(
+        completion(
+            tool_calls=[
+                function_call(description_payload(scripts=["runic"]), name=DESCRIPTION_TOOL_NAME)
+            ]
+        )
+    )
+
+    with pytest.raises(TypeDescriptionError) as caught:
+        api.provider().describe_type(description_request())
+
+    assert any(problem.startswith("scripts") for problem in caught.value.problems)
+
+
+def test_description_exhausted_quota_is_not_retried(no_sleep: list[float]) -> None:
+    api = FakeApi(api_error(429, "insufficient_quota", code="insufficient_quota"))
+
+    with pytest.raises(ProviderError) as caught:
+        api.provider().describe_type(description_request())
+
+    assert not isinstance(caught.value, ProviderRateLimitError)
+    assert len(api.requests) == 1
+    assert no_sleep == []
 
 
 # --- Canlı çağrı (DoD kapısında dışarıda) ------------------------------------------------------

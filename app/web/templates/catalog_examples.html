@@ -8,6 +8,11 @@
     saklanır: çalışan ve belge aramalarında görünmez, kuyruğa ve çalışan klasörlerine girmez.
     Yalnız örnek (specimen) ya da sentetik belge yükleyin; gerçek kimlik belgesi yüklemeyin.
   </p>
+  <p class="hint">
+    Formdaki "Örneklerden açıklama üret" düğmesi örneklerin ilk {{ max_description_pages }} sayfasını
+    yapay zekâya verir ve üretilen açıklamayı "Analizci için açıklama" alanına yazar; siz Kaydet'e
+    basana kadar hiçbir şey kaydedilmez.
+  </p>
   {% if example_errors %}
   <div class="error" role="alert">
     <p>Örnekler yüklenmedi; hiçbir dosya kaydedilmedi:</p>

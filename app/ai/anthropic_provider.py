@@ -11,6 +11,10 @@ yanıttır; kabulü `AnalysisProvider.analyze_page` `validate_page_analysis` ile
 §8.4'ün `fields`'ı ise alan adı anahtarlı bir sözlüktür ve katı şemada boş nesneye iner (§C13).
 Zorlanmış araç seçimi genişletilmiş düşünmeyle birlikte kullanılamadığı için düşünme kapalıdır.
 
+Tür açıklaması (11.3.1) aynı biçimde istenir: kullanıcı turunda türün örnek sayfaları (sırayla,
+birkaç görüntü), sonra türe özgü metin; zorlanmış araç `DESCRIPTION_TOOL_NAME`, girdi şeması
+`TypeDescription.model_json_schema()`.
+
 SDK'nın kendi yeniden denemesi kapalıdır (`max_retries=0`): geri çekilmeli deneme 03.5'in işidir,
 iki katman üst üste denemesin.
 """
@@ -18,6 +22,7 @@ iki katman üst üste denemesin.
 from __future__ import annotations
 
 import base64
+from collections.abc import Callable, Sequence
 from typing import Any
 
 import anthropic
@@ -27,13 +32,16 @@ from anthropic.types import Message, MessageParam, ToolParam
 from app.ai.provider import (
     AnalysisProvider,
     PageAnalysisRequest,
+    PageImage,
     ProviderConfigError,
     ProviderConnectionError,
     ProviderError,
     ProviderRateLimitError,
     ProviderServerError,
+    TypeDescriptionRequest,
 )
 from app.ai.schemas import PageAnalysis, PageAnalysisError
+from app.ai.type_description import TypeDescription, TypeDescriptionError
 from app.config import Settings
 
 TOOL_NAME = "record_page_analysis"
@@ -47,9 +55,20 @@ ANALYSIS_TOOL: ToolParam = {
     "input_schema": PageAnalysis.model_json_schema(),
 }
 
+DESCRIPTION_TOOL_NAME = "record_type_description"
+
+DESCRIPTION_TOOL: ToolParam = {
+    "name": DESCRIPTION_TOOL_NAME,
+    "description": (
+        "Belge türünün örneklerinden çıkarılan yapılandırılmış açıklamayı kaydeder. Girdi, tür "
+        "açıklaması şemasındaki her anahtarı taşıyan tek bir nesnedir."
+    ),
+    "input_schema": TypeDescription.model_json_schema(),
+}
+
 
 class AnthropicProvider(AnalysisProvider):
-    """Anthropic Messages API ile sayfa analizi (`AI_PROVIDER=anthropic`)."""
+    """Anthropic Messages API ile sayfa analizi ve tür açıklaması (`AI_PROVIDER=anthropic`)."""
 
     name = "anthropic"
 
@@ -87,28 +106,66 @@ class AnthropicProvider(AnalysisProvider):
         )
 
     def _request_analysis(self, request: PageAnalysisRequest) -> object:
+        return self._forced_tool_call(
+            request.instructions,
+            (request.image,),
+            request.prompt,
+            ANALYSIS_TOOL,
+            label="analiz aracı",
+            error=PageAnalysisError,
+        )
+
+    def _request_description(self, request: TypeDescriptionRequest) -> object:
+        return self._forced_tool_call(
+            request.instructions,
+            request.images,
+            request.prompt,
+            DESCRIPTION_TOOL,
+            label="tür açıklaması aracı",
+            error=TypeDescriptionError,
+        )
+
+    def _forced_tool_call(
+        self,
+        instructions: str,
+        images: Sequence[PageImage],
+        prompt: str,
+        tool: ToolParam,
+        *,
+        label: str,
+        error: Callable[[list[str]], Exception],
+    ) -> object:
+        """Görüntüler (sırayla) ve metinle tek istek; `tool` zorlanır, girdisi doğrulanmadan döner.
+        Yanıtta tek ve tamamlanmış `tool` çağrısı yoksa `error` (`label` mesajdaki araç adıdır)."""
         message: MessageParam = {
             "role": "user",
             "content": [
-                {
-                    "type": "image",
-                    "source": {
-                        "type": "base64",
-                        "media_type": request.image.media_type,
-                        "data": base64.b64encode(request.image.data).decode("ascii"),
-                    },
-                },
-                {"type": "text", "text": request.prompt},
+                *(
+                    {
+                        "type": "image",
+                        "source": {
+                            "type": "base64",
+                            "media_type": image.media_type,
+                            "data": base64.b64encode(image.data).decode("ascii"),
+                        },
+                    }
+                    for image in images
+                ),
+                {"type": "text", "text": prompt},
             ],
         }
         try:
             response = self._client.messages.create(
                 model=self.model,
                 max_tokens=self._max_output_tokens,
-                system=request.instructions,
+                system=instructions,
                 messages=[message],
-                tools=[ANALYSIS_TOOL],
-                tool_choice={"type": "tool", "name": TOOL_NAME, "disable_parallel_tool_use": True},
+                tools=[tool],
+                tool_choice={
+                    "type": "tool",
+                    "name": tool["name"],
+                    "disable_parallel_tool_use": True,
+                },
                 thinking={"type": "disabled"},
             )
         except anthropic.APIStatusError as exc:
@@ -117,7 +174,7 @@ class AnthropicProvider(AnalysisProvider):
             raise ProviderConnectionError(f"Anthropic'e ulaşılamadı: {type(exc).__name__}") from exc
         except anthropic.AnthropicError as exc:
             raise ProviderError(f"Anthropic isteği başarısız: {type(exc).__name__}") from exc
-        return _tool_input(response)
+        return _tool_input(response, tool["name"], label, error)
 
 
 def _status_error(exc: anthropic.APIStatusError) -> ProviderError:
@@ -140,16 +197,15 @@ def _error_detail(body: object) -> str:
     return f" ({': '.join(parts)})" if parts else ""
 
 
-def _tool_input(response: Message) -> object:
-    """Yanıttaki tek analiz aracı çağrısının girdisi; çağrı tamamlanmadıysa yanıt reddedilir."""
+def _tool_input(
+    response: Message, name: str, label: str, error: Callable[[list[str]], Exception]
+) -> object:
+    """Yanıttaki tek `name` aracı çağrısının girdisi; çağrı tamamlanmadıysa yanıt `error` ile
+    reddedilir."""
     if response.stop_reason != "tool_use":
         # `max_tokens` kesik, `refusal` boş, `end_turn` araçsız yanıttır — hiçbiri kabul edilmez.
-        raise PageAnalysisError(
-            [f"yanıt: analiz aracı çağrısı tamamlanmadı (stop_reason={response.stop_reason})"]
-        )
+        raise error([f"yanıt: {label} çağrısı tamamlanmadı (stop_reason={response.stop_reason})"])
     calls = [block for block in response.content if block.type == "tool_use"]
-    if len(calls) != 1 or calls[0].name != TOOL_NAME:
-        raise PageAnalysisError(
-            [f"yanıt: yalnız bir '{TOOL_NAME}' çağrısı olmalı ({len(calls)} araç çağrısı)"]
-        )
+    if len(calls) != 1 or calls[0].name != name:
+        raise error([f"yanıt: yalnız bir '{name}' çağrısı olmalı ({len(calls)} araç çağrısı)"])
     return calls[0].input
