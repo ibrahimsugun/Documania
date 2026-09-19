@@ -16,6 +16,8 @@
       <a href="{{ entry.path }}"{% if entry.key == active %} class="active" aria-current="page"{% endif %}>{{ entry.label }}</a>
       {% endfor %}
     </nav>
+    {# 13.1.1: maliyet, PRD 10.1.1'in beş menüsünün dışında, oturumun yanında durur. #}
+    <a class="tool-link{% if active == 'metrics' %} active{% endif %}" href="/metrics"{% if active == 'metrics' %} aria-current="page"{% endif %}>Maliyet</a>
     <form class="session" method="post" action="/logout">
       <span class="username">{{ user.username }}</span>
       <button type="submit">Çıkış</button>

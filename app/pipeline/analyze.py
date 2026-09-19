@@ -51,6 +51,13 @@ not — `app.pipeline.plan`). Kontrol yapılamazsa — sağlayıcı hatası, şe
 `PAGE_ANALYSIS_FAILED`, verisinde `step: photo_check`; parti `partial`): değerlendirilmemiş
 fotoğraf Hazir'a gidemez, yeniden analizle yeniden denenir.
 
+**Token kullanımı (13.1.1).** Bir sayfa için yapılan sağlayıcı çağrıları — analiz ve varsa
+fotoğraf kontrolü — tek ölçümde (`app.ai.usage.measure_usage`) toplanır; toplam sayfanın
+`PAGE_ANALYZED` ya da `PAGE_ANALYSIS_FAILED` olayının `usage` alanına yazılır (başarısız sayfa da
+token harcamış olabilir). Sağlayıcı hiç yanıt vermediyse (hız sınırı, bağlantı hatası) ya da
+kullanım bildirmiyorsa (test sağlayıcıları) alan yazılmaz. Maliyet burada hesaplanmaz, panelde
+gösterilir (`app.web.routers.metrics`).
+
 **İçerik korunur (11.7.2).** Kontrol yalnız okur: kaynak dosya, sayfa görüntüsü ve fotoğraf
 kırpılmaz, düzeltilmez, arka planı değiştirilmez; hiçbir dosya yazılmaz (K11, K17). Fotoğraf
 kontrolden geçse de geçmese de çıktısı planın seçtiği kayıpsız işlemle kaynaktan üretilir.
@@ -74,9 +81,10 @@ from app.ai.provider import (
     ProviderError,
 )
 from app.ai.schemas import PageAnalysis, PageAnalysisError
+from app.ai.usage import UsageMeter, measure_usage
 from app.catalog.photo_rules import RESOLUTION_RULE, PhotoRuleSetting
 from app.db.models import Page, Upload, UploadFile, UploadStatus
-from app.events import EventType, event_context, record_event
+from app.events import USAGE_DATA_KEY, EventType, event_context, record_event
 from app.pipeline.render import photo_pixel_size
 from app.storage import DataLayout
 
@@ -374,10 +382,34 @@ def _analyze_page(
     provider: AnalysisProvider,
     instructions: PageAnalysisInstructions,
 ) -> PageOutcome:
+    # Sayfa için yapılan tüm sağlayıcı çağrıları (analiz, varsa fotoğraf kontrolü) tek ölçümde
+    # toplanır ve sayfanın olayına yazılır (13.1.1).
+    with measure_usage() as meter:
+        return _analyze_page_metered(
+            session,
+            layout,
+            page,
+            prompt,
+            provider=provider,
+            instructions=instructions,
+            meter=meter,
+        )
+
+
+def _analyze_page_metered(
+    session: Session,
+    layout: DataLayout,
+    page: Page,
+    prompt: str,
+    *,
+    provider: AnalysisProvider,
+    instructions: PageAnalysisInstructions,
+    meter: UsageMeter,
+) -> PageOutcome:
     try:
         image = load_page_image(layout, page)
     except PageImageError as exc:
-        return _fail(session, page, exc, provider)
+        return _fail(session, page, exc, provider, meter=meter)
     request = PageAnalysisRequest(
         page_index=page.index,
         image=image,
@@ -388,7 +420,7 @@ def _analyze_page(
     try:
         analysis = provider.analyze_page(request)
     except (ProviderError, PageAnalysisError) as exc:
-        return _fail(session, page, exc, provider)
+        return _fail(session, page, exc, provider, meter=meter)
     photo_check: PhotoCheck | None = None
     rules = _photo_rules(instructions, analysis)
     if rules:
@@ -396,14 +428,14 @@ def _analyze_page(
             photo_check = check_page_photo(layout, page, image, rules, provider=provider)
         except (ProviderError, PhotoCheckError, PhotoMeasureError) as exc:
             # Değerlendirilmemiş fotoğraf Hazir'a gidemez: sayfanın analizi bütün olarak düşer.
-            return _fail(session, page, exc, provider, step="photo_check")
+            return _fail(session, page, exc, provider, meter=meter, step="photo_check")
 
     page.analysis_json = analysis.model_dump(mode="json")
     page.analysis_status = PageAnalysisStatus.DONE.value
     page.photo_check_json = None if photo_check is None else photo_check.model_dump(mode="json")
     # Olay verisi kişisel değer taşımaz (CONVENTIONS §6); değerler `pages.analysis_json`'dadır.
     data: dict[str, object] = {
-        **_provider_data(provider),
+        **_provider_data(provider, meter),
         "document_type_slug": analysis.document_type_slug,
         "side": analysis.side.value,
         "is_readable": analysis.is_readable,
@@ -447,13 +479,14 @@ def _fail(
     exc: Exception,
     provider: AnalysisProvider,
     *,
+    meter: UsageMeter,
     step: str | None = None,
 ) -> PageOutcome:
     # Eski bir analiz ya da fotoğraf kontrolü başarısız sayfanın sonucu gibi okunmasın.
     page.analysis_json = None
     page.analysis_status = PageAnalysisStatus.FAILED.value
     page.photo_check_json = None
-    data: dict[str, object] = {**_provider_data(provider), "error": type(exc).__name__}
+    data: dict[str, object] = {**_provider_data(provider, meter), "error": type(exc).__name__}
     if step is not None:
         data["step"] = step
     if isinstance(exc, ProviderError) and exc.status_code is not None:
@@ -475,8 +508,13 @@ def _fail(
     )
 
 
-def _provider_data(provider: AnalysisProvider) -> dict[str, object]:
-    return {"provider": provider.name, "model": provider.model}
+def _provider_data(provider: AnalysisProvider, meter: UsageMeter) -> dict[str, object]:
+    data: dict[str, object] = {"provider": provider.name, "model": provider.model}
+    if meter.calls:
+        # Yanıt gelen çağrı yoksa (hız sınırı, bağlantı hatası) anahtar yazılmaz: sıfır token,
+        # ölçülmemiş sayfayı ölçülmüş gösterirdi (13.1.1).
+        data[USAGE_DATA_KEY] = meter.usage.to_event_data()
+    return data
 
 
 def _document_type_text(analysis: PageAnalysis) -> str:

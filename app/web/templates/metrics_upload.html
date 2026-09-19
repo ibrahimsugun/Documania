@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{# Bir partinin sayfa bazında token ve maliyet dökümü (13.1.1). Sayfa yalnız okur. #}
+{% block title %}{{ "Maliyet · " ~ metrics.upload_id if metrics else "Parti bulunamadı" }}{% endblock %}
+{% block content %}
+<p class="back"><a href="/metrics">← Maliyet</a></p>
+{% if error %}
+<h1>Parti maliyeti</h1>
+<p class="error" role="alert">{{ error }}</p>
+{% else %}
+<h1>Parti maliyeti</h1>
+<dl class="meta">
+  <dt>Parti</dt><dd><a href="/uploads/{{ metrics.upload_id }}">{{ metrics.upload_id }}</a></dd>
+  <dt>Toplam token</dt><dd>{{ metrics.total.total_tokens }} (girdi {{ metrics.total.input_tokens }}, çıktı {{ metrics.total.output_tokens }})</dd>
+  <dt>Maliyet</dt><dd>{{ metrics.total.cost }}</dd>
+  <dt>Model</dt><dd>{{ metrics.total.models }}</dd>
+</dl>
+
+{% if not metrics.prices_configured %}
+<p class="notice" role="status">Token fiyatı tanımlı değil: tokenlar sayılıyor, maliyet hesaplanmıyor. Fiyatları <code>AI_MODEL_PRICES</code> ile girin (bkz. <code>.env.example</code>).</p>
+{% elif metrics.unpriced_models %}
+<p class="notice" role="status">Fiyatı tanımlı olmayan model: {{ metrics.unpriced_models | join(", ") }}. Bunların tokenları sayılıyor, maliyete girmiyor; etkilenen maliyetler "en az" ile başlar.</p>
+{% endif %}
+
+<section id="pages" aria-labelledby="pages-title">
+  <h2 id="pages-title">Sayfa bazında</h2>
+  {% if metrics.pages %}
+  <table class="metrics">
+    <thead>
+      <tr>
+        <th>Sayfa</th><th class="num">Analiz</th><th class="num">Girdi token</th>
+        <th class="num">Çıktı token</th><th class="num">Toplam token</th><th class="num">Maliyet</th>
+        <th class="num">Ölçülmemiş</th><th>Model</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in metrics.pages %}
+      <tr>
+        <td>{{ row.label }}</td>
+        <td class="num">{{ row.analyses }}</td>
+        <td class="num">{{ row.input_tokens }}</td>
+        <td class="num">{{ row.output_tokens }}</td>
+        <td class="num">{{ row.total_tokens }}</td>
+        <td class="num">{{ row.cost }}</td>
+        <td class="num">{{ row.unmetered }}</td>
+        <td>{{ row.models }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <p class="placeholder">Sayfa yeniden analiz edildiyse (Analiz &gt; 1) satır tüm denemelerin toplamıdır.</p>
+  {% else %}
+  <p class="placeholder">Bu partide sayfa analizi kaydı yok.</p>
+  {% endif %}
+</section>
+{% endif %}
+{% endblock %}

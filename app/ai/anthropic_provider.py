@@ -53,6 +53,7 @@ from app.ai.provider import (
 )
 from app.ai.schemas import PageAnalysis, PageAnalysisError
 from app.ai.type_description import TypeDescription, TypeDescriptionError
+from app.ai.usage import report_usage
 from app.config import Settings
 
 TOOL_NAME = "record_page_analysis"
@@ -230,6 +231,9 @@ class AnthropicProvider(AnalysisProvider):
             raise ProviderConnectionError(f"Anthropic'e ulaşılamadı: {type(exc).__name__}") from exc
         except anthropic.AnthropicError as exc:
             raise ProviderError(f"Anthropic isteği başarısız: {type(exc).__name__}") from exc
+        # Yanıt reddedilse de token harcanmıştır (13.1.1): kabulden önce bildirilir.
+        usage = getattr(response, "usage", None)
+        report_usage(getattr(usage, "input_tokens", None), getattr(usage, "output_tokens", None))
         return _tool_input(response, tool["name"], label, error)
 
 

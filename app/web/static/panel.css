@@ -35,6 +35,12 @@ a { color: #0b5cad; }
 
 .session { display: flex; align-items: center; gap: 0.75rem; margin: 0; }
 
+.tool-link { padding: 0.35rem 0.75rem; border-radius: 4px; }
+
+.tool-link:hover { background: #374151; }
+
+.tool-link.active { background: #f9fafb; color: #1f2937; }
+
 .content { max-width: 72rem; margin: 0 auto; padding: 1.5rem; }
 
 .placeholder { color: #6b7280; }
@@ -376,3 +382,11 @@ form.inline { display: inline; margin: 0 0 0 0.6rem; }
 .description-parts dd { margin: 0; }
 
 .description-parts ul { margin: 0; padding-left: 1.25rem; }
+
+/* Maliyet ölçümü (13.1.1) */
+
+.metrics { width: 100%; border-collapse: collapse; background: #fff; }
+
+.metrics th, .metrics td { padding: 0.35rem 0.5rem; text-align: left; border-bottom: 1px solid #eef0f3; }
+
+.metrics th.num, .metrics td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }

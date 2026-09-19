@@ -6,12 +6,22 @@ yol/model adı bulunmaz — yeni ayara ihtiyaç duyan modül burada bir alan aç
 
 from __future__ import annotations
 
+from decimal import Decimal
 from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
-from pydantic import Field, SecretStr, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, SecretStr, ValidationError
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class ModelPrice(BaseModel):
+    """Bir modelin token fiyatı: bir milyon token başına USD (PRD 13.1.1)."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    input_per_mtok: Decimal = Field(ge=0, allow_inf_nan=False)
+    output_per_mtok: Decimal = Field(ge=0, allow_inf_nan=False)
 
 
 class Settings(BaseSettings):
@@ -44,6 +54,11 @@ class Settings(BaseSettings):
     # PRD 03.3.1 — ikincil sağlayıcı; anahtar yalnız `AI_PROVIDER=openai` iken zorunludur.
     openai_api_key: SecretStr | None = None
     openai_model: str = Field(default="gpt-5.5", min_length=1)
+    # PRD 13.1.1 — maliyet paneli token fiyatlarını model adına göre bu tablodan okur (JSON:
+    # `{"<model>": {"input_per_mtok": 5, "output_per_mtok": 25}}`, birim USD / milyon token).
+    # Fiyat sağlayıcıya ait olduğundan kodda sabit değer yoktur; tablo boşsa ya da model
+    # tabloda değilse panel token sayılarını gösterir, maliyeti hesaplamaz (bkz. PLAN.md §C70).
+    ai_model_prices: dict[str, ModelPrice] = Field(default_factory=dict)
     # PRD 10.1.2 — panel oturumunun ömrü (saniye); süre dolunca yeniden giriş istenir. PRD süre
     # vermez, varsayılan bir iş günü (bkz. PLAN.md §C45).
     session_max_age_seconds: int = Field(default=12 * 60 * 60, gt=0)
@@ -62,8 +77,14 @@ def load_settings(**overrides: object) -> Settings:
     try:
         return Settings(**overrides)
     except ValidationError as exc:
+        # Yalnız üst düzey alanın kendisi eksikse "eksik değişken"; iç içe bir değerin
+        # (ör. `AI_MODEL_PRICES` içindeki bir fiyat) eksikliği asıl doğrulama hatasıdır.
         missing = sorted(
-            {str(error["loc"][0]).upper() for error in exc.errors() if error["type"] == "missing"}
+            {
+                str(error["loc"][0]).upper()
+                for error in exc.errors()
+                if error["type"] == "missing" and len(error["loc"]) == 1
+            }
         )
         if missing:
             raise RuntimeError(

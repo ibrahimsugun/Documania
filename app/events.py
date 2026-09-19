@@ -63,6 +63,20 @@ class EventType(enum.StrEnum):
     PIPELINE_FAILED = "PIPELINE_FAILED"
 
 
+USAGE_DATA_KEY = "usage"
+"""Olay verisinde token kullanımının anahtarı (PRD 13.1.1): `{"input_tokens": n, "output_tokens":
+m}` (`app.ai.usage.TokenUsage.to_event_data`). Değer, olayı doğuran sayfa işinin sağlayıcıya
+harcattığı toplamdır; sağlayıcı yanıt vermediyse ya da ölçüm yoksa anahtar hiç yazılmaz."""
+
+USAGE_EVENT_TYPES: tuple[EventType, ...] = (
+    EventType.PAGE_ANALYZED,
+    EventType.PAGE_ANALYSIS_FAILED,
+)
+"""Token kullanımı taşıyabilen olay türleri: başarılı ve başarısız sayfa analizi. Başarısız
+sayfa da token harcamış olabilir (şemaya uymayan yanıt, fotoğraf kontrolünde hata), bu yüzden
+maliyet görünümü ikisini de sayar."""
+
+
 @dataclass(frozen=True, slots=True)
 class EventContext:
     """`event_context` bloğunda etkin olan, olaylara otomatik taşınacak alanlar."""
