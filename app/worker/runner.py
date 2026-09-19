@@ -19,6 +19,10 @@ devam eder. Uygulama yeniden başlayınca yarıda kalan partinin kirası dolar v
 aşamadan sürdürür — kabul kriteri budur. Kapanışta döngü süren işi kesmez; süreç giderse iş kirası
 dolunca yeniden alınır. Yapay zekâ sağlayıcısı kurulamıyorsa döngü başlamaz, işler kuyrukta bekler.
 
+**İzleme.** Döngü her turdan sonra `AlertWatch`'i (`app.worker.monitor`, PRD 13.6.1) çağırır: hata,
+disk doluluğu ve kuyruk uzunluğu eşiği aşınca uyarı loga yazılır. Uzun bir iş süren turda ölçüm
+yapılmaz; Telegram'a uyarıyı botun bildiricisi kendi döngüsünde yollar.
+
 Hata metni loga yazılmaz (kişisel değer taşıyabilir, CONVENTIONS §6); yalnız türü ve partinin
 kimliği yazılır.
 """
@@ -43,6 +47,7 @@ from app.pipeline.orchestrate import (
     resume_upload,
 )
 from app.storage import DataLayout
+from app.worker.monitor import AlertThresholds, AlertWatch
 from app.worker.queue import (
     Claim,
     LeaseLostError,
@@ -155,6 +160,9 @@ class Worker:
         self._settings = settings
         self._provider = provider
         self._engine = engine  # işleyicinin kendi motoru: durunca kapatılır
+        self._watch = AlertWatch(
+            session_factory, layout.root, AlertThresholds.from_settings(settings)
+        )
         self._stopping = threading.Event()
         self._thread: threading.Thread | None = None
 
@@ -205,8 +213,15 @@ class Worker:
             except Exception as exc:
                 logger.error("İşçi kuyruğu taranamadı (%s)", type(exc).__name__)
                 worked = False
+            self._watch_alerts()
             if not worked:
                 self._stopping.wait(self._settings.worker_poll_seconds)
+
+    def _watch_alerts(self) -> None:
+        try:
+            self._watch.check()
+        except Exception as exc:
+            logger.error("İzleme ölçümü başarısız (%s)", type(exc).__name__)
 
 
 def start_worker(settings: Settings, layout: DataLayout) -> Worker | None:

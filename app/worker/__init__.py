@@ -1,7 +1,17 @@
 """Kalıcı işçi kuyruğu (PRD 13.3.1): partiyi işleme işi veritabanında durur; uygulama yeniden
 başlayınca yarım kalan parti kaldığı aşamadan sürdürülür. Kurallar `queue` ve `runner`
-modüllerinin açıklamasında."""
+modüllerinin açıklamasında. İzleme ve uyarı (PRD 13.6.1) `monitor` modülündedir."""
 
+from app.worker.monitor import (
+    AlertKind,
+    AlertThresholds,
+    AlertTracker,
+    AlertWatch,
+    Notice,
+    NoticeState,
+    Reading,
+    measure,
+)
 from app.worker.queue import (
     Claim,
     JobAbandonedError,
@@ -24,9 +34,16 @@ from app.worker.runner import (
 )
 
 __all__ = [
+    "AlertKind",
+    "AlertThresholds",
+    "AlertTracker",
+    "AlertWatch",
     "Claim",
     "JobAbandonedError",
     "LeaseLostError",
+    "Notice",
+    "NoticeState",
+    "Reading",
     "Worker",
     "abandon_exhausted",
     "claim_and_run",
@@ -35,6 +52,7 @@ __all__ = [
     "enqueue_upload",
     "finish_claim",
     "lease_checkpoint",
+    "measure",
     "new_claim_token",
     "release_claim",
     "renew_claim",

@@ -161,6 +161,14 @@ belgeleri, veritabanını ve sertifikayı taşır (`-v` hepsini siler).
 **Yedekleme:** gece yedeği ve geri yükleme prosedürü [`docs/YEDEKLEME.md`](docs/YEDEKLEME.md)'de
 (Compose kurulumuna özgü ayarlar orada). Zamanlayıcı (cron) sunucuya elle kurulur.
 
+**İzleme ve uyarı (PRD 13.6.1):** hata (son bir saatte üç işlenemeyen parti), disk doluluğu (veri
+diski yüzde 85), işçi kuyruğu (20 bekleyen parti) ve karar bekleyen kuyruk (50 öğe) eşiği aşınca
+uyarı üretilir: panel ve bot süreçlerinin logunda (`docker compose logs app bot`, satır "Uyarı — …")
+ve bot çalışıyorsa beyaz listedeki kullanıcılara Telegram mesajı olarak. Süren uyarı altı saatte bir
+hatırlatılır, eşiğin yüzde 90'ının altına inince "Uyarı giderildi" gider. Eşikler ve aralıklar
+`.env`'deki `ALERT_*` değişkenleridir (`.env.example`). PostgreSQL'in kendi hacmi (`pgdata`)
+uygulama sürecinden görünmez, ölçülmez.
+
 **Ağ yüzeyi:** dışarıya yalnız Caddy'nin 80/443'ü açılır. Panel (`8000`) ve PostgreSQL (`5432`)
 yalnız `127.0.0.1`'e yayınlanır (ssh tüneli, sunucudaki yedek betiği için). Bu değişiklikle
 geliştirmede de panel yalnız `http://127.0.0.1:8000`'den açılır.

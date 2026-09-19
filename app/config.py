@@ -77,6 +77,20 @@ class Settings(BaseSettings):
     worker_lease_seconds: int = Field(default=120, ge=10)
     worker_max_attempts: int = Field(default=3, ge=1)
     worker_poll_seconds: float = Field(default=5.0, gt=0)
+    # PRD 13.6.1 — izleme ve uyarı (`app.worker.monitor`). Hata, disk doluluğu ve kuyruk uzunluğu
+    # eşiği aşınca uyarı üretilir: panel ve bot süreçlerinin logu ile Telegram bildirimi. Son
+    # `ALERT_ERROR_WINDOW_MINUTES` dakikada `ALERT_ERROR_COUNT` parti işlenemediyse hata; veri
+    # diski `ALERT_DISK_USED_PERCENT` yüzde dolduysa disk; işlenmeyi bekleyen parti sayısı
+    # `ALERT_JOB_QUEUE_LENGTH`'e, karar bekleyen kuyruk öğesi sayısı `ALERT_REVIEW_QUEUE_LENGTH`'e
+    # vardıysa kuyruk uyarısı çıkar. Ölçüm `ALERT_CHECK_SECONDS` aralıkla yapılır; süren uyarı
+    # `ALERT_REPEAT_MINUTES` dakikada bir hatırlatılır (bkz. PLAN.md §C76).
+    alert_error_count: int = Field(default=3, ge=1)
+    alert_error_window_minutes: int = Field(default=60, ge=1)
+    alert_disk_used_percent: float = Field(default=85.0, gt=0, le=100)
+    alert_job_queue_length: int = Field(default=20, ge=1)
+    alert_review_queue_length: int = Field(default=50, ge=1)
+    alert_check_seconds: float = Field(default=60.0, gt=0)
+    alert_repeat_minutes: int = Field(default=360, ge=1)
     # PRD 10.1.2 — panel oturumunun ömrü (saniye); süre dolunca yeniden giriş istenir. PRD süre
     # vermez, varsayılan bir iş günü (bkz. PLAN.md §C45).
     session_max_age_seconds: int = Field(default=12 * 60 * 60, gt=0)

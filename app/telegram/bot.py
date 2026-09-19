@@ -52,6 +52,7 @@ from app.storage import prepare_data_dir
 from app.telegram.handlers import DocumentIntake
 from app.telegram.intent import DocumentRequests
 from app.telegram.notify import Notifier
+from app.worker.monitor import AlertWatch
 
 logger = logging.getLogger(__name__)
 
@@ -284,7 +285,10 @@ def main() -> int:
         session_factory,
         intake=intake,
         document_requests=document_requests,
-        notifier=Notifier(session_factory),
+        notifier=Notifier(
+            session_factory,
+            watch=AlertWatch.from_settings(session_factory, settings, layout.root),
+        ),
     )
     run(application, config)
     return 0

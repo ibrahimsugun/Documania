@@ -410,3 +410,74 @@ def test_invalid_worker_settings_rejected(
 
     with pytest.raises(ValidationError, match=name.lower()):
         load_settings(_env_file=None)
+
+
+ALERT_VARIABLES = (
+    "ALERT_ERROR_COUNT",
+    "ALERT_ERROR_WINDOW_MINUTES",
+    "ALERT_DISK_USED_PERCENT",
+    "ALERT_JOB_QUEUE_LENGTH",
+    "ALERT_REVIEW_QUEUE_LENGTH",
+    "ALERT_CHECK_SECONDS",
+    "ALERT_REPEAT_MINUTES",
+)
+
+
+def _alert_values(settings: object) -> tuple[object, ...]:
+    return tuple(
+        getattr(settings, name.lower())
+        for name in ALERT_VARIABLES  # `ALERT_ERROR_COUNT` -> `alert_error_count`
+    )
+
+
+def test_alert_settings_have_defaults_read_the_environment_and_are_documented(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # 13.6.1: izleme ve uyarı eşikleri.
+    monkeypatch.setenv("DATABASE_URL", "sqlite:///./data/test.db")
+    for name in ALERT_VARIABLES:
+        monkeypatch.delenv(name, raising=False)
+    defaults = load_settings(_env_file=None)
+    assert _alert_values(defaults) == (3, 60, 85.0, 20, 50, 60.0, 360)
+
+    for name, value in zip(
+        ALERT_VARIABLES, ("5", "30", "90.5", "10", "25", "15", "60"), strict=True
+    ):
+        monkeypatch.setenv(name, value)
+    configured = load_settings(_env_file=None)
+    assert _alert_values(configured) == (5, 30, 90.5, 10, 25, 15.0, 60)
+
+    example = (Path(__file__).resolve().parents[1] / ".env.example").read_text(encoding="utf-8")
+    for line in (
+        "ALERT_ERROR_COUNT=3",
+        "ALERT_ERROR_WINDOW_MINUTES=60",
+        "ALERT_DISK_USED_PERCENT=85",
+        "ALERT_JOB_QUEUE_LENGTH=20",
+        "ALERT_REVIEW_QUEUE_LENGTH=50",
+        "ALERT_CHECK_SECONDS=60",
+        "ALERT_REPEAT_MINUTES=360",
+    ):
+        assert f"\n{line}\n" in example
+
+
+@pytest.mark.parametrize(
+    ("name", "value"),
+    [
+        ("ALERT_ERROR_COUNT", "0"),
+        ("ALERT_ERROR_WINDOW_MINUTES", "0"),
+        ("ALERT_DISK_USED_PERCENT", "0"),
+        ("ALERT_DISK_USED_PERCENT", "101"),
+        ("ALERT_JOB_QUEUE_LENGTH", "0"),
+        ("ALERT_REVIEW_QUEUE_LENGTH", "0"),
+        ("ALERT_CHECK_SECONDS", "0"),
+        ("ALERT_REPEAT_MINUTES", "0"),
+    ],
+)
+def test_invalid_alert_settings_rejected(
+    monkeypatch: pytest.MonkeyPatch, name: str, value: str
+) -> None:
+    monkeypatch.setenv("DATABASE_URL", "sqlite:///./data/test.db")
+    monkeypatch.setenv(name, value)
+
+    with pytest.raises(ValidationError, match=name.lower()):
+        load_settings(_env_file=None)

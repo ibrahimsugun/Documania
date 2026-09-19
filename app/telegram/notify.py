@@ -1,4 +1,4 @@
-"""Kuyruk ve hata bildirimleri (PRD 12.4.1; K13).
+"""Kuyruk ve hata bildirimleri (PRD 12.4.1) ve izleme uyarıları (PRD 13.6.1; K13).
 
 Kuyruğa yeni öğe düşünce ve parti işlenemeyip `failed` olunca beyaz listedeki her kullanıcıya
 özel sohbetten kısa bir mesaj gider. Bot paneli çalıştıran süreçten ayrı bir süreçtir; iki süreç
@@ -21,6 +21,13 @@ hatırlanır — geç commit edilen olay da atlanmaz, hiçbiri iki kez gitmez.
 yalnız türüyle loga yazılır ve öteki alıcılara gönderim sürer. Bildirim bir kolaylıktır, kuyruğun
 ve partinin durumu panelde durur.
 
+**İzleme uyarıları (13.6.1).** `watch` (`app.worker.monitor.AlertWatch`) verilirse her taramada
+ölçüm sırası gelmişse (`ALERT_CHECK_SECONDS`) hata, disk doluluğu ve kuyruk uzunluğu eşikleri
+denetlenir; çıkan, hatırlatılan ve giderilen uyarı olaylarla aynı alıcılara mesaj olarak gider.
+Uyarı olay değildir, ölçümden hesaplanır (modül `app.worker.monitor`). Alıcı yokken ölçüm
+yapılmaz: uyarı, listeye ilk kullanıcı girince o an hâlâ sürüyorsa çıkar. Uyarı mesajı da en çok
+bir kez gönderilir; süren uyarının sonraki mesajı hatırlatmadır.
+
 **Gizlilik (CONVENTIONS §6).** Mesaj 12.2.3 özetiyle aynı bilgiyi taşır: parti numarası, kuyruk
 türü ve gerekçe (kişisel değer taşımaz) ya da hatanın aşaması. Ad-soyad, belge numarası, hata
 metni ve iz gitmez; loga kimlik ve içerik yazılmaz.
@@ -42,6 +49,7 @@ from telegram.ext import Application
 from app.db.models import Event, QueueKind, TelegramUser, UploadStatus, utcnow
 from app.events import EventType
 from app.telegram.handlers import QUEUE_LABELS
+from app.worker.monitor import AlertWatch, Notice
 
 logger = logging.getLogger(__name__)
 
@@ -142,7 +150,8 @@ def build_messages(events: list[PendingEvent]) -> list[str]:
 
 
 class Notifier:
-    """`events`'i tarar ve yeni kuyruk/parti hatası olaylarını beyaz listedeki kullanıcılara yollar.
+    """`events`'i tarar ve yeni kuyruk/parti hatası olaylarını (ve `watch` verilmişse izleme
+    uyarılarını) beyaz listedeki kullanıcılara yollar.
 
     Kurulduğu andaki son olay numarası başlangıçtır (modül açıklaması): `Notifier` bot süreci
     başlarken kurulur ve veritabanı o an okunabilir olmalıdır. `register` botun başlama/durma
@@ -154,10 +163,12 @@ class Notifier:
         *,
         interval: float = POLL_INTERVAL_SECONDS,
         lookback: timedelta = LOOKBACK,
+        watch: AlertWatch | None = None,
     ) -> None:
         self._session_factory = session_factory
         self._interval = interval
         self._lookback = lookback
+        self._watch = watch
         self._baseline = self._latest_event_id()
         # Gönderilmiş sayılan olay numarası → zamanı; `lookback`'i geçen kayıt taranmadığı için
         # unutulur.
@@ -207,17 +218,19 @@ class Notifier:
     async def notify_once(self, bot: Bot) -> int:
         """Bir tarama: yeni olayları bulur, mesajlara çevirir, alıcılara yollar. Gönderilmeye
         çalışılan mesaj sayısını (alıcı başına değil) döner."""
-        events, recipients = await asyncio.to_thread(self._collect)
-        messages = build_messages(events)
+        events, notices, recipients = await asyncio.to_thread(self._collect)
+        messages = [*build_messages(events), *(notice.message for notice in notices)]
         for chat_id in recipients:
             for text in messages:
                 await self._send(bot, chat_id, text)
         return len(messages) if recipients else 0
 
-    def _collect(self) -> tuple[list[PendingEvent], list[int]]:
-        """Yeni bildirimlik olayları ve alıcıları okur; olayları gönderilmiş sayar (en çok bir kez).
+    def _collect(self) -> tuple[list[PendingEvent], list[Notice], list[int]]:
+        """Yeni bildirimlik olayları, izleme uyarılarını ve alıcıları okur; olayları gönderilmiş
+        sayar (en çok bir kez).
 
-        Alıcı yoksa olaylar yine tüketilir: bildirim, olay olduğu andaki listedekileredir."""
+        Alıcı yoksa olaylar yine tüketilir: bildirim, olay olduğu andaki listedekileredir. Uyarı
+        ise alıcı varken ölçülür (modül açıklaması)."""
         cutoff = utcnow() - self._lookback
         self._notified = {id_: ts for id_, ts in self._notified.items() if ts >= cutoff}
         with self._session_factory() as session:
@@ -244,8 +257,8 @@ class Notifier:
                 for row in rows
                 if row.id not in self._notified
             ]
-            if not events:
-                return [], []
+            if not events and self._watch is None:
+                return [], [], []
             self._notified.update({event.id: event.ts for event in events})
             recipients = list(
                 session.scalars(
@@ -254,7 +267,8 @@ class Notifier:
                     .order_by(TelegramUser.telegram_id)
                 )
             )
-        return events, recipients
+        notices = self._watch.check() if self._watch is not None and recipients else []
+        return events, notices, recipients
 
     def _latest_event_id(self) -> int:
         with self._session_factory() as session:
