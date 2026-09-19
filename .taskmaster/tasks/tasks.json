@@ -1209,14 +1209,14 @@
         "description": "PRD 12.2.1, 12.2.2, 12.2.3 · FR-MOD-12 (Telegram botu) · Faz 2.",
         "details": "KAPSAM: PRD 12.2.1, 12.2.2, 12.2.3 (FR-MOD-12 — Telegram botu, Faz 2).\n\nNE YAPILACAK — GEREKSİNİMLER VE KABUL KRİTERLERİ:\n- 12.2.1 — Belge alma\n  Kabul: Gönderilen belge web ile aynı boru hattından işlenir\n- 12.2.2 — Çoklu mesaj grubu\n  Kabul: Aynı medya grubundaki dosyalar tek parti sayılır\n- 12.2.3 — Sonuç özeti\n  Kabul: İşlem sonucu ve kuyruğa düşen öğeler kısa mesajla bildirilir\n\nGİRDİ — ÜZERİNE KURULDUĞU İŞLER (bu kod ZATEN VAR; yazmadan önce OKU):\n- 12.1 (Bot iskeleti ve beyaz liste) → app/telegram/bot.py\n- 01.1 (Yükleme uç noktası ve parti oluşturma) → app/web/routers/uploads.py, app/db/models.py\n\nÇIKTI — DOKUNULACAK YÜZEY: app/telegram/handlers.py\n\nKARAR TABLOSU: bu görev için ayrı karar tablosu yok; kabul kriterleri ve kilitli kurallar yeterli.\n\nBU GÖREVİ BAĞLAYAN KİLİTLİ KURALLAR: özel kural yok. Genel sınırlar MASTER-PROMPT §8'de.\n\nPRD'DE AYRICA OKU: yalnız yukarıdaki gereksinim satırları yeterli.\n\nİLGİLİ KABUL SENARYOSU: doğrudan yok. Kabul kriterleri yukarıda.\n\nSIRA (MASTER-PROMPT §5, contract-first): sözleşme/şema → Alembic göçü (gerekiyorsa) → çekirdek + unit test → entegrasyon + testi → arayüz.\n\nKAPSAM SINIRI: yalnız yukarıdaki PRD kimlikleri. Başka gereksinimin işini yapma; yolda gördüğün kusuru düzeltme, yeni görev olarak aç (CONVENTIONS §5). Kilitli teknik kararları (MASTER-PROMPT §4) tartışma; yanlış görünüyorsa uygula ve PLAN.md §D'ye sapma yaz.\n\nTUZAKLAR: belge içeriğini değiştiren kod yazma — kırpma, döndürme (EXIF dışında), kontrast, metin yazma, form doldurma yok (K11/K17). Gerçek kimlik belgesi kullanma; test verisi tests/fixtures/gen.py ile üretilen sentetik belgelerdir (CONVENTIONS §6). Yapay zekâ çağrısı testte canlı yapılmaz, kayıtlı yanıt sağlayıcısı kullanılır. Test/build komutlarını arka plana atma — pencere ölür.\n\nKAPANIŞ: PLAN.md'de 12.2.1, 12.2.2, 12.2.3 satırlarının damgasını '✅ → K12.2' yap ve '## K. Kanıt Geçmişi' bölümünde '#### K12.2' bloğuna kanıt maddesi ekle (blok yoksa aç). Faz özet tablosundaki sayıları SAYARAK güncelle. Ayrıntı: CONVENTIONS §1.2-1.3.",
         "testStrategy": "CONVENTIONS §1 DoD kapısı: ruff check . · ruff format --check . · python -m compileall -q app tests · pytest -q -m \"not live\" · alembic upgrade head · python -c \"import app.main\" — hepsi exit 0.\nAyrıca bu görevin kendi kabul kriterleri:\n- 12.2.1: Gönderilen belge web ile aynı boru hattından işlenir\n- 12.2.2: Aynı medya grubundaki dosyalar tek parti sayılır\n- 12.2.3: İşlem sonucu ve kuyruğa düşen öğeler kısa mesajla bildirilir",
-        "status": "in-progress",
+        "status": "done",
         "dependencies": [
           "83",
           "7"
         ],
         "priority": "low",
         "subtasks": [],
-        "updatedAt": "2026-09-19T08:26:06.278Z"
+        "updatedAt": "2026-09-19T09:10:38.572Z"
       },
       {
         "id": "85",
@@ -1369,9 +1369,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-09-19T08:26:06.278Z",
+      "lastModified": "2026-09-19T09:10:38.573Z",
       "taskCount": 95,
-      "completedCount": 85,
+      "completedCount": 86,
       "tags": [
         "master"
       ]
