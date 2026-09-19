@@ -18,6 +18,12 @@ Blok biçimi `CONVENTIONS.md` §3'te tanımlıdır:
 
 ## Task log (newest-first)
 
+## 96 — 03.3.1 OpenAI sağlayıcısını gerçek çağrıyla doğrula — blocked — 2026-09-19 (düzeltme penceresi: panel bulgusu "blocked ama bağımlılıkları kapalı")
+- Nerede kaldı: engel geçerli ve bir insan girdisi — `OPENAI_API_KEY` süreç, Windows kullanıcı ve makine kapsamında yok, depoda `.env` yok (değer yazdırılmadan denetlendi); tm 20'den bu yana hiçbir commit anahtarı sağlamadı. Kod değişmedi, api.openai.com'a çağrı yapılmadı; `.loop-logs/attempts.tsv` `96 2` → döngü görevi artık kendisi seçmiyor (`pick_next` "deneme hakkı tükendi").
+- Son hata: `.venv/Scripts/python.exe -m pytest -q -m live tests/ai/test_openai_provider.py -rs` → `1 skipped, 78 deselected` (`tests\ai\test_openai_provider.py:894: OPENAI_API_KEY tanımlı değil`).
+- Varsayımlar: yeni düzeltme görevi AÇILMADI — işi bitirecek tek şey anahtarı ortama koymak ve bunu hiçbir pencere yapamaz; `critical` + `pending` bir "anahtarı sağla" görevi `pick_next` 2. kuralıyla hemen seçilir, aynı yerde `blocked` olur ve boş bağımlılıkla bir sonraki taramada yeni bulgu olarak geri gelirdi. #96 `blocked` kaldı; PLAN.md:124 `◐ → K03.3`, §D, K03.3 ve faz sayıları değişmedi.
+- Sonraki pencereye not: bu kayıt yalnız insan müdahalesiyle kapanır — anahtarı `OPENAI_API_KEY` Windows kullanıcı değişkeni ya da döngüyü başlatan kabukta `export` ile verin, `.loop-logs/attempts.tsv`'den `96` satırını silin, #96'yı `pending` yapın; görev metnindeki (c) sırası uygulanır. Anahtar gelmeyecekse #96'yı `deferred` yapmak insanın kararıdır. Anahtar yokken bir sonraki düzeltme penceresi de burada durmalı.
+
 ## 94 — 01.1-b Yükleme ön denetimi: geçersiz karakterli ad ve desteklenmeyen tür — done — 2026-09-19
 - Yapıldı: `store_upload` (`POST /api/uploads`, `/upload`, Telegram botu ortak çekirdeği) hiçbir şey yazılmadan önce adı (`< > : " | ? *`, denetim karakteri, sondaki nokta/boşluk, 255 bayt) ve içeriği (`detect_file_kind`, yedi tür dışı) denetler; ikisi de dosyayı adıyla söyleyen 400 iletisiyle hep-ya-hiç reddedilir (parti, satır, olay, iş, Inbox dizini yok); PLAN.md 01.2.2 `◐` → `✅`.
 - Doğrulama: ruff check/format, compileall, `pytest -q -m "not live" --cov=app --cov-fail-under=70` (3985 geçti, +49; 5 PG atlandı; üç ön plan koşusu), kapsam %99.89 (`uploads.py` %100), temiz SQLite'ta `alembic upgrade head` (göç yok), `import app.main` — hepsi exit 0; 5 geçici kural bozmasının her biri testte kırmızı. **Gerçek belge ve canlı sağlayıcı çağrısı yok.**
