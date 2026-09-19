@@ -1,13 +1,18 @@
 {% extends "base.html" %}
 {# Tür formu (11.1.1, 11.1.2, 11.1.3): oluşturma ve düzenleme aynı formdur. Düzenlemede örneklerden
-   üretilen açıklama (11.3.1) formun üstünde gösterilir ve "Analizci için açıklama" alanına yazılır. Doğrulama sunucudadır
-   (`app.catalog.form`): reddedilen form girilen değerlerle yeniden çizilir, her mesaj kendi alanının
-   yanında görünür. Belge içeriği formda yok (K17). Alanlar tek satırlık girdidir: şablonlarda çok
-   satırlı metin alanı yoktur (10.9.1 kilidi), form `action` yolları düz metin yazılır. #}
+   üretilen açıklama (11.3.1) formun üstünde gösterilir ve "Analizci için açıklama" alanına yazılır.
+   Doğrulama sunucudadır (`app.catalog.form`): reddedilen form girilen değerlerle yeniden çizilir, her
+   mesaj kendi alanının yanında görünür. Fotoğraf türünde formun altında fotoğraf kuralları (11.6.1),
+   sonra örnek belgeler (11.2.1) bölümü vardır; ikisi ayrı formdur. Belge içeriği formda yok (K17).
+   Alanlar tek satırlık girdidir: şablonlarda çok satırlı metin alanı yoktur (10.9.1 kilidi), form
+   `action` yolları düz metin yazılır. #}
 {% block title %}{{ "Yeni belge türü" if is_new else "Belge türünü düzenle" }}{% endblock %}
 {% block content %}
 <p class="back"><a href="/document-types">← Belge Türleri</a></p>
 <h1>{{ "Yeni belge türü" if is_new else "Belge türünü düzenle" }}</h1>
+{% if notice_text %}
+<p class="notice notice-success" role="status">{{ notice_text }}</p>
+{% endif %}
 {% if problems %}
 <p class="error" role="alert">Tür kaydedilmedi: alanların altındaki uyarıları düzeltin.</p>
 {% endif %}
@@ -40,6 +45,9 @@
   </div>
 </form>
 {% if not is_new %}
+{% if photo_rules %}
+{% include "catalog_photo_rules.html" %}
+{% endif %}
 {% include "catalog_examples.html" %}
 {% endif %}
 {% endblock %}

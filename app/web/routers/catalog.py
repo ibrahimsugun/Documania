@@ -38,6 +38,17 @@ formdaki tür bilgileriyle (ad, ülke, yüzler, zorunlu alanlar) istenir, bu yü
 doğrulanır (geçersizse 422, istek gitmez). Örnek yoksa 422, sağlayıcı kurulamıyorsa 503, sağlayıcı
 yanıt vermez ya da yanıt şemaya uymazsa 502; hiçbirinde bir şey yazılmaz.
 
+**Fotoğraf kuralları (11.6.1).** Profile Picture türünün düzenleme sayfasında
+(`app.catalog.photo_rules.PHOTO_RULE_TYPES`) "Fotoğraf kuralları" bölümü kural setini gösterir:
+her kural bir işaret kutusudur (yüz görünür, tek kişi, nötr ifade, sade arka plan, asgari
+çözünürlük, güneş gözlüğü yok, baş örtüsü yok — sonuncusu şirket kararıdır, açılana kadar kapalı)
+ve çözünürlük kuralı asgari genişlik/yüksekliği piksel olarak taşır. `POST
+/document-types/{slug}/photo-rules` bütün seti tek işlemde kaydeder
+(`known_document_types.photo_rules`): işaretli kural açık, işaretsiz kapalı olur; geçersiz piksel
+sayısı ya da tanımsız kural 422 ile alan başına bildirilir ve hiçbir şey yazılmaz. Tür formunun
+kendisi (`POST /document-types/{slug}`) kuralları değiştirmez. Kurallar yalnız saklanır; fotoğrafın
+kurallara göre değerlendirilmesi 11.7'nindir.
+
 **Aday türler (11.5).** Analizcinin önerdiği katalog dışı türler (04.6.1) `GET
 /document-types/candidate-types`'ta listelenir (11.5.1): bekleyen adaylar adı, görülme sayısı, örnek
 sayfaları (analiz kopyası, `/uploads/{id}/pages/{page_id}/image`) ve bekleyen Unknown öğe sayısıyla;
@@ -74,7 +85,7 @@ import json
 from collections import Counter
 from dataclasses import dataclass, replace
 from typing import Annotated, Any
-from urllib.parse import urlencode
+from urllib.parse import quote, urlencode
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request, status
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse, Response
@@ -86,12 +97,15 @@ from app.ai.provider import AnalysisProvider, ProviderConfigError, ProviderError
 from app.ai.type_description import TypeDescriptionError
 from app.catalog import (
     DETAIL_SAMPLE_LIMIT,
+    PHOTO_RULE_TYPES,
     CandidateDecidedError,
     CandidateNotFoundError,
     CatalogEntry,
     Conversion,
     FileType,
     OutputFormat,
+    PhotoRulesError,
+    PhotoRulesForm,
     Sides,
     TypeExistsError,
     TypeForm,
@@ -100,6 +114,7 @@ from app.catalog import (
     approve_candidate_type,
     approved_type_slug,
     build_entry,
+    build_photo_rules,
     count_pending_candidate_types,
     create_type,
     export_catalog,
@@ -107,9 +122,11 @@ from app.catalog import (
     list_types,
     load_candidate_type,
     load_record,
+    read_photo_rules,
     record_problems,
     reject_candidate_type,
     sample_page_refs,
+    set_photo_rules,
     set_type_active,
     suggested_form,
     summarize_candidates,
@@ -211,6 +228,12 @@ NOTICES = {
     "deactivated": "Tür pasifleştirildi: yeni belgelere atanmaz.",
     "activated": "Tür yeniden etkinleştirildi.",
 }
+
+TYPE_PAGE_NOTICES = {"photo_rules": "Fotoğraf kuralları kaydedildi."}
+
+# --- 11.6: fotoğraf kuralları --------------------------------------------------------------------
+
+NO_PHOTO_RULES = "Bu türün fotoğraf kuralı yok"
 
 # --- 11.2: örnek belgeler ------------------------------------------------------------------------
 
@@ -322,12 +345,15 @@ def _form_page(
     current_problems: tuple[str, ...] = (),
     status_code: int = status.HTTP_200_OK,
     examples: dict[str, Any] | None = None,
+    photo: dict[str, Any] | None = None,
     generated: GeneratedDescription | None = None,
     description_error: str | None = None,
+    notice_text: str | None = None,
 ) -> HTMLResponse:
     """Tür formunu çizer. `slug` düzenlenen türdür (yeni türde `None`); `examples` düzenleme
-    sayfasının örnek belge bölümünün bağlamıdır (`_examples_context`); `generated` örneklerden
-    üretilen (kaydedilmemiş) tür açıklaması, `description_error` üretilemediyse nedeni."""
+    sayfasının örnek belge bölümünün bağlamıdır (`_examples_context`), `photo` fotoğraf kuralları
+    bölümünün (`_photo_context`, yalnız fotoğraf türlerinde dolu); `generated` örneklerden üretilen
+    (kaydedilmemiş) tür açıklaması, `description_error` üretilemediyse nedeni."""
     return render_page(
         request,
         "catalog_form.html",
@@ -338,8 +364,10 @@ def _form_page(
         current_problems=current_problems,
         **_fields_context(form, problems),
         **(examples or {}),
+        **(photo or {}),
         generated=generated,
         description_error=description_error,
+        notice_text=notice_text,
         script_labels=SCRIPT_LABELS,
         max_description_pages=MAX_DESCRIPTION_PAGES,
         is_new=slug is None,
@@ -368,6 +396,39 @@ def _examples_context(
         ],
         "example_stored": stored or [],
         "example_errors": errors or [],
+    }
+
+
+def _photo_context(
+    slug: str,
+    stored: dict[str, Any] | None,
+    *,
+    form: PhotoRulesForm | None = None,
+    problems: dict[str, list[str]] | None = None,
+) -> dict[str, Any]:
+    """Düzenleme sayfasının fotoğraf kuralları bölümünün bağlamı; türün kuralı yoksa boş.
+    `stored` kayıtlı `photo_rules`, `form` reddedilen formun girilen değerleridir (kayıtlıyı
+    gölgeler)."""
+    if slug not in PHOTO_RULE_TYPES:
+        return {}
+    settings = read_photo_rules(stored)
+    shown = form or PhotoRulesForm.from_settings(settings)
+    return {
+        "photo_rules": {
+            "rules": [
+                {
+                    "id": setting.id,
+                    "label": setting.label,
+                    "description": setting.spec.description,
+                    "company_decision": setting.spec.company_decision,
+                    "enabled": setting.id in shown.enabled,
+                }
+                for setting in settings
+            ],
+            "min_width_px": shown.min_width_px,
+            "min_height_px": shown.min_height_px,
+            "problems": problems or {},
+        }
     }
 
 
@@ -483,7 +544,12 @@ def create_type_endpoint(
 
 @router.get(f"{LIST_PATH}/{{slug}}", response_class=HTMLResponse)
 def type_page(
-    slug: str, request: Request, user: CurrentUser, session: DbSession, layout: Layout
+    slug: str,
+    request: Request,
+    user: CurrentUser,
+    session: DbSession,
+    layout: Layout,
+    notice: Annotated[str | None, Query(max_length=32)] = None,
 ) -> HTMLResponse:
     try:
         record = load_record(session, slug)
@@ -498,6 +564,8 @@ def type_page(
         slug=slug,
         current_problems=record_problems(record),
         examples=_examples_context(layout, slug),
+        photo=_photo_context(slug, record["photo_rules"]),
+        notice_text=TYPE_PAGE_NOTICES.get(notice or ""),
     )
 
 
@@ -513,7 +581,7 @@ def update_type_endpoint(
     # Slug adresten gelir, formdan değil: değişmez (belgeler ve çıktı adları ona bağlı).
     form = replace(form, slug=slug)
     try:
-        load_record(session, slug)
+        record = load_record(session, slug)
     except TypeNotFoundError:
         raise HTTPException(status.HTTP_404_NOT_FOUND, TYPE_NOT_FOUND) from None
     try:
@@ -527,6 +595,7 @@ def update_type_endpoint(
             problems=exc.problems,
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             examples=_examples_context(layout, slug),
+            photo=_photo_context(slug, record["photo_rules"]),
         )
     try:
         update_type(session, entry)
@@ -555,6 +624,48 @@ def deactivate_type(slug: str, session: DbSession) -> RedirectResponse:
 @router.post(f"{LIST_PATH}/{{slug}}/activate")
 def activate_type(slug: str, session: DbSession) -> RedirectResponse:
     return _set_active(session, slug, True)
+
+
+@router.post(f"{LIST_PATH}/{{slug}}/photo-rules", response_class=HTMLResponse)
+def save_photo_rules(
+    slug: str,
+    request: Request,
+    user: CurrentUser,
+    session: DbSession,
+    layout: Layout,
+    enabled: Annotated[list[str] | None, Form()] = None,
+    min_width_px: Annotated[str, Form()] = "",
+    min_height_px: Annotated[str, Form()] = "",
+) -> Response:
+    """11.6.1 — türün fotoğraf kural setini kaydeder: işaretli kural açık, işaretsiz kapalı olur;
+    asgari çözünürlük piksel olarak yazılır. Geçersiz değer 422 ile alan başına bildirilir ve hiçbir
+    şey yazılmaz. Tür formunu ve belge içeriğini değiştirmez (K17)."""
+    record = _known_type(session, slug)
+    if slug not in PHOTO_RULE_TYPES:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, NO_PHOTO_RULES)
+    submitted = PhotoRulesForm(
+        enabled=tuple(enabled or ()), min_width_px=min_width_px, min_height_px=min_height_px
+    )
+    try:
+        rules = build_photo_rules(submitted)
+    except PhotoRulesError as exc:
+        return _form_page(
+            request,
+            user,
+            TypeForm.from_record(record),
+            slug=slug,
+            current_problems=record_problems(record),
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            examples=_examples_context(layout, slug),
+            photo=_photo_context(
+                slug, record["photo_rules"], form=submitted, problems=exc.problems
+            ),
+        )
+    set_photo_rules(session, slug, rules)
+    session.commit()
+    return RedirectResponse(
+        f"{LIST_PATH}/{quote(slug)}?notice=photo_rules#photo-rules", status.HTTP_303_SEE_OTHER
+    )
 
 
 def _known_type(session: Session, slug: str) -> dict[str, Any]:
@@ -612,6 +723,7 @@ async def upload_examples(
                 status.HTTP_422_UNPROCESSABLE_CONTENT if chosen else status.HTTP_400_BAD_REQUEST
             ),
             examples=_examples_context(layout, slug, errors=errors),
+            photo=_photo_context(slug, record["photo_rules"]),
         )
     stored = [store_example(layout, slug, name, content, kind) for name, content, kind in checked]
     return _form_page(
@@ -621,6 +733,7 @@ async def upload_examples(
         slug=slug,
         current_problems=record_problems(record),
         examples=_examples_context(layout, slug, stored=stored),
+        photo=_photo_context(slug, record["photo_rules"]),
     )
 
 
@@ -686,6 +799,7 @@ def generate_description(
             current_problems=record_problems(record),
             status_code=status_code,
             examples=_examples_context(layout, slug),
+            photo=_photo_context(slug, record["photo_rules"]),
             generated=generated,
             description_error=error,
         )

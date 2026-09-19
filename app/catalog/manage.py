@@ -9,7 +9,7 @@ plan (K9) kendi planını kullanır. `catalog.yaml` yalnız tohum ve dışa akta
 - **Silme yok** (K16): tür pasifleştirilir. Pasif tür yeni belgeye atanmaz (analiz talimatına
   girmez) ama var olan belgelerin türü olarak kalır.
 - `slug` değişmez: belgeler ve çıktı adları ona bağlıdır. Düzenleme yalnız form alanlarını yazar;
-  `active` (`set_type_active`) ve `photo_rules` (11.6) dışarıda kalır.
+  `active` (`set_type_active`) ve `photo_rules` (`set_photo_rules`, 11.6.1) dışarıda kalır.
 - Hiçbir fonksiyon commit etmez; iş birimini çağıran kapatır (`sync.py` ile aynı sözleşme).
 """
 
@@ -22,11 +22,12 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.catalog.photo_rules import PHOTO_RULE_TYPES
 from app.catalog.schema import CatalogEntry, CatalogError, validate_catalog
 from app.catalog.sync import entry_to_columns, row_to_record
 from app.db.models import KnownDocumentType
 
-# Formdan değişmeyen sütunlar: pasifleştirme ayrı işlemdir, fotoğraf kuralları 11.6'nındır.
+# Formdan değişmeyen sütunlar: pasifleştirme ve fotoğraf kuralları ayrı işlemlerdir.
 _NOT_EDITED = frozenset({"active", "photo_rules"})
 
 
@@ -36,6 +37,10 @@ class TypeNotFoundError(LookupError):
 
 class TypeExistsError(ValueError):
     """`slug` katalogda zaten var."""
+
+
+class PhotoRulesUnsupportedError(ValueError):
+    """`slug` türünün fotoğraf kuralı yok (`PHOTO_RULE_TYPES` dışında)."""
 
 
 def _row(session: Session, slug: str) -> KnownDocumentType:
@@ -127,5 +132,22 @@ def set_type_active(session: Session, slug: str, active: bool) -> bool:
     if row.active == active:
         return False
     row.active = active
+    session.flush()
+    return True
+
+
+def set_photo_rules(session: Session, slug: str, rules: dict[str, Any]) -> bool:
+    """Türün fotoğraf kural setini yazar (11.6.1); kayıt değiştiyse `True`.
+
+    `rules` `build_photo_rules`tan gelir (doğrulanmış, bütün kurallar açık). Kural yalnız
+    `PHOTO_RULE_TYPES` türlerindedir: başka türde `PhotoRulesUnsupportedError`, tür yoksa
+    `TypeNotFoundError`. Kural değişikliği belge içeriğine dokunmaz (K17).
+    """
+    row = _row(session, slug)
+    if slug not in PHOTO_RULE_TYPES:
+        raise PhotoRulesUnsupportedError(slug)
+    if row.photo_rules == rules:
+        return False
+    row.photo_rules = rules
     session.flush()
     return True

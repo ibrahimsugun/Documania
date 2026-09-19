@@ -343,6 +343,22 @@ form.inline { display: inline; margin: 0 0 0 0.6rem; }
 
 .examples { margin-top: 2rem; }
 
+.photo-rules { margin-top: 2rem; }
+
+.rule-list { margin: 0 0 1rem; padding: 0; list-style: none; }
+
+.rule { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.25rem 0.75rem; margin-bottom: 0.6rem; }
+
+.rule .choice { display: inline-flex; align-items: center; gap: 0.35rem; }
+
+.rule-tag { padding: 0 0.4rem; border: 1px solid #d0d7de; border-radius: 4px; color: #6b7280; font-size: 0.85em; }
+
+.rule-size { flex-basis: 100%; display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; padding-left: 1.6rem; }
+
+.rule-size input[type="number"] { width: 6rem; padding: 0.35rem; border: 1px solid #d0d7de; border-radius: 4px; font: inherit; }
+
+.photo-rules .field-error { flex-basis: 100%; padding-left: 1.6rem; color: #b42318; }
+
 .example-list { margin: 0 0 1rem; padding-left: 1.25rem; }
 
 .example-form { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 1rem; }

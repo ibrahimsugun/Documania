@@ -1,7 +1,7 @@
 """Belge türü kataloğu: şema ve tutarlılık kuralı (00.6.1), başlangıç tohumu (00.6.2),
 YAML ↔ veritabanı eşitleme (00.6.3), panelden yönetim ve form doğrulaması (11.1), analiz
 talimatına giren kompakt katalog metni ve token bütçesi (11.4), aday tür listesi, onayı ve reddi
-(11.5).
+(11.5), profil fotoğrafı kural seti (11.6).
 
 Örneklerden tür açıklaması üretimi (11.3) burada dışa aktarılmaz, `app.catalog.describe`'dan alınır:
 yapay zekâ katmanını (`app.ai`) içe aktarır, `app.ai` da bu paketi — paket başlatılırken döngü
@@ -26,6 +26,7 @@ from app.catalog.candidates import (
 )
 from app.catalog.form import TypeForm, TypeFormError, build_entry
 from app.catalog.manage import (
+    PhotoRulesUnsupportedError,
     TypeExistsError,
     TypeNotFoundError,
     TypeSummary,
@@ -33,8 +34,20 @@ from app.catalog.manage import (
     list_types,
     load_record,
     record_problems,
+    set_photo_rules,
     set_type_active,
     update_type,
+)
+from app.catalog.photo_rules import (
+    PHOTO_RULE_SPECS,
+    PHOTO_RULE_TYPES,
+    PhotoRulesError,
+    PhotoRuleSetting,
+    PhotoRulesForm,
+    PhotoRuleSpec,
+    build_photo_rules,
+    enabled_photo_rules,
+    read_photo_rules,
 )
 from app.catalog.prompt_builder import (
     CATALOG_TOKEN_BUDGET,
@@ -68,6 +81,8 @@ __all__ = [
     "CATALOG_TOKEN_BUDGET",
     "DETAIL_SAMPLE_LIMIT",
     "LIST_SAMPLE_LIMIT",
+    "PHOTO_RULE_SPECS",
+    "PHOTO_RULE_TYPES",
     "CandidateDecidedError",
     "CandidateNotFoundError",
     "CandidateSample",
@@ -81,6 +96,11 @@ __all__ = [
     "FileType",
     "OutputFormat",
     "PageRange",
+    "PhotoRuleSetting",
+    "PhotoRuleSpec",
+    "PhotoRulesError",
+    "PhotoRulesForm",
+    "PhotoRulesUnsupportedError",
     "Sides",
     "TypeExistsError",
     "TypeForm",
@@ -91,10 +111,12 @@ __all__ = [
     "approve_candidate_type",
     "approved_type_slug",
     "build_entry",
+    "build_photo_rules",
     "compile_catalog",
     "count_pending_candidate_types",
     "create_type",
     "dump_catalog_yaml",
+    "enabled_photo_rules",
     "estimate_tokens",
     "export_catalog",
     "import_catalog",
@@ -106,9 +128,11 @@ __all__ = [
     "load_seed_catalog",
     "parse_catalog_yaml",
     "read_catalog_file",
+    "read_photo_rules",
     "record_problems",
     "reject_candidate_type",
     "sample_page_refs",
+    "set_photo_rules",
     "set_type_active",
     "suggested_form",
     "summarize_candidates",

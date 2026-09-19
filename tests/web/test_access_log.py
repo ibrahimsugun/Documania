@@ -364,6 +364,7 @@ REVIEWED_MUTATING_ROUTES: dict[tuple[str, str], str] = {
         "/document-types/{slug}/examples",
     ): "örnek belge yükleme, çalışan verisi değil (11.2.1)",
     ("POST", "/document-types/{slug}/description"): "tür açıklaması önerisi, kaydetmez (11.3.1)",
+    ("POST", "/document-types/{slug}/photo-rules"): "katalog kaydı: fotoğraf kural seti (11.6.1)",
     ("POST", "/document-types/criteria/add"): "kabul kriteri listesi, kaydetmez (11.1.3)",
     ("POST", "/document-types/criteria/remove"): "kabul kriteri listesi, kaydetmez (11.1.3)",
     ("POST", "/document-types/candidate-types/{candidate_id}/approve/confirm"): "onay metni",
