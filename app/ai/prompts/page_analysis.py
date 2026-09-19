@@ -4,36 +4,23 @@ Talimat metni aynı dizindeki `page_analysis.md`'dir ve üç disiplin kuralını
 okuyamadığını `legible: false` yap, katalogda yoksa aday öner. Metin paketle birlikte gelir;
 şablondaki tek `{{catalog}}` yuvasına analizde kullanılan kataloğun türleri yazılır.
 
-- Talimata yalnız etkin (`active: true`) ve analiz edilen (`analyze: true`) türler girer:
-  Word/Excel türü (`attachment`) analize hiç gönderilmez (K2), pasif tür yeni belgeye atanmaz.
-  Türler slug sırasıyla yazılır; aynı katalog her zaman aynı metni üretir.
+- Katalog metnini prompt derleyicisi üretir (`app.catalog.prompt_builder.compile_catalog`, 11.4):
+  yalnız etkin ve analiz edilen türler, slug sırasıyla, kompakt biçimde ve token bütçesi içinde.
 - `PageAnalysisInstructions.known_slugs` talimattaki türlerin slug'larıdır ve isteğe
   (`PageAnalysisRequest.known_slugs`) aynen verilir: talimatta olmayan bir slug yanıt kabulünde
   reddedilir.
-- Katalog burada sade bir listeye çevrilir (`render_catalog_section`). Kompakt derleme ve token
-  bütçesi 11.4'ün işidir; yuva sözleşmesi aynı kalır.
 """
 
 from __future__ import annotations
 
-from collections.abc import Iterable
 from dataclasses import dataclass, field
 from importlib import resources
 
-from app.catalog.schema import Catalog, CatalogEntry, Sides
+from app.catalog.prompt_builder import CATALOG_TOKEN_BUDGET, compile_catalog
+from app.catalog.schema import Catalog
 
 PROMPT_RESOURCE = "page_analysis.md"
 CATALOG_SLOT = "{{catalog}}"
-
-NO_TYPES_TEXT = (
-    "_Katalogda analiz edilen etkin tür yok: her sayfada `document_type_slug` `null` olur ve "
-    "kural 3 uygulanır._"
-)
-
-_SIDES_TEXT = {
-    Sides.SINGLE: "tek yüz (`single`) — sayfanın `side` değeri `single`",
-    Sides.FRONT_BACK: "ön ve arka yüz (`front_back`) — her sayfa `front` veya `back`",
-}
 
 
 class PromptTemplateError(ValueError):
@@ -53,22 +40,14 @@ def load_page_analysis_template() -> str:
     return resources.files(__package__).joinpath(PROMPT_RESOURCE).read_text(encoding="utf-8")
 
 
-def analyzable_types(catalog: Catalog) -> tuple[CatalogEntry, ...]:
-    """Talimata giren türler: etkin ve analiz edilen, slug sırasıyla."""
-    entries = (entry for entry in catalog if entry.active and entry.analyze)
-    return tuple(sorted(entries, key=lambda entry: entry.slug))
-
-
-def render_catalog_section(entries: Iterable[CatalogEntry]) -> str:
-    """Türleri talimatın katalog bölümüne yazar; tür yoksa bunu açıkça söyler."""
-    blocks = [_render_entry(entry) for entry in entries]
-    return "\n\n".join(blocks) if blocks else NO_TYPES_TEXT
-
-
 def build_page_analysis_instructions(
-    catalog: Catalog, *, template: str | None = None
+    catalog: Catalog,
+    *,
+    template: str | None = None,
+    token_budget: int = CATALOG_TOKEN_BUDGET,
 ) -> PageAnalysisInstructions:
-    """Kataloğu şablonun yuvasına yazar. `template` verilmezse paketteki şablon kullanılır.
+    """Kataloğu derleyip şablonun yuvasına yazar. `template` verilmezse paketteki şablon
+    kullanılır; `token_budget` katalog metninin bütçesidir (11.4.2).
 
     Şablonda tam olarak bir `{{catalog}}` yuvası yoksa `PromptTemplateError`.
     """
@@ -78,38 +57,9 @@ def build_page_analysis_instructions(
         raise PromptTemplateError(
             f"talimat şablonunda tek bir {CATALOG_SLOT} yuvası olmalı; bulunan: {found}"
         )
-    entries = analyzable_types(catalog)
+    compiled = compile_catalog(catalog, token_budget=token_budget)
     # Yuva bir kez bölünerek doldurulur: katalog metnindeki olası yuva dizgesi yeniden açılmaz.
     before, after = source.split(CATALOG_SLOT)
     return PageAnalysisInstructions(
-        text=before + render_catalog_section(entries) + after,
-        known_slugs=frozenset(entry.slug for entry in entries),
+        text=before + compiled.text + after, known_slugs=compiled.known_slugs
     )
-
-
-def _render_entry(entry: CatalogEntry) -> str:
-    lines = [
-        f"### `{entry.slug}` — {_one_line(entry.name)}",
-        f"- Ülke: {entry.country or 'belirtilmemiş'}",
-        f"- Yüz yapısı: {_SIDES_TEXT[entry.sides]}",
-    ]
-    if entry.expected_pages is not None:
-        low, high = entry.expected_pages.min, entry.expected_pages.max
-        lines.append(f"- Beklenen sayfa sayısı: {low if low == high else f'{low}–{high}'}")
-    if entry.required_fields:
-        names = ", ".join(f"`{name}`" for name in entry.required_fields)
-        lines.append(f"- Zorunlu alanlar: {names}")
-    else:
-        lines.append("- Zorunlu alanlar: yok (`fields` boş nesne)")
-    description = entry.prompt_description or entry.description
-    if description is not None:
-        lines.append(f"- Tanım: {_one_line(description)}")
-    if entry.acceptance_criteria:
-        lines.append("- Kabul kriterleri:")
-        lines.extend(f"  - {_one_line(criterion)}" for criterion in entry.acceptance_criteria)
-    return "\n".join(lines)
-
-
-def _one_line(text: str) -> str:
-    # Katalog metni (YAML `>` blokları dahil) talimatın liste yapısını bozmasın.
-    return " ".join(text.split())

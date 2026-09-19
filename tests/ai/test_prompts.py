@@ -2,7 +2,8 @@
 aday öner" kurallarını içerir.
 
 Talimat metni paketteki `app/ai/prompts/page_analysis.md`'dir; katalog bölümü analizde
-kullanılan katalogdan üretilir ve yanıt kabulündeki katalogla (`known_slugs`) aynıdır.
+kullanılan katalogdan üretilir ve yanıt kabulündeki katalogla (`known_slugs`) aynıdır. Katalog
+metninin kompakt biçimi ve token bütçesi (11.4) `tests/catalog/test_prompt_builder.py`'dedir.
 """
 
 from __future__ import annotations
@@ -29,15 +30,15 @@ from app.ai import (
     build_page_analysis_instructions,
 )
 from app.ai.anthropic_provider import TOOL_NAME, AnthropicProvider
-from app.ai.prompts import (
-    CATALOG_SLOT,
-    PromptTemplateError,
+from app.ai.prompts import CATALOG_SLOT, PromptTemplateError, load_page_analysis_template
+from app.catalog import (
+    Catalog,
     analyzable_types,
-    load_page_analysis_template,
-    render_catalog_section,
+    compile_catalog,
+    load_seed_catalog,
+    validate_catalog,
 )
-from app.ai.prompts.page_analysis import NO_TYPES_TEXT
-from app.catalog import Catalog, load_seed_catalog, validate_catalog
+from app.catalog.prompt_builder import NO_TYPES_TEXT
 from app.config import load_settings
 from tests.ai.payloads import analysis_payload
 from tests.ai.test_anthropic_provider import FakeApi, message, tool_use
@@ -202,9 +203,7 @@ def test_seed_entry_lists_required_fields_description_and_criteria() -> None:
 
     block = section(text, "### `russian_passport` — Russian Passport")
 
-    assert "- Ülke: RU" in block
-    assert "`single`" in block
-    assert "- Beklenen sayfa sayısı: 1\n" in block
+    assert "- Ülke: RU · Yüz yapısı: `single` · Beklenen sayfa: 1\n" in block
     assert (
         "- Zorunlu alanlar: `surname`, `given_names`, `date_of_birth`, `document_number`, "
         "`expiry_date`" in block
@@ -224,14 +223,18 @@ def test_front_back_type_and_page_range_and_empty_required_fields() -> None:
     ).text
 
     card = section(text, "### `card` — Sample Card")
-    assert "`front_back`" in card and "`front` veya `back`" in card
-    assert "- Beklenen sayfa sayısı: 2\n" in card
+    assert "- Ülke: RS · Yüz yapısı: `front_back` · Beklenen sayfa: 2\n" in card
     letter = section(text, "### `letter` — Sample Card")
-    assert "- Beklenen sayfa sayısı: 1–3" in letter
-    assert "- Zorunlu alanlar: yok (`fields` boş nesne)" in letter
+    assert "· Beklenen sayfa: 1–3\n" in letter
+    assert "- Zorunlu alanlar: yok\n" in letter
     note = section(text, "### `note` — Sample Card")
-    assert "- Ülke: belirtilmemiş" in note
-    assert "Beklenen sayfa sayısı" not in note
+    assert "- Yüz yapısı: `single`\n" in note
+    assert "Ülke" not in note and "Beklenen sayfa" not in note
+    # Yüz değerlerinin ve boş `fields`'ın anlamı talimatta bir kez yazılıdır; katalog yalnız
+    # değeri taşır (11.4.1).
+    fields = flat(section(TEMPLATE, "## Yanıt alanları"))
+    assert "yüz yapısı `front_back` olan türde" in fields
+    assert "`fields` boş nesnedir" in fields
 
 
 def test_description_falls_back_and_multiline_text_stays_on_one_line() -> None:
@@ -291,7 +294,7 @@ def test_catalog_without_analyzable_types_says_so() -> None:
 
     assert instructions.known_slugs == frozenset()
     assert NO_TYPES_TEXT in instructions.text
-    assert render_catalog_section(()) == NO_TYPES_TEXT
+    assert compile_catalog(catalog()).text == NO_TYPES_TEXT
 
 
 def test_slot_text_inside_catalog_is_inserted_literally() -> None:

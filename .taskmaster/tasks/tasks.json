@@ -1117,13 +1117,14 @@
         "description": "PRD 11.4.1, 11.4.2 · FR-MOD-11 (Belge türü kataloğu ve öğrenme) · Faz 1.",
         "details": "KAPSAM: PRD 11.4.1, 11.4.2 (FR-MOD-11 — Belge türü kataloğu ve öğrenme, Faz 1).\n\nNE YAPILACAK — GEREKSİNİMLER VE KABUL KRİTERLERİ:\n- 11.4.1 — Prompt derleyici\n  Kabul: Aktif türler kompakt katalog metnine derlenir\n- 11.4.2 — Token bütçesi\n  Kabul: Katalog metni sınırı aşarsa açıklamalar kısaltılır ve uyarı loglanır\n\nGİRDİ — ÜZERİNE KURULDUĞU İŞLER (bu kod ZATEN VAR; yazmadan önce OKU):\n- 11.1 (Katalog yönetim ekranı) → app/web/routers/catalog.py, app/catalog/\n- 03.4 (Analiz promptu ve disiplin kuralları) → app/ai/prompts/page_analysis.md\n\nÇIKTI — DOKUNULACAK YÜZEY: app/catalog/prompt_builder.py\n\nKARAR TABLOSU: bu görev için ayrı karar tablosu yok; kabul kriterleri ve kilitli kurallar yeterli.\n\nBU GÖREVİ BAĞLAYAN KİLİTLİ KURALLAR: özel kural yok. Genel sınırlar MASTER-PROMPT §8'de.\n\nPRD'DE AYRICA OKU: yalnız yukarıdaki gereksinim satırları yeterli.\n\nİLGİLİ KABUL SENARYOSU: doğrudan yok. Kabul kriterleri yukarıda.\n\nSIRA (MASTER-PROMPT §5, contract-first): sözleşme/şema → Alembic göçü (gerekiyorsa) → çekirdek + unit test → entegrasyon + testi → arayüz.\n\nKAPSAM SINIRI: yalnız yukarıdaki PRD kimlikleri. Başka gereksinimin işini yapma; yolda gördüğün kusuru düzeltme, yeni görev olarak aç (CONVENTIONS §5). Kilitli teknik kararları (MASTER-PROMPT §4) tartışma; yanlış görünüyorsa uygula ve PLAN.md §D'ye sapma yaz.\n\nTUZAKLAR: belge içeriğini değiştiren kod yazma — kırpma, döndürme (EXIF dışında), kontrast, metin yazma, form doldurma yok (K11/K17). Gerçek kimlik belgesi kullanma; test verisi tests/fixtures/gen.py ile üretilen sentetik belgelerdir (CONVENTIONS §6). Yapay zekâ çağrısı testte canlı yapılmaz, kayıtlı yanıt sağlayıcısı kullanılır. Test/build komutlarını arka plana atma — pencere ölür.\n\nKAPANIŞ: PLAN.md'de 11.4.1, 11.4.2 satırlarının damgasını '✅ → K11.4' yap ve '## K. Kanıt Geçmişi' bölümünde '#### K11.4' bloğuna kanıt maddesi ekle (blok yoksa aç). Faz özet tablosundaki sayıları SAYARAK güncelle. Ayrıntı: CONVENTIONS §1.2-1.3.",
         "testStrategy": "CONVENTIONS §1 DoD kapısı: ruff check . · ruff format --check . · python -m compileall -q app tests · pytest -q -m \"not live\" · alembic upgrade head · python -c \"import app.main\" — hepsi exit 0.\nAyrıca bu görevin kendi kabul kriterleri:\n- 11.4.1: Aktif türler kompakt katalog metnine derlenir\n- 11.4.2: Katalog metni sınırı aşarsa açıklamalar kısaltılır ve uyarı loglanır",
-        "status": "pending",
+        "status": "in-progress",
         "dependencies": [
           "75",
           "21"
         ],
         "priority": "high",
-        "subtasks": []
+        "subtasks": [],
+        "updatedAt": "2026-09-19T01:42:30.792Z"
       },
       {
         "id": "79",
@@ -1358,7 +1359,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-09-19T01:39:10.328Z",
+      "lastModified": "2026-09-19T01:42:30.792Z",
       "taskCount": 95,
       "completedCount": 75,
       "tags": [

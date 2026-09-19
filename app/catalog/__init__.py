@@ -1,5 +1,6 @@
 """Belge türü kataloğu: şema ve tutarlılık kuralı (00.6.1), başlangıç tohumu (00.6.2),
-YAML ↔ veritabanı eşitleme (00.6.3), panelden yönetim ve form doğrulaması (11.1)."""
+YAML ↔ veritabanı eşitleme (00.6.3), panelden yönetim ve form doğrulaması (11.1), analiz
+talimatına giren kompakt katalog metni ve token bütçesi (11.4)."""
 
 from app.catalog.form import TypeForm, TypeFormError, build_entry
 from app.catalog.manage import (
@@ -12,6 +13,13 @@ from app.catalog.manage import (
     record_problems,
     set_type_active,
     update_type,
+)
+from app.catalog.prompt_builder import (
+    CATALOG_TOKEN_BUDGET,
+    CompiledCatalog,
+    analyzable_types,
+    compile_catalog,
+    estimate_tokens,
 )
 from app.catalog.schema import (
     Catalog,
@@ -35,10 +43,12 @@ from app.catalog.yaml_io import (
 )
 
 __all__ = [
+    "CATALOG_TOKEN_BUDGET",
     "Catalog",
     "CatalogEntry",
     "CatalogError",
     "CatalogImportResult",
+    "CompiledCatalog",
     "Conversion",
     "FileType",
     "OutputFormat",
@@ -49,9 +59,12 @@ __all__ = [
     "TypeFormError",
     "TypeNotFoundError",
     "TypeSummary",
+    "analyzable_types",
     "build_entry",
+    "compile_catalog",
     "create_type",
     "dump_catalog_yaml",
+    "estimate_tokens",
     "export_catalog",
     "import_catalog",
     "install_seed_catalog",
