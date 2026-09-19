@@ -47,6 +47,14 @@ class Settings(BaseSettings):
     # PRD 10.1.2 — panel oturumunun ömrü (saniye); süre dolunca yeniden giriş istenir. PRD süre
     # vermez, varsayılan bir iş günü (bkz. PLAN.md §C45).
     session_max_age_seconds: int = Field(default=12 * 60 * 60, gt=0)
+    # PRD 12.1.1 — Telegram botu (K13: yalnız İK). Bot ayrı süreç olarak koşar (`python -m
+    # app.telegram.bot`): geliştirmede polling, üretimde (`APP_ENV=production`) webhook. Değerler
+    # yalnız bot başlarken okunur ve doğrulanır (bkz. PLAN.md §C66).
+    telegram_bot_token: SecretStr | None = None
+    telegram_webhook_url: str | None = None
+    telegram_webhook_secret: SecretStr | None = None
+    telegram_webhook_listen: str = Field(default="127.0.0.1", min_length=1)
+    telegram_webhook_port: int = Field(default=8443, ge=1, le=65535)
 
 
 def load_settings(**overrides: object) -> Settings:

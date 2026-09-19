@@ -10,5 +10,25 @@ services:
       - data:/srv/data
     restart: unless-stopped
 
+  # 12.1.1: bot panelden ayrı servis. İsteğe bağlı (v2): `docker compose --profile telegram up`.
+  # Panelle aynı veritabanını ve veri hacmini kullanır; APP_ENV=production'da webhook dinler.
+  bot:
+    build: .
+    image: belgeee:dev
+    profiles: ["telegram"]
+    command: ["python", "-m", "app.telegram.bot"]
+    environment:
+      DATABASE_URL: sqlite:////srv/data/belgeee.db
+      APP_ENV: ${APP_ENV:-development}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_WEBHOOK_URL: ${TELEGRAM_WEBHOOK_URL:-}
+      TELEGRAM_WEBHOOK_SECRET: ${TELEGRAM_WEBHOOK_SECRET:-}
+      TELEGRAM_WEBHOOK_LISTEN: 0.0.0.0
+    volumes:
+      - data:/srv/data
+    healthcheck:
+      disable: true
+    restart: unless-stopped
+
 volumes:
   data:

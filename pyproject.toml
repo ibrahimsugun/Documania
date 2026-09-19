@@ -22,6 +22,7 @@ dependencies = [
     "pillow>=11.0",
     "anthropic>=1.5",
     "openai>=3.16",
+    "python-telegram-bot[webhooks]>=22",
     "argon2-cffi>=23.1",
     "jinja2>=3.1",
 ]

@@ -185,3 +185,64 @@ def test_session_lifetime_has_a_default_reads_environment_and_is_documented(
 
     example = (Path(__file__).resolve().parents[1] / ".env.example").read_text(encoding="utf-8")
     assert "SESSION_MAX_AGE_SECONDS=43200\n" in example
+
+
+TELEGRAM_VARIABLES = (
+    "TELEGRAM_BOT_TOKEN",
+    "TELEGRAM_WEBHOOK_URL",
+    "TELEGRAM_WEBHOOK_SECRET",
+    "TELEGRAM_WEBHOOK_LISTEN",
+    "TELEGRAM_WEBHOOK_PORT",
+)
+
+
+def test_telegram_settings_have_defaults_read_environment_and_are_documented(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # 12.1.1: bot ayarları; token ve webhook gizli değeri gizli tip olarak tutulur.
+    monkeypatch.setenv("DATABASE_URL", "sqlite:///./data/test.db")
+    for name in TELEGRAM_VARIABLES:
+        monkeypatch.delenv(name, raising=False)
+
+    defaults = load_settings(_env_file=None)
+    monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "test-token")
+    monkeypatch.setenv("TELEGRAM_WEBHOOK_URL", "https://belge.example.com/hook")
+    monkeypatch.setenv("TELEGRAM_WEBHOOK_SECRET", "test-secret")
+    monkeypatch.setenv("TELEGRAM_WEBHOOK_LISTEN", "0.0.0.0")
+    monkeypatch.setenv("TELEGRAM_WEBHOOK_PORT", "8080")
+    configured = load_settings(_env_file=None)
+
+    assert (defaults.telegram_bot_token, defaults.telegram_webhook_url) == (None, None)
+    assert defaults.telegram_webhook_secret is None
+    assert (defaults.telegram_webhook_listen, defaults.telegram_webhook_port) == ("127.0.0.1", 8443)
+    assert configured.telegram_bot_token is not None
+    assert configured.telegram_bot_token.get_secret_value() == "test-token"
+    assert "test-token" not in repr(configured)
+    assert configured.telegram_webhook_url == "https://belge.example.com/hook"
+    assert configured.telegram_webhook_secret is not None
+    assert configured.telegram_webhook_secret.get_secret_value() == "test-secret"
+    assert "test-secret" not in repr(configured)
+    assert (configured.telegram_webhook_listen, configured.telegram_webhook_port) == (
+        "0.0.0.0",
+        8080,
+    )
+
+    example = (Path(__file__).resolve().parents[1] / ".env.example").read_text(encoding="utf-8")
+    assigned = {line.split("=", 1)[0] for line in example.splitlines() if "=" in line}
+    assert set(TELEGRAM_VARIABLES) <= assigned
+    # Gerçek token ve gizli değer şablona yazılmaz.
+    assert "TELEGRAM_BOT_TOKEN=\n" in example
+    assert "TELEGRAM_WEBHOOK_SECRET=\n" in example
+
+
+@pytest.mark.parametrize(
+    ("name", "value"), [("TELEGRAM_WEBHOOK_PORT", "0"), ("TELEGRAM_WEBHOOK_PORT", "70000")]
+)
+def test_invalid_telegram_port_rejected(
+    monkeypatch: pytest.MonkeyPatch, name: str, value: str
+) -> None:
+    monkeypatch.setenv("DATABASE_URL", "sqlite:///./data/test.db")
+    monkeypatch.setenv(name, value)
+
+    with pytest.raises(ValidationError, match=name.lower()):
+        load_settings(_env_file=None)
