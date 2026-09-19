@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{# Aday türün onay (11.5.2) ve toplu yeniden analiz (11.5.3) adımları: birinci ve ikinci onay (§20.6,
+   metinler birebir; yeniden analizinkiler D30), sonuç ya da hata. Onayda form değerleri bir sonraki
+   adıma gizli alanla taşınır; sunucu her adımda yeniden doğrular, belirteç kaydın özetine bağlıdır. #}
+{% macro hidden_fields(form) -%}
+<input type="hidden" name="slug" value="{{ form.slug }}">
+<input type="hidden" name="name" value="{{ form.name }}">
+<input type="hidden" name="file_label" value="{{ form.file_label }}">
+<input type="hidden" name="country" value="{{ form.country }}">
+<input type="hidden" name="description" value="{{ form.description }}">
+{% for value in form.expected_file_types %}<input type="hidden" name="expected_file_types" value="{{ value }}">
+{% endfor %}
+<input type="hidden" name="pages_min" value="{{ form.pages_min }}">
+<input type="hidden" name="pages_max" value="{{ form.pages_max }}">
+<input type="hidden" name="sides" value="{{ form.sides }}">
+{% if form.direct %}<input type="hidden" name="direct" value="on">{% endif %}
+{% if form.analyze %}<input type="hidden" name="analyze" value="on">{% endif %}
+<input type="hidden" name="required_fields" value="{{ form.required_fields }}">
+{% for value in form.allowed_conversions %}<input type="hidden" name="allowed_conversions" value="{{ value }}">
+{% endfor %}
+<input type="hidden" name="output_format" value="{{ form.output_format }}">
+{% for value in form.acceptance_criteria %}<input type="hidden" name="acceptance_criteria" value="{{ value }}">
+{% endfor %}
+<input type="hidden" name="prompt_description" value="{{ form.prompt_description }}">
+{%- endmacro %}
+{% block title %}Aday tür{% endblock %}
+{% block content %}
+<p class="back"><a href="/document-types/candidate-types/{{ candidate_id }}">← Aday tür</a></p>
+{% if error %}
+<h1>İşlem yapılmadı</h1>
+<p class="error" role="alert">{{ error }}</p>
+{% elif step == "approve" %}
+<h1>Standart türlere ekle: {{ candidate_name }}</h1>
+<p>Kataloğa eklenecek tür:</p>
+<dl class="meta entry-summary">
+  {% for label, value in rows %}<dt>{{ label }}</dt><dd>{{ value }}</dd>
+  {% endfor %}
+</dl>
+{% if second_confirmation %}
+<form class="confirm" method="post" action="/document-types/candidate-types/{{ candidate_id }}/approve">
+  <p class="confirm-text" role="alert">{{ second_confirmation }}</p>
+  {{ hidden_fields(form) }}
+  <input type="hidden" name="confirmation" value="{{ confirmation }}">
+  <button type="submit">Evet, türü ekle</button>
+  <a href="/document-types/candidate-types/{{ candidate_id }}">Vazgeç</a>
+</form>
+{% else %}
+<form class="confirm" method="post" action="/document-types/candidate-types/{{ candidate_id }}/approve/prepare">
+  <p class="confirm-text" role="alert">{{ first_confirmation }}</p>
+  {{ hidden_fields(form) }}
+  <button type="submit">Evet, devam et</button>
+  <a href="/document-types/candidate-types/{{ candidate_id }}">Vazgeç</a>
+</form>
+{% endif %}
+{% elif step == "reanalyze" %}
+<h1>Toplu yeniden analiz: {{ candidate_name }}</h1>
+<table class="items reanalysis-targets">
+  <thead><tr><th>Parti</th><th>Güncel plan sürümü</th><th>İlişkili öğe</th></tr></thead>
+  <tbody>
+    {% for target in targets %}
+    <tr><td><a href="/uploads/{{ target.upload_id }}">{{ target.upload_id }}</a></td><td>{{ target.version }}</td><td>{{ target.item_count }}</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+<form class="confirm" method="post" action="/document-types/candidate-types/{{ candidate_id }}/reanalyze">
+  <p class="confirm-text" role="alert">{{ second_confirmation }}</p>
+  <input type="hidden" name="confirmation" value="{{ confirmation }}">
+  <button type="submit">Evet, yeniden analiz et</button>
+  <a href="/document-types/candidate-types/{{ candidate_id }}">Vazgeç</a>
+</form>
+{% elif step == "reanalyzed" %}
+<h1>Toplu yeniden analiz: {{ candidate_name }}</h1>
+<p class="notice notice-success" role="status">{{ results|length }} parti yeniden analiz edildi.</p>
+<table class="items reanalysis-results">
+  <thead><tr><th>Parti</th><th>Önceki sürüm</th><th>Yeni sürüm</th><th>"Eski sürüm" işaretlenen çıktı</th></tr></thead>
+  <tbody>
+    {% for result in results %}
+    <tr><td><a href="/uploads/{{ result.upload_id }}">{{ result.upload_id }}</a></td><td>{{ result.previous_version }}</td><td>{{ result.version }}</td><td>{{ result.superseded }}</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% if remaining %}
+<p class="hint">{{ remaining }} öğe yeniden analizden sonra da bu aday türle Unknown kuyruğunda bekliyor.</p>
+{% else %}
+<p class="hint">Bu aday türle bekleyen Unknown öğesi kalmadı.</p>
+{% endif %}
+<p><a href="/document-types/candidate-types/{{ candidate_id }}">Aday türe dön</a></p>
+{% endif %}
+{% endblock %}

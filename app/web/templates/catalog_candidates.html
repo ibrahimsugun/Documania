@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{# Aday türler (11.5.1): analizcinin önerdiği, katalogda olmayan türler — bekleyenler adı, görülme
+   sayısı ve örnek sayfalarıyla. Reddedilen aday listelenmez (11.5.4); onaylanmış ama ilişkili
+   Unknown öğesi bekleyen aday toplu yeniden analiz için ayrıca görünür (11.5.3). #}
+{% block title %}Aday türler{% endblock %}
+{% block content %}
+<p class="back"><a href="/document-types">← Belge Türleri</a></p>
+<h1>Aday türler</h1>
+{% if notice_text %}
+<p class="notice notice-success" role="status">{{ notice_text }}</p>
+{% endif %}
+<p class="hint">Analizcinin önerdiği, katalogda olmayan türler. Belge hiçbir türe zorla atanmaz: aday türle görülen belgeler Unknown kuyruğunda bekler. Onaylanan aday standart türler arasına eklenir; reddedilen aday bir daha listeye düşmez.</p>
+{% if pending %}
+<table class="catalog candidates">
+  <thead>
+    <tr><th>Aday tür</th><th>Görülme</th><th>Örnek sayfalar</th><th>Bekleyen Unknown öğesi</th><th>İlk görüldüğü parti</th><th></th></tr>
+  </thead>
+  <tbody>
+    {% for item in pending %}
+    <tr>
+      <td><a href="/document-types/candidate-types/{{ item.id }}">{{ item.name }}</a></td>
+      <td class="seen-count">{{ item.seen_count }}</td>
+      <td>
+        {% if item.samples %}
+        {% with samples=item.samples %}{% include "catalog_candidate_samples.html" %}{% endwith %}
+        {% if item.sample_total > item.samples|length %}<small class="hint">+{{ item.sample_total - item.samples|length }} örnek daha</small>{% endif %}
+        {% else %}
+        <span class="placeholder">Örnek sayfa yok</span>
+        {% endif %}
+      </td>
+      <td>{{ related_counts[item.id] }}</td>
+      <td><a href="/uploads/{{ item.first_seen_upload_id }}">{{ item.first_seen_upload_id }}</a></td>
+      <td class="doc-actions"><a href="/document-types/candidate-types/{{ item.id }}">İncele</a></td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="placeholder">Onay bekleyen aday tür yok.</p>
+{% endif %}
+{% if approved %}
+<section id="approved-candidates">
+  <h2>Onaylanan, Unknown öğesi bekleyen adaylar</h2>
+  <p class="hint">Bu türler kataloğa eklendi; onaydan önce görülen belgeleri toplu yeniden analiz edilebilir.</p>
+  <ul>
+    {% for item in approved %}
+    <li><a href="/document-types/candidate-types/{{ item.id }}">{{ item.name }}</a> — {{ related_counts[item.id] }} bekleyen Unknown öğesi</li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+{% endblock %}

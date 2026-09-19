@@ -1,5 +1,5 @@
 """Veri modeli — PRD §8.1 tabloları (00.3.1), çalışan numarası üretici (00.3.3), aday tür
-kaydı (04.6.1), panel oturumu (10.1.2) ve iki aşamalı onayın belirteci (10.8.1).
+kaydı (04.6.1) ve kararı (11.5), panel oturumu (10.1.2) ve iki aşamalı onayın belirteci (10.8.1).
 
 Silme yoktur, arşiv vardır (K16): ilişkilerde silme kaskadı tanımlanmaz.
 Dosya yolu burada üretilmez (yol kuralı: `app/storage/`); yol sütunları yalnız saklar.
@@ -31,6 +31,7 @@ from sqlalchemy import (
     cast,
     func,
     select,
+    update,
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, relationship
 from sqlalchemy.types import TypeDecorator
@@ -131,7 +132,8 @@ class CandidateTypeStatus(enum.StrEnum):
     """Aday tür durumu (§8.1 `candidate_document_types.status`).
 
     Kayıt `pending` açılır; onay (11.5.2, `TYPE_APPROVED`) ve ret (11.5.4, `TYPE_REJECTED`)
-    insanın kararıdır. Türün yeniden görülmesi durumu değiştirmez.
+    insanın kararıdır ve `decide_candidate_type` ile yalnız bekleyen kayda bir kez yazılır. Türün
+    yeniden görülmesi durumu değiştirmez.
     """
 
     PENDING = "pending"
@@ -645,6 +647,29 @@ def record_candidate_type_sighting(
     candidate_type.seen_count += 1
     session.flush()
     return CandidateTypeSighting(candidate_type, created=False, counted=True)
+
+
+def decide_candidate_type(
+    session: Session, candidate_type_id: int, status: CandidateTypeStatus
+) -> bool:
+    """Bekleyen aday türün kararını yazar: onay (11.5.2) ya da ret (11.5.4); yazıldıysa `True`.
+
+    Yalnız `pending` kayıt karara bağlanır ve karar geri alınmaz. Koşullu güncellemedir
+    (`status = 'pending'`): aynı adayı aynı anda karara bağlayan iki işlemden yalnız biri geçer;
+    kayıt yoksa ya da karara bağlanmışsa `False` döner, hiçbir şey değişmez. Kayıt silinmez (K16);
+    ad, görülme sayısı ve örnek sayfalar değişmez. Oturum commit edilmez.
+    """
+    if status is CandidateTypeStatus.PENDING:
+        raise ValueError("Aday tür kararı onay ya da rettir; 'pending' karar değildir")
+    decided = session.execute(
+        update(CandidateDocumentType)
+        .where(
+            CandidateDocumentType.id == candidate_type_id,
+            CandidateDocumentType.status == CandidateTypeStatus.PENDING.value,
+        )
+        .values(status=status.value)
+    )
+    return decided.rowcount == 1
 
 
 # --- iletişim bilgisi birikimi (05.8.1, 05.8.2) ---------------------------------------------

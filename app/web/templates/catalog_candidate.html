@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{# Aday tür detayı (11.5.1–11.5.4): örnek sayfalar, ilişkili bekleyen Unknown öğeleri ve karar.
+   Bekleyen adayda tür formu adayla önceden dolu açılır (onay iki aşamalıdır, §20.6) ve ret düğmesi
+   durur; onaylanmış adayda ilişkili Unknown öğelerinin partileri toplu yeniden analiz edilir.
+   Belge içeriği formda yok (K17). #}
+{% block title %}Aday tür: {{ candidate.name }}{% endblock %}
+{% block content %}
+<p class="back"><a href="/document-types/candidate-types">← Aday türler</a></p>
+<h1>Aday tür: {{ candidate.name }}</h1>
+{% if notice_text %}
+<p class="notice notice-success" role="status">{{ notice_text }}</p>
+{% endif %}
+<dl class="meta">
+  <dt>Durum</dt>
+  <dd>{{ status_label }}{% if approved_slug %} — <a href="/document-types/{{ approved_slug|urlencode }}"><code>{{ approved_slug }}</code></a>{% endif %}</dd>
+  <dt>Görülme</dt><dd>{{ candidate.seen_count }}</dd>
+  <dt>İlk görüldüğü parti</dt><dd><a href="/uploads/{{ candidate.first_seen_upload_id }}">{{ candidate.first_seen_upload_id }}</a></dd>
+  {% if candidate.description %}<dt>Açıklama</dt><dd>{{ candidate.description }}</dd>{% endif %}
+</dl>
+
+<section id="samples" aria-labelledby="samples-title">
+  <h2 id="samples-title">Örnek sayfalar</h2>
+  {% if candidate.samples %}
+  {% with samples=candidate.samples %}{% include "catalog_candidate_samples.html" %}{% endwith %}
+  {% if candidate.sample_total > candidate.samples|length %}
+  <p class="hint">İlk {{ candidate.samples|length }} örnek gösteriliyor (toplam {{ candidate.sample_total }}).</p>
+  {% endif %}
+  {% else %}
+  <p class="placeholder">Örnek sayfa yok.</p>
+  {% endif %}
+</section>
+
+<section id="related" aria-labelledby="related-title">
+  <h2 id="related-title">İlişkili bekleyen Unknown öğeleri</h2>
+  {% if related %}
+  <ul class="related-items">
+    {% for item in related %}
+    <li><a href="/queues/{{ item.id }}">Öğe {{ item.id }}</a> · parti <a href="/uploads/{{ item.upload_id }}">{{ item.upload_id }}</a> · {{ item.source }}</li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="placeholder">Bu aday türle bekleyen Unknown öğesi yok.</p>
+  {% endif %}
+</section>
+
+{% if status == "pending" %}
+<section id="approve" aria-labelledby="approve-title">
+  <h2 id="approve-title">Standart türlere ekle</h2>
+  <p class="hint">Tür formu adayın adıyla açılır; belgenin yapısını (dosya türleri, yüzler, Direkt Belge, zorunlu alanlar, dönüşümler) tamamlayın. Ekleme iki aşamalı onay ister; tür bir sonraki analizden itibaren geçerlidir.</p>
+  {% if problems %}
+  <p class="error" role="alert">Tür eklenmedi: alanların altındaki uyarıları düzeltin.</p>
+  {% endif %}
+  <form class="type-form" method="post" action="/document-types/candidate-types/{{ candidate.id }}/approve/confirm">
+    {% include "catalog_type_fields.html" %}
+
+    <div class="form-actions">
+      <button type="submit">Standart türlere ekle</button>
+    </div>
+  </form>
+</section>
+
+<section id="reject" aria-labelledby="reject-title">
+  <h2 id="reject-title">Reddet</h2>
+  <p class="hint">Reddedilen aday bir daha listeye düşmez; kayıt silinmez, katalog değişmez. İlişkili belgeler Unknown kuyruğunda kalır.</p>
+  <form class="inline" method="post" action="/document-types/candidate-types/{{ candidate.id }}/reject">
+    <button type="submit">Adayı reddet</button>
+  </form>
+</section>
+{% elif status == "approved" %}
+<section id="reanalyze" aria-labelledby="reanalyze-title">
+  <h2 id="reanalyze-title">Toplu yeniden analiz</h2>
+  {% if reanalysis_blocked %}
+  <p class="error" role="alert">{{ reanalysis_blocked }}</p>
+  {% elif targets %}
+  <p class="hint">İlişkili Unknown öğelerinin partileri güncel katalogla yeniden analiz edilir: her partiye yeni bir plan sürümü açılır, önceki sürümün çıktıları silinmez, "eski sürüm" işaretlenir.</p>
+  <table class="items reanalysis-targets">
+    <thead><tr><th>Parti</th><th>Güncel plan sürümü</th><th>İlişkili öğe</th></tr></thead>
+    <tbody>
+      {% for target in targets %}
+      <tr><td><a href="/uploads/{{ target.upload_id }}">{{ target.upload_id }}</a></td><td>{{ target.version }}</td><td>{{ target.item_count }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <form class="confirm" method="post" action="/document-types/candidate-types/{{ candidate.id }}/reanalyze/prepare">
+    <p class="confirm-text">{{ reanalysis_first }}</p>
+    <button type="submit">Evet, devam et</button>
+  </form>
+  {% else %}
+  <p class="placeholder">Yeniden analiz edilecek bekleyen Unknown öğesi yok.</p>
+  {% endif %}
+</section>
+{% else %}
+<p class="notice" role="status">Bu aday reddedildi; bir daha listeye düşmez.</p>
+{% endif %}
+{% endblock %}

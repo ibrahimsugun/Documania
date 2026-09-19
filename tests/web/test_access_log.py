@@ -361,6 +361,16 @@ REVIEWED_MUTATING_ROUTES: dict[tuple[str, str], str] = {
     ("POST", "/document-types/{slug}/activate"): "katalog kaydı: etkinleştirme (11.1.1)",
     ("POST", "/document-types/criteria/add"): "kabul kriteri listesi, kaydetmez (11.1.3)",
     ("POST", "/document-types/criteria/remove"): "kabul kriteri listesi, kaydetmez (11.1.3)",
+    ("POST", "/document-types/candidate-types/{candidate_id}/approve/confirm"): "onay metni",
+    ("POST", "/document-types/candidate-types/{candidate_id}/approve/prepare"): "onay belirteci",
+    ("POST", "/document-types/candidate-types/{candidate_id}/approve"): (
+        "katalog kaydı: aday türün onayı (11.5.2, K16)"
+    ),
+    ("POST", "/document-types/candidate-types/{candidate_id}/reject"): "aday türün reddi (11.5.4)",
+    ("POST", "/document-types/candidate-types/{candidate_id}/reanalyze/prepare"): "onay belirteci",
+    ("POST", "/document-types/candidate-types/{candidate_id}/reanalyze"): (
+        "yeni plan sürümleri (11.5.3, K18)"
+    ),
 }
 
 # "assign" içindeki "sign" düzenleme sayılmasın: sözcük başı ve sonu harf olmayan sınırdır.

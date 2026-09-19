@@ -1,14 +1,17 @@
 {% extends "base.html" %}
 {# Belge Türleri (11.1.1): katalogdaki bütün türler, pasifler dahil. Silme yok (K16) — tür
    pasifleştirilir. Tutarsız kayıtlı tür (§8.6'ya uymayan satır) rozetle işaretlenir; düzenleme
-   formundan düzeltilir. #}
+   formundan düzeltilir. Onay bekleyen aday türler (11.5.1) ayrı sayfadadır. #}
 {% block title %}{{ entry.label }}{% endblock %}
 {% block content %}
 <h1>{{ entry.label }}</h1>
 {% if notice_text %}
 <p class="notice notice-success" role="status">{{ notice_text }}</p>
 {% endif %}
-<p><a class="button-link" href="/document-types/new">Yeni tür</a></p>
+<p>
+  <a class="button-link" href="/document-types/new">Yeni tür</a>
+  <a href="/document-types/candidate-types">Aday türler</a> <span class="count">({{ pending_candidates }} onay bekliyor)</span>
+</p>
 <p class="hint">Değişiklikler bir sonraki analizden itibaren geçerlidir. Tür silinmez: pasifleştirilen tür yeni belgelere atanmaz, var olan belgeler kalır.</p>
 {% if types %}
 <table class="catalog">

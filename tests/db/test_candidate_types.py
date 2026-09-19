@@ -1,5 +1,6 @@
 """04.6.1 — katalog dışı belgenin önerdiği tür aday tür olarak kaydedilir; aynı ad tek kayda iner,
-görülmeler sayılır, aynı sayfa iki kez sayılmaz ve durum yeniden görülmede değişmez."""
+görülmeler sayılır, aynı sayfa iki kez sayılmaz ve durum yeniden görülmede değişmez. 11.5.2/11.5.4 —
+bekleyen aday bir kez karara bağlanır (onay ya da ret), aynı anda gelen kararlardan biri geçer."""
 
 import threading
 from concurrent.futures import ThreadPoolExecutor
@@ -13,6 +14,7 @@ from app.db.models import (
     CandidateDocumentType,
     CandidateTypeStatus,
     Upload,
+    decide_candidate_type,
     normalize_candidate_type_name,
     record_candidate_type_sighting,
 )
@@ -146,6 +148,76 @@ def test_seeing_a_decided_candidate_type_again_keeps_its_status(
     assert again.counted
     stored = session.scalars(select(CandidateDocumentType)).one()
     assert (stored.status, stored.seen_count) == (status.value, 2)
+
+
+# --- 11.5.2 / 11.5.4: karar -----------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("status", [CandidateTypeStatus.APPROVED, CandidateTypeStatus.REJECTED])
+def test_a_pending_candidate_type_is_decided_once_and_keeps_its_sightings(
+    session: Session, status: CandidateTypeStatus
+) -> None:
+    _uploads(session)
+    candidate = record_candidate_type_sighting(
+        session, proposed_name="Peruvian Diploma", upload_id=FIRST_UPLOAD, page_id=11
+    ).candidate_type
+    other = (
+        CandidateTypeStatus.REJECTED
+        if status is CandidateTypeStatus.APPROVED
+        else CandidateTypeStatus.APPROVED
+    )
+
+    assert decide_candidate_type(session, candidate.id, status)
+    assert candidate.status == status.value  # oturumdaki nesne de güncel
+    assert not decide_candidate_type(session, candidate.id, other)
+    assert not decide_candidate_type(session, candidate.id, status)
+
+    session.commit()
+    session.expire_all()
+    stored = session.scalars(select(CandidateDocumentType)).one()
+    assert stored.status == status.value
+    assert (stored.proposed_name, stored.seen_count, stored.sample_page_ids) == (
+        "Peruvian Diploma",
+        1,
+        [11],
+    )
+
+
+def test_deciding_a_missing_candidate_type_changes_nothing(session: Session) -> None:
+    assert not decide_candidate_type(session, 404, CandidateTypeStatus.APPROVED)
+
+
+def test_pending_is_not_a_decision(session: Session) -> None:
+    _uploads(session)
+    candidate = record_candidate_type_sighting(
+        session, proposed_name="Peruvian Diploma", upload_id=FIRST_UPLOAD, page_id=11
+    ).candidate_type
+
+    with pytest.raises(ValueError, match="karar değildir"):
+        decide_candidate_type(session, candidate.id, CandidateTypeStatus.PENDING)
+
+
+def test_concurrent_decisions_on_sqlite_let_exactly_one_through(engine: Engine) -> None:
+    factory = _prepare(engine)
+    with factory() as session, session.begin():
+        candidate_id = record_candidate_type_sighting(
+            session, proposed_name="Peruvian Diploma", upload_id=FIRST_UPLOAD, page_id=1
+        ).candidate_type.id
+    barrier = threading.Barrier(CONCURRENT_CALLS)
+
+    def decide_one(index: int) -> bool:
+        status = CandidateTypeStatus.APPROVED if index % 2 else CandidateTypeStatus.REJECTED
+        barrier.wait()
+        with factory() as session, session.begin():
+            return decide_candidate_type(session, candidate_id, status)
+
+    with ThreadPoolExecutor(max_workers=CONCURRENT_CALLS) as pool:
+        decided = list(pool.map(decide_one, range(CONCURRENT_CALLS)))
+
+    assert decided.count(True) == 1
+    with factory() as session:
+        stored = session.get_one(CandidateDocumentType, candidate_id)
+        assert stored.status != CandidateTypeStatus.PENDING.value
 
 
 def _record_concurrently(factory: sessionmaker[Session]) -> list[bool]:

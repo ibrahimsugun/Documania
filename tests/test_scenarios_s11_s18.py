@@ -8,10 +8,10 @@ kayıtlı yanıtları `tests/fixtures/gen.py`'nin sentetik sayfa tanımlarından
 canlı çağrılmaz, gerçek kimlik belgesi yoktur (CONVENTIONS §6). Ortam (geçici veritabanı, veri
 dizini, yükleme uç noktası) ve yardımcılar S1–S5'inkilerdir.
 
-**S14 onayı.** Aday türün onay ekranı ve iki aşamalı onayı 11.5.2'dir (Faz 1); onayın sonucu
-kabul kriterinde yazılıdır: "Onay sonrası tür katalogda". Faz 0'da tür kataloğa İK'nın katalog
-eşitlemesiyle (00.6.3) girer; test onayı bu sonucuyla kurar — `peruvian_diploma` güncel kataloğa
-(`import_catalog`, veritabanı) eklenir — ve partiyi gerçek yeniden analiz uç noktasından geçirir.
+**S14 onayı.** Aday tür 11.5.2'nin onay fonksiyonuyla (`approve_candidate_type`) onaylanır:
+`peruvian_diploma` kataloğa eklenir, aday `approved` olur ve `TYPE_APPROVED` yazılır. Panelin iki
+aşamalı onay adımları `tests/web/test_candidate_types_page.py`'dedir; parti gerçek yeniden analiz
+uç noktasından geçer.
 
 **S15 profil sayfası.** Profil sayfasından yükleme (10.5.3) yüklemenin bağlam çalışanıyla
 yapılmasıdır; panel ekranı Faz 1'dir, bağlam yükleme uç noktasının `context_employee_id`
@@ -35,7 +35,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.ai.recording_provider import RecordingProvider
-from app.catalog import export_catalog, import_catalog, validate_catalog
+from app.catalog import CatalogEntry, approve_candidate_type
 from app.db.models import (
     CandidateDocumentType,
     CandidateTypeStatus,
@@ -576,12 +576,13 @@ def _diploma(slug: str | None) -> SyntheticPage:
     )
 
 
-def _approve_diploma_type(session: Session) -> None:
-    """Onayın sonucu (11.5.2): tür güncel katalogda. Tohum türleri olduğu gibi kalır."""
-    entries = [entry.model_dump(mode="json") for entry in export_catalog(session)]
-    result = import_catalog(session, validate_catalog([*entries, DIPLOMA_ENTRY]))
-    assert result.created == (DIPLOMA,)
+def _approve_diploma_type(session: Session, candidate: CandidateDocumentType) -> None:
+    """11.5.2: aday tür İK'nın tamamladığı kayıtla onaylanır; tür katalogda, tohum yerinde."""
+    approved = approve_candidate_type(
+        session, candidate.id, CatalogEntry.model_validate(DIPLOMA_ENTRY), actor="ik"
+    )
     session.commit()
+    assert approved.status == CandidateTypeStatus.APPROVED.value
 
 
 def test_s14_catalog_less_type_goes_to_unknown_then_to_hazir_after_approval_and_reanalysis(
@@ -637,7 +638,7 @@ def test_s14_catalog_less_type_goes_to_unknown_then_to_hazir_after_approval_and_
     assert types[-1] is EventType.QUEUED_UNKNOWN
 
     # 2) Onay: tür katalogda. 3) Yeniden analiz: aynı sayfa güncel katalogla yeniden okunur.
-    _approve_diploma_type(session)
+    _approve_diploma_type(session, candidate)
     approved = _diploma(DIPLOMA)
     provider = recorded_provider(tmp_path / "yeniden", [approved])
     _use_provider(client, provider)
@@ -686,6 +687,7 @@ def test_s14_catalog_less_type_goes_to_unknown_then_to_hazir_after_approval_and_
     assert (unknown_dir / "diploma.pdf").read_bytes() == content
     session.refresh(candidate)
     assert (candidate.seen_count, candidate.sample_page_ids) == (1, [page.id])
+    assert candidate.status == CandidateTypeStatus.APPROVED.value
     assert _count(session, Employee) == 1
 
     events = _events(session, upload)
