@@ -10,9 +10,12 @@ Kaynak olay logudur (K15): sayfa analizi olayları (`PAGE_ANALYZED`, `PAGE_ANALY
   analiz edildiyse (K18) harcamaların toplamı, analiz sayısıyla birlikte.
 
 **Maliyet gösterim anında hesaplanır.** Olay yalnız ölçümü (model adı ve token sayıları) taşır;
-maliyet, olaydaki modelin `Settings.ai_model_prices` fiyatıyla çarpımıdır. Fiyatı tanımlı olmayan
-modelin tokenları sayılır ama maliyete girmez: hiçbiri fiyatlanamıyorsa maliyet "—", bir kısmı
-fiyatlanıyorsa "en az" ile başlar. Kullanım kaydı olmayan analizler (ölçüm eklenmeden önceki
+maliyet, olaydaki modelin `Settings.ai_model_prices` fiyatıyla çarpımıdır. Ucuz model ön elemesi
+(13.2.1) yapılan sayfa iki modele harcatmış olabilir: olay tokenların modellere dağılımını
+(`usage_by_model`) taşıyorsa her pay kendi modelinin fiyatıyla hesaplanır. Dağılım bozuksa ya da
+toplamı `usage`'a eşit değilse yok sayılır ve toplam olayın `model`'ine yazılır. Fiyatı tanımlı
+olmayan modelin tokenları sayılır ama maliyete girmez: hiçbiri fiyatlanamıyorsa maliyet "—", bir
+kısmı fiyatlanıyorsa "en az" ile başlar. Kullanım kaydı olmayan analizler (ölçüm eklenmeden önceki
 partiler, kullanım bildirmeyen sağlayıcı) "ölçülmemiş" sütununda sayılır, toplamlara girmez.
 
 Yalnız sayfa analizi (ve fotoğraf kontrolü) ölçülür; tür açıklaması ve Telegram belge isteği
@@ -36,7 +39,7 @@ from app.ai.usage import TokenUsage, token_cost
 from app.config import ModelPrice, Settings, get_settings
 from app.db.models import Event, Upload, UploadFile
 from app.db.session import get_session
-from app.events import USAGE_DATA_KEY, USAGE_EVENT_TYPES
+from app.events import USAGE_BY_MODEL_DATA_KEY, USAGE_DATA_KEY, USAGE_EVENT_TYPES
 from app.web.auth import PanelUser, require_panel_user
 from app.web.templating import render_page
 
@@ -58,7 +61,10 @@ Prices = Mapping[str, ModelPrice]
 
 @dataclass(frozen=True, slots=True)
 class UsageEvent:
-    """Token ölçümü taşıması beklenen bir sayfa analizi olayı; `usage` `None` ise ölçülmemiş."""
+    """Token ölçümü taşıması beklenen bir sayfa analizi olayı; `usage` `None` ise ölçülmemiş.
+
+    `by_model` ön elemeli sayfada `usage`'ın modellere dağılımıdır (13.2.1); yoksa boş.
+    """
 
     ts: datetime
     upload_id: str | None
@@ -66,6 +72,15 @@ class UsageEvent:
     page_index: int | None
     model: str | None
     usage: TokenUsage | None
+    by_model: tuple[tuple[str, TokenUsage], ...] = ()
+
+    def shares(self) -> tuple[tuple[str, TokenUsage], ...]:
+        """Fiyatlanacak paylar: (model, token); dağılım yoksa bütün `usage` olayın modelinindir."""
+        if self.usage is None:
+            return ()
+        if self.by_model:
+            return self.by_model
+        return ((self.model if self.model is not None else NO_MODEL, self.usage),)
 
 
 @dataclass(slots=True)
@@ -90,15 +105,15 @@ class Tally:
             self.unmetered += 1
             return
         self.usage += event.usage
-        model = event.model if event.model is not None else NO_MODEL
-        self.models.add(model)
-        price = prices.get(model)
-        if price is None:
-            self.unpriced += 1
-            self.unpriced_models.add(model)
-        else:
-            self.priced += 1
-            self.cost += token_cost(event.usage, price)
+        for model, usage in event.shares():
+            self.models.add(model)
+            price = prices.get(model)
+            if price is None:
+                self.unpriced += 1
+                self.unpriced_models.add(model)
+            else:
+                self.priced += 1
+                self.cost += token_cost(usage, price)
 
     @property
     def cost_text(self) -> str:
@@ -157,6 +172,7 @@ def read_usage_events(session: Session, *, upload_id: str | None = None) -> list
     for ts, event_upload_id, file_id, page_index, data in session.execute(statement):
         data = data if isinstance(data, dict) else {}
         model = data.get("model")
+        usage = TokenUsage.from_event_data(data.get(USAGE_DATA_KEY))
         events.append(
             UsageEvent(
                 ts=ts,
@@ -164,10 +180,27 @@ def read_usage_events(session: Session, *, upload_id: str | None = None) -> list
                 file_id=file_id,
                 page_index=page_index,
                 model=model if isinstance(model, str) else None,
-                usage=TokenUsage.from_event_data(data.get(USAGE_DATA_KEY)),
+                usage=usage,
+                by_model=_usage_by_model(data.get(USAGE_BY_MODEL_DATA_KEY), usage),
             )
         )
     return events
+
+
+def _usage_by_model(data: object, usage: TokenUsage | None) -> tuple[tuple[str, TokenUsage], ...]:
+    """Olaydaki model dağılımı (13.2.1); yok, bozuk ya da toplamı `usage`'a eşit değilse boş —
+    maliyet o zaman toplamın olayın modeline yazılmasıyla hesaplanır."""
+    if usage is None or not isinstance(data, Mapping) or not data:
+        return ()
+    shares: list[tuple[str, TokenUsage]] = []
+    total = TokenUsage()
+    for model, value in data.items():
+        share = TokenUsage.from_event_data(value)
+        if not isinstance(model, str) or not model or share is None:
+            return ()
+        shares.append((model, share))
+        total += share
+    return tuple(shares) if total == usage else ()
 
 
 def build_overview(session: Session, prices: Prices) -> MetricsOverview:

@@ -15,6 +15,9 @@ okuyamadığını `legible: false` yap, katalogda yoksa aday öner. Metin paketl
   analiz çalıştırıcısı o türde tanınan sayfa için ayrı bir fotoğraf kontrolü isteği yapar
   (`app.pipeline.analyze`). Talimat ve kurallar aynı anda aynı katalogdan alınır — plan da aynı
   katalogla üretilir (09.2.2, 06.6.2).
+- `PageAnalysisInstructions.required_fields` talimattaki her türün zorunlu alanlarıdır (katalog
+  sırasıyla; zorunlu alanı olmayan türde boş). Ucuz model ön elemesi (13.2.1) bir yanıtın kolay
+  sayfa olup olmadığına bunlarla karar verir: zorunlu alanlar talimattakiyle aynı katalogdan okunur.
 """
 
 from __future__ import annotations
@@ -41,12 +44,16 @@ class PageAnalysisInstructions:
     """Sistem talimatı ve talimattaki kataloğun slug'ları; ikisi birlikte isteğe verilir.
 
     `photo_rules` slug → o türün açık fotoğraf kuralları (katalog sırasıyla); anahtarı olmayan tür
-    için fotoğraf kontrolü yapılmaz.
+    için fotoğraf kontrolü yapılmaz. `required_fields` slug → o türün zorunlu alanları (13.2.1);
+    anahtarı olmayan türün zorunlu alanları bilinmiyor sayılır.
     """
 
     text: str = field(repr=False)
     known_slugs: frozenset[str]
     photo_rules: Mapping[str, tuple[PhotoRuleSetting, ...]] = field(
+        default_factory=lambda: MappingProxyType({})
+    )
+    required_fields: Mapping[str, tuple[str, ...]] = field(
         default_factory=lambda: MappingProxyType({})
     )
 
@@ -80,6 +87,13 @@ def build_page_analysis_instructions(
         text=before + compiled.text + after,
         known_slugs=compiled.known_slugs,
         photo_rules=photo_rules_by_type(catalog, compiled.known_slugs),
+        required_fields=MappingProxyType(
+            {
+                entry.slug: tuple(entry.required_fields)
+                for entry in catalog
+                if entry.slug in compiled.known_slugs
+            }
+        ),
     )
 
 

@@ -596,6 +596,27 @@ def test_constructor_rejects_empty_model() -> None:
         OpenAIProvider(client, model="", max_output_tokens=10)
 
 
+def test_prescreen_model_from_settings_gives_a_copy_that_asks_the_cheap_model() -> None:
+    api = FakeApi(completion(tool_calls=[function_call(analysis_payload())]))
+    provider = api.provider(openai_prescreen_model="gpt-ucuz")
+
+    prescreener = provider.prescreen_provider()
+
+    assert isinstance(prescreener, OpenAIProvider)
+    assert (prescreener.model, prescreener._max_output_tokens) == ("gpt-ucuz", 2048)
+    assert prescreener._client is provider._client
+    assert prescreener.prescreen_provider() is None
+    assert prescreener.analyze_page(page_request()).document_type_slug == "russian_passport"
+    assert api.body()["model"] == "gpt-ucuz"
+
+
+@pytest.mark.parametrize("model", [None, "", "gpt-test"], ids=["yok", "bos", "ana"])
+def test_without_a_distinct_prescreen_model_there_is_no_prescreen(model: str | None) -> None:
+    provider = FakeApi().provider(openai_prescreen_model=model)
+
+    assert provider.prescreen_provider() is None
+
+
 def test_openai_is_a_registered_provider_with_the_shared_interface() -> None:
     provider = create_provider(settings(ai_provider="openai"))
 

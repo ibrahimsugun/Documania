@@ -1,4 +1,5 @@
-"""Sayfa analizi çalıştırıcı ve profil fotoğrafı kontrolü — PRD 03.7.1, 03.7.2, 11.7.1, 11.7.2.
+"""Sayfa analizi çalıştırıcı, profil fotoğrafı kontrolü ve ucuz model ön elemesi — PRD 03.7.1,
+03.7.2, 11.7.1, 11.7.2, 13.2.1.
 
 Partinin sayfaları yapay zekâ sağlayıcısına **sırayla** gönderilir: dosyalar `upload_files.id`
 sırasıyla, her dosyanın sayfaları `pages.index` sırasıyla, aynı anda tek istek. Her istek sayfanın
@@ -61,6 +62,32 @@ gösterilir (`app.web.routers.metrics`).
 **İçerik korunur (11.7.2).** Kontrol yalnız okur: kaynak dosya, sayfa görüntüsü ve fotoğraf
 kırpılmaz, düzeltilmez, arka planı değiştirilmez; hiçbir dosya yazılmaz (K11, K17). Fotoğraf
 kontrolden geçse de geçmese de çıktısı planın seçtiği kayıpsız işlemle kaynaktan üretilir.
+
+**Ucuz model ön elemesi (13.2.1).** Sağlayıcının ön eleme modeli varsa
+(`AnalysisProvider.prescreen_provider`, `<SAĞLAYICI>_PRESCREEN_MODEL`) her sayfanın isteği önce
+ona gider — aynı istek, aynı görüntü ve metin. Yanıt kolay sayfaysa sayfanın analizi odur; değilse
+atılır ve aynı istek ana modele gider. Ana modelin yanıtı ön elemenin yanıtıyla birleştirilmez,
+yerine geçer; ucuz yanıt hiçbir yere yazılmaz. Ayrı bir güven skoru yoktur (K1): kolay sayfa
+yanıtın kendi içeriğinden, deterministik olarak tanınır (`prescreen_escalation`):
+
+- sayfa boş değil (içerik tespiti 02.4.1 onu boş saymadı; ucuz modelin "boş" demesi çelişkidir) ve
+  okunabilir;
+- türü katalogda belirlenmiş (katalog dışı ya da belirsiz tür, aday tür önerisi ana modelindir);
+- türün zorunlu alanlarının **hepsi bu sayfada** okunaklı (K1 sayfanın kendisinde sağlanıyor;
+  alanı öteki yüzde olan kart sayfası kolay değildir);
+- analizci not yazmamış (`notes` okunaklılık, belirsizlik ve karşılanmayan kabul kriteri içindir;
+  söylenecek bir şey yoksa boştur);
+- kimlik anahtarı doğrulanabilir: MRZ varsa ayrıştırılır, her kontrol hanesi tutar ve görünen
+  okumayla çelişmez (05.3); MRZ yoksa sayfada belge numarası okunmamıştır — kontrol hanesiyle
+  doğrulanamayan numara çalışan eşleştirmesini (K6) ve otomatik profili (K7) belirler, ana modele
+  gider.
+
+Ucuz model yanıt vermezse ya da yanıtı şemaya uymazsa sayfa da ana modele gider; ön eleme sayfayı
+hiçbir koşulda başarısız yapmaz. Fotoğraf kontrolü (11.7.1) her zaman ana modelle yapılır. Yeniden
+analiz (06.6.2) ön elemesiz çalışır (`prescreen=False`): İK'nın şüphelendiği parti ana modele
+gider. Sonuç olay verisindedir: `model` analizi kabul edilen model, `prescreen` ön elemenin modeli
+ve kararı (reddedildiyse gerekçesi, `Escalation`), `usage_by_model` sayfanın tokenlarının modellere
+dağılımı — maliyet her modelin kendi fiyatıyla hesaplanır (`app.web.routers.metrics`).
 """
 
 from __future__ import annotations
@@ -81,10 +108,19 @@ from app.ai.provider import (
     ProviderError,
 )
 from app.ai.schemas import PageAnalysis, PageAnalysisError
-from app.ai.usage import UsageMeter, measure_usage
+from app.ai.usage import TokenUsage, UsageMeter, measure_usage
 from app.catalog.photo_rules import RESOLUTION_RULE, PhotoRuleSetting
 from app.db.models import Page, Upload, UploadFile, UploadStatus
-from app.events import USAGE_DATA_KEY, EventType, event_context, record_event
+from app.events import (
+    PRESCREEN_DATA_KEY,
+    USAGE_BY_MODEL_DATA_KEY,
+    USAGE_DATA_KEY,
+    EventType,
+    event_context,
+    record_event,
+)
+from app.matching.match import DOCUMENT_NUMBER
+from app.matching.mrz import MrzStatus, apply_mrz_priority
 from app.pipeline.render import photo_pixel_size
 from app.storage import DataLayout
 
@@ -99,6 +135,19 @@ class PageAnalysisStatus(enum.StrEnum):
     DONE = "done"
     FAILED = "failed"
     SKIPPED = "skipped"
+
+
+class Escalation(enum.StrEnum):
+    """Ön elemenin sayfayı ana modele gönderme gerekçesi (13.2.1); kişisel değer taşımaz."""
+
+    FAILED = "failed"  # ucuz model yanıt vermedi ya da yanıtı şemaya uymadı
+    BLANK = "blank"  # ucuz model boş diyor; içerik tespiti (02.4.1) boş demedi
+    UNREADABLE = "unreadable"  # sayfa bütün olarak okunamıyor
+    TYPE_UNDETERMINED = "type_undetermined"  # tür katalogda belirlenmedi
+    REQUIRED_FIELDS = "required_fields"  # zorunlu alanlardan biri bu sayfada okunaklı değil (K1)
+    NOTES = "notes"  # analizci okunaklılık ya da belirsizlik notu yazdı
+    MRZ = "mrz"  # MRZ kullanılamıyor, kontrol hanesi tutmuyor ya da görünen okumayla çelişiyor
+    UNVERIFIED_NUMBER = "unverified_document_number"  # MRZ'siz belge numarası
 
 
 class PageImageError(RuntimeError):
@@ -159,6 +208,25 @@ class PreviousPage:
     analysis: PageAnalysis | None = field(default=None, repr=False)
 
 
+@dataclass(frozen=True, slots=True)
+class _Screening:
+    """Bir sayfanın ön elemesi (13.2.1): ucuz model, kararı ve ona harcanan tokenlar."""
+
+    model: str
+    escalation: Escalation | None
+    error: str | None
+    usage: TokenUsage
+    calls: int
+
+    def to_event_data(self) -> dict[str, object]:
+        data: dict[str, object] = {"model": self.model, "accepted": self.escalation is None}
+        if self.escalation is not None:
+            data["escalation"] = self.escalation.value
+        if self.error is not None:
+            data["error"] = self.error
+        return data
+
+
 def analyze_upload(
     session: Session,
     layout: DataLayout,
@@ -166,6 +234,7 @@ def analyze_upload(
     *,
     provider: AnalysisProvider,
     instructions: PageAnalysisInstructions,
+    prescreen: bool = True,
 ) -> UploadAnalysisResult:
     """Partinin sayfalarını sırayla analiz eder; sonucu `pages`'e ve olay loguna yazar.
 
@@ -173,12 +242,20 @@ def analyze_upload(
     `PAGE_ANALYZED` yazılır (sayfa bütün olarak okunamıyorsa ayrıca `PAGE_UNREADABLE`). Başarısız
     sayfada `analysis_json` boşaltılır, `analysis_status = failed` ve `PAGE_ANALYSIS_FAILED`
     yazılır. En az bir sayfa başarısızsa `uploads.status = partial` olur (03.7.2).
+
+    `prescreen` yanlışsa sağlayıcının ön eleme modeli olsa da her sayfa ana modele gider (13.2.1).
     """
+    prescreener = provider.prescreen_provider() if prescreen else None
     outcomes: list[PageOutcome] = []
     for upload_file in upload.files:
         outcomes.extend(
             _analyze_file(
-                session, layout, upload_file, provider=provider, instructions=instructions
+                session,
+                layout,
+                upload_file,
+                provider=provider,
+                instructions=instructions,
+                prescreener=prescreener,
             )
         )
     result = UploadAnalysisResult(tuple(outcomes))
@@ -253,6 +330,55 @@ def summarize_page_analysis(analysis: PageAnalysis) -> str:
         f"- Okunaksız veya o sayfada olmayan zorunlu alanlar: {_field_names(illegible)}",
     ]
     return "\n".join(lines)
+
+
+def prescreen_escalation(
+    analysis: PageAnalysis, instructions: PageAnalysisInstructions
+) -> Escalation | None:
+    """Ucuz modelin yanıtı kolay sayfa değilse ana modele gönderme gerekçesi; kolay sayfada `None`
+    (13.2.1, ölçüt modül açıklamasında).
+
+    `instructions` isteğin talimatıdır: türün zorunlu alanları onunla aynı katalogdan okunur;
+    zorunlu alanları bilinmeyen tür kolay sayılmaz. Gerekçeler bu sırayla denenir: boş,
+    okunamaz, tür, zorunlu alan, not, kimlik anahtarı.
+    """
+    if analysis.is_blank:
+        return Escalation.BLANK
+    if not analysis.is_readable:
+        return Escalation.UNREADABLE
+    slug = analysis.document_type_slug
+    if slug is None:
+        return Escalation.TYPE_UNDETERMINED
+    required = instructions.required_fields.get(slug)
+    if required is None or not all(_reads_legibly(analysis, name) for name in required):
+        return Escalation.REQUIRED_FIELDS
+    if analysis.notes is not None:
+        return Escalation.NOTES
+    return _identity_escalation(analysis)
+
+
+def _identity_escalation(analysis: PageAnalysis) -> Escalation | None:
+    resolution = apply_mrz_priority(analysis)
+    if resolution.status is MrzStatus.ABSENT:
+        number_read = analysis.person.document_number is not None or _reads_legibly(
+            analysis, DOCUMENT_NUMBER
+        )
+        return Escalation.UNVERIFIED_NUMBER if number_read else None
+    mrz = resolution.mrz
+    if (
+        resolution.status is not MrzStatus.READ
+        or mrz is None
+        or mrz.failed_checks
+        or mrz.illegible_fields
+        or resolution.conflicts
+    ):
+        return Escalation.MRZ
+    return None
+
+
+def _reads_legibly(analysis: PageAnalysis, name: str) -> bool:
+    reading = analysis.fields.get(name)
+    return reading is not None and reading.legible
 
 
 def check_page_photo(
@@ -346,6 +472,7 @@ def _analyze_file(
     *,
     provider: AnalysisProvider,
     instructions: PageAnalysisInstructions,
+    prescreener: AnalysisProvider | None,
 ) -> list[PageOutcome]:
     if upload_file.is_duplicate_of is not None:
         return [_skip(page) for page in upload_file.pages]
@@ -365,7 +492,13 @@ def _analyze_file(
                 skipped_blank_pages=skipped_blank,
             )
             outcome = _analyze_page(
-                session, layout, page, prompt, provider=provider, instructions=instructions
+                session,
+                layout,
+                page,
+                prompt,
+                provider=provider,
+                instructions=instructions,
+                prescreener=prescreener,
             )
             outcomes.append(outcome)
             previous = PreviousPage(index=page.index, analysis=outcome.analysis)
@@ -381,9 +514,10 @@ def _analyze_page(
     *,
     provider: AnalysisProvider,
     instructions: PageAnalysisInstructions,
+    prescreener: AnalysisProvider | None,
 ) -> PageOutcome:
-    # Sayfa için yapılan tüm sağlayıcı çağrıları (analiz, varsa fotoğraf kontrolü) tek ölçümde
-    # toplanır ve sayfanın olayına yazılır (13.1.1).
+    # Sayfa için yapılan tüm sağlayıcı çağrıları (ön eleme, analiz, varsa fotoğraf kontrolü) tek
+    # ölçümde toplanır ve sayfanın olayına yazılır (13.1.1).
     with measure_usage() as meter:
         return _analyze_page_metered(
             session,
@@ -392,6 +526,7 @@ def _analyze_page(
             prompt,
             provider=provider,
             instructions=instructions,
+            prescreener=prescreener,
             meter=meter,
         )
 
@@ -404,6 +539,7 @@ def _analyze_page_metered(
     *,
     provider: AnalysisProvider,
     instructions: PageAnalysisInstructions,
+    prescreener: AnalysisProvider | None,
     meter: UsageMeter,
 ) -> PageOutcome:
     try:
@@ -417,25 +553,43 @@ def _analyze_page_metered(
         prompt=prompt,
         known_slugs=instructions.known_slugs,
     )
-    try:
-        analysis = provider.analyze_page(request)
-    except (ProviderError, PageAnalysisError) as exc:
-        return _fail(session, page, exc, provider, meter=meter)
+    analysis: PageAnalysis | None = None
+    analyzed_by = provider
+    screening: _Screening | None = None
+    if prescreener is not None:
+        analysis, screening = _prescreen(prescreener, request, instructions)
+        if analysis is not None:
+            analyzed_by = prescreener
+    if analysis is None:
+        try:
+            analysis = provider.analyze_page(request)
+        except (ProviderError, PageAnalysisError) as exc:
+            return _fail(session, page, exc, provider, meter=meter, screening=screening)
     photo_check: PhotoCheck | None = None
     rules = _photo_rules(instructions, analysis)
     if rules:
         try:
+            # Fotoğraf kontrolü ön elemeye girmez, ana modelle yapılır (13.2.1).
             photo_check = check_page_photo(layout, page, image, rules, provider=provider)
         except (ProviderError, PhotoCheckError, PhotoMeasureError) as exc:
             # Değerlendirilmemiş fotoğraf Hazir'a gidemez: sayfanın analizi bütün olarak düşer.
-            return _fail(session, page, exc, provider, meter=meter, step="photo_check")
+            return _fail(
+                session,
+                page,
+                exc,
+                provider,
+                meter=meter,
+                model=analyzed_by.model,
+                screening=screening,
+                step="photo_check",
+            )
 
     page.analysis_json = analysis.model_dump(mode="json")
     page.analysis_status = PageAnalysisStatus.DONE.value
     page.photo_check_json = None if photo_check is None else photo_check.model_dump(mode="json")
     # Olay verisi kişisel değer taşımaz (CONVENTIONS §6); değerler `pages.analysis_json`'dadır.
     data: dict[str, object] = {
-        **_provider_data(provider, meter),
+        **_provider_data(provider, meter, model=analyzed_by.model, screening=screening),
         "document_type_slug": analysis.document_type_slug,
         "side": analysis.side.value,
         "is_readable": analysis.is_readable,
@@ -453,6 +607,36 @@ def _analyze_page_metered(
         analysis=analysis,
         photo_check=photo_check,
     )
+
+
+def _prescreen(
+    prescreener: AnalysisProvider,
+    request: PageAnalysisRequest,
+    instructions: PageAnalysisInstructions,
+) -> tuple[PageAnalysis | None, _Screening]:
+    """İsteği ucuz modele sorar (13.2.1): yanıt kolay sayfaysa analizi, değilse `None`; ve karar.
+
+    Ucuz modelin hatası sayfayı düşürmez: gerekçesi `failed` olur, sayfa ana modele gider.
+    """
+    analysis: PageAnalysis | None = None
+    escalation: Escalation | None = None
+    error: str | None = None
+    # İç içe ölçüm: ucuz modelin tokenları sayfanın toplamına da girer (13.1.1).
+    with measure_usage() as meter:
+        try:
+            analysis = prescreener.analyze_page(request)
+        except (ProviderError, PageAnalysisError) as exc:
+            escalation, error = Escalation.FAILED, type(exc).__name__
+    if analysis is not None:
+        escalation = prescreen_escalation(analysis, instructions)
+    screening = _Screening(
+        model=prescreener.model,
+        escalation=escalation,
+        error=error,
+        usage=meter.usage,
+        calls=meter.calls,
+    )
+    return (analysis if escalation is None else None), screening
 
 
 def _photo_rules(
@@ -480,13 +664,18 @@ def _fail(
     provider: AnalysisProvider,
     *,
     meter: UsageMeter,
+    model: str | None = None,
+    screening: _Screening | None = None,
     step: str | None = None,
 ) -> PageOutcome:
     # Eski bir analiz ya da fotoğraf kontrolü başarısız sayfanın sonucu gibi okunmasın.
     page.analysis_json = None
     page.analysis_status = PageAnalysisStatus.FAILED.value
     page.photo_check_json = None
-    data: dict[str, object] = {**_provider_data(provider, meter), "error": type(exc).__name__}
+    data: dict[str, object] = {
+        **_provider_data(provider, meter, model=model, screening=screening),
+        "error": type(exc).__name__,
+    }
     if step is not None:
         data["step"] = step
     if isinstance(exc, ProviderError) and exc.status_code is not None:
@@ -508,13 +697,45 @@ def _fail(
     )
 
 
-def _provider_data(provider: AnalysisProvider, meter: UsageMeter) -> dict[str, object]:
-    data: dict[str, object] = {"provider": provider.name, "model": provider.model}
+def _provider_data(
+    provider: AnalysisProvider,
+    meter: UsageMeter,
+    *,
+    model: str | None = None,
+    screening: _Screening | None = None,
+) -> dict[str, object]:
+    """Olayın sağlayıcı, model ve kullanım alanları; `model` analizi kabul edilen modeldir
+    (verilmezse ana model)."""
+    data: dict[str, object] = {
+        "provider": provider.name,
+        "model": provider.model if model is None else model,
+    }
     if meter.calls:
         # Yanıt gelen çağrı yoksa (hız sınırı, bağlantı hatası) anahtar yazılmaz: sıfır token,
         # ölçülmemiş sayfayı ölçülmüş gösterirdi (13.1.1).
         data[USAGE_DATA_KEY] = meter.usage.to_event_data()
+    if screening is not None:
+        data[PRESCREEN_DATA_KEY] = screening.to_event_data()
+        if meter.calls:
+            data[USAGE_BY_MODEL_DATA_KEY] = _usage_by_model(meter, screening, provider.model)
     return data
+
+
+def _usage_by_model(
+    meter: UsageMeter, screening: _Screening, main_model: str
+) -> dict[str, dict[str, int]]:
+    # Sayfanın toplamından ön elemeninki düşülür, kalan ana modelindir (iki model aynı adı
+    # taşıyamaz — `AnalysisProvider`). Kullanım bildirmeyen model yazılmaz (13.1.1).
+    by_model: dict[str, dict[str, int]] = {}
+    if screening.calls:
+        by_model[screening.model] = screening.usage.to_event_data()
+    if meter.calls > screening.calls:
+        main = TokenUsage(
+            meter.usage.input_tokens - screening.usage.input_tokens,
+            meter.usage.output_tokens - screening.usage.output_tokens,
+        )
+        by_model[main_model] = main.to_event_data()
+    return by_model
 
 
 def _document_type_text(analysis: PageAnalysis) -> str:

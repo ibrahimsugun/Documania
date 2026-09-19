@@ -1,4 +1,5 @@
-"""13.1.1 — maliyet paneli: sayfa, parti ve ay bazında token ve maliyet görünür.
+"""13.1.1 — maliyet paneli: sayfa, parti ve ay bazında token ve maliyet görünür; ön elemeli
+sayfanın (13.2.1) tokenları her modelin kendi fiyatıyla hesaplanır.
 
 Olaylar `record_event` ile yazılır (sayfa analizinin kendi yazdığı biçim: `data_json.usage`);
 sayfalar `TestClient` ile çizilir. Sağlayıcı çağrısı ve ağ yoktur.
@@ -18,8 +19,8 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from app.config import ModelPrice, Settings, get_settings
 from app.db.models import Event, Upload, UploadFile
-from app.events import USAGE_DATA_KEY, EventType, record_event
-from app.web.routers.metrics import BATCH_LIMIT
+from app.events import USAGE_BY_MODEL_DATA_KEY, USAGE_DATA_KEY, EventType, record_event
+from app.web.routers.metrics import BATCH_LIMIT, UsageEvent
 
 CLAUDE = "claude-test"
 GPT = "gpt-test"
@@ -291,6 +292,112 @@ def test_analysis_without_a_model_name_is_priced_as_unknown(
 
     assert "(model adı yok)" in response.text
     assert _rows(response.text, "total")[0][2:6] == ["1.000", "100", "1.100", "—"]
+
+
+# --- ucuz model ön elemesi (13.2.1): bir sayfa iki modele harcatır --------------------------------
+
+
+def _split(
+    session: Session,
+    upload_id: str,
+    usage: tuple[int, int],
+    by_model: object,
+    *,
+    model: str = CLAUDE,
+) -> None:
+    (file_id,) = _upload(session, upload_id, "h.pdf")
+    event = record_event(
+        session,
+        EventType.PAGE_ANALYZED,
+        upload_id=upload_id,
+        file_id=file_id,
+        page_index=0,
+        data={
+            "model": model,
+            USAGE_DATA_KEY: {"input_tokens": usage[0], "output_tokens": usage[1]},
+            USAGE_BY_MODEL_DATA_KEY: by_model,
+        },
+    )
+    event.ts = _at(2026, 9)
+    session.commit()
+
+
+def test_prescreened_page_prices_each_model_s_share_at_its_own_price(
+    client: TestClient, app: FastAPI, session_factory: sessionmaker[Session]
+) -> None:
+    _prices(app, PRICES)
+    with session_factory() as session:
+        _split(
+            session,
+            "u_20260910_0010",
+            (1500, 150),
+            {
+                GPT: {"input_tokens": 500, "output_tokens": 50},
+                CLAUDE: {"input_tokens": 1000, "output_tokens": 100},
+            },
+        )
+
+    response = client.get("/metrics/uploads/u_20260910_0010")
+
+    # GPT: 500 × 1 + 50 × 10 = 1000; Claude: 1000 × 5 + 100 × 25 = 7500 → 8500 / 1e6.
+    # Toplamın tümü Claude fiyatıyla 0.0113 USD olurdu.
+    assert _rows(response.text, "pages") == [
+        ["h.pdf — sayfa 1", "1", "1.500", "150", "1.650", "0.0085 USD", "0", f"{CLAUDE}, {GPT}"]
+    ]
+
+
+def test_share_of_a_model_without_a_price_makes_the_cost_a_lower_bound(
+    client: TestClient, app: FastAPI, session_factory: sessionmaker[Session]
+) -> None:
+    _prices(app, {CLAUDE: PRICES[CLAUDE]})
+    with session_factory() as session:
+        _split(
+            session,
+            "u_20260910_0011",
+            (1500, 150),
+            {
+                GPT: {"input_tokens": 500, "output_tokens": 50},
+                CLAUDE: {"input_tokens": 1000, "output_tokens": 100},
+            },
+        )
+
+    response = client.get("/metrics")
+
+    assert _rows(response.text, "total")[0][2:6] == ["1.500", "150", "1.650", "en az 0.0075 USD"]
+    assert "Fiyatı tanımlı olmayan model: gpt-test" in response.text
+
+
+def test_unmetered_event_has_no_shares_to_price() -> None:
+    event = UsageEvent(
+        ts=_at(2026, 9), upload_id=None, file_id=None, page_index=None, model=CLAUDE, usage=None
+    )
+
+    assert event.shares() == ()
+
+
+@pytest.mark.parametrize(
+    "by_model",
+    [
+        {GPT: {"input_tokens": 500, "output_tokens": 50}},
+        {GPT: {"input_tokens": "çok", "output_tokens": 50}},
+        {GPT: None, CLAUDE: {"input_tokens": 1500, "output_tokens": 150}},
+        {"": {"input_tokens": 1500, "output_tokens": 150}},
+        [["gpt-test", 1500, 150]],
+        {},
+    ],
+    ids=["toplam-tutmuyor", "bozuk-sayi", "bozuk-pay", "adsiz-model", "sozluk-degil", "bos"],
+)
+def test_broken_model_split_is_ignored_and_the_total_goes_to_the_event_s_model(
+    client: TestClient, app: FastAPI, session_factory: sessionmaker[Session], by_model: object
+) -> None:
+    _prices(app, PRICES)
+    with session_factory() as session:
+        _split(session, "u_20260910_0012", (1500, 150), by_model)
+
+    response = client.get("/metrics")
+
+    # 1500 × 5 + 150 × 25 = 11250 / 1e6
+    assert _rows(response.text, "total")[0][2:6] == ["1.500", "150", "1.650", "0.0113 USD"]
 
 
 # --- parti sayfası ----------------------------------------------------------------------------

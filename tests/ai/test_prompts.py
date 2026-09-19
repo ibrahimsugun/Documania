@@ -276,6 +276,20 @@ def test_inactive_and_not_analyzed_types_are_left_out() -> None:
     assert instructions.known_slugs == {"active_type"}
     assert "retired_type" not in instructions.text
     assert "office_file" not in instructions.text
+    # 13.2.1: zorunlu alanlar yalnız talimattaki türler için taşınır.
+    assert dict(instructions.required_fields) == {"active_type": ("surname", "document_number")}
+
+
+def test_instructions_carry_each_listed_type_s_required_fields_in_catalog_order() -> None:
+    instructions = build_page_analysis_instructions(SEED)
+
+    assert set(instructions.required_fields) == instructions.known_slugs
+    for entry in SEED:
+        if entry.slug in instructions.known_slugs:
+            assert instructions.required_fields[entry.slug] == tuple(entry.required_fields)
+    # Zorunlu alanı olmayan tür de anahtar taşır: boş liste "bilinmiyor" değildir.
+    assert instructions.required_fields["profile_picture"] == ()
+    assert dict(PageAnalysisInstructions(text="T", known_slugs=frozenset()).required_fields) == {}
 
 
 def test_types_are_sorted_by_slug_and_text_is_deterministic() -> None:

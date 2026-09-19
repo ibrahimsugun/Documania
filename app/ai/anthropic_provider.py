@@ -108,8 +108,15 @@ class AnthropicProvider(AnalysisProvider):
 
     name = "anthropic"
 
-    def __init__(self, client: anthropic.Anthropic, *, model: str, max_output_tokens: int) -> None:
-        super().__init__(model=model)
+    def __init__(
+        self,
+        client: anthropic.Anthropic,
+        *,
+        model: str,
+        max_output_tokens: int,
+        prescreen_model: str | None = None,
+    ) -> None:
+        super().__init__(model=model, prescreen_model=prescreen_model)
         if max_output_tokens <= 0:
             raise ValueError("max_output_tokens pozitif olmalı")
         self._client = client
@@ -139,6 +146,13 @@ class AnthropicProvider(AnalysisProvider):
             client,
             model=settings.anthropic_model,
             max_output_tokens=settings.ai_max_output_tokens,
+            prescreen_model=settings.anthropic_prescreen_model,
+        )
+
+    def _with_model(self, model: str) -> AnthropicProvider:
+        # Ön eleme kopyası aynı istemciyi (anahtar, zaman aşımı, taşıma) paylaşır (13.2.1).
+        return AnthropicProvider(
+            self._client, model=model, max_output_tokens=self._max_output_tokens
         )
 
     def _request_analysis(self, request: PageAnalysisRequest) -> object:

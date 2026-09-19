@@ -68,6 +68,18 @@ USAGE_DATA_KEY = "usage"
 m}` (`app.ai.usage.TokenUsage.to_event_data`). Değer, olayı doğuran sayfa işinin sağlayıcıya
 harcattığı toplamdır; sağlayıcı yanıt vermediyse ya da ölçüm yoksa anahtar hiç yazılmaz."""
 
+USAGE_BY_MODEL_DATA_KEY = "usage_by_model"
+"""Ön elemeli sayfada (PRD 13.2.1) `usage`'ın modellere dağılımı: `{"<model>": {"input_tokens": n,
+"output_tokens": m}}`. Bir sayfa iki modele harcatmış olabilir (ucuz model ön elemesi ve ana model);
+maliyet her modelin kendi fiyatıyla hesaplanır. Toplamı `usage`'a eşittir; ön eleme yapılmayan
+sayfada anahtar yazılmaz, `usage` olayın `model`'ine aittir."""
+
+PRESCREEN_DATA_KEY = "prescreen"
+"""Ön eleme sonucu (PRD 13.2.1): `{"model": "<ucuz model>", "accepted": true}` ya da
+`{"model": ..., "accepted": false, "escalation": "<gerekçe>"}` (ucuz model hata verdiyse ayrıca
+`"error": "<hata türü>"`). Ön eleme yapılmayan sayfada yazılmaz. Gerekçe kişisel değer taşımaz
+(`app.pipeline.analyze.Escalation`)."""
+
 USAGE_EVENT_TYPES: tuple[EventType, ...] = (
     EventType.PAGE_ANALYZED,
     EventType.PAGE_ANALYSIS_FAILED,

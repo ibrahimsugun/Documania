@@ -230,6 +230,36 @@ def test_provider_requires_model_name() -> None:
         CannedProvider(analysis_payload(), model="")
 
 
+class _Prescreening(CannedProvider):
+    """Ön eleme modeli taşıyan ama `_with_model`'i uygulamayan sağlayıcı."""
+
+    def __init__(self, prescreen_model: str | None) -> None:
+        AnalysisProvider.__init__(self, model="ana-model", prescreen_model=prescreen_model)
+
+
+def test_provider_without_a_prescreen_model_has_no_prescreen() -> None:
+    provider = CannedProvider(analysis_payload())
+
+    assert provider.prescreen_model is None
+    assert provider.prescreen_provider() is None
+
+
+@pytest.mark.parametrize(
+    ("configured", "expected"),
+    [(" ucuz-model ", "ucuz-model"), ("", None), ("   ", None), ("ana-model", None), (None, None)],
+    ids=["dolu", "bos", "bosluk", "ana-modelle-ayni", "yok"],
+)
+def test_prescreen_model_is_normalized(configured: str | None, expected: str | None) -> None:
+    assert _Prescreening(configured).prescreen_model == expected
+
+
+def test_provider_that_cannot_switch_models_refuses_a_prescreen_model() -> None:
+    provider = _Prescreening("ucuz-model")
+
+    with pytest.raises(ProviderConfigError, match="ön eleme"):
+        provider.prescreen_provider()
+
+
 # --- Yeniden deneme (03.5.1) --------------------------------------------------------------------
 
 

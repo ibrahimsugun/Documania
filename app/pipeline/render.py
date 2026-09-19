@@ -10,6 +10,13 @@ edilir (§8.2). Ölçek iki yapılandırma değerinden gelir:
   doğrudan hedef boyutta rasterleştirilir. Önce büyük görüntü üretip sonra yeniden örneklemek
   aynı piksel boyutunu daha çok bellekle ve ikinci bir örnekleme adımıyla verirdi.
 
+**Metin katmanı önceliği (13.2.2).** Metin katmanı olan sayfada (02.2.1) yazının kendisi analiz
+isteğine metin olarak gider (`app.pipeline.analyze.build_page_prompt`); görüntü düzen, görünüm ve
+okunaklılık içindir. Bu sayfalar `PAGE_RENDER_TEXT_LAYER_MAX_LONG_EDGE_PX` sınırıyla — genel
+sınırdan küçükse — render edilir; küçültme yine render ölçeğine uygulanır, görüntü yeniden
+örneklenmez. Metin katmanı olmayan (taranmış) sayfa ve görüntü dosyası genel ayarla kalır.
+`PAGE_RENDERED` verisindeki `text_layer` sayfanın bu sınırla render edildiğini söyler.
+
 Görüntü yalnız analiz kopyasıdır, çıktı belge değildir. Orijinal PDF'e dokunulmaz (K10); en-boy
 oranı korunur, sayfa kırpılmaz, PDF'in kendi `/Rotate` değeri dışında döndürülmez, içerik
 değiştirilmez (K11). Önbellek türev veridir: aynı dosya yeniden render edilirse görüntüler
@@ -93,6 +100,7 @@ class RenderedPage:
     """Üretilen analiz görüntüsü; uzun kenar sınırı devreye girerse `dpi` ayardan düşüktür.
 
     Görüntü dosyası analiz kopyalarında (02.3.1) ölçek kavramı yok — `dpi` `None` kalır.
+    `text_layer` sayfanın metin katmanı sınırıyla render edildiğidir (13.2.2).
     """
 
     index: int
@@ -100,6 +108,7 @@ class RenderedPage:
     width: int
     height: int
     dpi: float | None = None
+    text_layer: bool = False
 
 
 def render_scale(page_rect: pymupdf.Rect, dpi: int, max_long_edge: int) -> float:
@@ -155,13 +164,25 @@ def render_pdf_pages(
     dpi: int,
     max_long_edge: int,
     jpeg_quality: int,
+    text_layer_max_long_edge: int | None = None,
 ) -> list[RenderedPage]:
-    """`source` PDF'inin her sayfasını `layout.page_image_path(file_id, i)` altına JPEG yazar."""
+    """`source` PDF'inin her sayfasını `layout.page_image_path(file_id, i)` altına JPEG yazar.
+
+    `text_layer_max_long_edge` verilirse metin katmanı olan sayfanın uzun kenar sınırı odur —
+    `max_long_edge`'den büyük değilse (13.2.2).
+    """
     content = source.read_bytes()
     rendered: list[RenderedPage] = []
     with _open_pdf(content) as document:
         for page in document:
-            pixmap, scale = _rasterize(page, dpi, max_long_edge)
+            limit, text_layer = max_long_edge, False
+            if (
+                text_layer_max_long_edge is not None
+                and text_layer_max_long_edge < max_long_edge
+                and extract_page_text(page) is not None
+            ):
+                limit, text_layer = text_layer_max_long_edge, True
+            pixmap, scale = _rasterize(page, dpi, limit)
             path = layout.page_image_path(file_id, page.number)
             replace_file(path, pixmap.tobytes("jpeg", jpg_quality=jpeg_quality))
             rendered.append(
@@ -171,6 +192,7 @@ def render_pdf_pages(
                     width=pixmap.width,
                     height=pixmap.height,
                     dpi=scale * POINTS_PER_INCH,
+                    text_layer=text_layer,
                 )
             )
     return rendered
@@ -247,6 +269,7 @@ def render_upload_file(
         dpi=settings.page_render_dpi,
         max_long_edge=settings.page_render_max_long_edge_px,
         jpeg_quality=settings.page_render_jpeg_quality,
+        text_layer_max_long_edge=settings.page_render_text_layer_max_long_edge_px,
     )
     existing = {page.index: page for page in upload_file.pages}
     pages: list[Page] = []
@@ -266,6 +289,7 @@ def render_upload_file(
                     "width": item.width,
                     "height": item.height,
                     "dpi": round(item.dpi, 2),
+                    "text_layer": item.text_layer,
                 },
             )
             pages.append(page)

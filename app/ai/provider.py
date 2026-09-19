@@ -39,6 +39,11 @@ bir kez, başkası yok) ve yeniden deneme ortaktır; somut sağlayıcı `_reques
 (`DocumentQuery`: kimin, hangi tür belgesi) alır. Yanıt kabulü (`validate_document_query`: katalog
 dışı slug yok) ve yeniden deneme ortaktır; somut sağlayıcı `_request_document_query`'yi uygular,
 şemaya uymayan yanıt `DocumentQueryError`'dır. Uygulamayan sağlayıcı `ProviderError` verir.
+
+**Ön eleme modeli (13.2.1).** Sağlayıcı ana modelinin yanında aynı API'nin ucuz bir modelini
+taşıyabilir (`<SAĞLAYICI>_PRESCREEN_MODEL`): `prescreen_provider()` o modelle çalışan kopyayı verir.
+Kopyanın sözleşmesi aynıdır (yanıt kabulü, yeniden deneme); somut sağlayıcı yalnız `_with_model`'i
+uygular.
 """
 
 from __future__ import annotations
@@ -234,14 +239,35 @@ class DocumentQueryRequest:
 
 
 class AnalysisProvider(abc.ABC):
-    """Sayfa analizi sağlayıcısı. `name` `AI_PROVIDER` değeridir, `model` kullanılan modeldir."""
+    """Sayfa analizi sağlayıcısı. `name` `AI_PROVIDER` değeridir, `model` kullanılan modeldir.
+
+    `prescreen_model` aynı sağlayıcının ucuz ön eleme modelidir (13.2.1); boş ya da `model`'le
+    aynıysa `None` olur ve ön eleme yapılmaz.
+    """
 
     name: ClassVar[str]
 
-    def __init__(self, *, model: str) -> None:
+    def __init__(self, *, model: str, prescreen_model: str | None = None) -> None:
         if not model:
             raise ValueError("model adı boş olamaz")
         self.model = model
+        prescreen = (prescreen_model or "").strip() or None
+        self.prescreen_model = None if prescreen == model else prescreen
+
+    def prescreen_provider(self) -> AnalysisProvider | None:
+        """Ucuz ön eleme modeliyle çalışan kopya (13.2.1); `prescreen_model` yoksa `None`.
+
+        Kopya aynı sağlayıcının aynı istemcisini kullanır, kendi ön elemesi yoktur. Hangi sayfanın
+        onda kalacağına sağlayıcı değil, boru hattı karar verir (`app.pipeline.analyze`).
+        """
+        if self.prescreen_model is None:
+            return None
+        return self._with_model(self.prescreen_model)
+
+    def _with_model(self, model: str) -> AnalysisProvider:
+        """Aynı sağlayıcının `model`'le çalışan, ön elemesiz kopyası. Varsayılan: sağlayıcı ön eleme
+        modeli desteklemez."""
+        raise ProviderConfigError(f"'{self.name}' sağlayıcısı ön eleme modeli desteklemiyor")
 
     @final
     def analyze_page(self, request: PageAnalysisRequest) -> PageAnalysis:

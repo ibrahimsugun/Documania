@@ -1269,13 +1269,14 @@
         "description": "PRD 13.2.1, 13.2.2 · FR-MOD-13 (İşletme, maliyet ve dayanıklılık) · Faz 3.",
         "details": "KAPSAM: PRD 13.2.1, 13.2.2 (FR-MOD-13 — İşletme, maliyet ve dayanıklılık, Faz 3).\n\nNE YAPILACAK — GEREKSİNİMLER VE KABUL KRİTERLERİ:\n- 13.2.1 — Ucuz model ön eleme\n  Kabul: Kolay sayfalar ucuz modele yönlendirilir; test matrisi doğruluğu düşmez\n- 13.2.2 — Metin katmanı önceliği\n  Kabul: Metin katmanı olan sayfalarda görüntü çözünürlüğü düşürülür\n\nGİRDİ — ÜZERİNE KURULDUĞU İŞLER (bu kod ZATEN VAR; yazmadan önce OKU):\n- 13.1 (Maliyet ölçümü ve görünürlüğü) → app/events.py, app/web/routers/metrics.py\n- 03.7 (Sayfa analizi çalıştırıcı) → app/pipeline/analyze.py\n\nÇIKTI — DOKUNULACAK YÜZEY: app/pipeline/analyze.py, app/config.py\n\nKARAR TABLOSU: bu görev için ayrı karar tablosu yok; kabul kriterleri ve kilitli kurallar yeterli.\n\nBU GÖREVİ BAĞLAYAN KİLİTLİ KURALLAR (MASTER-PROMPT §3 — tartışma, uygula):\n- K1: Zorunlu alanların hepsi okunaklıysa belge kabul edilir; biri bile okunamıyorsa Unreadable. Ayrı güven skoru YOK.\n\nPRD'DE AYRICA OKU: yalnız yukarıdaki gereksinim satırları yeterli.\n\nİLGİLİ KABUL SENARYOSU: doğrudan yok. Kabul kriterleri yukarıda.\n\nSIRA (MASTER-PROMPT §5, contract-first): sözleşme/şema → Alembic göçü (gerekiyorsa) → çekirdek + unit test → entegrasyon + testi → arayüz.\n\nKAPSAM SINIRI: yalnız yukarıdaki PRD kimlikleri. Başka gereksinimin işini yapma; yolda gördüğün kusuru düzeltme, yeni görev olarak aç (CONVENTIONS §5). Kilitli teknik kararları (MASTER-PROMPT §4) tartışma; yanlış görünüyorsa uygula ve PLAN.md §D'ye sapma yaz.\n\nTUZAKLAR: belge içeriğini değiştiren kod yazma — kırpma, döndürme (EXIF dışında), kontrast, metin yazma, form doldurma yok (K11/K17). Gerçek kimlik belgesi kullanma; test verisi tests/fixtures/gen.py ile üretilen sentetik belgelerdir (CONVENTIONS §6). Yapay zekâ çağrısı testte canlı yapılmaz, kayıtlı yanıt sağlayıcısı kullanılır. Test/build komutlarını arka plana atma — pencere ölür.\n\nKAPANIŞ: PLAN.md'de 13.2.1, 13.2.2 satırlarının damgasını '✅ → K13.2' yap ve '## K. Kanıt Geçmişi' bölümünde '#### K13.2' bloğuna kanıt maddesi ekle (blok yoksa aç). Faz özet tablosundaki sayıları SAYARAK güncelle. Ayrıntı: CONVENTIONS §1.2-1.3.",
         "testStrategy": "CONVENTIONS §1 DoD kapısı: ruff check . · ruff format --check . · python -m compileall -q app tests · pytest -q -m \"not live\" · alembic upgrade head · python -c \"import app.main\" — hepsi exit 0.\nAyrıca bu görevin kendi kabul kriterleri:\n- 13.2.1: Kolay sayfalar ucuz modele yönlendirilir; test matrisi doğruluğu düşmez\n- 13.2.2: Metin katmanı olan sayfalarda görüntü çözünürlüğü düşürülür",
-        "status": "pending",
+        "status": "in-progress",
         "dependencies": [
           "87",
           "24"
         ],
         "priority": "low",
-        "subtasks": []
+        "subtasks": [],
+        "updatedAt": "2026-09-19T12:24:08.845Z"
       },
       {
         "id": "89",
@@ -1384,7 +1385,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-09-19T12:14:03.426Z",
+      "lastModified": "2026-09-19T12:24:08.846Z",
       "taskCount": 96,
       "completedCount": 89,
       "tags": [

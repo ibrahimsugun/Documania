@@ -1,5 +1,6 @@
 """02.1.1 — PDF sayfa görüntüsü, 02.2.1 — PDF metin katmanı, 02.3.1 — görüntü analiz kopyası,
-02.4.1 — boş sayfa, 02.5.1 — gömülü tek görüntü tespiti."""
+02.4.1 — boş sayfa, 02.5.1 — gömülü tek görüntü tespiti, 13.2.2 — metin katmanı olan sayfada
+düşük çözünürlük."""
 
 from collections.abc import Callable
 from io import BytesIO
@@ -228,6 +229,101 @@ def test_jpeg_quality_setting_is_applied(tmp_path: Path, layout: DataLayout) -> 
     [high] = _render(source, layout, file_id=2, jpeg_quality=100)
 
     assert low.path.stat().st_size < high.path.stat().st_size
+
+
+# --- 13.2.2: metin katmanı olan sayfa daha düşük çözünürlükte -----------------------------------
+
+
+def test_text_layer_page_is_rendered_to_the_lower_long_edge_and_scanned_page_is_not(
+    tmp_path: Path, layout: DataLayout
+) -> None:
+    source = _source(tmp_path, make_text_pdf_bytes(["PASAPORT / PASSPORT", None]))
+
+    text, scanned = render_pdf_pages(
+        source,
+        layout,
+        1,
+        dpi=200,
+        max_long_edge=1568,
+        jpeg_quality=90,
+        text_layer_max_long_edge=1024,
+    )
+
+    # Küçültme render ölçeğindedir: sayfa doğrudan hedef boyutta rasterleştirilir.
+    assert (text.text_layer, text.height, text.dpi) == (
+        True,
+        1024,
+        pytest.approx(1024 / A4[1] * 72),
+    )
+    assert text.width == pytest.approx(1024 * A4[0] / A4[1], abs=1)
+    assert pymupdf.Pixmap(str(text.path)).height == 1024
+    assert (scanned.text_layer, scanned.height) == (False, 1568)
+
+
+def test_text_layer_limit_never_raises_the_general_limit(
+    tmp_path: Path, layout: DataLayout
+) -> None:
+    source = _source(tmp_path, make_text_pdf_bytes(["METIN"]))
+
+    [page] = render_pdf_pages(
+        source,
+        layout,
+        1,
+        dpi=200,
+        max_long_edge=800,
+        jpeg_quality=90,
+        text_layer_max_long_edge=1024,
+    )
+
+    assert (page.text_layer, page.height) == (False, 800)
+
+
+def test_without_a_text_layer_limit_text_pages_keep_the_general_limit(
+    tmp_path: Path, layout: DataLayout
+) -> None:
+    [page] = _render(_source(tmp_path, make_text_pdf_bytes(["METIN"])), layout)
+
+    assert (page.text_layer, page.height) == (False, 1568)
+
+
+def test_text_layer_page_small_enough_keeps_its_dpi(tmp_path: Path, layout: DataLayout) -> None:
+    source = _source(tmp_path, make_text_pdf_bytes(["KART"], size=ID_CARD))
+
+    [page] = render_pdf_pages(
+        source,
+        layout,
+        1,
+        dpi=200,
+        max_long_edge=1568,
+        jpeg_quality=90,
+        text_layer_max_long_edge=1024,
+    )
+
+    assert page.text_layer is True
+    assert page.dpi == pytest.approx(200)
+
+
+def test_render_upload_file_uses_the_text_layer_setting_and_logs_it(
+    session: Session, layout: DataLayout
+) -> None:
+    upload_file = _stored_upload_file(
+        session, layout, make_text_pdf_bytes(["PASAPORT", None]), name="karisik.pdf"
+    )
+    settings = _settings(page_render_text_layer_max_long_edge_px=700)
+
+    render_upload_file(session, layout, settings, upload_file)
+
+    events = session.scalars(
+        select(Event).where(Event.type == EventType.PAGE_RENDERED.value).order_by(Event.id)
+    ).all()
+    assert [(e.data_json["text_layer"], e.data_json["height"]) for e in events] == [
+        (True, 700),
+        (False, 1568),
+    ]
+    assert (
+        Settings(_env_file=None, database_url="sqlite://").page_render_text_layer_max_long_edge_px
+        == 1024
+    )
 
 
 def test_rendering_again_replaces_cached_images(tmp_path: Path, layout: DataLayout) -> None:

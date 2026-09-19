@@ -20,9 +20,10 @@ satır kilidinde bekler ve partiyi işlenmiş görür):
    edilmez; tekrar dosyası (01.4.1) atlanır. Render'ın reddettiği dosya (bozuk ya da parolalı PDF —
    `RenderError`; çözülemeyen görüntü) partiyi durdurmaz: yazdığı her şey geri alınır, dosya
    sayfasız kalır ve plan onu "işlenemeyen dosya" olarak Unresolved'a gönderir (R7, D14).
-2. `analyzing` — sayfalar güncel katalogla (`export_catalog`) analiz edilir (03.7).
+2. `analyzing` — sayfalar güncel katalogla (`export_catalog`) analiz edilir (03.7); sağlayıcının
+   ön eleme modeli varsa kolay sayfalar onda kalır (13.2.1).
 3. `planning` — aynı katalogla plan üretilir ve dondurulur (06.1, K9); planın modeli
-   sağlayıcınınkidir.
+   sağlayıcının ana modelidir (sayfanın analizini hangi modelin verdiği `PAGE_ANALYZED`'dadır).
 4. `executing` — plan `execute_plan` ile uygulanır (`Settings.render_image_*`).
 5. Sonuç: en az bir sayfanın analizi başarısızsa `partial` (03.7.2), değilse `done`. Kuyruğa giden
    öğe hata değildir. Analiz kısmi başarıda `partial`'ı erkenden yazar; son durum olduğu için o
@@ -61,8 +62,9 @@ sürüm ve yeni hash doğurur ve öğeleri uygulanmamış görünür, bu yüzden
 yerini tutmaz. Dondurulduktan sonra değişmiş ya da sözleşmeye uymayan plan yürütülmez
 (`PlanIntegrityError`); planı olmayan parti yeniden çalıştırılmaz (`NoPlanError`).
 
-**Yeniden analiz (06.6.2).** Planı olan partinin sayfaları sağlayıcıya yeniden gönderilir (03.7),
-yeni analizlerden bir sonraki plan sürümü üretilir (06.1, K18), önceki sürümlerin etkin çıktıları
+**Yeniden analiz (06.6.2).** Planı olan partinin sayfaları sağlayıcıya yeniden gönderilir (03.7;
+ucuz model ön elemesi yapılmaz, her sayfa ana modele gider — 13.2.1), yeni analizlerden bir
+sonraki plan sürümü üretilir (06.1, K18), önceki sürümlerin etkin çıktıları
 (`documents.status = active`) "eski sürüm" (`superseded`) işaretlenir ve yeni plan uygulanır.
 Eski çıktı silinmez, taşınmaz, yeniden adlandırılmaz: satırı ve dosyası yerinde kalır, temizlik
 İK'nın arşive taşımasıdır. Başka partinin ve plana bağlı olmayan çıktıya dokunulmaz. Planı
@@ -464,12 +466,14 @@ def reanalyze_upload(
     sağlayıcı çağrılmadan `NoPlanError`. Oturum commit edilmez.
     """
     previous = _require_current_plan(session, upload)
+    # İK'nın şüphelendiği parti ucuz model ön elemesinden geçmez, ana modele gider (13.2.1).
     analysis = analyze_upload(
         session,
         layout,
         upload,
         provider=provider,
         instructions=build_page_analysis_instructions(catalog),
+        prescreen=False,
     )
     plan = create_plan(
         session,

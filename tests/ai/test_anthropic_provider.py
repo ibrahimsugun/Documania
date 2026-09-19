@@ -451,6 +451,35 @@ def test_constructor_rejects_non_positive_output_tokens() -> None:
         AnthropicProvider(client, model="claude-test", max_output_tokens=0)
 
 
+# --- Ucuz model ön elemesi (13.2.1): aynı istemci, ucuz model ------------------------------------
+
+
+def test_prescreen_model_from_settings_gives_a_copy_that_asks_the_cheap_model() -> None:
+    api = FakeApi(message([tool_use(analysis_payload())]))
+    provider = api.provider(anthropic_prescreen_model="  claude-ucuz ")
+
+    prescreener = provider.prescreen_provider()
+
+    assert isinstance(prescreener, AnthropicProvider)
+    assert provider.prescreen_model == "claude-ucuz"
+    assert (prescreener.model, prescreener._max_output_tokens) == ("claude-ucuz", 2048)
+    assert prescreener._client is provider._client
+    # Kopyanın kendi ön elemesi yoktur.
+    assert prescreener.prescreen_model is None and prescreener.prescreen_provider() is None
+    assert prescreener.analyze_page(page_request()).document_type_slug == "russian_passport"
+    assert api.body()["model"] == "claude-ucuz"
+
+
+@pytest.mark.parametrize(
+    "model", [None, "", "  ", "claude-test"], ids=["yok", "bos", "bosluk", "ana"]
+)
+def test_without_a_distinct_prescreen_model_there_is_no_prescreen(model: str | None) -> None:
+    provider = FakeApi().provider(anthropic_prescreen_model=model)
+
+    assert provider.prescreen_model is None
+    assert provider.prescreen_provider() is None
+
+
 # --- Tür açıklaması (11.3.1): birkaç görüntü + metin, zorlanmış açıklama aracı -----------------
 
 

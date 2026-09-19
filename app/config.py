@@ -39,6 +39,10 @@ class Settings(BaseSettings):
     page_render_dpi: int = Field(default=200, gt=0)
     page_render_max_long_edge_px: int = Field(default=1568, gt=0)
     page_render_jpeg_quality: int = Field(default=90, ge=1, le=100)
+    # PRD 13.2.2 — metin katmanı olan PDF sayfası analize bu uzun kenar sınırıyla render edilir:
+    # yazının kendisi istekte metin olarak gider, görüntü düzen ve görünüm içindir. Genel sınırdan
+    # (`page_render_max_long_edge_px`) büyükse genel sınır geçerlidir (bkz. PLAN.md §C71).
+    page_render_text_layer_max_long_edge_px: int = Field(default=1024, gt=0)
     # PRD 07.6.1, §20.5 — `render_image` çıktısı: bu DPI'da rasterleştirilir, bu JPEG kalitesiyle
     # kaydedilir. Analiz önbelleğinin (`page_render_*`) ayarından bağımsızdır (bkz. PLAN.md §C10):
     # o bir analiz kopyası, bu yayınlanan çıktı belgesidir.
@@ -51,9 +55,14 @@ class Settings(BaseSettings):
     ai_request_timeout_seconds: float = Field(default=120.0, gt=0)
     anthropic_api_key: SecretStr | None = None
     anthropic_model: str = Field(default="claude-opus-5", min_length=1)
+    # PRD 13.2.1 — ucuz model ön elemesi: tanımlıysa her sayfa önce bu modele sorulur, kolay sayfa
+    # ölçütünü karşılamayan yanıt atılır ve sayfa ana modele (`*_MODEL`) sorulur
+    # (`app.pipeline.analyze`). Boş ya da ana modelle aynıysa ön eleme yapılmaz (bkz. PLAN.md §C71).
+    anthropic_prescreen_model: str | None = None
     # PRD 03.3.1 — ikincil sağlayıcı; anahtar yalnız `AI_PROVIDER=openai` iken zorunludur.
     openai_api_key: SecretStr | None = None
     openai_model: str = Field(default="gpt-5.5", min_length=1)
+    openai_prescreen_model: str | None = None
     # PRD 13.1.1 — maliyet paneli token fiyatlarını model adına göre bu tablodan okur (JSON:
     # `{"<model>": {"input_per_mtok": 5, "output_per_mtok": 25}}`, birim USD / milyon token).
     # Fiyat sağlayıcıya ait olduğundan kodda sabit değer yoktur; tablo boşsa ya da model

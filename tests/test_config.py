@@ -169,6 +169,51 @@ def test_invalid_ai_settings_rejected(
         load_settings(_env_file=None)
 
 
+COST_VARIABLES = (
+    "ANTHROPIC_PRESCREEN_MODEL",
+    "OPENAI_PRESCREEN_MODEL",
+    "PAGE_RENDER_TEXT_LAYER_MAX_LONG_EDGE_PX",
+)
+
+
+def test_prescreen_and_text_layer_settings_have_defaults_read_environment_and_are_documented(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("DATABASE_URL", "sqlite:///./data/test.db")
+    for name in COST_VARIABLES:
+        monkeypatch.delenv(name, raising=False)
+
+    defaults = load_settings(_env_file=None)
+    monkeypatch.setenv("ANTHROPIC_PRESCREEN_MODEL", "claude-ucuz")
+    monkeypatch.setenv("OPENAI_PRESCREEN_MODEL", "gpt-ucuz")
+    monkeypatch.setenv("PAGE_RENDER_TEXT_LAYER_MAX_LONG_EDGE_PX", "800")
+    configured = load_settings(_env_file=None)
+
+    # 13.2.1 ön eleme varsayılan kapalı; 13.2.2 metin katmanı sınırı varsayılan açık.
+    assert (
+        defaults.anthropic_prescreen_model,
+        defaults.openai_prescreen_model,
+        defaults.page_render_text_layer_max_long_edge_px,
+    ) == (None, None, 1024)
+    assert (
+        configured.anthropic_prescreen_model,
+        configured.openai_prescreen_model,
+        configured.page_render_text_layer_max_long_edge_px,
+    ) == ("claude-ucuz", "gpt-ucuz", 800)
+    example = (Path(__file__).resolve().parents[1] / ".env.example").read_text(encoding="utf-8")
+    assert "\nPAGE_RENDER_TEXT_LAYER_MAX_LONG_EDGE_PX=1024\n" in example
+    assert "\n# ANTHROPIC_PRESCREEN_MODEL=" in example
+    assert "\n# OPENAI_PRESCREEN_MODEL=" in example
+
+
+def test_invalid_text_layer_long_edge_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("DATABASE_URL", "sqlite:///./data/test.db")
+    monkeypatch.setenv("PAGE_RENDER_TEXT_LAYER_MAX_LONG_EDGE_PX", "0")
+
+    with pytest.raises(ValidationError, match="page_render_text_layer_max_long_edge_px"):
+        load_settings(_env_file=None)
+
+
 def test_session_lifetime_has_a_default_reads_environment_and_is_documented(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

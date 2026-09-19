@@ -18,6 +18,12 @@ Blok biçimi `CONVENTIONS.md` §3'te tanımlıdır:
 
 ## Task log (newest-first)
 
+## 88 — 13.2 Ucuz model ön eleme — done — 2026-09-19
+- Yapıldı: sağlayıcının ön eleme modeli (`ANTHROPIC_PRESCREEN_MODEL`/`OPENAI_PRESCREEN_MODEL`) varsa her sayfa önce ona sorulur; yanıt kolay sayfa değilse (`app/pipeline/analyze.py` `prescreen_escalation`: boş/okunamaz, tür belirsiz, zorunlu alan bu sayfada okunaksız, not var, MRZ kontrol hanesiyle doğrulanamayan kimlik numarası) aynı istek ana modele gider; olayda `model`, `prescreen`, `usage_by_model`, maliyet paneli payları kendi fiyatıyla hesaplar; metin katmanlı PDF sayfası `render.py`'de 1024 px uzun kenarla render edilir (13.2.2).
+- Doğrulama: ruff check/format, compileall, `pytest -q -m "not live" --cov=app --cov-fail-under=70` (3725 geçti, +71; sonra eklenen 1 metrik testi ayrıca yeşil; 4 PG atlandı), kapsam %99.87, temiz SQLite'ta `alembic upgrade head` (0001→0005, göç yok), `import app.main` — hepsi exit 0; test matrisi (6 kabul senaryosu partisi × ön elemesiz + 7 ucuz model davranışı) sonuçları bayt bayt aynı; 25 geçici kural bozmasının her biri testte kırmızı. **Gerçek sağlayıcı çağrısı yok.**
+- Varsayımlar: PLAN.md §C71 + §D42 — ön eleme varsayılan KAPALI (insan canlı karşılaştırmadan sonra açar), metin katmanı sınırı varsayılan açık; yeniden analiz ön elemesiz; fotoğraf kontrolü hep ana modelle; görev yüzeyi dışında `render.py`, `provider.py`, iki sağlayıcı, `prompts/page_analysis.py`, `events.py`, `orchestrate.py`, `metrics.py` dokunuldu.
+- Sonraki pencereye not: ön elemeyi açmadan önce aynı sentetik partiler canlı iki modelle koşulup `PAGE_ANALYZED.prescreen` gerekçeleri ve `/metrics` karşılaştırılmalı; `claude-haiku-4-5` adı canlı denenmedi.
+
 ## 87 — 13.1 Maliyet ölçümü ve görünürlüğü — done — 2026-09-19
 - Yapıldı: sağlayıcılar yanıttaki token sayılarını ölçüm bağlamına bildirir (`app/ai/usage.py`), `analyze.py` sayfa başına toplamı `PAGE_ANALYZED`/`PAGE_ANALYSIS_FAILED` olayının `usage` alanına yazar, `app/web/routers/metrics.py` olaylardan `GET /metrics` (toplam, ay, parti) ve `GET /metrics/uploads/{id}` (sayfa) görünümünü çizer; maliyet gösterimde `AI_MODEL_PRICES` fiyatıyla hesaplanır.
 - Doğrulama: ruff check/format, compileall, `pytest -q -m "not live" --cov=app --cov-fail-under=70` (3654 geçti, +67; 4 PG atlandı), kapsam %99.88 (yeni/değişen modüller %100), temiz SQLite'ta `alembic upgrade head` (0001→0005, göç yok), `import app.main` — hepsi exit 0; 10 geçici kural bozmasından 9'u testte kırmızı; suite üç ön plan koşusu. **Gerçek sağlayıcı çağrısı yok.**

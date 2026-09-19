@@ -138,8 +138,15 @@ class OpenAIProvider(AnalysisProvider):
 
     name = "openai"
 
-    def __init__(self, client: openai.OpenAI, *, model: str, max_output_tokens: int) -> None:
-        super().__init__(model=model)
+    def __init__(
+        self,
+        client: openai.OpenAI,
+        *,
+        model: str,
+        max_output_tokens: int,
+        prescreen_model: str | None = None,
+    ) -> None:
+        super().__init__(model=model, prescreen_model=prescreen_model)
         if max_output_tokens <= 0:
             raise ValueError("max_output_tokens pozitif olmalı")
         self._client = client
@@ -169,7 +176,12 @@ class OpenAIProvider(AnalysisProvider):
             client,
             model=settings.openai_model,
             max_output_tokens=settings.ai_max_output_tokens,
+            prescreen_model=settings.openai_prescreen_model,
         )
+
+    def _with_model(self, model: str) -> OpenAIProvider:
+        # Ön eleme kopyası aynı istemciyi (anahtar, zaman aşımı, taşıma) paylaşır (13.2.1).
+        return OpenAIProvider(self._client, model=model, max_output_tokens=self._max_output_tokens)
 
     def _request_analysis(self, request: PageAnalysisRequest) -> object:
         return self._forced_function_call(
