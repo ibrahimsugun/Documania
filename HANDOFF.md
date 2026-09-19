@@ -18,6 +18,12 @@ Blok biçimi `CONVENTIONS.md` §3'te tanımlıdır:
 
 ## Task log (newest-first)
 
+## 96 — 03.3.1 OpenAI sağlayıcısını gerçek çağrıyla doğrula — blocked — 2026-09-19 (ikinci deneme)
+- Nerede kaldı: `OPENAI_API_KEY` hâlâ yok — süreç ortamında, Windows kullanıcı/makine kapsamında ve depoda `.env` olarak da yok (değer yazdırılmadan denetlendi). Görev anahtar eklenmeden yeniden sıraya alınmış; kod değişmedi, api.openai.com'a çağrı yapılmadı.
+- Son hata: `.venv/Scripts/python.exe -m pytest -q -m live tests/ai/test_openai_provider.py -rs` → `1 skipped, 74 deselected` (`tests\ai\test_openai_provider.py:873: OPENAI_API_KEY tanımlı değil`). Denenen çözüm yok — anahtar olmadan denenecek bir şey yok.
+- Varsayımlar: yok. PLAN.md:124 `◐ → K03.3` kalır; §D, K03.3 ve faz özet sayıları değişmedi.
+- Sonraki pencereye not: bir önceki bloktaki not geçerli — insan anahtarı süreç ortamına koymadan görev yeniden `pending` yapılmamalı, yoksa her pencere aynı yerde durur.
+
 ## 96 — 03.3.1 OpenAI sağlayıcısını gerçek çağrıyla doğrula — blocked — 2026-09-19
 - Nerede kaldı: `OPENAI_API_KEY` süreç ortamında yok (Windows kullanıcı/makine kapsamında da yok, depoda `.env` yok) — insan anahtarı ortama koymalı; bu pencere anahtar üretmez, uydurmaz, depoya yazmaz. Hiçbir kod değişmedi, api.openai.com'a çağrı yapılmadı.
 - Son hata: `.venv/Scripts/python.exe -m pytest -q -m live tests/ai/test_openai_provider.py -rs` → `1 skipped, 74 deselected` (`tests\ai\test_openai_provider.py:873: OPENAI_API_KEY tanımlı değil`); skipped kanıt sayılmaz. Denenen başka çözüm yok: anahtarın olmadığı yerde denenecek bir şey de yok.
