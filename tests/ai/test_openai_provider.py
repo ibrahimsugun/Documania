@@ -21,6 +21,8 @@ import pytest
 from app.ai import (
     PROVIDER_FACTORIES,
     AnalysisProvider,
+    DocumentQuery,
+    DocumentQueryError,
     PageAnalysis,
     PageAnalysisError,
     PageAnalysisRequest,
@@ -37,6 +39,7 @@ from app.ai import (
     TypeDescription,
     TypeDescriptionError,
     create_provider,
+    validate_document_query,
     validate_page_analysis,
     validate_photo_check,
     validate_type_description,
@@ -46,6 +49,8 @@ from app.ai.openai_provider import (
     ANALYSIS_TOOL,
     DESCRIPTION_TOOL,
     DESCRIPTION_TOOL_NAME,
+    DOCUMENT_QUERY_TOOL,
+    DOCUMENT_QUERY_TOOL_NAME,
     PHOTO_CHECK_TOOL,
     PHOTO_CHECK_TOOL_NAME,
     TOOL_NAME,
@@ -65,6 +70,8 @@ from tests.ai.payloads import (
     page_request,
     photo_check_payload,
     photo_check_request,
+    query_payload,
+    query_request,
 )
 from tests.fixtures.gen import make_half_filled_image_bytes
 
@@ -789,6 +796,71 @@ def test_photo_check_arguments_that_do_not_conform_are_rejected() -> None:
         api.provider().check_photo(photo_check_request())
 
     assert any(problem.startswith("rules.0.result") for problem in caught.value.problems)
+
+
+# --- Belge isteği (12.3.1): görüntüsüz metin, zorlanmış belge isteği işlevi ---------------------
+
+
+def test_document_query_request_sends_only_text_with_forced_function() -> None:
+    api = FakeApi(
+        completion(tool_calls=[function_call(query_payload(), name=DOCUMENT_QUERY_TOOL_NAME)])
+    )
+    request = query_request(instructions="İstek talimatı", prompt="Katalog ve mesaj")
+
+    query = api.provider().read_document_query(request)
+
+    assert query == validate_document_query(query_payload(), known_slugs=SLUGS)
+    body = api.body()
+    # Görüntü yok: kullanıcı mesajında yalnız metin.
+    assert body["messages"] == [
+        {"role": "system", "content": "İstek talimatı"},
+        {"role": "user", "content": [{"type": "text", "text": "Katalog ve mesaj"}]},
+    ]
+    assert body["tools"] == [json.loads(json.dumps(DOCUMENT_QUERY_TOOL))]
+    assert body["tools"][0]["function"]["parameters"] == DocumentQuery.model_json_schema()
+    assert body["tool_choice"] == {
+        "type": "function",
+        "function": {"name": DOCUMENT_QUERY_TOOL_NAME},
+    }
+    assert body["store"] is False
+
+
+@pytest.mark.parametrize(
+    ("response", "expected"),
+    [
+        (
+            completion(
+                tool_calls=[function_call('{"intent": ', name=DOCUMENT_QUERY_TOOL_NAME)],
+                finish_reason="length",
+            ),
+            "belge isteği işlevi çağrısı tamamlanmadı (finish_reason=length)",
+        ),
+        (completion(content="Ornekova'nın ehliyeti", finish_reason="stop"), "0 araç çağrısı"),
+        (completion(tool_calls=[function_call(query_payload())]), "1 araç çağrısı"),
+    ],
+    ids=["kesik", "metin", "analiz-islevi"],
+)
+def test_document_query_response_without_query_function_call_is_rejected(
+    response: httpx2.Response, expected: str
+) -> None:
+    api = FakeApi(response)
+
+    with pytest.raises(DocumentQueryError) as caught:
+        api.provider().read_document_query(query_request())
+
+    assert caught.value.problems[0].startswith("yanıt:")
+    assert expected in caught.value.problems[0]
+
+
+def test_document_query_arguments_that_do_not_conform_are_rejected() -> None:
+    payload = query_payload()
+    payload["intent"] = "send_everything"
+    api = FakeApi(completion(tool_calls=[function_call(payload, name=DOCUMENT_QUERY_TOOL_NAME)]))
+
+    with pytest.raises(DocumentQueryError) as caught:
+        api.provider().read_document_query(query_request())
+
+    assert any(problem.startswith("intent") for problem in caught.value.problems)
 
 
 # --- Canlı çağrı (DoD kapısında dışarıda) ------------------------------------------------------

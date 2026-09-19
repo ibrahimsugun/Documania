@@ -13,8 +13,9 @@ hiçbir işleyici çalışmaz — yani hiçbir yanıt gitmez. Kapı hata durumun
 okunamazsa güncelleme reddedilir). **Yeni işleyici `GATE_GROUP`'tan büyük bir gruba eklenir**;
 kapıdan önceki bir gruba konan işleyici beyaz listeyi atlar.
 
-Belge alma (12.2) `app.telegram.handlers.DocumentIntake`'tedir; `build_application`'a verilirse
-`HANDLER_GROUP`'a eklenir. Verilmezse bot yalnız komutlara yanıt verir.
+Belge alma (12.2) `app.telegram.handlers.DocumentIntake`'te, doğal dil belge istekleri (12.3)
+`app.telegram.intent.DocumentRequests`'tedir; `build_application`'a verilenler `HANDLER_GROUP`'a
+eklenir. Hiçbiri verilmezse bot yalnız komutlara yanıt verir.
 """
 
 from __future__ import annotations
@@ -47,6 +48,7 @@ from app.db.models import TelegramUser
 from app.db.session import get_session_factory
 from app.storage import prepare_data_dir
 from app.telegram.handlers import DocumentIntake
+from app.telegram.intent import DocumentRequests
 
 logger = logging.getLogger(__name__)
 
@@ -58,9 +60,13 @@ HANDLED_UPDATES = (UpdateType.MESSAGE, UpdateType.CALLBACK_QUERY)
 
 HELP_TEXT = (
     "Merhaba, belgeee botuna hoş geldiniz.\n\n"
+    "Belge göndermek: belgeyi dosya olarak gönderin. Fotoğraf olarak gönderilen görüntüyü "
+    "Telegram sıkıştırır; kimlik belgelerini dosya olarak gönderin. Birlikte (albüm olarak) "
+    "gönderilen dosyalar tek parti sayılır; işlem bitince sonucu yazarım.\n\n"
+    "Belge istemek: kimin hangi belgesini istediğinizi yazın, örneğin “Ahmet Çakar'ın ehliyetini "
+    "göster”. Birden çok sonuç bulunursa hangisini istediğinizi sorarım.\n\n"
     "Komutlar:\n"
-    "/start, /yardim — bu mesaj\n\n"
-    "Belge gönderme ve belge isteme henüz etkin değil."
+    "/start, /yardim — bu mesaj"
 )
 
 # Telegram'ın `secret_token` kuralı: 1–256 karakter, yalnız A-Z a-z 0-9 _ -.
@@ -204,9 +210,10 @@ def build_application(
     *,
     builder: ApplicationBuilder | None = None,
     intake: DocumentIntake | None = None,
+    document_requests: DocumentRequests | None = None,
 ) -> Application:
-    """Beyaz liste kapısı, komut ve (`intake` verilirse) belge işleyicileriyle bot uygulamasını
-    kurar (ağa çıkmaz).
+    """Beyaz liste kapısı, komut, (`intake` verilirse) belge alma ve (`document_requests`
+    verilirse) belge isteği işleyicileriyle bot uygulamasını kurar (ağa çıkmaz).
 
     `builder` testte sahte bir aktarıcıyla ön ayarlı gelir; verilmezse varsayılan kurulur."""
     application = (builder or ApplicationBuilder()).token(config.token).build()
@@ -216,6 +223,8 @@ def build_application(
     application.add_handler(CommandHandler(["start", "yardim"], _send_help), group=HANDLER_GROUP)
     if intake is not None:
         intake.register(application, group=HANDLER_GROUP)
+    if document_requests is not None:
+        document_requests.register(application, group=HANDLER_GROUP)
 
     secrets = config.secrets()
 
@@ -258,8 +267,13 @@ def main() -> int:
         return 1
     logger.info("Bot başlıyor (mod: %s)", config.mode)
     session_factory = get_session_factory()
-    intake = DocumentIntake(session_factory, prepare_data_dir(settings.data_dir), settings)
-    run(build_application(config, session_factory, intake=intake), config)
+    layout = prepare_data_dir(settings.data_dir)
+    intake = DocumentIntake(session_factory, layout, settings)
+    document_requests = DocumentRequests(session_factory, layout, settings)
+    application = build_application(
+        config, session_factory, intake=intake, document_requests=document_requests
+    )
+    run(application, config)
     return 0
 
 

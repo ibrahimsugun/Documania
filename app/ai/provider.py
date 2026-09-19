@@ -33,6 +33,12 @@ sayfanın görüntüsünü katalogda açık olan kurallara göre değerlendirtir
 `pass`/`fail`/`unsure` alır (`PhotoCheck`). Yanıt kabulü (`validate_photo_check`: sorulan her kural
 bir kez, başkası yok) ve yeniden deneme ortaktır; somut sağlayıcı `_request_photo_check`'i uygular,
 şemaya uymayan yanıt `PhotoCheckError`'dır. Uygulamayan sağlayıcı `ProviderError` verir.
+
+**Belge isteği (12.3.1).** Dördüncü iş görüntüsüzdür: `read_document_query(DocumentQueryRequest)`
+İK'nın Telegram'a yazdığı metni katalogla birlikte verir ve karşılığı olan araç çağrısını
+(`DocumentQuery`: kimin, hangi tür belgesi) alır. Yanıt kabulü (`validate_document_query`: katalog
+dışı slug yok) ve yeniden deneme ortaktır; somut sağlayıcı `_request_document_query`'yi uygular,
+şemaya uymayan yanıt `DocumentQueryError`'dır. Uygulamayan sağlayıcı `ProviderError` verir.
 """
 
 from __future__ import annotations
@@ -43,6 +49,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import ClassVar, Literal, final
 
+from app.ai.document_query import DocumentQuery, validate_document_query
 from app.ai.photo_check import PhotoCheck, validate_photo_check
 from app.ai.schemas import PageAnalysis, PageAnalysisError, validate_page_analysis
 from app.ai.type_description import TypeDescription, validate_type_description
@@ -202,6 +209,30 @@ class PhotoCheckRequest:
         object.__setattr__(self, "rules", rules)
 
 
+@dataclass(frozen=True, slots=True, kw_only=True)
+class DocumentQueryRequest:
+    """Belge isteğinin okunması (12.3.1); hiçbir alanı sağlayıcıya özgü değildir. Görüntü yoktur.
+
+    - `instructions`: sistem talimatı (`app.ai.prompts.document_query`).
+    - `prompt`: katalog türleri ve İK'nın mesajı (`app.telegram.intent.build_query_prompt`).
+    - `known_slugs`: istemdeki kataloğun slug'ları; başka slug taşıyan yanıt reddedilir.
+    """
+
+    instructions: str = field(repr=False)
+    prompt: str = field(repr=False)
+    known_slugs: frozenset[str]
+
+    def __post_init__(self) -> None:
+        if not self.instructions.strip():
+            raise ValueError("instructions boş olamaz")
+        if not self.prompt.strip():
+            raise ValueError("prompt boş olamaz")
+        if isinstance(self.known_slugs, str):
+            raise TypeError("known_slugs tek bir metin değil, slug koleksiyonu olmalı")
+        # Çağıran liste/demet verebilir; istek değişmez olsun diye kopyalanır.
+        object.__setattr__(self, "known_slugs", frozenset(self.known_slugs))
+
+
 class AnalysisProvider(abc.ABC):
     """Sayfa analizi sağlayıcısı. `name` `AI_PROVIDER` değeridir, `model` kullanılan modeldir."""
 
@@ -257,6 +288,17 @@ class AnalysisProvider(abc.ABC):
         raw = _with_retry(self._request_photo_check, request)
         return validate_photo_check(raw, rules=request.rules)
 
+    @final
+    def read_document_query(self, request: DocumentQueryRequest) -> DocumentQuery:
+        """İK'nın mesajını belge isteği araç çağrısına çevirtir (12.3.1).
+
+        Yeniden deneme `analyze_page`'teki gibidir (03.5.1). Yanıt `validate_document_query`'den
+        geçer: istemdeki katalog dışında slug yok; uymayan yanıt `DocumentQueryError` olur,
+        düzeltilmez.
+        """
+        raw = _with_retry(self._request_document_query, request)
+        return validate_document_query(raw, known_slugs=request.known_slugs)
+
     @abc.abstractmethod
     def _request_analysis(self, request: PageAnalysisRequest) -> object:
         """Sağlayıcıyı bir kez çağırır, yapılandırılmış çıktıyı doğrulamadan döner.
@@ -277,6 +319,12 @@ class AnalysisProvider(abc.ABC):
         döner (sözleşmesi `_request_analysis`'inkidir; yapılandırılmış çıktı yoksa
         `PhotoCheckError`). Varsayılan: sağlayıcı bu işi yapmaz."""
         raise ProviderError(f"'{self.name}' sağlayıcısı fotoğraf kontrolü yapmıyor")
+
+    def _request_document_query(self, request: DocumentQueryRequest) -> object:
+        """Belge isteği için sağlayıcıyı bir kez çağırır, yapılandırılmış çıktıyı doğrulamadan döner
+        (sözleşmesi `_request_analysis`'inkidir; yapılandırılmış çıktı yoksa
+        `DocumentQueryError`). Varsayılan: sağlayıcı bu işi yapmaz."""
+        raise ProviderError(f"'{self.name}' sağlayıcısı belge isteği okumuyor")
 
 
 def _with_retry[R](call: Callable[[R], object], request: R) -> object:

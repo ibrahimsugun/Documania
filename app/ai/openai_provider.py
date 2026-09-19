@@ -21,6 +21,9 @@ Fotoğraf kontrolü (11.7.1) de aynı biçimdedir: kullanıcı mesajında fotoğ
 sonra değerlendirilecek kuralların metni; zorlanmış işlev `PHOTO_CHECK_TOOL_NAME`, parametre şeması
 `PhotoCheck.model_json_schema()`.
 
+Belge isteği (12.3.1) görüntüsüzdür: kullanıcı mesajında yalnız katalog ve İK'nın mesajı; zorlanmış
+işlev `DOCUMENT_QUERY_TOOL_NAME`, parametre şeması `DocumentQuery.model_json_schema()`.
+
 SDK'nın kendi yeniden denemesi kapalıdır (`max_retries=0`): geri çekilmeli deneme 03.5'in işidir,
 iki katman üst üste denemesin. İstek `store=False` gider: sayfa görüntüsü kimlik belgesi olabilir,
 sağlayıcı tarafında saklanmasını istemiyoruz (CONVENTIONS §6).
@@ -39,9 +42,11 @@ from openai.types.chat import (
     ChatCompletionMessageParam,
 )
 
+from app.ai.document_query import DocumentQuery, DocumentQueryError
 from app.ai.photo_check import PhotoCheck, PhotoCheckError
 from app.ai.provider import (
     AnalysisProvider,
+    DocumentQueryRequest,
     PageAnalysisRequest,
     PageImage,
     PhotoCheckRequest,
@@ -101,6 +106,22 @@ PHOTO_CHECK_TOOL: ChatCompletionFunctionToolParam = {
     },
 }
 
+DOCUMENT_QUERY_TOOL_NAME = "record_document_query"
+
+DOCUMENT_QUERY_TOOL: ChatCompletionFunctionToolParam = {
+    "type": "function",
+    "function": {
+        "name": DOCUMENT_QUERY_TOOL_NAME,
+        "description": (
+            "İK'nın mesajının belge isteği olarak okunmasını kaydeder: kimin, hangi tür belgesi "
+            "istendi ya da mesajın belge isteği olmadığı. Argümanlar, belge isteği şemasındaki "
+            "her anahtarı taşıyan tek bir nesnedir."
+        ),
+        "parameters": DocumentQuery.model_json_schema(),
+        "strict": False,
+    },
+}
+
 _UNFINISHED_FINISH_REASONS = frozenset({"length", "content_filter"})
 """`length` kesik argüman, `content_filter` süzülmüş çıktıdır — araç çağrısı varmış gibi görünse de
 kabul edilmez. (Zorlanmış işlev seçiminde `finish_reason` `tool_calls` yerine `stop` gelebilir; bu
@@ -111,8 +132,8 @@ _PERMANENT_RATE_LIMIT_CODES = frozenset({"insufficient_quota"})
 
 
 class OpenAIProvider(AnalysisProvider):
-    """OpenAI Chat Completions API ile sayfa analizi, tür açıklaması ve fotoğraf kontrolü
-    (`AI_PROVIDER=openai`)."""
+    """OpenAI Chat Completions API ile sayfa analizi, tür açıklaması, fotoğraf kontrolü ve belge
+    isteği (`AI_PROVIDER=openai`)."""
 
     name = "openai"
 
@@ -179,6 +200,16 @@ class OpenAIProvider(AnalysisProvider):
             error=PhotoCheckError,
         )
 
+    def _request_document_query(self, request: DocumentQueryRequest) -> object:
+        return self._forced_function_call(
+            request.instructions,
+            (),
+            request.prompt,
+            DOCUMENT_QUERY_TOOL,
+            label="belge isteği işlevi",
+            error=DocumentQueryError,
+        )
+
     def _forced_function_call(
         self,
         instructions: str,
@@ -189,9 +220,9 @@ class OpenAIProvider(AnalysisProvider):
         label: str,
         error: Callable[[list[str]], Exception],
     ) -> object:
-        """Görüntüler (sırayla) ve metinle tek istek; `tool` işlevi zorlanır, argümanları
-        doğrulanmadan döner. Yanıtta tek ve tam bir `tool` çağrısı yoksa `error` (`label` mesajdaki
-        işlev adıdır)."""
+        """Görüntüler (sırayla; olmayabilir) ve metinle tek istek; `tool` işlevi zorlanır,
+        argümanları doğrulanmadan döner. Yanıtta tek ve tam bir `tool` çağrısı yoksa `error`
+        (`label` mesajdaki işlev adıdır)."""
         name = tool["function"]["name"]
         messages: list[ChatCompletionMessageParam] = [
             {"role": "system", "content": instructions},

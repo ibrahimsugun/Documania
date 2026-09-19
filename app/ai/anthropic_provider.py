@@ -19,6 +19,9 @@ Fotoğraf kontrolü (11.7.1) de aynı biçimdedir: kullanıcı turunda fotoğraf
 sonra değerlendirilecek kuralların metni; zorlanmış araç `PHOTO_CHECK_TOOL_NAME`, girdi şeması
 `PhotoCheck.model_json_schema()`.
 
+Belge isteği (12.3.1) görüntüsüzdür: kullanıcı turunda yalnız katalog ve İK'nın mesajı; zorlanmış
+araç `DOCUMENT_QUERY_TOOL_NAME`, girdi şeması `DocumentQuery.model_json_schema()`.
+
 SDK'nın kendi yeniden denemesi kapalıdır (`max_retries=0`): geri çekilmeli deneme 03.5'in işidir,
 iki katman üst üste denemesin.
 """
@@ -33,9 +36,11 @@ import anthropic
 import httpx2
 from anthropic.types import Message, MessageParam, ToolParam
 
+from app.ai.document_query import DocumentQuery, DocumentQueryError
 from app.ai.photo_check import PhotoCheck, PhotoCheckError
 from app.ai.provider import (
     AnalysisProvider,
+    DocumentQueryRequest,
     PageAnalysisRequest,
     PageImage,
     PhotoCheckRequest,
@@ -83,9 +88,21 @@ PHOTO_CHECK_TOOL: ToolParam = {
     "input_schema": PhotoCheck.model_json_schema(),
 }
 
+DOCUMENT_QUERY_TOOL_NAME = "record_document_query"
+
+DOCUMENT_QUERY_TOOL: ToolParam = {
+    "name": DOCUMENT_QUERY_TOOL_NAME,
+    "description": (
+        "İK'nın mesajının belge isteği olarak okunmasını kaydeder: kimin, hangi tür belgesi "
+        "istendi ya da mesajın belge isteği olmadığı. Girdi, belge isteği şemasındaki her "
+        "anahtarı taşıyan tek bir nesnedir."
+    ),
+    "input_schema": DocumentQuery.model_json_schema(),
+}
+
 
 class AnthropicProvider(AnalysisProvider):
-    """Anthropic Messages API ile sayfa analizi, tür açıklaması ve fotoğraf kontrolü
+    """Anthropic Messages API ile sayfa analizi, tür açıklaması, fotoğraf kontrolü ve belge isteği
     (`AI_PROVIDER=anthropic`)."""
 
     name = "anthropic"
@@ -153,6 +170,16 @@ class AnthropicProvider(AnalysisProvider):
             error=PhotoCheckError,
         )
 
+    def _request_document_query(self, request: DocumentQueryRequest) -> object:
+        return self._forced_tool_call(
+            request.instructions,
+            (),
+            request.prompt,
+            DOCUMENT_QUERY_TOOL,
+            label="belge isteği aracı",
+            error=DocumentQueryError,
+        )
+
     def _forced_tool_call(
         self,
         instructions: str,
@@ -163,8 +190,9 @@ class AnthropicProvider(AnalysisProvider):
         label: str,
         error: Callable[[list[str]], Exception],
     ) -> object:
-        """Görüntüler (sırayla) ve metinle tek istek; `tool` zorlanır, girdisi doğrulanmadan döner.
-        Yanıtta tek ve tamamlanmış `tool` çağrısı yoksa `error` (`label` mesajdaki araç adıdır)."""
+        """Görüntüler (sırayla; olmayabilir) ve metinle tek istek; `tool` zorlanır, girdisi
+        doğrulanmadan döner. Yanıtta tek ve tamamlanmış `tool` çağrısı yoksa `error` (`label`
+        mesajdaki araç adıdır)."""
         message: MessageParam = {
             "role": "user",
             "content": [

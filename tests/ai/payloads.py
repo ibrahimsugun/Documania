@@ -1,11 +1,17 @@
-"""Sağlayıcı testleri için §8.4'e, tür açıklaması (11.3.1) ve fotoğraf kontrolü (11.7.1) şemalarına
-uyan sentetik yanıt ve istek (gerçek kişi yok)."""
+"""Sağlayıcı testleri için §8.4'e, tür açıklaması (11.3.1), fotoğraf kontrolü (11.7.1) ve belge
+isteği (12.3.1) şemalarına uyan sentetik yanıt ve istek (gerçek kişi yok)."""
 
 from __future__ import annotations
 
 from typing import Any
 
-from app.ai import PageAnalysisRequest, PageImage, PhotoCheckRequest, TypeDescriptionRequest
+from app.ai import (
+    DocumentQueryRequest,
+    PageAnalysisRequest,
+    PageImage,
+    PhotoCheckRequest,
+    TypeDescriptionRequest,
+)
 from app.catalog import load_seed_catalog
 from tests.fixtures.gen import make_half_filled_image_bytes
 
@@ -132,3 +138,37 @@ def photo_check_request(
         prompt=prompt,
         rules=rules,
     )
+
+
+# Kurgusal kişi adı; hata mesajlarında ve loglarda geçmediği denetlenir.
+SYNTHETIC_REQUESTED_PERSON = "Ornekova Test"
+
+
+def query_payload(
+    *people: str,
+    kind: str | None = "ehliyet",
+    types: tuple[str, ...] = ("serbian_driving_license",),
+    intent: str = "find_documents",
+) -> dict[str, Any]:
+    """Belge isteği şemasına (12.3.1) uyan sentetik yanıt; kişi verilmezse
+    `SYNTHETIC_REQUESTED_PERSON`. Her çağrıda yeni bir sözlük."""
+    return {
+        "intent": intent,
+        "people": list(people or (SYNTHETIC_REQUESTED_PERSON,)),
+        "document_kind": kind,
+        "document_types": list(types),
+    }
+
+
+def other_payload() -> dict[str, Any]:
+    """Belge isteği olmayan mesajın yanıtı."""
+    return {"intent": "other", "people": [], "document_kind": None, "document_types": []}
+
+
+def query_request(
+    *,
+    instructions: str = "Belge isteği talimatı (test).",
+    prompt: str = "<katalog>…</katalog>\n<mesaj>Ornekova'nın ehliyetini göster</mesaj>",
+    known_slugs: tuple[str, ...] = SLUGS,
+) -> DocumentQueryRequest:
+    return DocumentQueryRequest(instructions=instructions, prompt=prompt, known_slugs=known_slugs)

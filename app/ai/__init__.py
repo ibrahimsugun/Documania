@@ -1,7 +1,13 @@
 """Yapay zekâ analiz katmanı: sayfa analizi sözleşmesi (03.1), sağlayıcı soyutlaması (03.2),
-analiz talimatı (03.4), tür açıklaması sözleşmesi (11.3.1) ve fotoğraf kontrolü sözleşmesi
-(11.7.1)."""
+analiz talimatı (03.4), tür açıklaması sözleşmesi (11.3.1), fotoğraf kontrolü sözleşmesi (11.7.1) ve
+Telegram belge isteği sözleşmesi (12.3.1)."""
 
+from app.ai.document_query import (
+    DocumentQuery,
+    DocumentQueryError,
+    QueryIntent,
+    validate_document_query,
+)
 from app.ai.photo_check import (
     PhotoCheck,
     PhotoCheckError,
@@ -13,6 +19,7 @@ from app.ai.prompts import PageAnalysisInstructions, build_page_analysis_instruc
 from app.ai.provider import (
     PROVIDER_FACTORIES,
     AnalysisProvider,
+    DocumentQueryRequest,
     PageAnalysisRequest,
     PageImage,
     PhotoCheckRequest,
@@ -49,6 +56,9 @@ __all__ = [
     "ISO_639_1_CODES",
     "PROVIDER_FACTORIES",
     "AnalysisProvider",
+    "DocumentQuery",
+    "DocumentQueryError",
+    "DocumentQueryRequest",
     "FieldLocation",
     "FieldReading",
     "MrzDescription",
@@ -69,6 +79,7 @@ __all__ = [
     "ProviderError",
     "ProviderRateLimitError",
     "ProviderServerError",
+    "QueryIntent",
     "Script",
     "Side",
     "TypeDescription",
@@ -76,6 +87,7 @@ __all__ = [
     "TypeDescriptionRequest",
     "build_page_analysis_instructions",
     "create_provider",
+    "validate_document_query",
     "validate_page_analysis",
     "validate_photo_check",
     "validate_type_description",
