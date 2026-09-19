@@ -1075,14 +1075,14 @@
         "description": "PRD 11.1.1, 11.1.2, 11.1.3 · FR-MOD-11 (Belge türü kataloğu ve öğrenme) · Faz 1.",
         "details": "KAPSAM: PRD 11.1.1, 11.1.2, 11.1.3 (FR-MOD-11 — Belge türü kataloğu ve öğrenme, Faz 1).\n\nNE YAPILACAK — GEREKSİNİMLER VE KABUL KRİTERLERİ:\n- 11.1.1 — Katalog yönetim ekranı\n  Kabul: Tür oluşturma, düzenleme ve pasifleştirme panelden yapılır\n- 11.1.2 — Katalog form doğrulaması\n  Kabul: Direkt türde dönüşüm listesi boş, front_back türde sayfa aralığı 2 olmalı\n- 11.1.3 — Kabul kriteri düzenleme\n  Kabul: Tür formunda `acceptance_criteria` maddeleri eklenip çıkarılabilir; değişiklik bir sonraki analizde geçerli olur\n\nGİRDİ — ÜZERİNE KURULDUĞU İŞLER (bu kod ZATEN VAR; yazmadan önce OKU):\n- 10.1 (Panel iskeleti ve giriş) → app/web/, app/web/templates/base.html\n- 00.6 (Belge türü kataloğu ve başlangıç tohumu) → app/catalog/, data/KnownDocuments/catalog.yaml\n\nÇIKTI — DOKUNULACAK YÜZEY: app/web/routers/catalog.py, app/catalog/\n\nKARAR TABLOSU: bu görev için ayrı karar tablosu yok; kabul kriterleri ve kilitli kurallar yeterli.\n\nBU GÖREVİ BAĞLAYAN KİLİTLİ KURALLAR: özel kural yok. Genel sınırlar MASTER-PROMPT §8'de.\n\nPRD'DE AYRICA OKU: §8.6 (katalog kaydı biçimi)\n\nİLGİLİ KABUL SENARYOSU: doğrudan yok. Kabul kriterleri yukarıda.\n\nSIRA (MASTER-PROMPT §5, contract-first): sözleşme/şema → Alembic göçü (gerekiyorsa) → çekirdek + unit test → entegrasyon + testi → arayüz.\n\nKAPSAM SINIRI: yalnız yukarıdaki PRD kimlikleri. Başka gereksinimin işini yapma; yolda gördüğün kusuru düzeltme, yeni görev olarak aç (CONVENTIONS §5). Kilitli teknik kararları (MASTER-PROMPT §4) tartışma; yanlış görünüyorsa uygula ve PLAN.md §D'ye sapma yaz.\n\nTUZAKLAR: belge içeriğini değiştiren kod yazma — kırpma, döndürme (EXIF dışında), kontrast, metin yazma, form doldurma yok (K11/K17). Gerçek kimlik belgesi kullanma; test verisi tests/fixtures/gen.py ile üretilen sentetik belgelerdir (CONVENTIONS §6). Yapay zekâ çağrısı testte canlı yapılmaz, kayıtlı yanıt sağlayıcısı kullanılır. Test/build komutlarını arka plana atma — pencere ölür.\n\nKAPANIŞ: PLAN.md'de 11.1.1, 11.1.2, 11.1.3 satırlarının damgasını '✅ → K11.1' yap ve '## K. Kanıt Geçmişi' bölümünde '#### K11.1' bloğuna kanıt maddesi ekle (blok yoksa aç). Faz özet tablosundaki sayıları SAYARAK güncelle. Ayrıntı: CONVENTIONS §1.2-1.3.",
         "testStrategy": "CONVENTIONS §1 DoD kapısı: ruff check . · ruff format --check . · python -m compileall -q app tests · pytest -q -m \"not live\" · alembic upgrade head · python -c \"import app.main\" — hepsi exit 0.\nAyrıca bu görevin kendi kabul kriterleri:\n- 11.1.1: Tür oluşturma, düzenleme ve pasifleştirme panelden yapılır\n- 11.1.2: Direkt türde dönüşüm listesi boş, front_back türde sayfa aralığı 2 olmalı\n- 11.1.3: Tür formunda `acceptance_criteria` maddeleri eklenip çıkarılabilir; değişiklik bir sonraki analizde geçerli olur",
-        "status": "in-progress",
+        "status": "done",
         "dependencies": [
           "64",
           "6"
         ],
         "priority": "high",
         "subtasks": [],
-        "updatedAt": "2026-09-18T23:31:34.083Z"
+        "updatedAt": "2026-09-19T00:21:06.000Z"
       },
       {
         "id": "76",
@@ -1346,9 +1346,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-09-18T23:31:34.084Z",
+      "lastModified": "2026-09-19T00:21:06.001Z",
       "taskCount": 94,
-      "completedCount": 73,
+      "completedCount": 74,
       "tags": [
         "master"
       ]
