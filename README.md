@@ -20,6 +20,7 @@ ve yaptığı her işi izlenebilir biçimde loglayan bir belge yönetim platform
 | [`TASK-RUNNER-PROMPT.md`](TASK-RUNNER-PROMPT.md) | Bir pencerenin görevini nasıl yürüttüğü |
 | [`run-loop.sh`](run-loop.sh) | Otonom döngü sürücüsü |
 | [`docs/UYGULAMA-PLANI-KAYNAK.md`](docs/UYGULAMA-PLANI-KAYNAK.md) | İlk uygulama planı — tarihsel kaynak, taşınmaz |
+| [`docs/YEDEKLEME.md`](docs/YEDEKLEME.md) | Gece yedeği, sunucu dışı kopya ve geri yükleme prosedürü (`scripts/backup.sh`, `scripts/restore.sh`) |
 
 ## Nexa Panel ile izleme
 

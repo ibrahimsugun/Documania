@@ -390,3 +390,11 @@ form.inline { display: inline; margin: 0 0 0 0.6rem; }
 .metrics th, .metrics td { padding: 0.35rem 0.5rem; text-align: left; border-bottom: 1px solid #eef0f3; }
 
 .metrics th.num, .metrics td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+/* Erişim logu (13.4.1) */
+
+.access-log { width: 100%; border-collapse: collapse; background: #fff; margin-bottom: 0.5rem; }
+
+.access-log th, .access-log td { padding: 0.35rem 0.5rem; text-align: left; border-bottom: 1px solid #eef0f3; }
+
+.access-log th.num, .access-log td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }

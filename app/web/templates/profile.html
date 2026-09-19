@@ -9,7 +9,7 @@
 <p class="error" role="alert">{{ error }}</p>
 {% else %}
 <h1>{{ profile.name }}</h1>
-<p class="profile-meta">{{ profile.id }} · {{ profile.status_label }}</p>
+<p class="profile-meta">{{ profile.id }} · {{ profile.status_label }} · <a href="/access-log/employees/{{ profile.id }}">Erişim logu</a></p>
 
 <section class="profile-card" aria-label="Çalışan kartı">
   <div class="profile-photo">

@@ -18,6 +18,8 @@
     </nav>
     {# 13.1.1: maliyet, PRD 10.1.1'in beş menüsünün dışında, oturumun yanında durur. #}
     <a class="tool-link{% if active == 'metrics' %} active{% endif %}" href="/metrics"{% if active == 'metrics' %} aria-current="page"{% endif %}>Maliyet</a>
+    {# 13.4.1: erişim logu da menü dışı araçtır. #}
+    <a class="tool-link{% if active == 'access_log' %} active{% endif %}" href="/access-log"{% if active == 'access_log' %} aria-current="page"{% endif %}>Erişim logu</a>
     <form class="session" method="post" action="/logout">
       <span class="username">{{ user.username }}</span>
       <button type="submit">Çıkış</button>

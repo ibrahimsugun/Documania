@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{# Erişim logu (13.4.1): belgelerine bakılmış çalışanlar. Sayfa yalnız okur. #}
+{% block title %}Erişim logu{% endblock %}
+{% block content %}
+<h1>Erişim logu</h1>
+<p class="placeholder">Belgelerine panelden bakılmış ya da bot üzerinden gönderilmiş çalışanlar. Kimin, ne zaman baktığı çalışana tıklayınca görünür. Zamanlar UTC'dir; kayıtlar silinmez.</p>
+
+{% if overview.rows %}
+<table class="access-log">
+  <thead>
+    <tr>
+      <th>Çalışan</th><th class="num">Erişim</th><th class="num">Bakan kullanıcı</th><th>Son erişim</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for row in overview.rows %}
+    <tr>
+      <td><a href="{{ row.url }}">{{ row.name }}</a> <span class="reason">{{ row.employee_id }}</span></td>
+      <td class="num">{{ row.accesses }}</td>
+      <td class="num">{{ row.viewers }}</td>
+      <td>{{ row.last_access }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+<nav class="pager" aria-label="Sayfalama">
+  {% if overview.previous_url %}<a href="{{ overview.previous_url }}">← Önceki</a>{% endif %}
+  <span>Sayfa {{ overview.page }} / {{ overview.page_count }} · {{ overview.total }} çalışan</span>
+  {% if overview.next_url %}<a href="{{ overview.next_url }}">Sonraki →</a>{% endif %}
+</nav>
+{% else %}
+<p class="placeholder">Henüz hiçbir belgeye bakılmadı.</p>
+{% endif %}
+{% endblock %}

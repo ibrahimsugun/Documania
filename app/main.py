@@ -12,6 +12,7 @@ from app.config import Settings, get_settings
 from app.storage import prepare_data_dir
 from app.web.auth import LoginRequiredError, login_url, require_api_user, require_panel_user
 from app.web.routers import (
+    access_log,
     auth,
     catalog,
     documents,
@@ -61,6 +62,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     application.include_router(catalog.router, dependencies=[Depends(require_panel_user)])
     application.include_router(queue.pages_router, dependencies=[Depends(require_panel_user)])
     application.include_router(metrics.router, dependencies=[Depends(require_panel_user)])
+    application.include_router(access_log.router, dependencies=[Depends(require_panel_user)])
     application.include_router(uploads.router, dependencies=[Depends(require_api_user)])
     application.include_router(queue.router, dependencies=[Depends(require_api_user)])
 

@@ -21,6 +21,8 @@ build/
 
 # --- calisma zamani verisi (GERCEK BELGELER - asla commit edilmez) ---
 data/
+# yedekler de gerçek belge içerir
+backups/
 
 # --- otonom dongu ---
 .loop-logs/
