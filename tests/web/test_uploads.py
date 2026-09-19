@@ -1,5 +1,6 @@
-"""01.1.1, 01.1.2, 01.3.1, 01.6.1, 06.6.1, 06.6.2 — çoklu dosya yükleme, bağlam çalışanı,
-boyut/sayfa sınırı, parti durumu sorgulama, planı yeniden çalıştırma ve yeniden analiz."""
+"""01.1.1, 01.1.2, 01.2.2, 01.3.1, 01.6.1, 06.6.1, 06.6.2 — çoklu dosya yükleme, bağlam çalışanı,
+Inbox'a yazılamayan ad ve desteklenmeyen tür reddi, boyut/sayfa sınırı, parti durumu sorgulama,
+planı yeniden çalıştırma ve yeniden analiz."""
 
 import copy
 from dataclasses import dataclass, field
@@ -33,8 +34,23 @@ from app.pipeline.analyze import analyze_upload
 from app.pipeline.plan import PlanDocument, create_plan, read_plan
 from app.pipeline.render import render_upload_file
 from app.storage import DataLayout, sha256_bytes
-from app.web.routers.uploads import get_analysis_provider, get_layout, get_plan_executor
-from tests.fixtures.gen import make_pdf_bytes, make_text_pdf_bytes
+from app.web.routers.uploads import (
+    IncomingFile,
+    _validated_name,
+    get_analysis_provider,
+    get_layout,
+    get_plan_executor,
+    store_upload,
+)
+from tests.fixtures.gen import (
+    make_docx_bytes,
+    make_legacy_doc_bytes,
+    make_legacy_xls_bytes,
+    make_pdf_bytes,
+    make_portrait_image_bytes,
+    make_text_pdf_bytes,
+    make_xlsx_bytes,
+)
 
 
 def test_get_layout_uses_settings_data_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -89,8 +105,12 @@ def test_upload_accepts_multiple_files_and_returns_upload_id(
 
 
 def test_second_upload_same_day_gets_next_sequence(client: TestClient) -> None:
-    first = client.post("/api/uploads", files=_files(("a.pdf", b"1"))).json()["upload_id"]
-    second = client.post("/api/uploads", files=_files(("b.pdf", b"2"))).json()["upload_id"]
+    first = client.post("/api/uploads", files=_files(("a.pdf", make_pdf_bytes(1)))).json()[
+        "upload_id"
+    ]
+    second = client.post("/api/uploads", files=_files(("b.pdf", make_pdf_bytes(2)))).json()[
+        "upload_id"
+    ]
 
     assert first != second
     assert first.rsplit("_", 1)[0] == second.rsplit("_", 1)[0]
@@ -108,7 +128,7 @@ def test_context_employee_id_is_stored_on_upload(
     response = client.post(
         "/api/uploads",
         data={"context_employee_id": "E0001"},
-        files=_files(("a.pdf", b"1")),
+        files=_files(("a.pdf", make_pdf_bytes(1))),
     )
 
     assert response.status_code == 201
@@ -123,7 +143,7 @@ def test_unknown_context_employee_id_returns_404(client: TestClient) -> None:
     response = client.post(
         "/api/uploads",
         data={"context_employee_id": "E9999"},
-        files=_files(("a.pdf", b"1")),
+        files=_files(("a.pdf", make_pdf_bytes(1))),
     )
 
     assert response.status_code == 404
@@ -180,7 +200,7 @@ def test_a_refused_batch_leaves_no_job_behind(
 ) -> None:
     _with_settings(app, max_upload_file_size_bytes=10)
 
-    client.post("/api/uploads", files=_files(("buyuk.pdf", b"0123456789A")))
+    client.post("/api/uploads", files=_files(("buyuk.pdf", b"%PDF-12345A")))
 
     with session_factory() as session:
         assert session.scalar(select(func.count()).select_from(UploadJob)) == 0
@@ -195,7 +215,7 @@ def test_oversized_file_is_rejected_and_told_to_split(
 ) -> None:
     _with_settings(app, max_upload_file_size_bytes=10)
 
-    response = client.post("/api/uploads", files=_files(("buyuk.pdf", b"0123456789A")))
+    response = client.post("/api/uploads", files=_files(("buyuk.pdf", b"%PDF-12345A")))
 
     assert response.status_code == 400
     assert "böl" in response.json()["detail"].lower()
@@ -206,7 +226,7 @@ def test_oversized_file_is_rejected_and_told_to_split(
 def test_file_at_exact_size_limit_is_accepted(app: FastAPI, client: TestClient) -> None:
     _with_settings(app, max_upload_file_size_bytes=10)
 
-    response = client.post("/api/uploads", files=_files(("tam.pdf", b"0123456789")))
+    response = client.post("/api/uploads", files=_files(("tam.pdf", b"%PDF-12345")))
 
     assert response.status_code == 201
 
@@ -238,6 +258,208 @@ def test_non_pdf_content_is_not_page_checked(app: FastAPI, client: TestClient) -
     response = client.post("/api/uploads", files=_files(("foto.jpg", b"\xff\xd8\xff test bytes")))
 
     assert response.status_code == 201
+
+
+def _assert_nothing_stored(session_factory: sessionmaker[Session], layout: DataLayout) -> None:
+    """Hep-ya-hiç: reddedilen partiden ne satır, ne olay, ne iş, ne de Inbox dizini kalır."""
+    with session_factory() as session:
+        for model in (Upload, UploadFile, Event, UploadJob):
+            assert session.scalar(select(func.count()).select_from(model)) == 0, model.__name__
+    assert not any(layout.inbox.iterdir())
+
+
+# --- 01.1.1 sağlamlık: Inbox'a yazılamayacak ad ------------------------------------------------
+
+# Windows'ta `write_file` → `os.link` WinError 123 verirdi (istek 500); Linux/Docker'da bu adlar
+# geçerlidir, ama Windows kümesi her yerde reddedilir (PLAN.md §D47).
+HTTP_UNWRITABLE_NAMES = ["a<b.pdf", "a>b.pdf", "a:b.pdf", "a|b.pdf", "a?b.pdf", "a*b.pdf"]
+# İstemci kitaplığı `"` ve denetim karakterlerini çok parçalı başlıkta kaçırır; bunlar çekirdeğe
+# doğrudan verilir.
+CORE_UNWRITABLE_NAMES = [
+    *HTTP_UNWRITABLE_NAMES,
+    'a"b.pdf',
+    "a\x00b.pdf",
+    "a\x01b.pdf",
+    "a\tb.pdf",
+    "a\nb.pdf",
+    "a\x1fb.pdf",
+    "a.pdf.",
+    "a.pdf ",
+    "a.pdf..",
+    "x" * 252 + ".pdf",  # 256 bayt
+    "ğ" * 126 + ".pdf",  # 126 karakter ama 256 bayt
+]
+
+
+@pytest.mark.parametrize("name", HTTP_UNWRITABLE_NAMES)
+def test_a_file_name_that_cannot_be_written_is_a_400_and_stores_nothing(
+    client: TestClient,
+    layout: DataLayout,
+    session_factory: sessionmaker[Session],
+    name: str,
+) -> None:
+    response = client.post("/api/uploads", files=_files((name, make_pdf_bytes(1))))
+
+    assert response.status_code == 400
+    detail = response.json()["detail"]
+    assert "Geçersiz dosya adı" in detail and name in detail
+    assert "yeniden adlandır" in detail
+    _assert_nothing_stored(session_factory, layout)
+
+
+@pytest.mark.parametrize("name", CORE_UNWRITABLE_NAMES)
+def test_the_core_refuses_every_name_the_inbox_cannot_hold(
+    layout: DataLayout, session_factory: sessionmaker[Session], name: str
+) -> None:
+    incoming = [IncomingFile(name, make_pdf_bytes(1), None)]
+
+    with session_factory() as session, pytest.raises(HTTPException) as refused:
+        store_upload(session, layout, Settings(database_url="sqlite://"), incoming, channel="web")
+
+    assert refused.value.status_code == 400
+    assert "Geçersiz dosya adı" in refused.value.detail
+    _assert_nothing_stored(session_factory, layout)
+
+
+def test_one_bad_name_refuses_the_whole_batch(
+    client: TestClient, layout: DataLayout, session_factory: sessionmaker[Session]
+) -> None:
+    response = client.post(
+        "/api/uploads",
+        files=_files(("iyi.pdf", make_pdf_bytes(1)), ("kotu?.pdf", make_pdf_bytes(2))),
+    )
+
+    assert response.status_code == 400
+    _assert_nothing_stored(session_factory, layout)
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        "Çağla Özgür - Pasaport (1).pdf",
+        "İşçi_ğüşöçı.pdf",
+        "a.b.c.pdf",
+        " basta-bosluk.pdf",
+        "kimlik#2 [ön].pdf",
+    ],
+)
+def test_ordinary_file_names_are_still_accepted(
+    client: TestClient, layout: DataLayout, session_factory: sessionmaker[Session], name: str
+) -> None:
+    response = client.post("/api/uploads", files=_files((name, make_pdf_bytes(1))))
+
+    assert response.status_code == 201
+    upload_id = response.json()["upload_id"]
+    assert (layout.upload_inbox_dir(upload_id) / name).read_bytes() == make_pdf_bytes(1)
+    with session_factory() as session:
+        stored = session.scalars(select(UploadFile)).one()
+        assert stored.original_name == name
+        assert (layout.root / stored.stored_path).exists()
+
+
+def test_the_name_length_limit_is_255_bytes_not_characters() -> None:
+    # Diske yazmadan sınanır: 255 baytlık yol Windows'ta MAX_PATH/uzun yol ayarına bağlıdır.
+    at_limit = ["x" * 251 + ".pdf", "ğ" * 125 + ".pdf"]
+    over_limit = ["x" * 252 + ".pdf", "ğ" * 126 + ".pdf"]
+
+    assert [_validated_name(name) for name in at_limit] == at_limit
+    for name in over_limit:
+        with pytest.raises(HTTPException) as refused:
+            _validated_name(name)
+        assert refused.value.status_code == 400 and "255 bayt" in refused.value.detail
+
+
+# --- 01.2.2: desteklenmeyen türün reddi ---------------------------------------------------------
+
+UNSUPPORTED = [
+    ("notlar.txt", b"Duz metin. Toplanti notlari."),
+    ("sahte.pdf", b"Uzantisi pdf ama icerigi metin"),
+    ("bos.pdf", b""),
+    ("bozuk.docx", b"PK\x03\x04 bozuk zip"),
+    ("baska.zip", b"PK\x03\x04"),
+    ("program.exe", b"MZ\x90\x00\x03\x00\x00\x00"),
+    ("gorsel.gif", b"GIF89a\x01\x00\x01\x00"),
+]
+
+
+@pytest.mark.parametrize(("name", "content"), UNSUPPORTED)
+def test_content_outside_the_seven_types_is_a_400_and_stores_nothing(
+    client: TestClient,
+    layout: DataLayout,
+    session_factory: sessionmaker[Session],
+    name: str,
+    content: bytes,
+) -> None:
+    response = client.post("/api/uploads", files=_files((name, content)))
+
+    assert response.status_code == 400
+    detail = response.json()["detail"]
+    assert "Desteklenmeyen dosya türü" in detail
+    assert "PDF, JPEG, PNG, DOC, DOCX, XLS, XLSX" in detail
+    assert name in detail
+    _assert_nothing_stored(session_factory, layout)
+
+
+def test_one_unsupported_file_refuses_the_whole_batch_and_names_it(
+    client: TestClient, layout: DataLayout, session_factory: sessionmaker[Session]
+) -> None:
+    response = client.post(
+        "/api/uploads",
+        files=_files(
+            ("pasaport.pdf", make_pdf_bytes(1)),
+            ("notlar.txt", b"duz metin"),
+            ("foto.jpg", make_portrait_image_bytes()),
+        ),
+    )
+
+    assert response.status_code == 400
+    detail = response.json()["detail"]
+    assert "notlar.txt" in detail and "pasaport.pdf" not in detail and "foto.jpg" not in detail
+    _assert_nothing_stored(session_factory, layout)
+
+
+@pytest.mark.parametrize(
+    ("name", "content"),
+    [
+        ("a.pdf", make_pdf_bytes(1)),
+        ("a.jpg", make_portrait_image_bytes("JPEG")),
+        ("a.png", make_portrait_image_bytes("PNG")),
+        ("a.doc", make_legacy_doc_bytes()),
+        ("a.docx", make_docx_bytes()),
+        ("a.xls", make_legacy_xls_bytes()),
+        ("a.xlsx", make_xlsx_bytes()),
+    ],
+)
+def test_each_of_the_seven_types_is_accepted(
+    client: TestClient, session_factory: sessionmaker[Session], name: str, content: bytes
+) -> None:
+    response = client.post("/api/uploads", files=_files((name, content)))
+
+    assert response.status_code == 201
+    with session_factory() as session:
+        assert session.scalars(select(UploadFile)).one().original_name == name
+
+
+def test_the_type_comes_from_the_content_not_from_the_extension(client: TestClient) -> None:
+    # 01.2.1: uzantısı `.txt` olan PDF içerikli dosya kabul edilir; `.pdf` uzantılı metin edilmez.
+    accepted = client.post("/api/uploads", files=_files(("rapor.txt", make_pdf_bytes(1))))
+    refused = client.post("/api/uploads", files=_files(("rapor.pdf", b"duz metin")))
+
+    assert accepted.status_code == 201
+    assert refused.status_code == 400
+
+
+def test_an_unsupported_file_is_told_its_type_even_when_it_is_also_too_large(
+    app: FastAPI, client: TestClient
+) -> None:
+    # Dosyayı bölmek onu desteklenen tür yapmaz: tür iletisi boyut iletisinden önce gelir.
+    _with_settings(app, max_upload_file_size_bytes=10)
+
+    response = client.post("/api/uploads", files=_files(("buyuk.txt", b"duz metin " * 5)))
+
+    assert response.status_code == 400
+    assert "Desteklenmeyen dosya türü" in response.json()["detail"]
+    assert "böl" not in response.json()["detail"].lower()
 
 
 def test_duplicate_content_in_second_upload_is_flagged(
@@ -284,7 +506,7 @@ def test_third_identical_upload_points_to_first_not_second(
     client: TestClient, session_factory: sessionmaker[Session]
 ) -> None:
     """Zincirlenme yok: art arda gelen tekrarların hepsi kök (ilk) dosyaya bağlanır."""
-    content = b"ucuncu tekrar testi"
+    content = b"%PDF-1.4 ucuncu tekrar testi"
     first_upload_id = client.post("/api/uploads", files=_files(("a.pdf", content))).json()[
         "upload_id"
     ]
@@ -325,7 +547,7 @@ def test_get_upload_status_returns_status_files_and_progress(client: TestClient)
 
 
 def test_get_upload_status_marks_duplicate_files(client: TestClient) -> None:
-    content = b"tekrar iceren dosya"
+    content = b"%PDF-1.4 tekrar iceren dosya"
     first_upload_id = client.post("/api/uploads", files=_files(("a.pdf", content))).json()[
         "upload_id"
     ]

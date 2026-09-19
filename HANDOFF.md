@@ -18,6 +18,12 @@ Blok biçimi `CONVENTIONS.md` §3'te tanımlıdır:
 
 ## Task log (newest-first)
 
+## 94 — 01.1-b Yükleme ön denetimi: geçersiz karakterli ad ve desteklenmeyen tür — done — 2026-09-19
+- Yapıldı: `store_upload` (`POST /api/uploads`, `/upload`, Telegram botu ortak çekirdeği) hiçbir şey yazılmadan önce adı (`< > : " | ? *`, denetim karakteri, sondaki nokta/boşluk, 255 bayt) ve içeriği (`detect_file_kind`, yedi tür dışı) denetler; ikisi de dosyayı adıyla söyleyen 400 iletisiyle hep-ya-hiç reddedilir (parti, satır, olay, iş, Inbox dizini yok); PLAN.md 01.2.2 `◐` → `✅`.
+- Doğrulama: ruff check/format, compileall, `pytest -q -m "not live" --cov=app --cov-fail-under=70` (3985 geçti, +49; 5 PG atlandı; üç ön plan koşusu), kapsam %99.89 (`uploads.py` %100), temiz SQLite'ta `alembic upgrade head` (göç yok), `import app.main` — hepsi exit 0; 5 geçici kural bozmasının her biri testte kırmızı. **Gerçek belge ve canlı sağlayıcı çağrısı yok.**
+- Varsayımlar: PLAN.md §D47 — yasak ad kümesi her platformda geçerli (görev önerisi kabul), tür denetimi boyuttan önce, cihaz adları (`CON`, `NUL`) denetlenmez (bu makinede yazılabiliyor); yedi türe uymayan baytla POST eden sekiz mevcut test sentetik geçerli içerik aldı, beklentileri değişmedi.
+- Sonraki pencereye not: Windows'ta 255 baytlık ad toplam yol uzunluğuna (`MAX_PATH`) takılabilir ve bu denetlenmiyor (D47 e); Telegram yolu için ayrı test yazılmadı (çekirdek `tests/web`'de sınandı, bot testleri yeşil).
+
 ## 92 — 13.6 İzleme ve uyarılar — done — 2026-09-19
 - Yapıldı: `app/worker/monitor.py` hata (son saatte 3 işlenemeyen parti), veri diski doluluğu (%85), işçi kuyruğu (20 bekleyen parti) ve karar bekleyen kuyruk (50 öğe) eşiklerini ölçer, uyarıyı çıkarır/hatırlatır/giderir ve loga yazar; `Worker` her turdan sonra ölçer, `Notifier(watch=)` aynı uyarıyı beyaz listedeki kullanıcılara Telegram'dan yollar (`bot.main` izleyiciyi `ALERT_*` ayarlarından kurar).
 - Doğrulama: ruff check/format, compileall, `pytest -q -m "not live" --cov=app --cov-fail-under=70` (3936 geçti, +46; 5 PG atlandı; üç ön plan koşusu), kapsam %99 (`monitor.py` %100), temiz SQLite'ta `alembic upgrade head` (göç yok), `import app.main` — hepsi exit 0; 14 geçici kural bozmasının her biri testte kırmızı. **Gerçek Telegram çağrısı ve gerçek dolu disk yok.**

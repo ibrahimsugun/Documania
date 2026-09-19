@@ -36,6 +36,7 @@ from app.web.routers.upload_page import (
 from tests.fixtures.gen import (
     PERSON_ORNEKOVA,
     make_document_pdf_bytes,
+    make_pdf_bytes,
     passport_page,
     recorded_provider,
 )
@@ -253,6 +254,46 @@ def test_upload_limits_of_the_api_apply_to_the_page(
     assert response.status_code == 400
     assert "buyuk.pdf" in response.text and "bölüp tekrar yükleyin" in response.text
     assert _upload_count(session_factory) == 0
+    assert processor.upload_ids == []
+
+
+def test_a_file_name_the_inbox_cannot_hold_is_shown_as_a_message_not_a_500(
+    client: TestClient,
+    layout: DataLayout,
+    session_factory: sessionmaker[Session],
+    processor: _Processor,
+) -> None:
+    response = client.post("/upload", files=_files(("a<b>.pdf", make_pdf_bytes(1))))
+
+    assert response.status_code == 400
+    # Ad kullanıcıdan gelir: mesaj HTML'e kaçırılarak gösterilir.
+    assert 'role="alert"' in response.text and "Geçersiz dosya adı" in response.text
+    assert "a&lt;b&gt;.pdf" in response.text and "a<b>.pdf" not in response.text
+    assert _upload_count(session_factory) == 0
+    assert not any(layout.inbox.iterdir())
+    assert processor.upload_ids == []
+
+
+def test_an_unsupported_file_is_shown_as_a_message_and_nothing_is_stored(
+    client: TestClient,
+    layout: DataLayout,
+    session_factory: sessionmaker[Session],
+    processor: _Processor,
+) -> None:
+    # Tarayıcının `accept=` süzgeci yalnız istemci tarafındadır; sunucu içeriğe bakıp reddeder.
+    response = client.post(
+        "/upload",
+        files=_files(
+            ("cv.pdf", make_pdf_bytes(1)), ("notlar.txt", b"Duz metin. Toplanti notlari.")
+        ),
+    )
+
+    assert response.status_code == 400
+    assert 'role="alert"' in response.text
+    assert "Desteklenmeyen dosya türü" in response.text and "notlar.txt" in response.text
+    assert "cv.pdf" not in response.text
+    assert _upload_count(session_factory) == 0
+    assert not any(layout.inbox.iterdir())
     assert processor.upload_ids == []
 
 

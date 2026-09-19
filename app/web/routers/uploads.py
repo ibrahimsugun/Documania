@@ -1,13 +1,15 @@
-"""Yükleme uç noktası — çoklu dosya partisi oluşturma (PRD 01.1.1, 01.1.2, 01.3.1), planı yeniden
-çalıştırma ve yeniden analiz (06.6.1, 06.6.2).
+"""Yükleme uç noktası — çoklu dosya partisi oluşturma (PRD 01.1.1, 01.1.2, 01.2.2, 01.3.1), planı
+yeniden çalıştırma ve yeniden analiz (06.6.1, 06.6.2).
 
 Her dosya `Inbox/<upload_id>/<orijinal_ad>` altına değişmez biçimde yazılır (K10); yol yalnız
 `app.storage.DataLayout` üzerinden kurulur. `context_employee_id` verilirse partiye bağlanır —
 sahibi belirsiz dosyaların bu çalışana atanması, çalışan eşleştirme boru hattının (FR-MOD-05)
 işidir.
 
-Boyut ve (PDF için) sayfa sınırı (01.3.1) her dosya diske yazılmadan/partiye kaydedilmeden önce
-denetlenir; sınırı aşan tek dosya olsa bile parti hiç oluşturulmaz.
+Ön denetim her dosya diske yazılmadan/partiye kaydedilmeden önce yapılır ve hep-ya-hiçtir: tek
+dosya bile reddedilirse parti, satır, olay ve Inbox dizini oluşmaz. Denetlenenler: ad (Inbox'a
+yazılabilir mi; yasak karakter, sondaki nokta/boşluk, uzunluk), içerik türü (01.2.2; uzantıya değil
+içeriğe bakılır, yedi türün dışı reddedilir), boyut ve (PDF için) sayfa sınırı (01.3.1).
 
 Partiyi kuran çekirdek `store_upload`'dır (eşzamanlı, HTTP'den bağımsız): web uç noktası ve Telegram
 botu (12.2.1) aynı doğrulamadan, aynı Inbox yazımından ve aynı tekrar tespitinden geçer; yalnız
@@ -141,27 +143,63 @@ def _get_upload(session: Session, upload_id: str) -> Upload:
     return upload
 
 
+# Inbox'a yazılamayan adlar Windows'ta hata verir (WinError 123); Linux/Docker'da geçerli olsalar
+# da aynı küme her yerde reddedilir — bir belge hangi makinede yüklendiyse ona her makinede
+# ulaşılabilsin (PLAN.md §D47). Denetim karakterleri ve NUL Linux'ta da yazmayı düşürür.
+_FORBIDDEN_NAME_CHARACTERS = '<>:"|?*'
+_FORBIDDEN_NAME_HINT = " ".join(_FORBIDDEN_NAME_CHARACTERS)
+# Linux dosya adı sınırı bayttır; Windows'unki 255 karakterdir ve bayt sayısı karakterden az olmaz.
+_MAX_NAME_BYTES = 255
+_RENAME_ADVICE = "Lütfen dosyayı yeniden adlandırıp tekrar yükleyin."
+
+
+def _name_problem(name: str) -> str | None:
+    """Ad Inbox'a yazılamıyorsa nedenini Türkçe söyler; yazılabiliyorsa `None`."""
+    if any(character in name for character in _FORBIDDEN_NAME_CHARACTERS):
+        return f"ad şu karakterleri içeremez: {_FORBIDDEN_NAME_HINT}"
+    if any(ord(character) < 32 for character in name):
+        return "ad denetim karakteri içeremez"
+    if name.endswith((".", " ")):
+        # Windows sondaki nokta/boşluğu sessizce atar: kayıtlı ad ile diskteki ad ayrışırdı.
+        return "ad nokta veya boşlukla bitemez"
+    if len(name.encode("utf-8")) > _MAX_NAME_BYTES:
+        return f"ad en çok {_MAX_NAME_BYTES} bayt olabilir"
+    return None
+
+
 def _validated_name(name: str) -> str:
-    """Orijinal adı sözleşmeye uygun hâlde döner; yol ayracı/`..` içeriyorsa reddeder."""
+    """Orijinal adı sözleşmeye uygun hâlde döner; yol ayracı/`..` içeriyorsa ya da Inbox'a
+    yazılamıyorsa (yasak karakter, sondaki nokta/boşluk, uzunluk) reddeder."""
     if not name or "/" in name or "\\" in name or name in {".", ".."}:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Geçersiz dosya adı.")
+    problem = _name_problem(name)
+    if problem is not None:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            f"Geçersiz dosya adı: '{name}' — {problem}. {_RENAME_ADVICE}",
+        )
     return name
 
 
-def _pdf_page_count(content: bytes) -> int | None:
-    """PDF sayfa sayısını döner; içerik PDF değilse veya çözülemezse `None` (denetim atlanır)."""
+def _supported_kind(name: str, content: bytes) -> FileKind:
+    """01.2.2 — içerik yedi türden birine uymuyorsa hangi dosya olduğunu söyleyerek reddeder."""
     try:
-        if detect_file_kind(content) is not FileKind.PDF:
-            return None
-    except UnsupportedFileTypeError:
-        return None
+        return detect_file_kind(content)
+    except UnsupportedFileTypeError as exc:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, f"'{name}': {exc}") from None
+
+
+def _pdf_page_count(content: bytes) -> int | None:
+    """PDF sayfa sayısını döner; çözülemezse `None` (denetim atlanır)."""
     try:
         return len(PdfReader(BytesIO(content)).pages)
     except PdfReadError:
         return None
 
 
-def _check_size_and_page_limits(name: str, content: bytes, settings: Settings) -> None:
+def _check_size_and_page_limits(
+    name: str, kind: FileKind, content: bytes, settings: Settings
+) -> None:
     """01.3.1 — sınırı aşan dosyayı reddeder ve kullanıcıya bölmesini söyler."""
     if len(content) > settings.max_upload_file_size_bytes:
         limit_mb = settings.max_upload_file_size_bytes / (1024 * 1024)
@@ -170,7 +208,7 @@ def _check_size_and_page_limits(name: str, content: bytes, settings: Settings) -
             f"'{name}' dosyası {limit_mb:.0f} MB sınırını aşıyor. "
             "Lütfen dosyayı bölüp tekrar yükleyin.",
         )
-    page_count = _pdf_page_count(content)
+    page_count = _pdf_page_count(content) if kind is FileKind.PDF else None
     if page_count is not None and page_count > settings.max_upload_pdf_pages:
         raise HTTPException(
             status.HTTP_400_BAD_REQUEST,
@@ -192,8 +230,9 @@ def store_upload(
 ) -> str:
     """Dosyaları tek parti olarak Inbox'a yazar, kaydeder ve commit eder; `upload_id` döner.
 
-    Ad, boyut/sayfa sınırı (01.3.1) ve bağlam çalışanı doğrulanır; biri tutmazsa `HTTPException`
-    ve hiçbir şey yazılmaz. Tekrar (01.4.1) yalnız işaretlenir, dosya yine Inbox'a yazılır (K10).
+    Ad, içerik türü (01.2.2), boyut/sayfa sınırı (01.3.1) ve bağlam çalışanı doğrulanır; biri
+    tutmazsa `HTTPException` ve hiçbir şey yazılmaz. Tekrar (01.4.1) yalnız işaretlenir, dosya
+    yine Inbox'a yazılır (K10).
     Partinin işi aynı işlemde kuyruğa girer (13.3.1); `claimed_by` verilirse iş bu kimlikle alınmış
     olarak açılır — partiyi kendisi hemen işleyecek olan çağıran (Telegram botu) kuyruk döngüsüyle
     yarışmaz.
@@ -204,7 +243,8 @@ def store_upload(
             status.HTTP_400_BAD_REQUEST, "Aynı partide aynı adda birden çok dosya olamaz."
         )
     for name, file in zip(names, files, strict=True):
-        _check_size_and_page_limits(name, file.content, settings)
+        kind = _supported_kind(name, file.content)
+        _check_size_and_page_limits(name, kind, file.content, settings)
 
     if context_employee_id is not None and session.get(Employee, context_employee_id) is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "context_employee_id bulunamadı.")

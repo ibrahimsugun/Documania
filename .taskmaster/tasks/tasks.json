@@ -1355,12 +1355,13 @@
         "description": "PRD 01.1.1, 01.2.2 · FR-MOD-01 (Yükleme ve Inbox) · Faz 0. tm 65'te görülen kusurdan açıldı (CONVENTIONS §5); 2026-09-19 çelişki denetiminde 01.2.2'nin eksik parçası eklendi.",
         "details": "DURUM (2026-09-19 çelişki denetimi, panel bulgusu): PRD 01.1.1'in kabulü (çoklu dosya tek parti, upload_id döner) karşılanıyor, PLAN.md'de ✅ kalır — bu görevde yeniden yapılmaz. 01.2.2 ✅ erkendi, ◐'ye çekildi (PLAN.md K01.2, §D). KALAN İŞ iki parça; ikisi de `create_upload`'ın hiçbir şey yazılmadan önceki ön denetimidir.\n\n(1) AD DOĞRULAMASI (01.1.1'in kabulünün ötesinde, sağlamlık): app/web/routers/uploads.py::_validated_name yalnız '/', '', '.', '..' reddeder. Windows'ta '<', '>', ':', '\"', '|', '?', '*' içeren ad Inbox'a yazılırken app/storage/atomic.py write_file → os.link OSError (WinError 123) verir ve istek 500 döner (Linux/Docker'da bu adlar geçerlidir). 2026-09-19'da yeniden üretildi: 'a<b.pdf' → yakalanmamış OSError (parti satırı flush edilmiş hâlde). Not: tm 65'te anılan '<b>x</b>.pdf' '/' içerdiği için bugün zaten 400 alır; testte '/' içermeyen ad kullan. Yapılacak: Inbox'a yazılamayacak ad 400 + anlaşılır mesaj. Karar gerektiren nokta: yasak karakter kümesi platformdan bağımsız mı (öneri: evet, Windows kümesi her yerde) — PLAN.md §D'ye yaz.\n\n(2) DESTEKLENMEYEN TÜRÜN REDDİ (01.2.2'nin eksik parçası): app/storage/filetype.py detect_file_kind yedi tür dışını UnsupportedFileTypeError ('Desteklenmeyen dosya türü. Yalnız PDF, JPEG, PNG, DOC, DOCX, XLS, XLSX kabul edilir.') ile reddeder, ama POST /api/uploads onu reddetmek için çağırmaz (_pdf_page_count hatayı yutar). 2026-09-19'da yeniden üretildi: düz metin 'notlar.txt' → 201, Inbox'a yazılır, GET /api/uploads/{id} page_count null ile sessizce 'received'; kullanıcı hiçbir mesaj görmez. /upload sayfasındaki accept= süzgeci yalnız tarayıcı tarafındadır. Yapılacak: yedi tür dışındaki içerik 400 + detect_file_kind mesajı (hangi dosya olduğu adıyla), 01.3.1 emsaliyle hep-ya-hiç (tek dosya desteklenmese bile parti oluşmaz). Uzantıya değil içeriğe bakılır (01.2.1).\n\nKABUL: (1) geçersiz karakterli ad → 400; (2) desteklenmeyen içerik → 400 ve mesaj 'Desteklenmeyen dosya türü' içerir; ikisinde de uploads/upload_files satırı, olay ve Inbox/<upload_id> dizini YOK. /upload sayfası 4xx mesajını gösterir (upload_page.py create_upload'ın HTTPException'ını yakalıyor) — istek testiyle doğrula. Kapanışta PLAN.md 01.2.2 satırı '✅ → K01.2' yapılır, K01.1 ve K01.2 bloklarına madde eklenir, Faz 0 sayacı tablodan yeniden sayılır.\n\nGİRDİ: app/web/routers/uploads.py, app/storage/inbox.py, app/storage/filetype.py, app/web/routers/upload_page.py, tests/web/test_uploads.py, tests/web/test_upload_page.py.\nÇIKTI: app/web/routers/uploads.py (ve gerekirse app/storage/), tests/web/test_uploads.py, tests/web/test_upload_page.py.\nKAPSAM SINIRI: yalnız yükleme ön denetimi (ad + içerik türü); 01.1.1'in çoklu dosya/parti işi bitmiştir, dokunma. TUZAKLAR: dosya içeriğine dokunma; gerçek belge kullanma; (2) yedi türe uymayan baytla (ör. b\"1\") POST /api/uploads yapan mevcut testleri kırar — onlara tests/fixtures/gen.py'den sentetik geçerli içerik ver, beklentilerini değiştirme; pipeline'daki UnsupportedFileTypeError dalları (render/group/plan/execute) Inbox'a önceden girmiş dosyalar için kalır, silme. KAPANIŞ: PLAN.md'de ilgili satırların kanıt bloğuna madde ekle.",
         "testStrategy": "",
-        "status": "pending",
+        "status": "in-progress",
         "dependencies": [
           "65"
         ],
         "priority": "low",
-        "subtasks": []
+        "subtasks": [],
+        "updatedAt": "2026-09-19T16:14:45.086Z"
       },
       {
         "id": "95",
@@ -1389,7 +1390,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-09-19T16:13:34.549Z",
+      "lastModified": "2026-09-19T16:14:45.087Z",
       "taskCount": 96,
       "completedCount": 94,
       "tags": [
