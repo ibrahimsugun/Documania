@@ -17,6 +17,16 @@
 - Bu ekran belge içeriğine dokunmaz (K17); kaynak `known_document_types`'tır, `catalog.yaml`
   yazılmaz.
 
+**Örnek belgeler (11.2.1).** Türün düzenleme sayfasında (`GET /document-types/{slug}`) o türün
+örnekleri listelenir ve `POST /document-types/{slug}/examples` ile (çok dosyalı `files`) yenisi
+yüklenir; örnek `GET /document-types/{slug}/examples/{ad}` ile açılır. Örnekler
+`data/KnownDocuments/examples/<slug>/` altında yalnız dosya olarak durur (`app.storage.examples`):
+çalışan verisinden ayrıdır — yükleme, belge, olay kaydı açılmaz, `Inbox/` ve `Employees/`'a girmez —
+bu yüzden çalışan/belge aramasında görünmez ve gerçek bir yüklemeyi "tekrar" saymaz. Yükleme
+hep-ya-hiçtir: bir dosya reddedilirse (tür PDF/JPEG/PNG dışı, bozuk, boş, boyut sınırını aşan)
+hiçbiri yazılmaz ve hata dosya başına bildirilir; aynı içerik ikinci kez yazılmaz. Silme ve
+düzenleme yolu yok.
+
 **Aday türler (11.5).** Analizcinin önerdiği katalog dışı türler (04.6.1) `GET
 /document-types/candidate-types`'ta listelenir (11.5.1): bekleyen adaylar adı, görülme sayısı, örnek
 sayfaları (analiz kopyası, `/uploads/{id}/pages/{page_id}/image`) ve bekleyen Unknown öğe sayısıyla;
@@ -56,9 +66,10 @@ from typing import Annotated, Any
 from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request, status
-from fastapi.responses import HTMLResponse, RedirectResponse, Response
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse, Response
 from sqlalchemy import select
 from sqlalchemy.orm import Session
+from starlette.datastructures import UploadFile as StarletteUploadFile
 
 from app.ai.provider import ProviderConfigError
 from app.catalog import (
@@ -92,6 +103,7 @@ from app.catalog import (
     summarize_candidates,
     update_type,
 )
+from app.config import Settings, get_settings
 from app.db.models import (
     CandidateDocumentType,
     CandidateTypeStatus,
@@ -111,6 +123,14 @@ from app.pipeline.orchestrate import (
     reanalyze_upload,
 )
 from app.storage import DataLayout
+from app.storage.examples import (
+    ExampleRejectedError,
+    StoredExample,
+    check_example,
+    example_path,
+    list_examples,
+    store_example,
+)
 from app.web.auth import PanelUser, require_panel_user
 from app.web.confirm import (
     CONFIRMATION_REFUSED,
@@ -137,6 +157,8 @@ router = APIRouter(tags=["catalog"])
 
 CurrentUser = Annotated[PanelUser, Depends(require_panel_user)]
 DbSession = Annotated[Session, Depends(get_session)]
+Layout = Annotated[DataLayout, Depends(get_layout)]
+AppSettings = Annotated[Settings, Depends(get_settings)]
 
 LIST_PATH = "/document-types"
 TYPE_NOT_FOUND = "Belge türü bulunamadı"
@@ -169,6 +191,11 @@ NOTICES = {
     "deactivated": "Tür pasifleştirildi: yeni belgelere atanmaz.",
     "activated": "Tür yeniden etkinleştirildi.",
 }
+
+# --- 11.2: örnek belgeler ------------------------------------------------------------------------
+
+EXAMPLE_NOT_FOUND = "Örnek belge bulunamadı"
+NO_EXAMPLE_FILE = "Dosya seçilmedi."
 
 # --- 11.5: aday türler ---------------------------------------------------------------------------
 
@@ -254,8 +281,10 @@ def _form_page(
     problems: dict[str, list[str]] | None = None,
     current_problems: tuple[str, ...] = (),
     status_code: int = status.HTTP_200_OK,
+    examples: dict[str, Any] | None = None,
 ) -> HTMLResponse:
-    """Tür formunu çizer. `slug` düzenlenen türdür (yeni türde `None`)."""
+    """Tür formunu çizer. `slug` düzenlenen türdür (yeni türde `None`); `examples` düzenleme
+    sayfasının örnek belge bölümünün bağlamıdır (`_examples_context`)."""
     return render_page(
         request,
         "catalog_form.html",
@@ -265,8 +294,34 @@ def _form_page(
         slug=slug,
         current_problems=current_problems,
         **_fields_context(form, problems),
+        **(examples or {}),
         is_new=slug is None,
     )
+
+
+def _size_label(size: int) -> str:
+    if size >= 1024 * 1024:
+        return f"{size / (1024 * 1024):.1f} MB"
+    return f"{max(1, round(size / 1024))} KB"
+
+
+def _examples_context(
+    layout: DataLayout,
+    slug: str,
+    *,
+    stored: list[StoredExample] | None = None,
+    errors: list[str] | None = None,
+) -> dict[str, Any]:
+    """Düzenleme sayfasındaki örnek belge bölümünün bağlamı: türün örnekleri (dosya sistemi,
+    veritabanı değil), bu yüklemenin sonucu ve hataları."""
+    return {
+        "examples": [
+            {"name": item.name, "size_label": _size_label(item.size)}
+            for item in list_examples(layout, slug)
+        ],
+        "example_stored": stored or [],
+        "example_errors": errors or [],
+    }
 
 
 def _fields_context(form: TypeForm, problems: dict[str, list[str]] | None) -> dict[str, Any]:
@@ -380,7 +435,9 @@ def create_type_endpoint(
 
 
 @router.get(f"{LIST_PATH}/{{slug}}", response_class=HTMLResponse)
-def type_page(slug: str, request: Request, user: CurrentUser, session: DbSession) -> HTMLResponse:
+def type_page(
+    slug: str, request: Request, user: CurrentUser, session: DbSession, layout: Layout
+) -> HTMLResponse:
     try:
         record = load_record(session, slug)
     except TypeNotFoundError:
@@ -393,12 +450,18 @@ def type_page(slug: str, request: Request, user: CurrentUser, session: DbSession
         TypeForm.from_record(record),
         slug=slug,
         current_problems=record_problems(record),
+        examples=_examples_context(layout, slug),
     )
 
 
 @router.post(f"{LIST_PATH}/{{slug}}", response_class=HTMLResponse)
 def update_type_endpoint(
-    slug: str, request: Request, user: CurrentUser, session: DbSession, form: SubmittedForm
+    slug: str,
+    request: Request,
+    user: CurrentUser,
+    session: DbSession,
+    layout: Layout,
+    form: SubmittedForm,
 ) -> Response:
     # Slug adresten gelir, formdan değil: değişmez (belgeler ve çıktı adları ona bağlı).
     form = replace(form, slug=slug)
@@ -416,6 +479,7 @@ def update_type_endpoint(
             slug=slug,
             problems=exc.problems,
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            examples=_examples_context(layout, slug),
         )
     try:
         update_type(session, entry)
@@ -444,6 +508,84 @@ def deactivate_type(slug: str, session: DbSession) -> RedirectResponse:
 @router.post(f"{LIST_PATH}/{{slug}}/activate")
 def activate_type(slug: str, session: DbSession) -> RedirectResponse:
     return _set_active(session, slug, True)
+
+
+def _known_type(session: Session, slug: str) -> dict[str, Any]:
+    """Türün ham kaydı; katalogda yoksa 404. Örnek uçları yalnız katalogdaki türlerindir. Okuma
+    SQLite'ta yazma kilidini tutar (`app.db.session`): işlem hemen bırakılır."""
+    try:
+        return load_record(session, slug)
+    except TypeNotFoundError:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, TYPE_NOT_FOUND) from None
+    finally:
+        session.rollback()
+
+
+@router.post(f"{LIST_PATH}/{{slug}}/examples", response_class=HTMLResponse)
+async def upload_examples(
+    slug: str,
+    request: Request,
+    user: CurrentUser,
+    session: DbSession,
+    layout: Layout,
+    settings: AppSettings,
+) -> HTMLResponse:
+    """11.2.1 — türe bir ya da birkaç örnek belge yükler. Dosyalar diske yazılmadan önce hep
+    birlikte denetlenir: biri reddedilirse hiçbiri yazılmaz (422). Veritabanına hiçbir şey
+    yazılmaz; örnek çalışan verisi değildir."""
+    record = _known_type(session, slug)
+    # Form elle okunur: tarayıcı dosya seçilmemişken adı boş tek bir parça gönderir (bkz.
+    # `submit_upload`). Her dosya sınırın bir baytı ötesine kadar okunur: devasa dosya belleğe
+    # tümüyle alınmaz, sınır aşımı yine yakalanır.
+    limit = settings.max_upload_file_size_bytes
+    async with request.form() as submitted:
+        chosen = [
+            (file.filename, await file.read(limit + 1))
+            for file in submitted.getlist("files")
+            if isinstance(file, StarletteUploadFile) and file.filename
+        ]
+
+    errors: list[str] = []
+    checked = []
+    for name, content in chosen:
+        try:
+            checked.append((name, content, check_example(name, content, max_bytes=limit)))
+        except ExampleRejectedError as exc:
+            errors.append(str(exc))
+    if not chosen:
+        errors.append(NO_EXAMPLE_FILE)
+    if errors:
+        return _form_page(
+            request,
+            user,
+            TypeForm.from_record(record),
+            slug=slug,
+            current_problems=record_problems(record),
+            status_code=(
+                status.HTTP_422_UNPROCESSABLE_CONTENT if chosen else status.HTTP_400_BAD_REQUEST
+            ),
+            examples=_examples_context(layout, slug, errors=errors),
+        )
+    stored = [store_example(layout, slug, name, content, kind) for name, content, kind in checked]
+    return _form_page(
+        request,
+        user,
+        TypeForm.from_record(record),
+        slug=slug,
+        current_problems=record_problems(record),
+        examples=_examples_context(layout, slug, stored=stored),
+    )
+
+
+@router.get(f"{LIST_PATH}/{{slug}}/examples/{{name}}")
+def example_file(slug: str, name: str, session: DbSession, layout: Layout) -> FileResponse:
+    """Türün örnek dosyası (yüklendiği baytlar). Tür katalogda ya da dosya türün örnek dizininde
+    yoksa 404."""
+    _known_type(session, slug)
+    path = example_path(layout, slug, name)
+    if path is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, EXAMPLE_NOT_FOUND)
+    return FileResponse(path, headers={"X-Content-Type-Options": "nosniff"})
 
 
 def _criteria_fragment(request: Request, user: PanelUser, items: list[str]) -> HTMLResponse:

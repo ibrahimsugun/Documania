@@ -1,0 +1,46 @@
+{# Türün örnek belgeleri (11.2.1): düzenleme sayfasında tür formunun altında. Örnekler dosya olarak
+   durur, veritabanında kaydı yoktur; çalışan verisinden ayrıdır ve aramada görünmez. Yükleme
+   JavaScript'siz düz form gönderimidir; silme ve düzenleme yolu yoktur (K17). #}
+<section class="examples" id="examples">
+  <h2>Örnek belgeler</h2>
+  <p class="hint">
+    Bu türün nasıl göründüğünü gösteren örnekler (PDF, JPEG, PNG). Örnekler çalışan verisinden ayrı
+    saklanır: çalışan ve belge aramalarında görünmez, kuyruğa ve çalışan klasörlerine girmez.
+    Yalnız örnek (specimen) ya da sentetik belge yükleyin; gerçek kimlik belgesi yüklemeyin.
+  </p>
+  {% if example_errors %}
+  <div class="error" role="alert">
+    <p>Örnekler yüklenmedi; hiçbir dosya kaydedilmedi:</p>
+    <ul>{% for message in example_errors %}<li>{{ message }}</li>{% endfor %}</ul>
+  </div>
+  {% endif %}
+  {% if example_stored %}
+  <div class="notice notice-success" role="status">
+    <ul>
+      {% for item in example_stored %}
+      <li>
+        {% if item.duplicate %}Aynı içerik zaten örnek olarak kayıtlı:{% else %}Örnek yüklendi:{% endif %}
+        <code>{{ item.name }}</code>
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+  {% if examples %}
+  <ul class="example-list">
+    {% for item in examples %}
+    <li>
+      <a href="/document-types/{{ slug|urlencode }}/examples/{{ item.name|urlencode }}">{{ item.name }}</a>
+      <span class="count">({{ item.size_label }})</span>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="placeholder">Bu türe henüz örnek yüklenmedi.</p>
+  {% endif %}
+  <form class="example-form" method="post" action="/document-types/{{ slug|urlencode }}/examples" enctype="multipart/form-data">
+    <label for="example-files">Örnek belge</label>
+    <input id="example-files" name="files" type="file" multiple accept=".pdf,.jpg,.jpeg,.png">
+    <button type="submit">Örnek yükle</button>
+  </form>
+</section>

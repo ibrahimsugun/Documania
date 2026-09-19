@@ -28,4 +28,7 @@
     <a href="/document-types">Vazgeç</a>
   </div>
 </form>
+{% if not is_new %}
+{% include "catalog_examples.html" %}
+{% endif %}
 {% endblock %}

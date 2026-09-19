@@ -340,3 +340,9 @@ form.inline { display: inline; margin: 0 0 0 0.6rem; }
 .criteria-list input { flex: 1; }
 
 .link-button { border-color: transparent; background: none; color: #0b5cad; }
+
+.examples { margin-top: 2rem; }
+
+.example-list { margin: 0 0 1rem; padding-left: 1.25rem; }
+
+.example-form { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 1rem; }
