@@ -17,6 +17,8 @@ from sqlalchemy.orm import Session
 
 from app.events import EventType
 from app.matching.match import (
+    LATIN_MISSING_PROBLEM,
+    LATIN_ONLY_PROBLEM,
     PROFILE_FIELDS,
     ProfileApprovalRefusedError,
     ProfileFields,
@@ -31,6 +33,7 @@ from app.storage import DataLayout
 from tests.matching.test_pending_profile_and_aliases import (
     BORN,
     CYRILLIC,
+    LATIN_WITHOUT_SLUG,
     NAME,
     PASSPORT,
     PROFILE,
@@ -239,9 +242,16 @@ TOMORROW = date.today() + timedelta(days=1)
         ({"surname": "ORNEK\nOVA"}, {"surname": "denetim karakteri içeremez"}),
         ({"original_script_name": "---"}, {"original_script_name": "harf ya da rakam içermiyor"}),
         (
-            {"given_names": "日本", "surname": "語"},
+            {"given_names": LATIN_WITHOUT_SLUG[0], "surname": LATIN_WITHOUT_SLUG[1]},
             {"given_names": "ad-soyad klasör adına çevrilemiyor (K8)"},
         ),
+        (
+            {"given_names": "日本", "surname": "語"},
+            {"given_names": LATIN_ONLY_PROBLEM, "surname": LATIN_ONLY_PROBLEM},
+        ),
+        ({"surname": "Орнекова"}, {"surname": LATIN_ONLY_PROBLEM}),
+        ({"other_names": "Ивановна"}, {"other_names": LATIN_ONLY_PROBLEM}),
+        ({"given_names": "Test محمد"}, {"given_names": LATIN_ONLY_PROBLEM}),
         ({"date_of_birth": TOMORROW}, {"date_of_birth": "gelecekte olamaz"}),
         (
             {"nationality": "rus"},
@@ -268,6 +278,10 @@ TOMORROW = date.today() + timedelta(days=1)
         "control-character",
         "no-letters",
         "no-folder-name",
+        "non-latin-names",
+        "cyrillic-surname",
+        "cyrillic-other-names",
+        "mixed-script-given-names",
         "future-birth-date",
         "lowercase-nationality",
         "long-nationality",
@@ -291,6 +305,11 @@ def test_invalid_fields_are_refused_before_anything_is_written(
 def test_valid_fields_have_no_problems() -> None:
     assert check_profile_fields(PROFILE.fields()) == {}
     assert check_profile_fields(ProfileFields(given_names="Ana", surname="Test")) == {}
+    # 05.2.2: aksanlı Latin serbest; Latin olmayan yazımın yeri orijinal yazımdır.
+    accented = ProfileFields(
+        given_names="Đorđe", surname="Šćepanović-O'Brien", original_script_name="Ђорђе Шћепановић"
+    )
+    assert check_profile_fields(accented) == {}
     assert check_profile_fields(_fields(nationality="D", date_of_birth=date.today())) == {}
     assert check_profile_fields(
         _fields(date_of_birth=date(2000, 1, 2)), today=date(2000, 1, 1)
@@ -321,3 +340,63 @@ def test_review_refuses_invalid_fields_and_a_key_that_is_no_longer_row_7(
     with pytest.raises(ProfileApprovalRefusedError, match="satır 6–8 kararı create"):
         review_pending_profile(session, _key(), entry=PASSPORT)
     _nothing_written(session, layout)
+
+
+# --- 05.2.2: Latin yazımı belgede olmayan öneri ---------------------------------------------------
+
+ARABIC_KEY = _key(numbers=(), given_names="محمد", surname="علي", original=None)
+
+
+def test_proposal_without_latin_spelling_is_shown_but_not_approved_as_is(
+    session: Session, layout: DataLayout
+) -> None:
+    # Önizleme formu doldurur (ad ve soyad boş); öneri İK Latin adı yazmadan onaylanamaz.
+    proposal = review_pending_profile(session, ARABIC_KEY, entry=PASSPORT)
+    assert proposal.latin_missing
+    assert (proposal.fields().given_names, proposal.fields().surname) == ("", "")
+
+    with pytest.raises(ProfileFieldsError) as refused:
+        approve_pending_profile(
+            session, layout, ARABIC_KEY, entry=PASSPORT, actor=ACTOR, page_index=0
+        )
+
+    assert refused.value.errors == {
+        "given_names": LATIN_MISSING_PROBLEM,
+        "surname": LATIN_MISSING_PROBLEM,
+    }
+    _assert_no_personal_values(str(refused.value))
+    _nothing_written(session, layout)
+
+
+def test_hr_writes_the_latin_name_of_a_proposal_without_latin_spelling(
+    session: Session, layout: DataLayout
+) -> None:
+    fields = ProfileFields(
+        given_names="Muhammad",
+        surname="Ali",
+        other_names="IVANOVNA",
+        original_script_name="محمد علي",
+        date_of_birth=BORN,
+        nationality="RUS",
+    )
+
+    employee = approve_pending_profile(
+        session, layout, ARABIC_KEY, entry=PASSPORT, actor=ACTOR, fields=fields, page_index=0
+    )
+
+    assert (employee.given_names, employee.surname, employee.original_script_name) == (
+        "Muhammad",
+        "Ali",
+        "محمد علي",
+    )
+    assert employee.folder_name == "Muhammad_Ali_E0001"
+    # Belgenin yazımı (Arap) ve İK'nın yazdığı Latin ad birlikte isim yazımıdır.
+    assert _aliases(session) == sorted(
+        [
+            ("محمد علي", normalize_name("محمد", "علي"), "arabic", "E0001"),
+            ("Muhammad Ali", normalize_name("Muhammad Ali"), "latin", "E0001"),
+        ]
+    )
+    (created,) = _events(session)
+    # Orijinal yazım öneride zaten vardı (Latin alanlara okunan Arap yazım oraya taşındı).
+    assert created.data_json["edited_fields"] == ["given_names", "surname"]

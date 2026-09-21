@@ -1119,7 +1119,13 @@ PROFILE_LABELS = {
     DATE_OF_BIRTH: "Doğum tarihi",
     NATIONALITY: "Vatandaşlık",
 }
+# 05.2.2: ad, soyad ve diğer isimler yalnız Latin harfi taşır; Latin yazımı belgede olmayan
+# öneride ad ve soyad boş gelir, İK yazar.
+_LATIN_HINT = "Latin harfleriyle (belgedeki Latin yazım ya da MRZ; aksanlı harf olur)"
 _PROFILE_HINTS = {
+    GIVEN_NAMES: _LATIN_HINT,
+    SURNAME: _LATIN_HINT,
+    OTHER_NAMES: _LATIN_HINT,
     ORIGINAL_SCRIPT_NAME: "Belgedeki Latin olmayan yazım (ör. Kiril)",
     NATIONALITY: "ICAO kodu (ör. RUS, SRB, D)",
 }

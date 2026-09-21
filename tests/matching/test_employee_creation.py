@@ -70,6 +70,8 @@ UPLOAD_ID = "u_20260915_0001"
 NUMBER = "000000001"
 BORN = date(1990, 1, 1)
 CYRILLIC = "Орнекова Тест"
+# Latin harfli ama klasör adına (ASCII) inmeyen ad-soyad (D9): `ə`, `ʃ` Latin harfidir.
+LATIN_WITHOUT_SLUG = ("Əə", "ʃ")
 # Anahtarın kişisel değerleri ve normalize biçimleri: olay logunda ve ret mesajında geçmez.
 PERSONAL_VALUES = ("ORNEKOVA", "Ornekova", "ornekova", "TEST", "Орнекова", NUMBER, "1990-01-01")
 
@@ -208,12 +210,20 @@ def test_any_match_verdict_but_no_match_creates_nobody(match: EmployeeMatch) -> 
         _key(numbers=_number(legible=False)),
         _key(surname=None),
         _key(given_names=None, original=None),
+        _key(given_names=LATIN_WITHOUT_SLUG[0], surname=LATIN_WITHOUT_SLUG[1], original=None),
         _key(given_names="李", surname="王", original=None),
     ],
-    ids=["unclean-number", "surname-not-read", "given-names-not-read", "name-without-folder-name"],
+    ids=[
+        "unclean-number",
+        "surname-not-read",
+        "given-names-not-read",
+        "name-without-folder-name",
+        "name-without-latin-spelling",
+    ],
 )
 def test_key_without_clean_number_or_folder_name_creates_nobody(key: PersonKey) -> None:
-    # Temiz numara yoksa satır 7–8 (05.7); ad-soyad klasör adı vermiyorsa da çalışan açılmaz (D9).
+    # Temiz numara yoksa satır 7–8 (05.7); ad-soyad klasör adı vermiyorsa (D9) ya da Latin yazımı
+    # yoksa (05.2.2) da çalışan açılmaz.
     assert not can_create_employee(key, EmployeeMatch(MatchRule.NO_MATCH), entry=PASSPORT)
 
 
@@ -354,12 +364,24 @@ def test_alias_script_skips_leading_non_letters_and_is_none_without_any(
 def test_employee_is_named_after_the_latin_reading_and_keeps_the_original(
     session: Session, layout: DataLayout
 ) -> None:
-    key = _key(given_names="Юлья", surname="Тестова-Щёлкина", original="Тестова-Щёлкина Юлья")
+    # 05.2.2: okuma Kiril, Latin yazımı (`build_person_key`'in bulduğu) çalışan kaydına ve klasör
+    # adına gider; Kiril yazım orijinal yazımda durur, isim yazımı (alias) okunduğu gibi kalır.
+    key = replace(
+        _key(given_names="Юлья", surname="Тестова-Щёлкина", original="Тестова-Щёлкина Юлья"),
+        latin_given_names="Iulia",
+        latin_surname="Testova-Shchelkina",
+    )
 
     employee = create_employee(session, layout, key, entry=PASSPORT)
 
     assert employee.folder_name == "Iulia_Testova_Shchelkina_E0001"
-    assert (employee.given_names, employee.surname) == ("Юлья", "Тестова-Щёлкина")
+    assert (employee.given_names, employee.surname, employee.original_script_name) == (
+        "Iulia",
+        "Testova-Shchelkina",
+        "Тестова-Щёлкина Юлья",
+    )
+    assert employee.other_names == "IVANOVNA"
+    assert "Юлья Тестова-Щёлкина" in {alias.raw_name for alias in employee.aliases}
 
 
 def _registered_number(session: Session) -> None:
@@ -393,9 +415,21 @@ def _nobody(session: Session) -> None:
         (_nobody, replace(_key(), given_names=None), PASSPORT, "ad-soyad okunmadı"),
         (
             _nobody,
-            _key(given_names="李", surname="王", original=None),
+            _key(given_names=LATIN_WITHOUT_SLUG[0], surname=LATIN_WITHOUT_SLUG[1], original=None),
             PASSPORT,
             "ad-soyad klasör adına çevrilemiyor",
+        ),
+        (
+            _nobody,
+            _key(given_names="李", surname="王", original=None),
+            PASSPORT,
+            "Latin yazım belgede yok",
+        ),
+        (
+            _nobody,
+            _key(given_names="Тест", surname="Орнекова"),
+            PASSPORT,
+            "Latin yazım belgede yok",
         ),
     ],
     ids=[
@@ -409,6 +443,8 @@ def _nobody(session: Session) -> None:
         "surname-not-read",
         "given-names-reading-missing-beside-name-key",
         "name-without-folder-name",
+        "name-without-latin-spelling",
+        "cyrillic-reading-without-latin-spelling",
     ],
 )
 def test_creation_is_refused_without_writing_anything(

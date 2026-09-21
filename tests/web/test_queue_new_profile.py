@@ -735,3 +735,91 @@ def test_an_item_vanishing_between_the_checks_is_reported_as_missing(
         assert response.status_code == 404, response.text
     assert QUEUE_ITEM_NOT_FOUND in review.text
     _unchanged(session_factory, item_id)
+
+
+# --- 05.2.2: Latin yazımı belgede olmayan öneri ---------------------------------------------------
+
+ARABIC_GIVEN, ARABIC_SURNAME = "محمد", "علي"
+LATIN_PROFILE = {
+    **PROPOSAL,
+    "given_names": "Muhammad",
+    "surname": "Ali",
+    "original_script_name": f"{ARABIC_GIVEN} {ARABIC_SURNAME}",
+}
+
+
+@pytest.fixture
+def arabic_item_id(session_factory: sessionmaker[Session], layout: DataLayout) -> int:
+    """Arap yazımlı adın onay bekleyen profili: Latin yazım belgede yok, numara temiz."""
+    with session_factory() as session:
+        import_catalog(session, CATALOG)
+        person = _person(surname=ARABIC_SURNAME, given_names=ARABIC_GIVEN)
+        page = _page(PERMIT, person=person, language="ar", script="arabic")
+        upload = _upload_with_analyses(session, layout, _pdf(page))
+        plan = create_plan(session, layout, upload, catalog=CATALOG, model=MODEL)
+        (item,) = read_plan(plan).items
+        assert item.employee.action.value == "pending"
+        queue_item_id = route_queue_item(session, layout, plan, item).queue_item.id
+        session.commit()
+        return queue_item_id
+
+
+def test_proposal_without_latin_spelling_leaves_the_latin_name_to_hr(
+    client: TestClient, arabic_item_id: int
+) -> None:
+    html = client.get(f"/queues/{arabic_item_id}").text
+
+    assert "Latin yazım belgede yok" in html
+    form = _edit_form(_section(html, "new-profile"))
+    inputs = re.findall(
+        r'<input type="([^"]+)" id="profile-[^"]+" name="([^"]+)"\s+value="([^"]*)"', form
+    )
+    assert inputs[:4] == [
+        ("text", "given_names", ""),
+        ("text", "surname", ""),
+        ("text", "other_names", ""),
+        ("text", "original_script_name", f"{ARABIC_GIVEN} {ARABIC_SURNAME}"),
+    ]
+    assert "Latin harfleriyle" in form
+
+
+def test_non_latin_names_are_refused_at_every_step(
+    client: TestClient, session_factory: sessionmaker[Session], arabic_item_id: int
+) -> None:
+    values = {**LATIN_PROFILE, "given_names": ARABIC_GIVEN, "surname": ARABIC_SURNAME}
+    token = issue_token(
+        session_factory,
+        Operation.APPROVE_PROFILE,
+        profile_subject(arabic_item_id, _fields(values)),
+    )
+
+    responses = [
+        _confirm(client, arabic_item_id, values),
+        client.post(f"/queues/{arabic_item_id}/profile/prepare", data=values),
+        _create(client, arabic_item_id, token, values),
+    ]
+
+    for response in responses:
+        assert response.status_code == 422, response.text
+        latin_only = "Latin harfleriyle yazılmalı; Latin olmayan yazım Orijinal yazım alanına"
+        assert f"<li>Ad: {latin_only}</li>" in response.text
+        assert f"<li>Soyad: {latin_only}</li>" in response.text
+    _unchanged(session_factory, arabic_item_id)
+
+
+def test_latin_name_written_by_hr_opens_the_employee(
+    client: TestClient, session_factory: sessionmaker[Session], arabic_item_id: int
+) -> None:
+    token = _prepare(client, arabic_item_id, LATIN_PROFILE)
+
+    response = _create(client, arabic_item_id, token, LATIN_PROFILE)
+
+    assert response.status_code == 200, response.text
+    with session_factory() as session:
+        employee = session.get_one(Employee, NEW)
+        assert (
+            employee.given_names,
+            employee.surname,
+            employee.original_script_name,
+            employee.folder_name,
+        ) == ("Muhammad", "Ali", f"{ARABIC_GIVEN} {ARABIC_SURNAME}", "Muhammad_Ali_E0001")

@@ -1,6 +1,6 @@
 """Kişi anahtarı, çalışan eşleştirme sırası, otomatik çalışan oluşturma, onay bekleyen profil,
-profil onayı ve alias birikimi — PRD 05.4.1, 05.5.1–05.5.3, 05.6.1, 05.7.1, 05.7.2, 08.3.1 (§20.2;
-K6, K7, K8, K16, R7, R8, R9).
+profil onayı ve alias birikimi — PRD 05.4.1, 05.5.1–05.5.3, 05.6.1, 05.7.1, 05.7.2, 08.3.1, 05.2.2
+(§20.2; K6, K7, K8, K16, R7, R8, R9).
 
 Bir belge adayının (04.1–04.3) sayfalarından çalışan eşleştirmesinin (05.5) ve profil açmanın
 (05.6, 05.7) okuyacağı tek anahtar üretilir: **belge numaraları**, **normalize ad-soyad**, **doğum
@@ -38,6 +38,16 @@ Anahtar ayrıca yeni çalışan kaydının (03.1.3, `employee_fields`) okumalar�
 `given_names` parçanın anahtara inen ilk okuması, yazıldığı gibi; `other_names` isim anahtarıyla,
 `nationality` ICAO uyruk koduyla (`RUS`, `D`) karşılaştırılır. Bu iki alan kimlik alanı değildir:
 okunmazsa ya da çelişirse `None` olur, `conflicts`'e yazılmaz.
+
+**Latin ad (05.2.2, PLAN.md §C81).** Çalışan kaydının ad, soyad ve diğer isimler alanları yalnız
+Latin harfi taşır; anahtar her parçanın Latin yazımını ayrıca verir (`latin_*`,
+`app.matching.names.latin_person_name`): anahtara inen basılı Latin okuma, sonra kontrol haneleri
+geçen MRZ, sonra yalnız Kiril için kural tabanlı çeviri. Yapay zekâ Latin alana Latin olmayan
+yazım koyduysa o yazım çalışan kaydında orijinal yazıma taşınır (`original_spelling`, belgenin
+orijinal yazımı okunmadıysa). Eşleştirme anahtarı ve isim yazımları (alias) değişmez: belgede
+okunduğu alfabededir. Ad-soyad okunmuş ama Latin yazımı yoksa (Arap ve öteki alfabeler) çalışan
+otomatik açılmaz; profil önerisi "Latin yazım belgede yok" gerekçesiyle Unresolved'a düşer, İK
+Latin adı onayda yazar.
 
 `mrz_allows_clean_document_number` adayın bütün sayfalarında §20.2.3'ün üçüncü koşulunun
 (`MrzResolution.allows_clean_document_number`) sağlandığını söyler. Numaranın temiz sayılması
@@ -106,14 +116,14 @@ from __future__ import annotations
 import enum
 import re
 import unicodedata
-from collections.abc import Callable, Iterable, Iterator, Sequence
+from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.ai.schemas import PageAnalysis, Script
+from app.ai.schemas import PageAnalysis
 from app.catalog import CatalogEntry
 from app.db.models import (
     Employee,
@@ -127,6 +137,9 @@ from app.matching.mrz import MRZ_FIELDS, MrzResolution, MrzStatus, apply_mrz_pri
 from app.matching.names import (
     EmptyNameError,
     TransliteratedName,
+    detect_script,
+    is_latin_name,
+    latin_person_name,
     normalize_name,
     transliterate_name,
 )
@@ -141,6 +154,12 @@ OTHER_NAMES = "other_names"
 NATIONALITY = "nationality"
 # Anahtarın okuduğu §8.4 `person` alanları; `conflicts` bu sırayla yazılır.
 KEY_FIELDS = (DOCUMENT_NUMBER, SURNAME, GIVEN_NAMES, DATE_OF_BIRTH, ORIGINAL_SCRIPT_NAME)
+# Yalnız Latin harfi taşıyan çalışan alanları (05.2.2) → `PersonKey`'deki Latin yazımları.
+_LATIN_FIELDS = {
+    SURNAME: "latin_surname",
+    GIVEN_NAMES: "latin_given_names",
+    OTHER_NAMES: "latin_other_names",
+}
 
 # §20.2.1 belge numarası normalizasyonu: boşluk, tire, nokta, eğik çizgi silinir.
 _NUMBER_SEPARATORS = re.compile(r"[\s./-]+")
@@ -166,8 +185,11 @@ class DocumentNumberKey:
 class PersonKey:
     """Belge adayının kişi anahtarı (05.4.1); alanların kuralları modül açıklamasındadır.
 
-    `surname`, `given_names`, `other_names` ve `nationality` karşılaştırmaya girmez; yeni çalışan
-    kaydının (05.6) okumalarıdır.
+    `surname`, `given_names`, `other_names` ve `nationality` karşılaştırmaya girmez; `surname`,
+    `given_names`, `other_names` belgedeki okumadır, yazıldığı alfabede (isim yazımı, 05.7.2).
+    `latin_*` aynı parçanın Latin yazımıdır (05.2.2, `latin_person_name`): yeni çalışan kaydına
+    (05.6) bunlar yazılır; Latin yazım yoksa `None`. Latin okuma kendi Latin yazımıdır: `latin_*`
+    verilmezse Latin harfli okuma oraya da yazılır.
     """
 
     document_numbers: tuple[DocumentNumberKey, ...]
@@ -181,6 +203,15 @@ class PersonKey:
     given_names: str | None = None
     other_names: str | None = None
     nationality: str | None = None
+    latin_surname: str | None = None
+    latin_given_names: str | None = None
+    latin_other_names: str | None = None
+
+    def __post_init__(self) -> None:
+        for name, latin_name in _LATIN_FIELDS.items():
+            reading = getattr(self, name)
+            if getattr(self, latin_name) is None and reading is not None and is_latin_name(reading):
+                object.__setattr__(self, latin_name, reading)
 
     @property
     def name_keys(self) -> tuple[str, ...]:
@@ -189,14 +220,24 @@ class PersonKey:
         keys = (self.normalized_name, self.normalized_original_name)
         return tuple(dict.fromkeys(key for key in keys if key is not None))
 
+    @property
+    def original_spelling(self) -> str | None:
+        """Çalışan kaydının orijinal yazımı (05.2.2): belgenin orijinal yazımı; o okunmadıysa ad,
+        diğer isimler ve soyad okumalarından Latin olmayanlar, bu sırayla (yapay zekâ Latin
+        olmayan yazımı Latin alanlara koyduysa orijinal yazıma taşınır)."""
+        if self.original_script_name is not None:
+            return self.original_script_name.original
+        parts = (self.given_names, self.other_names, self.surname)
+        return " ".join(part for part in parts if part and not is_latin_name(part)) or None
+
     def employee_fields(self) -> dict[str, str | date | None]:
-        """Çalışan kaydına taşınan alanlar (03.1.3); anahtarlar `employees` sütun adlarıdır."""
-        original = self.original_script_name
+        """Çalışan kaydına taşınan alanlar (03.1.3); anahtarlar `employees` sütun adlarıdır. İsim
+        alanları Latin yazımdır, Latin olmayan yazım yalnız orijinal yazımdadır (05.2.2)."""
         return {
-            SURNAME: self.surname,
-            GIVEN_NAMES: self.given_names,
-            OTHER_NAMES: self.other_names,
-            ORIGINAL_SCRIPT_NAME: None if original is None else original.original,
+            SURNAME: self.latin_surname,
+            GIVEN_NAMES: self.latin_given_names,
+            OTHER_NAMES: self.latin_other_names,
+            ORIGINAL_SCRIPT_NAME: self.original_spelling,
             DATE_OF_BIRTH: self.date_of_birth,
             NATIONALITY: self.nationality,
         }
@@ -243,6 +284,9 @@ def build_person_key(analyses: Iterable[PageAnalysis], *, today: date | None = N
     if len(originals) == 1:
         ((normalized_original, reading),) = originals.items()
         original = transliterate_name(str(reading.raw), language=reading.language)
+    latin = _latin_names(
+        pages, {SURNAME: surnames, GIVEN_NAMES: given_names, OTHER_NAMES: other_names}
+    )
     return PersonKey(
         document_numbers=tuple(
             DocumentNumberKey(value, reading.legible) for value, reading in numbers.items()
@@ -259,7 +303,64 @@ def build_person_key(analyses: Iterable[PageAnalysis], *, today: date | None = N
         given_names=_single_reading(given_names),
         other_names=_single_reading(other_names),
         nationality=_single(nationalities),
+        latin_surname=latin[SURNAME],
+        latin_given_names=latin[GIVEN_NAMES],
+        latin_other_names=latin[OTHER_NAMES],
     )
+
+
+def _latin_names(
+    pages: Sequence[MrzResolution], collected: Mapping[str, dict[str, _Reading]]
+) -> dict[str, str | None]:
+    # 05.2.2: tekil okunmuş isim parçasının Latin yazımı (`latin_person_name`). Okumalar bütün
+    # sayfalardan alınır — anahtara inen okuma aynı adın yazımıdır: kartın ön yüzündeki basılı
+    # Latin ad, MRZ'si arka yüzde olsa da önce gelir.
+    keys = {name: _single(readings) for name, readings in collected.items()}
+    mrz = _mrz_name_parts(pages, keys)
+    latin: dict[str, str | None] = {}
+    for name, key in keys.items():
+        readings = [
+            (str(raw), page.analysis.language)
+            for page in pages
+            for raw, _ in _readings(page.analysis, name)
+            if key is not None and _name_key(raw, page.analysis.language) == key
+        ]
+        spelling = latin_person_name(readings, mrz=mrz[name]) if readings else None
+        latin[name] = None if spelling is None else spelling.text
+    return latin
+
+
+def _mrz_name_parts(
+    pages: Sequence[MrzResolution], keys: Mapping[str, str | None]
+) -> dict[str, tuple[str, ...]]:
+    # Kontrol haneleri geçen MRZ'lerin anahtara inen isim parçaları. MRZ'nin verilen adları ayrı
+    # okunmuş baba adını da taşıyabilir (05.3.3): `DMITRII<IVANOVICH` ad ve diğer isimler
+    # okumalarına kelime sınırından bölünür.
+    parts: dict[str, list[str]] = {name: [] for name in keys}
+    for page in pages:
+        mrz = page.mrz
+        if page.status is not MrzStatus.READ or mrz is None or mrz.failed_checks:
+            continue
+        surname, given = mrz.surname, mrz.given_names
+        if surname is not None and _agrees_with(surname, keys[SURNAME]):
+            parts[SURNAME].append(surname)
+        if given is None:
+            continue
+        if _agrees_with(given, keys[GIVEN_NAMES]):
+            parts[GIVEN_NAMES].append(given)
+            continue
+        words = given.split()
+        for index in range(1, len(words)):
+            head, tail = " ".join(words[:index]), " ".join(words[index:])
+            if _agrees_with(head, keys[GIVEN_NAMES]) and _agrees_with(tail, keys[OTHER_NAMES]):
+                parts[GIVEN_NAMES].append(head)
+                parts[OTHER_NAMES].append(tail)
+                break
+    return {name: tuple(values) for name, values in parts.items()}
+
+
+def _agrees_with(spelling: str, key: str | None) -> bool:
+    return key is not None and _name_key(spelling, None) == key
 
 
 @dataclass(slots=True)
@@ -610,7 +711,7 @@ def create_employee(
     - `allocate_employee_number` ile E numarası (K8) ve `Ad_Soyad_E0001` klasör adı,
     - `employees` satırı `PersonKey.employee_fields()` okumalarıyla,
     - `employee_aliases`: `Ad Soyad` yazımı ve varsa orijinal yazım, anahtarın normalize değeriyle
-      (aynı yazım bir kez), `script` yazımın alfabesiyle (`_detect_script`, 05.8.3),
+      (aynı yazım bir kez), `script` yazımın alfabesiyle (`detect_script`, 05.8.3),
     - `employee_identifiers`: temiz numara §20.2.1 normalize değeriyle, `kind` türün slug'ı,
     - `Employees/<klasör>/Alinan/` ve `Hazir/` dizinleri,
     - `EMPLOYEE_CREATED` olayı (`employee_id` sütunu; veri `action`, `document_type_slug`).
@@ -631,7 +732,7 @@ def create_employee(
                 employee=employee,
                 raw_name=raw_name,
                 normalized_name=normalized,
-                script=_detect_script(raw_name),
+                script=detect_script(raw_name),
             )
         )
     session.add(EmployeeIdentifier(employee=employee, kind=entry.slug, value=new.document_number))
@@ -661,15 +762,18 @@ def _new_employee(key: PersonKey, match: EmployeeMatch, entry: CatalogEntry) -> 
 
 
 def _profile_name(key: PersonKey) -> _ProfileName | str:
-    # Ad-soyad okunmuş ve klasör adı veriyorsa değerleri, değilse kişisel değer taşımayan sorun.
-    given_names, surname, normalized_name = key.given_names, key.surname, key.normalized_name
-    if given_names is None or surname is None or normalized_name is None:
+    # Ad-soyad okunmuş, Latin yazımı var (05.2.2) ve klasör adı veriyorsa çalışan kaydına yazılacak
+    # Latin değerleri, değilse kişisel değer taşımayan sorun.
+    if key.given_names is None or key.surname is None or key.normalized_name is None:
         return "ad-soyad okunmadı"
+    given_names, surname = key.latin_given_names, key.latin_surname
+    if given_names is None or surname is None:
+        return LATIN_MISSING
     try:
         person_slug(given_names, surname)
     except SlugError:
         return "ad-soyad klasör adına çevrilemiyor (K8)"
-    return _ProfileName(given_names, surname, normalized_name)
+    return _ProfileName(given_names, surname, key.normalized_name)
 
 
 def _spellings(key: PersonKey) -> dict[str, str]:
@@ -683,27 +787,6 @@ def _spellings(key: PersonKey) -> dict[str, str]:
     if original is not None and normalized_original is not None:
         spellings.setdefault(original.original, normalized_original)
     return spellings
-
-
-def _detect_script(text: str) -> str | None:
-    """Yazımın alfabesi (05.8.3, `employee_aliases.script`): ilk harfin Unicode adı sınanır.
-
-    Harf çevirisi (05.2.1) zaten Kiril/Arap harflerini kod noktasına göre tanıyordu; isim
-    çoğunlukla tek alfabededir, ilk harf yeter. `Script`'in kapalı kümesi dışındaki alfabeler
-    (Yunan, CJK…) `other`. Harfsiz yazımda (yalnız rakam/noktalama) `None`.
-    """
-    for char in text:
-        if not char.isalpha():
-            continue
-        name = unicodedata.name(char, "")
-        if name.startswith("LATIN"):
-            return Script.LATIN.value
-        if name.startswith("CYRILLIC"):
-            return Script.CYRILLIC.value
-        if name.startswith("ARABIC"):
-            return Script.ARABIC.value
-        return Script.OTHER.value
-    return None
 
 
 # --- onay bekleyen profil (05.7.1) -----------------------------------------------------------
@@ -722,6 +805,14 @@ PENDING_PROFILE_REASON = (
     "Onay bekleyen profil: kayıtlı çalışanla eşleşme yok ve temiz belge numarası yok (§20.2.3). "
     "Yeni çalışan yalnız onayla açılır (K7)."
 )
+# 05.2.2: ad-soyad okundu ama Latin yazımı ne belgede basılı, ne MRZ'de var, ne Kiril çevirisiyle
+# bulunuyor; temiz numara olsa da çalışan otomatik açılmaz.
+LATIN_MISSING = "Latin yazım belgede yok"
+PENDING_PROFILE_LATIN_REASON = (
+    f"Onay bekleyen profil: {LATIN_MISSING}. Ad-soyad yalnız Latin olmayan alfabeyle okundu ve "
+    "tahminle çevrilmez (05.2.2); İK onayda Latin adı yazar. Yeni çalışan yalnız onayla açılır "
+    "(K7)."
+)
 NO_PERSON_REASON = "Kişi tespit edilemedi: belgede ne ad-soyad ne belge numarası okundu."
 
 
@@ -739,21 +830,30 @@ class ProposedProfile:
     (orijinal yazımın anahtarı sayfanın diliyle normalize edildiği için yeniden hesaplanmaz).
     Belge numarası taşınmaz: temiz değildir (§20.2.3). Kişisel değer taşır — olay loguna yazılmaz,
     yalnız kuyruk kaydının payload'ına girer.
+
+    Ad ve soyad Latin yazımdır (05.2.2); Latin yazım belgede yoksa ikisi de `None`'dır
+    (`latin_missing`) ve onayda İK yazar — öneri kendi başına onaylanamaz.
     """
 
-    given_names: str
-    surname: str
+    given_names: str | None
+    surname: str | None
     other_names: str | None
     original_script_name: str | None
     date_of_birth: date | None
     nationality: str | None
     aliases: tuple[tuple[str, str], ...]
 
+    @property
+    def latin_missing(self) -> bool:
+        """Latin yazım belgede yok (05.2.2): ad ve soyadı onayda İK yazar."""
+        return self.given_names is None or self.surname is None
+
     def fields(self) -> ProfileFields:
-        """Önerinin çalışan kaydına yazılacak alanları: panelin düzenleme formunun başlangıcı."""
+        """Önerinin çalışan kaydına yazılacak alanları: panelin düzenleme formunun başlangıcı.
+        Latin yazımı olmayan ad ve soyad boş metindir (formda İK doldurur)."""
         return ProfileFields(
-            given_names=self.given_names,
-            surname=self.surname,
+            given_names=self.given_names or "",
+            surname=self.surname or "",
             other_names=self.other_names,
             original_script_name=self.original_script_name,
             date_of_birth=self.date_of_birth,
@@ -785,12 +885,14 @@ class UnmatchedResolution:
     `queue` ve `reason` okumalarını verir.
 
     `proposed_profile` yalnız satır 7'de doludur. `detail` eksik kişide okunamayanı söyler
-    (kişisel değer yok).
+    (kişisel değer yok). `latin_missing` satır 7'nin Latin yazımı olmayan öneriyle verildiğini
+    söyler (05.2.2): temiz numara olsa da çalışan otomatik açılmaz.
     """
 
     rule: UnmatchedRule
     proposed_profile: ProposedProfile | None = None
     detail: str | None = None
+    latin_missing: bool = False
 
     @property
     def action(self) -> EmployeeAction:
@@ -810,6 +912,8 @@ class UnmatchedResolution:
     @property
     def reason(self) -> str | None:
         match self.rule:
+            case UnmatchedRule.PENDING_PROFILE if self.latin_missing:
+                return PENDING_PROFILE_LATIN_REASON
             case UnmatchedRule.PENDING_PROFILE:
                 return PENDING_PROFILE_REASON
             case UnmatchedRule.NO_PERSON:
@@ -831,7 +935,8 @@ def resolve_unmatched(
     - Satır 6 (`create`): temiz numara (§20.2.3) ve klasör adı veren ad-soyad
       (`can_create_employee`).
     - Satır 7 (`pending`, Unresolved): temiz numara yok, ad-soyad klasör adı verecek biçimde
-      okunmuş; önerilen profil kararın içindedir.
+      okunmuş; önerilen profil kararın içindedir. Ad-soyad okunmuş ama Latin yazımı yoksa
+      (05.2.2) numara temiz olsa da satır 7'dir: öneride ad ve soyad boştur, İK onayda yazar.
     - Satır 8 (`none`, Unresolved): ne ad ya da soyad parçası, ne orijinal yazım, ne belge numarası
       okunmuş.
     - Eksik kişi (`none`, Unresolved; tabloda yok): temiz numara var ama ad-soyad okunmamış ya da
@@ -851,6 +956,10 @@ def resolve_unmatched(
         if number is not None:
             return UnmatchedResolution(UnmatchedRule.CREATE)
         return UnmatchedResolution(UnmatchedRule.PENDING_PROFILE, _proposed_profile(key, name))
+    if name == LATIN_MISSING:
+        return UnmatchedResolution(
+            UnmatchedRule.PENDING_PROFILE, _proposed_profile(key, None), latin_missing=True
+        )
     read_nothing = (
         not key.document_numbers
         and not key.name_keys
@@ -910,13 +1019,13 @@ def _pending_refused(verdict: str) -> PendingProfileRefusedError:
     )
 
 
-def _proposed_profile(key: PersonKey, name: _ProfileName) -> ProposedProfile:
-    original = key.original_script_name
+def _proposed_profile(key: PersonKey, name: _ProfileName | None) -> ProposedProfile:
+    # `name` yoksa Latin yazım belgede yok (05.2.2): ad ve soyadı İK onayda yazar.
     return ProposedProfile(
-        given_names=name.given_names,
-        surname=name.surname,
-        other_names=key.other_names,
-        original_script_name=None if original is None else original.original,
+        given_names=None if name is None else name.given_names,
+        surname=None if name is None else name.surname,
+        other_names=key.latin_other_names,
+        original_script_name=key.original_spelling,
         date_of_birth=key.date_of_birth,
         nationality=key.nationality,
         aliases=tuple(_spellings(key).items()),
@@ -943,6 +1052,9 @@ PROFILE_FIELDS = (
 # `employees` isim sütunları `String(255)`dir.
 PROFILE_TEXT_MAX_LENGTH = 255
 _REQUIRED_NAMES = (GIVEN_NAMES, SURNAME)
+# 05.2.2: ad, soyad ve diğer isimler yalnız Latin harfi taşır.
+LATIN_ONLY_PROBLEM = "Latin harfleriyle yazılmalı; Latin olmayan yazım Orijinal yazım alanına"
+LATIN_MISSING_PROBLEM = f"{LATIN_MISSING}; onayda Latin harfleriyle yazılmalı (05.2.2)"
 
 
 @dataclass(frozen=True, slots=True)
@@ -992,8 +1104,10 @@ def check_profile_fields(fields: ProfileFields, *, today: date | None = None) ->
 
     Ad ve soyad zorunludur; isim alanları boş, 255 karakterden uzun, denetim karakterli ya da
     harfsiz/rakamsız olamaz (alias anahtarı çıkmalı, §20.2.1) ve ad-soyad klasör adı vermelidir
-    (K8). Doğum tarihi `today`den (verilmezse bugün) sonra olamaz; vatandaşlık ICAO kodudur
-    (`RUS`, `D`). İsteğe bağlı alan yoksa `None`'dır, boş metin değil. Kişisel değer dönmez.
+    (K8). Ad, soyad ve diğer isimler yalnız Latin harfi taşır (aksanlı Latin serbest); Latin
+    olmayan yazımın yeri orijinal yazımdır (05.2.2). Doğum tarihi `today`den (verilmezse bugün)
+    sonra olamaz; vatandaşlık ICAO kodudur (`RUS`, `D`). İsteğe bağlı alan yoksa `None`'dır, boş
+    metin değil. Kişisel değer dönmez.
     """
     errors: dict[str, str] = {}
     names = {
@@ -1006,6 +1120,8 @@ def check_profile_fields(fields: ProfileFields, *, today: date | None = None) ->
         if value is None and name not in _REQUIRED_NAMES:
             continue
         problem = _name_problem(value)
+        if problem is None and name in _LATIN_FIELDS and not is_latin_name(str(value)):
+            problem = LATIN_ONLY_PROBLEM
         if problem is not None:
             errors[name] = problem
     if not errors.keys() & _REQUIRED_NAMES:
@@ -1101,7 +1217,9 @@ def approve_pending_profile(
     klasör ve olay yazılmaz. Öneriden sonra kişinin numarası ya da ismi kayıtlı bir çalışanda
     görünüyorsa (satır 1–5) yeni çalışan açılmaz; belge çalışana atanarak çözülür (08.2.1).
 
-    `fields` İK'nın panelde düzelttiği profildir (10.7.3); verilmezse önerinin alanları yazılır.
+    `fields` İK'nın panelde düzelttiği profildir (10.7.3); verilmezse önerinin alanları yazılır —
+    Latin yazımı belgede olmayan öneride (05.2.2) ad ve soyadı İK yazmalıdır, `fields` verilmezse
+    `ProfileFieldsError`.
     Verilirse `check_profile_fields`'tan geçmelidir (`ProfileFieldsError`) ve çalışana yazılacak
     bütün yazımlar doğum tarihiyle birlikte satır 3–5'e karşı yeniden sınanır: düzeltilmiş ad ya
     da doğum tarihi kayıtlı bir çalışana uyuyorsa ikinci çalışan açılmaz
@@ -1128,6 +1246,8 @@ def approve_pending_profile(
     # eşzamanlı ikinci onayı hükmü ilk onayın commit'inden sonra okur ve satır 3/5'e düşer.
     employee_id = allocate_employee_number(session)
     profile = review_pending_profile(session, key, entry=entry, fields=fields)
+    if fields is None and profile.latin_missing:
+        raise ProfileFieldsError(dict.fromkeys(_REQUIRED_NAMES, LATIN_MISSING_PROBLEM))
     confirmed = profile.fields() if fields is None else fields
     edited = edited_profile_fields(profile, confirmed)
     aliases = _employee_aliases(profile, confirmed)
@@ -1149,7 +1269,7 @@ def approve_pending_profile(
                 employee=employee,
                 raw_name=raw_name,
                 normalized_name=normalized,
-                script=_detect_script(raw_name),
+                script=detect_script(raw_name),
             )
         )
     session.flush()
@@ -1178,7 +1298,8 @@ def _employee_aliases(profile: ProposedProfile, fields: ProfileFields) -> dict[s
     # (§20.2.1).
     aliases = dict(profile.aliases)
     name = f"{fields.given_names} {fields.surname}"
-    if name not in aliases:
+    # Latin yazımı belgede olmayan önerinin (05.2.2) ad-soyadı onaydan önce boştur.
+    if fields.given_names and fields.surname and name not in aliases:
         aliases[name] = normalize_name(fields.given_names, fields.surname)
     original = fields.original_script_name
     if original is not None and original not in aliases:
@@ -1220,7 +1341,7 @@ def accumulate_identity(
     `IdentityAccumulationRefusedError` — hiçbir şey yazılmaz. Uyuyorsa eşleşen çalışana:
 
     - `employee_aliases`: `Ad Soyad` yazımı ve orijinal yazım, anahtarın normalize değeriyle —
-      çalışanda aynı ham yazım (`raw_name`) yoksa; `script` yazımın alfabesidir (`_detect_script`,
+      çalışanda aynı ham yazım (`raw_name`) yoksa; `script` yazımın alfabesidir (`detect_script`,
       05.8.3),
     - `employee_identifiers`: numara yalnız §20.2.3'e göre temizse (`clean_document_number`),
       çalışanda aynı değer yoksa; `kind` türün slug'ı, `source_document_id` boş (D11).
@@ -1256,7 +1377,7 @@ def accumulate_identity(
                 employee=employee,
                 raw_name=raw_name,
                 normalized_name=normalized,
-                script=_detect_script(raw_name),
+                script=detect_script(raw_name),
             )
         )
     number = clean_document_number(key, entry)

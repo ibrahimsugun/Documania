@@ -10,6 +10,9 @@
 {% else %}
 <h1>{{ profile.name }}</h1>
 <p class="profile-meta">{{ profile.id }} · {{ profile.status_label }} · <a href="/access-log/employees/{{ profile.id }}">Erişim logu</a></p>
+{% if profile.latin_missing %}
+<p class="missing" role="status"><span class="badge badge-missing">Latin yazım eksik</span> Ad, soyad ya da diğer isimler Latin olmayan harf taşıyor; Latin yazım belgede ve isim yazımlarında bulunamadı.</p>
+{% endif %}
 
 <section class="profile-card" aria-label="Çalışan kartı">
   <div class="profile-photo">

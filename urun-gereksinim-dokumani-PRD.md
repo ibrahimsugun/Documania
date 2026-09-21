@@ -208,6 +208,7 @@ maliyet paneli gerçek rakam gösteriyor.
 |---|---|---|---|
 | 05.1.1 | İsim normalizasyonu | Aksan, noktalama ve sıra farkları aynı anahtara iner | Must (MVP) |
 | 05.2.1 | Harf çevirisi | Kiril ve Arap yazımlar Latin karşılığına çevrilir; orijinal yazım da saklanır | Must (MVP) |
+| 05.2.2 | Latin ad ve orijinal yazım ayrımı | Çalışanın ad, soyad ve diğer isim alanları yalnız Latin harfleriyle tutulur ve listede, profilde, planda Latin görünür; Latin olmayan yazım "Orijinal yazım"da durur. Latin yazım önce belgede basılı Latin addan, sonra geçerli MRZ'den, bunlar yoksa yalnız Kiril için kural tabanlı çeviriden alınır; Arap ve diğer alfabelerde tahminle çeviri yapılmaz | Must (MVP) |
 | 05.3.1 | MRZ ayrıştırma | TD1, TD2, TD3 biçimleri ayrıştırılır | Must (MVP) |
 | 05.3.2 | MRZ kontrol hanesi doğrulaması | Kontrol hanesi tutmayan MRZ geçersiz sayılır | Must (MVP) |
 | 05.3.3 | MRZ önceliği | Görünen metinle MRZ çelişirse MRZ kazanır ve çelişki nota yazılır | Must (MVP) |
@@ -413,7 +414,7 @@ data/
 FILE_UPLOADED · FILE_DUPLICATE · PAGE_RENDERED · PAGE_BLANK · PAGE_ANALYZED ·
 PAGE_ANALYSIS_FAILED · PAGE_UNREADABLE · DOC_TYPE_DETERMINED · DOC_TYPE_UNKNOWN ·
 CANDIDATE_TYPE_PROPOSED · PERSON_IDENTIFIED · PERSON_MATCHED · PERSON_NOT_MATCHED ·
-PERSON_AMBIGUOUS · EMPLOYEE_CREATED · EMPLOYEE_PENDING · PLAN_CREATED · VALIDATION_FAILED ·
+PERSON_AMBIGUOUS · EMPLOYEE_CREATED · EMPLOYEE_PENDING · EMPLOYEE_FIELD_FILLED · PLAN_CREATED · VALIDATION_FAILED ·
 DIRECT_DOC_CHECK · PAGE_EXTRACTED · PAGES_MERGED · IMAGE_WRAPPED · IMAGE_EXTRACTED ·
 IMAGE_RENDERED · OUTPUT_SAVED · OUTPUT_SKIPPED · QUEUED_UNKNOWN · QUEUED_UNREADABLE ·
 QUEUED_UNRESOLVED · MANUAL_MOVE · MANUAL_ASSIGN · MANUAL_APPROVE · TYPE_APPROVED ·

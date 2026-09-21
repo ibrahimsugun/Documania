@@ -31,12 +31,31 @@ Harf çevirisi (05.2.1) tablonun Unicode kod noktası sütununa göre yapılır:
 
 `transliterate_name` orijinal yazımı dokunmadan, Latin karşılığıyla birlikte döndürür. Kelimesiz
 isim (yalnız noktalama) `EmptyNameError` verir — boş anahtar hiçbir zaman eşleştirmeye girmez.
+
+**Latin ad (05.2.2, PLAN.md §C81).** Eşleştirme anahtarı yukarıdaki gibi kalır; çalışan kaydının
+ad, soyad ve diğer isimler alanları ise yalnız Latin harfi taşır (aksanlı Latin serbest: `Š`,
+`Ć`, `Đ`). Tek giriş noktası `latin_person_name`'dir; bir isim parçasının Latin yazımını öncelik
+sırasıyla şuradan alır:
+
+1. belgede basılı Latin okuma (aksanlar korunur),
+2. kontrol haneleri geçen MRZ'nin aynı parçası (ICAO yazımı),
+3. yalnız Kiril için kural tabanlı çeviri (`transliterate_cyrillic`): `sr` Sırpçanın, `mk`
+   Makedoncanın resmî Latin alfabesi; öteki diller ve dili bilinmeyen yazım ICAO Tablo B. Tabloda
+   olmayan Kiril harfi (Kazakça `Қ`) varsa çeviri yapılmaz.
+
+Arap ve öteki alfabelerde çeviri yapılmaz: Arap yazısı kısa ünlüleri yazmaz, ICAO karşılığı
+(`محمد → MXHMD`) kişinin kullandığı ad değildir. Latin yazım yoksa sonuç `None`'dır. Alfabe tespiti
+(`detect_script`, 05.8.3) ve Latin denetimi (`is_latin_name`) aynı harf sınıflamasını kullanır.
 """
 
 from __future__ import annotations
 
+import enum
 import unicodedata
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
+
+from app.ai.schemas import Script
 
 # Kesme işareti ve benzerleri: kelimeyi bölmeden silinir (ICAO MRZ yazımı da atar).
 _APOSTROPHES = "'`´‘’‛′ʹʻʼʽʾʿˈ＇"
@@ -218,6 +237,78 @@ _TEH_MARBUTA = "ة"
 _TEH_MARBUTA_FINAL = "XAH"
 _TATWEEL = "ـ"
 
+# Resmî Latin alfabeleri (05.2.2): harf başına tek karşılık, anahtar büyük harftir. Sırpça
+# (Gaj alfabesi) ve Makedonca (2008 resmî latinizasyonu) Kiril alfabelerinin bütün harfleri.
+_SERBIAN_LATIN = {
+    "А": "A",
+    "Б": "B",
+    "В": "V",
+    "Г": "G",
+    "Д": "D",
+    "Ђ": "Đ",
+    "Е": "E",
+    "Ж": "Ž",
+    "З": "Z",
+    "И": "I",
+    "Ј": "J",
+    "К": "K",
+    "Л": "L",
+    "Љ": "LJ",
+    "М": "M",
+    "Н": "N",
+    "Њ": "NJ",
+    "О": "O",
+    "П": "P",
+    "Р": "R",
+    "С": "S",
+    "Т": "T",
+    "Ћ": "Ć",
+    "У": "U",
+    "Ф": "F",
+    "Х": "H",
+    "Ц": "C",
+    "Ч": "Č",
+    "Џ": "DŽ",
+    "Ш": "Š",
+}
+_MACEDONIAN_LATIN = {
+    "А": "A",
+    "Б": "B",
+    "В": "V",
+    "Г": "G",
+    "Д": "D",
+    "Ѓ": "GJ",
+    "Е": "E",
+    "Ж": "Ž",
+    "З": "Z",
+    "Ѕ": "DZ",
+    "И": "I",
+    "Ј": "J",
+    "К": "K",
+    "Л": "L",
+    "Љ": "LJ",
+    "М": "M",
+    "Н": "N",
+    "Њ": "NJ",
+    "О": "O",
+    "П": "P",
+    "Р": "R",
+    "С": "S",
+    "Т": "T",
+    "Ќ": "KJ",
+    "У": "U",
+    "Ф": "F",
+    "Х": "H",
+    "Ц": "C",
+    "Ч": "Č",
+    "Џ": "DŽ",
+    "Ш": "Š",
+}
+_OFFICIAL_LATIN = {"sr": _SERBIAN_LATIN, "mk": _MACEDONIAN_LATIN}
+# Resmî alfabede ünlü üstündeki vurgu işareti (`Ѐ`, `Ѝ`) ayrı harf değildir: ünlü çevrilir,
+# işaret Latin ünlüde kalır. Öteki ayrışan harfler (`Ѓ` Sırpçada) tablo dışıdır.
+_VOWELS = frozenset("АЕИОУ")
+
 
 class EmptyNameError(ValueError):
     """İsimden karşılaştırılabilir tek bir kelime bile çıkmadı."""
@@ -258,6 +349,131 @@ def normalize_name(*parts: str | None, language: str | None = None) -> str:
     if not words:
         raise EmptyNameError("İsimden eşleştirme anahtarı çıkmadı")
     return " ".join(words)
+
+
+# --- Latin ad (05.2.2) --------------------------------------------------------------------------
+
+
+class LatinSource(enum.StrEnum):
+    """Latin yazımın kaynağı, `latin_person_name`'in öncelik sırasıyla."""
+
+    PRINTED = "printed"  # belgede basılı Latin okuma
+    MRZ = "mrz"  # kontrol haneleri geçen MRZ
+    TRANSLITERATION = "transliteration"  # yalnız Kiril, kural tabanlı çeviri
+
+
+@dataclass(frozen=True, slots=True)
+class LatinSpelling:
+    """Bir isim parçasının Latin yazımı ve kaynağı (05.2.2)."""
+
+    text: str
+    source: LatinSource
+
+
+def detect_script(text: str) -> str | None:
+    """Yazımın alfabesi (05.8.3, `employee_aliases.script`): ilk harfin alfabesi.
+
+    Harf çevirisi (05.2.1) zaten Kiril/Arap harflerini kod noktasına göre tanıyordu; isim
+    çoğunlukla tek alfabededir, ilk harf yeter. `Script`'in kapalı kümesi dışındaki alfabeler
+    (Yunan, CJK…) `other`. Harfsiz yazımda (yalnız rakam/noktalama) `None`. Değiştirici harfler
+    (`ʻ`, `ʼ`) alfabe söylemez, atlanır.
+    """
+    for char in text:
+        script = _letter_script(char)
+        if script is not None:
+            return script
+    return None
+
+
+def is_latin_name(text: str) -> bool:
+    """Yazımdaki her harf Latin mi (05.2.2): aksanlı Latin harf Latin'dir; rakam, noktalama ve
+    değiştirici harf alfabe söylemez. Çalışanın ad, soyad ve diğer isimler alanı bunu sağlar."""
+    return all(_letter_script(char) in (None, Script.LATIN.value) for char in text)
+
+
+def transliterate_cyrillic(text: str, *, language: str | None = None) -> str | None:
+    """Kiril yazımın kural tabanlı Latin yazımı (05.2.2); çevrilemezse `None`.
+
+    `language` (ISO 639-1) `sr` ise Sırpçanın, `mk` ise Makedoncanın resmî Latin alfabesi
+    (`Ђорђе → Đorđe`, `Ѓорѓи → Gjorgji`), öteki dillerde ve dil bilinmiyorsa ICAO Doc 9303
+    Tablo B (`transliterate_name`, dil istisnalarıyla). Yazımda Kiril harfi yoksa, Latin ve Kiril
+    dışında bir harf varsa (Arap, Yunan…) ya da tabloda olmayan bir Kiril harfi kalıyorsa
+    (Kazakça `Қ`) çeviri yapılmaz. Büyük harfin çok harfli karşılığı `transliterate_name`'deki
+    gibi yazılır (`ЉУБА → LJUBA`, `Љуба → Ljuba`); sonuç NFC'dir.
+    """
+    scripts = {_letter_script(char) for char in text} - {None}
+    if Script.CYRILLIC.value not in scripts or not scripts <= {
+        Script.LATIN.value,
+        Script.CYRILLIC.value,
+    }:
+        return None
+    code = language.casefold() if language is not None else None
+    composed = _compose(text)
+    table = _OFFICIAL_LATIN.get(code) if code is not None else None
+    if table is not None:
+        latin = _official_latin(composed, table)
+    else:
+        latin = _transliterate(composed, code)
+    if latin is None:
+        return None
+    latin = unicodedata.normalize("NFC", latin)
+    return latin if is_latin_name(latin) else None
+
+
+def latin_person_name(
+    readings: Iterable[tuple[str, str | None]], *, mrz: Sequence[str] = ()
+) -> LatinSpelling | None:
+    """Bir isim parçasının (soyad, ad, diğer isimler) Latin yazımı — 05.2.2'nin tek giriş noktası.
+
+    `readings` parçanın belgedeki okumalarıdır, sayfa sırasıyla `(yazım, sayfanın dili)`; hepsi
+    aynı kişi anahtarına inmelidir (çağıranın işi). `mrz` kontrol haneleri geçen MRZ'lerin aynı
+    parçasıdır (anahtara inen). Öncelik: (1) MRZ'den gelmeyen Latin okuma — basılı Latin yazım,
+    aksanlarıyla; (2) MRZ yazımı (MRZ önceliğiyle okumaya yazılmış olsa da); (3) okumalardan ilk
+    çevrilebilen Kiril yazımın `transliterate_cyrillic` çevirisi. Hiçbiri yoksa `None`: Arap ve
+    öteki alfabeler tahminle çevrilmez.
+    """
+    readings = tuple(readings)
+    mrz_spellings = tuple(text for text in mrz if is_latin_name(text))
+    for text, _ in readings:
+        if is_latin_name(text) and text not in mrz_spellings:
+            return LatinSpelling(text, LatinSource.PRINTED)
+    if mrz_spellings:
+        return LatinSpelling(mrz_spellings[0], LatinSource.MRZ)
+    for text, language in readings:
+        latin = transliterate_cyrillic(text, language=language)
+        if latin is not None:
+            return LatinSpelling(latin, LatinSource.TRANSLITERATION)
+    return None
+
+
+def _letter_script(char: str) -> str | None:
+    # Harfin alfabesi (`Script` değeri); harf değilse ya da değiştirici harfse `None`.
+    if not char.isalpha():
+        return None
+    name = unicodedata.name(char, "")
+    if name.startswith("MODIFIER LETTER"):
+        return None
+    for script in (Script.LATIN, Script.CYRILLIC, Script.ARABIC):
+        if name.startswith(script.name):
+            return script.value
+    return Script.OTHER.value
+
+
+def _official_latin(text: str, table: dict[str, str]) -> str | None:
+    # Resmî Latin alfabesiyle harf harf çeviri; tablo dışı Kiril harfinde `None`.
+    result: list[str] = []
+    for index, char in enumerate(text):
+        if _letter_script(char) != Script.CYRILLIC.value:
+            result.append(char)
+            continue
+        letter, marks = char, ""
+        if char.upper() not in table:
+            decomposed = unicodedata.normalize("NFD", char)
+            letter, marks = decomposed[0], decomposed[1:]
+            if letter.upper() not in _VOWELS:
+                return None
+        result.append(_cased(table[letter.upper()], letter, text, index) + marks)
+    return "".join(result)
 
 
 def _words(text: str, language: str | None) -> list[str]:

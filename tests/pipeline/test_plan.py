@@ -60,6 +60,7 @@ from app.events import EventType
 from app.matching.match import (
     NAME_ONLY_REASON,
     NO_PERSON_REASON,
+    PENDING_PROFILE_LATIN_REASON,
     PENDING_PROFILE_REASON,
     EmployeeAction,
     MatchedBy,
@@ -863,6 +864,72 @@ def test_name_without_clean_number_is_a_pending_profile(
     assert _count(session, Employee) == 0
     (event,) = _events(session, EventType.EMPLOYEE_PENDING)
     assert (event.file_id, event.page_index) == (file_id, 0)
+
+
+def test_cyrillic_read_into_the_latin_fields_opens_the_employee_in_latin(
+    session: Session, layout: DataLayout
+) -> None:
+    # 05.2.2 (E0001 bulgusu): Latin ad yalnız MRZ'de, yapay zekâ Kiril'i `surname`/`given_names`'e
+    # koydu. Çalışan, klasör ve hedef ad Latin; Kiril yazım orijinal yazımda, isim yazımında.
+    passport = _passport()
+    passport["person"].update(surname="ОРНЕКОВА", given_names="ТЕСТ", original_script_name=None)
+    passport["fields"].update(
+        surname={"value": "ОРНЕКОВА", "legible": True},
+        given_names={"value": "ТЕСТ", "legible": True},
+    )
+    upload = _upload(session, layout, _pdf(passport))
+    (file_id,) = _file_ids(upload)
+
+    document = _plan(session, layout, upload)
+
+    assert document.items == (
+        _item(
+            "i1",
+            [(file_id, (0,))],
+            slug=PASSPORT,
+            employee=_created(),
+            route=Route.READY,
+            operation=Operation.PASSTHROUGH,
+            target=("pdf", "Test_Ornekova-Passport.pdf"),
+        ),
+    )
+    employee = session.get_one(Employee, "E0001")
+    assert (
+        employee.given_names,
+        employee.surname,
+        employee.original_script_name,
+        employee.folder_name,
+    ) == ("TEST", "ORNEKOVA", "ТЕСТ ОРНЕКОВА", "Test_Ornekova_E0001")
+    assert [alias.raw_name for alias in employee.aliases] == ["ТЕСТ ОРНЕКОВА"]
+    _assert_no_personal_values(session)
+
+
+def test_name_without_latin_spelling_is_a_pending_profile_even_with_a_clean_number(
+    session: Session, layout: DataLayout
+) -> None:
+    # 05.2.2: Arap yazımlı ad, belgede Latin yazım ve MRZ yok → tahminle çevrilmez; temiz numara
+    # olsa da çalışan açılmaz, profil önerisi "Latin yazım belgede yok" gerekçesiyle Unresolved.
+    person = _person(surname="علي", given_names="محمد")
+    upload = _upload(
+        session, layout, _pdf(_page(PASSPORT, person=person, language="ar", script="arabic"))
+    )
+    (file_id,) = _file_ids(upload)
+
+    document = _plan(session, layout, upload)
+
+    pending = PlanEmployee(action=EmployeeAction.PENDING, employee_id=None, matched_by=None)
+    assert document.items == (
+        _item(
+            "i1",
+            [(file_id, (0,))],
+            slug=PASSPORT,
+            employee=pending,
+            reason=PENDING_PROFILE_LATIN_REASON,
+        ),
+    )
+    assert _count(session, Employee) == 0
+    (event,) = _events(session, EventType.EMPLOYEE_PENDING)
+    assert (event.file_id, event.message) == (file_id, PENDING_PROFILE_LATIN_REASON)
 
 
 @pytest.mark.parametrize("registered", [False, True], ids=["nobody", "number-registered"])

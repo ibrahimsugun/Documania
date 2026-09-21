@@ -100,12 +100,19 @@ anahtar eklenmez.
   birlikte gösteren (`front_and_back`) sayfa kendi başına tam karttır: `false`.
 - `person`: belgenin sahibi olan, adı sayfada yazılı kişi. Belgeyi düzenleyen memur veya işveren
   yetkilisi gibi başka kişileri yazma.
-  - `surname`: soyadı, belgede Latin harfleriyle yazıldığı gibi.
-  - `given_names`: ad veya adlar, belgede yazıldığı gibi. İkinci ad veya baba adı belgede ayrı bir
-    alan olarak yazılıysa buraya değil `other_names`'e gider.
-  - `other_names`: ikinci ad, baba adı (отчество) gibi ayrı yazılmış ek isimler; yoksa `null`.
-  - `original_script_name`: isim belgede Latin olmayan bir alfabeyle de yazılıysa o yazımıyla,
-    harfi harfine (ör. Kiril); yoksa `null`. Harf çevirisi yapma.
+  - `surname`, `given_names` ve `other_names` **yalnız Latin harfi** taşır. Latin ad belgede
+    görünen metinde basılı değilse (ör. adı yalnız Kiril ya da Arap harfleriyle yazılı, Latin
+    yazımı yalnız MRZ'de) bu alanlar `null`'dır ve Latin olmayan yazım `original_script_name`'e
+    gider. Latin olmayan yazıyı bu üç alana koyma, kendin Latin'e çevirme, MRZ'deki adı buraya
+    taşıma (kural 1); Latin yazımı sistem belgeden ve MRZ'den kendisi bulur.
+  - `surname`: soyadı, belgede Latin harfleriyle yazıldığı gibi (aksanlar dahil: `Š`, `Ć`, `Ö`).
+  - `given_names`: ad veya adlar, belgede Latin harfleriyle yazıldığı gibi. İkinci ad veya baba
+    adı belgede ayrı bir alan olarak yazılıysa buraya değil `other_names`'e gider.
+  - `other_names`: ikinci ad, baba adı (отчество) gibi ayrı yazılmış ek isimler, Latin
+    harfleriyle; yoksa `null`.
+  - `original_script_name`: isim belgede Latin olmayan bir alfabeyle yazılıysa o yazımıyla,
+    harfi harfine (ör. Kiril) — soyad, ad ve baba adı ayrı alanlarda yazılıysa belgedeki
+    sırasıyla birlikte; yoksa `null`. Harf çevirisi yapma.
   - `date_of_birth`: `YYYY-AA-GG` biçiminde (ör. `1990-04-12`). Gün, ay ve yılı tam okuyamıyorsan
     veya gün/ay sırası belgeden anlaşılmıyorsa `null`.
   - `nationality`: uyruk alanında yazılı ICAO 9303 kodu (`RUS`, `SRB`, `TUR`; Almanya için `D`).
@@ -122,7 +129,9 @@ anahtar eklenmez.
 - `fields`: türün zorunlu alanlarının bu sayfadaki okuması. Anahtarlar, katalogda türün
   "Zorunlu alanlar" satırındaki adlardır, aynen. Her zorunlu alan için bir kayıt: `value` ve
   `legible` (kural 2). Tarihler `YYYY-AA-GG` biçiminde (gün/ay sırası belgeden anlaşılmıyorsa
-  `legible: false`), diğer değerler belgede yazıldığı gibi.
+  `legible: false`), diğer değerler belgede yazıldığı gibi — isim alanları da belgede hangi
+  alfabeyle yazılıysa öyle: `person`'daki Latin kuralı `fields`'a uygulanmaz; Latin
+  olmayan harflerle yazılmış okunaklı bir ad da `legible: true`'dur.
   Türün zorunlu alanı yoksa veya `document_type_slug` `null` ise `fields` boş nesnedir (`{}`).
 - `notes`: okunaklılık ve belirsizlik hakkında kısa not — hangi alan neden okunamadı, kenar kesik mi,
   parlama var mı, metin katmanı görüntüyle çelişiyor mu, türün kabul kriterlerinden hangisi açıkça

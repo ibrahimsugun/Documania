@@ -27,7 +27,10 @@ bağlantıdır; JavaScript kapalıyken de arama form gönderimiyle çalışır.
 fotoğrafını, adı, soyadı, diğer isimleri, orijinal yazımı, vatandaşlığı, doğum tarihi ve yaşı,
 iletişim bilgilerini ve belge numaralarını gösterir; bilinmeyen alan gizlenmez, "—" görünür.
 Çalışanın etkin bir `profile_picture` belgesi yoksa kart yer tutucu çizer ve belgeyi eksik olarak
-işaretler (10.5.4). Belge listesi çalışanın **tüm** belgelerini (etkin, eski sürüm, arşivlenmiş)
+işaretler (10.5.4). Ad, soyad ve diğer isimler Latin yazımdır, Latin olmayan yazım "Orijinal
+yazım"da durur (05.2.2); bu alanlardan biri hâlâ Latin olmayan harf taşıyorsa (onarımın Latin
+yazım bulamadığı eski kayıt, `python -m app.profiles repair-latin-names`) kart "Latin yazım eksik"
+uyarısı gösterir. Belge listesi çalışanın **tüm** belgelerini (etkin, eski sürüm, arşivlenmiş)
 gösterir; her belge yeni sekmede açılır (`.../file`) ve indirilir (`.../download`), ikisi de
 yalnız `GET`'tir — panelde belge içeriğini değiştiren yol yoktur (10.5.2, K17). Fotoğraf ayrı bir
 adresten (`.../photo`) sunulur: profil sayfasını çizmek belgeyi "açmak" sayılmasın (10.9.2 açma ve
@@ -64,6 +67,7 @@ from app.db.models import (
 from app.db.session import get_session
 from app.matching.match import normalize_document_number
 from app.matching.names import EmptyNameError, normalize_name
+from app.profiles.latin_names import needs_latin_repair
 from app.profiles.render import calculate_age
 from app.storage import DataLayout
 from app.web.access import record_access
@@ -336,6 +340,7 @@ class ProfileView:
     photo_url: str | None
     photo_missing: bool
     documents: list[DocumentRow]
+    latin_missing: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -462,6 +467,7 @@ def build_profile(
         photo_url=f"/employees/{employee.id}/photo" if photo_shown else None,
         photo_missing=photo is None,
         documents=rows,
+        latin_missing=needs_latin_repair(employee),
     )
 
 

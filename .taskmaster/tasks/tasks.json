@@ -1458,13 +1458,25 @@
         "priority": "high",
         "subtasks": [],
         "updatedAt": "2026-09-21T21:33:30.989Z"
+      },
+      {
+        "id": "106",
+        "title": "05.2-b — Latin ad ve orijinal yazım ayrımı: çalışan adı her yerde Latin, orijinal alfabe ayrı alanda [OPUS-XHIGH]",
+        "description": "PRD 05.2.2 · FR-MOD-05 · Faz 0 · Must (MVP). İnsan kararı (2026-09-21): Kiril/Arap/başka alfabedeki ad listede ve profilde Latin görünsün, orijinal yazım ayrı dursun; dil kapsamı kararı pencereye bırakıldı ve PLAN §C81'de verildi.",
+        "details": "KAPSAM: PRD 05.2.2. Tam sözleşme PLAN.md §C81 — önce onu oku.\n\nNE YAPILACAK: (1) Latin alan değişmezi: employees.surname/given_names/other_names ve profil önerisi yalnız Latin (aksanlı Latin serbest); Latin olmayan yazım original_script_name'de. Tek giriş noktası (ör. names.py latin_person_name), alfabe tespiti 05.8.3. (2) Latin kaynağı sırası: belgede basılı Latin ad → geçerli MRZ adı → yalnız Kiril için kural tabanlı çeviri (sr: resmî Sırp Latin; mk: resmî Makedon Latin; öteki Kiril: mevcut ICAO 9303 tablosu). Arap ve öteki alfabelerde çeviri yok; Latin yoksa yeni kişi 05.7.1 profil önerisine \"Latin yazım belgede yok\" ile düşer, İK onayda yazar. (3) Yapay zekâ Latin alana Latin olmayan yazı koyarsa kod taşır; page_analysis.md pekiştirilir. (4) Görünüm: çalışan listesi, profil kartı (Orijinal yazım ayrı), plan Çalışan sütunu, kuyruk, profil önerisi Latin. (5) Onarım: tekrar çalıştırılabilir yönetici komutu — mevcut kayıtlardaki Latin olmayan yazım taşınır, Latin alias ya da Kiril çevirisiyle doldurulur, bulunamazsa profilde \"Latin yazım eksik\" uyarısı; olay yazılır.\n\nKAPSAM SINIRI: eşleştirme anahtarı (05.1.1) değişmez; klasör/dosya yeniden adlandırma yok; Yunan vb. kural tabanlı çeviri yok.",
+        "testStrategy": "1) Birim: sr/mk resmî Latin tabloları (her harf), ICAO yolu, tablo dışı Kiril harfinde çeviri yok, Arap/Çin/Gürcü girdide çeviri yok; kaynak önceliği (basılı Latin > MRZ > çeviri); AI'nın Latin alana Kiril koyduğu analizde taşıma. 2) Eşleştirme/oluşturma: yeni çalışan Latin alanlarla açılır, orijinal yazım ayrı; Latin'i olmayan Arap adlı belge profil önerisine düşer. 3) Onarım komutu: Kiril Latin alanlı sentetik kayıt düzelir, ikinci çalıştırma değişiklik yapmaz, çevrilemeyen kayıt uyarı alır. 4) Web: liste, profil kartı, plan sütunu Latin; orijinal yazım kartta. 5) Tüm test takımı, ruff, mypy yeşil (CONVENTIONS DoD). Testler yalnız sentetik belge ve sentetik adlarla (CONVENTIONS §6).",
+        "status": "done",
+        "dependencies": [],
+        "priority": "high",
+        "subtasks": [],
+        "updatedAt": "2026-09-21T22:23:44.418Z"
       }
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-09-21T21:33:30.990Z",
-      "taskCount": 102,
-      "completedCount": 99,
+      "lastModified": "2026-09-21T22:23:44.418Z",
+      "taskCount": 103,
+      "completedCount": 100,
       "tags": [
         "master"
       ]

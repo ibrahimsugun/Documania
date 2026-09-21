@@ -272,6 +272,58 @@ def test_names_read_from_documents_are_escaped(
     assert "O&#39;Neil &amp; Co" in page
 
 
+def test_latin_name_and_original_spelling_are_shown_apart(
+    client: TestClient, session_factory: sessionmaker[Session], seeded: None
+) -> None:
+    # 05.2.2: ad ve soyad Latin, Latin olmayan yazım "Orijinal yazım"da; uyarı yok.
+    with session_factory() as session:
+        _employee(
+            session,
+            given_names="Đorđe",
+            surname="Živković",
+            original_script_name="Ђорђе Живковић",
+        )
+        session.commit()
+
+    page = client.get("/employees/E0001").text
+    fields = _fields(page)
+
+    assert (fields["Ad"], fields["Soyad"], fields["Orijinal yazım"]) == (
+        "Đorđe",
+        "Živković",
+        "Ђорђе Живковић",
+    )
+    assert "<h1>Đorđe Živković</h1>" in page
+    assert "Latin yazım eksik" not in page
+
+
+@pytest.mark.parametrize(
+    "names",
+    [
+        {"given_names": "محمد", "surname": "علي"},
+        {"given_names": "Test", "surname": "ОРНЕКОВА"},
+        {"other_names": "ИВАНОВИЧ"},
+    ],
+    ids=["arabic", "cyrillic-surname", "cyrillic-other-names"],
+)
+def test_card_flags_a_latin_field_that_still_carries_another_script(
+    client: TestClient,
+    session_factory: sessionmaker[Session],
+    seeded: None,
+    names: dict[str, str],
+) -> None:
+    # Onarımın Latin yazım bulamadığı eski kayıt (05.2.2): alan olduğu gibi, kart uyarır.
+    with session_factory() as session:
+        employee = _employee(session)
+        for name, value in names.items():
+            setattr(employee, name, value)
+        session.commit()
+
+    page = client.get("/employees/E0001").text
+
+    assert '<span class="badge badge-missing">Latin yazım eksik</span>' in page
+
+
 def test_unknown_employee_is_a_404_page_with_a_way_back(client: TestClient) -> None:
     response = client.get("/employees/E9999")
 

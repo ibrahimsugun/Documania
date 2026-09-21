@@ -37,6 +37,7 @@ from app.db.models import (
 from app.events import EventType, event_context
 from app.matching.match import (
     NO_PERSON_REASON,
+    PENDING_PROFILE_LATIN_REASON,
     PENDING_PROFILE_REASON,
     DocumentNumberKey,
     EmployeeAction,
@@ -82,6 +83,8 @@ NUMBER = "000000001"
 BORN = date(1990, 1, 1)
 CYRILLIC = "Орнекова Тест"
 NAME = normalize_name("TEST", "ORNEKOVA")
+# Latin harfli ama klasör adına (ASCII) inmeyen ad-soyad (D9): `ə`, `ʃ` Latin harfidir.
+LATIN_WITHOUT_SLUG = ("Əə", "ʃ")
 # Anahtarın kişisel değerleri ve normalize biçimleri: olay logunda, gerekçede ve ret mesajında
 # geçmez.
 PERSONAL_VALUES = ("ORNEKOVA", "Ornekova", "ornekova", "TEST", "Орнекова", NUMBER, "1990-01-01")
@@ -261,6 +264,63 @@ def test_proposed_profile_holds_what_was_read(
     )
 
 
+@pytest.mark.parametrize(
+    ("given_names", "surname", "original", "expected_original"),
+    [
+        ("محمد", "علي", "علي محمد", "علي محمد"),
+        ("محمد", "علي", None, "محمد علي"),
+        ("李", "王", None, "李 王"),
+    ],
+    ids=["arabic-with-original", "arabic-moved-to-original", "chinese-moved-to-original"],
+)
+@pytest.mark.parametrize("numbers", [_number(), ()], ids=["clean-number", "no-number"])
+def test_name_without_latin_spelling_is_a_pending_profile_without_names(
+    given_names: str,
+    surname: str,
+    original: str | None,
+    expected_original: str,
+    numbers: tuple[DocumentNumberKey, ...],
+) -> None:
+    # 05.2.2: Latin yazım ne basılı ne MRZ'de; Arap ve öteki alfabeler tahminle çevrilmez. Temiz
+    # numara olsa da çalışan açılmaz: öneride ad ve soyad boş, Latin olmayan yazım orijinal
+    # yazımda; isim yazımları (alias) okunduğu gibi.
+    key = _key(numbers=numbers, given_names=given_names, surname=surname, original=original)
+
+    resolution = resolve_unmatched(key, NO_MATCH, entry=PASSPORT)
+
+    assert (resolution.rule, resolution.latin_missing) == (UnmatchedRule.PENDING_PROFILE, True)
+    assert (resolution.action, resolution.queue) == (EmployeeAction.PENDING, QueueKind.UNRESOLVED)
+    assert resolution.reason == PENDING_PROFILE_LATIN_REASON
+    assert "Latin yazım belgede yok" in resolution.reason
+    profile = resolution.proposed_profile
+    assert profile is not None and profile.latin_missing
+    assert (profile.given_names, profile.surname, profile.other_names) == (None, None, "IVANOVNA")
+    assert profile.original_script_name == expected_original
+    assert f"{given_names} {surname}" in dict(profile.aliases)
+    assert (profile.fields().given_names, profile.fields().surname) == ("", "")
+    assert not can_create_employee(key, NO_MATCH, entry=PASSPORT)
+
+
+def test_cyrillic_reading_with_its_latin_spelling_is_named_in_latin() -> None:
+    # `build_person_key`'in bulduğu Latin yazım öneriye gider; Kiril okuma orijinal yazıma.
+    key = replace(
+        _key(numbers=(), given_names="Тест", surname="Орнекова", original=None),
+        latin_given_names="Test",
+        latin_surname="Ornekova",
+    )
+
+    resolution = resolve_unmatched(key, NO_MATCH, entry=PASSPORT)
+
+    assert (resolution.reason, resolution.latin_missing) == (PENDING_PROFILE_REASON, False)
+    profile = resolution.proposed_profile
+    assert profile is not None
+    assert (profile.given_names, profile.surname, profile.original_script_name) == (
+        "Test",
+        "Ornekova",
+        "Тест Орнекова",
+    )
+
+
 def test_original_spelling_key_keeps_the_page_language() -> None:
     # Onay (08.3) alias anahtarını yeniden hesaplamaz: Ukraynaca Kiril yazımı dilsiz normalize
     # edilirse belgenin Latin yazımıyla aynı anahtara inmez.
@@ -320,11 +380,16 @@ def test_neither_name_nor_number_is_row_8(key: PersonKey) -> None:
         (_key(surname=None), "ad-soyad okunmadı, temiz belge numarası var"),
         (_key(given_names=None, original=None), "ad-soyad okunmadı, temiz belge numarası var"),
         (
-            _key(given_names="李", surname="王", original=None),
+            _key(given_names=LATIN_WITHOUT_SLUG[0], surname=LATIN_WITHOUT_SLUG[1], original=None),
             "ad-soyad klasör adına çevrilemiyor (K8), temiz belge numarası var",
         ),
         (
-            _key(numbers=(), given_names="李", surname="王", original=None),
+            _key(
+                numbers=(),
+                given_names=LATIN_WITHOUT_SLUG[0],
+                surname=LATIN_WITHOUT_SLUG[1],
+                original=None,
+            ),
             "ad-soyad klasör adına çevrilemiyor (K8), temiz belge numarası yok",
         ),
         (
@@ -374,6 +439,7 @@ def test_incomplete_person_goes_to_unresolved_without_a_profile(
         _key(numbers=_number("AB12")),
         _key(surname=None),
         _key(given_names="李", surname="王", original=None),
+        _key(given_names=LATIN_WITHOUT_SLUG[0], surname=LATIN_WITHOUT_SLUG[1], original=None),
         _key(numbers=(), given_names=None, surname=None, original=None),
     ],
 )
@@ -399,6 +465,7 @@ def test_reasons_carry_no_personal_values() -> None:
         _key(numbers=()),
         _key(numbers=(), given_names=None, surname=None, original=None),
         _key(given_names="TEST", surname=None),
+        _key(given_names="Тест", surname="Орнекова"),
     ):
         reason = resolve_unmatched(key, NO_MATCH, entry=PASSPORT).reason
         assert reason is not None

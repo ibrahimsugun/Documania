@@ -45,6 +45,7 @@ def test_all_prd_event_types_are_present() -> None:
         "PERSON_AMBIGUOUS",
         "EMPLOYEE_CREATED",
         "EMPLOYEE_PENDING",
+        "EMPLOYEE_FIELD_FILLED",
         "PLAN_CREATED",
         "VALIDATION_FAILED",
         "DIRECT_DOC_CHECK",
