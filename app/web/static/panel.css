@@ -12,34 +12,63 @@ body {
 
 a { color: #0b5cad; }
 
+/* Üst çubuk tam genişlikte; içeriği .content ile aynı 72rem sütuna hizalanır. */
 .topbar {
+  --gutter: max(1.5rem, calc((100% - 72rem) / 2 + 1.5rem));
   display: flex;
   align-items: center;
-  gap: 1.5rem;
-  padding: 0.6rem 1.5rem;
+  gap: 1.75rem;
+  min-height: 3.5rem;
+  padding: 0 var(--gutter);
   background: #1f2937;
   color: #f9fafb;
+  border-bottom: 1px solid #111827;
 }
 
 .topbar a { color: inherit; text-decoration: none; }
 
-.brand { font-weight: 700; }
+.brand { font-weight: 700; font-size: 1.05rem; letter-spacing: 0.01em; }
 
-.menu { display: flex; gap: 0.25rem; flex: 1; }
+.menu { display: flex; gap: 0.15rem; flex: 1; }
 
-.menu a { padding: 0.35rem 0.75rem; border-radius: 4px; }
+.menu a,
+.tool-link {
+  padding: 0.4rem 0.8rem;
+  border-radius: 6px;
+  color: #d1d5db;
+  white-space: nowrap;
+}
 
-.menu a:hover { background: #374151; }
+.menu a:hover,
+.tool-link:hover { background: #374151; color: #f9fafb; }
 
-.menu a.active { background: #f9fafb; color: #1f2937; }
+.menu a.active,
+.tool-link.active { background: #374151; color: #fff; box-shadow: inset 0 -2px 0 #60a5fa; }
 
-.session { display: flex; align-items: center; gap: 0.75rem; margin: 0; }
+.session {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 0 0 0 0.5rem;
+  padding-left: 1.25rem;
+  border-left: 1px solid #374151;
+}
 
-.tool-link { padding: 0.35rem 0.75rem; border-radius: 4px; }
+.username { color: #9ca3af; font-size: 0.9rem; }
 
-.tool-link:hover { background: #374151; }
+.session button {
+  padding: 0.3rem 0.8rem;
+  background: transparent;
+  border-color: #4b5563;
+  color: #e5e7eb;
+}
 
-.tool-link.active { background: #f9fafb; color: #1f2937; }
+.session button:hover { background: #374151; }
+
+@media (max-width: 52rem) {
+  .topbar { flex-wrap: wrap; gap: 0.5rem 1rem; padding-block: 0.6rem; }
+  .menu { order: 3; flex-basis: 100%; flex-wrap: wrap; }
+}
 
 .content { max-width: 72rem; margin: 0 auto; padding: 1.5rem; }
 
@@ -259,11 +288,11 @@ button {
 
 .tabs { display: flex; flex-wrap: wrap; gap: 0.25rem; margin: 0 0 0.75rem; border-bottom: 2px solid #d0d7de; }
 
-.tabs a { padding: 0.45rem 0.9rem; border-radius: 4px 4px 0 0; text-decoration: none; color: #1f2937; }
+.tabs a { margin-bottom: -2px; padding: 0.45rem 0.9rem; border: 1px solid #d0d7de; border-bottom: 2px solid #d0d7de; border-radius: 6px 6px 0 0; background: #fff; text-decoration: none; color: #1f2937; }
 
 .tabs a:hover { background: #eef0f3; }
 
-.tabs a.active { background: #1f2937; color: #f9fafb; }
+.tabs a.active { border-color: #1f2937; background: #1f2937; color: #f9fafb; }
 
 .counter { display: inline-block; min-width: 1.4em; padding: 0 0.4em; border-radius: 999px; background: #fff3cd; color: #7a5d00; font-size: 0.85em; text-align: center; font-variant-numeric: tabular-nums; }
 
