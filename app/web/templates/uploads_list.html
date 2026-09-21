@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{# Yükleme listesi (10.3.3): partiler en yeni üstte, durum ve tarihe göre süzülür, sayfalanır. Sayfa
+   yalnız okur; dosya adı ve kişisel alan yok, yalnız sayılar. #}
+{% block title %}Yüklemeler{% endblock %}
+{% block content %}
+<h1>Yüklemeler</h1>
+<form class="search uploads-filter" method="get" action="/uploads" aria-label="Yüklemeleri süz">
+  <label for="upload-status">Durum</label>
+  <select id="upload-status" name="status">
+    <option value="">Tümü</option>
+    {% for value, name in status_filters %}
+    <option value="{{ value }}"{% if listing.filter.status == value %} selected{% endif %}>{{ name }}</option>
+    {% endfor %}
+  </select>
+  <label for="upload-from">Başlangıç</label>
+  <input type="date" id="upload-from" name="from" value="{{ listing.filter.date_from.isoformat() if listing.filter.date_from else '' }}">
+  <label for="upload-to">Bitiş</label>
+  <input type="date" id="upload-to" name="to" value="{{ listing.filter.date_to.isoformat() if listing.filter.date_to else '' }}">
+  <button type="submit">Süz</button>
+  {% if listing.filter.active %}<a href="/uploads">Süzgeci temizle</a>{% endif %}
+</form>
+{% for warning in listing.filter.warnings %}
+<p class="notice" role="alert">{{ warning }}</p>
+{% endfor %}
+
+{% if listing.total == 0 %}
+<p class="placeholder">{% if listing.filter.active %}Bu süzgece uyan yükleme yok.{% else %}Henüz yükleme yok.{% endif %} <a href="/upload">Yükle</a></p>
+{% else %}
+<p class="count">{{ listing.total }} yükleme</p>
+<table class="access-log uploads-list">
+  <thead>
+    <tr>
+      <th>Parti</th><th>Tarih</th><th>Kanal</th><th>Yükleyen</th><th>Bağlam çalışanı</th>
+      <th class="num">Dosya</th><th class="num">Sayfa</th><th>Durum</th>
+      {% for header in listing.queue_headers %}<th class="num" title="Çözülmemiş {{ header }} öğesi">{{ header }}</th>{% endfor %}
+    </tr>
+  </thead>
+  <tbody>
+    {% for row in listing.rows %}
+    <tr>
+      <td><a href="{{ row.url }}">{{ row.id }}</a></td>
+      <td>{{ row.created_at }}</td>
+      <td>{{ row.channel }}</td>
+      <td>{{ row.uploaded_by or "—" }}</td>
+      <td>{% if row.context_employee_url %}<a href="{{ row.context_employee_url }}">{{ row.context_employee_name }}</a> <span class="reason">{{ row.context_employee_id }}</span>{% else %}—{% endif %}</td>
+      <td class="num">{{ row.file_count }}</td>
+      <td class="num">{{ row.page_count }}</td>
+      <td class="status-{{ row.status }}">{{ row.status_label }}</td>
+      {% for queue in row.queue_counts %}<td class="num">{% if queue.shown %}{{ queue.count }}{% endif %}</td>{% endfor %}
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% if listing.page_count > 1 %}
+<nav class="pager" aria-label="Sayfalama">
+  {% if listing.previous_url %}<a href="{{ listing.previous_url }}" rel="prev">← Önceki</a>{% endif %}
+  <span>Sayfa {{ listing.page }} / {{ listing.page_count }}</span>
+  {% if listing.next_url %}<a href="{{ listing.next_url }}" rel="next">Sonraki →</a>{% endif %}
+</nav>
+{% endif %}
+{% endif %}
+{% endblock %}

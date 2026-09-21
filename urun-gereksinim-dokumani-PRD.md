@@ -287,6 +287,7 @@ maliyet paneli gerçek rakam gösteriyor.
 | 10.2.2 | İlerleme görünümü | Yükleme sonrası parti durumu canlı yenilenir | Should (v1) |
 | 10.3.1 | Yükleme detay sayfası | Sayfa küçük resimleri, plan öğeleri, çıktılar ve olay zaman çizelgesi tek sayfada görünür | Must (v1) |
 | 10.3.2 | Yeniden çalıştır / yeniden analiz | İki işlem panelden tetiklenir; yeniden analiz iki aşamalı onay ister | Should (v1) |
+| 10.3.3 | Yükleme listesi | Yüklemeler menüsü partileri en yeni üstte listeler: tarih, kanal, yükleyen, bağlam çalışanı, dosya ve sayfa sayısı, durum ve kuyruğa düşen belge sayısı; durum ve tarihe göre süzülür, sayfalanır; satırdan parti detayına gidilir | Must (v1) |
 | 10.4.1 | Çalışan listesi | Ad, orijinal yazım, uyruk, belge sayısı ve durum listelenir | Must (v1) |
 | 10.4.2 | Arama | Ad, alias, orijinal yazım, belge numarası ve belge türü üzerinde arama çalışır | Must (v1) |
 | 10.5.1 | Çalışan profili sayfası | CV benzeri kart şunların hepsini gösterir: profil fotoğrafı, ad, soyad, diğer isimler, orijinal yazım, vatandaşlık, doğum tarihi ve yaş, iletişim bilgileri, belge numaraları. Bilinmeyen alan "—" olarak görünür, gizlenmez | Must (v1) |

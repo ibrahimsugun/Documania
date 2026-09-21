@@ -1446,13 +1446,25 @@
         "priority": "high",
         "subtasks": [],
         "updatedAt": "2026-09-21T20:30:00.000Z"
+      },
+      {
+        "id": "104",
+        "title": "10.3-b — Yükleme listesi: Yüklemeler menüsü partileri listeler, süzer, sayfalar [SONNET-XHIGH]",
+        "description": "PRD 10.3.3 · FR-MOD-10 (Web yönetim paneli) · Faz 1 · Must (v1). İnsan kararı (2026-09-21): /uploads 10.1.1 iskeletinin yer tutucusunda kaldı (\"Bu bölümün içeriği henüz hazır değil.\"); partiler listelenmeli ve detaya gidilmeli.",
+        "details": "KAPSAM: PRD 10.3.3. Tam sözleşme PLAN.md §C79 — önce onu oku.\n\nNE YAPILACAK: (1) /uploads yer tutucusu (app/web/routers/panel.py uploads_page → section.html) kalkar; oturumlu liste sayfası. (2) Satırlar created_at azalan: tarih, kanal, yükleyen, bağlam çalışanı (profil bağlantısı), dosya sayısı, sayfa sayısı, durum (Türkçe etiket), çözülmemiş kuyruk sayıları kind'a göre; parti kimliği /uploads/{id} detayına bağlanır. (3) Süzme: durum ve tarih aralığı (GET); geçersiz değer yok sayılır, uyarı gösterilir. (4) Sayfalama PAGE_SIZE=50. (5) Boş liste mesajı + Yükle bağlantısı. (6) Sayılar tek toplulaştırılmış sorguyla (N+1 yok).\n\nKAPSAM SINIRI: dosya adı ve kişisel alan gösterilmez; toplu işlem, silme, canlı yenileme yok; olay yazılmaz.",
+        "testStrategy": "1) tests/web: liste sırası, sütun değerleri (kanal, yükleyen yokken —, bağlam çalışanı bağlantısı, dosya/sayfa/kuyruk sayıları, çözülmüş kuyruk sayılmaz), detay bağlantısı, durum ve tarih süzgeci, geçersiz süzgeç uyarısı, sayfalama sınırları, boş liste, oturumsuz istek girişe yönlenir, dosya adının sayfada geçmediği. 2) Mevcut menü testleri (test_auth, test_admin_cli, test_upload_detail aktif menü) yeşil kalır. 3) Tüm test takımı, ruff, mypy yeşil (CONVENTIONS DoD).",
+        "status": "done",
+        "dependencies": [],
+        "priority": "high",
+        "subtasks": [],
+        "updatedAt": "2026-09-21T21:33:30.989Z"
       }
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-09-21T09:41:51.694Z",
-      "taskCount": 100,
-      "completedCount": 97,
+      "lastModified": "2026-09-21T21:33:30.990Z",
+      "taskCount": 102,
+      "completedCount": 99,
       "tags": [
         "master"
       ]

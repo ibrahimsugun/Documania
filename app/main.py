@@ -22,6 +22,7 @@ from app.web.routers import (
     queue,
     upload_page,
     uploads,
+    uploads_list,
 )
 from app.worker import start_worker
 
@@ -57,6 +58,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     application.include_router(auth.router)
     application.include_router(panel.router, dependencies=[Depends(require_panel_user)])
     application.include_router(upload_page.router, dependencies=[Depends(require_panel_user)])
+    application.include_router(uploads_list.router, dependencies=[Depends(require_panel_user)])
     application.include_router(employees.router, dependencies=[Depends(require_panel_user)])
     application.include_router(documents.router, dependencies=[Depends(require_panel_user)])
     application.include_router(catalog.router, dependencies=[Depends(require_panel_user)])

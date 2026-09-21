@@ -1,8 +1,8 @@
 """Panel şablonları ve ana menü (PRD 10.1.1).
 
 Şablonlar paketle birlikte yüklenir (`app/web/templates/`); Jinja2 HTML'i otomatik kaçışlar.
-Ana menü tek yerde tanımlıdır: `base.html` onu her panel sayfasında çizer, `routers/panel.py`
-sayfalarını aynı yollarla sunar.
+Ana menü tek yerde tanımlıdır: `base.html` onu her panel sayfasında çizer; her bölümün
+yönlendiricisi sayfasını menüdeki yolla sunar.
 """
 
 from __future__ import annotations
