@@ -9,9 +9,12 @@ hükmü burada yeniden sınanır. 06.5.1'in yedi doğrulayıcısı, plandaki adl
    Unresolved'ı bu doğrulayıcıya uygulanmaz (PLAN.md C21).
 2. **`page_count`** — adayın sayfa sayısı türün `expected_pages` aralığında. Hükmü 04.5.1'indir
    (`PageCountViolation`, gruplama işaretler); aralık yoksa sınır yoktur.
-3. **`sides`** — `front_back` türdeki belge önce bir ön, sonra bir arka yüzden oluşur (04.1.2):
-   yalnız ön ya da yalnız arka yüz, ters sıra ve yüzü ön/arka okunmamış sayfa geçmez. Tek yüzlü
-   türde yüz sınır değildir.
+3. **`sides`** — `front_back` türdeki belge türün kabul ettiği bir düzende gelir (04.1.2,
+   `front_back_layouts`): `separate` seçiliyse önce bir ön, sonra bir arka yüz (`(front, back)`);
+   `combined` seçiliyse iki yüzü birlikte taşıyan tek sayfa (`(front_and_back,)`). Yalnız ön ya da
+   yalnız arka yüz, ters sıra, yüzü okunmamış sayfa ve türün seçmediği düzen geçmez; gerekçe gelen
+   düzeni ve türün kabul ettiklerini yazar. Yapay zekâ yalnız gördüğü yüzü söyler, kararı bu
+   doğrulayıcı verir. Tek yüzlü türde yüz sınır değildir.
 4. **`direct_single_source`** — Direkt Belge türünde (K3) çıktı tek kaynak dosyanın ardışık
    sayfalarıdır. Ardışıklık K5'tir: alınan sayfaların arasında yalnız boş sayfa olabilir (C31).
    `direct: false` türde koşul yoktur.
@@ -49,7 +52,7 @@ from datetime import date
 from typing import ClassVar, Protocol
 
 from app.ai.schemas import Side
-from app.catalog import CatalogEntry, FileType, Sides
+from app.catalog import CatalogEntry, FileType, FrontBackLayout, Sides
 from app.db.models import QueueKind
 from app.matching.mrz import MrzStatus, apply_mrz_priority
 from app.pipeline.group import DocumentCandidate, PageCountViolation, PageRef
@@ -59,8 +62,20 @@ from app.storage import FileKind
 # `dob_plausible` yaş aralığı (§20.1.6): tamamlanmış yıl, iki uç dahil.
 MIN_AGE = 16
 MAX_AGE = 90
-# `sides`: `front_back` türdeki belgenin yüzleri, belgedeki sırasıyla.
+# `sides`: `front_back` türdeki belgenin her düzende yüzleri, belgedeki sırasıyla (04.1.2).
 FRONT_BACK_SIDES = (Side.FRONT, Side.BACK)
+COMBINED_SIDES = (Side.FRONT_AND_BACK,)
+LAYOUT_SIDES = {
+    FrontBackLayout.SEPARATE: FRONT_BACK_SIDES,
+    FrontBackLayout.COMBINED: COMBINED_SIDES,
+}
+# Gerekçedeki düzen adları.
+LAYOUT_REASON_TEXTS = {
+    FrontBackLayout.SEPARATE: (
+        "ön ve arka ayrı sayfalarda, önce ön sonra arka (separate: front, back)"
+    ),
+    FrontBackLayout.COMBINED: "iki yüz tek sayfada (combined: front_and_back)",
+}
 
 
 class ValidationName(enum.StrEnum):
@@ -143,16 +158,25 @@ def check_page_count(candidate: DocumentCandidate) -> PageCountViolation | None:
 
 @dataclass(frozen=True, slots=True)
 class SidesMismatch:
-    """`sides` (04.1.2): `front_back` türdeki aday önce bir ön, sonra bir arka yüzden oluşmuyor.
+    """`sides` (04.1.2): `front_back` türdeki aday türün kabul ettiği bir düzende gelmedi.
 
     `pages` adayın sayfaları (dosya kimliği ve dosyadaki sırası), `sides` analizde okunan
-    yüzleridir; ikisi de adaydaki sırayla. Aday otomatik tamamlanmaz, Unresolved'a gider.
+    yüzleridir; ikisi de adaydaki sırayla. `layouts` türün kabul ettiği düzenlerdir (katalog
+    sırasıyla). Gelen düzen yüzlerden okunur (`layout`): kabul edilmeyen düzen de, hiçbir düzene
+    uymayan yüzler de (eksik, fazla, ters sıra) geçmez. Aday otomatik tamamlanmaz, bölünmez;
+    Unresolved'a gider.
     """
 
     queue: ClassVar[QueueKind] = QueueKind.UNRESOLVED
 
     pages: tuple[PageRef, ...]
     sides: tuple[Side, ...]
+    layouts: tuple[FrontBackLayout, ...]
+
+    @property
+    def layout(self) -> FrontBackLayout | None:
+        """Adayın yüzlerinin düzeni; hiçbir düzene uymuyorsa `None`."""
+        return next((layout for layout, sides in LAYOUT_SIDES.items() if sides == self.sides), None)
 
     @property
     def reason(self) -> str:
@@ -160,18 +184,29 @@ class SidesMismatch:
             f"dosya {page.file_id}, sayfa {page.index + 1}: {side.value}"
             for page, side in zip(self.pages, self.sides, strict=True)
         )
+        accepted = " ya da ".join(LAYOUT_REASON_TEXTS[layout] for layout in self.layouts)
+        which = "yalnız şu düzeni" if len(self.layouts) == 1 else "şu düzenleri"
+        layout = self.layout
+        received = (
+            "hiçbir düzene uymuyor (eksik, fazla ya da sırası ters yüz)"
+            if layout is None
+            else f"{LAYOUT_REASON_TEXTS[layout]}, tür bu düzeni kabul etmiyor"
+        )
         return (
-            "Yüz doğrulaması (06.5.1, sides): tür önce bir ön, sonra bir arka yüz bekliyor "
-            f"(front, back); bu adayın yüzleri: {faces}."
+            f"Yüz doğrulaması (06.5.1, sides): tür {which} kabul ediyor: {accepted}. "
+            f"Gelen düzen {received}; bu adayın yüzleri: {faces}."
         )
 
 
 def check_sides(candidate: DocumentCandidate, *, entry: CatalogEntry) -> SidesMismatch | None:
-    """`sides`: `front_back` türde adayın yüzleri tam olarak `(front, back)`; tek yüzlüde geçer."""
-    if entry.sides is not Sides.FRONT_BACK or candidate.sides == FRONT_BACK_SIDES:
+    """`sides`: `front_back` türde adayın yüzleri türün kabul ettiği bir düzenin yüzleri —
+    `separate` → `(front, back)`, `combined` → `(front_and_back,)`; tek yüzlü türde geçer."""
+    if entry.sides is not Sides.FRONT_BACK:
+        return None
+    if any(candidate.sides == LAYOUT_SIDES[layout] for layout in entry.front_back_layouts):
         return None
     pages = tuple(PageRef(page.file_id, page.index) for page in candidate.pages)
-    return SidesMismatch(pages, candidate.sides)
+    return SidesMismatch(pages, candidate.sides, entry.front_back_layouts)
 
 
 # --- direct_single_source ----------------------------------------------------------------------

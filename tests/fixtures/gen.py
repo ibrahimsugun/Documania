@@ -604,6 +604,53 @@ def driving_license_pages(
     return front, back
 
 
+MULTIPLE_DOCUMENTS_NOTE = "Sayfada birden fazla belge var: iki ayrı sürücü belgesi."
+
+
+def driving_license_combined_page(
+    person: SyntheticPerson,
+    *,
+    document_number: str,
+    expiry_date: date,
+    blurred: Iterable[str] = (),
+) -> SyntheticPage:
+    """Sırbistan ehliyetinin iki yüzü tek sayfada (04.1.2, `front_and_back`): üstte ön yüzün
+    alanları, altta arka yüzün sınıf tablosu. Analizci iki yüzü birlikte okur."""
+    return document_page(
+        "serbian_driving_license",
+        title="VOZAČKA DOZVOLA / DRIVING LICENCE",
+        person=person,
+        document_number=document_number,
+        expiry_date=expiry_date,
+        shows=("surname", "given_names", "date_of_birth", "document_number", "expiry_date"),
+        blurred=blurred,
+        side="front_and_back",
+        language="sr",
+        script="latin",
+        extra_lines=("Kategorije / Categories: AM, B",),
+    )
+
+
+def two_driving_licenses_page(
+    first: SyntheticPerson, second: SyntheticPerson, *, numbers: tuple[str, str]
+) -> SyntheticPage:
+    """Aynı sayfada iki farklı kişinin ehliyeti: analizci türü tanır ama yüzü `unknown` okur,
+    kişiyi ve alanları seçmez, notuna "birden fazla belge" yazar (04.1.2, §8.4)."""
+    lines = [
+        f"{person.surname} {person.given_names} · Document No. {number}"
+        for person, number in zip((first, second), numbers, strict=True)
+    ]
+    return document_page(
+        "serbian_driving_license",
+        title="VOZAČKA DOZVOLA / DRIVING LICENCE (2)",
+        side="unknown",
+        language="sr",
+        script="latin",
+        extra_lines=lines,
+        notes=MULTIPLE_DOCUMENTS_NOTE,
+    )
+
+
 def residence_card_pages(
     person: SyntheticPerson,
     *,

@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from app.catalog import (
     Conversion,
     FileType,
+    FrontBackLayout,
     OutputFormat,
     Sides,
     import_catalog,
@@ -77,8 +78,10 @@ def test_seed_cards_pair_front_and_back() -> None:
         entry = catalog.get(slug)
         assert entry is not None
         assert entry.sides is Sides.FRONT_BACK
+        # 04.1.2: kart iki ayrı sayfada da, iki yüzü tek sayfada da gelebilir; aralık 1–2.
+        assert entry.front_back_layouts == (FrontBackLayout.SEPARATE, FrontBackLayout.COMBINED)
         assert entry.expected_pages is not None
-        assert (entry.expected_pages.min, entry.expected_pages.max) == (2, 2)
+        assert (entry.expected_pages.min, entry.expected_pages.max) == (1, 2)
         # S5: aynı partide ayrı ön/arka JPEG → kayıpsız sarma + birleştirme (direkt kapalı).
         assert entry.direct is False
         assert {Conversion.MERGE, Conversion.WRAP_IMAGE} <= set(entry.allowed_conversions)

@@ -192,7 +192,7 @@ maliyet paneli gerçek rakam gösteriyor.
 | ID | Gereksinim | Kabul kriteri | Öncelik |
 |---|---|---|---|
 | 04.1.1 | Dosya içi gruplama | Ardışık, aynı tür ve aynı kişiye ait sayfalar tek belge adayı olur | Must (MVP) |
-| 04.1.2 | Ön/arka yüz yapısı | `front_back` türlerde ön ve arka sayfa sıralı biçimde eşleşir | Must (MVP) |
+| 04.1.2 | Ön/arka yüz yapısı | `front_back` türlerde ön ve arka sayfa sıralı biçimde eşleşir; türün kabul ettiği düzende iki yüzü birlikte taşıyan tek sayfa (`front_and_back`) tek başına tam belgedir | Must (MVP) |
 | 04.2.1 | Ardışıklık güvenlik kuralı (R6) | Araya başka belge girmiş parçalar otomatik birleştirilmez, gerekçesiyle Unresolved'a gider | Must (MVP) |
 | 04.3.1 | Dosyalar arası gruplama | Yalnız `direct: false` türlerde, aynı partideki ayrı dosyalardaki ön ve arka yüz eşleştirilir | Must (MVP) |
 | 04.3.2 | Belirsiz eşleştirmenin reddi | Aynı türden birden fazla ön yüz varsa eşleştirme yapılmaz, hepsi Unresolved'a gider | Must (MVP) |
@@ -307,7 +307,7 @@ maliyet paneli gerçek rakam gösteriyor.
 | ID | Gereksinim | Kabul kriteri | Öncelik |
 |---|---|---|---|
 | 11.1.1 | Katalog yönetim ekranı | Tür oluşturma, düzenleme ve pasifleştirme panelden yapılır | Must (v1) |
-| 11.1.2 | Katalog form doğrulaması | Direkt türde dönüşüm listesi boş, front_back türde sayfa aralığı 2 olmalı | Must (v1) |
+| 11.1.2 | Katalog form doğrulaması | Direkt türde dönüşüm listesi boş; front_back türde en az bir düzen seçili ve sayfa aralığı seçilen düzenlerden türetilir (ayrı sayfalar 2, tek sayfa 1) | Must (v1) |
 | 11.1.3 | Kabul kriteri düzenleme | Tür formunda `acceptance_criteria` maddeleri eklenip çıkarılabilir; değişiklik bir sonraki analizde geçerli olur | Should (v1) |
 | 11.2.1 | Örnek belge yükleme | Türe örnek yüklenir; örnekler çalışan verisinden ayrı tutulur ve aramada görünmez | Should (v1) |
 | 11.3.1 | Tür açıklaması üretimi | Örneklerden yapılandırılmış tür açıklaması üretilir ve düzenlenebilir | Should (v1) |
@@ -455,7 +455,8 @@ TYPE_REJECTED · USER_CONFIRMED · PLAN_RERUN · PLAN_REANALYZED · ARCHIVED · 
 }
 ```
 
-`side`: front · back · single · unknown. `document_type_slug` katalogda bir slug veya null.
+`side`: front · back · front_and_back · single · unknown. `front_and_back`: `front_back` türde
+aynı kartın iki yüzü tek sayfada; başka kişiye ya da başka belgeye ait yüz de varsa `unknown`. `document_type_slug` katalogda bir slug veya null.
 `candidate_type_name` yalnız slug null iken dolar.
 
 `language`: ISO 639-1 kodu (`tr`, `ru`, `sr`, `es`, `en`, `ar` …). `script`: `latin`,
@@ -500,6 +501,7 @@ yoksa alanlar `null` kalır — çıkarım yapılmaz, uydurulmaz (gereksinim 03.
   expected_file_types: [pdf, jpeg]
   expected_pages: {min: 1, max: 1}
   sides: single
+  front_back_layouts: []
   direct: true
   analyze: true
   required_fields: [surname, given_names, date_of_birth, document_number, expiry_date]
@@ -516,6 +518,12 @@ yoksa alanlar `null` kalır — çıkarım yapılmaz, uydurulmaz (gereksinim 03.
 ötesindeki** koşullar (orijinal tanımdaki "Kabul Kriterleri"). Serbest metin maddeleridir;
 analizciye tür açıklamasıyla birlikte verilir ve karşılanmayan madde `unresolved` gerekçesine
 yazılır. Boş bırakılabilir — o zaman tek ölçüt K1'dir (zorunlu alan okunaklılığı).
+
+`front_back_layouts`: `front_back` türün kabul ettiği düzenler — `separate` (ön ve arka ayrı
+sayfalarda, 2 sayfa) ve/veya `combined` (iki yüz tek sayfada, 1 sayfa). `front_back` türde en az
+biri seçilir, tek yüzlü türde boştur. `expected_pages` bu türde düzenlerden türetilir: yalnız
+`separate` → 2–2, yalnız `combined` → 1–1, ikisi → 1–2. Tek sayfadaki iki yüz ayrılmaz, kırpılmaz;
+sayfa olduğu gibi çıktı olur.
 
 ---
 

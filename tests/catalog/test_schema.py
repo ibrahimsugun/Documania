@@ -1,5 +1,6 @@
 """00.6.1 — katalog şeması §8.6'nın tüm alanlarını tanımlar; Direkt Belge türünde dönüşüm
-listesi doluysa katalog yüklemesi reddedilir."""
+listesi doluysa katalog yüklemesi reddedilir. 04.1.2 — `front_back` türün kabul ettiği düzenler
+(`front_back_layouts`) ve düzenlerden türeyen sayfa aralığı."""
 
 from typing import Any
 
@@ -11,9 +12,11 @@ from app.catalog import (
     CatalogError,
     Conversion,
     FileType,
+    FrontBackLayout,
     OutputFormat,
     PageRange,
     Sides,
+    layout_pages,
     parse_catalog_yaml,
     validate_catalog,
 )
@@ -30,6 +33,7 @@ SECTION_8_6_EXAMPLE = """\
   expected_file_types: [pdf, jpeg]
   expected_pages: {min: 1, max: 1}
   sides: single
+  front_back_layouts: []
   direct: true
   analyze: true
   required_fields: [surname, given_names, date_of_birth, document_number, expiry_date]
@@ -50,6 +54,7 @@ SECTION_8_6_FIELDS = {
     "expected_file_types",
     "expected_pages",
     "sides",
+    "front_back_layouts",
     "direct",
     "analyze",
     "required_fields",
@@ -111,6 +116,7 @@ def test_optional_fields_have_documented_defaults(make_record: RecordFactory) ->
     entry = CatalogEntry.model_validate(make_record())
 
     assert entry.acceptance_criteria == ()  # boşsa tek ölçüt K1 (§8.6)
+    assert entry.front_back_layouts == ()  # tek yüzlü türde düzen yok (04.1.2)
     assert entry.prompt_description is None
     assert entry.active is True
 
@@ -222,6 +228,102 @@ def test_every_problem_is_reported(make_record: RecordFactory) -> None:
     assert problems[0].startswith("kayıt #1 (first) sides")
     assert problems[1].startswith("kayıt #2 (second)")
     assert str(caught.value).startswith("Katalog reddedildi:\n- kayıt #1")
+
+
+# --- 04.1.2: `front_back_layouts` ---------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("layouts", "pages"),
+    [
+        pytest.param(["separate"], (2, 2), id="separate"),
+        pytest.param(["combined"], (1, 1), id="combined"),
+        pytest.param(["separate", "combined"], (1, 2), id="both"),
+    ],
+)
+def test_front_back_type_accepts_its_layouts_with_the_derived_page_range(
+    make_record: RecordFactory, layouts: list[str], pages: tuple[int, int]
+) -> None:
+    record = make_record(
+        sides="front_back",
+        front_back_layouts=layouts,
+        expected_pages={"min": pages[0], "max": pages[1]},
+    )
+
+    (entry,) = validate_catalog([record])
+
+    assert entry.front_back_layouts == tuple(FrontBackLayout(value) for value in layouts)
+    assert entry.expected_pages == PageRange(min=pages[0], max=pages[1])
+    assert layout_pages(entry.front_back_layouts) == entry.expected_pages
+
+
+def test_layout_pages_derives_the_range_and_nothing_without_a_layout() -> None:
+    separate, combined = FrontBackLayout.SEPARATE, FrontBackLayout.COMBINED
+
+    assert layout_pages((separate,)) == PageRange(min=2, max=2)
+    assert layout_pages((combined,)) == PageRange(min=1, max=1)
+    assert layout_pages((combined, separate)) == PageRange(min=1, max=2)
+    assert layout_pages(()) is None
+
+
+@pytest.mark.parametrize(
+    ("layouts", "given"),
+    [
+        pytest.param(["separate"], {"min": 1, "max": 2}, id="separate-1-2"),
+        pytest.param(["separate"], {"min": 2, "max": 3}, id="separate-2-3"),
+        pytest.param(["combined"], {"min": 2, "max": 2}, id="combined-2-2"),
+        pytest.param(["separate", "combined"], {"min": 2, "max": 2}, id="both-2-2"),
+        pytest.param(["separate", "combined"], None, id="both-no-range"),
+    ],
+)
+def test_front_back_type_whose_range_contradicts_its_layouts_rejects_the_catalog(
+    make_record: RecordFactory, layouts: list[str], given: dict[str, int] | None
+) -> None:
+    record = make_record(sides="front_back", front_back_layouts=layouts, expected_pages=given)
+
+    with pytest.raises(CatalogError) as caught:
+        validate_catalog([record])
+
+    (problem,) = caught.value.problems
+    assert "expected_pages kabul edilen düzenlerden türetilir" in problem
+    derived = layout_pages(tuple(FrontBackLayout(value) for value in layouts))
+    assert derived is not None
+    assert f"min: {derived.min}, max: {derived.max}" in problem
+    assert ("yazılmamış" if given is None else f"{given['min']}-{given['max']}") in problem
+
+
+def test_front_back_type_without_a_layout_rejects_the_catalog(
+    make_record: RecordFactory,
+) -> None:
+    # Eski bir `catalog.yaml` kaydı (düzen alanı yok) sessizce bir düzene çevrilmez.
+    record = make_record(sides="front_back", expected_pages={"min": 2, "max": 2})
+
+    with pytest.raises(CatalogError) as caught:
+        validate_catalog([record])
+
+    (problem,) = caught.value.problems
+    assert "en az bir kabul edilen düzen" in problem
+
+
+@pytest.mark.parametrize(
+    ("overrides", "fragment"),
+    [
+        ({"front_back_layouts": ["combined"]}, "tek yüzlü (sides: single)"),
+        ({"sides": "front_back", "front_back_layouts": ["both"]}, "front_back_layouts"),
+        (
+            {"sides": "front_back", "front_back_layouts": ["separate", "separate"]},
+            "Tekrarlanan değer: separate",
+        ),
+        ({"sides": "front_back", "front_back_layouts": "combined"}, "front_back_layouts"),
+    ],
+)
+def test_invalid_layouts_are_rejected(
+    make_record: RecordFactory, overrides: dict[str, Any], fragment: str
+) -> None:
+    with pytest.raises(CatalogError) as caught:
+        validate_catalog([make_record(**overrides)])
+
+    assert any(fragment in problem for problem in caught.value.problems), caught.value.problems
 
 
 def test_catalog_lookup_helpers(make_record: RecordFactory) -> None:

@@ -94,10 +94,16 @@ class Script(enum.StrEnum):
 
 
 class Side(enum.StrEnum):
-    """Sayfanın belge içindeki yüzü; `front_back` türlerde ön/arka eşleşmesine girer (04.1.2)."""
+    """Sayfanın belge içindeki yüzü; `front_back` türlerde ön/arka eşleşmesine girer (04.1.2).
+
+    `front_and_back`: `front_back` türde aynı kartın iki yüzü tek sayfada; sayfada başka kişinin
+    ya da başka belgenin yüzü de varsa `unknown`. Yapay zekâ yalnız gördüğünü söyler; türün bu
+    düzeni kabul edip etmediğine kod karar verir (`check_sides`, PLAN.md §C78).
+    """
 
     FRONT = "front"
     BACK = "back"
+    FRONT_AND_BACK = "front_and_back"
     SINGLE = "single"
     UNKNOWN = "unknown"
 

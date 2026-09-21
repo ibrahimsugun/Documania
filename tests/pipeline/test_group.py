@@ -80,8 +80,8 @@ INSTRUCTIONS = build_page_analysis_instructions(CATALOG)
 UPLOAD_ID = "u_20260914_0001"
 FILE_ID = 7
 
-LICENSE = "serbian_driving_license"  # front_back
-RESIDENCE = "serbian_residence_card"  # front_back
+LICENSE = "serbian_driving_license"  # front_back, iki düzen (separate, combined), 1–2 sayfa
+RESIDENCE = "serbian_residence_card"  # front_back, iki düzen (separate, combined), 1–2 sayfa
 PERMIT = "work_permit"  # single, 1–2 sayfa
 PASSPORT = "russian_passport"  # single, 1 sayfa
 PHOTO = "profile_picture"  # single, 1 sayfa
@@ -189,6 +189,19 @@ def _catalog_with(slug: str, **changes: Any) -> Catalog:
         if entry["slug"] == slug:
             entry.update(changes)
     return validate_catalog(entries)
+
+
+# 04.1.2: ehliyet yalnız ön ve arka ayrı sayfalarda kabul edilir; türeyen aralık 2–2.
+SEPARATE_ONLY = _catalog_with(
+    LICENSE, front_back_layouts=["separate"], expected_pages={"min": 2, "max": 2}
+)
+
+
+def _both(
+    index: int, *, slug: str = LICENSE, continues: bool = False, **kwargs: Any
+) -> GroupingPage:
+    # Aynı kartın iki yüzü tek sayfada (`front_and_back`): kişi değerleri o sayfada yazılıdır.
+    return _page(index, slug, side="front_and_back", continues=continues, **kwargs)
 
 
 # --- 04.1.1 dosya içi gruplama ----------------------------------------------------------------
@@ -527,6 +540,66 @@ def test_back_showing_another_persons_number_is_not_paired() -> None:
     grouping = _group(_front(0), _page(1, LICENSE, side="back", continues=True, person=other))
 
     assert _layout(grouping) == [(0,), (1,)]
+
+
+def test_page_with_both_faces_is_a_complete_candidate_on_its_own() -> None:
+    # 04.1.2: iki yüzü tek sayfada taşıyan kart tam belgedir; türün aralığı (1–2) içindedir.
+    grouping = _across(_file(1, _both(0)))
+
+    (candidate,) = grouping.candidates
+    assert _refs(candidate) == [(1, 0)]
+    assert candidate.sides == (Side.FRONT_AND_BACK,)
+    assert (
+        candidate.contiguity_violation,
+        candidate.ambiguous_pairing,
+        candidate.page_count_violation,
+        candidate.unknown_type,
+    ) == (None, None, None, None)
+
+
+@pytest.mark.parametrize(
+    "pages",
+    [
+        pytest.param([_front(0), _both(1, continues=True)], id="on-yuze-katilmaz"),
+        pytest.param([_both(0), _back(1)], id="arka-yuzu-almaz"),
+        pytest.param([_both(0), _both(1, continues=True)], id="iki-yuzlu-iki-sayfa"),
+        pytest.param([_both(0), _front(1, continues=True)], id="on-yuzu-almaz"),
+        pytest.param(
+            [_both(0, slug=PERMIT), _page(1, PERMIT, continues=True)], id="tek-yuzlu-turde-de"
+        ),
+        pytest.param(
+            [
+                _both(0, slug=None, candidate_type_name="Bosnian Identity Card", fields={}),
+                _page(1, None, continues=True, candidate_type_name="Bosnian Identity Card"),
+            ],
+            id="katalog-disi-turde-de",
+        ),
+    ],
+)
+def test_page_with_both_faces_neither_joins_nor_takes_a_page(pages: list[GroupingPage]) -> None:
+    grouping = _group(*pages)
+
+    assert _layout(grouping) == [(0,), (1,)]
+
+
+@pytest.mark.parametrize(
+    "pages",
+    [
+        pytest.param([_both(0), _photo(1), _back(2, continues=False)], id="iki-yuzlu-ve-arka"),
+        pytest.param([_front(0), _photo(1), _both(2)], id="on-ve-iki-yuzlu"),
+        pytest.param([_both(0), _photo(1), _both(2)], id="iki-kart"),
+        pytest.param(
+            [_both(0, slug=PERMIT), _photo(1), _page(2, PERMIT)], id="tek-yuzlu-turde-parca-degil"
+        ),
+    ],
+)
+def test_page_with_both_faces_is_not_a_piece_of_a_separated_card(
+    pages: list[GroupingPage],
+) -> None:
+    # R6 parçaları arar; iki yüzü tek sayfada taşıyan kart tamamlanmıştır, parça değildir.
+    grouping = _group(*pages)
+
+    assert _violations(grouping) == [None, None, None]
 
 
 # --- 04.2.1 ardışıklık güvenlik kuralı --------------------------------------------------------
@@ -997,6 +1070,35 @@ def test_upload_grouping_without_files_has_no_candidates() -> None:
     assert (grouping.files, grouping.cross_file_candidates, grouping.candidates) == ((), (), ())
 
 
+def test_page_with_both_faces_neither_pairs_nor_blocks_pairing_across_files() -> None:
+    # 04.1.2: iki yüzlü sayfa eş beklemez ve başka yüz olabilecek sayfa sayılmaz; ayrı
+    # dosyalardaki tek ön ve tek arka yüz yine tek anlamlı eşleşir. Katalog dışı iki yüzlü sayfa
+    # da engel değildir.
+    grouping = _across(
+        _file(1, _front(0)),
+        _file(2, _back(0, continues=False)),
+        _file(3, _both(0)),
+        _file(4, _both(0, slug=None, candidate_type_name="Bosnian Identity Card", fields={})),
+    )
+
+    (pair,) = grouping.cross_file_candidates
+    assert _refs(pair) == [(1, 0), (2, 0)]
+    assert [_layout(file_grouping) for file_grouping in grouping.files] == [[], [], [(0,)], [(0,)]]
+    assert grouping.files[2].candidates[0].sides == (Side.FRONT_AND_BACK,)
+    assert _marked(grouping) == {}
+
+
+def test_page_with_both_faces_is_not_the_missing_face_of_a_card_in_another_file() -> None:
+    # Arka yüzün eşi iki yüzlü sayfa değildir: eşleşme yok, belirsizlik hükmü yok (eşleşebilecek
+    # ön yüz yok); yalnız arka yüz `sides` doğrulamasında Unresolved'a gider (06.5.1).
+    grouping = _across(_file(1, _both(0)), _file(2, _back(0, continues=False)))
+
+    assert grouping.cross_file_candidates == ()
+    assert [_refs(candidate) for candidate in grouping.candidates] == [[(1, 0)], [(2, 0)]]
+    assert _marked(grouping) == {}
+    assert all(candidate.page_count_violation is None for candidate in grouping.candidates)
+
+
 # --- 04.3.2 belirsiz eşleştirmenin reddi ------------------------------------------------------
 
 
@@ -1266,7 +1368,7 @@ def test_ambiguous_pairing_reason_lists_faces_and_pages_that_may_be_faces(
 
 def test_lone_front_with_no_counterpart_anywhere_is_a_page_count_violation() -> None:
     # 04.3.2 yalnız eşleşebilecek karşı yüz varken hüküm verir; karşı yüz partide hiç yoksa 04.5'in.
-    grouping = _across(_file(1, _front(0)))
+    grouping = _across(_file(1, _front(0), catalog=SEPARATE_ONLY), catalog=SEPARATE_ONLY)
 
     assert grouping.cross_file_candidates == ()
     (candidate,) = grouping.candidates
@@ -1279,7 +1381,10 @@ def test_lone_front_with_no_counterpart_anywhere_is_a_page_count_violation() -> 
 
 def test_adjacent_front_and_back_are_each_a_page_count_violation() -> None:
     # Bitişik eksik parçalar R6'nın konusu değildir (araya belge girmemiş); sayfa sayısı 04.5'in.
-    grouping = _across(_file(1, _front(0), _back(1, continues=False)))
+    grouping = _across(
+        _file(1, _front(0), _back(1, continues=False), catalog=SEPARATE_ONLY),
+        catalog=SEPARATE_ONLY,
+    )
 
     (front, back) = grouping.files[0].candidates
     assert (front.contiguity_violation, front.ambiguous_pairing) == (None, None)
@@ -1405,7 +1510,7 @@ def test_group_upload_marks_a_lone_face_with_no_counterpart_as_a_page_count_viol
     provider = _recordings(tmp_path, [_payload(0, LICENSE, side="front")])
     analyze_upload(session, layout, upload, provider=provider, instructions=INSTRUCTIONS)
 
-    grouping = group_upload(session, upload, catalog=CATALOG, layout=layout)
+    grouping = group_upload(session, upload, catalog=SEPARATE_ONLY, layout=layout)
 
     file_id = upload.files[0].id
     (candidate,) = grouping.candidates

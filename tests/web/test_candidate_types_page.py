@@ -31,6 +31,8 @@ from app.ai.recording_provider import RecordingProvider
 from app.catalog import (
     CandidateDecidedError,
     CatalogEntry,
+    FrontBackLayout,
+    PageRange,
     create_type,
     export_catalog,
     import_catalog,
@@ -504,6 +506,30 @@ def test_approval_takes_two_confirmations_and_puts_the_type_in_the_catalog(
     assert f'<td><a href="{BASE}/{seen.diploma}">' not in listing
     assert f"{DIPLOMA_NAME}</a> — 2 bekleyen Unknown öğesi" in listing
     assert "(1 onay bekliyor)" in client.get("/document-types").text
+
+
+def test_a_front_back_candidate_keeps_its_layouts_through_both_confirmations(
+    client: TestClient, session_factory: sessionmaker[Session], seen: Seen
+) -> None:
+    # 04.1.2, 11.1.2: onay formunda seçilen düzen gizli alanla adımlar arasında taşınır; sayfa
+    # aralığı (formda 1–1 yazsa da) düzenlerden türer.
+    data = _form(sides="front_back", front_back_layouts=["separate", "combined"])
+
+    first = _confirmed(client, seen.diploma, data)
+
+    assert (
+        "<dt>Kabul edilen düzenler</dt><dd>Ön ve arka ayrı sayfalarda, İki yüz tek sayfada</dd>"
+        in first.text
+    )
+    assert "<dt>Beklenen sayfa sayısı</dt><dd>1 – 2</dd>" in first.text
+    assert _hidden(first.text)["front_back_layouts"] == ["separate", "combined"]
+    _approve(client, seen.diploma, data)
+
+    with session_factory() as session:
+        entry = export_catalog(session).get(DIPLOMA)
+    assert entry is not None
+    assert entry.front_back_layouts == (FrontBackLayout.SEPARATE, FrontBackLayout.COMBINED)
+    assert entry.expected_pages == PageRange(min=1, max=2)
 
 
 def test_the_first_confirmation_or_a_missing_token_changes_nothing(

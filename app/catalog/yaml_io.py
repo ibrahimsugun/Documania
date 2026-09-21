@@ -27,10 +27,17 @@ CATALOG_HEADER = """\
 # veritabanından yeniden üretme: `python -m app.catalog export`.
 # Dosya bütün olarak doğrulanır: tek kayıt geçersizse hiçbir kayıt yüklenmez.
 # Direkt Belge kuralı: `direct: true` olan türde `allowed_conversions: []` olmalıdır.
+# Ön/arka yüzlü türde (`sides: front_back`) `front_back_layouts` en az bir düzen taşır
+# (`separate`: ayrı sayfalar, `combined`: tek sayfa); `expected_pages` düzenlerden türetilir.
 """
 
 # Tek satırda yazılan alanlar (§8.6 örneğindeki gibi): `[pdf, jpeg]`, `{min: 1, max: 1}`.
-_FLOW_LISTS = ("expected_file_types", "required_fields", "allowed_conversions")
+_FLOW_LISTS = (
+    "expected_file_types",
+    "front_back_layouts",
+    "required_fields",
+    "allowed_conversions",
+)
 _FLOW_MAPS = ("expected_pages",)
 # Uzun açıklamalar alt satıra bölünmesin; elle düzenlenen dosyada her alan tek satırdır.
 _NO_LINE_WRAP = 1 << 30

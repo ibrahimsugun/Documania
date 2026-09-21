@@ -216,14 +216,22 @@ def test_seed_entry_lists_required_fields_description_and_criteria() -> None:
 def test_front_back_type_and_page_range_and_empty_required_fields() -> None:
     text = build_page_analysis_instructions(
         catalog(
-            record(slug="card", sides="front_back", expected_pages={"min": 2, "max": 2}),
+            record(
+                slug="card",
+                sides="front_back",
+                front_back_layouts=["separate"],
+                expected_pages={"min": 2, "max": 2},
+            ),
             record(slug="letter", expected_pages={"min": 1, "max": 3}, required_fields=[]),
             record(slug="note", country=None, expected_pages=None),
         )
     ).text
 
     card = section(text, "### `card` — Sample Card")
-    assert "- Ülke: RS · Yüz yapısı: `front_back` · Beklenen sayfa: 2\n" in card
+    assert (
+        "- Ülke: RS · Yüz yapısı: `front_back` · Kabul edilen düzenler: ön ve arka ayrı "
+        "sayfalarda (`separate`) · Beklenen sayfa: 2\n"
+    ) in card
     letter = section(text, "### `letter` — Sample Card")
     assert "· Beklenen sayfa: 1–3\n" in letter
     assert "- Zorunlu alanlar: yok\n" in letter

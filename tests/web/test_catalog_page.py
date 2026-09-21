@@ -204,13 +204,26 @@ def test_a_direct_type_without_conversions_is_created(
     assert (row.direct, row.allowed_conversions) == (True, [])
 
 
-def test_a_front_back_type_with_two_pages_is_created(
-    client: TestClient, session_factory: sessionmaker[Session]
+@pytest.mark.parametrize(
+    ("layouts", "pages"),
+    [
+        pytest.param(["separate"], (2, 2), id="ayri-sayfalar"),
+        pytest.param(["combined"], (1, 1), id="tek-sayfa"),
+        pytest.param(["separate", "combined"], (1, 2), id="ikisi"),
+    ],
+)
+def test_a_front_back_type_is_created_with_its_layouts_and_the_derived_range(
+    client: TestClient,
+    session_factory: sessionmaker[Session],
+    layouts: list[str],
+    pages: tuple[int, int],
 ) -> None:
-    _create(client, sides="front_back", pages_min="2", pages_max="2")
+    # 11.1.2: sayfa aralığı elle girilmez; formda yazan 5–9 yok sayılır, düzenlerden hesaplanır.
+    _create(client, sides="front_back", front_back_layouts=layouts, pages_min="5", pages_max="9")
 
     row = _rows(session_factory)["sample_card"]
-    assert (row.sides, row.expected_pages_min, row.expected_pages_max) == ("front_back", 2, 2)
+    assert (row.sides, row.front_back_layouts) == ("front_back", layouts)
+    assert (row.expected_pages_min, row.expected_pages_max) == pages
 
 
 # --- 11.1.2: form doğrulaması ---------------------------------------------------------------------
@@ -234,8 +247,8 @@ def test_direct_type_with_conversions_is_refused_and_nothing_is_stored(
     assert 'value="Kenarlar görünür"' in response.text
 
 
-@pytest.mark.parametrize(("low", "high"), [("1", "1"), ("1", "2"), ("2", "3"), ("", "")])
-def test_front_back_type_with_another_page_range_is_refused(
+@pytest.mark.parametrize(("low", "high"), [("2", "2"), ("1", "2"), ("", "")])
+def test_front_back_type_without_a_layout_is_refused(
     client: TestClient, session_factory: sessionmaker[Session], low: str, high: str
 ) -> None:
     response = client.post(
@@ -244,7 +257,19 @@ def test_front_back_type_with_another_page_range_is_refused(
     )
 
     assert response.status_code == 422
-    assert "expected_pages tam iki sayfa olmalı" in response.text
+    assert "en az bir kabul edilen düzen" in response.text
+    assert _rows(session_factory) == {}
+
+
+def test_single_sided_type_with_a_layout_is_refused_and_the_choice_is_kept(
+    client: TestClient, session_factory: sessionmaker[Session]
+) -> None:
+    response = client.post("/document-types", data=_data(front_back_layouts=["combined"]))
+
+    assert response.status_code == 422
+    assert "tek yüzlü (sides: single) türde kabul edilen düzen seçilmez" in response.text
+    assert re.search(r'name="front_back_layouts" value="combined"\s+checked', response.text)
+    assert not re.search(r'name="front_back_layouts" value="separate"\s+checked', response.text)
     assert _rows(session_factory) == {}
 
 
@@ -316,8 +341,7 @@ def test_edit_form_is_filled_from_the_stored_type(client: TestClient) -> None:
     _create(
         client,
         sides="front_back",
-        pages_min="2",
-        pages_max="2",
+        front_back_layouts=["separate"],
         description="Açıklama",
         prompt_description="Analizciye not",
     )
@@ -336,6 +360,8 @@ def test_edit_form_is_filled_from_the_stored_type(client: TestClient) -> None:
     assert 'value="Analizciye not"' in page.text
     assert 'name="pages_min" value="2"' in page.text
     assert '<option value="front_back" selected>' in page.text
+    assert re.search(r'name="front_back_layouts" value="separate"\s+checked', page.text)
+    assert not re.search(r'name="front_back_layouts" value="combined"\s+checked', page.text)
     assert re.search(r'value="merge"\s+checked', page.text)
     assert not re.search(r'name="direct"\s+checked', page.text)
     assert 'value="Kenarlar görünür"' in page.text and 'value="Yüz net"' in page.text

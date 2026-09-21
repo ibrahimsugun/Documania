@@ -1,5 +1,6 @@
 """00.3.2 — `alembic upgrade head` SQLite ve PostgreSQL üzerinde temiz çalışır."""
 
+import json
 import os
 import subprocess
 import sys
@@ -33,7 +34,7 @@ def _assert_schema_matches_models(database_url: str) -> None:
             assert tables == set(Base.metadata.tables) | {"alembic_version"}
             context = MigrationContext.configure(connection, opts={"compare_type": True})
             assert compare_metadata(context, Base.metadata) == []
-            assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "0006"
+            assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "0007"
     finally:
         engine.dispose()
 
@@ -263,6 +264,73 @@ def test_upload_jobs_migration_queues_every_unfinished_batch_and_is_reversible(
         with engine.connect() as connection:
             assert "upload_jobs" not in inspect(connection).get_table_names()
             assert connection.execute(text(upload_row)).all() == before
+    finally:
+        engine.dispose()
+
+
+def test_front_back_layouts_migration_gives_every_card_both_layouts_and_is_reversible(
+    sqlite_url: str,
+) -> None:
+    # 0007 (04.1.2): var olan `front_back` tür iki düzeni de kabul eder ve aralığı düzenlerden
+    # türer (1–2); tek yüzlü türün düzen listesi boştur, aralığı değişmez.
+    config = _alembic_config(sqlite_url)
+    command.upgrade(config, "0006")
+    engine = create_engine(sqlite_url)
+    types = {
+        "card_two_pages": ("front_back", 2, 2),
+        "card_no_range": ("front_back", None, None),
+        "passport": ("single", 1, 1),
+        "letter": ("single", None, None),
+    }
+    rows = (
+        "SELECT slug, sides, expected_pages_min, expected_pages_max FROM known_document_types "
+        "ORDER BY slug"
+    )
+    try:
+        with engine.begin() as connection:
+            for slug, (sides, low, high) in types.items():
+                connection.execute(
+                    text(
+                        "INSERT INTO known_document_types (slug, name, file_label, "
+                        "expected_file_types, expected_pages_min, expected_pages_max, sides, "
+                        "direct, analyze, required_fields, allowed_conversions, output_format, "
+                        "acceptance_criteria, active) VALUES (:slug, 'Ad', 'Etiket', '[\"pdf\"]', "
+                        ":low, :high, :sides, 0, 1, '[]', '[]', 'keep', '[]', 1)"
+                    ),
+                    {"slug": slug, "sides": sides, "low": low, "high": high},
+                )
+
+        command.upgrade(config, "head")
+        with engine.connect() as connection:
+            migrated = connection.execute(
+                text(
+                    "SELECT slug, front_back_layouts, expected_pages_min, expected_pages_max "
+                    "FROM known_document_types ORDER BY slug"
+                )
+            ).all()
+            assert [
+                (slug, json.loads(layouts), low, high) for slug, layouts, low, high in migrated
+            ] == [
+                ("card_no_range", ["separate", "combined"], 1, 2),
+                ("card_two_pages", ["separate", "combined"], 1, 2),
+                ("letter", [], None, None),
+                ("passport", [], 1, 1),
+            ]
+        with pytest.raises(IntegrityError), engine.begin() as connection:
+            connection.execute(text("UPDATE known_document_types SET front_back_layouts = NULL"))
+
+        command.downgrade(config, "0006")
+        with engine.connect() as connection:
+            columns = {
+                column["name"] for column in inspect(connection).get_columns("known_document_types")
+            }
+            assert "front_back_layouts" not in columns
+            assert connection.execute(text(rows)).all() == [
+                ("card_no_range", "front_back", 1, 2),
+                ("card_two_pages", "front_back", 1, 2),
+                ("letter", "single", None, None),
+                ("passport", "single", 1, 1),
+            ]
     finally:
         engine.dispose()
 

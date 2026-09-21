@@ -53,6 +53,7 @@ def row_to_record(row: KnownDocumentType) -> dict[str, Any]:
         "expected_file_types": row.expected_file_types,
         "expected_pages": pages,
         "sides": row.sides,
+        "front_back_layouts": row.front_back_layouts,
         "direct": row.direct,
         "analyze": row.analyze,
         "required_fields": row.required_fields,

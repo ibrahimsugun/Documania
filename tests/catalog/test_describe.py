@@ -278,19 +278,38 @@ def test_prompt_carries_the_type_facts_and_the_image_order_without_file_names(
     assert "Ornekova" not in prompt
 
 
-def test_prompt_for_a_front_back_type_without_country_pages_or_fields(
+def test_prompt_for_a_front_back_type_without_country_or_fields(
     make_record: RecordFactory,
 ) -> None:
     entry = validate_catalog(
-        [make_record(country=None, sides="front_back", expected_pages=None, required_fields=[])]
+        [
+            make_record(
+                country=None,
+                sides="front_back",
+                front_back_layouts=["separate"],
+                expected_pages={"min": 2, "max": 2},
+                required_fields=[],
+            )
+        ]
     ).root[0]
 
     prompt = build_description_prompt(entry, [ExamplePage("a.png", 1)])
 
     assert "Ülke: belirtilmemiş\n" in prompt
     assert "Yüz yapısı: ön ve arka yüz (front_back)\n" in prompt
-    assert "Beklenen sayfa" not in prompt
+    assert "Beklenen sayfa: 2–2\n" in prompt
     assert "Zorunlu alanlar: yok\n" in prompt
+
+
+def test_prompt_for_a_type_without_a_page_range_leaves_the_pages_out(
+    make_record: RecordFactory,
+) -> None:
+    entry = validate_catalog([make_record(expected_pages=None)]).root[0]
+
+    prompt = build_description_prompt(entry, [ExamplePage("a.png", 1)])
+
+    assert "Yüz yapısı: tek yüz (single)\n" in prompt
+    assert "Beklenen sayfa" not in prompt
 
 
 # --- üretim ------------------------------------------------------------------------------------

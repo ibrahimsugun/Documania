@@ -59,7 +59,7 @@
       –
       <input type="number" name="pages_max" value="{{ form.pages_max }}" min="1" aria-label="En çok sayfa">
     </span>
-    <small class="hint">Ön ve arka yüzlü türde tam iki sayfa (2 – 2) olmalıdır.</small>
+    <small class="hint">Ön ve arka yüzlü türde aralık kabul edilen düzenlerden hesaplanır (ayrı sayfalar 2, tek sayfa 1); buraya yazılan değer kullanılmaz.</small>
     {{ errors("expected_pages") }}
   </div>
 
@@ -71,6 +71,17 @@
       {% endfor %}
     </select>
     {{ errors("sides") }}
+  </div>
+
+  <span class="label">Kabul edilen düzenler</span>
+  <div class="field">
+    <span class="choices">
+      {% for value, label in layouts.items() %}
+      <label class="choice"><input type="checkbox" name="front_back_layouts" value="{{ value.value }}"{% if value.value in form.front_back_layouts %} checked{% endif %}> {{ label }}</label>
+      {% endfor %}
+    </span>
+    <small class="hint">Yalnız ön ve arka yüzlü türde seçilir, en az biri. Tek sayfadaki iki yüz ayrılmaz, kırpılmaz; sayfa olduğu gibi kullanılır.</small>
+    {{ errors("front_back_layouts") }}
   </div>
 
   <span class="label">Direkt Belge</span>

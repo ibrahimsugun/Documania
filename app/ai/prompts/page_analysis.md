@@ -82,12 +82,22 @@ anahtar eklenmez.
   olmayan bir alfabeyle ve ayrıca Latin harfleriyle yazıyorsa Latin olmayan alfabeyi yaz. Metin
   yoksa `null`.
 - `document_type_slug` ve `candidate_type_name`: kural 3.
-- `side`: katalogda yüz yapısı `front_back` olan türde sayfa ön yüzse `front`, arka yüzse `back`;
-  tek yüzlü türde `single`. Katalog dışı belgede kartın ön/arka yüzü açıkça belliyse `front` veya
-  `back`, tek yüzlüyse `single`. Hangisi olduğu anlaşılmıyorsa `unknown`.
+- `side`: sayfada gördüğün yüz. Katalogda yüz yapısı `front_back` olan türde sayfada kartın yalnız
+  ön yüzü varsa `front`, yalnız arka yüzü varsa `back`; aynı kartın ön ve arka yüzü birlikte bu
+  sayfadaysa `front_and_back` (iki yüz aynı kâğıda fotokopi edilmiş ya da birlikte
+  fotoğraflanmıştır; yan yana, alt alta, eğik ya da ters durabilir, sıraları önemli değildir).
+  Tek yüzlü türde `single`. Katalog dışı belgede kartın yüzü açıkça belliyse aynı değerler
+  (`front`, `back`, `front_and_back`), tek yüzlüyse `single`. Sayfada birden çok kişinin ya da
+  birden çok belgenin yüzü varsa (ör. iki ayrı kart, iki kişinin kartı) `front_and_back` değildir:
+  `unknown` yaz ve `notes`'a `Sayfada birden fazla belge var` yaz. Hangisi olduğu anlaşılmıyorsa
+  `unknown`. Türün bu düzeni kabul edip etmediğine sen karar vermezsin; yalnız sayfada gördüğünü
+  yaz — katalogdaki "Kabul edilen düzenler" satırı yüz seçimini değiştirmez.
+  - `front_and_back` sayfada `person`, `fields` ve `mrz_lines` iki yüzden birlikte okunur:
+    yüzlerden birinde yazılı olan değer bu sayfada yazılıdır.
 - `continues_previous_page`: bu sayfa önceki sayfadaki belgenin devamıysa (aynı kartın öteki yüzü,
   aynı belgenin sonraki sayfası) `true`. Yalnız önceki sayfa özeti ve bu sayfanın içeriği bunu
-  açıkça gösteriyorsa `true` yaz; önceki sayfa özeti yoksa veya emin değilsen `false`.
+  açıkça gösteriyorsa `true` yaz; önceki sayfa özeti yoksa veya emin değilsen `false`. İki yüzü
+  birlikte gösteren (`front_and_back`) sayfa kendi başına tam karttır: `false`.
 - `person`: belgenin sahibi olan, adı sayfada yazılı kişi. Belgeyi düzenleyen memur veya işveren
   yetkilisi gibi başka kişileri yazma.
   - `surname`: soyadı, belgede Latin harfleriyle yazıldığı gibi.

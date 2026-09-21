@@ -203,6 +203,8 @@ def test_unknown_key_is_rejected(path: tuple[str, ...]) -> None:
         ("continues_previous_page", "no"),
         ("side", "left"),
         ("side", "SINGLE"),
+        ("side", "both"),
+        ("side", "front-and-back"),
         ("side", None),
         ("candidate_type_name", ""),
         ("notes", ""),
@@ -250,6 +252,14 @@ def test_person_value_outside_schema_is_rejected(key: str, value: object) -> Non
 @pytest.mark.parametrize("raw", ["", "not json", "[]", "null", b"{", [], None, 42])
 def test_response_that_is_not_a_json_object_is_rejected(raw: object) -> None:
     assert rejected(raw)
+
+
+@pytest.mark.parametrize("side", list(Side))
+def test_every_side_value_is_accepted(side: Side) -> None:
+    # §8.4: `front_and_back` (04.1.2) aynı kartın iki yüzü tek sayfada; eski kayıtlar geçerli kalır.
+    analysis = validate_page_analysis(example(side=side.value), known_slugs=SLUGS)
+
+    assert analysis.side is side
 
 
 def test_every_violation_is_reported_with_its_location() -> None:
@@ -538,7 +548,7 @@ def test_json_schema_requires_every_key_and_lists_closed_sets() -> None:
     for model in (schema, defs["PagePerson"], defs["PageContact"], defs["FieldReading"]):
         assert model["additionalProperties"] is False
     assert defs["Script"]["enum"] == ["latin", "cyrillic", "arabic", "other"]
-    assert defs["Side"]["enum"] == ["front", "back", "single", "unknown"]
+    assert defs["Side"]["enum"] == ["front", "back", "front_and_back", "single", "unknown"]
     language = schema["properties"]["language"]["anyOf"]
     assert language == [
         {"type": "string", "enum": sorted(ISO_639_1_CODES)},

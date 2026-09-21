@@ -5,10 +5,11 @@ Analiz talimatının `{{catalog}}` yuvasına giren metin burada üretilir (`comp
 - **Hangi türler:** yalnız etkin (`active: true`) ve analiz edilen (`analyze: true`) türler,
   slug sırasıyla — aynı katalog her zaman aynı metni üretir. Word/Excel türü (`attachment`)
   analize gitmez (K2), pasif tür yeni belgeye atanmaz.
-- **Kompakt biçim:** tür başına bir başlık (`### `slug` — Ad`) ve kısa satırlar: ülke, yüz yapısı
-  ve beklenen sayfa tek satırda; zorunlu alanlar; tanım (`prompt_description`, yoksa
-  `description`); kabul kriterleri madde madde. Yüz değerlerinin anlamı talimatın "Yanıt alanları"
-  bölümünde bir kez yazılıdır, tür başına tekrarlanmaz; bilinmeyen ülke satıra girmez.
+- **Kompakt biçim:** tür başına bir başlık (`### `slug` — Ad`) ve kısa satırlar: ülke, yüz yapısı,
+  `front_back` türde kabul edilen düzenler (04.1.2) ve beklenen sayfa tek satırda; zorunlu alanlar;
+  tanım (`prompt_description`, yoksa `description`); kabul kriterleri madde madde. Yüz değerlerinin
+  anlamı talimatın "Yanıt alanları" bölümünde bir kez yazılıdır, tür başına tekrarlanmaz; bilinmeyen
+  ülke satıra girmez.
 - **Token bütçesi:** metnin tahmini token sayısı (`estimate_tokens`) bütçeyi aşarsa yalnız
   **tanımlar** kısaltılır: bütün tanımlara ortak bir karakter sınırı konur, sınırı aşan tanım kelime
   sınırında kesilip `…` ile biter, hiç kelimesi sığmayan tanımın satırı düşer. Metnin bütçeye
@@ -26,7 +27,7 @@ import math
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 
-from app.catalog.schema import Catalog, CatalogEntry
+from app.catalog.schema import Catalog, CatalogEntry, FrontBackLayout
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +39,12 @@ BYTES_PER_TOKEN = 3
 İngilizce metin ~4, Türkçe ~3, Kiril ~2 karakter/token'dır; Latin olmayan harf 2 bayttır."""
 
 ELLIPSIS = "…"
+
+# `front_back` türün kabul ettiği düzenlerin talimattaki adı (04.1.2).
+LAYOUT_TEXTS = {
+    FrontBackLayout.SEPARATE: "ön ve arka ayrı sayfalarda (`separate`)",
+    FrontBackLayout.COMBINED: "iki yüz tek sayfada (`combined`)",
+}
 
 NO_TYPES_TEXT = (
     "_Katalogda analiz edilen etkin tür yok: her sayfada `document_type_slug` `null` olur ve "
@@ -155,6 +162,9 @@ def _render(entries: Sequence[CatalogEntry], descriptions: Sequence[str | None])
 def _render_entry(entry: CatalogEntry, description: str | None) -> str:
     facts = [f"Ülke: {entry.country}"] if entry.country else []
     facts.append(f"Yüz yapısı: `{entry.sides}`")
+    if entry.front_back_layouts:
+        layouts = ", ".join(LAYOUT_TEXTS[layout] for layout in entry.front_back_layouts)
+        facts.append(f"Kabul edilen düzenler: {layouts}")
     if entry.expected_pages is not None:
         low, high = entry.expected_pages.min, entry.expected_pages.max
         facts.append(f"Beklenen sayfa: {low if low == high else f'{low}–{high}'}")

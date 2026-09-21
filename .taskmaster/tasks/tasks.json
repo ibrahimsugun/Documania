@@ -1434,6 +1434,18 @@
         "priority": "high",
         "subtasks": [],
         "updatedAt": "2026-09-21T09:41:51.694Z"
+      },
+      {
+        "id": "103",
+        "title": "04.1.2 — Tek sayfada iki yüz: front_back türün kabul edilen düzenleri (ayrı sayfalar / tek sayfa) [OPUS-XHIGH]",
+        "description": "PRD 04.1.2, 11.1.2 · FR-MOD-04 / FR-MOD-11 · Must. İnsan kararı (2026-09-21): ehliyet gibi ön ve arka yüzlü belge iki ayrı sayfada da, iki yüzü tek sayfaya konmuş da gelebilir; tür hangi düzenleri kabul ettiğini bilir, yapay zekâ gördüğünü söyler, karar kodundur.",
+        "details": "KAPSAM: PRD 04.1.2, 11.1.2, §8.4 (`side` += front_and_back), §8.6 (`front_back_layouts`). Tam sözleşme PLAN.md §C78 — önce onu oku.\n\nNE YAPILACAK: (1) Katalog şeması: `front_back_layouts` (`separate`/`combined`); front_back türde ≥1, tek yüzlüde boş; expected_pages düzenlerden türetilir (separate 2–2, combined 1–1, ikisi 1–2), çelişen kayıt reddedilir. Göç 0007 (JSON sütun, mevcut front_back satırları iki düzen + 1–2), seed_catalog.yaml, sync/yaml_io/manage. (2) Form (11.1.2): \"Kabul edilen düzenler\" iki onay kutusu; front_back türde sayfa aralığı düzenlerden hesaplanır, eski 2–2 kuralı ve ipucu kalkar. (3) Analiz: `Side.FRONT_AND_BACK`; page_analysis.md talimatı (aynı kartın iki yüzü → front_and_back; birden çok kişi/belge → unknown + notes); prompt_builder türün düzenlerini yazar. (4) Gruplama: front_and_back sayfa tek başına tam aday, katılmaz/almaz, dosyalar arası eşleşmeye girmez. (5) check_sides: (front, back)+separate ya da (front_and_back,)+combined geçer; seçilmemiş düzen Unresolved, gerekçe gelen düzeni ve kabul edilenleri yazar. (6) İşlem tablosu değişmez; tek sayfalı aday merge almaz.\n\nKAPSAM SINIRI: yüz bölme/kırpma yok (K17); okunaklılık için ek kural yok (04.4.1 aynen); tek yüzlü türde aynı sayfada iki belge tespiti yok (ayrı iş).",
+        "testStrategy": "1) Birim: şema tutarlılığı ve türetilmiş aralık, form (düzen seçimi, tek yüzlüde düzen hatası, düzensiz front_back reddi), check_sides dört durum, gruplama (front_and_back tek aday; front + front_and_back birleşmez; dosyalar arası eşleşmeye girmez), prompt_builder metni, göç 0007 (mevcut satırlar iki düzen). 2) Senaryo (sentetik, tests/fixtures/gen.py): ayrı iki sayfa → Hazır; iki yüz tek sayfada → Hazır, çıktı tek sayfa, dönüşüm yalnız izinliyse; yalnız separate seçili türde tek sayfa → Unresolved gerekçeli; tek sayfada iki farklı kişi → Unresolved. 3) Tüm test takımı, ruff, mypy yeşil (CONVENTIONS DoD).",
+        "status": "done",
+        "dependencies": [],
+        "priority": "high",
+        "subtasks": [],
+        "updatedAt": "2026-09-21T20:30:00.000Z"
       }
     ],
     "metadata": {

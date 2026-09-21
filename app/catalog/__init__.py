@@ -62,9 +62,11 @@ from app.catalog.schema import (
     CatalogError,
     Conversion,
     FileType,
+    FrontBackLayout,
     OutputFormat,
     PageRange,
     Sides,
+    layout_pages,
     validate_catalog,
 )
 from app.catalog.sync import CatalogImportResult, export_catalog, import_catalog
@@ -94,6 +96,7 @@ __all__ = [
     "CompiledCatalog",
     "Conversion",
     "FileType",
+    "FrontBackLayout",
     "OutputFormat",
     "PageRange",
     "PhotoRuleSetting",
@@ -121,6 +124,7 @@ __all__ = [
     "export_catalog",
     "import_catalog",
     "install_seed_catalog",
+    "layout_pages",
     "list_candidate_types",
     "list_types",
     "load_candidate_type",

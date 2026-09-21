@@ -2366,13 +2366,25 @@ def test_queued_item_carries_its_failed_validations() -> None:
     assert [check.ok for check in item.validations] == [False, False]
 
 
+SEPARATE_TEXT = "ön ve arka ayrı sayfalarda, önce ön sonra arka (separate: front, back)"
+COMBINED_TEXT = "iki yüz tek sayfada (combined: front_and_back)"
+
+
 @pytest.mark.parametrize(
-    ("expected_pages", "failed"),
+    ("layouts", "expected_pages", "failed", "accepted"),
     [
-        pytest.param({"min": 1, "max": 2}, (ValidationName.SIDES,), id="sides-only"),
         pytest.param(
+            ["separate", "combined"],
+            {"min": 1, "max": 2},
+            (ValidationName.SIDES,),
+            f"tür şu düzenleri kabul ediyor: {SEPARATE_TEXT} ya da {COMBINED_TEXT}",
+            id="sides-only",
+        ),
+        pytest.param(
+            ["separate"],
             {"min": 2, "max": 2},
             (ValidationName.PAGE_COUNT, ValidationName.SIDES),
+            f"tür yalnız şu düzeni kabul ediyor: {SEPARATE_TEXT}",
             id="page-count-and-sides",
         ),
     ],
@@ -2380,21 +2392,23 @@ def test_queued_item_carries_its_failed_validations() -> None:
 def test_front_back_card_without_its_back_goes_to_unresolved_and_opens_nobody(
     session: Session,
     layout: DataLayout,
+    layouts: list[str],
     expected_pages: dict[str, int],
     failed: tuple[ValidationName, ...],
+    accepted: str,
 ) -> None:
-    # 06.5.1 `sides`: oturma izninin yalnız ön yüzü. Aralık bir sayfaya izin verse de belge
-    # eksiktir; yapı doğrulaması geçmeyen adaya okunaklılık, öteki doğrulayıcılar ve işlem
-    # uygulanmaz, temiz numarası çalışan açmaz. Gerekçeler doğrulayıcı sırasıyla (06.5.2).
-    catalog = _catalog_with(RESIDENCE, expected_pages=expected_pages)
+    # 06.5.1 `sides`: oturma izninin yalnız ön yüzü. Aralık bir sayfaya izin verse de (tek sayfalık
+    # düzen) belge eksiktir; yapı doğrulaması geçmeyen adaya okunaklılık, öteki doğrulayıcılar ve
+    # işlem uygulanmaz, temiz numarası çalışan açmaz. Gerekçeler doğrulayıcı sırasıyla (06.5.2).
+    catalog = _catalog_with(RESIDENCE, front_back_layouts=layouts, expected_pages=expected_pages)
     upload = _upload(session, layout, _pdf(_page(RESIDENCE, side="front")))
     (file_id,) = _file_ids(upload)
 
     document = _plan(session, layout, upload, catalog=catalog)
 
     sides = (
-        "Yüz doğrulaması (06.5.1, sides): tür önce bir ön, sonra bir arka yüz bekliyor (front, "
-        f"back); bu adayın yüzleri: dosya {file_id}, sayfa 1: front."
+        f"Yüz doğrulaması (06.5.1, sides): {accepted}. Gelen düzen hiçbir düzene uymuyor (eksik, "
+        f"fazla ya da sırası ters yüz); bu adayın yüzleri: dosya {file_id}, sayfa 1: front."
     )
     page_count = (
         f"Beklenen sayfa sayısı kontrolü (04.5.1): bu aday 1 sayfa (dosya {file_id}, sayfa 1) "

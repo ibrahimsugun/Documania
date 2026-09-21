@@ -68,6 +68,7 @@ def test_dump_uses_section_8_6_layout(make_record: RecordFactory) -> None:
     assert "  expected_file_types: [pdf, jpeg]" in lines
     assert "  expected_pages: {min: 1, max: 1}" in lines
     assert "  allowed_conversions: [merge, wrap_image]" in lines
+    assert "  front_back_layouts: []" in lines
     assert lines[lines.index("  acceptance_criteria:") + 1] == "    - Kenarlar kesilmemiş"
     keys = [line.split(":")[0].strip("- ") for line in lines if not line.startswith("    ")]
     assert keys == [
@@ -79,6 +80,7 @@ def test_dump_uses_section_8_6_layout(make_record: RecordFactory) -> None:
         "expected_file_types",
         "expected_pages",
         "sides",
+        "front_back_layouts",
         "direct",
         "analyze",
         "required_fields",

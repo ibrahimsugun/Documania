@@ -13,6 +13,8 @@
 <input type="hidden" name="pages_min" value="{{ form.pages_min }}">
 <input type="hidden" name="pages_max" value="{{ form.pages_max }}">
 <input type="hidden" name="sides" value="{{ form.sides }}">
+{% for value in form.front_back_layouts %}<input type="hidden" name="front_back_layouts" value="{{ value }}">
+{% endfor %}
 {% if form.direct %}<input type="hidden" name="direct" value="on">{% endif %}
 {% if form.analyze %}<input type="hidden" name="analyze" value="on">{% endif %}
 <input type="hidden" name="required_fields" value="{{ form.required_fields }}">

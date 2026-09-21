@@ -351,6 +351,8 @@ class KnownDocumentType(Base):
     expected_pages_min: Mapped[int | None] = mapped_column(Integer)
     expected_pages_max: Mapped[int | None] = mapped_column(Integer)
     sides: Mapped[str] = mapped_column(String(16))
+    # §8.6 `front_back_layouts` (04.1.2): `front_back` türün kabul ettiği düzenler; tek yüzlüde boş.
+    front_back_layouts: Mapped[list[str]] = mapped_column(JSON, default=list)
     direct: Mapped[bool] = mapped_column(Boolean)
     analyze: Mapped[bool] = mapped_column(Boolean)
     required_fields: Mapped[list[str]] = mapped_column(JSON, default=list)

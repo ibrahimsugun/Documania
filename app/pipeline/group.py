@@ -20,7 +20,10 @@ koşulların hepsi sağlanırsa katılır; biri bile sağlanmazsa yeni aday baş
 4. **Yüz yapısı (04.1.2):** katalogda `sides: front_back` olan türde ön yüz ve onu izleyen arka yüz
    sırayla eşleşir — aday yalnız ön yüzden oluşuyorsa ve sayfa arka yüzse katılır. Tamamlanmış çift
    başka sayfa almaz; arka yüzden sonra gelen ön yüz ve `single`/`unknown` yüzlü sayfa eşleşmez.
-   Tek yüzlü ve katalog dışı türde yüz sınır değildir. Sayfa sayısı sınırı gruplamada uygulanmaz:
+   İki yüzü birlikte taşıyan (`front_and_back`) sayfa, türü ne olursa olsun, tek başına tamamlanmış
+   adaydır: önceki adaya katılmaz, sonraki sayfayı almaz; türün bu düzeni kabul edip etmediği
+   doğrulayıcının (`sides`) işidir. Tek yüzlü ve katalog dışı türde öteki yüzler sınır değildir.
+   Sayfa sayısı sınırı gruplamada uygulanmaz:
    sınırda bölmek geçerli görünen yanlış belgeler üretirdi; aralık dışı aday 04.5'te Unresolved
    olur. Katalogda bulunmayan slug'ın yüz yapısı bilinmediği için gruplanmaz.
 5. **Aynı kişi:** iki sayfada da yazılı hiçbir kimlik değeri çelişmez — belge numarası (§20.2.1
@@ -40,9 +43,10 @@ olabiliyor ve aralarına başka bir belge girmişse parçalar birleştirilmez; h
 - **Aynı katalog türü.** Katalog dışı ve türü belirlenemeyen adayın yüz ve sayfa yapısı bilinmez;
   parça olup olmadığına hükmedilmez (rotası 04.6'nın).
 - **Tek belgede birleşebilir.** `front_back` türde biri yalnız ön, öteki yalnız arka yüzdür — sıra
-  fark etmez, arka yüzü önce taranmış kart da aynı karttır. Tek yüzlü türde toplam sayfa sayısı
-  türün en fazla sayfa sayısını aşmaz (aralık yoksa sınır yoktur); iki parçanın her biri tek başına
-  aralıkta olsa da iki belge mi tek belge mi olduğu bilinemez, kuyruğa gider (R7).
+  fark etmez, arka yüzü önce taranmış kart da aynı karttır. İki yüzü birlikte taşıyan
+  (`front_and_back`) aday tamamlanmıştır, hiçbir parçayla birleşmez. Tek yüzlü türde toplam
+  sayfa sayısı türün en fazla sayfa sayısını aşmaz (aralık yoksa sınır yoktur); iki parçanın her
+  biri tek başına aralıkta olsa da iki belge mi tek belge mi olduğu bilinemez, kuyruğa gider (R7).
 - **Aynı kişi.** 5. koşuldaki kimlik değerleri iki parçanın hiçbir sayfa çiftinde çelişmez.
 - **Araya belge girmiş.** İki parça arasında başka bir aday (türü ne olursa olsun) ya da analizi
   olmayan, içeriği bilinmediği için başka belge olabilecek sayfa vardır. Boş sayfa belge değildir:
@@ -59,13 +63,14 @@ değildir (arka yüz önce yüklenebilir). Ardışıklık dosya içidir: kuralı
 eşi aynı dosyada araya belge girmiş hâlde durur. Eşleşme yalnız **tek anlamlıysa** yapılır: türün
 partide eşi olmayan tam bir ön ve bir arka yüzü vardır (tamamlanmış çift sayılmaz, ardışıklık
 kuralına takılan parça sayılır), ikisi ayrı dosyalardadır, 5. koşuldaki kimlik değerleri çelişmez
-ve partide başka yüz olabilecek sayfa yoktur:
+ve partide başka yüz olabilecek sayfa yoktur. İki yüzü birlikte taşıyan (`front_and_back`) aday
+tamamlanmış çift gibidir: eş beklemez, eşleşmeye girmez ve engel sayılmaz. Engeller:
 
 - türün yüzü ön ya da arka okunmamış (`single`/`unknown`) sayfası;
 - analizi olmayan sayfa — içeriği bilinmez;
 - katalog türü verilmemiş (türü belirlenemeyen, aday tür adlı ya da slug'ı katalogda olmayan) ve
-  tek yüzlü okunmamış sayfa — analizci emin olmadığı türü aday tür adıyla yazar (03.4), kartın
-  emin olunmayan yüzü böyle görünür.
+  tek yüzlü ya da iki yüzü birlikte taşıyan okunmamış sayfa — analizci emin olmadığı türü aday tür
+  adıyla yazar (03.4), kartın emin olunmayan yüzü böyle görünür.
 
 Başka katalog türü, tek yüzlü katalog dışı belge ve boş sayfa engel değildir.
 
@@ -146,6 +151,10 @@ from app.storage import DataLayout, UnsupportedFileTypeError, detect_file_kind
 _NUMBER_SEPARATORS = re.compile(r"[\s./-]+")
 _NON_WORD = re.compile(r"[\W_]+")
 _NAME_FIELDS = ("surname", "given_names", "original_script_name")
+# Eş beklemeyen, tamamlanmış yüz yapıları (04.1.2): sırayla ön ve arka, ya da iki yüz tek sayfada.
+_COMPLETE_FACES = frozenset({(Side.FRONT, Side.BACK), (Side.FRONT_AND_BACK,)})
+# Başka dosyadaki bir kartın eksik yüzü olamayan yüzler: tek yüzlü ve iki yüzü birlikte taşıyan.
+_NOT_A_MISSING_FACE = frozenset({Side.SINGLE, Side.FRONT_AND_BACK})
 # Adayın partideki yeri: (dosya sırası, dosyadaki aday sırası).
 _Slot = tuple[int, int]
 
@@ -548,7 +557,7 @@ def group_across_files(groupings: Iterable[FileGrouping], *, catalog: Catalog) -
         for candidate in grouping.candidates
         if _catalog_entry(candidate, catalog) is None
         for page in candidate.pages
-        if page.analysis.side is not Side.SINGLE
+        if page.analysis.side not in _NOT_A_MISSING_FACE
     )
     cross_file: list[DocumentCandidate] = []
     paired: set[_Slot] = set()
@@ -619,6 +628,9 @@ def _type_key(analysis: PageAnalysis) -> tuple[str, str] | None:
 def _faces_match(
     candidate: Sequence[CandidatePage], analysis: PageAnalysis, catalog: Catalog
 ) -> bool:
+    # İki yüzü birlikte taşıyan sayfa tek başına tam belgedir: katılmaz, sonrakini almaz (04.1.2).
+    if Side.FRONT_AND_BACK in (analysis.side, candidate[-1].analysis.side):
+        return False
     slug = analysis.document_type_slug
     if slug is None:
         return True
@@ -704,6 +716,8 @@ def _separated(
 def _may_be_one_document(
     first: DocumentCandidate, second: DocumentCandidate, entry: CatalogEntry
 ) -> bool:
+    if (Side.FRONT_AND_BACK,) in (first.sides, second.sides):
+        return False  # tamamlanmış belge, parça değil (04.1.2)
     if entry.sides == Sides.FRONT_BACK:
         fits = {first.sides, second.sides} == {(Side.FRONT,), (Side.BACK,)}
     else:
@@ -760,7 +774,8 @@ class _TypeFaces:
 
 def _unpaired_faces(files: Sequence[FileGrouping], catalog: Catalog) -> list[_TypeFaces]:
     # Yalnız dosyalar arası eşleşebilen türler: katalogda `front_back`, Direkt Belge değil (K3).
-    # Tamamlanmış çift eş beklemez; öteki yüz yapıları türün yüzü belirsiz sayfalarıdır.
+    # Tamamlanmış çift ve iki yüzü birlikte taşıyan sayfa eş beklemez; öteki yüz yapıları türün
+    # yüzü belirsiz sayfalarıdır.
     by_type: dict[str, _TypeFaces] = {}
     for file_position, grouping in enumerate(files):
         for position, candidate in enumerate(grouping.candidates):
@@ -772,7 +787,7 @@ def _unpaired_faces(files: Sequence[FileGrouping], catalog: Catalog) -> list[_Ty
                 faces.fronts[file_position, position] = candidate
             elif candidate.sides == (Side.BACK,):
                 faces.backs[file_position, position] = candidate
-            elif candidate.sides != (Side.FRONT, Side.BACK):
+            elif candidate.sides not in _COMPLETE_FACES:
                 faces.unoriented.extend(_page_ref(page) for page in candidate.pages)
     return list(by_type.values())
 

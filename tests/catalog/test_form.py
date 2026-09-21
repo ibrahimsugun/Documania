@@ -1,11 +1,14 @@
 """11.1.2, 11.1.3 — tür formu katalog sözleşmesinden geçer: Direkt türde dönüşüm listesi boş,
-`front_back` türde sayfa aralığı 2; kabul kriteri maddeleri madde madde düzenlenir."""
+`front_back` türde en az bir kabul edilen düzen ve düzenlerden türeyen sayfa aralığı (ayrı sayfalar
+2, tek sayfa 1); kabul kriteri maddeleri madde madde düzenlenir."""
 
 from typing import Any
 
 import pytest
 
 from app.catalog import (
+    CatalogError,
+    FrontBackLayout,
     Sides,
     TypeForm,
     TypeFormError,
@@ -69,30 +72,66 @@ def test_indirect_type_may_carry_conversions() -> None:
 
 
 @pytest.mark.parametrize(
-    ("low", "high"),
-    [("1", "1"), ("1", "2"), ("2", "3"), ("3", "3"), ("1", "10")],
+    ("layouts", "pages"),
+    [
+        pytest.param(("separate",), (2, 2), id="separate"),
+        pytest.param(("combined",), (1, 1), id="combined"),
+        pytest.param(("separate", "combined"), (1, 2), id="both"),
+        pytest.param(("combined", "separate"), (1, 2), id="both-reversed"),
+    ],
 )
-def test_front_back_type_needs_exactly_two_pages(low: str, high: str) -> None:
-    problems = _problems(sides="front_back", pages_min=low, pages_max=high)
-
-    assert list(problems) == ["expected_pages"]
-    (message,) = problems["expected_pages"]
-    assert "front_back" in message
-    assert "tam iki sayfa" in message
-    assert f"{low}-{high}" in message
-
-
-def test_front_back_type_without_a_page_range_is_refused() -> None:
-    problems = _problems(sides="front_back", pages_min="", pages_max="")
-
-    assert "yazılmamış" in problems["expected_pages"][0]
-
-
-def test_front_back_type_with_two_pages_is_accepted() -> None:
-    entry = build_entry(_form(sides="front_back", pages_min="2", pages_max="2"))
+def test_front_back_page_range_is_derived_from_the_chosen_layouts(
+    layouts: tuple[str, ...], pages: tuple[int, int]
+) -> None:
+    entry = build_entry(_form(sides="front_back", front_back_layouts=layouts))
 
     assert entry.sides is Sides.FRONT_BACK
-    assert (entry.expected_pages.min, entry.expected_pages.max) == (2, 2)  # type: ignore[union-attr]
+    assert entry.front_back_layouts == tuple(FrontBackLayout(value) for value in layouts)
+    assert (entry.expected_pages.min, entry.expected_pages.max) == pages  # type: ignore[union-attr]
+
+
+@pytest.mark.parametrize(
+    ("low", "high"), [("", ""), ("2", "2"), ("3", "7"), ("a", ""), ("1.5", "x")]
+)
+def test_front_back_page_fields_are_not_read_the_range_comes_from_the_layouts(
+    low: str, high: str
+) -> None:
+    # 11.1.2: `front_back` türün sayfa aralığı elle girilmez; yazılan (ya da bozuk) değer
+    # kullanılmaz.
+    entry = build_entry(
+        _form(sides="front_back", front_back_layouts=("combined",), pages_min=low, pages_max=high)
+    )
+
+    assert (entry.expected_pages.min, entry.expected_pages.max) == (1, 1)  # type: ignore[union-attr]
+
+
+def test_front_back_type_without_a_layout_is_refused_on_the_layout_field() -> None:
+    problems = _problems(sides="front_back", pages_min="2", pages_max="2")
+
+    assert list(problems) == ["front_back_layouts"]
+    (message,) = problems["front_back_layouts"]
+    assert "en az bir kabul edilen düzen" in message
+    assert "separate" in message and "combined" in message
+
+
+@pytest.mark.parametrize("layouts", [("separate",), ("combined",), ("separate", "combined")])
+def test_single_sided_type_with_a_layout_is_refused(layouts: tuple[str, ...]) -> None:
+    problems = _problems(sides="single", front_back_layouts=layouts)
+
+    assert list(problems) == ["front_back_layouts"]
+    (message,) = problems["front_back_layouts"]
+    assert "tek yüzlü" in message
+    assert ", ".join(layouts) in message
+
+
+def test_unknown_or_repeated_layout_is_refused_on_the_layout_field() -> None:
+    assert _problems(sides="front_back", front_back_layouts=("both",))["front_back_layouts"] == [
+        "geçersiz seçim"
+    ]
+    (message,) = _problems(sides="front_back", front_back_layouts=("combined", "combined"))[
+        "front_back_layouts"
+    ]
+    assert "Tekrarlanan değer: combined" in message
 
 
 def test_single_sided_type_may_have_any_page_range_or_none() -> None:
@@ -118,23 +157,26 @@ def test_every_rule_is_reported_at_once_each_on_its_own_field() -> None:
         required_fields="surname",
     )
 
-    assert set(problems) == {"allowed_conversions", "expected_pages", "required_fields"}
+    assert set(problems) == {"allowed_conversions", "front_back_layouts", "required_fields"}
 
 
-def test_the_page_rule_is_a_form_rule_and_catalog_loading_keeps_accepting_older_ranges(
+def test_the_layout_rule_is_the_catalog_rule_so_a_loaded_record_passes_the_form_unchanged(
     make_record: Any,
 ) -> None:
-    # 11.1.2 yalnız form doğrulamasıdır: eski bir katalog/veritabanı kaydı yüzünden analiz
-    # kataloğu okunamaz olmasın (00.6.1 davranışı değişmedi). Kayıt formdan geçince düzelir.
-    record = make_record(slug="two_sided", sides="front_back", expected_pages={"min": 1, "max": 2})
+    # 04.1.2: düzen ve türeyen aralık katalog şemasının kuralıdır (D28'in yalnız-form kuralı
+    # kalktı); yüklenebilen kayıt formdan da aynen geçer, çelişen kayıt yüklemede reddedilir.
+    record = make_record(
+        slug="two_sided",
+        sides="front_back",
+        front_back_layouts=["separate", "combined"],
+        expected_pages={"min": 1, "max": 2},
+    )
 
     (entry,) = validate_catalog([record])
 
-    assert entry.sides is Sides.FRONT_BACK
-    assert (entry.expected_pages.min, entry.expected_pages.max) == (1, 2)  # type: ignore[union-attr]
-    with pytest.raises(TypeFormError) as caught:
-        build_entry(TypeForm.from_record(entry.model_dump(mode="json")))
-    assert set(caught.value.problems) == {"expected_pages"}
+    assert build_entry(TypeForm.from_record(entry.model_dump(mode="json"))) == entry
+    with pytest.raises(CatalogError, match="expected_pages kabul edilen düzenlerden türetilir"):
+        validate_catalog([{**record, "expected_pages": {"min": 2, "max": 2}}])
 
 
 # --- alan doğrulaması ----------------------------------------------------------------------------
@@ -244,9 +286,8 @@ def test_duplicate_required_fields_are_refused() -> None:
     ],
 )
 def test_unreadable_page_numbers_are_reported_alone(low: str, high: str, fragment: str) -> None:
-    problems = _problems(sides="front_back", pages_min=low, pages_max=high)
+    problems = _problems(pages_min=low, pages_max=high)
 
-    # `front_back` için türeyen "aralık yok" mesajı asıl sorunu gölgelemez.
     assert len(problems["expected_pages"]) == 1
     assert fragment in problems["expected_pages"][0]
 
@@ -317,8 +358,20 @@ def test_form_opens_an_inconsistent_stored_record_instead_of_failing() -> None:
     form = TypeForm.from_record(record)
 
     assert (form.direct, form.allowed_conversions, form.pages_min) == (True, ("merge",), "")
-    assert form.acceptance_criteria == ()
-    assert set(_form_problems(form)) == {"allowed_conversions", "expected_pages"}
+    assert (form.acceptance_criteria, form.front_back_layouts) == ((), ())
+    assert set(_form_problems(form)) == {"allowed_conversions", "front_back_layouts"}
+
+
+def test_form_opens_a_stored_front_back_record_with_its_layouts_and_derived_range(
+    make_record: Any,
+) -> None:
+    record = make_record(
+        sides="front_back", front_back_layouts=["combined"], expected_pages={"min": 1, "max": 1}
+    )
+
+    form = TypeForm.from_record(record)
+
+    assert (form.front_back_layouts, form.pages_min, form.pages_max) == (("combined",), "1", "1")
 
 
 def _form_problems(form: TypeForm) -> dict[str, list[str]]:

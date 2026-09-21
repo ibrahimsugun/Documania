@@ -3,6 +3,8 @@
 # veritabanından yeniden üretme: `python -m app.catalog export`.
 # Dosya bütün olarak doğrulanır: tek kayıt geçersizse hiçbir kayıt yüklenmez.
 # Direkt Belge kuralı: `direct: true` olan türde `allowed_conversions: []` olmalıdır.
+# Ön/arka yüzlü türde (`sides: front_back`) `front_back_layouts` en az bir düzen taşır
+# (`separate`: ayrı sayfalar, `combined`: tek sayfa); `expected_pages` düzenlerden türetilir.
 - slug: attachment
   name: Attachment
   file_label: Attachment
@@ -11,6 +13,7 @@
   expected_file_types: [doc, docx, xls, xlsx]
   expected_pages: null
   sides: single
+  front_back_layouts: []
   direct: true
   analyze: false
   required_fields: []
@@ -28,6 +31,7 @@
   expected_file_types: [jpeg, png, pdf]
   expected_pages: {min: 1, max: 1}
   sides: single
+  front_back_layouts: []
   direct: false
   analyze: true
   required_fields: []
@@ -45,6 +49,7 @@
   expected_file_types: [pdf, jpeg]
   expected_pages: {min: 1, max: 1}
   sides: single
+  front_back_layouts: []
   direct: true
   analyze: true
   required_fields: [surname, given_names, date_of_birth, document_number, expiry_date]
@@ -62,8 +67,9 @@
   country: RS
   description: Sırbistan sürücü belgesi (vozačka dozvola); ön ve arka yüzlü kart.
   expected_file_types: [pdf, jpeg, png]
-  expected_pages: {min: 2, max: 2}
+  expected_pages: {min: 1, max: 2}
   sides: front_back
+  front_back_layouts: [separate, combined]
   direct: false
   analyze: true
   required_fields: [surname, given_names, date_of_birth, document_number, expiry_date]
@@ -81,6 +87,7 @@
   expected_file_types: [pdf, jpeg]
   expected_pages: {min: 1, max: 1}
   sides: single
+  front_back_layouts: []
   direct: true
   analyze: true
   required_fields: [surname, given_names, date_of_birth, document_number, expiry_date]
@@ -98,8 +105,9 @@
   country: RS
   description: Sırbistan'da yabancılara verilen oturma izni kartı; ön ve arka yüzlü.
   expected_file_types: [pdf, jpeg, png]
-  expected_pages: {min: 2, max: 2}
+  expected_pages: {min: 1, max: 2}
   sides: front_back
+  front_back_layouts: [separate, combined]
   direct: false
   analyze: true
   required_fields: [surname, given_names, date_of_birth, document_number, expiry_date]
@@ -117,6 +125,7 @@
   expected_file_types: [pdf, jpeg]
   expected_pages: {min: 1, max: 1}
   sides: single
+  front_back_layouts: []
   direct: true
   analyze: true
   required_fields: [surname, given_names, date_of_birth, document_number, expiry_date]
@@ -136,6 +145,7 @@
   expected_file_types: [pdf, jpeg, png]
   expected_pages: {min: 1, max: 2}
   sides: single
+  front_back_layouts: []
   direct: false
   analyze: true
   required_fields: [surname, given_names, document_number, expiry_date]

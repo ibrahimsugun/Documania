@@ -6,8 +6,10 @@
   /document-types/{slug}` düzenler (`slug` değişmez); `POST /document-types/{slug}/deactivate`
   ve `.../activate` pasifleştirir/etkinleştirir. **Silme yok** (K16).
 - Form katalog sözleşmesinden geçer (`app.catalog.form`, 11.1.2): Direkt türde dönüşüm listesi
-  boş, `front_back` türde sayfa aralığı 2, analiz edilmeyen türde zorunlu alan yok. Reddedilen
-  form 422 ile, girilen değerler ve alan başına mesajla yeniden çizilir; hiçbir şey yazılmaz.
+  boş, `front_back` türde en az bir kabul edilen düzen seçili ve sayfa aralığı düzenlerden
+  hesaplanır (ayrı sayfalar 2, tek sayfa 1), tek yüzlü türde düzen yok, analiz edilmeyen türde
+  zorunlu alan yok. Reddedilen form 422 ile, girilen değerler ve alan başına mesajla yeniden
+  çizilir; hiçbir şey yazılmaz.
 - `acceptance_criteria` (11.1.3) formda madde madde düzenlenir: HTMX'li `POST
   /document-types/criteria/add` ve `.../remove` yalnız madde listesi parçasını yeniler
   (kaydetmez); JavaScript kapalıyken formun sonundaki boş madde alanı ve boşaltılan maddenin
@@ -112,6 +114,7 @@ from app.catalog import (
     CatalogEntry,
     Conversion,
     FileType,
+    FrontBackLayout,
     OutputFormat,
     PhotoRulesError,
     PhotoRulesForm,
@@ -222,6 +225,10 @@ FILE_TYPE_LABELS = {
     FileType.XLSX: "Excel (xlsx)",
 }
 SIDES_LABELS = {Sides.SINGLE: "Tek yüz", Sides.FRONT_BACK: "Ön ve arka yüz"}
+LAYOUT_LABELS = {
+    FrontBackLayout.SEPARATE: "Ön ve arka ayrı sayfalarda",
+    FrontBackLayout.COMBINED: "İki yüz tek sayfada",
+}
 CONVERSION_LABELS = {
     Conversion.MERGE: "Sayfaları birleştir",
     Conversion.WRAP_IMAGE: "Görüntüyü PDF'e sar",
@@ -313,6 +320,7 @@ def type_form(
     pages_min: Annotated[str, Form()] = "",
     pages_max: Annotated[str, Form()] = "",
     sides: Annotated[str, Form()] = "",
+    front_back_layouts: Annotated[list[str] | None, Form()] = None,
     direct: Annotated[str | None, Form()] = None,
     analyze: Annotated[str | None, Form()] = None,
     required_fields: Annotated[str, Form()] = "",
@@ -333,6 +341,7 @@ def type_form(
         pages_min=pages_min,
         pages_max=pages_max,
         sides=sides,
+        front_back_layouts=tuple(front_back_layouts or ()),
         direct=direct is not None,
         analyze=analyze is not None,
         required_fields=required_fields,
@@ -476,6 +485,7 @@ def _fields_context(form: TypeForm, problems: dict[str, list[str]] | None) -> di
         "criteria": [*form.acceptance_criteria, ""],
         "file_types": FILE_TYPE_LABELS,
         "sides_options": SIDES_LABELS,
+        "layouts": LAYOUT_LABELS,
         "conversions": CONVERSION_LABELS,
         "output_formats": OUTPUT_FORMAT_LABELS,
     }
@@ -1113,6 +1123,10 @@ def _entry_rows(entry: CatalogEntry) -> list[tuple[str, str]]:
         ),
         ("Beklenen sayfa sayısı", "—" if pages is None else f"{pages.min} – {pages.max}"),
         ("Yüz yapısı", SIDES_LABELS[entry.sides]),
+        (
+            "Kabul edilen düzenler",
+            ", ".join(LAYOUT_LABELS[layout] for layout in entry.front_back_layouts) or "—",
+        ),
         ("Direkt Belge", "Evet" if entry.direct else "Hayır"),
         ("Analiz", "Evet" if entry.analyze else "Hayır"),
         ("Zorunlu alanlar", ", ".join(entry.required_fields) or "—"),

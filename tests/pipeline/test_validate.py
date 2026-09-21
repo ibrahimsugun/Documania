@@ -17,7 +17,14 @@ import pytest
 
 from app.ai import PageAnalysis
 from app.ai.schemas import Side
-from app.catalog import CatalogEntry, FileType, load_seed_catalog
+from app.catalog import (
+    Catalog,
+    CatalogEntry,
+    FileType,
+    FrontBackLayout,
+    load_seed_catalog,
+    validate_catalog,
+)
 from app.db.models import QueueKind
 from app.matching.mrz import MrzFormat
 from app.pipeline.group import (
@@ -61,10 +68,12 @@ TODAY = date(2026, 9, 15)
 FILE_ID = 7
 
 PASSPORT = "russian_passport"  # direct, single, pdf/jpeg
-LICENSE = "serbian_driving_license"  # front_back, 2 sayfa
+LICENSE = "serbian_driving_license"  # front_back, iki düzen (separate, combined), 1–2 sayfa
 PERMIT = "work_permit"  # direct değil, pdf/jpeg/png
 REQUIRED = ("surname", "given_names", "date_of_birth", "document_number", "expiry_date")
 FRONT, BACK, SINGLE, UNKNOWN = Side.FRONT, Side.BACK, Side.SINGLE, Side.UNKNOWN
+BOTH = Side.FRONT_AND_BACK
+SEPARATE, COMBINED = FrontBackLayout.SEPARATE, FrontBackLayout.COMBINED
 PDF, JPEG, PNG, DOCX = FileKind.PDF, FileKind.JPEG, FileKind.PNG, FileKind.DOCX
 
 # Kontrol haneleri geçerli, kurgusal TD3 MRZ (Utopia); isteğe bağlı veri tümüyle dolgu.
@@ -196,27 +205,57 @@ def test_page_count_passes_inside_the_expected_range() -> None:
 
 
 def test_page_count_fails_outside_the_expected_range() -> None:
-    # Ehliyetin yalnız ön yüzü: tür 2 sayfa bekler.
-    (candidate,) = _grouped(_analysis(LICENSE, FRONT))
+    # Pasaportun devam eden ikinci sayfası: tür 1 sayfa bekler.
+    (candidate,) = _grouped(_analysis(), _analysis(continues_previous_page=True))
     failure = check_page_count(candidate)
 
-    assert failure == PageCountViolation((PageRef(FILE_ID, 0),), expected_min=2, expected_max=2)
+    pages = (PageRef(FILE_ID, 0), PageRef(FILE_ID, 1))
+    assert failure == PageCountViolation(pages, expected_min=1, expected_max=1)
     assert failure.queue is QueueKind.UNRESOLVED
 
 
+def test_page_count_uses_the_range_derived_from_the_layouts() -> None:
+    # 04.1.2: yalnız `separate` kabul eden türde aralık 2–2; tek sayfalık kart aralık dışıdır.
+    catalog = _catalog_with(LICENSE, front_back_layouts=["separate"], expected_pages=_PAGES_2_2)
+    pages = [GroupingPage(0, analysis=_analysis(LICENSE, BOTH))]
+    grouping = group_file_pages(FILE_ID, pages, catalog=catalog)
+    (candidate,) = group_across_files([grouping], catalog=catalog).candidates
+
+    failure = check_page_count(candidate)
+
+    assert failure == PageCountViolation((PageRef(FILE_ID, 0),), expected_min=2, expected_max=2)
+
+
 # --- sides (04.1.2) ----------------------------------------------------------------------------
+
+
+_PAGES_2_2 = {"min": 2, "max": 2}
+_PAGES_1_1 = {"min": 1, "max": 1}
+
+
+def _catalog_with(slug: str, **changes: Any) -> Catalog:
+    return validate_catalog(
+        [
+            {**entry.model_dump(mode="json"), **changes}
+            if entry.slug == slug
+            else entry.model_dump(mode="json")
+            for entry in CATALOG
+        ]
+    )
 
 
 @pytest.mark.parametrize(
     "candidate",
     [
         pytest.param(_sides(LICENSE, FRONT, BACK), id="front-then-back"),
+        pytest.param(_sides(LICENSE, BOTH), id="both-faces-on-one-page"),
         pytest.param(
             _candidate((1, _analysis(LICENSE, FRONT)), (2, _analysis(LICENSE, BACK))),
             id="faces-from-two-files",
         ),
         pytest.param(_sides(PASSPORT, SINGLE), id="single-sided-type"),
         pytest.param(_sides(PASSPORT, FRONT), id="single-sided-type-ignores-faces"),
+        pytest.param(_sides(PASSPORT, BOTH), id="single-sided-type-ignores-both-faces"),
     ],
 )
 def test_sides_passes_for_front_then_back_or_a_single_sided_type(
@@ -237,9 +276,12 @@ def test_sides_passes_for_front_then_back_or_a_single_sided_type(
         pytest.param((UNKNOWN,), id="unknown"),
         pytest.param((FRONT, BACK, BACK), id="extra-back"),
         pytest.param((FRONT, FRONT), id="two-fronts"),
+        pytest.param((FRONT, BOTH), id="front-then-both"),
+        pytest.param((BOTH, BACK), id="both-then-back"),
+        pytest.param((BOTH, BOTH), id="two-pages-with-both-faces"),
     ],
 )
-def test_sides_fails_when_a_front_back_type_is_not_front_then_back(
+def test_sides_fails_when_a_front_back_type_is_in_no_layout(
     sides: tuple[Side, ...],
 ) -> None:
     candidate = _sides(LICENSE, *sides)
@@ -247,8 +289,50 @@ def test_sides_fails_when_a_front_back_type_is_not_front_then_back(
     failure = check_sides(candidate, entry=_entry(LICENSE))
 
     pages = tuple(PageRef(FILE_ID, index) for index in range(len(sides)))
-    assert failure == SidesMismatch(pages, sides)
+    assert failure == SidesMismatch(pages, sides, (SEPARATE, COMBINED))
+    assert failure.layout is None
     assert failure.queue is QueueKind.UNRESOLVED
+
+
+@pytest.mark.parametrize(
+    ("layouts", "sides", "passes"),
+    [
+        pytest.param(["separate"], (FRONT, BACK), True, id="separate-gets-separate"),
+        pytest.param(["separate"], (BOTH,), False, id="separate-gets-combined"),
+        pytest.param(["combined"], (BOTH,), True, id="combined-gets-combined"),
+        pytest.param(["combined"], (FRONT, BACK), False, id="combined-gets-separate"),
+        pytest.param(["separate", "combined"], (FRONT, BACK), True, id="both-get-separate"),
+        pytest.param(["separate", "combined"], (BOTH,), True, id="both-get-combined"),
+    ],
+)
+def test_sides_passes_only_in_a_layout_the_type_accepts(
+    layouts: list[str], sides: tuple[Side, ...], passes: bool
+) -> None:
+    pages = {"separate": _PAGES_2_2, "combined": _PAGES_1_1}
+    expected_pages = pages[layouts[0]] if len(layouts) == 1 else {"min": 1, "max": 2}
+    entry = _entry(LICENSE, front_back_layouts=layouts, expected_pages=expected_pages)
+
+    failure = check_sides(_sides(LICENSE, *sides), entry=entry)
+
+    assert (failure is None) is passes
+    if failure is not None:
+        # Yüzler tanınmış bir düzendedir; tür yalnız o düzeni kabul etmiyor.
+        assert failure.layout is (COMBINED if sides == (BOTH,) else SEPARATE)
+        assert failure.layouts == tuple(FrontBackLayout(value) for value in layouts)
+
+
+def test_sides_reason_names_the_received_layout_and_the_accepted_ones() -> None:
+    entry = _entry(LICENSE, front_back_layouts=["separate"], expected_pages=_PAGES_2_2)
+
+    failure = check_sides(_sides(LICENSE, BOTH), entry=entry)
+
+    assert failure is not None
+    assert failure.reason == (
+        "Yüz doğrulaması (06.5.1, sides): tür yalnız şu düzeni kabul ediyor: ön ve arka ayrı "
+        "sayfalarda, önce ön sonra arka (separate: front, back). Gelen düzen iki yüz tek sayfada "
+        "(combined: front_and_back), tür bu düzeni kabul etmiyor; bu adayın yüzleri: dosya 7, "
+        "sayfa 1: front_and_back."
+    )
 
 
 def test_sides_reason_names_each_page_with_its_face() -> None:
@@ -256,8 +340,10 @@ def test_sides_reason_names_each_page_with_its_face() -> None:
 
     assert failure is not None
     assert failure.reason == (
-        "Yüz doğrulaması (06.5.1, sides): tür önce bir ön, sonra bir arka yüz bekliyor (front, "
-        "back); bu adayın yüzleri: dosya 7, sayfa 1: back; dosya 7, sayfa 2: front."
+        "Yüz doğrulaması (06.5.1, sides): tür şu düzenleri kabul ediyor: ön ve arka ayrı "
+        "sayfalarda, önce ön sonra arka (separate: front, back) ya da iki yüz tek sayfada "
+        "(combined: front_and_back). Gelen düzen hiçbir düzene uymuyor (eksik, fazla ya da "
+        "sırası ters yüz); bu adayın yüzleri: dosya 7, sayfa 1: back; dosya 7, sayfa 2: front."
     )
 
 

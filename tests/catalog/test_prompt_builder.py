@@ -115,6 +115,7 @@ def test_entry_compiles_to_a_heading_and_short_lines(make_record: RecordFactory)
     source = catalog(
         make_record(
             sides="front_back",
+            front_back_layouts=["separate"],
             expected_pages={"min": 2, "max": 2},
             prompt_description="Ön yüzde\n  fotoğraf, arka yüzde MRZ.",
             acceptance_criteria=["Kenarlar kesilmemiş olmalı", "MRZ\nokunabilir olmalı"],
@@ -123,7 +124,8 @@ def test_entry_compiles_to_a_heading_and_short_lines(make_record: RecordFactory)
 
     assert compile_catalog(source).text == (
         "### `sample_card` — Sample Card\n"
-        "- Ülke: RS · Yüz yapısı: `front_back` · Beklenen sayfa: 2\n"
+        "- Ülke: RS · Yüz yapısı: `front_back` · Kabul edilen düzenler: ön ve arka ayrı "
+        "sayfalarda (`separate`) · Beklenen sayfa: 2\n"
         "- Zorunlu alanlar: `surname`, `document_number`\n"
         "- Tanım: Ön yüzde fotoğraf, arka yüzde MRZ.\n"
         "- Kabul kriterleri:\n"
@@ -160,8 +162,42 @@ def test_side_values_are_explained_once_in_the_template_not_per_type() -> None:
 
     assert "`front_back`" in text and "`single`" in text
     assert "`front` veya `back`" not in text and "değeri `single`" not in text
-    assert "katalogda yüz yapısı `front_back` olan türde" in template
+    assert "Katalogda yüz yapısı `front_back` olan türde" in template
+    assert "`front_and_back`" in template and "`front_and_back`" not in text
     assert "Türün zorunlu alanı yoksa" in template
+
+
+def test_front_back_type_lists_every_accepted_layout_and_single_sided_type_none(
+    make_record: RecordFactory,
+) -> None:
+    # 04.1.2: analizci türün kabul ettiği düzenleri görür; yüzü yine yalnız gördüğüne göre seçer.
+    source = catalog(
+        make_record(
+            slug="two_layouts",
+            sides="front_back",
+            front_back_layouts=["separate", "combined"],
+            expected_pages={"min": 1, "max": 2},
+        ),
+        make_record(
+            slug="one_page",
+            sides="front_back",
+            front_back_layouts=["combined"],
+            expected_pages={"min": 1, "max": 1},
+        ),
+        make_record(slug="plain"),
+    )
+
+    compiled = blocks(compile_catalog(source).text)
+
+    assert compiled["two_layouts"].splitlines()[1] == (
+        "- Ülke: RS · Yüz yapısı: `front_back` · Kabul edilen düzenler: ön ve arka ayrı "
+        "sayfalarda (`separate`), iki yüz tek sayfada (`combined`) · Beklenen sayfa: 1–2"
+    )
+    assert compiled["one_page"].splitlines()[1] == (
+        "- Ülke: RS · Yüz yapısı: `front_back` · Kabul edilen düzenler: iki yüz tek sayfada "
+        "(`combined`) · Beklenen sayfa: 1"
+    )
+    assert "Kabul edilen düzenler" not in compiled["plain"]
 
 
 def test_decision_engine_fields_stay_out_of_the_text(make_record: RecordFactory) -> None:

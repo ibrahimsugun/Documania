@@ -7,6 +7,9 @@ yükleme reddedilir, hiçbir kayıt kısmen alınmaz. Tutarlılık kuralları:
   ve format dönüşümü yapılmaz, yalnız tek kaynaktan sayfa çıkarılır.
 - `analyze: false` olan türde `required_fields` boştur — analiz edilmeyen belgede okunaklılık
   (K1) değerlendirilemez.
+- `front_back_layouts` (04.1.2, 11.1.2): `sides: front_back` türde en az bir düzen seçilidir,
+  tek yüzlü türde liste boştur. `front_back` türün `expected_pages`'i düzenlerden türetilir ve
+  kayıt onunla çelişemez: yalnız `separate` 2–2, yalnız `combined` 1–1, ikisi 1–2 (`layout_pages`).
 - Slug katalogda tekildir; listelerde tekrar yoktur; `expected_pages.min <= max`.
 
 `allowed_conversions` §20.3'teki dönüşüm işlemlerinin adlarını taşır (satır 3–6: `merge`,
@@ -64,6 +67,21 @@ class Sides(enum.StrEnum):
     FRONT_BACK = "front_back"
 
 
+class FrontBackLayout(enum.StrEnum):
+    """`front_back` türün kabul ettiği düzen (04.1.2, §8.6).
+
+    `separate`: ön ve arka yüz ayrı sayfalarda (2 sayfa); `combined`: iki yüz tek sayfada (1 sayfa).
+    Tek sayfadaki iki yüz ayrılmaz, kırpılmaz; sayfa olduğu gibi çıktı olur (K17).
+    """
+
+    SEPARATE = "separate"
+    COMBINED = "combined"
+
+
+# Düzenin sayfa sayısı; `front_back` türün `expected_pages`'i bunlardan türetilir.
+LAYOUT_PAGE_COUNTS = {FrontBackLayout.SEPARATE: 2, FrontBackLayout.COMBINED: 1}
+
+
 class Conversion(enum.StrEnum):
     """Türün izin verebileceği dönüşüm işlemleri (§20.3 satır 3–6, K12)."""
 
@@ -118,6 +136,19 @@ class PageRange(BaseModel):
         return self
 
 
+def layout_pages(layouts: tuple[FrontBackLayout, ...]) -> PageRange | None:
+    """`front_back` türün düzenlerinden türeyen sayfa aralığı; düzen yoksa `None`.
+
+    Yalnız `separate` 2–2, yalnız `combined` 1–1, ikisi 1–2.
+    """
+    counts = [LAYOUT_PAGE_COUNTS[layout] for layout in layouts]
+    return PageRange(min=min(counts), max=max(counts)) if counts else None
+
+
+def _layout_names(layouts: tuple[FrontBackLayout, ...]) -> str:
+    return ", ".join(layouts)
+
+
 CONSISTENCY_ERROR = "catalog_consistency"
 
 
@@ -134,6 +165,7 @@ class CatalogEntry(BaseModel):
     expected_file_types: Annotated[tuple[FileType, ...], Field(min_length=1)]
     expected_pages: PageRange | None = None
     sides: Sides
+    front_back_layouts: tuple[FrontBackLayout, ...] = ()
     direct: StrictBool
     analyze: StrictBool
     required_fields: tuple[FieldName, ...]
@@ -144,7 +176,9 @@ class CatalogEntry(BaseModel):
     photo_rules: dict[str, Any] | None = None
     active: StrictBool = True
 
-    @field_validator("expected_file_types", "required_fields", "allowed_conversions")
+    @field_validator(
+        "expected_file_types", "front_back_layouts", "required_fields", "allowed_conversions"
+    )
     @classmethod
     def _no_duplicates(cls, values: tuple[Any, ...]) -> tuple[Any, ...]:
         return _unique(values)
@@ -179,7 +213,42 @@ class CatalogEntry(BaseModel):
             problems.append(
                 ("required_fields", "analyze: false olan türde required_fields boş olmalı")
             )
+        problems.extend(self._layout_problems())
         return problems
+
+    def _layout_problems(self) -> list[tuple[str, str]]:
+        # 04.1.2: düzen yalnız `front_back` türdedir ve o türün sayfa aralığını belirler.
+        layouts = self.front_back_layouts
+        if self.sides is not Sides.FRONT_BACK:
+            if not layouts:
+                return []
+            return [
+                (
+                    "front_back_layouts",
+                    "tek yüzlü (sides: single) türde kabul edilen düzen seçilmez, "
+                    f"front_back_layouts boş olmalı; verilen: {_layout_names(layouts)}",
+                )
+            ]
+        derived = layout_pages(layouts)
+        if derived is None:
+            return [
+                (
+                    "front_back_layouts",
+                    "ön ve arka yüzlü (sides: front_back) türde en az bir kabul edilen düzen "
+                    "seçilmeli: ayrı sayfalar (separate) ya da tek sayfa (combined)",
+                )
+            ]
+        if self.expected_pages == derived:
+            return []
+        given = self.expected_pages
+        return [
+            (
+                "expected_pages",
+                "sides: front_back türünde expected_pages kabul edilen düzenlerden türetilir "
+                f"({_layout_names(layouts)} → min: {derived.min}, max: {derived.max}); "
+                f"verilen: {'yazılmamış' if given is None else f'{given.min}-{given.max}'}",
+            )
+        ]
 
     @model_validator(mode="after")
     def _consistent(self) -> CatalogEntry:

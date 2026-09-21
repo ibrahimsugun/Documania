@@ -7,10 +7,10 @@ form her mesajı kendi alanının yanında gösterebilir:
 
 - Direkt türde (`direct: true`) dönüşüm listesi boş olmalıdır (K3, R5) — katalog şemasının kuralı;
 - `analyze: false` türde zorunlu alan listesi boştur — katalog şemasının kuralı;
-- `front_back` türde sayfa aralığı tam iki sayfadır (`min: 2`, `max: 2`) — **yalnız form** kuralı
-  (PRD 11.1.2): katalog yüklemesi (00.6.1) bu aralığı denetlemez, böylece eski bir
-  `catalog.yaml`/veritabanı kaydı yüzünden analiz kataloğu okunamaz olmaz; kayıt formdan
-  geçtiğinde düzeltilir.
+- `front_back` türde en az bir kabul edilen düzen seçilidir ("Ön ve arka ayrı sayfalarda",
+  "İki yüz tek sayfada"); tek yüzlü türde düzen seçilmez — katalog şemasının kuralı (04.1.2).
+  `front_back` türün sayfa aralığı elle girilmez: düzenlerden hesaplanır (ayrı sayfalar 2, tek
+  sayfa 1; ikisi 1–2, `layout_pages`), formdaki sayfa alanları o türde okunmaz (PLAN.md §C78).
 
 `acceptance_criteria` (11.1.3) formda madde madde düzenlenir; boş bırakılan madde kaydedilmez.
 Form yalnız kayıt alanlarını taşır — `active` (pasifleştirme ayrı işlemdir) ve `photo_rules` (11.6)
@@ -26,12 +26,11 @@ from typing import Any
 
 from pydantic import ValidationError
 
-from app.catalog.schema import CONSISTENCY_ERROR, CatalogEntry
+from app.catalog.schema import CONSISTENCY_ERROR, CatalogEntry, FrontBackLayout, layout_pages
 
 # Zorunlu alan adları tek satırda virgülle (ya da boşlukla/satırla) yazılır.
 # `new` panelde yeni tür formunun adresidir (`/document-types/new`): bu slug'la tür açılamaz.
 RESERVED_SLUGS = frozenset({"new"})
-FRONT_BACK_PAGES = {"min": 2, "max": 2}
 _FIELD_SEPARATOR = re.compile(r"[\s,;]+")
 
 
@@ -60,6 +59,7 @@ class TypeForm:
     pages_min: str = ""
     pages_max: str = ""
     sides: str = "single"
+    front_back_layouts: tuple[str, ...] = ()
     direct: bool = False
     analyze: bool = True
     required_fields: str = ""
@@ -86,6 +86,7 @@ class TypeForm:
             pages_min="" if pages.get("min") is None else str(pages["min"]),
             pages_max="" if pages.get("max") is None else str(pages["max"]),
             sides=str(record.get("sides") or ""),
+            front_back_layouts=tuple(map(str, record.get("front_back_layouts") or ())),
             direct=bool(record.get("direct")),
             analyze=bool(record.get("analyze")),
             required_fields=", ".join(map(str, record.get("required_fields") or ())),
@@ -125,11 +126,22 @@ def _pages(form: TypeForm, problems: dict[str, list[str]]) -> dict[str, int] | N
     return {"min": int(low), "max": int(high)}
 
 
+def _layout_pages(form: TypeForm) -> dict[str, int] | None:
+    """`front_back` türün sayfa aralığı, seçilen düzenlerden (11.1.2). Düzen seçilmemişse ya da
+    tanımsız bir düzen gönderilmişse aralık yoktur; hatayı düzen alanı söyler."""
+    known = set(FrontBackLayout)
+    if not all(value in known for value in form.front_back_layouts):
+        return None
+    derived = layout_pages(tuple(FrontBackLayout(value) for value in form.front_back_layouts))
+    return None if derived is None else derived.model_dump()
+
+
 def _record(form: TypeForm, problems: dict[str, list[str]]) -> dict[str, Any]:
     """Form → §8.6 kaydı (doğrulanmamış). Kırpma ve boş → yok dönüşümü yalnız burada yapılır."""
     slug = form.slug.strip()
     if slug in RESERVED_SLUGS:
         problems.setdefault("slug", []).append(f"{slug!r} ayrılmış bir ad; başka bir slug seçin")
+    front_back = form.sides == "front_back"
     return {
         "slug": slug,
         "name": form.name,
@@ -137,8 +149,9 @@ def _record(form: TypeForm, problems: dict[str, list[str]]) -> dict[str, Any]:
         "country": _optional(form.country.upper()),
         "description": _optional(form.description),
         "expected_file_types": list(form.expected_file_types),
-        "expected_pages": _pages(form, problems),
+        "expected_pages": _layout_pages(form) if front_back else _pages(form, problems),
         "sides": form.sides,
+        "front_back_layouts": list(form.front_back_layouts),
         "direct": form.direct,
         "analyze": form.analyze,
         "required_fields": list(split_field_names(form.required_fields)),
@@ -185,19 +198,6 @@ def _describe(exc: ValidationError) -> dict[str, list[str]]:
     return problems
 
 
-def _front_back_pages(record: dict[str, Any], problems: dict[str, list[str]]) -> None:
-    """`front_back` türde ön ve arka yüz iki sayfadır (11.1.2). Sayfa alanı zaten hatalıysa
-    (okunamadı, `min > max`) asıl sorun odur; ikinci bir mesaj eklenmez."""
-    pages = record["expected_pages"]
-    if record["sides"] != "front_back" or pages == FRONT_BACK_PAGES or "expected_pages" in problems:
-        return
-    given = f"{pages['min']}-{pages['max']}" if pages else "yazılmamış"
-    problems["expected_pages"] = [
-        "sides: front_back türünde expected_pages tam iki sayfa olmalı "
-        f"(min: 2, max: 2); verilen: {given}"
-    ]
-
-
 def build_entry(form: TypeForm) -> CatalogEntry:
     """Formu doğrulanmış kayda çevirir; geçersizse `TypeFormError` (hiçbir şey yazılmaz)."""
     problems: dict[str, list[str]] = {}
@@ -209,9 +209,7 @@ def build_entry(form: TypeForm) -> CatalogEntry:
         # tutarlılık mesajı onu gölgelemesin.
         for name, messages in _describe(exc).items():
             problems.setdefault(name, messages)
-        _front_back_pages(record, problems)
         raise TypeFormError(problems) from None
-    _front_back_pages(record, problems)
     if problems:
         raise TypeFormError(problems)
     return entry
