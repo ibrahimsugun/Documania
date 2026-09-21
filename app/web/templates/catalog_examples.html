@@ -35,7 +35,7 @@
   <ul class="example-list">
     {% for item in examples %}
     <li>
-      <a href="/document-types/{{ slug|urlencode }}/examples/{{ item.name|urlencode }}">{{ item.name }}</a>
+      <a href="/document-types/{{ slug|urlencode }}/examples/{{ item.name|urlencode }}" target="_blank" rel="noopener">{{ item.name }}</a>
       <span class="count">({{ item.size_label }})</span>
     </li>
     {% endfor %}

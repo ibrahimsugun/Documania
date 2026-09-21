@@ -24,6 +24,8 @@ from tests.fixtures.gen import make_docx_bytes, make_pdf_bytes, make_portrait_im
 SLUG = "sample_card"
 EXAMPLES_URL = f"/document-types/{SLUG}/examples"
 LIMIT = 1024 * 1024
+# Örnek listesindeki bağlantı dosyayı yeni sekmede açar.
+NEW_TAB = 'target="_blank" rel="noopener"'
 
 
 def _type_data() -> dict[str, Any]:
@@ -103,7 +105,7 @@ def test_an_uploaded_example_is_stored_listed_and_served_unchanged(
         layout.root / "KnownDocuments" / "examples" / SLUG / "On-Yuz.png"
     ).read_bytes() == content
     listed = client.get(f"/document-types/{SLUG}")
-    assert f'<a href="{EXAMPLES_URL}/On-Yuz.png">On-Yuz.png</a>' in listed.text
+    assert f'<a href="{EXAMPLES_URL}/On-Yuz.png" {NEW_TAB}>On-Yuz.png</a>' in listed.text
     assert "Bu türe henüz örnek yüklenmedi." not in listed.text
     served = client.get(f"{EXAMPLES_URL}/On-Yuz.png")
     assert served.status_code == 200
@@ -193,7 +195,7 @@ def test_a_rejected_upload_still_shows_the_examples_already_stored(client: TestC
     response = _upload(client, ("kaynak.docx", make_docx_bytes()))
 
     assert response.status_code == 422
-    assert f'<a href="{EXAMPLES_URL}/var.png">var.png</a>' in response.text
+    assert f'<a href="{EXAMPLES_URL}/var.png" {NEW_TAB}>var.png</a>' in response.text
 
 
 def test_examples_placed_by_hand_are_listed_and_a_rejected_edit_still_shows_them(

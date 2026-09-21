@@ -400,7 +400,7 @@ def test_the_catalog_page_links_to_the_candidates_with_the_pending_count(
 ) -> None:
     page = client.get("/document-types")
 
-    assert f'<a href="{BASE}">Aday türler</a>' in page.text
+    assert f'<a class="button-link" href="{BASE}">Aday türler</a>' in page.text
     assert "(2 onay bekliyor)" in page.text
 
 
