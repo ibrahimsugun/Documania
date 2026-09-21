@@ -1422,12 +1422,24 @@
         "priority": "critical",
         "subtasks": [],
         "updatedAt": "2026-09-19T21:05:21.875Z"
+      },
+      {
+        "id": "102",
+        "title": "13.1.1 — Maliyet paneli çalışan modelin fiyatını kendisi bilir: yerleşik fiyat tablosu (OpenAI, Anthropic, Google, DeepSeek) ve önbellek tokenı [SONNET-XHIGH]",
+        "description": "PRD 13.1.1 · FR-MOD-13 · Could (v3). İnsan kararı (2026-09-21): fiyatlar sistemde dursun, AI_MODEL_PRICES'a elle girilmesin; maliyet kullanılan modele göre doğru hesaplansın. Faz 3 kapanış ölçütündeki \"maliyet paneli gerçek rakam gösteriyor\" maddesinin fiyat önkoşulu.",
+        "details": "KAPSAM: PRD 13.1.1 (Maliyet ölçümü). PLAN.md §C77, §D49 (C70'in \"kodda gerçek fiyat yoktur\" kararı insan kararıyla değişti).\n\nNE YAPILDI: (1) app/ai/model_prices.yaml — benchlm.ai'nin dört sağlayıcı fiyat sayfasından (Last synced 2026-09-18; 2026-09-21'de ham metinden okundu) 78 model; USD / 1M token, girdi / önbellek girdi / çıktı; id_source page|derived; paket verisi. (2) app/ai/pricing.py — PriceBook: önce .env AI_MODEL_PRICES, sonra yerleşik tablo; birebir ad, sonra tarih eki atılmış ad; tabloda olmayan modelin fiyatı uydurulmaz. (3) Önbellek: TokenUsage.cached_input_tokens; OpenAI prompt_tokens_details.cached_tokens, Anthropic cache_read/cache_creation; token_cost önbellek oranıyla; olay verisine yalnız >0 ise yazılır. (4) /metrics ve /metrics/uploads/{id}: \"Kullanılan fiyatlar\" bölümü (model, kayıt, kaynak, birim fiyatlar, önbellek payı, tablo tarihi ve kaynak bağlantıları).\n\nKAPSAM SINIRI: uzun bağlam fiyatı, önbellek yazma eki, Batch, bölge eki, tablonun web'den kendiliğinden yenilenmesi yok (§D49).",
+        "testStrategy": "1) tests/ai/test_pricing.py (tablo değerleri sayfa satırlarıyla birebir, çözümleme sırası, tarih eki, bozuk tablo reddi, paket verisi), tests/ai/test_usage.py (önbellek payı, maliyet, sağlayıcı bildirimleri), tests/web/test_metrics.py (.env boşken gerçek model fiyatlanır, önbellek oranı, .env önceliği, tarihli ad, fiyat bölümü), tests/pipeline/test_prescreen.py + test_analyze_usage.py (önbellek payı olaya ve model dağılımına) — yeşil. 2) Geçici kural bozmalarının her biri kırmızı. 3) CONVENTIONS §1 kapı 1–7 exit 0. 4) Canlı: panel yeniden başlatılır, /metrics mevcut gpt-5.6-luna partilerini AI_MODEL_PRICES olmadan USD ile gösterir.",
+        "status": "in-progress",
+        "dependencies": [],
+        "priority": "high",
+        "subtasks": [],
+        "updatedAt": "2026-09-21T09:17:48.342Z"
       }
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-09-19T21:05:21.875Z",
-      "taskCount": 99,
+      "lastModified": "2026-09-21T09:17:48.342Z",
+      "taskCount": 100,
       "completedCount": 96,
       "tags": [
         "master"

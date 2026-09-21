@@ -16,12 +16,17 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class ModelPrice(BaseModel):
-    """Bir modelin token fiyatı: bir milyon token başına USD (PRD 13.1.1)."""
+    """Bir modelin token fiyatı: bir milyon token başına USD (PRD 13.1.1).
+
+    `cached_input_per_mtok` sağlayıcının önbellekten okuduğu girdi tokenının fiyatıdır; yoksa o
+    tokenlar da `input_per_mtok` ile hesaplanır.
+    """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     input_per_mtok: Decimal = Field(ge=0, allow_inf_nan=False)
     output_per_mtok: Decimal = Field(ge=0, allow_inf_nan=False)
+    cached_input_per_mtok: Decimal | None = Field(default=None, ge=0, allow_inf_nan=False)
 
 
 class Settings(BaseSettings):
@@ -63,10 +68,11 @@ class Settings(BaseSettings):
     openai_api_key: SecretStr | None = None
     openai_model: str = Field(default="gpt-5.5", min_length=1)
     openai_prescreen_model: str | None = None
-    # PRD 13.1.1 — maliyet paneli token fiyatlarını model adına göre bu tablodan okur (JSON:
-    # `{"<model>": {"input_per_mtok": 5, "output_per_mtok": 25}}`, birim USD / milyon token).
-    # Fiyat sağlayıcıya ait olduğundan kodda sabit değer yoktur; tablo boşsa ya da model
-    # tabloda değilse panel token sayılarını gösterir, maliyeti hesaplamaz (bkz. PLAN.md §C70).
+    # PRD 13.1.1 — maliyet paneli token fiyatlarını yerleşik fiyat tablosundan okur
+    # (`app/ai/model_prices.yaml`, `app.ai.pricing`); bu ayar aynı model için onun önüne geçer
+    # (JSON: `{"<model>": {"input_per_mtok": 5, "output_per_mtok": 25,
+    # "cached_input_per_mtok": 0.5}}`, birim USD / milyon token, önbellek fiyatı isteğe bağlı).
+    # İkisinde de olmayan modelin tokenları sayılır, maliyeti hesaplanmaz (bkz. PLAN.md §C77).
     ai_model_prices: dict[str, ModelPrice] = Field(default_factory=dict)
     # PRD 13.3.1 — kalıcı işçi kuyruğu (`app.worker`). Panel süreci kuyruktaki partileri kendi
     # işleyicisiyle işler (`WORKER_ENABLED`, açılışta başlar). İşi alan işleyici kirasını

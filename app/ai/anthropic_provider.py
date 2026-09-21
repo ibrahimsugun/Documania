@@ -246,9 +246,24 @@ class AnthropicProvider(AnalysisProvider):
         except anthropic.AnthropicError as exc:
             raise ProviderError(f"Anthropic isteği başarısız: {type(exc).__name__}") from exc
         # Yanıt reddedilse de token harcanmıştır (13.1.1): kabulden önce bildirilir.
-        usage = getattr(response, "usage", None)
-        report_usage(getattr(usage, "input_tokens", None), getattr(usage, "output_tokens", None))
+        _report_usage(getattr(response, "usage", None))
         return _tool_input(response, tool["name"], label, error)
+
+
+def _report_usage(usage: object) -> None:
+    """Anthropic'in `input_tokens`'ı önbellekten okunan ve önbelleğe yazılan tokenları içermez;
+    bildirilen girdi üçünün toplamıdır, önbellek payı okunanlardır (13.1.1). Bu yapı önbelleği
+    işaretlemediğinden ikisi normalde yoktur."""
+    input_tokens = getattr(usage, "input_tokens", None)
+    cache_read = _count(getattr(usage, "cache_read_input_tokens", None))
+    cache_write = _count(getattr(usage, "cache_creation_input_tokens", None))
+    if type(input_tokens) is int:
+        input_tokens += cache_read + cache_write
+    report_usage(input_tokens, getattr(usage, "output_tokens", None), cache_read)
+
+
+def _count(value: object) -> int:
+    return value if type(value) is int and value > 0 else 0
 
 
 def _status_error(exc: anthropic.APIStatusError) -> ProviderError:

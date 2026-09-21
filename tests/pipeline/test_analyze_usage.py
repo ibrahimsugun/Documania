@@ -81,6 +81,22 @@ def test_analyzed_page_event_carries_the_tokens_of_its_call(
     assert event.data_json["model"] == "metered-model"
 
 
+def test_cached_input_of_the_call_is_written_with_the_tokens(
+    session: Session, layout: DataLayout
+) -> None:
+    upload = _pdf(session, layout, 1)
+    provider = MeteredProvider(((1200, 300, 1024), analysis_payload(page_index=0)))
+
+    _analyze(session, layout, upload, provider)
+
+    (event,) = _events(session, EventType.PAGE_ANALYZED)
+    assert event.data_json[USAGE_DATA_KEY] == {
+        "input_tokens": 1200,
+        "output_tokens": 300,
+        "cached_input_tokens": 1024,
+    }
+
+
 def test_each_page_gets_its_own_total(session: Session, layout: DataLayout) -> None:
     upload = _pdf(session, layout, 3)
     provider = MeteredProvider(

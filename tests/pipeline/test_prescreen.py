@@ -414,6 +414,31 @@ def test_tokens_of_both_models_are_split_by_model_and_add_up_to_the_page_total(
     }
 
 
+def test_cached_input_is_split_by_model_with_the_rest_of_the_tokens(
+    session: Session, layout: DataLayout
+) -> None:
+    # C77: önbellekten okunan girdi de modellere dağıtılır (ana modelin payı = toplam − ucuz).
+    passport, (front, _) = _passport(), _license()
+    upload = _pdf(session, layout, passport, front)
+    cheap = Model(
+        CHEAP, ((500, 100, 400), passport.analysis(0)), ((400, 90, 256), front.analysis(1))
+    )
+    main = Model(MAIN, ((3000, 700, 2048), front.analysis(1)), cheap=cheap)
+
+    _analyze(session, layout, upload, main)
+
+    _, second = _analyzed(session)
+    assert second[USAGE_DATA_KEY] == {
+        "input_tokens": 3400,
+        "output_tokens": 790,
+        "cached_input_tokens": 2304,
+    }
+    assert second[USAGE_BY_MODEL_DATA_KEY] == {
+        CHEAP: {"input_tokens": 400, "output_tokens": 90, "cached_input_tokens": 256},
+        MAIN: {"input_tokens": 3000, "output_tokens": 700, "cached_input_tokens": 2048},
+    }
+
+
 def test_models_that_report_no_usage_leave_the_usage_fields_out(
     session: Session, layout: DataLayout
 ) -> None:

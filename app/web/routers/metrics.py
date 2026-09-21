@@ -10,13 +10,17 @@ Kaynak olay logudur (K15): sayfa analizi olayları (`PAGE_ANALYZED`, `PAGE_ANALY
   analiz edildiyse (K18) harcamaların toplamı, analiz sayısıyla birlikte.
 
 **Maliyet gösterim anında hesaplanır.** Olay yalnız ölçümü (model adı ve token sayıları) taşır;
-maliyet, olaydaki modelin `Settings.ai_model_prices` fiyatıyla çarpımıdır. Ucuz model ön elemesi
-(13.2.1) yapılan sayfa iki modele harcatmış olabilir: olay tokenların modellere dağılımını
-(`usage_by_model`) taşıyorsa her pay kendi modelinin fiyatıyla hesaplanır. Dağılım bozuksa ya da
-toplamı `usage`'a eşit değilse yok sayılır ve toplam olayın `model`'ine yazılır. Fiyatı tanımlı
-olmayan modelin tokenları sayılır ama maliyete girmez: hiçbiri fiyatlanamıyorsa maliyet "—", bir
-kısmı fiyatlanıyorsa "en az" ile başlar. Kullanım kaydı olmayan analizler (ölçüm eklenmeden önceki
-partiler, kullanım bildirmeyen sağlayıcı) "ölçülmemiş" sütununda sayılır, toplamlara girmez.
+maliyet, olaydaki modelin fiyatıyla çarpımıdır. Fiyat `app.ai.pricing`'den gelir: önce `.env`'deki
+`AI_MODEL_PRICES`, sonra paketle gelen yerleşik tablo (`app/ai/model_prices.yaml`); önbellekten
+okunan girdi tokenı fiyatın önbellek oranıyla hesaplanır. Sayfa, görülen her modelin hangi
+kayıtla ve hangi kaynaktan fiyatlandığını "Kullanılan fiyatlar" bölümünde gösterir. Ucuz model
+ön elemesi (13.2.1) yapılan sayfa iki modele harcatmış olabilir: olay tokenların modellere
+dağılımını (`usage_by_model`) taşıyorsa her pay kendi modelinin fiyatıyla hesaplanır.
+Dağılım bozuksa ya da toplamı `usage`'a eşit değilse yok sayılır ve toplam olayın
+`model`'ine yazılır. Fiyatı tanımlı olmayan modelin tokenları sayılır ama maliyete girmez:
+hiçbiri fiyatlanamıyorsa maliyet "—", bir kısmı fiyatlanıyorsa "en az" ile başlar. Kullanım
+kaydı olmayan analizler (ölçüm eklenmeden önceki partiler, kullanım bildirmeyen sağlayıcı)
+"ölçülmemiş" sütununda sayılır, toplamlara girmez.
 
 Yalnız sayfa analizi (ve fotoğraf kontrolü) ölçülür; tür açıklaması ve Telegram belge isteği
 çağrıları sayfa, parti ya da ay kalemi değildir ve bu görünümde yoktur (bkz. PLAN.md §C70).
@@ -35,6 +39,7 @@ from fastapi.responses import HTMLResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.ai.pricing import PriceBook, PriceSource, price_book
 from app.ai.usage import TokenUsage, token_cost
 from app.config import ModelPrice, Settings, get_settings
 from app.db.models import Event, Upload, UploadFile
@@ -56,7 +61,13 @@ COST_STEP = Decimal("0.0001")
 NO_MODEL = "(model adı yok)"
 ACTIVE_KEY = "metrics"
 
-Prices = Mapping[str, ModelPrice]
+Prices = Mapping[str, ModelPrice] | PriceBook
+
+SOURCE_LABELS = {
+    PriceSource.SETTINGS: ".env (AI_MODEL_PRICES)",
+    PriceSource.BUILTIN: "yerleşik tablo",
+}
+NO_PRICE = "fiyat yok"
 
 
 @dataclass(frozen=True, slots=True)
@@ -95,6 +106,7 @@ class Tally:
     unpriced: int = 0
     models: set[str] = field(default_factory=set)
     unpriced_models: set[str] = field(default_factory=set)
+    model_usage: dict[str, TokenUsage] = field(default_factory=dict)
     last_ts: datetime | None = None
 
     def add(self, event: UsageEvent, prices: Prices) -> None:
@@ -107,6 +119,7 @@ class Tally:
         self.usage += event.usage
         for model, usage in event.shares():
             self.models.add(model)
+            self.model_usage[model] = self.model_usage.get(model, TokenUsage()) + usage
             price = prices.get(model)
             if price is None:
                 self.unpriced += 1
@@ -141,6 +154,29 @@ class MetricsRow:
 
 
 @dataclass(frozen=True, slots=True)
+class PriceRow:
+    """Görülen bir modelin fiyatı: eşleşen kayıt, kaynağı, USD / milyon token ve token payı."""
+
+    model: str
+    key: str
+    source: str
+    input_price: str
+    cached_input_price: str
+    output_price: str
+    input_tokens: str
+    cached_input_tokens: str
+    output_tokens: str
+
+
+@dataclass(frozen=True, slots=True)
+class PriceListInfo:
+    """Yerleşik tablonun eşitleme tarihi ve kaynak sayfaları (sağlayıcı → adres)."""
+
+    synced: str
+    sources: tuple[tuple[str, str], ...]
+
+
+@dataclass(frozen=True, slots=True)
 class MetricsOverview:
     total: MetricsRow
     months: tuple[MetricsRow, ...]
@@ -148,6 +184,8 @@ class MetricsOverview:
     batch_count: int
     prices_configured: bool
     unpriced_models: tuple[str, ...]
+    prices: tuple[PriceRow, ...] = ()
+    price_list: PriceListInfo | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -157,6 +195,8 @@ class UploadMetrics:
     pages: tuple[MetricsRow, ...]
     prices_configured: bool
     unpriced_models: tuple[str, ...]
+    prices: tuple[PriceRow, ...] = ()
+    price_list: PriceListInfo | None = None
 
 
 def read_usage_events(session: Session, *, upload_id: str | None = None) -> list[UsageEvent]:
@@ -203,8 +243,61 @@ def _usage_by_model(data: object, usage: TokenUsage | None) -> tuple[tuple[str, 
     return tuple(shares) if total == usage else ()
 
 
+def _book(prices: Prices) -> PriceBook:
+    return prices if isinstance(prices, PriceBook) else PriceBook(prices)
+
+
+def _price_rows(book: PriceBook, tally: Tally) -> tuple[PriceRow, ...]:
+    """Tallydeki her modelin fiyat satırı (model adına göre sıralı)."""
+    rows = []
+    for model in sorted(tally.model_usage):
+        usage = tally.model_usage[model]
+        resolved = book.resolve(model)
+        if resolved is None:
+            key, source, prices = UNKNOWN, NO_PRICE, (UNKNOWN, UNKNOWN, UNKNOWN)
+        else:
+            price = resolved.price
+            cached = price.cached_input_per_mtok
+            key, source = resolved.key, SOURCE_LABELS[resolved.source]
+            prices = (
+                _usd(price.input_per_mtok),
+                "girdi fiyatıyla" if cached is None else _usd(cached),
+                _usd(price.output_per_mtok),
+            )
+        rows.append(
+            PriceRow(
+                model=model,
+                key=key,
+                source=source,
+                input_price=prices[0],
+                cached_input_price=prices[1],
+                output_price=prices[2],
+                input_tokens=_number(usage.input_tokens),
+                cached_input_tokens=_number(usage.cached_input_tokens),
+                output_tokens=_number(usage.output_tokens),
+            )
+        )
+    return tuple(rows)
+
+
+def _price_list_info(book: PriceBook) -> PriceListInfo | None:
+    if book.price_list is None:
+        return None
+    return PriceListInfo(
+        synced=book.price_list.synced.isoformat(),
+        sources=tuple(sorted(book.price_list.sources.items())),
+    )
+
+
+def _usd(value: Decimal) -> str:
+    """Birim fiyat: sondaki sıfırlar olmadan (`0.2`, `30`)."""
+    text = format(value.normalize(), "f")
+    return f"{text} USD"
+
+
 def build_overview(session: Session, prices: Prices) -> MetricsOverview:
     """Tüm sayfa analizi olaylarından toplam, ay ve parti satırları."""
+    prices = _book(prices)
     total = Tally()
     months: dict[str, Tally] = {}
     batches: dict[str, Tally] = {}
@@ -226,11 +319,14 @@ def build_overview(session: Session, prices: Prices) -> MetricsOverview:
         batch_count=len(batches),
         prices_configured=bool(prices),
         unpriced_models=tuple(sorted(total.unpriced_models)),
+        prices=_price_rows(prices, total),
+        price_list=_price_list_info(prices),
     )
 
 
 def build_upload_metrics(session: Session, upload: Upload, prices: Prices) -> UploadMetrics:
     """Bir partinin sayfa bazında dökümü; aynı sayfanın yeniden analizleri toplanır (K18)."""
+    prices = _book(prices)
     file_names = {
         file_id: name
         for file_id, name in session.execute(
@@ -264,6 +360,8 @@ def build_upload_metrics(session: Session, upload: Upload, prices: Prices) -> Up
         pages=tuple(_row(_label(key), pages[key]) for key in sorted(pages, key=_order)),
         prices_configured=bool(prices),
         unpriced_models=tuple(sorted(total.unpriced_models)),
+        prices=_price_rows(prices, total),
+        price_list=_price_list_info(prices),
     )
 
 
@@ -293,7 +391,7 @@ def metrics_page(
     session: Annotated[Session, Depends(get_session)],
     settings: Annotated[Settings, Depends(get_settings)],
 ) -> HTMLResponse:
-    overview = build_overview(session, settings.ai_model_prices)
+    overview = build_overview(session, price_book(settings))
     # Okuma işlemi de SQLite'ta yazma kilidini tutar (`app.db.session`): sayfa çizilirken
     # arka plandaki bir işleyici beklemesin.
     session.rollback()
@@ -321,6 +419,6 @@ def metrics_upload_page(
             status_code=status.HTTP_404_NOT_FOUND,
             error=UPLOAD_NOT_FOUND,
         )
-    view = build_upload_metrics(session, upload, settings.ai_model_prices)
+    view = build_upload_metrics(session, upload, price_book(settings))
     session.rollback()
     return render_page(request, "metrics_upload.html", user=user, active=ACTIVE_KEY, metrics=view)

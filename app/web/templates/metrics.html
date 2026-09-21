@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {# Maliyet ölçümü (13.1.1): ay ve parti bazında token ve maliyet. Sayfa yalnız okur. #}
 {% block title %}Maliyet{% endblock %}
+{% from "_prices.html" import price_section %}
 {% macro usage_table(rows, label_title) %}
 <table class="metrics">
   <thead>
@@ -32,7 +33,7 @@
 {% if not overview.prices_configured %}
 <p class="notice" role="status">Token fiyatı tanımlı değil: tokenlar sayılıyor, maliyet hesaplanmıyor. Fiyatları <code>AI_MODEL_PRICES</code> ile girin (bkz. <code>.env.example</code>).</p>
 {% elif overview.unpriced_models %}
-<p class="notice" role="status">Fiyatı tanımlı olmayan model: {{ overview.unpriced_models | join(", ") }}. Bunların tokenları sayılıyor, maliyete girmiyor; etkilenen maliyetler "en az" ile başlar.</p>
+<p class="notice" role="status">Fiyatı tanımlı olmayan model: {{ overview.unpriced_models | join(", ") }}. Yerleşik fiyat tablosunda yok; bunların tokenları sayılıyor, maliyete girmiyor ve etkilenen maliyetler "en az" ile başlar. Fiyatı <code>.env</code>'de <code>AI_MODEL_PRICES</code> ile girin (bkz. <code>.env.example</code>).</p>
 {% endif %}
 
 <section id="total" aria-labelledby="total-title">
@@ -64,4 +65,6 @@
   <p class="placeholder">Henüz sayfa analizi yok.</p>
   {% endif %}
 </section>
+
+{{ price_section(overview.prices, overview.price_list) }}
 {% endblock %}

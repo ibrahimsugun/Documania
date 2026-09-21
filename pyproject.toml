@@ -43,6 +43,8 @@ include = ["app*"]
 "app.catalog" = ["seed_catalog.yaml"]
 # Sayfa analizi talimatı (PRD 03.4.1) kodla birlikte yüklenir.
 "app.ai.prompts" = ["*.md"]
+# Yerleşik model fiyat tablosu (PRD 13.1.1, maliyet paneli).
+"app.ai" = ["model_prices.yaml"]
 # Panel şablonları ve stil dosyası (PRD 10.1.1).
 "app.web" = ["templates/*.html", "static/*"]
 

@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {# Bir partinin sayfa bazında token ve maliyet dökümü (13.1.1). Sayfa yalnız okur. #}
 {% block title %}{{ "Maliyet · " ~ metrics.upload_id if metrics else "Parti bulunamadı" }}{% endblock %}
+{% from "_prices.html" import price_section %}
 {% block content %}
 <p class="back"><a href="/metrics">← Maliyet</a></p>
 {% if error %}
@@ -18,7 +19,7 @@
 {% if not metrics.prices_configured %}
 <p class="notice" role="status">Token fiyatı tanımlı değil: tokenlar sayılıyor, maliyet hesaplanmıyor. Fiyatları <code>AI_MODEL_PRICES</code> ile girin (bkz. <code>.env.example</code>).</p>
 {% elif metrics.unpriced_models %}
-<p class="notice" role="status">Fiyatı tanımlı olmayan model: {{ metrics.unpriced_models | join(", ") }}. Bunların tokenları sayılıyor, maliyete girmiyor; etkilenen maliyetler "en az" ile başlar.</p>
+<p class="notice" role="status">Fiyatı tanımlı olmayan model: {{ metrics.unpriced_models | join(", ") }}. Yerleşik fiyat tablosunda yok; bunların tokenları sayılıyor, maliyete girmiyor ve etkilenen maliyetler "en az" ile başlar. Fiyatı <code>.env</code>'de <code>AI_MODEL_PRICES</code> ile girin (bkz. <code>.env.example</code>).</p>
 {% endif %}
 
 <section id="pages" aria-labelledby="pages-title">
@@ -52,5 +53,7 @@
   <p class="placeholder">Bu partide sayfa analizi kaydı yok.</p>
   {% endif %}
 </section>
+
+{{ price_section(metrics.prices, metrics.price_list) }}
 {% endif %}
 {% endblock %}

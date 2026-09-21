@@ -277,10 +277,13 @@ class OpenAIProvider(AnalysisProvider):
         except openai.OpenAIError as exc:
             raise ProviderError(f"OpenAI isteği başarısız: {type(exc).__name__}") from exc
         # Yanıt reddedilse de token harcanmıştır (13.1.1): kabulden önce bildirilir. Çıktı
-        # tokenları (`completion_tokens`) akıl yürütme tokenlarını da içerir.
+        # tokenları (`completion_tokens`) akıl yürütme tokenlarını da içerir; `prompt_tokens`
+        # önbellekten okunan kısmı (`prompt_tokens_details.cached_tokens`) içerir.
         usage = getattr(response, "usage", None)
         report_usage(
-            getattr(usage, "prompt_tokens", None), getattr(usage, "completion_tokens", None)
+            getattr(usage, "prompt_tokens", None),
+            getattr(usage, "completion_tokens", None),
+            getattr(getattr(usage, "prompt_tokens_details", None), "cached_tokens", None),
         )
         return _tool_arguments(response, name, label, error)
 

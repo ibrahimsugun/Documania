@@ -86,12 +86,16 @@ def _at(year: int, month: int, day: int = 15) -> datetime:
     return datetime(year, month, day, 10, 0, tzinfo=UTC)
 
 
-def _rows(html: str, section: str) -> list[list[str]]:
-    """`<section id=...>` içindeki tablo satırlarının hücre metinleri (başlık satırı hariç)."""
+def _section(html: str, section: str) -> str:
     block = re.search(rf'<section id="{section}".*?</section>', html, re.S)
     assert block is not None, section
+    return block.group(0)
+
+
+def _rows(html: str, section: str) -> list[list[str]]:
+    """`<section id=...>` içindeki tablo satırlarının hücre metinleri (başlık satırı hariç)."""
     rows = []
-    for row in re.findall(r"<tr>(.*?)</tr>", block.group(0), re.S):
+    for row in re.findall(r"<tr>(.*?)</tr>", _section(html, section), re.S):
         cells = re.findall(r"<td[^>]*>(.*?)</td>", row, re.S)
         if cells:
             rows.append([re.sub(r"<[^>]+>", "", cell).strip() for cell in cells])
@@ -133,18 +137,24 @@ def test_page_without_any_analysis_says_so(client: TestClient, app: FastAPI) -> 
     assert _rows(response.text, "batches") == []
 
 
-def test_without_prices_tokens_are_shown_and_cost_is_not_invented(
+def test_model_in_neither_env_nor_the_builtin_table_counts_tokens_and_cost_is_not_invented(
     client: TestClient, app: FastAPI, seeded: None
 ) -> None:
+    # `AI_MODEL_PRICES` boş; test modelleri yerleşik tabloda da yok (C77: fiyat uydurulmaz).
     _prices(app, None)
 
     response = client.get("/metrics")
 
-    assert "Token fiyatı tanımlı değil" in response.text
+    assert "Fiyatı tanımlı olmayan model: claude-test, gpt-test" in response.text
+    assert "Yerleşik fiyat tablosunda yok" in response.text
     assert "AI_MODEL_PRICES" in response.text
     (total,) = _rows(response.text, "total")
     assert total == ["Toplam", "5", "7.500", "750", "8.250", "—", "1"]
-    assert "USD" not in response.text
+    assert "USD</td>" not in _section(response.text, "total")
+    assert [row[:3] for row in _rows(response.text, "prices")] == [
+        ["claude-test", "—", "fiyat yok"],
+        ["gpt-test", "—", "fiyat yok"],
+    ]
 
 
 # --- ay, parti ve toplam ----------------------------------------------------------------------
@@ -509,3 +519,134 @@ def test_pages_only_read(
 
     with session_factory() as session:
         assert session.scalar(select(func.count()).select_from(Event)) == before
+
+
+# --- yerleşik fiyat tablosu (C77) -------------------------------------------------------------
+
+LUNA = "gpt-5.6-luna"
+
+
+def _usage_event(
+    session_factory: sessionmaker[Session],
+    upload_id: str,
+    model: str,
+    usage: dict[str, int],
+) -> None:
+    with session_factory() as session:
+        (file_id,) = _upload(session, upload_id, "a.pdf")
+        event = record_event(
+            session,
+            EventType.PAGE_ANALYZED,
+            upload_id=upload_id,
+            file_id=file_id,
+            page_index=0,
+            data={"provider": "openai", "model": model, USAGE_DATA_KEY: usage},
+        )
+        event.ts = _at(2026, 9)
+        session.commit()
+
+
+def test_real_model_is_priced_from_the_builtin_table_without_any_env_price(
+    client: TestClient, app: FastAPI, session_factory: sessionmaker[Session]
+) -> None:
+    _prices(app, None)
+    # Canlı denemenin toplamı (gpt-5.6-luna): 52724 × 0.2 + 1853 × 1.2 = 12768.4 / 1e6.
+    _usage_event(
+        session_factory, "u_20260920_0001", LUNA, {"input_tokens": 52724, "output_tokens": 1853}
+    )
+
+    response = client.get("/metrics")
+
+    (total,) = _rows(response.text, "total")
+    assert total == ["Toplam", "1", "52.724", "1.853", "54.577", "0.0128 USD", "0"]
+    assert "Token fiyatı tanımlı değil" not in response.text
+    assert "Fiyatı tanımlı olmayan model" not in response.text
+    assert _rows(response.text, "prices") == [
+        [LUNA, LUNA, "yerleşik tablo", "0.2 USD", "0.02 USD", "1.2 USD", "52.724", "0", "1.853"]
+    ]
+
+
+def test_cached_input_is_priced_at_the_cached_rate_on_the_page(
+    client: TestClient, app: FastAPI, session_factory: sessionmaker[Session]
+) -> None:
+    _prices(app, None)
+    # (2000 × 0.2 + 8000 × 0.02 + 1000 × 1.2) / 1e6 = 0.00176 → 0.0018
+    _usage_event(
+        session_factory,
+        "u_20260920_0002",
+        LUNA,
+        {"input_tokens": 10_000, "output_tokens": 1000, "cached_input_tokens": 8000},
+    )
+
+    response = client.get("/metrics")
+
+    (total,) = _rows(response.text, "total")
+    assert total[2] == "10.000"
+    assert total[5] == "0.0018 USD"
+    (price,) = _rows(response.text, "prices")
+    assert price[6:] == ["10.000", "8.000", "1.000"]
+
+
+def test_env_price_overrides_the_builtin_table_and_says_so(
+    client: TestClient, app: FastAPI, session_factory: sessionmaker[Session]
+) -> None:
+    _prices(app, {LUNA: ModelPrice(input_per_mtok=Decimal(1), output_per_mtok=Decimal(10))})
+    _usage_event(
+        session_factory, "u_20260920_0003", LUNA, {"input_tokens": 1000, "output_tokens": 100}
+    )
+
+    response = client.get("/metrics")
+
+    (total,) = _rows(response.text, "total")
+    assert total[5] == "0.0020 USD"  # 1000 × 1 + 100 × 10
+    (price,) = _rows(response.text, "prices")
+    assert price[:6] == [LUNA, LUNA, ".env (AI_MODEL_PRICES)", "1 USD", "girdi fiyatıyla", "10 USD"]
+
+
+def test_dated_model_name_is_priced_by_its_base_model(
+    client: TestClient, app: FastAPI, session_factory: sessionmaker[Session]
+) -> None:
+    _prices(app, None)
+    _usage_event(
+        session_factory,
+        "u_20260920_0004",
+        "claude-haiku-4-5-20251001",
+        {"input_tokens": 1000, "output_tokens": 1000},
+    )
+
+    response = client.get("/metrics")
+
+    (total,) = _rows(response.text, "total")
+    assert total[5] == "0.0060 USD"  # 1000 × 1 + 1000 × 5
+    (price,) = _rows(response.text, "prices")
+    assert price[:3] == ["claude-haiku-4-5-20251001", "claude-haiku-4-5", "yerleşik tablo"]
+
+
+def test_price_section_names_the_table_date_and_its_sources(
+    client: TestClient, app: FastAPI
+) -> None:
+    _prices(app, None)
+
+    response = client.get("/metrics")
+
+    section = _section(response.text, "prices")
+    assert "Henüz fiyatlanacak kullanım yok." in section
+    assert "Yerleşik tablo 2026-09-18 tarihli" in section
+    for provider in ("openai", "anthropic", "google", "deepseek"):
+        assert f'href="https://benchlm.ai/{provider}/api-pricing"' in section
+
+
+def test_upload_page_shows_the_prices_it_used(
+    client: TestClient, app: FastAPI, session_factory: sessionmaker[Session]
+) -> None:
+    _prices(app, None)
+    _usage_event(
+        session_factory, "u_20260920_0005", LUNA, {"input_tokens": 1000, "output_tokens": 100}
+    )
+
+    response = client.get("/metrics/uploads/u_20260920_0005")
+
+    assert response.status_code == 200
+    rows = _rows(response.text, "pages")
+    assert rows[0][5] == "0.0003 USD"  # 1000 × 0.2 + 100 × 1.2 = 320 / 1e6
+    assert _rows(response.text, "prices")[0][:3] == [LUNA, LUNA, "yerleşik tablo"]

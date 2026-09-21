@@ -247,3 +247,144 @@ def test_every_call_of_a_page_adds_to_one_meter() -> None:
 
     assert meter.usage == TokenUsage(2400, 600)
     assert meter.calls == 2
+
+
+# --- önbellekten okunan girdi (C77) -----------------------------------------------------------
+
+
+def test_cached_input_is_part_of_the_input_and_adds_and_subtracts() -> None:
+    usage = TokenUsage(1000, 100, 600) + TokenUsage(500, 50, 100)
+
+    assert usage == TokenUsage(1500, 150, 700)
+    assert usage.uncached_input_tokens == 800
+    assert usage.total_tokens == 1650
+    assert usage - TokenUsage(500, 50, 100) == TokenUsage(1000, 100, 600)
+
+
+@pytest.mark.parametrize("bad", [-1, 1.5, "3", None])
+def test_cached_input_must_be_a_non_negative_integer(bad: object) -> None:
+    with pytest.raises(ValueError, match="cached_input_tokens"):
+        TokenUsage(10, 1, bad)  # type: ignore[arg-type]
+
+
+def test_cached_input_cannot_exceed_the_input() -> None:
+    with pytest.raises(ValueError, match="cached_input_tokens"):
+        TokenUsage(10, 1, 11)
+
+
+def test_event_data_carries_the_cached_share_only_when_there_is_one() -> None:
+    cached = TokenUsage(1200, 300, 1000)
+
+    assert TokenUsage(1200, 300).to_event_data() == {"input_tokens": 1200, "output_tokens": 300}
+    assert cached.to_event_data() == {
+        "input_tokens": 1200,
+        "output_tokens": 300,
+        "cached_input_tokens": 1000,
+    }
+    assert TokenUsage.from_event_data(cached.to_event_data()) == cached
+
+
+@pytest.mark.parametrize("cached", [-1, "çok", 1201, None, 1.5])
+def test_broken_cached_share_in_an_event_is_read_as_zero_not_as_unmeasured(
+    cached: object,
+) -> None:
+    data = {"input_tokens": 1200, "output_tokens": 300, "cached_input_tokens": cached}
+
+    assert TokenUsage.from_event_data(data) == TokenUsage(1200, 300)
+
+
+def test_report_carries_the_cached_share() -> None:
+    with measure_usage() as meter:
+        report_usage(1000, 100, 800)
+        report_usage(200, 50)
+
+    assert meter.usage == TokenUsage(1200, 150, 800)
+
+
+@pytest.mark.parametrize("cached", [None, -5, "800", 1001, 2.0])
+def test_unusable_cached_share_is_reported_as_zero(cached: object) -> None:
+    with measure_usage() as meter:
+        report_usage(1000, 100, cached)
+
+    assert meter.calls == 1
+    assert meter.usage == TokenUsage(1000, 100)
+
+
+def test_cached_input_is_priced_at_the_cached_rate() -> None:
+    # gpt-5.6-luna: girdi 0.20, önbellek 0.02, çıktı 1.20 USD / 1M.
+    price = ModelPrice(
+        input_per_mtok=Decimal("0.2"),
+        output_per_mtok=Decimal("1.2"),
+        cached_input_per_mtok=Decimal("0.02"),
+    )
+
+    # (2000 × 0.2 + 8000 × 0.02 + 1000 × 1.2) / 1e6
+    assert token_cost(TokenUsage(10_000, 1000, 8000), price) == Decimal("0.00176")
+    assert token_cost(TokenUsage(10_000, 1000), price) == Decimal("0.0032")
+
+
+def test_without_a_cached_rate_cached_input_is_priced_as_normal_input() -> None:
+    price = ModelPrice(input_per_mtok=Decimal(5), output_per_mtok=Decimal(25))
+
+    assert token_cost(TokenUsage(1200, 300, 1000), price) == token_cost(
+        TokenUsage(1200, 300), price
+    )
+
+
+def test_price_accepts_an_optional_cached_rate() -> None:
+    price = ModelPrice.model_validate(
+        {"input_per_mtok": 5, "output_per_mtok": 25, "cached_input_per_mtok": "0.5"}
+    )
+
+    assert price.cached_input_per_mtok == Decimal("0.5")
+    with pytest.raises(ValueError):
+        ModelPrice(input_per_mtok=1, output_per_mtok=1, cached_input_per_mtok=-1)
+
+
+def test_openai_reports_cached_prompt_tokens() -> None:
+    body = openai_tests.completion(
+        tool_calls=[openai_tests.function_call(analysis_payload())]
+    ).json()
+    body["usage"]["prompt_tokens_details"] = {"cached_tokens": 1024, "audio_tokens": 0}
+    api = openai_tests.FakeApi(httpx2.Response(200, json=body))
+
+    with measure_usage() as meter:
+        api.provider().analyze_page(page_request())
+
+    assert meter.usage == TokenUsage(1200, 300, 1024)
+
+
+def test_openai_without_prompt_details_reports_no_cached_share() -> None:
+    body = openai_tests.completion(
+        tool_calls=[openai_tests.function_call(analysis_payload())]
+    ).json()
+    body["usage"]["prompt_tokens_details"] = None
+    api = openai_tests.FakeApi(httpx2.Response(200, json=body))
+
+    with measure_usage() as meter:
+        api.provider().analyze_page(page_request())
+
+    assert meter.usage == TokenUsage(1200, 300)
+
+
+def test_anthropic_adds_cache_reads_and_writes_to_the_input() -> None:
+    # Anthropic'in `input_tokens`'ı önbellek okuma/yazmasını içermez.
+    body = anthropic_tests.message([anthropic_tests.tool_use(analysis_payload())]).json()
+    body["usage"].update({"cache_read_input_tokens": 900, "cache_creation_input_tokens": 100})
+    api = anthropic_tests.FakeApi(httpx2.Response(200, json=body))
+
+    with measure_usage() as meter:
+        api.provider().analyze_page(page_request())
+
+    assert meter.usage == TokenUsage(2200, 300, 900)
+
+
+def test_anthropic_with_null_cache_fields_reports_the_plain_input() -> None:
+    body = anthropic_tests.message([anthropic_tests.tool_use(analysis_payload())]).json()
+    body["usage"].update({"cache_read_input_tokens": None, "cache_creation_input_tokens": None})
+    api = anthropic_tests.FakeApi(httpx2.Response(200, json=body))
+
+    with measure_usage() as meter:
+        api.provider().analyze_page(page_request())
+
+    assert meter.usage == TokenUsage(1200, 300)

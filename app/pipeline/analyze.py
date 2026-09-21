@@ -730,11 +730,7 @@ def _usage_by_model(
     if screening.calls:
         by_model[screening.model] = screening.usage.to_event_data()
     if meter.calls > screening.calls:
-        main = TokenUsage(
-            meter.usage.input_tokens - screening.usage.input_tokens,
-            meter.usage.output_tokens - screening.usage.output_tokens,
-        )
-        by_model[main_model] = main.to_event_data()
+        by_model[main_model] = (meter.usage - screening.usage).to_event_data()
     return by_model
 
 

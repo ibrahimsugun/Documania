@@ -348,7 +348,9 @@ def test_env_example_documents_model_prices_with_a_working_example(
 
     prices = load_settings(_env_file=env_file).ai_model_prices
 
-    assert set(prices) == {"claude-opus-5"}
+    # Örnek tabloda olmayan bir modeli önbellek fiyatıyla ekler (yerleşik tablo, C77).
+    assert set(prices) == {"my-model"}
+    assert prices["my-model"].cached_input_per_mtok == Decimal("0.5")
 
 
 WORKER_VARIABLES = (

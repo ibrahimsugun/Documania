@@ -1,0 +1,38 @@
+{# Maliyet sayfalarının ortak "Kullanılan fiyatlar" bölümü (13.1.1): görülen her modelin hangi
+   fiyat kaydıyla, hangi kaynaktan fiyatlandığı ve tokenlarının önbellek payı. Yalnız okur. #}
+{% macro price_section(rows, price_list) %}
+<section id="prices" aria-labelledby="prices-title">
+  <h2 id="prices-title">Kullanılan fiyatlar</h2>
+  {% if rows %}
+  <table class="metrics">
+    <thead>
+      <tr>
+        <th>Model</th><th>Fiyat kaydı</th><th>Kaynak</th>
+        <th class="num">Girdi / 1M</th><th class="num">Önbellek girdi / 1M</th><th class="num">Çıktı / 1M</th>
+        <th class="num">Girdi token</th><th class="num">Önbellekten</th><th class="num">Çıktı token</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in rows %}
+      <tr>
+        <td>{{ row.model }}</td>
+        <td>{{ row.key }}</td>
+        <td>{{ row.source }}</td>
+        <td class="num">{{ row.input_price }}</td>
+        <td class="num">{{ row.cached_input_price }}</td>
+        <td class="num">{{ row.output_price }}</td>
+        <td class="num">{{ row.input_tokens }}</td>
+        <td class="num">{{ row.cached_input_tokens }}</td>
+        <td class="num">{{ row.output_tokens }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="placeholder">Henüz fiyatlanacak kullanım yok.</p>
+  {% endif %}
+  <p class="placeholder">Fiyatlar USD / 1 milyon token, standart fiyattır. Önbellekten okunan girdi tokenı önbellek fiyatıyla, geri kalanı girdi fiyatıyla hesaplanır. <code>.env</code>'deki <code>AI_MODEL_PRICES</code> aynı model için yerleşik tablonun önüne geçer.
+  {% if price_list %}Yerleşik tablo {{ price_list.synced }} tarihli; kaynak:
+  {% for provider, url in price_list.sources %}<a href="{{ url }}" rel="noopener noreferrer" target="_blank">{{ provider }}</a>{{ ", " if not loop.last }}{% endfor %}.{% endif %}</p>
+</section>
+{% endmacro %}
