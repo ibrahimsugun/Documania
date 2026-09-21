@@ -772,6 +772,10 @@ def test_after_approval_related_unknown_items_are_reanalyzed_together(
     assert f'<p class="confirm-text" role="alert">{BATCH_SECOND_TEXT}</p>' in prepared.text
     for upload_id in (seen.first, seen.second):
         assert f'<a href="/uploads/{upload_id}">{upload_id}</a></td><td>1</td>' in prepared.text
+    # Uzun süren yeniden analiz HTMX ile gider: düğme kilitlenir, sonuç aynı içeriğe yazılır.
+    assert f'hx-post="{BASE}/{seen.diploma}/reanalyze"' in prepared.text
+    assert 'hx-disabled-elt="find button[type=submit]"' in prepared.text
+    assert 'hx-select="main.content"' in prepared.text
     assert len(reanalysis_provider.requests) == 0
 
     done = client.post(
@@ -780,6 +784,7 @@ def test_after_approval_related_unknown_items_are_reanalyzed_together(
     )
 
     assert done.status_code == 200, done.text
+    assert '<main class="content">' in done.text  # hx-select'in aldığı içerik
     assert "2 parti yeniden analiz edildi." in done.text
     assert "Bu aday türle bekleyen Unknown öğesi kalmadı." in done.text
     assert len(reanalysis_provider.requests) == 2

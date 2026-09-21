@@ -398,3 +398,26 @@ form.inline { display: inline; margin: 0 0 0 0.6rem; }
 .access-log th, .access-log td { padding: 0.35rem 0.5rem; text-align: left; border-bottom: 1px solid #eef0f3; }
 
 .access-log th.num, .access-log td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+/* Süren HTMX isteğinde düğmenin içinde dönen gösterge: istek formdan geliyorsa formun gönder
+   düğmesinde, düğmenin kendisinden geliyorsa o düğmede. Sayfa beklerken kullanılabilir kalır. */
+form.htmx-request button[type="submit"]::before,
+button.htmx-request::before {
+  content: "";
+  display: inline-block;
+  width: 0.85em;
+  height: 0.85em;
+  margin-right: 0.45em;
+  vertical-align: -0.1em;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: busy-spin 0.7s linear infinite;
+}
+
+@keyframes busy-spin { to { transform: rotate(360deg); } }
+
+@media (prefers-reduced-motion: reduce) {
+  form.htmx-request button[type="submit"]::before,
+  button.htmx-request::before { animation-duration: 2s; }
+}
