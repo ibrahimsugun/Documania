@@ -47,7 +47,7 @@ Bunlar ürünün anayasasıdır. Kod bu tabloya uyar, tablo koda uymaz.
 | K13 | **Telegram.** Yalnız İK kullanır. Telegram kullanıcı ID beyaz listesi yeterlidir, ek şifreleme önlemi alınmaz. |
 | K14 | **Yığın.** Aşağıda §4. |
 | K15 | **Olay logu.** Her adım `events` tablosuna yazılır. Üretilen her çıktı, kaynak dosya ve sayfa aralığına bağlanır. |
-| K16 | **Manuel işlemler.** YALNIZ: belgeyi başka çalışana taşı, Unresolved öğesini çalışana ata, onay bekleyen profili onayla, yeni belge türünü onayla, belgeyi arşive taşı. Silme YOKTUR, arşiv vardır. Hepsi iki aşamalı onay ister ve olay loguna kullanıcı adıyla yazılır. |
+| K16 | **Manuel işlemler.** YALNIZ: belgeyi başka çalışana taşı, Unresolved öğesini çalışana ata, onay bekleyen profili onayla, yeni belge türünü onayla, belgeyi arşive taşı, taramayı (partiyi) yoksay (insan kararı 2026-09-21, PLAN §D50). Silme YOKTUR, arşiv vardır; yoksaymak da silmez. Hepsi iki aşamalı onay ister ve olay loguna kullanıcı adıyla yazılır. |
 | K17 | **İçerik düzenlenemez.** Panelde ve botta belge içeriği düzenleme özelliği YOKTUR, olmayacaktır. |
 | K18 | **Yeniden analiz.** Bir parti yeniden analiz edilirse yeni bir plan sürümü oluşur. Eski çıktılar silinmez ve yeniden adlandırılmaz; veritabanında "eski sürüm" olarak işaretlenir. Temizlik İK'nın arşive taşımasıyla yapılır. |
 

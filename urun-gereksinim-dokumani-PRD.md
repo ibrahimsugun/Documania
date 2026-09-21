@@ -219,6 +219,7 @@ maliyet paneli gerçek rakam gösteriyor.
 | 05.6.1 | Otomatik çalışan oluşturma (R9) | Yalnız temiz okunmuş belge numarası varsa yeni çalışan ve klasörü açılır | Must (MVP) |
 | 05.7.1 | Onay bekleyen profil | Numara yoksa profil önerisi Unresolved'a düşer; onaysız çalışan oluşmaz | Must (MVP) |
 | 05.7.2 | Alias ve numara birikimi | Her eşleşmede görülen yeni isim yazımı ve belge numarası çalışana eklenir | Must (MVP) |
+| 05.7.3 | Profil alanlarını belgelerden tamamlama | Eşleşen ya da yeni açılan çalışanın boş profil alanları (ad, soyad, diğer isimler, orijinal yazım, doğum tarihi, uyruk) belgede okunaklı okunan değerlerle doldurulur, MRZ önce gelir; dolu alan değiştirilmez, farklı değer profilde uyarı olarak görünür; her alanın kaynağı belgeye bağlanır | Must (MVP) |
 | 05.8.1 | İletişim bilgisi saklama | Analiz edilen belgeden çıkan telefon, e-posta ve adres `employee_contacts` tablosuna kaynak belgesiyle birlikte yazılır | Must (MVP) |
 | 05.8.2 | İletişim bilgisi çakışması | Aynı türden farklı bir değer geldiğinde eski kayıt silinmez; en son görülen `is_current` işaretlenir, öncekiler geçmiş olarak kalır | Must (MVP) |
 | 05.8.3 | Dil ve alfabe kaydı | Belgeden okunan dil ve alfabe belge kaydında saklanır; çalışanın belgelerinde görülen alfabeler profilde listelenebilir | Should (v1) |
@@ -289,12 +290,14 @@ maliyet paneli gerçek rakam gösteriyor.
 | 10.3.1 | Yükleme detay sayfası | Sayfa küçük resimleri, plan öğeleri, çıktılar ve olay zaman çizelgesi tek sayfada görünür | Must (v1) |
 | 10.3.2 | Yeniden çalıştır / yeniden analiz | İki işlem panelden tetiklenir; yeniden analiz iki aşamalı onay ister | Should (v1) |
 | 10.3.3 | Yükleme listesi | Yüklemeler menüsü partileri en yeni üstte listeler: tarih, kanal, yükleyen, bağlam çalışanı, dosya ve sayfa sayısı, durum ve kuyruğa düşen belge sayısı; durum ve tarihe göre süzülür, sayfalanır; satırdan parti detayına gidilir | Must (v1) |
+| 10.3.4 | Partiyi yoksay | Yükleme detayının İşlemler bölümünde "Yeniden çalıştır" ve "Yeniden analiz et" düğmelerinin yanında "Taramayı yoksay" vardır; iki aşamalı onaydan sonra partinin bekleyen kuyruk öğeleri kapanır, parti yükleme listesinde ve kuyruklarda görünmez. Dosya, olay ve üretilmiş çıktı silinmez | Should (v1) |
 | 10.4.1 | Çalışan listesi | Ad, orijinal yazım, uyruk, belge sayısı ve durum listelenir | Must (v1) |
 | 10.4.2 | Arama | Ad, alias, orijinal yazım, belge numarası ve belge türü üzerinde arama çalışır | Must (v1) |
 | 10.5.1 | Çalışan profili sayfası | CV benzeri kart şunların hepsini gösterir: profil fotoğrafı, ad, soyad, diğer isimler, orijinal yazım, vatandaşlık, doğum tarihi ve yaş, iletişim bilgileri, belge numaraları. Bilinmeyen alan "—" olarak görünür, gizlenmez | Must (v1) |
 | 10.5.4 | Profil fotoğrafı yokluğu | Çalışanın Profile-Picture belgesi yoksa kart yer tutucu gösterir ve eksik belge olarak işaretler | Should (v1) |
 | 10.5.2 | Belge listesi ve açma | Belgeye tıklayınca yeni sekmede açılır; indirilebilir; düzenlenemez | Must (v1) |
 | 10.5.3 | Profil sayfasından yükleme | Yükleme bağlam çalışanıyla yapılır | Should (v1) |
+| 10.5.5 | Profilden yüklemede kişi denetimi | Bağlam çalışanıyla yapılan yüklemede her belgenin kişisi profille karşılaştırılır (belge numarası, harf çevirili ad, doğum tarihi); başka kişiye ait görünen belge profile uygulanmaz, Unresolved'a gider ve yükleme ile parti ekranında büyük uyarı gösterilir | Must (v1) |
 | 10.6.1 | Belge geçmişi | Bir çıktının kaynak dosya ve sayfaları tıklanarak izlenir | Must (v1) |
 | 10.7.1 | Kuyruk ekranları | Üç kuyruk sekmesi, sayaçlar, öğe detayı ve sayfa görüntüleri | Must (v1) |
 | 10.7.2 | Kuyruktan çalışana atama | Arama ile çalışan seçilir, iki aşamalı onayla atanır | Must (v1) |
@@ -418,7 +421,8 @@ PERSON_AMBIGUOUS · EMPLOYEE_CREATED · EMPLOYEE_PENDING · EMPLOYEE_FIELD_FILLE
 DIRECT_DOC_CHECK · PAGE_EXTRACTED · PAGES_MERGED · IMAGE_WRAPPED · IMAGE_EXTRACTED ·
 IMAGE_RENDERED · OUTPUT_SAVED · OUTPUT_SKIPPED · QUEUED_UNKNOWN · QUEUED_UNREADABLE ·
 QUEUED_UNRESOLVED · MANUAL_MOVE · MANUAL_ASSIGN · MANUAL_APPROVE · TYPE_APPROVED ·
-TYPE_REJECTED · USER_CONFIRMED · PLAN_RERUN · PLAN_REANALYZED · ARCHIVED · PIPELINE_FAILED
+TYPE_REJECTED · USER_CONFIRMED · PLAN_RERUN · PLAN_REANALYZED · ARCHIVED · UPLOAD_DISMISSED ·
+PIPELINE_FAILED
 
 ### 8.4 Sayfa analizi şeması
 
