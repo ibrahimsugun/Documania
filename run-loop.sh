@@ -12,18 +12,23 @@ set -uo pipefail
 
 # --- Ayarlar -----------------------------------------------------------------
 # Görev başlığındaki etiket hem MODELİ hem EFORU seçer (MASTER-PROMPT §6):
+#   [SONNET-HIGH]  → sonnet + high    küçük, tek dosyalık, riski düşük iş
+#   [OPUS-HIGH]    → opus   + high
 #   [SONNET-XHIGH] → sonnet + xhigh   mekanik, kapsamı net iş
 #   [OPUS-XHIGH]   → opus   + xhigh   karar/bütünlük taşıyan iş
 #   [OPUS-MAX]     → opus   + max     gruplama, MRZ, eşleştirme, PDF kopyalama,
 #                                     kuyruk akışları, kabul senaryosu koşumu
 #   [SONNET-MAX]   → sonnet + max     (tanımlı ama kullanılmıyor)
+# HIGH gerçekten high'da çalışır — eskiden bu seviye yoktu ve seçicinin "high"
+# cevabı xhigh demekti (2026-09-21 kaldırıldı).
 # Eski tek boyutlu etiketler geriye dönük çalışır: [MAX] → opus+max,
-# [XHIGH] veya etiketsiz → opus+xhigh.
+# [XHIGH], etiketsiz veya tanınmayan etiket → opus+xhigh.
 MODEL="opus"                # varsayılan/geri-uyum modeli
 MODEL_BIG="opus"
 MODEL_SMALL="sonnet"
 EFFORT_MAX="max"            # opus 'max' desteklemiyorsa: "high"
-EFFORT_HIGH="xhigh"
+EFFORT_XHIGH="xhigh"        # [*-XHIGH] ve etiketsiz görevler
+EFFORT_HIGH="high"          # [*-HIGH] görevler
 PERM="bypassPermissions"    # tam otonom, prompt YOK. Güvenli alternatif: "auto"
 MAX_TURNS=250
 RUNNER_PROMPT_FILE="TASK-RUNNER-PROMPT.md"
@@ -56,7 +61,7 @@ COST_HIGH_PCT="${LOOP_COST_HIGH_PCT:-10}"
 # davranışa (temiz çıkış + panelden otomatik devam) dönülür.
 WAIT_RESET_MAX_MIN="${LOOP_WAIT_RESET_MAX_MIN:-90}"
 
-pick_schema='{"type":"object","properties":{"has_task":{"type":"boolean"},"task_id":{"type":"string"},"model":{"type":"string","enum":["sonnet","opus"]},"effort":{"type":"string","enum":["max","high"]},"remaining":{"type":"integer"}},"required":["has_task"]}'
+pick_schema='{"type":"object","properties":{"has_task":{"type":"boolean"},"task_id":{"type":"string"},"model":{"type":"string","enum":["sonnet","opus"]},"effort":{"type":"string","enum":["max","xhigh","high"]},"remaining":{"type":"integer"}},"required":["has_task"]}'
 result_schema='{"type":"object","properties":{"status":{"type":"string","enum":["done","blocked"]},"task_id":{"type":"string"},"summary":{"type":"string"}},"required":["status"]}'
 
 log(){ echo "[$(date -u +%H:%M:%S)] $*"; }
@@ -173,12 +178,14 @@ boşa yakar. Hiçbir aday doğrulamadan geçmiyorsa has_task=false döndür.
 İş YAPMA, kod okuma/yazma yok.
 Döndür: has_task, task_id, model, effort, remaining (kalan yapılabilir görev sayısı).
 MODEL ve EFOR seçilen işin BAŞLIĞINDAKİ ETİKETTEN okunur (MASTER-PROMPT §6):
-  [SONNET-XHIGH] -> model=\"sonnet\", effort=\"high\"   (\"high\" burada xhigh anlamına gelir)
+  [SONNET-HIGH]  -> model=\"sonnet\", effort=\"high\"
+  [SONNET-XHIGH] -> model=\"sonnet\", effort=\"xhigh\"
   [SONNET-MAX]   -> model=\"sonnet\", effort=\"max\"
-  [OPUS-XHIGH]   -> model=\"opus\",   effort=\"high\"
+  [OPUS-HIGH]    -> model=\"opus\",   effort=\"high\"
+  [OPUS-XHIGH]   -> model=\"opus\",   effort=\"xhigh\"
   [OPUS-MAX]     -> model=\"opus\",   effort=\"max\"
-Eski tek boyutlu etiketler: [MAX] -> opus+max; [XHIGH] veya etiket YOK -> opus+high.
-Etiket belirsizse GÜVENLİ tarafa düş: model=\"opus\", effort=\"max\"." \
+Etiketi OLDUĞU GİBİ uygula — HIGH'ı xhigh'a, XHIGH'ı max'a YÜKSELTME.
+Eski tek boyutlu etiketler: [MAX] -> opus+max; [XHIGH], etiket YOK veya tanınmayan etiket -> opus+xhigh." \
     --model "$MODEL" --effort low --permission-mode "$PERM" --max-turns 10 $ALLOW \
     --output-format json --json-schema "$pick_schema" 2>>"$LOG_DIR/pick.err" \
     | jq -c '.structured_output' 2>/dev/null
@@ -319,8 +326,12 @@ while true; do
   fi
   task_id=$(echo "$pick" | jq -r '.task_id // "?"')
   remaining=$(echo "$pick" | jq -r '.remaining // "?"')
-  eff_label=$(echo "$pick" | jq -r '.effort // "high"')
-  [ "$eff_label" = "max" ] && eff="$EFFORT_MAX" || eff="$EFFORT_HIGH"
+  eff_label=$(echo "$pick" | jq -r '.effort // "xhigh"')
+  case "$eff_label" in
+    max)  eff="$EFFORT_MAX" ;;
+    high) eff="$EFFORT_HIGH" ;;
+    *)    eff="$EFFORT_XHIGH" ;;
+  esac
   mdl=$(echo "$pick" | jq -r '.model // empty')
   case "$mdl" in sonnet) mdl="$MODEL_SMALL" ;; opus) mdl="$MODEL_BIG" ;; *) mdl="$MODEL_BIG" ;; esac
 

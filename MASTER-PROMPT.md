@@ -117,10 +117,13 @@ canlı çağrı testi isteğe bağlıdır ve CI'da kapalıdır.
 ## 6. Model × efor matrisi
 
 Görev başlığına konan etiket hem **modeli** hem **eforu** seçer. `run-loop.sh` etiketi
-başlıktan okur; pencere bunu kendisi değiştiremez.
+başlıktan okur; pencere bunu kendisi değiştiremez. Etiket olduğu gibi uygulanır: HIGH
+high'da, XHIGH xhigh'da çalışır, hiçbiri bir üst seviyeye yükseltilmez.
 
 | Etiket | Model | Efor | Ne tür iş |
 |---|---|---|---|
+| `[SONNET-HIGH]` | sonnet | high | Küçük, tek dosyalık, riski düşük iş (metin, stil, basit düzeltme) |
+| `[OPUS-HIGH]` | opus | high | Opus gerektiren ama küçük ve kapsamı dar iş |
 | `[SONNET-XHIGH]` | sonnet | xhigh | Kapsamı net, kabul kriteri ölçülebilir, gizli karmaşıklığı düşük mekanik iş |
 | `[OPUS-XHIGH]` | opus | xhigh | Karar, bütünlük veya kimlik mantığı taşıyan iş |
 | `[OPUS-MAX]` | opus | max | En yüksek belirsizlik ve geri alınması en pahalı kararlar |
