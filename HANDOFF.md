@@ -18,6 +18,12 @@ Blok biçimi `CONVENTIONS.md` §3'te tanımlıdır:
 
 ## Task log (newest-first)
 
+## 97 — §5.1 Faz 0 (MVP) kapanış denetimi — blocked — 2026-09-21 (döngü içi yeniden deneme)
+- Nerede kaldı: bu pencere, ilk pencere `blocked` döndükten hemen sonra run-loop.sh'nin açtığı tek seferlik yeniden denemedir. Görev yeniden seçilmedi. Durum değişmemiş: tm 103 `pending`, `app/` altında `front_and_back` geçmiyor, `alembic/versions` 0006'da bitiyor. PRD'deki yeni 04.1.2 kriteri (Must, MVP) karşılanmadığı için Faz 0 kapatılamaz. Denetim ve kapı koşulmadı. `app/`, `tests/`, PLAN.md ve tasks.json'a dokunulmadı. Hiçbir iş başlamadığı için 97 `in-progress` yapılmadı, `blocked` + `dependencies: ["103"]` kaldı.
+- Son durum: bir önceki bloktakiyle aynı. Ek hata yok.
+- Varsayımlar: yok. İnsanın commit edilmemiş değişiklikleri (PRD, PLAN §C78/§C79, tasks.json, `panel.css`, `catalog_examples.html`) yine commit dışında bırakıldı. Bu commit'te yalnız HANDOFF.md var.
+- Sonraki pencereye not: bu pencere de `blocked` döndüğü için döngü `.loop-logs/attempts.tsv`'ye `97 1` yazacak. 103 done olduktan sonra 1.5 kuralı 97'yi seçerse kalan tek hak o denemedir. O deneme de başarısız olursa, yeniden seçilebilmesi için `97` satırını silmek gerekir. Döngünün bu anlık yeniden denemesi, bağımlılığı açık bir görev için her seferinde bir pencere harcar. Bu, run-loop.sh'nin davranışı; bu görevin kapsamı dışında.
+
 ## 97 — §5.1 Faz 0 (MVP) kapanış denetimi — blocked — 2026-09-21
 - Nerede kaldı: denetim koşulmadı, çünkü görevin öncülü ("Faz 0'ın bütün gereksinimleri ✅, görevleri done") artık doğru değil. İnsan bugün Faz 0'ın Must gereksinimi 04.1.2'nin kabul kriterini değiştirdi (PRD'de `front_and_back`, §C78) ve bunun için tm 103'ü açtı (`pending`, commit edilmemiş). tm 103 gruplamayı, `check_sides`'ı, `side` alanını ve göç 0007'yi değiştiriyor; S3 gibi Faz 0 senaryoları doğrudan etkileniyor. Görevin (c)4 kuralı uygulandı: tm 97 `blocked` kaldı ve `dependencies: ["103"]` eklendi; Kapanış hücresi `AÇIK`. 103 done olunca döngünün 1.5 kuralı 97'yi yeniden seçecek ve denetim baştan koşulacak. `app/`, `tests/` ve PLAN.md'ye dokunulmadı.
 - Son durum: 103'ten önceki taban çizgisi `pytest -q -m "not live"` ile üç senaryo dosyasında 36 passed, exit 0. Kapı koşulmadı (kod değişmedi). `task-master validate-dependencies` yeşil (102 görev, 146 bağımlılık). `task-master add-dependency` bütün kimlikleri tamsayıya çevirip metadata eklediği için geri alındı; tasks.json'da yalnız 97'nin iki alanı elle değişti.
