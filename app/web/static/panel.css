@@ -450,3 +450,23 @@ button.htmx-request::before {
   form.htmx-request button[type="submit"]::before,
   button.htmx-request::before { animation-duration: 2s; }
 }
+
+/* Profilden yüklemede kişi denetimi (10.5.5): bu profile ait görünmeyen belgeler — büyük kırmızı kutu. */
+
+.context-warning {
+  margin: 1rem 0 1.5rem;
+  padding: 1rem 1.25rem;
+  border: 2px solid #b42318;
+  border-left-width: 8px;
+  border-radius: 8px;
+  background: #fef3f2;
+  color: #7a271a;
+}
+
+.context-warning h2 { margin: 0 0 0.5rem; font-size: 1.3rem; color: #b42318; }
+
+.context-warning p { margin: 0 0 0.75rem; }
+
+.context-warning-rows { width: 100%; border-collapse: collapse; background: #fff; }
+
+.context-warning-rows th, .context-warning-rows td { padding: 0.35rem 0.5rem; text-align: left; border-bottom: 1px solid #fecdca; }

@@ -1,6 +1,7 @@
-"""Plan JSON üretimi, belirleyicilik, işlem seçimi, Direkt Belge kuralı, dönüşüm izni, doğrulama ve
-profil fotoğrafı kuralları — PRD 06.1.1, 06.1.2, 06.2.1, 06.3.1, 06.3.2, 06.4.1, 06.5.1, 06.5.2,
-11.7.1 (§8.5, §20.1.6, §20.1.7, §20.3, §20.4; K1, K3, K9, K11, K12, R5, R10, R7).
+"""Plan JSON üretimi, belirleyicilik, işlem seçimi, Direkt Belge kuralı, dönüşüm izni, doğrulama,
+profil fotoğrafı kuralları ve profilden yüklemede kişi denetimi — PRD 06.1.1, 06.1.2, 06.2.1,
+06.3.1, 06.3.2, 06.4.1, 06.5.1, 06.5.2, 11.7.1, 10.5.5 (§8.5, §20.1.6, §20.1.7, §20.3, §20.4; K1,
+K3, K9, K11, K12, R5, R10, R7; PLAN.md §C83).
 
 Karar motorunun bir parti için verdiği bütün kararlar tek bir **Plan JSON**'da dondurulur (K9):
 uygulayıcı (07.x) ve kuyruk (08.1) planı yürütür, yapay zekâya ya da eşleştirmeye yeniden sormaz.
@@ -33,7 +34,8 @@ bütün hükümlerin gerekçeleri (`route_reason`) aynı sırayla birleşir:
    (`required_fields`) `unreadable`; kabul kriteri karşılanmıyorsa, Direkt Belge tek kaynağın
    ardışık sayfaları değilse (`direct_single_source`), kaynak biçimi beklenmiyorsa (`file_type`;
    Direkt Belge'de 06.3.2), MRZ kontrol hanesi tutmuyorsa (`mrz_checksum`) ya da doğum tarihi
-   inanılır değilse (`dob_plausible`) `unresolved`. MRZ önceliği (05.3.3) kapıdan ve kişi
+   inanılır değilse (`dob_plausible`) ya da bağlam çalışanlı yüklemede belge bağlam çalışanına ait
+   görünmüyorsa (`context_person`, 10.5.5) `unresolved`. MRZ önceliği (05.3.3) kapıdan ve kişi
    anahtarından önce her sayfaya uygulanır. Fotoğraf türünde açık bir kural `fail` ya da
    değerlendirilmemişse (11.7.1) `unresolved`; gerekçesi doğrulayıcılarınkinden sonra gelir.
 4. İşlem — işlem seçimi (06.2.1), Direkt Belge matrisi (06.3.1) ve dönüşüm izni (06.4.1): §20.3'te
@@ -111,6 +113,17 @@ edilmemiş belgenin okumasına güvenilmez. Eşleştirme hükmü o adayda yalnı
 (08.1.2): satır 1/3'te `match` ve çalışan, öteki hükümlerde `none`; eşleştirme hükmü de kuyruğa
 gönderiyorsa (satır 2, 4, 5, çelişkili anahtar) gerekçesi eklenir.
 
+**Profilden yüklemede kişi denetimi (10.5.5, PLAN.md §C83).** Parti bir bağlam çalışanıyla
+yüklendiyse (`uploads.context_employee_id`) yapı doğrulamasından geçen her analizli adayın kişi
+anahtarı bağlam çalışanıyla karşılaştırılır (`app.matching.context`: temiz belge numarası → doğum
+tarihi → ad). `different` hükmü `context_person` doğrulayıcısını geçirmez: öğe Unresolved'a gider,
+çalışanı `none`dır — kişi tahmini de yoktur, eşleştirme başka bir çalışanı bulsa bile belge ona
+otomatik gitmez —, çalışan açılmaz, profil önerilmez, isim yazımı, numara, iletişim bilgisi ve
+profil alanı birikmez (05.7.2, 05.8.1, 05.7.3). Gerekçe uyuşmayan adımı yazar, değeri yazmaz;
+geçmeyen doğrulama her doğrulayıcı gibi `VALIDATION_FAILED` olayına düşer. `same` ve `unknown`
+akışı değiştirmez; bağlam K6'yı gevşetmez — bağlamlı yüklemede yalnız isimle eşleşen belge yine
+Unresolved'a gider. Word/Excel eki (04.7.1) bu denetime girmez.
+
 **Kişi taşımayan belgenin sahibi (D29, §9 S3/S4).** Zorunlu alanı olmayan türün (profil
 fotoğrafı) belge düzeyinde kabul edilmiş, satır 8'e düşen adayı — ne numara ne isim okunmuş —
 aynı yüklenen dosyadaki kimlikli adaylardan sahip alır: o dosyanın sayfasını taşıyan, kişi anahtarı
@@ -134,11 +147,12 @@ biçimidir (yukarıda). `target_name` çalışan kaydının ad-soyadı ve türü
 öğenin `validations`'ına adı ve `ok` değeriyle, 06.5.1 sırasıyla (`ValidationName`) girer. Katalog
 türündeki belge adayı önce yapı doğrulayıcılarından (`page_count`, `sides`) geçer: biri geçmezse
 aday eksik ya da parça bir belgedir, öğe yalnız bu ikisini taşır ve sonraki adımlar uygulanmaz.
-Geçerse yedisinin hepsinden geçer; kaynak doğrulayıcıları (`direct_single_source`, `file_type`)
-işlem seçiminden önce değerlendirilir. Word/Excel eki (K2: sayfası ve analizi yok) yalnız kaynak
+Geçerse yedisinin hepsinden — bağlam çalışanlı yüklemede sekizinci olarak `context_person`'dan da
+— geçer; kaynak doğrulayıcıları (`direct_single_source`, `file_type`) işlem seçiminden önce
+değerlendirilir. Word/Excel eki (K2: sayfası ve analizi yok) yalnız kaynak
 doğrulayıcılarından geçer. Bilinmeyen tür, ardışıklık ya da belirsiz eşleştirme hükmü taşıyan aday
 ile boş sayfa, analizsiz sayfa ve dosya öğeleri doğrulanmaz (`validations: []`). Geçmeyen doğrulama
-öğeyi kuyruğa gönderir — `required_fields` Unreadable'a (K1), öteki altısı Unresolved'a — ve
+öğeyi kuyruğa gönderir — `required_fields` Unreadable'a (K1), ötekiler Unresolved'a — ve
 gerekçesi doğrulayıcı sırasıyla `route_reason`'a eklenir; kabul kriteri gerekçesi
 `required_fields`'ınkinin hemen ardından, işlem gerekçesi doğrulayıcılarınkinden sonra gelir. Her
 geçmeyen doğrulama `VALIDATION_FAILED` olayına öğenin ilk sayfasıyla (ekte dosyasıyla) yazılır:
@@ -196,6 +210,7 @@ from app.catalog.schema import Slug, Text
 from app.db.models import Employee, Plan, QueueKind, Upload, UploadFile
 from app.events import EventType, event_context, record_event
 from app.matching.contacts import accumulate_contacts
+from app.matching.context import context_person_verdict
 from app.matching.fields import complete_profile_fields
 from app.matching.match import (
     EmployeeAction,
@@ -225,6 +240,7 @@ from app.pipeline.legibility import check_legibility
 from app.pipeline.validate import (
     Validation,
     ValidationName,
+    check_context_person,
     check_direct_single_source,
     check_dob_plausible,
     check_file_type,
@@ -1009,11 +1025,12 @@ class _Planner:
         )
         verdicts, selected, validations = self._document_verdicts(candidate, entry, sources, key)
         if entry is None or verdicts:
-            # Belge kabul edilmedi: eşleştirme hükmü yalnız kişi tahminidir, yan etki yok.
+            # Belge kabul edilmedi: eşleştirme hükmü yalnız kişi tahminidir, yan etki yok. Bağlam
+            # çalışanına ait görünmeyen belgenin kişi tahmini de yoktur (10.5.5).
             guess = _verdict_of(match)
             if guess is not None:
                 verdicts.append(guess)
-            employee = _employee_guess(match)
+            employee = _NO_EMPLOYEE if _foreign(validations) else _employee_guess(match)
             return self._item(item_id, sources, entry, employee, verdicts, None, validations)
         employee, verdict = self._decide_employee(key, match, entry, analyses, first)
         verdicts = [] if verdict is None else [verdict]
@@ -1109,6 +1126,7 @@ class _Planner:
                 ValidationName.DOB_PLAUSIBLE,
                 check_dob_plausible(key.date_of_birth, today=self._today),
             ),
+            *self._context_person(key, entry),
         )
         unmet = None if check is None else check.unmet_criteria
         photo = self._photo_rules_not_met(candidate, entry)
@@ -1123,6 +1141,15 @@ class _Planner:
         )
         validations = (required, *shape, single_source, file_type, *content)
         return [*verdicts, *refusal], selected, validations
+
+    def _context_person(self, key: PersonKey, entry: CatalogEntry) -> tuple[Validation, ...]:
+        # 10.5.5: yalnız bağlam çalışanlı yüklemede; bağlamsız partinin öğesi bu doğrulamayı
+        # taşımaz.
+        employee_id = self._upload.context_employee_id
+        if employee_id is None:
+            return ()
+        verdict = context_person_verdict(self._session, key, entry=entry, employee_id=employee_id)
+        return (Validation(ValidationName.CONTEXT_PERSON, check_context_person(verdict)),)
 
     def _photo_rules_not_met(
         self, candidate: DocumentCandidate, entry: CatalogEntry
@@ -1400,6 +1427,14 @@ def _verdict_of(decision: EmployeeMatch | UnmatchedResolution) -> _Verdict | Non
     if decision.queue is None or decision.reason is None:
         return None
     return _Verdict(decision.queue, decision.reason)
+
+
+def _foreign(validations: Iterable[Validation]) -> bool:
+    # 10.5.5: belge bağlam çalışanına ait görünmüyor (`context_person` geçmedi).
+    return any(
+        validation.name is ValidationName.CONTEXT_PERSON and not validation.ok
+        for validation in validations
+    )
 
 
 def _reads_no_person(key: PersonKey, match: EmployeeMatch) -> bool:

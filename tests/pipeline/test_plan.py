@@ -160,7 +160,10 @@ NO_PERSON: dict[str, Any] = {
 }
 NOBODY = PlanEmployee(action=EmployeeAction.NONE, employee_id=None, matched_by=None)
 UNMET_MRZ = "MRZ iki satırı da okunabilir olmalı"
-ALL_CHECKS = tuple(ValidationName)
+# Bağlamsız partinin katalog türü adayı yedi doğrulayıcıdan geçer; `context_person` yalnız bağlam
+# çalışanlı yüklemededir (10.5.5).
+ALL_CHECKS = tuple(name for name in ValidationName if name is not ValidationName.CONTEXT_PERSON)
+CONTEXT_CHECKS = tuple(ValidationName)
 SOURCE_CHECKS = (ValidationName.DIRECT_SINGLE_SOURCE, ValidationName.FILE_TYPE)
 SHAPE_CHECKS = (ValidationName.PAGE_COUNT, ValidationName.SIDES)
 
@@ -2898,7 +2901,11 @@ def test_identity_document_in_another_file_of_the_upload_gives_no_owner(
 
     photo, passport = _plan(session, layout, upload).items
 
-    assert photo == _no_owner("i1", photo_file, 0)
+    # Bağlamlı yüklemede kişi denetimi (10.5.5) de koşar: kişi taşımayan fotoğrafta sonuç
+    # `unknown`dur, geçer.
+    assert photo == _item(
+        "i1", [(photo_file, (0,))], slug=PHOTO, reason=NO_PERSON_REASON, validated=CONTEXT_CHECKS
+    )
     assert (passport.sources[0].file_id, passport.route) == (passport_file, Route.READY)
 
 
@@ -3179,6 +3186,164 @@ def test_check_photo_rules_reads_every_page_of_the_candidate() -> None:
     unmeasured = PhotoCheck.model_validate(_photo_check(min_resolution="fail"))
     assert check_photo_rules(rules, [unmeasured]) == PhotoRulesNotMet(
         failed=("Asgari çözünürlük",), unchecked=()
+    )
+
+
+# --- 10.5.5 profilden yüklemede kişi denetimi (PLAN.md §C83) -------------------------------------
+
+CONTEXT_REASON = "Profilden yüklenen belge bu profile ait görünmüyor (context_person): {}."
+NAME_ONLY_GUESS = (
+    f"{NAME_ONLY_REASON}. İsmi eşleşen çalışan: E0007. Yalnız isim eşleşmesi otomatik eşleştirme "
+    "sayılmaz (R8)."
+)
+
+
+def _foreign(item_id: str, file_id: int, reason: str, page: int = 0) -> PlanItem:
+    # Bağlam çalışanına ait görünmeyen pasaport: Unresolved, çalışan da kişi tahmini de yok.
+    return _item(
+        item_id,
+        [(file_id, (page,))],
+        slug=PASSPORT,
+        reason=reason,
+        failed=(ValidationName.CONTEXT_PERSON,),
+        validated=CONTEXT_CHECKS,
+    )
+
+
+def _identity_rows(session: Session) -> tuple[list[tuple[str, str]], list[tuple[str, str]]]:
+    aliases = session.execute(
+        select(EmployeeAlias.employee_id, EmployeeAlias.raw_name).order_by(EmployeeAlias.id)
+    )
+    numbers = session.execute(
+        select(EmployeeIdentifier.employee_id, EmployeeIdentifier.value).order_by(
+            EmployeeIdentifier.id
+        )
+    )
+    return [tuple(row) for row in aliases], [tuple(row) for row in numbers]
+
+
+@pytest.mark.parametrize(
+    ("employees", "reason"),
+    [
+        # Numara başka kayıtlı çalışanın: bağlam olmasa belge satır 1'le ona Hazir giderdi.
+        (
+            [("E0007", date(1995, 3, 15), ("Ana Prueba",), ()), ("E0008", None, (), (NUMBER,))],
+            CONTEXT_REASON.format("belge numarası başka çalışanda"),
+        ),
+        # Ad tutuyor, doğum tarihi tutmuyor; eşleştirmenin satır 5 gerekçesi de eklenir.
+        (
+            [("E0007", date(1991, 1, 1), ("Test Ornekova",), ())],
+            f"{CONTEXT_REASON.format('doğum tarihi uyuşmuyor')} {NAME_ONLY_GUESS}",
+        ),
+        # Numara kimsede yok, ad uymuyor: bağlam olmasa satır 6'yla yeni çalışan açılırdı.
+        (
+            [("E0007", None, ("Ana Prueba",), ())],
+            CONTEXT_REASON.format("ad uyuşmuyor"),
+        ),
+    ],
+    ids=["numara-baskasinda", "dogum-tarihi", "ad"],
+)
+def test_document_of_someone_else_uploaded_from_a_profile_is_applied_to_nobody(
+    session: Session,
+    layout: DataLayout,
+    employees: list[tuple[str, date | None, tuple[str, ...], tuple[str, ...]]],
+    reason: str,
+) -> None:
+    for employee_id, born, names, numbers in employees:
+        _employee(session, employee_id, born=born, names=names, numbers=numbers)
+    before = _identity_rows(session)
+    passport = _passport()
+    passport["person"]["contact"]["phone"] = PHONE
+    upload = _upload(session, layout, _pdf(passport), context_employee_id="E0007")
+    (file_id,) = _file_ids(upload)
+
+    document = _plan(session, layout, upload)
+
+    assert document.items == (_foreign("i1", file_id, reason),)
+    # Profile de başka çalışana da uygulanmadı: çalışan açılmadı, hiçbir şey birikmedi.
+    assert _count(session, Employee) == len(employees)
+    assert _identity_rows(session) == before
+    assert _count(session, EmployeeContact) == 0
+    assert _observations(session) == []
+    created = {EventType.EMPLOYEE_CREATED, EventType.EMPLOYEE_PENDING}
+    assert not [event for event in _events(session) if event.type in created]
+    (failure,) = [
+        event
+        for event in _events(session, EventType.VALIDATION_FAILED)
+        if event.data_json["validation"] == "context_person"
+    ]
+    assert (failure.file_id, failure.page_index, failure.upload_id) == (file_id, 0, UPLOAD_ID)
+    assert failure.message == reason.split(" İsim eşleşti")[0]
+    assert failure.data_json == {
+        "item_id": "i1",
+        "validation": "context_person",
+        "document_type_slug": PASSPORT,
+        "queue": "unresolved",
+    }
+    _assert_no_personal_values(session)
+
+
+def test_document_of_the_context_employee_goes_on_as_before_and_accumulates(
+    session: Session, layout: DataLayout
+) -> None:
+    # `same` akışı değiştirmez: numarayla eşleşir, Hazir'a gider, yeni yazım birikir.
+    _employee(session, "E0007", born=None, names=(), numbers=(NUMBER,))
+    upload = _upload(session, layout, _pdf(_passport()), context_employee_id="E0007")
+    (file_id,) = _file_ids(upload)
+
+    document = _plan(session, layout, upload)
+
+    assert document.items == (
+        _item(
+            "i1",
+            [(file_id, (0,))],
+            slug=PASSPORT,
+            employee=_matched(),
+            route=Route.READY,
+            operation=Operation.PASSTHROUGH,
+            target=("pdf", "Kayitli_Kisi-Passport.pdf"),
+            validated=CONTEXT_CHECKS,
+        ),
+    )
+    aliases, _ = _identity_rows(session)
+    assert aliases == [("E0007", "TEST ORNEKOVA"), ("E0007", "Орнекова Тест")]
+    assert not _events(session, EventType.VALIDATION_FAILED)
+
+
+def test_context_does_not_turn_a_name_only_match_into_a_match(
+    session: Session, layout: DataLayout
+) -> None:
+    # K6 gevşemez: ad bağlam çalışanınınki ama doğum tarihi kayıtta yok — kişi denetimi geçer,
+    # belge yine satır 5 ile Unresolved'a gider; yeni çalışan açılmaz.
+    _employee(session, "E0007", born=None)
+    upload = _upload(session, layout, _pdf(_passport()), context_employee_id="E0007")
+    (file_id,) = _file_ids(upload)
+
+    (item,) = _plan(session, layout, upload).items
+
+    assert item == _item(
+        "i1", [(file_id, (0,))], slug=PASSPORT, reason=NAME_ONLY_GUESS, validated=CONTEXT_CHECKS
+    )
+    assert _count(session, Employee) == 1
+
+
+def test_photo_next_to_someone_elses_passport_gets_no_owner_from_it(
+    session: Session, layout: DataLayout
+) -> None:
+    # D29: aynı dosyadaki kimlikli belge başka çalışanın; kişi tahmini olmadığı için fotoğrafa da
+    # sahip vermez — bağlam olmasa ikisi de E0008'e Hazir giderdi.
+    _employee(session, "E0007", born=date(1995, 3, 15), names=("Ana Prueba",))
+    _employee(session, "E0008", born=None, names=(), numbers=(NUMBER,))
+    upload = _upload(session, layout, _pdf(_photo(), _passport()), context_employee_id="E0007")
+    (file_id,) = _file_ids(upload)
+
+    photo, passport = _plan(session, layout, upload).items
+
+    assert photo == _item(
+        "i1", [(file_id, (0,))], slug=PHOTO, reason=NO_PERSON_REASON, validated=CONTEXT_CHECKS
+    )
+    assert passport == _foreign(
+        "i2", file_id, CONTEXT_REASON.format("belge numarası başka çalışanda"), page=1
     )
 
 

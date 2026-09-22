@@ -1,8 +1,9 @@
-"""Doğrulayıcı seti — PRD 06.5.1, 06.5.2 (§20.1.6, §20.1.7; K1, K3, K5).
+"""Doğrulayıcı seti — PRD 06.5.1, 06.5.2, 10.5.5 (§20.1.6, §20.1.7; K1, K3, K5; PLAN.md §C83).
 
 Plan öğesi uygulanmadan önce mekanik kurallardan geçer: yapay zekânın okuması ve karar motorunun
-hükmü burada yeniden sınanır. 06.5.1'in yedi doğrulayıcısı, plandaki adları ve sırasıyla
-(`ValidationName`):
+hükmü burada yeniden sınanır. 06.5.1'in doğrulayıcıları, plandaki adları ve sırasıyla
+(`ValidationName`) — ilk yedisi her katalog türü adayında, sekizincisi yalnız bağlam çalışanlı
+yüklemede:
 
 1. **`required_fields`** — türün zorunlu alanlarının hepsi okunaklı (K1). Hükmü 04.4.1'in
    okunaklılık kapısıdır (`IllegibleRequiredFields`) ve kuyruğu Unreadable'dır: 06.5.2'nin genel
@@ -35,6 +36,11 @@ hükmü burada yeniden sınanır. 06.5.1'in yedi doğrulayıcısı, plandaki adl
    MRZ yüzyılı §20.1.6 ile seçilmiştir. Okunmamış ya da sayfalar arasında çelişen tarih
    doğrulayıcıya girmez — çelişki eşleştirmenin hükmüdür (D8). Başarısızlık Unreadable değildir:
    tarih okunmuştur ama inanılır değildir.
+8. **`context_person`** — bağlam çalışanıyla yapılan yüklemede (10.5.5) belgenin kişisi bağlam
+   çalışanından başkası görünmüyor. Hüküm `app.matching.context`'in karşılaştırmasıdır (temiz belge
+   numarası → doğum tarihi → ad); yalnız `different` geçmez, `same` ve `unknown` geçer. Geçmeyen
+   belge Unresolved'a gider; gerekçe hangi adımın uyuşmadığını yazar, değeri yazmaz. Bağlamsız
+   yüklemede doğrulayıcı yoktur (planda da yer almaz).
 
 Her doğrulayıcı saf işlevdir: geçerse `None`, geçmezse kuyruğu ve gerekçesi olan bir hüküm döner
 (`ValidationFailure`). Gerekçe alan adı, dosya kimliği, 1'den başlayan sayfa numarası ve biçim
@@ -54,6 +60,7 @@ from typing import ClassVar, Protocol
 from app.ai.schemas import Side
 from app.catalog import CatalogEntry, FileType, FrontBackLayout, Sides
 from app.db.models import QueueKind
+from app.matching.context import ContextPersonBasis, ContextPersonResult, ContextPersonVerdict
 from app.matching.mrz import MrzStatus, apply_mrz_priority
 from app.pipeline.group import DocumentCandidate, PageCountViolation, PageRef
 from app.pipeline.legibility import IllegibleRequiredFields, LegibilityCheck
@@ -88,6 +95,7 @@ class ValidationName(enum.StrEnum):
     FILE_TYPE = "file_type"
     MRZ_CHECKSUM = "mrz_checksum"
     DOB_PLAUSIBLE = "dob_plausible"
+    CONTEXT_PERSON = "context_person"  # yalnız bağlam çalışanlı yüklemede (10.5.5)
 
 
 class ValidationFailure(Protocol):
@@ -422,6 +430,44 @@ def _age(date_of_birth: date, today: date) -> int:
     # Tamamlanmış yıl: yıl dönümü `today`'e gelmemişse bir eksik (29 Şubat'ta doğan 28 Şubat'ta).
     birthday_ahead = (today.month, today.day) < (date_of_birth.month, date_of_birth.day)
     return today.year - date_of_birth.year - birthday_ahead
+
+
+# --- context_person ----------------------------------------------------------------------------
+
+# Gerekçenin uyuşmayan adımı (PLAN.md §C83): değer değil, adım.
+CONTEXT_PERSON_FINDINGS = {
+    ContextPersonBasis.DOCUMENT_NUMBER: "belge numarası başka çalışanda",
+    ContextPersonBasis.DATE_OF_BIRTH: "doğum tarihi uyuşmuyor",
+    ContextPersonBasis.NAME: "ad uyuşmuyor",
+}
+
+
+@dataclass(frozen=True, slots=True)
+class ContextPersonMismatch:
+    """`context_person` (10.5.5): profilden yüklenen belge bağlam çalışanına ait görünmüyor.
+
+    `basis` uyuşmayan adımdır. Belge profile de başka çalışana da uygulanmaz, gerekçesiyle
+    Unresolved'a gider; gerekçe kişisel değer (ad, numara, tarih, E numarası) taşımaz.
+    """
+
+    queue: ClassVar[QueueKind] = QueueKind.UNRESOLVED
+
+    basis: ContextPersonBasis
+
+    @property
+    def reason(self) -> str:
+        return (
+            "Profilden yüklenen belge bu profile ait görünmüyor (context_person): "
+            f"{CONTEXT_PERSON_FINDINGS[self.basis]}."
+        )
+
+
+def check_context_person(verdict: ContextPersonVerdict) -> ContextPersonMismatch | None:
+    """`context_person`: kişi karşılaştırmasının (`app.matching.context`) hükmü `different`
+    değilse geçer; `same` ve `unknown` akışı değiştirmez."""
+    if verdict.result is not ContextPersonResult.DIFFERENT or verdict.basis is None:
+        return None
+    return ContextPersonMismatch(verdict.basis)
 
 
 def _pages_text(file_id: int, pages: Iterable[int]) -> str:

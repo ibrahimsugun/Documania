@@ -1,7 +1,10 @@
 {% extends "base.html" %}
 {# Çalışan profili (10.5.1-10.5.4): CV benzeri kart, belge listesi ve bağlam çalışanıyla yükleme.
    Bilinmeyen alan "—" görünür, gizlenmez. Alanın yanında kaynağı ve belgede okunan farklı değerin
-   uyarısı durur (05.7.3). Sayfa yalnız okur; belge içeriğini değiştiren yol yok. #}
+   uyarısı durur (05.7.3). Profilden yüklenip bu çalışana ait görünmeyen, kuyrukta çözülmemiş belge
+   varsa kişi denetiminin uyarısı en üstte (10.5.5). Sayfa yalnız okur; belge içeriğini değiştiren
+   yol yok. #}
+{% from "_context_warning.html" import context_warning %}
 {% block title %}{{ profile.name if profile else "Çalışan bulunamadı" }}{% endblock %}
 {% block content %}
 <p class="back"><a href="/employees">← Çalışanlar</a></p>
@@ -11,6 +14,7 @@
 {% else %}
 <h1>{{ profile.name }}</h1>
 <p class="profile-meta">{{ profile.id }} · {{ profile.status_label }} · <a href="/access-log/employees/{{ profile.id }}">Erişim logu</a></p>
+{{ context_warning(profile.context_warning) }}
 {% if profile.latin_missing %}
 <p class="missing" role="status"><span class="badge badge-missing">Latin yazım eksik</span> Ad, soyad ya da diğer isimler Latin olmayan harf taşıyor; Latin yazım belgede ve isim yazımlarında bulunamadı.</p>
 {% endif %}

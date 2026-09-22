@@ -1,0 +1,24 @@
+{# Profilden yüklemede kişi denetiminin uyarısı (10.5.5, PLAN.md §C83): bağlam çalışanına ait
+   görünmeyen belgeler profile eklenmedi, kuyrukta. Ad görünüm anında çizilir (`app.web.context_person`);
+   yükleme sonucu, parti detayı ve profil sayfası aynı kutuyu kullanır. #}
+{% macro context_warning(warning) %}
+{% if warning %}
+<section class="context-warning" id="context-warning" role="alert" aria-labelledby="context-warning-title">
+  <h2 id="context-warning-title">{{ warning.title }}</h2>
+  <p>Bu belgelerde okunan kişi {{ warning.profile_name }} ({{ warning.employee_id }}) değil görünüyor: profile de başka bir çalışana da otomatik eklenmedi, Unresolved kuyruğunda bekliyor. Belgenin kime ait olduğuna kuyruktan karar verin.</p>
+  <table class="context-warning-rows">
+    <thead><tr><th>Belge türü</th><th>Belgede okunan ad</th><th>Profil adı</th><th>Kuyruk öğesi</th></tr></thead>
+    <tbody>
+      {% for row in warning.rows %}
+      <tr>
+        <td>{{ row.type_name }}</td>
+        <td>{{ row.document_name }}</td>
+        <td>{{ row.profile_name }}</td>
+        <td>{% if row.queue_item_id %}<a href="/queues/{{ row.queue_item_id }}">Öğe {{ row.queue_item_id }}</a>{% if row.resolved %} · çözüldü{% endif %}{% else %}henüz kuyruğa alınmadı{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endif %}
+{% endmacro %}

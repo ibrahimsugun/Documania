@@ -1,5 +1,7 @@
 {# Yükleme sonucu parçası (10.2.2): hata ya da parti ilerlemesi. `poll` doluyken parça kendini
-   iki saniyede bir yeniler; parti son duruma varınca öznitelikler yoktur ve yenileme durur. #}
+   iki saniyede bir yeniler; parti son duruma varınca öznitelikler yoktur ve yenileme durur.
+   Bağlam çalışanına ait görünmeyen belge varsa kişi denetiminin uyarısı çıkar (10.5.5). #}
+{% from "_context_warning.html" import context_warning %}
 {% if error %}
 <p class="error" role="alert">{{ error }}</p>
 {% else %}
@@ -8,6 +10,7 @@
   <h2>Parti {{ progress.upload_id }}</h2>
   <p class="status status-{{ progress.status }}" role="status">{{ progress.label }}</p>
   <p class="detail-link"><a href="/uploads/{{ progress.upload_id }}">Parti ayrıntısını aç</a></p>
+  {{ context_warning(progress.warning) }}
   {% if notice %}<p class="notice" role="alert">{{ notice }}</p>{% endif %}
   <ol class="steps">
     {% for step in progress.steps %}

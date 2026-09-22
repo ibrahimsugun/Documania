@@ -1,4 +1,5 @@
-"""Yükleme sayfası, canlı ilerleme görünümü ve yükleme detayı (PRD 10.2.1, 10.2.2, 10.3.1, 10.3.2).
+"""Yükleme sayfası, canlı ilerleme görünümü ve yükleme detayı (PRD 10.2.1, 10.2.2, 10.3.1, 10.3.2,
+10.5.5).
 
 `GET /upload` sürükle-bırak çoklu yükleme formunu ve isteğe bağlı çalışan seçimini çizer.
 `POST /upload` (HTMX) dosyaları `POST /api/uploads` ile aynı işlevle (`create_upload`) partiye
@@ -9,6 +10,10 @@ görünümüdür. `GET /upload/{upload_id}/progress` parti durumunu (`GET
 /api/uploads/{id}`, 01.6.1) HTMX'in iki saniyede bir yenilediği parçaya çevirir; parti son
 duruma (`done`, `partial`, `failed`) varınca parça yenileme öznitelikleri olmadan gelir ve
 yenileme durur.
+
+Bağlam çalışanıyla yüklenen partide belgeleri o çalışana ait görünmeyen öğeler (kişi denetimi,
+10.5.5, `app.web.context_person`) son durumdaki ilerleme görünümünde ve yükleme detayında büyük
+kırmızı kutuyla gösterilir.
 
 Yapay zekâ sağlayıcısı kurulamıyorsa (`AI_PROVIDER` eksik anahtar) parti yine de alınır — dosya
 Inbox'ta güvende kalır, işi kuyrukta bekler — ama işlenmez; kullanıcıya bu söylenir ve yenileme
@@ -78,6 +83,7 @@ from app.web.confirm import (
     confirm_operation,
     issue_confirmation,
 )
+from app.web.context_person import ForeignDocumentsWarning, upload_warning
 from app.web.routers.uploads import (
     UploadFileStatusResponse,
     create_upload,
@@ -133,10 +139,16 @@ class ProgressView:
     files: list[UploadFileStatusResponse]
     rendered_files: int
     total_files: int
+    # 10.5.5: son durumdaki bağlamlı partinin bu çalışana ait görünmeyen belgeleri.
+    warning: ForeignDocumentsWarning | None = None
 
 
 def build_progress_view(session: Session, upload_id: str) -> ProgressView:
-    """01.6.1 yanıtını (`get_upload_status`) sayfanın gösterdiği biçime çevirir; parti yoksa 404."""
+    """01.6.1 yanıtını (`get_upload_status`) sayfanın gösterdiği biçime çevirir; parti yoksa 404.
+
+    Parti son durumdaysa kişi denetiminin uyarısı da hazırlanır (10.5.5); süren partinin planı
+    henüz uygulanmadığı için uyarı son durumu bekler.
+    """
     report = get_upload_status(upload_id, session)
     current = UploadStatus(report.status)
     final = current in FINAL_STATUSES
@@ -150,6 +162,7 @@ def build_progress_view(session: Session, upload_id: str) -> ProgressView:
         else:
             state = "todo" if reached else "done"
         steps.append(Step(label, state))
+    upload = session.get(Upload, report.upload_id) if final else None
     return ProgressView(
         upload_id=report.upload_id,
         status=current.value,
@@ -160,6 +173,7 @@ def build_progress_view(session: Session, upload_id: str) -> ProgressView:
         rendered_files=report.progress.rendered_files,
         # Tekrar dosyası (01.4.1) hiç işlenmez; sayaç işlenecek dosyaları sayar.
         total_files=sum(1 for file in report.files if not file.is_duplicate),
+        warning=None if upload is None else upload_warning(session, upload),
     )
 
 
@@ -422,6 +436,8 @@ class DetailView:
     queue: list[QueueView]
     events: list[EventView]
     blocked_reason: str | None
+    # 10.5.5: bağlam çalışanına ait görünmeyen belgeler.
+    context_warning: ForeignDocumentsWarning | None = None
 
 
 def _format_ts(moment: datetime) -> str:
@@ -664,6 +680,7 @@ def build_detail_view(session: Session, upload: Upload) -> DetailView:
             for event in events
         ],
         blocked_reason=blocked_reason,
+        context_warning=upload_warning(session, upload),
     )
 
 

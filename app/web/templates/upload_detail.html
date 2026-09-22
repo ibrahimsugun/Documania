@@ -1,6 +1,8 @@
 {% extends "base.html" %}
 {# Yükleme detay sayfası (10.3.1): sayfa küçük resimleri, plan öğeleri, çıktılar ve olay zaman
-   çizelgesi tek sayfada. İşlemler (10.3.2) HTMX ile `#action-result`'a yazılır. #}
+   çizelgesi tek sayfada. İşlemler (10.3.2) HTMX ile `#action-result`'a yazılır. Bağlam
+   çalışanına ait görünmeyen belgeler kişi denetiminin uyarısıyla en üstte (10.5.5). #}
+{% from "_context_warning.html" import context_warning %}
 {% block title %}{% if detail %}Parti {{ detail.upload_id }}{% else %}Parti{% endif %}{% endblock %}
 {% block content %}
 <p class="back"><a href="/uploads">← Yüklemeler</a></p>
@@ -15,6 +17,7 @@
   <dt>Alındı</dt><dd>{{ detail.created_at }}</dd>
   {% if detail.context_employee %}<dt>Bağlam çalışanı</dt><dd>{{ detail.context_employee }}</dd>{% endif %}
 </dl>
+{{ context_warning(detail.context_warning) }}
 
 {# HTMX 4xx/5xx yanıtını değiştirmez; işlem parçalarının hata metni görünsün. #}
 <section id="actions" class="actions" aria-labelledby="actions-title"

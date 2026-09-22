@@ -1,5 +1,6 @@
 """06.5.1 — `required_fields`, `page_count`, `sides`, `direct_single_source`, `file_type`,
-`mrz_checksum` ve `dob_plausible` doğrulayıcıları çalışır: her biri geçen ve kalan örneklerle,
+`mrz_checksum`, `dob_plausible` ve `context_person` (10.5.5) doğrulayıcıları çalışır: her biri geçen
+ve kalan örneklerle,
 karar tablolarının (§20.1.6, §20.1.7) sınır durumlarıyla sınanır. Doğrulamanın plana bağlanışı
 (06.5.2: rota, gerekçe, olay) `tests/pipeline/test_plan.py`'dedir.
 
@@ -26,6 +27,7 @@ from app.catalog import (
     validate_catalog,
 )
 from app.db.models import QueueKind
+from app.matching.context import ContextPersonBasis, ContextPersonResult, ContextPersonVerdict
 from app.matching.mrz import MrzFormat
 from app.pipeline.group import (
     CandidatePage,
@@ -41,6 +43,7 @@ from app.pipeline.plan import OperationSource, check_direct_file_types
 from app.pipeline.validate import (
     MAX_AGE,
     MIN_AGE,
+    ContextPersonMismatch,
     DirectSourceNotSingle,
     FileTypeMismatch,
     ImplausibleDateOfBirth,
@@ -49,6 +52,7 @@ from app.pipeline.validate import (
     SidesMismatch,
     Validation,
     ValidationName,
+    check_context_person,
     check_direct_single_source,
     check_dob_plausible,
     check_file_type,
@@ -152,7 +156,8 @@ def _mutated(lines: list[str], line: int, position: int, char: str) -> list[str]
 # --- ad ve sonuç -------------------------------------------------------------------------------
 
 
-def test_validators_are_the_seven_of_06_5_1_in_its_order() -> None:
+def test_validators_are_those_of_06_5_1_in_its_order() -> None:
+    # Yedisi 06.5.1'in; sekizincisi profilden yüklemede kişi denetimi (10.5.5, PLAN.md §C83).
     assert [name.value for name in ValidationName] == [
         "required_fields",
         "page_count",
@@ -161,6 +166,7 @@ def test_validators_are_the_seven_of_06_5_1_in_its_order() -> None:
         "file_type",
         "mrz_checksum",
         "dob_plausible",
+        "context_person",
     ]
 
 
@@ -637,4 +643,43 @@ def test_dob_plausible_reason_carries_neither_the_date_nor_the_age() -> None:
     assert ImplausibleDateOfBirth(future=False).reason == (
         "Doğum tarihi doğrulaması (06.5.1, dob_plausible): okunan doğum tarihi referans güne göre "
         "16–90 yaş aralığı dışında; tarih yanlış okunmuş olabilir."
+    )
+
+
+# --- context_person (10.5.5, PLAN.md §C83) --------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "verdict",
+    [
+        ContextPersonVerdict(ContextPersonResult.SAME, ContextPersonBasis.DOCUMENT_NUMBER),
+        ContextPersonVerdict(ContextPersonResult.SAME, ContextPersonBasis.NAME),
+        ContextPersonVerdict(ContextPersonResult.UNKNOWN),
+    ],
+    ids=["ayni-numara", "ayni-ad", "bilinmiyor"],
+)
+def test_context_person_passes_unless_the_person_is_different(
+    verdict: ContextPersonVerdict,
+) -> None:
+    assert check_context_person(verdict) is None
+
+
+@pytest.mark.parametrize(
+    ("basis", "finding"),
+    [
+        (ContextPersonBasis.DOCUMENT_NUMBER, "belge numarası başka çalışanda"),
+        (ContextPersonBasis.DATE_OF_BIRTH, "doğum tarihi uyuşmuyor"),
+        (ContextPersonBasis.NAME, "ad uyuşmuyor"),
+    ],
+)
+def test_context_person_fails_for_a_different_person_and_names_only_the_step(
+    basis: ContextPersonBasis, finding: str
+) -> None:
+    failure = check_context_person(ContextPersonVerdict(ContextPersonResult.DIFFERENT, basis))
+
+    assert failure == ContextPersonMismatch(basis)
+    assert failure.queue is QueueKind.UNRESOLVED
+    # Gerekçe PLAN.md §C83'ün metnidir: uyuşmayan adım, değer değil.
+    assert failure.reason == (
+        f"Profilden yüklenen belge bu profile ait görünmüyor (context_person): {finding}."
     )

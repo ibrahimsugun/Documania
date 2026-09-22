@@ -234,7 +234,7 @@ maliyet paneli gerçek rakam gösteriyor.
 | 06.3.1 | Direkt Belge kuralı (R5) | Direkt türlerde birleştirme, sarma ve render yasaklanır; sayfa çıkarma serbesttir | Must (MVP) |
 | 06.3.2 | Direkt Belge format kontrolü | Kaynak türü beklenen dosya türleri arasında değilse Unresolved ve "uygun formatta yeniden gönderin" notu | Must (MVP) |
 | 06.4.1 | Dönüşüm izni kontrolü | Türün izinli dönüşüm listesinde olmayan dönüşüm plana girmez | Must (MVP) |
-| 06.5.1 | Doğrulayıcı seti | required_fields, page_count, sides, direct_single_source, file_type, mrz_checksum, dob_plausible doğrulayıcıları çalışır | Must (MVP) |
+| 06.5.1 | Doğrulayıcı seti | required_fields, page_count, sides, direct_single_source, file_type, mrz_checksum, dob_plausible doğrulayıcıları çalışır; bağlam çalışanlı yüklemede context_person da (10.5.5) | Must (MVP) |
 | 06.5.2 | Doğrulama başarısızlığı | Başarısız doğrulama rotayı Unresolved yapar ve gerekçe yazılır | Must (MVP) |
 | 06.6.1 | Planı yeniden çalıştırma | Mevcut plan yeniden uygulanır; yapay zekâ çağrılmaz; ikinci kopya üretilmez | Must (MVP) |
 | 06.6.2 | Yeniden analiz ve sürüm | Yeniden analiz yeni plan sürümü açar; eski çıktılar silinmez, "eski sürüm" işaretlenir | Must (MVP) |

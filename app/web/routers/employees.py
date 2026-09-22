@@ -43,7 +43,9 @@ sunulur: profil sayfasını çizmek belgeyi "açmak" sayılmasın (10.9.2 açma 
 görüntülemeyi değil): `.../file` `view`, `.../download` `download` olarak `access_log`'a kullanıcı
 ve zamanla yazılır (`app.web.access`), satır sunmadan önce commit edilir.
 Profil sayfası bağlam çalışanıyla yükleme formu taşır (10.5.3): form `POST /upload`'a çalışan
-kimliğini gizli alanla gönderir.
+kimliğini gizli alanla gönderir. Profilden yüklenip bu çalışana ait görünmeyen (kişi denetimi,
+10.5.5) ve kuyrukta çözülmemiş belge varsa sayfanın üstünde büyük kırmızı uyarı kutusu durur;
+kuyruk öğesi çözülünce kalkar (`app.web.context_person`).
 """
 
 from __future__ import annotations
@@ -82,6 +84,7 @@ from app.profiles.render import calculate_age
 from app.storage import DataLayout
 from app.web.access import record_access
 from app.web.auth import PanelUser, require_panel_user
+from app.web.context_person import ForeignDocumentsWarning, profile_warning
 from app.web.routers.upload_page import DOCUMENT_STATUS_LABELS
 from app.web.routers.uploads import get_layout
 from app.web.templating import MENU_BY_KEY, render_page
@@ -379,6 +382,8 @@ class ProfileView:
     documents: list[DocumentRow]
     latin_missing: bool = False
     field_sources: dict[str, FieldSources] = field(default_factory=dict)
+    # 10.5.5: profilden yüklenip bu çalışana ait görünmeyen, kuyrukta çözülmemiş belgeler.
+    context_warning: ForeignDocumentsWarning | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -510,6 +515,7 @@ def build_profile(
         documents=rows,
         latin_missing=needs_latin_repair(employee),
         field_sources=field_sources,
+        context_warning=profile_warning(session, employee_id),
     )
 
 
