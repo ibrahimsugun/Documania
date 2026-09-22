@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {# Çalışan profili (10.5.1-10.5.4): CV benzeri kart, belge listesi ve bağlam çalışanıyla yükleme.
-   Bilinmeyen alan "—" görünür, gizlenmez. Sayfa yalnız okur; belge içeriğini değiştiren yol yok. #}
+   Bilinmeyen alan "—" görünür, gizlenmez. Alanın yanında kaynağı ve belgede okunan farklı değerin
+   uyarısı durur (05.7.3). Sayfa yalnız okur; belge içeriğini değiştiren yol yok. #}
 {% block title %}{{ profile.name if profile else "Çalışan bulunamadı" }}{% endblock %}
 {% block content %}
 <p class="back"><a href="/employees">← Çalışanlar</a></p>
@@ -27,13 +28,19 @@
     <p class="missing" role="status"><span class="badge badge-missing">Eksik belge</span> Profile Picture</p>
     {% endif %}
   </div>
+  {# 05.7.3: alanın kaynağı ve belgede okunan farklı değer; değer değişmez, uyarı kalır. #}
+  {% macro source_link(link) %}<a href="{{ link.url }}"{% if link.new_tab %} target="_blank" rel="noopener"{% endif %}>{{ link.label }}</a>{% endmacro %}
+  {% macro field_sources(info) %}{% if info %}
+    {% if info.source %}<span class="reason field-source">Kaynak: {{ source_link(info.source) }}</span>{% endif %}
+    {% if info.conflicts %}<p class="missing field-conflict" role="status"><span class="badge badge-missing">Farklı değer</span> {{ info.warning }}: {% for link in info.conflicts %}{% if not loop.first %}, {% endif %}{{ source_link(link) }}{% endfor %}</p>{% endif %}
+  {% endif %}{% endmacro %}
   <dl class="profile-fields">
-    <dt>Ad</dt><dd>{{ profile.given_names or "—" }}</dd>
-    <dt>Soyad</dt><dd>{{ profile.surname or "—" }}</dd>
-    <dt>Diğer isimler</dt><dd>{{ profile.other_names or "—" }}</dd>
-    <dt>Orijinal yazım</dt><dd>{{ profile.original_script_name or "—" }}</dd>
-    <dt>Vatandaşlık</dt><dd>{{ profile.nationality or "—" }}</dd>
-    <dt>Doğum tarihi</dt><dd>{{ profile.date_of_birth.strftime("%d.%m.%Y") if profile.date_of_birth else "—" }}</dd>
+    <dt>Ad</dt><dd>{{ profile.given_names or "—" }}{{ field_sources(profile.field_sources.get("given_names")) }}</dd>
+    <dt>Soyad</dt><dd>{{ profile.surname or "—" }}{{ field_sources(profile.field_sources.get("surname")) }}</dd>
+    <dt>Diğer isimler</dt><dd>{{ profile.other_names or "—" }}{{ field_sources(profile.field_sources.get("other_names")) }}</dd>
+    <dt>Orijinal yazım</dt><dd>{{ profile.original_script_name or "—" }}{{ field_sources(profile.field_sources.get("original_script_name")) }}</dd>
+    <dt>Vatandaşlık</dt><dd>{{ profile.nationality or "—" }}{{ field_sources(profile.field_sources.get("nationality")) }}</dd>
+    <dt>Doğum tarihi</dt><dd>{{ profile.date_of_birth.strftime("%d.%m.%Y") if profile.date_of_birth else "—" }}{{ field_sources(profile.field_sources.get("date_of_birth")) }}</dd>
     <dt>Yaş</dt><dd>{{ profile.age if profile.age is not none else "—" }}</dd>
     {% for group in profile.contacts %}
     <dt>{{ group.label }}</dt>

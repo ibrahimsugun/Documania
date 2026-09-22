@@ -1,6 +1,6 @@
 """Veri modeli — PRD §8.1 tabloları (00.3.1), çalışan numarası üretici (00.3.3), aday tür
-kaydı (04.6.1) ve kararı (11.5), panel oturumu (10.1.2), iki aşamalı onayın belirteci (10.8.1) ve
-kalıcı işçi kuyruğu (13.3.1).
+kaydı (04.6.1) ve kararı (11.5), panel oturumu (10.1.2), iki aşamalı onayın belirteci (10.8.1),
+kalıcı işçi kuyruğu (13.3.1) ve profil alanlarının belge gözlemleri (05.7.3).
 
 Silme yoktur, arşiv vardır (K16): ilişkilerde silme kaskadı tanımlanmaz.
 Dosya yolu burada üretilmez (yol kuralı: `app/storage/`); yol sütunları yalnız saklar.
@@ -129,6 +129,27 @@ class DocumentStatus(enum.StrEnum):
     ARCHIVED = "archived"
 
 
+class ProfileField(enum.StrEnum):
+    """Belgeden tamamlanan profil alanı (05.7.3; `employee_field_observations.field`): `employees`
+    sütun adları. Belge numarası ve iletişim bilgisi kendi birikim yolundadır (05.7.2, 05.8.1)."""
+
+    GIVEN_NAMES = "given_names"
+    SURNAME = "surname"
+    OTHER_NAMES = "other_names"
+    ORIGINAL_SCRIPT_NAME = "original_script_name"
+    DATE_OF_BIRTH = "date_of_birth"
+    NATIONALITY = "nationality"
+
+
+class FieldOutcome(enum.StrEnum):
+    """Belgede okunan değerin profil alanıyla karşılaştırması (05.7.3,
+    `employee_field_observations.outcome`)."""
+
+    FILLED = "filled"  # alan boştu, belgedeki değerle dolduruldu
+    SAME = "same"  # alan doluydu, belge aynı değeri okudu (§20.2.1 normalizasyonuyla)
+    CONFLICT = "conflict"  # alan doluydu, belge farklı değer okudu; alan değişmedi
+
+
 class CandidateTypeStatus(enum.StrEnum):
     """Aday tür durumu (§8.1 `candidate_document_types.status`).
 
@@ -209,6 +230,42 @@ class EmployeeContact(Base):
 
     employee: Mapped[Employee] = relationship(back_populates="contacts")
     source_document: Mapped[Document | None] = relationship()
+
+
+class EmployeeFieldObservation(Base):
+    """Bir profil alanının bir belgede görülmesi (05.7.3, PLAN.md §C82): alan belgeden dolduruldu
+    mu, belge aynı değeri mi okudu, farklı mı.
+
+    **Değer tutulmaz** — kişisel değer sayfa analizinde durur (CONVENTIONS §6). Kaynak belgenin
+    ilk sayfasıdır (`file_id`, `page_index`): planın belge adayının ilk sayfası, çıktının kökeninin
+    (`documents.source_refs_json`) ilk sayfası. Bir alan aynı kaynaktan bir kez gözlenir; satır
+    silinmez. PRD §8.1 tablo listesinde yok; bu tablo 05.7.3'ün deposudur.
+    """
+
+    __tablename__ = "employee_field_observations"
+    __table_args__ = (
+        CheckConstraint(_one_of("field", ProfileField), name="field"),
+        CheckConstraint(_one_of("outcome", FieldOutcome), name="outcome"),
+        UniqueConstraint(
+            "employee_id",
+            "field",
+            "file_id",
+            "page_index",
+            # Kuralın üreteceği ad PostgreSQL'in 63 karakter sınırını aşar.
+            name="uq_employee_field_observations_source",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    employee_id: Mapped[str] = mapped_column(ForeignKey("employees.id"), index=True)
+    field: Mapped[str] = mapped_column(String(32))
+    outcome: Mapped[str] = mapped_column(String(16))
+    file_id: Mapped[int] = mapped_column(ForeignKey("upload_files.id"))
+    page_index: Mapped[int] = mapped_column(Integer)
+    observed_at: Mapped[datetime] = mapped_column(UtcDateTime, default=utcnow)
+
+    employee: Mapped[Employee] = relationship()
+    file: Mapped[UploadFile] = relationship()
 
 
 # --- yükleme, dosya, sayfa, plan -----------------------------------------------------------

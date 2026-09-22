@@ -46,6 +46,7 @@ from app.db.models import (
     Employee,
     EmployeeAlias,
     EmployeeContact,
+    EmployeeFieldObservation,
     EmployeeIdentifier,
     Event,
     Page,
@@ -446,6 +447,11 @@ def _assert_no_personal_values(session: Session) -> None:
         assert value not in logged
 
 
+def _observations(session: Session) -> list[tuple[str, str, str, int, int]]:
+    rows = session.scalars(select(EmployeeFieldObservation).order_by(EmployeeFieldObservation.id))
+    return [(row.employee_id, row.field, row.outcome, row.file_id, row.page_index) for row in rows]
+
+
 def _catalog_with(slug: str, **changes: Any) -> Catalog:
     entries = [entry.model_dump(mode="json") for entry in CATALOG]
     for entry in entries:
@@ -721,11 +727,22 @@ def test_clean_passport_without_registered_employee_is_frozen_as_a_plan(
         "items": 1,
         "routes": {"hazir": 1},
     }
-    assert [e.type for e in _events(session)][-3:] == [
+    # 05.7.3: yeni çalışanın alanları bu belgeden yazıldı; kaynağı belgenin ilk sayfasıdır.
+    filled = ["given_names", "surname", "original_script_name", "date_of_birth", "nationality"]
+    assert [e.type for e in _events(session)][-8:] == [
         EventType.PERSON_NOT_MATCHED,
         EventType.EMPLOYEE_CREATED,
+        *[EventType.EMPLOYEE_FIELD_FILLED] * 5,
         EventType.PLAN_CREATED,
     ]
+    assert [
+        (e.employee_id, e.upload_id, e.file_id, e.page_index, e.data_json)
+        for e in _events(session, EventType.EMPLOYEE_FIELD_FILLED)
+    ] == [
+        ("E0001", UPLOAD_ID, file_id, 0, {"field": name, "source": "document", "rule": "05.7.3"})
+        for name in filled
+    ]
+    assert _observations(session) == [("E0001", name, "filled", file_id, 0) for name in filled]
     _assert_no_personal_values(session)
 
 
@@ -830,6 +847,31 @@ def test_number_match_is_ready_for_the_registered_employee_and_accumulates(
     contact = session.scalars(select(EmployeeContact)).one()
     assert (contact.employee_id, contact.kind, contact.value) == ("E0007", "phone", PHONE)
     assert _count(session, Employee) == 1
+    # 05.7.3: boş alan belgeden dolar, dolu alan değişmez — aynıysa `same`, farklıysa `conflict`.
+    employee = session.get_one(Employee, "E0007")
+    assert (employee.given_names, employee.surname, employee.date_of_birth) == (
+        "Kayitli",
+        "Kisi",
+        date(1990, 1, 1),
+    )
+    assert (employee.original_script_name, employee.nationality, employee.other_names) == (
+        "Орнекова Тест",
+        "RUS",
+        None,
+    )
+    assert _observations(session) == [
+        ("E0007", "given_names", "conflict", file_id, 0),
+        ("E0007", "surname", "conflict", file_id, 0),
+        ("E0007", "original_script_name", "filled", file_id, 0),
+        ("E0007", "date_of_birth", "same", file_id, 0),
+        ("E0007", "nationality", "filled", file_id, 0),
+    ]
+    filled = _events(session, EventType.EMPLOYEE_FIELD_FILLED)
+    assert [(e.employee_id, e.file_id, e.page_index, e.data_json) for e in filled] == [
+        ("E0007", file_id, 0, {"field": name, "source": "document", "rule": "05.7.3"})
+        for name in ("original_script_name", "nationality")
+    ]
+    _assert_no_personal_values(session)
 
 
 def test_name_only_match_goes_to_unresolved_without_an_employee(
@@ -964,6 +1006,9 @@ def test_unreadable_document_opens_and_accumulates_nothing_but_keeps_the_person_
         int(registered),
     )
     assert _count(session, EmployeeContact) == 0
+    # 05.7.3: kabul edilmeyen belge profil alanı doldurmaz, karşılaştırılmaz da.
+    assert _observations(session) == []
+    assert _events(session, EventType.EMPLOYEE_FIELD_FILLED) == []
     assert list(layout.employees.iterdir()) == []
     (event,) = _events(session, EventType.VALIDATION_FAILED)
     assert (event.file_id, event.page_index, event.message) == (

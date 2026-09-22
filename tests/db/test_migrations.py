@@ -34,7 +34,7 @@ def _assert_schema_matches_models(database_url: str) -> None:
             assert tables == set(Base.metadata.tables) | {"alembic_version"}
             context = MigrationContext.configure(connection, opts={"compare_type": True})
             assert compare_metadata(context, Base.metadata) == []
-            assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "0007"
+            assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "0008"
     finally:
         engine.dispose()
 
@@ -331,6 +331,74 @@ def test_front_back_layouts_migration_gives_every_card_both_layouts_and_is_rever
                 ("letter", "single", None, None),
                 ("passport", "single", 1, 1),
             ]
+    finally:
+        engine.dispose()
+
+
+def test_field_observations_migration_adds_the_table_and_is_reversible(sqlite_url: str) -> None:
+    # 0008 (05.7.3): gözlem tablosu değer sütunu taşımaz; alan ve sonuç kapalı kümedir, bir alan
+    # aynı kaynaktan bir kez gözlenir. Geri alış tabloyu düşürür, çalışanlar kalır.
+    config = _alembic_config(sqlite_url)
+    command.upgrade(config, "0007")
+    engine = create_engine(sqlite_url)
+    try:
+        with engine.begin() as connection:
+            connection.execute(
+                text(
+                    "INSERT INTO employees (id, folder_name, given_names, surname, status, "
+                    "created_at) VALUES ('E0001', 'Test_Kisi_E0001', 'Test', 'Kisi', 'active', "
+                    "'2026-09-22 00:00:00')"
+                )
+            )
+            connection.execute(
+                text(
+                    "INSERT INTO uploads (id, channel, status, created_at) "
+                    "VALUES ('u_1', 'web', 'done', '2026-09-22 00:00:00')"
+                )
+            )
+            connection.execute(
+                text(
+                    "INSERT INTO upload_files (id, upload_id, original_name, stored_path, sha256, "
+                    "mime) VALUES (1, 'u_1', 'a.pdf', 'Inbox/u_1/a.pdf', :sha, 'application/pdf')"
+                ),
+                {"sha": "0" * 64},
+            )
+
+        command.upgrade(config, "head")
+        with engine.connect() as connection:
+            columns = {
+                column["name"]
+                for column in inspect(connection).get_columns("employee_field_observations")
+            }
+        assert columns == {
+            "id",
+            "employee_id",
+            "field",
+            "outcome",
+            "file_id",
+            "page_index",
+            "observed_at",
+        }
+        insert = text(
+            "INSERT INTO employee_field_observations (employee_id, field, outcome, file_id, "
+            "page_index, observed_at) VALUES ('E0001', :field, :outcome, 1, 0, "
+            "'2026-09-22 00:00:00')"
+        )
+        with engine.begin() as connection:
+            connection.execute(insert, {"field": "date_of_birth", "outcome": "filled"})
+        for values in (
+            {"field": "expiry_date", "outcome": "filled"},
+            {"field": "nationality", "outcome": "changed"},
+            {"field": "date_of_birth", "outcome": "same"},
+        ):
+            with pytest.raises(IntegrityError), engine.begin() as connection:
+                connection.execute(insert, values)
+
+        command.downgrade(config, "0007")
+        with engine.connect() as connection:
+            tables = set(inspect(connection).get_table_names())
+            assert "employee_field_observations" not in tables
+            assert connection.scalar(text("SELECT count(*) FROM employees")) == 1
     finally:
         engine.dispose()
 

@@ -321,7 +321,8 @@ def test_s1_a_registered_employee_s_passport_is_passed_through_to_hazir(
     assert _queued(session, upload) == {}
     assert PASSPORT_OUTPUT in (folder / "profil.md").read_text(encoding="utf-8")
 
-    # Olay zinciri tam: yükleme → render → analiz → tür → kişi → plan → çıktı, hepsi partide.
+    # Olay zinciri tam: yükleme → render → analiz → tür → kişi → boş profil alanı (05.7.3: kayıtta
+    # orijinal yazım yoktu, pasaport okudu) → plan → çıktı, hepsi partide.
     events = _events(session, upload)
     assert _chain(events) == [
         (EventType.FILE_UPLOADED, 1, None),
@@ -329,11 +330,17 @@ def test_s1_a_registered_employee_s_passport_is_passed_through_to_hazir(
         (EventType.PAGE_ANALYZED, 1, 0),
         (EventType.DOC_TYPE_DETERMINED, 1, 0),
         (EventType.PERSON_MATCHED, 1, 0),
+        (EventType.EMPLOYEE_FIELD_FILLED, 1, 0),
         (EventType.PLAN_CREATED, None, None),
         (EventType.OUTPUT_SAVED, 1, 0),
     ]
-    matched, saved = events[4], events[-1]
+    matched, filled, saved = events[4], events[5], events[-1]
     assert matched.employee_id == employee.id
+    assert (filled.employee_id, filled.data_json) == (
+        employee.id,
+        {"field": "original_script_name", "source": "document", "rule": "05.7.3"},
+    )
+    assert session.get_one(Employee, employee.id).original_script_name == "Орнекова Тест"
     assert (saved.employee_id, saved.document_id) == (employee.id, output.id)
     assert saved.data_json is not None
     assert saved.data_json["operation"] == "passthrough"

@@ -30,22 +30,28 @@ iletişim bilgilerini ve belge numaralarını gösterir; bilinmeyen alan gizlenm
 işaretler (10.5.4). Ad, soyad ve diğer isimler Latin yazımdır, Latin olmayan yazım "Orijinal
 yazım"da durur (05.2.2); bu alanlardan biri hâlâ Latin olmayan harf taşıyorsa (onarımın Latin
 yazım bulamadığı eski kayıt, `python -m app.profiles repair-latin-names`) kart "Latin yazım eksik"
-uyarısı gösterir. Belge listesi çalışanın **tüm** belgelerini (etkin, eski sürüm, arşivlenmiş)
-gösterir; her belge yeni sekmede açılır (`.../file`) ve indirilir (`.../download`), ikisi de
-yalnız `GET`'tir — panelde belge içeriğini değiştiren yol yoktur (10.5.2, K17). Fotoğraf ayrı bir
-adresten (`.../photo`) sunulur: profil sayfasını çizmek belgeyi "açmak" sayılmasın (10.9.2 açma ve
-indirmeyi loglar, sayfa görüntülemeyi değil): `.../file` `view`, `.../download` `download` olarak
-`access_log`'a kullanıcı ve zamanla yazılır (`app.web.access`), satır sunmadan önce commit edilir.
+uyarısı gösterir. Ad, soyad, diğer isimler, orijinal yazım, vatandaşlık ve doğum tarihinin
+yanında kaynağı durur (05.7.3, `employee_field_observations`): alanı dolduran belge, yoksa aynı
+değeri okuyan ilk belge. Belgede farklı değer okunduysa alan değişmez; altında "<alan>: belgede
+farklı değer okundu" uyarısı ve belgelere bağlantı çıkar. Kaynak, çalışanın kökeni o sayfayla
+başlayan belgesine (etkin olan, sonra en yeni) bağlanır — dosyası varsa yeni sekmede açılır, yoksa
+geçmişine; belge bu çalışanda yoksa (henüz yürütülmedi, başka çalışana taşındı) parti sayfasına.
+Belge listesi çalışanın **tüm** belgelerini (etkin, eski sürüm, arşivlenmiş) gösterir; her belge
+yeni sekmede açılır (`.../file`) ve indirilir (`.../download`), ikisi de yalnız `GET`'tir — panelde
+belge içeriğini değiştiren yol yoktur (10.5.2, K17). Fotoğraf ayrı bir adresten (`.../photo`)
+sunulur: profil sayfasını çizmek belgeyi "açmak" sayılmasın (10.9.2 açma ve indirmeyi loglar, sayfa
+görüntülemeyi değil): `.../file` `view`, `.../download` `download` olarak `access_log`'a kullanıcı
+ve zamanla yazılır (`app.web.access`), satır sunmadan önce commit edilir.
 Profil sayfası bağlam çalışanıyla yükleme formu taşır (10.5.3): form `POST /upload`'a çalışan
 kimliğini gizli alanla gönderir.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path, PurePosixPath
-from typing import Annotated
+from typing import Annotated, Any
 from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
@@ -61,8 +67,12 @@ from app.db.models import (
     Employee,
     EmployeeAlias,
     EmployeeContact,
+    EmployeeFieldObservation,
     EmployeeIdentifier,
+    FieldOutcome,
     KnownDocumentType,
+    ProfileField,
+    UploadFile,
 )
 from app.db.session import get_session
 from app.matching.match import normalize_document_number
@@ -285,6 +295,16 @@ CONTACT_LABELS = {
     ContactKind.EMAIL.value: "E-posta",
     ContactKind.ADDRESS.value: "Adres",
 }
+# Kartın alan etiketleri (05.7.3 uyarısı "<alan>: belgede farklı değer okundu").
+FIELD_LABELS = {
+    ProfileField.GIVEN_NAMES: "Ad",
+    ProfileField.SURNAME: "Soyad",
+    ProfileField.OTHER_NAMES: "Diğer isimler",
+    ProfileField.ORIGINAL_SCRIPT_NAME: "Orijinal yazım",
+    ProfileField.NATIONALITY: "Vatandaşlık",
+    ProfileField.DATE_OF_BIRTH: "Doğum tarihi",
+}
+FIELD_CONFLICT_WARNING = "{label}: belgede farklı değer okundu"
 # Tarayıcının kendi görüntüleyicisiyle açabildiği çıktı biçimleri; başka biçim (Word/Excel, K2)
 # olduğu gibi indirilir. Ortam türü dosya içeriğinden değil, bu tablodan gelir.
 MEDIA_TYPES = {
@@ -324,6 +344,23 @@ class DocumentRow:
 
 
 @dataclass(frozen=True, slots=True)
+class SourceLink:
+    label: str
+    url: str
+    new_tab: bool = False
+
+
+@dataclass(frozen=True, slots=True)
+class FieldSources:
+    """Bir profil alanının belge kaynakları (05.7.3): `source` alanı dolduran ya da aynı değeri
+    okuyan belge, `conflicts` farklı değer okuyan belgeler; `warning` çakışma uyarısının metni."""
+
+    source: SourceLink | None
+    conflicts: list[SourceLink]
+    warning: str
+
+
+@dataclass(frozen=True, slots=True)
 class ProfileView:
     id: str
     name: str
@@ -341,6 +378,7 @@ class ProfileView:
     photo_missing: bool
     documents: list[DocumentRow]
     latin_missing: bool = False
+    field_sources: dict[str, FieldSources] = field(default_factory=dict)
 
 
 @dataclass(frozen=True, slots=True)
@@ -435,6 +473,9 @@ def build_profile(
         for document, type_name in documents
     ]
 
+    field_sources = _field_sources(
+        session, employee_id, [document for document, _ in documents], rows
+    )
     photo = _active_photo_document(session, employee_id)
     photo_stored = _stored_document(layout, photo) if photo is not None else None
     photo_shown = photo_stored is not None and photo_stored.format in IMAGE_FORMATS
@@ -468,7 +509,91 @@ def build_profile(
         photo_missing=photo is None,
         documents=rows,
         latin_missing=needs_latin_repair(employee),
+        field_sources=field_sources,
     )
+
+
+def _field_sources(
+    session: Session,
+    employee_id: str,
+    documents: list[Document],
+    rows: list[DocumentRow],
+) -> dict[str, FieldSources]:
+    """05.7.3 — alan başına kaynak ve çakışma bağlantıları (gözlem sırasıyla); gözlemi olmayan
+    alan sözlükte yoktur. Değer gösterilmez: kart alanın kendi değerini zaten gösterir."""
+    observations = session.execute(
+        select(EmployeeFieldObservation, UploadFile.upload_id)
+        .join(UploadFile, UploadFile.id == EmployeeFieldObservation.file_id)
+        .where(EmployeeFieldObservation.employee_id == employee_id)
+        .order_by(EmployeeFieldObservation.observed_at, EmployeeFieldObservation.id)
+    ).all()
+    if not observations:
+        return {}
+    by_source = _documents_by_source(documents)
+    available = {row.id: row.available for row in rows}
+
+    def link(observation: EmployeeFieldObservation, upload_id: str) -> SourceLink:
+        document = by_source.get((observation.file_id, observation.page_index))
+        if document is None:
+            return SourceLink(label=f"Parti {upload_id}", url=f"/uploads/{upload_id}")
+        name = PurePosixPath(document.path).name
+        if available.get(document.id, False):
+            url = f"/employees/{employee_id}/documents/{document.id}/file"
+            return SourceLink(label=name, url=url, new_tab=True)
+        return SourceLink(label=name, url=f"/documents/{document.id}/history")
+
+    sources: dict[str, FieldSources] = {}
+    for profile_field, label in FIELD_LABELS.items():
+        seen = [
+            (observation, upload_id)
+            for observation, upload_id in observations
+            if observation.field == profile_field.value
+        ]
+        if not seen:
+            continue
+        by_outcome = {
+            outcome: [(obs, upload) for obs, upload in seen if obs.outcome == outcome.value]
+            for outcome in FieldOutcome
+        }
+        # Kaynak: alanı dolduran belge; yoksa (alan belgeden önce doluydu) aynı değeri okuyan ilk.
+        origin = [*by_outcome[FieldOutcome.FILLED], *by_outcome[FieldOutcome.SAME]]
+        conflicts = list(
+            dict.fromkeys(link(obs, upload) for obs, upload in by_outcome[FieldOutcome.CONFLICT])
+        )
+        sources[profile_field.value] = FieldSources(
+            source=link(*origin[0]) if origin else None,
+            conflicts=conflicts,
+            warning=FIELD_CONFLICT_WARNING.format(label=label),
+        )
+    return sources
+
+
+def _documents_by_source(documents: list[Document]) -> dict[tuple[int, int], Document]:
+    # Belge, kökeninin ilk sayfasıyla (gözlemin kaynağı, 05.7.3). Aynı kaynaktan birden çok çıktı
+    # varsa (yeniden analiz, K18) etkin olan, sonra en yeni.
+    chosen: dict[tuple[int, int], Document] = {}
+    ranked = sorted(
+        documents,
+        key=lambda each: (each.status == DocumentStatus.ACTIVE.value, each.created_at, each.id),
+    )
+    for document in ranked:
+        source = _first_source_page(document.source_refs_json)
+        if source is not None:
+            chosen[source] = document
+    return chosen
+
+
+def _first_source_page(source_refs: Any) -> tuple[int, int] | None:
+    # `documents.source_refs_json`: `[{"file_id": 4, "pages": [0, 1]}]`; bozuk kayıt atlanır.
+    if not isinstance(source_refs, list) or not source_refs:
+        return None
+    first = source_refs[0]
+    if not isinstance(first, dict):
+        return None
+    file_id, pages = first.get("file_id"), first.get("pages")
+    if not isinstance(file_id, int) or not isinstance(pages, list) or not pages:
+        return None
+    return (file_id, pages[0]) if isinstance(pages[0], int) else None
 
 
 @router.get("/employees/{employee_id}", response_class=HTMLResponse)

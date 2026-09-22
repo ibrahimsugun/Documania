@@ -1503,13 +1503,13 @@
         "description": "PRD 05.7.3 · FR-MOD-05 · Faz 0 · Must (MVP). İnsan kararı (2026-09-21): yüklenen belgelerdeki bilgilerle profilin ilgili alanları doldurulsun.",
         "details": "KAPSAM: PRD 05.7.3, §8.3 (EMPLOYEE_FIELD_FILLED). Tam sözleşme PLAN.md §C82 — önce onu oku; Latin kuralı §C81 (tm 106).\n\nNE YAPILACAK: (1) §20.2.2 satır 1/3 eşleşmesinde ve yeni açılışta boş alanları doldur: given_names, surname, other_names (Latin), original_script_name, date_of_birth, nationality; yalnız okunaklı değer, MRZ önce. (2) Dolu alan asla değişmez; normalizasyonla farklı değer profil kartında uyarı + belge bağlantısı. (3) employee_field_observations tablosu (çalışan, alan, belge/sayfa, filled/same/conflict, zaman — değer yok) + göç; profil kartında alan başına kaynak bağlantısı. (4) EMPLOYEE_FIELD_FILLED olayı (alan adları, kaynak; değer yok). (5) Geçmiş veri için tekrar çalıştırılabilir yönetici komutu (en eski belge önce).\n\nKAPSAM SINIRI: 10.5.5 'different' dediği belgede çalışmaz; belge numarası/iletişim birikimi mevcut yolda kalır; profil alanı elle düzenleme ekranı yok.",
         "testStrategy": "1) Birim: boş alan dolar; dolu alan aynı değerde same, farklıda conflict ve değişmez; aksan/çeviri/sıra farkı conflict sayılmaz; okunaksız değer yazılmaz; MRZ görünen metinden önce. 2) Olay değer taşımaz; observation tablosunda değer yok. 3) Profil kartı kaynak bağlantısı ve çakışma uyarısı. 4) Yönetici komutu idempotent. 5) Tüm test takımı, ruff, mypy yeşil (CONVENTIONS DoD). Testler yalnız sentetik belge ve sentetik adlarla (CONVENTIONS §6).",
-        "status": "pending",
+        "status": "done",
         "dependencies": [
           "106"
         ],
         "priority": "high",
         "subtasks": [],
-        "updatedAt": "2026-09-21T18:45:04.000Z"
+        "updatedAt": "2026-09-22T00:47:29.085Z"
       },
       {
         "id": "108",
@@ -1528,9 +1528,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-09-21T22:23:44.418Z",
+      "lastModified": "2026-09-22T00:47:29.086Z",
       "taskCount": 106,
-      "completedCount": 100,
+      "completedCount": 101,
       "tags": [
         "master"
       ]

@@ -1,5 +1,5 @@
 """10.5.1-10.5.4 — çalışan profili: CV benzeri kart, profil fotoğrafı yokluğu, belge listesi ve
-açma/indirme, bağlam çalışanıyla yükleme.
+açma/indirme, bağlam çalışanıyla yükleme; 05.7.3 — alanın kaynağı ve belgede okunan farklı değer.
 
 Veri sentetiktir: çalışanlar, belgeler ve dosyalar testte üretilir (`tests/fixtures/gen.py`
 yardımcılarıyla); gerçek kimlik belgesi ya da yapay zekâ çağrısı yoktur. Sınamalar HTTP
@@ -25,9 +25,12 @@ from app.db.models import (
     DocumentStatus,
     Employee,
     EmployeeContact,
+    EmployeeFieldObservation,
     EmployeeIdentifier,
+    FieldOutcome,
     KnownDocumentType,
     Upload,
+    UploadFile,
 )
 from app.profiles.render import calculate_age
 from app.storage import DataLayout
@@ -322,6 +325,254 @@ def test_card_flags_a_latin_field_that_still_carries_another_script(
     page = client.get("/employees/E0001").text
 
     assert '<span class="badge badge-missing">Latin yazım eksik</span>' in page
+
+
+# --- 05.7.3: alanın kaynağı ve farklı değer uyarısı ----------------------------------------------
+
+
+def _source(session: Session, upload_id: str = "u_20260915_0001") -> UploadFile:
+    upload = session.get(Upload, upload_id) or Upload(id=upload_id, channel="web")
+    upload_file = UploadFile(
+        upload=upload,
+        original_name="tarama.pdf",
+        stored_path=f"Inbox/{upload_id}/tarama.pdf",
+        sha256="0" * 64,
+        mime="application/pdf",
+    )
+    session.add(upload_file)
+    session.flush()
+    return upload_file
+
+
+def _sourced_document(
+    session: Session,
+    layout: DataLayout,
+    employee: Employee,
+    source: UploadFile,
+    file_name: str,
+    *,
+    content: bytes | None = b"%PDF-1.4 sentetik",
+    status: str = ACTIVE,
+    created_at: datetime | None = None,
+) -> Document:
+    document = _document(
+        session,
+        layout,
+        employee,
+        PASSPORT,
+        file_name,
+        content,
+        status=status,
+        created_at=created_at,
+    )
+    document.source_refs_json = [{"file_id": source.id, "pages": [0, 1]}]
+    session.flush()
+    return document
+
+
+def _observe(
+    session: Session, field: str, outcome: FieldOutcome, source: UploadFile, page: int = 0
+) -> None:
+    session.add(
+        EmployeeFieldObservation(
+            employee_id="E0001",
+            field=field,
+            outcome=outcome.value,
+            file_id=source.id,
+            page_index=page,
+        )
+    )
+    session.flush()
+
+
+def _field_html(page: str, label: str) -> str:
+    card = page.split('<dl class="profile-fields">', 1)[1].split("</dl>", 1)[0]
+    match = re.search(rf"<dt>{label}</dt>\s*<dd>(.*?)</dd>", card, re.S)
+    assert match is not None
+    return match.group(1)
+
+
+def test_each_field_links_to_the_document_it_was_filled_from(
+    client: TestClient,
+    session_factory: sessionmaker[Session],
+    layout: DataLayout,
+    seeded: None,
+) -> None:
+    with session_factory() as session:
+        employee = _employee(session, nationality="RUS", date_of_birth=date(1990, 1, 1))
+        first, second = _source(session), _source(session)
+        filled_from = _sourced_document(session, layout, employee, first, "Pasaport.pdf")
+        confirmed_by = _sourced_document(session, layout, employee, second, "Kart.pdf")
+        # Doğum tarihi ilk belgeden doldu; ikinci belge aynısını okudu. Uyruğu dolduran yok:
+        # aynı değeri okuyan ilk belge kaynaktır.
+        _observe(session, "date_of_birth", FieldOutcome.FILLED, first)
+        _observe(session, "date_of_birth", FieldOutcome.SAME, second)
+        _observe(session, "nationality", FieldOutcome.SAME, second)
+        session.commit()
+        ids = (filled_from.id, confirmed_by.id)
+
+    page = client.get("/employees/E0001").text
+
+    link = '<a href="/employees/E0001/documents/{}/file" target="_blank" rel="noopener">{}</a>'
+    assert "Kaynak: " + link.format(ids[0], "Pasaport.pdf") in _field_html(page, "Doğum tarihi")
+    assert "Kaynak: " + link.format(ids[1], "Kart.pdf") in _field_html(page, "Vatandaşlık")
+    fields = _fields(page)
+    assert fields["Doğum tarihi"] == "01.01.1990 Kaynak: Pasaport.pdf"
+    assert fields["Vatandaşlık"] == "RUS Kaynak: Kart.pdf"
+    # Gözlemi olmayan alanın kaynağı yoktur; uyarı da yoktur.
+    assert (fields["Ad"], fields["Soyad"]) == ("Dmitry", "Vasiliev")
+    assert "belgede farklı değer okundu" not in page
+
+
+def test_a_different_value_read_in_a_document_is_warned_and_the_field_stays(
+    client: TestClient,
+    session_factory: sessionmaker[Session],
+    layout: DataLayout,
+    seeded: None,
+) -> None:
+    with session_factory() as session:
+        employee = _employee(session, date_of_birth=date(1990, 1, 1))
+        first, second, third = _source(session), _source(session), _source(session)
+        _sourced_document(session, layout, employee, first, "Pasaport.pdf")
+        second_document = _sourced_document(session, layout, employee, second, "Kart.pdf")
+        third_document = _sourced_document(session, layout, employee, third, "Izin.pdf")
+        _observe(session, "date_of_birth", FieldOutcome.FILLED, first)
+        _observe(session, "date_of_birth", FieldOutcome.CONFLICT, second)
+        _observe(session, "date_of_birth", FieldOutcome.CONFLICT, third)
+        _observe(session, "surname", FieldOutcome.CONFLICT, third)
+        session.commit()
+        ids = (second_document.id, third_document.id)
+
+    page = client.get("/employees/E0001").text
+
+    birth = _field_html(page, "Doğum tarihi")
+    assert birth.startswith("01.01.1990")
+    assert '<span class="badge badge-missing">Farklı değer</span>' in birth
+    assert "Doğum tarihi: belgede farklı değer okundu: " in birth
+    for document_id in ids:
+        assert f'href="/employees/E0001/documents/{document_id}/file"' in birth
+    surname = _field_html(page, "Soyad")
+    assert surname.startswith("Vasiliev")
+    assert "Soyad: belgede farklı değer okundu: " in surname
+    assert "Kaynak:" not in surname  # soyadı belgeden dolmadı, aynısını okuyan da yok
+    assert _fields(page)["Soyad"] == (
+        "Vasiliev Farklı değer Soyad: belgede farklı değer okundu: Izin.pdf"
+    )
+
+
+def test_the_source_prefers_the_active_output_and_falls_back_to_history_or_the_upload(
+    client: TestClient,
+    session_factory: sessionmaker[Session],
+    layout: DataLayout,
+    seeded: None,
+) -> None:
+    # Aynı kaynaktan yeniden analizle iki çıktı (K18): etkin olan. Dosyası kaybolmuş çıktı: geçmişi.
+    # Çıktısı bu çalışanda olmayan kaynak (henüz yürütülmedi, başka çalışana taşındı): parti.
+    with session_factory() as session:
+        employee = _employee(session, nationality="RUS", date_of_birth=date(1990, 1, 1))
+        reanalyzed, lost = _source(session), _source(session)
+        pending = _source(session, "u_20260916_0002")
+        _sourced_document(
+            session,
+            layout,
+            employee,
+            reanalyzed,
+            "Eski.pdf",
+            status=SUPERSEDED,
+            created_at=datetime(2026, 9, 15, tzinfo=UTC),
+        )
+        current = _sourced_document(
+            session,
+            layout,
+            employee,
+            reanalyzed,
+            "Yeni.pdf",
+            created_at=datetime(2026, 9, 16, tzinfo=UTC),
+        )
+        # Daha yeni ama etkin olmayan çıktı (arşivlenmiş) etkin olanın önüne geçmez.
+        _sourced_document(
+            session,
+            layout,
+            employee,
+            reanalyzed,
+            "Arsiv.pdf",
+            status=ARCHIVED,
+            created_at=datetime(2026, 9, 17, tzinfo=UTC),
+        )
+        gone = _sourced_document(session, layout, employee, lost, "Kayip.pdf", content=None)
+        _observe(session, "date_of_birth", FieldOutcome.FILLED, reanalyzed)
+        _observe(session, "nationality", FieldOutcome.FILLED, lost)
+        _observe(session, "other_names", FieldOutcome.CONFLICT, pending)
+        # Kökenin ilk sayfası değil: bu gözlemin çıktısı bulunmaz, parti sayfasına gider.
+        _observe(session, "original_script_name", FieldOutcome.CONFLICT, reanalyzed, page=1)
+        session.commit()
+        current_id, gone_id = current.id, gone.id
+
+    page = client.get("/employees/E0001").text
+
+    birth = _field_html(page, "Doğum tarihi")
+    assert f'href="/employees/E0001/documents/{current_id}/file"' in birth
+    assert "Eski.pdf" not in birth and "Arsiv.pdf" not in birth
+    nationality = _field_html(page, "Vatandaşlık")
+    assert f'Kaynak: <a href="/documents/{gone_id}/history">Kayip.pdf</a>' in nationality
+    other_names = _field_html(page, "Diğer isimler")
+    assert '<a href="/uploads/u_20260916_0002">Parti u_20260916_0002</a>' in other_names
+    original = _field_html(page, "Orijinal yazım")
+    assert '<a href="/uploads/u_20260915_0001">Parti u_20260915_0001</a>' in original
+
+
+@pytest.mark.parametrize(
+    "source_refs",
+    [
+        {"file_id": 1, "pages": [0]},
+        [],
+        ["x"],
+        [{"pages": [0]}],
+        [{"file_id": 1, "pages": []}],
+        [{"file_id": 1, "pages": ["0"]}],
+    ],
+    ids=["not-a-list", "empty", "not-a-mapping", "no-file", "no-pages", "page-not-a-number"],
+)
+def test_an_output_with_a_corrupt_origin_is_not_taken_as_the_source(
+    layout: DataLayout, session_factory: sessionmaker[Session], source_refs: object
+) -> None:
+    with session_factory() as session:
+        _catalog(session)
+        employee = _employee(session, date_of_birth=date(1990, 1, 1))
+        source = _source(session)
+        document = _sourced_document(session, layout, employee, source, "Pasaport.pdf")
+        document.source_refs_json = source_refs
+        _observe(session, "date_of_birth", FieldOutcome.FILLED, source)
+        session.commit()
+
+        profile = build_profile(session, layout, "E0001")
+
+    assert profile is not None
+    link = profile.field_sources["date_of_birth"].source
+    assert link is not None
+    assert (link.label, link.url) == ("Parti u_20260915_0001", "/uploads/u_20260915_0001")
+
+
+def test_field_sources_carry_no_value_of_their_own(
+    layout: DataLayout, session_factory: sessionmaker[Session]
+) -> None:
+    # Kart alanın değerini zaten gösterir; kaynak ve uyarı yalnız belge adı ve bağlantıdır.
+    with session_factory() as session:
+        _catalog(session)
+        employee = _employee(session, date_of_birth=date(1990, 1, 1))
+        source = _source(session)
+        _sourced_document(session, layout, employee, source, "Pasaport.pdf")
+        _observe(session, "date_of_birth", FieldOutcome.CONFLICT, source)
+        session.commit()
+
+        profile = build_profile(session, layout, "E0001")
+
+    assert profile is not None
+    assert set(profile.field_sources) == {"date_of_birth"}
+    sources = profile.field_sources["date_of_birth"]
+    assert sources.source is None
+    assert [link.label for link in sources.conflicts] == ["Pasaport.pdf"]
+    assert sources.warning == "Doğum tarihi: belgede farklı değer okundu"
 
 
 def test_unknown_employee_is_a_404_page_with_a_way_back(client: TestClient) -> None:

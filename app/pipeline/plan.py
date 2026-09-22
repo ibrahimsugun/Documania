@@ -103,10 +103,11 @@ atılmaz (§8.3'te tür yok): hüküm planın gerekçesinde ve kuyruk olayında 
 **Çalışan.** Her analizli adayın kişi anahtarı (05.4) kayıtlı çalışanlarla eşleştirilir (05.5).
 Kararın yan etkileri yalnız belge düzeyinde kabul edilen adayda (1–4'te hükmü olmayan) yürür:
 satır 1/3 eşleşmesinde yeni isim yazımı, temiz numara ve iletişim bilgisi çalışana eklenir (05.7.2,
-05.8); eşleşme yoksa satır 6'da çalışan açılır (05.6), satır 7'de profil onaya önerilir (05.7.1),
+05.8) ve boş profil alanları belgeden dolar (05.7.3); eşleşme yoksa satır 6'da çalışan açılır
+(05.6; alanlarının kaynağı belgeye bağlanır, 05.7.3), satır 7'de profil onaya önerilir (05.7.1),
 satır 8 ve tablo dışı eksik kişi Unresolved'a gider. Kuyruğa giden adaydan çalışan açılmaz, profil
-önerilmez, kimlik ya da iletişim bilgisi birikmez — yapısı veya okunaklılığı kabul edilmemiş
-belgenin okumasına güvenilmez. Eşleştirme hükmü o adayda yalnız kişi tahmini olarak kalır
+önerilmez, kimlik, profil alanı ya da iletişim bilgisi birikmez — yapısı veya okunaklılığı kabul
+edilmemiş belgenin okumasına güvenilmez. Eşleştirme hükmü o adayda yalnız kişi tahmini olarak kalır
 (08.1.2): satır 1/3'te `match` ve çalışan, öteki hükümlerde `none`; eşleştirme hükmü de kuyruğa
 gönderiyorsa (satır 2, 4, 5, çelişkili anahtar) gerekçesi eklenir.
 
@@ -195,6 +196,7 @@ from app.catalog.schema import Slug, Text
 from app.db.models import Employee, Plan, QueueKind, Upload, UploadFile
 from app.events import EventType, event_context, record_event
 from app.matching.contacts import accumulate_contacts
+from app.matching.fields import complete_profile_fields
 from app.matching.match import (
     EmployeeAction,
     EmployeeMatch,
@@ -1154,8 +1156,16 @@ class _Planner:
     ) -> tuple[PlanEmployee, _Verdict | None]:
         session = self._session
         if match.employee_id is not None:
-            # §20.2.2 satır 1/3: yeni yazım, temiz numara ve iletişim bilgisi birikir.
+            # §20.2.2 satır 1/3: yeni yazım, temiz numara, boş profil alanı ve iletişim bilgisi
+            # birikir.
             accumulate_identity(session, key, entry=entry)
+            complete_profile_fields(
+                session,
+                key,
+                employee_id=match.employee_id,
+                file_id=first.file_id,
+                page_index=first.index,
+            )
             accumulate_contacts(session, match.employee_id, analyses)
             employee = PlanEmployee(
                 action=EmployeeAction.MATCH,
@@ -1175,6 +1185,14 @@ class _Planner:
                 entry=entry,
                 file_id=first.file_id,
                 page_index=first.index,
+            )
+            complete_profile_fields(
+                session,
+                key,
+                employee_id=created.id,
+                file_id=first.file_id,
+                page_index=first.index,
+                created=True,
             )
             accumulate_contacts(session, created.id, analyses)
             employee = PlanEmployee(
