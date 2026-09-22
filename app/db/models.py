@@ -1,6 +1,7 @@
 """Veri modeli — PRD §8.1 tabloları (00.3.1), çalışan numarası üretici (00.3.3), aday tür
 kaydı (04.6.1) ve kararı (11.5), panel oturumu (10.1.2), iki aşamalı onayın belirteci (10.8.1),
-kalıcı işçi kuyruğu (13.3.1) ve profil alanlarının belge gözlemleri (05.7.3).
+kalıcı işçi kuyruğu (13.3.1), profil alanlarının belge gözlemleri (05.7.3) ve partinin yoksayılması
+(10.3.4).
 
 Silme yoktur, arşiv vardır (K16): ilişkilerde silme kaskadı tanımlanmaz.
 Dosya yolu burada üretilmez (yol kuralı: `app/storage/`); yol sütunları yalnız saklar.
@@ -113,6 +114,14 @@ class QueueKind(enum.StrEnum):
     UNKNOWN = "unknown"
     UNREADABLE = "unreadable"
     UNRESOLVED = "unresolved"
+
+
+class QueueResolution(enum.StrEnum):
+    """Kuyruk öğesinin çözüm nedeni (`queue_items.resolution`). Atama (08.2.1) ve profil onayı
+    (08.3.1) nedeni yazmaz — kendi olayları (`MANUAL_ASSIGN`, `MANUAL_APPROVE`) ve çıktıları
+    anlatır; yalnız partisi yoksayılınca (10.3.4) kapanan öğe `dismissed` taşır."""
+
+    DISMISSED = "dismissed"
 
 
 class DocumentStatus(enum.StrEnum):
@@ -282,6 +291,10 @@ class Upload(Base):
     context_employee_id: Mapped[str | None] = mapped_column(ForeignKey("employees.id"))
     status: Mapped[str] = mapped_column(String(16), default=UploadStatus.RECEIVED.value)
     created_at: Mapped[datetime] = mapped_column(UtcDateTime, default=utcnow)
+    # 10.3.4: taramayı yoksayma anı ve kullanıcısı. Durum makinesinin (09.2.1) parçası değildir:
+    # yoksayılan parti listelerden ve kuyruklardan kalkar, dosyası/olayı/çıktısı yerinde durur.
+    dismissed_at: Mapped[datetime | None] = mapped_column(UtcDateTime)
+    dismissed_by: Mapped[str | None] = mapped_column(String(255))
 
     context_employee: Mapped[Employee | None] = relationship()
     files: Mapped[list[UploadFile]] = relationship(
@@ -375,7 +388,10 @@ class Document(Base):
 
 class QueueItem(Base):
     __tablename__ = "queue_items"
-    __table_args__ = (CheckConstraint(_one_of("kind", QueueKind), name="kind"),)
+    __table_args__ = (
+        CheckConstraint(_one_of("kind", QueueKind), name="kind"),
+        CheckConstraint(_one_of("resolution", QueueResolution), name="resolution"),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     upload_id: Mapped[str] = mapped_column(ForeignKey("uploads.id"), index=True)
@@ -389,6 +405,7 @@ class QueueItem(Base):
     payload_json: Mapped[dict[str, Any] | None] = mapped_column(JSON)
     resolved_at: Mapped[datetime | None] = mapped_column(UtcDateTime)
     resolved_by: Mapped[str | None] = mapped_column(String(255))
+    resolution: Mapped[str | None] = mapped_column(String(16))  # `QueueResolution`
 
     upload: Mapped[Upload] = relationship(back_populates="queue_items")
     plan: Mapped[Plan | None] = relationship()

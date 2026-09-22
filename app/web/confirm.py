@@ -1,9 +1,9 @@
 """İki aşamalı onay mekanizması (PRD 10.8.1; K16, §20.6, §20.6.1).
 
 K16'nın manuel işlemleri — belgeyi başka çalışana taşı, kuyruk öğesini ata, onay bekleyen profili
-onayla, yeni türü onayla, arşive taşı — iki onay ister. Onay metinleri §20.6 tablosundan
-**birebir** buradadır (`CONFIRMATION_TEXTS`); `<Ad Soyad>` ve `<Tür adı>` yer tutucuları çalışma
-zamanında `fill` ile doldurulur, pencere kendi cümlesini yazmaz.
+onayla, yeni türü onayla, arşive taşı, taramayı yoksay — iki onay ister. Onay metinleri §20.6
+tablosundan **birebir** buradadır (`CONFIRMATION_TEXTS`); `<Ad Soyad>`, `<Tür adı>`, `<N>` ve
+`<M>` yer tutucuları çalışma zamanında `fill` ile doldurulur, pencere kendi cümlesini yazmaz.
 
 Metni göstermek tek başına yetmez — istemci atlanabilir. Sunucu tarafı akış (§20.6.1):
 
@@ -58,6 +58,7 @@ class Operation(enum.StrEnum):
     APPROVE_PROFILE = "approve_profile"
     APPROVE_TYPE = "approve_type"
     ARCHIVE = "archive"
+    DISMISS = "dismiss"  # taramayı (partiyi) yoksay, 10.3.4
     # §20.6'nın dışında: yeniden analizin onayı (10.3.2, metinler PLAN.md §D23).
     REANALYZE = "reanalyze"
 
@@ -70,6 +71,8 @@ class ConfirmationTexts:
 
 NAME_PLACEHOLDER = "<Ad Soyad>"
 TYPE_PLACEHOLDER = "<Tür adı>"
+QUEUE_COUNT_PLACEHOLDER = "<N>"
+DOCUMENT_COUNT_PLACEHOLDER = "<M>"
 
 # §20.6 — metinler BİREBİR, değiştirilmez; `tests/web/test_confirm.py` PRD tablosuyla karşılaştırır.
 CONFIRMATION_TEXTS: dict[Operation, ConfirmationTexts] = {
@@ -93,13 +96,30 @@ CONFIRMATION_TEXTS: dict[Operation, ConfirmationTexts] = {
         "Bu belgeyi arşive taşımak üzeresiniz. Emin misiniz?",
         "Belge çalışanın Hazır klasöründen çıkacaktır. Son kararınız mı?",
     ),
+    Operation.DISMISS: ConfirmationTexts(
+        "Bu taramayı yoksaymak üzeresiniz. Emin misiniz?",
+        "Parti ve bekleyen <N> kuyruk öğesi listelerden kalkacaktır; üretilmiş <M> belge yerinde "
+        "kalır. Son kararınız mı?",
+    ),
 }
 
 
-def fill(text: str, *, name: str | None = None, type_name: str | None = None) -> str:
+def fill(
+    text: str,
+    *,
+    name: str | None = None,
+    type_name: str | None = None,
+    queue_items: int | None = None,
+    documents: int | None = None,
+) -> str:
     """Onay metninin yer tutucularını doldurur; metinde olup değeri verilmeyen yer tutucu
     `ValueError`'dır (yer tutuculu metin kullanıcıya gitmesin)."""
-    for placeholder, value in ((NAME_PLACEHOLDER, name), (TYPE_PLACEHOLDER, type_name)):
+    for placeholder, value in (
+        (NAME_PLACEHOLDER, name),
+        (TYPE_PLACEHOLDER, type_name),
+        (QUEUE_COUNT_PLACEHOLDER, None if queue_items is None else str(queue_items)),
+        (DOCUMENT_COUNT_PLACEHOLDER, None if documents is None else str(documents)),
+    ):
         if placeholder in text:
             if value is None:
                 raise ValueError(f"Onay metninin {placeholder} yer tutucusu doldurulmadı")
@@ -107,11 +127,11 @@ def fill(text: str, *, name: str | None = None, type_name: str | None = None) ->
     return text
 
 
-def first_text(operation: Operation, **values: str) -> str:
+def first_text(operation: Operation, **values: Any) -> str:
     return fill(CONFIRMATION_TEXTS[operation].first, **values)
 
 
-def second_text(operation: Operation, **values: str) -> str:
+def second_text(operation: Operation, **values: Any) -> str:
     return fill(CONFIRMATION_TEXTS[operation].second, **values)
 
 

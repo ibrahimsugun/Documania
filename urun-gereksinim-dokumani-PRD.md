@@ -937,9 +937,9 @@ Yazma tamamlandıktan sonra `documents` kaydına kaynak dosya kimliği ve sayfa 
 
 ---
 
-### 20.6 İki aşamalı onay metinleri (gereksinim 10.8.1, 10.8.2, 10.7.2, 10.7.3, 08.4.1, 11.5.2)
+### 20.6 İki aşamalı onay metinleri (gereksinim 10.8.1, 10.8.2, 10.7.2, 10.7.3, 08.4.1, 11.5.2, 10.3.4)
 
-K16'daki beş manuel işlemin hepsi iki aşamalı onay ister. Metinler **birebir** aşağıdaki
+K16'daki altı manuel işlemin hepsi iki aşamalı onay ister. Metinler **birebir** aşağıdaki
 gibidir; pencere kendi cümlesini yazmaz. `<…>` yer tutucuları çalışma zamanında doldurulur.
 
 | İşlem | Birinci onay | İkinci onay |
@@ -949,9 +949,10 @@ gibidir; pencere kendi cümlesini yazmaz. `<…>` yer tutucuları çalışma zam
 | Onay bekleyen profili onayla | `<Ad Soyad> için yeni bir çalışan profili oluşturmak üzeresiniz. Emin misiniz?` | `Bu işlem sistemde kalıcı bir çalışan kaydı oluşturacaktır. Son kararınız mı?` |
 | Yeni belge türünü onayla | `<Tür adı> belge türünü standart türler arasına eklemek üzeresiniz. Emin misiniz?` | `Bu işlem bundan sonraki tüm belge analizlerini etkileyecektir. Son kararınız mı?` |
 | Belgeyi arşive taşı | `Bu belgeyi arşive taşımak üzeresiniz. Emin misiniz?` | `Belge çalışanın Hazır klasöründen çıkacaktır. Son kararınız mı?` |
+| Taramayı yoksay | `Bu taramayı yoksaymak üzeresiniz. Emin misiniz?` | `Parti ve bekleyen <N> kuyruk öğesi listelerden kalkacaktır; üretilmiş <M> belge yerinde kalır. Son kararınız mı?` |
 
 İlk iki satırdaki metinler ürün tanımında birebir bu şekilde yazılmıştır; **değiştirilmez**.
-Kalan üçü aynı kalıptan türetilmiştir: birinci cümle *ne yapılacağını*, ikinci cümle
+Kalan dördü aynı kalıptan türetilmiştir: birinci cümle *ne yapılacağını*, ikinci cümle
 *geri dönüşü olmayan sonucu* söyler.
 
 #### 20.6.1 Sunucu tarafı mekanizma
@@ -968,7 +969,7 @@ Onay metinlerini göstermek tek başına yeterli değildir — istemci atlanabil
 
 Onay tamamlandığında `USER_CONFIRMED` olayı yazılır: kullanıcı adı, işlem türü, hedef kayıt,
 birinci ve ikinci onayın zaman damgaları. Ardından işlemin kendi olayı (`MANUAL_MOVE`,
-`MANUAL_ASSIGN`, `MANUAL_APPROVE`, `TYPE_APPROVED`, `ARCHIVED`) düşülür.
+`MANUAL_ASSIGN`, `MANUAL_APPROVE`, `TYPE_APPROVED`, `ARCHIVED`, `UPLOAD_DISMISSED`) düşülür.
 
 #### 20.6.2 Testte doğrulanacak davranış
 

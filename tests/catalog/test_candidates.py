@@ -41,6 +41,7 @@ from app.db.models import (
     Upload,
     UploadFile,
     record_candidate_type_sighting,
+    utcnow,
 )
 from app.events import EventType
 
@@ -393,3 +394,64 @@ def test_the_approved_slug_is_read_from_the_candidates_own_approval(session: Ses
     assert approved_type_slug(session, diploma) == "peruvian_diploma"
     assert approved_type_slug(session, permit) == "chilean_permit"
     assert approved_type_slug(session, 404) is None
+
+
+# --- 10.3.4: yoksayılan partideki görülmeler sayılmaz --------------------------------------------
+
+
+def _dismiss(session: Session, upload_id: str) -> None:
+    upload = session.get_one(Upload, upload_id)
+    upload.dismissed_at = utcnow()
+    upload.dismissed_by = ACTOR
+    session.flush()
+
+
+def test_sightings_in_a_dismissed_batch_leave_the_count_and_the_samples(
+    session: Session,
+) -> None:
+    first = _pages(session, FIRST_UPLOAD, "bir.pdf", 2)
+    second = _pages(session, SECOND_UPLOAD, "iki.pdf", 1)
+    diploma = _see(session, DIPLOMA, first[0])
+    _see(session, DIPLOMA, first[1])
+    _see(session, DIPLOMA, second[0], SECOND_UPLOAD)
+    permit = _see(session, "Chilean Permit", second[0], SECOND_UPLOAD)
+    _see(session, "Chilean Permit", first[1])
+    assert [(item.id, item.seen_count) for item in list_candidate_types(session)] == [
+        (diploma, 3),
+        (permit, 2),
+    ]
+
+    _dismiss(session, FIRST_UPLOAD)
+
+    listed = list_candidate_types(session)
+    assert [(item.id, item.seen_count, item.sample_total) for item in listed] == [
+        (diploma, 1, 1),
+        (permit, 1, 1),
+    ]
+    assert [sample.upload_id for item in listed for sample in item.samples] == [
+        SECOND_UPLOAD,
+        SECOND_UPLOAD,
+    ]
+    # Kayıt değişmez: yalnız gösterim süzülür.
+    stored = session.get_one(CandidateDocumentType, diploma)
+    assert stored.seen_count == 3 and len(stored.sample_page_ids) == 3
+    assert count_pending_candidate_types(session) == 2
+
+
+def test_a_candidate_seen_only_in_dismissed_batches_is_not_pending_in_the_list(
+    session: Session,
+) -> None:
+    (page,) = _pages(session, FIRST_UPLOAD, "bir.pdf", 1)
+    (other,) = _pages(session, SECOND_UPLOAD, "iki.pdf", 1)
+    gone = _see(session, DIPLOMA, page)
+    kept = _see(session, "Chilean Permit", other, SECOND_UPLOAD)
+
+    _dismiss(session, FIRST_UPLOAD)
+
+    assert [item.id for item in list_candidate_types(session)] == [kept]
+    assert count_pending_candidate_types(session) == 1
+    # Adresle açılan detay sıfır görülme gösterir; aday silinmez, kararı verilebilir.
+    (summary,) = candidates.summarize_candidates(
+        session, [session.get_one(CandidateDocumentType, gone)], sample_limit=3
+    )
+    assert (summary.seen_count, summary.sample_total, summary.samples) == (0, 0, ())

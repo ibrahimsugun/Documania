@@ -1,7 +1,8 @@
 {% extends "base.html" %}
 {# Yükleme detay sayfası (10.3.1): sayfa küçük resimleri, plan öğeleri, çıktılar ve olay zaman
-   çizelgesi tek sayfada. İşlemler (10.3.2) HTMX ile `#action-result`'a yazılır. Bağlam
-   çalışanına ait görünmeyen belgeler kişi denetiminin uyarısıyla en üstte (10.5.5). #}
+   çizelgesi tek sayfada. İşlemler (10.3.2, 10.3.4) HTMX ile `#action-result`'a yazılır. Bağlam
+   çalışanına ait görünmeyen belgeler kişi denetiminin uyarısıyla en üstte (10.5.5); yoksayılan
+   taramanın bildirimi başlığın hemen altında (10.3.4). #}
 {% from "_context_warning.html" import context_warning %}
 {% block title %}{% if detail %}Parti {{ detail.upload_id }}{% else %}Parti{% endif %}{% endblock %}
 {% block content %}
@@ -11,6 +12,7 @@
 <p class="error" role="alert">{{ error }}</p>
 {% else %}
 <h1>Parti {{ detail.upload_id }}</h1>
+{% if detail.dismissed_notice %}<p class="notice" id="dismissed-notice" role="status">{{ detail.dismissed_notice }}</p>{% endif %}
 <p class="status status-{{ detail.status }}" role="status">{{ detail.label }}</p>
 <dl class="meta">
   <dt>Kanal</dt><dd>{{ detail.channel }}</dd>
@@ -25,8 +27,10 @@
   <h2 id="actions-title">İşlemler</h2>
   {% if detail.blocked_reason %}
   <p class="notice">{{ detail.blocked_reason }}</p>
-  {% else %}
+  {% endif %}
+  {% if not detail.blocked_reason or detail.can_dismiss %}
   <div class="action-buttons">
+    {% if not detail.blocked_reason %}
     <button type="button" id="rerun-button"
             hx-post="/uploads/{{ detail.upload_id }}/rerun"
             hx-target="#action-result" hx-swap="innerHTML" hx-disabled-elt="this">Yeniden çalıştır</button>
@@ -37,8 +41,23 @@
               hx-post="/uploads/{{ detail.upload_id }}/reanalyze/prepare"
               hx-target="#action-result" hx-swap="innerHTML" hx-disabled-elt="this">Evet, devam et</button>
     </details>
+    {% endif %}
+    {% if detail.can_dismiss %}
+    <details class="reanalyze dismiss" id="dismiss-step">
+      <summary>Taramayı yoksay</summary>
+      <p class="confirm-text">{{ dismiss_first_confirmation }}</p>
+      <button type="button" id="dismiss-continue"
+              hx-post="/uploads/{{ detail.upload_id }}/dismiss/prepare"
+              hx-target="#action-result" hx-swap="innerHTML" hx-disabled-elt="this">Evet, devam et</button>
+    </details>
+    {% endif %}
   </div>
+  {% endif %}
+  {% if not detail.blocked_reason %}
   <p class="hint">Yeniden çalıştırma güncel planı yapay zekâya sormadan yeniden uygular. Yeniden analiz partiyi yeniden değerlendirir ve yeni bir plan sürümü açar; eski çıktılar silinmez.</p>
+  {% endif %}
+  {% if detail.can_dismiss %}
+  <p class="hint">Taramayı yoksaymak partiyi yükleme listesinden ve bekleyen öğelerini kuyruklardan kaldırır; dosyalar, olaylar ve üretilmiş belgeler silinmez.</p>
   {% endif %}
   <div id="action-result" class="action-result" aria-live="polite"></div>
 </section>

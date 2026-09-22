@@ -7,7 +7,10 @@ Analizcinin önerdiği katalog dışı türler `candidate_document_types`'ta bir
   (çoktan aza; eşitlikte önce görülen önce) adı, görülme sayısı ve örnek sayfalarıyla verir. Örnek
   sayfalar `sample_page_ids` sırasıyladır (her görülmenin ilk sayfası): partisi, dosyası ve 0
   tabanlı sırası; görüntüsü analiz kopyasıdır (`pages.image_path`), belgenin kendisi değil. Karar
-  verilmiş aday bekleyenler arasında listelenmez.
+  verilmiş aday bekleyenler arasında listelenmez. Yoksayılan partideki (10.3.4) görülmeler sayılmaz:
+  o partilerin örnek sayfaları görülme sayısından, örneklerden ve örnek toplamından düşer; bütün
+  görülmeleri yoksayılan partilerde olan aday bekleyenler listesinde ve sayısında yoktur. Kayıt
+  değişmez (`seen_count`, `sample_page_ids` olduğu gibi kalır), yalnız gösterim süzülür.
 - **Onay (11.5.2).** `approve_candidate_type` İK'nın tamamladığı katalog kaydını (`CatalogEntry`,
   tür formunun doğrulamasından — 11.1.2 — geçmiş) `create_type` ile kataloğa ekler, adayı `approved`
   işaretler ve `TYPE_APPROVED`'ı kullanıcı adıyla yazar. Tür bir sonraki analizden itibaren analiz
@@ -29,7 +32,7 @@ import re
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.catalog.form import TypeForm
@@ -40,6 +43,7 @@ from app.db.models import (
     CandidateTypeStatus,
     Event,
     Page,
+    Upload,
     UploadFile,
     decide_candidate_type,
 )
@@ -122,27 +126,52 @@ def _samples(session: Session, page_ids: Iterable[int]) -> dict[int, CandidateSa
     }
 
 
+def _dismissed_pages(session: Session, page_ids: Iterable[int]) -> frozenset[int]:
+    """`page_ids` içinden partisi yoksayılmış (10.3.4) sayfalar."""
+    ids = set(page_ids)
+    if not ids:
+        return frozenset()
+    return frozenset(
+        session.scalars(
+            select(Page.id)
+            .join(UploadFile, Page.file_id == UploadFile.id)
+            .join(Upload, UploadFile.upload_id == Upload.id)
+            .where(Page.id.in_(ids), Upload.dismissed_at.is_not(None))
+        )
+    )
+
+
 def summarize_candidates(
     session: Session, candidates: Sequence[CandidateDocumentType], *, sample_limit: int
 ) -> list[CandidateSummary]:
     """Adayların gösterimi; örnek sayfalar her aday için ilk `sample_limit` kayıttır. Silinmiş ya da
-    bulunamayan sayfa örneklerden düşer (kayıtlı sayı `sample_total`'da kalır)."""
-    shown = {
-        candidate.id: list(candidate.sample_page_ids)[:sample_limit] for candidate in candidates
+    bulunamayan sayfa örneklerden düşer (kayıtlı sayı `sample_total`'da kalır). Yoksayılan partinin
+    sayfası görülme sayısından, örneklerden ve `sample_total`'dan düşer (10.3.4)."""
+    dismissed = _dismissed_pages(
+        session, (page_id for candidate in candidates for page_id in candidate.sample_page_ids)
+    )
+    visible = {
+        candidate.id: [page_id for page_id in candidate.sample_page_ids if page_id not in dismissed]
+        for candidate in candidates
     }
+    shown = {candidate_id: ids[:sample_limit] for candidate_id, ids in visible.items()}
     samples = _samples(session, (page_id for ids in shown.values() for page_id in ids))
     return [
         CandidateSummary(
             id=candidate.id,
             name=candidate.proposed_name,
             description=candidate.description,
-            seen_count=candidate.seen_count,
+            seen_count=max(
+                0,
+                candidate.seen_count
+                - (len(candidate.sample_page_ids) - len(visible[candidate.id])),
+            ),
             status=candidate.status,
             first_seen_upload_id=candidate.first_seen_upload_id,
             samples=tuple(
                 samples[page_id] for page_id in shown[candidate.id] if page_id in samples
             ),
-            sample_total=len(candidate.sample_page_ids),
+            sample_total=len(visible[candidate.id]),
         )
         for candidate in candidates
     ]
@@ -155,24 +184,27 @@ def list_candidate_types(
     sample_limit: int = LIST_SAMPLE_LIMIT,
 ) -> list[CandidateSummary]:
     """11.5.1 — `status` durumundaki adaylar, görülme sayısına göre (çoktan aza, eşitlikte önce
-    görülen önce), örnek sayfalarıyla. Yalnız okur."""
+    görülen önce), örnek sayfalarıyla. Yoksayılan partilerdeki görülmeler sayılmaz; hiç görülmesi
+    kalmayan aday listelenmez (10.3.4). Yalnız okur."""
     candidates = session.scalars(
         select(CandidateDocumentType)
         .where(CandidateDocumentType.status == status.value)
-        .order_by(CandidateDocumentType.seen_count.desc(), CandidateDocumentType.id)
+        .order_by(CandidateDocumentType.id)
     ).all()
-    return summarize_candidates(session, candidates, sample_limit=sample_limit)
+    summaries = summarize_candidates(session, candidates, sample_limit=sample_limit)
+    listed = [summary for summary in summaries if summary.seen_count > 0]
+    return sorted(listed, key=lambda summary: (-summary.seen_count, summary.id))
 
 
 def count_pending_candidate_types(session: Session) -> int:
-    return (
-        session.scalar(
-            select(func.count()).where(
-                CandidateDocumentType.status == CandidateTypeStatus.PENDING.value
-            )
+    """Bekleyen aday sayısı; bütün görülmeleri yoksayılan partilerde olan aday sayılmaz (10.3.4)."""
+    candidates = session.scalars(
+        select(CandidateDocumentType).where(
+            CandidateDocumentType.status == CandidateTypeStatus.PENDING.value
         )
-        or 0
-    )
+    ).all()
+    summaries = summarize_candidates(session, candidates, sample_limit=0)
+    return sum(1 for summary in summaries if summary.seen_count > 0)
 
 
 def sample_page_refs(

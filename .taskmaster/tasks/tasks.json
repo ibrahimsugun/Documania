@@ -1477,13 +1477,13 @@
         "description": "PRD 10.3.4 · FR-MOD-10 (Web yönetim paneli) · Faz 1 · Should (v1). İnsan kararı (2026-09-21): İşlemler bölümünde Yeniden çalıştır ve Yeniden analiz et düğmelerinin yanında \"Taramayı yoksay\"; tarama yok sayılsın ve görünümden kalksın. K16'ya altıncı manuel işlem (§D50); silme değil.",
         "details": "KAPSAM: PRD 10.3.4, §8.3 (UPLOAD_DISMISSED), §20.6 (yeni onay satırı, metinler birebir), MASTER-PROMPT K16. Tam sözleşme PLAN.md §C80 ve §D50 — önce onları oku.\n\nNE YAPILACAK: (1) upload_detail.html İşlemler: \"Taramayı yoksay\" düğmesi; yalnız done/partial/failed ve yoksayılmamış partide. (2) POST /uploads/{id}/dismiss/prepare + /dismiss: 10.8.1 tek kullanımlık belirteç (partiye ve güncel plana bağlı); ikinci metin <N> bekleyen kuyruk öğesi, <M> üretilmiş etkin belge. Belirteç tüketimi, USER_CONFIRMED, yoksayma ve UPLOAD_DISMISSED tek işlemde. HTMX + döner gösterge. (3) Göç: uploads.dismissed_at, dismissed_by. Partinin çözülmemiş queue_items'ı resolved_at alır, çözüm nedeni \"yoksayıldı\". (4) Görünürlük: yükleme listesi (10.3.3, tm 104) yoksayılanı varsayılan gizler, \"yoksayılanlar\" süzgeci; detay sayfası bildirim gösterir, işlem düğmeleri kalkar; kuyruk sayaçları ve aday tür sayıları yoksayılanı dışlar.\n\nKAPSAM SINIRI: hiçbir dosya, sayfa görüntüsü, plan, olay ya da çıktı silinmez/taşınmaz (K10, K15, K16); üretilmiş belgeler Hazır'da kalır (arşiv 08.4.1'in işi); SHA-256 tekrar tespiti değişmez; geri alma, toplu yoksayma, süren parti, Telegram yok.",
         "testStrategy": "1) tests/web: düğme yalnız son durumdaki ve yoksayılmamış partide; yalnız birinci onayla istek hiçbir şey değiştirmez (S16); belirteçsiz/kullanılmış/süresi geçmiş/başka partinin belirteci 400; ikinci metin §20.6 ile birebir ve N/M doğru; başarılı işlemde dismissed_at/by, kuyruk öğeleri çözülmüş, USER_CONFIRMED + UPLOAD_DISMISSED kullanıcı adıyla; Inbox dosyası, sayfa görüntüsü, belge çıktısı ve olaylar yerinde (dosya sistemi karşılaştırması); kuyruk ekranı ve sayaçlar öğeyi göstermez; yükleme listesinde varsayılan gizli, süzgeçte görünür; detayda bildirim, düğmeler yok; aday tür sayıları düşer. 2) Göç yukarı/aşağı. 3) Tüm test takımı, ruff, mypy yeşil (CONVENTIONS DoD).",
-        "status": "pending",
+        "status": "done",
         "dependencies": [
           "104"
         ],
         "priority": "medium",
         "subtasks": [],
-        "updatedAt": "2026-09-21T18:37:50.000Z"
+        "updatedAt": "2026-09-22T17:38:49.010Z"
       },
       {
         "id": "106",
@@ -1528,9 +1528,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-09-22T16:25:52.071Z",
+      "lastModified": "2026-09-22T17:38:49.011Z",
       "taskCount": 106,
-      "completedCount": 102,
+      "completedCount": 103,
       "tags": [
         "master"
       ]

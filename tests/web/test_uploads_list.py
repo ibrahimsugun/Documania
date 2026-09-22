@@ -543,3 +543,68 @@ def test_the_number_of_queries_does_not_grow_with_the_number_of_rows(
 
     assert few == many
     assert many <= 3
+
+
+# --- 10.3.4: yoksayılan partiler ------------------------------------------------------------------
+
+
+def _dismiss(session_factory: sessionmaker[Session], upload_id: str) -> None:
+    with session_factory() as session:
+        upload = session.get_one(Upload, upload_id)
+        upload.dismissed_at = BASE + timedelta(hours=1)
+        upload.dismissed_by = "test-yonetici"
+        session.commit()
+
+
+def test_a_dismissed_upload_is_hidden_by_default_and_shown_by_the_filter(
+    client: TestClient, session_factory: sessionmaker[Session]
+) -> None:
+    _upload(session_factory, "u_kept", created_at=BASE)
+    _upload(session_factory, "u_gone", created_at=BASE - timedelta(days=1))
+    _dismiss(session_factory, "u_gone")
+
+    default = client.get("/uploads")
+    only = client.get("/uploads", params={"dismissed": "only"})
+    both = client.get("/uploads", params={"dismissed": "include"})
+
+    assert _ids(default.text) == ["u_kept"]
+    assert "1 yükleme" in default.text
+    assert "Yoksayıldı</span>" not in default.text
+    assert '<option value="">Gizle</option>' in default.text
+    assert _ids(only.text) == ["u_gone"]
+    assert "Tamamlandı Yoksayıldı" in _rows(only.text)[0]
+    assert '<option value="only" selected>Yalnız yoksayılanlar</option>' in only.text
+    assert "Süzgeci temizle" in only.text
+    assert _ids(both.text) == ["u_kept", "u_gone"]
+    assert [row[7] for row in _rows(both.text)] == ["Tamamlandı", "Tamamlandı Yoksayıldı"]
+
+
+def test_the_dismissed_filter_combines_with_status_and_an_invalid_value_warns(
+    client: TestClient, session_factory: sessionmaker[Session]
+) -> None:
+    _upload(session_factory, "u_done", status=UploadStatus.DONE)
+    _upload(session_factory, "u_failed", status=UploadStatus.FAILED)
+    _upload(session_factory, "u_failed_gone", status=UploadStatus.FAILED)
+    _dismiss(session_factory, "u_failed_gone")
+
+    combined = client.get("/uploads", params={"status": "failed", "dismissed": "include"})
+    invalid = client.get("/uploads", params={"dismissed": "hepsi"})
+
+    assert set(_ids(combined.text)) == {"u_failed", "u_failed_gone"}
+    assert invalid.status_code == 200
+    assert "Yoksayılanlar süzgeci tanınmadı; yok sayıldı." in invalid.text
+    assert set(_ids(invalid.text)) == {"u_done", "u_failed"}
+
+
+def test_page_links_keep_the_dismissed_filter(
+    client: TestClient, session_factory: sessionmaker[Session]
+) -> None:
+    for number in range(PAGE_SIZE + 1):
+        upload_id = f"u_{number:03d}"
+        _upload(session_factory, upload_id, created_at=BASE + timedelta(minutes=number))
+        _dismiss(session_factory, upload_id)
+
+    page = client.get("/uploads", params={"dismissed": "only"})
+
+    assert '<a href="/uploads?dismissed=only&amp;page=2" rel="next">' in page.text
+    assert "Henüz yükleme yok." in client.get("/uploads").text  # hepsi yoksayıldı

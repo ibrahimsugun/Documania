@@ -6,12 +6,14 @@ Unresolved; R7) sekme olarak gösterir; her sekmenin başlığında **bekleyen**
 öğe üç durumdan birindedir: *bekleyen* (çözülmemiş ve partinin güncel planına ait), *çözülen*
 (`resolved_at` dolu) ya da *eski sürüm* (çözülmemiş ama partinin daha yeni bir planı var; K18 —
 atanamaz). Liste seçilen sekmenin öğelerini seçilen durumda, 25'lik sayfalarla gösterir; durum
-bağlantıları aynı sekmenin öbür durumlardaki sayısını taşır. `GET /queues/{queue_item_id}` öğenin
-detayıdır: gerekçe (R7), tür ve kişi tahmini, kaynak dosyaları ile alınan sayfaların görüntüleri
-(`/uploads/{id}/pages/{page_id}/image`, 10.3.1), çözülmüşse çözen kullanıcı ve çıktının geçmişi, ve
-öğeyi anan olaylar. Kuyruğa alınırken dondurulan `payload_json` okunur; kaydı eksik ya da bozuk
-öğe sayfayı düşürmez, o alan boş/bağlantısız yazılır. Ekranlar yalnız okur: ne belge içeriği ne
-kuyruk kaydı değişir (K11, K17); atama ve onay eylemleri 10.7.2/10.7.3'tür.
+bağlantıları aynı sekmenin öbür durumlardaki sayısını taşır. Yoksayılan partinin (10.3.4) öğeleri
+hiçbir durumda listelenmez ve sayılmaz — parti kuyruklardan kalkar. `GET /queues/{queue_item_id}`
+öğenin detayıdır: gerekçe (R7), tür ve kişi tahmini, kaynak dosyaları ile alınan sayfaların
+görüntüleri (`/uploads/{id}/pages/{page_id}/image`, 10.3.1), çözülmüşse çözen kullanıcı (partisi
+yoksayılarak kapandıysa bu da) ve çıktının geçmişi, ve öğeyi anan olaylar. Kuyruğa alınırken
+dondurulan `payload_json` okunur; kaydı eksik ya da bozuk öğe sayfayı düşürmez, o alan
+boş/bağlantısız yazılır. Ekranlar yalnız okur: ne belge içeriği ne kuyruk kaydı değişir (K11, K17);
+atama ve onay eylemleri 10.7.2/10.7.3'tür.
 
 `POST /api/queue/{queue_item_id}/assign` öğeyi gövdedeki çalışana atar ve çıktısını yapay zekâ
 çağırmadan üretir (`app.pipeline.route.assign_queue_item`); yapay zekâ sağlayıcısı bu uç noktanın
@@ -105,6 +107,7 @@ from app.db.models import (
     Plan,
     QueueItem,
     QueueKind,
+    Upload,
     UploadFile,
 )
 from app.db.session import get_session
@@ -162,6 +165,7 @@ from app.web.routers.upload_page import (
     _format_ts,
     _plan_employee_text,
     _source_text,
+    resolution_text,
 )
 from app.web.routers.uploads import get_layout
 from app.web.templating import MENU_BY_KEY, render_page
@@ -580,15 +584,22 @@ def _current_plan_ids() -> Select[tuple[int]]:
     )
 
 
+def _listed() -> ColumnElement[bool]:
+    """10.3.4 — partisi yoksayılmamış öğe; yoksayılan partinin öğeleri kuyruklarda görünmez."""
+    return ~exists().where(Upload.id == QueueItem.upload_id, Upload.dismissed_at.is_not(None))
+
+
 def _state_filter(state: QueueState) -> ColumnElement[bool]:
     """Durumun tek tanımı: sayaç, liste ve detay hep bu koşuldan okur."""
     if state is QueueState.RESOLVED:
-        return QueueItem.resolved_at.is_not(None)
+        return and_(QueueItem.resolved_at.is_not(None), _listed())
     current = QueueItem.plan_id.in_(_current_plan_ids())
     if state is QueueState.OPEN:
-        return and_(QueueItem.resolved_at.is_(None), current)
+        return and_(QueueItem.resolved_at.is_(None), current, _listed())
     # Planı olmayan kayıt da güncel plana ait sayılamaz (`assign_queue_item` onu da reddeder).
-    return and_(QueueItem.resolved_at.is_(None), or_(QueueItem.plan_id.is_(None), ~current))
+    return and_(
+        QueueItem.resolved_at.is_(None), or_(QueueItem.plan_id.is_(None), ~current), _listed()
+    )
 
 
 def _counts(session: Session, state: QueueState) -> dict[str, int]:
@@ -698,9 +709,7 @@ def _lookups(session: Session, items: list[QueueItem]) -> _Lookups:
 
 
 def _resolved_text(queue_item: QueueItem) -> str | None:
-    if queue_item.resolved_at is None:
-        return None
-    return f"{_format_ts(queue_item.resolved_at)} · {queue_item.resolved_by}"
+    return resolution_text(queue_item)
 
 
 def list_queue(

@@ -44,6 +44,7 @@ PRD_OPERATIONS = {
     "Onay bekleyen profili onayla": Operation.APPROVE_PROFILE,
     "Yeni belge türünü onayla": Operation.APPROVE_TYPE,
     "Belgeyi arşive taşı": Operation.ARCHIVE,
+    "Taramayı yoksay": Operation.DISMISS,
 }
 TARGET = "7:E0002"
 
@@ -112,6 +113,19 @@ def test_placeholders_are_filled_at_run_time_and_never_shown_empty() -> None:
         first_text(Operation.ASSIGN)
     with pytest.raises(ValueError, match="<Tür adı>"):
         fill("<Tür adı> belge türünü", name="Ad")
+
+
+def test_the_dismissal_counts_are_filled_and_never_shown_empty() -> None:
+    # 10.3.4: <N> bekleyen kuyruk öğesi, <M> yerinde kalan belge; sıfır da yazılır.
+    assert second_text(Operation.DISMISS, queue_items=3, documents=0) == (
+        "Parti ve bekleyen 3 kuyruk öğesi listelerden kalkacaktır; üretilmiş 0 belge yerinde "
+        "kalır. Son kararınız mı?"
+    )
+    assert first_text(Operation.DISMISS) == "Bu taramayı yoksaymak üzeresiniz. Emin misiniz?"
+    with pytest.raises(ValueError, match="<N>"):
+        second_text(Operation.DISMISS, documents=1)
+    with pytest.raises(ValueError, match="<M>"):
+        second_text(Operation.DISMISS, queue_items=1)
 
 
 # --- §20.6.1: tek kullanımlık belirteç ------------------------------------------------------------

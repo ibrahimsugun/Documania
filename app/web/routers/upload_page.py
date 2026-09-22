@@ -1,5 +1,5 @@
 """Yükleme sayfası, canlı ilerleme görünümü ve yükleme detayı (PRD 10.2.1, 10.2.2, 10.3.1, 10.3.2,
-10.5.5).
+10.3.4, 10.5.5).
 
 `GET /upload` sürükle-bırak çoklu yükleme formunu ve isteğe bağlı çalışan seçimini çizer.
 `POST /upload` (HTMX) dosyaları `POST /api/uploads` ile aynı işlevle (`create_upload`) partiye
@@ -32,8 +32,19 @@ K18). Yeniden analiz iki aşamalı onay ister (10.3.2): istemci birinci onaydan 
 gönderir; belirteçsiz, süresi geçmiş, kullanılmış ya da başka işleme ait belirteçle gelen istek 400
 ile reddedilir ve hiçbir şey yapılmaz. Belirteç 10.8.1'in tek kullanımlık belirtecidir
 (`app.web.confirm`); partiye ve güncel planına bağlıdır. İşlemlerin ikisi de yalnız son
-durumdaki (`done`, `partial`, `failed`) ve planı olan partide yapılır: süren partinin üzerine
-yazılmaz.
+durumdaki (`done`, `partial`, `failed`), planı olan ve yoksayılmamış partide yapılır: süren partinin
+üzerine yazılmaz.
+
+**Taramayı yoksay (10.3.4; K16, §20.6).** Son durumdaki, yoksayılmamış partide — planı olmasa da —
+üçüncü düğmedir. Birinci onaydan sonra `POST .../dismiss/prepare` §20.6'nın ikinci metnini
+(kapanacak <N> kuyruk öğesi, yerinde kalacak <M> etkin belge) ve partiye + güncel planına bağlı tek
+kullanımlık belirteci verir; `POST .../dismiss` belirteçle gelir: belirtecin tüketilmesi,
+`USER_CONFIRMED`, yoksayma ve `UPLOAD_DISMISSED` tek işlemdedir (`app.pipeline.dismiss`). Belirteç
+önce denetlenir: belirteçsiz, kullanılmış, süresi geçmiş ya da başka partiye ait istek 400;
+partinin durumu buna uymuyorsa (yoksayılmış, süren) 409 ve belirteç tüketilmez. Yoksayılan
+partinin detay sayfası adresle açılır, üstte kimin ne zaman yoksaydığını söyler ve işlem düğmesi
+göstermez; yeniden çalıştırma ve yeniden analiz de 409'dur — yoksayılan partinin kuyruk öğeleri geri
+gelmesin.
 """
 
 from __future__ import annotations
@@ -59,12 +70,20 @@ from app.db.models import (
     Event,
     Page,
     Plan,
+    QueueItem,
+    QueueResolution,
     Upload,
     UploadFile,
     UploadStatus,
 )
 from app.db.session import get_session, get_session_factory
 from app.pipeline.analyze import PageAnalysisStatus
+from app.pipeline.dismiss import (
+    UploadNotDismissableError,
+    dismiss_upload,
+    is_dismissed,
+    preview_dismissal,
+)
 from app.pipeline.orchestrate import (
     PLAN_EXECUTION_ERRORS,
     NoPlanError,
@@ -81,10 +100,13 @@ from app.web.confirm import (
     ConfirmationRefusedError,
     Operation,
     confirm_operation,
+    first_text,
     issue_confirmation,
+    second_text,
 )
 from app.web.context_person import ForeignDocumentsWarning, upload_warning
 from app.web.routers.uploads import (
+    DISMISSED_MESSAGE,
     UploadFileStatusResponse,
     create_upload,
     get_layout,
@@ -330,6 +352,10 @@ REANALYZE_SECOND_CONFIRMATION = (
 )
 
 UPLOAD_NOT_FOUND = "Parti bulunamadı."
+# 10.3.4 — yoksayılan partinin detay bildirimi (PLAN.md §C80) ve işlem reddi.
+DISMISSED_NOTICE = "Bu tarama {when} tarihinde {user} tarafından yoksayıldı."
+DISMISS_BUSY_MESSAGE = "Parti hâlâ işleniyor; süren tarama yoksayılamaz."
+DISMISSED_RESOLUTION = "tarama yoksayıldı"
 PAGE_IMAGE_NOT_FOUND = "Sayfa görüntüsü bulunamadı."
 BUSY_MESSAGE = "Parti hâlâ işleniyor; işlem bittikten sonra yeniden çalıştırılabilir."
 NO_PLAN_MESSAGE = (
@@ -438,6 +464,9 @@ class DetailView:
     blocked_reason: str | None
     # 10.5.5: bağlam çalışanına ait görünmeyen belgeler.
     context_warning: ForeignDocumentsWarning | None = None
+    # 10.3.4: yoksayılan partinin bildirimi; yoksayma düğmesi yalnız `can_dismiss` iken.
+    dismissed_notice: str | None = None
+    can_dismiss: bool = False
 
 
 def _format_ts(moment: datetime) -> str:
@@ -600,7 +629,9 @@ def build_detail_view(session: Session, upload: Upload) -> DetailView:
     owners = _page_items(document)
     current_status = UploadStatus(upload.status)
     blocked_reason = None
-    if current_status not in FINAL_STATUSES:
+    if is_dismissed(upload):
+        blocked_reason = DISMISSED_MESSAGE
+    elif current_status not in FINAL_STATUSES:
         blocked_reason = BUSY_MESSAGE
     elif plan is None:
         blocked_reason = NO_PLAN_MESSAGE
@@ -659,11 +690,7 @@ def build_detail_view(session: Session, upload: Upload) -> DetailView:
                 plan_version=plan_versions.get(row.plan_id) if row.plan_id else None,
                 item_id=row.plan_item_id,
                 reason=row.reason,
-                resolved=(
-                    f"{_format_ts(row.resolved_at)} · {row.resolved_by}"
-                    if row.resolved_at is not None
-                    else None
-                ),
+                resolved=resolution_text(row),
                 current=plan is not None and row.plan_id == plan.id,
             )
             for row in upload.queue_items
@@ -681,7 +708,30 @@ def build_detail_view(session: Session, upload: Upload) -> DetailView:
         ],
         blocked_reason=blocked_reason,
         context_warning=upload_warning(session, upload),
+        dismissed_notice=dismissed_notice(upload),
+        can_dismiss=not is_dismissed(upload) and current_status in FINAL_STATUSES,
     )
+
+
+def dismissed_notice(upload: Upload) -> str | None:
+    """10.3.4 — "Bu tarama <tarih> tarihinde <kullanıcı> tarafından yoksayıldı"; yoksayılmamış
+    partide `None`."""
+    if upload.dismissed_at is None:
+        return None
+    return DISMISSED_NOTICE.format(
+        when=_format_ts(upload.dismissed_at), user=upload.dismissed_by or "—"
+    )
+
+
+def resolution_text(queue_item: QueueItem) -> str | None:
+    """Kuyruk öğesinin çözümü: an ve kullanıcı; partisi yoksayılınca kapanan öğede nedeni de
+    (10.3.4). Çözülmemiş öğede `None`."""
+    if queue_item.resolved_at is None:
+        return None
+    text = f"{_format_ts(queue_item.resolved_at)} · {queue_item.resolved_by}"
+    if queue_item.resolution == QueueResolution.DISMISSED.value:
+        text += f" · {DISMISSED_RESOLUTION}"
+    return text
 
 
 # --- 10.3.2: iki aşamalı onay belirteci --------------------------------------------------------
@@ -691,6 +741,12 @@ def reanalysis_subject(upload_id: str, plan_id: int) -> str:
     """Yeniden analiz belirtecinin bağlı olduğu hedef: parti + güncel plan (10.8.1 belirteci,
     işlem `Operation.REANALYZE`). Plan değişmişse belirteç geçmez."""
     return f"{upload_id}:{plan_id}"
+
+
+def dismissal_subject(upload_id: str, plan_id: int | None) -> str:
+    """Yoksayma belirtecinin bağlı olduğu hedef: parti + güncel plan (10.8.1 belirteci, işlem
+    `Operation.DISMISS`); planı olmayan partide `none`. Plan değişmişse belirteç geçmez."""
+    return f"{upload_id}:{plan_id if plan_id is not None else 'none'}"
 
 
 def get_reanalysis_provider(
@@ -747,6 +803,7 @@ def upload_detail(
         active=entry.key,
         detail=view,
         first_confirmation=REANALYZE_FIRST_CONFIRMATION,
+        dismiss_first_confirmation=first_text(Operation.DISMISS),
     )
 
 
@@ -778,6 +835,8 @@ def _actionable_upload(session: Session, upload_id: str) -> tuple[Upload, Plan]:
     upload = session.get(Upload, upload_id)
     if upload is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, UPLOAD_NOT_FOUND)
+    if is_dismissed(upload):
+        raise HTTPException(status.HTTP_409_CONFLICT, DISMISSED_MESSAGE)
     if UploadStatus(upload.status) not in FINAL_STATUSES:
         raise HTTPException(status.HTTP_409_CONFLICT, BUSY_MESSAGE)
     plan = current_plan(session, upload)
@@ -902,4 +961,115 @@ def reanalyze_upload_page(
         version=reanalysis.plan.version,
         previous_version=reanalysis.previous_plan.version,
         superseded=len(reanalysis.superseded_document_ids),
+    )
+
+
+# --- 10.3.4: taramayı yoksay -------------------------------------------------------------------
+
+
+def _dismissal_target(session: Session, upload_id: str) -> tuple[Upload, Plan | None]:
+    """Yoksayılacak parti ve güncel planı (yoksa `None`); parti yoksa 404."""
+    upload = session.get(Upload, upload_id)
+    if upload is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, UPLOAD_NOT_FOUND)
+    return upload, current_plan(session, upload)
+
+
+def _check_dismissable(upload: Upload) -> None:
+    """Parti yoksayılamıyorsa nedenini taşıyan 409."""
+    if is_dismissed(upload):
+        raise HTTPException(status.HTTP_409_CONFLICT, DISMISSED_MESSAGE)
+    if UploadStatus(upload.status) not in FINAL_STATUSES:
+        raise HTTPException(status.HTTP_409_CONFLICT, DISMISS_BUSY_MESSAGE)
+
+
+@router.post("/uploads/{upload_id}/dismiss/prepare", response_class=HTMLResponse)
+def prepare_dismissal(
+    upload_id: str,
+    request: Request,
+    user: CurrentUser,
+    session: Annotated[Session, Depends(get_session)],
+) -> HTMLResponse:
+    """10.3.4 — birinci onaydan sonra §20.6'nın ikinci metnini (<N> kuyruk öğesi, <M> etkin belge)
+    ve tek kullanımlık onay belirtecini verir; hiçbir şeyi değiştirmez (S16)."""
+    try:
+        upload, plan = _dismissal_target(session, upload_id)
+        _check_dismissable(upload)
+        preview = preview_dismissal(session, upload)
+        issued = issue_confirmation(
+            session,
+            request,
+            user,
+            Operation.DISMISS,
+            dismissal_subject(upload.id, plan.id if plan is not None else None),
+        )
+    except HTTPException as exc:
+        session.rollback()
+        return _action_result(request, exc.status_code, error=str(exc.detail))
+    except ConfirmationRefusedError as exc:
+        session.rollback()
+        return _action_result(request, status.HTTP_400_BAD_REQUEST, error=str(exc))
+    session.commit()
+    return _action_result(
+        request,
+        status.HTTP_200_OK,
+        upload_id=upload_id,
+        confirm_action="dismiss",
+        second_confirmation=second_text(
+            Operation.DISMISS,
+            queue_items=preview.queue_items,
+            documents=preview.active_documents,
+        ),
+        confirmation=issued.token,
+    )
+
+
+@router.post("/uploads/{upload_id}/dismiss", response_class=HTMLResponse)
+def dismiss_upload_page(
+    upload_id: str,
+    request: Request,
+    user: CurrentUser,
+    session: Annotated[Session, Depends(get_session)],
+    confirmation: Annotated[str | None, Form()] = None,
+) -> HTMLResponse:
+    """10.3.4 — ikinci onayın belirteciyle partiyi yoksayar (`app.pipeline.dismiss`).
+
+    Belirteçsiz, kullanılmış, süresi geçmiş ya da başka partiye/plana ait istek 400; parti
+    yoksayılamıyorsa 409 — ikisinde de hiçbir şey değişmez ve belirteç tüketilmez.
+    """
+    try:
+        upload, plan = _dismissal_target(session, upload_id)
+        plan_id = plan.id if plan is not None else None
+        # §20.6.1: belirteç tüketilir ve `USER_CONFIRMED` (kullanıcı adı, işlem, hedef, iki onayın
+        # zamanı) yazılır, ardından işlemin kendi olayı (`UPLOAD_DISMISSED`) düşer.
+        confirm_operation(
+            session,
+            request,
+            user,
+            Operation.DISMISS,
+            dismissal_subject(upload.id, plan_id),
+            confirmation,
+            event_target={"upload_id": upload.id, "plan_id": plan_id},
+            upload_id=upload.id,
+        )
+        _check_dismissable(upload)
+        dismissal = dismiss_upload(session, upload, actor=user.username)
+    except HTTPException as exc:
+        session.rollback()
+        return _action_result(request, exc.status_code, error=str(exc.detail))
+    except ConfirmationRefusedError:
+        session.rollback()
+        return _action_result(request, status.HTTP_400_BAD_REQUEST, error=CONFIRMATION_REFUSED)
+    except UploadNotDismissableError:
+        # Aynı anda gelen öteki istek partiyi yoksaydı ya da parti yeniden işlenmeye başladı.
+        session.rollback()
+        return _action_result(request, status.HTTP_409_CONFLICT, error=DISMISSED_MESSAGE)
+    session.commit()
+    return _action_result(
+        request,
+        status.HTTP_200_OK,
+        upload_id=upload_id,
+        done="dismiss",
+        closed=len(dismissal.queue_item_ids),
+        kept=len(dismissal.active_document_ids),
     )

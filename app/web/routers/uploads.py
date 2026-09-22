@@ -23,7 +23,8 @@ bağımlılıkları arasında yoktur. `POST /{upload_id}/reanalyze` partiyi yeni
 plan sürümünü açar (`app.pipeline.orchestrate`). İkisi de işi tek işlemde yapar: hata olursa
 hiçbir şey commit edilmez. Planı uygulayan adım `get_plan_executor` bağımlılığıdır — uygulamanın
 uygulayıcısı (`plan_executor`: çıktılar 07.x, kuyruk 08.1, profil 09.1; 09.2 bağlar). Plan öğesini
-yürütemeyen hata (kayıt, Inbox bütünlüğü K10, işlem) 409 döner.
+yürütemeyen hata (kayıt, Inbox bütünlüğü K10, işlem) 409 döner. Yoksayılan parti (10.3.4) ne yeniden
+çalıştırılır ne yeniden analiz edilir (409): kapanan kuyruk öğeleri geri gelmez.
 """
 
 from __future__ import annotations
@@ -46,6 +47,7 @@ from app.config import Settings, get_settings
 from app.db.models import Employee, Upload, UploadFile, allocate_upload_id
 from app.db.session import get_session
 from app.events import EventType, event_context, record_event
+from app.pipeline.dismiss import is_dismissed
 from app.pipeline.orchestrate import (
     PLAN_EXECUTION_ERRORS,
     NoPlanError,
@@ -68,6 +70,7 @@ from app.worker.queue import claim_upload, enqueue_upload
 router = APIRouter(prefix="/api/uploads", tags=["uploads"])
 
 UPLOAD_CHANNEL = "web"
+DISMISSED_MESSAGE = "Bu tarama yoksayıldı; üzerinde işlem yapılmaz."
 
 
 @dataclass(frozen=True, slots=True)
@@ -140,6 +143,14 @@ def _get_upload(session: Session, upload_id: str) -> Upload:
     upload = session.get(Upload, upload_id)
     if upload is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Parti bulunamadı.")
+    return upload
+
+
+def _undismissed_upload(session: Session, upload_id: str) -> Upload:
+    """İşlem yapılacak parti; yoksayılmışsa (10.3.4) 409."""
+    upload = _get_upload(session, upload_id)
+    if is_dismissed(upload):
+        raise HTTPException(status.HTTP_409_CONFLICT, DISMISSED_MESSAGE)
     return upload
 
 
@@ -356,8 +367,8 @@ def rerun_upload_plan(
     executor: Annotated[PlanExecutor, Depends(get_plan_executor)],
 ) -> PlanRunResponse:
     """06.6.1 — güncel planı yapay zekâ çağırmadan yeniden uygular; plan yok/değişmiş/öğe
-    yürütülemiyor: 409."""
-    upload = _get_upload(session, upload_id)
+    yürütülemiyor ya da parti yoksayılmış: 409."""
+    upload = _undismissed_upload(session, upload_id)
     try:
         run = rerun_plan(session, layout, upload, executor=executor)
     except (NoPlanError, PlanIntegrityError, *PLAN_EXECUTION_ERRORS) as exc:
@@ -379,9 +390,9 @@ def reanalyze_upload_plan(
     executor: Annotated[PlanExecutor, Depends(get_plan_executor)],
     provider: Annotated[AnalysisProvider, Depends(get_analysis_provider)],
 ) -> ReanalysisResponse:
-    """06.6.2 — partiyi yeniden analiz eder, yeni plan sürümünü açar; plan yok/öğe yürütülemiyor:
-    409."""
-    upload = _get_upload(session, upload_id)
+    """06.6.2 — partiyi yeniden analiz eder, yeni plan sürümünü açar; plan yok/öğe yürütülemiyor
+    ya da parti yoksayılmış: 409."""
+    upload = _undismissed_upload(session, upload_id)
     try:
         reanalysis = reanalyze_upload(
             session,

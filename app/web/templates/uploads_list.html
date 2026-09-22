@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {# Yükleme listesi (10.3.3): partiler en yeni üstte, durum ve tarihe göre süzülür, sayfalanır. Sayfa
-   yalnız okur; dosya adı ve kişisel alan yok, yalnız sayılar. #}
+   yalnız okur; dosya adı ve kişisel alan yok, yalnız sayılar. Yoksayılan parti (10.3.4) yalnız
+   "Yoksayılanlar" süzgeciyle listelenir. #}
 {% block title %}Yüklemeler{% endblock %}
 {% block content %}
 <h1>Yüklemeler</h1>
@@ -16,6 +17,13 @@
   <input type="date" id="upload-from" name="from" value="{{ listing.filter.date_from.isoformat() if listing.filter.date_from else '' }}">
   <label for="upload-to">Bitiş</label>
   <input type="date" id="upload-to" name="to" value="{{ listing.filter.date_to.isoformat() if listing.filter.date_to else '' }}">
+  <label for="upload-dismissed">Yoksayılanlar</label>
+  <select id="upload-dismissed" name="dismissed">
+    <option value="">Gizle</option>
+    {% for value, name in dismissed_filters %}
+    <option value="{{ value }}"{% if listing.filter.dismissed == value %} selected{% endif %}>{{ name }}</option>
+    {% endfor %}
+  </select>
   <button type="submit">Süz</button>
   {% if listing.filter.active %}<a href="/uploads">Süzgeci temizle</a>{% endif %}
 </form>
@@ -45,7 +53,7 @@
       <td>{% if row.context_employee_url %}<a href="{{ row.context_employee_url }}">{{ row.context_employee_name }}</a> <span class="reason">{{ row.context_employee_id }}</span>{% else %}—{% endif %}</td>
       <td class="num">{{ row.file_count }}</td>
       <td class="num">{{ row.page_count }}</td>
-      <td class="status-{{ row.status }}">{{ row.status_label }}</td>
+      <td class="status-{{ row.status }}">{{ row.status_label }}{% if row.dismissed %} <span class="badge badge-neutral">Yoksayıldı</span>{% endif %}</td>
       {% for queue in row.queue_counts %}<td class="num">{% if queue.shown %}{{ queue.count }}{% endif %}</td>{% endfor %}
     </tr>
     {% endfor %}

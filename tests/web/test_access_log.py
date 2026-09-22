@@ -344,6 +344,8 @@ REVIEWED_MUTATING_ROUTES: dict[tuple[str, str], str] = {
     ("POST", "/uploads/{upload_id}/reanalyze"): "yeni plan sürümü (K18)",
     ("POST", "/uploads/{upload_id}/reanalyze/prepare"): "onay belirteci",
     ("POST", "/api/uploads/{upload_id}/reanalyze"): "yeni plan sürümü (K18)",
+    ("POST", "/uploads/{upload_id}/dismiss"): "taramayı yoksayma: kayıt alanı, silme yok (10.3.4)",
+    ("POST", "/uploads/{upload_id}/dismiss/prepare"): "onay belirteci",
     ("POST", "/queues/{queue_item_id}/assign"): "kuyruk ataması (K16)",
     ("POST", "/queues/{queue_item_id}/assign/prepare"): "onay belirteci",
     ("POST", "/queues/{queue_item_id}/profile"): "profil onayı (K16)",

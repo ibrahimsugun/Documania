@@ -34,7 +34,7 @@ def _assert_schema_matches_models(database_url: str) -> None:
             assert tables == set(Base.metadata.tables) | {"alembic_version"}
             context = MigrationContext.configure(connection, opts={"compare_type": True})
             assert compare_metadata(context, Base.metadata) == []
-            assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "0008"
+            assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "0009"
     finally:
         engine.dispose()
 
@@ -399,6 +399,64 @@ def test_field_observations_migration_adds_the_table_and_is_reversible(sqlite_ur
             tables = set(inspect(connection).get_table_names())
             assert "employee_field_observations" not in tables
             assert connection.scalar(text("SELECT count(*) FROM employees")) == 1
+    finally:
+        engine.dispose()
+
+
+def test_upload_dismissal_migration_adds_nullable_columns_and_is_reversible(
+    sqlite_url: str,
+) -> None:
+    # 0009 (10.3.4): var olan parti yoksayılmamış, var olan çözülmüş öğe nedensiz kalır; çözüm
+    # nedeni kapalı kümedir. Geri alış üç sütunu düşürür, parti ve öğeler kalır.
+    config = _alembic_config(sqlite_url)
+    command.upgrade(config, "0008")
+    engine = create_engine(sqlite_url)
+    try:
+        with engine.begin() as connection:
+            connection.execute(
+                text(
+                    "INSERT INTO uploads (id, channel, status, created_at) "
+                    "VALUES ('u_1', 'web', 'done', '2026-09-22 00:00:00')"
+                )
+            )
+            connection.execute(
+                text(
+                    "INSERT INTO queue_items (id, upload_id, kind, reason, resolved_at, "
+                    "resolved_by) VALUES (1, 'u_1', 'unknown', 'tür yok', "
+                    "'2026-09-22 01:00:00', 'ik')"
+                )
+            )
+
+        command.upgrade(config, "head")
+        with engine.connect() as connection:
+            upload = connection.execute(
+                text("SELECT dismissed_at, dismissed_by FROM uploads WHERE id = 'u_1'")
+            ).one()
+            assert tuple(upload) == (None, None)
+            assert connection.scalar(text("SELECT resolution FROM queue_items")) is None
+        with engine.begin() as connection:
+            connection.execute(
+                text("UPDATE uploads SET dismissed_at = '2026-09-22 02:00:00', dismissed_by = 'ik'")
+            )
+            connection.execute(text("UPDATE queue_items SET resolution = 'dismissed'"))
+        with pytest.raises(IntegrityError), engine.begin() as connection:
+            connection.execute(text("UPDATE queue_items SET resolution = 'deleted'"))
+        with pytest.raises(IntegrityError), engine.begin() as connection:
+            connection.execute(text("UPDATE queue_items SET kind = 'lost'"))
+
+        command.downgrade(config, "0008")
+        with engine.connect() as connection:
+            inspector = inspect(connection)
+            assert {"dismissed_at", "dismissed_by"}.isdisjoint(
+                column["name"] for column in inspector.get_columns("uploads")
+            )
+            assert "resolution" not in {
+                column["name"] for column in inspector.get_columns("queue_items")
+            }
+            assert connection.scalar(text("SELECT count(*) FROM uploads")) == 1
+            assert connection.scalar(text("SELECT resolved_by FROM queue_items")) == "ik"
+        with pytest.raises(IntegrityError), engine.begin() as connection:
+            connection.execute(text("UPDATE queue_items SET kind = 'lost'"))
     finally:
         engine.dispose()
 

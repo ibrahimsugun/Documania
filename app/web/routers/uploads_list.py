@@ -8,7 +8,10 @@ altında toplanmaz, `partial` ile `failed` da `done`'dan ayrıdır. Zamanlar pan
 sayfalarındaki gibi UTC'dir.
 
 **Süzme (GET).** `status` (`processing` | `done` | `partial` | `failed`; `processing` işlemdeki
-beş durumun hepsidir) ve `from` / `to` (`YYYY-MM-DD`, ikisi de dahil gün, UTC). Geçersiz değer
+beş durumun hepsidir), `from` / `to` (`YYYY-MM-DD`, ikisi de dahil gün, UTC) ve `dismissed`
+(10.3.4). Yoksayılan parti varsayılan olarak listelenmez; `dismissed=only` yalnız yoksayılanları,
+`dismissed=include` hepsini gösterir — yoksayılan parti bulunamaz hâle gelmez, satırında
+"Yoksayıldı" yazar. Geçersiz değer
 400 olmaz: o süzgeç yok sayılır ve formun üstünde uyarı çıkar; geçerli süzgeçler uygulanmaya devam
 eder. Başlangıç günü bitiş gününden sonraysa tarih süzgeci bütünüyle yok sayılır. Sayfalama
 `PAGE_SIZE` (50) satırlıktır; aralığın ötesindeki sayfa numarası son sayfayı, sayı olmayan ya da
@@ -77,10 +80,19 @@ STATUS_FILTERS: dict[str, tuple[str, tuple[UploadStatus, ...]]] = {
     UploadStatus.FAILED.value: ("Hata", (UploadStatus.FAILED,)),
 }
 
+# 10.3.4 — süzgeç değeri → formdaki ad; değer yoksa yoksayılan parti listelenmez.
+DISMISSED_ONLY = "only"
+DISMISSED_INCLUDE = "include"
+DISMISSED_FILTERS: dict[str, str] = {
+    DISMISSED_ONLY: "Yalnız yoksayılanlar",
+    DISMISSED_INCLUDE: "Yoksayılanlar dahil",
+}
+
 INVALID_STATUS_WARNING = "Durum süzgeci tanınmadı; yok sayıldı."
 INVALID_FROM_WARNING = "Başlangıç günü geçerli bir tarih değil (YYYY-AA-GG); yok sayıldı."
 INVALID_TO_WARNING = "Bitiş günü geçerli bir tarih değil (YYYY-AA-GG); yok sayıldı."
 REVERSED_RANGE_WARNING = "Başlangıç günü bitiş gününden sonra; tarih süzgeci yok sayıldı."
+INVALID_DISMISSED_WARNING = "Yoksayılanlar süzgeci tanınmadı; yok sayıldı."
 
 
 @dataclass(frozen=True, slots=True)
@@ -113,6 +125,7 @@ class UploadRow:
     status: str
     status_label: str
     queue_counts: list[QueueCount]
+    dismissed: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -123,10 +136,16 @@ class UploadFilter:
     date_from: date | None
     date_to: date | None
     warnings: list[str]
+    dismissed: str | None = None  # `DISMISSED_FILTERS` anahtarı; yoksa yoksayılan gizli
 
     @property
     def active(self) -> bool:
-        return self.status is not None or self.date_from is not None or self.date_to is not None
+        return (
+            self.status is not None
+            or self.date_from is not None
+            or self.date_to is not None
+            or self.dismissed is not None
+        )
 
     def params(self) -> dict[str, str]:
         """Sayfa bağlantılarının taşıdığı süzgeçler (yalnız geçerli olanlar)."""
@@ -137,6 +156,8 @@ class UploadFilter:
             params["from"] = self.date_from.isoformat()
         if self.date_to is not None:
             params["to"] = self.date_to.isoformat()
+        if self.dismissed is not None:
+            params["dismissed"] = self.dismissed
         return params
 
 
@@ -162,12 +183,20 @@ def _parse_day(value: str | None) -> tuple[date | None, bool]:
         return None, True
 
 
-def parse_filter(status: str | None, date_from: str | None, date_to: str | None) -> UploadFilter:
+def parse_filter(
+    status: str | None,
+    date_from: str | None,
+    date_to: str | None,
+    dismissed: str | None = None,
+) -> UploadFilter:
     """İstek değerlerini süzgece çevirir; geçersiz değeri atar ve uyarıya yazar."""
     warnings: list[str] = []
     status_value = status.strip() if status is not None else ""
     if status_value and status_value not in STATUS_FILTERS:
         warnings.append(INVALID_STATUS_WARNING)
+    dismissed_value = dismissed.strip() if dismissed is not None else ""
+    if dismissed_value and dismissed_value not in DISMISSED_FILTERS:
+        warnings.append(INVALID_DISMISSED_WARNING)
     start, start_invalid = _parse_day(date_from)
     end, end_invalid = _parse_day(date_to)
     if start_invalid:
@@ -182,6 +211,7 @@ def parse_filter(status: str | None, date_from: str | None, date_to: str | None)
         date_from=start,
         date_to=end,
         warnings=warnings,
+        dismissed=dismissed_value if dismissed_value in DISMISSED_FILTERS else None,
     )
 
 
@@ -202,6 +232,10 @@ def _conditions(applied: UploadFilter) -> list[ColumnElement[bool]]:
         conditions.append(Upload.created_at >= _day_start(applied.date_from))
     if applied.date_to is not None:
         conditions.append(Upload.created_at < _day_start(applied.date_to + timedelta(days=1)))
+    if applied.dismissed is None:
+        conditions.append(Upload.dismissed_at.is_(None))
+    elif applied.dismissed == DISMISSED_ONLY:
+        conditions.append(Upload.dismissed_at.is_not(None))
     return conditions
 
 
@@ -249,9 +283,11 @@ def build_listing(
     date_from: str | None = None,
     date_to: str | None = None,
     page: str | None = None,
+    dismissed: str | None = None,
 ) -> UploadListing:
-    """Partileri en yeni üstte listeler; süzgeç ve sayfa numarası yumuşak çözülür."""
-    applied = parse_filter(status, date_from, date_to)
+    """Partileri en yeni üstte listeler; süzgeç ve sayfa numarası yumuşak çözülür. Yoksayılan parti
+    yalnız `dismissed` süzgeciyle listelenir (10.3.4)."""
+    applied = parse_filter(status, date_from, date_to, dismissed)
     conditions = _conditions(applied)
     total = session.scalar(select(func.count(Upload.id)).where(*conditions)) or 0
     page_count = max(1, -(-total // PAGE_SIZE))
@@ -301,6 +337,7 @@ def build_listing(
                     QueueCount(kind=kind.value, label=QUEUE_LABELS[kind.value], count=count)
                     for kind, count in zip(kinds, open_counts, strict=True)
                 ],
+                dismissed=upload.dismissed_at is not None,
             )
         )
     return UploadListing(
@@ -324,8 +361,9 @@ def uploads_list_page(
     date_from: Annotated[str | None, Query(alias="from")] = None,
     date_to: Annotated[str | None, Query(alias="to")] = None,
     page: str | None = None,
+    dismissed: str | None = None,
 ) -> HTMLResponse:
-    listing = build_listing(session, status, date_from, date_to, page)
+    listing = build_listing(session, status, date_from, date_to, page, dismissed)
     # Okuma işlemi de SQLite'ta yazma kilidini tutar (`app.db.session`): sayfa çizilirken
     # arka plandaki bir işleyici beklemesin.
     session.rollback()
@@ -336,4 +374,5 @@ def uploads_list_page(
         active=ACTIVE_KEY,
         listing=listing,
         status_filters=[(value, name) for value, (name, _) in STATUS_FILTERS.items()],
+        dismissed_filters=list(DISMISSED_FILTERS.items()),
     )
