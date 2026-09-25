@@ -591,6 +591,8 @@ def test_edited_profile_changes_the_employee_record_but_not_the_document(
     fields = ProfileFields(
         given_names=proposal.given_names,
         surname="ORNEKOVIC",
+        # Düzeltilen yalnız soyad ve doğum tarihi; orijinal yazım (05.2.2) önerideki gibi kalır.
+        original_script_name=proposal.original_script_name,
         date_of_birth=date(1990, 2, 1),
         nationality=proposal.nationality,
     )

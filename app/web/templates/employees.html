@@ -4,6 +4,7 @@
 {% block title %}{{ entry.label }}{% endblock %}
 {% block content %}
 <h1>{{ entry.label }}</h1>
+<p class="lede">Sistemin tanıdığı kişiler. Her çalışanın altında ona ait belgeler durur. Arama kutusuna ad, takma ad, orijinal yazım ya da belge numarası yazabilirsin.</p>
 <form class="search" method="get" action="/employees" role="search"
       hx-get="/employees" hx-trigger="input changed delay:300ms, submit"
       hx-target="#employee-results" hx-push-url="true" hx-sync="this:replace">

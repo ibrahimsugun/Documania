@@ -30,7 +30,7 @@ from app.db.models import (
     UploadFile,
 )
 from app.events import EventType
-from app.profiles.__main__ import main
+from app.profiles.cli import main
 from app.profiles.field_fill import ProfileFieldFill, fill_profile_fields
 from app.storage import DataLayout
 from tests.ai.payloads import analysis_payload

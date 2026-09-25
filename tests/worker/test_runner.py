@@ -45,7 +45,6 @@ from app.worker import (
     enqueue_upload,
     lease_checkpoint,
     run_claimed_upload,
-    start_worker,
 )
 from app.worker import runner as worker_runner
 from app.worker.runner import _Heartbeat
@@ -378,10 +377,12 @@ def test_the_worker_loop_processes_a_waiting_batch(
         provider=recorded_provider(tmp_path / "kayit", [ORNEKOVA]),
     )
 
-    worker.start()
-    worker.start()  # ikinci başlatma ikinci döngü açmaz
+    worker.start(paused=True)
+    worker.start()  # ikinci başlatma ikinci döngü açmaz, beklemeyi de açmaz
     try:
         assert worker.running
+        assert _job(session_factory, first).status == JobStatus.QUEUED
+        worker.resume()
         _wait_until(lambda: _job(session_factory, first).status == JobStatus.FINISHED)
     finally:
         worker.stop()
@@ -391,6 +392,24 @@ def test_the_worker_loop_processes_a_waiting_batch(
         assert session.get_one(Upload, first).status == UploadStatus.DONE
     alive = [thread.name for thread in threading.enumerate()]
     assert alive.count("belgeee-worker") == 0
+
+
+def test_shutdown_during_paused_startup_prevents_the_first_queue_scan(
+    session_factory: sessionmaker[Session],
+    layout: DataLayout,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    scans: list[bool] = []
+    worker = Worker(session_factory, layout, settings=SETTINGS, provider=None)  # type: ignore[arg-type]
+    monkeypatch.setattr(worker, "run_once", lambda: scans.append(True) or False)
+    monkeypatch.setattr(worker, "_watch_alerts", lambda: None)
+
+    worker.start(paused=True)
+    worker.request_stop()
+    worker.resume()
+
+    assert worker.wait(timeout=5)
+    assert scans == []
 
 
 def test_the_worker_loop_survives_a_failing_scan_and_logs_only_its_type(
@@ -499,27 +518,29 @@ def recorded_app_settings(
     )
 
 
-@pytest.mark.usefixtures("catalog")
-def test_the_app_resumes_waiting_batches_as_soon_as_it_starts(
+def test_the_app_does_not_start_the_worker_loop(
     session_factory: sessionmaker[Session],
     layout: DataLayout,
     recorded_app_settings: Settings,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    upload_id = _batch(session_factory, layout)  # uygulama kapalıyken kalmış parti
+    upload_id = _batch(session_factory, layout)
+    started: list[bool] = []
+    monkeypatch.setattr(Worker, "start", lambda _worker: started.append(True))
 
-    with TestClient(create_app(recorded_app_settings)):
-        _wait_until(lambda: _job(session_factory, upload_id).status == JobStatus.FINISHED)
+    with TestClient(create_app(recorded_app_settings)) as client:
+        assert client.get("/health").status_code == 200
 
-    with session_factory() as session:
-        assert session.get_one(Upload, upload_id).status == UploadStatus.DONE
+    assert started == []
+    assert _job(session_factory, upload_id).status == JobStatus.QUEUED
     assert "belgeee-worker" not in [thread.name for thread in threading.enumerate()]
 
 
-def test_without_a_provider_the_app_starts_but_batches_keep_waiting(
+def test_app_is_healthy_without_an_ai_provider_and_never_initializes_one(
     session_factory: sessionmaker[Session],
     layout: DataLayout,
     database_url: str,
-    caplog: pytest.LogCaptureFixture,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     upload_id = _batch(session_factory, layout)
     settings = load_settings(
@@ -530,18 +551,39 @@ def test_without_a_provider_the_app_starts_but_batches_keep_waiting(
         anthropic_api_key=None,
     )
 
-    with caplog.at_level(logging.WARNING), TestClient(create_app(settings)) as client:
+    def no_provider(_settings: Settings) -> Any:
+        pytest.fail("HTTP app must not initialize the worker provider")
+
+    monkeypatch.setattr(worker_runner, "create_provider", no_provider)
+    with TestClient(create_app(settings)) as client:
         assert client.get("/health").status_code == 200
 
-    assert "İşçi kuyruğu başlatılmadı" in caplog.text
-    assert "ANTHROPIC_API_KEY" in caplog.text
     assert _job(session_factory, upload_id).status == JobStatus.QUEUED
 
 
-def test_the_worker_can_be_turned_off(layout: DataLayout, monkeypatch: pytest.MonkeyPatch) -> None:
-    def no_provider(settings: Settings) -> Any:
-        raise AssertionError("kapalı işleyici sağlayıcı kurmamalı")
+def test_requesting_worker_shutdown_waits_for_the_current_job(
+    session_factory: sessionmaker[Session],
+    layout: DataLayout,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    entered = threading.Event()
+    finish = threading.Event()
+    worker = Worker(session_factory, layout, settings=SETTINGS, provider=None)  # type: ignore[arg-type]
 
-    monkeypatch.setattr(worker_runner, "create_provider", no_provider)
+    def run_one() -> bool:
+        entered.set()
+        assert finish.wait(5)
+        return True
 
-    assert start_worker(SETTINGS.model_copy(update={"worker_enabled": False}), layout) is None
+    monkeypatch.setattr(worker, "run_once", run_one)
+    monkeypatch.setattr(worker, "_watch_alerts", lambda: None)
+    worker.start()
+    assert entered.wait(5)
+
+    worker.request_stop()
+
+    assert worker.wait(timeout=0.01) is False
+    finish.set()
+    assert worker.wait(timeout=5) is True
+    worker.stop(timeout=0)
+    assert not worker.running

@@ -66,7 +66,7 @@ class Settings(BaseSettings):
     anthropic_prescreen_model: str | None = None
     # PRD 03.3.1 — ikincil sağlayıcı; anahtar yalnız `AI_PROVIDER=openai` iken zorunludur.
     openai_api_key: SecretStr | None = None
-    openai_model: str = Field(default="gpt-5.5", min_length=1)
+    openai_model: str = Field(default="gpt-6-luna", min_length=1)
     openai_prescreen_model: str | None = None
     # PRD 13.1.1 — maliyet paneli token fiyatlarını yerleşik fiyat tablosundan okur
     # (`app/ai/model_prices.yaml`, `app.ai.pricing`); bu ayar aynı model için onun önüne geçer
@@ -74,12 +74,11 @@ class Settings(BaseSettings):
     # "cached_input_per_mtok": 0.5}}`, birim USD / milyon token, önbellek fiyatı isteğe bağlı).
     # İkisinde de olmayan modelin tokenları sayılır, maliyeti hesaplanmaz (bkz. PLAN.md §C77).
     ai_model_prices: dict[str, ModelPrice] = Field(default_factory=dict)
-    # PRD 13.3.1 — kalıcı işçi kuyruğu (`app.worker`). Panel süreci kuyruktaki partileri kendi
-    # işleyicisiyle işler (`WORKER_ENABLED`, açılışta başlar). İşi alan işleyici kirasını
-    # (`WORKER_LEASE_SECONDS`) her geçişte ve kiranın üçte birinde bir yeniler; kirası dolan iş
-    # sahipsiz sayılır ve yeniden alınır. Kirası `WORKER_MAX_ATTEMPTS` kez dolan işten vazgeçilir,
-    # parti `failed` olur. Kuyruk `WORKER_POLL_SECONDS` aralıkla taranır (bkz. PLAN.md §C72).
-    worker_enabled: bool = True
+    # PRD 13.3.1 — kalıcı işçi kuyruğu ayrı `python -m app.worker` sürecinde çalışır; APP yalnız
+    # HTTP sunar. İşi alan worker kirasını (`WORKER_LEASE_SECONDS`) her geçişte ve kiranın üçte
+    # birinde bir yeniler; kirası dolan iş sahipsiz sayılır ve yeniden alınır. Kirası
+    # `WORKER_MAX_ATTEMPTS` kez dolan işten vazgeçilir, parti `failed` olur. Kuyruk
+    # `WORKER_POLL_SECONDS` aralıkla taranır (bkz. PLAN.md §D57).
     worker_lease_seconds: int = Field(default=120, ge=10)
     worker_max_attempts: int = Field(default=3, ge=1)
     worker_poll_seconds: float = Field(default=5.0, gt=0)

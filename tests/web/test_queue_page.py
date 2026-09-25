@@ -65,13 +65,13 @@ UNREADABLE_NOTES = (
 
 
 def _tab_counters(html: str) -> dict[str, int]:
-    """Sekme başlığındaki sayaçlar: `{"Unknown": 2, ...}`."""
+    """Sekme başlığındaki sayaçlar: `{"Tür bilinmiyor": 2, ...}`."""
     tabs = re.search(r'<nav class="tabs".*?</nav>', html, re.S)
     assert tabs is not None
     return {
         label: int(count)
         for label, count in re.findall(
-            r'>(\w+) <span class="counter" title="Bekleyen öğe">(\d+)</span>', tabs.group(0)
+            r'>([^<>]+?) <span class="counter" title="Bekleyen öğe">(\d+)</span>', tabs.group(0)
         )
     }
 
@@ -192,13 +192,13 @@ def test_three_tabs_with_zero_counters_when_nothing_is_queued(client: TestClient
     assert response.status_code == 200
     html = response.text
     assert "<h1>Kuyruklar</h1>" in html
-    assert _tab_counters(html) == {"Unknown": 0, "Unreadable": 0, "Unresolved": 0}
+    assert _tab_counters(html) == {"Tür bilinmiyor": 0, "Okunamadı": 0, "Sahibi belirsiz": 0}
     # Kuyruklar menüsü etkin, ilk sekme (Unknown) açık.
     assert re.search(r'<a href="/queues" class="active" aria-current="page">Kuyruklar</a>', html)
     assert re.search(
-        r'<a href="/queues\?tab=unknown" class="active" aria-current="page">Unknown', html
+        r'<a href="/queues\?tab=unknown" class="active" aria-current="page">Tür bilinmiyor', html
     )
-    assert "Unknown kuyruğunda bekleyen öğe yok." in html
+    assert "Tür bilinmiyor kuyruğunda bekleyen öğe yok." in html
     assert "henüz hazır değil" not in html  # 10.1'in yer tutucusu değil, gerçek ekran
 
 
@@ -227,10 +227,10 @@ def test_counters_count_only_open_items_of_the_current_plan(
 
     unknown = client.get("/queues?tab=unknown").text
 
-    assert _tab_counters(unknown) == {"Unknown": 2, "Unreadable": 1, "Unresolved": 0}
+    assert _tab_counters(unknown) == {"Tür bilinmiyor": 2, "Okunamadı": 1, "Sahibi belirsiz": 0}
     assert _state_counts(unknown) == {"Bekleyen": 2, "Çözülen": 1, "Eski sürüm": 2}
     unreadable = client.get("/queues?tab=unreadable").text
-    assert _tab_counters(unreadable) == {"Unknown": 2, "Unreadable": 1, "Unresolved": 0}
+    assert _tab_counters(unreadable) == {"Tür bilinmiyor": 2, "Okunamadı": 1, "Sahibi belirsiz": 0}
     assert re.search(r"Bekleyen \(1\)", unreadable) and re.search(r"Çözülen \(1\)", unreadable)
     assert "Eski sürüm (0)" in unreadable
 
@@ -277,12 +277,12 @@ def test_tab_lists_only_its_own_kind_in_queue_order_and_filters_by_state(
     assert _row_ids(stale) == [ids["stale_new"], ids["stale_old"]]
     # Sekme sayaçları hangi durum açık olursa olsun bekleyen öğeleri sayar.
     for page in (opened, resolved, stale):
-        assert _tab_counters(page) == {"Unknown": 1, "Unreadable": 0, "Unresolved": 2}
+        assert _tab_counters(page) == {"Tür bilinmiyor": 1, "Okunamadı": 0, "Sahibi belirsiz": 2}
     assert _state_counts(resolved) == {"Bekleyen": 2, "Çözülen": 3, "Eski sürüm": 2}
     assert ids["other_kind"] not in _row_ids(opened + resolved + stale)
     assert "<th>Çözüldü</th>" in resolved and "<th>Çözüldü</th>" not in opened
     assert "ik.veli" in resolved and "ik.ayse" in resolved
-    assert re.search(r'class="active" aria-current="page">Unresolved', opened)
+    assert re.search(r'class="active" aria-current="page">Sahibi belirsiz', opened)
     assert re.search(
         r'<a href="/queues\?tab=unresolved&amp;state=resolved" class="active"', resolved
     )
@@ -291,7 +291,7 @@ def test_tab_lists_only_its_own_kind_in_queue_order_and_filters_by_state(
 def test_empty_state_names_the_queue_and_the_state(client: TestClient) -> None:
     html = client.get("/queues?tab=unreadable&state=resolved").text
 
-    assert "Unreadable kuyruğunda çözülen öğe yok." in html
+    assert "Okunamadı kuyruğunda çözülen öğe yok." in html
 
 
 def test_invalid_tab_state_or_page_is_rejected(client: TestClient) -> None:
@@ -322,7 +322,8 @@ def test_listing_is_paged_and_an_out_of_range_page_lands_on_the_last_one(
     assert 'href="/queues?tab=unknown" rel="prev"' in second and 'rel="next"' not in second
     assert "Sayfa 2 / 2" in second
     assert _row_ids(beyond) == created[PAGE_SIZE:]
-    assert _tab_counters(first)["Unknown"] == PAGE_SIZE + 2  # sayaç sayfaya değil kuyruğa bakar
+    # Sayaç sayfaya değil kuyruğa bakar.
+    assert _tab_counters(first)["Tür bilinmiyor"] == PAGE_SIZE + 2
 
 
 def test_row_shows_type_person_guess_sources_and_reason(
@@ -465,7 +466,11 @@ def test_item_detail_shows_reason_guess_sources_and_page_images_from_the_real_pi
         file_id, page_id = source_file.id, page.id
 
     listing = client.get("/queues?tab=unreadable")
-    assert _tab_counters(listing.text) == {"Unknown": 0, "Unreadable": 1, "Unresolved": 0}
+    assert _tab_counters(listing.text) == {
+        "Tür bilinmiyor": 0,
+        "Okunamadı": 1,
+        "Sahibi belirsiz": 0,
+    }
     assert _row_ids(listing.text) == [item_id]
     assert UNREADABLE_REASON in listing.text and "pasaport.pdf · s. 1" in listing.text
 
@@ -474,7 +479,7 @@ def test_item_detail_shows_reason_guess_sources_and_page_images_from_the_real_pi
     assert response.status_code == 200
     html = response.text
     assert f"<title>Kuyruk öğesi {item_id} · belgeee</title>" in html
-    assert '<a href="/queues?tab=unreadable">← Unreadable kuyruğu</a>' in html
+    assert '<a href="/queues?tab=unreadable">← Okunamadı kuyruğu</a>' in html
     assert re.search(r'<a href="/queues" class="active" aria-current="page">Kuyruklar</a>', html)
     assert "<dt>Durum</dt><dd>Bekleyen</dd>" in html
     assert "<dt>Belge türü</dt><dd>Russian Passport</dd>" in html
@@ -520,15 +525,15 @@ def test_resolved_item_shows_who_resolved_it_and_links_to_the_output_history(
     assert "<dt>Durum</dt><dd>Çözülen</dd>" in detail
     assert f"· {ACTOR}" in detail
     assert f'<a href="/documents/{document_id}/history">çıktının geçmişi</a>' in detail
-    assert '<a href="/queues?tab=unreadable&amp;state=resolved">← Unreadable kuyruğu</a>' in detail
+    assert '<a href="/queues?tab=unreadable&amp;state=resolved">← Okunamadı kuyruğu</a>' in detail
     timeline = _section(detail, "timeline")
     assert EventType.QUEUED_UNREADABLE.value in timeline
     assert EventType.MANUAL_ASSIGN.value in timeline and ACTOR in timeline
     assert _row_ids(listing) == [item_id] and ACTOR in listing
     assert _tab_counters(client.get("/queues").text) == {
-        "Unknown": 0,
-        "Unreadable": 0,
-        "Unresolved": 0,
+        "Tür bilinmiyor": 0,
+        "Okunamadı": 0,
+        "Sahibi belirsiz": 0,
     }
     with session_factory() as session:  # ekranlar okur: kuyruk kaydı ve çıktı aynı kalır
         assert session.get_one(QueueItem, item_id).resolved_by == ACTOR
@@ -541,7 +546,7 @@ def test_unknown_item_without_a_type_says_so(
 
     html = client.get(f"/queues/{item_id}").text
 
-    assert "<dt>Kuyruk</dt><dd>Unknown</dd>" in html
+    assert "<dt>Kuyruk</dt><dd>Tür bilinmiyor</dd>" in html
     assert "<dt>Belge türü</dt><dd>Belirlenmedi</dd>" in html
 
 
@@ -560,7 +565,8 @@ def test_superseded_item_says_it_cannot_be_resolved(
     assert "<dt>Durum</dt><dd>Eski sürüm</dd>" in html
     assert SUPERSEDED_NOTE in html
     assert "plan sürüm 1" in html
-    assert '<a href="/queues?tab=unresolved&amp;state=superseded">← Unresolved kuyruğu</a>' in html
+    back = '<a href="/queues?tab=unresolved&amp;state=superseded">← Sahibi belirsiz kuyruğu</a>'
+    assert back in html
 
 
 def test_missing_item_is_a_404_page(client: TestClient) -> None:

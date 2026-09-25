@@ -7,8 +7,8 @@
 modül yalnız üretir.
 
 YAML ön blok ve kimlik tablosu aynı alanları taşır: `given_names`/`surname` Latin yazımdır
-(05.2.2), `original_script_name` doluysa Latin olmayan asıl yazımdır — ikisi birlikte göründüğü
-için Latin olmayan isimlerde ayrı bir dönüştürme adımı gerekmez (09.1.2).
+(05.2.2), `original_script_name` ismin belgede basılı hâlidir — alfabesi ne olursa olsun, Latin
+belgede de dolu. İkisi birlikte göründüğü için ayrı bir dönüştürme adımı gerekmez (09.1.2).
 Okunmamış alan `—` ile gösterilir; içerik üretilmez, yalnız var olan veritabanı satırı
 görüntülenir (K11, K17).
 """

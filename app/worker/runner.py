@@ -12,12 +12,14 @@ Uzun süren bir adımda (analiz tek işlemdir, C43) kira ayrıca bir kalp atış
 tuttuğu için kalp atışı o sürede bekler ya da yenileyemez; zararı yoktur: kilit tutulurken işi
 kimse alamaz, kilit geçişte bırakılır ve kira o geçişte zaten yenilenmiştir.
 
-**Kuyruk döngüsü.** `Worker` panel sürecinde açılışta başlar (`app.main`, `start_worker`) ve
-`WORKER_POLL_SECONDS` aralıkla kuyruğu tarar: önce kirası en çok deneme kadar dolmuş işlerden
-vazgeçer, sonra sıradaki işi (bekleyen ya da kirası dolmuş) alıp işler; iş buldukça beklemeden
-devam eder. Uygulama yeniden başlayınca yarıda kalan partinin kirası dolar ve döngü onu kaldığı
-aşamadan sürdürür — kabul kriteri budur. Kapanışta döngü süren işi kesmez; süreç giderse iş kirası
-dolunca yeniden alınır. Yapay zekâ sağlayıcısı kurulamıyorsa döngü başlamaz, işler kuyrukta bekler.
+**Kuyruk döngüsü.** `Worker` ayrı HTTP dışı süreçte
+(`python -m app.worker`, Compose `worker` servisi) çalışır.
+`WORKER_POLL_SECONDS` aralıkla kuyruğu tarar: önce kirası en çok deneme kadar dolmuş
+işlerden vazgeçer, sonra sıradaki işi (bekleyen ya da kirası dolmuş) alıp işler; iş buldukça
+beklemeden devam eder. Uygulama yeniden başlayınca yarıda kalan partinin kirası dolar ve döngü onu
+kaldığı aşamadan sürdürür — kabul kriteri budur. Shutdown isteği yeni işi almadan önce beklenir;
+aktif iş tamamlanır, sonra süreç kapanır. Sağlayıcı ayarı worker başlarken doğrulanır; hatalı ayarda
+worker süreci görünür hatayla kapanır, kuyruktaki işler kalır.
 
 **İzleme.** Döngü her turdan sonra `AlertWatch`'i (`app.worker.monitor`, PRD 13.6.1) çağırır: hata,
 disk doluluğu ve kuyruk uzunluğu eşiği aşınca uyarı loga yazılır. Uzun bir iş süren turda ölçüm
@@ -164,6 +166,7 @@ class Worker:
             session_factory, layout.root, AlertThresholds.from_settings(settings)
         )
         self._stopping = threading.Event()
+        self._start_gate = threading.Event()
         self._thread: threading.Thread | None = None
 
     def run_once(self) -> bool:
@@ -186,19 +189,38 @@ class Worker:
         )
         return True
 
-    def start(self) -> None:
-        """Döngüyü arka plan iş parçacığında başlatır; çalışıyorsa bir şey yapmaz."""
+    def start(self, *, paused: bool = False) -> None:
+        """Döngüyü başlatır; `paused=True` ise `resume()` çağrısına dek kuyruk taranmaz."""
         if self._thread is not None and self._thread.is_alive():
             return
         self._stopping.clear()
+        self._start_gate.clear()
+        if not paused:
+            self._start_gate.set()
         self._thread = threading.Thread(target=self._loop, name="belgeee-worker", daemon=True)
         self._thread.start()
 
+    def resume(self) -> None:
+        """Bekletilmiş kuyruk döngüsünün taramaya başlamasına izin verir."""
+        self._start_gate.set()
+
+    def request_stop(self) -> None:
+        """Mevcut işi kesmeden döngüyü durdurur; bekliyorsa çıkış kapısını açar."""
+        self._stopping.set()
+        self._start_gate.set()
+
+    def wait(self, timeout: float | None = None) -> bool:
+        """İş parçacığı bitene kadar bekler; zaman aşımında `False` döner."""
+        thread = self._thread
+        if thread is None:
+            return True
+        thread.join(timeout)
+        return not thread.is_alive()
+
     def stop(self, timeout: float = STOP_TIMEOUT_SECONDS) -> None:
         """Döngüye durmasını söyler ve en çok `timeout` saniye bekler; süren iş kesilmez."""
-        self._stopping.set()
-        if self._thread is not None:
-            self._thread.join(timeout)
+        self.request_stop()
+        self.wait(timeout)
         if self._engine is not None:
             self._engine.dispose()
 
@@ -207,6 +229,7 @@ class Worker:
         return self._thread is not None and self._thread.is_alive()
 
     def _loop(self) -> None:
+        self._start_gate.wait()
         while not self._stopping.is_set():
             try:
                 worked = self.run_once()
@@ -224,20 +247,22 @@ class Worker:
             logger.error("İzleme ölçümü başarısız (%s)", type(exc).__name__)
 
 
+def create_worker(settings: Settings, layout: DataLayout) -> Worker:
+    """Kurur fakat başlatmaz; bağımsız CLI ya da embedded kullanımına worker verir."""
+    provider = create_provider(settings)
+    engine = create_db_engine(settings.database_url)
+    return Worker(
+        create_session_factory(engine), layout, settings=settings, provider=provider, engine=engine
+    )
+
+
 def start_worker(settings: Settings, layout: DataLayout) -> Worker | None:
-    """Panel sürecinin işleyicisini kurar ve başlatır; `WORKER_ENABLED` kapalıysa ya da yapay zekâ
-    sağlayıcısı kurulamıyorsa (işler kuyrukta bekler) `None`."""
-    if not settings.worker_enabled:
-        return None
+    """Embedded kullanım için worker'ı kurup başlatır; ayarsız sağlayıcıda `None` döner."""
     try:
-        provider = create_provider(settings)
+        worker = create_worker(settings, layout)
     except ProviderConfigError as exc:
         logger.warning("İşçi kuyruğu başlatılmadı, partiler kuyrukta bekleyecek: %s", exc)
         return None
-    engine = create_db_engine(settings.database_url)
-    worker = Worker(
-        create_session_factory(engine), layout, settings=settings, provider=provider, engine=engine
-    )
     worker.start()
     return worker
 

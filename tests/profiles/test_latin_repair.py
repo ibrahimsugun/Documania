@@ -29,7 +29,7 @@ from app.db.models import (
 )
 from app.events import EventType
 from app.matching.names import normalize_name
-from app.profiles.__main__ import main
+from app.profiles.cli import main
 from app.profiles.latin_names import (
     LatinRepair,
     RepairSource,

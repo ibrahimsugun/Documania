@@ -73,19 +73,34 @@ def test_production_services_sit_behind_the_production_profile(
     assert production == {"preflight", "db", "caddy"}
 
 
-def test_default_development_flow_only_starts_migrate_and_app(
+def test_default_development_flow_starts_migrate_app_and_worker(
     services: dict[str, dict[str, Any]],
 ) -> None:
     # `docker compose up` (profilsiz) HTTPS/PostgreSQL istemez: DOMAIN vb. olmadan da açılır.
     default = {name for name, service in services.items() if not service.get("profiles")}
 
-    assert default == {"migrate", "app"}
+    assert default == {"migrate", "app", "worker"}
 
 
 def test_bot_stays_an_optional_telegram_profile_service(
     services: dict[str, dict[str, Any]],
 ) -> None:
     assert services["bot"]["profiles"] == ["telegram"]
+
+
+def test_worker_is_a_separate_queue_only_service(
+    services: dict[str, dict[str, Any]],
+) -> None:
+    worker = services["worker"]
+
+    assert worker["command"] == ["python", "-m", "app.worker"]
+    assert worker["build"] == services["app"]["build"]
+    assert worker["image"] == services["app"]["image"]
+    assert worker.get("profiles", []) == []
+    assert _published(worker) == []
+    assert worker["healthcheck"] == {"disable": True}
+    assert worker["restart"] == "unless-stopped"
+    assert worker["stop_grace_period"] == "2m"
 
 
 # --- ağ yüzeyi -----------------------------------------------------------------------------------
@@ -126,6 +141,7 @@ def test_startup_order_preflight_db_migrate_app_caddy(services: dict[str, dict[s
     assert migrate["db"]["condition"] == "service_healthy"
     assert migrate["preflight"]["condition"] == "service_completed_successfully"
     assert _depends(services["app"])["migrate"]["condition"] == "service_completed_successfully"
+    assert _depends(services["worker"])["migrate"]["condition"] == "service_completed_successfully"
     assert _depends(services["bot"])["migrate"]["condition"] == "service_completed_successfully"
     caddy = _depends(services["caddy"])
     assert caddy["app"]["condition"] == "service_healthy"
@@ -169,15 +185,16 @@ def test_database_is_postgres_16_with_a_health_check(services: dict[str, dict[st
     assert db["restart"] == "unless-stopped"
 
 
-def test_app_migrate_and_bot_share_one_database_and_data_volume(
+def test_app_migrate_worker_and_bot_share_one_database_and_data_volume(
     services: dict[str, dict[str, Any]],
 ) -> None:
-    urls = {name: _env(services[name])["DATABASE_URL"] for name in ("app", "migrate", "bot")}
+    names = ("app", "migrate", "worker", "bot")
+    urls = {name: _env(services[name])["DATABASE_URL"] for name in names}
 
     assert len(set(urls.values())) == 1
     # Varsayılan (geliştirme) SQLite; üretimde `.env`'deki APP_DATABASE_URL.
     assert urls["app"] == "${APP_DATABASE_URL:-sqlite:////srv/data/belgeee.db}"
-    for name in ("app", "migrate", "bot"):
+    for name in names:
         assert "data:/srv/data" in services[name]["volumes"]
         assert _env(services[name])["APP_ENV"] == "${APP_ENV:-development}"
 
@@ -187,7 +204,7 @@ def test_dev_env_file_settings_cannot_leak_a_host_database_path_into_containers(
 ) -> None:
     # env_file `.env`'i konteynere taşır; geliştirme `.env`'indeki SQLite yolu ve DATA_DIR baskın
     # `environment` değerleriyle ezilmeli.
-    for name in ("app", "migrate", "bot"):
+    for name in ("app", "migrate", "worker", "bot"):
         env = _env(services[name])
         assert "DATABASE_URL" in env
         assert env["DATA_DIR"] == "/srv/data"
@@ -432,7 +449,7 @@ def test_docker_compose_config_is_valid_in_development_without_production_settin
     _skip_without_compose(result)
 
     assert result.returncode == 0, result.stderr
-    assert set(result.stdout.split()) == {"migrate", "app"}
+    assert set(result.stdout.split()) == {"migrate", "app", "worker"}
 
 
 def test_docker_compose_config_is_valid_for_the_production_profile(empty_env_file: str) -> None:
@@ -450,7 +467,7 @@ def test_docker_compose_config_is_valid_for_the_production_profile(empty_env_fil
 
     assert result.returncode == 0, result.stderr
     config = json.loads(result.stdout)
-    assert set(config["services"]) == {"preflight", "db", "migrate", "app", "caddy"}
+    assert set(config["services"]) == {"preflight", "db", "migrate", "app", "worker", "caddy"}
     assert (
         config["services"]["app"]["environment"]["DATABASE_URL"]
         == PRODUCTION_ENV["APP_DATABASE_URL"]

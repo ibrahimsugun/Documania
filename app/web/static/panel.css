@@ -470,3 +470,552 @@ button.htmx-request::before {
 .context-warning-rows { width: 100%; border-collapse: collapse; background: #fff; }
 
 .context-warning-rows th, .context-warning-rows td { padding: 0.35rem 0.5rem; text-align: left; border-bottom: 1px solid #fecdca; }
+
+/* ===========================================================================
+   Okunabilirlik katmanı — panelin genel görünümü.
+
+   Bu bölüm dosyanın sonundadır: yukarıdaki sayfaya özel kurallarla aynı
+   seçici ağırlığında olanları bilerek geçersiz kılar. Yapı ve davranış
+   değişmez, yalnız tipografi, boşluk ve tablo görünümü toparlanır.
+   =========================================================================== */
+
+body { line-height: 1.5; }
+
+.content { padding-block: 2rem; }
+
+h1 { margin: 0 0 0.4rem; font-size: 1.65rem; letter-spacing: -0.01em; }
+
+/* Başlığın altındaki açıklama: sayfa ne işe yarar, kullanıcı ne yapar. */
+.lede { max-width: 62rem; margin: 0 0 1.4rem; color: #4b5563; }
+
+.lede strong { color: #1f2328; font-weight: 600; }
+
+/* İpucu yazısı biraz daha koyu: gri üstünde okunabilsin. */
+.hint, .placeholder, .count, .reason, .actor, .profile-meta { color: #57606a; }
+
+/* Seçili kuyruğun açıklaması — sayfadan ayrışan bilgi kutusu. */
+.hint-panel {
+  max-width: 62rem;
+  margin: 0 0 1.1rem;
+  padding: 0.65rem 0.9rem;
+  background: #eef5fc;
+  border-left: 3px solid #0b5cad;
+  border-radius: 0 6px 6px 0;
+  color: #33414f;
+}
+
+/* --- Tablolar --------------------------------------------------------- */
+
+.files, .items, .outputs, .queue, .queue-items,
+.employees, .catalog, .metrics, .access-log {
+  border: 1px solid #d8dee4;
+  border-radius: 8px;
+  border-spacing: 0;
+  border-collapse: separate;
+  overflow: hidden;
+}
+
+.files th, .items th, .outputs th, .queue th, .queue-items th,
+.employees th, .catalog th, .metrics th, .access-log th {
+  padding: 0.6rem 0.75rem;
+  background: #f2f4f7;
+  border-bottom: 1px solid #d8dee4;
+  color: #4b5563;
+  font-size: 0.85em;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.files td, .items td, .outputs td, .queue td, .queue-items td,
+.employees td, .catalog td, .metrics td, .access-log td {
+  padding: 0.6rem 0.75rem;
+  border-bottom: 1px solid #eef0f3;
+}
+
+/* Son satırın alt çizgisi tablonun kendi çerçevesiyle çakışmasın. */
+.files tr:last-child td, .items tr:last-child td, .outputs tr:last-child td,
+.queue tr:last-child td, .queue-items tr:last-child td, .employees tr:last-child td,
+.catalog tr:last-child td, .metrics tr:last-child td, .access-log tr:last-child td {
+  border-bottom: 0;
+}
+
+/* Satırları ayıran çok hafif şerit: göz satırı kaybetmesin. */
+.files tbody tr:nth-child(even), .items tbody tr:nth-child(even),
+.outputs tbody tr:nth-child(even), .queue tbody tr:nth-child(even),
+.queue-items tbody tr:nth-child(even), .employees tbody tr:nth-child(even),
+.catalog tbody tr:nth-child(even), .metrics tbody tr:nth-child(even),
+.access-log tbody tr:nth-child(even) { background: #fbfcfd; }
+
+.files tbody tr:hover, .items tbody tr:hover, .outputs tbody tr:hover,
+.queue tbody tr:hover, .queue-items tbody tr:hover, .employees tbody tr:hover,
+.catalog tbody tr:hover, .metrics tbody tr:hover,
+.access-log tbody tr:hover { background: #eef5fc; }
+
+/* Kuyruğa düşen satırın sarısı şeridin altında kalmasın (yukarıdaki
+   `.route-*` kuralı şeritten önce geldiği için burada yineleniyor). */
+.items tbody tr.route-unknown, .items tbody tr.route-unreadable,
+.items tbody tr.route-unresolved, .queue tbody tr.route-unknown,
+.queue tbody tr.route-unreadable, .queue tbody tr.route-unresolved { background: #fff8e6; }
+
+/* Yükleme listesindeki durum sütunu: renkli metin yerine okunur bir etiket. */
+.uploads-list td[class^="status-"] { white-space: nowrap; font-weight: 600; }
+
+/* --- Süzgeç ve arama çubuğu ------------------------------------------- */
+
+.search {
+  align-items: end;
+  gap: 0.5rem 0.9rem;
+  margin-bottom: 1.25rem;
+  padding: 0.85rem 1rem;
+  background: #fff;
+  border: 1px solid #d8dee4;
+  border-radius: 8px;
+}
+
+.search label { color: #57606a; font-size: 0.9em; }
+
+.uploads-filter { display: flex; flex-wrap: wrap; }
+
+.uploads-filter label { display: block; margin-bottom: 0.2rem; }
+
+.uploads-filter select, .uploads-filter input[type="date"] {
+  padding: 0.4rem 0.5rem;
+  border: 1px solid #d0d7de;
+  border-radius: 4px;
+  font: inherit;
+}
+
+/* --- Kuyruk sayfasındaki durum satırı (Bekleyen / Çözülen / Eski sürüm) - */
+
+.states { gap: 0.25rem; padding: 0.2rem; background: #eef0f3; border-radius: 8px; width: fit-content; }
+
+.states a {
+  padding: 0.3rem 0.8rem;
+  border-radius: 6px;
+  color: #57606a;
+  text-decoration: none;
+}
+
+.states a:hover { background: #e2e6ea; color: #1f2328; }
+
+.states a.active { background: #fff; color: #1f2328; box-shadow: 0 1px 2px rgba(31, 41, 55, 0.18); }
+
+/* --- Düğmeler --------------------------------------------------------- */
+
+button:hover, .button-link:hover { background: #f2f4f7; }
+
+.link-button:hover { background: #eef5fc; }
+
+/* Boş kuyruk / boş liste iletisi yalnız bir cümle olarak kalmasın. */
+.placeholder {
+  padding: 1.5rem 1rem;
+  background: #fff;
+  border: 1px dashed #d0d7de;
+  border-radius: 8px;
+  text-align: center;
+}
+
+/* ===========================================================================
+   Visual system v2 — sakin, çağdaş operasyon paneli.
+
+   Bu katman HTML yapısını ve etkileşimleri değiştirmez; mevcut sınıfların
+   görünümünü tek yerde toplar. Panel bir "operate" yüzeyi olduğu için
+   dekoratif kart kalabalığı yerine net hiyerarşi, sağlam kontrast ve tablo
+   okunabilirliği öne çıkar.
+   =========================================================================== */
+
+:root {
+  --ink: #17252b;
+  --ink-soft: #3f5057;
+  --muted-ink: #68777b;
+  --canvas: #eef3f1;
+  --surface: #ffffff;
+  --surface-soft: #f6f9f8;
+  --line: #d7e2df;
+  --line-strong: #c5d2ce;
+  --accent: #147d75;
+  --accent-strong: #0d625c;
+  --accent-soft: #e2f2ef;
+  --warning: #a25f1c;
+  --warning-soft: #fff3e2;
+  --danger: #b23b34;
+  --danger-soft: #fff0ee;
+  --success: #18724a;
+  --shadow-sm: 0 1px 2px rgb(23 37 43 / 7%), 0 6px 18px rgb(23 37 43 / 4%);
+  --shadow-md: 0 2px 4px rgb(23 37 43 / 8%), 0 14px 32px rgb(23 37 43 / 7%);
+  --radius-sm: 8px;
+  --radius-md: 12px;
+}
+
+html { background: var(--canvas); }
+
+body {
+  color: var(--ink);
+  background: var(--canvas);
+  font-family: "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: var(--accent-strong);
+  text-decoration-thickness: 0.08em;
+  text-underline-offset: 0.16em;
+}
+
+a:hover { color: var(--accent); }
+
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  min-height: 4rem;
+  gap: 0.7rem;
+  background: #14262d;
+  border-bottom: 1px solid #30434a;
+  box-shadow: 0 2px 12px rgb(10 29 34 / 15%);
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  color: #f3f8f6;
+  font-size: 1.12rem;
+  letter-spacing: -0.025em;
+}
+
+.brand::before {
+  width: 0.58rem;
+  height: 0.58rem;
+  border-radius: 3px;
+  background: #e2ad69;
+  box-shadow: 0 0 0 4px rgb(226 173 105 / 15%);
+  content: "";
+}
+
+.menu { gap: 0.2rem; }
+
+.menu a,
+.tool-link {
+  padding: 0.48rem 0.7rem;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  color: #b8c9c8;
+  font-size: 0.92rem;
+  transition: background-color 140ms ease, color 140ms ease, border-color 140ms ease;
+}
+
+.menu a:hover,
+.tool-link:hover {
+  background: #203940;
+  border-color: #365159;
+  color: #f3f8f6;
+}
+
+.menu a.active,
+.tool-link.active {
+  background: #22504f;
+  border-color: #3b7771;
+  color: #ffffff;
+  box-shadow: none;
+}
+
+.session {
+  gap: 0.65rem;
+  margin-left: 0.35rem;
+  padding-left: 0.9rem;
+  border-left-color: #3a5057;
+}
+
+.username { color: #aec1c0; font-size: 0.86rem; }
+
+.session button {
+  padding: 0.34rem 0.68rem;
+  border-color: #557078;
+  border-radius: 7px;
+  color: #e6efed;
+}
+
+.session button:hover { background: #203940; }
+
+.content {
+  max-width: 80rem;
+  padding: 2.35rem 1.5rem 4rem;
+}
+
+h1, h2, h3 {
+  color: var(--ink);
+  letter-spacing: -0.02em;
+}
+
+h1 {
+  margin-bottom: 0.45rem;
+  font-size: clamp(1.65rem, 2vw, 2.05rem);
+  font-weight: 700;
+}
+
+h2 { font-size: 1.25rem; }
+h3 { font-size: 1.04rem; }
+
+.lede {
+  max-width: 68rem;
+  margin-bottom: 1.6rem;
+  color: var(--ink-soft);
+  font-size: 0.98rem;
+}
+
+.lede strong { color: var(--ink); }
+.hint, .placeholder, .count, .reason, .actor, .profile-meta { color: var(--muted-ink); }
+
+.hint-panel {
+  max-width: 68rem;
+  padding: 0.78rem 1rem;
+  background: var(--accent-soft);
+  border: 1px solid #c6e3de;
+  border-left: 4px solid var(--accent);
+  border-radius: var(--radius-sm);
+  color: #285c59;
+}
+
+.content section { margin-top: 2rem; }
+
+.login {
+  max-width: 25rem;
+  margin: 7vh auto;
+  padding: 2rem;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+}
+
+.login h1 { margin-top: 0; font-size: 1.8rem; }
+.login form { gap: 0.55rem; }
+
+input, select, textarea {
+  color: var(--ink);
+  background: var(--surface);
+  border-color: var(--line-strong);
+  border-radius: 7px;
+}
+
+input:focus, select:focus, textarea:focus, button:focus-visible, a:focus-visible {
+  outline: 3px solid rgb(20 125 117 / 22%);
+  outline-offset: 2px;
+}
+
+button,
+.button-link {
+  min-height: 2.25rem;
+  padding: 0.45rem 0.85rem;
+  border-color: var(--line-strong);
+  border-radius: 7px;
+  background: var(--surface);
+  color: var(--ink);
+  font-weight: 600;
+  transition: background-color 140ms ease, border-color 140ms ease, transform 140ms ease;
+}
+
+button:hover,
+.button-link:hover { background: var(--surface-soft); border-color: #a9bbb6; }
+button:active, .button-link:active { transform: translateY(1px); }
+
+form:not(.session) button[type="submit"],
+.action-buttons > button,
+.action-buttons > .button-link {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+form:not(.session) button[type="submit"]:hover,
+.action-buttons > button:hover,
+.action-buttons > .button-link:hover {
+  background: var(--accent-strong);
+  border-color: var(--accent-strong);
+}
+
+.error { color: var(--danger); }
+.notice { color: var(--warning); }
+.notice-success, .status-done, .check-ok { color: var(--success); }
+.status-partial, .badge, .edited { color: var(--warning); }
+.status-failed, .check-fail { color: var(--danger); }
+
+.dropzone {
+  min-height: 13rem;
+  justify-content: center;
+  padding: 2.4rem 1.25rem;
+  background: var(--surface);
+  border: 1px dashed #9db8b3;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+}
+
+.dropzone:hover,
+.dropzone.dragover {
+  background: #f2faf8;
+  border-color: var(--accent);
+}
+
+.progress,
+.actions,
+.file,
+.plan-meta,
+.profile-card,
+.search,
+.placeholder {
+  background: var(--surface);
+  border-color: var(--line);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+}
+
+.progress { padding: 1.1rem 1.2rem; }
+.progress h2 { color: var(--ink); }
+
+.steps { gap: 0.45rem; }
+.step {
+  padding: 0.35rem 0.65rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface-soft);
+  color: var(--muted-ink);
+}
+.step-done { background: #e8f5ed; border-color: #c4e4cf; color: var(--success); }
+.step-current { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+.files, .items, .outputs, .queue, .queue-items,
+.employees, .catalog, .metrics, .access-log {
+  border-color: var(--line);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+}
+
+.files th, .items th, .outputs th, .queue th, .queue-items th,
+.employees th, .catalog th, .metrics th, .access-log th {
+  padding: 0.7rem 0.8rem;
+  background: #edf3f1;
+  border-bottom-color: var(--line);
+  color: #52656a;
+  font-size: 0.76rem;
+  letter-spacing: 0.055em;
+}
+
+.files td, .items td, .outputs td, .queue td, .queue-items td,
+.employees td, .catalog td, .metrics td, .access-log td { padding: 0.72rem 0.8rem; }
+
+.files tbody tr:nth-child(even), .items tbody tr:nth-child(even),
+.outputs tbody tr:nth-child(even), .queue tbody tr:nth-child(even),
+.queue-items tbody tr:nth-child(even), .employees tbody tr:nth-child(even),
+.catalog tbody tr:nth-child(even), .metrics tbody tr:nth-child(even),
+.access-log tbody tr:nth-child(even) { background: #fbfcfc; }
+
+.files tbody tr:hover, .items tbody tr:hover, .outputs tbody tr:hover,
+.queue tbody tr:hover, .queue-items tbody tr:hover, .employees tbody tr:hover,
+.catalog tbody tr:hover, .metrics tbody tr:hover,
+.access-log tbody tr:hover { background: #f0f8f6; }
+
+.items tbody tr.route-unknown, .items tbody tr.route-unreadable,
+.items tbody tr.route-unresolved, .queue tbody tr.route-unknown,
+.queue tbody tr.route-unreadable, .queue tbody tr.route-unresolved {
+  background: var(--warning-soft);
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.35rem;
+  padding: 0.12rem 0.48rem;
+  border: 1px solid #f0d5a8;
+  border-radius: 999px;
+  background: var(--warning-soft);
+  font-size: 0.78em;
+  font-weight: 700;
+}
+
+.badge-neutral { background: #eef2f1; border-color: var(--line); color: var(--muted-ink); }
+
+.tabs {
+  gap: 0.3rem;
+  margin-bottom: 1rem;
+  border-bottom: 1px solid var(--line-strong);
+}
+
+.tabs a {
+  margin-bottom: -1px;
+  padding: 0.62rem 0.9rem;
+  border: 1px solid transparent;
+  border-bottom: 2px solid transparent;
+  border-radius: 8px 8px 0 0;
+  background: transparent;
+  color: var(--muted-ink);
+  font-weight: 600;
+}
+
+.tabs a:hover { background: var(--surface-soft); color: var(--ink); }
+.tabs a.active { border-color: var(--line-strong); border-bottom-color: var(--accent); background: var(--surface); color: var(--ink); }
+
+.counter { background: var(--warning-soft); color: var(--warning); }
+.tabs a.active .counter { background: var(--accent-soft); color: var(--accent-strong); }
+
+.states {
+  gap: 0.2rem;
+  padding: 0.22rem;
+  background: #e2ebe8;
+  border-radius: 999px;
+}
+
+.states a { padding: 0.34rem 0.78rem; border-radius: 999px; color: var(--muted-ink); }
+.states a:hover { background: #d8e5e1; color: var(--ink); }
+.states a.active { background: var(--surface); color: var(--ink); box-shadow: var(--shadow-sm); }
+
+.search {
+  align-items: end;
+  gap: 0.6rem 0.85rem;
+  padding: 1rem 1.1rem;
+}
+
+.search label { color: var(--ink-soft); font-size: 0.84rem; font-weight: 600; }
+
+.profile-card { padding: 1.25rem; }
+.profile-photo img, .photo-placeholder, .thumb img, .no-image {
+  border-color: var(--line);
+  border-radius: var(--radius-sm);
+}
+
+.context-warning {
+  border-color: #df887e;
+  border-left-color: var(--danger);
+  border-radius: var(--radius-md);
+  background: var(--danger-soft);
+  box-shadow: var(--shadow-sm);
+}
+
+.context-warning h2 { color: var(--danger); }
+.context-warning-rows { background: var(--surface); }
+.context-warning-rows th, .context-warning-rows td { border-bottom-color: #f2d0cc; }
+
+.pager { gap: 0.65rem; }
+.pager a {
+  padding: 0.35rem 0.65rem;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--surface);
+  text-decoration: none;
+}
+
+@media (max-width: 52rem) {
+  .topbar { padding-block: 0.7rem; }
+  .session { margin-left: auto; padding-left: 0.65rem; }
+  .content { padding: 1.5rem 1rem 3rem; }
+  .content table { display: block; overflow-x: auto; white-space: nowrap; }
+  .profile-edit, .type-form { grid-template-columns: 1fr; }
+  .profile-edit button, .type-form .form-actions { grid-column: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  button, .button-link, .menu a, .tool-link { transition: none; }
+}

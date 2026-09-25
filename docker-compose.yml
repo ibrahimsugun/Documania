@@ -8,9 +8,9 @@
 #
 #     docker compose --profile production up -d --build
 #
-# Bu komut PostgreSQL 16'yı (`db`), şema göçünü (`migrate`), paneli (`app`) ve HTTPS'i sonlandıran
-# Caddy'yi (`caddy`, sertifikayı kendisi alır ve yeniler) ayağa kaldırır. Telegram botu ayrı ve
-# isteğe bağlıdır: `--profile telegram` eklenir. Ayrıntı: README.md "Üretim dağıtımı".
+# Bu komut PostgreSQL 16'yı (`db`), şema göçünü (`migrate`), HTTP uygulamasını (`app`), ayrı kuyruk
+# işleyicisini (`worker`) ve HTTPS'i sonlandıran Caddy'yi (`caddy`) ayağa kaldırır. Telegram botu
+# ayrı ve isteğe bağlıdır: `--profile telegram` eklenir. Ayrıntı: README.md "Üretim dağıtımı".
 
 x-app: &app
   build: .
@@ -30,8 +30,8 @@ x-app: &app
     - data:/srv/data
 
 services:
-  # Şema göçü: uygulama şemayı kendisi kurmaz. Tek seferlik çalışır; app ve bot bunun başarıyla
-  # bitmesini bekler. Yeniden çalıştırmak zararsızdır (`alembic upgrade head` idempotenttir).
+  # Şema göçü: uygulama şemayı kendisi kurmaz. Tek seferlik çalışır; app, worker ve bot bunun
+  # başarıyla bitmesini bekler. Yeniden çalıştırmak zararsızdır (`alembic upgrade head` idempotenttir).
   migrate:
     <<: *app
     command: ["alembic", "upgrade", "head"]
@@ -55,6 +55,19 @@ services:
       # Yalnız bu makineden (ssh tüneli, hata ayıklama). Dışarıya açılan yol Caddy'nin 443'üdür;
       # panel HTTPS'siz hiçbir ağ arayüzünde yayınlanmaz.
       - "127.0.0.1:8000:8000"
+    restart: unless-stopped
+
+  # PRD 13.5.2: kalıcı kuyruk bağımsız süreçte çalışır; portu yoktur ve web healthcheck'i kapalıdır.
+  # SIGTERM'de etkin işi bitirmeyi dener; iki dakikayı aşarsa Docker keser ve kira sonra yenilenir.
+  worker:
+    <<: *app
+    command: ["python", "-m", "app.worker"]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      disable: true
+    stop_grace_period: 2m
     restart: unless-stopped
 
   # 12.1.1: bot panelden ayrı servis. İsteğe bağlı (v2): `docker compose --profile telegram up`.

@@ -184,7 +184,7 @@ def _tab_counters(html: str) -> dict[str, int]:
     return {
         label: int(count)
         for label, count in re.findall(
-            r'>(\w+) <span class="counter" title="Bekleyen öğe">(\d+)</span>', tabs.group(0)
+            r'>([^<>]+?) <span class="counter" title="Bekleyen öğe">(\d+)</span>', tabs.group(0)
         )
     }
 
@@ -461,7 +461,7 @@ def test_the_dismissed_batch_leaves_the_lists_and_the_queues_but_opens_by_addres
     assert f'href="/uploads/{batch}"' in client.get("/uploads").text
     open_before = client.get("/queues?tab=unknown").text
     assert _queue_rows(open_before) == [item_id]
-    assert _tab_counters(open_before)["Unknown"] == 1
+    assert _tab_counters(open_before)["Tür bilinmiyor"] == 1
     assert DIPLOMA_NAME in client.get("/document-types/candidate-types").text
 
     token = _prepare(client, batch)
@@ -476,12 +476,13 @@ def test_the_dismissed_batch_leaves_the_lists_and_the_queues_but_opens_by_addres
     for state in ("open", "resolved", "superseded"):
         listing = client.get(f"/queues?tab=unknown&state={state}").text
         assert _queue_rows(listing) == [], state
-        assert _tab_counters(listing)["Unknown"] == 0, state
-    # Aday tür: tek görülmesi yoksayılan partideydi, bekleyenlerden kalkar.
-    assert DIPLOMA_NAME not in client.get("/document-types/candidate-types").text
+        assert _tab_counters(listing)["Tür bilinmiyor"] == 0, state
+    # Aday tür yerinde kalır: yoksayma partiyi çalışma yüzeylerinden kaldırır, o belgelerden
+    # öğrenilen tür önerisini değil — sonraki tür eğitimi bu birikime dayanır.
+    assert DIPLOMA_NAME in client.get("/document-types/candidate-types").text
     with session_factory() as session:
         candidate = session.scalars(select(CandidateDocumentType)).one()
-        assert candidate.seen_count == 1  # kayıt değişmez, yalnız gösterim süzülür
+        assert candidate.seen_count == 1
     # Detay adresle açılır: bildirim var, işlem düğmesi yok.
     page = client.get(f"/uploads/{batch}")
     assert page.status_code == 200
@@ -525,7 +526,7 @@ def test_queue_counters_drop_the_dismissed_batch_only(
 
     listing = client.get("/queues?tab=unknown").text
     assert _queue_rows(listing) == [kept_item]
-    assert _tab_counters(listing) == {"Unknown": 1, "Unreadable": 0, "Unresolved": 0}
+    assert _tab_counters(listing) == {"Tür bilinmiyor": 1, "Okunamadı": 0, "Sahibi belirsiz": 0}
     rows = client.get("/uploads").text
     assert f'href="/uploads/{kept}"' in rows and f'href="/uploads/{batch}"' not in rows
 

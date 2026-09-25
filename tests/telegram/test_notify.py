@@ -224,7 +224,7 @@ def test_a_new_queue_item_is_announced_to_every_listed_user(
     for chat_id in (LISTED_ID, OTHER_ID):
         text = notifications(bot.telegram, chat_id)[-1]
         assert text.splitlines()[0] == f"Kuyruğa yeni öğe düştü — parti {upload_id}: 1 öğe."
-        assert f"• Unresolved: {reason[:60]}" in text
+        assert f"• Sahibi belirsiz: {reason[:60]}" in text
         assert text.endswith("Panelde kuyruğa bakın.")
     # Bildirim yalnız özel sohbetlere, listedekilere gitti.
     chats = {parameters["chat_id"] for parameters in bot.telegram.sent("sendMessage")}
@@ -290,7 +290,7 @@ def test_a_queue_item_from_a_reanalysis_is_announced(
 
     (text,) = notifications(bot.telegram)
     assert "2 öğe" in text
-    assert "• Unknown:" in text and "• Unreadable:" in text
+    assert "• Tür bilinmiyor:" in text and "• Okunamadı:" in text
 
 
 # --- kimlere, hangi olaylarda ---------------------------------------------------------------
@@ -471,13 +471,13 @@ def test_queue_events_of_one_batch_form_one_message_and_batches_stay_apart(
     first, second = notifications(bot.telegram)
     assert first == (
         f"Kuyruğa yeni öğe düştü — parti {UPLOAD_ID}: 2 öğe.\n"
-        "• Unknown: Birinci gerekçe.\n"
-        "• Unreadable: İkinci gerekçe.\n"
+        "• Tür bilinmiyor: Birinci gerekçe.\n"
+        "• Okunamadı: İkinci gerekçe.\n"
         "Panelde kuyruğa bakın."
     )
     assert second == (
         f"Kuyruğa yeni öğe düştü — parti {SECOND_UPLOAD_ID}: 1 öğe.\n"
-        "• Unresolved: İkinci partinin gerekçesi.\n"
+        "• Sahibi belirsiz: İkinci partinin gerekçesi.\n"
         "Panelde kuyruğa bakın."
     )
 
@@ -516,7 +516,7 @@ def test_a_long_queue_is_cut_off_with_the_remaining_count(
 
     (text,) = notifications(bot.telegram)
     assert "12 öğe." in text.splitlines()[0]
-    assert text.count("• Unresolved:") == 10
+    assert text.count("• Sahibi belirsiz:") == 10
     assert "… ve 2 öğe daha." in text
     assert all(len(line) <= 200 for line in text.splitlines())  # gerekçe kısaltıldı
     assert len(text) <= 4000

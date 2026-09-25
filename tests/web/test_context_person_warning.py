@@ -22,7 +22,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.catalog import import_catalog, load_seed_catalog
-from app.config import Settings
+from app.config import Settings, get_settings
 from app.db.models import (
     Document,
     Employee,
@@ -33,13 +33,13 @@ from app.db.models import (
     QueueItem,
     Upload,
 )
+from app.db.session import get_session_factory
 from app.matching.match import PersonKey, normalize_document_number
 from app.matching.names import normalize_name, transliterate_name
-from app.pipeline.orchestrate import process_upload
 from app.pipeline.route import assign_queue_item
 from app.storage import DataLayout
 from app.web.context_person import WARNING_TITLE, _document_name
-from app.web.routers.upload_page import UploadProcessor, get_upload_processor
+from app.worker import Worker
 from tests.fixtures.gen import (
     PERSON_ORNEKOVA,
     PERSON_SIDOROV,
@@ -99,25 +99,25 @@ def registered(session_factory: sessionmaker[Session], layout: DataLayout) -> No
 
 @pytest.fixture
 def process(
-    app: FastAPI, session_factory: sessionmaker[Session], layout: DataLayout, tmp_path: Path
+    app: FastAPI,
+    session_factory: sessionmaker[Session],
+    layout: DataLayout,
+    tmp_path: Path,
 ) -> Callable[..., None]:
-    """Panelin arka plan işleyicisi yerine partiyi kayıtlı yanıtlarla hemen işleyen işleyici;
-    döndürülen işlev bir sonraki partinin dosyalarının sayfalarını (kayıtlı yanıtlarını) verir."""
+    """Bir sonraki isteğin sayfalarını hazırlar; ayrı test worker'ını açıkça çalıştırır."""
     files: list[list[SyntheticPage]] = []
+    app.dependency_overrides[get_settings] = lambda: SETTINGS
+    app.dependency_overrides[get_session_factory] = lambda: session_factory
 
-    def processor(upload_id: str) -> None:
-        provider = recorded_provider(tmp_path / f"kayit-{upload_id}", *files)
-        with session_factory() as session:
-            upload = session.get_one(Upload, upload_id)
-            process_upload(session, layout, upload, settings=SETTINGS, provider=provider)
+    def run_worker(*value: list[SyntheticPage]) -> None:
+        if value:
+            files[:] = value
+            return
+        provider = recorded_provider(tmp_path / "worker", *files)
+        worker = Worker(session_factory, layout, settings=SETTINGS, provider=provider)
+        assert worker.run_once() is True
 
-    handler: UploadProcessor = processor
-    app.dependency_overrides[get_upload_processor] = lambda: handler
-
-    def next_files(*value: list[SyntheticPage]) -> None:
-        files[:] = value
-
-    return next_files
+    return run_worker
 
 
 def _upload_from_profile(
@@ -137,6 +137,7 @@ def _upload_from_profile(
         data={"context_employee_id": employee_id or ""},
     )
     assert response.status_code == 201, response.text
+    process()  # enqueue işleminden sonra kuyruk tüketicisi ayrı adımda çalışır
     match = re.search(r"<h2>Parti ([A-Za-z0-9_-]+)</h2>", response.text)
     assert match is not None, response.text
     return match.group(1), response.text
@@ -258,6 +259,7 @@ def test_profile_warning_counts_only_the_unresolved_items_of_an_upload(
         data={"context_employee_id": CONTEXT},
     )
     assert response.status_code == 201, response.text
+    process()
     with session_factory() as session:
         upload_id = session.scalars(select(Upload.id)).one()
         first, second = session.scalars(select(QueueItem).order_by(QueueItem.id)).all()

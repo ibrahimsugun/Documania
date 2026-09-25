@@ -2,6 +2,7 @@
 {% block title %}{{ entry.label }}{% endblock %}
 {% block content %}
 <h1>{{ entry.label }}</h1>
+<p class="lede">Seçtiğin dosyalar tek bir <strong>parti</strong> olarak gönderilir. Sistem her sayfayı okur, belgenin türünü ve sahibini bulmaya çalışır; emin olamadığını Kuyruklar'a bırakır. Belgelerin içeriği değiştirilmez.</p>
 <form id="upload-form" class="upload-form"
       hx-post="/upload" hx-encoding="multipart/form-data"
       hx-target="#upload-result" hx-swap="innerHTML"

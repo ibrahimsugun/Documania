@@ -208,7 +208,7 @@ maliyet paneli gerçek rakam gösteriyor.
 |---|---|---|---|
 | 05.1.1 | İsim normalizasyonu | Aksan, noktalama ve sıra farkları aynı anahtara iner | Must (MVP) |
 | 05.2.1 | Harf çevirisi | Kiril ve Arap yazımlar Latin karşılığına çevrilir; orijinal yazım da saklanır | Must (MVP) |
-| 05.2.2 | Latin ad ve orijinal yazım ayrımı | Çalışanın ad, soyad ve diğer isim alanları yalnız Latin harfleriyle tutulur ve listede, profilde, planda Latin görünür; Latin olmayan yazım "Orijinal yazım"da durur. Latin yazım önce belgede basılı Latin addan, sonra geçerli MRZ'den, bunlar yoksa yalnız Kiril için kural tabanlı çeviriden alınır; Arap ve diğer alfabelerde tahminle çeviri yapılmaz | Must (MVP) |
+| 05.2.2 | Latin ad ve orijinal yazım ayrımı | Çalışanın ad, soyad ve diğer isim alanları yalnız Latin harfleriyle tutulur ve listede, profilde, planda Latin görünür; ismin **belgede basılı hâli — alfabesi ne olursa olsun, Latin de dahil —** "Orijinal yazım"da birebir durur (belgedeki yazım, büyük/küçük harf ve alan sırası korunur). Latin yazım önce belgede basılı Latin addan, sonra geçerli MRZ'den, bunlar yoksa yalnız Kiril için kural tabanlı çeviriden alınır; Arap ve diğer alfabelerde tahminle çeviri yapılmaz | Must (MVP) |
 | 05.3.1 | MRZ ayrıştırma | TD1, TD2, TD3 biçimleri ayrıştırılır | Must (MVP) |
 | 05.3.2 | MRZ kontrol hanesi doğrulaması | Kontrol hanesi tutmayan MRZ geçersiz sayılır | Must (MVP) |
 | 05.3.3 | MRZ önceliği | Görünen metinle MRZ çelişirse MRZ kazanır ve çelişki nota yazılır | Must (MVP) |
@@ -268,7 +268,7 @@ maliyet paneli gerçek rakam gösteriyor.
 | ID | Gereksinim | Kabul kriteri | Öncelik |
 |---|---|---|---|
 | 09.1.1 | profil.md üretimi | YAML ön blok + kimlik tablosu + belge listesi içerir; her değişiklikten sonra yeniden üretilir | Must (MVP) |
-| 09.1.2 | Orijinal yazım gösterimi | Latin olmayan isimlerde hem Latin hem orijinal yazım görünür | Must (MVP) |
+| 09.1.2 | Orijinal yazım gösterimi | Her isimde hem Latin yazım hem belgedeki orijinal yazım görünür | Must (MVP) |
 | 09.1.3 | Profil içeriği eksiksizliği | profil.md şunların hepsini taşır: ad, soyad, diğer isimler, orijinal yazım, vatandaşlık, doğum tarihi ve hesaplanan yaş, belge numaraları, iletişim bilgileri, belge listesi | Must (MVP) |
 | 09.2.1 | Parti durum makinesi | received → rendering → analyzing → planning → executing → done/partial/failed geçişleri izlenebilir | Must (MVP) |
 | 09.2.2 | Uçtan uca orkestrasyon | Tek çağrıyla parti baştan sona işlenir | Must (MVP) |
@@ -290,7 +290,7 @@ maliyet paneli gerçek rakam gösteriyor.
 | 10.3.1 | Yükleme detay sayfası | Sayfa küçük resimleri, plan öğeleri, çıktılar ve olay zaman çizelgesi tek sayfada görünür | Must (v1) |
 | 10.3.2 | Yeniden çalıştır / yeniden analiz | İki işlem panelden tetiklenir; yeniden analiz iki aşamalı onay ister | Should (v1) |
 | 10.3.3 | Yükleme listesi | Yüklemeler menüsü partileri en yeni üstte listeler: tarih, kanal, yükleyen, bağlam çalışanı, dosya ve sayfa sayısı, durum ve kuyruğa düşen belge sayısı; durum ve tarihe göre süzülür, sayfalanır; satırdan parti detayına gidilir | Must (v1) |
-| 10.3.4 | Partiyi yoksay | Yükleme detayının İşlemler bölümünde "Yeniden çalıştır" ve "Yeniden analiz et" düğmelerinin yanında "Taramayı yoksay" vardır; iki aşamalı onaydan sonra partinin bekleyen kuyruk öğeleri kapanır, parti yükleme listesinde ve kuyruklarda görünmez. Dosya, olay ve üretilmiş çıktı silinmez | Should (v1) |
+| 10.3.4 | Partiyi yoksay | Yükleme detayının İşlemler bölümünde "Yeniden çalıştır" ve "Yeniden analiz et" düğmelerinin yanında "Taramayı yoksay" vardır; iki aşamalı onaydan sonra partinin bekleyen kuyruk öğeleri kapanır, parti yükleme listesinde ve kuyruklarda görünmez. Dosya, olay ve üretilmiş çıktı silinmez. Yoksayma **çalışma yüzeyinden kaldırır, öğrenileni silmez**: partinin sayfaları aday tür görülmelerinde ve örneklerinde kalır (11.5.1), sonraki tür eğitimi bu birikime dayanır | Should (v1) |
 | 10.4.1 | Çalışan listesi | Ad, orijinal yazım, uyruk, belge sayısı ve durum listelenir | Must (v1) |
 | 10.4.2 | Arama | Ad, alias, orijinal yazım, belge numarası ve belge türü üzerinde arama çalışır | Must (v1) |
 | 10.5.1 | Çalışan profili sayfası | CV benzeri kart şunların hepsini gösterir: profil fotoğrafı, ad, soyad, diğer isimler, orijinal yazım, vatandaşlık, doğum tarihi ve yaş, iletişim bilgileri, belge numaraları. Bilinmeyen alan "—" olarak görünür, gizlenmez | Must (v1) |
@@ -352,7 +352,9 @@ maliyet paneli gerçek rakam gösteriyor.
 | 13.4.1 | Erişim logu görünümü | Çalışan bazında kim ne zaman baktı görülebilir | Could (v3) |
 | 13.4.2 | Yedekleme ve geri yükleme | Gece yedeği alınır; geri yükleme prosedürü bir kez denenmiştir | Could (v3) |
 | 13.5.1 | Üretim dağıtımı | Alan adı ve HTTPS ile tek komutla dağıtım yapılır | Could (v3) |
+| 13.5.2 | APP ve worker servislerinin ayrılması | Compose'ta HTTP uygulaması ve kalıcı işçi kuyruğu ayrı servislerdir; aynı imajı, üretimde aynı PostgreSQL bağlantısını ve kalıcı veri hacmini kullanırlar; ikisi de göçün başarıyla bitmesini bekler. Uygulama worker döngüsü başlatmaz; `/upload` yalnız işi kuyruğa yazar, provider kurmaz ve işi tüketmez; worker HTTP portu yayınlamaz. Geliştirme ve production profilleri için `docker compose config` geçer | Could (v3) |
 | 13.6.1 | İzleme ve uyarı | Hata, disk doluluğu ve kuyruk uzunluğu için uyarı üretilir | Could (v3) |
+| 13.7.1 | Büyük çekirdek modüllerin ayrıştırılması | `app/pipeline/plan.py` ve `app/pipeline/execute.py` sorumluluklarına göre alt modüllere ayrılır; mevcut `app.pipeline.plan` ve `app.pipeline.execute` import yüzeyleri korunur; davranış değişikliği olmadan ilgili ve tam test takımı geçer | Could (v3) |
 
 ---
 

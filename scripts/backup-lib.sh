@@ -45,6 +45,17 @@ env_value() {
   printf '%s' "$value"
 }
 
+# MSYS paths such as `/c/...` are valid in Git Bash but not in native Windows Python. Convert only
+# when invoking Python; shell tools keep using their native MSYS paths. On Linux this is a no-op.
+native_path() {
+  local path="$1"
+  if [ -n "${MSYSTEM:-}" ] && command -v cygpath >/dev/null 2>&1; then
+    cygpath -m -- "$path"
+  else
+    printf '%s' "$path"
+  fi
+}
+
 # DATABASE_URL'yi ayrıştırır: DB_KIND=sqlite|postgres, sqlite için DB_PATH, PostgreSQL için PG*
 # ortam değişkenleri. Parola komut satırına değil ortama konur (`ps` çıktısında görünmesin).
 parse_database_url() {
@@ -101,7 +112,9 @@ PY
 }
 
 sha256_of() {
-  "$PYTHON_BIN" - "$1" <<'PY'
+  local path
+  path="$(native_path "$1")"
+  "$PYTHON_BIN" - "$path" <<'PY'
 import hashlib
 import sys
 
@@ -116,7 +129,10 @@ PY
 # SQLite'ın yedekleme arayüzüyle tutarlı anlık görüntü: dosya kopyalamak yazma sürerken bozuk
 # kopya verebilir. Görüntü de `integrity_check`'ten geçmezse yedek başarısız sayılır.
 sqlite_snapshot() {
-  "$PYTHON_BIN" - "$1" "$2" <<'PY'
+  local source_path target_path
+  source_path="$(native_path "$1")"
+  target_path="$(native_path "$2")"
+  "$PYTHON_BIN" - "$source_path" "$target_path" <<'PY'
 import os
 import sqlite3
 import sys

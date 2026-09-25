@@ -23,7 +23,7 @@ from PIL import Image, ImageDraw
 from pypdf import PageObject, PdfReader, PdfWriter
 from sqlalchemy.orm import Session
 
-import app.pipeline.execute as execute_module
+import app.pipeline.execute_pdf as execute_pdf_module
 from app.ai.recording_provider import RecordingProvider
 from app.pipeline.analyze import analyze_upload
 from app.pipeline.execute import (
@@ -410,7 +410,7 @@ def test_execute_extract_rejects_page_count_disagreement_between_readers(
         def pages(self):
             return super().pages[:-1]
 
-    monkeypatch.setattr(execute_module, "PdfReader", _ShortReader)
+    monkeypatch.setattr(execute_pdf_module, "PdfReader", _ShortReader)
 
     with pytest.raises(ExtractSourceError, match="MuPDF 4, pypdf 3"):
         execute_extract(source, destination, pages=[1])
@@ -471,7 +471,7 @@ def test_execute_extract_verifies_output_before_publishing(
     content, _jpeg = _multi_page_pdf_bytes()
     source = _source(tmp_path, content)
     destination = tmp_path / "hedef.pdf"
-    monkeypatch.setattr(execute_module, "PdfWriter", writer)
+    monkeypatch.setattr(execute_pdf_module, "PdfWriter", writer)
 
     with pytest.raises(ExtractIntegrityError, match=message):
         execute_extract(source, destination, pages=[1, 2])
@@ -756,7 +756,7 @@ def test_execute_merge_rejects_page_count_disagreement_between_readers(
         def pages(self):
             return super().pages[:-1]
 
-    monkeypatch.setattr(execute_module, "PdfReader", _ShortReader)
+    monkeypatch.setattr(execute_pdf_module, "PdfReader", _ShortReader)
 
     with pytest.raises(MergeSourceError, match="MuPDF 4, pypdf 3") as raised:
         execute_merge(sources, destination, direct=False)
@@ -781,7 +781,7 @@ def test_execute_merge_verifies_output_before_publishing(
         MergeSource(_text_pdf(tmp_path, "b.pdf", "SENTETIK B0"), (0,)),
     ]
     destination = tmp_path / "hedef.pdf"
-    monkeypatch.setattr(execute_module, "PdfWriter", writer)
+    monkeypatch.setattr(execute_pdf_module, "PdfWriter", writer)
 
     with pytest.raises(MergeIntegrityError) as raised:
         execute_merge(sources, destination, direct=False)

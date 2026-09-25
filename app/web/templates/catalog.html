@@ -5,6 +5,7 @@
 {% block title %}{{ entry.label }}{% endblock %}
 {% block content %}
 <h1>{{ entry.label }}</h1>
+<p class="lede">Şirketin tanıdığı belge türleri. Sistem bir belgeyi ancak buradaki bir türe benzetebilirse yerleştirir; benzetemezse «Tür bilinmiyor» kuyruğuna alır.</p>
 {% if notice_text %}
 <p class="notice notice-success" role="status">{{ notice_text }}</p>
 {% endif %}

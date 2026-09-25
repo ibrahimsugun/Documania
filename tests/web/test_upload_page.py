@@ -9,8 +9,7 @@ Yapay zekâ canlı çağrılmaz: uçtan uca testte sağlayıcı kayıtlı yanıt
 from __future__ import annotations
 
 import re
-from collections.abc import Iterator
-from datetime import UTC, date, datetime, timedelta
+from datetime import date
 from pathlib import Path
 
 import pytest
@@ -19,20 +18,14 @@ from fastapi.testclient import TestClient
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, sessionmaker
 
-from app.ai import PROVIDER_FACTORIES
-from app.ai.provider import ProviderConfigError
 from app.catalog import import_catalog, load_seed_catalog
 from app.config import Settings, get_settings
 from app.db.models import Employee, Event, JobStatus, Upload, UploadFile, UploadJob, UploadStatus
 from app.db.session import get_session_factory
 from app.events import EventType
 from app.storage import DataLayout
-from app.web.routers.upload_page import (
-    FINAL_STATUSES,
-    STATUS_LABELS,
-    UploadProcessor,
-    get_upload_processor,
-)
+from app.web.routers.upload_page import FINAL_STATUSES, STATUS_LABELS
+from app.worker import Worker
 from tests.fixtures.gen import (
     PERSON_ORNEKOVA,
     make_document_pdf_bytes,
@@ -48,22 +41,21 @@ def _files(*items: tuple[str, bytes]) -> list[tuple[str, tuple[str, bytes, str]]
     return [("files", (name, content, "application/octet-stream")) for name, content in items]
 
 
-class _Processor:
-    """`get_upload_processor` yerine: hangi partilerin arka plana verildiğini kaydeder."""
+class _UploadIds:
+    """Test helper exposing created upload IDs without executing the queue job."""
 
-    def __init__(self) -> None:
-        self.upload_ids: list[str] = []
+    def __init__(self, session_factory: sessionmaker[Session]) -> None:
+        self.session_factory = session_factory
 
-    def __call__(self, upload_id: str) -> None:
-        self.upload_ids.append(upload_id)
+    @property
+    def upload_ids(self) -> list[str]:
+        with self.session_factory() as session:
+            return list(session.scalars(select(Upload.id).order_by(Upload.id)))
 
 
 @pytest.fixture
-def processor(app: FastAPI) -> _Processor:
-    recorded = _Processor()
-    processor_override: UploadProcessor = recorded
-    app.dependency_overrides[get_upload_processor] = lambda: processor_override
-    return recorded
+def uploads(session_factory: sessionmaker[Session]) -> _UploadIds:
+    return _UploadIds(session_factory)
 
 
 def _employee(session_factory: sessionmaker[Session], number: int, given: str, surname: str) -> str:
@@ -157,11 +149,11 @@ def test_page_without_employees_still_offers_the_empty_choice(client: TestClient
 # --- 10.2.1: yükleme ---------------------------------------------------------------------------
 
 
-def test_submitting_several_files_creates_one_batch_and_starts_processing(
+def test_submitting_several_files_creates_one_batch_and_queues_it_for_the_worker(
     client: TestClient,
     layout: DataLayout,
     session_factory: sessionmaker[Session],
-    processor: _Processor,
+    uploads: _UploadIds,
 ) -> None:
     response = client.post(
         "/upload",
@@ -175,7 +167,8 @@ def test_submitting_several_files_creates_one_batch_and_starts_processing(
         assert (upload.channel, upload.context_employee_id) == ("web", None)
         names = [file.original_name for file in upload.files]
         assert names == ["pasaport.pdf", "foto.jpg"]
-    assert processor.upload_ids == [upload.id]
+        job = session.scalars(select(UploadJob).where(UploadJob.upload_id == upload.id)).one()
+        assert (job.status, job.attempts) == (JobStatus.QUEUED, 0)
     inbox = layout.upload_inbox_dir(upload.id)
     assert (inbox / "pasaport.pdf").read_bytes() == b"%PDF-1.4 test"
     assert (inbox / "foto.jpg").read_bytes() == b"\xff\xd8\xff test"
@@ -190,7 +183,7 @@ def test_submitting_several_files_creates_one_batch_and_starts_processing(
 
 
 def test_chosen_employee_becomes_the_batch_context(
-    client: TestClient, session_factory: sessionmaker[Session], processor: _Processor
+    client: TestClient, session_factory: sessionmaker[Session], uploads: _UploadIds
 ) -> None:
     employee_id = _employee(session_factory, 1, "Ada", "Örnek")
 
@@ -203,14 +196,13 @@ def test_chosen_employee_becomes_the_batch_context(
     assert response.status_code == 201
     with session_factory() as session:
         assert session.scalars(select(Upload)).one().context_employee_id == employee_id
-    assert len(processor.upload_ids) == 1
 
 
 def test_unknown_employee_is_rejected_and_nothing_is_stored(
     client: TestClient,
     layout: DataLayout,
     session_factory: sessionmaker[Session],
-    processor: _Processor,
+    uploads: _UploadIds,
 ) -> None:
     response = client.post(
         "/upload", files=_files(("cv.pdf", b"%PDF-1.4 cv")), data={"context_employee_id": "E9999"}
@@ -220,14 +212,13 @@ def test_unknown_employee_is_rejected_and_nothing_is_stored(
     assert 'role="alert"' in response.text and "context_employee_id bulunamadı." in response.text
     assert _upload_count(session_factory) == 0
     assert not any(layout.inbox.iterdir())
-    assert processor.upload_ids == []
 
 
 @pytest.mark.parametrize("files", [None, [("files", ("", b"", "application/octet-stream"))]])
 def test_submitting_without_a_chosen_file_says_so(
     client: TestClient,
     session_factory: sessionmaker[Session],
-    processor: _Processor,
+    uploads: _UploadIds,
     files: list[tuple[str, tuple[str, bytes, str]]] | None,
 ) -> None:
     # Tarayıcı dosya seçilmemişken adı boş tek bir parça gönderir.
@@ -236,14 +227,13 @@ def test_submitting_without_a_chosen_file_says_so(
     assert response.status_code == 400
     assert "Yüklenecek dosya seçilmedi." in response.text
     assert _upload_count(session_factory) == 0
-    assert processor.upload_ids == []
 
 
 def test_upload_limits_of_the_api_apply_to_the_page(
     app: FastAPI,
     client: TestClient,
     session_factory: sessionmaker[Session],
-    processor: _Processor,
+    uploads: _UploadIds,
 ) -> None:
     app.dependency_overrides[get_settings] = lambda: Settings(
         database_url="sqlite://", max_upload_file_size_bytes=10
@@ -254,14 +244,13 @@ def test_upload_limits_of_the_api_apply_to_the_page(
     assert response.status_code == 400
     assert "buyuk.pdf" in response.text and "bölüp tekrar yükleyin" in response.text
     assert _upload_count(session_factory) == 0
-    assert processor.upload_ids == []
 
 
 def test_a_file_name_the_inbox_cannot_hold_is_shown_as_a_message_not_a_500(
     client: TestClient,
     layout: DataLayout,
     session_factory: sessionmaker[Session],
-    processor: _Processor,
+    uploads: _UploadIds,
 ) -> None:
     response = client.post("/upload", files=_files(("a<b>.pdf", make_pdf_bytes(1))))
 
@@ -271,14 +260,13 @@ def test_a_file_name_the_inbox_cannot_hold_is_shown_as_a_message_not_a_500(
     assert "a&lt;b&gt;.pdf" in response.text and "a<b>.pdf" not in response.text
     assert _upload_count(session_factory) == 0
     assert not any(layout.inbox.iterdir())
-    assert processor.upload_ids == []
 
 
 def test_an_unsupported_file_is_shown_as_a_message_and_nothing_is_stored(
     client: TestClient,
     layout: DataLayout,
     session_factory: sessionmaker[Session],
-    processor: _Processor,
+    uploads: _UploadIds,
 ) -> None:
     # Tarayıcının `accept=` süzgeci yalnız istemci tarafındadır; sunucu içeriğe bakıp reddeder.
     response = client.post(
@@ -294,11 +282,10 @@ def test_an_unsupported_file_is_shown_as_a_message_and_nothing_is_stored(
     assert "cv.pdf" not in response.text
     assert _upload_count(session_factory) == 0
     assert not any(layout.inbox.iterdir())
-    assert processor.upload_ids == []
 
 
 def test_duplicate_file_names_in_one_batch_are_rejected(
-    client: TestClient, session_factory: sessionmaker[Session], processor: _Processor
+    client: TestClient, session_factory: sessionmaker[Session], uploads: _UploadIds
 ) -> None:
     response = client.post(
         "/upload", files=_files(("a.pdf", b"%PDF-1.4 1"), ("a.pdf", b"%PDF-1.4 2"))
@@ -310,7 +297,7 @@ def test_duplicate_file_names_in_one_batch_are_rejected(
 
 
 def test_repeated_file_is_marked_as_duplicate_in_the_view(
-    client: TestClient, processor: _Processor
+    client: TestClient, uploads: _UploadIds
 ) -> None:
     content = b"%PDF-1.4 ayni"
     client.post("/upload", files=_files(("ilk.pdf", content)))
@@ -321,27 +308,27 @@ def test_repeated_file_is_marked_as_duplicate_in_the_view(
     assert "Daha önce yüklenmiş" in response.text
 
 
-def test_batch_is_kept_but_not_processed_when_no_provider_can_be_built(
+def test_upload_app_does_not_need_provider_and_leaves_job_queued(
     app: FastAPI, client: TestClient, session_factory: sessionmaker[Session]
 ) -> None:
-    app.dependency_overrides[get_upload_processor] = lambda: ProviderConfigError(
-        "ANTHROPIC_API_KEY tanımlı olmalı."
+    # HTTP alım servisi provider kurmaz; eksik AI anahtarı işin alınmasını engellemez.
+    app.dependency_overrides[get_settings] = lambda: Settings(
+        _env_file=None, database_url="sqlite://", ai_provider="anthropic"
     )
 
     response = client.post("/upload", files=_files(("cv.pdf", b"%PDF-1.4 cv")))
 
     assert response.status_code == 201
-    assert (
-        "parti işlenmiyor" in response.text and "ANTHROPIC_API_KEY tanımlı olmalı." in response.text
-    )
-    assert POLLING not in response.text  # hiç işlenmeyecek parti için yenileme başlatılmaz
+    assert POLLING in response.text
+    assert "Yapay zekâ sağlayıcısı kurulamadığı için" not in response.text
     with session_factory() as session:
-        assert session.scalars(select(Upload)).one().status == UploadStatus.RECEIVED
-        # 13.3.1: işi kuyrukta bekler; sağlayıcısı olan işleyici onu sonra işler.
-        assert session.scalars(select(UploadJob)).one().status == JobStatus.QUEUED
+        upload = session.scalars(select(Upload)).one()
+        job = session.scalars(select(UploadJob).where(UploadJob.upload_id == upload.id)).one()
+        assert upload.status == UploadStatus.RECEIVED
+        assert (job.status, job.attempts) == (JobStatus.QUEUED, 0)
 
 
-def test_file_names_are_escaped_in_the_view(client: TestClient, processor: _Processor) -> None:
+def test_file_names_are_escaped_in_the_view(client: TestClient, uploads: _UploadIds) -> None:
     response = client.post("/upload", files=_files(("a&b.pdf", b"%PDF-1.4 x")))
 
     assert response.status_code == 201
@@ -356,11 +343,11 @@ def test_file_names_are_escaped_in_the_view(client: TestClient, processor: _Proc
 def test_progress_refreshes_itself_until_the_batch_reaches_a_final_state(
     client: TestClient,
     session_factory: sessionmaker[Session],
-    processor: _Processor,
+    uploads: _UploadIds,
     status: UploadStatus,
 ) -> None:
     created = client.post("/upload", files=_files(("cv.pdf", b"%PDF-1.4 cv")))
-    upload_id = processor.upload_ids[0]
+    upload_id = uploads.upload_ids[0]
     assert created.status_code == 201
     _set_status(session_factory, upload_id, status.value)
 
@@ -377,10 +364,10 @@ def test_progress_refreshes_itself_until_the_batch_reaches_a_final_state(
 
 
 def test_progress_steps_follow_the_pipeline(
-    client: TestClient, session_factory: sessionmaker[Session], processor: _Processor
+    client: TestClient, session_factory: sessionmaker[Session], uploads: _UploadIds
 ) -> None:
     client.post("/upload", files=_files(("cv.pdf", b"%PDF-1.4 cv")))
-    upload_id = processor.upload_ids[0]
+    upload_id = uploads.upload_ids[0]
 
     def steps(status: UploadStatus) -> list[tuple[str, str]]:
         _set_status(session_factory, upload_id, status.value)
@@ -406,10 +393,10 @@ def test_progress_steps_follow_the_pipeline(
 
 
 def test_progress_counts_rendered_files_and_shows_page_counts(
-    client: TestClient, session_factory: sessionmaker[Session], processor: _Processor
+    client: TestClient, session_factory: sessionmaker[Session], uploads: _UploadIds
 ) -> None:
     client.post("/upload", files=_files(("a.pdf", b"%PDF-1.4 a"), ("b.pdf", b"%PDF-1.4 b")))
-    upload_id = processor.upload_ids[0]
+    upload_id = uploads.upload_ids[0]
 
     before = client.get(f"/upload/{upload_id}/progress").text
     assert "Sayfaları hazırlanan dosya: 0 / 2" in before
@@ -426,13 +413,13 @@ def test_progress_counts_rendered_files_and_shows_page_counts(
 
 
 def test_file_counter_skips_duplicates_and_disappears_when_the_batch_is_final(
-    client: TestClient, session_factory: sessionmaker[Session], processor: _Processor
+    client: TestClient, session_factory: sessionmaker[Session], uploads: _UploadIds
 ) -> None:
     client.post("/upload", files=_files(("ilk.pdf", b"%PDF-1.4 ayni")))
     client.post(
         "/upload", files=_files(("kopya.pdf", b"%PDF-1.4 ayni"), ("yeni.pdf", b"%PDF-1.4 y"))
     )
-    upload_id = processor.upload_ids[1]
+    upload_id = uploads.upload_ids[1]
 
     running = client.get(f"/upload/{upload_id}/progress").text
     assert "Sayfaları hazırlanan dosya: 0 / 1" in running  # tekrar dosyası işlenmez
@@ -473,11 +460,11 @@ def test_page_and_progress_need_a_session(app: FastAPI) -> None:
 @pytest.fixture
 def recorded_processing(
     app: FastAPI,
-    monkeypatch: pytest.MonkeyPatch,
     session_factory: sessionmaker[Session],
+    layout: DataLayout,
     tmp_path: Path,
-) -> Iterator[None]:
-    """Gerçek `get_upload_processor`: `AI_PROVIDER=kayitli` kayıtlı yanıtları okur."""
+) -> Worker:
+    """Ayrı kuyruk servisinin test worker'ı; HTTP isteği kendi başına işi tüketmez."""
     with session_factory() as session:
         import_catalog(session, load_seed_catalog())
         session.commit()
@@ -489,18 +476,16 @@ def recorded_processing(
             )
         ],
     )
-    monkeypatch.setitem(PROVIDER_FACTORIES, "kayitli", lambda settings: provider)
-    app.dependency_overrides[get_settings] = lambda: Settings(
-        _env_file=None, database_url="sqlite://", ai_provider="kayitli"
-    )
+    settings = Settings(_env_file=None, database_url="sqlite://", ai_provider="anthropic")
+    app.dependency_overrides[get_settings] = lambda: settings
     app.dependency_overrides[get_session_factory] = lambda: session_factory
-    yield
+    return Worker(session_factory, layout, settings=settings, provider=provider)
 
 
-def test_uploaded_batch_is_processed_in_the_background_and_the_view_reaches_done(
+def test_uploaded_batch_waits_for_worker_then_reaches_done(
     client: TestClient,
     session_factory: sessionmaker[Session],
-    recorded_processing: None,
+    recorded_processing: Worker,
 ) -> None:
     pdf = make_document_pdf_bytes(
         [passport_page(PERSON_ORNEKOVA, document_number="00 0000001", expiry_date=date(2030, 1, 1))]
@@ -508,90 +493,28 @@ def test_uploaded_batch_is_processed_in_the_background_and_the_view_reaches_done
 
     response = client.post("/upload", files=_files(("pasaport.pdf", pdf)))
 
-    # İstemci yanıtı aldığında parti `received`'dı ve yenilemeyi başlatan parça geldi ...
     assert response.status_code == 201
     assert "Alındı" in response.text and POLLING in response.text
-    upload_id = re.search(r"Parti (u_\w+)", response.text)
-    assert upload_id is not None
-    # ... arka plan işleyicisi partiyi bitirdi; sonraki yenileme son durumu getirir ve durur.
-    poll = client.get(f"/upload/{upload_id.group(1)}/progress")
+    upload_match = re.search(r"Parti (u_\w+)", response.text)
+    assert upload_match is not None
+    upload_id = upload_match.group(1)
+    with session_factory() as session:
+        upload = session.get_one(Upload, upload_id)
+        job = session.scalars(select(UploadJob).where(UploadJob.upload_id == upload_id)).one()
+        assert upload.status == UploadStatus.RECEIVED
+        assert (job.status, job.attempts) == (JobStatus.QUEUED, 0)
+
+    # Yalnız açıkça çalıştırılan worker işi alır; web isteği tamamlandıktan sonra işlem sürer.
+    assert recorded_processing.run_once() is True
+    poll = client.get(f"/upload/{upload_id}/progress")
     assert poll.status_code == 200
     assert "Tamamlandı" in poll.text
     assert POLLING not in poll.text
-    assert "<td>1</td>" in poll.text  # sayfa sayısı
+    assert "<td>1</td>" in poll.text
     with session_factory() as session:
-        upload = session.get_one(Upload, upload_id.group(1))
+        upload = session.get_one(Upload, upload_id)
         assert upload.status == UploadStatus.DONE
         types = set(session.scalars(select(Event.type).where(Event.upload_id == upload.id)))
         assert {EventType.FILE_UPLOADED, EventType.PLAN_CREATED, EventType.OUTPUT_SAVED} <= types
-        # 13.3.1: arka plan işleyicisi partinin kuyruktaki işini aldı ve bitirdi.
-        job = session.scalars(select(UploadJob)).one()
+        job = session.scalars(select(UploadJob).where(UploadJob.upload_id == upload_id)).one()
         assert (job.upload_id, job.status, job.attempts) == (upload.id, JobStatus.FINISHED, 1)
-
-
-def test_processor_skips_a_batch_somebody_else_already_took(
-    session_factory: sessionmaker[Session], layout: DataLayout, recorded_processing: None
-) -> None:
-    settings = Settings(_env_file=None, database_url="sqlite://", ai_provider="kayitli")
-    processor = get_upload_processor(settings, layout, session_factory)
-    assert not isinstance(processor, ProviderConfigError)
-    with session_factory() as session:
-        session.add(Upload(id="u_20260101_001", channel="web", status=UploadStatus.DONE.value))
-        session.commit()
-
-    processor("u_20260101_001")  # işlenmiş parti: sessizce geçilir
-    processor("u_yok")  # parti yok: sessizce geçilir
-
-    with session_factory() as session:
-        assert session.get_one(Upload, "u_20260101_001").status == UploadStatus.DONE
-        assert session.scalar(select(func.count()).select_from(Event)) == 0
-
-
-def test_processor_leaves_a_batch_whose_job_another_worker_holds(
-    session_factory: sessionmaker[Session], layout: DataLayout, recorded_processing: None
-) -> None:
-    # 13.3.1: panelin kuyruk döngüsü (ya da başka bir süreç) işi arka plan işinden önce almış.
-    settings = Settings(_env_file=None, database_url="sqlite://", ai_provider="kayitli")
-    processor = get_upload_processor(settings, layout, session_factory)
-    assert not isinstance(processor, ProviderConfigError)
-    with session_factory() as session:
-        session.add(Upload(id="u_20260101_001", channel="web"))
-        session.flush()
-        session.add(
-            UploadJob(
-                upload_id="u_20260101_001",
-                status=JobStatus.RUNNING.value,
-                attempts=1,
-                claimed_by="baska-isleyici",
-                lease_expires_at=datetime.now(UTC) + timedelta(minutes=5),
-            )
-        )
-        session.commit()
-
-    processor("u_20260101_001")
-
-    with session_factory() as session:
-        assert session.get_one(Upload, "u_20260101_001").status == UploadStatus.RECEIVED
-        assert session.scalars(select(UploadJob)).one().claimed_by == "baska-isleyici"
-        assert session.scalar(select(func.count()).select_from(Event)) == 0
-
-
-@pytest.mark.parametrize(
-    ("changes", "message"),
-    [
-        ({"ai_provider": "yok"}, "Bilinmeyen AI_PROVIDER 'yok'"),
-        ({"ai_provider": "anthropic"}, "ANTHROPIC_API_KEY tanımlı olmalı"),
-    ],
-)
-def test_processor_dependency_reports_why_no_provider_could_be_built(
-    session_factory: sessionmaker[Session],
-    layout: DataLayout,
-    changes: dict[str, str],
-    message: str,
-) -> None:
-    settings = Settings(_env_file=None, database_url="sqlite://", **changes)
-
-    result = get_upload_processor(settings, layout, session_factory)
-
-    assert isinstance(result, ProviderConfigError)
-    assert message in str(result)

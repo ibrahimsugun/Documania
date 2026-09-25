@@ -163,9 +163,9 @@ def test_a_row_shows_time_channel_uploader_files_pages_status_and_open_queue_cou
         "Dosya",
         "Sayfa",
         "Durum",
-        "Unknown",
-        "Unreadable",
-        "Unresolved",
+        "Tür bilinmiyor",
+        "Okunamadı",
+        "Sahibi belirsiz",
     ]
     # Çözülmüş Unreadable öğesi sayılmaz; sıfır boş hücredir.
     assert row == [

@@ -102,17 +102,22 @@ anahtar eklenmez.
   yetkilisi gibi başka kişileri yazma.
   - `surname`, `given_names` ve `other_names` **yalnız Latin harfi** taşır. Latin ad belgede
     görünen metinde basılı değilse (ör. adı yalnız Kiril ya da Arap harfleriyle yazılı, Latin
-    yazımı yalnız MRZ'de) bu alanlar `null`'dır ve Latin olmayan yazım `original_script_name`'e
-    gider. Latin olmayan yazıyı bu üç alana koyma, kendin Latin'e çevirme, MRZ'deki adı buraya
-    taşıma (kural 1); Latin yazımı sistem belgeden ve MRZ'den kendisi bulur.
+    yazımı yalnız MRZ'de) bu alanlar `null`'dır. Latin olmayan yazıyı bu üç alana koyma, kendin
+    Latin'e çevirme, MRZ'deki adı buraya taşıma (kural 1); Latin yazımı sistem belgeden ve
+    MRZ'den kendisi bulur. Belgede basılı isim — Latin olsun olmasın — ayrıca
+    `original_script_name`'e birebir yazılır; bu üç alanı doldurman onu boş bırakman demek
+    değildir.
   - `surname`: soyadı, belgede Latin harfleriyle yazıldığı gibi (aksanlar dahil: `Š`, `Ć`, `Ö`).
   - `given_names`: ad veya adlar, belgede Latin harfleriyle yazıldığı gibi. İkinci ad veya baba
     adı belgede ayrı bir alan olarak yazılıysa buraya değil `other_names`'e gider.
   - `other_names`: ikinci ad, baba adı (отчество) gibi ayrı yazılmış ek isimler, Latin
     harfleriyle; yoksa `null`.
-  - `original_script_name`: isim belgede Latin olmayan bir alfabeyle yazılıysa o yazımıyla,
-    harfi harfine (ör. Kiril) — soyad, ad ve baba adı ayrı alanlarda yazılıysa belgedeki
-    sırasıyla birlikte; yoksa `null`. Harf çevirisi yapma.
+  - `original_script_name`: ismin belgede basılı hâli, **alfabesi ne olursa olsun — Latin de
+    dahil**, harfi harfine. Belgedeki yazımı, büyük/küçük harfi ve alanların belgedeki sırasını
+    koru; soyad, ad ve baba adı ayrı alanlarda yazılıysa belgedeki sırasıyla birlikte yaz
+    (ör. `ÖRNEK MEHMET`, `ОБРАЗЕЦ ТЕСТЕР ЮРЬЕВИЧ`, `KOVAČ Ana`). Harf çevirisi yapma, yazımı
+    düzeltme, sırayı değiştirme. İsim sayfada basılı olarak hiç görünmüyorsa (ör. yalnız MRZ'de
+    var) `null`.
   - `date_of_birth`: `YYYY-AA-GG` biçiminde (ör. `1990-04-12`). Gün, ay ve yılı tam okuyamıyorsan
     veya gün/ay sırası belgeden anlaşılmıyorsa `null`.
   - `nationality`: uyruk alanında yazılı ICAO 9303 kodu (`RUS`, `SRB`, `TUR`; Almanya için `D`).

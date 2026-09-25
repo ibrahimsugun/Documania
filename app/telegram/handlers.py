@@ -82,7 +82,12 @@ STATUS_LABELS: dict[UploadStatus, str] = {
     UploadStatus.PARTIAL: "kısmen tamamlandı — bazı sayfalar analiz edilemedi",
     UploadStatus.FAILED: "işlenemedi",
 }
-QUEUE_LABELS = {"unknown": "Unknown", "unreadable": "Unreadable", "unresolved": "Unresolved"}
+# Panelle aynı Türkçe adlar (app.web.routers.upload_page.QUEUE_LABELS); kuyruk klasörü İngilizce.
+QUEUE_LABELS = {
+    "unknown": "Tür bilinmiyor",
+    "unreadable": "Okunamadı",
+    "unresolved": "Sahibi belirsiz",
+}
 
 RECEIVED_TEXT = "{count} dosya alındı. İşleniyor; bitince sonucu yazacağım."
 UNPROCESSED_TEXT = (

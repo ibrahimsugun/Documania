@@ -66,6 +66,7 @@ def test_every_entry_belongs_to_a_listed_source_and_is_consistent() -> None:
     ("model", "expected"),
     [
         # OpenAI — sayfanın kendi API kimliğiyle
+        ("gpt-6-luna", ("0.1", "0.5", "0.01")),
         ("gpt-5.6-luna", ("0.2", "1.2", "0.02")),
         ("gpt-5.6-terra", ("2", "12", "0.2")),
         ("gpt-5.6-sol", ("4", "20", "0.4")),
@@ -73,6 +74,7 @@ def test_every_entry_belongs_to_a_listed_source_and_is_consistent() -> None:
         ("gpt-5.4-mini", ("0.75", "4.5", "0.075")),
         ("gpt-5.5-pro", ("30", "180", None)),
         ("gpt-6-astra", ("10", "50", "1")),
+        ("gpt-6-sol", ("2", "10", "0.2")),
         # OpenAI — sayfada kimlik yok, türetildi
         ("gpt-4o", ("2.5", "10", None)),
         ("o3", ("2", "8", None)),

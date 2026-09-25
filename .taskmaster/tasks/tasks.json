@@ -1524,13 +1524,28 @@
         "priority": "high",
         "subtasks": [],
         "updatedAt": "2026-09-22T16:25:52.071Z"
+      },
+      {
+        "id": "109",
+        "title": "13.5.2 / 13.7.1 — APP-worker ayrımı ve büyük çekirdek modülleri [OPUS-XHIGH]",
+        "description": "PRD 13.5.2, 13.7.1 · FR-MOD-13 · Faz 3 · Could (v3). Üretim süreç sınırı ve kod sürdürülebilirliği.",
+        "details": "KAPSAM: PRD 13.5.2 ve 13.7.1. 13.5.2 kabulü: app yalnız HTTP, worker ayrı Python entrypoint; worker HTTP portu yok; aynı image, DB ve kalıcı data volume; ikisi de başarılı migrate hizmetini bekler; worker web healthcheck devralmaz; dev ve production Compose config geçer. 13.7.1 kabulü: plan.py sözleşme/kurallar/plan üretimi, execute.py PDF/görüntü işlemleri/çıktı yürütümü sorumluluklarına göre alt modüllere ayrılır; mevcut app.pipeline.plan ve app.pipeline.execute import yüzeyi korunur; iş davranışı, transaction sınırı ve belge baytları değişmez. GİRDİ: tm 89/PRD 13.3.1 worker lease altyapısı; tm 91/PRD 13.5.1 Compose üretim altyapısı; PRD 06 ve 07 plan/executor sözleşmeleri. HEDEF DOSYALAR: app/main.py, app/worker, app/pipeline/plan.py, app/pipeline/execute.py, docker-compose.yml, tests/worker, tests/deploy, tests/pipeline, .env.example, README.md, PLAN.md, HANDOFF.md. SINIR: gerçek production deploy/DNS/TLS veya gerçek belge/canlı AI yok; mevcut kullanıcı değişikliklerini ezme ya da göreve katma; yedekleme hataları kapsam dışı.",
+        "testStrategy": "TDD: app yaşam döngüsü worker döngüsü başlatmaz; worker entrypoint ayrı servis olarak çalışır/kapanır; Compose contract dev ve production profile; plan/execute facade import ve alt modül sınırı; ilgili worker/deploy/plan/execute testleri, ardından tam pytest -q -m 'not live', ruff check/format, compileall, temiz SQLite alembic upgrade head, import app.main, docker compose config ve production profile config. Gerçek AI, Telegram, belge veya deploy çağrısı yok.",
+        "status": "done",
+        "dependencies": [
+          "89",
+          "91"
+        ],
+        "priority": "high",
+        "subtasks": [],
+        "updatedAt": "2026-09-24T22:59:09Z"
       }
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-09-22T17:38:49.011Z",
-      "taskCount": 106,
-      "completedCount": 103,
+      "lastModified": "2026-09-24T22:59:09Z",
+      "taskCount": 107,
+      "completedCount": 104,
       "tags": [
         "master"
       ]

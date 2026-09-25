@@ -28,14 +28,15 @@ from app.db.models import (
     EmployeeFieldObservation,
     EmployeeIdentifier,
     FieldOutcome,
+    JobStatus,
     KnownDocumentType,
     Upload,
     UploadFile,
+    UploadJob,
 )
 from app.profiles.render import calculate_age
 from app.storage import DataLayout
 from app.web.routers.employees import build_profile
-from app.web.routers.upload_page import UploadProcessor, get_upload_processor
 from tests.fixtures.gen import make_docx_bytes, make_pdf_bytes, make_portrait_image_bytes
 
 PASSPORT = "russian_passport"
@@ -998,23 +999,11 @@ def test_panel_has_no_way_to_change_a_document(
 # --- 10.5.3: profil sayfasından yükleme ----------------------------------------------------------
 
 
-class _Processor:
-    def __init__(self) -> None:
-        self.upload_ids: list[str] = []
-
-    def __call__(self, upload_id: str) -> None:
-        self.upload_ids.append(upload_id)
-
-
 def test_upload_form_carries_the_profile_employee_as_context(
-    app: FastAPI,
     client: TestClient,
     session_factory: sessionmaker[Session],
     seeded: None,
 ) -> None:
-    recorded = _Processor()
-    processor: UploadProcessor = recorded
-    app.dependency_overrides[get_upload_processor] = lambda: processor
     with session_factory() as session:
         _employee(session, 1)
         _employee(session, 2, "Anna", "Zeta")
@@ -1043,5 +1032,6 @@ def test_upload_form_carries_the_profile_employee_as_context(
     with session_factory() as session:
         upload = session.scalars(select(Upload)).one()
         assert upload.context_employee_id == "E0002"
-    assert recorded.upload_ids == [upload.id]
+        job = session.scalars(select(UploadJob).where(UploadJob.upload_id == upload.id)).one()
+        assert (job.status, job.attempts) == (JobStatus.QUEUED, 0)
     assert f"/uploads/{upload.id}" in response.text

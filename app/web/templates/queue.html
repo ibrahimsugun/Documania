@@ -4,12 +4,13 @@
 {% block title %}{{ entry.label }}{% endblock %}
 {% block content %}
 <h1>{{ entry.label }}</h1>
+<p class="lede">{{ listing.intro }}</p>
 <nav class="tabs" aria-label="Kuyruklar">
   {% for tab in listing.tabs %}
   <a href="{{ tab.url }}"{% if tab.active %} class="active" aria-current="page"{% endif %}>{{ tab.label }} <span class="counter" title="Bekleyen öğe">{{ tab.open_count }}</span></a>
   {% endfor %}
 </nav>
-<p class="hint">{{ listing.hint }}</p>
+<p class="hint hint-panel">{{ listing.hint }}</p>
 <nav class="states" aria-label="Öğe durumu">
   {% for state in listing.states %}
   <a href="{{ state.url }}"{% if state.active %} class="active" aria-current="true"{% endif %}>{{ state.label }} ({{ state.count }})</a>

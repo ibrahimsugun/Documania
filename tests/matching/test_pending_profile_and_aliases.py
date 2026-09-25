@@ -238,16 +238,21 @@ def test_proposed_profile_payload_is_json_and_carries_no_document_number() -> No
 
 
 @pytest.mark.parametrize(
-    ("original", "born", "aliases"),
+    ("original", "expected_original", "born", "aliases"),
     [
-        (None, BORN, (("TEST ORNEKOVA", NAME),)),
-        ("TEST ORNEKOVA", BORN, (("TEST ORNEKOVA", NAME),)),
-        (CYRILLIC, None, (("TEST ORNEKOVA", NAME), (CYRILLIC, NAME))),
+        # Belgeden orijinal yazım okunmadıysa (Latin belge) alan boş kalmaz: okumaların kendisi
+        # ismin basılı hâlidir (05.2.2).
+        (None, "TEST IVANOVNA ORNEKOVA", BORN, (("TEST ORNEKOVA", NAME),)),
+        ("TEST ORNEKOVA", "TEST ORNEKOVA", BORN, (("TEST ORNEKOVA", NAME),)),
+        (CYRILLIC, CYRILLIC, None, (("TEST ORNEKOVA", NAME), (CYRILLIC, NAME))),
     ],
-    ids=["no-original", "same-spelling", "no-birth-date"],
+    ids=["latin-reading-is-the-original", "same-spelling", "no-birth-date"],
 )
 def test_proposed_profile_holds_what_was_read(
-    original: str | None, born: date | None, aliases: tuple[tuple[str, str], ...]
+    original: str | None,
+    expected_original: str,
+    born: date | None,
+    aliases: tuple[tuple[str, str], ...],
 ) -> None:
     key = _key(numbers=(), original=original, born=born)
 
@@ -255,7 +260,7 @@ def test_proposed_profile_holds_what_was_read(
 
     assert profile is not None
     assert (profile.original_script_name, profile.date_of_birth, profile.aliases) == (
-        original,
+        expected_original,
         born,
         aliases,
     )

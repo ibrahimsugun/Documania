@@ -129,7 +129,7 @@ def test_ai_settings_have_defaults_and_read_environment(monkeypatch: pytest.Monk
     assert (defaults.ai_provider, defaults.ai_max_output_tokens) == ("anthropic", 4096)
     assert defaults.ai_request_timeout_seconds == 120.0
     assert (defaults.anthropic_api_key, defaults.anthropic_model) == (None, "claude-opus-5")
-    assert (defaults.openai_api_key, defaults.openai_model) == (None, "gpt-5.5")
+    assert (defaults.openai_api_key, defaults.openai_model) == (None, "gpt-6-luna")
     assert (configured.ai_provider, configured.ai_max_output_tokens) == ("openai", 1024)
     assert configured.ai_request_timeout_seconds == 30.5
     assert configured.anthropic_api_key is not None
@@ -354,7 +354,6 @@ def test_env_example_documents_model_prices_with_a_working_example(
 
 
 WORKER_VARIABLES = (
-    "WORKER_ENABLED",
     "WORKER_LEASE_SECONDS",
     "WORKER_MAX_ATTEMPTS",
     "WORKER_POLL_SECONDS",
@@ -370,25 +369,23 @@ def test_worker_settings_have_defaults_read_the_environment_and_are_documented(
         monkeypatch.delenv(name, raising=False)
     defaults = load_settings(_env_file=None)
     assert (
-        defaults.worker_enabled,
         defaults.worker_lease_seconds,
         defaults.worker_max_attempts,
         defaults.worker_poll_seconds,
-    ) == (True, 120, 3, 5.0)
+    ) == (120, 3, 5.0)
 
-    for name, value in zip(WORKER_VARIABLES, ("false", "300", "5", "0.5"), strict=True):
+    for name, value in zip(WORKER_VARIABLES, ("300", "5", "0.5"), strict=True):
         monkeypatch.setenv(name, value)
     configured = load_settings(_env_file=None)
     assert (
-        configured.worker_enabled,
         configured.worker_lease_seconds,
         configured.worker_max_attempts,
         configured.worker_poll_seconds,
-    ) == (False, 300, 5, 0.5)
+    ) == (300, 5, 0.5)
 
     example = (Path(__file__).resolve().parents[1] / ".env.example").read_text(encoding="utf-8")
+    assert "WORKER_ENABLED" not in example
     for line in (
-        "WORKER_ENABLED=true",
         "WORKER_LEASE_SECONDS=120",
         "WORKER_MAX_ATTEMPTS=3",
         "WORKER_POLL_SECONDS=5",

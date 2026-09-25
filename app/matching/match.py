@@ -222,13 +222,18 @@ class PersonKey:
 
     @property
     def original_spelling(self) -> str | None:
-        """Çalışan kaydının orijinal yazımı (05.2.2): belgenin orijinal yazımı; o okunmadıysa ad,
-        diğer isimler ve soyad okumalarından Latin olmayanlar, bu sırayla (yapay zekâ Latin
-        olmayan yazımı Latin alanlara koyduysa orijinal yazıma taşınır)."""
+        """Çalışan kaydının orijinal yazımı (05.2.2): ismin belgede basılı hâli, alfabesi ne
+        olursa olsun — Latin belgede de doludur.
+
+        Belgeden okunan orijinal yazım varsa odur. Okunmadıysa: önce ad, diğer isimler ve soyad
+        okumalarındaki Latin olmayan parçalar (yapay zekâ Latin olmayan yazımı Latin alanlara
+        koyduysa orijinal yazıma taşınır), onlar da yoksa okumaların kendisi — hepsi Latin'se
+        basılı isim odur."""
         if self.original_script_name is not None:
             return self.original_script_name.original
-        parts = (self.given_names, self.other_names, self.surname)
-        return " ".join(part for part in parts if part and not is_latin_name(part)) or None
+        parts = [part for part in (self.given_names, self.other_names, self.surname) if part]
+        foreign = [part for part in parts if not is_latin_name(part)]
+        return " ".join(foreign or parts) or None
 
     def employee_fields(self) -> dict[str, str | date | None]:
         """Çalışan kaydına taşınan alanlar (03.1.3); anahtarlar `employees` sütun adlarıdır. İsim

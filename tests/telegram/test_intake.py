@@ -305,7 +305,7 @@ def test_queued_items_are_summarised_with_their_kind_and_reason(
     _, summary = bot.telegram.sent_texts()
     assert f"Parti {upload.id}: tamamlandı." in summary
     assert "Kuyruğa düşen: 1 öğe." in summary
-    assert f"• Unresolved: {reason[:60]}" in summary
+    assert f"• Sahibi belirsiz: {reason[:60]}" in summary
     assert "Hazır:" not in summary
 
 
@@ -329,7 +329,7 @@ def test_a_long_queue_is_cut_off_with_the_remaining_count(
 
     _, summary = bot.telegram.sent_texts()
     assert "Kuyruğa düşen: 12 öğe." in summary
-    assert summary.count("• Unresolved:") == 10
+    assert summary.count("• Sahibi belirsiz:") == 10
     assert "… ve 2 öğe daha." in summary
     assert len(summary) <= 4000
 

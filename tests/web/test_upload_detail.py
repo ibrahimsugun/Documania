@@ -279,12 +279,12 @@ def test_unreadable_item_shows_its_queue_row_and_reason(
 
     queue_html = re.search(r'<table class="queue">.*?</table>', page.text, re.S)
     assert queue_html is not None
-    assert "Unreadable" in queue_html.group(0)
+    assert "Okunamadı" in queue_html.group(0)
     assert "Okunamayan alanlar: document_number" in queue_html.group(0)
     assert "Bekliyor" in queue_html.group(0)
     plan_html = re.search(r'<section id="plan".*?</section>', page.text, re.S)
     assert plan_html is not None
-    assert "Unreadable kuyruğu" in plan_html.group(0)
+    assert "Okunamadı kuyruğu" in plan_html.group(0)
     assert "✗ required_fields" in plan_html.group(0)
     assert "Bu partiden henüz belge çıktısı yok." in page.text
 

@@ -28,9 +28,9 @@ SDK'nın kendi yeniden denemesi kapalıdır (`max_retries=0`): geri çekilmeli d
 iki katman üst üste denemesin. İstek `store=False` gider: sayfa görüntüsü kimlik belgesi olabilir,
 sağlayıcı tarafında saklanmasını istemiyoruz (CONVENTIONS §6).
 
-İstek `reasoning_effort="none"` gider: canlı API (gpt-5.6-luna, tm 96) işlevli Chat Completions
-isteğini, akıl yürütme eforu `none` değilse 400 ile reddeder. Yanıtın kabulü akıl yürütmeye
-dayanmaz: her yanıt `validate_*` şemasından geçer.
+İstek `reasoning_effort="none"` gider: GPT-6 Luna Chat Completions'ta işlev çağrısını bu ayarla
+destekler (OpenAI model dokümanı). Yanıtın kabulü akıl yürütmeye dayanmaz: her yanıt `validate_*`
+şemasından geçer.
 """
 
 from __future__ import annotations

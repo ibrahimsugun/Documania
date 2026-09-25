@@ -70,12 +70,15 @@ SHORT_NUMBER = "AB12"
 NEW = "E0001"
 EDITED_SURNAME = "ORNEKOVIC"
 EDITED_FOLDER = "Test_Ornekovic_E0001"
+# Belgeden orijinal yazım okunmadıysa okumaların kendisi ismin basılı hâlidir (05.2.2, §D56):
+# Latin belgede de alan dolu gelir.
+PROPOSED_ORIGINAL = f"{GIVEN} {SURNAME}"
 # Formun öneriyle dolan değerleri ve İK'nın düzelttiği hâli.
 PROPOSAL = {
     "given_names": GIVEN,
     "surname": SURNAME,
     "other_names": "",
-    "original_script_name": "",
+    "original_script_name": PROPOSED_ORIGINAL,
     "date_of_birth": BORN,
     "nationality": "RUS",
 }
@@ -219,7 +222,7 @@ def test_pending_item_offers_the_proposed_profile_as_an_editable_form(
         ("text", "given_names", GIVEN),
         ("text", "surname", SURNAME),
         ("text", "other_names", ""),
-        ("text", "original_script_name", ""),
+        ("text", "original_script_name", PROPOSED_ORIGINAL),
         ("date", "date_of_birth", BORN),
         ("text", "nationality", "RUS"),
     ]

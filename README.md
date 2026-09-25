@@ -4,8 +4,7 @@
 gönderimleri kurallar dahilinde fiziksel olarak düzenleyen, emin olamadığında insana soran
 ve yaptığı her işi izlenebilir biçimde loglayan bir belge yönetim platformu.
 
-> **Durum:** belge sözleşmesi ve otonom yapım altyapısı kuruldu. Kod yazımı henüz başlamadı.
-> İlk görev: `tm 1 — 00.1 Uygulama iskeleti`.
+> **Durum:** Uygulama ve test paketi mevcut; gereksinim kapsamı ve pilot/üretim hazırlığı `PLAN.md` ile izlenir. Dağıtım ve süreç sınırları aşağıdaki adımlarda belgelenmiştir.
 
 ## Belgeler
 
@@ -105,10 +104,10 @@ yaptırır, DoD kapısından geçirir ve `PLAN.md` + `HANDOFF.md` + commit ile k
 **Durdurma:** paneldeki *nazik durdurma*. Panel `.loop-logs/STOP-REQUESTED` bayrağını bırakır,
 script bunu görev sınırında görüp kendi temiz çıkar — çalışan hiçbir pencere kesilmez.
 
-## Üretim dağıtımı (PRD 13.5.1)
+## Üretim dağıtımı (PRD 13.5.1–13.5.2)
 
-Alan adı ve HTTPS ile **tek komutla** dağıtım: PostgreSQL 16, şema göçü, panel ve HTTPS'i
-sonlandıran Caddy (sertifikayı Let's Encrypt'ten kendisi alır ve yeniler) birlikte kalkar.
+Alan adı ve HTTPS ile **tek komutla** dağıtım: PostgreSQL 16, şema göçü, HTTP uygulaması, aynı imajdan
+ayrı kuyruk worker'ı ve HTTPS'i sonlandıran Caddy (sertifikayı Let's Encrypt'ten kendisi alır ve yeniler) birlikte kalkar.
 
 **Ön koşullar:** Docker Engine + Docker Compose **2.24 veya üstü**; alan adının DNS A/AAAA kaydı
 sunucuyu göstermeli; sunucuda 80 ve 443 dışarıya açık olmalı.
@@ -123,7 +122,7 @@ sunucuyu göstermeli; sunucuda 80 ve 443 dışarıya açık olmalı.
 | `ACME_EMAIL` | Sertifika uyarıları için e-posta |
 | `POSTGRES_PASSWORD` | `openssl rand -hex 24` çıktısı (yalnız harf/rakam) |
 | `APP_DATABASE_URL` | `postgresql+psycopg://belgeee:<POSTGRES_PASSWORD>@db:5432/belgeee` |
-| `ANTHROPIC_API_KEY` (ya da `AI_PROVIDER=openai` + `OPENAI_API_KEY`) | Yapay zekâ sağlayıcısı; boşsa panel açılır ama partiler kuyrukta bekler |
+| `ANTHROPIC_API_KEY` (ya da `AI_PROVIDER=openai` + `OPENAI_API_KEY`) | Worker için zorunlu; eksikse worker hata verip yeniden başlar, kuyruk işlenmez — dağıtımdan önce sağlayıcı ayarını girin |
 
 **2. Tek komut:**
 
@@ -131,9 +130,11 @@ sunucuyu göstermeli; sunucuda 80 ve 443 dışarıya açık olmalı.
 docker compose --profile production up -d --build
 ```
 
-Sırayla `preflight` (ayar denetimi — eksik ya da tutarsız ayarda komut anlaşılır bir hatayla
-durur) → `db` → `migrate` (`alembic upgrade head`) → `app` → `caddy` çalışır. Komut bitince
-`https://<DOMAIN>` açılır; HTTP istekleri HTTPS'e yönlendirilir.
+Sırasıyla `preflight` (ayar denetimi — eksik ya da tutarsız ayarda komut anlaşılır bir hatayla
+biter) → `db` → `migrate` (`alembic upgrade head`) tamamlanır; ardından HTTP `app` ve `worker`
+ayrı servisler olarak başlar. Worker `python -m app.worker` çalıştırır, HTTP portu yayınlamaz ve
+aynı DB/veri hacmini kullanır. Caddy, sağlıklı `app` servisini bekleyip HTTPS'i sonlandırır.
+Komut bitince `https://<DOMAIN>` açılır; HTTP istekleri HTTPS'e yönlendirilir.
 
 **3. İlk yönetici** (panel girişsiz açılmaz; parola terminalden gizli sorulur):
 
@@ -146,7 +147,8 @@ docker compose exec app python -m app.web create-admin --username <ad>
 ```bash
 curl -fsS https://<DOMAIN>/health          # {"status":"ok"}
 curl -sI  http://<DOMAIN>/health           # 308 → https://<DOMAIN>/health
-docker compose --profile production ps -a  # app healthy, migrate exited (0)
+docker compose --profile production ps -a  # app healthy, worker Up, migrate exited (0)
+docker compose logs worker               # kuyruğun tüketildiğini/worker hatalarını doğrula
 ```
 
 **Güncelleme:** `git pull` sonra aynı komut (`docker compose --profile production up -d --build`);
@@ -163,7 +165,7 @@ belgeleri, veritabanını ve sertifikayı taşır (`-v` hepsini siler).
 
 **İzleme ve uyarı (PRD 13.6.1):** hata (son bir saatte üç işlenemeyen parti), disk doluluğu (veri
 diski yüzde 85), işçi kuyruğu (20 bekleyen parti) ve karar bekleyen kuyruk (50 öğe) eşiği aşınca
-uyarı üretilir: panel ve bot süreçlerinin logunda (`docker compose logs app bot`, satır "Uyarı — …")
+uyarı üretilir: panel, worker ve bot süreçlerinin logunda (`docker compose logs app worker bot`, satır "Uyarı — …")
 ve bot çalışıyorsa beyaz listedeki kullanıcılara Telegram mesajı olarak. Süren uyarı altı saatte bir
 hatırlatılır, eşiğin yüzde 90'ının altına inince "Uyarı giderildi" gider. Eşikler ve aralıklar
 `.env`'deki `ALERT_*` değişkenleridir (`.env.example`). PostgreSQL'in kendi hacmi (`pgdata`)

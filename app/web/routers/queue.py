@@ -471,14 +471,24 @@ STATE_LABELS = {
     QueueState.SUPERSEDED.value: "Eski sürüm",
 }
 TAB_HINTS = {
-    QueueKind.UNKNOWN.value: "Belge türü katalogda yok ya da belirlenemedi.",
+    QueueKind.UNKNOWN.value: (
+        "Belgenin türü katalogda yok ya da belirlenemedi. Yapılacak: Belge Türleri'nden türü "
+        "ekleyin, ya da öğeyi açıp doğru türü seçin. (Diskte: Unknown klasörü)"
+    ),
     QueueKind.UNREADABLE.value: (
-        "Belge türü belli, ancak zorunlu alanlardan biri okunamadı (K1); okunamayan alan gerekçede."
+        "Belgenin türü belli, ama zorunlu alanlardan biri okunamadı (K1). Yapılacak: gerekçedeki "
+        "alanı belgeden okuyup girin, ya da belgeyi daha net tarayıp yeniden yükleyin. "
+        "(Diskte: Unreadable klasörü)"
     ),
     QueueKind.UNRESOLVED.value: (
-        "Belgenin sahibi ya da fiziksel işlemi belirlenemedi; gerekçe her öğede yazılı."
+        "Belgenin sahibi ya da yapılacak fiziksel işlem belirlenemedi. Yapılacak: öğeyi açıp "
+        "çalışanı seçin, ya da önerilen profili onaylayın. (Diskte: Unresolved klasörü)"
     ),
 }
+QUEUE_INTRO = (
+    "Sistem bir belgeden emin olamadığında onu değiştirmez, buraya alır. Bu sayfadaki her satır "
+    "senin kararını bekleyen bir belgedir; karar verince sistem işini tamamlar."
+)
 SUPERSEDED_NOTE = (
     "Bu öğe partinin eski bir plan sürümüne ait (K18); çözülemez. "
     "Çözülecek öğeler partinin güncel planının kuyruğundadır."
@@ -529,6 +539,7 @@ class QueueRow:
 class QueueListing:
     kind: str
     label: str
+    intro: str
     hint: str
     state: str
     state_label: str
@@ -740,6 +751,7 @@ def list_queue(
     return QueueListing(
         kind=kind.value,
         label=QUEUE_LABELS[kind.value],
+        intro=QUEUE_INTRO,
         hint=TAB_HINTS[kind.value],
         state=state.value,
         state_label=STATE_LABELS[state.value],
@@ -1135,7 +1147,7 @@ _PROFILE_HINTS = {
     GIVEN_NAMES: _LATIN_HINT,
     SURNAME: _LATIN_HINT,
     OTHER_NAMES: _LATIN_HINT,
-    ORIGINAL_SCRIPT_NAME: "Belgedeki Latin olmayan yazım (ör. Kiril)",
+    ORIGINAL_SCRIPT_NAME: "İsmin belgede basılı hâli, birebir (Latin de olabilir)",
     NATIONALITY: "ICAO kodu (ör. RUS, SRB, D)",
 }
 _ISO_DATE = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}")

@@ -4,20 +4,13 @@
 `GET /upload` sürükle-bırak çoklu yükleme formunu ve isteğe bağlı çalışan seçimini çizer.
 `POST /upload` (HTMX) dosyaları `POST /api/uploads` ile aynı işlevle (`create_upload`) partiye
 çevirir — boyut/sayfa sınırı (01.3.1), Inbox'a değişmez yazma (K10) ve tekrar tespiti (01.4.1)
-orada kalır, burada kopyalanmaz. Parti oluşunca kuyruktaki işi (13.3.1) arka planda alınıp
-işlenir (09.2.2; iş bu arada panelin kuyruk döngüsüne geçtiyse o işler) ve yanıt ilerleme
-görünümüdür. `GET /upload/{upload_id}/progress` parti durumunu (`GET
-/api/uploads/{id}`, 01.6.1) HTMX'in iki saniyede bir yenilediği parçaya çevirir; parti son
-duruma (`done`, `partial`, `failed`) varınca parça yenileme öznitelikleri olmadan gelir ve
-yenileme durur.
+orada kalır, burada kopyalanmaz. Parti ve kuyruğa işi tek işlemde eklenir; HTTP uygulaması işi
+almaz. Ayrı `worker` servisi kuyruğu tüketir. Yanıt ilerleme görünümüdür; worker bitirene kadar
+HTMX iki saniyede bir yeniler.
 
-Bağlam çalışanıyla yüklenen partide belgeleri o çalışana ait görünmeyen öğeler (kişi denetimi,
-10.5.5, `app.web.context_person`) son durumdaki ilerleme görünümünde ve yükleme detayında büyük
-kırmızı kutuyla gösterilir.
+Yapay zekâ sağlayıcısı HTTP uygulamasında kurulmaz: API yalnızca dosyayı güvenle alıp kuyruğa yazar.
+Worker ayarları eksikse iş kuyrukta kalır; servis hatası worker loglarında görünür.
 
-Yapay zekâ sağlayıcısı kurulamıyorsa (`AI_PROVIDER` eksik anahtar) parti yine de alınır — dosya
-Inbox'ta güvende kalır, işi kuyrukta bekler — ama işlenmez; kullanıcıya bu söylenir ve yenileme
-başlatılmaz.
 
 `GET /uploads/{upload_id}` yükleme detay sayfasıdır (10.3.1): partinin sayfa küçük resimleri, güncel
 planın öğeleri, çıktıları (belgeler ve kuyruğa alınanlar) ve olay zaman çizelgesi tek sayfada
@@ -49,15 +42,14 @@ gelmesin.
 
 from __future__ import annotations
 
-from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Annotated
 
-from fastapi import APIRouter, BackgroundTasks, Depends, Form, HTTPException, Request, status
+from fastapi import APIRouter, Depends, Form, HTTPException, Request, status
 from fastapi.responses import FileResponse, HTMLResponse
 from sqlalchemy import or_, select
-from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.orm import Session
 from starlette.datastructures import UploadFile as StarletteUploadFile
 
 from app.ai.provider import AnalysisProvider, ProviderConfigError, create_provider
@@ -76,7 +68,7 @@ from app.db.models import (
     UploadFile,
     UploadStatus,
 )
-from app.db.session import get_session, get_session_factory
+from app.db.session import get_session
 from app.pipeline.analyze import PageAnalysisStatus
 from app.pipeline.dismiss import (
     UploadNotDismissableError,
@@ -114,7 +106,6 @@ from app.web.routers.uploads import (
     get_upload_status,
 )
 from app.web.templating import MENU_BY_KEY, render_page
-from app.worker import claim_and_run
 
 router = APIRouter(tags=["upload-page"])
 
@@ -137,12 +128,6 @@ STATUS_LABELS: dict[UploadStatus, str] = {
 FINAL_STATUSES = frozenset({UploadStatus.DONE, UploadStatus.PARTIAL, UploadStatus.FAILED})
 
 NO_FILE_MESSAGE = "Yüklenecek dosya seçilmedi."
-UNPROCESSED_NOTICE = (
-    "Yapay zekâ sağlayıcısı kurulamadığı için parti işlenmiyor; dosyalar alındı ve "
-    "'Alındı' durumunda bekliyor. {reason}"
-)
-
-UploadProcessor = Callable[[str], None]
 
 
 @dataclass(frozen=True, slots=True)
@@ -199,32 +184,6 @@ def build_progress_view(session: Session, upload_id: str) -> ProgressView:
     )
 
 
-def get_upload_processor(
-    settings: Annotated[Settings, Depends(get_settings)],
-    layout: Annotated[DataLayout, Depends(get_layout)],
-    session_factory: Annotated[sessionmaker[Session], Depends(get_session_factory)],
-) -> UploadProcessor | ProviderConfigError:
-    """Partiyi arka planda işleyen adım; sağlayıcı kurulamazsa nedenini taşıyan hata döner.
-
-    İşleyici isteğin oturumunu kullanmaz: yanıt gittikten sonra çalışır, kendi oturumunu açar.
-    Partinin kuyrukta bekleyen işini alır ve işler (13.3.1, `claim_and_run`); beklenmeyen hata
-    partiyi `failed` yapar (09.2.3). İş beklemiyorsa — başka bir işleyici almış, parti işlenmiş ya
-    da yok — sessizce geçilir.
-    """
-    try:
-        provider = create_provider(settings)
-    except ProviderConfigError as exc:
-        return exc
-
-    def process(upload_id: str) -> None:
-        claim_and_run(session_factory, layout, upload_id, settings=settings, provider=provider)
-
-    return process
-
-
-Processor = Annotated[UploadProcessor | ProviderConfigError, Depends(get_upload_processor)]
-
-
 def _employee_options(session: Session) -> list[Employee]:
     return list(session.scalars(select(Employee).order_by(Employee.folder_name)))
 
@@ -252,11 +211,9 @@ def upload_page(
 async def submit_upload(
     request: Request,
     _user: CurrentUser,
-    background_tasks: BackgroundTasks,
     session: Annotated[Session, Depends(get_session)],
     layout: Annotated[DataLayout, Depends(get_layout)],
     settings: Annotated[Settings, Depends(get_settings)],
-    processor: Processor,
 ) -> HTMLResponse:
     # Form elle okunur: tarayıcı dosya seçilmemişken adı boş tek bir parça gönderir ve Starlette
     # onu dosya değil düz alan sayar; bildirimli `list[UploadFile]` bunu 422 ile reddederdi.
@@ -281,21 +238,14 @@ async def submit_upload(
         except HTTPException as exc:
             return _result(request, exc.status_code, error=str(exc.detail))
 
-    notice = None
-    if isinstance(processor, ProviderConfigError):
-        notice = UNPROCESSED_NOTICE.format(reason=processor)
-    else:
-        background_tasks.add_task(processor, created.upload_id)
     view = build_progress_view(session, created.upload_id)
-    # Okuma işlemi de SQLite'ta yazma kilidini tutar (`app.db.session`): arka plan işleyicisi
-    # bu oturum kapanana kadar beklemesin.
+    # İş kuyrukta atomik olarak hazır; bu HTTP oturumu SQLite kilidini worker'a bırakır.
     session.rollback()
     return _result(
         request,
         status.HTTP_201_CREATED,
         progress=view,
-        poll=notice is None and not view.final,
-        notice=notice,
+        poll=not view.final,
     )
 
 
@@ -317,12 +267,19 @@ def upload_progress(
 
 ROUTE_LABELS: dict[str, str] = {
     Route.READY.value: "Hazır",
-    Route.UNKNOWN.value: "Unknown kuyruğu",
-    Route.UNREADABLE.value: "Unreadable kuyruğu",
-    Route.UNRESOLVED.value: "Unresolved kuyruğu",
+    Route.UNKNOWN.value: "Tür bilinmiyor kuyruğu",
+    Route.UNREADABLE.value: "Okunamadı kuyruğu",
+    Route.UNRESOLVED.value: "Sahibi belirsiz kuyruğu",
     Route.SKIP.value: "Atlandı",
 }
-QUEUE_LABELS = {"unknown": "Unknown", "unreadable": "Unreadable", "unresolved": "Unresolved"}
+# Ekranda görünen ad Türkçedir; enum değeri, URL ve diskteki kuyruk klasörü adı (PRD 08.1.1)
+# İngilizce kalır. Klasörle eşleştirmek için İngilizce karşılık `QUEUE_FOLDERS`tadır.
+QUEUE_LABELS = {
+    "unknown": "Tür bilinmiyor",
+    "unreadable": "Okunamadı",
+    "unresolved": "Sahibi belirsiz",
+}
+QUEUE_FOLDERS = {"unknown": "Unknown", "unreadable": "Unreadable", "unresolved": "Unresolved"}
 EMPLOYEE_ACTION_LABELS = {
     "match": "Eşleşti",
     "create": "Yeni çalışan",

@@ -122,6 +122,12 @@ class Project:
             for key, value in os.environ.items()
             if key not in CONFIG_KEYS and not key.startswith("PG")
         }
+        if os.name == "nt":
+            # Git Bash's /tmp is invisible to native Windows Python; keep shell scratch paths
+            # under the same Windows-visible fixture root as the SQLite database.
+            shell_tmp = self.root / "tmp"
+            shell_tmp.mkdir(exist_ok=True)
+            env["TMPDIR"] = shell_tmp.as_posix()
         env.update(
             DATABASE_URL=f"sqlite:///{self.db.as_posix()}",
             DATA_DIR=self.data.as_posix(),

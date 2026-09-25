@@ -23,7 +23,6 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session, sessionmaker
 
-from app.ai import PROVIDER_FACTORIES
 from app.catalog import import_catalog, load_seed_catalog
 from app.config import Settings, get_settings
 from app.db.models import Employee, EmployeeAlias, allocate_employee_number
@@ -31,6 +30,7 @@ from app.db.session import get_session_factory
 from app.matching.names import normalize_name
 from app.storage import DataLayout, employee_folder_name
 from app.web.auth import SESSION_COOKIE
+from app.worker import Worker
 from tests.fixtures.gen import (
     PERSON_SIDOROV,
     make_document_pdf_bytes,
@@ -78,18 +78,16 @@ def employee(session_factory: sessionmaker[Session], layout: DataLayout) -> Empl
 @pytest.fixture
 def recorded_processing(
     app: FastAPI,
-    monkeypatch: pytest.MonkeyPatch,
     session_factory: sessionmaker[Session],
+    layout: DataLayout,
     tmp_path: Path,
-) -> None:
-    """Gerçek arka plan işleyicisi (`get_upload_processor`); `AI_PROVIDER=kayitli` sağlayıcısı
-    çalışma izninin kayıtlı yanıtını okur."""
+) -> Worker:
+    """Faz 1 akışını işleyen ayrı test worker'ı, kayıtlı sentetik sağlayıcıyla."""
     provider = recorded_provider(tmp_path / "kayit", [PERMIT])
-    monkeypatch.setitem(PROVIDER_FACTORIES, "kayitli", lambda settings: provider)
-    app.dependency_overrides[get_settings] = lambda: Settings(
-        _env_file=None, database_url="sqlite://", ai_provider="kayitli"
-    )
+    settings = Settings(_env_file=None, database_url="sqlite://", ai_provider="anthropic")
+    app.dependency_overrides[get_settings] = lambda: settings
     app.dependency_overrides[get_session_factory] = lambda: session_factory
+    return Worker(session_factory, layout, settings=settings, provider=provider)
 
 
 def _one(pattern: str, html: str) -> str:
@@ -106,7 +104,7 @@ def test_hr_uploads_resolves_the_queue_sees_the_document_on_the_profile_and_open
     client: TestClient,
     layout: DataLayout,
     employee: Employee,
-    recorded_processing: None,
+    recorded_processing: Worker,
 ) -> None:
     client.cookies.set(SESSION_COOKIE, SESSION)  # onay belirteci oturum çerezine bağlıdır
     pdf = make_document_pdf_bytes([PERMIT])
@@ -117,7 +115,9 @@ def test_hr_uploads_resolves_the_queue_sees_the_document_on_the_profile_and_open
         "/upload", files=[("files", ("izin.pdf", pdf, "application/octet-stream"))]
     )
     assert uploaded.status_code == 201, uploaded.text
+    assert POLLING in uploaded.text  # HTTP alımı bitti; kuyrukta bekleyen iş için yenileme sürer
     upload_id = _one(r"Parti (u_\w+)", uploaded.text)
+    assert recorded_processing.run_once() is True  # ayrı worker işin sahibi olur
     progress = client.get(f"/upload/{upload_id}/progress")
     assert progress.status_code == 200
     assert "Tamamlandı" in progress.text  # kuyruğa düşen belge partiyi kısmi yapmaz
