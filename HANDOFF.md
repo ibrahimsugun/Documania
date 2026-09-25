@@ -18,6 +18,12 @@ Blok biçimi `CONVENTIONS.md` §3'te tanımlıdır:
 
 ## Task log (newest-first)
 
+## 110–120 — Görev açılışı: ad + doğum tarihiyle yeni çalışan, aday tür incelemesi, Eğitim modu — açıldı (kod yok) — 2026-09-26
+- Yapıldı: İnsan kararlarıyla (2026-09-26) belge düzenlemesi ve görev açılışı. MASTER-PROMPT K7 değişti (§D57). PRD'ye 05.6.2, 11.5.5, 11.5.6, 11.9.1–11.9.5 eklendi; R9, 05.6.1, 05.7.1, 10.1.1, 11.2.1, §5.2, §8.1–§8.3, §20.2.2 satır 6b, §20.2.4, S19 ve S20 güncellendi. PLAN'a 8 ⬜ satır, §C84–§C87, §D57–§D58 ve §G'ye 11 satır eklendi; §0/§2 sayıldı (Faz 3 satırındaki `8 ✅ · 2 ⬜` kayması da 10 ✅ olarak düzeltildi). tasks.json'a tm 110–120 elle eklendi (`taskCount` 118); tm 97'ye 110, tm 98'e 111–120 bağımlılığı eklendi, üçü de `deferred` kaldı.
+- Doğrulama: CONVENTIONS:77-84 sayımları (toplam 170, 162 ✅, 8 ⬜; Faz 0 105 / 100/101 Must, Faz 1 42 / 23/30 Must), `task-master validate-dependencies`, tasks.json JSON okuması. PRD §20.6'ya dokunulmadı (`tests/web/test_confirm.py` eşlemesi değişmez; eğitim onay metinleri §D58'de).
+- Varsayımlar: Eğitim işlemleri K16 dışıdır (katalog malzemesi, §D58). Önerilen tür kaydı `app/catalog/suggested_types.csv` olarak repoya girecek (data/ gitignore'da). Yapay zekâ işleri işçinin boş zamanında koşar (tm 111).
+- Sonraki pencereye not: Çalışma ağacında tm 109'un commit edilmemiş işi var (53 dosya; PLAN/PRD/tasks.json/HANDOFF dahil) — döngü başlamadan önce insan tm 109'u ve bu açılışı ayrı commit'lere ayırmalı; `git add -A` ikisini birlikte süpürür. Yeni görevler yapay zekâ çağırıyor: yukarıdaki blokta geçen sızmış OpenAI anahtarı döndürülmeden canlı çağrı yapılmaz. Sıra bağımlılıklarla: 110, 112, 115 hemen seçilebilir; 111 → 113 → 114 ve 115 → 116 → 117 → 118 → 119/120.
+
 ## Current local OpenAI model — 2026-09-25
 - Active `.env`: `AI_PROVIDER=openai`, `OPENAI_MODEL=gpt-6-luna`; `app/config.py` default and `.env.example` align. Official OpenAI model docs list the Chat Completions function-calling requirement `reasoning_effort=none`, which the provider sends. Pricing table: input $0.10, cached input $0.01, output $0.50 per 1M tokens. Model/config/pricing tests pass; no live API call was made after this switch.
 - Security follow-up: an existing OpenAI API key was exposed in a tool diff. Revoke/rotate it and replace `.env` before the next API call; never copy the key into notes or chat.

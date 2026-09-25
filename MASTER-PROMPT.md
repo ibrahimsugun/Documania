@@ -38,7 +38,7 @@ Bunlar ürünün anayasasıdır. Kod bu tabloya uyar, tablo koda uymaz.
 | K4 | **Direkt Belge kapalı.** Aynı yükleme partisindeki farklı dosyalardan sayfalar birleştirilebilir, türün izin verdiği format dönüşümleri yapılabilir. Ardışıklık kuralı yine geçerlidir. |
 | K5 | **Ardışıklık kuralı.** Çok sayfalı bir belgenin sayfaları arasına başka bir belgeye ait sayfa girmişse otomatik birleştirme YAPILMAZ; parçalar Unresolved'a gider. |
 | K6 | **Kişi eşleştirme sırası.** Önce belge numarası tam eşleşmesi. Sonra normalize ad-soyad + doğum tarihi. Yalnızca ad-soyad eşleşmesi otomatik eşleştirme SAYILMAZ, Unresolved'a gider. MRZ varsa görünen metinden önce MRZ okunur. |
-| K7 | **Yeni çalışan.** Otomatik profil YALNIZ temiz okunmuş bir belge numarası varsa açılır. Aksi halde "onay bekleyen profil" olarak Unresolved'a düşer. |
+| K7 | **Yeni çalışan.** Kayıtlı çalışanla hiç eşleşme yoksa otomatik profil YALNIZ şu iki durumda açılır: temiz okunmuş bir belge numarası var, ya da Latin harfli ad-soyad ile okunaklı doğum tarihi var ve doğum tarihi belge türünün zorunlu alanıdır (insan kararı 2026-09-26, PLAN §D57). Yalnız ad-soyad okunduysa "onay bekleyen profil" olarak Unresolved'a düşer. |
 | K8 | **Adlandırma.** Klasör: `Ad_Soyad_E0001`. E numarası sistem tarafından verilir, asla değişmez. Dosya: `Ad_Soyad-Belge-Turu.pdf`. Aynı türden ikinci belge `-2`, üçüncü `-3` eki alır. |
 | K9 | **Karar ve uygulama ayrımı.** Yapay zekâ analizi bir Plan JSON olarak dondurulur. Uygulayıcı bu planı yapay zekâya tekrar sormadan yürütür. Yeniden çalıştırma aynı planı kullanır. |
 | K10 | **Orijinal dokunulmaz.** Yüklenen dosya Inbox'a yazılır, çözüldükten sonra ilgili çalışanın `Alinan` klasörüne kopyalanır. SHA-256 ile tekrar yükleme tespit edilir. |

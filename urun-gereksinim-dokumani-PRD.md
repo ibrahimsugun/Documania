@@ -53,7 +53,7 @@ Bu kurallar ürünün kimliğidir; teknik karşılıkları `MASTER-PROMPT.md` §
 | R6 | **Ardışıklık güvenliği.** Bir belgenin sayfaları arasına başka belgeye ait sayfa girmişse sistem bunları otomatik birleştirmez. |
 | R7 | **Emin değilse kuyruğa.** Kişisi veya türü belirlenemeyen belge çalışan klasörüne rastgele yerleştirilmez; Unknown / Unreadable / Unresolved kuyruklarına alınır ve kullanıcı uyarılır. |
 | R8 | **İsim tek başına kimlik değildir.** Yalnız ad-soyad eşleşmesi otomatik eşleştirme sayılmaz. |
-| R9 | **Numarasız belgeden çalışan doğmaz.** Otomatik yeni çalışan profili yalnız temiz okunmuş bir belge numarası varsa açılır. |
+| R9 | **Yalnız isimden çalışan doğmaz.** Kayıtlı çalışanla eşleşme yoksa otomatik yeni çalışan profili yalnız temiz okunmuş bir belge numarası varsa, ya da Latin harfli ad-soyad ile okunaklı doğum tarihi varsa (doğum tarihi türün zorunlu alanıysa) açılır. Yalnız ad-soyad okunduysa profil onaya düşer. |
 | R10 | **Karar bir kez verilir.** Yapay zekâ analizi Plan JSON olarak dondurulur; fiziksel işlemler bu plandan yürütülür, yeniden yapay zekâya sorulmaz. |
 | R11 | **Silme yoktur, arşiv vardır.** |
 | R12 | **Manuel içerik düzenleme yoktur.** Kullanıcı belge içeriğini hiçbir arayüzden değiştiremez; yalnız belgenin hangi çalışana ait olduğunu iki aşamalı onayla değiştirebilir. |
@@ -94,7 +94,7 @@ olay logu baştan sona okunabiliyor; her çıktının kökeni yazılı; yeniden 
 
 **Hedef:** İK'nın günlük kullanabileceği web paneli ve kendini genişleten belge kataloğu.
 
-Kapsam: FR-MOD-10, FR-MOD-11 (11.1–11.5).
+Kapsam: FR-MOD-10, FR-MOD-11 (11.1–11.5, 11.9).
 
 **Kapanış ölçütü:** İK bir belgeyi yükleyip, kuyruğu çözüp, profilde görüp yeni sekmede
 açabiliyor; katalog panelden yönetiliyor; yeni tür onayı uçtan uca çalışıyor.
@@ -216,8 +216,9 @@ maliyet paneli gerçek rakam gösteriyor.
 | 05.5.1 | Eşleştirme sırası | Önce belge numarası, sonra normalize isim + doğum tarihi denenir | Must (MVP) |
 | 05.5.2 | Yalnız isim eşleşmesinin reddi (R8) | Sadece isim eşleşmesi Unresolved'a gider, otomatik eşleştirme sayılmaz | Must (MVP) |
 | 05.5.3 | Belirsiz eşleşme | Birden fazla çalışan eşleşirse Unresolved'a gider ve olay loguna yazılır | Must (MVP) |
-| 05.6.1 | Otomatik çalışan oluşturma (R9) | Yalnız temiz okunmuş belge numarası varsa yeni çalışan ve klasörü açılır | Must (MVP) |
-| 05.7.1 | Onay bekleyen profil | Numara yoksa profil önerisi Unresolved'a düşer; onaysız çalışan oluşmaz | Must (MVP) |
+| 05.6.1 | Otomatik çalışan oluşturma (R9) | Kayıtlı çalışanla eşleşmeyen kişide temiz okunmuş belge numarası varsa yeni çalışan ve klasörü açılır | Must (MVP) |
+| 05.6.2 | Ad ve doğum tarihiyle otomatik çalışan oluşturma (R9) | Kayıtlı çalışanla eşleşmeyen kişide temiz numara yoksa, Latin harfli ad-soyad ve okunaklı, tekil, çelişkisiz doğum tarihi varsa ve doğum tarihi türün zorunlu alanıysa yeni çalışan ve klasörü açılır; belge numarası yazılmaz; olay kaydı açılış dayanağını (`document_number` / `name_dob`) taşır; ucuz ön eleme modelinin doğrulanmamış okuması bu yola dayanak olmaz (§20.2.4) | Must (MVP) |
+| 05.7.1 | Onay bekleyen profil | Temiz numara yoksa ve 05.6.2 uymuyorsa (doğum tarihi yok, okunaksız ya da türün zorunlu alanı değil) profil önerisi Unresolved'a düşer; onaysız çalışan oluşmaz | Must (MVP) |
 | 05.7.2 | Alias ve numara birikimi | Her eşleşmede görülen yeni isim yazımı ve belge numarası çalışana eklenir | Must (MVP) |
 | 05.7.3 | Profil alanlarını belgelerden tamamlama | Eşleşen ya da yeni açılan çalışanın boş profil alanları (ad, soyad, diğer isimler, orijinal yazım, doğum tarihi, uyruk) belgede okunaklı okunan değerlerle doldurulur, MRZ önce gelir; dolu alan değiştirilmez, farklı değer profilde uyarı olarak görünür; her alanın kaynağı belgeye bağlanır | Must (MVP) |
 | 05.8.1 | İletişim bilgisi saklama | Analiz edilen belgeden çıkan telefon, e-posta ve adres `employee_contacts` tablosuna kaynak belgesiyle birlikte yazılır | Must (MVP) |
@@ -282,7 +283,7 @@ maliyet paneli gerçek rakam gösteriyor.
 
 | ID | Gereksinim | Kabul kriteri | Öncelik |
 |---|---|---|---|
-| 10.1.1 | Panel iskeleti ve gezinme | Yükle, Çalışanlar, Kuyruklar, Belge Türleri, Yüklemeler menüleri açılır | Must (v1) |
+| 10.1.1 | Panel iskeleti ve gezinme | Yükle, Çalışanlar, Kuyruklar, Belge Türleri, Yüklemeler, Eğitim modu menüleri açılır | Must (v1) |
 | 10.1.2 | Oturum tabanlı giriş | Girişsiz hiçbir panel yolu açılmaz | Must (v1) |
 | 10.1.3 | İlk kullanıcı oluşturma | Komut satırından ilk yönetici oluşturulabilir | Must (v1) |
 | 10.2.1 | Yükleme sayfası | Sürükle-bırak çoklu yükleme çalışır; isteğe bağlı çalışan seçilebilir | Must (v1) |
@@ -314,7 +315,7 @@ maliyet paneli gerçek rakam gösteriyor.
 | 11.1.1 | Katalog yönetim ekranı | Tür oluşturma, düzenleme ve pasifleştirme panelden yapılır | Must (v1) |
 | 11.1.2 | Katalog form doğrulaması | Direkt türde dönüşüm listesi boş; front_back türde en az bir düzen seçili ve sayfa aralığı seçilen düzenlerden türetilir (ayrı sayfalar 2, tek sayfa 1) | Must (v1) |
 | 11.1.3 | Kabul kriteri düzenleme | Tür formunda `acceptance_criteria` maddeleri eklenip çıkarılabilir; değişiklik bir sonraki analizde geçerli olur | Should (v1) |
-| 11.2.1 | Örnek belge yükleme | Türe örnek yüklenir; örnekler çalışan verisinden ayrı tutulur ve aramada görünmez | Should (v1) |
+| 11.2.1 | Örnek belge yükleme | Türe örnek yüklenir; örnekler çalışan verisinden ayrı tutulur ve aramada görünmez. Tür sayfasından el ile yükleme olay yazmaz; Eğitim modunun (11.9) yerleştirmeleri olay yazar | Should (v1) |
 | 11.3.1 | Tür açıklaması üretimi | Örneklerden yapılandırılmış tür açıklaması üretilir ve düzenlenebilir | Should (v1) |
 | 11.4.1 | Prompt derleyici | Aktif türler kompakt katalog metnine derlenir | Must (v1) |
 | 11.4.2 | Token bütçesi | Katalog metni sınırı aşarsa açıklamalar kısaltılır ve uyarı loglanır | Should (v1) |
@@ -322,6 +323,13 @@ maliyet paneli gerçek rakam gösteriyor.
 | 11.5.2 | Aday türü onaylama | Onay sonrası tür katalogda; iki aşamalı onay istenir | Must (v1) |
 | 11.5.3 | Onay sonrası yeniden analiz | Aday ile ilişkili Unknown öğeleri toplu yeniden analiz edilebilir | Should (v1) |
 | 11.5.4 | Aday türü reddetme | Reddedilen aday tekrar listeye düşmez | Should (v1) |
+| 11.5.5 | Aday tür incelemesi | Sistem her bekleyen adayın örnek sayfalarını (arka yüzler dahil) inceler ve tam tür taslağı üretir: ad, dosya etiketi, ülke, açıklama, dosya türleri, sayfa sayısı, yüz yapısı ve düzenleri, Direkt Belge, zorunlu alanlar (standart alan adlarıyla), kabul kriterleri (sayfada denetlenebilir, Türkçe) ve analizci için açıklama; dosya türü ve yüz yapısı gözlenen örneklerden gelir; taslakta örneklerdeki kişiye ait değer bulunursa taslak saklanmaz; inceleme yükleme işlerini bekletmez | Must (v1) |
+| 11.5.6 | Onay formu taslakla dolu açılır | Aday onay formu taslaktaki bütün alanlarla açılır, İK düzeltip iki aşamalı onayla kaydeder; taslağın form doğrulamasından geçmeyen alanı boş kalır ve adıyla bildirilir; katalogdaki bir türle çakışma uyarılır; "Yeniden incele" taslağı yeniler | Must (v1) |
+| 11.9.1 | Eğitim modu sekmesi | Panelde "Eğitim modu" sekmesinden PDF/JPEG/PNG yüklenir (isteğe bağlı beklenen tür seçilir); her dosyanın sonucu (tür, yöntem, not, etiket) listelenir; eğitim yüklemesi hiçbir çalışan, kişi eşleştirmesi, kuyruk öğesi, yükleme partisi ya da çıktı belgesi oluşturmaz; yalnız bilinen belgelerin örneklerini besler | Must (v1) |
+| 11.9.2 | Mekanik tanıma | Yapay zekâ çağrılmadan önce dosya türü, SHA-256 (bilinen örnekler ve envanter), beklenen/harita türünün yapı kuralları (katalog türünde dosya türü ve sayfa sayısı) ve PDF metin katmanındaki MRZ ile tanınan belge notuyla `KnownDocuments/examples/<slug>/`'a kaydedilir ve etiket almaz; aynı türde aynı dosya ikinci kez eklenmez | Must (v1) |
+| 11.9.3 | Yapay zekâ incelemesi ve "AI kararı" etiketi | Mekanik tanınmayan belge yapay zekâyla sınıflandırılır ve bilinen türe (katalog türleri + hazır önerilen türler) "AI kararı" etiketiyle yerleşir; beklenen türle çelişen ya da hiçbir türe yerleşemeyen belge "Yerleştirilemedi" listesinde bekler; inceleme yükleme işlerini bekletmez | Must (v1) |
+| 11.9.4 | Elle kontrol ikonu ve etiket kararı | "AI kararı" etiketli örnek eğitim sekmesinde ve tür sayfasının örnek listesinde "elle kontrol gerekli" ikonuyla görünür; İK örneği doğrular (tek ya da toplu), başka türe taşır ya da örneklerden çıkarır (silinmez, eğitim arşivine taşınır); taşıma ve çıkarma iki aşamalı onaylıdır; doğrulanmamış "AI kararı" örneği tür açıklaması üretimine girmez | Must (v1) |
+| 11.9.5 | Harita yükle ve toplu tarama | Eğitim sekmesinde "Harita yükle" ile CSV (envanter ve önerilen tür biçimleri ya da slug + yol sütunlu CSV) yüklenir; önizleme satır, dosya, atlanan, mekanik hazır ve yapay zekâ gerekebilecek sayılarını gösterir; iki aşamalı onayla toplu tarama başlar ve ilerlemesi görünür; yollar yalnız izinli kökler altında çözülür; aynı harita yeniden taranınca kayıtlı dosya atlanır | Must (v1) |
 | 11.6.1 | Profil fotoğrafı kural seti | Kurallar katalogda tutulur ve panelden açılıp kapatılabilir | Should (v2) |
 | 11.7.1 | Fotoğraf görsel kontrolü | Her kural pass/fail/unsure olarak değerlendirilir; fail varsa Unresolved | Should (v2) |
 | 11.7.2 | Fotoğrafta içerik korunması | Kırpma, düzeltme ve arka plan değiştirme yapılmaz | Should (v2) |
@@ -389,7 +397,10 @@ maliyet paneli gerçek rakam gösteriyor.
 | `documents` | Çıktı belgeleri | id, employee_id, type_slug, path, format, sequence_no, plan_id, source_refs_json, status, created_at |
 | `queue_items` | Kuyruk öğeleri | id, upload_id, plan_item_id, kind, reason, payload_json, resolved_at, resolved_by |
 | `known_document_types` | Katalog | slug, name, file_label, country, description, expected_file_types, expected_pages_min, expected_pages_max, sides, direct, analyze, required_fields, allowed_conversions, output_format, prompt_description, photo_rules, active |
-| `candidate_document_types` | Aday türler | id, proposed_name, normalized_name, description, first_seen_upload_id, sample_page_ids, seen_count, status |
+| `candidate_document_types` | Aday türler | id, proposed_name, normalized_name, description, first_seen_upload_id, sample_page_ids, seen_count, status, proposal_json, proposal_status, proposal_generated_at (11.5.5) |
+| `training_runs` | Eğitim modu çalıştırması (11.9) | id, kind (`upload`, `map`), created_by, created_at, map_name, status, sayaçlar |
+| `training_items` | Eğitim modunda işlenen dosya (11.9) | id, run_id, row_number, original_name, source_ref, staged_path, sha256, file_kind, page_count, hint_slug, result_slug, method (`mechanical`, `ai`, `manual`), status, note, checks_json, decided_by, decided_at |
+| `example_files` | Örnek dosyası kaydı ve etiketi (11.9) | id, type_slug, name, sha256, method, label (`ai_decision`, `verified`), note, training_item_id, created_at |
 | `events` | Olay logu | id, ts, upload_id, file_id, page_index, document_id, employee_id, actor, type, message, data_json |
 | `access_log` | Görüntüleme ve indirme | ts, user_id, document_id, action, channel |
 | `users` | Panel kullanıcıları | id, username, password_hash, role |
@@ -411,6 +422,9 @@ data/
   KnownDocuments/
       catalog.yaml                tohum ve dışa aktarım
       examples/<tur_slug>/        örnek belgeler
+      _egitim/gelen/<run>/        eğitim modunda yüklenen dosyaların kopyası (11.9)
+      _egitim/haritalar/          yüklenen harita CSV'leri (11.9.5)
+      _egitim/cikarilan/<tur_slug>/  örneklerden çıkarılanlar; silinmez (11.9.4)
   cache/pages/<file_id>/          analiz için üretilmiş sayfa görüntüleri
 ```
 
@@ -424,7 +438,11 @@ DIRECT_DOC_CHECK · PAGE_EXTRACTED · PAGES_MERGED · IMAGE_WRAPPED · IMAGE_EXT
 IMAGE_RENDERED · OUTPUT_SAVED · OUTPUT_SKIPPED · QUEUED_UNKNOWN · QUEUED_UNREADABLE ·
 QUEUED_UNRESOLVED · MANUAL_MOVE · MANUAL_ASSIGN · MANUAL_APPROVE · TYPE_APPROVED ·
 TYPE_REJECTED · USER_CONFIRMED · PLAN_RERUN · PLAN_REANALYZED · ARCHIVED · UPLOAD_DISMISSED ·
-PIPELINE_FAILED
+PIPELINE_FAILED · CANDIDATE_TYPE_EXAMINED · TRAINING_EXAMPLE_PLACED · TRAINING_ITEM_UNPLACED ·
+TRAINING_LABEL_VERIFIED · TRAINING_EXAMPLE_MOVED · TRAINING_EXAMPLE_REMOVED · TRAINING_MAP_STARTED
+
+`EMPLOYEE_CREATED` olayının verisi açılış dayanağını taşır: `basis` = `document_number` (§20.2.2
+satır 6) ya da `name_dob` (satır 6b).
 
 ### 8.4 Sayfa analizi şeması
 
@@ -559,6 +577,11 @@ Her senaryo Faz 0'da otomatik test olur (09.3.2). "Beklenen" sütunu tartışmas
 | S16 | Manuel taşıma tek onayla / iki onayla | Değişiklik yok / taşınır, iki profil güncellenir, olay kullanıcı adıyla |
 | S17 | Telegram: iki ehliyet / tek ehliyet | Seçim sorusu / dosya gönderilir |
 | S18 | Mevcut plandan yeniden çalıştırma | Aynı çıktılar; sağlayıcı çağrılmaz; ikinci dosya yok |
+| S19 | Numarasız belge (zorunlu alanı ad, soyad, doğum tarihi); ad-soyad ve doğum tarihi okunaklı; kayıtlı çalışan yok | Yeni çalışan (`basis: name_dob`), klasör ve profil.md; belge numarası yazılmaz; belge Hazir'da. Doğum tarihi okunamıyorsa onay bekleyen profil (Unresolved) |
+| S20 | Eğitim modunda pasaport yükleniyor; ikinci dosya hiçbir türe uymuyor | Pasaport örneklere girer (mekanik ya da "AI kararı" etiketli); ikincisi "Yerleştirilemedi"de; çalışan, kuyruk öğesi, yükleme partisi ve çıktı belgesi oluşmaz |
+
+S19 gereksinim 05.6.2'nin (Faz 0), S20 gereksinim 11.9.1'in (Faz 1) kabul senaryosudur; ikisi de
+kendi gereksinimini karşılayan görevde otomatik test olur.
 
 ---
 
@@ -758,7 +781,7 @@ Tarihler `YYMMDD`'dir; yüzyıl yazmaz. Kural:
 
 ---
 
-### 20.2 Çalışan eşleştirme ve profil açma (gereksinim 05.5.1–05.5.3, 05.6.1, 05.7.1)
+### 20.2 Çalışan eşleştirme ve profil açma (gereksinim 05.5.1–05.5.3, 05.6.1, 05.6.2, 05.7.1)
 
 #### 20.2.1 Normalizasyon
 
@@ -786,7 +809,8 @@ Sırayla değerlendirilir; **ilk uyan satır kazanır**, alttakilere bakılmaz.
 | 4 | İsim + doğum tarihi **birden fazla** çalışana uyuyor | `none` | — | `unresolved` + `PERSON_AMBIGUOUS` |
 | 5 | Yalnız isim eşleşti (doğum tarihi yok veya farklı) | `none` | — | `unresolved`, gerekçe: "İsim eşleşti ama doğum tarihi veya belge numarası doğrulanamadı" |
 | 6 | Hiç eşleşme yok **ve** temiz belge numarası **var** (§20.2.3) | `create` | — | `hazir` |
-| 7 | Hiç eşleşme yok, temiz numara **yok**, ama ad-soyad okunabildi | `pending` | — | `unresolved`, payload'da önerilen profil |
+| 6b | Hiç eşleşme yok, temiz numara **yok**, ama ad-soyad ve doğum tarihi §20.2.4'e uyuyor | `create` | — | `hazir` |
+| 7 | Hiç eşleşme yok, satır 6 ve 6b uymuyor, ama ad-soyad okunabildi | `pending` | — | `unresolved`, payload'da önerilen profil |
 | 8 | Kişi hiç tespit edilemedi (ne isim ne numara) | `none` | — | `unresolved` |
 
 Satır 1 ve 3'te eşleşme başarılıysa: belgedeki yeni isim yazımı `employee_aliases`'a, yeni
@@ -803,7 +827,24 @@ Satır 6'nın kapısı budur; yanlış tanımlanırsa hayalet çalışan doğar.
 3. MRZ'den geldiyse: hem alan kontrol hanesi hem **bileşik** kontrol hanesi tutuyor
    (§20.1.7). MRZ yoksa bu koşul atlanır.
 
-Üçünden biri sağlanmıyorsa numara temiz değildir → satır 7 (onay bekleyen profil) uygulanır.
+Üçünden biri sağlanmıyorsa numara temiz değildir → satır 6b denenir; o da uymuyorsa satır 7 (onay
+bekleyen profil) uygulanır.
+
+#### 20.2.4 Ad ve doğum tarihiyle açılış (satır 6b, gereksinim 05.6.2)
+
+Satır 6b'nin kapısı budur (insan kararı 2026-09-26). Şu koşulların **hepsi** sağlanmalıdır:
+
+1. Türün `required_fields` listesinde `date_of_birth` **var** (doğum tarihi bu tür için beklenen
+   bir alan; çocuk doğum belgesi gibi başkasının doğum tarihini taşıyan tür bu yolu kullanmaz).
+2. Ad-soyad klasör adı verecek biçimde Latin harfleriyle okunmuş (05.2.2); Latin yazım yoksa satır 7.
+3. Doğum tarihi `legible: true`, anahtarda tek değer, sayfalar arasında çelişkisiz ve makul yaş
+   doğrulamasından geçmiş.
+4. Doğum tarihi ya ana modelin okumasıdır ya da kontrol haneleri tutan MRZ'den gelir; ucuz ön
+   eleme modelinin doğrulanmamış okuması bu satıra dayanak olmaz (ön eleme, türün zorunlu
+   alanlarında `date_of_birth` bulunan MRZ'siz sayfayı kolay saymaz, ana modele yükseltir).
+
+Satır 6b'de temiz olmayan belge numarası `employee_identifiers`'a yazılmaz. Olay verisi
+`basis: name_dob` taşır.
 
 ---
 
