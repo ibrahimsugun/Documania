@@ -18,11 +18,14 @@ from app.db.models import (
     EmployeeContact,
     EmployeeIdentifier,
     Event,
+    ExampleFileRecord,
     KnownDocumentType,
     Page,
     Plan,
     QueueItem,
     TelegramUser,
+    TrainingItem,
+    TrainingRun,
     Upload,
     UploadFile,
     User,
@@ -42,6 +45,9 @@ SECTION_8_1_TABLES = {
     "queue_items",
     "known_document_types",
     "candidate_document_types",
+    "training_runs",
+    "training_items",
+    "example_files",
     "events",
     "access_log",
     "users",
@@ -220,6 +226,45 @@ def test_defaults_are_applied(session: Session) -> None:
     assert doc_type.allowed_conversions == []
 
 
+def test_training_rows_open_queued_and_unlabelled(session: Session) -> None:
+    # 11.9: çalıştırma açık ve sayaçsız, öğe kuyrukta ve yöntemsiz, örnek kaydı etiketsiz açılır.
+    run = TrainingRun(kind="upload", created_by="ik")
+    item = TrainingItem(run=run, original_name="ornek.pdf")
+    example = ExampleFileRecord(
+        type_slug="albanian_passport", name="ornek.pdf", sha256="a" * 64, method="legacy"
+    )
+    session.add_all([run, item, example])
+    session.commit()
+
+    assert (run.status, run.counts_json, run.map_name) == ("running", {}, None)
+    assert run.created_at.tzinfo is UTC
+    assert (item.status, item.method, item.result_slug, item.decided_at) == (
+        "queued",
+        None,
+        None,
+        None,
+    )
+    assert run.items == [item]
+    assert (example.label, example.training_item_id) == (None, None)
+    assert example.created_at.tzinfo is UTC
+
+
+def test_example_file_name_is_unique_per_type(session: Session) -> None:
+    for slug in ("albanian_passport", "afghan_passport"):
+        session.add(
+            ExampleFileRecord(type_slug=slug, name="ornek.pdf", sha256="a" * 64, method="manual")
+        )
+    session.commit()
+
+    session.add(
+        ExampleFileRecord(
+            type_slug="albanian_passport", name="ornek.pdf", sha256="b" * 64, method="manual"
+        )
+    )
+    with pytest.raises(IntegrityError):
+        session.commit()
+
+
 def test_foreign_keys_are_enforced(session: Session) -> None:
     session.add(EmployeeAlias(employee_id="E9999", raw_name="YOK", normalized_name="yok"))
     with pytest.raises(IntegrityError):
@@ -238,8 +283,31 @@ def test_foreign_keys_are_enforced(session: Session) -> None:
             first_seen_upload_id="u_ok",
             proposal_status="approved",
         ),
+        lambda: TrainingRun(kind="batch", created_by="ik"),
+        lambda: TrainingRun(kind="upload", created_by="ik", status="failed"),
+        lambda: TrainingItem(
+            run=TrainingRun(kind="upload", created_by="ik"), original_name="a", status="done"
+        ),
+        lambda: TrainingItem(
+            run=TrainingRun(kind="upload", created_by="ik"), original_name="a", method="legacy"
+        ),
+        lambda: ExampleFileRecord(type_slug="x", name="a", sha256="a" * 64, method="guess"),
+        lambda: ExampleFileRecord(
+            type_slug="x", name="a", sha256="a" * 64, method="ai", label="ai"
+        ),
     ],
-    ids=["upload-status", "contact-kind", "queue-kind", "candidate-proposal-status"],
+    ids=[
+        "upload-status",
+        "contact-kind",
+        "queue-kind",
+        "candidate-proposal-status",
+        "training-run-kind",
+        "training-run-status",
+        "training-item-status",
+        "training-item-method",
+        "example-method",
+        "example-label",
+    ],
 )
 def test_check_constraints_reject_values_outside_the_prd_sets(session: Session, build) -> None:
     session.add_all([_employee(), Upload(id="u_ok", channel="web")])

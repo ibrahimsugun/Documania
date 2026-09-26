@@ -14,6 +14,9 @@ data/
   Archive/<yyyy-mm>/              arşive taşınanlar
   KnownDocuments/
       catalog.yaml  examples/<tur_slug>/
+      _egitim/gelen/<run>/            eğitim modunda yüklenen dosyaların kopyası (11.9)
+      _egitim/haritalar/              yüklenen harita CSV'leri (11.9.5)
+      _egitim/cikarilan/<tur_slug>/   örneklerden çıkarılanlar; silinmez (11.9.4)
   cache/pages/<file_id>/          analiz için üretilmiş sayfa görüntüleri
 ```
 
@@ -43,6 +46,10 @@ ARCHIVE = "Archive"
 KNOWN_DOCUMENTS = "KnownDocuments"
 CATALOG_FILE = "catalog.yaml"
 EXAMPLES = "examples"
+TRAINING = "_egitim"
+TRAINING_INCOMING = "gelen"
+TRAINING_MAPS = "haritalar"
+TRAINING_REMOVED = "cikarilan"
 CACHE = "cache"
 PAGES = "pages"
 PAGE_IMAGE_EXTENSION = "jpg"
@@ -80,6 +87,16 @@ class DataLayout:
     @property
     def examples(self) -> Path:
         return self.known_documents / EXAMPLES
+
+    @property
+    def training(self) -> Path:
+        """`KnownDocuments/_egitim/` — eğitim modunun dosyaları (11.9). Örnek değildir: türlerin
+        örnek klasörleri `examples/` altındadır."""
+        return self.known_documents / TRAINING
+
+    @property
+    def training_maps(self) -> Path:
+        return self.training / TRAINING_MAPS
 
     @property
     def page_cache(self) -> Path:
@@ -148,6 +165,19 @@ class DataLayout:
 
     def type_examples_dir(self, type_slug: str) -> Path:
         return self.examples / _segment(type_slug, "type_slug")
+
+    def training_incoming_dir(self, run_id: int | str) -> Path:
+        """`_egitim/gelen/<run>/` — eğitim çalıştırmasında yüklenen dosyaların kopyası."""
+        return self.training / TRAINING_INCOMING / _segment(str(run_id), "run_id")
+
+    def training_staged_path(self, run_id: int | str, item_id: int | str, extension: str) -> Path:
+        """`_egitim/gelen/<run>/<item>.<ext>` — eğitim öğesinin içeriği (uzantı içerikten gelir)."""
+        name = f"{_segment(str(item_id), 'item_id')}.{_segment(extension, 'extension')}"
+        return self.training_incoming_dir(run_id) / name
+
+    def training_removed_dir(self, type_slug: str) -> Path:
+        """`_egitim/cikarilan/<tur_slug>/` — örneklerden çıkarılanlar; silinmez (11.9.4)."""
+        return self.training / TRAINING_REMOVED / _segment(type_slug, "type_slug")
 
     def page_cache_dir(self, file_id: int | str) -> Path:
         return self.page_cache / _segment(str(file_id), "file_id")

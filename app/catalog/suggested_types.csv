@@ -1,0 +1,490 @@
+﻿# Hazır önerilen tür kaydı (PRD 11.9, PLAN.md §C86) — harici toplayıcı aracının 2026-09-23
+# üretimi `data/KnownDocuments/_onerilen_turler.csv`'nin birebir kopyası (data/ git dışındadır).
+# Yalnız tür adları taşır, kişisel değer yoktur. Okuyucu: `app.training.known_types`
+# (utf-8-sig; `#` ile başlayan baştaki satırlar yorumdur). Elle düzenlenmez; yeni üretim
+# aynı biçimde bu yorumun altına kopyalanır.
+slug,onerilen_name,onerilen_file_label,country_iso3,country_iso2,kaynak_tur,ornek_sayisi,referans_sayisi,ornek_klasoru
+afghan_identity_card,Afghan Identity Card,Identity Card,AFG,AF,kimlik_karti,1,0,KnownDocuments/examples/afghan_identity_card/
+afghan_passport,Afghan Passport,Passport,AFG,AF,pasaport,1,0,KnownDocuments/examples/afghan_passport/
+albanian_driving_license,Albanian Driving License,Driving License,ALB,AL,ehliyet,2,0,KnownDocuments/examples/albanian_driving_license/
+albanian_identity_card,Albanian Identity Card,Identity Card,ALB,AL,kimlik_karti,26,0,KnownDocuments/examples/albanian_identity_card/
+albanian_passport,Albanian Passport,Passport,ALB,AL,pasaport,5,1,KnownDocuments/examples/albanian_passport/
+albanian_residence_card,Albanian Residence Card,Residence Card,ALB,AL,oturum_izni,0,1,
+algerian_birth_certificate,Algerian Birth Certificate,Birth Certificate,DZA,DZ,dogum_belgesi,0,1,
+algerian_driving_license,Algerian Driving License,Driving License,DZA,DZ,ehliyet,1,5,KnownDocuments/examples/algerian_driving_license/
+algerian_identity_card,Algerian Identity Card,Identity Card,DZA,DZ,kimlik_karti,0,1,
+algerian_passport,Algerian Passport,Passport,DZA,DZ,pasaport,3,1,KnownDocuments/examples/algerian_passport/
+american_application_form,American Application Form,Application Form,USA,US,basvuru_formu,0,37,
+american_birth_certificate,American Birth Certificate,Birth Certificate,USA,US,dogum_belgesi,0,2,
+american_civil_status_certificate,American Civil Status Certificate,Civil Status Certificate,USA,US,evlilik_ve_medeni_hal,3,1,KnownDocuments/examples/american_civil_status_certificate/
+american_diploma,American Diploma,Diploma,USA,US,diploma_ve_transkript,1,0,KnownDocuments/examples/american_diploma/
+american_driving_license,American Driving License,Driving License,USA,US,ehliyet,12,2,KnownDocuments/examples/american_driving_license/
+american_identity_card,American Identity Card,Identity Card,USA,US,kimlik_karti,4,0,KnownDocuments/examples/american_identity_card/
+american_identity_document,American Identity Document,Identity Document,USA,US,kimlik_belgesi_genel,2,12,KnownDocuments/examples/american_identity_document/
+american_other_document,American Other Document,Other Document,USA,US,diger,1,2,KnownDocuments/examples/american_other_document/
+american_passport,American Passport,Passport,USA,US,pasaport,20,0,KnownDocuments/examples/american_passport/
+american_professional_certificate,American Professional Certificate,Professional Certificate,USA,US,mesleki_sertifika,1,0,KnownDocuments/examples/american_professional_certificate/
+american_residence_card,American Residence Card,Residence Card,USA,US,oturum_izni,3,2,KnownDocuments/examples/american_residence_card/
+american_social_security_document,American Social Security Document,Social Security Document,USA,US,sosyal_guvenlik,1,3,KnownDocuments/examples/american_social_security_document/
+american_tax_document,American Tax Document,Tax Document,USA,US,vergi,2,5,KnownDocuments/examples/american_tax_document/
+american_visa,American Visa,Visa,USA,US,vize,5,1,KnownDocuments/examples/american_visa/
+argentine_driving_license,Argentine Driving License,Driving License,ARG,AR,ehliyet,1,0,KnownDocuments/examples/argentine_driving_license/
+argentine_identity_card,Argentine Identity Card,Identity Card,ARG,AR,kimlik_karti,35,0,KnownDocuments/examples/argentine_identity_card/
+argentine_other_document,Argentine Other Document,Other Document,ARG,AR,diger,2,0,KnownDocuments/examples/argentine_other_document/
+argentine_passport,Argentine Passport,Passport,ARG,AR,pasaport,8,0,KnownDocuments/examples/argentine_passport/
+argentine_residence_card,Argentine Residence Card,Residence Card,ARG,AR,oturum_izni,0,1,
+argentine_visa,Argentine Visa,Visa,ARG,AR,vize,2,0,KnownDocuments/examples/argentine_visa/
+armenian_identity_card,Armenian Identity Card,Identity Card,ARM,AM,kimlik_karti,2,0,KnownDocuments/examples/armenian_identity_card/
+armenian_passport,Armenian Passport,Passport,ARM,AM,pasaport,2,1,KnownDocuments/examples/armenian_passport/
+australian_birth_certificate,Australian Birth Certificate,Birth Certificate,AUS,AU,dogum_belgesi,2,0,KnownDocuments/examples/australian_birth_certificate/
+australian_health_document,Australian Health Document,Health Document,AUS,AU,saglik,1,0,KnownDocuments/examples/australian_health_document/
+australian_passport,Australian Passport,Passport,AUS,AU,pasaport,1,0,KnownDocuments/examples/australian_passport/
+australian_visa,Australian Visa,Visa,AUS,AU,vize,1,0,KnownDocuments/examples/australian_visa/
+austrian_address_registration,Austrian Address Registration,Address Registration,AUT,AT,ikamet_adres_kaydi,2,0,KnownDocuments/examples/austrian_address_registration/
+austrian_driving_license,Austrian Driving License,Driving License,AUT,AT,ehliyet,10,0,KnownDocuments/examples/austrian_driving_license/
+austrian_identity_card,Austrian Identity Card,Identity Card,AUT,AT,kimlik_karti,10,0,KnownDocuments/examples/austrian_identity_card/
+austrian_passport,Austrian Passport,Passport,AUT,AT,pasaport,7,1,KnownDocuments/examples/austrian_passport/
+austrian_professional_certificate,Austrian Professional Certificate,Professional Certificate,AUT,AT,mesleki_sertifika,2,0,KnownDocuments/examples/austrian_professional_certificate/
+austrian_residence_card,Austrian Residence Card,Residence Card,AUT,AT,oturum_izni,8,0,KnownDocuments/examples/austrian_residence_card/
+azerbaijani_passport,Azerbaijani Passport,Passport,AZE,AZ,pasaport,21,2,KnownDocuments/examples/azerbaijani_passport/
+bahraini_identity_card,Bahraini Identity Card,Identity Card,BHR,BH,kimlik_karti,1,0,KnownDocuments/examples/bahraini_identity_card/
+bahraini_passport,Bahraini Passport,Passport,BHR,BH,pasaport,2,0,KnownDocuments/examples/bahraini_passport/
+bangladeshi_driving_license,Bangladeshi Driving License,Driving License,BGD,BD,ehliyet,1,1,KnownDocuments/examples/bangladeshi_driving_license/
+bangladeshi_identity_card,Bangladeshi Identity Card,Identity Card,BGD,BD,kimlik_karti,2,0,KnownDocuments/examples/bangladeshi_identity_card/
+bangladeshi_passport,Bangladeshi Passport,Passport,BGD,BD,pasaport,2,0,KnownDocuments/examples/bangladeshi_passport/
+belarusian_address_registration,Belarusian Address Registration,Address Registration,BLR,BY,ikamet_adres_kaydi,1,0,KnownDocuments/examples/belarusian_address_registration/
+belarusian_apostille,Belarusian Apostille,Apostille,BLR,BY,apostil_ve_tasdik,1,0,KnownDocuments/examples/belarusian_apostille/
+belarusian_birth_certificate,Belarusian Birth Certificate,Birth Certificate,BLR,BY,dogum_belgesi,3,0,KnownDocuments/examples/belarusian_birth_certificate/
+belarusian_civil_status_certificate,Belarusian Civil Status Certificate,Civil Status Certificate,BLR,BY,evlilik_ve_medeni_hal,1,0,KnownDocuments/examples/belarusian_civil_status_certificate/
+belarusian_criminal_record_certificate,Belarusian Criminal Record Certificate,Criminal Record Certificate,BLR,BY,sabika_kaydi,0,1,
+belarusian_diploma,Belarusian Diploma,Diploma,BLR,BY,diploma_ve_transkript,7,1,KnownDocuments/examples/belarusian_diploma/
+belarusian_driving_license,Belarusian Driving License,Driving License,BLR,BY,ehliyet,1,1,KnownDocuments/examples/belarusian_driving_license/
+belarusian_identity_card,Belarusian Identity Card,Identity Card,BLR,BY,kimlik_karti,3,0,KnownDocuments/examples/belarusian_identity_card/
+belarusian_military_service_document,Belarusian Military Service Document,Military Service Document,BLR,BY,askerlik,1,0,KnownDocuments/examples/belarusian_military_service_document/
+belarusian_passport,Belarusian Passport,Passport,BLR,BY,pasaport,36,1,KnownDocuments/examples/belarusian_passport/
+belarusian_residence_card,Belarusian Residence Card,Residence Card,BLR,BY,oturum_izni,0,1,
+belarusian_tax_document,Belarusian Tax Document,Tax Document,BLR,BY,vergi,1,0,KnownDocuments/examples/belarusian_tax_document/
+belarusian_visa,Belarusian Visa,Visa,BLR,BY,vize,1,0,KnownDocuments/examples/belarusian_visa/
+belgian_apostille,Belgian Apostille,Apostille,BEL,BE,apostil_ve_tasdik,1,0,KnownDocuments/examples/belgian_apostille/
+belgian_driving_license,Belgian Driving License,Driving License,BEL,BE,ehliyet,4,0,KnownDocuments/examples/belgian_driving_license/
+belgian_identity_card,Belgian Identity Card,Identity Card,BEL,BE,kimlik_karti,8,0,KnownDocuments/examples/belgian_identity_card/
+belgian_passport,Belgian Passport,Passport,BEL,BE,pasaport,2,0,KnownDocuments/examples/belgian_passport/
+belgian_visa,Belgian Visa,Visa,BEL,BE,vize,1,0,KnownDocuments/examples/belgian_visa/
+bosnian_criminal_record_certificate,Bosnian Criminal Record Certificate,Criminal Record Certificate,BIH,BA,sabika_kaydi,0,4,
+bosnian_driving_license,Bosnian Driving License,Driving License,BIH,BA,ehliyet,4,3,KnownDocuments/examples/bosnian_driving_license/
+bosnian_identity_card,Bosnian Identity Card,Identity Card,BIH,BA,kimlik_karti,4,26,KnownDocuments/examples/bosnian_identity_card/
+bosnian_passport,Bosnian Passport,Passport,BIH,BA,pasaport,7,3,KnownDocuments/examples/bosnian_passport/
+brazilian_driving_license,Brazilian Driving License,Driving License,BRA,BR,ehliyet,2,0,KnownDocuments/examples/brazilian_driving_license/
+brazilian_identity_card,Brazilian Identity Card,Identity Card,BRA,BR,kimlik_karti,10,0,KnownDocuments/examples/brazilian_identity_card/
+brazilian_passport,Brazilian Passport,Passport,BRA,BR,pasaport,2,0,KnownDocuments/examples/brazilian_passport/
+brazilian_residence_card,Brazilian Residence Card,Residence Card,BRA,BR,oturum_izni,2,0,KnownDocuments/examples/brazilian_residence_card/
+brazilian_visa,Brazilian Visa,Visa,BRA,BR,vize,1,0,KnownDocuments/examples/brazilian_visa/
+british_application_form,British Application Form,Application Form,GBR,GB,basvuru_formu,0,3,
+british_birth_certificate,British Birth Certificate,Birth Certificate,GBR,GB,dogum_belgesi,2,0,KnownDocuments/examples/british_birth_certificate/
+british_criminal_record_certificate,British Criminal Record Certificate,Criminal Record Certificate,GBR,GB,sabika_kaydi,0,8,
+british_driving_license,British Driving License,Driving License,GBR,GB,ehliyet,3,0,KnownDocuments/examples/british_driving_license/
+british_identity_card,British Identity Card,Identity Card,GBR,GB,kimlik_karti,1,2,KnownDocuments/examples/british_identity_card/
+british_passport,British Passport,Passport,GBR,GB,pasaport,25,2,KnownDocuments/examples/british_passport/
+british_residence_card,British Residence Card,Residence Card,GBR,GB,oturum_izni,0,4,
+bulgarian_criminal_record_certificate,Bulgarian Criminal Record Certificate,Criminal Record Certificate,BGR,BG,sabika_kaydi,2,0,KnownDocuments/examples/bulgarian_criminal_record_certificate/
+bulgarian_driving_license,Bulgarian Driving License,Driving License,BGR,BG,ehliyet,2,11,KnownDocuments/examples/bulgarian_driving_license/
+bulgarian_identity_card,Bulgarian Identity Card,Identity Card,BGR,BG,kimlik_karti,5,2,KnownDocuments/examples/bulgarian_identity_card/
+bulgarian_passport,Bulgarian Passport,Passport,BGR,BG,pasaport,2,2,KnownDocuments/examples/bulgarian_passport/
+bulgarian_residence_card,Bulgarian Residence Card,Residence Card,BGR,BG,oturum_izni,0,13,
+canadian_birth_certificate,Canadian Birth Certificate,Birth Certificate,CAN,CA,dogum_belgesi,1,0,KnownDocuments/examples/canadian_birth_certificate/
+canadian_health_document,Canadian Health Document,Health Document,CAN,CA,saglik,1,0,KnownDocuments/examples/canadian_health_document/
+chilean_identity_card,Chilean Identity Card,Identity Card,CHL,CL,kimlik_karti,3,0,KnownDocuments/examples/chilean_identity_card/
+chinese_apostille,Chinese Apostille,Apostille,CHN,CN,apostil_ve_tasdik,1,0,KnownDocuments/examples/chinese_apostille/
+chinese_birth_certificate,Chinese Birth Certificate,Birth Certificate,CHN,CN,dogum_belgesi,1,0,KnownDocuments/examples/chinese_birth_certificate/
+chinese_driving_license,Chinese Driving License,Driving License,CHN,CN,ehliyet,4,0,KnownDocuments/examples/chinese_driving_license/
+chinese_health_document,Chinese Health Document,Health Document,CHN,CN,saglik,2,0,KnownDocuments/examples/chinese_health_document/
+chinese_identity_card,Chinese Identity Card,Identity Card,CHN,CN,kimlik_karti,1,0,KnownDocuments/examples/chinese_identity_card/
+chinese_other_document,Chinese Other Document,Other Document,CHN,CN,diger,4,0,KnownDocuments/examples/chinese_other_document/
+chinese_passport,Chinese Passport,Passport,CHN,CN,pasaport,20,1,KnownDocuments/examples/chinese_passport/
+chinese_professional_certificate,Chinese Professional Certificate,Professional Certificate,CHN,CN,mesleki_sertifika,1,0,KnownDocuments/examples/chinese_professional_certificate/
+chinese_residence_card,Chinese Residence Card,Residence Card,CHN,CN,oturum_izni,3,0,KnownDocuments/examples/chinese_residence_card/
+chinese_visa,Chinese Visa,Visa,CHN,CN,vize,1,0,KnownDocuments/examples/chinese_visa/
+colombian_identity_card,Colombian Identity Card,Identity Card,COL,CO,kimlik_karti,1,0,KnownDocuments/examples/colombian_identity_card/
+colombian_passport,Colombian Passport,Passport,COL,CO,pasaport,3,0,KnownDocuments/examples/colombian_passport/
+costa_rican_passport,Costa Rican Passport,Passport,CRI,CR,pasaport,2,0,KnownDocuments/examples/costa_rican_passport/
+croatian_address_registration,Croatian Address Registration,Address Registration,HRV,HR,ikamet_adres_kaydi,2,0,KnownDocuments/examples/croatian_address_registration/
+croatian_driving_license,Croatian Driving License,Driving License,HRV,HR,ehliyet,10,0,KnownDocuments/examples/croatian_driving_license/
+croatian_identity_card,Croatian Identity Card,Identity Card,HRV,HR,kimlik_karti,6,0,KnownDocuments/examples/croatian_identity_card/
+croatian_residence_card,Croatian Residence Card,Residence Card,HRV,HR,oturum_izni,1,0,KnownDocuments/examples/croatian_residence_card/
+croatian_visa,Croatian Visa,Visa,HRV,HR,vize,1,0,KnownDocuments/examples/croatian_visa/
+cuban_passport,Cuban Passport,Passport,CUB,CU,pasaport,1,0,KnownDocuments/examples/cuban_passport/
+cuban_visa,Cuban Visa,Visa,CUB,CU,vize,1,0,KnownDocuments/examples/cuban_visa/
+cypriot_birth_certificate,Cypriot Birth Certificate,Birth Certificate,CYP,CY,dogum_belgesi,1,0,KnownDocuments/examples/cypriot_birth_certificate/
+cypriot_criminal_record_certificate,Cypriot Criminal Record Certificate,Criminal Record Certificate,CYP,CY,sabika_kaydi,1,0,KnownDocuments/examples/cypriot_criminal_record_certificate/
+cypriot_driving_license,Cypriot Driving License,Driving License,CYP,CY,ehliyet,2,0,KnownDocuments/examples/cypriot_driving_license/
+cypriot_identity_card,Cypriot Identity Card,Identity Card,CYP,CY,kimlik_karti,3,0,KnownDocuments/examples/cypriot_identity_card/
+cypriot_passport,Cypriot Passport,Passport,CYP,CY,pasaport,4,0,KnownDocuments/examples/cypriot_passport/
+cypriot_residence_card,Cypriot Residence Card,Residence Card,CYP,CY,oturum_izni,0,5,
+czech_birth_certificate,Czech Birth Certificate,Birth Certificate,CZE,CZ,dogum_belgesi,2,0,KnownDocuments/examples/czech_birth_certificate/
+czech_civil_status_certificate,Czech Civil Status Certificate,Civil Status Certificate,CZE,CZ,evlilik_ve_medeni_hal,7,0,KnownDocuments/examples/czech_civil_status_certificate/
+czech_criminal_record_certificate,Czech Criminal Record Certificate,Criminal Record Certificate,CZE,CZ,sabika_kaydi,1,0,KnownDocuments/examples/czech_criminal_record_certificate/
+czech_diploma,Czech Diploma,Diploma,CZE,CZ,diploma_ve_transkript,5,0,KnownDocuments/examples/czech_diploma/
+czech_driving_license,Czech Driving License,Driving License,CZE,CZ,ehliyet,0,1,
+czech_health_document,Czech Health Document,Health Document,CZE,CZ,saglik,1,0,KnownDocuments/examples/czech_health_document/
+czech_identity_card,Czech Identity Card,Identity Card,CZE,CZ,kimlik_karti,10,0,KnownDocuments/examples/czech_identity_card/
+czech_passport,Czech Passport,Passport,CZE,CZ,pasaport,15,0,KnownDocuments/examples/czech_passport/
+czech_residence_card,Czech Residence Card,Residence Card,CZE,CZ,oturum_izni,0,2,
+czech_visa,Czech Visa,Visa,CZE,CZ,vize,1,0,KnownDocuments/examples/czech_visa/
+danish_driving_license,Danish Driving License,Driving License,DNK,DK,ehliyet,0,1,
+danish_passport,Danish Passport,Passport,DNK,DK,pasaport,4,0,KnownDocuments/examples/danish_passport/
+danish_residence_card,Danish Residence Card,Residence Card,DNK,DK,oturum_izni,0,1,
+dominican_passport,Dominican Passport,Passport,DOM,DO,pasaport,1,0,KnownDocuments/examples/dominican_passport/
+dutch_diploma,Dutch Diploma,Diploma,NLD,NL,diploma_ve_transkript,1,0,KnownDocuments/examples/dutch_diploma/
+dutch_driving_license,Dutch Driving License,Driving License,NLD,NL,ehliyet,0,1,
+dutch_health_document,Dutch Health Document,Health Document,NLD,NL,saglik,3,0,KnownDocuments/examples/dutch_health_document/
+dutch_identity_card,Dutch Identity Card,Identity Card,NLD,NL,kimlik_karti,6,20,KnownDocuments/examples/dutch_identity_card/
+dutch_passport,Dutch Passport,Passport,NLD,NL,pasaport,5,4,KnownDocuments/examples/dutch_passport/
+dutch_photo_requirements,Dutch Photo Requirements,Photo Requirements,NLD,NL,profil_fotografi,0,1,
+ecuadorian_identity_card,Ecuadorian Identity Card,Identity Card,ECU,EC,kimlik_karti,1,0,KnownDocuments/examples/ecuadorian_identity_card/
+ecuadorian_passport,Ecuadorian Passport,Passport,ECU,EC,pasaport,1,0,KnownDocuments/examples/ecuadorian_passport/
+egyptian_application_form,Egyptian Application Form,Application Form,EGY,EG,basvuru_formu,0,1,
+egyptian_birth_certificate,Egyptian Birth Certificate,Birth Certificate,EGY,EG,dogum_belgesi,0,1,
+egyptian_criminal_record_certificate,Egyptian Criminal Record Certificate,Criminal Record Certificate,EGY,EG,sabika_kaydi,0,1,
+egyptian_driving_license,Egyptian Driving License,Driving License,EGY,EG,ehliyet,0,1,
+egyptian_identity_card,Egyptian Identity Card,Identity Card,EGY,EG,kimlik_karti,0,1,
+egyptian_passport,Egyptian Passport,Passport,EGY,EG,pasaport,2,1,KnownDocuments/examples/egyptian_passport/
+emirati_identity_card,Emirati Identity Card,Identity Card,ARE,AE,kimlik_karti,0,1,
+emirati_passport,Emirati Passport,Passport,ARE,AE,pasaport,2,1,KnownDocuments/examples/emirati_passport/
+emirati_residence_card,Emirati Residence Card,Residence Card,ARE,AE,oturum_izni,1,0,KnownDocuments/examples/emirati_residence_card/
+estonian_driving_license,Estonian Driving License,Driving License,EST,EE,ehliyet,0,1,
+estonian_identity_card,Estonian Identity Card,Identity Card,EST,EE,kimlik_karti,25,0,KnownDocuments/examples/estonian_identity_card/
+estonian_passport,Estonian Passport,Passport,EST,EE,pasaport,2,0,KnownDocuments/examples/estonian_passport/
+estonian_residence_card,Estonian Residence Card,Residence Card,EST,EE,oturum_izni,2,0,KnownDocuments/examples/estonian_residence_card/
+eu_address_registration,Eu Address Registration,Address Registration,EU,,ikamet_adres_kaydi,6,0,KnownDocuments/examples/eu_address_registration/
+eu_apostille,Eu Apostille,Apostille,EU,,apostil_ve_tasdik,0,3,
+eu_birth_certificate,Eu Birth Certificate,Birth Certificate,EU,,dogum_belgesi,7,0,KnownDocuments/examples/eu_birth_certificate/
+eu_civil_status_certificate,Eu Civil Status Certificate,Civil Status Certificate,EU,,evlilik_ve_medeni_hal,36,0,KnownDocuments/examples/eu_civil_status_certificate/
+eu_criminal_record_certificate,Eu Criminal Record Certificate,Criminal Record Certificate,EU,,sabika_kaydi,6,0,KnownDocuments/examples/eu_criminal_record_certificate/
+eu_cv,Eu CV,CV,EU,,ozgecmis,0,1,
+eu_diploma,Eu Diploma,Diploma,EU,,diploma_ve_transkript,5,3,KnownDocuments/examples/eu_diploma/
+eu_driving_license,Eu Driving License,Driving License,EU,,ehliyet,2,2,KnownDocuments/examples/eu_driving_license/
+eu_health_document,Eu Health Document,Health Document,EU,,saglik,5,2,KnownDocuments/examples/eu_health_document/
+eu_identity_card,Eu Identity Card,Identity Card,EU,,kimlik_karti,1,0,KnownDocuments/examples/eu_identity_card/
+eu_other_document,Eu Other Document,Other Document,EU,,diger,12,3,KnownDocuments/examples/eu_other_document/
+eu_passport,Eu Passport,Passport,EU,,pasaport,1,0,KnownDocuments/examples/eu_passport/
+eu_residence_card,Eu Residence Card,Residence Card,EU,,oturum_izni,5,2,KnownDocuments/examples/eu_residence_card/
+eu_social_security_document,Eu Social Security Document,Social Security Document,EU,,sosyal_guvenlik,0,3,
+eu_visa,Eu Visa,Visa,EU,,vize,13,1,KnownDocuments/examples/eu_visa/
+finnish_driving_license,Finnish Driving License,Driving License,FIN,FI,ehliyet,4,0,KnownDocuments/examples/finnish_driving_license/
+finnish_identity_card,Finnish Identity Card,Identity Card,FIN,FI,kimlik_karti,25,0,KnownDocuments/examples/finnish_identity_card/
+finnish_passport,Finnish Passport,Passport,FIN,FI,pasaport,4,0,KnownDocuments/examples/finnish_passport/
+french_application_form,French Application Form,Application Form,FRA,FR,basvuru_formu,0,1,
+french_birth_certificate,French Birth Certificate,Birth Certificate,FRA,FR,dogum_belgesi,0,2,
+french_criminal_record_certificate,French Criminal Record Certificate,Criminal Record Certificate,FRA,FR,sabika_kaydi,0,1,
+french_diploma,French Diploma,Diploma,FRA,FR,diploma_ve_transkript,1,1,KnownDocuments/examples/french_diploma/
+french_driving_license,French Driving License,Driving License,FRA,FR,ehliyet,2,0,KnownDocuments/examples/french_driving_license/
+french_identity_card,French Identity Card,Identity Card,FRA,FR,kimlik_karti,7,2,KnownDocuments/examples/french_identity_card/
+french_passport,French Passport,Passport,FRA,FR,pasaport,2,1,KnownDocuments/examples/french_passport/
+georgian_passport,Georgian Passport,Passport,GEO,GE,pasaport,0,2,
+german_address_registration,German Address Registration,Address Registration,DEU,DE,ikamet_adres_kaydi,4,0,KnownDocuments/examples/german_address_registration/
+german_application_form,German Application Form,Application Form,DEU,DE,basvuru_formu,0,1,
+german_birth_certificate,German Birth Certificate,Birth Certificate,DEU,DE,dogum_belgesi,2,0,KnownDocuments/examples/german_birth_certificate/
+german_criminal_record_certificate,German Criminal Record Certificate,Criminal Record Certificate,DEU,DE,sabika_kaydi,3,0,KnownDocuments/examples/german_criminal_record_certificate/
+german_diploma,German Diploma,Diploma,DEU,DE,diploma_ve_transkript,5,0,KnownDocuments/examples/german_diploma/
+german_driving_license,German Driving License,Driving License,DEU,DE,ehliyet,20,0,KnownDocuments/examples/german_driving_license/
+german_employment_contract,German Employment Contract,Employment Contract,DEU,DE,is_sozlesmesi,2,0,KnownDocuments/examples/german_employment_contract/
+german_identity_card,German Identity Card,Identity Card,DEU,DE,kimlik_karti,53,2,KnownDocuments/examples/german_identity_card/
+german_identity_document,German Identity Document,Identity Document,DEU,DE,kimlik_belgesi_genel,7,0,KnownDocuments/examples/german_identity_document/
+german_passport,German Passport,Passport,DEU,DE,pasaport,18,0,KnownDocuments/examples/german_passport/
+german_professional_certificate,German Professional Certificate,Professional Certificate,DEU,DE,mesleki_sertifika,9,0,KnownDocuments/examples/german_professional_certificate/
+german_residence_card,German Residence Card,Residence Card,DEU,DE,oturum_izni,6,0,KnownDocuments/examples/german_residence_card/
+german_visa,German Visa,Visa,DEU,DE,vize,9,2,KnownDocuments/examples/german_visa/
+greek_birth_certificate,Greek Birth Certificate,Birth Certificate,GRC,GR,dogum_belgesi,1,0,KnownDocuments/examples/greek_birth_certificate/
+greek_driving_license,Greek Driving License,Driving License,GRC,GR,ehliyet,19,0,KnownDocuments/examples/greek_driving_license/
+greek_identity_card,Greek Identity Card,Identity Card,GRC,GR,kimlik_karti,8,0,KnownDocuments/examples/greek_identity_card/
+greek_passport,Greek Passport,Passport,GRC,GR,pasaport,24,0,KnownDocuments/examples/greek_passport/
+greek_residence_card,Greek Residence Card,Residence Card,GRC,GR,oturum_izni,1,1,KnownDocuments/examples/greek_residence_card/
+guatemalan_passport,Guatemalan Passport,Passport,GTM,GT,pasaport,2,0,KnownDocuments/examples/guatemalan_passport/
+guinean_passport,Guinean Passport,Passport,GIN,GN,pasaport,2,0,KnownDocuments/examples/guinean_passport/
+honduran_identity_card,Honduran Identity Card,Identity Card,HND,HN,kimlik_karti,1,0,KnownDocuments/examples/honduran_identity_card/
+honduran_passport,Honduran Passport,Passport,HND,HN,pasaport,1,0,KnownDocuments/examples/honduran_passport/
+hong_kong_identity_card,Hong Kong Identity Card,Identity Card,HKG,HK,kimlik_karti,2,0,KnownDocuments/examples/hong_kong_identity_card/
+hong_kong_passport,Hong Kong Passport,Passport,HKG,HK,pasaport,2,0,KnownDocuments/examples/hong_kong_passport/
+hong_kong_visa,Hong Kong Visa,Visa,HKG,HK,vize,1,0,KnownDocuments/examples/hong_kong_visa/
+hungarian_address_registration,Hungarian Address Registration,Address Registration,HUN,HU,ikamet_adres_kaydi,0,1,
+hungarian_birth_certificate,Hungarian Birth Certificate,Birth Certificate,HUN,HU,dogum_belgesi,1,0,KnownDocuments/examples/hungarian_birth_certificate/
+hungarian_driving_license,Hungarian Driving License,Driving License,HUN,HU,ehliyet,0,1,
+hungarian_identity_card,Hungarian Identity Card,Identity Card,HUN,HU,kimlik_karti,6,0,KnownDocuments/examples/hungarian_identity_card/
+hungarian_passport,Hungarian Passport,Passport,HUN,HU,pasaport,6,0,KnownDocuments/examples/hungarian_passport/
+hungarian_professional_certificate,Hungarian Professional Certificate,Professional Certificate,HUN,HU,mesleki_sertifika,1,0,KnownDocuments/examples/hungarian_professional_certificate/
+icelandic_driving_license,Icelandic Driving License,Driving License,ISL,IS,ehliyet,5,0,KnownDocuments/examples/icelandic_driving_license/
+icelandic_identity_card,Icelandic Identity Card,Identity Card,ISL,IS,kimlik_karti,2,0,KnownDocuments/examples/icelandic_identity_card/
+icelandic_passport,Icelandic Passport,Passport,ISL,IS,pasaport,5,0,KnownDocuments/examples/icelandic_passport/
+icelandic_residence_card,Icelandic Residence Card,Residence Card,ISL,IS,oturum_izni,0,1,
+indian_driving_license,Indian Driving License,Driving License,IND,IN,ehliyet,1,0,KnownDocuments/examples/indian_driving_license/
+indian_identity_card,Indian Identity Card,Identity Card,IND,IN,kimlik_karti,6,0,KnownDocuments/examples/indian_identity_card/
+indian_passport,Indian Passport,Passport,IND,IN,pasaport,7,0,KnownDocuments/examples/indian_passport/
+indian_tax_document,Indian Tax Document,Tax Document,IND,IN,vergi,1,0,KnownDocuments/examples/indian_tax_document/
+indonesian_driving_license,Indonesian Driving License,Driving License,IDN,ID,ehliyet,3,0,KnownDocuments/examples/indonesian_driving_license/
+indonesian_identity_card,Indonesian Identity Card,Identity Card,IDN,ID,kimlik_karti,2,0,KnownDocuments/examples/indonesian_identity_card/
+indonesian_passport,Indonesian Passport,Passport,IDN,ID,pasaport,10,0,KnownDocuments/examples/indonesian_passport/
+international_apostille,International Apostille,Apostille,INT,,apostil_ve_tasdik,2,2,KnownDocuments/examples/international_apostille/
+international_birth_certificate,International Birth Certificate,Birth Certificate,INT,,dogum_belgesi,6,4,KnownDocuments/examples/international_birth_certificate/
+international_civil_status_certificate,International Civil Status Certificate,Civil Status Certificate,INT,,evlilik_ve_medeni_hal,5,0,KnownDocuments/examples/international_civil_status_certificate/
+international_driving_license,International Driving License,Driving License,INT,,ehliyet,4,2,KnownDocuments/examples/international_driving_license/
+international_health_document,International Health Document,Health Document,INT,,saglik,1,1,KnownDocuments/examples/international_health_document/
+international_other_document,International Other Document,Other Document,INT,,diger,4,0,KnownDocuments/examples/international_other_document/
+international_passport,International Passport,Passport,INT,,pasaport,5,2,KnownDocuments/examples/international_passport/
+international_social_security_document,International Social Security Document,Social Security Document,INT,,sosyal_guvenlik,0,2,
+iranian_identity_card,Iranian Identity Card,Identity Card,IRN,IR,kimlik_karti,2,2,KnownDocuments/examples/iranian_identity_card/
+iranian_passport,Iranian Passport,Passport,IRN,IR,pasaport,1,0,KnownDocuments/examples/iranian_passport/
+iraqi_passport,Iraqi Passport,Passport,IRQ,IQ,pasaport,1,4,KnownDocuments/examples/iraqi_passport/
+irish_driving_license,Irish Driving License,Driving License,IRL,IE,ehliyet,13,0,KnownDocuments/examples/irish_driving_license/
+israeli_birth_certificate,Israeli Birth Certificate,Birth Certificate,ISR,IL,dogum_belgesi,1,0,KnownDocuments/examples/israeli_birth_certificate/
+israeli_identity_card,Israeli Identity Card,Identity Card,ISR,IL,kimlik_karti,11,0,KnownDocuments/examples/israeli_identity_card/
+israeli_passport,Israeli Passport,Passport,ISR,IL,pasaport,3,0,KnownDocuments/examples/israeli_passport/
+israeli_visa,Israeli Visa,Visa,ISR,IL,vize,1,0,KnownDocuments/examples/israeli_visa/
+italian_address_registration,Italian Address Registration,Address Registration,ITA,IT,ikamet_adres_kaydi,1,1,KnownDocuments/examples/italian_address_registration/
+italian_application_form,Italian Application Form,Application Form,ITA,IT,basvuru_formu,0,1,
+italian_birth_certificate,Italian Birth Certificate,Birth Certificate,ITA,IT,dogum_belgesi,0,2,
+italian_criminal_record_certificate,Italian Criminal Record Certificate,Criminal Record Certificate,ITA,IT,sabika_kaydi,0,7,
+italian_diploma,Italian Diploma,Diploma,ITA,IT,diploma_ve_transkript,1,0,KnownDocuments/examples/italian_diploma/
+italian_driving_license,Italian Driving License,Driving License,ITA,IT,ehliyet,36,0,KnownDocuments/examples/italian_driving_license/
+italian_identity_card,Italian Identity Card,Identity Card,ITA,IT,kimlik_karti,7,3,KnownDocuments/examples/italian_identity_card/
+italian_passport,Italian Passport,Passport,ITA,IT,pasaport,1,1,KnownDocuments/examples/italian_passport/
+italian_residence_card,Italian Residence Card,Residence Card,ITA,IT,oturum_izni,2,1,KnownDocuments/examples/italian_residence_card/
+japanese_application_form,Japanese Application Form,Application Form,JPN,JP,basvuru_formu,0,14,
+japanese_birth_certificate,Japanese Birth Certificate,Birth Certificate,JPN,JP,dogum_belgesi,1,2,KnownDocuments/examples/japanese_birth_certificate/
+japanese_civil_status_certificate,Japanese Civil Status Certificate,Civil Status Certificate,JPN,JP,evlilik_ve_medeni_hal,1,0,KnownDocuments/examples/japanese_civil_status_certificate/
+japanese_criminal_record_certificate,Japanese Criminal Record Certificate,Criminal Record Certificate,JPN,JP,sabika_kaydi,0,1,
+japanese_diploma,Japanese Diploma,Diploma,JPN,JP,diploma_ve_transkript,1,0,KnownDocuments/examples/japanese_diploma/
+japanese_driving_license,Japanese Driving License,Driving License,JPN,JP,ehliyet,4,2,KnownDocuments/examples/japanese_driving_license/
+japanese_health_document,Japanese Health Document,Health Document,JPN,JP,saglik,1,0,KnownDocuments/examples/japanese_health_document/
+japanese_identity_card,Japanese Identity Card,Identity Card,JPN,JP,kimlik_karti,9,0,KnownDocuments/examples/japanese_identity_card/
+japanese_passport,Japanese Passport,Passport,JPN,JP,pasaport,3,0,KnownDocuments/examples/japanese_passport/
+japanese_photo_requirements,Japanese Photo Requirements,Photo Requirements,JPN,JP,profil_fotografi,0,1,
+japanese_residence_card,Japanese Residence Card,Residence Card,JPN,JP,oturum_izni,5,1,KnownDocuments/examples/japanese_residence_card/
+japanese_visa,Japanese Visa,Visa,JPN,JP,vize,1,0,KnownDocuments/examples/japanese_visa/
+jordanian_passport,Jordanian Passport,Passport,JOR,JO,pasaport,1,1,KnownDocuments/examples/jordanian_passport/
+jordanian_visa,Jordanian Visa,Visa,JOR,JO,vize,1,0,KnownDocuments/examples/jordanian_visa/
+kazakh_identity_card,Kazakh Identity Card,Identity Card,KAZ,KZ,kimlik_karti,2,0,KnownDocuments/examples/kazakh_identity_card/
+kazakh_passport,Kazakh Passport,Passport,KAZ,KZ,pasaport,1,1,KnownDocuments/examples/kazakh_passport/
+kosovar_identity_card,Kosovar Identity Card,Identity Card,XKX,XK,kimlik_karti,2,0,KnownDocuments/examples/kosovar_identity_card/
+kosovar_passport,Kosovar Passport,Passport,XKX,XK,pasaport,3,0,KnownDocuments/examples/kosovar_passport/
+kosovar_residence_card,Kosovar Residence Card,Residence Card,XKX,XK,oturum_izni,12,0,KnownDocuments/examples/kosovar_residence_card/
+kyrgyz_identity_card,Kyrgyz Identity Card,Identity Card,KGZ,KG,kimlik_karti,1,0,KnownDocuments/examples/kyrgyz_identity_card/
+kyrgyz_passport,Kyrgyz Passport,Passport,KGZ,KG,pasaport,1,1,KnownDocuments/examples/kyrgyz_passport/
+latvian_driving_license,Latvian Driving License,Driving License,LVA,LV,ehliyet,1,0,KnownDocuments/examples/latvian_driving_license/
+latvian_identity_card,Latvian Identity Card,Identity Card,LVA,LV,kimlik_karti,3,0,KnownDocuments/examples/latvian_identity_card/
+latvian_passport,Latvian Passport,Passport,LVA,LV,pasaport,21,0,KnownDocuments/examples/latvian_passport/
+latvian_residence_card,Latvian Residence Card,Residence Card,LVA,LV,oturum_izni,2,0,KnownDocuments/examples/latvian_residence_card/
+lebanese_passport,Lebanese Passport,Passport,LBN,LB,pasaport,0,1,
+liechtenstein_identity_card,Liechtenstein Identity Card,Identity Card,LIE,LI,kimlik_karti,2,0,KnownDocuments/examples/liechtenstein_identity_card/
+liechtenstein_passport,Liechtenstein Passport,Passport,LIE,LI,pasaport,1,0,KnownDocuments/examples/liechtenstein_passport/
+lithuanian_identity_card,Lithuanian Identity Card,Identity Card,LTU,LT,kimlik_karti,4,0,KnownDocuments/examples/lithuanian_identity_card/
+lithuanian_passport,Lithuanian Passport,Passport,LTU,LT,pasaport,3,0,KnownDocuments/examples/lithuanian_passport/
+lithuanian_residence_card,Lithuanian Residence Card,Residence Card,LTU,LT,oturum_izni,0,1,
+luxembourgish_driving_license,Luxembourgish Driving License,Driving License,LUX,LU,ehliyet,2,0,KnownDocuments/examples/luxembourgish_driving_license/
+luxembourgish_identity_card,Luxembourgish Identity Card,Identity Card,LUX,LU,kimlik_karti,3,0,KnownDocuments/examples/luxembourgish_identity_card/
+luxembourgish_passport,Luxembourgish Passport,Passport,LUX,LU,pasaport,3,0,KnownDocuments/examples/luxembourgish_passport/
+luxembourgish_social_security_document,Luxembourgish Social Security Document,Social Security Document,LUX,LU,sosyal_guvenlik,1,0,KnownDocuments/examples/luxembourgish_social_security_document/
+malaysian_other_document,Malaysian Other Document,Other Document,MYS,MY,diger,1,0,KnownDocuments/examples/malaysian_other_document/
+malaysian_visa,Malaysian Visa,Visa,MYS,MY,vize,1,0,KnownDocuments/examples/malaysian_visa/
+maltese_identity_card,Maltese Identity Card,Identity Card,MLT,MT,kimlik_karti,1,0,KnownDocuments/examples/maltese_identity_card/
+maltese_passport,Maltese Passport,Passport,MLT,MT,pasaport,1,0,KnownDocuments/examples/maltese_passport/
+mauritanian_passport,Mauritanian Passport,Passport,MRT,MR,pasaport,1,0,KnownDocuments/examples/mauritanian_passport/
+mexican_passport,Mexican Passport,Passport,MEX,MX,pasaport,2,0,KnownDocuments/examples/mexican_passport/
+moldovan_birth_certificate,Moldovan Birth Certificate,Birth Certificate,MDA,MD,dogum_belgesi,2,1,KnownDocuments/examples/moldovan_birth_certificate/
+moldovan_diploma,Moldovan Diploma,Diploma,MDA,MD,diploma_ve_transkript,1,0,KnownDocuments/examples/moldovan_diploma/
+moldovan_driving_license,Moldovan Driving License,Driving License,MDA,MD,ehliyet,2,1,KnownDocuments/examples/moldovan_driving_license/
+moldovan_identity_card,Moldovan Identity Card,Identity Card,MDA,MD,kimlik_karti,11,0,KnownDocuments/examples/moldovan_identity_card/
+moldovan_passport,Moldovan Passport,Passport,MDA,MD,pasaport,17,1,KnownDocuments/examples/moldovan_passport/
+moldovan_residence_card,Moldovan Residence Card,Residence Card,MDA,MD,oturum_izni,2,1,KnownDocuments/examples/moldovan_residence_card/
+mongolian_identity_card,Mongolian Identity Card,Identity Card,MNG,MN,kimlik_karti,0,1,
+mongolian_passport,Mongolian Passport,Passport,MNG,MN,pasaport,2,0,KnownDocuments/examples/mongolian_passport/
+montenegrin_driving_license,Montenegrin Driving License,Driving License,MNE,ME,ehliyet,0,1,
+montenegrin_identity_card,Montenegrin Identity Card,Identity Card,MNE,ME,kimlik_karti,1,0,KnownDocuments/examples/montenegrin_identity_card/
+montenegrin_passport,Montenegrin Passport,Passport,MNE,ME,pasaport,2,1,KnownDocuments/examples/montenegrin_passport/
+moroccan_birth_certificate,Moroccan Birth Certificate,Birth Certificate,MAR,MA,dogum_belgesi,0,1,
+moroccan_civil_status_certificate,Moroccan Civil Status Certificate,Civil Status Certificate,MAR,MA,evlilik_ve_medeni_hal,0,1,
+moroccan_criminal_record_certificate,Moroccan Criminal Record Certificate,Criminal Record Certificate,MAR,MA,sabika_kaydi,1,0,KnownDocuments/examples/moroccan_criminal_record_certificate/
+moroccan_identity_card,Moroccan Identity Card,Identity Card,MAR,MA,kimlik_karti,3,0,KnownDocuments/examples/moroccan_identity_card/
+moroccan_passport,Moroccan Passport,Passport,MAR,MA,pasaport,1,1,KnownDocuments/examples/moroccan_passport/
+nepali_birth_certificate,Nepali Birth Certificate,Birth Certificate,NPL,NP,dogum_belgesi,0,1,
+nepali_driving_license,Nepali Driving License,Driving License,NPL,NP,ehliyet,0,1,
+nepali_identity_card,Nepali Identity Card,Identity Card,NPL,NP,kimlik_karti,1,0,KnownDocuments/examples/nepali_identity_card/
+nepali_passport,Nepali Passport,Passport,NPL,NP,pasaport,3,0,KnownDocuments/examples/nepali_passport/
+new_zealand_passport,New Zealand Passport,Passport,NZL,NZ,pasaport,3,0,KnownDocuments/examples/new_zealand_passport/
+new_zealand_visa,New Zealand Visa,Visa,NZL,NZ,vize,3,0,KnownDocuments/examples/new_zealand_visa/
+north_macedonian_criminal_record_certificate,North Macedonian Criminal Record Certificate,Criminal Record Certificate,MKD,MK,sabika_kaydi,0,1,
+north_macedonian_driving_license,North Macedonian Driving License,Driving License,MKD,MK,ehliyet,2,1,KnownDocuments/examples/north_macedonian_driving_license/
+north_macedonian_identity_card,North Macedonian Identity Card,Identity Card,MKD,MK,kimlik_karti,2,0,KnownDocuments/examples/north_macedonian_identity_card/
+north_macedonian_passport,North Macedonian Passport,Passport,MKD,MK,pasaport,7,3,KnownDocuments/examples/north_macedonian_passport/
+north_macedonian_residence_card,North Macedonian Residence Card,Residence Card,MKD,MK,oturum_izni,0,1,
+northern_cyprus_application_form,Northern Cyprus Application Form,Application Form,KKTC,,basvuru_formu,0,5,
+northern_cyprus_driving_license,Northern Cyprus Driving License,Driving License,KKTC,,ehliyet,0,3,
+northern_cyprus_identity_card,Northern Cyprus Identity Card,Identity Card,KKTC,,kimlik_karti,1,0,KnownDocuments/examples/northern_cyprus_identity_card/
+northern_cyprus_passport,Northern Cyprus Passport,Passport,KKTC,,pasaport,3,0,KnownDocuments/examples/northern_cyprus_passport/
+northern_cyprus_residence_card,Northern Cyprus Residence Card,Residence Card,KKTC,,oturum_izni,0,18,
+northern_cyprus_visa,Northern Cyprus Visa,Visa,KKTC,,vize,1,0,KnownDocuments/examples/northern_cyprus_visa/
+norwegian_driving_license,Norwegian Driving License,Driving License,NOR,NO,ehliyet,4,0,KnownDocuments/examples/norwegian_driving_license/
+norwegian_identity_card,Norwegian Identity Card,Identity Card,NOR,NO,kimlik_karti,3,0,KnownDocuments/examples/norwegian_identity_card/
+norwegian_passport,Norwegian Passport,Passport,NOR,NO,pasaport,2,0,KnownDocuments/examples/norwegian_passport/
+pakistani_driving_license,Pakistani Driving License,Driving License,PAK,PK,ehliyet,1,0,KnownDocuments/examples/pakistani_driving_license/
+pakistani_passport,Pakistani Passport,Passport,PAK,PK,pasaport,3,0,KnownDocuments/examples/pakistani_passport/
+palestinian_passport,Palestinian Passport,Passport,PSE,PS,pasaport,1,0,KnownDocuments/examples/palestinian_passport/
+paraguayan_passport,Paraguayan Passport,Passport,PRY,PY,pasaport,1,0,KnownDocuments/examples/paraguayan_passport/
+peruvian_identity_card,Peruvian Identity Card,Identity Card,PER,PE,kimlik_karti,3,0,KnownDocuments/examples/peruvian_identity_card/
+philippine_driving_license,Philippine Driving License,Driving License,PHL,PH,ehliyet,2,0,KnownDocuments/examples/philippine_driving_license/
+philippine_identity_card,Philippine Identity Card,Identity Card,PHL,PH,kimlik_karti,8,1,KnownDocuments/examples/philippine_identity_card/
+philippine_passport,Philippine Passport,Passport,PHL,PH,pasaport,4,0,KnownDocuments/examples/philippine_passport/
+polish_birth_certificate,Polish Birth Certificate,Birth Certificate,POL,PL,dogum_belgesi,6,0,KnownDocuments/examples/polish_birth_certificate/
+polish_diploma,Polish Diploma,Diploma,POL,PL,diploma_ve_transkript,10,0,KnownDocuments/examples/polish_diploma/
+polish_driving_license,Polish Driving License,Driving License,POL,PL,ehliyet,4,0,KnownDocuments/examples/polish_driving_license/
+polish_identity_card,Polish Identity Card,Identity Card,POL,PL,kimlik_karti,20,0,KnownDocuments/examples/polish_identity_card/
+polish_other_document,Polish Other Document,Other Document,POL,PL,diger,1,0,KnownDocuments/examples/polish_other_document/
+polish_passport,Polish Passport,Passport,POL,PL,pasaport,8,0,KnownDocuments/examples/polish_passport/
+polish_professional_certificate,Polish Professional Certificate,Professional Certificate,POL,PL,mesleki_sertifika,1,0,KnownDocuments/examples/polish_professional_certificate/
+polish_residence_card,Polish Residence Card,Residence Card,POL,PL,oturum_izni,2,0,KnownDocuments/examples/polish_residence_card/
+polish_visa,Polish Visa,Visa,POL,PL,vize,1,0,KnownDocuments/examples/polish_visa/
+portuguese_birth_certificate,Portuguese Birth Certificate,Birth Certificate,PRT,PT,dogum_belgesi,1,0,KnownDocuments/examples/portuguese_birth_certificate/
+portuguese_identity_card,Portuguese Identity Card,Identity Card,PRT,PT,kimlik_karti,1,0,KnownDocuments/examples/portuguese_identity_card/
+portuguese_other_document,Portuguese Other Document,Other Document,PRT,PT,diger,2,0,KnownDocuments/examples/portuguese_other_document/
+portuguese_passport,Portuguese Passport,Passport,PRT,PT,pasaport,6,0,KnownDocuments/examples/portuguese_passport/
+portuguese_visa,Portuguese Visa,Visa,PRT,PT,vize,3,0,KnownDocuments/examples/portuguese_visa/
+qatari_identity_card,Qatari Identity Card,Identity Card,QAT,QA,kimlik_karti,2,0,KnownDocuments/examples/qatari_identity_card/
+romanian_birth_certificate,Romanian Birth Certificate,Birth Certificate,ROU,RO,dogum_belgesi,1,0,KnownDocuments/examples/romanian_birth_certificate/
+romanian_criminal_record_certificate,Romanian Criminal Record Certificate,Criminal Record Certificate,ROU,RO,sabika_kaydi,1,0,KnownDocuments/examples/romanian_criminal_record_certificate/
+romanian_driving_license,Romanian Driving License,Driving License,ROU,RO,ehliyet,3,2,KnownDocuments/examples/romanian_driving_license/
+romanian_health_document,Romanian Health Document,Health Document,ROU,RO,saglik,1,0,KnownDocuments/examples/romanian_health_document/
+romanian_identity_card,Romanian Identity Card,Identity Card,ROU,RO,kimlik_karti,9,1,KnownDocuments/examples/romanian_identity_card/
+romanian_passport,Romanian Passport,Passport,ROU,RO,pasaport,15,2,KnownDocuments/examples/romanian_passport/
+romanian_residence_card,Romanian Residence Card,Residence Card,ROU,RO,oturum_izni,0,1,
+romanian_visa,Romanian Visa,Visa,ROU,RO,vize,1,0,KnownDocuments/examples/romanian_visa/
+russian_application_form,Russian Application Form,Application Form,RUS,RU,basvuru_formu,0,2,
+russian_birth_certificate,Russian Birth Certificate,Birth Certificate,RUS,RU,dogum_belgesi,1,1,KnownDocuments/examples/russian_birth_certificate/
+russian_civil_status_certificate,Russian Civil Status Certificate,Civil Status Certificate,RUS,RU,evlilik_ve_medeni_hal,1,0,KnownDocuments/examples/russian_civil_status_certificate/
+russian_criminal_record_certificate,Russian Criminal Record Certificate,Criminal Record Certificate,RUS,RU,sabika_kaydi,1,1,KnownDocuments/examples/russian_criminal_record_certificate/
+russian_diploma,Russian Diploma,Diploma,RUS,RU,diploma_ve_transkript,12,2,KnownDocuments/examples/russian_diploma/
+russian_driving_license,Russian Driving License,Driving License,RUS,RU,ehliyet,2,2,KnownDocuments/examples/russian_driving_license/
+russian_health_document,Russian Health Document,Health Document,RUS,RU,saglik,2,0,KnownDocuments/examples/russian_health_document/
+russian_identity_card,Russian Identity Card,Identity Card,RUS,RU,kimlik_karti,9,1,KnownDocuments/examples/russian_identity_card/
+russian_identity_document,Russian Identity Document,Identity Document,RUS,RU,kimlik_belgesi_genel,6,0,KnownDocuments/examples/russian_identity_document/
+russian_internal_passport,Russian Internal Passport,Identity Card,RUS,RU,kimlik_karti,21,0,KnownDocuments/examples/russian_internal_passport/
+russian_other_document,Russian Other Document,Other Document,RUS,RU,diger,1,0,KnownDocuments/examples/russian_other_document/
+russian_residence_card,Russian Residence Card,Residence Card,RUS,RU,oturum_izni,1,0,KnownDocuments/examples/russian_residence_card/
+russian_social_security_document,Russian Social Security Document,Social Security Document,RUS,RU,sosyal_guvenlik,1,0,KnownDocuments/examples/russian_social_security_document/
+russian_visa,Russian Visa,Visa,RUS,RU,vize,2,0,KnownDocuments/examples/russian_visa/
+rwandan_passport,Rwandan Passport,Passport,RWA,RW,pasaport,1,0,KnownDocuments/examples/rwandan_passport/
+sammarinese_identity_card,Sammarinese Identity Card,Identity Card,SMR,SM,kimlik_karti,3,0,KnownDocuments/examples/sammarinese_identity_card/
+saudi_identity_card,Saudi Identity Card,Identity Card,SAU,SA,kimlik_karti,2,0,KnownDocuments/examples/saudi_identity_card/
+saudi_passport,Saudi Passport,Passport,SAU,SA,pasaport,0,1,
+saudi_residence_card,Saudi Residence Card,Residence Card,SAU,SA,oturum_izni,0,1,
+serbian_address_registration,Serbian Address Registration,Address Registration,SRB,RS,ikamet_adres_kaydi,9,5,KnownDocuments/examples/serbian_address_registration/
+serbian_application_form,Serbian Application Form,Application Form,SRB,RS,basvuru_formu,0,11,
+serbian_birth_certificate,Serbian Birth Certificate,Birth Certificate,SRB,RS,dogum_belgesi,2,2,KnownDocuments/examples/serbian_birth_certificate/
+serbian_civil_status_certificate,Serbian Civil Status Certificate,Civil Status Certificate,SRB,RS,evlilik_ve_medeni_hal,1,0,KnownDocuments/examples/serbian_civil_status_certificate/
+serbian_criminal_record_certificate,Serbian Criminal Record Certificate,Criminal Record Certificate,SRB,RS,sabika_kaydi,0,3,
+serbian_diploma,Serbian Diploma,Diploma,SRB,RS,diploma_ve_transkript,3,1,KnownDocuments/examples/serbian_diploma/
+serbian_health_document,Serbian Health Document,Health Document,SRB,RS,saglik,0,4,
+serbian_identity_card,Serbian Identity Card,Identity Card,SRB,RS,kimlik_karti,5,2,KnownDocuments/examples/serbian_identity_card/
+serbian_identity_document,Serbian Identity Document,Identity Document,SRB,RS,kimlik_belgesi_genel,2,0,KnownDocuments/examples/serbian_identity_document/
+serbian_other_document,Serbian Other Document,Other Document,SRB,RS,diger,0,12,
+serbian_social_security_document,Serbian Social Security Document,Social Security Document,SRB,RS,sosyal_guvenlik,0,2,
+serbian_tax_document,Serbian Tax Document,Tax Document,SRB,RS,vergi,1,1,KnownDocuments/examples/serbian_tax_document/
+singaporean_identity_document,Singaporean Identity Document,Identity Document,SGP,SG,kimlik_belgesi_genel,1,0,KnownDocuments/examples/singaporean_identity_document/
+singaporean_passport,Singaporean Passport,Passport,SGP,SG,pasaport,1,0,KnownDocuments/examples/singaporean_passport/
+slovak_criminal_record_certificate,Slovak Criminal Record Certificate,Criminal Record Certificate,SVK,SK,sabika_kaydi,2,0,KnownDocuments/examples/slovak_criminal_record_certificate/
+slovak_driving_license,Slovak Driving License,Driving License,SVK,SK,ehliyet,1,1,KnownDocuments/examples/slovak_driving_license/
+slovak_identity_card,Slovak Identity Card,Identity Card,SVK,SK,kimlik_karti,25,0,KnownDocuments/examples/slovak_identity_card/
+slovak_passport,Slovak Passport,Passport,SVK,SK,pasaport,10,0,KnownDocuments/examples/slovak_passport/
+slovak_residence_card,Slovak Residence Card,Residence Card,SVK,SK,oturum_izni,0,1,
+slovenian_diploma,Slovenian Diploma,Diploma,SVN,SI,diploma_ve_transkript,1,0,KnownDocuments/examples/slovenian_diploma/
+slovenian_driving_license,Slovenian Driving License,Driving License,SVN,SI,ehliyet,4,0,KnownDocuments/examples/slovenian_driving_license/
+slovenian_identity_card,Slovenian Identity Card,Identity Card,SVN,SI,kimlik_karti,6,0,KnownDocuments/examples/slovenian_identity_card/
+slovenian_passport,Slovenian Passport,Passport,SVN,SI,pasaport,8,0,KnownDocuments/examples/slovenian_passport/
+south_african_identity_card,South African Identity Card,Identity Card,ZAF,ZA,kimlik_karti,1,0,KnownDocuments/examples/south_african_identity_card/
+south_korean_address_registration,South Korean Address Registration,Address Registration,KOR,KR,ikamet_adres_kaydi,1,0,KnownDocuments/examples/south_korean_address_registration/
+south_korean_birth_certificate,South Korean Birth Certificate,Birth Certificate,KOR,KR,dogum_belgesi,0,1,
+south_korean_driving_license,South Korean Driving License,Driving License,KOR,KR,ehliyet,3,0,KnownDocuments/examples/south_korean_driving_license/
+south_korean_health_document,South Korean Health Document,Health Document,KOR,KR,saglik,2,0,KnownDocuments/examples/south_korean_health_document/
+south_korean_identity_card,South Korean Identity Card,Identity Card,KOR,KR,kimlik_karti,1,1,KnownDocuments/examples/south_korean_identity_card/
+south_korean_passport,South Korean Passport,Passport,KOR,KR,pasaport,25,1,KnownDocuments/examples/south_korean_passport/
+south_korean_residence_card,South Korean Residence Card,Residence Card,KOR,KR,oturum_izni,2,1,KnownDocuments/examples/south_korean_residence_card/
+spanish_address_registration,Spanish Address Registration,Address Registration,ESP,ES,ikamet_adres_kaydi,3,0,KnownDocuments/examples/spanish_address_registration/
+spanish_application_form,Spanish Application Form,Application Form,ESP,ES,basvuru_formu,0,5,
+spanish_birth_certificate,Spanish Birth Certificate,Birth Certificate,ESP,ES,dogum_belgesi,2,0,KnownDocuments/examples/spanish_birth_certificate/
+spanish_civil_status_certificate,Spanish Civil Status Certificate,Civil Status Certificate,ESP,ES,evlilik_ve_medeni_hal,1,0,KnownDocuments/examples/spanish_civil_status_certificate/
+spanish_criminal_record_certificate,Spanish Criminal Record Certificate,Criminal Record Certificate,ESP,ES,sabika_kaydi,0,1,
+spanish_diploma,Spanish Diploma,Diploma,ESP,ES,diploma_ve_transkript,3,0,KnownDocuments/examples/spanish_diploma/
+spanish_driving_license,Spanish Driving License,Driving License,ESP,ES,ehliyet,3,0,KnownDocuments/examples/spanish_driving_license/
+spanish_employment_contract,Spanish Employment Contract,Employment Contract,ESP,ES,is_sozlesmesi,1,0,KnownDocuments/examples/spanish_employment_contract/
+spanish_identity_card,Spanish Identity Card,Identity Card,ESP,ES,kimlik_karti,25,5,KnownDocuments/examples/spanish_identity_card/
+spanish_other_document,Spanish Other Document,Other Document,ESP,ES,diger,1,0,KnownDocuments/examples/spanish_other_document/
+spanish_passport,Spanish Passport,Passport,ESP,ES,pasaport,4,0,KnownDocuments/examples/spanish_passport/
+spanish_residence_card,Spanish Residence Card,Residence Card,ESP,ES,oturum_izni,4,13,KnownDocuments/examples/spanish_residence_card/
+sri_lankan_driving_license,Sri Lankan Driving License,Driving License,LKA,LK,ehliyet,0,21,
+sri_lankan_identity_card,Sri Lankan Identity Card,Identity Card,LKA,LK,kimlik_karti,0,1,
+sri_lankan_passport,Sri Lankan Passport,Passport,LKA,LK,pasaport,2,0,KnownDocuments/examples/sri_lankan_passport/
+sudanese_passport,Sudanese Passport,Passport,SDN,SD,pasaport,1,0,KnownDocuments/examples/sudanese_passport/
+swedish_driving_license,Swedish Driving License,Driving License,SWE,SE,ehliyet,2,0,KnownDocuments/examples/swedish_driving_license/
+swedish_identity_card,Swedish Identity Card,Identity Card,SWE,SE,kimlik_karti,3,0,KnownDocuments/examples/swedish_identity_card/
+swedish_passport,Swedish Passport,Passport,SWE,SE,pasaport,2,0,KnownDocuments/examples/swedish_passport/
+swedish_residence_card,Swedish Residence Card,Residence Card,SWE,SE,oturum_izni,0,1,
+swiss_criminal_record_certificate,Swiss Criminal Record Certificate,Criminal Record Certificate,CHE,CH,sabika_kaydi,1,0,KnownDocuments/examples/swiss_criminal_record_certificate/
+swiss_driving_license,Swiss Driving License,Driving License,CHE,CH,ehliyet,4,0,KnownDocuments/examples/swiss_driving_license/
+swiss_health_document,Swiss Health Document,Health Document,CHE,CH,saglik,1,0,KnownDocuments/examples/swiss_health_document/
+swiss_identity_card,Swiss Identity Card,Identity Card,CHE,CH,kimlik_karti,8,0,KnownDocuments/examples/swiss_identity_card/
+swiss_passport,Swiss Passport,Passport,CHE,CH,pasaport,4,1,KnownDocuments/examples/swiss_passport/
+swiss_residence_card,Swiss Residence Card,Residence Card,CHE,CH,oturum_izni,3,0,KnownDocuments/examples/swiss_residence_card/
+syrian_passport,Syrian Passport,Passport,SYR,SY,pasaport,3,1,KnownDocuments/examples/syrian_passport/
+taiwanese_address_registration,Taiwanese Address Registration,Address Registration,TWN,TW,ikamet_adres_kaydi,1,0,KnownDocuments/examples/taiwanese_address_registration/
+taiwanese_driving_license,Taiwanese Driving License,Driving License,TWN,TW,ehliyet,1,0,KnownDocuments/examples/taiwanese_driving_license/
+taiwanese_identity_card,Taiwanese Identity Card,Identity Card,TWN,TW,kimlik_karti,2,0,KnownDocuments/examples/taiwanese_identity_card/
+taiwanese_passport,Taiwanese Passport,Passport,TWN,TW,pasaport,16,0,KnownDocuments/examples/taiwanese_passport/
+taiwanese_residence_card,Taiwanese Residence Card,Residence Card,TWN,TW,oturum_izni,1,0,KnownDocuments/examples/taiwanese_residence_card/
+taiwanese_tax_document,Taiwanese Tax Document,Tax Document,TWN,TW,vergi,2,0,KnownDocuments/examples/taiwanese_tax_document/
+tajik_identity_card,Tajik Identity Card,Identity Card,TJK,TJ,kimlik_karti,1,1,KnownDocuments/examples/tajik_identity_card/
+tajik_passport,Tajik Passport,Passport,TJK,TJ,pasaport,0,2,
+tanzanian_passport,Tanzanian Passport,Passport,TZA,TZ,pasaport,1,0,KnownDocuments/examples/tanzanian_passport/
+thai_driving_license,Thai Driving License,Driving License,THA,TH,ehliyet,0,1,
+thai_health_document,Thai Health Document,Health Document,THA,TH,saglik,1,0,KnownDocuments/examples/thai_health_document/
+thai_identity_card,Thai Identity Card,Identity Card,THA,TH,kimlik_karti,1,0,KnownDocuments/examples/thai_identity_card/
+thai_passport,Thai Passport,Passport,THA,TH,pasaport,3,0,KnownDocuments/examples/thai_passport/
+trinidadian_passport,Trinidadian Passport,Passport,TTO,TT,pasaport,1,0,KnownDocuments/examples/trinidadian_passport/
+tunisian_civil_status_certificate,Tunisian Civil Status Certificate,Civil Status Certificate,TUN,TN,evlilik_ve_medeni_hal,0,1,
+tunisian_identity_card,Tunisian Identity Card,Identity Card,TUN,TN,kimlik_karti,2,1,KnownDocuments/examples/tunisian_identity_card/
+tunisian_passport,Tunisian Passport,Passport,TUN,TN,pasaport,1,1,KnownDocuments/examples/tunisian_passport/
+turkish_apostille,Turkish Apostille,Apostille,TUR,TR,apostil_ve_tasdik,2,0,KnownDocuments/examples/turkish_apostille/
+turkish_application_form,Turkish Application Form,Application Form,TUR,TR,basvuru_formu,0,3,
+turkish_birth_certificate,Turkish Birth Certificate,Birth Certificate,TUR,TR,dogum_belgesi,2,2,KnownDocuments/examples/turkish_birth_certificate/
+turkish_civil_status_certificate,Turkish Civil Status Certificate,Civil Status Certificate,TUR,TR,evlilik_ve_medeni_hal,1,0,KnownDocuments/examples/turkish_civil_status_certificate/
+turkish_criminal_record_certificate,Turkish Criminal Record Certificate,Criminal Record Certificate,TUR,TR,sabika_kaydi,0,1,
+turkish_diploma,Turkish Diploma,Diploma,TUR,TR,diploma_ve_transkript,2,1,KnownDocuments/examples/turkish_diploma/
+turkish_driving_license,Turkish Driving License,Driving License,TUR,TR,ehliyet,6,1,KnownDocuments/examples/turkish_driving_license/
+turkish_identity_card,Turkish Identity Card,Identity Card,TUR,TR,kimlik_karti,7,8,KnownDocuments/examples/turkish_identity_card/
+turkish_international_driving_permit,Turkish Driving License,Driving License,TUR,TR,ehliyet,1,0,KnownDocuments/examples/turkish_international_driving_permit/
+turkish_other_document,Turkish Other Document,Other Document,TUR,TR,diger,0,1,
+turkish_residence_card,Turkish Residence Card,Residence Card,TUR,TR,oturum_izni,0,3,
+turkish_social_security_document,Turkish Social Security Document,Social Security Document,TUR,TR,sosyal_guvenlik,0,15,
+turkmen_driving_license,Turkmen Driving License,Driving License,TKM,TM,ehliyet,2,0,KnownDocuments/examples/turkmen_driving_license/
+turkmen_identity_card,Turkmen Identity Card,Identity Card,TKM,TM,kimlik_karti,0,1,
+turkmen_passport,Turkmen Passport,Passport,TKM,TM,pasaport,3,1,KnownDocuments/examples/turkmen_passport/
+ukrainian_birth_certificate,Ukrainian Birth Certificate,Birth Certificate,UKR,UA,dogum_belgesi,0,1,
+ukrainian_criminal_record_certificate,Ukrainian Criminal Record Certificate,Criminal Record Certificate,UKR,UA,sabika_kaydi,0,2,
+ukrainian_diploma,Ukrainian Diploma,Diploma,UKR,UA,diploma_ve_transkript,2,0,KnownDocuments/examples/ukrainian_diploma/
+ukrainian_driving_license,Ukrainian Driving License,Driving License,UKR,UA,ehliyet,2,0,KnownDocuments/examples/ukrainian_driving_license/
+ukrainian_identity_card,Ukrainian Identity Card,Identity Card,UKR,UA,kimlik_karti,2,0,KnownDocuments/examples/ukrainian_identity_card/
+ukrainian_passport,Ukrainian Passport,Passport,UKR,UA,pasaport,8,0,KnownDocuments/examples/ukrainian_passport/
+ukrainian_professional_certificate,Ukrainian Professional Certificate,Professional Certificate,UKR,UA,mesleki_sertifika,1,0,KnownDocuments/examples/ukrainian_professional_certificate/
+ukrainian_residence_card,Ukrainian Residence Card,Residence Card,UKR,UA,oturum_izni,2,0,KnownDocuments/examples/ukrainian_residence_card/
+unspecified_application_form,Unspecified Application Form,Application Form,XXX,XX,basvuru_formu,0,7,
+unspecified_birth_certificate,Unspecified Birth Certificate,Birth Certificate,XXX,XX,dogum_belgesi,1,0,KnownDocuments/examples/unspecified_birth_certificate/
+unspecified_cv,Unspecified CV,CV,XXX,XX,ozgecmis,6,0,KnownDocuments/examples/unspecified_cv/
+unspecified_identity_card,Unspecified Identity Card,Identity Card,XXX,XX,kimlik_karti,1,0,KnownDocuments/examples/unspecified_identity_card/
+unspecified_passport,Unspecified Passport,Passport,XXX,XX,pasaport,13,0,KnownDocuments/examples/unspecified_passport/
+uzbek_identity_card,Uzbek Identity Card,Identity Card,UZB,UZ,kimlik_karti,1,0,KnownDocuments/examples/uzbek_identity_card/
+uzbek_passport,Uzbek Passport,Passport,UZB,UZ,pasaport,1,1,KnownDocuments/examples/uzbek_passport/
+uzbek_visa,Uzbek Visa,Visa,UZB,UZ,vize,1,0,KnownDocuments/examples/uzbek_visa/
+venezuelan_identity_card,Venezuelan Identity Card,Identity Card,VEN,VE,kimlik_karti,2,0,KnownDocuments/examples/venezuelan_identity_card/
+vietnamese_civil_status_certificate,Vietnamese Civil Status Certificate,Civil Status Certificate,VNM,VN,evlilik_ve_medeni_hal,1,0,KnownDocuments/examples/vietnamese_civil_status_certificate/
+vietnamese_driving_license,Vietnamese Driving License,Driving License,VNM,VN,ehliyet,2,0,KnownDocuments/examples/vietnamese_driving_license/
+vietnamese_identity_card,Vietnamese Identity Card,Identity Card,VNM,VN,kimlik_karti,6,1,KnownDocuments/examples/vietnamese_identity_card/
+vietnamese_passport,Vietnamese Passport,Passport,VNM,VN,pasaport,5,0,KnownDocuments/examples/vietnamese_passport/
+yemeni_identity_card,Yemeni Identity Card,Identity Card,YEM,YE,kimlik_karti,1,0,KnownDocuments/examples/yemeni_identity_card/
+yemeni_passport,Yemeni Passport,Passport,YEM,YE,pasaport,5,0,KnownDocuments/examples/yemeni_passport/

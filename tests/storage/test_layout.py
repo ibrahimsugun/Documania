@@ -86,6 +86,15 @@ def test_identity_paths(tmp_path: Path) -> None:
         tmp_path / "KnownDocuments" / "examples" / "russian_passport"
     )
     assert layout.page_cache_dir(42) == tmp_path / "cache" / "pages" / "42"
+    # Eğitim modu (11.9, §8.2): `_egitim/` örnek klasörlerinin dışındadır.
+    training = tmp_path / "KnownDocuments" / "_egitim"
+    assert layout.training == training
+    assert layout.training_incoming_dir(7) == training / "gelen" / "7"
+    assert layout.training_staged_path(7, 31, "pdf") == training / "gelen" / "7" / "31.pdf"
+    assert layout.training_maps == training / "haritalar"
+    assert layout.training_removed_dir("albanian_passport") == (
+        training / "cikarilan" / "albanian_passport"
+    )
     assert layout.archive_dir(date(2026, 9, 14)) == tmp_path / "Archive" / "2026-09"
     assert layout.archive_dir(datetime(2027, 1, 2, 3, 4)) == tmp_path / "Archive" / "2027-01"
 
@@ -129,9 +138,14 @@ def test_path_segments_cannot_escape_data_root(tmp_path: Path, segment: str) -> 
         layout.employee_dir,
         layout.type_examples_dir,
         layout.page_cache_dir,
+        layout.training_incoming_dir,
+        layout.training_removed_dir,
     ):
         with pytest.raises(ValueError, match="yol parçası"):
             build(segment)
+    for staged in ((segment, 1, "pdf"), (1, segment, "pdf"), (1, 1, segment)):
+        with pytest.raises(ValueError, match="yol parçası"):
+            layout.training_staged_path(*staged)
     with pytest.raises(ValueError, match="yol parçası"):
         layout.queue_dir("unknown", segment)
     with pytest.raises(ValueError, match="yol parçası"):

@@ -1627,11 +1627,11 @@
         "description": "PRD 11.9.2 (temel) · FR-MOD-11 · Faz 1 · Must (v1). İnsan kararı (2026-09-26): eğitim modu yalnız bilinen belgeleri besler; personel kaydı, yeni kişi yok. Bilinen türler = katalog + hazır 484 önerilen tür. Sözleşme PLAN §C86 \"Önerilen tür kaydı\", \"Veri\", \"Dosya\", \"Değişmez güvence\".",
         "details": "KAPSAM: PRD 11.9.2'nin veri ve yerleştirme temeli (mekanik tanıma tm 116'da). Tam sözleşme PLAN.md §C86 — önce oku; §8.1 tablolar, §8.2 dizinler.\n\nNE YAPILACAK: (1) app/catalog/suggested_types.csv: data/KnownDocuments/_onerilen_turler.csv'nin repoya kopyası (484 satır; başta kaynak ve tarih yorumu; utf-8-sig okunur; data/ gitignore'da olduğu için). (2) app/training/known_types.py: katalog (export_catalog) ∪ önerilen; slug çakışmasında katalog kazanır; katalog türleri için açık (country_iso3, kaynak_tur) eşlemesi; ad normalizasyonu (casefold, boşluk, licence→license); belirsiz ad ve (ülke, tür) çiftleri eşleşme vermez. (3) Göç (head'den sonraki revizyon): training_runs, training_items, example_files (PRD §8.1; durum kümeleri §C86). (4) Staging: eğitim yüklemesi KnownDocuments/_egitim/gelen/<run>/<item>.<ext>'e atomik yazılır. (5) Yerleştirme servisi: store_example ile kopya + example_files kaydı (method, label, note, training_item_id); türler arası SHA dizini: aynı sha aynı türde → skipped \"zaten örnek\", başka türde → conflict; dosya zaten examples/<slug>/ altındaysa yerinde kayıt. (6) Olaylar TRAINING_EXAMPLE_PLACED, TRAINING_ITEM_UNPLACED (EventType + tests/test_events.py). (7) examples.py açıklaması example_files ile güncellenir (§D58 e); tür sayfasından el ile yükleme olaysız kalır.\n\nGİRDİ: app/storage/examples.py (check_example, store_example, list_examples, example_path), app/storage/layout.py (type_examples_dir), app/storage/atomic.py (sha256, write_unique), app/catalog/sync.py (export_catalog), app/db/models.py, app/events.py, data/KnownDocuments/_onerilen_turler.csv (yerelde var; repoya kopyalanır).\n\nÇIKTI: app/catalog/suggested_types.csv, app/training/ (yeni paket: known_types.py, placement), app/db/models.py, alembic/versions/<yeni>.py, app/storage/layout.py (_egitim dizinleri), app/events.py, tests/training/, tests/db, tests/test_events.py, PLAN.md, HANDOFF.md.\n\nBU GÖREVİ BAĞLAYAN KİLİTLİ KURALLAR: K10 (Inbox ve upload_files'a girilmez — tekrar tespiti kirlenmez), K11 (yalnız kopyalama/taşıma), R11 (silme yok), K15, CLAUDE.md (gerçek kimlik belgesi depoya girmez — testler sentetik; suggested_types.csv yalnız tür adları taşır).\n\nPRD'DE AYRICA OKU: 11.2.1, 11.9.1–11.9.2, §8.1, §8.2, S20.\n\nİLGİLİ KABUL SENARYOLARI: S20 (tm 118'de uçtan uca).\n\nKAPSAM SINIRI: mekanik tanıma (tm 116), yapay zekâ (tm 117), sekme (tm 118) yok; candidate_document_types'a yazılmaz.\n\nTUZAKLAR: store_example tekrar tespitini yalnız aynı klasörde yapar — türler arası için example_files. CSV UTF-8 BOM'ludur; 29 satırda ülke boş. Slug deseni katalog dışı slug'ları kabul eder (layout._segment). Değişmez güvence testi: uploads, upload_files, pages, plans, employees, employee_aliases, employee_identifiers, employee_contacts, queue_items, documents satırı ve Inbox/Employees/Unknown/Unreadable/Unresolved dosyası oluşmaz — sonraki eğitim görevleri bu testi yeniden kullanır.\n\nKAPANIŞ: 11.9.2 bu dilimle kapanmaz (tm 116 kapatır); PLAN §C86'ya uygulama notu, HANDOFF bloğu, commit mesajında `PRD 11.9.2 — tm 115`.",
         "testStrategy": "1) known_types: 484 + katalog birleşimi, katalog kazanır, licence/license, belirsiz ad ve (RUS, kimlik_karti) eşleşmesiz. 2) Göç yukarı/aşağı, head testi, test_models tablo listesi. 3) Yerleştirme: yeni dosya kopyalanır + example_files; aynı sha aynı tür skipped; başka tür conflict; yerindeki dosya kopyasız kaydedilir; staging atomik. 4) Değişmez güvence: eğitim yerleştirmesinden sonra çalışan/parti/kuyruk/belge tabloları ve kuyruk klasörleri boş. 5) El ile örnek yükleme olaysız kalır (tests/catalog/test_catalog_examples.py). 6) Tüm test takımı (`pytest -q -m \"not live\"`, kapsam ≥%70), ruff check/format, compileall, temiz SQLite'ta `alembic upgrade head`, `import app.main` yeşil (CONVENTIONS DoD). Testler yalnız sentetik belge ve sentetik adlarla (CONVENTIONS §6); canlı yapay zekâ çağrısı yok.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [],
         "priority": "high",
         "subtasks": [],
-        "updatedAt": "2026-09-26T00:00:00.000Z"
+        "updatedAt": "2026-09-26T04:10:57.094Z"
       },
       {
         "id": "116",
@@ -1709,9 +1709,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-09-26T02:56:46.972Z",
+      "lastModified": "2026-09-26T04:10:57.095Z",
       "taskCount": 118,
-      "completedCount": 108,
+      "completedCount": 109,
       "tags": [
         "master"
       ]

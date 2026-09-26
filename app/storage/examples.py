@@ -2,10 +2,16 @@
 
 Örnek, bir belge türünün nasıl göründüğünü gösteren örnek belgedir (tür açıklaması üretimi 11.3'ün
 girdisi). **Çalışan verisi değildir:** `Inbox/`, `Employees/` ya da kuyruk dizinlerine yazılmaz;
-`uploads`, `upload_files`, `documents` ya da `events` tablosuna satır eklenmez. Çalışan ve belge
-aramaları (10.4.2) yalnız o tabloları okuduğu, tekrar yükleme tespiti (K10,
-`find_original_by_sha256`) `upload_files`'a baktığı için örnek hiçbir aramada görünmez ve gerçek bir
-yüklemeyi "tekrar" işaretlemez. Örneğin tek kaydı dosyanın kendisidir.
+`uploads`, `upload_files` ya da `documents` tablosuna satır eklenmez. Çalışan ve belge aramaları
+(10.4.2) yalnız o tabloları okuduğu, tekrar yükleme tespiti (K10, `find_original_by_sha256`)
+`upload_files`'a baktığı için örnek hiçbir aramada görünmez ve gerçek bir yüklemeyi "tekrar"
+işaretlemez.
+
+**Kayıt ve olay (PLAN.md §D58 e).** Tür sayfasından el ile yükleme (11.2.1) yalnız dosyayı yazar:
+`example_files` kaydı ve olay yazmaz, örnek etiketsizdir. Eğitim modunun (11.9) yerleştirmesi bu
+modülün `store_example`'ını kullanır, örneği ayrıca `example_files`'a (yöntem, etiket, not)
+kaydeder ve olay yazar (`app.training.placement`, K15). Türler arası tekrar tespiti o kaydın
+işidir; bu modül yalnız aynı klasöre bakar.
 
 - **Türler:** yalnız PDF, JPEG ve PNG (K2: analiz edilenler). Tür dosya adına değil içeriğin
   imzasına bakılarak belirlenir; uzantı içeriğe göre yeniden yazılır (`.pdf`, `.jpg`, `.png`) — adı

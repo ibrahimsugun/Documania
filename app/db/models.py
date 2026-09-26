@@ -1,7 +1,7 @@
 """Veri modeli — PRD §8.1 tabloları (00.3.1), çalışan numarası üretici (00.3.3), aday tür
 kaydı (04.6.1) ve kararı (11.5), panel oturumu (10.1.2), iki aşamalı onayın belirteci (10.8.1),
 kalıcı işçi kuyruğu (13.3.1), profil alanlarının belge gözlemleri (05.7.3), partinin yoksayılması
-(10.3.4) ve aday türün incelemesi (11.5.5).
+(10.3.4), aday türün incelemesi (11.5.5) ve eğitim modu (11.9).
 
 Silme yoktur, arşiv vardır (K16): ilişkilerde silme kaskadı tanımlanmaz.
 Dosya yolu burada üretilmez (yol kuralı: `app/storage/`); yol sütunları yalnız saklar.
@@ -198,6 +198,71 @@ class CandidateProposalStatus(enum.StrEnum):
     READY = "ready"
     FAILED = "failed"
     NO_SAMPLES = "no_samples"
+
+
+class TrainingRunKind(enum.StrEnum):
+    """Eğitim modu çalıştırmasının türü (§8.1 `training_runs.kind`, 11.9): panelden dosya
+    yükleme (11.9.1) ya da harita ile toplu tarama (11.9.5)."""
+
+    UPLOAD = "upload"
+    MAP = "map"
+
+
+class TrainingRunStatus(enum.StrEnum):
+    """Eğitim çalıştırmasının durumu (`training_runs.status`): `running` — kararı sistemde bekleyen
+    (`queued` ya da `ai_pending`) öğesi var; `done` — öğelerin hepsi sistemin son kararında
+    (`app.training.refresh_run`). İnsan bekleyen öğe (`unplaced`, `conflict`, `review`) çalıştırmayı
+    açık tutmaz."""
+
+    RUNNING = "running"
+    DONE = "done"
+
+
+class TrainingItemStatus(enum.StrEnum):
+    """Eğitim öğesinin durumu (`training_items.status`, PLAN.md §C86).
+
+    `queued` → `placed` | `ai_pending` | `skipped` | `failed`; `ai_pending` → `placed` |
+    `unplaced` | `conflict`; harita satırı ayrıca `review` (§C87). `skipped`: aynı içerik bu türde
+    zaten örnek; `conflict`: aynı içerik başka türde örnek ya da ipucuyla çelişen sonuç;
+    `unplaced`: hiçbir bilinen türe yerleşmedi ("Yerleştirilemedi").
+    """
+
+    QUEUED = "queued"
+    PLACED = "placed"
+    AI_PENDING = "ai_pending"
+    SKIPPED = "skipped"
+    FAILED = "failed"
+    UNPLACED = "unplaced"
+    CONFLICT = "conflict"
+    REVIEW = "review"
+
+
+class TrainingMethod(enum.StrEnum):
+    """Eğitim öğesini türe yerleştiren yol (`training_items.method`): mekanik tanıma (11.9.2),
+    yapay zekâ incelemesi (11.9.3) ya da İK'nın "Türe yerleştir"i (11.9.1)."""
+
+    MECHANICAL = "mechanical"
+    AI = "ai"
+    MANUAL = "manual"
+
+
+class ExampleMethod(enum.StrEnum):
+    """Örnek dosyası kaydının yolu (`example_files.method`): eğitim yolları ve `legacy` — eğitimden
+    önce klasöre konmuş, kaydı sonradan tutulan dosya."""
+
+    MECHANICAL = "mechanical"
+    AI = "ai"
+    MANUAL = "manual"
+    LEGACY = "legacy"
+
+
+class ExampleLabel(enum.StrEnum):
+    """Örnek dosyasının etiketi (`example_files.label`; `NULL` etiketsiz): yapay zekânın
+    yerleştirdiği örnek `ai_decision` ("AI kararı", elle kontrol gerekli, 11.9.3), İK'nın
+    doğruladığı ya da yerleştirdiği örnek `verified` (11.9.1, 11.9.4)."""
+
+    AI_DECISION = "ai_decision"
+    VERIFIED = "verified"
 
 
 # --- çalışan -----------------------------------------------------------------------------
@@ -501,6 +566,105 @@ class CandidateDocumentType(IdleClaimMixin, Base):
     proposal_generated_at: Mapped[datetime | None] = mapped_column(UtcDateTime)
 
     first_seen_upload: Mapped[Upload] = relationship()
+
+
+# --- eğitim modu (11.9) --------------------------------------------------------------------
+
+
+class TrainingRun(Base):
+    """Eğitim modu çalıştırması (§8.1, 11.9; PLAN.md §C86): bir yükleme ya da bir harita taraması.
+
+    Eğitim yolu çalışan verisine dokunmaz: parti (`uploads`), dosya (`upload_files`), çalışan,
+    kuyruk öğesi ya da çıktı belgesi açmaz. `counts_json` öğelerin durumlarına göre sayısıdır
+    (`{"<durum>": n}`) ve `app.training.refresh_run` ile öğelerden yeniden sayılır.
+    """
+
+    __tablename__ = "training_runs"
+    __table_args__ = (
+        CheckConstraint(_one_of("kind", TrainingRunKind), name="kind"),
+        CheckConstraint(_one_of("status", TrainingRunStatus), name="status"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    kind: Mapped[str] = mapped_column(String(16))
+    created_by: Mapped[str] = mapped_column(String(255))
+    created_at: Mapped[datetime] = mapped_column(UtcDateTime, default=utcnow)
+    map_name: Mapped[str | None] = mapped_column(String(255))
+    status: Mapped[str] = mapped_column(String(16), default=TrainingRunStatus.RUNNING.value)
+    counts_json: Mapped[dict[str, int]] = mapped_column(JSON, default=dict)
+
+    items: Mapped[list[TrainingItem]] = relationship(
+        back_populates="run", order_by="TrainingItem.id"
+    )
+
+
+class TrainingItem(Base):
+    """Eğitim modunda işlenen bir dosya (§8.1, 11.9).
+
+    `staged_path` yüklenen içeriğin `KnownDocuments/_egitim/gelen/<run>/<item>.<ext>` kopyasının
+    veri köküne göreli yoludur (örnek olarak kabul edilmeyen dosya yazılmaz); harita satırında
+    `row_number` ve `source_ref` (haritadaki yol) dolar. `hint_slug` beklenen ya da haritadaki tür,
+    `result_slug` sonucun türüdür. `checks_json` mekanik kontrollerin kişisel değer taşımayan
+    dökümüdür.
+    """
+
+    __tablename__ = "training_items"
+    __table_args__ = (
+        CheckConstraint(_one_of("status", TrainingItemStatus), name="status"),
+        CheckConstraint(_one_of("method", TrainingMethod), name="method"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    run_id: Mapped[int] = mapped_column(ForeignKey("training_runs.id"), index=True)
+    row_number: Mapped[int | None] = mapped_column(Integer)
+    original_name: Mapped[str] = mapped_column(String(255))
+    source_ref: Mapped[str | None] = mapped_column(String(1024))
+    staged_path: Mapped[str | None] = mapped_column(String(1024))
+    sha256: Mapped[str | None] = mapped_column(String(64), index=True)
+    file_kind: Mapped[str | None] = mapped_column(String(16))
+    page_count: Mapped[int | None] = mapped_column(Integer)
+    hint_slug: Mapped[str | None] = mapped_column(String(64))
+    result_slug: Mapped[str | None] = mapped_column(String(64))
+    method: Mapped[str | None] = mapped_column(String(16))
+    status: Mapped[str] = mapped_column(
+        String(16), default=TrainingItemStatus.QUEUED.value, index=True
+    )
+    note: Mapped[str | None] = mapped_column(Text)
+    checks_json: Mapped[dict[str, Any] | None] = mapped_column(JSON)
+    decided_by: Mapped[str | None] = mapped_column(String(255))
+    decided_at: Mapped[datetime | None] = mapped_column(UtcDateTime)
+
+    run: Mapped[TrainingRun] = relationship(back_populates="items")
+
+
+class ExampleFileRecord(Base):
+    """Örnek dosyasının kaydı ve etiketi (§8.1 `example_files`, 11.9).
+
+    Dosya `KnownDocuments/examples/<type_slug>/<name>`'dedir; `type_slug` katalog ya da hazır
+    önerilen türdür (katalog dışı olabildiği için `known_document_types`'a bağlanmaz). `sha256`
+    türler arası tekrar tespitinin dizinidir (`app.storage.examples.store_example` yalnız aynı
+    klasöre bakar). Kaydı olmayan örnek (eğitimden önce konmuş ya da tür sayfasından el ile
+    yüklenmiş, 11.2.1) etiketsizdir. Satır silinmez.
+    """
+
+    __tablename__ = "example_files"
+    __table_args__ = (
+        UniqueConstraint("type_slug", "name"),
+        CheckConstraint(_one_of("method", ExampleMethod), name="method"),
+        CheckConstraint(_one_of("label", ExampleLabel), name="label"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    type_slug: Mapped[str] = mapped_column(String(64))
+    name: Mapped[str] = mapped_column(String(255))
+    sha256: Mapped[str] = mapped_column(String(64), index=True)
+    method: Mapped[str] = mapped_column(String(16))
+    label: Mapped[str | None] = mapped_column(String(16))
+    note: Mapped[str | None] = mapped_column(Text)
+    training_item_id: Mapped[int | None] = mapped_column(ForeignKey("training_items.id"))
+    created_at: Mapped[datetime] = mapped_column(UtcDateTime, default=utcnow)
+
+    training_item: Mapped[TrainingItem | None] = relationship()
 
 
 # --- log ve kullanıcılar -------------------------------------------------------------------

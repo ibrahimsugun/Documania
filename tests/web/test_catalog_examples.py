@@ -17,7 +17,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.config import Settings, get_settings
-from app.db.models import Document, Employee, Event, Upload, UploadFile
+from app.db.models import Document, Employee, Event, ExampleFileRecord, Upload, UploadFile
 from app.storage import DataLayout, find_original_by_sha256, sha256_bytes
 from tests.fixtures.gen import make_docx_bytes, make_pdf_bytes, make_portrait_image_bytes
 
@@ -71,7 +71,7 @@ def _row_counts(session_factory: sessionmaker[Session]) -> dict[str, int]:
     with session_factory() as session:
         return {
             model.__name__: session.scalar(select(func.count()).select_from(model)) or 0
-            for model in (Upload, UploadFile, Document, Event)
+            for model in (Upload, UploadFile, Document, Event, ExampleFileRecord)
         }
 
 
@@ -283,11 +283,12 @@ def test_examples_are_kept_apart_from_employee_data(
 
     _upload(client, ("kimlik.png", content), ("sablon.pdf", make_pdf_bytes()))
 
-    # Veritabanında yükleme, dosya, belge ya da olay kaydı açılmaz.
+    # Veritabanında yükleme, dosya, belge ya da olay kaydı açılmaz; el ile yüklenen örnek
+    # `example_files`'a da girmez, etiketsizdir (§D58 e — kaydı ve olayı eğitim modu yazar).
     assert (
         _row_counts(session_factory)
         == before
-        == {"Upload": 0, "UploadFile": 0, "Document": 0, "Event": 0}
+        == {"Upload": 0, "UploadFile": 0, "Document": 0, "Event": 0, "ExampleFileRecord": 0}
     )
     with session_factory() as session:
         assert find_original_by_sha256(session, sha256_bytes(content)) is None

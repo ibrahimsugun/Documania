@@ -34,7 +34,7 @@ def _assert_schema_matches_models(database_url: str) -> None:
             assert tables == set(Base.metadata.tables) | {"alembic_version"}
             context = MigrationContext.configure(connection, opts={"compare_type": True})
             assert compare_metadata(context, Base.metadata) == []
-            assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "0010"
+            assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "0011"
     finally:
         engine.dispose()
 
@@ -517,6 +517,80 @@ def test_candidate_proposal_migration_adds_columns_and_is_reversible(sqlite_url:
                 for column in inspect(connection).get_columns("candidate_document_types")
             }
             assert columns.isdisjoint(names)
+            assert connection.scalar(text("SELECT status FROM candidate_document_types")) == (
+                "pending"
+            )
+    finally:
+        engine.dispose()
+
+
+def test_training_migration_creates_the_tables_and_is_reversible(sqlite_url: str) -> None:
+    # 0011 (11.9): eğitim tabloları boş açılır, klasördeki örnekler kayıtsız kalır; durum, yöntem
+    # ve etiket kümeleri kapalıdır; örnek adı tür içinde tekildir. Geri alış üç tabloyu düşürür,
+    # var olan aday türe dokunmaz.
+    config = _alembic_config(sqlite_url)
+    command.upgrade(config, "0010")
+    engine = create_engine(sqlite_url)
+    tables = {"training_runs", "training_items", "example_files"}
+    try:
+        with engine.begin() as connection:
+            connection.execute(
+                text(
+                    "INSERT INTO uploads (id, channel, status, created_at) "
+                    "VALUES ('u_1', 'web', 'done', '2026-09-26 00:00:00')"
+                )
+            )
+            connection.execute(
+                text(
+                    "INSERT INTO candidate_document_types (id, proposed_name, normalized_name, "
+                    "first_seen_upload_id, sample_page_ids, seen_count, status) VALUES "
+                    "(1, 'Test Card', 'test card', 'u_1', '[]', 1, 'pending')"
+                )
+            )
+
+        command.upgrade(config, "head")
+        with engine.connect() as connection:
+            assert tables <= set(inspect(connection).get_table_names())
+            for table in sorted(tables):
+                assert connection.scalar(text(f"SELECT count(*) FROM {table}")) == 0
+        with engine.begin() as connection:
+            connection.execute(
+                text(
+                    "INSERT INTO training_runs (id, kind, created_by, created_at, status, "
+                    "counts_json) VALUES (1, 'upload', 'ik', '2026-09-26 00:00:00', 'running', "
+                    "'{}')"
+                )
+            )
+            connection.execute(
+                text(
+                    "INSERT INTO training_items (id, run_id, original_name, status, method) "
+                    "VALUES (1, 1, 'a.pdf', 'placed', 'mechanical')"
+                )
+            )
+            connection.execute(
+                text(
+                    "INSERT INTO example_files (type_slug, name, sha256, method, label, "
+                    "training_item_id, created_at) VALUES ('albanian_passport', 'a.pdf', :sha, "
+                    "'ai', 'ai_decision', 1, '2026-09-26 00:00:00')"
+                ),
+                {"sha": "a" * 64},
+            )
+        for statement in (
+            "UPDATE training_runs SET kind = 'batch'",
+            "UPDATE training_runs SET status = 'failed'",
+            "UPDATE training_items SET status = 'done'",
+            "UPDATE training_items SET method = 'legacy'",
+            "UPDATE example_files SET method = 'guess'",
+            "UPDATE example_files SET label = 'checked'",
+            "INSERT INTO example_files (type_slug, name, sha256, method, created_at) VALUES "
+            "('albanian_passport', 'a.pdf', 'b', 'manual', '2026-09-26 00:00:00')",
+        ):
+            with pytest.raises(IntegrityError), engine.begin() as connection:
+                connection.execute(text(statement))
+
+        command.downgrade(config, "0010")
+        with engine.connect() as connection:
+            assert tables.isdisjoint(inspect(connection).get_table_names())
             assert connection.scalar(text("SELECT status FROM candidate_document_types")) == (
                 "pending"
             )
