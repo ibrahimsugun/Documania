@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{# Etiket kararının iki aşamalı onayı (11.9.4; PLAN.md §D58): "Başka türe taşı" ve "Örneklerden
+   çıkar". Birinci adım yalnız metni gösterir; ikinci adım sunucunun verdiği tek kullanımlık belirteci
+   taşır. Metinler §D58'den birebirdir. Dosya silinmez, içerik değişmez (K11, K17). #}
+{% block title %}{% if operation == "move" %}Başka türe taşı{% else %}Örneklerden çıkar{% endif %} · {{ entry.label }}{% endblock %}
+{% block content %}
+<p class="back"><a href="{{ back_url }}">← Türün örnekleri</a></p>
+<h1>{% if operation == "move" %}Örneği başka türe taşı{% else %}Örneği örneklerden çıkar{% endif %}</h1>
+{% if error %}
+<div class="error" role="alert">
+  <p>İşlem yapılmadı:</p>
+  <ul><li>{{ error }}</li></ul>
+</div>
+{% elif confirmation %}
+<section class="decision-step" id="decision-step">
+  <p class="confirm-text">{{ confirm_text }}</p>
+  {% if operation == "move" %}<form class="decision-form" method="post" action="/training/examples/{{ example_id }}/move">{% else %}<form class="decision-form" method="post" action="/training/examples/{{ example_id }}/remove">{% endif %}
+    {% if operation == "move" %}<input type="hidden" name="slug" value="{{ target }}">{% endif %}
+    <input type="hidden" name="confirmation" value="{{ confirmation }}">
+    <button type="submit">{% if operation == "move" %}Evet, taşı{% else %}Evet, çıkar{% endif %}</button>
+    <a href="{{ back_url }}">Vazgeç</a>
+  </form>
+</section>
+{% else %}
+<section class="decision-step" id="decision-step">
+  <p class="confirm-text">{{ confirm_text }}</p>
+  {% if operation == "move" %}<form class="decision-form" method="post" action="/training/examples/{{ example_id }}/move/prepare">{% else %}<form class="decision-form" method="post" action="/training/examples/{{ example_id }}/remove/prepare">{% endif %}
+    {% if operation == "move" %}<input type="hidden" name="slug" value="{{ target }}">{% endif %}
+    <button type="submit">Evet, devam et</button>
+    <a href="{{ back_url }}">Vazgeç</a>
+  </form>
+</section>
+{% endif %}
+{% endblock %}

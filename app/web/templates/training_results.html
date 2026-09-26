@@ -36,6 +36,14 @@
   {% endif %}
   {% if results.items %}
   <p class="count">{{ results.total }} dosya{% if results.total > results.items|length %} · en yeni {{ results.items|length }} gösteriliyor{% endif %}</p>
+  {% if results.verifiable %}
+  {# 11.9.4 toplu doğrulama: satırlardaki onay kutuları bu forma `form` özniteliğiyle bağlıdır. #}
+  <form class="verify-form" id="verify-results" method="post" action="/training/examples/verify">
+    <input type="hidden" name="next" value="{{ results.current_url }}">
+    <button type="submit">Seçilenleri doğrula</button>
+    <span class="hint">"AI kararı" satırlarını seçip toplu doğrulayabilirsiniz; başka türe taşımak ya da örneklerden çıkarmak için sonuç türünün sayfasını açın.</span>
+  </form>
+  {% endif %}
   <table class="items training-items">
     <thead>
       <tr><th>Dosya</th><th>Beklenen tür</th><th>Sonuç türü</th><th>Yöntem</th><th>Durum</th><th>Not</th><th>Etiket</th></tr>
@@ -53,6 +61,14 @@
           {% if item.label_text %}<span class="badge{% if not item.manual_check %} badge-neutral{% endif %}">{{ item.label_text }}</span>{% endif %}
           {% if item.manual_check %}{% include "_manual_check.html" %}{% endif %}
           {% if not item.label_text %}—{% endif %}
+          {% if item.manual_check and item.example_id %}
+          <label class="hint"><input type="checkbox" name="example_ids" value="{{ item.example_id }}" form="verify-results"> seç</label>
+          <form class="inline-form" method="post" action="/training/examples/verify">
+            <input type="hidden" name="example_ids" value="{{ item.example_id }}">
+            <input type="hidden" name="next" value="{{ results.current_url }}#item-{{ item.id }}">
+            <button type="submit">Doğrula</button>
+          </form>
+          {% endif %}
           {% if item.placeable %}
           <form class="place-form" method="post" action="/training/items/{{ item.id }}/place">
             <label class="hint" for="place-{{ item.id }}">Tür</label>

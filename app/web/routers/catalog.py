@@ -160,6 +160,7 @@ from app.catalog.describe import (
     TypeNotAnalyzedError,
     accepted_photos,
     describe_type,
+    unverified_ai_examples,
 )
 from app.catalog.prefill import (
     SuggestedForm,
@@ -180,6 +181,8 @@ from app.db.models import (
     CandidateDocumentType,
     CandidateProposalStatus,
     CandidateTypeStatus,
+    ExampleFileRecord,
+    ExampleLabel,
     KnownDocumentType,
     Plan,
     QueueItem,
@@ -217,6 +220,7 @@ from app.web.confirm import (
 )
 from app.web.routers.documents import _reference
 from app.web.routers.queue import QueueState, _payload_refs, _state_filter
+from app.web.routers.training import LABEL_TEXTS, MANUAL_CHECK_TEXT
 from app.web.routers.upload_page import (
     BUSY_MESSAGE,
     FINAL_STATUSES,
@@ -446,22 +450,49 @@ def _size_label(size: int) -> str:
     return f"{max(1, round(size / 1024))} KB"
 
 
+def _example_labels(session: Session, slug: str) -> dict[str, str]:
+    """Türün etkin örnek kayıtlarının etiketleri (ad → etiket; eğitim modu, 11.9). Okuma SQLite'ta
+    yazma kilidini tutar: işlem hemen bırakılır (çağıranın bekleyen yazması olmamalı)."""
+    try:
+        rows = session.execute(
+            select(ExampleFileRecord.name, ExampleFileRecord.label).where(
+                ExampleFileRecord.type_slug == slug,
+                ExampleFileRecord.label.is_not(None),
+                ExampleFileRecord.removed_at.is_(None),
+            )
+        ).tuples()
+        return {name: label for name, label in rows if label is not None}
+    finally:
+        session.rollback()
+
+
 def _examples_context(
+    session: Session,
     layout: DataLayout,
     slug: str,
     *,
     stored: list[StoredExample] | None = None,
     errors: list[str] | None = None,
 ) -> dict[str, Any]:
-    """Düzenleme sayfasındaki örnek belge bölümünün bağlamı: türün örnekleri (dosya sistemi,
-    veritabanı değil), bu yüklemenin sonucu ve hataları."""
+    """Düzenleme sayfasındaki örnek belge bölümünün bağlamı: türün örnekleri (dosya sistemi), bu
+    yüklemenin sonucu ve hataları. Eğitim modunun kaydı olan örnek etiketini taşır; "AI kararı"
+    etiketli örnek elle kontrol ikonuyla görünür (11.9.4) ve eğitim sekmesindeki tür sayfasına
+    bağlanır (doğrula, taşı, çıkar orada)."""
+    labels = _example_labels(session, slug)
     return {
         "examples": [
-            {"name": item.name, "size_label": _size_label(item.size)}
+            {
+                "name": item.name,
+                "size_label": _size_label(item.size),
+                "label_text": LABEL_TEXTS.get(labels.get(item.name, "")),
+                "manual_check": labels.get(item.name) == ExampleLabel.AI_DECISION,
+            }
             for item in list_examples(layout, slug)
         ],
         "example_stored": stored or [],
         "example_errors": errors or [],
+        "manual_check_text": MANUAL_CHECK_TEXT,
+        "training_type_url": f"/training/known/{quote(slug)}",
     }
 
 
@@ -654,7 +685,7 @@ def type_page(
         TypeForm.from_record(record),
         slug=slug,
         current_problems=record_problems(record),
-        examples=_examples_context(layout, slug),
+        examples=_examples_context(session, layout, slug),
         photo=_photo_context(session, slug, record["photo_rules"]),
         notice_text=TYPE_PAGE_NOTICES.get(notice or ""),
     )
@@ -685,7 +716,7 @@ def update_type_endpoint(
             slug=slug,
             problems=exc.problems,
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            examples=_examples_context(layout, slug),
+            examples=_examples_context(session, layout, slug),
             photo=_photo_context(session, slug, record["photo_rules"]),
         )
     try:
@@ -747,7 +778,7 @@ def save_photo_rules(
             slug=slug,
             current_problems=record_problems(record),
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            examples=_examples_context(layout, slug),
+            examples=_examples_context(session, layout, slug),
             photo=_photo_context(
                 session, slug, record["photo_rules"], form=submitted, problems=exc.problems
             ),
@@ -813,7 +844,7 @@ async def upload_examples(
             status_code=(
                 status.HTTP_422_UNPROCESSABLE_CONTENT if chosen else status.HTTP_400_BAD_REQUEST
             ),
-            examples=_examples_context(layout, slug, errors=errors),
+            examples=_examples_context(session, layout, slug, errors=errors),
             photo=_photo_context(session, slug, record["photo_rules"]),
         )
     stored = [store_example(layout, slug, name, content, kind) for name, content, kind in checked]
@@ -823,7 +854,7 @@ async def upload_examples(
         TypeForm.from_record(record),
         slug=slug,
         current_problems=record_problems(record),
-        examples=_examples_context(layout, slug, stored=stored),
+        examples=_examples_context(session, layout, slug, stored=stored),
         photo=_photo_context(session, slug, record["photo_rules"]),
     )
 
@@ -875,6 +906,11 @@ def generate_description(
     form = replace(form, slug=slug)
     record = _known_type(session, slug)
     photos = _accepted_photos(session, slug, record["photo_rules"])
+    # 11.9.4: doğrulanmamış "AI kararı" örneği açıklama üretimine girmez.
+    try:
+        exclude = unverified_ai_examples(session, slug)
+    finally:
+        session.rollback()
 
     def page(
         status_code: int,
@@ -892,7 +928,7 @@ def generate_description(
             problems=problems,
             current_problems=record_problems(record),
             status_code=status_code,
-            examples=_examples_context(layout, slug),
+            examples=_examples_context(session, layout, slug),
             photo=_photo_context(session, slug, record["photo_rules"], accepted=photos),
             generated=generated,
             description_error=error,
@@ -912,7 +948,7 @@ def generate_description(
             error=DESCRIPTION_PROVIDER_UNAVAILABLE.format(detail=provider),
         )
     try:
-        generated = describe_type(entry, layout, settings, provider, photos=photos)
+        generated = describe_type(entry, layout, settings, provider, photos=photos, exclude=exclude)
     except TypeNotAnalyzedError:
         return page(status.HTTP_422_UNPROCESSABLE_CONTENT, error=DESCRIPTION_NOT_ANALYZED)
     except NoExamplePagesError as exc:

@@ -52,6 +52,7 @@
     {% for document_id in generated.photos %}<a href="/documents/{{ document_id }}/history">belge {{ document_id }}</a>{% if not loop.last %}, {% endif %}{% endfor %}.
     {% endif %}
     {% if generated.photos_omitted %}Sınır yüzünden {{ generated.photos_omitted }} kabul edilen fotoğraf gönderilmedi.{% endif %}
+    {% if generated.excluded %}{{ generated.excluded }} "AI kararı" örneği İK doğrulamadığı için açıklama üretimine girmedi.{% endif %}
   </p>
   {% if generated.skipped %}
   <div class="notice" role="note">

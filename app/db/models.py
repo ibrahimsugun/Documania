@@ -25,6 +25,7 @@ from sqlalchemy import (
     DateTime,
     Dialect,
     ForeignKey,
+    Index,
     Integer,
     MetaData,
     String,
@@ -33,6 +34,7 @@ from sqlalchemy import (
     cast,
     func,
     select,
+    text,
     update,
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, relationship
@@ -647,11 +649,24 @@ class ExampleFileRecord(Base):
     türler arası tekrar tespitinin dizinidir (`app.storage.examples.store_example` yalnız aynı
     klasöre bakar). Kaydı olmayan örnek (eğitimden önce konmuş ya da tür sayfasından el ile
     yüklenmiş, 11.2.1) etiketsizdir. Satır silinmez.
+
+    **Örneklerden çıkarılan (11.9.4):** dosya `KnownDocuments/_egitim/cikarilan/<type_slug>/`'a
+    taşınır (silinmez); kayıt kalır ve `removed_at`, `removed_by`, `removed_path` (veri köküne
+    göreli arşiv yolu) dolar. Çıkarılan kayıt örnek sayılmaz: tekrar tespiti, sayımlar ve açıklama
+    üretimi onu görmez. `(type_slug, name)` yalnız etkin (çıkarılmamış) kayıtlarda tekildir —
+    çıkarılan örneğin adı klasörde yeniden kullanılabilir.
     """
 
     __tablename__ = "example_files"
     __table_args__ = (
-        UniqueConstraint("type_slug", "name"),
+        Index(
+            "uq_example_files_active_name",
+            "type_slug",
+            "name",
+            unique=True,
+            sqlite_where=text("removed_at IS NULL"),
+            postgresql_where=text("removed_at IS NULL"),
+        ),
         CheckConstraint(_one_of("method", ExampleMethod), name="method"),
         CheckConstraint(_one_of("label", ExampleLabel), name="label"),
     )
@@ -665,6 +680,9 @@ class ExampleFileRecord(Base):
     note: Mapped[str | None] = mapped_column(Text)
     training_item_id: Mapped[int | None] = mapped_column(ForeignKey("training_items.id"))
     created_at: Mapped[datetime] = mapped_column(UtcDateTime, default=utcnow)
+    removed_at: Mapped[datetime | None] = mapped_column(UtcDateTime)
+    removed_by: Mapped[str | None] = mapped_column(String(255))
+    removed_path: Mapped[str | None] = mapped_column(String(512))
 
     training_item: Mapped[TrainingItem | None] = relationship()
 

@@ -407,7 +407,7 @@ def recognize(
     # (2) SHA-256: örnek kaydı dizini ve envanter.
     recorded = session.scalars(
         select(ExampleFileRecord.type_slug)
-        .where(ExampleFileRecord.sha256 == item.sha256)
+        .where(ExampleFileRecord.sha256 == item.sha256, ExampleFileRecord.removed_at.is_(None))
         .distinct()
     )
     indexed = sorted(slug for slug in recorded if slug in known)

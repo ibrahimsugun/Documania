@@ -18,6 +18,8 @@ Eğitim modu yalnız bilinen belgelerin (`app.training.known_types`) örneklerin
   `conflict` ("başka türde örnek: <slug>"); iki durumda da dosya yazılmaz. Kaynak dosya zaten o
   türün örnek klasöründeyse kopyalanmaz, yerinde kaydedilir. Klasörde kayıtsız duran aynı içerik
   (eğitimden önce konmuş ya da el ile yüklenmiş) `legacy` olarak kaydedilir ve öğe `skipped` olur.
+  Örneklerden çıkarılmış kayıt (11.9.4, `app.training.decisions`) tekrar sayılmaz: çıkarılan içerik
+  yeniden yerleşebilir.
 - **Yerleşmeyen öğe (`leave_unplaced`).** Tanıma bir türe inmediyse (`unplaced`, "Yerleştirilemedi")
   ya da ipucuyla çelişen bir türe indiyse (`conflict`) öğe İK'nın "Türe yerleştir"ini bekler; dosya
   yazılmaz (yapay zekâ yolu, 11.9.3).
@@ -220,7 +222,7 @@ def place_example(
 
     recorded = session.scalars(
         select(ExampleFileRecord)
-        .where(ExampleFileRecord.sha256 == sha256)
+        .where(ExampleFileRecord.sha256 == sha256, ExampleFileRecord.removed_at.is_(None))
         .order_by(ExampleFileRecord.id)
     ).all()
     same_type = [record for record in recorded if record.type_slug == slug]
@@ -396,7 +398,9 @@ def _record_legacy(session: Session, slug: str, name: str, sha256: str) -> Examp
     """Klasörde kayıtsız duran örneğin kaydı (etiketsiz); aynı ad kayıtlıysa o kayıt."""
     existing = session.scalar(
         select(ExampleFileRecord).where(
-            ExampleFileRecord.type_slug == slug, ExampleFileRecord.name == name
+            ExampleFileRecord.type_slug == slug,
+            ExampleFileRecord.name == name,
+            ExampleFileRecord.removed_at.is_(None),
         )
     )
     if existing is not None:

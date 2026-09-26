@@ -29,7 +29,7 @@ def session(engine: Engine) -> Iterator[Session]:
 def test_all_prd_event_types_are_present() -> None:
     """PRD §8.3'teki olay türleri sabit listede olmalı, fazlası/eksiği olmamalı. PRD'nin
     eğitim modu olayları (`TRAINING_*`, 11.9) kendi görevleriyle eklenir: yerleştirme olayları
-    tm 115'le geldi; etiket, taşıma, çıkarma ve harita olayları tm 119–120'yle gelir."""
+    tm 115'le, etiket, taşıma ve çıkarma olayları tm 119'la geldi; harita olayı tm 120'yle gelir."""
     expected = {
         "FILE_UPLOADED",
         "FILE_DUPLICATE",
@@ -75,6 +75,9 @@ def test_all_prd_event_types_are_present() -> None:
         "CANDIDATE_TYPE_EXAMINED",
         "TRAINING_EXAMPLE_PLACED",
         "TRAINING_ITEM_UNPLACED",
+        "TRAINING_LABEL_VERIFIED",
+        "TRAINING_EXAMPLE_MOVED",
+        "TRAINING_EXAMPLE_REMOVED",
     }
     assert {member.value for member in EventType} == expected
 

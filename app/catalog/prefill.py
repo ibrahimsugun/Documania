@@ -267,6 +267,7 @@ def unverified_example_count(session: Session, slug: str) -> int:
         .where(
             ExampleFileRecord.type_slug == slug,
             ExampleFileRecord.label == ExampleLabel.AI_DECISION.value,
+            ExampleFileRecord.removed_at.is_(None),
         )
     )
     return count or 0

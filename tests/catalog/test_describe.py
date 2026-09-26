@@ -14,6 +14,7 @@ from typing import Any
 
 import pytest
 from PIL import Image
+from sqlalchemy.orm import Session, sessionmaker
 
 from app.ai import (
     AnalysisProvider,
@@ -27,6 +28,7 @@ from app.ai.prompts import load_type_description_instructions
 from app.ai.recording_provider import RecordingProvider
 from app.catalog import CatalogEntry, compile_catalog, validate_catalog
 from app.catalog.describe import (
+    EXCLUDED_MESSAGE,
     MAX_DESCRIPTION_PAGES,
     ExamplePage,
     NoExamplePagesError,
@@ -35,8 +37,10 @@ from app.catalog.describe import (
     collect_example_pages,
     describe_type,
     format_description,
+    unverified_ai_examples,
 )
 from app.config import Settings
+from app.db.models import ExampleFileRecord, ExampleLabel, ExampleMethod, utcnow
 from app.storage import DataLayout, FileKind, detect_file_kind, prepare_data_dir, sha256_file
 from tests.ai.payloads import description_payload
 from tests.catalog.conftest import RecordFactory
@@ -471,3 +475,81 @@ def test_recorded_fixture_is_a_valid_description() -> None:
     payload = json.loads((RECORDING / "0.json").read_text("utf-8"))
 
     assert validate_type_description(payload).mrz is not None
+
+
+# --- doğrulanmamış "AI kararı" örneği dışlanır (11.9.4) -------------------------------------------
+
+
+def _record(
+    session: Session,
+    name: str,
+    label: ExampleLabel | None,
+    *,
+    slug: str = SLUG,
+    removed: bool = False,
+) -> None:
+    session.add(
+        ExampleFileRecord(
+            type_slug=slug,
+            name=name,
+            sha256=name.ljust(64, "0")[:64],
+            method=ExampleMethod.AI.value if label else ExampleMethod.MECHANICAL.value,
+            label=label.value if label else None,
+            removed_at=utcnow() if removed else None,
+        )
+    )
+
+
+def test_only_active_unverified_ai_decisions_are_on_the_exclusion_list(
+    session_factory: sessionmaker[Session],
+) -> None:
+    with session_factory() as session:
+        _record(session, "ai.png", ExampleLabel.AI_DECISION)
+        _record(session, "dogru.png", ExampleLabel.VERIFIED)
+        _record(session, "mekanik.png", None)
+        _record(session, "cikarilan.png", ExampleLabel.AI_DECISION, removed=True)
+        _record(session, "baska.png", ExampleLabel.AI_DECISION, slug="other_card")
+        session.commit()
+
+        assert unverified_ai_examples(session, SLUG) == frozenset({"ai.png"})
+        assert unverified_ai_examples(session, "other_card") == frozenset({"baska.png"})
+
+
+def test_excluded_examples_are_not_collected_and_are_counted(
+    layout: DataLayout, settings: Settings
+) -> None:
+    _place(layout, "a-ai.png", make_half_filled_image_bytes("PNG"))
+    _place(layout, "b-dogru.pdf", make_pdf_bytes(2))
+
+    collected = collect_example_pages(layout, settings, SLUG, exclude={"a-ai.png", "yok.png"})
+
+    assert collected.pages == (ExamplePage("b-dogru.pdf", 1), ExamplePage("b-dogru.pdf", 2))
+    assert (collected.excluded, collected.omitted, collected.skipped) == (1, 0, ())
+
+
+def test_the_description_does_not_learn_from_an_unverified_ai_decision(
+    layout: DataLayout, settings: Settings, entry: CatalogEntry
+) -> None:
+    _place(layout, "ai.png", make_half_filled_image_bytes("PNG"))
+    _place(layout, "dogru.png", make_half_filled_image_bytes("PNG", (240, 120)))
+    provider = DescribingProvider(description_payload())
+
+    generated = describe_type(entry, layout, settings, provider, exclude={"ai.png"})
+
+    assert generated.pages == (ExamplePage("dogru.png", 1),)
+    assert generated.excluded == 1
+    (request,) = provider.descriptions
+    assert len(request.images) == 1
+
+
+def test_when_every_example_is_excluded_nothing_is_requested_and_the_reason_is_given(
+    layout: DataLayout, settings: Settings, entry: CatalogEntry
+) -> None:
+    _place(layout, "ai.png", make_half_filled_image_bytes("PNG"))
+    provider = DescribingProvider(description_payload())
+
+    with pytest.raises(NoExamplePagesError) as raised:
+        describe_type(entry, layout, settings, provider, exclude={"ai.png"})
+
+    assert raised.value.skipped == (EXCLUDED_MESSAGE.format(count=1),)
+    assert provider.descriptions == []

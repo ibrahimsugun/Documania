@@ -386,6 +386,17 @@ REVIEWED_MUTATING_ROUTES: dict[tuple[str, str], str] = {
     ("POST", "/training/items/{item_id}/place"): (
         "eğitim öğesini türe yerleştirme: örneğe kopya ve kayıt (11.9.1, K11)"
     ),
+    ("POST", "/training/examples/verify"): "etiket kararı: AI kararı → doğrulandı (11.9.4)",
+    ("POST", "/training/examples/{example_id}/move/confirm"): "birinci onay metni (11.9.4)",
+    ("POST", "/training/examples/{example_id}/move/prepare"): "onay belirteci",
+    ("POST", "/training/examples/{example_id}/move"): (
+        "eğitim örneğini başka türün klasörüne taşıma (11.9.4, K11)"
+    ),
+    ("POST", "/training/examples/{example_id}/remove/confirm"): "birinci onay metni (11.9.4)",
+    ("POST", "/training/examples/{example_id}/remove/prepare"): "onay belirteci",
+    ("POST", "/training/examples/{example_id}/remove"): (
+        "eğitim örneğini arşive taşıma; silinmez (11.9.4, R11)"
+    ),
 }
 
 # "assign" içindeki "sign" düzenleme sayılmasın: sözcük başı ve sonu harf olmayan sınırdır.

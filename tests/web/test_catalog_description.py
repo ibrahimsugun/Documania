@@ -32,7 +32,15 @@ from app.ai.recording_provider import RecordingProvider
 from app.catalog import export_catalog, load_record
 from app.catalog.describe import MAX_DESCRIPTION_PAGES, format_description
 from app.config import Settings
-from app.db.models import Document, Event, KnownDocumentType, Upload, UploadFile
+from app.db.models import (
+    Document,
+    Event,
+    ExampleFileRecord,
+    ExampleLabel,
+    KnownDocumentType,
+    Upload,
+    UploadFile,
+)
 from app.storage import DataLayout, sha256_file
 from app.web.routers.catalog import get_description_provider
 from tests.ai.payloads import description_payload
@@ -337,6 +345,58 @@ def test_page_limit_is_reported(app: FastAPI, client: TestClient) -> None:
     assert response.status_code == 200
     assert len(provider.descriptions[0].images) == MAX_DESCRIPTION_PAGES
     assert f"Sınır ({MAX_DESCRIPTION_PAGES} sayfa) yüzünden 1 sayfa gönderilmedi." in response.text
+
+
+def _label(session_factory: sessionmaker[Session], name: str, label: ExampleLabel) -> None:
+    """Örneğe eğitim modunun kaydını ve etiketini verir (11.9)."""
+    with session_factory() as session:
+        session.add(
+            ExampleFileRecord(
+                type_slug=SLUG,
+                name=name,
+                sha256="0" * 63 + str(len(name) % 10),
+                method="ai",
+                label=label.value,
+            )
+        )
+        session.commit()
+
+
+def test_unverified_ai_decision_examples_are_left_out_and_counted(
+    app: FastAPI, client: TestClient, session_factory: sessionmaker[Session]
+) -> None:
+    """11.9.4: doğrulanmamış "AI kararı" örneği açıklama üretimine girmez; dışlanan sayı sonuçta
+    yazar. Doğrulanmış örnek girer."""
+    _upload_examples(
+        client, ("sablon.pdf", make_pdf_bytes(1)), ("foto.png", make_half_filled_image_bytes("PNG"))
+    )
+    _label(session_factory, "foto.png", ExampleLabel.AI_DECISION)
+    _label(session_factory, "sablon.pdf", ExampleLabel.VERIFIED)
+    provider = _use(app, description_payload())
+
+    response = client.post(DESCRIBE_URL, data=_form())
+
+    assert response.status_code == 200, response.text
+    assert len(provider.descriptions[0].images) == 1
+    assert "<code>sablon.pdf</code> (s. 1)." in response.text
+    assert "<code>foto.png</code>" not in response.text
+    assert '1 "AI kararı" örneği İK doğrulamadığı için açıklama üretimine girmedi.' in (
+        response.text
+    )
+
+
+def test_only_unverified_ai_decisions_leave_nothing_to_describe(
+    app: FastAPI, client: TestClient, session_factory: sessionmaker[Session]
+) -> None:
+    _upload_examples(client, ("foto.png", make_half_filled_image_bytes("PNG")))
+    _label(session_factory, "foto.png", ExampleLabel.AI_DECISION)
+    provider = _use(app, description_payload())
+
+    response = client.post(DESCRIBE_URL, data=_form())
+
+    assert response.status_code == 422
+    assert "İK doğrulamadığı için açıklama üretimine girmedi" in response.text
+    assert provider.descriptions == []
 
 
 def test_not_analyzed_type_in_the_form_is_refused(app: FastAPI, client: TestClient) -> None:

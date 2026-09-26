@@ -21,6 +21,11 @@ işidir; bu modül yalnız aynı klasöre bakar.
 - **Tekrar:** dizinde aynı SHA-256'lı örnek varsa yeni dosya yazılmaz, var olan bildirilir.
 - **İçerik değişmez** (K11, K17): baytlar olduğu gibi yazılır; yeniden kodlama, kırpma yok. Silme
   yok (K16'nın ruhu).
+- **Taşıma (11.9.4, PLAN.md §D58).** İK'nın etiket kararı örneği başka türün klasörüne
+  (`relocate_example`) ya da eğitim arşivine (`archive_example`, `_egitim/cikarilan/<tur_slug>/`)
+  taşır: içerik hedefe atomik yazılır (`write_unique`; ad doluysa `-2`, `-3`), SHA-256'sı
+  kaydınkiyle tutmazsa hiçbir şey yayınlanmaz (`ContentMismatchError`); yayından sonra kaynak ad
+  kaldırılır — kopya bırakılmaz, içerik yeni yerinde bayt bayt aynıdır (K11: yalnız taşıma).
 
 Dizin, bu modülden önce elle yerleştirilmiş dosyaları da içerebilir; liste yalnız izinli uzantılı
 düz dosyaları gösterir.
@@ -37,7 +42,14 @@ from PIL import Image
 from pypdf import PdfReader
 from pypdf.errors import PdfReadError
 
-from app.storage.atomic import is_partial_write, sha256_bytes, sha256_file, write_unique
+from app.storage.atomic import (
+    StoredFile,
+    is_partial_write,
+    iter_file_chunks,
+    sha256_bytes,
+    sha256_file,
+    write_unique,
+)
 from app.storage.filetype import FileKind, UnsupportedFileTypeError, detect_file_kind
 from app.storage.layout import DataLayout
 from app.storage.slug import SlugError, slugify
@@ -102,9 +114,9 @@ def store_example(
     döndüğüdür. Aynı içerik dizinde varsa yazmaz."""
     directory = layout.type_examples_dir(type_slug)
     sha256 = sha256_bytes(content)
-    for existing in list_examples(layout, type_slug):
-        if sha256_file(directory / existing.name) == sha256:
-            return StoredExample(existing.name, existing.size, sha256, duplicate=True)
+    existing = find_example(layout, type_slug, sha256)
+    if existing is not None:
+        return StoredExample(existing.name, existing.size, sha256, duplicate=True)
     name = f"{_stem(original_name)}.{EXAMPLE_EXTENSIONS[kind]}"
     stored = write_unique(directory, name, content, expected_sha256=sha256)
     return StoredExample(stored.path.name, stored.size, sha256, duplicate=False)
@@ -131,6 +143,45 @@ def example_path(layout: DataLayout, type_slug: str, name: str) -> Path | None:
     if any(example.name == name for example in list_examples(layout, type_slug)):
         return layout.type_examples_dir(type_slug) / name
     return None
+
+
+def find_example(layout: DataLayout, type_slug: str, sha256: str) -> ExampleFile | None:
+    """Türün klasöründe aynı içerikli (SHA-256) örnek; yoksa `None`."""
+    directory = layout.type_examples_dir(type_slug)
+    for example in list_examples(layout, type_slug):
+        if sha256_file(directory / example.name) == sha256:
+            return example
+    return None
+
+
+def relocate_example(
+    layout: DataLayout, type_slug: str, name: str, to_slug: str, *, expected_sha256: str
+) -> StoredFile:
+    """Listelenen örneği `to_slug` türünün klasörüne taşır (11.9.4); ad doluysa `-2` eki alır.
+    `name` listede yoksa `FileNotFoundError`, içerik `expected_sha256` ile tutmazsa
+    `ContentMismatchError` — ikisinde de hiçbir şey taşınmaz."""
+    return _move(layout, type_slug, name, layout.type_examples_dir(to_slug), expected_sha256)
+
+
+def archive_example(
+    layout: DataLayout, type_slug: str, name: str, *, expected_sha256: str
+) -> StoredFile:
+    """Listelenen örneği eğitim arşivine (`_egitim/cikarilan/<tur_slug>/`) taşır; silinmez
+    (11.9.4, §D58 d). Hatalar `relocate_example`'daki gibidir."""
+    return _move(layout, type_slug, name, layout.training_removed_dir(type_slug), expected_sha256)
+
+
+def _move(
+    layout: DataLayout, type_slug: str, name: str, directory: Path, expected_sha256: str
+) -> StoredFile:
+    source = example_path(layout, type_slug, name)
+    if source is None:
+        raise FileNotFoundError(f"Örnek bulunamadı: {type_slug}/{name}")
+    stored = write_unique(
+        directory, source.name, iter_file_chunks(source), expected_sha256=expected_sha256
+    )
+    source.unlink()
+    return stored
 
 
 def _is_example_file(entry: os.DirEntry[str]) -> bool:

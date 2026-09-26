@@ -34,7 +34,7 @@ def _assert_schema_matches_models(database_url: str) -> None:
             assert tables == set(Base.metadata.tables) | {"alembic_version"}
             context = MigrationContext.configure(connection, opts={"compare_type": True})
             assert compare_metadata(context, Base.metadata) == []
-            assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "0012"
+            assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "0013"
     finally:
         engine.dispose()
 
@@ -640,6 +640,53 @@ def test_training_item_idle_claim_migration_adds_columns_and_is_reversible(
             names = {column["name"] for column in inspect(connection).get_columns("training_items")}
             assert columns.isdisjoint(names)
             assert connection.scalar(text("SELECT status FROM training_items")) == "ai_pending"
+    finally:
+        engine.dispose()
+
+
+def test_example_file_removal_migration_narrows_the_unique_name_and_is_reversible(
+    sqlite_url: str,
+) -> None:
+    # 0013 (11.9.4): var olan örnek kaydı etkin kalır (çıkarılma alanları boş); `(type_slug, name)`
+    # yalnız etkin kayıtlarda tekildir — çıkarılmış kaydın adı yeniden kullanılabilir. Geri alış
+    # üç sütunu düşürür ve tam tekilliği geri getirir; kayıt kalır.
+    config = _alembic_config(sqlite_url)
+    command.upgrade(config, "0012")
+    engine = create_engine(sqlite_url)
+    insert = text(
+        "INSERT INTO example_files (id, type_slug, name, sha256, method, created_at) "
+        "VALUES (:id, 'albanian_passport', 'ornek.png', :sha, 'ai', '2026-09-26 00:00:00')"
+    )
+    try:
+        with engine.begin() as connection:
+            connection.execute(insert, {"id": 1, "sha": "a" * 64})
+
+        command.upgrade(config, "head")
+        with engine.connect() as connection:
+            row = connection.execute(
+                text("SELECT name, removed_at, removed_by, removed_path FROM example_files")
+            ).one()
+            assert tuple(row) == ("ornek.png", None, None, None)
+        with pytest.raises(IntegrityError), engine.begin() as connection:
+            connection.execute(insert, {"id": 2, "sha": "b" * 64})
+        with engine.begin() as connection:
+            connection.execute(
+                text(
+                    "UPDATE example_files SET removed_at = '2026-09-26 01:00:00', "
+                    "removed_by = 'ik', removed_path = 'KnownDocuments/_egitim/cikarilan/x/o.png'"
+                )
+            )
+            connection.execute(insert, {"id": 2, "sha": "b" * 64})
+
+        with engine.begin() as connection:
+            connection.execute(text("DELETE FROM example_files WHERE id = 2"))
+        command.downgrade(config, "0012")
+        with engine.connect() as connection:
+            names = {column["name"] for column in inspect(connection).get_columns("example_files")}
+            assert {"removed_at", "removed_by", "removed_path"}.isdisjoint(names)
+            assert connection.scalar(text("SELECT name FROM example_files")) == "ornek.png"
+        with pytest.raises(IntegrityError), engine.begin() as connection:
+            connection.execute(insert, {"id": 3, "sha": "c" * 64})
     finally:
         engine.dispose()
 

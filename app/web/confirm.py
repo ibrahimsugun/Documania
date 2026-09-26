@@ -61,6 +61,10 @@ class Operation(enum.StrEnum):
     DISMISS = "dismiss"  # taramayı (partiyi) yoksay, 10.3.4
     # §20.6'nın dışında: yeniden analizin onayı (10.3.2, metinler PLAN.md §D23).
     REANALYZE = "reanalyze"
+    # §20.6'nın dışında (K16 dışı, PLAN.md §D58): eğitim örneğini başka türe taşı ve örneklerden
+    # çıkar (11.9.4); metinler `app.web.routers.training`'dedir.
+    TRAINING_MOVE = "training_move"
+    TRAINING_REMOVE = "training_remove"
 
 
 @dataclass(frozen=True, slots=True)

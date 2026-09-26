@@ -14,6 +14,10 @@ analiz talimatına metin olarak girer (11.4): her analizde örnek görüntü gö
 - **İstek:** sistem talimatı `app.ai.prompts.type_description`; kullanıcı metni türün katalog
   bilgileri (ad, ülke, yüz yapısı, beklenen sayfa, zorunlu alanlar) ve görüntülerin hangi örneğin
   hangi sayfası olduğu. Örneklerin dosya adı isteğe konmaz, sıra numarasıyla anılır.
+- **Doğrulanmamış yapay zekâ kararı girmez (11.9.4).** Eğitim modunun "AI kararı" (`ai_decision`)
+  etiketli, İK'nın henüz doğrulamadığı örnekleri isteğe konmaz: çağıran dışlanacak adları verir
+  (`exclude`; panel `unverified_ai_examples` ile bulur). Dışlanan örnek sayısı sonuçtadır
+  (`GeneratedDescription.excluded`); bütün örnekler dışlandıysa `NoExamplePagesError` bunu söyler.
 - **Yalnız analiz edilen tür** (`analyze: true`): öteki türün açıklaması analiz talimatına girmez
   (11.4.1), üretilmez (`TypeNotAnalyzedError`).
 - **Hiçbir şey kaydedilmez.** Sonuç öneridir: panel onu formun "Analizci için açıklama" alanına
@@ -44,7 +48,7 @@ fotoğraflar** kendiliğinden örnek işaretlenir (`accepted_photos`) ve açıkl
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
@@ -61,7 +65,7 @@ from app.ai.type_description import TypeDescription, TypeDescriptionError
 from app.catalog.photo_rules import PHOTO_RULE_TYPES, PhotoRuleSetting, enabled_photo_rules
 from app.catalog.schema import CatalogEntry, Sides
 from app.config import Settings
-from app.db.models import Document, DocumentStatus, Page
+from app.db.models import Document, DocumentStatus, ExampleFileRecord, ExampleLabel, Page
 from app.pipeline.render import RenderError, image_copy, render_pdf_images
 from app.storage import DataLayout, FileKind, UnsupportedFileTypeError, detect_file_kind
 from app.storage.examples import (
@@ -85,6 +89,7 @@ SCRIPT_LABELS = {
 _SENTENCE_ENDINGS = (".", "!", "?", "…")
 _PHOTO_FILE_KINDS = frozenset({FileKind.PDF, FileKind.JPEG, FileKind.PNG})
 _NOT_PHOTO_TYPE = "accepted_photo: fotoğraf türü olmayan belgede null olmalı"
+EXCLUDED_MESSAGE = '{count} "AI kararı" örneği İK doğrulamadığı için açıklama üretimine girmedi.'
 
 
 class TypeNotAnalyzedError(ValueError):
@@ -114,12 +119,14 @@ class ExamplePage:
 @dataclass(frozen=True, slots=True)
 class ExamplePages:
     """Toplanan örnek sayfalar ve görüntüleri (aynı sırada); `omitted` sınır yüzünden
-    gönderilmeyen sayfa sayısı, `skipped` açılamayan örneklerin mesajları."""
+    gönderilmeyen sayfa sayısı, `skipped` açılamayan örneklerin mesajları, `excluded` dışlama
+    listesi yüzünden alınmayan örnek sayısı (11.9.4)."""
 
     pages: tuple[ExamplePage, ...]
     images: tuple[PageImage, ...]
     omitted: int
     skipped: tuple[str, ...]
+    excluded: int = 0
 
 
 @dataclass(frozen=True, slots=True)
@@ -148,7 +155,7 @@ class GeneratedDescription:
     """Üretilen açıklama: yapılandırılmış hâli, `prompt_description` metni ve girdisi. `photos`
     isteğe giren kabul edilmiş fotoğrafların belge kimlikleri, `photos_omitted` sınır yüzünden
     gönderilmeyen fotoğraf sayısı (11.8.1); `skipped` açılamayan örnek ve fotoğrafların
-    mesajları."""
+    mesajları; `excluded` doğrulanmamış "AI kararı" olduğu için dışlanan örnek sayısı (11.9.4)."""
 
     description: TypeDescription
     text: str
@@ -157,6 +164,7 @@ class GeneratedDescription:
     skipped: tuple[str, ...]
     photos: tuple[int, ...] = ()
     photos_omitted: int = 0
+    excluded: int = 0
 
 
 # --- kabul edilen fotoğraflar (11.8.1) -------------------------------------------------------
@@ -266,6 +274,23 @@ def _stored_check(page: Page | None) -> PhotoCheck | None:
         return None
 
 
+# --- doğrulanmamış yapay zekâ kararı (11.9.4) ------------------------------------------------
+
+
+def unverified_ai_examples(session: Session, type_slug: str) -> frozenset[str]:
+    """Türün etkin (örneklerden çıkarılmamış), İK'nın doğrulamadığı "AI kararı" örneklerinin
+    adları: açıklama üretiminin dışlama listesi. Yalnız okur; oturum commit edilmez."""
+    return frozenset(
+        session.scalars(
+            select(ExampleFileRecord.name).where(
+                ExampleFileRecord.type_slug == type_slug,
+                ExampleFileRecord.label == ExampleLabel.AI_DECISION.value,
+                ExampleFileRecord.removed_at.is_(None),
+            )
+        )
+    )
+
+
 # --- isteğin görüntüleri ---------------------------------------------------------------------
 
 
@@ -275,14 +300,20 @@ def collect_example_pages(
     type_slug: str,
     *,
     max_pages: int = MAX_DESCRIPTION_PAGES,
+    exclude: Collection[str] = (),
 ) -> ExamplePages:
     """Türün örneklerinden en çok `max_pages` sayfanın analiz görüntüsünü toplar (ad sırasıyla,
-    sayfa sırasıyla). Örnek dosyası okunur, değiştirilmez; görüntüler bellektedir."""
+    sayfa sırasıyla). Adı `exclude`'da olan örnek alınmaz ve sayılır (11.9.4). Örnek dosyası
+    okunur, değiştirilmez; görüntüler bellektedir."""
     pages: list[ExamplePage] = []
     images: list[PageImage] = []
     omitted = 0
+    excluded = 0
     skipped: list[str] = []
     for example in list_examples(layout, type_slug):
+        if example.name in exclude:
+            excluded += 1
+            continue
         try:
             rendered, page_count = _render(
                 layout, settings, type_slug, example, max_pages - len(images)
@@ -299,7 +330,7 @@ def collect_example_pages(
             pages.append(ExamplePage(example.name, number))
             images.append(PageImage(data))
         omitted += page_count - len(rendered)
-    return ExamplePages(tuple(pages), tuple(images), omitted, tuple(skipped))
+    return ExamplePages(tuple(pages), tuple(images), omitted, tuple(skipped), excluded)
 
 
 def _render(
@@ -444,10 +475,12 @@ def describe_type(
     *,
     photos: Sequence[AcceptedPhoto] = (),
     max_pages: int = MAX_DESCRIPTION_PAGES,
+    exclude: Collection[str] = (),
 ) -> GeneratedDescription:
     """Türün örneklerinden — fotoğraf türünde ayrıca kabul edilen fotoğraflardan (`photos`,
     `accepted_photos`; 11.8.1) — yapılandırılmış açıklama ürettirir; hiçbir şey kaydetmez.
-    Fotoğraf türü olmayan türde `photos` yok sayılır.
+    Fotoğraf türü olmayan türde `photos` yok sayılır. Adı `exclude`'da olan örnek (doğrulanmamış
+    "AI kararı", `unverified_ai_examples`; 11.9.4) isteğe girmez.
 
     Sağlayıcı hataları (`ProviderError`) ve şemaya uymayan yanıt (`TypeDescriptionError`) olduğu
     gibi yükselir.
@@ -458,12 +491,16 @@ def describe_type(
     if not is_photo_type:
         photos = ()
     reserved = min(len(photos), max_pages // 2)
-    collected = collect_example_pages(layout, settings, entry.slug, max_pages=max_pages - reserved)
+    collected = collect_example_pages(
+        layout, settings, entry.slug, max_pages=max_pages - reserved, exclude=exclude
+    )
     taken = collect_photo_pages(
         layout, settings, photos, max_pages=max_pages - len(collected.images)
     )
     skipped = (*collected.skipped, *taken.skipped)
     if not collected.images and not taken.images:
+        if collected.excluded:
+            skipped = (*skipped, EXCLUDED_MESSAGE.format(count=collected.excluded))
         raise NoExamplePagesError(skipped)
     request = TypeDescriptionRequest(
         images=(*collected.images, *taken.images),
@@ -483,6 +520,7 @@ def describe_type(
         skipped=skipped,
         photos=taken.photos,
         photos_omitted=taken.omitted,
+        excluded=collected.excluded,
     )
 
 

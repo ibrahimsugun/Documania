@@ -5,9 +5,19 @@ Bilinen türler (katalog + hazır önerilen türler) `known_types`, çalıştır
 yerleştirme `placement`, yapay zekâsız tür tanıma (SHA-256, ipucunun yapı kuralları, PDF metin
 katmanında MRZ) `mechanical` modülündedir. Mekanik tanınmayan öğenin yapay zekâ incelemesi ve "AI
 kararı" etiketiyle yerleşmesi (11.9.3) `app.training.classification`'dadır; işçinin boş-zaman
-çerçevesine bağlı olduğu için paketten dışa aktarılmaz (içe aktarma döngüsü olmasın).
+çerçevesine bağlı olduğu için paketten dışa aktarılmaz (içe aktarma döngüsü olmasın). İK'nın
+etiket kararı (doğrula, başka türe taşı, örneklerden çıkar; 11.9.4) `decisions` modülündedir.
 """
 
+from app.training.decisions import (
+    ExampleDecisionError,
+    MovedExample,
+    check_move,
+    check_remove,
+    move_example,
+    remove_example,
+    verify_examples,
+)
 from app.training.known_types import (
     CATALOG_KINDS,
     KnownType,
@@ -64,12 +74,14 @@ __all__ = [
     "PENDING_STATUSES",
     "PLACEABLE_STATUSES",
     "SYSTEM_ACTOR",
+    "ExampleDecisionError",
     "ExampleInventory",
     "ItemNotPlaceableError",
     "KnownType",
     "KnownTypeSource",
     "KnownTypes",
     "MechanicalOutcome",
+    "MovedExample",
     "MrzEvidence",
     "MrzReading",
     "MrzSearchStatus",
@@ -80,6 +92,8 @@ __all__ = [
     "SuggestedTypesError",
     "UnknownTypeError",
     "build_known_types",
+    "check_move",
+    "check_remove",
     "create_run",
     "find_mrz_readings",
     "hint_label",
@@ -87,6 +101,7 @@ __all__ = [
     "load_example_inventory",
     "load_known_types",
     "load_suggested_types",
+    "move_example",
     "mrz_doc_kind",
     "normalize_type_name",
     "parse_example_inventory",
@@ -96,6 +111,8 @@ __all__ = [
     "recognize",
     "recognize_item",
     "refresh_run",
+    "remove_example",
     "stage_and_recognize",
     "stage_file",
+    "verify_examples",
 ]

@@ -369,3 +369,49 @@ def test_sizes_are_shown_in_kb_and_mb(client: TestClient, layout: DataLayout) ->
     assert "(1 KB)" in page
     assert "(300 KB)" in page
     assert "(2.5 MB)" in page
+
+
+# --- elle kontrol ikonu (11.9.4) ------------------------------------------------------------------
+
+
+def _list_item(page: str, name: str) -> str:
+    match = re.search(
+        rf'<li[^>]*>\s*<a href="[^"]*/examples/{re.escape(name)}".*?</li>', page, re.S
+    )
+    assert match is not None, name
+    return match.group(0)
+
+
+def test_an_ai_decision_example_shows_the_manual_check_icon_in_the_type_page_list(
+    client: TestClient, session_factory: sessionmaker[Session], layout: DataLayout
+) -> None:
+    """11.9.4: "AI kararı" etiketli örnek tür sayfasının örnek listesinde elle kontrol ikonuyla ve
+    eğitim sekmesine bağlantıyla görünür; doğrulanmış örnek ikonsuz, kaydı olmayan etiketsiz."""
+    _upload(
+        client,
+        ("ai.png", make_portrait_image_bytes("PNG", (200, 300))),
+        ("dogru.png", make_portrait_image_bytes("PNG", (210, 300))),
+        ("elle.pdf", make_pdf_bytes(1)),
+    )
+    with session_factory() as session:
+        for name, label in (("ai.png", "ai_decision"), ("dogru.png", "verified")):
+            content = (_example_dir(layout) / name).read_bytes()
+            session.add(
+                ExampleFileRecord(
+                    type_slug=SLUG,
+                    name=name,
+                    sha256=sha256_bytes(content),
+                    method="ai",
+                    label=label,
+                )
+            )
+        session.commit()
+
+    page = client.get(f"/document-types/{SLUG}").text
+
+    ai, verified, manual = (_list_item(page, name) for name in ("ai.png", "dogru.png", "elle.pdf"))
+    assert 'aria-label="Elle kontrol gerekli"' in ai and 'class="needs-check"' in ai
+    assert "AI kararı" in ai and f'href="/training/known/{SLUG}"' in ai
+    assert "Elle kontrol gerekli" not in verified and "Doğrulandı" in verified
+    assert "badge" not in manual and "Elle kontrol" not in manual
+    assert '1 örnek "AI kararı" etiketli ve elle kontrol bekliyor' in page
