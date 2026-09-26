@@ -1571,13 +1571,13 @@
         "description": "PRD 11.5.5, 11.9.3 (\"inceleme yükleme işlerini bekletmez\") · FR-MOD-11 · Faz 1 · Must (v1). Aday tür incelemesi (tm 113) ve eğitim modu yapay zekâ yolu (tm 117, 120) bu çerçeveyi kullanır. Sözleşme PLAN §C85 \"İşçi boş-zaman çerçevesi\".",
         "details": "KAPSAM: PRD 11.5.5 ve 11.9.3'ün \"inceleme yükleme işlerini bekletmez\" koşulu; 13.3.1 kalıcı işçi kuyruğu (tm 89) ve 13.5.2 APP-worker ayrımı (tm 109) üzerine. Tam sözleşme PLAN.md §C85 (İşçi boş-zaman çerçevesi paragrafı) — önce oku.\n\nNE YAPILACAK: (1) `IdleJob` protokolü (ör. app/worker/idle.py): `run_one(...) -> bool` tek birim iş yapar, yaptıysa True. (2) `create_worker` işleri `Worker`'a verir; doğrudan `Worker(...)` kurulumunda liste boştur (mevcut testler değişmez). (3) `Worker._loop`: `run_once()` False döndüğünde en çok bir boş-zaman birimi; yükleme işi her zaman önce; `run_once` sözleşmesi değişmez. Birimin istisnası döngüyü düşürmez, loga yalnız hata türü. (4) Birim yardımcıları: girdiyi oku ve oturumu kapat → sağlayıcıyı çağır (oturum açık tutulmaz) → koşullu sahiplenmeyle yaz; sahiplenme belirteci + süre, deneme sayacı, `WORKER_MAX_ATTEMPTS` sonrası kalıcı `failed`, süresi dolan sahiplenmenin geri alınması — tüketen tabloların ortak kullanabileceği biçimde (ör. mixin/yardımcı fonksiyonlar). (5) Maliyet: yeni yapay zekâ çağrılarının olay türleri `USAGE_EVENT_TYPES`'a (app/events.py) eklenebilecek biçimde `usage`/`usage_by_model` yazımı için ortak yardımcı; maliyet paneli (app/web/routers/metrics.py) bu türleri okur. (6) Sağlayıcı ayarsızsa boş-zaman işleri koşmaz.\n\nGİRDİ: app/worker/runner.py (`Worker`, `_loop`, `run_once`, `create_worker`), app/worker/queue.py (kira desenleri), app/db/session.py (SQLite `BEGIN IMMEDIATE`), app/events.py (`USAGE_EVENT_TYPES`, `USAGE_DATA_KEY`, `USAGE_BY_MODEL_DATA_KEY`), app/web/routers/metrics.py, app/ai/provider.py.\n\nÇIKTI: app/worker/ (yeni idle modülü, runner.py), app/events.py (gerekirse yardımcı), tests/worker/, PLAN.md, HANDOFF.md. Bu görev yeni tablo açmaz; sahiplenme alanları tüketen görevlerin göçündedir.\n\nBU GÖREVİ BAĞLAYAN KİLİTLİ KURALLAR: K9 (planlı parti yürütmesi yapay zekâ çağırmaz — boş-zaman işi plan dışıdır, partiye dokunmaz), K15, CONVENTIONS §6 (loga kişisel değer yok).\n\nPRD'DE AYRICA OKU: 13.3.1, 13.5.2, 13.1.1 (maliyet).\n\nİLGİLİ KABUL SENARYOLARI: yok (altyapı); tüketen görevlerde S20.\n\nKAPSAM SINIRI: aday incelemesi ve eğitim sınıflandırmasının kendisi bu görevde yok (tm 113, 117); yeni olay türü yok.\n\nTUZAKLAR: tests/worker/test_restart.py boş kuyrukta `run_once() is False` bekler — boş-zaman işini `run_once` içine koyma. RecordingProvider tek sıralı kayıt kullanır (app/ai/recording_provider.py) — boş-zaman testleri kendi sahte sağlayıcısını kurar. Bazı testler `Worker(provider=None)` kurar. Sağlayıcı çağrısı sırasında açık oturum SQLite yazma kilidini tutar ve yükleme işini bekletir.\n\nKAPANIŞ: Bu görev PRD satırını tek başına kapatmaz (11.5.5 tm 113, 11.9.3 tm 117 ile kapanır); PLAN §C85'e kısa uygulama notu, HANDOFF bloğu, commit mesajında `PRD 11.5.5, 11.9.3 — tm 111`.",
         "testStrategy": "1) Birim: iş varken boş-zaman birimi koşmaz; iş yokken en çok bir birim koşar; birim istisnası döngüyü düşürmez, logda yalnız hata türü. 2) Sahiplenme: iki işleyici aynı birimi alamaz (koşullu güncelleme); süresi dolan sahiplenme geri alınır; deneme sınırı sonrası `failed` ve bir daha denenmez. 3) Sağlayıcı çağrısı sırasında oturum kapalı (sahte sağlayıcı çağrı anında açık oturum olmadığını doğrular). 4) `Worker(...)` doğrudan kurulumu ve mevcut worker testleri değişmeden yeşil; `create_worker` işleri verir. 5) Maliyet yardımcısı: usage verisi metrics okumasına girer. 6) Tüm test takımı (`pytest -q -m \"not live\"`, kapsam ≥%70), ruff check/format, compileall, temiz SQLite'ta `alembic upgrade head`, `import app.main` yeşil (CONVENTIONS DoD). Testler yalnız sentetik belge ve sentetik adlarla (CONVENTIONS §6); canlı yapay zekâ çağrısı yok.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [
           "109"
         ],
         "priority": "high",
         "subtasks": [],
-        "updatedAt": "2026-09-26T00:00:00.000Z"
+        "updatedAt": "2026-09-26T01:44:16.041Z"
       },
       {
         "id": "112",
@@ -1709,9 +1709,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-09-26T01:24:50.837Z",
+      "lastModified": "2026-09-26T01:44:16.042Z",
       "taskCount": 118,
-      "completedCount": 105,
+      "completedCount": 106,
       "tags": [
         "master"
       ]

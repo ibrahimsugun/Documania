@@ -8,15 +8,18 @@ verilmedikçe, otomatik taşır.
 from __future__ import annotations
 
 import enum
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from sqlalchemy.orm import Session
 
 from app.db.models import Event
+
+if TYPE_CHECKING:
+    from app.ai.usage import TokenUsage, UsageMeter
 
 
 class EventType(enum.StrEnum):
@@ -88,7 +91,31 @@ USAGE_EVENT_TYPES: tuple[EventType, ...] = (
 )
 """Token kullanımı taşıyabilen olay türleri: başarılı ve başarısız sayfa analizi. Başarısız
 sayfa da token harcamış olabilir (şemaya uymayan yanıt, fotoğraf kontrolünde hata), bu yüzden
-maliyet görünümü ikisini de sayar."""
+maliyet görünümü ikisini de sayar. Yeni bir yapay zekâ çağrısının olayı (ör. işçinin boş-zaman işi,
+`app.worker.idle`) kullanımını `usage_event_data` ile yazar ve türü buraya eklenir."""
+
+
+def usage_event_data(
+    *,
+    provider: str,
+    model: str,
+    meter: UsageMeter,
+    by_model: Mapping[str, TokenUsage] | None = None,
+) -> dict[str, object]:
+    """Yapay zekâ çağrısı olayının sağlayıcı, model ve kullanım alanları (PRD 13.1.1).
+
+    `meter` çağrının ölçümüdür (`app.ai.usage.measure_usage`). Yanıt gelen çağrı yoksa `usage`
+    yazılmaz: sıfır token, ölçülmemiş çağrıyı ölçülmüş gösterirdi. `by_model` çağrı birden çok
+    modele harcattıysa dağılımdır (`USAGE_BY_MODEL_DATA_KEY`; toplamı `meter`'ınkine eşit olmalı).
+    """
+    data: dict[str, object] = {"provider": provider, "model": model}
+    if meter.calls:
+        data[USAGE_DATA_KEY] = meter.usage.to_event_data()
+        if by_model:
+            data[USAGE_BY_MODEL_DATA_KEY] = {
+                name: usage.to_event_data() for name, usage in by_model.items()
+            }
+    return data
 
 
 @dataclass(frozen=True, slots=True)

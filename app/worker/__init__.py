@@ -2,9 +2,19 @@
 
 HTTP uygulaması worker döngüsü başlatmaz. Partiler veritabanında kalır; süreç yeniden
 başlayınca süresi dolan kira ile yarım kalan iş kaldığı aşamadan sürdürülür. İzleme
-(PRD 13.6.1) `monitor` modülündedir.
+(PRD 13.6.1) `monitor` modülünde, kuyruk boşken koşan arka plan işlerinin çerçevesi (PLAN.md §C85)
+`idle` modülündedir.
 """
 
+from app.worker.idle import (
+    IdleClaim,
+    IdleClaimMixin,
+    IdleContext,
+    IdleJob,
+    IdleTable,
+    default_idle_jobs,
+    run_idle_unit,
+)
 from app.worker.monitor import (
     AlertKind,
     AlertThresholds,
@@ -43,6 +53,11 @@ __all__ = [
     "AlertTracker",
     "AlertWatch",
     "Claim",
+    "IdleClaim",
+    "IdleClaimMixin",
+    "IdleContext",
+    "IdleJob",
+    "IdleTable",
     "JobAbandonedError",
     "LeaseLostError",
     "Notice",
@@ -54,6 +69,7 @@ __all__ = [
     "claim_next",
     "claim_upload",
     "create_worker",
+    "default_idle_jobs",
     "enqueue_upload",
     "finish_claim",
     "lease_checkpoint",
@@ -62,5 +78,6 @@ __all__ = [
     "release_claim",
     "renew_claim",
     "run_claimed_upload",
+    "run_idle_unit",
     "start_worker",
 ]

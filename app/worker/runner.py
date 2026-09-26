@@ -21,6 +21,10 @@ kaldığı aşamadan sürdürür — kabul kriteri budur. Shutdown isteği yeni 
 aktif iş tamamlanır, sonra süreç kapanır. Sağlayıcı ayarı worker başlarken doğrulanır; hatalı ayarda
 worker süreci görünür hatayla kapanır, kuyruktaki işler kalır.
 
+**Boş-zaman işleri.** Kuyruk boşken (`run_once()` `False`) döngü en çok bir boş-zaman birimi koşar
+(`run_idle_once`, `app.worker.idle`, PLAN.md §C85); yükleme işi her zaman önce gelir. İşleri
+`create_worker` verir; doğrudan `Worker(...)` kurulumunda liste boştur, sağlayıcı yoksa koşmazlar.
+
 **İzleme.** Döngü her turdan sonra `AlertWatch`'i (`app.worker.monitor`, PRD 13.6.1) çağırır: hata,
 disk doluluğu ve kuyruk uzunluğu eşiği aşınca uyarı loga yazılır. Uzun bir iş süren turda ölçüm
 yapılmaz; Telegram'a uyarıyı botun bildiricisi kendi döngüsünde yollar.
@@ -33,6 +37,7 @@ from __future__ import annotations
 
 import logging
 import threading
+from collections.abc import Sequence
 
 from sqlalchemy import Engine
 from sqlalchemy.orm import Session, sessionmaker
@@ -49,6 +54,7 @@ from app.pipeline.orchestrate import (
     resume_upload,
 )
 from app.storage import DataLayout
+from app.worker.idle import IdleContext, IdleJob, default_idle_jobs
 from app.worker.monitor import AlertThresholds, AlertWatch
 from app.worker.queue import (
     Claim,
@@ -156,12 +162,15 @@ class Worker:
         settings: Settings,
         provider: AnalysisProvider,
         engine: Engine | None = None,
+        idle_jobs: Sequence[IdleJob] = (),
     ) -> None:
         self._session_factory = session_factory
         self._layout = layout
         self._settings = settings
         self._provider = provider
         self._engine = engine  # işleyicinin kendi motoru: durunca kapatılır
+        self._idle_jobs = tuple(idle_jobs)
+        self._idle_next = 0  # sıradaki boş-zaman işi: işler sırayla fırsat bulur
         self._watch = AlertWatch(
             session_factory, layout.root, AlertThresholds.from_settings(settings)
         )
@@ -188,6 +197,37 @@ class Worker:
             self._session_factory, self._layout, claim, settings=settings, provider=self._provider
         )
         return True
+
+    @property
+    def idle_jobs(self) -> tuple[IdleJob, ...]:
+        return self._idle_jobs
+
+    def run_idle_once(self) -> bool:
+        """En çok bir boş-zaman birimi koşar; bir birim yapıldıysa `True`.
+
+        İşler sırayla denenir, ilk birim yapan işte durulur; sonraki çağrı bir sonraki işten başlar.
+        Sağlayıcı yoksa, iş yoksa ya da durma istendiyse hiçbir şey yapmaz. Birimin istisnası
+        yükselmez: loga yalnız hata türü yazılır ve tur biter (`False`).
+        """
+        jobs = self._idle_jobs
+        if self._provider is None or not jobs:
+            return False
+        context = IdleContext(self._session_factory, self._layout, self._settings, self._provider)
+        for offset in range(len(jobs)):
+            if self._stopping.is_set():
+                return False
+            index = (self._idle_next + offset) % len(jobs)
+            job = jobs[index]
+            try:
+                worked = job.run_one(context)
+            except Exception as exc:
+                logger.error("Boş-zaman işi %s başarısız (%s)", job.name, type(exc).__name__)
+                self._idle_next = (index + 1) % len(jobs)
+                return False
+            if worked:
+                self._idle_next = (index + 1) % len(jobs)
+                return True
+        return False
 
     def start(self, *, paused: bool = False) -> None:
         """Döngüyü başlatır; `paused=True` ise `resume()` çağrısına dek kuyruk taranmaz."""
@@ -236,6 +276,10 @@ class Worker:
             except Exception as exc:
                 logger.error("İşçi kuyruğu taranamadı (%s)", type(exc).__name__)
                 worked = False
+            else:
+                # Kuyruk boş: yükleme işi yokken en çok bir boş-zaman birimi (modül açıklaması).
+                if not worked:
+                    worked = self.run_idle_once()
             self._watch_alerts()
             if not worked:
                 self._stopping.wait(self._settings.worker_poll_seconds)
@@ -247,12 +291,21 @@ class Worker:
             logger.error("İzleme ölçümü başarısız (%s)", type(exc).__name__)
 
 
-def create_worker(settings: Settings, layout: DataLayout) -> Worker:
-    """Kurur fakat başlatmaz; bağımsız CLI ya da embedded kullanımına worker verir."""
+def create_worker(
+    settings: Settings, layout: DataLayout, *, idle_jobs: Sequence[IdleJob] | None = None
+) -> Worker:
+    """Kurur fakat başlatmaz; bağımsız CLI ya da embedded kullanımına worker verir.
+
+    Boş-zaman işleri verilmezse `default_idle_jobs(settings)` kullanılır."""
     provider = create_provider(settings)
     engine = create_db_engine(settings.database_url)
     return Worker(
-        create_session_factory(engine), layout, settings=settings, provider=provider, engine=engine
+        create_session_factory(engine),
+        layout,
+        settings=settings,
+        provider=provider,
+        engine=engine,
+        idle_jobs=default_idle_jobs(settings) if idle_jobs is None else idle_jobs,
     )
 
 
