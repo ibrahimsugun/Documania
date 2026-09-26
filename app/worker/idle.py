@@ -1,10 +1,11 @@
-"""İşçinin boş-zaman işleri çerçevesi (PRD 11.5.5, 11.9.3; PLAN.md §C85).
+"""İşçinin boş-zaman işleri çerçevesi (PRD 11.5.5, 11.9.3, 11.9.5; PLAN.md §C85).
 
-Yükleme kuyruğu boşken işçi, yapay zekâ gerektiren arka plan işlerinden (aday tür incelemesi — tm
-113, eğitim modu sınıflandırması — tm 117, 120) **tek birim** yürütür. Kural "inceleme yükleme
-işlerini bekletmez"dir: `Worker._loop` önce kuyruğu tarar (`run_once`), yalnız `run_once()` `False`
-döndüğünde en çok bir boş-zaman birimi koşar ve sonra yeniden kuyruğa döner. `run_once`'ın
-sözleşmesi değişmez. Boş-zaman işi plan dışıdır: partiye ve planına dokunmaz (K9).
+Yükleme kuyruğu boşken işçi, arka plan işlerinden (aday tür incelemesi — tm 113, eğitim modu
+sınıflandırması — tm 117, harita ile toplu taramanın mekanik adımı — tm 120) **tek birim** yürütür.
+Kural "inceleme yükleme işlerini bekletmez"dir: `Worker._loop` önce kuyruğu tarar (`run_once`),
+yalnız `run_once()` `False` döndüğünde en çok bir boş-zaman birimi koşar ve sonra yeniden kuyruğa
+döner. `run_once`'ın sözleşmesi değişmez. Boş-zaman işi plan dışıdır: partiye ve planına dokunmaz
+(K9).
 
 **İş.** `IdleJob` tek birim iş yapar (`run_one`), yaptıysa `True` döner. İşleri `create_worker`
 verir (`default_idle_jobs`); doğrudan `Worker(...)` kurulumunda liste boştur. Sağlayıcı ayarsızsa
@@ -78,13 +79,16 @@ class IdleJob(Protocol):
 
 def default_idle_jobs(settings: Settings) -> tuple[IdleJob, ...]:
     """`create_worker`'ın işçiye verdiği boş-zaman işleri. Tüketen görevler işini buraya ekler:
-    aday tür incelemesi (11.5.5, `app.catalog.propose`) ve eğitim sınıflandırması (11.9.3,
-    `app.training.classification`). İşler sırayla fırsat bulur (`Worker.run_idle_once`)."""
+    aday tür incelemesi (11.5.5, `app.catalog.propose`), eğitim sınıflandırması (11.9.3,
+    `app.training.classification`) ve harita ile toplu taramanın mekanik adımı (11.9.5,
+    `app.training.map_scan`; sağlayıcı çağırmaz). İşler sırayla fırsat bulur
+    (`Worker.run_idle_once`)."""
     # İş modülleri bu modülü içe aktarır; paket başlatılırken döngü olmasın diye burada alınır.
     from app.catalog.propose import CandidateExaminationJob
     from app.training.classification import TrainingClassificationJob
+    from app.training.map_scan import TrainingMapJob
 
-    return (CandidateExaminationJob(), TrainingClassificationJob())
+    return (CandidateExaminationJob(), TrainingClassificationJob(), TrainingMapJob())
 
 
 @dataclass(frozen=True, slots=True)

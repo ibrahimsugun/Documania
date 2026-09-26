@@ -183,6 +183,10 @@ class DataLayout:
         name = f"{_segment(str(item_id), 'item_id')}.{_segment(extension, 'extension')}"
         return self.training_incoming_dir(run_id) / name
 
+    def training_map_path(self, run_id: int | str) -> Path:
+        """`_egitim/haritalar/<run>.csv` — toplu taramanın (11.9.5) yüklendiği haliyle haritası."""
+        return self.training_maps / f"{_segment(str(run_id), 'run_id')}.csv"
+
     def training_removed_dir(self, type_slug: str) -> Path:
         """`_egitim/cikarilan/<tur_slug>/` — örneklerden çıkarılanlar; silinmez (11.9.4)."""
         return self.training / TRAINING_REMOVED / _segment(type_slug, "type_slug")

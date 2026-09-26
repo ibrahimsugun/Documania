@@ -670,12 +670,13 @@ def test_an_item_left_unplaced_waits_for_hr_without_a_file(
     assert (run.status, run.counts_json) == ("done", {status.value: 1})
 
 
-def test_leaving_unplaced_accepts_only_unplaced_or_conflict(
+def test_leaving_unplaced_accepts_only_unplaced_conflict_or_review(
     session: Session, layout: DataLayout
 ) -> None:
+    # `review` harita satırının kararıdır (11.9.5, tm 120).
     item = _stage(session, layout, _run(session), "a.pdf", make_pdf_bytes(1))
 
-    with pytest.raises(ValueError, match="unplaced ya da conflict"):
+    with pytest.raises(ValueError, match="unplaced, conflict ya da review"):
         leave_unplaced(
             session, item, TrainingItemStatus.SKIPPED, note="n", method=TrainingMethod.AI
         )

@@ -93,6 +93,7 @@ def test_identity_paths(tmp_path: Path) -> None:
     assert layout.training_incoming_dir(7) == training / "gelen" / "7"
     assert layout.training_staged_path(7, 31, "pdf") == training / "gelen" / "7" / "31.pdf"
     assert layout.training_maps == training / "haritalar"
+    assert layout.training_map_path(7) == training / "haritalar" / "7.csv"
     assert layout.training_removed_dir("albanian_passport") == (
         training / "cikarilan" / "albanian_passport"
     )
@@ -140,6 +141,7 @@ def test_path_segments_cannot_escape_data_root(tmp_path: Path, segment: str) -> 
         layout.type_examples_dir,
         layout.page_cache_dir,
         layout.training_incoming_dir,
+        layout.training_map_path,
         layout.training_removed_dir,
     ):
         with pytest.raises(ValueError, match="yol parçası"):

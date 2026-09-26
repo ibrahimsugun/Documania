@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{# Harita önizlemesi (11.9.5; PLAN.md §C87): harita okundu, hiçbir şey yazılmadı. Sayılar tahmindir;
+   "yapay zekâ gerekebilecek" yapay zekâya gönderilebilecek dosyaların üst sınırıdır. Harita sonraki
+   adıma bu sayfadaki gizli alanla taşınır. Toplu tarama iki onayla başlar (§D58). #}
+{% block title %}Harita önizlemesi · {{ entry.label }}{% endblock %}
+{% block content %}
+<p class="back"><a href="/training">← {{ entry.label }}</a></p>
+<h1>Harita önizlemesi</h1>
+<p class="lede"><strong>{{ map_name }}</strong> haritası okundu. Önizleme hiçbir şey yazmaz: örnek kaydı, kopya ya da çalıştırma oluşmaz. Tarama başlarsa işçi dosyaları birer birer tarar; türü haritadan belli olan dosya yapay zekâya gönderilmez, mekanik kontrolden geçmezse "İnceleme gerekli" olarak sizi bekler.</p>
+{% if provider_problem %}
+<p class="notice provider-note" role="status">Yapay zekâ sağlayıcısı ayarlı değil: işçi sağlayıcı ayarı olmadan başlamadığı için taranacak dosyalar "Sırada" bekler. <span class="reason">({{ provider_problem }})</span></p>
+{% endif %}
+<dl class="meta map-preview">
+  <dt>Satır</dt><dd id="map-rows">{{ preview.rows }}</dd>
+  <dt>Taranacak dosya</dt><dd id="map-files">{{ preview.files }}</dd>
+  <dt>Atlanan</dt><dd id="map-skipped">{{ preview.skipped_total }}</dd>
+  <dt>Zaten kayıtlı</dt><dd id="map-registered">{{ preview.registered }}</dd>
+  <dt>Mekanik hazır</dt><dd id="map-mechanical">{{ preview.mechanical }} <span class="reason">türü belli; harita + mekanik kontrol, yapay zekâsız</span></dd>
+  <dt>Yapay zekâ gerekebilecek</dt><dd id="map-ai">{{ preview.ai_possible }} <span class="reason">türü belirsiz; mekanik tanınmazsa yapay zekâya gider (tahmin, üst sınır)</span></dd>
+</dl>
+{% if skipped %}
+<section class="map-skipped">
+  <h2>Atlananlar</h2>
+  <table class="items map-skip-reasons">
+    <thead><tr><th>Gerekçe</th><th>Sayı</th></tr></thead>
+    <tbody>
+      {% for label, count in skipped %}<tr><td>{{ label }}</td><td>{{ count }}</td></tr>{% endfor %}
+    </tbody>
+  </table>
+  {% if preview.samples %}
+  <table class="items map-skip-rows">
+    <thead><tr><th>Satır</th><th>Gerekçe</th><th>Sütun</th><th>Yol</th></tr></thead>
+    <tbody>
+      {% for skipped_row in preview.samples %}
+      <tr><td>{{ skipped_row.row }}</td><td>{{ skipped_row.label }}</td><td>{{ skipped_row.column or "—" }}</td><td class="reason-text">{{ skipped_row.value or "—" }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% if preview.skipped_total > preview.samples|length %}<p class="count">İlk {{ preview.samples|length }} atlanan gösteriliyor.</p>{% endif %}
+  {% endif %}
+</section>
+{% endif %}
+<section class="map-start">
+  {% if preview.files %}
+  <form class="decision-form" method="post" action="/training/maps/confirm">
+    <input type="hidden" name="map_name" value="{{ map_name }}">
+    <input type="hidden" name="map_data" value="{{ map_data }}">
+    <button type="submit">Toplu taramayı başlat</button>
+    <a href="/training">Vazgeç</a>
+  </form>
+  {% else %}
+  <p class="placeholder">Haritada taranacak dosya yok; tarama başlatılamaz.</p>
+  {% endif %}
+</section>
+{% endblock %}

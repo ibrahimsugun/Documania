@@ -65,6 +65,8 @@ class Operation(enum.StrEnum):
     # çıkar (11.9.4); metinler `app.web.routers.training`'dedir.
     TRAINING_MOVE = "training_move"
     TRAINING_REMOVE = "training_remove"
+    # §20.6'nın dışında (PLAN.md §D58): harita ile toplu taramayı başlat (11.9.5).
+    TRAINING_MAP = "training_map"
 
 
 @dataclass(frozen=True, slots=True)

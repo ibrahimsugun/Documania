@@ -11,7 +11,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, SecretStr, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, SecretStr, ValidationError, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -99,6 +99,13 @@ class Settings(BaseSettings):
     # PRD 10.1.2 — panel oturumunun ömrü (saniye); süre dolunca yeniden giriş istenir. PRD süre
     # vermez, varsayılan bir iş günü (bkz. PLAN.md §C45).
     session_max_age_seconds: int = Field(default=12 * 60 * 60, gt=0)
+    # PRD 11.9.5 — eğitim modunun "Harita yükle"si: CSV haritasının bayt sınırı ve satır sınırı
+    # (haritanın çözdüğü dosya sayısına da uygulanır). Haritanın `source_collection_path` sütunu
+    # yalnız `TRAINING_COLLECTION_DIR` ayarlıysa o kökün altında çözülür; ayar isteğe bağlıdır,
+    # boşsa (varsayılan) o sütunun satırları atlanır (bkz. PLAN.md §C87).
+    training_map_max_bytes: int = Field(default=8 * 1024 * 1024, gt=0)
+    training_map_max_rows: int = Field(default=20_000, gt=0)
+    training_collection_dir: Path | None = None
     # PRD 12.1.1 — Telegram botu (K13: yalnız İK). Bot ayrı süreç olarak koşar (`python -m
     # app.telegram.bot`): geliştirmede polling, üretimde (`APP_ENV=production`) webhook. Değerler
     # yalnız bot başlarken okunur ve doğrulanır (bkz. PLAN.md §C66).
@@ -107,6 +114,14 @@ class Settings(BaseSettings):
     telegram_webhook_secret: SecretStr | None = None
     telegram_webhook_listen: str = Field(default="127.0.0.1", min_length=1)
     telegram_webhook_port: int = Field(default=8443, ge=1, le=65535)
+
+    @field_validator("training_collection_dir", mode="before")
+    @classmethod
+    def _blank_collection_dir_is_unset(cls, value: object) -> object:
+        # `TRAINING_COLLECTION_DIR=` (boş) ayarsızdır; `Path("")` çalışma dizinini gösterirdi.
+        if isinstance(value, str) and not value.strip():
+            return None
+        return value
 
 
 def load_settings(**overrides: object) -> Settings:

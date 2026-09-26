@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{# "Toplu taramayı başlat"ın iki aşamalı onayı (11.9.5; PLAN.md §D58). Birinci adım yalnız metni
+   gösterir; ikinci adım sunucunun verdiği, haritaya bağlı tek kullanımlık belirteci taşır. Metinler
+   §D58'den birebirdir. Harita adımlar arasında gizli alanla taşınır; sunucu arada saklamaz. #}
+{% block title %}Toplu taramayı başlat · {{ entry.label }}{% endblock %}
+{% block content %}
+<p class="back"><a href="/training">← {{ entry.label }}</a></p>
+<h1>Toplu taramayı başlat</h1>
+{% if error %}
+<div class="error" role="alert">
+  <p>İşlem yapılmadı:</p>
+  <ul><li>{{ error }}</li></ul>
+</div>
+{% elif confirmation %}
+<section class="decision-step" id="decision-step">
+  <p class="confirm-text">{{ confirm_text }}</p>
+  <form class="decision-form" method="post" action="/training/maps/start">
+    <input type="hidden" name="map_name" value="{{ map_name }}">
+    <input type="hidden" name="map_data" value="{{ map_data }}">
+    <input type="hidden" name="confirmation" value="{{ confirmation }}">
+    <button type="submit">Evet, taramayı başlat</button>
+    <a href="/training">Vazgeç</a>
+  </form>
+</section>
+{% else %}
+<section class="decision-step" id="decision-step">
+  <p class="confirm-text">{{ confirm_text }}</p>
+  <form class="decision-form" method="post" action="/training/maps/prepare">
+    <input type="hidden" name="map_name" value="{{ map_name }}">
+    <input type="hidden" name="map_data" value="{{ map_data }}">
+    <button type="submit">Evet, devam et</button>
+    <a href="/training">Vazgeç</a>
+  </form>
+</section>
+{% endif %}
+{% endblock %}

@@ -12,11 +12,14 @@
       {% for run in results.runs %}
       <tr{% if run.selected %} class="selected" aria-current="true"{% endif %}>
         <td><a href="{{ run.url }}">#{{ run.id }}</a></td>
-        <td>{{ run.kind }}</td>
+        <td>{{ run.kind }}{% if run.map_name %} <span class="reason">{{ run.map_name }}</span>{% endif %}</td>
         <td>{{ run.created_at }}</td>
         <td>{{ run.created_by }}</td>
         <td class="status-{{ run.status }}">{{ run.status_label }}</td>
-        <td>{{ run.counts }}</td>
+        <td>
+          {% if run.running and run.total %}<span class="run-progress"><progress max="{{ run.total }}" value="{{ run.processed }}"></progress> {{ run.processed }}/{{ run.total }} işlendi</span><br>{% endif %}
+          {{ run.counts }}
+        </td>
       </tr>
       {% endfor %}
     </tbody>

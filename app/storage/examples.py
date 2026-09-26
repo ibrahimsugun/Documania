@@ -145,6 +145,40 @@ def example_path(layout: DataLayout, type_slug: str, name: str) -> Path | None:
     return None
 
 
+class ExampleLocator:
+    """Çözülmüş bir yolun bir türün örnek klasöründe (`examples/<tur_slug>/`) listelenen örnek olup
+    olmadığını söyler (harita satırının yerindeki dosyası, 11.9.5). Örnekler kökü bir kez çözülür,
+    her klasör bir kez listelenir: çok satırlı haritada her satırda yeniden okunmaz."""
+
+    def __init__(self, layout: DataLayout) -> None:
+        self._layout = layout
+        self._examples = layout.examples.resolve()
+        self._listed: dict[str, frozenset[str]] = {}
+
+    def slug_of(self, resolved: Path) -> str | None:
+        """`resolved` (sembolik bağları çözülmüş yol) listelenen bir örnekse türün slug'ı."""
+        if resolved.parent.parent != self._examples:
+            return None
+        slug = resolved.parent.name
+        names = self._listed.get(slug)
+        if names is None:
+            try:
+                names = frozenset(example.name for example in list_examples(self._layout, slug))
+            except ValueError:  # slug olamayan klasör adı
+                names = frozenset()
+            self._listed[slug] = names
+        return slug if resolved.name in names else None
+
+
+def listed_example_slug(layout: DataLayout, path: Path) -> str | None:
+    """`path` bir türün örnek klasöründe listelenen örnekse türün slug'ı; değilse `None`."""
+    try:
+        resolved = path.resolve()
+    except (OSError, RuntimeError):
+        return None
+    return ExampleLocator(layout).slug_of(resolved)
+
+
 def find_example(layout: DataLayout, type_slug: str, sha256: str) -> ExampleFile | None:
     """Türün klasöründe aynı içerikli (SHA-256) örnek; yoksa `None`."""
     directory = layout.type_examples_dir(type_slug)

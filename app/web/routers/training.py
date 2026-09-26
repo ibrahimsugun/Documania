@@ -38,6 +38,19 @@ belgesi oluşturmaz (`app.training`).
   değiştiyse belirteç geçmez. Onay metinleri §D58'den birebirdir ve burada durur (REANALYZE
   emsali); işlemler K16'nın dışındadır, PRD §20.6 değişmez. Kaydı olmayan örnek (eğitimden önce
   konmuş, tür sayfasından el ile yüklenmiş) listelenir ama karar almaz.
+- **Harita yükle (11.9.5; PLAN.md §C87, §D58).** `POST /training/maps` CSV haritasını okur ve
+  önizlemesini gösterir: satır, dosya, atlanan (gerekçe sayılarıyla), zaten kayıtlı, mekanik hazır
+  ve yapay zekâ gerekebilecek sayıları (`app.training.map_import`); önizleme hiçbir şey yazmaz.
+  Harita sonraki adımlara sayfada taşınır (sıkıştırılmış, gizli alan): sunucu arada hiçbir şey
+  saklamaz. "Toplu taramayı başlat" iki aşamalıdır: `…/confirm` birinci onay metnini gösterir,
+  `…/prepare` ikinci metni (yapay zekâya gönderilebilecek dosyaların üst sınırı) ve haritaya bağlı
+  belirteci verir (`Operation.TRAINING_MAP`), `…/start` belirteçle çalıştırmayı (`kind=map`) ve
+  dosya başına öğeyi açar, `TRAINING_MAP_STARTED`'ı yazar ve haritayı
+  `_egitim/haritalar/<run>.csv`'ye saklar. Belirteç haritanın adına, içeriğine ve iki sayıya
+  bağlıdır: harita ya da sayılar bu arada değiştiyse geçmez. Taramayı işçi parça parça yürütür
+  (`app.training.map_scan`); ilerleme sonuç bölümünün yoklamasıyla görünür. Haritanın "İnceleme
+  gerekli" öğesi de "Türe yerleştir"i bekler; kopyası olmayan (yerindeki) öğe yerindeki dosyadan
+  yerleşir.
 
 Sekme belge içeriğini değiştirmez (10.9.1, K11, K17): yalnız kopyalar, kaydeder ve gösterir. Ekranda
 kişisel değer yalnız dosya adındadır (CONVENTIONS §6); notlar ve dökümler kişisel değer taşımaz.
@@ -45,10 +58,14 @@ kişisel değer yalnız dosya adındadır (CONVENTIONS §6); notlar ve dökümle
 
 from __future__ import annotations
 
+import base64
+import binascii
 import hashlib
+import zlib
 from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import datetime
+from pathlib import PurePosixPath
 from typing import Annotated
 from urllib.parse import parse_qsl, quote, urlencode, urlsplit
 
@@ -80,18 +97,27 @@ from app.training import (
     ItemNotPlaceableError,
     KnownType,
     KnownTypes,
+    MapError,
+    MapPlan,
+    MapPreview,
     UnknownTypeError,
     check_move,
     check_remove,
     create_run,
+    item_source_path,
     load_example_inventory,
     load_known_types,
     move_example,
+    parse_map,
     place_example,
+    plan_map,
+    preview_map,
     remove_example,
     stage_and_recognize,
+    start_map_scan,
     verify_examples,
 )
+from app.training.map_import import SKIP_LABELS
 from app.web.auth import PanelUser, require_panel_user
 from app.web.confirm import (
     CONFIRMATION_REFUSED,
@@ -114,6 +140,7 @@ TRAINING_PATH = "/training"
 ITEMS_PATH = "/training/items"
 KNOWN_PATH = "/training/known"
 EXAMPLES_PATH = "/training/examples"
+MAPS_PATH = "/training/maps"
 RUN_LIMIT = 20
 ITEM_LIMIT = 200
 
@@ -122,8 +149,8 @@ UNKNOWN_HINT_MESSAGE = "Beklenen tür bilinen türlerden biri değil; listeden s
 UNKNOWN_TYPE_MESSAGE = "Seçilen tür bilinen türlerden biri değil; listeden seçin."
 ITEM_NOT_FOUND = "Eğitim öğesi bulunamadı."
 NOT_MANUALLY_PLACEABLE = (
-    "Bu öğe elle yerleştirilemez: yalnız Yerleştirilemedi ya da Çelişki durumundaki öğe türe "
-    "yerleştirilir."
+    "Bu öğe elle yerleştirilemez: yalnız Yerleştirilemedi, Çelişki ya da İnceleme gerekli "
+    "durumundaki öğe türe yerleştirilir."
 )
 FILE_MISSING = "Öğenin eğitim kopyası okunamadı; yerleştirilmedi."
 TYPE_NOT_FOUND = "Bilinen tür bulunamadı."
@@ -132,6 +159,11 @@ MANUAL_CHECK_TEXT = "Elle kontrol gerekli"
 REMOVED_LABEL_TEXT = "Örneklerden çıkarıldı"
 EXAMPLE_RECORD_NOT_FOUND = "Eğitim örneği bulunamadı."
 MOVE_FAILED = "Örnek dosyası taşınamadı; hiçbir şey değişmedi."
+NO_MAP_MESSAGE = "Yüklenecek harita seçilmedi."
+MAP_NOT_CSV = "Harita .csv uzantılı bir CSV dosyası olmalı."
+MAP_DATA_INVALID = "Harita verisi okunamadı; haritayı yeniden yükleyin."
+MAP_EMPTY = "Haritada taranacak dosya yok; tarama başlatılmadı."
+MAP_SAVE_FAILED = "Harita saklanamadı; tarama başlatılmadı."
 
 # Etiket kararının iki aşamalı onay metinleri (11.9.4) — PLAN.md §D58'den BİREBİR; §20.6'nın
 # dışındadır (K16 dışı, REANALYZE emsali). `tests/web/test_training_decisions.py` §D58 ile
@@ -154,10 +186,20 @@ REMOVE_SECOND_CONFIRMATION = (
     "Dosya silinmez, eğitim arşivine taşınır ve bu türün açıklama üretimine artık girmez. "
     "Son kararınız mı?"
 )
+# Toplu taramanın iki aşamalı onay metinleri (11.9.5) — PLAN.md §D58'den BİREBİR. `<K>` yapay
+# zekâya gönderilebilecek dosyaların üst sınırıdır (önizlemenin "yapay zekâ gerekebilecek" sayısı).
+MAP_PLACEHOLDER = "<Harita>"
+FILES_PLACEHOLDER = "<N>"
+AI_FILES_PLACEHOLDER = "<K>"
+MAP_FIRST_CONFIRMATION = "<Harita> haritasındaki <N> dosyayı taramak üzeresiniz. Emin misiniz?"
+MAP_SECOND_CONFIRMATION = "En çok <K> dosya yapay zekâya gönderilebilir. Son kararınız mı?"
 
-MANUALLY_PLACEABLE = frozenset({TrainingItemStatus.UNPLACED, TrainingItemStatus.CONFLICT})
-"""İK'nın "Türe yerleştir"ini bekleyen durumlar (11.9.1). Kararı sistemde bekleyen öğe (`queued`,
-`ai_pending`) elle yerleştirilmez: işçinin incelemesiyle yarışmasın."""
+MANUALLY_PLACEABLE = frozenset(
+    {TrainingItemStatus.UNPLACED, TrainingItemStatus.CONFLICT, TrainingItemStatus.REVIEW}
+)
+"""İK'nın "Türe yerleştir"ini bekleyen durumlar (11.9.1; haritanın `review`'u 11.9.5). Kararı
+sistemde bekleyen öğe (`queued`, `ai_pending`) elle yerleştirilmez: işçinin taramasıyla ve
+incelemesiyle yarışmasın."""
 
 STATUS_LABELS: dict[str, str] = {
     TrainingItemStatus.QUEUED: "Sırada",
@@ -194,6 +236,7 @@ ITEM_FILTERS: tuple[tuple[str, str], ...] = (
     ("ai", "AI kararı"),
     ("unplaced", "Yerleştirilemedi"),
     ("conflict", "Çelişki"),
+    ("review", "İnceleme gerekli"),
     ("mechanical", "Mekanik"),
     ("failed", "Hatalı"),
 )
@@ -219,6 +262,10 @@ NOTICES: dict[str, str] = {
     "verify_none": 'Doğrulanacak "AI kararı" örneği seçilmedi; hiçbir şey değişmedi.',
     "moved": "Örnek bu türe taşındı ve doğrulanmış olarak kaydedildi.",
     "removed": "Örnek örneklerden çıkarıldı: dosya silinmedi, eğitim arşivine taşındı.",
+    "map_started": (
+        "Toplu tarama başladı. İşçi haritadaki dosyaları birer birer tarar; ilerleme bu tabloda "
+        "güncellenir."
+    ),
 }
 
 _IMAGE_SUFFIXES = (".jpg", ".jpeg", ".png")
@@ -257,6 +304,13 @@ class RunRow:
     counts: str
     url: str
     selected: bool
+    map_name: str | None = None
+    total: int = 0
+    processed: int = 0  # kararı sistemde beklemeyen (`queued`, `ai_pending` dışı) öğe
+
+    @property
+    def running(self) -> bool:
+        return self.status == TrainingRunStatus.RUNNING
 
 
 @dataclass(frozen=True, slots=True)
@@ -374,7 +428,7 @@ def _filtered(statement: Select[tuple[TrainingItem]], item_filter: str) -> Selec
         return statement.where(TrainingItem.id.in_(ai_items))
     if item_filter == "mechanical":
         return statement.where(TrainingItem.method == TrainingMethod.MECHANICAL.value)
-    if item_filter in ("unplaced", "conflict", "failed"):
+    if item_filter in ("unplaced", "conflict", "review", "failed"):
         return statement.where(TrainingItem.status == item_filter)
     return statement
 
@@ -413,25 +467,32 @@ def _item_row(item: TrainingItem, known: KnownTypes, example: ExampleFileRecord 
     )
 
 
+def _run_row(run: TrainingRun, *, run_id: int | None, item_filter: str) -> RunRow:
+    counts = run.counts_json or {}
+    total = sum(counts.values())
+    pending = sum(counts.get(status.value, 0) for status in PENDING_STATUSES)
+    return RunRow(
+        id=run.id,
+        kind=RUN_KIND_LABELS.get(run.kind, run.kind),
+        created_at=_format_ts(run.created_at),
+        created_by=run.created_by,
+        status=run.status,
+        status_label=RUN_STATUS_LABELS.get(run.status, run.status),
+        counts=_counts_text(counts),
+        url=_results_url(TRAINING_PATH, run.id, item_filter),
+        selected=run.id == run_id,
+        map_name=run.map_name,
+        total=total,
+        processed=total - pending,
+    )
+
+
 def build_results_view(
     session: Session, known: KnownTypes, *, run_id: int | None, item_filter: str
 ) -> ResultsView:
     """Son çalıştırmalar ve (seçili çalıştırmanın ya da hepsinin) öğeleri, en yeni üstte."""
     runs = session.scalars(select(TrainingRun).order_by(TrainingRun.id.desc()).limit(RUN_LIMIT))
-    run_rows = [
-        RunRow(
-            id=run.id,
-            kind=RUN_KIND_LABELS.get(run.kind, run.kind),
-            created_at=_format_ts(run.created_at),
-            created_by=run.created_by,
-            status=run.status,
-            status_label=RUN_STATUS_LABELS.get(run.status, run.status),
-            counts=_counts_text(run.counts_json or {}),
-            url=_results_url(TRAINING_PATH, run.id, item_filter),
-            selected=run.id == run_id,
-        )
-        for run in runs
-    ]
+    run_rows = [_run_row(run, run_id=run_id, item_filter=item_filter) for run in runs]
 
     scope = select(TrainingItem)
     if run_id is not None:
@@ -641,9 +702,10 @@ def place_item(
     provider_problem: ProviderProblem,
     slug: Annotated[str, Form()] = "",
 ) -> Response:
-    """11.9.1 "Türe yerleştir" — `unplaced` ya da `conflict` öğe İK'nın seçtiği bilinen türe
-    yerleşir: `method=manual`, etiket `verified`, olay kullanıcı adıyla. Yerleştirme yalnız
-    kopyalar ve kaydeder (K11)."""
+    """11.9.1 "Türe yerleştir" — `unplaced`, `conflict` ya da (harita, 11.9.5) `review` öğe İK'nın
+    seçtiği bilinen türe yerleşir: `method=manual`, etiket `verified`, olay kullanıcı adıyla.
+    Yerleştirme yalnız kopyalar ve kaydeder (K11); yerindeki harita öğesi aynı türe seçilirse
+    kopyasız kaydolur."""
     item = session.get(TrainingItem, item_id)
     if item is None:
         session.rollback()
@@ -672,6 +734,10 @@ def place_item(
     note = f"Elle yerleştirildi → `{chosen}`"
     if item.note:
         note = f"{note}; önceki not: {item.note}"
+    # Haritanın yerindeki öğesinin eğitim kopyası yoktur: dosya türün örnek klasöründen gelir.
+    source = item_source_path(layout, item)
+    if source is None:
+        return refused(status.HTTP_409_CONFLICT, FILE_MISSING)
     try:
         placement = place_example(
             session,
@@ -682,6 +748,7 @@ def place_item(
             method=TrainingMethod.MANUAL,
             note=note,
             actor=user.username,
+            source=source,
         )
     except (ItemNotPlaceableError, ContentMismatchError, OSError):
         return refused(status.HTTP_409_CONFLICT, FILE_MISSING)
@@ -896,6 +963,9 @@ def _fill(text: str, **values: str) -> str:
         OLD_TYPE_PLACEHOLDER: values.get("old_type"),
         NEW_TYPE_PLACEHOLDER: values.get("new_type"),
         TYPE_PLACEHOLDER: values.get("type"),
+        MAP_PLACEHOLDER: values.get("map"),
+        FILES_PLACEHOLDER: values.get("files"),
+        AI_FILES_PLACEHOLDER: values.get("ai_files"),
     }
     for placeholder, value in placeholders.items():
         if placeholder in text:
@@ -1181,3 +1251,293 @@ def remove_selected(
         return _refused_decision(request, user, session, operation, example_id, exc)
     session.commit()
     return RedirectResponse(f"{_known_url(slug)}?notice=removed", status.HTTP_303_SEE_OTHER)
+
+
+# --- harita yükle ve toplu tarama (11.9.5) ----------------------------------------------------
+
+
+@dataclass(frozen=True, slots=True)
+class MapScan:
+    """Bir adımda okunan harita: adı, içeriği, çözümü ve önizlemesi."""
+
+    name: str
+    content: bytes
+    plan: MapPlan
+    preview: MapPreview
+
+    @property
+    def data(self) -> str:
+        """Haritanın sonraki adıma sayfada taşınan biçimi (`pack_map`)."""
+        return pack_map(self.content)
+
+
+def pack_map(content: bytes) -> str:
+    """Haritayı gizli form alanına koyar: zlib ile sıkıştırılmış, URL-güvenli base64. Sunucu
+    haritayı adımlar arasında saklamaz (önizleme yazmaz)."""
+    return base64.urlsafe_b64encode(zlib.compress(content, 9)).decode("ascii")
+
+
+def unpack_map(value: str, *, max_bytes: int) -> bytes:
+    """`pack_map`'in tersi; açılan içerik `max_bytes`'ı aşarsa (sıkıştırma bombası dahil) ya da
+    veri bozuksa `MapError`."""
+    try:
+        packed = base64.b64decode(value.encode("ascii"), altchars=b"-_", validate=True)
+        inflater = zlib.decompressobj()
+        content = inflater.decompress(packed, max_bytes + 1)
+    except (UnicodeEncodeError, binascii.Error, zlib.error, ValueError):
+        raise MapError(MAP_DATA_INVALID) from None
+    if len(content) > max_bytes or inflater.unconsumed_tail:
+        raise MapError(f"Harita {max_bytes / (1024 * 1024):.0f} MB sınırını aşıyor.")
+    if not inflater.eof or inflater.unused_data:
+        raise MapError(MAP_DATA_INVALID)
+    return content
+
+
+def _map_name(filename: str) -> str:
+    """Haritanın adı (yol parçası olmadan); `.csv` değilse `MapError`."""
+    name = PurePosixPath(filename.replace("\\", "/")).name.strip()[:255]
+    if not name.casefold().endswith(".csv") or name.casefold() == ".csv":
+        raise MapError(MAP_NOT_CSV)
+    return name
+
+
+def _read_map(
+    session: Session, layout: DataLayout, settings: Settings, name: str, content: bytes
+) -> MapScan:
+    """Haritayı okur, çözer ve önizler (yazmaz); okunamıyorsa `MapError`."""
+    rows = parse_map(
+        content,
+        max_bytes=settings.training_map_max_bytes,
+        max_rows=settings.training_map_max_rows,
+    )
+    known = load_known_types(session)
+    plan = plan_map(
+        rows,
+        layout,
+        known,
+        collection_root=settings.training_collection_dir,
+        max_files=settings.training_map_max_rows,
+    )
+    preview = preview_map(session, plan, known, inventory=load_example_inventory(layout))
+    return MapScan(name, content, plan, preview)
+
+
+def map_subject(scan: MapScan) -> str:
+    """Toplu tarama belirtecinin hedefi (10.8.1): haritanın adı, içeriği, dosya sayısı ve yapay
+    zekâya gönderilebilecek dosya sayısı. Harita ya da onay metnindeki sayılar değiştiyse belirteç
+    geçmez."""
+    digest = hashlib.sha256(
+        f"{scan.name}\n{scan.preview.files}\n{scan.preview.ai_possible}\n".encode()
+    )
+    digest.update(scan.content)
+    return f"map:{digest.hexdigest()}"
+
+
+def _map_part_limit(settings: Settings) -> int:
+    """Gizli alandaki haritanın en büyük boyutu: sıkıştırılamayan içerikte zlib'in küçük eki ve
+    base64'ün 4/3'ü."""
+    limit = settings.training_map_max_bytes
+    return (limit + limit // 100 + 1024) * 4 // 3 + 4
+
+
+async def _submitted_map(
+    request: Request, session: Session, layout: DataLayout, settings: Settings
+) -> tuple[MapScan, str | None]:
+    """Onay adımlarının formundaki harita (gizli alan) ve belirteç; okunamıyorsa `MapError`."""
+    async with request.form(max_part_size=_map_part_limit(settings)) as form:
+        data, name, token = form.get("map_data"), form.get("map_name"), form.get("confirmation")
+    if not isinstance(data, str) or not isinstance(name, str) or not data:
+        raise MapError(MAP_DATA_INVALID)
+    content = unpack_map(data, max_bytes=settings.training_map_max_bytes)
+    scan = _read_map(session, layout, settings, _map_name(name), content)
+    return scan, token if isinstance(token, str) and token else None
+
+
+def _map_page(
+    request: Request, user: PanelUser, scan: MapScan, *, provider_problem: str | None
+) -> HTMLResponse:
+    """Haritanın önizlemesi ve "Toplu taramayı başlat" düğmesi."""
+    entry = MENU_BY_KEY["training"]
+    preview = scan.preview
+    return render_page(
+        request,
+        "training_map.html",
+        user=user,
+        active=entry.key,
+        entry=entry,
+        map_name=scan.name,
+        map_data=scan.data,
+        preview=preview,
+        skipped=[(SKIP_LABELS[reason], count) for reason, count in preview.skipped],
+        provider_problem=provider_problem,
+    )
+
+
+def _map_step_page(
+    request: Request,
+    user: PanelUser,
+    status_code: int,
+    *,
+    scan: MapScan | None = None,
+    confirmation: str | None = None,
+    error: str | None = None,
+) -> HTMLResponse:
+    """Toplu taramanın onay adımı: birinci onay (belirteçsiz), ikinci onay (belirteçle) ya da
+    ret."""
+    text = None
+    if scan is not None:
+        values = {
+            "map": scan.name,
+            "files": str(scan.preview.files),
+            "ai_files": str(scan.preview.ai_possible),
+        }
+        text = _fill(MAP_SECOND_CONFIRMATION if confirmation else MAP_FIRST_CONFIRMATION, **values)
+    entry = MENU_BY_KEY["training"]
+    return render_page(
+        request,
+        "training_map_step.html",
+        user=user,
+        active=entry.key,
+        status_code=status_code,
+        entry=entry,
+        confirm_text=text,
+        confirmation=confirmation,
+        map_name=scan.name if scan is not None else "",
+        map_data=scan.data if scan is not None else "",
+        error=error,
+    )
+
+
+def _refused_map(
+    request: Request, user: PanelUser, session: Session, exc: Exception
+) -> HTMLResponse:
+    """Onay adımının reddi → hata sayfası; hiçbir şey yazılmadı."""
+    session.rollback()
+    if isinstance(exc, ConfirmationRefusedError):
+        code, message = status.HTTP_400_BAD_REQUEST, CONFIRMATION_REFUSED
+    elif isinstance(exc, MapError):
+        code, message = status.HTTP_400_BAD_REQUEST, str(exc)
+    else:  # harita saklanamadı (`OSError`)
+        code, message = status.HTTP_409_CONFLICT, MAP_SAVE_FAILED
+    return _map_step_page(request, user, code, error=message)
+
+
+@router.post(MAPS_PATH, response_class=HTMLResponse)
+async def upload_map(
+    request: Request,
+    user: CurrentUser,
+    session: DbSession,
+    layout: Layout,
+    settings: AppSettings,
+    provider_problem: ProviderProblem,
+) -> HTMLResponse:
+    """11.9.5 "Harita yükle" — CSV haritasını okur ve önizlemesini gösterir; hiçbir şey yazmaz.
+    Harita okunamıyorsa (biçim, boyut, satır sınırı) eğitim sayfası hatayla döner (400)."""
+    limit = settings.training_map_max_bytes
+    # Sınırın bir baytı ötesine kadar okunur: devasa harita belleğe tümüyle alınmaz.
+    async with request.form() as form:
+        upload = form.get("map")
+        chosen = (
+            (upload.filename, await upload.read(limit + 1))
+            if isinstance(upload, StarletteUploadFile) and upload.filename
+            else None
+        )
+    try:
+        if chosen is None:
+            raise MapError(NO_MAP_MESSAGE)
+        filename, content = chosen
+        scan = _read_map(session, layout, settings, _map_name(filename), content)
+    except MapError as exc:
+        session.rollback()
+        return _training_page(
+            request,
+            user,
+            session,
+            run_id=None,
+            item_filter="",
+            provider_problem=provider_problem,
+            status_code=status.HTTP_400_BAD_REQUEST,
+            errors=[str(exc)],
+        )
+    session.rollback()
+    return _map_page(request, user, scan, provider_problem=provider_problem)
+
+
+@router.post(f"{MAPS_PATH}/confirm", response_class=HTMLResponse)
+async def map_first_confirmation(
+    request: Request, user: CurrentUser, session: DbSession, layout: Layout, settings: AppSettings
+) -> HTMLResponse:
+    """11.9.5 "Toplu taramayı başlat" — haritayı yeniden okur ve §D58'in birinci onay metnini verir;
+    hiçbir şey değişmez."""
+    try:
+        scan, _token = await _submitted_map(request, session, layout, settings)
+        if not scan.preview.files:
+            raise MapError(MAP_EMPTY)
+    except MapError as exc:
+        return _refused_map(request, user, session, exc)
+    session.rollback()
+    return _map_step_page(request, user, status.HTTP_200_OK, scan=scan)
+
+
+@router.post(f"{MAPS_PATH}/prepare", response_class=HTMLResponse)
+async def prepare_map(
+    request: Request, user: CurrentUser, session: DbSession, layout: Layout, settings: AppSettings
+) -> HTMLResponse:
+    """11.9.5 — birinci onaydan sonra ikinci onay metnini (yapay zekâya gönderilebilecek dosyaların
+    üst sınırı) ve haritaya bağlı tek kullanımlık belirteci verir (10.8.1)."""
+    try:
+        scan, _token = await _submitted_map(request, session, layout, settings)
+        if not scan.preview.files:
+            raise MapError(MAP_EMPTY)
+        subject = map_subject(scan)
+        issued = issue_confirmation(session, request, user, Operation.TRAINING_MAP, subject)
+    except (MapError, ConfirmationRefusedError) as exc:
+        return _refused_map(request, user, session, exc)
+    session.commit()
+    return _map_step_page(request, user, status.HTTP_200_OK, scan=scan, confirmation=issued.token)
+
+
+@router.post(f"{MAPS_PATH}/start", response_class=HTMLResponse)
+async def start_map(
+    request: Request, user: CurrentUser, session: DbSession, layout: Layout, settings: AppSettings
+) -> Response:
+    """11.9.5 — ikinci onayın belirteciyle toplu taramayı başlatır: çalıştırma (`kind=map`), dosya
+    başına `queued` öğe, `USER_CONFIRMED` ve `TRAINING_MAP_STARTED` tek işlemdedir; harita en son
+    `_egitim/haritalar/<run>.csv`'ye saklanır. Belirteçsiz ya da geçersiz belirteçte hiçbir şey
+    yapılmaz (400). Taramayı işçi yürütür."""
+    try:
+        scan, token = await _submitted_map(request, session, layout, settings)
+        if not scan.preview.files:
+            raise MapError(MAP_EMPTY)
+        run = create_run(
+            session, kind=TrainingRunKind.MAP, created_by=user.username, map_name=scan.name
+        )
+        confirm_operation(
+            session,
+            request,
+            user,
+            Operation.TRAINING_MAP,
+            map_subject(scan),
+            token,
+            event_target={
+                "run_id": run.id,
+                "files": scan.preview.files,
+                "ai_possible": scan.preview.ai_possible,
+            },
+        )
+        start_map_scan(
+            session,
+            layout,
+            run,
+            scan.plan,
+            scan.preview,
+            content=scan.content,
+            actor=user.username,
+        )
+    except (MapError, ConfirmationRefusedError, OSError) as exc:
+        return _refused_map(request, user, session, exc)
+    session.commit()
+    return RedirectResponse(
+        f"{TRAINING_PATH}?{urlencode({'run': run.id, 'notice': 'map_started'})}",
+        status.HTTP_303_SEE_OTHER,
+    )

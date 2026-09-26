@@ -31,7 +31,8 @@ from app.main import create_app
 from app.storage import DataLayout, prepare_data_dir
 from app.storage.examples import list_examples
 from app.training.classification import TrainingClassificationJob
-from app.web.auth import get_current_user
+from app.training.map_scan import TrainingMapJob
+from app.web.auth import SESSION_COOKIE, get_current_user
 from app.web.routers.training import MANUAL_CHECK_TEXT, get_training_provider_problem
 from app.web.routers.uploads import get_layout
 from app.worker import IdleContext
@@ -45,7 +46,7 @@ from tests.fixtures.gen import (
     unknown_document_page,
 )
 from tests.training.invariants import assert_employee_data_untouched
-from tests.web.conftest import SIGNED_IN
+from tests.web.conftest import SESSION, SIGNED_IN
 
 ROOT = Path(__file__).resolve().parents[1]
 RECORDINGS = ROOT / "tests" / "fixtures" / "ai" / "training_classifications" / "s20"
@@ -235,6 +236,76 @@ def test_s20_ai_path_places_the_passport_with_the_ai_decision_label(
     ]
     known = client.get("/training/known/russian_passport")
     assert "pasaport.jpg" in known.text and ICON in known.text
+    _assert_nothing_on_the_employee_side(engine, layout)
+    for value in PERSONAL_VALUES:
+        assert value not in page.text
+
+
+def test_s20_in_map_form_scans_the_passport_mechanically_and_the_card_waits_unplaced(
+    client: TestClient, engine: Engine, layout: DataLayout, tmp_path: Path
+) -> None:
+    # 11.9.5: aynı senaryo "Harita yükle" ile. Harita türsüzdür: pasaport metin katmanındaki MRZ
+    # ile mekanik tanınır, kart yapay zekâya gider ve hiçbir türe inmez.
+    client.cookies.set(SESSION_COOKIE, SESSION)
+    source = layout.root / "tarama"
+    source.mkdir()
+    passport_bytes = _passport_pdf()
+    (source / "pasaport.pdf").write_bytes(passport_bytes)
+    (source / "kart.jpg").write_bytes(_card())
+    content = b"path\r\ntarama/pasaport.pdf\r\ntarama\\kart.jpg\r\n"  # Windows ayracı da
+
+    preview = client.post("/training/maps", files={"map": ("s20.csv", content, "text/csv")})
+    assert preview.status_code == 200
+    assert '<dd id="map-files">2' in preview.text and '<dd id="map-ai">2' in preview.text
+    form = {
+        "map_name": "s20.csv",
+        "map_data": re.search(r'name="map_data" value="([^"]+)"', preview.text).group(1),  # type: ignore[union-attr]
+    }
+    assert client.post("/training/maps/confirm", data=form).status_code == 200
+    prepared = client.post("/training/maps/prepare", data=form)
+    token = re.search(r'name="confirmation" value="([^"]+)"', prepared.text).group(1)  # type: ignore[union-attr]
+    started = client.post(
+        "/training/maps/start", data=form | {"confirmation": token}, follow_redirects=False
+    )
+    assert started.status_code == 303
+    assert {item.status for item in _items(engine).values()} == {"queued"}
+
+    recordings = tmp_path / "kart-yaniti"
+    recordings.mkdir()
+    shutil.copy(RECORDINGS / "1.json", recordings / "0.json")
+    provider = RecordingProvider.from_directory(recordings)
+    context = IdleContext(create_session_factory(engine), layout, SETTINGS, provider)
+    map_job = TrainingMapJob()
+    while map_job.run_one(context):
+        pass
+    assert provider.training_requests == []  # harita işi yapay zekâ çağırmaz
+
+    items = _items(engine)
+    passport, card = items["pasaport.pdf"], items["kart.jpg"]
+    assert (passport.status, passport.method, passport.result_slug) == (
+        "placed",
+        "mechanical",
+        "turkish_passport",
+    )
+    assert card.status == "ai_pending"
+    assert _work(engine, layout, provider) == 1
+
+    card = _items(engine)["kart.jpg"]
+    assert card.status == "unplaced"
+    assert [example.name for example in list_examples(layout, "turkish_passport")] == [
+        "pasaport.pdf"
+    ]
+    assert (source / "pasaport.pdf").read_bytes() == passport_bytes  # kaynak değişmedi
+    page = client.get(started.headers["location"])
+    assert "Yerleştirilemedi" in _row(page.text, card.id)
+    assert "Mekanik" in _row(page.text, passport.id)
+    with create_session_factory(engine)() as session:
+        run = session.get_one(TrainingRun, card.run_id)
+        assert (run.kind, run.status, run.counts_json) == (
+            "map",
+            "done",
+            {"placed": 1, "unplaced": 1},
+        )
     _assert_nothing_on_the_employee_side(engine, layout)
     for value in PERSONAL_VALUES:
         assert value not in page.text

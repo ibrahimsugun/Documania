@@ -397,6 +397,12 @@ REVIEWED_MUTATING_ROUTES: dict[tuple[str, str], str] = {
     ("POST", "/training/examples/{example_id}/remove"): (
         "eğitim örneğini arşive taşıma; silinmez (11.9.4, R11)"
     ),
+    ("POST", "/training/maps"): "harita önizlemesi: hiçbir şey yazmaz (11.9.5)",
+    ("POST", "/training/maps/confirm"): "birinci onay metni (11.9.5)",
+    ("POST", "/training/maps/prepare"): "onay belirteci",
+    ("POST", "/training/maps/start"): (
+        "toplu tarama: eğitim öğeleri ve haritanın kopyası, çalışan verisi değil (11.9.5)"
+    ),
 }
 
 # "assign" içindeki "sign" düzenleme sayılmasın: sözcük başı ve sonu harf olmayan sınırdır.

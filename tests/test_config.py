@@ -480,3 +480,61 @@ def test_invalid_alert_settings_rejected(
 
     with pytest.raises(ValidationError, match=name.lower()):
         load_settings(_env_file=None)
+
+
+TRAINING_MAP_VARIABLES = (
+    "TRAINING_MAP_MAX_BYTES",
+    "TRAINING_MAP_MAX_ROWS",
+    "TRAINING_COLLECTION_DIR",
+)
+
+
+def test_training_map_settings_have_defaults_read_the_environment_and_are_documented(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # 11.9.5: "Harita yükle" sınırları ve isteğe bağlı koleksiyon kökü (.env doldurmak gerekmez).
+    monkeypatch.setenv("DATABASE_URL", "sqlite:///./data/test.db")
+    for name in TRAINING_MAP_VARIABLES:
+        monkeypatch.delenv(name, raising=False)
+    defaults = load_settings(_env_file=None)
+    assert (
+        defaults.training_map_max_bytes,
+        defaults.training_map_max_rows,
+        defaults.training_collection_dir,
+    ) == (8 * 1024 * 1024, 20_000, None)
+
+    monkeypatch.setenv("TRAINING_MAP_MAX_BYTES", "1024")
+    monkeypatch.setenv("TRAINING_MAP_MAX_ROWS", "50")
+    monkeypatch.setenv("TRAINING_COLLECTION_DIR", "/srv/koleksiyon")
+    configured = load_settings(_env_file=None)
+    assert (
+        configured.training_map_max_bytes,
+        configured.training_map_max_rows,
+        configured.training_collection_dir,
+    ) == (1024, 50, Path("/srv/koleksiyon"))
+
+    # Boş değer ayarsızdır: `Path("")` çalışma dizinini koleksiyon kökü yapardı.
+    for blank in ("", "   "):
+        monkeypatch.setenv("TRAINING_COLLECTION_DIR", blank)
+        assert load_settings(_env_file=None).training_collection_dir is None
+
+    example = (Path(__file__).resolve().parents[1] / ".env.example").read_text(encoding="utf-8")
+    for line in ("TRAINING_MAP_MAX_BYTES=8388608", "TRAINING_MAP_MAX_ROWS=20000"):
+        assert f"\n{line}\n" in example
+    # Koleksiyon kökü isteğe bağlıdır: şablonda yorum satırıdır, doldurulması gerekmez.
+    assert "\n# TRAINING_COLLECTION_DIR=\n" in example
+    assert "\nTRAINING_COLLECTION_DIR=" not in example
+
+
+@pytest.mark.parametrize(
+    ("name", "value"),
+    [("TRAINING_MAP_MAX_BYTES", "0"), ("TRAINING_MAP_MAX_ROWS", "0")],
+)
+def test_invalid_training_map_settings_rejected(
+    monkeypatch: pytest.MonkeyPatch, name: str, value: str
+) -> None:
+    monkeypatch.setenv("DATABASE_URL", "sqlite:///./data/test.db")
+    monkeypatch.setenv(name, value)
+
+    with pytest.raises(ValidationError, match=name.lower()):
+        load_settings(_env_file=None)

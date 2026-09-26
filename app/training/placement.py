@@ -22,7 +22,10 @@ Eğitim modu yalnız bilinen belgelerin (`app.training.known_types`) örneklerin
   yeniden yerleşebilir.
 - **Yerleşmeyen öğe (`leave_unplaced`).** Tanıma bir türe inmediyse (`unplaced`, "Yerleştirilemedi")
   ya da ipucuyla çelişen bir türe indiyse (`conflict`) öğe İK'nın "Türe yerleştir"ini bekler; dosya
-  yazılmaz (yapay zekâ yolu, 11.9.3).
+  yazılmaz (yapay zekâ yolu, 11.9.3). Harita satırının türü ya da SHA-256'sı dosyayla tutmuyorsa
+  öğe `review` ("İnceleme gerekli") olur (toplu tarama, 11.9.5).
+- **Denetim ve staging ayrı da çağrılır (`check_content`, `write_staged_copy`).** Toplu tarama
+  öğeyi haritadan açar; yerindeki örnek dosyasının (türün örnek klasöründe duran) kopyası yazılmaz.
 - **Olaylar (K15).** Yerleşen öğe `TRAINING_EXAMPLE_PLACED`, yerleşmeyen (`skipped`, `conflict`,
   `unplaced`) `TRAINING_ITEM_UNPLACED` yazar; veri kimlikle (çalıştırma, öğe, örnek kaydı) ve türle
   yazılır, dosya adı ve kişisel değer yazılmaz (CONVENTIONS §6). Çağıran olay verisine ek alan
@@ -100,6 +103,11 @@ PLACEABLE_STATUSES = frozenset(
 "Türe yerleştir"ini bekleyen (`unplaced`, `conflict`, `review`). `placed`, `skipped` ve `failed`
 son karardır."""
 
+UNPLACED_STATUSES = frozenset(
+    {TrainingItemStatus.UNPLACED, TrainingItemStatus.CONFLICT, TrainingItemStatus.REVIEW}
+)
+"""`leave_unplaced`'in kararları: İK'nın "Türe yerleştir"ini bekleyen durumlar."""
+
 PENDING_STATUSES = frozenset({TrainingItemStatus.QUEUED, TrainingItemStatus.AI_PENDING})
 """Çalıştırmayı `running` tutan durumlar: kararı sistemde bekleyen öğe."""
 
@@ -168,19 +176,50 @@ def stage_file(
     )
     session.add(item)
     session.flush()
+    if check_content(item, original_name, content, max_bytes=max_bytes):
+        write_staged_copy(layout, item, content)
+    refresh_run(session, run)
+    return item
+
+
+def check_content(
+    item: TrainingItem, original_name: str, content: bytes, *, max_bytes: int
+) -> bool:
+    """Staging'in denetimi (`check_example`, mekanik adım 1): içerik örnek olabiliyorsa öğenin
+    SHA-256'sı, dosya türü ve sayfa sayısı dolar (`True`); olamıyorsa öğe `failed` olur, notu reddin
+    gerekçesidir (`False`). Dosya yazmaz ve çalıştırmayı yeniden saymaz."""
     try:
         kind = check_example(original_name, content, max_bytes=max_bytes)
     except ExampleRejectedError as exc:
         _decide(item, TrainingItemStatus.FAILED, note=str(exc), actor=SYSTEM_ACTOR)
-    else:
-        target = layout.training_staged_path(run.id, item.id, EXAMPLE_EXTENSIONS[kind])
-        stored = write_file(target, content)
-        item.staged_path = layout.relative(stored.path)
-        item.sha256 = stored.sha256
-        item.file_kind = kind.value
-        item.page_count = _page_count(kind, content)
-    refresh_run(session, run)
-    return item
+        return False
+    item.sha256 = sha256_bytes(content)
+    item.file_kind = kind.value
+    item.page_count = _page_count(kind, content)
+    return True
+
+
+def write_staged_copy(layout: DataLayout, item: TrainingItem, content: bytes) -> None:
+    """Denetimden geçmiş (`check_content`) içeriği `_egitim/gelen/<run>/<item>.<ext>`'e atomik
+    yazar ve `staged_path`'i doldurur. Yazma kesilirse hedefte dosya olmaz, istisna çağırana geçer;
+    içerik öğenin SHA-256'sıyla tutmuyorsa `ContentMismatchError` (hiçbir şey yazılmaz)."""
+    if item.file_kind is None:
+        raise ItemNotPlaceableError(f"Öğe {item.id} denetimden geçmemiş")
+    if item.sha256 is not None and item.sha256 != sha256_bytes(content):
+        raise ContentMismatchError(f"Öğe {item.id} içeriği kaydındaki SHA-256 ile tutmuyor")
+    kind = FileKind(item.file_kind)
+    target = layout.training_staged_path(item.run_id, item.id, EXAMPLE_EXTENSIONS[kind])
+    stored = write_file(target, content)
+    item.staged_path = layout.relative(stored.path)
+
+
+def fail_item(
+    session: Session, item: TrainingItem, *, note: str, actor: str = SYSTEM_ACTOR
+) -> None:
+    """Öğeyi `failed` kararına bağlar ("Hatalı": dosya okunamadı, örnek olamaz ya da işlenemedi) ve
+    çalıştırmayı yeniden sayar; olay yazmaz (staging'in reddi gibi) ve commit etmez."""
+    _decide(item, TrainingItemStatus.FAILED, note=note, actor=actor)
+    refresh_run(session, item.run)
 
 
 def place_example(
@@ -294,20 +333,25 @@ def leave_unplaced(
     event_data: Mapping[str, object] | None = None,
     message: str | None = None,
 ) -> None:
-    """Öğeyi yerleştirmeden karara bağlar: `unplaced` (hiçbir bilinen türe inmedi) ya da
-    `conflict` (`slug` türüne indi ama ipucuyla çelişiyor); öğe İK'nın "Türe yerleştir"ini bekler.
+    """Öğeyi yerleştirmeden karara bağlar: `unplaced` (hiçbir bilinen türe inmedi), `conflict`
+    (`slug` türüne indi ama ipucuyla çelişiyor) ya da `review` (harita satırı, 11.9.5: haritanın
+    türü ya da SHA-256'sı dosyayla tutmuyor); öğe İK'nın "Türe yerleştir"ini bekler.
     `TRAINING_ITEM_UNPLACED` yazar (`event_data` verisine eklenir; `message` verilmezse durumun
     mesajı) ve çalıştırmayı yeniden sayar; commit etmez. Başka bir durum `ValueError`, öğe son
     kararındaysa `ItemNotPlaceableError`.
     """
-    if status not in (TrainingItemStatus.UNPLACED, TrainingItemStatus.CONFLICT):
-        raise ValueError(f"Yerleşmeyen öğenin durumu unplaced ya da conflict olur: {status}")
+    if status not in UNPLACED_STATUSES:
+        raise ValueError(
+            f"Yerleşmeyen öğenin durumu unplaced, conflict ya da review olur: {status}"
+        )
     if item.status not in PLACEABLE_STATUSES:
         raise ItemNotPlaceableError(f"Öğe {item.id} son kararında: {item.status}")
     _decide(item, status, slug=slug, method=method, note=note, actor=actor)
     session.flush()
     if message is None and status is TrainingItemStatus.UNPLACED:
         message = "Eğitim öğesi yerleşmedi: hiçbir bilinen türe inmedi."
+    elif message is None and status is TrainingItemStatus.REVIEW:
+        message = "Eğitim öğesi yerleşmedi: harita satırı İK incelemesi bekliyor."
     elif message is None:
         message = f"Eğitim öğesi yerleşmedi: sonuç `{slug}` beklenen türle çelişiyor."
     record_event(

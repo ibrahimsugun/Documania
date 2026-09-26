@@ -62,6 +62,7 @@ from app.training.classification import (
     TRAINING_CLASSIFICATIONS,
     TrainingClassificationJob,
 )
+from app.training.map_scan import TrainingMapJob
 from app.web.routers import metrics
 from app.web.routers.uploads import IncomingFile, store_upload
 from app.worker import IdleContext, IdleJob, Worker, create_worker, default_idle_jobs
@@ -535,9 +536,14 @@ def test_ai_step_event_types_count_only_with_a_provider() -> None:
 def test_the_training_classification_is_a_default_idle_job(
     layout: DataLayout, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    # Üçüncü iş toplu taramanın mekanik adımıdır (11.9.5, `tests/worker/test_map_scan.py`).
     jobs = default_idle_jobs(SETTINGS)
 
-    assert [type(job) for job in jobs] == [CandidateExaminationJob, TrainingClassificationJob]
+    assert [type(job) for job in jobs] == [
+        CandidateExaminationJob,
+        TrainingClassificationJob,
+        TrainingMapJob,
+    ]
     job = jobs[1]
     assert isinstance(job, IdleJob)
     assert job.name == JOB_NAME
@@ -549,6 +555,7 @@ def test_the_training_classification_is_a_default_idle_job(
         assert [type(each) for each in worker.idle_jobs] == [
             CandidateExaminationJob,
             TrainingClassificationJob,
+            TrainingMapJob,
         ]
     finally:
         worker.stop()

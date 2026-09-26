@@ -5,8 +5,11 @@ Bilinen türler (katalog + hazır önerilen türler) `known_types`, çalıştır
 yerleştirme `placement`, yapay zekâsız tür tanıma (SHA-256, ipucunun yapı kuralları, PDF metin
 katmanında MRZ) `mechanical` modülündedir. Mekanik tanınmayan öğenin yapay zekâ incelemesi ve "AI
 kararı" etiketiyle yerleşmesi (11.9.3) `app.training.classification`'dadır; işçinin boş-zaman
-çerçevesine bağlı olduğu için paketten dışa aktarılmaz (içe aktarma döngüsü olmasın). İK'nın
-etiket kararı (doğrula, başka türe taşı, örneklerden çıkar; 11.9.4) `decisions` modülündedir.
+çerçevesine bağlı olduğu için paketten dışa aktarılmaz (içe aktarma döngüsü olmasın). İK'nın etiket
+kararı (doğrula, başka türe taşı, örneklerden çıkar; 11.9.4) `decisions` modülündedir. Harita yükle
+(11.9.5): haritanın okunması, yollarının çözümü, önizlemesi ve taramanın başlatılması
+`map_import`'ta; işçinin parça parça yürüttüğü mekanik tarama `app.training.map_scan`'dadır
+(boş-zaman çerçevesine bağlı, paketten dışa aktarılmaz).
 """
 
 from app.training.decisions import (
@@ -30,6 +33,23 @@ from app.training.known_types import (
     load_suggested_types,
     normalize_type_name,
     parse_suggested_types,
+)
+from app.training.map_import import (
+    MapEntry,
+    MapError,
+    MapPlan,
+    MapPreview,
+    MapRoot,
+    MapRow,
+    Outlook,
+    SkippedRow,
+    SkipReason,
+    item_source_path,
+    map_outlooks,
+    parse_map,
+    plan_map,
+    preview_map,
+    start_map_scan,
 )
 from app.training.mechanical import (
     MRZ_DOC_KINDS,
@@ -56,14 +76,18 @@ from app.training.placement import (
     PENDING_STATUSES,
     PLACEABLE_STATUSES,
     SYSTEM_ACTOR,
+    UNPLACED_STATUSES,
     ItemNotPlaceableError,
     Placement,
     UnknownTypeError,
+    check_content,
     create_run,
+    fail_item,
     leave_unplaced,
     place_example,
     refresh_run,
     stage_file,
+    write_staged_copy,
 )
 
 __all__ = [
@@ -74,39 +98,56 @@ __all__ = [
     "PENDING_STATUSES",
     "PLACEABLE_STATUSES",
     "SYSTEM_ACTOR",
+    "UNPLACED_STATUSES",
     "ExampleDecisionError",
     "ExampleInventory",
     "ItemNotPlaceableError",
     "KnownType",
     "KnownTypeSource",
     "KnownTypes",
+    "MapEntry",
+    "MapError",
+    "MapPlan",
+    "MapPreview",
+    "MapRoot",
+    "MapRow",
     "MechanicalOutcome",
     "MovedExample",
     "MrzEvidence",
     "MrzReading",
     "MrzSearchStatus",
+    "Outlook",
     "Placement",
     "Recognition",
     "RecognitionBasis",
+    "SkipReason",
+    "SkippedRow",
     "SuggestedTypeRow",
     "SuggestedTypesError",
     "UnknownTypeError",
     "build_known_types",
+    "check_content",
     "check_move",
     "check_remove",
     "create_run",
+    "fail_item",
     "find_mrz_readings",
     "hint_label",
+    "item_source_path",
     "leave_unplaced",
     "load_example_inventory",
     "load_known_types",
     "load_suggested_types",
+    "map_outlooks",
     "move_example",
     "mrz_doc_kind",
     "normalize_type_name",
     "parse_example_inventory",
+    "parse_map",
     "parse_suggested_types",
     "place_example",
+    "plan_map",
+    "preview_map",
     "read_mrz_evidence",
     "recognize",
     "recognize_item",
@@ -114,5 +155,7 @@ __all__ = [
     "remove_example",
     "stage_and_recognize",
     "stage_file",
+    "start_map_scan",
     "verify_examples",
+    "write_staged_copy",
 ]
