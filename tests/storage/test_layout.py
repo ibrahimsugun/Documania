@@ -82,6 +82,7 @@ def test_identity_paths(tmp_path: Path) -> None:
     assert layout.ready_dir(folder) == tmp_path / "Employees" / folder / "Hazir"
     assert layout.profile_path(folder) == tmp_path / "Employees" / folder / "profil.md"
     assert layout.catalog_path == tmp_path / "KnownDocuments" / "catalog.yaml"
+    assert layout.example_inventory_path == tmp_path / "KnownDocuments" / "_ornek_envanteri.csv"
     assert layout.type_examples_dir("russian_passport") == (
         tmp_path / "KnownDocuments" / "examples" / "russian_passport"
     )

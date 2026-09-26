@@ -14,6 +14,7 @@ data/
   Archive/<yyyy-mm>/              arşive taşınanlar
   KnownDocuments/
       catalog.yaml  examples/<tur_slug>/
+      _ornek_envanteri.csv            örnek envanteri; harici toplayıcının ürünü (11.9.2)
       _egitim/gelen/<run>/            eğitim modunda yüklenen dosyaların kopyası (11.9)
       _egitim/haritalar/              yüklenen harita CSV'leri (11.9.5)
       _egitim/cikarilan/<tur_slug>/   örneklerden çıkarılanlar; silinmez (11.9.4)
@@ -45,6 +46,7 @@ REASON_FILE = "reason.json"
 ARCHIVE = "Archive"
 KNOWN_DOCUMENTS = "KnownDocuments"
 CATALOG_FILE = "catalog.yaml"
+EXAMPLE_INVENTORY_FILE = "_ornek_envanteri.csv"
 EXAMPLES = "examples"
 TRAINING = "_egitim"
 TRAINING_INCOMING = "gelen"
@@ -105,6 +107,12 @@ class DataLayout:
     @property
     def catalog_path(self) -> Path:
         return self.known_documents / CATALOG_FILE
+
+    @property
+    def example_inventory_path(self) -> Path:
+        """`KnownDocuments/_ornek_envanteri.csv` — örneklerin kaynak ve SHA-256 envanteri; harici
+        toplayıcı aracının ürünüdür, sistem yazmaz (mekanik tanıma okur, 11.9.2)."""
+        return self.known_documents / EXAMPLE_INVENTORY_FILE
 
     def static_dirs(self) -> tuple[Path, ...]:
         """Açılışta var olması gereken dizinlerin tamamı."""

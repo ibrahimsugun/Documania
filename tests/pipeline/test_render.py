@@ -20,6 +20,7 @@ from app.pipeline.render import (
     detect_pdf_blank_pages,
     detect_pdf_single_image_pages,
     extract_page_text,
+    extract_pdf_content_text,
     extract_pdf_text,
     extract_upload_file_text,
     image_copy,
@@ -546,6 +547,30 @@ def test_extract_pdf_text_matches_text_layer_per_page(tmp_path: Path) -> None:
 def test_extract_pdf_text_raises_render_error(tmp_path: Path, content: bytes, message: str) -> None:
     with pytest.raises(RenderError, match=message):
         extract_pdf_text(_source(tmp_path, content))
+
+
+def test_extract_pdf_content_text_reads_bytes_in_memory(tmp_path: Path) -> None:
+    content = make_text_pdf_bytes(["birinci sayfa", None])
+
+    texts = extract_pdf_content_text(content)
+
+    assert texts == extract_pdf_text(_source(tmp_path, content))
+    assert texts[0] is not None and "birinci" in texts[0]
+    assert texts[1] is None
+
+
+@pytest.mark.parametrize(
+    ("content", "message"),
+    [
+        (b"\xff\xd8\xff\xe0 sentetik", "PDF değil"),
+        (make_sized_pdf_bytes([A4], password="sentetik"), "parola"),
+        (b"%PDF-1.7\nbozuk", "açılamadı"),
+    ],
+    ids=["jpeg", "parolali", "bozuk"],
+)
+def test_extract_pdf_content_text_raises_render_error(content: bytes, message: str) -> None:
+    with pytest.raises(RenderError, match=message):
+        extract_pdf_content_text(content)
 
 
 def test_extract_upload_file_text_writes_text_layer_on_rendered_pages(

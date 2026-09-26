@@ -1639,13 +1639,13 @@
         "description": "PRD 11.9.2 · FR-MOD-11 · Faz 1 · Must (v1). İnsan kararı (2026-09-26): belge önce AI olmadan mekanik kontrol edilir; bilinen belgeyse not alınıp örneklere kaydedilir; harita + mekanik kontrol yeter. Sözleşme PLAN §C86 \"Mekanik tanıma\".",
         "details": "KAPSAM: PRD 11.9.2. Tam sözleşme PLAN.md §C86 (Mekanik tanıma paragrafı) — önce oku. tm 115 üzerine.\n\nNE YAPILACAK: app/training/mechanical.py, sırayla, ilk kesin sonuç: (1) check_example (PDF/JPEG/PNG, okunabilir, boyut) — geçmezse failed; (2) SHA-256: example_files dizini + varsa KnownDocuments/_ornek_envanteri.csv'nin role=example satırları (sha → slug) → o tür; (3) ipucu slug (harita satırı ya da \"Beklenen tür\") bilinen türse: katalog türünde dosya türü expected_file_types'ta ve PDF sayfa sayısı expected_pages aralığında (front_back düzenleri dahil); önerilen türde yalnız dosya türü; ipucuyla gelen sha256 dosyanınkine eşit → o tür; (4) PDF metin katmanı (extract_page_text, bellekte; OCR yok): satırlar boşluksuzlaştırılır, [A-Z0-9<] harfli 30/36/44 uzunluklu satırlar MRZ adayı, aynı uzunlukta ardışık 2–3 satır parse_mrz'e; kontrol haneleri tutarsa belge kodu (P → pasaport, I/A/C → kimlik_karti, IR/R → oturum_izni, V → vize) + veren ülke ISO3 → tekil bilinen tür (known_types eşlemesi). İpucu ile (2)/(4) çelişirse mekanik değildir → ai_pending. Mekanik yerleşen: method=mechanical, etiket yok, Türkçe not \"Mekanik: <dayanak> → `<slug>`; <kontroller>\". MRZ'den yalnız kod ve ülke tutulur; checks_json'a kişisel değer yazılmaz. Tanınmayan → ai_pending (tm 117 işler).\n\nGİRDİ: app/training/ (tm 115), app/storage/examples.py (check_example), app/pipeline/render.py (extract_page_text, _open_pdf; bayttan açma), app/matching/mrz.py (parse_mrz, detect_format, Mrz.document_code/issuing_state, failed_checks), app/catalog/schema.py (expected_file_types, expected_pages, sides, front_back_layouts).\n\nÇIKTI: app/training/mechanical.py, app/training (servis bağlantısı), tests/training/, PLAN.md, HANDOFF.md.\n\nBU GÖREVİ BAĞLAYAN KİLİTLİ KURALLAR: K11 (OCR yok, içerik değiştirilmez), K12 (render yalnız bellekte ve gerekirse), CONVENTIONS §6 (MRZ kişisel değeri hiçbir yere yazılmaz).\n\nPRD'DE AYRICA OKU: 05.3.1–05.3.3, §20.1 (MRZ biçimleri), 11.1.2 (sayfa aralığının düzenlerden türetilmesi).\n\nİLGİLİ KABUL SENARYOLARI: S20.\n\nKAPSAM SINIRI: başlık/anahtar kelime tanıması yok; yapay zekâ yok; harita okuma tm 120.\n\nTUZAKLAR: örneklerin çoğu JPEG/PNG (1845'in 78'i PDF) — haritasız görüntü dosyası genellikle ai_pending olur, bu doğru davranıştır. _ornek_envanteri.csv yerel veridir (gitignore) — yoksa adım atlanır; testler sentetik CSV kurar. RUS/kimlik_karti ve TUR/ehliyet belirsizdir. parse_mrz izole satır ister ve geçersiz karakterde InvalidMrzError fırlatır.\n\nKAPANIŞ: PLAN 11.9.2 satırı ✅ → K11.9 (tm 115, 116), HANDOFF bloğu, commit mesajında `PRD 11.9.2 — tm 116`.",
         "testStrategy": "1) Sırayla her adım: bozuk dosya failed; bilinen sha → tür; envanter sha → tür; ipucu + yapı geçer → mekanik; ipucu + yanlış dosya türü / sayfa sayısı → ai_pending; ipucu sha uyuşmazlığı → ai_pending. 2) Sentetik PDF metin katmanında TD3 MRZ (kontrol haneleri tutan) → pasaport türü; hanesi tutmayan → ai_pending; checks_json ve notta kişisel değer yok. 3) İpucu–MRZ çelişkisi → ai_pending. 4) Değişmez güvence testi (tm 115) yeşil; yapay zekâ çağrılmaz (sağlayıcı sahte, çağrı sayısı 0). 5) Tüm test takımı (`pytest -q -m \"not live\"`, kapsam ≥%70), ruff check/format, compileall, temiz SQLite'ta `alembic upgrade head`, `import app.main` yeşil (CONVENTIONS DoD). Testler yalnız sentetik belge ve sentetik adlarla (CONVENTIONS §6); canlı yapay zekâ çağrısı yok.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [
           "115"
         ],
         "priority": "high",
         "subtasks": [],
-        "updatedAt": "2026-09-26T00:00:00.000Z"
+        "updatedAt": "2026-09-26T05:55:50.676Z"
       },
       {
         "id": "117",
@@ -1709,9 +1709,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-09-26T04:42:25.617Z",
+      "lastModified": "2026-09-26T05:55:50.676Z",
       "taskCount": 118,
-      "completedCount": 110,
+      "completedCount": 111,
       "tags": [
         "master"
       ]

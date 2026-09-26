@@ -2,7 +2,8 @@
 kişi eşleştirmesi, kuyruk öğesi, yükleme partisi ya da çıktı belgesi oluşturmaz.
 
 Bilinen türler (katalog + hazır önerilen türler) `known_types`, çalıştırma, staging ve örneğe
-yerleştirme `placement` modülündedir.
+yerleştirme `placement`, yapay zekâsız tür tanıma (SHA-256, ipucunun yapı kuralları, PDF metin
+katmanında MRZ) `mechanical` modülündedir.
 """
 
 from app.training.known_types import (
@@ -17,6 +18,25 @@ from app.training.known_types import (
     load_suggested_types,
     normalize_type_name,
     parse_suggested_types,
+)
+from app.training.mechanical import (
+    MRZ_DOC_KINDS,
+    MRZ_STATE_CODES,
+    ExampleInventory,
+    MechanicalOutcome,
+    MrzEvidence,
+    MrzReading,
+    MrzSearchStatus,
+    Recognition,
+    RecognitionBasis,
+    find_mrz_readings,
+    load_example_inventory,
+    mrz_doc_kind,
+    parse_example_inventory,
+    read_mrz_evidence,
+    recognize,
+    recognize_item,
+    stage_and_recognize,
 )
 from app.training.placement import (
     LABEL_BY_METHOD,
@@ -35,24 +55,41 @@ from app.training.placement import (
 __all__ = [
     "CATALOG_KINDS",
     "LABEL_BY_METHOD",
+    "MRZ_DOC_KINDS",
+    "MRZ_STATE_CODES",
     "PENDING_STATUSES",
     "PLACEABLE_STATUSES",
     "SYSTEM_ACTOR",
+    "ExampleInventory",
     "ItemNotPlaceableError",
     "KnownType",
     "KnownTypeSource",
     "KnownTypes",
+    "MechanicalOutcome",
+    "MrzEvidence",
+    "MrzReading",
+    "MrzSearchStatus",
     "Placement",
+    "Recognition",
+    "RecognitionBasis",
     "SuggestedTypeRow",
     "SuggestedTypesError",
     "UnknownTypeError",
     "build_known_types",
     "create_run",
+    "find_mrz_readings",
+    "load_example_inventory",
     "load_known_types",
     "load_suggested_types",
+    "mrz_doc_kind",
     "normalize_type_name",
+    "parse_example_inventory",
     "parse_suggested_types",
     "place_example",
+    "read_mrz_evidence",
+    "recognize",
+    "recognize_item",
     "refresh_run",
+    "stage_and_recognize",
     "stage_file",
 ]

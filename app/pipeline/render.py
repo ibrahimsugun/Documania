@@ -225,7 +225,12 @@ def extract_page_text(page: pymupdf.Page) -> str | None:
 
 def extract_pdf_text(source: Path) -> list[str | None]:
     """`source` PDF'inin her sayfasının metin katmanını sayfa sırasıyla döner (02.2.1)."""
-    content = source.read_bytes()
+    return extract_pdf_content_text(source.read_bytes())
+
+
+def extract_pdf_content_text(content: bytes) -> list[str | None]:
+    """PDF baytlarının her sayfasının metin katmanı, bellekte (diske ve önbelleğe yazmadan);
+    eğitim modunun mekanik tanıması (11.9.2) MRZ'yi bununla arar. PDF açılamazsa `RenderError`."""
     with _open_pdf(content) as document:
         return [extract_page_text(page) for page in document]
 
