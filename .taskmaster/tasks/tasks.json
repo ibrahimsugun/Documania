@@ -1683,13 +1683,13 @@
         "description": "PRD 11.9.4 · FR-MOD-11 · Faz 1 · Must (v1). İnsan kararı (2026-09-26): AI kararı etiketi varken İK belgelerin yanında ve içinde manuel kontrol ikonu görür. Onay metinleri PLAN §D58; sözleşme §C86 \"Etiket kararı\".",
         "details": "KAPSAM: PRD 11.9.4. Tam sözleşme PLAN.md §C86 (Etiket kararı paragrafı) ve §D58 (K16 dışı, onay metinleri birebir) — önce oku. tm 118 üzerine.\n\nNE YAPILACAK: (1) \"Doğrula\" (tek ve toplu seçim): example_files.label → verified, TRAINING_LABEL_VERIFIED kullanıcı adıyla; tek adım. (2) \"Başka türe taşı\": dosya examples/<eski>/'den examples/<yeni>/'ye atomik taşınır (ad çakışmasında -2), example_files güncellenir, TRAINING_EXAMPLE_MOVED; iki aşamalı onay (app.web.confirm, yeni Operation değeri; metinler §D58 birebir). (3) \"Örneklerden çıkar\": dosya KnownDocuments/_egitim/cikarilan/<slug>/'a taşınır (silinmez), example_files kaydı çıkarıldı olarak işaretlenir, TRAINING_EXAMPLE_REMOVED; iki aşamalı onay. (4) İkon: katalog tür sayfasının örnek listesi (catalog_examples.html) ve örnek görünümünde, eğitim sekmesinde olduğu gibi. (5) describe.collect_example_pages'e dışlama listesi: label=ai_decision örnekler açıklama üretimine girmez; dışlanan sayı açıklama sonucunda yazılır.\n\nGİRDİ: app/web/confirm.py (Operation, issue_confirmation, confirm_operation; REANALYZE metinlerinin router'da durma deseni), app/web/routers/upload_page.py (prepare/confirm deseni ~943-1019), app/catalog/describe.py (collect_example_pages, describe_type), app/web/routers/catalog.py (_examples_context), app/web/templates/catalog_examples.html, tm 115 example_files, tm 118 training router.\n\nÇIKTI: app/web/routers/training.py, app/web/confirm.py, app/catalog/describe.py, app/web/routers/catalog.py, şablonlar, app/events.py, tests/web, tests/catalog (test_catalog_description, test_catalog_examples), tests/test_events.py, PLAN.md, HANDOFF.md.\n\nBU GÖREVİ BAĞLAYAN KİLİTLİ KURALLAR: R11 (silme yok), K11 (yalnız taşıma), §D58 (K16 dışı; §20.6'ya satır eklenmez), 10.8.1'in belirteç mekanizması, K15.\n\nPRD'DE AYRICA OKU: 11.3.1, 11.8.1, 11.9.4, §20.6 (değişmez).\n\nİLGİLİ KABUL SENARYOLARI: S20.\n\nKAPSAM SINIRI: örnek silme yok; katalog tür formu değişmez; toplu tarama tm 120.\n\nTUZAKLAR: tests/web/test_confirm.py PRD §20.6 tablosunu Operation eşlemesiyle karşılaştırır — yeni işlemler §20.6'ya girmez, eşlemede REANALYZE gibi tablo dışı tutulmalı. _examples_context imzası değişince tests/catalog/test_catalog_examples.py ve test_catalog_description.py güncellenir. Taşıma hedefinde ad çakışması.\n\nKAPANIŞ: PLAN 11.9.4 satırı ✅ → K11.9, HANDOFF bloğu, commit mesajında `PRD 11.9.4 — tm 119`.",
         "testStrategy": "1) Doğrula tek ve toplu: etiket verified, ikon kalkar, olay kullanıcı adıyla. 2) Taşı: tek onayla değişiklik yok; iki onayla dosya yeni klasörde, eskide yok, example_files güncel, olay; belirteçsiz/yanlış belirteç reddi; ad çakışması -2. 3) Çıkar: iki onayla dosya _egitim/cikarilan altında, examples'ta yok, hiçbir dosya silinmedi. 4) Katalog sayfası örnek listesinde ve görünümünde ikon. 5) describe_type: ai_decision örnek isteğe girmez, verified girer; dışlanan sayı sonuçta. 6) test_confirm yeşil (§20.6 değişmedi). 7) Tüm test takımı (`pytest -q -m \"not live\"`, kapsam ≥%70), ruff check/format, compileall, temiz SQLite'ta `alembic upgrade head`, `import app.main` yeşil (CONVENTIONS DoD). Testler yalnız sentetik belge ve sentetik adlarla (CONVENTIONS §6); canlı yapay zekâ çağrısı yok.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [
           "118"
         ],
         "priority": "high",
         "subtasks": [],
-        "updatedAt": "2026-09-26T00:00:00.000Z"
+        "updatedAt": "2026-09-26T08:38:21.695Z"
       },
       {
         "id": "120",
@@ -1709,9 +1709,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-09-26T07:29:38.649Z",
+      "lastModified": "2026-09-26T08:38:21.696Z",
       "taskCount": 118,
-      "completedCount": 113,
+      "completedCount": 114,
       "tags": [
         "master"
       ]
