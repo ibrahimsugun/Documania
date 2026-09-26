@@ -21,7 +21,6 @@ from app.catalog.candidates import (
     load_candidate_type,
     reject_candidate_type,
     sample_page_refs,
-    suggested_form,
     summarize_candidates,
 )
 from app.catalog.form import TypeForm, TypeFormError, build_entry
@@ -138,7 +137,6 @@ __all__ = [
     "sample_page_refs",
     "set_photo_rules",
     "set_type_active",
-    "suggested_form",
     "summarize_candidates",
     "update_type",
     "validate_catalog",

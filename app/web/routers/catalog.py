@@ -69,8 +69,13 @@ detayıdır: örnek sayfalar, ilişkili bekleyen Unknown öğeleri (ilk kaynak s
 sayfalarından biri olan, partisinin güncel planındaki çözülmemiş öğe — `app.web.routers.queue`'nun
 durum tanımı) ve karar:
 
-- **Onay (11.5.2, K16).** Tür formu adayla önceden dolu açılır (`suggested_form`); İK yapıyı
-  (dosya türleri, yüzler, Direkt Belge, zorunlu alanlar…) tamamlar. `POST .../approve/confirm` formu
+- **Onay (11.5.2, K16).** Tür formu sistemin incelemesinin taslağıyla (11.5.5) bütün alanlarıyla
+  dolu açılır (11.5.6, `app.catalog.prefill.suggested_form`; taslak yoksa adayın adıyla); üstündeki
+  bant taslağın durumunu (örnek sayfa sayısı ve tarih), doğrulamadan geçmeyip boş kalan alanları,
+  katalogdaki olası aynı türü ve hazır önerilen tür kaydından seçilen slug'ın doğrulanmamış "AI
+  kararı" örneklerini söyler. `POST .../examine` ("Yeniden incele") taslağı eşzamanlı yeniler
+  (sağlayıcı kurulamıyorsa 503, hata verirse 502; ikisinde de taslak değişmez). İK düzeltir ve
+  tamamlar. `POST .../approve/confirm` formu
   11.1.2 doğrulamasından geçirir ve §20.6'nın birinci metnini (`<Tür adı>` = formdaki ad) eklenecek
   kaydın özetiyle verir → `POST .../approve/prepare` ikinci metni ve kayda bağlı tek kullanımlık
   belirteci (10.8.1; hedef aday + kaydın SHA-256 özeti) verir → `POST .../approve` belirteci
@@ -106,12 +111,15 @@ from starlette.datastructures import UploadFile as StarletteUploadFile
 
 from app.ai.provider import AnalysisProvider, ProviderConfigError, ProviderError, create_provider
 from app.ai.type_description import TypeDescriptionError
+from app.ai.type_proposal import TypeProposalError
+from app.ai.usage import measure_usage
 from app.catalog import (
     DETAIL_SAMPLE_LIMIT,
     PHOTO_RULE_TYPES,
     CandidateDecidedError,
     CandidateNotFoundError,
     CatalogEntry,
+    CatalogError,
     Conversion,
     FileType,
     FrontBackLayout,
@@ -140,7 +148,6 @@ from app.catalog import (
     sample_page_refs,
     set_photo_rules,
     set_type_active,
-    suggested_form,
     summarize_candidates,
     update_type,
 )
@@ -154,9 +161,24 @@ from app.catalog.describe import (
     accepted_photos,
     describe_type,
 )
+from app.catalog.prefill import (
+    SuggestedForm,
+    suggested_form,
+    suggested_type,
+    unverified_example_count,
+)
+from app.catalog.propose import (
+    CANDIDATE_EXAMINATIONS,
+    examine,
+    load_proposal,
+    read_examination,
+    store_error,
+    store_examination,
+)
 from app.config import Settings, get_settings
 from app.db.models import (
     CandidateDocumentType,
+    CandidateProposalStatus,
     CandidateTypeStatus,
     KnownDocumentType,
     Plan,
@@ -182,6 +204,7 @@ from app.storage.examples import (
     list_examples,
     store_example,
 )
+from app.training.known_types import KnownTypes, load_known_types
 from app.web.auth import PanelUser, require_panel_user
 from app.web.confirm import (
     CONFIRMATION_REFUSED,
@@ -297,6 +320,29 @@ CANDIDATE_NOTICES = {
     "geçerlidir. İlişkili Unknown öğeleri aşağıdan toplu yeniden analiz edilebilir.",
     "rejected": "Aday tür reddedildi; bir daha listeye düşmez.",
 }
+# 11.5.6: taslakla dolu onay formunun bandı ve "Yeniden incele".
+PREFILL_FILLED = (
+    "Alanlar sistemin incelemesiyle dolduruldu ({pages} örnek sayfa, {date}). Kaydetmeden önce "
+    "kontrol edin."
+)
+PREFILL_UNFILLED = "Şu alanlar önerilemedi, elle doldurun: {fields}"
+PREFILL_STATUS = {
+    None: "Sistem bu adayı henüz incelemedi; örnek sayfalar işçinin boş zamanında incelenir. "
+    "Form adayın adıyla açıldı.",
+    CandidateProposalStatus.FAILED.value: "Sistemin incelemesi taslak üretmedi: {reason}. "
+    "Form adayın adıyla açıldı.",
+    CandidateProposalStatus.NO_SAMPLES.value: "Sistemin incelemesi yapılamadı: {reason}. "
+    "Form adayın adıyla açıldı.",
+}
+EXAMINED_NOTICE = "Aday yeniden incelendi."
+EXAMINE_PROVIDER_UNAVAILABLE = "Yeniden incelenmedi: yapay zekâ sağlayıcısı kurulamadı. {detail}"
+EXAMINE_PROVIDER_FAILED = (
+    "Yeniden incelenmedi: yapay zekâ sağlayıcısı yanıt vermedi ({detail}). Biraz sonra yeniden "
+    "deneyin."
+)
+EXAMINE_REJECTED = (
+    "Yeniden incelenmedi: yapay zekânın yanıtı tür taslağı şemasına uymadı. Yeniden deneyin."
+)
 NOT_APPROVED_NOTE = "Toplu yeniden analiz yalnız onaylanmış aday türde yapılır."
 NO_RELATED_NOTE = (
     "Bu aday türle ilişkili bekleyen Unknown öğesi yok; yeniden analiz edilecek parti bulunmuyor."
@@ -1035,10 +1081,14 @@ def _candidate_page(
     form: TypeForm | None = None,
     problems: dict[str, list[str]] | None = None,
     notice: str | None = None,
+    examine_error: str | None = None,
     status_code: int = status.HTTP_200_OK,
 ) -> HTMLResponse:
     """Aday türün detayı: örnek sayfalar, ilişkili bekleyen Unknown öğeleri ve durumuna göre onay
-    formu + ret (bekleyen), toplu yeniden analiz (onaylanmış) ya da ret notu."""
+    formu + ret (bekleyen), toplu yeniden analiz (onaylanmış) ya da ret notu. Bekleyen adayın formu
+    taslakla dolu açılır (11.5.6, `suggested_form`); `form` verilirse (reddedilen gönderim) o
+    çizilir, bant yine sistemin incelemesini anlatır. `examine_error` "Yeniden incele"nin
+    hatasıdır."""
     (summary,) = summarize_candidates(session, [candidate], sample_limit=DETAIL_SAMPLE_LIMIT)
     related = _related_by_candidate(session, [candidate.id])[candidate.id]
     pending = candidate.status == CandidateTypeStatus.PENDING.value
@@ -1052,7 +1102,10 @@ def _candidate_page(
             blocked = str(exc.detail)
     context: dict[str, Any] = {}
     if pending:
-        context = _fields_context(form or suggested_form(candidate), problems)
+        prefill = suggested_form(candidate, known=_known_types(session))
+        context = _fields_context(form or prefill.form, problems) | _prefill_context(
+            session, prefill
+        )
     return render_page(
         request,
         "catalog_candidate.html",
@@ -1068,9 +1121,44 @@ def _candidate_page(
         reanalysis_blocked=blocked,
         reanalysis_first=BATCH_REANALYZE_FIRST.format(count=len(targets)),
         notice_text=notice,
+        examine_error=examine_error,
         is_new=True,
         **context,
     )
+
+
+def _known_types(session: Session) -> KnownTypes | None:
+    """Bilinen türler (katalog ∪ önerilen tür kaydı, §C86); kayıtlı katalog okunamazsa `None` — form
+    önerilen kayıt ve çakışma uyarısı olmadan açılır, onay yine slug'ı denetler."""
+    try:
+        return load_known_types(session)
+    except CatalogError:
+        return None
+
+
+def _prefill_context(session: Session, prefill: SuggestedForm) -> dict[str, Any]:
+    """Onay formunun üstündeki bant (11.5.6): taslağın durumu, doldurulamayan alanlar, katalog
+    çakışması ve önerilen slug'ın doğrulanmamış "AI kararı" örnekleri."""
+    if prefill.filled:
+        generated = prefill.proposal_generated_at
+        state = PREFILL_FILLED.format(
+            pages=prefill.proposal_pages,
+            date="—" if generated is None else f"{generated:%Y-%m-%d}",
+        )
+    else:
+        template = PREFILL_STATUS.get(prefill.proposal_status, PREFILL_STATUS[None])
+        state = template.format(reason=(prefill.proposal_reason or "gerekçe yok").rstrip("."))
+    slug = prefill.suggested_slug
+    return {
+        "prefill": prefill,
+        "prefill_state": state,
+        "prefill_unfilled": (
+            PREFILL_UNFILLED.format(fields=", ".join(prefill.unfilled))
+            if prefill.unfilled
+            else None
+        ),
+        "unverified_examples": None if slug is None else unverified_example_count(session, slug),
+    }
 
 
 def _step_page(
@@ -1320,6 +1408,95 @@ def reject_candidate(
         )
     session.commit()
     return RedirectResponse(f"{CANDIDATES_PATH}?notice=rejected", status.HTTP_303_SEE_OTHER)
+
+
+# --- 11.5.6: yeniden incele ---------------------------------------------------------------------
+
+
+@router.post(f"{CANDIDATES_PATH}/{{candidate_id}}/examine", response_class=HTMLResponse)
+def reexamine_candidate(
+    candidate_id: int,
+    request: Request,
+    user: CurrentUser,
+    session: DbSession,
+    layout: Layout,
+    provider: DescriptionProvider,
+) -> HTMLResponse:
+    """11.5.6 — bekleyen adayı hemen yeniden inceler (11.5.5'in `read_examination` → `examine` →
+    `store_examination` üçlüsü, işçinin boş-zaman işiyle aynı) ve sayfayı yeni taslakla dolu formla
+    yeniden çizer. Önerilen tür kaydının eşleşen satırı isteğe girer (`suggested_type`).
+
+    Tür açıklaması (`POST /document-types/{slug}/description`) gibi eşzamanlıdır: veritabanı
+    işlemi sağlayıcı çağrısından önce bırakılır, sonuç yeni işlemde yazılır. Başarıda deneme sayacı
+    sıfırlanır ve işçinin sahiplenmesi kaldırılır (süren bir boş-zaman birimi sonucunu yazmaz).
+    Sağlayıcı kurulamıyorsa 503, yanıt vermez ya da yanıt şemaya uymazsa 502: taslak değişmez, hata
+    bantta yazar; yapılmış çağrının kullanımı olayla (`CANDIDATE_TYPE_EXAMINED`, sonuç `error`)
+    sayılır. Karara bağlanmış aday 409. Kaydetmez ve onaylamaz: onay iki aşamalıdır (K16).
+    """
+    candidate = _candidate_or_404(session, candidate_id)
+
+    def page(
+        status_code: int, *, notice: str | None = None, error: str | None = None
+    ) -> HTMLResponse:
+        current = session.get_one(CandidateDocumentType, candidate_id)
+        response = _candidate_page(
+            request,
+            user,
+            session,
+            current,
+            notice=notice,
+            examine_error=error,
+            status_code=status_code,
+        )
+        session.rollback()
+        return response
+
+    if candidate.status != CandidateTypeStatus.PENDING.value:
+        note = _decided_note(candidate.status)
+        session.rollback()
+        return _step_page(request, user, candidate_id, status.HTTP_409_CONFLICT, error=note)
+    if isinstance(provider, ProviderConfigError):
+        return page(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            error=EXAMINE_PROVIDER_UNAVAILABLE.format(detail=provider),
+        )
+    known = _known_types(session)
+    suggested = None
+    if known is not None:
+        suggested = suggested_type(known, candidate, load_proposal(candidate))
+    source = read_examination(session, candidate, suggested=suggested)
+    session.rollback()  # Uzun süren çağrı yazma kilidi tutmasın.
+    error = None
+    with measure_usage() as meter:
+        try:
+            examination = examine(source, layout, provider)
+        except ProviderError as exc:
+            error = (EXAMINE_PROVIDER_FAILED.format(detail=exc), exc)
+        except TypeProposalError as exc:
+            error = (EXAMINE_REJECTED, exc)
+    candidate = session.get_one(CandidateDocumentType, candidate_id)
+    if candidate.status != CandidateTypeStatus.PENDING.value:
+        # İstek sürerken karara bağlandı: sonuç yazılmaz.
+        note = _decided_note(candidate.status)
+        session.rollback()
+        return _step_page(request, user, candidate_id, status.HTTP_409_CONFLICT, error=note)
+    if error is not None:
+        text, exc = error
+        store_error(
+            session,
+            candidate,
+            error=type(exc).__name__,
+            final=False,
+            provider=provider,
+            meter=meter,
+        )
+        session.commit()
+        return page(status.HTTP_502_BAD_GATEWAY, error=text)
+    store_examination(session, candidate, examination, provider=provider, meter=meter)
+    candidate.idle_attempts = 0
+    CANDIDATE_EXAMINATIONS.clear(candidate)
+    session.commit()
+    return page(status.HTTP_200_OK, notice=EXAMINED_NOTICE)
 
 
 # --- 11.5.3: toplu yeniden analiz ---------------------------------------------------------------

@@ -1,7 +1,8 @@
 {% extends "base.html" %}
 {# Aday tür detayı (11.5.1–11.5.4): örnek sayfalar, ilişkili bekleyen Unknown öğeleri ve karar.
-   Bekleyen adayda tür formu adayla önceden dolu açılır (onay iki aşamalıdır, §20.6) ve ret düğmesi
-   durur; onaylanmış adayda ilişkili Unknown öğelerinin partileri toplu yeniden analiz edilir.
+   Bekleyen adayda tür formu sistemin taslağıyla (11.5.6; taslak yoksa adayın adıyla) dolu açılır,
+   üstündeki bant taslağın durumunu söyler ve "Yeniden incele" taslağı yeniler (onay iki aşamalıdır,
+   §20.6); ret düğmesi durur; onaylanmış adayda ilişkili Unknown öğelerinin partileri toplu yeniden analiz edilir.
    Belge içeriği formda yok (K17). #}
 {% block title %}Aday tür: {{ candidate.name }}{% endblock %}
 {% block content %}
@@ -46,7 +47,32 @@
 {% if status == "pending" %}
 <section id="approve" aria-labelledby="approve-title">
   <h2 id="approve-title">Standart türlere ekle</h2>
-  <p class="hint">Tür formu adayın adıyla açılır; belgenin yapısını (dosya türleri, yüzler, Direkt Belge, zorunlu alanlar, dönüşümler) tamamlayın. Ekleme iki aşamalı onay ister; tür bir sonraki analizden itibaren geçerlidir.</p>
+  <p class="hint">Tür formu sistemin incelemesinden gelen taslakla, taslak yoksa adayın adıyla açılır; alanları kontrol edip belgenin yapısını (dosya türleri, yüzler, Direkt Belge, zorunlu alanlar, dönüşümler) tamamlayın. Ekleme iki aşamalı onay ister; tür bir sonraki analizden itibaren geçerlidir.</p>
+  {# 11.5.6: taslağın bandı — durum, doldurulamayan alanlar, katalog çakışması, önerilen tür kaydı. #}
+  <div class="prefill" id="prefill">
+    <p class="{% if prefill.filled %}notice{% else %}hint{% endif %} prefill-state" role="status">{{ prefill_state }}</p>
+    {% if prefill_unfilled %}
+    <p class="notice prefill-unfilled" role="alert">{{ prefill_unfilled }}</p>
+    {% endif %}
+    {% if prefill.catalog_slug %}
+    <p class="notice prefill-conflict" role="alert">Bu tür katalogda zaten olabilir: <a href="/document-types/{{ prefill.catalog_slug|urlencode }}"><code>{{ prefill.catalog_slug }}</code></a></p>
+    {% endif %}
+    {% if prefill.suggested_slug %}
+    <p class="hint prefill-suggested">Slug hazır önerilen tür kaydından: <code>{{ prefill.suggested_slug }}</code> (örnek klasörüyle aynı). Bu klasörde doğrulanmamış "AI kararı" örneği: {{ unverified_examples }}.</p>
+    {% endif %}
+    {% if examine_error %}
+    <p class="error" role="alert">{{ examine_error }}</p>
+    {% endif %}
+    {# Yeniden inceleme yapay zekâyı çağırır ve sürebilir: HTMX ile gönderilir, düğmede dönen
+       gösterge çıkar; sonuç ya da hata aynı içeriğe yazılır. JavaScript kapalıyken düz formdur. #}
+    <form class="inline" method="post" action="/document-types/candidate-types/{{ candidate.id }}/examine"
+          hx-post="/document-types/candidate-types/{{ candidate.id }}/examine"
+          hx-target="main.content" hx-select="main.content" hx-swap="outerHTML"
+          hx-disabled-elt="find button[type=submit]"
+          hx-on::before-swap="if (event.detail.xhr.status >= 400) { event.detail.shouldSwap = true; event.detail.isError = false; }">
+      <button type="submit">Yeniden incele</button>
+    </form>
+  </div>
   {% if problems %}
   <p class="error" role="alert">Tür eklenmedi: alanların altındaki uyarıları düzeltin.</p>
   {% endif %}

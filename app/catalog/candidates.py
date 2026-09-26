@@ -18,7 +18,8 @@ Analizcinin önerdiği katalog dışı türler `candidate_document_types`'ta bir
   işaretler ve `TYPE_APPROVED`'ı kullanıcı adıyla yazar. Tür bir sonraki analizden itibaren analiz
   talimatındadır (katalog her analizde `export_catalog` ile baştan okunur). İki aşamalı onay
   (§20.6 "Yeni belge türünü onayla") çağıranın işidir — panel `app.web.confirm` ile yapar; bu modül
-  `USER_CONFIRMED` yazmaz.
+  `USER_CONFIRMED` yazmaz. Onay formunun açılışı — taslakla dolu form (11.5.6) — ayrı modüldedir
+  (`app.catalog.prefill`): taslak yapay zekâ katmanından gelir, bu paket onu içe aktaramaz.
 - **Ret (11.5.4).** `reject_candidate_type` adayı `rejected` işaretler ve `TYPE_REJECTED` yazar.
   Kayıt silinmez (K16). Aynı ad yeniden önerilirse görülme aynı kayda sayılır, durum değişmez
   (`record_candidate_type_sighting`): reddedilen aday listeye geri düşmez.
@@ -30,14 +31,12 @@ adı) ve onayda türün slug'ı. Hiçbir fonksiyon commit etmez; hata olursa ça
 
 from __future__ import annotations
 
-import re
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.catalog.form import TypeForm
 from app.catalog.manage import create_type
 from app.catalog.schema import CatalogEntry
 from app.db.models import (
@@ -50,7 +49,6 @@ from app.db.models import (
     decide_candidate_type,
 )
 from app.events import EventType, record_event
-from app.storage import SlugError, slugify
 
 LIST_SAMPLE_LIMIT = 3
 DETAIL_SAMPLE_LIMIT = 24
@@ -61,8 +59,6 @@ PROPOSAL_STATUS_LABELS = {
     CandidateProposalStatus.NO_SAMPLES.value: "Örnek yok",
 }
 """Aday incelemesinin (11.5.5) listede gösterilen durumu; incelenmemiş aday "Bekliyor"."""
-_SLUG = re.compile(r"[a-z][a-z0-9_]*")
-_SLUG_MAX_LENGTH = 64
 
 
 class CandidateNotFoundError(LookupError):
@@ -216,24 +212,6 @@ def sample_page_refs(
         select(Page.file_id, Page.index).where(Page.id.in_(candidate.sample_page_ids))
     ).all()
     return frozenset((file_id, index) for file_id, index in rows)
-
-
-def suggested_form(candidate: CandidateDocumentType) -> TypeForm:
-    """Onay formunun açılış değerleri (11.5.2): ad ve dosya etiketi önerilen addan, slug addan
-    türetilir (katalog slug biçimine uymuyorsa boş), açıklama adayınkidir. Belgenin yapısı —
-    dosya türleri, yüzler, Direkt Belge, zorunlu alanlar, dönüşümler — İK'nın kararıdır; formun
-    varsayılanlarıyla açılır."""
-    name = candidate.proposed_name
-    try:
-        slug = slugify(name, "_", max_length=_SLUG_MAX_LENGTH).lower()
-    except SlugError:
-        slug = ""
-    return TypeForm(
-        slug=slug if _SLUG.fullmatch(slug) else "",
-        name=name,
-        file_label=name,
-        description=candidate.description or "",
-    )
 
 
 def _pending(session: Session, candidate_type_id: int) -> CandidateDocumentType:

@@ -166,6 +166,11 @@ class KnownTypes:
         """Adı normalize edilince tek bir türe inen tür; eşleşme yoksa ya da belirsizse `None`."""
         return self._single(self._names.get(normalize_type_name(name)))
 
+    def name_matches(self, name: str) -> tuple[KnownType, ...]:
+        """Adı normalize edilince inen bütün türler, slug sırasıyla (belirsiz adda birden çok)."""
+        slugs = self._names.get(normalize_type_name(name), set())
+        return tuple(self._types[slug] for slug in sorted(slugs))
+
     def match_kind(self, country_iso3: str, doc_kind: str) -> KnownType | None:
         """(`country_iso3`, `kaynak_tur`) çifti tek bir türe inerse o tür; yoksa ya da belirsizse
         `None`."""

@@ -11,6 +11,7 @@ Yalnız `TestClient`: tarayıcıda çizim görülmedi."""
 
 from __future__ import annotations
 
+import json
 import re
 from collections.abc import Iterator
 from dataclasses import dataclass
@@ -26,24 +27,37 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session, sessionmaker
 
 import app.web.confirm as confirm
-from app.ai.provider import ProviderConfigError
+from app.ai.provider import (
+    AnalysisProvider,
+    PageAnalysisRequest,
+    ProviderConfigError,
+    ProviderError,
+    TypeProposalRequest,
+)
 from app.ai.recording_provider import RecordingProvider
+from app.ai.type_proposal import TypeProposalError
 from app.catalog import (
     CandidateDecidedError,
     CatalogEntry,
+    CatalogError,
     FrontBackLayout,
     PageRange,
+    TypeForm,
+    build_entry,
     create_type,
     export_catalog,
     import_catalog,
     load_seed_catalog,
+    reject_candidate_type,
 )
+from app.catalog.prefill import suggested_form
 from app.catalog.propose import CandidateExaminationJob
 from app.config import Settings
 from app.db.models import (
     CandidateDocumentType,
     ConfirmationToken,
     Event,
+    ExampleFileRecord,
     KnownDocumentType,
     Plan,
     QueueItem,
@@ -59,6 +73,7 @@ from app.storage import DataLayout
 from app.web.auth import SESSION_COOKIE
 from app.web.routers import catalog as catalog_router
 from app.web.routers.catalog import SLUG_TAKEN as SLUG_TAKEN_TEXT
+from app.web.routers.catalog import get_description_provider
 from app.web.routers.upload_page import get_reanalysis_provider
 from app.web.routers.uploads import get_plan_executor
 from app.worker import IdleContext
@@ -473,7 +488,10 @@ def test_candidate_page_shows_samples_related_unknown_items_and_a_prefilled_form
     (permit_item,) = _open_unknown(session_factory, seen.permit_upload)
     assert f'href="/queues/{permit_item.id}"' not in page.text
     assert "diploma-iki.pdf · s. 1" in page.text
-    # Tür formu adayın adıyla açılır; yapı İK'nındır.
+    # Sistem henüz incelemedi: tür formu adayın adıyla açılır, yapı İK'nındır (11.5.6 bandı).
+    assert "Sistem bu adayı henüz incelemedi" in page.text
+    assert f'action="{BASE}/{seen.diploma}/examine"' in page.text
+    assert "önerilemedi" not in page.text
     assert 'name="slug" value="peruvian_diploma"' in page.text
     assert 'name="name" value="Peruvian Diploma"' in page.text
     assert 'name="file_label" value="Peruvian Diploma"' in page.text
@@ -488,7 +506,7 @@ def test_an_unknown_candidate_is_404(client: TestClient, seeded: None) -> None:
         response = client.post(f"{BASE}/404/{action}", data=_form())
         assert response.status_code == 404, action
         assert "Aday tür bulunamadı." in response.text
-    for action in ("reject", "reanalyze/prepare", "reanalyze"):
+    for action in ("reject", "reanalyze/prepare", "reanalyze", "examine"):
         assert client.post(f"{BASE}/404/{action}").status_code == 404, action
 
 
@@ -1010,3 +1028,379 @@ def test_batch_prepare_needs_a_session_cookie(
     assert response.status_code == 400
     assert "Oturum çerezi yok." in response.text
     assert "confirmation" not in _hidden(response.text)
+
+
+# --- 11.5.6: taslakla dolu onay formu ve "Yeniden incele" -----------------------------------------
+
+PROPOSAL = json.loads(PROPOSAL_RECORDING.read_text("utf-8"))
+PROPOSED_NAME = PROPOSAL["name"]
+
+
+class ProposingProvider(AnalysisProvider):
+    """Ağsız test sağlayıcısı: tür taslağı isteğinde verilen hatayı yükseltir."""
+
+    name = "taslakci"
+
+    def __init__(self, error: Exception) -> None:
+        super().__init__(model="taslakci-model")
+        self.error = error
+        self.calls = 0
+
+    def _request_analysis(self, request: PageAnalysisRequest) -> object:
+        raise AssertionError("sayfa analizi istenmemeli")
+
+    def _request_type_proposal(self, request: TypeProposalRequest) -> object:
+        self.calls += 1
+        raise self.error
+
+
+def _examine_with(app: FastAPI, provider: AnalysisProvider | ProviderConfigError) -> None:
+    app.dependency_overrides[get_description_provider] = lambda: provider
+
+
+def _examined(session_factory: sessionmaker[Session], layout: DataLayout) -> None:
+    """İşçinin boş-zaman işi sıradaki adayı (diploma) kayıtlı taslakla inceler (11.5.5)."""
+    provider = RecordingProvider([PROPOSAL_RECORDING])
+    context = IdleContext(session_factory, layout, SETTINGS, provider)
+    assert CandidateExaminationJob().run_one(context) is True
+
+
+def _update_candidate(
+    session_factory: sessionmaker[Session], candidate_id: int, **values: Any
+) -> None:
+    with session_factory() as session:
+        row = session.get_one(CandidateDocumentType, candidate_id)
+        for key, value in values.items():
+            setattr(row, key, value)
+        session.commit()
+
+
+def _post_data(form: TypeForm) -> dict[str, Any]:
+    """Formun tarayıcıdan gönderilişi: işaretsiz kutu hiç gönderilmez."""
+    data: dict[str, Any] = {
+        name: list(value) if isinstance(value, tuple) else value
+        for name in TypeForm.__slots__
+        if not isinstance(value := getattr(form, name), bool)
+    }
+    return data | {name: "on" for name in ("direct", "analyze") if getattr(form, name)}
+
+
+def _field(html: str, name: str) -> str:
+    match = re.search(rf'name="{name}" value="([^"]*)"', html)
+    assert match, f"{name} alanı yok"
+    return unescape(match.group(1))
+
+
+def test_the_approval_form_opens_filled_with_the_examination_proposal(
+    client: TestClient,
+    session_factory: sessionmaker[Session],
+    layout: DataLayout,
+    seen: Seen,
+) -> None:
+    _examined(session_factory, layout)
+    candidate = _candidate(session_factory, seen.diploma)
+    assert candidate.proposal_generated_at is not None
+
+    page = client.get(f"{BASE}/{seen.diploma}")
+
+    assert page.status_code == 200
+    day = f"{candidate.proposal_generated_at:%Y-%m-%d}"
+    assert (
+        f"Alanlar sistemin incelemesiyle dolduruldu (2 örnek sayfa, {day}). Kaydetmeden önce "
+        "kontrol edin." in page.text
+    )
+    assert "önerilemedi" not in page.text
+    assert "katalogda zaten olabilir" not in page.text
+    html = page.text
+    assert _field(html, "slug") == "montenegrin_residence_permit"
+    assert _field(html, "name") == PROPOSED_NAME
+    assert _field(html, "file_label") == "Residence Permit"
+    assert _field(html, "country") == "ME"
+    assert _field(html, "required_fields") == (
+        "surname, given_names, date_of_birth, document_number, expiry_date"
+    )
+    assert _field(html, "prompt_description").startswith("Kart, yatay; ön yüzde fotoğraf solda")
+    assert "MRZ: 3 satır, arka yüzün altında." in _field(html, "prompt_description")
+    for criterion in PROPOSAL["acceptance_criteria"]:
+        assert f'value="{criterion}"' in html
+    # Kanıt taslağı ezdi (11.5.5): örnekler tek yüzlü PDF'tir.
+    assert 'value="pdf" checked' in html
+    assert 'value="jpeg" checked' not in html
+    assert '<option value="single" selected>' in html
+    assert 'name="allowed_conversions" value="merge" checked' in html
+    assert '<option value="pdf" selected>' in html
+
+
+def test_the_prefilled_form_passes_both_confirmations_with_every_field(
+    client: TestClient,
+    session_factory: sessionmaker[Session],
+    layout: DataLayout,
+    seen: Seen,
+) -> None:
+    _examined(session_factory, layout)
+    with session_factory() as session:
+        prefill = suggested_form(session.get_one(CandidateDocumentType, seen.diploma))
+    expected = build_entry(prefill.form)
+
+    first = _confirmed(client, seen.diploma, _post_data(prefill.form))
+
+    assert f"{PROPOSED_NAME} belge türünü standart türler arasına eklemek" in first.text
+    carried = _hidden(first.text)
+    assert carried["required_fields"] == [prefill.form.required_fields]
+    assert carried["acceptance_criteria"] == list(PROPOSAL["acceptance_criteria"])
+    assert carried["prompt_description"] == [prefill.form.prompt_description]
+    _approve(client, seen.diploma, _post_data(prefill.form))
+
+    with session_factory() as session:
+        entry = export_catalog(session).get(expected.slug)
+    assert entry == expected
+    (approved,) = _events(session_factory, EventType.TYPE_APPROVED)
+    assert approved.actor == SIGNED_IN.username
+    assert approved.data_json is not None
+    assert approved.data_json["document_type_slug"] == "montenegrin_residence_permit"
+
+
+def test_reexamine_renews_the_proposal_and_resets_the_attempts(
+    app: FastAPI,
+    client: TestClient,
+    session_factory: sessionmaker[Session],
+    seen: Seen,
+) -> None:
+    provider = RecordingProvider([PROPOSAL_RECORDING])
+    _examine_with(app, provider)
+    _update_candidate(
+        session_factory,
+        seen.diploma,
+        proposal_status="failed",
+        idle_attempts=3,
+        idle_claimed_by="baska-isleyici",
+        idle_claim_expires_at=utcnow() + timedelta(minutes=5),
+    )
+    before = client.get(f"{BASE}/{seen.diploma}").text
+    assert "Sistemin incelemesi taslak üretmedi: gerekçe yok." in before
+
+    response = client.post(f"{BASE}/{seen.diploma}/examine")
+
+    assert response.status_code == 200, response.text
+    assert "Aday yeniden incelendi." in response.text
+    assert "Alanlar sistemin incelemesiyle dolduruldu (2 örnek sayfa," in response.text
+    assert _field(response.text, "name") == PROPOSED_NAME
+    (request,) = provider.proposal_requests
+    assert request.prompt.startswith(f"Geçici ad: {DIPLOMA_NAME}\n")
+    assert "Hazır önerilen tür kaydı" not in request.prompt
+    candidate = _candidate(session_factory, seen.diploma)
+    assert (candidate.proposal_status, candidate.status) == ("ready", "pending")
+    assert (candidate.idle_attempts, candidate.idle_claimed_by) == (0, None)
+    assert candidate.idle_claim_expires_at is None
+    (event,) = _events(session_factory, EventType.CANDIDATE_TYPE_EXAMINED)
+    assert event.data_json is not None
+    assert (event.data_json["result"], event.data_json["pages"]) == ("ready", 2)
+    # Onay iki aşamalı kalır: yeniden inceleme türü eklemez.
+    assert _diploma_type(session_factory) is None
+    assert _events(session_factory, EventType.TYPE_APPROVED) == []
+
+
+def test_reexamine_sends_the_suggested_type_record_and_the_band_counts_ai_examples(
+    app: FastAPI,
+    client: TestClient,
+    session_factory: sessionmaker[Session],
+    seen: Seen,
+) -> None:
+    provider = RecordingProvider([PROPOSAL_RECORDING])
+    _examine_with(app, provider)
+    _update_candidate(session_factory, seen.diploma, proposed_name="Serbian Diploma")
+    labels = [("a.jpg", "ai_decision"), ("b.jpg", "ai_decision"), ("c.jpg", "verified")]
+    with session_factory() as session:
+        session.add_all(
+            ExampleFileRecord(
+                type_slug="serbian_diploma",
+                name=name,
+                sha256=f"{index:064d}",
+                method="ai",
+                label=label,
+            )
+            for index, (name, label) in enumerate(labels)
+        )
+        session.commit()
+
+    response = client.post(f"{BASE}/{seen.diploma}/examine")
+
+    assert response.status_code == 200, response.text
+    (request,) = provider.proposal_requests
+    assert (
+        "Hazır önerilen tür kaydı:\n- Ad: Serbian Diploma\n- Etiket: Diploma\n- Ülke: RS"
+        in request.prompt
+    )
+    html = response.text
+    # Slug, etiket ve ülke önerilen kayıttan; ad ve yapı taslaktan.
+    assert _field(html, "slug") == "serbian_diploma"
+    assert _field(html, "file_label") == "Diploma"
+    assert _field(html, "country") == "RS"
+    assert _field(html, "name") == PROPOSED_NAME
+    assert "Slug hazır önerilen tür kaydından: <code>serbian_diploma</code>" in html
+    assert 'Bu klasörde doğrulanmamış "AI kararı" örneği: 2.' in html
+
+
+def test_a_type_already_in_the_catalog_is_warned_on_the_form(
+    client: TestClient,
+    session_factory: sessionmaker[Session],
+    layout: DataLayout,
+    seen: Seen,
+) -> None:
+    _examined(session_factory, layout)
+    _update_candidate(session_factory, seen.diploma, proposed_name="Serbian Passport")
+
+    page = client.get(f"{BASE}/{seen.diploma}")
+
+    assert (
+        'Bu tür katalogda zaten olabilir: <a href="/document-types/serbian_passport">'
+        "<code>serbian_passport</code></a>" in page.text
+    )
+    assert _field(page.text, "slug") == ""
+    assert "önerilemedi" not in page.text
+
+
+def test_a_proposal_field_failing_the_form_validation_is_named_and_left_empty(
+    client: TestClient,
+    session_factory: sessionmaker[Session],
+    layout: DataLayout,
+    seen: Seen,
+) -> None:
+    _examined(session_factory, layout)
+    candidate = _candidate(session_factory, seen.diploma)
+    stored = dict(candidate.proposal_json or {})
+    # Analiz edilmeyen türde zorunlu alan olmaz (katalog sözleşmesi, 11.1.2).
+    stored["proposal"] = {**stored["proposal"], "analyze": False}
+    _update_candidate(session_factory, seen.diploma, proposal_json=stored)
+
+    page = client.get(f"{BASE}/{seen.diploma}")
+
+    assert "Şu alanlar önerilemedi, elle doldurun: Zorunlu alanlar" in page.text
+    assert _field(page.text, "required_fields") == ""
+    assert 'name="analyze" checked' not in page.text
+
+
+def test_a_provider_failure_is_shown_on_the_band_and_changes_nothing(
+    app: FastAPI,
+    client: TestClient,
+    session_factory: sessionmaker[Session],
+    seen: Seen,
+) -> None:
+    provider = ProposingProvider(ProviderError("bağlantı koptu", status_code=400))
+    _examine_with(app, provider)
+
+    response = client.post(f"{BASE}/{seen.diploma}/examine")
+
+    assert response.status_code == 502
+    assert "Yeniden incelenmedi: yapay zekâ sağlayıcısı yanıt vermedi (bağlantı koptu)." in (
+        response.text
+    )
+    assert "Sistem bu adayı henüz incelemedi" in response.text
+    assert provider.calls == 1
+    candidate = _candidate(session_factory, seen.diploma)
+    assert (candidate.proposal_status, candidate.proposal_json) == (None, None)
+    (event,) = _events(session_factory, EventType.CANDIDATE_TYPE_EXAMINED)
+    assert event.data_json is not None
+    assert (event.data_json["result"], event.data_json["error"]) == ("error", "ProviderError")
+
+
+def test_a_schema_violating_proposal_is_shown_on_the_band(
+    app: FastAPI,
+    client: TestClient,
+    session_factory: sessionmaker[Session],
+    seen: Seen,
+) -> None:
+    _examine_with(app, ProposingProvider(TypeProposalError(["name: eksik"])))
+
+    response = client.post(f"{BASE}/{seen.diploma}/examine")
+
+    assert response.status_code == 502
+    assert "tür taslağı şemasına uymadı" in response.text
+    assert _candidate(session_factory, seen.diploma).proposal_status is None
+
+
+def test_reexamine_without_a_provider_is_503(
+    app: FastAPI,
+    client: TestClient,
+    session_factory: sessionmaker[Session],
+    seen: Seen,
+) -> None:
+    _examine_with(app, ProviderConfigError("AI_PROVIDER ayarlı değil"))
+
+    response = client.post(f"{BASE}/{seen.diploma}/examine")
+
+    assert response.status_code == 503
+    assert (
+        "Yeniden incelenmedi: yapay zekâ sağlayıcısı kurulamadı. AI_PROVIDER ayarlı değil"
+        in response.text
+    )
+    assert _events(session_factory, EventType.CANDIDATE_TYPE_EXAMINED) == []
+
+
+def test_a_decided_candidate_is_not_reexamined(
+    app: FastAPI,
+    client: TestClient,
+    session_factory: sessionmaker[Session],
+    seen: Seen,
+) -> None:
+    provider = RecordingProvider([PROPOSAL_RECORDING])
+    _examine_with(app, provider)
+    assert client.post(f"{BASE}/{seen.permit}/reject", follow_redirects=False).status_code == 303
+
+    response = client.post(f"{BASE}/{seen.permit}/examine")
+
+    assert response.status_code == 409
+    assert "Bu aday tür reddedilmiş; yeniden karara bağlanamaz." in response.text
+    assert provider.proposal_requests == []
+
+
+class DecidingProvider(RecordingProvider):
+    """Kayıtlı taslağı döner; dönmeden önce adayı başka bir istekmiş gibi reddeder."""
+
+    def __init__(self, session_factory: sessionmaker[Session], candidate_id: int) -> None:
+        super().__init__([PROPOSAL_RECORDING])
+        self.session_factory = session_factory
+        self.candidate_id = candidate_id
+
+    def _request_type_proposal(self, request: TypeProposalRequest) -> object:
+        with self.session_factory() as session:
+            reject_candidate_type(session, self.candidate_id, actor="baska-kullanici")
+            session.commit()
+        return super()._request_type_proposal(request)
+
+
+def test_a_candidate_decided_during_the_examination_keeps_its_decision(
+    app: FastAPI,
+    client: TestClient,
+    session_factory: sessionmaker[Session],
+    seen: Seen,
+) -> None:
+    _examine_with(app, DecidingProvider(session_factory, seen.diploma))
+
+    response = client.post(f"{BASE}/{seen.diploma}/examine")
+
+    assert response.status_code == 409
+    assert "Bu aday tür reddedilmiş; yeniden karara bağlanamaz." in response.text
+    candidate = _candidate(session_factory, seen.diploma)
+    assert (candidate.status, candidate.proposal_status) == ("rejected", None)
+    assert _events(session_factory, EventType.CANDIDATE_TYPE_EXAMINED) == []
+
+
+def test_an_unreadable_catalog_opens_the_form_without_the_suggested_record(
+    client: TestClient,
+    session_factory: sessionmaker[Session],
+    seen: Seen,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def broken(session: Session) -> None:
+        raise CatalogError(["kayıt #1 (bozuk): name: boş olamaz"])
+
+    monkeypatch.setattr(catalog_router, "load_known_types", broken)
+    _update_candidate(session_factory, seen.diploma, proposed_name="Serbian Passport")
+
+    page = client.get(f"{BASE}/{seen.diploma}")
+
+    # Çakışma uyarısı yok ama onay yine slug'ı denetler (409, `test_a_slug_already_in_the_catalog`).
+    assert page.status_code == 200
+    assert _field(page.text, "slug") == "serbian_passport"
+    assert "katalogda zaten olabilir" not in page.text

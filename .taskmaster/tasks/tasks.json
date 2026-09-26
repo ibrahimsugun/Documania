@@ -1612,14 +1612,14 @@
         "description": "PRD 11.5.6 · FR-MOD-11 · Faz 1 · Must (v1). İnsan kararı (2026-09-26): yeni belge türü eklenirken zorunlu alan, kabul kriteri, analizci açıklaması doğru dolu gelsin; İK iki aşamalı onayla kaydeder. Sözleşme PLAN §C85 \"Dolu form\".",
         "details": "KAPSAM: PRD 11.5.6. Tam sözleşme PLAN.md §C85 (Dolu form paragrafı) — önce oku.\n\nNE YAPILACAK: (1) `suggested_form` (app/catalog/candidates.py): taslak varsa bütün TypeForm alanlarını doldurur (slug, ad, etiket, ülke, açıklama, dosya türleri, sayfa min/max, yüz, düzenler, Direkt, Analiz, zorunlu alanlar, dönüşümler, çıktı biçimi, kabul kriterleri, prompt_description = format_description(appearance)); direct ise dönüşümler boş. (2) Form `build_entry` ile sınanır: hataya düşen her alan TypeForm varsayılanına döner, bantta \"Şu alanlar önerilemedi, elle doldurun: <alanlar>\". (3) Slug/etiket/ülke önce önerilen tür kaydından (app/catalog/suggested_types.csv, tm 115; ad normalizasyonu §C86, belirsizse boş) — hazır örnek klasörüyle aynı slug; katalogdaki slug'la çakışırsa slug boş + \"Bu tür katalogda zaten olabilir: <slug>\". Önerilen slug seçildiyse o klasördeki doğrulanmamış \"AI kararı\" örneklerinin sayısı bantta (example_files, tm 115). (4) catalog_candidate.html: bant \"Alanlar sistemin incelemesiyle dolduruldu (<N> örnek sayfa, <tarih>). Kaydetmeden önce kontrol edin.\"; taslak yok/başarısızsa durum. \"Yeniden incele\": `POST /document-types/candidates/{id}/examine` eşzamanlı (POST /document-types/{slug}/description gibi; sağlayıcı hatası bantta; başarıda form yeniden çizilir; deneme sayacını sıfırlar). (5) İki aşamalı onay ve §20.6 metni değişmez; onayda gizli alanlarla taşınan form (catalog_candidate_step.html) yeni alanları da taşır.\n\nGİRDİ: app/catalog/candidates.py (`suggested_form`, `approve_candidate_type`), app/catalog/form.py (`TypeForm`, `build_entry`), app/catalog/describe.py (`format_description`), app/web/routers/catalog.py (aday onay uç noktaları ~1143-1297, description uç noktası ~810-881), app/web/templates/catalog_candidate.html, catalog_candidate_step.html, catalog_type_fields.html, tm 113 propose.py, tm 115 known_types.py / example_files.\n\nÇIKTI: app/catalog/candidates.py, app/web/routers/catalog.py, şablonlar, tests/catalog/test_candidates.py, tests/web (aday onay), PLAN.md, HANDOFF.md.\n\nBU GÖREVİ BAĞLAYAN KİLİTLİ KURALLAR: K16 (yeni tür onayı iki aşamalı, kullanıcı adıyla), 10.8.1 (metinler birebir), 10.9.1 (çok satırlı alan kilidi — catalog_type_fields.html yorumu), K1.\n\nPRD'DE AYRICA OKU: 11.1.2, 11.5.2, §20.6 \"Yeni belge türünü onayla\".\n\nİLGİLİ KABUL SENARYOLARI: S14 (onay ve yeniden analizden sonra Hazir).\n\nKAPSAM SINIRI: kendiliğinden onay yok; aday birleştirme yok; aday sayfaları örneğe kopyalanmaz.\n\nTUZAKLAR: tests/catalog/test_candidates.py:220-252 \"Yapı İK'nın kararıdır\" beklentisi bilinçli değişir. Taslaktaki front_back + expected_pages form doğrulamasında düzenlerden türetilir (11.1.2). \"Turkish Driving License\" gibi birden çok slug'a inen ad belirsizdir. Yeniden incele HTTP isteğinde sağlayıcı kurar (describe emsali) — sağlayıcı ayarsızsa anlaşılır hata.\n\nKAPANIŞ: PLAN 11.5.6 satırı ✅ → K11.5, HANDOFF bloğu, commit mesajında `PRD 11.5.6 — tm 114`.",
         "testStrategy": "1) suggested_form: taslaklı aday bütün alanlarla açılır; direct taslakta dönüşümler boş; geçersiz alan (ör. kötü FieldName) varsayılana döner ve adı bildirilir. 2) Önerilen tür eşleşmesi slug/etiket/ülke verir; belirsiz ad → boş; katalog çakışması uyarısı. 3) Web: aday sayfası bandı ve form değerleri; Yeniden incele sahte sağlayıcıyla taslağı yeniler; sağlayıcı hatası bantta; iki aşamalı onay taşınan bütün alanlarla türü oluşturur (TYPE_APPROVED). 4) Taslaksız aday eski davranışla açılır. 5) Tüm test takımı (`pytest -q -m \"not live\"`, kapsam ≥%70), ruff check/format, compileall, temiz SQLite'ta `alembic upgrade head`, `import app.main` yeşil (CONVENTIONS DoD). Testler yalnız sentetik belge ve sentetik adlarla (CONVENTIONS §6); canlı yapay zekâ çağrısı yok.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [
           "113",
           "115"
         ],
         "priority": "high",
         "subtasks": [],
-        "updatedAt": "2026-09-26T00:00:00.000Z"
+        "updatedAt": "2026-09-26T04:42:25.617Z"
       },
       {
         "id": "115",
@@ -1709,9 +1709,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-09-26T04:10:57.095Z",
+      "lastModified": "2026-09-26T04:42:25.617Z",
       "taskCount": 118,
-      "completedCount": 109,
+      "completedCount": 110,
       "tags": [
         "master"
       ]

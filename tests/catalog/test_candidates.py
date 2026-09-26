@@ -30,8 +30,8 @@ from app.catalog import (
     load_seed_catalog,
     reject_candidate_type,
     sample_page_refs,
-    suggested_form,
 )
+from app.catalog.prefill import suggested_form
 from app.db.models import (
     CandidateDocumentType,
     CandidateTypeStatus,
@@ -237,7 +237,7 @@ def test_sample_page_refs_are_file_and_page_positions(session: Session) -> None:
     assert sample_page_refs(session, candidate) == frozenset()
 
 
-# --- 11.5.2: onay formunun açılışı ----------------------------------------------------------------
+# --- 11.5.2: onay formunun açılışı (taslaksız aday; taslaklı form 11.5.6 `test_prefill.py`) ---
 
 
 @pytest.mark.parametrize(
@@ -258,7 +258,8 @@ def test_the_approval_form_opens_with_the_candidate_name(
     candidate = session.get_one(CandidateDocumentType, _see(session, name, page))
     candidate.description = "Modelin açıklaması"
 
-    form = suggested_form(candidate)
+    prefill = suggested_form(candidate)
+    form = prefill.form
 
     assert (form.slug, form.name, form.file_label, form.description) == (
         slug,
@@ -267,16 +268,18 @@ def test_the_approval_form_opens_with_the_candidate_name(
         "Modelin açıklaması",
     )
     assert len(form.slug) <= 64
-    # Yapı İK'nın kararıdır: formun varsayılanlarıyla açılır.
+    # Taslaksız aday (sistem henüz incelemedi): yapı formun varsayılanlarıyla açılır, bildirilecek
+    # doldurulamayan alan yoktur.
     assert (form.required_fields, form.allowed_conversions, form.direct) == ("", (), False)
     assert form.expected_file_types == TypeForm().expected_file_types
+    assert (prefill.filled, prefill.unfilled, prefill.proposal_status) == (False, (), None)
 
 
 def test_the_suggested_form_passes_validation_once_hr_completes_it(session: Session) -> None:
     (page,) = _pages(session, FIRST_UPLOAD, "bir.pdf", 1)
     candidate = session.get_one(CandidateDocumentType, _see(session, DIPLOMA, page))
 
-    entry = build_entry(suggested_form(candidate))
+    entry = build_entry(suggested_form(candidate).form)
 
     assert (entry.slug, entry.name, entry.file_label, entry.description) == (
         "peruvian_diploma",

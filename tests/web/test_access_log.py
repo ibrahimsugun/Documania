@@ -375,6 +375,9 @@ REVIEWED_MUTATING_ROUTES: dict[tuple[str, str], str] = {
         "katalog kaydı: aday türün onayı (11.5.2, K16)"
     ),
     ("POST", "/document-types/candidate-types/{candidate_id}/reject"): "aday türün reddi (11.5.4)",
+    ("POST", "/document-types/candidate-types/{candidate_id}/examine"): (
+        "aday türün tür taslağı, kaydetmez ve onaylamaz (11.5.6)"
+    ),
     ("POST", "/document-types/candidate-types/{candidate_id}/reanalyze/prepare"): "onay belirteci",
     ("POST", "/document-types/candidate-types/{candidate_id}/reanalyze"): (
         "yeni plan sürümleri (11.5.3, K18)"

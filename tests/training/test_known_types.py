@@ -254,6 +254,17 @@ def test_ambiguous_or_unknown_names_do_not_match(known: KnownTypes, name: str) -
     assert known.match_name(name) is None
 
 
+def test_name_matches_lists_every_type_a_name_reaches(known: KnownTypes) -> None:
+    # Belirsizliği çağıran görsün diye (11.5.6 onay formu): eşleşmenin yokluğundan ayrılır.
+    ambiguous = known.name_matches("turkish  driving licence")
+    assert [each.slug for each in ambiguous] == [
+        "turkish_driving_license",
+        "turkish_international_driving_permit",
+    ]
+    assert [each.slug for each in known.name_matches("Serbian Passport")] == ["serbian_passport"]
+    assert known.name_matches("Martian Passport") == ()
+
+
 def test_name_normalization() -> None:
     assert normalize_type_name("  Serbian\tDriving   LICENCE ") == "serbian driving license"
     assert normalize_type_name("Licences") == "licenses"
