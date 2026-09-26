@@ -502,7 +502,7 @@ def test_topbar_links_to_the_page_and_marks_it_active(client: TestClient, app: F
         '<a class="tool-link active" href="/metrics" aria-current="page">Maliyet</a>'
         in metrics.text
     )
-    # Ana menü beş bölümdür (10.1.1); maliyet menüde değil, oturumun yanındadır.
+    # Ana menü altı bölümdür (10.1.1); maliyet menüde değil, oturumun yanındadır.
     assert 'href="/metrics"' not in re.search(
         r'<nav class="menu".*?</nav>', metrics.text, re.S
     ).group(0)

@@ -1668,14 +1668,14 @@
         "description": "PRD 11.9.1, 10.1.1 (menü) · FR-MOD-11 · Faz 1 · Must (v1). İnsan kararı (2026-09-26): panelde eğitim modu sekmesi; yüklenen belge incelenir, sonuç notuyla görünür; etiketli belgede manuel kontrol ikonu. Sözleşme PLAN §C86 \"Sekme\".",
         "details": "KAPSAM: PRD 11.9.1 ve 10.1.1'in menü satırı; S20. Tam sözleşme PLAN.md §C86 (Sekme paragrafı) — önce oku. tm 115–117 üzerine.\n\nNE YAPILACAK: (1) PANEL_MENU'ye MenuEntry(\"training\", \"Eğitim modu\", \"/training\") (app/web/templating.py). (2) GET /training: çoklu dosya yükleme formu (PDF/JPEG/PNG, max_upload_file_size_bytes, dosya adı doğrulaması yükleme sayfasınınki, dosya başına limit+1 bayt okuma) + isteğe bağlı \"Beklenen tür\" (bilinen türler); POST ile training_run(kind=upload) + öğeler; mekanik adım istek içinde, ai_pending öğeler işçiye kalır. (3) Çalıştırma listesi ve öğe tablosu: dosya, sonuç türü, yöntem, durum, not, etiket; süzgeç (AI kararı, yerleştirilemedi, çelişki, mekanik, hatalı); \"AI kararı\" satırında ⚠ ikon + \"Elle kontrol gerekli\"; ai_pending varken HTMX yoklamasıyla yenilenir; sağlayıcı ayarsızsa bilgi notu. (4) \"Bilinen belgeler\" görünümü: bütün bilinen türler (katalog + önerilen), örnek sayısı ve etiketli örnek sayısı; tür ayrıntısında örnek listesi, ikon ve görüntü (katalog dışı slug için yeni uç noktalar; nosniff FileResponse; yol yalnız example_path ile). (5) \"Türe yerleştir\": unplaced/conflict öğede İK bilinen bir tür seçer → yerleşir, method=manual, label=verified, olay kullanıcı adıyla.\n\nGİRDİ: app/web/templating.py (PANEL_MENU, render_page), app/main.py (router kaydı, require_panel_user), app/web/routers/upload_page.py (çoklu dosya ayrıştırma, _validated_name), app/web/routers/catalog.py (örnek uçları deseni ~716-793), app/web/templates/base.html, catalog_examples.html, tm 115–117 servisleri.\n\nÇIKTI: app/web/routers/training.py, app/web/templates/training*.html, app/web/templating.py, app/main.py, app/web/static/panel.css, tests/web/ (test_auth menü, yeni test_training), senaryo testi S20, PLAN.md, HANDOFF.md.\n\nBU GÖREVİ BAĞLAYAN KİLİTLİ KURALLAR: 10.1.2 (girişsiz yol yok), 10.9.1 (içerik düzenleme yok), K10/K11, CONVENTIONS §6 (ekranda kişisel değer yalnız dosya adında).\n\nPRD'DE AYRICA OKU: 10.1.1, 10.2.1, 11.2.1, 11.9.1–11.9.4, S20.\n\nİLGİLİ KABUL SENARYOLARI: S20 (eğitimde pasaport → örnek; uymayan dosya → Yerleştirilemedi; çalışan/kuyruk/parti/belge yok).\n\nKAPSAM SINIRI: Doğrula/Taşı/Çıkar ve katalog sayfası ikonu tm 119; Harita yükle tm 120.\n\nTUZAKLAR: tests/web/test_auth.py menü beklentileri (:36-37, :445) güncellenir. Mevcut /document-types/{slug}/examples uçları katalog dışı slug'da 404 verir — yeni uçlar. create_upload tüm dosyayı okur; eğitim uç noktası limit+1 okumalı. Şablon değiştiği için TestClient istek testi zorunlu (CONVENTIONS).\n\nKAPANIŞ: PLAN 11.9.1 satırı ✅ → K11.9, HANDOFF bloğu, commit mesajında `PRD 11.9.1 — tm 118`.",
         "testStrategy": "1) Web: menüde Eğitim modu; girişsiz /training yönlendirir; yükleme mekanik öğeyi hemen yerleştirir, tanınmayanı ai_pending gösterir; beklenen tür ipucu olarak işler; boyut/ad/biçim reddi. 2) Süzgeçler ve ⚠ ikonu; Bilinen belgeler görünümünde katalog ve önerilen türler, sayılar; katalog dışı slug örnek görüntüsü açılır, yol kaçışı reddedilir. 3) Türe yerleştir: unplaced öğe seçilen türe yerleşir, verified, olay kullanıcı adıyla. 4) S20 uçtan uca (sahte sağlayıcı): çalışan, kuyruk öğesi, parti, belge oluşmaz. 5) Tüm test takımı (`pytest -q -m \"not live\"`, kapsam ≥%70), ruff check/format, compileall, temiz SQLite'ta `alembic upgrade head`, `import app.main` yeşil (CONVENTIONS DoD). Testler yalnız sentetik belge ve sentetik adlarla (CONVENTIONS §6); canlı yapay zekâ çağrısı yok.",
-        "status": "pending",
+        "status": "in-progress",
         "dependencies": [
           "116",
           "117"
         ],
         "priority": "high",
         "subtasks": [],
-        "updatedAt": "2026-09-26T00:00:00.000Z"
+        "updatedAt": "2026-09-26T07:01:50.009Z"
       },
       {
         "id": "119",
@@ -1709,7 +1709,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-09-26T07:00:36.831Z",
+      "lastModified": "2026-09-26T07:01:50.009Z",
       "taskCount": 118,
       "completedCount": 112,
       "tags": [

@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{# Bilinen türün örnekleri (11.9.1): dosya, kaydı (yöntem, etiket, not) ve görüntüsü. Görüntü
+   yüklendiği baytlardır; küçültmeyi tarayıcı yapar (K11, K17). Silme ve düzenleme yolu yoktur. #}
+{% block title %}{{ known_type.name }} · {{ entry.label }}{% endblock %}
+{% block content %}
+<p class="back"><a href="/training/known">← Bilinen belgeler</a></p>
+<h1>{{ known_type.name }}</h1>
+{% include "_training_tabs.html" %}
+<dl class="meta">
+  <dt>Slug</dt><dd><code>{{ known_type.slug }}</code></dd>
+  <dt>Kaynak</dt><dd>{{ source }}{% if known_type.in_catalog %} · <a href="/document-types/{{ known_type.slug|urlencode }}">Belge türü sayfası</a>{% endif %}</dd>
+  <dt>Ülke</dt><dd>{{ known_type.country_iso3 or known_type.country_iso2 or "—" }}</dd>
+  <dt>Örnek</dt><dd>{{ examples|length }}{% if ai_decision %} · {{ ai_decision }} "AI kararı" {% include "_manual_check.html" %}{% endif %}</dd>
+</dl>
+{% if examples %}
+<ul class="thumbs training-examples">
+  {% for example in examples %}
+  <li class="thumb{% if example.manual_check %} needs-check{% endif %}">
+    <a href="{{ example.url }}" target="_blank" rel="noopener">
+      {% if example.is_image %}<img src="{{ example.url }}" alt="{{ example.name }}" loading="lazy">{% else %}<span class="no-image">PDF</span>{% endif %}
+    </a>
+    <span class="caption"><a href="{{ example.url }}" target="_blank" rel="noopener">{{ example.name }}</a></span>
+    <span class="reason">{{ example.size_label }}{% if example.method %} · {{ example.method }}{% endif %}</span>
+    <span class="badges">
+      {% if example.label_text %}<span class="badge{% if not example.manual_check %} badge-neutral{% endif %}">{{ example.label_text }}</span>{% endif %}
+      {% if example.manual_check %}{% include "_manual_check.html" %}{% endif %}
+    </span>
+    {% if example.note %}<span class="reason reason-text">{{ example.note }}</span>{% endif %}
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+<p class="placeholder">Bu türün henüz örneği yok.</p>
+{% endif %}
+{% endblock %}

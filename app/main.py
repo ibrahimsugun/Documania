@@ -20,6 +20,7 @@ from app.web.routers import (
     metrics,
     panel,
     queue,
+    training,
     upload_page,
     uploads,
     uploads_list,
@@ -59,6 +60,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     application.include_router(queue.pages_router, dependencies=[Depends(require_panel_user)])
     application.include_router(metrics.router, dependencies=[Depends(require_panel_user)])
     application.include_router(access_log.router, dependencies=[Depends(require_panel_user)])
+    application.include_router(training.router, dependencies=[Depends(require_panel_user)])
     application.include_router(uploads.router, dependencies=[Depends(require_api_user)])
     application.include_router(queue.router, dependencies=[Depends(require_api_user)])
 

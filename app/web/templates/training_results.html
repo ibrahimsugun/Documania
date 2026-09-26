@@ -1,0 +1,71 @@
+{# Eğitim modu sonuçları (11.9.1): son çalıştırmalar ve öğe tablosu. Kararı sistemde bekleyen öğe
+   varken bölüm kendini yeniler (HTMX, `/training/items`). Ekranda kişisel değer yalnız dosya
+   adındadır; notlar kişisel değer taşımaz. #}
+<section id="training-results" class="training-results" aria-live="polite"{% if results.poll %} hx-get="{{ results.poll_url }}" hx-trigger="every 3s" hx-swap="outerHTML"{% endif %}>
+  <h2>Çalıştırmalar</h2>
+  {% if results.runs %}
+  <table class="items training-runs">
+    <thead>
+      <tr><th>No</th><th>Tür</th><th>Tarih</th><th>Yükleyen</th><th>Durum</th><th>Sonuçlar</th></tr>
+    </thead>
+    <tbody>
+      {% for run in results.runs %}
+      <tr{% if run.selected %} class="selected" aria-current="true"{% endif %}>
+        <td><a href="{{ run.url }}">#{{ run.id }}</a></td>
+        <td>{{ run.kind }}</td>
+        <td>{{ run.created_at }}</td>
+        <td>{{ run.created_by }}</td>
+        <td class="status-{{ run.status }}">{{ run.status_label }}</td>
+        <td>{{ run.counts }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="placeholder">Henüz eğitim yüklemesi yok.</p>
+  {% endif %}
+
+  <h2>Dosyalar{% if results.run_id %} <span class="count">· çalıştırma #{{ results.run_id }} · <a href="{{ results.all_runs_url }}">bütün çalıştırmalar</a></span>{% endif %}</h2>
+  <nav class="states" aria-label="Dosyaları süz">
+    {% for key, label, url, selected in results.filters %}
+    <a href="{{ url }}"{% if selected %} class="active" aria-current="page"{% endif %}>{{ label }}</a>
+    {% endfor %}
+  </nav>
+  {% if results.pending %}
+  <p class="notice" role="status">{{ results.pending }} dosya sistemin kararını bekliyor; bu bölüm kendiliğinden yenilenir.</p>
+  {% endif %}
+  {% if results.items %}
+  <p class="count">{{ results.total }} dosya{% if results.total > results.items|length %} · en yeni {{ results.items|length }} gösteriliyor{% endif %}</p>
+  <table class="items training-items">
+    <thead>
+      <tr><th>Dosya</th><th>Beklenen tür</th><th>Sonuç türü</th><th>Yöntem</th><th>Durum</th><th>Not</th><th>Etiket</th></tr>
+    </thead>
+    <tbody>
+      {% for item in results.items %}
+      <tr id="item-{{ item.id }}" class="training-status-{{ item.status }}{% if item.manual_check %} needs-check{% endif %}">
+        <td>{{ item.name }} <span class="reason">#{{ item.run_id }}</span></td>
+        <td>{% if item.hint %}{% if item.hint.url %}<a href="{{ item.hint.url }}">{{ item.hint.name }}</a>{% else %}<code>{{ item.hint.slug }}</code>{% endif %}{% else %}—{% endif %}</td>
+        <td>{% if item.result %}{% if item.result.url %}<a href="{{ item.result.url }}">{{ item.result.name }}</a> <span class="reason">{{ item.result.slug }}</span>{% else %}<code>{{ item.result.slug }}</code>{% endif %}{% else %}—{% endif %}</td>
+        <td>{{ item.method or "—" }}</td>
+        <td class="training-status">{{ item.status_label }}</td>
+        <td class="reason-text">{{ item.note or "—" }}</td>
+        <td>
+          {% if item.label_text %}<span class="badge{% if not item.manual_check %} badge-neutral{% endif %}">{{ item.label_text }}</span>{% endif %}
+          {% if item.manual_check %}{% include "_manual_check.html" %}{% endif %}
+          {% if not item.label_text %}—{% endif %}
+          {% if item.placeable %}
+          <form class="place-form" method="post" action="/training/items/{{ item.id }}/place">
+            <label class="hint" for="place-{{ item.id }}">Tür</label>
+            <input id="place-{{ item.id }}" name="slug" list="known-type-options" required placeholder="bilinen tür (slug)" autocomplete="off">
+            <button type="submit">Türe yerleştir</button>
+          </form>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="placeholder">{% if results.filter %}Bu süzgece uyan dosya yok.{% else %}Gösterilecek dosya yok.{% endif %}</p>
+  {% endif %}
+</section>

@@ -31,6 +31,7 @@ PANEL_MENU = (
     MenuEntry("queues", "Kuyruklar", "/queues"),
     MenuEntry("document_types", "Belge Türleri", "/document-types"),
     MenuEntry("uploads", "Yüklemeler", "/uploads"),
+    MenuEntry("training", "Eğitim modu", "/training"),
 )
 MENU_BY_KEY = {entry.key: entry for entry in PANEL_MENU}
 

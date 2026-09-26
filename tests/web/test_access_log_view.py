@@ -351,7 +351,7 @@ def test_topbar_and_profile_link_to_the_log(
         '<a class="tool-link active" href="/access-log" aria-current="page">Erişim logu</a>'
         in log.text
     )
-    # Ana menü beş bölümdür (10.1.1); erişim logu menüde değil, oturumun yanındadır.
+    # Ana menü altı bölümdür (10.1.1); erişim logu menüde değil, oturumun yanındadır.
     assert "/access-log" not in re.search(r'<nav class="menu".*?</nav>', log.text, re.S).group(0)
 
     assert 'href="/access-log/employees/E0001"' in client.get("/employees/E0001").text

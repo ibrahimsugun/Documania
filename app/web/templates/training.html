@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{# Eğitim modu (11.9.1): bilinen belgelerin örneklerini besleyen yükleme. Çalışan, kişi eşleştirmesi,
+   kuyruk öğesi, parti ya da çıktı belgesi oluşmaz. Mekanik tanıma yüklemede biter; yapay zekâ
+   incelemesini işçi yapar ve sonuç bölümü o sürerken HTMX ile yenilenir. #}
+{% block title %}{{ entry.label }}{% endblock %}
+{% block content %}
+<h1>{{ entry.label }}</h1>
+{% include "_training_tabs.html" %}
+<p class="lede">Buraya yüklenen belgeler yalnız <strong>bilinen belgelerin örneklerini</strong> besler: çalışan kaydı açılmaz, kişi aranmaz, kuyruğa ve çalışan klasörlerine hiçbir şey girmez. Sistem önce yapay zekâsız (mekanik) tanımayı dener; tanıyamadığını yapay zekâya sorar ve "AI kararı" etiketiyle yerleştirir. Hiçbir türe yerleşemeyen belge "Yerleştirilemedi" listesinde sizi bekler. Belgelerin içeriği değiştirilmez.</p>
+{% if errors %}
+<div class="error" role="alert">
+  <p>İşlem yapılmadı:</p>
+  <ul>{% for message in errors %}<li>{{ message }}</li>{% endfor %}</ul>
+</div>
+{% endif %}
+{% if notice %}<p class="notice notice-success" role="status">{{ notice }}</p>{% endif %}
+{% if provider_problem %}
+<p class="notice provider-note" role="status">Yapay zekâ sağlayıcısı ayarlı değil: mekanik tanınmayan belgeler "Yapay zekâ incelemesi bekliyor" durumunda bekler. Sağlayıcı ayarlanınca işçi onları inceler. <span class="reason">({{ provider_problem }})</span></p>
+{% endif %}
+<form class="upload-form training-form" method="post" action="/training" enctype="multipart/form-data">
+  <label class="dropzone" for="training-files">
+    <strong>Örnek belgeleri seçin</strong>
+    <span>birden çok dosya seçilebilir</span>
+    <small>PDF, JPEG, PNG · yalnız örnek (specimen) ya da sentetik belge; gerçek kimlik belgesi yüklemeyin</small>
+    <input id="training-files" name="files" type="file" multiple accept=".pdf,.jpg,.jpeg,.png">
+  </label>
+  <label for="hint_slug">Beklenen tür <span class="hint">(isteğe bağlı)</span></label>
+  <select id="hint_slug" name="hint_slug">
+    <option value="">Belirtme — sistem bulsun</option>
+    {% for known in known_types %}
+    <option value="{{ known.slug }}"{% if hint_slug == known.slug %} selected{% endif %}>{{ known.name }} — {{ known.slug }}</option>
+    {% endfor %}
+  </select>
+  <p class="hint">Beklenen tür seçerseniz dosyalar önce o türün kurallarıyla denetlenir; sonuç başka bir türse belge "Çelişki" olarak bekler.</p>
+  <button type="submit">Eğitime yükle</button>
+</form>
+<datalist id="known-type-options">
+  {% for known in known_types %}<option value="{{ known.slug }}">{{ known.name }}</option>{% endfor %}
+</datalist>
+{% include "training_results.html" %}
+{% endblock %}

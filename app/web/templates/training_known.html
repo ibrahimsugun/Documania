@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{# Bilinen belgeler (11.9.1): katalog türleri + hazır önerilen türler; örnek sayısı ve etiketli örnek
+   sayısı. "AI kararı" etiketli örneği olan tür elle kontrol ikonuyla görünür. Sayfa yalnız okur. #}
+{% block title %}Bilinen belgeler · {{ entry.label }}{% endblock %}
+{% block content %}
+<h1>{{ entry.label }}</h1>
+{% include "_training_tabs.html" %}
+<p class="lede">Eğitim modunun örnek yerleştirebildiği türler: {{ catalog_count }} katalog türü ve {{ total - catalog_count }} hazır önerilen tür (toplam {{ total }}). Önerilen türler kataloğa kendiliğinden eklenmez; yalnız örnekleri birikir.</p>
+<nav class="states" aria-label="Türleri süz">
+  {% for key, label, url, selected in filters %}
+  <a href="{{ url }}"{% if selected %} class="active" aria-current="page"{% endif %}>{{ label }}</a>
+  {% endfor %}
+</nav>
+{% if rows %}
+<p class="count">{{ rows|length }} tür</p>
+<table class="catalog known-types">
+  <thead>
+    <tr><th>Tür</th><th>Slug</th><th>Kaynak</th><th>Ülke</th><th class="num">Örnek</th><th class="num">AI kararı</th><th class="num">Doğrulanmış</th></tr>
+  </thead>
+  <tbody>
+    {% for row in rows %}
+    <tr id="type-{{ row.slug }}">
+      <td><a href="{{ row.url }}">{{ row.name }}</a></td>
+      <td><code>{{ row.slug }}</code></td>
+      <td>{{ row.source }}</td>
+      <td>{{ row.country or "—" }}</td>
+      <td class="num">{{ row.examples }}</td>
+      <td class="num">{% if row.ai_decision %}{{ row.ai_decision }} {% include "_manual_check.html" %}{% else %}0{% endif %}</td>
+      <td class="num">{{ row.verified }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="placeholder">Bu süzgece uyan tür yok.</p>
+{% endif %}
+{% endblock %}

@@ -1019,3 +1019,15 @@ form:not(.session) button[type="submit"]:hover,
 @media (prefers-reduced-motion: reduce) {
   button, .button-link, .menu a, .tool-link { transition: none; }
 }
+
+/* Eğitim modu (11.9.1): elle kontrol ikonu, sonuç tablosu ve "Türe yerleştir". */
+.manual-check { color: #b45309; font-weight: 700; }
+.manual-check-text { color: #92400e; font-size: 0.85em; }
+.training-items tr.needs-check, .training-examples .needs-check { background: #fff8e6; }
+.training-runs tr.selected { background: #eef5fc; }
+.training-status-unplaced .training-status,
+.training-status-conflict .training-status { color: #9a6700; font-weight: 600; }
+.training-status-failed .training-status { color: #b42318; font-weight: 600; }
+.place-form { display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem; margin-top: 0.4rem; }
+.place-form input { min-width: 12rem; padding: 0.3rem; border: 1px solid #d0d7de; border-radius: 4px; font: inherit; }
+.training-examples .thumb { width: 12rem; }
