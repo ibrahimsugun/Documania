@@ -27,7 +27,8 @@ def session(engine: Engine) -> Iterator[Session]:
 
 
 def test_all_prd_event_types_are_present() -> None:
-    """PRD §8.3'teki 41 olay türünün tamamı sabit listede olmalı, fazlası/eksiği olmamalı."""
+    """PRD §8.3'teki olay türleri sabit listede olmalı, fazlası/eksiği olmamalı. PRD'nin
+    eğitim modu olayları (`TRAINING_*`, 11.9) kendi görevleriyle eklenir."""
     expected = {
         "FILE_UPLOADED",
         "FILE_DUPLICATE",
@@ -70,6 +71,7 @@ def test_all_prd_event_types_are_present() -> None:
         "ARCHIVED",
         "UPLOAD_DISMISSED",
         "PIPELINE_FAILED",
+        "CANDIDATE_TYPE_EXAMINED",
     }
     assert {member.value for member in EventType} == expected
 

@@ -147,6 +147,40 @@ def test_pending_candidates_are_listed_by_seen_count_with_their_sample_pages(
     assert top.samples[0].file_id == first[2].file_id
 
 
+@pytest.mark.parametrize(
+    ("proposal_status", "label"),
+    [(None, "Bekliyor"), ("ready", "Hazır"), ("failed", "Başarısız"), ("no_samples", "Örnek yok")],
+)
+def test_the_list_shows_the_examination_status(
+    session: Session, proposal_status: str | None, label: str
+) -> None:
+    # 11.5.5: sistemin incelemesinin durumu listede görünür; incelenmemiş aday "Bekliyor".
+    (page,) = _pages(session, FIRST_UPLOAD, "bir.pdf", 1)
+    candidate = session.get_one(CandidateDocumentType, _see(session, DIPLOMA, page))
+    candidate.proposal_status = proposal_status
+    session.flush()
+
+    (listed,) = list_candidate_types(session)
+
+    assert (listed.proposal_status, listed.proposal_label) == (proposal_status, label)
+
+
+def test_an_unknown_examination_status_reads_as_pending() -> None:
+    summary = candidates.CandidateSummary(
+        id=1,
+        name=DIPLOMA,
+        description=None,
+        seen_count=1,
+        status="pending",
+        first_seen_upload_id=FIRST_UPLOAD,
+        samples=(),
+        sample_total=0,
+        proposal_status="tanimsiz",
+    )
+
+    assert summary.proposal_label == "Bekliyor"
+
+
 def test_equal_seen_counts_keep_the_first_seen_candidate_first(session: Session) -> None:
     (page,) = _pages(session, FIRST_UPLOAD, "bir.pdf", 1)
     earlier = _see(session, "Zambian Licence", page)

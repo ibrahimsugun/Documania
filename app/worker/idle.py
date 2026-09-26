@@ -20,12 +20,13 @@ tutulmaz — SQLite'ta açık işlem yazma kilidini tutar ve yükleme işini bek
    (süresi doldu ve başka bir işleyici aldı) hiçbir şey yazma.
 
 **Sahiplenme** tüketen tablonun satırındadır (`IdleClaimMixin`: belirteç, süre, deneme sayacı;
-alanlar tüketen görevin göçündedir) ve `IdleTable` kurallarıyla yürür — `app.worker.queue`'nun iş
-kirası deseni: sahiplenme koşullu güncellemedir (aynı satırı iki işleyici alamaz); her alış deneme
-sayacını bir artırır; satırın kime ait olduğu sürenin değil belirtecin işidir; süresi dolmuş
-sahiplenme başka işleyicice geri alınabilir. `WORKER_MAX_ATTEMPTS` deneme tükenince satır kalıcı
-başarısız olur (`IdleTable.failed` değerleri) ve bir daha denenmez: birim hatayla bittiyse hemen,
-işleyicisi yarıda kaldıysa sahiplenmesinin süresi dolunca (`abandon_exhausted`).
+alanlar tüketen görevin göçündedir, tanım döngüsüz içe aktarma için `app.db.models`'tadır) ve
+`IdleTable` kurallarıyla yürür — `app.worker.queue`'nun iş kirası deseni: sahiplenme koşullu
+güncellemedir (aynı satırı iki işleyici alamaz); her alış deneme sayacını bir artırır; satırın kime
+ait olduğu sürenin değil belirtecin işidir; süresi dolmuş sahiplenme başka işleyicice geri
+alınabilir. `WORKER_MAX_ATTEMPTS` deneme tükenince satır kalıcı başarısız olur (`IdleTable.failed`
+değerleri) ve bir daha denenmez: birim hatayla bittiyse hemen, işleyicisi yarıda kaldıysa
+sahiplenmesinin süresi dolunca (`abandon_exhausted`).
 
 **Maliyet.** Birimin yapay zekâ çağrılarının olayı `usage` (ve gerekirse `usage_by_model`) verisini
 `app.events.usage_event_data` ile taşır; olay türü `USAGE_EVENT_TYPES`'a eklenince maliyet paneli
@@ -41,13 +42,12 @@ from datetime import datetime, timedelta
 from typing import Any, Protocol, runtime_checkable
 
 from sqlalchemy import ColumnElement, and_, inspect, or_, select, update
-from sqlalchemy.orm import InstrumentedAttribute, Mapped, Session, mapped_column, sessionmaker
-from sqlalchemy.types import Integer, String
+from sqlalchemy.orm import InstrumentedAttribute, Session, sessionmaker
 
 from app.ai.provider import AnalysisProvider
 from app.ai.usage import UsageMeter, measure_usage
 from app.config import Settings
-from app.db.models import UtcDateTime, utcnow
+from app.db.models import IdleClaimMixin, utcnow
 from app.storage import DataLayout
 from app.worker.queue import new_claim_token
 
@@ -76,20 +76,12 @@ class IdleJob(Protocol):
 
 
 def default_idle_jobs(settings: Settings) -> tuple[IdleJob, ...]:
-    """`create_worker`'ın işçiye verdiği boş-zaman işleri. Tüketen görevler işini buraya ekler."""
-    return ()
+    """`create_worker`'ın işçiye verdiği boş-zaman işleri. Tüketen görevler işini buraya ekler:
+    aday tür incelemesi (11.5.5, `app.catalog.propose`)."""
+    # İş modülü bu modülü içe aktarır; paket başlatılırken döngü olmasın diye burada alınır.
+    from app.catalog.propose import CandidateExaminationJob
 
-
-class IdleClaimMixin:
-    """Boş-zaman işinin tükettiği tablonun sahiplenme alanları (modül açıklaması).
-
-    `idle_claimed_by` son sahiplenenin tek kullanımlık belirtecidir (her alışta yenisi),
-    `idle_claim_expires_at` sahiplenmenin süresi, `idle_attempts` satırın kaç kez alındığıdır.
-    """
-
-    idle_claimed_by: Mapped[str | None] = mapped_column(String(128))
-    idle_claim_expires_at: Mapped[datetime | None] = mapped_column(UtcDateTime)
-    idle_attempts: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    return (CandidateExaminationJob(),)
 
 
 @dataclass(frozen=True, slots=True)

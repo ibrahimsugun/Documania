@@ -4,7 +4,9 @@ Analizcinin önerdiği katalog dışı türler `candidate_document_types`'ta bir
 `record_candidate_type_sighting`). Bu modül onlar üzerindeki insan kararını yürütür:
 
 - **Liste (11.5.1).** `list_candidate_types` bekleyen (`pending`) adayları görülme sayısına göre
-  (çoktan aza; eşitlikte önce görülen önce) adı, görülme sayısı ve örnek sayfalarıyla verir. Örnek
+  (çoktan aza; eşitlikte önce görülen önce) adı, görülme sayısı, örnek sayfaları ve sistemin
+  incelemesinin durumuyla (11.5.5, `app.catalog.propose`: hazır, başarısız, örnek yok, bekliyor)
+  verir. Örnek
   sayfalar `sample_page_ids` sırasıyladır (her görülmenin ilk sayfası): partisi, dosyası ve 0
   tabanlı sırası; görüntüsü analiz kopyasıdır (`pages.image_path`), belgenin kendisi değil. Karar
   verilmiş aday bekleyenler arasında listelenmez. Partinin yoksayılması (10.3.4) görülmeyi
@@ -40,6 +42,7 @@ from app.catalog.manage import create_type
 from app.catalog.schema import CatalogEntry
 from app.db.models import (
     CandidateDocumentType,
+    CandidateProposalStatus,
     CandidateTypeStatus,
     Event,
     Page,
@@ -51,6 +54,13 @@ from app.storage import SlugError, slugify
 
 LIST_SAMPLE_LIMIT = 3
 DETAIL_SAMPLE_LIMIT = 24
+PROPOSAL_PENDING_LABEL = "Bekliyor"
+PROPOSAL_STATUS_LABELS = {
+    CandidateProposalStatus.READY.value: "Hazır",
+    CandidateProposalStatus.FAILED.value: "Başarısız",
+    CandidateProposalStatus.NO_SAMPLES.value: "Örnek yok",
+}
+"""Aday incelemesinin (11.5.5) listede gösterilen durumu; incelenmemiş aday "Bekliyor"."""
 _SLUG = re.compile(r"[a-z][a-z0-9_]*")
 _SLUG_MAX_LENGTH = 64
 
@@ -83,7 +93,8 @@ class CandidateSample:
 @dataclass(frozen=True, slots=True)
 class CandidateSummary:
     """Aday türün listelenen hâli. `samples` örnek sayfaların ilk birkaçıdır (sınır çağıranın),
-    `sample_total` kayıtlı örnek sayfa sayısıdır."""
+    `sample_total` kayıtlı örnek sayfa sayısıdır. `proposal_status` sistemin incelemesinin
+    sonucudur (11.5.5, `CandidateProposalStatus`; `None` henüz incelenmedi)."""
 
     id: int
     name: str
@@ -93,6 +104,14 @@ class CandidateSummary:
     first_seen_upload_id: str
     samples: tuple[CandidateSample, ...]
     sample_total: int
+    proposal_status: str | None = None
+
+    @property
+    def proposal_label(self) -> str:
+        """İnceleme durumunun Türkçe adı: hazır, başarısız, örnek yok ya da bekliyor."""
+        if self.proposal_status is None:
+            return PROPOSAL_PENDING_LABEL
+        return PROPOSAL_STATUS_LABELS.get(self.proposal_status, PROPOSAL_PENDING_LABEL)
 
 
 def load_candidate_type(session: Session, candidate_type_id: int) -> CandidateDocumentType:
@@ -150,6 +169,7 @@ def summarize_candidates(
                 samples[page_id] for page_id in shown[candidate.id] if page_id in samples
             ),
             sample_total=len(candidate.sample_page_ids),
+            proposal_status=candidate.proposal_status,
         )
         for candidate in candidates
     ]

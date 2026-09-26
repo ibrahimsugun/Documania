@@ -66,6 +66,7 @@ class EventType(enum.StrEnum):
     ARCHIVED = "ARCHIVED"
     UPLOAD_DISMISSED = "UPLOAD_DISMISSED"
     PIPELINE_FAILED = "PIPELINE_FAILED"
+    CANDIDATE_TYPE_EXAMINED = "CANDIDATE_TYPE_EXAMINED"
 
 
 USAGE_DATA_KEY = "usage"
@@ -88,11 +89,14 @@ PRESCREEN_DATA_KEY = "prescreen"
 USAGE_EVENT_TYPES: tuple[EventType, ...] = (
     EventType.PAGE_ANALYZED,
     EventType.PAGE_ANALYSIS_FAILED,
+    EventType.CANDIDATE_TYPE_EXAMINED,
 )
-"""Token kullanımı taşıyabilen olay türleri: başarılı ve başarısız sayfa analizi. Başarısız
-sayfa da token harcamış olabilir (şemaya uymayan yanıt, fotoğraf kontrolünde hata), bu yüzden
-maliyet görünümü ikisini de sayar. Yeni bir yapay zekâ çağrısının olayı (ör. işçinin boş-zaman işi,
-`app.worker.idle`) kullanımını `usage_event_data` ile yazar ve türü buraya eklenir."""
+"""Token kullanımı taşıyabilen olay türleri: başarılı ve başarısız sayfa analizi, aday tür
+incelemesi (11.5.5, işçinin boş-zaman işi). Başarısız sayfa da token harcamış olabilir (şemaya
+uymayan yanıt, fotoğraf kontrolünde hata), bu yüzden maliyet görünümü ikisini de sayar; inceleme
+olayı parti kalemi değildir, toplamda ve ayda sayılır. Yeni bir yapay zekâ çağrısının olayı (ör.
+işçinin boş-zaman işi, `app.worker.idle`) kullanımını `usage_event_data` ile yazar ve türü buraya
+eklenir."""
 
 
 def usage_event_data(

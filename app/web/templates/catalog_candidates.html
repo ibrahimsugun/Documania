@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {# Aday türler (11.5.1): analizcinin önerdiği, katalogda olmayan türler — bekleyenler adı, görülme
-   sayısı ve örnek sayfalarıyla. Reddedilen aday listelenmez (11.5.4); onaylanmış ama ilişkili
+   sayısı, örnek sayfaları ve sistemin incelemesinin durumuyla (11.5.5: Hazır, Başarısız, Örnek yok,
+   Bekliyor). Reddedilen aday listelenmez (11.5.4); onaylanmış ama ilişkili
    Unknown öğesi bekleyen aday toplu yeniden analiz için ayrıca görünür (11.5.3). #}
 {% block title %}Aday türler{% endblock %}
 {% block content %}
@@ -10,11 +11,11 @@
 {% if notice_text %}
 <p class="notice notice-success" role="status">{{ notice_text }}</p>
 {% endif %}
-<p class="hint">Analizcinin önerdiği, katalogda olmayan türler. Belge hiçbir türe zorla atanmaz: aday türle görülen belgeler Unknown kuyruğunda bekler. Onaylanan aday standart türler arasına eklenir; reddedilen aday bir daha listeye düşmez.</p>
+<p class="hint">Analizcinin önerdiği, katalogda olmayan türler. Belge hiçbir türe zorla atanmaz: aday türle görülen belgeler Unknown kuyruğunda bekler. Onaylanan aday standart türler arasına eklenir; reddedilen aday bir daha listeye düşmez. Sistem bekleyen adayların örnek sayfalarını boş zamanında inceleyip tür taslağı hazırlar (İnceleme sütunu); aday kendiliğinden onaylanmaz.</p>
 {% if pending %}
 <table class="catalog candidates">
   <thead>
-    <tr><th>Aday tür</th><th>Görülme</th><th>Örnek sayfalar</th><th>Bekleyen Unknown öğesi</th><th>İlk görüldüğü parti</th><th></th></tr>
+    <tr><th>Aday tür</th><th>Görülme</th><th>Örnek sayfalar</th><th>İnceleme</th><th>Bekleyen Unknown öğesi</th><th>İlk görüldüğü parti</th><th></th></tr>
   </thead>
   <tbody>
     {% for item in pending %}
@@ -29,6 +30,7 @@
         <span class="placeholder">Örnek sayfa yok</span>
         {% endif %}
       </td>
+      <td class="proposal-status proposal-{{ item.proposal_status or 'pending' }}">{{ item.proposal_label }}</td>
       <td>{{ related_counts[item.id] }}</td>
       <td><a href="/uploads/{{ item.first_seen_upload_id }}">{{ item.first_seen_upload_id }}</a></td>
       <td class="doc-actions"><a href="/document-types/candidate-types/{{ item.id }}">İncele</a></td>

@@ -1597,14 +1597,14 @@
         "description": "PRD 11.5.5 · FR-MOD-11 · Faz 1 · Must (v1). Sistem bekleyen her adayı kendisi inceler ve taslağı saklar; İK onayı değişmez. Sözleşme PLAN §C85 \"İnceleme\".",
         "details": "KAPSAM: PRD 11.5.5. Tam sözleşme PLAN.md §C85 (Akış, İnceleme, Sızıntı denetimi, Veri) — önce oku. tm 111 çerçevesi, tm 112 sözleşmesi üzerine.\n\nNE YAPILACAK: (1) app/catalog/propose.py: görüntüler = adayla ilişkili Unknown öğelerinin **bütün** kaynak sayfaları (ilk sayfa `sample_page_refs` ile, aralık öğenin kaynağından — arka yüzler dahil), `pages.image_path` analiz görüntüsü bellekte, en çok `MAX_DESCRIPTION_PAGES`; görüntüsü kalmamış sayfa atlanır, hiç yoksa `no_samples`. Kullanıcı metni: aday adı, gözlenen kanıt (örnek dosya türleri upload_files'tan, sayfa analizlerindeki `side` değerleri, görülme başına sayfa sayısı), katalog ad/slug listesi, varsa önerilen tür kaydı eşleşmesi (app/catalog/suggested_types.csv tm 115'te gelir; yoksa atlanır). (2) Kanıt taslağı ezer: gözlenen dosya türleri → expected_file_types; front/back → front_back + separate; front_and_back → combined. (3) Sızıntı denetimi: taslağın serbest metinleri örnek sayfaların analysis_json kişi değerleriyle (soyad, ad, diğer isimler, orijinal yazım, belge numarası, doğum tarihi; §20.2.1 normalizasyonu) karşılaştırılır; eşleşme → saklanmaz, `failed`, gerekçe kişisel değersiz. (4) Göç (head'den sonraki revizyon): candidate_document_types.proposal_json, proposal_status (null|ready|failed|no_samples), proposal_generated_at, deneme sayacı + çerçevenin sahiplenme alanları; description boşsa taslağınki yazılır. (5) Boş-zaman işi (tm 111): durumu null olan bekleyen (pending) adayı inceler; karara bağlanmış aday incelenmez. Olay `CANDIDATE_TYPE_EXAMINED` (aday kimliği, sonuç, sayfa sayısı, model, usage; kişisel değer yok) — `EventType`'a ve `USAGE_EVENT_TYPES`'a eklenir. (6) Aday listesi (11.5.1) inceleme durumunu gösterir (hazır / başarısız / örnek yok / bekliyor).\n\nGİRDİ: app/catalog/candidates.py (`sample_page_refs`, `summarize_candidates`), app/db/models.py (`CandidateDocumentType`, `Page`, `UploadFile`, `QueueItem`), app/catalog/describe.py (görüntü toplama deseni), app/matching/names.py (normalizasyon), tm 111 idle çerçevesi, tm 112 `propose_type`.\n\nÇIKTI: app/catalog/propose.py, app/db/models.py, alembic/versions/<yeni>.py, app/events.py, app/worker (işin kaydı), app/web/templates/catalog_candidates.html (durum), tests/catalog, tests/worker, tests/db (test_migrations head, test_models), tests/test_events.py, PLAN.md, HANDOFF.md.\n\nBU GÖREVİ BAĞLAYAN KİLİTLİ KURALLAR: K16 (aday kendiliğinden onaylanmaz), K10 (sayfa görüntüleri okunur, değiştirilmez), K15, CONVENTIONS §6 (sızıntı değeri loga/olaya yazılmaz).\n\nPRD'DE AYRICA OKU: 04.6.1, 11.5.1–11.5.3, §8.1, §8.3.\n\nİLGİLİ KABUL SENARYOLARI: S14.\n\nKAPSAM SINIRI: onay formu ve Yeniden incele düğmesi tm 114; aday sayfalarını örnek klasörüne kopyalama yok (çalışan belgesidir).\n\nTUZAKLAR: `sample_page_ids` yalnız ilk sayfaları tutar — arka yüz için öğenin kaynak aralığına git. Yoksayılan partinin (10.3.4) görülmeleri sayılır (§D55) — örnek olarak kullanılabilir. tests/db/test_migrations.py head numarasını sabit tutar; tests/test_events.py kapalı listeyi karşılaştırır (PRD §8.3 zaten güncel). Analiz görüntüsü önbellekten silinmiş olabilir.\n\nKAPANIŞ: PLAN 11.5.5 satırı ✅ → K11.5 (kanıt maddesi; tm 111, 112, 113), HANDOFF bloğu, commit mesajında `PRD 11.5.5 — tm 113`.",
         "testStrategy": "1) Girdi: arka yüzlü aday (front + back sayfaları) iki görüntüyle istenir; görüntüsü silinmiş sayfa atlanır; hiç görüntü yok → no_samples. 2) Kanıt ezme: yapay zekâ pdf+single dese de JPEG + front/back gözlenmişse taslak jpeg + front_back/separate. 3) Sızıntı: taslak açıklamasında örnek kişinin soyadı (farklı yazım/aksanla) → failed, olay ve logda değer yok. 4) Göç yukarı/aşağı; head testi; description yalnız boşken yazılır. 5) İşçi: boş kuyrukta bekleyen aday incelenir, karara bağlanmış aday incelenmez, hata deneme sayacını artırır, sınırda failed. 6) Olay CANDIDATE_TYPE_EXAMINED usage taşır ve maliyet panelinde sayılır. 7) Tüm test takımı (`pytest -q -m \"not live\"`, kapsam ≥%70), ruff check/format, compileall, temiz SQLite'ta `alembic upgrade head`, `import app.main` yeşil (CONVENTIONS DoD). Testler yalnız sentetik belge ve sentetik adlarla (CONVENTIONS §6); canlı yapay zekâ çağrısı yok.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [
           "111",
           "112"
         ],
         "priority": "high",
         "subtasks": [],
-        "updatedAt": "2026-09-26T00:00:00.000Z"
+        "updatedAt": "2026-09-26T02:56:46.971Z"
       },
       {
         "id": "114",
@@ -1709,9 +1709,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-09-26T02:19:28.312Z",
+      "lastModified": "2026-09-26T02:56:46.972Z",
       "taskCount": 118,
-      "completedCount": 107,
+      "completedCount": 108,
       "tags": [
         "master"
       ]

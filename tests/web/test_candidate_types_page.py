@@ -38,6 +38,7 @@ from app.catalog import (
     import_catalog,
     load_seed_catalog,
 )
+from app.catalog.propose import CandidateExaminationJob
 from app.config import Settings
 from app.db.models import (
     CandidateDocumentType,
@@ -60,6 +61,7 @@ from app.web.routers import catalog as catalog_router
 from app.web.routers.catalog import SLUG_TAKEN as SLUG_TAKEN_TEXT
 from app.web.routers.upload_page import get_reanalysis_provider
 from app.web.routers.uploads import get_plan_executor
+from app.worker import IdleContext
 from tests.fixtures.gen import (
     PERSON_ORNEKOVA,
     PERSON_PRUEBA,
@@ -74,6 +76,15 @@ from tests.fixtures.gen import (
 from tests.web.conftest import SIGNED_IN, issue_token
 
 SETTINGS = Settings(_env_file=None, database_url="sqlite://")
+PROPOSAL_RECORDING = (
+    Path(__file__).resolve().parents[2]
+    / "tests"
+    / "fixtures"
+    / "ai"
+    / "type_proposals"
+    / "residence_permit"
+    / "0.json"
+)
 BASE = "/document-types/candidate-types"
 DIPLOMA = "peruvian_diploma"
 DIPLOMA_NAME = "Peruvian Diploma"
@@ -393,6 +404,41 @@ def test_candidates_are_listed_with_their_name_seen_count_and_sample_pages(
     assert "diploma-bir.pdf</a> · s. 1" in html
     assert f'<img src="/uploads/{seen.permit_upload}/pages/{pages[PERMIT_NAME][0]}/image"' in html
     assert "Onaylanan, Unknown öğesi bekleyen adaylar" not in html
+
+
+def test_the_list_shows_the_examination_status_after_the_worker_examined_a_candidate(
+    client: TestClient,
+    session_factory: sessionmaker[Session],
+    layout: DataLayout,
+    seen: Seen,
+) -> None:
+    # 11.5.5 uçtan uca: aday kaydı, Unknown öğesi, sayfa görüntüsü ve analizi gerçek boru hattının
+    # ürünüdür; işçinin boş-zaman işi sıradaki (ilk açılan) adayı inceler.
+    before = client.get(BASE).text
+    assert before.count('<td class="proposal-status proposal-pending">Bekliyor</td>') == 2
+    assert "Sistem bekleyen adayların örnek sayfalarını boş zamanında inceleyip" in before
+    provider = RecordingProvider([PROPOSAL_RECORDING])
+    context = IdleContext(session_factory, layout, SETTINGS, provider)
+
+    assert CandidateExaminationJob().run_one(context) is True
+
+    (request,) = provider.proposal_requests
+    assert len(request.images) == 2  # iki partide birer görülme
+    assert request.prompt.startswith(f"Geçici ad: {DIPLOMA_NAME}\n")
+    assert "- Örnek dosya türleri: pdf" in request.prompt
+    assert "- Sayfa yüzleri (sayfa analizinden): single" in request.prompt
+    assert "- Görülme başına sayfa sayısı: 1, 1" in request.prompt
+    assert "- Serbian Passport (`serbian_passport`)" in request.prompt
+    candidate = _candidate(session_factory, seen.diploma)
+    assert candidate.proposal_status == "ready"
+    assert candidate.status == "pending"
+    after = client.get(BASE).text
+    diploma_row = after[after.index(f'href="{BASE}/{seen.diploma}"') :]
+    permit_row = after[after.index(f'href="{BASE}/{seen.permit}"') :]
+    assert diploma_row.index('<td class="proposal-status proposal-ready">Hazır</td>') < (
+        diploma_row.index(f'href="{BASE}/{seen.permit}"')
+    )
+    assert '<td class="proposal-status proposal-pending">Bekliyor</td>' in permit_row
 
 
 def test_the_catalog_page_links_to_the_candidates_with_the_pending_count(

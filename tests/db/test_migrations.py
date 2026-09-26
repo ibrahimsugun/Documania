@@ -34,7 +34,7 @@ def _assert_schema_matches_models(database_url: str) -> None:
             assert tables == set(Base.metadata.tables) | {"alembic_version"}
             context = MigrationContext.configure(connection, opts={"compare_type": True})
             assert compare_metadata(context, Base.metadata) == []
-            assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "0009"
+            assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "0010"
     finally:
         engine.dispose()
 
@@ -457,6 +457,69 @@ def test_upload_dismissal_migration_adds_nullable_columns_and_is_reversible(
             assert connection.scalar(text("SELECT resolved_by FROM queue_items")) == "ik"
         with pytest.raises(IntegrityError), engine.begin() as connection:
             connection.execute(text("UPDATE queue_items SET kind = 'lost'"))
+    finally:
+        engine.dispose()
+
+
+def test_candidate_proposal_migration_adds_columns_and_is_reversible(sqlite_url: str) -> None:
+    # 0010 (11.5.5): var olan aday incelenmemiş (`proposal_status` boş) ve sahiplenilmemiş
+    # (deneme 0) kalır; inceleme sonucu kapalı kümedir. Geri alış altı sütunu düşürür, aday kalır.
+    config = _alembic_config(sqlite_url)
+    command.upgrade(config, "0009")
+    engine = create_engine(sqlite_url)
+    columns = {
+        "proposal_json",
+        "proposal_status",
+        "proposal_generated_at",
+        "idle_claimed_by",
+        "idle_claim_expires_at",
+        "idle_attempts",
+    }
+    try:
+        with engine.begin() as connection:
+            connection.execute(
+                text(
+                    "INSERT INTO uploads (id, channel, status, created_at) "
+                    "VALUES ('u_1', 'web', 'done', '2026-09-26 00:00:00')"
+                )
+            )
+            connection.execute(
+                text(
+                    "INSERT INTO candidate_document_types (id, proposed_name, normalized_name, "
+                    "first_seen_upload_id, sample_page_ids, seen_count, status) VALUES "
+                    "(1, 'Test Card', 'test card', 'u_1', '[]', 1, 'pending')"
+                )
+            )
+
+        command.upgrade(config, "head")
+        with engine.connect() as connection:
+            row = connection.execute(
+                text(
+                    "SELECT proposal_json, proposal_status, proposal_generated_at, "
+                    "idle_claimed_by, idle_claim_expires_at, idle_attempts "
+                    "FROM candidate_document_types"
+                )
+            ).one()
+            assert tuple(row) == (None, None, None, None, None, 0)
+        with engine.begin() as connection:
+            for value in ("ready", "failed", "no_samples"):
+                connection.execute(
+                    text("UPDATE candidate_document_types SET proposal_status = :value"),
+                    {"value": value},
+                )
+        with pytest.raises(IntegrityError), engine.begin() as connection:
+            connection.execute(text("UPDATE candidate_document_types SET proposal_status = 'ok'"))
+
+        command.downgrade(config, "0009")
+        with engine.connect() as connection:
+            names = {
+                column["name"]
+                for column in inspect(connection).get_columns("candidate_document_types")
+            }
+            assert columns.isdisjoint(names)
+            assert connection.scalar(text("SELECT status FROM candidate_document_types")) == (
+                "pending"
+            )
     finally:
         engine.dispose()
 

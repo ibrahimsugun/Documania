@@ -1,7 +1,7 @@
 """Veri modeli — PRD §8.1 tabloları (00.3.1), çalışan numarası üretici (00.3.3), aday tür
 kaydı (04.6.1) ve kararı (11.5), panel oturumu (10.1.2), iki aşamalı onayın belirteci (10.8.1),
-kalıcı işçi kuyruğu (13.3.1), profil alanlarının belge gözlemleri (05.7.3) ve partinin yoksayılması
-(10.3.4).
+kalıcı işçi kuyruğu (13.3.1), profil alanlarının belge gözlemleri (05.7.3), partinin yoksayılması
+(10.3.4) ve aday türün incelemesi (11.5.5).
 
 Silme yoktur, arşiv vardır (K16): ilişkilerde silme kaskadı tanımlanmaz.
 Dosya yolu burada üretilmez (yol kuralı: `app/storage/`); yol sütunları yalnız saklar.
@@ -87,6 +87,20 @@ def _one_of(column: str, values: type[enum.StrEnum]) -> str:
     return f"{column} IN ({allowed})"
 
 
+class IdleClaimMixin:
+    """İşçinin boş-zaman işinin tükettiği tablonun sahiplenme alanları (`app.worker.idle`).
+
+    `idle_claimed_by` son sahiplenenin tek kullanımlık belirtecidir (her alışta yenisi),
+    `idle_claim_expires_at` sahiplenmenin süresi, `idle_attempts` satırın kaç kez alındığıdır.
+    Alanlar tüketen tablonun göçündedir. Tanım burada durur (`app.worker.idle` bu modülü içe
+    aktarır; tersi döngü olurdu) ve `app.worker`'dan da dışa aktarılır.
+    """
+
+    idle_claimed_by: Mapped[str | None] = mapped_column(String(128))
+    idle_claim_expires_at: Mapped[datetime | None] = mapped_column(UtcDateTime)
+    idle_attempts: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+
+
 class UploadStatus(enum.StrEnum):
     """Parti durum makinesi (PRD 09.2.1)."""
 
@@ -170,6 +184,20 @@ class CandidateTypeStatus(enum.StrEnum):
     PENDING = "pending"
     APPROVED = "approved"
     REJECTED = "rejected"
+
+
+class CandidateProposalStatus(enum.StrEnum):
+    """Aday türün incelemesinin sonucu (§8.1 `candidate_document_types.proposal_status`, 11.5.5).
+
+    `NULL` incelenmedi demektir (işçinin boş-zaman işi bekleyen adayı inceler,
+    `app.catalog.propose`). `ready`: tür taslağı saklandı; `failed`: taslak üretilemedi ya da
+    örnekteki kişiye ait değer taşıdığı için saklanmadı; `no_samples`: görüntüsü kalan örnek sayfa
+    yok.
+    """
+
+    READY = "ready"
+    FAILED = "failed"
+    NO_SAMPLES = "no_samples"
 
 
 # --- çalışan -----------------------------------------------------------------------------
@@ -439,16 +467,26 @@ class KnownDocumentType(Base):
     active: Mapped[bool] = mapped_column(Boolean, default=True)
 
 
-class CandidateDocumentType(Base):
+class CandidateDocumentType(IdleClaimMixin, Base):
     """Katalogda olmayan, analizcinin önerdiği belge türü (04.6.1).
 
     Kayıt `record_candidate_type_sighting` ile yazılır. `normalized_name` tekillik anahtarıdır
     (`normalize_candidate_type_name`), `proposed_name` ilk görüldüğü yazımdır. `sample_page_ids`
     türün görüldüğü her belge adayının ilk sayfasını (`pages.id`) görülme sırasıyla taşır;
     `seen_count` bu görülmelerin sayısıdır.
+
+    İnceleme (11.5.5, `app.catalog.propose`): `proposal_status` sonucu (`CandidateProposalStatus`;
+    `NULL` incelenmedi), `proposal_json` tür taslağını ya da gerekçeyi, gözlenen kanıtı, modeli ve
+    kullanılan sayfa sayısını, `proposal_generated_at` incelemenin anını taşır. Sahiplenme alanları
+    (`IdleClaimMixin`) işçinin boş-zaman işinindir.
     """
 
     __tablename__ = "candidate_document_types"
+    __table_args__ = (
+        CheckConstraint(
+            _one_of("proposal_status", CandidateProposalStatus), name="proposal_status"
+        ),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     proposed_name: Mapped[str] = mapped_column(String(255))
@@ -458,6 +496,9 @@ class CandidateDocumentType(Base):
     sample_page_ids: Mapped[list[int]] = mapped_column(JSON, default=list)
     seen_count: Mapped[int] = mapped_column(Integer, default=1)
     status: Mapped[str] = mapped_column(String(16), default=CandidateTypeStatus.PENDING.value)
+    proposal_json: Mapped[dict[str, Any] | None] = mapped_column(JSON)
+    proposal_status: Mapped[str | None] = mapped_column(String(16))
+    proposal_generated_at: Mapped[datetime | None] = mapped_column(UtcDateTime)
 
     first_seen_upload: Mapped[Upload] = relationship()
 

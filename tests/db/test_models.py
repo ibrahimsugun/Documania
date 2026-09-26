@@ -199,8 +199,17 @@ def test_defaults_are_applied(session: Session) -> None:
     document = Document(
         employee=employee, document_type=doc_type, path="a", format="pdf", source_refs_json=[]
     )
-    session.add_all([employee, upload, doc_type, document])
+    candidate = CandidateDocumentType(
+        proposed_name="Test Card", normalized_name="test card", first_seen_upload=upload
+    )
+    session.add_all([employee, upload, doc_type, document, candidate])
     session.commit()
+
+    # 11.5.5: aday incelenmemiş ve sahiplenilmemiş açılır.
+    assert (candidate.proposal_status, candidate.proposal_json) == (None, None)
+    assert candidate.proposal_generated_at is None
+    assert (candidate.idle_claimed_by, candidate.idle_claim_expires_at) == (None, None)
+    assert candidate.idle_attempts == 0
 
     assert employee.status == "active"
     assert (document.status, document.sequence_no) == (DocumentStatus.ACTIVE, 1)
@@ -223,8 +232,14 @@ def test_foreign_keys_are_enforced(session: Session) -> None:
         lambda: Upload(id="u_x", channel="web", status="bitti"),
         lambda: EmployeeContact(employee_id="E0001", kind="fax", value="1"),
         lambda: QueueItem(upload_id="u_ok", kind="hazir", reason="yanlış kuyruk"),
+        lambda: CandidateDocumentType(
+            proposed_name="Test Card",
+            normalized_name="test card",
+            first_seen_upload_id="u_ok",
+            proposal_status="approved",
+        ),
     ],
-    ids=["upload-status", "contact-kind", "queue-kind"],
+    ids=["upload-status", "contact-kind", "queue-kind", "candidate-proposal-status"],
 )
 def test_check_constraints_reject_values_outside_the_prd_sets(session: Session, build) -> None:
     session.add_all([_employee(), Upload(id="u_ok", channel="web")])

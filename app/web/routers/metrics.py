@@ -1,8 +1,9 @@
 """Maliyet ölçümü görünümü (PRD 13.1.1): sayfa, parti ve ay bazında token ve maliyet.
 
-Kaynak olay logudur (K15): sayfa analizi olayları (`PAGE_ANALYZED`, `PAGE_ANALYSIS_FAILED`,
-`app.events.USAGE_EVENT_TYPES`) sağlayıcıya harcatılan token toplamını `usage` alanında taşır
-(`app.pipeline.analyze`). Görünüm yalnız okur; hiçbir kayıt ve belge değişmez.
+Kaynak olay logudur (K15): sayfa analizi olayları (`PAGE_ANALYZED`, `PAGE_ANALYSIS_FAILED`) ve
+aday tür incelemesi olayı (`CANDIDATE_TYPE_EXAMINED`, 11.5.5; `app.events.USAGE_EVENT_TYPES`)
+sağlayıcıya harcatılan token toplamını `usage` alanında taşır (`app.pipeline.analyze`,
+`app.catalog.propose`). Görünüm yalnız okur; hiçbir kayıt ve belge değişmez.
 
 - `GET /metrics` aylık ve parti bazında toplamları gösterir. Ay, olayın UTC zamanındandır. Parti
   tablosu en son analiz edilen `BATCH_LIMIT` partiyi listeler; her satır parti sayfasına bağlanır.
@@ -22,8 +23,9 @@ hiçbiri fiyatlanamıyorsa maliyet "—", bir kısmı fiyatlanıyorsa "en az" il
 kaydı olmayan analizler (ölçüm eklenmeden önceki partiler, kullanım bildirmeyen sağlayıcı)
 "ölçülmemiş" sütununda sayılır, toplamlara girmez.
 
-Yalnız sayfa analizi (ve fotoğraf kontrolü) ölçülür; tür açıklaması ve Telegram belge isteği
-çağrıları sayfa, parti ya da ay kalemi değildir ve bu görünümde yoktur (bkz. PLAN.md §C70).
+Sayfa analizi (ve fotoğraf kontrolü) ile işçinin aday tür incelemesi ölçülür. İnceleme bir
+partiye ait değildir: toplamda ve ay satırında sayılır, parti tablosunda görünmez. Tür açıklaması ve
+Telegram belge isteği çağrıları bu görünümde yoktur (bkz. PLAN.md §C70).
 """
 
 from __future__ import annotations
