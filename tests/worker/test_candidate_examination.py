@@ -366,7 +366,9 @@ def test_the_examination_event_enters_the_cost_view(
 def test_the_candidate_examination_is_a_default_idle_job(
     layout: DataLayout, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    (job,) = default_idle_jobs(SETTINGS)
+    # İlk iş aday incelemesidir; eğitim sınıflandırması (11.9.3) ikinci iştir
+    # (`tests/worker/test_training_classification.py`).
+    job, *_ = default_idle_jobs(SETTINGS)
 
     assert isinstance(job, CandidateExaminationJob)
     assert isinstance(job, IdleJob)
@@ -375,6 +377,6 @@ def test_the_candidate_examination_is_a_default_idle_job(
     monkeypatch.setattr("app.worker.runner.create_provider", lambda settings: object())
     worker = create_worker(SETTINGS, layout)
     try:
-        assert [type(each) for each in worker.idle_jobs] == [CandidateExaminationJob]
+        assert type(worker.idle_jobs[0]) is CandidateExaminationJob
     finally:
         worker.stop()

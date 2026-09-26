@@ -3,7 +3,9 @@ kişi eşleştirmesi, kuyruk öğesi, yükleme partisi ya da çıktı belgesi ol
 
 Bilinen türler (katalog + hazır önerilen türler) `known_types`, çalıştırma, staging ve örneğe
 yerleştirme `placement`, yapay zekâsız tür tanıma (SHA-256, ipucunun yapı kuralları, PDF metin
-katmanında MRZ) `mechanical` modülündedir.
+katmanında MRZ) `mechanical` modülündedir. Mekanik tanınmayan öğenin yapay zekâ incelemesi ve "AI
+kararı" etiketiyle yerleşmesi (11.9.3) `app.training.classification`'dadır; işçinin boş-zaman
+çerçevesine bağlı olduğu için paketten dışa aktarılmaz (içe aktarma döngüsü olmasın).
 """
 
 from app.training.known_types import (
@@ -30,6 +32,7 @@ from app.training.mechanical import (
     Recognition,
     RecognitionBasis,
     find_mrz_readings,
+    hint_label,
     load_example_inventory,
     mrz_doc_kind,
     parse_example_inventory,
@@ -47,6 +50,7 @@ from app.training.placement import (
     Placement,
     UnknownTypeError,
     create_run,
+    leave_unplaced,
     place_example,
     refresh_run,
     stage_file,
@@ -78,6 +82,8 @@ __all__ = [
     "build_known_types",
     "create_run",
     "find_mrz_readings",
+    "hint_label",
+    "leave_unplaced",
     "load_example_inventory",
     "load_known_types",
     "load_suggested_types",

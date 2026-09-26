@@ -598,14 +598,16 @@ class TrainingRun(Base):
     )
 
 
-class TrainingItem(Base):
+class TrainingItem(IdleClaimMixin, Base):
     """Eğitim modunda işlenen bir dosya (§8.1, 11.9).
 
     `staged_path` yüklenen içeriğin `KnownDocuments/_egitim/gelen/<run>/<item>.<ext>` kopyasının
     veri köküne göreli yoludur (örnek olarak kabul edilmeyen dosya yazılmaz); harita satırında
     `row_number` ve `source_ref` (haritadaki yol) dolar. `hint_slug` beklenen ya da haritadaki tür,
-    `result_slug` sonucun türüdür. `checks_json` mekanik kontrollerin kişisel değer taşımayan
-    dökümüdür.
+    `result_slug` sonucun türüdür. `checks_json` mekanik kontrollerin ve yapay zekâ
+    sınıflandırmasının (`ai` anahtarı, 11.9.3) kişisel değer taşımayan dökümüdür. Sahiplenme
+    alanları (`IdleClaimMixin`) işçinin `ai_pending` öğeyi sınıflandıran boş-zaman işinindir
+    (`app.training.classification`).
     """
 
     __tablename__ = "training_items"

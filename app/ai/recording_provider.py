@@ -11,16 +11,19 @@ JSON dosyalarını okuyan, başka test modüllerinin de kullanabileceği paylaş
 Bir kayıt dizini, sıradaki her `analyze_page` çağrısına karşılık gelen sayfanın ham yanıtını
 taşıyan `<sıra>.json` dosyalarından oluşur (`0.json`, `1.json`, ...) ve dosya adına göre
 sıralı okunur. Tür açıklaması isteği (`describe_type`, 11.3.1), tür taslağı isteği
-(`propose_type`, 11.5.5), fotoğraf kontrolü isteği (`check_photo`, 11.7.1) ve belge isteği
-(`read_document_query`, 12.3.1) aynı sıradan bir kayıt alır: kayıtlar istek türüne bakılmadan
+(`propose_type`, 11.5.5), eğitim sınıflandırması isteği (`classify_training_page`, 11.9.3),
+fotoğraf kontrolü isteği (`check_photo`, 11.7.1) ve belge isteği (`read_document_query`, 12.3.1)
+aynı sıradan bir kayıt alır: kayıtlar istek türüne bakılmadan
 geldiği sırayla dağıtılır — fotoğraf türündeki sayfanın kontrol kaydı o sayfanın analiz kaydının
 hemen ardından gelir. İçerik ayrıştırılmadan olduğu gibi döner — doğrulama
 `AnalysisProvider.analyze_page` içindeki `validate_page_analysis`'in (tür açıklamasında
-`validate_type_description`'ın, tür taslağında `validate_type_proposal`'ın, fotoğraf kontrolünde
+`validate_type_description`'ın, tür taslağında `validate_type_proposal`'ın, eğitim
+sınıflandırmasında `validate_training_classification`'ın, fotoğraf kontrolünde
 `validate_photo_check`'in, belge isteğinde `validate_document_query`'nin) işidir (bozuk kayıt
 orada `PageAnalysisError` olur, burada değil — somut sağlayıcılarla aynı sorumluluk ayrımı, bkz.
-`provider.py`). Tür açıklaması ve tür taslağı kayıtları sayfa analizi kayıtlarından ayrı
-dizinlerdedir (`tests/fixtures/ai/type_descriptions/`, `tests/fixtures/ai/type_proposals/`).
+`provider.py`). Tür açıklaması, tür taslağı ve eğitim sınıflandırması kayıtları sayfa analizi
+kayıtlarından ayrı dizinlerdedir (`tests/fixtures/ai/type_descriptions/`,
+`tests/fixtures/ai/type_proposals/`, `tests/fixtures/ai/training_classifications/`).
 
 `AI_PROVIDER` kayıt defterine (`PROVIDER_FACTORIES`) eklenmez: bu sağlayıcının kurulması bir
 dizin yolu ister, `.env`'den okunacak bir ayar değil, testin kendisidir. Testler
@@ -39,6 +42,7 @@ from app.ai.provider import (
     DocumentQueryRequest,
     PageAnalysisRequest,
     PhotoCheckRequest,
+    TrainingClassificationRequest,
     TypeDescriptionRequest,
     TypeProposalRequest,
 )
@@ -66,6 +70,7 @@ class RecordingProvider(AnalysisProvider):
         self.requests: list[PageAnalysisRequest] = []
         self.description_requests: list[TypeDescriptionRequest] = []
         self.proposal_requests: list[TypeProposalRequest] = []
+        self.training_requests: list[TrainingClassificationRequest] = []
         self.photo_check_requests: list[PhotoCheckRequest] = []
         self.query_requests: list[DocumentQueryRequest] = []
 
@@ -90,6 +95,10 @@ class RecordingProvider(AnalysisProvider):
 
     def _request_type_proposal(self, request: TypeProposalRequest) -> object:
         self.proposal_requests.append(request)
+        return self._next_recording()
+
+    def _request_training_classification(self, request: TrainingClassificationRequest) -> object:
+        self.training_requests.append(request)
         return self._next_recording()
 
     def _request_photo_check(self, request: PhotoCheckRequest) -> object:

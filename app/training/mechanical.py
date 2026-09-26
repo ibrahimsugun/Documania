@@ -387,7 +387,7 @@ def recognize(
     checks: dict[str, Any] = {"file": {"kind": file_kind, "pages": pages}}
     extras: list[str] = []
 
-    hint, hint_label = None, _hint_label(item)
+    hint, hint_text = None, hint_label(item)
     if item.hint_slug:
         hint = known.get(item.hint_slug)
         checks["hint"] = {
@@ -422,7 +422,7 @@ def recognize(
     if sha_slugs:
         (slug,) = sha_slugs
         if hint is not None and hint.slug != slug:
-            reason = f"{hint_label} `{hint.slug}` SHA-256 kaydıyla (`{slug}`) çelişiyor"
+            reason = f"{hint_text} `{hint.slug}` SHA-256 kaydıyla (`{slug}`) çelişiyor"
             return _pending(checks, reason, extras, item)
         if slug in indexed:
             basis, basis_text = RecognitionBasis.SHA256_INDEX, "SHA-256 örnek kaydında"
@@ -437,15 +437,15 @@ def recognize(
         problems = _structure_problems(hint, item)
         checks["hint"]["structure"] = problems
         if problems:
-            reason = f"{hint_label} `{hint.slug}` yapısına uymuyor: {'; '.join(problems)}"
+            reason = f"{hint_text} `{hint.slug}` yapısına uymuyor: {'; '.join(problems)}"
             return _pending(checks, reason, extras, item)
         if evidence.valid_readings and not evidence.confirms(hint):
-            reason = f"{hint_label} `{hint.slug}` MRZ ({evidence.describe()}) ile çelişiyor"
+            reason = f"{hint_text} `{hint.slug}` MRZ ({evidence.describe()}) ile çelişiyor"
             return _pending(checks, reason, extras, item)
         if evidence.valid_readings:
             extras.append(f"MRZ ({evidence.describe()}) tuttu")
         return _recognized(
-            checks, hint.slug, RecognitionBasis.HINT, hint_label, [*extras, _file_text(item, hint)]
+            checks, hint.slug, RecognitionBasis.HINT, hint_text, [*extras, _file_text(item, hint)]
         )
     matched = evidence.matched
     if matched is not None:
@@ -534,7 +534,8 @@ def stage_and_recognize(
     return item
 
 
-def _hint_label(item: TrainingItem) -> str:
+def hint_label(item: TrainingItem) -> str:
+    """İpucunun Türkçe adı: harita satırıysa "harita satırı N", değilse "beklenen tür"."""
     if item.row_number is not None:
         return f"harita satırı {item.row_number}"
     return "beklenen tür"

@@ -19,6 +19,10 @@ Tür taslağı (11.5.5) da aynı biçimdedir: kullanıcı turunda aday türün �
 birkaç görüntü), sonra adaya özgü metin; zorlanmış araç `PROPOSAL_TOOL_NAME`, girdi şeması
 `TypeProposal.model_json_schema()`.
 
+Eğitim sınıflandırması (11.9.3) da aynı biçimdedir: kullanıcı turunda belgenin ilk sayfası (PDF'te
+ilk iki sayfası, sırayla), sonra öğeye özgü metin; zorlanmış araç `TRAINING_TOOL_NAME`, girdi şeması
+`TrainingClassification.model_json_schema()`.
+
 Fotoğraf kontrolü (11.7.1) de aynı biçimdedir: kullanıcı turunda fotoğraf sayfasının görüntüsü,
 sonra değerlendirilecek kuralların metni; zorlanmış araç `PHOTO_CHECK_TOOL_NAME`, girdi şeması
 `PhotoCheck.model_json_schema()`.
@@ -53,10 +57,12 @@ from app.ai.provider import (
     ProviderError,
     ProviderRateLimitError,
     ProviderServerError,
+    TrainingClassificationRequest,
     TypeDescriptionRequest,
     TypeProposalRequest,
 )
 from app.ai.schemas import PageAnalysis, PageAnalysisError
+from app.ai.training_classification import TrainingClassification, TrainingClassificationError
 from app.ai.type_description import TypeDescription, TypeDescriptionError
 from app.ai.type_proposal import TypeProposal, TypeProposalError
 from app.ai.usage import report_usage
@@ -95,6 +101,17 @@ PROPOSAL_TOOL: ToolParam = {
     "input_schema": TypeProposal.model_json_schema(),
 }
 
+TRAINING_TOOL_NAME = "record_training_classification"
+
+TRAINING_TOOL: ToolParam = {
+    "name": TRAINING_TOOL_NAME,
+    "description": (
+        "Eğitim modundaki belgenin türünü kaydeder: katalog türü, ülke, tür, önerilen ad ve yüz. "
+        "Girdi, eğitim sınıflandırması şemasındaki her anahtarı taşıyan tek bir nesnedir."
+    ),
+    "input_schema": TrainingClassification.model_json_schema(),
+}
+
 PHOTO_CHECK_TOOL_NAME = "record_photo_check"
 
 PHOTO_CHECK_TOOL: ToolParam = {
@@ -120,8 +137,8 @@ DOCUMENT_QUERY_TOOL: ToolParam = {
 
 
 class AnthropicProvider(AnalysisProvider):
-    """Anthropic Messages API ile sayfa analizi, tür açıklaması, tür taslağı, fotoğraf kontrolü ve
-    belge isteği (`AI_PROVIDER=anthropic`)."""
+    """Anthropic Messages API ile sayfa analizi, tür açıklaması, tür taslağı, eğitim
+    sınıflandırması, fotoğraf kontrolü ve belge isteği (`AI_PROVIDER=anthropic`)."""
 
     name = "anthropic"
 
@@ -200,6 +217,16 @@ class AnthropicProvider(AnalysisProvider):
             PROPOSAL_TOOL,
             label="tür taslağı aracı",
             error=TypeProposalError,
+        )
+
+    def _request_training_classification(self, request: TrainingClassificationRequest) -> object:
+        return self._forced_tool_call(
+            request.instructions,
+            request.images,
+            request.prompt,
+            TRAINING_TOOL,
+            label="eğitim sınıflandırması aracı",
+            error=TrainingClassificationError,
         )
 
     def _request_photo_check(self, request: PhotoCheckRequest) -> object:

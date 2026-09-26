@@ -171,6 +171,12 @@ class KnownTypes:
         slugs = self._names.get(normalize_type_name(name), set())
         return tuple(self._types[slug] for slug in sorted(slugs))
 
+    def kind_matches(self, country_iso3: str, doc_kind: str) -> tuple[KnownType, ...]:
+        """(`country_iso3`, `kaynak_tur`) çiftinin indiği bütün türler, slug sırasıyla (belirsiz
+        çiftte birden çok)."""
+        slugs = self._kinds.get(_kind_key(country_iso3, doc_kind), set())
+        return tuple(self._types[slug] for slug in sorted(slugs))
+
     def match_kind(self, country_iso3: str, doc_kind: str) -> KnownType | None:
         """(`country_iso3`, `kaynak_tur`) çifti tek bir türe inerse o tür; yoksa ya da belirsizse
         `None`."""

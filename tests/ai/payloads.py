@@ -1,5 +1,6 @@
-"""Sağlayıcı testleri için §8.4'e, tür açıklaması (11.3.1), tür taslağı (11.5.5), fotoğraf kontrolü
-(11.7.1) ve belge isteği (12.3.1) şemalarına uyan sentetik yanıt ve istek (gerçek kişi yok)."""
+"""Sağlayıcı testleri için §8.4'e, tür açıklaması (11.3.1), tür taslağı (11.5.5), eğitim
+sınıflandırması (11.9.3), fotoğraf kontrolü (11.7.1) ve belge isteği (12.3.1) şemalarına uyan
+sentetik yanıt ve istek (gerçek kişi yok)."""
 
 from __future__ import annotations
 
@@ -10,13 +11,17 @@ from app.ai import (
     PageAnalysisRequest,
     PageImage,
     PhotoCheckRequest,
+    TrainingClassificationRequest,
     TypeDescriptionRequest,
     TypeProposalRequest,
 )
 from app.catalog import load_seed_catalog
+from app.training.known_types import build_known_types
 from tests.fixtures.gen import make_half_filled_image_bytes
 
 SLUGS = load_seed_catalog().slugs()
+DOC_KINDS = build_known_types(load_seed_catalog()).doc_kinds
+"""Önerilen tür kaydının `kaynak_tur` sözlüğü (eğitim sınıflandırmasının kapalı kümesi)."""
 
 # Kişisel veri gibi görünen ama uydurma değerler; hata mesajlarında geçmediği denetlenir.
 SYNTHETIC_SURNAME = "ORNEKOVA"
@@ -168,6 +173,44 @@ def proposal_request(
         ),
         instructions=instructions,
         prompt=prompt,
+    )
+
+
+def training_payload(**top: Any) -> dict[str, Any]:
+    """Eğitim sınıflandırması şemasına (11.9.3) uyan sentetik yanıt: katalog dışı bir Arnavutluk
+    pasaportu. Her çağrıda yeni bir sözlük; `top` üst düzey anahtarları değiştirir."""
+    data: dict[str, Any] = {
+        "catalog_slug": None,
+        "country_iso3": "ALB",
+        "doc_kind": "pasaport",
+        "proposed_name": "Albanian Passport",
+        "side": "single",
+        "notes": "Başlıkta ülke adı ve pasaport yazıyor; MRZ belge kodu P.",
+    }
+    data.update(top)
+    return data
+
+
+def training_request(
+    *,
+    images: int = 1,
+    instructions: str = "Eğitim sınıflandırması talimatı (test).",
+    prompt: str = "Dosya türü: JPEG (test).",
+    known_slugs: tuple[str, ...] = SLUGS,
+    doc_kinds: frozenset[str] = DOC_KINDS,
+) -> TrainingClassificationRequest:
+    # Her görüntü ayrı boyutta: baytlar farklıdır, sıra testte görünür.
+    return TrainingClassificationRequest(
+        images=tuple(
+            PageImage(
+                make_half_filled_image_bytes("PNG" if index % 2 else "JPEG", (220 + index, 110))
+            )
+            for index in range(images)
+        ),
+        instructions=instructions,
+        prompt=prompt,
+        known_slugs=known_slugs,
+        doc_kinds=doc_kinds,
     )
 
 

@@ -21,6 +21,10 @@ Tür taslağı (11.5.5) da aynı biçimdedir: kullanıcı mesajında aday türü
 birkaç görüntü), sonra adaya özgü metin; zorlanmış işlev `PROPOSAL_TOOL_NAME`, parametre şeması
 `TypeProposal.model_json_schema()`.
 
+Eğitim sınıflandırması (11.9.3) da aynı biçimdedir: kullanıcı mesajında belgenin ilk sayfası (PDF'te
+ilk iki sayfası, sırayla), sonra öğeye özgü metin; zorlanmış işlev `TRAINING_TOOL_NAME`, parametre
+şeması `TrainingClassification.model_json_schema()`.
+
 Fotoğraf kontrolü (11.7.1) de aynı biçimdedir: kullanıcı mesajında fotoğraf sayfasının görüntüsü,
 sonra değerlendirilecek kuralların metni; zorlanmış işlev `PHOTO_CHECK_TOOL_NAME`, parametre şeması
 `PhotoCheck.model_json_schema()`.
@@ -63,10 +67,12 @@ from app.ai.provider import (
     ProviderError,
     ProviderRateLimitError,
     ProviderServerError,
+    TrainingClassificationRequest,
     TypeDescriptionRequest,
     TypeProposalRequest,
 )
 from app.ai.schemas import PageAnalysis, PageAnalysisError
+from app.ai.training_classification import TrainingClassification, TrainingClassificationError
 from app.ai.type_description import TypeDescription, TypeDescriptionError
 from app.ai.type_proposal import TypeProposal, TypeProposalError
 from app.ai.usage import report_usage
@@ -117,6 +123,22 @@ PROPOSAL_TOOL: ChatCompletionFunctionToolParam = {
     },
 }
 
+TRAINING_TOOL_NAME = "record_training_classification"
+
+TRAINING_TOOL: ChatCompletionFunctionToolParam = {
+    "type": "function",
+    "function": {
+        "name": TRAINING_TOOL_NAME,
+        "description": (
+            "Eğitim modundaki belgenin türünü kaydeder: katalog türü, ülke, tür, önerilen ad ve "
+            "yüz. Argümanlar, eğitim sınıflandırması şemasındaki her anahtarı taşıyan tek bir "
+            "nesnedir."
+        ),
+        "parameters": TrainingClassification.model_json_schema(),
+        "strict": False,
+    },
+}
+
 PHOTO_CHECK_TOOL_NAME = "record_photo_check"
 
 PHOTO_CHECK_TOOL: ChatCompletionFunctionToolParam = {
@@ -158,8 +180,8 @@ _PERMANENT_RATE_LIMIT_CODES = frozenset({"insufficient_quota"})
 
 
 class OpenAIProvider(AnalysisProvider):
-    """OpenAI Chat Completions API ile sayfa analizi, tür açıklaması, tür taslağı, fotoğraf kontrolü
-    ve belge isteği (`AI_PROVIDER=openai`)."""
+    """OpenAI Chat Completions API ile sayfa analizi, tür açıklaması, tür taslağı, eğitim
+    sınıflandırması, fotoğraf kontrolü ve belge isteği (`AI_PROVIDER=openai`)."""
 
     name = "openai"
 
@@ -236,6 +258,16 @@ class OpenAIProvider(AnalysisProvider):
             PROPOSAL_TOOL,
             label="tür taslağı işlevi",
             error=TypeProposalError,
+        )
+
+    def _request_training_classification(self, request: TrainingClassificationRequest) -> object:
+        return self._forced_function_call(
+            request.instructions,
+            request.images,
+            request.prompt,
+            TRAINING_TOOL,
+            label="eğitim sınıflandırması işlevi",
+            error=TrainingClassificationError,
         )
 
     def _request_photo_check(self, request: PhotoCheckRequest) -> object:

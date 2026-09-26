@@ -1653,14 +1653,14 @@
         "description": "PRD 11.9.3 · FR-MOD-11 · Faz 1 · Must (v1). İnsan kararı (2026-09-26): mekanik tanınmayan belgeyi yapay zekâ inceler, bilinen belgelere \"AI kararı\" etiketiyle gönderir; yerleştiremezse eğitim sekmesinde bekler. Sözleşme PLAN §C86 \"Yapay zekâ yolu\".",
         "details": "KAPSAM: PRD 11.9.3. Tam sözleşme PLAN.md §C86 (Yapay zekâ yolu paragrafı) — önce oku. tm 111 çerçevesi, tm 116 üzerine.\n\nNE YAPILACAK: (1) app/ai/training_classification.py: TrainingClassification (extra=forbid) — catalog_slug (istemdeki katalog slug'larından biri|null), country_iso3|null, doc_kind (suggested_types.csv'nin kapalı kaynak_tur sözlüğü|null), proposed_name|null, side (single/front/back/front_and_back/unknown), notes (≤200); kişisel alan yok. Doğrulama known_slugs ile. (2) app/ai/prompts/training_classification.md (+ yükleyici): katalog metni (compile_catalog) + tür sözlüğü; 484 önerilen tür istemde yok; kişisel değer yazma yasağı. (3) Sağlayıcı: TrainingClassificationRequest + AnalysisProvider.classify_training_page (@final) + OpenAI/Anthropic/Recording. (4) Görüntü: ilk sayfa (PDF'te ilk iki) bellekte render — describe._page_images paylaşılan yardımcıya taşınır. (5) Eşleme: catalog_slug → o tür; değilse (country_iso3, doc_kind) → tekil bilinen tür; değilse proposed_name normalize ad eşleşmesi; değilse unplaced (not \"Yapay zekâ önerisi: <ad>\"). İpucu verildiyse ve sonuç farklıysa conflict (yerleşmez). Yerleşen: method=ai, label=ai_decision, not \"AI kararı: `<slug>` (<dayanak>, model <model>)\". (6) Boş-zaman işi (tm 111): ai_pending öğeyi koşullu sahiplenir; olay usage taşır, USAGE_EVENT_TYPES'a eklenir; sağlayıcı ayarsızsa öğe bekler.\n\nGİRDİ: tm 111 idle çerçevesi, tm 115 known_types/yerleştirme, tm 116 mechanical, app/catalog/prompt_builder.py (compile_catalog), app/catalog/describe.py (_page_images), app/ai/provider.py ve sağlayıcılar, tm 112'nin sağlayıcı ekleme deseni.\n\nÇIKTI: app/ai/training_classification.py, app/ai/prompts/training_classification.md (+ .py), app/ai/provider.py, openai_provider.py, anthropic_provider.py, recording_provider.py, app/training/ (ai adımı), app/worker (işin kaydı), app/events.py, tests/ai, tests/training, tests/worker, PLAN.md, HANDOFF.md.\n\nBU GÖREVİ BAĞLAYAN KİLİTLİ KURALLAR: R7 (emin değilse zorlama — belirsiz eşleşme yerleşmez), K11, K15, CONVENTIONS §6.\n\nPRD'DE AYRICA OKU: 03.4.1 (\"tahmin etme\" disiplini), 11.4.1, 13.1.1.\n\nİLGİLİ KABUL SENARYOLARI: S20.\n\nKAPSAM SINIRI: sayfa analizi (page_analysis) yeniden kullanılmaz — katalog dışı slug'ı reddeder ve kişisel değer döndürür; aday tür kaydı yok (insan kararı); sekme tm 118.\n\nTUZAKLAR: RUS/kimlik_karti ve TUR/ehliyet (ülke, tür) çiftleri belirsiz → unplaced. RecordingProvider tek sıralı. describe._page_images'ı taşırken 11.3.1 testleri değişmeden yeşil kalmalı.\n\nKAPANIŞ: PLAN 11.9.3 satırı ✅ → K11.9, HANDOFF bloğu, commit mesajında `PRD 11.9.3 — tm 117`.",
         "testStrategy": "1) Sözleşme: katalog dışı catalog_slug, sözlük dışı doc_kind, tanımsız anahtar reddedilir. 2) Sağlayıcı yükleri (OpenAI/Anthropic araç şeması, görüntü sırası), yeniden deneme. 3) Eşleme: katalog slug → yerleşir + ai_decision; (ülke, tür) tekil → önerilen türe; belirsiz çift → unplaced; ad eşleşmesi; hiçbiri → unplaced notlu; ipucu farklı → conflict. 4) İşçi: ai_pending öğe boş zamanda işlenir, yükleme işi önce; sağlayıcı ayarsız → bekler; usage maliyet panelinde. 5) Değişmez güvence testi yeşil. 6) pytest -q tests/ai yeşil. 7) Tüm test takımı (`pytest -q -m \"not live\"`, kapsam ≥%70), ruff check/format, compileall, temiz SQLite'ta `alembic upgrade head`, `import app.main` yeşil (CONVENTIONS DoD). Testler yalnız sentetik belge ve sentetik adlarla (CONVENTIONS §6); canlı yapay zekâ çağrısı yok.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [
           "111",
           "116"
         ],
         "priority": "high",
         "subtasks": [],
-        "updatedAt": "2026-09-26T00:00:00.000Z"
+        "updatedAt": "2026-09-26T07:00:36.830Z"
       },
       {
         "id": "118",
@@ -1709,9 +1709,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-09-26T05:55:50.676Z",
+      "lastModified": "2026-09-26T07:00:36.831Z",
       "taskCount": 118,
-      "completedCount": 111,
+      "completedCount": 112,
       "tags": [
         "master"
       ]

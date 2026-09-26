@@ -36,6 +36,8 @@ from app.ai import (
     ProviderServerError,
     Script,
     Side,
+    TrainingClassification,
+    TrainingClassificationError,
     TypeDescription,
     TypeDescriptionError,
     TypeProposal,
@@ -44,6 +46,7 @@ from app.ai import (
     validate_document_query,
     validate_page_analysis,
     validate_photo_check,
+    validate_training_classification,
     validate_type_description,
     validate_type_proposal,
 )
@@ -59,6 +62,8 @@ from app.ai.openai_provider import (
     PROPOSAL_TOOL,
     PROPOSAL_TOOL_NAME,
     TOOL_NAME,
+    TRAINING_TOOL,
+    TRAINING_TOOL_NAME,
     OpenAIProvider,
 )
 from app.ai.provider import MAX_ANALYSIS_ATTEMPTS, RETRY_BACKOFF_SECONDS
@@ -66,6 +71,7 @@ from app.ai.schemas import ISO_639_1_CODES
 from app.ai.usage import TokenUsage, measure_usage
 from app.config import Settings, load_settings
 from tests.ai.payloads import (
+    DOC_KINDS,
     PHOTO_RULES,
     SLUGS,
     SYNTHETIC_DOCUMENT_NUMBER,
@@ -80,6 +86,8 @@ from tests.ai.payloads import (
     proposal_request,
     query_payload,
     query_request,
+    training_payload,
+    training_request,
 )
 from tests.fixtures.gen import make_half_filled_image_bytes
 
@@ -270,6 +278,10 @@ def test_analysis_request_disables_reasoning_so_the_live_api_accepts_the_functio
         ),
         pytest.param(lambda provider: provider.propose_type(proposal_request()), id="tur-taslagi"),
         pytest.param(
+            lambda provider: provider.classify_training_page(training_request()),
+            id="egitim-siniflandirmasi",
+        ),
+        pytest.param(
             lambda provider: provider.check_photo(photo_check_request()), id="fotograf-kontrolu"
         ),
         pytest.param(
@@ -283,6 +295,7 @@ def test_every_function_request_carries_reasoning_none(
     payloads = {
         DESCRIPTION_TOOL_NAME: description_payload(),
         PROPOSAL_TOOL_NAME: proposal_payload(),
+        TRAINING_TOOL_NAME: training_payload(),
         PHOTO_CHECK_TOOL_NAME: photo_check_payload(),
         DOCUMENT_QUERY_TOOL_NAME: query_payload(),
     }
@@ -943,6 +956,130 @@ def test_proposal_usage_is_measured_like_every_call() -> None:
 
     with measure_usage() as meter:
         api.provider().propose_type(proposal_request())
+
+    assert meter.usage == TokenUsage(1200, 300)
+    assert meter.calls == 1
+
+
+# --- Eğitim sınıflandırması (11.9.3): ilk sayfa(lar) + metin, zorlanmış sınıflandırma işlevi ------
+
+
+def test_training_request_sends_images_in_order_then_text_with_forced_function() -> None:
+    api = FakeApi(
+        completion(tool_calls=[function_call(training_payload(), name=TRAINING_TOOL_NAME)])
+    )
+    request = training_request(images=2, instructions="Eğitim talimatı", prompt="Öğe metni")
+
+    classification = api.provider().classify_training_page(request)
+
+    assert classification == validate_training_classification(
+        training_payload(), known_slugs=SLUGS, doc_kinds=DOC_KINDS
+    )
+    body = api.body()
+    system, user = body["messages"]
+    assert system == {"role": "system", "content": "Eğitim talimatı"}
+    *image_parts, text_part = user["content"]
+    assert [part["type"] for part in image_parts] == ["image_url"] * 2
+    for part, image in zip(image_parts, request.images, strict=True):
+        prefix = f"data:{image.media_type};base64,"
+        assert part["image_url"]["url"].startswith(prefix)
+        assert base64.b64decode(part["image_url"]["url"].removeprefix(prefix)) == image.data
+        assert part["image_url"]["detail"] == "high"
+    assert text_part == {"type": "text", "text": "Öğe metni"}
+    assert body["tools"] == [json.loads(json.dumps(TRAINING_TOOL))]
+    assert body["tools"][0]["function"]["parameters"] == (
+        TrainingClassification.model_json_schema()
+    )
+    assert body["tools"][0]["function"]["strict"] is False
+    assert body["tool_choice"] == {"type": "function", "function": {"name": TRAINING_TOOL_NAME}}
+    assert body["parallel_tool_calls"] is False
+    assert body["store"] is False
+    assert body["reasoning_effort"] == "none"
+
+
+@pytest.mark.parametrize(
+    ("response", "expected"),
+    [
+        (
+            completion(
+                tool_calls=[function_call('{"catalog_slug": nu', name=TRAINING_TOOL_NAME)],
+                finish_reason="length",
+            ),
+            "eğitim sınıflandırması işlevi çağrısı tamamlanmadı (finish_reason=length)",
+        ),
+        (
+            completion(tool_calls=[function_call(proposal_payload(), name=PROPOSAL_TOOL_NAME)]),
+            "1 araç çağrısı",
+        ),
+        (completion(finish_reason="stop", refusal="Yardımcı olamam."), "finish_reason=refusal"),
+    ],
+    ids=["kesik", "taslak-islevi", "ret"],
+)
+def test_training_response_without_training_function_call_is_rejected(
+    response: httpx2.Response, expected: str
+) -> None:
+    api = FakeApi(response)
+
+    with pytest.raises(TrainingClassificationError) as caught:
+        api.provider().classify_training_page(training_request())
+
+    assert caught.value.problems[0].startswith("yanıt:")
+    assert expected in caught.value.problems[0]
+    assert "Yardımcı olamam" not in str(caught.value)
+
+
+@pytest.mark.parametrize(
+    ("change", "expected"),
+    [
+        ({"catalog_slug": "martian_passport"}, "catalog_slug: istemdeki katalogda olmayan tür"),
+        ({"doc_kind": "uzay_pasaportu"}, "doc_kind: tür sözlüğünde olmayan değer"),
+    ],
+    ids=["katalog-disi", "sozluk-disi"],
+)
+def test_training_arguments_outside_the_prompt_are_rejected(
+    change: dict[str, str], expected: str
+) -> None:
+    api = FakeApi(
+        completion(tool_calls=[function_call(training_payload(**change), name=TRAINING_TOOL_NAME)])
+    )
+
+    with pytest.raises(TrainingClassificationError) as caught:
+        api.provider().classify_training_page(training_request())
+
+    assert caught.value.problems == [expected]
+
+
+def test_training_server_errors_are_retried(no_sleep: list[float]) -> None:
+    api = FakeApi(
+        api_error(503, "server_error"),
+        completion(tool_calls=[function_call(training_payload(), name=TRAINING_TOOL_NAME)]),
+    )
+
+    api.provider().classify_training_page(training_request())
+
+    assert len(api.requests) == 2
+    assert no_sleep == [RETRY_BACKOFF_SECONDS]
+
+
+def test_training_exhausted_quota_is_not_retried(no_sleep: list[float]) -> None:
+    api = FakeApi(api_error(429, "insufficient_quota", code="insufficient_quota"))
+
+    with pytest.raises(ProviderError) as caught:
+        api.provider().classify_training_page(training_request())
+
+    assert not isinstance(caught.value, ProviderRateLimitError)
+    assert len(api.requests) == 1
+    assert no_sleep == []
+
+
+def test_training_usage_is_measured_like_every_call() -> None:
+    # 13.1.1: sınıflandırma çağrısının tokenları da ölçülür; boş-zaman işi olayına yazar (§C86).
+    api = FakeApi(
+        completion(tool_calls=[function_call(training_payload(), name=TRAINING_TOOL_NAME)])
+    )
+
+    with measure_usage() as meter:
+        api.provider().classify_training_page(training_request())
 
     assert meter.usage == TokenUsage(1200, 300)
     assert meter.calls == 1

@@ -1,9 +1,13 @@
 """Maliyet ölçümü görünümü (PRD 13.1.1): sayfa, parti ve ay bazında token ve maliyet.
 
-Kaynak olay logudur (K15): sayfa analizi olayları (`PAGE_ANALYZED`, `PAGE_ANALYSIS_FAILED`) ve
-aday tür incelemesi olayı (`CANDIDATE_TYPE_EXAMINED`, 11.5.5; `app.events.USAGE_EVENT_TYPES`)
-sağlayıcıya harcatılan token toplamını `usage` alanında taşır (`app.pipeline.analyze`,
-`app.catalog.propose`). Görünüm yalnız okur; hiçbir kayıt ve belge değişmez.
+Kaynak olay logudur (K15): sayfa analizi olayları (`PAGE_ANALYZED`, `PAGE_ANALYSIS_FAILED`), aday
+tür incelemesi olayı (`CANDIDATE_TYPE_EXAMINED`, 11.5.5) ve eğitim modunun yapay zekâ incelemesinin
+yerleşme olayları (`TRAINING_EXAMPLE_PLACED`, `TRAINING_ITEM_UNPLACED`, 11.9.3;
+`app.events.USAGE_EVENT_TYPES`) sağlayıcıya harcatılan token toplamını `usage` alanında taşır
+(`app.pipeline.analyze`, `app.catalog.propose`, `app.training.classification`). Eğitim yerleşme
+olaylarından yalnız yapay zekâ adımınınkiler sayılır: mekanik ve İK yerleştirmesi aynı türü yazar
+ama yapay zekâ çağrısı değildir (`app.events.is_ai_call_event`). Görünüm yalnız okur; hiçbir kayıt
+ve belge değişmez.
 
 - `GET /metrics` aylık ve parti bazında toplamları gösterir. Ay, olayın UTC zamanındandır. Parti
   tablosu en son analiz edilen `BATCH_LIMIT` partiyi listeler; her satır parti sayfasına bağlanır.
@@ -23,9 +27,9 @@ hiçbiri fiyatlanamıyorsa maliyet "—", bir kısmı fiyatlanıyorsa "en az" il
 kaydı olmayan analizler (ölçüm eklenmeden önceki partiler, kullanım bildirmeyen sağlayıcı)
 "ölçülmemiş" sütununda sayılır, toplamlara girmez.
 
-Sayfa analizi (ve fotoğraf kontrolü) ile işçinin aday tür incelemesi ölçülür. İnceleme bir
-partiye ait değildir: toplamda ve ay satırında sayılır, parti tablosunda görünmez. Tür açıklaması ve
-Telegram belge isteği çağrıları bu görünümde yoktur (bkz. PLAN.md §C70).
+Sayfa analizi (ve fotoğraf kontrolü) ile işçinin aday tür incelemesi ve eğitim incelemesi ölçülür.
+İncelemeler bir partiye ait değildir: toplamda ve ay satırında sayılır, parti tablosunda görünmez.
+Tür açıklaması ve Telegram belge isteği çağrıları bu görünümde yoktur (bkz. PLAN.md §C70).
 """
 
 from __future__ import annotations
@@ -46,7 +50,12 @@ from app.ai.usage import TokenUsage, token_cost
 from app.config import ModelPrice, Settings, get_settings
 from app.db.models import Event, Upload, UploadFile
 from app.db.session import get_session
-from app.events import USAGE_BY_MODEL_DATA_KEY, USAGE_DATA_KEY, USAGE_EVENT_TYPES
+from app.events import (
+    USAGE_BY_MODEL_DATA_KEY,
+    USAGE_DATA_KEY,
+    USAGE_EVENT_TYPES,
+    is_ai_call_event,
+)
 from app.web.auth import PanelUser, require_panel_user
 from app.web.templating import render_page
 
@@ -204,15 +213,19 @@ class UploadMetrics:
 def read_usage_events(session: Session, *, upload_id: str | None = None) -> list[UsageEvent]:
     """Kullanım taşıyabilen olayları zaman sırasıyla okur (`upload_id` verilirse yalnız o parti)."""
     statement = (
-        select(Event.ts, Event.upload_id, Event.file_id, Event.page_index, Event.data_json)
+        select(
+            Event.type, Event.ts, Event.upload_id, Event.file_id, Event.page_index, Event.data_json
+        )
         .where(Event.type.in_([event_type.value for event_type in USAGE_EVENT_TYPES]))
         .order_by(Event.ts, Event.id)
     )
     if upload_id is not None:
         statement = statement.where(Event.upload_id == upload_id)
     events: list[UsageEvent] = []
-    for ts, event_upload_id, file_id, page_index, data in session.execute(statement):
+    for event_type, ts, event_upload_id, file_id, page_index, data in session.execute(statement):
         data = data if isinstance(data, dict) else {}
+        if not is_ai_call_event(event_type, data):
+            continue
         model = data.get("model")
         usage = TokenUsage.from_event_data(data.get(USAGE_DATA_KEY))
         events.append(

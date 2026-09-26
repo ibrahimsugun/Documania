@@ -34,7 +34,7 @@ def _assert_schema_matches_models(database_url: str) -> None:
             assert tables == set(Base.metadata.tables) | {"alembic_version"}
             context = MigrationContext.configure(connection, opts={"compare_type": True})
             assert compare_metadata(context, Base.metadata) == []
-            assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "0011"
+            assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "0012"
     finally:
         engine.dispose()
 
@@ -594,6 +594,52 @@ def test_training_migration_creates_the_tables_and_is_reversible(sqlite_url: str
             assert connection.scalar(text("SELECT status FROM candidate_document_types")) == (
                 "pending"
             )
+    finally:
+        engine.dispose()
+
+
+def test_training_item_idle_claim_migration_adds_columns_and_is_reversible(
+    sqlite_url: str,
+) -> None:
+    # 0012 (11.9.3): var olan eğitim öğesi sahiplenilmemiş (deneme 0) kalır; `ai_pending` öğe
+    # işçinin sırasını bekler. Geri alış üç sütunu düşürür, öğe ve durumu kalır.
+    config = _alembic_config(sqlite_url)
+    command.upgrade(config, "0011")
+    engine = create_engine(sqlite_url)
+    columns = {"idle_claimed_by", "idle_claim_expires_at", "idle_attempts"}
+    try:
+        with engine.begin() as connection:
+            connection.execute(
+                text(
+                    "INSERT INTO training_runs (id, kind, created_by, created_at, status, "
+                    "counts_json) VALUES (1, 'upload', 'ik', '2026-09-26 00:00:00', 'running', "
+                    "'{}')"
+                )
+            )
+            connection.execute(
+                text(
+                    "INSERT INTO training_items (id, run_id, original_name, status) "
+                    "VALUES (1, 1, 'a.jpg', 'ai_pending')"
+                )
+            )
+
+        command.upgrade(config, "head")
+        with engine.connect() as connection:
+            row = connection.execute(
+                text(
+                    "SELECT status, idle_claimed_by, idle_claim_expires_at, idle_attempts "
+                    "FROM training_items"
+                )
+            ).one()
+            assert tuple(row) == ("ai_pending", None, None, 0)
+        with pytest.raises(IntegrityError), engine.begin() as connection:
+            connection.execute(text("UPDATE training_items SET idle_attempts = NULL"))
+
+        command.downgrade(config, "0011")
+        with engine.connect() as connection:
+            names = {column["name"] for column in inspect(connection).get_columns("training_items")}
+            assert columns.isdisjoint(names)
+            assert connection.scalar(text("SELECT status FROM training_items")) == "ai_pending"
     finally:
         engine.dispose()
 

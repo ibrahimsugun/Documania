@@ -30,6 +30,7 @@ from app.training import (
     KnownTypes,
     UnknownTypeError,
     create_run,
+    leave_unplaced,
     place_example,
     refresh_run,
     stage_file,
@@ -578,6 +579,122 @@ def test_a_run_stays_running_while_the_system_still_has_to_decide(
     refresh_run(session, run)
     # İK'nın kararını bekleyen öğe çalıştırmayı açık tutmaz.
     assert (run.status, run.counts_json) == ("done", {"placed": 1, "failed": 1, "unplaced": 1})
+
+
+# --- yerleşmeyen öğe ve olay verisi (11.9.3) --------------------------------------------------
+
+
+def test_the_caller_s_event_data_is_added_to_the_placement_event(
+    session: Session, layout: DataLayout, known: KnownTypes
+) -> None:
+    run = _run(session)
+    placed = _stage(session, layout, run, "a.pdf", make_pdf_bytes(1))
+    skipped = _stage(session, layout, run, "b.pdf", make_pdf_bytes(1))
+    extra = {"provider": "sahte", "model": "sahte-model", "basis": "catalog_slug"}
+
+    place_example(
+        session, layout, known, placed, CATALOG_SLUG, method=TrainingMethod.AI, event_data=extra
+    )
+    place_example(
+        session, layout, known, skipped, CATALOG_SLUG, method=TrainingMethod.AI, event_data=extra
+    )
+
+    (event,) = _events(session, EventType.TRAINING_EXAMPLE_PLACED)
+    assert event.data_json["type_slug"] == CATALOG_SLUG
+    assert {key: event.data_json[key] for key in extra} == extra
+    (unplaced,) = _events(session, EventType.TRAINING_ITEM_UNPLACED)
+    assert unplaced.data_json["status"] == "skipped"
+    assert {key: unplaced.data_json[key] for key in extra} == extra
+
+
+@pytest.mark.parametrize(
+    ("status", "slug", "message"),
+    [
+        (TrainingItemStatus.UNPLACED, None, "Eğitim öğesi yerleşmedi: hiçbir bilinen türe inmedi."),
+        (
+            TrainingItemStatus.CONFLICT,
+            SUGGESTED_SLUG,
+            f"Eğitim öğesi yerleşmedi: sonuç `{SUGGESTED_SLUG}` beklenen türle çelişiyor.",
+        ),
+    ],
+)
+def test_an_item_left_unplaced_waits_for_hr_without_a_file(
+    session: Session,
+    layout: DataLayout,
+    status: TrainingItemStatus,
+    slug: str | None,
+    message: str,
+) -> None:
+    run = _run(session)
+    item = stage_file(
+        session,
+        layout,
+        run,
+        "a.pdf",
+        make_pdf_bytes(1),
+        max_bytes=LIMIT,
+        hint_slug=CATALOG_SLUG,
+    )
+    item.status = TrainingItemStatus.AI_PENDING.value
+    before = _files(layout.root)
+
+    leave_unplaced(
+        session,
+        item,
+        status,
+        note="yapay zekâ notu",
+        method=TrainingMethod.AI,
+        slug=slug,
+        event_data={"provider": "sahte"},
+    )
+
+    assert (item.status, item.method, item.result_slug, item.note, item.decided_by) == (
+        status.value,
+        "ai",
+        slug,
+        "yapay zekâ notu",
+        SYSTEM_ACTOR,
+    )
+    assert _files(layout.root) == before
+    assert _records(session) == []
+    (event,) = _events(session, EventType.TRAINING_ITEM_UNPLACED)
+    assert event.message == message
+    assert event.data_json == {
+        "run_id": run.id,
+        "training_item_id": item.id,
+        "status": status.value,
+        "type_slug": slug,
+        "hint_slug": CATALOG_SLUG,
+        "provider": "sahte",
+    }
+    assert (run.status, run.counts_json) == ("done", {status.value: 1})
+
+
+def test_leaving_unplaced_accepts_only_unplaced_or_conflict(
+    session: Session, layout: DataLayout
+) -> None:
+    item = _stage(session, layout, _run(session), "a.pdf", make_pdf_bytes(1))
+
+    with pytest.raises(ValueError, match="unplaced ya da conflict"):
+        leave_unplaced(
+            session, item, TrainingItemStatus.SKIPPED, note="n", method=TrainingMethod.AI
+        )
+
+    assert item.status == "queued"
+
+
+def test_an_item_in_its_final_state_cannot_be_left_unplaced(
+    session: Session, layout: DataLayout
+) -> None:
+    item = _stage(session, layout, _run(session), "a.docx", make_docx_bytes())
+    assert item.status == "failed"
+
+    with pytest.raises(ItemNotPlaceableError):
+        leave_unplaced(
+            session, item, TrainingItemStatus.UNPLACED, note="n", method=TrainingMethod.AI
+        )
+
+    assert _events(session, EventType.TRAINING_ITEM_UNPLACED) == []
 
 
 # --- değişmez güvence ----------------------------------------------------------------------------

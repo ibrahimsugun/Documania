@@ -88,17 +88,40 @@ PRESCREEN_DATA_KEY = "prescreen"
 `"error": "<hata türü>"`). Ön eleme yapılmayan sayfada yazılmaz. Gerekçe kişisel değer taşımaz
 (`app.pipeline.analyze.Escalation`)."""
 
+PROVIDER_DATA_KEY = "provider"
+"""Yapay zekâ çağrısı olayının sağlayıcı adı anahtarı (`usage_event_data` her zaman yazar)."""
+
 USAGE_EVENT_TYPES: tuple[EventType, ...] = (
     EventType.PAGE_ANALYZED,
     EventType.PAGE_ANALYSIS_FAILED,
     EventType.CANDIDATE_TYPE_EXAMINED,
+    EventType.TRAINING_EXAMPLE_PLACED,
+    EventType.TRAINING_ITEM_UNPLACED,
 )
 """Token kullanımı taşıyabilen olay türleri: başarılı ve başarısız sayfa analizi, aday tür
-incelemesi (11.5.5, işçinin boş-zaman işi). Başarısız sayfa da token harcamış olabilir (şemaya
-uymayan yanıt, fotoğraf kontrolünde hata), bu yüzden maliyet görünümü ikisini de sayar; inceleme
-olayı parti kalemi değildir, toplamda ve ayda sayılır. Yeni bir yapay zekâ çağrısının olayı (ör.
-işçinin boş-zaman işi, `app.worker.idle`) kullanımını `usage_event_data` ile yazar ve türü buraya
-eklenir."""
+incelemesi (11.5.5) ve eğitim modunun yapay zekâ incelemesi (11.9.3; ikisi de işçinin boş-zaman
+işi). Başarısız sayfa da token harcamış olabilir (şemaya uymayan yanıt, fotoğraf kontrolünde hata),
+bu yüzden maliyet görünümü ikisini de sayar; inceleme olayları parti kalemi değildir, toplamda ve
+ayda sayılır. Yeni bir yapay zekâ çağrısının olayı (ör. işçinin boş-zaman işi, `app.worker.idle`)
+kullanımını `usage_event_data` ile yazar ve türü buraya eklenir; tür yapay zekâsız adımlarca da
+yazılıyorsa ayrıca `AI_STEP_EVENT_TYPES`'a."""
+
+AI_STEP_EVENT_TYPES: tuple[EventType, ...] = (
+    EventType.TRAINING_EXAMPLE_PLACED,
+    EventType.TRAINING_ITEM_UNPLACED,
+)
+"""Hem yapay zekâ adımının hem yapay zekâsız adımların yazdığı kullanım olayı türleri: eğitim
+öğesinin yerleşme olayını mekanik tanıma (11.9.2) ve İK'nın yerleştirmesi (11.9.1) da yazar
+(PRD §8.3'ün sabit listesinde sınıflandırmanın ayrı bir olayı yoktur). Bu türlerde yalnız sağlayıcı
+alanını (`PROVIDER_DATA_KEY`) taşıyan olay bir yapay zekâ çağrısıdır (`is_ai_call_event`)."""
+
+
+def is_ai_call_event(event_type: str, data: Mapping[str, Any] | None) -> bool:
+    """`USAGE_EVENT_TYPES`'taki bir olay yapay zekâ çağrısı mı: `AI_STEP_EVENT_TYPES`'ta ise yalnız
+    sağlayıcı alanını taşıyorsa; öteki türlerde her zaman (ölçülmemiş olsa da)."""
+    if event_type not in AI_STEP_EVENT_TYPES:
+        return True
+    return isinstance(data, Mapping) and PROVIDER_DATA_KEY in data
 
 
 def usage_event_data(
@@ -114,7 +137,7 @@ def usage_event_data(
     yazılmaz: sıfır token, ölçülmemiş çağrıyı ölçülmüş gösterirdi. `by_model` çağrı birden çok
     modele harcattıysa dağılımdır (`USAGE_BY_MODEL_DATA_KEY`; toplamı `meter`'ınkine eşit olmalı).
     """
-    data: dict[str, object] = {"provider": provider, "model": model}
+    data: dict[str, object] = {PROVIDER_DATA_KEY: provider, "model": model}
     if meter.calls:
         data[USAGE_DATA_KEY] = meter.usage.to_event_data()
         if by_model:

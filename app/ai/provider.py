@@ -46,6 +46,14 @@ ad, etiket, ülke, yapı, zorunlu alanlar, kabul kriterleri, görünüş) ürett
 (`validate_type_proposal`) ve yeniden deneme ortaktır; somut sağlayıcı `_request_type_proposal`'ı
 uygular, şemaya uymayan yanıt `TypeProposalError`'dır. Uygulamayan sağlayıcı `ProviderError` verir.
 
+**Eğitim sınıflandırması (11.9.3).** Altıncı iş: `classify_training_page
+(TrainingClassificationRequest)` eğitim modunda mekanik tanınmayan belgenin ilk sayfasından (PDF'te
+ilk iki sayfasından) belgenin türünü ister (`TrainingClassification`: katalog türü, ülke, tür
+sözlüğündeki tür, önerilen ad, yüz; kişisel alan yok). Yanıt kabulü
+(`validate_training_classification`: istemdeki katalog ve tür sözlüğü dışında değer yok) ve yeniden
+deneme ortaktır; somut sağlayıcı `_request_training_classification`'ı uygular, şemaya uymayan yanıt
+`TrainingClassificationError`'dır. Uygulamayan sağlayıcı `ProviderError` verir.
+
 **Ön eleme modeli (13.2.1).** Sağlayıcı ana modelinin yanında aynı API'nin ucuz bir modelini
 taşıyabilir (`<SAĞLAYICI>_PRESCREEN_MODEL`): `prescreen_provider()` o modelle çalışan kopyayı verir.
 Kopyanın sözleşmesi aynıdır (yanıt kabulü, yeniden deneme); somut sağlayıcı yalnız `_with_model`'i
@@ -63,6 +71,10 @@ from typing import ClassVar, Literal, final
 from app.ai.document_query import DocumentQuery, validate_document_query
 from app.ai.photo_check import PhotoCheck, validate_photo_check
 from app.ai.schemas import PageAnalysis, PageAnalysisError, validate_page_analysis
+from app.ai.training_classification import (
+    TrainingClassification,
+    validate_training_classification,
+)
 from app.ai.type_description import TypeDescription, validate_type_description
 from app.ai.type_proposal import TypeProposal, validate_type_proposal
 from app.config import Settings
@@ -214,6 +226,45 @@ class TypeProposalRequest:
         if not self.prompt.strip():
             raise ValueError("prompt boş olamaz")
         object.__setattr__(self, "images", images)
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class TrainingClassificationRequest:
+    """Eğitim sınıflandırması isteği (11.9.3); hiçbir alanı sağlayıcıya özgü değildir.
+
+    - `images`: belgenin ilk sayfası (PDF'te ilk iki sayfası), istemde anlatılan sırayla (en az
+      bir).
+    - `instructions`: sistem talimatı; katalog metni ve tür sözlüğü içindedir
+      (`app.ai.prompts.training_classification`).
+    - `prompt`: öğeye özgü metin (dosya türü, sayfa sayısı, görüntülerin sırası).
+    - `known_slugs`: talimattaki katalog türlerinin slug'ları; başka `catalog_slug` reddedilir.
+    - `doc_kinds`: talimattaki tür sözlüğü; başka `doc_kind` reddedilir.
+    """
+
+    images: tuple[PageImage, ...]
+    instructions: str = field(repr=False)
+    prompt: str = field(repr=False)
+    known_slugs: frozenset[str]
+    doc_kinds: frozenset[str]
+
+    def __post_init__(self) -> None:
+        # Çağıran liste verebilir; istek değişmez olsun diye demete çevrilir.
+        images = tuple(self.images)
+        if not images:
+            raise ValueError("images en az bir görüntü içermeli")
+        if not all(isinstance(image, PageImage) for image in images):
+            raise TypeError("images yalnız PageImage içermeli")
+        if not self.instructions.strip():
+            raise ValueError("instructions boş olamaz")
+        if not self.prompt.strip():
+            raise ValueError("prompt boş olamaz")
+        for name in ("known_slugs", "doc_kinds"):
+            if isinstance(getattr(self, name), str):
+                raise TypeError(f"{name} tek bir metin değil, değer koleksiyonu olmalı")
+        object.__setattr__(self, "images", images)
+        # Çağıran liste/demet verebilir; istek değişmez olsun diye kopyalanır.
+        object.__setattr__(self, "known_slugs", frozenset(self.known_slugs))
+        object.__setattr__(self, "doc_kinds", frozenset(self.doc_kinds))
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -369,6 +420,21 @@ class AnalysisProvider(abc.ABC):
         """
         return validate_type_proposal(_with_retry(self._request_type_proposal, request))
 
+    @final
+    def classify_training_page(
+        self, request: TrainingClassificationRequest
+    ) -> TrainingClassification:
+        """Eğitim öğesinin türünü ilk sayfasından sınıflandırtır (11.9.3).
+
+        Yeniden deneme `analyze_page`'teki gibidir (03.5.1). Yanıt
+        `validate_training_classification`'dan geçer: istemdeki katalog ve tür sözlüğü dışında değer
+        yok; uymayan yanıt `TrainingClassificationError` olur, düzeltilmez.
+        """
+        raw = _with_retry(self._request_training_classification, request)
+        return validate_training_classification(
+            raw, known_slugs=request.known_slugs, doc_kinds=request.doc_kinds
+        )
+
     @abc.abstractmethod
     def _request_analysis(self, request: PageAnalysisRequest) -> object:
         """Sağlayıcıyı bir kez çağırır, yapılandırılmış çıktıyı doğrulamadan döner.
@@ -401,6 +467,12 @@ class AnalysisProvider(abc.ABC):
         (sözleşmesi `_request_analysis`'inkidir; yapılandırılmış çıktı yoksa `TypeProposalError`).
         Varsayılan: sağlayıcı bu işi yapmaz."""
         raise ProviderError(f"'{self.name}' sağlayıcısı tür taslağı üretmiyor")
+
+    def _request_training_classification(self, request: TrainingClassificationRequest) -> object:
+        """Eğitim sınıflandırması için sağlayıcıyı bir kez çağırır, yapılandırılmış çıktıyı
+        doğrulamadan döner (sözleşmesi `_request_analysis`'inkidir; yapılandırılmış çıktı yoksa
+        `TrainingClassificationError`). Varsayılan: sağlayıcı bu işi yapmaz."""
+        raise ProviderError(f"'{self.name}' sağlayıcısı eğitim sınıflandırması yapmıyor")
 
 
 def _with_retry[R](call: Callable[[R], object], request: R) -> object:

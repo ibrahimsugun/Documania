@@ -1,0 +1,8 @@
+{
+  "catalog_slug": "russian_passport",
+  "country_iso3": "RUS",
+  "doc_kind": "pasaport",
+  "proposed_name": "Russian Passport",
+  "side": "single",
+  "notes": "Kimlik sayfası; başlıkta pasaport yazıyor, MRZ belge kodu P, veren devlet RUS."
+}

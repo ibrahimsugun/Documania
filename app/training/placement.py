@@ -18,9 +18,13 @@ Eğitim modu yalnız bilinen belgelerin (`app.training.known_types`) örneklerin
   `conflict` ("başka türde örnek: <slug>"); iki durumda da dosya yazılmaz. Kaynak dosya zaten o
   türün örnek klasöründeyse kopyalanmaz, yerinde kaydedilir. Klasörde kayıtsız duran aynı içerik
   (eğitimden önce konmuş ya da el ile yüklenmiş) `legacy` olarak kaydedilir ve öğe `skipped` olur.
-- **Olaylar (K15).** Yerleşen öğe `TRAINING_EXAMPLE_PLACED`, yerleşmeyen (`skipped`, `conflict`)
-  `TRAINING_ITEM_UNPLACED` yazar; veri kimlikle (çalıştırma, öğe, örnek kaydı) ve türle yazılır,
-  dosya adı ve kişisel değer yazılmaz (CONVENTIONS §6).
+- **Yerleşmeyen öğe (`leave_unplaced`).** Tanıma bir türe inmediyse (`unplaced`, "Yerleştirilemedi")
+  ya da ipucuyla çelişen bir türe indiyse (`conflict`) öğe İK'nın "Türe yerleştir"ini bekler; dosya
+  yazılmaz (yapay zekâ yolu, 11.9.3).
+- **Olaylar (K15).** Yerleşen öğe `TRAINING_EXAMPLE_PLACED`, yerleşmeyen (`skipped`, `conflict`,
+  `unplaced`) `TRAINING_ITEM_UNPLACED` yazar; veri kimlikle (çalıştırma, öğe, örnek kaydı) ve türle
+  yazılır, dosya adı ve kişisel değer yazılmaz (CONVENTIONS §6). Çağıran olay verisine ek alan
+  verebilir (`event_data`: yapay zekâ adımının sağlayıcı, model ve kullanımı, 13.1.1).
 
 **Değişmez güvence.** Bu modül `uploads`, `upload_files`, `pages`, `plans`, çalışan tabloları,
 `queue_items`, `documents` ve `candidate_document_types`'a yazmaz; Inbox, Employees ve kuyruk
@@ -33,6 +37,7 @@ kopya bulunur (`legacy`).
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from io import BytesIO
 from pathlib import Path, PurePosixPath
@@ -187,12 +192,14 @@ def place_example(
     note: str | None = None,
     actor: str = SYSTEM_ACTOR,
     source: Path | None = None,
+    event_data: Mapping[str, object] | None = None,
 ) -> Placement:
     """Öğeyi `slug` türünün örneklerine yerleştirir (modül açıklaması); commit etmez.
 
     Kaynak `source` verilmezse öğenin `_egitim/gelen` kopyasıdır. `note` tanımanın notudur (Türkçe,
     kişisel değersiz); yerleşmeyen öğede gerekçe arkasına eklenir. `actor` olayın ve kararın
-    sahibidir (İK'nın yerleştirmesinde kullanıcı adı). Tür bilinmiyorsa `UnknownTypeError`, öğe
+    sahibidir (İK'nın yerleştirmesinde kullanıcı adı). `event_data` olayın verisine eklenir. Tür
+    bilinmiyorsa `UnknownTypeError`, öğe
     son kararındaysa ya da dosyası yoksa `ItemNotPlaceableError`, içerik öğenin SHA-256'sıyla
     tutmuyorsa `ContentMismatchError` — üçünde de hiçbir şey yazılmaz.
     """
@@ -217,10 +224,15 @@ def place_example(
         .order_by(ExampleFileRecord.id)
     ).all()
     same_type = [record for record in recorded if record.type_slug == slug]
+    extra = dict(event_data or {})
     if same_type:
-        return _not_placed(session, item, slug, method, note, actor, same_type[0], skipped=True)
+        return _not_placed(
+            session, item, slug, method, note, actor, same_type[0], skipped=True, extra=extra
+        )
     if recorded:
-        return _not_placed(session, item, slug, method, note, actor, recorded[0], skipped=False)
+        return _not_placed(
+            session, item, slug, method, note, actor, recorded[0], skipped=False, extra=extra
+        )
 
     name = _in_place_name(layout, slug, path)
     copied = name is None
@@ -228,7 +240,9 @@ def place_example(
         stored = store_example(layout, slug, item.original_name, content, kind)
         if stored.duplicate:
             legacy = _record_legacy(session, slug, stored.name, sha256)
-            return _not_placed(session, item, slug, method, note, actor, legacy, skipped=True)
+            return _not_placed(
+                session, item, slug, method, note, actor, legacy, skipped=True, extra=extra
+            )
         name = stored.name
 
     label = LABEL_BY_METHOD[method]
@@ -259,10 +273,56 @@ def place_example(
             "method": method.value,
             "label": example.label,
             "in_place": not copied,
-        },
+        }
+        | extra,
     )
     refresh_run(session, item.run)
     return Placement(TrainingItemStatus.PLACED, note or "", example, copied)
+
+
+def leave_unplaced(
+    session: Session,
+    item: TrainingItem,
+    status: TrainingItemStatus,
+    *,
+    note: str,
+    method: TrainingMethod,
+    slug: str | None = None,
+    actor: str = SYSTEM_ACTOR,
+    event_data: Mapping[str, object] | None = None,
+    message: str | None = None,
+) -> None:
+    """Öğeyi yerleştirmeden karara bağlar: `unplaced` (hiçbir bilinen türe inmedi) ya da
+    `conflict` (`slug` türüne indi ama ipucuyla çelişiyor); öğe İK'nın "Türe yerleştir"ini bekler.
+    `TRAINING_ITEM_UNPLACED` yazar (`event_data` verisine eklenir; `message` verilmezse durumun
+    mesajı) ve çalıştırmayı yeniden sayar; commit etmez. Başka bir durum `ValueError`, öğe son
+    kararındaysa `ItemNotPlaceableError`.
+    """
+    if status not in (TrainingItemStatus.UNPLACED, TrainingItemStatus.CONFLICT):
+        raise ValueError(f"Yerleşmeyen öğenin durumu unplaced ya da conflict olur: {status}")
+    if item.status not in PLACEABLE_STATUSES:
+        raise ItemNotPlaceableError(f"Öğe {item.id} son kararında: {item.status}")
+    _decide(item, status, slug=slug, method=method, note=note, actor=actor)
+    session.flush()
+    if message is None and status is TrainingItemStatus.UNPLACED:
+        message = "Eğitim öğesi yerleşmedi: hiçbir bilinen türe inmedi."
+    elif message is None:
+        message = f"Eğitim öğesi yerleşmedi: sonuç `{slug}` beklenen türle çelişiyor."
+    record_event(
+        session,
+        EventType.TRAINING_ITEM_UNPLACED,
+        actor=actor,
+        message=message,
+        data={
+            "run_id": item.run_id,
+            "training_item_id": item.id,
+            "status": status.value,
+            "type_slug": slug,
+            "hint_slug": item.hint_slug,
+        }
+        | dict(event_data or {}),
+    )
+    refresh_run(session, item.run)
 
 
 def refresh_run(session: Session, run: TrainingRun) -> TrainingRun:
@@ -297,6 +357,7 @@ def _not_placed(
     existing: ExampleFileRecord,
     *,
     skipped: bool,
+    extra: Mapping[str, object],
 ) -> Placement:
     if skipped:
         status = TrainingItemStatus.SKIPPED
@@ -324,7 +385,8 @@ def _not_placed(
             "type_slug": slug,
             "example_file_id": existing.id,
             "example_type_slug": existing.type_slug,
-        },
+        }
+        | dict(extra),
     )
     refresh_run(session, item.run)
     return Placement(status, full_note, existing, copied=False)

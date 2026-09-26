@@ -33,6 +33,8 @@ from app.ai import (
     ProviderServerError,
     Script,
     Side,
+    TrainingClassification,
+    TrainingClassificationError,
     TypeDescription,
     TypeDescriptionError,
     TypeProposal,
@@ -40,6 +42,7 @@ from app.ai import (
     validate_document_query,
     validate_page_analysis,
     validate_photo_check,
+    validate_training_classification,
     validate_type_description,
     validate_type_proposal,
 )
@@ -55,6 +58,8 @@ from app.ai.anthropic_provider import (
     PROPOSAL_TOOL,
     PROPOSAL_TOOL_NAME,
     TOOL_NAME,
+    TRAINING_TOOL,
+    TRAINING_TOOL_NAME,
     AnthropicProvider,
 )
 from app.ai.provider import MAX_ANALYSIS_ATTEMPTS, RETRY_BACKOFF_SECONDS
@@ -62,6 +67,7 @@ from app.ai.schemas import ISO_639_1_CODES
 from app.ai.usage import TokenUsage, measure_usage
 from app.config import Settings, load_settings
 from tests.ai.payloads import (
+    DOC_KINDS,
     PHOTO_RULES,
     SLUGS,
     SYNTHETIC_DOCUMENT_NUMBER,
@@ -76,6 +82,8 @@ from tests.ai.payloads import (
     proposal_request,
     query_payload,
     query_request,
+    training_payload,
+    training_request,
 )
 from tests.fixtures.gen import make_half_filled_image_bytes
 
@@ -566,6 +574,121 @@ def test_description_status_errors_are_retried_like_analysis(no_sleep: list[floa
 
     assert len(api.requests) == 2
     assert no_sleep == [RETRY_BACKOFF_SECONDS]
+
+
+# --- Eğitim sınıflandırması (11.9.3): ilk sayfa(lar) + metin, zorlanmış sınıflandırma aracı -------
+
+
+def test_training_request_sends_images_in_order_then_text_with_forced_training_tool() -> None:
+    api = FakeApi(message([tool_use(training_payload(), name=TRAINING_TOOL_NAME)]))
+    request = training_request(images=2, instructions="Eğitim talimatı", prompt="Öğe metni")
+
+    classification = api.provider().classify_training_page(request)
+
+    assert classification == validate_training_classification(
+        training_payload(), known_slugs=SLUGS, doc_kinds=DOC_KINDS
+    )
+    body = api.body()
+    assert body["system"] == "Eğitim talimatı"
+    *image_blocks, text_block = body["messages"][0]["content"]
+    assert len(body["messages"]) == 1
+    assert [block["type"] for block in image_blocks] == ["image"] * 2
+    assert [base64.b64decode(block["source"]["data"]) for block in image_blocks] == [
+        image.data for image in request.images
+    ]
+    assert [block["source"]["media_type"] for block in image_blocks] == [
+        image.media_type for image in request.images
+    ]
+    assert text_block == {"type": "text", "text": "Öğe metni"}
+    assert body["tools"] == [json.loads(json.dumps(TRAINING_TOOL))]
+    assert body["tools"][0]["input_schema"] == TrainingClassification.model_json_schema()
+    assert body["tool_choice"] == {
+        "type": "tool",
+        "name": TRAINING_TOOL_NAME,
+        "disable_parallel_tool_use": True,
+    }
+    assert body["thinking"] == {"type": "disabled"}
+
+
+@pytest.mark.parametrize(
+    ("content", "stop_reason", "expected"),
+    [
+        (
+            [tool_use(training_payload(), name=TRAINING_TOOL_NAME)],
+            "max_tokens",
+            "eğitim sınıflandırması aracı çağrısı tamamlanmadı (stop_reason=max_tokens)",
+        ),
+        (
+            [tool_use(proposal_payload(), name=PROPOSAL_TOOL_NAME)],
+            "tool_use",
+            "1 araç çağrısı",
+        ),
+        ([{"type": "text", "text": "Ornekova'nın pasaportu"}], "end_turn", "stop_reason=end_turn"),
+    ],
+    ids=["kesik", "taslak-araci", "metin"],
+)
+def test_training_response_without_training_tool_call_is_rejected(
+    content: list[dict[str, Any]], stop_reason: str, expected: str
+) -> None:
+    api = FakeApi(message(content, stop_reason=stop_reason))
+
+    with pytest.raises(TrainingClassificationError) as caught:
+        api.provider().classify_training_page(training_request())
+
+    assert caught.value.problems[0].startswith("yanıt:")
+    assert expected in caught.value.problems[0]
+    assert "Ornekova" not in str(caught.value)
+
+
+def test_non_conforming_training_classification_is_rejected() -> None:
+    api = FakeApi(
+        message([tool_use(training_payload(country_iso3="alb"), name=TRAINING_TOOL_NAME)])
+    )
+
+    with pytest.raises(TrainingClassificationError) as caught:
+        api.provider().classify_training_page(training_request())
+
+    assert any(problem.startswith("country_iso3") for problem in caught.value.problems)
+
+
+def test_training_status_errors_are_retried_like_analysis(no_sleep: list[float]) -> None:
+    api = FakeApi(
+        api_error(529, "overloaded_error"),
+        api_error(429, "rate_limit_error"),
+        message([tool_use(training_payload(), name=TRAINING_TOOL_NAME)]),
+    )
+
+    api.provider().classify_training_page(training_request())
+
+    assert len(api.requests) == 3
+    assert no_sleep == [RETRY_BACKOFF_SECONDS, RETRY_BACKOFF_SECONDS * 2]
+
+
+def test_training_client_errors_are_not_retried(no_sleep: list[float]) -> None:
+    api = FakeApi(api_error(400, "invalid_request_error"))
+
+    with pytest.raises(ProviderError) as caught:
+        api.provider().classify_training_page(training_request())
+
+    assert caught.value.status_code == 400
+    assert len(api.requests) == 1
+    assert no_sleep == []
+
+
+def test_training_usage_is_measured_like_every_call() -> None:
+    # 13.1.1: sınıflandırma çağrısının tokenları da ölçülür; boş-zaman işi olayına yazar (§C86).
+    api = FakeApi(message([tool_use(training_payload(), name=TRAINING_TOOL_NAME)]))
+
+    with measure_usage() as meter:
+        api.provider().classify_training_page(training_request())
+
+    assert meter.usage == TokenUsage(1200, 300)
+    assert meter.calls == 1
+
+
+def test_both_providers_send_the_same_training_contract() -> None:
+    assert TRAINING_TOOL_NAME == openai_module.TRAINING_TOOL_NAME
+    assert TRAINING_TOOL["input_schema"] == openai_module.TRAINING_TOOL["function"]["parameters"]
 
 
 # --- Fotoğraf kontrolü (11.7.1): tek görüntü + kurallar, zorlanmış kontrol aracı ----------------

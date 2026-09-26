@@ -317,14 +317,20 @@ def _render(
         raise ExampleRejectedError(f"'{example.name}' dosyası bulunamadı.")
     content = path.read_bytes()
     kind = check_example(example.name, content, max_bytes=max_bytes)
-    return _page_images(content, kind, settings, limit)
+    return page_images(content, kind, settings, limit)
 
 
-def _page_images(
+def page_images(
     content: bytes, kind: FileKind, settings: Settings, limit: int
 ) -> tuple[list[bytes], int]:
     """PDF'in ilk `limit` sayfasının analiz ölçeğindeki JPEG'i ya da JPEG/PNG'nin EXIF yönelimi
-    uygulanmış kopyası (bellekte) ve dosyanın sayfa sayısı."""
+    uygulanmış kopyası (bellekte) ve dosyanın sayfa sayısı.
+
+    Paylaşılan yardımcıdır: tür açıklaması (örnekler, kabul edilen fotoğraflar) ve eğitim modunun
+    yapay zekâ adımı (`app.training.classification`, 11.9.3) aynı ölçekte görüntü gönderir. Dosya
+    okunmaz ve yazılmaz; içerik değişmez (K10, K11). PDF render edilemezse `RenderError`, görüntü
+    çözülemezse Pillow'un `OSError`'ı yükselir.
+    """
     if kind is FileKind.PDF:
         return render_pdf_images(
             content,
@@ -381,7 +387,7 @@ def _photo_image(layout: DataLayout, settings: Settings, photo: AcceptedPhoto) -
         kind = detect_file_kind(content)
         if kind not in _PHOTO_FILE_KINDS:
             raise UnsupportedFileTypeError
-        rendered, _ = _page_images(content, kind, settings, 1)
+        rendered, _ = page_images(content, kind, settings, 1)
     except PhotoUnreadableError:
         raise
     except (ValueError, OSError):

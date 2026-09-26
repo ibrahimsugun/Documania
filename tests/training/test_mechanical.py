@@ -71,6 +71,7 @@ _FORBIDDEN_PROVIDER_CALLS = (
     "check_photo",
     "read_document_query",
     "propose_type",
+    "classify_training_page",
 )
 
 

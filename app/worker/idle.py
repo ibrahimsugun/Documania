@@ -25,8 +25,9 @@ alanlar tüketen görevin göçündedir, tanım döngüsüz içe aktarma için `
 güncellemedir (aynı satırı iki işleyici alamaz); her alış deneme sayacını bir artırır; satırın kime
 ait olduğu sürenin değil belirtecin işidir; süresi dolmuş sahiplenme başka işleyicice geri
 alınabilir. `WORKER_MAX_ATTEMPTS` deneme tükenince satır kalıcı başarısız olur (`IdleTable.failed`
-değerleri) ve bir daha denenmez: birim hatayla bittiyse hemen, işleyicisi yarıda kaldıysa
-sahiplenmesinin süresi dolunca (`abandon_exhausted`).
+değerleri) ve bir daha denenmez: birim hatayla bittiyse hemen (işin `failed` kancası aynı işlemde
+çağrılır), işleyicisi yarıda kaldıysa sahiplenmesinin süresi dolunca (`abandon_exhausted`; tablonun
+`abandoned` kancası aynı işlemde çağrılır).
 
 **Maliyet.** Birimin yapay zekâ çağrılarının olayı `usage` (ve gerekirse `usage_by_model`) verisini
 `app.events.usage_event_data` ile taşır; olay türü `USAGE_EVENT_TYPES`'a eklenince maliyet paneli
@@ -77,11 +78,13 @@ class IdleJob(Protocol):
 
 def default_idle_jobs(settings: Settings) -> tuple[IdleJob, ...]:
     """`create_worker`'ın işçiye verdiği boş-zaman işleri. Tüketen görevler işini buraya ekler:
-    aday tür incelemesi (11.5.5, `app.catalog.propose`)."""
-    # İş modülü bu modülü içe aktarır; paket başlatılırken döngü olmasın diye burada alınır.
+    aday tür incelemesi (11.5.5, `app.catalog.propose`) ve eğitim sınıflandırması (11.9.3,
+    `app.training.classification`). İşler sırayla fırsat bulur (`Worker.run_idle_once`)."""
+    # İş modülleri bu modülü içe aktarır; paket başlatılırken döngü olmasın diye burada alınır.
     from app.catalog.propose import CandidateExaminationJob
+    from app.training.classification import TrainingClassificationJob
 
-    return (CandidateExaminationJob(),)
+    return (CandidateExaminationJob(), TrainingClassificationJob())
 
 
 @dataclass(frozen=True, slots=True)
@@ -98,12 +101,16 @@ class IdleTable[M: IdleClaimMixin]:
 
     `pending` işi bekleyen satırların koşuludur (ör. incelenmemiş, karara bağlanmamış aday);
     `failed` deneme tükenince satıra yazılan değerlerdir ve satırı `pending` dışına çıkarmalıdır.
-    Tablonun birincil anahtarı tek sütundur. İşlevler commit etmez — işlem sınırı çağıranındır.
+    `abandoned` varsa işleyicisi yarıda kalmış, denemesi tükenmiş satır için `failed` değerlerinden
+    sonra aynı işlemde çağrılır (ör. bağlı sayaçları yeniden saymak; hatayla biten birimde bu işi
+    işin `failed` kancası yapar). Tablonun birincil anahtarı tek sütundur. İşlevler commit etmez —
+    işlem sınırı çağıranındır.
     """
 
     model: type[M]
     pending: Callable[[], ColumnElement[bool]]
     failed: Mapping[str, object]
+    abandoned: Callable[[Session, M], None] | None = None
 
     @property
     def _key(self) -> InstrumentedAttribute[Any]:
@@ -188,7 +195,8 @@ class IdleTable[M: IdleClaimMixin]:
         self, session: Session, *, max_attempts: int, now: datetime | None = None
     ) -> list[Any]:
         """Denemesi tükenmiş ve kimsenin elinde olmayan (sahipsiz ya da süresi dolmuş) bekleyen
-        satırlara `failed` değerlerini yazar; birincil anahtarlarını döner."""
+        satırlara `failed` değerlerini yazar (varsa ardından `abandoned` kancası); birincil
+        anahtarlarını döner."""
         now = now or utcnow()
         model = self.model
         rows = session.scalars(
@@ -206,6 +214,8 @@ class IdleTable[M: IdleClaimMixin]:
             for key, value in self.failed.items():
                 setattr(row, key, value)
             self.clear(row)
+            if self.abandoned is not None:
+                self.abandoned(session, row)
         session.flush()
         key_name = self._key.key
         return [getattr(row, key_name) for row in rows]
