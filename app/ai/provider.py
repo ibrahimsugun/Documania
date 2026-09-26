@@ -40,6 +40,12 @@ bir kez, başkası yok) ve yeniden deneme ortaktır; somut sağlayıcı `_reques
 dışı slug yok) ve yeniden deneme ortaktır; somut sağlayıcı `_request_document_query`'yi uygular,
 şemaya uymayan yanıt `DocumentQueryError`'dır. Uygulamayan sağlayıcı `ProviderError` verir.
 
+**Tür taslağı (11.5.5).** Beşinci iş: `propose_type(TypeProposalRequest)` katalog dışı bir aday
+türün örnek sayfalarından (birkaç görüntü tek istekte) tam katalog kaydı taslağı (`TypeProposal`:
+ad, etiket, ülke, yapı, zorunlu alanlar, kabul kriterleri, görünüş) ürettirir. Yanıt kabulü
+(`validate_type_proposal`) ve yeniden deneme ortaktır; somut sağlayıcı `_request_type_proposal`'ı
+uygular, şemaya uymayan yanıt `TypeProposalError`'dır. Uygulamayan sağlayıcı `ProviderError` verir.
+
 **Ön eleme modeli (13.2.1).** Sağlayıcı ana modelinin yanında aynı API'nin ucuz bir modelini
 taşıyabilir (`<SAĞLAYICI>_PRESCREEN_MODEL`): `prescreen_provider()` o modelle çalışan kopyayı verir.
 Kopyanın sözleşmesi aynıdır (yanıt kabulü, yeniden deneme); somut sağlayıcı yalnız `_with_model`'i
@@ -58,6 +64,7 @@ from app.ai.document_query import DocumentQuery, validate_document_query
 from app.ai.photo_check import PhotoCheck, validate_photo_check
 from app.ai.schemas import PageAnalysis, PageAnalysisError, validate_page_analysis
 from app.ai.type_description import TypeDescription, validate_type_description
+from app.ai.type_proposal import TypeProposal, validate_type_proposal
 from app.config import Settings
 from app.storage.filetype import FileKind, UnsupportedFileTypeError, detect_file_kind
 
@@ -161,6 +168,34 @@ class TypeDescriptionRequest:
     - `images`: türün örnek sayfaları, istemde anlatılan sırayla (en az bir).
     - `instructions`: sistem talimatı (`app.ai.prompts.type_description`).
     - `prompt`: türe özgü metin (ad, ülke, yüz yapısı, zorunlu alanlar, görüntülerin sırası).
+    """
+
+    images: tuple[PageImage, ...]
+    instructions: str = field(repr=False)
+    prompt: str = field(repr=False)
+
+    def __post_init__(self) -> None:
+        # Çağıran liste verebilir; istek değişmez olsun diye demete çevrilir.
+        images = tuple(self.images)
+        if not images:
+            raise ValueError("images en az bir görüntü içermeli")
+        if not all(isinstance(image, PageImage) for image in images):
+            raise TypeError("images yalnız PageImage içermeli")
+        if not self.instructions.strip():
+            raise ValueError("instructions boş olamaz")
+        if not self.prompt.strip():
+            raise ValueError("prompt boş olamaz")
+        object.__setattr__(self, "images", images)
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class TypeProposalRequest:
+    """Tür taslağı isteği (11.5.5); hiçbir alanı sağlayıcıya özgü değildir.
+
+    - `images`: aday türün örnek sayfaları (arka yüzler dahil), istemde anlatılan sırayla (en az
+      bir).
+    - `instructions`: sistem talimatı (`app.ai.prompts.type_proposal`).
+    - `prompt`: adaya özgü metin (aday adı, gözlenen kanıt, katalog türleri, görüntülerin sırası).
     """
 
     images: tuple[PageImage, ...]
@@ -325,6 +360,15 @@ class AnalysisProvider(abc.ABC):
         raw = _with_retry(self._request_document_query, request)
         return validate_document_query(raw, known_slugs=request.known_slugs)
 
+    @final
+    def propose_type(self, request: TypeProposalRequest) -> TypeProposal:
+        """Aday türün örnek sayfalarından tam katalog kaydı taslağı ürettirir (11.5.5).
+
+        Yeniden deneme `analyze_page`'teki gibidir (03.5.1). Yanıt `validate_type_proposal`'dan
+        geçer; uymayan yanıt `TypeProposalError` olur, düzeltilmez.
+        """
+        return validate_type_proposal(_with_retry(self._request_type_proposal, request))
+
     @abc.abstractmethod
     def _request_analysis(self, request: PageAnalysisRequest) -> object:
         """Sağlayıcıyı bir kez çağırır, yapılandırılmış çıktıyı doğrulamadan döner.
@@ -351,6 +395,12 @@ class AnalysisProvider(abc.ABC):
         (sözleşmesi `_request_analysis`'inkidir; yapılandırılmış çıktı yoksa
         `DocumentQueryError`). Varsayılan: sağlayıcı bu işi yapmaz."""
         raise ProviderError(f"'{self.name}' sağlayıcısı belge isteği okumuyor")
+
+    def _request_type_proposal(self, request: TypeProposalRequest) -> object:
+        """Tür taslağı için sağlayıcıyı bir kez çağırır, yapılandırılmış çıktıyı doğrulamadan döner
+        (sözleşmesi `_request_analysis`'inkidir; yapılandırılmış çıktı yoksa `TypeProposalError`).
+        Varsayılan: sağlayıcı bu işi yapmaz."""
+        raise ProviderError(f"'{self.name}' sağlayıcısı tür taslağı üretmiyor")
 
 
 def _with_retry[R](call: Callable[[R], object], request: R) -> object:

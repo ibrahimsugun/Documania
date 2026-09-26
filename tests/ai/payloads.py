@@ -1,5 +1,5 @@
-"""Sağlayıcı testleri için §8.4'e, tür açıklaması (11.3.1), fotoğraf kontrolü (11.7.1) ve belge
-isteği (12.3.1) şemalarına uyan sentetik yanıt ve istek (gerçek kişi yok)."""
+"""Sağlayıcı testleri için §8.4'e, tür açıklaması (11.3.1), tür taslağı (11.5.5), fotoğraf kontrolü
+(11.7.1) ve belge isteği (12.3.1) şemalarına uyan sentetik yanıt ve istek (gerçek kişi yok)."""
 
 from __future__ import annotations
 
@@ -11,6 +11,7 @@ from app.ai import (
     PageImage,
     PhotoCheckRequest,
     TypeDescriptionRequest,
+    TypeProposalRequest,
 )
 from app.catalog import load_seed_catalog
 from tests.fixtures.gen import make_half_filled_image_bytes
@@ -100,6 +101,69 @@ def description_request(
     return TypeDescriptionRequest(
         images=tuple(
             PageImage(make_half_filled_image_bytes("PNG" if index % 2 else "JPEG"))
+            for index in range(images)
+        ),
+        instructions=instructions,
+        prompt=prompt,
+    )
+
+
+def proposal_payload(**top: Any) -> dict[str, Any]:
+    """Tür taslağı şemasına (11.5.5) uyan sentetik yanıt: ön ve arka yüzlü bir oturma izni kartı.
+    Her çağrıda yeni bir sözlük; `top` üst düzey anahtarları değiştirir."""
+    data: dict[str, Any] = {
+        "name": "Montenegrin Residence Permit",
+        "file_label": "Residence Permit",
+        "country": "ME",
+        "description": "Karadağ'da yabancılara verilen oturma izni kartı; ön ve arka yüzlü.",
+        "expected_file_types": ["jpeg", "png"],
+        "expected_pages": {"min": 1, "max": 2},
+        "sides": "front_back",
+        "front_back_layouts": ["separate", "combined"],
+        "direct": False,
+        "analyze": True,
+        "allowed_conversions": ["merge", "wrap_image"],
+        "output_format": "pdf",
+        "required_fields": [
+            "surname",
+            "given_names",
+            "date_of_birth",
+            "document_number",
+            "expiry_date",
+        ],
+        "acceptance_criteria": [
+            "Kartın iki yüzü de tam görünür olmalı, kenarlar kesilmemiş",
+            "Arka yüzdeki MRZ üç satırı da okunabilir olmalı",
+        ],
+        "appearance": description_payload(
+            layout="Kart, yatay; ön yüzde fotoğraf solda, etiketli satırlar sağda",
+            headings=["DOZVOLA ZA BORAVAK"],
+            languages=["sr", "en"],
+            scripts=["latin"],
+            field_locations=[
+                {"field": "surname", "location": "ön yüzde fotoğrafın sağında, ilk satır"},
+                {"field": "document_number", "location": "ön yüzün sağ üst köşesi"},
+            ],
+            mrz={"line_count": 3, "location": "arka yüzün altında"},
+            side_differences="Ön yüzde fotoğraf ve kişisel alanlar; arka yüzde MRZ",
+        ),
+    }
+    data.update(top)
+    return data
+
+
+def proposal_request(
+    *,
+    images: int = 1,
+    instructions: str = "Tür taslağı talimatı (test).",
+    prompt: str = "Aday tür: Montenegrin Residence Permit (test).",
+) -> TypeProposalRequest:
+    # Her görüntü ayrı boyutta: baytlar farklıdır, sıra testte görünür.
+    return TypeProposalRequest(
+        images=tuple(
+            PageImage(
+                make_half_filled_image_bytes("PNG" if index % 2 else "JPEG", (200 + index, 100))
+            )
             for index in range(images)
         ),
         instructions=instructions,

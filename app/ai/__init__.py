@@ -1,6 +1,6 @@
 """Yapay zekâ analiz katmanı: sayfa analizi sözleşmesi (03.1), sağlayıcı soyutlaması (03.2),
-analiz talimatı (03.4), tür açıklaması sözleşmesi (11.3.1), fotoğraf kontrolü sözleşmesi (11.7.1) ve
-Telegram belge isteği sözleşmesi (12.3.1)."""
+analiz talimatı (03.4), tür açıklaması sözleşmesi (11.3.1), tür taslağı sözleşmesi (11.5.5),
+fotoğraf kontrolü sözleşmesi (11.7.1) ve Telegram belge isteği sözleşmesi (12.3.1)."""
 
 from app.ai.document_query import (
     DocumentQuery,
@@ -29,6 +29,7 @@ from app.ai.provider import (
     ProviderRateLimitError,
     ProviderServerError,
     TypeDescriptionRequest,
+    TypeProposalRequest,
     create_provider,
 )
 from app.ai.schemas import (
@@ -50,6 +51,7 @@ from app.ai.type_description import (
     TypeDescriptionError,
     validate_type_description,
 )
+from app.ai.type_proposal import TypeProposal, TypeProposalError, validate_type_proposal
 
 __all__ = [
     "EMPLOYEE_FIELDS",
@@ -85,10 +87,14 @@ __all__ = [
     "TypeDescription",
     "TypeDescriptionError",
     "TypeDescriptionRequest",
+    "TypeProposal",
+    "TypeProposalError",
+    "TypeProposalRequest",
     "build_page_analysis_instructions",
     "create_provider",
     "validate_document_query",
     "validate_page_analysis",
     "validate_photo_check",
     "validate_type_description",
+    "validate_type_proposal",
 ]

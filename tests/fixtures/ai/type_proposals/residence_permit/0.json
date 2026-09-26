@@ -1,0 +1,66 @@
+{
+  "name": "Montenegrin Residence Permit",
+  "file_label": "Residence Permit",
+  "country": "ME",
+  "description": "Karadağ'da yabancılara verilen oturma izni kartı; ön ve arka yüzlü.",
+  "expected_file_types": [
+    "jpeg",
+    "png"
+  ],
+  "expected_pages": {
+    "min": 1,
+    "max": 2
+  },
+  "sides": "front_back",
+  "front_back_layouts": [
+    "separate",
+    "combined"
+  ],
+  "direct": false,
+  "analyze": true,
+  "allowed_conversions": [
+    "merge",
+    "wrap_image"
+  ],
+  "output_format": "pdf",
+  "required_fields": [
+    "surname",
+    "given_names",
+    "date_of_birth",
+    "document_number",
+    "expiry_date"
+  ],
+  "acceptance_criteria": [
+    "Kartın iki yüzü de tam görünür olmalı, kenarlar kesilmemiş",
+    "Arka yüzdeki MRZ üç satırı da okunabilir olmalı"
+  ],
+  "appearance": {
+    "layout": "Kart, yatay; ön yüzde fotoğraf solda, etiketli satırlar sağda",
+    "headings": [
+      "DOZVOLA ZA BORAVAK"
+    ],
+    "languages": [
+      "sr",
+      "en"
+    ],
+    "scripts": [
+      "latin"
+    ],
+    "field_locations": [
+      {
+        "field": "surname",
+        "location": "ön yüzde fotoğrafın sağında, ilk satır"
+      },
+      {
+        "field": "document_number",
+        "location": "ön yüzün sağ üst köşesi"
+      }
+    ],
+    "mrz": {
+      "line_count": 3,
+      "location": "arka yüzün altında"
+    },
+    "side_differences": "Ön yüzde fotoğraf ve kişisel alanlar; arka yüzde MRZ",
+    "accepted_photo": null
+  }
+}

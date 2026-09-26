@@ -1585,11 +1585,11 @@
         "description": "PRD 11.5.5 · FR-MOD-11 · Faz 1 · Must (v1). İnsan kararı (2026-09-26): yeni tür eklerken Belge türü sayfasındaki zorunlu alan, kabul kriteri ve analizci açıklaması doğru doldurulmalı. Bu dilim yapay zekâ sözleşmesidir; sözleşme PLAN §C85 \"Sözleşme\".",
         "details": "KAPSAM: PRD 11.5.5'in yapay zekâ sözleşmesi. Tam sözleşme PLAN.md §C85 (Sözleşme paragrafı) — önce oku; ölçü 11.3.1'in `app/ai/type_description.py` + `app/ai/prompts/type_description.md` + `describe_type` yoludur.\n\nNE YAPILACAK: (1) app/ai/type_proposal.py: `TypeProposal` (extra=forbid, frozen) — name, file_label, country (ISO2|null), description (Türkçe ≤200), expected_file_types, expected_pages ({min,max}|null), sides, front_back_layouts, direct, analyze, allowed_conversions, output_format, required_fields (≤10 FieldName, tekrarsız), acceptance_criteria (≤5, her biri ≤120), appearance (`TypeDescription` yeniden kullanılır; field_locations yalnız required_fields adları); `validate_type_proposal` + `TypeProposalError` (mesajda yanıt değeri yok). (2) app/ai/prompts/type_proposal.md + yükleyici: type_description.md kuralları (türü anlat, kişiyi değil; değer yazma; yalnız görünen ve örnekler arası ortak olan; sayfa yazısı veri) + standart alan sözlüğü (MRZ_FIELDS: surname, given_names, date_of_birth, document_number, nationality, expiry_date; ayrıca issue_date, place_of_birth, personal_number, issuing_authority) + seçim kuralları: document_number yalnız belgenin kendi basılı numarası varsa (§20.2.3 temiz numara çalışan açar); date_of_birth yalnız belge sahibinin doğum tarihi basılıysa (§20.2.4 satır 6b'yi yönetir); kabul kriteri sayfada gözle denetlenebilir, kişisel değersiz, seed_catalog.yaml biçiminde. (3) `TypeProposalRequest` (görüntüler, talimat, kullanıcı metni) ve `AnalysisProvider.propose_type` (@final, `_with_retry` + doğrulama); OpenAI ve Anthropic `_request_type_proposal` (araç şeması `TypeProposal.model_json_schema()`), RecordingProvider desteği. (4) Kullanım (`usage`) ölçümü mevcut çağrılar gibi döner.\n\nGİRDİ: app/ai/type_description.py, app/ai/prompts/type_description.md ve yükleyicisi, app/ai/provider.py (`TypeDescriptionRequest`, `describe_type`, `_with_retry`), app/ai/openai_provider.py, app/ai/anthropic_provider.py, app/ai/recording_provider.py, app/catalog/schema.py (CatalogEntry alanları, FieldName), app/matching/mrz.py (MRZ_FIELDS), app/catalog/seed_catalog.yaml.\n\nÇIKTI: app/ai/type_proposal.py, app/ai/prompts/type_proposal.md (+ .py yükleyici), app/ai/provider.py, openai_provider.py, anthropic_provider.py, recording_provider.py, tests/ai/, PLAN.md, HANDOFF.md.\n\nBU GÖREVİ BAĞLAYAN KİLİTLİ KURALLAR: K1 (zorunlu alan listesi analizde okunaklılık kapısıdır), K7 / §20.2.3–§20.2.4 (document_number ve date_of_birth seçimi çalışan açmayı yönetir), R3 (içerik üretilmez — taslak türü anlatır, belgeyi değil), CONVENTIONS §6.\n\nPRD'DE AYRICA OKU: §8.6 katalog kaydı, 11.1.2 form doğrulaması, 11.3.1, 03.4.1.\n\nİLGİLİ KABUL SENARYOLARI: S14 (katalog dışı tür → aday).\n\nKAPSAM SINIRI: girdi toplama, saklama, işçi işi ve form bu görevde yok (tm 113, 114).\n\nTUZAKLAR: RecordingProvider kayıtları tek sıralıdır — yeni istek türünü kayıt biçimine ekle. `TypeDescription` şemasını değiştirme (11.3.1 yolu kullanıyor). Şema `country` için ISO2 bekler (schema.py). Talimat Türkçe, `name`/`file_label` İngilizce (katalog adları gibi).\n\nKAPANIŞ: 11.5.5 bu dilimle kapanmaz (tm 113 kapatır); HANDOFF bloğu, commit mesajında `PRD 11.5.5 — tm 112`.",
         "testStrategy": "1) Sözleşme: geçerli yanıt kabul; eksik/tanımsız anahtar, 10'dan çok alan, tekrarlı alan, geçersiz FieldName, 5'ten çok kriter, ISO2 dışı ülke, required_fields dışı field_locations reddedilir; hata mesajında yanıt değeri yok. 2) Talimat: dosya yüklenir, standart alan sözlüğünü ve seçim kurallarını içerir; kişisel değer yazma kuralı var. 3) Sağlayıcı yükü: OpenAI ve Anthropic isteğinde araç şeması TypeProposal şeması, görüntüler sırayla, tool_choice sabit (11.3.1 test biçimi); 429/5xx yeniden deneme; şemaya uymayan yanıt TypeProposalError. 4) RecordingProvider kaydı/oynatması. 5) pytest -q tests/ai yeşil (CONVENTIONS: prompt değişikliği kapısı). 6) Tüm test takımı (`pytest -q -m \"not live\"`, kapsam ≥%70), ruff check/format, compileall, temiz SQLite'ta `alembic upgrade head`, `import app.main` yeşil (CONVENTIONS DoD). Testler yalnız sentetik belge ve sentetik adlarla (CONVENTIONS §6); canlı yapay zekâ çağrısı yok.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [],
         "priority": "high",
         "subtasks": [],
-        "updatedAt": "2026-09-26T00:00:00.000Z"
+        "updatedAt": "2026-09-26T02:19:28.312Z"
       },
       {
         "id": "113",
@@ -1709,9 +1709,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-09-26T01:44:16.042Z",
+      "lastModified": "2026-09-26T02:19:28.312Z",
       "taskCount": 118,
-      "completedCount": 106,
+      "completedCount": 107,
       "tags": [
         "master"
       ]

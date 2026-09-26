@@ -35,11 +35,15 @@ from app.ai import (
     Side,
     TypeDescription,
     TypeDescriptionError,
+    TypeProposal,
+    TypeProposalError,
     validate_document_query,
     validate_page_analysis,
     validate_photo_check,
     validate_type_description,
+    validate_type_proposal,
 )
+from app.ai import openai_provider as openai_module
 from app.ai.anthropic_provider import (
     ANALYSIS_TOOL,
     DESCRIPTION_TOOL,
@@ -48,11 +52,14 @@ from app.ai.anthropic_provider import (
     DOCUMENT_QUERY_TOOL_NAME,
     PHOTO_CHECK_TOOL,
     PHOTO_CHECK_TOOL_NAME,
+    PROPOSAL_TOOL,
+    PROPOSAL_TOOL_NAME,
     TOOL_NAME,
     AnthropicProvider,
 )
 from app.ai.provider import MAX_ANALYSIS_ATTEMPTS, RETRY_BACKOFF_SECONDS
 from app.ai.schemas import ISO_639_1_CODES
+from app.ai.usage import TokenUsage, measure_usage
 from app.config import Settings, load_settings
 from tests.ai.payloads import (
     PHOTO_RULES,
@@ -65,6 +72,8 @@ from tests.ai.payloads import (
     page_request,
     photo_check_payload,
     photo_check_request,
+    proposal_payload,
+    proposal_request,
     query_payload,
     query_request,
 )
@@ -616,6 +625,119 @@ def test_photo_check_answering_other_rules_is_rejected() -> None:
         api.provider().check_photo(photo_check_request(rules=("face_visible",)))
 
     assert caught.value.problems == ["rules: sorulmayan 2 kural yanıtlandı"]
+
+
+# --- Tür taslağı (11.5.5): birkaç görüntü + metin, zorlanmış taslak aracı -----------------------
+
+
+def test_proposal_request_sends_images_in_order_then_text_with_forced_proposal_tool() -> None:
+    api = FakeApi(message([tool_use(proposal_payload(), name=PROPOSAL_TOOL_NAME)]))
+    request = proposal_request(images=3, instructions="Taslak talimatı", prompt="Aday metni")
+
+    proposal = api.provider().propose_type(request)
+
+    assert proposal == validate_type_proposal(proposal_payload())
+    body = api.body()
+    assert body["system"] == "Taslak talimatı"
+    *image_blocks, text_block = body["messages"][0]["content"]
+    assert len(body["messages"]) == 1
+    assert [block["type"] for block in image_blocks] == ["image"] * 3
+    assert [base64.b64decode(block["source"]["data"]) for block in image_blocks] == [
+        image.data for image in request.images
+    ]
+    assert [block["source"]["media_type"] for block in image_blocks] == [
+        image.media_type for image in request.images
+    ]
+    assert text_block == {"type": "text", "text": "Aday metni"}
+    assert body["tools"] == [json.loads(json.dumps(PROPOSAL_TOOL))]
+    assert body["tools"][0]["input_schema"] == TypeProposal.model_json_schema()
+    assert body["tool_choice"] == {
+        "type": "tool",
+        "name": PROPOSAL_TOOL_NAME,
+        "disable_parallel_tool_use": True,
+    }
+    assert body["thinking"] == {"type": "disabled"}
+
+
+@pytest.mark.parametrize(
+    ("content", "stop_reason", "expected"),
+    [
+        (
+            [tool_use(proposal_payload(), name=PROPOSAL_TOOL_NAME)],
+            "max_tokens",
+            "tür taslağı aracı çağrısı tamamlanmadı (stop_reason=max_tokens)",
+        ),
+        (
+            [tool_use(description_payload(), name=DESCRIPTION_TOOL_NAME)],
+            "tool_use",
+            "1 araç çağrısı",
+        ),
+        ([{"type": "text", "text": "Ornekova'nın kartı"}], "end_turn", "stop_reason=end_turn"),
+    ],
+    ids=["kesik", "aciklama-araci", "metin"],
+)
+def test_proposal_response_without_proposal_tool_call_is_rejected(
+    content: list[dict[str, Any]], stop_reason: str, expected: str
+) -> None:
+    api = FakeApi(message(content, stop_reason=stop_reason))
+
+    with pytest.raises(TypeProposalError) as caught:
+        api.provider().propose_type(proposal_request())
+
+    assert caught.value.problems[0].startswith("yanıt:")
+    assert expected in caught.value.problems[0]
+    assert "Ornekova" not in str(caught.value)
+
+
+def test_non_conforming_proposal_is_rejected() -> None:
+    api = FakeApi(
+        message([tool_use(proposal_payload(required_fields=["Surname"]), name=PROPOSAL_TOOL_NAME)])
+    )
+
+    with pytest.raises(TypeProposalError) as caught:
+        api.provider().propose_type(proposal_request())
+
+    assert any(problem.startswith("required_fields.0") for problem in caught.value.problems)
+
+
+def test_proposal_status_errors_are_retried_like_analysis(no_sleep: list[float]) -> None:
+    api = FakeApi(
+        api_error(529, "overloaded_error"),
+        api_error(429, "rate_limit_error"),
+        message([tool_use(proposal_payload(), name=PROPOSAL_TOOL_NAME)]),
+    )
+
+    api.provider().propose_type(proposal_request())
+
+    assert len(api.requests) == 3
+    assert no_sleep == [RETRY_BACKOFF_SECONDS, RETRY_BACKOFF_SECONDS * 2]
+
+
+def test_proposal_client_errors_are_not_retried(no_sleep: list[float]) -> None:
+    api = FakeApi(api_error(400, "invalid_request_error"))
+
+    with pytest.raises(ProviderError) as caught:
+        api.provider().propose_type(proposal_request())
+
+    assert caught.value.status_code == 400
+    assert len(api.requests) == 1
+    assert no_sleep == []
+
+
+def test_proposal_usage_is_measured_like_every_call() -> None:
+    # 13.1.1: taslak çağrısının tokenları da ölçülür; boş-zaman işi olayına yazar (§C85).
+    api = FakeApi(message([tool_use(proposal_payload(), name=PROPOSAL_TOOL_NAME)]))
+
+    with measure_usage() as meter:
+        api.provider().propose_type(proposal_request())
+
+    assert meter.usage == TokenUsage(1200, 300)
+    assert meter.calls == 1
+
+
+def test_both_providers_send_the_same_proposal_contract() -> None:
+    assert PROPOSAL_TOOL_NAME == openai_module.PROPOSAL_TOOL_NAME
+    assert PROPOSAL_TOOL["input_schema"] == openai_module.PROPOSAL_TOOL["function"]["parameters"]
 
 
 # --- Belge isteği (12.3.1): görüntüsüz metin, zorlanmış belge isteği aracı ----------------------

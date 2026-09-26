@@ -17,6 +17,10 @@ Tür açıklaması (11.3.1) aynı biçimde istenir: kullanıcı mesajında tür�
 birkaç görüntü), sonra türe özgü metin; zorlanmış işlev `DESCRIPTION_TOOL_NAME`, parametre şeması
 `TypeDescription.model_json_schema()`.
 
+Tür taslağı (11.5.5) da aynı biçimdedir: kullanıcı mesajında aday türün örnek sayfaları (sırayla,
+birkaç görüntü), sonra adaya özgü metin; zorlanmış işlev `PROPOSAL_TOOL_NAME`, parametre şeması
+`TypeProposal.model_json_schema()`.
+
 Fotoğraf kontrolü (11.7.1) de aynı biçimdedir: kullanıcı mesajında fotoğraf sayfasının görüntüsü,
 sonra değerlendirilecek kuralların metni; zorlanmış işlev `PHOTO_CHECK_TOOL_NAME`, parametre şeması
 `PhotoCheck.model_json_schema()`.
@@ -60,9 +64,11 @@ from app.ai.provider import (
     ProviderRateLimitError,
     ProviderServerError,
     TypeDescriptionRequest,
+    TypeProposalRequest,
 )
 from app.ai.schemas import PageAnalysis, PageAnalysisError
 from app.ai.type_description import TypeDescription, TypeDescriptionError
+from app.ai.type_proposal import TypeProposal, TypeProposalError
 from app.ai.usage import report_usage
 from app.config import Settings
 
@@ -92,6 +98,21 @@ DESCRIPTION_TOOL: ChatCompletionFunctionToolParam = {
             "Argümanlar, tür açıklaması şemasındaki her anahtarı taşıyan tek bir nesnedir."
         ),
         "parameters": TypeDescription.model_json_schema(),
+        "strict": False,
+    },
+}
+
+PROPOSAL_TOOL_NAME = "record_type_proposal"
+
+PROPOSAL_TOOL: ChatCompletionFunctionToolParam = {
+    "type": "function",
+    "function": {
+        "name": PROPOSAL_TOOL_NAME,
+        "description": (
+            "Katalog dışı belge türünün örneklerinden çıkarılan tam katalog kaydı taslağını "
+            "kaydeder. Argümanlar, tür taslağı şemasındaki her anahtarı taşıyan tek bir nesnedir."
+        ),
+        "parameters": TypeProposal.model_json_schema(),
         "strict": False,
     },
 }
@@ -137,8 +158,8 @@ _PERMANENT_RATE_LIMIT_CODES = frozenset({"insufficient_quota"})
 
 
 class OpenAIProvider(AnalysisProvider):
-    """OpenAI Chat Completions API ile sayfa analizi, tür açıklaması, fotoğraf kontrolü ve belge
-    isteği (`AI_PROVIDER=openai`)."""
+    """OpenAI Chat Completions API ile sayfa analizi, tür açıklaması, tür taslağı, fotoğraf kontrolü
+    ve belge isteği (`AI_PROVIDER=openai`)."""
 
     name = "openai"
 
@@ -205,6 +226,16 @@ class OpenAIProvider(AnalysisProvider):
             DESCRIPTION_TOOL,
             label="tür açıklaması işlevi",
             error=TypeDescriptionError,
+        )
+
+    def _request_type_proposal(self, request: TypeProposalRequest) -> object:
+        return self._forced_function_call(
+            request.instructions,
+            request.images,
+            request.prompt,
+            PROPOSAL_TOOL,
+            label="tür taslağı işlevi",
+            error=TypeProposalError,
         )
 
     def _request_photo_check(self, request: PhotoCheckRequest) -> object:

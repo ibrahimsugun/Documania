@@ -15,6 +15,10 @@ Tür açıklaması (11.3.1) aynı biçimde istenir: kullanıcı turunda türün 
 birkaç görüntü), sonra türe özgü metin; zorlanmış araç `DESCRIPTION_TOOL_NAME`, girdi şeması
 `TypeDescription.model_json_schema()`.
 
+Tür taslağı (11.5.5) da aynı biçimdedir: kullanıcı turunda aday türün örnek sayfaları (sırayla,
+birkaç görüntü), sonra adaya özgü metin; zorlanmış araç `PROPOSAL_TOOL_NAME`, girdi şeması
+`TypeProposal.model_json_schema()`.
+
 Fotoğraf kontrolü (11.7.1) de aynı biçimdedir: kullanıcı turunda fotoğraf sayfasının görüntüsü,
 sonra değerlendirilecek kuralların metni; zorlanmış araç `PHOTO_CHECK_TOOL_NAME`, girdi şeması
 `PhotoCheck.model_json_schema()`.
@@ -50,9 +54,11 @@ from app.ai.provider import (
     ProviderRateLimitError,
     ProviderServerError,
     TypeDescriptionRequest,
+    TypeProposalRequest,
 )
 from app.ai.schemas import PageAnalysis, PageAnalysisError
 from app.ai.type_description import TypeDescription, TypeDescriptionError
+from app.ai.type_proposal import TypeProposal, TypeProposalError
 from app.ai.usage import report_usage
 from app.config import Settings
 
@@ -76,6 +82,17 @@ DESCRIPTION_TOOL: ToolParam = {
         "açıklaması şemasındaki her anahtarı taşıyan tek bir nesnedir."
     ),
     "input_schema": TypeDescription.model_json_schema(),
+}
+
+PROPOSAL_TOOL_NAME = "record_type_proposal"
+
+PROPOSAL_TOOL: ToolParam = {
+    "name": PROPOSAL_TOOL_NAME,
+    "description": (
+        "Katalog dışı belge türünün örneklerinden çıkarılan tam katalog kaydı taslağını kaydeder. "
+        "Girdi, tür taslağı şemasındaki her anahtarı taşıyan tek bir nesnedir."
+    ),
+    "input_schema": TypeProposal.model_json_schema(),
 }
 
 PHOTO_CHECK_TOOL_NAME = "record_photo_check"
@@ -103,8 +120,8 @@ DOCUMENT_QUERY_TOOL: ToolParam = {
 
 
 class AnthropicProvider(AnalysisProvider):
-    """Anthropic Messages API ile sayfa analizi, tür açıklaması, fotoğraf kontrolü ve belge isteği
-    (`AI_PROVIDER=anthropic`)."""
+    """Anthropic Messages API ile sayfa analizi, tür açıklaması, tür taslağı, fotoğraf kontrolü ve
+    belge isteği (`AI_PROVIDER=anthropic`)."""
 
     name = "anthropic"
 
@@ -173,6 +190,16 @@ class AnthropicProvider(AnalysisProvider):
             DESCRIPTION_TOOL,
             label="tür açıklaması aracı",
             error=TypeDescriptionError,
+        )
+
+    def _request_type_proposal(self, request: TypeProposalRequest) -> object:
+        return self._forced_tool_call(
+            request.instructions,
+            request.images,
+            request.prompt,
+            PROPOSAL_TOOL,
+            label="tür taslağı aracı",
+            error=TypeProposalError,
         )
 
     def _request_photo_check(self, request: PhotoCheckRequest) -> object:

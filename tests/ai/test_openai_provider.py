@@ -38,11 +38,14 @@ from app.ai import (
     Side,
     TypeDescription,
     TypeDescriptionError,
+    TypeProposal,
+    TypeProposalError,
     create_provider,
     validate_document_query,
     validate_page_analysis,
     validate_photo_check,
     validate_type_description,
+    validate_type_proposal,
 )
 from app.ai import anthropic_provider as anthropic_module
 from app.ai.openai_provider import (
@@ -53,11 +56,14 @@ from app.ai.openai_provider import (
     DOCUMENT_QUERY_TOOL_NAME,
     PHOTO_CHECK_TOOL,
     PHOTO_CHECK_TOOL_NAME,
+    PROPOSAL_TOOL,
+    PROPOSAL_TOOL_NAME,
     TOOL_NAME,
     OpenAIProvider,
 )
 from app.ai.provider import MAX_ANALYSIS_ATTEMPTS, RETRY_BACKOFF_SECONDS
 from app.ai.schemas import ISO_639_1_CODES
+from app.ai.usage import TokenUsage, measure_usage
 from app.config import Settings, load_settings
 from tests.ai.payloads import (
     PHOTO_RULES,
@@ -70,6 +76,8 @@ from tests.ai.payloads import (
     page_request,
     photo_check_payload,
     photo_check_request,
+    proposal_payload,
+    proposal_request,
     query_payload,
     query_request,
 )
@@ -260,6 +268,7 @@ def test_analysis_request_disables_reasoning_so_the_live_api_accepts_the_functio
             lambda provider: provider.describe_type(description_request()),
             id="tur-aciklamasi",
         ),
+        pytest.param(lambda provider: provider.propose_type(proposal_request()), id="tur-taslagi"),
         pytest.param(
             lambda provider: provider.check_photo(photo_check_request()), id="fotograf-kontrolu"
         ),
@@ -273,6 +282,7 @@ def test_every_function_request_carries_reasoning_none(
 ) -> None:
     payloads = {
         DESCRIPTION_TOOL_NAME: description_payload(),
+        PROPOSAL_TOOL_NAME: proposal_payload(),
         PHOTO_CHECK_TOOL_NAME: photo_check_payload(),
         DOCUMENT_QUERY_TOOL_NAME: query_payload(),
     }
@@ -822,6 +832,120 @@ def test_description_exhausted_quota_is_not_retried(no_sleep: list[float]) -> No
     assert not isinstance(caught.value, ProviderRateLimitError)
     assert len(api.requests) == 1
     assert no_sleep == []
+
+
+# --- Tür taslağı (11.5.5): birkaç görüntü + metin, zorlanmış taslak işlevi ---------------------
+
+
+def test_proposal_request_sends_images_in_order_then_text_with_forced_function() -> None:
+    api = FakeApi(
+        completion(tool_calls=[function_call(proposal_payload(), name=PROPOSAL_TOOL_NAME)])
+    )
+    request = proposal_request(images=3, instructions="Taslak talimatı", prompt="Aday metni")
+
+    proposal = api.provider().propose_type(request)
+
+    assert proposal == validate_type_proposal(proposal_payload())
+    body = api.body()
+    system, user = body["messages"]
+    assert system == {"role": "system", "content": "Taslak talimatı"}
+    *image_parts, text_part = user["content"]
+    assert [part["type"] for part in image_parts] == ["image_url"] * 3
+    for part, image in zip(image_parts, request.images, strict=True):
+        prefix = f"data:{image.media_type};base64,"
+        assert part["image_url"]["url"].startswith(prefix)
+        assert base64.b64decode(part["image_url"]["url"].removeprefix(prefix)) == image.data
+        assert part["image_url"]["detail"] == "high"
+    assert text_part == {"type": "text", "text": "Aday metni"}
+    assert body["tools"] == [json.loads(json.dumps(PROPOSAL_TOOL))]
+    assert body["tools"][0]["function"]["parameters"] == TypeProposal.model_json_schema()
+    assert body["tools"][0]["function"]["strict"] is False
+    assert body["tool_choice"] == {"type": "function", "function": {"name": PROPOSAL_TOOL_NAME}}
+    assert body["parallel_tool_calls"] is False
+    assert body["store"] is False
+    assert body["reasoning_effort"] == "none"
+
+
+@pytest.mark.parametrize(
+    ("response", "expected"),
+    [
+        (
+            completion(
+                tool_calls=[function_call('{"name": "Mon', name=PROPOSAL_TOOL_NAME)],
+                finish_reason="length",
+            ),
+            "tür taslağı işlevi çağrısı tamamlanmadı (finish_reason=length)",
+        ),
+        (
+            completion(
+                tool_calls=[function_call(description_payload(), name=DESCRIPTION_TOOL_NAME)]
+            ),
+            "1 araç çağrısı",
+        ),
+        (completion(finish_reason="stop", refusal="Yardımcı olamam."), "finish_reason=refusal"),
+    ],
+    ids=["kesik", "aciklama-islevi", "ret"],
+)
+def test_proposal_response_without_proposal_function_call_is_rejected(
+    response: httpx2.Response, expected: str
+) -> None:
+    api = FakeApi(response)
+
+    with pytest.raises(TypeProposalError) as caught:
+        api.provider().propose_type(proposal_request())
+
+    assert caught.value.problems[0].startswith("yanıt:")
+    assert expected in caught.value.problems[0]
+    assert "Yardımcı olamam" not in str(caught.value)
+
+
+def test_proposal_arguments_that_do_not_conform_are_rejected() -> None:
+    api = FakeApi(
+        completion(
+            tool_calls=[function_call(proposal_payload(country="MNE"), name=PROPOSAL_TOOL_NAME)]
+        )
+    )
+
+    with pytest.raises(TypeProposalError) as caught:
+        api.provider().propose_type(proposal_request())
+
+    assert any(problem.startswith("country") for problem in caught.value.problems)
+
+
+def test_proposal_server_errors_are_retried(no_sleep: list[float]) -> None:
+    api = FakeApi(
+        api_error(503, "server_error"),
+        completion(tool_calls=[function_call(proposal_payload(), name=PROPOSAL_TOOL_NAME)]),
+    )
+
+    api.provider().propose_type(proposal_request())
+
+    assert len(api.requests) == 2
+    assert no_sleep == [RETRY_BACKOFF_SECONDS]
+
+
+def test_proposal_exhausted_quota_is_not_retried(no_sleep: list[float]) -> None:
+    api = FakeApi(api_error(429, "insufficient_quota", code="insufficient_quota"))
+
+    with pytest.raises(ProviderError) as caught:
+        api.provider().propose_type(proposal_request())
+
+    assert not isinstance(caught.value, ProviderRateLimitError)
+    assert len(api.requests) == 1
+    assert no_sleep == []
+
+
+def test_proposal_usage_is_measured_like_every_call() -> None:
+    # 13.1.1: taslak çağrısının tokenları da ölçülür; boş-zaman işi olayına yazar (§C85).
+    api = FakeApi(
+        completion(tool_calls=[function_call(proposal_payload(), name=PROPOSAL_TOOL_NAME)])
+    )
+
+    with measure_usage() as meter:
+        api.provider().propose_type(proposal_request())
+
+    assert meter.usage == TokenUsage(1200, 300)
+    assert meter.calls == 1
 
 
 # --- Fotoğraf kontrolü (11.7.1): tek görüntü + kurallar, zorlanmış kontrol işlevi ---------------

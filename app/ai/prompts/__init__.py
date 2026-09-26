@@ -1,6 +1,6 @@
 """Yapay zekâ talimat metinleri: sayfa analizi talimatı ve disiplin kuralları (03.4), tür açıklaması
-talimatı (11.3.1), profil fotoğrafı kontrolü talimatı (11.7.1) ve Telegram belge isteği okuma
-talimatı (12.3.1)."""
+talimatı (11.3.1), tür taslağı talimatı (11.5.5), profil fotoğrafı kontrolü talimatı (11.7.1) ve
+Telegram belge isteği okuma talimatı (12.3.1)."""
 
 from app.ai.prompts.document_query import load_document_query_instructions
 from app.ai.prompts.page_analysis import (
@@ -12,6 +12,7 @@ from app.ai.prompts.page_analysis import (
 )
 from app.ai.prompts.photo_check import load_photo_check_instructions
 from app.ai.prompts.type_description import load_type_description_instructions
+from app.ai.prompts.type_proposal import load_type_proposal_instructions
 
 __all__ = [
     "CATALOG_SLOT",
@@ -22,4 +23,5 @@ __all__ = [
     "load_page_analysis_template",
     "load_photo_check_instructions",
     "load_type_description_instructions",
+    "load_type_proposal_instructions",
 ]
