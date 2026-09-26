@@ -129,6 +129,7 @@ def test_recorded_cyrillic_passport_gives_the_full_key() -> None:
         given_names="IULIA",
         other_names=None,
         nationality="RUS",
+        date_of_birth_legible=True,
     )
     assert key.name_keys == ("iulia shchelkina testova",)
 
@@ -156,6 +157,7 @@ def test_front_and_back_of_a_grouped_residence_card_give_one_key() -> None:
         given_names="IVAN",
         other_names=None,
         nationality="RUS",
+        date_of_birth_legible=True,
     )
 
 
@@ -567,7 +569,67 @@ def test_mrz_on_the_back_wins_over_the_visible_text_of_the_front() -> None:
         given_names="TEST",
         other_names=None,
         nationality="RUS",
+        # Doğum tarihi kontrol hanesi tutan MRZ'den (§20.2.4 koşul 3, 4).
+        date_of_birth_legible=True,
     )
+
+
+# --- doğum tarihinin okunaklılığı (§20.2.4 koşul 3) ---------------------------------------------
+
+
+def test_birth_date_from_a_legible_field_reading_is_legible() -> None:
+    key = _key(_page(fields=_readings(date_of_birth="1990-01-01")))
+
+    assert (key.date_of_birth, key.date_of_birth_legible) == (date(1990, 1, 1), True)
+
+
+def test_birth_date_read_only_into_person_is_not_legible() -> None:
+    # Yalnız `person`'dan okunan tarih alan okunaklılığı taşımaz (belge numarasındaki gibi):
+    # eşleştirme (satır 3) onu kullanır, ad + doğum tarihiyle çalışan açılmaz.
+    key = _key(_page())
+
+    assert (key.date_of_birth, key.date_of_birth_legible) == (date(1990, 1, 1), False)
+
+
+def test_birth_date_from_the_mrz_alone_is_legible() -> None:
+    # Görünen alan okuması yok; tarih kontrol hanesi tutan MRZ'den gelir.
+    page = _page(fields={}, mrz=make_mrz(MrzFormat.TD3, **PASSPORT), **NO_PERSON)
+
+    key = _key(page)
+
+    assert (key.date_of_birth, key.date_of_birth_legible) == (date(1990, 1, 1), True)
+
+
+def test_birth_date_whose_mrz_check_digit_fails_is_not_taken_from_the_mrz() -> None:
+    mrz = make_mrz(MrzFormat.TD3, **PASSPORT, checks={"date_of_birth": "0"})
+    page = _page(fields={}, mrz=mrz, **NO_PERSON)
+
+    key = _key(page)
+
+    assert (key.date_of_birth, key.date_of_birth_legible) == (None, False)
+
+
+def test_birth_date_the_page_calls_illegible_is_not_in_the_key() -> None:
+    key = _key(_page(fields=_readings(date_of_birth=None)))
+
+    assert (key.date_of_birth, key.date_of_birth_legible) == (None, False)
+
+
+def test_conflicting_birth_dates_are_not_legible() -> None:
+    first = _page(fields=_readings(date_of_birth="1990-01-01"))
+    second = _page(fields=_readings(date_of_birth="1991-01-01"), date_of_birth="1991-01-01")
+
+    key = _key(first, second)
+
+    assert "date_of_birth" in key.conflicts
+    assert (key.date_of_birth, key.date_of_birth_legible) == (None, False)
+
+
+def test_one_legible_reading_makes_the_single_birth_date_legible() -> None:
+    # Aynı tarih bir sayfada yalnız `person`'da, ötekinde okunaklı alanda: tek değer, okunaklı.
+    key = _key(_page(), _page(fields=_readings(date_of_birth="1990-01-01")))
+
+    assert (key.date_of_birth, key.date_of_birth_legible) == (date(1990, 1, 1), True)
 
 
 def test_field_the_mrz_does_not_carry_is_read_from_every_page() -> None:

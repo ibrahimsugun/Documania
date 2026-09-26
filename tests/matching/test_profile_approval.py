@@ -34,6 +34,7 @@ from tests.matching.test_pending_profile_and_aliases import (
     CYRILLIC,
     NAME,
     PASSPORT,
+    PASSPORT_WITHOUT_DOB,
     UPLOAD_ID,
     _assert_no_personal_values,
     _counts,
@@ -56,8 +57,9 @@ FOLDER = "Test_Ornekova_E0001"
 def _approve(
     session: Session, layout: DataLayout, key: PersonKey, *, page_index: int | None = None
 ) -> Employee:
+    # Tür doğum tarihini zorunlu tutmaz: öneri satır 7'dir, satır 6b değil (§20.2.4 koşul 1).
     return approve_pending_profile(
-        session, layout, key, entry=PASSPORT, actor=ACTOR, page_index=page_index
+        session, layout, key, entry=PASSPORT_WITHOUT_DOB, actor=ACTOR, page_index=page_index
     )
 
 
@@ -218,9 +220,11 @@ def test_approval_does_not_commit(session: Session, layout: DataLayout) -> None:
 def test_recorded_pending_passport_profile_is_approved(
     session: Session, layout: DataLayout
 ) -> None:
-    # Numarası okunamayan kayıtlı pasaportun önerisi (05.7.1) onaylanır: çalışan önerilen
-    # profille açılır, numara yazılmaz; öneri ile açılan kayıt aynı okumalardır.
-    upload, key, entry = _recorded_key(session, layout, "s9_blurred_passport")
+    # Numarası okunamayan kayıtlı belgenin önerisi (05.7.1) onaylanır: çalışan önerilen profille
+    # açılır, numara yazılmaz; öneri ile açılan kayıt aynı okumalardır. Tür doğum tarihini zorunlu
+    # tutmaz (satır 6b yok).
+    upload, key, _ = _recorded_key(session, layout, "s9_blurred_passport")
+    entry = PASSPORT_WITHOUT_DOB
     file_id = upload.files[0].id
     with event_context(upload_id=upload.id):
         profile = propose_pending_profile(session, key, entry=entry, file_id=file_id, page_index=0)
@@ -263,4 +267,28 @@ def test_recorded_pending_passport_profile_is_approved(
         json.dumps(
             [[event.data_json, event.message] for event in _events(session)], ensure_ascii=False
         )
+    )
+
+
+def test_proposal_whose_key_now_fits_row_6b_is_still_approved(
+    session: Session, layout: DataLayout
+) -> None:
+    # Satır 6b'den (05.6.2, §C84) önce kuyruğa düşmüş öneri geriye dönük açılmaz ama onaylanabilir:
+    # anahtarı bugün 6b'ye uyan (doğum tarihi zorunlu tür, okunaklı tarih) öneri satır 7 gibi
+    # onaylanır; numara yine yazılmaz, olay `action: pending` ve kullanıcı adıyla.
+    key = _key(numbers=_number(legible=False))
+    assert (
+        resolve_unmatched(key, EmployeeMatch(MatchRule.NO_MATCH), entry=PASSPORT).rule.value
+        == "create"
+    )
+
+    employee = approve_pending_profile(session, layout, key, entry=PASSPORT, actor=ACTOR)
+
+    assert (employee.id, employee.date_of_birth) == ("E0001", BORN)
+    assert _counts(session) == (1, 2, 0)
+    (event,) = _events(session)
+    assert (event.type, event.actor, event.data_json) == (
+        EventType.EMPLOYEE_CREATED,
+        ACTOR,
+        {"action": "pending", "document_type_slug": "russian_passport"},
     )

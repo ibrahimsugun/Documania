@@ -26,7 +26,7 @@ from app.ai import (
 )
 from app.ai.prompts import PageAnalysisInstructions
 from app.ai.usage import report_usage
-from app.catalog import load_seed_catalog
+from app.catalog import Catalog, load_seed_catalog
 from app.db.models import Upload
 from app.events import (
     PRESCREEN_DATA_KEY,
@@ -42,10 +42,14 @@ from app.pipeline.analyze import (
 )
 from app.storage import DataLayout
 from tests.fixtures.gen import (
+    EMPLOYMENT_CONTRACT,
     PERSON_ORNEKOVA,
+    PERSON_PRUEBA,
     PERSON_SIDOROV,
     SyntheticPage,
     driving_license_pages,
+    employment_contract_entry,
+    employment_contract_page,
     make_document_pdf_bytes,
     make_portrait_image_bytes,
     passport_page,
@@ -221,6 +225,55 @@ def test_number_read_only_as_a_required_field_is_unverified_without_mrz() -> Non
     analysis = validate_page_analysis(data, known_slugs=INSTRUCTIONS.known_slugs)
 
     assert prescreen_escalation(analysis, INSTRUCTIONS) is Escalation.UNVERIFIED_NUMBER
+
+
+# S19'un numarasız türü kataloğa eklenmiş talimat (zorunlu alanları ad, soyad, doğum tarihi).
+WITH_CONTRACT = build_page_analysis_instructions(Catalog((*CATALOG, employment_contract_entry())))
+
+
+def _contract(instructions: PageAnalysisInstructions = WITH_CONTRACT) -> PageAnalysis:
+    data = employment_contract_page(PERSON_PRUEBA).analysis()
+    return validate_page_analysis(data, known_slugs=instructions.known_slugs)
+
+
+def test_mrz_less_page_of_a_type_requiring_the_birth_date_is_not_easy() -> None:
+    # §20.2.4 koşul 4 (§C84): doğum tarihi satır 6b'de yeni çalışan açar; MRZ'siz sayfada ucuz
+    # modelin doğrulanmamış okuması buna dayanak olmaz. Sayfa her zorunlu alanı okur, not yok,
+    # numara yok — yine de ana modele gider.
+    analysis = _contract()
+
+    assert analysis.person.mrz_lines is None and analysis.person.document_number is None
+    assert prescreen_escalation(analysis, WITH_CONTRACT) is Escalation.UNVERIFIED_DATE_OF_BIRTH
+    assert Escalation.UNVERIFIED_DATE_OF_BIRTH.value == "unverified_date_of_birth"
+
+
+def test_the_same_page_is_easy_when_its_type_does_not_require_the_birth_date() -> None:
+    # Kural türün zorunlu alanlarına bakar, türün adına ya da sayfada doğum tarihi yazmasına değil
+    # (başkasının doğum tarihini taşıyan tür satır 6b'yi kullanmaz).
+    instructions = PageAnalysisInstructions(
+        text="T",
+        known_slugs=WITH_CONTRACT.known_slugs,
+        required_fields={EMPLOYMENT_CONTRACT: ("surname", "given_names")},
+    )
+
+    analysis = _contract(instructions)
+
+    assert analysis.person.date_of_birth is not None
+    assert prescreen_escalation(analysis, instructions) is None
+
+
+def test_birth_date_verified_by_the_mrz_keeps_the_passport_page_easy() -> None:
+    # Pasaport doğum tarihini zorunlu tutar; tarih kontrol haneleri tutan MRZ'den gelir.
+    assert "date_of_birth" in INSTRUCTIONS.required_fields["russian_passport"]
+    assert prescreen_escalation(_analysis(_passport()), INSTRUCTIONS) is None
+
+
+def test_unverified_number_is_named_before_the_unverified_birth_date() -> None:
+    # Ehliyetin ön yüzü numarayı da doğum tarihini de MRZ'siz okur: gerekçe numaranınkidir.
+    assert "date_of_birth" in INSTRUCTIONS.required_fields["serbian_driving_license"]
+    assert prescreen_escalation(_analysis(_license()[0]), INSTRUCTIONS) is (
+        Escalation.UNVERIFIED_NUMBER
+    )
 
 
 def test_page_of_a_type_without_numbers_and_all_fields_legible_is_easy() -> None:

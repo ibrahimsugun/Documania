@@ -61,14 +61,15 @@ from app.ai.schemas import Side
 from app.catalog import CatalogEntry, FileType, FrontBackLayout, Sides
 from app.db.models import QueueKind
 from app.matching.context import ContextPersonBasis, ContextPersonResult, ContextPersonVerdict
+from app.matching.match import MAX_AGE, MIN_AGE, dob_plausible
 from app.matching.mrz import MrzStatus, apply_mrz_priority
 from app.pipeline.group import DocumentCandidate, PageCountViolation, PageRef
 from app.pipeline.legibility import IllegibleRequiredFields, LegibilityCheck
 from app.storage import FileKind
 
-# `dob_plausible` yaş aralığı (§20.1.6): tamamlanmış yıl, iki uç dahil.
-MIN_AGE = 16
-MAX_AGE = 90
+# `dob_plausible` yaş aralığı (§20.1.6, `MIN_AGE`–`MAX_AGE`, tamamlanmış yıl, iki uç dahil)
+# `app.matching.match`'tedir: satır 6b (§20.2.4) aynı ölçüyü kullanır.
+
 # `sides`: `front_back` türdeki belgenin her düzende yüzleri, belgedeki sırasıyla (04.1.2).
 FRONT_BACK_SIDES = (Side.FRONT, Side.BACK)
 COMBINED_SIDES = (Side.FRONT_AND_BACK,)
@@ -417,19 +418,9 @@ def check_dob_plausible(
     `date_of_birth` kişi anahtarının tarihidir (05.4); `None` (okunmamış ya da çelişen) geçer.
     `today` referans gündür — planda partinin alındığı gün (06.1.2), saat değil.
     """
-    if date_of_birth is None:
+    if date_of_birth is None or dob_plausible(date_of_birth, today=today):
         return None
-    if date_of_birth >= today:
-        return ImplausibleDateOfBirth(future=True)
-    if MIN_AGE <= _age(date_of_birth, today) <= MAX_AGE:
-        return None
-    return ImplausibleDateOfBirth(future=False)
-
-
-def _age(date_of_birth: date, today: date) -> int:
-    # Tamamlanmış yıl: yıl dönümü `today`'e gelmemişse bir eksik (29 Şubat'ta doğan 28 Şubat'ta).
-    birthday_ahead = (today.month, today.day) < (date_of_birth.month, date_of_birth.day)
-    return today.year - date_of_birth.year - birthday_ahead
+    return ImplausibleDateOfBirth(future=date_of_birth >= today)
 
 
 # --- context_person ----------------------------------------------------------------------------

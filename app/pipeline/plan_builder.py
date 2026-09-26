@@ -105,9 +105,10 @@ atılmaz (§8.3'te tür yok): hüküm planın gerekçesinde ve kuyruk olayında 
 **Çalışan.** Her analizli adayın kişi anahtarı (05.4) kayıtlı çalışanlarla eşleştirilir (05.5).
 Kararın yan etkileri yalnız belge düzeyinde kabul edilen adayda (1–4'te hükmü olmayan) yürür:
 satır 1/3 eşleşmesinde yeni isim yazımı, temiz numara ve iletişim bilgisi çalışana eklenir (05.7.2,
-05.8) ve boş profil alanları belgeden dolar (05.7.3); eşleşme yoksa satır 6'da çalışan açılır
-(05.6; alanlarının kaynağı belgeye bağlanır, 05.7.3), satır 7'de profil onaya önerilir (05.7.1),
-satır 8 ve tablo dışı eksik kişi Unresolved'a gider. Kuyruğa giden adaydan çalışan açılmaz, profil
+05.8) ve boş profil alanları belgeden dolar (05.7.3); eşleşme yoksa satır 6'da (temiz numara) ya
+da 6b'de (Latin ad-soyad + doğum tarihi, §20.2.4) çalışan açılır (05.6; alanlarının kaynağı belgeye
+bağlanır, 05.7.3), satır 7'de profil onaya önerilir (05.7.1), satır 8 ve tablo dışı eksik kişi
+Unresolved'a gider. Kuyruğa giden adaydan çalışan açılmaz, profil
 önerilmez, kimlik, profil alanı ya da iletişim bilgisi birikmez — yapısı veya okunaklılığı kabul
 edilmemiş belgenin okumasına güvenilmez. Eşleştirme hükmü o adayda yalnız kişi tahmini olarak kalır
 (08.1.2): satır 1/3'te `match` ve çalışan, öteki hükümlerde `none`; eşleştirme hükmü de kuyruğa
@@ -129,11 +130,11 @@ fotoğrafı) belge düzeyinde kabul edilmiş, satır 8'e düşen adayı — ne n
 aynı yüklenen dosyadaki kimlikli adaylardan sahip alır: o dosyanın sayfasını taşıyan, kişi anahtarı
 bir şey okumuş adayların hepsi tek bir kayıtlı çalışana satır 1/3 ile bağlıysa (kuyruğa gidende kişi
 tahmini) ve en az biri Hazir'a gidiyorsa öğe o çalışanla (`match`, `matched_by: null`) Hazir'a
-gider. Yeni açılan çalışan (satır 6), onay bekleyen profil, belirsiz, yalnız isim ya da çelişkili
-hüküm, ikinci bir çalışan, partinin başka dosyası ve bağlam çalışanı sahip vermez; o zaman satır 8
-(Unresolved) aynen kalır. Kural yalnız kişi hükmünü değiştirir: belge düzeyindeki ret (işlem,
-dosya türü) onu ezer, kimlik ve iletişim bilgisi birikmez, olay atılmaz. Sahip, kimlikli adayların
-hükmü belli olduktan sonra, ikinci geçişte bulunur; öğe kimlikleri ve sırası değişmez.
+gider. Yeni açılan çalışan (satır 6, 6b), onay bekleyen profil, belirsiz, yalnız isim ya da
+çelişkili hüküm, ikinci bir çalışan, partinin başka dosyası ve bağlam çalışanı sahip vermez; o zaman
+satır 8 (Unresolved) aynen kalır. Kural yalnız kişi hükmünü değiştirir: belge düzeyindeki ret
+(işlem, dosya türü) onu ezer, kimlik ve iletişim bilgisi birikmez, olay atılmaz. Sahip, kimlikli
+adayların hükmü belli olduktan sonra, ikinci geçişte bulunur; öğe kimlikleri ve sırası değişmez.
 
 Word/Excel ekinin sahibi partinin bağlam çalışanıdır (`match`, `matched_by: null`); bağlam yoksa ek
 Unresolved'a gider (04.7.1). İşlemi olmayan ekte işlem gerekçesi sahiplik gerekçesinden önce gelir;

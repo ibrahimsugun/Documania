@@ -39,6 +39,7 @@ from app.matching.match import (
     NO_PERSON_REASON,
     PENDING_PROFILE_LATIN_REASON,
     PENDING_PROFILE_REASON,
+    CreationBasis,
     DocumentNumberKey,
     EmployeeAction,
     EmployeeCreationRefusedError,
@@ -76,6 +77,11 @@ CATALOG = load_seed_catalog()
 PASSPORT = CATALOG.get("russian_passport")
 PHOTO = CATALOG.get("profile_picture")
 assert PASSPORT is not None and PHOTO is not None
+# Satır 6b'nin (§20.2.4 koşul 1) dışında kalan tür: doğum tarihi zorunlu alan değil. Satır 7'yi
+# (onay bekleyen profil) sınayan fixture'lar bununla kurulur; pasaportla aynı anahtar artık 6b'dir.
+PASSPORT_WITHOUT_DOB = PASSPORT.model_copy(
+    update={"required_fields": tuple(f for f in PASSPORT.required_fields if f != "date_of_birth")}
+)
 TODAY = date(2026, 9, 15)
 UPLOAD_ID = "u_20260915_0001"
 
@@ -97,9 +103,11 @@ def _key(
     surname: str | None = "ORNEKOVA",
     original: str | None = CYRILLIC,
     born: date | None = BORN,
+    dob_legible: bool = True,
     mrz_allows: bool = True,
     conflicts: tuple[str, ...] = (),
 ) -> PersonKey:
+    # Doğum tarihi `build_person_key`'in okunaklı `fields` okumasından verdiği gibi okunaklıdır.
     named = given_names is not None and surname is not None
     return PersonKey(
         document_numbers=numbers,
@@ -113,6 +121,7 @@ def _key(
         given_names=given_names,
         other_names="IVANOVNA",
         nationality="RUS",
+        date_of_birth_legible=born is not None and dob_legible,
     )
 
 
@@ -189,10 +198,10 @@ PROFILE = ProposedProfile(
 @pytest.mark.parametrize(
     ("key", "entry"),
     [
-        (_key(numbers=_number(legible=False)), PASSPORT),
-        (_key(numbers=_number("AB12")), PASSPORT),
-        (_key(mrz_allows=False), PASSPORT),
-        (_key(numbers=()), PASSPORT),
+        (_key(numbers=_number(legible=False)), PASSPORT_WITHOUT_DOB),
+        (_key(numbers=_number("AB12")), PASSPORT_WITHOUT_DOB),
+        (_key(mrz_allows=False), PASSPORT_WITHOUT_DOB),
+        (_key(numbers=()), PASSPORT_WITHOUT_DOB),
         (_key(), PHOTO),
     ],
     ids=[
@@ -206,7 +215,8 @@ PROFILE = ProposedProfile(
 def test_name_without_clean_number_is_a_pending_profile_in_unresolved(
     key: PersonKey, entry: CatalogEntry
 ) -> None:
-    # K7: temiz numara yoksa (§20.2.3'ün herhangi bir koşulu) çalışan açılmaz, profil önerilir.
+    # K7: temiz numara yoksa (§20.2.3'ün herhangi bir koşulu) ve tür doğum tarihini zorunlu
+    # tutmuyorsa (§20.2.4 koşul 1, satır 6b yok) çalışan açılmaz, profil önerilir.
     resolution = resolve_unmatched(key, NO_MATCH, entry=entry)
 
     assert resolution == UnmatchedResolution(UnmatchedRule.PENDING_PROFILE, PROFILE)
@@ -232,7 +242,9 @@ def test_proposed_profile_payload_is_json_and_carries_no_document_number() -> No
             ],
         }
     }
-    unclean = resolve_unmatched(_key(numbers=_number(legible=False)), NO_MATCH, entry=PASSPORT)
+    unclean = resolve_unmatched(
+        _key(numbers=_number(legible=False)), NO_MATCH, entry=PASSPORT_WITHOUT_DOB
+    )
     assert unclean.proposed_profile is not None
     assert NUMBER not in json.dumps(unclean.proposed_profile.payload())
 
@@ -256,7 +268,7 @@ def test_proposed_profile_holds_what_was_read(
 ) -> None:
     key = _key(numbers=(), original=original, born=born)
 
-    profile = resolve_unmatched(key, NO_MATCH, entry=PASSPORT).proposed_profile
+    profile = resolve_unmatched(key, NO_MATCH, entry=PASSPORT_WITHOUT_DOB).proposed_profile
 
     assert profile is not None
     assert (profile.original_script_name, profile.date_of_birth, profile.aliases) == (
@@ -314,7 +326,7 @@ def test_cyrillic_reading_with_its_latin_spelling_is_named_in_latin() -> None:
         latin_surname="Ornekova",
     )
 
-    resolution = resolve_unmatched(key, NO_MATCH, entry=PASSPORT)
+    resolution = resolve_unmatched(key, NO_MATCH, entry=PASSPORT_WITHOUT_DOB)
 
     assert (resolution.reason, resolution.latin_missing) == (PENDING_PROFILE_REASON, False)
     profile = resolution.proposed_profile
@@ -342,7 +354,7 @@ def test_original_spelling_key_keeps_the_page_language() -> None:
         given_names="OLEH",
     )
 
-    profile = resolve_unmatched(key, NO_MATCH, entry=PASSPORT).proposed_profile
+    profile = resolve_unmatched(key, NO_MATCH, entry=PASSPORT_WITHOUT_DOB).proposed_profile
 
     assert profile is not None
     assert dict(profile.aliases) == {"OLEH HAVRYLIUK": "havryliuk oleh", original: "havryliuk oleh"}
@@ -355,7 +367,9 @@ def test_original_spelling_key_keeps_the_page_language() -> None:
 def test_clean_number_and_folder_name_is_row_6_not_a_profile() -> None:
     resolution = resolve_unmatched(_key(), NO_MATCH, entry=PASSPORT)
 
-    assert resolution == UnmatchedResolution(UnmatchedRule.CREATE)
+    assert resolution == UnmatchedResolution(
+        UnmatchedRule.CREATE, basis=CreationBasis.DOCUMENT_NUMBER
+    )
     assert (resolution.action, resolution.queue, resolution.reason) == (
         EmployeeAction.CREATE,
         None,
@@ -441,6 +455,9 @@ def test_incomplete_person_goes_to_unresolved_without_a_profile(
     [
         _key(),
         _key(numbers=()),
+        _key(numbers=(), dob_legible=False),
+        _key(numbers=(), born=None),
+        _key(numbers=(), born=date(2020, 1, 1)),
         _key(numbers=_number("AB12")),
         _key(surname=None),
         _key(given_names="李", surname="王", original=None),
@@ -448,12 +465,16 @@ def test_incomplete_person_goes_to_unresolved_without_a_profile(
         _key(numbers=(), given_names=None, surname=None, original=None),
     ],
 )
-def test_row_6_verdict_agrees_with_can_create_employee(key: PersonKey) -> None:
-    resolution = resolve_unmatched(key, NO_MATCH, entry=PASSPORT)
+@pytest.mark.parametrize("entry", [PASSPORT, PASSPORT_WITHOUT_DOB], ids=["dob-required", "no-dob"])
+def test_row_6_and_6b_verdict_agrees_with_can_create_employee(
+    key: PersonKey, entry: CatalogEntry
+) -> None:
+    resolution = resolve_unmatched(key, NO_MATCH, entry=entry, today=TODAY)
 
     assert (resolution.rule is UnmatchedRule.CREATE) is can_create_employee(
-        key, NO_MATCH, entry=PASSPORT
+        key, NO_MATCH, entry=entry, today=TODAY
     )
+    assert (resolution.basis is not None) is (resolution.rule is UnmatchedRule.CREATE)
 
 
 @pytest.mark.parametrize(
@@ -467,7 +488,7 @@ def test_rows_6_to_8_apply_only_when_nothing_matched(rule: MatchRule) -> None:
 
 def test_reasons_carry_no_personal_values() -> None:
     for key in (
-        _key(numbers=()),
+        _key(numbers=(), dob_legible=False),
         _key(numbers=(), given_names=None, surname=None, original=None),
         _key(given_names="TEST", surname=None),
         _key(given_names="Тест", surname="Орнекова"),
@@ -483,7 +504,7 @@ def test_reasons_carry_no_personal_values() -> None:
 def test_pending_profile_writes_only_the_event(session: Session, layout: DataLayout) -> None:
     key = _key(numbers=_number(legible=False))
 
-    profile = propose_pending_profile(session, key, entry=PASSPORT, page_index=3)
+    profile = propose_pending_profile(session, key, entry=PASSPORT_WITHOUT_DOB, page_index=3)
 
     assert profile == PROFILE
     assert _counts(session) == (0, 0, 0)
@@ -505,13 +526,13 @@ def test_pending_profile_writes_only_the_event(session: Session, layout: DataLay
 
     # Onay yok: aynı anahtardan çalışan açılmaz, sonraki belge de hâlâ kimseyle eşleşmez.
     with pytest.raises(EmployeeCreationRefusedError, match="temiz belge numarası yok"):
-        create_employee(session, layout, key, entry=PASSPORT)
+        create_employee(session, layout, key, entry=PASSPORT_WITHOUT_DOB)
     assert match_employee(session, key) == NO_MATCH
     assert _counts(session) == (0, 0, 0)
 
 
 def test_pending_profile_does_not_commit(session: Session) -> None:
-    propose_pending_profile(session, _key(numbers=()), entry=PASSPORT)
+    propose_pending_profile(session, _key(numbers=()), entry=PASSPORT_WITHOUT_DOB)
 
     session.rollback()
 
@@ -542,6 +563,7 @@ def _nobody(session: Session) -> None:
         (_registered_name, _key(numbers=()), "eşleştirme hükmü name_only"),
         (_nobody, _key(numbers=(), conflicts=("surname",)), "eşleştirme hükmü conflicting_key"),
         (_nobody, _key(), "satır 6–8 kararı create"),
+        (_nobody, _key(numbers=()), "satır 6–8 kararı create"),
         (
             _nobody,
             _key(numbers=(), given_names=None, surname=None, original=None),
@@ -555,6 +577,7 @@ def _nobody(session: Session) -> None:
         "name-only",
         "conflicting-key",
         "clean-number",
+        "name-and-birth-date-row-6b",
         "nothing-read",
         "incomplete-person",
     ],
@@ -785,8 +808,11 @@ def _recorded_key(
 def test_s9_recorded_passport_without_number_becomes_a_pending_profile(
     session: Session, layout: DataLayout
 ) -> None:
-    # K7/R9: numarası okunamayan pasaport çalışan açmaz; profil önerisiyle Unresolved'a düşer.
-    upload, key, entry = _recorded_key(session, layout, "s9_blurred_passport")
+    # K7/R9: numarası okunamayan belge, tür doğum tarihini zorunlu tutmuyorsa (satır 6b yok) çalışan
+    # açmaz; profil önerisiyle Unresolved'a düşer. Doğum tarihi zorunlu pasaportta aynı anahtar
+    # satır 6b'dir (`test_name_dob_creation.py`); boru hattında S9 zaten Unreadable'dır (K1).
+    upload, key, _ = _recorded_key(session, layout, "s9_blurred_passport")
+    entry = PASSPORT_WITHOUT_DOB
     file_id = upload.files[0].id
 
     with event_context(upload_id=upload.id):
@@ -870,13 +896,13 @@ def test_pending_person_is_matched_once_an_employee_is_opened(
 ) -> None:
     # Onay bekleyen profil kimseyi kaydetmez; aynı kişinin temiz numaralı belgesi çalışanı açınca
     # numarasız belge artık satır 3'le eşleşir, profil önerilmez ve yeni bir şey eklenmez.
-    _, blurred, entry = _recorded_key(session, layout, "s9_blurred_passport")
-    propose_pending_profile(session, blurred, entry=entry)
+    _, blurred, _ = _recorded_key(session, layout, "s9_blurred_passport")
+    propose_pending_profile(session, blurred, entry=PASSPORT_WITHOUT_DOB)
     _, clean, entry = _recorded_key(session, layout, "russian_passport", "u_20260915_0002")
     create_employee(session, layout, clean, entry=entry)
 
     assert match_employee(session, blurred) == EmployeeMatch(MatchRule.NAME_DOB, ("E0001",))
     with pytest.raises(PendingProfileRefusedError, match="eşleştirme hükmü name_dob"):
-        propose_pending_profile(session, blurred, entry=entry)
+        propose_pending_profile(session, blurred, entry=PASSPORT_WITHOUT_DOB)
     assert accumulate_identity(session, blurred, entry=entry) == IdentityAccumulation("E0001")
     assert _counts(session) == (1, 2, 1)

@@ -1,9 +1,12 @@
-"""05.6.1 — yalnız temiz okunmuş belge numarası varsa yeni çalışan ve klasörü açılır (R9, K7, K8).
+"""05.6.1 — temiz okunmuş belge numarası varsa yeni çalışan ve klasörü açılır (R9, K7, K8).
 Kabul senaryosu: S11 (temiz pasaport numarası, kayıtlı çalışan yok → yeni çalışan ve klasör).
 
 Birim testleri §20.2.3'ün üç koşulunu ve §20.2.2 satır 6'yı elle kurulan `PersonKey` ve geçici
-SQLite'taki sentetik çalışanlarla sınar. Entegrasyon testleri sentetik PDF'i gerçek render
-adımlarından ve kayıtlı yanıt sağlayıcısıyla (03.6) analizden geçirip `group_upload` →
+SQLite'taki sentetik çalışanlarla sınar. Satır 6b (ad + doğum tarihi, 05.6.2) ayrı dosyadadır
+(`test_name_dob_creation.py`); burada satır 6'nın uymadığı anahtar 6b'ye de bilerek uymaz (doğum
+tarihi okunmamış, okunaklı değil ya da türün zorunlu alanı değil). Entegrasyon testleri sentetik
+PDF'i gerçek render adımlarından ve kayıtlı yanıt sağlayıcısıyla (03.6) analizden geçirip
+`group_upload` →
 `build_person_key` → `match_employee` → `create_employee` zincirini koşar — gerçek kişi/belge yok,
 ağ çağrısı yok.
 """
@@ -64,6 +67,10 @@ CATALOG = load_seed_catalog()
 PASSPORT = CATALOG.get("russian_passport")
 PHOTO = CATALOG.get("profile_picture")
 assert PASSPORT is not None and PHOTO is not None
+# Satır 6b'nin (§20.2.4 koşul 1) dışında kalan tür: doğum tarihi zorunlu alan değil.
+PASSPORT_WITHOUT_DOB = PASSPORT.model_copy(
+    update={"required_fields": tuple(f for f in PASSPORT.required_fields if f != "date_of_birth")}
+)
 TODAY = date(2026, 9, 15)
 UPLOAD_ID = "u_20260915_0001"
 
@@ -82,14 +89,17 @@ def _key(
     given_names: str | None = "TEST",
     surname: str | None = "ORNEKOVA",
     original: str | None = CYRILLIC,
+    born: date | None = BORN,
+    dob_legible: bool = True,
     mrz_allows: bool = True,
     conflicts: tuple[str, ...] = (),
 ) -> PersonKey:
+    # Doğum tarihi `build_person_key`'in okunaklı `fields` okumasından verdiği gibi okunaklıdır.
     named = given_names is not None and surname is not None
     return PersonKey(
         document_numbers=numbers,
         normalized_name=normalize_name(given_names, surname) if named else None,
-        date_of_birth=BORN,
+        date_of_birth=born,
         original_script_name=None if original is None else transliterate_name(original),
         normalized_original_name=None if original is None else normalize_name(original),
         mrz_allows_clean_document_number=mrz_allows,
@@ -98,6 +108,7 @@ def _key(
         given_names=given_names,
         other_names="IVANOVNA",
         nationality="RUS",
+        date_of_birth_legible=born is not None and dob_legible,
     )
 
 
@@ -207,7 +218,7 @@ def test_any_match_verdict_but_no_match_creates_nobody(match: EmployeeMatch) -> 
 @pytest.mark.parametrize(
     "key",
     [
-        _key(numbers=_number(legible=False)),
+        _key(numbers=_number(legible=False), born=None),
         _key(surname=None),
         _key(given_names=None, original=None),
         _key(given_names=LATIN_WITHOUT_SLUG[0], surname=LATIN_WITHOUT_SLUG[1], original=None),
@@ -222,8 +233,8 @@ def test_any_match_verdict_but_no_match_creates_nobody(match: EmployeeMatch) -> 
     ],
 )
 def test_key_without_clean_number_or_folder_name_creates_nobody(key: PersonKey) -> None:
-    # Temiz numara yoksa satır 7–8 (05.7); ad-soyad klasör adı vermiyorsa (D9) ya da Latin yazımı
-    # yoksa (05.2.2) da çalışan açılmaz.
+    # Temiz numara ve doğum tarihi yoksa satır 7–8 (05.7); ad-soyad klasör adı vermiyorsa (D9) ya da
+    # Latin yazımı yoksa (05.2.2) numara temiz olsa da çalışan açılmaz.
     assert not can_create_employee(key, EmployeeMatch(MatchRule.NO_MATCH), entry=PASSPORT)
 
 
@@ -273,7 +284,11 @@ def test_clean_number_without_registered_employee_opens_employee_and_folder(
         2,
         None,
     )
-    assert event.data_json == {"action": "create", "document_type_slug": "russian_passport"}
+    assert event.data_json == {
+        "action": "create",
+        "basis": "document_number",
+        "document_type_slug": "russian_passport",
+    }
 
 
 def test_created_employee_is_found_by_the_following_documents(
@@ -407,10 +422,31 @@ def _nobody(session: Session) -> None:
             PASSPORT,
             "eşleştirme hükmü conflicting_key",
         ),
-        (_nobody, _key(numbers=_number(legible=False)), PASSPORT, "temiz belge numarası yok"),
-        (_nobody, _key(numbers=()), PASSPORT, "temiz belge numarası yok"),
-        (_nobody, _key(mrz_allows=False), PASSPORT, "temiz belge numarası yok"),
-        (_nobody, _key(), PHOTO, "temiz belge numarası yok"),
+        (
+            _nobody,
+            _key(numbers=_number(legible=False), born=None),
+            PASSPORT,
+            "temiz belge numarası yok (§20.2.3) ve doğum tarihi okunmadı",
+        ),
+        (
+            _nobody,
+            _key(numbers=(), dob_legible=False),
+            PASSPORT,
+            "temiz belge numarası yok (§20.2.3) ve doğum tarihi okunaklı okunmadı",
+        ),
+        (
+            _nobody,
+            _key(numbers=(), born=date(2020, 1, 1)),
+            PASSPORT,
+            "doğum tarihi makul yaş doğrulamasından geçmedi",
+        ),
+        (
+            _nobody,
+            _key(mrz_allows=False),
+            PASSPORT_WITHOUT_DOB,
+            "temiz belge numarası yok (§20.2.3) ve doğum tarihi türün zorunlu alanı değil",
+        ),
+        (_nobody, _key(), PHOTO, "doğum tarihi türün zorunlu alanı değil"),
         (_nobody, _key(surname=None), PASSPORT, "ad-soyad okunmadı"),
         (_nobody, replace(_key(), given_names=None), PASSPORT, "ad-soyad okunmadı"),
         (
@@ -436,9 +472,10 @@ def _nobody(session: Session) -> None:
         "number-registered",
         "name-only",
         "conflicting-key",
-        "illegible-number",
-        "no-number",
-        "mrz-check-digits-fail",
+        "illegible-number-without-date-of-birth",
+        "no-number-illegible-date-of-birth",
+        "no-number-implausible-date-of-birth",
+        "mrz-check-digits-fail-date-of-birth-not-required",
         "type-without-number",
         "surname-not-read",
         "given-names-reading-missing-beside-name-key",
@@ -455,17 +492,18 @@ def test_creation_is_refused_without_writing_anything(
     entry: CatalogEntry,
     reason: str,
 ) -> None:
-    # R9: numarasız ya da temiz olmayan numaralı belgeden, eşleşen belgeden çalışan doğmaz.
+    # R9: temiz numarası ve §20.2.4'e uyan doğum tarihi olmayan belgeden, eşleşen belgeden
+    # çalışan doğmaz.
     registered(session)
     before = (_count(session, Employee), _count(session, EmployeeAlias))
 
     with pytest.raises(EmployeeCreationRefusedError) as refused:
-        create_employee(session, layout, key, entry=entry, page_index=0)
+        create_employee(session, layout, key, entry=entry, today=TODAY, page_index=0)
 
     message = str(refused.value)
-    assert message.startswith("Yeni çalışan açılmaz (§20.2.2 satır 6, R9): ")
+    assert message.startswith("Yeni çalışan açılmaz (§20.2.2 satır 6, 6b; R9): ")
     assert reason in message
-    for value in PERSONAL_VALUES:
+    for value in (*PERSONAL_VALUES, "2020-01-01"):
         assert value not in message
     assert (_count(session, Employee), _count(session, EmployeeAlias)) == before
     assert _count(session, EmployeeIdentifier) == (1 if registered is _registered_number else 0)
@@ -591,7 +629,10 @@ def test_s11_recorded_passport_without_registered_employee_opens_employee_and_fo
 
 
 def test_s9_blurred_passport_number_opens_no_employee(session: Session, layout: DataLayout) -> None:
-    # R9: belge numarası okunamayan pasaporttan çalışan doğmaz (satır 7, onay bekleyen profil 05.7).
+    # R9: belge numarası okunamayan pasaporttan satır 6 (temiz numara) çalışan açmaz. Satır 6b
+    # ad + doğum tarihine bakar (`test_name_dob_creation.py`); burada yalnız numara yolu sınanır,
+    # bu yüzden tür doğum tarihini zorunlu tutmaz. Boru hattında S9 zaten Unreadable'dır: zorunlu
+    # numara okunaksız (K1), çalışan kararına inilmez.
     upload = _analyzed_upload(session, layout, "s9_blurred_passport")
     grouping = group_upload(session, upload, catalog=CATALOG, layout=layout)
     (candidate,) = grouping.candidates
@@ -601,9 +642,9 @@ def test_s9_blurred_passport_number_opens_no_employee(session: Session, layout: 
     assert match == EmployeeMatch(MatchRule.NO_MATCH)
     assert key.normalized_name == "ornekova test"
     assert clean_document_number(key, PASSPORT) is None
-    assert not can_create_employee(key, match, entry=PASSPORT)
+    assert not can_create_employee(key, match, entry=PASSPORT_WITHOUT_DOB, today=TODAY)
     with pytest.raises(EmployeeCreationRefusedError, match="temiz belge numarası yok"):
-        create_employee(session, layout, key, entry=PASSPORT)
+        create_employee(session, layout, key, entry=PASSPORT_WITHOUT_DOB, today=TODAY)
     assert _count(session, Employee) == 0
     assert _events(session, EventType.EMPLOYEE_CREATED) == []
     assert _folders(layout) == []

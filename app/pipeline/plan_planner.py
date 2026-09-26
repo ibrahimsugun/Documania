@@ -356,15 +356,20 @@ class _Planner:
             )
             return employee, None
         if match.rule is not MatchRule.NO_MATCH:
-            # Çelişkili anahtar, belirsiz eşleşme, yalnız isim (satır 2, 4, 5).
+            # Çelişkili anahtar, belirsiz eşleşme, yalnız isim (satır 2, 4, 5): yalnız adla eşleşme
+            # yeni çalışan açmaz (R8), satır 6b'ye inilmez.
             return _NO_EMPLOYEE, _verdict_of(match)
-        resolution = resolve_unmatched(key, match, entry=entry)
+        # Satır 6 (temiz numara) ya da 6b (Latin ad-soyad + doğum tarihi, §20.2.4): ikisi de
+        # `employee.action: create`; dayanak `EMPLOYEE_CREATED` verisindedir. Makul yaş partinin
+        # alındığı güne göredir (`dob_plausible` doğrulayıcısıyla aynı gün).
+        resolution = resolve_unmatched(key, match, entry=entry, today=self._today)
         if resolution.rule is UnmatchedRule.CREATE:
             created = create_employee(
                 session,
                 self._layout,
                 key,
                 entry=entry,
+                today=self._today,
                 file_id=first.file_id,
                 page_index=first.index,
             )
@@ -383,7 +388,12 @@ class _Planner:
             return employee, None
         if resolution.rule is UnmatchedRule.PENDING_PROFILE:
             propose_pending_profile(
-                session, key, entry=entry, file_id=first.file_id, page_index=first.index
+                session,
+                key,
+                entry=entry,
+                today=self._today,
+                file_id=first.file_id,
+                page_index=first.index,
             )
         employee = PlanEmployee(action=resolution.action, employee_id=None, matched_by=None)
         return employee, _verdict_of(resolution)

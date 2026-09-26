@@ -85,6 +85,11 @@ NEW = "E0001"
 FOLDER = "Test_Ornekova_E0001"
 # §20.2.3 koşul 2: normalize hâli 5 karakterden kısa numara temiz değildir → satır 7.
 SHORT_NUMBER = "AB12"
+# Doğum tarihini zorunlu tutmayan ehliyet: kısa numaralı kart satır 7'de kalır; tohum ehliyeti
+# doğum tarihini zorunlu tuttuğu için aynı kart satır 6b'yle (§20.2.4) çalışan açardı.
+LICENSE_WITHOUT_DOB = _catalog_with(
+    LICENSE, required_fields=["surname", "given_names", "document_number", "expiry_date"]
+)
 
 
 def _pending(**changes: Any) -> dict[str, Any]:
@@ -316,6 +321,7 @@ def test_blank_page_between_the_faces_stays_out_of_the_approved_output(
             pages=(front, BLANK, _back(LICENSE)),
             content=make_text_pdf_bytes(["EHLIYET ON", "ARA", "EHLIYET ARKA"]),
         ),
+        catalog=LICENSE_WITHOUT_DOB,
     )
     (upload_file,) = upload.files
 

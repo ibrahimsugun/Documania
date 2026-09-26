@@ -80,7 +80,11 @@ yanıtın kendi içeriğinden, deterministik olarak tanınır (`prescreen_escala
 - kimlik anahtarı doğrulanabilir: MRZ varsa ayrıştırılır, her kontrol hanesi tutar ve görünen
   okumayla çelişmez (05.3); MRZ yoksa sayfada belge numarası okunmamıştır — kontrol hanesiyle
   doğrulanamayan numara çalışan eşleştirmesini (K6) ve otomatik profili (K7) belirler, ana modele
-  gider.
+  gider;
+- türün zorunlu alanlarında doğum tarihi varsa sayfada kontrol haneleri tutan MRZ vardır — doğum
+  tarihi eşleştirmeyi (K6, satır 3) ve ad + doğum tarihiyle otomatik profili (K7, §20.2.2 satır 6b,
+  §20.2.4) belirler; MRZ'siz sayfada ucuz modelin doğrulanmamış okuması bu yola dayanak olmaz,
+  sayfa ana modele gider (PLAN.md §C84).
 
 Ucuz model yanıt vermezse ya da yanıtı şemaya uymazsa sayfa da ana modele gider; ön eleme sayfayı
 hiçbir koşulda başarısız yapmaz. Fotoğraf kontrolü (11.7.1) her zaman ana modelle yapılır. Yeniden
@@ -119,7 +123,7 @@ from app.events import (
     event_context,
     record_event,
 )
-from app.matching.match import DOCUMENT_NUMBER
+from app.matching.match import DATE_OF_BIRTH, DOCUMENT_NUMBER
 from app.matching.mrz import MrzStatus, apply_mrz_priority
 from app.pipeline.render import photo_pixel_size
 from app.storage import DataLayout
@@ -148,6 +152,8 @@ class Escalation(enum.StrEnum):
     NOTES = "notes"  # analizci okunaklılık ya da belirsizlik notu yazdı
     MRZ = "mrz"  # MRZ kullanılamıyor, kontrol hanesi tutmuyor ya da görünen okumayla çelişiyor
     UNVERIFIED_NUMBER = "unverified_document_number"  # MRZ'siz belge numarası
+    # Doğum tarihi zorunlu türün MRZ'siz sayfası: satır 6b (§20.2.4) ana modelin okumasına dayanır.
+    UNVERIFIED_DATE_OF_BIRTH = "unverified_date_of_birth"
 
 
 class PageImageError(RuntimeError):
@@ -340,7 +346,7 @@ def prescreen_escalation(
 
     `instructions` isteğin talimatıdır: türün zorunlu alanları onunla aynı katalogdan okunur;
     zorunlu alanları bilinmeyen tür kolay sayılmaz. Gerekçeler bu sırayla denenir: boş,
-    okunamaz, tür, zorunlu alan, not, kimlik anahtarı.
+    okunamaz, tür, zorunlu alan, not, kimlik anahtarı (MRZ, belge numarası, doğum tarihi).
     """
     if analysis.is_blank:
         return Escalation.BLANK
@@ -354,16 +360,19 @@ def prescreen_escalation(
         return Escalation.REQUIRED_FIELDS
     if analysis.notes is not None:
         return Escalation.NOTES
-    return _identity_escalation(analysis)
+    return _identity_escalation(analysis, required)
 
 
-def _identity_escalation(analysis: PageAnalysis) -> Escalation | None:
+def _identity_escalation(analysis: PageAnalysis, required: Sequence[str]) -> Escalation | None:
     resolution = apply_mrz_priority(analysis)
     if resolution.status is MrzStatus.ABSENT:
         number_read = analysis.person.document_number is not None or _reads_legibly(
             analysis, DOCUMENT_NUMBER
         )
-        return Escalation.UNVERIFIED_NUMBER if number_read else None
+        if number_read:
+            return Escalation.UNVERIFIED_NUMBER
+        # §20.2.4 koşul 4: doğum tarihi zorunlu türde MRZ'siz sayfanın tarihi ana modelden gelir.
+        return Escalation.UNVERIFIED_DATE_OF_BIRTH if DATE_OF_BIRTH in required else None
     mrz = resolution.mrz
     if (
         resolution.status is not MrzStatus.READ

@@ -1,6 +1,6 @@
 """Kişi anahtarı, çalışan eşleştirme sırası, otomatik çalışan oluşturma, onay bekleyen profil,
-profil onayı ve alias birikimi — PRD 05.4.1, 05.5.1–05.5.3, 05.6.1, 05.7.1, 05.7.2, 08.3.1, 05.2.2
-(§20.2; K6, K7, K8, K16, R7, R8, R9).
+profil onayı ve alias birikimi — PRD 05.4.1, 05.5.1–05.5.3, 05.6.1, 05.6.2, 05.7.1, 05.7.2, 08.3.1,
+05.2.2 (§20.2; K6, K7, K8, K16, R7, R8, R9).
 
 Bir belge adayının (04.1–04.3) sayfalarından çalışan eşleştirmesinin (05.5) ve profil açmanın
 (05.6, 05.7) okuyacağı tek anahtar üretilir: **belge numaraları**, **normalize ad-soyad**, **doğum
@@ -29,6 +29,9 @@ ibaret numara okuma sayılmaz. Aynı anahtara inen okumalar tek değerdir; farkl
 - Belge numaraları çoğuldur: her farklı numara sayfa sırasıyla kalır. `legible`, numaranın bir
   sayfanın okunaklı `fields` okumasından da geldiğini söyler (§20.2.3 koşul 2'nin okunaklılığı).
 - Ad-soyad, doğum tarihi ve orijinal yazım tekildir: çelişen alan `None` olur.
+- `date_of_birth_legible` tekil doğum tarihinin bir sayfanın okunaklı `fields` okumasından ya da
+  kontrol hanesi tutan MRZ'den geldiğini söyler (§20.2.4 koşul 3); yalnız `person`'dan okunan tarih
+  alan okunaklılığı taşımaz. Eşleştirme (satır 3–5) bu bayrağa bakmaz.
 - Normalize ad-soyad `given_names` ve `surname`'ün ikisi de okunmuşsa üretilir; parçalar adayın
   farklı sayfalarından gelebilir. `other_names` (baba adı, ikinci ad) ad-soyada girmez.
 - Orijinal yazım görüldüğü gibi, ICAO Latin karşılığıyla (`TransliteratedName`, 05.2.1) ve
@@ -69,7 +72,8 @@ sırasıyla karşılaştırır; ilk uyan satır kazanır, alttakilere bakılmaz:
    otomatik eşleştirme sayılmaz, alttaki satırlara da inilmez — yeni çalışan açılmaz.
 
 Hiçbiri uymazsa hüküm `NO_MATCH`'tir: satır 6–8 (yeni çalışan, onay bekleyen profil, kişi tespit
-edilemedi) temiz numara tanımına (§20.2.3) bağlıdır ve `resolve_unmatched`'in kararıdır. Tabloda
+edilemedi) temiz numara (§20.2.3) ve ad + doğum tarihi (§20.2.4) tanımlarına bağlıdır ve
+`resolve_unmatched`'in kararıdır. Tabloda
 karşılığı olmayan **çelişkili anahtar** (`conflicts` dolu: adayın sayfaları bir kimlik alanını
 farklı okuyor) hiçbir satıra girmeden Unresolved'a gider (PLAN.md D8). Karşılaştırma tam eşitliktir:
 numara ve alias'lar yazan adımın (05.6, 05.7.2) §20.2.1 ile normalize ettiği biçimde saklanır. Her
@@ -77,33 +81,49 @@ hüküm olay loguna yazılır — eşleşme `PERSON_MATCHED`, belirsiz eşleşme
 hükümler `PERSON_NOT_MATCHED`; olay kişisel değer taşımaz, yalnız kural, E numaraları ve alan
 adları.
 
-**Otomatik çalışan oluşturma (05.6, R9).** §20.2.2 satır 6 — hiç eşleşme yok **ve** temiz belge
-numarası var — yeni çalışanı ve klasörünü açar. Numara §20.2.3'ün üç koşuluyla temizdir
-(`clean_document_number`): türün `required_fields`'ında `document_number` var, numara okunaklı ve
-normalize hâli en az 5 karakter, MRZ'den geldiyse alan ve bileşik haneleri tutuyor. Klasör adı
-(K8) ad-soyaddan kurulduğu için ad-soyadı okunmamış ya da klasör adına çevrilemeyen anahtardan da
-çalışan açılmaz (PLAN.md D9). `can_create_employee` bu kararı yan etkisiz verir; `create_employee`
-hükmü veritabanında yeniden değerlendirir, satır 6 uymuyorsa hiçbir şey yazmadan reddeder, uyuyorsa
-E numarası verir (K8), çalışan kaydını, isim yazımlarını (`employee_aliases`), temiz numarayı
-(`employee_identifiers`) ve `Employees/<Ad_Soyad_E0001>/` klasörünü açar, `EMPLOYEE_CREATED` yazar.
+**Otomatik çalışan oluşturma (05.6, R9, K7).** Hiç eşleşme yoksa yeni çalışan ve klasörü iki
+dayanaktan biriyle açılır (`CreationBasis`, `EMPLOYEE_CREATED` verisinde `basis`):
+
+- §20.2.2 satır 6 (`document_number`, 05.6.1) — temiz belge numarası var. Numara §20.2.3'ün üç
+  koşuluyla temizdir (`clean_document_number`): türün `required_fields`'ında `document_number` var,
+  numara okunaklı ve normalize hâli en az 5 karakter, MRZ'den geldiyse alan ve bileşik haneleri
+  tutuyor.
+- Satır 6b (`name_dob`, 05.6.2, PLAN.md §C84) — temiz numara yok ama §20.2.4'ün koşulları
+  sağlanıyor: türün `required_fields`'ında `date_of_birth` var (başkasının doğum tarihini taşıyan
+  tür bu yolu kullanmaz; kural türün adına değil zorunlu alanlarına bakar), doğum tarihi okunaklı
+  (`date_of_birth_legible`), anahtarda tek ve sayfalar arasında çelişkisiz, makul yaş
+  doğrulamasından (`dob_plausible`, §20.1.6) geçmiş. Koşul 4 — tarih ucuz ön eleme modelinin
+  doğrulanmamış okuması değil — ön elemenin işidir: doğum tarihi zorunlu türün MRZ'siz sayfası ana
+  modele yükseltilir (`app.pipeline.analyze.prescreen_escalation`, `unverified_date_of_birth`).
+  Satır 6b'de belge numarası hiçbir yere yazılmaz: temiz değildir (D11).
+
+Klasör adı (K8) ad-soyaddan kurulduğu için ikisinde de ad-soyad Latin yazımıyla okunmuş ve klasör
+adı veriyor olmalıdır (05.2.2, PLAN.md D9). `can_create_employee` bu kararı yan etkisiz verir;
+`create_employee` hükmü veritabanında yeniden değerlendirir, satır 6 ya da 6b uymuyorsa hiçbir şey
+yazmadan reddeder, uyuyorsa E numarası verir (K8), çalışan kaydını, isim yazımlarını
+(`employee_aliases`), satır 6'da temiz numarayı (`employee_identifiers`) ve
+`Employees/<Ad_Soyad_E0001>/` klasörünü açar, `EMPLOYEE_CREATED` yazar.
 
 **Onay bekleyen profil (05.7.1, K7).** `resolve_unmatched` `NO_MATCH` hükmünü satır 6–8'e çevirir:
-temiz numara ve klasör adı veren ad-soyad → satır 6 (`create`); temiz numara yok ama ad-soyad klasör
-adı verecek biçimde okunmuş → satır 7 (`pending`, Unresolved, önerilen profil); ne isim ne numara
-okunmuş → satır 8 (`none`, Unresolved). Tabloda karşılığı olmayan eksik kişi — temiz numara var ama
-ad-soyad kullanılamıyor (D9), ya da ad-soyad kullanılamıyor ama bir numara veya isim okunmuş (D10) —
-`none` ile Unresolved'a gider, profil önerilmez. `propose_pending_profile` satır 7'yi veritabanında
-yeniden değerlendirir ve yalnız `EMPLOYEE_PENDING` olayını yazar: çalışan, isim yazımı, numara ve
-klasör onaysız oluşmaz; önerilen profil kuyruk kaydının payload'ına girer (08.1), çalışan onayla
-açılır (08.3).
+temiz numara ve klasör adı veren ad-soyad → satır 6 (`create`); temiz numara yok, klasör adı veren
+ad-soyad ve §20.2.4'e uyan doğum tarihi → satır 6b (`create`); ad-soyad klasör adı verecek biçimde
+okunmuş ama satır 6 ve 6b uymuyor → satır 7 (`pending`, Unresolved, önerilen profil); ne isim ne
+numara okunmuş → satır 8 (`none`, Unresolved). Tabloda karşılığı olmayan eksik kişi — temiz numara
+var ama ad-soyad kullanılamıyor (D9), ya da ad-soyad kullanılamıyor ama bir numara veya isim
+okunmuş (D10) — `none` ile Unresolved'a gider, profil önerilmez. `propose_pending_profile` satır
+7'yi veritabanında yeniden değerlendirir ve yalnız `EMPLOYEE_PENDING` olayını yazar: çalışan, isim
+yazımı, numara ve klasör onaysız oluşmaz; önerilen profil kuyruk kaydının payload'ına girer (08.1),
+çalışan onayla açılır (08.3).
 
 **Profil onayı (08.3.1, K16).** `approve_pending_profile` satır 7'yi onay anında veritabanında
 yeniden değerlendirir — öneriden sonra kişi kayıtlı bir çalışanla eşleşiyorsa (ör. aynı kişinin
 öteki belgesi onaylandı) ikinci çalışan açılmaz — ve uyuyorsa önerilen profilden çalışanı açar:
-satır 6'nın (`create_employee`) yazdıklarının hepsi, temiz olmayan belge numarası hariç. İK önerinin
-çalışan kaydına yazılacak alanlarını (`ProfileFields`) onaydan önce düzeltebilir (10.7.3): düzeltme
-yalnız çalışan kaydını değiştirir, belge içeriğini ve okumalarını değil (K17); düzeltilmiş ad ya da
-doğum tarihi kayıtlı bir çalışana uyuyorsa (satır 3–5) ikinci çalışan açılmaz.
+satır 6'nın (`create_employee`) yazdıklarının hepsi, temiz olmayan belge numarası hariç. Satır
+6b'nin (05.6.2) gelmesinden önce kuyruğa düşmüş öneri geriye dönük açılmaz ama onaylanabilir:
+anahtarı bugün satır 6b'ye uyan öneri satır 7 gibi onaylanır (PLAN.md §C84). İK önerinin çalışan
+kaydına yazılacak alanlarını (`ProfileFields`) onaydan önce düzeltebilir (10.7.3): düzeltme yalnız
+çalışan kaydını değiştirir, belge içeriğini ve okumalarını değil (K17); düzeltilmiş ad ya da doğum
+tarihi kayıtlı bir çalışana uyuyorsa (satır 3–5) ikinci çalışan açılmaz.
 
 **Alias ve numara birikimi (05.7.2).** Satır 1 ve 3'teki eşleşmede `accumulate_identity` belgedeki
 yeni isim yazımlarını `employee_aliases`'a, yeni belge numarasını `employee_identifiers`'a ekler.
@@ -189,7 +209,8 @@ class PersonKey:
     `given_names`, `other_names` belgedeki okumadır, yazıldığı alfabede (isim yazımı, 05.7.2).
     `latin_*` aynı parçanın Latin yazımıdır (05.2.2, `latin_person_name`): yeni çalışan kaydına
     (05.6) bunlar yazılır; Latin yazım yoksa `None`. Latin okuma kendi Latin yazımıdır: `latin_*`
-    verilmezse Latin harfli okuma oraya da yazılır.
+    verilmezse Latin harfli okuma oraya da yazılır. `date_of_birth_legible` yalnız satır 6b'nin
+    (§20.2.4) koşuludur; verilmezse tarih okunaklı sayılmaz ve ad + doğum tarihiyle çalışan açılmaz.
     """
 
     document_numbers: tuple[DocumentNumberKey, ...]
@@ -206,6 +227,7 @@ class PersonKey:
     latin_surname: str | None = None
     latin_given_names: str | None = None
     latin_other_names: str | None = None
+    date_of_birth_legible: bool = False
 
     def __post_init__(self) -> None:
         for name, latin_name in _LATIN_FIELDS.items():
@@ -311,6 +333,8 @@ def build_person_key(analyses: Iterable[PageAnalysis], *, today: date | None = N
         latin_surname=latin[SURNAME],
         latin_given_names=latin[GIVEN_NAMES],
         latin_other_names=latin[OTHER_NAMES],
+        date_of_birth_legible=_legible_single(births)
+        or (len(births) == 1 and any(_mrz_carries(page, DATE_OF_BIRTH) for page in pages)),
     )
 
 
@@ -448,6 +472,11 @@ def _single[K](collected: dict[K, _Reading]) -> K | None:
 def _single_reading[K](collected: dict[K, _Reading]) -> str | None:
     # Tekil alanın anahtara inen ilk okuması, yazıldığı gibi.
     return str(next(iter(collected.values())).raw) if len(collected) == 1 else None
+
+
+def _legible_single[K](collected: dict[K, _Reading]) -> bool:
+    # Tekil alan bir sayfanın okunaklı `fields` okumasından da geldi.
+    return len(collected) == 1 and next(iter(collected.values())).legible
 
 
 # --- çalışan eşleştirme sırası (05.5) ------------------------------------------------------
@@ -651,10 +680,22 @@ def _employee_ids(ids: Iterable[str]) -> tuple[str, ...]:
 
 # §20.2.3 koşul 2: normalize numara en az bu kadar karakterdir.
 CLEAN_DOCUMENT_NUMBER_MIN_LENGTH = 5
+# §20.1.6 makul yaş (`dob_plausible`, 06.5.1): tamamlanmış yıl, iki uç dahil. Doğrulayıcı
+# (`app.pipeline.validate`) ve satır 6b (§20.2.4 koşul 3) aynı ölçüyü kullanır.
+MIN_AGE = 16
+MAX_AGE = 90
+
+
+class CreationBasis(enum.StrEnum):
+    """Otomatik yeni çalışanın açılış dayanağı: `EMPLOYEE_CREATED` verisinde `basis` (§8.3)."""
+
+    DOCUMENT_NUMBER = "document_number"  # §20.2.2 satır 6, 05.6.1
+    NAME_DOB = "name_dob"  # §20.2.2 satır 6b, 05.6.2
 
 
 class EmployeeCreationRefusedError(ValueError):
-    """`create_employee` §20.2.2 satır 6'nın uymadığı anahtarla çağrıldı (R9); hiçbir şey yazılmadı.
+    """`create_employee` §20.2.2 satır 6 ve 6b'nin uymadığı anahtarla çağrıldı (R9); hiçbir şey
+    yazılmadı.
 
     Mesaj yalnız ret gerekçesini taşır (hüküm, koşul), kişisel değer taşımaz.
     """
@@ -670,8 +711,25 @@ class _ProfileName:
 
 @dataclass(frozen=True, slots=True)
 class _NewEmployee:
-    document_number: str
+    # Satır 6'da temiz numara, satır 6b'de `None`: temiz olmayan numara yazılmaz (D11).
+    document_number: str | None
     name: _ProfileName
+    basis: CreationBasis
+
+
+def dob_plausible(date_of_birth: date, *, today: date) -> bool:
+    """§20.1.6: doğum tarihi `today`'den önce ve o gün 16–90 yaşta (tamamlanmış yıl, iki uç dahil).
+
+    `today` referans gündür — planda partinin alındığı gün (06.1.2). Doğrulayıcı `dob_plausible`
+    (06.5.1) ve satır 6b (§20.2.4) bu ölçüyü kullanır.
+    """
+    return date_of_birth < today and MIN_AGE <= _age(date_of_birth, today) <= MAX_AGE
+
+
+def _age(date_of_birth: date, today: date) -> int:
+    # Tamamlanmış yıl: yıl dönümü `today`'e gelmemişse bir eksik (29 Şubat'ta doğan 28 Şubat'ta).
+    birthday_ahead = (today.month, today.day) < (date_of_birth.month, date_of_birth.day)
+    return today.year - date_of_birth.year - birthday_ahead
 
 
 def clean_document_number(key: PersonKey, entry: CatalogEntry) -> str | None:
@@ -691,10 +749,14 @@ def clean_document_number(key: PersonKey, entry: CatalogEntry) -> str | None:
     return number.value if key.mrz_allows_clean_document_number else None
 
 
-def can_create_employee(key: PersonKey, match: EmployeeMatch, *, entry: CatalogEntry) -> bool:
-    """§20.2.2 satır 6 uyuyor mu: `match` hiç eşleşme bulmadı, numara temiz, ad-soyad klasör adı
-    verecek biçimde okunmuş (D9). Yan etkisizdir; `employee.action: create` kararı budur."""
-    return not isinstance(_new_employee(key, match, entry), str)
+def can_create_employee(
+    key: PersonKey, match: EmployeeMatch, *, entry: CatalogEntry, today: date | None = None
+) -> bool:
+    """§20.2.2 satır 6 ya da 6b uyuyor mu: `match` hiç eşleşme bulmadı, numara temiz ya da doğum
+    tarihi §20.2.4'e uyuyor, ad-soyad klasör adı verecek biçimde Latin okunmuş (05.2.2, D9). Yan
+    etkisizdir; `employee.action: create` kararı budur. `today` doğum tarihinin makul yaş
+    doğrulamasının referans günüdür (`dob_plausible`), verilmezse bugündür."""
+    return not isinstance(_new_employee(key, match, entry, today=today), str)
 
 
 def create_employee(
@@ -703,30 +765,37 @@ def create_employee(
     key: PersonKey,
     *,
     entry: CatalogEntry,
+    today: date | None = None,
     file_id: int | None = None,
     page_index: int | None = None,
 ) -> Employee:
-    """§20.2.2 satır 6: temiz belge numaralı, kayıtlı çalışanla eşleşmeyen anahtardan yeni çalışan
-    ve klasörünü açar (05.6.1, R9, K7).
+    """§20.2.2 satır 6 ya da 6b: kayıtlı çalışanla eşleşmeyen anahtardan temiz belge numarasıyla
+    (05.6.1) ya da Latin ad-soyad ve doğum tarihiyle (05.6.2, §20.2.4) yeni çalışan ve klasörünü
+    açar (R9, K7).
 
     Hüküm çağıranın elindeki eşleştirmeye güvenilmeden veritabanında yeniden değerlendirilir (olay
-    yazılmaz): satır 6 uymuyorsa `EmployeeCreationRefusedError` — kayıt, klasör ve olay yazılmaz.
-    Uyuyorsa aynı işlemde:
+    yazılmaz): satır 6 ve 6b uymuyorsa `EmployeeCreationRefusedError` — kayıt, klasör ve olay
+    yazılmaz. `today` doğum tarihinin makul yaş doğrulamasının referans günüdür (planda partinin
+    alındığı gün), verilmezse bugündür. Uyuyorsa aynı işlemde:
 
     - `allocate_employee_number` ile E numarası (K8) ve `Ad_Soyad_E0001` klasör adı,
     - `employees` satırı `PersonKey.employee_fields()` okumalarıyla,
     - `employee_aliases`: `Ad Soyad` yazımı ve varsa orijinal yazım, anahtarın normalize değeriyle
       (aynı yazım bir kez), `script` yazımın alfabesiyle (`detect_script`, 05.8.3),
-    - `employee_identifiers`: temiz numara §20.2.1 normalize değeriyle, `kind` türün slug'ı,
+    - `employee_identifiers`: yalnız satır 6'da, temiz numara §20.2.1 normalize değeriyle, `kind`
+      türün slug'ı; satır 6b'de numara hiçbir yere yazılmaz (temiz değildir, D11),
     - `Employees/<klasör>/Alinan/` ve `Hazir/` dizinleri,
-    - `EMPLOYEE_CREATED` olayı (`employee_id` sütunu; veri `action`, `document_type_slug`).
+    - `EMPLOYEE_CREATED` olayı (`employee_id` sütunu; veri `action`, `basis` — `CreationBasis` —
+      ve `document_type_slug`).
 
     `file_id`/`page_index` olayın yeridir (adayın ilk sayfası); verilmezse etkin `event_context`ten
     alınır. Oturum commit edilmez; dizin işlem geri alınsa da diskte kalır (boş klasör).
     """
-    new = _new_employee(key, _decide(session, key), entry)
+    new = _new_employee(key, _decide(session, key), entry, today=today)
     if isinstance(new, str):
-        raise EmployeeCreationRefusedError(f"Yeni çalışan açılmaz (§20.2.2 satır 6, R9): {new}.")
+        raise EmployeeCreationRefusedError(
+            f"Yeni çalışan açılmaz (§20.2.2 satır 6, 6b; R9): {new}."
+        )
     employee_id = allocate_employee_number(session)
     folder_name = employee_folder_name(new.name.given_names, new.name.surname, employee_id)
     employee = Employee(id=employee_id, folder_name=folder_name, **key.employee_fields())
@@ -740,7 +809,10 @@ def create_employee(
                 script=detect_script(raw_name),
             )
         )
-    session.add(EmployeeIdentifier(employee=employee, kind=entry.slug, value=new.document_number))
+    if new.document_number is not None:
+        session.add(
+            EmployeeIdentifier(employee=employee, kind=entry.slug, value=new.document_number)
+        )
     session.flush()
     layout.ensure_employee_tree(folder_name)
     record_event(
@@ -749,21 +821,49 @@ def create_employee(
         file_id=file_id,
         page_index=page_index,
         employee_id=employee_id,
-        data={"action": EmployeeAction.CREATE.value, "document_type_slug": entry.slug},
+        data={
+            "action": EmployeeAction.CREATE.value,
+            "basis": new.basis.value,
+            "document_type_slug": entry.slug,
+        },
     )
     return employee
 
 
-def _new_employee(key: PersonKey, match: EmployeeMatch, entry: CatalogEntry) -> _NewEmployee | str:
-    # Satır 6 uyuyorsa açılacak çalışanın zorunlu değerleri, uymuyorsa kişisel değer taşımayan
-    # ret gerekçesi.
+def _new_employee(
+    key: PersonKey, match: EmployeeMatch, entry: CatalogEntry, *, today: date | None
+) -> _NewEmployee | str:
+    # Satır 6 ya da 6b uyuyorsa açılacak çalışanın zorunlu değerleri ve dayanağı, uymuyorsa kişisel
+    # değer taşımayan ret gerekçesi. Temiz numara önce gelir (satır 6), ad + doğum tarihi sonra.
     if match.rule is not MatchRule.NO_MATCH:
         return f"eşleştirme hükmü {match.rule.value}"
     number = clean_document_number(key, entry)
     if number is None:
-        return "temiz belge numarası yok (§20.2.3)"
+        problem = _name_dob_problem(key, entry, today=today)
+        if problem is not None:
+            return f"temiz belge numarası yok (§20.2.3) ve {problem} (§20.2.4)"
     name = _profile_name(key)
-    return name if isinstance(name, str) else _NewEmployee(number, name)
+    if isinstance(name, str):
+        return name
+    if number is None:
+        return _NewEmployee(None, name, CreationBasis.NAME_DOB)
+    return _NewEmployee(number, name, CreationBasis.DOCUMENT_NUMBER)
+
+
+def _name_dob_problem(key: PersonKey, entry: CatalogEntry, *, today: date | None) -> str | None:
+    # §20.2.4 koşul 1 ve 3; uyuyorsa `None`, uymuyorsa kişisel değer taşımayan sorun. Koşul 2
+    # (Latin ad-soyad) `_profile_name`'in, koşul 4 (ucuz modelin doğrulanmamış okuması dayanak
+    # olmaz) ön elemenin işidir (`unverified_date_of_birth`).
+    if DATE_OF_BIRTH not in entry.required_fields:
+        return "doğum tarihi türün zorunlu alanı değil"
+    born = key.date_of_birth
+    if born is None or DATE_OF_BIRTH in key.conflicts:
+        return "doğum tarihi okunmadı ya da sayfalar arasında çelişiyor"
+    if not key.date_of_birth_legible:
+        return "doğum tarihi okunaklı okunmadı"
+    if not dob_plausible(born, today=date.today() if today is None else today):
+        return "doğum tarihi makul yaş doğrulamasından geçmedi (dob_plausible)"
+    return None
 
 
 def _profile_name(key: PersonKey) -> _ProfileName | str:
@@ -800,15 +900,16 @@ def _spellings(key: PersonKey) -> dict[str, str]:
 class UnmatchedRule(enum.StrEnum):
     """`NO_MATCH` hükmünün §20.2.2 satır 6–8 karşılığı ya da tablo dışı eksik kişi (D9, D10)."""
 
-    CREATE = "create"  # satır 6
+    CREATE = "create"  # satır 6 ve 6b; dayanak `UnmatchedResolution.basis`
     PENDING_PROFILE = "pending_profile"  # satır 7
     NO_PERSON = "no_person"  # satır 8
     INCOMPLETE_PERSON = "incomplete_person"  # tabloda yok: D9, D10
 
 
 PENDING_PROFILE_REASON = (
-    "Onay bekleyen profil: kayıtlı çalışanla eşleşme yok ve temiz belge numarası yok (§20.2.3). "
-    "Yeni çalışan yalnız onayla açılır (K7)."
+    "Onay bekleyen profil: kayıtlı çalışanla eşleşme yok, temiz belge numarası yok (§20.2.3) ve "
+    "doğum tarihi yeni çalışan açmaya yetmiyor (§20.2.4: türün zorunlu alanı değil, okunmadı, "
+    "sayfalar arasında çelişiyor ya da doğrulanmadı). Yeni çalışan yalnız onayla açılır (K7)."
 )
 # 05.2.2: ad-soyad okundu ama Latin yazımı ne belgede basılı, ne MRZ'de var, ne Kiril çevirisiyle
 # bulunuyor; temiz numara olsa da çalışan otomatik açılmaz.
@@ -889,15 +990,17 @@ class UnmatchedResolution:
     """`NO_MATCH` hükmünün satır 6–8 kararı (05.6, 05.7.1); `EmployeeMatch` ile aynı `action`,
     `queue` ve `reason` okumalarını verir.
 
+    `basis` yalnız `create`'te doludur: satır 6 (`document_number`) ya da 6b (`name_dob`).
     `proposed_profile` yalnız satır 7'de doludur. `detail` eksik kişide okunamayanı söyler
     (kişisel değer yok). `latin_missing` satır 7'nin Latin yazımı olmayan öneriyle verildiğini
-    söyler (05.2.2): temiz numara olsa da çalışan otomatik açılmaz.
+    söyler (05.2.2): temiz numara ya da doğum tarihi olsa da çalışan otomatik açılmaz.
     """
 
     rule: UnmatchedRule
     proposed_profile: ProposedProfile | None = None
     detail: str | None = None
     latin_missing: bool = False
+    basis: CreationBasis | None = None
 
     @property
     def action(self) -> EmployeeAction:
@@ -911,7 +1014,8 @@ class UnmatchedResolution:
 
     @property
     def queue(self) -> QueueKind | None:
-        """Satır 6 Hazir'a gider (`None`); onay bekleyen profil ve kişisiz belge Unresolved'a."""
+        """Satır 6 ve 6b Hazir'a gider (`None`); onay bekleyen profil ve kişisiz belge
+        Unresolved'a."""
         return None if self.rule is UnmatchedRule.CREATE else QueueKind.UNRESOLVED
 
     @property
@@ -933,15 +1037,19 @@ class UnmatchedResolution:
 
 
 def resolve_unmatched(
-    key: PersonKey, match: EmployeeMatch, *, entry: CatalogEntry
+    key: PersonKey, match: EmployeeMatch, *, entry: CatalogEntry, today: date | None = None
 ) -> UnmatchedResolution:
     """§20.2.2 satır 6–8: hiç eşleşme bulunmayan anahtarın çalışan kararını verir (yan etkisiz).
 
-    - Satır 6 (`create`): temiz numara (§20.2.3) ve klasör adı veren ad-soyad
-      (`can_create_employee`).
-    - Satır 7 (`pending`, Unresolved): temiz numara yok, ad-soyad klasör adı verecek biçimde
-      okunmuş; önerilen profil kararın içindedir. Ad-soyad okunmuş ama Latin yazımı yoksa
-      (05.2.2) numara temiz olsa da satır 7'dir: öneride ad ve soyad boştur, İK onayda yazar.
+    - Satır 6 (`create`, `basis: document_number`): temiz numara (§20.2.3) ve klasör adı veren
+      Latin ad-soyad (`can_create_employee`).
+    - Satır 6b (`create`, `basis: name_dob`, 05.6.2): temiz numara yok, klasör adı veren Latin
+      ad-soyad ve §20.2.4'e uyan doğum tarihi — türün zorunlu alanı, okunaklı, anahtarda tek,
+      sayfalar arasında çelişkisiz, `today`e göre makul yaş (`dob_plausible`; verilmezse bugün).
+    - Satır 7 (`pending`, Unresolved): ad-soyad klasör adı verecek biçimde okunmuş ama satır 6 ve
+      6b uymuyor; önerilen profil kararın içindedir. Ad-soyad okunmuş ama Latin yazımı yoksa
+      (05.2.2) numara temiz ya da doğum tarihi uygun olsa da satır 7'dir: öneride ad ve soyad
+      boştur, İK onayda yazar.
     - Satır 8 (`none`, Unresolved): ne ad ya da soyad parçası, ne orijinal yazım, ne belge numarası
       okunmuş.
     - Eksik kişi (`none`, Unresolved; tabloda yok): temiz numara var ama ad-soyad okunmamış ya da
@@ -958,8 +1066,9 @@ def resolve_unmatched(
     number = clean_document_number(key, entry)
     name = _profile_name(key)
     if not isinstance(name, str):
-        if number is not None:
-            return UnmatchedResolution(UnmatchedRule.CREATE)
+        new = _new_employee(key, match, entry, today=today)
+        if not isinstance(new, str):
+            return UnmatchedResolution(UnmatchedRule.CREATE, basis=new.basis)
         return UnmatchedResolution(UnmatchedRule.PENDING_PROFILE, _proposed_profile(key, name))
     if name == LATIN_MISSING:
         return UnmatchedResolution(
@@ -984,22 +1093,24 @@ def propose_pending_profile(
     key: PersonKey,
     *,
     entry: CatalogEntry,
+    today: date | None = None,
     file_id: int | None = None,
     page_index: int | None = None,
 ) -> ProposedProfile:
-    """§20.2.2 satır 7: temiz numarası olmayan, kayıtlı çalışanla eşleşmeyen anahtarın profilini
+    """§20.2.2 satır 7: kayıtlı çalışanla eşleşmeyen, satır 6 ve 6b'ye uymayan anahtarın profilini
     onaya önerir (05.7.1, K7).
 
-    Hüküm veritabanında olaysız yeniden değerlendirilir: satır 7 uymuyorsa (eşleşme var, satır 6,
-    satır 8 ya da eksik kişi) `PendingProfileRefusedError` — hiçbir şey yazılmaz. Uyuyorsa yalnız
-    `EMPLOYEE_PENDING` olayı yazılır (veri `action`, `queue`, `document_type_slug`; mesaj gerekçe;
-    kişisel değer yok). Çalışan, isim yazımı, numara ve klasör yazılmaz — onaysız çalışan oluşmaz.
-    Kuyruk kaydı (08.1) ve onay (08.3) sonraki adımlardır. Oturum commit edilmez.
+    Hüküm veritabanında olaysız yeniden değerlendirilir (`today` `resolve_unmatched`'inki): satır 7
+    uymuyorsa (eşleşme var, satır 6, 6b, satır 8 ya da eksik kişi) `PendingProfileRefusedError` —
+    hiçbir şey yazılmaz. Uyuyorsa yalnız `EMPLOYEE_PENDING` olayı yazılır (veri `action`, `queue`,
+    `document_type_slug`; mesaj gerekçe; kişisel değer yok). Çalışan, isim yazımı, numara ve klasör
+    yazılmaz — onaysız çalışan oluşmaz. Kuyruk kaydı (08.1) ve onay (08.3) sonraki adımlardır.
+    Oturum commit edilmez.
     """
     match = _decide(session, key)
     if match.rule is not MatchRule.NO_MATCH:
         raise _pending_refused(f"eşleştirme hükmü {match.rule.value}")
-    resolution = resolve_unmatched(key, match, entry=entry)
+    resolution = resolve_unmatched(key, match, entry=entry, today=today)
     profile = resolution.proposed_profile
     if profile is None:
         raise _pending_refused(f"satır 6–8 kararı {resolution.rule.value}")
@@ -1022,6 +1133,16 @@ def _pending_refused(verdict: str) -> PendingProfileRefusedError:
     return PendingProfileRefusedError(
         f"Onay bekleyen profil önerilmez (§20.2.2 satır 7, K7): {verdict}."
     )
+
+
+def _approvable_profile(key: PersonKey, resolution: UnmatchedResolution) -> ProposedProfile | None:
+    # Onayın okuyacağı öneri: satır 7'ninki. Satır 6b'nin (05.6.2) gelmesinden önce kuyruğa düşmüş
+    # öneri geriye dönük açılmaz ama onaylanabilir: anahtarı bugün 6b'ye uyan öneri satır 7 gibi
+    # onaylanır (§C84); numara yine yazılmaz. Satır 6 (temiz numara) öneri vermez.
+    if resolution.proposed_profile is not None or resolution.basis is not CreationBasis.NAME_DOB:
+        return resolution.proposed_profile
+    name = _profile_name(key)
+    return None if isinstance(name, str) else _proposed_profile(key, name)
 
 
 def _proposed_profile(key: PersonKey, name: _ProfileName | None) -> ProposedProfile:
@@ -1170,7 +1291,8 @@ def review_pending_profile(
     yazılmaz.
 
     Satır 7 veritabanında yeniden değerlendirilir; artık uymuyorsa (kişi kayıtlı bir çalışanla
-    eşleşiyor, satır 6, satır 8 ya da eksik kişi) `ProfileApprovalRefusedError`. `fields` İK'nın
+    eşleşiyor, satır 6, satır 8 ya da eksik kişi) `ProfileApprovalRefusedError`. Anahtarı bugün
+    satır 6b'ye uyan öneri (05.6.2'den önce kuyruğa düşmüş) satır 7 gibi onaylanır. `fields` İK'nın
     düzelttiği profildir: `check_profile_fields`'tan geçmezse `ProfileFieldsError`, çalışana
     yazılacak yazımlar doğum tarihiyle kayıtlı bir çalışana uyuyorsa (satır 3–5; hükmün dayandığı
     E numaralarıyla) `ProfileApprovalRefusedError`. Panel öneriyi ve düzeltmeyi onaydan önce bununla
@@ -1184,7 +1306,7 @@ def review_pending_profile(
     if match.rule is not MatchRule.NO_MATCH:
         raise _approval_refused(f"eşleştirme hükmü {match.rule.value}")
     resolution = resolve_unmatched(key, match, entry=entry)
-    profile = resolution.proposed_profile
+    profile = _approvable_profile(key, resolution)
     if profile is None:
         raise _approval_refused(f"satır 6–8 kararı {resolution.rule.value}")
     confirmed = profile.fields() if fields is None else fields

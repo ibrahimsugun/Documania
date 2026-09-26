@@ -40,7 +40,7 @@ from PIL import Image, ImageDraw
 from pypdf import PdfWriter
 
 from app.ai.recording_provider import RecordingProvider
-from app.catalog import load_seed_catalog
+from app.catalog import CatalogEntry, load_seed_catalog
 from app.catalog.photo_rules import RESOLUTION_RULE, enabled_photo_rules
 
 A4 = (595.0, 842.0)
@@ -726,6 +726,45 @@ def work_permit_page(
         blurred=blurred,
         language="sr",
         script="latin",
+    )
+
+
+# S19 (05.6.2, §20.2.4): numarasız tür — zorunlu alanları ad, soyad, doğum tarihi. Tohum katalogda
+# yoktur; testler `employment_contract_entry()` ile kataloğa ekler.
+EMPLOYMENT_CONTRACT = "employment_contract"
+EMPLOYMENT_CONTRACT_FIELDS = ("surname", "given_names", "date_of_birth")
+
+
+def employment_contract_entry(**changes: Any) -> CatalogEntry:
+    """S19'un numarasız türü; çalışma izninin kaydından türetilir (tek sayfa, PDF)."""
+    permit = CATALOG.get("work_permit")
+    assert permit is not None
+    return permit.model_copy(
+        update={
+            "slug": EMPLOYMENT_CONTRACT,
+            "name": "Employment Contract",
+            "file_label": "Employment Contract",
+            "description": "İşverenle imzalanmış iş sözleşmesi.",
+            "required_fields": EMPLOYMENT_CONTRACT_FIELDS,
+            "prompt_description": "İş sözleşmesi; çalışanın soyadı, adı ve doğum tarihi yazılıdır.",
+            **changes,
+        }
+    )
+
+
+def employment_contract_page(
+    person: SyntheticPerson, *, blurred: Iterable[str] = ()
+) -> SyntheticPage:
+    """Tek sayfalı iş sözleşmesi: ad, soyad, doğum tarihi; belge numarası ve MRZ yok (S19)."""
+    return document_page(
+        EMPLOYMENT_CONTRACT,
+        title="UGOVOR O RADU / EMPLOYMENT CONTRACT",
+        person=person,
+        shows=("surname", "given_names", "date_of_birth"),
+        blurred=blurred,
+        language="sr",
+        script="latin",
+        required_fields=EMPLOYMENT_CONTRACT_FIELDS,
     )
 
 

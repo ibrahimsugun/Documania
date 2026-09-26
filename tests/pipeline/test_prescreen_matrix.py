@@ -2,16 +2,19 @@
 
 Test matrisi PRD §9 kabul senaryolarının partileridir (S1 pasaport, S3 araya girmiş sayfalar, S4
 art arda üç belge ve fotoğraf, S5 ön/arka görüntü, yeni çalışan, katalog dışı tür, okunamayan
-alan). Her parti önce ön elemesiz (yalnız ana model), sonra ucuz model ön elemesiyle baştan sona
-işlenir (`process_upload`: render → analiz → plan → uygulama) ve sonuçlar karşılaştırılır: sayfa
-analizleri, plan öğeleri, çıktı dosyaları (bayt bayt), kuyruk, çalışanlar ve belge numaraları
-aynı olmalıdır. Her koşu ayrı veritabanı ve veri dizinindedir.
+alan, S19 ad + doğum tarihiyle yeni çalışan). Her parti önce ön elemesiz (yalnız ana model), sonra
+ucuz model ön elemesiyle baştan sona işlenir (`process_upload`: render → analiz → plan → uygulama)
+ve sonuçlar karşılaştırılır: sayfa analizleri, plan öğeleri, çıktı dosyaları (bayt bayt), kuyruk,
+çalışanlar ve belge numaraları aynı olmalıdır. Her koşu ayrı veritabanı ve veri dizinindedir.
 
 Ucuz model birkaç davranışla denenir: ana modelle aynı okuyan (kolay sayfalar onda kalır), belge
-numarasını ya da MRZ'yi yanlış okuyan, her sayfaya not yazan, sayfayı okunamaz ya da boş diyen ve
-şemaya uymayan yanıt veren. Yanlış okuduğu hiçbir değer sonuca sızmamalı: kolay sayfa ölçütü
-(`prescreen_escalation`) o sayfaları ana modele göndermeli. Sağlayıcılar ağ çağrısı yapmaz; iki
-model aynı kayıtlı yanıtlardan (`tests/fixtures/gen.py`'nin sentetik sayfaları) okur.
+numarasını, doğum tarihini ya da MRZ'yi yanlış okuyan, her sayfaya not yazan, sayfayı okunamaz ya
+da boş diyen ve şemaya uymayan yanıt veren. Doğum tarihi satır 6b'de (§20.2.4) yeni çalışan açtığı
+için doğum tarihi zorunlu türün MRZ'siz sayfası kolay değildir (`unverified_date_of_birth`, §C84):
+S19'un iş sözleşmesi hep ana modele gider, yanlış okunan tarih hayalet çalışan açamaz. Yanlış
+okuduğu hiçbir değer sonuca sızmamalı: kolay sayfa ölçütü (`prescreen_escalation`) o sayfaları ana
+modele göndermeli. Sağlayıcılar ağ çağrısı yapmaz; iki model aynı kayıtlı yanıtlardan
+(`tests/fixtures/gen.py`'nin sentetik sayfaları) okur.
 """
 
 from __future__ import annotations
@@ -30,7 +33,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.ai import AnalysisProvider, PageAnalysisRequest, PhotoCheckRequest
-from app.catalog import export_catalog, import_catalog, load_seed_catalog
+from app.catalog import Catalog, export_catalog, import_catalog, load_seed_catalog
 from app.config import Settings
 from app.db.models import (
     Base,
@@ -58,6 +61,8 @@ from tests.fixtures.gen import (
     SyntheticPerson,
     batch_responses,
     driving_license_pages,
+    employment_contract_entry,
+    employment_contract_page,
     make_document_pdf_bytes,
     make_page_image_bytes,
     passport_page,
@@ -68,7 +73,8 @@ from tests.fixtures.gen import (
 )
 from tests.test_scenarios_s01_s05 import _register_employee
 
-CATALOG = load_seed_catalog()
+# Tohum katalog ve S19'un numarasız türü (zorunlu alanları ad, soyad, doğum tarihi).
+CATALOG = Catalog((*load_seed_catalog(), employment_contract_entry()))
 SETTINGS = Settings(_env_file=None, database_url="sqlite://")
 UPLOAD_ID = "u_20260919_0088"
 MAIN, CHEAP = "ana-model", "ucuz-model"
@@ -170,6 +176,17 @@ def _misreads_mrz(answer: dict[str, Any]) -> object:
     return answer
 
 
+def _misreads_birth_dates(answer: dict[str, Any]) -> object:
+    # Görünen doğum tarihi başka bir gün; MRZ olduğu gibi.
+    wrong = "1970-06-15"
+    if answer["person"]["date_of_birth"] is not None:
+        answer["person"]["date_of_birth"] = wrong
+    reading = answer["fields"].get("date_of_birth")
+    if reading is not None and reading["legible"]:
+        reading["value"] = wrong
+    return answer
+
+
 def _notes_everything(answer: dict[str, Any]) -> object:
     answer["notes"] = "Görüntü bulanık, alanlar tereddütlü."
     return answer
@@ -193,6 +210,7 @@ READINGS: dict[str, Reading] = {
     "ayni": _same,
     "numara-yanlis": _misreads_numbers,
     "mrz-yanlis": _misreads_mrz,
+    "dogum-yanlis": _misreads_birth_dates,
     "not": _notes_everything,
     "okunamaz": _unreadable,
     "bos": _blank,
@@ -209,6 +227,8 @@ def _stays_cheap(reading: str, answer: dict[str, Any], easy: bool) -> bool:
         return easy and answer["person"]["document_number"] is None
     if reading == "mrz-yanlis":
         return easy and answer["person"]["mrz_lines"] is None
+    if reading == "dogum-yanlis":
+        return easy and answer["person"]["date_of_birth"] is None
     return False
 
 
@@ -327,6 +347,13 @@ def _batches() -> dict[str, Batch]:
             ),
             registered=(ORNEKOVA,),
             easy=(False, False),
+        ),
+        # S19: numarasız belge, ad + doğum tarihi → yeni çalışan (satır 6b). MRZ yok, doğum tarihi
+        # zorunlu: sayfa kolay değildir (`unverified_date_of_birth`).
+        "s19-ad-dogum-tarihi": Batch(
+            files=(("sozlesme.pdf", (employment_contract_page(PERSON_PRUEBA),), "pdf"),),
+            registered=(),
+            easy=(False,),
         ),
     }
 
