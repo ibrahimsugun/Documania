@@ -1697,21 +1697,21 @@
         "description": "PRD 11.9.5 · FR-MOD-11 · Faz 1 · Must (v1). İnsan kararı (2026-09-26): eğitim sayfasında \"Harita yükle\" ile CSV yüklenip CSV'deki yollarla toplu tarama; harita + mekanik kontrol yeter. Sözleşme PLAN §C87, onay metinleri §D58.",
         "details": "KAPSAM: PRD 11.9.5. Tam sözleşme PLAN.md §C87 ve §D58 — önce oku. tm 117 (yapay zekâ yolu) ve tm 118 (sekme) üzerine.\n\nNE YAPILACAK: (1) \"Harita yükle\" düğmesi (eğitim sekmesi) → POST /training/maps: CSV (utf-8-sig, ayraç , ya da ; , boyut ve satır sınırı). (2) Sütun tanıma (başlık adıyla, büyük/küçük harf duyarsız): slug; yol önceliği dest → output_relative_path → ornek_klasoru (klasördeki pdf/jpg/jpeg/png, özyinelemesiz) → source_collection_path (yalnız isteğe bağlı TRAINING_COLLECTION_DIR ayarlıysa; varsayılan boş, .env zorunlu değil — config + .env.example) → path; sha256 isteğe bağlı; role=reference ve yolsuz satırlar gerekçeyle atlanır; bilinmeyen slug ipucusuz. (3) Yol güvenliği: yalnız göreli; DATA_DIR (ya da koleksiyon kökü) altında çözüldükten sonra kökte kalmalı; mutlak, sürücü harfli, UNC, .. ve kökten kaçan sembolik bağ reddi; bulunamayan dosya \"dosya yok\". (4) Yerindeki dosya (KnownDocuments/examples/<slug>/ altında): kopyasız example_files kaydı; sha uyuşmazlığı → review (yapay zekâya gitmez). (5) Önizleme (yazma yok): satır, dosya, atlanan (gerekçe sayıları), zaten kayıtlı (sha+tür), mekanik hazır, yapay zekâ gerekebilecek. (6) \"Toplu taramayı başlat\": iki aşamalı (metinler §D58 birebir; ikinci metin yapay zekâ tahmini) → training_runs(kind=map), harita KnownDocuments/_egitim/haritalar/<run>.csv'ye saklanır, TRAINING_MAP_STARTED; mekanik ve yapay zekâ adımları işçide parça parça (tm 111), ilerleme HTMX yoklamasıyla. (7) Yeniden tarama kayıtlı (sha, tür) öğeyi skipped yapar. Kişisel içerik taşıyabilecek sütunlar (personal_values_transcribed, note, author) okunmaz.\n\nGİRDİ: tm 115–118 (app/training, training router ve şablonları), app/config.py (DATA_DIR, ayarlar), app/storage/layout.py, app/web/confirm.py, tm 111 idle çerçevesi, yerel örnek: data/KnownDocuments/_ornek_envanteri.csv ve _onerilen_turler.csv (başlıkları PLAN §C87'de; testler sentetik CSV kurar).\n\nÇIKTI: app/training/map_import.py (ad önerisi), app/web/routers/training.py, şablonlar, app/config.py, .env.example, app/events.py, app/worker (işin kaydı), tests/training, tests/web, tests/test_config.py, tests/test_events.py, PLAN.md, HANDOFF.md.\n\nBU GÖREVİ BAĞLAYAN KİLİTLİ KURALLAR: K10/K11 (kaynak dosya okunur, değiştirilmez; yalnız kopya/kayıt), R11, §D58, K15, CONVENTIONS §6, MASTER-PROMPT sınırları (başka dizine yazma yok; yalnız veri kökü).\n\nPRD'DE AYRICA OKU: 11.9.2, 11.9.3, 11.9.5, 00.2 (yapılandırma).\n\nİLGİLİ KABUL SENARYOLARI: S20 (toplu tarama biçimiyle).\n\nKAPSAM SINIRI: CSV'ye yazma yok (_ornek_envanteri.csv harici aracın ürünüdür); uzak adresten indirme yok (source sütunu kullanılmaz); tarama sonucundan kataloğa tür eklenmez.\n\nTUZAKLAR: bugünkü envanter haritasındaki örneklerin hepsi zaten yerindedir — bu harita yalnız kayıt yapar (kopya yok); 1840 dest'e 1842 farklı sha düşer, uyuşmazlık review'a gider. Windows yolları (ters eğik çizgi, sürücü harfi) ve Linux (Docker) aynı kuralla ele alınır. Büyük harita işçiyi uzun kilitlememeli (parça parça, yükleme işi önce).\n\nKAPANIŞ: PLAN 11.9.5 satırı ✅ → K11.9, HANDOFF bloğu, commit mesajında `PRD 11.9.5 — tm 120`.",
         "testStrategy": "1) Ayrıştırma: envanter biçimi (dest + sha + role), önerilen tür biçimi (ornek_klasoru), genel slug+path; ; ayraç, BOM; reference ve yolsuz satır gerekçeli atlanır. 2) Yol güvenliği: mutlak, C:\\, UNC, .., kaçan sembolik bağ reddi; kök içi göreli yol kabul. 3) Yerindeki dosya kopyasız kaydolur; sha uyuşmazlığı review ve yapay zekâ çağrısı yok. 4) Önizleme sayıları; tek onayla başlamaz; iki onayla run + saklanan harita + olay; ikinci metin tahmini yazar. 5) İşçi parça parça işler, ilerleme görünür; yeniden tarama skipped. 6) TRAINING_COLLECTION_DIR ayarsızken source_collection_path satırı atlanır, ayarlıyken çözülür. 7) Değişmez güvence testi yeşil. 8) Tüm test takımı (`pytest -q -m \"not live\"`, kapsam ≥%70), ruff check/format, compileall, temiz SQLite'ta `alembic upgrade head`, `import app.main` yeşil (CONVENTIONS DoD). Testler yalnız sentetik belge ve sentetik adlarla (CONVENTIONS §6); canlı yapay zekâ çağrısı yok.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [
           "117",
           "118"
         ],
         "priority": "high",
         "subtasks": [],
-        "updatedAt": "2026-09-26T00:00:00.000Z"
+        "updatedAt": "2026-09-26T10:21:35.524Z"
       }
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-09-26T08:38:21.696Z",
+      "lastModified": "2026-09-26T10:21:35.525Z",
       "taskCount": 118,
-      "completedCount": 114,
+      "completedCount": 115,
       "tags": [
         "master"
       ]
