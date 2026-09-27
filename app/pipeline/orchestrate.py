@@ -340,7 +340,9 @@ def _process_stages(
                     layout,
                     upload,
                     provider=provider,
-                    instructions=build_page_analysis_instructions(catalog),
+                    instructions=build_page_analysis_instructions(
+                        catalog, configured_budget=settings.catalog_token_budget
+                    ),
                 )
                 stage = _advance(session, upload, stage, UploadStatus.PLANNING, checkpoint)
 
@@ -597,12 +599,14 @@ def reanalyze_upload(
     catalog: Catalog,
     executor: PlanExecutor,
     reference_date: date | None = None,
+    catalog_token_budget: int | None = None,
 ) -> Reanalysis:
     """Planı olan partiyi yeniden analiz eder, yeni plan sürümünü açar ve uygular (06.6.2).
 
     `catalog` hem analiz talimatının hem planın kataloğudur (`export_catalog(session)`); plan
-    modeli `provider.model`'dır. `reference_date` `create_plan`'e aynen geçer. Plan yoksa
-    sağlayıcı çağrılmadan `NoPlanError`. Oturum commit edilmez.
+    modeli `provider.model`'dır. `reference_date` `create_plan`'e aynen geçer.
+    `catalog_token_budget` `Settings.catalog_token_budget`'tır (11.4.3; boşsa ölçekli bütçe).
+    Plan yoksa sağlayıcı çağrılmadan `NoPlanError`. Oturum commit edilmez.
     """
     previous = _require_current_plan(session, upload)
     # İK'nın şüphelendiği parti ucuz model ön elemesinden geçmez, ana modele gider (13.2.1).
@@ -611,7 +615,9 @@ def reanalyze_upload(
         layout,
         upload,
         provider=provider,
-        instructions=build_page_analysis_instructions(catalog),
+        instructions=build_page_analysis_instructions(
+            catalog, configured_budget=catalog_token_budget
+        ),
         prescreen=False,
     )
     plan = create_plan(

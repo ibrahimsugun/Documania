@@ -866,6 +866,7 @@ def reanalyze_upload_page(
     layout: Annotated[DataLayout, Depends(get_layout)],
     executor: Annotated[PlanExecutor, Depends(get_plan_executor)],
     provider: ReanalysisProvider,
+    settings: Annotated[Settings, Depends(get_settings)],
     confirmation: Annotated[str | None, Form()] = None,
 ) -> HTMLResponse:
     """10.3.2 — partiyi yeniden analiz eder, yeni plan sürümünü açar (06.6.2, K18).
@@ -896,6 +897,7 @@ def reanalyze_upload_page(
             provider=provider,
             catalog=export_catalog(session),
             executor=executor,
+            catalog_token_budget=settings.catalog_token_budget,
         )
     except HTTPException as exc:
         session.rollback()

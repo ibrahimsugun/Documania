@@ -18,6 +18,12 @@
   plan (K9) etkilenmez.
 - Bu ekran belge içeriğine dokunmaz (K17); kaynak `known_document_types`'tır, `catalog.yaml`
   yazılmaz.
+- **Katalog bütçesi (11.4.3).** Listenin üstünde analiz talimatına giren (etkin ve analiz edilen)
+  tür sayısı, katalog metninin tahmini token sayısı ve etkin bütçe (`effective_token_budget`:
+  `CATALOG_TOKEN_BUDGET` ayarı ya da tür sayısıyla ölçekli) gösterilir; tanımı kısaltılan tür
+  varsa uyarı kutusu onları türün sayfasına bağlar. Değer her istekte analizle aynı derleyiciyle
+  (`compile_catalog`, uyarı logu olmadan) hesaplanır; önbellek yoktur (400 türde ölçüm PLAN.md
+  §D'de).
 
 **Örnek belgeler (11.2.1).** Türün düzenleme sayfasında (`GET /document-types/{slug}`) o türün
 örnekleri listelenir ve `POST /document-types/{slug}/examples` ile (çok dosyalı `files`) yenisi
@@ -120,6 +126,7 @@ from app.catalog import (
     CandidateNotFoundError,
     CatalogEntry,
     CatalogError,
+    CompiledCatalog,
     Conversion,
     FileType,
     FrontBackLayout,
@@ -135,8 +142,10 @@ from app.catalog import (
     approved_type_slug,
     build_entry,
     build_photo_rules,
+    compile_catalog,
     count_pending_candidate_types,
     create_type,
+    effective_token_budget,
     export_catalog,
     list_candidate_types,
     list_types,
@@ -275,6 +284,62 @@ NOTICES = {
 }
 
 TYPE_PAGE_NOTICES = {"photo_rules": "Fotoğraf kuralları kaydedildi."}
+
+# --- 11.4.3: katalog bütçesi ---------------------------------------------------------------------
+
+BUDGET_UNAVAILABLE = (
+    "Katalog metni ölçülemedi: katalogda tutarsız kayıt var (satırdaki «Tutarsız kayıt» "
+    "rozetine bakın). Analiz bu kayıt düzeltilene kadar katalogu okuyamaz."
+)
+
+
+@dataclass(frozen=True, slots=True)
+class CatalogBudgetView:
+    """Belge Türleri sayfasının bütçe satırı (11.4.3): talimattaki tür sayısı, katalog metninin
+    tahmini tokenı, etkin bütçe ve kaynağı; `shortened` tanımı kısaltılan türler (slug, ad)."""
+
+    active_types: int
+    estimated_tokens: int
+    token_budget: int
+    configured: bool
+    shortened: tuple[tuple[str, str], ...]
+    over_budget: bool
+
+    @property
+    def tokens_text(self) -> str:
+        return _thousands(self.estimated_tokens)
+
+    @property
+    def budget_text(self) -> str:
+        return _thousands(self.token_budget)
+
+
+def _thousands(value: int) -> str:
+    """Binlik ayraçlı sayı (Türkçe yazım: 12.345)."""
+    return f"{value:,}".replace(",", ".")
+
+
+def catalog_budget_view(session: Session, settings: Settings) -> CatalogBudgetView | None:
+    """Analiz talimatının katalog metni bugünkü katalogla nasıl derlenir; katalog tutarsızsa
+    (analiz de okuyamaz) `None`. Yalnız okur, uyarı loglamaz."""
+    try:
+        catalog = export_catalog(session)
+    except CatalogError:
+        return None
+    configured = settings.catalog_token_budget
+    compiled: CompiledCatalog = compile_catalog(
+        catalog, token_budget=effective_token_budget(catalog, configured), warn=False
+    )
+    names = {entry.slug: entry.name for entry in catalog}
+    return CatalogBudgetView(
+        active_types=len(compiled.known_slugs),
+        estimated_tokens=compiled.estimated_tokens,
+        token_budget=compiled.token_budget,
+        configured=configured is not None,
+        shortened=tuple((slug, names[slug]) for slug in compiled.shortened_slugs),
+        over_budget=compiled.over_budget,
+    )
+
 
 # --- 11.6: fotoğraf kuralları --------------------------------------------------------------------
 
@@ -579,6 +644,7 @@ def catalog_page(
     request: Request,
     user: CurrentUser,
     session: DbSession,
+    settings: AppSettings,
     notice: Annotated[str | None, Query(max_length=32)] = None,
     slug: Annotated[str | None, Query(max_length=64)] = None,
 ) -> HTMLResponse:
@@ -597,6 +663,8 @@ def catalog_page(
         notice_text=notice_text,
         sides_labels=SIDES_LABELS,
         pending_candidates=count_pending_candidate_types(session),
+        budget=catalog_budget_view(session, settings),
+        budget_unavailable=BUDGET_UNAVAILABLE,
     )
 
 
@@ -1596,6 +1664,7 @@ def batch_reanalyze(
     layout: Annotated[DataLayout, Depends(get_layout)],
     executor: Annotated[PlanExecutor, Depends(get_plan_executor)],
     provider: ReanalysisProvider,
+    settings: AppSettings,
     confirmation: Annotated[str | None, Form()] = None,
 ) -> HTMLResponse:
     """11.5.3 — ikinci onayın belirteciyle ilişkili Unknown öğelerinin partilerini güncel katalogla
@@ -1627,7 +1696,13 @@ def batch_reanalyze(
         results = []
         for upload, _, _ in targets:
             reanalysis = reanalyze_upload(
-                session, layout, upload, provider=provider, catalog=catalog, executor=executor
+                session,
+                layout,
+                upload,
+                provider=provider,
+                catalog=catalog,
+                executor=executor,
+                catalog_token_budget=settings.catalog_token_budget,
             )
             results.append(
                 ReanalyzedView(

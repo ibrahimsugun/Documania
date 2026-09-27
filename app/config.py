@@ -68,6 +68,11 @@ class Settings(BaseSettings):
     openai_api_key: SecretStr | None = None
     openai_model: str = Field(default="gpt-6-luna", min_length=1)
     openai_prescreen_model: str | None = None
+    # PRD 11.4.3 — analiz talimatındaki katalog metninin token bütçesi (tahmini token,
+    # `app.catalog.prompt_builder.estimate_tokens`). İsteğe bağlıdır; boşsa (varsayılan) bütçe aktif
+    # analiz edilen tür sayısıyla ölçeklenir: `max(4000, 200 × tür sayısı)`
+    # (`app.catalog.prompt_builder.effective_token_budget`, bkz. PLAN.md §C88).
+    catalog_token_budget: int | None = Field(default=None, gt=0)
     # PRD 13.1.1 — maliyet paneli token fiyatlarını yerleşik fiyat tablosundan okur
     # (`app/ai/model_prices.yaml`, `app.ai.pricing`); bu ayar aynı model için onun önüne geçer
     # (JSON: `{"<model>": {"input_per_mtok": 5, "output_per_mtok": 25,
@@ -115,10 +120,11 @@ class Settings(BaseSettings):
     telegram_webhook_listen: str = Field(default="127.0.0.1", min_length=1)
     telegram_webhook_port: int = Field(default=8443, ge=1, le=65535)
 
-    @field_validator("training_collection_dir", mode="before")
+    @field_validator("training_collection_dir", "catalog_token_budget", mode="before")
     @classmethod
-    def _blank_collection_dir_is_unset(cls, value: object) -> object:
-        # `TRAINING_COLLECTION_DIR=` (boş) ayarsızdır; `Path("")` çalışma dizinini gösterirdi.
+    def _blank_is_unset(cls, value: object) -> object:
+        # `TRAINING_COLLECTION_DIR=` ya da `CATALOG_TOKEN_BUDGET=` (boş) ayarsızdır; `Path("")`
+        # çalışma dizinini gösterirdi, boş sayı doğrulamada düşerdi.
         if isinstance(value, str) and not value.strip():
             return None
         return value

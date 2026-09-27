@@ -319,6 +319,7 @@ maliyet paneli gerçek rakam gösteriyor.
 | 11.3.1 | Tür açıklaması üretimi | Örneklerden yapılandırılmış tür açıklaması üretilir ve düzenlenebilir | Should (v1) |
 | 11.4.1 | Prompt derleyici | Aktif türler kompakt katalog metnine derlenir | Must (v1) |
 | 11.4.2 | Token bütçesi | Katalog metni sınırı aşarsa açıklamalar kısaltılır ve uyarı loglanır | Should (v1) |
+| 11.4.3 | Ölçekli ve görünür katalog bütçesi | Bütçe ortam değişkeniyle ayarlanır (`CATALOG_TOKEN_BUDGET`) ve varsayılanı aktif tür sayısıyla ölçeklenir; hedef, her aktif türün analizci açıklamasının kesilmeden talimata girmesidir. Belge Türleri sayfası aktif tür sayısını, katalog metninin tahmini token sayısını ve kaç türün tanımının kesildiğini gösterir; kesilme varsa uyarı çıkar. Maliyet paneli sayfa başına katalog metni payını gösterir | Should (v1) |
 | 11.5.1 | Aday tür listesi | Aday türler adı, görülme sayısı ve örnek sayfalarıyla listelenir | Must (v1) |
 | 11.5.2 | Aday türü onaylama | Onay sonrası tür katalogda; iki aşamalı onay istenir | Must (v1) |
 | 11.5.3 | Onay sonrası yeniden analiz | Aday ile ilişkili Unknown öğeleri toplu yeniden analiz edilebilir | Should (v1) |

@@ -50,9 +50,11 @@ from app.catalog.photo_rules import (
 )
 from app.catalog.prompt_builder import (
     CATALOG_TOKEN_BUDGET,
+    TOKENS_PER_TYPE,
     CompiledCatalog,
     analyzable_types,
     compile_catalog,
+    effective_token_budget,
     estimate_tokens,
 )
 from app.catalog.schema import (
@@ -80,6 +82,7 @@ from app.catalog.yaml_io import (
 
 __all__ = [
     "CATALOG_TOKEN_BUDGET",
+    "TOKENS_PER_TYPE",
     "DETAIL_SAMPLE_LIMIT",
     "LIST_SAMPLE_LIMIT",
     "PHOTO_RULE_SPECS",
@@ -115,6 +118,7 @@ __all__ = [
     "build_entry",
     "build_photo_rules",
     "compile_catalog",
+    "effective_token_budget",
     "count_pending_candidate_types",
     "create_type",
     "dump_catalog_yaml",

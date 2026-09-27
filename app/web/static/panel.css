@@ -562,6 +562,31 @@ h1 { margin: 0 0 0.4rem; font-size: 1.65rem; letter-spacing: -0.01em; }
 /* Yükleme listesindeki durum sütunu: renkli metin yerine okunur bir etiket. */
 .uploads-list td[class^="status-"] { white-space: nowrap; font-weight: 600; }
 
+/* Sütun genişliği: uzun slug ve dosya adı (kesintisiz kelime) otomatik yerleşimde bütün genişliği
+   kapıp kısa hücreleri ("Ön ve arka yüz", "Etkin") satır satır böler. Kesintisiz kelime gerekince
+   kırılır; tek kelimelik durum/eylem hücreleri tek satırda kalır. */
+td code, .cell-break { overflow-wrap: anywhere; }
+.cell-nowrap { white-space: nowrap; }
+/* Çok sütunlu iki liste sabit oranlı yerleşimle dizilir: otomatik yerleşim en uzun değere göre
+   sütun kapar, kalan sütunlar sıkışır. Oranlar geniş ekranda (72rem içerik) ölçülerek seçildi;
+   başlıklar gerekirse iki satıra iner, hücre metni en çok bir-iki kez kırılır. */
+.catalog.catalog-types, .training-items { table-layout: fixed; width: 100%; }
+.catalog.catalog-types th, .training-items th { white-space: normal; }
+.catalog-types th:nth-child(1) { width: 18%; }
+.catalog-types th:nth-child(2) { width: 15%; }
+.catalog-types th:nth-child(3) { width: 11%; }
+.catalog-types th:nth-child(4) { width: 5%; }
+.catalog-types th:nth-child(5) { width: 9%; }
+.catalog-types th:nth-child(6), .catalog-types th:nth-child(7) { width: 6%; }
+.catalog-types th:nth-child(8) { width: 7%; }
+.catalog-types th:nth-child(9) { width: 7%; }
+.training-items th:nth-child(1) { width: 24%; }
+.training-items th:nth-child(2) { width: 12%; }
+.training-items th:nth-child(3) { width: 17%; }
+.training-items th:nth-child(4), .training-items th:nth-child(5) { width: 7%; }
+.training-items th:nth-child(6) { width: 25%; }
+.training-items th:nth-child(7) { width: 8%; }
+
 /* --- Süzgeç ve arama çubuğu ------------------------------------------- */
 
 .search {
@@ -1040,3 +1065,9 @@ form:not(.session) button[type="submit"]:hover,
 .example-list li.needs-check { background: #fff8e6; }
 .decision-step .confirm-text { font-weight: 600; }
 .decision-form { display: flex; align-items: center; gap: 0.75rem; }
+
+/* Katalog bütçesi (11.4.3): Belge Türleri sayfasının üst satırı ve kesilen türlerin listesi. */
+.catalog-budget { margin: 0.5rem 0; }
+.catalog-budget-warning { border: 1px solid #e3c77a; background: #fff8e6; border-radius: 4px; padding: 0.5rem 0.75rem; margin: 0.5rem 0; }
+.catalog-budget-warning p { margin: 0 0 0.35rem; }
+.shortened-types { columns: 2 18rem; margin: 0; padding-left: 1.2rem; max-height: 16rem; overflow-y: auto; }

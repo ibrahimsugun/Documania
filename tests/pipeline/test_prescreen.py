@@ -29,6 +29,7 @@ from app.ai.usage import report_usage
 from app.catalog import Catalog, load_seed_catalog
 from app.db.models import Upload
 from app.events import (
+    CATALOG_TOKENS_DATA_KEY,
     PRESCREEN_DATA_KEY,
     USAGE_BY_MODEL_DATA_KEY,
     USAGE_DATA_KEY,
@@ -592,3 +593,21 @@ def test_next_page_summary_comes_from_the_accepted_analysis_whichever_model_gave
     assert main.requests == cheap.requests[1:]
     models = [data["model"] for data in _analyzed(session)]
     assert models == [CHEAP, MAIN, MAIN]
+
+
+def test_catalog_share_counts_every_request_that_carried_the_instructions(
+    session: Session, layout: DataLayout
+) -> None:
+    # 11.4.3: kolay sayfa talimatı bir kez (ucuz model), ana modele giden sayfa iki kez taşır.
+    passport, (front, _) = _passport(), _license()
+    upload = _pdf(session, layout, passport, front)
+    cheap = Model(CHEAP, ((500, 100), passport.analysis(0)), ((400, 90), front.analysis(1)))
+    main = Model(MAIN, ((3000, 700), front.analysis(1)), cheap=cheap)
+
+    _analyze(session, layout, upload, main)
+
+    share = INSTRUCTIONS.catalog_tokens
+    assert share is not None
+    first, second = _analyzed(session)
+    assert first[CATALOG_TOKENS_DATA_KEY] == share
+    assert second[CATALOG_TOKENS_DATA_KEY] == 2 * share

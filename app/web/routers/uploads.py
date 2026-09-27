@@ -389,6 +389,7 @@ def reanalyze_upload_plan(
     layout: Annotated[DataLayout, Depends(get_layout)],
     executor: Annotated[PlanExecutor, Depends(get_plan_executor)],
     provider: Annotated[AnalysisProvider, Depends(get_analysis_provider)],
+    settings: Annotated[Settings, Depends(get_settings)],
 ) -> ReanalysisResponse:
     """06.6.2 — partiyi yeniden analiz eder, yeni plan sürümünü açar; plan yok/öğe yürütülemiyor
     ya da parti yoksayılmış: 409."""
@@ -401,6 +402,7 @@ def reanalyze_upload_plan(
             provider=provider,
             catalog=export_catalog(session),
             executor=executor,
+            catalog_token_budget=settings.catalog_token_budget,
         )
     except (NoPlanError, *PLAN_EXECUTION_ERRORS) as exc:
         raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from None

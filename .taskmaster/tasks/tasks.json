@@ -1425,7 +1425,8 @@
           "117",
           "118",
           "119",
-          "120"
+          "120",
+          "121"
         ],
         "priority": "critical",
         "subtasks": [],
@@ -1705,12 +1706,28 @@
         "priority": "high",
         "subtasks": [],
         "updatedAt": "2026-09-26T10:21:35.524Z"
+      },
+      {
+        "id": "121",
+        "title": "11.4-b — Ölçekli ve görünür katalog bütçesi: CATALOG_TOKEN_BUDGET ayarı, tür sayısıyla ölçeklenen varsayılan, Belge Türleri sayfasında token göstergesi ve kesilme uyarısı [OPUS-HIGH]",
+        "description": "PRD 11.4.3 · FR-MOD-11 · Faz 1 · Should (v1). İnsan kararı (2026-09-27): eğitimle 367 tür kataloğa girdi; 4000'lik bütçe tanımların hepsini kesiyor. Geçici olarak 26 türlük çekirdek küme aktif. Sözleşme PLAN §C88.",
+        "details": "KAPSAM: PRD 11.4.3; 11.4.1–11.4.2 (tm 78) ve 13.1.1 (tm 87) üzerine. Tam sözleşme PLAN.md §C88 — önce oku.\n\nNE YAPILACAK: (1) `Settings`'e `catalog_token_budget: int | None` (`CATALOG_TOKEN_BUDGET`, isteğe bağlı; `.env.example`'a açıklamalı satır). Boşsa etkin bütçe = max(4000, 200 × aktif analiz edilen tür sayısı). `compile_catalog(token_budget=...)` imzası kalır; `build_page_analysis_instructions` ve onu çağıran analiz yolu bütçeyi ayardan hesaplayan tek yardımcıdan alır (ör. `app/catalog/prompt_builder.py: effective_token_budget(settings, catalog)`). (2) Belge Türleri sayfası (`catalog.html`, `app/web/routers/catalog.py`): üst bilgi satırı \"Aktif tür: N · katalog metni ≈ T token (bütçe B)\"; `CompiledCatalog.shortened` boş değilse uyarı kutusu ve kesilen türlerin adları (bağlantılı). Hesap her istekte; 400 türde süresi ölçülür, 200 ms'yi aşarsa basit süreç içi önbellek (katalog güncellenince düşer) — karar §D'ye. (3) Maliyet paneli: sayfa analizi olay verisine `catalog_tokens` (talimattaki katalog metninin tahmini token sayısı) yazılır; `/metrics` tablosunda ayrı sütun, eski olaylarda \"—\". (4) Kesme kuralı (11.4.2) değişmez; uyarı logu kalır.\n\nGİRDİ: app/catalog/prompt_builder.py (`CATALOG_TOKEN_BUDGET`, `compile_catalog`, `CompiledCatalog.shortened/over_budget/estimated_tokens`), app/ai/prompts/page_analysis.py (`build_page_analysis_instructions`), app/pipeline/analyze.py (talimatın kurulduğu yer, `usage` olay verisi), app/config.py, app/web/routers/catalog.py + catalog.html, app/web/routers/metrics.py + metrics.html, app/events.py (`USAGE_DATA_KEY`).\n\nÇIKTI: app/config.py, .env.example, app/catalog/prompt_builder.py, app/ai/prompts/page_analysis.py, app/pipeline/analyze.py, app/web/routers/catalog.py, app/web/templates/catalog.html, app/web/routers/metrics.py, app/web/templates/metrics.html, tests (tests/catalog, tests/ai, tests/web/test_catalog_page.py, tests/web/test_metrics*), PLAN.md (11.4.3 satırı, K11.4 kanıtı), HANDOFF.md.\n\nBU GÖREVİ BAĞLAYAN KİLİTLİ KURALLAR: K9 (talimat değişikliği yeniden analizle geçerli, eski planlar değişmez), 00.2 (yapılandırma ortam değişkeniyle, varsayılan yerleşik — insan .env doldurmak istemez), K15 (olay verisi), CONVENTIONS §6.\n\nPRD'DE AYRICA OKU: 11.4.1, 11.4.2, 11.1.1, 13.1.1, 03.4.1.\n\nİLGİLİ KABUL SENARYOLARI: S14 (aday onayından sonra tür talimata girer).\n\nKAPSAM SINIRI: toplu pasifleştirme ekranı yok; türleri gruplayıp iki aşamalı sorma yok; tohum bütçe sabiti (4000) alt sınır olarak kalır.\n\nTUZAKLAR: `estimate_tokens` temkinli sayar (3 bayt/token) — gösterge \"tahmini\" der. Bütçe artınca `tests/catalog/test_prompt_builder*.py` içindeki 4000 varsayımları bilerek güncellenir. `RecordingProvider` kayıtları talimat metnine bağlıysa yeniden üretilir. 368 türlük gerçek katalogla sayfa süresi ölçülür; şablon değiştiği için TestClient testi zorunlu.\n\nKAPANIŞ: PLAN 11.4.3 satırı ✅ → K11.4 (kanıt maddesi), HANDOFF bloğu, commit mesajında `PRD 11.4.3 — tm 121`.",
+        "testStrategy": "1) Birim: ayar boşken 8 türde bütçe 4000, 100 türde 20000; ortam değeri verilince aynen; `compile_catalog` yeni bütçeyle tanımları kesmez (100 sentetik tür). 2) Talimat: `build_page_analysis_instructions` etkin bütçeyi kullanır; pytest -q tests/ai yeşil. 3) Web: Belge Türleri sayfasında aktif tür sayısı ve token satırı; kesilme varken uyarı ve tür bağlantıları; kesilme yokken uyarı yok. 4) Maliyet: sayfa analizi olayı `catalog_tokens` taşır, /metrics sütunu; eski olay \"—\". 5) Tüm test takımı, ruff, compileall, alembic (göç yok), import app.main yeşil (CONVENTIONS DoD). Testler sentetik verilerle.",
+        "status": "in-progress",
+        "dependencies": [
+          "78",
+          "87",
+          "118"
+        ],
+        "priority": "medium",
+        "subtasks": [],
+        "updatedAt": "2026-09-27T12:07:33.689Z"
       }
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-09-26T10:21:35.525Z",
-      "taskCount": 118,
+      "lastModified": "2026-09-27T12:07:33.689Z",
+      "taskCount": 119,
       "completedCount": 115,
       "tags": [
         "master"

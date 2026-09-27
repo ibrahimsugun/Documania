@@ -54,11 +54,11 @@
     <tbody>
       {% for item in results.items %}
       <tr id="item-{{ item.id }}" class="training-status-{{ item.status }}{% if item.manual_check %} needs-check{% endif %}">
-        <td>{{ item.name }} <span class="reason">#{{ item.run_id }}</span></td>
+        <td class="cell-break">{{ item.name }} <span class="reason">#{{ item.run_id }}</span></td>
         <td>{% if item.hint %}{% if item.hint.url %}<a href="{{ item.hint.url }}">{{ item.hint.name }}</a>{% else %}<code>{{ item.hint.slug }}</code>{% endif %}{% else %}—{% endif %}</td>
         <td>{% if item.result %}{% if item.result.url %}<a href="{{ item.result.url }}">{{ item.result.name }}</a> <span class="reason">{{ item.result.slug }}</span>{% else %}<code>{{ item.result.slug }}</code>{% endif %}{% else %}—{% endif %}</td>
-        <td>{{ item.method or "—" }}</td>
-        <td class="training-status">{{ item.status_label }}</td>
+        <td class="cell-nowrap">{{ item.method or "—" }}</td>
+        <td class="training-status cell-nowrap">{{ item.status_label }}</td>
         <td class="reason-text">{{ item.note or "—" }}</td>
         <td>
           {% if item.label_text %}<span class="badge{% if not item.manual_check %} badge-neutral{% endif %}">{{ item.label_text }}</span>{% endif %}

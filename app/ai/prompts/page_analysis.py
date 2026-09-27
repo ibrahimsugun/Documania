@@ -6,6 +6,10 @@ okuyamadığını `legible: false` yap, katalogda yoksa aday öner. Metin paketl
 
 - Katalog metnini prompt derleyicisi üretir (`app.catalog.prompt_builder.compile_catalog`, 11.4):
   yalnız etkin ve analiz edilen türler, slug sırasıyla, kompakt biçimde ve token bütçesi içinde.
+  Bütçe verilmezse etkin bütçedir (`effective_token_budget`, 11.4.3): tür sayısıyla ölçeklenir;
+  analiz yolu `Settings.catalog_token_budget`'ı (`CATALOG_TOKEN_BUDGET`) `configured_budget` ile
+  geçirir. `PageAnalysisInstructions.catalog_tokens` talimattaki katalog metninin tahmini token
+  sayısıdır; sayfa analizi olayına yazılır (13.1.1, `app.pipeline.analyze`).
 - `PageAnalysisInstructions.known_slugs` talimattaki türlerin slug'larıdır ve isteğe
   (`PageAnalysisRequest.known_slugs`) aynen verilir: talimatta olmayan bir slug yanıt kabulünde
   reddedilir.
@@ -28,7 +32,7 @@ from importlib import resources
 from types import MappingProxyType
 
 from app.catalog.photo_rules import PHOTO_RULE_TYPES, PhotoRuleSetting, enabled_photo_rules
-from app.catalog.prompt_builder import CATALOG_TOKEN_BUDGET, compile_catalog
+from app.catalog.prompt_builder import compile_catalog, effective_token_budget
 from app.catalog.schema import Catalog
 
 PROMPT_RESOURCE = "page_analysis.md"
@@ -45,7 +49,8 @@ class PageAnalysisInstructions:
 
     `photo_rules` slug → o türün açık fotoğraf kuralları (katalog sırasıyla); anahtarı olmayan tür
     için fotoğraf kontrolü yapılmaz. `required_fields` slug → o türün zorunlu alanları (13.2.1);
-    anahtarı olmayan türün zorunlu alanları bilinmiyor sayılır.
+    anahtarı olmayan türün zorunlu alanları bilinmiyor sayılır. `catalog_tokens` talimattaki
+    katalog metninin tahmini token sayısıdır (11.4.3); elle kurulan talimatta `None`.
     """
 
     text: str = field(repr=False)
@@ -56,6 +61,7 @@ class PageAnalysisInstructions:
     required_fields: Mapping[str, tuple[str, ...]] = field(
         default_factory=lambda: MappingProxyType({})
     )
+    catalog_tokens: int | None = None
 
 
 def load_page_analysis_template() -> str:
@@ -67,10 +73,13 @@ def build_page_analysis_instructions(
     catalog: Catalog,
     *,
     template: str | None = None,
-    token_budget: int = CATALOG_TOKEN_BUDGET,
+    token_budget: int | None = None,
+    configured_budget: int | None = None,
 ) -> PageAnalysisInstructions:
     """Kataloğu derleyip şablonun yuvasına yazar. `template` verilmezse paketteki şablon
-    kullanılır; `token_budget` katalog metninin bütçesidir (11.4.2).
+    kullanılır. `token_budget` katalog metninin bütçesidir (11.4.2); verilmezse etkin bütçe
+    (`effective_token_budget(catalog, configured_budget)`, 11.4.3) — `configured_budget`
+    `Settings.catalog_token_budget`'tır.
 
     Şablonda tam olarak bir `{{catalog}}` yuvası yoksa `PromptTemplateError`.
     """
@@ -80,6 +89,8 @@ def build_page_analysis_instructions(
         raise PromptTemplateError(
             f"talimat şablonunda tek bir {CATALOG_SLOT} yuvası olmalı; bulunan: {found}"
         )
+    if token_budget is None:
+        token_budget = effective_token_budget(catalog, configured_budget)
     compiled = compile_catalog(catalog, token_budget=token_budget)
     # Yuva bir kez bölünerek doldurulur: katalog metnindeki olası yuva dizgesi yeniden açılmaz.
     before, after = source.split(CATALOG_SLOT)
@@ -94,6 +105,7 @@ def build_page_analysis_instructions(
                 if entry.slug in compiled.known_slugs
             }
         ),
+        catalog_tokens=compiled.estimated_tokens,
     )
 
 

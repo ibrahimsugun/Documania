@@ -31,6 +31,7 @@
         <th>Sayfa</th><th class="num">Analiz</th><th class="num">Girdi token</th>
         <th class="num">Çıktı token</th><th class="num">Toplam token</th><th class="num">Maliyet</th>
         <th class="num">Ölçülmemiş</th><th>Model</th>
+        <th class="num" title="Girdi tokenının analiz talimatındaki katalog metnine düşen tahmini payı">Katalog token (tahmini)</th>
       </tr>
     </thead>
     <tbody>
@@ -44,6 +45,7 @@
         <td class="num">{{ row.cost }}</td>
         <td class="num">{{ row.unmetered }}</td>
         <td>{{ row.models }}</td>
+        <td class="num">{{ row.catalog_tokens }}</td>
       </tr>
       {% endfor %}
     </tbody>

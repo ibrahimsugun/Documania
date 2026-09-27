@@ -57,7 +57,9 @@ fotoğraf kontrolü — tek ölçümde (`app.ai.usage.measure_usage`) toplanır;
 `PAGE_ANALYZED` ya da `PAGE_ANALYSIS_FAILED` olayının `usage` alanına yazılır (başarısız sayfa da
 token harcamış olabilir). Sağlayıcı hiç yanıt vermediyse (hız sınırı, bağlantı hatası) ya da
 kullanım bildirmiyorsa (test sağlayıcıları) alan yazılmaz. Maliyet burada hesaplanmaz, panelde
-gösterilir (`app.web.routers.metrics`).
+gösterilir (`app.web.routers.metrics`). `usage` ile birlikte `catalog_tokens` da yazılır:
+talimattaki katalog metninin tahmini tokenı × talimatı taşıyan istek sayısı (ön eleme ve ana
+analiz, 11.4.3).
 
 **İçerik korunur (11.7.2).** Kontrol yalnız okur: kaynak dosya, sayfa görüntüsü ve fotoğraf
 kırpılmaz, düzeltilmez, arka planı değiştirilmez; hiçbir dosya yazılmaz (K11, K17). Fotoğraf
@@ -116,6 +118,7 @@ from app.ai.usage import TokenUsage, UsageMeter, measure_usage
 from app.catalog.photo_rules import RESOLUTION_RULE, PhotoRuleSetting
 from app.db.models import Page, Upload, UploadFile, UploadStatus
 from app.events import (
+    CATALOG_TOKENS_DATA_KEY,
     PRESCREEN_DATA_KEY,
     USAGE_BY_MODEL_DATA_KEY,
     USAGE_DATA_KEY,
@@ -565,15 +568,27 @@ def _analyze_page_metered(
     analysis: PageAnalysis | None = None
     analyzed_by = provider
     screening: _Screening | None = None
+    # Talimatı (katalog metnini) taşıyan istek sayısı: ön eleme ve ana analiz (11.4.3).
+    requests = 0
     if prescreener is not None:
+        requests += 1
         analysis, screening = _prescreen(prescreener, request, instructions)
         if analysis is not None:
             analyzed_by = prescreener
     if analysis is None:
+        requests += 1
         try:
             analysis = provider.analyze_page(request)
         except (ProviderError, PageAnalysisError) as exc:
-            return _fail(session, page, exc, provider, meter=meter, screening=screening)
+            return _fail(
+                session,
+                page,
+                exc,
+                provider,
+                meter=meter,
+                screening=screening,
+                catalog_tokens=_catalog_tokens(instructions, requests),
+            )
     photo_check: PhotoCheck | None = None
     rules = _photo_rules(instructions, analysis)
     if rules:
@@ -591,6 +606,7 @@ def _analyze_page_metered(
                 model=analyzed_by.model,
                 screening=screening,
                 step="photo_check",
+                catalog_tokens=_catalog_tokens(instructions, requests),
             )
 
     page.analysis_json = analysis.model_dump(mode="json")
@@ -598,7 +614,13 @@ def _analyze_page_metered(
     page.photo_check_json = None if photo_check is None else photo_check.model_dump(mode="json")
     # Olay verisi kişisel değer taşımaz (CONVENTIONS §6); değerler `pages.analysis_json`'dadır.
     data: dict[str, object] = {
-        **_provider_data(provider, meter, model=analyzed_by.model, screening=screening),
+        **_provider_data(
+            provider,
+            meter,
+            model=analyzed_by.model,
+            screening=screening,
+            catalog_tokens=_catalog_tokens(instructions, requests),
+        ),
         "document_type_slug": analysis.document_type_slug,
         "side": analysis.side.value,
         "is_readable": analysis.is_readable,
@@ -676,13 +698,16 @@ def _fail(
     model: str | None = None,
     screening: _Screening | None = None,
     step: str | None = None,
+    catalog_tokens: int | None = None,
 ) -> PageOutcome:
     # Eski bir analiz ya da fotoğraf kontrolü başarısız sayfanın sonucu gibi okunmasın.
     page.analysis_json = None
     page.analysis_status = PageAnalysisStatus.FAILED.value
     page.photo_check_json = None
     data: dict[str, object] = {
-        **_provider_data(provider, meter, model=model, screening=screening),
+        **_provider_data(
+            provider, meter, model=model, screening=screening, catalog_tokens=catalog_tokens
+        ),
         "error": type(exc).__name__,
     }
     if step is not None:
@@ -712,9 +737,11 @@ def _provider_data(
     *,
     model: str | None = None,
     screening: _Screening | None = None,
+    catalog_tokens: int | None = None,
 ) -> dict[str, object]:
     """Olayın sağlayıcı, model ve kullanım alanları; `model` analizi kabul edilen modeldir
-    (verilmezse ana model)."""
+    (verilmezse ana model). `catalog_tokens` kullanım yazıldıysa katalog metninin payıdır
+    (`CATALOG_TOKENS_DATA_KEY`, 11.4.3)."""
     data: dict[str, object] = {
         "provider": provider.name,
         "model": provider.model if model is None else model,
@@ -723,11 +750,21 @@ def _provider_data(
         # Yanıt gelen çağrı yoksa (hız sınırı, bağlantı hatası) anahtar yazılmaz: sıfır token,
         # ölçülmemiş sayfayı ölçülmüş gösterirdi (13.1.1).
         data[USAGE_DATA_KEY] = meter.usage.to_event_data()
+        if catalog_tokens is not None:
+            data[CATALOG_TOKENS_DATA_KEY] = catalog_tokens
     if screening is not None:
         data[PRESCREEN_DATA_KEY] = screening.to_event_data()
         if meter.calls:
             data[USAGE_BY_MODEL_DATA_KEY] = _usage_by_model(meter, screening, provider.model)
     return data
+
+
+def _catalog_tokens(instructions: PageAnalysisInstructions, requests: int) -> int | None:
+    """Sayfanın isteklerinde katalog metninin tahmini token payı; talimat elle kurulduysa
+    (`catalog_tokens` yok) ya da istek yapılmadıysa `None`."""
+    if instructions.catalog_tokens is None or not requests:
+        return None
+    return instructions.catalog_tokens * requests
 
 
 def _usage_by_model(

@@ -26,7 +26,7 @@ from dataclasses import dataclass, field
 from importlib import resources
 
 from app.ai.prompts.page_analysis import CATALOG_SLOT, PromptTemplateError
-from app.catalog.prompt_builder import CATALOG_TOKEN_BUDGET, compile_catalog
+from app.catalog.prompt_builder import compile_catalog, effective_token_budget
 from app.catalog.schema import Catalog
 
 PROMPT_RESOURCE = "training_classification.md"
@@ -53,10 +53,13 @@ def build_training_classification_instructions(
     doc_kinds: Iterable[str],
     *,
     template: str | None = None,
-    token_budget: int = CATALOG_TOKEN_BUDGET,
+    token_budget: int | None = None,
+    configured_budget: int | None = None,
 ) -> TrainingClassificationInstructions:
     """Kataloğu derler; katalog metnini ve tür sözlüğünü şablonun yuvalarına yazar. `template`
-    verilmezse paketteki şablon kullanılır; `token_budget` katalog metninin bütçesidir (11.4.2).
+    verilmezse paketteki şablon kullanılır; `token_budget` katalog metninin bütçesidir (11.4.2),
+    verilmezse sayfa analizindeki gibi etkin bütçe (`effective_token_budget(catalog,
+    configured_budget)`, 11.4.3).
 
     Şablonda yuvalardan biri tam olarak bir kez geçmiyorsa ya da tür sözlüğü boşsa
     `PromptTemplateError`.
@@ -71,6 +74,8 @@ def build_training_classification_instructions(
     kinds = frozenset(doc_kinds)
     if not kinds:
         raise PromptTemplateError("tür sözlüğü boş olamaz")
+    if token_budget is None:
+        token_budget = effective_token_budget(catalog, configured_budget)
     compiled = compile_catalog(catalog, token_budget=token_budget)
     vocabulary = "\n".join(f"- `{kind}`" for kind in sorted(kinds))
     # Katalog yuvası bir kez bölünerek doldurulur: katalog metnindeki olası yuva dizgesi (İK'nın

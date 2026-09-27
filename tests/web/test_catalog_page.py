@@ -6,6 +6,7 @@ Yalnız `TestClient`: tarayıcıda çizim görülmedi."""
 
 from __future__ import annotations
 
+import logging
 import re
 from pathlib import Path
 from typing import Any
@@ -18,11 +19,21 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from app.ai.prompts.page_analysis import build_page_analysis_instructions
 from app.ai.recording_provider import RecordingProvider
-from app.catalog import TypeNotFoundError, export_catalog, import_catalog, load_seed_catalog
-from app.config import Settings
+from app.catalog import (
+    CATALOG_TOKEN_BUDGET,
+    TOKENS_PER_TYPE,
+    TypeNotFoundError,
+    compile_catalog,
+    export_catalog,
+    import_catalog,
+    load_seed_catalog,
+    validate_catalog,
+)
+from app.config import Settings, get_settings
 from app.db.models import KnownDocumentType, Upload, UploadFile
 from app.pipeline.orchestrate import process_upload
 from app.storage import DataLayout, find_original_by_sha256, write_to_inbox
+from app.web.routers.catalog import BUDGET_UNAVAILABLE
 from tests.fixtures.gen import make_text_pdf_bytes
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -717,3 +728,143 @@ def test_an_edit_reaches_the_next_analysis_and_only_that_one(
     # Aynı maddeyi taşıyan öbür türlere dokunulmadı; önceki analizin talimatı da olduğu gibi.
     assert EDGE in request.instructions
     assert EDGE in _section(before, "russian_passport")
+
+
+# --- 11.4.3: katalog bütçesi görünür ------------------------------------------------------------
+
+
+def _budget_line(html: str) -> str:
+    found = re.search(r'<p class="catalog-budget" id="catalog-budget">(.*?)</p>', html, re.S)
+    assert found is not None
+    return re.sub(r"<[^>]+>", "", found.group(1))
+
+
+def _thousands(value: int) -> str:
+    return f"{value:,}".replace(",", ".")
+
+
+def _configure_budget(app: FastAPI, budget: int | None) -> None:
+    app.dependency_overrides[get_settings] = lambda: Settings(
+        _env_file=None, database_url="sqlite://", catalog_token_budget=budget
+    )
+
+
+def _many_types(session_factory: sessionmaker[Session], count: int, *, active: bool = True) -> None:
+    records = [
+        {
+            **_data(),
+            "slug": f"bulk_type_{index:03d}",
+            "name": f"Bulk Type {index:03d}",
+            "file_label": f"Bulk Type {index:03d}",
+            "expected_file_types": ["pdf", "jpeg"],
+            "expected_pages": {"min": 1, "max": 2},
+            "required_fields": ["surname", "document_number"],
+            "allowed_conversions": ["merge", "wrap_image"],
+            "acceptance_criteria": ["Kenarlar görünür"],
+            "prompt_description": "Üstte arma, solda fotoğraf, altta makine okunur bölge.",
+            "direct": False,
+            "analyze": True,
+            "active": active,
+        }
+        for index in range(count)
+    ]
+    for record in records:
+        for key in ("pages_min", "pages_max", "description"):
+            record.pop(key, None)
+    with session_factory() as session:
+        import_catalog(session, validate_catalog(records))
+        session.commit()
+
+
+def test_list_shows_the_active_types_and_the_estimated_tokens_of_the_catalog_text(
+    client: TestClient, seeded: None, session_factory: sessionmaker[Session]
+) -> None:
+    with session_factory() as session:
+        stored = export_catalog(session)
+    expected = compile_catalog(stored, token_budget=CATALOG_TOKEN_BUDGET)
+
+    page = client.get("/document-types")
+
+    assert page.status_code == 200
+    line = _budget_line(page.text)
+    assert f"Aktif tür: {len(expected.known_slugs)} ·" in line
+    assert f"≈ {_thousands(expected.estimated_tokens)} token, tahmini" in line
+    assert f"bütçe {_thousands(CATALOG_TOKEN_BUDGET)}, tür sayısıyla ölçekli" in line
+    assert expected.shortened_slugs == ()
+    assert 'id="catalog-budget-warning"' not in page.text
+
+
+def test_budget_scales_with_the_active_types_and_passive_ones_do_not_count(
+    client: TestClient, session_factory: sessionmaker[Session]
+) -> None:
+    _many_types(session_factory, 60)
+    with session_factory() as session:
+        for index in range(10):
+            session.get_one(KnownDocumentType, f"bulk_type_{index:03d}").active = False
+        session.commit()
+
+    page = client.get("/document-types")
+
+    line = _budget_line(page.text)
+    assert "Aktif tür: 50 ·" in line
+    assert f"bütçe {_thousands(50 * TOKENS_PER_TYPE)}, tür sayısıyla ölçekli" in line
+    assert 'id="catalog-budget-warning"' not in page.text
+
+
+def test_shortened_descriptions_are_warned_and_linked_to_their_types(
+    client: TestClient, app: FastAPI, session_factory: sessionmaker[Session]
+) -> None:
+    _many_types(session_factory, 30)
+    _configure_budget(app, 1200)
+    with session_factory() as session:
+        expected = compile_catalog(export_catalog(session), token_budget=1200)
+    assert expected.shortened_slugs
+
+    page = client.get("/document-types")
+
+    assert page.status_code == 200
+    assert "bütçe 1.200, CATALOG_TOKEN_BUDGET ayarından" in _budget_line(page.text)
+    warning = re.search(r'<div class="notice catalog-budget-warning".*?</div>', page.text, re.S)
+    assert warning is not None
+    box = warning.group(0)
+    assert f"{len(expected.shortened_slugs)} türün tanımı kesiliyor — küme büyük." in box
+    for slug in expected.shortened_slugs:
+        assert f'<a href="/document-types/{slug}">' in box
+    if expected.over_budget:
+        assert "Tanımlar kısaltıldığı hâlde metin bütçeyi aşıyor." in box
+
+
+def test_showing_the_budget_logs_no_warning(
+    client: TestClient,
+    app: FastAPI,
+    session_factory: sessionmaker[Session],
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    _many_types(session_factory, 30)
+    _configure_budget(app, 1200)
+    caplog.set_level(logging.WARNING, logger="app.catalog.prompt_builder")
+
+    client.get("/document-types")
+
+    assert caplog.records == []
+
+
+def test_inconsistent_catalog_says_the_text_cannot_be_measured(
+    client: TestClient, session_factory: sessionmaker[Session]
+) -> None:
+    _create(client)
+    with session_factory() as session:
+        session.get_one(KnownDocumentType, "sample_card").direct = True
+        session.commit()
+
+    page = client.get("/document-types")
+
+    assert page.status_code == 200
+    assert BUDGET_UNAVAILABLE in page.text
+    assert 'class="catalog-budget"' not in page.text
+
+
+def test_empty_catalog_shows_no_active_types(client: TestClient) -> None:
+    page = client.get("/document-types")
+
+    assert "Aktif tür: 0 ·" in _budget_line(page.text)

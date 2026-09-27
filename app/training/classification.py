@@ -114,10 +114,15 @@ class ClassificationSource:
 
 
 def read_classification(
-    session: Session, layout: DataLayout, item: TrainingItem
+    session: Session,
+    layout: DataLayout,
+    item: TrainingItem,
+    *,
+    catalog_token_budget: int | None = None,
 ) -> ClassificationSource:
     """`ai_pending` öğenin girdisini okur: `_egitim/gelen` kopyasının içeriği ve talimat (o anki
-    katalog ve tür sözlüğü). Veritabanına yazmaz. Öğenin dosyası yoksa `ItemNotPlaceableError`."""
+    katalog ve tür sözlüğü; katalog bütçesi `Settings.catalog_token_budget`, boşsa ölçekli,
+    11.4.3). Veritabanına yazmaz. Öğenin dosyası yoksa `ItemNotPlaceableError`."""
     if item.staged_path is None or item.file_kind is None:
         raise ItemNotPlaceableError(f"Öğe {item.id} için sınıflandırılacak dosya yok")
     catalog = export_catalog(session)
@@ -127,7 +132,9 @@ def read_classification(
         content=layout.resolve(item.staged_path).read_bytes(),
         file_kind=FileKind(item.file_kind),
         page_count=item.page_count or 1,
-        instructions=build_training_classification_instructions(catalog, known.doc_kinds),
+        instructions=build_training_classification_instructions(
+            catalog, known.doc_kinds, configured_budget=catalog_token_budget
+        ),
     )
 
 
@@ -431,7 +438,12 @@ class TrainingClassificationJob:
         provider = context.provider
 
         def read(session: Session, item: TrainingItem) -> ClassificationSource:
-            return read_classification(session, context.layout, item)
+            return read_classification(
+                session,
+                context.layout,
+                item,
+                catalog_token_budget=context.settings.catalog_token_budget,
+            )
 
         def call(
             provider: AnalysisProvider, source: ClassificationSource

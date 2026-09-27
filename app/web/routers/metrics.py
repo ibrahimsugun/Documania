@@ -27,6 +27,11 @@ hiçbiri fiyatlanamıyorsa maliyet "—", bir kısmı fiyatlanıyorsa "en az" il
 kaydı olmayan analizler (ölçüm eklenmeden önceki partiler, kullanım bildirmeyen sağlayıcı)
 "ölçülmemiş" sütununda sayılır, toplamlara girmez.
 
+**Katalog payı (11.4.3).** Sayfa analizi olayı `usage` ile birlikte `catalog_tokens` taşır:
+talimattaki katalog metninin tahmini token payı (girdi tokenının bir parçası). "Katalog token"
+sütunu bu alanı taşıyan olayların toplamıdır; hiçbir olay taşımıyorsa (alan eklenmeden önceki
+analizler, incelemeler) "—".
+
 Sayfa analizi (ve fotoğraf kontrolü) ile işçinin aday tür incelemesi ve eğitim incelemesi ölçülür.
 İncelemeler bir partiye ait değildir: toplamda ve ay satırında sayılır, parti tablosunda görünmez.
 Tür açıklaması ve Telegram belge isteği çağrıları bu görünümde yoktur (bkz. PLAN.md §C70).
@@ -51,6 +56,7 @@ from app.config import ModelPrice, Settings, get_settings
 from app.db.models import Event, Upload, UploadFile
 from app.db.session import get_session
 from app.events import (
+    CATALOG_TOKENS_DATA_KEY,
     USAGE_BY_MODEL_DATA_KEY,
     USAGE_DATA_KEY,
     USAGE_EVENT_TYPES,
@@ -86,6 +92,7 @@ class UsageEvent:
     """Token ölçümü taşıması beklenen bir sayfa analizi olayı; `usage` `None` ise ölçülmemiş.
 
     `by_model` ön elemeli sayfada `usage`'ın modellere dağılımıdır (13.2.1); yoksa boş.
+    `catalog_tokens` talimattaki katalog metninin tahmini token payıdır (11.4.3); yoksa `None`.
     """
 
     ts: datetime
@@ -95,6 +102,7 @@ class UsageEvent:
     model: str | None
     usage: TokenUsage | None
     by_model: tuple[tuple[str, TokenUsage], ...] = ()
+    catalog_tokens: int | None = None
 
     def shares(self) -> tuple[tuple[str, TokenUsage], ...]:
         """Fiyatlanacak paylar: (model, token); dağılım yoksa bütün `usage` olayın modelinindir."""
@@ -107,11 +115,14 @@ class UsageEvent:
 
 @dataclass(slots=True)
 class Tally:
-    """Olayların toplamı: analiz ve ölçülmemiş sayısı, token toplamı, fiyatlanabilen maliyet."""
+    """Olayların toplamı: analiz ve ölçülmemiş sayısı, token toplamı, fiyatlanabilen maliyet ve
+    katalog payı (`catalog_counted` payı taşıyan ölçülmüş olay sayısı)."""
 
     analyses: int = 0
     unmetered: int = 0
     usage: TokenUsage = field(default_factory=TokenUsage)
+    catalog_tokens: int = 0
+    catalog_counted: int = 0
     cost: Decimal = Decimal(0)
     priced: int = 0
     unpriced: int = 0
@@ -128,6 +139,9 @@ class Tally:
             self.unmetered += 1
             return
         self.usage += event.usage
+        if event.catalog_tokens is not None:
+            self.catalog_tokens += event.catalog_tokens
+            self.catalog_counted += 1
         for model, usage in event.shares():
             self.models.add(model)
             self.model_usage[model] = self.model_usage.get(model, TokenUsage()) + usage
@@ -162,6 +176,7 @@ class MetricsRow:
     total_tokens: str
     cost: str
     models: str
+    catalog_tokens: str = UNKNOWN
 
 
 @dataclass(frozen=True, slots=True)
@@ -237,9 +252,17 @@ def read_usage_events(session: Session, *, upload_id: str | None = None) -> list
                 model=model if isinstance(model, str) else None,
                 usage=usage,
                 by_model=_usage_by_model(data.get(USAGE_BY_MODEL_DATA_KEY), usage),
+                catalog_tokens=_catalog_tokens(data.get(CATALOG_TOKENS_DATA_KEY)),
             )
         )
     return events
+
+
+def _catalog_tokens(value: object) -> int | None:
+    """Olaydaki katalog payı (11.4.3); yok ya da negatif olmayan tam sayı değilse `None`."""
+    if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+        return None
+    return value
 
 
 def _usage_by_model(data: object, usage: TokenUsage | None) -> tuple[tuple[str, TokenUsage], ...]:
@@ -391,6 +414,7 @@ def _row(label: str, tally: Tally, *, href: str | None = None) -> MetricsRow:
         total_tokens=_number(tally.usage.total_tokens),
         cost=tally.cost_text,
         models=", ".join(sorted(tally.models)) or UNKNOWN,
+        catalog_tokens=_number(tally.catalog_tokens) if tally.catalog_counted else UNKNOWN,
     )
 
 

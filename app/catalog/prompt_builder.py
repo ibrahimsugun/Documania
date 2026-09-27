@@ -18,6 +18,10 @@ Analiz talimatının `{{catalog}}` yuvasına giren metin burada üretilir (`comp
   kriterini kelimesi kelimesine ister (04.4.2), `fields` anahtarları zorunlu alan adlarıdır ve
   talimatta olmayan tür tanınamaz. Kısaltma olduğunda uyarı loglanır; bütün tanımlar düşse de metin
   sığmıyorsa metin yine eksiksiz türlerle döner ve uyarı bunu ayrıca söyler.
+- **Etkin bütçe (11.4.3):** analiz yolu bütçeyi `effective_token_budget`'tan alır. Ayar
+  (`CATALOG_TOKEN_BUDGET`) verilmişse aynen kullanılır; verilmemişse bütçe aktif analiz edilen tür
+  sayısıyla ölçeklenir — `max(CATALOG_TOKEN_BUDGET, TOKENS_PER_TYPE × tür sayısı)` — böylece her
+  türün tanımı kesilmeden girer ve büyüyen küme bedelini Belge Türleri sayfasında gösterir.
 """
 
 from __future__ import annotations
@@ -32,7 +36,13 @@ from app.catalog.schema import Catalog, CatalogEntry, FrontBackLayout
 logger = logging.getLogger(__name__)
 
 CATALOG_TOKEN_BUDGET = 4000
-"""Katalog metninin varsayılan token bütçesi (tahmini token, `estimate_tokens`)."""
+"""Katalog metninin varsayılan token bütçesi (tahmini token, `estimate_tokens`); ölçekli bütçenin
+alt sınırı (11.4.3)."""
+
+TOKENS_PER_TYPE = 200
+"""Ölçekli bütçede tür başına pay (11.4.3): bir türün başlık, yüz yapısı, zorunlu alan, tanım ve
+kriter satırları ~150 tahmini tokendır; pay bunun üstünde bırakılır (bkz. PLAN.md §C88; uzun
+tanımlı gerçek katalogdaki ölçüm §D60)."""
 
 BYTES_PER_TOKEN = 3
 """Tahminde bir tokene düşen UTF-8 bayt. Gerçek tokenlaştırıcıdan temkinli (fazla) sayar:
@@ -83,10 +93,21 @@ def analyzable_types(catalog: Catalog) -> tuple[CatalogEntry, ...]:
     return tuple(sorted(entries, key=lambda entry: entry.slug))
 
 
+def effective_token_budget(catalog: Catalog, configured: int | None = None) -> int:
+    """Katalog metninin etkin bütçesi (11.4.3): `configured` (`Settings.catalog_token_budget`)
+    verilmişse o; yoksa `max(CATALOG_TOKEN_BUDGET, TOKENS_PER_TYPE × analiz edilen etkin tür)`."""
+    if configured is not None:
+        return configured
+    return max(CATALOG_TOKEN_BUDGET, TOKENS_PER_TYPE * len(analyzable_types(catalog)))
+
+
 def compile_catalog(
-    catalog: Catalog, *, token_budget: int = CATALOG_TOKEN_BUDGET
+    catalog: Catalog, *, token_budget: int = CATALOG_TOKEN_BUDGET, warn: bool = True
 ) -> CompiledCatalog:
-    """Aktif türleri kompakt katalog metnine derler; bütçe aşılırsa tanımları kısaltır."""
+    """Aktif türleri kompakt katalog metnine derler; bütçe aşılırsa tanımları kısaltır.
+
+    `warn=False` kısaltma uyarısını loglamaz: talimat kurulmadan yalnız durum gösterilirken
+    (Belge Türleri sayfası, 11.4.3) her istek aynı uyarıyı yinelemesin."""
     if token_budget < 1:
         raise ValueError(f"katalog token bütçesi pozitif olmalı; verilen: {token_budget}")
     entries = analyzable_types(catalog)
@@ -105,7 +126,8 @@ def compile_catalog(
         )
         text = _render(entries, cut)
         estimated = estimate_tokens(text)
-        _warn(full_estimate, estimated, token_budget, shortened)
+        if warn:
+            _warn(full_estimate, estimated, token_budget, shortened)
     return CompiledCatalog(
         text=text,
         known_slugs=frozenset(entry.slug for entry in entries),

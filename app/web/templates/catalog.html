@@ -1,7 +1,9 @@
 {% extends "base.html" %}
 {# Belge Türleri (11.1.1): katalogdaki bütün türler, pasifler dahil. Silme yok (K16) — tür
    pasifleştirilir. Tutarsız kayıtlı tür (§8.6'ya uymayan satır) rozetle işaretlenir; düzenleme
-   formundan düzeltilir. Onay bekleyen aday türler (11.5.1) ayrı sayfadadır. #}
+   formundan düzeltilir. Onay bekleyen aday türler (11.5.1) ayrı sayfadadır. Üstteki satır analiz
+   talimatının katalog metnini ve bütçesini gösterir; tanımı kısaltılan tür uyarıyla listelenir
+   (11.4.3). #}
 {% block title %}{{ entry.label }}{% endblock %}
 {% block content %}
 <h1>{{ entry.label }}</h1>
@@ -13,9 +15,24 @@
   <a class="button-link" href="/document-types/new">Yeni tür</a>
   <a class="button-link" href="/document-types/candidate-types">Aday türler</a> <span class="count">({{ pending_candidates }} onay bekliyor)</span>
 </p>
+{% if budget %}
+<p class="catalog-budget" id="catalog-budget">Aktif tür: <strong>{{ budget.active_types }}</strong> · analiz talimatındaki katalog metni ≈ <strong>{{ budget.tokens_text }}</strong> token, tahmini (bütçe {{ budget.budget_text }}{% if budget.configured %}, <code>CATALOG_TOKEN_BUDGET</code> ayarından{% else %}, tür sayısıyla ölçekli{% endif %})</p>
+{% if budget.shortened %}
+<div class="notice catalog-budget-warning" role="status" id="catalog-budget-warning">
+  <p><strong>{{ budget.shortened | length }} türün tanımı kesiliyor — küme büyük.</strong> Katalog metni bütçeye sığmadığı için bu türlerin analizci açıklaması kısaltılarak (ya da hiç) talimata giriyor; alanlar ve kabul kriterleri kesilmez.{% if budget.over_budget %} Tanımlar kısaltıldığı hâlde metin bütçeyi aşıyor.{% endif %} Bütçeyi <code>CATALOG_TOKEN_BUDGET</code> ile büyütün ya da gereksiz türleri pasifleştirin.</p>
+  <ul class="shortened-types">
+    {% for slug, name in budget.shortened %}
+    <li><a href="/document-types/{{ slug|urlencode }}">{{ name }}</a> <code>{{ slug }}</code></li>
+    {% endfor %}
+  </ul>
+</div>
+{% endif %}
+{% else %}
+<p class="notice" role="status" id="catalog-budget">{{ budget_unavailable }}</p>
+{% endif %}
 <p class="hint">Değişiklikler bir sonraki analizden itibaren geçerlidir. Tür silinmez: pasifleştirilen tür yeni belgelere atanmaz, var olan belgeler kalır.</p>
 {% if types %}
-<table class="catalog">
+<table class="catalog catalog-types">
   <thead>
     <tr>
       <th>Ad</th><th>Slug</th><th>Dosya etiketi</th><th>Ülke</th><th>Yüz</th>
@@ -29,11 +46,11 @@
       <td><code>{{ item.slug }}</code></td>
       <td>{{ item.file_label }}</td>
       <td>{{ item.country or "—" }}</td>
-      <td>{{ sides_labels.get(item.sides, item.sides) }}</td>
+      <td class="cell-nowrap">{{ sides_labels.get(item.sides, item.sides) }}</td>
       <td>{{ "Evet" if item.direct else "Hayır" }}</td>
       <td>{{ "Evet" if item.analyze else "Hayır" }}</td>
       <td>{{ item.criteria_count }}</td>
-      <td>
+      <td class="cell-nowrap">
         {% if item.active %}Etkin{% else %}<span class="badge badge-neutral">Pasif</span>{% endif %}
         {% if item.problems %}
         <span class="badge badge-missing" title="{{ item.problems|join(' · ') }}">Tutarsız kayıt</span>

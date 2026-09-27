@@ -86,6 +86,12 @@ USAGE_BY_MODEL_DATA_KEY = "usage_by_model"
 maliyet her modelin kendi fiyatıyla hesaplanır. Toplamı `usage`'a eşittir; ön eleme yapılmayan
 sayfada anahtar yazılmaz, `usage` olayın `model`'ine aittir."""
 
+CATALOG_TOKENS_DATA_KEY = "catalog_tokens"
+"""Sayfa analizi olayında (PRD 11.4.3, 13.1.1) talimattaki katalog metninin tahmini token payı:
+katalog metninin tahmini tokenı (`app.catalog.prompt_builder.estimate_tokens`) × talimatı taşıyan
+istek sayısı (ön eleme ve ana analiz; fotoğraf kontrolü katalog taşımaz). `usage` ile birlikte
+yazılır; bu alan eklenmeden önceki olaylarda yoktur."""
+
 PRESCREEN_DATA_KEY = "prescreen"
 """Ön eleme sonucu (PRD 13.2.1): `{"model": "<ucuz model>", "accepted": true}` ya da
 `{"model": ..., "accepted": false, "escalation": "<gerekçe>"}` (ucuz model hata verdiyse ayrıca

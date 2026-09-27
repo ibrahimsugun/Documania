@@ -19,7 +19,13 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from app.config import ModelPrice, Settings, get_settings
 from app.db.models import Event, Upload, UploadFile
-from app.events import USAGE_BY_MODEL_DATA_KEY, USAGE_DATA_KEY, EventType, record_event
+from app.events import (
+    CATALOG_TOKENS_DATA_KEY,
+    USAGE_BY_MODEL_DATA_KEY,
+    USAGE_DATA_KEY,
+    EventType,
+    record_event,
+)
 from app.web.routers.metrics import BATCH_LIMIT, UsageEvent
 
 CLAUDE = "claude-test"
@@ -132,7 +138,7 @@ def test_page_without_any_analysis_says_so(client: TestClient, app: FastAPI) -> 
     assert response.status_code == 200
     assert "<title>Maliyet · belgeee</title>" in response.text
     assert response.text.count("Henüz sayfa analizi yok.") == 2
-    assert _rows(response.text, "total") == [["Toplam", "0", "0", "0", "0", "—", "0"]]
+    assert _rows(response.text, "total") == [["Toplam", "0", "0", "0", "0", "—", "0", "—"]]
     assert _rows(response.text, "months") == []
     assert _rows(response.text, "batches") == []
 
@@ -149,7 +155,7 @@ def test_model_in_neither_env_nor_the_builtin_table_counts_tokens_and_cost_is_no
     assert "Yerleşik fiyat tablosunda yok" in response.text
     assert "AI_MODEL_PRICES" in response.text
     (total,) = _rows(response.text, "total")
-    assert total == ["Toplam", "5", "7.500", "750", "8.250", "—", "1"]
+    assert total == ["Toplam", "5", "7.500", "750", "8.250", "—", "1", "—"]
     assert "USD</td>" not in _section(response.text, "total")
     assert [row[:3] for row in _rows(response.text, "prices")] == [
         ["claude-test", "—", "fiyat yok"],
@@ -168,9 +174,9 @@ def test_months_are_listed_newest_first_with_tokens_and_cost(
     assert response.status_code == 200
     assert _rows(response.text, "months") == [
         # eylül: 4000 girdi × 1 + 400 çıktı × 10 = 8000 / 1e6
-        ["2026-09", "1", "4.000", "400", "4.400", "0.0080 USD", "0"],
+        ["2026-09", "1", "4.000", "400", "4.400", "0.0080 USD", "0", "—"],
         # ağustos: (1000+2000+500) × 5 + (100+200+50) × 25 = 26250 / 1e6; biri ölçülmemiş
-        ["2026-08", "4", "3.500", "350", "3.850", "0.0263 USD", "1"],
+        ["2026-08", "4", "3.500", "350", "3.850", "0.0263 USD", "1", "—"],
     ]
 
 
@@ -178,7 +184,7 @@ def test_total_row_sums_every_month(client: TestClient, seeded: None) -> None:
     response = client.get("/metrics")
 
     (total,) = _rows(response.text, "total")
-    assert total == ["Toplam", "5", "7.500", "750", "8.250", "0.0343 USD", "1"]
+    assert total == ["Toplam", "5", "7.500", "750", "8.250", "0.0343 USD", "1", "—"]
     assert "1 analizin token kaydı yok" in response.text
     assert "Token fiyatı tanımlı değil" not in response.text
 
@@ -189,8 +195,8 @@ def test_batches_are_listed_newest_first_and_link_to_their_pages(
     response = client.get("/metrics")
 
     assert _rows(response.text, "batches") == [
-        ["u_20260910_0002", "1", "4.000", "400", "4.400", "0.0080 USD", "0"],
-        ["u_20260820_0001", "4", "3.500", "350", "3.850", "0.0263 USD", "1"],
+        ["u_20260910_0002", "1", "4.000", "400", "4.400", "0.0080 USD", "0", "—"],
+        ["u_20260820_0001", "4", "3.500", "350", "3.850", "0.0263 USD", "1", "—"],
     ]
     assert 'href="/metrics/uploads/u_20260910_0002"' in response.text
     assert 'href="/metrics/uploads/u_20260820_0001"' in response.text
@@ -266,7 +272,7 @@ def test_broken_usage_data_reads_as_unmeasured(
     response = client.get("/metrics")
 
     assert response.status_code == 200
-    assert _rows(response.text, "total") == [["Toplam", "1", "0", "0", "0", "—", "1"]]
+    assert _rows(response.text, "total") == [["Toplam", "1", "0", "0", "0", "—", "1", "—"]]
 
 
 # --- fiyatı olmayan model ---------------------------------------------------------------------
@@ -282,8 +288,8 @@ def test_model_without_a_price_counts_tokens_but_not_cost(
     assert "Fiyatı tanımlı olmayan model: gpt-test" in response.text
     # Eylül yalnız fiyatsız modelle yapıldı: tokenlar var, maliyet yok. Ağustos tam fiyatlı.
     assert _rows(response.text, "months") == [
-        ["2026-09", "1", "4.000", "400", "4.400", "—", "0"],
-        ["2026-08", "4", "3.500", "350", "3.850", "0.0263 USD", "1"],
+        ["2026-09", "1", "4.000", "400", "4.400", "—", "0", "—"],
+        ["2026-08", "4", "3.500", "350", "3.850", "0.0263 USD", "1", "—"],
     ]
     (total,) = _rows(response.text, "total")
     assert total[5] == "en az 0.0263 USD"
@@ -352,7 +358,17 @@ def test_prescreened_page_prices_each_model_s_share_at_its_own_price(
     # GPT: 500 × 1 + 50 × 10 = 1000; Claude: 1000 × 5 + 100 × 25 = 7500 → 8500 / 1e6.
     # Toplamın tümü Claude fiyatıyla 0.0113 USD olurdu.
     assert _rows(response.text, "pages") == [
-        ["h.pdf — sayfa 1", "1", "1.500", "150", "1.650", "0.0085 USD", "0", f"{CLAUDE}, {GPT}"]
+        [
+            "h.pdf — sayfa 1",
+            "1",
+            "1.500",
+            "150",
+            "1.650",
+            "0.0085 USD",
+            "0",
+            f"{CLAUDE}, {GPT}",
+            "—",
+        ]
     ]
 
 
@@ -431,8 +447,8 @@ def test_upload_page_lists_pages_with_reanalyses_summed(
     assert response.status_code == 200
     assert "<title>Maliyet · u_20260910_0007 · belgeee</title>" in response.text
     assert _rows(response.text, "pages") == [
-        ["on.pdf — sayfa 1", "2", "2.200", "220", "2.420", "0.0165 USD", "0", CLAUDE],
-        ["arka.pdf — sayfa 3", "1", "300", "30", "330", "0.0006 USD", "0", GPT],
+        ["on.pdf — sayfa 1", "2", "2.200", "220", "2.420", "0.0165 USD", "0", CLAUDE, "—"],
+        ["arka.pdf — sayfa 3", "1", "300", "30", "330", "0.0006 USD", "0", GPT, "—"],
     ]
     assert 'href="/uploads/u_20260910_0007"' in response.text
     assert "Toplam token" in response.text
@@ -558,7 +574,7 @@ def test_real_model_is_priced_from_the_builtin_table_without_any_env_price(
     response = client.get("/metrics")
 
     (total,) = _rows(response.text, "total")
-    assert total == ["Toplam", "1", "52.724", "1.853", "54.577", "0.0128 USD", "0"]
+    assert total == ["Toplam", "1", "52.724", "1.853", "54.577", "0.0128 USD", "0", "—"]
     assert "Token fiyatı tanımlı değil" not in response.text
     assert "Fiyatı tanımlı olmayan model" not in response.text
     assert _rows(response.text, "prices") == [
@@ -650,3 +666,57 @@ def test_upload_page_shows_the_prices_it_used(
     rows = _rows(response.text, "pages")
     assert rows[0][5] == "0.0003 USD"  # 1000 × 0.2 + 100 × 1.2 = 320 / 1e6
     assert _rows(response.text, "prices")[0][:3] == [LUNA, LUNA, "yerleşik tablo"]
+
+
+# --- 11.4.3: katalog metninin payı ------------------------------------------------------------
+
+
+def _with_catalog_share(
+    session: Session, upload_id: str, file_id: int, page_index: int, share: object
+) -> None:
+    event = record_event(
+        session,
+        EventType.PAGE_ANALYZED,
+        upload_id=upload_id,
+        file_id=file_id,
+        page_index=page_index,
+        data={
+            "provider": "test",
+            "model": CLAUDE,
+            USAGE_DATA_KEY: {"input_tokens": 5000, "output_tokens": 100},
+            CATALOG_TOKENS_DATA_KEY: share,
+        },
+    )
+    event.ts = _at(2026, 10)
+
+
+def test_catalog_share_has_its_own_column_and_old_events_show_a_dash(
+    client: TestClient, app: FastAPI, session_factory: sessionmaker[Session], seeded: None
+) -> None:
+    with session_factory() as session:
+        first, second = _upload(session, "u_20261001_0001", "yeni.pdf", "bozuk.pdf")
+        _with_catalog_share(session, "u_20261001_0001", first, 0, 3200)
+        _with_catalog_share(session, "u_20261001_0001", first, 1, 2800)
+        _with_catalog_share(session, "u_20261001_0001", second, 0, "çok")
+        _with_catalog_share(session, "u_20261001_0001", second, 1, True)
+        session.commit()
+
+    response = client.get("/metrics")
+
+    assert "Katalog token (tahmini)" in response.text
+    # Yalnız geçerli payı taşıyan olaylar toplanır; alan eklenmeden önceki aylar "—".
+    assert [(row[0], row[-1]) for row in _rows(response.text, "months")] == [
+        ("2026-10", "6.000"),
+        ("2026-09", "—"),
+        ("2026-08", "—"),
+    ]
+    assert _rows(response.text, "total")[0][-1] == "6.000"
+
+    detail = client.get("/metrics/uploads/u_20261001_0001")
+
+    assert [(row[0], row[-1]) for row in _rows(detail.text, "pages")] == [
+        ("yeni.pdf — sayfa 1", "3.200"),
+        ("yeni.pdf — sayfa 2", "2.800"),
+        ("bozuk.pdf — sayfa 1", "—"),
+        ("bozuk.pdf — sayfa 2", "—"),
+    ]

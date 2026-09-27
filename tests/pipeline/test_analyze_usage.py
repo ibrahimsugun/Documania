@@ -19,17 +19,18 @@ from app.ai import (
     ProviderConnectionError,
     ProviderServerError,
 )
+from app.ai.prompts import PageAnalysisInstructions, build_page_analysis_instructions
 from app.ai.provider import MAX_ANALYSIS_ATTEMPTS
 from app.ai.usage import report_usage
 from app.config import ModelPrice
 from app.db.models import Upload
-from app.events import USAGE_DATA_KEY, EventType
-from app.pipeline.analyze import PageAnalysisStatus
+from app.events import CATALOG_TOKENS_DATA_KEY, USAGE_DATA_KEY, EventType
+from app.pipeline.analyze import PageAnalysisStatus, analyze_upload
 from app.storage import DataLayout
 from app.web.routers.metrics import build_overview, build_upload_metrics
 from tests.ai.payloads import analysis_payload
 from tests.fixtures.gen import make_portrait_image_bytes, make_text_pdf_bytes, photo_check_response
-from tests.pipeline.test_photo_check import _analyze, _events, _photo, _upload
+from tests.pipeline.test_photo_check import CATALOG, _analyze, _events, _photo, _upload
 
 
 class MeteredProvider(AnalysisProvider):
@@ -226,3 +227,93 @@ def test_metrics_read_back_what_the_analysis_wrote(session: Session, layout: Dat
         ("0", "—"),
     ]
     assert [row.label.rsplit(" ", 1)[-1] for row in detail.pages] == ["1", "2", "3"]
+
+
+# --- 11.4.3: katalog metninin payı ----------------------------------------------------------------
+
+
+def _catalog_tokens() -> int:
+    tokens = build_page_analysis_instructions(CATALOG).catalog_tokens
+    assert tokens is not None and tokens > 0
+    return tokens
+
+
+def test_analyzed_page_event_carries_the_catalog_share_of_its_instructions(
+    session: Session, layout: DataLayout
+) -> None:
+    upload = _pdf(session, layout, 2)
+    provider = MeteredProvider(
+        ((1200, 300), analysis_payload(page_index=0)),
+        ((1100, 200), analysis_payload(page_index=1)),
+    )
+
+    _analyze(session, layout, upload, provider)
+
+    shares = [
+        e.data_json[CATALOG_TOKENS_DATA_KEY] for e in _events(session, EventType.PAGE_ANALYZED)
+    ]
+    assert shares == [_catalog_tokens(), _catalog_tokens()]
+
+
+def test_catalog_share_is_written_only_with_the_usage(session: Session, layout: DataLayout) -> None:
+    upload = _pdf(session, layout, 2)
+    provider = MeteredProvider(analysis_payload(page_index=0), ProviderConnectionError("kesildi"))
+
+    _analyze(session, layout, upload, provider)
+
+    (analyzed,) = _events(session, EventType.PAGE_ANALYZED)
+    (failed,) = _events(session, EventType.PAGE_ANALYSIS_FAILED)
+    # Kullanım bildirmeyen sağlayıcı ve yanıt vermeyen çağrı: ölçülmemiş sayfa pay da taşımaz.
+    assert CATALOG_TOKENS_DATA_KEY not in analyzed.data_json
+    assert CATALOG_TOKENS_DATA_KEY not in failed.data_json
+
+
+def test_failed_page_that_spent_tokens_carries_the_catalog_share(
+    session: Session, layout: DataLayout
+) -> None:
+    upload = _upload(session, layout, ("foto.jpg", make_portrait_image_bytes()))
+    provider = MeteredProvider(((1000, 100), _photo()), ProviderConnectionError("kesildi"))
+
+    _analyze(session, layout, upload, provider)
+
+    (event,) = _events(session, EventType.PAGE_ANALYSIS_FAILED)
+    # Fotoğraf kontrolü katalog taşımaz: pay yalnız analiz isteğininkidir.
+    assert event.data_json[CATALOG_TOKENS_DATA_KEY] == _catalog_tokens()
+
+
+def test_hand_built_instructions_write_no_catalog_share(
+    session: Session, layout: DataLayout
+) -> None:
+    upload = _pdf(session, layout, 1)
+    provider = MeteredProvider(((1200, 300), analysis_payload(page_index=0)))
+    built = build_page_analysis_instructions(CATALOG)
+    instructions = PageAnalysisInstructions(text=built.text, known_slugs=built.known_slugs)
+
+    analyze_upload(session, layout, upload, provider=provider, instructions=instructions)
+
+    (event,) = _events(session, EventType.PAGE_ANALYZED)
+    assert USAGE_DATA_KEY in event.data_json
+    assert CATALOG_TOKENS_DATA_KEY not in event.data_json
+
+
+def test_metrics_sum_the_catalog_share_of_the_measured_pages(
+    session: Session, layout: DataLayout
+) -> None:
+    upload = _pdf(session, layout, 3)
+    provider = MeteredProvider(
+        ((1000, 100), analysis_payload(page_index=0)),
+        ((2000, 200), analysis_payload(page_index=1)),
+        ProviderConnectionError("zaman aşımı"),
+    )
+    _analyze(session, layout, upload, provider)
+
+    overview = build_overview(session, {})
+    detail = build_upload_metrics(session, upload, {})
+
+    share = _catalog_tokens()
+    assert overview.total.catalog_tokens == f"{2 * share:,}".replace(",", ".")
+    assert [row.catalog_tokens for row in detail.pages] == [
+        f"{share:,}".replace(",", "."),
+        f"{share:,}".replace(",", "."),
+        "—",
+    ]
