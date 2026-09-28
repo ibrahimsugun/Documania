@@ -569,17 +569,20 @@ td code, .cell-break { overflow-wrap: anywhere; }
 .cell-nowrap { white-space: nowrap; }
 /* Çok sütunlu iki liste sabit oranlı yerleşimle dizilir: otomatik yerleşim en uzun değere göre
    sütun kapar, kalan sütunlar sıkışır. Oranlar geniş ekranda (72rem içerik) ölçülerek seçildi;
-   başlıklar gerekirse iki satıra iner, hücre metni en çok bir-iki kez kırılır. */
+   başlıklar gerekirse iki satıra iner, hücre metni en çok bir-iki kez kırılır. Belge Türleri
+   tablosu slug sütunu taşımaz (11.1.4): dokuz sütunun oranları toplamı %100; işlem sütunu
+   "Düzenle" + "Etkinleştir" düğmesini 1400 px'te kesmeden taşıyacak genişliktedir (PLAN §D63). */
 .catalog.catalog-types, .training-items { table-layout: fixed; width: 100%; }
 .catalog.catalog-types th, .training-items th { white-space: normal; }
-.catalog-types th:nth-child(1) { width: 18%; }
-.catalog-types th:nth-child(2) { width: 15%; }
-.catalog-types th:nth-child(3) { width: 11%; }
-.catalog-types th:nth-child(4) { width: 5%; }
-.catalog-types th:nth-child(5) { width: 9%; }
-.catalog-types th:nth-child(6), .catalog-types th:nth-child(7) { width: 6%; }
-.catalog-types th:nth-child(8) { width: 7%; }
-.catalog-types th:nth-child(9) { width: 7%; }
+.catalog-types th:nth-child(1) { width: 22%; }
+.catalog-types th:nth-child(2) { width: 16%; }
+.catalog-types th:nth-child(3) { width: 6%; }
+.catalog-types th:nth-child(4) { width: 10%; }
+.catalog-types th:nth-child(5) { width: 7%; }
+.catalog-types th:nth-child(6) { width: 7%; }
+.catalog-types th:nth-child(7) { width: 8%; }
+.catalog-types th:nth-child(8) { width: 8%; }
+.catalog-types th:nth-child(9) { width: 16%; }
 .training-items th:nth-child(1) { width: 24%; }
 .training-items th:nth-child(2) { width: 12%; }
 .training-items th:nth-child(3) { width: 17%; }
@@ -668,6 +671,7 @@ button:hover, .button-link:hover { background: #f2f4f7; }
   --danger: #b23b34;
   --danger-soft: #fff0ee;
   --success: #18724a;
+  --success-soft: #e6f4ec;
   --shadow-sm: 0 1px 2px rgb(23 37 43 / 7%), 0 6px 18px rgb(23 37 43 / 4%);
   --shadow-md: 0 2px 4px rgb(23 37 43 / 8%), 0 14px 32px rgb(23 37 43 / 7%);
   --radius-sm: 8px;
@@ -962,6 +966,21 @@ form:not(.session) button[type="submit"]:hover,
 }
 
 .badge-neutral { background: #eef2f1; border-color: var(--line); color: var(--muted-ink); }
+
+/* Belge Türleri Durum hücresi (11.1.4): yumuşak zeminde koyu metin (kontrast ≥ 4.5:1); renk tek
+   taşıyıcı değil, "Etkin"/"Pasif" metni kalır. */
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.35rem;
+  padding: 0.12rem 0.48rem;
+  border-radius: 999px;
+  font-size: 0.78em;
+  font-weight: 700;
+}
+
+.status-active { color: var(--success); background: var(--success-soft); }
+.status-passive { color: var(--danger); background: var(--danger-soft); }
 
 .tabs {
   gap: 0.3rem;

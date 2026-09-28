@@ -1,6 +1,7 @@
 """11.1.1, 11.1.2, 11.1.3 — Belge Türleri ekranı: tür oluşturma, düzenleme ve pasifleştirme panelden
 yapılır; Direkt türde dönüşüm listesi boş, `front_back` türde sayfa aralığı 2 olmalıdır; kabul
-kriteri maddeleri eklenip çıkarılır ve değişiklik bir sonraki analizde geçerli olur.
+kriteri maddeleri eklenip çıkarılır ve değişiklik bir sonraki analizde geçerli olur. 11.1.4 —
+tabloda slug sütunu yok, Durum hücresi yumuşak renkli rozetle metni de yazar.
 
 Yalnız `TestClient`: tarayıcıda çizim görülmedi."""
 
@@ -90,15 +91,92 @@ def seeded(session_factory: sessionmaker[Session]) -> None:
 # --- 11.1.1: liste --------------------------------------------------------------------------------
 
 
+ACTIVE_BADGE = '<span class="status-badge status-active">Etkin</span>'
+PASSIVE_BADGE = '<span class="status-badge status-passive">Pasif</span>'
+PANEL_CSS = ROOT / "app" / "web" / "static" / "panel.css"
+
+
+def _types_table(html: str) -> str:
+    found = re.search(r'<table class="catalog catalog-types">.*?</table>', html, re.S)
+    assert found is not None
+    return found.group(0)
+
+
 def test_list_shows_every_type_with_its_state(client: TestClient, seeded: None) -> None:
     page = client.get("/document-types")
 
     assert page.status_code == 200
     assert "<title>Belge Türleri · belgeee</title>" in page.text
-    for entry in load_seed_catalog():
-        assert f"<code>{entry.slug}</code>" in page.text
     assert 'href="/document-types/new"' in page.text
     assert "Tutarsız kayıt" not in page.text
+    # 11.1.4: slug sütunu yok; slug ad bağlantısının adresinde ve `title`'ında durur.
+    table = _types_table(page.text)
+    assert "Slug" not in table
+    assert "<code>" not in table
+    assert table.count("<th>") == 9
+    rows = re.findall(r"<tr[^>]*>(.*?)</tr>", table.split("<tbody>")[1], re.S)
+    entries = load_seed_catalog()
+    assert len(rows) == len(entries)
+    assert all(row.count("<td") == 9 for row in rows)
+    for entry in entries:
+        link = f'<a href="/document-types/{entry.slug}" title="{entry.slug}">{entry.name}</a>'
+        assert link in table
+    assert table.count(ACTIVE_BADGE) == len(entries)
+    assert "status-passive" not in table
+
+
+def test_the_type_page_still_shows_the_slug_the_list_hides(
+    client: TestClient, seeded: None
+) -> None:
+    for entry in load_seed_catalog():
+        page = client.get(f"/document-types/{entry.slug}")
+
+        assert page.status_code == 200
+        assert f"<code>{entry.slug}</code>" in page.text
+
+
+def _contrast(foreground: str, background: str) -> float:
+    """WCAG 2 kontrast oranı; renkler `#rrggbb`."""
+
+    def luminance(color: str) -> float:
+        channels = [int(color[index : index + 2], 16) / 255 for index in (1, 3, 5)]
+        linear = [c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4 for c in channels]
+        return 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2]
+
+    high, low = sorted((luminance(foreground), luminance(background)), reverse=True)
+    return (high + 0.05) / (low + 0.05)
+
+
+@pytest.mark.parametrize(
+    ("rule", "color", "background"),
+    [
+        pytest.param("status-active", "--success", "--success-soft", id="etkin-yesilimsi"),
+        pytest.param("status-passive", "--danger", "--danger-soft", id="pasif-kirmizimsi"),
+    ],
+)
+def test_status_badges_are_soft_toned_and_their_text_stays_readable(
+    rule: str, color: str, background: str
+) -> None:
+    css = PANEL_CSS.read_text(encoding="utf-8")
+    body = re.search(rf"\.{rule}\s*\{{([^}}]*)\}}", css)
+    assert body is not None, rule
+    assert re.search(rf"(?<![-\w])color:\s*var\({color}\)", body.group(1))
+    assert re.search(rf"background:\s*var\({background}\)", body.group(1))
+
+    values = {
+        name: re.findall(rf"{name}:\s*(#[0-9a-f]{{6}});", css) for name in (color, background)
+    }
+    assert all(len(found) == 1 for found in values.values()), values  # tek tanım, :root'ta
+    assert _contrast(values[color][0], values[background][0]) >= 4.5
+
+
+def test_the_type_table_widths_are_laid_out_for_its_nine_columns() -> None:
+    css = PANEL_CSS.read_text(encoding="utf-8")
+
+    widths = re.findall(r"\.catalog-types th:nth-child\((\d+)\) \{ width: (\d+)%; \}", css)
+
+    assert [int(column) for column, _ in widths] == list(range(1, 10))
+    assert sum(int(width) for _, width in widths) == 100
 
 
 def test_empty_catalog_says_so_and_still_offers_a_new_type(client: TestClient) -> None:
@@ -115,10 +193,13 @@ def test_passive_types_stay_in_the_list_marked_passive(client: TestClient) -> No
 
     page = client.get("/document-types")
 
-    assert "<code>sample_card</code>" in page.text
-    assert 'class="type-passive"' in page.text
-    assert "Pasif" in page.text
-    assert 'action="/document-types/sample_card/activate"' in page.text
+    table = _types_table(page.text)
+    assert "<code>sample_card</code>" not in table
+    assert 'title="sample_card"' in table
+    assert 'class="type-passive"' in table
+    assert PASSIVE_BADGE in table
+    assert "status-active" not in table
+    assert 'action="/document-types/sample_card/activate"' in table
     assert "/deactivate" not in page.text
 
 
@@ -135,6 +216,13 @@ def test_inconsistent_stored_type_is_flagged_and_listed(
     assert page.status_code == 200
     assert "Tutarsız kayıt" in page.text
     assert "allowed_conversions boş olmalı" in page.text
+    # Durum rozeti ile tutarsızlık rozeti aynı hücrede yan yana (11.1.4).
+    status = re.search(
+        r'<td class="cell-nowrap">\s*(<span class="status-badge.*?)</td>', page.text, re.S
+    )
+    assert status is not None
+    assert status.group(1).startswith(ACTIVE_BADGE)
+    assert '<span class="badge badge-missing"' in status.group(1)
 
 
 def test_notice_names_the_type_and_ignores_unknown_notices(client: TestClient) -> None:
@@ -830,6 +918,9 @@ def test_shortened_descriptions_are_warned_and_linked_to_their_types(
     assert f"{len(expected.shortened_slugs)} türün tanımı kesiliyor — küme büyük." in box
     for slug in expected.shortened_slugs:
         assert f'<a href="/document-types/{slug}">' in box
+        # Uyarı listesi slug'ı gösterir; tablo göstermez (11.1.4).
+        assert f"<code>{slug}</code>" in box
+        assert f"<code>{slug}</code>" not in _types_table(page.text)
     if expected.over_budget:
         assert "Tanımlar kısaltıldığı hâlde metin bütçeyi aşıyor." in box
 
