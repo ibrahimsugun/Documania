@@ -1757,13 +1757,13 @@
         "description": "PRD 11.1.5 · FR-MOD-11 · Faz 1 · Must (v1). İnsan kararı (2026-09-28, ek görev 3). Sözleşme PLAN §C93.",
         "details": "KAPSAM: PRD 11.1.5; Belge Türleri listesi. Tam sözleşme PLAN §C93 — önce oku.\n\nNE YAPILACAK: (1) `catalog_page` `country: Annotated[str | None, Query(max_length=8)]` alır; değerler `all` (varsayılan), `general`, ISO2 (`^[A-Z]{2}$`; başka değer → `all`). Süzme kuralı: `country=TR` → `item.country == \"TR\" or item.country is None`; `general` → `country is None`. Süzme `list_types` çıktısında yapılır (sorgu değil; katalog küçük) — ya da `list_types(session, country=...)` parametresi, pencere seçer. (2) Şablon: tablo üstünde `<form method=\"get\">` + `<select name=\"country\">` (seçenekler: \"Hepsi (M)\", \"Genel — ülkesiz (G)\", sonra alfabetik `TR (10)` biçiminde sayılarla) + \"Uygula\" düğmesi; `onchange` ile otomatik gönderim isteğe bağlı, JavaScript'siz de çalışır. \"N tür gösteriliyor (toplam M)\" satırı. (3) Süzgeç korunur: satır bağlantıları `?country=` taşır; `NOTICES` yönlendirmeleri (`/document-types?notice=…&slug=…`) `country` parametresini geçirir; etkinleştir/pasifleştir formları gizli `country` alanı taşır ve yönlendirme aynı süzgece döner. (4) Bütçe satırı (`catalog_budget_view`) süzgeçten bağımsız (bütün aktif türler).\n\nGİRDİ: app/web/routers/catalog.py (`catalog_page` :642-670, `NOTICES`, `_set_active` :799-817 yönlendirmeleri), app/catalog/manage.py (`list_types` :83, `TypeSummary.country`), app/web/templates/catalog.html, tests/web/test_catalog_page.py.\n\nÇIKTI: app/web/routers/catalog.py, app/catalog/manage.py (gerekirse), app/web/templates/catalog.html, app/web/static/panel.css (süzgeç satırı), tests/web/test_catalog_page.py, PLAN.md (11.1.5 satırı, K11.1 kanıtı), HANDOFF.md.\n\nBU GÖREVİ BAĞLAYAN KİLİTLİ KURALLAR: 00.2 (yerleşik varsayılan; ek ayar yok), CONVENTIONS §6, R11.\n\nPRD'DE AYRICA OKU: 11.1.1, 11.1.4 (tm 122 ile aynı şablon — o görevden sonra), 11.4.3.\n\nİLGİLİ KABUL SENARYOLARI: —.\n\nKAPSAM SINIRI: durum (etkin/pasif) süzgeci, arama kutusu ve sayfalama yok (istenmedi; PLAN §C93'e not); toplu seçim tm 132'de; süzgeç yalnız Belge Türleri sayfasında (aday türler, eğitim bilinen türler değişmez).\n\nTUZAKLAR: `country` sütunu `None` ve boş string olabilir — ikisi de \"genel\" sayılır (`form.py:149` boş girdiyi None yapar ama eski kayıt boş string taşıyabilir). Ülke kodları ISO2 büyük harf; küçük harf girdiyi büyüt. Süzgeç hiçbir tür göstermiyorsa boş durum metni. `_set_active` yönlendirmesi süzgeci kaybetmesin — testle kanıtla.\n\nKAPANIŞ: PLAN satır(lar)ı ✅ → kanıt maddesi (§K), HANDOFF bloğu, commit mesajında `PRD <kod> — tm <id>`; CONVENTIONS DoD kapısı (ruff, compileall, import app.main, alembic upgrade head temiz SQLite, pytest -m \"not live\", coverage) yeşil.",
         "testStrategy": "1) Sentetik katalog: TR (2), RU (1), ülkesiz (2). `?country=TR` → 4 satır (2 TR + 2 genel), RU görünmez; `?country=general` → 2; `?country=all`/parametresiz → 5; geçersiz değer → hepsi. 2) Seçenek metinleri sayılarla; seçili değer `selected`. 3) Pasifleştir formu `?country=TR` ile gönderilince yönlendirme süzgeci koruyor; bildirim (`notice`) süzgeçle birlikte. 4) Sayım satırı \"4 tür gösteriliyor (toplam 5)\". 5) Bütçe satırı süzgeçle değişmiyor. 6) DoD kapısı yeşil.",
-        "status": "in-progress",
+        "status": "done",
         "dependencies": [
           "122"
         ],
         "priority": "high",
         "subtasks": [],
-        "updatedAt": "2026-09-28T14:14:09.315Z"
+        "updatedAt": "2026-09-28T15:24:32.867Z"
       },
       {
         "id": "124",
@@ -1956,9 +1956,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-09-28T14:14:09.315Z",
+      "lastModified": "2026-09-28T15:24:32.868Z",
       "taskCount": 133,
-      "completedCount": 117,
+      "completedCount": 118,
       "tags": [
         "master"
       ]
