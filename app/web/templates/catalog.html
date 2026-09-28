@@ -3,8 +3,12 @@
    pasifleştirilir. Tutarsız kayıtlı tür (§8.6'ya uymayan satır) rozetle işaretlenir; düzenleme
    formundan düzeltilir. Onay bekleyen aday türler (11.5.1) ayrı sayfadadır. Üstteki satır analiz
    talimatının katalog metnini ve bütçesini gösterir; tanımı kısaltılan tür uyarıyla listelenir
-   (11.4.3). Slug tabloda sütun değildir: ad bağlantısının adresinde ve `title`'ında, tür sayfasında
-   durur; Durum rozeti rengin yanında "Etkin"/"Pasif" metnini de taşır (11.1.4). #}
+   (11.4.3, süzgeçten bağımsız). Slug tabloda sütun değildir: ad bağlantısının adresinde ve
+   `title`'ında, tür sayfasında durur; Durum rozeti rengin yanında "Etkin"/"Pasif" metnini de taşır
+   (11.1.4). Ülke süzgeci (11.1.5): seçilen ülke + ülkeden bağımsız (genel) türler birlikte
+   listelenir; JavaScript'siz de çalışır ("Uygula" düğmesi), seçim satır ve "Yeni tür"
+   bağlantılarında, etkinleştir/pasifleştir formlarının gizli alanında ve bütün bildirim
+   yönlendirmelerinde korunur. #}
 {% block title %}{{ entry.label }}{% endblock %}
 {% block content %}
 <h1>{{ entry.label }}</h1>
@@ -13,7 +17,7 @@
 <p class="notice notice-success" role="status">{{ notice_text }}</p>
 {% endif %}
 <p>
-  <a class="button-link" href="/document-types/new">Yeni tür</a>
+  <a class="button-link" href="/document-types/new{{ country_query }}">Yeni tür</a>
   <a class="button-link" href="/document-types/candidate-types">Aday türler</a> <span class="count">({{ pending_candidates }} onay bekliyor)</span>
 </p>
 {% if budget %}
@@ -32,6 +36,16 @@
 <p class="notice" role="status" id="catalog-budget">{{ budget_unavailable }}</p>
 {% endif %}
 <p class="hint">Değişiklikler bir sonraki analizden itibaren geçerlidir. Tür silinmez: pasifleştirilen tür yeni belgelere atanmaz, var olan belgeler kalır.</p>
+<form class="search country-filter" method="get" action="/document-types" aria-label="Türleri ülkeye göre süz">
+  <label for="country">Ülke</label>
+  <select id="country" name="country" onchange="this.form.submit()">
+    {% for option in country_options %}
+    <option value="{{ option.value }}"{% if option.value == selected_country %} selected{% endif %}>{{ option.label }}</option>
+    {% endfor %}
+  </select>
+  <button type="submit">Uygula</button>
+</form>
+<p class="count">{{ types|length }} tür gösteriliyor (toplam {{ total_types }})</p>
 {% if types %}
 <table class="catalog catalog-types">
   <thead>
@@ -43,7 +57,7 @@
   <tbody>
     {% for item in types %}
     <tr{% if not item.active %} class="type-passive"{% endif %}>
-      <td><a href="/document-types/{{ item.slug|urlencode }}" title="{{ item.slug }}">{{ item.name }}</a></td>
+      <td><a href="/document-types/{{ item.slug|urlencode }}{{ country_query }}" title="{{ item.slug }}">{{ item.name }}</a></td>
       <td>{{ item.file_label }}</td>
       <td>{{ item.country or "—" }}</td>
       <td class="cell-nowrap">{{ sides_labels.get(item.sides, item.sides) }}</td>
@@ -57,13 +71,15 @@
         {% endif %}
       </td>
       <td class="doc-actions">
-        <a href="/document-types/{{ item.slug|urlencode }}">Düzenle</a>
+        <a href="/document-types/{{ item.slug|urlencode }}{{ country_query }}">Düzenle</a>
         {% if item.active %}
         <form class="inline" method="post" action="/document-types/{{ item.slug|urlencode }}/deactivate">
+          {% if selected_country != "all" %}<input type="hidden" name="country" value="{{ selected_country }}">{% endif %}
           <button type="submit">Pasifleştir</button>
         </form>
         {% else %}
         <form class="inline" method="post" action="/document-types/{{ item.slug|urlencode }}/activate">
+          {% if selected_country != "all" %}<input type="hidden" name="country" value="{{ selected_country }}">{% endif %}
           <button type="submit">Etkinleştir</button>
         </form>
         {% endif %}
@@ -72,6 +88,8 @@
     {% endfor %}
   </tbody>
 </table>
+{% elif total_types %}
+<p class="placeholder">Bu süzgeçte tür yok. <a href="/document-types">Bütün türleri göster</a></p>
 {% else %}
 <p class="placeholder">Katalogda henüz tür yok.</p>
 {% endif %}

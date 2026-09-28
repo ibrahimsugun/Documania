@@ -104,6 +104,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from collections import Counter
 from dataclasses import dataclass, replace
 from typing import Annotated, Any
@@ -138,6 +139,7 @@ from app.catalog import (
     TypeForm,
     TypeFormError,
     TypeNotFoundError,
+    TypeSummary,
     approve_candidate_type,
     approved_type_slug,
     build_entry,
@@ -319,6 +321,81 @@ def _thousands(value: int) -> str:
     return f"{value:,}".replace(",", ".")
 
 
+# --- 11.1.5: ülke süzgeci -------------------------------------------------------------------------
+
+COUNTRY_CODE_RE = re.compile(r"^[A-Z]{2}$")
+
+
+def _normalize_country(value: str | None) -> str:
+    """Süzgeç değerini geçerli bir biçime indirger: `all` (varsayılan), `general`, ISO2 büyük harf;
+    başka değer (uzunluk sınırı `Query`/`Form` ile ayrı denetlenir) `all`'a döner. Küçük harf ülke
+    kodu büyütülür (TUZAKLAR)."""
+    if value is None:
+        return "all"
+    lowered = value.strip().lower()
+    if lowered in ("", "all"):
+        return "all"
+    if lowered == "general":
+        return "general"
+    upper = value.strip().upper()
+    return upper if COUNTRY_CODE_RE.match(upper) else "all"
+
+
+def _is_general(country: str | None) -> bool:
+    """`country` sütunu `None` ve boş dize ikisi de "genel" sayılır (TUZAKLAR, `form.py:149` yeni
+    kayıtta boşu `None` yapar ama eski kayıt boş dize taşıyabilir)."""
+    return not (country or "").strip()
+
+
+@dataclass(frozen=True, slots=True)
+class CountryOption:
+    """Ülke süzgecinin bir seçeneği: değer (`all`/`general`/ISO2) ve tür sayısıyla etiket."""
+
+    value: str
+    label: str
+
+
+def _country_options(types: list[TypeSummary]) -> tuple[CountryOption, ...]:
+    """Süzgecin seçenekleri: "Hepsi", "Genel — ülkesiz", sonra kataloğun ülke kodları alfabetik;
+    hepsi tür sayısıyla (11.1.5). Her zaman süzülmemiş listeden üretilir: seçim değiştikçe
+    seçeneklerin sayıları değişmez."""
+    codes = Counter(item.country.strip().upper() for item in types if not _is_general(item.country))
+    general_count = sum(1 for item in types if _is_general(item.country))
+    options = [
+        CountryOption("all", f"Hepsi ({len(types)})"),
+        CountryOption("general", f"Genel — ülkesiz ({general_count})"),
+    ]
+    options.extend(
+        CountryOption(code, f"{code} ({count})") for code, count in sorted(codes.items())
+    )
+    return tuple(options)
+
+
+def _filter_types(types: list[TypeSummary], country: str) -> list[TypeSummary]:
+    """Süzgeç kuralı (11.1.5): `general` yalnız ülkesiz türleri, bir ISO2 kod o ülkenin türlerini
+    **ve** ülkeden bağımsız türleri, `all` tümünü listeler."""
+    if country == "all":
+        return types
+    if country == "general":
+        return [item for item in types if _is_general(item.country)]
+    return [
+        item
+        for item in types
+        if _is_general(item.country) or item.country.strip().upper() == country
+    ]
+
+
+def _country_suffix(country: str) -> str:
+    """Satır bağlantılarının süzgeci taşıyan sorgu dizesi (11.1.5); `all` için boş."""
+    return "" if country == "all" else f"?{urlencode({'country': country})}"
+
+
+# Tür sayfası listenin süzgecini adresten (`?country=`) alır; tür formunda `country` türün kendi
+# alanı olduğundan süzgeç formda gizli `list_country` alanıyla taşınır (11.1.5).
+ListCountryQuery = Annotated[str | None, Query(alias="country", max_length=8)]
+ListCountryField = Annotated[str | None, Form(max_length=8)]
+
+
 def catalog_budget_view(session: Session, settings: Settings) -> CatalogBudgetView | None:
     """Analiz talimatının katalog metni bugünkü katalogla nasıl derlenir; katalog tutarsızsa
     (analiz de okuyamaz) `None`. Yalnız okur, uyarı loglamaz."""
@@ -484,11 +561,14 @@ def _form_page(
     generated: GeneratedDescription | None = None,
     description_error: str | None = None,
     notice_text: str | None = None,
+    list_country: str | None = None,
 ) -> HTMLResponse:
     """Tür formunu çizer. `slug` düzenlenen türdür (yeni türde `None`); `examples` düzenleme
     sayfasının örnek belge bölümünün bağlamıdır (`_examples_context`), `photo` fotoğraf kuralları
     bölümünün (`_photo_context`, yalnız fotoğraf türlerinde dolu); `generated` örneklerden üretilen
-    (kaydedilmemiş) tür açıklaması, `description_error` üretilemediyse nedeni."""
+    (kaydedilmemiş) tür açıklaması, `description_error` üretilemediyse nedeni; `list_country`
+    listenin ülke süzgeci — geri bağlantıları ve kaydetme yönlendirmesi ona döner (11.1.5)."""
+    selected_country = _normalize_country(list_country)
     return render_page(
         request,
         "catalog_form.html",
@@ -506,6 +586,8 @@ def _form_page(
         script_labels=SCRIPT_LABELS,
         max_description_pages=MAX_DESCRIPTION_PAGES,
         is_new=slug is None,
+        list_country=selected_country,
+        list_query=_country_suffix(selected_country),
     )
 
 
@@ -633,10 +715,12 @@ def _fields_context(form: TypeForm, problems: dict[str, list[str]] | None) -> di
     }
 
 
-def _redirect(notice: str, slug: str) -> RedirectResponse:
-    return RedirectResponse(
-        f"{LIST_PATH}?{urlencode({'notice': notice, 'slug': slug})}", status.HTTP_303_SEE_OTHER
-    )
+def _redirect(notice: str, slug: str, *, country: str | None = None) -> RedirectResponse:
+    params = {"notice": notice, "slug": slug}
+    normalized = _normalize_country(country)
+    if normalized != "all":
+        params["country"] = normalized
+    return RedirectResponse(f"{LIST_PATH}?{urlencode(params)}", status.HTTP_303_SEE_OTHER)
 
 
 @router.get(LIST_PATH, response_class=HTMLResponse)
@@ -647,19 +731,25 @@ def catalog_page(
     settings: AppSettings,
     notice: Annotated[str | None, Query(max_length=32)] = None,
     slug: Annotated[str | None, Query(max_length=64)] = None,
+    country: Annotated[str | None, Query(max_length=8)] = None,
 ) -> HTMLResponse:
     types = list_types(session)
     named = {item.slug: item.name for item in types}
     notice_text = NOTICES.get(notice or "")
     if notice_text and slug in named:
         notice_text = f"{named[slug]}: {notice_text}"
+    selected_country = _normalize_country(country)
     return render_page(
         request,
         "catalog.html",
         user=user,
         active="document_types",
         entry=MENU_BY_KEY["document_types"],
-        types=types,
+        types=_filter_types(types, selected_country),
+        total_types=len(types),
+        country_options=_country_options(types),
+        selected_country=selected_country,
+        country_query=_country_suffix(selected_country),
         notice_text=notice_text,
         sides_labels=SIDES_LABELS,
         pending_candidates=count_pending_candidate_types(session),
@@ -669,8 +759,10 @@ def catalog_page(
 
 
 @router.get(f"{LIST_PATH}/new", response_class=HTMLResponse)
-def new_type_page(request: Request, user: CurrentUser) -> HTMLResponse:
-    return _form_page(request, user, TypeForm(), slug=None)
+def new_type_page(
+    request: Request, user: CurrentUser, list_country: ListCountryQuery = None
+) -> HTMLResponse:
+    return _form_page(request, user, TypeForm(), slug=None, list_country=list_country)
 
 
 # `/document-types/{slug}`'dan önce kayıtlı olmalı: yol tek parçadır.
@@ -703,7 +795,11 @@ def candidate_types_page(
 
 @router.post(LIST_PATH, response_class=HTMLResponse)
 def create_type_endpoint(
-    request: Request, user: CurrentUser, session: DbSession, form: SubmittedForm
+    request: Request,
+    user: CurrentUser,
+    session: DbSession,
+    form: SubmittedForm,
+    list_country: ListCountryField = None,
 ) -> Response:
     try:
         entry = build_entry(form)
@@ -715,6 +811,7 @@ def create_type_endpoint(
             slug=None,
             problems=exc.problems,
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            list_country=list_country,
         )
     try:
         create_type(session, entry)
@@ -728,8 +825,9 @@ def create_type_endpoint(
             slug=None,
             problems={"slug": [SLUG_TAKEN]},
             status_code=status.HTTP_409_CONFLICT,
+            list_country=list_country,
         )
-    return _redirect("created", entry.slug)
+    return _redirect("created", entry.slug, country=list_country)
 
 
 @router.get(f"{LIST_PATH}/{{slug}}", response_class=HTMLResponse)
@@ -740,6 +838,7 @@ def type_page(
     session: DbSession,
     layout: Layout,
     notice: Annotated[str | None, Query(max_length=32)] = None,
+    list_country: ListCountryQuery = None,
 ) -> HTMLResponse:
     try:
         record = load_record(session, slug)
@@ -756,6 +855,7 @@ def type_page(
         examples=_examples_context(session, layout, slug),
         photo=_photo_context(session, slug, record["photo_rules"]),
         notice_text=TYPE_PAGE_NOTICES.get(notice or ""),
+        list_country=list_country,
     )
 
 
@@ -767,6 +867,7 @@ def update_type_endpoint(
     session: DbSession,
     layout: Layout,
     form: SubmittedForm,
+    list_country: ListCountryField = None,
 ) -> Response:
     # Slug adresten gelir, formdan değil: değişmez (belgeler ve çıktı adları ona bağlı).
     form = replace(form, slug=slug)
@@ -786,6 +887,7 @@ def update_type_endpoint(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             examples=_examples_context(session, layout, slug),
             photo=_photo_context(session, slug, record["photo_rules"]),
+            list_country=list_country,
         )
     try:
         update_type(session, entry)
@@ -793,27 +895,37 @@ def update_type_endpoint(
     except TypeNotFoundError:
         session.rollback()
         raise HTTPException(status.HTTP_404_NOT_FOUND, TYPE_NOT_FOUND) from None
-    return _redirect("updated", slug)
+    return _redirect("updated", slug, country=list_country)
 
 
-def _set_active(session: Session, slug: str, active: bool) -> RedirectResponse:
+def _set_active(
+    session: Session, slug: str, active: bool, *, country: str | None
+) -> RedirectResponse:
     try:
         set_type_active(session, slug, active)
         session.commit()
     except TypeNotFoundError:
         session.rollback()
         raise HTTPException(status.HTTP_404_NOT_FOUND, TYPE_NOT_FOUND) from None
-    return _redirect("activated" if active else "deactivated", slug)
+    return _redirect("activated" if active else "deactivated", slug, country=country)
 
 
 @router.post(f"{LIST_PATH}/{{slug}}/deactivate")
-def deactivate_type(slug: str, session: DbSession) -> RedirectResponse:
-    return _set_active(session, slug, False)
+def deactivate_type(
+    slug: str,
+    session: DbSession,
+    country: Annotated[str | None, Form(max_length=8)] = None,
+) -> RedirectResponse:
+    return _set_active(session, slug, False, country=country)
 
 
 @router.post(f"{LIST_PATH}/{{slug}}/activate")
-def activate_type(slug: str, session: DbSession) -> RedirectResponse:
-    return _set_active(session, slug, True)
+def activate_type(
+    slug: str,
+    session: DbSession,
+    country: Annotated[str | None, Form(max_length=8)] = None,
+) -> RedirectResponse:
+    return _set_active(session, slug, True, country=country)
 
 
 @router.post(f"{LIST_PATH}/{{slug}}/photo-rules", response_class=HTMLResponse)
@@ -962,6 +1074,7 @@ def generate_description(
     settings: AppSettings,
     form: SubmittedForm,
     provider: DescriptionProvider,
+    list_country: ListCountryField = None,
 ) -> HTMLResponse:
     """11.3.1 — türün örneklerinden (fotoğraf türünde ayrıca kabul edilen fotoğraflardan, 11.8.1)
     yapılandırılmış açıklama üretir ve metnini formun `prompt_description` alanına yazarak formu
@@ -1000,6 +1113,7 @@ def generate_description(
             photo=_photo_context(session, slug, record["photo_rules"], accepted=photos),
             generated=generated,
             description_error=error,
+            list_country=list_country,
         )
 
     try:

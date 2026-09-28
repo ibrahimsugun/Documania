@@ -237,6 +237,252 @@ def test_notice_names_the_type_and_ignores_unknown_notices(client: TestClient) -
     assert client.get("/document-types?notice=" + "x" * 33).status_code == 422
 
 
+# --- 11.1.5: ülke süzgeci ---------------------------------------------------------------------
+
+
+def _country_catalog(client: TestClient) -> None:
+    """Sentetik katalog: TR (2), RU (1), ülkesiz (2)."""
+    _create(client, slug="tr_one", name="TR One", file_label="TR One", country="TR")
+    _create(client, slug="tr_two", name="TR Two", file_label="TR Two", country="TR")
+    _create(client, slug="ru_one", name="RU One", file_label="RU One", country="RU")
+    _create(client, slug="none_one", name="None One", file_label="None One", country=None)
+    _create(client, slug="none_two", name="None Two", file_label="None Two", country=None)
+
+
+def _row_names(table: str) -> list[str]:
+    return re.findall(r'<a href="[^"]*" title="[^"]*">([^<]*)</a>', table)
+
+
+ALL_NAMES = ["None One", "None Two", "RU One", "TR One", "TR Two"]
+
+
+@pytest.mark.parametrize(
+    ("query", "expected"),
+    [
+        pytest.param("?country=TR", ["None One", "None Two", "TR One", "TR Two"], id="tr-ve-genel"),
+        pytest.param("?country=general", ["None One", "None Two"], id="yalniz-genel"),
+        pytest.param("?country=all", ALL_NAMES, id="hepsi"),
+        pytest.param("", ALL_NAMES, id="parametresiz"),
+        pytest.param("?country=xyz", ALL_NAMES, id="gecersiz-deger"),
+        pytest.param("?country=xx", ["None One", "None Two"], id="katalogda-olmayan-iso2-kod"),
+        pytest.param(
+            "?country=tr", ["None One", "None Two", "TR One", "TR Two"], id="kucuk-harf-kod"
+        ),
+    ],
+)
+def test_country_filter_shows_the_selected_country_plus_the_countryless_types(
+    client: TestClient, query: str, expected: list[str]
+) -> None:
+    _country_catalog(client)
+
+    page = client.get(f"/document-types{query}")
+
+    table = _types_table(page.text)
+    assert _row_names(table) == expected
+
+
+def test_country_filter_options_are_labeled_with_counts_and_the_selection_is_marked(
+    client: TestClient,
+) -> None:
+    _country_catalog(client)
+
+    page = client.get("/document-types?country=TR")
+
+    assert '<option value="all">Hepsi (5)</option>' in page.text
+    assert '<option value="general">Genel — ülkesiz (2)</option>' in page.text
+    assert '<option value="RU">RU (1)</option>' in page.text
+    assert '<option value="TR" selected>TR (2)</option>' in page.text
+
+
+def test_the_count_line_shows_the_filtered_and_the_total_count(client: TestClient) -> None:
+    _country_catalog(client)
+
+    page = client.get("/document-types?country=TR")
+
+    assert "4 tür gösteriliyor (toplam 5)" in page.text
+    assert "5 tür gösteriliyor (toplam 5)" in client.get("/document-types").text
+
+
+def test_a_filter_matching_nothing_shows_the_empty_state(client: TestClient) -> None:
+    empty = client.get("/document-types")
+    assert "0 tür gösteriliyor (toplam 0)" in empty.text
+    assert "Katalogda henüz tür yok." in empty.text
+
+    _create(client, country="TR")
+
+    page = client.get("/document-types?country=general")
+
+    assert "0 tür gösteriliyor (toplam 1)" in page.text
+    assert '<table class="catalog catalog-types">' not in page.text
+    assert "Bu süzgeçte tür yok." in page.text
+    assert "Katalogda henüz tür yok." not in page.text
+
+
+def test_a_legacy_empty_country_counts_as_general(
+    client: TestClient, session_factory: sessionmaker[Session]
+) -> None:
+    _country_catalog(client)
+    with session_factory() as session:
+        row = session.get(KnownDocumentType, "ru_one")
+        assert row is not None
+        row.country = ""
+        session.commit()
+
+    general = client.get("/document-types?country=general")
+    tr = client.get("/document-types?country=TR")
+
+    assert _row_names(_types_table(general.text)) == ["None One", "None Two", "RU One"]
+    assert _row_names(_types_table(tr.text)) == [
+        "None One",
+        "None Two",
+        "RU One",
+        "TR One",
+        "TR Two",
+    ]
+    assert '<option value="general" selected>Genel — ülkesiz (3)</option>' in general.text
+    assert '<option value="RU"' not in general.text
+    assert '<option value=""' not in general.text
+
+
+def test_the_filter_value_is_bounded_and_the_hidden_fields_follow_the_selection(
+    client: TestClient,
+) -> None:
+    _country_catalog(client)
+
+    assert client.get("/document-types?country=" + "x" * 9).status_code == 422
+    assert (
+        client.post(
+            "/document-types/tr_one/deactivate", data={"country": "x" * 9}, follow_redirects=False
+        ).status_code
+        == 422
+    )
+    filtered = client.get("/document-types?country=RU")
+    unfiltered = client.get("/document-types")
+
+    assert filtered.text.count('<input type="hidden" name="country" value="RU">') == 3
+    assert 'name="country" value=' not in unfiltered.text.split('<table class="catalog')[1]
+    assert 'href="/document-types/new?country=RU"' in filtered.text
+    assert 'href="/document-types/new"' in unfiltered.text
+
+
+def test_deactivating_with_a_filter_keeps_it_in_the_redirect_and_the_notice(
+    client: TestClient,
+) -> None:
+    _country_catalog(client)
+
+    response = client.post(
+        "/document-types/tr_one/deactivate", data={"country": "TR"}, follow_redirects=False
+    )
+
+    assert response.status_code == 303
+    assert (
+        response.headers["location"] == "/document-types?notice=deactivated&slug=tr_one&country=TR"
+    )
+    page = client.get(response.headers["location"])
+    assert "TR One: Tür pasifleştirildi" in page.text
+    assert '<option value="TR" selected>TR (2)</option>' in page.text
+    row_links = re.findall(r'href="(/document-types/tr_one\?country=TR)"', page.text)
+    assert len(row_links) == 2  # ad bağlantısı ve "Düzenle"
+
+
+def test_activating_without_a_filter_does_not_add_one_to_the_redirect(
+    client: TestClient,
+) -> None:
+    _create(client)
+    client.post("/document-types/sample_card/deactivate")
+
+    response = client.post("/document-types/sample_card/activate", follow_redirects=False)
+
+    assert response.headers["location"] == "/document-types?notice=activated&slug=sample_card"
+
+
+def test_activating_with_an_invalid_filter_falls_back_to_all(client: TestClient) -> None:
+    _create(client)
+    client.post("/document-types/sample_card/deactivate")
+
+    response = client.post(
+        "/document-types/sample_card/activate", data={"country": "T1"}, follow_redirects=False
+    )
+
+    assert response.headers["location"] == "/document-types?notice=activated&slug=sample_card"
+
+
+def test_editing_from_a_filtered_list_returns_to_the_same_filter(client: TestClient) -> None:
+    _country_catalog(client)
+
+    page = client.get("/document-types/tr_one?country=tr")
+
+    assert page.status_code == 200
+    assert '<input type="hidden" name="list_country" value="TR">' in page.text
+    assert page.text.count('href="/document-types?country=TR"') == 2  # geri ve "Vazgeç"
+
+    response = client.post(
+        "/document-types/tr_one",
+        data=_data(name="TR One", file_label="TR One", country="TR", list_country="TR"),
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 303
+    assert response.headers["location"] == "/document-types?notice=updated&slug=tr_one&country=TR"
+    listed = client.get(response.headers["location"])
+    assert "TR One: Tür güncellendi." in listed.text
+    assert '<option value="TR" selected>TR (2)</option>' in listed.text
+
+
+def test_a_rejected_edit_keeps_the_filter_in_the_redrawn_form(client: TestClient) -> None:
+    _country_catalog(client)
+
+    response = client.post(
+        "/document-types/tr_one",
+        data=_data(name="", file_label="TR One", country="TR", list_country="TR"),
+    )
+
+    assert response.status_code == 422
+    assert '<input type="hidden" name="list_country" value="TR">' in response.text
+    assert 'href="/document-types?country=TR"' in response.text
+
+
+def test_creating_from_a_filtered_list_returns_to_the_same_filter(client: TestClient) -> None:
+    _country_catalog(client)
+
+    page = client.get("/document-types/new?country=general")
+
+    assert '<input type="hidden" name="list_country" value="general">' in page.text
+    assert 'href="/document-types?country=general"' in page.text
+
+    response = client.post(
+        "/document-types",
+        data=_data(
+            slug="none_three",
+            name="None Three",
+            file_label="None Three",
+            country=None,
+            list_country="general",
+        ),
+        follow_redirects=False,
+    )
+
+    assert response.headers["location"] == (
+        "/document-types?notice=created&slug=none_three&country=general"
+    )
+    listed = client.get(response.headers["location"])
+    assert "None Three: Tür oluşturuldu." in listed.text
+    assert _row_names(_types_table(listed.text)) == ["None One", "None Three", "None Two"]
+
+
+def test_the_form_without_a_filter_carries_no_hidden_filter_field(client: TestClient) -> None:
+    _create(client)
+
+    page = client.get("/document-types/sample_card")
+    new_page = client.get("/document-types/new")
+
+    for html in (page.text, new_page.text):
+        assert 'name="list_country"' not in html
+        assert '<p class="back"><a href="/document-types">' in html
+    response = client.post("/document-types/sample_card", data=_data(), follow_redirects=False)
+    assert response.headers["location"] == "/document-types?notice=updated&slug=sample_card"
+
+
 # --- 11.1.1: oluşturma ----------------------------------------------------------------------------
 
 
@@ -880,6 +1126,15 @@ def test_list_shows_the_active_types_and_the_estimated_tokens_of_the_catalog_tex
     assert f"bütçe {_thousands(CATALOG_TOKEN_BUDGET)}, tür sayısıyla ölçekli" in line
     assert expected.shortened_slugs == ()
     assert 'id="catalog-budget-warning"' not in page.text
+
+
+def test_the_budget_line_does_not_change_with_the_country_filter(
+    client: TestClient, seeded: None
+) -> None:
+    unfiltered = _budget_line(client.get("/document-types").text)
+
+    assert _budget_line(client.get("/document-types?country=general").text) == unfiltered
+    assert _budget_line(client.get("/document-types?country=RU").text) == unfiltered
 
 
 def test_budget_scales_with_the_active_types_and_passive_ones_do_not_count(

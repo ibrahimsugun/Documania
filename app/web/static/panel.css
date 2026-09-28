@@ -1090,3 +1090,6 @@ form:not(.session) button[type="submit"]:hover,
 .catalog-budget-warning { border: 1px solid #e3c77a; background: #fff8e6; border-radius: 4px; padding: 0.5rem 0.75rem; margin: 0.5rem 0; }
 .catalog-budget-warning p { margin: 0 0 0.35rem; }
 .shortened-types { columns: 2 18rem; margin: 0; padding-left: 1.2rem; max-height: 16rem; overflow-y: auto; }
+
+/* Belge Türleri ülke süzgeci (11.1.5). */
+.country-filter select { min-width: 12rem; }
