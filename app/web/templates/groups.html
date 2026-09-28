@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{# Belge Grupları (14.1.1): bir süreç için gereken belge kalemlerinin listeleri. Varsayılan yalnız
+   arşivsiz gruplar; `?archived=1` arşivdekileri de gösterir. Grup silinmez (R11) — arşivlenir ve geri
+   alınır. Açık paket sayısı çalışan profilindeki belge paketlerinindir (tm 125). #}
+{% block title %}{{ entry.label }}{% endblock %}
+{% block content %}
+<h1>{{ entry.label }}</h1>
+<p class="lede">Bir süreç için gereken belgelerin listesi (örn. Sırbistan iş başvurusu: fotoğraf, pasaport, kimlik, çevirili diploma). Kalem bir dosya etiketiyle tanımlanırsa ülkesi önemsizdir: «Passport» kalemini Rus pasaportu da Türk pasaportu da karşılar.</p>
+<p><a class="button-link" href="/document-groups/new">Yeni grup</a></p>
+<p class="hint">
+  {% if include_archived %}
+  Arşivdekiler de gösteriliyor. <a href="/document-groups">Yalnız etkin grupları göster</a>
+  {% elif archived_count %}
+  <a href="/document-groups?archived=1">Arşivdekileri de göster ({{ archived_count }})</a>
+  {% else %}
+  Grup silinmez: kullanılmayan grup arşivlenir, arşivden geri alınabilir.
+  {% endif %}
+</p>
+{% if groups %}
+<table class="catalog document-groups">
+  <thead>
+    <tr><th>Ad</th><th>Açıklama</th><th>Kalem</th><th>Açık paket</th><th>Durum</th></tr>
+  </thead>
+  <tbody>
+    {% for group in groups %}
+    <tr{% if group.archived %} class="group-archived"{% endif %}>
+      <td><a href="/document-groups/{{ group.id }}">{{ group.name }}</a></td>
+      <td>{{ group.description or "—" }}</td>
+      <td>{{ group.item_count }}</td>
+      <td>{{ group.open_packages }}</td>
+      <td class="cell-nowrap">
+        {% if group.archived %}<span class="status-badge status-archived">Arşivde</span>{% else %}<span class="status-badge status-active">Etkin</span>{% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="placeholder">Henüz belge grubu yok. «Yeni grup» ile ilk grubu açın.</p>
+{% endif %}
+{% endblock %}

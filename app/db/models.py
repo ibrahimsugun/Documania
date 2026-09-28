@@ -1,7 +1,7 @@
 """Veri modeli — PRD §8.1 tabloları (00.3.1), çalışan numarası üretici (00.3.3), aday tür
 kaydı (04.6.1) ve kararı (11.5), panel oturumu (10.1.2), iki aşamalı onayın belirteci (10.8.1),
 kalıcı işçi kuyruğu (13.3.1), profil alanlarının belge gözlemleri (05.7.3), partinin yoksayılması
-(10.3.4), aday türün incelemesi (11.5.5) ve eğitim modu (11.9).
+(10.3.4), aday türün incelemesi (11.5.5), eğitim modu (11.9) ve belge grupları (14.1).
 
 Silme yoktur, arşiv vardır (K16): ilişkilerde silme kaskadı tanımlanmaz.
 Dosya yolu burada üretilmez (yol kuralı: `app/storage/`); yol sütunları yalnız saklar.
@@ -265,6 +265,14 @@ class ExampleLabel(enum.StrEnum):
 
     AI_DECISION = "ai_decision"
     VERIFIED = "verified"
+
+
+class GroupItemKind(enum.StrEnum):
+    """Belge grubu kaleminin eşleşme anahtarı (`document_group_items.match_kind`, 14.1.2): dosya
+    etiketi (`file_label`, ülkeden bağımsız) ya da belirli bir tür (`type_slug`)."""
+
+    LABEL = "label"
+    TYPE = "type"
 
 
 # --- çalışan -----------------------------------------------------------------------------
@@ -685,6 +693,70 @@ class ExampleFileRecord(Base):
     removed_path: Mapped[str | None] = mapped_column(String(512))
 
     training_item: Mapped[TrainingItem | None] = relationship()
+
+
+# --- belge grupları (14.1) -------------------------------------------------------------------
+
+_GROUP_ITEM_TARGET = (
+    "(match_kind = 'label' AND file_label IS NOT NULL AND type_slug IS NULL) OR "
+    "(match_kind = 'type' AND type_slug IS NOT NULL AND file_label IS NULL)"
+)
+
+
+class DocumentGroup(Base):
+    """Belge grubu (§8.1 `document_groups`, 14.1.1; PLAN.md §C89): bir süreç için gereken belge
+    kalemlerinin adlandırılmış listesi.
+
+    `normalized_name` adın tekillik anahtarıdır (`app.groups.normalize_group_name`, 00.4.2 slug
+    sadeleştirmesi, harf büyüklüğü yok sayılır); arşivli grup da adını tutar. Grup silinmez (R11):
+    `archived_at`/`archived_by` dolunca arşivdedir — yeni paket tanımlanamaz, açık paketler sürer.
+    """
+
+    __tablename__ = "document_groups"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str] = mapped_column(String(120))
+    normalized_name: Mapped[str] = mapped_column(String(255), unique=True)
+    description: Mapped[str | None] = mapped_column(String(200))
+    created_by: Mapped[str] = mapped_column(String(255))
+    created_at: Mapped[datetime] = mapped_column(UtcDateTime, default=utcnow)
+    archived_at: Mapped[datetime | None] = mapped_column(UtcDateTime)
+    archived_by: Mapped[str | None] = mapped_column(String(255))
+
+    items: Mapped[list[DocumentGroupItem]] = relationship(
+        back_populates="group", order_by="DocumentGroupItem.position"
+    )
+
+
+class DocumentGroupItem(Base):
+    """Belge grubunun kalemi (§8.1 `document_group_items`, 14.1.2).
+
+    `match_kind` `label` ise `file_label` dolu, `type_slug` boştur: kalemi, ülkesi ne olursa olsun
+    aynı dosya etiketli her türün belgesi karşılar; `type` ise yalnız `type_slug` türü (CHECK
+    `match_target`). `required` kalemin zorunlu mu isteğe bağlı mı olduğudur, `note` İK'nın kısa
+    notudur. Kalem silinmez (R11, PRD §10): kaldırılan kalemin `removed_at`/`removed_by` alanı dolar
+    ve kalem grubun eşleşmesine girmez (PLAN.md §D64).
+    """
+
+    __tablename__ = "document_group_items"
+    __table_args__ = (
+        CheckConstraint(_one_of("match_kind", GroupItemKind), name="match_kind"),
+        CheckConstraint(_GROUP_ITEM_TARGET, name="match_target"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    group_id: Mapped[int] = mapped_column(ForeignKey("document_groups.id"), index=True)
+    position: Mapped[int] = mapped_column(Integer)
+    match_kind: Mapped[str] = mapped_column(String(16))
+    file_label: Mapped[str | None] = mapped_column(String(255))
+    type_slug: Mapped[str | None] = mapped_column(ForeignKey("known_document_types.slug"))
+    required: Mapped[bool] = mapped_column(Boolean, default=True)
+    note: Mapped[str | None] = mapped_column(String(120))
+    removed_at: Mapped[datetime | None] = mapped_column(UtcDateTime)
+    removed_by: Mapped[str | None] = mapped_column(String(255))
+
+    group: Mapped[DocumentGroup] = relationship(back_populates="items")
+    document_type: Mapped[KnownDocumentType | None] = relationship()
 
 
 # --- log ve kullanıcılar -------------------------------------------------------------------

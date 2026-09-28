@@ -30,6 +30,7 @@ PANEL_MENU = (
     MenuEntry("employees", "Çalışanlar", "/employees"),
     MenuEntry("queues", "Kuyruklar", "/queues"),
     MenuEntry("document_types", "Belge Türleri", "/document-types"),
+    MenuEntry("document_groups", "Belge Grupları", "/document-groups"),
     MenuEntry("uploads", "Yüklemeler", "/uploads"),
     MenuEntry("training", "Eğitim modu", "/training"),
 )

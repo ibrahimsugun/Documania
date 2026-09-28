@@ -382,6 +382,18 @@ REVIEWED_MUTATING_ROUTES: dict[tuple[str, str], str] = {
     ("POST", "/document-types/candidate-types/{candidate_id}/reanalyze"): (
         "yeni plan sürümleri (11.5.3, K18)"
     ),
+    ("POST", "/document-groups"): "belge grubu kaydı: grup açma (14.1.1)",
+    ("POST", "/document-groups/{group_id}"): "belge grubu kaydı: ad ve açıklama (14.1.1)",
+    ("POST", "/document-groups/{group_id}/items"): "belge grubu kaydı: kalem ekleme (14.1.2)",
+    ("POST", "/document-groups/{group_id}/items/{item_id}/remove"): (
+        "belge grubu kaydı: kalemi kaldırma, satır kalır (14.1.1, R11)"
+    ),
+    ("POST", "/document-groups/{group_id}/archive"): (
+        "belge grubu kaydı: arşivleme, silme yok (14.1.1, R11)"
+    ),
+    ("POST", "/document-groups/{group_id}/restore"): (
+        "belge grubu kaydı: arşivden geri alma (14.1.1)"
+    ),
     ("POST", "/training"): "eğitim yüklemesi: örneklere kopya, çalışan verisi değil (11.9.1)",
     ("POST", "/training/items/{item_id}/place"): (
         "eğitim öğesini türe yerleştirme: örneğe kopya ve kayıt (11.9.1, K11)"

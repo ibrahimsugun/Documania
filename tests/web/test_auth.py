@@ -33,8 +33,25 @@ from app.web.templating import PANEL_MENU
 
 USERNAME = "yonetici"
 PASSWORD = "gizli-parola-1"
-MENU_LABELS = ["Yükle", "Çalışanlar", "Kuyruklar", "Belge Türleri", "Yüklemeler", "Eğitim modu"]
-MENU_PATHS = ["/upload", "/employees", "/queues", "/document-types", "/uploads", "/training"]
+# PRD 10.1.1 menüsü; "Belge Grupları" tm 124 (14.1.1) ile, "Kullanıcılar" tm 134 ile gelir (§D62).
+MENU_LABELS = [
+    "Yükle",
+    "Çalışanlar",
+    "Kuyruklar",
+    "Belge Türleri",
+    "Belge Grupları",
+    "Yüklemeler",
+    "Eğitim modu",
+]
+MENU_PATHS = [
+    "/upload",
+    "/employees",
+    "/queues",
+    "/document-types",
+    "/document-groups",
+    "/uploads",
+    "/training",
+]
 # Oturumsuz açılabilen tek yollar (10.1.2): giriş/çıkış ve kapsayıcı sağlık denetimi.
 PUBLIC_OPERATIONS = {("GET", "/login"), ("POST", "/login"), ("POST", "/logout"), ("GET", "/health")}
 
@@ -441,7 +458,7 @@ def test_stylesheet_is_served_without_a_session(anonymous: TestClient) -> None:
 # --- 10.1.1: panel iskeleti ve gezinme --------------------------------------------------------
 
 
-def test_menu_lists_the_six_sections_in_order() -> None:
+def test_menu_lists_the_sections_in_order() -> None:
     assert [entry.label for entry in PANEL_MENU] == MENU_LABELS
     assert [entry.path for entry in PANEL_MENU] == MENU_PATHS
 

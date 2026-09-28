@@ -1,4 +1,5 @@
-"""00.3.1 — §8.1 tabloları SQLAlchemy modeli olarak vardır ve ilişkiler doğrulanır."""
+"""00.3.1 — §8.1 tabloları SQLAlchemy modeli olarak vardır ve ilişkiler doğrulanır (belge grupları
+14.1: tm 124)."""
 
 from datetime import UTC, date, datetime, timedelta, timezone
 
@@ -12,6 +13,8 @@ from app.db.models import (
     Base,
     CandidateDocumentType,
     Document,
+    DocumentGroup,
+    DocumentGroupItem,
     DocumentStatus,
     Employee,
     EmployeeAlias,
@@ -48,6 +51,8 @@ SECTION_8_1_TABLES = {
     "training_runs",
     "training_items",
     "example_files",
+    "document_groups",
+    "document_group_items",
     "events",
     "access_log",
     "users",
@@ -265,6 +270,46 @@ def test_example_file_name_is_unique_per_type(session: Session) -> None:
         session.commit()
 
 
+def test_document_group_opens_unarchived_with_required_items_in_order(session: Session) -> None:
+    # 14.1: grup arşivsiz açılır; kalem varsayılan zorunludur, kaldırılmamıştır ve sırasıyla gelir.
+    passport = _document_type("russian_passport")
+    group = DocumentGroup(name="Sırbistan", normalized_name="sirbistan", created_by="ik")
+    second = DocumentGroupItem(group=group, position=2, match_kind="type", type_slug=passport.slug)
+    first = DocumentGroupItem(group=group, position=1, match_kind="label", file_label="Passport")
+    session.add_all([passport, group, second, first])
+    session.commit()
+    session.expire_all()
+
+    assert (group.archived_at, group.archived_by, group.description) == (None, None, None)
+    assert group.created_at.tzinfo is UTC
+    assert [item.id for item in group.items] == [first.id, second.id]
+    assert (first.required, first.removed_at, first.removed_by) == (True, None, None)
+    assert second.document_type is passport
+
+
+def test_document_group_name_is_unique_after_normalization(session: Session) -> None:
+    session.add(DocumentGroup(name="Sırbistan", normalized_name="sirbistan", created_by="ik"))
+    session.commit()
+
+    session.add(DocumentGroup(name="SIRBISTAN", normalized_name="sirbistan", created_by="ik"))
+    with pytest.raises(IntegrityError):
+        session.commit()
+
+
+def test_type_item_must_point_to_a_catalog_type(session: Session) -> None:
+    group = DocumentGroup(name="G", normalized_name="g", created_by="ik")
+    session.add_all(
+        [
+            group,
+            DocumentGroupItem(
+                group=group, position=1, match_kind="type", type_slug="yok_boyle_tur"
+            ),
+        ]
+    )
+    with pytest.raises(IntegrityError):
+        session.commit()
+
+
 def test_foreign_keys_are_enforced(session: Session) -> None:
     session.add(EmployeeAlias(employee_id="E9999", raw_name="YOK", normalized_name="yok"))
     with pytest.raises(IntegrityError):
@@ -295,6 +340,23 @@ def test_foreign_keys_are_enforced(session: Session) -> None:
         lambda: ExampleFileRecord(
             type_slug="x", name="a", sha256="a" * 64, method="ai", label="ai"
         ),
+        lambda: DocumentGroupItem(
+            group=DocumentGroup(name="G", normalized_name="g", created_by="ik"),
+            position=1,
+            match_kind="country",
+            file_label="Passport",
+        ),
+        lambda: DocumentGroupItem(
+            group=DocumentGroup(name="G", normalized_name="g", created_by="ik"),
+            position=1,
+            match_kind="label",
+        ),
+        lambda: DocumentGroupItem(
+            group=DocumentGroup(name="G", normalized_name="g", created_by="ik"),
+            position=1,
+            match_kind="type",
+            file_label="Passport",
+        ),
     ],
     ids=[
         "upload-status",
@@ -307,6 +369,9 @@ def test_foreign_keys_are_enforced(session: Session) -> None:
         "training-item-method",
         "example-method",
         "example-label",
+        "group-item-match-kind",
+        "group-item-label-without-label",
+        "group-item-type-without-slug",
     ],
 )
 def test_check_constraints_reject_values_outside_the_prd_sets(session: Session, build) -> None:

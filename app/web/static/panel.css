@@ -981,6 +981,8 @@ form:not(.session) button[type="submit"]:hover,
 
 .status-active { color: var(--success); background: var(--success-soft); }
 .status-passive { color: var(--danger); background: var(--danger-soft); }
+/* 14.1.1: arşivdeki belge grubu — nötr gri rozet. */
+.status-archived { color: var(--muted-ink); background: #eef0f3; }
 
 .tabs {
   gap: 0.3rem;

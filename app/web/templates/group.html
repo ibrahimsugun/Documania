@@ -1,0 +1,156 @@
+{% extends "base.html" %}
+{# Belge grubu sayfası (14.1.1, 14.1.2): `group` yoksa yeni grup formu, varsa grubun ad/açıklama
+   formu, kalem tablosu, kalem ekleme formları (dosya etiketiyle ya da türle), arşivleme. Hepsi tek
+   adımdır ve olay yazar; grup ve kalem silinmez (R11): kalem kaldırılır, grup arşivlenir. Alanlar
+   tek satırlık girdidir (10.9.1 kilidi); form `action` yolları düz metin yazılır. #}
+{% macro errors(source, name) %}{% for message in source.get(name, []) %}<small class="field-error" role="alert">{{ message }}</small>{% endfor %}{% endmacro %}
+{% block title %}{{ group.name if group else "Yeni belge grubu" }}{% endblock %}
+{% block content %}
+<p class="back"><a href="/document-groups">← Belge Grupları</a></p>
+<h1>{{ group.name if group else "Yeni belge grubu" }}</h1>
+{% if notice_text %}
+<p class="notice notice-success" role="status">{{ notice_text }}</p>
+{% endif %}
+{% if problems %}
+<p class="error" role="alert">Grup kaydedilmedi: alanların altındaki uyarıları düzeltin.</p>
+{% endif %}
+{% if group and group.archived_at %}
+<p class="notice" role="status" id="group-archived">Bu grup arşivde ({{ group.archived_by }}, {{ group.archived_at.strftime("%Y-%m-%d %H:%M") }} UTC): yeni paket tanımlanamaz, açık paketler sürer.</p>
+{% endif %}
+
+{% if group %}
+<form class="type-form group-form" method="post" action="/document-groups/{{ group.id }}">
+{% else %}
+<form class="type-form group-form" method="post" action="/document-groups">
+{% endif %}
+  <label for="group-name">Ad</label>
+  <div class="field">
+    <input type="text" id="group-name" name="name" value="{{ form.name }}" maxlength="{{ limits.name }}" required autocomplete="off">
+    <small class="hint">Benzersiz olmalı; harf büyüklüğü ve Türkçe harf farkı aynı ad sayılır.</small>
+    {{ errors(problems, "name") }}
+  </div>
+  <label for="group-description">Açıklama</label>
+  <div class="field">
+    <input type="text" id="group-description" name="description" value="{{ form.description }}" maxlength="{{ limits.description }}" autocomplete="off">
+    {{ errors(problems, "description") }}
+  </div>
+  <div class="form-actions">
+    <button type="submit">{{ "Kaydet" if group else "Grubu oluştur" }}</button>
+    <a href="/document-groups">Vazgeç</a>
+  </div>
+</form>
+
+{% if group %}
+<section class="group-items" aria-labelledby="group-items-title">
+  <h2 id="group-items-title">Kalemler <span class="count">({{ items|length }})</span></h2>
+  <p class="notice" role="status" id="open-packages-warning">Kalem değişiklikleri <strong>{{ open_packages }}</strong> açık pakette hemen geçerli olacak.</p>
+  {% if items %}
+  <table class="catalog group-items-table">
+    <thead>
+      <tr><th>Sıra</th><th>Kalem</th><th>Eşleşme</th><th>Zorunlu</th><th>Not</th><th></th></tr>
+    </thead>
+    <tbody>
+      {% for item in items %}
+      <tr>
+        <td>{{ loop.index }}</td>
+        <td>{{ item.title }}</td>
+        <td><span class="kind">{{ item.kind_label }}</span> <small class="hint">{{ item.detail }}</small></td>
+        <td>{{ "Zorunlu" if item.required else "İsteğe bağlı" }}</td>
+        <td>{{ item.note or "—" }}</td>
+        <td class="doc-actions">
+          <form class="inline" method="post" action="/document-groups/{{ group.id }}/items/{{ item.id }}/remove">
+            <button type="submit">Kaldır</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="placeholder">Bu grupta henüz kalem yok. Aşağıdan dosya etiketiyle ya da türle ekleyin.</p>
+  {% endif %}
+
+  <h3>Dosya etiketiyle kalem ekle</h3>
+  <p class="hint">Ülkeden bağımsızdır: seçilen etiketi taşıyan her tür kalemi karşılar. Sayı, o etiketi taşıyan katalog türlerinin sayısıdır — yakın etiketler (örn. «Identity Card», «Identity Document») ayrı kalır.</p>
+  <form class="type-form item-form" method="post" action="/document-groups/{{ group.id }}/items" id="add-label-item">
+    <input type="hidden" name="match_kind" value="label">
+    <label for="item-label">Dosya etiketi</label>
+    <div class="field">
+      <select id="item-label" name="file_label" required>
+        <option value="">— seçin —</option>
+        {% for choice in label_choices %}
+        <option value="{{ choice.label }}"{% if item_form.match_kind == "label" and item_form.file_label == choice.label %} selected{% endif %}>{{ choice.label }} ({{ choice.type_count }} tür)</option>
+        {% endfor %}
+      </select>
+      {% if item_form.match_kind == "label" %}{{ errors(item_problems, "file_label") }}{{ errors(item_problems, "match_kind") }}{% endif %}
+    </div>
+    <span class="label">Zorunluluk</span>
+    <div class="field">
+      <label class="choice"><input type="checkbox" name="required" value="1"{% if item_form.match_kind != "label" or item_form.required %} checked{% endif %}> Zorunlu</label>
+      <small class="hint">İşaretsiz kalem isteğe bağlıdır: paketin tamamlanmasını beklemez.</small>
+    </div>
+    <label for="item-label-note">Not</label>
+    <div class="field">
+      <input type="text" id="item-label-note" name="note" value="{{ item_form.note if item_form.match_kind == 'label' else '' }}" maxlength="{{ limits.note }}" autocomplete="off">
+      {% if item_form.match_kind == "label" %}{{ errors(item_problems, "note") }}{% endif %}
+    </div>
+    <div class="form-actions"><button type="submit">Kalemi ekle</button></div>
+  </form>
+
+  <h3>Belirli bir türle kalem ekle</h3>
+  <p class="hint">Yalnız seçilen tür kalemi karşılar (örn. yalnız Sırbistan oturma izni).</p>
+  <form class="type-form item-form" method="post" action="/document-groups/{{ group.id }}/items" id="add-type-item">
+    <input type="hidden" name="match_kind" value="type">
+    <label for="item-type">Belge türü</label>
+    <div class="field">
+      <select id="item-type" name="type_slug" required>
+        <option value="">— seçin —</option>
+        {% for choice in type_choices %}
+        <option value="{{ choice.slug }}"{% if item_form.match_kind == "type" and item_form.type_slug == choice.slug %} selected{% endif %}>{{ choice.name }}{% if choice.country %} · {{ choice.country }}{% endif %} — {{ choice.file_label }}{% if not choice.active %} (pasif){% endif %}</option>
+        {% endfor %}
+      </select>
+      {% if item_form.match_kind == "type" %}{{ errors(item_problems, "type_slug") }}{{ errors(item_problems, "match_kind") }}{% endif %}
+    </div>
+    <span class="label">Zorunluluk</span>
+    <div class="field">
+      <label class="choice"><input type="checkbox" name="required" value="1"{% if item_form.match_kind != "type" or item_form.required %} checked{% endif %}> Zorunlu</label>
+    </div>
+    <label for="item-type-note">Not</label>
+    <div class="field">
+      <input type="text" id="item-type-note" name="note" value="{{ item_form.note if item_form.match_kind == 'type' else '' }}" maxlength="{{ limits.note }}" autocomplete="off">
+      {% if item_form.match_kind == "type" %}{{ errors(item_problems, "note") }}{% endif %}
+    </div>
+    <div class="form-actions"><button type="submit">Kalemi ekle</button></div>
+  </form>
+  {% if item_form.match_kind not in ("label", "type") and item_problems %}
+  {{ errors(item_problems, "match_kind") }}
+  {% endif %}
+
+  {% if removed_items %}
+  <details class="removed-items">
+    <summary>Kaldırılan kalemler ({{ removed_items|length }})</summary>
+    <ul>
+      {% for item in removed_items %}
+      <li>{{ item.title }} <span class="hint">({{ item.kind_label }}; {{ item.removed_by }}, {{ item.removed_at.strftime("%Y-%m-%d %H:%M") }} UTC)</span></li>
+      {% endfor %}
+    </ul>
+    <p class="hint">Kaldırılan kalem geçmişte kalır; yeniden gerekirse yukarıdan tekrar eklenir.</p>
+  </details>
+  {% endif %}
+</section>
+
+<section class="group-archive" aria-labelledby="group-archive-title">
+  <h2 id="group-archive-title">Arşiv</h2>
+  {% if group.archived_at %}
+  <form class="inline" method="post" action="/document-groups/{{ group.id }}/restore">
+    <button type="submit">Arşivden geri al</button>
+  </form>
+  {% else %}
+  <p class="hint">Grup silinmez. Arşivlenen gruba yeni paket tanımlanamaz; açık paketler sürer. Arşivden tek tıkla geri alınır.</p>
+  <form class="inline" method="post" action="/document-groups/{{ group.id }}/archive">
+    <button type="submit">Grubu arşivle</button>
+  </form>
+  {% endif %}
+</section>
+{% endif %}
+{% endblock %}

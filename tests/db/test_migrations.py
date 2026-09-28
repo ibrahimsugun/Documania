@@ -34,7 +34,7 @@ def _assert_schema_matches_models(database_url: str) -> None:
             assert tables == set(Base.metadata.tables) | {"alembic_version"}
             context = MigrationContext.configure(connection, opts={"compare_type": True})
             assert compare_metadata(context, Base.metadata) == []
-            assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "0013"
+            assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "0014"
     finally:
         engine.dispose()
 
@@ -687,6 +687,75 @@ def test_example_file_removal_migration_narrows_the_unique_name_and_is_reversibl
             assert connection.scalar(text("SELECT name FROM example_files")) == "ornek.png"
         with pytest.raises(IntegrityError), engine.begin() as connection:
             connection.execute(insert, {"id": 3, "sha": "c" * 64})
+    finally:
+        engine.dispose()
+
+
+def test_document_groups_migration_creates_the_tables_and_is_reversible(sqlite_url: str) -> None:
+    # 0014 (14.1): iki tablo boş açılır; grup adı sadeleşmiş hâliyle tekildir, kalemin eşleşme
+    # anahtarı kapalı kümedir ve anahtara göre etiket ya da tür slug'ından tam biri doludur; tür
+    # kalemi katalog türüne bağlıdır. Geri alış iki tabloyu düşürür, katalog türü kalır.
+    config = _alembic_config(sqlite_url)
+    command.upgrade(config, "0013")
+    engine = create_engine(sqlite_url)
+    tables = {"document_groups", "document_group_items"}
+    try:
+        with engine.begin() as connection:
+            connection.execute(
+                text(
+                    "INSERT INTO known_document_types (slug, name, file_label, sides, direct, "
+                    "analyze, output_format, expected_file_types, front_back_layouts, "
+                    "required_fields, allowed_conversions, acceptance_criteria, active) VALUES "
+                    "('russian_passport', 'Russian Passport', 'Passport', 'single', 1, 1, 'keep', "
+                    "'[]', '[]', '[]', '[]', '[]', 1)"
+                )
+            )
+
+        command.upgrade(config, "head")
+        with engine.connect() as connection:
+            assert tables <= set(inspect(connection).get_table_names())
+            for table in sorted(tables):
+                assert connection.scalar(text(f"SELECT count(*) FROM {table}")) == 0
+        with engine.begin() as connection:
+            connection.execute(
+                text(
+                    "INSERT INTO document_groups (id, name, normalized_name, created_by, "
+                    "created_at) VALUES (1, 'Sırbistan', 'sirbistan', 'ik', "
+                    "'2026-09-28 00:00:00')"
+                )
+            )
+            connection.execute(
+                text(
+                    "INSERT INTO document_group_items (id, group_id, position, match_kind, "
+                    "file_label, type_slug, required) VALUES "
+                    "(1, 1, 1, 'label', 'Passport', NULL, 1), "
+                    "(2, 1, 2, 'type', NULL, 'russian_passport', 0)"
+                )
+            )
+        item = (
+            "INSERT INTO document_group_items (group_id, position, match_kind, file_label, "
+            "type_slug, required) VALUES "
+        )
+        for statement in (
+            "INSERT INTO document_groups (name, normalized_name, created_by, created_at) VALUES "
+            "('SIRBISTAN', 'sirbistan', 'ik', '2026-09-28 00:00:00')",
+            item + "(1, 3, 'country', 'Passport', NULL, 1)",
+            item + "(1, 3, 'label', NULL, NULL, 1)",
+            item + "(1, 3, 'label', 'Passport', 'russian_passport', 1)",
+            item + "(1, 3, 'type', NULL, NULL, 1)",
+            item + "(1, 3, 'type', NULL, 'yok_boyle_tur', 1)",
+            item + "(9, 3, 'label', 'Passport', NULL, 1)",
+        ):
+            with pytest.raises(IntegrityError), engine.begin() as connection:
+                connection.exec_driver_sql("PRAGMA foreign_keys=ON")
+                connection.execute(text(statement))
+
+        command.downgrade(config, "0013")
+        with engine.connect() as connection:
+            assert tables.isdisjoint(inspect(connection).get_table_names())
+            assert connection.scalar(text("SELECT slug FROM known_document_types")) == (
+                "russian_passport"
+            )
     finally:
         engine.dispose()
 
