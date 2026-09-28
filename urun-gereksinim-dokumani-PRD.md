@@ -76,6 +76,9 @@ Bu kurallar ürünün kimliğidir; teknik karşılıkları `MASTER-PROMPT.md` §
 | Kuyruk | Unknown, Unreadable, Unresolved |
 | Köken | Bir çıktının kaynak dosya + sayfa aralığı bilgisi |
 | Direkt Belge | Fiziksel bütünlüğü korunması gereken belge türü |
+| Dosya etiketi | Türün ülkeden bağımsız adı (`file_label`, örn. Passport); çıktı adında (K8) ve belge grubu kalemi eşleşmesinde (14.1.2) kullanılır |
+| Belge grubu | Bir süreç için gereken belge kalemlerinin adlandırılmış listesi (örn. "Sırbistan iş başvurusu": fotoğraf, pasaport, kimlik, çevirili diploma) |
+| Belge paketi | Bir belge grubunun bir çalışana tanımlanmış örneği; kalemleri çalışanın etkin belgeleriyle karşılanır, hepsi karşılanınca paket tamamlanır |
 
 ## 5. Fazlar
 
@@ -94,7 +97,7 @@ olay logu baştan sona okunabiliyor; her çıktının kökeni yazılı; yeniden 
 
 **Hedef:** İK'nın günlük kullanabileceği web paneli ve kendini genişleten belge kataloğu.
 
-Kapsam: FR-MOD-10, FR-MOD-11 (11.1–11.5, 11.9).
+Kapsam: FR-MOD-10, FR-MOD-11 (11.1–11.5, 11.9), FR-MOD-14.
 
 **Kapanış ölçütü:** İK bir belgeyi yükleyip, kuyruğu çözüp, profilde görüp yeni sekmede
 açabiliyor; katalog panelden yönetiliyor; yeni tür onayı uçtan uca çalışıyor.
@@ -283,15 +286,17 @@ maliyet paneli gerçek rakam gösteriyor.
 
 | ID | Gereksinim | Kabul kriteri | Öncelik |
 |---|---|---|---|
-| 10.1.1 | Panel iskeleti ve gezinme | Yükle, Çalışanlar, Kuyruklar, Belge Türleri, Yüklemeler, Eğitim modu menüleri açılır | Must (v1) |
+| 10.1.1 | Panel iskeleti ve gezinme | Yükle, Çalışanlar, Kuyruklar, Belge Türleri, Belge Grupları, Yüklemeler, Eğitim modu, Kullanıcılar menüleri açılır | Must (v1) |
 | 10.1.2 | Oturum tabanlı giriş | Girişsiz hiçbir panel yolu açılmaz | Must (v1) |
 | 10.1.3 | İlk kullanıcı oluşturma | Komut satırından ilk yönetici oluşturulabilir | Must (v1) |
+| 10.1.4 | Kullanıcı yönetimi | Panelde "Kullanıcılar" sayfası (yalnız yönetici): kullanıcı listesi; yeni kullanıcı (kullanıcı adı, parola, rol); kendi parolasını değiştirme; başka kullanıcının parolasını sıfırlama; pasife alma ve yeniden etkinleştirme. Pasif kullanıcı giriş yapamaz ve açık oturumları kapanır; son etkin yönetici pasife alınamaz, kullanıcı kendini pasife alamaz; kullanıcı silinmez. Her işlem kullanıcı adıyla olaya yazılır, parola hiçbir olaya girmez | Should (v1) |
 | 10.2.1 | Yükleme sayfası | Sürükle-bırak çoklu yükleme çalışır; isteğe bağlı çalışan seçilebilir | Must (v1) |
 | 10.2.2 | İlerleme görünümü | Yükleme sonrası parti durumu canlı yenilenir | Should (v1) |
 | 10.3.1 | Yükleme detay sayfası | Sayfa küçük resimleri, plan öğeleri, çıktılar ve olay zaman çizelgesi tek sayfada görünür | Must (v1) |
 | 10.3.2 | Yeniden çalıştır / yeniden analiz | İki işlem panelden tetiklenir; yeniden analiz iki aşamalı onay ister | Should (v1) |
 | 10.3.3 | Yükleme listesi | Yüklemeler menüsü partileri en yeni üstte listeler: tarih, kanal, yükleyen, bağlam çalışanı, dosya ve sayfa sayısı, durum ve kuyruğa düşen belge sayısı; durum ve tarihe göre süzülür, sayfalanır; satırdan parti detayına gidilir | Must (v1) |
 | 10.3.4 | Partiyi yoksay | Yükleme detayının İşlemler bölümünde "Yeniden çalıştır" ve "Yeniden analiz et" düğmelerinin yanında "Taramayı yoksay" vardır; iki aşamalı onaydan sonra partinin bekleyen kuyruk öğeleri kapanır, parti yükleme listesinde ve kuyruklarda görünmez. Dosya, olay ve üretilmiş çıktı silinmez. Yoksayma **çalışma yüzeyinden kaldırır, öğrenileni silmez**: partinin sayfaları aday tür görülmelerinde ve örneklerinde kalır (11.5.1), sonraki tür eğitimi bu birikime dayanır | Should (v1) |
+| 10.3.5 | Yoksanan partiyi geri alma | Yoksanan partinin detay sayfasındaki bildirimin yanında "Yoksaymayı geri al" vardır; tek adımda partiyi listeye geri getirir ve yoksaymayla kapanan kuyruk öğelerini yeniden açar (başka yolla çözülmüş öğe açılmaz); olay kullanıcı adıyla yazılır | Should (v1) |
 | 10.4.1 | Çalışan listesi | Ad, orijinal yazım, uyruk, belge sayısı ve durum listelenir | Must (v1) |
 | 10.4.2 | Arama | Ad, alias, orijinal yazım, belge numarası ve belge türü üzerinde arama çalışır | Must (v1) |
 | 10.5.1 | Çalışan profili sayfası | CV benzeri kart şunların hepsini gösterir: profil fotoğrafı, ad, soyad, diğer isimler, orijinal yazım, vatandaşlık, doğum tarihi ve yaş, iletişim bilgileri, belge numaraları. Bilinmeyen alan "—" olarak görünür, gizlenmez | Must (v1) |
@@ -299,10 +304,16 @@ maliyet paneli gerçek rakam gösteriyor.
 | 10.5.2 | Belge listesi ve açma | Belgeye tıklayınca yeni sekmede açılır; indirilebilir; düzenlenemez | Must (v1) |
 | 10.5.3 | Profil sayfasından yükleme | Yükleme bağlam çalışanıyla yapılır | Should (v1) |
 | 10.5.5 | Profilden yüklemede kişi denetimi | Bağlam çalışanıyla yapılan yüklemede her belgenin kişisi profille karşılaştırılır (belge numarası, harf çevirili ad, doğum tarihi); başka kişiye ait görünen belge profile uygulanmaz, Unresolved'a gider ve yükleme ile parti ekranında büyük uyarı gösterilir | Must (v1) |
+| 10.5.6 | Çalışan profilini düzenleme | Profil sayfasındaki "Profili düzenle" formu ad, soyad, diğer isimler, orijinal yazım, doğum tarihi ve uyruğu değiştirir; ad ve soyad yalnız Latin harfli olabilir (05.2.2); kaydetme iki aşamalı onay ister (K16, §D61). Ad ya da soyad değişince çalışan klasörü ve `Hazir/`, `Alinan/` altındaki dosyalar K8 adına yeniden adlandırılır, belge kayıtlarının yolu güncellenir, köken bilgisi ve E numarası değişmez; yeniden adlandırma yarıda kesilirse hiçbir şey değişmiş görünmez. Elle girilen alan "elle" kaynağıyla işaretlenir ve sonraki belge dolgusu (05.7.3) onu ezmez; olay değişen alan adlarını taşır, değerleri taşımaz; profil.md yeniden üretilir; belge içeriğine dokunulmaz (R12) | Must (v1) |
+| 10.5.7 | Çalışanı pasife alma ve yeniden etkinleştirme | Profilde "Pasife al" (pasif çalışanda "Yeniden etkinleştir") iki aşamalı onayla çalışanın durumunu değiştirir; klasör, belgeler ve olaylar yerinde kalır. Pasif çalışan listede varsayılan olarak görünmez (süzgeç: Aktif / Pasif / Hepsi), profil sayfası pasif bildirimi gösterir ve profilden yükleme kapanır. Pasif çalışanla eşleşen yeni belge otomatik yerleşmez, "pasif çalışan" gerekçesiyle Unresolved'a düşer; İK öğeyi atar ya da çalışanı etkinleştirir. Olaylar kullanıcı adıyla yazılır | Must (v1) |
+| 10.5.8 | Profil alt kayıtlarını kaldırma ve iletişim bilgisi ekleme | Profil sayfası görülen isim yazımlarını (alias), belge numaralarını ve iletişim bilgilerini kaynağıyla listeler; her biri iki aşamalı onayla "kaldırılır": kayıt silinmez, kaldırılmış işaretlenir, eşleştirme ve aramada kullanılmaz, "Kaldırılanlar" altında görünür ve tek adımda geri alınır. İletişim bilgisi (telefon, e-posta, adres) elle eklenebilir; elle eklenen kayıt "elle" kaynağını ve ekleyeni taşır. Olaylar kayıt türünü ve kimliğini taşır, değeri taşımaz | Should (v1) |
+| 10.5.9 | İki çalışanı birleştirme | Profil sayfasındaki "Başka kayıtla birleştir" aramayla ikinci çalışanı seçtirir; İK hangi kaydın kalacağını seçer; iki aşamalı onay ister. Birleşen kaydın belgeleri kalan çalışana K8 adıyla taşınır (10.8.2 ile aynı fiziksel kural), `Alinan/` kopyaları taşınır; numaraları, isim yazımları, iletişim bilgileri, alan kaynakları ve belge paketleri kalan kayda bağlanır (aynı değer tek kalır). Birleşen kayıt `merged` durumuyla ve kalan kaydın numarasıyla kalır, listede görünmez, adresi kalan profile yönlendiren bildirim gösterir; klasörü silinmez, içinde yalnız yönlendirme notu taşıyan profil.md kalır. İşlem geri alınamaz ve ikinci onay bunu söyler; olay iki numarayı ve taşınan belge kimliklerini taşır | Should (v1) |
+| 10.5.10 | Arşive taşıma ve arşivden geri alma profilde | Profil belge listesinde etkin belge için "Arşive taşı" (08.4.1, §20.6 metinleri), arşivdeki belge için "Arşivden geri al" vardır; ikisi de iki aşamalı onaylıdır. Geri alma dosyayı `Archive/<yyyy-mm>/` altından çalışanın `Hazir/` klasörüne K8 adıyla taşır (ad çakışırsa sıradaki sıra ekini alır), durumu etkin yapar, köken bilgisini korur ve olay yazar; belge içeriği değişmez | Must (v1) |
 | 10.6.1 | Belge geçmişi | Bir çıktının kaynak dosya ve sayfaları tıklanarak izlenir | Must (v1) |
 | 10.7.1 | Kuyruk ekranları | Üç kuyruk sekmesi, sayaçlar, öğe detayı ve sayfa görüntüleri | Must (v1) |
 | 10.7.2 | Kuyruktan çalışana atama | Arama ile çalışan seçilir, iki aşamalı onayla atanır | Must (v1) |
 | 10.7.3 | Kuyruktan profil oluşturma | Önerilen profil düzenlenip onaylanabilir; belge içeriği düzenlenemez | Must (v1) |
+| 10.7.4 | Kuyruk öğesini kapatma ve yeniden açma | Kuyruk öğesi detayında "Öğeyi kapat" iki aşamalı onayla öğeyi çözülmüş sayar; gerekçe seçilir (belge değil / zaten var / diğer + not). Kuyruk klasöründeki kopya ve gerekçe dosyası silinmez, aday tür görülmeleri kalır (10.3.4 ile aynı kural). Kapatılan öğe "Çözülenler" görünümünde gerekçesiyle listelenir ve "Yeniden aç" ile tek adımda açılır. İki olay da kullanıcı adıyla yazılır | Must (v1) |
 | 10.8.1 | İki aşamalı onay mekanizması | Onay metinleri §20.6'daki tablodan **birebir** kullanılır; sunucu tek kullanımlık belirteç ister ve belirteçsiz isteği reddeder | Must (v1) |
 | 10.8.2 | Belgeyi başka çalışana taşıma | İki onay verilmeden işlem gerçekleşmez; iki profil de güncellenir; olay kullanıcı adıyla loglanır | Must (v1) |
 | 10.9.1 | İçerik düzenlemenin yokluğu (R12) | Panelde belge içeriği düzenleyen hiçbir yol yoktur | Must (v1) |
@@ -315,6 +326,9 @@ maliyet paneli gerçek rakam gösteriyor.
 | 11.1.1 | Katalog yönetim ekranı | Tür oluşturma, düzenleme ve pasifleştirme panelden yapılır | Must (v1) |
 | 11.1.2 | Katalog form doğrulaması | Direkt türde dönüşüm listesi boş; front_back türde en az bir düzen seçili ve sayfa aralığı seçilen düzenlerden türetilir (ayrı sayfalar 2, tek sayfa 1) | Must (v1) |
 | 11.1.3 | Kabul kriteri düzenleme | Tür formunda `acceptance_criteria` maddeleri eklenip çıkarılabilir; değişiklik bir sonraki analizde geçerli olur | Should (v1) |
+| 11.1.4 | Katalog tablosu okunabilirliği | Belge Türleri tablosunda slug sütunu yoktur; slug tür sayfasında ve satır bağlantısında kalır. Durum hücresi "Etkin" için yeşilimsi, "Pasif" için kırmızımsı yumuşak tonla renklenir ve metni de yazar (yalnız renge dayanmaz); "Tutarsız kayıt" rozeti kalır | Must (v1) |
+| 11.1.5 | Ülkeye göre süzme | Belge Türleri sayfasında "Ülke" süzgeci vardır: bir ülke seçilince o ülkenin türleri **ve** ülkeden bağımsız (ülkesi boş) türler listelenir; "Genel" yalnız ülkesiz türleri, "Hepsi" tümünü gösterir; seçenekler katalogdaki ülkelerden tür sayısıyla üretilir; seçim bağlantılarda ve işlem sonrası yönlendirmelerde korunur; gösterilen tür sayısı yazılır; token göstergesi (11.4.3) süzgeçten etkilenmez | Must (v1) |
+| 11.1.6 | Türü arşivleme, geri alma ve toplu seçim | Tür iki aşamalı onayla "arşivlenir": listeden, analiz talimatından, tür seçicilerden ve eğitim modunun bilinen türlerinden kalkar; tür kaydı ve o türe bağlı belgeler yerinde kalır, belge listeleri tür adını göstermeye devam eder; boru hattının kullandığı korunan türler (ek, profil fotoğrafı ve kodun adıyla andığı öteki sluglar) arşivlenemez. "Arşivlenen türler" görünümünden tek adımda geri alınır. Tabloda satır seçimiyle toplu "Pasifleştir / Etkinleştir / Arşivle" yapılır (arşivleme yine iki aşamalı). Etkinleştirme, pasifleştirme, arşivleme ve geri alma kullanıcı adıyla olaya yazılır | Should (v1) |
 | 11.2.1 | Örnek belge yükleme | Türe örnek yüklenir; örnekler çalışan verisinden ayrı tutulur ve aramada görünmez. Tür sayfasından el ile yükleme olay yazmaz; Eğitim modunun (11.9) yerleştirmeleri olay yazar | Should (v1) |
 | 11.3.1 | Tür açıklaması üretimi | Örneklerden yapılandırılmış tür açıklaması üretilir ve düzenlenebilir | Should (v1) |
 | 11.4.1 | Prompt derleyici | Aktif türler kompakt katalog metnine derlenir | Must (v1) |
@@ -326,11 +340,13 @@ maliyet paneli gerçek rakam gösteriyor.
 | 11.5.4 | Aday türü reddetme | Reddedilen aday tekrar listeye düşmez | Should (v1) |
 | 11.5.5 | Aday tür incelemesi | Sistem her bekleyen adayın örnek sayfalarını (arka yüzler dahil) inceler ve tam tür taslağı üretir: ad, dosya etiketi, ülke, açıklama, dosya türleri, sayfa sayısı, yüz yapısı ve düzenleri, Direkt Belge, zorunlu alanlar (standart alan adlarıyla), kabul kriterleri (sayfada denetlenebilir, Türkçe) ve analizci için açıklama; dosya türü ve yüz yapısı gözlenen örneklerden gelir; taslakta örneklerdeki kişiye ait değer bulunursa taslak saklanmaz; inceleme yükleme işlerini bekletmez | Must (v1) |
 | 11.5.6 | Onay formu taslakla dolu açılır | Aday onay formu taslaktaki bütün alanlarla açılır, İK düzeltip iki aşamalı onayla kaydeder; taslağın form doğrulamasından geçmeyen alanı boş kalır ve adıyla bildirilir; katalogdaki bir türle çakışma uyarılır; "Yeniden incele" taslağı yeniler | Must (v1) |
+| 11.5.7 | Reddedilen adayı geri alma | Aday türler sayfası reddedilenleri ayrı görünümde listeler; "Geri al" adayı tek adımda yeniden bekleyen yapar ve olay yazar | Should (v1) |
 | 11.9.1 | Eğitim modu sekmesi | Panelde "Eğitim modu" sekmesinden PDF/JPEG/PNG yüklenir (isteğe bağlı beklenen tür seçilir); her dosyanın sonucu (tür, yöntem, not, etiket) listelenir; eğitim yüklemesi hiçbir çalışan, kişi eşleştirmesi, kuyruk öğesi, yükleme partisi ya da çıktı belgesi oluşturmaz; yalnız bilinen belgelerin örneklerini besler | Must (v1) |
 | 11.9.2 | Mekanik tanıma | Yapay zekâ çağrılmadan önce dosya türü, SHA-256 (bilinen örnekler ve envanter), beklenen/harita türünün yapı kuralları (katalog türünde dosya türü ve sayfa sayısı) ve PDF metin katmanındaki MRZ ile tanınan belge notuyla `KnownDocuments/examples/<slug>/`'a kaydedilir ve etiket almaz; aynı türde aynı dosya ikinci kez eklenmez | Must (v1) |
 | 11.9.3 | Yapay zekâ incelemesi ve "AI kararı" etiketi | Mekanik tanınmayan belge yapay zekâyla sınıflandırılır ve bilinen türe (katalog türleri + hazır önerilen türler) "AI kararı" etiketiyle yerleşir; beklenen türle çelişen ya da hiçbir türe yerleşemeyen belge "Yerleştirilemedi" listesinde bekler; inceleme yükleme işlerini bekletmez | Must (v1) |
 | 11.9.4 | Elle kontrol ikonu ve etiket kararı | "AI kararı" etiketli örnek eğitim sekmesinde ve tür sayfasının örnek listesinde "elle kontrol gerekli" ikonuyla görünür; İK örneği doğrular (tek ya da toplu), başka türe taşır ya da örneklerden çıkarır (silinmez, eğitim arşivine taşınır); taşıma ve çıkarma iki aşamalı onaylıdır; doğrulanmamış "AI kararı" örneği tür açıklaması üretimine girmez | Must (v1) |
 | 11.9.5 | Harita yükle ve toplu tarama | Eğitim sekmesinde "Harita yükle" ile CSV (envanter ve önerilen tür biçimleri ya da slug + yol sütunlu CSV) yüklenir; önizleme satır, dosya, atlanan, mekanik hazır ve yapay zekâ gerekebilecek sayılarını gösterir; iki aşamalı onayla toplu tarama başlar ve ilerlemesi görünür; yollar yalnız izinli kökler altında çözülür; aynı harita yeniden taranınca kayıtlı dosya atlanır | Must (v1) |
+| 11.9.6 | Eğitim temizliği: öğeyi yoksay, çalıştırmayı arşivle, katalog örneklerinin kaydı | "Yerleştirilemedi", çelişki ve inceleme öğeleri notla tek adımda "yoksayılır" (durum `dismissed`, geri alınabilir) ve listede varsayılan olarak görünmez; çalıştırma arşivlenebilir (listeden ve sayaçlardan kalkar, öğeleri ve örnekleri değişmez). Tür sayfasından el ile yüklenen örnek de `example_files` kaydı alır (yöntem elle, etiket doğrulanmış); kayıtsız eski örnek dosyaları bir kez kaydedilir; katalog örnek listesi 11.9.4'teki taşı/çıkar işlemlerine bağlanır | Should (v1) |
 | 11.6.1 | Profil fotoğrafı kural seti | Kurallar katalogda tutulur ve panelden açılıp kapatılabilir | Should (v2) |
 | 11.7.1 | Fotoğraf görsel kontrolü | Her kural pass/fail/unsure olarak değerlendirilir; fail varsa Unresolved | Should (v2) |
 | 11.7.2 | Fotoğrafta içerik korunması | Kırpma, düzeltme ve arka plan değiştirme yapılmaz | Should (v2) |
@@ -342,6 +358,7 @@ maliyet paneli gerçek rakam gösteriyor.
 |---|---|---|---|
 | 12.1.1 | Bot iskeleti | Bot ayrı servis olarak çalışır; geliştirmede polling, üretimde webhook | Should (v2) |
 | 12.1.2 | Kullanıcı beyaz listesi | Listede olmayan kullanıcıya yanıt verilmez | Should (v2) |
+| 12.1.3 | Beyaz listeyi panelden yönetme | Kullanıcı yönetimi sayfasında (10.1.4) her panel kullanıcısına Telegram kimliği eklenir, izni kapatılıp açılır; bot yalnız izinli kimliğe yanıt verir; değişiklik kullanıcı adıyla olaya yazılır; kayıt silinmez | Should (v2) |
 | 12.2.1 | Belge alma | Gönderilen belge web ile aynı boru hattından işlenir | Should (v2) |
 | 12.2.2 | Çoklu mesaj grubu | Aynı medya grubundaki dosyalar tek parti sayılır | Should (v2) |
 | 12.2.3 | Sonuç özeti | İşlem sonucu ve kuyruğa düşen öğeler kısa mesajla bildirilir | Should (v2) |
@@ -365,6 +382,21 @@ maliyet paneli gerçek rakam gösteriyor.
 | 13.6.1 | İzleme ve uyarı | Hata, disk doluluğu ve kuyruk uzunluğu için uyarı üretilir | Could (v3) |
 | 13.7.1 | Büyük çekirdek modüllerin ayrıştırılması | `app/pipeline/plan.py` ve `app/pipeline/execute.py` sorumluluklarına göre alt modüllere ayrılır; mevcut `app.pipeline.plan` ve `app.pipeline.execute` import yüzeyleri korunur; davranış değişikliği olmadan ilgili ve tam test takımı geçer | Could (v3) |
 
+### FR-MOD-14 — Belge grupları ve başvuru paketleri (Faz 1)
+
+İK bir süreç için gereken belgeleri (örn. Sırbistan iş başvurusu) grup olarak tanımlar, çalışana paket
+olarak atar ve belgeler geldikçe kalemlerin karşılandığını görür. Paket belge üretmez, belgeyi
+değiştirmez, boru hattına karışmaz; yalnız çalışanın etkin belgelerine bakar.
+
+| ID | Gereksinim | Kabul kriteri | Öncelik |
+|---|---|---|---|
+| 14.1.1 | Belge grupları sekmesi | Panelde "Belge Grupları" menüsü: grup listesi (ad, açıklama, kalem sayısı, açık paket sayısı, durum); yeni grup (ad tekil, açıklama); grup sayfasında ad/açıklama değişir, kalem eklenir ve çıkarılır; grup tek adımda arşivlenir (yeni paket tanımlanamaz, açık paketler sürer) ve geri alınır; grup silinmez. Kalem değişikliği açık paketlere anında yansır ve grup sayfası açık paket sayısıyla uyarır | Must (v1) |
+| 14.1.2 | Grup kalemi: etiket ya da tür, ülkeden bağımsız eşleşme | Kalem ya bir **dosya etiketiyle** (katalogdaki `file_label` değerleri, örn. Passport) ya da belirli bir **türle** (slug) tanımlanır. Etiketli kalemi, ülkesi ne olursa olsun aynı etiketli her türden etkin belge karşılar (Rus ya da Türk pasaportu "Passport" kalemini karşılar); türlü kalemi yalnız o tür karşılar. Kalem zorunlu ya da isteğe bağlıdır. Etiket seçici katalogdaki etiketleri tür sayısıyla listeler | Must (v1) |
+| 14.2.1 | Çalışana paket tanımlama | Profil sayfasındaki "Belge paketleri" bölümünde arşivlenmemiş bir grup seçilip paket tanımlanır; aynı çalışana birden çok paket, aynı gruptan ikinci paket (uyarıyla) tanımlanabilir; tanımlayan kullanıcı ve zaman kaydedilir, olay yazılır | Must (v1) |
+| 14.2.2 | Karşılanma hesabı ve kademeli işaret | Paket kalemleri profilde liste hâlinde görünür; kalem, çalışanın etkin bir belgesi 14.1.2 kuralıyla eşleşiyorsa tik alır ve karşılayan belgeye bağlanır. Hesap her görüntülemede belgelerden yapılır; ayrıca belge yazma, taşıma, arşivleme, geri alma ve çalışan birleştirme noktalarında paket durumu yenilenir; belge arşivlenince tik kalkar. Eğitim modu örnekleri, eski sürüm ve arşivdeki belgeler kalem karşılamaz | Must (v1) |
+| 14.2.3 | Paket tamamlanması ve iptali | Zorunlu kalemlerin hepsi karşılanınca paket "Tamamlandı — başvuru başlatılabilir" olur, tamamlanma zamanı ve olay yazılır; sonradan eksik oluşursa paket açığa döner ve olay yazılır. Paket notla tek adımda iptal edilir ve "Yeniden aç" ile geri alınır; iptal edilen paket profilde katlanmış listede kalır, silinmez | Must (v1) |
+| 14.3.1 | Paket görünürlüğü listede | Çalışan listesinde açık paket sayısı ve eksik kalem sayısı görünür; "eksik paketi olanlar" süzgeci vardır; profil.md "Belge paketleri" bölümünü taşır | Should (v1) |
+
 ---
 
 ## 7. Fonksiyonel olmayan gereksinimler
@@ -387,25 +419,28 @@ maliyet paneli gerçek rakam gösteriyor.
 
 | Tablo | Amaç | Önemli alanlar |
 |---|---|---|
-| `employees` | Çalışan ana kaydı | id (E0001), folder_name, given_names, surname, original_script_name, date_of_birth, nationality, status, created_at |
-| `employee_identifiers` | Belge numaraları | employee_id, kind, value, source_document_id |
-| `employee_aliases` | Görülen isim yazımları | employee_id, raw_name, normalized_name, script |
-| `employee_contacts` | İletişim bilgileri | employee_id, kind (`phone`, `email`, `address`), value, source_document_id, first_seen_at, last_seen_at, is_current |
+| `employees` | Çalışan ana kaydı | id (E0001), folder_name, given_names, surname, original_script_name, date_of_birth, nationality, status (`active`, `inactive`, `merged` — 10.5.7, 10.5.9), merged_into_id, created_at |
+| `employee_identifiers` | Belge numaraları | employee_id, kind, value, source_document_id, removed_at, removed_by (10.5.8) |
+| `employee_aliases` | Görülen isim yazımları | employee_id, raw_name, normalized_name, script, removed_at, removed_by (10.5.8) |
+| `employee_contacts` | İletişim bilgileri | employee_id, kind (`phone`, `email`, `address`), value, source_document_id, first_seen_at, last_seen_at, is_current, added_by, removed_at, removed_by (10.5.8) |
 | `uploads` | Yükleme partisi | id, channel, uploaded_by, context_employee_id, status, created_at |
 | `upload_files` | Kaynak dosyalar | id, upload_id, original_name, stored_path, sha256, mime, page_count, is_duplicate_of |
 | `pages` | Sayfalar | id, file_id, index, image_path, text_layer, is_blank, has_single_embedded_image, analysis_json, analysis_status |
 | `plans` | Dondurulmuş planlar | id, upload_id, version, json, model, plan_hash, created_at, executed_at |
 | `documents` | Çıktı belgeleri | id, employee_id, type_slug, path, format, sequence_no, plan_id, source_refs_json, status, created_at |
-| `queue_items` | Kuyruk öğeleri | id, upload_id, plan_item_id, kind, reason, payload_json, resolved_at, resolved_by |
-| `known_document_types` | Katalog | slug, name, file_label, country, description, expected_file_types, expected_pages_min, expected_pages_max, sides, direct, analyze, required_fields, allowed_conversions, output_format, prompt_description, photo_rules, active |
+| `queue_items` | Kuyruk öğeleri | id, upload_id, plan_item_id, kind, reason, payload_json, resolved_at, resolved_by, resolution (`dismissed`, `closed`), resolution_note (10.7.4) |
+| `known_document_types` | Katalog | slug, name, file_label, country, description, expected_file_types, expected_pages_min, expected_pages_max, sides, direct, analyze, required_fields, allowed_conversions, output_format, prompt_description, photo_rules, active, archived_at, archived_by (11.1.6) |
 | `candidate_document_types` | Aday türler | id, proposed_name, normalized_name, description, first_seen_upload_id, sample_page_ids, seen_count, status, proposal_json, proposal_status, proposal_generated_at (11.5.5) |
-| `training_runs` | Eğitim modu çalıştırması (11.9) | id, kind (`upload`, `map`), created_by, created_at, map_name, status, sayaçlar |
+| `training_runs` | Eğitim modu çalıştırması (11.9) | id, kind (`upload`, `map`), created_by, created_at, map_name, status, sayaçlar, archived_at (11.9.6) |
 | `training_items` | Eğitim modunda işlenen dosya (11.9) | id, run_id, row_number, original_name, source_ref, staged_path, sha256, file_kind, page_count, hint_slug, result_slug, method (`mechanical`, `ai`, `manual`), status, note, checks_json, decided_by, decided_at |
 | `example_files` | Örnek dosyası kaydı ve etiketi (11.9) | id, type_slug, name, sha256, method, label (`ai_decision`, `verified`), note, training_item_id, created_at |
 | `events` | Olay logu | id, ts, upload_id, file_id, page_index, document_id, employee_id, actor, type, message, data_json |
 | `access_log` | Görüntüleme ve indirme | ts, user_id, document_id, action, channel |
-| `users` | Panel kullanıcıları | id, username, password_hash, role |
+| `users` | Panel kullanıcıları | id, username, password_hash, role, active (10.1.4) |
 | `telegram_users` | Beyaz liste | telegram_id, user_id, allowed |
+| `document_groups` | Belge grubu (14.1.1) | id, name, normalized_name (tekil), description, created_by, created_at, archived_at, archived_by |
+| `document_group_items` | Grup kalemi (14.1.2) | id, group_id, position, match_kind (`label`, `type`), file_label, type_slug, required, note |
+| `employee_packages` | Çalışana tanımlı paket (14.2) | id, employee_id, group_id, status (`open`, `completed`, `cancelled`), requested_by, requested_at, completed_at, cancelled_at, cancelled_by, note |
 
 ### 8.2 Veri dizini
 
@@ -440,10 +475,21 @@ IMAGE_RENDERED · OUTPUT_SAVED · OUTPUT_SKIPPED · QUEUED_UNKNOWN · QUEUED_UNR
 QUEUED_UNRESOLVED · MANUAL_MOVE · MANUAL_ASSIGN · MANUAL_APPROVE · TYPE_APPROVED ·
 TYPE_REJECTED · USER_CONFIRMED · PLAN_RERUN · PLAN_REANALYZED · ARCHIVED · UPLOAD_DISMISSED ·
 PIPELINE_FAILED · CANDIDATE_TYPE_EXAMINED · TRAINING_EXAMPLE_PLACED · TRAINING_ITEM_UNPLACED ·
-TRAINING_LABEL_VERIFIED · TRAINING_EXAMPLE_MOVED · TRAINING_EXAMPLE_REMOVED · TRAINING_MAP_STARTED
+TRAINING_LABEL_VERIFIED · TRAINING_EXAMPLE_MOVED · TRAINING_EXAMPLE_REMOVED · TRAINING_MAP_STARTED ·
+EMPLOYEE_EDITED · EMPLOYEE_DEACTIVATED · EMPLOYEE_REACTIVATED · EMPLOYEE_MERGED ·
+PROFILE_RECORD_REMOVED · PROFILE_RECORD_RESTORED · CONTACT_ADDED · UNARCHIVED ·
+QUEUE_ITEM_CLOSED · QUEUE_ITEM_REOPENED · UPLOAD_RESTORED · TYPE_ACTIVATED · TYPE_DEACTIVATED ·
+TYPE_ARCHIVED · TYPE_RESTORED · CANDIDATE_TYPE_RESTORED · TRAINING_ITEM_DISMISSED ·
+TRAINING_ITEM_RESTORED · TRAINING_RUN_ARCHIVED · USER_CREATED · USER_DEACTIVATED ·
+USER_REACTIVATED · USER_PASSWORD_CHANGED · TELEGRAM_USER_CHANGED · GROUP_CHANGED ·
+PACKAGE_ASSIGNED · PACKAGE_COMPLETED · PACKAGE_REOPENED · PACKAGE_CANCELLED
 
 `EMPLOYEE_CREATED` olayının verisi açılış dayanağını taşır: `basis` = `document_number` (§20.2.2
 satır 6) ya da `name_dob` (satır 6b).
+
+2026-09-28 açılışının olayları (10.1.4, 10.3.5, 10.5.6–10.5.10, 10.7.4, 11.1.6, 11.5.7, 11.9.6, 12.1.3,
+14.x) kişisel değer taşımaz: alan **adları**, kayıt türü ve kimlikleri, sayılar ve gerekçe kodları yazılır;
+isim, numara, tarih, parola ve iletişim değeri yazılmaz. Hepsi `actor` olarak kullanıcı adını taşır.
 
 ### 8.4 Sayfa analizi şeması
 
@@ -580,9 +626,12 @@ Her senaryo Faz 0'da otomatik test olur (09.3.2). "Beklenen" sütunu tartışmas
 | S18 | Mevcut plandan yeniden çalıştırma | Aynı çıktılar; sağlayıcı çağrılmaz; ikinci dosya yok |
 | S19 | Numarasız belge (zorunlu alanı ad, soyad, doğum tarihi); ad-soyad ve doğum tarihi okunaklı; kayıtlı çalışan yok | Yeni çalışan (`basis: name_dob`), klasör ve profil.md; belge numarası yazılmaz; belge Hazir'da. Doğum tarihi okunamıyorsa onay bekleyen profil (Unresolved) |
 | S20 | Eğitim modunda pasaport yükleniyor; ikinci dosya hiçbir türe uymuyor | Pasaport örneklere girer (mekanik ya da "AI kararı" etiketli); ikincisi "Yerleştirilemedi"de; çalışan, kuyruk öğesi, yükleme partisi ve çıktı belgesi oluşmaz |
+| S21 | "Sırbistan iş başvurusu" grubu (Passport etiketi, Profile Picture etiketi, çevirili diploma türü) çalışana paket olarak tanımlı; önce Rus pasaportu, sonra fotoğraf ve çevirili diploma yükleniyor | Pasaport kalemi ülkeye bakılmadan tik alır; üç belge Hazir'a girince paket "Tamamlandı — başvuru başlatılabilir", olay yazılır; diploma arşivlenince paket açığa döner ve olay yazılır |
+| S22 | Pasif çalışanın pasaport numarasıyla yeni belge geliyor | Belge çalışanın klasörüne otomatik girmez; Unresolved'da "pasif çalışan" gerekçesiyle bekler; çalışan etkinleştirilip öğe atanınca Hazir'a girer |
 
 S19 gereksinim 05.6.2'nin (Faz 0), S20 gereksinim 11.9.1'in (Faz 1) kabul senaryosudur; ikisi de
-kendi gereksinimini karşılayan görevde otomatik test olur.
+kendi gereksinimini karşılayan görevde otomatik test olur. S21 gereksinim 14.2.2–14.2.3'ün, S22
+gereksinim 10.5.7'nin (ikisi de Faz 1) kabul senaryosudur; aynı kuralla kendi görevlerinde test olur.
 
 ---
 
@@ -601,6 +650,10 @@ Aşağıdakiler bu üründe **yapılmayacaktır**:
 - Mobil uygulama.
 - Çoklu şirket (multi-tenant) mimarisi.
 - Uygulama düzeyinde dosya şifreleme (disk şifreleme sunucu düzeyinde yapılır).
+- Başvuru sürecinin kendisi (kurum başvurusu, form, randevu, sonuç takibi); belge paketi (FR-MOD-14)
+  yalnız belgelerin hazır olup olmadığını izler.
+- Kalıcı silme: hiçbir varlık (çalışan, belge, tür, grup, kullanıcı, olay) veritabanından ya da diskten
+  silinmez; pasife alma, arşivleme, kapatma ve kaldırma durum değiştirir ve geri alınabilir (R11).
 
 ---
 
