@@ -34,7 +34,7 @@ def _assert_schema_matches_models(database_url: str) -> None:
             assert tables == set(Base.metadata.tables) | {"alembic_version"}
             context = MigrationContext.configure(connection, opts={"compare_type": True})
             assert compare_metadata(context, Base.metadata) == []
-            assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "0014"
+            assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "0015"
     finally:
         engine.dispose()
 
@@ -756,6 +756,57 @@ def test_document_groups_migration_creates_the_tables_and_is_reversible(sqlite_u
             assert connection.scalar(text("SELECT slug FROM known_document_types")) == (
                 "russian_passport"
             )
+    finally:
+        engine.dispose()
+
+
+def test_employee_packages_migration_creates_the_table_and_is_reversible(sqlite_url: str) -> None:
+    # 0015 (14.2): tablo boş açılır; durum kapalı kümedir, çalışan ve grup kayıtlı olmalıdır. Geri
+    # alış tabloyu düşürür, grup ve çalışan kalır.
+    config = _alembic_config(sqlite_url)
+    command.upgrade(config, "0014")
+    engine = create_engine(sqlite_url)
+    try:
+        with engine.begin() as connection:
+            connection.execute(
+                text(
+                    "INSERT INTO employees (id, folder_name, given_names, surname, status, "
+                    "created_at) VALUES ('E0001', 'Test_Kisi_E0001', 'Test', 'Kisi', 'active', "
+                    "'2026-09-29 00:00:00')"
+                )
+            )
+            connection.execute(
+                text(
+                    "INSERT INTO document_groups (id, name, normalized_name, created_by, "
+                    "created_at) VALUES (1, 'Sırbistan', 'sirbistan', 'ik', "
+                    "'2026-09-29 00:00:00')"
+                )
+            )
+
+        command.upgrade(config, "head")
+        with engine.connect() as connection:
+            assert "employee_packages" in inspect(connection).get_table_names()
+            assert connection.scalar(text("SELECT count(*) FROM employee_packages")) == 0
+        package = (
+            "INSERT INTO employee_packages (employee_id, group_id, status, requested_by, "
+            "requested_at) VALUES "
+        )
+        with engine.begin() as connection:
+            connection.execute(text(package + "('E0001', 1, 'open', 'ik', '2026-09-29 00:00:00')"))
+        for statement in (
+            package + "('E0001', 1, 'done', 'ik', '2026-09-29 00:00:00')",
+            package + "('E9999', 1, 'open', 'ik', '2026-09-29 00:00:00')",
+            package + "('E0001', 9, 'open', 'ik', '2026-09-29 00:00:00')",
+        ):
+            with pytest.raises(IntegrityError), engine.begin() as connection:
+                connection.exec_driver_sql("PRAGMA foreign_keys=ON")
+                connection.execute(text(statement))
+
+        command.downgrade(config, "0014")
+        with engine.connect() as connection:
+            assert "employee_packages" not in inspect(connection).get_table_names()
+            assert connection.scalar(text("SELECT count(*) FROM document_groups")) == 1
+            assert connection.scalar(text("SELECT count(*) FROM employees")) == 1
     finally:
         engine.dispose()
 

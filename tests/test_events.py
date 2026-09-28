@@ -30,7 +30,8 @@ def test_all_prd_event_types_are_present() -> None:
     """PRD §8.3'teki olay türleri sabit listede olmalı, fazlası/eksiği olmamalı. PRD'nin
     eğitim modu olayları (`TRAINING_*`, 11.9) kendi görevleriyle eklendi: yerleştirme olayları
     tm 115'le, etiket, taşıma ve çıkarma olayları tm 119'la, harita olayı tm 120'yle; belge
-    grubu olayı (`GROUP_CHANGED`, 14.1) tm 124'le."""
+    grubu olayı (`GROUP_CHANGED`, 14.1) tm 124'le; belge paketi olayları (`PACKAGE_*`, 14.2)
+    tm 125'le."""
     expected = {
         "FILE_UPLOADED",
         "FILE_DUPLICATE",
@@ -81,6 +82,10 @@ def test_all_prd_event_types_are_present() -> None:
         "TRAINING_EXAMPLE_REMOVED",
         "TRAINING_MAP_STARTED",
         "GROUP_CHANGED",
+        "PACKAGE_ASSIGNED",
+        "PACKAGE_COMPLETED",
+        "PACKAGE_REOPENED",
+        "PACKAGE_CANCELLED",
     }
     assert {member.value for member in EventType} == expected
 

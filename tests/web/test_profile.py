@@ -977,11 +977,16 @@ def test_panel_has_no_way_to_change_a_document(
         for path, operations in app.openapi()["paths"].items()
         if path.startswith("/employees/{employee_id}")
     }
+    # Belge paketi yolları (14.2) paket kaydını yazar; belgeye ve dosyasına dokunmaz
+    # (`tests/web/test_packages.py`).
     assert profile_paths == {
         "/employees/{employee_id}": {"get"},
         "/employees/{employee_id}/photo": {"get"},
         "/employees/{employee_id}/documents/{document_id}/file": {"get"},
         "/employees/{employee_id}/documents/{document_id}/download": {"get"},
+        "/employees/{employee_id}/packages": {"post"},
+        "/employees/{employee_id}/packages/{package_id}/cancel": {"post"},
+        "/employees/{employee_id}/packages/{package_id}/reopen": {"post"},
     }
 
     urls = (

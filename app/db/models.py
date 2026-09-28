@@ -1,7 +1,8 @@
 """Veri modeli — PRD §8.1 tabloları (00.3.1), çalışan numarası üretici (00.3.3), aday tür
 kaydı (04.6.1) ve kararı (11.5), panel oturumu (10.1.2), iki aşamalı onayın belirteci (10.8.1),
 kalıcı işçi kuyruğu (13.3.1), profil alanlarının belge gözlemleri (05.7.3), partinin yoksayılması
-(10.3.4), aday türün incelemesi (11.5.5), eğitim modu (11.9) ve belge grupları (14.1).
+(10.3.4), aday türün incelemesi (11.5.5), eğitim modu (11.9), belge grupları (14.1) ve çalışanın
+belge paketleri (14.2).
 
 Silme yoktur, arşiv vardır (K16): ilişkilerde silme kaskadı tanımlanmaz.
 Dosya yolu burada üretilmez (yol kuralı: `app/storage/`); yol sütunları yalnız saklar.
@@ -273,6 +274,19 @@ class GroupItemKind(enum.StrEnum):
 
     LABEL = "label"
     TYPE = "type"
+
+
+class PackageStatus(enum.StrEnum):
+    """Çalışana tanımlı belge paketinin durumu (`employee_packages.status`, 14.2).
+
+    Paket `open` açılır; zorunlu kalemlerin hepsi karşılanınca `completed` olur, sonradan eksik
+    oluşursa `open`'a döner (`app.groups.packages.refresh_employee_packages`). `cancelled` İK'nın
+    iptalidir ve "Yeniden aç" ile `open`'a döner; paket silinmez (R11).
+    """
+
+    OPEN = "open"
+    COMPLETED = "completed"
+    CANCELLED = "cancelled"
 
 
 # --- çalışan -----------------------------------------------------------------------------
@@ -695,7 +709,7 @@ class ExampleFileRecord(Base):
     training_item: Mapped[TrainingItem | None] = relationship()
 
 
-# --- belge grupları (14.1) -------------------------------------------------------------------
+# --- belge grupları (14.1) ve paketleri (14.2) -----------------------------------------------
 
 _GROUP_ITEM_TARGET = (
     "(match_kind = 'label' AND file_label IS NOT NULL AND type_slug IS NULL) OR "
@@ -757,6 +771,37 @@ class DocumentGroupItem(Base):
 
     group: Mapped[DocumentGroup] = relationship(back_populates="items")
     document_type: Mapped[KnownDocumentType | None] = relationship()
+
+
+class EmployeePackage(Base):
+    """Çalışana tanımlı belge paketi (§8.1 `employee_packages`, 14.2; PLAN.md §C89).
+
+    Paket bir belge grubunun çalışandaki örneğidir; kalemler paket başına kopyalanmaz — grubun
+    kalemleri her değerlendirmede okunur, grup değişikliği pakete anında yansır. Kalem tikleri
+    yazılmaz, çalışanın etkin belgelerinden hesaplanır (`app.groups.packages.evaluate_package`);
+    yazılan yalnız `status` ve geçiş zamanlarıdır. `requested_by`/`requested_at` paketi tanımlayan
+    kullanıcı ve zamandır, `note` tanımlama notudur. İptal `cancelled_at`/`cancelled_by` ve
+    `cancel_note` (iptal nedeni, PLAN.md §D65) yazar; "Yeniden aç" üçünü boşaltır. Paket silinmez
+    (R11).
+    """
+
+    __tablename__ = "employee_packages"
+    __table_args__ = (CheckConstraint(_one_of("status", PackageStatus), name="status"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    employee_id: Mapped[str] = mapped_column(ForeignKey("employees.id"), index=True)
+    group_id: Mapped[int] = mapped_column(ForeignKey("document_groups.id"), index=True)
+    status: Mapped[str] = mapped_column(String(16), default=PackageStatus.OPEN.value)
+    requested_by: Mapped[str] = mapped_column(String(255))
+    requested_at: Mapped[datetime] = mapped_column(UtcDateTime, default=utcnow)
+    completed_at: Mapped[datetime | None] = mapped_column(UtcDateTime)
+    cancelled_at: Mapped[datetime | None] = mapped_column(UtcDateTime)
+    cancelled_by: Mapped[str | None] = mapped_column(String(255))
+    note: Mapped[str | None] = mapped_column(String(120))
+    cancel_note: Mapped[str | None] = mapped_column(String(120))
+
+    employee: Mapped[Employee] = relationship()
+    group: Mapped[DocumentGroup] = relationship()
 
 
 # --- log ve kullanıcılar -------------------------------------------------------------------

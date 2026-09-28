@@ -11,7 +11,9 @@ durumu); yalnız `employee_id`, `path` ve `sequence_no` güncellenir. Belgenin k
 (Inbox orijinalleri) yeni sahibin `Alinan/` klasörüne kopyalanır (K10; aynı SHA-256 oradaysa
 kopyalanmaz). Eski sahibin `Alinan/` kopyası silinmez (K16: silme yok) — aynı dosya o çalışanın
 başka belgelerinin de kaynağı olabilir. `MANUAL_MOVE` kullanıcı adıyla loglanır; iki çalışan da
-kimlikleriyle olaya girer, yol ve ad kişi adı taşıdığı için olaya girmez (CONVENTIONS §6).
+kimlikleriyle olaya girer, yol ve ad kişi adı taşıdığı için olaya girmez (CONVENTIONS §6). Ardından
+iki çalışanın belge paketleri aynı işlemde yenilenir (14.2.2; `refresh_employee_packages`): eski
+sahipte belgenin karşıladığı kalem açılır, yeni sahipte kapanır.
 
 Yalnız `active` belge taşınır: eski sürüm (K18: yeniden adlandırılmaz) ve arşivlenmiş belge
 `DocumentNotMovableError`. Bütün denetimler diske dokunmadan önce yapılır. Çalışan profilleri
@@ -76,9 +78,14 @@ def move_document(
     `actor` iki aşamalı onayı (K16, §20.6.1) tamamlamış kullanıcının adıdır; boşsa `ValueError`.
     Belge kaydı yoksa `DocumentNotFoundError`, çalışan yoksa `MoveTargetNotFoundError`; belge etkin
     değilse, zaten o çalışanınsa ya da dosyası veya kaynak orijinali yerinde değilse
-    `DocumentNotMovableError` — hiçbir şey taşınmaz. Oturum commit edilmez. Aynı belgeyi eşzamanlı
-    taşıyan ikinci işlem satırın kilidinde bekler ve belgeyi yeni sahibinde görür.
+    `DocumentNotMovableError` — hiçbir şey taşınmaz. Başarıdan sonra iki çalışanın belge paketleri
+    yenilenir (14.2.2). Oturum commit edilmez. Aynı belgeyi eşzamanlı taşıyan ikinci işlem satırın
+    kilidinde bekler ve belgeyi yeni sahibinde görür.
     """
+    # `app.groups` `app.storage`'ı içe aktarır; üst düzeyde içe aktarmak paket başlatmada döngü
+    # kurar.
+    from app.groups import refresh_employee_packages
+
     if not actor.strip():
         raise ValueError("Manuel işlem kullanıcı adıyla loglanır (K16): actor boş olamaz")
     document = session.get(Document, document_id, with_for_update=True, populate_existing=True)
@@ -146,6 +153,9 @@ def move_document(
             ],
         },
     )
+    # 14.2.2: belge eski sahibin paket kalemini artık karşılamaz, yeninin kalemini karşılayabilir.
+    for owner in (previous_owner, new_owner):
+        refresh_employee_packages(session, owner.id, actor=actor)
     return MovedDocument(document, previous_owner, new_owner, received, event)
 
 

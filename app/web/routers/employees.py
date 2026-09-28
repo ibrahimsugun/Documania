@@ -16,8 +16,12 @@ Aranan alanlar:
   türdeyse çalışan uyar.
 
 "Belge sayısı" çalışanın etkin belgeleridir: eski sürüm (`superseded`, K18) ve arşive taşınmış
-(`archived`, K16) belge çalışanın klasöründe durmadığı için sayılmaz. Sayfa yalnız okur: belge
-içeriği ya da çalışan kaydı değiştirilmez (K11, K17).
+(`archived`, K16) belge çalışanın klasöründe durmadığı için sayılmaz. "Paket" sütunu (14.3.1)
+çalışanın açık belge paketi sayısını ve o paketlerdeki eksik zorunlu kalem sayısını ("2 açık · 3
+eksik") gösterir, açık paketi yoksa "—"; `packages=missing` listeyi en az bir açık (zorunlu kalemi
+eksik) paketi olan çalışanlarla daraltır ve aramayla birleşir. Sayılar profil sayfasıyla aynı
+hesaptır (`app.groups.package_counts`). Sayfa yalnız okur: belge içeriği ya da çalışan kaydı
+değiştirilmez (K11, K17).
 
 HTMX isteği (`HX-Request`) yalnız sonuç parçasını (`employees_results.html`) alır, tarayıcı isteği
 tam sayfayı; ikisi de aynı adrestedir, bu yüzden yanıt `Vary: HX-Request` taşır. Sayfalama düz
@@ -46,6 +50,18 @@ Profil sayfası bağlam çalışanıyla yükleme formu taşır (10.5.3): form `P
 kimliğini gizli alanla gönderir. Profilden yüklenip bu çalışana ait görünmeyen (kişi denetimi,
 10.5.5) ve kuyrukta çözülmemiş belge varsa sayfanın üstünde büyük kırmızı uyarı kutusu durur;
 kuyruk öğesi çözülünce kalkar (`app.web.context_person`).
+
+**Belge paketleri (14.2.1–14.2.3; PLAN.md §C89).** Profilin "Belge paketleri" bölümü açık ve
+tamamlanmış paketleri kart hâlinde gösterir: grup adı, tanımlayan ve zaman, kalem listesi (✓/○,
+zorunlu/isteğe bağlı, karşılayan belgenin bağlantısı) ve durum rozeti ("Açık — k/n zorunlu kalem"
+ya da "Tamamlandı — başvuru başlatılabilir"); iptal edilenler katlanmış listededir. Tikler her
+görüntülemede belgelerden hesaplanır, GET hiçbir şey yazmaz (`app.groups.employee_packages`).
+`POST /employees/{id}/packages` arşivlenmemiş bir grubu pakete çevirir (not ≤ 120); aynı grubun
+iptal edilmemiş paketi varsa ilk gönderim uyarıyla döner (409) ve ancak `confirm_duplicate=1`'li
+ikinci gönderim paketi açar. `POST .../packages/{pkg}/cancel` paketi nedeniyle iptal eder,
+`POST .../packages/{pkg}/reopen` açığa döndürür. Üçü tek adımdır (§D61-b: dosya taşımaz,
+eşleştirmeyi değiştirmez, geri alınabilir), `PACKAGE_*` olayını kullanıcı adıyla yazar (K15) ve
+commit'ten sonra çalışanın `profil.md`'sini yeniden üretir (09.1.1, 14.3.1). Paket silinmez (R11).
 """
 
 from __future__ import annotations
@@ -56,8 +72,8 @@ from pathlib import Path, PurePosixPath
 from typing import Annotated, Any
 from urllib.parse import urlencode
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request, status
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse, Response
 from sqlalchemy import ColumnElement, and_, exists, func, or_, select
 from sqlalchemy.orm import Session
 
@@ -77,8 +93,28 @@ from app.db.models import (
     UploadFile,
 )
 from app.db.session import get_session
+from app.groups import (
+    NOTE_MAX_LENGTH,
+    GroupArchivedError,
+    GroupNotFoundError,
+    GroupSummary,
+    PackageCounts,
+    PackageEmployeeNotFoundError,
+    PackageFormError,
+    PackageNotFoundError,
+    PackageStateError,
+    PackageView,
+    assign_package,
+    cancel_package,
+    employee_packages,
+    employees_with_missing_packages,
+    list_groups,
+    package_counts,
+    reopen_package,
+)
 from app.matching.match import normalize_document_number
 from app.matching.names import EmptyNameError, normalize_name
+from app.profiles import write_profile
 from app.profiles.latin_names import needs_latin_repair
 from app.profiles.render import calculate_age
 from app.storage import DataLayout
@@ -99,6 +135,9 @@ MAX_QUERY_LENGTH = 100
 MAX_TERMS = 6
 
 STATUS_LABELS = {"active": "Aktif"}
+# 14.3.1: listenin paket süzgeci; tanınmayan değer süzmez.
+MISSING_PACKAGES = "missing"
+NO_PACKAGES = "—"
 
 
 @dataclass(frozen=True, slots=True)
@@ -110,6 +149,7 @@ class EmployeeRow:
     document_count: int
     status: str
     status_label: str
+    packages: str = NO_PACKAGES
 
 
 @dataclass(frozen=True, slots=True)
@@ -121,6 +161,14 @@ class EmployeeListing:
     page_count: int
     previous_url: str | None
     next_url: str | None
+    packages: str = ""
+
+
+def package_cell(counts: PackageCounts | None) -> str:
+    """14.3.1 — listenin "Paket" hücresi: "2 açık · 3 eksik"; açık paket yoksa "—"."""
+    if counts is None or not counts.open:
+        return NO_PACKAGES
+    return f"{counts.open} açık · {counts.missing} eksik"
 
 
 def search_terms(query: str) -> list[str]:
@@ -197,20 +245,28 @@ def _term_matches(session: Session, term: str) -> ColumnElement[bool]:
     return or_(*predicates)
 
 
-def _page_url(query: str, page: int) -> str:
+def _page_url(query: str, page: int, packages: str = "") -> str:
     params = {"q": query} if query else {}
+    if packages:
+        params["packages"] = packages
     if page > 1:
         params["page"] = str(page)
     return "/employees" + (f"?{urlencode(params)}" if params else "")
 
 
-def list_employees(session: Session, query: str = "", page: int = 1) -> EmployeeListing:
-    """10.4.1/10.4.2 — çalışanların `page`. sayfası; `query` boşsa hepsi, doluysa uyanlar.
+def list_employees(
+    session: Session, query: str = "", page: int = 1, packages: str = ""
+) -> EmployeeListing:
+    """10.4.1/10.4.2/14.3.1 — çalışanların `page`. sayfası; `query` boşsa hepsi, doluysa uyanlar.
+    `packages="missing"` yalnız en az bir açık (zorunlu kalemi eksik) paketi olanları bırakır.
 
     Sayfa sayısını aşan `page` son sayfaya indirilir. Sıra soyad, ad, çalışan numarasıdır.
     """
     query = " ".join(query.split())
+    packages = packages if packages == MISSING_PACKAGES else ""
     filters = [_term_matches(session, term) for term in search_terms(query)]
+    if packages:
+        filters.append(Employee.id.in_(sorted(employees_with_missing_packages(session))))
     total = session.scalar(select(func.count()).select_from(Employee).where(*filters)) or 0
     page_count = max(1, -(-total // PAGE_SIZE))
     page = min(max(page, 1), page_count)
@@ -230,6 +286,7 @@ def list_employees(session: Session, query: str = "", page: int = 1) -> Employee
         .limit(PAGE_SIZE)
         .offset((page - 1) * PAGE_SIZE)
     ).all()
+    counts = package_counts(session, [employee.id for employee, _ in found])
     rows = [
         EmployeeRow(
             id=employee.id,
@@ -239,6 +296,7 @@ def list_employees(session: Session, query: str = "", page: int = 1) -> Employee
             document_count=count,
             status=employee.status,
             status_label=STATUS_LABELS.get(employee.status, employee.status),
+            packages=package_cell(counts.get(employee.id)),
         )
         for employee, count in found
     ]
@@ -248,8 +306,9 @@ def list_employees(session: Session, query: str = "", page: int = 1) -> Employee
         total=total,
         page=page,
         page_count=page_count,
-        previous_url=_page_url(query, page - 1) if page > 1 else None,
-        next_url=_page_url(query, page + 1) if page < page_count else None,
+        previous_url=_page_url(query, page - 1, packages) if page > 1 else None,
+        next_url=_page_url(query, page + 1, packages) if page < page_count else None,
+        packages=packages,
     )
 
 
@@ -268,8 +327,9 @@ def employees_page(
     session: Annotated[Session, Depends(get_session)],
     q: Annotated[str, Query(max_length=MAX_QUERY_LENGTH)] = "",
     page: Annotated[int, Query(ge=1)] = 1,
+    packages: Annotated[str, Query(max_length=16)] = "",
 ) -> HTMLResponse:
-    listing = list_employees(session, q, page)
+    listing = list_employees(session, q, page, packages)
     entry = MENU_BY_KEY["employees"]
     if _wants_fragment(request):
         response = render_page(request, "employees_results.html", user=None, listing=listing)
@@ -384,6 +444,18 @@ class ProfileView:
     field_sources: dict[str, FieldSources] = field(default_factory=dict)
     # 10.5.5: profilden yüklenip bu çalışana ait görünmeyen, kuyrukta çözülmemiş belgeler.
     context_warning: ForeignDocumentsWarning | None = None
+    # 14.2: çalışanın belge paketleri (iptal edilenler dahil) ve dosyası yerinde olan belgeler
+    # (kalemi karşılayan belgenin bağlantısı dosyayı ya da geçmişini açar).
+    packages: list[PackageView] = field(default_factory=list)
+    available_document_ids: frozenset[int] = frozenset()
+
+    @property
+    def live_packages(self) -> list[PackageView]:
+        return [package for package in self.packages if not package.cancelled]
+
+    @property
+    def cancelled_packages(self) -> list[PackageView]:
+        return [package for package in self.packages if package.cancelled]
 
 
 @dataclass(frozen=True, slots=True)
@@ -516,6 +588,8 @@ def build_profile(
         latin_missing=needs_latin_repair(employee),
         field_sources=field_sources,
         context_warning=profile_warning(session, employee_id),
+        packages=employee_packages(session, employee_id),
+        available_document_ids=frozenset(row.id for row in rows if row.available),
     )
 
 
@@ -602,15 +676,47 @@ def _first_source_page(source_refs: Any) -> tuple[int, int] | None:
     return (file_id, pages[0]) if isinstance(pages[0], int) else None
 
 
-@router.get("/employees/{employee_id}", response_class=HTMLResponse)
-def employee_profile(
-    employee_id: str,
+@dataclass(frozen=True, slots=True)
+class PackageFormValues:
+    """Paket tanımlama formunun değerleri (reddedilen form girilenlerle yeniden çizilir);
+    `duplicate` aynı grubun paketi varken ilk gönderimin uyarısıdır."""
+
+    group_id: int | None = None
+    note: str = ""
+    duplicate: bool = False
+
+
+PACKAGE_NOTICES = {
+    "package_assigned": "Paket tanımlandı.",
+    "package_cancelled": "Paket iptal edildi.",
+    "package_reopened": "Paket yeniden açıldı.",
+}
+PACKAGE_NOT_FOUND = "Paket bulunamadı."
+GROUP_NOT_FOUND = "Belge grubu bulunamadı."
+DUPLICATE_PACKAGE = (
+    "Bu çalışanda aynı gruptan iptal edilmemiş bir paket zaten var. Yine de ikinci paket "
+    "tanımlamak için onaylayın."
+)
+# Form sınırı yalnız aşırı girdiye karşıdır; uzunluk kuralını servis mesajla bildirir.
+PACKAGE_FORM_LIMIT = 1000
+PackageNote = Annotated[str | None, Form(max_length=PACKAGE_FORM_LIMIT)]
+
+
+def _profile_page(
     request: Request,
-    user: CurrentUser,
-    session: Annotated[Session, Depends(get_session)],
-    layout: Annotated[DataLayout, Depends(get_layout)],
+    user: PanelUser,
+    session: Session,
+    layout: DataLayout,
+    employee_id: str,
+    *,
+    notice: str | None = None,
+    package_form: PackageFormValues | None = None,
+    package_problems: dict[str, list[str]] | None = None,
+    cancel_problems: dict[int, list[str]] | None = None,
+    status_code: int = status.HTTP_200_OK,
 ) -> HTMLResponse:
     profile = build_profile(session, layout, employee_id)
+    groups: list[GroupSummary] = list_groups(session) if profile is not None else []
     # Okuma işlemi de SQLite'ta yazma kilidini tutar (`app.db.session`): sayfa çizilirken
     # arka plandaki bir işleyici beklemesin.
     session.rollback()
@@ -624,7 +730,178 @@ def employee_profile(
             status_code=status.HTTP_404_NOT_FOUND,
             error=EMPLOYEE_NOT_FOUND,
         )
-    return render_page(request, "profile.html", user=user, active=entry.key, profile=profile)
+    return render_page(
+        request,
+        "profile.html",
+        user=user,
+        active=entry.key,
+        status_code=status_code,
+        profile=profile,
+        group_choices=groups,
+        package_form=package_form or PackageFormValues(),
+        package_problems=package_problems or {},
+        cancel_problems=cancel_problems or {},
+        package_notice=PACKAGE_NOTICES.get(notice or ""),
+        note_limit=NOTE_MAX_LENGTH,
+    )
+
+
+@router.get("/employees/{employee_id}", response_class=HTMLResponse)
+def employee_profile(
+    employee_id: str,
+    request: Request,
+    user: CurrentUser,
+    session: Annotated[Session, Depends(get_session)],
+    layout: Annotated[DataLayout, Depends(get_layout)],
+    notice: Annotated[str | None, Query(max_length=32)] = None,
+) -> HTMLResponse:
+    return _profile_page(request, user, session, layout, employee_id, notice=notice)
+
+
+def _package_redirect(employee_id: str, notice: str) -> RedirectResponse:
+    return RedirectResponse(
+        f"/employees/{employee_id}?notice={notice}#packages", status.HTTP_303_SEE_OTHER
+    )
+
+
+def _rewrite_profile(session: Session, layout: DataLayout, employee_id: str) -> None:
+    # 09.1.1, 14.3.1: profil.md paketlerin commit edilmiş hâlini gösterir.
+    employee = session.get(Employee, employee_id)
+    if employee is not None:
+        write_profile(session, layout, employee)
+    session.rollback()
+
+
+@router.post("/employees/{employee_id}/packages", response_class=HTMLResponse)
+def assign_package_endpoint(
+    employee_id: str,
+    request: Request,
+    user: CurrentUser,
+    session: Annotated[Session, Depends(get_session)],
+    layout: Annotated[DataLayout, Depends(get_layout)],
+    group_id: Annotated[int, Form()],
+    note: PackageNote = None,
+    confirm_duplicate: Annotated[str | None, Form(max_length=1)] = None,
+) -> Response:
+    """14.2.1 — grubu çalışana paket olarak tanımlar (tek adım). Arşivdeki grup 409, not kuralı
+    422; aynı grubun iptal edilmemiş paketi varsa ilk gönderim uyarıyla 409 döner, onaylı ikinci
+    gönderim (`confirm_duplicate=1`) paketi açar."""
+    form = PackageFormValues(group_id=group_id, note=note or "")
+    problems: dict[str, list[str]]
+    try:
+        result = assign_package(
+            session,
+            employee_id,
+            group_id,
+            actor=user.username,
+            note=note,
+            confirm_duplicate=confirm_duplicate == "1",
+        )
+    except PackageEmployeeNotFoundError:
+        session.rollback()
+        raise HTTPException(status.HTTP_404_NOT_FOUND, EMPLOYEE_NOT_FOUND) from None
+    except GroupNotFoundError:
+        session.rollback()
+        raise HTTPException(status.HTTP_404_NOT_FOUND, GROUP_NOT_FOUND) from None
+    except GroupArchivedError as exc:
+        problems, status_code = {"group_id": [str(exc)]}, status.HTTP_409_CONFLICT
+    except PackageFormError as exc:
+        problems, status_code = exc.problems, status.HTTP_422_UNPROCESSABLE_CONTENT
+    else:
+        if result.warn:
+            session.rollback()
+            return _profile_page(
+                request,
+                user,
+                session,
+                layout,
+                employee_id,
+                package_form=PackageFormValues(group_id=group_id, note=note or "", duplicate=True),
+                package_problems={"group_id": [DUPLICATE_PACKAGE]},
+                status_code=status.HTTP_409_CONFLICT,
+            )
+        session.commit()
+        _rewrite_profile(session, layout, employee_id)
+        return _package_redirect(employee_id, "package_assigned")
+    session.rollback()
+    return _profile_page(
+        request,
+        user,
+        session,
+        layout,
+        employee_id,
+        package_form=form,
+        package_problems=problems,
+        status_code=status_code,
+    )
+
+
+@router.post("/employees/{employee_id}/packages/{package_id}/cancel", response_class=HTMLResponse)
+def cancel_package_endpoint(
+    employee_id: str,
+    package_id: int,
+    request: Request,
+    user: CurrentUser,
+    session: Annotated[Session, Depends(get_session)],
+    layout: Annotated[DataLayout, Depends(get_layout)],
+    note: PackageNote = None,
+) -> Response:
+    """14.2.3 — paketi nedeniyle tek adımda iptal eder; paket silinmez. Neden boşsa ya da uzunsa
+    422, paket zaten iptal edilmişse 409."""
+    try:
+        cancel_package(session, employee_id, package_id, actor=user.username, note=note)
+    except PackageNotFoundError:
+        session.rollback()
+        raise HTTPException(status.HTTP_404_NOT_FOUND, PACKAGE_NOT_FOUND) from None
+    except (PackageFormError, PackageStateError) as exc:
+        session.rollback()
+        conflict = isinstance(exc, PackageStateError)
+        return _profile_page(
+            request,
+            user,
+            session,
+            layout,
+            employee_id,
+            cancel_problems={package_id: [str(exc)]},
+            status_code=(
+                status.HTTP_409_CONFLICT if conflict else status.HTTP_422_UNPROCESSABLE_CONTENT
+            ),
+        )
+    session.commit()
+    _rewrite_profile(session, layout, employee_id)
+    return _package_redirect(employee_id, "package_cancelled")
+
+
+@router.post("/employees/{employee_id}/packages/{package_id}/reopen", response_class=HTMLResponse)
+def reopen_package_endpoint(
+    employee_id: str,
+    package_id: int,
+    request: Request,
+    user: CurrentUser,
+    session: Annotated[Session, Depends(get_session)],
+    layout: Annotated[DataLayout, Depends(get_layout)],
+) -> Response:
+    """14.2.3 — iptal edilmiş paketi tek adımda açığa döndürür ve yeniden değerlendirir; paket
+    iptal edilmemişse 409."""
+    try:
+        reopen_package(session, employee_id, package_id, actor=user.username)
+    except PackageNotFoundError:
+        session.rollback()
+        raise HTTPException(status.HTTP_404_NOT_FOUND, PACKAGE_NOT_FOUND) from None
+    except PackageStateError as exc:
+        session.rollback()
+        return _profile_page(
+            request,
+            user,
+            session,
+            layout,
+            employee_id,
+            cancel_problems={package_id: [str(exc)]},
+            status_code=status.HTTP_409_CONFLICT,
+        )
+    session.commit()
+    _rewrite_profile(session, layout, employee_id)
+    return _package_redirect(employee_id, "package_reopened")
 
 
 def _file_response(stored: StoredDocument, *, disposition: str) -> FileResponse:

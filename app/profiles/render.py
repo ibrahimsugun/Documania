@@ -1,5 +1,5 @@
-"""`profil.md` üretimi — çalışan kimliği, iletişim bilgisi ve belge listesi
-(PRD 09.1.1, 09.1.2, 09.1.3; §8.2 `Employees/<Ad_Soyad_E0001>/profil.md`).
+"""`profil.md` üretimi — çalışan kimliği, iletişim bilgisi, belge listesi ve belge paketleri
+(PRD 09.1.1, 09.1.2, 09.1.3, 14.3.1; §8.2 `Employees/<Ad_Soyad_E0001>/profil.md`).
 
 İçerik her çağrıda veritabanının güncel durumundan baştan kurulur — hiçbir alan önceki
 `profil.md`'den okunmaz, kısmi güncelleme yoktur. Bu yüzden herhangi bir değişiklikten sonra
@@ -11,6 +11,12 @@ YAML ön blok ve kimlik tablosu aynı alanları taşır: `given_names`/`surname`
 belgede de dolu. İkisi birlikte göründüğü için ayrı bir dönüştürme adımı gerekmez (09.1.2).
 Okunmamış alan `—` ile gösterilir; içerik üretilmez, yalnız var olan veritabanı satırı
 görüntülenir (K11, K17).
+
+"Belge paketleri" bölümü (14.3.1) çalışana tanımlı paketleri panelin profil sayfasıyla aynı
+hesapla (`app.groups.employee_packages`) gösterir: iptal edilmemiş her paket için grup adı, durum
+("Açık — k/n zorunlu kalem" ya da "Tamamlandı — başvuru başlatılabilir") ve kalem tablosu (✓/○,
+zorunlu/isteğe bağlı, karşılayan belgenin dosya adı); iptal edilenler ayrı listede. Üretim paket
+durumunu yazmaz (yenileme noktalarının işi). Tanımlama notu ve iptal nedeni dosyaya girmez.
 """
 
 from __future__ import annotations
@@ -25,6 +31,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db.models import Document, Employee, EmployeeContact, EmployeeIdentifier, KnownDocumentType
+from app.groups import PackageView, employee_packages
 from app.storage import DataLayout, StoredFile, replace_file
 
 # §8.1 `employee_contacts.kind` → kimlik tablosu satır etiketi.
@@ -41,8 +48,8 @@ def calculate_age(date_of_birth: date, *, today: date) -> int:
 def render_profile(session: Session, employee: Employee, *, today: date | None = None) -> str:
     """`profil.md` içeriğini çalışanın güncel veritabanı kaydından üretir (09.1.1-09.1.3).
 
-    Sıra: YAML ön blok, kimlik tablosu, belge listesi. `today` yaş hesaplamasının referans
-    günüdür (verilmezse bugün); testler belirlenebilirlik için verir.
+    Sıra: YAML ön blok, kimlik tablosu, belge listesi, belge paketleri. `today` yaş hesaplamasının
+    referans günüdür (verilmezse bugün); testler belirlenebilirlik için verir.
     """
     reference_date = today if today is not None else date.today()
     identifiers = _identifiers(session, employee.id)
@@ -63,7 +70,8 @@ def render_profile(session: Session, employee: Employee, *, today: date | None =
         f"---\n{front_matter}---\n\n"
         f"# {employee.given_names} {employee.surname}\n\n"
         f"{_identity_table(employee, identifiers, contacts, age)}\n"
-        f"{_document_list(documents)}"
+        f"{_document_list(documents)}\n"
+        f"{_package_list(employee_packages(session, employee.id))}"
     )
 
 
@@ -163,3 +171,45 @@ def _document_list(documents: Sequence[tuple[Document, KnownDocumentType]]) -> s
         for document, document_type in documents
     )
     return header + rows
+
+
+def _cell(value: str) -> str:
+    # Tablo hücresindeki `|` sütunu bölmesin.
+    return value.replace("|", "\\|")
+
+
+def _package_list(packages: Sequence[PackageView]) -> str:
+    header = "## Belge paketleri\n\n"
+    if not packages:
+        return header + "Tanımlı paket yok.\n"
+    sections = []
+    for package in packages:
+        if package.cancelled:
+            continue
+        section = f"### {package.group_name} — {package.state_label}\n\n"
+        section += f"Tanımlayan: {package.requested_by} · {package.requested_at.date().isoformat()}"
+        if package.completed_at is not None and package.complete:
+            section += f" · Tamamlandı: {package.completed_at.date().isoformat()}"
+        section += "\n\n"
+        if not package.items:
+            section += "Grubun kalemi yok.\n"
+        else:
+            section += "| Kalem | Zorunlu | Durum | Belge |\n|---|---|---|---|\n"
+            section += "".join(
+                f"| {_cell(item.title)} | {'evet' if item.required else 'isteğe bağlı'} | "
+                f"{'✓' if item.satisfied else '○'} | "
+                f"{_cell(item.document.file_name) if item.document else _EMPTY} |\n"
+                for item in package.items
+            )
+        sections.append(section)
+    cancelled = [package for package in packages if package.cancelled]
+    if cancelled:
+        sections.append(
+            "### İptal edilen paketler\n\n"
+            + "".join(
+                f"- {package.group_name} — iptal: {package.cancelled_by or _EMPTY}, "
+                f"{package.cancelled_at.date().isoformat() if package.cancelled_at else _EMPTY}\n"
+                for package in cancelled
+            )
+        )
+    return header + "\n".join(sections)

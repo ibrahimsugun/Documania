@@ -11,8 +11,10 @@ yeniden adlandırılmaz).
 Yalnız `active` durumundaki belge arşivlenir: zaten arşivlenmiş ya da eski sürüm (`superseded`,
 K18) belge `DocumentNotArchivableError`.
 
-Belgenin durumu ve yolu değiştiği için sahibinin `profil.md`'si son adım olarak yeniden üretilir
-(09.1.1; `app.profiles.write_profile`, yalnız veritabanından, K17). Oturum commit edilmediği için
+Arşivlenen belge paket kalemi karşılamaz: sahibinin belge paketleri aynı işlemde yenilenir
+(14.2.2; `app.groups.refresh_employee_packages`, tamamlanmış paket açığa döner). Belgenin durumu ve
+yolu değiştiği için sahibinin `profil.md`'si son adım olarak yeniden üretilir (09.1.1;
+`app.profiles.write_profile`, yalnız veritabanından, K17). Oturum commit edilmediği için
 çağıran commit'ten önce işlemi geri alırsa `profil.md` bir sonraki yeniden üretime kadar bayat
 kalır (PLAN.md §D31); dosya taşıması zaten geri alınmaz.
 """
@@ -62,11 +64,13 @@ def archive_document(
 
     Belge kaydı yoksa `DocumentNotFoundError`; `active` değilse (zaten arşivlenmiş ya da eski
     sürüm) `DocumentNotArchivableError` — hiçbir şey taşınmaz. Başarıdan sonra belgenin sahibinin
-    `profil.md`'si yeniden üretilir (09.1.1). Oturum commit edilmez. Aynı belgeyi eşzamanlı
-    arşivleyen ikinci işlem satırın kilidinde bekler ve belgeyi arşivlenmiş görür.
+    belge paketleri yenilenir (14.2.2) ve `profil.md`'si yeniden üretilir (09.1.1). Oturum commit
+    edilmez. Aynı belgeyi eşzamanlı arşivleyen ikinci işlem satırın kilidinde bekler ve belgeyi
+    arşivlenmiş görür.
     """
-    # `app.profiles` `app.storage`'ı içe aktarır; üst düzeyde içe aktarmak paket başlatmada döngü
-    # kurar.
+    # `app.profiles` ve `app.groups` `app.storage`'ı içe aktarır; üst düzeyde içe aktarmak paket
+    # başlatmada döngü kurar.
+    from app.groups import refresh_employee_packages
     from app.profiles import write_profile
 
     if not actor.strip():
@@ -98,6 +102,8 @@ def archive_document(
         actor=actor,
         data={"document_id": document.id, "path": document.path},
     )
+    # 14.2.2: arşivdeki belge kalem karşılamaz; paket açığa dönebilir.
+    refresh_employee_packages(session, document.employee_id, actor=actor)
     # 09.1.1: profil belgenin yeni durumunu ve dosya adını gösterir; son adım.
     write_profile(session, layout, session.get_one(Employee, document.employee_id))
     return ArchivedDocument(document, event)

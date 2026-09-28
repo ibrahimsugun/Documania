@@ -10,7 +10,10 @@
   etiketleri tür sayısıyla, tür seçicisi katalogdaki türleri listeler; zorunlu ya da isteğe bağlı;
   not ≤ 120), kalem kaldırma (`POST .../items/{item_id}/remove`), arşivleme ve geri alma
   (`POST .../archive`, `.../restore`). Sayfa kalem değişikliğinin kaç açık pakette hemen geçerli
-  olacağını söyler (paketler tm 125'te; o güne dek 0).
+  olacağını söyler (`open_package_count`, 14.2).
+- Kalem eklenince ya da kaldırılınca grubun paketleri aynı işlemde yeniden değerlendirilir
+  (`app.groups.refresh_group_packages`); ad, açıklama ya da kalem değişikliğinin commit'inden sonra
+  grubun paketi olan çalışanların `profil.md`'si yeniden üretilir (09.1.1, 14.3.1).
 - Hepsi tek adımlıdır (§D61-b: dosya taşımaz, eşleştirmeyi değiştirmez, geri alınabilir) ve
   `GROUP_CHANGED` olayını kullanıcı adıyla yazar. **Silme yok** (R11): grup arşivlenir, kalem
   kaldırılır ve satırı kalır. Ekran belge içeriğine dokunmaz (K17).
@@ -24,9 +27,10 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request, status
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.db.models import DocumentGroup, DocumentGroupItem, GroupItemKind
+from app.db.models import DocumentGroup, DocumentGroupItem, Employee, EmployeePackage, GroupItemKind
 from app.db.session import get_session
 from app.groups import (
     DESCRIPTION_MAX_LENGTH,
@@ -53,13 +57,17 @@ from app.groups import (
     type_choices,
     update_group,
 )
+from app.profiles import write_profile
+from app.storage import DataLayout
 from app.web.auth import PanelUser, require_panel_user
+from app.web.routers.uploads import get_layout
 from app.web.templating import MENU_BY_KEY, render_page
 
 router = APIRouter(tags=["groups"])
 
 CurrentUser = Annotated[PanelUser, Depends(require_panel_user)]
 DbSession = Annotated[Session, Depends(get_session)]
+Layout = Annotated[DataLayout, Depends(get_layout)]
 
 LIST_PATH = "/document-groups"
 GROUP_NOT_FOUND = "Belge grubu bulunamadı"
@@ -130,6 +138,23 @@ def _notice(notice: str | None) -> str | None:
 
 def _group_redirect(group_id: int, notice: str) -> RedirectResponse:
     return RedirectResponse(f"{LIST_PATH}/{group_id}?notice={notice}", status.HTTP_303_SEE_OTHER)
+
+
+def _write_package_profiles(session: Session, layout: DataLayout, group_id: int) -> None:
+    """09.1.1, 14.3.1: grubun paketi olan çalışanların `profil.md`'si grubun commit edilmiş hâlini
+    (ad, kalemler, paket durumu) gösterir."""
+    employees = session.scalars(
+        select(Employee)
+        .where(
+            Employee.id.in_(
+                select(EmployeePackage.employee_id).where(EmployeePackage.group_id == group_id)
+            )
+        )
+        .order_by(Employee.id)
+    )
+    for employee in employees:
+        write_profile(session, layout, employee)
+    session.rollback()
 
 
 def _group_or_404(session: Session, group_id: int) -> DocumentGroup:
@@ -320,6 +345,7 @@ def update_group_endpoint(
     request: Request,
     user: CurrentUser,
     session: DbSession,
+    layout: Layout,
     name: GroupName,
     description: GroupDescription = None,
 ) -> Response:
@@ -352,7 +378,9 @@ def update_group_endpoint(
             problems={"name": [NAME_TAKEN_ARCHIVED if exc.archived else NAME_TAKEN]},
             status_code=status.HTTP_409_CONFLICT,
         )
-    return _group_redirect(group.id, "updated" if changed else "unchanged")
+    if changed:
+        _write_package_profiles(session, layout, group_id)
+    return _group_redirect(group_id, "updated" if changed else "unchanged")
 
 
 @router.post(f"{LIST_PATH}/{{group_id}}/items", response_class=HTMLResponse)
@@ -361,6 +389,7 @@ def add_item_endpoint(
     request: Request,
     user: CurrentUser,
     session: DbSession,
+    layout: Layout,
     match_kind: Annotated[str, Form(max_length=16)],
     file_label: Annotated[str | None, Form(max_length=255)] = None,
     type_slug: Annotated[str | None, Form(max_length=64)] = None,
@@ -394,7 +423,8 @@ def add_item_endpoint(
         field_name = "file_label" if match_kind == GroupItemKind.LABEL else "type_slug"
         problems, status_code = {field_name: [DUPLICATE_ITEM]}, status.HTTP_409_CONFLICT
     else:
-        return _group_redirect(group.id, "item_added")
+        _write_package_profiles(session, layout, group_id)
+        return _group_redirect(group_id, "item_added")
     session.rollback()
     return _group_page(
         request,
@@ -409,7 +439,7 @@ def add_item_endpoint(
 
 @router.post(f"{LIST_PATH}/{{group_id}}/items/{{item_id}}/remove")
 def remove_item_endpoint(
-    group_id: int, item_id: int, user: CurrentUser, session: DbSession
+    group_id: int, item_id: int, user: CurrentUser, session: DbSession, layout: Layout
 ) -> RedirectResponse:
     try:
         remove_item(session, group_id, item_id, actor=user.username)
@@ -420,6 +450,7 @@ def remove_item_endpoint(
     except GroupItemNotFoundError:
         session.rollback()
         raise HTTPException(status.HTTP_404_NOT_FOUND, ITEM_NOT_FOUND) from None
+    _write_package_profiles(session, layout, group_id)
     return _group_redirect(group_id, "item_removed")
 
 

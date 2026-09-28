@@ -192,14 +192,23 @@ def test_list_shows_name_original_writing_nationality_document_count_and_status(
 
     assert response.status_code == 200
     header = re.findall(r"<th>(.*?)</th>", response.text)
-    assert header == ["No", "Ad", "Orijinal yazım", "Uyruk", "Belge sayısı", "Durum"]
+    assert header == ["No", "Ad", "Orijinal yazım", "Uyruk", "Belge sayısı", "Paket", "Durum"]
     rows = {row[0]: row for row in _rows(response.text)}
-    assert rows["E0001"] == ["E0001", "Dmitry Vasiliev", "Васильев Дмитрий", "RUS", "2", "Aktif"]
-    assert rows["E0002"] == ["E0002", "Şükrü Öztürk", "—", "TUR", "1", "Aktif"]
+    assert rows["E0001"] == [
+        "E0001",
+        "Dmitry Vasiliev",
+        "Васильев Дмитрий",
+        "RUS",
+        "2",
+        "—",
+        "Aktif",
+    ]
+    assert rows["E0002"] == ["E0002", "Şükrü Öztürk", "—", "TUR", "1", "—", "Aktif"]
     # Belge sayısı yalnız etkin belgedir: eski sürüm ve arşive taşınan sayılmaz.
     assert rows["E0003"][4] == "1"
-    # Belgesiz, uyruksuz ve Aktif dışı durumlu çalışan da listelenir; bilinmeyen durum ham görünür.
-    assert rows["E0004"] == ["E0004", "Anna Zeta", "—", "—", "0", "pending"]
+    # Belgesiz, uyruksuz ve Aktif dışı durumlu çalışan da listelenir; bilinmeyen durum ham görünür;
+    # paketi olmayan çalışanın paket hücresi "—" (14.3.1).
+    assert rows["E0004"] == ["E0004", "Anna Zeta", "—", "—", "0", "—", "pending"]
 
 
 def test_list_is_sorted_by_surname_then_given_name_ignoring_case(
@@ -494,7 +503,7 @@ def test_htmx_request_gets_only_the_results_fragment(client: TestClient) -> None
     assert response.status_code == 200
     assert "<html" not in response.text and 'class="topbar"' not in response.text
     assert _rows(response.text) == [
-        ["E0001", "Dmitry Vasiliev", "Васильев Дмитрий", "RUS", "2", "Aktif"]
+        ["E0001", "Dmitry Vasiliev", "Васильев Дмитрий", "RUS", "2", "—", "Aktif"]
     ]
 
 

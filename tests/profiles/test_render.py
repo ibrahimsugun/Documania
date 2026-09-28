@@ -3,7 +3,8 @@
 Kabul kriterleri: YAML ön blok + kimlik tablosu + belge listesi içerir (09.1.1); Latin olmayan
 isimlerde hem Latin hem orijinal yazım görünür (09.1.2); ad, soyad, diğer isimler, orijinal
 yazım, vatandaşlık, doğum tarihi ve hesaplanan yaş, belge numaraları, iletişim bilgileri, belge
-listesi eksiksiz taşınır (09.1.3).
+listesi eksiksiz taşınır (09.1.3). "Belge paketleri" bölümü paketleri durumları ve kalemleriyle
+taşır (14.3.1).
 """
 
 from __future__ import annotations
@@ -22,6 +23,7 @@ from app.db.models import (
     EmployeeIdentifier,
     KnownDocumentType,
 )
+from app.groups import add_item, assign_package, cancel_package, create_group
 from app.profiles import calculate_age, render_profile, write_profile
 from app.storage import DataLayout
 
@@ -325,3 +327,70 @@ def test_document_list_shows_every_document_with_its_status(
 
     assert "| Russian Passport | Dmitry_Vasiliev-Passport.pdf | active |" in content
     assert "| Russian Passport | Dmitry_Vasiliev-Passport-2.pdf | superseded |" in content
+
+
+# --- 14.3.1: belge paketleri bölümü ------------------------------------------------------------
+
+
+def test_profile_without_packages_says_so_after_the_document_list(
+    session: Session, layout: DataLayout
+) -> None:
+    _employee(session)
+
+    content = render_profile(session, session.get_one(Employee, EMPLOYEE_ID), today=TODAY)
+
+    documents, packages = content.split("## Belge paketleri\n\n")
+    assert "## Belgeler" in documents
+    assert packages == "Tanımlı paket yok.\n"
+
+
+def test_profile_lists_packages_with_their_state_and_items_but_no_notes(
+    session: Session, layout: DataLayout
+) -> None:
+    _employee(session)
+    _catalog_entry(session)
+    _catalog_entry(session, slug="profile_picture", name="Profile Picture")
+    session.get_one(KnownDocumentType, "profile_picture").file_label = "Profile Picture"
+    _document(session, layout, name="Dmitry_Vasiliev-Passport.pdf")
+    group = create_group(session, name="Sırbistan iş başvurusu", description=None, actor="ik")
+    add_item(session, group.id, match_kind="label", file_label="Passport", actor="ik")
+    add_item(session, group.id, match_kind="label", file_label="Profile Picture", actor="ik")
+    add_item(
+        session,
+        group.id,
+        match_kind="type",
+        type_slug=TYPE_SLUG,
+        required=False,
+        actor="ik",
+    )
+    visa = create_group(session, name="Almanya vizesi", description=None, actor="ik")
+    add_item(session, visa.id, match_kind="type", type_slug=TYPE_SLUG, actor="ik")
+    assign_package(session, EMPLOYEE_ID, group.id, actor="ik-ayse", note="Belgrad ofisi")
+    cancelled = assign_package(session, EMPLOYEE_ID, visa.id, actor="ik-ayse").package
+    assert cancelled is not None
+    cancel_package(session, EMPLOYEE_ID, cancelled.id, actor="ik-mehmet", note="Vazgeçildi")
+
+    content = render_profile(session, session.get_one(Employee, EMPLOYEE_ID), today=TODAY)
+
+    packages = content.split("## Belge paketleri\n\n", 1)[1]
+    assert "### Sırbistan iş başvurusu — Açık — 1/2 zorunlu kalem\n" in packages
+    assert "Tanımlayan: ik-ayse · " in packages
+    assert "| Passport | evet | ✓ | Dmitry_Vasiliev-Passport.pdf |" in packages
+    assert "| Profile Picture | evet | ○ | — |" in packages
+    assert "| Russian Passport | isteğe bağlı | ✓ | Dmitry_Vasiliev-Passport.pdf |" in packages
+    assert "### İptal edilen paketler\n\n- Almanya vizesi — iptal: ik-mehmet, " in packages
+    assert "Belgrad" not in content and "Vazgeçildi" not in content
+
+
+def test_a_package_of_an_empty_group_is_complete_and_says_it_has_no_items(
+    session: Session, layout: DataLayout
+) -> None:
+    _employee(session)
+    group = create_group(session, name="Boş grup", description=None, actor="ik")
+    assign_package(session, EMPLOYEE_ID, group.id, actor="ik-ayse")
+
+    content = render_profile(session, session.get_one(Employee, EMPLOYEE_ID), today=TODAY)
+
+    packages = content.split("## Belge paketleri\n\n", 1)[1]
+    assert packages.startswith("### Boş grup — Tamamlandı — başvuru başlatılabilir\n\n")
+    assert " · Tamamlandı: " in packages and packages.endswith("\n\nGrubun kalemi yok.\n")

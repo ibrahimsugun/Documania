@@ -9,7 +9,7 @@
 | Faz | PRD | Genel durum | Must sayacı | Kapanış |
 | --- | --- | --- | --- | --- |
 | Faz 0 — MVP | §5.1 | 105 ✅ · 0 ◐ · 0 ⬜ · 0 🔒 | 101/101 Must | AÇIK |
-| Faz 1 — v1 | §5.2 | 47 ✅ · 0 ◐ · 15 ⬜ · 0 🔒 | 34/41 Must | AÇIK |
+| Faz 1 — v1 | §5.2 | 51 ✅ · 0 ◐ · 11 ⬜ · 0 🔒 | 37/41 Must | AÇIK |
 | Faz 2 — v2 | §5.3 | 13 ✅ · 0 ◐ · 1 ⬜ · 0 🔒 | 0/0 Must | AÇIK |
 | Faz 3 — Enterprise | §5.4 | 10 ✅ · 0 ◐ · 0 ⬜ · 0 🔒 | 0/0 Must | AÇIK |
 
@@ -295,10 +295,10 @@ panelde `plan-count-drift` bulgusu doğurur.
 | --- | --- | --- | --- |
 | 14.1.1 | Belge grupları sekmesi | Must (v1) | ✅ → K14.1 |
 | 14.1.2 | Grup kalemi: etiket ya da tür, ülkeden bağımsız eşleşme | Must (v1) | ✅ → K14.1 |
-| 14.2.1 | Çalışana paket tanımlama | Must (v1) | ⬜ |
-| 14.2.2 | Karşılanma hesabı ve kademeli işaret | Must (v1) | ⬜ |
-| 14.2.3 | Paket tamamlanması ve iptali | Must (v1) | ⬜ |
-| 14.3.1 | Paket görünürlüğü listede | Should (v1) | ⬜ |
+| 14.2.1 | Çalışana paket tanımlama | Must (v1) | ✅ → K14.2 |
+| 14.2.2 | Karşılanma hesabı ve kademeli işaret | Must (v1) | ✅ → K14.2 |
+| 14.2.3 | Paket tamamlanması ve iptali | Must (v1) | ✅ → K14.2 |
+| 14.3.1 | Paket görünürlüğü listede | Should (v1) | ✅ → K14.2 |
 
 ## 5. FAZ 2 — v2 (PRD §5.3)
 
@@ -2152,6 +2152,28 @@ bu kayıt neden sapıldığının izlenebilir olması içindir.
   listesinde yok). Aynı etiket ya da tür bir grupta bir kez etkin kalem olur (§C89 "kalem tekildir").
   İnsan kalemin kendisinin geri alınmasını isterse yalnız bir yol + `GroupAction` değeri eklenir; PRD §8.1
   satırına iki sütun eklenmeli (bu pencerede PRD'ye dokunulmadı).
+- **D65 — Paket iptalinin nedeni ayrı sütunda; yenileme boru hattında uygulamanın sonunda; grup kalemi
+  değişikliği paketleri yeniler (14.2.1–14.3.1, tm 125).** (a) PRD §8.1 `employee_packages`'ı tek `note`
+  sütunuyla sayar; 14.2.1 tanımlama formuna not, 14.2.3 iptale "notla" der. İptal nedeni `note`'a
+  yazılsaydı tanımlama notu silinirdi (R11) ve not olaya girmediği için (§C89) hiçbir yerde kalmazdı.
+  Uygulanan: `cancel_note` (≤ 120, zorunlu) ayrı sütun; `note` tanımlama notudur. "Yeniden aç" `cancelled_at`,
+  `cancelled_by` ve `cancel_note`'u boşaltır; önceki iptallerin kim/ne zaman bilgisi olaylardadır (neden
+  yok). PRD §8.1 satırına bir sütun eklenmeli (bu pencerede PRD'ye dokunulmadı). (b) Görev "yenileme
+  `route.py` çıktı kaydından sonra" der; `documents` satırını `execute.py` `execute_item` yazar ve hazır
+  öğeler `route.py`'den geçmez. Yenileme `orchestrate._write_profiles`'a (planın bütün öğeleri
+  uygulandıktan sonra, partinin çıktısı olan her çalışan için, `system` adıyla, aynı işlemde) ve
+  `route.py`'nin atama/onay işlevlerine (profil yazımından önce, kullanıcı adıyla) kondu; öğe başına
+  yenileme yeniden analizde eski sürümün işaretlenmesiyle yeni çıktının yazılması arasındaki ara durumda
+  paketi açığa döndürüp yeniden tamamlardı (sahte `PACKAGE_REOPENED`/`PACKAGE_COMPLETED` çifti).
+  (c) 14.1.1 "kalem değişikliği açık paketlere anında yansır" der; tikler görüntülemede hesaplandığı için
+  görünüm zaten yansır, ama yazılı durum (grup sayfasının açık paket sayısı, `completed_at`, olaylar) ancak
+  bir sonraki belge işleminde düzelirdi. `add_item`/`remove_item` aynı işlemde `refresh_group_packages`
+  çağırır; grup router'ı ad, açıklama ya da kalem değişikliğinden sonra grubun paketi olan çalışanların
+  `profil.md`'sini yeniden üretir. Katalog türünün `file_label`'ı değişirse paket durumu ancak çalışanın
+  bir sonraki belge işleminde yenilenir (görünüm hemen doğru). (d) "Açık paket" (grup listesi, grup
+  sayfası uyarısı, çalışan listesi) `open` durumudur — zorunlu kalemi eksik; tamamlanan paket sayılmaz.
+  Aynı grubun ikinci paketi uyarısı ise iptal edilmemiş (açık ya da tamamlanmış) pakete bakar.
+  Liste hücresi açık paketi yoksa "—" (yalnız tamamlanmış paketi olan çalışan da "—").
 
 ## G. İş Kırılımı Dizini
 
@@ -2761,3 +2783,11 @@ var olan maddeler silinmez. Biçim:
 - ✅ 14.1.1 "Belge Grupları" sekmesi: liste (ad, açıklama, kalem sayısı, açık paket sayısı, durum; varsayılan arşivsiz, `?archived=1` arşivdekiler de), yeni grup (ad 00.4.2 slug sadeleştirmesiyle tekil, çakışma 409, kural dışı değer 422), grup sayfasında ad/açıklama, kalem ekleme ve kaldırma, tek adımlı arşivleme ve geri alma, "<N> açık pakette hemen geçerli olacak" uyarısı (N tm 125'e dek 0); grup ve kalem silinmez (kalem `removed_at`, §D64); her değişiklik `GROUP_CHANGED` (`group_id`, `action`, `item_count`; kalemde `item_id`, `match_kind`; güncellemede `fields`) kullanıcı adıyla — `alembic/versions/0014_document_groups.py` · `app/db/models.py` (`DocumentGroup`, `DocumentGroupItem`, `GroupItemKind`) · `app/groups/service.py` · `app/web/routers/groups.py` · `app/web/templates/groups.html`, `group.html` · `app/web/templating.py` (menü) · `app/events.py` · test `tests/groups/test_service.py` (43), `tests/web/test_groups.py` (14), `tests/db/test_models.py` (+6), `tests/db/test_migrations.py` (+1), `tests/web/test_auth.py`, `tests/web/test_access_log.py`, `tests/test_events.py` · tm 124
 - ✅ 14.1.2 kalem etiketle (`file_label`, boşluk sadeleştirme + `casefold`, ülkeye bakılmaz) ya da türle (`type_slug`, katalog türüne FK) tanımlanır: `item_matches` "Passport" kalemine Rus, Türk ve (pasif) Sırp pasaportunu `True`, oturma kartını `False` verir; tür kalemi yalnız kendi slug'ına `True`; zorunlu/isteğe bağlı, not ≤ 120; etiket seçicisi katalog etiketlerini tür sayısıyla (yazım farkları tek seçenek, "Identity Card"/"Identity Document" ayrı), tür seçicisi bütün türleri (pasifler işaretli) listeler — `app/groups/service.py` (`item_matches`, `normalize_label`, `label_choices`, `type_choices`, `add_item`) · test `tests/groups/test_service.py` · tm 124
 - ✅ Kapı: ruff check/format (350 dosya), compileall, `import app.main`, `git diff --check`, temiz SQLite'ta `alembic upgrade head` (0013→0014) exit 0; `pytest -q -m "not live" --cov=app` sekiz ön plan grubunda 5353 geçti (+64), 5 PG testi atlandı; `COVERAGE_FILE` ile birleşik kapsam %99 (`app/groups` ve `routers/groups.py` %100). 11 geçici kural bozmasının 11'i kırmızı (etiket `casefold`'u, ad sadeleştirmesinin küçültmesi, arşiv süzgeci, kalemin silinmesi, tekil kalem, arşiv olayı, bilinmeyen etiket, tür kalemi eşleşmesi ×2, menü girişi, `<textarea>`). Başsız Chrome 1400 px'te liste ve grup sayfası düzgün.
+
+#### K14.2 — 14.2.1, 14.2.2, 14.2.3, 14.3.1 · Çalışan profilinde belge paketleri
+- ✅ 14.2.1 profilde "Belge paketleri" bölümü: arşivsiz grup seçicisi (kalem sayılı), not `<input>` ≤ 120, "Paket tanımla"; arşivli grup 409, uzun not 422, aynı grubun iptal edilmemiş paketi varsa 409 uyarı ve gizli `confirm_duplicate=1` ile "Yine de paket tanımla"; tanımlayan kullanıcı ve zaman yazılır, `PACKAGE_ASSIGNED` (`package_id`, `group_id`, `duplicate`) kullanıcı adıyla; paket tanımlandığı anda değerlendirilir — `alembic/versions/0015_employee_packages.py` · `app/db/models.py` (`EmployeePackage`, `PackageStatus`) · `app/groups/packages.py` (`assign_package`) · `app/web/routers/employees.py` (`POST /employees/{id}/packages`) · `app/web/templates/profile.html` · `app/events.py` · test `tests/groups/test_packages.py` (23), `tests/web/test_packages.py` (13), `tests/db/test_models.py` (+3), `tests/db/test_migrations.py` (+1), `tests/test_events.py`, `tests/web/test_access_log.py`, `tests/web/test_profile.py` · tm 125
+- ✅ 14.2.2 kalem tikleri her görüntülemede yalnız çalışanın etkin belgelerinden hesaplanır (`item_matches`; arşiv, eski sürüm ve eğitim örneği saymaz; birden çoksa en yeni; bir belge birden çok paketi karşılar) ve karşılayan belgeye bağlanır (dosyası varsa yeni sekmede, yoksa geçmişi); GET yazmaz. Yenileme (`refresh_employee_packages`) boru hattında uygulamanın sonunda (`orchestrate._write_profiles`, `system`), kuyruk ataması ve profil onayında (`route.py`), `move_document`'te iki çalışan için, `archive_document`'te ve grup kalemi eklenip kaldırılınca (`refresh_group_packages`) aynı işlemde çalışır; tm 129/130 aynı tek giriş noktasını çağırır (§D65) — `app/groups/packages.py` · `app/groups/service.py` · `app/pipeline/orchestrate.py` · `app/pipeline/route.py` · `app/storage/move.py` · `app/storage/archive.py` · test `tests/groups/test_packages.py`, `tests/pipeline/test_route_assign.py` (+1) · tm 125
+- ✅ 14.2.3 zorunlu kalemlerin hepsi karşılanınca "Tamamlandı — başvuru başlatılabilir", `completed_at` ve `PACKAGE_COMPLETED`; eksik oluşunca açığa döner, `completed_at` boşalır, `PACKAGE_REOPENED` (`previous_status`); paket nedeniyle tek adımda iptal edilir (`cancel_note`, §D65; neden olaya girmez), iptal edilenler `<details>` altında kalır, "Yeniden aç" tek adımda açığa döndürüp yeniden değerlendirir; paket silinmez — `app/groups/packages.py` (`cancel_package`, `reopen_package`) · `app/web/routers/employees.py` (`.../cancel`, `.../reopen`) · test `tests/groups/test_packages.py`, `tests/web/test_packages.py`, `tests/test_scenario_s21.py` (1) · tm 125
+- ✅ 14.3.1 çalışan listesinde "Paket" sütunu ("2 açık · 3 eksik" ya da "—") ve "Eksik paketi olanlar" süzgeci (`?packages=missing`, aramayla ve sayfalamayla birleşir); grup listesi ve grup sayfası açık paket sayısını bu tablodan okur (`open_package_counts`); `profil.md` "Belge paketleri" bölümünü taşır (grup, durum, kalem tablosu ✓/○, iptal edilenler; not ve neden yok) ve paket ya da grup değişikliğinden sonra yeniden üretilir — `app/web/routers/employees.py` (`list_employees`, `package_cell`) · `app/web/templates/employees.html`, `employees_results.html` · `app/web/routers/groups.py` · `app/profiles/render.py` · `app/web/static/panel.css` · test `tests/web/test_packages.py`, `tests/web/test_employees.py`, `tests/profiles/test_render.py` (+3) · tm 125
+- ✅ S21 kabul senaryosu uçtan uca: profil formuyla tanımlı "Sırbistan iş başvurusu" paketi Rus pasaportuyla 1/3, çevirili diploma + fotoğraf partisiyle "Tamamlandı" (`PACKAGE_COMPLETED`, `system`, ikinci partinin bağlamında), diploma arşivlenince 2/3 açık (`PACKAGE_REOPENED`, kullanıcı adıyla); profil sayfası, liste ve `profil.md` her adımda doğru; olaylarda kişisel değer yok — `tests/test_scenario_s21.py` · tm 125
+- ✅ Kapı: ruff check/format (355 dosya), compileall, `import app.main`, `git diff --check`, temiz SQLite'ta `alembic upgrade head` (0014→0015) exit 0; `pytest -q -m "not live" --cov=app` dokuz ön plan grubunda 5395 geçti (+42), 5 PG testi atlandı; sonra eklenen üç test (render, atama yenilemesi, GET yazmaz) kendi dosyalarında yeşil; birleşik kapsam %99 (`app/groups`, `routers/employees.py`, `routers/groups.py` %100). 18 geçici kural bozmasının 18'i kırmızı (arşivli belge karşılar, en eski belge, arşivli gruba paket, uyarısız ikinci paket, neden olaya girer, zorunlu sayımı, arşiv/taşıma/boru hattı/atama/grup kalemi yenilemesi, GET yazar, profil.md bölümü, açık paket sayımı, liste hücresi, neden zorunluluğu, yeniden açmada değerlendirme, `<textarea>`).

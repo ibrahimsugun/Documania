@@ -1,16 +1,18 @@
 {% extends "base.html" %}
 {# Çalışan listesi ve arama (10.4.1, 10.4.2). Arama HTMX ile `#employee-results`'ı yeniler ve adresi
-   günceller; JavaScript olmadan da form gönderimi aynı adrese gider. #}
+   günceller; JavaScript olmadan da form gönderimi aynı adrese gider. "Eksik paketi olanlar" süzgeci
+   (14.3.1) aynı formun parçasıdır, aramayla birleşir. #}
 {% block title %}{{ entry.label }}{% endblock %}
 {% block content %}
 <h1>{{ entry.label }}</h1>
 <p class="lede">Sistemin tanıdığı kişiler. Her çalışanın altında ona ait belgeler durur. Arama kutusuna ad, takma ad, orijinal yazım ya da belge numarası yazabilirsin.</p>
 <form class="search" method="get" action="/employees" role="search"
-      hx-get="/employees" hx-trigger="input changed delay:300ms, submit"
+      hx-get="/employees" hx-trigger="input changed delay:300ms, change, submit"
       hx-target="#employee-results" hx-push-url="true" hx-sync="this:replace">
   <label for="employee-q">Ara</label>
   <input type="search" id="employee-q" name="q" value="{{ listing.query }}" maxlength="100"
          placeholder="Ad, alias, orijinal yazım, belge numarası veya belge türü" autocomplete="off">
+  <label class="employee-filter"><input type="checkbox" name="packages" value="missing"{% if listing.packages == "missing" %} checked{% endif %}> Eksik paketi olanlar</label>
   <button type="submit">Ara</button>
 </form>
 <div id="employee-results" aria-live="polite">

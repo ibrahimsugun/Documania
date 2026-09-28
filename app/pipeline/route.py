@@ -72,12 +72,14 @@ insanın seçtiği kayıtlı çalışan değil onayla açılan çalışandır:
   kaydına ve çıktının K8 adına gider; belge içeriği, sayfa okumaları ve plan değişmez (K9, K17).
   Panel öneriyi onaydan önce `review_queued_profile` ile yazmadan gösterir.
 
-**Profil (09.1.1).** Atama ve onay çıktıyı çalışana yazar; ikisi de son adım olarak çalışanın
-`profil.md`'sini `write_profile` ile yeniden üretir (atamada çıktının sahibi, onayda açılan
-çalışan — belgeden eklenen iletişim bilgisi dahil): çıktı, olay ve iletişim satırları yazıldıktan
-sonra, hata verebilecek başka adım kalmadan. Profil yalnız veritabanından üretilir (K17); dosya
-atomik yazılır (`replace_file`) ama oturum commit edilmediği için çağıran commit'ten önce işlemi
-geri alırsa `profil.md` bir sonraki yeniden üretime kadar bayat kalır (PLAN.md §D31).
+**Paketler ve profil (14.2.2, 09.1.1).** Atama ve onay çıktıyı çalışana yazar; ikisi önce
+çalışanın belge paketlerini aynı işlemde yeniler (`refresh_employee_packages`, geçiş olayları
+kullanıcı adıyla), son adım olarak çalışanın `profil.md`'sini `write_profile` ile yeniden üretir
+(atamada çıktının sahibi, onayda açılan çalışan — belgeden eklenen iletişim bilgisi dahil): çıktı,
+olay ve iletişim satırları yazıldıktan sonra, hata verebilecek başka adım kalmadan. Profil yalnız
+veritabanından üretilir (K17); dosya atomik yazılır (`replace_file`) ama oturum commit edilmediği
+için çağıran commit'ten önce işlemi geri alırsa `profil.md` bir sonraki yeniden üretime kadar bayat
+kalır (PLAN.md §D31).
 
 İki aşamalı onay (K16, §20.6.1) ve `USER_CONFIRMED` onay mekanizmasınındır (10.8.1): bu işlevler
 onaylanmış kullanıcının adını (`actor`) alır. Aynı öğeyi eşzamanlı çözen ikinci işlem kuyruk
@@ -103,6 +105,7 @@ from app.ai.schemas import PageAnalysis
 from app.catalog import CatalogEntry, export_catalog
 from app.db.models import Employee, Page, Plan, QueueItem, Upload, UploadFile, utcnow
 from app.events import EventType, event_context, record_event
+from app.groups import refresh_employee_packages
 from app.matching.contacts import accumulate_contacts
 from app.matching.match import (
     EmployeeAction,
@@ -420,6 +423,8 @@ def assign_queue_item(
         render_image_dpi=render_image_dpi,
         render_image_jpeg_quality=render_image_jpeg_quality,
     )
+    # 14.2.2: yeni çıktı çalışanın paket kalemini karşılayabilir; aynı işlemde yenilenir.
+    refresh_employee_packages(session, employee.id, actor=actor)
     # 09.1.1: çalışanın profili yeni çıktıyı gösterir; son adım, sonrasında hata verecek iş yok.
     write_profile(session, layout, employee)
     return AssignedItem(queue_item, selected.operation, executed)
@@ -529,6 +534,9 @@ def approve_queued_profile(
     )
     # Satır 6'da açılan çalışan gibi (05.8): belgede açıkça yazılı iletişim bilgisi eklenir.
     accumulate_contacts(session, employee.id, analyses, source_document_id=executed.document.id)
+    # 14.2.2: onayla yeni açılan çalışanın paketi olmaz; yenileme her belge yazma noktasında aynı
+    # tek giriş noktasından geçsin diye yine çağrılır.
+    refresh_employee_packages(session, employee.id, actor=actor)
     # 09.1.1: yeni çalışanın profili çıktıyı ve eklenen iletişim bilgisini gösterir; son adım.
     write_profile(session, layout, employee)
     return ApprovedProfile(queue_item, employee, selected.operation, executed)

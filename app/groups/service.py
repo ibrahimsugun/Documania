@@ -2,8 +2,9 @@
 
 Bir **belge grubu** bir süreç için gereken belge kalemlerinin adlandırılmış listesidir (örn.
 "Sırbistan iş başvurusu": fotoğraf, pasaport, kimlik, çevirili diploma). Grubun çalışana tanımlanmış
-örneği (belge paketi) ve karşılanma hesabı tm 125'in işidir; bu modül grubu, kalemlerini ve kalemin
-bir türle eşleşme kuralını verir.
+örneği (belge paketi) ve karşılanma hesabı `app.groups.packages`'tadır (14.2); bu modül grubu,
+kalemlerini ve kalemin bir türle eşleşme kuralını verir. Kalem eklenince ya da kaldırılınca grubun
+açık ve tamamlanmış paketleri aynı işlemde yeniden değerlendirilir (`refresh_group_packages`).
 
 - **Eşleşme (14.1.2).** Kalem ya bir dosya etiketiyle (`label`: katalogdaki `file_label` değerleri)
   ya belirli bir türle (`type`: slug) tanımlanır. Etiketli kalemi, ülkesi ne olursa olsun aynı
@@ -39,8 +40,10 @@ from sqlalchemy.orm import Session
 from app.db.models import (
     DocumentGroup,
     DocumentGroupItem,
+    EmployeePackage,
     GroupItemKind,
     KnownDocumentType,
+    PackageStatus,
     utcnow,
 )
 from app.events import EventType, record_event
@@ -230,10 +233,22 @@ class GroupSummary:
 
 
 def open_package_counts(session: Session, group_ids: Iterable[int]) -> dict[int, int]:
-    """Her grubun açık paket sayısı. Paket tablosu tm 125'te gelir; o güne dek her grup 0 döner ve
-    sorgu tm 125'te buraya bağlanır (liste ve grup sayfası bu sayıyı buradan okur)."""
-    del session
-    return dict.fromkeys(group_ids, 0)
+    """Her grubun açık (`open`: zorunlu kalemi eksik) paket sayısı (14.1.1); liste ve grup sayfası
+    bu sayıyı buradan okur. Tamamlanan ve iptal edilen paket sayılmaz."""
+    counts = dict.fromkeys(group_ids, 0)
+    if not counts:
+        return counts
+    rows = session.execute(
+        select(EmployeePackage.group_id, func.count())
+        .where(
+            EmployeePackage.group_id.in_(list(counts)),
+            EmployeePackage.status == PackageStatus.OPEN.value,
+        )
+        .group_by(EmployeePackage.group_id)
+    )
+    for group_id, count in rows:
+        counts[group_id] = count
+    return counts
 
 
 def open_package_count(session: Session, group_id: int) -> int:
@@ -355,6 +370,15 @@ def _record(
         **extra,
     }
     record_event(session, EventType.GROUP_CHANGED, actor=actor, data=data)
+
+
+def _refresh_packages(session: Session, group: DocumentGroup, *, actor: str) -> None:
+    # 14.1.1: kalem değişikliği grubun paketlerine anında yansır; tamamlanan paket yeni zorunlu
+    # kalemle açığa döner, eksik kalemi kaldırılan açık paket tamamlanır (olaylarıyla).
+    # `app.groups.packages` bu modülü içe aktarır; üst düzeyde içe aktarmak döngü kurar.
+    from app.groups.packages import refresh_group_packages
+
+    refresh_group_packages(session, group.id, actor=actor)
 
 
 def create_group(
@@ -480,6 +504,7 @@ def add_item(
         match_kind=item.match_kind,
         required=item.required,
     )
+    _refresh_packages(session, group, actor=actor)
     return item
 
 
@@ -501,13 +526,14 @@ def remove_item(session: Session, group_id: int, item_id: int, *, actor: str) ->
         item_id=item.id,
         match_kind=item.match_kind,
     )
+    _refresh_packages(session, group, actor=actor)
     return item
 
 
 def set_group_archived(session: Session, group_id: int, archived: bool, *, actor: str) -> bool:
     """Grubu arşivler ya da arşivden geri alır (tek adım, §D61-b); durum değiştiyse `True` ve
-    olay. Arşivli gruba yeni paket tanımlanamaz (tm 125); açık paketleri ve kalemleri olduğu gibi
-    kalır."""
+    olay. Arşivli gruba yeni paket tanımlanamaz (`app.groups.packages.assign_package`); açık
+    paketleri ve kalemleri olduğu gibi kalır."""
     group = get_group(session, group_id)
     if (group.archived_at is not None) == archived:
         return False

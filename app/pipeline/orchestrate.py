@@ -63,8 +63,11 @@ commit etmez. Uygulama bitince `plans.executed_at` son uygulamanın zamanı olur
 07.8), `unknown`/`unreadable`/`unresolved` → `route_queue_item` (08.1), `skip` → yalnız
 `OUTPUT_SKIPPED` (belgesiz; mesaj öğenin gerekçesi, veri `route: skip`). Öğeyi yürütemeyen hata
 (`PLAN_EXECUTION_ERRORS`) belge tahmin ettirmez, uygulamayı durdurur. Sonra partinin çıktısı olan
-her çalışanın `profil.md`'si yeniden üretilir (09.1.1) — yeniden analizde eski sürüm işaretlenen
-çıktının sahibi dahil.
+her çalışanın belge paketleri aynı işlemde yenilenir (14.2.2; `refresh_employee_packages`, geçiş
+olayları `system` adıyla partinin bağlamında) ve `profil.md`'si yeniden üretilir (09.1.1) — yeniden
+analizde eski sürüm işaretlenen çıktının sahibi dahil. Paketler planın bütün öğeleri uygulandıktan
+sonra yenilenir: yeniden analizde eski sürümün işaretlenmesiyle yeni çıktının yazılması arasındaki
+ara durum paketi açığa döndürüp yeniden tamamlamaz.
 
 **Güncel plan.** Partinin güncel planı en yüksek sürümlü `plans` kaydıdır; eski sürümler
 değiştirilmez ve silinmez.
@@ -130,6 +133,7 @@ from app.db.models import (
     utcnow,
 )
 from app.events import EventType, event_context, record_event
+from app.groups import refresh_employee_packages
 from app.pipeline.analyze import PageAnalysisStatus, UploadAnalysisResult, analyze_upload
 from app.pipeline.execute import EXECUTION_ERRORS, execute_ready_item
 from app.pipeline.plan import PlanDocument, PlanItem, Route, create_plan, read_plan
@@ -546,7 +550,8 @@ def _record_skip(session: Session, plan: Plan, item: PlanItem) -> None:
 
 
 def _write_profiles(session: Session, layout: DataLayout, upload_id: str) -> None:
-    # 09.1.1: partinin herhangi bir plan sürümünden çıktısı olan her çalışanın profili güncellenir.
+    # 09.1.1: partinin herhangi bir plan sürümünden çıktısı olan her çalışanın profili güncellenir;
+    # önce paketleri (14.2.2), profil paketlerin yeni durumunu gösterir.
     owners = (
         select(Document.employee_id)
         .join(Plan, Document.plan_id == Plan.id)
@@ -556,6 +561,7 @@ def _write_profiles(session: Session, layout: DataLayout, upload_id: str) -> Non
         select(Employee).where(Employee.id.in_(owners)).order_by(Employee.id)
     )
     for employee in employees:
+        refresh_employee_packages(session, employee.id)
         write_profile(session, layout, employee)
 
 

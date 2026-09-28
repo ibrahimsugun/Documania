@@ -18,8 +18,18 @@ from sqlalchemy.orm import Session
 
 import app.pipeline.execute as execute_module
 from app.catalog import Catalog, import_catalog
-from app.db.models import Document, DocumentStatus, Employee, Page, Plan, QueueItem, Upload
+from app.db.models import (
+    Document,
+    DocumentStatus,
+    Employee,
+    PackageStatus,
+    Page,
+    Plan,
+    QueueItem,
+    Upload,
+)
 from app.events import EventType
+from app.groups import add_item, assign_package, create_group
 from app.pipeline.execute import ExtractSourceError
 from app.pipeline.plan import (
     Operation,
@@ -625,3 +635,24 @@ def test_assignment_leaves_the_transaction_to_the_caller(
         )
         == 1
     )
+
+
+def test_assignment_refreshes_the_assigned_employees_packages(
+    session: Session, layout: DataLayout
+) -> None:
+    # 14.2.2: atanan çıktı paket kalemini karşılar; paket aynı işlemde tamamlanır, olay İK adıyla.
+    _, _, (queued,) = _queued(session, layout, _pdf(_page(PERMIT, illegible=("surname",))))
+    group = create_group(session, name="Çalışma izni dosyası", description=None, actor="ik")
+    add_item(session, group.id, match_kind="type", type_slug=PERMIT, actor="ik")
+    package = assign_package(session, TARGET, group.id, actor="ik").package
+    assert package is not None and package.status == PackageStatus.OPEN.value
+
+    _assign(session, layout, queued.id)
+
+    assert package.status == PackageStatus.COMPLETED.value
+    (completed,) = [
+        event for event in _events(session) if event.type == EventType.PACKAGE_COMPLETED
+    ]
+    assert (completed.actor, completed.employee_id) == (ACTOR, TARGET)
+    text = layout.profile_path(TARGET_FOLDER).read_text(encoding="utf-8")
+    assert "### Çalışma izni dosyası — Tamamlandı — başvuru başlatılabilir" in text

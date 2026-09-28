@@ -2,8 +2,9 @@
 {# Çalışan profili (10.5.1-10.5.4): CV benzeri kart, belge listesi ve bağlam çalışanıyla yükleme.
    Bilinmeyen alan "—" görünür, gizlenmez. Alanın yanında kaynağı ve belgede okunan farklı değerin
    uyarısı durur (05.7.3). Profilden yüklenip bu çalışana ait görünmeyen, kuyrukta çözülmemiş belge
-   varsa kişi denetiminin uyarısı en üstte (10.5.5). Sayfa yalnız okur; belge içeriğini değiştiren
-   yol yok. #}
+   varsa kişi denetiminin uyarısı en üstte (10.5.5). Belge paketleri (14.2) kart hâlinde: kalem
+   tikleri belgelerden hesaplanır; paket tanımlama, iptal ve yeniden açma tek adımlı formlardır.
+   Sayfa belge içeriğini değiştiren yol taşımaz. #}
 {% from "_context_warning.html" import context_warning %}
 {% block title %}{{ profile.name if profile else "Çalışan bulunamadı" }}{% endblock %}
 {% block content %}
@@ -61,6 +62,84 @@
       {% else %}—{% endif %}
     </dd>
   </dl>
+</section>
+
+{# 14.2.1–14.2.3: belge paketleri. Tikler görüntülemede belgelerden hesaplanır; GET yazmaz. #}
+{% macro document_link(document) %}{% if document.id in profile.available_document_ids %}<a href="/employees/{{ profile.id }}/documents/{{ document.id }}/file" target="_blank" rel="noopener">{{ document.file_name }}</a>{% else %}<a href="/documents/{{ document.id }}/history">{{ document.file_name }}</a>{% endif %}{% endmacro %}
+<section class="profile-packages" id="packages" aria-labelledby="packages-title">
+  <h2 id="packages-title">Belge paketleri <span class="count">{{ profile.live_packages|length }}</span></h2>
+  {% if package_notice %}<p class="notice-success" role="status">{{ package_notice }}</p>{% endif %}
+  {% if profile.live_packages %}
+  <div class="package-cards">
+    {% for package in profile.live_packages %}
+    <article class="package-card package-{{ package.state.value }}" id="package-{{ package.id }}">
+      <header class="package-head">
+        <h3><a href="/document-groups/{{ package.group_id }}">{{ package.group_name }}</a>{% if package.group_archived %} <span class="status-badge status-archived">Arşivli grup</span>{% endif %}</h3>
+        <span class="status-badge {{ 'status-active' if package.state.value == 'completed' else 'status-open' }}">{{ package.state_label }}</span>
+      </header>
+      <p class="reason">Tanımlayan: {{ package.requested_by }} · {{ package.requested_at.strftime("%d.%m.%Y %H:%M") }}{% if package.completed_at and package.complete %} · Tamamlandı: {{ package.completed_at.strftime("%d.%m.%Y %H:%M") }}{% endif %}</p>
+      {% if package.note %}<p class="reason">Not: {{ package.note }}</p>{% endif %}
+      <ul class="package-items">
+        {% for item in package.items %}
+        <li class="{{ 'item-met' if item.satisfied else 'item-missing' }}">
+          <span class="tick" aria-hidden="true">{{ "✓" if item.satisfied else "○" }}</span>
+          <span class="visually-hidden">{{ "Karşılandı:" if item.satisfied else "Eksik:" }}</span>
+          <span class="item-title">{{ item.title }}</span>
+          <small class="item-kind">{{ "zorunlu" if item.required else "isteğe bağlı" }}</small>
+          {% if item.document %}<span class="item-document">{{ document_link(item.document) }}</span>{% endif %}
+        </li>
+        {% else %}
+        <li class="placeholder">Grubun kalemi yok.</li>
+        {% endfor %}
+      </ul>
+      <form method="post" action="/employees/{{ profile.id }}/packages/{{ package.id }}/cancel" class="inline-form package-cancel">
+        <label for="cancel-note-{{ package.id }}">İptal nedeni</label>
+        <input id="cancel-note-{{ package.id }}" name="note" type="text" maxlength="{{ note_limit }}" required>
+        <button type="submit">Paketi iptal et</button>
+      </form>
+      {% for message in cancel_problems.get(package.id, []) %}<p class="error" role="alert">{{ message }}</p>{% endfor %}
+    </article>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="placeholder">Açık ya da tamamlanmış paket yok.</p>
+  {% endif %}
+
+  {% if group_choices %}
+  <form method="post" action="/employees/{{ profile.id }}/packages" class="package-form">
+    <label for="package-group">Belge grubu</label>
+    <select id="package-group" name="group_id" required>
+      {% for group in group_choices %}
+      <option value="{{ group.id }}"{% if package_form.group_id == group.id %} selected{% endif %}>{{ group.name }} ({{ group.item_count }} kalem)</option>
+      {% endfor %}
+    </select>
+    <label for="package-note">Not</label>
+    <input id="package-note" name="note" type="text" maxlength="{{ note_limit }}" value="{{ package_form.note }}">
+    {% if package_form.duplicate %}<input type="hidden" name="confirm_duplicate" value="1">{% endif %}
+    <button type="submit">{{ "Yine de paket tanımla" if package_form.duplicate else "Paket tanımla" }}</button>
+  </form>
+  {% else %}
+  <p class="hint">Paket tanımlamak için önce <a href="/document-groups">Belge Grupları</a>'nda arşivlenmemiş bir grup açın.</p>
+  {% endif %}
+  {% for field_name, messages in package_problems.items() %}{% for message in messages %}<p class="{{ 'notice' if package_form.duplicate else 'error' }}" role="alert">{{ message }}</p>{% endfor %}{% endfor %}
+
+  {% if profile.cancelled_packages %}
+  <details class="cancelled-packages">
+    <summary>İptal edilen paketler ({{ profile.cancelled_packages|length }})</summary>
+    <ul>
+      {% for package in profile.cancelled_packages %}
+      <li id="package-{{ package.id }}">
+        <strong>{{ package.group_name }}</strong>
+        <span class="reason">— iptal: {{ package.cancelled_by or "—" }}{% if package.cancelled_at %}, {{ package.cancelled_at.strftime("%d.%m.%Y %H:%M") }}{% endif %}{% if package.cancel_note %} · Neden: {{ package.cancel_note }}{% endif %}</span>
+        <form method="post" action="/employees/{{ profile.id }}/packages/{{ package.id }}/reopen" class="inline-form">
+          <button type="submit">Yeniden aç</button>
+        </form>
+        {% for message in cancel_problems.get(package.id, []) %}<p class="error" role="alert">{{ message }}</p>{% endfor %}
+      </li>
+      {% endfor %}
+    </ul>
+  </details>
+  {% endif %}
 </section>
 
 <section class="profile-documents">

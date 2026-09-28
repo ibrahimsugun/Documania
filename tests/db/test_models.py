@@ -20,6 +20,7 @@ from app.db.models import (
     EmployeeAlias,
     EmployeeContact,
     EmployeeIdentifier,
+    EmployeePackage,
     Event,
     ExampleFileRecord,
     KnownDocumentType,
@@ -53,6 +54,7 @@ SECTION_8_1_TABLES = {
     "example_files",
     "document_groups",
     "document_group_items",
+    "employee_packages",
     "events",
     "access_log",
     "users",
@@ -310,6 +312,29 @@ def test_type_item_must_point_to_a_catalog_type(session: Session) -> None:
         session.commit()
 
 
+def test_employee_package_opens_as_open_with_its_requester_and_no_cancellation(
+    session: Session,
+) -> None:
+    # 14.2: paket `open` açılır; tanımlayan ve zaman yazılır, tamamlanma ve iptal alanları boştur.
+    group = DocumentGroup(name="Sırbistan", normalized_name="sirbistan", created_by="ik")
+    package = EmployeePackage(employee=_employee(), group=group, requested_by="ik")
+    session.add(package)
+    session.commit()
+    session.expire_all()
+
+    assert (package.status, package.requested_by) == ("open", "ik")
+    assert package.requested_at.tzinfo is UTC
+    assert (package.completed_at, package.cancelled_at, package.cancelled_by) == (None, None, None)
+    assert (package.note, package.cancel_note) == (None, None)
+    assert package.group is group
+
+
+def test_employee_package_needs_a_registered_employee_and_group(session: Session) -> None:
+    session.add(EmployeePackage(employee_id="E9999", group_id=99, requested_by="ik"))
+    with pytest.raises(IntegrityError):
+        session.commit()
+
+
 def test_foreign_keys_are_enforced(session: Session) -> None:
     session.add(EmployeeAlias(employee_id="E9999", raw_name="YOK", normalized_name="yok"))
     with pytest.raises(IntegrityError):
@@ -357,6 +382,12 @@ def test_foreign_keys_are_enforced(session: Session) -> None:
             match_kind="type",
             file_label="Passport",
         ),
+        lambda: EmployeePackage(
+            employee_id="E0001",
+            group=DocumentGroup(name="G", normalized_name="g", created_by="ik"),
+            status="done",
+            requested_by="ik",
+        ),
     ],
     ids=[
         "upload-status",
@@ -372,6 +403,7 @@ def test_foreign_keys_are_enforced(session: Session) -> None:
         "group-item-match-kind",
         "group-item-label-without-label",
         "group-item-type-without-slug",
+        "package-status",
     ],
 )
 def test_check_constraints_reject_values_outside_the_prd_sets(session: Session, build) -> None:

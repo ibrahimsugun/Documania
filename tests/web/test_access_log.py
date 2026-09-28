@@ -394,6 +394,15 @@ REVIEWED_MUTATING_ROUTES: dict[tuple[str, str], str] = {
     ("POST", "/document-groups/{group_id}/restore"): (
         "belge grubu kaydı: arşivden geri alma (14.1.1)"
     ),
+    ("POST", "/employees/{employee_id}/packages"): (
+        "belge paketi kaydı: gruptan paket tanımlama, belgeye dokunmaz (14.2.1)"
+    ),
+    ("POST", "/employees/{employee_id}/packages/{package_id}/cancel"): (
+        "belge paketi kaydı: iptal, silme yok (14.2.3, R11)"
+    ),
+    ("POST", "/employees/{employee_id}/packages/{package_id}/reopen"): (
+        "belge paketi kaydı: iptali geri alma (14.2.3)"
+    ),
     ("POST", "/training"): "eğitim yüklemesi: örneklere kopya, çalışan verisi değil (11.9.1)",
     ("POST", "/training/items/{item_id}/place"): (
         "eğitim öğesini türe yerleştirme: örneğe kopya ve kayıt (11.9.1, K11)"
