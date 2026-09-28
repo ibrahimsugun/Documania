@@ -1743,13 +1743,13 @@
         "description": "PRD 11.1.4 · FR-MOD-11 · Faz 1 · Must (v1). İnsan kararı (2026-09-28, ek görev 1 ve 2). Sözleşme PLAN §C93.",
         "details": "KAPSAM: PRD 11.1.4; yalnız Belge Türleri listesi (`catalog.html`) ve `panel.css`. Tam sözleşme PLAN §C93 — önce oku.\n\nNE YAPILACAK: (1) `catalog.html` tablosundan `<th>Slug</th>` ve `<td><code>{{ item.slug }}</code></td>` kalkar; ad bağlantısına `title=\"{{ item.slug }}\"` eklenir; tür sayfası (`catalog_form.html`) slug'ı göstermeye devam eder, hiçbir yol/`href` değişmez. (2) Durum hücresi: etkin türde `<span class=\"status-badge status-active\">Etkin</span>`, pasifte `<span class=\"status-badge status-passive\">Pasif</span>`; \"Tutarsız kayıt\" rozeti ve `type-passive` satır sınıfı kalır. (3) `panel.css`: `:root`'a `--success-soft: #e6f4ec`; `.status-badge` yuvarlak rozet; `.status-active { color: var(--success); background: var(--success-soft) }`, `.status-passive { color: var(--danger); background: var(--danger-soft) }` (yumuşak tonlar; metin okunaklı — kontrast ≥ 4.5:1). `.catalog-types` nth-child genişlikleri 9 sütuna göre: 22/17/6/10/7/7/8/10/13. (4) Kod tarafında değişiklik yok; `list_types` aynı.\n\nGİRDİ: app/web/templates/catalog.html (:38-39 başlık, :46 slug hücresi, :53-57 durum hücresi), app/web/static/panel.css (`.catalog-types` nth-child :573-582, `.badge-neutral` :964, `:root` :654-670), tests/web/test_catalog_page.py (:99 `<code>{slug}</code>` beklentisi, :119-122 Pasif/type-passive beklentileri).\n\nÇIKTI: app/web/templates/catalog.html, app/web/static/panel.css, tests/web/test_catalog_page.py, PLAN.md (11.1.4 satırı, K11.1 kanıtı), HANDOFF.md.\n\nBU GÖREVİ BAĞLAYAN KİLİTLİ KURALLAR: K17 (içerik düzenleme yok — yalnız görünüm), CONVENTIONS §6 (şablon değişikliğinde TestClient testi zorunlu), R11 (tür silinmez; bu görev yalnız sütun gizler).\n\nPRD'DE AYRICA OKU: 11.1.1, 11.4.3 (bütçe satırı bu tabloya bağlı — bozulmasın).\n\nİLGİLİ KABUL SENARYOLARI: —.\n\nKAPSAM SINIRI: `training_known.html`'deki Slug sütunu değişmez (insan istemedi); süzgeç (11.1.5) tm 123'te; toplu seçim (11.1.6) tm 132'de; slug arka planda (DB, URL, dışa aktarım) aynen kalır.\n\nTUZAKLAR: `tests/web/test_catalog_page.py:99` slug'ı `<code>` içinde bekliyor — beklenti bilerek tersine döner (slug tabloda `<code>` içinde YOK, ad bağlantısının `title`'ında VAR). Renk tek taşıyıcı olmasın: metin \"Etkin\"/\"Pasif\" kalır (erişilebilirlik). nth-child genişlikleri sütun kalkınca kayar — hepsini yeniden yaz, 1400 px'te satır yüksekliği ölç (tm 121 HANDOFF: 64/73 px). 415 türlük gerçek katalogla sayfa açılışını dene.\n\nKAPANIŞ: PLAN satır(lar)ı ✅ → kanıt maddesi (§K), HANDOFF bloğu, commit mesajında `PRD <kod> — tm <id>`; CONVENTIONS DoD kapısı (ruff, compileall, import app.main, alembic upgrade head temiz SQLite, pytest -m \"not live\", coverage) yeşil.",
         "testStrategy": "1) TestClient: Belge Türleri sayfasında `<th>Slug</th>` yok, `<code>{slug}</code>` tablo satırında yok, ad bağlantısı `title` ile slug taşıyor, tür sayfası slug'ı gösteriyor. 2) Etkin türde `status-active` + \"Etkin\", pasif türde `status-passive` + \"Pasif\" ve `type-passive`; \"Tutarsız kayıt\" rozeti tutarsız kayıtta görünüyor. 3) `panel.css` içinde `--success-soft`, `.status-active`, `.status-passive` tanımlı (dosya okuma testi). 4) tests/web/test_catalog_page.py tümü + ruff/compileall/import/alembic/pytest -m \"not live\" yeşil.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [
           "121"
         ],
         "priority": "high",
         "subtasks": [],
-        "updatedAt": "2026-09-28T11:46:31.000Z"
+        "updatedAt": "2026-09-28T14:12:24.356Z"
       },
       {
         "id": "123",
@@ -1956,9 +1956,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-09-28T11:46:31.000Z",
+      "lastModified": "2026-09-28T14:12:24.357Z",
       "taskCount": 133,
-      "completedCount": 116,
+      "completedCount": 117,
       "tags": [
         "master"
       ]
