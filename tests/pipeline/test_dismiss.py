@@ -1,4 +1,5 @@
-"""10.3.4 — taramayı (partiyi) yoksayma çekirdeği (`app.pipeline.dismiss`).
+"""10.3.4, 10.3.5 — taramayı (partiyi) yoksayma ve yoksaymayı geri alma çekirdeği
+(`app.pipeline.dismiss`).
 
 Kayıtlar sentetik satırlardır: parti, iki plan sürümü, çıktılar ve kuyruk öğeleri. Yoksayma yalnız
 veritabanına yazar; dosya sistemine dokunmadığı ve iki aşamalı onayın panelde yürüdüğü
@@ -20,6 +21,7 @@ from app.db.models import (
     Employee,
     Event,
     Plan,
+    QueueCloseReason,
     QueueItem,
     QueueKind,
     QueueResolution,
@@ -31,11 +33,14 @@ from app.events import EventType
 from app.pipeline.dismiss import (
     DismissalPreview,
     UploadNotDismissableError,
+    UploadNotRestorableError,
     check_dismissable,
     dismiss_upload,
     is_dismissed,
     preview_dismissal,
+    restore_upload,
 )
+from app.pipeline.queue_close import close_queue_item
 
 ACTOR = "ik-yonetici"
 UPLOAD = "u_20260922_0001"
@@ -289,3 +294,161 @@ def test_a_dismissal_needs_a_user_name(session: Session, batch: dict[str, object
         dismiss_upload(session, upload, actor="  ")
 
     assert not is_dismissed(upload)
+
+
+# --- 10.3.5: yoksaymayı geri alma ---------------------------------------------------------------
+
+
+def _resolutions(session: Session) -> dict[int, tuple[object, ...]]:
+    session.expire_all()
+    return {
+        item.id: (item.resolved_at, item.resolved_by, item.resolution, item.plan_id)
+        for item in session.scalars(select(QueueItem))
+    }
+
+
+def test_restoring_reopens_only_the_items_the_dismissal_closed(
+    session: Session, batch: dict[str, object]
+) -> None:
+    upload = batch["upload"]
+    assert isinstance(upload, Upload)
+    closed = _queue_item(session, UPLOAD, None)
+    close_queue_item(
+        session, closed.id, reason=QueueCloseReason.NOT_A_DOCUMENT, note=None, actor="ilk"
+    )
+    before = _resolutions(session)
+    dismissal = dismiss_upload(session, upload, actor=ACTOR)
+    session.commit()
+
+    restoration = restore_upload(session, upload, actor="geri-alan")
+    session.commit()
+
+    assert not is_dismissed(upload)
+    assert upload.dismissed_by is None
+    assert upload.status == UploadStatus.DONE
+    assert restoration.queue_item_ids == dismissal.queue_item_ids
+    # Yoksaymayla kapananlar yoksaymadan önceki hâline döner (plan değişmez); yoksaymadan önce
+    # atanmış, kapatılmış ve başka partinin öğesi olduğu gibi kalır.
+    assert _resolutions(session) == before
+    session.refresh(closed)
+    assert (closed.resolution, closed.resolution_reason) == ("closed", "not_a_document")
+
+
+def test_restoring_writes_upload_restored_with_the_user_and_the_ids_only(
+    session: Session, batch: dict[str, object]
+) -> None:
+    upload = batch["upload"]
+    assert isinstance(upload, Upload)
+    dismiss_upload(session, upload, actor=ACTOR)
+
+    restoration = restore_upload(session, upload, actor="geri-alan")
+
+    event = session.scalars(
+        select(Event).where(Event.type == EventType.UPLOAD_RESTORED.value)
+    ).one()
+    assert event.actor == "geri-alan"
+    assert event.upload_id == UPLOAD
+    assert event.data_json == {"queue_item_ids": list(restoration.queue_item_ids)}
+    assert restoration.restored_by == "geri-alan"
+
+
+def test_an_item_dismissed_before_the_last_dismissal_stays_closed(
+    session: Session, batch: dict[str, object]
+) -> None:
+    upload = batch["upload"]
+    stale = batch["resolved"]
+    assert isinstance(upload, Upload) and isinstance(stale, QueueItem)
+    # Nedeni `dismissed` ama yoksayma anından önce çözülmüş öğe bu yoksaymanın kapattığı öğe değil.
+    stale.resolution = QueueResolution.DISMISSED.value
+    dismiss_upload(session, upload, actor=ACTOR)
+    assert stale.resolved_at is not None and upload.dismissed_at is not None
+    assert stale.resolved_at < upload.dismissed_at
+
+    restoration = restore_upload(session, upload, actor=ACTOR)
+
+    assert stale.id not in restoration.queue_item_ids
+    session.refresh(stale)
+    assert stale.resolution == QueueResolution.DISMISSED and stale.resolved_at is not None
+
+
+@pytest.mark.parametrize("resolution", [None, QueueResolution.CLOSED])
+def test_an_item_resolved_otherwise_after_the_dismissal_stays_resolved(
+    session: Session, batch: dict[str, object], resolution: QueueResolution | None
+) -> None:
+    upload = batch["upload"]
+    assert isinstance(upload, Upload)
+    dismiss_upload(session, upload, actor=ACTOR)
+    assert upload.dismissed_at is not None
+    # Yoksaymayla yarışan atama (nedeni boş) ya da kapatma öğeyi yoksayma anından sonra çözdü:
+    # zamanı yoksaymanınkinden yeni ama nedeni `dismissed` değil — geri alma onu açmaz.
+    raced = _queue_item(session, UPLOAD, None)
+    raced.resolved_at = upload.dismissed_at + timedelta(seconds=1)
+    raced.resolved_by = "atayan"
+    raced.resolution = resolution.value if resolution is not None else None
+    session.flush()
+
+    restoration = restore_upload(session, upload, actor=ACTOR)
+
+    assert raced.id not in restoration.queue_item_ids
+    session.refresh(raced)
+    assert raced.resolved_by == "atayan"
+    assert raced.resolution == (resolution.value if resolution is not None else None)
+
+
+def test_a_restored_batch_can_be_dismissed_and_restored_again(
+    session: Session, batch: dict[str, object]
+) -> None:
+    upload = batch["upload"]
+    assert isinstance(upload, Upload)
+    first = dismiss_upload(session, upload, actor=ACTOR)
+    restore_upload(session, upload, actor=ACTOR)
+
+    second = dismiss_upload(session, upload, actor=ACTOR)
+    again = restore_upload(session, upload, actor=ACTOR)
+
+    assert first.queue_item_ids == second.queue_item_ids == again.queue_item_ids
+    assert not is_dismissed(upload)
+
+
+def test_a_batch_that_is_not_dismissed_is_not_restored_and_nothing_is_written(
+    session: Session, batch: dict[str, object]
+) -> None:
+    upload = batch["upload"]
+    assert isinstance(upload, Upload)
+    before = _resolutions(session)
+
+    with pytest.raises(UploadNotRestorableError, match="yoksayılmamış"):
+        restore_upload(session, upload, actor=ACTOR)
+
+    assert _resolutions(session) == before
+    assert session.scalars(select(Event)).all() == []
+
+
+def test_a_concurrent_restoration_that_already_won_is_refused(
+    session: Session, batch: dict[str, object]
+) -> None:
+    upload = batch["upload"]
+    assert isinstance(upload, Upload)
+    dismiss_upload(session, upload, actor=ACTOR)
+    session.commit()
+    # Öteki işlem yoksaymayı bu işlem okuduktan sonra geri aldı: koşullu güncelleme satır bulamaz.
+    session.connection().exec_driver_sql(
+        f"UPDATE uploads SET dismissed_at = NULL, dismissed_by = NULL WHERE id = '{UPLOAD}'"
+    )
+
+    with pytest.raises(UploadNotRestorableError):
+        restore_upload(session, upload, actor=ACTOR)
+
+    events = session.scalars(select(Event.type).order_by(Event.id)).all()
+    assert events == [EventType.UPLOAD_DISMISSED]
+
+
+def test_a_restoration_needs_a_user_name(session: Session, batch: dict[str, object]) -> None:
+    upload = batch["upload"]
+    assert isinstance(upload, Upload)
+    dismiss_upload(session, upload, actor=ACTOR)
+
+    with pytest.raises(ValueError, match="actor"):
+        restore_upload(session, upload, actor="")
+
+    assert is_dismissed(upload)

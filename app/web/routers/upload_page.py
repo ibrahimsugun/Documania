@@ -1,5 +1,5 @@
 """Yükleme sayfası, canlı ilerleme görünümü ve yükleme detayı (PRD 10.2.1, 10.2.2, 10.3.1, 10.3.2,
-10.3.4, 10.5.5).
+10.3.4, 10.3.5, 10.5.5).
 
 `GET /upload` sürükle-bırak çoklu yükleme formunu ve isteğe bağlı çalışan seçimini çizer.
 `POST /upload` (HTMX) dosyaları `POST /api/uploads` ile aynı işlevle (`create_upload`) partiye
@@ -38,6 +38,12 @@ partinin durumu buna uymuyorsa (yoksayılmış, süren) 409 ve belirteç tüketi
 partinin detay sayfası adresle açılır, üstte kimin ne zaman yoksaydığını söyler ve işlem düğmesi
 göstermez; yeniden çalıştırma ve yeniden analiz de 409'dur — yoksayılan partinin kuyruk öğeleri geri
 gelmesin.
+
+**Yoksaymayı geri alma (10.3.5; §D61).** Yoksayılan partinin bildiriminin yanında "Yoksaymayı geri
+al" düğmesi durur: `POST .../undismiss` tek adımdır (salt durum çevirir) ve kullanıcı adıyla
+`UPLOAD_RESTORED` yazar (`app.pipeline.dismiss.restore_upload`). Parti listeye döner; yalnız
+yoksaymayla kapanan kuyruk öğeleri yeniden açılır, arada başka yolla (atama, onay, kapatma) çözülmüş
+öğe açılmaz. Yoksayılmamış partide 409.
 """
 
 from __future__ import annotations
@@ -73,9 +79,11 @@ from app.db.session import get_session
 from app.pipeline.analyze import PageAnalysisStatus
 from app.pipeline.dismiss import (
     UploadNotDismissableError,
+    UploadNotRestorableError,
     dismiss_upload,
     is_dismissed,
     preview_dismissal,
+    restore_upload,
 )
 from app.pipeline.orchestrate import (
     PLAN_EXECUTION_ERRORS,
@@ -86,6 +94,7 @@ from app.pipeline.orchestrate import (
     rerun_plan,
 )
 from app.pipeline.plan import PlanDocument, PlanEmployee, PlanIntegrityError, Route, read_plan
+from app.pipeline.queue_close import close_reason_label
 from app.storage import DataLayout
 from app.web.auth import PanelUser, require_panel_user
 from app.web.confirm import (
@@ -321,6 +330,10 @@ UPLOAD_NOT_FOUND = "Parti bulunamadı."
 DISMISSED_NOTICE = "Bu tarama {when} tarihinde {user} tarafından yoksayıldı."
 DISMISS_BUSY_MESSAGE = "Parti hâlâ işleniyor; süren tarama yoksayılamaz."
 DISMISSED_RESOLUTION = "tarama yoksayıldı"
+# 10.3.5 — geri alınacak yoksayma yok.
+NOT_DISMISSED_MESSAGE = "Bu tarama yoksayılmamış; geri alınacak bir yoksayma yok."
+# 10.7.4 — gerekçeyle kapatılan kuyruk öğesinin çözümü.
+CLOSED_RESOLUTION = "kapatıldı"
 PAGE_IMAGE_NOT_FOUND = "Sayfa görüntüsü bulunamadı."
 BUSY_MESSAGE = "Parti hâlâ işleniyor; işlem bittikten sonra yeniden çalıştırılabilir."
 NO_PLAN_MESSAGE = (
@@ -690,12 +703,18 @@ def dismissed_notice(upload: Upload) -> str | None:
 
 def resolution_text(queue_item: QueueItem) -> str | None:
     """Kuyruk öğesinin çözümü: an ve kullanıcı; partisi yoksayılınca kapanan öğede nedeni de
-    (10.3.4). Çözülmemiş öğede `None`."""
+    (10.3.4), gerekçeyle kapatılan öğede gerekçenin Türkçesi ve notu (10.7.4). Çözülmemiş öğede
+    `None`."""
     if queue_item.resolved_at is None:
         return None
     text = f"{_format_ts(queue_item.resolved_at)} · {queue_item.resolved_by}"
     if queue_item.resolution == QueueResolution.DISMISSED.value:
         text += f" · {DISMISSED_RESOLUTION}"
+    elif queue_item.resolution == QueueResolution.CLOSED.value:
+        label = close_reason_label(queue_item.resolution_reason) or "—"
+        text += f" · {CLOSED_RESOLUTION}: {label}"
+        if queue_item.resolution_note:
+            text += f" — {queue_item.resolution_note}"
     return text
 
 
@@ -1039,4 +1058,36 @@ def dismiss_upload_page(
         done="dismiss",
         closed=len(dismissal.queue_item_ids),
         kept=len(dismissal.active_document_ids),
+    )
+
+
+# --- 10.3.5: yoksaymayı geri al ------------------------------------------------------------------
+
+
+@router.post("/uploads/{upload_id}/undismiss", response_class=HTMLResponse)
+def undismiss_upload(
+    upload_id: str,
+    request: Request,
+    user: CurrentUser,
+    session: Annotated[Session, Depends(get_session)],
+) -> HTMLResponse:
+    """10.3.5 — yoksayılan partiyi tek adımda geri alır (§D61): parti listeye döner, yoksaymayla
+    kapanan kuyruk öğeleri yeniden açılır; `UPLOAD_RESTORED` kullanıcı adıyla yazılır. Parti yoksa
+    404, yoksayılmamışsa 409 ve hiçbir şey değişmez."""
+    upload = session.get(Upload, upload_id)
+    if upload is None:
+        session.rollback()
+        return _action_result(request, status.HTTP_404_NOT_FOUND, error=UPLOAD_NOT_FOUND)
+    try:
+        restoration = restore_upload(session, upload, actor=user.username)
+    except UploadNotRestorableError:
+        session.rollback()
+        return _action_result(request, status.HTTP_409_CONFLICT, error=NOT_DISMISSED_MESSAGE)
+    session.commit()
+    return _action_result(
+        request,
+        status.HTTP_200_OK,
+        upload_id=upload_id,
+        done="undismiss",
+        reopened=len(restoration.queue_item_ids),
     )

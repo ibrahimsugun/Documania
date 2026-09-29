@@ -1,5 +1,5 @@
-"""Taramayı (partiyi) yoksayma — PRD 10.3.4 (K16'nın altıncı manuel işlemi; K10, K15, PLAN.md §C80,
-§D50).
+"""Taramayı (partiyi) yoksayma ve yoksaymayı geri alma — PRD 10.3.4, 10.3.5 (K16'nın altıncı manuel
+işlemi; K10, K15, PLAN.md §C80, §C91, §D50, §D61).
 
 İK son durumdaki (`done`, `partial`, `failed`) bir partiyi yoksayar: parti yükleme listesinden,
 partinin kuyruk öğeleri kuyruklardan kalkar. İşlem **silme değildir** ve yalnız veritabanına yazar:
@@ -18,7 +18,15 @@ tekrar tespiti (01.4.1) yoksayılan partinin dosyasını da görmeye devam eder.
 
 İki aşamalı onay (§20.6 "Taramayı yoksay", 10.8.1) çağıranın işidir — panel `app.web.confirm` ile
 yapar; bu modül `USER_CONFIRMED` yazmaz. Hiçbir fonksiyon commit etmez; hata olursa çağıran geri
-alır. Yoksayma geri alınmaz, süren parti yoksayılmaz (kapsam dışı: geri alma, toplu yoksayma).
+alır. Süren parti yoksayılmaz (kapsam dışı: toplu yoksayma).
+
+**Yoksaymayı geri alma (10.3.5)** `restore_upload` ile tek adımdır (§D61: salt durum çevirir) ama
+kullanıcı adıyla olaylıdır: partinin `dismissed_at`/`dismissed_by`'ı temizlenir, parti listeye ve
+kuyruklara döner. Yalnız yoksaymayla kapanan öğeler — `resolution = dismissed` ve `resolved_at >=
+dismissed_at` — yeniden açılır; yoksaymadan önce atanmış, onaylanmış (`resolution` boş) ya da
+kapatılmış (`closed`, 10.7.4) öğe çözülmüş kalır. Açılan öğenin planı değişmez: partinin güncel
+planına aitse bekleyen, değilse eski sürüm olur. `UPLOAD_RESTORED` açılan kuyruk öğelerinin
+kimliklerini taşır. Dosya sistemine yine hiçbir şey yazılmaz.
 """
 
 from __future__ import annotations
@@ -49,6 +57,10 @@ class UploadNotDismissableError(ValueError):
     """Parti yoksayılamaz: hâlâ işleniyor ya da zaten yoksayılmış."""
 
 
+class UploadNotRestorableError(ValueError):
+    """Yoksayma geri alınamaz: parti yoksayılmamış."""
+
+
 @dataclass(frozen=True, slots=True)
 class DismissalPreview:
     """İkinci onay metninin sayıları (§20.6): kapanacak kuyruk öğeleri (`<N>`) ve yerinde kalacak
@@ -65,6 +77,13 @@ class Dismissal:
     dismissed_by: str
     queue_item_ids: tuple[int, ...]
     active_document_ids: tuple[int, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class Restoration:
+    upload_id: str
+    restored_by: str
+    queue_item_ids: tuple[int, ...]
 
 
 def is_dismissed(upload: Upload) -> bool:
@@ -163,3 +182,59 @@ def dismiss_upload(session: Session, upload: Upload, *, actor: str) -> Dismissal
         },
     )
     return dismissal
+
+
+def restore_upload(session: Session, upload: Upload, *, actor: str) -> Restoration:
+    """Partinin yoksaymasını `actor` adına geri alır (modül açıklaması, 10.3.5); commit etmez.
+
+    Parti yoksayılmamışsa `UploadNotRestorableError` ve hiçbir şey yazılmaz. Parti koşullu
+    güncellemeyle işaretlenir (`dismissed_at IS NOT NULL`): aynı anda gelen iki geri almadan yalnız
+    biri geçer. Öğeler kilitlenerek okunur.
+    """
+    if not actor.strip():
+        raise ValueError("Manuel işlem kullanıcı adıyla loglanır (K16): actor boş olamaz")
+    dismissed_at = upload.dismissed_at
+    if dismissed_at is None:
+        raise UploadNotRestorableError(f"Parti {upload.id} yoksayılmamış")
+    marked = session.execute(
+        update(Upload)
+        .where(Upload.id == upload.id, Upload.dismissed_at.is_not(None))
+        .values(dismissed_at=None, dismissed_by=None)
+        .execution_options(synchronize_session=False)
+    )
+    session.refresh(upload)
+    if marked.rowcount != 1:
+        raise UploadNotRestorableError(f"Parti {upload.id} yoksayılmamış")
+
+    queue_items = session.scalars(
+        select(QueueItem)
+        .where(
+            QueueItem.upload_id == upload.id,
+            QueueItem.resolution == QueueResolution.DISMISSED.value,
+            QueueItem.resolved_at >= dismissed_at,
+        )
+        .order_by(QueueItem.id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    ).all()
+    for queue_item in queue_items:
+        queue_item.resolved_at = None
+        queue_item.resolved_by = None
+        queue_item.resolution = None
+        queue_item.resolution_reason = None
+        queue_item.resolution_note = None
+    session.flush()
+
+    restoration = Restoration(
+        upload_id=upload.id,
+        restored_by=actor,
+        queue_item_ids=tuple(queue_item.id for queue_item in queue_items),
+    )
+    record_event(
+        session,
+        EventType.UPLOAD_RESTORED,
+        upload_id=upload.id,
+        actor=actor,
+        data={"queue_item_ids": list(restoration.queue_item_ids)},
+    )
+    return restoration

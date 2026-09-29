@@ -83,11 +83,28 @@ Her adım öğeyi ve düzeltilen profili onayın hükmüyle yeniden denetler: ö
 eski sürüm, onay bekleyen profil değil, satır 7 artık uymuyor ya da düzeltilen ad/doğum tarihi
 kayıtlı bir çalışana uyuyorsa (ikinci çalışan açılmaz; belge o çalışana atanır) 409 — yanıt
 `queue_new_profile.html` parçasıdır.
+
+**Kuyruk öğesini kapatma ve yeniden açma (10.7.4; K16, §D61).** Çözülmemiş öğenin — bekleyen ya da
+eski sürüm — detayında "Öğeyi kapat" bağlantısı durur; akış tam sayfadır (`queue_close_step.html`):
+
+1. `GET /queues/{id}/close/confirm` gerekçe seçimini (belge değil / zaten var / diğer), not alanını
+   (`<input>`, en çok 200 karakter; "Diğer"de zorunlu) ve §20.6'nın **birinci** onay metnini verir.
+2. `POST /queues/{id}/close/prepare` gerekçeyi denetler (geçersizse 422 ve form yeniden) ve
+   **ikinci** onay metniyle öğe + gerekçe + notun özetine bağlı belirteci verir (`close_subject`).
+3. `POST /queues/{id}/close` belirteçle gelir: `USER_CONFIRMED`, ardından `close_queue_item`'ın
+   `QUEUE_ITEM_CLOSED`'ı tek işlemde yazılır; başarıda öğe detayına 303.
+
+Öğe yoksa 404; çözülmüş ya da partisi yoksayılmışsa 409; belirteç geçmezse 400 — hiçbirinde bir şey
+değişmez. Kapatılan öğe "Çözülen" görünümünde gerekçesinin Türkçesiyle durur ve orada da detayda da
+"Yeniden aç" düğmesini taşır: `POST /queues/{id}/reopen` tek adımdır (§D61), yalnız `closed` öğeyi
+açar ve `QUEUE_ITEM_REOPENED` yazar. Kuyruk klasöründeki kopya ve `reason.json` iki yönde de yerinde
+kalır; kapanan öğe sayaçlardan düşer (`resolved_at` dolu), açılan öğe geri gelir.
 """
 
 from __future__ import annotations
 
 import enum
+import hashlib
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import PurePosixPath
@@ -95,7 +112,7 @@ from typing import Annotated, Any
 from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, Form, Header, HTTPException, Query, Request, status
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from pydantic import BaseModel, ConfigDict, ValidationError
 from sqlalchemy import ColumnElement, Select, and_, exists, func, or_, select
 from sqlalchemy.orm import Session, aliased
@@ -108,8 +125,10 @@ from app.db.models import (
     Event,
     KnownDocumentType,
     Plan,
+    QueueCloseReason,
     QueueItem,
     QueueKind,
+    QueueResolution,
     Upload,
     UploadFile,
 )
@@ -129,6 +148,19 @@ from app.matching.status import (
     status_label,
 )
 from app.pipeline.plan import PlanEmployee, PlanIntegrityError
+from app.pipeline.queue_close import (
+    CLOSE_REASON_LABELS,
+    NOTE_MAX_LENGTH,
+    CloseNoteError,
+    QueueItemNotClosableError,
+    QueueItemNotReopenableError,
+    clean_close_note,
+    close_queue_item,
+    close_reason_label,
+    closing_refusal,
+    reopen_queue_item,
+    reopening_refusal,
+)
 from app.pipeline.route import (
     ApprovedProfile,
     AssignedItem,
@@ -508,7 +540,7 @@ QUEUE_INTRO = (
     "senin kararını bekleyen bir belgedir; karar verince sistem işini tamamlar."
 )
 SUPERSEDED_NOTE = (
-    "Bu öğe partinin eski bir plan sürümüne ait (K18); çözülemez. "
+    "Bu öğe partinin eski bir plan sürümüne ait (K18); atanamaz, yalnız kapatılabilir. "
     "Çözülecek öğeler partinin güncel planının kuyruğundadır."
 )
 _RESOLVING_EVENTS = frozenset({EventType.MANUAL_ASSIGN.value, EventType.MANUAL_APPROVE.value})
@@ -518,6 +550,8 @@ _ITEM_EVENTS = (
     EventType.QUEUED_UNRESOLVED.value,
     *_RESOLVING_EVENTS,
     EventType.USER_CONFIRMED.value,
+    EventType.QUEUE_ITEM_CLOSED.value,
+    EventType.QUEUE_ITEM_REOPENED.value,
 )
 
 
@@ -551,6 +585,8 @@ class QueueRow:
     sources: list[str]
     reason: str
     resolved: str | None
+    # 10.7.4: kapatılan öğe "Çözülen" görünümünde tek adımda yeniden açılır.
+    can_reopen: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -606,6 +642,11 @@ class QueueItemView:
     profile_form: list[ProfileFieldView] | None
     profile_note: str | None
     inactive_employee: InactiveEmployeeView | None = None
+    # 10.7.4: kapatma bağlantısı, yeniden açma düğmesi ya da açılamama nedeni, işlem bildirimi.
+    can_close: bool = False
+    can_reopen: bool = False
+    reopen_note: str | None = None
+    notice: str | None = None
 
 
 def _queue_url(kind: str, state: QueueState = QueueState.OPEN, page: int = 1) -> str:
@@ -817,6 +858,7 @@ def list_queue(
                 sources=lookups.source_texts(item.payload_json),
                 reason=item.reason,
                 resolved=_resolved_text(item),
+                can_reopen=item.resolution == QueueResolution.CLOSED.value,
             )
             for item in items
         ],
@@ -849,8 +891,11 @@ def _item_events(session: Session, queue_item: QueueItem) -> list[Event]:
     return [event for event in events if _mentions_item(event, queue_item.id)]
 
 
-def build_item_view(session: Session, queue_item_id: int) -> QueueItemView | None:
-    """10.7.1 — öğenin detayı; öğe yoksa `None`. Yalnız okur, oturum commit edilmez."""
+def build_item_view(
+    session: Session, queue_item_id: int, *, notice: str | None = None
+) -> QueueItemView | None:
+    """10.7.1 — öğenin detayı; öğe yoksa `None`. Yalnız okur, oturum commit edilmez. `notice`
+    kapatma ya da yeniden açmanın bildirim kodudur (10.7.4)."""
     queue_item = session.get(QueueItem, queue_item_id)
     if queue_item is None:
         return None
@@ -866,6 +911,8 @@ def build_item_view(session: Session, queue_item_id: int) -> QueueItemView | Non
         None,
     )
     profile_form, profile_note = _profile_section(session, queue_item, state)
+    closed = queue_item.resolution == QueueResolution.CLOSED.value
+    reopen_note = reopening_refusal(session, queue_item) if closed else None
     return QueueItemView(
         id=queue_item.id,
         kind=queue_item.kind,
@@ -896,6 +943,10 @@ def build_item_view(session: Session, queue_item_id: int) -> QueueItemView | Non
         inactive_employee=(
             _inactive_employee(queue_item, lookups) if state is QueueState.OPEN else None
         ),
+        can_close=closing_refusal(session, queue_item) is None,
+        can_reopen=closed and reopen_note is None,
+        reopen_note=reopen_note,
+        notice=CLOSE_NOTICES.get(notice or ""),
         events=[
             EventView(
                 ts=_format_ts(event.ts),
@@ -955,8 +1006,9 @@ def queue_item_page(
     request: Request,
     user: CurrentUser,
     session: Annotated[Session, Depends(get_session)],
+    notice: Annotated[str | None, Query(max_length=32)] = None,
 ) -> HTMLResponse:
-    view = build_item_view(session, queue_item_id)
+    view = build_item_view(session, queue_item_id, notice=notice)
     session.rollback()
     entry = MENU_BY_KEY["queues"]
     if view is None:
@@ -1467,3 +1519,321 @@ def create_profile_from_queue(
         document_id=document.id,
         file_name=PurePosixPath(document.path).name,
     )
+
+
+# --- 10.7.4: kuyruk öğesini kapatma ve yeniden açma -----------------------------------------------
+
+# §20.6 "Kuyruk öğesini kapat": metinler birebir `app.web.confirm`'dadır.
+CLOSE_TITLE = "Kuyruk öğesini kapat"
+REOPEN_TITLE = "Kuyruk öğesini yeniden aç"
+BAD_CLOSE_REASON = "Kapatma gerekçesini seçin: belge değil, zaten var ya da diğer."
+CLOSE_NOTICES = {
+    "closed": "Öğe kapatıldı; kuyruk klasöründeki kopya ve gerekçe dosyası yerinde kaldı.",
+    "reopened": "Öğe yeniden açıldı.",
+}
+
+
+@dataclass(frozen=True, slots=True)
+class CloseReasonChoice:
+    value: str
+    label: str
+    checked: bool
+
+
+@dataclass(frozen=True, slots=True)
+class CloseStepView:
+    """Kapatılacak öğenin özeti: kuyruğu, durumu, partisi, tür tahmini ve kuyruk gerekçesi."""
+
+    kind_label: str
+    state_label: str
+    upload_id: str
+    type_name: str | None
+    reason: str
+
+
+def close_subject(queue_item_id: int, reason: QueueCloseReason, note: str | None) -> str:
+    """Kapatma belirtecinin (`Operation.CLOSE_QUEUE_ITEM`) bağlı olduğu hedef: öğe + gerekçe kodu +
+    notun özeti. Hazırlıktan sonra gerekçe ya da not değişirse belirteç geçmez; not belirtece
+    girmez."""
+    digest = hashlib.sha256((note or "").encode("utf-8")).hexdigest()[:16]
+    return f"{queue_item_id}:{reason.value}:{digest}"
+
+
+def _closable_item(session: Session, queue_item_id: int) -> tuple[QueueItem, CloseStepView]:
+    """Kapatılabilecek (çözülmemiş, partisi yoksayılmamış) öğe ve özeti; yoksa 404, kapatılamıyorsa
+    409."""
+    queue_item = session.get(QueueItem, queue_item_id)
+    if queue_item is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, QUEUE_ITEM_NOT_FOUND)
+    refusal = closing_refusal(session, queue_item)
+    if refusal is not None:
+        raise HTTPException(status.HTTP_409_CONFLICT, refusal)
+    state = _item_state(session, queue_item)
+    return queue_item, CloseStepView(
+        kind_label=QUEUE_LABELS.get(queue_item.kind, queue_item.kind),
+        state_label=STATE_LABELS[state.value],
+        upload_id=queue_item.upload_id,
+        type_name=_lookups(session, [queue_item]).type_name(queue_item.payload_json),
+        reason=queue_item.reason,
+    )
+
+
+def _close_choice(reason: str, note: str) -> tuple[QueueCloseReason, str | None]:
+    """Formun gerekçe kodu ve notu; tanınmayan gerekçe ya da geçersiz not 422."""
+    try:
+        choice = QueueCloseReason(reason)
+    except ValueError:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, BAD_CLOSE_REASON) from None
+    try:
+        return choice, clean_close_note(choice, note)
+    except CloseNoteError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from None
+
+
+def _close_choices(selected: str = "") -> list[CloseReasonChoice]:
+    return [
+        CloseReasonChoice(value=value, label=label, checked=value == selected)
+        for value, label in CLOSE_REASON_LABELS.items()
+    ]
+
+
+def _close_page(
+    request: Request,
+    user: PanelUser,
+    queue_item_id: int,
+    *,
+    step: CloseStepView | None,
+    status_code: int = status.HTTP_200_OK,
+    title: str = CLOSE_TITLE,
+    **context: object,
+) -> HTMLResponse:
+    """`queue_close_step.html`: birinci onay (gerekçe seçimi), ikinci onay ya da hata."""
+    return render_page(
+        request,
+        "queue_close_step.html",
+        user=user,
+        active=MENU_BY_KEY["queues"].key,
+        status_code=status_code,
+        title=title,
+        queue_item_id=queue_item_id,
+        step=step,
+        note_limit=NOTE_MAX_LENGTH,
+        **context,
+    )
+
+
+def _first_close_step(
+    request: Request,
+    user: PanelUser,
+    queue_item_id: int,
+    step: CloseStepView,
+    *,
+    reason: str = "",
+    note: str = "",
+    status_code: int = status.HTTP_200_OK,
+    error: str | None = None,
+) -> HTMLResponse:
+    """Gerekçe seçimi ve birinci onay metni; 422'de önceki seçim ve not korunur."""
+    return _close_page(
+        request,
+        user,
+        queue_item_id,
+        step=step,
+        status_code=status_code,
+        error=error,
+        first_confirmation=first_text(Operation.CLOSE_QUEUE_ITEM),
+        choices=_close_choices(reason),
+        note=note,
+    )
+
+
+@pages_router.get("/queues/{queue_item_id}/close/confirm", response_class=HTMLResponse)
+def close_first_confirmation(
+    queue_item_id: int,
+    request: Request,
+    user: CurrentUser,
+    session: Annotated[Session, Depends(get_session)],
+) -> HTMLResponse:
+    """10.7.4 — gerekçe seçimi ve §20.6'nın birinci onay metni; hiçbir şey değişmez."""
+    try:
+        _, step = _closable_item(session, queue_item_id)
+    except HTTPException as exc:
+        return _close_page(
+            request,
+            user,
+            queue_item_id,
+            step=None,
+            status_code=exc.status_code,
+            error=str(exc.detail),
+        )
+    finally:
+        session.rollback()
+    return _first_close_step(request, user, queue_item_id, step)
+
+
+@pages_router.post("/queues/{queue_item_id}/close/prepare", response_class=HTMLResponse)
+def prepare_close(
+    queue_item_id: int,
+    request: Request,
+    user: CurrentUser,
+    session: Annotated[Session, Depends(get_session)],
+    reason: Annotated[str, Form(max_length=32)] = "",
+    note: Annotated[str, Form(max_length=4 * NOTE_MAX_LENGTH)] = "",
+) -> HTMLResponse:
+    """10.7.4 — birinci onaydan sonra ikinci onay metnini ve öğe + gerekçe + nota bağlı tek
+    kullanımlık belirteci verir (§20.6.1); öğe değişmez (S16). Gerekçe geçersizse 422 ve form."""
+    step: CloseStepView | None = None
+    try:
+        _, step = _closable_item(session, queue_item_id)
+        choice, cleaned = _close_choice(reason, note)
+        issued = issue_confirmation(
+            session,
+            request,
+            user,
+            Operation.CLOSE_QUEUE_ITEM,
+            close_subject(queue_item_id, choice, cleaned),
+        )
+    except HTTPException as exc:
+        session.rollback()
+        if step is not None and exc.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT:
+            return _first_close_step(
+                request,
+                user,
+                queue_item_id,
+                step,
+                reason=reason,
+                note=note,
+                status_code=exc.status_code,
+                error=str(exc.detail),
+            )
+        return _close_page(
+            request,
+            user,
+            queue_item_id,
+            step=None,
+            status_code=exc.status_code,
+            error=str(exc.detail),
+        )
+    except ConfirmationRefusedError as exc:  # oturum çerezi yok
+        session.rollback()
+        return _close_page(
+            request,
+            user,
+            queue_item_id,
+            step=step,
+            status_code=status.HTTP_400_BAD_REQUEST,
+            error=str(exc),
+        )
+    session.commit()
+    return _close_page(
+        request,
+        user,
+        queue_item_id,
+        step=step,
+        second_confirmation=second_text(Operation.CLOSE_QUEUE_ITEM),
+        confirmation=issued.token,
+        close_reason=choice.value,
+        close_reason_label=close_reason_label(choice.value),
+        note=cleaned or "",
+    )
+
+
+@pages_router.post("/queues/{queue_item_id}/close", response_class=HTMLResponse)
+def close_from_queue(
+    queue_item_id: int,
+    request: Request,
+    user: CurrentUser,
+    session: Annotated[Session, Depends(get_session)],
+    reason: Annotated[str, Form(max_length=32)] = "",
+    note: Annotated[str, Form(max_length=4 * NOTE_MAX_LENGTH)] = "",
+    confirmation: Annotated[str | None, Form()] = None,
+) -> Response:
+    """10.7.4 — ikinci onayın belirteciyle öğeyi gerekçesiyle kapatır (K16; R11: hiçbir şey
+    silinmez).
+
+    Belirteç yoksa, süresi geçmişse, kullanılmışsa ya da başka öğeye, gerekçeye, nota, işleme veya
+    oturuma aitse hiçbir şey yapılmaz (400). Belirtecin tüketilmesi, `USER_CONFIRMED` ve
+    `QUEUE_ITEM_CLOSED` tek işlemdedir; başarıdan sonra öğe detayına dönülür.
+    """
+    step: CloseStepView | None = None
+    try:
+        queue_item, step = _closable_item(session, queue_item_id)
+        choice, cleaned = _close_choice(reason, note)
+        # §20.6.1: belirteç tüketilir ve `USER_CONFIRMED` yazılır, ardından işlemin kendi olayı
+        # (`QUEUE_ITEM_CLOSED`) düşer. Not olaya girmez.
+        confirm_operation(
+            session,
+            request,
+            user,
+            Operation.CLOSE_QUEUE_ITEM,
+            close_subject(queue_item_id, choice, cleaned),
+            confirmation,
+            event_target={"queue_item_id": queue_item.id, "reason": choice.value},
+            upload_id=queue_item.upload_id,
+        )
+        try:
+            close_queue_item(
+                session, queue_item_id, reason=choice, note=cleaned, actor=user.username
+            )
+        except QueueItemNotClosableError as exc:
+            raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from None
+    except HTTPException as exc:
+        session.rollback()
+        return _close_page(
+            request,
+            user,
+            queue_item_id,
+            step=None,
+            status_code=exc.status_code,
+            error=str(exc.detail),
+        )
+    except ConfirmationRefusedError:
+        session.rollback()
+        return _close_page(
+            request,
+            user,
+            queue_item_id,
+            step=step,
+            status_code=status.HTTP_400_BAD_REQUEST,
+            error=CONFIRMATION_REFUSED,
+            retry=True,
+        )
+    session.commit()
+    return RedirectResponse(f"/queues/{queue_item_id}?notice=closed", status.HTTP_303_SEE_OTHER)
+
+
+@pages_router.post("/queues/{queue_item_id}/reopen", response_class=HTMLResponse)
+def reopen_from_queue(
+    queue_item_id: int,
+    request: Request,
+    user: CurrentUser,
+    session: Annotated[Session, Depends(get_session)],
+) -> Response:
+    """10.7.4 — kapatılan öğeyi tek adımda yeniden açar (§D61) ve `QUEUE_ITEM_REOPENED`'ı kullanıcı
+    adıyla yazar. Öğe yoksa 404, kapatılmamışsa ya da partisi yoksayılmışsa 409."""
+    try:
+        reopen_queue_item(session, queue_item_id, actor=user.username)
+    except QueueItemNotFoundError:
+        session.rollback()
+        return _close_page(
+            request,
+            user,
+            queue_item_id,
+            step=None,
+            title=REOPEN_TITLE,
+            status_code=status.HTTP_404_NOT_FOUND,
+            error=QUEUE_ITEM_NOT_FOUND,
+        )
+    except QueueItemNotReopenableError as exc:
+        session.rollback()
+        return _close_page(
+            request,
+            user,
+            queue_item_id,
+            step=None,
+            title=REOPEN_TITLE,
+            status_code=status.HTTP_409_CONFLICT,
+            error=str(exc),
+        )
+    session.commit()
+    return RedirectResponse(f"/queues/{queue_item_id}?notice=reopened", status.HTTP_303_SEE_OTHER)

@@ -1,5 +1,5 @@
-{# Yükleme detayındaki işlemlerin sonucu (10.3.2, 10.3.4): hata, ikinci onay formu ya da işlem
-   özeti. İkinci onay formu yeniden analizin ya da taramayı yoksaymanın (`confirm_action`);
+{# Yükleme detayındaki işlemlerin sonucu (10.3.2, 10.3.4, 10.3.5): hata, ikinci onay formu ya da
+   işlem özeti. İkinci onay formu yeniden analizin ya da taramayı yoksaymanın (`confirm_action`);
    hedef yol her birinde sabittir — değiştirici yolların denetimi (10.9.1) şablonu okur. #}
 {% if error %}
 <p class="error" role="alert">{{ error }}</p>
@@ -21,6 +21,10 @@
 </form>
 {% elif done == "rerun" %}
 <p class="notice notice-success" role="status">Plan (sürüm {{ version }}) yeniden uygulandı. <a href="/uploads/{{ upload_id }}">Sayfayı yenileyin</a>.</p>
+{% elif done == "undismiss" %}
+<p class="notice notice-success" role="status">Yoksayma geri alındı: parti yükleme listesine döndü; {{ reopened }} kuyruk öğesi yeniden açıldı. <a href="/uploads/{{ upload_id }}">Sayfayı yenileyin</a>.</p>
+{# Geri alınan partide yoksayma bildirimi ve düğmesi kalmasın. #}
+<div id="dismissed-row" hx-swap-oob="true"></div>
 {% elif done == "dismiss" %}
 <p class="notice notice-success" role="status">Tarama yoksayıldı: {{ closed }} kuyruk öğesi kapandı; {{ kept }} belge yerinde kaldı. <a href="/uploads/{{ upload_id }}">Sayfayı yenileyin</a>.</p>
 {% elif done == "reanalyze" %}

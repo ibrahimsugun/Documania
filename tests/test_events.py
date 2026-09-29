@@ -35,7 +35,9 @@ def test_all_prd_event_types_are_present() -> None:
     yeniden etkinleştirme olayları (`EMPLOYEE_DEACTIVATED`, `EMPLOYEE_REACTIVATED`, 10.5.7) tm
     127'yle; profil alt kaydı olayları (`PROFILE_RECORD_REMOVED`, `PROFILE_RECORD_RESTORED`,
     `CONTACT_ADDED`, 10.5.8) tm 128'le; birleştirme olayı (`EMPLOYEE_MERGED`, 10.5.9) tm
-    129'la; arşivden geri alma olayı (`UNARCHIVED`, 10.5.10) tm 130'la."""
+    129'la; arşivden geri alma olayı (`UNARCHIVED`, 10.5.10) tm 130'la; kuyruk öğesini kapatma,
+    yeniden açma ve yoksaymayı geri alma olayları (`QUEUE_ITEM_CLOSED`, `QUEUE_ITEM_REOPENED`,
+    `UPLOAD_RESTORED`, 10.7.4, 10.3.5) tm 131'le."""
     expected = {
         "FILE_UPLOADED",
         "FILE_DUPLICATE",
@@ -98,6 +100,9 @@ def test_all_prd_event_types_are_present() -> None:
         "PROFILE_RECORD_RESTORED",
         "CONTACT_ADDED",
         "UNARCHIVED",
+        "QUEUE_ITEM_CLOSED",
+        "QUEUE_ITEM_REOPENED",
+        "UPLOAD_RESTORED",
     }
     assert {member.value for member in EventType} == expected
 

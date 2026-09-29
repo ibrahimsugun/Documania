@@ -9,7 +9,7 @@
 | Faz | PRD | Genel durum | Must sayacı | Kapanış |
 | --- | --- | --- | --- | --- |
 | Faz 0 — MVP | §5.1 | 105 ✅ · 0 ◐ · 0 ⬜ · 0 🔒 | 101/101 Must | AÇIK |
-| Faz 1 — v1 | §5.2 | 56 ✅ · 0 ◐ · 6 ⬜ · 0 🔒 | 40/41 Must | AÇIK |
+| Faz 1 — v1 | §5.2 | 58 ✅ · 0 ◐ · 4 ⬜ · 0 🔒 | 41/41 Must | AÇIK |
 | Faz 2 — v2 | §5.3 | 13 ✅ · 0 ◐ · 1 ⬜ · 0 🔒 | 0/0 Must | AÇIK |
 | Faz 3 — Enterprise | §5.4 | 10 ✅ · 0 ◐ · 0 ⬜ · 0 🔒 | 0/0 Must | AÇIK |
 
@@ -237,7 +237,7 @@ panelde `plan-count-drift` bulgusu doğurur.
 | 10.3.2 | Yeniden çalıştır / yeniden analiz | Should (v1) | ✅ → K10.3 |
 | 10.3.3 | Yükleme listesi | Must (v1) | ✅ → K10.3 |
 | 10.3.4 | Partiyi yoksay | Should (v1) | ✅ → K10.3 |
-| 10.3.5 | Yoksanan partiyi geri alma | Should (v1) | ⬜ |
+| 10.3.5 | Yoksanan partiyi geri alma | Should (v1) | ✅ → K10.7-d |
 | 10.4.1 | Çalışan listesi | Must (v1) | ✅ → K10.4 |
 | 10.4.2 | Arama | Must (v1) | ✅ → K10.4 |
 | 10.5.1 | Çalışan profili sayfası | Must (v1) | ✅ → K10.5 |
@@ -254,7 +254,7 @@ panelde `plan-count-drift` bulgusu doğurur.
 | 10.7.1 | Kuyruk ekranları | Must (v1) | ✅ → K10.7-a |
 | 10.7.2 | Kuyruktan çalışana atama | Must (v1) | ✅ → K10.7-b |
 | 10.7.3 | Kuyruktan profil oluşturma | Must (v1) | ✅ → K10.7-c |
-| 10.7.4 | Kuyruk öğesini kapatma ve yeniden açma | Must (v1) | ⬜ |
+| 10.7.4 | Kuyruk öğesini kapatma ve yeniden açma | Must (v1) | ✅ → K10.7-d |
 | 10.8.1 | İki aşamalı onay mekanizması | Must (v1) | ✅ → K10.8 |
 | 10.8.2 | Belgeyi başka çalışana taşıma | Must (v1) | ✅ → K10.8 |
 | 10.9.1 | İçerik düzenlemenin yokluğu (R12) | Must (v1) | ✅ → K10.9 |
@@ -2323,6 +2323,25 @@ bu kayıt neden sapıldığının izlenebilir olması içindir.
   Başarıda profile 303 (`?notice=document_archived|document_unarchived#documents`). Profil belge
   listesi sıralaması (oluşturma zamanı) değişmedi; geri alınan belge eski yerinde, yeni adıyla görünür.
   JSON API (`/api/queue/documents/{id}/archive*`) dokunulmadı.
+- **D71 — Kuyruk öğesini kapatmanın ve yoksaymayı geri almanın uygulama kararları (10.7.4, 10.3.5, tm
+  131).** (a) **Gerekçe kodu ayrı sütunda.** §C91 ve PRD §8.1 yalnız `resolution_note` der, ama "Çözülen"
+  görünümü gerekçe kodunun Türkçesini göstermek zorunda; kod nota gömülse 200 karakterlik not sınırı
+  bozulurdu, olaydan okunsa liste her satır için olay tarardı. Uygulanan: `queue_items.resolution_reason`
+  (String(32), CHECK `not_a_document|already_exists|other`, `QueueCloseReason`) + `resolution_note`
+  (göç 0019). PRD §8.1'e `resolution_reason` eklenmeli (PRD'ye yalnız §20.6 satırı ve §20.6.1 olay adı
+  yazıldı). (b) **"Diğer" not ister**, öteki iki gerekçede not isteğe bağlıdır; not baştan/sondan
+  kırpılır, boşsa `NULL`, 200'ü aşarsa 422. (c) **Eski sürüm öğesi de kapatılır** (çözülmemiş her öğe;
+  yoksayılmış partininki hariç) — K18'in atanamayan öğeleri başka türlü "Eski sürüm" görünümünden hiç
+  çıkamıyordu; `SUPERSEDED_NOTE` "atanamaz, yalnız kapatılabilir" oldu. (d) **Dosya sistemine yazılmaz**
+  (yoksaymayla aynı): kuyruk kopyası ve `reason.json` bayt bayt aynı kalır; `reason.json` kapatmayı ancak
+  aynı (parti, kuyruk) çiftinde sonraki bir atama onu yeniden ürettiğinde `resolved_at`/`resolved_by`
+  olarak taşır. (e) **Belirteç hedefi** öğe + gerekçe kodu + notun SHA-256 özetinin ilk 16 hanesi
+  (`close_subject`, 10.5.7 emsali); not olaya girmez, `QUEUE_ITEM_CLOSED`/`QUEUE_ITEM_REOPENED` yalnız öğe
+  kimliği ve gerekçe kodunu taşır. (f) **Yeniden açma** yoksayılmış partinin kapatılmış öğesinde 409 —
+  önce yoksayma geri alınır (geri alma `closed` öğeyi açmaz). (g) **Yoksaymayı geri alma** HTMX ile
+  `#action-result`'a yazar (öteki parti işlemleri gibi), onay istemez; yarışan atama/kapatmayla
+  yoksaymadan sonra çözülen öğe `resolution` süzgeciyle açılmaz. (h) **Akış tam sayfa** (10.5.10 emsali)
+  ve başarıda öğe detayına 303; `test_queue_page.py`'nin kuyruk yol bekçisi dört yolla bilerek genişledi.
 
 ## G. İş Kırılımı Dizini
 
@@ -2806,6 +2825,11 @@ var olan maddeler silinmez. Biçim:
 #### K10.7-c — 10.7.3 · Kuyruktan profil oluşturma
 - ✅ 10.7.3 kuyruktan profil oluşturma: `app/web/routers/queue.py` (`profile_first_confirmation`, `prepare_profile`, `create_profile_from_queue`; `profile_form`, `profile_subject`, `_profile_section`) + `app/web/templates/queue_new_profile.html` (öğe detayında `#new-profile` düzenleme formu ve iki onay adımı), çekirdek `app/matching/match.py` (`ProfileFields`, `check_profile_fields`, `edited_profile_fields`, `review_pending_profile`, `approve_pending_profile(fields=)`) ve `app/pipeline/route.py` (`review_queued_profile`, `approve_queued_profile(fields=)`) — önerilen profil düzenlenip iki aşamalı onayla (§20.6 metinleri birebir) çalışan olarak açılır; belge içeriği formda yok ve değişmez (çıktı kaynağın baytları, analiz ve plan aynı, fazla form alanı yok sayılır); düzeltilen kimlik kayıtlı çalışana uyarsa onay reddedilir (PLAN.md §C53, §D25) · test `tests/web/test_queue_new_profile.py` (29), `tests/matching/test_profile_edit.py` (21), `tests/pipeline/test_route_approve.py` (+4) · tm 72
 - ✅ Kapı: ruff check/format, compileall, `pytest -q -m "not live" --cov=app --cov-fail-under=70` (2623 geçti, +54; 2 beklenen xfail D12; 4 PG testi atlandı), kapsam %99.78 (`queue.py`, `match.py`, `route.py` %100), temiz SQLite'ta `alembic upgrade head` (göç yok), `import app.main` — hepsi exit 0; 7 geçici kural bozulmasının her biri testte kırmızı · tm 72
+
+#### K10.7-d — 10.7.4, 10.3.5 · Kuyruk öğesini kapatma ve yeniden açma; yoksanan partiyi geri alma
+- ✅ 10.7.4 kuyruk öğesini kapatma ve yeniden açma: çekirdek `app/pipeline/queue_close.py` (`close_queue_item`: çözülmemiş — bekleyen ya da eski sürüm —, partisi yoksayılmamış öğe koşullu güncellemeyle `resolved_at`/`resolved_by`, `resolution = closed`, `resolution_reason` ∈ `not_a_document`/`already_exists`/`other`, `resolution_note` ≤ 200 — "Diğer"de zorunlu —; `QUEUE_ITEM_CLOSED` {queue_item_id, reason} kullanıcı adıyla, not olaya girmez; `reopen_queue_item` yalnız `closed` ve partisi yoksayılmamış öğeyi açar, çözüm alanlarını temizler, `QUEUE_ITEM_REOPENED` {queue_item_id, reason}; dosya sistemi, plan, `payload_json`, aday tür görülmeleri değişmez), göç `0019` (`resolution` CHECK `closed`, `resolution_reason` CHECK'li, `resolution_note`), `Operation.CLOSE_QUEUE_ITEM` + §20.6 satırı (PRD), panel `app/web/routers/queue.py` (`GET /queues/{id}/close/confirm` gerekçe + not + birinci metin, `POST …/close/prepare` ikinci metin + öğe/gerekçe/not özetine bağlı belirteç — geçersiz gerekçe 422 ve form, `POST …/close` → 303 `?notice=closed`; `POST …/reopen` tek adım → 303 `?notice=reopened`) + `queue_close_step.html`, `queue_item.html` ("Öğeyi kapat" / "Yeniden aç", olaylarda iki yeni tür), `queue.html` ("Çözülen" sütununda gerekçenin Türkçesi + not + "Yeniden aç"); çözüm metni `upload_page.resolution_text` ("kapatıldı: <gerekçe> — <not>"); kapanan öğe sayaçlardan düşer (`resolved_at` süzgeci doğrulandı) — §C91, §D71 · test `tests/pipeline/test_queue_close.py` (23), `tests/web/test_queue_close.py` (22), `tests/web/test_confirm.py` (§20.6 satırı), `tests/web/test_access_log.py` (+3 yol), `tests/web/test_queue_page.py` (yol bekçisi +4), `tests/db/test_migrations.py` (+1), `tests/test_events.py` · tm 131
+- ✅ 10.3.5 yoksanan partiyi geri alma: `app/pipeline/dismiss.py` `restore_upload` (koşullu güncellemeyle `dismissed_at`/`dismissed_by` temizlenir; yalnız `resolution = dismissed` ve `resolved_at >= dismissed_at` öğeler açılır — arada atanan, onaylanan ya da kapatılan öğe açılmaz; `UPLOAD_RESTORED` {queue_item_ids} kullanıcı adıyla), panel `POST /uploads/{id}/undismiss` tek adım (`upload_page.py`; yoksayılmamış parti 409) + `upload_detail.html` bildirimin yanında "Yoksaymayı geri al" + `upload_action_result.html` sonucu (bildirim satırı OOB kalkar); parti listeye ve kuyruklara döner, yeniden yoksayılabilir · test `tests/pipeline/test_dismiss.py` (+9), `tests/web/test_upload_undismiss.py` (7) · tm 131
+- ✅ Kapı (tm 131): ruff check/format, compileall, `import app.main`, `git diff --check`, temiz SQLite'ta `alembic upgrade head` (→0019) exit 0; `pytest -q -m "not live" --cov=app` sekiz ön plan grubunda 5691 geçti (+62), 5 PG atlandı, `coverage report --fail-under=70` exit 0, birleşik kapsam %99 (`queue_close.py`, `queue.py`, `confirm.py` %100); 8 geçici kural bozmasının 8'i kırmızı · tm 131
 
 #### K10.8 — 10.8.1, 10.8.2 · İki aşamalı onay ve manuel taşıma
 - ✅ 10.8.1 iki aşamalı onay mekanizması: `app/web/confirm.py` (§20.6 metinleri birebir `CONFIRMATION_TEXTS` + `fill`; tek kullanımlık belirteç `issue_confirmation` / `consume_confirmation` / `confirm_operation` → `USER_CONFIRMED`), model `ConfirmationToken` (`app/db/models.py`) + göç `alembic/versions/0004_confirmation_tokens.py`; yeniden analiz (`upload_page.py`), kuyruk ataması ve profil onayı (`queue.py` panel akışları) ve API `POST /api/queue/{id}/assign`, `POST /api/queue/documents/{id}/archive` (hazırlık `.../prepare` + `X-Confirmation-Token`; `get_confirmed_actor` 503 kaldırıldı) bu belirtece bağlandı — test `tests/web/test_confirm.py` (14: PRD tablosuyla birebir karşılaştırma, yalnız özet saklanır, bir kez tüketilir, geri alınan işlem tüketmez, belirteçsiz/tanınmayan/süresi geçmiş/başka oturum-kullanıcı-işlem-hedef reddi, `USER_CONFIRMED` verisi), `tests/web/test_queue.py` (21), `tests/web/test_queue_assign.py` (27), `tests/web/test_queue_new_profile.py` (29), `tests/web/test_upload_detail.py` (35), `tests/db/test_migrations.py` (8: 0004 geri alınabilir) · tm 73

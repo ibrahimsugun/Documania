@@ -2,10 +2,11 @@
 
 K16'nın manuel işlemleri — belgeyi başka çalışana taşı, kuyruk öğesini ata, onay bekleyen profili
 onayla, yeni türü onayla, arşive taşı, taramayı yoksay, çalışan profilini düzenle, çalışanı pasife
-al ve yeniden etkinleştir, profil alt kaydını kaldır, iki çalışanı birleştir (§D61) — iki onay
-ister. Onay metinleri §20.6 tablosundan **birebir** buradadır (`CONFIRMATION_TEXTS`); `<Ad Soyad>`,
-`<Birleşen Ad Soyad>`, `<Kalan Ad Soyad>`, `<Tür adı>`, `<N>` ve `<M>` yer tutucuları çalışma
-zamanında `fill` ile doldurulur, pencere kendi cümlesini yazmaz.
+al ve yeniden etkinleştir, profil alt kaydını kaldır, iki çalışanı birleştir, belgeyi arşivden geri
+al, kuyruk öğesini kapat (§D61) — iki onay ister. Onay metinleri §20.6 tablosundan **birebir**
+buradadır (`CONFIRMATION_TEXTS`); `<Ad Soyad>`, `<Birleşen Ad Soyad>`, `<Kalan Ad Soyad>`,
+`<Tür adı>`, `<N>` ve `<M>` yer tutucuları çalışma zamanında `fill` ile doldurulur, pencere kendi
+cümlesini yazmaz.
 
 Metni göstermek tek başına yetmez — istemci atlanabilir. Sunucu tarafı akış (§20.6.1):
 
@@ -67,6 +68,7 @@ class Operation(enum.StrEnum):
     REMOVE_PROFILE_RECORD = "remove_profile_record"  # profil alt kaydını kaldır, 10.5.8 (§D61)
     MERGE_EMPLOYEES = "merge_employees"  # iki çalışanı birleştir, 10.5.9 (§D61)
     UNARCHIVE = "unarchive"  # belgeyi arşivden geri al, 10.5.10 (§D61)
+    CLOSE_QUEUE_ITEM = "close_queue_item"  # kuyruk öğesini kapat, 10.7.4 (§D61)
     # §20.6'nın dışında: yeniden analizin onayı (10.3.2, metinler PLAN.md §D23).
     REANALYZE = "reanalyze"
     # §20.6'nın dışında (K16 dışı, PLAN.md §D58): eğitim örneğini başka türe taşı ve örneklerden
@@ -148,6 +150,10 @@ CONFIRMATION_TEXTS: dict[Operation, ConfirmationTexts] = {
     Operation.UNARCHIVE: ConfirmationTexts(
         "Bu belgeyi arşivden geri almak üzeresiniz. Emin misiniz?",
         "Belge çalışanın Hazır klasörüne dönecektir. Son kararınız mı?",
+    ),
+    Operation.CLOSE_QUEUE_ITEM: ConfirmationTexts(
+        "Bu kuyruk öğesini kapatmak üzeresiniz. Emin misiniz?",
+        "Öğe çözülmüş sayılacak, dosya kopyası ve gerekçesi yerinde kalacaktır. Son kararınız mı?",
     ),
 }
 

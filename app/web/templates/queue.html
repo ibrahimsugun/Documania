@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {# Kuyruk ekranları (10.7.1): üç kuyruk sekmesi, bekleyen sayaçları ve seçilen kuyruğun öğeleri.
-   Sayfa yalnız okur; atama ve onay eylemleri 10.7.2/10.7.3'ün işidir. #}
+   Atama ve onay eylemleri öğe detayındadır (10.7.2/10.7.3); "Çözülen" görünümünde kapatılan öğe
+   gerekçesiyle durur ve tek adımda yeniden açılır (10.7.4). #}
 {% block title %}{{ entry.label }}{% endblock %}
 {% block content %}
 <h1>{{ entry.label }}</h1>
@@ -41,7 +42,16 @@
         {% for source in row.sources %}<div>{{ source }}</div>{% else %}—{% endfor %}
       </td>
       <td class="reason-text">{{ row.reason }}</td>
-      {% if listing.state == "resolved" %}<td>{{ row.resolved }}</td>{% endif %}
+      {% if listing.state == "resolved" %}
+      <td>
+        {{ row.resolved }}
+        {% if row.can_reopen %}
+        <form method="post" action="/queues/{{ row.id }}/reopen" class="reopen-item">
+          <button type="submit">Yeniden aç</button>
+        </form>
+        {% endif %}
+      </td>
+      {% endif %}
     </tr>
     {% endfor %}
   </tbody>

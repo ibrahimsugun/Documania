@@ -1152,3 +1152,10 @@ form:not(.session) button[type="submit"]:hover,
 .merge-keep fieldset { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; margin: 0.5rem 0; border: 1px solid #d0d7de; border-radius: 6px; }
 .merge-summary { margin: 0.75rem 0; }
 .merge-summary tr.changed td { font-weight: 600; }
+
+/* 10.7.4: kuyruk öğesini kapatma — gerekçe seçimi, "Yeniden aç" düğmesi. 10.3.5: yoksaymayı geri al. */
+.close-reasons { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; margin: 0.5rem 0; border: 1px solid #d0d7de; border-radius: 6px; }
+.queue-close input[type="text"] { min-width: 20rem; padding: 0.3rem; border: 1px solid #d0d7de; border-radius: 4px; font: inherit; }
+.reopen-item { display: inline-block; margin: 0.25rem 0 0; }
+.dismissed-row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 1rem; }
+.dismissed-row .hint { flex-basis: 100%; margin: 0; }

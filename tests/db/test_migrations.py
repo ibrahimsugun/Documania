@@ -34,7 +34,7 @@ def _assert_schema_matches_models(database_url: str) -> None:
             assert tables == set(Base.metadata.tables) | {"alembic_version"}
             context = MigrationContext.configure(connection, opts={"compare_type": True})
             assert compare_metadata(context, Base.metadata) == []
-            assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "0018"
+            assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "0019"
     finally:
         engine.dispose()
 
@@ -1046,6 +1046,65 @@ def test_employee_merge_migration_adds_merged_into_and_the_merge_source_and_is_r
                 text("SELECT source FROM employee_field_observations ORDER BY id")
             ).scalars()
             assert list(sources) == ["manual"]
+    finally:
+        engine.dispose()
+
+
+def test_queue_item_close_migration_adds_the_reason_and_note_and_is_reversible(
+    sqlite_url: str,
+) -> None:
+    # 0019 (10.7.4): `queue_items.resolution` CHECK'i `closed`'u kabul eder; gerekçe kodu
+    # (`resolution_reason`, CHECK'li) ve not (`resolution_note`) boş olabilir, var olan öğeler
+    # kapatılmamış kalır. Geri alış iki sütunu düşürür ve kapatılmış öğenin nedenini boşaltır (eski
+    # CHECK'e sığmaz); öğe çözülmüş kalır, yoksayılmış öğe değişmez.
+    config = _alembic_config(sqlite_url)
+    command.upgrade(config, "0018")
+    engine = create_engine(sqlite_url)
+    insert_item = text(
+        "INSERT INTO queue_items (upload_id, kind, reason, resolved_at, resolved_by, resolution"
+        "{extra}) VALUES ('u_1', 'unknown', 'r', '2026-09-29 00:00:00', 'ik', :resolution{values})"
+    )
+    try:
+        with engine.begin() as connection:
+            connection.execute(
+                text(
+                    "INSERT INTO uploads (id, channel, status, created_at) "
+                    "VALUES ('u_1', 'web', 'done', '2026-09-29 00:00:00')"
+                )
+            )
+            connection.execute(
+                text(insert_item.text.format(extra="", values="")), {"resolution": "dismissed"}
+            )
+
+        command.upgrade(config, "head")
+        with engine.connect() as connection:
+            columns = {c["name"]: c for c in inspect(connection).get_columns("queue_items")}
+            assert columns["resolution_reason"]["nullable"]
+            assert columns["resolution_note"]["nullable"]
+            assert connection.execute(
+                text("SELECT resolution, resolution_reason, resolution_note FROM queue_items")
+            ).all() == [("dismissed", None, None)]
+        closed = text(
+            insert_item.text.format(
+                extra=", resolution_reason, resolution_note", values=", :reason, :note"
+            )
+        )
+        with engine.begin() as connection:
+            connection.execute(closed, {"resolution": "closed", "reason": "other", "note": "not"})
+        for resolution, reason in (("silindi", "other"), ("closed", "cop")):
+            with pytest.raises(IntegrityError), engine.begin() as connection:
+                connection.execute(
+                    closed, {"resolution": resolution, "reason": reason, "note": None}
+                )
+
+        command.downgrade(config, "0018")
+        with engine.connect() as connection:
+            columns = {c["name"] for c in inspect(connection).get_columns("queue_items")}
+            assert not {"resolution_reason", "resolution_note"} & columns
+            rows = connection.execute(
+                text("SELECT resolution, resolved_by FROM queue_items ORDER BY id")
+            ).all()
+            assert rows == [("dismissed", "ik"), (None, "ik")]
     finally:
         engine.dispose()
 

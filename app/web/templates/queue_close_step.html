@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{# Kuyruk öğesini kapatma (10.7.4): birinci onay (gerekçe seçimi, isteğe bağlı not ve §20.6 metni
+   birebir), ikinci onay (öğe + gerekçe + nota bağlı tek kullanımlık belirteç) ya da hata; yeniden
+   açmanın hatası da bu sayfadadır. Kuyruk klasöründeki kopya ve gerekçe dosyası silinmez (R11). Not
+   alanı `<input>`'tur. Form hedefleri açık yazılır: `tests/web/test_access_log.py` her POST hedefini
+   gözden geçirilmiş yollarla karşılaştırır. #}
+{% block title %}{{ title }} {{ queue_item_id }}{% endblock %}
+{% block content %}
+<p class="back"><a href="/queues/{{ queue_item_id }}">← Kuyruk öğesi {{ queue_item_id }}</a></p>
+<h1>{{ title }}</h1>
+{% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+{% if step %}
+<dl class="record-summary close-summary">
+  <dt>Kuyruk</dt><dd>{{ step.kind_label }} · {{ step.state_label }}</dd>
+  <dt>Parti</dt><dd><a href="/uploads/{{ step.upload_id }}">{{ step.upload_id }}</a></dd>
+  <dt>Belge türü</dt><dd>{{ step.type_name or "Belirlenmedi" }}</dd>
+  <dt>Kuyruk gerekçesi</dt><dd class="reason-text">{{ step.reason }}</dd>
+</dl>
+{% endif %}
+{% if first_confirmation %}
+<form method="post" action="/queues/{{ queue_item_id }}/close/prepare" class="confirm queue-close">
+  <p class="hint">Kapatılan öğe çözülmüş sayılır ve kuyruk sayacından düşer; "Çözülen" görünümünde gerekçesiyle durur ve "Yeniden aç" ile geri açılabilir. Kuyruk klasöründeki kopya ve gerekçe dosyası silinmez; sayfaları aday tür görülmelerinde kalır.</p>
+  <fieldset class="close-reasons">
+    <legend>Kapatma gerekçesi</legend>
+    {% for choice in choices %}
+    <label><input type="radio" name="reason" value="{{ choice.value }}" required{% if choice.checked %} checked{% endif %}> {{ choice.label }}</label>
+    {% endfor %}
+  </fieldset>
+  <label for="close-note">Not ("Diğer" gerekçesinde zorunlu)</label>
+  <input id="close-note" name="note" type="text" maxlength="{{ note_limit }}" value="{{ note }}" autocomplete="off">
+  <p class="confirm-text" role="alert">{{ first_confirmation }}</p>
+  <button type="submit">Evet, devam et</button>
+  <a href="/queues/{{ queue_item_id }}">Vazgeç</a>
+</form>
+{% elif second_confirmation %}
+<form method="post" action="/queues/{{ queue_item_id }}/close" class="confirm queue-close-step">
+  <p class="reason">Kapatma gerekçesi: {{ close_reason_label }}{% if note %} — {{ note }}{% endif %}</p>
+  <p class="confirm-text" role="alert">{{ second_confirmation }}</p>
+  <input type="hidden" name="reason" value="{{ close_reason }}">
+  <input type="hidden" name="note" value="{{ note }}">
+  <input type="hidden" name="confirmation" value="{{ confirmation }}">
+  <button type="submit">Evet, kapat</button>
+  <a href="/queues/{{ queue_item_id }}">Vazgeç</a>
+</form>
+{% elif retry %}
+<p><a href="/queues/{{ queue_item_id }}/close/confirm">Onayı yeniden başlatın</a></p>
+{% endif %}
+{% endblock %}

@@ -136,9 +136,19 @@ class QueueKind(enum.StrEnum):
 class QueueResolution(enum.StrEnum):
     """Kuyruk öğesinin çözüm nedeni (`queue_items.resolution`). Atama (08.2.1) ve profil onayı
     (08.3.1) nedeni yazmaz — kendi olayları (`MANUAL_ASSIGN`, `MANUAL_APPROVE`) ve çıktıları
-    anlatır; yalnız partisi yoksayılınca (10.3.4) kapanan öğe `dismissed` taşır."""
+    anlatır. Partisi yoksayılınca (10.3.4) kapanan öğe `dismissed`, İK'nın gerekçeyle kapattığı öğe
+    (10.7.4) `closed` taşır; gerekçe kodu ve notu `resolution_note`'tadır."""
 
     DISMISSED = "dismissed"
+    CLOSED = "closed"
+
+
+class QueueCloseReason(enum.StrEnum):
+    """Kapatılan kuyruk öğesinin gerekçe kodu (10.7.4; `queue_items.resolution_reason`)."""
+
+    NOT_A_DOCUMENT = "not_a_document"
+    ALREADY_EXISTS = "already_exists"
+    OTHER = "other"
 
 
 class DocumentStatus(enum.StrEnum):
@@ -571,6 +581,7 @@ class QueueItem(Base):
     __table_args__ = (
         CheckConstraint(_one_of("kind", QueueKind), name="kind"),
         CheckConstraint(_one_of("resolution", QueueResolution), name="resolution"),
+        CheckConstraint(_one_of("resolution_reason", QueueCloseReason), name="resolution_reason"),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -586,6 +597,9 @@ class QueueItem(Base):
     resolved_at: Mapped[datetime | None] = mapped_column(UtcDateTime)
     resolved_by: Mapped[str | None] = mapped_column(String(255))
     resolution: Mapped[str | None] = mapped_column(String(16))  # `QueueResolution`
+    # 10.7.4: kapatılan öğenin (`closed`) gerekçe kodu (`QueueCloseReason`) ve İK'nın notu.
+    resolution_reason: Mapped[str | None] = mapped_column(String(32))
+    resolution_note: Mapped[str | None] = mapped_column(String(200))
 
     upload: Mapped[Upload] = relationship(back_populates="queue_items")
     plan: Mapped[Plan | None] = relationship()

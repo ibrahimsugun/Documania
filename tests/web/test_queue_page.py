@@ -645,12 +645,13 @@ def test_item_events_are_only_those_of_that_item(
 # --- sınırlar ----------------------------------------------------------------------------------
 
 
-def test_queue_screens_are_read_only_except_the_assignment_and_profile_steps(
+def test_queue_screens_are_read_only_except_the_assignment_profile_and_close_steps(
     app: FastAPI,
 ) -> None:
-    # 10.7.1 yalnız gösterir; eylemler 10.7.2'nin iki onaylı ataması (`test_queue_assign.py`) ve
-    # 10.7.3'ün iki onaylı profil oluşturmasıdır (`test_queue_new_profile.py`). Belge içeriğini
-    # düzenleyen yol yoktur (K17).
+    # 10.7.1 yalnız gösterir; eylemler 10.7.2'nin iki onaylı ataması (`test_queue_assign.py`),
+    # 10.7.3'ün iki onaylı profil oluşturması (`test_queue_new_profile.py`) ve 10.7.4'ün iki
+    # onaylı kapatması ile tek adımlı yeniden açmasıdır (`test_queue_close.py`; tm 131 listeyi
+    # bilerek genişletti). Belge içeriğini düzenleyen yol yoktur (K17).
     methods = {
         path: set(operations)
         for path, operations in app.openapi()["paths"].items()
@@ -667,6 +668,10 @@ def test_queue_screens_are_read_only_except_the_assignment_and_profile_steps(
         "/queues/{queue_item_id}/profile/confirm": {"post"},
         "/queues/{queue_item_id}/profile/prepare": {"post"},
         "/queues/{queue_item_id}/profile": {"post"},
+        "/queues/{queue_item_id}/close/confirm": {"get"},
+        "/queues/{queue_item_id}/close/prepare": {"post"},
+        "/queues/{queue_item_id}/close": {"post"},
+        "/queues/{queue_item_id}/reopen": {"post"},
     }
 
 

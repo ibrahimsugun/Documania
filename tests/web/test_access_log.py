@@ -351,6 +351,17 @@ REVIEWED_MUTATING_ROUTES: dict[tuple[str, str], str] = {
     ("POST", "/queues/{queue_item_id}/profile"): "profil onayı (K16)",
     ("POST", "/queues/{queue_item_id}/profile/confirm"): "onay metni",
     ("POST", "/queues/{queue_item_id}/profile/prepare"): "onay belirteci",
+    ("POST", "/queues/{queue_item_id}/close/prepare"): "onay belirteci",
+    ("POST", "/queues/{queue_item_id}/close"): (
+        "kuyruk öğesini kapatma: çözüm alanları; kopya ve reason.json yerinde, silme yok "
+        "(10.7.4, K16, R11)"
+    ),
+    ("POST", "/queues/{queue_item_id}/reopen"): (
+        "kapatılan kuyruk öğesini yeniden açma: çözüm alanları temizlenir (10.7.4, §D61)"
+    ),
+    ("POST", "/uploads/{upload_id}/undismiss"): (
+        "yoksaymayı geri alma: kayıt alanı, yoksaymayla kapanan öğeler açılır (10.3.5, §D61)"
+    ),
     ("POST", "/api/queue/{queue_item_id}/assign"): "kuyruk ataması (K16)",
     ("POST", "/api/queue/{queue_item_id}/assign/prepare"): "onay belirteci",
     ("POST", "/api/queue/documents/{document_id}/archive"): "arşive taşıma (K16)",

@@ -1,7 +1,8 @@
 {% extends "base.html" %}
 {# Kuyruk öğesi detayı (10.7.1): gerekçe, tür ve kişi tahmini, kaynak dosyalar ve sayfa görüntüleri.
-   Belge içeriği değiştirilmez; eylemler bekleyen öğeyi çalışana atamak (10.7.2) ve onay bekleyen
-   profili düzenleyip onaylamaktır (10.7.3), ikisi de iki onaylı. #}
+   Belge içeriği değiştirilmez; eylemler bekleyen öğeyi çalışana atamak (10.7.2), onay bekleyen
+   profili düzenleyip onaylamak (10.7.3) ve çözülmemiş öğeyi gerekçeyle kapatmaktır (10.7.4) — üçü de
+   iki onaylı; kapatılan öğe tek adımda yeniden açılır. #}
 {% block title %}{{ "Kuyruk öğesi " ~ item.id if item else "Kuyruk öğesi bulunamadı" }}{% endblock %}
 {% block content %}
 {% if error %}
@@ -11,6 +12,7 @@
 {% else %}
 <p class="back"><a href="{{ item.tab_url }}">← {{ item.kind_label }} kuyruğu</a></p>
 <h1>Kuyruk öğesi {{ item.id }}</h1>
+{% if item.notice %}<p class="notice notice-success" role="status">{{ item.notice }}</p>{% endif %}
 {% if item.note %}<p class="notice" role="note">{{ item.note }}</p>{% endif %}
 <dl class="meta">
   <dt>Kuyruk</dt><dd>{{ item.kind_label }}</dd>
@@ -80,6 +82,27 @@
   <p class="hint">Atama iki onay ister. Çıktı öğenin donmuş planından üretilir, yapay zekâ çağrılmaz; belge içeriği değişmez.</p>
   {% else %}
   <p class="notice">{{ item.assign_note }}</p>
+  {% endif %}
+</section>
+{% endif %}
+
+{% if item.can_close %}
+{# 10.7.4: çöp sayfa ya da mükerrer belge gerekçeyle, iki aşamalı onayla (§20.6) kapatılır. #}
+<section id="close" class="actions" aria-labelledby="close-title">
+  <h2 id="close-title">Öğeyi kapat</h2>
+  <p class="hint">Belge değilse (boş ya da çöp sayfa) veya belge zaten sistemdeyse öğeyi gerekçeyle kapatın. Öğe çözülmüş sayılır; kuyruk klasöründeki kopya ve gerekçe dosyası silinmez, "Yeniden aç" ile geri açılabilir.</p>
+  <p><a class="button-link close-item" href="/queues/{{ item.id }}/close/confirm">Öğeyi kapat</a></p>
+</section>
+{% elif item.can_reopen or item.reopen_note %}
+<section id="reopen" class="actions" aria-labelledby="reopen-title">
+  <h2 id="reopen-title">Kapatılan öğe</h2>
+  {% if item.can_reopen %}
+  <form method="post" action="/queues/{{ item.id }}/reopen" class="reopen-item">
+    <button type="submit">Yeniden aç</button>
+  </form>
+  <p class="hint">Yeniden açılan öğe kuyruğa döner; planı ve kaynakları değişmez.</p>
+  {% else %}
+  <p class="notice">{{ item.reopen_note }}</p>
   {% endif %}
 </section>
 {% endif %}
