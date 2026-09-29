@@ -980,7 +980,8 @@ def test_panel_has_no_way_to_change_a_document(
     # Belge paketi yolları (14.2) paket kaydını yazar; belgeye ve dosyasına dokunmaz
     # (`tests/web/test_packages.py`). Profil düzenleme yolları (10.5.6) çalışan kaydını yazar ve
     # dosyaları yalnız yeniden adlandırır; içerik bayt bayt aynı kalır
-    # (`tests/web/test_employee_fields.py`).
+    # (`tests/web/test_employee_fields.py`). Durum yolları (10.5.7) yalnız çalışanın durumunu
+    # çevirir; dosyaya dokunmaz (`tests/web/test_employee_status.py`).
     assert profile_paths == {
         "/employees/{employee_id}/fields": {"get", "post"},
         "/employees/{employee_id}/fields/prepare": {"post"},
@@ -991,6 +992,9 @@ def test_panel_has_no_way_to_change_a_document(
         "/employees/{employee_id}/packages": {"post"},
         "/employees/{employee_id}/packages/{package_id}/cancel": {"post"},
         "/employees/{employee_id}/packages/{package_id}/reopen": {"post"},
+        "/employees/{employee_id}/status/confirm": {"get"},
+        "/employees/{employee_id}/status/prepare": {"post"},
+        "/employees/{employee_id}/status": {"post"},
     }
 
     urls = (

@@ -6,7 +6,9 @@
 `write_profile` çağrısı güncel hâli üretir (09.1.1); ne zaman çağrılacağı çağıranın işidir, bu
 modül yalnız üretir.
 
-YAML ön blok ve kimlik tablosu aynı alanları taşır: `given_names`/`surname` Latin yazımdır
+Kimlik tablosunun "Durum" satırı çalışanın durumunu gösterir (Aktif, Pasif, Birleşti; 10.5.7): pasif
+çalışanın klasörü ve belgeleri yerinde kalır, yalnız yeni belgeleri otomatik yerleşmez. YAML ön blok
+ve kimlik tablosu aynı kimlik alanlarını taşır: `given_names`/`surname` Latin yazımdır
 (05.2.2), `original_script_name` ismin belgede basılı hâlidir — alfabesi ne olursa olsun, Latin
 belgede de dolu. İkisi birlikte göründüğü için ayrı bir dönüştürme adımı gerekmez (09.1.2).
 Okunmamış alan `—` ile gösterilir; içerik üretilmez, yalnız var olan veritabanı satırı
@@ -32,6 +34,7 @@ from sqlalchemy.orm import Session
 
 from app.db.models import Document, Employee, EmployeeContact, EmployeeIdentifier, KnownDocumentType
 from app.groups import PackageView, employee_packages
+from app.matching.status import status_label
 from app.storage import DataLayout, StoredFile, replace_file
 
 # §8.1 `employee_contacts.kind` → kimlik tablosu satır etiketi.
@@ -145,6 +148,7 @@ def _identity_table(
     contact_by_kind = {contact.kind: contact.value for contact in contacts}
     rows = [
         ("Çalışan no", employee.id),
+        ("Durum", status_label(employee.status)),
         ("Ad", employee.given_names),
         ("Soyad", employee.surname),
         ("Diğer isimler", employee.other_names or _EMPTY),

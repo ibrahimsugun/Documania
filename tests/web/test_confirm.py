@@ -46,6 +46,8 @@ PRD_OPERATIONS = {
     "Belgeyi arşive taşı": Operation.ARCHIVE,
     "Taramayı yoksay": Operation.DISMISS,
     "Çalışan profilini düzenle": Operation.EDIT_EMPLOYEE,  # 10.5.6, §D61 (tm 126)
+    "Çalışanı pasife al": Operation.DEACTIVATE_EMPLOYEE,  # 10.5.7, §D61 (tm 127)
+    "Çalışanı yeniden etkinleştir": Operation.REACTIVATE_EMPLOYEE,  # 10.5.7, §D61 (tm 127)
 }
 TARGET = "7:E0002"
 
@@ -143,6 +145,22 @@ def test_the_profile_edit_count_is_filled_and_never_shown_empty() -> None:
         second_text(Operation.EDIT_EMPLOYEE)
     with pytest.raises(ValueError, match="ikisi birden"):
         second_text(Operation.DISMISS, queue_items=1, count=1, documents=1)
+
+
+def test_the_status_change_names_the_employee_and_never_shows_the_placeholder() -> None:
+    # 10.5.7: birinci metin çalışanın adını taşır, ikinci metin yer tutucusuzdur.
+    assert first_text(Operation.DEACTIVATE_EMPLOYEE, name="Ivan Petrov") == (
+        "Ivan Petrov çalışanını pasife almak üzeresiniz. Emin misiniz?"
+    )
+    assert first_text(Operation.REACTIVATE_EMPLOYEE, name="Ivan Petrov") == (
+        "Ivan Petrov çalışanını yeniden etkinleştirmek üzeresiniz. Emin misiniz?"
+    )
+    assert second_text(Operation.DEACTIVATE_EMPLOYEE) == (
+        "Bu çalışana gelen yeni belgeler otomatik yerleşmeyecek, kuyruğa düşecektir. Son "
+        "kararınız mı?"
+    )
+    with pytest.raises(ValueError, match="<Ad Soyad>"):
+        first_text(Operation.DEACTIVATE_EMPLOYEE)
 
 
 # --- §20.6.1: tek kullanımlık belirteç ------------------------------------------------------------

@@ -23,6 +23,7 @@ from sqlalchemy.orm import Session, sessionmaker
 import app.web.confirm as confirm
 from app.db.models import Document, Employee, Event, QueueItem, QueueKind, utcnow
 from app.events import EventType
+from app.matching.status import inactive_employee_reason
 from app.storage import DataLayout, sha256_file
 from app.web.auth import SESSION_COOKIE, get_current_user
 from app.web.confirm import CONFIRMATION_REFUSED, Operation, second_text
@@ -230,6 +231,105 @@ def test_long_result_lists_are_cut_and_say_so(
 
     assert "30 çalışan bulundu; ilk 25 gösteriliyor, aramayı daraltın" in html
     assert html.count('class="select-assignee"') == 25
+
+
+# --- 10.5.7: pasif çalışan ---------------------------------------------------------------------
+
+
+def _deactivate(session_factory: sessionmaker[Session], employee_id: str) -> None:
+    with session_factory() as session:
+        session.get_one(Employee, employee_id).status = "inactive"
+        session.commit()
+
+
+def test_search_finds_an_inactive_employee_with_the_suffix_and_assigns_to_them(
+    client: TestClient,
+    session_factory: sessionmaker[Session],
+    layout: DataLayout,
+    item_id: int,
+) -> None:
+    # Atama (10.7.2) pasif çalışana izinlidir; arama sonucunda "(pasif)" eki vardır.
+    _deactivate(session_factory, OTHER)
+
+    html = client.get(f"/queues/{item_id}/assign/employees", params={"q": "biri"}).text
+
+    row = html.split(f"<td>{OTHER}</td>", 1)[1].split("</tr>", 1)[0]
+    assert '<span class="status-badge status-passive">(pasif)</span>' in row
+    assert f'hx-get="/queues/{item_id}/assign/confirm?employee_id={OTHER}"' in row
+    kayitli = client.get(f"/queues/{item_id}/assign/employees", params={"q": "kayitli"}).text
+    assert "(pasif)" not in kayitli
+    assert _assign(client, item_id, _prepare(client, item_id, OTHER), OTHER).status_code == 200
+    with session_factory() as session:
+        (document,) = session.scalars(select(Document)).all()
+        assert document.employee_id == OTHER
+        assert session.get_one(Employee, OTHER).status == "inactive"  # atama durumu değiştirmez
+    assert layout.resolve(document.path).parent == layout.ready_dir("Baska_Biri_E0043")
+
+
+def _inactive_item(session_factory: sessionmaker[Session], employee_id: str) -> int:
+    with session_factory() as session:
+        upload = _upload(session, "P-PASIF")
+        plan = _plan(session, upload, 1)
+        source = _source_file(session, upload, "pasaport.pdf", page_count=1)
+        guess = {"action": "match", "employee_id": employee_id, "matched_by": "document_number"}
+        row = _queue_item(
+            session,
+            upload,
+            plan,
+            QueueKind.UNRESOLVED,
+            reason=inactive_employee_reason(employee_id),
+            payload=_payload(source.id, [0], slug=PERMIT, guess=guess),
+        )
+        session.commit()
+        return row.id
+
+
+def test_item_matched_with_an_inactive_employee_says_so_and_links_the_profile(
+    client: TestClient, session_factory: sessionmaker[Session], item_id: int
+) -> None:
+    _deactivate(session_factory, OTHER)
+    inactive_item = _inactive_item(session_factory, OTHER)
+
+    html = client.get(f"/queues/{inactive_item}").text
+
+    notice = html.split('<p class="notice inactive-notice" role="status">', 1)[1].split("</p>")[0]
+    assert "Pasif çalışan" in notice
+    assert f'<a href="/employees/{OTHER}">Baska Biri ({OTHER})</a>' in notice
+    assert "ile eşleşti — atayın ya da çalışanı etkinleştirin." in notice
+    assert "(inactive_employee)" in html  # gerekçe kodu gerekçe satırında
+    assert "inactive-notice" not in client.get(f"/queues/{item_id}").text
+
+    # Çalışan o arada etkinleştirildiyse bildirim bunu söyler; öğe yine kendiliğinden yerleşmez.
+    with session_factory() as session:
+        session.get_one(Employee, OTHER).status = "active"
+        session.commit()
+    notice = client.get(f"/queues/{inactive_item}").text.split("inactive-notice", 1)[1]
+    assert "çalışan şimdi aktif" in notice.split("</p>", 1)[0]
+
+
+def test_inactive_reason_without_a_known_employee_shows_no_notice(
+    client: TestClient, session_factory: sessionmaker[Session], item_id: int
+) -> None:
+    # Kişi tahmini kayıtlı bir çalışanı göstermiyorsa bildirim çizilmez; gerekçe yine görünür.
+    unknown_item = _inactive_item(session_factory, "E9999")
+
+    html = client.get(f"/queues/{unknown_item}").text
+
+    assert "inactive-notice" not in html
+    assert "(inactive_employee)" in html
+
+
+def test_resolved_inactive_item_shows_no_call_to_action(
+    client: TestClient, session_factory: sessionmaker[Session], item_id: int
+) -> None:
+    _deactivate(session_factory, OTHER)
+    inactive_item = _inactive_item(session_factory, OTHER)
+    with session_factory() as session:
+        row = session.get_one(QueueItem, inactive_item)
+        row.resolved_at, row.resolved_by = utcnow(), SIGNED_IN.username
+        session.commit()
+
+    assert "inactive-notice" not in client.get(f"/queues/{inactive_item}").text
 
 
 # --- iki aşamalı onay -----------------------------------------------------------------------------

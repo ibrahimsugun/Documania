@@ -32,6 +32,16 @@
   <dt>Kişi tahmini</dt><dd>{{ item.employee_guess or "—" }}</dd>
   <dt>Gerekçe</dt><dd class="reason-text">{{ item.reason }}</dd>
 </dl>
+{% if item.inactive_employee %}
+{# 10.5.7: pasif çalışanla eşleşen öğe; İK ya atar ya çalışanı etkinleştirir. #}
+<p class="notice inactive-notice" role="status">
+  {% if item.inactive_employee.inactive %}
+  Pasif çalışan <a href="/employees/{{ item.inactive_employee.id }}">{{ item.inactive_employee.name }} ({{ item.inactive_employee.id }})</a> ile eşleşti — atayın ya da çalışanı etkinleştirin.
+  {% else %}
+  Bu öğe pasif çalışan <a href="/employees/{{ item.inactive_employee.id }}">{{ item.inactive_employee.name }} ({{ item.inactive_employee.id }})</a> ile eşleştiği için kuyruğa düştü; çalışan şimdi {{ item.inactive_employee.status_label|lower }}. Öğeyi atayın ya da partiyi yeniden analiz edin.
+  {% endif %}
+</p>
+{% endif %}
 
 {% if item.profile_form or item.profile_note %}
 {# 10.7.3: önerilen profil düzenlenip iki aşamalı onayla (§20.6) çalışan olarak açılır; belge

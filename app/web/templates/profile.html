@@ -5,7 +5,9 @@
    varsa kişi denetiminin uyarısı en üstte (10.5.5). Belge paketleri (14.2) kart hâlinde: kalem
    tikleri belgelerden hesaplanır; paket tanımlama, iptal ve yeniden açma tek adımlı formlardır.
    "Profili düzenle" (10.5.6) çalışan kaydının alanlarını iki aşamalı onayla değiştiren sayfaya
-   gider. Sayfa belge içeriğini değiştiren yol taşımaz. #}
+   gider. "Pasife al" / "Yeniden etkinleştir" (10.5.7) iki aşamalı onay sayfasına gider; pasif
+   çalışanda üstte bildirim durur ve yükleme formu yoktur. Sayfa belge içeriğini değiştiren yol
+   taşımaz. #}
 {% from "_context_warning.html" import context_warning %}
 {% block title %}{{ profile.name if profile else "Çalışan bulunamadı" }}{% endblock %}
 {% block content %}
@@ -15,8 +17,16 @@
 <p class="error" role="alert">{{ error }}</p>
 {% else %}
 <h1>{{ profile.name }}</h1>
-<p class="profile-meta">{{ profile.id }} · {{ profile.status_label }} · <a href="/access-log/employees/{{ profile.id }}">Erişim logu</a>{% if profile.editable %} · <a href="/employees/{{ profile.id }}/fields" class="edit-profile">Profili düzenle</a>{% endif %}</p>
+<p class="profile-meta">{{ profile.id }} · {% if profile.inactive %}<span class="status-badge status-passive">{{ profile.status_label }}</span>{% else %}{{ profile.status_label }}{% endif %} · <a href="/access-log/employees/{{ profile.id }}">Erişim logu</a>{% if profile.editable %} · <a href="/employees/{{ profile.id }}/fields" class="edit-profile">Profili düzenle</a>{% endif %}{% if profile.status_action == "inactive" %} · <a href="/employees/{{ profile.id }}/status/confirm?to=inactive" class="status-action">Pasife al</a>{% endif %}</p>
 {% if profile_notice %}<p class="notice notice-success" role="status">{{ profile_notice }}</p>{% endif %}
+{% if profile.inactive %}
+{# 10.5.7: pasif çalışanın bildirimi; kimin, ne zaman ve (varsa) hangi notla pasife aldığı. #}
+<div class="notice inactive-notice" role="status">
+  <p><span class="status-badge status-passive">Pasif çalışan</span> Bu çalışana gelen yeni belgeler otomatik yerleşmez, "pasif çalışan" gerekçesiyle Unresolved kuyruğuna düşer; profilden yükleme kapalıdır. Klasör ve belgeler yerinde duruyor.</p>
+  {% if profile.deactivation %}<p class="reason">Pasife alan: {{ profile.deactivation.actor or "—" }} · {{ profile.deactivation.at.strftime("%d.%m.%Y %H:%M") }}{% if profile.deactivation.reason %} · Not: {{ profile.deactivation.reason }}{% endif %}</p>{% endif %}
+  <p><a href="/employees/{{ profile.id }}/status/confirm?to=active" class="status-action">Yeniden etkinleştir</a></p>
+</div>
+{% endif %}
 {{ context_warning(profile.context_warning) }}
 {% if profile.latin_missing %}
 <p class="missing" role="status"><span class="badge badge-missing">Latin yazım eksik</span> Ad, soyad ya da diğer isimler Latin olmayan harf taşıyor; Latin yazım belgede ve isim yazımlarında bulunamadı.</p>
@@ -179,6 +189,9 @@
 
 <section class="profile-upload">
   <h2>Belge yükle</h2>
+  {% if not profile.can_upload %}
+  <p class="placeholder">Pasif çalışana belge yüklenmez. Yüklemek için önce çalışanı yeniden etkinleştirin.</p>
+  {% else %}
   <form id="upload-form" class="upload-form"
         hx-post="/upload" hx-encoding="multipart/form-data"
         hx-target="#upload-result" hx-swap="innerHTML"
@@ -196,6 +209,7 @@
     <button type="submit">Yükle</button>
   </form>
   <section id="upload-result" class="upload-result" aria-live="polite"></section>
+  {% endif %}
 </section>
 {% endif %}
 {% endblock %}

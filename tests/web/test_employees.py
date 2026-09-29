@@ -1,5 +1,6 @@
 """10.4.1, 10.4.2 — çalışan listesi (ad, orijinal yazım, uyruk, belge sayısı, durum) ve arama (ad,
-alias, orijinal yazım, belge numarası, belge türü).
+alias, orijinal yazım, belge numarası, belge türü); 10.5.7 — durum süzgeci (Aktif varsayılan, Pasif,
+Hepsi) ve sayaçları.
 
 Veri sentetiktir (çalışanlar, alias'lar, numaralar, belgeler doğrudan satır olarak yazılır); gerçek
 kimlik belgesi ya da yapay zekâ çağrısı yoktur. Sayfa yalnız okur: sınamalar HTTP katmanından
@@ -113,7 +114,7 @@ ARCHIVED = DocumentStatus.ARCHIVED.value
 @pytest.fixture
 def seeded(session_factory: sessionmaker[Session]) -> None:
     """Dört çalışan: Kiril yazımlı Rus, Türk (aksanlı), iki eski sürüm/arşiv belgeli Gürcü ve
-    belgesiz biri."""
+    belgesiz, pasif biri (10.5.7: varsayılan listede görünmez)."""
     with session_factory() as session:
         _catalog(session)
         _employee(
@@ -153,7 +154,7 @@ def seeded(session_factory: sessionmaker[Session]) -> None:
             "Anna",
             "Zeta",
             nationality=None,
-            status="pending",
+            status="inactive",
             aliases=["Anna Zeta"],
         )
         session.commit()
@@ -206,9 +207,12 @@ def test_list_shows_name_original_writing_nationality_document_count_and_status(
     assert rows["E0002"] == ["E0002", "Şükrü Öztürk", "—", "TUR", "1", "—", "Aktif"]
     # Belge sayısı yalnız etkin belgedir: eski sürüm ve arşive taşınan sayılmaz.
     assert rows["E0003"][4] == "1"
-    # Belgesiz, uyruksuz ve Aktif dışı durumlu çalışan da listelenir; bilinmeyen durum ham görünür;
-    # paketi olmayan çalışanın paket hücresi "—" (14.3.1).
-    assert rows["E0004"] == ["E0004", "Anna Zeta", "—", "—", "0", "—", "pending"]
+    # 10.5.7: pasif çalışan varsayılan (Aktif) listede yoktur.
+    assert "E0004" not in rows
+    # "Hepsi"nde belgesiz, uyruksuz ve pasif çalışan da listelenir; durumu "Pasif" (tm 127'ye dek
+    # tanınmayan durum ham görünüyordu); paketi olmayan çalışanın paket hücresi "—" (14.3.1).
+    everyone = {row[0]: row for row in _rows(client.get("/employees?status=all").text)}
+    assert everyone["E0004"] == ["E0004", "Anna Zeta", "—", "—", "0", "—", "Pasif"]
 
 
 def test_list_is_sorted_by_surname_then_given_name_ignoring_case(
@@ -396,8 +400,123 @@ def test_every_term_must_match_some_field(client: TestClient) -> None:
 
 @pytest.mark.usefixtures("seeded")
 def test_blank_query_lists_everyone(client: TestClient) -> None:
-    assert len(_ids(client, "")) == 4
-    assert len(_ids(client, "   ")) == 4
+    # Varsayılan süzgeç etkin çalışanlardır (10.5.7); "Hepsi" pasifi de sayar.
+    assert len(_ids(client, "")) == 3
+    assert len(_ids(client, "   ")) == 3
+    assert len(_ids(client, "", status="all")) == 4
+
+
+# --- 10.5.7: durum süzgeci ---------------------------------------------------------------------
+
+
+def _status_options(html: str) -> list[tuple[str, str, bool]]:
+    select_html = html.split('<select id="employee-status" name="status">', 1)[1].split(
+        "</select>", 1
+    )[0]
+    return [
+        (value, re.sub(r"\s+", " ", label).strip(), bool(selected))
+        for value, selected, label in re.findall(
+            r'<option value="([^"]+)"( selected)?>(.*?)</option>', select_html, re.S
+        )
+    ]
+
+
+@pytest.mark.usefixtures("seeded")
+def test_status_filter_defaults_to_active_and_counts_each_choice(client: TestClient) -> None:
+    page = client.get("/employees")
+
+    assert _status_options(page.text) == [
+        ("active", "Aktif (3)", True),
+        ("inactive", "Pasif (1)", False),
+        ("all", "Hepsi (4)", False),
+    ]
+    assert _ids(client, "", status="inactive") == ["E0004"]
+    assert sorted(_ids(client, "", status="all")) == ["E0001", "E0002", "E0003", "E0004"]
+    assert "yalnız pasif çalışanlar" in client.get("/employees?status=inactive").text
+    # Pasif satırın durumu rozettir; metin yine "Pasif".
+    assert '<span class="status-badge status-passive">Pasif</span>' in (
+        client.get("/employees?status=inactive").text
+    )
+
+
+@pytest.mark.usefixtures("seeded")
+def test_status_filter_combines_with_the_search_and_its_counts_follow_the_search(
+    client: TestClient,
+) -> None:
+    page = client.get("/employees", params={"q": "anna", "status": "inactive"})
+
+    assert _ids(client, "anna") == []  # pasif, varsayılanda görünmez
+    assert _ids(client, "anna", status="inactive") == ["E0004"]
+    assert _status_options(page.text) == [
+        ("active", "Aktif (0)", False),
+        ("inactive", "Pasif (1)", True),
+        ("all", "Hepsi (1)", False),
+    ]
+
+
+@pytest.mark.usefixtures("seeded")
+@pytest.mark.parametrize("value", ["", "merged", "pending", "ALL"])
+def test_unknown_status_filter_falls_back_to_active(client: TestClient, value: str) -> None:
+    assert sorted(_ids(client, "", status=value)) == ["E0001", "E0002", "E0003"]
+
+
+def test_merged_employee_shows_only_under_all(
+    client: TestClient, session_factory: sessionmaker[Session]
+) -> None:
+    # 10.5.9 (tm 129) birleştirilen çalışanı `merged` yapar; o yalnız "Hepsi"nde görünür.
+    with session_factory() as session:
+        _employee(session, 1, "Kalan", "Kayit")
+        _employee(session, 2, "Birlesen", "Kayit", status="merged")
+        session.commit()
+
+    assert _ids(client) == ["E0001"]
+    assert _ids(client, "", status="inactive") == []
+    everyone = {row[0]: row for row in _rows(client.get("/employees?status=all").text)}
+    assert everyone["E0002"][-1] == "Birleşti"
+
+
+def test_status_filter_is_kept_in_the_page_links(
+    session_factory: sessionmaker[Session], crowd: int
+) -> None:
+    with session_factory() as session:
+        for employee in session.scalars(select(Employee)):
+            employee.status = "inactive"
+        session.flush()
+        middle = list_employees(session, "kalabalik", 2, status_filter="inactive")
+        first = list_employees(session, "", 1, status_filter="inactive")
+        active = list_employees(session, "", 1)
+        session.rollback()
+
+    assert (middle.total, middle.page) == (crowd, 2)
+    assert middle.previous_url == "/employees?q=kalabalik&status=inactive"
+    assert first.next_url == "/employees?status=inactive&page=2"
+    assert active.total == 0
+    assert [option.url for option in first.status_options] == [
+        "/employees",
+        "/employees?status=inactive",
+        "/employees?status=all",
+    ]
+
+
+def test_search_statuses_replace_the_filter_and_draw_no_choices(
+    session_factory: sessionmaker[Session],
+) -> None:
+    # Atama ve taşıma aramaları etkin ve pasif çalışanı birlikte arar (10.7.2, 10.8.2).
+    with session_factory() as session:
+        _employee(session, 1, "Anna", "Etkin")
+        _employee(session, 2, "Anna", "Pasif", status="inactive")
+        _employee(session, 3, "Anna", "Birlesen", status="merged")
+        listing = list_employees(
+            session, "anna", statuses=frozenset({"active", "inactive"}), status_filter="all"
+        )
+        session.rollback()
+
+    assert sorted(row.id for row in listing.rows) == ["E0001", "E0002"]
+    assert [row.status_label for row in sorted(listing.rows, key=lambda row: row.id)] == [
+        "Aktif",
+        "Pasif",
+    ]
+    assert listing.status_options == []
 
 
 @pytest.mark.usefixtures("seeded")

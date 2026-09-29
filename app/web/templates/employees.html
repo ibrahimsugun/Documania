@@ -1,7 +1,8 @@
 {% extends "base.html" %}
 {# Çalışan listesi ve arama (10.4.1, 10.4.2). Arama HTMX ile `#employee-results`'ı yeniler ve adresi
    günceller; JavaScript olmadan da form gönderimi aynı adrese gider. "Eksik paketi olanlar" süzgeci
-   (14.3.1) aynı formun parçasıdır, aramayla birleşir. #}
+   (14.3.1) ve durum süzgeci (10.5.7: Aktif varsayılan, Pasif, Hepsi — sayılı) aynı formun
+   parçasıdır, aramayla birleşir. #}
 {% block title %}{{ entry.label }}{% endblock %}
 {% block content %}
 <h1>{{ entry.label }}</h1>
@@ -13,6 +14,12 @@
   <input type="search" id="employee-q" name="q" value="{{ listing.query }}" maxlength="100"
          placeholder="Ad, alias, orijinal yazım, belge numarası veya belge türü" autocomplete="off">
   <label class="employee-filter"><input type="checkbox" name="packages" value="missing"{% if listing.packages == "missing" %} checked{% endif %}> Eksik paketi olanlar</label>
+  <label class="employee-filter" for="employee-status">Durum</label>
+  <select id="employee-status" name="status">
+    {% for option in listing.status_options %}
+    <option value="{{ option.value }}"{% if option.selected %} selected{% endif %}>{{ option.label }} ({{ option.count }})</option>
+    {% endfor %}
+  </select>
   <button type="submit">Ara</button>
 </form>
 <div id="employee-results" aria-live="polite">

@@ -10,7 +10,8 @@ ya da `other`. Yapay zekâ veritabanını görmez; isteğe yalnız mesaj ve kata
    ve Kiril/Latin farkı yok) ve **tam kelime** olarak aranır: çalışanın ad yazımlarından biri
    (kayıttaki ad-soyad, diğer isimlerle birlikte, orijinal yazım ya da bir alias) aranan her
    kelimeyi taşımalıdır — "Ali" "Alican"ı bulmaz, "Çakar" her Çakar'ı bulur. Numara yazılmışsa
-   yalnız o çalışandır; ad da yazılmışsa ona uymalıdır, uymazsa sonuç yoktur.
+   yalnız o çalışandır; ad da yazılmışsa ona uymalıdır, uymazsa sonuç yoktur. Pasif çalışan
+   (10.5.7) da bulunur ve belgeleri gönderilir; adı yanıtta "(pasif)" ekiyle görünür.
 2. **Belgeler** (`find_documents`): çalışanın **etkin** belgeleri — eski sürüm (K18) ve arşivlenmiş
    (K16) belge önerilmez —, tür verilmişse yalnız o türlerden, yeniden eskiye.
 3. **Belirsizlik** (12.3.2): birden çok çalışan uyarsa önce çalışan, çalışanın birden çok belgesi
@@ -81,6 +82,7 @@ from app.db.models import (
     TelegramUser,
 )
 from app.matching.names import EmptyNameError, normalize_name
+from app.matching.status import status_suffix
 from app.storage import DataLayout
 from app.web.access import record_access
 
@@ -335,7 +337,7 @@ def _employee_question(
             details.append(f"doğum {employee.date_of_birth:%d.%m.%Y}")
         count = counts.get(employee.id, 0)
         details.append(f"{count} {kind}" if count else f"{kind} yok")
-        lines.append(f"{index}. {_full_name(employee)} — " + " — ".join(details))
+        lines.append(f"{index}. {_listed_name(employee)} — " + " — ".join(details))
     if len(employees) > MAX_OPTIONS:
         lines.append(MORE_EMPLOYEES_TEXT.format(count=len(employees) - MAX_OPTIONS))
     return Question(
@@ -368,8 +370,13 @@ def _full_name(employee: Employee) -> str:
     return f"{employee.given_names} {employee.surname}"
 
 
+def _listed_name(employee: Employee) -> str:
+    # 10.5.7: bot pasif çalışanı da bulur ve yanıtlar; adı "(pasif)" ekiyle görünür.
+    return _full_name(employee) + status_suffix(employee.status)
+
+
 def _employee_label(employee: Employee) -> str:
-    return f"{_full_name(employee)} ({employee.id})"
+    return f"{_full_name(employee)} ({employee.id}){status_suffix(employee.status)}"
 
 
 def _file_name(document: Document) -> str:

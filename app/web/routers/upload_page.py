@@ -59,6 +59,7 @@ from app.db.models import (
     Document,
     DocumentStatus,
     Employee,
+    EmployeeStatus,
     Event,
     Page,
     Plan,
@@ -185,7 +186,14 @@ def build_progress_view(session: Session, upload_id: str) -> ProgressView:
 
 
 def _employee_options(session: Session) -> list[Employee]:
-    return list(session.scalars(select(Employee).order_by(Employee.folder_name)))
+    # 10.5.7: pasif çalışana yükleme yapılmaz (409); seçimde yalnız etkin çalışanlar durur.
+    return list(
+        session.scalars(
+            select(Employee)
+            .where(Employee.status == EmployeeStatus.ACTIVE.value)
+            .order_by(Employee.folder_name)
+        )
+    )
 
 
 def _result(request: Request, status_code: int = 200, **context: object) -> HTMLResponse:

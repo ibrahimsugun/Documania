@@ -1,10 +1,10 @@
 """İki aşamalı onay mekanizması (PRD 10.8.1; K16, §20.6, §20.6.1).
 
 K16'nın manuel işlemleri — belgeyi başka çalışana taşı, kuyruk öğesini ata, onay bekleyen profili
-onayla, yeni türü onayla, arşive taşı, taramayı yoksay, çalışan profilini düzenle (§D61) — iki onay
-ister. Onay metinleri §20.6 tablosundan **birebir** buradadır (`CONFIRMATION_TEXTS`); `<Ad Soyad>`,
-`<Tür adı>`, `<N>` ve `<M>` yer tutucuları çalışma zamanında `fill` ile doldurulur, pencere kendi
-cümlesini yazmaz.
+onayla, yeni türü onayla, arşive taşı, taramayı yoksay, çalışan profilini düzenle, çalışanı pasife
+al ve yeniden etkinleştir (§D61) — iki onay ister. Onay metinleri §20.6 tablosundan **birebir**
+buradadır (`CONFIRMATION_TEXTS`); `<Ad Soyad>`, `<Tür adı>`, `<N>` ve `<M>` yer tutucuları çalışma
+zamanında `fill` ile doldurulur, pencere kendi cümlesini yazmaz.
 
 Metni göstermek tek başına yetmez — istemci atlanabilir. Sunucu tarafı akış (§20.6.1):
 
@@ -61,6 +61,8 @@ class Operation(enum.StrEnum):
     ARCHIVE = "archive"
     DISMISS = "dismiss"  # taramayı (partiyi) yoksay, 10.3.4
     EDIT_EMPLOYEE = "edit_employee"  # çalışan profilini düzenle, 10.5.6 (§D61)
+    DEACTIVATE_EMPLOYEE = "deactivate_employee"  # çalışanı pasife al, 10.5.7 (§D61)
+    REACTIVATE_EMPLOYEE = "reactivate_employee"  # çalışanı yeniden etkinleştir, 10.5.7 (§D61)
     # §20.6'nın dışında: yeniden analizin onayı (10.3.2, metinler PLAN.md §D23).
     REANALYZE = "reanalyze"
     # §20.6'nın dışında (K16 dışı, PLAN.md §D58): eğitim örneğini başka türe taşı ve örneklerden
@@ -115,6 +117,16 @@ CONFIRMATION_TEXTS: dict[Operation, ConfirmationTexts] = {
         "Bu çalışanın profil bilgilerini değiştirmek üzeresiniz. Emin misiniz?",
         "Ad ya da soyad değiştiyse klasör ve <N> belge dosyası yeniden adlandırılacaktır. Son "
         "kararınız mı?",
+    ),
+    Operation.DEACTIVATE_EMPLOYEE: ConfirmationTexts(
+        "<Ad Soyad> çalışanını pasife almak üzeresiniz. Emin misiniz?",
+        "Bu çalışana gelen yeni belgeler otomatik yerleşmeyecek, kuyruğa düşecektir. Son "
+        "kararınız mı?",
+    ),
+    Operation.REACTIVATE_EMPLOYEE: ConfirmationTexts(
+        "<Ad Soyad> çalışanını yeniden etkinleştirmek üzeresiniz. Emin misiniz?",
+        "Çalışan listeye dönecek ve yeni belgeleri yeniden otomatik yerleşecektir. Son kararınız "
+        "mı?",
     ),
 }
 

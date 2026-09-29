@@ -1,9 +1,11 @@
 {# Çalışan listesi parçası: sayı, tablo ve sayfalama. HTMX araması yalnız bunu yeniler. "Paket"
-   sütunu açık paket ve eksik zorunlu kalem sayısıdır (14.3.1). #}
+   sütunu açık paket ve eksik zorunlu kalem sayısıdır (14.3.1). Durum süzgeci (10.5.7) Aktif
+   değilse sayı satırı onu söyler; pasif çalışanın durumu kırmızımsı rozettir. #}
+{% set status_note = {"inactive": "yalnız pasif çalışanlar", "all": "tüm durumlar"}.get(listing.status) %}
 {% if listing.total == 0 %}
-<p class="placeholder">{% if listing.query %}“{{ listing.query }}” ile eşleşen{% if listing.packages %} ve eksik paketi olan{% endif %} çalışan yok.{% elif listing.packages %}Eksik paketi olan çalışan yok.{% else %}Henüz çalışan yok.{% endif %}</p>
+<p class="placeholder">{% if listing.query %}“{{ listing.query }}” ile eşleşen{% if listing.packages %} ve eksik paketi olan{% endif %} çalışan yok.{% elif listing.packages %}Eksik paketi olan çalışan yok.{% elif listing.status == "inactive" %}Pasif çalışan yok.{% else %}Henüz çalışan yok.{% endif %}</p>
 {% else %}
-<p class="count">{{ listing.total }} çalışan{% if listing.query or listing.packages %} bulundu{% endif %}{% if listing.packages %} · yalnız eksik paketi olanlar{% endif %}</p>
+<p class="count">{{ listing.total }} çalışan{% if listing.query or listing.packages %} bulundu{% endif %}{% if listing.packages %} · yalnız eksik paketi olanlar{% endif %}{% if status_note %} · {{ status_note }}{% endif %}</p>
 <table class="employees">
   <thead>
     <tr><th>No</th><th>Ad</th><th>Orijinal yazım</th><th>Uyruk</th><th>Belge sayısı</th><th>Paket</th><th>Durum</th></tr>
@@ -17,7 +19,7 @@
       <td>{{ row.nationality or "—" }}</td>
       <td>{{ row.document_count }}</td>
       <td>{{ row.packages }}</td>
-      <td>{{ row.status_label }}</td>
+      <td>{% if row.status == "inactive" %}<span class="status-badge status-passive">{{ row.status_label }}</span>{% else %}{{ row.status_label }}{% endif %}</td>
     </tr>
     {% endfor %}
   </tbody>

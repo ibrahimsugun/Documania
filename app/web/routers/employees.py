@@ -1,4 +1,4 @@
-"""Çalışan listesi, arama ve çalışan profili (PRD 10.4.1, 10.4.2, 10.5.1-10.5.4).
+"""Çalışan listesi, arama ve çalışan profili (PRD 10.4.1, 10.4.2, 10.5.1-10.5.7).
 
 `GET /employees` çalışanları ad, orijinal yazım, uyruk, belge sayısı ve durumla listeler (10.4.1).
 `q` verilirse liste aranan metne uyanlarla daralır (10.4.2): metin boşlukla terimlere ayrılır, her
@@ -79,12 +79,27 @@ da başka değerlere, çalışana, işleme veya oturuma ait istek 400; yeniden a
 409 — ikisinde de hiçbir şey değişmez (S16). Elle girilen alanın kaynağı kartta "elle" olarak
 görünür; o düzenlemeden önceki belge gözlemleri uyarıdan düşer (değer artık İK'nın kararıdır),
 sonrakiler kaynak ya da uyarı olur.
+
+**Pasife alma ve yeniden etkinleştirme (10.5.7; PLAN.md §C90-b, §D61).** Liste `?status=` süzgecini
+taşır: `active` (varsayılan), `inactive`, `all` — birleştirilmiş çalışan (10.5.9) yalnız `all`'da;
+seçenekler aramaya uyan çalışan sayısıyla çizilir, süzgeç sayfalama bağlantılarında korunur. Atama
+ve taşıma aramaları (`statuses=SEARCHABLE_STATUSES`) pasif çalışanı da bulur. Profildeki "Pasife al"
+(pasif çalışanda bildirimdeki "Yeniden etkinleştir") `GET /employees/{id}/status/confirm?to=` ile
+§20.6'nın birinci metnini ve isteğe bağlı notu (≤ 200) gösterir; `POST .../status/prepare` ikinci
+metni ve hedef duruma + notun özetine bağlı tek kullanımlık belirteci verir; `POST .../status`
+belirteçle gelir: belirteç tüketilir, `USER_CONFIRMED` ve
+`EMPLOYEE_DEACTIVATED`/`EMPLOYEE_REACTIVATED` tek işlemde yazılır (`app.matching.status`),
+commit'ten sonra `profil.md` yeniden üretilir. Klasör, belgeler ve olaylar yerinde kalır (R11).
+Pasif profilde üstte bildirim (kim, ne zaman, not) durur ve yükleme formu yoktur — bağlam yüklemesi
+zaten 409'dur (`app.web.routers.uploads`). Birleştirilmiş ya da zaten o durumdaki çalışan 409,
+geçersiz hedef 422, belirteç reddi 400; hiçbirinde bir şey değişmez.
 """
 
 from __future__ import annotations
 
+import hashlib
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path, PurePosixPath
 from typing import Annotated, Any
 from urllib.parse import urlencode
@@ -104,6 +119,7 @@ from app.db.models import (
     EmployeeContact,
     EmployeeFieldObservation,
     EmployeeIdentifier,
+    EmployeeStatus,
     FieldOutcome,
     FieldSource,
     KnownDocumentType,
@@ -145,6 +161,17 @@ from app.matching.match import (
     normalize_document_number,
 )
 from app.matching.names import EmptyNameError, normalize_name
+from app.matching.status import (
+    REASON_MAX_LENGTH,
+    EmployeeStatusError,
+    StatusReasonError,
+    change_employee_status,
+    check_status_change,
+    last_deactivation,
+    normalized_reason,
+    status_label,
+    status_target,
+)
 from app.profiles import write_profile
 from app.profiles.latin_names import needs_latin_repair
 from app.profiles.render import calculate_age
@@ -185,7 +212,22 @@ MAX_QUERY_LENGTH = 100
 # Her terim birkaç EXISTS alt sorgusu açar; uzun bir metin sorguyu gereksiz büyütmesin.
 MAX_TERMS = 6
 
-STATUS_LABELS = {"active": "Aktif"}
+# 10.5.7: listenin durum süzgeci (`?status=`); varsayılan etkin çalışanlar, tanınmayan değer
+# varsayılana döner. Birleştirilmiş çalışan (10.5.9) yalnız "Hepsi"nde görünür.
+ALL_STATUSES = "all"
+STATUS_FILTERS: dict[str, frozenset[str] | None] = {
+    EmployeeStatus.ACTIVE.value: frozenset({EmployeeStatus.ACTIVE.value}),
+    EmployeeStatus.INACTIVE.value: frozenset({EmployeeStatus.INACTIVE.value}),
+    ALL_STATUSES: None,
+}
+STATUS_FILTER_LABELS = {
+    EmployeeStatus.ACTIVE.value: "Aktif",
+    EmployeeStatus.INACTIVE.value: "Pasif",
+    ALL_STATUSES: "Hepsi",
+}
+DEFAULT_STATUS = EmployeeStatus.ACTIVE.value
+# Atama (10.7.2) ve taşıma (10.8.2) aramaları pasif çalışanı da bulur ("(pasif)" ekiyle).
+SEARCHABLE_STATUSES = frozenset({EmployeeStatus.ACTIVE.value, EmployeeStatus.INACTIVE.value})
 # 14.3.1: listenin paket süzgeci; tanınmayan değer süzmez.
 MISSING_PACKAGES = "missing"
 NO_PACKAGES = "—"
@@ -204,6 +246,17 @@ class EmployeeRow:
 
 
 @dataclass(frozen=True, slots=True)
+class StatusOption:
+    """Durum süzgecinin seçeneği: değer, etiket, aramaya uyan çalışan sayısı ve seçili mi."""
+
+    value: str
+    label: str
+    count: int
+    url: str
+    selected: bool
+
+
+@dataclass(frozen=True, slots=True)
 class EmployeeListing:
     query: str
     rows: list[EmployeeRow]
@@ -213,6 +266,8 @@ class EmployeeListing:
     previous_url: str | None
     next_url: str | None
     packages: str = ""
+    status: str = DEFAULT_STATUS
+    status_options: list[StatusOption] = field(default_factory=list)
 
 
 def package_cell(counts: PackageCounts | None) -> str:
@@ -296,28 +351,54 @@ def _term_matches(session: Session, term: str) -> ColumnElement[bool]:
     return or_(*predicates)
 
 
-def _page_url(query: str, page: int, packages: str = "") -> str:
+def _page_url(
+    query: str, page: int, packages: str = "", status_filter: str = DEFAULT_STATUS
+) -> str:
     params = {"q": query} if query else {}
     if packages:
         params["packages"] = packages
+    if status_filter != DEFAULT_STATUS:
+        params["status"] = status_filter
     if page > 1:
         params["page"] = str(page)
     return "/employees" + (f"?{urlencode(params)}" if params else "")
 
 
+def normalize_status_filter(value: str) -> str:
+    """10.5.7 — `?status=` değeri; tanınmayan değer varsayılan (`active`)."""
+    return value if value in STATUS_FILTERS else DEFAULT_STATUS
+
+
 def list_employees(
-    session: Session, query: str = "", page: int = 1, packages: str = ""
+    session: Session,
+    query: str = "",
+    page: int = 1,
+    packages: str = "",
+    *,
+    status_filter: str = DEFAULT_STATUS,
+    statuses: frozenset[str] | None = None,
 ) -> EmployeeListing:
-    """10.4.1/10.4.2/14.3.1 — çalışanların `page`. sayfası; `query` boşsa hepsi, doluysa uyanlar.
-    `packages="missing"` yalnız en az bir açık (zorunlu kalemi eksik) paketi olanları bırakır.
+    """10.4.1/10.4.2/14.3.1/10.5.7 — çalışanların `page`. sayfası; `query` boşsa hepsi, doluysa
+    uyanlar. `packages="missing"` yalnız en az bir açık (zorunlu kalemi eksik) paketi olanları
+    bırakır. `status_filter` listenin durum süzgecidir (`active` varsayılan, `inactive`, `all`);
+    `statuses` verilirse süzgecin yerine yalnız o durumlar aranır ve süzgeç seçenekleri
+    hesaplanmaz (atama ve taşıma aramaları).
 
     Sayfa sayısını aşan `page` son sayfaya indirilir. Sıra soyad, ad, çalışan numarasıdır.
     """
     query = " ".join(query.split())
     packages = packages if packages == MISSING_PACKAGES else ""
-    filters = [_term_matches(session, term) for term in search_terms(query)]
+    status_filter = normalize_status_filter(status_filter)
+    base = [_term_matches(session, term) for term in search_terms(query)]
     if packages:
-        filters.append(Employee.id.in_(sorted(employees_with_missing_packages(session))))
+        base.append(Employee.id.in_(sorted(employees_with_missing_packages(session))))
+    wanted = statuses if statuses is not None else STATUS_FILTERS[status_filter]
+    filters = base if wanted is None else [*base, Employee.status.in_(sorted(wanted))]
+    options = (
+        []
+        if statuses is not None
+        else _status_options(session, base, query, packages, status_filter)
+    )
     total = session.scalar(select(func.count()).select_from(Employee).where(*filters)) or 0
     page_count = max(1, -(-total // PAGE_SIZE))
     page = min(max(page, 1), page_count)
@@ -346,7 +427,7 @@ def list_employees(
             nationality=employee.nationality,
             document_count=count,
             status=employee.status,
-            status_label=STATUS_LABELS.get(employee.status, employee.status),
+            status_label=status_label(employee.status),
             packages=package_cell(counts.get(employee.id)),
         )
         for employee, count in found
@@ -357,10 +438,44 @@ def list_employees(
         total=total,
         page=page,
         page_count=page_count,
-        previous_url=_page_url(query, page - 1, packages) if page > 1 else None,
-        next_url=_page_url(query, page + 1, packages) if page < page_count else None,
+        previous_url=(_page_url(query, page - 1, packages, status_filter) if page > 1 else None),
+        next_url=(
+            _page_url(query, page + 1, packages, status_filter) if page < page_count else None
+        ),
         packages=packages,
+        status=status_filter,
+        status_options=options,
     )
+
+
+def _status_options(
+    session: Session,
+    base: list[ColumnElement[bool]],
+    query: str,
+    packages: str,
+    selected: str,
+) -> list[StatusOption]:
+    # Sayaçlar aramaya ve paket süzgecine uyan çalışanlardır (durumdan bağımsız); tek sorgu.
+    by_status: dict[str, int] = {
+        status_value: count
+        for status_value, count in session.execute(
+            select(Employee.status, func.count()).where(*base).group_by(Employee.status)
+        )
+    }
+    return [
+        StatusOption(
+            value=value,
+            label=STATUS_FILTER_LABELS[value],
+            count=sum(
+                count
+                for status_value, count in by_status.items()
+                if wanted is None or status_value in wanted
+            ),
+            url=_page_url(query, 1, packages, value),
+            selected=value == selected,
+        )
+        for value, wanted in STATUS_FILTERS.items()
+    ]
 
 
 def _wants_fragment(request: Request) -> bool:
@@ -379,8 +494,9 @@ def employees_page(
     q: Annotated[str, Query(max_length=MAX_QUERY_LENGTH)] = "",
     page: Annotated[int, Query(ge=1)] = 1,
     packages: Annotated[str, Query(max_length=16)] = "",
+    status_filter: Annotated[str, Query(alias="status", max_length=16)] = DEFAULT_STATUS,
 ) -> HTMLResponse:
-    listing = list_employees(session, q, page, packages)
+    listing = list_employees(session, q, page, packages, status_filter=status_filter)
     entry = MENU_BY_KEY["employees"]
     if _wants_fragment(request):
         response = render_page(request, "employees_results.html", user=None, listing=listing)
@@ -479,6 +595,15 @@ class FieldSources:
 
 
 @dataclass(frozen=True, slots=True)
+class DeactivationView:
+    """Pasif çalışanın bildirimi: pasife alan kullanıcı, zaman ve (varsa) notu."""
+
+    actor: str | None
+    at: datetime
+    reason: str | None
+
+
+@dataclass(frozen=True, slots=True)
 class ProfileView:
     id: str
     name: str
@@ -505,6 +630,20 @@ class ProfileView:
     available_document_ids: frozenset[int] = frozenset()
     # 10.5.6: "Profili düzenle" bağlantısı; birleştirilmiş çalışanda yok.
     editable: bool = True
+    # 10.5.7: durum, "Pasife al"/"Yeniden etkinleştir" bağlantısının hedefi (birleştirilmişte yok)
+    # ve pasif çalışanın bildirimi (son pasife alma olayı).
+    status: str = EmployeeStatus.ACTIVE.value
+    status_action: str | None = EmployeeStatus.INACTIVE.value
+    deactivation: DeactivationView | None = None
+
+    @property
+    def inactive(self) -> bool:
+        return self.status == EmployeeStatus.INACTIVE.value
+
+    @property
+    def can_upload(self) -> bool:
+        # 10.5.3: profilden yükleme yalnız etkin çalışana (pasife 409).
+        return self.status == EmployeeStatus.ACTIVE.value
 
     @property
     def live_packages(self) -> list[PackageView]:
@@ -616,7 +755,7 @@ def build_profile(
     return ProfileView(
         id=employee.id,
         name=f"{employee.given_names} {employee.surname}",
-        status_label=STATUS_LABELS.get(employee.status, employee.status),
+        status_label=status_label(employee.status),
         given_names=employee.given_names,
         surname=employee.surname,
         other_names=employee.other_names,
@@ -648,6 +787,29 @@ def build_profile(
         packages=employee_packages(session, employee_id),
         available_document_ids=frozenset(row.id for row in rows if row.available),
         editable=employee.status != MERGED_STATUS,
+        status=employee.status,
+        status_action=_status_action(employee),
+        deactivation=_deactivation(session, employee),
+    )
+
+
+def _status_action(employee: Employee) -> str | None:
+    try:
+        return status_target(employee).value
+    except EmployeeStatusError:
+        return None
+
+
+def _deactivation(session: Session, employee: Employee) -> DeactivationView | None:
+    if employee.status != EmployeeStatus.INACTIVE.value:
+        return None
+    event = last_deactivation(session, employee.id)
+    if event is None:  # olaysız (elle yazılmış) kayıt: bildirim yine çıkar, ayrıntısız
+        return None
+    data = event.data_json if isinstance(event.data_json, dict) else {}
+    reason = data.get("reason")
+    return DeactivationView(
+        actor=event.actor, at=event.ts, reason=reason if isinstance(reason, str) else None
     )
 
 
@@ -776,6 +938,9 @@ PROFILE_NOTICES = {
     "fields_renamed": (
         "Profil bilgileri değiştirildi; klasör ve belge dosyaları yeni adla yeniden adlandırıldı."
     ),
+    # 10.5.7
+    "status_inactive": "Çalışan pasife alındı; yeni belgeleri otomatik yerleşmeyecek.",
+    "status_active": "Çalışan yeniden etkinleştirildi.",
 }
 PACKAGE_NOT_FOUND = "Paket bulunamadı."
 GROUP_NOT_FOUND = "Belge grubu bulunamadı."
@@ -1244,6 +1409,269 @@ def change_employee_fields(
     notice = "fields_renamed" if edited.renamed else "fields_changed"
     _rewrite_profile(session, layout, employee_id)
     return RedirectResponse(f"/employees/{employee_id}?notice={notice}", status.HTTP_303_SEE_OTHER)
+
+
+# --- 10.5.7: çalışanı pasife alma ve yeniden etkinleştirme -------------------------------------
+
+# §20.6 "Çalışanı pasife al" / "Çalışanı yeniden etkinleştir": metinler birebir
+# `app.web.confirm`'dadır; `<Ad Soyad>` çalışanın adıyla dolar.
+STATUS_OPERATIONS = {
+    EmployeeStatus.INACTIVE: Operation.DEACTIVATE_EMPLOYEE,
+    EmployeeStatus.ACTIVE: Operation.REACTIVATE_EMPLOYEE,
+}
+STATUS_TITLES = {
+    EmployeeStatus.INACTIVE: "Çalışanı pasife al",
+    EmployeeStatus.ACTIVE: "Çalışanı yeniden etkinleştir",
+}
+BAD_STATUS_TARGET = "Hedef durum yalnız pasif (inactive) ya da aktif (active) olabilir."
+STATUS_NOT_CHANGEABLE = "Bu çalışan başka bir kayıtla birleştirildi; durumu değiştirilmez."
+STATUS_ALREADY = {
+    EmployeeStatus.INACTIVE: "Çalışan zaten pasif.",
+    EmployeeStatus.ACTIVE: "Çalışan zaten etkin.",
+}
+# Form sınırı yalnız aşırı girdiye karşıdır; not kuralını (≤ 200) servis mesajla bildirir.
+STATUS_FORM_LIMIT = 1000
+StatusTo = Annotated[str, Form(max_length=16)]
+StatusReason = Annotated[str | None, Form(max_length=STATUS_FORM_LIMIT)]
+
+
+def status_subject(employee_id: str, target: EmployeeStatus, reason: str | None) -> str:
+    """Durum belirtecinin (`Operation.DEACTIVATE_EMPLOYEE`/`REACTIVATE_EMPLOYEE`) bağlı olduğu
+    hedef: çalışan + hedef durum + notun özeti. Hazırlıktan sonra not değişirse belirteç geçmez;
+    not belirtece girmez."""
+    digest = hashlib.sha256((reason or "").encode("utf-8")).hexdigest()[:16]
+    return f"{employee_id}:{target.value}:{digest}"
+
+
+def _status_value(value: str) -> EmployeeStatus:
+    """`to` alanı: yalnız `inactive` ya da `active`; başkası 422."""
+    target = next((each for each in STATUS_OPERATIONS if each.value == value), None)
+    if target is None:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, BAD_STATUS_TARGET)
+    return target
+
+
+def _status_employee(session: Session, employee_id: str, target: EmployeeStatus) -> Employee:
+    """Durumu değişecek çalışan (satır kilitli); yoksa 404, birleştirilmişse ya da zaten o
+    durumdaysa 409."""
+    employee = session.get(Employee, employee_id, with_for_update=True)
+    if employee is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, EMPLOYEE_NOT_FOUND)
+    if employee.status == MERGED_STATUS:
+        raise HTTPException(status.HTTP_409_CONFLICT, STATUS_NOT_CHANGEABLE)
+    try:
+        check_status_change(employee, target)
+    except EmployeeStatusError:
+        raise HTTPException(status.HTTP_409_CONFLICT, STATUS_ALREADY[target]) from None
+    return employee
+
+
+def _status_page(
+    request: Request,
+    user: PanelUser,
+    employee_id: str,
+    *,
+    target: EditTarget | None,
+    to: EmployeeStatus | None,
+    status_code: int = status.HTTP_200_OK,
+    **context: object,
+) -> HTMLResponse:
+    """`employee_status_step.html`: birinci onay (not alanıyla), ikinci onay ya da hata."""
+    return render_page(
+        request,
+        "employee_status_step.html",
+        user=user,
+        active=MENU_BY_KEY["employees"].key,
+        status_code=status_code,
+        employee_id=employee_id,
+        target=target,
+        to=to.value if to is not None else None,
+        title=STATUS_TITLES[to] if to is not None else "Çalışanın durumu",
+        reason_limit=REASON_MAX_LENGTH,
+        **context,
+    )
+
+
+@router.get("/employees/{employee_id}/status/confirm", response_class=HTMLResponse)
+def employee_status_first_confirmation(
+    employee_id: str,
+    request: Request,
+    user: CurrentUser,
+    session: Annotated[Session, Depends(get_session)],
+    to: Annotated[str, Query(max_length=16)],
+) -> HTMLResponse:
+    """10.5.7 — birinci onay metni (§20.6) ve isteğe bağlı not alanı; hiçbir şey değişmez."""
+    target: EditTarget | None = None
+    wanted: EmployeeStatus | None = None
+    try:
+        wanted = _status_value(to)
+        employee = _status_employee(session, employee_id, wanted)
+        target = _edit_target(employee)
+    except HTTPException as exc:
+        return _status_page(
+            request,
+            user,
+            employee_id,
+            target=None,
+            to=wanted,
+            status_code=exc.status_code,
+            error=exc.detail,
+        )
+    finally:
+        session.rollback()
+    return _status_page(
+        request,
+        user,
+        employee_id,
+        target=target,
+        to=wanted,
+        first_confirmation=first_text(STATUS_OPERATIONS[wanted], name=target.name),
+        reason="",
+    )
+
+
+@router.post("/employees/{employee_id}/status/prepare", response_class=HTMLResponse)
+def prepare_employee_status(
+    employee_id: str,
+    request: Request,
+    user: CurrentUser,
+    session: Annotated[Session, Depends(get_session)],
+    to: StatusTo,
+    reason: StatusReason = None,
+) -> HTMLResponse:
+    """10.5.7 — birinci onaydan sonra ikinci onay metnini ve hedef duruma + nota bağlı tek
+    kullanımlık belirteci verir (§20.6.1). Durumu değiştirmez (S16)."""
+    wanted: EmployeeStatus | None = None
+    try:
+        wanted = _status_value(to)
+        employee = _status_employee(session, employee_id, wanted)
+    except HTTPException as exc:
+        session.rollback()
+        return _status_page(
+            request,
+            user,
+            employee_id,
+            target=None,
+            to=wanted,
+            status_code=exc.status_code,
+            error=exc.detail,
+        )
+    target = _edit_target(employee)
+    try:
+        note = normalized_reason(reason)
+    except StatusReasonError as exc:
+        session.rollback()
+        return _status_page(
+            request,
+            user,
+            employee_id,
+            target=target,
+            to=wanted,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            error=str(exc),
+            first_confirmation=first_text(STATUS_OPERATIONS[wanted], name=target.name),
+            reason=reason or "",
+        )
+    try:
+        issued = issue_confirmation(
+            session,
+            request,
+            user,
+            STATUS_OPERATIONS[wanted],
+            status_subject(employee.id, wanted, note),
+        )
+    except ConfirmationRefusedError as exc:  # oturum çerezi yok
+        session.rollback()
+        return _status_page(
+            request,
+            user,
+            employee_id,
+            target=target,
+            to=wanted,
+            status_code=status.HTTP_400_BAD_REQUEST,
+            error=str(exc),
+        )
+    session.commit()
+    return _status_page(
+        request,
+        user,
+        employee_id,
+        target=target,
+        to=wanted,
+        second_confirmation=second_text(STATUS_OPERATIONS[wanted]),
+        reason=note or "",
+        confirmation=issued.token,
+    )
+
+
+@router.post("/employees/{employee_id}/status", response_class=HTMLResponse)
+def change_employee_status_endpoint(
+    employee_id: str,
+    request: Request,
+    user: CurrentUser,
+    session: Annotated[Session, Depends(get_session)],
+    layout: Annotated[DataLayout, Depends(get_layout)],
+    to: StatusTo,
+    reason: StatusReason = None,
+    confirmation: Annotated[str | None, Form()] = None,
+) -> Response:
+    """10.5.7 — ikinci onayın belirteciyle çalışanı pasife alır ya da yeniden etkinleştirir
+    (K16, R11).
+
+    Belirteç yoksa, süresi geçmişse, kullanılmışsa ya da başka çalışana, hedefe, nota, işleme veya
+    oturuma aitse hiçbir şey yapılmaz (400). Belirtecin tüketilmesi, `USER_CONFIRMED` ve
+    `EMPLOYEE_DEACTIVATED`/`EMPLOYEE_REACTIVATED` tek işlemdedir. Klasör ve belgeler yerinde kalır;
+    commit'ten sonra `profil.md` yeniden üretilir (09.1.1) ve profil sayfasına dönülür.
+    """
+    target: EditTarget | None = None
+    wanted: EmployeeStatus | None = None
+    try:
+        wanted = _status_value(to)
+        employee = _status_employee(session, employee_id, wanted)
+        target = _edit_target(employee)
+        # Hazırlıkta denetlenen not; kurala uymayan not hiçbir belirtece bağlanmamıştır (400).
+        note = normalized_reason(reason)
+        # §20.6.1: belirteç tüketilir ve `USER_CONFIRMED` yazılır, ardından işlemin kendi olayı
+        # düşer. Not olaya işlemin verisinde girer, onay hedefine girmez.
+        confirm_operation(
+            session,
+            request,
+            user,
+            STATUS_OPERATIONS[wanted],
+            status_subject(employee.id, wanted, note),
+            confirmation,
+            event_target={"employee_id": employee.id, "status": wanted.value},
+            employee_id=employee.id,
+        )
+        change_employee_status(session, employee, wanted, actor=user.username, reason=note)
+    except HTTPException as exc:
+        session.rollback()
+        return _status_page(
+            request,
+            user,
+            employee_id,
+            target=None,
+            to=wanted,
+            status_code=exc.status_code,
+            error=exc.detail,
+        )
+    except (ConfirmationRefusedError, StatusReasonError):
+        session.rollback()
+        return _status_page(
+            request,
+            user,
+            employee_id,
+            target=target,
+            to=wanted,
+            status_code=status.HTTP_400_BAD_REQUEST,
+            error=CONFIRMATION_REFUSED,
+            retry=True,
+        )
+    session.commit()
+    _rewrite_profile(session, layout, employee_id)
+    return RedirectResponse(
+        f"/employees/{employee_id}?notice=status_{wanted.value}", status.HTTP_303_SEE_OTHER
+    )
 
 
 def _file_response(stored: StoredDocument, *, disposition: str) -> FileResponse:

@@ -34,6 +34,7 @@ from app.matching.match import (
     resolve_unmatched,
 )
 from app.matching.mrz import apply_mrz_priority
+from app.matching.status import inactive_employee_reason, is_inactive
 from app.pipeline.group import (
     AttachmentFile,
     CandidatePage,
@@ -185,7 +186,11 @@ class _Planner:
             guess = _verdict_of(match)
             if guess is not None:
                 verdicts.append(guess)
-            employee = _NO_EMPLOYEE if _foreign(validations) else _employee_guess(match)
+            foreign = _foreign(validations)
+            employee = _NO_EMPLOYEE if foreign else _employee_guess(match)
+            inactive = None if foreign else self._inactive_verdict(match.employee_id)
+            if inactive is not None:
+                verdicts.append(inactive)
             return self._item(item_id, sources, entry, employee, verdicts, None, validations)
         employee, verdict = self._decide_employee(key, match, entry, analyses, first)
         verdicts = [] if verdict is None else [verdict]
@@ -337,6 +342,11 @@ class _Planner:
         first: CandidatePage,
     ) -> tuple[PlanEmployee, _Verdict | None]:
         session = self._session
+        inactive = self._inactive_verdict(match.employee_id)
+        if inactive is not None:
+            # 10.5.7: pasif çalışan bulunur ama belge otomatik yerleşmez (R7); çalışan kişi
+            # tahminidir, kimlik, profil alanı ve iletişim bilgisi birikmez.
+            return _employee_guess(match), inactive
         if match.employee_id is not None:
             # §20.2.2 satır 1/3: yeni yazım, temiz numara, boş profil alanı ve iletişim bilgisi
             # birikir.
@@ -397,6 +407,17 @@ class _Planner:
             )
         employee = PlanEmployee(action=resolution.action, employee_id=None, matched_by=None)
         return employee, _verdict_of(resolution)
+
+    def _inactive_verdict(self, employee_id: str | None) -> _Verdict | None:
+        # 10.5.7 (§20.2.2 notu): pasif çalışana belge otomatik yerleşmez; gerekçe kod ve E
+        # numarasıdır. Durum planlama anında okunur: plan donar (K9), yeniden çalıştırma aynı
+        # kararı uygular, etkinleştirmenin etkisi yeniden analizle gelir.
+        if employee_id is None:
+            return None
+        employee = self._session.get(Employee, employee_id)
+        if employee is None or not is_inactive(employee):
+            return None
+        return _Verdict(QueueKind.UNRESOLVED, inactive_employee_reason(employee_id))
 
     def _item(
         self,
@@ -475,9 +496,13 @@ class _Planner:
                 item_id, sources, entry, _NO_EMPLOYEE, verdicts, selected, validations
             )
         # Sahibi partinin bağlam çalışanıdır (`unresolved` boşsa doludur); belge kimliğiyle
-        # eşleştirilmedi, `matched_by` boş kalır.
+        # eşleştirilmedi, `matched_by` boş kalır. Bağlam çalışanı yüklemeden sonra pasife
+        # alındıysa ek de otomatik yerleşmez (10.5.7).
         owner = self._upload.context_employee_id
         employee = PlanEmployee(action=EmployeeAction.MATCH, employee_id=owner, matched_by=None)
+        inactive = self._inactive_verdict(owner)
+        if inactive is not None:
+            verdicts.append(inactive)
         return self._item(item_id, sources, entry, employee, verdicts, selected, validations)
 
     # --- işlem --------------------------------------------------------------------------------

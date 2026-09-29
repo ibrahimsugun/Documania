@@ -1127,3 +1127,8 @@ form:not(.session) button[type="submit"]:hover,
 .cancelled-packages { margin-top: 0.75rem; }
 .cancelled-packages li { margin: 0.35rem 0; }
 .employee-filter { display: inline-flex; align-items: center; gap: 0.35rem; margin-left: 0.75rem; }
+
+/* 10.5.7: pasif çalışan — profil bildirimi, kuyruk öğesi bildirimi, onay formundaki not alanı. */
+.inactive-notice { margin: 0.75rem 0; padding: 0.5rem 0.75rem; border-radius: 6px; background: var(--warning-soft); }
+.inactive-notice p { margin: 0.25rem 0; }
+.employee-status input[name="reason"] { min-width: 20rem; padding: 0.3rem; border: 1px solid #d0d7de; border-radius: 4px; font: inherit; }

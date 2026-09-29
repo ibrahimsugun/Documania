@@ -47,6 +47,7 @@ from app.config import Settings, get_settings
 from app.db.models import Employee, Upload, UploadFile, allocate_upload_id
 from app.db.session import get_session
 from app.events import EventType, event_context, record_event
+from app.matching.status import is_inactive
 from app.pipeline.dismiss import is_dismissed
 from app.pipeline.orchestrate import (
     PLAN_EXECUTION_ERRORS,
@@ -71,6 +72,10 @@ router = APIRouter(prefix="/api/uploads", tags=["uploads"])
 
 UPLOAD_CHANNEL = "web"
 DISMISSED_MESSAGE = "Bu tarama yoksayıldı; üzerinde işlem yapılmaz."
+# 10.5.7: pasif çalışana bağlam yüklemesi yapılmaz; parti açılmaz.
+INACTIVE_CONTEXT_MESSAGE = (
+    "Bu çalışan pasif; ona belge yüklenmez. Önce çalışanı profilinden yeniden etkinleştirin."
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -241,9 +246,9 @@ def store_upload(
 ) -> str:
     """Dosyaları tek parti olarak Inbox'a yazar, kaydeder ve commit eder; `upload_id` döner.
 
-    Ad, içerik türü (01.2.2), boyut/sayfa sınırı (01.3.1) ve bağlam çalışanı doğrulanır; biri
-    tutmazsa `HTTPException` ve hiçbir şey yazılmaz. Tekrar (01.4.1) yalnız işaretlenir, dosya
-    yine Inbox'a yazılır (K10).
+    Ad, içerik türü (01.2.2), boyut/sayfa sınırı (01.3.1) ve bağlam çalışanı doğrulanır (yoksa
+    404, pasifse 409 — 10.5.7); biri tutmazsa `HTTPException` ve hiçbir şey yazılmaz. Tekrar
+    (01.4.1) yalnız işaretlenir, dosya yine Inbox'a yazılır (K10).
     Partinin işi aynı işlemde kuyruğa girer (13.3.1); `claimed_by` verilirse iş bu kimlikle alınmış
     olarak açılır — partiyi kendisi hemen işleyecek olan çağıran (Telegram botu) kuyruk döngüsüyle
     yarışmaz.
@@ -257,8 +262,12 @@ def store_upload(
         kind = _supported_kind(name, file.content)
         _check_size_and_page_limits(name, kind, file.content, settings)
 
-    if context_employee_id is not None and session.get(Employee, context_employee_id) is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "context_employee_id bulunamadı.")
+    if context_employee_id is not None:
+        context_employee = session.get(Employee, context_employee_id)
+        if context_employee is None:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "context_employee_id bulunamadı.")
+        if is_inactive(context_employee):
+            raise HTTPException(status.HTTP_409_CONFLICT, INACTIVE_CONTEXT_MESSAGE)
 
     upload_id = allocate_upload_id(session)
     session.add(

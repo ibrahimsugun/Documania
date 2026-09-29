@@ -870,6 +870,12 @@ Sırayla değerlendirilir; **ilk uyan satır kazanır**, alttakilere bakılmaz.
 Satır 1 ve 3'te eşleşme başarılıysa: belgedeki yeni isim yazımı `employee_aliases`'a, yeni
 belge numarası `employee_identifiers`'a eklenir (gereksinim 05.7.2).
 
+**Pasif çalışan (gereksinim 10.5.7).** Tablo pasif (`inactive`) çalışanı da arar ve bulur — kimlik
+gerçektir, sıra değişmez. Satır 1 ya da 3 pasif bir çalışanı bulursa belge otomatik yerleşmez: rota
+`unresolved` olur, gerekçe `inactive_employee` kodunu ve çalışanın E numarasını taşır, çalışan kişi
+tahmini olarak kalır; isim yazımı, numara, profil alanı ve iletişim bilgisi birikmez. İK öğeyi atar ya
+da çalışanı yeniden etkinleştirip partiyi yeniden analiz eder.
+
 #### 20.2.3 "Temiz belge numarası" tanımı
 
 Satır 6'nın kapısı budur; yanlış tanımlanırsa hayalet çalışan doğar. Bir belge numarası
@@ -1034,7 +1040,7 @@ Yazma tamamlandıktan sonra `documents` kaydına kaynak dosya kimliği ve sayfa 
 
 ---
 
-### 20.6 İki aşamalı onay metinleri (gereksinim 10.8.1, 10.8.2, 10.7.2, 10.7.3, 08.4.1, 11.5.2, 10.3.4, 10.5.6)
+### 20.6 İki aşamalı onay metinleri (gereksinim 10.8.1, 10.8.2, 10.7.2, 10.7.3, 08.4.1, 11.5.2, 10.3.4, 10.5.6, 10.5.7)
 
 K16'daki manuel işlemler iki aşamalı onay ister (salt geri alma işlemleri tek adımdır, K16). Metinler **birebir** aşağıdaki
 gibidir; pencere kendi cümlesini yazmaz. `<…>` yer tutucuları çalışma zamanında doldurulur.
@@ -1048,6 +1054,8 @@ gibidir; pencere kendi cümlesini yazmaz. `<…>` yer tutucuları çalışma zam
 | Belgeyi arşive taşı | `Bu belgeyi arşive taşımak üzeresiniz. Emin misiniz?` | `Belge çalışanın Hazır klasöründen çıkacaktır. Son kararınız mı?` |
 | Taramayı yoksay | `Bu taramayı yoksaymak üzeresiniz. Emin misiniz?` | `Parti ve bekleyen <N> kuyruk öğesi listelerden kalkacaktır; üretilmiş <M> belge yerinde kalır. Son kararınız mı?` |
 | Çalışan profilini düzenle | `Bu çalışanın profil bilgilerini değiştirmek üzeresiniz. Emin misiniz?` | `Ad ya da soyad değiştiyse klasör ve <N> belge dosyası yeniden adlandırılacaktır. Son kararınız mı?` |
+| Çalışanı pasife al | `<Ad Soyad> çalışanını pasife almak üzeresiniz. Emin misiniz?` | `Bu çalışana gelen yeni belgeler otomatik yerleşmeyecek, kuyruğa düşecektir. Son kararınız mı?` |
+| Çalışanı yeniden etkinleştir | `<Ad Soyad> çalışanını yeniden etkinleştirmek üzeresiniz. Emin misiniz?` | `Çalışan listeye dönecek ve yeni belgeleri yeniden otomatik yerleşecektir. Son kararınız mı?` |
 
 İlk iki satırdaki metinler ürün tanımında birebir bu şekilde yazılmıştır; **değiştirilmez**.
 Kalan satırlar aynı kalıptan türetilmiştir: birinci cümle *ne yapılacağını*, ikinci cümle
@@ -1068,7 +1076,7 @@ Onay metinlerini göstermek tek başına yeterli değildir — istemci atlanabil
 Onay tamamlandığında `USER_CONFIRMED` olayı yazılır: kullanıcı adı, işlem türü, hedef kayıt,
 birinci ve ikinci onayın zaman damgaları. Ardından işlemin kendi olayı (`MANUAL_MOVE`,
 `MANUAL_ASSIGN`, `MANUAL_APPROVE`, `TYPE_APPROVED`, `ARCHIVED`, `UPLOAD_DISMISSED`,
-`EMPLOYEE_EDITED`) düşülür.
+`EMPLOYEE_EDITED`, `EMPLOYEE_DEACTIVATED`, `EMPLOYEE_REACTIVATED`) düşülür.
 
 #### 20.6.2 Testte doğrulanacak davranış
 

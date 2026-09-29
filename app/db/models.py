@@ -297,6 +297,20 @@ class PackageStatus(enum.StrEnum):
     CANCELLED = "cancelled"
 
 
+class EmployeeStatus(enum.StrEnum):
+    """Çalışan kaydının durumu (§8.1 `employees.status`; 10.5.7, 10.5.9).
+
+    Çalışan `active` açılır. İK onu pasife alabilir (`inactive`) ve yeniden etkinleştirebilir:
+    kimliği gerçektir, eşleştirme onu bulmaya devam eder ama gelen belge otomatik yerleşmez,
+    Unresolved'a düşer (R7). `merged` başka bir kayıtla birleştirilen çalışandır (10.5.9, tm 129).
+    Hiçbiri silmez: klasör, belgeler ve olaylar yerinde kalır (R11).
+    """
+
+    ACTIVE = "active"
+    INACTIVE = "inactive"
+    MERGED = "merged"
+
+
 # --- çalışan -----------------------------------------------------------------------------
 
 
@@ -313,7 +327,7 @@ class Employee(Base):
     original_script_name: Mapped[str | None] = mapped_column(String(255))
     date_of_birth: Mapped[date | None] = mapped_column(Date)
     nationality: Mapped[str | None] = mapped_column(String(8))
-    status: Mapped[str] = mapped_column(String(16), default="active")
+    status: Mapped[str] = mapped_column(String(16), default=EmployeeStatus.ACTIVE.value)
     created_at: Mapped[datetime] = mapped_column(UtcDateTime, default=utcnow)
 
     identifiers: Mapped[list[EmployeeIdentifier]] = relationship(back_populates="employee")

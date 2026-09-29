@@ -39,6 +39,7 @@ from app.db.models import (
     Employee,
     EmployeeAlias,
     EmployeeFieldObservation,
+    EmployeeStatus,
     Event,
     FieldOutcome,
     FieldSource,
@@ -62,7 +63,7 @@ from app.storage import (
 )
 
 # Birleştirilen çalışanın durumu (10.5.9, tm 129): kaydı kapanır, düzenlenmez.
-MERGED_STATUS = "merged"
+MERGED_STATUS = EmployeeStatus.MERGED.value
 
 
 class EmployeeEditRefusedError(ValueError):

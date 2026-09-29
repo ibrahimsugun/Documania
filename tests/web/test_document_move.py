@@ -237,6 +237,23 @@ def test_search_finds_the_employee_and_the_owner_cannot_be_selected(
     assert "/move/confirm" not in owner.text
 
 
+def test_search_finds_an_inactive_employee_with_the_suffix(
+    client: TestClient, session_factory: sessionmaker[Session], moving: Moving
+) -> None:
+    # 10.5.7: taşıma araması pasif çalışanı da bulur ("(pasif)" ekiyle); seçilebilir.
+    with session_factory() as session:
+        session.get_one(Employee, TARGET).status = "inactive"
+        session.commit()
+
+    html = client.get(
+        f"/documents/{moving.document_id}/move/employees", params={"q": "kayitli"}
+    ).text
+
+    row = html.split(f"<td>{TARGET}</td>", 1)[1].split("</tr>", 1)[0]
+    assert '<span class="status-badge status-passive">(pasif)</span>' in row
+    assert f"/move/confirm?employee_id={TARGET}" in row
+
+
 def test_empty_search_lists_nobody_and_no_match_says_so(client: TestClient, moving: Moving) -> None:
     empty = client.get(f"/documents/{moving.document_id}/move/employees", params={"q": " "})
     missing = client.get(f"/documents/{moving.document_id}/move/employees", params={"q": "yok"})

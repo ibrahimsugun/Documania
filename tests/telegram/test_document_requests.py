@@ -499,6 +499,32 @@ def test_several_matching_employees_are_asked_first_then_their_documents(
     ]
 
 
+def test_an_inactive_employee_is_still_found_and_named_with_the_suffix(
+    ask: Callable[..., tuple[IntakeBot, QueryProvider]],
+    session_factory: sessionmaker[Session],
+    layout: DataLayout,
+) -> None:
+    # 10.5.7: bot pasif çalışanı da bulur, davranışı değişmez; adı "(pasif)" ekiyle görünür.
+    one = add_employee(session_factory, 1)
+    two = add_employee(session_factory, 2, status="inactive")
+    add_document(session_factory, layout, one, LICENSE, "a.pdf", pdf("a"))
+    add_document(session_factory, layout, two, LICENSE, "b.pdf", pdf("b"))
+
+    bot, _ = ask(query("Ahmet Çakar"))
+
+    assert bot.telegram.sent_texts()[0].splitlines()[1:] == [
+        "1. AHMET ÇAKAR — E0001 — 1 ehliyet",
+        "2. AHMET ÇAKAR (pasif) — E0002 — 1 ehliyet",
+    ]
+    assert [label for label, _ in buttons(bot)] == [
+        "1. AHMET ÇAKAR (E0001)",
+        "2. AHMET ÇAKAR (E0002) (pasif)",
+    ]
+    bot.feed(callback_update(2, LISTED_ID, buttons(bot)[1][1]))
+
+    assert bot.telegram.uploads == [("b.pdf", pdf("b"))]
+
+
 def test_chosen_employee_with_a_single_document_gets_it_and_one_without_is_told(
     ask: Callable[..., tuple[IntakeBot, QueryProvider]],
     session_factory: sessionmaker[Session],

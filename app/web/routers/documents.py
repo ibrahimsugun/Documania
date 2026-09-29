@@ -76,6 +76,7 @@ from app.web.confirm import (
 )
 from app.web.routers.employees import (
     MAX_QUERY_LENGTH,
+    SEARCHABLE_STATUSES,
     EmployeeListing,
     _stored_file,
     list_employees,
@@ -373,7 +374,7 @@ def move_search(
     try:
         owner_id = _movable_document(session, document_id).employee_id
         if q.strip():
-            listing = list_employees(session, q)
+            listing = list_employees(session, q, statuses=SEARCHABLE_STATUSES)
     except HTTPException as exc:
         return _move_result(request, exc.status_code, document_id, error=str(exc.detail))
     finally:

@@ -1820,7 +1820,7 @@
         "description": "PRD 10.5.7 · FR-MOD-10 · Faz 1 · Must (v1). İnsan kararı (2026-09-28). K16 genişlemesi §D61; sözleşme §C90-b. S22 kabul senaryosu bu görevde test olur.",
         "details": "KAPSAM: PRD 10.5.7. Tam sözleşme PLAN §C90 (b) ve §D61 — önce oku.\n\nNE YAPILACAK: (1) `employees.status` değerleri `active|inactive|merged` (`EmployeeStatus` enum; `merged` tm 129'da kullanılır, burada tanımlanır). `STATUS_LABELS` üçünü bilir. Göç gerekmez (String(16)); `merged_into_id` sütunu tm 129'a bırakılır. (2) İki aşamalı (K16): `GET /employees/{id}/status/confirm?to=inactive|active`, `POST /employees/{id}/status/prepare`, `POST /employees/{id}/status` (hedef durum belirtece bağlı). Metinler §D61 (iki satır: pasife al / yeniden etkinleştir) → §20.6, `Operation.DEACTIVATE_EMPLOYEE`, `Operation.REACTIVATE_EMPLOYEE`, `CONFIRMATION_TEXTS`, `PRD_OPERATIONS`. Olaylar `EMPLOYEE_DEACTIVATED` / `EMPLOYEE_REACTIVATED` (`reason` notu isteğe bağlı, ≤ 200). (3) Eşleştirme ve rota: `match_employee` pasifi bulmaya devam eder (kimlik gerçek); `plan_planner` (ya da `route.py`) eşleşen çalışan `inactive` ise rotayı `unresolved` yapar, gerekçe kodu `inactive_employee` + E numarası (R7). Unresolved öğe detayı \"Pasif çalışan <Ad Soyad> (E…) ile eşleşti — atayın ya da çalışanı etkinleştirin\" gösterir ve profile bağlantı verir. Bağlam yüklemesi (10.5.3/10.5.5) pasif çalışana 409 + form gizli. Atama (10.7.2) pasife izinli; arama sonucunda \"(pasif)\" eki. (4) Liste: `?status=active|inactive|all` (varsayılan `active`), sayaçlar; profil sayfası pasif bildirimi + \"Yeniden etkinleştir\". Bot araması (12.3.1) pasifi \"(pasif)\" ekiyle gösterir; davranış değişmez. (5) profil.md durum satırı; 09.1-b yeniden üretimi. (6) S22 senaryo testi `tests/test_scenario_s22.py`.\n\nGİRDİ: app/db/models.py (`Employee.status` :286), app/web/routers/employees.py (:101 `STATUS_LABELS`, :264 liste, :605 profil), app/matching/match.py (:597 `match_employee`, :762 `create_employee`), app/pipeline/plan_planner.py (rota kararı, `_document_verdicts`), app/pipeline/route.py (:219 `route_queue_item`, gerekçe), app/web/routers/queue.py (:899 öğe detayı, :989 atama araması), app/web/routers/upload_page.py (bağlam denetimi), app/web/context_person.py, app/telegram/intent.py (:357), app/profiles/render.py, app/web/confirm.py, tests/matching/, tests/pipeline/test_plan.py, tests/web/test_queue*.py, PRD §20.2.2.\n\nÇIKTI: app/db/models.py, app/web/routers/employees.py, app/web/templates/profile.html, employees.html, employee_status_step.html, app/pipeline/plan_planner.py ve/veya route.py, app/web/routers/queue.py, queue_item.html, app/web/routers/upload_page.py, app/telegram/intent.py, app/profiles/render.py, app/web/confirm.py, app/events.py, urun-gereksinim-dokumani-PRD.md (§20.6 iki satır; §20.2.2'ye pasif notu), tests/..., tests/test_scenario_s22.py, PLAN.md (10.5.7 satırı; K10.5), HANDOFF.md.\n\nBU GÖREVİ BAĞLAYAN KİLİTLİ KURALLAR: K16 (§D61), K6/K7 (eşleştirme sırası değişmez — yalnız rota), R7 (emin değilse kuyruğa), R11 (silme yok; klasör ve belgeler yerinde), K15, CONVENTIONS §6.\n\nPRD'DE AYRICA OKU: 05.5.1, 08.1.2 (gerekçe içeriği), 10.4.1, 10.5.3, 10.5.5, 10.7.2, 12.3.1, §20.2.2, §9 S22.\n\nİLGİLİ KABUL SENARYOLARI: S22 (bu görevde), S10/S11 (mevcut davranış bozulmasın).\n\nKAPSAM SINIRI: birleştirme tm 129; profil düzenleme tm 126; pasif çalışanın belgelerini toplu arşivleme yok; Telegram bildirimi yok.\n\nTUZAKLAR: `plan_planner` deterministik (06.1.2) — durum kararı plana `unresolved` gerekçesiyle girer; yeniden çalıştırma (S18) aynı planı kullanır, çalışan sonradan etkinleşse bile plan değişmez (yeniden analiz gerekir) — HANDOFF'a yaz. Bağlam yüklemesi 409 dönerken parti oluşmasın. Çalışan listesi varsayılanı `active` olduğu için mevcut `test_employees.py` sayımları değişmez; `all` ile `merged` de görünür (tm 129 öncesi 0). `STATUS_LABELS` bilinmeyen değerde ham değeri gösteriyor — enum'a bağla.\n\nKAPANIŞ: PLAN satır(lar)ı ✅ → kanıt maddesi (§K), HANDOFF bloğu, commit mesajında `PRD <kod> — tm <id>`; CONVENTIONS DoD kapısı (ruff, compileall, import app.main, alembic upgrade head temiz SQLite, pytest -m \"not live\", coverage) yeşil.",
         "testStrategy": "1) Web: pasife al iki aşamalı (tek onayla değişmez), olay kullanıcı adıyla; profil bildirimi; liste süzgeci `active/inactive/all`; profilden yükleme 409. 2) Rota: pasif çalışanın numarasıyla gelen sentetik parti → Unresolved, gerekçe `inactive_employee`; etkinleştir + yeniden analiz → Hazir (S22 senaryo testi ayrıca atama yoluyla). 3) Atama araması \"(pasif)\" eki, atama başarılı. 4) `test_confirm` §20.6 iki yeni satırla birebir. 5) Bot araması pasifi ekiyle gösterir. 6) DoD kapısı yeşil.",
-        "status": "pending",
+        "status": "in-progress",
         "dependencies": [
           "126",
           "67",
@@ -1828,7 +1828,7 @@
         ],
         "priority": "medium",
         "subtasks": [],
-        "updatedAt": "2026-09-28T11:46:31.000Z"
+        "updatedAt": "2026-09-29T00:51:07.233Z"
       },
       {
         "id": "128",
@@ -1956,7 +1956,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-09-29T00:49:45.741Z",
+      "lastModified": "2026-09-29T00:51:07.233Z",
       "taskCount": 133,
       "completedCount": 121,
       "tags": [

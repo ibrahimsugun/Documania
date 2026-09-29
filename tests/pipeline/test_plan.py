@@ -69,6 +69,7 @@ from app.matching.match import (
 )
 from app.matching.mrz import MrzFormat
 from app.matching.names import normalize_name
+from app.matching.status import inactive_employee_reason
 from app.pipeline.analyze import analyze_upload
 from app.pipeline.group import AttachmentWithoutContext
 from app.pipeline.plan import (
@@ -875,6 +876,135 @@ def test_number_match_is_ready_for_the_registered_employee_and_accumulates(
         for name in ("original_script_name", "nationality")
     ]
     _assert_no_personal_values(session)
+
+
+# --- 10.5.7: pasif çalışan ----------------------------------------------------------------------
+
+
+def _deactivate(employee: Employee) -> Employee:
+    employee.status = "inactive"
+    return employee
+
+
+@pytest.mark.parametrize(
+    ("numbers", "by"),
+    [((NUMBER,), MatchedBy.DOCUMENT_NUMBER), ((), MatchedBy.NAME_DOB)],
+    ids=["satir-1", "satir-3"],
+)
+def test_match_with_an_inactive_employee_goes_to_unresolved_and_accumulates_nothing(
+    session: Session, layout: DataLayout, numbers: tuple[str, ...], by: MatchedBy
+) -> None:
+    # 10.5.7 (§20.2.2 notu): eşleştirme pasif çalışanı bulur — kimlik gerçektir, olay yazılır —
+    # ama belge otomatik yerleşmez (R7): Unresolved, gerekçe kod + E numarası, çalışan kişi
+    # tahmini. Yazım, numara, profil alanı ve iletişim bilgisi birikmez; klasör açılmaz.
+    _deactivate(_employee(session, numbers=numbers))
+    passport = _passport()
+    passport["person"]["contact"]["phone"] = PHONE
+    upload = _upload(session, layout, _pdf(passport))
+    (file_id,) = _file_ids(upload)
+
+    document = _plan(session, layout, upload)
+
+    assert document.items == (
+        _item(
+            "i1",
+            [(file_id, (0,))],
+            slug=PASSPORT,
+            employee=_matched(by=by),
+            route=Route.UNRESOLVED,
+            reason=inactive_employee_reason("E0007"),
+        ),
+    )
+    assert list(session.scalars(select(EmployeeAlias.raw_name))) == ["Test Ornekova"]
+    assert _count(session, EmployeeIdentifier) == len(numbers)
+    assert (_count(session, EmployeeContact), _observations(session)) == (0, [])
+    assert _events(session, EventType.EMPLOYEE_FIELD_FILLED) == []
+    (matched,) = _events(session, EventType.PERSON_MATCHED)
+    assert matched.employee_id == "E0007"
+    assert _count(session, Employee) == 1
+    assert list(layout.employees.iterdir()) == []
+    _assert_no_personal_values(session)
+
+
+def test_rejected_document_of_an_inactive_employee_also_names_the_inactive_match(
+    session: Session, layout: DataLayout
+) -> None:
+    # Kuyruğa zaten giden belgede (K1) pasif hüküm gerekçeye eklenir; rota ilk hükmündür.
+    _deactivate(_employee(session, numbers=(NUMBER,)))
+    upload = _upload(session, layout, _pdf(_illegible_expiry(_passport())))
+    (file_id,) = _file_ids(upload)
+
+    (item,) = _plan(session, layout, upload).items
+
+    assert item == _item(
+        "i1",
+        [(file_id, (0,))],
+        slug=PASSPORT,
+        employee=_matched(),
+        route=Route.UNREADABLE,
+        reason=f"Okunamayan alanlar: expiry_date {inactive_employee_reason('E0007')}",
+        failed=(ValidationName.REQUIRED_FIELDS,),
+    )
+
+
+def test_active_employee_plan_is_unchanged_and_reactivation_takes_effect_on_the_next_plan(
+    session: Session, layout: DataLayout
+) -> None:
+    # Durum planlama anında okunur: plan donar (K9); etkinleştirmenin etkisi yeni planladır
+    # (yeniden analiz, K18). Aynı parti ikinci kez planlanınca Hazir'a gider.
+    employee = _deactivate(_employee(session, numbers=(NUMBER,)))
+    upload = _upload(session, layout, _pdf(_passport()))
+
+    (first,) = _plan(session, layout, upload).items
+    employee.status = "active"
+    (second,) = _plan(session, layout, upload).items
+
+    assert (first.route, first.employee) == (Route.UNRESOLVED, _matched())
+    assert (second.route, second.employee, second.route_reason) == (
+        Route.READY,
+        _matched(),
+        None,
+    )
+
+
+def test_photo_next_to_an_inactive_employees_passport_gets_no_owner(
+    session: Session, layout: DataLayout
+) -> None:
+    # D29: sahip, dosyada Hazir'a giden kimlikli belgeden gelir; pasif çalışanın pasaportu
+    # Unresolved'a gittiği için fotoğraf da satır 8'de kalır.
+    _deactivate(_employee(session, numbers=(NUMBER,)))
+    photo = _page(PHOTO, person=copy.deepcopy(NO_PERSON))
+    upload = _upload(session, layout, _pdf(photo, _passport()))
+    (file_id,) = _file_ids(upload)
+
+    photo_item, passport = _plan(session, layout, upload).items
+
+    assert photo_item.route is Route.UNRESOLVED
+    assert photo_item.employee == NOBODY
+    assert (passport.route, passport.employee) == (Route.UNRESOLVED, _matched())
+    assert passport.route_reason == inactive_employee_reason("E0007")
+    assert file_id == passport.sources[0].file_id
+
+
+def test_attachment_of_an_inactive_context_employee_goes_to_unresolved(
+    session: Session, layout: DataLayout
+) -> None:
+    # Bağlam çalışanı yüklemeden sonra pasife alındıysa (yükleme artık 409) Word eki de otomatik
+    # yerleşmez; çalışan kişi tahminidir.
+    _deactivate(_employee(session))
+    upload = _upload(session, layout, _File(content=make_docx_bytes()), context_employee_id="E0007")
+    (file_id,) = _file_ids(upload)
+
+    (item,) = _plan(session, layout, upload).items
+
+    assert item == _item(
+        "i1",
+        [(file_id, ())],
+        slug="attachment",
+        employee=_matched(by=None),
+        route=Route.UNRESOLVED,
+        reason=inactive_employee_reason("E0007"),
+    )
 
 
 def test_name_only_match_goes_to_unresolved_without_an_employee(

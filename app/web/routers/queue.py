@@ -38,7 +38,8 @@ işleme, hedefe veya oturuma ait belirteçle gelen istek 400 ve hiçbir şey yap
 belli öğede açılır (türsüz öğenin çıktısı adlandırılamaz, K8; `assign_queue_item` onu reddeder):
 
 1. `GET /queues/{id}/assign/employees?q=` çalışanı 10.4.2'nin aramasıyla (`list_employees`) bulur;
-   boş aramada liste gelmez — çalışan aranarak seçilir.
+   boş aramada liste gelmez — çalışan aranarak seçilir. Pasif çalışan (10.5.7) da bulunur ve
+   atanabilir; adı "(pasif)" ekiyle görünür.
 2. `GET /queues/{id}/assign/confirm?employee_id=` seçilen çalışanla **birinci** onay metnini verir.
 3. `POST /queues/{id}/assign/prepare` birinci onaydan sonra **ikinci** onay metnini ve onay
    belirtecini verir (§20.6.1 adım 1–2).
@@ -54,6 +55,11 @@ belirteçsiz, süresi geçmiş, kullanılmış, başka öğeye, başka çalışa
 denetiminde 409 ile reddedilir.
 Adımların hepsi öğeyi yeniden denetler: öğe yoksa 404, çözülmüş, eski sürüm ya da türsüzse 409,
 çalışan yoksa 404 — yanıt `queue_assign.html` parçasıdır (HTMX hedefi).
+
+**Pasif çalışanla eşleşen öğe (10.5.7).** Gerekçesi `inactive_employee` kodunu taşıyan bekleyen
+öğenin detayı "Pasif çalışan <ad> (E…) ile eşleşti — atayın ya da çalışanı etkinleştirin"
+bildirimini ve çalışanın profiline bağlantıyı gösterir; çalışan o arada etkinleştirildiyse bunu da
+söyler.
 
 **Kuyruktan profil oluşturma (10.7.3).** Onay bekleyen profil (§20.2.2 satır 7, K7) öğesinin
 detayında önerilen profil düzenlenebilir bir formla gelir: öneri onaydaki gibi saklanan sayfa
@@ -116,6 +122,7 @@ from app.matching.match import (
     ProposedProfile,
     edited_profile_fields,
 )
+from app.matching.status import is_inactive, is_inactive_employee_reason, status_label
 from app.pipeline.plan import PlanEmployee, PlanIntegrityError
 from app.pipeline.route import (
     ApprovedProfile,
@@ -158,7 +165,12 @@ from app.web.profile_form import (
     profile_values,
 )
 from app.web.routers.documents import SourceView, _reference, _source_view
-from app.web.routers.employees import MAX_QUERY_LENGTH, EmployeeListing, list_employees
+from app.web.routers.employees import (
+    MAX_QUERY_LENGTH,
+    SEARCHABLE_STATUSES,
+    EmployeeListing,
+    list_employees,
+)
 from app.web.routers.upload_page import (
     QUEUE_LABELS,
     EventView,
@@ -555,6 +567,17 @@ class QueueListing:
 
 
 @dataclass(frozen=True, slots=True)
+class InactiveEmployeeView:
+    """10.5.7: öğenin eşleştiği pasif çalışan; `inactive` çalışanın şimdiki durumudur (o arada
+    etkinleştirilmiş olabilir)."""
+
+    id: str
+    name: str
+    inactive: bool
+    status_label: str
+
+
+@dataclass(frozen=True, slots=True)
 class QueueItemView:
     id: int
     kind: str
@@ -577,6 +600,7 @@ class QueueItemView:
     assign_note: str | None
     profile_form: list[ProfileFieldView] | None
     profile_note: str | None
+    inactive_employee: InactiveEmployeeView | None = None
 
 
 def _queue_url(kind: str, state: QueueState = QueueState.OPEN, page: int = 1) -> str:
@@ -864,6 +888,9 @@ def build_item_view(session: Session, queue_item_id: int) -> QueueItemView | Non
         ),
         profile_form=profile_form,
         profile_note=profile_note,
+        inactive_employee=(
+            _inactive_employee(queue_item, lookups) if state is QueueState.OPEN else None
+        ),
         events=[
             EventView(
                 ts=_format_ts(event.ts),
@@ -875,6 +902,26 @@ def build_item_view(session: Session, queue_item_id: int) -> QueueItemView | Non
             )
             for event in events
         ],
+    )
+
+
+def _inactive_employee(queue_item: QueueItem, lookups: _Lookups) -> InactiveEmployeeView | None:
+    """10.5.7 — gerekçe pasif çalışan hükmünü taşıyorsa kişi tahminindeki çalışan."""
+    if not is_inactive_employee_reason(queue_item.reason):
+        return None
+    guess = _employee_guess(queue_item.payload_json)
+    employee = (
+        lookups.employees.get(guess.employee_id)
+        if guess is not None and guess.employee_id is not None
+        else None
+    )
+    if employee is None:
+        return None
+    return InactiveEmployeeView(
+        id=employee.id,
+        name=f"{employee.given_names} {employee.surname}",
+        inactive=is_inactive(employee),
+        status_label=status_label(employee.status),
     )
 
 
@@ -995,12 +1042,13 @@ def assignment_search(
     session: Annotated[Session, Depends(get_session)],
     q: Annotated[str, Query(max_length=MAX_QUERY_LENGTH)] = "",
 ) -> HTMLResponse:
-    """10.7.2 — atanacak çalışanı arar (10.4.2'nin araması); boş aramada liste gelmez."""
+    """10.7.2 — atanacak çalışanı arar (10.4.2'nin araması); boş aramada liste gelmez. Pasif
+    çalışan da bulunur (10.5.7)."""
     listing: EmployeeListing | None = None
     try:
         _assignable_item(session, queue_item_id)
         if q.strip():
-            listing = list_employees(session, q)
+            listing = list_employees(session, q, statuses=SEARCHABLE_STATUSES)
     except HTTPException as exc:
         return _assign_result(request, exc.status_code, queue_item_id, error=str(exc.detail))
     finally:
