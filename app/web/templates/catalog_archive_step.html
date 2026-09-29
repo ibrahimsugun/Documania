@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{# Belge türünü arşivle (11.1.6; PLAN.md §C92-a, §D61-d): tekil ya da toplu, iki aşamalı onay.
+   Birinci adım yalnız metni gösterir; ikinci adım sunucunun verdiği tek kullanımlık belirteci
+   taşır. Metinler §C92'den birebirdir (K16 dışı, §20.6'ya girmez). Tür silinmez, belgeleri yerinde
+   kalır (R11); belge içeriğine dokunulmaz (K11, K17). Süzgeç (11.1.5) gizli `country` alanıyla
+   taşınır. #}
+{% block title %}{% if bulk %}Seçilen türleri arşivle{% else %}Türü arşivle{% endif %} · {{ entry.label }}{% endblock %}
+{% block content %}
+<p class="back"><a href="{{ back_url }}">← {{ entry.label }}</a></p>
+<h1>{% if bulk %}Seçilen türleri arşivle{% else %}Türü arşivle: {{ type_name }}{% endif %}</h1>
+{% if error %}
+<div class="error" role="alert">
+  <p>İşlem yapılmadı:</p>
+  <ul><li>{{ error }}</li></ul>
+</div>
+{% else %}
+{% if bulk %}
+<section class="archive-selection" id="archive-selection">
+  <p>Arşivlenecek türler ({{ archivable|length }}):</p>
+  <ul class="archive-types">
+    {% for name in archivable %}<li>{{ name }}</li>{% endfor %}
+  </ul>
+  {% if protected %}
+  <p class="hint" id="archive-protected">Korunan türler arşivlenmez, atlanacak ({{ protected|length }}): {{ protected|join(", ") }}</p>
+  {% endif %}
+</section>
+{% endif %}
+<section class="decision-step" id="decision-step">
+  <p class="confirm-text">{{ confirm_text }}</p>
+  {% if confirmation %}
+  {% if bulk %}<form class="decision-form" method="post" action="/document-types/bulk">
+    <input type="hidden" name="action" value="archive">{% else %}<form class="decision-form" method="post" action="/document-types/{{ slug|urlencode }}/archive">{% endif %}
+    {% for item in selected %}<input type="hidden" name="slugs" value="{{ item }}">{% endfor %}
+    {% if selected_country != "all" %}<input type="hidden" name="country" value="{{ selected_country }}">{% endif %}
+    <input type="hidden" name="confirmation" value="{{ confirmation }}">
+    <button type="submit">Evet, arşivle</button>
+    <a href="{{ back_url }}">Vazgeç</a>
+  </form>
+  {% else %}
+  {% if bulk %}<form class="decision-form" method="post" action="/document-types/bulk/prepare">{% else %}<form class="decision-form" method="post" action="/document-types/{{ slug|urlencode }}/archive/prepare">{% endif %}
+    {% for item in selected %}<input type="hidden" name="slugs" value="{{ item }}">{% endfor %}
+    {% if selected_country != "all" %}<input type="hidden" name="country" value="{{ selected_country }}">{% endif %}
+    <button type="submit">Evet, devam et</button>
+    <a href="{{ back_url }}">Vazgeç</a>
+  </form>
+  {% endif %}
+</section>
+{% endif %}
+{% endblock %}

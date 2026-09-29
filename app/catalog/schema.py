@@ -11,6 +11,9 @@ yükleme reddedilir, hiçbir kayıt kısmen alınmaz. Tutarlılık kuralları:
   tek yüzlü türde liste boştur. `front_back` türün `expected_pages`'i düzenlerden türetilir ve
   kayıt onunla çelişemez: yalnız `separate` 2–2, yalnız `combined` 1–1, ikisi 1–2 (`layout_pages`).
 - Slug katalogda tekildir; listelerde tekrar yoktur; `expected_pages.min <= max`.
+- `archived_at` (11.1.6) saat dilimli zaman damgasıdır; dolu kayıt arşivli türdür: talimata ve
+  seçicilere girmez ama katalogda kalır (belgeleri ona bağlıdır). Alanı taşımayan eski kayıt
+  arşivsizdir.
 
 `allowed_conversions` §20.3'teki dönüşüm işlemlerinin adlarını taşır (satır 3–6: `merge`,
 `wrap_image`, `extract_image`, `render_image`). `passthrough` ve `extract` dönüşüm değildir,
@@ -24,6 +27,7 @@ from collections.abc import Iterator
 from typing import Annotated, Any
 
 from pydantic import (
+    AwareDatetime,
     BaseModel,
     ConfigDict,
     Field,
@@ -175,6 +179,7 @@ class CatalogEntry(BaseModel):
     prompt_description: Text | None = None
     photo_rules: dict[str, Any] | None = None
     active: StrictBool = True
+    archived_at: AwareDatetime | None = None
 
     @field_validator(
         "expected_file_types", "front_back_layouts", "required_fields", "allowed_conversions"
@@ -292,13 +297,15 @@ class Catalog(RootModel[tuple[CatalogEntry, ...]]):
 
         K2: Word/Excel gibi analiz edilmeyen türler sayfa analizinden değil, içerik türünden
         eşlenir (04.7.1). `analyze: true` türler bu eşlemeye girmez — onların türü sayfa
-        analiziyle belirlenir.
+        analiziyle belirlenir. Arşivli tür (11.1.6) yeni belgeye atanmaz.
         """
         return next(
             (
                 entry
                 for entry in self.root
-                if not entry.analyze and file_type in entry.expected_file_types
+                if not entry.analyze
+                and entry.archived_at is None
+                and file_type in entry.expected_file_types
             ),
             None,
         )

@@ -107,10 +107,15 @@ def parse_catalog_yaml(content: str | bytes) -> Catalog:
 
 
 def dump_catalog_yaml(catalog: Catalog) -> str:
-    """Kataloğu kanonik YAML metnine çevirir (alan sırası §8.6, tüm alanlar açık yazılır)."""
+    """Kataloğu kanonik YAML metnine çevirir (alan sırası §8.6, tüm alanlar açık yazılır; yalnız
+    `archived_at` arşivli türde yazılır)."""
     records = []
     for entry in catalog:
         record = entry.model_dump(mode="json")
+        # Arşiv alanı (11.1.6) yalnız arşivli türde yazılır: arşivsiz kayıtların (tohum dahil)
+        # kanonik metni alan eklenmeden önceki gibi kalır.
+        if record["archived_at"] is None:
+            del record["archived_at"]
         for key in _FLOW_LISTS:
             record[key] = _FlowList(record[key])
         for key in _FLOW_MAPS:

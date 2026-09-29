@@ -349,11 +349,16 @@ def test_json_schema_requires_every_key_and_forbids_others() -> None:
 
 
 def test_proposal_fields_are_the_catalog_form_fields() -> None:
-    # Taslak Belge türü formunu doldurur: `slug`, `photo_rules` ve `active` dışındaki her katalog
-    # alanı; `prompt_description`'ın yerini yapılandırılmış `appearance` alır.
+    # Taslak Belge türü formunu doldurur: `slug`, `photo_rules`, `active` ve `archived_at` (11.1.6)
+    # dışındaki her katalog alanı; `prompt_description`'ın yerini yapılandırılmış `appearance` alır.
     from app.catalog.schema import CatalogEntry
 
-    catalog_fields = set(CatalogEntry.model_fields) - {"slug", "photo_rules", "active"}
+    catalog_fields = set(CatalogEntry.model_fields) - {
+        "slug",
+        "photo_rules",
+        "active",
+        "archived_at",
+    }
 
     assert set(TypeProposal.model_fields) == (catalog_fields - {"prompt_description"}) | {
         "appearance"

@@ -22,11 +22,16 @@ Analizcinin önerdiği katalog dışı türler `candidate_document_types`'ta bir
   (`app.catalog.prefill`): taslak yapay zekâ katmanından gelir, bu paket onu içe aktaramaz.
 - **Ret (11.5.4).** `reject_candidate_type` adayı `rejected` işaretler ve `TYPE_REJECTED` yazar.
   Kayıt silinmez (K16). Aynı ad yeniden önerilirse görülme aynı kayda sayılır, durum değişmez
-  (`record_candidate_type_sighting`): reddedilen aday listeye geri düşmez.
+  (`record_candidate_type_sighting`): reddedilen aday listeye kendiliğinden geri düşmez.
+- **Retten geri alma (11.5.7).** Reddedilenler `list_candidate_types(…, REJECTED)` ile ayrı
+  görünümde listelenir; `restore_candidate_type` reddedilen adayı tek adımda yeniden bekleyen yapar
+  ve `CANDIDATE_TYPE_RESTORED`'ı kullanıcı adıyla yazar (§D61-b: salt durum çevirir, geri
+  alınabilir).
 
-Karar yalnız bekleyen adayda verilir ve geri alınmaz (`decide_candidate_type`); aynı anda gelen iki
-karardan biri geçer. Olay verisi kişisel değer taşımaz: aday kimliği, aday tür adı (analizcinin tür
-adı) ve onayda türün slug'ı. Hiçbir fonksiyon commit etmez; hata olursa çağıran geri alır.
+Karar yalnız bekleyen adayda verilir (`decide_candidate_type`); onay geri alınmaz, ret yalnız
+retten geri almayla açılır. Aynı anda gelen iki karardan biri geçer. Olay verisi kişisel değer
+taşımaz: aday kimliği, aday tür adı (analizcinin tür adı) ve onayda türün slug'ı. Hiçbir
+fonksiyon commit etmez; hata olursa çağıran geri alır.
 """
 
 from __future__ import annotations
@@ -47,6 +52,7 @@ from app.db.models import (
     Page,
     UploadFile,
     decide_candidate_type,
+    reopen_rejected_candidate_type,
 )
 from app.events import EventType, record_event
 
@@ -72,6 +78,15 @@ class CandidateDecidedError(ValueError):
         self.candidate_type_id = candidate_type_id
         self.status = status
         super().__init__(f"Aday tür {candidate_type_id} karara bağlanmış: {status}")
+
+
+class CandidateNotRejectedError(ValueError):
+    """Aday tür reddedilmiş değil; yalnız reddedilen aday geri alınır (11.5.7)."""
+
+    def __init__(self, candidate_type_id: int, status: str) -> None:
+        self.candidate_type_id = candidate_type_id
+        self.status = status
+        super().__init__(f"Aday tür {candidate_type_id} reddedilmiş değil: {status}")
 
 
 @dataclass(frozen=True, slots=True)
@@ -269,6 +284,29 @@ def reject_candidate_type(
     record_event(
         session,
         EventType.TYPE_REJECTED,
+        actor=actor,
+        data={"candidate_type_id": candidate.id, "candidate_type_name": candidate.proposed_name},
+    )
+    session.refresh(candidate)
+    return candidate
+
+
+def restore_candidate_type(
+    session: Session, candidate_type_id: int, *, actor: str
+) -> CandidateDocumentType:
+    """11.5.7 — reddedilen adayı yeniden bekleyen yapar ve `CANDIDATE_TYPE_RESTORED`'ı kullanıcı
+    adıyla yazar (veri: aday kimliği ve aday tür adı).
+
+    Aday yoksa `CandidateNotFoundError`, reddedilmiş değilse (bekleyen ya da onaylanmış)
+    `CandidateNotRejectedError`; ikisinde de hiçbir şey yazılmaz. Katalog değişmez.
+    """
+    candidate = load_candidate_type(session, candidate_type_id)
+    if not reopen_rejected_candidate_type(session, candidate.id):
+        session.refresh(candidate)
+        raise CandidateNotRejectedError(candidate.id, candidate.status)
+    record_event(
+        session,
+        EventType.CANDIDATE_TYPE_RESTORED,
         actor=actor,
         data={"candidate_type_id": candidate.id, "candidate_type_name": candidate.proposed_name},
     )

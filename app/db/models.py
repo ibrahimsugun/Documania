@@ -631,6 +631,10 @@ class KnownDocumentType(Base):
     prompt_description: Mapped[str | None] = mapped_column(Text)
     photo_rules: Mapped[dict[str, Any] | None] = mapped_column(JSON)
     active: Mapped[bool] = mapped_column(Boolean, default=True)
+    # 11.1.6: arşivlenen tür silinmez (R11); listeden, talimattan ve seçicilerden kalkar, belgeleri
+    # yerinde kalır. Geri alma iki alanı boşaltır.
+    archived_at: Mapped[datetime | None] = mapped_column(UtcDateTime)
+    archived_by: Mapped[str | None] = mapped_column(String(255))
 
 
 class CandidateDocumentType(IdleClaimMixin, Base):
@@ -1194,7 +1198,8 @@ def decide_candidate_type(
 ) -> bool:
     """Bekleyen aday türün kararını yazar: onay (11.5.2) ya da ret (11.5.4); yazıldıysa `True`.
 
-    Yalnız `pending` kayıt karara bağlanır ve karar geri alınmaz. Koşullu güncellemedir
+    Yalnız `pending` kayıt karara bağlanır; onay geri alınmaz, ret yalnız
+    `reopen_rejected_candidate_type` ile (11.5.7) geri alınır. Koşullu güncellemedir
     (`status = 'pending'`): aynı adayı aynı anda karara bağlayan iki işlemden yalnız biri geçer;
     kayıt yoksa ya da karara bağlanmışsa `False` döner, hiçbir şey değişmez. Kayıt silinmez (K16);
     ad, görülme sayısı ve örnek sayfalar değişmez. Oturum commit edilmez.
@@ -1210,6 +1215,25 @@ def decide_candidate_type(
         .values(status=status.value)
     )
     return decided.rowcount == 1
+
+
+def reopen_rejected_candidate_type(session: Session, candidate_type_id: int) -> bool:
+    """Reddedilmiş aday türü yeniden bekleyen yapar (11.5.7); yazıldıysa `True`.
+
+    Yalnız `rejected` kayıt geri alınır — onay geri alınmaz (tür kataloğa girmiştir). Koşullu
+    güncellemedir (`status = 'rejected'`): eşzamanlı iki geri almadan biri geçer; kayıt yoksa ya da
+    reddedilmemişse `False`. Ad, görülme sayısı, örnekler ve inceleme değişmez. Oturum commit
+    edilmez.
+    """
+    reopened = session.execute(
+        update(CandidateDocumentType)
+        .where(
+            CandidateDocumentType.id == candidate_type_id,
+            CandidateDocumentType.status == CandidateTypeStatus.REJECTED.value,
+        )
+        .values(status=CandidateTypeStatus.PENDING.value)
+    )
+    return reopened.rowcount == 1
 
 
 # --- iletişim bilgisi birikimi (05.8.1, 05.8.2) ---------------------------------------------

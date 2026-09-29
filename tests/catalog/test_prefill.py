@@ -433,7 +433,7 @@ def test_unverified_examples_count_only_ai_decisions_of_the_slug(session: Sessio
 
 
 def test_field_labels_cover_the_catalog_record_fields() -> None:
-    form_fields = set(CatalogEntry.model_fields) - {"photo_rules", "active"}
+    form_fields = set(CatalogEntry.model_fields) - {"photo_rules", "active", "archived_at"}
 
     assert set(FIELD_LABELS) == form_fields
     assert isinstance(load_seed_catalog(), Catalog)

@@ -77,6 +77,10 @@ class Operation(enum.StrEnum):
     TRAINING_REMOVE = "training_remove"
     # §20.6'nın dışında (PLAN.md §D58): harita ile toplu taramayı başlat (11.9.5).
     TRAINING_MAP = "training_map"
+    # §20.6'nın dışında (K16 dışı, PLAN.md §C92-a, §D61-d): belge türünü arşivle, tekil ve toplu
+    # (11.1.6); metinler `app.web.routers.catalog`'dadır.
+    TYPE_ARCHIVE = "type_archive"
+    TYPE_ARCHIVE_BULK = "type_archive_bulk"
 
 
 @dataclass(frozen=True, slots=True)

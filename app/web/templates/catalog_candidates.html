@@ -1,8 +1,10 @@
 {% extends "base.html" %}
 {# Aday türler (11.5.1): analizcinin önerdiği, katalogda olmayan türler — bekleyenler adı, görülme
    sayısı, örnek sayfaları ve sistemin incelemesinin durumuyla (11.5.5: Hazır, Başarısız, Örnek yok,
-   Bekliyor). Reddedilen aday listelenmez (11.5.4); onaylanmış ama ilişkili
-   Unknown öğesi bekleyen aday toplu yeniden analiz için ayrıca görünür (11.5.3). #}
+   Bekliyor). Reddedilen aday bekleyenler arasında listelenmez (11.5.4); onaylanmış ama ilişkili
+   Unknown öğesi bekleyen aday toplu yeniden analiz için ayrıca görünür (11.5.3). "Reddedilenler"
+   görünümü (`?status=rejected`, 11.5.7) reddedilen adayları tek adımlı "Geri al" düğmesiyle
+   listeler. #}
 {% block title %}Aday türler{% endblock %}
 {% block content %}
 <p class="back"><a href="/document-types">← Belge Türleri</a></p>
@@ -12,7 +14,43 @@
 <p class="notice notice-success" role="status">{{ notice_text }}</p>
 {% endif %}
 <p class="hint">Analizcinin önerdiği, katalogda olmayan türler. Belge hiçbir türe zorla atanmaz: aday türle görülen belgeler Unknown kuyruğunda bekler. Onaylanan aday standart türler arasına eklenir; reddedilen aday bir daha listeye düşmez. Sistem bekleyen adayların örnek sayfalarını boş zamanında inceleyip tür taslağı hazırlar (İnceleme sütunu); aday kendiliğinden onaylanmaz.</p>
-{% if pending %}
+<nav class="tabs candidate-views" aria-label="Aday tür görünümleri">
+  {% if view == "pending" %}<strong>Bekleyenler ({{ pending|length }})</strong>{% else %}<a href="/document-types/candidate-types">Bekleyenler ({{ pending|length }})</a>{% endif %}
+  ·
+  {% if view == "rejected" %}<strong>Reddedilenler ({{ rejected|length }})</strong>{% else %}<a href="/document-types/candidate-types?status=rejected">Reddedilenler ({{ rejected|length }})</a>{% endif %}
+</nav>
+{% if view == "rejected" %}
+{% if rejected %}
+<table class="catalog candidates rejected-candidates">
+  <thead>
+    <tr><th>Aday tür</th><th>Görülme</th><th>Örnek sayfalar</th><th>İlk görüldüğü parti</th><th></th></tr>
+  </thead>
+  <tbody>
+    {% for item in rejected %}
+    <tr>
+      <td><a href="/document-types/candidate-types/{{ item.id }}">{{ item.name }}</a></td>
+      <td class="seen-count">{{ item.seen_count }}</td>
+      <td>
+        {% if item.samples %}
+        {% with samples=item.samples %}{% include "catalog_candidate_samples.html" %}{% endwith %}
+        {% else %}
+        <span class="placeholder">Örnek sayfa yok</span>
+        {% endif %}
+      </td>
+      <td><a href="/uploads/{{ item.first_seen_upload_id }}">{{ item.first_seen_upload_id }}</a></td>
+      <td class="doc-actions">
+        <form class="inline" method="post" action="/document-types/candidate-types/{{ item.id }}/restore">
+          <button type="submit">Geri al</button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="placeholder">Reddedilen aday tür yok.</p>
+{% endif %}
+{% elif pending %}
 <table class="catalog candidates">
   <thead>
     <tr><th>Aday tür</th><th>Görülme</th><th>Örnek sayfalar</th><th>İnceleme</th><th>Bekleyen Unknown öğesi</th><th>İlk görüldüğü parti</th><th></th></tr>
@@ -41,7 +79,7 @@
 {% else %}
 <p class="placeholder">Onay bekleyen aday tür yok.</p>
 {% endif %}
-{% if approved %}
+{% if approved and view == "pending" %}
 <section id="approved-candidates">
   <h2>Onaylanan, Unknown öğesi bekleyen adaylar</h2>
   <p class="hint">Bu türler kataloğa eklendi; onaydan önce görülen belgeleri toplu yeniden analiz edilebilir.</p>

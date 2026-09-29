@@ -8,10 +8,14 @@
    (11.1.4). Ülke süzgeci (11.1.5): seçilen ülke + ülkeden bağımsız (genel) türler birlikte
    listelenir; JavaScript'siz de çalışır ("Uygula" düğmesi), seçim satır ve "Yeni tür"
    bağlantılarında, etkinleştir/pasifleştir formlarının gizli alanında ve bütün bildirim
-   yönlendirmelerinde korunur. #}
-{% block title %}{{ entry.label }}{% endblock %}
+   yönlendirmelerinde korunur. Arşiv (11.1.6): arşivli türler bu listede yoktur; "Arşivlenen türler"
+   (`?archived=1`) onları geri alma düğmesiyle listeler. Satırın onay kutusu tablonun dışındaki toplu
+   işlem formuna (`form="bulk-types"`) bağlıdır — iç içe form yok, JavaScript gerekmez; toplu arşiv
+   ve tekil "Arşivle" iki aşamalı onay sayfasına gider, korunan tür arşivlenemez. #}
+{% block title %}{% if show_archived %}Arşivlenen türler · {% endif %}{{ entry.label }}{% endblock %}
 {% block content %}
-<h1>{{ entry.label }}</h1>
+{% if show_archived %}<p class="back"><a href="{{ list_url }}">← {{ entry.label }}</a></p>{% endif %}
+<h1>{% if show_archived %}Arşivlenen türler{% else %}{{ entry.label }}{% endif %}</h1>
 <p class="lede">Şirketin tanıdığı belge türleri. Sistem bir belgeyi ancak buradaki bir türe benzetebilirse yerleştirir; benzetemezse «Tür bilinmiyor» kuyruğuna alır.</p>
 {% if notice_text %}
 <p class="notice notice-success" role="status">{{ notice_text }}</p>
@@ -19,6 +23,7 @@
 <p>
   <a class="button-link" href="/document-types/new{{ country_query }}">Yeni tür</a>
   <a class="button-link" href="/document-types/candidate-types">Aday türler</a> <span class="count">({{ pending_candidates }} onay bekliyor)</span>
+  {% if not show_archived %}<a class="button-link" href="{{ archived_url }}" id="archived-link">Arşivlenen türler</a> <span class="count">({{ archived_total }})</span>{% endif %}
 </p>
 {% if budget %}
 <p class="catalog-budget" id="catalog-budget">Aktif tür: <strong>{{ budget.active_types }}</strong> · analiz talimatındaki katalog metni ≈ <strong>{{ budget.tokens_text }}</strong> token, tahmini (bütçe {{ budget.budget_text }}{% if budget.configured %}, <code>CATALOG_TOKEN_BUDGET</code> ayarından{% else %}, tür sayısıyla ölçekli{% endif %})</p>
@@ -35,8 +40,9 @@
 {% else %}
 <p class="notice" role="status" id="catalog-budget">{{ budget_unavailable }}</p>
 {% endif %}
-<p class="hint">Değişiklikler bir sonraki analizden itibaren geçerlidir. Tür silinmez: pasifleştirilen tür yeni belgelere atanmaz, var olan belgeler kalır.</p>
+<p class="hint">Değişiklikler bir sonraki analizden itibaren geçerlidir. Tür silinmez: pasifleştirilen tür yeni belgelere atanmaz, var olan belgeler kalır. Arşivlenen tür listeden, analiz talimatından ve tür seçicilerden de kalkar; «Arşivlenen türler»den tek adımda geri alınır.</p>
 <form class="search country-filter" method="get" action="/document-types" aria-label="Türleri ülkeye göre süz">
+  {% if show_archived %}<input type="hidden" name="archived" value="1">{% endif %}
   <label for="country">Ülke</label>
   <select id="country" name="country" onchange="this.form.submit()">
     {% for option in country_options %}
@@ -46,17 +52,55 @@
   <button type="submit">Uygula</button>
 </form>
 <p class="count">{{ types|length }} tür gösteriliyor (toplam {{ total_types }})</p>
+{% if show_archived %}
 {% if types %}
+<table class="catalog archived-types">
+  <thead>
+    <tr><th>Ad</th><th>Dosya etiketi</th><th>Ülke</th><th>Arşivlendi</th><th>Arşivleyen</th><th></th></tr>
+  </thead>
+  <tbody>
+    {% for item in types %}
+    <tr>
+      <td><a href="/document-types/{{ item.slug|urlencode }}{{ country_query }}" title="{{ item.slug }}">{{ item.name }}</a></td>
+      <td>{{ item.file_label }}</td>
+      <td>{{ item.country or "—" }}</td>
+      <td class="cell-nowrap">{{ item.archived_at.strftime("%Y-%m-%d %H:%M") }}</td>
+      <td>{{ item.archived_by or "—" }}</td>
+      <td class="doc-actions">
+        <form class="inline" method="post" action="/document-types/{{ item.slug|urlencode }}/restore">
+          {% if selected_country != "all" %}<input type="hidden" name="country" value="{{ selected_country }}">{% endif %}
+          <button type="submit">Geri al</button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% elif total_types %}
+<p class="placeholder">Bu süzgeçte arşivlenen tür yok. <a href="/document-types?archived=1">Bütün arşivlenen türleri göster</a></p>
+{% else %}
+<p class="placeholder">Arşivlenen tür yok.</p>
+{% endif %}
+{% elif types %}
+<form class="bulk-bar" id="bulk-types" method="post" action="/document-types/bulk" aria-label="Seçilen türlere toplu işlem">
+  {% if selected_country != "all" %}<input type="hidden" name="country" value="{{ selected_country }}">{% endif %}
+  <span>Seçilenleri:</span>
+  <button type="submit" name="action" value="deactivate">Pasifleştir</button>
+  <button type="submit" name="action" value="activate">Etkinleştir</button>
+  <button type="submit" name="action" value="archive">Arşivle</button>
+  <small class="hint">Tek seferde en çok {{ bulk_limit }} tür; arşivleme iki aşamalı onay ister.</small>
+</form>
 <table class="catalog catalog-types">
   <thead>
     <tr>
-      <th>Ad</th><th>Dosya etiketi</th><th>Ülke</th><th>Yüz</th>
+      <th><span class="visually-hidden">Seç</span></th><th>Ad</th><th>Dosya etiketi</th><th>Ülke</th><th>Yüz</th>
       <th>Direkt</th><th>Analiz</th><th>Kabul kriteri</th><th>Durum</th><th></th>
     </tr>
   </thead>
   <tbody>
     {% for item in types %}
     <tr{% if not item.active %} class="type-passive"{% endif %}>
+      <td><input type="checkbox" name="slugs" value="{{ item.slug }}" form="bulk-types" aria-label="{{ item.name }} seç"></td>
       <td><a href="/document-types/{{ item.slug|urlencode }}{{ country_query }}" title="{{ item.slug }}">{{ item.name }}</a></td>
       <td>{{ item.file_label }}</td>
       <td>{{ item.country or "—" }}</td>
@@ -83,6 +127,7 @@
           <button type="submit">Etkinleştir</button>
         </form>
         {% endif %}
+        {% if item.protected %}<span class="hint" title="Boru hattının adıyla kullandığı tür">Korunan</span>{% else %}<a href="/document-types/{{ item.slug|urlencode }}/archive/confirm{{ country_query }}">Arşivle</a>{% endif %}
       </td>
     </tr>
     {% endfor %}

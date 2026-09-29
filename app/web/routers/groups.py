@@ -237,8 +237,10 @@ def _group_page(
 ) -> HTMLResponse:
     labels = label_choices(session)
     types = type_choices(session)
-    label_map = {choice.key: choice for choice in labels}
-    type_map = {choice.slug: choice for choice in types}
+    # Var olan kalem arşivli türe (11.1.6) bağlı olabilir: gösterim arşivlileri de bilir, seçici
+    # bilmez.
+    label_map = {choice.key: choice for choice in label_choices(session, include_archived=True)}
+    type_map = {choice.slug: choice for choice in type_choices(session, include_archived=True)}
     items = active_items(group)
     removed = [item for item in group.items if item.removed_at is not None]
     response = render_page(

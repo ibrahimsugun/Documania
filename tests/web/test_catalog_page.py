@@ -31,11 +31,14 @@ from app.catalog import (
     validate_catalog,
 )
 from app.config import Settings, get_settings
-from app.db.models import KnownDocumentType, Upload, UploadFile
+from app.db.models import Event, KnownDocumentType, Upload, UploadFile
+from app.events import EventType
 from app.pipeline.orchestrate import process_upload
 from app.storage import DataLayout, find_original_by_sha256, write_to_inbox
+from app.web.auth import SESSION_COOKIE
 from app.web.routers.catalog import BUDGET_UNAVAILABLE
 from tests.fixtures.gen import make_text_pdf_bytes
+from tests.web.conftest import SIGNED_IN
 
 ROOT = Path(__file__).resolve().parents[2]
 RECORDINGS = ROOT / "tests" / "fixtures" / "ai" / "recordings"
@@ -113,11 +116,12 @@ def test_list_shows_every_type_with_its_state(client: TestClient, seeded: None) 
     table = _types_table(page.text)
     assert "Slug" not in table
     assert "<code>" not in table
-    assert table.count("<th>") == 9
+    # 11.1.6 (tm 132): ilk sütun toplu seçimin onay kutusudur.
+    assert table.count("<th>") == 10
     rows = re.findall(r"<tr[^>]*>(.*?)</tr>", table.split("<tbody>")[1], re.S)
     entries = load_seed_catalog()
     assert len(rows) == len(entries)
-    assert all(row.count("<td") == 9 for row in rows)
+    assert all(row.count("<td") == 10 for row in rows)
     for entry in entries:
         link = f'<a href="/document-types/{entry.slug}" title="{entry.slug}">{entry.name}</a>'
         assert link in table
@@ -170,12 +174,12 @@ def test_status_badges_are_soft_toned_and_their_text_stays_readable(
     assert _contrast(values[color][0], values[background][0]) >= 4.5
 
 
-def test_the_type_table_widths_are_laid_out_for_its_nine_columns() -> None:
+def test_the_type_table_widths_are_laid_out_for_its_ten_columns() -> None:
     css = PANEL_CSS.read_text(encoding="utf-8")
 
     widths = re.findall(r"\.catalog-types th:nth-child\((\d+)\) \{ width: (\d+)%; \}", css)
 
-    assert [int(column) for column, _ in widths] == list(range(1, 10))
+    assert [int(column) for column, _ in widths] == list(range(1, 11))
     assert sum(int(width) for _, width in widths) == 100
 
 
@@ -359,7 +363,8 @@ def test_the_filter_value_is_bounded_and_the_hidden_fields_follow_the_selection(
     filtered = client.get("/document-types?country=RU")
     unfiltered = client.get("/document-types")
 
-    assert filtered.text.count('<input type="hidden" name="country" value="RU">') == 3
+    # Satır formları + toplu işlem formu (11.1.6, tm 132).
+    assert filtered.text.count('<input type="hidden" name="country" value="RU">') == 4
     assert 'name="country" value=' not in unfiltered.text.split('<table class="catalog')[1]
     assert 'href="/document-types/new?country=RU"' in filtered.text
     assert 'href="/document-types/new"' in unfiltered.text
@@ -877,7 +882,12 @@ def test_there_is_no_way_to_delete_a_type(
 def test_catalog_forms_carry_no_multiline_text_field_and_post_to_plain_paths() -> None:
     # 10.9.1 kilidi şablonlarda çok satırlı metin alanına ve hesaplanmış `action` yoluna izin
     # vermez.
-    for name in ("catalog.html", "catalog_form.html", "catalog_criteria.html"):
+    for name in (
+        "catalog.html",
+        "catalog_form.html",
+        "catalog_criteria.html",
+        "catalog_archive_step.html",
+    ):
         html = (TEMPLATES / name).read_text(encoding="utf-8")
         assert "<textarea" not in html, name
         assert 'action="{{' not in html, name
@@ -1214,3 +1224,351 @@ def test_empty_catalog_shows_no_active_types(client: TestClient) -> None:
     page = client.get("/document-types")
 
     assert "Aktif tür: 0 ·" in _budget_line(page.text)
+
+
+# --- 11.1.6: arşiv, geri alma, toplu seçim, olaylar -----------------------------------------------
+
+ARCHIVE_SECOND_TEXT = (
+    "Tür analiz talimatından ve listelerden kalkacak, var olan belgeler yerinde kalacaktır. Son "
+    "kararınız mı?"
+)
+
+
+@pytest.fixture
+def signed_session(client: TestClient) -> None:
+    """Onay belirteci oturum çerezine bağlıdır; oturum bağımlılığı testte geçersiz kılındığı için
+    çerez elle konur."""
+    client.cookies.set(SESSION_COOKIE, "oturum-bir")
+
+
+def _token(html: str) -> str:
+    found = re.search(r'name="confirmation" value="([^"]+)"', html)
+    assert found is not None, html
+    return found.group(1)
+
+
+def _type_events(session_factory: sessionmaker[Session], *types: EventType) -> list[Event]:
+    with session_factory() as session:
+        rows = list(
+            session.scalars(
+                select(Event).where(Event.type.in_([t.value for t in types])).order_by(Event.id)
+            )
+        )
+        session.expunge_all()
+    return rows
+
+
+def test_single_activity_changes_are_logged_with_the_user_name(
+    client: TestClient, session_factory: sessionmaker[Session]
+) -> None:
+    _create(client)
+
+    client.post("/document-types/sample_card/deactivate")
+    client.post("/document-types/sample_card/deactivate")  # durum aynı: olay yok
+    client.post("/document-types/sample_card/activate")
+
+    events = _type_events(session_factory, EventType.TYPE_ACTIVATED, EventType.TYPE_DEACTIVATED)
+    assert [(e.type, e.actor, e.data_json) for e in events] == [
+        ("TYPE_DEACTIVATED", SIGNED_IN.username, {"slug": "sample_card"}),
+        ("TYPE_ACTIVATED", SIGNED_IN.username, {"slug": "sample_card"}),
+    ]
+
+
+def test_archiving_takes_two_confirmations_and_moves_the_type_to_the_archive_view(
+    client: TestClient, session_factory: sessionmaker[Session], signed_session: None
+) -> None:
+    _create(client)
+    _create(client, slug="other_card", name="Other Card", file_label="Other Card")
+    listing = _types_table(client.get("/document-types").text)
+    assert 'href="/document-types/sample_card/archive/confirm">Arşivle</a>' in listing
+
+    first = client.get("/document-types/sample_card/archive/confirm")
+
+    assert first.status_code == 200
+    assert "Sample Card belge türünü arşivlemek üzeresiniz. Emin misiniz?" in first.text
+    assert 'action="/document-types/sample_card/archive/prepare"' in first.text
+    assert 'name="confirmation"' not in first.text
+    prepared = client.post("/document-types/sample_card/archive/prepare")
+    assert prepared.status_code == 200
+    assert ARCHIVE_SECOND_TEXT in prepared.text
+    assert _rows(session_factory)["sample_card"].archived_at is None  # iki onay da gerekir
+
+    done = client.post(
+        "/document-types/sample_card/archive",
+        data={"confirmation": _token(prepared.text)},
+        follow_redirects=False,
+    )
+
+    assert done.status_code == 303
+    assert done.headers["location"] == "/document-types?notice=archived&slug=sample_card"
+    row = _rows(session_factory)["sample_card"]
+    assert (row.archived_by, row.archived_at is not None) == (SIGNED_IN.username, True)
+    page = client.get(done.headers["location"]).text
+    assert "Sample Card: Tür arşivlendi" in page
+    assert 'title="sample_card"' not in _types_table(page)
+    assert 'Arşivlenen türler</a> <span class="count">(1)</span>' in page
+    archived = client.get("/document-types?archived=1").text
+    assert "<h1>Arşivlenen türler</h1>" in archived
+    assert 'title="sample_card"' in archived
+    assert 'title="other_card"' not in archived
+    assert 'action="/document-types/sample_card/restore"' in archived
+    assert SIGNED_IN.username in archived
+    confirmed, archived_event = _type_events(
+        session_factory, EventType.USER_CONFIRMED, EventType.TYPE_ARCHIVED
+    )
+    assert confirmed.data_json["operation"] == "type_archive"
+    assert confirmed.data_json["target"] == {"slug": "sample_card"}
+    assert (archived_event.actor, archived_event.data_json) == (
+        SIGNED_IN.username,
+        {"slug": "sample_card"},
+    )
+    with session_factory() as session:
+        catalog = export_catalog(session)
+        assert catalog.get("sample_card") is not None  # silinmedi
+        assert "sample_card" not in build_page_analysis_instructions(catalog).known_slugs
+    # Kayıt açılmaya devam eder (belge listeleri türün adını gösterir).
+    assert client.get("/document-types/sample_card").status_code == 200
+
+
+def test_archiving_without_a_valid_token_changes_nothing(
+    client: TestClient, session_factory: sessionmaker[Session], signed_session: None
+) -> None:
+    _create(client)
+    _create(client, slug="other_card", name="Other Card", file_label="Other Card")
+    other = _token(client.post("/document-types/other_card/archive/prepare").text)
+
+    missing = client.post("/document-types/sample_card/archive")
+    foreign = client.post("/document-types/sample_card/archive", data={"confirmation": other})
+
+    assert missing.status_code == foreign.status_code == 400
+    assert "Onay geçersiz" in foreign.text
+    assert all(row.archived_at is None for row in _rows(session_factory).values())
+    assert _type_events(session_factory, EventType.TYPE_ARCHIVED) == []
+
+
+def test_protected_and_archived_types_refuse_the_archive_steps(
+    client: TestClient, session_factory: sessionmaker[Session], seeded: None, signed_session: None
+) -> None:
+    table = _types_table(client.get("/document-types").text)
+    assert 'href="/document-types/profile_picture/archive/confirm"' not in table
+    assert 'href="/document-types/attachment/archive/confirm"' not in table
+    assert "Korunan" in table
+
+    for method, path in (
+        ("GET", "/document-types/profile_picture/archive/confirm"),
+        ("POST", "/document-types/profile_picture/archive/prepare"),
+        ("POST", "/document-types/profile_picture/archive"),
+    ):
+        response = client.request(method, path)
+        assert response.status_code == 409, path
+        assert "korunan bir türdür; arşivlenemez" in response.text
+    assert client.get("/document-types/nope/archive/confirm").status_code == 404
+
+    token = _token(client.post("/document-types/work_permit/archive/prepare").text)
+    client.post("/document-types/work_permit/archive", data={"confirmation": token})
+    again = client.get("/document-types/work_permit/archive/confirm")
+    assert again.status_code == 409
+    assert "Bu tür zaten arşivde." in again.text
+    assert _rows(session_factory)["profile_picture"].archived_at is None
+
+
+def test_restoring_is_one_step_and_logged(
+    client: TestClient, session_factory: sessionmaker[Session], signed_session: None
+) -> None:
+    _create(client)
+    token = _token(client.post("/document-types/sample_card/archive/prepare").text)
+    client.post("/document-types/sample_card/archive", data={"confirmation": token})
+
+    response = client.post(
+        "/document-types/sample_card/restore", data={"country": "RS"}, follow_redirects=False
+    )
+
+    assert response.status_code == 303
+    assert response.headers["location"] == (
+        "/document-types?notice=restored&slug=sample_card&country=RS"
+    )
+    assert _rows(session_factory)["sample_card"].archived_at is None
+    assert 'title="sample_card"' in _types_table(client.get("/document-types").text)
+    (event,) = _type_events(session_factory, EventType.TYPE_RESTORED)
+    assert (event.actor, event.data_json) == (SIGNED_IN.username, {"slug": "sample_card"})
+    assert client.post("/document-types/nope/restore").status_code == 404
+
+
+def test_the_archive_flow_keeps_the_country_filter(
+    client: TestClient, session_factory: sessionmaker[Session], signed_session: None
+) -> None:
+    _country_catalog(client)
+    table = _types_table(client.get("/document-types?country=TR").text)
+    assert 'href="/document-types/tr_one/archive/confirm?country=TR"' in table
+
+    first = client.get("/document-types/tr_one/archive/confirm?country=TR").text
+    assert '<input type="hidden" name="country" value="TR">' in first
+    assert 'href="/document-types?country=TR"' in first  # geri ve "Vazgeç"
+    prepared = client.post("/document-types/tr_one/archive/prepare", data={"country": "TR"})
+    assert '<input type="hidden" name="country" value="TR">' in prepared.text
+    done = client.post(
+        "/document-types/tr_one/archive",
+        data={"country": "TR", "confirmation": _token(prepared.text)},
+        follow_redirects=False,
+    )
+
+    assert done.headers["location"] == "/document-types?notice=archived&slug=tr_one&country=TR"
+    page = client.get(done.headers["location"]).text
+    assert 'href="/document-types?archived=1&amp;country=TR"' in page
+    archived = client.get("/document-types?archived=1&country=TR").text
+    assert '<input type="hidden" name="archived" value="1">' in archived
+    assert _row_names(archived.split('<table class="catalog archived-types">')[1]) == ["TR One"]
+    empty = client.get("/document-types?archived=1&country=RU").text
+    assert "Bu süzgeçte arşivlenen tür yok." in empty
+
+
+def test_bulk_deactivate_and_activate_are_one_step_with_an_event_per_type(
+    client: TestClient, session_factory: sessionmaker[Session]
+) -> None:
+    _country_catalog(client)
+    page = client.get("/document-types?country=TR").text
+    assert 'action="/document-types/bulk"' in page
+    assert page.count('form="bulk-types"') == 4  # TR (2) + ülkesiz (2)
+
+    response = client.post(
+        "/document-types/bulk",
+        data={"action": "deactivate", "slugs": ["tr_one", "tr_two"], "country": "TR"},
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 303
+    assert response.headers["location"] == (
+        "/document-types?notice=bulk_deactivated&count=2&country=TR"
+    )
+    assert "2 tür pasifleştirildi" in client.get(response.headers["location"]).text
+    rows = _rows(session_factory)
+    assert [rows[slug].active for slug in ("tr_one", "tr_two", "ru_one")] == [False, False, True]
+    events = _type_events(session_factory, EventType.TYPE_DEACTIVATED)
+    assert [(e.actor, e.data_json) for e in events] == [
+        (SIGNED_IN.username, {"slug": "tr_one", "bulk": True}),
+        (SIGNED_IN.username, {"slug": "tr_two", "bulk": True}),
+    ]
+
+    again = client.post(
+        "/document-types/bulk",
+        data={"action": "activate", "slugs": ["tr_one", "ru_one"]},
+        follow_redirects=False,
+    )
+    assert again.headers["location"] == "/document-types?notice=bulk_activated&count=1"
+    assert _rows(session_factory)["tr_one"].active is True
+    assert len(_type_events(session_factory, EventType.TYPE_ACTIVATED)) == 1
+
+
+def test_bulk_archive_takes_two_confirmations_and_skips_protected_types(
+    client: TestClient, session_factory: sessionmaker[Session], seeded: None, signed_session: None
+) -> None:
+    selection = {"slugs": ["work_permit", "turkish_passport", "profile_picture"]}
+
+    first = client.post("/document-types/bulk", data={"action": "archive", **selection})
+
+    assert first.status_code == 200
+    assert "2 belge türünü arşivlemek üzeresiniz. Emin misiniz?" in first.text
+    assert "Korunan türler arşivlenmez, atlanacak (1): Profile Picture" in first.text
+    assert 'action="/document-types/bulk/prepare"' in first.text
+    assert first.text.count('name="slugs"') == 3
+    assert all(row.archived_at is None for row in _rows(session_factory).values())
+    prepared = client.post("/document-types/bulk/prepare", data=selection)
+    assert prepared.status_code == 200
+    assert ARCHIVE_SECOND_TEXT in prepared.text
+    assert '<input type="hidden" name="action" value="archive">' in prepared.text
+
+    done = client.post(
+        "/document-types/bulk",
+        data={"action": "archive", **selection, "confirmation": _token(prepared.text)},
+        follow_redirects=False,
+    )
+
+    assert done.status_code == 303
+    assert done.headers["location"] == "/document-types?notice=bulk_archived&count=2&skipped=1"
+    assert "2 tür arşivlendi, 1 korunan tür atlandı." in client.get(done.headers["location"]).text
+    archived = {slug for slug, row in _rows(session_factory).items() if row.archived_at}
+    assert archived == {"work_permit", "turkish_passport"}
+    confirmed, *events = _type_events(
+        session_factory, EventType.USER_CONFIRMED, EventType.TYPE_ARCHIVED
+    )
+    assert confirmed.data_json["operation"] == "type_archive_bulk"
+    assert confirmed.data_json["target"] == {
+        "slugs": ["turkish_passport", "work_permit"],
+        "skipped": ["profile_picture"],
+    }
+    assert [(e.actor, e.data_json) for e in events] == [
+        (SIGNED_IN.username, {"slug": "turkish_passport", "bulk": True}),
+        (SIGNED_IN.username, {"slug": "work_permit", "bulk": True}),
+    ]
+
+
+def test_the_bulk_token_is_bound_to_the_selection(
+    client: TestClient, session_factory: sessionmaker[Session], seeded: None, signed_session: None
+) -> None:
+    prepared = client.post(
+        "/document-types/bulk/prepare", data={"slugs": ["work_permit", "turkish_passport"]}
+    )
+    token = _token(prepared.text)
+
+    changed = client.post(
+        "/document-types/bulk",
+        data={"action": "archive", "slugs": ["work_permit"], "confirmation": token},
+    )
+
+    assert changed.status_code == 400
+    assert all(row.archived_at is None for row in _rows(session_factory).values())
+    # Aynı küme, başka sırayla: belirteç geçer.
+    reordered = client.post(
+        "/document-types/bulk",
+        data={
+            "action": "archive",
+            "slugs": ["turkish_passport", "work_permit"],
+            "confirmation": token,
+        },
+        follow_redirects=False,
+    )
+    assert reordered.status_code == 303
+
+
+def test_bulk_requests_outside_the_rules_change_nothing(
+    client: TestClient, session_factory: sessionmaker[Session], seeded: None, signed_session: None
+) -> None:
+    empty = client.post(
+        "/document-types/bulk",
+        data={"action": "deactivate", "country": "RS"},
+        follow_redirects=False,
+    )
+    assert empty.headers["location"] == "/document-types?notice=none_selected&country=RS"
+    assert "Tür seçilmedi" in client.get(empty.headers["location"]).text
+
+    unknown_action = client.post(
+        "/document-types/bulk", data={"action": "delete", "slugs": ["work_permit"]}
+    )
+    assert unknown_action.status_code == 422
+    too_many = client.post(
+        "/document-types/bulk",
+        data={"action": "deactivate", "slugs": [f"type_{index}" for index in range(501)]},
+    )
+    assert too_many.status_code == 422
+    assert "en çok 500 tür" in too_many.text
+    unknown_slug = client.post(
+        "/document-types/bulk", data={"action": "deactivate", "slugs": ["work_permit", "nope"]}
+    )
+    assert unknown_slug.status_code == 404
+    only_protected = client.post(
+        "/document-types/bulk",
+        data={"action": "archive", "slugs": ["profile_picture", "attachment"]},
+    )
+    assert only_protected.status_code == 409
+    prepare = client.post("/document-types/bulk/prepare", data={"slugs": ["attachment"]})
+    assert prepare.status_code == 409
+    rows = _rows(session_factory)
+    assert all(row.active and row.archived_at is None for row in rows.values())
+    changes = (EventType.TYPE_DEACTIVATED, EventType.TYPE_ARCHIVED, EventType.USER_CONFIRMED)
+    assert _type_events(session_factory, *changes) == []
+
+
+def test_bulk_is_not_a_type_slug(client: TestClient) -> None:
+    response = client.post("/document-types", data=_data(slug="bulk"))
+
+    assert response.status_code == 422

@@ -378,6 +378,14 @@ REVIEWED_MUTATING_ROUTES: dict[tuple[str, str], str] = {
     ("POST", "/document-types/{slug}"): "katalog kaydı: tür düzenleme (11.1.1)",
     ("POST", "/document-types/{slug}/deactivate"): "katalog kaydı: pasifleştirme (11.1.1)",
     ("POST", "/document-types/{slug}/activate"): "katalog kaydı: etkinleştirme (11.1.1)",
+    # 11.1.6 (tm 132, §D62): tür arşivi ve toplu seçim; tür silinmez, belge içeriği değişmez.
+    ("POST", "/document-types/{slug}/archive/prepare"): "onay belirteci",
+    ("POST", "/document-types/{slug}/archive"): "katalog kaydı: tür arşivi (11.1.6)",
+    ("POST", "/document-types/{slug}/restore"): "katalog kaydı: arşivden geri alma (11.1.6)",
+    ("POST", "/document-types/bulk"): (
+        "katalog kaydı: toplu pasifleştirme, etkinleştirme ve iki aşamalı arşiv (11.1.6)"
+    ),
+    ("POST", "/document-types/bulk/prepare"): "onay belirteci",
     (
         "POST",
         "/document-types/{slug}/examples",
@@ -392,6 +400,9 @@ REVIEWED_MUTATING_ROUTES: dict[tuple[str, str], str] = {
         "katalog kaydı: aday türün onayı (11.5.2, K16)"
     ),
     ("POST", "/document-types/candidate-types/{candidate_id}/reject"): "aday türün reddi (11.5.4)",
+    ("POST", "/document-types/candidate-types/{candidate_id}/restore"): (
+        "aday türü retten geri alma (11.5.7)"
+    ),
     ("POST", "/document-types/candidate-types/{candidate_id}/examine"): (
         "aday türün tür taslağı, kaydetmez ve onaylamaz (11.5.6)"
     ),

@@ -30,7 +30,7 @@ from app.catalog.schema import CONSISTENCY_ERROR, CatalogEntry, FrontBackLayout,
 
 # Zorunlu alan adları tek satırda virgülle (ya da boşlukla/satırla) yazılır.
 # `new` panelde yeni tür formunun adresidir (`/document-types/new`): bu slug'la tür açılamaz.
-RESERVED_SLUGS = frozenset({"new"})
+RESERVED_SLUGS = frozenset({"new", "bulk"})
 _FIELD_SEPARATOR = re.compile(r"[\s,;]+")
 
 

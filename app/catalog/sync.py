@@ -3,9 +3,12 @@
 - **İçe aktarma** (`import_catalog`): doğrulanmış katalog `known_document_types` tablosuna
   slug'a göre yazılır — yeni tür eklenir, var olan türün alanları katalogdakiyle aynı yapılır.
   Katalogda olmayan türe dokunulmaz: silme yoktur (K16) ve çıktı belgeleri türe bağlıdır;
-  bu türler sonuçta `not_in_catalog` olarak bildirilir.
-- **Dışa aktarma** (`export_catalog`): tablonun tamamı slug sırasıyla, yüklemeyle aynı
-  sözleşmeden geçirilerek katalog olarak okunur. Tutarsız bir satır dışa aktarımı da reddeder.
+  bu türler sonuçta `not_in_catalog` olarak bildirilir. `archived_at` (11.1.6) dosyada doluysa
+  yazılır; alanı taşımayan (eski ya da tohum) dosya türün arşiv durumunu değiştirmez — arşivden
+  geri alma panelin işidir (PLAN.md §D72).
+- **Dışa aktarma** (`export_catalog`): tablonun tamamı (arşivli türler dahil, `archived_at` ile)
+  slug sırasıyla, yüklemeyle aynı sözleşmeden geçirilerek katalog olarak okunur. Tutarsız bir satır
+  dışa aktarımı da reddeder. Analiz talimatı ve seçiciler arşivliyi kendileri dışlar.
 
 İki fonksiyon da işlemi commit etmez; iş birimini çağıran kapatır.
 """
@@ -31,8 +34,9 @@ class CatalogImportResult:
 
 
 def entry_to_columns(entry: CatalogEntry) -> dict[str, Any]:
-    """Katalog kaydı → `known_document_types` sütunları (slug hariç)."""
-    columns = entry.model_dump(mode="json", exclude={"slug", "expected_pages"})
+    """Katalog kaydı → `known_document_types` sütunları (slug ve arşiv alanları hariç: arşiv
+    `archive_type`/`restore_type` ve içe aktarmanın ayrı kuralıdır)."""
+    columns = entry.model_dump(mode="json", exclude={"slug", "expected_pages", "archived_at"})
     pages = entry.expected_pages
     columns["expected_pages_min"] = pages.min if pages else None
     columns["expected_pages_max"] = pages.max if pages else None
@@ -63,6 +67,7 @@ def row_to_record(row: KnownDocumentType) -> dict[str, Any]:
         "prompt_description": row.prompt_description,
         "photo_rules": row.photo_rules,
         "active": row.active,
+        "archived_at": row.archived_at,
     }
 
 
@@ -75,6 +80,8 @@ def import_catalog(session: Session, catalog: Catalog) -> CatalogImportResult:
     for entry in catalog:
         columns = entry_to_columns(entry)
         row = existing.get(entry.slug)
+        if entry.archived_at is not None:
+            columns["archived_at"] = entry.archived_at
         if row is None:
             session.add(KnownDocumentType(slug=entry.slug, **columns))
             created.append(entry.slug)

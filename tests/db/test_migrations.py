@@ -34,7 +34,7 @@ def _assert_schema_matches_models(database_url: str) -> None:
             assert tables == set(Base.metadata.tables) | {"alembic_version"}
             context = MigrationContext.configure(connection, opts={"compare_type": True})
             assert compare_metadata(context, Base.metadata) == []
-            assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "0019"
+            assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "0020"
     finally:
         engine.dispose()
 
@@ -1105,6 +1105,55 @@ def test_queue_item_close_migration_adds_the_reason_and_note_and_is_reversible(
                 text("SELECT resolution, resolved_by FROM queue_items ORDER BY id")
             ).all()
             assert rows == [("dismissed", "ik"), (None, "ik")]
+    finally:
+        engine.dispose()
+
+
+def test_document_type_archive_migration_adds_nullable_columns_and_is_reversible(
+    sqlite_url: str,
+) -> None:
+    # 0020 (11.1.6): `known_document_types.archived_at`/`archived_by` boş olabilir, var olan türler
+    # arşivsiz kalır; geri alış iki sütunu düşürür, tür satırı yerinde kalır.
+    config = _alembic_config(sqlite_url)
+    command.upgrade(config, "0019")
+    engine = create_engine(sqlite_url)
+    try:
+        with engine.begin() as connection:
+            connection.execute(
+                text(
+                    "INSERT INTO known_document_types (slug, name, file_label, sides, direct, "
+                    "analyze, output_format, expected_file_types, front_back_layouts, "
+                    "required_fields, allowed_conversions, acceptance_criteria, active) VALUES "
+                    "('passport', 'Passport', 'Passport', 'single', 1, 1, 'keep', "
+                    "'[]', '[]', '[]', '[]', '[]', 1)"
+                )
+            )
+
+        command.upgrade(config, "head")
+        with engine.connect() as connection:
+            columns = {
+                c["name"]: c for c in inspect(connection).get_columns("known_document_types")
+            }
+            assert columns["archived_at"]["nullable"]
+            assert columns["archived_by"]["nullable"]
+            assert connection.execute(
+                text("SELECT slug, archived_at, archived_by FROM known_document_types")
+            ).all() == [("passport", None, None)]
+        with engine.begin() as connection:
+            connection.execute(
+                text(
+                    "UPDATE known_document_types SET archived_at = '2026-09-29 00:00:00', "
+                    "archived_by = 'ik'"
+                )
+            )
+
+        command.downgrade(config, "0019")
+        with engine.connect() as connection:
+            columns = {c["name"] for c in inspect(connection).get_columns("known_document_types")}
+            assert not {"archived_at", "archived_by"} & columns
+            assert connection.execute(text("SELECT slug FROM known_document_types")).all() == [
+                ("passport",)
+            ]
     finally:
         engine.dispose()
 

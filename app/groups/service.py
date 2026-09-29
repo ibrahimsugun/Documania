@@ -166,16 +166,20 @@ class LabelChoice:
     type_count: int
 
 
-def label_choices(session: Session) -> list[LabelChoice]:
+def label_choices(session: Session, *, include_archived: bool = False) -> list[LabelChoice]:
     """14.1.2 — katalogdaki türlerin dosya etiketleri, tür sayısıyla, etikete göre sıralı.
 
-    Pasif türler de sayılır: pasif türün var olan belgeleri kalemi karşılayabilir. Yalnız harf
+    Pasif türler de sayılır: pasif türün var olan belgeleri kalemi karşılayabilir. Arşivli türler
+    (11.1.6) seçiciye girmez; `include_archived` var olan kalemlerin gösterimi içindir. Yalnız harf
     büyüklüğü ve boşlukla ayrılan yazımlar tek seçenektir (`item_matches` onları zaten aynı sayar);
     "Identity Card" ile "Identity Document" gibi yakın ama ayrı etiketler birleştirilmez — sayılar
     İK'nın farkı görmesi içindir.
     """
     spellings: dict[str, Counter[str]] = {}
-    for raw in session.scalars(select(KnownDocumentType.file_label)):
+    query = select(KnownDocumentType.file_label)
+    if not include_archived:
+        query = query.where(KnownDocumentType.archived_at.is_(None))
+    for raw in session.scalars(query):
         label = _single_line(raw)
         if label:
             spellings.setdefault(label.casefold(), Counter())[label] += 1
@@ -198,9 +202,13 @@ class TypeChoice:
     active: bool
 
 
-def type_choices(session: Session) -> list[TypeChoice]:
-    """Katalogdaki bütün türler (pasifler dahil), ada göre sıralı."""
-    rows = session.scalars(select(KnownDocumentType))
+def type_choices(session: Session, *, include_archived: bool = False) -> list[TypeChoice]:
+    """Katalogdaki türler (pasifler dahil; arşivliler — 11.1.6 — yalnız `include_archived` ile,
+    var olan kalemlerin gösterimi için), ada göre sıralı."""
+    query = select(KnownDocumentType)
+    if not include_archived:
+        query = query.where(KnownDocumentType.archived_at.is_(None))
+    rows = session.scalars(query)
     choices = [
         TypeChoice(
             slug=row.slug,
@@ -465,7 +473,7 @@ def add_item(
         slug = (type_slug or "").strip()
         if not slug:
             problems.add("type_slug", TYPE_REQUIRED)
-        elif session.get(KnownDocumentType, slug) is None:
+        elif (row := session.get(KnownDocumentType, slug)) is None or row.archived_at is not None:
             problems.add("type_slug", TYPE_UNKNOWN)
         else:
             slug_value = slug

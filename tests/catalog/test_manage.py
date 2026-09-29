@@ -131,7 +131,9 @@ def test_update_leaves_activity_and_photo_rules_alone(
         session_factory,
         lambda session: create_type(session, _entry(make_record, photo_rules=rules)),
     )
-    _commit(session_factory, lambda session: set_type_active(session, "sample_card", False))
+    _commit(
+        session_factory, lambda session: set_type_active(session, "sample_card", False, actor="ik")
+    )
 
     # Form `active`/`photo_rules` taşımaz: kayıt varsayılanlarıyla gelse de bunlar yazılmaz.
     _commit(session_factory, lambda session: update_type(session, _entry(make_record, name="Ad")))
@@ -148,7 +150,7 @@ def test_update_and_activation_of_an_unknown_type_are_refused(
         with pytest.raises(TypeNotFoundError):
             update_type(session, _entry(make_record))
         with pytest.raises(TypeNotFoundError):
-            set_type_active(session, "sample_card", False)
+            set_type_active(session, "sample_card", False, actor="ik")
         with pytest.raises(TypeNotFoundError):
             load_record(session, "sample_card")
 
@@ -158,16 +160,20 @@ def test_deactivation_keeps_the_type_and_can_be_undone(
 ) -> None:
     _commit(session_factory, lambda session: create_type(session, _entry(make_record)))
 
-    assert _commit(session_factory, lambda session: set_type_active(session, "sample_card", False))
+    assert _commit(
+        session_factory, lambda session: set_type_active(session, "sample_card", False, actor="ik")
+    )
     with session_factory() as session:
         assert export_catalog(session).get("sample_card").active is False  # type: ignore[union-attr]
         assert [item.active for item in list_types(session)] == [False]
 
     # Aynı durumu yeniden istemek bir şey değiştirmez.
     assert not _commit(
-        session_factory, lambda session: set_type_active(session, "sample_card", False)
+        session_factory, lambda session: set_type_active(session, "sample_card", False, actor="ik")
     )
-    assert _commit(session_factory, lambda session: set_type_active(session, "sample_card", True))
+    assert _commit(
+        session_factory, lambda session: set_type_active(session, "sample_card", True, actor="ik")
+    )
     with session_factory() as session:
         assert export_catalog(session).get("sample_card").active is True  # type: ignore[union-attr]
 

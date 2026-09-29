@@ -117,5 +117,9 @@
 </section>
 {% else %}
 <p class="notice" role="status">Bu aday reddedildi; bir daha listeye düşmez.</p>
+<form class="inline" method="post" action="/document-types/candidate-types/{{ candidate.id }}/restore">
+  <button type="submit">Retten geri al</button>
+  <small class="hint">Aday yeniden onay bekleyenler arasına döner (11.5.7).</small>
+</form>
 {% endif %}
 {% endblock %}

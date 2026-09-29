@@ -1404,3 +1404,65 @@ def test_an_unreadable_catalog_opens_the_form_without_the_suggested_record(
     assert page.status_code == 200
     assert _field(page.text, "slug") == "serbian_passport"
     assert "katalogda zaten olabilir" not in page.text
+
+
+# --- 11.5.7: reddedilen adayı geri alma -----------------------------------------------------------
+
+
+def test_rejected_candidates_have_their_own_view_with_a_restore_button(
+    client: TestClient, seen: Seen
+) -> None:
+    client.post(f"{BASE}/{seen.diploma}/reject")
+
+    pending = client.get(BASE).text
+    rejected = client.get(f"{BASE}?status=rejected").text
+
+    assert "Bekleyenler (1)" in pending
+    assert f'href="{BASE}?status=rejected">Reddedilenler (1)</a>' in pending
+    assert DIPLOMA_NAME not in pending
+    assert "<strong>Reddedilenler (1)</strong>" in rejected
+    assert DIPLOMA_NAME in rejected
+    assert PERMIT_NAME not in rejected
+    assert f'action="{BASE}/{seen.diploma}/restore"' in rejected
+    # Bilinmeyen görünüm bekleyenlere düşer.
+    assert "<strong>Bekleyenler (1)</strong>" in client.get(f"{BASE}?status=approved").text
+    detail = client.get(f"{BASE}/{seen.diploma}").text
+    assert f'action="{BASE}/{seen.diploma}/restore"' in detail
+
+
+def test_restoring_a_rejected_candidate_makes_it_pending_again_in_one_step(
+    client: TestClient, session_factory: sessionmaker[Session], seen: Seen
+) -> None:
+    client.post(f"{BASE}/{seen.diploma}/reject")
+    catalog_before = _count(session_factory, KnownDocumentType)
+
+    response = client.post(f"{BASE}/{seen.diploma}/restore", follow_redirects=False)
+
+    assert response.status_code == 303
+    assert response.headers["location"] == f"{BASE}?notice=restored"
+    listing = client.get(response.headers["location"]).text
+    assert "Aday tür retten geri alındı; yeniden onay bekliyor." in listing
+    assert DIPLOMA_NAME in listing
+    candidate = _candidate(session_factory, seen.diploma)
+    assert (candidate.status, candidate.seen_count) == ("pending", 2)
+    (event,) = _events(session_factory, EventType.CANDIDATE_TYPE_RESTORED)
+    assert event.actor == SIGNED_IN.username
+    assert event.data_json == {
+        "candidate_type_id": seen.diploma,
+        "candidate_type_name": DIPLOMA_NAME,
+    }
+    assert _count(session_factory, KnownDocumentType) == catalog_before
+    assert "/approve/confirm" in client.get(f"{BASE}/{seen.diploma}").text
+
+
+def test_only_a_rejected_candidate_is_restored(
+    client: TestClient, session_factory: sessionmaker[Session], seen: Seen
+) -> None:
+    pending = client.post(f"{BASE}/{seen.diploma}/restore")
+    missing = client.post(f"{BASE}/9999/restore")
+
+    assert pending.status_code == 409
+    assert "Bu aday tür reddedilmiş değil" in pending.text
+    assert missing.status_code == 404
+    assert _events(session_factory, EventType.CANDIDATE_TYPE_RESTORED) == []
+    assert _candidate(session_factory, seen.diploma).status == "pending"

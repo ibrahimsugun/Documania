@@ -14,6 +14,8 @@
   eşlemesi olmayan katalog türü aynı slug'lı önerilen satırın çiftini alır (onaylanan aday türü
   önerilen slug'ı taşır, §C85), o da yoksa çiftsizdir (`work_permit`, `profile_picture`,
   `attachment`). Aynı slug'lı önerilen satırın adı katalog türüne ikinci ad olarak bağlanır.
+  Arşivli katalog türü (11.1.6) bilinen türlerden kalkar; aynı slug'lı önerilen satır da onu geri
+  getirmez — o türe yerleşecek öğe `unplaced` düşer.
 - **Ad eşleşmesi (`KnownTypes.match_name`).** `normalize_type_name`: harf büyüklüğü (casefold),
   boşluk sadeleştirme, `licence` → `license`. Birden çok slug'a inen ad belirsizdir (ör. "Turkish
   Driving License": `turkish_driving_license` ve `turkish_international_driving_permit`) → eşleşme
@@ -246,10 +248,13 @@ def load_suggested_types() -> tuple[SuggestedTypeRow, ...]:
 def build_known_types(
     catalog: Catalog, suggested: Sequence[SuggestedTypeRow] | None = None
 ) -> KnownTypes:
-    """Katalog ∪ önerilen kayıt; `suggested` verilmezse paketle gelen kayıt kullanılır."""
+    """Katalog (arşivliler hariç) ∪ önerilen kayıt; `suggested` verilmezse paketle gelen kayıt
+    kullanılır."""
     rows = {row.slug: row for row in (load_suggested_types() if suggested is None else suggested)}
-    types = [_catalog_type(entry, rows.get(entry.slug)) for entry in catalog]
-    aliases = [(rows[entry.slug].name, entry.slug) for entry in catalog if entry.slug in rows]
+    # 11.1.6: arşivli tür bilinmez; slug'ı katalogda kaldığı için önerilen satır da eklenmez.
+    current = [entry for entry in catalog if entry.archived_at is None]
+    types = [_catalog_type(entry, rows.get(entry.slug)) for entry in current]
+    aliases = [(rows[entry.slug].name, entry.slug) for entry in current if entry.slug in rows]
     types.extend(
         KnownType(
             slug=row.slug,

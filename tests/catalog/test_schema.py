@@ -64,7 +64,8 @@ SECTION_8_6_FIELDS = {
     "prompt_description",
 }
 # §8.1 `known_document_types` tablosunda olup §8.6 örneğinde geçmeyen alanlar.
-SECTION_8_1_ONLY_FIELDS = {"description", "photo_rules", "active"}
+# `archived_at` (11.1.6, tm 132): arşivli türün dışa aktarımı alanı taşır (§8.1).
+SECTION_8_1_ONLY_FIELDS = {"description", "photo_rules", "active", "archived_at"}
 
 
 def test_schema_defines_every_section_8_6_field() -> None:
@@ -76,7 +77,8 @@ def test_schema_covers_every_known_document_types_column(make_record: RecordFact
     entry = CatalogEntry.model_validate(make_record())
     columns = {column.key for column in inspect(KnownDocumentType).columns}
 
-    assert set(entry_to_columns(entry)) | {"slug"} == columns
+    # Arşiv sütunları (11.1.6) formdan ve kayıttan yazılmaz: arşivleme ve içe aktarmanın kuralıdır.
+    assert set(entry_to_columns(entry)) | {"slug", "archived_at", "archived_by"} == columns
 
 
 def test_section_8_6_example_parses_verbatim() -> None:

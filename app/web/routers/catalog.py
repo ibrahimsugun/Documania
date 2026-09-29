@@ -4,7 +4,20 @@
   pasifleştirilir ya da yeniden etkinleştirilir. `GET /document-types/new` + `POST
   /document-types` tür oluşturur; `GET /document-types/{slug}` (form) + `POST
   /document-types/{slug}` düzenler (`slug` değişmez); `POST /document-types/{slug}/deactivate`
-  ve `.../activate` pasifleştirir/etkinleştirir. **Silme yok** (K16).
+  ve `.../activate` pasifleştirir/etkinleştirir (`TYPE_DEACTIVATED`/`TYPE_ACTIVATED`, kullanıcı
+  adıyla). **Silme yok** (K16, R11).
+- **Arşiv (11.1.6, PLAN.md §C92-a).** Tür iki aşamalı onayla arşivlenir (K16 dışı, §D61-d;
+  metinler bu modülde, §20.6'ya girmez): `GET /document-types/{slug}/archive/confirm` birinci
+  metni, `POST .../archive/prepare` ikinci metni ve türe bağlı tek kullanımlık belirteci verir,
+  `POST .../archive` belirteci tüketip türü arşivler (`USER_CONFIRMED` + `TYPE_ARCHIVED`).
+  Arşivli tür listeden, analiz talimatından ve seçicilerden kalkar; `GET
+  /document-types?archived=1` "Arşivlenen türler"dir ve `POST /document-types/{slug}/restore` tek
+  adımda geri alır (`TYPE_RESTORED`). Korunan türler (`PROTECTED_SLUGS`) arşivlenemez (409).
+- **Toplu seçim (11.1.6).** Tablo satırlarının onay kutuları `POST /document-types/bulk`'a (`action`
+  ∈ activate|deactivate|archive, `slugs`, süzgeç `country`) gider. Pasifleştirme ve etkinleştirme
+  tek adımdır (tür başına olay, `bulk: true`). Arşiv iki aşamalıdır: belirteçsiz istek birinci metni
+  verir, `POST /document-types/bulk/prepare` sıralı slug kümesinin SHA-256'sına bağlı belirteci,
+  belirteçli istek arşivler; korunan türler atlanır ve sayılır. Seçim en çok `BULK_LIMIT` türdür.
 - Form katalog sözleşmesinden geçer (`app.catalog.form`, 11.1.2): Direkt türde dönüşüm listesi
   boş, `front_back` türde en az bir kabul edilen düzen seçili ve sayfa aralığı düzenlerden
   hesaplanır (ayrı sayfalar 2, tek sayfa 1), tek yüzlü türde düzen yok, analiz edilmeyen türde
@@ -90,7 +103,10 @@ durum tanımı) ve karar:
   409.
 - **Ret (11.5.4).** `POST .../reject` adayı reddeder (`TYPE_REJECTED`, kullanıcı adıyla); K16'nın
   onaylı işlemleri arasında olmadığı için tek adımdır (pasifleştirme gibi). Reddedilen aday listeye
-  geri düşmez.
+  kendiliğinden geri düşmez.
+- **Retten geri alma (11.5.7).** `GET /document-types/candidate-types?status=rejected`
+  reddedilenleri ayrı görünümde listeler; `POST .../restore` adayı tek adımda yeniden bekleyen yapar
+  (`CANDIDATE_TYPE_RESTORED`, kullanıcı adıyla).
 - **Toplu yeniden analiz (11.5.3).** Onaylanmış adayın ilişkili Unknown öğelerinin partileri
   yeniden analiz edilir (06.6.2, K18: her partide yeni plan sürümü, eski çıktılar "eski sürüm").
   Yeniden analiz iki aşamalı onay ister (10.3.2): `POST .../reanalyze/prepare` ikinci metni ve
@@ -122,9 +138,12 @@ from app.ai.type_proposal import TypeProposalError
 from app.ai.usage import measure_usage
 from app.catalog import (
     DETAIL_SAMPLE_LIMIT,
+    LIST_SAMPLE_LIMIT,
     PHOTO_RULE_TYPES,
+    PROTECTED_SLUGS,
     CandidateDecidedError,
     CandidateNotFoundError,
+    CandidateNotRejectedError,
     CatalogEntry,
     CatalogError,
     CompiledCatalog,
@@ -139,11 +158,14 @@ from app.catalog import (
     TypeForm,
     TypeFormError,
     TypeNotFoundError,
+    TypeProtectedError,
     TypeSummary,
     approve_candidate_type,
     approved_type_slug,
+    archive_type,
     build_entry,
     build_photo_rules,
+    check_archivable,
     compile_catalog,
     count_pending_candidate_types,
     create_type,
@@ -156,6 +178,8 @@ from app.catalog import (
     read_photo_rules,
     record_problems,
     reject_candidate_type,
+    restore_candidate_type,
+    restore_type,
     sample_page_refs,
     set_photo_rules,
     set_type_active,
@@ -225,6 +249,7 @@ from app.web.confirm import (
     ConfirmationRefusedError,
     Operation,
     confirm_operation,
+    fill,
     first_text,
     issue_confirmation,
     second_text,
@@ -283,6 +308,44 @@ NOTICES = {
     "updated": "Tür güncellendi. Değişiklik bir sonraki analizden itibaren geçerlidir.",
     "deactivated": "Tür pasifleştirildi: yeni belgelere atanmaz.",
     "activated": "Tür yeniden etkinleştirildi.",
+    "archived": "Tür arşivlendi: listeden, analiz talimatından ve tür seçicilerden kalktı; var "
+    "olan belgeleri yerinde.",
+    "restored": "Tür arşivden geri alındı; bir sonraki analizden itibaren yeniden geçerlidir.",
+    "none_selected": "Tür seçilmedi: önce tablodan en az bir türü işaretleyin.",
+}
+
+# --- 11.1.6: arşiv ve toplu seçim -----------------------------------------------------------------
+
+BULK_PATH = f"{LIST_PATH}/bulk"
+BULK_LIMIT = 500
+BULK_ACTIONS = ("activate", "deactivate", "archive")
+BULK_NOTICES = {
+    "bulk_deactivated": "{count} tür pasifleştirildi: yeni belgelere atanmaz.",
+    "bulk_activated": "{count} tür yeniden etkinleştirildi.",
+    "bulk_archived": "{count} tür arşivlendi.",
+}
+BULK_ARCHIVED_SKIPPED = "{count} tür arşivlendi, {skipped} korunan tür atlandı."
+BULK_UNKNOWN_ACTION = "Tanınmayan toplu işlem."
+BULK_TOO_MANY = f"Tek seferde en çok {BULK_LIMIT} tür seçilebilir."
+BULK_NOTHING_TO_ARCHIVE = (
+    "Seçilen türlerin hiçbiri arşivlenemez: hepsi korunan tür ya da zaten arşivde."
+)
+TYPE_PROTECTED = "Bu tür boru hattının adıyla kullandığı korunan bir türdür; arşivlenemez."
+TYPE_ALREADY_ARCHIVED = "Bu tür zaten arşivde."
+# §20.6 dışı (K16 dışı, PLAN.md §C92-a, §D61-d; §D58'in eğitim emsali): metinler BİREBİR §C92'den.
+ARCHIVE_SECOND = (
+    "Tür analiz talimatından ve listelerden kalkacak, var olan belgeler yerinde kalacaktır. Son "
+    "kararınız mı?"
+)
+_ARCHIVE_TEXTS: dict[Operation, tuple[str, str]] = {
+    Operation.TYPE_ARCHIVE: (
+        "<Tür adı> belge türünü arşivlemek üzeresiniz. Emin misiniz?",
+        ARCHIVE_SECOND,
+    ),
+    Operation.TYPE_ARCHIVE_BULK: (
+        "<N> belge türünü arşivlemek üzeresiniz. Emin misiniz?",
+        ARCHIVE_SECOND,
+    ),
 }
 
 TYPE_PAGE_NOTICES = {"photo_rules": "Fotoğraf kuralları kaydedildi."}
@@ -465,7 +528,10 @@ CANDIDATE_NOTICES = {
     "approved": "Aday tür standart türler arasına eklendi; tür bir sonraki analizden itibaren "
     "geçerlidir. İlişkili Unknown öğeleri aşağıdan toplu yeniden analiz edilebilir.",
     "rejected": "Aday tür reddedildi; bir daha listeye düşmez.",
+    "restored": "Aday tür retten geri alındı; yeniden onay bekliyor.",
 }
+NOT_REJECTED_NOTE = "Bu aday tür reddedilmiş değil; geri alınacak bir ret yok."
+CANDIDATE_VIEWS = ("pending", "rejected")
 # 11.5.6: taslakla dolu onay formunun bandı ve "Yeniden incele".
 PREFILL_FILLED = (
     "Alanlar sistemin incelemesiyle dolduruldu ({pages} örnek sayfa, {date}). Kaydetmeden önce "
@@ -715,12 +781,47 @@ def _fields_context(form: TypeForm, problems: dict[str, list[str]] | None) -> di
     }
 
 
-def _redirect(notice: str, slug: str, *, country: str | None = None) -> RedirectResponse:
-    params = {"notice": notice, "slug": slug}
+def _list_url(*, country: str | None = None, archived: bool = False, **params: str | int) -> str:
+    """Belge Türleri listesinin adresi: arşiv görünümü (`archived=1`), bildirim parametreleri ve
+    süzgeç (11.1.5; `all` yazılmaz)."""
+    query: dict[str, str | int] = {"archived": 1} if archived else {}
+    query.update(params)
     normalized = _normalize_country(country)
     if normalized != "all":
-        params["country"] = normalized
-    return RedirectResponse(f"{LIST_PATH}?{urlencode(params)}", status.HTTP_303_SEE_OTHER)
+        query["country"] = normalized
+    return f"{LIST_PATH}?{urlencode(query)}" if query else LIST_PATH
+
+
+def _redirect(
+    notice: str, slug: str | None = None, *, country: str | None = None, **counts: int
+) -> RedirectResponse:
+    params: dict[str, str | int] = {"notice": notice}
+    if slug is not None:
+        params["slug"] = slug
+    params.update(counts)
+    return RedirectResponse(_list_url(country=country, **params), status.HTTP_303_SEE_OTHER)
+
+
+def _notice_text(
+    notice: str | None,
+    slug: str | None,
+    named: dict[str, str],
+    count: int | None,
+    skipped: int | None,
+) -> str | None:
+    """Liste bildiriminin metni; tanınmayan bildirim yok sayılır. Tekil bildirim türün adını taşır,
+    toplu bildirim sayıları (11.1.6)."""
+    key = notice or ""
+    if key in BULK_NOTICES:
+        if count is None:
+            return None
+        if key == "bulk_archived" and skipped:
+            return BULK_ARCHIVED_SKIPPED.format(count=count, skipped=skipped)
+        return BULK_NOTICES[key].format(count=count)
+    text = NOTICES.get(key)
+    if text and slug in named:
+        text = f"{named[slug]}: {text}"
+    return text
 
 
 @router.get(LIST_PATH, response_class=HTMLResponse)
@@ -732,12 +833,16 @@ def catalog_page(
     notice: Annotated[str | None, Query(max_length=32)] = None,
     slug: Annotated[str | None, Query(max_length=64)] = None,
     country: Annotated[str | None, Query(max_length=8)] = None,
+    archived: Annotated[str | None, Query(max_length=1)] = None,
+    count: Annotated[int | None, Query(ge=0, le=BULK_LIMIT)] = None,
+    skipped: Annotated[int | None, Query(ge=0, le=BULK_LIMIT)] = None,
 ) -> HTMLResponse:
-    types = list_types(session)
-    named = {item.slug: item.name for item in types}
-    notice_text = NOTICES.get(notice or "")
-    if notice_text and slug in named:
-        notice_text = f"{named[slug]}: {notice_text}"
+    """Belge Türleri (11.1.1): arşivsiz türler; `archived=1` "Arşivlenen türler" görünümüdür
+    (11.1.6). Ülke süzgeci (11.1.5) iki görünümde de görünümün kendi türlerinden üretilir."""
+    every_type = list_types(session, include_archived=True)
+    show_archived = archived == "1"
+    types = [item for item in every_type if (item.archived_at is not None) == show_archived]
+    named = {item.slug: item.name for item in every_type}
     selected_country = _normalize_country(country)
     return render_page(
         request,
@@ -747,10 +852,15 @@ def catalog_page(
         entry=MENU_BY_KEY["document_types"],
         types=_filter_types(types, selected_country),
         total_types=len(types),
+        show_archived=show_archived,
+        archived_total=sum(1 for item in every_type if item.archived_at is not None),
+        archived_url=_list_url(country=selected_country, archived=True),
+        list_url=_list_url(country=selected_country),
+        bulk_limit=BULK_LIMIT,
         country_options=_country_options(types),
         selected_country=selected_country,
         country_query=_country_suffix(selected_country),
-        notice_text=notice_text,
+        notice_text=_notice_text(notice, slug, named, count, skipped),
         sides_labels=SIDES_LABELS,
         pending_candidates=count_pending_candidate_types(session),
         budget=catalog_budget_view(session, settings),
@@ -772,10 +882,20 @@ def candidate_types_page(
     user: CurrentUser,
     session: DbSession,
     notice: Annotated[str | None, Query(max_length=32)] = None,
+    view: Annotated[str | None, Query(alias="status", max_length=16)] = None,
 ) -> HTMLResponse:
     """11.5.1 — bekleyen aday türler adı, görülme sayısı ve örnek sayfalarıyla; onaylanmış ama
-    ilişkili Unknown öğesi bekleyen adaylar ayrıca (toplu yeniden analiz için, 11.5.3)."""
-    pending = list_candidate_types(session)
+    ilişkili Unknown öğesi bekleyen adaylar ayrıca (toplu yeniden analiz için, 11.5.3).
+    `status=rejected` reddedilenleri "Geri al" düğmesiyle listeler (11.5.7)."""
+    shown = view if view in CANDIDATE_VIEWS else "pending"
+    rejected = list_candidate_types(
+        session,
+        CandidateTypeStatus.REJECTED,
+        sample_limit=LIST_SAMPLE_LIMIT if shown == "rejected" else 0,
+    )
+    pending = list_candidate_types(
+        session, sample_limit=LIST_SAMPLE_LIMIT if shown == "pending" else 0
+    )
     approved = list_candidate_types(session, CandidateTypeStatus.APPROVED, sample_limit=0)
     related = _related_by_candidate(session, [item.id for item in (*pending, *approved)])
     response = render_page(
@@ -783,7 +903,9 @@ def candidate_types_page(
         "catalog_candidates.html",
         user=user,
         active="document_types",
+        view=shown,
         pending=pending,
+        rejected=rejected,
         approved=[item for item in approved if related[item.id]],
         related_counts={key: len(items) for key, items in related.items()},
         notice_text=CANDIDATE_NOTICES.get(notice or ""),
@@ -828,6 +950,240 @@ def create_type_endpoint(
             list_country=list_country,
         )
     return _redirect("created", entry.slug, country=list_country)
+
+
+# --- 11.1.6: toplu seçim ------------------------------------------------------------------------
+# `POST /document-types/{slug}`'dan önce kayıtlı olmalı; `bulk` slug olamaz (`RESERVED_SLUGS`).
+
+CountryField = Annotated[str | None, Form(max_length=8)]
+BulkSlugs = Annotated[list[str] | None, Form()]
+
+
+@dataclass(frozen=True, slots=True)
+class _BulkArchive:
+    """Toplu arşivin planı: seçilen slug'lar (sıralı, tekil), arşivlenecek ve atlanacak korunan
+    türler."""
+
+    selected: tuple[str, ...]
+    archivable: tuple[KnownDocumentType, ...]
+    protected: tuple[KnownDocumentType, ...]
+
+
+def _bulk_selection(
+    session: Session, slugs: list[str] | None
+) -> tuple[tuple[str, ...], dict[str, KnownDocumentType]]:
+    """Seçimin denetimi: en çok `BULK_LIMIT` (422), her slug katalogda (404). Sıralı ve tekil."""
+    if len(slugs or ()) > BULK_LIMIT:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, BULK_TOO_MANY)
+    selected = tuple(sorted({slug.strip() for slug in slugs or () if slug.strip()}))
+    rows = {
+        row.slug: row
+        for row in session.scalars(
+            select(KnownDocumentType).where(KnownDocumentType.slug.in_(selected))
+        )
+    }
+    if len(rows) != len(selected):
+        raise HTTPException(status.HTTP_404_NOT_FOUND, TYPE_NOT_FOUND)
+    return selected, rows
+
+
+def _bulk_archive(session: Session, slugs: list[str] | None) -> _BulkArchive:
+    """Toplu arşivin ortak denetimi (her adımda yeniden): seçim, en az bir arşivlenebilir tür
+    (409). Zaten arşivli tür sessizce dışarıda kalır, korunan tür atlanır ve sayılır."""
+    selected, rows = _bulk_selection(session, slugs)
+    chosen = [rows[slug] for slug in selected]
+    protected = tuple(row for row in chosen if row.slug in PROTECTED_SLUGS)
+    archivable = tuple(
+        row for row in chosen if row.slug not in PROTECTED_SLUGS and row.archived_at is None
+    )
+    if not archivable:
+        raise HTTPException(status.HTTP_409_CONFLICT, BULK_NOTHING_TO_ARCHIVE)
+    return _BulkArchive(selected, archivable, protected)
+
+
+def bulk_archive_subject(selected: tuple[str, ...]) -> str:
+    """Toplu arşiv belirtecinin (`Operation.TYPE_ARCHIVE_BULK`) hedefi: sıralı slug kümesinin
+    SHA-256 özeti. Hazırlıktan sonra seçim değişirse belirteç geçmez."""
+    return f"document-types:bulk:{_digest(chr(10).join(selected))}"
+
+
+def archive_subject(slug: str) -> str:
+    """Tekil arşiv belirtecinin (`Operation.TYPE_ARCHIVE`) hedefi."""
+    return f"document-types:{slug}"
+
+
+def _archive_text(operation: Operation, second: bool, **values: Any) -> str:
+    first_text_, second_text_ = _ARCHIVE_TEXTS[operation]
+    return fill(second_text_ if second else first_text_, **values)
+
+
+def _archive_page(
+    request: Request,
+    user: PanelUser,
+    status_code: int,
+    *,
+    country: str | None,
+    slug: str | None = None,
+    type_name: str | None = None,
+    plan: _BulkArchive | None = None,
+    confirm_text: str | None = None,
+    confirmation: str | None = None,
+    error: str | None = None,
+) -> HTMLResponse:
+    """Arşiv adımının sayfası (`catalog_archive_step.html`): tekil (`slug`) ya da toplu (`plan`)
+    birinci onay (belirteçsiz), ikinci onay (belirteçle) ya da ret."""
+    selected_country = _normalize_country(country)
+    return render_page(
+        request,
+        "catalog_archive_step.html",
+        user=user,
+        active="document_types",
+        status_code=status_code,
+        entry=MENU_BY_KEY["document_types"],
+        bulk=slug is None,
+        slug=slug,
+        type_name=type_name,
+        selected=plan.selected if plan else (),
+        archivable=[row.name for row in plan.archivable] if plan else [],
+        protected=[row.name for row in plan.protected] if plan else [],
+        selected_country=selected_country,
+        back_url=_list_url(country=selected_country),
+        confirm_text=confirm_text,
+        confirmation=confirmation,
+        error=error,
+    )
+
+
+def _archive_refused(
+    request: Request,
+    user: PanelUser,
+    session: Session,
+    exc: Exception,
+    country: str | None,
+    *,
+    detail: bool = False,
+) -> HTMLResponse:
+    """Arşiv ya da toplu adımın reddi → hata sayfası; hiçbir şey yazılmadı. Belirteç reddi istemciye
+    tek genel metinle gider; hazırlıkta (`detail`) üretim hatasının nedeni yazılır."""
+    session.rollback()
+    if isinstance(exc, HTTPException):
+        code, message = exc.status_code, str(exc.detail)
+    else:  # ConfirmationRefusedError
+        code = status.HTTP_400_BAD_REQUEST
+        message = str(exc) if detail else CONFIRMATION_REFUSED
+    return _archive_page(request, user, code, country=country, error=message)
+
+
+@router.post(BULK_PATH, response_class=HTMLResponse)
+def bulk_types(
+    request: Request,
+    user: CurrentUser,
+    session: DbSession,
+    action: Annotated[str, Form(max_length=16)] = "",
+    slugs: BulkSlugs = None,
+    country: CountryField = None,
+    confirmation: Annotated[str | None, Form()] = None,
+) -> Response:
+    """11.1.6 — seçilen türleri topluca pasifleştirir, etkinleştirir ya da arşivler.
+
+    Pasifleştirme ve etkinleştirme tek adımdır: durumu değişen her tür için olay (`bulk: true`).
+    Arşiv iki aşamalıdır: belirteçsiz istek birinci metni verir (hiçbir şey değişmez),
+    `bulk/prepare` belirteci verir, belirteçli istek belirteci tüketir ve arşivler; korunan türler
+    atlanır. Belirtecin tüketilmesi, `USER_CONFIRMED` ve bütün arşiv olayları tek işlemdedir."""
+    if action not in BULK_ACTIONS:
+        return _archive_refused(
+            request,
+            user,
+            session,
+            HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, BULK_UNKNOWN_ACTION),
+            country,
+        )
+    if not any(slug.strip() for slug in slugs or ()):
+        return _redirect("none_selected", country=country)
+    if action == "archive" and confirmation is None:
+        try:
+            plan = _bulk_archive(session, slugs)
+        except HTTPException as exc:
+            return _archive_refused(request, user, session, exc, country)
+        response = _archive_page(
+            request,
+            user,
+            status.HTTP_200_OK,
+            country=country,
+            plan=plan,
+            confirm_text=_archive_text(
+                Operation.TYPE_ARCHIVE_BULK, False, count=len(plan.archivable)
+            ),
+        )
+        session.rollback()
+        return response
+    try:
+        if action == "archive":
+            plan = _bulk_archive(session, slugs)
+            confirm_operation(
+                session,
+                request,
+                user,
+                Operation.TYPE_ARCHIVE_BULK,
+                bulk_archive_subject(plan.selected),
+                confirmation,
+                event_target={
+                    "slugs": [row.slug for row in plan.archivable],
+                    "skipped": [row.slug for row in plan.protected],
+                },
+            )
+            archived = sum(
+                archive_type(session, row.slug, actor=user.username, bulk=True)
+                for row in plan.archivable
+            )
+            session.commit()
+            return _redirect(
+                "bulk_archived", country=country, count=archived, skipped=len(plan.protected)
+            )
+        selected, _ = _bulk_selection(session, slugs)
+        active = action == "activate"
+        changed = sum(
+            set_type_active(session, slug, active, actor=user.username, bulk=True)
+            for slug in selected
+        )
+    except (HTTPException, ConfirmationRefusedError) as exc:
+        return _archive_refused(request, user, session, exc, country)
+    session.commit()
+    return _redirect(f"bulk_{action}d", country=country, count=changed)
+
+
+@router.post(f"{BULK_PATH}/prepare", response_class=HTMLResponse)
+def prepare_bulk_archive(
+    request: Request,
+    user: CurrentUser,
+    session: DbSession,
+    slugs: BulkSlugs = None,
+    country: CountryField = None,
+) -> HTMLResponse:
+    """11.1.6 — toplu arşivin birinci onayından sonra ikinci metni ve sıralı slug kümesine bağlı tek
+    kullanımlık belirteci verir (10.8.1)."""
+    try:
+        plan = _bulk_archive(session, slugs)
+        issued = issue_confirmation(
+            session,
+            request,
+            user,
+            Operation.TYPE_ARCHIVE_BULK,
+            bulk_archive_subject(plan.selected),
+        )
+    except (HTTPException, ConfirmationRefusedError) as exc:
+        return _archive_refused(request, user, session, exc, country, detail=True)
+    response = _archive_page(
+        request,
+        user,
+        status.HTTP_200_OK,
+        country=country,
+        plan=plan,
+        confirm_text=_archive_text(Operation.TYPE_ARCHIVE_BULK, True),
+        confirmation=issued.token,
+    )
+    session.commit()
+    return response
 
 
 @router.get(f"{LIST_PATH}/{{slug}}", response_class=HTMLResponse)
@@ -899,10 +1255,12 @@ def update_type_endpoint(
 
 
 def _set_active(
-    session: Session, slug: str, active: bool, *, country: str | None
+    session: Session, user: PanelUser, slug: str, active: bool, *, country: str | None
 ) -> RedirectResponse:
+    """Tekil pasifleştirme/etkinleştirme: durum değiştiyse `TYPE_DEACTIVATED`/`TYPE_ACTIVATED`
+    kullanıcı adıyla yazılır (11.1.6)."""
     try:
-        set_type_active(session, slug, active)
+        set_type_active(session, slug, active, actor=user.username)
         session.commit()
     except TypeNotFoundError:
         session.rollback()
@@ -912,20 +1270,136 @@ def _set_active(
 
 @router.post(f"{LIST_PATH}/{{slug}}/deactivate")
 def deactivate_type(
-    slug: str,
-    session: DbSession,
-    country: Annotated[str | None, Form(max_length=8)] = None,
+    slug: str, user: CurrentUser, session: DbSession, country: CountryField = None
 ) -> RedirectResponse:
-    return _set_active(session, slug, False, country=country)
+    return _set_active(session, user, slug, False, country=country)
 
 
 @router.post(f"{LIST_PATH}/{{slug}}/activate")
 def activate_type(
-    slug: str,
-    session: DbSession,
-    country: Annotated[str | None, Form(max_length=8)] = None,
+    slug: str, user: CurrentUser, session: DbSession, country: CountryField = None
 ) -> RedirectResponse:
-    return _set_active(session, slug, True, country=country)
+    return _set_active(session, user, slug, True, country=country)
+
+
+# --- 11.1.6: tekil arşiv ve geri alma ------------------------------------------------------------
+
+
+def _archivable(session: Session, slug: str) -> KnownDocumentType:
+    """Tekil arşivin ortak denetimi (her adımda yeniden): tür (404), korunan değil (409), arşivde
+    değil (409). Yazmaz."""
+    try:
+        row = check_archivable(session, slug)
+    except TypeNotFoundError:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, TYPE_NOT_FOUND) from None
+    except TypeProtectedError:
+        raise HTTPException(status.HTTP_409_CONFLICT, TYPE_PROTECTED) from None
+    if row.archived_at is not None:
+        raise HTTPException(status.HTTP_409_CONFLICT, TYPE_ALREADY_ARCHIVED)
+    return row
+
+
+@router.get(f"{LIST_PATH}/{{slug}}/archive/confirm", response_class=HTMLResponse)
+def archive_first_confirmation(
+    slug: str,
+    request: Request,
+    user: CurrentUser,
+    session: DbSession,
+    list_country: ListCountryQuery = None,
+) -> HTMLResponse:
+    """11.1.6 "Arşivle" — türü denetler ve §C92'nin birinci onay metnini verir; hiçbir şey
+    değişmez."""
+    try:
+        row = _archivable(session, slug)
+    except HTTPException as exc:
+        return _archive_refused(request, user, session, exc, list_country)
+    response = _archive_page(
+        request,
+        user,
+        status.HTTP_200_OK,
+        country=list_country,
+        slug=slug,
+        type_name=row.name,
+        confirm_text=_archive_text(Operation.TYPE_ARCHIVE, False, type_name=row.name),
+    )
+    session.rollback()
+    return response
+
+
+@router.post(f"{LIST_PATH}/{{slug}}/archive/prepare", response_class=HTMLResponse)
+def prepare_archive(
+    slug: str,
+    request: Request,
+    user: CurrentUser,
+    session: DbSession,
+    country: CountryField = None,
+) -> HTMLResponse:
+    """11.1.6 — birinci onaydan sonra ikinci onay metnini ve türe bağlı tek kullanımlık belirteci
+    verir (10.8.1)."""
+    try:
+        row = _archivable(session, slug)
+        issued = issue_confirmation(
+            session, request, user, Operation.TYPE_ARCHIVE, archive_subject(slug)
+        )
+    except (HTTPException, ConfirmationRefusedError) as exc:
+        return _archive_refused(request, user, session, exc, country, detail=True)
+    response = _archive_page(
+        request,
+        user,
+        status.HTTP_200_OK,
+        country=country,
+        slug=slug,
+        type_name=row.name,
+        confirm_text=_archive_text(Operation.TYPE_ARCHIVE, True),
+        confirmation=issued.token,
+    )
+    session.commit()
+    return response
+
+
+@router.post(f"{LIST_PATH}/{{slug}}/archive", response_class=HTMLResponse)
+def archive_selected_type(
+    slug: str,
+    request: Request,
+    user: CurrentUser,
+    session: DbSession,
+    country: CountryField = None,
+    confirmation: Annotated[str | None, Form()] = None,
+) -> Response:
+    """11.1.6 — ikinci onayın belirteciyle türü arşivler. Belirteçsiz ya da geçersiz belirteçte
+    hiçbir şey yapılmaz (400). Belirtecin tüketilmesi, `USER_CONFIRMED` ve `TYPE_ARCHIVED` tek
+    işlemdedir. Tür kaydı ve belgeleri yerinde kalır (R11)."""
+    try:
+        _archivable(session, slug)
+        confirm_operation(
+            session,
+            request,
+            user,
+            Operation.TYPE_ARCHIVE,
+            archive_subject(slug),
+            confirmation,
+            event_target={"slug": slug},
+        )
+        archive_type(session, slug, actor=user.username)
+    except (HTTPException, ConfirmationRefusedError) as exc:
+        return _archive_refused(request, user, session, exc, country)
+    session.commit()
+    return _redirect("archived", slug, country=country)
+
+
+@router.post(f"{LIST_PATH}/{{slug}}/restore")
+def restore_archived_type(
+    slug: str, user: CurrentUser, session: DbSession, country: CountryField = None
+) -> RedirectResponse:
+    """11.1.6 — arşivli türü tek adımda geri alır (§D61-b: salt durum çevirir); `TYPE_RESTORED`
+    kullanıcı adıyla. Arşivde olmayan türde hiçbir şey yazılmaz."""
+    try:
+        restore_type(session, slug, actor=user.username)
+        session.commit()
+    except TypeNotFoundError:
+        session.rollback()
+        raise HTTPException(status.HTTP_404_NOT_FOUND, TYPE_NOT_FOUND) from None
+    return _redirect("restored", slug, country=country)
 
 
 @router.post(f"{LIST_PATH}/{{slug}}/photo-rules", response_class=HTMLResponse)
@@ -1626,6 +2100,28 @@ def reject_candidate(
         )
     session.commit()
     return RedirectResponse(f"{CANDIDATES_PATH}?notice=rejected", status.HTTP_303_SEE_OTHER)
+
+
+@router.post(f"{CANDIDATES_PATH}/{{candidate_id}}/restore", response_class=HTMLResponse)
+def restore_candidate(
+    candidate_id: int, request: Request, user: CurrentUser, session: DbSession
+) -> Response:
+    """11.5.7 — reddedilen adayı tek adımda yeniden bekleyen yapar (`CANDIDATE_TYPE_RESTORED`,
+    kullanıcı adıyla). Katalog ve belgeler değişmez."""
+    try:
+        restore_candidate_type(session, candidate_id, actor=user.username)
+    except CandidateNotFoundError:
+        session.rollback()
+        return _step_page(
+            request, user, candidate_id, status.HTTP_404_NOT_FOUND, error=CANDIDATE_NOT_FOUND
+        )
+    except CandidateNotRejectedError:
+        session.rollback()
+        return _step_page(
+            request, user, candidate_id, status.HTTP_409_CONFLICT, error=NOT_REJECTED_NOTE
+        )
+    session.commit()
+    return RedirectResponse(f"{CANDIDATES_PATH}?notice=restored", status.HTTP_303_SEE_OTHER)
 
 
 # --- 11.5.6: yeniden incele ---------------------------------------------------------------------

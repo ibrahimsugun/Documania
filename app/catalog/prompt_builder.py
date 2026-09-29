@@ -2,9 +2,9 @@
 
 Analiz talimatının `{{catalog}}` yuvasına giren metin burada üretilir (`compile_catalog`).
 
-- **Hangi türler:** yalnız etkin (`active: true`) ve analiz edilen (`analyze: true`) türler,
-  slug sırasıyla — aynı katalog her zaman aynı metni üretir. Word/Excel türü (`attachment`)
-  analize gitmez (K2), pasif tür yeni belgeye atanmaz.
+- **Hangi türler:** yalnız etkin (`active: true`), arşivsiz (`archived_at` boş, 11.1.6) ve analiz
+  edilen (`analyze: true`) türler, slug sırasıyla — aynı katalog her zaman aynı metni üretir.
+  Word/Excel türü (`attachment`) analize gitmez (K2), pasif ya da arşivli tür yeni belgeye atanmaz.
 - **Kompakt biçim:** tür başına bir başlık (`### `slug` — Ad`) ve kısa satırlar: ülke, yüz yapısı,
   `front_back` türde kabul edilen düzenler (04.1.2) ve beklenen sayfa tek satırda; zorunlu alanlar;
   tanım (`prompt_description`, yoksa `description`); kabul kriterleri madde madde. Yüz değerlerinin
@@ -88,8 +88,10 @@ def estimate_tokens(text: str) -> int:
 
 
 def analyzable_types(catalog: Catalog) -> tuple[CatalogEntry, ...]:
-    """Talimata giren türler: etkin ve analiz edilen, slug sırasıyla."""
-    entries = (entry for entry in catalog if entry.active and entry.analyze)
+    """Talimata giren türler: etkin, arşivsiz (11.1.6) ve analiz edilen, slug sırasıyla."""
+    entries = (
+        entry for entry in catalog if entry.active and entry.archived_at is None and entry.analyze
+    )
     return tuple(sorted(entries, key=lambda entry: entry.slug))
 
 
