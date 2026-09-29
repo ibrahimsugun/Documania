@@ -1883,7 +1883,7 @@
         "description": "PRD 10.7.4, 10.3.5 · FR-MOD-10 · Faz 1 · Must/Should (v1). İnsan kararı (2026-09-28). Bugün kuyruk öğesi yalnız atama/onay/parti yoksayma ile kapanıyor; çöp sayfa ve mükerrer için yol yok. K16 genişlemesi §D61; sözleşme §C91.",
         "details": "KAPSAM: PRD 10.7.4, 10.3.5. Tam sözleşme PLAN §C91 ve §D61 — önce oku.\n\nNE YAPILACAK: (1) Göç: `queue_items.resolution_note` (String(200), nullable); `QueueResolution.CLOSED`. (2) Kapatma iki aşamalı (K16): `GET /queues/{id}/close/confirm` (gerekçe seçimi `not_a_document` \"Belge değil / çöp sayfa\", `already_exists` \"Zaten var\", `other` \"Diğer\" + not `<input maxlength=200>`), `POST /queues/{id}/close/prepare` (belirteç öğe + gerekçeye bağlı), `POST /queues/{id}/close`. Metin §D61 → §20.6, `Operation.CLOSE_QUEUE_ITEM`. Etki: `resolved_at/by`, `resolution=closed`, `resolution_note`; kuyruk klasöründeki kopya ve `reason.json` kalır; aday tür görülmeleri kalır (§C80). Olay `QUEUE_ITEM_CLOSED` (`reason` kodu). (3) Yeniden açma tek adım `POST /queues/{id}/reopen` (yalnız `closed`): `resolved_*`, `resolution`, `resolution_note` temizlenir; olay `QUEUE_ITEM_REOPENED`. \"Çözülenler\" görünümü (`listing.state == resolved`) gerekçeyi Türkçesiyle ve \"Yeniden aç\" düğmesiyle gösterir. Sayaçlar kapananı dışlar (zaten `resolved_at` süzülüyor — doğrula). (4) Yoksaymayı geri alma tek adım `POST /uploads/{id}/undismiss`: `dismissed_at/by` temizlenir; yalnız `resolution == dismissed` ve `resolved_at >= dismissed_at` öğeler yeniden açılır; olay `UPLOAD_RESTORED` (`queue_items`); detay sayfası bildirimi düğmeyi taşır; yükleme listesi partiyi yeniden gösterir. (5) `preview_dismissal`/`dismiss_upload` ile simetrik `restore_upload` `app/pipeline/dismiss.py`'de.\n\nGİRDİ: app/db/models.py (:127-142 `QueueKind`/`QueueResolution`, :484 `QueueItem`), app/web/routers/queue.py (:880 liste, :899 detay, :1035-1100 atama iki aşamalı kalıbı), app/web/templates/queue.html (:24-27), queue_item.html, app/pipeline/dismiss.py (:91 `preview_dismissal`, :103 `dismiss_upload`), app/web/routers/upload_page.py (:945-1010 yoksay akışı, bildirim), upload_detail.html, uploads_list.py, app/web/confirm.py, tests/web/test_queue*.py, tests/web/test_upload_dismiss.py.\n\nÇIKTI: alembic/versions/<yeni>.py, app/db/models.py, app/pipeline/queue_close.py (ya da route.py içinde `close_queue_item`/`reopen_queue_item`), app/pipeline/dismiss.py, app/web/routers/queue.py, app/web/routers/upload_page.py, app/web/templates/queue.html, queue_item.html, queue_close_step.html, upload_detail.html, app/web/confirm.py, app/events.py, urun-gereksinim-dokumani-PRD.md (§20.6 satırı), tests/pipeline/test_queue_close.py, tests/web/test_queue_close.py, tests/web/test_upload_undismiss.py, tests/web/test_confirm.py, tests/web/test_access_log.py, tests/test_events.py, PLAN.md (10.7.4, 10.3.5 satırları; K10.7-d), HANDOFF.md.\n\nBU GÖREVİ BAĞLAYAN KİLİTLİ KURALLAR: K16 (§D61), R7/R11 (kapatmak silmez; dosya kopyası kalır), §C80 (aday tür görülmeleri ve örnekler kalır), K15, CONVENTIONS §6.\n\nPRD'DE AYRICA OKU: 08.1.1, 08.1.2, 10.3.4, 10.7.1, 11.5.1, §20.6.\n\nİLGİLİ KABUL SENARYOLARI: S16 (onay kalıbı).\n\nKAPSAM SINIRI: kuyruk klasöründeki kopyayı temizleme yok; toplu kapatma yok; Unreadable için \"yeniden yükle\" akışı yok (kapat + yeniden yükle yeter); kapatılan öğenin sayfaları aday tür örneklerinden çıkarılmaz.\n\nTUZAKLAR: `resolution` bugün yalnız `dismissed`; `dismiss_upload` `resolved_at` yazıyor — `undismiss` yalnız yoksaymayla kapananları açsın, o arada atanmış öğeyi (resolution boş) açmasın. Kuyruk sayaçlarının `resolved_at IS NULL` süzdüğünü doğrula; `queue.html` \"Çözüldü\" sütunu gerekçeyi göstersin. Yeniden açılan öğenin planı değişmez (S18). Belirteç gerekçeye bağlı olsun.\n\nKAPANIŞ: PLAN satır(lar)ı ✅ → kanıt maddesi (§K), HANDOFF bloğu, commit mesajında `PRD <kod> — tm <id>`; CONVENTIONS DoD kapısı (ruff, compileall, import app.main, alembic upgrade head temiz SQLite, pytest -m \"not live\", coverage) yeşil.",
         "testStrategy": "1) Kapatma: tek onayla değişmez; belirteçle `closed` + not + olay; kopya dosya ve reason.json yerinde; aday tür görülme sayısı aynı; sayaç düşer; çözülenlerde gerekçe. 2) Yeniden aç: yalnız closed; olay; sayaç artar. 3) Undismiss: parti listede, yoksaymayla kapanan öğeler açık, o arada atanan öğe kapalı kalır; olay. 4) `test_confirm`; `test_access_log`. 5) DoD kapısı yeşil.",
-        "status": "in-progress",
+        "status": "done",
         "dependencies": [
           "70",
           "105",
@@ -1891,7 +1891,7 @@
         ],
         "priority": "medium",
         "subtasks": [],
-        "updatedAt": "2026-09-29T14:30:10.571Z"
+        "updatedAt": "2026-09-29T15:51:19.573Z"
       },
       {
         "id": "132",
@@ -1956,9 +1956,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-09-29T14:30:10.572Z",
+      "lastModified": "2026-09-29T15:51:19.573Z",
       "taskCount": 133,
-      "completedCount": 125,
+      "completedCount": 126,
       "tags": [
         "master"
       ]
