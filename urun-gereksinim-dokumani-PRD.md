@@ -1040,7 +1040,7 @@ Yazma tamamlandıktan sonra `documents` kaydına kaynak dosya kimliği ve sayfa 
 
 ---
 
-### 20.6 İki aşamalı onay metinleri (gereksinim 10.8.1, 10.8.2, 10.7.2, 10.7.3, 08.4.1, 11.5.2, 10.3.4, 10.5.6, 10.5.7)
+### 20.6 İki aşamalı onay metinleri (gereksinim 10.8.1, 10.8.2, 10.7.2, 10.7.3, 08.4.1, 11.5.2, 10.3.4, 10.5.6, 10.5.7, 10.5.8)
 
 K16'daki manuel işlemler iki aşamalı onay ister (salt geri alma işlemleri tek adımdır, K16). Metinler **birebir** aşağıdaki
 gibidir; pencere kendi cümlesini yazmaz. `<…>` yer tutucuları çalışma zamanında doldurulur.
@@ -1056,6 +1056,7 @@ gibidir; pencere kendi cümlesini yazmaz. `<…>` yer tutucuları çalışma zam
 | Çalışan profilini düzenle | `Bu çalışanın profil bilgilerini değiştirmek üzeresiniz. Emin misiniz?` | `Ad ya da soyad değiştiyse klasör ve <N> belge dosyası yeniden adlandırılacaktır. Son kararınız mı?` |
 | Çalışanı pasife al | `<Ad Soyad> çalışanını pasife almak üzeresiniz. Emin misiniz?` | `Bu çalışana gelen yeni belgeler otomatik yerleşmeyecek, kuyruğa düşecektir. Son kararınız mı?` |
 | Çalışanı yeniden etkinleştir | `<Ad Soyad> çalışanını yeniden etkinleştirmek üzeresiniz. Emin misiniz?` | `Çalışan listeye dönecek ve yeni belgeleri yeniden otomatik yerleşecektir. Son kararınız mı?` |
+| Profil alt kaydını kaldır | `Bu kaydı çalışan profilinden kaldırmak üzeresiniz. Emin misiniz?` | `Kayıt eşleştirmede ve aramada kullanılmayacak, geçmişte kalacaktır. Son kararınız mı?` |
 
 İlk iki satırdaki metinler ürün tanımında birebir bu şekilde yazılmıştır; **değiştirilmez**.
 Kalan satırlar aynı kalıptan türetilmiştir: birinci cümle *ne yapılacağını*, ikinci cümle
@@ -1076,7 +1077,8 @@ Onay metinlerini göstermek tek başına yeterli değildir — istemci atlanabil
 Onay tamamlandığında `USER_CONFIRMED` olayı yazılır: kullanıcı adı, işlem türü, hedef kayıt,
 birinci ve ikinci onayın zaman damgaları. Ardından işlemin kendi olayı (`MANUAL_MOVE`,
 `MANUAL_ASSIGN`, `MANUAL_APPROVE`, `TYPE_APPROVED`, `ARCHIVED`, `UPLOAD_DISMISSED`,
-`EMPLOYEE_EDITED`, `EMPLOYEE_DEACTIVATED`, `EMPLOYEE_REACTIVATED`) düşülür.
+`EMPLOYEE_EDITED`, `EMPLOYEE_DEACTIVATED`, `EMPLOYEE_REACTIVATED`, `PROFILE_RECORD_REMOVED`)
+düşülür.
 
 #### 20.6.2 Testte doğrulanacak davranış
 

@@ -315,6 +315,31 @@ def test_person_is_matched_by_whole_words_in_any_spelling(
     assert found("Ahmet Ahmet Çakar") == []  # tekrar eden kelime iki kez aranır
 
 
+def test_a_spelling_removed_from_the_profile_is_not_searched(
+    session_factory: sessionmaker[Session],
+) -> None:
+    # 10.5.8: İK'nın kaldırdığı isim yazımı (evlilik öncesi soyadı gibi) botun aramasına girmez;
+    # geri alınınca yeniden bulunur.
+    add_employee(session_factory, 5, "Ayşe", "Demir", aliases=("Ayşe Kaya",))
+
+    def found(text: str) -> list[str]:
+        with session_factory() as session:
+            return [employee.id for employee in find_employees(session, parse_person(text))]
+
+    def mark(removed: bool) -> None:
+        with session_factory() as session:
+            alias = session.scalars(select(EmployeeAlias)).one()
+            alias.removed_at = datetime.now(UTC) if removed else None
+            session.commit()
+
+    assert found("Ayşe Kaya") == ["E0005"]
+    mark(removed=True)
+    assert found("Ayşe Kaya") == []
+    assert found("Ayşe Demir") == ["E0005"]  # kayıttaki ad aynen aranır
+    mark(removed=False)
+    assert found("Ayşe Kaya") == ["E0005"]
+
+
 def test_employee_number_narrows_to_that_employee_and_must_agree_with_the_name(
     session_factory: sessionmaker[Session],
 ) -> None:

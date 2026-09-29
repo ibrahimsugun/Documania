@@ -206,7 +206,11 @@ def test_card_shows_every_field_of_the_employee(
         "Adres": "Örnek Mah. 1. Sok. No:2, İstanbul",
         "Belge numaraları": "Rus Pasaportu 711234567 work_permit WP-0042",
     }
-    assert "+90 555 111 11 11" not in response.text
+    card = response.text.split('<section class="profile-card"', 1)[1].split("</section>", 1)[0]
+    assert "+90 555 111 11 11" not in card
+    # 10.5.8: "Profil kayıtları" bölümü geçmiş numarayı da "Geçmiş" olarak listeler.
+    records = response.text.split('id="records"', 1)[1].split("</section>", 1)[0]
+    assert re.search(r"<td>\+90 555 111 11 11</td><td>belgeden</td><td>Geçmiş</td>", records)
 
 
 def test_unknown_fields_show_a_dash_instead_of_disappearing(
@@ -981,7 +985,9 @@ def test_panel_has_no_way_to_change_a_document(
     # (`tests/web/test_packages.py`). Profil düzenleme yolları (10.5.6) çalışan kaydını yazar ve
     # dosyaları yalnız yeniden adlandırır; içerik bayt bayt aynı kalır
     # (`tests/web/test_employee_fields.py`). Durum yolları (10.5.7) yalnız çalışanın durumunu
-    # çevirir; dosyaya dokunmaz (`tests/web/test_employee_status.py`).
+    # çevirir; dosyaya dokunmaz (`tests/web/test_employee_status.py`). Alt kayıt yolları (10.5.8)
+    # yalnız isim yazımı, numara ve iletişim satırlarını işaretler ya da ekler; dosyaya dokunmaz
+    # (`tests/web/test_profile_records.py`).
     assert profile_paths == {
         "/employees/{employee_id}/fields": {"get", "post"},
         "/employees/{employee_id}/fields/prepare": {"post"},
@@ -995,6 +1001,11 @@ def test_panel_has_no_way_to_change_a_document(
         "/employees/{employee_id}/status/confirm": {"get"},
         "/employees/{employee_id}/status/prepare": {"post"},
         "/employees/{employee_id}/status": {"post"},
+        "/employees/{employee_id}/records/{kind}/{record_id}/remove/confirm": {"get"},
+        "/employees/{employee_id}/records/{kind}/{record_id}/remove/prepare": {"post"},
+        "/employees/{employee_id}/records/{kind}/{record_id}/remove": {"post"},
+        "/employees/{employee_id}/records/{kind}/{record_id}/restore": {"post"},
+        "/employees/{employee_id}/contacts": {"post"},
     }
 
     urls = (

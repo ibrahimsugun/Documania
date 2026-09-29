@@ -12,7 +12,8 @@ ve kimlik tablosu aynı kimlik alanlarını taşır: `given_names`/`surname` Lat
 (05.2.2), `original_script_name` ismin belgede basılı hâlidir — alfabesi ne olursa olsun, Latin
 belgede de dolu. İkisi birlikte göründüğü için ayrı bir dönüştürme adımı gerekmez (09.1.2).
 Okunmamış alan `—` ile gösterilir; içerik üretilmez, yalnız var olan veritabanı satırı
-görüntülenir (K11, K17).
+görüntülenir (K11, K17). İK'nın profilden kaldırdığı belge numarası ve iletişim bilgisi (10.5.8)
+dosyaya girmez.
 
 "Belge paketleri" bölümü (14.3.1) çalışana tanımlı paketleri panelin profil sayfasıyla aynı
 hesapla (`app.groups.employee_packages`) gösterir: iptal edilmemiş her paket için grup adı, durum
@@ -34,6 +35,7 @@ from sqlalchemy.orm import Session
 
 from app.db.models import Document, Employee, EmployeeContact, EmployeeIdentifier, KnownDocumentType
 from app.groups import PackageView, employee_packages
+from app.matching.records import ACTIVE_CONTACT, ACTIVE_IDENTIFIER
 from app.matching.status import status_label
 from app.storage import DataLayout, StoredFile, replace_file
 
@@ -91,9 +93,10 @@ def write_profile(
 
 
 def _identifiers(session: Session, employee_id: str) -> Sequence[EmployeeIdentifier]:
+    # İK'nın kaldırdığı numara (10.5.8) dosyaya girmez.
     return session.scalars(
         select(EmployeeIdentifier)
-        .where(EmployeeIdentifier.employee_id == employee_id)
+        .where(EmployeeIdentifier.employee_id == employee_id, ACTIVE_IDENTIFIER)
         .order_by(EmployeeIdentifier.id)
     ).all()
 
@@ -101,7 +104,11 @@ def _identifiers(session: Session, employee_id: str) -> Sequence[EmployeeIdentif
 def _current_contacts(session: Session, employee_id: str) -> Sequence[EmployeeContact]:
     return session.scalars(
         select(EmployeeContact)
-        .where(EmployeeContact.employee_id == employee_id, EmployeeContact.is_current.is_(True))
+        .where(
+            EmployeeContact.employee_id == employee_id,
+            EmployeeContact.is_current.is_(True),
+            ACTIVE_CONTACT,
+        )
         .order_by(EmployeeContact.kind)
     ).all()
 

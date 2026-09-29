@@ -37,6 +37,7 @@ from app.matching.names import (
     normalize_name,
     transliterate_cyrillic,
 )
+from app.matching.records import ACTIVE_ALIAS
 
 GIVEN_NAMES = "given_names"
 SURNAME = "surname"
@@ -140,9 +141,10 @@ def _alias_spelling(
     given, surname = names.get(GIVEN_NAMES), names.get(SURNAME)
     if given is None or surname is None:
         return None
+    # İK'nın kaldırdığı yazım (10.5.8) kaynak olmaz.
     aliases = session.scalars(
         select(EmployeeAlias.raw_name)
-        .where(EmployeeAlias.employee_id == employee.id)
+        .where(EmployeeAlias.employee_id == employee.id, ACTIVE_ALIAS)
         .order_by(EmployeeAlias.id)
     )
     languages = tuple(dict.fromkeys((language, None)))

@@ -34,7 +34,7 @@ def _assert_schema_matches_models(database_url: str) -> None:
             assert tables == set(Base.metadata.tables) | {"alembic_version"}
             context = MigrationContext.configure(connection, opts={"compare_type": True})
             assert compare_metadata(context, Base.metadata) == []
-            assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "0016"
+            assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "0017"
     finally:
         engine.dispose()
 
@@ -906,6 +906,81 @@ def test_manual_field_observations_migration_keeps_rows_and_is_reversible(
             }
             assert "source" not in columns and "actor" not in columns
             assert connection.scalar(text("SELECT count(*) FROM employee_field_observations")) == 1
+    finally:
+        engine.dispose()
+
+
+def test_profile_record_removal_migration_keeps_rows_active_and_is_reversible(
+    sqlite_url: str,
+) -> None:
+    # 0017 (10.5.8): alias, numara ve iletişim satırları `removed_at`, `removed_by` ve
+    # `seen_after_removal_at`, iletişim ayrıca `added_by` alır; hepsi boş olabilir, var olan
+    # satırlar etkin kalır. Tekillik kısıtları değişmez. Geri alış sütunları kaldırır, satırlar
+    # kalır.
+    config = _alembic_config(sqlite_url)
+    command.upgrade(config, "0016")
+    engine = create_engine(sqlite_url)
+    removal = {"removed_at", "removed_by", "seen_after_removal_at"}
+    try:
+        with engine.begin() as connection:
+            connection.execute(
+                text(
+                    "INSERT INTO employees (id, folder_name, given_names, surname, status, "
+                    "created_at) VALUES ('E0001', 'Test_Kisi_E0001', 'Test', 'Kisi', 'active', "
+                    "'2026-09-29 00:00:00')"
+                )
+            )
+            connection.execute(
+                text(
+                    "INSERT INTO employee_aliases (employee_id, raw_name, normalized_name) "
+                    "VALUES ('E0001', 'TEST KISI', 'kisi test')"
+                )
+            )
+            connection.execute(
+                text(
+                    "INSERT INTO employee_identifiers (employee_id, kind, value) "
+                    "VALUES ('E0001', 'passport', '000000001')"
+                )
+            )
+            connection.execute(
+                text(
+                    "INSERT INTO employee_contacts (employee_id, kind, value, first_seen_at, "
+                    "last_seen_at, is_current) VALUES ('E0001', 'phone', '+90 000', "
+                    "'2026-09-29 00:00:00', '2026-09-29 00:00:00', 1)"
+                )
+            )
+
+        command.upgrade(config, "head")
+        with engine.connect() as connection:
+            inspector = inspect(connection)
+            for table, extra in (
+                ("employee_aliases", set()),
+                ("employee_identifiers", set()),
+                ("employee_contacts", {"added_by"}),
+            ):
+                columns = {column["name"]: column for column in inspector.get_columns(table)}
+                assert removal | extra <= set(columns), table
+                assert all(columns[name]["nullable"] for name in removal | extra), table
+                values = connection.execute(
+                    text(f"SELECT removed_at, removed_by, seen_after_removal_at FROM {table}")
+                ).all()
+                assert values == [(None, None, None)], table
+            assert connection.scalar(text("SELECT added_by FROM employee_contacts")) is None
+        with pytest.raises(IntegrityError), engine.begin() as connection:
+            connection.execute(
+                text(
+                    "INSERT INTO employee_identifiers (employee_id, kind, value, removed_at) "
+                    "VALUES ('E0001', 'passport', '000000001', '2026-09-29 00:00:00')"
+                )
+            )
+
+        command.downgrade(config, "0016")
+        with engine.connect() as connection:
+            inspector = inspect(connection)
+            for table in ("employee_aliases", "employee_identifiers", "employee_contacts"):
+                columns = {column["name"] for column in inspector.get_columns(table)}
+                assert not (removal | {"added_by"}) & columns, table
+                assert connection.scalar(text(f"SELECT count(*) FROM {table}")) == 1
     finally:
         engine.dispose()
 

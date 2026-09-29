@@ -336,6 +336,13 @@ class Employee(Base):
     documents: Mapped[list[Document]] = relationship(back_populates="employee")
 
 
+# Profil alt kayıtları (`employee_identifiers`, `employee_aliases`, `employee_contacts`; 10.5.8):
+# kayıt silinmez (R11), İK'nın kaldırdığı satırın `removed_at` (UTC) ve `removed_by` (kullanıcı
+# adı) alanı dolar; kaldırılmış satır eşleştirmeye, aramaya, profil kartına ve `profil.md`'ye girmez
+# (`app.matching.records`). Aynı değer belgeden yeniden gelirse satır geri açılmaz, yeni satır da
+# açılmaz; yalnız `seen_after_removal_at` (UTC) dolar ve profil uyarı gösterir (PLAN.md §D68).
+
+
 class EmployeeIdentifier(Base):
     __tablename__ = "employee_identifiers"
     __table_args__ = (UniqueConstraint("employee_id", "kind", "value"),)
@@ -345,6 +352,9 @@ class EmployeeIdentifier(Base):
     kind: Mapped[str] = mapped_column(String(64))
     value: Mapped[str] = mapped_column(String(128), index=True)
     source_document_id: Mapped[int | None] = mapped_column(ForeignKey("documents.id"))
+    removed_at: Mapped[datetime | None] = mapped_column(UtcDateTime)
+    removed_by: Mapped[str | None] = mapped_column(String(255))
+    seen_after_removal_at: Mapped[datetime | None] = mapped_column(UtcDateTime)
 
     employee: Mapped[Employee] = relationship(back_populates="identifiers")
     source_document: Mapped[Document | None] = relationship()
@@ -359,11 +369,17 @@ class EmployeeAlias(Base):
     raw_name: Mapped[str] = mapped_column(String(255))
     normalized_name: Mapped[str] = mapped_column(String(255), index=True)
     script: Mapped[str | None] = mapped_column(String(16))
+    removed_at: Mapped[datetime | None] = mapped_column(UtcDateTime)
+    removed_by: Mapped[str | None] = mapped_column(String(255))
+    seen_after_removal_at: Mapped[datetime | None] = mapped_column(UtcDateTime)
 
     employee: Mapped[Employee] = relationship(back_populates="aliases")
 
 
 class EmployeeContact(Base):
+    """İletişim bilgisi (05.8.1, 05.8.2). Belgeden gelen satırın `added_by`'ı boştur; İK'nın elle
+    eklediği satırda (10.5.8) ekleyen kullanıcıdır ve `source_document_id` boştur."""
+
     __tablename__ = "employee_contacts"
     __table_args__ = (CheckConstraint(_one_of("kind", ContactKind), name="kind"),)
 
@@ -375,6 +391,10 @@ class EmployeeContact(Base):
     first_seen_at: Mapped[datetime] = mapped_column(UtcDateTime, default=utcnow)
     last_seen_at: Mapped[datetime] = mapped_column(UtcDateTime, default=utcnow)
     is_current: Mapped[bool] = mapped_column(Boolean, default=True)
+    added_by: Mapped[str | None] = mapped_column(String(255))
+    removed_at: Mapped[datetime | None] = mapped_column(UtcDateTime)
+    removed_by: Mapped[str | None] = mapped_column(String(255))
+    seen_after_removal_at: Mapped[datetime | None] = mapped_column(UtcDateTime)
 
     employee: Mapped[Employee] = relationship(back_populates="contacts")
     source_document: Mapped[Document | None] = relationship()
@@ -1197,21 +1217,33 @@ def record_contact_sighting(
     kapatılır (`is_current: False`) ve yeni değer ayrı bir satır olarak eklenir: eski kayıt
     silinmez ya da üzerine yazılmaz (K16), geçmiş olarak kalır. Çalışanın o türde hiç kaydı
     yoksa yalnız yeni satır açılır. Oturum commit edilmez.
+
+    İK'nın kaldırdığı kayıt (10.5.8, `removed_at`) güncel sayılmaz. Değer türün kaldırılmış bir
+    kaydıyla aynıysa satır geri açılmaz, yeni satır da açılmaz: kaldırılmış kaydın
+    `seen_after_removal_at`'i dolar (profil uyarısı, PLAN.md §D68), `changed: False`. Yeni güncel
+    satır açılırken türün öteki bütün satırları — kaldırılmışlar dahil — güncel olmaktan çıkar:
+    türde en çok bir güncel satır vardır, geri alınan kayıt ondan sonra gelen değeri ezmez.
     """
     now = utcnow()
-    current = session.scalar(
-        select(EmployeeContact).where(
-            EmployeeContact.employee_id == employee_id,
-            EmployeeContact.kind == kind,
-            EmployeeContact.is_current.is_(True),
-        )
-    )
+    rows = session.scalars(
+        select(EmployeeContact)
+        .where(EmployeeContact.employee_id == employee_id, EmployeeContact.kind == kind)
+        .order_by(EmployeeContact.id)
+    ).all()
+    current = next((row for row in rows if row.is_current and row.removed_at is None), None)
     if current is not None and current.value == value:
         current.last_seen_at = now
         session.flush()
         return ContactSighting(current, changed=False)
-    if current is not None:
-        current.is_current = False
+    removed = [row for row in rows if row.removed_at is not None and row.value == value]
+    if removed:
+        for row in removed:
+            row.seen_after_removal_at = now
+        session.flush()
+        return ContactSighting(removed[-1], changed=False)
+    for row in rows:
+        if row.is_current:
+            row.is_current = False
     contact = EmployeeContact(
         employee_id=employee_id,
         kind=kind,

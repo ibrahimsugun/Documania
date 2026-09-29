@@ -1836,13 +1836,13 @@
         "description": "PRD 10.5.8 · FR-MOD-10 · Faz 1 · Should (v1). İnsan kararı (2026-09-28). K16 genişlemesi §D61; sözleşme §C90-c.",
         "details": "KAPSAM: PRD 10.5.8. Tam sözleşme PLAN §C90 (c) ve §D61 — önce oku.\n\nNE YAPILACAK: (1) Göç: `employee_aliases`, `employee_identifiers`, `employee_contacts`'a `removed_at` (UTC), `removed_by`; `employee_contacts`'a `added_by`. (2) Süzgeçler: `match_employee` (05.5.1) ve `accumulate_identity` (05.7.2), çalışan araması (`employees.py:143-178`), profil kartı ve profil.md `removed_at IS NULL` süzer. Kaldırılmış (kind, value) belgeden yeniden gelirse yeni satır açılmaz ve geri açılmaz; profilde \"Belgede görülen <tür> kaldırılmış bir kayda uyuyor\" uyarısı (değer profilde zaten görünür, olaya yazılmaz). (3) Profil: \"Görülen yazımlar\" (alias ilk kez listelenir: raw_name, alfabe), \"Belge numaraları\" (kind, value, kaynak belge), \"İletişim\" (kind, value, kaynak/elle, `is_current`); her satırda \"Kaldır\"; `<details>` \"Kaldırılanlar\" + \"Geri al\". (4) Yollar: kaldırma iki aşamalı `GET /employees/{id}/records/{kind}/{rid}/remove/confirm`, `POST .../remove/prepare`, `POST .../remove` (`kind` ∈ alias|identifier|contact; metin §D61 → §20.6, `Operation.REMOVE_PROFILE_RECORD`); geri alma tek adım `POST .../restore`. İletişim ekleme `POST /employees/{id}/contacts` (kind ∈ phone|email|address, value ≤ 500; e-posta/telefon biçim denetimi hafif) → `is_current=True`, aynı türdeki öncekiler `is_current=False` (05.8.2), `source_document_id=None`, `added_by`. (5) Olaylar `PROFILE_RECORD_REMOVED` / `PROFILE_RECORD_RESTORED` (`kind`, `record_id`), `CONTACT_ADDED` (`kind`); değer yok. profil.md yeniden üretilir.\n\nGİRDİ: app/db/models.py (:295-338), app/matching/match.py (:597, :1461), app/matching/contacts.py (:51), app/web/routers/employees.py (:143-178 arama, :428 `build_profile`), app/web/templates/profile.html (:22-64 kart), app/profiles/render.py, app/web/confirm.py, tests/matching/test_pending_profile_and_aliases.py, tests/matching/test_employee_creation.py, tests/web/test_profile.py.\n\nÇIKTI: alembic/versions/<yeni>.py, app/db/models.py, app/matching/match.py, app/matching/contacts.py, app/matching/records.py (kaldır/geri al/ekle servisi), app/web/routers/employees.py, app/web/templates/profile.html, profile_record_step.html, app/profiles/render.py, app/web/confirm.py, app/events.py, urun-gereksinim-dokumani-PRD.md (§20.6 satırı), tests/matching/test_records.py, tests/web/test_profile_records.py, tests/web/test_confirm.py, tests/web/test_access_log.py, tests/test_events.py, PLAN.md (10.5.8 satırı; K10.5), HANDOFF.md.\n\nBU GÖREVİ BAĞLAYAN KİLİTLİ KURALLAR: K16 (§D61), R11 (silme yok — `removed_at`), K6 (eşleştirme yalnız etkin kayıtlarla), 05.8.2 (iletişim geçmişi), D51/D52 (olaya değer yok), K17, CONVENTIONS §6.\n\nPRD'DE AYRICA OKU: 05.7.2, 05.8.1, 05.8.2, 10.4.2, 10.5.1, §20.2.2 satır 1–3.\n\nİLGİLİ KABUL SENARYOLARI: S12 (isim+doğum tarihi eşleşmesi kaldırılmış alias'ı görmemeli).\n\nKAPSAM SINIRI: alias/numara elle ekleme yok (belgeden gelir; K7 ruhu); iletişim değeri düzenleme yok (kaldır + ekle); profil alanları tm 126.\n\nTUZAKLAR: `employee_identifiers.value` üstünde tekillik varsayımı (§20.2.2 satır 2 \"aynı numara birden fazla çalışana\") kaldırılmış satırı saymamalı — sorguları tek yardımcıda topla. `<textarea>` yasak. Belirteç hedefi `kind:rid`. Alias listesi profil kartını uzatır — `<details>` ile katla. Arama (10.4.2) alias üzerinden çalışır; kaldırılan alias aramada çıkmamalı, test et.\n\nKAPANIŞ: PLAN satır(lar)ı ✅ → kanıt maddesi (§K), HANDOFF bloğu, commit mesajında `PRD <kod> — tm <id>`; CONVENTIONS DoD kapısı (ruff, compileall, import app.main, alembic upgrade head temiz SQLite, pytest -m \"not live\", coverage) yeşil.",
         "testStrategy": "1) Göç ve modeller. 2) Eşleştirme: kaldırılan numara ile gelen belge o çalışana eşleşmez (satır 6/7'ye düşer), kaldırılan alias isim+DOB eşleşmesine girmez; belgeden aynı numara gelince satır yeniden açılmaz, uyarı görünür. 3) Web: liste bölümleri; kaldırma iki aşamalı, geri alma tek adım, olaylar; iletişim ekleme `is_current` geçişi. 4) Arama kaldırılan alias'ı bulmaz. 5) `test_confirm` yeni satır. 6) DoD kapısı yeşil.",
-        "status": "pending",
+        "status": "in-progress",
         "dependencies": [
           "126"
         ],
         "priority": "medium",
         "subtasks": [],
-        "updatedAt": "2026-09-28T11:46:31.000Z"
+        "updatedAt": "2026-09-29T10:16:26.665Z"
       },
       {
         "id": "129",
@@ -1956,7 +1956,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-09-29T02:05:18.391Z",
+      "lastModified": "2026-09-29T10:16:26.666Z",
       "taskCount": 133,
       "completedCount": 122,
       "tags": [

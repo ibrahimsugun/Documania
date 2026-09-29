@@ -48,6 +48,7 @@ PRD_OPERATIONS = {
     "Çalışan profilini düzenle": Operation.EDIT_EMPLOYEE,  # 10.5.6, §D61 (tm 126)
     "Çalışanı pasife al": Operation.DEACTIVATE_EMPLOYEE,  # 10.5.7, §D61 (tm 127)
     "Çalışanı yeniden etkinleştir": Operation.REACTIVATE_EMPLOYEE,  # 10.5.7, §D61 (tm 127)
+    "Profil alt kaydını kaldır": Operation.REMOVE_PROFILE_RECORD,  # 10.5.8, §D61 (tm 128)
 }
 TARGET = "7:E0002"
 
@@ -161,6 +162,17 @@ def test_the_status_change_names_the_employee_and_never_shows_the_placeholder() 
     )
     with pytest.raises(ValueError, match="<Ad Soyad>"):
         first_text(Operation.DEACTIVATE_EMPLOYEE)
+
+
+def test_the_profile_record_removal_texts_carry_no_placeholder() -> None:
+    # 10.5.8: iki metin de yer tutucusuzdur; kaydın değeri onay metnine girmez.
+    assert first_text(Operation.REMOVE_PROFILE_RECORD) == (
+        "Bu kaydı çalışan profilinden kaldırmak üzeresiniz. Emin misiniz?"
+    )
+    assert second_text(Operation.REMOVE_PROFILE_RECORD) == (
+        "Kayıt eşleştirmede ve aramada kullanılmayacak, geçmişte kalacaktır. Son kararınız mı?"
+    )
+    assert Operation.REMOVE_PROFILE_RECORD.value == "remove_profile_record"
 
 
 # --- §20.6.1: tek kullanımlık belirteç ------------------------------------------------------------

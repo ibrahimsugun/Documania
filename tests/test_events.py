@@ -33,7 +33,8 @@ def test_all_prd_event_types_are_present() -> None:
     grubu olayı (`GROUP_CHANGED`, 14.1) tm 124'le; belge paketi olayları (`PACKAGE_*`, 14.2)
     tm 125'le; profil düzenleme olayı (`EMPLOYEE_EDITED`, 10.5.6) tm 126'yla; pasife alma ve
     yeniden etkinleştirme olayları (`EMPLOYEE_DEACTIVATED`, `EMPLOYEE_REACTIVATED`, 10.5.7) tm
-    127'yle."""
+    127'yle; profil alt kaydı olayları (`PROFILE_RECORD_REMOVED`, `PROFILE_RECORD_RESTORED`,
+    `CONTACT_ADDED`, 10.5.8) tm 128'le."""
     expected = {
         "FILE_UPLOADED",
         "FILE_DUPLICATE",
@@ -91,6 +92,9 @@ def test_all_prd_event_types_are_present() -> None:
         "EMPLOYEE_EDITED",
         "EMPLOYEE_DEACTIVATED",
         "EMPLOYEE_REACTIVATED",
+        "PROFILE_RECORD_REMOVED",
+        "PROFILE_RECORD_RESTORED",
+        "CONTACT_ADDED",
     }
     assert {member.value for member in EventType} == expected
 

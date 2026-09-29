@@ -129,6 +129,11 @@ tarihi kayıtlı bir çalışana uyuyorsa (satır 3–5) ikinci çalışan açı
 yeni isim yazımlarını `employee_aliases`'a, yeni belge numarasını `employee_identifiers`'a ekler.
 Numara yalnız §20.2.3'e göre temizse eklenir: yanlış okunmuş numara başka birinin belgesini satır
 1'le bu çalışana bağlayabilir (D11).
+
+**Kaldırılmış alt kayıt (10.5.8).** İK'nın profilden kaldırdığı isim yazımı ve belge numarası
+eşleştirmeye girmez: satır 1–5 yalnız etkin kayıtlarla karar verir (`app.matching.records`).
+Kaldırılmış değer belgeden yeniden gelirse birikim onu geri açmaz, yeni satır da açmaz; kaldırılmış
+kaydı işaretler, profil uyarı gösterir (PLAN.md §D68).
 """
 
 from __future__ import annotations
@@ -163,6 +168,7 @@ from app.matching.names import (
     normalize_name,
     transliterate_name,
 )
+from app.matching.records import ACTIVE_ALIAS, note_seen_after_removal, number_owners
 from app.storage import DataLayout, SlugError, employee_folder_name, person_slug
 
 DOCUMENT_NUMBER = "document_number"
@@ -635,11 +641,8 @@ def _decide(session: Session, key: PersonKey) -> EmployeeMatch:
         return EmployeeMatch(MatchRule.CONFLICTING_KEY, conflicts=key.conflicts)
     numbers = [number.value for number in key.document_numbers]
     if numbers:
-        owners = _employee_ids(
-            session.scalars(
-                select(EmployeeIdentifier.employee_id).where(EmployeeIdentifier.value.in_(numbers))
-            )
-        )
+        # Kaldırılmış numara (10.5.8) sahiplik saymaz: satır 1–2 yalnız etkin kayıtlarla.
+        owners = _employee_ids(number_owners(session, numbers))
         if len(owners) == 1:
             return EmployeeMatch(MatchRule.DOCUMENT_NUMBER, owners)
         if owners:
@@ -655,7 +658,7 @@ def _decide_by_name(session: Session, name_keys: Sequence[str], born: date | Non
     named = session.execute(
         select(Employee.id, Employee.date_of_birth)
         .join(EmployeeAlias, EmployeeAlias.employee_id == Employee.id)
-        .where(EmployeeAlias.normalized_name.in_(name_keys))
+        .where(EmployeeAlias.normalized_name.in_(name_keys), ACTIVE_ALIAS)
     ).all()
     if not named:
         return EmployeeMatch(MatchRule.NO_MATCH)
@@ -1473,6 +1476,12 @@ def accumulate_identity(
     - `employee_identifiers`: numara yalnız §20.2.3'e göre temizse (`clean_document_number`),
       çalışanda aynı değer yoksa; `kind` türün slug'ı, `source_document_id` boş (D11).
 
+    İK'nın kaldırdığı kayıt (10.5.8) da bilinir: aynı ham yazım ya da numara geri açılmaz, yeni
+    satır da açılmaz; kaldırılmış kaydın `seen_after_removal_at`'i dolar (profil uyarısı, PLAN.md
+    §D68). Ham yazımı farklı ama normalize anahtarı kaldırılmış bir yazımınkiyle aynı olan yazım da
+    eklenmez — etkin bir yazım o anahtarı zaten taşımıyorsa; yoksa kaldırılan isim başka harf
+    büyüklüğüyle eşleştirmeye geri dönerdi (S12).
+
     `entry` adayın katalog türüdür. Tekrar çağrı bir şey eklemez. Olay yazılmaz (§8.3'te tür yok,
     D11); oturum commit edilmez.
     """
@@ -1484,20 +1493,31 @@ def accumulate_identity(
             f"eşleştirme hükmü {match.rule.value}."
         )
     employee = session.get_one(Employee, employee_id)
-    # Bilinen değerler veritabanından okunur (autoflush): yüklü ilişki koleksiyonu bayat olabilir.
-    known_names = set(
-        session.scalars(select(EmployeeAlias.raw_name).where(EmployeeAlias.employee == employee))
-    )
-    known_numbers = set(
-        session.scalars(
-            select(EmployeeIdentifier.value).where(EmployeeIdentifier.employee == employee)
-        )
-    )
-    aliases = [
-        (raw_name, normalized)
-        for raw_name, normalized in _spellings(key).items()
-        if raw_name not in known_names
-    ]
+    # Bilinen kayıtlar veritabanından okunur (autoflush): yüklü ilişki koleksiyonu bayat olabilir.
+    known_aliases = session.scalars(
+        select(EmployeeAlias).where(EmployeeAlias.employee == employee)
+    ).all()
+    known_identifiers = session.scalars(
+        select(EmployeeIdentifier).where(EmployeeIdentifier.employee == employee)
+    ).all()
+    by_raw_name = {alias.raw_name: alias for alias in known_aliases}
+    active_keys = {alias.normalized_name for alias in known_aliases if alias.removed_at is None}
+    seen_removed: list[EmployeeAlias | EmployeeIdentifier] = []
+    aliases: list[tuple[str, str]] = []
+    for raw_name, normalized in _spellings(key).items():
+        known = by_raw_name.get(raw_name)
+        if known is not None:
+            seen_removed.append(known)
+            continue
+        removed_key = [
+            alias
+            for alias in known_aliases
+            if alias.removed_at is not None and alias.normalized_name == normalized
+        ]
+        if removed_key and normalized not in active_keys:
+            seen_removed.extend(removed_key)
+            continue
+        aliases.append((raw_name, normalized))
     for raw_name, normalized in aliases:
         session.add(
             EmployeeAlias(
@@ -1508,9 +1528,13 @@ def accumulate_identity(
             )
         )
     number = clean_document_number(key, entry)
-    identifiers = () if number is None or number in known_numbers else (number,)
+    same_number = [each for each in known_identifiers if each.value == number]
+    identifiers = () if number is None or same_number else (number,)
     for value in identifiers:
         session.add(EmployeeIdentifier(employee=employee, kind=entry.slug, value=value))
+    if all(each.removed_at is not None for each in same_number):
+        seen_removed.extend(same_number)
+    note_seen_after_removal(seen_removed)
     session.flush()
     return IdentityAccumulation(
         employee_id, tuple(raw_name for raw_name, _ in aliases), identifiers

@@ -408,6 +408,18 @@ REVIEWED_MUTATING_ROUTES: dict[tuple[str, str], str] = {
         "çalışan kaydı: pasife alma / yeniden etkinleştirme, klasör ve belgeler yerinde "
         "(10.5.7, K16, R11)"
     ),
+    ("POST", "/employees/{employee_id}/records/{kind}/{record_id}/remove/prepare"): (
+        "onay belirteci"
+    ),
+    ("POST", "/employees/{employee_id}/records/{kind}/{record_id}/remove"): (
+        "çalışanın alt kaydı: kaldırıldı işareti, silme yok; belgeye dokunmaz (10.5.8, K16, R11)"
+    ),
+    ("POST", "/employees/{employee_id}/records/{kind}/{record_id}/restore"): (
+        "çalışanın alt kaydı: kaldırmayı geri alma (10.5.8)"
+    ),
+    ("POST", "/employees/{employee_id}/contacts"): (
+        "çalışanın iletişim bilgisi: elle ekleme, belge içeriği değişmez (10.5.8, 05.8.2)"
+    ),
     ("POST", "/employees/{employee_id}/fields/prepare"): "onay belirteci",
     ("POST", "/employees/{employee_id}/fields"): (
         "çalışan kaydı: profil alanları ve K8 yeniden adlandırma; belge içeriği değişmez "

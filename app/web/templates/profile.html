@@ -6,8 +6,9 @@
    tikleri belgelerden hesaplanır; paket tanımlama, iptal ve yeniden açma tek adımlı formlardır.
    "Profili düzenle" (10.5.6) çalışan kaydının alanlarını iki aşamalı onayla değiştiren sayfaya
    gider. "Pasife al" / "Yeniden etkinleştir" (10.5.7) iki aşamalı onay sayfasına gider; pasif
-   çalışanda üstte bildirim durur ve yükleme formu yoktur. Sayfa belge içeriğini değiştiren yol
-   taşımaz. #}
+   çalışanda üstte bildirim durur ve yükleme formu yoktur. "Profil kayıtları" (10.5.8) isim
+   yazımlarını, belge numaralarını ve iletişim bilgilerini kaldırma, geri alma ve iletişim ekleme
+   formlarıyla listeler. Sayfa belge içeriğini değiştiren yol taşımaz. #}
 {% from "_context_warning.html" import context_warning %}
 {% block title %}{{ profile.name if profile else "Çalışan bulunamadı" }}{% endblock %}
 {% block content %}
@@ -75,6 +76,94 @@
       {% else %}—{% endif %}
     </dd>
   </dl>
+</section>
+
+{# 10.5.8: profil alt kayıtları. Etkin kayıtların her satırında "Kaldır" (iki aşamalı onay sayfası);
+   kaldırılanlar silinmez, "Kaldırılanlar" altında kim ve ne zaman bilgisiyle durur ve tek adımda
+   geri alınır. Belgede yeniden görülen kaldırılmış kayıt bölümün üstünde uyarılır. İletişim bilgisi
+   elle eklenir (tek adım); isim yazımı ve belge numarası yalnız belgeden gelir. Birleştirilmiş
+   çalışanda işlem yoktur. #}
+{% macro remove_link(row) %}{% if profile.editable %}<a href="/employees/{{ profile.id }}/records/{{ row.kind }}/{{ row.id }}/remove/confirm" class="record-remove">Kaldır</a>{% endif %}{% endmacro %}
+<section class="profile-records" id="records" aria-labelledby="records-title">
+  <h2 id="records-title">Profil kayıtları</h2>
+  {% if records_notice %}<p class="notice notice-success" role="status">{{ records_notice }}</p>{% endif %}
+  {% for message in record_problems %}<p class="error" role="alert">{{ message }}</p>{% endfor %}
+  {% for warning in profile.records.warnings %}
+  <p class="missing record-warning" role="status"><span class="badge badge-missing">Kaldırılmış kayıt</span> {{ warning }} — <a href="#records-removed">Kaldırılanlar</a></p>
+  {% endfor %}
+
+  <details class="record-group record-aliases" id="records-aliases">
+    <summary>Görülen yazımlar ({{ profile.records.aliases|length }})</summary>
+    {% if profile.records.aliases %}
+    <table class="outputs records">
+      <thead><tr><th>Yazım</th><th>Alfabe</th><th></th></tr></thead>
+      <tbody>
+        {% for row in profile.records.aliases %}
+        <tr><td>{{ row.value }}</td><td>{{ row.label }}</td><td class="record-actions">{{ remove_link(row) }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}<p class="placeholder">Kayıtlı isim yazımı yok.</p>{% endif %}
+  </details>
+
+  <h3>Belge numaraları</h3>
+  {% if profile.records.numbers %}
+  <table class="outputs records record-numbers">
+    <thead><tr><th>Tür</th><th>Numara</th><th>Kaynak</th><th></th></tr></thead>
+    <tbody>
+      {% for row in profile.records.numbers %}
+      <tr><td>{{ row.label }}</td><td>{{ row.value }}</td><td>{{ source_link(row.source) }}</td><td class="record-actions">{{ remove_link(row) }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}<p class="placeholder">Kayıtlı belge numarası yok.</p>{% endif %}
+
+  <h3>İletişim</h3>
+  {% if profile.records.contacts %}
+  <table class="outputs records record-contacts">
+    <thead><tr><th>Tür</th><th>Değer</th><th>Kaynak</th><th>Durum</th><th></th></tr></thead>
+    <tbody>
+      {% for row in profile.records.contacts %}
+      <tr{% if not row.current %} class="record-history"{% endif %}><td>{{ row.label }}</td><td>{{ row.value }}</td><td>{{ source_link(row.source) }}</td><td>{{ "Güncel" if row.current else "Geçmiş" }}</td><td class="record-actions">{{ remove_link(row) }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}<p class="placeholder">Kayıtlı iletişim bilgisi yok.</p>{% endif %}
+  {% if profile.editable %}
+  <form method="post" action="/employees/{{ profile.id }}/contacts" class="contact-form">
+    <label for="contact-kind">Tür</label>
+    <select id="contact-kind" name="kind">
+      {% for value, label in contact_kinds.items() %}
+      <option value="{{ value }}"{% if contact_form.kind == value %} selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+    <label for="contact-value">Değer</label>
+    <input id="contact-value" name="value" type="text" maxlength="{{ contact_limit }}" value="{{ contact_form.value }}" required autocomplete="off">
+    <button type="submit">İletişim bilgisi ekle</button>
+  </form>
+  <p class="hint">Elle eklenen bilgi güncel olur, aynı türdeki önceki bilgi geçmişte kalır. İsim yazımı ve belge numarası yalnız belgeden gelir.</p>
+  {% endif %}
+  {% for field_name, messages in contact_problems.items() %}{% for message in messages %}<p class="error" role="alert">{{ message }}</p>{% endfor %}{% endfor %}
+
+  {% if profile.records.removed %}
+  <details class="removed-records" id="records-removed"{% if profile.records.warnings %} open{% endif %}>
+    <summary>Kaldırılanlar ({{ profile.records.removed|length }})</summary>
+    <ul>
+      {% for row in profile.records.removed %}
+      <li id="record-{{ row.kind }}-{{ row.id }}">
+        <span class="record-kind">{{ row.kind_label }}</span> {{ row.value }}
+        <span class="reason">— kaldıran: {{ row.removed_by or "—" }}{% if row.removed_at %}, {{ row.removed_at.strftime("%d.%m.%Y %H:%M") }}{% endif %}</span>
+        {% if row.warning %}<span class="missing"><span class="badge badge-missing">Belgede görüldü</span> {{ row.warning }}</span>{% endif %}
+        {% if profile.editable %}
+        <form method="post" action="/employees/{{ profile.id }}/records/{{ row.kind }}/{{ row.id }}/restore" class="inline-form">
+          <button type="submit">Geri al</button>
+        </form>
+        {% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+  </details>
+  {% endif %}
 </section>
 
 {# 14.2.1–14.2.3: belge paketleri. Tikler görüntülemede belgelerden hesaplanır; GET yazmaz. #}

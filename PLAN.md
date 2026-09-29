@@ -9,7 +9,7 @@
 | Faz | PRD | Genel durum | Must sayacı | Kapanış |
 | --- | --- | --- | --- | --- |
 | Faz 0 — MVP | §5.1 | 105 ✅ · 0 ◐ · 0 ⬜ · 0 🔒 | 101/101 Must | AÇIK |
-| Faz 1 — v1 | §5.2 | 53 ✅ · 0 ◐ · 9 ⬜ · 0 🔒 | 39/41 Must | AÇIK |
+| Faz 1 — v1 | §5.2 | 54 ✅ · 0 ◐ · 8 ⬜ · 0 🔒 | 39/41 Must | AÇIK |
 | Faz 2 — v2 | §5.3 | 13 ✅ · 0 ◐ · 1 ⬜ · 0 🔒 | 0/0 Must | AÇIK |
 | Faz 3 — Enterprise | §5.4 | 10 ✅ · 0 ◐ · 0 ⬜ · 0 🔒 | 0/0 Must | AÇIK |
 
@@ -247,7 +247,7 @@ panelde `plan-count-drift` bulgusu doğurur.
 | 10.5.5 | Profilden yüklemede kişi denetimi | Must (v1) | ✅ → K10.5 |
 | 10.5.6 | Çalışan profilini düzenleme | Must (v1) | ✅ → K10.5 |
 | 10.5.7 | Çalışanı pasife alma ve yeniden etkinleştirme | Must (v1) | ✅ → K10.5 |
-| 10.5.8 | Profil alt kayıtlarını kaldırma ve iletişim bilgisi ekleme | Should (v1) | ⬜ |
+| 10.5.8 | Profil alt kayıtlarını kaldırma ve iletişim bilgisi ekleme | Should (v1) | ✅ → K10.5 |
 | 10.5.9 | İki çalışanı birleştirme | Should (v1) | ⬜ |
 | 10.5.10 | Arşive taşıma ve arşivden geri alma profilde | Must (v1) | ⬜ |
 | 10.6.1 | Belge geçmişi | Must (v1) | ✅ → K10.6 |
@@ -2222,6 +2222,37 @@ bu kayıt neden sapıldığının izlenebilir olması içindir.
   bekçisi.** `tests/web/test_employees.py`'deki durumu `pending` olan fikstür çalışanı `inactive` oldu:
   varsayılan süzgeç `active` olduğundan artık yalnız `?status=all`'da görünür ve "Pasif" etiketi alır
   (tanınmayan durumun ham gösterimi `status_label`'da yine vardır).
+- **D68 — Alt kayıt kaldırmanın uygulama kararları (10.5.8, tm 128).** (a) **"Belgede görüldü"
+  sütunu.** §C90-c'nin göç listesi `removed_at`, `removed_by`, `added_by`'dır; ama "kaldırılmış
+  değer belgeden yeniden gelirse profilde uyarı" kalıcı bir iz ister ve olaya değer yazılmaz
+  (D51/D52). Üç tabloya `seen_after_removal_at` (UTC, boş olabilir) eklendi: birikim
+  (`accumulate_identity`, `record_contact_sighting`) kaldırılmış kaydı yeniden görünce doldurur,
+  kaldırma ve geri alma boşaltır; uyarı iki alan da doluyken görünür. PRD §8.1'in üç satırına bu
+  sütun eklenmeli (bu pencerede PRD'ye yalnız §20.6 satırı eklendi). (b) **Normalize anahtar.**
+  Ham hâli kaldırılmış yazımdan farklı ama normalize anahtarı aynı yeni yazım ("TEST ORNEKOVA"
+  kaldırıldı, belge "Test Ornekova" okudu) eklenmez — etkin bir yazım o anahtarı zaten taşımıyorsa;
+  yoksa kaldırılan isim harf büyüklüğü farkıyla §20.2.2 satır 3'e geri dönerdi (S12). Numara
+  normalize saklanır; iletişim 05.8.2'deki gibi birebir değerle karşılaştırılır. (c) **Güncel
+  iletişim.** Türde en çok bir güncel satır vardır: yeni güncel satır (belgeden ya da elle) açılırken
+  türün öteki bütün satırları, kaldırılmışlar dahil, `is_current=False` olur. Kaldırılan güncel kayıt
+  kartta "—" bırakır; geçmişteki eski değer kendiliğinden güncel olmaz (güncel, en son görülendir).
+  Geri alınan kayıt kaldırıldığı an günceldiyse ve sonra yeni değer gelmediyse yeniden günceldir.
+  (d) **Elle eklemede ret.** Türün güncel değeriyle aynı değer 422 ("zaten güncel"); kaldırılmış bir
+  değerle aynı değer 422 ("Geri al"ı kullanın) — aynı değerin ikinci satırı açılmaz. Geçmişteki
+  (güncel olmayan, etkin) değer yeniden eklenebilir ve yeni güncel satır olur (belgeden gelişle aynı
+  kural). Biçim denetimi hafiftir: e-posta `x@y.z`, telefon rakam/boşluk/`+`/`-`/nokta/parantez ve
+  5–20 rakam; boşluklar sadeleşir, değer ≤ 500. (e) **Olay verisi.** `CONTACT_ADDED` `kind`
+  (iletişimin türü: `phone`/`email`/`address`) ile `record_id` de taşır (PRD 10.5.8 "olaylar kayıt
+  türünü ve kimliğini taşır"); `PROFILE_RECORD_*`'ın `kind`'ı `alias|identifier|contact`'tır. (f)
+  **Süzgecin kapsamı.** Eşleştirme (satır 1–5; onay bekleyen profilin onay sınaması dahil),
+  profilden yüklemenin kişi denetimi (10.5.5), panel ve bot aramaları (10.4.2, 12.3.1), Latin ad
+  onarımı (`app.profiles.latin_names`), profil kartı ve `profil.md`. Profil düzenlemesi (10.5.6)
+  kaldırılmış bir yazıma denk gelen yeni adı alias olarak yeniden açmaz (tekillik `employee_id,
+  raw_name`); İK kaldırılanı "Geri al"la açar. Birleştirilmiş çalışanın kayıtları görünür, değişmez
+  (409). (g) **Akış.** Birinci onay `GET …/remove/confirm` tam sayfadır (tm 127 kalıbı); "Geri al"
+  ve iletişim ekleme profil sayfasında tek adımlı formdur, reddi profili 409/422 ile yeniden çizer.
+  `tests/web/test_profile.py`'deki geçmiş telefon beklentisi karta daraltıldı: "Profil kayıtları"
+  bölümü geçmiş kaydı "Geçmiş" olarak listeler.
 
 ## G. İş Kırılımı Dizini
 
@@ -2682,6 +2713,8 @@ var olan maddeler silinmez. Biçim:
 - ✅ Kapı: ruff check/format, compileall, `import app.main`, `git diff --check`, temiz SQLite'ta `alembic upgrade head` (→0016); `pytest -q -m "not live" --cov=app` on ön plan grubunda 5440 geçti (+42; sonra eklenen 2 test kendi dosyalarında yeşil), 5 PG atlandı, birleşik kapsam %99 (`edit.py`, `profile_form.py`, `confirm.py` %100); 6 geçici kural bozmasının 6'sı kırmızı · tm 126
 - ✅ 10.5.7 çalışanı pasife alma ve yeniden etkinleştirme: `EmployeeStatus` (`active|inactive|merged`, göç yok) · çekirdek `app/matching/status.py` (`change_employee_status` → `EMPLOYEE_DEACTIVATED`/`EMPLOYEE_REACTIVATED` kullanıcı adıyla, isteğe bağlı not ≤ 200; `STATUS_LABELS` üç durum) · iki aşamalı onay `GET /employees/{id}/status/confirm?to=`, `POST .../status/prepare`, `POST .../status` (`app/web/routers/employees.py`, `employee_status_step.html`; §20.6 iki satır, `Operation.DEACTIVATE_EMPLOYEE`/`REACTIVATE_EMPLOYEE`) · profil bildirimi + yükleme formu gizli, bağlam yüklemesi 409 ve parti açılmaz (`app/web/routers/uploads.py`) · liste `?status=active|inactive|all` sayılı süzgeç · planlayıcı pasif çalışanı Unresolved'a gönderir, gerekçe `inactive_employee` + E numarası (`app/pipeline/plan_planner.py`, §D67) · kuyruk detayı bildirim + profil bağlantısı, atama/taşıma araması "(pasif)" eki (`app/web/routers/queue.py`, `documents.py`) · bot "(pasif)" eki (`app/telegram/intent.py`) · `profil.md` "Durum" satırı · test `tests/matching/test_employee_status.py` (14), `tests/web/test_employee_status.py` (18), `tests/test_scenario_s22.py` (2, S22), `tests/pipeline/test_plan.py` (+6), `tests/web/test_employees.py` (+9), `test_queue_assign.py` (+4), `test_document_move.py` (+1), `tests/telegram/test_document_requests.py` (+1), `test_confirm.py` (+1) · tm 127
 - ✅ Kapı: ruff check/format, compileall, `import app.main`, `git diff --check`, temiz SQLite'ta `alembic upgrade head` (→0016, göç yok); `pytest -q -m "not live" --cov=app` dokuz ön plan grubunda 5496 geçti (+54; sonra eklenen 2 test kendi dosyalarında yeşil, toplam 5498), 5 PG atlandı, birleşik kapsam %99 (`status.py` %100); 9 geçici kural bozmasının 9'u kırmızı · tm 127
+- ✅ 10.5.8 profil alt kayıtları: göç `alembic/versions/0017_profile_record_removal.py` (isim yazımı, numara ve iletişime `removed_at`, `removed_by`, `seen_after_removal_at`; iletişime `added_by`) · çekirdek `app/matching/records.py` (`ACTIVE_*` süzgeçleri, `number_owners`, `remove_record`/`restore_record` → `PROFILE_RECORD_REMOVED`/`PROFILE_RECORD_RESTORED`, `add_contact` → `CONTACT_ADDED`; değer olaya girmez) · süzgeçler `app/matching/match.py` (`_decide`, `_decide_by_name`; `accumulate_identity` kaldırılmışı geri açmaz, işaretler), `app/db/models.py` (`record_contact_sighting`), `app/matching/context.py`, `app/profiles/render.py`, `app/profiles/latin_names.py`, `app/telegram/intent.py`, panel araması · panel `app/web/routers/employees.py` (`records/{kind}/{rid}/remove/confirm`, `…/remove/prepare`, `…/remove`, `…/restore`, `/employees/{id}/contacts`) + `profile.html` "Profil kayıtları" + `profile_record_step.html` · PRD §20.6 satırı, `Operation.REMOVE_PROFILE_RECORD` · test `tests/matching/test_records.py` (30), `tests/web/test_profile_records.py` (24), `tests/db/test_migrations.py` (+1), `tests/telegram/test_document_requests.py` (+1), `tests/profiles/test_latin_repair.py` (+1), `tests/web/test_confirm.py` (+1) · tm 128
+- ✅ Kapı: ruff check/format, compileall, `import app.main`, `git diff --check`, temiz SQLite'ta `alembic upgrade head` (→0017); `pytest -q -m "not live" --cov=app` dokuz ön plan grubunda 5554 geçti (+56; sonra eklenen 2 test kendi dosyasında yeşil, toplam 5556), 5 PG atlandı, birleşik kapsam %99 (`records.py`, `match.py` %100); 14 geçici kural bozmasının 14'ü kırmızı (biri kart testi eklendikten sonra) · tm 128
 
 #### K10.6 — 10.6.1 · Belge geçmişi görünümü
 - ✅ 10.6.1 belge geçmişi: `app/web/routers/documents.py` (`GET /documents/{id}/history` → `build_history`; çıktı (çalışan, tür, dosya + açma, durum, plan sürümü), kaynak dosyalar ve sayfalar (`source_refs_json`: dosya adı → `/uploads/{id}#file-N`, her sayfa → sayfa görüntüsü; boş sayfa listesi = bütün dosya; sıra köken kaydındaki gibi; eksik/bozuk kayıt bağlantısız notla yazılır), parti ve plan öğesi bağlantısı, belgenin kendi olayları; bilinmeyen belge 404; yalnız `GET`) + `app/web/templates/history.html`; `app/main.py` yönlendiriciyi oturuma bağlar, profil belge listesi ve yükleme detayı çıktı tablosu "Geçmiş" bağlantısı taşır — C50 · test `tests/web/test_documents.py` (29) · tm 69

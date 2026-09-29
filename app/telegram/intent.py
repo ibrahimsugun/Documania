@@ -82,6 +82,7 @@ from app.db.models import (
     TelegramUser,
 )
 from app.matching.names import EmptyNameError, normalize_name
+from app.matching.records import ACTIVE_ALIAS
 from app.matching.status import status_suffix
 from app.storage import DataLayout
 from app.web.access import record_access
@@ -184,7 +185,10 @@ def find_employees(session: Session, person: PersonReference) -> list[Employee]:
     query = select(Employee).order_by(
         func.lower(Employee.surname), func.lower(Employee.given_names), Employee.id
     )
-    alias_query = select(EmployeeAlias.employee_id, EmployeeAlias.normalized_name)
+    # İK'nın kaldırdığı yazım (10.5.8) aramada kullanılmaz.
+    alias_query = select(EmployeeAlias.employee_id, EmployeeAlias.normalized_name).where(
+        ACTIVE_ALIAS
+    )
     if person.numbers:
         query = query.where(Employee.id.in_(person.numbers))
         alias_query = alias_query.where(EmployeeAlias.employee_id.in_(person.numbers))

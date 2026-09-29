@@ -26,8 +26,9 @@ Unresolved'a gönderir: profile de başka çalışana da uygulanmaz, çalışan 
 `same` eşleştirme sayılmaz, çalışan kararı yine §20.2.2'nindir.
 
 `compare_context_person` saf işlevdir; `context_person_verdict` bağlam çalışanının kayıtlarını ve
-numaranın sahiplerini veritabanından okur. İkisi de veritabanına ve olay loguna yazmaz; sonuç
-kişisel değer taşımaz, yalnız hükmü ve dayanağını (`ContextPersonBasis`).
+numaranın sahiplerini veritabanından okur — yalnız etkin kayıtları: İK'nın profilden kaldırdığı
+isim yazımı ve numara (10.5.8) karşılaştırmaya girmez (K6). İkisi de veritabanına ve olay loguna
+yazmaz; sonuç kişisel değer taşımaz, yalnız hükmü ve dayanağını (`ContextPersonBasis`).
 """
 
 from __future__ import annotations
@@ -37,13 +38,13 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import date
 
-from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.catalog import CatalogEntry
-from app.db.models import Employee, EmployeeAlias, EmployeeIdentifier
+from app.db.models import Employee
 from app.matching.match import PersonKey, clean_document_number
 from app.matching.names import EmptyNameError, normalize_name
+from app.matching.records import active_alias_keys, active_numbers, number_owners
 
 
 class ContextPersonResult(enum.StrEnum):
@@ -129,16 +130,8 @@ def context_profile(session: Session, employee_id: str) -> ContextProfile:
     employee = session.get(Employee, employee_id)
     if employee is None:
         raise LookupError(f"Bağlam çalışanı bulunamadı: {employee_id}")
-    identifiers = frozenset(
-        session.scalars(
-            select(EmployeeIdentifier.value).where(EmployeeIdentifier.employee_id == employee_id)
-        )
-    )
-    aliases = session.scalars(
-        select(EmployeeAlias.normalized_name)
-        .where(EmployeeAlias.employee_id == employee_id)
-        .order_by(EmployeeAlias.id)
-    )
+    identifiers = active_numbers(session, employee_id)
+    aliases = active_alias_keys(session, employee_id)
     recorded = (
         _normalized(employee.given_names, employee.surname),
         _normalized(employee.original_script_name),
@@ -167,13 +160,7 @@ def context_person_verdict(
     number = clean_document_number(key, entry)
     owners: tuple[str, ...] = ()
     if number is not None:
-        owners = tuple(
-            session.scalars(
-                select(EmployeeIdentifier.employee_id)
-                .where(EmployeeIdentifier.value == number)
-                .distinct()
-            )
-        )
+        owners = tuple(sorted(number_owners(session, (number,))))
     return compare_context_person(key, profile, clean_number=number, number_owners=owners)
 
 

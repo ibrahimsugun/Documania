@@ -1132,3 +1132,16 @@ form:not(.session) button[type="submit"]:hover,
 .inactive-notice { margin: 0.75rem 0; padding: 0.5rem 0.75rem; border-radius: 6px; background: var(--warning-soft); }
 .inactive-notice p { margin: 0.25rem 0; }
 .employee-status input[name="reason"] { min-width: 20rem; padding: 0.3rem; border: 1px solid #d0d7de; border-radius: 4px; font: inherit; }
+
+/* 10.5.8: profil alt kayıtları — yazımlar (katlanmış), numaralar, iletişim, kaldırılanlar. */
+.profile-records { margin-top: 1.5rem; }
+.profile-records h3 { margin: 1rem 0 0.35rem; font-size: 1rem; }
+.record-group summary, .removed-records summary { cursor: pointer; font-weight: 600; }
+.record-actions { white-space: nowrap; text-align: right; }
+.record-history td { color: var(--muted-ink); }
+.contact-form { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; margin: 0.5rem 0; }
+.contact-form input { min-width: 20rem; padding: 0.3rem; border: 1px solid #d0d7de; border-radius: 4px; font: inherit; }
+.removed-records { margin-top: 0.75rem; }
+.removed-records li { margin: 0.35rem 0; }
+.removed-records .record-kind { font-weight: 600; }
+.record-summary dt { font-weight: 600; }

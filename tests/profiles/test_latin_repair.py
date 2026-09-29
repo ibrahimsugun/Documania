@@ -9,6 +9,7 @@ sentetiktir; gerçek kişi yok.
 from __future__ import annotations
 
 from collections.abc import Iterator
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -211,6 +212,31 @@ def test_latin_alias_of_the_employee_is_used_before_transliteration(session: Ses
     )
     # Orijinal yazım doluydu: üzerine yazılmaz.
     assert _names(employee) == ("Marko", "PETAR", "Živković", "Марко Живковић")
+
+
+def test_a_latin_alias_removed_from_the_profile_is_not_a_source(session: Session) -> None:
+    # 10.5.8: İK'nın kaldırdığı yazım Latin kaynak olmaz; çeviri kullanılır.
+    employee = _employee(
+        session,
+        given_names="МАРКО",
+        surname="ЖИВКОВИЋ",
+        original_script_name="Марко Живковић",
+        aliases=("МАРКО ЖИВКОВИЋ", "Marko Živković"),
+    )
+    _document(session, "E0001", ("sr", "cyrillic"))
+    latin = session.scalars(
+        select(EmployeeAlias).where(EmployeeAlias.raw_name == "Marko Živković")
+    ).one()
+    latin.removed_at, latin.removed_by = datetime.now(UTC), ACTOR
+    session.flush()
+
+    (repair,) = repair_latin_names(session)
+
+    assert repair.filled == (
+        ("given_names", RepairSource.TRANSLITERATION),
+        ("surname", RepairSource.TRANSLITERATION),
+    )
+    assert _names(employee)[0::2] == ("MARKO", "ŽIVKOVIĆ")
 
 
 @pytest.mark.parametrize(

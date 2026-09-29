@@ -93,6 +93,23 @@ commit'ten sonra `profil.md` yeniden üretilir. Klasör, belgeler ve olaylar yer
 Pasif profilde üstte bildirim (kim, ne zaman, not) durur ve yükleme formu yoktur — bağlam yüklemesi
 zaten 409'dur (`app.web.routers.uploads`). Birleştirilmiş ya da zaten o durumdaki çalışan 409,
 geçersiz hedef 422, belirteç reddi 400; hiçbirinde bir şey değişmez.
+
+**Profil alt kayıtları (10.5.8; PLAN.md §C90-c, §D61, §D68).** Profilin "Profil kayıtları" bölümü
+görülen isim yazımlarını (katlanmış; yazım ve alfabe), belge numaralarını (tür, numara, kaynak
+belge) ve iletişim bilgilerini (tür, değer, kaynak ya da "elle", güncel/geçmiş) listeler; her etkin
+satırda "Kaldır" vardır. Kaldırma iki aşamalıdır: `GET .../records/{kind}/{rid}/remove/confirm`
+§20.6'nın birinci metnini, `POST .../remove/prepare` ikinci metni ve `kind:rid`'e bağlı tek
+kullanımlık belirteci verir, `POST .../remove` belirteçle gelir; belirteç tüketilir,
+`USER_CONFIRMED` ve `PROFILE_RECORD_REMOVED` tek işlemde yazılır (`app.matching.records`). Kayıt
+silinmez; "Kaldırılanlar" altında kim ve ne zaman bilgisiyle durur, `POST .../restore` tek adımda
+geri alır (`PROFILE_RECORD_RESTORED`). Kaldırılmış kayıt eşleştirmede, aramada, kartta ve
+`profil.md`'de kullanılmaz; belgeden yeniden gelirse bölümün üstünde "Belgede görülen <tür>
+kaldırılmış bir kayda uyuyor" uyarısı durur. `POST /employees/{id}/contacts` iletişim bilgisini elle
+ekler (tek adım, `CONTACT_ADDED`): yeni değer güncel olur, aynı türün öncekileri geçmişte kalır.
+Olaylar kayıt türünü ve kimliğini taşır, değeri taşımaz. Her işlemden sonra `profil.md` yeniden
+üretilir. `kind` `alias|identifier|contact` dışındaysa ya da kayıt bu çalışanın değilse 404;
+birleştirilmiş çalışan, zaten kaldırılmış (ya da geri alınacak şeyi olmayan) kayıt 409; iletişim
+kuralı 422; belirteç reddi 400 — hiçbirinde bir şey değişmez.
 """
 
 from __future__ import annotations
@@ -109,6 +126,7 @@ from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse, Resp
 from sqlalchemy import ColumnElement, and_, exists, func, or_, select
 from sqlalchemy.orm import Session
 
+from app.ai.schemas import Script
 from app.db.models import (
     AccessAction,
     ContactKind,
@@ -161,6 +179,25 @@ from app.matching.match import (
     normalize_document_number,
 )
 from app.matching.names import EmptyNameError, normalize_name
+from app.matching.records import (
+    ACTIVE_ALIAS,
+    ACTIVE_CONTACT,
+    ACTIVE_IDENTIFIER,
+    CONTACT_VALUE_MAX_LENGTH,
+    ContactFormError,
+    EmployeeRecords,
+    ProfileRecord,
+    ProfileRecordStateError,
+    RecordKind,
+    add_contact,
+    employee_records,
+    find_record,
+    record_kind,
+    record_value,
+    remove_record,
+    restore_record,
+    seen_after_removal_warning,
+)
 from app.matching.status import (
     REASON_MAX_LENGTH,
     EmployeeStatusError,
@@ -327,15 +364,17 @@ def _term_matches(session: Session, term: str) -> ColumnElement[bool]:
                 )
             ),
         )
+    # İK'nın profilden kaldırdığı yazım ve numara (10.5.8) aramada kullanılmaz.
     predicates = [
         *name_fields,
-        exists().where(EmployeeAlias.employee_id == Employee.id, alias_match),
+        exists().where(EmployeeAlias.employee_id == Employee.id, ACTIVE_ALIAS, alias_match),
     ]
     number = normalize_document_number(term)
     if number:
         predicates.append(
             exists().where(
                 EmployeeIdentifier.employee_id == Employee.id,
+                ACTIVE_IDENTIFIER,
                 EmployeeIdentifier.value.contains(number, autoescape=True),
             )
         )
@@ -603,6 +642,54 @@ class DeactivationView:
     reason: str | None
 
 
+# 10.5.8: kaynağı belge olan ama belge kimliği tutulmamış kayıt (05.7.2, 05.8.1 — birikim çıktı
+# belgesinden önce yapılır); elle eklenen iletişim bilgisi `MANUAL_SOURCE`'u taşır.
+FROM_DOCUMENT = "belgeden"
+RECORD_KIND_LABELS = {
+    RecordKind.ALIAS.value: "İsim yazımı",
+    RecordKind.IDENTIFIER.value: "Belge numarası",
+}
+ALIAS_SCRIPT_LABELS = {
+    Script.LATIN.value: "Latin",
+    Script.CYRILLIC.value: "Kiril",
+    Script.ARABIC.value: "Arap",
+    Script.OTHER.value: "diğer",
+}
+NO_SCRIPT = "—"
+
+
+@dataclass(frozen=True, slots=True)
+class RecordRow:
+    """10.5.8 — profil alt kaydının satırı. `label` isim yazımında alfabe, numarada belge türü,
+    iletişimde "Telefon"/"E-posta"/"Adres"; `kind_label` kaldırılanlar listesindeki tür adı.
+    Kaldırılmış kayıt kim ve ne zaman kaldırıldığını ve (belgede yeniden görüldüyse) uyarıyı
+    taşır."""
+
+    kind: str
+    id: int
+    kind_label: str
+    label: str
+    value: str
+    source: SourceLink | None = None
+    current: bool = False
+    removed_by: str | None = None
+    removed_at: datetime | None = None
+    warning: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class RecordSections:
+    """10.5.8 — profilin alt kayıt bölümü: etkin yazımlar, numaralar ve iletişim bilgileri,
+    kaldırılanlar (en son kaldırılan önce) ve belgede yeniden görülen kaldırılmış kayıt
+    uyarıları."""
+
+    aliases: list[RecordRow] = field(default_factory=list)
+    numbers: list[RecordRow] = field(default_factory=list)
+    contacts: list[RecordRow] = field(default_factory=list)
+    removed: list[RecordRow] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list)
+
+
 @dataclass(frozen=True, slots=True)
 class ProfileView:
     id: str
@@ -635,6 +722,8 @@ class ProfileView:
     status: str = EmployeeStatus.ACTIVE.value
     status_action: str | None = EmployeeStatus.INACTIVE.value
     deactivation: DeactivationView | None = None
+    # 10.5.8: alt kayıtlar; "Kaldır", "Geri al" ve ekleme formu birleştirilmişte (`editable`) yok.
+    records: RecordSections = field(default_factory=RecordSections)
 
     @property
     def inactive(self) -> bool:
@@ -706,23 +795,29 @@ def build_profile(
         return None
     reference_date = today if today is not None else date.today()
 
+    # 10.5.8: kart yalnız etkin (kaldırılmamış) numarayı ve güncel iletişim bilgisini gösterir.
     identifiers = session.scalars(
         select(EmployeeIdentifier)
-        .where(EmployeeIdentifier.employee_id == employee_id)
+        .where(EmployeeIdentifier.employee_id == employee_id, ACTIVE_IDENTIFIER)
         .order_by(EmployeeIdentifier.id)
     ).all()
+    records = employee_records(session, employee_id)
     # Numaranın türü belge türü slug'ıdır; kişiye okunur ad için katalogdan çevrilir.
     type_names = {
         slug: name
         for slug, name in session.execute(
             select(KnownDocumentType.slug, KnownDocumentType.name).where(
-                KnownDocumentType.slug.in_({identifier.kind for identifier in identifiers})
+                KnownDocumentType.slug.in_({identifier.kind for identifier in records.identifiers})
             )
         )
     }
     current_contacts = session.scalars(
         select(EmployeeContact)
-        .where(EmployeeContact.employee_id == employee_id, EmployeeContact.is_current.is_(True))
+        .where(
+            EmployeeContact.employee_id == employee_id,
+            EmployeeContact.is_current.is_(True),
+            ACTIVE_CONTACT,
+        )
         .order_by(EmployeeContact.id)
     ).all()
     documents = session.execute(
@@ -790,6 +885,7 @@ def build_profile(
         status=employee.status,
         status_action=_status_action(employee),
         deactivation=_deactivation(session, employee),
+        records=_record_sections(employee_id, records, type_names, rows),
     )
 
 
@@ -810,6 +906,91 @@ def _deactivation(session: Session, employee: Employee) -> DeactivationView | No
     reason = data.get("reason")
     return DeactivationView(
         actor=event.actor, at=event.ts, reason=reason if isinstance(reason, str) else None
+    )
+
+
+def _record_sections(
+    employee_id: str,
+    records: EmployeeRecords,
+    type_names: dict[str, str],
+    documents: list[DocumentRow],
+) -> RecordSections:
+    """10.5.8 — alt kayıtların profil satırları; değer olduğu gibi gösterilir (K17)."""
+    by_id = {row.id: row for row in documents}
+
+    def document_source(document_id: int | None) -> SourceLink:
+        if document_id is None:
+            return SourceLink(label=FROM_DOCUMENT, url=None)
+        row = by_id.get(document_id)
+        if row is None:  # belge artık bu çalışanda değil (taşındı): geçmişi açılır
+            return SourceLink(label=f"Belge {document_id}", url=f"/documents/{document_id}/history")
+        if row.available:
+            url = f"/employees/{employee_id}/documents/{row.id}/file"
+            return SourceLink(label=row.file_name, url=url, new_tab=True)
+        return SourceLink(label=row.file_name, url=f"/documents/{row.id}/history")
+
+    def record_row(kind: RecordKind, record: ProfileRecord) -> RecordRow:
+        removal = {
+            "removed_by": record.removed_by,
+            "removed_at": record.removed_at,
+            "warning": seen_after_removal_warning(kind, record),
+        }
+        if isinstance(record, EmployeeAlias):
+            return RecordRow(
+                kind.value,
+                record.id,
+                RECORD_KIND_LABELS[kind.value],
+                ALIAS_SCRIPT_LABELS.get(record.script or "", NO_SCRIPT),
+                record.raw_name,
+                **removal,
+            )
+        if isinstance(record, EmployeeIdentifier):
+            return RecordRow(
+                kind.value,
+                record.id,
+                RECORD_KIND_LABELS[kind.value],
+                type_names.get(record.kind, record.kind),
+                record.value,
+                source=document_source(record.source_document_id),
+                **removal,
+            )
+        label = CONTACT_LABELS.get(record.kind, record.kind)
+        if record.added_by:
+            day = record.first_seen_at.strftime("%d.%m.%Y")
+            manual = MANUAL_SOURCE.format(actor=record.added_by, day=day)
+            source = SourceLink(label=manual, url=None)
+        else:
+            source = document_source(record.source_document_id)
+        return RecordRow(
+            kind.value,
+            record.id,
+            label,
+            label,
+            record_value(record),
+            source=source,
+            current=record.is_current,
+            **removal,
+        )
+
+    removed = [record_row(kind, record) for kind, record in records.removed]
+    return RecordSections(
+        aliases=[
+            record_row(RecordKind.ALIAS, each)
+            for each in records.aliases
+            if each.removed_at is None
+        ],
+        numbers=[
+            record_row(RecordKind.IDENTIFIER, each)
+            for each in records.identifiers
+            if each.removed_at is None
+        ],
+        contacts=[
+            record_row(RecordKind.CONTACT, each)
+            for each in records.contacts
+            if each.removed_at is None
+        ],
+        removed=removed,
+        warnings=list(dict.fromkeys(each.warning for each in removed if each.warning)),
     )
 
 
@@ -942,6 +1123,12 @@ PROFILE_NOTICES = {
     "status_inactive": "Çalışan pasife alındı; yeni belgeleri otomatik yerleşmeyecek.",
     "status_active": "Çalışan yeniden etkinleştirildi.",
 }
+# 10.5.8: alt kayıt işlemlerinden sonra "Profil kayıtları" bölümünün bildirimi.
+RECORD_NOTICES = {
+    "record_removed": "Kayıt kaldırıldı; eşleştirmede ve aramada kullanılmayacak.",
+    "record_restored": "Kayıt geri alındı; yeniden eşleştirmede ve aramada kullanılacak.",
+    "contact_added": "İletişim bilgisi eklendi.",
+}
 PACKAGE_NOT_FOUND = "Paket bulunamadı."
 GROUP_NOT_FOUND = "Belge grubu bulunamadı."
 DUPLICATE_PACKAGE = (
@@ -964,6 +1151,9 @@ def _profile_page(
     package_form: PackageFormValues | None = None,
     package_problems: dict[str, list[str]] | None = None,
     cancel_problems: dict[int, list[str]] | None = None,
+    record_problems: list[str] | None = None,
+    contact_form: ContactFormValues | None = None,
+    contact_problems: dict[str, list[str]] | None = None,
     status_code: int = status.HTTP_200_OK,
 ) -> HTMLResponse:
     profile = build_profile(session, layout, employee_id)
@@ -995,6 +1185,12 @@ def _profile_page(
         package_notice=PACKAGE_NOTICES.get(notice or ""),
         profile_notice=PROFILE_NOTICES.get(notice or ""),
         note_limit=NOTE_MAX_LENGTH,
+        records_notice=RECORD_NOTICES.get(notice or ""),
+        record_problems=record_problems or [],
+        contact_form=contact_form or ContactFormValues(),
+        contact_problems=contact_problems or {},
+        contact_kinds=CONTACT_LABELS,
+        contact_limit=CONTACT_VALUE_MAX_LENGTH,
     )
 
 
@@ -1671,6 +1867,359 @@ def change_employee_status_endpoint(
     _rewrite_profile(session, layout, employee_id)
     return RedirectResponse(
         f"/employees/{employee_id}?notice=status_{wanted.value}", status.HTTP_303_SEE_OTHER
+    )
+
+
+# --- 10.5.8: profil alt kayıtları -----------------------------------------------------------------
+
+# §20.6 "Profil alt kaydını kaldır": metinler birebir `app.web.confirm`'dadır.
+RECORD_NOT_FOUND = "Kayıt bulunamadı."
+RECORDS_LOCKED = "Bu çalışan başka bir kayıtla birleştirildi; kayıtları kalan kayıtta yönetilir."
+RECORD_ALREADY_REMOVED = "Kayıt zaten kaldırılmış; profildeki “Kaldırılanlar” altından geri alınır."
+RECORD_NOT_REMOVED = "Kayıt kaldırılmamış; geri alınacak bir şey yok."
+# Form sınırı yalnız aşırı girdiye karşıdır; değer kuralını (≤ 500) servis mesajla bildirir.
+CONTACT_FORM_LIMIT = 2000
+
+
+@dataclass(frozen=True, slots=True)
+class ContactFormValues:
+    """İletişim ekleme formunun değerleri (reddedilen form girilenlerle yeniden çizilir)."""
+
+    kind: str = ContactKind.PHONE.value
+    value: str = ""
+
+
+@dataclass(frozen=True, slots=True)
+class RecordStepView:
+    """Kaldırma onayı sayfasındaki kayıt: tür adı ve değer (İK neyi kaldırdığını görür)."""
+
+    kind: str
+    id: int
+    kind_label: str
+    value: str
+
+
+def record_subject(kind: RecordKind, record_id: int) -> str:
+    """Kaldırma belirtecinin (`Operation.REMOVE_PROFILE_RECORD`) bağlı olduğu hedef: `kind:rid`."""
+    return f"{kind.value}:{record_id}"
+
+
+def _record_target(
+    session: Session, employee_id: str, kind: str, record_id: int
+) -> tuple[Employee, RecordKind, ProfileRecord]:
+    """İşlem görecek kayıt ve çalışanı (satır kilitli); çalışan, tür ya da bu çalışanın kaydı yoksa
+    404, çalışan birleştirilmişse 409."""
+    employee = session.get(Employee, employee_id, with_for_update=True)
+    if employee is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, EMPLOYEE_NOT_FOUND)
+    wanted = record_kind(kind)
+    record = None if wanted is None else find_record(session, employee_id, wanted, record_id)
+    if wanted is None or record is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, RECORD_NOT_FOUND)
+    if employee.status == MERGED_STATUS:
+        raise HTTPException(status.HTTP_409_CONFLICT, RECORDS_LOCKED)
+    return employee, wanted, record
+
+
+def _removable_record(
+    session: Session, employee_id: str, kind: str, record_id: int
+) -> tuple[Employee, RecordKind, ProfileRecord]:
+    """Kaldırılacak kayıt: `_record_target` ve zaten kaldırılmışsa 409."""
+    employee, wanted, record = _record_target(session, employee_id, kind, record_id)
+    if record.removed_at is not None:
+        raise HTTPException(status.HTTP_409_CONFLICT, RECORD_ALREADY_REMOVED)
+    return employee, wanted, record
+
+
+def _record_step_view(kind: RecordKind, record: ProfileRecord) -> RecordStepView:
+    if isinstance(record, EmployeeContact):
+        label = CONTACT_LABELS.get(record.kind, record.kind)
+    else:
+        label = RECORD_KIND_LABELS[kind.value]
+    return RecordStepView(kind.value, record.id, label, record_value(record))
+
+
+def _record_page(
+    request: Request,
+    user: PanelUser,
+    employee_id: str,
+    kind: str,
+    record_id: int,
+    *,
+    target: EditTarget | None,
+    record: RecordStepView | None,
+    status_code: int = status.HTTP_200_OK,
+    **context: object,
+) -> HTMLResponse:
+    """`profile_record_step.html`: birinci onay, ikinci onay ya da hata."""
+    return render_page(
+        request,
+        "profile_record_step.html",
+        user=user,
+        active=MENU_BY_KEY["employees"].key,
+        status_code=status_code,
+        employee_id=employee_id,
+        kind=kind,
+        record_id=record_id,
+        target=target,
+        record=record,
+        **context,
+    )
+
+
+def _records_redirect(employee_id: str, notice: str) -> RedirectResponse:
+    return RedirectResponse(
+        f"/employees/{employee_id}?notice={notice}#records", status.HTTP_303_SEE_OTHER
+    )
+
+
+@router.get(
+    "/employees/{employee_id}/records/{kind}/{record_id}/remove/confirm",
+    response_class=HTMLResponse,
+)
+def record_removal_first_confirmation(
+    employee_id: str,
+    kind: str,
+    record_id: int,
+    request: Request,
+    user: CurrentUser,
+    session: Annotated[Session, Depends(get_session)],
+) -> HTMLResponse:
+    """10.5.8 — kaldırılacak kayıt ve §20.6'nın birinci onay metni; hiçbir şey değişmez."""
+    try:
+        employee, wanted, record = _removable_record(session, employee_id, kind, record_id)
+        target, view = _edit_target(employee), _record_step_view(wanted, record)
+    except HTTPException as exc:
+        return _record_page(
+            request,
+            user,
+            employee_id,
+            kind,
+            record_id,
+            target=None,
+            record=None,
+            status_code=exc.status_code,
+            error=exc.detail,
+        )
+    finally:
+        session.rollback()
+    return _record_page(
+        request,
+        user,
+        employee_id,
+        kind,
+        record_id,
+        target=target,
+        record=view,
+        first_confirmation=first_text(Operation.REMOVE_PROFILE_RECORD),
+    )
+
+
+@router.post(
+    "/employees/{employee_id}/records/{kind}/{record_id}/remove/prepare",
+    response_class=HTMLResponse,
+)
+def prepare_record_removal(
+    employee_id: str,
+    kind: str,
+    record_id: int,
+    request: Request,
+    user: CurrentUser,
+    session: Annotated[Session, Depends(get_session)],
+) -> HTMLResponse:
+    """10.5.8 — birinci onaydan sonra ikinci onay metnini ve `kind:rid`'e bağlı tek kullanımlık
+    belirteci verir (§20.6.1). Kaydı değiştirmez (S16)."""
+    target: EditTarget | None = None
+    view: RecordStepView | None = None
+    try:
+        employee, wanted, record = _removable_record(session, employee_id, kind, record_id)
+        target, view = _edit_target(employee), _record_step_view(wanted, record)
+        issued = issue_confirmation(
+            session,
+            request,
+            user,
+            Operation.REMOVE_PROFILE_RECORD,
+            record_subject(wanted, record.id),
+        )
+    except (HTTPException, ConfirmationRefusedError) as exc:
+        session.rollback()
+        refused = isinstance(exc, ConfirmationRefusedError)  # oturum çerezi yok
+        return _record_page(
+            request,
+            user,
+            employee_id,
+            kind,
+            record_id,
+            target=target if refused else None,
+            record=view if refused else None,
+            status_code=status.HTTP_400_BAD_REQUEST if refused else exc.status_code,
+            error=str(exc) if refused else exc.detail,
+        )
+    session.commit()
+    return _record_page(
+        request,
+        user,
+        employee_id,
+        kind,
+        record_id,
+        target=target,
+        record=view,
+        second_confirmation=second_text(Operation.REMOVE_PROFILE_RECORD),
+        confirmation=issued.token,
+    )
+
+
+@router.post(
+    "/employees/{employee_id}/records/{kind}/{record_id}/remove", response_class=HTMLResponse
+)
+def remove_record_endpoint(
+    employee_id: str,
+    kind: str,
+    record_id: int,
+    request: Request,
+    user: CurrentUser,
+    session: Annotated[Session, Depends(get_session)],
+    layout: Annotated[DataLayout, Depends(get_layout)],
+    confirmation: Annotated[str | None, Form()] = None,
+) -> Response:
+    """10.5.8 — ikinci onayın belirteciyle kaydı kaldırır (K16, R11): kayıt silinmez, kaldırılmış
+    işaretlenir ve eşleştirmeye, aramaya girmez.
+
+    Belirteç yoksa, süresi geçmişse, kullanılmışsa ya da başka kayda, işleme veya oturuma aitse
+    hiçbir şey yapılmaz (400). Belirtecin tüketilmesi, `USER_CONFIRMED` ve
+    `PROFILE_RECORD_REMOVED` tek işlemdedir; commit'ten sonra `profil.md` yeniden üretilir (09.1.1)
+    ve profilin kayıt bölümüne dönülür.
+    """
+    target: EditTarget | None = None
+    view: RecordStepView | None = None
+    try:
+        employee, wanted, record = _removable_record(session, employee_id, kind, record_id)
+        target, view = _edit_target(employee), _record_step_view(wanted, record)
+        # §20.6.1: belirteç tüketilir ve `USER_CONFIRMED` yazılır, ardından işlemin kendi olayı
+        # düşer. Kaydın değeri hiçbir olaya girmez (CONVENTIONS §6).
+        confirm_operation(
+            session,
+            request,
+            user,
+            Operation.REMOVE_PROFILE_RECORD,
+            record_subject(wanted, record.id),
+            confirmation,
+            event_target={"employee_id": employee.id, "kind": wanted.value, "record_id": record.id},
+            employee_id=employee.id,
+        )
+        remove_record(session, employee, wanted, record, actor=user.username)
+    except HTTPException as exc:
+        session.rollback()
+        return _record_page(
+            request,
+            user,
+            employee_id,
+            kind,
+            record_id,
+            target=None,
+            record=None,
+            status_code=exc.status_code,
+            error=exc.detail,
+        )
+    except ConfirmationRefusedError:
+        session.rollback()
+        return _record_page(
+            request,
+            user,
+            employee_id,
+            kind,
+            record_id,
+            target=target,
+            record=view,
+            status_code=status.HTTP_400_BAD_REQUEST,
+            error=CONFIRMATION_REFUSED,
+            retry=True,
+        )
+    session.commit()
+    _rewrite_profile(session, layout, employee_id)
+    return _records_redirect(employee_id, "record_removed")
+
+
+@router.post(
+    "/employees/{employee_id}/records/{kind}/{record_id}/restore", response_class=HTMLResponse
+)
+def restore_record_endpoint(
+    employee_id: str,
+    kind: str,
+    record_id: int,
+    request: Request,
+    user: CurrentUser,
+    session: Annotated[Session, Depends(get_session)],
+    layout: Annotated[DataLayout, Depends(get_layout)],
+) -> Response:
+    """10.5.8 — kaldırılmış kaydı tek adımda geri alır (§D61-b) ve `PROFILE_RECORD_RESTORED`'ı
+    kullanıcı adıyla yazar. Çalışan, tür ya da kayıt yoksa 404; kayıt kaldırılmamışsa ya da
+    çalışan birleştirilmişse 409 — hiçbir şey değişmez."""
+    try:
+        employee, wanted, record = _record_target(session, employee_id, kind, record_id)
+        restore_record(session, employee, wanted, record, actor=user.username)
+    except HTTPException as exc:
+        session.rollback()
+        if exc.status_code == status.HTTP_404_NOT_FOUND:
+            raise
+        problem = str(exc.detail)
+    except ProfileRecordStateError:
+        session.rollback()
+        problem = RECORD_NOT_REMOVED
+    else:
+        session.commit()
+        _rewrite_profile(session, layout, employee_id)
+        return _records_redirect(employee_id, "record_restored")
+    return _profile_page(
+        request,
+        user,
+        session,
+        layout,
+        employee_id,
+        record_problems=[problem],
+        status_code=status.HTTP_409_CONFLICT,
+    )
+
+
+@router.post("/employees/{employee_id}/contacts", response_class=HTMLResponse)
+def add_contact_endpoint(
+    employee_id: str,
+    request: Request,
+    user: CurrentUser,
+    session: Annotated[Session, Depends(get_session)],
+    layout: Annotated[DataLayout, Depends(get_layout)],
+    kind: Annotated[str, Form(max_length=16)] = "",
+    value: Annotated[str | None, Form(max_length=CONTACT_FORM_LIMIT)] = None,
+) -> Response:
+    """10.5.8 — iletişim bilgisini elle ekler (tek adım): yeni değer güncel olur, aynı türün
+    öncekileri geçmişte kalır (05.8.2); kaynak "elle" ve ekleyen kullanıcıdır, `CONTACT_ADDED`
+    yazılır. Tür ya da değer kurala uymazsa 422, çalışan birleştirilmişse 409; ikisinde de form
+    girilenlerle yeniden çizilir ve hiçbir şey değişmez."""
+    employee = session.get(Employee, employee_id, with_for_update=True)
+    if employee is None:
+        session.rollback()
+        raise HTTPException(status.HTTP_404_NOT_FOUND, EMPLOYEE_NOT_FOUND)
+    problems: dict[str, list[str]]
+    try:
+        add_contact(session, employee, kind, value, actor=user.username)
+    except ContactFormError as exc:
+        problems, status_code = exc.problems, status.HTTP_422_UNPROCESSABLE_CONTENT
+    except ProfileRecordStateError:
+        problems, status_code = {"kind": [RECORDS_LOCKED]}, status.HTTP_409_CONFLICT
+    else:
+        session.commit()
+        _rewrite_profile(session, layout, employee_id)
+        return _records_redirect(employee_id, "contact_added")
+    session.rollback()
+    return _profile_page(
+        request,
+        user,
+        session,
+        layout,
+        employee_id,
+        contact_form=ContactFormValues(kind=kind, value=value or ""),
+        contact_problems=problems,
+        status_code=status_code,
     )
 
 
