@@ -254,8 +254,11 @@
   {% endif %}
 </section>
 
+{# 08.4.1, 10.5.10: etkin belgede "Arşive taşı", arşivdeki belgede "Arşivden geri al" (iki aşamalı
+   onay sayfası); eski sürümde (K18) ve birleştirilmiş kayıtta ikisi de yok. #}
 <section class="profile-documents">
-  <h2>Belgeler <span class="count">{{ profile.documents|length }}</span></h2>
+  <h2 id="documents">Belgeler <span class="count">{{ profile.documents|length }}</span></h2>
+  {% if documents_notice %}<p class="notice notice-success" role="status">{{ documents_notice }}</p>{% endif %}
   {% if profile.documents %}
   <table class="outputs">
     <thead>
@@ -273,6 +276,11 @@
           <a href="/documents/{{ document.id }}/history">Geçmiş</a>
           {% if document.available %}
           <a href="/employees/{{ profile.id }}/documents/{{ document.id }}/download">İndir</a>
+          {% if profile.editable and document.status == "active" %}
+          <a href="/documents/{{ document.id }}/archive/confirm" class="document-archive">Arşive taşı</a>
+          {% elif profile.editable and document.status == "archived" %}
+          <a href="/documents/{{ document.id }}/unarchive/confirm" class="document-unarchive">Arşivden geri al</a>
+          {% endif %}
           {% else %}
           <span class="reason">Dosya bulunamadı</span>
           {% endif %}

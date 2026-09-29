@@ -1040,7 +1040,7 @@ Yazma tamamlandıktan sonra `documents` kaydına kaynak dosya kimliği ve sayfa 
 
 ---
 
-### 20.6 İki aşamalı onay metinleri (gereksinim 10.8.1, 10.8.2, 10.7.2, 10.7.3, 08.4.1, 11.5.2, 10.3.4, 10.5.6, 10.5.7, 10.5.8, 10.5.9)
+### 20.6 İki aşamalı onay metinleri (gereksinim 10.8.1, 10.8.2, 10.7.2, 10.7.3, 08.4.1, 11.5.2, 10.3.4, 10.5.6, 10.5.7, 10.5.8, 10.5.9, 10.5.10)
 
 K16'daki manuel işlemler iki aşamalı onay ister (salt geri alma işlemleri tek adımdır, K16). Metinler **birebir** aşağıdaki
 gibidir; pencere kendi cümlesini yazmaz. `<…>` yer tutucuları çalışma zamanında doldurulur.
@@ -1058,6 +1058,7 @@ gibidir; pencere kendi cümlesini yazmaz. `<…>` yer tutucuları çalışma zam
 | Çalışanı yeniden etkinleştir | `<Ad Soyad> çalışanını yeniden etkinleştirmek üzeresiniz. Emin misiniz?` | `Çalışan listeye dönecek ve yeni belgeleri yeniden otomatik yerleşecektir. Son kararınız mı?` |
 | Profil alt kaydını kaldır | `Bu kaydı çalışan profilinden kaldırmak üzeresiniz. Emin misiniz?` | `Kayıt eşleştirmede ve aramada kullanılmayacak, geçmişte kalacaktır. Son kararınız mı?` |
 | İki çalışanı birleştir | `<Birleşen Ad Soyad> kaydını <Kalan Ad Soyad> kaydıyla birleştirmek üzeresiniz. Emin misiniz?` | `<N> belge taşınacak ve birleşen kayıt kapanacaktır; bu işlem geri alınamaz. Son kararınız mı?` |
+| Belgeyi arşivden geri al | `Bu belgeyi arşivden geri almak üzeresiniz. Emin misiniz?` | `Belge çalışanın Hazır klasörüne dönecektir. Son kararınız mı?` |
 
 İlk iki satırdaki metinler ürün tanımında birebir bu şekilde yazılmıştır; **değiştirilmez**.
 Kalan satırlar aynı kalıptan türetilmiştir: birinci cümle *ne yapılacağını*, ikinci cümle
@@ -1079,7 +1080,7 @@ Onay tamamlandığında `USER_CONFIRMED` olayı yazılır: kullanıcı adı, iş
 birinci ve ikinci onayın zaman damgaları. Ardından işlemin kendi olayı (`MANUAL_MOVE`,
 `MANUAL_ASSIGN`, `MANUAL_APPROVE`, `TYPE_APPROVED`, `ARCHIVED`, `UPLOAD_DISMISSED`,
 `EMPLOYEE_EDITED`, `EMPLOYEE_DEACTIVATED`, `EMPLOYEE_REACTIVATED`, `PROFILE_RECORD_REMOVED`,
-`EMPLOYEE_MERGED`)
+`EMPLOYEE_MERGED`, `UNARCHIVED`)
 düşülür.
 
 #### 20.6.2 Testte doğrulanacak davranış

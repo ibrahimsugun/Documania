@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{# Arşive taşıma (08.4.1) ve arşivden geri alma (10.5.10): birinci onay (§20.6 metni birebir), ikinci
+   onay (belgeye bağlı tek kullanımlık belirteç) ya da hata. Belge silinmez (R11), içeriği değişmez
+   (K11): arşive taşınır ya da çalışanın Hazır klasörüne K8 adıyla döner. #}
+{% block title %}{{ flow.title }}{% if step %} · {{ step.employee }}{% endif %}{% endblock %}
+{% block content %}
+{% set back = "/employees/" ~ step.employee_id ~ "#documents" if step else "/documents/" ~ document_id ~ "/history" %}
+<p class="back"><a href="{{ back }}">{% if step %}← Profile dön{% else %}← Belge geçmişine dön{% endif %}</a></p>
+<h1>{{ flow.title }}</h1>
+{% if step %}<p class="profile-meta">{{ step.employee }} · {{ step.employee_id }}</p>{% endif %}
+{% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+{% if step %}
+<dl class="record-summary archive-summary">
+  <dt>Tür</dt><dd>{{ step.type_name }}</dd>
+  <dt>Dosya</dt><dd>{{ step.file_name }}</dd>
+  <dt>Durum</dt><dd>{{ step.status_label }}</dd>
+</dl>
+{% endif %}
+{# Form hedefleri açık yazılır: `tests/web/test_access_log.py` her POST hedefini gözden geçirilmiş
+   yollarla karşılaştırır. #}
+{% if first_confirmation %}
+{% if flow.action == "archive" %}
+<form method="post" action="/documents/{{ document_id }}/archive/prepare" class="confirm document-archive">
+{% else %}
+<form method="post" action="/documents/{{ document_id }}/unarchive/prepare" class="confirm document-archive">
+{% endif %}
+  <p class="hint">{{ flow.hint }}</p>
+  <p class="confirm-text" role="alert">{{ first_confirmation }}</p>
+  <button type="submit">Evet, devam et</button>
+  <a href="{{ back }}">Vazgeç</a>
+</form>
+{% elif second_confirmation %}
+{% if flow.action == "archive" %}
+<form method="post" action="/documents/{{ document_id }}/archive" class="confirm document-archive-step">
+{% else %}
+<form method="post" action="/documents/{{ document_id }}/unarchive" class="confirm document-archive-step">
+{% endif %}
+  <p class="confirm-text" role="alert">{{ second_confirmation }}</p>
+  <input type="hidden" name="confirmation" value="{{ confirmation }}">
+  <button type="submit">{{ flow.submit_label }}</button>
+  <a href="{{ back }}">Vazgeç</a>
+</form>
+{% elif retry %}
+<p><a href="/documents/{{ document_id }}/{{ flow.action }}/confirm">Onayı yeniden başlatın</a></p>
+{% endif %}
+{% endblock %}

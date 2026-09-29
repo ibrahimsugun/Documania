@@ -1,6 +1,7 @@
 """Depolama katmanı: veri dizini yolları, slug, adlandırma, atomik yazma (PRD 00.4), Alinan kopyası
-(07.7.2), arşive taşıma (08.4.1), belgeyi başka çalışana taşıma (10.8.2), çalışan klasörünü yeni
-ada göre yeniden adlandırma (10.5.6), iki çalışanı birleştirmenin dosya işleri (10.5.9).
+(07.7.2), arşive taşıma (08.4.1) ve arşivden geri alma (10.5.10), belgeyi başka çalışana taşıma
+(10.8.2), çalışan klasörünü yeni ada göre yeniden adlandırma (10.5.6), iki çalışanı birleştirmenin
+dosya işleri (10.5.9).
 
 Dosya yolu üreten tek yer bu pakettir (MASTER-PROMPT §4 yol kuralı).
 """
@@ -9,7 +10,10 @@ from app.storage.archive import (
     ArchivedDocument,
     DocumentNotArchivableError,
     DocumentNotFoundError,
+    DocumentNotRestorableError,
+    UnarchivedDocument,
     archive_document,
+    unarchive_document,
 )
 from app.storage.atomic import (
     ContentMismatchError,
@@ -67,6 +71,7 @@ __all__ = [
     "DocumentNotArchivableError",
     "DocumentNotFoundError",
     "DocumentNotMovableError",
+    "DocumentNotRestorableError",
     "EmployeeMergeError",
     "EmployeeMergePlan",
     "EmployeeRenameError",
@@ -80,6 +85,7 @@ __all__ = [
     "RenamedFile",
     "SlugError",
     "StoredFile",
+    "UnarchivedDocument",
     "UnsupportedFileTypeError",
     "archive_document",
     "copy_file",
@@ -104,6 +110,7 @@ __all__ = [
     "sha256_file",
     "slugify",
     "split_document_filename",
+    "unarchive_document",
     "write_file",
     "write_sequenced",
     "write_to_inbox",

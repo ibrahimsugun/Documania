@@ -51,7 +51,13 @@ from app.groups import (
     reopen_package,
     set_group_archived,
 )
-from app.storage import DataLayout, archive_document, move_document, prepare_data_dir
+from app.storage import (
+    DataLayout,
+    archive_document,
+    move_document,
+    prepare_data_dir,
+    unarchive_document,
+)
 
 ACTOR = "ik-ayse"
 OWNER, OWNER_FOLDER = "E0001", "Ivan_Petrov_E0001"
@@ -630,6 +636,33 @@ def test_archiving_a_document_reopens_the_package_in_the_same_transaction(
     assert _package_events(session)[-1][:3] == ("PACKAGE_REOPENED", ACTOR, OWNER)
     profile = layout.profile_path(OWNER_FOLDER).read_text(encoding="utf-8")
     assert "### Sırbistan iş başvurusu — Açık — 2/3 zorunlu kalem" in profile
+
+
+@pytest.mark.usefixtures("employees")
+def test_unarchiving_a_document_completes_the_package_again(
+    session: Session, layout: DataLayout
+) -> None:
+    """10.5.10: arşivde tik kalkar, geri alınca gelir; paket aynı işlemde tamamlanır."""
+    group_id = _serbia_group(session)
+    package = _assign(session, group_id)
+    documents = [
+        _stored_document(session, layout, slug)
+        for slug in ("russian_passport", "profile_picture", "residence_card")
+    ]
+    refresh_employee_packages(session, OWNER)
+    archive_document(session, layout, documents[2].id, actor=ACTOR)
+    session.commit()
+    assert package.status == PackageStatus.OPEN.value
+    assert documents[2].id not in {ticked for _, _, ticked in _ticks(session, package)}
+
+    unarchive_document(session, layout, documents[2].id, actor=ACTOR)
+    session.commit()
+
+    assert package.status == PackageStatus.COMPLETED.value
+    assert _package_events(session)[-1][:3] == ("PACKAGE_COMPLETED", ACTOR, OWNER)
+    assert documents[2].id in {ticked for _, _, ticked in _ticks(session, package)}
+    profile = layout.profile_path(OWNER_FOLDER).read_text(encoding="utf-8")
+    assert "### Sırbistan iş başvurusu — Tamamlandı" in profile
 
 
 @pytest.mark.usefixtures("employees")

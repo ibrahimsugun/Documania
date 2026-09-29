@@ -321,6 +321,25 @@ def test_sequenced_write_with_unexpected_hash_publishes_nothing(tmp_path: Path) 
     assert list(tmp_path.iterdir()) == []
 
 
+def test_sequenced_write_tries_the_preferred_suffix_first(tmp_path: Path) -> None:
+    """10.5.10: arşivden dönen belge boştaysa kendi ekine döner, doluysa ilk boş eki alır."""
+    write_sequenced(tmp_path, STEM, "pdf", b"bir")
+
+    kept = write_sequenced(tmp_path, STEM, "pdf", b"uc", preferred_sequence_no=3)
+    taken = write_sequenced(tmp_path, STEM, "pdf", b"yine uc", preferred_sequence_no=3)
+    first_free = write_sequenced(tmp_path, STEM, "pdf", b"iki", preferred_sequence_no=1)
+
+    assert (kept.sequence_no, kept.path.name) == (3, f"{STEM}-3.pdf")
+    assert (taken.sequence_no, taken.path.name) == (2, f"{STEM}-2.pdf")
+    assert (first_free.sequence_no, first_free.path.name) == (4, f"{STEM}-4.pdf")
+
+
+def test_sequenced_write_rejects_an_invalid_preferred_suffix(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="Sıra numarası"):
+        write_sequenced(tmp_path, STEM, "pdf", b"veri", preferred_sequence_no=0)
+    assert list(tmp_path.iterdir()) == []
+
+
 # --- sıra ekiyle yayınlanmış aynı içeriği bulma (07.8.1) -------------------------------------
 
 

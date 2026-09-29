@@ -1183,6 +1183,12 @@ RECORD_NOTICES = {
     "record_restored": "Kayıt geri alındı; yeniden eşleştirmede ve aramada kullanılacak.",
     "contact_added": "İletişim bilgisi eklendi.",
 }
+# 08.4.1, 10.5.10: profilden arşive taşıma ve arşivden geri almadan sonra "Belgeler" bölümünün
+# bildirimi.
+DOCUMENT_NOTICES = {
+    "document_archived": "Belge arşive taşındı; çalışanın Hazır klasöründen çıktı.",
+    "document_unarchived": "Belge arşivden geri alındı; çalışanın Hazır klasörüne döndü.",
+}
 PACKAGE_NOT_FOUND = "Paket bulunamadı."
 GROUP_NOT_FOUND = "Belge grubu bulunamadı."
 DUPLICATE_PACKAGE = (
@@ -1240,6 +1246,7 @@ def _profile_page(
         profile_notice=PROFILE_NOTICES.get(notice or ""),
         note_limit=NOTE_MAX_LENGTH,
         records_notice=RECORD_NOTICES.get(notice or ""),
+        documents_notice=DOCUMENT_NOTICES.get(notice or ""),
         record_problems=record_problems or [],
         contact_form=contact_form or ContactFormValues(),
         contact_problems=contact_problems or {},

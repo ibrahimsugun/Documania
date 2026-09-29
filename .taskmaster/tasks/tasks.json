@@ -1866,7 +1866,7 @@
         "description": "PRD 10.5.10 · FR-MOD-10 · Faz 1 · Must (v1). İnsan kararı (2026-09-28). Arşive taşıma bugün yalnız JSON API'de var, panelde düğmesi yok; geri alma hiç yok. K16 genişlemesi §D61; sözleşme §C90-e.",
         "details": "KAPSAM: PRD 10.5.10 (08.4.1 üzerine). Tam sözleşme PLAN §C90 (e) ve §D61 — önce oku.\n\nNE YAPILACAK: (1) Arşive taşı HTML akışı (10.8 kalıbı, `documents.py` taşıma akışı gibi): `GET /documents/{id}/archive/confirm`, `POST /documents/{id}/archive/prepare`, `POST /documents/{id}/archive` (§20.6 mevcut metinleri, `Operation.ARCHIVE`); JSON API (`/api/queue/documents/{id}/archive*`) kalır. Profil belge satırında etkin belge için \"Arşive taşı\". (2) Geri alma: `unarchive_document(session, layout, document, *, actor)` (`storage/archive.py`): yalnız `status == archived`; `Archive/<yyyy-mm>/<ad>` → `Employees/<klasör>/Hazir/<K8 adı>` (`document_stem` + `sequence_no`; ad doluysa `next_sequence_no` ile yeni sıra eki ve `documents.sequence_no` güncellenir), `os.replace`, `documents.path`, `status=active`; hata → dosya geri + rollback. Olay `UNARCHIVED` (`document_id`, `from`, `to`). Yollar `GET /documents/{id}/unarchive/confirm`, `POST .../unarchive/prepare`, `POST .../unarchive`; metin §D61 → §20.6, `Operation.UNARCHIVE`. (3) `refresh_employee_packages` (tm 125) arşiv ve geri alma sonrası çağrılır. (4) profil.md yeniden (09.1-b). `tests/web/test_access_log.py` belge yolu izin listesi (yalnız move/archive) `unarchive` ile bilerek genişler.\n\nGİRDİ: app/storage/archive.py (:50 `archive_document`), app/web/routers/queue.py (:394-430 arşiv API), app/web/routers/documents.py (:363-453 taşıma akışı), app/web/routers/employees.py (:583 belge sıralaması, `DOCUMENT_STATUS_LABELS`), app/web/templates/profile.html (:66-96), app/storage/naming.py, app/web/confirm.py, tests/storage/test_archive*.py, tests/web/test_access_log.py (:444-456).\n\nÇIKTI: app/storage/archive.py, app/web/routers/documents.py, app/web/templates/profile.html, document_archive_step.html, app/web/confirm.py, app/events.py, urun-gereksinim-dokumani-PRD.md (§20.6 satırı), tests/storage/test_unarchive.py, tests/web/test_document_archive.py, tests/web/test_confirm.py, tests/web/test_access_log.py, tests/test_events.py, PLAN.md (10.5.10 satırı; K10.5), HANDOFF.md.\n\nBU GÖREVİ BAĞLAYAN KİLİTLİ KURALLAR: K16 (arşive taşı zaten K16'da; geri alma §D61 ile), K8, K10/K11 (taşıma; içerik değişmez), R11, R13, K15, CONVENTIONS §6.\n\nPRD'DE AYRICA OKU: 08.4.1, 10.5.2, 10.8.1, §8.2 (`Archive/<yyyy-mm>/`), §20.6, 14.2.2.\n\nİLGİLİ KABUL SENARYOLARI: S16 (onay kalıbı).\n\nKAPSAM SINIRI: arşiv görünümü/sayfası yok (profildeki arşivli satırlar yeter); toplu arşivleme yok; `superseded` belgeler arşivlenmez/geri alınmaz (K18 — arşive taşıma zaten yalnız `active`).\n\nTUZAKLAR: Geri alınan belgenin sırası değişebilir (aynı türden yeni belge gelmişse) — profil listesi sıraya göre; olayda eski/yeni ad yaz. `Archive/<yyyy-mm>` klasörü boş kalabilir — silme. Birleşmiş çalışanın (tm 129) arşivli belgesi kalan kaydın klasörüne döner (`employee_id` güncel). JSON API testleri (`test_queue.py`) bozulmasın.\n\nKAPANIŞ: PLAN satır(lar)ı ✅ → kanıt maddesi (§K), HANDOFF bloğu, commit mesajında `PRD <kod> — tm <id>`; CONVENTIONS DoD kapısı (ruff, compileall, import app.main, alembic upgrade head temiz SQLite, pytest -m \"not live\", coverage) yeşil.",
         "testStrategy": "1) Servis: arşivle → geri al → dosya Hazir'da K8 adıyla, hash aynı, `status=active`, sıra çakışmasında `-2`; `superseded` 409. 2) Web: profilde düğmeler duruma göre; iki akış tek onayla değişmez, belirteçle değişir; `USER_CONFIRMED` + `ARCHIVED`/`UNARCHIVED`. 3) Paket yenilenir (arşivde tik kalkar, geri alınca gelir). 4) `test_access_log` izin listesi; `test_confirm`. 5) DoD kapısı yeşil.",
-        "status": "pending",
+        "status": "in-progress",
         "dependencies": [
           "68",
           "73",
@@ -1875,7 +1875,7 @@
         ],
         "priority": "medium",
         "subtasks": [],
-        "updatedAt": "2026-09-28T11:46:31.000Z"
+        "updatedAt": "2026-09-29T13:05:01.401Z"
       },
       {
         "id": "131",
@@ -1956,7 +1956,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-09-29T13:03:49.297Z",
+      "lastModified": "2026-09-29T13:05:01.401Z",
       "taskCount": 133,
       "completedCount": 124,
       "tags": [

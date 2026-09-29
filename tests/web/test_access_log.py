@@ -357,6 +357,12 @@ REVIEWED_MUTATING_ROUTES: dict[tuple[str, str], str] = {
     ("POST", "/api/queue/documents/{document_id}/archive/prepare"): "onay belirteci",
     ("POST", "/documents/{document_id}/move"): "başka çalışana taşıma (K16)",
     ("POST", "/documents/{document_id}/move/prepare"): "onay belirteci",
+    ("POST", "/documents/{document_id}/archive"): "profilden arşive taşıma (08.4.1, K16)",
+    ("POST", "/documents/{document_id}/archive/prepare"): "onay belirteci",
+    ("POST", "/documents/{document_id}/unarchive"): (
+        "arşivden geri alma: Hazir'a K8 adıyla taşıma, içerik değişmez (10.5.10, K16, §D61)"
+    ),
+    ("POST", "/documents/{document_id}/unarchive/prepare"): "onay belirteci",
     ("POST", "/document-types"): "katalog kaydı: tür oluşturma (11.1.1)",
     ("POST", "/document-types/{slug}"): "katalog kaydı: tür düzenleme (11.1.1)",
     ("POST", "/document-types/{slug}/deactivate"): "katalog kaydı: pasifleştirme (11.1.1)",
@@ -490,6 +496,7 @@ def test_no_route_is_named_after_editing_content(app: FastAPI) -> None:
 
 
 def test_the_only_document_routes_that_change_anything_move_or_archive_it(app: FastAPI) -> None:
+    # 10.5.10 (tm 130, §D62): arşivden geri alma da yalnız taşır; liste bilerek genişledi.
     document_mutations = {
         (method, path)
         for method, path in _mutating_routes(app)
@@ -501,6 +508,10 @@ def test_the_only_document_routes_that_change_anything_move_or_archive_it(app: F
         ("POST", "/documents/{document_id}/move/prepare"),
         ("POST", "/api/queue/documents/{document_id}/archive"),
         ("POST", "/api/queue/documents/{document_id}/archive/prepare"),
+        ("POST", "/documents/{document_id}/archive"),
+        ("POST", "/documents/{document_id}/archive/prepare"),
+        ("POST", "/documents/{document_id}/unarchive"),
+        ("POST", "/documents/{document_id}/unarchive/prepare"),
     }
 
 

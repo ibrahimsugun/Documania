@@ -50,6 +50,7 @@ PRD_OPERATIONS = {
     "Çalışanı yeniden etkinleştir": Operation.REACTIVATE_EMPLOYEE,  # 10.5.7, §D61 (tm 127)
     "Profil alt kaydını kaldır": Operation.REMOVE_PROFILE_RECORD,  # 10.5.8, §D61 (tm 128)
     "İki çalışanı birleştir": Operation.MERGE_EMPLOYEES,  # 10.5.9, §D61 (tm 129)
+    "Belgeyi arşivden geri al": Operation.UNARCHIVE,  # 10.5.10, §D61 (tm 130)
 }
 TARGET = "7:E0002"
 

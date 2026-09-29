@@ -1,4 +1,5 @@
-"""Belge geçmişi görünümü (PRD 10.6.1) ve belgeyi başka çalışana taşıma (PRD 10.8.2).
+"""Belge geçmişi görünümü (PRD 10.6.1), belgeyi başka çalışana taşıma (PRD 10.8.2), arşive taşıma
+ve arşivden geri alma (PRD 08.4.1, 10.5.10).
 
 `GET /documents/{document_id}/history` bir çıktının köken izini gösterir: çıktının kendisi
 (çalışan, tür, dosya, durum, plan sürümü), **kaynak dosyaları ve sayfaları** ve belgeyi anan olaylar
@@ -31,6 +32,17 @@ yazılır.
 Dosya yalnız yeniden adlandırılır ve taşınır, içeriği bayt bayt aynı kalır (K11). Adımların hepsi
 belgeyi yeniden denetler: belge yoksa 404, etkin değilse 409; çalışan yoksa 404, belgenin zaten
 sahibiyse 409 — yanıt `document_move.html` parçasıdır (HTMX hedefi).
+
+**Arşive taşıma ve arşivden geri alma (08.4.1, 10.5.10; K16, §D61).** Profilin belge satırından
+açılır; iki akış da aynı üç adımlı kalıptadır (10.8.1) ve `document_archive_step.html` sayfasını
+kullanır: `GET /documents/{id}/archive/confirm` birinci onay metni, `POST …/archive/prepare`
+ikinci metin ve belgeye bağlı tek kullanımlık belirteç, `POST …/archive` belirteçle
+`archive_document` (`ARCHIVED`); geri alma aynı sırayla `/documents/{id}/unarchive/*` ve
+`unarchive_document` (`UNARCHIVED`, dosya `Hazir/`'a K8 adıyla döner). JSON API
+(`/api/queue/documents/{id}/archive*`) yerinde kalır. Arşive yalnız etkin, geri almaya yalnız
+arşivdeki belge girer (eski sürüm hiçbirine, K18); belge yoksa 404, durumu uymuyorsa, dosyası yoksa
+ya da sahibi birleştirilmişse 409. Başarıdan sonra profile dönülür; paketler ve `profil.md`
+servisin içinde yenilenir. Dosya yalnız taşınır ve yeniden adlandırılır (K11).
 """
 
 from __future__ import annotations
@@ -40,7 +52,7 @@ from pathlib import PurePosixPath
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request, status
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -48,6 +60,7 @@ from app.db.models import (
     Document,
     DocumentStatus,
     Employee,
+    EmployeeStatus,
     Event,
     KnownDocumentType,
     Page,
@@ -60,9 +73,13 @@ from app.profiles import write_profile
 from app.storage import (
     ContentMismatchError,
     DataLayout,
+    DocumentNotArchivableError,
     DocumentNotMovableError,
+    DocumentNotRestorableError,
     MovedDocument,
+    archive_document,
     move_document,
+    unarchive_document,
 )
 from app.web.auth import PanelUser, require_panel_user
 from app.web.confirm import (
@@ -508,3 +525,357 @@ def move_to_employee(
         done=True,
         file_name=file_name,
     )
+
+
+# --- 08.4.1, 10.5.10: arşive taşıma ve arşivden geri alma (profilden) ----------------------------
+
+NOT_ARCHIVABLE_NOTE = "Yalnız etkin belge arşive taşınır; bu belgenin durumu: {status}."
+NOT_RESTORABLE_NOTE = "Yalnız arşivdeki belge geri alınır; bu belgenin durumu: {status}."
+DOCUMENT_FILE_MISSING = "Belgenin dosyası bulunamadı; taşınamaz."
+OWNER_MERGED = (
+    "Belgenin sahibi başka bir kayıtla birleştirildi (10.5.9); işlemi kalan kaydın profilinden "
+    "yapın."
+)
+
+
+@dataclass(frozen=True, slots=True)
+class ArchiveFlow:
+    """Profilden açılan iki akıştan biri: arşive taşı (`archive`) ya da arşivden geri al
+    (`unarchive`). `action` yolun parçasıdır; `notice` profil bildiriminin kodudur."""
+
+    action: str
+    operation: Operation
+    required_status: str
+    refusal: str
+    title: str
+    submit_label: str
+    hint: str
+    notice: str
+
+
+ARCHIVE_FLOW = ArchiveFlow(
+    action="archive",
+    operation=Operation.ARCHIVE,
+    required_status=DocumentStatus.ACTIVE.value,
+    refusal=NOT_ARCHIVABLE_NOTE,
+    title="Belgeyi arşive taşı",
+    submit_label="Evet, arşive taşı",
+    hint=(
+        'Belge silinmez: Archive klasörüne taşınır, profilde "Arşivlendi" durumuyla kalır ve '
+        '"Arşivden geri al" ile çalışanın Hazır klasörüne döndürülebilir. Arşivdeki belge belge '
+        "paketlerinde sayılmaz."
+    ),
+    notice="document_archived",
+)
+UNARCHIVE_FLOW = ArchiveFlow(
+    action="unarchive",
+    operation=Operation.UNARCHIVE,
+    required_status=DocumentStatus.ARCHIVED.value,
+    refusal=NOT_RESTORABLE_NOTE,
+    title="Belgeyi arşivden geri al",
+    submit_label="Evet, geri al",
+    hint=(
+        "Belge çalışanın bugünkü adıyla ve türünün dosya etiketiyle adlandırılır (K8); arada aynı "
+        "türden yeni belge geldiyse sıradaki sıra ekini alır. İçeriği ve kökeni değişmez."
+    ),
+    notice="document_unarchived",
+)
+
+
+@dataclass(frozen=True, slots=True)
+class ArchiveStepView:
+    document_id: int
+    employee_id: str
+    employee: str
+    type_name: str
+    file_name: str
+    status_label: str
+
+
+def document_subject(document_id: int) -> str:
+    """Arşiv ve geri alma belirtecinin bağlı olduğu hedef: belge (JSON API'nin arşiv hedefiyle
+    aynı biçim)."""
+    return str(document_id)
+
+
+def _archive_step(
+    session: Session, layout: DataLayout, document_id: int, flow: ArchiveFlow
+) -> ArchiveStepView:
+    """Akışa girebilecek belge: yoksa 404; durumu akışın istediği değilse, dosyası yoksa ya da
+    sahibi birleştirilmişse 409."""
+    document = session.get(Document, document_id)
+    if document is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, DOCUMENT_NOT_FOUND)
+    if document.status != flow.required_status:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            flow.refusal.format(
+                status=DOCUMENT_STATUS_LABELS.get(document.status, document.status)
+            ),
+        )
+    owner = session.get_one(Employee, document.employee_id)
+    if owner.status == EmployeeStatus.MERGED.value:
+        raise HTTPException(status.HTTP_409_CONFLICT, OWNER_MERGED)
+    if _stored_file(layout, document.path) is None:
+        raise HTTPException(status.HTTP_409_CONFLICT, DOCUMENT_FILE_MISSING)
+    document_type = session.get(KnownDocumentType, document.type_slug)
+    return ArchiveStepView(
+        document_id=document.id,
+        employee_id=owner.id,
+        employee=_employee_name(owner),
+        type_name=document_type.name if document_type is not None else document.type_slug,
+        file_name=PurePosixPath(document.path).name,
+        status_label=DOCUMENT_STATUS_LABELS.get(document.status, document.status),
+    )
+
+
+def _archive_page(
+    request: Request,
+    user: PanelUser,
+    flow: ArchiveFlow,
+    document_id: int,
+    *,
+    step: ArchiveStepView | None,
+    status_code: int = status.HTTP_200_OK,
+    **context: object,
+) -> HTMLResponse:
+    """`document_archive_step.html`: birinci onay, ikinci onay ya da hata."""
+    return render_page(
+        request,
+        "document_archive_step.html",
+        user=user,
+        active=MENU_BY_KEY["employees"].key,
+        status_code=status_code,
+        flow=flow,
+        document_id=document_id,
+        step=step,
+        **context,
+    )
+
+
+def _first_confirmation(
+    request: Request,
+    user: PanelUser,
+    session: Session,
+    layout: DataLayout,
+    document_id: int,
+    flow: ArchiveFlow,
+) -> HTMLResponse:
+    """Belge ve §20.6'nın birinci onay metni; hiçbir şey değişmez."""
+    try:
+        step = _archive_step(session, layout, document_id, flow)
+    except HTTPException as exc:
+        return _archive_page(
+            request,
+            user,
+            flow,
+            document_id,
+            step=None,
+            status_code=exc.status_code,
+            error=exc.detail,
+        )
+    finally:
+        session.rollback()
+    return _archive_page(
+        request,
+        user,
+        flow,
+        document_id,
+        step=step,
+        first_confirmation=first_text(flow.operation),
+    )
+
+
+def _prepare(
+    request: Request,
+    user: PanelUser,
+    session: Session,
+    layout: DataLayout,
+    document_id: int,
+    flow: ArchiveFlow,
+) -> HTMLResponse:
+    """Birinci onaydan sonra ikinci onay metni ve belgeye bağlı tek kullanımlık belirteç
+    (§20.6.1). Belge değişmez (S16)."""
+    step: ArchiveStepView | None = None
+    try:
+        step = _archive_step(session, layout, document_id, flow)
+        issued = issue_confirmation(
+            session, request, user, flow.operation, document_subject(document_id)
+        )
+    except HTTPException as exc:
+        session.rollback()
+        return _archive_page(
+            request,
+            user,
+            flow,
+            document_id,
+            step=None,
+            status_code=exc.status_code,
+            error=exc.detail,
+        )
+    except ConfirmationRefusedError as exc:  # oturum çerezi yok
+        session.rollback()
+        return _archive_page(
+            request,
+            user,
+            flow,
+            document_id,
+            step=step,
+            status_code=status.HTTP_400_BAD_REQUEST,
+            error=str(exc),
+        )
+    session.commit()
+    return _archive_page(
+        request,
+        user,
+        flow,
+        document_id,
+        step=step,
+        second_confirmation=second_text(flow.operation),
+        confirmation=issued.token,
+    )
+
+
+def _complete(
+    request: Request,
+    user: PanelUser,
+    session: Session,
+    layout: DataLayout,
+    document_id: int,
+    flow: ArchiveFlow,
+    confirmation: str | None,
+) -> Response:
+    """İkinci onayın belirteciyle işlemi yapar. Belirteç yoksa, süresi geçmişse, kullanılmışsa ya
+    da başka belgeye, işleme veya oturuma aitse hiçbir şey yapılmaz (400). Belirtecin tüketilmesi,
+    `USER_CONFIRMED` ve işlemin olayı (`ARCHIVED` / `UNARCHIVED`) tek işlemdedir; başarıdan sonra
+    profilin belge bölümüne dönülür."""
+    step: ArchiveStepView | None = None
+    try:
+        step = _archive_step(session, layout, document_id, flow)
+        # §20.6.1: belirteç tüketilir ve `USER_CONFIRMED` yazılır, ardından işlemin kendi olayı
+        # düşer.
+        confirm_operation(
+            session,
+            request,
+            user,
+            flow.operation,
+            document_subject(document_id),
+            confirmation,
+            event_target={"document_id": document_id},
+            document_id=document_id,
+            employee_id=step.employee_id,
+        )
+        try:
+            if flow is ARCHIVE_FLOW:
+                archive_document(session, layout, document_id, actor=user.username)
+            else:
+                unarchive_document(session, layout, document_id, actor=user.username)
+        except (
+            DocumentNotArchivableError,
+            DocumentNotRestorableError,
+            ContentMismatchError,
+        ) as exc:
+            raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from None
+    except HTTPException as exc:
+        session.rollback()
+        return _archive_page(
+            request,
+            user,
+            flow,
+            document_id,
+            step=None,
+            status_code=exc.status_code,
+            error=exc.detail,
+        )
+    except ConfirmationRefusedError:
+        session.rollback()
+        return _archive_page(
+            request,
+            user,
+            flow,
+            document_id,
+            step=step,
+            status_code=status.HTTP_400_BAD_REQUEST,
+            error=CONFIRMATION_REFUSED,
+            retry=True,
+        )
+    session.commit()
+    return RedirectResponse(
+        f"/employees/{step.employee_id}?notice={flow.notice}#documents",
+        status.HTTP_303_SEE_OTHER,
+    )
+
+
+@router.get("/documents/{document_id}/archive/confirm", response_class=HTMLResponse)
+def archive_first_confirmation(
+    document_id: int,
+    request: Request,
+    user: CurrentUser,
+    session: Annotated[Session, Depends(get_session)],
+    layout: Annotated[DataLayout, Depends(get_layout)],
+) -> HTMLResponse:
+    """08.4.1 — arşive taşınacak belge ve §20.6'nın birinci onay metni; hiçbir şey değişmez."""
+    return _first_confirmation(request, user, session, layout, document_id, ARCHIVE_FLOW)
+
+
+@router.post("/documents/{document_id}/archive/prepare", response_class=HTMLResponse)
+def prepare_archive(
+    document_id: int,
+    request: Request,
+    user: CurrentUser,
+    session: Annotated[Session, Depends(get_session)],
+    layout: Annotated[DataLayout, Depends(get_layout)],
+) -> HTMLResponse:
+    """08.4.1 — ikinci onay metni ve tek kullanımlık belirteç (§20.6.1)."""
+    return _prepare(request, user, session, layout, document_id, ARCHIVE_FLOW)
+
+
+@router.post("/documents/{document_id}/archive", response_class=HTMLResponse)
+def archive_from_profile(
+    document_id: int,
+    request: Request,
+    user: CurrentUser,
+    session: Annotated[Session, Depends(get_session)],
+    layout: Annotated[DataLayout, Depends(get_layout)],
+    confirmation: Annotated[str | None, Form()] = None,
+) -> Response:
+    """08.4.1 — belirteçle belgeyi `Archive/<yyyy-mm>/`'e taşır (K11, K16); belge silinmez."""
+    return _complete(request, user, session, layout, document_id, ARCHIVE_FLOW, confirmation)
+
+
+@router.get("/documents/{document_id}/unarchive/confirm", response_class=HTMLResponse)
+def unarchive_first_confirmation(
+    document_id: int,
+    request: Request,
+    user: CurrentUser,
+    session: Annotated[Session, Depends(get_session)],
+    layout: Annotated[DataLayout, Depends(get_layout)],
+) -> HTMLResponse:
+    """10.5.10 — geri alınacak belge ve birinci onay metni (§D61 → §20.6); hiçbir şey değişmez."""
+    return _first_confirmation(request, user, session, layout, document_id, UNARCHIVE_FLOW)
+
+
+@router.post("/documents/{document_id}/unarchive/prepare", response_class=HTMLResponse)
+def prepare_unarchive(
+    document_id: int,
+    request: Request,
+    user: CurrentUser,
+    session: Annotated[Session, Depends(get_session)],
+    layout: Annotated[DataLayout, Depends(get_layout)],
+) -> HTMLResponse:
+    """10.5.10 — ikinci onay metni ve tek kullanımlık belirteç (§20.6.1)."""
+    return _prepare(request, user, session, layout, document_id, UNARCHIVE_FLOW)
+
+
+@router.post("/documents/{document_id}/unarchive", response_class=HTMLResponse)
+def unarchive_from_profile(
+    document_id: int,
+    request: Request,
+    user: CurrentUser,
+    session: Annotated[Session, Depends(get_session)],
+    layout: Annotated[DataLayout, Depends(get_layout)],
+    confirmation: Annotated[str | None, Form()] = None,
+) -> Response:
+    """10.5.10 — belirteçle arşivdeki belgeyi sahibinin `Hazir/`'ına K8 adıyla döndürür (K8, K11,
+    K16); içerik ve köken değişmez."""
+    return _complete(request, user, session, layout, document_id, UNARCHIVE_FLOW, confirmation)

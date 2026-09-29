@@ -9,7 +9,7 @@
 | Faz | PRD | Genel durum | Must sayacı | Kapanış |
 | --- | --- | --- | --- | --- |
 | Faz 0 — MVP | §5.1 | 105 ✅ · 0 ◐ · 0 ⬜ · 0 🔒 | 101/101 Must | AÇIK |
-| Faz 1 — v1 | §5.2 | 55 ✅ · 0 ◐ · 7 ⬜ · 0 🔒 | 39/41 Must | AÇIK |
+| Faz 1 — v1 | §5.2 | 56 ✅ · 0 ◐ · 6 ⬜ · 0 🔒 | 40/41 Must | AÇIK |
 | Faz 2 — v2 | §5.3 | 13 ✅ · 0 ◐ · 1 ⬜ · 0 🔒 | 0/0 Must | AÇIK |
 | Faz 3 — Enterprise | §5.4 | 10 ✅ · 0 ◐ · 0 ⬜ · 0 🔒 | 0/0 Must | AÇIK |
 
@@ -249,7 +249,7 @@ panelde `plan-count-drift` bulgusu doğurur.
 | 10.5.7 | Çalışanı pasife alma ve yeniden etkinleştirme | Must (v1) | ✅ → K10.5 |
 | 10.5.8 | Profil alt kayıtlarını kaldırma ve iletişim bilgisi ekleme | Should (v1) | ✅ → K10.5 |
 | 10.5.9 | İki çalışanı birleştirme | Should (v1) | ✅ → K10.5 |
-| 10.5.10 | Arşive taşıma ve arşivden geri alma profilde | Must (v1) | ⬜ |
+| 10.5.10 | Arşive taşıma ve arşivden geri alma profilde | Must (v1) | ✅ → K10.5 |
 | 10.6.1 | Belge geçmişi | Must (v1) | ✅ → K10.6 |
 | 10.7.1 | Kuyruk ekranları | Must (v1) | ✅ → K10.7-a |
 | 10.7.2 | Kuyruktan çalışana atama | Must (v1) | ✅ → K10.7-b |
@@ -2300,6 +2300,29 @@ bu kayıt neden sapıldığının izlenebilir olması içindir.
   çıktı yazabilir — ayrı görev adayı (yeniden çalıştırmada `merged_into_id`'ye yönlendirme ya da ret).
   (i) PRD §8.1: `employee_field_observations.source` değerlerine `merge` eklenmeli (PRD'ye yalnız §20.6
   satırı, başlıktaki gereksinim listesi ve §20.6.1 olay listesi eklendi).
+- **D70 — Arşivden geri almanın uygulama kararları (10.5.10, tm 130).** (a) **Sıra eki tercihi.**
+  Görev "`document_stem` + `sequence_no`; ad doluysa `next_sequence_no`" der; depoda `next_sequence_no`
+  yok. Uygulanan: `write_sequenced`'a `preferred_sequence_no` eklendi — önce belgenin kendi eki denenir,
+  doluysa (harf büyüklüğüne duyarsız gövde, uzantıdan bağımsız; K8 kuralı) ilk boş ek; yayın `os.link`
+  ile atomik, üzerine yazılmaz. Böylece `-2` ekli belge boş duran `-1`'e kaymaz. Görev `os.replace`
+  der; hedef doluysa ezeceği için kopya + SHA-256 denetimi + arşivdeki adın en son kaldırılması
+  (`archive_document`'in taşıma biçimi) kullanıldı. (b) **İmza** `unarchive_document(session, layout,
+  document_id, *, actor)` — `archive_document`/`move_document` gibi kimlikle çağrılır, satırı kilitler.
+  (c) **Reddedilenler** (`DocumentNotRestorableError`, panelde 409): arşivde olmayan (etkin ya da
+  `superseded`), sahibi birleştirilmiş (`merged` — birleştirme arşivdeki belgenin sahibini zaten kalan
+  kayda bağlar, belge onun klasörüne ve adına döner), dosyası arşivde olmayan, uzantısı okunamayan ya da
+  yolu veri dizininin dışında olan belge. Tür FK'lıdır, kayıtsız tür olamaz. (d) **Hata sırası.**
+  Dosya `Hazir/`'a yayınlanır; satır, olay ve paket yenilemesi ardından arşivdeki ad kaldırılır; bu
+  aralıkta bir adım düşerse yayınlanan kopya kaldırılır, arşivdeki dosya yerinde kalır, oturumu
+  çağıran geri alır. `profil.md` son adımdır (D31). (e) **Olay** `UNARCHIVED` verisi `document_id`,
+  `from`, `to` (göreli yollar — `ARCHIVED`'ın `path`'i emsal), `previous_sequence_no`, `sequence_no`.
+  (f) **Panel.** Arşive taşıma ve geri alma aynı üç adımlı tam sayfa kalıbıdır (`document_archive_step
+  .html`, 10.5.8 emsali; form hedefleri şablon bekçisi için açık yazılır); belirteç hedefi belge
+  kimliğidir (JSON API'nin arşiv hedefiyle aynı biçim, işlem türü ayırır). Bağlantılar yalnız dosyası
+  yerinde olan etkin/arşivli satırda ve birleştirilmemiş profilde görünür; dosyası yoksa akış 409.
+  Başarıda profile 303 (`?notice=document_archived|document_unarchived#documents`). Profil belge
+  listesi sıralaması (oluşturma zamanı) değişmedi; geri alınan belge eski yerinde, yeni adıyla görünür.
+  JSON API (`/api/queue/documents/{id}/archive*`) dokunulmadı.
 
 ## G. İş Kırılımı Dizini
 
@@ -2764,6 +2787,9 @@ var olan maddeler silinmez. Biçim:
 - ✅ Kapı: ruff check/format, compileall, `import app.main`, `git diff --check`, temiz SQLite'ta `alembic upgrade head` (→0017); `pytest -q -m "not live" --cov=app` dokuz ön plan grubunda 5554 geçti (+56; sonra eklenen 2 test kendi dosyasında yeşil, toplam 5556), 5 PG atlandı, birleşik kapsam %99 (`records.py`, `match.py` %100); 14 geçici kural bozmasının 14'ü kırmızı (biri kart testi eklendikten sonra) · tm 128
 - ✅ 10.5.9 iki çalışanı birleştirme: göç `alembic/versions/0018_employee_merge.py` (`employees.merged_into_id` FK, gözlem kaynağı CHECK'ine `merge`) · dosya işi `app/storage/merge.py` (`plan_employee_merge`: etkin belge kalanın K8 adı + ilk boş sıra eki, eski sürüm adını korur (gövde doluysa `-2`), arşiv yerinde, dosyası yok olanın yolu değişmez; `Alinan/` kopyaları adıyla, doluysa `ad-2`; `relocate_merged_files`: sabit bağ + eski adı kaldırma, üzerine yazma yok, düşerse geri alma → `EmployeeMergeError`) · çekirdek `app/matching/merge.py` (`merge_employees`: belgeler `employee_id` kalana, alt kayıtlar bağlanır — aynı `(kind, value)`/ham yazım/normalize anahtar kalanda varsa birleşenin satırı birleşende `removed_at`/`removed_by` alır, iletişimde görülme zamanları katlanır ve türde tek güncel satır (en son görülen); alan gözlemleri taşınır (farklı değerde `filled`/`same` → `conflict`, aynı kaynak kalanda varsa birleşende kalır, elle/birleştirme gözlemi yalnız değeri geçen alanda), kalanın boş alanı `source=merge` + `EMPLOYEE_FIELD_FILLED`; paketler bağlanır, kalanda aynı grubun canlı paketi varsa birleşenden gelen iptal; birleşen `merged` + `merged_into_id`; tek `EMPLOYEE_MERGED` {kept, merged, documents, relocated, received, records, fields, packages, cancelled_packages} değersiz; `refresh_employee_packages(kalan)`; `merge_field_preview`, `merge_document_count`) · panel `app/web/routers/employees.py` (`GET /employees/{id}/merge/employees` arama — etkin+pasif, birleştirilmiş ve kendisi hariç, HTMX parçası; `GET …/merge/confirm?other=&keep=` iki kayıt yan yana + radyo kalan seçimi + §20.6 birinci metin; `POST …/merge/prepare` ikinci metin (`<N>` belge, geri alınamaz) + `kalan:birleşen` belirteci; `POST …/merge` → `USER_CONFIRMED` + `EMPLOYEE_MERGED`, iki `profil.md`, kalan profile 303; birleştirilmiş profil 200 + bildirim + bağlantı, işlem formları yok; kartta "birleştirme (kullanıcı, gün)" kaynağı) + şablonlar `employee_merge.html`, `employee_merge_results.html`, `employee_merge_step.html`, `profile.html` · `profil.md` yönlendirme notu (`app/profiles/render.py`) · 409/süzgeç: bağlam yüklemesi (`uploads.py`), atama (`queue.py` `_assignee`, `route.py` `assign_queue_item`), belge taşıma (`move.py`), paket tanımlama (`packages.py`); eşleştirme `number_owners` + isim sorgusu ve bot araması (`intent.py`) `merged`'i süzer · §20.6 satırı + `Operation.MERGE_EMPLOYEES` + `<Birleşen Ad Soyad>`/`<Kalan Ad Soyad>` yer tutucuları, `EventType.EMPLOYEE_MERGED`, `FieldSource.MERGE` — §D69 · test `tests/matching/test_merge.py` (15), `tests/storage/test_merge_files.py` (5), `tests/web/test_employee_merge.py` (22), `tests/web/test_confirm.py` (+1), `tests/db/test_migrations.py` (+1); bekçiler `test_access_log.py`, `test_events.py`, `test_profile.py` · tm 129
 - ✅ Kapı (tm 129): ruff check/format, compileall, `import app.main`, `git diff --check`, temiz SQLite'ta `alembic upgrade head` (→0018) exit 0; `pytest -q -m "not live" --cov=app --cov-append` yedi ön plan grubunda 5600 geçti (+44), 5 PG atlandı; `coverage report --fail-under=70` exit 0, birleşik kapsam %99 (`app/matching/merge.py`, `app/storage/merge.py` %100); 14 geçici kural bozmasının 14'ü kırmızı
+
+- ✅ 10.5.10 arşive taşıma ve arşivden geri alma profilde: servis `app/storage/archive.py` (`unarchive_document`: yalnız `archived`; `Archive/<yyyy-mm>/` → sahibin `Hazir/`'ı, K8 adı `document_stem` + kendi sıra eki, doluysa ilk boş ek ve `sequence_no` güncellenir; SHA-256 denetimli yayın, hata olursa kopya kaldırılır; `UNARCHIVED` {`document_id`, `from`, `to`, sıra ekleri}; paketler yenilenir, `profil.md` yeniden) · `app/storage/atomic.py` (`write_sequenced(preferred_sequence_no=)`) · panel `app/web/routers/documents.py` (`GET /documents/{id}/archive/confirm`, `POST …/archive/prepare`, `POST …/archive`; aynısı `/unarchive/*`; `USER_CONFIRMED` + işlem olayı tek işlemde, profile 303) · `document_archive_step.html`, `profile.html` ("Arşive taşı" / "Arşivden geri al", bildirim) · `Operation.UNARCHIVE` + §20.6 satırı (`app/web/confirm.py`, PRD §20.6 ve §20.6.1) · `EventType.UNARCHIVED` — test `tests/storage/test_unarchive.py` (14) · `tests/web/test_document_archive.py` (12) · `tests/storage/test_atomic.py` (+2) · `tests/groups/test_packages.py` (+1) · bekçiler `tests/web/test_access_log.py`, `tests/web/test_confirm.py`, `tests/test_events.py` · kararlar §D70 · tm 130
+- ✅ Kapı (tm 130): ruff check/format, compileall, `import app.main`, `git diff --check`, temiz SQLite'ta `alembic upgrade head` (→0018, göç yok) exit 0; `pytest -q -m "not live" --cov=app --cov-append` on ön plan grubunda 5629 geçti (+29), 5 PG atlandı, `coverage report --fail-under=70` exit 0, birleşik kapsam %99 (`archive.py` %100); 2 geçici kural bozmasının 2'si kırmızı · tm 130
 
 #### K10.6 — 10.6.1 · Belge geçmişi görünümü
 - ✅ 10.6.1 belge geçmişi: `app/web/routers/documents.py` (`GET /documents/{id}/history` → `build_history`; çıktı (çalışan, tür, dosya + açma, durum, plan sürümü), kaynak dosyalar ve sayfalar (`source_refs_json`: dosya adı → `/uploads/{id}#file-N`, her sayfa → sayfa görüntüsü; boş sayfa listesi = bütün dosya; sıra köken kaydındaki gibi; eksik/bozuk kayıt bağlantısız notla yazılır), parti ve plan öğesi bağlantısı, belgenin kendi olayları; bilinmeyen belge 404; yalnız `GET`) + `app/web/templates/history.html`; `app/main.py` yönlendiriciyi oturuma bağlar, profil belge listesi ve yükleme detayı çıktı tablosu "Geçmiş" bağlantısı taşır — C50 · test `tests/web/test_documents.py` (29) · tm 69

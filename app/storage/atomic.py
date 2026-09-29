@@ -100,6 +100,7 @@ def write_sequenced(
     content: Content,
     *,
     expected_sha256: str | None = None,
+    preferred_sequence_no: int | None = None,
 ) -> StoredFile:
     """`stem.ext` boşsa ona, doluysa ilk boş `stem-2.ext`, `stem-3.ext`… adına yazar (K8).
 
@@ -108,18 +109,21 @@ def write_sequenced(
     duyarsızdır; davranış Windows ve Linux'ta aynıdır. Diskte arada boş kalmış bir ek varsa
     (ör. arşive taşınmış belge) ilk boş ek kullanılır. Seçilen ek `sequence_no` olarak döner.
 
+    `preferred_sequence_no` verilmişse önce o ek denenir, boş değilse ilk boş ek seçilir (10.5.10:
+    arşivden dönen belge eski ekine döner, ek başka belgedeyse sıradaki boş eki alır).
+
     `expected_sha256` verilmişse içerik yayından önce onunla karşılaştırılır; tutmazsa hiçbir şey
     yayınlanmaz: `ContentMismatchError`.
     """
     extension = normalize_extension(extension)
     sequenced_stem(stem, 1)  # gövdeyi yazmadan önce doğrula
+    if preferred_sequence_no is not None:
+        sequenced_stem(stem, preferred_sequence_no)  # eki yazmadan önce doğrula
     temp, sha256, size = _write_temp(directory, content)
     try:
         _check_expected_sha256(sha256, expected_sha256)
         taken = _stems_in_use(directory)
-        sequence_no = 0
-        while True:
-            sequence_no += 1
+        for sequence_no in _sequence_candidates(preferred_sequence_no):
             candidate = sequenced_stem(stem, sequence_no)
             if candidate.casefold() in taken:
                 continue
@@ -132,6 +136,17 @@ def write_sequenced(
             return StoredFile(target, sha256, size, sequence_no)
     finally:
         temp.unlink(missing_ok=True)
+
+
+def _sequence_candidates(preferred: int | None) -> Iterator[int]:
+    """Denenecek sıra ekleri: önce tercih edilen (varsa), sonra 1, 2, 3… (tercih edilen atlanır)."""
+    if preferred is not None:
+        yield preferred
+    sequence_no = 0
+    while True:
+        sequence_no += 1
+        if sequence_no != preferred:
+            yield sequence_no
 
 
 def find_sequenced(

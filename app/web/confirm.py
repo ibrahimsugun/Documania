@@ -66,6 +66,7 @@ class Operation(enum.StrEnum):
     REACTIVATE_EMPLOYEE = "reactivate_employee"  # çalışanı yeniden etkinleştir, 10.5.7 (§D61)
     REMOVE_PROFILE_RECORD = "remove_profile_record"  # profil alt kaydını kaldır, 10.5.8 (§D61)
     MERGE_EMPLOYEES = "merge_employees"  # iki çalışanı birleştir, 10.5.9 (§D61)
+    UNARCHIVE = "unarchive"  # belgeyi arşivden geri al, 10.5.10 (§D61)
     # §20.6'nın dışında: yeniden analizin onayı (10.3.2, metinler PLAN.md §D23).
     REANALYZE = "reanalyze"
     # §20.6'nın dışında (K16 dışı, PLAN.md §D58): eğitim örneğini başka türe taşı ve örneklerden
@@ -143,6 +144,10 @@ CONFIRMATION_TEXTS: dict[Operation, ConfirmationTexts] = {
         "misiniz?",
         "<N> belge taşınacak ve birleşen kayıt kapanacaktır; bu işlem geri alınamaz. Son "
         "kararınız mı?",
+    ),
+    Operation.UNARCHIVE: ConfirmationTexts(
+        "Bu belgeyi arşivden geri almak üzeresiniz. Emin misiniz?",
+        "Belge çalışanın Hazır klasörüne dönecektir. Son kararınız mı?",
     ),
 }
 
