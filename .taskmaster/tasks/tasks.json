@@ -1899,7 +1899,7 @@
         "description": "PRD 11.1.6, 11.5.7 · FR-MOD-11 · Faz 1 · Should (v1). İnsan kararı (2026-09-28). Eğitim koşusu 415 tür yazdı; yanlış açılan türler için listeden kaldırma yolu yok, aktivasyon olay yazmıyor. Sözleşme PLAN §C92-a, b; iki aşamalı ama K16-dışı (§D61-d).",
         "details": "KAPSAM: PRD 11.1.6, 11.5.7. Tam sözleşme PLAN §C92 (a), (b) ve §D61 (d) — önce oku.\n\nNE YAPILACAK: (1) Göç: `known_document_types.archived_at`, `archived_by`. `CatalogEntry`/`TypeSummary`/`row_to_record` alanı taşır; `catalog.yaml` dışa aktarımı `archived_at` yazar, içe aktarım korur (`sync.py`). (2) Dışlama: `list_types(session, include_archived=False)`, `analyzable_types` (prompt), `TypeForm`/tür seçicileri (yükleme \"beklenen tür\", eğitim, grup kalemi etiketleri — tm 124 `label_choices`), `load_known_types` arşivliyi dışlar; `load_record` dışlamaz (belge listeleri ad gösterir). `PROTECTED_SLUGS` (attachment, profile_picture + kodun sabitle andığı sluglar — grep `_SLUG =`) arşivlenemez (409). (3) Tekil arşiv iki aşamalı (K16-dışı, metinler §C92 birebir, `catalog.py` içinde `_DECISION_TEXTS` kalıbı, `Operation.TYPE_ARCHIVE`): `GET /document-types/{slug}/archive/confirm`, `POST .../archive/prepare`, `POST .../archive`; geri alma tek adım `POST /document-types/{slug}/restore`; görünüm `?archived=1` (\"Arşivlenen türler\", süzgeçle birlikte). (4) Toplu: tabloda satır onay kutuları + üst çubuk \"Seçilenleri: Pasifleştir | Etkinleştir | Arşivle\"; `POST /document-types/bulk` (`action`, `slugs[]`, `country` korunur); `archive` için `POST /document-types/bulk/prepare` belirteci sıralı slug kümesinin SHA-256'sına bağlı, `Operation.TYPE_ARCHIVE_BULK`, metin `<N>` ile; sonuç bildirimi \"<N> tür arşivlendi, <K> korunan tür atlandı\". (5) Olaylar: `_set_active` `CurrentUser` alır; `TYPE_ACTIVATED`/`TYPE_DEACTIVATED` (`slug`), `TYPE_ARCHIVED`/`TYPE_RESTORED`; toplu işlem tür başına olay (`bulk: true`). (6) Aday geri alma: `GET /document-types/candidate-types?status=rejected`, `POST .../candidate-types/{id}/restore` → `pending`, `CANDIDATE_TYPE_RESTORED`; reddedilen görünümü liste sayfasında sekme/bağlantı.\n\nGİRDİ: app/db/models.py (:509), app/catalog/manage.py (:83 `list_types`, :129 `set_type_active`), app/catalog/sync.py (:33-95), app/catalog/prompt_builder.py (:90 `analyzable_types`), app/catalog/schema.py (`CatalogEntry`), app/catalog/candidates.py (:174, :259 `reject_candidate_type`), app/training/known_types.py, app/web/routers/catalog.py (:642 liste, :799-817 `_set_active`, :419 çoğul yeniden analiz metinleri, :1495 reject), app/web/routers/training.py (:995-1136 `_decision` kalıbı), app/web/templates/catalog.html, catalog_candidates.html, tests/web/test_catalog_page.py (:530 delete/put/patch yasağı), tests/catalog/.\n\nÇIKTI: alembic/versions/<yeni>.py, app/db/models.py, app/catalog/manage.py, sync.py, schema.py, prompt_builder.py, candidates.py, app/training/known_types.py, app/web/routers/catalog.py, app/web/templates/catalog.html, catalog_archive_step.html, catalog_candidates.html, app/web/confirm.py (Operation değerleri), app/events.py, tests/catalog/test_archive.py, tests/web/test_catalog_page.py, tests/web/test_candidate_types_page.py, tests/web/test_access_log.py, tests/test_events.py, PLAN.md (11.1.6, 11.5.7 satırları; K11.1, K11.5), HANDOFF.md.\n\nBU GÖREVİ BAĞLAYAN KİLİTLİ KURALLAR: R11 (tür silinmez — `archived_at`), K9 (talimat değişikliği yeniden analizle geçerli), §D58 (katalog işlemleri K16-dışı; yine iki aşamalı, metinler §20.6'ya girmez — `CONFIRMATION_TEXTS`'e EKLENMEZ), K15, CONVENTIONS §6; `tests/web/test_catalog_page.py:530` (DELETE yok, yolda \"delete\" yok).\n\nPRD'DE AYRICA OKU: 11.1.1, 11.1.5 (süzgeç korunur), 11.4.1, 11.4.3, 11.5.4, 11.9.3 (bilinen türler), 14.1.2 (etiket seçici), 00.6.3 (YAML eşitleme).\n\nİLGİLİ KABUL SENARYOLARI: S14 (onaylanan tür talimata girer — arşivlenen çıkar).\n\nKAPSAM SINIRI: arşivli türe bağlı belgeleri taşıma/yeniden sınıflama yok; tür birleştirme yok; toplu düzenleme (ülke/etiket değiştirme) yok.\n\nTUZAKLAR: `CONFIRMATION_TEXTS`'e yeni satır eklersen `test_confirm` §20.6 eşitliği kırılır — metinleri `catalog.py` içinde tut (§D58 emsali). Toplu form 415 satırda büyük — `slugs[]` sınırı 500, belirteç kümeye bağlı (hazırlıktan sonra seçim değişirse 400). `import_catalog` `archived_at` alanını bilmeyen eski YAML'ı da okumalı. `known_types` arşivliyi dışlayınca eğitim yerleştirmesi o türe `unplaced` düşer — HANDOFF'a yaz. Korunan slug listesi kodun içinden derlenir, elle sayma.\n\nKAPANIŞ: PLAN satır(lar)ı ✅ → kanıt maddesi (§K), HANDOFF bloğu, commit mesajında `PRD <kod> — tm <id>`; CONVENTIONS DoD kapısı (ruff, compileall, import app.main, alembic upgrade head temiz SQLite, pytest -m \"not live\", coverage) yeşil.",
         "testStrategy": "1) Servis: arşivle → `list_types` varsayılan dışlar, `include_archived` gösterir, prompt'ta yok, `load_record` var; korunan slug 409; geri al. 2) Web: tekil arşiv iki aşamalı (tek onayla değişmez), toplu pasifleştir tek adım, toplu arşiv belirteçli, süzgeç korunur, `?archived=1`; olaylar dört türde; `_set_active` olay yazıyor. 3) YAML dışa/içe aktarım alanı koruyor. 4) Aday: reddedilen listesi, geri al → pending + olay. 5) `test_catalog_page.py:530` yeşil. 6) DoD kapısı yeşil.",
-        "status": "in-progress",
+        "status": "done",
         "dependencies": [
           "123",
           "79",
@@ -1907,7 +1907,7 @@
         ],
         "priority": "medium",
         "subtasks": [],
-        "updatedAt": "2026-09-29T15:52:33.636Z"
+        "updatedAt": "2026-09-29T18:29:11.020Z"
       },
       {
         "id": "133",
@@ -1956,9 +1956,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-09-29T15:52:33.636Z",
+      "lastModified": "2026-09-29T18:29:11.020Z",
       "taskCount": 133,
-      "completedCount": 126,
+      "completedCount": 127,
       "tags": [
         "master"
       ]
