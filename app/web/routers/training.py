@@ -51,6 +51,15 @@ belgesi oluşturmaz (`app.training`).
   (`app.training.map_scan`); ilerleme sonuç bölümünün yoklamasıyla görünür. Haritanın "İnceleme
   gerekli" öğesi de "Türe yerleştir"i bekler; kopyası olmayan (yerindeki) öğe yerindeki dosyadan
   yerleşir.
+- **Temizlik (11.9.6; PLAN.md §C92-c, §D61-b).** "Türe yerleştir"i bekleyen öğe (`unplaced`,
+  `conflict`, `review`) `POST /training/items/{id}/dismiss` ile isteğe bağlı notla (en çok 200,
+  `<input>`) tek adımda yoksayılır, `…/restore` ile `unplaced`'e döner (`app.training.cleanup`).
+  Öğe tablosu yoksayılanları varsayılan olarak göstermez; `?show=dismissed` yalnız onları gösterir.
+  Çalıştırma `POST /training/runs/{id}/archive` ile arşivlenir, `…/restore` ile geri alınır (ikisi
+  tek adım): arşivli çalıştırma listeden kalkar, öğeleri tablodan ve üst sayaçlardan (dosya sayısı,
+  bekleyen) düşer; `?archived=1` arşivli çalıştırmaları ve öğelerini gösterir. Seçili çalıştırma
+  (`?run=`) arşivli olsa da öğelerini gösterir. Öğeler, örnekler ve `example_files` değişmez;
+  işlemler K16'nın dışındadır (§D58), olaylar kullanıcı adıyla yazılır.
 
 Sekme belge içeriğini değiştirmez (10.9.1, K11, K17): yalnız kopyalar, kaydeder ve gösterir. Ekranda
 kişisel değer yalnız dosya adındadır (CONVENTIONS §6); notlar ve dökümler kişisel değer taşımaz.
@@ -92,7 +101,10 @@ from app.db.session import get_session
 from app.storage import ContentMismatchError, DataLayout
 from app.storage.examples import example_path, list_examples
 from app.training import (
+    DISMISSABLE_STATUSES,
     PENDING_STATUSES,
+    CleanupError,
+    CleanupNoteError,
     ExampleDecisionError,
     ItemNotPlaceableError,
     KnownType,
@@ -101,9 +113,11 @@ from app.training import (
     MapPlan,
     MapPreview,
     UnknownTypeError,
+    archive_run,
     check_move,
     check_remove,
     create_run,
+    dismiss_item,
     item_source_path,
     load_example_inventory,
     load_known_types,
@@ -113,6 +127,8 @@ from app.training import (
     plan_map,
     preview_map,
     remove_example,
+    restore_item,
+    restore_run,
     stage_and_recognize,
     start_map_scan,
     verify_examples,
@@ -141,6 +157,7 @@ ITEMS_PATH = "/training/items"
 KNOWN_PATH = "/training/known"
 EXAMPLES_PATH = "/training/examples"
 MAPS_PATH = "/training/maps"
+RUNS_PATH = "/training/runs"
 RUN_LIMIT = 20
 ITEM_LIMIT = 200
 
@@ -164,6 +181,7 @@ MAP_NOT_CSV = "Harita .csv uzantılı bir CSV dosyası olmalı."
 MAP_DATA_INVALID = "Harita verisi okunamadı; haritayı yeniden yükleyin."
 MAP_EMPTY = "Haritada taranacak dosya yok; tarama başlatılmadı."
 MAP_SAVE_FAILED = "Harita saklanamadı; tarama başlatılmadı."
+RUN_NOT_FOUND = "Eğitim çalıştırması bulunamadı."
 
 # Etiket kararının iki aşamalı onay metinleri (11.9.4) — PLAN.md §D58'den BİREBİR; §20.6'nın
 # dışındadır (K16 dışı, REANALYZE emsali). `tests/web/test_training_decisions.py` §D58 ile
@@ -210,7 +228,12 @@ STATUS_LABELS: dict[str, str] = {
     TrainingItemStatus.UNPLACED: "Yerleştirilemedi",
     TrainingItemStatus.CONFLICT: "Çelişki",
     TrainingItemStatus.REVIEW: "İnceleme gerekli",
+    TrainingItemStatus.DISMISSED: "Yoksayıldı",
 }
+# Çalıştırmanın sonuç sayaçlarında durumun adı (varsayılan: durum etiketinin küçük harfi); 11.9.6
+# yoksayılanları "yoksayılan" diye sayar.
+COUNT_LABELS: dict[str, str] = {TrainingItemStatus.DISMISSED: "yoksayılan"}
+SHOW_DISMISSED = "dismissed"
 METHOD_LABELS: dict[str, str] = {
     TrainingMethod.MECHANICAL: "Mekanik",
     TrainingMethod.AI: "Yapay zekâ",
@@ -266,6 +289,15 @@ NOTICES: dict[str, str] = {
         "Toplu tarama başladı. İşçi haritadaki dosyaları birer birer tarar; ilerleme bu tabloda "
         "güncellenir."
     ),
+    "dismissed": (
+        "Öğe yoksayıldı: listeden kalktı, dosyası yerinde duruyor. Yoksayılanlar görünümünden geri "
+        "alabilirsiniz."
+    ),
+    "restored": 'Öğenin yoksayılması geri alındı; öğe "Yerleştirilemedi" listesinde bekliyor.',
+    "run_archived": (
+        "Çalıştırma arşivlendi: listeden ve sayaçlardan kalktı; öğeleri ve örnekleri değişmedi."
+    ),
+    "run_restored": "Çalıştırma arşivden geri alındı.",
 }
 
 _IMAGE_SUFFIXES = (".jpg", ".jpeg", ".png")
@@ -307,6 +339,7 @@ class RunRow:
     map_name: str | None = None
     total: int = 0
     processed: int = 0  # kararı sistemde beklemeyen (`queued`, `ai_pending` dışı) öğe
+    archived: bool = False
 
     @property
     def running(self) -> bool:
@@ -330,6 +363,8 @@ class ItemRow:
     placeable: bool
     example_id: int | None = None
     removed: bool = False
+    dismissable: bool = False
+    dismissed: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -346,6 +381,11 @@ class ResultsView:
     all_runs_url: str
     current_url: str = TRAINING_PATH
     verifiable: int = 0
+    show: str = ""
+    archived: bool = False
+    dismissed: int = 0  # kapsamdaki yoksayılan öğe (görünüm bağlantısının sayısı)
+    dismissed_url: str = TRAINING_PATH
+    archive_toggle_url: str = TRAINING_PATH
 
 
 @dataclass(frozen=True, slots=True)
@@ -404,14 +444,22 @@ def _type_ref(known: KnownTypes, slug: str | None) -> TypeRef | None:
     return TypeRef(slug, found.name, _known_url(slug))
 
 
-def _results_url(path: str, run_id: int | None, item_filter: str) -> str:
-    query = {key: value for key, value in (("run", run_id), ("filter", item_filter)) if value}
+def _results_url(
+    path: str,
+    run_id: int | None,
+    item_filter: str,
+    *,
+    show: str = "",
+    archived: bool = False,
+) -> str:
+    pairs = (("run", run_id), ("filter", item_filter), ("show", show), ("archived", int(archived)))
+    query = {key: value for key, value in pairs if value}
     return f"{path}?{urlencode(query)}" if query else path
 
 
 def _counts_text(counts: dict[str, int]) -> str:
     parts = [
-        f"{counts[status]} {STATUS_LABELS[status].lower()}"
+        f"{counts[status]} {COUNT_LABELS.get(status, STATUS_LABELS[status].lower())}"
         for status in TrainingItemStatus
         if counts.get(status)
     ]
@@ -464,10 +512,14 @@ def _item_row(item: TrainingItem, known: KnownTypes, example: ExampleFileRecord 
         placeable=item.status in MANUALLY_PLACEABLE,
         example_id=example.id if example is not None else None,
         removed=removed,
+        dismissable=item.status in DISMISSABLE_STATUSES,
+        dismissed=item.status == TrainingItemStatus.DISMISSED,
     )
 
 
-def _run_row(run: TrainingRun, *, run_id: int | None, item_filter: str) -> RunRow:
+def _run_row(
+    run: TrainingRun, *, run_id: int | None, item_filter: str, archived: bool = False
+) -> RunRow:
     counts = run.counts_json or {}
     total = sum(counts.values())
     pending = sum(counts.get(status.value, 0) for status in PENDING_STATUSES)
@@ -479,32 +531,68 @@ def _run_row(run: TrainingRun, *, run_id: int | None, item_filter: str) -> RunRo
         status=run.status,
         status_label=RUN_STATUS_LABELS.get(run.status, run.status),
         counts=_counts_text(counts),
-        url=_results_url(TRAINING_PATH, run.id, item_filter),
+        url=_results_url(TRAINING_PATH, run.id, item_filter, archived=archived),
         selected=run.id == run_id,
         map_name=run.map_name,
         total=total,
         processed=total - pending,
+        archived=run.archived_at is not None,
     )
 
 
+def _count(session: Session, statement: Select) -> int:
+    return session.scalar(select(func.count()).select_from(statement.subquery())) or 0
+
+
 def build_results_view(
-    session: Session, known: KnownTypes, *, run_id: int | None, item_filter: str
+    session: Session,
+    known: KnownTypes,
+    *,
+    run_id: int | None,
+    item_filter: str,
+    show: str = "",
+    archived: bool = False,
 ) -> ResultsView:
-    """Son çalıştırmalar ve (seçili çalıştırmanın ya da hepsinin) öğeleri, en yeni üstte."""
-    runs = session.scalars(select(TrainingRun).order_by(TrainingRun.id.desc()).limit(RUN_LIMIT))
-    run_rows = [_run_row(run, run_id=run_id, item_filter=item_filter) for run in runs]
+    """Son çalıştırmalar ve (seçili çalıştırmanın ya da hepsinin) öğeleri, en yeni üstte.
+
+    11.9.6: çalıştırma listesi ve — çalıştırma seçili değilse — öğe kapsamı arşivli çalıştırmaları
+    dışlar (`archived` yalnız arşivlileri gösterir); seçili çalıştırma arşivli de olsa öğelerini
+    gösterir. Yoksayılan öğe varsayılan olarak gösterilmez, `show="dismissed"` yalnız onları
+    gösterir (süzgeç o görünümde uygulanmaz). Üst sayaçlar (dosya, bekleyen) aynı kapsamdan
+    sayılır."""
+    in_archive = TrainingRun.archived_at.is_not(None)
+    run_scope = select(TrainingRun).where(in_archive if archived else ~in_archive)
+    runs = session.scalars(run_scope.order_by(TrainingRun.id.desc()).limit(RUN_LIMIT))
+    run_rows = [
+        _run_row(run, run_id=run_id, item_filter=item_filter, archived=archived) for run in runs
+    ]
 
     scope = select(TrainingItem)
     if run_id is not None:
         scope = scope.where(TrainingItem.run_id == run_id)
-    filtered = _filtered(scope, item_filter)
-    total = session.scalar(select(func.count()).select_from(filtered.subquery())) or 0
+    else:
+        scope = scope.where(TrainingItem.run_id.in_(run_scope.with_only_columns(TrainingRun.id)))
+    is_dismissed = TrainingItem.status == TrainingItemStatus.DISMISSED.value
+    showing_dismissed = show == SHOW_DISMISSED
+    show = SHOW_DISMISSED if showing_dismissed else ""
+    if showing_dismissed:
+        item_filter = ""
+        filtered = scope.where(is_dismissed)
+    else:
+        filtered = _filtered(scope.where(~is_dismissed), item_filter)
+    total = _count(session, filtered)
     items = list(session.scalars(filtered.order_by(TrainingItem.id.desc()).limit(ITEM_LIMIT)))
     examples = _examples_of(session, (item.id for item in items))
-    pending_scope = scope.where(TrainingItem.status.in_([s.value for s in PENDING_STATUSES]))
-    pending = session.scalar(select(func.count()).select_from(pending_scope.subquery())) or 0
+    pending = _count(
+        session, scope.where(TrainingItem.status.in_([s.value for s in PENDING_STATUSES]))
+    )
+    dismissed = total if showing_dismissed else _count(session, scope.where(is_dismissed))
 
     rows = [_item_row(item, known, examples.get(item.id)) for item in items]
+
+    def url(path: str, run: int | None, key: str, view: str = show) -> str:
+        return _results_url(path, run, key, show=view, archived=archived)
+
     return ResultsView(
         runs=run_rows,
         items=rows,
@@ -512,15 +600,20 @@ def build_results_view(
         run_id=run_id,
         filter=item_filter,
         filters=[
-            (key, label, _results_url(TRAINING_PATH, run_id, key), key == item_filter)
+            (key, label, url(TRAINING_PATH, run_id, key, ""), key == item_filter and not show)
             for key, label in ITEM_FILTERS
         ],
         poll=pending > 0,
-        poll_url=_results_url(ITEMS_PATH, run_id, item_filter),
+        poll_url=url(ITEMS_PATH, run_id, item_filter),
         pending=pending,
-        all_runs_url=_results_url(TRAINING_PATH, None, item_filter),
-        current_url=_results_url(TRAINING_PATH, run_id, item_filter),
+        all_runs_url=url(TRAINING_PATH, None, item_filter),
+        current_url=url(TRAINING_PATH, run_id, item_filter),
         verifiable=sum(1 for row in rows if row.manual_check),
+        show=show,
+        archived=archived,
+        dismissed=dismissed,
+        dismissed_url=url(TRAINING_PATH, run_id, "", SHOW_DISMISSED),
+        archive_toggle_url=_results_url(TRAINING_PATH, None, "", archived=not archived),
     )
 
 
@@ -536,9 +629,13 @@ def _training_page(
     errors: list[str] | None = None,
     notice: str | None = None,
     hint_slug: str | None = None,
+    show: str = "",
+    archived: bool = False,
 ) -> HTMLResponse:
     known = load_known_types(session)
-    results = build_results_view(session, known, run_id=run_id, item_filter=item_filter)
+    results = build_results_view(
+        session, known, run_id=run_id, item_filter=item_filter, show=show, archived=archived
+    )
     # SQLite'ta okuma da yazma kilidini tutar (`app.db.session`): çizmeden önce bırakılır.
     session.rollback()
     entry = MENU_BY_KEY["training"]
@@ -574,6 +671,14 @@ def _filter_param(value: str | None) -> str:
     return value if value in FILTER_KEYS else ""
 
 
+def _show_param(value: str | None) -> str:
+    return SHOW_DISMISSED if value == SHOW_DISMISSED else ""
+
+
+def _archived_param(value: str | None) -> bool:
+    return value == "1"
+
+
 # --- yükleme ve sonuçlar ----------------------------------------------------------------------
 
 
@@ -586,6 +691,8 @@ def training_page(
     run: str | None = None,
     filter: str | None = None,
     notice: str | None = None,
+    show: str | None = None,
+    archived: str | None = None,
 ) -> HTMLResponse:
     return _training_page(
         request,
@@ -595,6 +702,8 @@ def training_page(
         item_filter=_filter_param(filter),
         provider_problem=provider_problem,
         notice=notice,
+        show=_show_param(show),
+        archived=_archived_param(archived),
     )
 
 
@@ -604,11 +713,20 @@ def training_items(
     session: DbSession,
     run: str | None = None,
     filter: str | None = None,
+    show: str | None = None,
+    archived: str | None = None,
 ) -> HTMLResponse:
-    """Sonuç bölümü (HTMX yoklamasının hedefi): kararı sistemde bekleyen öğe varken yenilenir."""
+    """Sonuç bölümü (HTMX yoklamasının hedefi): kararı sistemde bekleyen öğe varken yenilenir.
+    Yoksayılan öğe varsayılan olarak gösterilmez (`?show=dismissed` yalnız onları gösterir), arşivli
+    çalıştırmalar `?archived=1` ile görünür (11.9.6)."""
     known = load_known_types(session)
     results = build_results_view(
-        session, known, run_id=_run_param(run), item_filter=_filter_param(filter)
+        session,
+        known,
+        run_id=_run_param(run),
+        item_filter=_filter_param(filter),
+        show=_show_param(show),
+        archived=_archived_param(archived),
     )
     session.rollback()
     return render_page(
@@ -755,6 +873,164 @@ def place_item(
     session.commit()
     query = urlencode({"run": run_id, "notice": placement.status.value})
     return RedirectResponse(f"{TRAINING_PATH}?{query}#item-{item_id}", status.HTTP_303_SEE_OTHER)
+
+
+# --- temizlik: öğeyi yoksay, çalıştırmayı arşivle (11.9.6) --------------------------------------
+
+
+def _cleanup_refused(
+    request: Request,
+    user: PanelUser,
+    session: Session,
+    provider_problem: str | None,
+    *,
+    status_code: int,
+    message: str,
+    run_id: int | None = None,
+    show: str = "",
+    archived: bool = False,
+) -> HTMLResponse:
+    """Temizlik reddi → sekme hata kutusuyla; hiçbir şey yazılmadı."""
+    session.rollback()
+    return _training_page(
+        request,
+        user,
+        session,
+        run_id=run_id,
+        item_filter="",
+        provider_problem=provider_problem,
+        status_code=status_code,
+        errors=[message],
+        show=show,
+        archived=archived,
+    )
+
+
+def _item_or_404(session: Session, item_id: int) -> TrainingItem:
+    item = session.get(TrainingItem, item_id)
+    if item is None:
+        session.rollback()
+        raise HTTPException(status.HTTP_404_NOT_FOUND, ITEM_NOT_FOUND)
+    return item
+
+
+@router.post(f"{ITEMS_PATH}/{{item_id}}/dismiss", response_class=HTMLResponse)
+def dismiss_training_item(
+    item_id: int,
+    request: Request,
+    user: CurrentUser,
+    session: DbSession,
+    provider_problem: ProviderProblem,
+    note: Annotated[str, Form()] = "",
+    next: Annotated[str | None, Form()] = None,
+) -> Response:
+    """11.9.6 "Yoksay" — `unplaced`, `conflict` ya da `review` öğe tek adımda `dismissed` olur
+    (§D61-b); not (isteğe bağlı, en çok 200) öğenin notuna eklenir, `TRAINING_ITEM_DISMISSED`
+    kullanıcı adıyla. Dosya yerinde kalır. Başka durumdaki öğe 409, uzun not 422."""
+    item = _item_or_404(session, item_id)
+    try:
+        dismiss_item(session, item, actor=user.username, note=note)
+    except (CleanupError, CleanupNoteError) as exc:
+        code = (
+            status.HTTP_422_UNPROCESSABLE_CONTENT
+            if isinstance(exc, CleanupNoteError)
+            else status.HTTP_409_CONFLICT
+        )
+        return _cleanup_refused(
+            request, user, session, provider_problem, status_code=code, message=str(exc)
+        )
+    session.commit()
+    return RedirectResponse(_with_notice(_safe_next(next), "dismissed"), status.HTTP_303_SEE_OTHER)
+
+
+@router.post(f"{ITEMS_PATH}/{{item_id}}/restore", response_class=HTMLResponse)
+def restore_training_item(
+    item_id: int,
+    request: Request,
+    user: CurrentUser,
+    session: DbSession,
+    provider_problem: ProviderProblem,
+    next: Annotated[str | None, Form()] = None,
+) -> Response:
+    """11.9.6 — yoksaymayı geri alır: `dismissed` öğe `unplaced` olur ("Türe yerleştir"i yeniden
+    bekler), `TRAINING_ITEM_RESTORED` kullanıcı adıyla. Yoksayılmamış öğe 409."""
+    item = _item_or_404(session, item_id)
+    try:
+        restore_item(session, item, actor=user.username)
+    except CleanupError as exc:
+        return _cleanup_refused(
+            request,
+            user,
+            session,
+            provider_problem,
+            status_code=status.HTTP_409_CONFLICT,
+            message=str(exc),
+            show=SHOW_DISMISSED,
+        )
+    session.commit()
+    return RedirectResponse(_with_notice(_safe_next(next), "restored"), status.HTTP_303_SEE_OTHER)
+
+
+def _run_action(
+    run_id: int,
+    request: Request,
+    user: PanelUser,
+    session: Session,
+    provider_problem: str | None,
+    *,
+    archive: bool,
+) -> Response:
+    run = session.get(TrainingRun, run_id)
+    if run is None:
+        session.rollback()
+        raise HTTPException(status.HTTP_404_NOT_FOUND, RUN_NOT_FOUND)
+    try:
+        if archive:
+            archive_run(session, run, actor=user.username)
+        else:
+            restore_run(session, run, actor=user.username)
+    except CleanupError as exc:
+        return _cleanup_refused(
+            request,
+            user,
+            session,
+            provider_problem,
+            status_code=status.HTTP_409_CONFLICT,
+            message=str(exc),
+            archived=not archive,
+        )
+    session.commit()
+    # Arşivlenen çalıştırma varsayılan listeden kalkar: dönüş arşivsiz liste; geri alınan
+    # çalıştırma yeniden listededir.
+    notice = "run_archived" if archive else "run_restored"
+    return RedirectResponse(f"{TRAINING_PATH}?notice={notice}", status.HTTP_303_SEE_OTHER)
+
+
+@router.post(f"{RUNS_PATH}/{{run_id}}/archive", response_class=HTMLResponse)
+def archive_training_run(
+    run_id: int,
+    request: Request,
+    user: CurrentUser,
+    session: DbSession,
+    provider_problem: ProviderProblem,
+) -> Response:
+    """11.9.6 — çalıştırmayı tek adımda arşivler (`archived_at`): listeden ve üst sayaçlardan
+    kalkar, öğeleri ve örnekleri değişmez; `TRAINING_RUN_ARCHIVED` kullanıcı adıyla. Zaten arşivli
+    çalıştırma 409."""
+    return _run_action(run_id, request, user, session, provider_problem, archive=True)
+
+
+@router.post(f"{RUNS_PATH}/{{run_id}}/restore", response_class=HTMLResponse)
+def restore_training_run(
+    run_id: int,
+    request: Request,
+    user: CurrentUser,
+    session: DbSession,
+    provider_problem: ProviderProblem,
+) -> Response:
+    """11.9.6 — arşivli çalıştırmayı tek adımda geri alır; `TRAINING_RUN_ARCHIVED`
+    (`restored: true`). Arşivde olmayan çalıştırma 409."""
+    return _run_action(run_id, request, user, session, provider_problem, archive=False)
 
 
 # --- bilinen belgeler -------------------------------------------------------------------------

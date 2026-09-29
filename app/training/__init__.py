@@ -9,9 +9,25 @@ kararı" etiketiyle yerleşmesi (11.9.3) `app.training.classification`'dadır; i
 kararı (doğrula, başka türe taşı, örneklerden çıkar; 11.9.4) `decisions` modülündedir. Harita yükle
 (11.9.5): haritanın okunması, yollarının çözümü, önizlemesi ve taramanın başlatılması
 `map_import`'ta; işçinin parça parça yürüttüğü mekanik tarama `app.training.map_scan`'dadır
-(boş-zaman çerçevesine bağlı, paketten dışa aktarılmaz).
+(boş-zaman çerçevesine bağlı, paketten dışa aktarılmaz). Eğitim temizliği (11.9.6: öğeyi yoksay ve
+geri al, çalıştırmayı arşivle, tür sayfasından yüklenen ve kayıtsız örneklerin kaydı) `cleanup`
+modülündedir.
 """
 
+from app.training.cleanup import (
+    DISMISSABLE_STATUSES,
+    CleanupError,
+    CleanupNoteError,
+    RegisterResult,
+    archive_run,
+    dismiss_item,
+    listed_hashes,
+    record_uploaded_example,
+    register_examples,
+    restore_item,
+    restore_run,
+    same_type_example,
+)
 from app.training.decisions import (
     ExampleDecisionError,
     MovedExample,
@@ -92,6 +108,7 @@ from app.training.placement import (
 
 __all__ = [
     "CATALOG_KINDS",
+    "DISMISSABLE_STATUSES",
     "LABEL_BY_METHOD",
     "MRZ_DOC_KINDS",
     "MRZ_STATE_CODES",
@@ -99,6 +116,8 @@ __all__ = [
     "PLACEABLE_STATUSES",
     "SYSTEM_ACTOR",
     "UNPLACED_STATUSES",
+    "CleanupError",
+    "CleanupNoteError",
     "ExampleDecisionError",
     "ExampleInventory",
     "ItemNotPlaceableError",
@@ -120,21 +139,25 @@ __all__ = [
     "Placement",
     "Recognition",
     "RecognitionBasis",
+    "RegisterResult",
     "SkipReason",
     "SkippedRow",
     "SuggestedTypeRow",
     "SuggestedTypesError",
     "UnknownTypeError",
+    "archive_run",
     "build_known_types",
     "check_content",
     "check_move",
     "check_remove",
     "create_run",
+    "dismiss_item",
     "fail_item",
     "find_mrz_readings",
     "hint_label",
     "item_source_path",
     "leave_unplaced",
+    "listed_hashes",
     "load_example_inventory",
     "load_known_types",
     "load_suggested_types",
@@ -151,8 +174,13 @@ __all__ = [
     "read_mrz_evidence",
     "recognize",
     "recognize_item",
+    "record_uploaded_example",
     "refresh_run",
+    "register_examples",
     "remove_example",
+    "restore_item",
+    "restore_run",
+    "same_type_example",
     "stage_and_recognize",
     "stage_file",
     "start_map_scan",

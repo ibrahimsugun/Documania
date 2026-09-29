@@ -1,12 +1,14 @@
 {# Eğitim modu sonuçları (11.9.1): son çalıştırmalar ve öğe tablosu. Kararı sistemde bekleyen öğe
    varken bölüm kendini yeniler (HTMX, `/training/items`). Ekranda kişisel değer yalnız dosya
-   adındadır; notlar kişisel değer taşımaz. #}
+   adındadır; notlar kişisel değer taşımaz. Temizlik (11.9.6): çalıştırma tek adımda arşivlenir ve
+   geri alınır; "Türe yerleştir"i bekleyen öğe notla tek adımda yoksayılır, "Yoksayılanlar"
+   görünümünden geri alınır. Hiçbiri dosya silmez. #}
 <section id="training-results" class="training-results" aria-live="polite"{% if results.poll %} hx-get="{{ results.poll_url }}" hx-trigger="every 3s" hx-swap="outerHTML"{% endif %}>
-  <h2>Çalıştırmalar</h2>
+  <h2>{% if results.archived %}Arşivlenen çalıştırmalar{% else %}Çalıştırmalar{% endif %} <span class="count">· <a href="{{ results.archive_toggle_url }}">{% if results.archived %}arşivde olmayanlar{% else %}arşivlenenler{% endif %}</a></span></h2>
   {% if results.runs %}
   <table class="items training-runs">
     <thead>
-      <tr><th>No</th><th>Tür</th><th>Tarih</th><th>Yükleyen</th><th>Durum</th><th>Sonuçlar</th></tr>
+      <tr><th>No</th><th>Tür</th><th>Tarih</th><th>Yükleyen</th><th>Durum</th><th>Sonuçlar</th><th>Arşiv</th></tr>
     </thead>
     <tbody>
       {% for run in results.runs %}
@@ -20,12 +22,24 @@
           {% if run.running and run.total %}<span class="run-progress"><progress max="{{ run.total }}" value="{{ run.processed }}"></progress> {{ run.processed }}/{{ run.total }} işlendi</span><br>{% endif %}
           {{ run.counts }}
         </td>
+        <td>
+          {% if run.archived %}
+          <form class="inline-form" method="post" action="/training/runs/{{ run.id }}/restore">
+            <button type="submit">Geri al</button>
+          </form>
+          {% else %}
+          <form class="inline-form" method="post" action="/training/runs/{{ run.id }}/archive">
+            <button type="submit">Arşivle</button>
+          </form>
+          {% endif %}
+        </td>
       </tr>
       {% endfor %}
     </tbody>
   </table>
+  {% if not results.archived %}<p class="hint">Arşivlenen çalıştırma listeden ve sayaçlardan kalkar; öğeleri ve örnekleri değişmez, "arşivlenenler" görünümünden geri alınır.</p>{% endif %}
   {% else %}
-  <p class="placeholder">Henüz eğitim yüklemesi yok.</p>
+  <p class="placeholder">{% if results.archived %}Arşivlenen çalıştırma yok.{% else %}Henüz eğitim yüklemesi yok.{% endif %}</p>
   {% endif %}
 
   <h2>Dosyalar{% if results.run_id %} <span class="count">· çalıştırma #{{ results.run_id }} · <a href="{{ results.all_runs_url }}">bütün çalıştırmalar</a></span>{% endif %}</h2>
@@ -33,6 +47,7 @@
     {% for key, label, url, selected in results.filters %}
     <a href="{{ url }}"{% if selected %} class="active" aria-current="page"{% endif %}>{{ label }}</a>
     {% endfor %}
+    <a href="{{ results.dismissed_url }}"{% if results.show %} class="active" aria-current="page"{% endif %}>Yoksayılanlar ({{ results.dismissed }})</a>
   </nav>
   {% if results.pending %}
   <p class="notice" role="status">{{ results.pending }} dosya sistemin kararını bekliyor; bu bölüm kendiliğinden yenilenir.</p>
@@ -79,12 +94,26 @@
             <button type="submit">Türe yerleştir</button>
           </form>
           {% endif %}
+          {% if item.dismissable %}
+          <form class="dismiss-form" method="post" action="/training/items/{{ item.id }}/dismiss">
+            <input type="hidden" name="next" value="{{ results.current_url }}">
+            <label class="hint" for="dismiss-{{ item.id }}">Not</label>
+            <input id="dismiss-{{ item.id }}" name="note" maxlength="200" placeholder="isteğe bağlı" autocomplete="off">
+            <button type="submit">Yoksay</button>
+          </form>
+          {% endif %}
+          {% if item.dismissed %}
+          <form class="inline-form" method="post" action="/training/items/{{ item.id }}/restore">
+            <input type="hidden" name="next" value="{{ results.current_url }}">
+            <button type="submit">Geri al</button>
+          </form>
+          {% endif %}
         </td>
       </tr>
       {% endfor %}
     </tbody>
   </table>
   {% else %}
-  <p class="placeholder">{% if results.filter %}Bu süzgece uyan dosya yok.{% else %}Gösterilecek dosya yok.{% endif %}</p>
+  <p class="placeholder">{% if results.show %}Yoksayılan dosya yok.{% elif results.filter %}Bu süzgece uyan dosya yok.{% else %}Gösterilecek dosya yok.{% endif %}</p>
   {% endif %}
 </section>

@@ -41,12 +41,18 @@
 **Örnek belgeler (11.2.1).** Türün düzenleme sayfasında (`GET /document-types/{slug}`) o türün
 örnekleri listelenir ve `POST /document-types/{slug}/examples` ile (çok dosyalı `files`) yenisi
 yüklenir; örnek `GET /document-types/{slug}/examples/{ad}` ile açılır. Örnekler
-`data/KnownDocuments/examples/<slug>/` altında yalnız dosya olarak durur (`app.storage.examples`):
+`data/KnownDocuments/examples/<slug>/` altında dosya olarak durur (`app.storage.examples`):
 çalışan verisinden ayrıdır — yükleme, belge, olay kaydı açılmaz, `Inbox/` ve `Employees/`'a girmez —
 bu yüzden çalışan/belge aramasında görünmez ve gerçek bir yüklemeyi "tekrar" saymaz. Yükleme
 hep-ya-hiçtir: bir dosya reddedilirse (tür PDF/JPEG/PNG dışı, bozuk, boş, boyut sınırını aşan)
-hiçbiri yazılmaz ve hata dosya başına bildirilir; aynı içerik ikinci kez yazılmaz. Silme ve
-düzenleme yolu yok.
+hiçbiri yazılmaz ve hata dosya başına bildirilir (422). Aynı içerik bu türde zaten örnekse (etkin
+kaydı ya da klasördeki dosyası) ya da aynı yüklemede iki kez geliyorsa yine hiçbiri yazılmaz (409,
+11.9.2). Yazılan her örnek `example_files` kaydı alır (11.9.6: yöntem elle, etiket doğrulanmış,
+öğesiz, not "tür sayfasından yüklendi"); olay yazılmaz (§D58 e, `app.training.cleanup`). Örnek
+listesinde kaydı olan örnek eğitim sekmesinin 11.9.4 akışına bağlanır ("Başka türe taşı",
+"Örneklerden çıkar": `/training/examples/{id}/move|remove/confirm`, iki aşamalı); kaydı olmayan
+eski dosya "kayıtsız" notuyla durur (`python -m app.catalog register-examples` kaydeder). Örnekten
+çıkarılmış kaydın adı dosya uç noktasında 404'tür. Silme ve düzenleme yolu yok.
 
 **Tür açıklaması (11.3.1).** Düzenleme sayfasındaki formun "Örneklerden açıklama üret" düğmesi formu
 `POST /document-types/{slug}/description`'a gönderir: türün örnek sayfaları (en çok
@@ -123,12 +129,14 @@ import json
 import re
 from collections import Counter
 from dataclasses import dataclass, replace
+from pathlib import PurePosixPath
 from typing import Annotated, Any
 from urllib.parse import quote, urlencode
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request, status
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse, Response
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from starlette.datastructures import UploadFile as StarletteUploadFile
 
@@ -233,7 +241,7 @@ from app.pipeline.orchestrate import (
     current_plan,
     reanalyze_upload,
 )
-from app.storage import DataLayout
+from app.storage import DataLayout, sha256_bytes
 from app.storage.examples import (
     ExampleRejectedError,
     StoredExample,
@@ -242,6 +250,7 @@ from app.storage.examples import (
     list_examples,
     store_example,
 )
+from app.training.cleanup import listed_hashes, record_uploaded_example, same_type_example
 from app.training.known_types import KnownTypes, load_known_types
 from app.web.auth import PanelUser, require_panel_user
 from app.web.confirm import (
@@ -489,6 +498,12 @@ NO_PHOTO_RULES = "Bu türün fotoğraf kuralı yok"
 
 EXAMPLE_NOT_FOUND = "Örnek belge bulunamadı"
 NO_EXAMPLE_FILE = "Dosya seçilmedi."
+EXAMPLE_DUPLICATE = "'{file}' bu türde zaten örnek (aynı içerik: {existing}); yüklenmedi."
+EXAMPLE_REPEATED = "'{file}' aynı yüklemede '{first}' ile aynı içerikte; yüklenmedi."
+EXAMPLE_RECORD_CLASH = (
+    "Örnek dosyası yazıldı ama kaydı tutulamadı: bu adla etkin bir örnek kaydı var. "
+    "python -m app.catalog register-examples ile kaydedin."
+)
 
 # --- 11.3: tür açıklaması -----------------------------------------------------------------------
 
@@ -663,20 +678,30 @@ def _size_label(size: int) -> str:
     return f"{max(1, round(size / 1024))} KB"
 
 
-def _example_labels(session: Session, slug: str) -> dict[str, str]:
-    """Türün etkin örnek kayıtlarının etiketleri (ad → etiket; eğitim modu, 11.9). Okuma SQLite'ta
-    yazma kilidini tutar: işlem hemen bırakılır (çağıranın bekleyen yazması olmamalı)."""
+def _example_records(session: Session, slug: str) -> dict[str, ExampleFileRecord]:
+    """Türün etkin örnek kayıtları (ad → kayıt; 11.9, 11.9.6). Okuma SQLite'ta yazma kilidini
+    tutar: işlem hemen bırakılır (çağıranın bekleyen yazması olmamalı)."""
     try:
-        rows = session.execute(
-            select(ExampleFileRecord.name, ExampleFileRecord.label).where(
-                ExampleFileRecord.type_slug == slug,
-                ExampleFileRecord.label.is_not(None),
-                ExampleFileRecord.removed_at.is_(None),
+        records = session.scalars(
+            select(ExampleFileRecord).where(
+                ExampleFileRecord.type_slug == slug, ExampleFileRecord.removed_at.is_(None)
             )
-        ).tuples()
-        return {name: label for name, label in rows if label is not None}
+        )
+        return {record.name: record for record in records}
     finally:
         session.rollback()
+
+
+def _move_targets(session: Session, slug: str) -> list[tuple[str, str]]:
+    """ "Başka türe taşı"nın seçenekleri: bilinen türler (katalog ∪ önerilen, 11.9) bu tür hariç;
+    kayıtlı katalog okunamazsa boş (form yine gönderilir, hedef onay adımında denetlenir)."""
+    try:
+        known = _known_types(session)
+    finally:
+        session.rollback()
+    if known is None:
+        return []
+    return [(item.slug, item.name) for item in known if item.slug != slug]
 
 
 def _examples_context(
@@ -688,24 +713,32 @@ def _examples_context(
     errors: list[str] | None = None,
 ) -> dict[str, Any]:
     """Düzenleme sayfasındaki örnek belge bölümünün bağlamı: türün örnekleri (dosya sistemi), bu
-    yüklemenin sonucu ve hataları. Eğitim modunun kaydı olan örnek etiketini taşır; "AI kararı"
-    etiketli örnek elle kontrol ikonuyla görünür (11.9.4) ve eğitim sekmesindeki tür sayfasına
-    bağlanır (doğrula, taşı, çıkar orada)."""
-    labels = _example_labels(session, slug)
-    return {
-        "examples": [
+    yüklemenin sonucu ve hataları. Kaydı olan örnek (`example_files`) etiketini taşır; "AI kararı"
+    etiketli örnek elle kontrol ikonuyla görünür ve eğitim sekmesindeki tür sayfasına bağlanır
+    (doğrula orada, 11.9.4). Kaydı olan her örnek kaydın kimliğiyle (`record_id`) "Başka türe taşı"
+    ve "Örneklerden çıkar" akışına bağlanır (11.9.6); kaydı olmayan dosyada `record_id` boştur."""
+    records = _example_records(session, slug)
+    examples = []
+    for item in list_examples(layout, slug):
+        record = records.get(item.name)
+        label = record.label if record is not None else None
+        examples.append(
             {
                 "name": item.name,
                 "size_label": _size_label(item.size),
-                "label_text": LABEL_TEXTS.get(labels.get(item.name, "")),
-                "manual_check": labels.get(item.name) == ExampleLabel.AI_DECISION,
+                "label_text": LABEL_TEXTS.get(label or ""),
+                "manual_check": label == ExampleLabel.AI_DECISION,
+                "record_id": record.id if record is not None else None,
             }
-            for item in list_examples(layout, slug)
-        ],
+        )
+    registered = any(example["record_id"] is not None for example in examples)
+    return {
+        "examples": examples,
         "example_stored": stored or [],
         "example_errors": errors or [],
         "manual_check_text": MANUAL_CHECK_TEXT,
         "training_type_url": f"/training/known/{quote(slug)}",
+        "move_targets": _move_targets(session, slug) if registered else [],
     }
 
 
@@ -1465,8 +1498,9 @@ async def upload_examples(
     settings: AppSettings,
 ) -> HTMLResponse:
     """11.2.1 — türe bir ya da birkaç örnek belge yükler. Dosyalar diske yazılmadan önce hep
-    birlikte denetlenir: biri reddedilirse hiçbiri yazılmaz (422). Veritabanına hiçbir şey
-    yazılmaz; örnek çalışan verisi değildir."""
+    birlikte denetlenir: biri reddedilirse (422) ya da içeriği bu türde zaten örnekse ya da aynı
+    yüklemede tekrar ediyorsa (409, 11.9.2) hiçbiri yazılmaz. Yazılan her örnek `example_files`
+    kaydı alır (`manual`, `verified`; 11.9.6); olay yazılmaz, çalışan verisine dokunulmaz."""
     record = _known_type(session, slug)
     # Form elle okunur: tarayıcı dosya seçilmemişken adı boş tek bir parça gönderir (bkz.
     # `submit_upload`). Her dosya sınırın bir baytı ötesine kadar okunur: devasa dosya belleğe
@@ -1488,6 +1522,10 @@ async def upload_examples(
             errors.append(str(exc))
     if not chosen:
         errors.append(NO_EXAMPLE_FILE)
+    status_code = status.HTTP_422_UNPROCESSABLE_CONTENT if chosen else status.HTTP_400_BAD_REQUEST
+    if not errors:
+        errors = _duplicate_examples(session, layout, slug, checked)
+        status_code = status.HTTP_409_CONFLICT
     if errors:
         return _form_page(
             request,
@@ -1495,13 +1533,28 @@ async def upload_examples(
             TypeForm.from_record(record),
             slug=slug,
             current_problems=record_problems(record),
-            status_code=(
-                status.HTTP_422_UNPROCESSABLE_CONTENT if chosen else status.HTTP_400_BAD_REQUEST
-            ),
+            status_code=status_code,
             examples=_examples_context(session, layout, slug, errors=errors),
             photo=_photo_context(session, slug, record["photo_rules"]),
         )
     stored = [store_example(layout, slug, name, content, kind) for name, content, kind in checked]
+    try:
+        for example in stored:
+            if not example.duplicate:  # ön denetimden sonra başka bir yükleme yazdıysa
+                record_uploaded_example(session, slug, example)
+        session.commit()
+    except IntegrityError:
+        session.rollback()
+        return _form_page(
+            request,
+            user,
+            TypeForm.from_record(record),
+            slug=slug,
+            current_problems=record_problems(record),
+            status_code=status.HTTP_409_CONFLICT,
+            examples=_examples_context(session, layout, slug, errors=[EXAMPLE_RECORD_CLASH]),
+            photo=_photo_context(session, slug, record["photo_rules"]),
+        )
     return _form_page(
         request,
         user,
@@ -1513,13 +1566,51 @@ async def upload_examples(
     )
 
 
+def _duplicate_examples(
+    session: Session, layout: DataLayout, slug: str, checked: list[tuple[str, bytes, Any]]
+) -> list[str]:
+    """Aynı içerik bu türde zaten örnekse (etkin kaydı ya da klasördeki kayıtsız dosyası) ya da
+    aynı yüklemede tekrar ediyorsa dosya başına ret metni (11.9.2); hiçbir şey yazmaz."""
+    listed = listed_hashes(layout, slug)
+    seen: dict[str, str] = {}
+    problems: list[str] = []
+    try:
+        for name, content, _kind in checked:
+            label = PurePosixPath(name.replace("\\", "/")).name
+            sha256 = sha256_bytes(content)
+            existing = same_type_example(session, slug, sha256, listed)
+            if existing is not None:
+                problems.append(EXAMPLE_DUPLICATE.format(file=label, existing=existing))
+            elif sha256 in seen:
+                problems.append(EXAMPLE_REPEATED.format(file=label, first=seen[sha256]))
+            seen.setdefault(sha256, label)
+    finally:
+        session.rollback()
+    return problems
+
+
+def _removed_only(session: Session, slug: str, name: str) -> bool:
+    """Bu adın kaydı var ve hepsi örneklerden çıkarılmış mı (11.9.4 → 11.9.6: dosya uç noktası
+    404). Kaydı olmayan (kayıtsız eski) dosya çıkarılmış sayılmaz."""
+    try:
+        removed = session.execute(
+            select(ExampleFileRecord.removed_at).where(
+                ExampleFileRecord.type_slug == slug, ExampleFileRecord.name == name
+            )
+        ).scalars()
+        states = [value is not None for value in removed]
+    finally:
+        session.rollback()
+    return bool(states) and all(states)
+
+
 @router.get(f"{LIST_PATH}/{{slug}}/examples/{{name}}")
 def example_file(slug: str, name: str, session: DbSession, layout: Layout) -> FileResponse:
     """Türün örnek dosyası (yüklendiği baytlar). Tür katalogda ya da dosya türün örnek dizininde
-    yoksa 404."""
+    yoksa ya da adın kaydı örneklerden çıkarılmışsa (11.9.6) 404."""
     _known_type(session, slug)
     path = example_path(layout, slug, name)
-    if path is None:
+    if path is None or _removed_only(session, slug, name):
         raise HTTPException(status.HTTP_404_NOT_FOUND, EXAMPLE_NOT_FOUND)
     return FileResponse(path, headers={"X-Content-Type-Options": "nosniff"})
 

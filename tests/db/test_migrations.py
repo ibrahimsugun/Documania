@@ -34,7 +34,7 @@ def _assert_schema_matches_models(database_url: str) -> None:
             assert tables == set(Base.metadata.tables) | {"alembic_version"}
             context = MigrationContext.configure(connection, opts={"compare_type": True})
             assert compare_metadata(context, Base.metadata) == []
-            assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "0020"
+            assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "0021"
     finally:
         engine.dispose()
 
@@ -1154,6 +1154,59 @@ def test_document_type_archive_migration_adds_nullable_columns_and_is_reversible
             assert connection.execute(text("SELECT slug FROM known_document_types")).all() == [
                 ("passport",)
             ]
+    finally:
+        engine.dispose()
+
+
+def test_training_cleanup_migration_accepts_dismissed_and_archives_runs_reversibly(
+    sqlite_url: str,
+) -> None:
+    # 0021 (11.9.6): `training_items.status` CHECK'i `dismissed`'i kabul eder, var olan öğeler
+    # değişmez; `training_runs.archived_at` boş olabilir, var olan çalıştırmalar arşivsiz kalır.
+    # Geri alış yoksayılmış öğeyi `unplaced`'e döndürür (eski CHECK'e sığmaz) ve sütunu düşürür.
+    config = _alembic_config(sqlite_url)
+    command.upgrade(config, "0020")
+    engine = create_engine(sqlite_url)
+    insert_item = text(
+        "INSERT INTO training_items (run_id, original_name, status) VALUES (1, :name, :status)"
+    )
+    try:
+        with engine.begin() as connection:
+            connection.execute(
+                text(
+                    "INSERT INTO training_runs (id, kind, created_by, created_at, status, "
+                    "counts_json) VALUES (1, 'upload', 'ik', '2026-09-29 00:00:00', 'done', '{}')"
+                )
+            )
+            connection.execute(insert_item, {"name": "a.pdf", "status": "unplaced"})
+            with pytest.raises(IntegrityError), connection.begin_nested():
+                connection.execute(insert_item, {"name": "b.pdf", "status": "dismissed"})
+
+        command.upgrade(config, "head")
+        with engine.connect() as connection:
+            columns = {c["name"]: c for c in inspect(connection).get_columns("training_runs")}
+            assert columns["archived_at"]["nullable"]
+            assert connection.execute(text("SELECT id, archived_at FROM training_runs")).all() == [
+                (1, None)
+            ]
+            assert connection.execute(
+                text("SELECT original_name, status FROM training_items")
+            ).all() == [("a.pdf", "unplaced")]
+        with engine.begin() as connection:
+            connection.execute(insert_item, {"name": "b.pdf", "status": "dismissed"})
+            connection.execute(text("UPDATE training_runs SET archived_at = '2026-09-29 00:00:00'"))
+        with pytest.raises(IntegrityError), engine.begin() as connection:
+            connection.execute(insert_item, {"name": "c.pdf", "status": "silindi"})
+
+        command.downgrade(config, "0020")
+        with engine.connect() as connection:
+            columns = {c["name"] for c in inspect(connection).get_columns("training_runs")}
+            assert "archived_at" not in columns
+            assert connection.execute(
+                text("SELECT original_name, status FROM training_items ORDER BY id")
+            ).all() == [("a.pdf", "unplaced"), ("b.pdf", "unplaced")]
+        with pytest.raises(IntegrityError), engine.begin() as connection:
+            connection.execute(insert_item, {"name": "d.pdf", "status": "dismissed"})
     finally:
         engine.dispose()
 

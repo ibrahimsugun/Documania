@@ -389,7 +389,7 @@ REVIEWED_MUTATING_ROUTES: dict[tuple[str, str], str] = {
     (
         "POST",
         "/document-types/{slug}/examples",
-    ): "örnek belge yükleme, çalışan verisi değil (11.2.1)",
+    ): "örnek belge yükleme ve example_files kaydı, çalışan verisi değil (11.2.1, 11.9.6)",
     ("POST", "/document-types/{slug}/description"): "tür açıklaması önerisi, kaydetmez (11.3.1)",
     ("POST", "/document-types/{slug}/photo-rules"): "katalog kaydı: fotoğraf kural seti (11.6.1)",
     ("POST", "/document-types/criteria/add"): "kabul kriteri listesi, kaydetmez (11.1.3)",
@@ -462,6 +462,20 @@ REVIEWED_MUTATING_ROUTES: dict[tuple[str, str], str] = {
     ("POST", "/training/items/{item_id}/place"): (
         "eğitim öğesini türe yerleştirme: örneğe kopya ve kayıt (11.9.1, K11)"
     ),
+    ("POST", "/training/items/{item_id}/dismiss"): (
+        "eğitim öğesini yoksayma: durum ve not, dosya yerinde kalır (11.9.6, R11)"
+    ),
+    (
+        "POST",
+        "/training/items/{item_id}/restore",
+    ): "eğitim öğesinin yoksaymasını geri alma (11.9.6)",
+    ("POST", "/training/runs/{run_id}/archive"): (
+        "eğitim çalıştırmasını arşivleme: öğeler ve örnekler değişmez (11.9.6, R11)"
+    ),
+    (
+        "POST",
+        "/training/runs/{run_id}/restore",
+    ): "eğitim çalıştırmasını arşivden geri alma (11.9.6)",
     ("POST", "/training/examples/verify"): "etiket kararı: AI kararı → doğrulandı (11.9.4)",
     ("POST", "/training/examples/{example_id}/move/confirm"): "birinci onay metni (11.9.4)",
     ("POST", "/training/examples/{example_id}/move/prepare"): "onay belirteci",

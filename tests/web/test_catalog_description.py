@@ -348,17 +348,16 @@ def test_page_limit_is_reported(app: FastAPI, client: TestClient) -> None:
 
 
 def _label(session_factory: sessionmaker[Session], name: str, label: ExampleLabel) -> None:
-    """Örneğe eğitim modunun kaydını ve etiketini verir (11.9)."""
+    """Örneğe eğitim modunun etiketini verir (11.9). Tür sayfasından yüklenen örneğin kaydı
+    yüklemede açılır (11.9.6: `manual`, `verified`); etiket o kayda yazılır."""
     with session_factory() as session:
-        session.add(
-            ExampleFileRecord(
-                type_slug=SLUG,
-                name=name,
-                sha256="0" * 63 + str(len(name) % 10),
-                method="ai",
-                label=label.value,
+        record = session.scalars(
+            select(ExampleFileRecord).where(
+                ExampleFileRecord.type_slug == SLUG, ExampleFileRecord.name == name
             )
-        )
+        ).one()
+        record.method = "ai"
+        record.label = label.value
         session.commit()
 
 

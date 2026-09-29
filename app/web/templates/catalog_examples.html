@@ -1,8 +1,10 @@
 {# Türün örnek belgeleri (11.2.1): düzenleme sayfasında tür formunun altında. Örnekler dosya olarak
-   durur; eğitim modunun yerleştirdiği örneğin ayrıca kaydı ve etiketi vardır (11.9). "AI kararı"
-   etiketli örnek elle kontrol ikonuyla görünür; doğrulama, başka türe taşıma ve örneklerden çıkarma
-   eğitim sekmesindeki tür sayfasındadır (11.9.4). Çalışan verisinden ayrıdır ve aramada görünmez.
-   Yükleme JavaScript'siz düz form gönderimidir; silme ve düzenleme yolu yoktur (K17). #}
+   durur ve kayıt taşır (`example_files`; buradan yüklenen örnek "elle", doğrulanmış — 11.9.6).
+   "AI kararı" etiketli örnek elle kontrol ikonuyla görünür; doğrulama eğitim sekmesindeki tür
+   sayfasındadır. Kaydı olan örnek 11.9.4 akışına bağlanır: "Başka türe taşı" ve "Örneklerden
+   çıkar" (ikisi iki aşamalı onaylı; çıkarılan dosya eğitim arşivine taşınır). Kaydı olmayan eski
+   dosya "kayıtsız" notuyla durur. Çalışan verisinden ayrıdır ve aramada görünmez. Yükleme
+   JavaScript'siz düz form gönderimidir; içerik düzenleme yolu yoktur (K17). #}
 <section class="examples" id="examples">
   <h2>Örnek belgeler</h2>
   <p class="hint">
@@ -45,9 +47,31 @@
       <span class="count">({{ item.size_label }})</span>
       {% if item.label_text %}<span class="badge{% if not item.manual_check %} badge-neutral{% endif %}">{{ item.label_text }}</span>{% endif %}
       {% if item.manual_check %}{% include "_manual_check.html" %} <a href="{{ training_type_url }}">Eğitim modunda incele</a>{% endif %}
+      {% if item.record_id %}
+      <span class="example-decisions">
+        <details class="move-example">
+          <summary>Başka türe taşı</summary>
+          <form class="inline-form" method="post" action="/training/examples/{{ item.record_id }}/move/confirm">
+            <label class="hint" for="move-{{ item.record_id }}">Yeni tür</label>
+            <input id="move-{{ item.record_id }}" name="slug" list="move-type-options" required placeholder="bilinen tür (slug)" autocomplete="off">
+            <button type="submit">Taşı…</button>
+          </form>
+        </details>
+        <form class="inline-form" method="post" action="/training/examples/{{ item.record_id }}/remove/confirm">
+          <button type="submit">Örneklerden çıkar…</button>
+        </form>
+      </span>
+      {% else %}
+      <span class="hint unregistered">kayıtsız — <code>python -m app.catalog register-examples</code> ile kaydedilince taşınabilir ve çıkarılabilir</span>
+      {% endif %}
     </li>
     {% endfor %}
   </ul>
+  {% if move_targets %}
+  <datalist id="move-type-options">
+    {% for target_slug, target_name in move_targets %}<option value="{{ target_slug }}">{{ target_name }}</option>{% endfor %}
+  </datalist>
+  {% endif %}
   {% else %}
   <p class="placeholder">Bu türe henüz örnek yüklenmedi.</p>
   {% endif %}

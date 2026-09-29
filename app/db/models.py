@@ -248,7 +248,9 @@ class TrainingItemStatus(enum.StrEnum):
     `queued` → `placed` | `ai_pending` | `skipped` | `failed`; `ai_pending` → `placed` |
     `unplaced` | `conflict`; harita satırı ayrıca `review` (§C87). `skipped`: aynı içerik bu türde
     zaten örnek; `conflict`: aynı içerik başka türde örnek ya da ipucuyla çelişen sonuç;
-    `unplaced`: hiçbir bilinen türe yerleşmedi ("Yerleştirilemedi").
+    `unplaced`: hiçbir bilinen türe yerleşmedi ("Yerleştirilemedi"). `dismissed` (11.9.6, §C92-c):
+    İK `unplaced`, `conflict` ya da `review` öğeyi yoksaydı; geri alınınca `unplaced` olur
+    (`app.training.cleanup`).
     """
 
     QUEUED = "queued"
@@ -259,6 +261,7 @@ class TrainingItemStatus(enum.StrEnum):
     UNPLACED = "unplaced"
     CONFLICT = "conflict"
     REVIEW = "review"
+    DISMISSED = "dismissed"
 
 
 class TrainingMethod(enum.StrEnum):
@@ -682,6 +685,9 @@ class TrainingRun(Base):
     Eğitim yolu çalışan verisine dokunmaz: parti (`uploads`), dosya (`upload_files`), çalışan,
     kuyruk öğesi ya da çıktı belgesi açmaz. `counts_json` öğelerin durumlarına göre sayısıdır
     (`{"<durum>": n}`) ve `app.training.refresh_run` ile öğelerden yeniden sayılır.
+
+    `archived_at` (11.9.6): arşivlenen çalıştırma silinmez (R11); çalıştırma listesinden ve üst
+    sayaçlardan kalkar, öğeleri ve örnekleri değişmez. Geri alma alanı boşaltır.
     """
 
     __tablename__ = "training_runs"
@@ -697,6 +703,7 @@ class TrainingRun(Base):
     map_name: Mapped[str | None] = mapped_column(String(255))
     status: Mapped[str] = mapped_column(String(16), default=TrainingRunStatus.RUNNING.value)
     counts_json: Mapped[dict[str, int]] = mapped_column(JSON, default=dict)
+    archived_at: Mapped[datetime | None] = mapped_column(UtcDateTime)
 
     items: Mapped[list[TrainingItem]] = relationship(
         back_populates="run", order_by="TrainingItem.id"
@@ -750,8 +757,9 @@ class ExampleFileRecord(Base):
     Dosya `KnownDocuments/examples/<type_slug>/<name>`'dedir; `type_slug` katalog ya da hazır
     önerilen türdür (katalog dışı olabildiği için `known_document_types`'a bağlanmaz). `sha256`
     türler arası tekrar tespitinin dizinidir (`app.storage.examples.store_example` yalnız aynı
-    klasöre bakar). Kaydı olmayan örnek (eğitimden önce konmuş ya da tür sayfasından el ile
-    yüklenmiş, 11.2.1) etiketsizdir. Satır silinmez.
+    klasöre bakar). Tür sayfasından el ile yüklenen örnek (11.2.1) de kayıt alır (`manual`,
+    `verified`, öğesiz; 11.9.6); klasörde kaydı olmadan duran eski dosya etiketsizdir ve
+    `python -m app.catalog register-examples` ile bir kez `legacy` kaydedilir. Satır silinmez.
 
     **Örneklerden çıkarılan (11.9.4):** dosya `KnownDocuments/_egitim/cikarilan/<type_slug>/`'a
     taşınır (silinmez); kayıt kalır ve `removed_at`, `removed_by`, `removed_path` (veri köküne
