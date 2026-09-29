@@ -33,6 +33,7 @@ PANEL_MENU = (
     MenuEntry("document_groups", "Belge Grupları", "/document-groups"),
     MenuEntry("uploads", "Yüklemeler", "/uploads"),
     MenuEntry("training", "Eğitim modu", "/training"),
+    MenuEntry("users", "Kullanıcılar", "/users"),
 )
 MENU_BY_KEY = {entry.key: entry for entry in PANEL_MENU}
 

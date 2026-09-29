@@ -493,6 +493,12 @@ REVIEWED_MUTATING_ROUTES: dict[tuple[str, str], str] = {
     ("POST", "/training/maps/start"): (
         "toplu tarama: eğitim öğeleri ve haritanın kopyası, çalışan verisi değil (11.9.5)"
     ),
+    ("POST", "/users"): "panel kullanıcısı açma (10.1.4)",
+    ("POST", "/users/{user_id}/password"): "yöneticinin parola sıfırlaması (10.1.4)",
+    ("POST", "/users/{user_id}/status"): (
+        "kullanıcıyı pasife alma ve etkinleştirme; silinmez (10.1.4, R11)"
+    ),
+    ("POST", "/account/password"): "kullanıcının kendi parolası (10.1.4)",
 }
 
 # "assign" içindeki "sign" düzenleme sayılmasın: sözcük başı ve sonu harf olmayan sınırdır.

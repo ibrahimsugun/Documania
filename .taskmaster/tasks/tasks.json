@@ -1930,13 +1930,13 @@
         "description": "PRD 10.1.4 · FR-MOD-10 · Faz 1 · Should (v1). İnsan kararı (2026-09-28). Bugün kullanıcı yalnız CLI ile açılıyor; parola değiştirme, pasife alma yok. Sözleşme PLAN §C92-d.",
         "details": "KAPSAM: PRD 10.1.4 (10.1.3 üzerine). Tam sözleşme PLAN §C92 (d) — önce oku.\n\nNE YAPILACAK: (1) Göç: `users.active` (Boolean, default True, server_default true). `authenticate` pasif kullanıcıyı reddeder (aynı hata metni — kullanıcı adı sızmaz); `require_user`/oturum denetimi pasif kullanıcının açık oturumunu 401 yapar; pasife alma `user_sessions.revoked_at` doldurur. (2) Menü \"Kullanıcılar\" (`MenuEntry(\"users\", \"Kullanıcılar\", \"/users\")` sonda; PRD 10.1.1; `MENU_LABELS` bilerek). Sayfa `GET /users` (liste: kullanıcı adı, rol, durum, Telegram sayısı — tm 135; \"Yeni kullanıcı\" formu; kendi hesabı için \"Parolamı değiştir\"). Yollar (tek adım, olaylı): `POST /users` (username 3–150, parola ≥ 12, role ∈ UserRole), `POST /users/{id}/password` (yönetici sıfırlaması, yeni parola), `POST /account/password` (eski + yeni parola; eski yanlışsa 400), `POST /users/{id}/status` (`active|inactive`). Kurallar: kendini pasife alamaz (409), son etkin yönetici pasife alınamaz (409), kullanıcı silinmez (route yok). Parola alanları `type=password`, otomatik doldurma kapalı; parola olaya, loga, HANDOFF'a asla yazılmaz. (3) Olaylar `USER_CREATED` (`target_user_id`, `role`), `USER_DEACTIVATED`/`USER_REACTIVATED` (`target_user_id`), `USER_PASSWORD_CHANGED` (`target_user_id`, `self` bool). (4) CLI `create-admin` kalır; `create_user` yardımcısı paylaşılır.\n\nGİRDİ: app/db/models.py (:750-786 `UserRole`, `User`, `UserSession`), app/web/auth.py (:97 `create_user`, :180 oturum kapatma, `authenticate`), app/web/__main__.py (CLI), app/web/routers/auth.py, app/web/templating.py (`PANEL_MENU`), tests/web/test_auth.py (:36-37, :445), tests/web/test_admin_cli.py, tests/web/test_access_log.py.\n\nÇIKTI: alembic/versions/<yeni>.py, app/db/models.py, app/web/auth.py, app/web/routers/users.py, app/web/templates/users.html, account_password.html, app/web/templating.py, app/main.py, app/events.py, urun-gereksinim-dokumani-PRD.md (10.1.1 zaten güncel), tests/web/test_users.py, tests/web/test_auth.py, tests/web/test_access_log.py, tests/test_events.py, PLAN.md (10.1.4 satırı; K10.1), HANDOFF.md.\n\nBU GÖREVİ BAĞLAYAN KİLİTLİ KURALLAR: 10.1.2 (girişsiz yol yok), R11 (kullanıcı silinmez), K15 (olay; parola yok), MASTER-PROMPT sınırlar (gerçek secret yok — testler sentetik parola), §D61-b (tek adım), CONVENTIONS §6; yol adında `password` serbest, `edit/save` yasak.\n\nPRD'DE AYRICA OKU: 10.1.1, 10.1.3, 10.9.2, 13.4.1, 12.1.3 (tm 135 bu sayfayı genişletir).\n\nİLGİLİ KABUL SENARYOLARI: —.\n\nKAPSAM SINIRI: rol dışında yetki modeli yok (tek rol `admin`; ikinci rol tanımlanmaz), parola sıfırlama e-postası yok, oturum listesi yok, 2FA yok.\n\nTUZAKLAR: Oturum denetimi her istekte `users.active` okumalı (önbellek yok). Pasife alınan kullanıcının `X-Confirmation-Token` belirteçleri geçersiz (oturum hash'i değişir — doğrula). Kendi parolasını değiştirince mevcut oturum açık kalsın, diğer oturumlar kapansın (karar §D'ye). `test_auth.py` ilk kullanıcı akışını bozma. CLI parola okuma `--password-stdin` kalır.\n\nKAPANIŞ: PLAN satır(lar)ı ✅ → kanıt maddesi (§K), HANDOFF bloğu, commit mesajında `PRD <kod> — tm <id>`; CONVENTIONS DoD kapısı (ruff, compileall, import app.main, alembic upgrade head temiz SQLite, pytest -m \"not live\", coverage) yeşil.",
         "testStrategy": "1) Göç; `authenticate` pasifi reddeder (aynı hata metni). 2) Web: liste; yeni kullanıcı (kısa parola 422, çakışan ad 409); yönetici sıfırlaması; kendi parolası (eski yanlış 400); pasife al → o kullanıcının oturumu 401, kendini pasife alma 409, son yönetici 409; yeniden etkinleştir. 3) Olaylar parola içermez (olay verisi taranır). 4) Menü testi. 5) DoD kapısı yeşil.",
-        "status": "pending",
+        "status": "in-progress",
         "dependencies": [
           "64"
         ],
         "priority": "medium",
         "subtasks": [],
-        "updatedAt": "2026-09-28T11:46:31.000Z"
+        "updatedAt": "2026-09-29T20:06:52.950Z"
       },
       {
         "id": "135",
@@ -1956,9 +1956,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-09-29T18:29:11.020Z",
+      "lastModified": "2026-09-29T20:06:52.950Z",
       "taskCount": 133,
-      "completedCount": 127,
+      "completedCount": 128,
       "tags": [
         "master"
       ]

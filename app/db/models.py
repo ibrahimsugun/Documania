@@ -36,6 +36,7 @@ from sqlalchemy import (
     func,
     select,
     text,
+    true,
     update,
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, relationship
@@ -954,18 +955,23 @@ class AccessLog(Base):
 
 
 class UserRole(enum.StrEnum):
-    """Panel kullanıcısının rolü (`users.role`). Komut satırı ilk yöneticiyi açar (10.1.3)."""
+    """Panel kullanıcısının rolü (`users.role`). Komut satırı ilk yöneticiyi açar (10.1.3); panelde
+    "Kullanıcılar" sayfası yeni kullanıcı açar (10.1.4). Tek rol vardır."""
 
     ADMIN = "admin"
 
 
 class User(Base):
+    """Panel kullanıcısı (10.1.3, 10.1.4). Kullanıcı silinmez (R11): pasife alınır (`active`);
+    pasif kullanıcı giriş yapamaz ve açık oturumları geçersizdir (`app.web.auth`)."""
+
     __tablename__ = "users"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     username: Mapped[str] = mapped_column(String(150), unique=True)
     password_hash: Mapped[str] = mapped_column(String(255))
     role: Mapped[str] = mapped_column(String(32))
+    active: Mapped[bool] = mapped_column(Boolean, default=True, server_default=true())
 
     telegram_accounts: Mapped[list[TelegramUser]] = relationship(back_populates="user")
 

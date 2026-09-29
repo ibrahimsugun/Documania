@@ -19,21 +19,26 @@ from app.config import Settings, get_settings
 from app.db.models import User, UserRole, UserSession, utcnow
 from app.web.auth import (
     SESSION_COOKIE,
+    PanelUser,
     UserCreationError,
+    UserStatusError,
     authenticate,
     close_session,
+    close_user_sessions,
     create_user,
     get_current_user,
     login_url,
     open_session,
     resolve_session,
     safe_next_path,
+    set_user_active,
 )
 from app.web.templating import PANEL_MENU
 
 USERNAME = "yonetici"
 PASSWORD = "gizli-parola-1"
-# PRD 10.1.1 menüsü; "Belge Grupları" tm 124 (14.1.1) ile, "Kullanıcılar" tm 134 ile gelir (§D62).
+# PRD 10.1.1 menüsü; "Belge Grupları" tm 124 (14.1.1) ile, "Kullanıcılar" tm 134 (10.1.4) ile geldi
+# (§D62).
 MENU_LABELS = [
     "Yükle",
     "Çalışanlar",
@@ -42,6 +47,7 @@ MENU_LABELS = [
     "Belge Grupları",
     "Yüklemeler",
     "Eğitim modu",
+    "Kullanıcılar",
 ]
 MENU_PATHS = [
     "/upload",
@@ -51,6 +57,7 @@ MENU_PATHS = [
     "/document-groups",
     "/uploads",
     "/training",
+    "/users",
 ]
 # Oturumsuz açılabilen tek yollar (10.1.2): giriş/çıkış ve kapsayıcı sağlık denetimi.
 PUBLIC_OPERATIONS = {("GET", "/login"), ("POST", "/login"), ("POST", "/logout"), ("GET", "/health")}
@@ -120,7 +127,9 @@ def test_create_user_stores_only_an_argon2_hash(
         ("ad soyad", PASSWORD, "boşluk"),
         ("ad\x00", PASSWORD, "denetim"),
         ("a" * 151, PASSWORD, "en çok 150"),
-        ("baska", "kisa", "en az 8"),
+        ("baska", "kisa", "en az 12"),
+        ("baska", "on-bir-harf", "en az 12"),
+        ("ab", PASSWORD, "en az 3"),
     ],
 )
 def test_create_user_rejects_invalid_or_taken_names_and_short_passwords(
@@ -171,7 +180,71 @@ def test_a_broken_stored_hash_fails_closed(session_factory: sessionmaker[Session
         assert authenticate(session, USERNAME, PASSWORD) is None
 
 
+def test_authenticate_refuses_an_inactive_user_even_with_the_right_password(
+    session_factory: sessionmaker[Session], admin: User
+) -> None:
+    # 10.1.4: pasif kullanıcı giriş yapamaz; sonuç yanlış parolanınkiyle aynıdır (`None`).
+    with session_factory() as session:
+        stored = session.get(User, admin.id)
+        assert stored is not None
+        stored.active = False
+        session.commit()
+        assert authenticate(session, USERNAME, PASSWORD) is None
+
+
 # --- oturum -----------------------------------------------------------------------------------
+
+
+def test_session_of_an_inactive_user_does_not_resolve(
+    session_factory: sessionmaker[Session], admin: User
+) -> None:
+    # Oturum denetimi `users.active`'i her istekte okur: kapanmamış oturum da geçersizdir.
+    with session_factory() as session:
+        token = open_session(session, admin, max_age_seconds=3600)
+        session.commit()
+        assert resolve_session(session, token) is not None
+        stored = session.get(User, admin.id)
+        assert stored is not None
+        stored.active = False
+        session.commit()
+        assert resolve_session(session, token) is None
+
+
+def test_close_user_sessions_keeps_only_the_given_token(
+    session_factory: sessionmaker[Session], admin: User
+) -> None:
+    with session_factory() as session:
+        other = create_user(session, "baska", PASSWORD)
+        kept = open_session(session, admin, max_age_seconds=3600)
+        closed = open_session(session, admin, max_age_seconds=3600)
+        foreign = open_session(session, other, max_age_seconds=3600)
+        session.commit()
+
+        assert close_user_sessions(session, admin.id, keep_token=kept) == 1
+        session.commit()
+
+        assert resolve_session(session, kept) is not None
+        assert resolve_session(session, closed) is None
+        assert resolve_session(session, foreign) is not None
+        assert close_user_sessions(session, admin.id) == 1
+
+
+def test_last_active_admin_rule_holds_even_for_another_actor(
+    session_factory: sessionmaker[Session], admin: User
+) -> None:
+    # Kural koşullu güncellemededir: işlemi yapan (burada zaten pasif) başka biri olsa da son etkin
+    # yönetici pasife alınamaz.
+    with session_factory() as session:
+        other = create_user(session, "baska", PASSWORD)
+        other.active = False
+        session.commit()
+        actor = PanelUser(id=other.id, username=other.username, role=other.role)
+        target = session.get(User, admin.id)
+        assert target is not None
+
+        with pytest.raises(UserStatusError, match="Son etkin yönetici"):
+            set_user_active(session, target, False, actor=actor)
+        assert target.active is True
 
 
 def test_session_keeps_only_the_token_hash_and_resolves_until_closed(

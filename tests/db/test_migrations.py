@@ -34,7 +34,7 @@ def _assert_schema_matches_models(database_url: str) -> None:
             assert tables == set(Base.metadata.tables) | {"alembic_version"}
             context = MigrationContext.configure(connection, opts={"compare_type": True})
             assert compare_metadata(context, Base.metadata) == []
-            assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "0021"
+            assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "0022"
     finally:
         engine.dispose()
 
@@ -1207,6 +1207,47 @@ def test_training_cleanup_migration_accepts_dismissed_and_archives_runs_reversib
             ).all() == [("a.pdf", "unplaced"), ("b.pdf", "unplaced")]
         with pytest.raises(IntegrityError), engine.begin() as connection:
             connection.execute(insert_item, {"name": "d.pdf", "status": "dismissed"})
+    finally:
+        engine.dispose()
+
+
+def test_user_active_migration_keeps_existing_users_active_and_is_reversible(
+    sqlite_url: str,
+) -> None:
+    # 0022 (10.1.4): var olan kullanıcılar etkin kalır (sunucu varsayılanı), sütun boş olamaz;
+    # geri alış sütunu düşürür, kullanıcı satırı kalır.
+    config = _alembic_config(sqlite_url)
+    command.upgrade(config, "0021")
+    engine = create_engine(sqlite_url)
+    try:
+        with engine.begin() as connection:
+            connection.execute(
+                text(
+                    "INSERT INTO users (id, username, password_hash, role) "
+                    "VALUES (1, 'yonetici', 'ozet', 'admin')"
+                )
+            )
+
+        command.upgrade(config, "head")
+        with engine.connect() as connection:
+            columns = {c["name"]: c for c in inspect(connection).get_columns("users")}
+            assert not columns["active"]["nullable"]
+            assert connection.execute(text("SELECT username, active FROM users")).all() == [
+                ("yonetici", 1)
+            ]
+        with pytest.raises(IntegrityError), engine.begin() as connection:
+            connection.execute(
+                text(
+                    "INSERT INTO users (username, password_hash, role, active) "
+                    "VALUES ('baska', 'ozet', 'admin', NULL)"
+                )
+            )
+
+        command.downgrade(config, "0021")
+        with engine.connect() as connection:
+            columns = {c["name"] for c in inspect(connection).get_columns("users")}
+            assert "active" not in columns
+            assert connection.scalar(text("SELECT username FROM users")) == "yonetici"
     finally:
         engine.dispose()
 

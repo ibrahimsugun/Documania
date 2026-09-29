@@ -108,7 +108,9 @@ def test_create_admin_refuses_mismatched_passwords(
     ("username", "password", "message"),
     [
         (USERNAME, PASSWORD, "zaten kullanılıyor"),
-        ("ikinci", "kisa", "en az 8"),
+        ("ikinci", "kisa", "en az 12"),
+        ("ikinci", "on-bir-harf", "en az 12"),
+        ("ab", PASSWORD, "en az 3"),
         ("ad soyad", PASSWORD, "boşluk"),
     ],
 )

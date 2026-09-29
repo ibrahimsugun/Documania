@@ -41,7 +41,9 @@ def test_all_prd_event_types_are_present() -> None:
     geri alma ile aday türü retten geri alma olayları (`TYPE_ACTIVATED`, `TYPE_DEACTIVATED`,
     `TYPE_ARCHIVED`, `TYPE_RESTORED`, `CANDIDATE_TYPE_RESTORED`, 11.1.6, 11.5.7) tm 132'yle; eğitim
     öğesini yoksayma ve geri alma ile çalıştırma arşivi olayları (`TRAINING_ITEM_DISMISSED`,
-    `TRAINING_ITEM_RESTORED`, `TRAINING_RUN_ARCHIVED`, 11.9.6) tm 133'le."""
+    `TRAINING_ITEM_RESTORED`, `TRAINING_RUN_ARCHIVED`, 11.9.6) tm 133'le; kullanıcı yönetimi
+    olayları (`USER_CREATED`, `USER_DEACTIVATED`, `USER_REACTIVATED`, `USER_PASSWORD_CHANGED`,
+    10.1.4) tm 134'le."""
     expected = {
         "FILE_UPLOADED",
         "FILE_DUPLICATE",
@@ -115,6 +117,10 @@ def test_all_prd_event_types_are_present() -> None:
         "TRAINING_ITEM_DISMISSED",
         "TRAINING_ITEM_RESTORED",
         "TRAINING_RUN_ARCHIVED",
+        "USER_CREATED",
+        "USER_DEACTIVATED",
+        "USER_REACTIVATED",
+        "USER_PASSWORD_CHANGED",
     }
     assert {member.value for member in EventType} == expected
 

@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{# Kullanıcılar (10.1.4): panel kullanıcıları, yeni kullanıcı, parola sıfırlama, pasife alma ve yeniden
+   etkinleştirme. Kullanıcı silinmez (R11). Parola alanları boş gelir, tarayıcı doldurmaz; parola
+   hiçbir yerde gösterilmez. İşlemler tek adımlıdır (§D61-b). #}
+{% block title %}{{ entry.label }}{% endblock %}
+{% block content %}
+<h1>{{ entry.label }}</h1>
+<p class="lede">Panele giren kullanıcılar. Kullanıcı silinmez: gerekmeyen hesap pasife alınır, pasif kullanıcı giriş yapamaz ve açık oturumları kapanır.</p>
+<p><a class="button-link" href="/account/password">Parolamı değiştir</a></p>
+{% if notice %}<p class="notice notice-success" role="status">{{ notice }}</p>{% endif %}
+{% if error %}<p class="error" role="alert" id="users-error">{{ error }}</p>{% endif %}
+<table class="catalog users">
+  <thead>
+    <tr><th>Kullanıcı adı</th><th>Rol</th><th>Durum</th><th>Telegram</th><th>İşlemler</th></tr>
+  </thead>
+  <tbody>
+    {% for row in users %}
+    <tr id="user-{{ row.id }}"{% if error_user_id == row.id %} class="has-error"{% endif %}>
+      <td>{{ row.username }}{% if row.is_self %} <span class="hint">(siz)</span>{% endif %}</td>
+      <td>{{ row.role_label }}</td>
+      <td class="cell-nowrap">
+        {% if row.active %}<span class="status-badge status-active">Etkin</span>{% else %}<span class="status-badge status-archived">Pasif</span>{% endif %}
+      </td>
+      <td>{{ row.telegram_count }}</td>
+      <td>
+        {% if row.is_self %}
+        <span class="hint">Kendi parolanız: «Parolamı değiştir»</span>
+        {% else %}
+        <form class="inline-form" method="post" action="/users/{{ row.id }}/password" autocomplete="off">
+          <label for="reset-{{ row.id }}">Yeni parola</label>
+          <input id="reset-{{ row.id }}" name="password" type="password" autocomplete="new-password" minlength="{{ min_password_length }}" required>
+          <button type="submit">Parolayı sıfırla</button>
+        </form>
+        <form class="inline-form" method="post" action="/users/{{ row.id }}/status">
+          {% if row.active %}
+          <input type="hidden" name="status" value="inactive">
+          <button type="submit">Pasife al</button>
+          {% else %}
+          <input type="hidden" name="status" value="active">
+          <button type="submit">Yeniden etkinleştir</button>
+          {% endif %}
+        </form>
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<h2>Yeni kullanıcı</h2>
+<form method="post" action="/users" autocomplete="off" class="new-user">
+  <label for="new-username">Kullanıcı adı</label>
+  <input id="new-username" name="username" value="{{ form.username }}" autocomplete="off" minlength="{{ username_min_length }}" maxlength="{{ username_max_length }}" required>
+  <label for="new-password">Parola</label>
+  <input id="new-password" name="password" type="password" autocomplete="new-password" minlength="{{ min_password_length }}" required>
+  <label for="new-role">Rol</label>
+  <select id="new-role" name="role">
+    {% for value, label in roles %}
+    <option value="{{ value }}"{% if value == form.role %} selected{% endif %}>{{ label }}</option>
+    {% endfor %}
+  </select>
+  <p class="hint">Kullanıcı adı {{ username_min_length }}–{{ username_max_length }} karakter, boşluksuz; parola en az {{ min_password_length }} karakter.</p>
+  <button type="submit">Kullanıcı oluştur</button>
+</form>
+{% endblock %}

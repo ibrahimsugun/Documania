@@ -1,9 +1,15 @@
 """Panel kimlik doğrulaması — parola, sunucu tarafı oturum ve istek bağımlılıkları (PRD 10.1.2,
-10.1.3; MASTER-PROMPT §4: "sunucu tarafı oturum çerezi; parola hash `argon2`").
+10.1.3, 10.1.4; MASTER-PROMPT §4: "sunucu tarafı oturum çerezi; parola hash `argon2`").
 
 Parola yalnız argon2 özeti olarak saklanır. Girişte rastgele bir belirteç üretilir: çerez yalnız
 bu belirteci taşır, veritabanında (`user_sessions`) belirtecin SHA-256 özeti durur. Oturum süresi
 dolunca ya da çıkışta geçersizdir; kapanan oturum satırı silinmez (`revoked_at`).
+
+Kullanıcı yönetimi (10.1.4, PLAN.md §C92-d): kullanıcı silinmez, pasife alınır (`users.active`).
+Pasif kullanıcı giriş yapamaz (hata metni yanlış parolanınkiyle aynı) ve açık oturumları kapanır;
+oturum denetimi her istekte `users.active`'i okur (önbellek yok). Kullanıcı kendini pasife alamaz,
+son etkin yönetici pasife alınamaz. Parola değişince kullanıcının diğer oturumları kapanır. Her
+işlem kullanıcı adıyla olaya yazılır; parola hiçbir olaya girmez (K15).
 
 10.1.2 "girişsiz hiçbir panel yolu açılmaz": panel sayfaları `require_panel_user` ile girişe
 yönlendirir (303), API uç noktaları `require_api_user` ile 401 döner. İkisi de oturumu
@@ -24,17 +30,19 @@ from urllib.parse import urlencode
 from argon2 import PasswordHasher
 from argon2.exceptions import InvalidHashError, VerificationError
 from fastapi import Depends, HTTPException, Request, Response, status
-from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy import func, select, update
+from sqlalchemy.orm import Session, aliased
 
 from app.config import Settings
 from app.db.models import User, UserRole, UserSession, utcnow
 from app.db.session import get_session
+from app.events import EventType, record_event
 
 SESSION_COOKIE = "belgeee_session"
 LOGIN_PATH = "/login"
+USERNAME_MIN_LENGTH = 3
 USERNAME_MAX_LENGTH = 150  # `users.username` sütun uzunluğu
-MIN_PASSWORD_LENGTH = 8
+MIN_PASSWORD_LENGTH = 12  # komut satırı ve panel aynı kuralı kullanır (§C92-d)
 
 _hasher = PasswordHasher()
 
@@ -49,7 +57,20 @@ class PanelUser:
 
 
 class UserCreationError(ValueError):
-    """Kullanıcı açılamadı: ad geçersiz ya da kullanılıyor, parola kısa."""
+    """Kullanıcı açılamadı ya da parola değişmedi: ad geçersiz ya da kullanılıyor, parola kısa."""
+
+
+class UsernameTakenError(UserCreationError):
+    """Kullanıcı adı başka bir kullanıcıda (panelde 409)."""
+
+
+class WrongPasswordError(ValueError):
+    """Kendi parolasını değiştirirken verilen eski parola yanlış (panelde 400)."""
+
+
+class UserStatusError(ValueError):
+    """Kullanıcı işlemi kuralla reddedildi: kendini pasife alma, son etkin yönetici, zaten o
+    durumda olma, kendi parolasını sıfırlama (panelde 409)."""
 
 
 class LoginRequiredError(Exception):
@@ -87,6 +108,8 @@ def normalize_username(username: str) -> str:
     name = username.strip()
     if not name:
         raise UserCreationError("Kullanıcı adı boş olamaz.")
+    if len(name) < USERNAME_MIN_LENGTH:
+        raise UserCreationError(f"Kullanıcı adı en az {USERNAME_MIN_LENGTH} karakter olmalı.")
     if len(name) > USERNAME_MAX_LENGTH:
         raise UserCreationError(f"Kullanıcı adı en çok {USERNAME_MAX_LENGTH} karakter olabilir.")
     if any(char.isspace() or not char.isprintable() for char in name):
@@ -94,23 +117,43 @@ def normalize_username(username: str) -> str:
     return name
 
 
-def create_user(
-    session: Session, username: str, password: str, *, role: UserRole = UserRole.ADMIN
-) -> User:
-    """10.1.3 — panel kullanıcısı açar; parola argon2 özetiyle saklanır. Commit çağırana aittir."""
-    name = normalize_username(username)
+def check_password(password: str) -> None:
+    """Yeni parolanın kuralı: en az `MIN_PASSWORD_LENGTH` karakter."""
     if len(password) < MIN_PASSWORD_LENGTH:
         raise UserCreationError(f"Parola en az {MIN_PASSWORD_LENGTH} karakter olmalı.")
+
+
+def create_user(
+    session: Session,
+    username: str,
+    password: str,
+    *,
+    role: UserRole = UserRole.ADMIN,
+    actor: str | None = None,
+) -> User:
+    """10.1.3, 10.1.4 — panel kullanıcısı açar; parola argon2 özetiyle saklanır. Paneldeki açılış
+    (`actor` verilir) `USER_CREATED` yazar; komut satırının ilk yöneticisi olay yazmaz. Commit
+    çağırana aittir."""
+    name = normalize_username(username)
+    check_password(password)
     if session.scalar(select(User.id).where(User.username == name)) is not None:
-        raise UserCreationError(f"'{name}' kullanıcı adı zaten kullanılıyor.")
-    user = User(username=name, password_hash=hash_password(password), role=role.value)
+        raise UsernameTakenError(f"'{name}' kullanıcı adı zaten kullanılıyor.")
+    user = User(username=name, password_hash=hash_password(password), role=role.value, active=True)
     session.add(user)
     session.flush()
+    if actor is not None:
+        record_event(
+            session,
+            EventType.USER_CREATED,
+            actor=actor,
+            data={"target_user_id": user.id, "role": user.role},
+        )
     return user
 
 
 def authenticate(session: Session, username: str, password: str) -> User | None:
-    """Ad ve parola doğruysa kullanıcıyı döner, değilse `None`; hangisinin yanlış olduğu söylenmez.
+    """Ad ve parola doğruysa ve kullanıcı etkinse kullanıcıyı döner, değilse `None`; hangisinin
+    yanlış olduğu, kullanıcının pasif olduğu söylenmez (10.1.4: pasif kullanıcı giriş yapamaz).
 
     Özet eski parametrelerle üretilmişse doğru parolayla yeniden özetlenir (commit çağırana aittir).
     """
@@ -118,7 +161,8 @@ def authenticate(session: Session, username: str, password: str) -> User | None:
     if user is None:
         _verify_password(_dummy_hash(), password)
         return None
-    if not _verify_password(user.password_hash, password):
+    # Pasif kullanıcıda da parola doğrulanır: yanıt süresi durumu ele vermesin.
+    if not _verify_password(user.password_hash, password) or not user.active:
         return None
     if _hasher.check_needs_rehash(user.password_hash):
         user.password_hash = hash_password(password)
@@ -153,7 +197,11 @@ def open_session(
 def resolve_session(
     session: Session, token: str, *, now: datetime | None = None
 ) -> PanelUser | None:
-    """Belirteç açık, süresi dolmamış bir oturuma aitse kullanıcısını döner."""
+    """Belirteç açık, süresi dolmamış bir oturuma aitse ve kullanıcı etkinse kullanıcısını döner.
+
+    `users.active` her istekte buradan okunur (10.1.4): pasife alınan kullanıcının kapanmamış bir
+    oturumu kalsa bile geçersizdir.
+    """
     row = session.execute(
         select(User.id, User.username, User.role)
         .join(UserSession, UserSession.user_id == User.id)
@@ -161,6 +209,7 @@ def resolve_session(
             UserSession.token_hash == _token_hash(token),
             UserSession.revoked_at.is_(None),
             UserSession.expires_at > (now or utcnow()),
+            User.active.is_(True),
         )
     ).one_or_none()
     if row is None:
@@ -181,6 +230,23 @@ def close_session(session: Session, token: str, *, now: datetime | None = None) 
     return True
 
 
+def close_user_sessions(
+    session: Session, user_id: int, *, keep_token: str | None = None, now: datetime | None = None
+) -> int:
+    """Kullanıcının açık oturumlarını kapatır (`revoked_at`); `keep_token`'ın oturumu açık kalır.
+    Kapatılan oturum sayısını döner."""
+    conditions = [UserSession.user_id == user_id, UserSession.revoked_at.is_(None)]
+    if keep_token is not None:
+        conditions.append(UserSession.token_hash != _token_hash(keep_token))
+    result = session.execute(
+        update(UserSession)
+        .where(*conditions)
+        .values(revoked_at=now or utcnow())
+        .execution_options(synchronize_session=False)
+    )
+    return result.rowcount
+
+
 def set_session_cookie(response: Response, token: str, settings: Settings) -> None:
     # HttpOnly: betik okuyamaz; SameSite=Lax: başka siteden gelen POST çerezi taşımaz;
     # üretimde (HTTPS, Caddy) yalnız güvenli bağlantıda gönderilir.
@@ -197,6 +263,99 @@ def set_session_cookie(response: Response, token: str, settings: Settings) -> No
 
 def clear_session_cookie(response: Response) -> None:
     response.delete_cookie(SESSION_COOKIE, path="/", httponly=True, samesite="lax")
+
+
+# --- kullanıcı yönetimi (10.1.4) -------------------------------------------------------------
+
+
+def _record_password_change(session: Session, target: User, *, actor: str, own: bool) -> None:
+    record_event(
+        session,
+        EventType.USER_PASSWORD_CHANGED,
+        actor=actor,
+        data={"target_user_id": target.id, "self": own},
+    )
+
+
+def change_own_password(
+    session: Session,
+    user: User,
+    current_password: str,
+    new_password: str,
+    *,
+    keep_token: str | None,
+) -> None:
+    """Kullanıcı kendi parolasını değiştirir: eski parola doğru olmalı. Bu oturum (`keep_token`)
+    açık kalır, diğer oturumları kapanır; `USER_PASSWORD_CHANGED` (`self: true`). Commit çağırana
+    aittir."""
+    if not _verify_password(user.password_hash, current_password):
+        raise WrongPasswordError("Şu anki parola hatalı.")
+    check_password(new_password)
+    user.password_hash = hash_password(new_password)
+    close_user_sessions(session, user.id, keep_token=keep_token)
+    _record_password_change(session, user, actor=user.username, own=True)
+
+
+def reset_password(session: Session, target: User, new_password: str, *, actor: PanelUser) -> None:
+    """Yönetici başka bir kullanıcının parolasını sıfırlar; hedefin bütün oturumları kapanır,
+    `USER_PASSWORD_CHANGED` (`self: false`). Kendi parolası eski parolayla değişir (409). Commit
+    çağırana aittir."""
+    if target.id == actor.id:
+        raise UserStatusError("Kendi parolanızı «Parolamı değiştir» sayfasından değiştirin.")
+    check_password(new_password)
+    target.password_hash = hash_password(new_password)
+    close_user_sessions(session, target.id)
+    _record_password_change(session, target, actor=actor.username, own=False)
+
+
+def set_user_active(session: Session, target: User, active: bool, *, actor: PanelUser) -> None:
+    """Kullanıcıyı pasife alır ya da yeniden etkinleştirir; kullanıcı silinmez (R11).
+
+    Pasife alma kendini (409) ve son etkin yöneticiyi (409) reddeder; koşullu güncellemeyle yapılır
+    (arada başka bir istek son diğer yöneticiyi pasife aldıysa satır değişmez), hedefin açık
+    oturumları kapanır, `USER_DEACTIVATED`. Etkinleştirme `USER_REACTIVATED`. Zaten o durumdaki
+    kullanıcı 409. Commit çağırana aittir.
+    """
+    if target.active == active:
+        state = "etkin" if active else "pasif"
+        raise UserStatusError(f"'{target.username}' zaten {state}.")
+    if active:
+        target.active = True
+        session.flush()
+        record_event(
+            session,
+            EventType.USER_REACTIVATED,
+            actor=actor.username,
+            data={"target_user_id": target.id},
+        )
+        return
+    if target.id == actor.id:
+        raise UserStatusError("Kendi hesabınızı pasife alamazsınız.")
+    other = aliased(User)
+    other_active_admins = (
+        select(func.count(other.id))
+        .where(other.active.is_(True), other.role == UserRole.ADMIN.value, other.id != target.id)
+        .scalar_subquery()
+    )
+    conditions = [User.id == target.id, User.active.is_(True)]
+    if target.role == UserRole.ADMIN.value:
+        conditions.append(other_active_admins > 0)
+    result = session.execute(
+        update(User)
+        .where(*conditions)
+        .values(active=False)
+        .execution_options(synchronize_session=False)
+    )
+    session.refresh(target)
+    if result.rowcount != 1:
+        raise UserStatusError("Son etkin yönetici pasife alınamaz.")
+    close_user_sessions(session, target.id)
+    record_event(
+        session,
+        EventType.USER_DEACTIVATED,
+        actor=actor.username,
+        data={"target_user_id": target.id},
+    )
 
 
 # --- yönlendirme ------------------------------------------------------------------------------
