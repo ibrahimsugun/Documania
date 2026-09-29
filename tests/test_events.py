@@ -31,7 +31,7 @@ def test_all_prd_event_types_are_present() -> None:
     eğitim modu olayları (`TRAINING_*`, 11.9) kendi görevleriyle eklendi: yerleştirme olayları
     tm 115'le, etiket, taşıma ve çıkarma olayları tm 119'la, harita olayı tm 120'yle; belge
     grubu olayı (`GROUP_CHANGED`, 14.1) tm 124'le; belge paketi olayları (`PACKAGE_*`, 14.2)
-    tm 125'le."""
+    tm 125'le; profil düzenleme olayı (`EMPLOYEE_EDITED`, 10.5.6) tm 126'yla."""
     expected = {
         "FILE_UPLOADED",
         "FILE_DUPLICATE",
@@ -86,6 +86,7 @@ def test_all_prd_event_types_are_present() -> None:
         "PACKAGE_COMPLETED",
         "PACKAGE_REOPENED",
         "PACKAGE_CANCELLED",
+        "EMPLOYEE_EDITED",
     }
     assert {member.value for member in EventType} == expected
 

@@ -82,11 +82,8 @@ kayıtlı bir çalışana uyuyorsa (ikinci çalışan açılmaz; belge o çalı�
 from __future__ import annotations
 
 import enum
-import hashlib
-import json
-import re
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import datetime
 from pathlib import PurePosixPath
 from typing import Annotated, Any
 from urllib.parse import urlencode
@@ -113,18 +110,10 @@ from app.db.models import (
 from app.db.session import get_session
 from app.events import EventType
 from app.matching.match import (
-    DATE_OF_BIRTH,
-    GIVEN_NAMES,
-    NATIONALITY,
-    ORIGINAL_SCRIPT_NAME,
-    OTHER_NAMES,
     PROFILE_FIELDS,
-    PROFILE_TEXT_MAX_LENGTH,
-    SURNAME,
     EmployeeAction,
     ProfileFields,
     ProposedProfile,
-    check_profile_fields,
     edited_profile_fields,
 )
 from app.pipeline.plan import PlanEmployee, PlanIntegrityError
@@ -155,6 +144,18 @@ from app.web.confirm import (
     first_text,
     issue_confirmation,
     second_text,
+)
+from app.web.profile_form import (
+    INVALID_PROFILE,
+    PROFILE_LABELS,
+    ProfileFieldView,
+    ProfileFormError,
+    ProfileValues,
+    parse_profile,
+    profile_digest,
+    profile_form_fields,
+    profile_text,
+    profile_values,
 )
 from app.web.routers.documents import SourceView, _reference, _source_view
 from app.web.routers.employees import MAX_QUERY_LENGTH, EmployeeListing, list_employees
@@ -1130,41 +1131,6 @@ NOT_PENDING_NOTE = (
     "Bu öğe onay bekleyen profil değil (§20.2.2 satır 7): kişisi yeni çalışan olarak açılmaz, "
     "belge kayıtlı bir çalışana atanır."
 )
-INVALID_PROFILE = "Profil alanları geçersiz; düzeltip yeniden gönderin."
-BAD_DATE = "YYYY-AA-GG biçiminde bir tarih olmalı"
-PROFILE_LABELS = {
-    GIVEN_NAMES: "Ad",
-    SURNAME: "Soyad",
-    OTHER_NAMES: "Diğer isimler",
-    ORIGINAL_SCRIPT_NAME: "Orijinal yazım",
-    DATE_OF_BIRTH: "Doğum tarihi",
-    NATIONALITY: "Vatandaşlık",
-}
-# 05.2.2: ad, soyad ve diğer isimler yalnız Latin harfi taşır; Latin yazımı belgede olmayan
-# öneride ad ve soyad boş gelir, İK yazar.
-_LATIN_HINT = "Latin harfleriyle (belgedeki Latin yazım ya da MRZ; aksanlı harf olur)"
-_PROFILE_HINTS = {
-    GIVEN_NAMES: _LATIN_HINT,
-    SURNAME: _LATIN_HINT,
-    OTHER_NAMES: _LATIN_HINT,
-    ORIGINAL_SCRIPT_NAME: "İsmin belgede basılı hâli, birebir (Latin de olabilir)",
-    NATIONALITY: "ICAO kodu (ör. RUS, SRB, D)",
-}
-_ISO_DATE = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}")
-
-
-@dataclass(frozen=True, slots=True)
-class ProfileFieldView:
-    """Düzenleme formunun bir alanı. Form yalnız çalışan kaydının altı alanını taşır; belgenin
-    içeriği (sayfalar, tür, okumalar) formda yoktur (K17)."""
-
-    name: str
-    label: str
-    value: str
-    input_type: str
-    required: bool
-    maxlength: int
-    hint: str | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -1176,75 +1142,11 @@ class ProfileRowView:
     edited: bool
 
 
-class _ProfileFormError(Exception):
-    """Formun alanları geçersiz: alan adı → sorun (kişisel değer yok)."""
-
-    def __init__(self, errors: dict[str, str]) -> None:
-        super().__init__(INVALID_PROFILE)
-        self.errors = errors
-
-
-def profile_form(
-    given_names: Annotated[str, Form()] = "",
-    surname: Annotated[str, Form()] = "",
-    other_names: Annotated[str, Form()] = "",
-    original_script_name: Annotated[str, Form()] = "",
-    date_of_birth: Annotated[str, Form()] = "",
-    nationality: Annotated[str, Form()] = "",
-) -> dict[str, str]:
-    """Formun profil alanları, kırpılmış (`PROFILE_FIELDS` anahtarlı). Başka form alanı okunmaz:
-    tür, sayfa ya da belge içeriği bu akışla gönderilemez (K17)."""
-    return {
-        GIVEN_NAMES: given_names.strip(),
-        SURNAME: surname.strip(),
-        OTHER_NAMES: other_names.strip(),
-        ORIGINAL_SCRIPT_NAME: original_script_name.strip(),
-        DATE_OF_BIRTH: date_of_birth.strip(),
-        NATIONALITY: nationality.strip().upper(),
-    }
-
-
-ProfileValues = Annotated[dict[str, str], Depends(profile_form)]
-
-
-def _parse_profile(values: dict[str, str]) -> ProfileFields:
-    """Formun değerlerinden onaylanacak profil; geçersizse `_ProfileFormError`
-    (`check_profile_fields` + tarih biçimi). Boş isteğe bağlı alan `None`'dır."""
-    errors: dict[str, str] = {}
-    born: date | None = None
-    text = values[DATE_OF_BIRTH]
-    if text:
-        try:
-            if not _ISO_DATE.fullmatch(text):
-                raise ValueError(text)
-            born = date.fromisoformat(text)
-        except ValueError:
-            errors[DATE_OF_BIRTH] = BAD_DATE
-    fields = ProfileFields(
-        given_names=values[GIVEN_NAMES],
-        surname=values[SURNAME],
-        other_names=values[OTHER_NAMES] or None,
-        original_script_name=values[ORIGINAL_SCRIPT_NAME] or None,
-        date_of_birth=born,
-        nationality=values[NATIONALITY] or None,
-    )
-    errors = {**check_profile_fields(fields), **errors}
-    if errors:
-        raise _ProfileFormError(errors)
-    return fields
-
-
-def _profile_values(fields: ProfileFields) -> dict[str, str]:
-    return {name: value or "" for name, value in fields.values().items()}
-
-
 def profile_subject(queue_item_id: int, fields: ProfileFields) -> str:
     """Profil onayı belirtecinin (`Operation.APPROVE_PROFILE`) bağlı olduğu hedef: kuyruk öğesi +
     onaylanan alanların özeti. İkinci onaydan sonra bir alan değişirse belirteç geçmez; değerler
     belirtece girmez."""
-    canonical = json.dumps(fields.values(), ensure_ascii=False, sort_keys=True)
-    digest = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
-    return f"{queue_item_id}:{digest}"
+    return f"{queue_item_id}:{profile_digest(fields)}"
 
 
 def _proposes_profile(payload: Any) -> bool:
@@ -1281,7 +1183,7 @@ def _reviewed_profile(
 def _confirmed_profile(
     session: Session, queue_item_id: int, values: dict[str, str]
 ) -> tuple[QueueItem, ProfileFields, ProposedProfile]:
-    """Adımların ortak denetimi: öğe (404/409), formun alanları (`_ProfileFormError`) ve onayın
+    """Adımların ortak denetimi: öğe (404/409), formun alanları (`ProfileFormError`) ve onayın
     hükmü düzeltilen profille (409)."""
     queue_item = session.get(QueueItem, queue_item_id)
     if queue_item is None:
@@ -1289,7 +1191,7 @@ def _confirmed_profile(
     refusal = _profile_refusal(session, queue_item)
     if refusal is not None:
         raise HTTPException(status.HTTP_409_CONFLICT, refusal)
-    fields = _parse_profile(values)
+    fields = parse_profile(values)
     return queue_item, fields, _reviewed_profile(session, queue_item_id, fields)
 
 
@@ -1304,22 +1206,7 @@ def _profile_section(
         proposal = _reviewed_profile(session, queue_item.id)
     except HTTPException as exc:
         return None, str(exc.detail)
-    return _profile_form_fields(_profile_values(proposal.fields())), None
-
-
-def _profile_form_fields(values: dict[str, str]) -> list[ProfileFieldView]:
-    return [
-        ProfileFieldView(
-            name=name,
-            label=PROFILE_LABELS[name],
-            value=values[name],
-            input_type="date" if name == DATE_OF_BIRTH else "text",
-            required=name in (GIVEN_NAMES, SURNAME),
-            maxlength=3 if name == NATIONALITY else PROFILE_TEXT_MAX_LENGTH,
-            hint=_PROFILE_HINTS.get(name),
-        )
-        for name in PROFILE_FIELDS
-    ]
+    return profile_form_fields(profile_values(proposal.fields())), None
 
 
 def _profile_rows(proposal: ProposedProfile, fields: ProfileFields) -> list[ProfileRowView]:
@@ -1327,19 +1214,11 @@ def _profile_rows(proposal: ProposedProfile, fields: ProfileFields) -> list[Prof
     return [
         ProfileRowView(
             label=PROFILE_LABELS[name],
-            value=_profile_text(name, value),
+            value=profile_text(name, value),
             edited=name in edited,
         )
         for name, value in fields.values().items()
     ]
-
-
-def _profile_text(name: str, value: str | None) -> str:
-    if value is None:
-        return "—"
-    if name == DATE_OF_BIRTH:
-        return date.fromisoformat(value).strftime("%d.%m.%Y")
-    return value
 
 
 def _profile_result(
@@ -1370,7 +1249,7 @@ def _invalid_profile(request: Request, queue_item_id: int, errors: dict[str, str
 
 def _steps_context(fields: ProfileFields, proposal: ProposedProfile) -> dict[str, object]:
     # Onay adımlarının ortak içeriği: onaylanacak değerler ve bir sonraki adıma taşınan alanlar.
-    return {"rows": _profile_rows(proposal, fields), "hidden": _profile_values(fields)}
+    return {"rows": _profile_rows(proposal, fields), "hidden": profile_values(fields)}
 
 
 @pages_router.post("/queues/{queue_item_id}/profile/confirm", response_class=HTMLResponse)
@@ -1386,7 +1265,7 @@ def profile_first_confirmation(
         _, fields, proposal = _confirmed_profile(session, queue_item_id, values)
     except HTTPException as exc:
         return _profile_result(request, exc.status_code, queue_item_id, error=str(exc.detail))
-    except _ProfileFormError as exc:
+    except ProfileFormError as exc:
         return _invalid_profile(request, queue_item_id, exc.errors)
     finally:
         session.rollback()
@@ -1423,7 +1302,7 @@ def prepare_profile(
     except HTTPException as exc:
         session.rollback()
         return _profile_result(request, exc.status_code, queue_item_id, error=str(exc.detail))
-    except _ProfileFormError as exc:
+    except ProfileFormError as exc:
         session.rollback()
         return _invalid_profile(request, queue_item_id, exc.errors)
     except ConfirmationRefusedError as exc:
@@ -1512,7 +1391,7 @@ def create_profile_from_queue(
     except HTTPException as exc:
         session.rollback()
         return _profile_result(request, exc.status_code, queue_item_id, error=str(exc.detail))
-    except _ProfileFormError as exc:
+    except ProfileFormError as exc:
         session.rollback()
         return _invalid_profile(request, queue_item_id, exc.errors)
     except ConfirmationRefusedError:

@@ -54,6 +54,7 @@ from app.worker import IdleContext
 from tests.fixtures.gen import make_half_filled_image_bytes
 from tests.training.invariants import assert_employee_data_untouched
 from tests.web.conftest import SESSION, SIGNED_IN, issue_token
+from tests.web.test_confirm import PRD_OPERATIONS
 
 PLAN = Path(__file__).resolve().parents[2] / "PLAN.md"
 PASSPORT = "turkish_passport"
@@ -172,7 +173,8 @@ def test_the_map_confirmation_texts_are_plan_d58_verbatim() -> None:
     assert (match.group(1), match.group(2)) == (MAP_FIRST_CONFIRMATION, MAP_SECOND_CONFIRMATION)
     # §D58 a: K16 ve §20.6 değişmez; işlem REANALYZE gibi tablo dışıdır.
     assert Operation.TRAINING_MAP not in CONFIRMATION_TEXTS
-    assert len(CONFIRMATION_TEXTS) == 6
+    # Tabloda yalnız §20.6'nın işlemleri var (K16 işlemleriyle büyür, §D61; eğitim işlemi yok).
+    assert set(CONFIRMATION_TEXTS) == set(PRD_OPERATIONS.values())
 
 
 # --- harita yükle ve önizleme ---------------------------------------------------------------

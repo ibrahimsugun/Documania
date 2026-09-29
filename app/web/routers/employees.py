@@ -62,6 +62,23 @@ ikinci gönderim paketi açar. `POST .../packages/{pkg}/cancel` paketi nedeniyle
 `POST .../packages/{pkg}/reopen` açığa döndürür. Üçü tek adımdır (§D61-b: dosya taşımaz,
 eşleştirmeyi değiştirmez, geri alınabilir), `PACKAGE_*` olayını kullanıcı adıyla yazar (K15) ve
 commit'ten sonra çalışanın `profil.md`'sini yeniden üretir (09.1.1, 14.3.1). Paket silinmez (R11).
+
+**Profili düzenleme (10.5.6; PLAN.md §C90-a, §D61).** Profil sayfasındaki "Profili düzenle"
+bağlantısı (birleştirilmiş çalışanda yok) `GET /employees/{id}/fields` formunu açar: ad, soyad,
+diğer isimler, orijinal yazım, doğum tarihi, uyruk — başka alan yoktur, belge içeriği bu formla
+değişmez (K17). Form §20.6'nın **birinci** onay metnini taşır; gönderim `POST .../fields/prepare`'e
+gider: alanlar denetlenir (`app.web.profile_form`; geçersizse ya da hiçbir alan değişmediyse 422 ve
+form hatası), değişikliklerin özeti, **ikinci** metin (`<N>` = dosyası yeniden adlandırılacak belge
+sayısı, ad değişmiyorsa 0) ve form değerlerine bağlı tek kullanımlık belirteç döner (belirteç hedefi
+çalışan + değerlerin SHA-256 özeti: hazırlıktan sonra değişen değer belirteçten geçmez). `POST
+.../fields` belirteçle gelir: belirteç tüketilir, önce `USER_CONFIRMED`, sonra
+`update_employee_fields`'in `EMPLOYEE_EDITED`'i tek işlemde yazılır; ad değiştiyse klasör ve etkin
+belge dosyaları K8 adına yeniden adlandırılır (`app.matching.edit`). Commit'ten sonra `profil.md`
+yeniden üretilir ve profil sayfasına bildirimle dönülür. Belirteçsiz, süresi geçmiş, kullanılmış ya
+da başka değerlere, çalışana, işleme veya oturuma ait istek 400; yeniden adlandırma yarıda kalırsa
+409 — ikisinde de hiçbir şey değişmez (S16). Elle girilen alanın kaynağı kartta "elle" olarak
+görünür; o düzenlemeden önceki belge gözlemleri uyarıdan düşer (değer artık İK'nın kararıdır),
+sonrakiler kaynak ya da uyarı olur.
 """
 
 from __future__ import annotations
@@ -88,6 +105,7 @@ from app.db.models import (
     EmployeeFieldObservation,
     EmployeeIdentifier,
     FieldOutcome,
+    FieldSource,
     KnownDocumentType,
     ProfileField,
     UploadFile,
@@ -112,15 +130,48 @@ from app.groups import (
     package_counts,
     reopen_package,
 )
-from app.matching.match import normalize_document_number
+from app.matching.edit import (
+    MERGED_STATUS,
+    EmployeeEditRefusedError,
+    NoFieldChangesError,
+    current_profile_fields,
+    preview_employee_edit,
+    update_employee_fields,
+)
+from app.matching.match import (
+    PROFILE_FIELDS,
+    ProfileFields,
+    ProfileFieldsError,
+    normalize_document_number,
+)
 from app.matching.names import EmptyNameError, normalize_name
 from app.profiles import write_profile
 from app.profiles.latin_names import needs_latin_repair
 from app.profiles.render import calculate_age
-from app.storage import DataLayout
+from app.storage import DataLayout, EmployeeRenameError
 from app.web.access import record_access
 from app.web.auth import PanelUser, require_panel_user
+from app.web.confirm import (
+    CONFIRMATION_REFUSED,
+    ConfirmationRefusedError,
+    Operation,
+    confirm_operation,
+    first_text,
+    issue_confirmation,
+    second_text,
+)
 from app.web.context_person import ForeignDocumentsWarning, profile_warning
+from app.web.profile_form import (
+    INVALID_PROFILE,
+    PROFILE_LABELS,
+    ProfileFormError,
+    ProfileValues,
+    parse_profile,
+    profile_digest,
+    profile_form_fields,
+    profile_text,
+    profile_values,
+)
 from app.web.routers.upload_page import DOCUMENT_STATUS_LABELS
 from app.web.routers.uploads import get_layout
 from app.web.templating import MENU_BY_KEY, render_page
@@ -368,6 +419,8 @@ FIELD_LABELS = {
     ProfileField.DATE_OF_BIRTH: "Doğum tarihi",
 }
 FIELD_CONFLICT_WARNING = "{label}: belgede farklı değer okundu"
+# 10.5.6: elle girilen alanın kaynağı.
+MANUAL_SOURCE = "elle ({actor}, {day})"
 # Tarayıcının kendi görüntüleyicisiyle açabildiği çıktı biçimleri; başka biçim (Word/Excel, K2)
 # olduğu gibi indirilir. Ortam türü dosya içeriğinden değil, bu tablodan gelir.
 MEDIA_TYPES = {
@@ -408,8 +461,10 @@ class DocumentRow:
 
 @dataclass(frozen=True, slots=True)
 class SourceLink:
+    """Alan kaynağının bağlantısı; elle girilen alanın (10.5.6) bağlantısı yoktur (`url` boş)."""
+
     label: str
-    url: str
+    url: str | None
     new_tab: bool = False
 
 
@@ -448,6 +503,8 @@ class ProfileView:
     # (kalemi karşılayan belgenin bağlantısı dosyayı ya da geçmişini açar).
     packages: list[PackageView] = field(default_factory=list)
     available_document_ids: frozenset[int] = frozenset()
+    # 10.5.6: "Profili düzenle" bağlantısı; birleştirilmiş çalışanda yok.
+    editable: bool = True
 
     @property
     def live_packages(self) -> list[PackageView]:
@@ -590,6 +647,7 @@ def build_profile(
         context_warning=profile_warning(session, employee_id),
         packages=employee_packages(session, employee_id),
         available_document_ids=frozenset(row.id for row in rows if row.available),
+        editable=employee.status != MERGED_STATUS,
     )
 
 
@@ -600,10 +658,14 @@ def _field_sources(
     rows: list[DocumentRow],
 ) -> dict[str, FieldSources]:
     """05.7.3 — alan başına kaynak ve çakışma bağlantıları (gözlem sırasıyla); gözlemi olmayan
-    alan sözlükte yoktur. Değer gösterilmez: kart alanın kendi değerini zaten gösterir."""
+    alan sözlükte yoktur. Değer gösterilmez: kart alanın kendi değerini zaten gösterir.
+
+    Alan elle düzenlendiyse (10.5.6, `source=manual`) kaynak son düzenlemedir ("elle", kullanıcı ve
+    gün) — ondan sonra alanı dolduran belge yoksa. O düzenlemeden önceki gözlemler (kaynak ve
+    çakışma) eski değerle karşılaştırıldığı için düşer, sonrakiler kalır."""
     observations = session.execute(
         select(EmployeeFieldObservation, UploadFile.upload_id)
-        .join(UploadFile, UploadFile.id == EmployeeFieldObservation.file_id)
+        .outerjoin(UploadFile, UploadFile.id == EmployeeFieldObservation.file_id)
         .where(EmployeeFieldObservation.employee_id == employee_id)
         .order_by(EmployeeFieldObservation.observed_at, EmployeeFieldObservation.id)
     ).all()
@@ -612,7 +674,12 @@ def _field_sources(
     by_source = _documents_by_source(documents)
     available = {row.id: row.available for row in rows}
 
-    def link(observation: EmployeeFieldObservation, upload_id: str) -> SourceLink:
+    def link(observation: EmployeeFieldObservation, upload_id: str | None) -> SourceLink:
+        if observation.source == FieldSource.MANUAL.value:
+            day = observation.observed_at.strftime("%d.%m.%Y")
+            return SourceLink(
+                label=MANUAL_SOURCE.format(actor=observation.actor, day=day), url=None
+            )
         document = by_source.get((observation.file_id, observation.page_index))
         if document is None:
             return SourceLink(label=f"Parti {upload_id}", url=f"/uploads/{upload_id}")
@@ -631,12 +698,24 @@ def _field_sources(
         ]
         if not seen:
             continue
+        manual = [
+            index
+            for index, (observation, _) in enumerate(seen)
+            if observation.source == FieldSource.MANUAL.value
+        ]
+        edited = seen[manual[-1]] if manual else None
+        if manual:
+            seen = seen[manual[-1] + 1 :]
         by_outcome = {
             outcome: [(obs, upload) for obs, upload in seen if obs.outcome == outcome.value]
             for outcome in FieldOutcome
         }
-        # Kaynak: alanı dolduran belge; yoksa (alan belgeden önce doluydu) aynı değeri okuyan ilk.
-        origin = [*by_outcome[FieldOutcome.FILLED], *by_outcome[FieldOutcome.SAME]]
+        # Kaynak: alanı dolduran belge; yoksa son elle düzenleme; o da yoksa (alan belgeden önce
+        # doluydu) aynı değeri okuyan ilk belge.
+        origin = [
+            *by_outcome[FieldOutcome.FILLED],
+            *([edited] if edited is not None else by_outcome[FieldOutcome.SAME]),
+        ]
         conflicts = list(
             dict.fromkeys(link(obs, upload) for obs, upload in by_outcome[FieldOutcome.CONFLICT])
         )
@@ -691,6 +770,13 @@ PACKAGE_NOTICES = {
     "package_cancelled": "Paket iptal edildi.",
     "package_reopened": "Paket yeniden açıldı.",
 }
+# 10.5.6: düzenlemeden sonra profil sayfasının bildirimi.
+PROFILE_NOTICES = {
+    "fields_changed": "Profil bilgileri değiştirildi.",
+    "fields_renamed": (
+        "Profil bilgileri değiştirildi; klasör ve belge dosyaları yeni adla yeniden adlandırıldı."
+    ),
+}
 PACKAGE_NOT_FOUND = "Paket bulunamadı."
 GROUP_NOT_FOUND = "Belge grubu bulunamadı."
 DUPLICATE_PACKAGE = (
@@ -742,6 +828,7 @@ def _profile_page(
         package_problems=package_problems or {},
         cancel_problems=cancel_problems or {},
         package_notice=PACKAGE_NOTICES.get(notice or ""),
+        profile_notice=PROFILE_NOTICES.get(notice or ""),
         note_limit=NOTE_MAX_LENGTH,
     )
 
@@ -902,6 +989,261 @@ def reopen_package_endpoint(
     session.commit()
     _rewrite_profile(session, layout, employee_id)
     return _package_redirect(employee_id, "package_reopened")
+
+
+# --- 10.5.6: çalışan profilini düzenleme -------------------------------------------------------
+
+# §20.6 "Çalışan profilini düzenle": metinler birebir `app.web.confirm`'dadır; `<N>` dosyası
+# yeniden adlandırılacak belge sayısıyla dolar.
+NOT_EDITABLE = (
+    "Bu çalışan başka bir kayıtla birleştirildi; profili düzenlenmez, kalan kaydı düzenleyin."
+)
+NO_FIELD_CHANGES = "Hiçbir alan değişmedi; değiştirmek istediğiniz alanı düzenleyin."
+
+
+@dataclass(frozen=True, slots=True)
+class EditTarget:
+    """Düzenlenen çalışan: sayfa başlığı için."""
+
+    id: str
+    name: str
+
+
+@dataclass(frozen=True, slots=True)
+class FieldChangeView:
+    """İkinci onay adımındaki özet satırı: alanın şimdiki ve yeni değeri."""
+
+    label: str
+    before: str
+    after: str
+    changed: bool
+
+
+def fields_subject(employee_id: str, fields: ProfileFields) -> str:
+    """Düzenleme belirtecinin (`Operation.EDIT_EMPLOYEE`) bağlı olduğu hedef: çalışan + form
+    değerlerinin özeti. Hazırlıktan sonra bir alan değişirse belirteç geçmez; değerler belirtece
+    girmez."""
+    return f"{employee_id}:{profile_digest(fields)}"
+
+
+def _editable_employee(session: Session, employee_id: str) -> Employee:
+    """Düzenlenecek çalışan (satır kilitli); yoksa 404, birleştirilmişse 409."""
+    employee = session.get(Employee, employee_id, with_for_update=True)
+    if employee is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, EMPLOYEE_NOT_FOUND)
+    if employee.status == MERGED_STATUS:
+        raise HTTPException(status.HTTP_409_CONFLICT, NOT_EDITABLE)
+    return employee
+
+
+def _edit_target(employee: Employee) -> EditTarget:
+    return EditTarget(id=employee.id, name=f"{employee.given_names} {employee.surname}")
+
+
+def _field_changes(employee: Employee, fields: ProfileFields) -> list[FieldChangeView]:
+    before, after = profile_values(current_profile_fields(employee)), profile_values(fields)
+    return [
+        FieldChangeView(
+            label=PROFILE_LABELS[name],
+            before=profile_text(name, before[name]),
+            after=profile_text(name, after[name]),
+            changed=before[name] != after[name],
+        )
+        for name in PROFILE_FIELDS
+    ]
+
+
+def _fields_page(
+    request: Request,
+    user: PanelUser,
+    employee_id: str,
+    *,
+    target: EditTarget | None,
+    status_code: int = status.HTTP_200_OK,
+    **context: object,
+) -> HTMLResponse:
+    """`employee_fields.html`: düzenleme formu, ikinci onay adımı ya da hata."""
+    return render_page(
+        request,
+        "employee_fields.html",
+        user=user,
+        active=MENU_BY_KEY["employees"].key,
+        status_code=status_code,
+        employee_id=employee_id,
+        target=target,
+        first_confirmation=first_text(Operation.EDIT_EMPLOYEE),
+        **context,
+    )
+
+
+def _refused_fields(
+    request: Request,
+    user: PanelUser,
+    employee_id: str,
+    target: EditTarget | None,
+    values: dict[str, str],
+    exc: Exception,
+) -> HTMLResponse:
+    """Reddedilen düzenleme: çalışan yoksa ya da birleştirilmişse yalnız hata; geçersiz ya da
+    değişmemiş alanlar (422) ve tamamlanamayan yeniden adlandırma (409) girilen değerlerle formu
+    yeniden çizer; belirteç reddi (400) formu yeniden açma bağlantısı verir."""
+    if isinstance(exc, HTTPException):
+        return _fields_page(
+            request, user, employee_id, target=None, status_code=exc.status_code, error=exc.detail
+        )
+    if isinstance(exc, ConfirmationRefusedError):
+        return _fields_page(
+            request,
+            user,
+            employee_id,
+            target=target,
+            status_code=status.HTTP_400_BAD_REQUEST,
+            error=CONFIRMATION_REFUSED,
+            retry=True,
+        )
+    status_code, error, field_errors = status.HTTP_422_UNPROCESSABLE_CONTENT, INVALID_PROFILE, []
+    if isinstance(exc, ProfileFormError):
+        field_errors = exc.field_errors()
+    elif isinstance(exc, ProfileFieldsError):
+        field_errors = ProfileFormError(exc.errors).field_errors()
+    elif isinstance(exc, NoFieldChangesError):
+        error = NO_FIELD_CHANGES
+    else:  # birleştirilmiş çalışan, yeniden adlandırma
+        status_code, error = status.HTTP_409_CONFLICT, str(exc)
+    return _fields_page(
+        request,
+        user,
+        employee_id,
+        target=target,
+        status_code=status_code,
+        error=error,
+        field_errors=field_errors,
+        form=profile_form_fields(values),
+    )
+
+
+# `_refused_fields`'in çizdiği reddedilen düzenlemeler; hepsinde oturum geri alınır.
+_FIELDS_REFUSALS = (
+    HTTPException,
+    ProfileFormError,
+    ProfileFieldsError,
+    EmployeeEditRefusedError,
+    EmployeeRenameError,
+)
+
+
+@router.get("/employees/{employee_id}/fields", response_class=HTMLResponse)
+def employee_fields_form(
+    employee_id: str,
+    request: Request,
+    user: CurrentUser,
+    session: Annotated[Session, Depends(get_session)],
+) -> HTMLResponse:
+    """10.5.6 — çalışanın alanlarıyla dolu düzenleme formu ve birinci onay metni; hiçbir şey
+    değişmez."""
+    try:
+        employee = _editable_employee(session, employee_id)
+        target = _edit_target(employee)
+        values = profile_values(current_profile_fields(employee))
+    except HTTPException as exc:
+        return _refused_fields(request, user, employee_id, None, {}, exc)
+    finally:
+        session.rollback()
+    return _fields_page(request, user, employee_id, target=target, form=profile_form_fields(values))
+
+
+@router.post("/employees/{employee_id}/fields/prepare", response_class=HTMLResponse)
+def prepare_employee_fields(
+    employee_id: str,
+    request: Request,
+    user: CurrentUser,
+    session: Annotated[Session, Depends(get_session)],
+    layout: Annotated[DataLayout, Depends(get_layout)],
+    values: ProfileValues,
+) -> HTMLResponse:
+    """10.5.6 — birinci onaydan sonra alanları denetler; değişikliklerin özetini, ikinci onay
+    metnini ve form değerlerine bağlı tek kullanımlık onay belirtecini verir (§20.6.1). Hiçbir alanı
+    değiştirmez (S16)."""
+    target: EditTarget | None = None
+    try:
+        employee = _editable_employee(session, employee_id)
+        target = _edit_target(employee)
+        fields = parse_profile(values)
+        preview = preview_employee_edit(session, layout, employee, fields)
+        changes = _field_changes(employee, fields)
+        issued = issue_confirmation(
+            session, request, user, Operation.EDIT_EMPLOYEE, fields_subject(employee.id, fields)
+        )
+    except (*_FIELDS_REFUSALS, ConfirmationRefusedError) as exc:
+        session.rollback()
+        if isinstance(exc, ConfirmationRefusedError):  # oturum çerezi yok
+            return _fields_page(
+                request,
+                user,
+                employee_id,
+                target=target,
+                status_code=status.HTTP_400_BAD_REQUEST,
+                error=str(exc),
+            )
+        return _refused_fields(request, user, employee_id, target, values, exc)
+    session.commit()
+    return _fields_page(
+        request,
+        user,
+        employee_id,
+        target=target,
+        changes=changes,
+        second_confirmation=second_text(Operation.EDIT_EMPLOYEE, count=preview.documents),
+        hidden=profile_values(fields),
+        confirmation=issued.token,
+    )
+
+
+@router.post("/employees/{employee_id}/fields", response_class=HTMLResponse)
+def change_employee_fields(
+    employee_id: str,
+    request: Request,
+    user: CurrentUser,
+    session: Annotated[Session, Depends(get_session)],
+    layout: Annotated[DataLayout, Depends(get_layout)],
+    values: ProfileValues,
+    confirmation: Annotated[str | None, Form()] = None,
+) -> Response:
+    """10.5.6 — ikinci onayın belirteciyle alanları değiştirir; ad değiştiyse klasör ve etkin belge
+    dosyaları K8 adına yeniden adlandırılır (K8, K11, K16).
+
+    Belirteç yoksa, süresi geçmişse, kullanılmışsa ya da başka değerlere, çalışana, işleme veya
+    oturuma aitse hiçbir şey yapılmaz (400). Belirtecin tüketilmesi, onay olayı ve düzenleme tek
+    işlemdedir: yeniden adlandırma yarıda kalırsa dosyalar geri alınır, onay olayı yazılmaz,
+    belirteç tüketilmemiş kalır (409). Commit'ten sonra `profil.md` yeniden üretilir (09.1.1) ve
+    profil sayfasına dönülür.
+    """
+    target: EditTarget | None = None
+    try:
+        employee = _editable_employee(session, employee_id)
+        target = _edit_target(employee)
+        fields = parse_profile(values)
+        # §20.6.1: belirteç tüketilir ve `USER_CONFIRMED` (kullanıcı adı, işlem, hedef, iki onayın
+        # zamanı) yazılır, ardından işlemin kendi olayı (`EMPLOYEE_EDITED`) düşer. Alan değerleri
+        # olaya girmez (CONVENTIONS §6).
+        confirm_operation(
+            session,
+            request,
+            user,
+            Operation.EDIT_EMPLOYEE,
+            fields_subject(employee.id, fields),
+            confirmation,
+            event_target={"employee_id": employee.id},
+            employee_id=employee.id,
+        )
+        edited = update_employee_fields(session, layout, employee, fields, actor=user.username)
+    except (*_FIELDS_REFUSALS, ConfirmationRefusedError) as exc:
+        session.rollback()
+        return _refused_fields(request, user, employee_id, target, values, exc)
+    session.commit()
+    notice = "fields_renamed" if edited.renamed else "fields_changed"
+    _rewrite_profile(session, layout, employee_id)
+    return RedirectResponse(f"/employees/{employee_id}?notice={notice}", status.HTTP_303_SEE_OTHER)
 
 
 def _file_response(stored: StoredDocument, *, disposition: str) -> FileResponse:

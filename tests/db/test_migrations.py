@@ -34,7 +34,7 @@ def _assert_schema_matches_models(database_url: str) -> None:
             assert tables == set(Base.metadata.tables) | {"alembic_version"}
             context = MigrationContext.configure(connection, opts={"compare_type": True})
             assert compare_metadata(context, Base.metadata) == []
-            assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "0015"
+            assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "0016"
     finally:
         engine.dispose()
 
@@ -364,7 +364,8 @@ def test_field_observations_migration_adds_the_table_and_is_reversible(sqlite_ur
                 {"sha": "0" * 64},
             )
 
-        command.upgrade(config, "head")
+        # 0016 kaynak ve kullanıcı sütunlarını ekler (aşağıdaki test); bu test 0008'in şemasıdır.
+        command.upgrade(config, "0008")
         with engine.connect() as connection:
             columns = {
                 column["name"]
@@ -807,6 +808,104 @@ def test_employee_packages_migration_creates_the_table_and_is_reversible(sqlite_
             assert "employee_packages" not in inspect(connection).get_table_names()
             assert connection.scalar(text("SELECT count(*) FROM document_groups")) == 1
             assert connection.scalar(text("SELECT count(*) FROM employees")) == 1
+    finally:
+        engine.dispose()
+
+
+def test_manual_field_observations_migration_keeps_rows_and_is_reversible(
+    sqlite_url: str,
+) -> None:
+    # 0016 (10.5.6): var olan gözlem `document` kaynaklı kalır; elle düzenleme gözlemi kaynak
+    # sayfası olmadan, kullanıcıyla yazılır. Alan, sonuç ve kaynak kapalı kümedir; belge gözlemi
+    # sayfasız, elle gözlem kullanıcısız olamaz. Geri alış elle gözlemleri kaldırır, belge
+    # gözlemleri kalır.
+    config = _alembic_config(sqlite_url)
+    command.upgrade(config, "0015")
+    engine = create_engine(sqlite_url)
+    try:
+        with engine.begin() as connection:
+            connection.execute(
+                text(
+                    "INSERT INTO employees (id, folder_name, given_names, surname, status, "
+                    "created_at) VALUES ('E0001', 'Test_Kisi_E0001', 'Test', 'Kisi', 'active', "
+                    "'2026-09-29 00:00:00')"
+                )
+            )
+            connection.execute(
+                text(
+                    "INSERT INTO uploads (id, channel, status, created_at) "
+                    "VALUES ('u_1', 'web', 'done', '2026-09-29 00:00:00')"
+                )
+            )
+            connection.execute(
+                text(
+                    "INSERT INTO upload_files (id, upload_id, original_name, stored_path, sha256, "
+                    "mime) VALUES (1, 'u_1', 'a.pdf', 'Inbox/u_1/a.pdf', :sha, 'application/pdf')"
+                ),
+                {"sha": "0" * 64},
+            )
+            connection.execute(
+                text(
+                    "INSERT INTO employee_field_observations (employee_id, field, outcome, "
+                    "file_id, page_index, observed_at) VALUES ('E0001', 'surname', 'filled', 1, "
+                    "0, '2026-09-29 00:00:00')"
+                )
+            )
+
+        command.upgrade(config, "head")
+        with engine.connect() as connection:
+            columns = {
+                column["name"]
+                for column in inspect(connection).get_columns("employee_field_observations")
+            }
+            assert columns == {
+                "id",
+                "employee_id",
+                "field",
+                "outcome",
+                "file_id",
+                "page_index",
+                "observed_at",
+                "source",
+                "actor",
+            }
+            assert connection.execute(
+                text("SELECT source, actor FROM employee_field_observations")
+            ).all() == [("document", None)]
+        insert = text(
+            "INSERT INTO employee_field_observations (employee_id, field, outcome, file_id, "
+            "page_index, observed_at, source, actor) VALUES ('E0001', :field, :outcome, :file_id, "
+            ":page_index, '2026-09-29 00:00:00', :source, :actor)"
+        )
+        manual = {
+            "field": "surname",
+            "outcome": "filled",
+            "file_id": None,
+            "page_index": None,
+            "source": "manual",
+            "actor": "ik",
+        }
+        with engine.begin() as connection:
+            connection.execute(insert, manual)
+            connection.execute(insert, manual)  # elle düzenleme her kez yeni satırdır
+        for changes in (
+            {"source": "belge"},
+            {"actor": None},
+            {"source": "document", "actor": None},
+            {"field": "expiry_date"},
+            {"outcome": "changed"},
+        ):
+            with pytest.raises(IntegrityError), engine.begin() as connection:
+                connection.execute(insert, {**manual, **changes})
+
+        command.downgrade(config, "0015")
+        with engine.connect() as connection:
+            columns = {
+                column["name"]
+                for column in inspect(connection).get_columns("employee_field_observations")
+            }
+            assert "source" not in columns and "actor" not in columns
+            assert connection.scalar(text("SELECT count(*) FROM employee_field_observations")) == 1
     finally:
         engine.dispose()
 

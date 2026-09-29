@@ -45,6 +45,7 @@ PRD_OPERATIONS = {
     "Yeni belge türünü onayla": Operation.APPROVE_TYPE,
     "Belgeyi arşive taşı": Operation.ARCHIVE,
     "Taramayı yoksay": Operation.DISMISS,
+    "Çalışan profilini düzenle": Operation.EDIT_EMPLOYEE,  # 10.5.6, §D61 (tm 126)
 }
 TARGET = "7:E0002"
 
@@ -126,6 +127,22 @@ def test_the_dismissal_counts_are_filled_and_never_shown_empty() -> None:
         second_text(Operation.DISMISS, documents=1)
     with pytest.raises(ValueError, match="<M>"):
         second_text(Operation.DISMISS, queue_items=1)
+
+
+def test_the_profile_edit_count_is_filled_and_never_shown_empty() -> None:
+    # 10.5.6: <N> yeniden adlandırılacak belge dosyası; ad değişmiyorsa 0 yazılır.
+    assert second_text(Operation.EDIT_EMPLOYEE, count=3) == (
+        "Ad ya da soyad değiştiyse klasör ve 3 belge dosyası yeniden adlandırılacaktır. Son "
+        "kararınız mı?"
+    )
+    assert "ve 0 belge dosyası" in second_text(Operation.EDIT_EMPLOYEE, count=0)
+    assert first_text(Operation.EDIT_EMPLOYEE) == (
+        "Bu çalışanın profil bilgilerini değiştirmek üzeresiniz. Emin misiniz?"
+    )
+    with pytest.raises(ValueError, match="<N>"):
+        second_text(Operation.EDIT_EMPLOYEE)
+    with pytest.raises(ValueError, match="ikisi birden"):
+        second_text(Operation.DISMISS, queue_items=1, count=1, documents=1)
 
 
 # --- §20.6.1: tek kullanımlık belirteç ------------------------------------------------------------

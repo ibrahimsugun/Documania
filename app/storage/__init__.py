@@ -1,5 +1,6 @@
 """Depolama katmanı: veri dizini yolları, slug, adlandırma, atomik yazma (PRD 00.4), Alinan kopyası
-(07.7.2), arşive taşıma (08.4.1), belgeyi başka çalışana taşıma (10.8.2).
+(07.7.2), arşive taşıma (08.4.1), belgeyi başka çalışana taşıma (10.8.2), çalışan klasörünü yeni
+ada göre yeniden adlandırma (10.5.6).
 
 Dosya yolu üreten tek yer bu pakettir (MASTER-PROMPT §4 yol kuralı).
 """
@@ -42,6 +43,13 @@ from app.storage.naming import (
     split_document_filename,
 )
 from app.storage.received import ReceivedCopy, copy_to_received
+from app.storage.rename import (
+    EmployeeRenameError,
+    EmployeeRenamePlan,
+    RenamedFile,
+    plan_employee_rename,
+    rename_employee_folder,
+)
 from app.storage.slug import SlugError, slugify
 
 __all__ = [
@@ -51,10 +59,13 @@ __all__ = [
     "DocumentNotArchivableError",
     "DocumentNotFoundError",
     "DocumentNotMovableError",
+    "EmployeeRenameError",
+    "EmployeeRenamePlan",
     "FileKind",
     "MoveTargetNotFoundError",
     "MovedDocument",
     "ReceivedCopy",
+    "RenamedFile",
     "SlugError",
     "StoredFile",
     "UnsupportedFileTypeError",
@@ -69,8 +80,10 @@ __all__ = [
     "iter_file_chunks",
     "move_document",
     "person_slug",
+    "plan_employee_rename",
     "prepare_data_dir",
     "remove_partial_writes",
+    "rename_employee_folder",
     "replace_file",
     "sequenced_filename",
     "sha256_bytes",

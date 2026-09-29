@@ -176,6 +176,14 @@ class FieldOutcome(enum.StrEnum):
     CONFLICT = "conflict"  # alan doluydu, belge farklı değer okudu; alan değişmedi
 
 
+class FieldSource(enum.StrEnum):
+    """Profil alanı gözleminin kaynağı (`employee_field_observations.source`): belge (05.7.3) ya da
+    İK'nın profil düzenlemesi (10.5.6, `actor` kullanıcı adıdır; belge kaynağı yoktur)."""
+
+    DOCUMENT = "document"
+    MANUAL = "manual"
+
+
 class CandidateTypeStatus(enum.StrEnum):
     """Aday tür durumu (§8.1 `candidate_document_types.status`).
 
@@ -360,18 +368,27 @@ class EmployeeContact(Base):
 
 class EmployeeFieldObservation(Base):
     """Bir profil alanının bir belgede görülmesi (05.7.3, PLAN.md §C82): alan belgeden dolduruldu
-    mu, belge aynı değeri mi okudu, farklı mı.
+    mu, belge aynı değeri mi okudu, farklı mı. İK'nın profil düzenlemesi de (10.5.6, §C90-a) her
+    değişen alan için `source=manual` satırı yazar: kaynak belge yoktur (`file_id`, `page_index`
+    boş), `actor` düzenleyen kullanıcıdır, sonuç `filled`.
 
-    **Değer tutulmaz** — kişisel değer sayfa analizinde durur (CONVENTIONS §6). Kaynak belgenin
-    ilk sayfasıdır (`file_id`, `page_index`): planın belge adayının ilk sayfası, çıktının kökeninin
-    (`documents.source_refs_json`) ilk sayfası. Bir alan aynı kaynaktan bir kez gözlenir; satır
-    silinmez. PRD §8.1 tablo listesinde yok; bu tablo 05.7.3'ün deposudur.
+    **Değer tutulmaz** — kişisel değer sayfa analizinde durur (CONVENTIONS §6). Belge kaynağı
+    belgenin ilk sayfasıdır (`file_id`, `page_index`): planın belge adayının ilk sayfası, çıktının
+    kökeninin (`documents.source_refs_json`) ilk sayfası. Bir alan aynı kaynaktan bir kez gözlenir;
+    satır silinmez. PRD §8.1 tablo listesinde yok; bu tablo 05.7.3'ün deposudur.
     """
 
     __tablename__ = "employee_field_observations"
     __table_args__ = (
         CheckConstraint(_one_of("field", ProfileField), name="field"),
         CheckConstraint(_one_of("outcome", FieldOutcome), name="outcome"),
+        CheckConstraint(_one_of("source", FieldSource), name="source"),
+        # Belge gözlemi kaynak sayfayı, elle düzenleme kullanıcıyı taşır.
+        CheckConstraint(
+            "(source = 'document' AND file_id IS NOT NULL AND page_index IS NOT NULL) "
+            "OR (source != 'document' AND actor IS NOT NULL)",
+            name="source_reference",
+        ),
         UniqueConstraint(
             "employee_id",
             "field",
@@ -386,12 +403,16 @@ class EmployeeFieldObservation(Base):
     employee_id: Mapped[str] = mapped_column(ForeignKey("employees.id"), index=True)
     field: Mapped[str] = mapped_column(String(32))
     outcome: Mapped[str] = mapped_column(String(16))
-    file_id: Mapped[int] = mapped_column(ForeignKey("upload_files.id"))
-    page_index: Mapped[int] = mapped_column(Integer)
+    file_id: Mapped[int | None] = mapped_column(ForeignKey("upload_files.id"))
+    page_index: Mapped[int | None] = mapped_column(Integer)
     observed_at: Mapped[datetime] = mapped_column(UtcDateTime, default=utcnow)
+    source: Mapped[str] = mapped_column(
+        String(16), default=FieldSource.DOCUMENT.value, server_default=FieldSource.DOCUMENT.value
+    )
+    actor: Mapped[str | None] = mapped_column(String(255))
 
     employee: Mapped[Employee] = relationship()
-    file: Mapped[UploadFile] = relationship()
+    file: Mapped[UploadFile | None] = relationship()
 
 
 # --- yükleme, dosya, sayfa, plan -----------------------------------------------------------

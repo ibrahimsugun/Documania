@@ -387,6 +387,7 @@ def test_neither_the_events_nor_the_observations_carry_values(session: Session) 
 
     _complete(session, _key(), _source(session))
 
+    # 10.5.6 kaynak türünü ve düzenleyen kullanıcıyı ekledi; değer sütunu yine yok.
     assert set(EmployeeFieldObservation.__table__.columns.keys()) == {
         "id",
         "employee_id",
@@ -395,7 +396,11 @@ def test_neither_the_events_nor_the_observations_carry_values(session: Session) 
         "file_id",
         "page_index",
         "observed_at",
+        "source",
+        "actor",
     }
+    rows = session.scalars(select(EmployeeFieldObservation)).all()
+    assert rows and {(row.source, row.actor) for row in rows} == {("document", None)}
     logged = json.dumps(
         [[event.message, event.data_json] for event in _filled_events(session)],
         ensure_ascii=False,

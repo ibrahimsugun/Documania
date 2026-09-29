@@ -403,6 +403,11 @@ REVIEWED_MUTATING_ROUTES: dict[tuple[str, str], str] = {
     ("POST", "/employees/{employee_id}/packages/{package_id}/reopen"): (
         "belge paketi kaydı: iptali geri alma (14.2.3)"
     ),
+    ("POST", "/employees/{employee_id}/fields/prepare"): "onay belirteci",
+    ("POST", "/employees/{employee_id}/fields"): (
+        "çalışan kaydı: profil alanları ve K8 yeniden adlandırma; belge içeriği değişmez "
+        "(10.5.6, K16)"
+    ),
     ("POST", "/training"): "eğitim yüklemesi: örneklere kopya, çalışan verisi değil (11.9.1)",
     ("POST", "/training/items/{item_id}/place"): (
         "eğitim öğesini türe yerleştirme: örneğe kopya ve kayıt (11.9.1, K11)"

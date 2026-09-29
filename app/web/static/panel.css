@@ -328,6 +328,16 @@ button {
 
 .field-errors { margin: 0.25rem 0 0; color: #b42318; }
 
+/* Çalışan profilini düzenleme (10.5.6) */
+
+.employee-fields .edit-note, .employee-fields .confirm-text { grid-column: 1 / -1; margin: 0.25rem 0 0; }
+
+.employee-fields .edit-actions { grid-column: 2; display: flex; align-items: center; gap: 0.75rem; }
+
+.confirm .field-changes { flex-basis: 100%; }
+
+.field-changes tr.changed td { font-weight: 600; }
+
 /* Belgeyi başka çalışana taşıma (10.8.2) */
 
 .assignees .owner { color: #6b7280; font-size: 0.9em; }
@@ -1059,7 +1069,7 @@ form:not(.session) button[type="submit"]:hover,
   .content { padding: 1.5rem 1rem 3rem; }
   .content table { display: block; overflow-x: auto; white-space: nowrap; }
   .profile-edit, .type-form { grid-template-columns: 1fr; }
-  .profile-edit button, .type-form .form-actions { grid-column: 1; }
+  .profile-edit button, .type-form .form-actions, .employee-fields .edit-actions { grid-column: 1; }
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -1,9 +1,10 @@
 """İki aşamalı onay mekanizması (PRD 10.8.1; K16, §20.6, §20.6.1).
 
 K16'nın manuel işlemleri — belgeyi başka çalışana taşı, kuyruk öğesini ata, onay bekleyen profili
-onayla, yeni türü onayla, arşive taşı, taramayı yoksay — iki onay ister. Onay metinleri §20.6
-tablosundan **birebir** buradadır (`CONFIRMATION_TEXTS`); `<Ad Soyad>`, `<Tür adı>`, `<N>` ve
-`<M>` yer tutucuları çalışma zamanında `fill` ile doldurulur, pencere kendi cümlesini yazmaz.
+onayla, yeni türü onayla, arşive taşı, taramayı yoksay, çalışan profilini düzenle (§D61) — iki onay
+ister. Onay metinleri §20.6 tablosundan **birebir** buradadır (`CONFIRMATION_TEXTS`); `<Ad Soyad>`,
+`<Tür adı>`, `<N>` ve `<M>` yer tutucuları çalışma zamanında `fill` ile doldurulur, pencere kendi
+cümlesini yazmaz.
 
 Metni göstermek tek başına yetmez — istemci atlanabilir. Sunucu tarafı akış (§20.6.1):
 
@@ -59,6 +60,7 @@ class Operation(enum.StrEnum):
     APPROVE_TYPE = "approve_type"
     ARCHIVE = "archive"
     DISMISS = "dismiss"  # taramayı (partiyi) yoksay, 10.3.4
+    EDIT_EMPLOYEE = "edit_employee"  # çalışan profilini düzenle, 10.5.6 (§D61)
     # §20.6'nın dışında: yeniden analizin onayı (10.3.2, metinler PLAN.md §D23).
     REANALYZE = "reanalyze"
     # §20.6'nın dışında (K16 dışı, PLAN.md §D58): eğitim örneğini başka türe taşı ve örneklerden
@@ -77,7 +79,9 @@ class ConfirmationTexts:
 
 NAME_PLACEHOLDER = "<Ad Soyad>"
 TYPE_PLACEHOLDER = "<Tür adı>"
-QUEUE_COUNT_PLACEHOLDER = "<N>"
+# `<N>`: taramayı yoksaymada kuyruk öğesi sayısı (`queue_items`), profil düzenlemede yeniden
+# adlandırılacak belge dosyası sayısı (`count`).
+COUNT_PLACEHOLDER = "<N>"
 DOCUMENT_COUNT_PLACEHOLDER = "<M>"
 
 # §20.6 — metinler BİREBİR, değiştirilmez; `tests/web/test_confirm.py` PRD tablosuyla karşılaştırır.
@@ -107,6 +111,11 @@ CONFIRMATION_TEXTS: dict[Operation, ConfirmationTexts] = {
         "Parti ve bekleyen <N> kuyruk öğesi listelerden kalkacaktır; üretilmiş <M> belge yerinde "
         "kalır. Son kararınız mı?",
     ),
+    Operation.EDIT_EMPLOYEE: ConfirmationTexts(
+        "Bu çalışanın profil bilgilerini değiştirmek üzeresiniz. Emin misiniz?",
+        "Ad ya da soyad değiştiyse klasör ve <N> belge dosyası yeniden adlandırılacaktır. Son "
+        "kararınız mı?",
+    ),
 }
 
 
@@ -117,13 +126,18 @@ def fill(
     type_name: str | None = None,
     queue_items: int | None = None,
     documents: int | None = None,
+    count: int | None = None,
 ) -> str:
     """Onay metninin yer tutucularını doldurur; metinde olup değeri verilmeyen yer tutucu
-    `ValueError`'dır (yer tutuculu metin kullanıcıya gitmesin)."""
+    `ValueError`'dır (yer tutuculu metin kullanıcıya gitmesin). `<N>` `queue_items` ya da `count`
+    ile dolar; ikisi birden verilemez."""
+    if queue_items is not None and count is not None:
+        raise ValueError("<N> yer tutucusu queue_items ya da count ile dolar, ikisi birden değil")
+    number = queue_items if queue_items is not None else count
     for placeholder, value in (
         (NAME_PLACEHOLDER, name),
         (TYPE_PLACEHOLDER, type_name),
-        (QUEUE_COUNT_PLACEHOLDER, None if queue_items is None else str(queue_items)),
+        (COUNT_PLACEHOLDER, None if number is None else str(number)),
         (DOCUMENT_COUNT_PLACEHOLDER, None if documents is None else str(documents)),
     ):
         if placeholder in text:

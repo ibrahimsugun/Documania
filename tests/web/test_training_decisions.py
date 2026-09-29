@@ -44,6 +44,7 @@ from app.web.routers.training import (
 from tests.fixtures.gen import make_portrait_image_bytes
 from tests.training.invariants import assert_employee_data_untouched
 from tests.web.conftest import SESSION, SIGNED_IN, issue_token
+from tests.web.test_confirm import PRD_OPERATIONS
 
 LIMIT = 1024 * 1024
 FROM_SLUG = "albanian_passport"
@@ -165,7 +166,8 @@ def test_training_decisions_stay_outside_section_20_6() -> None:
     # §D58 a: K16 ve §20.6 değişmez; işlemler REANALYZE gibi tablo dışıdır.
     assert Operation.TRAINING_MOVE not in CONFIRMATION_TEXTS
     assert Operation.TRAINING_REMOVE not in CONFIRMATION_TEXTS
-    assert len(CONFIRMATION_TEXTS) == 6
+    # Tabloda yalnız §20.6'nın işlemleri var (K16 işlemleriyle büyür, §D61; eğitim işlemi yok).
+    assert set(CONFIRMATION_TEXTS) == set(PRD_OPERATIONS.values())
 
 
 # --- ikon ve Doğrula -----------------------------------------------------------------------------

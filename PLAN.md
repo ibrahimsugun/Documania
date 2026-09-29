@@ -9,7 +9,7 @@
 | Faz | PRD | Genel durum | Must sayacı | Kapanış |
 | --- | --- | --- | --- | --- |
 | Faz 0 — MVP | §5.1 | 105 ✅ · 0 ◐ · 0 ⬜ · 0 🔒 | 101/101 Must | AÇIK |
-| Faz 1 — v1 | §5.2 | 51 ✅ · 0 ◐ · 11 ⬜ · 0 🔒 | 37/41 Must | AÇIK |
+| Faz 1 — v1 | §5.2 | 52 ✅ · 0 ◐ · 10 ⬜ · 0 🔒 | 38/41 Must | AÇIK |
 | Faz 2 — v2 | §5.3 | 13 ✅ · 0 ◐ · 1 ⬜ · 0 🔒 | 0/0 Must | AÇIK |
 | Faz 3 — Enterprise | §5.4 | 10 ✅ · 0 ◐ · 0 ⬜ · 0 🔒 | 0/0 Must | AÇIK |
 
@@ -245,7 +245,7 @@ panelde `plan-count-drift` bulgusu doğurur.
 | 10.5.2 | Belge listesi ve açma | Must (v1) | ✅ → K10.5 |
 | 10.5.3 | Profil sayfasından yükleme | Should (v1) | ✅ → K10.5 |
 | 10.5.5 | Profilden yüklemede kişi denetimi | Must (v1) | ✅ → K10.5 |
-| 10.5.6 | Çalışan profilini düzenleme | Must (v1) | ⬜ |
+| 10.5.6 | Çalışan profilini düzenleme | Must (v1) | ✅ → K10.5 |
 | 10.5.7 | Çalışanı pasife alma ve yeniden etkinleştirme | Must (v1) | ⬜ |
 | 10.5.8 | Profil alt kayıtlarını kaldırma ve iletişim bilgisi ekleme | Should (v1) | ⬜ |
 | 10.5.9 | İki çalışanı birleştirme | Should (v1) | ⬜ |
@@ -2175,6 +2175,33 @@ bu kayıt neden sapıldığının izlenebilir olması içindir.
   Aynı grubun ikinci paketi uyarısı ise iptal edilmemiş (açık ya da tamamlanmış) pakete bakar.
   Liste hücresi açık paketi yoksa "—" (yalnız tamamlanmış paketi olan çalışan da "—").
 
+- **D66 — Profil düzenlemesinin uygulama kararları (10.5.6, tm 126).** (a) **Eski sürüm yeniden
+  adlandırılmaz.** 10.5.6 "Hazir/ altındaki dosyalar K8 adına" der; K18 "eski çıktılar yeniden
+  adlandırılmaz" der ve `move_document` de eski sürümü reddeder. Uygulanan: yalnız **etkin** belgenin
+  dosyası yeni K8 adını alır; eski sürüm adını korur, klasörüyle taşınır (yolu güncellenir). `<N>` etkin
+  ve dosyası yerinde olan belge sayısıdır. (b) **`Alinan/` adları korunur.** Alinan kopyaları K8 adı
+  değil, yüklemedeki adı taşır (K10, 07.7.2); klasörle birlikte taşınırlar, yeniden adlandırılmazlar.
+  (c) **Çakışma.** Yeni gövdeyle `Hazir/`'da başka bir dosya varsa (ör. önceki bir ad değişikliğinden
+  kalan eski sürüm) üzerine yazılmaz; `write_sequenced`'ın kuralıyla ilk boş ek seçilir ve
+  `sequence_no` güncellenir. Dosyası yerinde olmayan belgenin yalnız yolu değişir. (d) **Alias.** PRD
+  alias'tan söz etmez; ama isim eşleştirmesi (§20.2.2 satır 3–5) yalnız `employee_aliases`'a bakar —
+  düzeltilen ad alias olmadan hiç eşleşmezdi. 10.7.3 onayı gibi, değişen ad-soyad ve orijinal yazım
+  alias olarak eklenir; eski yazımlar kalır (kaldırma tm 128). (e) **Uyruk 1–3 harf.** Görev "2–3
+  büyük harf" der; `check_profile_fields` ICAO kuralıyla 1–3 harf kabul eder (Almanya `D`). Aynı
+  denetim 10.7.3'te de kullanıldığı için korunur; `D` uyruklu çalışan düzenlenebilsin. (f) **Kart.**
+  Elle düzenlenen alanın kaynağı "elle (kullanıcı, gün)"dür; o düzenlemeden önceki belge gözlemleri
+  (kaynak ve çakışma) eski değerle karşılaştırıldığı için karttan düşer, sonrakiler kaynak ya da uyarı
+  olur (değer tutulmadığı için eski gözlem yeni değerle yeniden karşılaştırılamaz). (g) **Birinci
+  onay.** §C90-a yalnız form + `prepare` + asıl isteği sayar; birinci onay metni ayrı bir yol yerine
+  formun kendisindedir ("Evet, devam et" hazırlığa gider; `dismiss` kalıbı). Form tam sayfadır (HTMX
+  değil): 422/409/400 yanıtları tarayıcıda görünür. (h) `employee_field_observations` PRD §8.1'de yok;
+  `source` ve `actor` sütunları ile boş olabilen `file_id`/`page_index` bu tablonun 05.7.3 deposu
+  notuna eklenmeli (PRD'ye dokunulmadı). (i) Kuyruk router'ındaki profil formu yardımcıları
+  (`profile_form`, `parse_profile`, etiketler) iki akışın ortak modülüne taşındı
+  (`app/web/profile_form.py`); davranış değişmedi. `test_training_map.py` ve
+  `test_training_decisions.py` onay tablosunu sabit 6 yerine §20.6 işlem listesine (`PRD_OPERATIONS`)
+  bağlar — tablo §D61 ile her K16 görevinde büyür.
+
 ## G. İş Kırılımı Dizini
 
 Task Master'a aktarımın kaynağı budur. Her satır bir görevdir; `ID` sütunu görev
@@ -2630,6 +2657,8 @@ var olan maddeler silinmez. Biçim:
 - ✅ 10.5.3 profil sayfasından yükleme: profil sayfası `/upload` formunu gizli `context_employee_id` (çalışan seçici yok) ile taşır, `POST /upload`'a gider; sayfanın verdiği alanla yapılan yükleme partiyi o çalışanın bağlamıyla açar, ilerleme aynı sayfada — C49 · test `tests/web/test_profile.py` · tm 68
 - ✅ Kapı: ruff check/format, compileall, `pytest -q -m "not live" --cov=app --cov-fail-under=70` (2491 geçti, +26; 2 beklenen xfail D12; 4 PG testi atlandı), kapsam %99.76 (`employees.py` %100), temiz SQLite'ta `alembic upgrade head` (göç yok), `import app.main` — hepsi exit 0; 7 geçici kural bozulmasının (sahip denetimi yok, fotoğraf durum süzgeci yok, eski iletişim bilgisi görünür, açma "ek" olarak iner, yaş yanlış gün, `no-store` yok, `/photo` görüntü olmayanı da sunar) her biri testte kırmızı; headless Chrome'da (statik çizim) kart + fotoğraf + belge tablosu + yükleme formu ve yer tutucu/"Eksik belge"/"—" görünümü elle görüldü · tm 68
 - ✅ 10.5.5 profilden yüklemede kişi denetimi: `app/matching/context.py` (bağlam çalışanıyla temiz belge numarası → doğum tarihi → ad; ad §20.2.1 normalize, kelime kümesi kapsama + ortak soyad kelimesi; `same`/`different`/`unknown`) + sekizinci doğrulayıcı `context_person` (`app/pipeline/validate.py`, yalnız bağlamlı yüklemede) + planlayıcı (`app/pipeline/plan.py`: `different` → Unresolved, çalışan ve kişi tahmini `none`, çalışan açılmaz, alias/numara/iletişim/alan birikmez, gerekçe kişisel değersiz, `VALIDATION_FAILED`) + uyarı kutusu `app/web/context_person.py`, `_context_warning.html` ("⚠ Bu profile ait olmayan N belge bulundu — profile eklenmedi"; tür, belgede okunan ad ↔ profil adı görünüm anında, kuyruk bağlantısı; yükleme sonucu, parti detayı, profil sayfası — profil kutusu kuyruk öğesi çözülene kadar) — PLAN §C83, §D53 · test `tests/matching/test_context_person.py` (30), `tests/pipeline/test_plan.py` (+6), `tests/web/test_context_person_warning.py` (12) · tm 108
+- ✅ 10.5.6 çalışan profilini düzenleme: servis `app/matching/edit.py` (`update_employee_fields`: `check_profile_fields` denetimi, değişen alanlar, alan başına `source=manual`+`actor` gözlemi, yeni ad-soyad/orijinal yazım alias'ı, `EMPLOYEE_EDITED` {fields, renamed, documents} değersiz; `preview_employee_edit` → `<N>`), K8 yeniden adlandırma `app/storage/rename.py` (`plan_employee_rename` + `rename_employee_folder`: satırlar önce, klasör `os.replace`, Hazir'daki etkin dosyalar `document_stem` + sıra eki, çakışmada ilk boş ek, harf büyüklüğü değişen ad geçici addan, hata olursa ters sırada geri alma → `EmployeeRenameError`), göç 0016 (`employee_field_observations.source`/`actor`, `file_id`/`page_index` boş olabilir, CHECK `source`, `source_reference`), panel `app/web/routers/employees.py` (`GET /employees/{id}/fields`, `POST .../fields/prepare`, `POST .../fields`; belirteç hedefi çalışan + `profile_digest`; profil kartında "Profili düzenle" ve "elle" kaynağı) + `employee_fields.html`, `employee_fields_step.html`, ortak form `app/web/profile_form.py` (10.7.3 ile paylaşılır), `Operation.EDIT_EMPLOYEE` + §20.6 satırı (`fill(count=)`) · test `tests/matching/test_edit_employee.py` (24), `tests/web/test_employee_fields.py` (18), `tests/web/test_confirm.py` (+1), `tests/db/test_migrations.py` (+1) · tm 126
+- ✅ Kapı: ruff check/format, compileall, `import app.main`, `git diff --check`, temiz SQLite'ta `alembic upgrade head` (→0016); `pytest -q -m "not live" --cov=app` on ön plan grubunda 5440 geçti (+42; sonra eklenen 2 test kendi dosyalarında yeşil), 5 PG atlandı, birleşik kapsam %99 (`edit.py`, `profile_form.py`, `confirm.py` %100); 6 geçici kural bozmasının 6'sı kırmızı · tm 126
 
 #### K10.6 — 10.6.1 · Belge geçmişi görünümü
 - ✅ 10.6.1 belge geçmişi: `app/web/routers/documents.py` (`GET /documents/{id}/history` → `build_history`; çıktı (çalışan, tür, dosya + açma, durum, plan sürümü), kaynak dosyalar ve sayfalar (`source_refs_json`: dosya adı → `/uploads/{id}#file-N`, her sayfa → sayfa görüntüsü; boş sayfa listesi = bütün dosya; sıra köken kaydındaki gibi; eksik/bozuk kayıt bağlantısız notla yazılır), parti ve plan öğesi bağlantısı, belgenin kendi olayları; bilinmeyen belge 404; yalnız `GET`) + `app/web/templates/history.html`; `app/main.py` yönlendiriciyi oturuma bağlar, profil belge listesi ve yükleme detayı çıktı tablosu "Geçmiş" bağlantısı taşır — C50 · test `tests/web/test_documents.py` (29) · tm 69

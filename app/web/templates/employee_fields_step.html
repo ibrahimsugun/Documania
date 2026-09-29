@@ -1,0 +1,27 @@
+{# Çalışan profilini düzenlemenin ikinci onay adımı (10.5.6): alanların şimdiki ve yeni değeri,
+   §20.6'nın ikinci onay metni (birebir; <N> dosyası yeniden adlandırılacak belge sayısı) ve form
+   değerlerine bağlı tek kullanımlık belirteç. Değerler gizli alanlarla aynen taşınır; hazırlıktan
+   sonra değişen değer belirteçten geçmez. #}
+<form method="post" action="/employees/{{ employee_id }}/fields" class="confirm employee-fields-step">
+  <table class="outputs field-changes">
+    <thead>
+      <tr><th scope="col">Alan</th><th scope="col">Şimdiki</th><th scope="col">Yeni</th></tr>
+    </thead>
+    <tbody>
+      {% for row in changes %}
+      <tr{% if row.changed %} class="changed"{% endif %}>
+        <th scope="row">{{ row.label }}</th>
+        <td>{{ row.before }}</td>
+        <td>{{ row.after }}{% if row.changed %} <span class="edited">değişiyor</span>{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <p class="confirm-text" role="alert">{{ second_confirmation }}</p>
+  {% for name, value in hidden.items() %}
+  <input type="hidden" name="{{ name }}" value="{{ value }}">
+  {% endfor %}
+  <input type="hidden" name="confirmation" value="{{ confirmation }}">
+  <button type="submit">Evet, değiştir</button>
+  <a href="/employees/{{ employee_id }}">Vazgeç</a>
+</form>

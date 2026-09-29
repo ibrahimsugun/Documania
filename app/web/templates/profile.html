@@ -4,7 +4,8 @@
    uyarısı durur (05.7.3). Profilden yüklenip bu çalışana ait görünmeyen, kuyrukta çözülmemiş belge
    varsa kişi denetiminin uyarısı en üstte (10.5.5). Belge paketleri (14.2) kart hâlinde: kalem
    tikleri belgelerden hesaplanır; paket tanımlama, iptal ve yeniden açma tek adımlı formlardır.
-   Sayfa belge içeriğini değiştiren yol taşımaz. #}
+   "Profili düzenle" (10.5.6) çalışan kaydının alanlarını iki aşamalı onayla değiştiren sayfaya
+   gider. Sayfa belge içeriğini değiştiren yol taşımaz. #}
 {% from "_context_warning.html" import context_warning %}
 {% block title %}{{ profile.name if profile else "Çalışan bulunamadı" }}{% endblock %}
 {% block content %}
@@ -14,7 +15,8 @@
 <p class="error" role="alert">{{ error }}</p>
 {% else %}
 <h1>{{ profile.name }}</h1>
-<p class="profile-meta">{{ profile.id }} · {{ profile.status_label }} · <a href="/access-log/employees/{{ profile.id }}">Erişim logu</a></p>
+<p class="profile-meta">{{ profile.id }} · {{ profile.status_label }} · <a href="/access-log/employees/{{ profile.id }}">Erişim logu</a>{% if profile.editable %} · <a href="/employees/{{ profile.id }}/fields" class="edit-profile">Profili düzenle</a>{% endif %}</p>
+{% if profile_notice %}<p class="notice notice-success" role="status">{{ profile_notice }}</p>{% endif %}
 {{ context_warning(profile.context_warning) }}
 {% if profile.latin_missing %}
 <p class="missing" role="status"><span class="badge badge-missing">Latin yazım eksik</span> Ad, soyad ya da diğer isimler Latin olmayan harf taşıyor; Latin yazım belgede ve isim yazımlarında bulunamadı.</p>
@@ -33,8 +35,9 @@
     <p class="missing" role="status"><span class="badge badge-missing">Eksik belge</span> Profile Picture</p>
     {% endif %}
   </div>
-  {# 05.7.3: alanın kaynağı ve belgede okunan farklı değer; değer değişmez, uyarı kalır. #}
-  {% macro source_link(link) %}<a href="{{ link.url }}"{% if link.new_tab %} target="_blank" rel="noopener"{% endif %}>{{ link.label }}</a>{% endmacro %}
+  {# 05.7.3: alanın kaynağı ve belgede okunan farklı değer; değer değişmez, uyarı kalır. Elle
+     girilen alanın (10.5.6) kaynağı bağlantısızdır: "elle (kullanıcı, gün)". #}
+  {% macro source_link(link) %}{% if link.url %}<a href="{{ link.url }}"{% if link.new_tab %} target="_blank" rel="noopener"{% endif %}>{{ link.label }}</a>{% else %}{{ link.label }}{% endif %}{% endmacro %}
   {% macro field_sources(info) %}{% if info %}
     {% if info.source %}<span class="reason field-source">Kaynak: {{ source_link(info.source) }}</span>{% endif %}
     {% if info.conflicts %}<p class="missing field-conflict" role="status"><span class="badge badge-missing">Farklı değer</span> {{ info.warning }}: {% for link in info.conflicts %}{% if not loop.first %}, {% endif %}{{ source_link(link) }}{% endfor %}</p>{% endif %}
