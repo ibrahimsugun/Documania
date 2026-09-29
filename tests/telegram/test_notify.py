@@ -27,7 +27,7 @@ from telegram.ext import Application, ApplicationBuilder
 from telegram.request import RequestData
 
 from app.catalog import import_catalog, load_seed_catalog
-from app.db.models import Event, QueueItem, Upload, UploadStatus, utcnow
+from app.db.models import Event, QueueItem, TelegramUser, Upload, UploadStatus, utcnow
 from app.events import EventType, record_event
 from app.storage import prepare_data_dir
 from app.telegram import notify
@@ -304,6 +304,27 @@ def test_only_users_on_the_whitelist_are_told(
 ) -> None:
     whitelist(LISTED_ID)
     whitelist(OTHER_ID, allowed=False)
+    bot = make_bare_bot()
+    queue_event(session_factory)
+
+    scan(bot.application, bot.notifier)
+
+    assert notifications(bot.telegram, LISTED_ID) != []
+    assert notifications(bot.telegram, OTHER_ID) == []
+
+
+def test_ids_of_a_deactivated_panel_user_are_not_told(
+    make_bare_bot: Callable[..., NotifyBot],
+    session_factory: sessionmaker[Session],
+    whitelist: Callable[..., None],
+    uploads: None,
+) -> None:
+    """12.1.3: izni açık ama bağlı panel kullanıcısı pasif olan kimlik bildirim almaz."""
+    whitelist(LISTED_ID)
+    whitelist(OTHER_ID)
+    with session_factory() as session:
+        session.get_one(TelegramUser, OTHER_ID).user.active = False
+        session.commit()
     bot = make_bare_bot()
     queue_event(session_factory)
 

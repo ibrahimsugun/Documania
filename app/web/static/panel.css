@@ -1162,3 +1162,10 @@ form:not(.session) button[type="submit"]:hover,
 .reopen-item { display: inline-block; margin: 0.25rem 0 0; }
 .dismissed-row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 1rem; }
 .dismissed-row .hint { flex-basis: 100%; margin: 0; }
+
+/* 12.1.3: Kullanıcılar sayfasında her kullanıcının altında Telegram beyaz listesi. */
+.users tr.telegram-row td { padding-top: 0.2rem; background: #fafbfc; }
+.telegram-title { font-weight: 600; margin-right: 0.5rem; }
+.telegram-ids { display: inline-flex; flex-wrap: wrap; gap: 0.25rem 1rem; margin: 0; padding: 0; list-style: none; }
+.telegram-ids li { display: inline-flex; align-items: center; gap: 0.35rem; }
+.telegram-add input[name="telegram_id"] { min-width: 12rem; padding: 0.3rem; border: 1px solid #d0d7de; border-radius: 4px; font: inherit; }

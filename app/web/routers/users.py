@@ -1,8 +1,9 @@
-"""Kullanıcılar ekranı (PRD 10.1.4; PLAN.md §C92-d).
+"""Kullanıcılar ekranı (PRD 10.1.4, 12.1.3; PLAN.md §C92-d, §C92-e).
 
 - `GET /users` panel kullanıcılarını listeler: kullanıcı adı, rol, durum, izinli Telegram kimliği
-  sayısı (12.1.3, tm 135 genişletir); "Yeni kullanıcı" formu ve her başka kullanıcı için parola
-  sıfırlama ve pasife alma / yeniden etkinleştirme.
+  sayısı; "Yeni kullanıcı" formu ve her başka kullanıcı için parola sıfırlama ve pasife alma /
+  yeniden etkinleştirme. Her kullanıcı satırının altında — kendi satırı dahil — bağlı Telegram
+  kimlikleri izin durumlarıyla ve kimlik ekleme formu durur (12.1.3).
 - `POST /users` kullanıcı açar (ad 3–150, parola ≥ 12, rol `UserRole`'dan); kural dışı değer 422,
   kullanılan ad 409 ile sayfa yeniden çizilir.
 - `POST /users/{id}/password` yöneticinin sıfırlamasıdır; hedefin açık oturumları kapanır. Kendi
@@ -11,6 +12,12 @@
   pasife alma 409; pasife alınanın açık oturumları kapanır.
 - `GET /account/password` + `POST /account/password` kullanıcının kendi parolasıdır: eski parola
   yanlışsa 400; bu oturum açık kalır, diğerleri kapanır.
+- `POST /users/{id}/telegram` (`telegram_id`) kullanıcıya izinli Telegram kimliği bağlar; pozitif
+  tam sayı değilse 422, kimlik zaten bir kullanıcıya bağlıysa 409.
+  `POST /users/{id}/telegram/{tid}/status` (`allowed` = `true` | `false`) izni açar ya da kapatır;
+  aynı duruma geçiş 409, kimlik o kullanıcıya bağlı değilse 404. Kayıt silinmez; bot yalnız izinli
+  ve etkin kullanıcıya bağlı kimliğe yanıt verir (`app.telegram.whitelist`). Olay
+  `TELEGRAM_USER_CHANGED`.
 
 Yalnız yönetici açar (tek rol `admin`; `require_admin`). Hepsi tek adımlıdır (§D61-b: dosyaya ve
 belgeye dokunmaz, geri alınabilir) ve kullanıcı adıyla olay yazar (`USER_*`). Parola hiçbir olaya,
@@ -22,13 +29,23 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request, status
+from fastapi import APIRouter, Depends, Form, HTTPException, Path, Query, Request, status
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.db.models import TelegramUser, User, UserRole
 from app.db.session import get_session
+from app.telegram.whitelist import (
+    TELEGRAM_ID_MAX,
+    TELEGRAM_ID_MAX_DIGITS,
+    TelegramIdError,
+    TelegramIdTakenError,
+    TelegramStatusError,
+    add_telegram_id,
+    parse_telegram_id,
+    set_telegram_allowed,
+)
 from app.web.auth import (
     MIN_PASSWORD_LENGTH,
     SESSION_COOKIE,
@@ -52,6 +69,8 @@ router = APIRouter(tags=["users"])
 USERS_PATH = "/users"
 ACCOUNT_PASSWORD_PATH = "/account/password"
 USER_NOT_FOUND = "Kullanıcı bulunamadı"
+TELEGRAM_NOT_FOUND = "Bu kullanıcıya bağlı böyle bir Telegram kimliği yok"
+UNKNOWN_ALLOWED = "İzin 'true' ya da 'false' olmalı."
 ADMIN_ONLY = "Bu sayfayı yalnız yönetici açabilir."
 PASSWORDS_DIFFER = "Yeni parola ile tekrarı eşleşmiyor."
 UNKNOWN_ROLE = "Bilinmeyen rol."
@@ -65,7 +84,12 @@ NOTICES = {
     "deactivated": "Kullanıcı pasife alındı; açık oturumları kapatıldı.",
     "reactivated": "Kullanıcı yeniden etkinleştirildi.",
     "own_password": "Parolanız değiştirildi; diğer oturumlarınız kapatıldı.",
+    "telegram_added": "Telegram kimliği eklendi ve izni açıldı.",
+    "telegram_allowed": "Telegram kimliğinin izni açıldı.",
+    "telegram_blocked": "Telegram kimliğinin izni kapatıldı; bot bu kimliğe yanıt vermeyecek.",
 }
+ALLOWED_TRUE = "true"
+ALLOWED_FALSE = "false"
 
 # Form sınırı yalnız aşırı girdiye karşıdır; uzunluk kuralını `app.web.auth` mesajla bildirir.
 FORM_TEXT_LIMIT = 1000
@@ -85,6 +109,12 @@ DbSession = Annotated[Session, Depends(get_session)]
 
 
 @dataclass(frozen=True, slots=True)
+class TelegramRow:
+    telegram_id: int
+    allowed: bool
+
+
+@dataclass(frozen=True, slots=True)
 class UserRow:
     id: int
     username: str
@@ -93,6 +123,7 @@ class UserRow:
     active: bool
     telegram_count: int
     is_self: bool
+    telegram: tuple[TelegramRow, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -115,6 +146,15 @@ def _rows(session: Session, user: PanelUser) -> list[UserRow]:
         .outerjoin(telegram, telegram.c.user_id == User.id)
         .order_by(User.id)
     ).all()
+    accounts: dict[int, list[TelegramRow]] = {}
+    for account in session.execute(
+        select(TelegramUser.user_id, TelegramUser.telegram_id, TelegramUser.allowed).order_by(
+            TelegramUser.user_id, TelegramUser.telegram_id
+        )
+    ):
+        accounts.setdefault(account.user_id, []).append(
+            TelegramRow(telegram_id=account.telegram_id, allowed=account.allowed)
+        )
     return [
         UserRow(
             id=row.id,
@@ -124,6 +164,7 @@ def _rows(session: Session, user: PanelUser) -> list[UserRow]:
             active=row.active,
             telegram_count=row.allowed or 0,
             is_self=row.id == user.id,
+            telegram=tuple(accounts.get(row.id, ())),
         )
         for row in rows
     ]
@@ -139,6 +180,7 @@ def _users_page(
     error: str | None = None,
     error_user_id: int | None = None,
     form: NewUserValues | None = None,
+    telegram_value: str = "",
 ) -> HTMLResponse:
     response = render_page(
         request,
@@ -152,6 +194,8 @@ def _users_page(
         error=error,
         error_user_id=error_user_id,
         form=form or NewUserValues(),
+        telegram_value=telegram_value,
+        telegram_id_max_digits=TELEGRAM_ID_MAX_DIGITS,
         min_password_length=MIN_PASSWORD_LENGTH,
         username_min_length=USERNAME_MIN_LENGTH,
         username_max_length=USERNAME_MAX_LENGTH,
@@ -281,6 +325,85 @@ def set_status_endpoint(
         )
     session.commit()
     return _redirect("reactivated" if active else "deactivated")
+
+
+@router.post(f"{USERS_PATH}/{{user_id}}/telegram", response_class=HTMLResponse)
+def add_telegram_endpoint(
+    user_id: int,
+    request: Request,
+    user: AdminUser,
+    session: DbSession,
+    telegram_id: Annotated[str, Form(max_length=64)] = "",
+) -> Response:
+    """12.1.3 kullanıcıya Telegram kimliği ekleme — izin açık gelir; `TELEGRAM_USER_CHANGED`
+    {target_user_id, telegram_id, allowed: true, added: true}. Pozitif tam sayı değilse 422, kimlik
+    zaten bir kullanıcıya bağlıysa 409."""
+    target = _user_or_404(session, user_id)
+    try:
+        add_telegram_id(session, target, parse_telegram_id(telegram_id), actor=user.username)
+    except (TelegramIdError, TelegramIdTakenError) as exc:
+        session.rollback()
+        code = (
+            status.HTTP_409_CONFLICT
+            if isinstance(exc, TelegramIdTakenError)
+            else status.HTTP_422_UNPROCESSABLE_CONTENT
+        )
+        return _users_page(
+            request,
+            user,
+            session,
+            status_code=code,
+            error=str(exc),
+            error_user_id=user_id,
+            telegram_value=telegram_id.strip(),
+        )
+    session.commit()
+    return _redirect("telegram_added")
+
+
+@router.post(
+    f"{USERS_PATH}/{{user_id}}/telegram/{{telegram_id}}/status", response_class=HTMLResponse
+)
+def set_telegram_status_endpoint(
+    user_id: int,
+    telegram_id: Annotated[int, Path(ge=1, le=TELEGRAM_ID_MAX)],
+    request: Request,
+    user: AdminUser,
+    session: DbSession,
+    allowed_value: Annotated[str, Form(alias="allowed", max_length=8)] = "",
+) -> Response:
+    """12.1.3 izni kapatma ve açma — kayıt silinmez; `TELEGRAM_USER_CHANGED` {target_user_id,
+    telegram_id, allowed, added: false}. Aynı duruma geçiş 409, kimlik bu kullanıcıya bağlı değilse
+    404."""
+    if allowed_value not in (ALLOWED_TRUE, ALLOWED_FALSE):
+        return _users_page(
+            request,
+            user,
+            session,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            error=UNKNOWN_ALLOWED,
+            error_user_id=user_id,
+        )
+    target = _user_or_404(session, user_id)
+    account = session.get(TelegramUser, telegram_id)
+    if account is None or account.user_id != target.id:
+        session.rollback()
+        raise HTTPException(status.HTTP_404_NOT_FOUND, TELEGRAM_NOT_FOUND)
+    allowed = allowed_value == ALLOWED_TRUE
+    try:
+        set_telegram_allowed(session, account, allowed, actor=user.username)
+    except TelegramStatusError as exc:
+        session.rollback()
+        return _users_page(
+            request,
+            user,
+            session,
+            status_code=status.HTTP_409_CONFLICT,
+            error=str(exc),
+            error_user_id=user_id,
+        )
+    session.commit()
+    return _redirect("telegram_allowed" if allowed else "telegram_blocked")
 
 
 def _account_page(

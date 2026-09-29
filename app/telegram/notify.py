@@ -49,6 +49,7 @@ from telegram.ext import Application
 from app.db.models import Event, QueueKind, TelegramUser, UploadStatus, utcnow
 from app.events import EventType
 from app.telegram.handlers import QUEUE_LABELS
+from app.telegram.whitelist import permitted_ids
 from app.worker.monitor import AlertWatch, Notice
 
 logger = logging.getLogger(__name__)
@@ -260,13 +261,7 @@ class Notifier:
             if not events and self._watch is None:
                 return [], [], []
             self._notified.update({event.id: event.ts for event in events})
-            recipients = list(
-                session.scalars(
-                    select(TelegramUser.telegram_id)
-                    .where(TelegramUser.allowed.is_(True))
-                    .order_by(TelegramUser.telegram_id)
-                )
-            )
+            recipients = list(session.scalars(permitted_ids().order_by(TelegramUser.telegram_id)))
         notices = self._watch.check() if self._watch is not None and recipients else []
         return events, notices, recipients
 

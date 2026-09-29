@@ -87,6 +87,7 @@ from app.matching.names import EmptyNameError, normalize_name
 from app.matching.records import ACTIVE_ALIAS
 from app.matching.status import status_suffix
 from app.storage import DataLayout
+from app.telegram.whitelist import is_permitted
 from app.web.access import record_access
 
 logger = logging.getLogger(__name__)
@@ -666,10 +667,11 @@ class DocumentRequests:
         """Belgeyi erişim kaydını yazarak gönderime hazırlar (12.3.3; iş parçacığında).
 
         Kayıt dosya okunmadan ve gönderilmeden **önce** commit edilir: yazılamazsa hata yükselir
-        ve belge gitmez. İsteyen artık beyaz listede değilse `None`: yanıt da gitmez (12.1.2)."""
+        ve belge gitmez. İsteyen artık beyaz listede değilse — izni kapandıysa ya da panel
+        kullanıcısı pasife alındıysa (12.1.3) — `None`: yanıt da gitmez (12.1.2)."""
         with self._session_factory() as session:
             account = session.get(TelegramUser, telegram_id)
-            if account is None or not account.allowed:
+            if account is None or not is_permitted(account):
                 logger.warning("Belge gönderilmedi: istek sahibi beyaz listede değil")
                 return None
             document = session.get(Document, document_id)

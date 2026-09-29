@@ -6,7 +6,8 @@ geliştirmede (`APP_ENV=development`) polling, üretimde (`APP_ENV=production`) 
 doğrulanır (python-telegram-bot başlığı denetler); beyaz liste güncellemedeki kullanıcı kimliğine
 güvendiği için bu gizli değer olmadan webhook açılmaz.
 
-Beyaz liste `telegram_users` tablosudur (`allowed` doğru olan satırlar). Her güncelleme, öteki
+Beyaz liste `telegram_users` tablosudur: `allowed` doğru ve bağlı panel kullanıcısı etkin olan
+satırlar (`app.telegram.whitelist`; panelden yönetimi 12.1.3). Her güncelleme, öteki
 tüm işleyicilerden önce `GATE_GROUP` grubundaki `WhitelistGate`'ten geçer; listede olmayan, kimliği
 belirsiz ya da özel sohbet dışından gelen güncelleme için `ApplicationHandlerStop` fırlatılır ve
 hiçbir işleyici çalışmaz — yani hiçbir yanıt gitmez. Kapı hata durumunda da kapalıdır (veritabanı
@@ -32,7 +33,6 @@ from enum import StrEnum
 from urllib.parse import urlsplit
 
 from pydantic import SecretStr
-from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 from telegram import Update
 from telegram.constants import ChatType, UpdateType
@@ -52,6 +52,7 @@ from app.storage import prepare_data_dir
 from app.telegram.handlers import DocumentIntake
 from app.telegram.intent import DocumentRequests
 from app.telegram.notify import Notifier
+from app.telegram.whitelist import permitted_ids
 from app.worker.monitor import AlertWatch
 
 logger = logging.getLogger(__name__)
@@ -161,13 +162,10 @@ def load_bot_config(settings: Settings) -> BotConfig:
 
 
 def is_whitelisted(session_factory: sessionmaker[Session], telegram_id: int) -> bool:
-    """`telegram_users`'ta `allowed` satırı olan kullanıcı listededir (K13)."""
+    """`telegram_users`'ta `allowed` satırı olan ve panel kullanıcısı etkin olan kimlik listededir
+    (K13, 12.1.3: pasif panel kullanıcısının kimlikleri yanıt almaz)."""
     with session_factory() as session:
-        found = session.scalar(
-            select(TelegramUser.telegram_id).where(
-                TelegramUser.telegram_id == telegram_id, TelegramUser.allowed.is_(True)
-            )
-        )
+        found = session.scalar(permitted_ids().where(TelegramUser.telegram_id == telegram_id))
     return found is not None
 
 

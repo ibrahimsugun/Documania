@@ -43,7 +43,7 @@ def test_all_prd_event_types_are_present() -> None:
     öğesini yoksayma ve geri alma ile çalıştırma arşivi olayları (`TRAINING_ITEM_DISMISSED`,
     `TRAINING_ITEM_RESTORED`, `TRAINING_RUN_ARCHIVED`, 11.9.6) tm 133'le; kullanıcı yönetimi
     olayları (`USER_CREATED`, `USER_DEACTIVATED`, `USER_REACTIVATED`, `USER_PASSWORD_CHANGED`,
-    10.1.4) tm 134'le."""
+    10.1.4) tm 134'le; Telegram beyaz listesi olayı (`TELEGRAM_USER_CHANGED`, 12.1.3) tm 135'le."""
     expected = {
         "FILE_UPLOADED",
         "FILE_DUPLICATE",
@@ -121,6 +121,7 @@ def test_all_prd_event_types_are_present() -> None:
         "USER_DEACTIVATED",
         "USER_REACTIVATED",
         "USER_PASSWORD_CHANGED",
+        "TELEGRAM_USER_CHANGED",
     }
     assert {member.value for member in EventType} == expected
 

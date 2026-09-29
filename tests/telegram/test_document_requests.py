@@ -1061,6 +1061,32 @@ def test_account_removed_from_the_whitelist_before_delivery_gets_nothing(
     assert bot.telegram.uploads == [] and access_rows(session_factory) == []
 
 
+def test_account_of_a_panel_user_deactivated_before_delivery_gets_nothing(
+    ask: Callable[..., tuple[IntakeBot, QueryProvider]],
+    session_factory: sessionmaker[Session],
+    layout: DataLayout,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """12.1.3: izin açık kalsa da bağlı panel kullanıcısı pasife alındıysa belge gitmez, erişim
+    kaydı yazılmaz (`allowed=False` senaryosundan ayrı)."""
+    employee = add_employee(session_factory, 1)
+    add_document(session_factory, layout, employee, LICENSE, "a.pdf", pdf("a"))
+    add_document(session_factory, layout, employee, LICENSE, "b.pdf", pdf("b"))
+    bot, _ = ask(query("Ahmet Çakar"))
+    with session_factory() as session:
+        account = session.get_one(TelegramUser, LISTED_ID)
+        account.user.active = False
+        session.commit()
+        assert account.allowed is True
+    monkeypatch.setattr(bot_module, "is_whitelisted", lambda *_args: True)
+    sent_before = len(bot.telegram.sent_texts())
+
+    bot.feed(callback_update(2, LISTED_ID, buttons(bot)[0][1]))
+
+    assert len(bot.telegram.sent_texts()) == sent_before
+    assert bot.telegram.uploads == [] and access_rows(session_factory) == []
+
+
 def test_every_sent_document_has_exactly_one_access_record(
     ask: Callable[..., tuple[IntakeBot, QueryProvider]],
     session_factory: sessionmaker[Session],
