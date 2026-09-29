@@ -1850,7 +1850,7 @@
         "description": "PRD 10.5.9 · FR-MOD-10 · Faz 1 · Should (v1). İnsan kararı (2026-09-28). K16 genişlemesi §D61; sözleşme §C90-d. Otomatik açılışın (05.6.x) yarattığı mükerrer çalışanların tek çözüm yolu.",
         "details": "KAPSAM: PRD 10.5.9. Tam sözleşme PLAN §C90 (d) ve §D61 — önce oku.\n\nNE YAPILACAK: (1) Göç: `employees.merged_into_id` (FK employees.id, nullable). (2) Akış (10.8.2 kalıbı): `GET /employees/{id}/merge/employees?q=` (arama, `merged`/kendisi hariç), `GET /employees/{id}/merge/confirm?other=E…&keep=E…` (kalan seçimi radyo; özet: iki kaydın alanları yan yana, taşınacak belge sayısı), `POST /employees/{id}/merge/prepare`, `POST /employees/{id}/merge` (belirteç `keep:merge` çiftine bağlı). Metin §D61 → §20.6, `Operation.MERGE_EMPLOYEES`. (3) Servis `app/matching/merge.py merge_employees(session, layout, keep, merge, *, actor)`: (a) belgeler: her etkin/eski sürüm/arşivli belge için `move_document` mantığı (K8 adı, `next_sequence_no`, `documents.employee_id/path`), `Alinan/` dosyaları taşınır (ad çakışırsa `-2`); tek `EMPLOYEE_MERGED` olayı (`kept`, `merged`, `documents`: kimlikler) — belge başına `MANUAL_MOVE` yazılmaz; (b) `employee_aliases/identifiers/contacts`: `employee_id` = keep; aynı `(kind, value)` / `normalized_name` çakışırsa birleşenin satırı `removed_at` alır (silinmez); (c) `employee_field_observations`, `employee_packages` (tm 125), `access_log`? (değişmez — belge kimliğine bağlı), `queue_items.payload_json` değişmez; (d) kalan kaydın boş alanları birleşenin dolu alanıyla dolar (`source=merge`, olay `EMPLOYEE_FIELD_FILLED`); (e) birleşen: `status=merged`, `merged_into_id`; klasörü kalır, `profil.md` yeniden üretilir (\"Bu kayıt <E> ile birleştirildi\"), boş `Hazir/`/`Alinan/`; (f) kalan profil.md yeniden; (g) `refresh_employee_packages(keep)`. Geri alma: dosyalar taşınırken hata → geri al + rollback (move_document sözleşmesi). (4) Görünürlük: `merged` yalnız `?status=all`; profil sayfası 200 + bildirim + bağlantı; bağlam yüklemesi/atama/pasife alma `merged`'e 409; eşleştirme `merged` çalışanı bulmaz (alt kayıtları zaten taşındı; güvenlik için `status != merged` süzgeci). (5) Bot araması `merged`'i göstermez.\n\nGİRDİ: app/storage/move.py (:66), app/storage/naming.py, app/matching/match.py, app/matching/fields.py (05.7.3 dolgu), app/web/routers/documents.py (:363-453 taşıma akışı kalıbı), app/web/routers/employees.py, app/profiles/render.py, app/groups/packages.py (tm 125), app/web/confirm.py, tests/web/test_document_move.py (kalıp).\n\nÇIKTI: alembic/versions/<yeni>.py, app/db/models.py, app/matching/merge.py, app/web/routers/employees.py, app/web/templates/employee_merge*.html, profile.html, app/profiles/render.py, app/web/confirm.py, app/events.py, urun-gereksinim-dokumani-PRD.md (§20.6 satırı), tests/matching/test_merge.py, tests/web/test_employee_merge.py, tests/web/test_confirm.py, tests/web/test_access_log.py, tests/test_events.py, PLAN.md (10.5.9 satırı; K10.5), HANDOFF.md.\n\nBU GÖREVİ BAĞLAYAN KİLİTLİ KURALLAR: K16 (§D61; geri alınamaz — ikinci metin söyler), K8 (E numarası değişmez; dosya adı kalan kaydın adıyla), K10/K11 (taşıma/yeniden adlandırma; içerik değişmez), R11 (birleşen kayıt ve klasörü silinmez), R13 (köken korunur), K15, CONVENTIONS §6.\n\nPRD'DE AYRICA OKU: 10.8.2, 08.4.1, 05.7.2, 05.7.3, 05.8.2, 09.1.1, 14.2.2, §20.6.\n\nİLGİLİ KABUL SENARYOLARI: S16 (taşıma kalıbı).\n\nKAPSAM SINIRI: otomatik mükerrer tespiti/önerisi yok (İK seçer); birleştirmeyi geri alma yok; `merged` kaydı yeniden etkinleştirme yok; üçlü birleştirme ardışık iki işlemle.\n\nTUZAKLAR: Belirteç iki kimliğe ve `keep` seçimine bağlı olsun. Arşivli belgeler `Archive/<yyyy-mm>/` altında kalır, yalnız `employee_id` değişir (tm 130 geri alınca kalan kaydın klasörüne döner). Birleşenin `Alinan/` kopyaları kalanla çakışırsa sıra eki. Erişim logu değişmez. `employee_packages` tm 125'te yoksa (bağımlılık var, olmalı). Windows dosya kilidi: taşıma sırasında açık dosya yok. Test: 3 belge + 2 alias + 1 çakışan numara + 1 paket.\n\nKAPANIŞ: PLAN satır(lar)ı ✅ → kanıt maddesi (§K), HANDOFF bloğu, commit mesajında `PRD <kod> — tm <id>`; CONVENTIONS DoD kapısı (ruff, compileall, import app.main, alembic upgrade head temiz SQLite, pytest -m \"not live\", coverage) yeşil.",
         "testStrategy": "1) Servis: belgeler taşınır (K8 adı, sıra ekleri, hash aynı), alt kayıtlar bağlanır, çakışan numara `removed_at`, boş alan dolar, paket kalanda değerlendirilir, birleşen `merged`+`merged_into_id`, iki profil.md doğru; hata ortasında hiçbir değişiklik yok. 2) Web: arama kendisi/merged hariç; tek onayla değişmez; belirteçle birleşir; olaylar; merged profil bildirimi/bağlantı; liste `all`. 3) Eşleştirme merged'i bulmaz. 4) `test_confirm`. 5) DoD kapısı yeşil.",
-        "status": "in-progress",
+        "status": "done",
         "dependencies": [
           "127",
           "128",
@@ -1858,7 +1858,7 @@
         ],
         "priority": "medium",
         "subtasks": [],
-        "updatedAt": "2026-09-29T11:37:23.788Z"
+        "updatedAt": "2026-09-29T13:03:49.296Z"
       },
       {
         "id": "130",
@@ -1956,9 +1956,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-09-29T11:37:23.788Z",
+      "lastModified": "2026-09-29T13:03:49.297Z",
       "taskCount": 133,
-      "completedCount": 123,
+      "completedCount": 124,
       "tags": [
         "master"
       ]
