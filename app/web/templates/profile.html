@@ -8,7 +8,9 @@
    gider. "Pasife al" / "Yeniden etkinleştir" (10.5.7) iki aşamalı onay sayfasına gider; pasif
    çalışanda üstte bildirim durur ve yükleme formu yoktur. "Profil kayıtları" (10.5.8) isim
    yazımlarını, belge numaralarını ve iletişim bilgilerini kaldırma, geri alma ve iletişim ekleme
-   formlarıyla listeler. Sayfa belge içeriğini değiştiren yol taşımaz. #}
+   formlarıyla listeler. "Başka kayıtla birleştir" (10.5.9) ikinci kaydı arayan sayfaya gider;
+   birleştirilmiş kayıtta üstte kalan kayda bağlantılı bildirim durur ve işlem formları yoktur.
+   Sayfa belge içeriğini değiştiren yol taşımaz. #}
 {% from "_context_warning.html" import context_warning %}
 {% block title %}{{ profile.name if profile else "Çalışan bulunamadı" }}{% endblock %}
 {% block content %}
@@ -18,8 +20,14 @@
 <p class="error" role="alert">{{ error }}</p>
 {% else %}
 <h1>{{ profile.name }}</h1>
-<p class="profile-meta">{{ profile.id }} · {% if profile.inactive %}<span class="status-badge status-passive">{{ profile.status_label }}</span>{% else %}{{ profile.status_label }}{% endif %} · <a href="/access-log/employees/{{ profile.id }}">Erişim logu</a>{% if profile.editable %} · <a href="/employees/{{ profile.id }}/fields" class="edit-profile">Profili düzenle</a>{% endif %}{% if profile.status_action == "inactive" %} · <a href="/employees/{{ profile.id }}/status/confirm?to=inactive" class="status-action">Pasife al</a>{% endif %}</p>
+<p class="profile-meta">{{ profile.id }} · {% if profile.inactive %}<span class="status-badge status-passive">{{ profile.status_label }}</span>{% else %}{{ profile.status_label }}{% endif %} · <a href="/access-log/employees/{{ profile.id }}">Erişim logu</a>{% if profile.editable %} · <a href="/employees/{{ profile.id }}/fields" class="edit-profile">Profili düzenle</a>{% endif %}{% if profile.status_action == "inactive" %} · <a href="/employees/{{ profile.id }}/status/confirm?to=inactive" class="status-action">Pasife al</a>{% endif %}{% if not profile.merged %} · <a href="/employees/{{ profile.id }}/merge/employees" class="merge-action">Başka kayıtla birleştir</a>{% endif %}</p>
 {% if profile_notice %}<p class="notice notice-success" role="status">{{ profile_notice }}</p>{% endif %}
+{% if profile.merged %}
+{# 10.5.9: birleştirilmiş kayıt; belgeleri, alt kayıtları ve paketleri kalan kayıtta. #}
+<div class="notice merged-notice" role="status">
+  <p><span class="status-badge status-passive">Birleşti</span> Bu kayıt {% if profile.merged_into %}<a href="/employees/{{ profile.merged_into.id }}">{% if profile.merged_into.name %}{{ profile.merged_into.name }} ({{ profile.merged_into.id }}){% else %}{{ profile.merged_into.id }}{% endif %}</a>{% else %}başka bir kayıt{% endif %} kaydıyla birleştirildi. Belgeleri, belge numaraları, isim yazımları, iletişim bilgileri ve belge paketleri kalan kayıtta; bu kayıt kapalıdır ve geri açılmaz.</p>
+</div>
+{% endif %}
 {% if profile.inactive %}
 {# 10.5.7: pasif çalışanın bildirimi; kimin, ne zaman ve (varsa) hangi notla pasife aldığı. #}
 <div class="notice inactive-notice" role="status">
@@ -207,7 +215,9 @@
   <p class="placeholder">Açık ya da tamamlanmış paket yok.</p>
   {% endif %}
 
-  {% if group_choices %}
+  {% if profile.merged %}
+  <p class="hint">Birleştirilmiş kayda paket tanımlanmaz; paketler kalan kayıttadır.</p>
+  {% elif group_choices %}
   <form method="post" action="/employees/{{ profile.id }}/packages" class="package-form">
     <label for="package-group">Belge grubu</label>
     <select id="package-group" name="group_id" required>
@@ -278,7 +288,9 @@
 
 <section class="profile-upload">
   <h2>Belge yükle</h2>
-  {% if not profile.can_upload %}
+  {% if profile.merged %}
+  <p class="placeholder">Birleştirilmiş kayda belge yüklenmez; belgeleri kalan kayda yükleyin.</p>
+  {% elif not profile.can_upload %}
   <p class="placeholder">Pasif çalışana belge yüklenmez. Yüklemek için önce çalışanı yeniden etkinleştirin.</p>
   {% else %}
   <form id="upload-form" class="upload-form"

@@ -34,7 +34,7 @@ def _assert_schema_matches_models(database_url: str) -> None:
             assert tables == set(Base.metadata.tables) | {"alembic_version"}
             context = MigrationContext.configure(connection, opts={"compare_type": True})
             assert compare_metadata(context, Base.metadata) == []
-            assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "0017"
+            assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "0018"
     finally:
         engine.dispose()
 
@@ -981,6 +981,71 @@ def test_profile_record_removal_migration_keeps_rows_active_and_is_reversible(
                 columns = {column["name"] for column in inspector.get_columns(table)}
                 assert not (removal | {"added_by"}) & columns, table
                 assert connection.scalar(text(f"SELECT count(*) FROM {table}")) == 1
+    finally:
+        engine.dispose()
+
+
+def test_employee_merge_migration_adds_merged_into_and_the_merge_source_and_is_reversible(
+    sqlite_url: str,
+) -> None:
+    # 0018 (10.5.9): `employees.merged_into_id` (FK, boş olabilir) eklenir, var olan çalışanlar
+    # birleştirilmemiş kalır; gözlem kaynağı CHECK'i `merge`'ü kabul eder (kullanıcıyla, belge
+    # kaynağı olmadan). Geri alış sütunu kaldırır ve birleştirme gözlemlerini siler (eski CHECK'e
+    # sığmazlar); öteki satırlar kalır.
+    config = _alembic_config(sqlite_url)
+    command.upgrade(config, "0017")
+    engine = create_engine(sqlite_url)
+    try:
+        with engine.begin() as connection:
+            connection.execute(
+                text(
+                    "INSERT INTO employees (id, folder_name, given_names, surname, status, "
+                    "created_at) VALUES ('E0001', 'Test_Kisi_E0001', 'Test', 'Kisi', 'active', "
+                    "'2026-09-29 00:00:00')"
+                )
+            )
+            connection.execute(
+                text(
+                    "INSERT INTO employee_field_observations (employee_id, field, outcome, "
+                    "observed_at, source, actor) VALUES ('E0001', 'nationality', 'filled', "
+                    "'2026-09-29 00:00:00', 'manual', 'ik')"
+                )
+            )
+
+        command.upgrade(config, "head")
+        with engine.connect() as connection:
+            columns = {c["name"]: c for c in inspect(connection).get_columns("employees")}
+            assert columns["merged_into_id"]["nullable"]
+            foreign_keys = inspect(connection).get_foreign_keys("employees")
+            assert [(fk["constrained_columns"], fk["referred_table"]) for fk in foreign_keys] == [
+                (["merged_into_id"], "employees")
+            ]
+            assert connection.scalar(text("SELECT merged_into_id FROM employees")) is None
+        with engine.begin() as connection:
+            connection.execute(
+                text(
+                    "INSERT INTO employee_field_observations (employee_id, field, outcome, "
+                    "observed_at, source, actor) VALUES ('E0001', 'date_of_birth', 'filled', "
+                    "'2026-09-29 00:00:00', 'merge', 'ik')"
+                )
+            )
+        with pytest.raises(IntegrityError), engine.begin() as connection:
+            connection.execute(
+                text(
+                    "INSERT INTO employee_field_observations (employee_id, field, outcome, "
+                    "observed_at, source, actor) VALUES ('E0001', 'surname', 'filled', "
+                    "'2026-09-29 00:00:00', 'guess', 'ik')"
+                )
+            )
+
+        command.downgrade(config, "0017")
+        with engine.connect() as connection:
+            columns = {c["name"] for c in inspect(connection).get_columns("employees")}
+            assert "merged_into_id" not in columns
+            sources = connection.execute(
+                text("SELECT source FROM employee_field_observations ORDER BY id")
+            ).scalars()
+            assert list(sources) == ["manual"]
     finally:
         engine.dispose()
 

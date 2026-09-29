@@ -9,7 +9,7 @@
 | Faz | PRD | Genel durum | Must sayacı | Kapanış |
 | --- | --- | --- | --- | --- |
 | Faz 0 — MVP | §5.1 | 105 ✅ · 0 ◐ · 0 ⬜ · 0 🔒 | 101/101 Must | AÇIK |
-| Faz 1 — v1 | §5.2 | 54 ✅ · 0 ◐ · 8 ⬜ · 0 🔒 | 39/41 Must | AÇIK |
+| Faz 1 — v1 | §5.2 | 55 ✅ · 0 ◐ · 7 ⬜ · 0 🔒 | 39/41 Must | AÇIK |
 | Faz 2 — v2 | §5.3 | 13 ✅ · 0 ◐ · 1 ⬜ · 0 🔒 | 0/0 Must | AÇIK |
 | Faz 3 — Enterprise | §5.4 | 10 ✅ · 0 ◐ · 0 ⬜ · 0 🔒 | 0/0 Must | AÇIK |
 
@@ -248,7 +248,7 @@ panelde `plan-count-drift` bulgusu doğurur.
 | 10.5.6 | Çalışan profilini düzenleme | Must (v1) | ✅ → K10.5 |
 | 10.5.7 | Çalışanı pasife alma ve yeniden etkinleştirme | Must (v1) | ✅ → K10.5 |
 | 10.5.8 | Profil alt kayıtlarını kaldırma ve iletişim bilgisi ekleme | Should (v1) | ✅ → K10.5 |
-| 10.5.9 | İki çalışanı birleştirme | Should (v1) | ⬜ |
+| 10.5.9 | İki çalışanı birleştirme | Should (v1) | ✅ → K10.5 |
 | 10.5.10 | Arşive taşıma ve arşivden geri alma profilde | Must (v1) | ⬜ |
 | 10.6.1 | Belge geçmişi | Must (v1) | ✅ → K10.6 |
 | 10.7.1 | Kuyruk ekranları | Must (v1) | ✅ → K10.7-a |
@@ -2253,6 +2253,53 @@ bu kayıt neden sapıldığının izlenebilir olması içindir.
   ve iletişim ekleme profil sayfasında tek adımlı formdur, reddi profili 409/422 ile yeniden çizer.
   `tests/web/test_profile.py`'deki geçmiş telefon beklentisi karta daraltıldı: "Profil kayıtları"
   bölümü geçmiş kaydı "Geçmiş" olarak listeler.
+- **D69 — Birleştirmenin uygulama kararları (10.5.9, tm 129).** (a) **Eski sürüm adını korur.** Görev
+  "her etkin/eski sürüm/arşivli belge için `move_document` mantığı (K8 adı)" der; K18 "eski çıktılar
+  yeniden adlandırılmaz" der (D66-a emsali). Uygulanan: etkin belge kalanın K8 adını ve kalanın
+  `Hazir/`'ındaki ilk boş sıra ekini alır (10.8.2'nin fiziksel kuralı); eski sürüm adıyla kalanın
+  `Hazir/`'ına taşınır, gövdesi orada doluysa ilk boş `-2`, `-3`… eki alır (üzerine yazılmaz), sıra
+  numarası değişmez; arşivdeki belge `Archive/` altında kalır, yalnız sahibi değişir; dosyası yerinde
+  olmayan belgenin yolu değişmez. İkinci onayın `<N>`'i birleşenin bütün belgeleridir (etkin, eski
+  sürüm, arşiv). Taşıma sabit bağ + eski adın kaldırılmasıdır: içerik kopyalanmaz, hedef doluysa
+  `FileExistsError`. (b) **`Alinan/` tekilleştirilmez.** Birleşenin her `Alinan/` dosyası adıyla
+  taşınır, ad doluysa `ad-2.uzantı`; aynı içerik kalanda olsa da taşınır — silme yok (K16, R11);
+  07.7.2'nin "aynı hash tekrar kopyalanmaz" kuralı kopyalamaya ilişkindir, burada kopya üretilmez.
+  (c) **Çakışan alt kayıt birleşende kalır.** Tekillik kısıtları (`employee_id, raw_name`;
+  `employee_id, kind, value`) aynı değerli satırın kalana taşınmasına izin vermez: birleşenin satırı
+  birleşende kalır ve `removed_at`/`removed_by` alır (zaten kaldırılmışsa dokunulmaz). Karşılaştırma
+  kalanın birleştirme öncesi satırlarıyladır — kaldırılmışlar dahil, kalanın kaldırma kararı geçerli
+  kalır; isimde aynı ham yazım ya da aynı normalize anahtar (Kiril yazım Latin karşılığıyla aynı
+  anahtara iniyorsa kapanır), numarada ve iletişimde aynı `(kind, value)`. İletişimde aynı değerin
+  görülme zamanları kalandaki satıra katlanır (ilk en erken, son en geç; birleşeninki güncelse
+  kalandaki aday olur), sonra türde tek güncel satır kalır: en son görülen, eşitlikte son eklenen
+  (05.8.2, D68-c); kaldırılmış satır kazanırsa kart o türde "—" gösterir. (d) **Alan kaynakları.**
+  Belge gözlemleri taşınır; kalanda aynı (alan, dosya, sayfa) varsa birleşeninki birleşende kalır
+  (tekil anahtar). Alanın değeri iki kayıtta farklıysa (§20.2.1 normalizasyonu) birleşenden gelen
+  `filled`/`same` gözlem `conflict` olur — belge kalanınkinden farklı değer okumuştur, profil uyarı
+  verir; değer tutulmadığı için birleşenin `conflict` gözlemi olduğu gibi kalır. Elle ve birleştirmeyle
+  yazılmış gözlem birleşenin değerini anlattığından yalnız değeri kalana geçen alanda taşınır.
+  Kalanın boş alanı birleşenin dolu alanıyla dolar: `source=merge` gözlemi (`FieldSource.MERGE`, göç
+  0018 CHECK'i) ve `EMPLOYEE_FIELD_FILLED` {`field`, `source: merge`, `rule: 10.5.9`,
+  `from_employee_id`}; kartta kaynak "birleştirme (kullanıcı, gün)". (e) **Paket çakışması.** Kalanda
+  aynı grubun iptal edilmemiş paketi varsa birleşenden gelen canlı paket iptal edilir (neden
+  "Birleştirme: kalan kayıtta aynı grubun paketi var.", `PACKAGE_CANCELLED`, "Yeniden aç"la döner) —
+  PRD'nin "aynı değer tek kalır"ı paketlere de uygulandı. (f) **Birleşenin `profil.md`'si** yalnız
+  yönlendirme notudur (PRD 10.5.9): kısa YAML ön blok (`employee_id`, `folder_name`, `status`,
+  `merged_into`, `merged_into_folder`), başlık ve not; 09.1.1'in kimlik tablosu + belge listesi
+  kalıbından bilerek sapar. (g) **Akış.** Belirteç hedefi `kalan:birleşen`'dir (sıra kalan seçimini
+  bağlar); belge sayısı belirtece girmez. Profil arama kutusu taşımaz, "Başka kayıtla birleştir"
+  bağlantısı tam sayfa `GET …/merge/employees`'e gider (HTMX isteğine yalnız sonuç parçası); birinci
+  onay `GET …/merge/confirm` tam sayfadır, kalan radyoyla seçilir (GET formu, varsayılan profildeki
+  kayıt; seçim birinci metni yeniden doldurur). `EMPLOYEE_MERGED`'in `employee_id`'si kalandır, veri
+  `kept`, `merged`, `documents`, `relocated`, `received` (sayı), `records` {`moved`, `closed`},
+  `fields`, `packages`, `cancelled_packages`; başarıda kalan profile 303. (h) **Kapalı kayıt.**
+  Birleştirilmiş kayda bağlam yüklemesi, atama (panel ve servis), belge taşıma ve paket tanımlama 409;
+  eşleştirme (`number_owners`, isim sorgusu) ve bot araması `status != merged` süzer; atama, taşıma ve
+  birleştirme aramaları zaten etkin + pasif arar. Donmuş planın yeniden çalıştırılması (S18) planlama
+  anındaki kişiye yazar (D67-e): planı birleştirmeden önce yapılmış bir parti birleştirilmiş kayda
+  çıktı yazabilir — ayrı görev adayı (yeniden çalıştırmada `merged_into_id`'ye yönlendirme ya da ret).
+  (i) PRD §8.1: `employee_field_observations.source` değerlerine `merge` eklenmeli (PRD'ye yalnız §20.6
+  satırı, başlıktaki gereksinim listesi ve §20.6.1 olay listesi eklendi).
 
 ## G. İş Kırılımı Dizini
 
@@ -2715,6 +2762,8 @@ var olan maddeler silinmez. Biçim:
 - ✅ Kapı: ruff check/format, compileall, `import app.main`, `git diff --check`, temiz SQLite'ta `alembic upgrade head` (→0016, göç yok); `pytest -q -m "not live" --cov=app` dokuz ön plan grubunda 5496 geçti (+54; sonra eklenen 2 test kendi dosyalarında yeşil, toplam 5498), 5 PG atlandı, birleşik kapsam %99 (`status.py` %100); 9 geçici kural bozmasının 9'u kırmızı · tm 127
 - ✅ 10.5.8 profil alt kayıtları: göç `alembic/versions/0017_profile_record_removal.py` (isim yazımı, numara ve iletişime `removed_at`, `removed_by`, `seen_after_removal_at`; iletişime `added_by`) · çekirdek `app/matching/records.py` (`ACTIVE_*` süzgeçleri, `number_owners`, `remove_record`/`restore_record` → `PROFILE_RECORD_REMOVED`/`PROFILE_RECORD_RESTORED`, `add_contact` → `CONTACT_ADDED`; değer olaya girmez) · süzgeçler `app/matching/match.py` (`_decide`, `_decide_by_name`; `accumulate_identity` kaldırılmışı geri açmaz, işaretler), `app/db/models.py` (`record_contact_sighting`), `app/matching/context.py`, `app/profiles/render.py`, `app/profiles/latin_names.py`, `app/telegram/intent.py`, panel araması · panel `app/web/routers/employees.py` (`records/{kind}/{rid}/remove/confirm`, `…/remove/prepare`, `…/remove`, `…/restore`, `/employees/{id}/contacts`) + `profile.html` "Profil kayıtları" + `profile_record_step.html` · PRD §20.6 satırı, `Operation.REMOVE_PROFILE_RECORD` · test `tests/matching/test_records.py` (30), `tests/web/test_profile_records.py` (24), `tests/db/test_migrations.py` (+1), `tests/telegram/test_document_requests.py` (+1), `tests/profiles/test_latin_repair.py` (+1), `tests/web/test_confirm.py` (+1) · tm 128
 - ✅ Kapı: ruff check/format, compileall, `import app.main`, `git diff --check`, temiz SQLite'ta `alembic upgrade head` (→0017); `pytest -q -m "not live" --cov=app` dokuz ön plan grubunda 5554 geçti (+56; sonra eklenen 2 test kendi dosyasında yeşil, toplam 5556), 5 PG atlandı, birleşik kapsam %99 (`records.py`, `match.py` %100); 14 geçici kural bozmasının 14'ü kırmızı (biri kart testi eklendikten sonra) · tm 128
+- ✅ 10.5.9 iki çalışanı birleştirme: göç `alembic/versions/0018_employee_merge.py` (`employees.merged_into_id` FK, gözlem kaynağı CHECK'ine `merge`) · dosya işi `app/storage/merge.py` (`plan_employee_merge`: etkin belge kalanın K8 adı + ilk boş sıra eki, eski sürüm adını korur (gövde doluysa `-2`), arşiv yerinde, dosyası yok olanın yolu değişmez; `Alinan/` kopyaları adıyla, doluysa `ad-2`; `relocate_merged_files`: sabit bağ + eski adı kaldırma, üzerine yazma yok, düşerse geri alma → `EmployeeMergeError`) · çekirdek `app/matching/merge.py` (`merge_employees`: belgeler `employee_id` kalana, alt kayıtlar bağlanır — aynı `(kind, value)`/ham yazım/normalize anahtar kalanda varsa birleşenin satırı birleşende `removed_at`/`removed_by` alır, iletişimde görülme zamanları katlanır ve türde tek güncel satır (en son görülen); alan gözlemleri taşınır (farklı değerde `filled`/`same` → `conflict`, aynı kaynak kalanda varsa birleşende kalır, elle/birleştirme gözlemi yalnız değeri geçen alanda), kalanın boş alanı `source=merge` + `EMPLOYEE_FIELD_FILLED`; paketler bağlanır, kalanda aynı grubun canlı paketi varsa birleşenden gelen iptal; birleşen `merged` + `merged_into_id`; tek `EMPLOYEE_MERGED` {kept, merged, documents, relocated, received, records, fields, packages, cancelled_packages} değersiz; `refresh_employee_packages(kalan)`; `merge_field_preview`, `merge_document_count`) · panel `app/web/routers/employees.py` (`GET /employees/{id}/merge/employees` arama — etkin+pasif, birleştirilmiş ve kendisi hariç, HTMX parçası; `GET …/merge/confirm?other=&keep=` iki kayıt yan yana + radyo kalan seçimi + §20.6 birinci metin; `POST …/merge/prepare` ikinci metin (`<N>` belge, geri alınamaz) + `kalan:birleşen` belirteci; `POST …/merge` → `USER_CONFIRMED` + `EMPLOYEE_MERGED`, iki `profil.md`, kalan profile 303; birleştirilmiş profil 200 + bildirim + bağlantı, işlem formları yok; kartta "birleştirme (kullanıcı, gün)" kaynağı) + şablonlar `employee_merge.html`, `employee_merge_results.html`, `employee_merge_step.html`, `profile.html` · `profil.md` yönlendirme notu (`app/profiles/render.py`) · 409/süzgeç: bağlam yüklemesi (`uploads.py`), atama (`queue.py` `_assignee`, `route.py` `assign_queue_item`), belge taşıma (`move.py`), paket tanımlama (`packages.py`); eşleştirme `number_owners` + isim sorgusu ve bot araması (`intent.py`) `merged`'i süzer · §20.6 satırı + `Operation.MERGE_EMPLOYEES` + `<Birleşen Ad Soyad>`/`<Kalan Ad Soyad>` yer tutucuları, `EventType.EMPLOYEE_MERGED`, `FieldSource.MERGE` — §D69 · test `tests/matching/test_merge.py` (15), `tests/storage/test_merge_files.py` (5), `tests/web/test_employee_merge.py` (22), `tests/web/test_confirm.py` (+1), `tests/db/test_migrations.py` (+1); bekçiler `test_access_log.py`, `test_events.py`, `test_profile.py` · tm 129
+- ✅ Kapı (tm 129): ruff check/format, compileall, `import app.main`, `git diff --check`, temiz SQLite'ta `alembic upgrade head` (→0018) exit 0; `pytest -q -m "not live" --cov=app --cov-append` yedi ön plan grubunda 5600 geçti (+44), 5 PG atlandı; `coverage report --fail-under=70` exit 0, birleşik kapsam %99 (`app/matching/merge.py`, `app/storage/merge.py` %100); 14 geçici kural bozmasının 14'ü kırmızı
 
 #### K10.6 — 10.6.1 · Belge geçmişi görünümü
 - ✅ 10.6.1 belge geçmişi: `app/web/routers/documents.py` (`GET /documents/{id}/history` → `build_history`; çıktı (çalışan, tür, dosya + açma, durum, plan sürümü), kaynak dosyalar ve sayfalar (`source_refs_json`: dosya adı → `/uploads/{id}#file-N`, her sayfa → sayfa görüntüsü; boş sayfa listesi = bütün dosya; sıra köken kaydındaki gibi; eksik/bozuk kayıt bağlantısız notla yazılır), parti ve plan öğesi bağlantısı, belgenin kendi olayları; bilinmeyen belge 404; yalnız `GET`) + `app/web/templates/history.html`; `app/main.py` yönlendiriciyi oturuma bağlar, profil belge listesi ve yükleme detayı çıktı tablosu "Geçmiş" bağlantısı taşır — C50 · test `tests/web/test_documents.py` (29) · tm 69

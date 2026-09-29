@@ -20,6 +20,10 @@ hesapla (`app.groups.employee_packages`) gösterir: iptal edilmemiş her paket i
 ("Açık — k/n zorunlu kalem" ya da "Tamamlandı — başvuru başlatılabilir") ve kalem tablosu (✓/○,
 zorunlu/isteğe bağlı, karşılayan belgenin dosya adı); iptal edilenler ayrı listede. Üretim paket
 durumunu yazmaz (yenileme noktalarının işi). Tanımlama notu ve iptal nedeni dosyaya girmez.
+
+Başka bir kayıtla birleştirilen çalışanın (`merged`, 10.5.9) belgeleri, alt kayıtları ve paketleri
+kalan kayda taşınmıştır; `profil.md`'si yalnız yönlendirme notudur: kısa YAML ön blok (numara,
+klasör, durum, kalan kaydın numarası ve klasörü), başlık ve "Bu kayıt <E> ile birleştirildi" notu.
 """
 
 from __future__ import annotations
@@ -33,7 +37,14 @@ import yaml
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.db.models import Document, Employee, EmployeeContact, EmployeeIdentifier, KnownDocumentType
+from app.db.models import (
+    Document,
+    Employee,
+    EmployeeContact,
+    EmployeeIdentifier,
+    EmployeeStatus,
+    KnownDocumentType,
+)
 from app.groups import PackageView, employee_packages
 from app.matching.records import ACTIVE_CONTACT, ACTIVE_IDENTIFIER
 from app.matching.status import status_label
@@ -42,6 +53,11 @@ from app.storage import DataLayout, StoredFile, replace_file
 # §8.1 `employee_contacts.kind` → kimlik tablosu satır etiketi.
 _CONTACT_LABELS = {"phone": "Telefon", "email": "E-posta", "address": "Adres"}
 _EMPTY = "—"
+# 10.5.9: birleştirilen kaydın profil.md'si yalnız bu notu taşır.
+MERGED_NOTE = (
+    "Bu kayıt {kept} ile birleştirildi. Belgeleri, belge numaraları, isim yazımları, iletişim "
+    "bilgileri ve belge paketleri kalan kayıttadır: {folder}. Bu klasörde yalnız bu not durur."
+)
 
 
 def calculate_age(date_of_birth: date, *, today: date) -> int:
@@ -56,6 +72,8 @@ def render_profile(session: Session, employee: Employee, *, today: date | None =
     Sıra: YAML ön blok, kimlik tablosu, belge listesi, belge paketleri. `today` yaş hesaplamasının
     referans günüdür (verilmezse bugün); testler belirlenebilirlik için verir.
     """
+    if employee.status == EmployeeStatus.MERGED.value and employee.merged_into_id is not None:
+        return _merged_profile(session, employee, employee.merged_into_id)
     reference_date = today if today is not None else date.today()
     identifiers = _identifiers(session, employee.id)
     contacts = _current_contacts(session, employee.id)
@@ -90,6 +108,29 @@ def write_profile(
     """
     content = render_profile(session, employee, today=today)
     return replace_file(layout.profile_path(employee.folder_name), content.encode("utf-8"))
+
+
+def _merged_profile(session: Session, employee: Employee, kept_id: str) -> str:
+    """10.5.9 — birleştirilen kaydın yönlendirme notu; kalan kaydın klasörüne işaret eder."""
+    kept = session.get(Employee, kept_id)
+    folder = kept.folder_name if kept is not None else _EMPTY
+    front_matter = yaml.safe_dump(
+        {
+            "employee_id": employee.id,
+            "folder_name": employee.folder_name,
+            "status": employee.status,
+            "merged_into": kept_id,
+            "merged_into_folder": folder,
+        },
+        allow_unicode=True,
+        default_flow_style=False,
+        sort_keys=False,
+    )
+    return (
+        f"---\n{front_matter}---\n\n"
+        f"# {employee.given_names} {employee.surname}\n\n"
+        f"{MERGED_NOTE.format(kept=kept_id, folder=folder)}\n"
+    )
 
 
 def _identifiers(session: Session, employee_id: str) -> Sequence[EmployeeIdentifier]:

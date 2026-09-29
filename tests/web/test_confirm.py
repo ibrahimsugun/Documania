@@ -49,6 +49,7 @@ PRD_OPERATIONS = {
     "Çalışanı pasife al": Operation.DEACTIVATE_EMPLOYEE,  # 10.5.7, §D61 (tm 127)
     "Çalışanı yeniden etkinleştir": Operation.REACTIVATE_EMPLOYEE,  # 10.5.7, §D61 (tm 127)
     "Profil alt kaydını kaldır": Operation.REMOVE_PROFILE_RECORD,  # 10.5.8, §D61 (tm 128)
+    "İki çalışanı birleştir": Operation.MERGE_EMPLOYEES,  # 10.5.9, §D61 (tm 129)
 }
 TARGET = "7:E0002"
 
@@ -173,6 +174,27 @@ def test_the_profile_record_removal_texts_carry_no_placeholder() -> None:
         "Kayıt eşleştirmede ve aramada kullanılmayacak, geçmişte kalacaktır. Son kararınız mı?"
     )
     assert Operation.REMOVE_PROFILE_RECORD.value == "remove_profile_record"
+
+
+def test_the_merge_texts_name_both_records_and_count_the_documents() -> None:
+    # 10.5.9: birinci metin birleşeni ve kalanı adlandırır, ikinci metin taşınacak belge sayısını
+    # ve geri alınamazlığı söyler; boş yer tutucu kullanıcıya gitmez.
+    assert first_text(
+        Operation.MERGE_EMPLOYEES, merged_name="Ivan Petrow", kept_name="Ivan Petrov"
+    ) == ("Ivan Petrow kaydını Ivan Petrov kaydıyla birleştirmek üzeresiniz. Emin misiniz?")
+    assert second_text(Operation.MERGE_EMPLOYEES, count=0) == (
+        "0 belge taşınacak ve birleşen kayıt kapanacaktır; bu işlem geri alınamaz. Son kararınız "
+        "mı?"
+    )
+    with pytest.raises(ValueError, match="<Birleşen Ad Soyad>"):
+        first_text(Operation.MERGE_EMPLOYEES, kept_name="Ivan Petrov")
+    with pytest.raises(ValueError, match="<Kalan Ad Soyad>"):
+        first_text(Operation.MERGE_EMPLOYEES, merged_name="Ivan Petrow")
+    with pytest.raises(ValueError, match="<N>"):
+        second_text(Operation.MERGE_EMPLOYEES)
+    # `<Ad Soyad>` yer tutucusu birleştirme metninde yoktur; ad verilse de değişmez.
+    assert "<Ad Soyad>" not in confirm.CONFIRMATION_TEXTS[Operation.MERGE_EMPLOYEES].first
+    assert Operation.MERGE_EMPLOYEES.value == "merge_employees"
 
 
 # --- §20.6.1: tek kullanımlık belirteç ------------------------------------------------------------

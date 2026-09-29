@@ -421,6 +421,11 @@ REVIEWED_MUTATING_ROUTES: dict[tuple[str, str], str] = {
         "çalışanın iletişim bilgisi: elle ekleme, belge içeriği değişmez (10.5.8, 05.8.2)"
     ),
     ("POST", "/employees/{employee_id}/fields/prepare"): "onay belirteci",
+    ("POST", "/employees/{employee_id}/merge/prepare"): "onay belirteci",
+    ("POST", "/employees/{employee_id}/merge"): (
+        "iki çalışanı birleştirme: belgeler K8 adıyla taşınır, alt kayıtlar bağlanır, birleşen "
+        "kayıt kapanır; silme yok, belge içeriği değişmez (10.5.9, K11, K16, R11)"
+    ),
     ("POST", "/employees/{employee_id}/fields"): (
         "çalışan kaydı: profil alanları ve K8 yeniden adlandırma; belge içeriği değişmez "
         "(10.5.6, K16)"

@@ -1,4 +1,4 @@
-"""Çalışan listesi, arama ve çalışan profili (PRD 10.4.1, 10.4.2, 10.5.1-10.5.7).
+"""Çalışan listesi, arama ve çalışan profili (PRD 10.4.1, 10.4.2, 10.5.1-10.5.9).
 
 `GET /employees` çalışanları ad, orijinal yazım, uyruk, belge sayısı ve durumla listeler (10.4.1).
 `q` verilirse liste aranan metne uyanlarla daralır (10.4.2): metin boşlukla terimlere ayrılır, her
@@ -110,6 +110,23 @@ Olaylar kayıt türünü ve kimliğini taşır, değeri taşımaz. Her işlemden
 üretilir. `kind` `alias|identifier|contact` dışındaysa ya da kayıt bu çalışanın değilse 404;
 birleştirilmiş çalışan, zaten kaldırılmış (ya da geri alınacak şeyi olmayan) kayıt 409; iletişim
 kuralı 422; belirteç reddi 400 — hiçbirinde bir şey değişmez.
+
+**İki çalışanı birleştirme (10.5.9; PLAN.md §C90-d, §D61, §D69).** Profildeki "Başka kayıtla
+birleştir" (birleştirilmiş çalışanda yok) `GET /employees/{id}/merge/employees` sayfasını açar:
+ikinci çalışan 10.4.2'nin aramasıyla bulunur (etkin ve pasif; birleştirilmiş çalışan bulunmaz,
+kaydın kendisi seçilemez; HTMX isteği yalnız sonuç parçasını alır). `GET
+.../merge/confirm?other=&keep=` iki kaydın alanlarını yan yana, belge sayılarını ve birleştirmenin
+alan sonucunu (dolacak, farklı) gösterir; kalacak kayıt radyoyla seçilir (varsayılan profildeki
+kayıt) ve §20.6'nın birinci metni seçime göre dolar. `POST .../merge/prepare` ikinci metni (`<N>`
+kalana bağlanacak belge sayısı, "geri alınamaz") ve `kalan:birleşen` çiftine bağlı tek kullanımlık
+belirteci verir; `POST .../merge` belirteçle gelir: belirteç tüketilir, `USER_CONFIRMED` ve
+`EMPLOYEE_MERGED` tek işlemde yazılır (`app.matching.merge`), belgeler, alt kayıtlar, alan
+kaynakları ve paketler kalana bağlanır, dosyalar K8 adıyla taşınır. Commit'ten sonra iki `profil.md`
+yeniden üretilir ve kalan profile dönülür. Birleştirilmiş kaydın profili 200 döner: üstte kalan
+kayda bağlantılı bildirim durur; düzenleme, durum, alt kayıt, paket, yükleme ve birleştirme
+işlemleri yoktur. Çalışan ya da seçilen kayıt yoksa 404; aynı kayıt ya da biri zaten
+birleştirilmişse 409; kalan ikisinden biri değilse 422; belirteç reddi 400; dosya taşıması düşerse
+409 — hiçbirinde bir şey değişmez.
 """
 
 from __future__ import annotations
@@ -178,6 +195,12 @@ from app.matching.match import (
     ProfileFieldsError,
     normalize_document_number,
 )
+from app.matching.merge import (
+    EmployeeMergeRefusedError,
+    merge_document_count,
+    merge_employees,
+    merge_field_preview,
+)
 from app.matching.names import EmptyNameError, normalize_name
 from app.matching.records import (
     ACTIVE_ALIAS,
@@ -212,7 +235,7 @@ from app.matching.status import (
 from app.profiles import write_profile
 from app.profiles.latin_names import needs_latin_repair
 from app.profiles.render import calculate_age
-from app.storage import DataLayout, EmployeeRenameError
+from app.storage import DataLayout, EmployeeMergeError, EmployeeRenameError
 from app.web.access import record_access
 from app.web.auth import PanelUser, require_panel_user
 from app.web.confirm import (
@@ -574,8 +597,11 @@ FIELD_LABELS = {
     ProfileField.DATE_OF_BIRTH: "Doğum tarihi",
 }
 FIELD_CONFLICT_WARNING = "{label}: belgede farklı değer okundu"
-# 10.5.6: elle girilen alanın kaynağı.
+# 10.5.6: elle girilen alanın kaynağı; 10.5.9: birleştirmede birleşen kayıttan dolan alanınki.
 MANUAL_SOURCE = "elle ({actor}, {day})"
+MERGE_SOURCE = "birleştirme ({actor}, {day})"
+# Kaynağı belge olmayan alan gözlemlerinin etiketi (bağlantısız).
+_USER_SOURCES = {FieldSource.MANUAL.value: MANUAL_SOURCE, FieldSource.MERGE.value: MERGE_SOURCE}
 # Tarayıcının kendi görüntüleyicisiyle açabildiği çıktı biçimleri; başka biçim (Word/Excel, K2)
 # olduğu gibi indirilir. Ortam türü dosya içeriğinden değil, bu tablodan gelir.
 MEDIA_TYPES = {
@@ -631,6 +657,14 @@ class FieldSources:
     source: SourceLink | None
     conflicts: list[SourceLink]
     warning: str
+
+
+@dataclass(frozen=True, slots=True)
+class MergedIntoView:
+    """10.5.9: birleştirilmiş kaydın bildirimi — kalan kayıt (numara ve ad; yoksa yalnız numara)."""
+
+    id: str
+    name: str | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -724,6 +758,13 @@ class ProfileView:
     deactivation: DeactivationView | None = None
     # 10.5.8: alt kayıtlar; "Kaldır", "Geri al" ve ekleme formu birleştirilmişte (`editable`) yok.
     records: RecordSections = field(default_factory=RecordSections)
+    # 10.5.9: birleştirilmiş kaydın kalan kaydı (bildirim ve bağlantı); "Başka kayıtla birleştir"
+    # bağlantısı birleştirilmişte yok.
+    merged_into: MergedIntoView | None = None
+
+    @property
+    def merged(self) -> bool:
+        return self.status == EmployeeStatus.MERGED.value
 
     @property
     def inactive(self) -> bool:
@@ -886,6 +927,7 @@ def build_profile(
         status_action=_status_action(employee),
         deactivation=_deactivation(session, employee),
         records=_record_sections(employee_id, records, type_names, rows),
+        merged_into=_merged_into(session, employee),
     )
 
 
@@ -894,6 +936,14 @@ def _status_action(employee: Employee) -> str | None:
         return status_target(employee).value
     except EmployeeStatusError:
         return None
+
+
+def _merged_into(session: Session, employee: Employee) -> MergedIntoView | None:
+    if employee.status != MERGED_STATUS or employee.merged_into_id is None:
+        return None
+    kept = session.get(Employee, employee.merged_into_id)
+    name = None if kept is None else f"{kept.given_names} {kept.surname}"
+    return MergedIntoView(id=employee.merged_into_id, name=name)
 
 
 def _deactivation(session: Session, employee: Employee) -> DeactivationView | None:
@@ -1018,11 +1068,10 @@ def _field_sources(
     available = {row.id: row.available for row in rows}
 
     def link(observation: EmployeeFieldObservation, upload_id: str | None) -> SourceLink:
-        if observation.source == FieldSource.MANUAL.value:
+        if observation.source in _USER_SOURCES:
             day = observation.observed_at.strftime("%d.%m.%Y")
-            return SourceLink(
-                label=MANUAL_SOURCE.format(actor=observation.actor, day=day), url=None
-            )
+            label = _USER_SOURCES[observation.source].format(actor=observation.actor, day=day)
+            return SourceLink(label=label, url=None)
         document = by_source.get((observation.file_id, observation.page_index))
         if document is None:
             return SourceLink(label=f"Parti {upload_id}", url=f"/uploads/{upload_id}")
@@ -1122,6 +1171,11 @@ PROFILE_NOTICES = {
     # 10.5.7
     "status_inactive": "Çalışan pasife alındı; yeni belgeleri otomatik yerleşmeyecek.",
     "status_active": "Çalışan yeniden etkinleştirildi.",
+    # 10.5.9
+    "merged": (
+        "Kayıtlar birleştirildi; birleşen kaydın belgeleri, numaraları, isim yazımları, iletişim "
+        "bilgileri ve belge paketleri bu profile taşındı."
+    ),
 }
 # 10.5.8: alt kayıt işlemlerinden sonra "Profil kayıtları" bölümünün bildirimi.
 RECORD_NOTICES = {
@@ -1251,7 +1305,8 @@ def assign_package_endpoint(
     except GroupNotFoundError:
         session.rollback()
         raise HTTPException(status.HTTP_404_NOT_FOUND, GROUP_NOT_FOUND) from None
-    except GroupArchivedError as exc:
+    except (GroupArchivedError, PackageStateError) as exc:
+        # Arşivdeki grup ya da birleştirilmiş çalışan (10.5.9).
         problems, status_code = {"group_id": [str(exc)]}, status.HTTP_409_CONFLICT
     except PackageFormError as exc:
         problems, status_code = exc.problems, status.HTTP_422_UNPROCESSABLE_CONTENT
@@ -2221,6 +2276,349 @@ def add_contact_endpoint(
         contact_problems=problems,
         status_code=status_code,
     )
+
+
+# --- 10.5.9: iki çalışanı birleştirme -----------------------------------------------------------
+
+# §20.6 "İki çalışanı birleştir": metinler birebir `app.web.confirm`'dadır; `<Birleşen Ad Soyad>`,
+# `<Kalan Ad Soyad>` ve `<N>` (kalana bağlanacak belge sayısı) çalışma zamanında dolar.
+MERGE_SAME = "Bir kayıt kendisiyle birleştirilmez; başka bir çalışan seçin."
+MERGE_CLOSED = (
+    "Bu kayıt başka bir kayıtla zaten birleştirildi; birleştirme geri alınmaz, kalan kaydı "
+    "kullanın."
+)
+MERGE_OTHER_CLOSED = "Seçilen çalışan başka bir kayıtla zaten birleştirildi; kalan kaydını seçin."
+MERGE_OTHER_NOT_FOUND = "Birleştirilecek çalışan bulunamadı."
+MERGE_BAD_KEEP = "Kalacak kayıt birleştirilen iki çalışandan biri olmalı."
+MERGE_FILES_FAILED = (
+    "Belge dosyaları taşınamadı; birleştirme yapılmadı, hiçbir şey değişmedi. Dosyaların açık "
+    "olmadığından emin olup yeniden deneyin."
+)
+# Özet tablosunda alanın sonucu (`merge_field_preview`).
+MERGE_FIELD_NOTES = {
+    "filled": "kalanın boş alanı bu değerle dolacak",
+    "different": "farklı — kalanın değeri geçerli kalır, profilde uyarı olur",
+}
+MergeOther = Annotated[str, Form(max_length=MAX_QUERY_LENGTH)]
+MergeKeep = Annotated[str, Form(max_length=MAX_QUERY_LENGTH)]
+
+
+@dataclass(frozen=True, slots=True)
+class MergeSideView:
+    """Birleştirme özetinde bir kayıt: numara, ad, durum ve bağlı belge sayısı."""
+
+    id: str
+    name: str
+    status_label: str
+    documents: int
+
+
+@dataclass(frozen=True, slots=True)
+class MergeFieldRow:
+    """Özet satırı: alanın iki kayıttaki değeri ve birleştirmedeki sonucu."""
+
+    label: str
+    keep: str
+    merge: str
+    note: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class MergeView:
+    """Birleştirme onayının özeti: kalan ve birleşen kayıt, alanlar yan yana, `<N>`."""
+
+    keep: MergeSideView
+    merge: MergeSideView
+    rows: list[MergeFieldRow]
+
+    @property
+    def documents(self) -> int:
+        return self.merge.documents
+
+
+def merge_subject(keep_id: str, merge_id: str) -> str:
+    """Birleştirme belirtecinin (`Operation.MERGE_EMPLOYEES`) bağlı olduğu hedef: `kalan:birleşen`.
+    Kalan seçimi değişirse (ya da iki kayıttan biri) belirteç geçmez."""
+    return f"{keep_id}:{merge_id}"
+
+
+def _merge_pair(
+    session: Session, employee_id: str, other_id: str, keep_id: str | None, *, lock: bool = False
+) -> tuple[Employee, Employee]:
+    """(kalan, birleşen). Profil ya da seçilen çalışan yoksa 404; aynı kayıtsa ya da biri zaten
+    birleştirilmişse 409; kalan ikisinden biri değilse 422. `lock` iki satırı kilitler."""
+    employee = session.get(Employee, employee_id, with_for_update=lock)
+    if employee is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, EMPLOYEE_NOT_FOUND)
+    if employee.status == MERGED_STATUS:
+        raise HTTPException(status.HTTP_409_CONFLICT, MERGE_CLOSED)
+    other = session.get(Employee, other_id, with_for_update=lock)
+    if other is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, MERGE_OTHER_NOT_FOUND)
+    if other.id == employee.id:
+        raise HTTPException(status.HTTP_409_CONFLICT, MERGE_SAME)
+    if other.status == MERGED_STATUS:
+        raise HTTPException(status.HTTP_409_CONFLICT, MERGE_OTHER_CLOSED)
+    wanted = keep_id or employee.id
+    if wanted not in (employee.id, other.id):
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, MERGE_BAD_KEEP)
+    return (employee, other) if wanted == employee.id else (other, employee)
+
+
+def _merge_side(session: Session, employee: Employee) -> MergeSideView:
+    return MergeSideView(
+        id=employee.id,
+        name=f"{employee.given_names} {employee.surname}",
+        status_label=status_label(employee.status),
+        documents=merge_document_count(session, employee.id),
+    )
+
+
+def _merge_view(session: Session, keep: Employee, merge: Employee) -> MergeView:
+    kept = profile_values(current_profile_fields(keep))
+    merged = profile_values(current_profile_fields(merge))
+    outcomes = merge_field_preview(keep, merge)
+    return MergeView(
+        keep=_merge_side(session, keep),
+        merge=_merge_side(session, merge),
+        rows=[
+            MergeFieldRow(
+                label=PROFILE_LABELS[name],
+                keep=profile_text(name, kept[name]),
+                merge=profile_text(name, merged[name]),
+                note=MERGE_FIELD_NOTES.get(outcomes[name]),
+            )
+            for name in PROFILE_FIELDS
+        ],
+    )
+
+
+def _merge_first_text(view: MergeView) -> str:
+    return first_text(
+        Operation.MERGE_EMPLOYEES, merged_name=view.merge.name, kept_name=view.keep.name
+    )
+
+
+def _merge_page(
+    request: Request,
+    user: PanelUser,
+    template: str,
+    employee_id: str,
+    *,
+    status_code: int = status.HTTP_200_OK,
+    **context: object,
+) -> HTMLResponse:
+    """`employee_merge.html` (arama sayfası), `employee_merge_results.html` (HTMX arama sonucu) ya
+    da `employee_merge_step.html` (onay adımları ve hata)."""
+    return render_page(
+        request,
+        template,
+        user=user,
+        active=MENU_BY_KEY["employees"].key,
+        status_code=status_code,
+        employee_id=employee_id,
+        **context,
+    )
+
+
+@router.get("/employees/{employee_id}/merge/employees", response_class=HTMLResponse)
+def merge_search(
+    employee_id: str,
+    request: Request,
+    user: CurrentUser,
+    session: Annotated[Session, Depends(get_session)],
+    q: Annotated[str, Query(max_length=MAX_QUERY_LENGTH)] = "",
+) -> HTMLResponse:
+    """10.5.9 — birleştirilecek ikinci çalışanı 10.4.2'nin aramasıyla bulur: etkin ve pasif
+    çalışanlar; birleştirilmiş olan bulunmaz, kaydın kendisi seçilemez; boş aramada liste gelmez.
+    HTMX isteği yalnız sonuç parçasını alır."""
+    template = "employee_merge_results.html" if _wants_fragment(request) else "employee_merge.html"
+    target: EditTarget | None = None
+    listing: EmployeeListing | None = None
+    try:
+        employee = session.get(Employee, employee_id)
+        if employee is None:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, EMPLOYEE_NOT_FOUND)
+        if employee.status == MERGED_STATUS:
+            raise HTTPException(status.HTTP_409_CONFLICT, MERGE_CLOSED)
+        target = _edit_target(employee)
+        if q.strip():
+            listing = list_employees(session, q, statuses=SEARCHABLE_STATUSES)
+    except HTTPException as exc:
+        return _merge_page(
+            request, user, template, employee_id, status_code=exc.status_code, error=exc.detail
+        )
+    finally:
+        session.rollback()
+    response = _merge_page(
+        request, user, template, employee_id, target=target, listing=listing, query=q.strip()
+    )
+    response.headers["Vary"] = "HX-Request"
+    return response
+
+
+@router.get("/employees/{employee_id}/merge/confirm", response_class=HTMLResponse)
+def merge_first_confirmation(
+    employee_id: str,
+    request: Request,
+    user: CurrentUser,
+    session: Annotated[Session, Depends(get_session)],
+    other: Annotated[str, Query(max_length=MAX_QUERY_LENGTH)],
+    keep: Annotated[str | None, Query(max_length=MAX_QUERY_LENGTH)] = None,
+) -> HTMLResponse:
+    """10.5.9 — iki kaydın özeti (alanlar yan yana, belge sayıları), kalacak kaydın seçimi
+    (varsayılan: profildeki kayıt) ve §20.6'nın birinci onay metni; hiçbir şey değişmez."""
+    try:
+        kept, merged = _merge_pair(session, employee_id, other, keep)
+        view = _merge_view(session, kept, merged)
+    except HTTPException as exc:
+        return _merge_page(
+            request,
+            user,
+            "employee_merge_step.html",
+            employee_id,
+            status_code=exc.status_code,
+            error=exc.detail,
+        )
+    finally:
+        session.rollback()
+    return _merge_page(
+        request,
+        user,
+        "employee_merge_step.html",
+        employee_id,
+        other=other,
+        view=view,
+        first_confirmation=_merge_first_text(view),
+    )
+
+
+@router.post("/employees/{employee_id}/merge/prepare", response_class=HTMLResponse)
+def prepare_merge(
+    employee_id: str,
+    request: Request,
+    user: CurrentUser,
+    session: Annotated[Session, Depends(get_session)],
+    other: MergeOther,
+    keep: MergeKeep,
+) -> HTMLResponse:
+    """10.5.9 — birinci onaydan sonra ikinci onay metnini (`<N>` kalana bağlanacak belge sayısı,
+    "geri alınamaz") ve `kalan:birleşen` çiftine bağlı tek kullanımlık belirteci verir (§20.6.1).
+    Hiçbir kaydı değiştirmez (S16)."""
+    try:
+        kept, merged = _merge_pair(session, employee_id, other, keep)
+        view = _merge_view(session, kept, merged)
+        issued = issue_confirmation(
+            session, request, user, Operation.MERGE_EMPLOYEES, merge_subject(kept.id, merged.id)
+        )
+    except HTTPException as exc:
+        session.rollback()
+        return _merge_page(
+            request,
+            user,
+            "employee_merge_step.html",
+            employee_id,
+            status_code=exc.status_code,
+            error=exc.detail,
+        )
+    except ConfirmationRefusedError as exc:  # oturum çerezi yok
+        session.rollback()
+        return _merge_page(
+            request,
+            user,
+            "employee_merge_step.html",
+            employee_id,
+            status_code=status.HTTP_400_BAD_REQUEST,
+            error=str(exc),
+        )
+    session.commit()
+    return _merge_page(
+        request,
+        user,
+        "employee_merge_step.html",
+        employee_id,
+        other=other,
+        view=view,
+        second_confirmation=second_text(Operation.MERGE_EMPLOYEES, count=view.documents),
+        confirmation=issued.token,
+    )
+
+
+@router.post("/employees/{employee_id}/merge", response_class=HTMLResponse)
+def merge_employees_endpoint(
+    employee_id: str,
+    request: Request,
+    user: CurrentUser,
+    session: Annotated[Session, Depends(get_session)],
+    layout: Annotated[DataLayout, Depends(get_layout)],
+    other: MergeOther,
+    keep: MergeKeep,
+    confirmation: Annotated[str | None, Form()] = None,
+) -> Response:
+    """10.5.9 — ikinci onayın belirteciyle iki kaydı birleştirir (K8, K16, R11); geri alınamaz.
+
+    Belirteç yoksa, süresi geçmişse, kullanılmışsa ya da başka kayıt çiftine, kalan seçimine,
+    işleme veya oturuma aitse hiçbir şey yapılmaz (400). Belirtecin tüketilmesi, `USER_CONFIRMED`
+    ve `EMPLOYEE_MERGED` (ardından dolan alanların ve paketlerin olayları) tek işlemdedir; dosya
+    taşıması yarıda kalırsa taşınanlar geri alınır ve 409 — hiçbir şey değişmez. Commit'ten sonra
+    iki kaydın `profil.md`'si yeniden üretilir (birleşeninki yönlendirme notu) ve kalan kaydın
+    profiline dönülür.
+    """
+    try:
+        kept, merged = _merge_pair(session, employee_id, other, keep, lock=True)
+        # §20.6.1: belirteç tüketilir ve `USER_CONFIRMED` yazılır, ardından işlemin kendi olayı
+        # (`EMPLOYEE_MERGED`) düşer.
+        confirm_operation(
+            session,
+            request,
+            user,
+            Operation.MERGE_EMPLOYEES,
+            merge_subject(kept.id, merged.id),
+            confirmation,
+            event_target={"kept": kept.id, "merged": merged.id},
+            employee_id=kept.id,
+        )
+        result = merge_employees(session, layout, kept, merged, actor=user.username)
+    except HTTPException as exc:
+        session.rollback()
+        return _merge_page(
+            request,
+            user,
+            "employee_merge_step.html",
+            employee_id,
+            status_code=exc.status_code,
+            error=exc.detail,
+        )
+    except ConfirmationRefusedError:
+        session.rollback()
+        return _merge_page(
+            request,
+            user,
+            "employee_merge_step.html",
+            employee_id,
+            status_code=status.HTTP_400_BAD_REQUEST,
+            error=CONFIRMATION_REFUSED,
+            other=other,
+            keep=keep,
+            retry=True,
+        )
+    except (EmployeeMergeRefusedError, EmployeeMergeError) as exc:
+        session.rollback()
+        detail = MERGE_FILES_FAILED if isinstance(exc, EmployeeMergeError) else str(exc)
+        return _merge_page(
+            request,
+            user,
+            "employee_merge_step.html",
+            employee_id,
+            status_code=status.HTTP_409_CONFLICT,
+            error=detail,
+        )
+    session.commit()
+    kept_id, merged_id = result.keep.id, result.merge.id
+    # 09.1.1: iki profil de değişti; birleştirmenin commit edilmiş hâlinden üretilir.
+    _rewrite_profile(session, layout, merged_id)
+    _rewrite_profile(session, layout, kept_id)
+    return RedirectResponse(f"/employees/{kept_id}?notice=merged", status.HTTP_303_SEE_OTHER)
 
 
 def _file_response(stored: StoredDocument, *, disposition: str) -> FileResponse:

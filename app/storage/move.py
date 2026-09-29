@@ -28,7 +28,15 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-from app.db.models import Document, DocumentStatus, Employee, Event, KnownDocumentType, UploadFile
+from app.db.models import (
+    Document,
+    DocumentStatus,
+    Employee,
+    EmployeeStatus,
+    Event,
+    KnownDocumentType,
+    UploadFile,
+)
 from app.events import EventType, record_event
 from app.storage.archive import DocumentNotFoundError
 from app.storage.atomic import iter_file_chunks, sha256_file, write_sequenced
@@ -77,10 +85,10 @@ def move_document(
 
     `actor` iki aşamalı onayı (K16, §20.6.1) tamamlamış kullanıcının adıdır; boşsa `ValueError`.
     Belge kaydı yoksa `DocumentNotFoundError`, çalışan yoksa `MoveTargetNotFoundError`; belge etkin
-    değilse, zaten o çalışanınsa ya da dosyası veya kaynak orijinali yerinde değilse
-    `DocumentNotMovableError` — hiçbir şey taşınmaz. Başarıdan sonra iki çalışanın belge paketleri
-    yenilenir (14.2.2). Oturum commit edilmez. Aynı belgeyi eşzamanlı taşıyan ikinci işlem satırın
-    kilidinde bekler ve belgeyi yeni sahibinde görür.
+    değilse, zaten o çalışanınsa, çalışan birleştirilmişse (10.5.9) ya da dosyası veya kaynak
+    orijinali yerinde değilse `DocumentNotMovableError` — hiçbir şey taşınmaz. Başarıdan sonra
+    iki çalışanın belge paketleri yenilenir (14.2.2). Oturum commit edilmez. Aynı belgeyi
+    eşzamanlı taşıyan ikinci işlem satırın kilidinde bekler ve belgeyi yeni sahibinde görür.
     """
     # `app.groups` `app.storage`'ı içe aktarır; üst düzeyde içe aktarmak paket başlatmada döngü
     # kurar.
@@ -101,6 +109,11 @@ def move_document(
         )
     if document.employee_id == new_owner.id:
         raise DocumentNotMovableError(f"Belge {document.id} zaten {new_owner.id} çalışanının")
+    if new_owner.status == EmployeeStatus.MERGED.value:
+        raise DocumentNotMovableError(
+            f"Belge {document.id} taşınamaz: {new_owner.id} başka bir kayıtla birleştirildi "
+            "(10.5.9); kalan kayda taşıyın"
+        )
     previous_owner = session.get_one(Employee, document.employee_id)
     document_type = session.get_one(KnownDocumentType, document.type_slug)
 

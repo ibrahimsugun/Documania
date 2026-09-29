@@ -177,11 +177,14 @@ class FieldOutcome(enum.StrEnum):
 
 
 class FieldSource(enum.StrEnum):
-    """Profil alanı gözleminin kaynağı (`employee_field_observations.source`): belge (05.7.3) ya da
-    İK'nın profil düzenlemesi (10.5.6, `actor` kullanıcı adıdır; belge kaynağı yoktur)."""
+    """Profil alanı gözleminin kaynağı (`employee_field_observations.source`): belge (05.7.3),
+    İK'nın profil düzenlemesi (10.5.6) ya da iki çalışanın birleştirilmesi (10.5.9: kalan kaydın
+    boş alanı birleşenin dolu alanıyla doldu). Son ikisinde `actor` kullanıcı adıdır; belge kaynağı
+    yoktur."""
 
     DOCUMENT = "document"
     MANUAL = "manual"
+    MERGE = "merge"
 
 
 class CandidateTypeStatus(enum.StrEnum):
@@ -302,8 +305,9 @@ class EmployeeStatus(enum.StrEnum):
 
     Çalışan `active` açılır. İK onu pasife alabilir (`inactive`) ve yeniden etkinleştirebilir:
     kimliği gerçektir, eşleştirme onu bulmaya devam eder ama gelen belge otomatik yerleşmez,
-    Unresolved'a düşer (R7). `merged` başka bir kayıtla birleştirilen çalışandır (10.5.9, tm 129).
-    Hiçbiri silmez: klasör, belgeler ve olaylar yerinde kalır (R11).
+    Unresolved'a düşer (R7). `merged` başka bir kayıtla birleştirilen çalışandır (10.5.9):
+    belgeleri, alt kayıtları ve paketleri kalan kayda (`merged_into_id`) taşınmıştır, eşleştirme ve
+    aramalar onu bulmaz, kaydı geri açılmaz. Hiçbiri silmez: klasör ve olaylar yerinde kalır (R11).
     """
 
     ACTIVE = "active"
@@ -328,6 +332,8 @@ class Employee(Base):
     date_of_birth: Mapped[date | None] = mapped_column(Date)
     nationality: Mapped[str | None] = mapped_column(String(8))
     status: Mapped[str] = mapped_column(String(16), default=EmployeeStatus.ACTIVE.value)
+    # 10.5.9: birleştirilen (`merged`) çalışanın kalan kaydı; öteki durumlarda boş.
+    merged_into_id: Mapped[str | None] = mapped_column(ForeignKey("employees.id"))
     created_at: Mapped[datetime] = mapped_column(UtcDateTime, default=utcnow)
 
     identifiers: Mapped[list[EmployeeIdentifier]] = relationship(back_populates="employee")
@@ -404,7 +410,9 @@ class EmployeeFieldObservation(Base):
     """Bir profil alanının bir belgede görülmesi (05.7.3, PLAN.md §C82): alan belgeden dolduruldu
     mu, belge aynı değeri mi okudu, farklı mı. İK'nın profil düzenlemesi de (10.5.6, §C90-a) her
     değişen alan için `source=manual` satırı yazar: kaynak belge yoktur (`file_id`, `page_index`
-    boş), `actor` düzenleyen kullanıcıdır, sonuç `filled`.
+    boş), `actor` düzenleyen kullanıcıdır, sonuç `filled`. İki çalışanın birleştirilmesi (10.5.9)
+    kalan kaydın birleşenden doldurulan her alanı için `source=merge` satırı yazar (kullanıcı,
+    `filled`); birleşenin gözlemleri kalan kayda taşınır (`app.matching.merge`).
 
     **Değer tutulmaz** — kişisel değer sayfa analizinde durur (CONVENTIONS §6). Belge kaynağı
     belgenin ilk sayfasıdır (`file_id`, `page_index`): planın belge adayının ilk sayfası, çıktının

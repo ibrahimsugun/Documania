@@ -103,7 +103,16 @@ from sqlalchemy.orm import Session
 
 from app.ai.schemas import PageAnalysis
 from app.catalog import CatalogEntry, export_catalog
-from app.db.models import Employee, Page, Plan, QueueItem, Upload, UploadFile, utcnow
+from app.db.models import (
+    Employee,
+    EmployeeStatus,
+    Page,
+    Plan,
+    QueueItem,
+    Upload,
+    UploadFile,
+    utcnow,
+)
 from app.events import EventType, event_context, record_event
 from app.groups import refresh_employee_packages
 from app.matching.contacts import accumulate_contacts
@@ -406,6 +415,11 @@ def assign_queue_item(
     employee = session.get(Employee, employee_id)
     if employee is None:
         raise AssigneeNotFoundError(f"Çalışan bulunamadı: {employee_id}")
+    if employee.status == EmployeeStatus.MERGED.value:
+        raise QueueAssignmentError(
+            f"Çalışan {employee.id} başka bir kayıtla birleştirildi; öğe kalan kayda atanır "
+            "(10.5.9)"
+        )
 
     plan, document, item = _queued_plan_item(session, queue_item)
     entry, selected = _item_output(session, layout, queue_item, plan, document, item)

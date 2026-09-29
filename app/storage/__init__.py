@@ -1,6 +1,6 @@
 """Depolama katmanı: veri dizini yolları, slug, adlandırma, atomik yazma (PRD 00.4), Alinan kopyası
 (07.7.2), arşive taşıma (08.4.1), belgeyi başka çalışana taşıma (10.8.2), çalışan klasörünü yeni
-ada göre yeniden adlandırma (10.5.6).
+ada göre yeniden adlandırma (10.5.6), iki çalışanı birleştirmenin dosya işleri (10.5.9).
 
 Dosya yolu üreten tek yer bu pakettir (MASTER-PROMPT §4 yol kuralı).
 """
@@ -29,6 +29,14 @@ from app.storage.filetype import FileKind, UnsupportedFileTypeError, detect_file
 from app.storage.hashing import find_original_by_sha256
 from app.storage.inbox import write_to_inbox
 from app.storage.layout import DataLayout, prepare_data_dir
+from app.storage.merge import (
+    EmployeeMergeError,
+    EmployeeMergePlan,
+    FileMove,
+    RelocatedDocument,
+    plan_employee_merge,
+    relocate_merged_files,
+)
 from app.storage.move import (
     DocumentNotMovableError,
     MovedDocument,
@@ -59,12 +67,16 @@ __all__ = [
     "DocumentNotArchivableError",
     "DocumentNotFoundError",
     "DocumentNotMovableError",
+    "EmployeeMergeError",
+    "EmployeeMergePlan",
     "EmployeeRenameError",
     "EmployeeRenamePlan",
     "FileKind",
+    "FileMove",
     "MoveTargetNotFoundError",
     "MovedDocument",
     "ReceivedCopy",
+    "RelocatedDocument",
     "RenamedFile",
     "SlugError",
     "StoredFile",
@@ -80,8 +92,10 @@ __all__ = [
     "iter_file_chunks",
     "move_document",
     "person_slug",
+    "plan_employee_merge",
     "plan_employee_rename",
     "prepare_data_dir",
+    "relocate_merged_files",
     "remove_partial_writes",
     "rename_employee_folder",
     "replace_file",

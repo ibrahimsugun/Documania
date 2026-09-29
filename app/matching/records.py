@@ -149,15 +149,20 @@ def number_owners(session: Session, numbers: Iterable[str]) -> set[str]:
     """Bu numaralardan birini **etkin** kaydında taşıyan çalışanlar (§20.2.2 satır 1–2).
 
     "Aynı numara birden fazla çalışana ait" hükmü kaldırılmış satırı saymaz: numarayı bir
-    çalışandan kaldırmak onu öteki çalışanın tek sahipliğine bırakır.
+    çalışandan kaldırmak onu öteki çalışanın tek sahipliğine bırakır. Birleştirilmiş (`merged`,
+    10.5.9) çalışan sahip sayılmaz: numaraları kalan kayda taşınmıştır, süzgeç güvenlik içindir.
     """
     values = list(dict.fromkeys(numbers))
     if not values:
         return set()
     return set(
         session.scalars(
-            select(EmployeeIdentifier.employee_id).where(
-                EmployeeIdentifier.value.in_(values), ACTIVE_IDENTIFIER
+            select(EmployeeIdentifier.employee_id)
+            .join(Employee, Employee.id == EmployeeIdentifier.employee_id)
+            .where(
+                EmployeeIdentifier.value.in_(values),
+                ACTIVE_IDENTIFIER,
+                Employee.status != EmployeeStatus.MERGED.value,
             )
         )
     )

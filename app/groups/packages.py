@@ -48,6 +48,7 @@ from app.db.models import (
     DocumentStatus,
     Employee,
     EmployeePackage,
+    EmployeeStatus,
     GroupItemKind,
     KnownDocumentType,
     PackageStatus,
@@ -69,6 +70,8 @@ CANCEL_NOTE_REQUIRED = "İptal nedeni boş olamaz."
 GROUP_ARCHIVED = "Arşivdeki gruba yeni paket tanımlanamaz."
 ALREADY_CANCELLED = "Paket zaten iptal edilmiş."
 NOT_CANCELLED = "Yalnız iptal edilmiş paket yeniden açılır."
+# 10.5.9: birleştirilmiş kaydın paketleri kalan kayda taşınmıştır; ona yeni paket tanımlanmaz.
+EMPLOYEE_MERGED = "Bu çalışan başka bir kayıtla birleştirildi; paketi kalan kayda tanımlayın."
 
 # Yenilemenin değerlendirdiği durumlar: iptal edilen paket İK yeniden açana dek hesaba girmez.
 _LIVE = (PackageStatus.OPEN.value, PackageStatus.COMPLETED.value)
@@ -459,14 +462,18 @@ def assign_package(
 ) -> PackageAssignment:
     """Grubu çalışana paket olarak tanımlar (14.2.1).
 
-    Çalışan yoksa `PackageEmployeeNotFoundError`, grup yoksa `app.groups.GroupNotFoundError`, grup
-    arşivdeyse `GroupArchivedError`, not 120 karakteri aşarsa `PackageFormError`. Çalışanda aynı
-    grubun iptal edilmemiş paketi varsa ve `confirm_duplicate` yanlışsa hiçbir şey yazılmaz, `warn`
-    döner. Açılan paket hemen değerlendirilir. Oturum commit edilmez.
+    Çalışan yoksa `PackageEmployeeNotFoundError`, birleştirilmişse (10.5.9) `PackageStateError`,
+    grup yoksa `app.groups.GroupNotFoundError`, grup arşivdeyse `GroupArchivedError`, not 120
+    karakteri aşarsa `PackageFormError`. Çalışanda aynı grubun iptal edilmemiş paketi varsa ve
+    `confirm_duplicate` yanlışsa hiçbir şey yazılmaz, `warn` döner. Açılan paket hemen
+    değerlendirilir. Oturum commit edilmez.
     """
     _require_actor(actor)
-    if session.get(Employee, employee_id) is None:
+    employee = session.get(Employee, employee_id)
+    if employee is None:
         raise PackageEmployeeNotFoundError(employee_id)
+    if employee.status == EmployeeStatus.MERGED.value:
+        raise PackageStateError(EMPLOYEE_MERGED)
     group = get_group(session, group_id)
     if group.archived_at is not None:
         raise GroupArchivedError(GROUP_ARCHIVED)

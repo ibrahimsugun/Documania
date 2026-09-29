@@ -72,6 +72,11 @@ def is_inactive(employee: Employee) -> bool:
     return employee.status == EmployeeStatus.INACTIVE.value
 
 
+def is_merged(employee: Employee) -> bool:
+    """Çalışan başka bir kayıtla birleştirildi mi (10.5.9): kaydı kapalıdır, belge almaz."""
+    return employee.status == EmployeeStatus.MERGED.value
+
+
 def status_suffix(status: str) -> str:
     """Pasif çalışanın adına eklenen " (pasif)"; öteki durumlarda boş."""
     return INACTIVE_SUFFIX if status == EmployeeStatus.INACTIVE.value else ""

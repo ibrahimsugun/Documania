@@ -987,7 +987,8 @@ def test_panel_has_no_way_to_change_a_document(
     # (`tests/web/test_employee_fields.py`). Durum yolları (10.5.7) yalnız çalışanın durumunu
     # çevirir; dosyaya dokunmaz (`tests/web/test_employee_status.py`). Alt kayıt yolları (10.5.8)
     # yalnız isim yazımı, numara ve iletişim satırlarını işaretler ya da ekler; dosyaya dokunmaz
-    # (`tests/web/test_profile_records.py`).
+    # (`tests/web/test_profile_records.py`). Birleştirme yolları (10.5.9) belgeleri kalan kayda K8
+    # adıyla taşır; içerik bayt bayt aynı kalır (`tests/web/test_employee_merge.py`).
     assert profile_paths == {
         "/employees/{employee_id}/fields": {"get", "post"},
         "/employees/{employee_id}/fields/prepare": {"post"},
@@ -1006,6 +1007,10 @@ def test_panel_has_no_way_to_change_a_document(
         "/employees/{employee_id}/records/{kind}/{record_id}/remove": {"post"},
         "/employees/{employee_id}/records/{kind}/{record_id}/restore": {"post"},
         "/employees/{employee_id}/contacts": {"post"},
+        "/employees/{employee_id}/merge/employees": {"get"},
+        "/employees/{employee_id}/merge/confirm": {"get"},
+        "/employees/{employee_id}/merge/prepare": {"post"},
+        "/employees/{employee_id}/merge": {"post"},
     }
 
     urls = (

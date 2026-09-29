@@ -122,7 +122,12 @@ from app.matching.match import (
     ProposedProfile,
     edited_profile_fields,
 )
-from app.matching.status import is_inactive, is_inactive_employee_reason, status_label
+from app.matching.status import (
+    is_inactive,
+    is_inactive_employee_reason,
+    is_merged,
+    status_label,
+)
 from app.pipeline.plan import PlanEmployee, PlanIntegrityError
 from app.pipeline.route import (
     ApprovedProfile,
@@ -975,6 +980,8 @@ TYPELESS_NOTE = (
     "çıktının adı ve işlemi belge türünden seçilir (K8)."
 )
 ASSIGNEE_NOT_FOUND = "Çalışan bulunamadı."
+# 10.5.9: birleştirilmiş kayda atanmaz; belgeler kalan kayda atanır.
+ASSIGNEE_MERGED = "Bu çalışan başka bir kayıtla birleştirildi; öğeyi kalan kayda atayın."
 
 
 @dataclass(frozen=True, slots=True)
@@ -1010,6 +1017,8 @@ def _assignee(session: Session, employee_id: str) -> AssigneeView:
     employee = session.get(Employee, employee_id)
     if employee is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, ASSIGNEE_NOT_FOUND)
+    if is_merged(employee):
+        raise HTTPException(status.HTTP_409_CONFLICT, ASSIGNEE_MERGED)
     return AssigneeView(id=employee.id, name=f"{employee.given_names} {employee.surname}")
 
 

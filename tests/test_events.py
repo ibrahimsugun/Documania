@@ -34,7 +34,8 @@ def test_all_prd_event_types_are_present() -> None:
     tm 125'le; profil düzenleme olayı (`EMPLOYEE_EDITED`, 10.5.6) tm 126'yla; pasife alma ve
     yeniden etkinleştirme olayları (`EMPLOYEE_DEACTIVATED`, `EMPLOYEE_REACTIVATED`, 10.5.7) tm
     127'yle; profil alt kaydı olayları (`PROFILE_RECORD_REMOVED`, `PROFILE_RECORD_RESTORED`,
-    `CONTACT_ADDED`, 10.5.8) tm 128'le."""
+    `CONTACT_ADDED`, 10.5.8) tm 128'le; birleştirme olayı (`EMPLOYEE_MERGED`, 10.5.9) tm
+    129'la."""
     expected = {
         "FILE_UPLOADED",
         "FILE_DUPLICATE",
@@ -92,6 +93,7 @@ def test_all_prd_event_types_are_present() -> None:
         "EMPLOYEE_EDITED",
         "EMPLOYEE_DEACTIVATED",
         "EMPLOYEE_REACTIVATED",
+        "EMPLOYEE_MERGED",
         "PROFILE_RECORD_REMOVED",
         "PROFILE_RECORD_RESTORED",
         "CONTACT_ADDED",

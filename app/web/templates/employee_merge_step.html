@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{# İki çalışanı birleştirme (10.5.9): iki kaydın özeti (alanlar yan yana, belge sayıları), kalacak
+   kaydın seçimi (radyo; seçim birinci onay metnini yeniden doldurur), birinci onay (§20.6 metni
+   birebir), ikinci onay (`kalan:birleşen` çiftine bağlı tek kullanımlık belirteç; metin "geri
+   alınamaz" der) ya da hata. Kalanın dolu alanı değişmez; boş alanı birleşenin değeriyle dolar. #}
+{% block title %}Başka kayıtla birleştir{% endblock %}
+{% block content %}
+<p class="back"><a href="/employees/{{ employee_id }}">← Profile dön</a></p>
+<h1>Başka kayıtla birleştir</h1>
+{% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+{% if view %}
+{% if first_confirmation %}
+<form class="merge-keep" method="get" action="/employees/{{ employee_id }}/merge/confirm">
+  <input type="hidden" name="other" value="{{ other }}">
+  <fieldset>
+    <legend>Kalacak kayıt</legend>
+    {% for side in (view.keep, view.merge) %}
+    <label><input type="radio" name="keep" value="{{ side.id }}"{% if side.id == view.keep.id %} checked{% endif %} onchange="this.form.submit()"> {{ side.name }} ({{ side.id }})</label>
+    {% endfor %}
+    <button type="submit">Seçimi uygula</button>
+  </fieldset>
+</form>
+{% endif %}
+<table class="outputs merge-summary">
+  <thead>
+    <tr>
+      <th scope="col">Alan</th>
+      <th scope="col">Kalan: {{ view.keep.name }} ({{ view.keep.id }})</th>
+      <th scope="col">Birleşen: {{ view.merge.name }} ({{ view.merge.id }})</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr><th scope="row">Durum</th><td>{{ view.keep.status_label }}</td><td>{{ view.merge.status_label }}</td></tr>
+    {% for row in view.rows %}
+    <tr{% if row.note %} class="changed"{% endif %}>
+      <th scope="row">{{ row.label }}</th>
+      <td>{{ row.keep }}</td>
+      <td>{{ row.merge }}{% if row.note %} <span class="edited">{{ row.note }}</span>{% endif %}</td>
+    </tr>
+    {% endfor %}
+    <tr><th scope="row">Belgeler</th><td>{{ view.keep.documents }}</td><td>{{ view.merge.documents }} <span class="edited">kalan kayda taşınacak</span></td></tr>
+  </tbody>
+</table>
+{% if first_confirmation %}
+<form method="post" action="/employees/{{ employee_id }}/merge/prepare" class="confirm employee-merge">
+  <p class="hint">Birleşen kaydın belgeleri kalan kaydın adıyla (K8) onun klasörüne taşınır; belge numaraları, isim yazımları, iletişim bilgileri, alan kaynakları ve belge paketleri kalan kayda bağlanır, aynı değer tek kalır. Birleşen kayıt silinmez: "Birleşti" durumunda kapanır, klasöründe yalnız yönlendirme notu kalır.</p>
+  <p class="confirm-text" role="alert">{{ first_confirmation }}</p>
+  <input type="hidden" name="other" value="{{ other }}">
+  <input type="hidden" name="keep" value="{{ view.keep.id }}">
+  <button type="submit">Evet, devam et</button>
+  <a href="/employees/{{ employee_id }}">Vazgeç</a>
+</form>
+{% elif second_confirmation %}
+<form method="post" action="/employees/{{ employee_id }}/merge" class="confirm employee-merge-step">
+  <p class="confirm-text" role="alert">{{ second_confirmation }}</p>
+  <input type="hidden" name="other" value="{{ other }}">
+  <input type="hidden" name="keep" value="{{ view.keep.id }}">
+  <input type="hidden" name="confirmation" value="{{ confirmation }}">
+  <button type="submit">Evet, birleştir</button>
+  <a href="/employees/{{ employee_id }}">Vazgeç</a>
+</form>
+{% endif %}
+{% elif retry and other %}
+<p><a href="/employees/{{ employee_id }}/merge/confirm?other={{ other|urlencode }}{% if keep %}&amp;keep={{ keep|urlencode }}{% endif %}">Onayı yeniden başlatın</a></p>
+{% endif %}
+{% endblock %}

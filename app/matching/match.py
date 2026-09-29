@@ -154,6 +154,7 @@ from app.db.models import (
     Employee,
     EmployeeAlias,
     EmployeeIdentifier,
+    EmployeeStatus,
     QueueKind,
     allocate_employee_number,
 )
@@ -655,10 +656,15 @@ def _decide_by_name(session: Session, name_keys: Sequence[str], born: date | Non
     # mu. Profil onayı (08.3.1, 10.7.3) çalışana yazılacak yazımları da bununla sınar.
     if not name_keys:
         return EmployeeMatch(MatchRule.NO_MATCH)
+    # Birleştirilmiş çalışan (10.5.9) aranmaz: yazımları kalan kayda taşınmıştır.
     named = session.execute(
         select(Employee.id, Employee.date_of_birth)
         .join(EmployeeAlias, EmployeeAlias.employee_id == Employee.id)
-        .where(EmployeeAlias.normalized_name.in_(name_keys), ACTIVE_ALIAS)
+        .where(
+            EmployeeAlias.normalized_name.in_(name_keys),
+            ACTIVE_ALIAS,
+            Employee.status != EmployeeStatus.MERGED.value,
+        )
     ).all()
     if not named:
         return EmployeeMatch(MatchRule.NO_MATCH)

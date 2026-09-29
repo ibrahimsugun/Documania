@@ -2,9 +2,10 @@
 
 K16'nın manuel işlemleri — belgeyi başka çalışana taşı, kuyruk öğesini ata, onay bekleyen profili
 onayla, yeni türü onayla, arşive taşı, taramayı yoksay, çalışan profilini düzenle, çalışanı pasife
-al ve yeniden etkinleştir, profil alt kaydını kaldır (§D61) — iki onay ister. Onay metinleri
-§20.6 tablosundan **birebir** buradadır (`CONFIRMATION_TEXTS`); `<Ad Soyad>`, `<Tür adı>`, `<N>`
-ve `<M>` yer tutucuları çalışma zamanında `fill` ile doldurulur, pencere kendi cümlesini yazmaz.
+al ve yeniden etkinleştir, profil alt kaydını kaldır, iki çalışanı birleştir (§D61) — iki onay
+ister. Onay metinleri §20.6 tablosundan **birebir** buradadır (`CONFIRMATION_TEXTS`); `<Ad Soyad>`,
+`<Birleşen Ad Soyad>`, `<Kalan Ad Soyad>`, `<Tür adı>`, `<N>` ve `<M>` yer tutucuları çalışma
+zamanında `fill` ile doldurulur, pencere kendi cümlesini yazmaz.
 
 Metni göstermek tek başına yetmez — istemci atlanabilir. Sunucu tarafı akış (§20.6.1):
 
@@ -64,6 +65,7 @@ class Operation(enum.StrEnum):
     DEACTIVATE_EMPLOYEE = "deactivate_employee"  # çalışanı pasife al, 10.5.7 (§D61)
     REACTIVATE_EMPLOYEE = "reactivate_employee"  # çalışanı yeniden etkinleştir, 10.5.7 (§D61)
     REMOVE_PROFILE_RECORD = "remove_profile_record"  # profil alt kaydını kaldır, 10.5.8 (§D61)
+    MERGE_EMPLOYEES = "merge_employees"  # iki çalışanı birleştir, 10.5.9 (§D61)
     # §20.6'nın dışında: yeniden analizin onayı (10.3.2, metinler PLAN.md §D23).
     REANALYZE = "reanalyze"
     # §20.6'nın dışında (K16 dışı, PLAN.md §D58): eğitim örneğini başka türe taşı ve örneklerden
@@ -81,9 +83,12 @@ class ConfirmationTexts:
 
 
 NAME_PLACEHOLDER = "<Ad Soyad>"
+# 10.5.9: birleştirmede kapanan (`merged_name`) ve kalan (`kept_name`) kaydın adı.
+MERGED_NAME_PLACEHOLDER = "<Birleşen Ad Soyad>"
+KEPT_NAME_PLACEHOLDER = "<Kalan Ad Soyad>"
 TYPE_PLACEHOLDER = "<Tür adı>"
 # `<N>`: taramayı yoksaymada kuyruk öğesi sayısı (`queue_items`), profil düzenlemede yeniden
-# adlandırılacak belge dosyası sayısı (`count`).
+# adlandırılacak belge dosyası sayısı, birleştirmede taşınacak belge sayısı (`count`).
 COUNT_PLACEHOLDER = "<N>"
 DOCUMENT_COUNT_PLACEHOLDER = "<M>"
 
@@ -133,6 +138,12 @@ CONFIRMATION_TEXTS: dict[Operation, ConfirmationTexts] = {
         "Bu kaydı çalışan profilinden kaldırmak üzeresiniz. Emin misiniz?",
         "Kayıt eşleştirmede ve aramada kullanılmayacak, geçmişte kalacaktır. Son kararınız mı?",
     ),
+    Operation.MERGE_EMPLOYEES: ConfirmationTexts(
+        "<Birleşen Ad Soyad> kaydını <Kalan Ad Soyad> kaydıyla birleştirmek üzeresiniz. Emin "
+        "misiniz?",
+        "<N> belge taşınacak ve birleşen kayıt kapanacaktır; bu işlem geri alınamaz. Son "
+        "kararınız mı?",
+    ),
 }
 
 
@@ -140,6 +151,8 @@ def fill(
     text: str,
     *,
     name: str | None = None,
+    merged_name: str | None = None,
+    kept_name: str | None = None,
     type_name: str | None = None,
     queue_items: int | None = None,
     documents: int | None = None,
@@ -153,6 +166,8 @@ def fill(
     number = queue_items if queue_items is not None else count
     for placeholder, value in (
         (NAME_PLACEHOLDER, name),
+        (MERGED_NAME_PLACEHOLDER, merged_name),
+        (KEPT_NAME_PLACEHOLDER, kept_name),
         (TYPE_PLACEHOLDER, type_name),
         (COUNT_PLACEHOLDER, None if number is None else str(number)),
         (DOCUMENT_COUNT_PLACEHOLDER, None if documents is None else str(documents)),

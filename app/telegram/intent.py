@@ -12,6 +12,7 @@ ya da `other`. Yapay zekâ veritabanını görmez; isteğe yalnız mesaj ve kata
    kelimeyi taşımalıdır — "Ali" "Alican"ı bulmaz, "Çakar" her Çakar'ı bulur. Numara yazılmışsa
    yalnız o çalışandır; ad da yazılmışsa ona uymalıdır, uymazsa sonuç yoktur. Pasif çalışan
    (10.5.7) da bulunur ve belgeleri gönderilir; adı yanıtta "(pasif)" ekiyle görünür.
+   Birleştirilmiş çalışan (10.5.9) bulunmaz — numarasıyla da; belgeleri kalan kayıttadır.
 2. **Belgeler** (`find_documents`): çalışanın **etkin** belgeleri — eski sürüm (K18) ve arşivlenmiş
    (K16) belge önerilmez —, tür verilmişse yalnız o türlerden, yeniden eskiye.
 3. **Belirsizlik** (12.3.2): birden çok çalışan uyarsa önce çalışan, çalışanın birden çok belgesi
@@ -78,6 +79,7 @@ from app.db.models import (
     DocumentStatus,
     Employee,
     EmployeeAlias,
+    EmployeeStatus,
     KnownDocumentType,
     TelegramUser,
 )
@@ -182,8 +184,11 @@ def find_employees(session: Session, person: PersonReference) -> list[Employee]:
     """İfadeye uyan çalışanlar, soyad-ad sırasıyla (modül açıklaması, adım 1)."""
     if not person.numbers and not person.words:
         return []
-    query = select(Employee).order_by(
-        func.lower(Employee.surname), func.lower(Employee.given_names), Employee.id
+    # 10.5.9: birleştirilmiş kayıt aranmaz; belgeleri ve yazımları kalan kayda taşındı.
+    query = (
+        select(Employee)
+        .where(Employee.status != EmployeeStatus.MERGED.value)
+        .order_by(func.lower(Employee.surname), func.lower(Employee.given_names), Employee.id)
     )
     # İK'nın kaldırdığı yazım (10.5.8) aramada kullanılmaz.
     alias_query = select(EmployeeAlias.employee_id, EmployeeAlias.normalized_name).where(

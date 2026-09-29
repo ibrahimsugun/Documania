@@ -1145,3 +1145,10 @@ form:not(.session) button[type="submit"]:hover,
 .removed-records li { margin: 0.35rem 0; }
 .removed-records .record-kind { font-weight: 600; }
 .record-summary dt { font-weight: 600; }
+
+/* 10.5.9: iki çalışanı birleştirme — birleştirilmiş kaydın bildirimi, kalan seçimi, özet tablosu. */
+.merged-notice { margin: 0.75rem 0; padding: 0.5rem 0.75rem; border-radius: 6px; background: var(--warning-soft); }
+.merged-notice p { margin: 0.25rem 0; }
+.merge-keep fieldset { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; margin: 0.5rem 0; border: 1px solid #d0d7de; border-radius: 6px; }
+.merge-summary { margin: 0.75rem 0; }
+.merge-summary tr.changed td { font-weight: 600; }
