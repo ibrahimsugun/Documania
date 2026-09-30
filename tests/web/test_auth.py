@@ -528,6 +528,20 @@ def test_stylesheet_is_served_without_a_session(anonymous: TestClient) -> None:
     assert response.headers["content-type"].startswith("text/css")
 
 
+def test_tab_icon_is_linked_and_served_without_a_session(anonymous: TestClient) -> None:
+    # 10.1.5: giriş sayfası dahil her panel sayfası sekme simgesini gösterir; simge dosyaları
+    # oturumsuz açıktır (giriş sayfasında da görünsün diye).
+    page = anonymous.get("/login").text
+
+    assert '<link rel="icon" type="image/png" sizes="32x32" href="/static/favicon.png">' in page
+    assert '<link rel="apple-touch-icon" href="/static/icon-512.png">' in page
+    for path in ("/static/favicon.png", "/static/icon-512.png"):
+        response = anonymous.get(path)
+        assert response.status_code == 200, path
+        assert response.headers["content-type"] == "image/png", path
+        assert response.content.startswith(b"\x89PNG\r\n\x1a\n"), path
+
+
 # --- 10.1.1: panel iskeleti ve gezinme --------------------------------------------------------
 
 

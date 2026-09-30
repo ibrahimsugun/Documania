@@ -1400,7 +1400,8 @@
           "107",
           "110",
           "136",
-          "137"
+          "137",
+          "140"
         ],
         "priority": "critical",
         "subtasks": [],
@@ -1442,7 +1443,11 @@
           "132",
           "133",
           "134",
-          "138"
+          "138",
+          "139",
+          "142",
+          "143",
+          "144"
         ],
         "priority": "critical",
         "subtasks": [],
@@ -2001,13 +2006,101 @@
         "priority": "medium",
         "subtasks": [],
         "updatedAt": "2026-09-30T12:00:00.000Z"
+      },
+      {
+        "id": "139",
+        "title": "10.1-c — Panel sekme simgesi: favicon ve büyük simge base.html'e bağlanır [SONNET-XHIGH]",
+        "description": "PRD 10.1.5 · FR-MOD-10 · Faz 1 · Should (v1). İnsan kararı (2026-09-30): kökte takipsiz duran favicon.ico/seo.png panele favicon olarak bağlansın.",
+        "details": "`favicon.ico` (32×32 PNG) → `app/web/static/favicon.png`, `seo.png` (512×512, aynı tasarım) → `app/web/static/icon-512.png`; `base.html` `<link rel=\"icon\">` + `<link rel=\"apple-touch-icon\">`. `icon.png` (25×25, başka tasarım) bağlanmadı, kökte takipsiz kaldı.",
+        "testStrategy": "1) Giriş sayfasında iki bağlantı; iki dosya oturumsuz 200 image/png, PNG imzası. 2) Bağlantı kaldırılınca test kırmızı. 3) DoD kapısı yeşil.",
+        "status": "done",
+        "dependencies": [
+          "64"
+        ],
+        "priority": "medium",
+        "subtasks": [],
+        "updatedAt": "2026-09-30T12:30:00.000Z"
+      },
+      {
+        "id": "140",
+        "title": "08.1-b — Şifre yüzünden kopyalanamayan kaynak Unreadable kuyruğuna: parti failed olmaz, diğer öğeler uygulanır [OPUS-XHIGH]",
+        "description": "PRD 08.1.3 · FR-MOD-08 · Faz 0 · Should (v1). İnsan kararı (2026-09-30): tm 137'den sonra sahip parolalı (AES) ya da parola korumalı PDF'ten sayfa çıkarma/birleştirme gereken öğe tanımlı hatayla partiyi `failed` yapıyor (`PLAN_EXECUTION_ERRORS`, `PIPELINE_FAILED`). Belge kuyruğa düşsün, döngü uygulasın. Bağlam PLAN §D76.",
+        "details": "KAPSAM: PRD 08.1.3. Şu an: `app/pipeline/execute_pdf.py` `_open_pdf` (parola korumalı) ve `_read_pdf` (`DependencyError` → `şifreli (AES)`) `ExtractSourceError`/`MergeSourceError` fırlatır; `app/pipeline/orchestrate.py` `PLAN_EXECUTION_ERRORS` uygulamayı durdurur, parti `failed`. İstenen: yalnız **şifre** kaynaklı kaynak hataları (ayrı alt sınıf ya da işaret; bozuk PDF, okuyucu sayfa sayısı uyuşmazlığı ve bütünlük hataları bugünkü gibi durdurmaya devam eder) öğeyi `route_queue_item` (08.1.1) ile Unreadable kuyruğuna yönlendirir: kaynak kopyası + gerekçe (dosya, istenen işlem, \"şifreli PDF, sayfalar kopyalanamıyor\"); planın diğer öğeleri uygulanır, paketler/profil yenilenir. Şifre kaldırılmaz, dosya yeniden yazılmaz, `cryptography` eklenmez (K11, §D76). Olay: kuyruk yönlendirme olayı + neden. Plan dosyası değişmez (K9); aynı plan yeniden çalıştırılırsa aynı sonuç.",
+        "testStrategy": "1) Sahip parolalı AES PDF'ten extract gereken öğe → Unreadable kuyruğu, gerekçe dosyası, parti `failed` değil; aynı partideki düz öğe Hazir'a yazılır. 2) Parola korumalı PDF merge → aynı. 3) Bozuk PDF / sayfa sayısı uyuşmazlığı / SHA uyuşmazlığı → bugünkü gibi `failed` (gerileme yok). 4) Yeniden çalıştırma (06.6.1) aynı sonucu verir. 5) Kural bozması kırmızı. 6) DoD kapısı yeşil.",
+        "status": "pending",
+        "dependencies": [
+          "137",
+          "54"
+        ],
+        "priority": "medium",
+        "subtasks": [],
+        "updatedAt": "2026-09-30T12:30:00.000Z"
+      },
+      {
+        "id": "141",
+        "title": "13.5-c — Şema ve kod sürümü uyuşmazlığı koruması: eski göçte açılmaz, eski süreç uyarı verir [OPUS-HIGH]",
+        "description": "PRD 13.5.3 · FR-MOD-13 · Should (v1). İnsan bildirimi (2026-09-30): profil 500 ve boş ülke süzgeci — sebep 2026-09-27'den beri yeniden başlatılmamış `uvicorn` (eski Python kodu + diskten okunan yeni şablonlar) ve `0013`'te kalmış veritabanı. PLAN §D77.",
+        "details": "KAPSAM: PRD 13.5.3. (1) Açılış denetimi: `app/main.py` lifespan, `app/worker/__main__.py`, `app/telegram/bot.py` açılışta `alembic_version` ile `ScriptDirectory.get_current_head()`'i karşılaştırır (tek yardımcı, örn. `app/db/schema_check.py`). Eksik ya da eski sürüm → süreç açılmaz; mesaj mevcut ve beklenen sürümü ve 'önce `python -m alembic upgrade head` ya da `baslat.bat`' komutunu söyler. Tablo hiç yoksa aynı mesaj. Veritabanı kodun bilmediği ileri bir sürümdeyse de açılmaz (eski kodla yeni şema). Testler şemayı `create_all` ile kuruyorsa denetim `Settings` alanıyla kapatılabilir (varsayılan açık); mümkünse testte `alembic upgrade` tercih edilir. (2) Eski süreç uyarısı: açılışta `app/` altındaki `.py` ve `templates/` dosyalarının parmak izi (yol + mtime + boyut özeti) alınır; panel isteğinde en çok 30 sn'de bir yeniden hesaplanır; farklıysa `base.html` her sayfanın üstünde 'Sunucu eski sürümle çalışıyor — yeniden başlatın (baslat.bat)' uyarısı gösterir; uyarı hesaplanırken sayfa 500'e düşmez. (3) `/health` oturumsuz `{status, schema, code}` döner (code = parmak izinin kısa hâli; gizli bilgi yok). README'ye 'kod güncellendikten sonra baslat.bat ile yeniden başlatın' notu.",
+        "testStrategy": "1) Göçsüz temiz DB'de panel/işçi/bot açılmaz; mesajda iki sürüm ve komut. 2) `0013`'teki DB → aynı. 3) Baş sürümde açılır. 4) Açılıştan sonra bir şablonun mtime'ı değişince sayfada uyarı, değişmeyince yok. 5) `/health` sürümleri döner. 6) Mevcut TestClient testleri etkilenmez. 7) Kural bozması kırmızı. 8) DoD kapısı yeşil.",
+        "status": "pending",
+        "dependencies": [
+          "109",
+          "136"
+        ],
+        "priority": "medium",
+        "subtasks": [],
+        "updatedAt": "2026-09-30T13:30:00.000Z"
+      },
+      {
+        "id": "142",
+        "title": "10.1-d — Ülke başvuru verisi ve bayrak simgeleri: ISO alfa-2/alfa-3, MRZ kodları, Türkçe adlar, SVG bayraklar [OPUS-HIGH]",
+        "description": "PRD 10.1.6 · FR-MOD-10 · Should (v1). İnsan isteği (2026-09-30): bütün ülkelerin küçük bayrak simgesi projede olsun, panel tanısın. PLAN §D77 (emoji Windows'ta görünmez; uyruk alfa-3, tür ülkesi alfa-2).",
+        "details": "KAPSAM: PRD 10.1.6. (1) Veri depoda, kaynak + tarih + lisans kayıtlı, .env ile doldurulmaz: bayraklar `app/web/static/flags/<alfa2-küçük>.svg` (4:3; kaynak önerisi `flag-icons`, MIT — dosyalar zaten depodaysa yeniden indirilmez); ülke tablosu `app/countries/countries.json` (alfa-2, alfa-3, Türkçe ad; kaynak önerisi Unicode CLDR `tr` territories + `codeMappings`, Unicode License v3); kaynak/lisans/tarih `app/countries/SOURCES.md` ve `app/web/static/flags/LICENSE`. Paket bağımlılığı eklenmez (`pycountry`/`babel` yok). (2) MRZ istisnaları elle, ICAO Doc 9303 Part 3 kaynaklı: `D`→DE; `GBD`,`GBN`,`GBO`,`GBP`,`GBS`→GB; `RKS`→XK (Kosova); `UNO`,`UNA`,`UNK`,`XXA`,`XXB`,`XXC`,`XXX`,`XOM`,`XPO`,`XES`,`XMP`,`XCC`,`XBA`,`XIM` → ülke değil (bayraksız, açıklamalı ad: 'Vatansız' vb.). (3) Yardımcı `app/countries/__init__.py`: `lookup(code) -> Country | None` (alfa-2, alfa-3 ya da MRZ; harf büyüklüğü ve boşluk duyarsız), `Country(alpha2, alpha3, name_tr, flag_url)`; Jinja global `country_badge(code)` → `<span class=\"country\"><img src=\"/static/flags/ru.svg\" alt=\"\" width=\"20\" height=\"15\" loading=\"lazy\"> Rusya</span>` (alt boş: ad metinde; tanınmayanda yalnız kod, img yok). `panel.css` `.country img` hizası. (4) Bayrak dosyası yoksa ad yine yazılır, kırık görüntü çıkmaz. Kapsam dışı: süzgeç (tm 143) ve profil (tm 144) şablonları.",
+        "testStrategy": "1) Veri bütünlüğü: her alfa-2'nin SVG'si var, her kayıtta alfa-3 ve Türkçe ad dolu, kodlar tekil; kaynak/lisans dosyaları var. 2) `lookup`: `RU`/`RUS`/`rus`/`D`/`GBD`/`RKS`; `XXA` ülke değil; bilinmeyen → None. 3) `country_badge`: img yolu, boş alt, tanınmayanda img yok, HTML kaçışı. 4) `/static/flags/ru.svg` oturumsuz 200 `image/svg+xml`. 5) Kural bozması kırmızı. 6) DoD kapısı yeşil.",
+        "status": "pending",
+        "dependencies": [
+          "139"
+        ],
+        "priority": "medium",
+        "subtasks": [],
+        "updatedAt": "2026-09-30T13:30:00.000Z"
+      },
+      {
+        "id": "143",
+        "title": "11.1-e — Belge Türleri: ülke süzgecinde ve tabloda bayrak + Türkçe ülke adı [OPUS-HIGH]",
+        "description": "PRD 11.1.7 · FR-MOD-11 · Should (v1). İnsan isteği (2026-09-30): ülke süzgeci düzgün çalışsın, listede ülke adı + ikon görünsün. Boş süzgeç eski süreçtendi (PLAN §D77); bugünkü kod 109 ülke listeliyor.",
+        "details": "KAPSAM: PRD 11.1.7 (11.1.5 üzerine, tm 142'nin `lookup`/`country_badge`'ini kullanır). (1) Seçenek etiketi '<Türkçe ad> (<sayı>)', Türkçe harf sırasına göre sıralı (ç, ğ, ı, ö, ş, ü doğru yerde); 'Hepsi (N)' ve 'Genel — ülkesiz (N)' başta; tanınmayan kod koduyla sonda. (2) Bayraklı seçim: yerleşik `<select>` seçeneğinde görüntü olamaz → `<select>` sunucu tarafında aynen kalır (JavaScript kapalıyken ve erişilebilirlik için yedek, `onchange` gönderimi); küçük bir `app/web/static/country-select.js` onu düğme + `role=listbox` listeye çevirir: her satırda bayrak + ad + sayı, yazarak süzme, ok tuşları/Enter/Esc, seçimde formu gönderir; seçili ülkenin bayrağı düğmede görünür; SPA çatısı yok (MASTER-PROMPT §4). (3) Tablodaki 'Ülke' sütunu `country_badge(item.country)`; boşsa '—'. (4) Süzme mantığı (11.1.5) değişmez; `?country=` değerleri alfa-2 kalır.",
+        "testStrategy": "1) Seçenekler Türkçe sıralı, sayılar doğru, başta iki özel seçenek; katalogda ülke varken seçenek listesi boş olmaz. 2) HTML'de her ülke seçeneğinde bayrak verisi (`data-flag`) ve JS dosyası bağlı; JS'siz `<select>` çalışır. 3) Tablo hücresinde img + ad. 4) `?country=RS` süzer (mevcut 11.1.5 testleri yeşil). 5) Kural bozması kırmızı. 6) DoD kapısı yeşil.",
+        "status": "pending",
+        "dependencies": [
+          "142",
+          "123"
+        ],
+        "priority": "medium",
+        "subtasks": [],
+        "updatedAt": "2026-09-30T13:30:00.000Z"
+      },
+      {
+        "id": "144",
+        "title": "10.5-i — Profilde uyruk bayrağı: Vatandaşlık satırında bayrak + Türkçe ülke adı [SONNET-XHIGH]",
+        "description": "PRD 10.5.11 · FR-MOD-10 · Should (v1). İnsan isteği (2026-09-30): çalışan profilinde uyruğun ikonu görünsün. Uyruk `employees.nationality`'de ICAO/MRZ alfa-3 (örn. `RUS`, `TUR`).",
+        "details": "KAPSAM: PRD 10.5.11 (tm 142'nin `country_badge`'i). `profile.html` 'Vatandaşlık' satırı: `country_badge(profile.nationality)` + parantez içinde kod ('Rusya (RUS)'); tanınmayan ya da ülke olmayan kodda yalnız kod; boşsa '—'; `field_sources` (10.5.6) aynen kalır. Profil düzenleme formu (10.5.6) ve çalışan listesi (10.4.1) kapsam dışı.",
+        "testStrategy": "1) `RUS` → img `/static/flags/ru.svg` + 'Rusya (RUS)'; `D` → Almanya; `XXA` → yalnız kod; boş → '—'. 2) Kaynak bilgisi hâlâ görünür. 3) Kural bozması kırmızı. 4) DoD kapısı yeşil.",
+        "status": "pending",
+        "dependencies": [
+          "142",
+          "126"
+        ],
+        "priority": "medium",
+        "subtasks": [],
+        "updatedAt": "2026-09-30T13:30:00.000Z"
       }
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-09-30T12:00:00.000Z",
-      "taskCount": 136,
-      "completedCount": 133,
+      "lastModified": "2026-09-30T13:30:00.000Z",
+      "taskCount": 142,
+      "completedCount": 134,
       "tags": [
         "master"
       ]

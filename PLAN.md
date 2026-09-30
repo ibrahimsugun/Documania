@@ -8,10 +8,10 @@
 
 | Faz | PRD | Genel durum | Must sayacı | Kapanış |
 | --- | --- | --- | --- | --- |
-| Faz 0 — MVP | §5.1 | 105 ✅ · 0 ◐ · 0 ⬜ · 0 🔒 | 101/101 Must | AÇIK |
-| Faz 1 — v1 | §5.2 | 62 ✅ · 0 ◐ · 0 ⬜ · 0 🔒 | 41/41 Must | AÇIK |
+| Faz 0 — MVP | §5.1 | 105 ✅ · 0 ◐ · 1 ⬜ · 0 🔒 | 101/101 Must | AÇIK |
+| Faz 1 — v1 | §5.2 | 63 ✅ · 0 ◐ · 3 ⬜ · 0 🔒 | 41/41 Must | AÇIK |
 | Faz 2 — v2 | §5.3 | 14 ✅ · 0 ◐ · 0 ⬜ · 0 🔒 | 0/0 Must | AÇIK |
-| Faz 3 — Enterprise | §5.4 | 10 ✅ · 0 ◐ · 0 ⬜ · 0 🔒 | 0/0 Must | AÇIK |
+| Faz 3 — Enterprise | §5.4 | 10 ✅ · 0 ◐ · 1 ⬜ · 0 🔒 | 0/0 Must | AÇIK |
 
 ## 1. Bu planın nasıl okunacağı
 
@@ -56,12 +56,12 @@ panelde `plan-count-drift` bulgusu doğurur.
 | FR-MOD-05 | Kimlik ve çalışan eşleştirme | 0 | 18 |
 | FR-MOD-06 | Plan ve doğrulayıcılar | 0 | 10 |
 | FR-MOD-07 | Uygulayıcı | 0 | 9 |
-| FR-MOD-08 | Kuyruklar ve çözüm | 0 | 5 |
+| FR-MOD-08 | Kuyruklar ve çözüm | 0 | 6 |
 | FR-MOD-09 | Çalışan profili ve orkestrasyon | 0 | 10 |
-| FR-MOD-10 | Web yönetim paneli | 1 | 32 |
-| FR-MOD-11 | Belge türü kataloğu ve öğrenme | 1, 2 | 28 |
+| FR-MOD-10 | Web yönetim paneli | 1 | 35 |
+| FR-MOD-11 | Belge türü kataloğu ve öğrenme | 1, 2 | 29 |
 | FR-MOD-12 | Telegram botu | 2 | 10 |
-| FR-MOD-13 | İşletme, maliyet ve dayanıklılık | 3 | 10 |
+| FR-MOD-13 | İşletme, maliyet ve dayanıklılık | 3 | 11 |
 | FR-MOD-14 | Belge grupları ve başvuru paketleri | 1 | 6 |
 
 ## 3. FAZ 0 — MVP (PRD §5.1)
@@ -202,6 +202,7 @@ panelde `plan-count-drift` bulgusu doğurur.
 | --- | --- | --- | --- |
 | 08.1.1 | Kuyruğa yönlendirme (R7) | Must (MVP) | ✅ → K08.1 |
 | 08.1.2 | Gerekçe içeriği | Must (MVP) | ✅ → K08.1 |
+| 08.1.3 | Şifre yüzünden kopyalanamayan kaynak | Should (v1) | ⬜ |
 | 08.2.1 | Kuyruk öğesini çalışana atama | Must (MVP) | ✅ → K08.2 |
 | 08.3.1 | Onay bekleyen profili onaylama | Must (MVP) | ✅ → K08.3 |
 | 08.4.1 | Arşive taşıma (R11) | Must (MVP) | ✅ → K08.4 |
@@ -231,6 +232,8 @@ panelde `plan-count-drift` bulgusu doğurur.
 | 10.1.2 | Oturum tabanlı giriş | Must (v1) | ✅ → K10.1 |
 | 10.1.3 | İlk kullanıcı oluşturma | Must (v1) | ✅ → K10.1 |
 | 10.1.4 | Kullanıcı yönetimi | Should (v1) | ✅ → K10.1 |
+| 10.1.5 | Panel sekme simgesi | Should (v1) | ✅ → K10.1 |
+| 10.1.6 | Ülke başvuru verisi ve bayrak simgeleri | Should (v1) | ⬜ |
 | 10.2.1 | Yükleme sayfası | Must (v1) | ✅ → K10.2 |
 | 10.2.2 | İlerleme görünümü | Should (v1) | ✅ → K10.2 |
 | 10.3.1 | Yükleme detay sayfası | Must (v1) | ✅ → K10.3 |
@@ -250,6 +253,7 @@ panelde `plan-count-drift` bulgusu doğurur.
 | 10.5.8 | Profil alt kayıtlarını kaldırma ve iletişim bilgisi ekleme | Should (v1) | ✅ → K10.5 |
 | 10.5.9 | İki çalışanı birleştirme | Should (v1) | ✅ → K10.5 |
 | 10.5.10 | Arşive taşıma ve arşivden geri alma profilde | Must (v1) | ✅ → K10.5 |
+| 10.5.11 | Profilde uyruk bayrağı | Should (v1) | ⬜ |
 | 10.6.1 | Belge geçmişi | Must (v1) | ✅ → K10.6 |
 | 10.7.1 | Kuyruk ekranları | Must (v1) | ✅ → K10.7-a |
 | 10.7.2 | Kuyruktan çalışana atama | Must (v1) | ✅ → K10.7-b |
@@ -270,6 +274,7 @@ panelde `plan-count-drift` bulgusu doğurur.
 | 11.1.4 | Katalog tablosu okunabilirliği | Must (v1) | ✅ → K11.1 |
 | 11.1.5 | Ülkeye göre süzme | Must (v1) | ✅ → K11.1 |
 | 11.1.6 | Türü arşivleme, geri alma ve toplu seçim | Should (v1) | ✅ → K11.1 |
+| 11.1.7 | Ülke süzgecinde ve tabloda bayrak ile ülke adı | Should (v1) | ⬜ |
 | 11.2.1 | Örnek belge yükleme | Should (v1) | ✅ → K11.2 |
 | 11.3.1 | Tür açıklaması üretimi | Should (v1) | ✅ → K11.3 |
 | 11.4.1 | Prompt derleyici | Must (v1) | ✅ → K11.4 |
@@ -340,6 +345,7 @@ panelde `plan-count-drift` bulgusu doğurur.
 | 13.4.2 | Yedekleme ve geri yükleme | Could (v3) | ✅ → K13.4 |
 | 13.5.1 | Üretim dağıtımı | Could (v3) | ✅ → K13.5 |
 | 13.5.2 | APP ve worker servislerinin ayrılması | Could (v3) | ✅ → K13.5-b |
+| 13.5.3 | Şema ve kod sürümü uyuşmazlığı koruması | Should (v1) | ⬜ |
 | 13.6.1 | İzleme ve uyarı | Could (v3) | ✅ → K13.6 |
 | 13.7.1 | Büyük çekirdek modüllerin ayrıştırılması | Could (v3) | ✅ → K13.5-b |
 
@@ -2385,6 +2391,7 @@ bu kayıt neden sapıldığının izlenebilir olması içindir.
 - **D74 — Kullanıcı yönetiminin uygulama kararları (10.1.4, tm 134).** (a) **Parola kuralı** §C92-d'deki gibi 12 karakterdir ve "create-admin ile aynı" olsun diye `MIN_PASSWORD_LENGTH` 8'den 12'ye çıktı (komut satırı da 12 ister; var olan özetler etkilenmez); ad alt sınırı 3 de iki yola ortaktır. (b) **Kendi parolası:** `POST /account/password` eski parolaya ek olarak yeni parolanın tekrarını ister (farklıysa 422) — komut satırının iki kez sorması emsali; yönetici sıfırlaması kendi hesabında 409'dur (eski parola atlanmasın). (c) **Oturumlar:** kendi parolasını değiştirende bu oturum açık kalır, diğerleri kapanır; yönetici sıfırlamasında ve pasife almada hedefin bütün oturumları kapanır; yeniden etkinleştirme kapanan oturumu açmaz. Pasif kullanıcının onay belirteci oturumu geçersiz olduğu için kullanılamaz (istek girişe döner, belirteç tüketilmez). (d) **Olay:** komut satırının ilk yöneticisi olay yazmaz (bugünkü davranış); panel açılışı `USER_CREATED`. `self` anahtarı yalnız `USER_PASSWORD_CHANGED`'da. (e) **Son etkin yönetici** kuralı koşullu `UPDATE … WHERE` ile (diğer etkin yönetici sayısı > 0) uygulanır; tek rol `admin` olduğu için pratikte kendini pasife alma kuralının arkasında durur, `require_admin` rol dışında yetki modeli kurmaz. (f) **Liste** Telegram sütununda yalnız izinli (`allowed`) kimlikleri sayar; ekleme ve izin tm 135'indir. (g) "Parolamı değiştir" bağlantısı Kullanıcılar sayfasındadır; üst çubuk değişmedi.
 - **D75 — Beyaz liste yönetiminin uygulama kararları (12.1.3, tm 135).** (a) **Tek tanım:** "izinli kimlik" = `telegram_users.allowed` doğru **ve** bağlı `users.active` doğru; `app/telegram/whitelist.py` `permitted_ids()` (sorgu) ve `is_permitted()` (yüklü satır) kapı, belge gönderimi ve bildirim alıcıları için ortaktır. `handlers._store` yalnız yükleyen adını okur ve kapının arkasındadır; süzgeç eklenmedi (bugünkü yeniden denetimsiz davranış). (b) **Taşıma yok:** kimlik birincil anahtar ve satır silinmediği için bir kez bağlanan kimlik başka kullanıcıya bağlanamaz (409, ileti bunu söyler); aynı kullanıcıya yeniden ekleme de 409'dur ve engelli kimliğin iznini kendiliğinden açmaz (izin yolu ayrıdır). Yanlış kullanıcıya bağlanan kimlik için çare izni kapatmaktır; taşıma ihtiyacı doğarsa ayrı görev. (c) **Ön denetim yok:** karar birincil anahtarındır (kayıt noktası + `IntegrityError` → 409); geçici kural bozması ön denetimin gereksiz olduğunu gösterdi. (d) **Olay verisi** görevdeki üç anahtara (`target_user_id`, `telegram_id`, `allowed`) `added` (bool) ekler — yeni kimlik ile yeniden açılan izin aynı `allowed: true`'yu taşıdığı için denetimde ayrılsın diye. `telegram_id` tablonun birincil anahtarı olduğu için PRD §8.3 notundaki "kayıt kimliği" sayıldı; ad ya da kullanıcı adı olaya girmez. (e) **Pasif kullanıcıya** kimlik eklenebilir ve izni açılıp kapatılabilir (hazırlık); bot yeniden etkinleştirmeye kadar yanıt vermez, sayfa bunu satırda söyler. Yönetici kendi hesabına da kimlik ekler. (f) **Biçim:** kimlik yalnız ASCII rakam, 1…2⁶³−1 (`BigInteger`); boşluk kırpılır, `+`/`-`/ayraç/ASCII dışı rakam 422; durum yolunun `{tid}` parametresi aynı aralıkta (dışı 422). İzin formu `allowed=true|false`; başka değer 422. (g) **Yerleşim:** kimlikler kullanıcı satırının altındaki ayrı `<tr class="telegram-row">` satırındadır (kullanıcı satırının hücreleri ve sayaç sütunu değişmedi); reddedilen değer yalnız o kullanıcının formuna döner.
 - **D76 — Genel kontrolde bulunan iki açılış/okuma kusurunun düzeltmesi (00.6.2, 00.6.3, 01.3.1, 11.2.1; tm 136, tm 137).** (a) **Katalog açılışı:** analiz kataloğu yalnız `known_document_types`'tan okur, ama açılış yalnız `catalog.yaml`'ı yazıyordu; taze kurulumda tablo boş kalıyor, her belge Unknown'a düşüyordu. Panel, işçi (`python -m app.worker`) ve bot açılışı artık `load_catalog_on_startup` çağırır: tablo **boşsa** veri dizinindeki dosya yüklenir, doluysa dokunulmaz (veritabanı çalışma zamanı kaynağıdır; her açılışta içe aktarma panel düzenlemesini ezerdi). Şemasız veritabanı, geçersiz dosya ve eşzamanlı açılış log yazar, süreci durdurmaz. Arşivli tür satır olarak kaldığı için tabloyu "boş" saydırmaz. (b) **AES şifreli PDF:** resmî kurum PDF'lerinin çoğu yalnız sahip parolalıdır (parolasız açılır). pypdf AES'i `cryptography` olmadan çözemez ve `PyPdfError` ailesinden olmayan `DependencyError` fırlatır; yükleme uç noktası 500 veriyordu. Sayfa sayımı tek noktada (`app/storage/pdfinfo.py` `count_pdf_pages`): önce pypdf, AES çözülemezse MuPDF. `cryptography` bağımlılığı **eklenmedi**: eklense pypdf sayfaları çözüp şifresiz yazardı, bu şifre kaldırmak olurdu (K11). Bu yüzden sahip parolalı PDF'te **çıkarma ve birleştirme** yapılamaz, uygulayıcı tanımlı kaynak hatasıyla (`şifreli (AES)`) reddeder ve parti parola korumalı PDF'teki gibi `failed` olur (kuyruğa değil; bu yol ayrıca ele alınmadı); passthrough, sayfa görüntüsü ve gömülü görüntü çıkarma MuPDF'le çalışır. (c) Kaynak: iki düzeltme 2026-09-21'de ayrı dallarda (`claude/nice-lehmann-c9f27b`, `task/103-104-sifreli-pdf-ve-iki-yuz`) yazılmış ama hiç birleştirilmemişti; bugünkü koda (ayrı işçi süreci, `set_type_active(actor=)`) uyarlanarak alındı. Eski dallar silinmedi.
+- **D77 — Profil 500'ü ve boş ülke süzgeci bir kod hatası değil, eski süreçti (2026-09-30, insan bildirimi).** 8000 portundaki `uvicorn` 2026-09-27 13:54'te (`3fce990`) `--reload` olmadan başlatılmıştı; bellekteki Python kodu o günün, Jinja şablonları ise her istekte diskten okunduğu için bugünündü. Eski kod yeni şablonun beklediği değişkenleri vermeyince profil 500 verdi, ülke süzgeci ve "Arşivlenen türler ()" boş kaldı. `data/belgeee.db` de göç `0013`'teydi (baş `0022`). Doğrulama: veritabanının kopyası `alembic upgrade head` ile `0022`'ye sorunsuz çıktı; bugünkü kodla iki profil de 200, ülke süzgeci 415 tür ve 109 ülke listeledi. Çare `baslat.bat` ile yeniden başlatmaktır (önce göç koşar). Tekrarını önlemek 13.5.3'ün (tm 144) işidir. Bayrak/ad işleri (10.1.6, 11.1.7, 10.5.11) için iki teknik kısıt: Windows bayrak emojisini göstermez (harf çifti çıkar) ve yerleşik `<select>` seçeneğine görüntü konamaz — bayraklar SVG dosyası, süzgeç JavaScript'le zenginleşen erişilebilir bir liste olmalı; uyruk `employees.nationality`'de ICAO/MRZ alfa-3 (`RUS`, `TUR`), tür ülkesi alfa-2'dir (`RU`, `RS`), eşleme tek yerde yapılır.
 
 ## G. İş Kırılımı Dizini
 
@@ -2523,6 +2530,12 @@ başlığının başında birebir geçer.
 | 00.6-b | Açılışta boş katalog tablosunu tohumdan yükleme: panel, işçi ve bot | 00.6.2, 00.6.3 | [OPUS-HIGH] | 00.6, 13.5-b | 0 |
 | 01.3-b | AES şifreli (sahip parolalı) PDF: sayfa sayımı çökmez, uygulayıcı tanımlı hatayla reddeder | 01.3.1, 11.2.1 | [OPUS-HIGH] | 01.3, 07.2, 07.3, 11.2 | 0 |
 | 10.5-h | Profil kartı tarih testi UTC'ye bağlanır | 10.5.6 | [SONNET-XHIGH] | 10.5-c | 1 |
+| 10.1-c | Panel sekme simgesi | 10.1.5 | [SONNET-XHIGH] | 10.1 | 1 |
+| 08.1-b | Şifre yüzünden kopyalanamayan kaynak Unreadable kuyruğuna | 08.1.3 | [OPUS-XHIGH] | 08.1, 01.3-b | 0 |
+| 13.5-c | Şema ve kod sürümü uyuşmazlığı koruması | 13.5.3 | [OPUS-HIGH] | 13.5-b | 3 |
+| 10.1-d | Ülke başvuru verisi ve bayrak simgeleri | 10.1.6 | [OPUS-HIGH] | 10.1-c | 1 |
+| 11.1-e | Ülke süzgecinde ve tabloda bayrak ile ülke adı | 11.1.7 | [OPUS-HIGH] | 10.1-d, 11.1-c | 1 |
+| 10.5-i | Profilde uyruk bayrağı | 10.5.11 | [SONNET-XHIGH] | 10.1-d, 10.5-c | 1 |
 
 ## K. Kanıt Geçmişi (evidence log)
 
@@ -2813,13 +2826,14 @@ var olan maddeler silinmez. Biçim:
 - ✅ S11–S15 ve S18 PRD §9 beklentisiyle, S1–S10 ile aynı gerçek yoldan (yükleme uç noktası → `process_upload`; dosya ve kayıtlı yanıtlar `gen.py`'den; yeniden analiz/çalıştırma parti uç noktalarından). S11: temiz pasaport numarası, eşleşen kayıt yok (boş veritabanı / başka kayıtlı çalışan) → satır 6 `create`, yeni E numarası, K8 klasörü, `profil.md` (kimlik, numara, belge satırı), belge `Hazir`'da passthrough, `Alinan`'da kopya. S12: aynı isimli iki çalışandan doğum tarihi uyan eşleşir (iki yönde, numara ona eklenir); ikisine uyarsa `name_dob_ambiguous`, hiçbirine uymazsa `name_only` → Unresolved, yeni çalışan yok. S13: Kiril isimli pasaport → `Iulia_Testova_Shchelkina_E0001` / `Iulia_Testova_Shchelkina-Passport.pdf` (ASCII), profilde Latin ad ve `Тестова-Щёлкина Юлья` birlikte. S14: Peru diploması Unknown + aday tür (`pending`, örnek sayfa, `CANDIDATE_TYPE_PROPOSED`); tür kataloğa eklenip (C44) yeniden analiz edilince plan v2'de ad + doğum tarihiyle kayıtlı çalışanın `Hazir/Ana_Prueba-Diploma.pdf`'i, eski plan ve Unknown kopyası yerinde (K18), aday yeniden sayılmaz. S15: Word CV (docx / eski doc) bağlam çalışanıyla `Hazir/Ivan_Sidorov-Attachment.<uzantı>` bayt bayt, analiz/render yok; genel yüklemede Unresolved, dönüştürülmeden kuyrukta. S18: hazir + kuyruk + skip öğeli parti `rerun` uç noktasıyla iki kez yeniden çalıştırılır — sağlayıcı çağrılmaz, aynı plan/çıktı/kuyruk satırları, veri dizini bayt bayt aynı, `-2` yok, olaylar yalnız `PLAN_RERUN` + 3 `OUTPUT_SKIPPED`. 7 kural bozulması (profil yazılmaması, belirsiz isim+doğum tarihinin eşleşme sayılması, yalnız ismin yeni çalışana inmesi, idempotenliğin kalkması, eki bağlamın yok/hep sayılması, yeniden analizin tohum kataloğuyla yapılması) geçici olarak denendi, her biri testte kırmızı — test `tests/test_scenarios_s11_s18.py` (13) · tm 63
 - ✅ Kapı: ruff check/format, compileall, `pytest -q -m "not live" --cov=app --cov-fail-under=70` (2283 geçti, +13; 2 beklenen xfail D12; 4 PG testi atlandı), kapsam %99.74, temiz SQLite'ta `alembic upgrade head` (0001→0002, göç yok), `import app.main` — hepsi exit 0 · tm 63
 
-#### K10.1 — 10.1.1, 10.1.2, 10.1.3, 10.1.4 · Panel iskeleti, giriş ve kullanıcı yönetimi
+#### K10.1 — 10.1.1, 10.1.2, 10.1.3, 10.1.4, 10.1.5 · Panel iskeleti, giriş ve kullanıcı yönetimi
 - ✅ 10.1.1 panel iskeleti: `app/web/templates/base.html` (üst çubuk: menü + kullanıcı adı + çıkış; girişsiz sayfada menü çizilmez), menü tek yerde `PANEL_MENU` (`app/web/templating.py`, Jinja2 otomatik kaçış, paketle yüklenen şablonlar), sayfalar `app/web/routers/panel.py` (`/upload`, `/employees`, `/queues`, `/document-types`, `/uploads`; `/` → Yükle; içerik gelene kadar `section.html`), tek stil dosyası `app/web/static/panel.css` — beş menü girişten sonra 200 açılır, bulunulan bölüm işaretli · test `tests/web/test_auth.py` · tm 64
 - ✅ 10.1.2 oturum tabanlı giriş: `app/web/auth.py` (argon2id parola, `user_sessions`'ta belirtecin SHA-256 özeti, süre/çıkış ile kapanma; `get_current_user` → `require_panel_user` 303 girişe / `require_api_user` 401), `app/web/routers/auth.py` (`GET/POST /login`, `POST /logout`; `next` yalnız yerel yol), göç `alembic/versions/0003_user_sessions.py`, `SESSION_MAX_AGE_SECONDS` (`app/config.py`); `app/main.py` panel ve `/api/*` yönlendiricilerini oturuma bağlar, `/docs`/`/openapi.json` kapalı — uygulamanın bütün yolları (`app.openapi()`) oturumsuz denenir: açık yalnız giriş/çıkış ve `/health`, sayfalar girişe, API 401 · test `tests/web/test_auth.py` (46), `tests/db/test_migrations.py` (+1), `tests/test_config.py` (+1) · tm 64
 - ✅ 10.1.3 ilk yönetici: `python -m app.web create-admin --username AD [--password-stdin]` (`app/web/__main__.py`; parola gizli iki kez ya da standart girdiden, argüman değil; kısa parola/boşluklu ya da alınmış ad çıkış 1, hiçbir şey yazılmaz) — ayrı süreçte göçlü temiz veritabanında açılan yönetici panele girip beş menüyü açar · test `tests/web/test_admin_cli.py` (8) · tm 64
 - ✅ Kapı: ruff check/format, compileall, `pytest -q -m "not live" --cov=app --cov-fail-under=70` (2339 geçti, +56; 2 beklenen xfail D12; 4 PG testi atlandı), kapsam %99.73, temiz SQLite'ta `alembic upgrade head` (0001→0003), `import app.main` — hepsi exit 0; 6 geçici kural bozulmasının (API korumasız, panel korumasız, açık yönlendirme, kapalı ya da süresi dolmuş oturum geçerli, üretimde Secure yok) her biri testte kırmızı. Mevcut API test fikstürleri (`tests/web/conftest.py`, `tests/test_scenarios_s01_s05.py`) oturumu açık kullanıcıyla gelir. · tm 64
 - ✅ 10.1.1 menüye altıncı bölüm "Eğitim modu" (`/training`, PRD 10.1.1 menü satırı) — `app/web/templating.py` `PANEL_MENU` · test `tests/web/test_auth.py` (menü sırası ve her bölümün girişten sonra açılması) · tm 118
 - ✅ 10.1.4 kullanıcı yönetimi: göç `0022` (`users.active`, boş olamaz, sunucu varsayılanı `true`), `app/web/auth.py` (`authenticate` pasifte parolayı yine doğrulayıp `None` — giriş metni yanlış parolanınkiyle aynı; `resolve_session` her istekte `users.active` okur; `close_user_sessions(keep_token=)`; `create_user(actor=)` → `USER_CREATED` {target_user_id, role}, CLI olay yazmaz; `change_own_password` eski parola yanlışsa `WrongPasswordError`, bu oturum açık kalır diğerleri kapanır; `reset_password` hedefin bütün oturumlarını kapatır, kendi hesabı 409; `USER_PASSWORD_CHANGED` {target_user_id, self}; `set_user_active` kendini ve son etkin yöneticiyi koşullu güncellemeyle reddeder, pasife almada oturumlar kapanır, `USER_DEACTIVATED`/`USER_REACTIVATED` {target_user_id}; parola kuralı ≥ 12, ad 3–150 — CLI ile ortak), panel `app/web/routers/users.py` (`GET /users` liste: ad, rol, durum, izinli Telegram sayısı; `POST /users` 422/409, `POST /users/{id}/password`, `POST /users/{id}/status` `active|inactive`, `GET|POST /account/password` eski + yeni + tekrar; `require_admin` 403; silme yolu yok), `users.html`, `account_password.html` (parola alanları `type=password`, `autocomplete=off|new-password`, değer taşımaz), menüde "Kullanıcılar" (`PANEL_MENU` sonda) — §C92-d, §D74 · test `tests/web/test_users.py` (22), `tests/web/test_auth.py` (+6, menü ve parola kuralı), `tests/web/test_admin_cli.py` (+2), `tests/db/test_migrations.py` (+1), `tests/web/test_access_log.py` (+4 yol), `tests/test_events.py` · tm 134
+- ✅ 10.1.5 panel sekme simgesi (tm 139): kökte takipsiz duran `favicon.ico` (32×32 PNG) `app/web/static/favicon.png`, aynı tasarımın 512×512 hâli `seo.png` `app/web/static/icon-512.png` oldu; `app/web/templates/base.html` `<link rel="icon">` + `<link rel="apple-touch-icon">` (giriş sayfası da `base.html`'i genişletir); `/static` oturumsuz açık · test `tests/web/test_auth.py::test_tab_icon_is_linked_and_served_without_a_session` (bağlantı kaldırılınca kırmızı) · tm 139
 
 #### K10.2 — 10.2.1, 10.2.2 · Yükleme sayfası ve ilerleme görünümü
 - ✅ 10.2.1 yükleme sayfası: `app/web/routers/upload_page.py` (`GET /upload` form + çalışan listesi, `POST /upload` HTMX gönderimi — `create_upload`'ı çağırır, sınır/Inbox/tekrar mantığı tek yerde), `app/web/templates/upload.html` + `upload_result.html`, `app/web/static/upload.js` (sürükle-bırak; art arda bırakılanlar birikir, aynı ad+boyut tekrarlanmaz, seçilenler listelenir), `app/web/static/htmx.min.js` (HTMX 2.0.4), isteğe bağlı çalışan → `uploads.context_employee_id` · test `tests/web/test_upload_page.py` (31) · tm 65
