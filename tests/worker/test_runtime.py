@@ -54,8 +54,8 @@ def test_worker_entrypoint_bootstraps_and_requests_graceful_shutdown(
     )
     monkeypatch.setattr(
         worker_entrypoint,
-        "install_seed_catalog",
-        lambda resolved_layout: events.append("seed") or True,
+        "load_catalog_on_startup",
+        lambda database_url, resolved_layout: events.append("seed") or None,
     )
     monkeypatch.setattr(
         worker_entrypoint,
@@ -114,8 +114,8 @@ def test_sigterm_during_startup_is_not_lost_when_start_clears_stop(
     )
     monkeypatch.setattr(
         worker_entrypoint,
-        "install_seed_catalog",
-        lambda resolved_layout: events.append("seed") or True,
+        "load_catalog_on_startup",
+        lambda database_url, resolved_layout: events.append("seed") or None,
     )
     monkeypatch.setattr(
         worker_entrypoint,

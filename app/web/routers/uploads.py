@@ -31,14 +31,11 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass
-from io import BytesIO
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, status
 from fastapi import UploadFile as FastAPIFile
 from pydantic import BaseModel
-from pypdf import PdfReader
-from pypdf.errors import PdfReadError
 from sqlalchemy.orm import Session
 
 from app.ai.provider import AnalysisProvider, ProviderConfigError, create_provider
@@ -66,6 +63,7 @@ from app.storage import (
     find_original_by_sha256,
     write_to_inbox,
 )
+from app.storage.pdfinfo import count_pdf_pages
 from app.worker.queue import claim_upload, enqueue_upload
 
 router = APIRouter(prefix="/api/uploads", tags=["uploads"])
@@ -211,10 +209,7 @@ def _supported_kind(name: str, content: bytes) -> FileKind:
 
 def _pdf_page_count(content: bytes) -> int | None:
     """PDF sayfa sayısını döner; çözülemezse `None` (denetim atlanır)."""
-    try:
-        return len(PdfReader(BytesIO(content)).pages)
-    except PdfReadError:
-        return None
+    return count_pdf_pages(content)
 
 
 def _check_size_and_page_limits(

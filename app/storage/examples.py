@@ -39,8 +39,6 @@ from io import BytesIO
 from pathlib import Path, PurePosixPath
 
 from PIL import Image
-from pypdf import PdfReader
-from pypdf.errors import PdfReadError
 
 from app.storage.atomic import (
     StoredFile,
@@ -52,6 +50,7 @@ from app.storage.atomic import (
 )
 from app.storage.filetype import FileKind, UnsupportedFileTypeError, detect_file_kind
 from app.storage.layout import DataLayout
+from app.storage.pdfinfo import count_pdf_pages
 from app.storage.slug import SlugError, slugify
 
 # Kabul edilen içerik türü → saklanan uzantı.
@@ -246,10 +245,8 @@ def _stem(original_name: str) -> str:
 
 def _is_readable(kind: FileKind, content: bytes) -> bool:
     if kind is FileKind.PDF:
-        try:
-            return len(PdfReader(BytesIO(content)).pages) > 0
-        except PdfReadError:
-            return False
+        # Sahip parolalı (AES) PDF parolasız okunur ve örnek olabilir; sayım onda çökmez.
+        return (count_pdf_pages(content) or 0) > 0
     try:
         with Image.open(BytesIO(content)) as image:
             image.verify()

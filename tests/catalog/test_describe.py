@@ -48,6 +48,7 @@ from tests.fixtures.gen import (
     PERSON_ORNEKOVA,
     make_document_pdf_bytes,
     make_half_filled_image_bytes,
+    make_owner_locked_pdf_bytes,
     make_pdf_bytes,
     passport_page,
 )
@@ -187,6 +188,24 @@ def test_default_limit_is_the_documented_one(layout: DataLayout, settings: Setti
 
     assert len(collected.pages) == MAX_DESCRIPTION_PAGES
     assert collected.omitted == 2
+
+
+def test_owner_locked_pdf_example_is_rendered_not_skipped(
+    layout: DataLayout, settings: Settings
+) -> None:
+    # tm 137: resmî kurum PDF'i (sahip parolalı, AES) örnek olarak işlenir; açmak için parola
+    # isteyen PDF atlanır ve raporlanır.
+    _place(layout, "a-resmi-form.pdf", make_owner_locked_pdf_bytes(2))
+    _place(layout, "b-acma-parolali.pdf", make_owner_locked_pdf_bytes(1, user_password="gizli"))
+
+    collected = collect_example_pages(layout, settings, SLUG)
+
+    assert collected.pages == (
+        ExamplePage("a-resmi-form.pdf", 1),
+        ExamplePage("a-resmi-form.pdf", 2),
+    )
+    assert len(collected.skipped) == 1
+    assert "'b-acma-parolali.pdf'" in collected.skipped[0]
 
 
 def test_unreadable_examples_are_skipped_and_reported(

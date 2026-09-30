@@ -53,6 +53,7 @@ from tests.fixtures.gen import (
     make_docx_bytes,
     make_half_filled_image_bytes,
     make_half_filled_pdf_bytes,
+    make_owner_locked_pdf_bytes,
     make_pdf_bytes,
     make_sized_pdf_bytes,
     make_text_pdf_bytes,
@@ -382,6 +383,7 @@ def test_execute_extract_rejects_page_missing_from_source(tmp_path: Path) -> Non
             id="pypdf-okuyamiyor",
         ),
         pytest.param(make_sized_pdf_bytes([A4], password="gizli"), "parola", id="parola"),
+        pytest.param(make_owner_locked_pdf_bytes(2), r"şifreli \(AES\)", id="aes-sahip-parolali"),
     ],
 )
 def test_execute_extract_rejects_unreadable_source(
@@ -671,6 +673,7 @@ def test_execute_merge_rejects_invalid_page_selection_before_reading_sources(
             id="pypdf-okuyamiyor",
         ),
         pytest.param(make_sized_pdf_bytes([A4], password="gizli"), "parola", id="parola"),
+        pytest.param(make_owner_locked_pdf_bytes(2), r"şifreli \(AES\)", id="aes-sahip-parolali"),
         pytest.param(
             make_half_filled_image_bytes("JPEG")[:40], "sarılamadı: ImageOpenError", id="bozuk-jpeg"
         ),

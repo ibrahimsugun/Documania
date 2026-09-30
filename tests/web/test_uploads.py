@@ -46,6 +46,7 @@ from tests.fixtures.gen import (
     make_docx_bytes,
     make_legacy_doc_bytes,
     make_legacy_xls_bytes,
+    make_owner_locked_pdf_bytes,
     make_pdf_bytes,
     make_portrait_image_bytes,
     make_text_pdf_bytes,
@@ -250,6 +251,20 @@ def test_pdf_at_exact_page_limit_is_accepted(app: FastAPI, client: TestClient) -
     response = client.post("/api/uploads", files=_files(("iki-sayfali.pdf", make_pdf_bytes(2))))
 
     assert response.status_code == 201
+
+
+def test_owner_locked_pdf_is_page_checked_like_any_other(app: FastAPI, client: TestClient) -> None:
+    # AES şifreli (sahip parolalı) PDF eskiden 500 veriyordu (tm 137); sınır onda da geçerli.
+    _with_settings(app, max_upload_pdf_pages=2)
+
+    over = client.post("/api/uploads", files=_files(("resmi.pdf", make_owner_locked_pdf_bytes(3))))
+    within = client.post(
+        "/api/uploads", files=_files(("resmi-2.pdf", make_owner_locked_pdf_bytes(2)))
+    )
+
+    assert over.status_code == 400
+    assert "böl" in over.json()["detail"].lower()
+    assert within.status_code == 201
 
 
 def test_non_pdf_content_is_not_page_checked(app: FastAPI, client: TestClient) -> None:

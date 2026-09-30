@@ -44,11 +44,9 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
-from io import BytesIO
 from pathlib import Path, PurePosixPath
 from types import MappingProxyType
 
-from pypdf import PdfReader
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -74,6 +72,7 @@ from app.storage.examples import (
     store_example,
 )
 from app.storage.filetype import UnsupportedFileTypeError, detect_file_kind
+from app.storage.pdfinfo import count_pdf_pages
 from app.training.known_types import KnownTypes
 
 SYSTEM_ACTOR = "system"
@@ -505,9 +504,9 @@ def _example_kind(content: bytes, item: TrainingItem) -> FileKind:
     return kind
 
 
-def _page_count(kind: FileKind, content: bytes) -> int:
+def _page_count(kind: FileKind, content: bytes) -> int | None:
     if kind is FileKind.PDF:
-        return len(PdfReader(BytesIO(content)).pages)
+        return count_pdf_pages(content)
     return 1
 
 

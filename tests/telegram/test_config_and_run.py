@@ -10,6 +10,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, create_autospec
 
 import pytest
+from sqlalchemy import select
 from telegram.ext import (
     Application,
     ApplicationBuilder,
@@ -18,7 +19,10 @@ from telegram.ext import (
     MessageHandler,
 )
 
+from app.catalog import load_seed_catalog
 from app.config import get_settings
+from app.db.models import Base, KnownDocumentType
+from app.db.session import create_db_engine, create_session_factory
 from app.telegram import bot as bot_module
 from app.telegram.bot import (
     GATE_GROUP,
@@ -242,6 +246,34 @@ def test_main_starts_the_bot_and_keeps_the_token_out_of_transport_logs(
     # httpx her isteği `.../bot<TOKEN>/...` adresiyle INFO'ya yazar; ana işlev bunu susturur.
     assert logging.getLogger("httpx").getEffectiveLevel() >= logging.WARNING
     assert logging.getLogger("httpcore").getEffectiveLevel() >= logging.WARNING
+
+
+def test_main_loads_an_empty_catalog_before_the_bot_starts(
+    clean_process: None, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """00.6.2 (tm 136): bot panelsiz de kalkabilir; boş katalog tablosu panel ve işçi açılışındaki
+    gibi tohumdan yüklenir (`load_catalog_on_startup`)."""
+    database_url = f"sqlite:///{(tmp_path / 'bot.db').as_posix()}"
+    engine = create_db_engine(database_url)
+    Base.metadata.create_all(engine)
+    monkeypatch.setenv("DATABASE_URL", database_url)
+    monkeypatch.setenv("DATA_DIR", str(tmp_path / "veri"))
+    monkeypatch.setenv("TELEGRAM_BOT_TOKEN", TOKEN)
+    monkeypatch.setattr(bot_module, "get_session_factory", lambda: MagicMock())
+    catalog_at_start: list[set[str]] = []
+
+    def run_bot(_application: object, _config: object) -> None:
+        with create_session_factory(engine)() as session:
+            catalog_at_start.append(set(session.scalars(select(KnownDocumentType.slug))))
+
+    monkeypatch.setattr(bot_module, "run", run_bot)
+    try:
+        assert bot_module.main() == 0
+    finally:
+        engine.dispose()
+
+    assert catalog_at_start == [set(load_seed_catalog().slugs())]
+    assert (tmp_path / "veri" / "KnownDocuments" / "catalog.yaml").is_file()
 
 
 def test_module_runs_as_a_script_and_exits_with_the_error_code(clean_process: None) -> None:

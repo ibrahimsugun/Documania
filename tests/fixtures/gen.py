@@ -74,6 +74,24 @@ def make_sized_pdf_bytes(
     return buffer.getvalue()
 
 
+def make_owner_locked_pdf_bytes(page_count: int = 1, *, user_password: str = "") -> bytes:
+    """AES-256 ile şifrelenmiş PDF. Varsayılan hâli yalnız **sahip parolalıdır**: parolasız açılır,
+    ama pypdf `cryptography` olmadan çözemez (`DependencyError`) — resmî kurum PDF'lerinin yaygın
+    hâli. `user_password` verilirse açmak için de parola gerekir."""
+    document = pymupdf.open()
+    for number in range(page_count):
+        page = document.new_page(width=A4[0], height=A4[1])
+        page.insert_text((72, 72), f"Sayfa {number + 1}")
+    content = document.tobytes(
+        encryption=pymupdf.PDF_ENCRYPT_AES_256,
+        owner_pw="sahip-parolasi",
+        user_pw=user_password,
+        permissions=int(pymupdf.PDF_PERM_PRINT),
+    )
+    document.close()
+    return content
+
+
 def make_text_pdf_bytes(pages: Sequence[str | None], size: tuple[float, float] = A4) -> bytes:
     """Sayfa başına verilen metni gömer; `None` sayfa metinsiz kalır (taranmış sayfa)."""
     document = pymupdf.open()

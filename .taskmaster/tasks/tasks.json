@@ -1398,7 +1398,9 @@
           "103",
           "106",
           "107",
-          "110"
+          "110",
+          "136",
+          "137"
         ],
         "priority": "critical",
         "subtasks": [],
@@ -1439,7 +1441,8 @@
           "131",
           "132",
           "133",
-          "134"
+          "134",
+          "138"
         ],
         "priority": "critical",
         "subtasks": [],
@@ -1952,13 +1955,59 @@
         "priority": "medium",
         "subtasks": [],
         "updatedAt": "2026-09-29T22:24:54.078Z"
+      },
+      {
+        "id": "136",
+        "title": "00.6-b — Açılışta boş katalog tablosunu tohumdan yükleme: panel, işçi ve bot [OPUS-HIGH]",
+        "description": "PRD 00.6.2, 00.6.3 · FR-MOD-00 · Faz 0 · Must (MVP). Genel kontrol bulgusu (2026-09-30): taze kurulumda açılış yalnız `catalog.yaml`'ı yazıyor, `known_document_types` boş kalıyor; analiz kataloğu tablodan okuduğu için her belge Unknown'a düşüyor. Sözleşme PLAN §D76.",
+        "details": "KAPSAM: PRD 00.6.2, 00.6.3. `app/catalog/bootstrap.py` `load_catalog_on_startup(database_url, layout)`: tohum dosyası yoksa yazılır; tablo boşsa dosya doğrulanıp yüklenir; doluysa dokunulmaz (panel düzenlemesi ezilmez). Şemasız veritabanı, geçersiz dosya ve eşzamanlı açılış süreci durdurmaz. Çağıranlar: `app/main.py` lifespan, `app/worker/__main__.py`, `app/telegram/bot.py` `main`. Kaynak: birleşmemiş `claude/nice-lehmann-c9f27b` dalındaki 5358e47 (eski tm 100), bugünkü ayrı işçi sürecine uyarlandı.",
+        "testStrategy": "1) Birim: boş tablo yüklenir, dolu tabloya dokunulmaz, iki açılış tek yükleme, geçersiz dosya/şemasız DB süreci durdurmaz, eşzamanlı süreç çakışması yutulur. 2) Taze kurulum: `alembic upgrade head` + panel açılışı → tablo tohumla dolu; işçi açılışı kuyruk başlamadan tabloyu doldurur; bot açılışı da. 3) Kural bozması: yükleme kaldırılınca testler kırmızı. 4) DoD kapısı yeşil.",
+        "status": "done",
+        "dependencies": [
+          "6",
+          "109"
+        ],
+        "priority": "high",
+        "subtasks": [],
+        "updatedAt": "2026-09-30T12:00:00.000Z"
+      },
+      {
+        "id": "137",
+        "title": "01.3-b — AES şifreli (sahip parolalı) PDF: sayfa sayımı çökmez, uygulayıcı tanımlı hatayla reddeder [OPUS-HIGH]",
+        "description": "PRD 01.3.1, 11.2.1 · FR-MOD-01 · Faz 0 · Must (MVP). Genel kontrol bulgusu (2026-09-30): pypdf AES'i `cryptography` olmadan çözemeyince `PyPdfError` ailesinden olmayan `DependencyError` fırlatıyor; yükleme uç noktası 500, örnek yükleme ve eğitim yerleştirme çöküyor. Sözleşme PLAN §D76.",
+        "details": "KAPSAM: PRD 01.3.1, 11.2.1 (07.x uygulayıcı dayanıklılığı). `app/storage/pdfinfo.py` `count_pdf_pages`: önce pypdf, AES çözülemezse MuPDF; açmak için parola gereken ya da okunamayan PDF `None`. Çağıranlar: `app/web/routers/uploads.py` `_pdf_page_count`, `app/storage/examples.py` `_is_readable`, `app/training/placement.py` `_page_count`. `app/pipeline/execute_pdf.py` `_read_pdf` `DependencyError`'ı tanımlı kaynak hatasına çevirir (çıkarma/birleştirme). Şifre kaldırılmaz, dosya yeniden yazılmaz (K11, K17); yeni bağımlılık eklenmez. Kaynak: birleşmemiş `task/103-104-sifreli-pdf-ve-iki-yuz` dalındaki 23d816d.",
+        "testStrategy": "1) `count_pdf_pages`: düz, sahip parolalı AES, açma parolalı AES/RC4, bozuk, PDF değil. 2) Yükleme: sahip parolalı PDF 201, sayfa sınırı onda da 400. 3) Örnek: saklanır bayt bayt aynı; açma parolalı reddedilir; tür açıklaması sayfaları işler. 4) Uygulayıcı: çıkarma ve birleştirme `şifreli (AES)` tanımlı hatasıyla reddeder. 5) Kural bozması kırmızı. 6) DoD kapısı yeşil.",
+        "status": "done",
+        "dependencies": [
+          "9",
+          "47",
+          "48",
+          "76"
+        ],
+        "priority": "high",
+        "subtasks": [],
+        "updatedAt": "2026-09-30T12:00:00.000Z"
+      },
+      {
+        "id": "138",
+        "title": "10.5-h — Profil kartı tarih testi UTC'ye bağlanır: yerel gece yarısından sonra kırmızıya düşmez [SONNET-XHIGH]",
+        "description": "PRD 10.5.6 · FR-MOD-10 · Faz 1 · Must (v1). Genel kontrol bulgusu (2026-09-30): `tests/web/test_employee_fields.py::test_the_card_names_the_manual_source_and_drops_older_conflicts` beklenen günü yerel `date.today()` ile kurar; panel zamanları UTC yazar (PLAN §C73). Yerel gece yarısı ile UTC gece yarısı arasında test kırmızı.",
+        "details": "KAPSAM: yalnız test. `today = datetime.now(UTC).strftime(\"%d.%m.%Y\")`. Uygulama değişmez (C73 kararı: panelde saat dilimi ayarı yok, zamanlar UTC). Aynı kalıbı taşıyan diğer testler (`test_profile.py` yaş, `test_profile_edit.py` gelecek tarih) uygulamayla aynı yerel tarihi kullandığı için sorunsuz.",
+        "testStrategy": "1) Test dosyası yeşil (18). 2) DoD kapısı yeşil.",
+        "status": "done",
+        "dependencies": [
+          "126"
+        ],
+        "priority": "medium",
+        "subtasks": [],
+        "updatedAt": "2026-09-30T12:00:00.000Z"
       }
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-09-29T22:24:54.078Z",
-      "taskCount": 133,
-      "completedCount": 130,
+      "lastModified": "2026-09-30T12:00:00.000Z",
+      "taskCount": 136,
+      "completedCount": 133,
       "tags": [
         "master"
       ]

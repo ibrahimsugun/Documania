@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import json
 import re
-from datetime import date, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -556,7 +556,8 @@ def test_the_card_names_the_manual_source_and_drops_older_conflicts(
     values = CURRENT | {"nationality": "KAZ"}
     _change(client, values, _token(_prepare(client, values).text))
 
-    today = date.today().strftime("%d.%m.%Y")
+    # Panel zamanları UTC yazar (PLAN §C73); yerel tarih gece yarısından sonra bir gün ileride olur.
+    today = datetime.now(UTC).strftime("%d.%m.%Y")
     field = _field_html(client.get(f"/employees/{EMPLOYEE_ID}").text, "Vatandaşlık")
     assert f"Kaynak: elle ({SIGNED_IN.username}, {today})" in field
     assert "Farklı değer" not in field  # önceki çakışma eski değerle karşılaştırılmıştı

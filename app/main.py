@@ -7,7 +7,7 @@ from fastapi import Depends, FastAPI, Request, status
 from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
-from app.catalog import install_seed_catalog
+from app.catalog import load_catalog_on_startup
 from app.config import Settings, get_settings
 from app.storage import prepare_data_dir
 from app.web.auth import LoginRequiredError, login_url, require_api_user, require_panel_user
@@ -41,7 +41,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         # olmadan da çalışır, eksik değişken ise sunucu açılırken anlaşılır hata verir (00.2.2).
         resolved = settings or get_settings()
         layout = prepare_data_dir(resolved.data_dir)  # 00.4.1: §8.2 ağacı
-        install_seed_catalog(layout)  # 00.6.2: KnownDocuments/catalog.yaml yoksa tohum
+        # 00.6.2: KnownDocuments/catalog.yaml yoksa tohum; katalog tablosu boşsa dosyadan yüklenir.
+        load_catalog_on_startup(resolved.database_url, layout)
         # App yalnız HTTP sunar; kalıcı kuyruğu `python -m app.worker` ayrı süreçte işler.
         yield
 

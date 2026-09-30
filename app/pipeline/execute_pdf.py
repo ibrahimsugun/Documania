@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pymupdf
 from pypdf import PdfReader, PdfWriter
-from pypdf.errors import PyPdfError
+from pypdf.errors import DependencyError, PyPdfError
 
 from app.storage import FileKind, StoredFile, UnsupportedFileTypeError, detect_file_kind, write_file
 
@@ -234,6 +234,12 @@ def _read_pdf(
         page_count = len(reader.pages)
     except PyPdfError as exc:
         raise error(f"{operation} kaynağı{where} pypdf ile okunamadı") from exc
+    except DependencyError as exc:
+        # AES şifreli (sahip parolalı) PDF: pypdf sayfa nesnelerini çözemez. Şifre kaldırılıp
+        # yeniden yazılmaz (K11); sayfa çıkarma ve birleştirme yapılamaz, hata tanımlı yoldan gider.
+        raise error(
+            f"{operation} kaynağı{where} şifreli (AES); sayfaları pypdf ile kopyalanamıyor"
+        ) from exc
     if page_count != expected_page_count:
         # Bozuk PDF'i iki kütüphane farklı onarabilir; o zaman plandaki sayfa dizini pypdf'te
         # başka bir sayfayı gösterebilir — tahmin edilmez.

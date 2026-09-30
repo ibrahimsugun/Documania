@@ -20,6 +20,7 @@ from app.storage.examples import (
 )
 from tests.fixtures.gen import (
     make_docx_bytes,
+    make_owner_locked_pdf_bytes,
     make_pdf_bytes,
     make_portrait_image_bytes,
     make_sized_pdf_bytes,
@@ -98,6 +99,24 @@ def test_password_protected_pdf_is_rejected() -> None:
 
     with pytest.raises(ExampleRejectedError, match="açılamadı"):
         check_example("sifreli.pdf", encrypted, max_bytes=LIMIT)
+
+
+def test_owner_locked_pdf_is_an_example_and_is_stored_byte_for_byte(layout: DataLayout) -> None:
+    # Resmî kurum PDF'leri: yalnız düzenleme izni kısıtlı, parolasız açılır. Eskiden pypdf'in
+    # `DependencyError`'ı yakalanmadığı için burada çöküyordu (tm 137).
+    locked = make_owner_locked_pdf_bytes(2)
+
+    assert check_example("resmi-form.pdf", locked, max_bytes=LIMIT) is FileKind.PDF
+    stored = _store(layout, "resmi-form.pdf", locked)
+
+    assert (layout.type_examples_dir(SLUG) / stored.name).read_bytes() == locked
+
+
+def test_aes_pdf_that_needs_a_password_to_open_is_rejected() -> None:
+    locked = make_owner_locked_pdf_bytes(1, user_password="gizli")
+
+    with pytest.raises(ExampleRejectedError, match="açılamadı"):
+        check_example("sifreli.pdf", locked, max_bytes=LIMIT)
 
 
 def test_rejection_message_shows_the_file_name_but_never_a_path() -> None:

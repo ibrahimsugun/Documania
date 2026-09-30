@@ -45,6 +45,7 @@ from telegram.ext import (
     TypeHandler,
 )
 
+from app.catalog import load_catalog_on_startup
 from app.config import Settings, get_settings
 from app.db.models import TelegramUser
 from app.db.session import get_session_factory
@@ -276,6 +277,8 @@ def main() -> int:
     logger.info("Bot başlıyor (mod: %s)", config.mode)
     session_factory = get_session_factory()
     layout = prepare_data_dir(settings.data_dir)
+    # 00.6.2: bot panelsiz de kalkabilir; katalog tablosu boşsa tohumdan yüklenir.
+    load_catalog_on_startup(settings.database_url, layout)
     intake = DocumentIntake(session_factory, layout, settings)
     document_requests = DocumentRequests(session_factory, layout, settings)
     application = build_application(
