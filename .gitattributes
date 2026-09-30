@@ -10,3 +10,6 @@
 
 # Windows toplu dosyaları: cmd.exe CRLF bekler
 *.bat text eol=crlf
+
+# SVG görseller: depoda LF
+*.svg text eol=lf
