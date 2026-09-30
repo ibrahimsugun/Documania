@@ -7,3 +7,6 @@
 *.yaml text eol=lf
 *.yml text eol=lf
 *.py text eol=lf
+
+# Windows toplu dosyaları: cmd.exe CRLF bekler
+*.bat text eol=crlf
