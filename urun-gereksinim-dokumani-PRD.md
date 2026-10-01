@@ -363,6 +363,8 @@ Kapsam: FR-MOD-13.
 | 12.1.1 | Bot iskeleti | Bot ayrı servis olarak çalışır; geliştirmede polling, üretimde webhook | Should (v2) |
 | 12.1.2 | Kullanıcı beyaz listesi | Listede olmayan kullanıcıya yanıt verilmez | Should (v2) |
 | 12.1.3 | Beyaz listeyi panelden yönetme | Kullanıcı yönetimi sayfasında (10.1.4) her panel kullanıcısına Telegram kimliği eklenir, izni kapatılıp açılır; bot yalnız izinli kimliğe yanıt verir; değişiklik kullanıcı adıyla olaya yazılır; kayıt silinmez. Sayfa kimliğin telefon numarası değil Telegram hesap kimliği olduğunu ve @userinfobot'tan nasıl öğrenileceğini söyler; @userinfobot yanıtından kopyalanan `Id: 123456789` satırı da kabul edilir | Should (v2) |
+| 12.1.4 | Telegram hesabını bağlantıyla otomatik bağlama | Kullanıcılar sayfasında bir kullanıcı için "Telegram'ı bağla" kişiye özel, tek kullanımlık ve 10 dakika geçerli bir bot bağlantısı (`https://t.me/<bot>?start=<kod>`) üretir; kişi bağlantıyı açıp "Başlat"a basınca bot gönderenin Telegram kimliğini o kullanıcıya izinli olarak kendisi kaydeder ve "bağlandı" der, kimlik panelde görünür; elle kimlik girme yedek yol olarak kalır. Kod yalnız bir kez ve süresi içinde çalışır, yeni kod öncekini geçersiz kılar, başka kullanıcıya bağlı ya da engellenmiş kimlik bu yolla açılmaz; geçersiz kodla gelen kişiye tek bir genel yanıt verilir, kodsuz yabancıya yine yanıt verilmez; üretim ve bağlama kullanıcı adıyla olaya yazılır; kod ve kimlik loga yazılmaz | Should (v2) |
+| 12.1.5 | Yerel başlatıcıda bot | `baslat.bat` `.env`'de `TELEGRAM_BOT_TOKEN` doluysa botu (geliştirmede polling) panelle birlikte ayrı pencerede başlatır; boşsa botsuz açılır ve bunu söyler | Should (v2) |
 | 12.2.1 | Belge alma | Gönderilen belge web ile aynı boru hattından işlenir | Should (v2) |
 | 12.2.2 | Çoklu mesaj grubu | Aynı medya grubundaki dosyalar tek parti sayılır | Should (v2) |
 | 12.2.3 | Sonuç özeti | İşlem sonucu ve kuyruğa düşen öğeler kısa mesajla bildirilir | Should (v2) |
@@ -486,7 +488,7 @@ PROFILE_RECORD_REMOVED · PROFILE_RECORD_RESTORED · CONTACT_ADDED · UNARCHIVED
 QUEUE_ITEM_CLOSED · QUEUE_ITEM_REOPENED · UPLOAD_RESTORED · TYPE_ACTIVATED · TYPE_DEACTIVATED ·
 TYPE_ARCHIVED · TYPE_RESTORED · CANDIDATE_TYPE_RESTORED · TRAINING_ITEM_DISMISSED ·
 TRAINING_ITEM_RESTORED · TRAINING_RUN_ARCHIVED · USER_CREATED · USER_DEACTIVATED ·
-USER_REACTIVATED · USER_PASSWORD_CHANGED · TELEGRAM_USER_CHANGED · GROUP_CHANGED ·
+USER_REACTIVATED · USER_PASSWORD_CHANGED · TELEGRAM_USER_CHANGED · TELEGRAM_LINK_CREATED · GROUP_CHANGED ·
 PACKAGE_ASSIGNED · PACKAGE_COMPLETED · PACKAGE_REOPENED · PACKAGE_CANCELLED
 
 `EMPLOYEE_CREATED` olayının verisi açılış dayanağını taşır: `basis` = `document_number` (§20.2.2

@@ -18,6 +18,12 @@ Blok biçimi `CONVENTIONS.md` §3'te tanımlıdır:
 
 ## Task log (newest-first)
 
+## 149/150 — Telegram hesabını bağlantıyla bağlama ve başlatıcıda bot — görevler açıldı (pending) — 2026-10-01
+- Yapıldı: İnsan "kimlik ekle yapınca panel kimliği kendisi alsın" dedi, seçenekler soruldu, karar "görev aç, döngü yapsın". PRD'ye 12.1.4 (tek kullanımlık bot bağlantısıyla otomatik bağlama) ve 12.1.5 (baslat.bat token varsa botu açar) ile §8.3'e `TELEGRAM_LINK_CREATED` eklendi; sözleşme PLAN §D87; görevler 149 ve 150 `pending`. Kod yazılmadı.
+- Doğrulama: `task-master validate-dependencies` yeşil; PLAN §0 sayımı tablolardan.
+- Varsayımlar: `.env`'de `TELEGRAM_BOT_TOKEN` boş — bot bu kurulumda hiç çalışmıyor; token'ı insan BotFather'dan alıp kendisi yazar. Login Widget (BotFather `/setdomain` + genel HTTPS) ve QR (bağımlılık) kapsam dışı. 99 (Faz 2 kapanışı) 149 ve 150'yi bekler.
+- Sonraki pencereye not: tm 149'un güvenlik kuralları §D87 (d)/(f)'de — bağlantı 10 dakikalık bir giriş anahtarıdır; engelli kimliği bu yol açmaz, kod loga girmez. Bot adı elle ayarlanmaz: bot açılışta `getMe` ile `data/telegram/bot.json`'a yazar.
+
 ## 148 — 12.1-c Telegram kimliği rehberi: @userinfobot, kopyalanan `Id:` satırı — done — 2026-10-01
 - Yapıldı: Bot eşleşmesi zaten sayısal hesap kimliğiyle (`effective_user.id`; telefon numarası ya da kullanıcı adı değil) — değişmedi. Kullanıcılar sayfası kimliğin ne olduğunu ve @userinfobot'tan nasıl öğrenileceğini söyler; `parse_telegram_id` kopyalanan `Id: 123456789` satırını da kabul eder; HTML `pattern` kalktı; hata mesajı yol gösterir; README notu (§D86).
 - Doğrulama: ruff check/format, compileall, `import app.main`; `pytest -q -m "not live" --cov=app` sekiz paralel grupta 6177 geçti, 6 atlandı, 0 kırmızı, `coverage report --fail-under=70` exit 0, birleşik kapsam %99 (`whitelist.py`, `users.py` %100); 5 kabul durumu kural bozmasında kırmızı.
