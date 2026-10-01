@@ -34,6 +34,10 @@ class Settings(BaseSettings):
 
     app_env: Literal["development", "production"] = "development"
     database_url: str
+    # PRD 13.5.3 — panel, işçi ve bot açılışta veritabanının göç sürümünü koddaki son göçle
+    # karşılaştırır, uyuşmazsa açılmaz (`app.db.schema_check`). Kapatmak yalnız şemayı göçsüz
+    # (`create_all`) kuran testler içindir (bkz. PLAN.md §D79).
+    startup_schema_check: bool = True
     data_dir: Path = Path("data")
     # PRD 01.3.1 sayı vermez; MB/sayfa sınırları burada varsayılan olarak sabitlenir
     # (bkz. PLAN.md §C8), ortam değişkeniyle ortama göre değiştirilebilir.

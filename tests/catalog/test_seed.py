@@ -144,7 +144,10 @@ def test_seed_loads_into_database(session_factory: sessionmaker[Session]) -> Non
 def test_app_startup_installs_seed_catalog(
     tmp_path: Path, session_factory: sessionmaker[Session]
 ) -> None:
-    settings = load_settings(_env_file=None, database_url="sqlite://", data_dir=tmp_path)
+    # Bellek içi veritabanında göç yok; sınanan katalog dosyası, şema denetimi değil (13.5.3).
+    settings = load_settings(
+        _env_file=None, database_url="sqlite://", data_dir=tmp_path, startup_schema_check=False
+    )
 
     with TestClient(create_app(settings)):
         catalog_path = DataLayout(tmp_path).catalog_path
@@ -156,7 +159,10 @@ def test_app_startup_installs_seed_catalog(
 
 
 def test_app_restart_keeps_edited_catalog(tmp_path: Path) -> None:
-    settings = load_settings(_env_file=None, database_url="sqlite://", data_dir=tmp_path)
+    # Bellek içi veritabanında göç yok; sınanan katalog dosyası, şema denetimi değil (13.5.3).
+    settings = load_settings(
+        _env_file=None, database_url="sqlite://", data_dir=tmp_path, startup_schema_check=False
+    )
     catalog_path = DataLayout(tmp_path).catalog_path
     with TestClient(create_app(settings)):
         catalog_path.write_bytes(b"[]\n")

@@ -241,6 +241,7 @@ def test_the_bot_process_builds_its_notifier_with_the_configured_alert_threshold
     monkeypatch.setenv("DATABASE_URL", "sqlite://")
     monkeypatch.setenv("TELEGRAM_BOT_TOKEN", TOKEN)
     monkeypatch.setenv("ALERT_JOB_QUEUE_LENGTH", "7")
+    monkeypatch.setenv("STARTUP_SCHEMA_CHECK", "false")  # bellek içi veritabanında göç yok
     monkeypatch.setenv("DATA_DIR", str(tmp_path / "veri"))
     get_settings.cache_clear()
     built: list[dict[str, Any]] = []

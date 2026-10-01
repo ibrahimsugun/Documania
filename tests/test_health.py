@@ -7,7 +7,10 @@ def test_health_returns_ok(client: TestClient) -> None:
     response = client.get("/health")
 
     assert response.status_code == 200
-    assert response.json() == {"status": "ok"}
+    body = response.json()
+    assert body["status"] == "ok"
+    # 13.5.3: kod ve şema sürümü (ayrıntı `tests/test_version_guard.py`).
+    assert set(body) == {"status", "schema", "code"}
 
 
 def test_module_level_app_serves_health() -> None:
@@ -15,4 +18,4 @@ def test_module_level_app_serves_health() -> None:
     response = TestClient(app).get("/health")
 
     assert response.status_code == 200
-    assert response.json() == {"status": "ok"}
+    assert response.json()["status"] == "ok"

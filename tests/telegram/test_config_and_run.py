@@ -10,6 +10,8 @@ from pathlib import Path
 from unittest.mock import MagicMock, create_autospec
 
 import pytest
+from alembic import command
+from alembic.config import Config
 from sqlalchemy import select
 from telegram.ext import (
     Application,
@@ -21,7 +23,7 @@ from telegram.ext import (
 
 from app.catalog import load_seed_catalog
 from app.config import get_settings
-from app.db.models import Base, KnownDocumentType
+from app.db.models import KnownDocumentType
 from app.db.session import create_db_engine, create_session_factory
 from app.telegram import bot as bot_module
 from app.telegram.bot import (
@@ -221,6 +223,7 @@ def test_main_starts_the_bot_and_keeps_the_token_out_of_transport_logs(
     clean_process: None, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setenv("TELEGRAM_BOT_TOKEN", TOKEN)
+    monkeypatch.setenv("STARTUP_SCHEMA_CHECK", "false")  # bellek içi veritabanında göç yok
     started: list[tuple[object, BotConfig]] = []
     monkeypatch.setattr(bot_module, "get_session_factory", lambda: MagicMock())
     monkeypatch.setattr(
@@ -254,8 +257,12 @@ def test_main_loads_an_empty_catalog_before_the_bot_starts(
     """00.6.2 (tm 136): bot panelsiz de kalkabilir; boş katalog tablosu panel ve işçi açılışındaki
     gibi tohumdan yüklenir (`load_catalog_on_startup`)."""
     database_url = f"sqlite:///{(tmp_path / 'bot.db').as_posix()}"
+    # Şema göçle kurulur: açılıştaki sürüm denetimi (13.5.3) de geçer.
+    config = Config(str(Path(bot_module.__file__).resolve().parents[2] / "alembic.ini"))
+    config.set_main_option("sqlalchemy.url", database_url)
+    config.attributes["configure_logger"] = False
+    command.upgrade(config, "head")
     engine = create_db_engine(database_url)
-    Base.metadata.create_all(engine)
     monkeypatch.setenv("DATABASE_URL", database_url)
     monkeypatch.setenv("DATA_DIR", str(tmp_path / "veri"))
     monkeypatch.setenv("TELEGRAM_BOT_TOKEN", TOKEN)

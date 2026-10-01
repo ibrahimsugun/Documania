@@ -4,11 +4,13 @@ from __future__ import annotations
 
 import logging
 import signal
+import sys
 import threading
 from types import FrameType
 
 from app.catalog import load_catalog_on_startup
 from app.config import get_settings
+from app.db.schema_check import SchemaVersionError, ensure_schema_current
 from app.storage import prepare_data_dir
 from app.worker.runner import create_worker
 
@@ -22,6 +24,12 @@ def main() -> int:
         format="%(asctime)s %(levelname)s %(name)s %(message)s",
     )
     settings = get_settings()
+    try:
+        # 13.5.3: göç koşulmamış (ya da kodun bilmediği ileri) şemayla kuyruk işlenmez.
+        ensure_schema_current(settings)
+    except SchemaVersionError as exc:
+        print(exc, file=sys.stderr)
+        return 1
     layout = prepare_data_dir(settings.data_dir)
     # 00.6.2: analiz kataloğu tablodan okur; tablo boşsa işçi başlamadan tohum yüklenir.
     load_catalog_on_startup(settings.database_url, layout)

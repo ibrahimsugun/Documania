@@ -1169,3 +1169,6 @@ form:not(.session) button[type="submit"]:hover,
 .telegram-ids { display: inline-flex; flex-wrap: wrap; gap: 0.25rem 1rem; margin: 0; padding: 0; list-style: none; }
 .telegram-ids li { display: inline-flex; align-items: center; gap: 0.35rem; }
 .telegram-add input[name="telegram_id"] { min-width: 12rem; padding: 0.3rem; border: 1px solid #d0d7de; border-radius: 4px; font: inherit; }
+
+/* 13.5.3: kod açılıştan sonra değişti — süreç yeniden başlatılmalı. */
+.stale-process { padding: 0.6rem 1.5rem; background: var(--warning-soft); color: var(--warning); border-bottom: 1px solid var(--warning); font-weight: 600; text-align: center; }

@@ -191,6 +191,14 @@ yere silmeyin.
   sentetik belgeleri kullanır (`CONVENTIONS.md` §6). `data/` dizini `.gitignore`'dadır.
 - **Satır sonları LF'e sabitlendi** (`.gitattributes`). `run-loop.sh` CRLF ile checkout
   edilirse bash çalıştıramaz.
+- **Kod güncellendikten sonra paneli `baslat.bat` ile yeniden başlatın** (PRD 13.5.3). Bat dosyası
+  önce `alembic upgrade head` koşar, sonra sunucuyu açar. `--reload`'suz çalışan sunucu açılıştaki
+  Python kodunu kullanmaya devam eder, şablonları ise diskten okur. Bu yüzden yeniden
+  başlatılmayan panel yeni sayfalarda 500 verebilir. Kod açılıştan sonra değiştiyse panel her
+  sayfanın üstünde "Sunucu eski sürümle çalışıyor — yeniden başlatın" uyarısı gösterir. Göç
+  koşulmamış veritabanıyla panel, işçi ve bot hiç açılmaz; hata iletisi mevcut ve beklenen
+  sürümü söyler. `GET /health` çalışan sürecin şema sürümünü (`schema`) ve kod parmak izini
+  (`code`) döner.
 - **Faz 0'ın ilk dört görevi DoD kapısının kendisini kurar**; o görevlerde kapı, kurulduğu
   kadarıyla koşulur (`CONVENTIONS.md` §1.1).
 

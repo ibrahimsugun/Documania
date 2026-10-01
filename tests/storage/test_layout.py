@@ -34,7 +34,10 @@ def _assert_tree(root: Path) -> None:
 
 def test_app_startup_creates_full_data_tree(tmp_path: Path) -> None:
     data_dir = tmp_path / "veri" / "data"
-    settings = load_settings(_env_file=None, database_url="sqlite://", data_dir=data_dir)
+    # Bellek içi veritabanında göç yok; burada sınanan veri ağacı (13.5.3 denetimi kapalı).
+    settings = load_settings(
+        _env_file=None, database_url="sqlite://", data_dir=data_dir, startup_schema_check=False
+    )
 
     with TestClient(create_app(settings)) as client:
         _assert_tree(data_dir)
@@ -46,6 +49,7 @@ def test_app_startup_reads_data_dir_from_environment(
 ) -> None:
     monkeypatch.setenv("DATABASE_URL", "sqlite://")
     monkeypatch.setenv("DATA_DIR", str(tmp_path / "ortam"))
+    monkeypatch.setenv("STARTUP_SCHEMA_CHECK", "false")
     get_settings.cache_clear()
     try:
         with TestClient(create_app()):

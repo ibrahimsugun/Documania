@@ -7,6 +7,7 @@ yönlendiricisi sayfasını menüdeki yolla sunar.
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from typing import Any
 
@@ -16,6 +17,8 @@ from fastapi.responses import HTMLResponse
 from starlette.templating import Jinja2Templates
 
 from app.web.auth import PanelUser
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True, slots=True)
@@ -44,6 +47,22 @@ templates = Jinja2Templates(
     )
 )
 templates.env.globals["menu"] = PANEL_MENU
+
+
+def code_is_stale(request: Request) -> bool:
+    """13.5.3: panel açıldıktan sonra diskteki kod değiştiyse `True` (`base.html` uyarısı).
+
+    Uyarı hesaplanamazsa gösterilmez; sayfa bu yüzden 500'e düşmez.
+    """
+    try:
+        watch = getattr(request.app.state, "code_watch", None)
+        return bool(watch is not None and watch.is_stale())
+    except Exception:
+        logger.warning("Eski süreç uyarısı hesaplanamadı.", exc_info=True)
+        return False
+
+
+templates.env.globals["code_is_stale"] = code_is_stale
 
 
 def render_page(

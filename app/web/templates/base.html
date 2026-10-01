@@ -10,6 +10,10 @@
   <script src="/static/htmx.min.js" defer></script>
 </head>
 <body>
+  {# 13.5.3: kod ya da şablon açılıştan sonra değiştiyse bellekteki kod eskidir (PLAN.md §D77). #}
+  {% if code_is_stale(request) %}
+  <div class="stale-process" role="alert">Sunucu eski sürümle çalışıyor — yeniden başlatın (<code>baslat.bat</code>).</div>
+  {% endif %}
   {% if user %}
   <header class="topbar">
     <a class="brand" href="/">belgeee</a>

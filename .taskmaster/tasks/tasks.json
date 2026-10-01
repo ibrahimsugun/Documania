@@ -2042,14 +2042,14 @@
         "description": "PRD 13.5.3 · FR-MOD-13 · Should (v1). İnsan bildirimi (2026-09-30): profil 500 ve boş ülke süzgeci — sebep 2026-09-27'den beri yeniden başlatılmamış `uvicorn` (eski Python kodu + diskten okunan yeni şablonlar) ve `0013`'te kalmış veritabanı. PLAN §D77.",
         "details": "KAPSAM: PRD 13.5.3. (1) Açılış denetimi: `app/main.py` lifespan, `app/worker/__main__.py`, `app/telegram/bot.py` açılışta `alembic_version` ile `ScriptDirectory.get_current_head()`'i karşılaştırır (tek yardımcı, örn. `app/db/schema_check.py`). Eksik ya da eski sürüm → süreç açılmaz; mesaj mevcut ve beklenen sürümü ve 'önce `python -m alembic upgrade head` ya da `baslat.bat`' komutunu söyler. Tablo hiç yoksa aynı mesaj. Veritabanı kodun bilmediği ileri bir sürümdeyse de açılmaz (eski kodla yeni şema). Testler şemayı `create_all` ile kuruyorsa denetim `Settings` alanıyla kapatılabilir (varsayılan açık); mümkünse testte `alembic upgrade` tercih edilir. (2) Eski süreç uyarısı: açılışta `app/` altındaki `.py` ve `templates/` dosyalarının parmak izi (yol + mtime + boyut özeti) alınır; panel isteğinde en çok 30 sn'de bir yeniden hesaplanır; farklıysa `base.html` her sayfanın üstünde 'Sunucu eski sürümle çalışıyor — yeniden başlatın (baslat.bat)' uyarısı gösterir; uyarı hesaplanırken sayfa 500'e düşmez. (3) `/health` oturumsuz `{status, schema, code}` döner (code = parmak izinin kısa hâli; gizli bilgi yok). README'ye 'kod güncellendikten sonra baslat.bat ile yeniden başlatın' notu.",
         "testStrategy": "1) Göçsüz temiz DB'de panel/işçi/bot açılmaz; mesajda iki sürüm ve komut. 2) `0013`'teki DB → aynı. 3) Baş sürümde açılır. 4) Açılıştan sonra bir şablonun mtime'ı değişince sayfada uyarı, değişmeyince yok. 5) `/health` sürümleri döner. 6) Mevcut TestClient testleri etkilenmez. 7) Kural bozması kırmızı. 8) DoD kapısı yeşil.",
-        "status": "pending",
+        "status": "in-progress",
         "dependencies": [
           "109",
           "136"
         ],
         "priority": "medium",
         "subtasks": [],
-        "updatedAt": "2026-09-30T13:30:00.000Z"
+        "updatedAt": "2026-10-01T00:55:14.888Z"
       },
       {
         "id": "142",
@@ -2098,7 +2098,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-01T00:53:52.867Z",
+      "lastModified": "2026-10-01T00:55:14.889Z",
       "taskCount": 142,
       "completedCount": 135,
       "tags": [

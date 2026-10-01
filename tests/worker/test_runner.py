@@ -515,6 +515,7 @@ def recorded_app_settings(
         data_dir=layout.root,
         ai_provider="kayitli",
         worker_poll_seconds=0.02,
+        startup_schema_check=False,  # şema `create_all` ile kurulu (13.5.3)
     )
 
 
@@ -549,6 +550,7 @@ def test_app_is_healthy_without_an_ai_provider_and_never_initializes_one(
         data_dir=layout.root,
         ai_provider="anthropic",
         anthropic_api_key=None,
+        startup_schema_check=False,  # şema `create_all` ile kurulu (13.5.3)
     )
 
     def no_provider(_settings: Settings) -> Any:

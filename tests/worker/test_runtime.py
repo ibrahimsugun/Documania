@@ -49,6 +49,11 @@ def test_worker_entrypoint_bootstraps_and_requests_graceful_shutdown(
     monkeypatch.setattr(worker_entrypoint, "get_settings", lambda: settings)
     monkeypatch.setattr(
         worker_entrypoint,
+        "ensure_schema_current",
+        lambda resolved_settings: events.append("schema") or "0022",
+    )
+    monkeypatch.setattr(
+        worker_entrypoint,
         "prepare_data_dir",
         lambda data_dir: events.append("prepare") or layout,
     )
@@ -71,7 +76,18 @@ def test_worker_entrypoint_bootstraps_and_requests_graceful_shutdown(
     result = worker_entrypoint.main()
 
     assert result == 0
-    assert events == ["prepare", "seed", "build", "start", "request_stop", "resume", "wait", "stop"]
+    # 13.5.3: şema denetimi her şeyden önce (veri dizini ve katalog tohumu dahil).
+    assert events == [
+        "schema",
+        "prepare",
+        "seed",
+        "build",
+        "start",
+        "request_stop",
+        "resume",
+        "wait",
+        "stop",
+    ]
 
 
 def test_sigterm_during_startup_is_not_lost_when_start_clears_stop(
@@ -109,6 +125,11 @@ def test_sigterm_during_startup_is_not_lost_when_start_clears_stop(
     monkeypatch.setattr(worker_entrypoint, "get_settings", lambda: settings)
     monkeypatch.setattr(
         worker_entrypoint,
+        "ensure_schema_current",
+        lambda resolved_settings: events.append("schema") or "0022",
+    )
+    monkeypatch.setattr(
+        worker_entrypoint,
         "prepare_data_dir",
         lambda data_dir: events.append("prepare") or layout,
     )
@@ -131,6 +152,7 @@ def test_sigterm_during_startup_is_not_lost_when_start_clears_stop(
 
     assert worker_entrypoint.main() == 0
     assert events == [
+        "schema",
         "prepare",
         "seed",
         "build",

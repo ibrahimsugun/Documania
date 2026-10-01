@@ -48,6 +48,7 @@ from telegram.ext import (
 from app.catalog import load_catalog_on_startup
 from app.config import Settings, get_settings
 from app.db.models import TelegramUser
+from app.db.schema_check import ensure_schema_current
 from app.db.session import get_session_factory
 from app.storage import prepare_data_dir
 from app.telegram.handlers import DocumentIntake
@@ -271,7 +272,9 @@ def main() -> int:
     try:
         settings = get_settings()
         config = load_bot_config(settings)
-    except RuntimeError as exc:  # BotConfigError ve eksik DATABASE_URL (00.2.2)
+        # 13.5.3: göç koşulmamış (ya da kodun bilmediği ileri) şemayla bot açılmaz.
+        ensure_schema_current(settings)
+    except RuntimeError as exc:  # BotConfigError, eksik DATABASE_URL (00.2.2), SchemaVersionError
         print(exc, file=sys.stderr)
         return 1
     logger.info("Bot başlıyor (mod: %s)", config.mode)
