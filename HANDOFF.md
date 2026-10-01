@@ -18,6 +18,12 @@ Blok biçimi `CONVENTIONS.md` §3'te tanımlıdır:
 
 ## Task log (newest-first)
 
+## 145 — 11.1-f Belge Türleri tablosunun yerleşimi: ülke ve işlem hücreleri taşmaz — done — 2026-10-01
+- Yapıldı: İnsan bildirimi üzerine tm 143'ün bayraklı "Ülke" sütunu taşıyordu (109 px istiyor, 73 px vardı) ve işlem bağlantıları sütundan çıkıyordu; sütun oranları 3/17/11/14/8/6/6/7/8/20 oldu, tablo yazısı 0.92rem, "Ülke" ve işlem hücreleri satır kırar, "Yüz" hücresi de kırabilir (§D83). Veri ve rota değişmedi.
+- Doğrulama: ruff check/format, compileall, `import app.main`; `pytest -q -m "not live" --cov=app` sekiz paralel grupta 6337 geçti, 6 atlandı, 0 kırmızı, `coverage combine` + `report --fail-under=70` exit 0, birleşik kapsam %99; 415 satırlık geliştirme kopyasında 1280/1440 px'te taşan hücre 0, çakışma 0, işlem bağlantısı alt satıra inmedi, medyan satır 64 px; 1100 px'te taşma yok.
+- Varsayımlar: §D83 — ilk denemede iç boşluk kuralı sonradan tanımlı `.catalog td` kuralına yenildi (seçici güçlendirildi); tarayıcı CSS'i önbelleğe aldığı için görsel kontrolde `cache: reload` gerekti. Kapsam dışı, not: 1100 px gibi dar pencerede üst çubuktaki oturum/Çıkış alanı sayfayı yatay kaydırıyor (tablodan değil); gerekirse ayrı görev açılmalı.
+- Sonraki pencereye not: Değişikliği görmek için sunucuyu yeniden başlatmak şart değil (CSS ve şablon diskten okunur) ama tarayıcıda Ctrl+F5 gerekir. 98 (Faz 1 kapanışı) 145'i de bekler. `icon.png` yine commit dışında.
+
 ## 144 — 10.5-i Profilde uyruk bayrağı — done — 2026-10-01
 - Yapıldı: Profilin "Vatandaşlık" satırı artık bayrak + Türkçe ad + parantez içinde kod gösteriyor (`RUS` → "Rusya (RUS)", `D` → "Almanya (D)"); ülke olmayan ya da tanınmayan değer (`XXA`, `ZZZ`) bayraksız yalnız kendisi, boş değer "—". `app/countries/__init__.py::nationality_badge` Jinja globali olarak bağlandı (`app/web/templating.py`), `field_sources` kaynak bağlantısı ve "Farklı değer" uyarısı aynen kaldı. Göç ve CSS değişmedi.
 - Doğrulama: ruff check/format, compileall, `import app.main` ve temiz SQLite'ta `alembic upgrade head` (→0022, göç yok) exit 0. `pytest -q -m "not live" --cov=app` on iki ön plan grubunda 6336 geçti (+31), 5 PG atlandı, `coverage combine` + `report --fail-under=70` exit 0, kapsam %99. 9 geçici kural bozmasının 8'i kırmızı; kalan biri ölü kod çıktı ve silindi.

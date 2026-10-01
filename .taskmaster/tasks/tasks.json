@@ -1447,7 +1447,8 @@
           "139",
           "142",
           "143",
-          "144"
+          "144",
+          "145"
         ],
         "priority": "critical",
         "subtasks": [],
@@ -2094,13 +2095,27 @@
         "priority": "medium",
         "subtasks": [],
         "updatedAt": "2026-10-01T05:35:19.723Z"
+      },
+      {
+        "id": "145",
+        "title": "11.1-f — Belge Türleri tablosunun yerleşimi: ülke ve işlem hücreleri taşmaz, sütun oranları ve yazı boyutu yeniden ayarlanır [SONNET-XHIGH]",
+        "description": "PRD 11.1.4, 11.1.7 · FR-MOD-11 · Faz 1. İnsan bildirimi (2026-10-01): tm 143'ten sonra tablo sığmıyor, Ülke ile Yüz sütunları üst üste biniyor, işlem bağlantıları taşıyor. Sözleşme PLAN §D83.",
+        "details": "KAPSAM: yalnız `panel.css` Belge Türleri bloğu ve `catalog.html`'deki `cell-nowrap` (Yüz). Oranlar 3/17/11/14/8/6/6/7/8/20, yazı 0.92rem, hücre boşluğu 0.55rem 0.5rem, `.country` ve `.doc-actions` satır kırar; iç boşluk seçicisi `.catalog.catalog-types` (sonradan tanımlı `.catalog td` kuralını ezmek için). Veri, rota ve diğer sayfalar değişmez.",
+        "testStrategy": "1) Geliştirme kopyasında (415 tür) 1280 ve 1440 px'te taşan hücre 0 ve komşuyla çakışma 0, işlem bağlantıları alt satıra inmez; 1100 px'te taşma yok. 2) `tests/web/test_catalog_page.py` yeşil (sütun oranı testi dahil). 3) DoD kapısı yeşil.",
+        "status": "done",
+        "dependencies": [
+          "143"
+        ],
+        "priority": "medium",
+        "subtasks": [],
+        "updatedAt": "2026-10-01T09:00:00.000Z"
       }
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-01T05:35:19.723Z",
-      "taskCount": 142,
-      "completedCount": 139,
+      "lastModified": "2026-10-01T09:00:00.000Z",
+      "taskCount": 143,
+      "completedCount": 140,
       "tags": [
         "master"
       ]

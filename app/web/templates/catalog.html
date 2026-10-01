@@ -107,7 +107,7 @@
       <td><a href="/document-types/{{ item.slug|urlencode }}{{ country_query }}" title="{{ item.slug }}">{{ item.name }}</a></td>
       <td>{{ item.file_label }}</td>
       <td>{{ country_badge(item.country) or "—" }}</td>
-      <td class="cell-nowrap">{{ sides_labels.get(item.sides, item.sides) }}</td>
+      <td>{{ sides_labels.get(item.sides, item.sides) }}</td>
       <td>{{ "Evet" if item.direct else "Hayır" }}</td>
       <td>{{ "Evet" if item.analyze else "Hayır" }}</td>
       <td>{{ item.criteria_count }}</td>

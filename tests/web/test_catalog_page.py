@@ -186,6 +186,27 @@ def test_the_type_table_widths_are_laid_out_for_its_ten_columns() -> None:
     assert sum(int(width) for _, width in widths) == 100
 
 
+def test_the_type_table_lets_the_country_and_actions_cells_wrap() -> None:
+    # tm 145 (PLAN §D83): sabit yerleşimde "Ülke" hücresi bayrak + uzun ad ("Amerika Birleşik
+    # Devletleri") tek satırda kalınca yandaki "Yüz" sütununun üstüne biniyor, üç işlem
+    # bağlantısı da sütundan taşıyordu. Bu iki hücre satır kırar; iç boşluk `.catalog td`
+    # kuralını (sonradan tanımlı, aynı özgüllük) ezecek kadar özgül seçiciyle verilir.
+    css = PANEL_CSS.read_text(encoding="utf-8")
+
+    assert re.search(r"\.catalog-types \.country\s*\{[^}]*white-space:\s*normal", css)
+    assert re.search(r"\.catalog-types \.doc-actions\s*\{[^}]*white-space:\s*normal", css)
+    assert re.search(r"\.catalog\.catalog-types td\s*\{[^}]*padding:", css)
+
+
+def test_the_sides_cell_may_wrap_but_the_status_cell_may_not(client: TestClient) -> None:
+    _create(client)
+
+    table = _types_table(client.get("/document-types").text)
+
+    assert re.search(r"<td>(Tek yüz|Ön ve arka yüz)</td>", table)  # "Ön ve arka yüz" satır kırar
+    assert re.search(r'<td class="cell-nowrap">\s*<span class="status-badge', table)
+
+
 def test_empty_catalog_says_so_and_still_offers_a_new_type(client: TestClient) -> None:
     page = client.get("/document-types")
 
