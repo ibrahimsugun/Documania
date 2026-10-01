@@ -46,8 +46,10 @@ include = ["app*"]
 "app.ai.prompts" = ["*.md"]
 # Yerleşik model fiyat tablosu (PRD 13.1.1, maliyet paneli).
 "app.ai" = ["model_prices.yaml"]
-# Panel şablonları ve stil dosyası (PRD 10.1.1).
-"app.web" = ["templates/*.html", "static/*"]
+# Panel şablonları ve stil dosyası (PRD 10.1.1), ülke bayrakları ve lisansı (PRD 10.1.6).
+"app.web" = ["templates/*.html", "static/*", "static/flags/*"]
+# Ülke başvuru verisi: CLDR dosyaları, lisansı ve kaynak kaydı (PRD 10.1.6).
+"app.countries" = ["data/*", "SOURCES.md"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

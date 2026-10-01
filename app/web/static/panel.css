@@ -1172,3 +1172,7 @@ form:not(.session) button[type="submit"]:hover,
 
 /* 13.5.3: kod açılıştan sonra değişti — süreç yeniden başlatılmalı. */
 .stale-process { padding: 0.6rem 1.5rem; background: var(--warning-soft); color: var(--warning); border-bottom: 1px solid var(--warning); font-weight: 600; text-align: center; }
+
+/* 10.1.6: ülke gösterimi — küçük bayrak + Türkçe ad; bayrağın beyaz kenarı ince çizgiyle belli olur. */
+.country { display: inline-flex; align-items: center; gap: 0.35rem; white-space: nowrap; }
+.country img { flex: none; width: 20px; height: 15px; object-fit: cover; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.15); }

@@ -16,6 +16,7 @@ from fastapi import Request
 from fastapi.responses import HTMLResponse
 from starlette.templating import Jinja2Templates
 
+from app.countries import country_badge
 from app.web.auth import PanelUser
 
 logger = logging.getLogger(__name__)
@@ -47,6 +48,8 @@ templates = Jinja2Templates(
     )
 )
 templates.env.globals["menu"] = PANEL_MENU
+# 10.1.6: alfa-2, alfa-3 ya da MRZ kodundan bayrak + Türkçe ülke adı (`app/countries`).
+templates.env.globals["country_badge"] = country_badge
 
 
 def code_is_stale(request: Request) -> bool:
