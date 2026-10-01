@@ -2027,14 +2027,14 @@
         "description": "PRD 08.1.3 · FR-MOD-08 · Faz 0 · Should (v1). İnsan kararı (2026-09-30): tm 137'den sonra sahip parolalı (AES) ya da parola korumalı PDF'ten sayfa çıkarma/birleştirme gereken öğe tanımlı hatayla partiyi `failed` yapıyor (`PLAN_EXECUTION_ERRORS`, `PIPELINE_FAILED`). Belge kuyruğa düşsün, döngü uygulasın. Bağlam PLAN §D76.",
         "details": "KAPSAM: PRD 08.1.3. Şu an: `app/pipeline/execute_pdf.py` `_open_pdf` (parola korumalı) ve `_read_pdf` (`DependencyError` → `şifreli (AES)`) `ExtractSourceError`/`MergeSourceError` fırlatır; `app/pipeline/orchestrate.py` `PLAN_EXECUTION_ERRORS` uygulamayı durdurur, parti `failed`. İstenen: yalnız **şifre** kaynaklı kaynak hataları (ayrı alt sınıf ya da işaret; bozuk PDF, okuyucu sayfa sayısı uyuşmazlığı ve bütünlük hataları bugünkü gibi durdurmaya devam eder) öğeyi `route_queue_item` (08.1.1) ile Unreadable kuyruğuna yönlendirir: kaynak kopyası + gerekçe (dosya, istenen işlem, \"şifreli PDF, sayfalar kopyalanamıyor\"); planın diğer öğeleri uygulanır, paketler/profil yenilenir. Şifre kaldırılmaz, dosya yeniden yazılmaz, `cryptography` eklenmez (K11, §D76). Olay: kuyruk yönlendirme olayı + neden. Plan dosyası değişmez (K9); aynı plan yeniden çalıştırılırsa aynı sonuç.",
         "testStrategy": "1) Sahip parolalı AES PDF'ten extract gereken öğe → Unreadable kuyruğu, gerekçe dosyası, parti `failed` değil; aynı partideki düz öğe Hazir'a yazılır. 2) Parola korumalı PDF merge → aynı. 3) Bozuk PDF / sayfa sayısı uyuşmazlığı / SHA uyuşmazlığı → bugünkü gibi `failed` (gerileme yok). 4) Yeniden çalıştırma (06.6.1) aynı sonucu verir. 5) Kural bozması kırmızı. 6) DoD kapısı yeşil.",
-        "status": "in-progress",
+        "status": "done",
         "dependencies": [
           "137",
           "54"
         ],
         "priority": "medium",
         "subtasks": [],
-        "updatedAt": "2026-09-30T23:34:36.239Z"
+        "updatedAt": "2026-10-01T00:53:52.866Z"
       },
       {
         "id": "141",
@@ -2098,9 +2098,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-09-30T23:34:36.240Z",
+      "lastModified": "2026-10-01T00:53:52.867Z",
       "taskCount": 142,
-      "completedCount": 134,
+      "completedCount": 135,
       "tags": [
         "master"
       ]
