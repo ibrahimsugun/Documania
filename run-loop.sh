@@ -23,9 +23,13 @@ set -uo pipefail
 # cevabı xhigh demekti (2026-09-21 kaldırıldı).
 # Eski tek boyutlu etiketler geriye dönük çalışır: [MAX] → opus+max,
 # [XHIGH], etiketsiz veya tanınmayan etiket → opus+xhigh.
-MODEL="opus"                # varsayılan/geri-uyum modeli
-MODEL_BIG="opus"
-MODEL_SMALL="sonnet"
+# Model sürümleri sabittir (insan kararı 2026-10-01, PLAN §D88): "opus" Opus 5.5, "sonnet"
+# Sonnet 5.5 demektir. `--model`'e takma ad değil tam kimlik verilir; takma ad CLI sürümüne göre
+# ailenin en yeni modeline gider ve sürüm sessizce değişebilirdi. Seçici yine "sonnet"/"opus"
+# döndürür; aşağıdaki eşleme (`case "$mdl"`) onu bu kimliklere çevirir.
+MODEL="claude-opus-5-5"     # varsayılan/geri-uyum modeli (Opus 5.5)
+MODEL_BIG="claude-opus-5-5"     # Opus 5.5
+MODEL_SMALL="claude-sonnet-5-5" # Sonnet 5.5
 EFFORT_MAX="max"            # opus 'max' desteklemiyorsa: "high"
 EFFORT_XHIGH="xhigh"        # [*-XHIGH] ve etiketsiz görevler
 EFFORT_HIGH="high"          # [*-HIGH] görevler

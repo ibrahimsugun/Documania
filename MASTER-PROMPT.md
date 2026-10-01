@@ -120,6 +120,11 @@ Görev başlığına konan etiket hem **modeli** hem **eforu** seçer. `run-loop
 başlıktan okur; pencere bunu kendisi değiştiremez. Etiket olduğu gibi uygulanır: HIGH
 high'da, XHIGH xhigh'da çalışır, hiçbiri bir üst seviyeye yükseltilmez.
 
+**Model sürümleri sabittir** (insan kararı 2026-10-01): tablodaki `sonnet` **Sonnet 5.5**
+(`claude-sonnet-5-5`), `opus` **Opus 5.5** (`claude-opus-5-5`) demektir. `run-loop.sh` bunları
+`MODEL_SMALL` / `MODEL_BIG` olarak tam kimlikle verir; takma ad kullanılmaz, sürüm sessizce
+değişmez. Sürüm değişikliği insan kararıdır ve yalnız bu iki değişkeni ve bu satırı değiştirir.
+
 | Etiket | Model | Efor | Ne tür iş |
 |---|---|---|---|
 | `[SONNET-HIGH]` | sonnet | high | Küçük, tek dosyalık, riski düşük iş (metin, stil, basit düzeltme) |
