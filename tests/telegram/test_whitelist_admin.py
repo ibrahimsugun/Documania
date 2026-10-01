@@ -227,6 +227,38 @@ def test_parse_refuses_everything_else(value: str) -> None:
         parse_telegram_id(value)
 
 
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        ("Id: 123456789", 123_456_789),
+        ("  ID:5000000001 ", 5_000_000_001),
+        ("id 42", 42),
+        ("İd: 7", 7),
+        ("ıd:7", 7),
+    ],
+)
+def test_parse_accepts_the_line_copied_from_userinfobot(value: str, expected: int) -> None:
+    # §D86: kimlik @userinfobot'tan öğrenilir; yanıtın `Id: …` satırı olduğu gibi yapıştırılır.
+    assert parse_telegram_id(value) == expected
+
+
+@pytest.mark.parametrize(
+    "value",
+    ["Id:", "Id: ", "Id: -1", "Id: 0", "Id: abc", "Id: 12 34", "Id: ١٢٣", "Kimlik: 123", "Idx: 1"],
+)
+def test_the_copied_line_still_needs_a_valid_number(value: str) -> None:
+    with pytest.raises(TelegramIdError):
+        parse_telegram_id(value)
+
+
+def test_the_refusal_says_where_the_id_comes_from_and_that_it_is_not_a_phone_number() -> None:
+    with pytest.raises(TelegramIdError) as refused:
+        parse_telegram_id("+90 555 000 00 00")
+
+    assert "@userinfobot" in str(refused.value)
+    assert "Telefon numarası değildir" in str(refused.value)
+
+
 # --- çekirdek: ekleme ve izin -------------------------------------------------------------------
 
 

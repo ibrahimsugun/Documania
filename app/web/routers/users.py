@@ -38,7 +38,7 @@ from app.db.models import TelegramUser, User, UserRole
 from app.db.session import get_session
 from app.telegram.whitelist import (
     TELEGRAM_ID_MAX,
-    TELEGRAM_ID_MAX_DIGITS,
+    USERINFOBOT_URL,
     TelegramIdError,
     TelegramIdTakenError,
     TelegramStatusError,
@@ -195,7 +195,7 @@ def _users_page(
         error_user_id=error_user_id,
         form=form or NewUserValues(),
         telegram_value=telegram_value,
-        telegram_id_max_digits=TELEGRAM_ID_MAX_DIGITS,
+        userinfobot_url=USERINFOBOT_URL,
         min_password_length=MIN_PASSWORD_LENGTH,
         username_min_length=USERNAME_MIN_LENGTH,
         username_max_length=USERNAME_MAX_LENGTH,

@@ -159,6 +159,10 @@ belgeleri, veritabanını ve sertifikayı taşır (`-v` hepsini siler).
 **Telegram botu (isteğe bağlı):** komuta `--profile telegram` eklenir; `TELEGRAM_BOT_TOKEN` ve
 `TELEGRAM_WEBHOOK_SECRET` `.env`'e yazılır. Webhook adresi varsayılan olarak
 `https://<DOMAIN>/telegram/webhook`'tur; Caddy `/telegram/*` yolunu bota yönlendirir.
+Bot yalnız beyaz listedeki Telegram kimliklerine yanıt verir. Kimlik telefon numarası değil,
+Telegram'ın hesaba verdiği sabit sayıdır: kişi Telegram'da [@userinfobot](https://t.me/userinfobot)'a
+yazarak öğrenir (`Id: 123456789`), yönetici panelde **Kullanıcılar** sayfasından o kullanıcının
+altına ekler (sayı ya da kopyalanan `Id: …` satırı).
 
 **Yedekleme:** gece yedeği ve geri yükleme prosedürü [`docs/YEDEKLEME.md`](docs/YEDEKLEME.md)'de
 (Compose kurulumuna özgü ayarlar orada). Zamanlayıcı (cron) sunucuya elle kurulur.

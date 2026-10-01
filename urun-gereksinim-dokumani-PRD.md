@@ -362,7 +362,7 @@ Kapsam: FR-MOD-13.
 |---|---|---|---|
 | 12.1.1 | Bot iskeleti | Bot ayrı servis olarak çalışır; geliştirmede polling, üretimde webhook | Should (v2) |
 | 12.1.2 | Kullanıcı beyaz listesi | Listede olmayan kullanıcıya yanıt verilmez | Should (v2) |
-| 12.1.3 | Beyaz listeyi panelden yönetme | Kullanıcı yönetimi sayfasında (10.1.4) her panel kullanıcısına Telegram kimliği eklenir, izni kapatılıp açılır; bot yalnız izinli kimliğe yanıt verir; değişiklik kullanıcı adıyla olaya yazılır; kayıt silinmez | Should (v2) |
+| 12.1.3 | Beyaz listeyi panelden yönetme | Kullanıcı yönetimi sayfasında (10.1.4) her panel kullanıcısına Telegram kimliği eklenir, izni kapatılıp açılır; bot yalnız izinli kimliğe yanıt verir; değişiklik kullanıcı adıyla olaya yazılır; kayıt silinmez. Sayfa kimliğin telefon numarası değil Telegram hesap kimliği olduğunu ve @userinfobot'tan nasıl öğrenileceğini söyler; @userinfobot yanıtından kopyalanan `Id: 123456789` satırı da kabul edilir | Should (v2) |
 | 12.2.1 | Belge alma | Gönderilen belge web ile aynı boru hattından işlenir | Should (v2) |
 | 12.2.2 | Çoklu mesaj grubu | Aynı medya grubundaki dosyalar tek parti sayılır | Should (v2) |
 | 12.2.3 | Sonuç özeti | İşlem sonucu ve kuyruğa düşen öğeler kısa mesajla bildirilir | Should (v2) |

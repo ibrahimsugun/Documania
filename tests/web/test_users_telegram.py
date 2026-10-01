@@ -99,6 +99,18 @@ def test_every_user_row_is_followed_by_its_telegram_ids_and_an_add_form(
     assert "sil" not in re.sub(r"<[^>]+>", " ", page.text).lower().split()
 
 
+def test_the_page_explains_how_to_get_an_id_from_userinfobot(client: TestClient) -> None:
+    # §D86: kimlik telefon numarası değildir; kişi onu @userinfobot'tan öğrenir.
+    page = client.get("/users").text
+
+    assert '<a href="https://t.me/userinfobot" target="_blank" rel="noopener noreferrer">' in page
+    assert "telefon numarası değil" in page
+    form = _telegram_rows(page)[SIGNED_IN.id]
+    # Kopyalanan `Id: …` satırı tarayıcıda reddedilmesin: biçimi sunucu denetler.
+    assert "pattern=" not in form
+    assert 'placeholder="örn. 123456789"' in form
+
+
 # --- kimlik ekleme ----------------------------------------------------------------------------
 
 
@@ -122,6 +134,19 @@ def test_adding_an_id_binds_it_allowed_and_logs_who_did_it(
     page = client.get(response.headers["location"]).text
     assert "Telegram kimliği eklendi ve izni açıldı." in page
     assert str(FIRST_ID) in _telegram_rows(page)[ayse]
+
+
+def test_the_line_copied_from_userinfobot_is_accepted(
+    client: TestClient, session_factory: sessionmaker[Session]
+) -> None:
+    ayse = _add_user(session_factory, "ayse")
+
+    response = client.post(
+        f"/users/{ayse}/telegram", data={"telegram_id": f"Id: {FIRST_ID}"}, follow_redirects=False
+    )
+
+    assert response.status_code == 303
+    assert _accounts(session_factory) == [(FIRST_ID, ayse, True)]
 
 
 def test_a_user_may_hold_several_ids_and_the_admin_may_add_to_their_own_account(

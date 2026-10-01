@@ -8,6 +8,7 @@
 <h1>{{ entry.label }}</h1>
 <p class="lede">Panele giren kullanıcılar. Kullanıcı silinmez: gerekmeyen hesap pasife alınır, pasif kullanıcı giriş yapamaz ve açık oturumları kapanır.</p>
 <p class="hint">Telegram botu yalnız izni açık ve kullanıcısı etkin kimliğe yanıt verir. Kimlik silinmez; gerekmeyen kimliğin izni kapatılır.</p>
+<p class="hint telegram-help">Telegram kimliği telefon numarası değil, Telegram'ın hesaba verdiği sabit sayıdır. Kişi kendi kimliğini öğrenmek için Telegram'da <a href="{{ userinfobot_url }}" target="_blank" rel="noopener noreferrer">@userinfobot</a>'u açıp «Başlat»a basar; bot <code>Id: 123456789</code> satırıyla yanıt verir. O sayıyı (ya da satırın tamamını) aşağıdaki alana yapıştırın.</p>
 <p><a class="button-link" href="/account/password">Parolamı değiştir</a></p>
 {% if notice %}<p class="notice notice-success" role="status">{{ notice }}</p>{% endif %}
 {% if error %}<p class="error" role="alert" id="users-error">{{ error }}</p>{% endif %}
@@ -72,7 +73,7 @@
         {% if not row.active %}<p class="hint">Kullanıcı pasif: bot bu kimliklerin hiçbirine yanıt vermez.</p>{% endif %}
         <form class="inline-form telegram-add" method="post" action="/users/{{ row.id }}/telegram" autocomplete="off">
           <label for="telegram-new-{{ row.id }}">Telegram kimliği</label>
-          <input id="telegram-new-{{ row.id }}" name="telegram_id" value="{% if error_user_id == row.id %}{{ telegram_value }}{% endif %}" inputmode="numeric" pattern="[0-9]+" maxlength="{{ telegram_id_max_digits }}" autocomplete="off" required>
+          <input id="telegram-new-{{ row.id }}" name="telegram_id" value="{% if error_user_id == row.id %}{{ telegram_value }}{% endif %}" inputmode="numeric" maxlength="32" placeholder="örn. 123456789" autocomplete="off" required>
           <button type="submit">Kimlik ekle</button>
         </form>
       </td>

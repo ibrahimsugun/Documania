@@ -13,9 +13,16 @@ Kimlik tablonun birincil anahtarıdır; bu yüzden bir kez bir kullanıcıya ba�
 kullanıcıya bağlanamaz (409). İşlemler tek adımlıdır (§D61-b) ve kullanıcı adıyla
 `TELEGRAM_USER_CHANGED` yazar (`target_user_id`, `telegram_id`, `allowed`, `added`). Bot üzerinden
 kendini kaydettirme, davet ya da doğrulama kodu yoktur. Commit her zaman çağırana aittir.
+
+**Kimlik nereden gelir (PLAN §D86).** Kimlik telefon numarası değil, Telegram'ın hesaba verdiği
+değişmez sayıdır; bot gönderenin `user.id`'sini bununla karşılaştırır. Kişi kendi kimliğini
+Telegram'da @userinfobot'a yazarak öğrenir; bot `Id: 123456789` satırıyla yanıt verir. Panel bu
+satırı kopyalanmış hâliyle de kabul eder (`parse_telegram_id`).
 """
 
 from __future__ import annotations
+
+import re
 
 from sqlalchemy import Select, select, update
 from sqlalchemy.exc import IntegrityError
@@ -30,7 +37,17 @@ TELEGRAM_ID_MAX = 2**63 - 1
 TELEGRAM_ID_MAX_DIGITS = len(str(TELEGRAM_ID_MAX))
 
 
-INVALID_TELEGRAM_ID = "Telegram kimliği pozitif bir tam sayı olmalı (yalnız rakam)."
+INVALID_TELEGRAM_ID = (
+    "Telegram kimliği yalnız rakamlardan oluşan pozitif bir sayı olmalı (örn. 123456789). Telefon "
+    "numarası değildir: kişi kimliğini Telegram'da @userinfobot'a yazarak öğrenir."
+)
+
+USERINFOBOT_URL = "https://t.me/userinfobot"
+"""Kişinin kendi Telegram kimliğini öğrendiği bot; yanıtı `Id: 123456789` satırını taşır."""
+
+# @userinfobot yanıtından kopyalanan satır: `Id: 123456789` (harf büyüklüğü, iki nokta ve boşluk
+# isteğe bağlı; Türkçe klavyede `İd`/`ıd` da). Sayı kısmı aşağıdaki kuralla ayrıca denetlenir.
+_PASTED_ID = re.compile(r"[iIİı][dD]\s*:?\s*(\S+)")
 
 
 class TelegramIdError(ValueError):
@@ -66,10 +83,14 @@ def is_permitted(account: TelegramUser | None) -> bool:
 
 
 def parse_telegram_id(value: str) -> int:
-    """Formdan gelen kimlik: yalnız ASCII rakam, 1 ile `TELEGRAM_ID_MAX` arası."""
+    """Formdan gelen kimlik: yalnız ASCII rakam, 1 ile `TELEGRAM_ID_MAX` arası. @userinfobot
+    yanıtından kopyalanan `Id: 123456789` satırı da kabul edilir; sayı kısmı aynı kurala uyar."""
     text = value.strip()
     if not text:
         raise TelegramIdError("Telegram kimliği boş olamaz.")
+    pasted = _PASTED_ID.fullmatch(text)
+    if pasted is not None:
+        text = pasted.group(1)
     if not (text.isascii() and text.isdigit()) or len(text) > TELEGRAM_ID_MAX_DIGITS:
         raise TelegramIdError(INVALID_TELEGRAM_ID)
     telegram_id = int(text)

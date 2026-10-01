@@ -18,6 +18,12 @@ Blok biçimi `CONVENTIONS.md` §3'te tanımlıdır:
 
 ## Task log (newest-first)
 
+## 148 — 12.1-c Telegram kimliği rehberi: @userinfobot, kopyalanan `Id:` satırı — done — 2026-10-01
+- Yapıldı: Bot eşleşmesi zaten sayısal hesap kimliğiyle (`effective_user.id`; telefon numarası ya da kullanıcı adı değil) — değişmedi. Kullanıcılar sayfası kimliğin ne olduğunu ve @userinfobot'tan nasıl öğrenileceğini söyler; `parse_telegram_id` kopyalanan `Id: 123456789` satırını da kabul eder; HTML `pattern` kalktı; hata mesajı yol gösterir; README notu (§D86).
+- Doğrulama: ruff check/format, compileall, `import app.main`; `pytest -q -m "not live" --cov=app` sekiz paralel grupta 6177 geçti, 6 atlandı, 0 kırmızı, `coverage report --fail-under=70` exit 0, birleşik kapsam %99 (`whitelist.py`, `users.py` %100); 5 kabul durumu kural bozmasında kırmızı.
+- Varsayımlar: Bota özel eşleştirme bağlantısı (deep link) insan kararıyla şimdilik yok; @userinfobot yalnız yönlendirmedir, koda bağlanmaz. 99 (Faz 2 kapanışı) 148'i de bekler.
+- Sonraki pencereye not: Dal `task/148-telegram-kimlik-rehberi`, `task/147-…`'dan çıkıyor; `main` bu commit'e ileri alınır. `icon.png` yine commit dışında.
+
 ## 147 — 10.1-e Menü sırası ve ana sayfa Çalışanlar — done — 2026-10-01
 - Yapıldı: İnsan kararıyla menü Çalışanlar · Yükle · Belge Türleri · Belge Grupları · Kuyruklar · Yüklemeler · Eğitim modu · Kullanıcılar sırasına girdi; `/` ilk menü öğesine gittiği için ana sayfa `/employees` oldu (§D85). PRD 10.1.1 kabul metni güncellendi.
 - Doğrulama: ruff check/format, compileall, `import app.main`; `pytest -q -m "not live"` sekiz paralel grupta 6160 geçti, 6 atlandı, 0 kırmızı.
