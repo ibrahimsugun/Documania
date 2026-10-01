@@ -16,7 +16,7 @@ yazılır (kişisel değer taşıyabilir, CONVENTIONS §6).
 tutulmaz — SQLite'ta açık işlem yazma kilidini tutar ve yükleme işini bekletirdi (`app.db.session`):
 
 1. Sahiplen ve commit et; ayrı kısa bir işlemde girdiyi oku (`read`), oturumu kapat.
-2. Sağlayıcıyı çağır (`call`); kullanım `measure_usage` ile ölçülür.
+2. Sağlayıcıyı çağır (`call`).
 3. Yeni işlemde sahiplik hâlâ bu birimdeyse sonucu yaz (`write`) ve sahipliği bırak; değilse
    (süresi doldu ve başka bir işleyici aldı) hiçbir şey yazma.
 
@@ -30,9 +30,8 @@ değerleri) ve bir daha denenmez: birim hatayla bittiyse hemen (işin `failed` k
 çağrılır), işleyicisi yarıda kaldıysa sahiplenmesinin süresi dolunca (`abandon_exhausted`; tablonun
 `abandoned` kancası aynı işlemde çağrılır).
 
-**Maliyet.** Birimin yapay zekâ çağrılarının olayı `usage` (ve gerekirse `usage_by_model`) verisini
-`app.events.usage_event_data` ile taşır; olay türü `USAGE_EVENT_TYPES`'a eklenince maliyet paneli
-(13.1.1, `app.web.routers.metrics`) onu sayar.
+**Olay verisi.** Birimin yapay zekâ çağrılarının olayı sağlayıcı ve modeli
+`app.events.ai_call_event_data` ile taşır; token sayısı ve maliyet tutulmaz (PLAN §D84).
 """
 
 from __future__ import annotations
@@ -47,7 +46,6 @@ from sqlalchemy import ColumnElement, and_, inspect, or_, select, update
 from sqlalchemy.orm import InstrumentedAttribute, Session, sessionmaker
 
 from app.ai.provider import AnalysisProvider
-from app.ai.usage import UsageMeter, measure_usage
 from app.config import Settings
 from app.db.models import IdleClaimMixin, utcnow
 from app.storage import DataLayout
@@ -232,15 +230,15 @@ def run_idle_unit[M: IdleClaimMixin, I, O](
     name: str,
     read: Callable[[Session, M], I],
     call: Callable[[AnalysisProvider, I], O],
-    write: Callable[[Session, M, O, UsageMeter], None],
-    failed: Callable[[Session, M, UsageMeter, bool], None] | None = None,
+    write: Callable[[Session, M, O], None],
+    failed: Callable[[Session, M, bool], None] | None = None,
 ) -> bool:
     """Tek boş-zaman birimi (modül açıklaması); bir satır sahiplenildiyse `True`.
 
     `read` girdiyi sahiplenilmiş satırdan okur (oturum sonra kapanır; dönen değer oturumdan bağımsız
     olmalıdır), `call` sağlayıcıyı açık oturum olmadan çağırır, `write` sonucu aynı işlemde satıra
-    yazar (olayını da; kullanım `meter`'dadır). Adımlardan biri hata verirse satır bırakılır —
-    deneme tükendiyse kalıcı başarısız olur — `failed(session, row, meter, final)` varsa aynı
+    yazar (olayını da). Adımlardan biri hata verirse satır bırakılır —
+    deneme tükendiyse kalıcı başarısız olur — `failed(session, row, final)` varsa aynı
     işlemde çağrılır (ör. olay) ve istisna yükselir: işleyici yalnız türünü loglar.
     """
     settings = context.settings
@@ -258,25 +256,24 @@ def run_idle_unit[M: IdleClaimMixin, I, O](
     if claim is None:
         return False
 
-    with measure_usage() as meter:
-        try:
-            with context.session_factory() as session:
-                row = table.owned(session, claim)
-                if row is None:
-                    return _lost(name, claim)
-                source = read(session, row)
-                session.rollback()  # okuma işlemi de SQLite yazma kilidini tutar
-            result = call(context.provider, source)
-            with context.session_factory() as session:
-                row = table.owned(session, claim)
-                if row is None:
-                    return _lost(name, claim)
-                write(session, row, result, meter)
-                table.clear(row)
-                session.commit()
-        except Exception:
-            _give_back(context, table, claim, meter, failed)
-            raise
+    try:
+        with context.session_factory() as session:
+            row = table.owned(session, claim)
+            if row is None:
+                return _lost(name, claim)
+            source = read(session, row)
+            session.rollback()  # okuma işlemi de SQLite yazma kilidini tutar
+        result = call(context.provider, source)
+        with context.session_factory() as session:
+            row = table.owned(session, claim)
+            if row is None:
+                return _lost(name, claim)
+            write(session, row, result)
+            table.clear(row)
+            session.commit()
+    except Exception:
+        _give_back(context, table, claim, failed)
+        raise
     return True
 
 
@@ -284,8 +281,7 @@ def _give_back[M: IdleClaimMixin](
     context: IdleContext,
     table: IdleTable[M],
     claim: IdleClaim,
-    meter: UsageMeter,
-    failed: Callable[[Session, M, UsageMeter, bool], None] | None,
+    failed: Callable[[Session, M, bool], None] | None,
 ) -> None:
     with context.session_factory() as session:
         row = table.owned(session, claim)
@@ -293,7 +289,7 @@ def _give_back[M: IdleClaimMixin](
             return
         final = table.release(row, max_attempts=context.settings.worker_max_attempts)
         if failed is not None:
-            failed(session, row, meter, final)
+            failed(session, row, final)
         session.commit()
 
 

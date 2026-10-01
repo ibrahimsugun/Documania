@@ -6,27 +6,12 @@ yol/model adı bulunmaz — yeni ayara ihtiyaç duyan modül burada bir alan aç
 
 from __future__ import annotations
 
-from decimal import Decimal
 from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, SecretStr, ValidationError, field_validator
+from pydantic import Field, SecretStr, ValidationError, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
-
-
-class ModelPrice(BaseModel):
-    """Bir modelin token fiyatı: bir milyon token başına USD (PRD 13.1.1).
-
-    `cached_input_per_mtok` sağlayıcının önbellekten okuduğu girdi tokenının fiyatıdır; yoksa o
-    tokenlar da `input_per_mtok` ile hesaplanır.
-    """
-
-    model_config = ConfigDict(frozen=True, extra="forbid")
-
-    input_per_mtok: Decimal = Field(ge=0, allow_inf_nan=False)
-    output_per_mtok: Decimal = Field(ge=0, allow_inf_nan=False)
-    cached_input_per_mtok: Decimal | None = Field(default=None, ge=0, allow_inf_nan=False)
 
 
 class Settings(BaseSettings):
@@ -77,12 +62,6 @@ class Settings(BaseSettings):
     # analiz edilen tür sayısıyla ölçeklenir: `max(4000, 200 × tür sayısı)`
     # (`app.catalog.prompt_builder.effective_token_budget`, bkz. PLAN.md §C88).
     catalog_token_budget: int | None = Field(default=None, gt=0)
-    # PRD 13.1.1 — maliyet paneli token fiyatlarını yerleşik fiyat tablosundan okur
-    # (`app/ai/model_prices.yaml`, `app.ai.pricing`); bu ayar aynı model için onun önüne geçer
-    # (JSON: `{"<model>": {"input_per_mtok": 5, "output_per_mtok": 25,
-    # "cached_input_per_mtok": 0.5}}`, birim USD / milyon token, önbellek fiyatı isteğe bağlı).
-    # İkisinde de olmayan modelin tokenları sayılır, maliyeti hesaplanmaz (bkz. PLAN.md §C77).
-    ai_model_prices: dict[str, ModelPrice] = Field(default_factory=dict)
     # PRD 13.3.1 — kalıcı işçi kuyruğu ayrı `python -m app.worker` sürecinde çalışır; APP yalnız
     # HTTP sunar. İşi alan worker kirasını (`WORKER_LEASE_SECONDS`) her geçişte ve kiranın üçte
     # birinde bir yeniler; kirası dolan iş sahipsiz sayılır ve yeniden alınır. Kirası

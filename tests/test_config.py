@@ -1,4 +1,3 @@
-from decimal import Decimal
 from pathlib import Path
 
 import pytest
@@ -292,65 +291,6 @@ def test_invalid_telegram_port_rejected(
 
     with pytest.raises(ValidationError, match=name.lower()):
         load_settings(_env_file=None)
-
-
-def test_model_prices_default_empty_and_read_json_environment(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    # 13.1.1: maliyet paneli fiyatları model adına göre bu tablodan okur.
-    monkeypatch.setenv("DATABASE_URL", "sqlite:///./data/test.db")
-    monkeypatch.delenv("AI_MODEL_PRICES", raising=False)
-    assert load_settings(_env_file=None).ai_model_prices == {}
-
-    monkeypatch.setenv(
-        "AI_MODEL_PRICES",
-        '{"claude-test": {"input_per_mtok": 5, "output_per_mtok": 25.5},'
-        ' "gpt-test": {"input_per_mtok": "1.25", "output_per_mtok": 10}}',
-    )
-    prices = load_settings(_env_file=None).ai_model_prices
-
-    assert set(prices) == {"claude-test", "gpt-test"}
-    assert (prices["claude-test"].input_per_mtok, prices["claude-test"].output_per_mtok) == (
-        Decimal(5),
-        Decimal("25.5"),
-    )
-    assert prices["gpt-test"].input_per_mtok == Decimal("1.25")
-
-
-@pytest.mark.parametrize(
-    "value",
-    [
-        '{"m": {"input_per_mtok": -1, "output_per_mtok": 1}}',
-        '{"m": {"input_per_mtok": 1}}',
-        '{"m": {"input_per_mtok": 1, "output_per_mtok": 1, "currency": "TRY"}}',
-        '{"m": {"input_per_mtok": "abc", "output_per_mtok": 1}}',
-    ],
-)
-def test_invalid_model_prices_are_rejected(monkeypatch: pytest.MonkeyPatch, value: str) -> None:
-    monkeypatch.setenv("DATABASE_URL", "sqlite:///./data/test.db")
-    monkeypatch.setenv("AI_MODEL_PRICES", value)
-
-    with pytest.raises(ValidationError, match="ai_model_prices"):
-        load_settings(_env_file=None)
-
-
-def test_env_example_documents_model_prices_with_a_working_example(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    example = (Path(__file__).resolve().parents[1] / ".env.example").read_text(encoding="utf-8")
-    (line,) = [line for line in example.splitlines() if line.startswith("# AI_MODEL_PRICES=")]
-    env_file = tmp_path / ".env"
-    env_file.write_text(
-        "DATABASE_URL=sqlite:///./data/test.db\n" + line.removeprefix("# ") + "\n",
-        encoding="utf-8",
-    )
-    monkeypatch.delenv("AI_MODEL_PRICES", raising=False)
-
-    prices = load_settings(_env_file=env_file).ai_model_prices
-
-    # Örnek tabloda olmayan bir modeli önbellek fiyatıyla ekler (yerleşik tablo, C77).
-    assert set(prices) == {"my-model"}
-    assert prices["my-model"].cached_input_per_mtok == Decimal("0.5")
 
 
 WORKER_VARIABLES = (

@@ -15,7 +15,6 @@ import threading
 import time
 from collections.abc import Callable
 from datetime import date, timedelta
-from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
@@ -25,9 +24,8 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from app.ai.provider import AnalysisProvider, PageAnalysisRequest, TrainingClassificationRequest
 from app.ai.recording_provider import RecordingProvider
-from app.ai.usage import report_usage
 from app.catalog.propose import CandidateExaminationJob
-from app.config import ModelPrice, Settings
+from app.config import Settings
 from app.db.models import (
     Event,
     JobStatus,
@@ -41,12 +39,7 @@ from app.db.models import (
     UploadStatus,
     utcnow,
 )
-from app.events import (
-    AI_STEP_EVENT_TYPES,
-    USAGE_DATA_KEY,
-    EventType,
-    is_ai_call_event,
-)
+from app.events import EventType
 from app.storage import DataLayout
 from app.training import (
     create_run,
@@ -63,7 +56,6 @@ from app.training.classification import (
     TrainingClassificationJob,
 )
 from app.training.map_scan import TrainingMapJob
-from app.web.routers import metrics
 from app.web.routers.uploads import IncomingFile, store_upload
 from app.worker import IdleContext, IdleJob, Worker, create_worker, default_idle_jobs
 from tests.ai.payloads import training_payload
@@ -106,7 +98,6 @@ class Classifier(AnalysisProvider):
         self.requests.append(request)
         self.pool_checked_out.append(self._engine.pool.checkedout())
         self.write_lock_free.append(_write_lock_free(self._database))
-        report_usage(800, 200)
         return self._response
 
 
@@ -302,7 +293,7 @@ def test_a_failing_classification_counts_attempts_and_waits_unplaced_at_the_limi
     assert [event["status"] for event in events] == ["ai_pending", "ai_pending", "unplaced"]
     for event in events:
         assert event["error"] == "TrainingClassificationError"
-        assert event[USAGE_DATA_KEY] == {"input_tokens": 800, "output_tokens": 200}
+        assert event["provider"] and event["model"]
         assert SECRET not in str(event)
     assert job.run_one(context) is False
     assert len(provider.requests) == 3
@@ -363,9 +354,7 @@ def test_an_abandoned_item_out_of_attempts_waits_unplaced_and_its_run_is_recount
     assert (run.status, run.counts_json) == ("done", {"unplaced": 1})
     (event,) = _unplaced_events(session_factory)
     assert event["status"] == "unplaced"
-    assert "provider" not in event  # ölçülmemiş: maliyet görünümünde sayılmaz
-    with session_factory() as session:
-        assert metrics.build_overview(session, {}).total.analyses == 0
+    assert "provider" not in event  # yapay zekâ çağrısı yok: sağlayıcı alanı da yok
 
 
 @pytest.mark.usefixtures("catalog")
@@ -471,11 +460,11 @@ def test_the_idle_job_is_left_idle_while_the_thread_runs_uploads(
     assert calls[:4] == ["tarama:True", "tarama:True", "tarama:False", "egitim"]
 
 
-# --- maliyet ---------------------------------------------------------------------------------
+# --- olay verisi -----------------------------------------------------------------------------
 
 
 @pytest.mark.usefixtures("catalog")
-def test_only_the_ai_step_enters_the_cost_view(
+def test_only_the_ai_step_writes_a_provider_field(
     engine: Engine, session_factory: sessionmaker[Session], layout: DataLayout, database: Path
 ) -> None:
     (item_id,) = _items(session_factory, layout)
@@ -496,38 +485,16 @@ def test_only_the_ai_step_enters_the_cost_view(
             session, layout, known, other, "work_permit", method=TrainingMethod.MANUAL, actor="ik"
         )
         session.commit()
-    prices = {MODEL: ModelPrice(input_per_mtok=Decimal(1), output_per_mtok=Decimal(2))}
 
     with session_factory() as session:
         placed = session.scalars(
             select(Event).where(Event.type == EventType.TRAINING_EXAMPLE_PLACED.value)
         ).all()
-        overview = metrics.build_overview(session, prices)
 
     assert len(placed) == 2
-    assert EventType.TRAINING_EXAMPLE_PLACED in metrics.USAGE_EVENT_TYPES
-    assert EventType.TRAINING_ITEM_UNPLACED in metrics.USAGE_EVENT_TYPES
-    assert overview.total.analyses == 1
-    assert overview.total.unmetered == 0
-    assert (overview.total.input_tokens, overview.total.output_tokens) == ("800", "200")
-    assert overview.total.cost == "0.0012 USD"
-    assert overview.batches == ()  # parti kalemi değildir
-    assert len(overview.months) == 1
+    # Yalnız yapay zekâ adımının olayı sağlayıcı alanını taşır.
+    assert [bool((event.data_json or {}).get("provider")) for event in placed].count(True) == 1
     assert _item(session_factory, item_id).status == "placed"
-
-
-def test_ai_step_event_types_count_only_with_a_provider() -> None:
-    assert set(AI_STEP_EVENT_TYPES) == {
-        EventType.TRAINING_EXAMPLE_PLACED,
-        EventType.TRAINING_ITEM_UNPLACED,
-    }
-    for event_type in AI_STEP_EVENT_TYPES:
-        assert is_ai_call_event(event_type.value, {"provider": "sahte", "model": MODEL})
-        assert not is_ai_call_event(event_type.value, {"method": "mechanical"})
-        assert not is_ai_call_event(event_type.value, None)
-    # Öteki türler ölçülmemiş olsa da çağrıdır ("ölçülmemiş" sütunu).
-    assert is_ai_call_event(EventType.PAGE_ANALYZED.value, {})
-    assert is_ai_call_event(EventType.CANDIDATE_TYPE_EXAMINED.value, None)
 
 
 # --- kayıt -----------------------------------------------------------------------------------

@@ -422,14 +422,6 @@ form.inline { display: inline; margin: 0 0 0 0.6rem; }
 
 .description-parts ul { margin: 0; padding-left: 1.25rem; }
 
-/* Maliyet ölçümü (13.1.1) */
-
-.metrics { width: 100%; border-collapse: collapse; background: #fff; }
-
-.metrics th, .metrics td { padding: 0.35rem 0.5rem; text-align: left; border-bottom: 1px solid #eef0f3; }
-
-.metrics th.num, .metrics td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
-
 /* Erişim logu (13.4.1) */
 
 .access-log { width: 100%; border-collapse: collapse; background: #fff; margin-bottom: 0.5rem; }
@@ -517,7 +509,7 @@ h1 { margin: 0 0 0.4rem; font-size: 1.65rem; letter-spacing: -0.01em; }
 /* --- Tablolar --------------------------------------------------------- */
 
 .files, .items, .outputs, .queue, .queue-items,
-.employees, .catalog, .metrics, .access-log {
+.employees, .catalog, .access-log {
   border: 1px solid #d8dee4;
   border-radius: 8px;
   border-spacing: 0;
@@ -526,7 +518,7 @@ h1 { margin: 0 0 0.4rem; font-size: 1.65rem; letter-spacing: -0.01em; }
 }
 
 .files th, .items th, .outputs th, .queue th, .queue-items th,
-.employees th, .catalog th, .metrics th, .access-log th {
+.employees th, .catalog th, .access-log th {
   padding: 0.6rem 0.75rem;
   background: #f2f4f7;
   border-bottom: 1px solid #d8dee4;
@@ -539,7 +531,7 @@ h1 { margin: 0 0 0.4rem; font-size: 1.65rem; letter-spacing: -0.01em; }
 }
 
 .files td, .items td, .outputs td, .queue td, .queue-items td,
-.employees td, .catalog td, .metrics td, .access-log td {
+.employees td, .catalog td, .access-log td {
   padding: 0.6rem 0.75rem;
   border-bottom: 1px solid #eef0f3;
 }
@@ -547,7 +539,7 @@ h1 { margin: 0 0 0.4rem; font-size: 1.65rem; letter-spacing: -0.01em; }
 /* Son satırın alt çizgisi tablonun kendi çerçevesiyle çakışmasın. */
 .files tr:last-child td, .items tr:last-child td, .outputs tr:last-child td,
 .queue tr:last-child td, .queue-items tr:last-child td, .employees tr:last-child td,
-.catalog tr:last-child td, .metrics tr:last-child td, .access-log tr:last-child td {
+.catalog tr:last-child td, .access-log tr:last-child td {
   border-bottom: 0;
 }
 
@@ -555,12 +547,12 @@ h1 { margin: 0 0 0.4rem; font-size: 1.65rem; letter-spacing: -0.01em; }
 .files tbody tr:nth-child(even), .items tbody tr:nth-child(even),
 .outputs tbody tr:nth-child(even), .queue tbody tr:nth-child(even),
 .queue-items tbody tr:nth-child(even), .employees tbody tr:nth-child(even),
-.catalog tbody tr:nth-child(even), .metrics tbody tr:nth-child(even),
+.catalog tbody tr:nth-child(even),
 .access-log tbody tr:nth-child(even) { background: #fbfcfd; }
 
 .files tbody tr:hover, .items tbody tr:hover, .outputs tbody tr:hover,
 .queue tbody tr:hover, .queue-items tbody tr:hover, .employees tbody tr:hover,
-.catalog tbody tr:hover, .metrics tbody tr:hover,
+.catalog tbody tr:hover,
 .access-log tbody tr:hover { background: #eef5fc; }
 
 /* Kuyruğa düşen satırın sarısı şeridin altında kalmasın (yukarıdaki
@@ -940,14 +932,14 @@ form:not(.session) button[type="submit"]:hover,
 .step-current { background: var(--accent); border-color: var(--accent); color: #fff; }
 
 .files, .items, .outputs, .queue, .queue-items,
-.employees, .catalog, .metrics, .access-log {
+.employees, .catalog, .access-log {
   border-color: var(--line);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-sm);
 }
 
 .files th, .items th, .outputs th, .queue th, .queue-items th,
-.employees th, .catalog th, .metrics th, .access-log th {
+.employees th, .catalog th, .access-log th {
   padding: 0.7rem 0.8rem;
   background: #edf3f1;
   border-bottom-color: var(--line);
@@ -957,17 +949,17 @@ form:not(.session) button[type="submit"]:hover,
 }
 
 .files td, .items td, .outputs td, .queue td, .queue-items td,
-.employees td, .catalog td, .metrics td, .access-log td { padding: 0.72rem 0.8rem; }
+.employees td, .catalog td, .access-log td { padding: 0.72rem 0.8rem; }
 
 .files tbody tr:nth-child(even), .items tbody tr:nth-child(even),
 .outputs tbody tr:nth-child(even), .queue tbody tr:nth-child(even),
 .queue-items tbody tr:nth-child(even), .employees tbody tr:nth-child(even),
-.catalog tbody tr:nth-child(even), .metrics tbody tr:nth-child(even),
+.catalog tbody tr:nth-child(even),
 .access-log tbody tr:nth-child(even) { background: #fbfcfc; }
 
 .files tbody tr:hover, .items tbody tr:hover, .outputs tbody tr:hover,
 .queue tbody tr:hover, .queue-items tbody tr:hover, .employees tbody tr:hover,
-.catalog tbody tr:hover, .metrics tbody tr:hover,
+.catalog tbody tr:hover,
 .access-log tbody tr:hover { background: #f0f8f6; }
 
 .items tbody tr.route-unknown, .items tbody tr.route-unreadable,

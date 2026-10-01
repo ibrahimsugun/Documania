@@ -52,48 +52,11 @@ not — `app.pipeline.plan`). Kontrol yapılamazsa — sağlayıcı hatası, şe
 `PAGE_ANALYSIS_FAILED`, verisinde `step: photo_check`; parti `partial`): değerlendirilmemiş
 fotoğraf Hazir'a gidemez, yeniden analizle yeniden denenir.
 
-**Token kullanımı (13.1.1).** Bir sayfa için yapılan sağlayıcı çağrıları — analiz ve varsa
-fotoğraf kontrolü — tek ölçümde (`app.ai.usage.measure_usage`) toplanır; toplam sayfanın
-`PAGE_ANALYZED` ya da `PAGE_ANALYSIS_FAILED` olayının `usage` alanına yazılır (başarısız sayfa da
-token harcamış olabilir). Sağlayıcı hiç yanıt vermediyse (hız sınırı, bağlantı hatası) ya da
-kullanım bildirmiyorsa (test sağlayıcıları) alan yazılmaz. Maliyet burada hesaplanmaz, panelde
-gösterilir (`app.web.routers.metrics`). `usage` ile birlikte `catalog_tokens` da yazılır:
-talimattaki katalog metninin tahmini tokenı × talimatı taşıyan istek sayısı (ön eleme ve ana
-analiz, 11.4.3).
-
-**İçerik korunur (11.7.2).** Kontrol yalnız okur: kaynak dosya, sayfa görüntüsü ve fotoğraf
-kırpılmaz, düzeltilmez, arka planı değiştirilmez; hiçbir dosya yazılmaz (K11, K17). Fotoğraf
-kontrolden geçse de geçmese de çıktısı planın seçtiği kayıpsız işlemle kaynaktan üretilir.
-
-**Ucuz model ön elemesi (13.2.1).** Sağlayıcının ön eleme modeli varsa
-(`AnalysisProvider.prescreen_provider`, `<SAĞLAYICI>_PRESCREEN_MODEL`) her sayfanın isteği önce
-ona gider — aynı istek, aynı görüntü ve metin. Yanıt kolay sayfaysa sayfanın analizi odur; değilse
-atılır ve aynı istek ana modele gider. Ana modelin yanıtı ön elemenin yanıtıyla birleştirilmez,
-yerine geçer; ucuz yanıt hiçbir yere yazılmaz. Ayrı bir güven skoru yoktur (K1): kolay sayfa
-yanıtın kendi içeriğinden, deterministik olarak tanınır (`prescreen_escalation`):
-
-- sayfa boş değil (içerik tespiti 02.4.1 onu boş saymadı; ucuz modelin "boş" demesi çelişkidir) ve
-  okunabilir;
-- türü katalogda belirlenmiş (katalog dışı ya da belirsiz tür, aday tür önerisi ana modelindir);
-- türün zorunlu alanlarının **hepsi bu sayfada** okunaklı (K1 sayfanın kendisinde sağlanıyor;
-  alanı öteki yüzde olan kart sayfası kolay değildir);
-- analizci not yazmamış (`notes` okunaklılık, belirsizlik ve karşılanmayan kabul kriteri içindir;
-  söylenecek bir şey yoksa boştur);
-- kimlik anahtarı doğrulanabilir: MRZ varsa ayrıştırılır, her kontrol hanesi tutar ve görünen
-  okumayla çelişmez (05.3); MRZ yoksa sayfada belge numarası okunmamıştır — kontrol hanesiyle
-  doğrulanamayan numara çalışan eşleştirmesini (K6) ve otomatik profili (K7) belirler, ana modele
-  gider;
-- türün zorunlu alanlarında doğum tarihi varsa sayfada kontrol haneleri tutan MRZ vardır — doğum
-  tarihi eşleştirmeyi (K6, satır 3) ve ad + doğum tarihiyle otomatik profili (K7, §20.2.2 satır 6b,
-  §20.2.4) belirler; MRZ'siz sayfada ucuz modelin doğrulanmamış okuması bu yola dayanak olmaz,
-  sayfa ana modele gider (PLAN.md §C84).
-
 Ucuz model yanıt vermezse ya da yanıtı şemaya uymazsa sayfa da ana modele gider; ön eleme sayfayı
 hiçbir koşulda başarısız yapmaz. Fotoğraf kontrolü (11.7.1) her zaman ana modelle yapılır. Yeniden
 analiz (06.6.2) ön elemesiz çalışır (`prescreen=False`): İK'nın şüphelendiği parti ana modele
 gider. Sonuç olay verisindedir: `model` analizi kabul edilen model, `prescreen` ön elemenin modeli
-ve kararı (reddedildiyse gerekçesi, `Escalation`), `usage_by_model` sayfanın tokenlarının modellere
-dağılımı — maliyet her modelin kendi fiyatıyla hesaplanır (`app.web.routers.metrics`).
+ve kararı (reddedildiyse gerekçesi, `Escalation`). Token sayısı ve maliyet tutulmaz (PLAN §D84).
 """
 
 from __future__ import annotations
@@ -114,15 +77,12 @@ from app.ai.provider import (
     ProviderError,
 )
 from app.ai.schemas import PageAnalysis, PageAnalysisError
-from app.ai.usage import TokenUsage, UsageMeter, measure_usage
 from app.catalog.photo_rules import RESOLUTION_RULE, PhotoRuleSetting
 from app.db.models import Page, Upload, UploadFile, UploadStatus
 from app.events import (
-    CATALOG_TOKENS_DATA_KEY,
     PRESCREEN_DATA_KEY,
-    USAGE_BY_MODEL_DATA_KEY,
-    USAGE_DATA_KEY,
     EventType,
+    ai_call_event_data,
     event_context,
     record_event,
 )
@@ -219,13 +179,11 @@ class PreviousPage:
 
 @dataclass(frozen=True, slots=True)
 class _Screening:
-    """Bir sayfanın ön elemesi (13.2.1): ucuz model, kararı ve ona harcanan tokenlar."""
+    """Bir sayfanın ön elemesi (13.2.1): ucuz model ve kararı."""
 
     model: str
     escalation: Escalation | None
     error: str | None
-    usage: TokenUsage
-    calls: int
 
     def to_event_data(self) -> dict[str, object]:
         data: dict[str, object] = {"model": self.model, "accepted": self.escalation is None}
@@ -528,36 +486,10 @@ def _analyze_page(
     instructions: PageAnalysisInstructions,
     prescreener: AnalysisProvider | None,
 ) -> PageOutcome:
-    # Sayfa için yapılan tüm sağlayıcı çağrıları (ön eleme, analiz, varsa fotoğraf kontrolü) tek
-    # ölçümde toplanır ve sayfanın olayına yazılır (13.1.1).
-    with measure_usage() as meter:
-        return _analyze_page_metered(
-            session,
-            layout,
-            page,
-            prompt,
-            provider=provider,
-            instructions=instructions,
-            prescreener=prescreener,
-            meter=meter,
-        )
-
-
-def _analyze_page_metered(
-    session: Session,
-    layout: DataLayout,
-    page: Page,
-    prompt: str,
-    *,
-    provider: AnalysisProvider,
-    instructions: PageAnalysisInstructions,
-    prescreener: AnalysisProvider | None,
-    meter: UsageMeter,
-) -> PageOutcome:
     try:
         image = load_page_image(layout, page)
     except PageImageError as exc:
-        return _fail(session, page, exc, provider, meter=meter)
+        return _fail(session, page, exc, provider)
     request = PageAnalysisRequest(
         page_index=page.index,
         image=image,
@@ -568,27 +500,15 @@ def _analyze_page_metered(
     analysis: PageAnalysis | None = None
     analyzed_by = provider
     screening: _Screening | None = None
-    # Talimatı (katalog metnini) taşıyan istek sayısı: ön eleme ve ana analiz (11.4.3).
-    requests = 0
     if prescreener is not None:
-        requests += 1
         analysis, screening = _prescreen(prescreener, request, instructions)
         if analysis is not None:
             analyzed_by = prescreener
     if analysis is None:
-        requests += 1
         try:
             analysis = provider.analyze_page(request)
         except (ProviderError, PageAnalysisError) as exc:
-            return _fail(
-                session,
-                page,
-                exc,
-                provider,
-                meter=meter,
-                screening=screening,
-                catalog_tokens=_catalog_tokens(instructions, requests),
-            )
+            return _fail(session, page, exc, provider, screening=screening)
     photo_check: PhotoCheck | None = None
     rules = _photo_rules(instructions, analysis)
     if rules:
@@ -602,11 +522,9 @@ def _analyze_page_metered(
                 page,
                 exc,
                 provider,
-                meter=meter,
                 model=analyzed_by.model,
                 screening=screening,
                 step="photo_check",
-                catalog_tokens=_catalog_tokens(instructions, requests),
             )
 
     page.analysis_json = analysis.model_dump(mode="json")
@@ -614,13 +532,7 @@ def _analyze_page_metered(
     page.photo_check_json = None if photo_check is None else photo_check.model_dump(mode="json")
     # Olay verisi kişisel değer taşımaz (CONVENTIONS §6); değerler `pages.analysis_json`'dadır.
     data: dict[str, object] = {
-        **_provider_data(
-            provider,
-            meter,
-            model=analyzed_by.model,
-            screening=screening,
-            catalog_tokens=_catalog_tokens(instructions, requests),
-        ),
+        **_provider_data(provider, model=analyzed_by.model, screening=screening),
         "document_type_slug": analysis.document_type_slug,
         "side": analysis.side.value,
         "is_readable": analysis.is_readable,
@@ -652,21 +564,13 @@ def _prescreen(
     analysis: PageAnalysis | None = None
     escalation: Escalation | None = None
     error: str | None = None
-    # İç içe ölçüm: ucuz modelin tokenları sayfanın toplamına da girer (13.1.1).
-    with measure_usage() as meter:
-        try:
-            analysis = prescreener.analyze_page(request)
-        except (ProviderError, PageAnalysisError) as exc:
-            escalation, error = Escalation.FAILED, type(exc).__name__
+    try:
+        analysis = prescreener.analyze_page(request)
+    except (ProviderError, PageAnalysisError) as exc:
+        escalation, error = Escalation.FAILED, type(exc).__name__
     if analysis is not None:
         escalation = prescreen_escalation(analysis, instructions)
-    screening = _Screening(
-        model=prescreener.model,
-        escalation=escalation,
-        error=error,
-        usage=meter.usage,
-        calls=meter.calls,
-    )
+    screening = _Screening(model=prescreener.model, escalation=escalation, error=error)
     return (analysis if escalation is None else None), screening
 
 
@@ -694,20 +598,16 @@ def _fail(
     exc: Exception,
     provider: AnalysisProvider,
     *,
-    meter: UsageMeter,
     model: str | None = None,
     screening: _Screening | None = None,
     step: str | None = None,
-    catalog_tokens: int | None = None,
 ) -> PageOutcome:
     # Eski bir analiz ya da fotoğraf kontrolü başarısız sayfanın sonucu gibi okunmasın.
     page.analysis_json = None
     page.analysis_status = PageAnalysisStatus.FAILED.value
     page.photo_check_json = None
     data: dict[str, object] = {
-        **_provider_data(
-            provider, meter, model=model, screening=screening, catalog_tokens=catalog_tokens
-        ),
+        **_provider_data(provider, model=model, screening=screening),
         "error": type(exc).__name__,
     }
     if step is not None:
@@ -733,51 +633,18 @@ def _fail(
 
 def _provider_data(
     provider: AnalysisProvider,
-    meter: UsageMeter,
     *,
     model: str | None = None,
     screening: _Screening | None = None,
-    catalog_tokens: int | None = None,
 ) -> dict[str, object]:
-    """Olayın sağlayıcı, model ve kullanım alanları; `model` analizi kabul edilen modeldir
-    (verilmezse ana model). `catalog_tokens` kullanım yazıldıysa katalog metninin payıdır
-    (`CATALOG_TOKENS_DATA_KEY`, 11.4.3)."""
-    data: dict[str, object] = {
-        "provider": provider.name,
-        "model": provider.model if model is None else model,
-    }
-    if meter.calls:
-        # Yanıt gelen çağrı yoksa (hız sınırı, bağlantı hatası) anahtar yazılmaz: sıfır token,
-        # ölçülmemiş sayfayı ölçülmüş gösterirdi (13.1.1).
-        data[USAGE_DATA_KEY] = meter.usage.to_event_data()
-        if catalog_tokens is not None:
-            data[CATALOG_TOKENS_DATA_KEY] = catalog_tokens
+    """Olayın sağlayıcı ve model alanları; `model` analizi kabul edilen modeldir (verilmezse ana
+    model). Ön eleme yapıldıysa kararı da eklenir."""
+    data = ai_call_event_data(
+        provider=provider.name, model=provider.model if model is None else model
+    )
     if screening is not None:
         data[PRESCREEN_DATA_KEY] = screening.to_event_data()
-        if meter.calls:
-            data[USAGE_BY_MODEL_DATA_KEY] = _usage_by_model(meter, screening, provider.model)
     return data
-
-
-def _catalog_tokens(instructions: PageAnalysisInstructions, requests: int) -> int | None:
-    """Sayfanın isteklerinde katalog metninin tahmini token payı; talimat elle kurulduysa
-    (`catalog_tokens` yok) ya da istek yapılmadıysa `None`."""
-    if instructions.catalog_tokens is None or not requests:
-        return None
-    return instructions.catalog_tokens * requests
-
-
-def _usage_by_model(
-    meter: UsageMeter, screening: _Screening, main_model: str
-) -> dict[str, dict[str, int]]:
-    # Sayfanın toplamından ön elemeninki düşülür, kalan ana modelindir (iki model aynı adı
-    # taşıyamaz — `AnalysisProvider`). Kullanım bildirmeyen model yazılmaz (13.1.1).
-    by_model: dict[str, dict[str, int]] = {}
-    if screening.calls:
-        by_model[screening.model] = screening.usage.to_event_data()
-    if meter.calls > screening.calls:
-        by_model[main_model] = (meter.usage - screening.usage).to_event_data()
-    return by_model
 
 
 def _document_type_text(analysis: PageAnalysis) -> str:

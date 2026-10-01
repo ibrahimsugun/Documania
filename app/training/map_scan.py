@@ -40,7 +40,6 @@ from sqlalchemy import and_, select
 from sqlalchemy.orm import Session
 
 from app.ai.provider import AnalysisProvider
-from app.ai.usage import UsageMeter
 from app.config import Settings
 from app.db.models import (
     ExampleFileRecord,
@@ -321,7 +320,7 @@ class TrainingMapJob:
         def call(provider: AnalysisProvider, source: MapScanSource) -> MapFile:
             return load_map_file(source, layout=layout, settings=settings)
 
-        def write(session: Session, item: TrainingItem, loaded: MapFile, meter: UsageMeter) -> None:
+        def write(session: Session, item: TrainingItem, loaded: MapFile) -> None:
             scan_map_item(
                 session,
                 layout,
@@ -332,7 +331,7 @@ class TrainingMapJob:
                 max_bytes=settings.max_upload_file_size_bytes,
             )
 
-        def failed(session: Session, item: TrainingItem, meter: UsageMeter, final: bool) -> None:
+        def failed(session: Session, item: TrainingItem, final: bool) -> None:
             if not final:
                 return  # öğe `queued` kalır ve yeniden denenir
             # Çerçeve bu kancayı hatanın `except` bloğunda çağırır; yalnız türü yazılır.

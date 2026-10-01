@@ -64,7 +64,6 @@ from app.ai.anthropic_provider import (
 )
 from app.ai.provider import MAX_ANALYSIS_ATTEMPTS, RETRY_BACKOFF_SECONDS
 from app.ai.schemas import ISO_639_1_CODES
-from app.ai.usage import TokenUsage, measure_usage
 from app.config import Settings, load_settings
 from tests.ai.payloads import (
     DOC_KINDS,
@@ -675,17 +674,6 @@ def test_training_client_errors_are_not_retried(no_sleep: list[float]) -> None:
     assert no_sleep == []
 
 
-def test_training_usage_is_measured_like_every_call() -> None:
-    # 13.1.1: sınıflandırma çağrısının tokenları da ölçülür; boş-zaman işi olayına yazar (§C86).
-    api = FakeApi(message([tool_use(training_payload(), name=TRAINING_TOOL_NAME)]))
-
-    with measure_usage() as meter:
-        api.provider().classify_training_page(training_request())
-
-    assert meter.usage == TokenUsage(1200, 300)
-    assert meter.calls == 1
-
-
 def test_both_providers_send_the_same_training_contract() -> None:
     assert TRAINING_TOOL_NAME == openai_module.TRAINING_TOOL_NAME
     assert TRAINING_TOOL["input_schema"] == openai_module.TRAINING_TOOL["function"]["parameters"]
@@ -845,17 +833,6 @@ def test_proposal_client_errors_are_not_retried(no_sleep: list[float]) -> None:
     assert caught.value.status_code == 400
     assert len(api.requests) == 1
     assert no_sleep == []
-
-
-def test_proposal_usage_is_measured_like_every_call() -> None:
-    # 13.1.1: taslak çağrısının tokenları da ölçülür; boş-zaman işi olayına yazar (§C85).
-    api = FakeApi(message([tool_use(proposal_payload(), name=PROPOSAL_TOOL_NAME)]))
-
-    with measure_usage() as meter:
-        api.provider().propose_type(proposal_request())
-
-    assert meter.usage == TokenUsage(1200, 300)
-    assert meter.calls == 1
 
 
 def test_both_providers_send_the_same_proposal_contract() -> None:

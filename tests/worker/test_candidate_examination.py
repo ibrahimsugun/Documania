@@ -12,7 +12,6 @@ from __future__ import annotations
 
 import json
 import sqlite3
-from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
@@ -22,14 +21,13 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from app.ai.provider import AnalysisProvider, PageAnalysisRequest, TypeProposalRequest
 from app.ai.type_proposal import TypeProposalError
-from app.ai.usage import report_usage
 from app.catalog.propose import (
     CANDIDATE_EXAMINATIONS,
     ERROR_REASON,
     JOB_NAME,
     CandidateExaminationJob,
 )
-from app.config import ModelPrice, Settings
+from app.config import Settings
 from app.db.models import (
     CandidateDocumentType,
     CandidateTypeStatus,
@@ -41,9 +39,8 @@ from app.db.models import (
     decide_candidate_type,
     record_candidate_type_sighting,
 )
-from app.events import USAGE_DATA_KEY, EventType
+from app.events import EventType
 from app.storage import DataLayout
-from app.web.routers import metrics
 from app.worker import IdleContext, IdleJob, Worker, create_worker, default_idle_jobs
 from tests.fixtures.gen import (
     PERSON_ORNEKOVA,
@@ -83,7 +80,6 @@ class ProposalProvider(AnalysisProvider):
         self.requests.append(request)
         self.pool_checked_out.append(self._engine.pool.checkedout())
         self.write_lock_free.append(_write_lock_free(self._database))
-        report_usage(1200, 400)
         return self._response
 
 
@@ -230,7 +226,6 @@ def test_an_empty_queue_lets_the_worker_examine_a_pending_candidate_without_an_o
             "pages": 2,
             "provider": "sahte",
             "model": "sahte-model",
-            USAGE_DATA_KEY: {"input_tokens": 1200, "output_tokens": 400},
         }
     ]
     # İncelenmiş aday bir daha incelenmez.
@@ -313,9 +308,7 @@ def test_a_failing_examination_counts_attempts_and_fails_permanently_at_the_limi
         ("error", "TypeProposalError"),
         ("failed", "TypeProposalError"),
     ]
-    assert all(
-        event[USAGE_DATA_KEY] == {"input_tokens": 1200, "output_tokens": 400} for event in events
-    )
+    assert all(event["provider"] == "sahte" and event["model"] == "sahte-model" for event in events)
     # Kalıcı başarısız aday bir daha denenmez.
     assert job.run_one(context) is False
     assert len(provider.requests) == 3
@@ -342,25 +335,6 @@ def test_the_worker_logs_only_the_error_type_of_a_failing_examination(
 
     assert f"Boş-zaman işi {JOB_NAME} başarısız (TypeProposalError)" in caplog.text
     assert "ORNEKOVA" not in caplog.text
-
-
-def test_the_examination_event_enters_the_cost_view(
-    engine: Engine, session_factory: sessionmaker[Session], layout: DataLayout, database: Path
-) -> None:
-    _candidate(session_factory, layout)
-    provider = _provider(engine, database)
-    assert CandidateExaminationJob().run_one(_context(session_factory, layout, provider)) is True
-    prices = {"sahte-model": ModelPrice(input_per_mtok=Decimal(1), output_per_mtok=Decimal(2))}
-
-    with session_factory() as session:
-        overview = metrics.build_overview(session, prices)
-
-    assert EventType.CANDIDATE_TYPE_EXAMINED in metrics.USAGE_EVENT_TYPES
-    assert overview.total.analyses == 1
-    assert (overview.total.input_tokens, overview.total.output_tokens) == ("1.200", "400")
-    assert overview.total.cost == "0.0020 USD"
-    assert overview.batches == ()  # parti kalemi değildir
-    assert len(overview.months) == 1
 
 
 def test_the_candidate_examination_is_a_default_idle_job(

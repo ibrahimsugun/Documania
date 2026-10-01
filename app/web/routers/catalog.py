@@ -143,7 +143,6 @@ from starlette.datastructures import UploadFile as StarletteUploadFile
 from app.ai.provider import AnalysisProvider, ProviderConfigError, ProviderError, create_provider
 from app.ai.type_description import TypeDescriptionError
 from app.ai.type_proposal import TypeProposalError
-from app.ai.usage import measure_usage
 from app.catalog import (
     DETAIL_SAMPLE_LIMIT,
     LIST_SAMPLE_LIMIT,
@@ -2287,13 +2286,12 @@ def reexamine_candidate(
     source = read_examination(session, candidate, suggested=suggested)
     session.rollback()  # Uzun süren çağrı yazma kilidi tutmasın.
     error = None
-    with measure_usage() as meter:
-        try:
-            examination = examine(source, layout, provider)
-        except ProviderError as exc:
-            error = (EXAMINE_PROVIDER_FAILED.format(detail=exc), exc)
-        except TypeProposalError as exc:
-            error = (EXAMINE_REJECTED, exc)
+    try:
+        examination = examine(source, layout, provider)
+    except ProviderError as exc:
+        error = (EXAMINE_PROVIDER_FAILED.format(detail=exc), exc)
+    except TypeProposalError as exc:
+        error = (EXAMINE_REJECTED, exc)
     candidate = session.get_one(CandidateDocumentType, candidate_id)
     if candidate.status != CandidateTypeStatus.PENDING.value:
         # İstek sürerken karara bağlandı: sonuç yazılmaz.
@@ -2308,11 +2306,10 @@ def reexamine_candidate(
             error=type(exc).__name__,
             final=False,
             provider=provider,
-            meter=meter,
         )
         session.commit()
         return page(status.HTTP_502_BAD_GATEWAY, error=text)
-    store_examination(session, candidate, examination, provider=provider, meter=meter)
+    store_examination(session, candidate, examination, provider=provider)
     candidate.idle_attempts = 0
     CANDIDATE_EXAMINATIONS.clear(candidate)
     session.commit()

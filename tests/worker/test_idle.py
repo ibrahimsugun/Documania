@@ -13,7 +13,6 @@ import sqlite3
 import threading
 from collections.abc import Iterator
 from datetime import timedelta
-from decimal import Decimal
 from pathlib import Path
 
 import pytest
@@ -21,18 +20,10 @@ from sqlalchemy import Engine, String, select, update
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
 
 from app.ai import PROVIDER_FACTORIES
-from app.ai.usage import TokenUsage, report_usage
-from app.config import ModelPrice, Settings, load_settings
+from app.config import Settings, load_settings
 from app.db.models import Event, utcnow
-from app.events import (
-    USAGE_BY_MODEL_DATA_KEY,
-    USAGE_DATA_KEY,
-    EventType,
-    record_event,
-    usage_event_data,
-)
+from app.events import EventType, ai_call_event_data, record_event
 from app.storage import DataLayout
-from app.web.routers import metrics
 from app.worker import (
     IdleClaimMixin,
     IdleContext,
@@ -86,7 +77,6 @@ class FakeProvider:
         self.calls.append(source)
         self.pool_checked_out.append(self._engine.pool.checkedout())
         self.write_lock_free.append(_write_lock_free(self._database))
-        report_usage(120, 30)
         if self._fail is not None:
             raise self._fail
         return f"özet:{source}"
@@ -134,14 +124,14 @@ def _context(
     return IdleContext(session_factory, layout, SETTINGS, provider)  # type: ignore[arg-type]
 
 
-def _write(session: Session, row: Chore, result: str, meter: object) -> None:
+def _write(session: Session, row: Chore, result: str) -> None:
     row.status = "done"
     row.result = result
     record_event(
         session,
         EventType.CANDIDATE_TYPE_PROPOSED,
         message="boş-zaman testi",
-        data=usage_event_data(provider="sahte", model="sahte-model", meter=meter),  # type: ignore[arg-type]
+        data=ai_call_event_data(provider="sahte", model="sahte-model"),
     )
 
 
@@ -151,11 +141,11 @@ class SummarizeJob:
     name = "ozet"
 
     def __init__(self) -> None:
-        self.failures: list[tuple[int, bool, int]] = []
+        self.failures: list[tuple[int, bool]] = []
 
     def run_one(self, context: IdleContext) -> bool:
-        def failed(session: Session, row: Chore, meter: object, final: bool) -> None:
-            self.failures.append((row.id, final, meter.calls))  # type: ignore[attr-defined]
+        def failed(session: Session, row: Chore, final: bool) -> None:
+            self.failures.append((row.id, final))
 
         return run_idle_unit(
             context,
@@ -220,7 +210,7 @@ def test_a_failing_call_releases_the_row_and_fails_it_for_good_after_max_attempt
 
     row = _chore(session_factory, chore_id)
     assert (row.status, row.idle_claimed_by, row.idle_attempts) == ("failed", None, 3)
-    assert job.failures == [(chore_id, False, 1), (chore_id, False, 1), (chore_id, True, 1)]
+    assert job.failures == [(chore_id, False), (chore_id, False), (chore_id, True)]
     # Kalıcı başarısız satır bir daha denenmez.
     assert job.run_one(context) is False
     assert len(provider.calls) == 3
@@ -623,61 +613,9 @@ def test_create_worker_hands_the_idle_jobs_to_the_worker(
         explicit.stop()
 
 
-# --- maliyet ---------------------------------------------------------------------------------
+# --- olay verisi -----------------------------------------------------------------------------
 
 
-def test_usage_event_data_carries_usage_only_when_a_response_came() -> None:
-    from app.ai.usage import UsageMeter
-
-    silent = UsageMeter()
-    assert usage_event_data(provider="sahte", model="m", meter=silent) == {
-        "provider": "sahte",
-        "model": "m",
-    }
-
-    meter = UsageMeter()
-    meter.add(TokenUsage(100, 20))
-    meter.add(TokenUsage(50, 10))
-    data = usage_event_data(
-        provider="sahte",
-        model="ana",
-        meter=meter,
-        by_model={"ucuz": TokenUsage(100, 20), "ana": TokenUsage(50, 10)},
-    )
-    assert data[USAGE_DATA_KEY] == {"input_tokens": 150, "output_tokens": 30}
-    assert data[USAGE_BY_MODEL_DATA_KEY] == {
-        "ucuz": {"input_tokens": 100, "output_tokens": 20},
-        "ana": {"input_tokens": 50, "output_tokens": 10},
-    }
-
-
-@pytest.mark.usefixtures("chores")
-def test_idle_unit_usage_enters_the_cost_view_once_its_event_type_is_listed(
-    engine: Engine,
-    session_factory: sessionmaker[Session],
-    layout: DataLayout,
-    database: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    _add(session_factory, "kaynak-1")
-    provider = FakeProvider(engine, database)
-    assert SummarizeJob().run_one(_context(session_factory, layout, provider)) is True
-    prices = {"sahte-model": ModelPrice(input_per_mtok=Decimal(1), output_per_mtok=Decimal(2))}
-
-    with session_factory() as session:
-        before = metrics.build_overview(session, prices)
-    monkeypatch.setattr(
-        metrics,
-        "USAGE_EVENT_TYPES",
-        (*metrics.USAGE_EVENT_TYPES, EventType.CANDIDATE_TYPE_PROPOSED),
-    )
-    with session_factory() as session:
-        after = metrics.build_overview(session, prices)
-
-    assert before.total.analyses == 0
-    assert after.total.analyses == 1
-    assert (after.total.input_tokens, after.total.output_tokens) == ("120", "30")
-    assert after.total.models == "sahte-model"
-    assert after.total.cost == "0.0002 USD"
-    assert after.batches == ()  # parti kalemi değildir; toplam ve ayda görünür
-    assert len(after.months) == 1
+def test_ai_call_event_data_carries_only_the_provider_and_the_model() -> None:
+    # Token sayısı ve maliyet tutulmaz (PLAN §D84): olay yalnız kimin çağrıldığını söyler.
+    assert ai_call_event_data(provider="sahte", model="m") == {"provider": "sahte", "model": "m"}

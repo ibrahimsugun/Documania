@@ -25,14 +25,10 @@ from app.ai import (
     validate_page_analysis,
 )
 from app.ai.prompts import PageAnalysisInstructions
-from app.ai.usage import report_usage
 from app.catalog import Catalog, load_seed_catalog
 from app.db.models import Upload
 from app.events import (
-    CATALOG_TOKENS_DATA_KEY,
     PRESCREEN_DATA_KEY,
-    USAGE_BY_MODEL_DATA_KEY,
-    USAGE_DATA_KEY,
     EventType,
 )
 from app.pipeline.analyze import (
@@ -325,9 +321,8 @@ class Model(AnalysisProvider):
     def _serve(self) -> object:
         assert self._script, f"{self.model} beklenmeyen bir istek aldı"
         item = self._script.pop(0)
-        usage, response = item if isinstance(item, tuple) else (None, item)
-        if usage is not None:
-            report_usage(*usage)
+        # Betik öğesi `(kullanım, yanıt)` çifti olabilir; token tutulmaz, kullanım yok sayılır.
+        response = item[1] if isinstance(item, tuple) else item
         if isinstance(response, Exception):
             raise response
         return response
@@ -441,70 +436,6 @@ def test_main_model_failure_after_escalation_fails_the_page_and_records_the_pres
     assert failed.data_json["model"] == MAIN
     assert (failed.data_json["error"], failed.data_json["status_code"]) == ("ProviderError", 400)
     assert failed.data_json[PRESCREEN_DATA_KEY]["escalation"] == "unverified_document_number"
-    # Ucuz model yanıt verdi, ana model vermedi: harcama yalnız ucuz modelindir.
-    assert failed.data_json[USAGE_DATA_KEY] == {"input_tokens": 900, "output_tokens": 150}
-    assert failed.data_json[USAGE_BY_MODEL_DATA_KEY] == {
-        CHEAP: {"input_tokens": 900, "output_tokens": 150}
-    }
-
-
-def test_tokens_of_both_models_are_split_by_model_and_add_up_to_the_page_total(
-    session: Session, layout: DataLayout
-) -> None:
-    passport, (front, _) = _passport(), _license()
-    upload = _pdf(session, layout, passport, front)
-    cheap = Model(CHEAP, ((500, 100), passport.analysis(0)), ((400, 90), front.analysis(1)))
-    main = Model(MAIN, ((3000, 700), front.analysis(1)), cheap=cheap)
-
-    _analyze(session, layout, upload, main)
-
-    first, second = _analyzed(session)
-    assert first[USAGE_DATA_KEY] == {"input_tokens": 500, "output_tokens": 100}
-    assert first[USAGE_BY_MODEL_DATA_KEY] == {CHEAP: {"input_tokens": 500, "output_tokens": 100}}
-    assert second[USAGE_DATA_KEY] == {"input_tokens": 3400, "output_tokens": 790}
-    assert second[USAGE_BY_MODEL_DATA_KEY] == {
-        CHEAP: {"input_tokens": 400, "output_tokens": 90},
-        MAIN: {"input_tokens": 3000, "output_tokens": 700},
-    }
-
-
-def test_cached_input_is_split_by_model_with_the_rest_of_the_tokens(
-    session: Session, layout: DataLayout
-) -> None:
-    # C77: önbellekten okunan girdi de modellere dağıtılır (ana modelin payı = toplam − ucuz).
-    passport, (front, _) = _passport(), _license()
-    upload = _pdf(session, layout, passport, front)
-    cheap = Model(
-        CHEAP, ((500, 100, 400), passport.analysis(0)), ((400, 90, 256), front.analysis(1))
-    )
-    main = Model(MAIN, ((3000, 700, 2048), front.analysis(1)), cheap=cheap)
-
-    _analyze(session, layout, upload, main)
-
-    _, second = _analyzed(session)
-    assert second[USAGE_DATA_KEY] == {
-        "input_tokens": 3400,
-        "output_tokens": 790,
-        "cached_input_tokens": 2304,
-    }
-    assert second[USAGE_BY_MODEL_DATA_KEY] == {
-        CHEAP: {"input_tokens": 400, "output_tokens": 90, "cached_input_tokens": 256},
-        MAIN: {"input_tokens": 3000, "output_tokens": 700, "cached_input_tokens": 2048},
-    }
-
-
-def test_models_that_report_no_usage_leave_the_usage_fields_out(
-    session: Session, layout: DataLayout
-) -> None:
-    passport = _passport()
-    upload = _pdf(session, layout, passport)
-    main = Model(MAIN, cheap=Model(CHEAP, passport.analysis()))
-
-    _analyze(session, layout, upload, main)
-
-    (data,) = _analyzed(session)
-    assert USAGE_DATA_KEY not in data and USAGE_BY_MODEL_DATA_KEY not in data
-    assert data[PRESCREEN_DATA_KEY]["accepted"] is True
 
 
 def test_photo_page_accepted_by_the_cheap_model_is_still_checked_by_the_main_model(
@@ -522,10 +453,6 @@ def test_photo_page_accepted_by_the_cheap_model_is_still_checked_by_the_main_mod
     assert data["model"] == CHEAP
     assert data[PRESCREEN_DATA_KEY] == {"model": CHEAP, "accepted": True}
     assert set(data["photo_check"]) >= {"face_visible"}
-    assert data[USAGE_BY_MODEL_DATA_KEY] == {
-        CHEAP: {"input_tokens": 300, "output_tokens": 50},
-        MAIN: {"input_tokens": 800, "output_tokens": 120},
-    }
 
 
 def test_photo_check_failure_after_a_cheap_analysis_fails_the_page(
@@ -557,7 +484,7 @@ def test_without_prescreen_every_page_goes_to_the_main_model(
     assert cheap.requests == [] and len(main.requests) == 1
     (data,) = _analyzed(session)
     assert data["model"] == MAIN
-    assert PRESCREEN_DATA_KEY not in data and USAGE_BY_MODEL_DATA_KEY not in data
+    assert PRESCREEN_DATA_KEY not in data
 
 
 def test_provider_without_a_prescreen_model_writes_no_prescreen_fields(
@@ -570,8 +497,7 @@ def test_provider_without_a_prescreen_model_writes_no_prescreen_fields(
 
     (data,) = _analyzed(session)
     assert data["model"] == MAIN
-    assert data[USAGE_DATA_KEY] == {"input_tokens": 10, "output_tokens": 2}
-    assert PRESCREEN_DATA_KEY not in data and USAGE_BY_MODEL_DATA_KEY not in data
+    assert PRESCREEN_DATA_KEY not in data
 
 
 def test_next_page_summary_comes_from_the_accepted_analysis_whichever_model_gave_it(
@@ -593,21 +519,3 @@ def test_next_page_summary_comes_from_the_accepted_analysis_whichever_model_gave
     assert main.requests == cheap.requests[1:]
     models = [data["model"] for data in _analyzed(session)]
     assert models == [CHEAP, MAIN, MAIN]
-
-
-def test_catalog_share_counts_every_request_that_carried_the_instructions(
-    session: Session, layout: DataLayout
-) -> None:
-    # 11.4.3: kolay sayfa talimatı bir kez (ucuz model), ana modele giden sayfa iki kez taşır.
-    passport, (front, _) = _passport(), _license()
-    upload = _pdf(session, layout, passport, front)
-    cheap = Model(CHEAP, ((500, 100), passport.analysis(0)), ((400, 90), front.analysis(1)))
-    main = Model(MAIN, ((3000, 700), front.analysis(1)), cheap=cheap)
-
-    _analyze(session, layout, upload, main)
-
-    share = INSTRUCTIONS.catalog_tokens
-    assert share is not None
-    first, second = _analyzed(session)
-    assert first[CATALOG_TOKENS_DATA_KEY] == share
-    assert second[CATALOG_TOKENS_DATA_KEY] == 2 * share

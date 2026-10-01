@@ -21,7 +21,6 @@ from app.web.routers import (
     documents,
     employees,
     groups,
-    metrics,
     panel,
     queue,
     training,
@@ -81,7 +80,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     application.include_router(catalog.router, dependencies=[Depends(require_panel_user)])
     application.include_router(groups.router, dependencies=[Depends(require_panel_user)])
     application.include_router(queue.pages_router, dependencies=[Depends(require_panel_user)])
-    application.include_router(metrics.router, dependencies=[Depends(require_panel_user)])
     application.include_router(access_log.router, dependencies=[Depends(require_panel_user)])
     application.include_router(training.router, dependencies=[Depends(require_panel_user)])
     application.include_router(users.router, dependencies=[Depends(require_panel_user)])

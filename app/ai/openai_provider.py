@@ -75,7 +75,6 @@ from app.ai.schemas import PageAnalysis, PageAnalysisError
 from app.ai.training_classification import TrainingClassification, TrainingClassificationError
 from app.ai.type_description import TypeDescription, TypeDescriptionError
 from app.ai.type_proposal import TypeProposal, TypeProposalError
-from app.ai.usage import report_usage
 from app.config import Settings
 
 TOOL_NAME = "record_page_analysis"
@@ -339,15 +338,6 @@ class OpenAIProvider(AnalysisProvider):
             raise ProviderConnectionError(f"OpenAI'ye ulaşılamadı: {type(exc).__name__}") from exc
         except openai.OpenAIError as exc:
             raise ProviderError(f"OpenAI isteği başarısız: {type(exc).__name__}") from exc
-        # Yanıt reddedilse de token harcanmıştır (13.1.1): kabulden önce bildirilir. Çıktı
-        # tokenları (`completion_tokens`) akıl yürütme tokenlarını da içerir; `prompt_tokens`
-        # önbellekten okunan kısmı (`prompt_tokens_details.cached_tokens`) içerir.
-        usage = getattr(response, "usage", None)
-        report_usage(
-            getattr(usage, "prompt_tokens", None),
-            getattr(usage, "completion_tokens", None),
-            getattr(getattr(usage, "prompt_tokens_details", None), "cached_tokens", None),
-        )
         return _tool_arguments(response, name, label, error)
 
 

@@ -197,7 +197,6 @@ def test_page_analysis_instructions_use_the_scaled_budget_by_default(
 
     assert expected.text in instructions.text
     assert expected.shortened_slugs == ()
-    assert instructions.catalog_tokens == expected.estimated_tokens
     assert instructions.known_slugs == expected.known_slugs
 
 
@@ -211,7 +210,6 @@ def test_page_analysis_instructions_follow_the_configured_budget(
 
     assert expected.shortened_slugs
     assert expected.text in instructions.text
-    assert instructions.catalog_tokens == expected.estimated_tokens
 
 
 def test_an_explicit_budget_still_wins(make_record: RecordFactory) -> None:
@@ -230,7 +228,6 @@ def test_seed_instructions_are_unchanged_by_the_scaling() -> None:
     instructions = build_page_analysis_instructions(SEED)
 
     assert before.text in instructions.text
-    assert instructions.catalog_tokens == before.estimated_tokens
 
 
 def test_training_instructions_share_the_budget_of_the_page_analysis(

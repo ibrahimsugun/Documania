@@ -35,7 +35,7 @@ fiziksel ve organizasyonel hatalar düzeltilir.
 |---|---|---|
 | İK uzmanı | Web paneli, günlük | Belgeyi yükle, doğru klasörde bulmasını bekle, gerekirse kuyruğu çöz |
 | İK uzmanı (sahada) | Telegram botu | Telefondan belge gönder, belge iste |
-| İK yöneticisi | Web paneli, haftalık | Çalışan profillerini gör, eksik belgeleri gör, maliyeti gör |
+| İK yöneticisi | Web paneli, haftalık | Çalışan profillerini gör, eksik belgeleri gör |
 
 Sistemi çalışan (personelin kendisi) doğrudan kullanmaz. Belgeler İK'ya ulaşır, İK sisteme yükler.
 
@@ -117,8 +117,7 @@ Kapsam: FR-MOD-12, FR-MOD-11 (11.6–11.8).
 
 Kapsam: FR-MOD-13.
 
-**Kapanış ölçütü:** Sunucuda alan adıyla çalışıyor; yedekten geri yükleme bir kez denendi;
-maliyet paneli gerçek rakam gösteriyor.
+**Kapanış ölçütü:** Sunucuda alan adıyla çalışıyor; yedekten geri yükleme bir kez denendi.
 
 ---
 
@@ -338,7 +337,7 @@ maliyet paneli gerçek rakam gösteriyor.
 | 11.3.1 | Tür açıklaması üretimi | Örneklerden yapılandırılmış tür açıklaması üretilir ve düzenlenebilir | Should (v1) |
 | 11.4.1 | Prompt derleyici | Aktif türler kompakt katalog metnine derlenir | Must (v1) |
 | 11.4.2 | Token bütçesi | Katalog metni sınırı aşarsa açıklamalar kısaltılır ve uyarı loglanır | Should (v1) |
-| 11.4.3 | Ölçekli ve görünür katalog bütçesi | Bütçe ortam değişkeniyle ayarlanır (`CATALOG_TOKEN_BUDGET`) ve varsayılanı aktif tür sayısıyla ölçeklenir; hedef, her aktif türün analizci açıklamasının kesilmeden talimata girmesidir. Belge Türleri sayfası aktif tür sayısını, katalog metninin tahmini token sayısını ve kaç türün tanımının kesildiğini gösterir; kesilme varsa uyarı çıkar. Maliyet paneli sayfa başına katalog metni payını gösterir | Should (v1) |
+| 11.4.3 | Ölçekli ve görünür katalog bütçesi | Bütçe ortam değişkeniyle ayarlanır (`CATALOG_TOKEN_BUDGET`) ve varsayılanı aktif tür sayısıyla ölçeklenir; hedef, her aktif türün analizci açıklamasının kesilmeden talimata girmesidir. Belge Türleri sayfası aktif tür sayısını, katalog metninin tahmini token sayısını ve kaç türün tanımının kesildiğini gösterir; kesilme varsa uyarı çıkar. | Should (v1) |
 | 11.5.1 | Aday tür listesi | Aday türler adı, görülme sayısı ve örnek sayfalarıyla listelenir | Must (v1) |
 | 11.5.2 | Aday türü onaylama | Onay sonrası tür katalogda; iki aşamalı onay istenir | Must (v1) |
 | 11.5.3 | Onay sonrası yeniden analiz | Aday ile ilişkili Unknown öğeleri toplu yeniden analiz edilebilir | Should (v1) |
@@ -372,11 +371,11 @@ maliyet paneli gerçek rakam gösteriyor.
 | 12.3.3 | Erişim kaydı | Bot üzerinden gönderilen her belge erişim loguna yazılır | Should (v2) |
 | 12.4.1 | Kuyruk ve hata bildirimi | Kuyruğa yeni öğe düşünce ve parti başarısız olunca bildirim gider | Could (v3) |
 
-### FR-MOD-13 — İşletme, maliyet ve dayanıklılık (Faz 3)
+### FR-MOD-13 — İşletme ve dayanıklılık (Faz 3)
 
 | ID | Gereksinim | Kabul kriteri | Öncelik |
 |---|---|---|---|
-| 13.1.1 | Maliyet ölçümü | Sayfa, parti ve ay bazında token ve maliyet görünür | Could (v3) |
+| 13.1.1 | Maliyet ölçümü (kaldırıldı) | Kaldırıldı (2026-10-01, insan kararı): token ve maliyet ne tutulur ne gösterilir; bkz. §10 ve PLAN §D84 | Kapsam dışı |
 | 13.2.1 | Ucuz model ön eleme | Kolay sayfalar ucuz modele yönlendirilir; test matrisi doğruluğu düşmez | Could (v3) |
 | 13.2.2 | Metin katmanı önceliği | Metin katmanı olan sayfalarda görüntü çözünürlüğü düşürülür | Could (v3) |
 | 13.3.1 | Kalıcı işçi kuyruğu | Uygulama yeniden başlayınca yarım kalan parti kaybolmaz | Could (v3) |
@@ -658,6 +657,8 @@ Aşağıdakiler bu üründe **yapılmayacaktır**:
 - Uygulama düzeyinde dosya şifreleme (disk şifreleme sunucu düzeyinde yapılır).
 - Başvuru sürecinin kendisi (kurum başvurusu, form, randevu, sonuç takibi); belge paketi (FR-MOD-14)
   yalnız belgelerin hazır olup olmadığını izler.
+- Maliyet ölçümü ve paneli: yapay zekâ çağrılarının token sayısı ve maliyeti tutulmaz, hiçbir
+  sayfada gösterilmez (13.1.1 kaldırıldı). Olay logu yalnız sağlayıcı ve model adını taşır.
 - Kalıcı silme: hiçbir varlık (çalışan, belge, tür, grup, kullanıcı, olay) veritabanından ya da diskten
   silinmez; pasife alma, arşivleme, kapatma ve kaldırma durum değiştirir ve geri alınabilir (R11).
 

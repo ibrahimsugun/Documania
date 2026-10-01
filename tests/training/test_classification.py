@@ -20,7 +20,6 @@ from sqlalchemy.orm import Session
 from app.ai.provider import AnalysisProvider, PageAnalysisRequest, TrainingClassificationRequest
 from app.ai.recording_provider import RecordingProvider
 from app.ai.training_classification import TrainingClassification
-from app.ai.usage import TokenUsage, UsageMeter, measure_usage, report_usage
 from app.catalog import import_catalog, load_seed_catalog
 from app.catalog.describe import page_images
 from app.catalog.prompt_builder import compile_catalog
@@ -36,7 +35,7 @@ from app.db.models import (
     TrainingRunKind,
 )
 from app.db.session import create_session_factory
-from app.events import USAGE_DATA_KEY, EventType
+from app.events import EventType
 from app.storage import DataLayout, FileKind
 from app.storage.examples import list_examples, store_example
 from app.training import (
@@ -100,7 +99,7 @@ def _answer(**changes: Any) -> TrainingClassification:
 
 
 class Classifier(AnalysisProvider):
-    """Sahte sağlayıcı: sınıflandırma isteklerine sırayla yanıt döner, kullanım bildirir."""
+    """Sahte sağlayıcı: sınıflandırma isteklerine sırayla yanıt döner."""
 
     name = "sahte"
 
@@ -114,7 +113,6 @@ class Classifier(AnalysisProvider):
 
     def _request_training_classification(self, request: TrainingClassificationRequest) -> object:
         self.requests.append(request)
-        report_usage(900, 100)
         response = self._responses.pop(0)
         if isinstance(response, TrainingClassification):
             return response.model_dump(mode="json")
@@ -164,11 +162,7 @@ def _apply(
     item: TrainingItem,
     answer: TrainingClassification,
 ) -> Any:
-    meter = UsageMeter()
-    meter.add(TokenUsage(900, 100))
-    return apply_classification(
-        session, layout, item, answer, provider=Classifier(), meter=meter, known=known
-    )
+    return apply_classification(session, layout, item, answer, provider=Classifier(), known=known)
 
 
 def _events(session: Session, event_type: EventType) -> list[Event]:
@@ -407,7 +401,6 @@ def test_a_suggested_type_is_placed_with_the_ai_decision_label(
     assert event.data_json["basis"] == "country_kind"
     assert event.data_json["provider"] == "sahte"
     assert event.data_json["model"] == MODEL
-    assert event.data_json[USAGE_DATA_KEY] == {"input_tokens": 900, "output_tokens": 100}
     assert_employee_data_untouched(session, layout)
 
 
@@ -448,7 +441,7 @@ def test_the_expected_type_confirmed_by_the_ai_is_placed(
     )
 
 
-def test_content_already_in_the_type_s_folder_is_skipped_and_the_event_keeps_the_usage(
+def test_content_already_in_the_type_s_folder_is_skipped_and_the_event_is_still_written(
     session: Session, layout: DataLayout, known: KnownTypes
 ) -> None:
     content = make_half_filled_image_bytes("JPEG")
@@ -462,7 +455,6 @@ def test_content_already_in_the_type_s_folder_is_skipped_and_the_event_keeps_the
     assert (item.checks_json or {})[AI_CHECK_KEY]["result"]["status"] == "skipped"
     (event,) = _events(session, EventType.TRAINING_ITEM_UNPLACED)
     assert event.data_json["status"] == "skipped"
-    assert event.data_json[USAGE_DATA_KEY] == {"input_tokens": 900, "output_tokens": 100}
 
 
 # --- sonuç: çelişki ve yerleştirilemedi ------------------------------------------------------
@@ -500,7 +492,6 @@ def test_a_result_that_differs_from_the_expected_type_is_a_conflict(
     assert event.data_json["status"] == "conflict"
     assert event.data_json["type_slug"] == "albanian_passport"
     assert event.data_json["hint_slug"] == "turkish_passport"
-    assert event.data_json[USAGE_DATA_KEY] == {"input_tokens": 900, "output_tokens": 100}
     # İK'nın "Türe yerleştir"i (tm 118) çelişkideki öğeyi yerleştirebilir.
     placement = place_example(
         session, layout, known, item, "turkish_passport", method=TrainingMethod.MANUAL, actor="ik"
@@ -579,7 +570,6 @@ def test_an_answer_without_a_known_type_is_left_unplaced_with_the_proposal(
     (event,) = _events(session, EventType.TRAINING_ITEM_UNPLACED)
     assert event.data_json["status"] == "unplaced"
     assert event.data_json["type_slug"] is None
-    assert event.data_json[USAGE_DATA_KEY] == {"input_tokens": 900, "output_tokens": 100}
     assert_employee_data_untouched(session, layout)
 
 
@@ -734,28 +724,23 @@ def test_an_item_without_a_staged_file_cannot_be_read(session: Session, layout: 
 # --- hata kaydı ------------------------------------------------------------------------------
 
 
-def test_a_failed_attempt_records_its_usage_and_keeps_the_item_pending(
+def test_a_failed_attempt_records_its_error_and_keeps_the_item_pending(
     session: Session, layout: DataLayout, known: KnownTypes
 ) -> None:
     item = _pending(session, layout, known)
     note = item.note
-    with measure_usage() as meter:
-        report_usage(300, 20)
-
     store_classification_error(
         session,
         item,
         error="TrainingClassificationError",
         final=False,
         provider=Classifier(),
-        meter=meter,
     )
 
     assert (item.status, item.note) == ("ai_pending", note)
     (event,) = _events(session, EventType.TRAINING_ITEM_UNPLACED)
     assert event.data_json["status"] == "ai_pending"
     assert event.data_json["error"] == "TrainingClassificationError"
-    assert event.data_json[USAGE_DATA_KEY] == {"input_tokens": 300, "output_tokens": 20}
 
 
 def test_a_final_failure_leaves_the_item_unplaced_for_hr(
@@ -770,7 +755,6 @@ def test_a_final_failure_leaves_the_item_unplaced_for_hr(
         error="ProviderServerError",
         final=True,
         provider=Classifier(),
-        meter=UsageMeter(),
     )
 
     assert item.status == "unplaced"
@@ -779,7 +763,6 @@ def test_a_final_failure_leaves_the_item_unplaced_for_hr(
     assert item.run.status == "done"
     (event,) = _events(session, EventType.TRAINING_ITEM_UNPLACED)
     assert event.data_json["status"] == "unplaced"
-    assert USAGE_DATA_KEY not in event.data_json  # yanıt gelmedi, kullanım ölçülmedi
 
 
 # --- S20: yapay zekâ yolu --------------------------------------------------------------------

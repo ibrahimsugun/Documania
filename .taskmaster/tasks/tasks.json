@@ -2109,13 +2109,28 @@
         "priority": "medium",
         "subtasks": [],
         "updatedAt": "2026-10-01T09:00:00.000Z"
+      },
+      {
+        "id": "146",
+        "title": "13.1-b — Maliyet ölçümü ve panelinin kaldırılması: sayfa, fiyat tablosu, token kaydı [OPUS-HIGH]",
+        "description": "PRD 13.1.1 (Kapsam dışı oldu) · FR-MOD-13. İnsan kararı (2026-10-01): maliyet sayfası gereksiz işlem gücü ve bilgi; bu bilgiler tutulmasın. Sözleşme PLAN §D84.",
+        "details": "KAPSAM: `/metrics` sayfası ve şablonları, `app/web/routers/metrics.py`, menü bağlantısı, `.metrics` CSS; `app/ai/usage.py`, `app/ai/pricing.py`, `model_prices.yaml`, `Settings.ai_model_prices`; sağlayıcılarda `report_usage`; olaylarda `usage`/`usage_by_model`/`catalog_tokens` (`ai_call_event_data` yalnız provider+model); `run_idle_unit` geri çağrılarında `meter`. Göç yok; geçmiş olaylar yerinde kalır. Ön eleme davranışı ve Belge Türleri bütçe satırı değişmez.",
+        "testStrategy": "1) Silinen davranışın testleri silinir, kalan testler yeni imzalara uyar. 2) `import app.main`, `/metrics` 404. 3) Ön eleme, aday inceleme, eğitim sınıflandırma ve boş-zaman testleri yeşil. 4) DoD kapısı yeşil.",
+        "status": "done",
+        "dependencies": [
+          "87",
+          "102"
+        ],
+        "priority": "medium",
+        "subtasks": [],
+        "updatedAt": "2026-10-01T12:00:00.000Z"
       }
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-01T09:00:00.000Z",
-      "taskCount": 143,
-      "completedCount": 140,
+      "lastModified": "2026-10-01T12:00:00.000Z",
+      "taskCount": 144,
+      "completedCount": 141,
       "tags": [
         "master"
       ]

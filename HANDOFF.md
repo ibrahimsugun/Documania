@@ -18,6 +18,12 @@ Blok biçimi `CONVENTIONS.md` §3'te tanımlıdır:
 
 ## Task log (newest-first)
 
+## 146 — 13.1-b Maliyet ölçümü ve panelinin kaldırılması — done — 2026-10-01
+- Yapıldı: İnsan kararıyla Maliyet sayfası ve token/maliyet kaydı kaldırıldı (§D84): `/metrics` + şablonlar + router + menü bağlantısı, `app/ai/usage.py`, `pricing.py`, `model_prices.yaml`, `Settings.ai_model_prices`, sağlayıcılardaki token bildirimi; olaylar yalnız `provider` ve `model` yazar (`ai_call_event_data`); `run_idle_unit` geri çağrıları `meter` almaz. PRD 13.1.1 "Kapsam dışı", PLAN ⛔, Faz 3 kapanış ölçütünden maliyet paneli çıktı.
+- Doğrulama: ruff check/format, compileall, `import app.main`; `pytest -q -m "not live" --cov=app` sekiz paralel grupta 6160 geçti, 6 atlandı, 0 kırmızı, `coverage combine` + `report --fail-under=70` exit 0, birleşik kapsam %99. Göç yok.
+- Varsayımlar: §D84 — 13.1.1 satırı silinmedi (tm 87/102 ve K13.1 geçmişi ona bağlı), ⛔ işaretlendi; geçmiş olaylardaki `usage` alanları değişmez olduğu için yerinde kalır; `.env`'de fiyat anahtarı yoktu, olsa da `Settings` yok sayar; `docs/UYGULAMA-PLANI-KAYNAK.md` tarihsel kaynak olarak dokunulmadı.
+- Sonraki pencereye not: Çalışan sunucu yeniden başlatılana kadar eski süreç `/metrics`'te 500 verir (şablonlar silindi); `baslat.bat` ile yeniden başlatılmalı. Dal `task/146-maliyet-kaldirma`, `task/136-137-…`'dan çıkıyor; `main` bu commit'e ileri alınır. `icon.png` yine commit dışında.
+
 ## 145 — 11.1-f Belge Türleri tablosunun yerleşimi: ülke ve işlem hücreleri taşmaz — done — 2026-10-01
 - Yapıldı: İnsan bildirimi üzerine tm 143'ün bayraklı "Ülke" sütunu taşıyordu (109 px istiyor, 73 px vardı) ve işlem bağlantıları sütundan çıkıyordu; sütun oranları 3/17/11/14/8/6/6/7/8/20 oldu, tablo yazısı 0.92rem, "Ülke" ve işlem hücreleri satır kırar, "Yüz" hücresi de kırabilir (§D83). Veri ve rota değişmedi.
 - Doğrulama: ruff check/format, compileall, `import app.main`; `pytest -q -m "not live" --cov=app` sekiz paralel grupta 6337 geçti, 6 atlandı, 0 kırmızı, `coverage combine` + `report --fail-under=70` exit 0, birleşik kapsam %99; 415 satırlık geliştirme kopyasında 1280/1440 px'te taşan hücre 0, çakışma 0, işlem bağlantısı alt satıra inmedi, medyan satır 64 px; 1100 px'te taşma yok.

@@ -8,8 +8,7 @@ okuyamadığını `legible: false` yap, katalogda yoksa aday öner. Metin paketl
   yalnız etkin ve analiz edilen türler, slug sırasıyla, kompakt biçimde ve token bütçesi içinde.
   Bütçe verilmezse etkin bütçedir (`effective_token_budget`, 11.4.3): tür sayısıyla ölçeklenir;
   analiz yolu `Settings.catalog_token_budget`'ı (`CATALOG_TOKEN_BUDGET`) `configured_budget` ile
-  geçirir. `PageAnalysisInstructions.catalog_tokens` talimattaki katalog metninin tahmini token
-  sayısıdır; sayfa analizi olayına yazılır (13.1.1, `app.pipeline.analyze`).
+  geçirir.
 - `PageAnalysisInstructions.known_slugs` talimattaki türlerin slug'larıdır ve isteğe
   (`PageAnalysisRequest.known_slugs`) aynen verilir: talimatta olmayan bir slug yanıt kabulünde
   reddedilir.
@@ -49,8 +48,7 @@ class PageAnalysisInstructions:
 
     `photo_rules` slug → o türün açık fotoğraf kuralları (katalog sırasıyla); anahtarı olmayan tür
     için fotoğraf kontrolü yapılmaz. `required_fields` slug → o türün zorunlu alanları (13.2.1);
-    anahtarı olmayan türün zorunlu alanları bilinmiyor sayılır. `catalog_tokens` talimattaki
-    katalog metninin tahmini token sayısıdır (11.4.3); elle kurulan talimatta `None`.
+    anahtarı olmayan türün zorunlu alanları bilinmiyor sayılır.
     """
 
     text: str = field(repr=False)
@@ -61,7 +59,6 @@ class PageAnalysisInstructions:
     required_fields: Mapping[str, tuple[str, ...]] = field(
         default_factory=lambda: MappingProxyType({})
     )
-    catalog_tokens: int | None = None
 
 
 def load_page_analysis_template() -> str:
@@ -105,7 +102,6 @@ def build_page_analysis_instructions(
                 if entry.slug in compiled.known_slugs
             }
         ),
-        catalog_tokens=compiled.estimated_tokens,
     )
 
 

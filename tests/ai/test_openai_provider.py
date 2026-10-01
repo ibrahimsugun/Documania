@@ -68,7 +68,6 @@ from app.ai.openai_provider import (
 )
 from app.ai.provider import MAX_ANALYSIS_ATTEMPTS, RETRY_BACKOFF_SECONDS
 from app.ai.schemas import ISO_639_1_CODES
-from app.ai.usage import TokenUsage, measure_usage
 from app.config import Settings, load_settings
 from tests.ai.payloads import (
     DOC_KINDS,
@@ -948,19 +947,6 @@ def test_proposal_exhausted_quota_is_not_retried(no_sleep: list[float]) -> None:
     assert no_sleep == []
 
 
-def test_proposal_usage_is_measured_like_every_call() -> None:
-    # 13.1.1: taslak çağrısının tokenları da ölçülür; boş-zaman işi olayına yazar (§C85).
-    api = FakeApi(
-        completion(tool_calls=[function_call(proposal_payload(), name=PROPOSAL_TOOL_NAME)])
-    )
-
-    with measure_usage() as meter:
-        api.provider().propose_type(proposal_request())
-
-    assert meter.usage == TokenUsage(1200, 300)
-    assert meter.calls == 1
-
-
 # --- Eğitim sınıflandırması (11.9.3): ilk sayfa(lar) + metin, zorlanmış sınıflandırma işlevi ------
 
 
@@ -1070,19 +1056,6 @@ def test_training_exhausted_quota_is_not_retried(no_sleep: list[float]) -> None:
     assert not isinstance(caught.value, ProviderRateLimitError)
     assert len(api.requests) == 1
     assert no_sleep == []
-
-
-def test_training_usage_is_measured_like_every_call() -> None:
-    # 13.1.1: sınıflandırma çağrısının tokenları da ölçülür; boş-zaman işi olayına yazar (§C86).
-    api = FakeApi(
-        completion(tool_calls=[function_call(training_payload(), name=TRAINING_TOOL_NAME)])
-    )
-
-    with measure_usage() as meter:
-        api.provider().classify_training_page(training_request())
-
-    assert meter.usage == TokenUsage(1200, 300)
-    assert meter.calls == 1
 
 
 # --- Fotoğraf kontrolü (11.7.1): tek görüntü + kurallar, zorlanmış kontrol işlevi ---------------

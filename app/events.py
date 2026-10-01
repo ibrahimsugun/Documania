@@ -8,18 +8,15 @@ verilmedikçe, otomatik taşır.
 from __future__ import annotations
 
 import enum
-from collections.abc import Iterator, Mapping
+from collections.abc import Iterator
 from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from sqlalchemy.orm import Session
 
 from app.db.models import Event
-
-if TYPE_CHECKING:
-    from app.ai.usage import TokenUsage, UsageMeter
 
 
 class EventType(enum.StrEnum):
@@ -104,23 +101,6 @@ class EventType(enum.StrEnum):
     TELEGRAM_USER_CHANGED = "TELEGRAM_USER_CHANGED"
 
 
-USAGE_DATA_KEY = "usage"
-"""Olay verisinde token kullanımının anahtarı (PRD 13.1.1): `{"input_tokens": n, "output_tokens":
-m}` (`app.ai.usage.TokenUsage.to_event_data`). Değer, olayı doğuran sayfa işinin sağlayıcıya
-harcattığı toplamdır; sağlayıcı yanıt vermediyse ya da ölçüm yoksa anahtar hiç yazılmaz."""
-
-USAGE_BY_MODEL_DATA_KEY = "usage_by_model"
-"""Ön elemeli sayfada (PRD 13.2.1) `usage`'ın modellere dağılımı: `{"<model>": {"input_tokens": n,
-"output_tokens": m}}`. Bir sayfa iki modele harcatmış olabilir (ucuz model ön elemesi ve ana model);
-maliyet her modelin kendi fiyatıyla hesaplanır. Toplamı `usage`'a eşittir; ön eleme yapılmayan
-sayfada anahtar yazılmaz, `usage` olayın `model`'ine aittir."""
-
-CATALOG_TOKENS_DATA_KEY = "catalog_tokens"
-"""Sayfa analizi olayında (PRD 11.4.3, 13.1.1) talimattaki katalog metninin tahmini token payı:
-katalog metninin tahmini tokenı (`app.catalog.prompt_builder.estimate_tokens`) × talimatı taşıyan
-istek sayısı (ön eleme ve ana analiz; fotoğraf kontrolü katalog taşımaz). `usage` ile birlikte
-yazılır; bu alan eklenmeden önceki olaylarda yoktur."""
-
 PRESCREEN_DATA_KEY = "prescreen"
 """Ön eleme sonucu (PRD 13.2.1): `{"model": "<ucuz model>", "accepted": true}` ya da
 `{"model": ..., "accepted": false, "escalation": "<gerekçe>"}` (ucuz model hata verdiyse ayrıca
@@ -128,62 +108,16 @@ PRESCREEN_DATA_KEY = "prescreen"
 (`app.pipeline.analyze.Escalation`)."""
 
 PROVIDER_DATA_KEY = "provider"
-"""Yapay zekâ çağrısı olayının sağlayıcı adı anahtarı (`usage_event_data` her zaman yazar)."""
-
-USAGE_EVENT_TYPES: tuple[EventType, ...] = (
-    EventType.PAGE_ANALYZED,
-    EventType.PAGE_ANALYSIS_FAILED,
-    EventType.CANDIDATE_TYPE_EXAMINED,
-    EventType.TRAINING_EXAMPLE_PLACED,
-    EventType.TRAINING_ITEM_UNPLACED,
-)
-"""Token kullanımı taşıyabilen olay türleri: başarılı ve başarısız sayfa analizi, aday tür
-incelemesi (11.5.5) ve eğitim modunun yapay zekâ incelemesi (11.9.3; ikisi de işçinin boş-zaman
-işi). Başarısız sayfa da token harcamış olabilir (şemaya uymayan yanıt, fotoğraf kontrolünde hata),
-bu yüzden maliyet görünümü ikisini de sayar; inceleme olayları parti kalemi değildir, toplamda ve
-ayda sayılır. Yeni bir yapay zekâ çağrısının olayı (ör. işçinin boş-zaman işi, `app.worker.idle`)
-kullanımını `usage_event_data` ile yazar ve türü buraya eklenir; tür yapay zekâsız adımlarca da
-yazılıyorsa ayrıca `AI_STEP_EVENT_TYPES`'a."""
-
-AI_STEP_EVENT_TYPES: tuple[EventType, ...] = (
-    EventType.TRAINING_EXAMPLE_PLACED,
-    EventType.TRAINING_ITEM_UNPLACED,
-)
-"""Hem yapay zekâ adımının hem yapay zekâsız adımların yazdığı kullanım olayı türleri: eğitim
-öğesinin yerleşme olayını mekanik tanıma (11.9.2) ve İK'nın yerleştirmesi (11.9.1) da yazar
-(PRD §8.3'ün sabit listesinde sınıflandırmanın ayrı bir olayı yoktur). Bu türlerde yalnız sağlayıcı
-alanını (`PROVIDER_DATA_KEY`) taşıyan olay bir yapay zekâ çağrısıdır (`is_ai_call_event`)."""
+"""Yapay zekâ çağrısı olayının sağlayıcı adı anahtarı (`ai_call_event_data` her zaman yazar)."""
 
 
-def is_ai_call_event(event_type: str, data: Mapping[str, Any] | None) -> bool:
-    """`USAGE_EVENT_TYPES`'taki bir olay yapay zekâ çağrısı mı: `AI_STEP_EVENT_TYPES`'ta ise yalnız
-    sağlayıcı alanını taşıyorsa; öteki türlerde her zaman (ölçülmemiş olsa da)."""
-    if event_type not in AI_STEP_EVENT_TYPES:
-        return True
-    return isinstance(data, Mapping) and PROVIDER_DATA_KEY in data
+def ai_call_event_data(*, provider: str, model: str) -> dict[str, object]:
+    """Yapay zekâ çağrısı olayının sağlayıcı ve model alanları (denetim için).
 
-
-def usage_event_data(
-    *,
-    provider: str,
-    model: str,
-    meter: UsageMeter,
-    by_model: Mapping[str, TokenUsage] | None = None,
-) -> dict[str, object]:
-    """Yapay zekâ çağrısı olayının sağlayıcı, model ve kullanım alanları (PRD 13.1.1).
-
-    `meter` çağrının ölçümüdür (`app.ai.usage.measure_usage`). Yanıt gelen çağrı yoksa `usage`
-    yazılmaz: sıfır token, ölçülmemiş çağrıyı ölçülmüş gösterirdi. `by_model` çağrı birden çok
-    modele harcattıysa dağılımdır (`USAGE_BY_MODEL_DATA_KEY`; toplamı `meter`'ınkine eşit olmalı).
+    Token sayısı ve maliyet tutulmaz (PLAN §D84): olay yalnız hangi sağlayıcının hangi modelle
+    çağrıldığını söyler.
     """
-    data: dict[str, object] = {PROVIDER_DATA_KEY: provider, "model": model}
-    if meter.calls:
-        data[USAGE_DATA_KEY] = meter.usage.to_event_data()
-        if by_model:
-            data[USAGE_BY_MODEL_DATA_KEY] = {
-                name: usage.to_event_data() for name, usage in by_model.items()
-            }
-    return data
+    return {PROVIDER_DATA_KEY: provider, "model": model}
 
 
 @dataclass(frozen=True, slots=True)

@@ -26,8 +26,7 @@ bilinen türe "AI kararı" etiketiyle yerleşmesi (PRD 11.9.3, PLAN.md §C86 "Ya
   yerleşmez, not iki türü de yazar. Tür bulunmadıysa `unplaced` ("Yerleştirilemedi"), not "Yapay
   zekâ önerisi: <proposed_name>; <gerekçe>". Yanıtın dökümü (`ai`) `checks_json`'a eklenir.
 - **Olay (K15, 13.1.1).** Her sınıflandırma tam bir yerleşme olayı yazar (`TRAINING_EXAMPLE_PLACED`
-  ya da `TRAINING_ITEM_UNPLACED`); olay sağlayıcı, model ve kullanımı taşır (`usage_event_data`) ve
-  maliyet görünümünde sayılır (`app.events.AI_STEP_EVENT_TYPES`).
+  ya da `TRAINING_ITEM_UNPLACED`); olay sağlayıcı ve modeli taşır (`ai_call_event_data`).
 - **Boş-zaman işi (`TrainingClassificationJob`).** İşçi yükleme kuyruğu boşken (`app.worker.idle`)
   `ai_pending` öğeyi koşullu sahiplenir; sağlayıcı çağrısı açık veritabanı oturumu olmadan yapılır.
   Sağlayıcı ayarsızsa iş koşmaz, öğe `ai_pending` bekler. Hata veren birim öğeyi bırakır ve
@@ -58,12 +57,11 @@ from app.ai.prompts.training_classification import (
 )
 from app.ai.provider import AnalysisProvider, PageImage, TrainingClassificationRequest
 from app.ai.training_classification import TrainingClassification
-from app.ai.usage import UsageMeter
 from app.catalog.describe import page_images
 from app.catalog.sync import export_catalog
 from app.config import Settings
 from app.db.models import TrainingItem, TrainingItemStatus, TrainingMethod
-from app.events import EventType, record_event, usage_event_data
+from app.events import EventType, ai_call_event_data, record_event
 from app.storage import DataLayout, FileKind
 from app.training.known_types import KnownType, KnownTypes, build_known_types, load_known_types
 from app.training.mechanical import hint_label
@@ -270,7 +268,6 @@ def apply_classification(
     classification: TrainingClassification,
     *,
     provider: AnalysisProvider,
-    meter: UsageMeter,
     known: KnownTypes | None = None,
 ) -> ClassificationOutcome:
     """Yanıtı öğeye uygular (modül açıklaması); commit etmez. `known` verilmezse o anki katalog ∪
@@ -283,7 +280,7 @@ def apply_classification(
     resolution = resolve_classification(known, classification)
     hint = known.get(item.hint_slug) if item.hint_slug else None
     model = provider.model
-    extra: dict[str, object] = usage_event_data(provider=provider.name, model=model, meter=meter)
+    extra: dict[str, object] = ai_call_event_data(provider=provider.name, model=model)
     target = resolution.known
 
     if target is None:
@@ -365,13 +362,12 @@ def store_classification_error(
     error: str,
     final: bool,
     provider: AnalysisProvider,
-    meter: UsageMeter,
 ) -> None:
     """Hata veren sınıflandırmanın olayını yazar; commit etmez. `final` ise (denemeler tükendi;
     durum `unplaced`'ı boş-zaman çerçevesi yazdı) öğe İK'yı bekler ve notu hatayı söyler. `error`
     hatanın türüdür, mesajı değil."""
-    extra: dict[str, object] = {"error": error} | usage_event_data(
-        provider=provider.name, model=provider.model, meter=meter
+    extra: dict[str, object] = {"error": error} | ai_call_event_data(
+        provider=provider.name, model=provider.model
     )
     if final:
         leave_unplaced(
@@ -454,19 +450,14 @@ class TrainingClassificationJob:
             session: Session,
             item: TrainingItem,
             classification: TrainingClassification,
-            meter: UsageMeter,
         ) -> None:
-            apply_classification(
-                session, context.layout, item, classification, provider=provider, meter=meter
-            )
+            apply_classification(session, context.layout, item, classification, provider=provider)
 
-        def failed(session: Session, item: TrainingItem, meter: UsageMeter, final: bool) -> None:
+        def failed(session: Session, item: TrainingItem, final: bool) -> None:
             # Çerçeve bu kancayı hatanın `except` bloğunda çağırır; yalnız türü yazılır.
             active = sys.exception()
             error = type(active).__name__ if active is not None else "Exception"
-            store_classification_error(
-                session, item, error=error, final=final, provider=provider, meter=meter
-            )
+            store_classification_error(session, item, error=error, final=final, provider=provider)
 
         return run_idle_unit(
             context,

@@ -35,7 +35,7 @@ onay formunu doldurur (tm 114). Aday kendiliğinden onaylanmaz: onay İK'nın ik
 - **Saklama (`store_examination`).** `proposal_status`, `proposal_generated_at` ve `proposal_json`
   (taslak ya da gerekçe, kanıt, model, kullanılan sayfa sayısı) yazılır; adayın açıklaması boşsa
   taslağınki yazılır. Olay `CANDIDATE_TYPE_EXAMINED`: aday kimliği, sonuç, sayfa sayısı, sağlayıcı,
-  model ve kullanım (`usage_event_data`; maliyet paneli sayar, 13.1.1). Kişisel değer taşımaz.
+  model (`ai_call_event_data`). Kişisel değer taşımaz.
 - **Boş-zaman işi (`CandidateExaminationJob`).** İşçi yükleme kuyruğu boşken (`app.worker.idle`)
   incelenmemiş (`proposal_status IS NULL`) ve karara bağlanmamış (`pending`) adayı koşullu
   sahiplenir; karara bağlanmış aday incelenmez. Sağlayıcı çağrısı açık veritabanı oturumu olmadan
@@ -63,7 +63,6 @@ from app.ai.prompts.type_proposal import load_type_proposal_instructions
 from app.ai.provider import AnalysisProvider, PageImage, TypeProposalRequest
 from app.ai.schemas import Side
 from app.ai.type_proposal import TypeProposal
-from app.ai.usage import UsageMeter
 from app.catalog.describe import MAX_DESCRIPTION_PAGES
 from app.catalog.schema import FileType, FrontBackLayout, Sides, layout_pages
 from app.db.models import (
@@ -77,7 +76,7 @@ from app.db.models import (
     UploadFile,
     utcnow,
 )
-from app.events import EventType, record_event, usage_event_data
+from app.events import EventType, ai_call_event_data, record_event
 from app.matching.names import EmptyNameError, normalize_name
 from app.storage import DataLayout, detect_file_kind
 from app.worker.idle import IdleContext, IdleTable, run_idle_unit
@@ -604,7 +603,6 @@ def store_examination(
     examination: Examination,
     *,
     provider: AnalysisProvider,
-    meter: UsageMeter,
 ) -> None:
     """Sonucu adaya yazar ve `CANDIDATE_TYPE_EXAMINED`'ı kaydeder; commit etmez. Adayın açıklaması
     boşsa taslağınki yazılır."""
@@ -626,7 +624,6 @@ def store_examination(
         result=examination.status.value,
         pages=examination.pages,
         provider=provider,
-        meter=meter,
     )
 
 
@@ -637,7 +634,6 @@ def store_error(
     error: str,
     final: bool,
     provider: AnalysisProvider,
-    meter: UsageMeter,
 ) -> None:
     """Hata veren incelemenin olayını yazar; `final` ise (denemeler tükendi) gerekçeyi de. Durum
     (`failed`) boş-zaman çerçevesinin işidir. `error` hatanın türüdür, mesajı değil."""
@@ -656,7 +652,6 @@ def store_error(
         result=CandidateProposalStatus.FAILED.value if final else "error",
         pages=None,
         provider=provider,
-        meter=meter,
         error=error,
     )
 
@@ -668,7 +663,6 @@ def _record(
     result: str,
     pages: int | None,
     provider: AnalysisProvider,
-    meter: UsageMeter,
     error: str | None = None,
 ) -> None:
     data: dict[str, object] = {"candidate_type_id": candidate.id, "result": result}
@@ -676,7 +670,7 @@ def _record(
         data["pages"] = pages
     if error is not None:
         data["error"] = error
-    data |= usage_event_data(provider=provider.name, model=provider.model, meter=meter)
+    data |= ai_call_event_data(provider=provider.name, model=provider.model)
     record_event(session, EventType.CANDIDATE_TYPE_EXAMINED, data=data)
 
 
@@ -723,19 +717,14 @@ class CandidateExaminationJob:
             session: Session,
             candidate: CandidateDocumentType,
             examination: Examination,
-            meter: UsageMeter,
         ) -> None:
-            store_examination(session, candidate, examination, provider=provider, meter=meter)
+            store_examination(session, candidate, examination, provider=provider)
 
-        def failed(
-            session: Session, candidate: CandidateDocumentType, meter: UsageMeter, final: bool
-        ) -> None:
+        def failed(session: Session, candidate: CandidateDocumentType, final: bool) -> None:
             # Çerçeve bu kancayı hatanın `except` bloğunda çağırır; yalnız türü yazılır.
             active = sys.exception()
             error = type(active).__name__ if active is not None else "Exception"
-            store_error(
-                session, candidate, error=error, final=final, provider=provider, meter=meter
-            )
+            store_error(session, candidate, error=error, final=final, provider=provider)
 
         return run_idle_unit(
             context,

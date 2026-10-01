@@ -24,7 +24,6 @@ from sqlalchemy.orm import Session, sessionmaker
 from app.ai.recording_provider import RecordingProvider
 from app.ai.schemas import Side
 from app.ai.type_proposal import TypeProposal, TypeProposalError
-from app.ai.usage import UsageMeter, measure_usage, report_usage
 from app.catalog import import_catalog, load_seed_catalog
 from app.catalog.describe import MAX_DESCRIPTION_PAGES
 from app.catalog.propose import (
@@ -56,7 +55,7 @@ from app.db.models import (
     record_candidate_type_sighting,
     utcnow,
 )
-from app.events import USAGE_DATA_KEY, EventType
+from app.events import EventType
 from app.storage import DataLayout, prepare_data_dir
 from tests.fixtures.gen import (
     PERSON_ORNEKOVA,
@@ -570,8 +569,7 @@ def test_a_proposal_carrying_a_personal_value_is_not_stored(
     provider = _provider(tmp_path, _proposal(**overrides))
 
     examination = examine(read_examination(session, candidate), layout, provider)
-    with measure_usage() as meter:
-        store_examination(session, candidate, examination, provider=provider, meter=meter)
+    store_examination(session, candidate, examination, provider=provider)
     session.flush()
 
     assert examination.status is CandidateProposalStatus.FAILED
@@ -654,9 +652,7 @@ def test_a_ready_examination_is_stored_with_evidence_model_and_page_count(
     provider = _provider(tmp_path)
     examination = examine(read_examination(session, candidate), layout, provider)
 
-    with measure_usage() as meter:
-        report_usage(900, 300)
-        store_examination(session, candidate, examination, provider=provider, meter=meter)
+    store_examination(session, candidate, examination, provider=provider)
     session.commit()
 
     session.refresh(candidate)
@@ -684,7 +680,6 @@ def test_a_ready_examination_is_stored_with_evidence_model_and_page_count(
         "pages": 4,
         "provider": "recording",
         "model": "kayitli-model",
-        USAGE_DATA_KEY: {"input_tokens": 900, "output_tokens": 300},
     }
 
 
@@ -697,13 +692,13 @@ def test_the_description_is_written_only_when_empty(
     provider = _provider(tmp_path)
     examination = examine(read_examination(session, candidate), layout, provider)
 
-    store_examination(session, candidate, examination, provider=provider, meter=UsageMeter())
+    store_examination(session, candidate, examination, provider=provider)
 
     assert candidate.description == "İK'nın notu"
     assert candidate.proposal_status == "ready"
 
 
-def test_no_samples_is_stored_without_usage(
+def test_no_samples_is_stored_without_a_proposal(
     batch: Batch, session: Session, layout: DataLayout, tmp_path: Path
 ) -> None:
     pdf = batch.file(UPLOAD, "kart.pdf", make_pdf_bytes(1))
@@ -711,7 +706,7 @@ def test_no_samples_is_stored_without_usage(
     provider = _provider(tmp_path)
     examination = examine(read_examination(session, candidate), layout, provider)
 
-    store_examination(session, candidate, examination, provider=provider, meter=UsageMeter())
+    store_examination(session, candidate, examination, provider=provider)
     session.flush()
 
     assert candidate.proposal_status == "no_samples"
@@ -721,7 +716,6 @@ def test_no_samples_is_stored_without_usage(
     (event,) = session.scalars(select(Event).where(Event.type == "CANDIDATE_TYPE_EXAMINED"))
     assert event.data_json is not None
     assert event.data_json["result"] == "no_samples"
-    assert USAGE_DATA_KEY not in event.data_json
 
 
 def test_load_proposal_rejects_a_missing_or_broken_record(batch: Batch) -> None:
