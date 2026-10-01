@@ -2177,20 +2177,20 @@
         "description": "PRD 12.1.5 · FR-MOD-12 · Faz 2 · Should (v2). Ölçüm (2026-10-01): `.env`'de `TELEGRAM_BOT_TOKEN` boş ve `baslat.bat` botu başlatmıyor; yerelde bot hiç çalışmıyor. Sözleşme PLAN §D87 (e).",
         "details": "KAPSAM: PRD 12.1.5. `baslat.bat` (CRLF, `.gitattributes`): `.env`'den `TELEGRAM_BOT_TOKEN` doluluğunu okur (değeri ekrana yazmaz); doluysa göçten sonra `start \"belgeee bot\" \"%PY%\" -m app.telegram.bot` ile ayrı pencerede botu açar, boşsa \"Telegram botu kapalı: .env'de TELEGRAM_BOT_TOKEN yok\" yazar ve botsuz devam eder. README'ye: token BotFather'da `/newbot` ile alınır, `.env`'e yazılır, `baslat.bat` yeniden çalıştırılır. Gerçek token depoya girmez.",
         "testStrategy": "1) `baslat.bat` içerik testi: token denetimi, ayrı pencerede `-m app.telegram.bot`, token değerinin `echo` edilmediği; CRLF. 2) README notu. 3) DoD kapısı yeşil.",
-        "status": "in-progress",
+        "status": "done",
         "dependencies": [
           "83"
         ],
         "priority": "medium",
         "subtasks": [],
-        "updatedAt": "2026-10-01T23:07:25.446Z"
+        "updatedAt": "2026-10-01T23:36:34.883Z"
       }
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-01T23:07:25.446Z",
+      "lastModified": "2026-10-01T23:36:34.884Z",
       "taskCount": 148,
-      "completedCount": 144,
+      "completedCount": 145,
       "tags": [
         "master"
       ]
