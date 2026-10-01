@@ -11,8 +11,10 @@ Yönetim panelin Kullanıcılar sayfasındadır (`app.web.routers.users`): kulla
 (`allowed=True`), izin kapatılıp açılır. **Kayıt silinmez** (R11): engellemek `allowed=False`'tur.
 Kimlik tablonun birincil anahtarıdır; bu yüzden bir kez bir kullanıcıya bağlanan kimlik başka bir
 kullanıcıya bağlanamaz (409). İşlemler tek adımlıdır (§D61-b) ve kullanıcı adıyla
-`TELEGRAM_USER_CHANGED` yazar (`target_user_id`, `telegram_id`, `allowed`, `added`). Bot üzerinden
-kendini kaydettirme, davet ya da doğrulama kodu yoktur. Commit her zaman çağırana aittir.
+`TELEGRAM_USER_CHANGED` yazar (`target_user_id`, `telegram_id`, `allowed`, `added`). Commit her
+zaman çağırana aittir. Kimliği elle girmek yerine yönetici tek kullanımlık bir bot bağlantısı da
+üretebilir; kişi bağlantıyı açınca bot kimliği aynı `add_telegram_id` ile bağlar (`via: "link"`,
+12.1.4, `app.telegram.link`). Bot kendiliğinden kimseyi listeye almaz: kod yöneticiden gelir.
 
 **Kimlik nereden gelir (PLAN §D86).** Kimlik telefon numarası değil, Telegram'ın hesaba verdiği
 değişmez sayıdır; bot gönderenin `user.id`'sini bununla karşılaştırır. Kişi kendi kimliğini
@@ -99,18 +101,18 @@ def parse_telegram_id(value: str) -> int:
     return telegram_id
 
 
-def _record(session: Session, account: TelegramUser, *, actor: str, added: bool) -> None:
-    record_event(
-        session,
-        EventType.TELEGRAM_USER_CHANGED,
-        actor=actor,
-        data={
-            "target_user_id": account.user_id,
-            "telegram_id": account.telegram_id,
-            "allowed": account.allowed,
-            "added": added,
-        },
-    )
+def _record(
+    session: Session, account: TelegramUser, *, actor: str, added: bool, via: str | None = None
+) -> None:
+    data: dict[str, object] = {
+        "target_user_id": account.user_id,
+        "telegram_id": account.telegram_id,
+        "allowed": account.allowed,
+        "added": added,
+    }
+    if via is not None:
+        data["via"] = via
+    record_event(session, EventType.TELEGRAM_USER_CHANGED, actor=actor, data=data)
 
 
 def _owner_id(session: Session, telegram_id: int) -> int | None:
@@ -129,12 +131,13 @@ def _taken(telegram_id: int, owner_id: int | None, target: User) -> TelegramIdTa
 
 
 def add_telegram_id(
-    session: Session, target: User, telegram_id: int, *, actor: str
+    session: Session, target: User, telegram_id: int, *, actor: str, via: str | None = None
 ) -> TelegramUser:
     """`target` kullanıcıya izinli (`allowed=True`) Telegram kimliği bağlar ve
     `TELEGRAM_USER_CHANGED` (`added: true`) yazar. Kimlik zaten bağlıysa `TelegramIdTakenError`.
     Karar birincil anahtarındır: ön denetim yapılmaz, aynı anda iki istek aynı kimliği eklerse biri
-    kazanır; kaybedenin işlemi kullanılabilir kalır (kayıt noktası geri alınır)."""
+    kazanır; kaybedenin işlemi kullanılabilir kalır (kayıt noktası geri alınır). `via` verilirse
+    olaya yazılır (bağlantıyla bağlamada `"link"`, 12.1.4); panelden elle eklemede yazılmaz."""
     if not 1 <= telegram_id <= TELEGRAM_ID_MAX:
         raise TelegramIdError(INVALID_TELEGRAM_ID)
     account = TelegramUser(telegram_id=telegram_id, user_id=target.id, allowed=True)
@@ -143,7 +146,7 @@ def add_telegram_id(
             session.add(account)
     except IntegrityError:
         raise _taken(telegram_id, _owner_id(session, telegram_id), target) from None
-    _record(session, account, actor=actor, added=True)
+    _record(session, account, actor=actor, added=True, via=via)
     return account
 
 

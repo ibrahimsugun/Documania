@@ -1,8 +1,8 @@
 """Veri modeli — PRD §8.1 tabloları (00.3.1), çalışan numarası üretici (00.3.3), aday tür
 kaydı (04.6.1) ve kararı (11.5), panel oturumu (10.1.2), iki aşamalı onayın belirteci (10.8.1),
 kalıcı işçi kuyruğu (13.3.1), profil alanlarının belge gözlemleri (05.7.3), partinin yoksayılması
-(10.3.4), aday türün incelemesi (11.5.5), eğitim modu (11.9), belge grupları (14.1) ve çalışanın
-belge paketleri (14.2).
+(10.3.4), aday türün incelemesi (11.5.5), eğitim modu (11.9), belge grupları (14.1), çalışanın
+belge paketleri (14.2) ve Telegram hesabını bağlama kodu (12.1.4).
 
 Silme yoktur, arşiv vardır (K16): ilişkilerde silme kaskadı tanımlanmaz.
 Dosya yolu burada üretilmez (yol kuralı: `app/storage/`); yol sütunları yalnız saklar.
@@ -1070,6 +1070,31 @@ class TelegramUser(Base):
     allowed: Mapped[bool] = mapped_column(Boolean, default=True)
 
     user: Mapped[User] = relationship(back_populates="telegram_accounts")
+
+
+class TelegramLinkCode(Base):
+    """Telegram hesabını bağlantıyla bağlamanın tek kullanımlık kodu (12.1.4; PLAN.md §D87).
+
+    Yönetici bir panel kullanıcısı için kod üretir (`created_by` onun kullanıcı adıdır); kişi botun
+    `https://t.me/<bot>?start=<kod>` bağlantısını açınca bot gönderenin Telegram kimliğini o
+    kullanıcıya izinli bağlar. Kodun kendisi değil SHA-256 özeti saklanır. Kod `expires_at`'e kadar
+    ve yalnız bir kez geçerlidir (`used_at`, `used_telegram_id`); aynı kullanıcıya yeni kod
+    öncekini `revoked_at` ile geçersiz kılar. Satır silinmez (R11).
+    """
+
+    __tablename__ = "telegram_link_codes"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    code_hash: Mapped[str] = mapped_column(String(64), unique=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    created_by: Mapped[str] = mapped_column(String(150))
+    created_at: Mapped[datetime] = mapped_column(UtcDateTime, default=utcnow)
+    expires_at: Mapped[datetime] = mapped_column(UtcDateTime)
+    used_at: Mapped[datetime | None] = mapped_column(UtcDateTime)
+    used_telegram_id: Mapped[int | None] = mapped_column(BigInteger)
+    revoked_at: Mapped[datetime | None] = mapped_column(UtcDateTime)
+
+    user: Mapped[User] = relationship()
 
 
 # --- çalışan numarası üretici (00.3.3) -----------------------------------------------------

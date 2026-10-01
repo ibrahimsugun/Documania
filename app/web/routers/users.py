@@ -18,6 +18,12 @@
   aynı duruma geçiş 409, kimlik o kullanıcıya bağlı değilse 404. Kayıt silinmez; bot yalnız izinli
   ve etkin kullanıcıya bağlı kimliğe yanıt verir (`app.telegram.whitelist`). Olay
   `TELEGRAM_USER_CHANGED`.
+- `POST /users/{id}/telegram/link` "Telegram'ı bağla" (12.1.4, PLAN.md §D87): kullanıcı için tek
+  kullanımlık, 10 dakika geçerli bot bağlantısı (`https://t.me/<bot>?start=<kod>`) üretir ve
+  sayfayla birlikte bir kez gösterir (yönlendirme yok: kod adres çubuğuna, geçmişe ve loga girmez;
+  yanıt `Cache-Control: no-store`). Kişi bağlantıyı açıp «Başlat»a basınca bot kimliğini kendisi
+  bağlar (`app.telegram.link`). Pasif kullanıcıya 409; bot bu veri dizininde hiç çalışmadıysa
+  (`telegram/bot.json` yok) düğme kapalıdır ve istek 409 döner. Olay `TELEGRAM_LINK_CREATED`.
 
 Yalnız yönetici açar (tek rol `admin`; `require_admin`). Hepsi tek adımlıdır (§D61-b: dosyaya ve
 belgeye dokunmaz, geri alınabilir) ve kullanıcı adıyla olay yazar (`USER_*`). Parola hiçbir olaya,
@@ -27,6 +33,7 @@ loga ya da sayfaya yazılmaz; reddedilen formda parola alanı boş gelir. **Silm
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Path, Query, Request, status
@@ -36,6 +43,14 @@ from sqlalchemy.orm import Session
 
 from app.db.models import TelegramUser, User, UserRole
 from app.db.session import get_session
+from app.storage import DataLayout
+from app.telegram.link import (
+    LINK_CODE_TTL,
+    LinkTargetInactiveError,
+    create_link_code,
+    link_url,
+    read_bot_info,
+)
 from app.telegram.whitelist import (
     TELEGRAM_ID_MAX,
     USERINFOBOT_URL,
@@ -62,6 +77,7 @@ from app.web.auth import (
     reset_password,
     set_user_active,
 )
+from app.web.routers.uploads import get_layout
 from app.web.templating import MENU_BY_KEY, render_page
 
 router = APIRouter(tags=["users"])
@@ -75,6 +91,10 @@ ADMIN_ONLY = "Bu sayfayı yalnız yönetici açabilir."
 PASSWORDS_DIFFER = "Yeni parola ile tekrarı eşleşmiyor."
 UNKNOWN_ROLE = "Bilinmeyen rol."
 UNKNOWN_STATUS = "Durum 'active' ya da 'inactive' olmalı."
+BOT_NEVER_RAN = (
+    "Telegram botu bu kurulumda hiç çalışmadı: .env'e TELEGRAM_BOT_TOKEN ekleyip botu başlatın "
+    "(baslat.bat). Bot ilk açılışta adını kaydeder; sonra bağlantı üretilebilir."
+)
 ROLE_LABELS = {UserRole.ADMIN.value: "Yönetici"}
 STATUS_ACTIVE = "active"
 STATUS_INACTIVE = "inactive"
@@ -106,6 +126,7 @@ def require_admin(user: Annotated[PanelUser, Depends(require_panel_user)]) -> Pa
 AdminUser = Annotated[PanelUser, Depends(require_admin)]
 CurrentUser = Annotated[PanelUser, Depends(require_panel_user)]
 DbSession = Annotated[Session, Depends(get_session)]
+Layout = Annotated[DataLayout, Depends(get_layout)]
 
 
 @dataclass(frozen=True, slots=True)
@@ -124,6 +145,16 @@ class UserRow:
     telegram_count: int
     is_self: bool
     telegram: tuple[TelegramRow, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class IssuedLink:
+    """Az önce üretilen bot bağlantısı: yalnız bu yanıtta gösterilir (12.1.4)."""
+
+    user_id: int
+    url: str
+    expires_at: datetime
+    minutes: int
 
 
 @dataclass(frozen=True, slots=True)
@@ -174,6 +205,7 @@ def _users_page(
     request: Request,
     user: PanelUser,
     session: Session,
+    layout: DataLayout,
     *,
     status_code: int = status.HTTP_200_OK,
     notice: str | None = None,
@@ -181,7 +213,9 @@ def _users_page(
     error_user_id: int | None = None,
     form: NewUserValues | None = None,
     telegram_value: str = "",
+    link: IssuedLink | None = None,
 ) -> HTMLResponse:
+    bot = read_bot_info(layout)
     response = render_page(
         request,
         "users.html",
@@ -196,6 +230,9 @@ def _users_page(
         form=form or NewUserValues(),
         telegram_value=telegram_value,
         userinfobot_url=USERINFOBOT_URL,
+        bot_username=bot.username if bot is not None else None,
+        bot_never_ran=BOT_NEVER_RAN,
+        link=link,
         min_password_length=MIN_PASSWORD_LENGTH,
         username_min_length=USERNAME_MIN_LENGTH,
         username_max_length=USERNAME_MAX_LENGTH,
@@ -222,9 +259,10 @@ def users_page(
     request: Request,
     user: AdminUser,
     session: DbSession,
+    layout: Layout,
     notice: Annotated[str | None, Query(max_length=32)] = None,
 ) -> HTMLResponse:
-    return _users_page(request, user, session, notice=notice)
+    return _users_page(request, user, session, layout, notice=notice)
 
 
 @router.post(USERS_PATH, response_class=HTMLResponse)
@@ -232,6 +270,7 @@ def create_user_endpoint(
     request: Request,
     user: AdminUser,
     session: DbSession,
+    layout: Layout,
     username: TextField = "",
     password: TextField = "",
     role: TextField = UserRole.ADMIN.value,
@@ -245,6 +284,7 @@ def create_user_endpoint(
             request,
             user,
             session,
+            layout,
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             error=UNKNOWN_ROLE,
             form=form,
@@ -258,7 +298,9 @@ def create_user_endpoint(
             if isinstance(exc, UsernameTakenError)
             else status.HTTP_422_UNPROCESSABLE_CONTENT
         )
-        return _users_page(request, user, session, status_code=code, error=str(exc), form=form)
+        return _users_page(
+            request, user, session, layout, status_code=code, error=str(exc), form=form
+        )
     session.commit()
     return _redirect("created")
 
@@ -269,6 +311,7 @@ def reset_password_endpoint(
     request: Request,
     user: AdminUser,
     session: DbSession,
+    layout: Layout,
     password: TextField = "",
 ) -> Response:
     """10.1.4 "başka kullanıcının parolasını sıfırlama" — hedefin oturumları kapanır,
@@ -284,7 +327,13 @@ def reset_password_endpoint(
             else status.HTTP_422_UNPROCESSABLE_CONTENT
         )
         return _users_page(
-            request, user, session, status_code=code, error=str(exc), error_user_id=user_id
+            request,
+            user,
+            session,
+            layout,
+            status_code=code,
+            error=str(exc),
+            error_user_id=user_id,
         )
     session.commit()
     return _redirect("password_reset")
@@ -296,6 +345,7 @@ def set_status_endpoint(
     request: Request,
     user: AdminUser,
     session: DbSession,
+    layout: Layout,
     status_value: Annotated[str, Form(alias="status", max_length=16)] = "",
 ) -> Response:
     """10.1.4 pasife alma ve yeniden etkinleştirme — `USER_DEACTIVATED`/`USER_REACTIVATED`
@@ -305,6 +355,7 @@ def set_status_endpoint(
             request,
             user,
             session,
+            layout,
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             error=UNKNOWN_STATUS,
             error_user_id=user_id,
@@ -319,6 +370,7 @@ def set_status_endpoint(
             request,
             user,
             session,
+            layout,
             status_code=status.HTTP_409_CONFLICT,
             error=str(exc),
             error_user_id=user_id,
@@ -333,6 +385,7 @@ def add_telegram_endpoint(
     request: Request,
     user: AdminUser,
     session: DbSession,
+    layout: Layout,
     telegram_id: Annotated[str, Form(max_length=64)] = "",
 ) -> Response:
     """12.1.3 kullanıcıya Telegram kimliği ekleme — izin açık gelir; `TELEGRAM_USER_CHANGED`
@@ -352,6 +405,7 @@ def add_telegram_endpoint(
             request,
             user,
             session,
+            layout,
             status_code=code,
             error=str(exc),
             error_user_id=user_id,
@@ -370,6 +424,7 @@ def set_telegram_status_endpoint(
     request: Request,
     user: AdminUser,
     session: DbSession,
+    layout: Layout,
     allowed_value: Annotated[str, Form(alias="allowed", max_length=8)] = "",
 ) -> Response:
     """12.1.3 izni kapatma ve açma — kayıt silinmez; `TELEGRAM_USER_CHANGED` {target_user_id,
@@ -380,6 +435,7 @@ def set_telegram_status_endpoint(
             request,
             user,
             session,
+            layout,
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             error=UNKNOWN_ALLOWED,
             error_user_id=user_id,
@@ -398,12 +454,67 @@ def set_telegram_status_endpoint(
             request,
             user,
             session,
+            layout,
             status_code=status.HTTP_409_CONFLICT,
             error=str(exc),
             error_user_id=user_id,
         )
     session.commit()
     return _redirect("telegram_allowed" if allowed else "telegram_blocked")
+
+
+@router.post(f"{USERS_PATH}/{{user_id}}/telegram/link", response_class=HTMLResponse)
+def create_telegram_link_endpoint(
+    user_id: int,
+    request: Request,
+    user: AdminUser,
+    session: DbSession,
+    layout: Layout,
+) -> Response:
+    """12.1.4 "Telegram'ı bağla" — tek kullanımlık bot bağlantısı; `TELEGRAM_LINK_CREATED`
+    {target_user_id, expires_at}. Önceki kullanılmamış bağlantı geçersiz olur. Pasif kullanıcıya
+    ya da bot hiç çalışmamışken 409. Bağlantı yalnız bu yanıtta görünür."""
+    target = _user_or_404(session, user_id)
+    bot = read_bot_info(layout)
+    if bot is None:
+        session.rollback()
+        return _users_page(
+            request,
+            user,
+            session,
+            layout,
+            status_code=status.HTTP_409_CONFLICT,
+            error=BOT_NEVER_RAN,
+            error_user_id=user_id,
+        )
+    try:
+        issued = create_link_code(session, target, actor=user.username)
+    except LinkTargetInactiveError as exc:
+        session.rollback()
+        return _users_page(
+            request,
+            user,
+            session,
+            layout,
+            status_code=status.HTTP_409_CONFLICT,
+            error=str(exc),
+            error_user_id=user_id,
+        )
+    session.commit()
+    response = _users_page(
+        request,
+        user,
+        session,
+        layout,
+        link=IssuedLink(
+            user_id=user_id,
+            url=link_url(bot.username, issued.code),
+            expires_at=issued.expires_at,
+            minutes=int(LINK_CODE_TTL.total_seconds() // 60),
+        ),
+    )
+    response.headers["Cache-Control"] = "no-store"
+    return response
 
 
 def _account_page(

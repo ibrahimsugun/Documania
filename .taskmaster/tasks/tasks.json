@@ -2162,14 +2162,14 @@
         "description": "PRD 12.1.4 · FR-MOD-12 · Faz 2 · Should (v2). İnsan isteği (2026-10-01): \"Kimlik ekle\" yapınca panel kimliği kendisi alıp kaydetsin. Tam sözleşme PLAN §D87 (a)–(d), (f) — önce oku.",
         "details": "KAPSAM: PRD 12.1.4. (1) Göç: `telegram_link_codes` (code_hash tekil, user_id, created_by, created_at, expires_at +10 dk, used_at, used_telegram_id, revoked_at; silinmez). (2) `app/telegram/whitelist.py` ya da yeni `app/telegram/link.py`: `create_link_code(session, user, actor) -> (kod, bitiş)` (önceki kullanılmamış kodu iptal eder, `TELEGRAM_LINK_CREATED`), `redeem_link_code(session, code, telegram_id) -> sonuç` (koşullu güncelleme; başka kullanıcıya bağlı → ret, kod kalır; aynı kullanıcıda izinli → zaten bağlı; engelli → açılmaz; pasif kullanıcı → ret; başarı → `add_telegram_id` + `TELEGRAM_USER_CHANGED` via=link). (3) Bot: `/start <kod>` işleyicisi `GATE_GROUP`'tan önce, yalnız özel sohbet; kodsuz `/start` kapıdan geçer (bugünkü gibi); geçersiz koda tek genel yanıt; sohbet başına 5 geçersiz denemeden sonra 1 saat sessiz; açılışta `getMe` → `data/telegram/bot.json` (atomik yazma). (4) Panel: Kullanıcılar sayfasında \"Telegram'ı bağla\" (`POST /users/{id}/telegram/link`, yönetici), bağlantı + bitiş + kopyala düğmesi; bot.json yoksa düğme pasif ve açıklamalı; pasif kullanıcıya 409; `test_access_log.py` yol listesi güncellenir. (5) PRD §8.3'e eklenen `TELEGRAM_LINK_CREATED` `EventType`'a eklenir. Kod/kimlik/kullanıcı adı loga girmez. QR yok (bağımlılık).",
         "testStrategy": "1) Kod: üretim özet saklar, düz kod bir kez döner; yeni kod eskisini iptal eder; süre dolunca, iptalde, ikinci kullanımda ret. 2) Bağlama: başarı izinli satır + olaylar; başka kullanıcıya bağlı kimlik ret ve kod kullanılabilir kalır; engelli kimlik açılmaz; pasif kullanıcı ret. 3) Bot (FakeTelegram): `/start <kod>` listede olmayan kişiye çalışır ve \"Bağlandı\" der; kodsuz `/start` yanıtsız; grup sohbeti yok sayılır; geçersiz kod genel yanıt; 6. geçersiz denemede sessiz; log'da kod/kimlik yok; `bot.json` yazılır. 4) Panel: düğme, bağlantı biçimi `https://t.me/<ad>?start=<22 karakter>`, bot.json yoksa pasif, yalnız yönetici, oturum ister. 5) Kural bozmaları kırmızı. 6) DoD kapısı yeşil.",
-        "status": "pending",
+        "status": "in-progress",
         "dependencies": [
           "148",
           "135"
         ],
         "priority": "medium",
         "subtasks": [],
-        "updatedAt": "2026-10-01T17:00:00.000Z"
+        "updatedAt": "2026-10-01T21:13:49.873Z"
       },
       {
         "id": "150",
@@ -2188,7 +2188,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-01T17:00:00.000Z",
+      "lastModified": "2026-10-01T21:13:49.873Z",
       "taskCount": 148,
       "completedCount": 143,
       "tags": [

@@ -19,6 +19,7 @@ data/
       _egitim/haritalar/              yüklenen harita CSV'leri (11.9.5)
       _egitim/cikarilan/<tur_slug>/   örneklerden çıkarılanlar; silinmez (11.9.4)
   cache/pages/<file_id>/          analiz için üretilmiş sayfa görüntüleri
+  telegram/bot.json               botun Telegram kullanıcı adı; bot açılışta yazar (12.1.4)
 ```
 
 Açılışta sabit dizinler kurulur (`prepare_data_dir`); `<…>` kimlikli dizinler ilgili adım
@@ -55,6 +56,8 @@ TRAINING_REMOVED = "cikarilan"
 CACHE = "cache"
 PAGES = "pages"
 PAGE_IMAGE_EXTENSION = "jpg"
+TELEGRAM = "telegram"
+TELEGRAM_BOT_INFO_FILE = "bot.json"
 
 # Plan JSON `route` / `queue_items.kind` değeri → kuyruk dizini (PRD §8.5).
 _QUEUE_DIRS = {"unknown": UNKNOWN, "unreadable": UNREADABLE, "unresolved": UNRESOLVED}
@@ -113,6 +116,13 @@ class DataLayout:
         """`KnownDocuments/_ornek_envanteri.csv` — örneklerin kaynak ve SHA-256 envanteri; harici
         toplayıcı aracının ürünüdür, sistem yazmaz (mekanik tanıma okur, 11.9.2)."""
         return self.known_documents / EXAMPLE_INVENTORY_FILE
+
+    @property
+    def telegram_bot_info_path(self) -> Path:
+        """`telegram/bot.json` — botun Telegram kullanıcı adı (12.1.4, PLAN.md §D87-c). Bot her
+        açılışta `getMe` yanıtından yeniden üretir; panel bağlantı adresini buradan kurar. Dizin
+        yazılırken açılır (`replace_file`); dosya yoksa bot bu veri dizininde hiç çalışmamıştır."""
+        return self.root / TELEGRAM / TELEGRAM_BOT_INFO_FILE
 
     def static_dirs(self) -> tuple[Path, ...]:
         """Açılışta var olması gereken dizinlerin tamamı."""

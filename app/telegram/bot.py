@@ -14,6 +14,13 @@ hiçbir işleyici çalışmaz — yani hiçbir yanıt gitmez. Kapı hata durumun
 okunamazsa güncelleme reddedilir). **Yeni işleyici `GATE_GROUP`'tan büyük bir gruba eklenir**;
 kapıdan önceki bir gruba konan işleyici beyaz listeyi atlar.
 
+Tek istisna `LINK_GROUP`'taki `LinkStart`'tır (12.1.4, PLAN.md §D87): yöneticinin ürettiği
+bağlantıyla gelen `/start <kod>` kişi henüz listede değilken çalışmalıdır. Yalnız özel sohbette ve
+yalnız argümanlı `/start`'ı alır, kodu `app.telegram.link.redeem_link_code`'a verir ve her durumda
+`ApplicationHandlerStop` ile güncellemeyi bitirir; başka hiçbir işleyiciye geçmez. Kodsuz `/start`
+ve öbür mesajlar eskisi gibi kapıdan geçer. Bot açılışta (`post_init`) `getMe` yanıtındaki
+kullanıcı adını veri dizinine yazar (`write_bot_info`); panel bağlantıyı onunla kurar.
+
 Belge alma (12.2) `app.telegram.handlers.DocumentIntake`'te, doğal dil belge istekleri (12.3)
 `app.telegram.intent.DocumentRequests`'tedir; `build_application`'a verilenler `HANDLER_GROUP`'a
 eklenir. Kuyruk ve hata bildirimleri (12.4) `app.telegram.notify.Notifier`'dır: güncelleme
@@ -43,6 +50,7 @@ from telegram.ext import (
     CommandHandler,
     ContextTypes,
     TypeHandler,
+    filters,
 )
 
 from app.catalog import load_catalog_on_startup
@@ -50,9 +58,16 @@ from app.config import Settings, get_settings
 from app.db.models import TelegramUser
 from app.db.schema_check import ensure_schema_current
 from app.db.session import get_session_factory
-from app.storage import prepare_data_dir
+from app.storage import DataLayout, prepare_data_dir
 from app.telegram.handlers import DocumentIntake
 from app.telegram.intent import DocumentRequests
+from app.telegram.link import (
+    LinkAttempts,
+    LinkOutcome,
+    LinkRedemption,
+    redeem_link_code,
+    write_bot_info,
+)
 from app.telegram.notify import Notifier
 from app.telegram.whitelist import permitted_ids
 from app.worker.monitor import AlertWatch
@@ -60,6 +75,7 @@ from app.worker.monitor import AlertWatch
 logger = logging.getLogger(__name__)
 
 GATE_GROUP = -1
+LINK_GROUP = GATE_GROUP - 1
 HANDLER_GROUP = 0
 # Bot yalnız mesaj ve satır içi klavye yanıtı alır (12.2 belge/mesaj, 12.3 seçim); Telegram'dan
 # başka güncelleme türü istenmez, dolayısıyla işlenecek yüzey de büyümez.
@@ -77,6 +93,13 @@ HELP_TEXT = (
     "Komutlar:\n"
     "/start, /yardim — bu mesaj"
 )
+
+LINKED_TEXT = "Bağlandı: {username}. Belge göndermek ve istemek için /yardim yazın."
+ALREADY_LINKED_TEXT = "Bu Telegram hesabı zaten {username} kullanıcısına bağlı."
+LINK_BLOCKED_TEXT = "Bu Telegram hesabının izni kapalı; yöneticinize başvurun."
+LINK_TAKEN_TEXT = "Bu Telegram hesabı başka bir panel kullanıcısına bağlı; yöneticinize başvurun."
+INVALID_LINK_TEXT = "Bağlantı geçersiz ya da süresi dolmuş; yöneticinizden yenisini isteyin."
+LINK_FAILED_TEXT = "Bağlantı şu anda işlenemedi; biraz sonra yeniden deneyin."
 
 # Telegram'ın `secret_token` kuralı: 1–256 karakter, yalnız A-Z a-z 0-9 _ -.
 _SECRET_TOKEN = re.compile(r"[A-Za-z0-9_-]{1,256}")
@@ -199,6 +222,95 @@ class WhitelistGate:
             return False
 
 
+def link_reply(result: LinkRedemption) -> str:
+    """Bağlama sonucunun yanıtı; geçersiz, süresi dolmuş ya da kullanılmış kod ve pasif kullanıcı
+    için tek genel yanıt."""
+    match result.outcome:
+        case LinkOutcome.LINKED:
+            return LINKED_TEXT.format(username=result.username)
+        case LinkOutcome.ALREADY_LINKED:
+            return ALREADY_LINKED_TEXT.format(username=result.username)
+        case LinkOutcome.BLOCKED:
+            return LINK_BLOCKED_TEXT
+        case LinkOutcome.TAKEN:
+            return LINK_TAKEN_TEXT
+        case _:
+            return INVALID_LINK_TEXT
+
+
+class LinkStart:
+    """`/start <kod>` (12.1.4): beyaz liste kapısından önce, yalnız özel sohbette çalışır; kodu
+    gönderenin kimliğine uygular ve sonucu yanıtlar. Sohbet art arda `LINK_ATTEMPT_LIMIT` geçersiz
+    kod gönderdiyse bir saat hiç yanıt almaz (`LinkAttempts`). Güncelleme her durumda burada biter.
+    Kod, kimlik ve kullanıcı adı loga yazılmaz; yalnız sonuç ve güncelleme numarası."""
+
+    def __init__(
+        self, session_factory: sessionmaker[Session], attempts: LinkAttempts | None = None
+    ) -> None:
+        self._session_factory = session_factory
+        self._attempts = attempts or LinkAttempts()
+
+    def register(self, application: Application) -> None:
+        application.add_handler(
+            CommandHandler("start", self, filters=filters.ChatType.PRIVATE, has_args=True),
+            group=LINK_GROUP,
+        )
+
+    async def __call__(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        try:
+            await self._handle(update, list(context.args or ()))
+        except Exception as exc:
+            # Yanıt gönderilemedi (Telegram hatası): hata metni sohbet kimliğini taşıyabilir.
+            logger.error("Telegram bağlantısı yanıtlanamadı (%s)", type(exc).__name__)
+        raise ApplicationHandlerStop
+
+    async def _handle(self, update: Update, args: list[str]) -> None:
+        user, chat, message = update.effective_user, update.effective_chat, update.message
+        if user is None or chat is None or message is None:
+            return
+        if self._attempts.silenced(chat.id):
+            logger.info(
+                "Bağlantı denemesi yok sayıldı: sohbet sessiz (update_id=%s)", update.update_id
+            )
+            return
+        code = args[0] if len(args) == 1 else ""
+        try:
+            result = await asyncio.to_thread(self._redeem, code, user.id)
+        except Exception as exc:
+            # Hata metni (SQL parametreleri) kodu ve kimliği taşır; yalnız türü yazılır.
+            logger.error("Telegram bağlantı kodu işlenemedi (%s)", type(exc).__name__)
+            await message.reply_text(LINK_FAILED_TEXT)
+            return
+        if result.outcome is LinkOutcome.INVALID:
+            self._attempts.failed(chat.id)
+        elif result.outcome in (LinkOutcome.LINKED, LinkOutcome.ALREADY_LINKED):
+            self._attempts.succeeded(chat.id)
+        logger.info("Telegram bağlantı kodu: %s (update_id=%s)", result.outcome, update.update_id)
+        await message.reply_text(link_reply(result))
+
+    def _redeem(self, code: str, telegram_id: int) -> LinkRedemption:
+        with self._session_factory() as session:
+            result = redeem_link_code(session, code, telegram_id)
+            session.commit()
+        return result
+
+
+def register_bot_info(application: Application, layout: DataLayout) -> None:
+    """Bot açılışında (`post_init`, `getMe`'den sonra) botun kullanıcı adını veri dizinine
+    yazar (12.1.4). Yazılamazsa bot yine çalışır; panelde bağlantı düğmesi kapalı kalır."""
+    previous_init = application.post_init
+
+    async def _write(app: Application) -> None:
+        if previous_init is not None:
+            await previous_init(app)
+        try:
+            await asyncio.to_thread(write_bot_info, layout, app.bot.username)
+        except Exception as exc:
+            logger.error("Botun kullanıcı adı veri dizinine yazılamadı (%s)", type(exc).__name__)
+
+    application.post_init = _write
+
+
 async def _send_help(update: Update, _context: ContextTypes.DEFAULT_TYPE) -> None:
     if update.effective_message is not None:
         await update.effective_message.reply_text(HELP_TEXT)
@@ -215,16 +327,21 @@ def build_application(
     session_factory: sessionmaker[Session],
     *,
     builder: ApplicationBuilder | None = None,
+    layout: DataLayout | None = None,
+    link_attempts: LinkAttempts | None = None,
     intake: DocumentIntake | None = None,
     document_requests: DocumentRequests | None = None,
     notifier: Notifier | None = None,
 ) -> Application:
-    """Beyaz liste kapısı, komut, (`intake` verilirse) belge alma ve (`document_requests`
-    verilirse) belge isteği işleyicileriyle bot uygulamasını kurar (ağa çıkmaz); `notifier`
-    verilirse bot başlarken bildirim taraması açılır, dururken kapanır (12.4).
+    """Bağlantı kodu (`/start <kod>`, 12.1.4), beyaz liste kapısı, komut, (`intake` verilirse)
+    belge alma ve (`document_requests` verilirse) belge isteği işleyicileriyle bot uygulamasını
+    kurar (ağa çıkmaz); `layout` verilirse bot başlarken kullanıcı adını veri dizinine yazar,
+    `notifier` verilirse bot başlarken bildirim taraması açılır, dururken kapanır (12.4).
 
-    `builder` testte sahte bir aktarıcıyla ön ayarlı gelir; verilmezse varsayılan kurulur."""
+    `builder` testte sahte bir aktarıcıyla ön ayarlı gelir; verilmezse varsayılan kurulur.
+    `link_attempts` testte saati elle ilerleyen bir sayaçtır."""
     application = (builder or ApplicationBuilder()).token(config.token).build()
+    LinkStart(session_factory, link_attempts).register(application)
     application.add_handler(
         TypeHandler(Update, WhitelistGate(session_factory), block=True), group=GATE_GROUP
     )
@@ -233,6 +350,8 @@ def build_application(
         intake.register(application, group=HANDLER_GROUP)
     if document_requests is not None:
         document_requests.register(application, group=HANDLER_GROUP)
+    if layout is not None:
+        register_bot_info(application, layout)
     if notifier is not None:
         notifier.register(application)
 
@@ -287,6 +406,7 @@ def main() -> int:
     application = build_application(
         config,
         session_factory,
+        layout=layout,
         intake=intake,
         document_requests=document_requests,
         notifier=Notifier(

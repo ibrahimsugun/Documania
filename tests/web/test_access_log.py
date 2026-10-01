@@ -503,6 +503,9 @@ REVIEWED_MUTATING_ROUTES: dict[tuple[str, str], str] = {
     ("POST", "/users/{user_id}/telegram/{telegram_id}/status"): (
         "Telegram kimliğinin iznini kapatma ve açma; silinmez (12.1.3, R11)"
     ),
+    ("POST", "/users/{user_id}/telegram/link"): (
+        "Telegram'ı bağla: tek kullanımlık bot bağlantısı; kimliği bot bağlar (12.1.4)"
+    ),
 }
 
 # "assign" içindeki "sign" düzenleme sayılmasın: sözcük başı ve sonu harf olmayan sınırdır.

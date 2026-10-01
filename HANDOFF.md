@@ -18,6 +18,12 @@ Blok biçimi `CONVENTIONS.md` §3'te tanımlıdır:
 
 ## Task log (newest-first)
 
+## 149 — 12.1-d Telegram hesabını bağlantıyla otomatik bağlama — done — 2026-10-02
+- Yapıldı: Kullanıcılar sayfasında "Telegram'ı bağla" 10 dakikalık, tek kullanımlık bot bağlantısı üretiyor (`https://t.me/<bot>?start=<kod>`; yalnız özet saklanıyor, yeni kod öncekini iptal ediyor). Bot `/start <kod>`'u kapıdan önce, yalnız özel sohbette işleyip gönderenin kimliğini izinli bağlıyor. Engelli ya da başka kullanıcıya bağlı kimlik açılmıyor; 5 geçersiz denemeden sonra sohbet 1 saat sessiz. Bot açılışta adını `data/telegram/bot.json`'a yazıyor; dosya yoksa düğme kapalı. Göç 0023 (`telegram_link_codes`), olay `TELEGRAM_LINK_CREATED`, ayrıntı `app/telegram/link.py`.
+- Doğrulama: ruff check/format, compileall, `import app.main`, `alembic upgrade head` (→0023) exit 0. `pytest -q -m "not live" --cov=app` on ön plan grubunda 6249 geçti (+72), 6 atlandı. `coverage report --fail-under=70` exit 0, %99. Sonra +1 test eklendi, telegram grubu 688 geçti. 20 geçici kural bozmasının 20'si kırmızı.
+- Varsayımlar: §D89 — reddedilen bağlama (engelli/başka kullanıcı) kodu tüketmiyor; ölü kod hiçbir durum bilgisi sızdırmıyor; bağlantı yönlendirmesiz ve `no-store` gösteriliyor; HTMX yoklaması yok (sayfa "yenileyin" diyor); QR yok.
+- Sonraki pencereye not: `.env`'de `TELEGRAM_BOT_TOKEN` hâlâ boş, yani bot.json oluşmadığı için düğme kapalı görünecek. Token'ı insan girer; tm 150 (`baslat.bat` botu açar) bundan sonra gelir. Dal `task/149-150-telegram-baglanti-plani`. `icon.png` yine commit dışında.
+
 ## 149/150 — Telegram hesabını bağlantıyla bağlama ve başlatıcıda bot — görevler açıldı (pending) — 2026-10-01
 - Yapıldı: İnsan "kimlik ekle yapınca panel kimliği kendisi alsın" dedi, seçenekler soruldu, karar "görev aç, döngü yapsın". PRD'ye 12.1.4 (tek kullanımlık bot bağlantısıyla otomatik bağlama) ve 12.1.5 (baslat.bat token varsa botu açar) ile §8.3'e `TELEGRAM_LINK_CREATED` eklendi; sözleşme PLAN §D87; görevler 149 ve 150 `pending`. Kod yazılmadı.
 - Doğrulama: `task-master validate-dependencies` yeşil; PLAN §0 sayımı tablolardan.

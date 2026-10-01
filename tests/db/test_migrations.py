@@ -34,7 +34,7 @@ def _assert_schema_matches_models(database_url: str) -> None:
             assert tables == set(Base.metadata.tables) | {"alembic_version"}
             context = MigrationContext.configure(connection, opts={"compare_type": True})
             assert compare_metadata(context, Base.metadata) == []
-            assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "0022"
+            assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "0023"
     finally:
         engine.dispose()
 
@@ -1247,6 +1247,53 @@ def test_user_active_migration_keeps_existing_users_active_and_is_reversible(
         with engine.connect() as connection:
             columns = {c["name"] for c in inspect(connection).get_columns("users")}
             assert "active" not in columns
+            assert connection.scalar(text("SELECT username FROM users")) == "yonetici"
+    finally:
+        engine.dispose()
+
+
+def test_telegram_link_codes_migration_adds_the_table_and_is_reversible(sqlite_url: str) -> None:
+    # 0023 (12.1.4): bağlantı kodunun özeti tekildir, kod bir kullanıcıya bağlıdır; geri alış
+    # tabloyu düşürür, kullanıcılar kalır.
+    config = _alembic_config(sqlite_url)
+    command.upgrade(config, "0022")
+    engine = create_engine(sqlite_url)
+    insert_code = text(
+        "INSERT INTO telegram_link_codes (code_hash, user_id, created_by, created_at, expires_at) "
+        "VALUES (:hash, 1, 'yonetici', '2026-10-01 10:00:00', '2026-10-01 10:10:00')"
+    )
+    try:
+        with engine.begin() as connection:
+            connection.execute(
+                text(
+                    "INSERT INTO users (id, username, password_hash, role) "
+                    "VALUES (1, 'yonetici', 'ozet', 'admin')"
+                )
+            )
+
+        command.upgrade(config, "head")
+        with engine.connect() as connection:
+            columns = {c["name"]: c for c in inspect(connection).get_columns("telegram_link_codes")}
+            assert set(columns) == {
+                "id",
+                "code_hash",
+                "user_id",
+                "created_by",
+                "created_at",
+                "expires_at",
+                "used_at",
+                "used_telegram_id",
+                "revoked_at",
+            }
+            assert not columns["code_hash"]["nullable"] and columns["used_at"]["nullable"]
+        with engine.begin() as connection:
+            connection.execute(insert_code, {"hash": "a" * 64})
+        with pytest.raises(IntegrityError), engine.begin() as connection:
+            connection.execute(insert_code, {"hash": "a" * 64})
+
+        command.downgrade(config, "0022")
+        with engine.connect() as connection:
+            assert "telegram_link_codes" not in inspect(connection).get_table_names()
             assert connection.scalar(text("SELECT username FROM users")) == "yonetici"
     finally:
         engine.dispose()

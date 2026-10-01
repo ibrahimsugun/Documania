@@ -8,10 +8,17 @@ from typing import Any
 import pytest
 from sqlalchemy.orm import Session, sessionmaker
 from telegram import Update
-from telegram.ext import TypeHandler
+from telegram.ext import CommandHandler, TypeHandler
 
 from app.db.models import TelegramUser
-from app.telegram.bot import GATE_GROUP, HANDLER_GROUP, HELP_TEXT, is_whitelisted
+from app.telegram.bot import (
+    GATE_GROUP,
+    HANDLER_GROUP,
+    HELP_TEXT,
+    LINK_GROUP,
+    LinkStart,
+    is_whitelisted,
+)
 from tests.telegram.conftest import (
     LISTED_ID,
     OTHER_ID,
@@ -173,7 +180,13 @@ def test_ignored_update_log_carries_no_identity(
 
 
 def test_gate_is_registered_before_every_other_handler(bot: BotHarness) -> None:
-    assert min(bot.application.handlers) == GATE_GROUP
+    # Tek istisna 12.1.4'ün `/start <kod>` işleyicisidir (§D87): kişi henüz listede değilken
+    # çalışmalıdır; yalnız özel sohbette, yalnız argümanlı `/start`'ı alır.
+    before_gate = {group for group in bot.application.handlers if group < GATE_GROUP}
+    assert before_gate == {LINK_GROUP}
+    [link] = bot.application.handlers[LINK_GROUP]
+    assert isinstance(link, CommandHandler) and isinstance(link.callback, LinkStart)
+    assert link.commands == frozenset({"start"}) and link.has_args is True
     assert GATE_GROUP < HANDLER_GROUP
 
 
