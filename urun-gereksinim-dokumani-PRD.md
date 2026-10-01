@@ -286,7 +286,7 @@ Kapsam: FR-MOD-13.
 
 | ID | Gereksinim | Kabul kriteri | Öncelik |
 |---|---|---|---|
-| 10.1.1 | Panel iskeleti ve gezinme | Yükle, Çalışanlar, Kuyruklar, Belge Türleri, Belge Grupları, Yüklemeler, Eğitim modu, Kullanıcılar menüleri açılır | Must (v1) |
+| 10.1.1 | Panel iskeleti ve gezinme | Çalışanlar, Yükle, Belge Türleri, Belge Grupları, Kuyruklar, Yüklemeler, Eğitim modu, Kullanıcılar menüleri bu sırayla açılır; panelin ana sayfası (`/`) Çalışanlar'dır | Must (v1) |
 | 10.1.2 | Oturum tabanlı giriş | Girişsiz hiçbir panel yolu açılmaz | Must (v1) |
 | 10.1.3 | İlk kullanıcı oluşturma | Komut satırından ilk yönetici oluşturulabilir | Must (v1) |
 | 10.1.4 | Kullanıcı yönetimi | Panelde "Kullanıcılar" sayfası (yalnız yönetici): kullanıcı listesi; yeni kullanıcı (kullanıcı adı, parola, rol); kendi parolasını değiştirme; başka kullanıcının parolasını sıfırlama; pasife alma ve yeniden etkinleştirme. Pasif kullanıcı giriş yapamaz ve açık oturumları kapanır; son etkin yönetici pasife alınamaz, kullanıcı kendini pasife alamaz; kullanıcı silinmez. Her işlem kullanıcı adıyla olaya yazılır, parola hiçbir olaya girmez | Should (v1) |

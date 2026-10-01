@@ -2124,13 +2124,27 @@
         "priority": "medium",
         "subtasks": [],
         "updatedAt": "2026-10-01T12:00:00.000Z"
+      },
+      {
+        "id": "147",
+        "title": "10.1-e — Menü sırası ve ana sayfa: Çalışanlar ilk sırada ve panelin girişi [SONNET-XHIGH]",
+        "description": "PRD 10.1.1 · FR-MOD-10 · Faz 1. İnsan kararı (2026-10-01): sıra Çalışanlar, Yükle, Belge Türleri, Belge Grupları, Kuyruklar, Yüklemeler, Eğitim modu, Kullanıcılar; ana sayfa Çalışanlar. PLAN §D85.",
+        "details": "`app/web/templating.py` `PANEL_MENU` yeniden sıralanır; `/` ilk menü öğesine yönlendirdiği için ana sayfa `/employees` olur. PRD 10.1.1 kabul metni güncellenir.",
+        "testStrategy": "1) `tests/web/test_auth.py` menü sırası ve `/` → `/employees`. 2) Tam paket yeşil.",
+        "status": "done",
+        "dependencies": [
+          "64"
+        ],
+        "priority": "medium",
+        "subtasks": [],
+        "updatedAt": "2026-10-01T14:00:00.000Z"
       }
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-01T12:00:00.000Z",
-      "taskCount": 144,
-      "completedCount": 141,
+      "lastModified": "2026-10-01T14:00:00.000Z",
+      "taskCount": 145,
+      "completedCount": 142,
       "tags": [
         "master"
       ]

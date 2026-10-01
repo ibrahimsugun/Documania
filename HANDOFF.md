@@ -18,6 +18,12 @@ Blok biçimi `CONVENTIONS.md` §3'te tanımlıdır:
 
 ## Task log (newest-first)
 
+## 147 — 10.1-e Menü sırası ve ana sayfa Çalışanlar — done — 2026-10-01
+- Yapıldı: İnsan kararıyla menü Çalışanlar · Yükle · Belge Türleri · Belge Grupları · Kuyruklar · Yüklemeler · Eğitim modu · Kullanıcılar sırasına girdi; `/` ilk menü öğesine gittiği için ana sayfa `/employees` oldu (§D85). PRD 10.1.1 kabul metni güncellendi.
+- Doğrulama: ruff check/format, compileall, `import app.main`; `pytest -q -m "not live"` sekiz paralel grupta 6160 geçti, 6 atlandı, 0 kırmızı.
+- Varsayımlar: `next` verilmiş giriş (ör. `/upload`) eskisi gibi oraya gider; menü dışı "Erişim logu" yerinde.
+- Sonraki pencereye not: Çalışan sunucu `baslat.bat` ile yeniden başlatılınca yeni menü görünür. Dal `task/147-menu-sirasi`, `task/146-…`'dan çıkıyor; `main` bu commit'e ileri alınır.
+
 ## 146 — 13.1-b Maliyet ölçümü ve panelinin kaldırılması — done — 2026-10-01
 - Yapıldı: İnsan kararıyla Maliyet sayfası ve token/maliyet kaydı kaldırıldı (§D84): `/metrics` + şablonlar + router + menü bağlantısı, `app/ai/usage.py`, `pricing.py`, `model_prices.yaml`, `Settings.ai_model_prices`, sağlayıcılardaki token bildirimi; olaylar yalnız `provider` ve `model` yazar (`ai_call_event_data`); `run_idle_unit` geri çağrıları `meter` almaz. PRD 13.1.1 "Kapsam dışı", PLAN ⛔, Faz 3 kapanış ölçütünden maliyet paneli çıktı.
 - Doğrulama: ruff check/format, compileall, `import app.main`; `pytest -q -m "not live" --cov=app` sekiz paralel grupta 6160 geçti, 6 atlandı, 0 kırmızı, `coverage combine` + `report --fail-under=70` exit 0, birleşik kapsam %99. Göç yok.

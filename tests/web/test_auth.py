@@ -40,21 +40,21 @@ PASSWORD = "gizli-parola-1"
 # PRD 10.1.1 menüsü; "Belge Grupları" tm 124 (14.1.1) ile, "Kullanıcılar" tm 134 (10.1.4) ile geldi
 # (§D62).
 MENU_LABELS = [
-    "Yükle",
     "Çalışanlar",
-    "Kuyruklar",
+    "Yükle",
     "Belge Türleri",
     "Belge Grupları",
+    "Kuyruklar",
     "Yüklemeler",
     "Eğitim modu",
     "Kullanıcılar",
 ]
 MENU_PATHS = [
-    "/upload",
     "/employees",
-    "/queues",
+    "/upload",
     "/document-types",
     "/document-groups",
+    "/queues",
     "/uploads",
     "/training",
     "/users",
@@ -555,7 +555,7 @@ def test_every_menu_entry_opens_its_page_after_login(anonymous: TestClient, admi
 
     home = anonymous.get("/", follow_redirects=False)
     assert home.status_code == 303
-    assert home.headers["location"] == "/upload"
+    assert home.headers["location"] == "/employees"  # ana sayfa Çalışanlar (§D85)
 
     for label, path in zip(MENU_LABELS, MENU_PATHS, strict=True):
         page = anonymous.get(path, follow_redirects=False)

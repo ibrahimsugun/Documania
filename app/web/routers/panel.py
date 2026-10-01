@@ -1,4 +1,4 @@
-"""Panel sayfaları ve ana menü (PRD 10.1.1): Yükle, Çalışanlar, Kuyruklar, Belge Türleri,
+"""Panel sayfaları ve ana menü (PRD 10.1.1): Çalışanlar, Yükle, Belge Türleri,
 Yüklemeler, Eğitim modu.
 
 Her sayfa oturum ister (10.1.2): yönlendirici `app.main`'de `require_panel_user` ile bağlanır,
@@ -25,5 +25,5 @@ CurrentUser = Annotated[PanelUser, Depends(require_panel_user)]
 
 @router.get("/")
 def home(_user: CurrentUser) -> RedirectResponse:
-    """Panelin girişi menünün ilk bölümüdür."""
+    """Panelin girişi menünün ilk bölümüdür (Çalışanlar, PLAN §D85)."""
     return RedirectResponse(PANEL_MENU[0].path, status.HTTP_303_SEE_OTHER)

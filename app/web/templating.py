@@ -30,11 +30,11 @@ class MenuEntry:
 
 
 PANEL_MENU = (
-    MenuEntry("upload", "Yükle", "/upload"),
     MenuEntry("employees", "Çalışanlar", "/employees"),
-    MenuEntry("queues", "Kuyruklar", "/queues"),
+    MenuEntry("upload", "Yükle", "/upload"),
     MenuEntry("document_types", "Belge Türleri", "/document-types"),
     MenuEntry("document_groups", "Belge Grupları", "/document-groups"),
+    MenuEntry("queues", "Kuyruklar", "/queues"),
     MenuEntry("uploads", "Yüklemeler", "/uploads"),
     MenuEntry("training", "Eğitim modu", "/training"),
     MenuEntry("users", "Kullanıcılar", "/users"),
