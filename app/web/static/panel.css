@@ -1108,6 +1108,19 @@ form:not(.session) button[type="submit"]:hover,
 
 /* Belge Türleri ülke süzgeci (11.1.5). */
 .country-filter select { min-width: 12rem; }
+/* 11.1.7: `country-select.js` süzgeci bayraklı listeye çevirir — düğme, arama kutusu, `role=listbox`. */
+.country-select { position: relative; display: inline-block; }
+.country-select-button { display: inline-flex; align-items: center; justify-content: space-between; gap: 0.5rem; min-width: 14rem; text-align: left; font-weight: 400; }
+.country-select-button::after { content: "▾"; color: var(--muted-ink); }
+.country-select-popup { position: absolute; z-index: 20; top: calc(100% + 0.25rem); left: 0; width: 20rem; max-width: 90vw; padding: 0.4rem; background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--radius-sm); box-shadow: var(--shadow-md); }
+.country-select-search { width: 100%; padding: 0.4rem 0.5rem; border: 1px solid var(--line-strong); border-radius: 6px; font: inherit; }
+.country-select-list { max-height: 18rem; overflow-y: auto; margin: 0.4rem 0 0; padding: 0; list-style: none; }
+.country-select-option { display: flex; align-items: center; gap: 0.45rem; padding: 0.3rem 0.45rem; border-radius: 6px; cursor: pointer; }
+.country-select-option:hover, .country-select-option.is-active { background: var(--accent-soft); }
+.country-select-option[aria-selected="true"] { font-weight: 600; }
+.country-select-option img, .country-select-button img { flex: none; width: 20px; height: 15px; object-fit: cover; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.15); }
+.country-select-empty { margin: 0.4rem 0.45rem; color: var(--muted-ink); }
+.country-select [hidden] { display: none; }
 
 /* Belge paketleri (14.2): profilde kart, kalem tikleri, durum rozeti; listede paket hücresi. */
 .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }

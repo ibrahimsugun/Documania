@@ -24,6 +24,7 @@ from app.countries import (
     lookup,
     non_country_label,
     normalize_code,
+    turkish_sort_key,
 )
 from app.web.templating import templates
 
@@ -305,3 +306,64 @@ def test_stylesheet_aligns_the_flag() -> None:
 
     assert re.search(r"\.country\s*\{[^}]*align-items:\s*center", css)
     assert re.search(r"\.country img\s*\{[^}]*height:\s*15px", css)
+
+
+# --- 11.1.7: Türkçe ada göre sıralama ------------------------------------------------------------
+
+
+def test_turkish_sort_key_puts_the_turkish_letters_after_their_base_letters() -> None:
+    names = ["Şili", "Uganda", "Çad", "İsveç", "Sierra Leone", "Ürdün", "Irak", "Cabo Verde"]
+    names += ["Özbekistan", "Sırbistan", "Orta Afrika Cumhuriyeti", "Gana", "Gürcistan", "Ğx"]
+
+    assert sorted(names, key=turkish_sort_key) == [
+        "Cabo Verde",
+        "Çad",
+        "Gana",
+        "Gürcistan",
+        "Ğx",
+        "Irak",
+        "İsveç",
+        "Orta Afrika Cumhuriyeti",
+        "Özbekistan",
+        "Sırbistan",
+        "Sierra Leone",
+        "Şili",
+        "Uganda",
+        "Ürdün",
+    ]
+
+
+def test_turkish_sort_key_folds_case_foreign_marks_and_spaces() -> None:
+    # Büyük `I` küçük `ı`, `İ` küçük `i`; `Å` ve `ô` işaretsiz harflerinin yerinde; boşluk
+    # harften önce gelir.
+    assert turkish_sort_key("IRAK")[0] == turkish_sort_key("ırak")[0]
+    assert turkish_sort_key("İRAN")[0] == turkish_sort_key("iran")[0]
+    assert sorted(["Almanya", "Åland Adaları", "Afganistan"], key=turkish_sort_key) == [
+        "Afganistan",
+        "Åland Adaları",
+        "Almanya",
+    ]
+    assert sorted(["Cook Adaları", "Côte d’Ivoire", "Curaçao"], key=turkish_sort_key) == [
+        "Cook Adaları",
+        "Côte d’Ivoire",
+        "Curaçao",
+    ]
+    assert sorted(["Gineabissau", "Gine Bissau"], key=turkish_sort_key) == [
+        "Gine Bissau",
+        "Gineabissau",
+    ]
+    # Eşit anahtarda metin sırayı sabitler: sonuç girdi sırasına bağlı değildir.
+    assert turkish_sort_key("Åland")[0] == turkish_sort_key("Aland")[0]
+    assert sorted(["Åland", "Aland"], key=turkish_sort_key) == ["Aland", "Åland"]
+    assert sorted(["Aland", "Åland"], key=turkish_sort_key) == ["Aland", "Åland"]
+    assert turkish_sort_key("Q")[0] < turkish_sort_key("R")[0]
+    assert turkish_sort_key("W")[0] > turkish_sort_key("V")[0]
+
+
+def test_every_country_name_sorts_in_turkish_order() -> None:
+    names = sorted((country.name_tr for country in countries()), key=turkish_sort_key)
+
+    assert names.index("Çad") > names.index("Curaçao")
+    assert names.index("İsveç") > names.index("Irak")
+    assert names.index("Sırbistan") < names.index("Sierra Leone") < names.index("Şili")
+    assert names.index("Türkiye") < names.index("Uganda") < names.index("Ürdün")

@@ -2071,14 +2071,14 @@
         "description": "PRD 11.1.7 · FR-MOD-11 · Should (v1). İnsan isteği (2026-09-30): ülke süzgeci düzgün çalışsın, listede ülke adı + ikon görünsün. Boş süzgeç eski süreçtendi (PLAN §D77); bugünkü kod 109 ülke listeliyor.",
         "details": "KAPSAM: PRD 11.1.7 (11.1.5 üzerine, tm 142'nin `lookup`/`country_badge`'ini kullanır). (1) Seçenek etiketi '<Türkçe ad> (<sayı>)', Türkçe harf sırasına göre sıralı (ç, ğ, ı, ö, ş, ü doğru yerde); 'Hepsi (N)' ve 'Genel — ülkesiz (N)' başta; tanınmayan kod koduyla sonda. (2) Bayraklı seçim: yerleşik `<select>` seçeneğinde görüntü olamaz → `<select>` sunucu tarafında aynen kalır (JavaScript kapalıyken ve erişilebilirlik için yedek, `onchange` gönderimi); küçük bir `app/web/static/country-select.js` onu düğme + `role=listbox` listeye çevirir: her satırda bayrak + ad + sayı, yazarak süzme, ok tuşları/Enter/Esc, seçimde formu gönderir; seçili ülkenin bayrağı düğmede görünür; SPA çatısı yok (MASTER-PROMPT §4). (3) Tablodaki 'Ülke' sütunu `country_badge(item.country)`; boşsa '—'. (4) Süzme mantığı (11.1.5) değişmez; `?country=` değerleri alfa-2 kalır.",
         "testStrategy": "1) Seçenekler Türkçe sıralı, sayılar doğru, başta iki özel seçenek; katalogda ülke varken seçenek listesi boş olmaz. 2) HTML'de her ülke seçeneğinde bayrak verisi (`data-flag`) ve JS dosyası bağlı; JS'siz `<select>` çalışır. 3) Tablo hücresinde img + ad. 4) `?country=RS` süzer (mevcut 11.1.5 testleri yeşil). 5) Kural bozması kırmızı. 6) DoD kapısı yeşil.",
-        "status": "pending",
+        "status": "in-progress",
         "dependencies": [
           "142",
           "123"
         ],
         "priority": "medium",
         "subtasks": [],
-        "updatedAt": "2026-09-30T13:30:00.000Z"
+        "updatedAt": "2026-10-01T04:00:04.190Z"
       },
       {
         "id": "144",
@@ -2098,7 +2098,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-01T03:58:56.958Z",
+      "lastModified": "2026-10-01T04:00:04.190Z",
       "taskCount": 142,
       "completedCount": 137,
       "tags": [

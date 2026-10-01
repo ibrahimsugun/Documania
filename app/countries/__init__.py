@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import json
 import re
+import unicodedata
 from dataclasses import dataclass
 from functools import cache
 from importlib import resources
@@ -71,6 +72,10 @@ NON_COUNTRY_CODES: dict[str, str] = {
     "XBA": "Afrika Kalkınma Bankası",
     "XIM": "Afrika İhracat-İthalat Bankası",
 }
+
+# Türk alfabesi; Türkçede olmayan `q`, `w`, `x` Latin alfabesindeki yerlerine konur (PRD 11.1.7).
+TURKISH_ALPHABET = "abcçdefgğhıijklmnoöpqrsştuüvwxyz"
+_TURKISH_RANK = {letter: rank for rank, letter in enumerate(TURKISH_ALPHABET, start=1)}
 
 _CODE = re.compile(r"[A-Z]{1,3}")
 _SPACE = re.compile(r"\s+")
@@ -126,6 +131,23 @@ def _tables() -> tuple[dict[str, Country], dict[str, Country]]:
         by_alpha2[alpha2] = country
         by_alpha3[alpha3] = country
     return by_alpha2, by_alpha3
+
+
+def _turkish_rank(char: str) -> int:
+    """Harfin Türk alfabesindeki sırası; Türkçe olmayan işaretli harf (`å`, `ô`) işaretsiz
+    hâlinin yerini alır, harf olmayan karakter (boşluk, tire, ayraç) `0` olup harflerden önce
+    gelir."""
+    rank = _TURKISH_RANK.get(char)
+    if rank is None:
+        rank = _TURKISH_RANK.get(unicodedata.normalize("NFD", char)[0], 0)
+    return rank
+
+
+def turkish_sort_key(text: str) -> tuple[tuple[int, ...], str]:
+    """Türkçe ada göre sıralama anahtarı: `ç`, `ğ`, `ı`, `ö`, `ş`, `ü` kendi harflerinden sonra,
+    büyük `I` küçük `ı`, `İ` küçük `i` sayılır. Eşit anahtarda metnin kendisi sırayı sabitler."""
+    lowered = text.replace("I", "ı").replace("İ", "i").lower()
+    return tuple(_turkish_rank(char) for char in lowered), text
 
 
 def countries() -> tuple[Country, ...]:
@@ -186,4 +208,5 @@ __all__ = [
     "lookup",
     "non_country_label",
     "normalize_code",
+    "turkish_sort_key",
 ]

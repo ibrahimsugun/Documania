@@ -18,6 +18,12 @@ Blok biçimi `CONVENTIONS.md` §3'te tanımlıdır:
 
 ## Task log (newest-first)
 
+## 143 — 11.1-e Ülke süzgecinde ve tabloda bayrak + Türkçe ülke adı — done — 2026-10-01
+- Yapıldı: Belge Türleri'ndeki ülke süzgecinin seçenekleri artık `<Türkçe ad> (<sayı>)` biçiminde, Türkçe harf sırasıyla (`turkish_sort_key`) ve `data-flag` ile geliyor. "Hepsi" ve "Genel — ülkesiz" başta, tanınmayan kod sonda duruyor. `app/web/static/country-select.js` `<select>`'i bayraklı, yazarak süzülen bir listeye çeviriyor (ok tuşları, Enter, Esc, tıklama; seçince form gönderiliyor). JavaScript kapalıyken düz `<select>` ve "Uygula" düğmesi çalışıyor. İki tablonun "Ülke" sütunu `country_badge` ile bayrak + ad gösteriyor. Süzme kuralı ve alfa-2 `?country=` değişmedi.
+- Doğrulama: ruff check/format, compileall, `import app.main` ve temiz SQLite'ta `alembic upgrade head` (→0022, göç yok) exit 0. `pytest -q -m "not live" --cov=app` on iki ön plan grubunda 6237 geçti (+10), 5 PG atlandı. `coverage report --fail-under=70` exit 0, kapsam %99. 13 geçici kural bozmasının 13'ü kırmızı. Bileşen başsız Chromium'da elle denendi.
+- Varsayımlar: §D81. Tanınmayan ve ISO2 olmayan kod koduyla sonda duruyor. Arama işarete ve harf büyüklüğüne duyarsız. "Uygula" düğmesi JavaScript açıkken de görünür kalıyor.
+- Sonraki pencereye not: tm 144 (profilde uyruk bayrağı) Faz 1'deki son açık satır. Türkçe sıralama gerekirse `app.countries.turkish_sort_key` hazır. Dal `task/140-…` üzerinde, `main` ilerletilmedi. Kökteki `icon.png` yine commit dışında.
+
 ## 142 — 10.1-d Ülke başvuru verisi ve bayrak simgeleri — done — 2026-10-01
 - Yapıldı: `app/countries/__init__.py` depodaki CLDR dosyalarından 250 ülkelik tablo kuruyor (ISO 3166-1'in 249 ülkesi + Kosova). Her ülkenin alfa-2/alfa-3 kodu, Türkçe adı ve SVG bayrağı var. Elle tutulan MRZ istisnaları (`D`, `GBD`…`GBS`, `RKS`) ve 14 ülke olmayan kod da tabloda. `lookup` alfa-2, alfa-3 ve MRZ kodlarını çözüyor. Jinja globali `country_badge` bayrak + ad yazıyor; ülke olmayan kodda `XXA (Vatansız)`, tanınmayanda yalnız kod çıkıyor. `panel.css` `.country img` eklendi, `pyproject.toml` package-data bayrakları ve veriyi içeriyor.
 - Doğrulama: ruff check/format, compileall, `import app.main` ve temiz SQLite'ta `alembic upgrade head` (→0022, göç yok) exit 0. `pytest -q -m "not live" --cov=app` ön plan gruplarında 6227 geçti, 5 PG atlandı. `coverage report --fail-under=70` exit 0, kapsam %99, yeni modül %100. 15 geçici kural bozmasının 15'i kırmızı.

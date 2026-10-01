@@ -220,6 +220,7 @@ from app.catalog.propose import (
     store_examination,
 )
 from app.config import Settings, get_settings
+from app.countries import lookup, turkish_sort_key
 from app.db.models import (
     CandidateDocumentType,
     CandidateProposalStatus,
@@ -421,25 +422,39 @@ def _is_general(country: str | None) -> bool:
 
 @dataclass(frozen=True, slots=True)
 class CountryOption:
-    """Ülke süzgecinin bir seçeneği: değer (`all`/`general`/ISO2) ve tür sayısıyla etiket."""
+    """Ülke süzgecinin bir seçeneği: değer (`all`/`general`/ISO2), tür sayısıyla etiket ve ülkenin
+    bayrağı (11.1.7; özel seçeneklerde, bayraksız ve tanınmayan ülkede `None`)."""
 
     value: str
     label: str
+    flag_url: str | None = None
+
+
+def _code_option(code: str, count: int) -> tuple[tuple[int, Any], CountryOption]:
+    """Kataloğun bir ülke kodunun seçeneği ve sıralama anahtarı (11.1.7): tanınan ISO2 kod Türkçe
+    adla ve bayrağıyla, Türkçe harf sırasında; tanınmayan kod (ISO2 olmayan eski kayıt dahil)
+    koduyla, tanınanlardan sonra kod sırasında."""
+    country = lookup(code) if COUNTRY_CODE_RE.match(code) else None
+    if country is None:
+        return (1, code), CountryOption(code, f"{code} ({count})")
+    option = CountryOption(code, f"{country.name_tr} ({count})", country.flag_url)
+    return (0, turkish_sort_key(country.name_tr)), option
 
 
 def _country_options(types: list[TypeSummary]) -> tuple[CountryOption, ...]:
-    """Süzgecin seçenekleri: "Hepsi", "Genel — ülkesiz", sonra kataloğun ülke kodları alfabetik;
-    hepsi tür sayısıyla (11.1.5). Her zaman süzülmemiş listeden üretilir: seçim değiştikçe
-    seçeneklerin sayıları değişmez."""
+    """Süzgecin seçenekleri: "Hepsi", "Genel — ülkesiz", sonra kataloğun ülkeleri Türkçe adlarıyla
+    ve Türkçe harf sırasıyla, tanınmayan kodlar sonda; hepsi tür sayısıyla (11.1.5, 11.1.7). Her
+    zaman süzülmemiş listeden üretilir: seçim değiştikçe seçeneklerin sayıları değişmez."""
     codes = Counter(item.country.strip().upper() for item in types if not _is_general(item.country))
     general_count = sum(1 for item in types if _is_general(item.country))
     options = [
         CountryOption("all", f"Hepsi ({len(types)})"),
         CountryOption("general", f"Genel — ülkesiz ({general_count})"),
     ]
-    options.extend(
-        CountryOption(code, f"{code} ({count})") for code, count in sorted(codes.items())
+    ranked = sorted(
+        (_code_option(code, count) for code, count in codes.items()), key=lambda pair: pair[0]
     )
+    options.extend(option for _, option in ranked)
     return tuple(options)
 
 

@@ -9,6 +9,9 @@ from __future__ import annotations
 
 import logging
 import re
+import shutil
+import subprocess
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -294,8 +297,11 @@ def test_country_filter_options_are_labeled_with_counts_and_the_selection_is_mar
 
     assert '<option value="all">Hepsi (5)</option>' in page.text
     assert '<option value="general">Genel — ülkesiz (2)</option>' in page.text
-    assert '<option value="RU">RU (1)</option>' in page.text
-    assert '<option value="TR" selected>TR (2)</option>' in page.text
+    assert '<option value="RU" data-flag="/static/flags/ru.svg">Rusya (1)</option>' in page.text
+    assert (
+        '<option value="TR" data-flag="/static/flags/tr.svg" selected>Türkiye (2)</option>'
+        in page.text
+    )
 
 
 def test_the_count_line_shows_the_filtered_and_the_total_count(client: TestClient) -> None:
@@ -348,6 +354,179 @@ def test_a_legacy_empty_country_counts_as_general(
     assert '<option value=""' not in general.text
 
 
+# --- 11.1.7: süzgeçte ve tabloda bayrak + Türkçe ülke adı ---------------------------------------
+
+
+def _options(html: str) -> list[tuple[str, str | None, str]]:
+    """Ülke süzgecinin seçenekleri sırasıyla: (değer, `data-flag`, etiket)."""
+    found = re.search(r'<select id="country"[^>]*>(.*?)</select>', html, re.S)
+    assert found is not None
+    return [
+        (value, flag or None, label)
+        for value, flag, label in re.findall(
+            r'<option value="([^"]*)"(?: data-flag="([^"]*)")?(?: selected)?>([^<]*)</option>',
+            found.group(1),
+        )
+    ]
+
+
+# Türkçe harf sırası tuzakları: C < Ç, I < İ, O < Ö, S (Sırbistan'ın `ı`'sı `i`'den önce) < Ş,
+# U < Ü; ISO2 kodu sırası (CV, IQ, JO, RS, SE …) bu sırayı vermez.
+TURKISH_ORDER = [
+    ("CV", "Cabo Verde"),
+    ("TD", "Çad"),
+    ("IQ", "Irak"),
+    ("SE", "İsveç"),
+    ("CF", "Orta Afrika Cumhuriyeti"),
+    ("UZ", "Özbekistan"),
+    ("RS", "Sırbistan"),
+    ("SL", "Sierra Leone"),
+    ("CL", "Şili"),
+    ("UG", "Uganda"),
+    ("JO", "Ürdün"),
+]
+
+
+def test_country_options_carry_the_turkish_name_and_the_flag_in_turkish_order(
+    client: TestClient, session_factory: sessionmaker[Session]
+) -> None:
+    for code, _ in reversed(TURKISH_ORDER):
+        _create(client, slug=f"type_{code.lower()}", name=f"Type {code}", country=code)
+    _create(client, slug="type_rs_two", name="Type RS Two", country="RS")
+    _create(client, slug="type_xx", name="Type XX", country="XX")  # tanınmayan ISO2 biçimli kod
+    _create(client, slug="type_general", name="Type General", country=None)
+    with session_factory() as session:  # 11.1.7: ISO2 olmayan eski kayıt da koduyla sonda durur
+        row = session.get(KnownDocumentType, "type_iq")
+        assert row is not None
+        row.country = "tur"
+        session.commit()
+
+    options = _options(client.get("/document-types?country=SE").text)
+
+    assert options[:2] == [("all", None, "Hepsi (14)"), ("general", None, "Genel — ülkesiz (1)")]
+    expected = [
+        (code, f"/static/flags/{code.lower()}.svg", f"{name} ({2 if code == 'RS' else 1})")
+        for code, name in TURKISH_ORDER
+        if code != "IQ"
+    ]
+    assert options[2:-2] == expected
+    assert options[-2:] == [("TUR", None, "TUR (1)"), ("XX", None, "XX (1)")]
+    assert all(Path(ROOT, "app", "web", flag.lstrip("/")).is_file() for _, flag, _ in expected)
+
+
+def test_the_selected_country_stays_marked_and_the_filter_still_uses_the_code(
+    client: TestClient,
+) -> None:
+    _country_catalog(client)
+
+    page = client.get("/document-types?country=ru")
+
+    assert (
+        '<option value="RU" data-flag="/static/flags/ru.svg" selected>Rusya (1)</option>'
+        in page.text
+    )
+    assert page.text.count(" selected>") == 1
+    assert _row_names(_types_table(page.text)) == ["None One", "None Two", "RU One"]
+
+
+def test_the_select_still_works_without_javascript_and_is_enhanced_with_it(
+    client: TestClient,
+) -> None:
+    _country_catalog(client)
+
+    page = client.get("/document-types")
+
+    form = re.search(r'<form class="search country-filter".*?</form>', page.text, re.S)
+    assert form is not None
+    assert 'method="get" action="/document-types"' in form.group(0)
+    assert (
+        '<select id="country" name="country" onchange="this.form.submit()" data-country-select>'
+        in form.group(0)
+    )
+    assert '<button type="submit">Uygula</button>' in form.group(0)
+    assert '<script src="/static/country-select.js" defer></script>' in page.text
+    archived = client.get("/document-types?archived=1")
+    assert '<script src="/static/country-select.js" defer></script>' in archived.text
+    assert "data-country-select" in archived.text
+
+
+COUNTRY_SELECT_JS = ROOT / "app" / "web" / "static" / "country-select.js"
+
+
+def test_the_enhancement_script_is_served_and_builds_a_flagged_listbox(
+    client: TestClient,
+) -> None:
+    response = client.get("/static/country-select.js")
+
+    assert response.status_code == 200
+    script = response.text
+    assert 'querySelectorAll("select[data-country-select]")' in script
+    assert 'getAttribute("data-flag")' in script
+    assert '"listbox"' in script and '"option"' in script
+    for key in ('"ArrowDown"', '"ArrowUp"', '"Enter"', '"Escape"'):
+        assert key in script
+    assert "form.submit()" in script
+    assert "select.value = item.option.value" in script
+    assert "select.hidden = true" in script
+    assert "innerHTML" not in script  # seçenek metni HTML olarak yazılmaz
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="node yok")
+def test_the_enhancement_script_parses() -> None:
+    result = subprocess.run(
+        ["node", "--check", str(COUNTRY_SELECT_JS)], capture_output=True, text=True, check=False
+    )
+    assert result.returncode == 0, result.stderr
+
+
+def test_the_country_column_shows_the_flag_and_the_name(
+    client: TestClient, session_factory: sessionmaker[Session]
+) -> None:
+    _country_catalog(client)
+
+    table = _types_table(client.get("/document-types").text)
+
+    tr_badge = (
+        '<td><span class="country"><img src="/static/flags/tr.svg" alt="" width="20" height="15"'
+        ' loading="lazy"> Türkiye</span></td>'
+    )
+    assert table.count(tr_badge) == 2
+    assert table.count("> Rusya</span></td>") == 1
+    assert table.count("<td>—</td>") == 2
+    assert "<td>TR</td>" not in table
+
+    with session_factory() as session:
+        row = session.get(KnownDocumentType, "ru_one")
+        assert row is not None
+        row.country = "QQ"  # tanınmayan kod koduyla yazılır
+        session.commit()
+    assert '<td><span class="country">QQ</span></td>' in client.get("/document-types").text
+
+
+def test_the_archived_list_shows_the_flag_and_the_name(
+    client: TestClient, session_factory: sessionmaker[Session]
+) -> None:
+    _country_catalog(client)
+    with session_factory() as session:
+        for slug in ("ru_one", "none_one"):
+            row = session.get(KnownDocumentType, slug)
+            assert row is not None
+            row.archived_at = datetime(2026, 9, 30, 12, 0, tzinfo=UTC)
+            row.archived_by = "ik"
+        session.commit()
+
+    page = client.get("/document-types?archived=1").text
+
+    table = re.search(r'<table class="catalog archived-types">.*?</table>', page, re.S)
+    assert table is not None
+    assert (
+        '<td><span class="country"><img src="/static/flags/ru.svg" alt="" width="20" height="15"'
+        ' loading="lazy"> Rusya</span></td>'
+    ) in table.group(0)
+    assert table.group(0).count("<td>—</td>") == 1
+    assert ("RU", "/static/flags/ru.svg", "Rusya (1)") in _options(page)
+
+
 def test_the_filter_value_is_bounded_and_the_hidden_fields_follow_the_selection(
     client: TestClient,
 ) -> None:
@@ -385,7 +564,7 @@ def test_deactivating_with_a_filter_keeps_it_in_the_redirect_and_the_notice(
     )
     page = client.get(response.headers["location"])
     assert "TR One: Tür pasifleştirildi" in page.text
-    assert '<option value="TR" selected>TR (2)</option>' in page.text
+    assert 'data-flag="/static/flags/tr.svg" selected>Türkiye (2)</option>' in page.text
     row_links = re.findall(r'href="(/document-types/tr_one\?country=TR)"', page.text)
     assert len(row_links) == 2  # ad bağlantısı ve "Düzenle"
 
@@ -431,7 +610,7 @@ def test_editing_from_a_filtered_list_returns_to_the_same_filter(client: TestCli
     assert response.headers["location"] == "/document-types?notice=updated&slug=tr_one&country=TR"
     listed = client.get(response.headers["location"])
     assert "TR One: Tür güncellendi." in listed.text
-    assert '<option value="TR" selected>TR (2)</option>' in listed.text
+    assert 'data-flag="/static/flags/tr.svg" selected>Türkiye (2)</option>' in listed.text
 
 
 def test_a_rejected_edit_keeps_the_filter_in_the_redrawn_form(client: TestClient) -> None:
