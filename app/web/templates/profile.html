@@ -66,7 +66,7 @@
     <dt>Soyad</dt><dd>{{ profile.surname or "—" }}{{ field_sources(profile.field_sources.get("surname")) }}</dd>
     <dt>Diğer isimler</dt><dd>{{ profile.other_names or "—" }}{{ field_sources(profile.field_sources.get("other_names")) }}</dd>
     <dt>Orijinal yazım</dt><dd>{{ profile.original_script_name or "—" }}{{ field_sources(profile.field_sources.get("original_script_name")) }}</dd>
-    <dt>Vatandaşlık</dt><dd>{{ profile.nationality or "—" }}{{ field_sources(profile.field_sources.get("nationality")) }}</dd>
+    <dt>Vatandaşlık</dt><dd>{{ nationality_badge(profile.nationality) or "—" }}{{ field_sources(profile.field_sources.get("nationality")) }}</dd>
     <dt>Doğum tarihi</dt><dd>{{ profile.date_of_birth.strftime("%d.%m.%Y") if profile.date_of_birth else "—" }}{{ field_sources(profile.field_sources.get("date_of_birth")) }}</dd>
     <dt>Yaş</dt><dd>{{ profile.age if profile.age is not none else "—" }}</dd>
     {% for group in profile.contacts %}

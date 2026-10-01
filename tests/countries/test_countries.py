@@ -22,6 +22,7 @@ from app.countries import (
     countries,
     country_badge,
     lookup,
+    nationality_badge,
     non_country_label,
     normalize_code,
     turkish_sort_key,
@@ -299,6 +300,68 @@ def test_badge_is_a_panel_template_global() -> None:
     assert page.render(code="RUS") == f"<td>{RU_BADGE}</td>"
     assert page.render(code=None) == "<td></td>"
     assert page.render(code="<i>") == '<td><span class="country">&lt;i&gt;</span></td>'
+
+
+# --- 10.5.11: profildeki uyruk gösterimi --------------------------------------------------------
+
+
+@pytest.mark.parametrize("code", ["RUS", "rus", " RUS ", "RU"])
+def test_nationality_badge_adds_the_code_after_flag_and_name(code: str) -> None:
+    badge = nationality_badge(code)
+
+    assert isinstance(badge, Markup)
+    assert str(badge) == f"{RU_BADGE} ({'RU' if code == 'RU' else 'RUS'})"
+
+
+def test_nationality_badge_resolves_mrz_codes_and_keeps_the_stored_code() -> None:
+    assert str(nationality_badge("D")).endswith("Almanya</span> (D)")
+    assert "/static/flags/gb.svg" in nationality_badge("GBD")
+    assert str(nationality_badge("RKS")).endswith("Kosova</span> (RKS)")
+
+
+@pytest.mark.parametrize("code", ["XXA", "UNO", "ZZZ", "EU", "Turkish"])
+def test_nationality_badge_for_non_country_or_unknown_value_is_only_the_value(code: str) -> None:
+    badge = nationality_badge(code)
+
+    assert isinstance(badge, Markup)
+    assert str(badge) == code  # "(Vatansız)" gibi açıklama ve bayrak yok
+    assert "<img" not in badge
+
+
+def test_nationality_badge_escapes_the_value() -> None:
+    assert str(nationality_badge(" <b>x</b> ")) == "&lt;b&gt;x&lt;/b&gt;"
+
+
+@pytest.mark.parametrize("value", [None, "", "   ", 643])
+def test_nationality_badge_for_missing_value_is_empty_and_falsy(value: object) -> None:
+    badge = nationality_badge(value)
+
+    assert badge == Markup("")
+    assert not badge  # şablonda `... or "—"` çalışır
+
+
+def test_nationality_badge_escapes_the_country_name(
+    fresh_tables: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    real = countries_module._read_json
+
+    def read_json(name: str) -> dict:
+        data = real(name)
+        if name == countries_module.TERRITORIES_RESOURCE:
+            data["main"]["tr"]["localeDisplayNames"]["territories"]["RU"] = "R<u>&"
+        return data
+
+    monkeypatch.setattr(countries_module, "_read_json", read_json)
+
+    assert str(nationality_badge("RUS")).endswith("> R&lt;u&gt;&amp;</span> (RUS)")
+
+
+def test_nationality_badge_is_a_panel_template_global() -> None:
+    page = templates.env.from_string('<dd>{{ nationality_badge(code) or "—" }}</dd>')
+
+    assert page.render(code="RUS") == f"<dd>{RU_BADGE} (RUS)</dd>"
+    assert page.render(code="XXA") == "<dd>XXA</dd>"
+    assert page.render(code=None) == "<dd>—</dd>"
 
 
 def test_stylesheet_aligns_the_flag() -> None:

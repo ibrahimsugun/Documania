@@ -16,7 +16,8 @@ Veri depodadır, çalışma zamanında ağdan bir şey çekilmez (kaynaklar `SOU
 - **Bayraklar** `app/web/static/flags/<alfa2>.svg` (flag-icons). Dosyası olmayan ülkenin adı yine
   yazılır, kırık görüntü çıkmaz.
 
-Panel bu modüle tek yerden bağlanır: `country_badge` Jinja globalidir (`app/web/templating.py`).
+Panel bu modüle tek yerden bağlanır: `country_badge` ve profildeki uyruk için `nationality_badge`
+Jinja globalidir (`app/web/templating.py`).
 """
 
 from __future__ import annotations
@@ -201,11 +202,26 @@ def country_badge(code: object) -> Markup:
     ).format(country.flag_url, FLAG_WIDTH, FLAG_HEIGHT, country.name_tr)
 
 
+def nationality_badge(code: object) -> Markup:
+    """Profildeki "Vatandaşlık" gösterimi (PRD 10.5.11): bayrak + Türkçe ad + parantez içinde
+    kod, örn. `RUS` → bayrak + "Rusya (RUS)".
+
+    Tanınmayan ya da ülke olmayan kodda (`XXA`, `UNO`) bayrak ve ad yoktur, yalnız değerin kendisi
+    yazılır. Boş ya da eksik değer boş çıktı verir; "—" koymak şablonun işidir.
+    """
+    if not isinstance(code, str):
+        return Markup("")
+    if lookup(code) is None:
+        return Markup.escape(code.strip())
+    return Markup("{} ({})").format(country_badge(code), normalize_code(code))
+
+
 __all__ = [
     "Country",
     "countries",
     "country_badge",
     "lookup",
+    "nationality_badge",
     "non_country_label",
     "normalize_code",
     "turkish_sort_key",

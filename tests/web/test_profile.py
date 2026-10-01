@@ -198,7 +198,7 @@ def test_card_shows_every_field_of_the_employee(
         "Soyad": "Vasiliev",
         "Diğer isimler": "Ivanovich",
         "Orijinal yazım": "Васильев Дмитрий",
-        "Vatandaşlık": "RUS",
+        "Vatandaşlık": "Rusya (RUS)",
         "Doğum tarihi": "14.03.1988",
         "Yaş": str(calculate_age(date_of_birth, today=date.today())),
         "Telefon": "+90 555 000 11 22 +90 555 999 88 77",
@@ -235,6 +235,102 @@ def test_unknown_fields_show_a_dash_instead_of_disappearing(
         "Adres": EMPTY,
         "Belge numaraları": EMPTY,
     }
+
+
+# --- 10.5.11: vatandaşlık satırında bayrak + Türkçe ülke adı --------------------------------------
+
+
+def _nationality(
+    client: TestClient, session_factory: sessionmaker[Session], value: str | None
+) -> str:
+    """Uyruğu `value` olan çalışanın profilinde "Vatandaşlık" hücresinin ham HTML'i."""
+    with session_factory() as session:
+        _employee(session, nationality=value)
+        session.commit()
+    return _field_html(client.get("/employees/E0001").text, "Vatandaşlık")
+
+
+@pytest.mark.parametrize(
+    ("code", "flag", "text"),
+    [
+        ("RUS", "ru", "Rusya (RUS)"),
+        ("TUR", "tr", "Türkiye (TUR)"),
+        ("D", "de", "Almanya (D)"),  # ICAO MRZ istisnası: ISO alfa-3 değil
+        ("GBD", "gb", "Birleşik Krallık (GBD)"),
+        ("rus", "ru", "Rusya (RUS)"),  # kod büyütülür
+    ],
+)
+def test_nationality_shows_the_flag_the_turkish_name_and_the_code(
+    client: TestClient,
+    session_factory: sessionmaker[Session],
+    seeded: None,
+    code: str,
+    flag: str,
+    text: str,
+) -> None:
+    cell = _nationality(client, session_factory, code)
+
+    assert f'<img src="/static/flags/{flag}.svg"' in cell
+    assert re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", cell)).strip() == text
+    assert client.get(f"/static/flags/{flag}.svg").status_code == 200
+
+
+@pytest.mark.parametrize("code", ["XXA", "UNO", "ZZZ", "Turkish"])
+def test_unrecognized_or_non_country_nationality_shows_only_the_code(
+    client: TestClient, session_factory: sessionmaker[Session], seeded: None, code: str
+) -> None:
+    # Ülke olmayan (`XXA` vatansız, `UNO`) ve tanınmayan değer: bayrak ve ad yok, değer olduğu gibi.
+    cell = _nationality(client, session_factory, code)
+
+    assert cell == code
+    assert "<img" not in cell
+
+
+def test_nationality_value_is_escaped(
+    client: TestClient, session_factory: sessionmaker[Session], seeded: None
+) -> None:
+    cell = _nationality(client, session_factory, "<i>x</i>")
+
+    assert cell == "&lt;i&gt;x&lt;/i&gt;"
+
+
+@pytest.mark.parametrize("value", [None, "", "   "])
+def test_empty_nationality_shows_a_dash(
+    client: TestClient, session_factory: sessionmaker[Session], seeded: None, value: str | None
+) -> None:
+    cell = _nationality(client, session_factory, value)
+
+    assert cell == EMPTY
+    assert "<img" not in cell
+
+
+def test_nationality_flag_keeps_the_field_source_and_the_different_value_warning(
+    client: TestClient,
+    session_factory: sessionmaker[Session],
+    layout: DataLayout,
+    seeded: None,
+) -> None:
+    with session_factory() as session:
+        employee = _employee(session, nationality="RUS")
+        first, second = _source(session), _source(session)
+        filled_from = _sourced_document(session, layout, employee, first, "Pasaport.pdf")
+        _sourced_document(session, layout, employee, second, "Kart.pdf")
+        _observe(session, "nationality", FieldOutcome.FILLED, first)
+        _observe(session, "nationality", FieldOutcome.CONFLICT, second)
+        session.commit()
+        document_id = filled_from.id
+
+    page = client.get("/employees/E0001").text
+
+    cell = _field_html(page, "Vatandaşlık")
+    assert cell.lstrip().startswith('<span class="country"><img src="/static/flags/ru.svg"')
+    assert "Rusya</span> (RUS)" in cell
+    assert f'Kaynak: <a href="/employees/E0001/documents/{document_id}/file"' in cell
+    assert "Vatandaşlık: belgede farklı değer okundu: " in cell
+    assert _fields(page)["Vatandaşlık"] == (
+        "Rusya (RUS) Kaynak: Pasaport.pdf Farklı değer "
+        "Vatandaşlık: belgede farklı değer okundu: Kart.pdf"
+    )
 
 
 def test_age_is_the_completed_years_on_the_reference_day(
@@ -423,7 +519,7 @@ def test_each_field_links_to_the_document_it_was_filled_from(
     assert "Kaynak: " + link.format(ids[1], "Kart.pdf") in _field_html(page, "Vatandaşlık")
     fields = _fields(page)
     assert fields["Doğum tarihi"] == "01.01.1990 Kaynak: Pasaport.pdf"
-    assert fields["Vatandaşlık"] == "RUS Kaynak: Kart.pdf"
+    assert fields["Vatandaşlık"] == "Rusya (RUS) Kaynak: Kart.pdf"
     # Gözlemi olmayan alanın kaynağı yoktur; uyarı da yoktur.
     assert (fields["Ad"], fields["Soyad"]) == ("Dmitry", "Vasiliev")
     assert "belgede farklı değer okundu" not in page
