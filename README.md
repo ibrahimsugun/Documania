@@ -207,6 +207,15 @@ yere silmeyin.
   koşulmamış veritabanıyla panel, işçi ve bot hiç açılmaz; hata iletisi mevcut ve beklenen
   sürümü söyler. `GET /health` çalışan sürecin şema sürümünü (`schema`) ve kod parmak izini
   (`code`) döner.
+- **Yerelde Telegram botu `baslat.bat` ile açılır** (PRD 12.1.5). `.env`'de `TELEGRAM_BOT_TOKEN`
+  doluysa bat dosyası göçten sonra botu (geliştirmede polling) ayrı bir "belgeee bot" penceresinde
+  başlatır; boşsa "Telegram botu kapalı: .env'de TELEGRAM_BOT_TOKEN yok" yazar ve paneli botsuz
+  açar. Token değeri ekrana yazılmaz. Bot açmak için: Telegram'da [@BotFather](https://t.me/BotFather)'a
+  `/newbot` yazıp botu oluşturun, verdiği token'ı `.env`'deki `TELEGRAM_BOT_TOKEN=` satırına yazın
+  (token depoya girmez, yalnız yerel `.env`'de durur) ve `baslat.bat`'ı yeniden çalıştırın. Bot
+  hata verip kapanırsa pencere açık kalır ve nedenini gösterir. Panel durunca bot penceresi
+  kendiliğinden kapanmaz; `baslat.bat`'ı yeniden çalıştırmadan önce eski bot penceresini kapatın
+  (aynı token'la iki bot aynı anda dinleyemez).
 - **Faz 0'ın ilk dört görevi DoD kapısının kendisini kurar**; o görevlerde kapı, kurulduğu
   kadarıyla koşulur (`CONVENTIONS.md` §1.1).
 
