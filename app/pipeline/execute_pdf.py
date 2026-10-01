@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from contextlib import ExitStack
 from dataclasses import dataclass
+from functools import partial
 from io import BytesIO
 from itertools import pairwise
 from pathlib import Path
@@ -17,10 +18,14 @@ from app.storage import FileKind, StoredFile, UnsupportedFileTypeError, detect_f
 
 from .execute_errors import (
     DirectDocumentMergeError,
+    EncryptedSourceError,
+    ExtractEncryptedSourceError,
     ExtractIntegrityError,
     ExtractSourceError,
+    MergeEncryptedSourceError,
     MergeIntegrityError,
     MergeSourceError,
+    PdfProtection,
 )
 from .execute_image_utils import (
     _IMAGE_WRAP_ERRORS,
@@ -44,7 +49,8 @@ def execute_extract(source: Path, destination: Path, *, pages: Sequence[int]) ->
 
     Kaynak PDF değilse, açılamıyorsa (bozuk, parola korumalı) ya da iki okuyucu (sayfa dizinlerini
     veren MuPDF ve kopyalayan pypdf) sayfa sayısında anlaşamıyorsa ya da istenen sayfa kaynakta
-    yoksa `ExtractSourceError`.
+    yoksa `ExtractSourceError`. Şifre kaynaklı ret — açmak için parola gerekiyor ya da sahip
+    parolalı AES'i pypdf çözemiyor — bunun alt sınıfıdır: `ExtractEncryptedSourceError` (08.1.3).
 
     Doğrulama çıktı yayınlanmadan bellekte yapılır: çıktının sayfa sayısı `len(pages)` olmalı ve
     her çıktı sayfasının metin katmanı kaynaktaki karşılık gelen sayfanınkiyle **birebir aynı**
@@ -64,6 +70,7 @@ def _extract_output(source: Path, pages: Sequence[int]) -> bytes:
         [_PdfPages(content, selected)],
         operation="extract",
         source_error=ExtractSourceError,
+        encrypted_error=ExtractEncryptedSourceError,
         integrity_error=ExtractIntegrityError,
     )
 
@@ -88,7 +95,9 @@ def execute_merge(sources: Sequence[MergeSource], destination: Path, *, direct: 
     Kaynak PDF/JPEG/PNG değilse, açılamıyorsa (bozuk, parola korumalı), iki okuyucu sayfa sayısında
     anlaşamıyorsa, görüntüsü kayıpsız sarılamıyorsa (okunamayan görüntü, aynalı ya da geçersiz EXIF
     yönelimi) ya da istenen sayfa kaynakta yoksa `MergeSourceError`; mesaj kaynağı `sources[i]`
-    konumuyla anar, dosya yolunu taşımaz.
+    konumuyla anar, dosya yolunu taşımaz. Şifre kaynaklı ret `MergeEncryptedSourceError`'dır
+    (08.1.3) ve ancak öbür kaynakların hiçbiri başka bir kaynak hatası vermiyorsa yükselir: bozuk
+    kaynak şifreli kaynağın yanında da uygulamayı durdurur.
 
     Doğrulama çıktı yayınlanmadan bellekte yapılır: çıktının sayfa sayısı alınan sayfaların
     toplamı olmalı ve her çıktı sayfasının metin katmanı karşılık gelen kaynak sayfanınkiyle
@@ -115,6 +124,7 @@ def _merge_output(sources: Sequence[MergeSource], *, direct: bool) -> bytes:
             _merge_source_pdf(source.path.read_bytes(), where=f" sources[{position}]"),
             selected,
             where=f" sources[{position}]",
+            position=position,
         )
         for position, (source, selected) in enumerate(zip(sources, selections, strict=True))
     ]
@@ -122,17 +132,20 @@ def _merge_output(sources: Sequence[MergeSource], *, direct: bool) -> bytes:
         pdf_pages,
         operation="merge",
         source_error=MergeSourceError,
+        encrypted_error=MergeEncryptedSourceError,
         integrity_error=MergeIntegrityError,
     )
 
 
 @dataclass(frozen=True, slots=True)
 class _PdfPages:
-    """Sayfaları kopyalanacak tek kaynak: PDF baytları, alınan sayfalar ve mesajdaki konumu."""
+    """Sayfaları kopyalanacak tek kaynak: PDF baytları, alınan sayfalar, mesajdaki konumu ve plan
+    öğesinin `sources` dizisindeki konumu."""
 
     content: bytes
     pages: tuple[int, ...]
     where: str = ""
+    position: int = 0
 
 
 def _page_selection(pages: Sequence[int], *, subject: str) -> tuple[int, ...]:
@@ -171,28 +184,42 @@ def _copy_pages(
     *,
     operation: str,
     source_error: type[Exception],
+    encrypted_error: type[EncryptedSourceError],
     integrity_error: type[Exception],
 ) -> bytes:
     """Kaynakların sayfalarını sırayla pypdf sayfa nesnesi olarak kopyalar ve çıktıyı doğrular.
 
     `extract` ve `merge`'ün ortak yöntemi (§20.5). Çıktı baytları döner; hiçbir şey yazılmaz.
+    Şifreli kaynağın reddi (`encrypted_error`, 08.1.3) öbür kaynaklar okunduktan sonra yükselir:
+    başka bir kaynağın bozukluğu ya da sayfa hatası önce gelir ve uygulamayı durdurur.
     """
     writer = PdfWriter()
     expected: list[tuple[pymupdf.Document, int, str]] = []
+    refused: EncryptedSourceError | None = None
     with ExitStack() as stack:
         for source in sources:
-            document = stack.enter_context(
-                _open_pdf(
-                    source.content, operation=operation, where=source.where, error=source_error
+            encrypted = partial(encrypted_error, source_position=source.position)
+            try:
+                document = stack.enter_context(
+                    _open_pdf(
+                        source.content,
+                        operation=operation,
+                        where=source.where,
+                        error=source_error,
+                        encrypted_error=encrypted,
+                    )
                 )
-            )
-            reader = _read_pdf(
-                source.content,
-                expected_page_count=document.page_count,
-                operation=operation,
-                where=source.where,
-                error=source_error,
-            )
+                reader = _read_pdf(
+                    source.content,
+                    expected_page_count=document.page_count,
+                    operation=operation,
+                    where=source.where,
+                    error=source_error,
+                    encrypted_error=encrypted,
+                )
+            except EncryptedSourceError as exc:
+                refused = refused or exc
+                continue
             if source.pages[-1] >= document.page_count:
                 raise source_error(
                     f"{operation} sayfası kaynakta yok: sayfa {source.pages[-1]}, "
@@ -201,6 +228,8 @@ def _copy_pages(
             for index in source.pages:
                 writer.add_page(reader.pages[index])
                 expected.append((document, index, source.where))
+        if refused is not None:
+            raise refused
         buffer = BytesIO()
         writer.write(buffer)
         output = buffer.getvalue()
@@ -209,15 +238,25 @@ def _copy_pages(
 
 
 def _open_pdf(
-    content: bytes, *, operation: str, where: str, error: type[Exception]
+    content: bytes,
+    *,
+    operation: str,
+    where: str,
+    error: type[Exception],
+    encrypted_error: Callable[..., EncryptedSourceError] | None = None,
 ) -> pymupdf.Document:
+    # `encrypted_error` yalnız sayfa kopyalayan işlemlerde verilir (08.1.3); öbürleri parola
+    # korumalı kaynağı kendi kaynak hatasıyla reddeder.
     try:
         document = pymupdf.open(stream=content, filetype="pdf")
     except RuntimeError as exc:
         raise error(f"{operation} kaynağı{where} açılamadı; PDF bozuk olabilir") from exc
     if document.needs_pass:
         document.close()
-        raise error(f"{operation} kaynağı{where} parola korumalı")
+        message = f"{operation} kaynağı{where} parola korumalı"
+        if encrypted_error is None:
+            raise error(message)
+        raise encrypted_error(message, protection=PdfProtection.PASSWORD)
     return document
 
 
@@ -228,6 +267,7 @@ def _read_pdf(
     operation: str,
     where: str,
     error: type[Exception],
+    encrypted_error: Callable[..., EncryptedSourceError],
 ) -> PdfReader:
     try:
         reader = PdfReader(BytesIO(content))
@@ -237,8 +277,9 @@ def _read_pdf(
     except DependencyError as exc:
         # AES şifreli (sahip parolalı) PDF: pypdf sayfa nesnelerini çözemez. Şifre kaldırılıp
         # yeniden yazılmaz (K11); sayfa çıkarma ve birleştirme yapılamaz, hata tanımlı yoldan gider.
-        raise error(
-            f"{operation} kaynağı{where} şifreli (AES); sayfaları pypdf ile kopyalanamıyor"
+        raise encrypted_error(
+            f"{operation} kaynağı{where} şifreli (AES); sayfaları pypdf ile kopyalanamıyor",
+            protection=PdfProtection.AES,
         ) from exc
     if page_count != expected_page_count:
         # Bozuk PDF'i iki kütüphane farklı onarabilir; o zaman plandaki sayfa dizini pypdf'te

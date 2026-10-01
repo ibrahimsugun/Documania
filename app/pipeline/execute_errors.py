@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from enum import StrEnum
+
 
 class PassthroughIntegrityError(RuntimeError):
     """passthrough (07.1.1, §20.5): yayınlanan dosyanın SHA-256'sı kaynağınkiyle eşleşmiyor.
@@ -46,6 +48,39 @@ class MergeIntegrityError(RuntimeError):
 
     Sayfa nesnesi kopyasında bu beklenmez; çıktı yayınlanmaz.
     """
+
+
+class PdfProtection(StrEnum):
+    """Sayfaları kopyalanamayan şifreli PDF'in korunma biçimi (08.1.3, PLAN.md §D76)."""
+
+    PASSWORD = "password"  # açmak için parola gerekiyor (MuPDF `needs_pass`)
+    AES = "aes"  # sahip parolalı AES: parolasız açılır, pypdf `cryptography` olmadan çözemez
+
+
+class EncryptedSourceError(ValueError):
+    """extract/merge (08.1.3; K11, §D76): kaynak şifreli bir PDF, sayfaları kopyalanamıyor.
+
+    Kaynak hatalarının şifre kaynaklı alt kümesidir (`ExtractEncryptedSourceError`,
+    `MergeEncryptedSourceError`): bozuk PDF, okuyucular arasında sayfa sayısı uyuşmazlığı ve
+    bütünlük hataları bu sınıftan değildir. Uygulama durmaz, öğe Unreadable kuyruğuna gider
+    (`app.pipeline.orchestrate.execute_plan`). Şifre kaldırılmaz, dosya yeniden yazılmaz.
+
+    `source_position` kaynağın plan öğesinin `sources` dizisindeki konumu, `protection` şifrenin
+    biçimidir. Hedefe hiçbir şey yazılmaz.
+    """
+
+    def __init__(self, message: str, *, source_position: int, protection: PdfProtection) -> None:
+        super().__init__(message)
+        self.source_position = source_position
+        self.protection = protection
+
+
+class ExtractEncryptedSourceError(ExtractSourceError, EncryptedSourceError):
+    """extract (07.2.1, 08.1.3): kaynak şifreli PDF; sayfaları kopyalanamıyor."""
+
+
+class MergeEncryptedSourceError(MergeSourceError, EncryptedSourceError):
+    """merge (07.3.1, 08.1.3): kaynaklardan biri şifreli PDF; sayfaları kopyalanamıyor."""
 
 
 class WrapImageSourceError(ValueError):
@@ -115,5 +150,10 @@ EXECUTION_ERRORS: tuple[type[Exception], ...] = (
 
 # Pipeline failure events persist the fully-qualified exception name; the public module path is
 # part of that schema, so moving implementations must not rewrite existing/audited event values.
-for _error_type in EXECUTION_ERRORS:
+for _error_type in (
+    *EXECUTION_ERRORS,
+    EncryptedSourceError,
+    ExtractEncryptedSourceError,
+    MergeEncryptedSourceError,
+):
     _error_type.__module__ = "app.pipeline.execute"

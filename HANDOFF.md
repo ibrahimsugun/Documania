@@ -18,6 +18,12 @@ Blok biçimi `CONVENTIONS.md` §3'te tanımlıdır:
 
 ## Task log (newest-first)
 
+## 140 — 08.1-b Şifre yüzünden kopyalanamayan kaynak Unreadable kuyruğuna — done — 2026-10-01
+- Yapıldı: Şifre kaynaklı ret ayrı alt sınıf oldu (`EncryptedSourceError` → `ExtractEncryptedSourceError`/`MergeEncryptedSourceError`, `source_position` + `protection`). `execute_plan` yalnız bunu yakalar ve `route_queue_item(..., encrypted=)` ile öğeyi Unreadable'a alır: kaynak kopyası, gerekçe ("Şifreli PDF, sayfalar kopyalanamıyor (08.1.3): dosya N, istenen işlem …"), `encrypted_source` kaydı, `QUEUED_UNREADABLE`. Öbür öğeler uygulanır, parti `done`/`partial` olur, plan değişmez. Birleştirmede bozuk kaynak şifreli kaynaktan önce gelir. Yönlendirilen öğenin ataması şifre gerekçesiyle reddedilir (§D78).
+- Doğrulama: ruff check/format, compileall, `import app.main` ve temiz SQLite'ta `alembic upgrade head` (→0022, göç yok) exit 0. `pytest -q -m "not live" --cov=app` on iki ön plan grubunda 5911 geçti (+22), 5 PG atlandı, `coverage combine` + `report --fail-under=70` exit 0, kapsam %99 (dokunulan modüller %100). 13 geçici kural bozmasının 13'ü kırmızı.
+- Varsayımlar: §D78. Gerekçede ve olayda dosya adı değil dosya kimliği geçer. `extract_image`/`render_image` kapsam dışı kaldı, parola korumalı PDF'i eskisi gibi kendi hatasıyla reddeder. Açık soru (insan kararı, §D78e): RC4 ile yalnız sahip parolalı PDF'i pypdf çözüyor, çıkarmanın çıktısı şifresiz yazılıyor (eski davranış, değiştirilmedi).
+- Sonraki pencereye not: Faz 0 tablosunda açık satır kalmadı (106/106). 97 (Faz 0 kapanışı) hâlâ `deferred` ve insan tutmasında. Dal `task/140-sifreli-kaynak-kuyruk`, `task/136-137-…`'dan çıkıyor; `main` ilerletilmedi. Kökteki `icon.png` yine commit dışında.
+
 ## 141–144 — Profil 500'ü teşhisi ve ülke/bayrak işleri — görevler açıldı (pending) — 2026-09-30
 - Yapıldı: İnsan bildirimi (profil 500, boş ülke süzgeci) incelendi, kod değişmedi. Sebep (§D77): 8000'deki `uvicorn` 2026-09-27'den beri `--reload`'suz çalışıyor (eski kod + diskten yeni şablonlar) ve `data/belgeee.db` göç `0013`'te. Veritabanı kopyasında `upgrade head` sorunsuz; bugünkü kodla iki profil 200, süzgeç 109 ülke. PRD'ye 10.1.6, 11.1.7, 10.5.11, 13.5.3 eklendi; görevler 141 (13.5-c sürüm koruması), 142 (10.1-d ülke verisi + SVG bayraklar), 143 (11.1-e süzgeç/tablo bayrak), 144 (10.5-i profilde uyruk bayrağı).
 - Doğrulama: `task-master validate-dependencies` yeşil (261); §0 sayımı 197 satır / 192 ✅ / 5 ⬜; kopya veritabanında TestClient ile profil ve katalog denendi (gerçek veritabanına yazılmadı).

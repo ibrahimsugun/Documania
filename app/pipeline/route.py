@@ -1,5 +1,6 @@
 """Kuyruğa yönlendirme, gerekçe dosyası, kuyruk öğesini çalışana atama ve onay bekleyen profili
-onaylama — PRD 08.1.1, 08.1.2, 08.2.1, 08.3.1 (§8.2, §8.3, §20.2.2; K7, K9, K10, K15, K16, R7).
+onaylama — PRD 08.1.1, 08.1.2, 08.1.3, 08.2.1, 08.3.1 (§8.2, §8.3, §20.2.2; K7, K9, K10, K11, K15,
+K16, R7).
 
 Planlayıcının (`app/pipeline/plan.py`) `unknown`/`unreadable`/`unresolved` rotasına yolladığı her
 öğe `route_queue_item` ile kuyruğa alınır (07.7'nin `execute_ready_item`'ıyla aynı tanecik: tek
@@ -17,6 +18,17 @@ birleştirir: `sources` (dosya kimliği ve 0 tabanlı sayfalar), `reason` (`rout
 sayfalar), `document_type_slug` (tür tahmini; bilinmeyen türde `null`) ve `employee_guess` (kişi
 tahmini — yalnız satır 1/3 eşleşmesinde dolu, öbür türlü `action: none`). Aynı yapı
 `queue_items.payload_json`'a da yazılır (08.2/08.3 buradan okur).
+
+**Şifre yüzünden kopyalanamayan kaynak (08.1.3; K9, K11, PLAN.md §D76).** Planın `extract` ya da
+`merge` işlemli `hazir` öğesinin kaynağı şifreli PDF ise — açmak için parola gerekiyor ya da sahip
+parolalı AES'i pypdf `cryptography` olmadan çözemiyor — uygulayıcı sayfaları kopyalayamaz
+(`EncryptedSourceError`). `execute_plan` öğeyi `route_queue_item(..., encrypted=hata)` ile
+Unreadable'a alır: kaynak kopyası ve kuyruk kaydı öbür kuyruk öğelerindeki gibi yazılır, gerekçe
+metni dosyayı, istenen işlemi ve "şifreli PDF, sayfalar kopyalanamıyor"u söyler; kayıt, gerekçe
+dosyası ve `QUEUED_UNREADABLE` verisi ayrıca `encrypted_source`'u (`operation`, `file_id`,
+`protection`) taşır. Plan değişmez: öğe planda `hazir` kalır, kuyruk kaydı onu `plan_item_id` ile
+gösterir. Şifre kaldırılmaz, kaynak yeniden yazılmaz. Böyle bir öğe atanmaya çalışılırsa işlem yine
+şifre yüzünden yürümez ve atama gerekçesiyle reddedilir; öğe kapatılabilir (10.7.4).
 
 **İdempotenlik.** Öğe aynı planla daha önce kuyruğa alınmışsa (`queue_items.plan_id` +
 `plan_item_id`) kaynak yeniden okunmaz, hiçbir şey yazılmaz; var olan satır döner
@@ -129,8 +141,10 @@ from app.matching.match import (
 from app.pipeline.analyze import PageAnalysisStatus
 from app.pipeline.execute import (
     EXECUTION_ERRORS,
+    EncryptedSourceError,
     ExecutedItem,
     ItemDecision,
+    PdfProtection,
     execute_item,
     executed_document,
 )
@@ -169,6 +183,13 @@ _QUEUE_EVENTS: dict[Route, EventType] = {
     Route.UNKNOWN: EventType.QUEUED_UNKNOWN,
     Route.UNREADABLE: EventType.QUEUED_UNREADABLE,
     Route.UNRESOLVED: EventType.QUEUED_UNRESOLVED,
+}
+
+# 08.1.3: şifreli kaynağın sayfalarını kopyalayan işlemler ve korunma biçiminin gerekçedeki metni.
+_PAGE_COPYING_OPERATIONS = frozenset({Operation.EXTRACT, Operation.MERGE})
+_PROTECTION_TEXTS: dict[PdfProtection, str] = {
+    PdfProtection.PASSWORD: "açmak için parola gerekiyor",
+    PdfProtection.AES: "sahip parolalı (AES), pypdf sayfaları çözemiyor",
 }
 
 
@@ -229,7 +250,12 @@ class RoutedItem:
 
 
 def route_queue_item(
-    session: Session, layout: DataLayout, plan: Plan, item: PlanItem
+    session: Session,
+    layout: DataLayout,
+    plan: Plan,
+    item: PlanItem,
+    *,
+    encrypted: EncryptedSourceError | None = None,
 ) -> RoutedItem:
     """Planın kuyruğa giden öğesini `Unknown`/`Unreadable`/`Unresolved`'a alır (08.1.1, 08.1.2).
 
@@ -238,14 +264,16 @@ def route_queue_item(
     partisinde değilse `QueueItemReferenceError`, Inbox'taki içeriği yüklemede kaydedilen SHA-256
     ile uyuşmuyorsa `QueueSourceIntegrityError` — ikisinde de hiçbir şey yazılmaz.
 
+    `encrypted` verilirse (08.1.3) `item` planın `extract`/`merge` işlemli `hazir` öğesidir ve
+    uygulayıcının şifre yüzünden yürütemediği hata budur: öğe Unreadable'a alınır, gerekçe modül
+    açıklamasındaki gibidir. Başka öğe ya da öğenin kaynaklarında olmayan konum `ValueError`.
+
     Kopyalama, kuyruk kaydı ve `reason.json`'ın yeniden üretilmesi sırayla yapılır; §8.3 olayı
     (`QUEUED_UNKNOWN`/`QUEUED_UNREADABLE`/`QUEUED_UNRESOLVED`) kuyruk satırından sonra, partinin
-    ve öğenin ilk kaynağının dosyası/sayfasıyla yazılır (mesaj `route_reason`, veri kişisel değer
+    ve öğenin ilk kaynağının dosyası/sayfasıyla yazılır (mesaj gerekçe metni, veri kişisel değer
     taşımaz). Oturum commit edilmez.
     """
-    if item.route not in _QUEUE_EVENTS:
-        raise ValueError(f"Yalnız unknown/unreadable/unresolved öğe kuyruğa alınır: {item.route!r}")
-    assert item.route_reason is not None  # PlanItem sözleşmesi: hazir olmayan öğede zorunlu
+    route, reason, payload = _queue_decision(item, encrypted)
 
     existing = session.scalar(
         select(QueueItem).where(
@@ -255,19 +283,18 @@ def route_queue_item(
     if existing is not None:
         return RoutedItem(existing, applied=False)
 
-    kind = item.route.value
+    kind = route.value
     sources = _resolve_sources(session, layout, plan, item)
     directory = layout.queue_dir(kind, plan.upload_id)
     for source in sources:
         _copy_to_queue(directory, source.path, sha256=source.sha256)
 
-    payload = _payload(item)
     row = QueueItem(
         upload_id=plan.upload_id,
         plan_id=plan.id,
         plan_item_id=item.item_id,
         kind=kind,
-        reason=item.route_reason,
+        reason=reason,
         payload_json=payload,
     )
     session.add(row)
@@ -276,15 +303,53 @@ def route_queue_item(
     first = item.sources[0]
     record_event(
         session,
-        _QUEUE_EVENTS[item.route],
+        _QUEUE_EVENTS[route],
         upload_id=plan.upload_id,
         file_id=first.file_id,
         page_index=first.pages[0] if first.pages else None,
-        message=item.route_reason,
+        message=reason,
         data={"item_id": item.item_id, "plan_id": plan.id, "queue_item_id": row.id, **payload},
     )
     _replace_reason_file(session, layout, plan.upload_id, kind)
     return RoutedItem(row, applied=True)
+
+
+def _queue_decision(
+    item: PlanItem, encrypted: EncryptedSourceError | None
+) -> tuple[Route, str, dict[str, Any]]:
+    """Öğenin kuyruğu, gerekçe metni ve kaydı: planın kararı ya da şifreli kaynak yönlendirmesi."""
+    payload = _payload(item)
+    if encrypted is None:
+        if item.route not in _QUEUE_EVENTS:
+            raise ValueError(
+                f"Yalnız unknown/unreadable/unresolved öğe kuyruğa alınır: {item.route!r}"
+            )
+        assert item.route_reason is not None  # PlanItem sözleşmesi: hazir olmayan öğede zorunlu
+        return item.route, item.route_reason, payload
+
+    operation = item.operation
+    if (
+        item.route is not Route.READY
+        or operation not in _PAGE_COPYING_OPERATIONS
+        or not 0 <= encrypted.source_position < len(item.sources)
+    ):
+        raise ValueError(
+            "Şifreli kaynak yönlendirmesi yalnız extract/merge işlemli hazir öğenin kaynağına "
+            f"uygulanır: {item.item_id}"
+        )
+    assert operation is not None  # `_PAGE_COPYING_OPERATIONS` üyesi
+    file_id = item.sources[encrypted.source_position].file_id
+    payload["encrypted_source"] = {
+        "operation": operation.value,
+        "file_id": file_id,
+        "protection": encrypted.protection.value,
+    }
+    reason = (
+        f"Şifreli PDF, sayfalar kopyalanamıyor (08.1.3): dosya {file_id}, istenen işlem "
+        f"{operation.value} — {_PROTECTION_TEXTS[encrypted.protection]}; şifre kaldırılmaz, "
+        "dosya yeniden yazılmaz (K11)."
+    )
+    return Route.UNREADABLE, reason, payload
 
 
 @dataclass(frozen=True, slots=True)
@@ -718,11 +783,19 @@ def _queued_plan_item(
         )
     document = read_plan(plan)
     item = next((each for each in document.items if each.item_id == queue_item.plan_item_id), None)
-    if item is None or item.route.value != queue_item.kind:
+    if item is None or not _queued_as(item, queue_item.kind):
         raise QueueItemNotAssignableError(
             f"Kuyruk öğesi {queue_item.id} planın ({plan.id}) kuyruk öğesini göstermiyor"
         )
     return plan, document, item
+
+
+def _queued_as(item: PlanItem, kind: str) -> bool:
+    # Öğe kuyruğa planın kararıyla girer; `hazir` öğe yalnız uygulayıcının şifreli kaynak
+    # yönlendirmesiyle Unreadable'a girer (08.1.3).
+    if item.route is Route.READY:
+        return kind == Route.UNREADABLE.value and item.operation in _PAGE_COPYING_OPERATIONS
+    return item.route.value == kind
 
 
 def _assignable_entry(session: Session, queue_item: QueueItem, item: PlanItem) -> CatalogEntry:

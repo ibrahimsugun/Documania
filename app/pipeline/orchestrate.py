@@ -27,7 +27,8 @@ satır kilidinde bekler ve partiyi işlenmiş görür):
    sağlayıcının ana modelidir (sayfanın analizini hangi modelin verdiği `PAGE_ANALYZED`'dadır).
 4. `executing` — plan `execute_plan` ile uygulanır (`Settings.render_image_*`).
 5. Sonuç: en az bir sayfanın analizi başarısızsa `partial` (03.7.2), değilse `done`. Kuyruğa giden
-   öğe hata değildir. Analiz kısmi başarıda `partial`'ı erkenden yazar; son durum olduğu için o
+   öğe — uygulayıcının şifreli kaynak yüzünden kuyruğa çevirdiği `hazir` öğe dahil (08.1.3) — hata
+   değildir. Analiz kısmi başarıda `partial`'ı erkenden yazar; son durum olduğu için o
    değer bir sonraki geçişin altında kalır ve yürütmeden sonra yeniden yazılır.
 
 **Hata dayanıklılığı (09.2.3).** Adım beklenmeyen bir hatayla durursa o adımın veritabanı işi geri
@@ -62,7 +63,12 @@ commit etmez. Uygulama bitince `plans.executed_at` son uygulamanın zamanı olur
 (`plan_executor(settings)`) öğeleri plan sırasıyla yürütür: `hazir` → `execute_ready_item` (07.7,
 07.8), `unknown`/`unreadable`/`unresolved` → `route_queue_item` (08.1), `skip` → yalnız
 `OUTPUT_SKIPPED` (belgesiz; mesaj öğenin gerekçesi, veri `route: skip`). Öğeyi yürütemeyen hata
-(`PLAN_EXECUTION_ERRORS`) belge tahmin ettirmez, uygulamayı durdurur. Sonra partinin çıktısı olan
+(`PLAN_EXECUTION_ERRORS`) belge tahmin ettirmez, uygulamayı durdurur. Tek istisna şifreli kaynaktır
+(08.1.3, PLAN.md §D76): `extract`/`merge` kaynağın sayfalarını şifre yüzünden kopyalayamazsa
+(`EncryptedSourceError`; hiçbir şey yazılmamıştır) öğe `route_queue_item(..., encrypted=...)` ile
+Unreadable'a gider ve öbür öğeler uygulanır — parti `failed` olmaz. Bozuk PDF, okuyucular arasında
+sayfa sayısı uyuşmazlığı ve bütünlük hataları bu istisnaya girmez. Plan değişmez; yeniden
+çalıştırmada işlem yine reddeder ve öğe var olan kuyruk kaydını bulur. Sonra partinin çıktısı olan
 her çalışanın belge paketleri aynı işlemde yenilenir (14.2.2; `refresh_employee_packages`, geçiş
 olayları `system` adıyla partinin bağlamında) ve `profil.md`'si yeniden üretilir (09.1.1) — yeniden
 analizde eski sürüm işaretlenen çıktının sahibi dahil. Paketler planın bütün öğeleri uygulandıktan
@@ -135,7 +141,7 @@ from app.db.models import (
 from app.events import EventType, event_context, record_event
 from app.groups import refresh_employee_packages
 from app.pipeline.analyze import PageAnalysisStatus, UploadAnalysisResult, analyze_upload
-from app.pipeline.execute import EXECUTION_ERRORS, execute_ready_item
+from app.pipeline.execute import EXECUTION_ERRORS, EncryptedSourceError, execute_ready_item
 from app.pipeline.plan import PlanDocument, PlanItem, Route, create_plan, read_plan
 from app.pipeline.render import (
     RenderError,
@@ -389,18 +395,23 @@ def execute_plan(
 
     `PlanExecutor` sözleşmesine uyar (modül açıklaması); `render_image_*` `render_image` işleminin
     yapılandırma değerleridir. Öğeyi yürütemeyen hata (`PLAN_EXECUTION_ERRORS`) olduğu gibi
-    yükselir. Oturum commit edilmez.
+    yükselir; şifreli kaynağın reddi (`EncryptedSourceError`) öğeyi Unreadable'a gönderir (08.1.3).
+    Oturum commit edilmez.
     """
     for item in document.items:
         if item.route is Route.READY:
-            execute_ready_item(
-                session,
-                layout,
-                plan,
-                item,
-                render_image_dpi=render_image_dpi,
-                render_image_jpeg_quality=render_image_jpeg_quality,
-            )
+            try:
+                execute_ready_item(
+                    session,
+                    layout,
+                    plan,
+                    item,
+                    render_image_dpi=render_image_dpi,
+                    render_image_jpeg_quality=render_image_jpeg_quality,
+                )
+            except EncryptedSourceError as exc:
+                # 08.1.3: işlem hiçbir şey yazmadan reddetti; öğe Unreadable'a, plan sürer.
+                route_queue_item(session, layout, plan, item, encrypted=exc)
         elif item.route is Route.SKIP:
             _record_skip(session, plan, item)
         else:

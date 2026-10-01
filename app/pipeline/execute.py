@@ -22,7 +22,9 @@ insanın atamasıdır (08.2.1, `app.pipeline.route.assign_queue_item`). Adımlar
    `direct` bayrağıdır. Çıktı çalışanın `Hazir/` klasörüne planın `target_name`'iyle **atomik**
    yazılır (00.4.4): gövde doluysa K8 sıra eki diskte seçilir (`-2`, `-3`; `write_sequenced`),
    `extract_image` uzantıyı gerçek biçimden alır (§20.5). İşlem hatası olduğu gibi yükselir; hiçbir
-   çıktı, kopya, satır ya da olay kalmaz — kuyruğa çevirmek çağıranındır (08.1, 09.2).
+   çıktı, kopya, satır ya da olay kalmaz — kuyruğa çevirmek çağıranındır (08.1, 09.2). Şifreli
+   kaynağın sayfalarını kopyalayamayan `extract`/`merge`'ün hatası `EncryptedSourceError`'dır:
+   `execute_plan` bu öğeyi Unreadable'a yönlendirir, öbür hatalar uygulamayı durdurur (08.1.3).
 3. Çıktı yayınlandıktan sonra (belge çözüldü, K10) her kaynak dosya `sources` sırasıyla çalışanın
    `Alinan/` klasörüne kopyalanır; aynı SHA-256 orada varsa tekrar kopyalanmaz (`copy_to_received`).
    Aynı çalışana yazan uygulamalar (idempotenlik denetimi, çıktı, kopya) PostgreSQL'de çalışan
@@ -90,13 +92,17 @@ from app.storage import (
 from .execute_errors import (
     EXECUTION_ERRORS,
     DirectDocumentMergeError,
+    EncryptedSourceError,
+    ExtractEncryptedSourceError,
     ExtractImageIntegrityError,
     ExtractImageSourceError,
     ExtractIntegrityError,
     ExtractSourceError,
+    MergeEncryptedSourceError,
     MergeIntegrityError,
     MergeSourceError,
     PassthroughIntegrityError,
+    PdfProtection,
     PlanItemReferenceError,
     RenderImageSourceError,
     SourceIntegrityError,
@@ -466,16 +472,20 @@ def _is_recorded(session: Session, layout: DataLayout, path: Path) -> bool:
 __all__ = [
     "DirectDocumentMergeError",
     "EXECUTION_ERRORS",
+    "EncryptedSourceError",
     "ExecutedItem",
+    "ExtractEncryptedSourceError",
     "ExtractImageIntegrityError",
     "ExtractImageSourceError",
     "ExtractIntegrityError",
     "ExtractSourceError",
     "ItemDecision",
+    "MergeEncryptedSourceError",
     "MergeIntegrityError",
     "MergeSource",
     "MergeSourceError",
     "PassthroughIntegrityError",
+    "PdfProtection",
     "PlanItemReferenceError",
     "RenderImageSourceError",
     "SourceIntegrityError",
