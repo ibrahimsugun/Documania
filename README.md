@@ -172,7 +172,9 @@ telefonunda açıp «Başlat»a basınca bot kimliğini hesabına kendisi bağla
 çalışıp adını veri dizinine (`data/telegram/bot.json`) yazdıktan sonra açılır. Yedek yol aynı
 sayfada elle eklemedir: kimlik telefon numarası değil, Telegram'ın hesaba verdiği sabit sayıdır;
 kişi bota `/start` yazarak ya da [@userinfobot](https://t.me/userinfobot)'tan öğrenir (sayı ya da
-kopyalanan `Id: …` satırı). Yönetici Kullanıcılar sayfasında başkasının kimliğinin iznini kapatıp
+kopyalanan `Id: …` satırı). Bot, bağlı olmayan birinin `/start`'ına tek bir kısa yanıt verir:
+bağlı değilsiniz, panelde Hesabım → Telegram'ı açın; son satırda yalnız Telegram numarası (sohbet
+başına saatte bir). Bağlı kişinin yardım ve «Bağlandı» yanıtı da numarayı söyler. Yönetici Kullanıcılar sayfasında başkasının kimliğinin iznini kapatıp
 açabilir (kaybolan telefon), başkası adına kimlik ekleyemez ve bağlantı üretemez.
 
 **Yedekleme:** gece yedeği ve geri yükleme prosedürü [`docs/YEDEKLEME.md`](docs/YEDEKLEME.md)'de

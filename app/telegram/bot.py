@@ -14,12 +14,22 @@ hiçbir işleyici çalışmaz — yani hiçbir yanıt gitmez. Kapı hata durumun
 okunamazsa güncelleme reddedilir). **Yeni işleyici `GATE_GROUP`'tan büyük bir gruba eklenir**;
 kapıdan önceki bir gruba konan işleyici beyaz listeyi atlar.
 
-Tek istisna `LINK_GROUP`'taki `LinkStart`'tır (12.1.4, PLAN.md §D87): yöneticinin ürettiği
-bağlantıyla gelen `/start <kod>` kişi henüz listede değilken çalışmalıdır. Yalnız özel sohbette ve
-yalnız argümanlı `/start`'ı alır, kodu `app.telegram.link.redeem_link_code`'a verir ve her durumda
-`ApplicationHandlerStop` ile güncellemeyi bitirir; başka hiçbir işleyiciye geçmez. Kodsuz `/start`
-ve öbür mesajlar eskisi gibi kapıdan geçer. Bot açılışta (`post_init`) `getMe` yanıtındaki
-kullanıcı adını veri dizinine yazar (`write_bot_info`); panel bağlantıyı onunla kurar.
+İki istisna `LINK_GROUP`'tadır ve yalnız özel sohbetteki `/start`'ı alır:
+
+- `LinkStart` (12.1.4, PLAN.md §D87): kişinin kendi hesabından ürettiği bağlantıyla gelen
+  `/start <kod>` kişi henüz listede değilken çalışmalıdır. Yalnız argümanlı `/start`'ı alır, kodu
+  `app.telegram.link.redeem_link_code`'a verir ve her durumda `ApplicationHandlerStop` ile
+  güncellemeyi bitirir; başka hiçbir işleyiciye geçmez.
+- `IdentityStart` (12.1.7, §D97 b): argümansız `/start`. Gönderen izinliyse güncellemeye dokunmaz
+  (kapı ve yardım bugünkü gibi çalışır; yardımın son satırı Telegram numarasıdır). İzinli değilse
+  — kayıtsız, izni kapalı ya da pasif kullanıcıya bağlı, ayrım yapılmaz — tek yanıt verir: bağlı
+  değil, panelde Hesabım → Telegram; son satırda yalnız rakamlarla Telegram numarası. Sohbet başına
+  saatte bir yanıt (`IdentityReplies`, bellekte); veritabanı okunamazsa yanıt yok. Kimlik loga
+  yazılmaz, olay yazılmaz.
+
+Öbür mesajlar eskisi gibi kapıdan geçer; listede olmayana yanıt gitmez. Bot açılışta
+(`post_init`) `getMe` yanıtındaki kullanıcı adını veri dizinine yazar (`write_bot_info`); panel
+bağlantıyı onunla kurar.
 
 Belge alma (12.2) `app.telegram.handlers.DocumentIntake`'te, doğal dil belge istekleri (12.3)
 `app.telegram.intent.DocumentRequests`'tedir; `build_application`'a verilenler `HANDLER_GROUP`'a
@@ -43,8 +53,10 @@ import asyncio
 import logging
 import re
 import sys
-from collections.abc import Iterable
+import time
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
+from datetime import timedelta
 from enum import StrEnum
 from urllib.parse import urlsplit
 
@@ -112,6 +124,15 @@ LINK_TAKEN_TEXT = N_(
 )
 INVALID_LINK_TEXT = N_("Bağlantı geçersiz ya da süresi dolmuş; yöneticinizden yenisini isteyin.")
 LINK_FAILED_TEXT = N_("Bağlantı şu anda işlenemedi; biraz sonra yeniden deneyin.")
+# 12.1.7 (§D97 b, §D98): bağlı olmayana tek yanıt; numara ayrı satırda, yalnız rakam (uzun basınca
+# tek başına kopyalanır, `parse_telegram_id` düz sayıyı kabul eder).
+NOT_LINKED_TEXT = N_(
+    "Bu Telegram henüz Documania'ya bağlı değil. Bağlamak için panelde Hesabım → Telegram'ı açın. "
+    "Telegram numaranız:"
+)
+YOUR_NUMBER_TEXT = N_("Telegram numaranız:")
+# Aynı sohbete en çok bu sıklıkla "bağlı değil" yanıtı gider; aradaki `/start` sessizdir.
+IDENTITY_REPLY_INTERVAL = timedelta(hours=1)
 
 # `build_application`'a dil verilmezse tercihi olmayan kullanıcının ve kişisi bilinmeyen yanıtın
 # dili (12.1.6). `main` ayardaki `PANEL_DEFAULT_LANGUAGE`'ı açıkça verir; bot testleri bunu `tr`
@@ -277,6 +298,99 @@ class WhitelistGate:
         return reply_language(admitted.language, self._default_language)
 
 
+def with_number(text: str, telegram_id: int) -> str:
+    """Metnin sonuna Telegram numarasını ekler: "Telegram numaranız:" ve ayrı satırda yalnız
+    rakamlar (12.1.7)."""
+    return f"{text}\n\n{gettext(YOUR_NUMBER_TEXT)}\n{telegram_id}"
+
+
+def help_reply(telegram_id: int) -> str:
+    """İzinli kişinin `/start`/`/yardim` yanıtı: yardım ve son satırda Telegram numarası."""
+    return with_number(gettext(HELP_TEXT), telegram_id)
+
+
+def not_linked_reply(telegram_id: int) -> str:
+    """Bağlı olmayana tek yanıt (12.1.7): kayıtsız, izni kapalı, pasif — hepsi aynı metin."""
+    return f"{gettext(NOT_LINKED_TEXT)}\n{telegram_id}"
+
+
+class IdentityReplies:
+    """Sohbet başına "bağlı değil" yanıtının sıklık sınırı (bellekte; bot yeniden başlarsa
+    sıfırlanır). `interval` içindeki tekrar sessizdir."""
+
+    def __init__(
+        self,
+        *,
+        interval: timedelta = IDENTITY_REPLY_INTERVAL,
+        clock: Callable[[], float] = time.monotonic,
+    ) -> None:
+        self._interval = interval.total_seconds()
+        self._clock = clock
+        self._last: dict[int, float] = {}
+
+    def take(self, chat_id: int) -> bool:
+        """Bu sohbete şimdi yanıt verilebilir mi; verilebilirse anı kaydeder."""
+        now = self._clock()
+        for chat in [c for c, at in self._last.items() if now - at >= self._interval]:
+            del self._last[chat]
+        if chat_id in self._last:
+            return False
+        self._last[chat_id] = now
+        return True
+
+
+class IdentityStart:
+    """Argümansız `/start` (12.1.7): beyaz liste kapısından önce, yalnız özel sohbette çalışır.
+    İzinliyse güncellemeyi kapıya bırakır; değilse (sıklık sınırı içinde) bir kez "bağlı değil"
+    yanıtını varsayılan dilde verir ve güncellemeyi bitirir. Kimlik ve ad loga yazılmaz."""
+
+    def __init__(
+        self,
+        session_factory: sessionmaker[Session],
+        replies: IdentityReplies | None = None,
+        default_language: str = DEFAULT_LANGUAGE,
+    ) -> None:
+        self._session_factory = session_factory
+        self._replies = replies or IdentityReplies()
+        self._default_language = default_language
+
+    def register(self, application: Application) -> None:
+        application.add_handler(
+            CommandHandler(
+                "start",
+                self,
+                filters=filters.ChatType.PRIVATE & filters.UpdateType.MESSAGE,
+                has_args=False,
+            ),
+            group=LINK_GROUP,
+        )
+
+    async def __call__(self, update: Update, _context: ContextTypes.DEFAULT_TYPE) -> None:
+        user, chat, message = update.effective_user, update.effective_chat, update.message
+        if user is None or chat is None or message is None:
+            raise ApplicationHandlerStop
+        try:
+            permitted = await asyncio.to_thread(is_whitelisted, self._session_factory, user.id)
+        except Exception as exc:
+            # Kapı gibi kapalı: okunamazsa yanıt yok. Hata metni kimliği taşır, yalnız türü.
+            logger.error("Beyaz liste okunamadı; /start yanıtlanmadı (%s)", type(exc).__name__)
+            raise ApplicationHandlerStop from None
+        if permitted:
+            return  # kapı ve yardım işleyicisi bugünkü gibi
+        if not self._replies.take(chat.id):
+            logger.info(
+                "Bağlı olmayan /start yok sayıldı: sıklık sınırı (update_id=%s)", update.update_id
+            )
+            raise ApplicationHandlerStop
+        activate_language(self._default_language)
+        try:
+            await message.reply_text(not_linked_reply(user.id))
+        except Exception as exc:
+            logger.error("Bağlı olmayana yanıt gönderilemedi (%s)", type(exc).__name__)
+        logger.info("Bağlı olmayan /start yanıtlandı (update_id=%s)", update.update_id)
+        raise ApplicationHandlerStop
+
+
 def link_reply(result: LinkRedemption) -> str:
     """Bağlama sonucunun yanıtı; geçersiz, süresi dolmuş ya da kullanılmış kod ve pasif kullanıcı
     için tek genel yanıt."""
@@ -349,7 +463,10 @@ class LinkStart:
             self._attempts.succeeded(chat.id)
         logger.info("Telegram bağlantı kodu: %s (update_id=%s)", result.outcome, update.update_id)
         activate_language(reply_language(result.language, self._default_language))
-        await message.reply_text(link_reply(result))
+        text = link_reply(result)
+        if result.outcome in (LinkOutcome.LINKED, LinkOutcome.ALREADY_LINKED):
+            text = with_number(text, user.id)  # 12.1.7: bağlandı yanıtı numarayı da söyler
+        await message.reply_text(text)
 
     def _redeem(self, code: str, telegram_id: int) -> LinkRedemption:
         with self._session_factory() as session:
@@ -375,8 +492,10 @@ def register_bot_info(application: Application, layout: DataLayout) -> None:
 
 
 async def _send_help(update: Update, _context: ContextTypes.DEFAULT_TYPE) -> None:
-    if update.effective_message is not None:
-        await update.effective_message.reply_text(gettext(HELP_TEXT))
+    message, user = update.effective_message, update.effective_user
+    if message is not None:
+        text = help_reply(user.id) if user is not None else gettext(HELP_TEXT)
+        await message.reply_text(text)
 
 
 def _redact(text: str, secrets: Iterable[str]) -> str:
@@ -392,6 +511,7 @@ def build_application(
     builder: ApplicationBuilder | None = None,
     layout: DataLayout | None = None,
     link_attempts: LinkAttempts | None = None,
+    identity_replies: IdentityReplies | None = None,
     intake: DocumentIntake | None = None,
     document_requests: DocumentRequests | None = None,
     notifier: Notifier | None = None,
@@ -403,14 +523,15 @@ def build_application(
     `notifier` verilirse bot başlarken bildirim taraması açılır, dururken kapanır (12.4).
 
     `builder` testte sahte bir aktarıcıyla ön ayarlı gelir; verilmezse varsayılan kurulur.
-    `link_attempts` testte saati elle ilerleyen bir sayaçtır. `default_language` tercihi olmayan
-    kullanıcının ve kişisi bilinmeyen yanıtın dilidir (12.1.6; üretimde
-    `PANEL_DEFAULT_LANGUAGE`, verilmezse `FALLBACK_LANGUAGE`)."""
+    `link_attempts` ve `identity_replies` testte saati elle ilerleyen sayaçlardır.
+    `default_language` tercihi olmayan kullanıcının ve kişisi bilinmeyen yanıtın dilidir (12.1.6;
+    üretimde `PANEL_DEFAULT_LANGUAGE`, verilmezse `FALLBACK_LANGUAGE`)."""
     default_language = default_language or FALLBACK_LANGUAGE
     if not is_supported(default_language):
         raise ValueError(f"desteklenmeyen dil: {default_language!r}")
     application = (builder or ApplicationBuilder()).token(config.token).build()
     LinkStart(session_factory, link_attempts, default_language).register(application)
+    IdentityStart(session_factory, identity_replies, default_language).register(application)
     application.add_handler(
         TypeHandler(Update, WhitelistGate(session_factory, default_language), block=True),
         group=GATE_GROUP,

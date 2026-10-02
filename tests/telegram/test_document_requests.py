@@ -44,7 +44,7 @@ from app.matching.names import normalize_name
 from app.storage import DataLayout, prepare_data_dir
 from app.telegram import bot as bot_module
 from app.telegram import intent
-from app.telegram.bot import HELP_TEXT
+from app.telegram.bot import HELP_TEXT, help_reply
 from app.telegram.intent import (
     CHOICE_TTL_SECONDS,
     DOCUMENT_GONE_TEXT,
@@ -693,10 +693,10 @@ def test_commands_files_and_texts_reach_their_own_handlers(
     bot = make_request_bot(provider)
 
     bot.feed(message_update(1, LISTED_ID, "/yardim"))
-    assert bot.telegram.sent_texts() == [HELP_TEXT]
+    assert bot.telegram.sent_texts() == [help_reply(LISTED_ID)]
     # Tanınmayan komut da belge isteği sayılmaz: yapay zekâya gitmez, yanıt almaz.
     bot.feed(message_update(2, LISTED_ID, "/ehliyet Ahmet Çakar"))
-    assert bot.telegram.sent_texts() == [HELP_TEXT]
+    assert bot.telegram.sent_texts() == [help_reply(LISTED_ID)]
     assert provider.queries == []
 
     bot.feed(message_update(3, LISTED_ID, "Veli Test'in ehliyeti"))

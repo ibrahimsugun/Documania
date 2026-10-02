@@ -14,7 +14,7 @@ from sqlalchemy import select, update
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.db.models import Event, TelegramUser, User
-from app.telegram.bot import HELP_TEXT, is_whitelisted
+from app.telegram.bot import help_reply, is_whitelisted
 from app.telegram.whitelist import (
     TELEGRAM_ID_MAX,
     TelegramIdError,
@@ -77,7 +77,8 @@ def _activate(
 
 def _replies(bot: BotHarness, update_id: int, telegram_id: int) -> list[str]:
     before = len(bot.telegram.methods())
-    bot.feed(message_update(update_id, telegram_id, "/start"))
+    # `/yardim`: kodsuz `/start` bağlı olmayana kimliğini söyler (12.1.7); burada kapı sınanır.
+    bot.feed(message_update(update_id, telegram_id, "/yardim"))
     return bot.telegram.methods()[before:]
 
 
@@ -92,7 +93,7 @@ def test_an_id_added_from_the_panel_gets_replies_and_blocking_it_silences_the_bo
 
     _add(session_factory, ayse, LISTED_ID)
     assert _replies(bot, 2, LISTED_ID) == ["sendMessage"]
-    assert bot.telegram.sent_texts()[-1] == HELP_TEXT
+    assert bot.telegram.sent_texts()[-1] == help_reply(LISTED_ID)
 
     _allow(session_factory, LISTED_ID, False)
     assert _replies(bot, 3, LISTED_ID) == []

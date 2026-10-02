@@ -4,7 +4,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Documania panel\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-02 18:05+0000\n"
+"POT-Creation-Date: 2026-10-02 18:36+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -618,6 +618,12 @@ msgstr ""
 
 #: app/web/templates/upload_detail.html
 msgid "Boş"
+msgstr ""
+
+#: app/telegram/bot.py
+msgid ""
+"Bu Telegram henüz Documania'ya bağlı değil. Bağlamak için panelde Hesabım"
+" → Telegram'ı açın. Telegram numaranız:"
 msgstr ""
 
 #: app/telegram/bot.py
@@ -2105,6 +2111,10 @@ msgstr ""
 
 #: app/web/routers/users.py
 msgid "Telegram kimliğinin izni kapatıldı; bot bu kimliğe yanıt vermeyecek."
+msgstr ""
+
+#: app/telegram/bot.py
+msgid "Telegram numaranız:"
 msgstr ""
 
 #: app/web/templates/account_telegram.html

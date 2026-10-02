@@ -51,7 +51,8 @@ def test_run_polls_answers_the_listed_user_and_ignores_the_rest(
 ) -> None:
     whitelist(LISTED_ID)
     telegram = PollingTelegram(
-        [message_update(1, OTHER_ID, "/start"), message_update(2, LISTED_ID, "/start")]
+        # `/yardim`: kodsuz `/start` bağlı olmayana kimliğini söyler (12.1.7); burada kapı sınanır.
+        [message_update(1, OTHER_ID, "/yardim"), message_update(2, LISTED_ID, "/yardim")]
     )
     application = build_application(
         polling_config(),

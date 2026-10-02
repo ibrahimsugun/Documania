@@ -4,8 +4,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Documania panel\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-02 18:05+0000\n"
-"PO-Revision-Date: 2026-10-02 18:05+0000\n"
+"POT-Creation-Date: 2026-10-02 18:36+0000\n"
+"PO-Revision-Date: 2026-10-02 18:36+0000\n"
 "Last-Translator: Documania görev penceresi (gözden geçirilmeli)\n"
 "Language: en\n"
 "Language-Team: English\n"
@@ -689,6 +689,14 @@ msgstr "Corrupt origin record"
 #: app/web/templates/upload_detail.html
 msgid "Boş"
 msgstr "Blank"
+
+#: app/telegram/bot.py
+msgid ""
+"Bu Telegram henüz Documania'ya bağlı değil. Bağlamak için panelde Hesabım"
+" → Telegram'ı açın. Telegram numaranız:"
+msgstr ""
+"This Telegram is not linked to Documania yet. To link it, open My account"
+" → Telegram in the panel. Your Telegram number:"
 
 #: app/telegram/bot.py
 msgid ""
@@ -2336,6 +2344,10 @@ msgstr "The Telegram ID was allowed."
 #: app/web/routers/users.py
 msgid "Telegram kimliğinin izni kapatıldı; bot bu kimliğe yanıt vermeyecek."
 msgstr "The Telegram ID was blocked; the bot will not reply to it."
+
+#: app/telegram/bot.py
+msgid "Telegram numaranız:"
+msgstr "Your Telegram number:"
 
 #: app/web/templates/account_telegram.html
 msgid "Telegram'da aç"

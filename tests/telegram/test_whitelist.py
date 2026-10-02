@@ -14,9 +14,10 @@ from app.db.models import TelegramUser
 from app.telegram.bot import (
     GATE_GROUP,
     HANDLER_GROUP,
-    HELP_TEXT,
     LINK_GROUP,
+    IdentityStart,
     LinkStart,
+    help_reply,
     is_whitelisted,
 )
 from tests.telegram.conftest import (
@@ -48,7 +49,7 @@ def test_whitelisted_user_gets_a_reply(bot: BotHarness, whitelist: Callable[...,
     assert bot.telegram.methods() == ["sendMessage"]
     _, parameters = bot.telegram.calls[-1]
     assert parameters["chat_id"] == LISTED_ID
-    assert parameters["text"] == HELP_TEXT
+    assert parameters["text"] == help_reply(LISTED_ID)
 
 
 def test_yardim_command_also_replies(bot: BotHarness, whitelist: Callable[..., None]) -> None:
@@ -64,7 +65,8 @@ def test_user_not_on_the_list_gets_no_reply(
 ) -> None:
     whitelist(LISTED_ID)
 
-    bot.feed(message_update(1, OTHER_ID, "/start"), message_update(2, OTHER_ID, "/yardim"))
+    # Kodsuz `/start` bağlı olmayana kimliğini söyler (12.1.7, `test_identity.py`); öbürü sessiz.
+    bot.feed(message_update(1, OTHER_ID, "/yardim"), message_update(2, OTHER_ID, "merhaba"))
 
     assert bot.telegram.methods() == []
 
@@ -74,13 +76,13 @@ def test_user_with_allowed_false_gets_no_reply(
 ) -> None:
     whitelist(LISTED_ID, allowed=False)
 
-    bot.feed(message_update(1, LISTED_ID, "/start"))
+    bot.feed(message_update(1, LISTED_ID, "/yardim"))
 
     assert bot.telegram.methods() == []
 
 
 def test_empty_whitelist_answers_nobody(bot: BotHarness) -> None:
-    bot.feed(message_update(1, LISTED_ID, "/start"))
+    bot.feed(message_update(1, LISTED_ID, "/yardim"))
 
     assert bot.telegram.methods() == []
 
@@ -136,17 +138,17 @@ def test_listed_user_is_not_answered_outside_a_private_chat(
 def test_list_changes_apply_to_the_next_update(
     bot: BotHarness, session_factory: sessionmaker[Session], whitelist: Callable[..., None]
 ) -> None:
-    bot.feed(message_update(1, LISTED_ID))
+    bot.feed(message_update(1, LISTED_ID, "/yardim"))
     assert bot.telegram.methods() == []
 
     whitelist(LISTED_ID)
-    bot.feed(message_update(2, LISTED_ID))
+    bot.feed(message_update(2, LISTED_ID, "/yardim"))
     assert bot.telegram.methods() == ["sendMessage"]
 
     with session_factory() as session:
         session.get_one(TelegramUser, LISTED_ID).allowed = False
         session.commit()
-    bot.feed(message_update(3, LISTED_ID))
+    bot.feed(message_update(3, LISTED_ID, "/yardim"))
     assert bot.telegram.methods() == ["sendMessage"]  # üçüncü güncellemeye yanıt yok
 
 
@@ -160,7 +162,8 @@ def test_gate_fails_closed_when_the_database_is_unreadable(
     reached = add_probe(harness)
 
     with caplog.at_level(logging.INFO):
-        harness.feed(message_update(1, LISTED_ID, "/start"))
+        # `/yardim`: kodsuz `/start` kapıdan önce `IdentityStart`'ta durur (`test_identity.py`).
+        harness.feed(message_update(1, LISTED_ID, "/yardim"))
 
     assert reached == []
     assert harness.telegram.methods() == []
@@ -180,13 +183,15 @@ def test_ignored_update_log_carries_no_identity(
 
 
 def test_gate_is_registered_before_every_other_handler(bot: BotHarness) -> None:
-    # Tek istisna 12.1.4'ün `/start <kod>` işleyicisidir (§D87): kişi henüz listede değilken
-    # çalışmalıdır; yalnız özel sohbette, yalnız argümanlı `/start`'ı alır.
+    # İki istisna yalnız özel sohbetteki `/start`'ı alır: 12.1.4'ün `/start <kod>` işleyicisi (§D87)
+    # ve 12.1.7'nin argümansız `/start`'ı (§D97 b) — kişi henüz listede değilken çalışmalıdır.
     before_gate = {group for group in bot.application.handlers if group < GATE_GROUP}
     assert before_gate == {LINK_GROUP}
-    [link] = bot.application.handlers[LINK_GROUP]
+    link, identity = bot.application.handlers[LINK_GROUP]
     assert isinstance(link, CommandHandler) and isinstance(link.callback, LinkStart)
     assert link.commands == frozenset({"start"}) and link.has_args is True
+    assert isinstance(identity, CommandHandler) and isinstance(identity.callback, IdentityStart)
+    assert identity.commands == frozenset({"start"}) and identity.has_args is False
     assert GATE_GROUP < HANDLER_GROUP
 
 
