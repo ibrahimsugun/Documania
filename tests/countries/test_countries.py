@@ -27,6 +27,7 @@ from app.countries import (
     normalize_code,
     turkish_sort_key,
 )
+from app.i18n import use_language
 from app.web.templating import templates
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -45,6 +46,14 @@ def fresh_tables() -> Iterator[None]:
     countries_module._tables.cache_clear()
     yield
     countries_module._tables.cache_clear()
+
+
+@pytest.fixture(autouse=True)
+def turkish() -> Iterator[None]:
+    """Bu dosya Türkçe gösterimi sınar; istek dışı varsayılan dil `en`'dir (§D92 b). Öbür diller:
+    `test_country_languages.py`."""
+    with use_language("tr"):
+        yield
 
 
 # --- veri bütünlüğü -------------------------------------------------------------------------

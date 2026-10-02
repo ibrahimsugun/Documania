@@ -4,8 +4,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Documania panel\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-02 10:44+0000\n"
-"PO-Revision-Date: 2026-10-02 10:44+0000\n"
+"POT-Creation-Date: 2026-10-02 15:52+0000\n"
+"PO-Revision-Date: 2026-10-02 15:52+0000\n"
 "Last-Translator: Documania görev penceresi (gözden geçirilmeli)\n"
 "Language: en\n"
 "Language-Team: English\n"
@@ -1056,6 +1056,10 @@ msgstr "Action"
 msgid "Eğitim modu"
 msgstr "Training mode"
 
+#: app/web/templates/catalog.html
+msgid "Eşleşen ülke yok."
+msgstr "No matching country."
+
 #: app/web/routers/upload_page.py
 msgid "Eşleşti"
 msgstr "Matched"
@@ -1067,6 +1071,10 @@ msgstr "Different value"
 #: app/web/templates/profile.html
 msgid "Fotoğraf yok"
 msgstr "No photo"
+
+#: app/web/routers/catalog.py
+msgid "Genel — ülkesiz"
+msgstr "General — no country"
 
 #: app/web/templates/upload_detail.html
 msgid "Gerekçe"
@@ -1150,7 +1158,7 @@ msgstr "No uploads yet."
 msgid "Henüz çalışan yok."
 msgstr "No employees yet."
 
-#: app/web/routers/employees.py
+#: app/web/routers/catalog.py app/web/routers/employees.py
 msgid "Hepsi"
 msgstr "All"
 
@@ -1349,6 +1357,10 @@ msgid ""
 msgstr ""
 "When the person opens it and presses «Start», the bot says «Connected»; "
 "then refresh this page."
+
+#: app/web/templates/users.html
+msgid "Kopyalandı"
+msgstr "Copied"
 
 #: app/web/templates/access_log_employee.html
 msgid "Kullanıcı"
@@ -2664,6 +2676,14 @@ msgstr "Item"
 #, python-format
 msgid "Öğe %(item)s"
 msgstr "Item %(item)s"
+
+#: app/web/templates/catalog.html
+msgid "Ülke ara"
+msgstr "Search country"
+
+#: app/web/templates/catalog.html
+msgid "Ülke ara…"
+msgstr "Search country…"
 
 #: app/web/templates/_context_warning.html
 msgid "çözüldü"

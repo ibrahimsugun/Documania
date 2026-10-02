@@ -219,7 +219,7 @@ from app.catalog.propose import (
     store_examination,
 )
 from app.config import Settings, get_settings
-from app.countries import lookup, turkish_sort_key
+from app.countries import lookup, sort_key
 from app.db.models import (
     CandidateDocumentType,
     CandidateProposalStatus,
@@ -235,6 +235,7 @@ from app.db.models import (
     UploadStatus,
 )
 from app.db.session import get_session
+from app.i18n import gettext
 from app.pipeline.orchestrate import (
     PLAN_EXECUTION_ERRORS,
     PlanExecutor,
@@ -430,25 +431,27 @@ class CountryOption:
 
 
 def _code_option(code: str, count: int) -> tuple[tuple[int, Any], CountryOption]:
-    """Kataloğun bir ülke kodunun seçeneği ve sıralama anahtarı (11.1.7): tanınan ISO2 kod Türkçe
-    adla ve bayrağıyla, Türkçe harf sırasında; tanınmayan kod (ISO2 olmayan eski kayıt dahil)
-    koduyla, tanınanlardan sonra kod sırasında."""
+    """Kataloğun bir ülke kodunun seçeneği ve sıralama anahtarı (11.1.7; §D92 i): tanınan ISO2 kod
+    isteğin dilindeki adla ve bayrağıyla, o dilin harf sırasında; tanınmayan kod (ISO2 olmayan
+    eski kayıt dahil) koduyla, tanınanlardan sonra kod sırasında."""
     country = lookup(code) if COUNTRY_CODE_RE.match(code) else None
     if country is None:
         return (1, code), CountryOption(code, f"{code} ({count})")
-    option = CountryOption(code, f"{country.name_tr} ({count})", country.flag_url)
-    return (0, turkish_sort_key(country.name_tr)), option
+    name = country.name()
+    option = CountryOption(code, f"{name} ({count})", country.flag_url)
+    return (0, sort_key(name)), option
 
 
 def _country_options(types: list[TypeSummary]) -> tuple[CountryOption, ...]:
-    """Süzgecin seçenekleri: "Hepsi", "Genel — ülkesiz", sonra kataloğun ülkeleri Türkçe adlarıyla
-    ve Türkçe harf sırasıyla, tanınmayan kodlar sonda; hepsi tür sayısıyla (11.1.5, 11.1.7). Her
-    zaman süzülmemiş listeden üretilir: seçim değiştikçe seçeneklerin sayıları değişmez."""
+    """Süzgecin seçenekleri: "Hepsi", "Genel — ülkesiz" (isteğin dilinde), sonra kataloğun
+    ülkeleri isteğin dilindeki adlarıyla ve o dilin harf sırasıyla, tanınmayan kodlar sonda; hepsi
+    tür sayısıyla (11.1.5, 11.1.7; §D92 i). Her zaman süzülmemiş listeden üretilir: seçim
+    değiştikçe seçeneklerin sayıları değişmez."""
     codes = Counter(item.country.strip().upper() for item in types if not _is_general(item.country))
     general_count = sum(1 for item in types if _is_general(item.country))
     options = [
-        CountryOption("all", f"Hepsi ({len(types)})"),
-        CountryOption("general", f"Genel — ülkesiz ({general_count})"),
+        CountryOption("all", f"{gettext('Hepsi')} ({len(types)})"),
+        CountryOption("general", f"{gettext('Genel — ülkesiz')} ({general_count})"),
     ]
     ranked = sorted(
         (_code_option(code, count) for code, count in codes.items()), key=lambda pair: pair[0]

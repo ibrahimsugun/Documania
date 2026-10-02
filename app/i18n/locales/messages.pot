@@ -4,7 +4,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Documania panel\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-02 10:43+0000\n"
+"POT-Creation-Date: 2026-10-02 15:52+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -949,6 +949,10 @@ msgstr ""
 msgid "Eğitim modu"
 msgstr ""
 
+#: app/web/templates/catalog.html
+msgid "Eşleşen ülke yok."
+msgstr ""
+
 #: app/web/routers/upload_page.py
 msgid "Eşleşti"
 msgstr ""
@@ -959,6 +963,10 @@ msgstr ""
 
 #: app/web/templates/profile.html
 msgid "Fotoğraf yok"
+msgstr ""
+
+#: app/web/routers/catalog.py
+msgid "Genel — ülkesiz"
 msgstr ""
 
 #: app/web/templates/upload_detail.html
@@ -1043,7 +1051,7 @@ msgstr ""
 msgid "Henüz çalışan yok."
 msgstr ""
 
-#: app/web/routers/employees.py
+#: app/web/routers/catalog.py app/web/routers/employees.py
 msgid "Hepsi"
 msgstr ""
 
@@ -1224,6 +1232,10 @@ msgstr ""
 msgid ""
 "Kişi açıp «Başlat»a basınca bot «Bağlandı» der; sonra bu sayfayı "
 "yenileyin."
+msgstr ""
+
+#: app/web/templates/users.html
+msgid "Kopyalandı"
 msgstr ""
 
 #: app/web/templates/access_log_employee.html
@@ -2453,6 +2465,14 @@ msgstr ""
 #: app/web/templates/_context_warning.html
 #, python-format
 msgid "Öğe %(item)s"
+msgstr ""
+
+#: app/web/templates/catalog.html
+msgid "Ülke ara"
+msgstr ""
+
+#: app/web/templates/catalog.html
+msgid "Ülke ara…"
 msgstr ""
 
 #: app/web/templates/_context_warning.html

@@ -2,20 +2,43 @@
  * bu betik `data-country-select` taşıyan `<select>`'i bayraklı bir listeye çevirir: düğme + yazarak
  * süzme + `role=listbox`. Sunucunun yazdığı `<select>` formda gizli kalır; seçim onun değerine
  * yazılır ve form gönderilir, süzme kuralı sunucudadır (11.1.5). JavaScript kapalıyken düz
- * `<select>` ve "Uygula" düğmesi çalışır (catalog.html). */
+ * `<select>` ve "Uygula" düğmesi çalışır (catalog.html). Görünen metinler sunucudan isteğin dilinde
+ * gelir (`<select>`'in `data-search-label`, `data-search-placeholder`, `data-empty-text`
+ * öznitelikleri; PLAN.md §D92 j): bu dosyada görünen dizge yoktur. */
 (function () {
   "use strict";
 
   var counter = 0;
 
-  // Arama harf büyüklüğüne ve işarete bakmaz: "turk" Türkiye'yi, "sirb" Sırbistan'ı bulur.
-  function fold(text) {
+  // Arama harf büyüklüğüne ve işarete bakmaz, dilden bağımsızdır (§D92 i): Türkçe ı/İ/ş/ğ/ç/ö/ü ve
+  // Sırpça č/ć/š/ž işaretsiz harfle eşleşir; NFD'de ayrışmayan đ hem "d" hem "dj" ile bulunur.
+  // "turkiye" Türkiye'yi, "sirb" Sırbistan'ı, "cesk" Češka'yı, "djibuti" ve "dibuti" Đibuti'yi bulur.
+  function fold(text, dj) {
     return text
       .toLocaleLowerCase("tr")
       .normalize("NFD")
-      .replace(/[̀-ͯ]/g, "")
-      .replace(/ı/g, "i");
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/ı/g, "i")
+      .replace(/đ/g, dj ? "dj" : "d");
   }
+
+  // Aranacak biçimler: đ'nin iki okunuşu.
+  function searchable(text) {
+    return [fold(text, false), fold(text, true)];
+  }
+
+  function matches(texts, query) {
+    var folded = fold(query.trim(), false);
+    return (
+      folded === "" ||
+      texts.some(function (text) {
+        return text.indexOf(folded) !== -1;
+      })
+    );
+  }
+
+  // Tarayıcı dışında (node birim testi) arama kuralı denetlenebilsin diye dışarı açılır.
+  globalThis.documaniaCountrySearch = { fold: fold, searchable: searchable, matches: matches };
 
   // Seçeneğin görünümü: bayrak (varsa) + etiket. Metin `textContent` ile yazılır, HTML olarak değil.
   function fill(target, option) {
@@ -69,10 +92,10 @@
     var search = document.createElement("input");
     search.type = "search";
     search.className = "country-select-search";
-    search.placeholder = "Ülke ara…";
+    search.placeholder = select.getAttribute("data-search-placeholder") || "";
     search.autocomplete = "off";
     search.setAttribute("role", "combobox");
-    search.setAttribute("aria-label", "Ülke ara");
+    search.setAttribute("aria-label", select.getAttribute("data-search-label") || "");
     search.setAttribute("aria-autocomplete", "list");
     search.setAttribute("aria-expanded", "true");
     search.setAttribute("aria-controls", id + "-list");
@@ -81,11 +104,14 @@
     list.id = id + "-list";
     list.className = "country-select-list";
     list.setAttribute("role", "listbox");
-    list.setAttribute("aria-label", label ? label.textContent : "Ülke");
+    list.setAttribute(
+      "aria-label",
+      label ? label.textContent : select.getAttribute("data-search-label") || ""
+    );
 
     var empty = document.createElement("p");
     empty.className = "country-select-empty";
-    empty.textContent = "Eşleşen ülke yok.";
+    empty.textContent = select.getAttribute("data-empty-text") || "";
     empty.hidden = true;
 
     var items = Array.prototype.map.call(select.options, function (option, index) {
@@ -96,7 +122,11 @@
       node.setAttribute("aria-selected", option.selected ? "true" : "false");
       fill(node, option);
       list.appendChild(node);
-      return { node: node, option: option, text: fold(option.textContent + " " + option.value) };
+      return {
+        node: node,
+        option: option,
+        texts: searchable(option.textContent + " " + option.value),
+      };
     });
     var active = null;
 
@@ -125,9 +155,8 @@
     }
 
     function applyFilter() {
-      var query = fold(search.value.trim());
       items.forEach(function (item) {
-        item.node.hidden = query !== "" && item.text.indexOf(query) === -1;
+        item.node.hidden = !matches(item.texts, search.value);
       });
       var visible = visibleItems();
       empty.hidden = visible.length > 0;
@@ -238,5 +267,7 @@
     select.hidden = true;
   }
 
-  Array.prototype.forEach.call(document.querySelectorAll("select[data-country-select]"), enhance);
+  if (typeof document !== "undefined") {
+    Array.prototype.forEach.call(document.querySelectorAll("select[data-country-select]"), enhance);
+  }
 })();
