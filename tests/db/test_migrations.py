@@ -34,7 +34,7 @@ def _assert_schema_matches_models(database_url: str) -> None:
             assert tables == set(Base.metadata.tables) | {"alembic_version"}
             context = MigrationContext.configure(connection, opts={"compare_type": True})
             assert compare_metadata(context, Base.metadata) == []
-            assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "0023"
+            assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "0024"
     finally:
         engine.dispose()
 
@@ -1294,6 +1294,45 @@ def test_telegram_link_codes_migration_adds_the_table_and_is_reversible(sqlite_u
         command.downgrade(config, "0022")
         with engine.connect() as connection:
             assert "telegram_link_codes" not in inspect(connection).get_table_names()
+            assert connection.scalar(text("SELECT username FROM users")) == "yonetici"
+    finally:
+        engine.dispose()
+
+
+def test_user_language_migration_adds_a_checked_nullable_column_and_is_reversible(
+    sqlite_url: str,
+) -> None:
+    # 0024 (10.10.2): var olan kullanıcının tercihi boş kalır; yalnız `en`, `tr`, `sr` yazılabilir;
+    # geri alış sütunu düşürür, kullanıcı kalır.
+    config = _alembic_config(sqlite_url)
+    command.upgrade(config, "0023")
+    engine = create_engine(sqlite_url)
+    set_language = text("UPDATE users SET language = :language WHERE username = 'yonetici'")
+    try:
+        with engine.begin() as connection:
+            connection.execute(
+                text(
+                    "INSERT INTO users (username, password_hash, role) "
+                    "VALUES ('yonetici', 'ozet', 'admin')"
+                )
+            )
+
+        command.upgrade(config, "0024")
+        with engine.connect() as connection:
+            columns = {c["name"]: c for c in inspect(connection).get_columns("users")}
+            assert columns["language"]["nullable"]
+            assert connection.scalar(text("SELECT language FROM users")) is None
+        for language in ("en", "tr", "sr", None):
+            with engine.begin() as connection:
+                connection.execute(set_language, {"language": language})
+        for invalid in ("de", "EN", "sr-Latn", ""):
+            with pytest.raises(IntegrityError), engine.begin() as connection:
+                connection.execute(set_language, {"language": invalid})
+
+        command.downgrade(config, "0023")
+        with engine.connect() as connection:
+            columns = {c["name"] for c in inspect(connection).get_columns("users")}
+            assert "language" not in columns
             assert connection.scalar(text("SELECT username FROM users")) == "yonetici"
     finally:
         engine.dispose()

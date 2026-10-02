@@ -214,7 +214,14 @@ def test_the_form_holds_the_six_fields_with_current_values_and_the_first_text(
     assert response.status_code == 200
     html = response.text
     assert f'<form method="post" action="/employees/{EMPLOYEE_ID}/fields/prepare"' in html
-    names = re.findall(r'<input[^>]*name="([^"]+)"', html)
+    # Sayfadaki öbür formlar (üst çubuktaki dil seçici, 10.10.2) bu formun alanı değildir.
+    form = re.search(
+        rf'<form method="post" action="/employees/{EMPLOYEE_ID}/fields/prepare".*?</form>',
+        html,
+        re.DOTALL,
+    )
+    assert form is not None
+    names = re.findall(r'<input[^>]*name="([^"]+)"', form.group(0))
     assert names == list(CURRENT)  # başka alan yok: belge içeriği bu formla gönderilemez (K17)
     for name, value in CURRENT.items():
         assert re.search(rf'name="{name}"\s+value="{re.escape(value)}"', html), name

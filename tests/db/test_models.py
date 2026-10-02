@@ -1,10 +1,11 @@
 """00.3.1 — §8.1 tabloları SQLAlchemy modeli olarak vardır ve ilişkiler doğrulanır (belge grupları
 14.1: tm 124)."""
 
+import re
 from datetime import UTC, date, datetime, timedelta, timezone
 
 import pytest
-from sqlalchemy import Engine, select
+from sqlalchemy import CheckConstraint, Engine, select
 from sqlalchemy.exc import IntegrityError, StatementError
 from sqlalchemy.orm import Session
 
@@ -35,6 +36,7 @@ from app.db.models import (
     User,
 )
 from app.db.session import create_session_factory
+from app.i18n import SUPPORTED_LANGUAGES
 
 SECTION_8_1_TABLES = {
     "employees",
@@ -389,6 +391,8 @@ def test_foreign_keys_are_enforced(session: Session) -> None:
             status="done",
             requested_by="ik",
         ),
+        lambda: User(username="ik", password_hash="hash", role="admin", language="de"),
+        lambda: User(username="ik", password_hash="hash", role="admin", language="sr-Latn"),
     ],
     ids=[
         "upload-status",
@@ -405,6 +409,8 @@ def test_foreign_keys_are_enforced(session: Session) -> None:
         "group-item-label-without-label",
         "group-item-type-without-slug",
         "package-status",
+        "user-language",
+        "user-language-html-code",
     ],
 )
 def test_check_constraints_reject_values_outside_the_prd_sets(session: Session, build) -> None:
@@ -457,3 +463,24 @@ def test_naive_timestamp_is_rejected(session: Session) -> None:
     session.add(employee)
     with pytest.raises(StatementError, match="Saat dilimsiz"):
         session.commit()
+
+
+def test_user_opens_without_a_language_preference_and_accepts_each_supported_language(
+    session: Session,
+) -> None:
+    # 10.10.2: tercih yok = boş; CHECK kümesi arayüz dilleriyle aynı (göç 0024 de bunu yazar).
+    user = User(username="ik", password_hash="hash", role="admin")
+    session.add(user)
+    session.commit()
+    assert user.language is None
+
+    for code in SUPPORTED_LANGUAGES:
+        user.language = code
+        session.commit()
+        assert user.language == code
+    (check,) = (
+        constraint.sqltext.text
+        for constraint in User.__table__.constraints
+        if isinstance(constraint, CheckConstraint)
+    )
+    assert set(re.findall(r"'([^']+)'", check)) == set(SUPPORTED_LANGUAGES)

@@ -963,15 +963,23 @@ class UserRole(enum.StrEnum):
 
 class User(Base):
     """Panel kullanıcısı (10.1.3, 10.1.4). Kullanıcı silinmez (R11): pasife alınır (`active`);
-    pasif kullanıcı giriş yapamaz ve açık oturumları geçersizdir (`app.web.auth`)."""
+    pasif kullanıcı giriş yapamaz ve açık oturumları geçersizdir (`app.web.auth`).
+
+    `language` arayüz dili tercihidir (10.10.2, PLAN.md §D92 c, d): `en`, `tr`, `sr` ya da boş
+    (tercih yok — panel varsayılan dilde açılır)."""
 
     __tablename__ = "users"
+    __table_args__ = (
+        # `app.i18n.SUPPORTED_LANGUAGES` ile aynı küme (test denetler; göç 0024 sabit yazar).
+        CheckConstraint("language IN ('en', 'tr', 'sr')", name="language"),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     username: Mapped[str] = mapped_column(String(150), unique=True)
     password_hash: Mapped[str] = mapped_column(String(255))
     role: Mapped[str] = mapped_column(String(32))
     active: Mapped[bool] = mapped_column(Boolean, default=True, server_default=true())
+    language: Mapped[str | None] = mapped_column(String(8))
 
     telegram_accounts: Mapped[list[TelegramUser]] = relationship(back_populates="user")
 

@@ -8,6 +8,10 @@ Arayüz dili (PRD 10.10.1, PLAN.md §D92 e): şablonlarda `jinja2.ext.i18n` — 
 `_()` isteğin dilinde çevrilir (`app.i18n.gettext`; `newstyle`: çeviri `%` biçimlemesiyle
 doldurulur, otomatik kaçış korunur). Menü etiketleri `N_()` ile işaretli Türkçe msgid'lerdir,
 `base.html` onları gösterirken çevirir. `html_lang` her sayfaya `<html lang>` değerini verir.
+
+Dil seçici (PRD 10.10.2, PLAN.md §D92 c): `_language_selector.html` üst çubukta ve giriş kutusunun
+altında `POST /language`'a giden üç düğmeli formdur (JavaScript'siz); `languages` dilleri seçici
+sırasıyla, `language` isteğin dilini verir. Dönülecek yol `language_return_path`'tir.
 """
 
 from __future__ import annotations
@@ -22,7 +26,14 @@ from fastapi.responses import HTMLResponse
 from starlette.templating import Jinja2Templates
 
 from app.countries import country_badge, nationality_badge
-from app.i18n import N_, current_html_lang, gettext, ngettext
+from app.i18n import (
+    N_,
+    SUPPORTED_LANGUAGES,
+    current_html_lang,
+    current_language,
+    gettext,
+    ngettext,
+)
 from app.web.auth import PanelUser
 
 logger = logging.getLogger(__name__)
@@ -47,10 +58,29 @@ PANEL_MENU = (
 )
 MENU_BY_KEY = {entry.key: entry for entry in PANEL_MENU}
 
+# 10.10.2: dil seçicinin hedefi (`app.web.routers.auth.change_language`; `_language_selector.html`
+# formun hedefini düz yazar — gönderim hedefleri denetimi şablonu okur).
+LANGUAGE_PATH = "/language"
+
 
 def _language_context(_request: Request) -> dict[str, Any]:
-    # 10.10.1: sayfanın `<html lang>`'ı isteğin dilidir (`en`, `tr`, `sr-Latn`).
-    return {"html_lang": current_html_lang()}
+    # 10.10.1: sayfanın `<html lang>`'ı isteğin dilidir (`en`, `tr`, `sr-Latn`); 10.10.2: dil
+    # seçici dilleri kendi adlarıyla gösterir, seçili olanı işaretler.
+    return {
+        "html_lang": current_html_lang(),
+        "language": current_language(),
+        "languages": tuple(SUPPORTED_LANGUAGES.values()),
+    }
+
+
+def language_return_path(request: Request) -> str:
+    """10.10.2: dil seçildikten sonra dönülecek yol — `GET` ile açılan sayfanın kendisi (sorgu
+    dizgesiyle). Form gönderiminin sonucu olan sayfa (`POST`) aynı adresle yeniden açılamayabilir,
+    o zaman ana sayfaya dönülür."""
+    if request.method != "GET":
+        return "/"
+    query = request.url.query
+    return request.url.path + (f"?{query}" if query else "")
 
 
 templates = Jinja2Templates(
@@ -86,6 +116,7 @@ def code_is_stale(request: Request) -> bool:
 
 
 templates.env.globals["code_is_stale"] = code_is_stale
+templates.env.globals["language_return_path"] = language_return_path
 
 
 def render_page(

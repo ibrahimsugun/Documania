@@ -4,8 +4,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Documania panel\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-02 07:12+0000\n"
-"PO-Revision-Date: 2026-10-02 07:12+0000\n"
+"POT-Creation-Date: 2026-10-02 07:51+0000\n"
+"PO-Revision-Date: 2026-10-02 07:51+0000\n"
 "Last-Translator: Documania görev penceresi (gözden geçirilmeli)\n"
 "Language: sr_Latn\n"
 "Language-Team: Srpski\n"
@@ -27,6 +27,14 @@ msgstr "Grupe dokumenata"
 #: app/web/templating.py
 msgid "Belge Türleri"
 msgstr "Tipovi dokumenata"
+
+#: app/web/routers/auth.py
+msgid "Desteklenmeyen dil."
+msgstr "Nepodržan jezik."
+
+#: app/web/templates/_language_selector.html
+msgid "Dil"
+msgstr "Jezik"
 
 #: app/web/templates/base.html
 msgid "Erişim logu"

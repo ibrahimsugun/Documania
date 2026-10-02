@@ -1195,3 +1195,68 @@ form:not(.session) button[type="submit"]:hover,
 /* 10.1.6: ülke gösterimi — küçük bayrak + Türkçe ad; bayrağın beyaz kenarı ince çizgiyle belli olur. */
 .country { display: inline-flex; align-items: center; gap: 0.35rem; white-space: nowrap; }
 .country img { flex: none; width: 20px; height: 15px; object-fit: cover; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.15); }
+
+/* 10.10.2: dil seçici — üst çubukta kullanıcı adının yanında, giriş kutusunun altında. Küçük
+   metin düğmeleri; seçili dil işaretli (`aria-current`). */
+.language-selector {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0;
+}
+
+.language-selector [role="group"] { display: inline-flex; gap: 0.2rem; }
+
+.language-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+form.language-selector button[type="submit"] {
+  min-height: 0;
+  margin: 0;
+  padding: 0.2rem 0.45rem;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted-ink);
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+form.language-selector button[type="submit"]:hover {
+  background: var(--surface-soft);
+  border-color: var(--line);
+  color: var(--ink);
+}
+
+form.language-selector button[type="submit"][aria-current="true"] {
+  border-color: var(--line-strong);
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.topbar .language-selector { margin-left: auto; }
+
+.topbar form.language-selector button[type="submit"] { color: #aec1c0; }
+
+.topbar form.language-selector button[type="submit"]:hover {
+  background: #203940;
+  border-color: #365159;
+  color: #f3f8f6;
+}
+
+.topbar form.language-selector button[type="submit"][aria-current="true"] {
+  border-color: #557078;
+  color: #ffffff;
+}
+
+.login .language-selector {
+  justify-content: center;
+  width: 100%;
+  margin-top: 1.2rem;
+}

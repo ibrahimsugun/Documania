@@ -1,0 +1,11 @@
+{# 10.10.2: dil seçici — üç düğme, dil adları kendi dilinde, seçili olan `aria-current`;
+   JavaScript gerekmez. `back`: dönülecek yol (çağıran verir). Dil adları çevrilmez. #}
+<form class="language-selector" method="post" action="/language">
+  <input type="hidden" name="next" value="{{ back }}">
+  <span class="language-label" id="language-label">{{ _("Dil") }}</span>
+  <span role="group" aria-labelledby="language-label">
+    {% for entry in languages %}
+    <button type="submit" name="language" value="{{ entry.code }}" lang="{{ entry.html_lang }}" translate="no"{% if entry.code == language %} aria-current="true" class="current"{% endif %}>{{ entry.name }}</button>
+    {% endfor %}
+  </span>
+</form>

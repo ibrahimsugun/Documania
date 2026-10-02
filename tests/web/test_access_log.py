@@ -337,6 +337,7 @@ def test_an_access_changes_only_the_access_log(
 REVIEWED_MUTATING_ROUTES: dict[tuple[str, str], str] = {
     ("POST", "/login"): "oturum",
     ("POST", "/logout"): "oturum",
+    ("POST", "/language"): "arayüz dili tercihi: çerez ve users.language (10.10.2)",
     ("POST", "/upload"): "yeni dosya yükleme",
     ("POST", "/api/uploads"): "yeni dosya yükleme",
     ("POST", "/uploads/{upload_id}/rerun"): "planı yeniden yürütme",

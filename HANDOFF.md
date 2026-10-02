@@ -18,6 +18,12 @@ Blok biçimi `CONVENTIONS.md` §3'te tanımlıdır:
 
 ## Task log (newest-first)
 
+## 153 — 10.10-b Kullanıcının dil tercihi: hesapta saklama, dil seçici, girişte otomatik dil — done — 2026-10-02
+- Yapıldı: Göç 0024 (`users.language`, boş = tercih yok, CHECK en/tr/sr), `PanelUser.language` (oturum sorgusunda), girişli istekte hesabın dili; `POST /language` (oturumsuz açık, geçersiz dil 422, güvenli `next`, 303, `documania_lang` çerezi 1 yıl HttpOnly/Lax/üretimde Secure, girişliyse `USER_LANGUAGE_CHANGED` via selector — dil aynıysa olay yok); girişte boş hesaba çerezdeki dil (via login), dolu hesapta çerez hesabın diliyle yenilenir; seçici `_language_selector.html` üst çubukta kullanıcı adının yanında ve giriş kutusunun altında (JavaScript'siz, `aria-current`); kararlar §D94.
+- Doğrulama: ruff check/format, compileall, `import app.main`, `alembic upgrade head` (→0024), `python -m app.i18n check` exit 0; `pytest -q -m "not live" --cov=app` sekiz paralel ön plan grubunda 6455 geçti (+59), 6 atlandı, 0 kırmızı, kapsam %99; 18 geçici kural bozmasının 18'i kırmızı.
+- Varsayımlar: §D94 — POST sonucu çizilen sayfada seçici `/`'e döner; `next` denetimi mevcut `safe_next_path` (daha sıkı); hatalı girişte hiçbir şey yazılmaz; `test_employee_fields.py`'deki "sayfadaki bütün input" denetimi alan formuyla sınırlandı (seçicinin gizli `next` alanı).
+- Sonraki pencereye not: Seçici her tam sayfada bir `<form>` ve gizli `next` input ekler — sayfadaki tüm input/form'ları sayan testler kendi formuyla sınırlanmalı. Sayfa içerikleri hâlâ Türkçe (10.10-c/d); testler seçiciyi görmek için üst çubuktaki çevrili metne bakar. `icon.png` yine commit dışında.
+
 ## 152 — 10.10-a Arayüz dili altyapısı ve iskelet sayfalar — done — 2026-10-02
 - Yapıldı: `app/i18n` paketi (en/tr/sr, istek başına context dili, `gettext`/`ngettext`/`N_`, `.mo` kataloğu), `python -m app.i18n extract|update|compile|check` (Babel, `babel.cfg`), `PANEL_DEFAULT_LANGUAGE` (varsayılan `en`, geçersizde açılmaz), `documania_lang` çerezi (`Accept-Language` okunmaz); `base.html` (menü, üst çubuk, eski sürüm uyarısı, `<html lang>`) ile giriş sayfası İngilizce/Sırpça çevrildi, `GLOSSARY.md`, README notu; kararlar §D93.
 - Doğrulama: ruff check/format, compileall, `import app.main`, `uv lock --check`, `alembic upgrade head` (→0023), `python -m app.i18n check` exit 0; `pytest -q -m "not live" --cov=app` sekiz paralel ön plan grubunda 6396 geçti (+129), 6 atlandı, 0 kırmızı, `coverage report --fail-under=70` exit 0 (%99); 16 geçici kural bozmasının 16'sı kırmızı.

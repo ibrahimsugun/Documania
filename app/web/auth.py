@@ -37,6 +37,7 @@ from app.config import Settings
 from app.db.models import User, UserRole, UserSession, utcnow
 from app.db.session import get_session
 from app.events import EventType, record_event
+from app.i18n import is_supported
 
 SESSION_COOKIE = "belgeee_session"
 LOGIN_PATH = "/login"
@@ -54,6 +55,8 @@ class PanelUser:
     id: int
     username: str
     role: str
+    # 10.10.2: hesabın arayüz dili tercihi (`en`/`tr`/`sr`); `None` = tercih yok.
+    language: str | None = None
 
 
 class UserCreationError(ValueError):
@@ -203,7 +206,7 @@ def resolve_session(
     oturumu kalsa bile geçersizdir.
     """
     row = session.execute(
-        select(User.id, User.username, User.role)
+        select(User.id, User.username, User.role, User.language)
         .join(UserSession, UserSession.user_id == User.id)
         .where(
             UserSession.token_hash == _token_hash(token),
@@ -214,7 +217,7 @@ def resolve_session(
     ).one_or_none()
     if row is None:
         return None
-    return PanelUser(id=row.id, username=row.username, role=row.role)
+    return PanelUser(id=row.id, username=row.username, role=row.role, language=row.language)
 
 
 def close_session(session: Session, token: str, *, now: datetime | None = None) -> bool:
@@ -356,6 +359,35 @@ def set_user_active(session: Session, target: User, active: bool, *, actor: Pane
         actor=actor.username,
         data={"target_user_id": target.id},
     )
+
+
+# --- arayüz dili tercihi (10.10.2) ----------------------------------------------------------
+
+# `USER_LANGUAGE_CHANGED` verisindeki `via`: dil seçici ya da giriş sayfasında seçilmiş dilin
+# tercihi olmayan hesaba girişte kaydı (PRD §8.3, PLAN.md §D92 c, d).
+LANGUAGE_VIA_SELECTOR = "selector"
+LANGUAGE_VIA_LOGIN = "login"
+
+
+def set_user_language(session: Session, user: User, language: str, *, via: str) -> bool:
+    """Kullanıcının kendi arayüz dili tercihini yazar; `USER_LANGUAGE_CHANGED` kullanıcının kendi
+    adıyla düşer. Dil zaten buysa hiçbir şey yazılmaz, `False` döner. Başkasının dili buradan
+    ayarlanmaz: çağıran yalnız oturumun kendi kullanıcısını verir. Commit çağırana aittir."""
+    if not is_supported(language):
+        raise ValueError(f"desteklenmeyen dil: {language!r}")
+    if via not in (LANGUAGE_VIA_SELECTOR, LANGUAGE_VIA_LOGIN):
+        raise ValueError(f"bilinmeyen dil değişikliği kaynağı: {via!r}")
+    if user.language == language:
+        return False
+    user.language = language
+    session.flush()
+    record_event(
+        session,
+        EventType.USER_LANGUAGE_CHANGED,
+        actor=user.username,
+        data={"target_user_id": user.id, "language": language, "via": via},
+    )
+    return True
 
 
 # --- yönlendirme ------------------------------------------------------------------------------

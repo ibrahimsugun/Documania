@@ -12,5 +12,7 @@
     <input id="password" name="password" type="password" autocomplete="current-password" required>
     <button type="submit">{{ _("Giriş yap") }}</button>
   </form>
+  {# 10.10.2: giriş kutusunun altında dil seçici; seçilen dil tercihi olmayan hesaba girişte kaydedilir. #}
+  {% with back = language_next %}{% include "_language_selector.html" %}{% endwith %}
 </section>
 {% endblock %}

@@ -59,8 +59,15 @@ MENU_PATHS = [
     "/training",
     "/users",
 ]
-# Oturumsuz açılabilen tek yollar (10.1.2): giriş/çıkış ve kapsayıcı sağlık denetimi.
-PUBLIC_OPERATIONS = {("GET", "/login"), ("POST", "/login"), ("POST", "/logout"), ("GET", "/health")}
+# Oturumsuz açılabilen tek yollar (10.1.2): giriş/çıkış, giriş sayfasındaki dil seçici (10.10.2)
+# ve kapsayıcı sağlık denetimi.
+PUBLIC_OPERATIONS = {
+    ("GET", "/login"),
+    ("POST", "/login"),
+    ("POST", "/logout"),
+    ("POST", "/language"),
+    ("GET", "/health"),
+}
 
 
 @pytest.fixture

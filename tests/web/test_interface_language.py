@@ -3,8 +3,9 @@
 
 Açılış dili `Settings.panel_default_language`'tır (varsayılan İngilizce; test süreci Türkçe verir,
 bu dosya ayarı her testte açıkça koyar). Girişsiz istekte geçerli `documania_lang` çerezi seçer;
-tarayıcının `Accept-Language`'ı okunmaz. Girişli istekte bu görevde hesap tercihi yoktur
-(10.10.2): varsayılan dil kullanılır.
+tarayıcının `Accept-Language`'ı okunmaz. Girişli istekte hesabın tercihi geçerlidir; tercihi
+olmayan hesapta varsayılan dil (hesap tercihi ve dil seçici `tests/web/test_language_preference.py`,
+10.10.2).
 """
 
 from __future__ import annotations
@@ -223,7 +224,7 @@ def test_failed_login_message_is_in_the_page_language(anonymous: TestClient, lan
 def test_signed_in_request_uses_the_default_not_the_cookie(
     app: FastAPI, client: TestClient
 ) -> None:
-    # 10.10.2'ye dek hesapta tercih yok: girişli istekte dil varsayılandır, çerez okunmaz.
+    # Tercihi olmayan hesap (10.10.2): girişli istekte dil varsayılandır, çerez okunmaz.
     _default_language(app, "en")
     client.cookies.set(LANGUAGE_COOKIE, "sr")
 
