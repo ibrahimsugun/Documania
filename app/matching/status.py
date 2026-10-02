@@ -21,12 +21,14 @@ from sqlalchemy.orm import Session
 
 from app.db.models import Employee, EmployeeStatus, Event
 from app.events import EventType, record_event
+from app.i18n import N_, Translatable
 
 # Panelin, `profil.md`'nin ve botun durum etiketleri; `EmployeeStatus`'un her değeri burada.
+# Kaynak dildedir (`profil.md` çevrilmez); panel gösterirken çevirir (10.10.3).
 STATUS_LABELS: dict[str, str] = {
-    EmployeeStatus.ACTIVE.value: "Aktif",
-    EmployeeStatus.INACTIVE.value: "Pasif",
-    EmployeeStatus.MERGED.value: "Birleşti",
+    EmployeeStatus.ACTIVE.value: N_("Aktif"),
+    EmployeeStatus.INACTIVE.value: N_("Pasif"),
+    EmployeeStatus.MERGED.value: N_("Birleşti"),
 }
 # Arama sonuçlarında (atama, taşıma, bot) pasif çalışanın adının eki.
 INACTIVE_SUFFIX = " (pasif)"
@@ -122,7 +124,9 @@ def normalized_reason(reason: str | None) -> str | None:
     """Notun boşlukları sadeleşir; boş not `None`, uzun not `StatusReasonError`."""
     text = " ".join((reason or "").split())
     if len(text) > REASON_MAX_LENGTH:
-        raise StatusReasonError(f"Not en çok {REASON_MAX_LENGTH} karakter olabilir.")
+        raise StatusReasonError(
+            Translatable(N_("Not en çok {limit} karakter olabilir."), limit=REASON_MAX_LENGTH)
+        )
     return text or None
 
 

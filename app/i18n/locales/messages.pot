@@ -4,7 +4,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Documania panel\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-02 07:51+0000\n"
+"POT-Creation-Date: 2026-10-02 08:57+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -13,8 +13,328 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.18.0\n"
 
+#: app/web/templates/history.html app/web/templates/upload_detail.html
+#, python-format
+msgid "%(file)s — sayfa %(page)s"
+msgstr ""
+
+#: app/web/templates/profile.html
+#, python-format
+msgid "%(name)s profil fotoğrafı"
+msgstr ""
+
+#: app/web/templates/upload_action_result.html
+#, python-format
+msgid "%(num)d belge yerinde kaldı."
+msgid_plural "%(num)d belge yerinde kaldı."
+msgstr[0] ""
+msgstr[1] ""
+
+#: app/web/templates/access_log_employee.html
+#, python-format
+msgid "%(num)d erişim"
+msgid_plural "%(num)d erişim"
+msgstr[0] ""
+msgstr[1] ""
+
+#: app/web/templates/upload_detail.html
+#, python-format
+msgid "%(num)d eski sürüm var"
+msgid_plural "%(num)d eski sürüm var"
+msgstr[0] ""
+msgstr[1] ""
+
+#: app/web/templates/profile.html
+#, python-format
+msgid "%(num)d kalem"
+msgid_plural "%(num)d kalem"
+msgstr[0] ""
+msgstr[1] ""
+
+#: app/web/templates/upload_detail.html
+#, python-format
+msgid "%(num)d sayfa"
+msgid_plural "%(num)d sayfa"
+msgstr[0] ""
+msgstr[1] ""
+
+#: app/web/templates/uploads_list.html
+#, python-format
+msgid "%(num)d yükleme"
+msgid_plural "%(num)d yükleme"
+msgstr[0] ""
+msgstr[1] ""
+
+#: app/web/templates/access_log.html app/web/templates/employees_results.html
+#, python-format
+msgid "%(num)d çalışan"
+msgid_plural "%(num)d çalışan"
+msgstr[0] ""
+msgstr[1] ""
+
+#: app/web/templates/document_move.html
+#: app/web/templates/employee_merge_results.html
+#: app/web/templates/employees_results.html
+#, python-format
+msgid "%(num)d çalışan bulundu"
+msgid_plural "%(num)d çalışan bulundu"
+msgstr[0] ""
+msgstr[1] ""
+
+#: app/web/templates/upload_action_result.html
+#, python-format
+msgid "%(num)d çıktı \"eski sürüm\" olarak işaretlendi."
+msgid_plural "%(num)d çıktı \"eski sürüm\" olarak işaretlendi."
+msgstr[0] ""
+msgstr[1] ""
+
+#: app/web/routers/uploads.py
+#, python-brace-format
+msgid ""
+"'{name}' dosyası {limit} MB sınırını aşıyor. Lütfen dosyayı bölüp tekrar "
+"yükleyin."
+msgstr ""
+
+#: app/web/routers/uploads.py
+#, python-brace-format
+msgid ""
+"'{name}' dosyası {limit} sayfa sınırını aşıyor ({count} sayfa). Lütfen "
+"dosyayı bölüp tekrar yükleyin."
+msgstr ""
+
+#: app/web/auth.py
+#, python-brace-format
+msgid "'{name}' kullanıcı adı zaten kullanılıyor."
+msgstr ""
+
+#: app/web/auth.py
+#, python-brace-format
+msgid "'{name}' zaten etkin."
+msgstr ""
+
+#: app/web/auth.py
+#, python-brace-format
+msgid "'{name}' zaten pasif."
+msgstr ""
+
+#: app/web/templates/history.html
+msgid "(dosya bulunamadı)"
+msgstr ""
+
+#: app/web/templates/upload_detail.html
+msgid "(eski sürüm)"
+msgstr ""
+
+#: app/web/templates/upload.html
+msgid "(isteğe bağlı)"
+msgstr ""
+
+#: app/web/templates/document_move.html
+#: app/web/templates/employee_merge_results.html
+msgid "(pasif)"
+msgstr ""
+
+#: app/web/templates/users.html
+msgid "(siz)"
+msgstr ""
+
+#: app/web/templates/document_move.html
+#: app/web/templates/employee_merge_results.html
+#, python-format
+msgid "; ilk %(num)d gösteriliyor, aramayı daraltın"
+msgid_plural "; ilk %(num)d gösteriliyor, aramayı daraltın"
+msgstr[0] ""
+msgstr[1] ""
+
+#: app/web/profile_form.py app/web/routers/employees.py
+#: app/web/templates/document_move.html
+#: app/web/templates/employee_merge_results.html
+#: app/web/templates/employees_results.html app/web/templates/profile.html
+msgid "Ad"
+msgstr ""
+
+#: app/web/templates/employee_fields.html
+msgid ""
+"Ad ya da soyad değişirse çalışanın klasörü ve belge dosyaları yeni adla "
+"yeniden adlandırılır; E numarası ve belge içerikleri değişmez."
+msgstr ""
+
+#: app/web/templates/employees.html app/web/templates/history.html
+msgid "Ad, alias, orijinal yazım, belge numarası veya belge türü"
+msgstr ""
+
+#: app/web/templates/employee_merge.html
+msgid "Ad, isim yazımı, orijinal yazım, belge numarası veya belge türü"
+msgstr ""
+
+#: app/web/templates/profile.html
+msgid ""
+"Ad, soyad ya da diğer isimler Latin olmayan harf taşıyor; Latin yazım "
+"belgede ve isim yazımlarında bulunamadı."
+msgstr ""
+
+#: app/web/routers/employees.py
+msgid "Adres"
+msgstr ""
+
+#: app/matching/status.py app/web/routers/employees.py
+msgid "Aktif"
+msgstr ""
+
+#: app/web/templates/employee_fields_step.html
+#: app/web/templates/employee_merge_step.html
+msgid "Alan"
+msgstr ""
+
+#: app/web/templates/profile.html
+msgid "Alfabe"
+msgstr ""
+
+#: app/web/routers/upload_page.py app/web/routers/uploads_list.py
+#: app/web/templates/upload_detail.html
+msgid "Alındı"
+msgstr ""
+
 #: app/web/templates/base.html
 msgid "Ana menü"
+msgstr ""
+
+#: app/web/routers/upload_page.py
+msgid "Analiz edildi"
+msgstr ""
+
+#: app/web/routers/upload_page.py
+msgid "Analiz edilemedi"
+msgstr ""
+
+#: app/web/routers/upload_page.py app/web/routers/uploads_list.py
+msgid "Analiz ediliyor"
+msgstr ""
+
+#: app/web/templates/employee_merge.html app/web/templates/employees.html
+#: app/web/templates/history.html
+msgid "Ara"
+msgstr ""
+
+#: app/web/routers/employees.py
+msgid "Arap"
+msgstr ""
+
+#: app/groups/packages.py
+msgid "Arşivdeki gruba yeni paket tanımlanamaz."
+msgstr ""
+
+#: app/web/templates/profile.html
+msgid "Arşivden geri al"
+msgstr ""
+
+#: app/web/templates/profile.html
+msgid "Arşive taşı"
+msgstr ""
+
+#: app/web/routers/upload_page.py
+msgid "Arşivlendi"
+msgstr ""
+
+#: app/web/templates/profile.html
+msgid "Arşivli grup"
+msgstr ""
+
+#: app/web/routers/upload_page.py
+msgid "Atlandı"
+msgstr ""
+
+#: app/web/templates/employee_merge.html
+msgid ""
+"Aynı kişinin ikinci kaydını arayıp seçin; sonraki adımda iki kaydı yan "
+"yana görür ve hangisinin kalacağını seçersiniz. Birleşen kaydın "
+"belgeleri, belge numaraları, isim yazımları, iletişim bilgileri ve belge "
+"paketleri kalan kayda taşınır; birleşen kayıt kapanır. İşlem geri "
+"alınamaz."
+msgstr ""
+
+#: app/web/routers/uploads.py
+msgid "Aynı partide aynı adda birden çok dosya olamaz."
+msgstr ""
+
+#: app/web/routers/access_log.py app/web/templates/access_log_employee.html
+msgid "Açtı"
+msgstr ""
+
+#: app/web/templates/profile.html
+msgid "Açık ya da tamamlanmış paket yok."
+msgstr ""
+
+#: app/groups/packages.py
+#, python-brace-format
+msgid "Açık — {met}/{total} zorunlu kalem"
+msgstr ""
+
+#: app/web/templates/access_log.html
+msgid "Bakan kullanıcı"
+msgstr ""
+
+#: app/web/templates/upload_detail.html app/web/templates/uploads_list.html
+msgid "Bağlam çalışanı"
+msgstr ""
+
+#: app/web/templates/users.html
+msgid "Bağlantı"
+msgstr ""
+
+#: app/web/templates/users.html
+#, python-format
+msgid ""
+"Bağlantı %(num)d dakika geçerli (bitiş %(end)s UTC) ve bir kez çalışır; "
+"yeni bağlantı bunu geçersiz kılar."
+msgid_plural ""
+"Bağlantı %(num)d dakika geçerli (bitiş %(end)s UTC) ve bir kez çalışır; "
+"yeni bağlantı bunu geçersiz kılar."
+msgstr[0] ""
+msgstr[1] ""
+
+#: app/web/templates/users.html
+msgid "Bağlantıyı kopyala"
+msgstr ""
+
+#: app/web/templates/users.html
+msgid "Bağlı Telegram kimliği yok."
+msgstr ""
+
+#: app/web/templates/employee_merge.html
+#: app/web/templates/employee_merge_step.html app/web/templates/profile.html
+msgid "Başka kayıtla birleştir"
+msgstr ""
+
+#: app/web/templates/history.html
+msgid "Başka çalışana taşı"
+msgstr ""
+
+#: app/web/templates/uploads_list.html
+msgid "Başlangıç"
+msgstr ""
+
+#: app/web/routers/uploads_list.py
+msgid "Başlangıç günü bitiş gününden sonra; tarih süzgeci yok sayıldı."
+msgstr ""
+
+#: app/web/routers/uploads_list.py
+msgid "Başlangıç günü geçerli bir tarih değil (YYYY-AA-GG); yok sayıldı."
+msgstr ""
+
+#: app/web/routers/upload_page.py app/web/templates/upload_detail.html
+msgid "Bekliyor"
+msgstr ""
+
+#: app/web/templates/access_log_employee.html
+msgid "Belge"
+msgstr ""
+
+#: app/web/templates/document_move.html
+#, python-format
+msgid ""
+"Belge %(previous)s (%(previous_id)s) çalışanından %(target)s "
+"(%(target_id)s) çalışanına taşındı: %(file)s."
 msgstr ""
 
 #: app/web/templating.py
@@ -25,20 +345,613 @@ msgstr ""
 msgid "Belge Türleri"
 msgstr ""
 
+#: app/web/routers/employees.py
+msgid "Belge arşivden geri alındı; çalışanın Hazır klasörüne döndü."
+msgstr ""
+
+#: app/web/routers/employees.py
+msgid "Belge arşive taşındı; çalışanın Hazır klasöründen çıktı."
+msgstr ""
+
+#: app/web/templates/history.html
+msgid "Belge bulunamadı"
+msgstr ""
+
+#: app/web/routers/documents.py app/web/routers/employees.py
+msgid "Belge bulunamadı."
+msgstr ""
+
+#: app/web/routers/employees.py
+msgid ""
+"Belge dosyaları taşınamadı; birleştirme yapılmadı, hiçbir şey değişmedi. "
+"Dosyaların açık olmadığından emin olup yeniden deneyin."
+msgstr ""
+
+#: app/web/routers/employees.py
+msgid "Belge dosyası bulunamadı."
+msgstr ""
+
+#: app/web/templates/history.html
+msgid "Belge geçmişi"
+msgstr ""
+
+#: app/web/templates/profile.html
+msgid "Belge grubu"
+msgstr ""
+
+#: app/web/routers/employees.py
+msgid "Belge grubu bulunamadı."
+msgstr ""
+
+#: app/web/templates/profile.html
+msgid "Belge numaraları"
+msgstr ""
+
+#: app/web/routers/employees.py
+msgid "Belge numarası"
+msgstr ""
+
+#: app/web/templates/profile.html
+msgid "Belge paketleri"
+msgstr ""
+
+#: app/web/templates/document_move.html
+#: app/web/templates/employee_merge_results.html
+#: app/web/templates/employees_results.html
+msgid "Belge sayısı"
+msgstr ""
+
+#: app/web/routers/documents.py
+msgid ""
+"Belge silinmez: Archive klasörüne taşınır, profilde \"Arşivlendi\" "
+"durumuyla kalır ve \"Arşivden geri al\" ile çalışanın Hazır klasörüne "
+"döndürülebilir. Arşivdeki belge belge paketlerinde sayılmaz."
+msgstr ""
+
+#: app/web/templates/_context_warning.html
+msgid "Belge türü"
+msgstr ""
+
+#: app/web/templates/profile.html
+msgid "Belge yükle"
+msgstr ""
+
+#: app/web/routers/documents.py
+msgid "Belge zaten bu çalışanın; başka bir çalışan seçin."
+msgstr ""
+
+#: app/web/routers/employees.py
+#, python-brace-format
+msgid "Belge {id}"
+msgstr ""
+
+#: app/web/routers/documents.py
+msgid ""
+"Belge çalışanın bugünkü adıyla ve türünün dosya etiketiyle adlandırılır "
+"(K8); arada aynı türden yeni belge geldiyse sıradaki sıra ekini alır. "
+"İçeriği ve kökeni değişmez."
+msgstr ""
+
+#: app/web/templates/profile.html
+msgid "Belgede görüldü"
+msgstr ""
+
+#: app/matching/records.py
+#, python-brace-format
+msgid "Belgede görülen {label} kaldırılmış bir kayda uyuyor"
+msgstr ""
+
+#: app/web/templates/_context_warning.html
+msgid "Belgede okunan ad"
+msgstr ""
+
+#: app/web/templates/employee_merge_step.html app/web/templates/profile.html
+#: app/web/templates/upload_detail.html
+msgid "Belgeler"
+msgstr ""
+
+#: app/web/templates/profile.html
+msgid ""
+"Belgeleri, belge numaraları, isim yazımları, iletişim bilgileri ve belge "
+"paketleri kalan kayıtta; bu kayıt kapalıdır ve geri açılmaz."
+msgstr ""
+
+#: app/web/templates/access_log.html
+msgid ""
+"Belgelerine panelden bakılmış ya da bot üzerinden gönderilmiş çalışanlar."
+" Kimin, ne zaman baktığı çalışana tıklayınca görünür. Zamanlar UTC'dir; "
+"kayıtlar silinmez."
+msgstr ""
+
+#: app/web/routers/documents.py
+msgid "Belgenin dosyası bulunamadı; taşınamaz."
+msgstr ""
+
+#: app/web/templates/document_move.html
+msgid "Belgenin sahibi"
+msgstr ""
+
+#: app/web/routers/documents.py
+msgid ""
+"Belgenin sahibi başka bir kayıtla birleştirildi (10.5.9); işlemi kalan "
+"kaydın profilinden yapın."
+msgstr ""
+
+#: app/web/templates/document_move.html
+msgid ""
+"Belgenin taşınacağı çalışanı bulmak için ad, alias, orijinal yazım veya "
+"belge numarası yazın."
+msgstr ""
+
+#: app/web/routers/documents.py
+msgid "Belgeyi arşivden geri al"
+msgstr ""
+
+#: app/web/routers/documents.py
+msgid "Belgeyi arşive taşı"
+msgstr ""
+
+#: app/web/templates/upload.html
+msgid "Belirtme — sahibi belgeden bulunsun"
+msgstr ""
+
+#: app/web/routers/users.py
+msgid "Bilinmeyen rol."
+msgstr ""
+
+#: app/web/routers/employees.py
+msgid "Bir kayıt kendisiyle birleştirilmez; başka bir çalışan seçin."
+msgstr ""
+
+#: app/web/templates/upload.html
+msgid "Bir çalışan seçerseniz, sahibi belgeden anlaşılamayan dosyalar ona atanır."
+msgstr ""
+
+#: app/web/templates/employee_merge_step.html
+msgid ""
+"Birleşen kaydın belgeleri kalan kaydın adıyla (K8) onun klasörüne "
+"taşınır; belge numaraları, isim yazımları, iletişim bilgileri, alan "
+"kaynakları ve belge paketleri kalan kayda bağlanır, aynı değer tek kalır."
+" Birleşen kayıt silinmez: \"Birleşti\" durumunda kapanır, klasöründe "
+"yalnız yönlendirme notu kalır."
+msgstr ""
+
+#: app/web/templates/employee_merge_step.html
+#, python-format
+msgid "Birleşen: %(name)s (%(id)s)"
+msgstr ""
+
+#: app/matching/status.py app/web/templates/profile.html
+msgid "Birleşti"
+msgstr ""
+
+#: app/web/templates/employee_merge_results.html
+msgid ""
+"Birleştirilecek kaydı bulmak için ad, isim yazımı, orijinal yazım veya "
+"belge numarası yazın."
+msgstr ""
+
+#: app/web/routers/employees.py
+msgid "Birleştirilecek çalışan bulunamadı."
+msgstr ""
+
+#: app/web/templates/profile.html
+msgid "Birleştirilmiş kayda belge yüklenmez; belgeleri kalan kayda yükleyin."
+msgstr ""
+
+#: app/web/templates/profile.html
+msgid "Birleştirilmiş kayda paket tanımlanmaz; paketler kalan kayıttadır."
+msgstr ""
+
+#: app/web/templates/uploads_list.html
+msgid "Bitiş"
+msgstr ""
+
+#: app/web/routers/uploads_list.py
+msgid "Bitiş günü geçerli bir tarih değil (YYYY-AA-GG); yok sayıldı."
+msgstr ""
+
+#: app/web/templates/history.html app/web/templates/profile.html
+msgid "Biçim"
+msgstr ""
+
+#: app/web/routers/documents.py
+msgid "Bozuk köken kaydı"
+msgstr ""
+
+#: app/web/templates/upload_detail.html
+msgid "Boş"
+msgstr ""
+
+#: app/web/templates/history.html
+msgid "Bu belge için olay yok."
+msgstr ""
+
+#: app/web/templates/_context_warning.html
+#, python-format
+msgid ""
+"Bu belgelerde okunan kişi %(name)s (%(id)s) değil görünüyor: profile de "
+"başka bir çalışana da otomatik eklenmedi, Unresolved kuyruğunda bekliyor."
+" Belgenin kime ait olduğuna kuyruktan karar verin."
+msgstr ""
+
+#: app/matching/records.py
+msgid "Bu değer kaldırılanlar arasında; eklemek yerine “Geri al”ı kullanın."
+msgstr ""
+
+#: app/matching/records.py
+msgid "Bu değer zaten güncel kayıt."
+msgstr ""
+
+#: app/web/routers/documents.py
+msgid "Bu dosya daha önce yüklenmiş bir dosyanın tekrarı; sayfa görüntüsü yok."
+msgstr ""
+
+#: app/web/routers/upload_page.py
+msgid ""
+"Bu işlem partiye yeni bir plan sürümü açacak; önceki sürümün çıktıları "
+"\"eski sürüm\" olarak işaretlenecektir. Son kararınız mı?"
+msgstr ""
+
+#: app/web/templates/employee_merge_results.html
+msgid "Bu kayıt"
+msgstr ""
+
+#: app/web/templates/profile.html
+#, python-format
+msgid "Bu kayıt %(kept)s kaydıyla birleştirildi."
+msgstr ""
+
+#: app/web/routers/employees.py
+msgid ""
+"Bu kayıt başka bir kayıtla zaten birleştirildi; birleştirme geri alınmaz,"
+" kalan kaydı kullanın."
+msgstr ""
+
+#: app/web/routers/users.py
+msgid "Bu kullanıcıya bağlı böyle bir Telegram kimliği yok"
+msgstr ""
+
+#: app/web/templates/upload_detail.html
+msgid "Bu parti için henüz plan yok."
+msgstr ""
+
+#: app/web/templates/upload_detail.html
+msgid "Bu parti için olay yok."
+msgstr ""
+
+#: app/web/templates/upload_detail.html
+msgid "Bu partide dosya yok."
+msgstr ""
+
+#: app/web/templates/upload_detail.html
+msgid "Bu partiden henüz belge çıktısı yok."
+msgstr ""
+
+#: app/web/templates/upload_detail.html
+msgid "Bu partiden kuyruğa alınan öğe yok."
+msgstr ""
+
+#: app/web/routers/upload_page.py
+msgid "Bu partiyi yeniden analiz etmek üzeresiniz. Emin misiniz?"
+msgstr ""
+
+#: app/web/routers/users.py
+msgid "Bu sayfayı yalnız yönetici açabilir."
+msgstr ""
+
+#: app/web/templates/uploads_list.html
+msgid "Bu süzgece uyan yükleme yok."
+msgstr ""
+
+#: app/web/routers/uploads.py
+msgid "Bu tarama yoksayıldı; üzerinde işlem yapılmaz."
+msgstr ""
+
+#: app/web/routers/upload_page.py
+msgid "Bu tarama yoksayılmamış; geri alınacak bir yoksayma yok."
+msgstr ""
+
+#: app/web/routers/upload_page.py
+#, python-brace-format
+msgid "Bu tarama {when} tarihinde {user} tarafından yoksayıldı."
+msgstr ""
+
+#: app/web/routers/employees.py
+msgid "Bu çalışan başka bir kayıtla birleştirildi; durumu değiştirilmez."
+msgstr ""
+
+#: app/web/routers/employees.py
+msgid ""
+"Bu çalışan başka bir kayıtla birleştirildi; kayıtları kalan kayıtta "
+"yönetilir."
+msgstr ""
+
+#: app/web/routers/uploads.py
+msgid ""
+"Bu çalışan başka bir kayıtla birleştirildi; ona belge yüklenmez. Kalan "
+"kayda yükleyin."
+msgstr ""
+
+#: app/groups/packages.py
+msgid "Bu çalışan başka bir kayıtla birleştirildi; paketi kalan kayda tanımlayın."
+msgstr ""
+
+#: app/web/routers/employees.py
+msgid ""
+"Bu çalışan başka bir kayıtla birleştirildi; profili düzenlenmez, kalan "
+"kaydı düzenleyin."
+msgstr ""
+
+#: app/web/routers/uploads.py
+msgid ""
+"Bu çalışan pasif; ona belge yüklenmez. Önce çalışanı profilinden yeniden "
+"etkinleştirin."
+msgstr ""
+
+#: app/web/templates/profile.html
+msgid ""
+"Bu çalışana gelen yeni belgeler otomatik yerleşmez, \"pasif çalışan\" "
+"gerekçesiyle Unresolved kuyruğuna düşer; profilden yükleme kapalıdır. "
+"Klasör ve belgeler yerinde duruyor."
+msgstr ""
+
+#: app/web/routers/employees.py
+msgid ""
+"Bu çalışanda aynı gruptan iptal edilmemiş bir paket zaten var. Yine de "
+"ikinci paket tanımlamak için onaylayın."
+msgstr ""
+
+#: app/web/templates/access_log_employee.html
+msgid "Bu çalışanın belgelerine henüz bakılmadı."
+msgstr ""
+
+#: app/web/templates/history.html
+msgid "Bu çıktı için kaynak kaydı yok."
+msgstr ""
+
+#: app/web/templates/upload_detail.html app/web/templates/upload_result.html
+msgid "Daha önce yüklenmiş"
+msgstr ""
+
 #: app/web/routers/auth.py
 msgid "Desteklenmeyen dil."
+msgstr ""
+
+#: app/storage/filetype.py
+msgid ""
+"Desteklenmeyen dosya türü. Yalnız PDF, JPEG, PNG, DOC, DOCX, XLS, XLSX "
+"kabul edilir."
+msgstr ""
+
+#: app/web/templates/profile.html
+msgid "Değer"
+msgstr ""
+
+#: app/matching/records.py
+msgid "Değer boş olamaz."
+msgstr ""
+
+#: app/matching/records.py
+#, python-brace-format
+msgid "Değer en çok {limit} karakter olabilir."
 msgstr ""
 
 #: app/web/templates/_language_selector.html
 msgid "Dil"
 msgstr ""
 
-#: app/web/templates/base.html
+#: app/web/profile_form.py app/web/routers/employees.py
+#: app/web/templates/profile.html
+msgid "Diğer isimler"
+msgstr ""
+
+#: app/web/templates/document_archive_step.html app/web/templates/profile.html
+#: app/web/templates/upload_detail.html app/web/templates/upload_result.html
+#: app/web/templates/uploads_list.html
+msgid "Dosya"
+msgstr ""
+
+#: app/web/templates/profile.html
+msgid "Dosya bulunamadı"
+msgstr ""
+
+#: app/web/templates/profile.html app/web/templates/upload.html
+msgid "Dosyaları buraya sürükleyip bırakın"
+msgstr ""
+
+#: app/web/templates/upload_detail.html
+msgid "Doğrulamalar"
+msgstr ""
+
+#: app/web/profile_form.py app/web/routers/employees.py
+#: app/web/templates/profile.html
+msgid "Doğum tarihi"
+msgstr ""
+
+#: app/web/templates/document_archive_step.html
+#: app/web/templates/employee_merge_step.html app/web/templates/employees.html
+#: app/web/templates/employees_results.html app/web/templates/history.html
+#: app/web/templates/profile.html app/web/templates/upload_detail.html
+#: app/web/templates/uploads_list.html app/web/templates/users.html
+msgid "Durum"
+msgstr ""
+
+#: app/web/routers/users.py
+msgid "Durum 'active' ya da 'inactive' olmalı."
+msgstr ""
+
+#: app/web/routers/uploads_list.py
+msgid "Durum süzgeci tanınmadı; yok sayıldı."
+msgstr ""
+
+#: app/web/templates/employee_fields.html
+msgid "Düzenleme formunu yeniden açın"
+msgstr ""
+
+#: app/web/routers/employees.py
+msgid "E-posta"
+msgstr ""
+
+#: app/matching/records.py
+msgid "E-posta adresi ad@alan.uzantı biçiminde olmalı."
+msgstr ""
+
+#: app/web/templates/profile.html
+msgid "Eksik belge"
+msgstr ""
+
+#: app/web/templates/employees_results.html
+msgid "Eksik paketi olan çalışan yok."
+msgstr ""
+
+#: app/web/templates/employees.html
+msgid "Eksik paketi olanlar"
+msgstr ""
+
+#: app/web/templates/profile.html
+msgid "Eksik:"
+msgstr ""
+
+#: app/web/templates/users.html
+#, python-format
+msgid ""
+"Elle eklemek için: Telegram kimliği telefon numarası değil, Telegram'ın "
+"hesaba verdiği sabit sayıdır. Kişi kendi kimliğini öğrenmek için "
+"Telegram'da <a href=\"%(url)s\" target=\"_blank\" rel=\"noopener "
+"noreferrer\">@userinfobot</a>'u açıp «Başlat»a basar; bot <code>Id: "
+"123456789</code> satırıyla yanıt verir. O sayıyı (ya da satırın tamamını)"
+" aşağıdaki alana yapıştırın."
+msgstr ""
+
+#: app/web/templates/profile.html
+msgid ""
+"Elle eklenen bilgi güncel olur, aynı türdeki önceki bilgi geçmişte kalır."
+" İsim yazımı ve belge numarası yalnız belgeden gelir."
+msgstr ""
+
+#: app/web/templates/users.html
+msgid ""
+"En kolayı «Telegram'ı bağla»: o kullanıcı için 10 dakika geçerli, tek "
+"kullanımlık bir bot bağlantısı üretilir. Kişi bağlantıyı kendi "
+"telefonunda açıp «Başlat»a basınca bot Telegram kimliğini bu kullanıcıya "
+"kendisi bağlar; sayfayı yenileyince kimlik listede görünür. Bağlantıyı "
+"yalnız o kişiye iletin: süresi içinde açan herkesin hesabı bağlanır."
+msgstr ""
+
+#: app/web/templates/users.html
+msgid "Engelli"
+msgstr ""
+
+#: app/web/templates/access_log.html
+msgid "Erişim"
+msgstr ""
+
+#: app/web/templates/access_log.html app/web/templates/access_log_employee.html
+#: app/web/templates/base.html app/web/templates/profile.html
 msgid "Erişim logu"
+msgstr ""
+
+#: app/web/templates/access_log_employee.html
+msgid "Erişimler"
+msgstr ""
+
+#: app/web/routers/upload_page.py
+msgid "Eski sürüm"
+msgstr ""
+
+#: app/web/routers/upload_page.py app/web/templates/users.html
+msgid "Etkin"
+msgstr ""
+
+#: app/web/routers/documents.py
+msgid "Evet, arşive taşı"
+msgstr ""
+
+#: app/web/templates/employee_merge_step.html
+msgid "Evet, birleştir"
+msgstr ""
+
+#: app/web/templates/document_archive_step.html
+#: app/web/templates/document_move.html app/web/templates/employee_fields.html
+#: app/web/templates/employee_merge_step.html
+#: app/web/templates/employee_status_step.html
+#: app/web/templates/profile_record_step.html
+#: app/web/templates/upload_detail.html
+msgid "Evet, devam et"
+msgstr ""
+
+#: app/web/templates/employee_fields_step.html
+msgid "Evet, değiştir"
+msgstr ""
+
+#: app/web/templates/employee_status_step.html
+msgid "Evet, etkinleştir"
+msgstr ""
+
+#: app/web/routers/documents.py
+msgid "Evet, geri al"
+msgstr ""
+
+#: app/web/templates/profile_record_step.html
+msgid "Evet, kaldır"
+msgstr ""
+
+#: app/web/templates/employee_status_step.html
+msgid "Evet, pasife al"
+msgstr ""
+
+#: app/web/templates/upload_action_result.html
+msgid "Evet, taramayı yoksay"
+msgstr ""
+
+#: app/web/templates/document_move.html
+msgid "Evet, taşı"
+msgstr ""
+
+#: app/web/templates/upload_action_result.html
+msgid "Evet, yeniden analiz et"
+msgstr ""
+
+#: app/web/templates/access_log_employee.html
+msgid "Eylem"
 msgstr ""
 
 #: app/web/templating.py
 msgid "Eğitim modu"
+msgstr ""
+
+#: app/web/routers/upload_page.py
+msgid "Eşleşti"
+msgstr ""
+
+#: app/web/templates/profile.html
+msgid "Farklı değer"
+msgstr ""
+
+#: app/web/templates/profile.html
+msgid "Fotoğraf yok"
+msgstr ""
+
+#: app/web/templates/upload_detail.html
+msgid "Gerekçe"
+msgstr ""
+
+#: app/web/templates/profile.html
+msgid "Geri al"
+msgstr ""
+
+#: app/web/routers/uploads.py
+msgid "Geçersiz dosya adı."
+msgstr ""
+
+#: app/web/routers/uploads.py
+#, python-brace-format
+msgid "Geçersiz dosya adı: '{name}' — {problem}. {advice}"
+msgstr ""
+
+#: app/web/templates/profile.html app/web/templates/upload_detail.html
+msgid "Geçmiş"
 msgstr ""
 
 #: app/web/templates/login.html
@@ -49,28 +962,770 @@ msgstr ""
 msgid "Giriş yap"
 msgstr ""
 
-#: app/web/templates/login.html
+#: app/web/templates/uploads_list.html
+msgid "Gizle"
+msgstr ""
+
+#: app/web/templates/profile.html
+msgid "Grubun kalemi yok."
+msgstr ""
+
+#: app/web/templates/profile.html
+#, python-format
+msgid "Görülen yazımlar (%(count)s)"
+msgstr ""
+
+#: app/web/templates/history.html app/web/templates/upload_detail.html
+msgid "Görüntü yok"
+msgstr ""
+
+#: app/web/templates/profile.html
+msgid "Güncel"
+msgstr ""
+
+#: app/web/routers/uploads_list.py
+msgid "Hata"
+msgstr ""
+
+#: app/web/routers/upload_page.py
+msgid "Hazır"
+msgstr ""
+
+#: app/web/templates/upload_detail.html
+msgid "Hedef"
+msgstr ""
+
+#: app/web/routers/employees.py
+msgid "Hedef durum yalnız pasif (inactive) ya da aktif (active) olabilir."
+msgstr ""
+
+#: app/web/templates/profile.html
+msgid "Henüz belge yok."
+msgstr ""
+
+#: app/web/templates/access_log.html
+msgid "Henüz hiçbir belgeye bakılmadı."
+msgstr ""
+
+#: app/web/templates/uploads_list.html
+msgid "Henüz yükleme yok."
+msgstr ""
+
+#: app/web/templates/employees_results.html
+msgid "Henüz çalışan yok."
+msgstr ""
+
+#: app/web/routers/employees.py
+msgid "Hepsi"
+msgstr ""
+
+#: app/web/templates/uploads_list.html
+msgid ""
+"Her satır bir <strong>parti</strong>: tek seferde, tek kanaldan (panel ya"
+" da Telegram) gönderilen dosya grubu. Parti numarasına tıklayınca o "
+"gönderimdeki dosyalar, sayfalar ve sistemin verdiği kararlar açılır."
+msgstr ""
+
+#: app/web/routers/employees.py
+msgid "Hiçbir alan değişmedi; değiştirmek istediğiniz alanı düzenleyin."
+msgstr ""
+
+#: app/web/profile_form.py
+msgid "ICAO kodu (ör. RUS, SRB, D)"
+msgstr ""
+
+#: app/matching/match.py
+msgid "ICAO uyruk kodu olmalı (1–3 büyük harf, ör. RUS, D)"
+msgstr ""
+
+#: app/web/templates/employee_merge_step.html
+msgid "Kalacak kayıt"
+msgstr ""
+
+#: app/web/routers/employees.py
+msgid "Kalacak kayıt birleştirilen iki çalışandan biri olmalı."
+msgstr ""
+
+#: app/web/templates/employee_merge_step.html
+#, python-format
+msgid "Kalan: %(name)s (%(id)s)"
+msgstr ""
+
+#: app/web/templates/profile.html
+msgid "Kaldır"
+msgstr ""
+
+#: app/web/templates/profile.html
+msgid "Kaldırılanlar"
+msgstr ""
+
+#: app/web/templates/profile.html
+#, python-format
+msgid "Kaldırılanlar (%(count)s)"
+msgstr ""
+
+#: app/web/templates/profile.html
+msgid "Kaldırılmış kayıt"
+msgstr ""
+
+#: app/web/templates/access_log_employee.html
+#: app/web/templates/upload_detail.html app/web/templates/uploads_list.html
+msgid "Kanal"
+msgstr ""
+
+#: app/web/templates/profile.html
+msgid "Karşılandı:"
+msgstr ""
+
+#: app/web/templates/profile_record_step.html
+msgid "Kaydı kaldır"
+msgstr ""
+
+#: app/web/templates/profile.html app/web/templates/upload_detail.html
+msgid "Kaynak"
+msgstr ""
+
+#: app/web/routers/documents.py
+msgid "Kaynak dosya kaydı bulunamadı."
+msgstr ""
+
+#: app/web/routers/documents.py
+msgid "Kaynak dosya ve sayfa okunamadı."
+msgstr ""
+
+#: app/web/templates/history.html
+msgid "Kaynak dosyalar ve sayfalar"
+msgstr ""
+
+#: app/web/templates/profile.html
+msgid "Kaynak:"
+msgstr ""
+
+#: app/web/routers/employees.py
+msgid "Kayıt bulunamadı."
+msgstr ""
+
+#: app/web/routers/employees.py
+msgid "Kayıt geri alındı; yeniden eşleştirmede ve aramada kullanılacak."
+msgstr ""
+
+#: app/web/routers/employees.py
+msgid "Kayıt kaldırıldı; eşleştirmede ve aramada kullanılmayacak."
+msgstr ""
+
+#: app/web/routers/employees.py
+msgid "Kayıt kaldırılmamış; geri alınacak bir şey yok."
+msgstr ""
+
+#: app/web/templates/profile_record_step.html
+msgid ""
+"Kayıt silinmez: profilde \"Kaldırılanlar\" altında kim ve ne zaman "
+"kaldırdığıyla durur ve tek adımda geri alınır. Kaldırılmış kayıt "
+"eşleştirmede ve aramada kullanılmaz; aynı değer bir belgeden yeniden "
+"gelirse kayıt kendiliğinden geri açılmaz, profilde uyarı çıkar."
+msgstr ""
+
+#: app/web/routers/employees.py
+msgid "Kayıt zaten kaldırılmış; profildeki “Kaldırılanlar” altından geri alınır."
+msgstr ""
+
+#: app/web/routers/employees.py
+msgid ""
+"Kayıtlar birleştirildi; birleşen kaydın belgeleri, numaraları, isim "
+"yazımları, iletişim bilgileri ve belge paketleri bu profile taşındı."
+msgstr ""
+
+#: app/web/templates/profile.html
+msgid "Kayıtlı belge numarası yok."
+msgstr ""
+
+#: app/web/templates/profile.html
+msgid "Kayıtlı iletişim bilgisi yok."
+msgstr ""
+
+#: app/web/templates/profile.html
+msgid "Kayıtlı isim yazımı yok."
+msgstr ""
+
+#: app/web/auth.py
+msgid "Kendi hesabınızı pasife alamazsınız."
+msgstr ""
+
+#: app/web/templates/users.html
+msgid "Kendi parolanız: «Parolamı değiştir»"
+msgstr ""
+
+#: app/web/auth.py
+msgid "Kendi parolanızı «Parolamı değiştir» sayfasından değiştirin."
+msgstr ""
+
+#: app/web/templates/access_log_employee.html
+msgid "Kimler baktı"
+msgstr ""
+
+#: app/web/templates/users.html
+msgid "Kimlik ekle"
+msgstr ""
+
+#: app/web/routers/employees.py
+msgid "Kiril"
+msgstr ""
+
+#: app/web/templates/users.html
+msgid ""
+"Kişi açıp «Başlat»a basınca bot «Bağlandı» der; sonra bu sayfayı "
+"yenileyin."
+msgstr ""
+
+#: app/web/templates/access_log_employee.html
+msgid "Kullanıcı"
+msgstr ""
+
+#: app/web/templates/login.html app/web/templates/users.html
 msgid "Kullanıcı adı"
+msgstr ""
+
+#: app/web/templates/users.html
+#, python-format
+msgid ""
+"Kullanıcı adı %(min)s–%(max)s karakter, boşluksuz; parola en az "
+"%(password)s karakter."
+msgstr ""
+
+#: app/web/auth.py
+msgid "Kullanıcı adı boş olamaz."
+msgstr ""
+
+#: app/web/auth.py
+#, python-brace-format
+msgid "Kullanıcı adı en az {limit} karakter olmalı."
+msgstr ""
+
+#: app/web/auth.py
+#, python-brace-format
+msgid "Kullanıcı adı en çok {limit} karakter olabilir."
 msgstr ""
 
 #: app/web/routers/auth.py
 msgid "Kullanıcı adı veya parola hatalı."
 msgstr ""
 
+#: app/web/auth.py
+msgid "Kullanıcı adında boşluk ya da denetim karakteri olamaz."
+msgstr ""
+
+#: app/web/routers/users.py
+msgid "Kullanıcı bulunamadı"
+msgstr ""
+
+#: app/web/templates/users.html
+msgid "Kullanıcı oluştur"
+msgstr ""
+
+#: app/web/routers/users.py
+msgid "Kullanıcı oluşturuldu."
+msgstr ""
+
+#: app/web/templates/users.html
+msgid "Kullanıcı pasif: bot bu kimliklerin hiçbirine yanıt vermez."
+msgstr ""
+
+#: app/web/routers/users.py
+msgid "Kullanıcı pasife alındı; açık oturumları kapatıldı."
+msgstr ""
+
+#: app/web/routers/users.py
+msgid "Kullanıcı yeniden etkinleştirildi."
+msgstr ""
+
 #: app/web/templating.py
 msgid "Kullanıcılar"
+msgstr ""
+
+#: app/web/templates/account_password.html
+msgid "Kullanıcılar sayfasına dön"
+msgstr ""
+
+#: app/web/templates/upload_detail.html
+msgid "Kuyruk"
+msgstr ""
+
+#: app/web/templates/_context_warning.html
+msgid "Kuyruk öğesi"
 msgstr ""
 
 #: app/web/templating.py
 msgid "Kuyruklar"
 msgstr ""
 
+#: app/web/templates/upload_detail.html
+msgid "Kuyruğa alınanlar"
+msgstr ""
+
+#: app/web/routers/uploads_list.py
+msgid "Kısmen tamamlandı"
+msgstr ""
+
+#: app/web/routers/upload_page.py
+msgid "Kısmen tamamlandı — bazı sayfalar analiz edilemedi"
+msgstr ""
+
+#: app/web/routers/uploads_list.py
+msgid "Kısmi"
+msgstr ""
+
+#: app/web/routers/employees.py
+msgid "Latin"
+msgstr ""
+
+#: app/web/profile_form.py
+msgid "Latin harfleriyle (belgedeki Latin yazım ya da MRZ; aksanlı harf olur)"
+msgstr ""
+
+#: app/matching/match.py
+msgid "Latin harfleriyle yazılmalı; Latin olmayan yazım Orijinal yazım alanına"
+msgstr ""
+
+#: app/web/templates/profile.html
+msgid "Latin yazım eksik"
+msgstr ""
+
+#: app/web/routers/uploads.py
+msgid "Lütfen dosyayı yeniden adlandırıp tekrar yükleyin."
+msgstr ""
+
+#: app/web/templates/upload_detail.html
+msgid "Model:"
+msgstr ""
+
+#: app/web/templates/profile.html
+msgid "Neden:"
+msgstr ""
+
+#: app/web/templates/document_move.html
+#: app/web/templates/employee_merge_results.html
+#: app/web/templates/employees_results.html
+msgid "No"
+msgstr ""
+
+#: app/web/templates/profile.html
+msgid "Not"
+msgstr ""
+
+#: app/web/templates/employee_status_step.html
+msgid "Not (isteğe bağlı)"
+msgstr ""
+
+#: app/groups/service.py app/matching/status.py
+#, python-brace-format
+msgid "Not en çok {limit} karakter olabilir."
+msgstr ""
+
+#: app/web/templates/employee_status_step.html app/web/templates/profile.html
+msgid "Not:"
+msgstr ""
+
+#: app/web/templates/profile.html
+msgid "Numara"
+msgstr ""
+
+#: app/web/routers/upload_page.py
+msgid "Okunamadı"
+msgstr ""
+
+#: app/web/routers/upload_page.py
+msgid "Okunamadı kuyruğu"
+msgstr ""
+
+#: app/web/templates/upload_detail.html
+msgid "Olay zaman çizelgesi"
+msgstr ""
+
+#: app/web/templates/history.html
+msgid "Olaylar"
+msgstr ""
+
+#: app/web/templates/history.html
+msgid "Oluşturuldu"
+msgstr ""
+
+#: app/web/templates/upload_detail.html
+msgid "Oluşturuldu:"
+msgstr ""
+
+#: app/web/routers/upload_page.py
+msgid "Onay bekleyen profil"
+msgstr ""
+
+#: app/web/templates/document_archive_step.html
+#: app/web/templates/employee_merge_step.html
+#: app/web/templates/employee_status_step.html
+#: app/web/templates/profile_record_step.html
+msgid "Onayı yeniden başlatın"
+msgstr ""
+
+#: app/web/profile_form.py app/web/routers/employees.py
+#: app/web/templates/document_move.html
+#: app/web/templates/employee_merge_results.html
+#: app/web/templates/employees_results.html app/web/templates/profile.html
+msgid "Orijinal yazım"
+msgstr ""
+
+#: app/web/templates/profile.html app/web/templates/upload.html
+msgid "PDF, JPEG, PNG · Word ve Excel olduğu gibi saklanır"
+msgstr ""
+
+#: app/web/templates/employees_results.html
+msgid "Paket"
+msgstr ""
+
+#: app/web/routers/employees.py
+msgid "Paket bulunamadı."
+msgstr ""
+
+#: app/web/routers/employees.py
+msgid "Paket iptal edildi."
+msgstr ""
+
+#: app/web/templates/profile.html
+msgid "Paket tanımla"
+msgstr ""
+
+#: app/web/templates/profile.html
+msgid ""
+"Paket tanımlamak için önce <a href=\"/document-groups\">Belge "
+"Grupları</a>'nda arşivlenmemiş bir grup açın."
+msgstr ""
+
+#: app/web/routers/employees.py
+msgid "Paket tanımlandı."
+msgstr ""
+
+#: app/web/routers/employees.py
+msgid "Paket yeniden açıldı."
+msgstr ""
+
+#: app/groups/packages.py
+msgid "Paket zaten iptal edilmiş."
+msgstr ""
+
+#: app/web/templates/profile.html
+msgid "Paketi iptal et"
+msgstr ""
+
+#: app/web/routers/access_log.py app/web/routers/uploads_list.py
 #: app/web/templates/base.html
 msgid "Panel"
 msgstr ""
 
-#: app/web/templates/login.html
+#: app/web/templates/users.html
+msgid ""
+"Panele giren kullanıcılar. Kullanıcı silinmez: gerekmeyen hesap pasife "
+"alınır, pasif kullanıcı giriş yapamaz ve açık oturumları kapanır."
+msgstr ""
+
+#: app/web/templates/login.html app/web/templates/users.html
 msgid "Parola"
+msgstr ""
+
+#: app/web/templates/account_password.html
+#, python-format
+msgid "Parola en az %(num)d karakter olmalı."
+msgid_plural "Parola en az %(num)d karakter olmalı."
+msgstr[0] ""
+msgstr[1] ""
+
+#: app/web/auth.py
+#, python-brace-format
+msgid "Parola en az {limit} karakter olmalı."
+msgstr ""
+
+#: app/web/routers/users.py
+msgid "Parola sıfırlandı; kullanıcının açık oturumları kapatıldı."
+msgstr ""
+
+#: app/web/templates/account_password.html app/web/templates/users.html
+msgid "Parolamı değiştir"
+msgstr ""
+
+#: app/web/templates/account_password.html
+msgid ""
+"Parolanız değişince bu oturum açık kalır, başka tarayıcılardaki "
+"oturumlarınız kapanır."
+msgstr ""
+
+#: app/web/routers/users.py
+msgid "Parolanız değiştirildi; diğer oturumlarınız kapatıldı."
+msgstr ""
+
+#: app/web/templates/account_password.html
+msgid "Parolayı değiştir"
+msgstr ""
+
+#: app/web/templates/users.html
+msgid "Parolayı sıfırla"
+msgstr ""
+
+#: app/web/templates/history.html app/web/templates/upload_detail.html
+#: app/web/templates/uploads_list.html
+msgid "Parti"
+msgstr ""
+
+#: app/web/templates/upload_detail.html app/web/templates/upload_result.html
+#, python-format
+msgid "Parti %(id)s"
+msgstr ""
+
+#: app/web/templates/upload_result.html
+msgid "Parti ayrıntısını aç"
+msgstr ""
+
+#: app/web/routers/upload_page.py app/web/routers/uploads.py
+msgid "Parti bulunamadı."
+msgstr ""
+
+#: app/web/routers/upload_page.py
+msgid "Parti hâlâ işleniyor; işlem bittikten sonra yeniden çalıştırılabilir."
+msgstr ""
+
+#: app/web/routers/upload_page.py
+msgid "Parti hâlâ işleniyor; süren tarama yoksayılamaz."
+msgstr ""
+
+#: app/web/templates/upload_action_result.html
+#, python-format
+msgid ""
+"Parti yeniden analiz edildi: yeni plan sürümü %(version)s (önceki: "
+"%(previous)s);"
+msgstr ""
+
+#: app/web/templates/upload_detail.html
+msgid ""
+"Parti yükleme listesine döner ve yoksaymayla kapanan kuyruk öğeleri "
+"yeniden açılır; arada atanan ya da kapatılan öğeler çözülmüş kalır."
+msgstr ""
+
+#: app/web/routers/employees.py
+#, python-brace-format
+msgid "Parti {id}"
+msgstr ""
+
+#: app/web/routers/upload_page.py
+msgid ""
+"Partinin planı yok; yeniden çalıştırılacak ya da yeniden analiz edilecek "
+"bir sürüm bulunmuyor."
+msgstr ""
+
+#: app/matching/status.py app/web/routers/employees.py
+#: app/web/templates/users.html
+msgid "Pasif"
+msgstr ""
+
+#: app/telegram/link.py
+msgid ""
+"Pasif kullanıcıya Telegram bağlantısı üretilmez; önce kullanıcıyı "
+"etkinleştirin."
+msgstr ""
+
+#: app/web/templates/profile.html
+msgid "Pasif çalışan"
+msgstr ""
+
+#: app/web/templates/employees_results.html
+msgid "Pasif çalışan yok."
+msgstr ""
+
+#: app/web/templates/profile.html
+msgid ""
+"Pasif çalışana belge yüklenmez. Yüklemek için önce çalışanı yeniden "
+"etkinleştirin."
+msgstr ""
+
+#: app/web/templates/employee_status_step.html
+msgid ""
+"Pasif çalışanın klasörü, belgeleri ve geçmişi yerinde kalır. Eşleştirme "
+"onu bulmaya devam eder; ama ona gelen yeni belgeler otomatik yerleşmez, "
+"\"pasif çalışan\" gerekçesiyle Unresolved kuyruğuna düşer. Profilden "
+"yükleme kapanır, çalışan listede varsayılan olarak görünmez."
+msgstr ""
+
+#: app/web/templates/profile.html app/web/templates/users.html
+msgid "Pasife al"
+msgstr ""
+
+#: app/web/templates/profile.html
+msgid "Pasife alan:"
+msgstr ""
+
+#: app/web/templates/history.html app/web/templates/upload_detail.html
+msgid "Plan"
+msgstr ""
+
+#: app/web/templates/upload_action_result.html
+#, python-format
+msgid "Plan (sürüm %(version)s) yeniden uygulandı."
+msgstr ""
+
+#: app/web/routers/upload_page.py app/web/routers/uploads_list.py
+msgid "Plan hazırlanıyor"
+msgstr ""
+
+#: app/web/routers/upload_page.py app/web/routers/uploads_list.py
+msgid "Plan uygulanıyor"
+msgstr ""
+
+#: app/web/templates/upload_detail.html
+msgid "Planda öğe yok."
+msgstr ""
+
+#: app/web/templates/access_log_employee.html
+msgid "Profil"
+msgstr ""
+
+#: app/web/templates/_context_warning.html
+msgid "Profil adı"
+msgstr ""
+
+#: app/web/profile_form.py
+msgid "Profil alanları geçersiz; düzeltip yeniden gönderin."
+msgstr ""
+
+#: app/web/routers/employees.py
+msgid "Profil bilgileri değiştirildi."
+msgstr ""
+
+#: app/web/routers/employees.py
+msgid ""
+"Profil bilgileri değiştirildi; klasör ve belge dosyaları yeni adla "
+"yeniden adlandırıldı."
+msgstr ""
+
+#: app/web/templates/profile.html
+msgid "Profil fotoğrafı yok"
+msgstr ""
+
+#: app/web/templates/profile.html
+msgid "Profil kayıtları"
+msgstr ""
+
+#: app/web/templates/employee_fields.html app/web/templates/profile.html
+msgid "Profili düzenle"
+msgstr ""
+
+#: app/web/templates/users.html
+msgid "Rol"
+msgstr ""
+
+#: app/web/templates/upload_detail.html
+msgid "Rota"
+msgstr ""
+
+#: app/web/routers/upload_page.py
+msgid "Sahibi belirsiz"
+msgstr ""
+
+#: app/web/routers/upload_page.py
+msgid "Sahibi belirsiz kuyruğu"
+msgstr ""
+
+#: app/web/templates/upload_result.html app/web/templates/uploads_list.html
+msgid "Sayfa"
+msgstr ""
+
+#: app/web/templates/history.html app/web/templates/upload_detail.html
+#, python-format
+msgid "Sayfa %(page)s"
+msgstr ""
+
+#: app/web/templates/access_log.html app/web/templates/access_log_employee.html
+#: app/web/templates/employees_results.html app/web/templates/uploads_list.html
+#, python-format
+msgid "Sayfa %(page)s / %(count)s"
+msgstr ""
+
+#: app/web/routers/upload_page.py
+msgid "Sayfa görüntüsü bulunamadı."
+msgstr ""
+
+#: app/web/templates/upload_detail.html
+msgid ""
+"Sayfa görüntüsü yok: dosya analiz edilmiyor ya da sayfaları henüz "
+"hazırlanmadı."
+msgstr ""
+
+#: app/web/templates/access_log.html app/web/templates/access_log_employee.html
+#: app/web/templates/employees_results.html app/web/templates/uploads_list.html
+msgid "Sayfalama"
+msgstr ""
+
+#: app/web/templates/upload_detail.html
+msgid "Sayfalar"
+msgstr ""
+
+#: app/web/routers/upload_page.py app/web/routers/uploads_list.py
+msgid "Sayfalar hazırlanıyor"
+msgstr ""
+
+#: app/web/templates/upload_result.html
+#, python-format
+msgid "Sayfaları hazırlanan dosya: %(done)s / %(total)s"
+msgstr ""
+
+#: app/web/templates/document_move.html
+#: app/web/templates/upload_action_result.html
+msgid "Sayfayı yenileyin"
+msgstr ""
+
+#: app/web/templates/document_move.html
+#: app/web/templates/employee_merge_results.html
+msgid "Seç"
+msgstr ""
+
+#: app/web/routers/employees.py
+msgid ""
+"Seçilen çalışan başka bir kayıtla zaten birleştirildi; kalan kaydını "
+"seçin."
+msgstr ""
+
+#: app/web/templates/document_move.html
+#, python-format
+msgid "Seçilen çalışan: %(name)s (%(id)s)"
+msgstr ""
+
+#: app/web/templates/employee_merge_step.html
+msgid "Seçimi uygula"
+msgstr ""
+
+#: app/web/templates/upload.html
+msgid ""
+"Seçtiğin dosyalar tek bir <strong>parti</strong> olarak gönderilir. "
+"Sistem her sayfayı okur, belgenin türünü ve sahibini bulmaya çalışır; "
+"emin olamadığını Kuyruklar'a bırakır. Belgelerin içeriği değiştirilmez."
+msgstr ""
+
+#: app/web/templates/employees.html
+msgid ""
+"Sistemin tanıdığı kişiler. Her çalışanın altında ona ait belgeler durur. "
+"Arama kutusuna ad, takma ad, orijinal yazım ya da belge numarası "
+"yazabilirsin."
+msgstr ""
+
+#: app/web/templates/access_log.html app/web/templates/access_log_employee.html
+msgid "Son erişim"
+msgstr ""
+
+#: app/web/auth.py
+msgid "Son etkin yönetici pasife alınamaz."
+msgstr ""
+
+#: app/web/templates/access_log.html app/web/templates/access_log_employee.html
+#: app/web/templates/employees_results.html app/web/templates/uploads_list.html
+msgid "Sonraki →"
+msgstr ""
+
+#: app/web/profile_form.py app/web/routers/employees.py
+#: app/web/templates/profile.html
+msgid "Soyad"
 msgstr ""
 
 #: app/web/templates/base.html
@@ -79,19 +1734,793 @@ msgid ""
 "(<code>baslat.bat</code>)."
 msgstr ""
 
-#: app/web/templating.py
+#: app/web/templates/history.html app/web/templates/upload_detail.html
+#, python-format
+msgid "Sürüm %(version)s"
+msgstr ""
+
+#: app/web/templates/uploads_list.html
+msgid "Süz"
+msgstr ""
+
+#: app/web/templates/uploads_list.html
+msgid "Süzgeci temizle"
+msgstr ""
+
+#: app/web/templates/history.html app/web/templates/upload_detail.html
+msgid "Sıra"
+msgstr ""
+
+#: app/web/routers/upload_page.py app/web/routers/uploads_list.py
+msgid "Tamamlandı"
+msgstr ""
+
+#: app/groups/packages.py
+msgid "Tamamlandı — başvuru başlatılabilir"
+msgstr ""
+
+#: app/web/templates/profile.html
+msgid "Tamamlandı:"
+msgstr ""
+
+#: app/web/templates/profile.html
+msgid "Tanımlayan:"
+msgstr ""
+
+#: app/web/templates/upload_action_result.html
+#, python-format
+msgid "Tarama yoksayıldı: %(num)d kuyruk öğesi kapandı;"
+msgid_plural "Tarama yoksayıldı: %(num)d kuyruk öğesi kapandı;"
+msgstr[0] ""
+msgstr[1] ""
+
+#: app/web/templates/upload_detail.html
+msgid "Taramayı yoksay"
+msgstr ""
+
+#: app/web/templates/upload_detail.html
+msgid ""
+"Taramayı yoksaymak partiyi yükleme listesinden ve bekleyen öğelerini "
+"kuyruklardan kaldırır; dosyalar, olaylar ve üretilmiş belgeler silinmez."
+msgstr ""
+
+#: app/web/templates/profile.html app/web/templates/uploads_list.html
+msgid "Tarih"
+msgstr ""
+
+#: app/web/templates/history.html
+msgid ""
+"Taşıma iki onay ister. Dosya yeni sahibin adıyla yeniden adlandırılıp "
+"onun Hazır klasörüne taşınır; belge içeriği değişmez."
+msgstr ""
+
+#: app/web/templates/upload_detail.html
+msgid "Tekrar dosya: işlenmedi, sayfa görüntüsü yok."
+msgstr ""
+
+#: app/web/routers/employees.py
+msgid "Telefon"
+msgstr ""
+
+#: app/matching/records.py
+#, python-brace-format
+msgid ""
+"Telefon rakam, boşluk, +, -, nokta ve parantezden oluşmalı; {low}–{high} "
+"rakam."
+msgstr ""
+
+#: app/web/routers/access_log.py app/web/routers/uploads_list.py
+msgid "Telegram"
+msgstr ""
+
+#: app/web/routers/users.py
+msgid ""
+"Telegram botu bu kurulumda hiç çalışmadı: .env'e TELEGRAM_BOT_TOKEN "
+"ekleyip botu başlatın (baslat.bat). Bot ilk açılışta adını kaydeder; "
+"sonra bağlantı üretilebilir."
+msgstr ""
+
+#: app/web/templates/users.html
+msgid ""
+"Telegram botu yalnız izni açık ve kullanıcısı etkin kimliğe yanıt verir. "
+"Kimlik silinmez; gerekmeyen kimliğin izni kapatılır."
+msgstr ""
+
+#: app/web/templates/users.html
+msgid "Telegram kimlikleri"
+msgstr ""
+
+#: app/web/templates/users.html
+msgid "Telegram kimliği"
+msgstr ""
+
+#: app/telegram/whitelist.py
+msgid "Telegram kimliği boş olamaz."
+msgstr ""
+
+#: app/web/routers/users.py
+msgid "Telegram kimliği eklendi ve izni açıldı."
+msgstr ""
+
+#: app/telegram/whitelist.py
+msgid ""
+"Telegram kimliği yalnız rakamlardan oluşan pozitif bir sayı olmalı (örn. "
+"123456789). Telefon numarası değildir: kişi kimliğini Telegram'da "
+"@userinfobot'a yazarak öğrenir."
+msgstr ""
+
+#: app/web/routers/users.py
+msgid "Telegram kimliğinin izni açıldı."
+msgstr ""
+
+#: app/web/routers/users.py
+msgid "Telegram kimliğinin izni kapatıldı; bot bu kimliğe yanıt vermeyecek."
+msgstr ""
+
+#: app/web/templates/users.html
+msgid "Telegram'da aç"
+msgstr ""
+
+#: app/web/templates/users.html
+msgid "Telegram'ı bağla"
+msgstr ""
+
+#: app/web/templates/uploads_list.html
+msgid "Tümü"
+msgstr ""
+
+#: app/web/templates/document_archive_step.html app/web/templates/history.html
+#: app/web/templates/profile.html app/web/templates/upload_detail.html
+msgid "Tür"
+msgstr ""
+
+#: app/web/routers/upload_page.py
+msgid "Tür bilinmiyor"
+msgstr ""
+
+#: app/web/routers/upload_page.py
+msgid "Tür bilinmiyor kuyruğu"
+msgstr ""
+
+#: app/matching/records.py
+msgid "Tür telefon, e-posta ya da adres olmalı."
+msgstr ""
+
+#: app/web/templates/upload_detail.html
+msgid "Uygulandı:"
+msgstr ""
+
+#: app/web/templates/upload_detail.html
+msgid "Uygulanmadı"
+msgstr ""
+
+#: app/web/templates/document_move.html
+#: app/web/templates/employee_merge_results.html
+#: app/web/templates/employees_results.html
+msgid "Uyruk"
+msgstr ""
+
+#: app/web/profile_form.py app/web/routers/employees.py
+#: app/web/templates/profile.html
+msgid "Vatandaşlık"
+msgstr ""
+
+#: app/web/templates/document_archive_step.html
+#: app/web/templates/document_move.html app/web/templates/employee_fields.html
+#: app/web/templates/employee_fields_step.html
+#: app/web/templates/employee_merge_step.html
+#: app/web/templates/employee_status_step.html
+#: app/web/templates/profile_record_step.html
+#: app/web/templates/upload_action_result.html
+msgid "Vazgeç"
+msgstr ""
+
+#: app/web/profile_form.py
+msgid "YYYY-AA-GG biçiminde bir tarih olmalı"
+msgstr ""
+
+#: app/web/routers/documents.py
+#, python-brace-format
+msgid "Yalnız arşivdeki belge geri alınır; bu belgenin durumu: {status}."
+msgstr ""
+
+#: app/web/routers/documents.py
+#, python-brace-format
+msgid "Yalnız etkin belge arşive taşınır; bu belgenin durumu: {status}."
+msgstr ""
+
+#: app/web/routers/documents.py
+#, python-brace-format
+msgid ""
+"Yalnız etkin belge başka çalışana taşınabilir; bu belgenin durumu: "
+"{status}. Eski sürüm yeniden adlandırılmaz (K18), arşivlenmiş belge "
+"çalışanın klasöründe durmaz."
+msgstr ""
+
+#: app/groups/packages.py
+msgid "Yalnız iptal edilmiş paket yeniden açılır."
+msgstr ""
+
+#: app/web/routers/uploads_list.py
+msgid "Yalnız yoksayılanlar"
+msgstr ""
+
+#: app/web/templates/profile.html
+msgid "Yazım"
+msgstr ""
+
+#: app/web/templates/profile.html
+msgid "Yaş"
+msgstr ""
+
+#: app/web/templates/employee_fields_step.html
+msgid "Yeni"
+msgstr ""
+
+#: app/web/templates/users.html
+msgid "Yeni kullanıcı"
+msgstr ""
+
+#: app/web/templates/account_password.html app/web/templates/users.html
+msgid "Yeni parola"
+msgstr ""
+
+#: app/web/templates/account_password.html
+msgid "Yeni parola (tekrar)"
+msgstr ""
+
+#: app/web/routers/users.py
+msgid "Yeni parola ile tekrarı eşleşmiyor."
+msgstr ""
+
+#: app/web/routers/upload_page.py
+msgid "Yeni çalışan"
+msgstr ""
+
+#: app/web/templates/upload_detail.html
+msgid "Yeniden analiz et"
+msgstr ""
+
+#: app/web/templates/profile.html
+msgid "Yeniden aç"
+msgstr ""
+
+#: app/web/templates/profile.html app/web/templates/users.html
+msgid "Yeniden etkinleştir"
+msgstr ""
+
+#: app/web/templates/upload_detail.html
+msgid "Yeniden çalıştır"
+msgstr ""
+
+#: app/web/templates/upload_detail.html
+msgid ""
+"Yeniden çalıştırma güncel planı yapay zekâya sormadan yeniden uygular. "
+"Yeniden analiz partiyi yeniden değerlendirir ve yeni bir plan sürümü "
+"açar; eski çıktılar silinmez."
+msgstr ""
+
+#: app/web/templates/profile.html
+msgid "Yine de paket tanımla"
+msgstr ""
+
+#: app/web/templates/upload_action_result.html
+#, python-format
+msgid ""
+"Yoksayma geri alındı: parti yükleme listesine döndü; %(num)d kuyruk öğesi"
+" yeniden açıldı."
+msgid_plural ""
+"Yoksayma geri alındı: parti yükleme listesine döndü; %(num)d kuyruk öğesi"
+" yeniden açıldı."
+msgstr[0] ""
+msgstr[1] ""
+
+#: app/web/templates/upload_detail.html
+msgid "Yoksaymayı geri al"
+msgstr ""
+
+#: app/web/templates/uploads_list.html
+msgid "Yoksayılanlar"
+msgstr ""
+
+#: app/web/routers/uploads_list.py
+msgid "Yoksayılanlar dahil"
+msgstr ""
+
+#: app/web/routers/uploads_list.py
+msgid "Yoksayılanlar süzgeci tanınmadı; yok sayıldı."
+msgstr ""
+
+#: app/web/templates/uploads_list.html
+msgid "Yoksayıldı"
+msgstr ""
+
+#: app/web/routers/users.py
+msgid "Yönetici"
+msgstr ""
+
+#: app/web/templates/profile.html app/web/templates/upload.html
+#: app/web/templates/uploads_list.html app/web/templating.py
 msgid "Yükle"
 msgstr ""
 
-#: app/web/templating.py
+#: app/web/templates/profile.html
+#, python-format
+msgid ""
+"Yükleme %(name)s (%(id)s) çalışanı bağlamıyla yapılır: sahibi belgeden "
+"anlaşılamayan dosyalar ona atanır."
+msgstr ""
+
+#: app/web/templates/uploads_list.html app/web/templating.py
 msgid "Yüklemeler"
+msgstr ""
+
+#: app/web/templates/uploads_list.html
+msgid "Yüklemeleri süz"
+msgstr ""
+
+#: app/web/routers/upload_page.py
+msgid "Yüklenecek dosya seçilmedi."
+msgstr ""
+
+#: app/web/templates/uploads_list.html
+msgid "Yükleyen"
+msgstr ""
+
+#: app/web/templates/access_log_employee.html
+msgid "Zaman"
+msgstr ""
+
+#: app/web/routers/uploads.py
+msgid "ad denetim karakteri içeremez"
+msgstr ""
+
+#: app/web/routers/uploads.py
+#, python-brace-format
+msgid "ad en çok {limit} bayt olabilir"
+msgstr ""
+
+#: app/web/routers/uploads.py
+msgid "ad nokta veya boşlukla bitemez"
+msgstr ""
+
+#: app/web/routers/uploads.py
+#, python-brace-format
+msgid "ad şu karakterleri içeremez: {characters}"
+msgstr ""
+
+#: app/web/routers/upload_page.py
+msgid "ad-soyad + doğum tarihi"
+msgstr ""
+
+#: app/matching/match.py
+msgid "ad-soyad klasör adına çevrilemiyor (K8)"
+msgstr ""
+
+#: app/matching/records.py
+msgid "adres"
+msgstr ""
+
+#: app/web/templates/profile.html
+msgid "başka bir kayıt"
+msgstr ""
+
+#: app/matching/records.py app/web/routers/upload_page.py
+msgid "belge numarası"
+msgstr ""
+
+#: app/web/routers/employees.py
+msgid "belgeden"
+msgstr ""
+
+#: app/web/routers/employees.py
+#, python-brace-format
+msgid "birleştirme ({actor}, {day})"
+msgstr ""
+
+#: app/matching/match.py
+msgid "boş olamaz"
+msgstr ""
+
+#: app/matching/match.py
+msgid "denetim karakteri içeremez"
+msgstr ""
+
+#: app/web/templates/employee_fields_step.html
+msgid "değişiyor"
+msgstr ""
+
+#: app/web/routers/employees.py
+msgid "diğer"
+msgstr ""
+
+#: app/web/routers/documents.py app/web/routers/upload_page.py
+#, python-brace-format
+msgid "dosya {id}"
+msgstr ""
+
+#: app/matching/records.py
+msgid "e-posta"
+msgstr ""
+
+#: app/web/routers/employees.py
+#, python-brace-format
+msgid "elle ({actor}, {day})"
+msgstr ""
+
+#: app/matching/match.py
+#, python-brace-format
+msgid "en fazla {limit} karakter olabilir"
+msgstr ""
+
+#: app/web/routers/employees.py
+msgid "farklı — kalanın değeri geçerli kalır, profilde uyarı olur"
+msgstr ""
+
+#: app/matching/match.py
+msgid "gelecekte olamaz"
+msgstr ""
+
+#: app/matching/match.py
+msgid "harf ya da rakam içermiyor"
+msgstr ""
+
+#: app/web/templates/_context_warning.html
+msgid "henüz kuyruğa alınmadı"
+msgstr ""
+
+#: app/web/templates/profile.html
+msgid "iptal:"
+msgstr ""
+
+#: app/matching/records.py
+msgid "isim yazımı"
+msgstr ""
+
+#: app/web/templates/profile.html
+msgid "isteğe bağlı"
+msgstr ""
+
+#: app/web/templates/employee_merge_step.html
+msgid "kalan kayda taşınacak"
+msgstr ""
+
+#: app/web/routers/employees.py
+msgid "kalanın boş alanı bu değerle dolacak"
+msgstr ""
+
+#: app/web/templates/profile.html
+msgid "kaldıran:"
+msgstr ""
+
+#: app/web/routers/upload_page.py
+msgid "kapatıldı"
+msgstr ""
+
+#: app/web/templates/history.html
+#, python-format
+msgid "plan öğesi %(item)s"
+msgstr ""
+
+#: app/web/routers/upload_page.py
+#, python-brace-format
+msgid "s. {pages}"
+msgstr ""
+
+#: app/web/routers/upload_page.py
+msgid "tarama yoksayıldı"
+msgstr ""
+
+#: app/matching/records.py
+msgid "telefon"
+msgstr ""
+
+#: app/web/routers/upload_page.py
+msgid "tüm dosya"
+msgstr ""
+
+#: app/web/templates/employees_results.html
+msgid "tüm durumlar"
+msgstr ""
+
+#: app/web/templates/profile.html app/web/templates/upload.html
+msgid "ya da seçmek için tıklayın · birden çok dosya seçilebilir"
+msgstr ""
+
+#: app/web/templates/employees_results.html
+msgid "yalnız eksik paketi olanlar"
+msgstr ""
+
+#: app/web/templates/employees_results.html
+msgid "yalnız pasif çalışanlar"
+msgstr ""
+
+#: app/web/templates/access_log_employee.html
+msgid "zamanlar UTC"
+msgstr ""
+
+#: app/web/templates/profile.html
+msgid "zorunlu"
+msgstr ""
+
+#: app/telegram/whitelist.py
+#, python-brace-format
+msgid ""
+"{id} Telegram kimliği başka bir kullanıcıya bağlı; kayıt silinmediği için"
+" taşınamaz."
+msgstr ""
+
+#: app/telegram/whitelist.py
+#, python-brace-format
+msgid "{id} Telegram kimliği zaten bu kullanıcıya bağlı."
+msgstr ""
+
+#: app/telegram/whitelist.py
+#, python-brace-format
+msgid "{id} Telegram kimliği zaten engelli."
+msgstr ""
+
+#: app/telegram/whitelist.py
+#, python-brace-format
+msgid "{id} Telegram kimliği zaten izinli."
+msgstr ""
+
+#: app/web/routers/employees.py
+#, python-brace-format
+msgid "{label}: belgede farklı değer okundu"
+msgstr ""
+
+#: app/web/routers/employees.py
+#, python-brace-format
+msgid "{open} açık · {missing} eksik"
+msgstr ""
+
+#: app/web/templates/users.html
+msgid "«Telegram'ı bağla» kapalı."
+msgstr ""
+
+#: app/web/templates/access_log.html app/web/templates/history.html
+#: app/web/templates/profile.html app/web/templates/upload.html
+#: app/web/templates/upload_detail.html
+msgid "Çalışan"
+msgstr ""
+
+#: app/web/templates/employee_merge.html app/web/templates/history.html
+msgid "Çalışan ara"
+msgstr ""
+
+#: app/web/templates/access_log_employee.html app/web/templates/profile.html
+msgid "Çalışan bulunamadı"
+msgstr ""
+
+#: app/web/routers/access_log.py app/web/routers/documents.py
+#: app/web/routers/employees.py
+msgid "Çalışan bulunamadı."
+msgstr ""
+
+#: app/web/templates/profile.html
+msgid "Çalışan kartı"
+msgstr ""
+
+#: app/web/templates/employee_status_step.html
+msgid ""
+"Çalışan listeye döner; yeni belgeleri yeniden otomatik yerleşir. Pasifken"
+" kuyruğa düşen belgeler kendiliğinden yerleşmez: öğeyi atayın ya da "
+"partiyi yeniden analiz edin."
+msgstr ""
+
+#: app/web/routers/employees.py
+msgid "Çalışan pasife alındı; yeni belgeleri otomatik yerleşmeyecek."
+msgstr ""
+
+#: app/web/routers/employees.py
+msgid "Çalışan yeniden etkinleştirildi."
+msgstr ""
+
+#: app/web/routers/upload_page.py
+msgid "Çalışan yok"
+msgstr ""
+
+#: app/web/routers/employees.py
+msgid "Çalışan zaten etkin."
+msgstr ""
+
+#: app/web/routers/employees.py
+msgid "Çalışan zaten pasif."
 msgstr ""
 
 #: app/web/templating.py
 msgid "Çalışanlar"
 msgstr ""
 
+#: app/web/routers/employees.py
+msgid "Çalışanı pasife al"
+msgstr ""
+
+#: app/web/routers/employees.py
+msgid "Çalışanı yeniden etkinleştir"
+msgstr ""
+
+#: app/web/routers/employees.py
+msgid "Çalışanın durumu"
+msgstr ""
+
+#: app/web/templates/uploads_list.html
+#, python-format
+msgid "Çözülmemiş %(queue)s öğesi"
+msgstr ""
+
+#: app/web/templates/upload_detail.html
+msgid "Çözüm"
+msgstr ""
+
+#: app/web/templates/history.html
+msgid "Çıktı"
+msgstr ""
+
+#: app/web/templates/upload_detail.html
+msgid "Çıktılar"
+msgstr ""
+
 #: app/web/templates/base.html
 msgid "Çıkış"
 msgstr ""
+
+#: app/web/templates/upload_detail.html
+msgid "Öğe"
+msgstr ""
+
+#: app/web/templates/_context_warning.html
+#, python-format
+msgid "Öğe %(item)s"
+msgstr ""
+
+#: app/web/templates/_context_warning.html
+msgid "çözüldü"
+msgstr ""
+
+#: app/web/templates/users.html
+msgid "örn. 123456789"
+msgstr ""
+
+#: app/web/templates/document_move.html
+msgid "İki profil de güncellendi:"
+msgstr ""
+
+#: app/web/templates/profile.html
+msgid "İletişim"
+msgstr ""
+
+#: app/web/templates/profile.html
+msgid "İletişim bilgisi ekle"
+msgstr ""
+
+#: app/web/routers/employees.py
+msgid "İletişim bilgisi eklendi."
+msgstr ""
+
+#: app/web/templates/profile.html
+msgid "İndir"
+msgstr ""
+
+#: app/web/routers/access_log.py app/web/templates/access_log_employee.html
+msgid "İndirdi"
+msgstr ""
+
+#: app/groups/packages.py
+msgid "İptal edildi"
+msgstr ""
+
+#: app/web/templates/profile.html
+#, python-format
+msgid "İptal edilen paketler (%(count)s)"
+msgstr ""
+
+#: app/web/templates/profile.html
+msgid "İptal nedeni"
+msgstr ""
+
+#: app/groups/packages.py
+msgid "İptal nedeni boş olamaz."
+msgstr ""
+
+#: app/web/routers/employees.py
+msgid "İsim yazımı"
+msgstr ""
+
+#: app/web/profile_form.py
+msgid "İsmin belgede basılı hâli, birebir (Latin de olabilir)"
+msgstr ""
+
+#: app/web/routers/users.py
+msgid "İzin 'true' ya da 'false' olmalı."
+msgstr ""
+
+#: app/web/templates/users.html
+msgid "İzinli"
+msgstr ""
+
+#: app/web/templates/users.html
+msgid "İzni aç"
+msgstr ""
+
+#: app/web/templates/users.html
+msgid "İzni kapat"
+msgstr ""
+
+#: app/web/templates/upload_detail.html
+msgid "İşlem"
+msgstr ""
+
+#: app/web/templates/upload_detail.html app/web/templates/users.html
+msgid "İşlemler"
+msgstr ""
+
+#: app/web/routers/upload_page.py app/web/routers/uploads_list.py
+msgid "İşlenemedi"
+msgstr ""
+
+#: app/web/routers/uploads_list.py
+msgid "İşleniyor"
+msgstr ""
+
+#: app/web/templates/employee_fields_step.html
+msgid "Şimdiki"
+msgstr ""
+
+#: app/web/templates/account_password.html
+msgid "Şu anki parola"
+msgstr ""
+
+#: app/web/auth.py
+msgid "Şu anki parola hatalı."
+msgstr ""
+
+#: app/web/templates/employees_results.html
+#, python-format
+msgid "“%(query)s” ile eşleşen ve eksik paketi olan çalışan yok."
+msgstr ""
+
+#: app/web/templates/document_move.html
+#: app/web/templates/employee_merge_results.html
+#: app/web/templates/employees_results.html
+#, python-format
+msgid "“%(query)s” ile eşleşen çalışan yok."
+msgstr ""
+
+#: app/web/templates/document_archive_step.html
+msgid "← Belge geçmişine dön"
+msgstr ""
+
+#: app/web/templates/access_log_employee.html
+msgid "← Erişim logu"
+msgstr ""
+
+#: app/web/templates/document_archive_step.html
+#: app/web/templates/employee_fields.html app/web/templates/employee_merge.html
+#: app/web/templates/employee_merge_step.html
+#: app/web/templates/employee_status_step.html
+#: app/web/templates/profile_record_step.html
+msgid "← Profile dön"
+msgstr ""
+
+#: app/web/templates/upload_detail.html
+msgid "← Yüklemeler"
+msgstr ""
+
+#: app/web/templates/history.html app/web/templates/profile.html
+msgid "← Çalışanlar"
+msgstr ""
+
+#: app/web/templates/access_log.html app/web/templates/access_log_employee.html
+#: app/web/templates/employees_results.html app/web/templates/uploads_list.html
+msgid "← Önceki"
+msgstr ""
+
+#: app/web/context_person.py
+#, python-brace-format
+msgid "⚠ Bu profile ait olmayan {count} belge bulundu — profile eklenmedi"
+msgid_plural "⚠ Bu profile ait olmayan {count} belge bulundu — profile eklenmedi"
+msgstr[0] ""
+msgstr[1] ""
 

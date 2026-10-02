@@ -44,6 +44,7 @@ from app.config import Settings, get_settings
 from app.db.models import Employee, Upload, UploadFile, allocate_upload_id
 from app.db.session import get_session
 from app.events import EventType, event_context, record_event
+from app.i18n import N_, Translatable
 from app.matching.status import is_inactive, is_merged
 from app.pipeline.dismiss import is_dismissed
 from app.pipeline.orchestrate import (
@@ -69,13 +70,13 @@ from app.worker.queue import claim_upload, enqueue_upload
 router = APIRouter(prefix="/api/uploads", tags=["uploads"])
 
 UPLOAD_CHANNEL = "web"
-DISMISSED_MESSAGE = "Bu tarama yoksayıldı; üzerinde işlem yapılmaz."
+DISMISSED_MESSAGE = N_("Bu tarama yoksayıldı; üzerinde işlem yapılmaz.")
 # 10.5.7: pasif çalışana bağlam yüklemesi yapılmaz; parti açılmaz.
-INACTIVE_CONTEXT_MESSAGE = (
+INACTIVE_CONTEXT_MESSAGE = N_(
     "Bu çalışan pasif; ona belge yüklenmez. Önce çalışanı profilinden yeniden etkinleştirin."
 )
 # 10.5.9: birleştirilmiş kayda da yapılmaz; belgeler kalan kayda yüklenir.
-MERGED_CONTEXT_MESSAGE = (
+MERGED_CONTEXT_MESSAGE = N_(
     "Bu çalışan başka bir kayıtla birleştirildi; ona belge yüklenmez. Kalan kayda yükleyin."
 )
 
@@ -149,7 +150,7 @@ def get_analysis_provider(
 def _get_upload(session: Session, upload_id: str) -> Upload:
     upload = session.get(Upload, upload_id)
     if upload is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Parti bulunamadı.")
+        raise HTTPException(status.HTTP_404_NOT_FOUND, N_("Parti bulunamadı."))
     return upload
 
 
@@ -168,20 +169,23 @@ _FORBIDDEN_NAME_CHARACTERS = '<>:"|?*'
 _FORBIDDEN_NAME_HINT = " ".join(_FORBIDDEN_NAME_CHARACTERS)
 # Linux dosya adı sınırı bayttır; Windows'unki 255 karakterdir ve bayt sayısı karakterden az olmaz.
 _MAX_NAME_BYTES = 255
-_RENAME_ADVICE = "Lütfen dosyayı yeniden adlandırıp tekrar yükleyin."
+_RENAME_ADVICE = N_("Lütfen dosyayı yeniden adlandırıp tekrar yükleyin.")
 
 
-def _name_problem(name: str) -> str | None:
-    """Ad Inbox'a yazılamıyorsa nedenini Türkçe söyler; yazılabiliyorsa `None`."""
+def _name_problem(name: str) -> Translatable | None:
+    """Ad Inbox'a yazılamıyorsa nedenini (kaynak dilde; panel çevirir) söyler; yazılabiliyorsa
+    `None`."""
     if any(character in name for character in _FORBIDDEN_NAME_CHARACTERS):
-        return f"ad şu karakterleri içeremez: {_FORBIDDEN_NAME_HINT}"
+        return Translatable(
+            N_("ad şu karakterleri içeremez: {characters}"), characters=_FORBIDDEN_NAME_HINT
+        )
     if any(ord(character) < 32 for character in name):
-        return "ad denetim karakteri içeremez"
+        return Translatable(N_("ad denetim karakteri içeremez"))
     if name.endswith((".", " ")):
         # Windows sondaki nokta/boşluğu sessizce atar: kayıtlı ad ile diskteki ad ayrışırdı.
-        return "ad nokta veya boşlukla bitemez"
+        return Translatable(N_("ad nokta veya boşlukla bitemez"))
     if len(name.encode("utf-8")) > _MAX_NAME_BYTES:
-        return f"ad en çok {_MAX_NAME_BYTES} bayt olabilir"
+        return Translatable(N_("ad en çok {limit} bayt olabilir"), limit=_MAX_NAME_BYTES)
     return None
 
 
@@ -189,12 +193,17 @@ def _validated_name(name: str) -> str:
     """Orijinal adı sözleşmeye uygun hâlde döner; yol ayracı/`..` içeriyorsa ya da Inbox'a
     yazılamıyorsa (yasak karakter, sondaki nokta/boşluk, uzunluk) reddeder."""
     if not name or "/" in name or "\\" in name or name in {".", ".."}:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Geçersiz dosya adı.")
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, N_("Geçersiz dosya adı."))
     problem = _name_problem(name)
     if problem is not None:
         raise HTTPException(
             status.HTTP_400_BAD_REQUEST,
-            f"Geçersiz dosya adı: '{name}' — {problem}. {_RENAME_ADVICE}",
+            Translatable(
+                N_("Geçersiz dosya adı: '{name}' — {problem}. {advice}"),
+                name=name,
+                problem=problem,
+                advice=_RENAME_ADVICE,
+            ),
         )
     return name
 
@@ -204,7 +213,10 @@ def _supported_kind(name: str, content: bytes) -> FileKind:
     try:
         return detect_file_kind(content)
     except UnsupportedFileTypeError as exc:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, f"'{name}': {exc}") from None
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            Translatable("'{name}': {problem}", name=name, problem=exc.args[0]),
+        ) from None
 
 
 def _pdf_page_count(content: bytes) -> int | None:
@@ -220,15 +232,28 @@ def _check_size_and_page_limits(
         limit_mb = settings.max_upload_file_size_bytes / (1024 * 1024)
         raise HTTPException(
             status.HTTP_400_BAD_REQUEST,
-            f"'{name}' dosyası {limit_mb:.0f} MB sınırını aşıyor. "
-            "Lütfen dosyayı bölüp tekrar yükleyin.",
+            Translatable(
+                N_(
+                    "'{name}' dosyası {limit} MB sınırını aşıyor. "
+                    "Lütfen dosyayı bölüp tekrar yükleyin."
+                ),
+                name=name,
+                limit=f"{limit_mb:.0f}",
+            ),
         )
     page_count = _pdf_page_count(content) if kind is FileKind.PDF else None
     if page_count is not None and page_count > settings.max_upload_pdf_pages:
         raise HTTPException(
             status.HTTP_400_BAD_REQUEST,
-            f"'{name}' dosyası {settings.max_upload_pdf_pages} sayfa sınırını aşıyor "
-            f"({page_count} sayfa). Lütfen dosyayı bölüp tekrar yükleyin.",
+            Translatable(
+                N_(
+                    "'{name}' dosyası {limit} sayfa sınırını aşıyor ({count} sayfa). "
+                    "Lütfen dosyayı bölüp tekrar yükleyin."
+                ),
+                name=name,
+                limit=settings.max_upload_pdf_pages,
+                count=page_count,
+            ),
         )
 
 
@@ -255,7 +280,7 @@ def store_upload(
     names = [_validated_name(file.name) for file in files]
     if len(set(names)) != len(names):
         raise HTTPException(
-            status.HTTP_400_BAD_REQUEST, "Aynı partide aynı adda birden çok dosya olamaz."
+            status.HTTP_400_BAD_REQUEST, N_("Aynı partide aynı adda birden çok dosya olamaz.")
         )
     for name, file in zip(names, files, strict=True):
         kind = _supported_kind(name, file.content)

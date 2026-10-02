@@ -18,6 +18,12 @@ Blok biçimi `CONVENTIONS.md` §3'te tanımlıdır:
 
 ## Task log (newest-first)
 
+## 154 — 10.10-c Çeviri I: çalışanlar, profil, yükleme, yüklemeler, geçmiş, erişim logu, kullanıcılar, hesap — done — 2026-10-02
+- Yapıldı: 23 şablon, yönlendirici mesajları ve modül etiketleri işaretlendi; çekirdek durum/hata metinleri kaynak dilde kalıp `N_`/`app.i18n.Translatable` taşıyor, panel şablonda `translate()` ile çeviriyor (kurucular istek dışında da Türkçe döner); `en`/`sr` kataloğuna 526 metin (15 çoğul); olay mesajı ve gerekçeler `translate="no"`; kararlar §D95.
+- Doğrulama: ruff check/format, compileall, `import app.main`, `alembic upgrade head` (→0024), `python -m app.i18n check` exit 0; `pytest -q -m "not live" --cov=app` on ön plan grubunda 6476 geçti (+21), 5 atlandı, 0 kırmızı, kapsam %99; 9 geçici kural bozmasının 9'u kırmızı.
+- Varsayımlar: §D95 — §20.6 onay paragrafı (`confirm-text`) 10.10-e'ye kadar bu görevin kalıntı testinde taranmaz; JSON API `detail`'i Türkçe kalır; kuyruk adları en/sr'de klasör adıyla (Unknown/Unreadable/Unresolved); tm 152 testindeki `_('Yeni')` örneği `_('Yeni pencere')` oldu (artık çevrili).
+- Sonraki pencereye not: 10.10-d için kalıp: kurucu kaynak metni (`N_`/`Translatable`) döndürür, şablon `translate()` çağırır — kurucuda `gettext` çağırmayın (istek dışı testler `en` görür). Ortak kurucular (`_page_ranges`, `_event_place`, `resolution_text`, `QUEUE_LABELS`, `PROFILE_LABELS`) kuyruk/katalog şablonlarında henüz `translate`sız. Sırpça çeviri ana dili Sırpça olan birince gözden geçirilmeli. `icon.png` yine commit dışında.
+
 ## 153 — 10.10-b Kullanıcının dil tercihi: hesapta saklama, dil seçici, girişte otomatik dil — done — 2026-10-02
 - Yapıldı: Göç 0024 (`users.language`, boş = tercih yok, CHECK en/tr/sr), `PanelUser.language` (oturum sorgusunda), girişli istekte hesabın dili; `POST /language` (oturumsuz açık, geçersiz dil 422, güvenli `next`, 303, `documania_lang` çerezi 1 yıl HttpOnly/Lax/üretimde Secure, girişliyse `USER_LANGUAGE_CHANGED` via selector — dil aynıysa olay yok); girişte boş hesaba çerezdeki dil (via login), dolu hesapta çerez hesabın diliyle yenilenir; seçici `_language_selector.html` üst çubukta kullanıcı adının yanında ve giriş kutusunun altında (JavaScript'siz, `aria-current`); kararlar §D94.
 - Doğrulama: ruff check/format, compileall, `import app.main`, `alembic upgrade head` (→0024), `python -m app.i18n check` exit 0; `pytest -q -m "not live" --cov=app` sekiz paralel ön plan grubunda 6455 geçti (+59), 6 atlandı, 0 kırmızı, kapsam %99; 18 geçici kural bozmasının 18'i kırmızı.

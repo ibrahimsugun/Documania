@@ -1,30 +1,30 @@
 {# İki çalışanı birleştirme (10.5.9): arama sonucu parçası. Her satırdaki "Seç" iki kaydın özetine ve
    birinci onaya gider; profilin kendisi seçilemez, birleştirilmiş çalışan listede yoktur. #}
 {% if error %}
-<p class="error" role="alert">{{ error }}</p>
+<p class="error" role="alert">{{ translate(error) }}</p>
 {% elif listing is not defined or listing is none %}
-<p class="placeholder">Birleştirilecek kaydı bulmak için ad, isim yazımı, orijinal yazım veya belge numarası yazın.</p>
+<p class="placeholder">{% trans %}Birleştirilecek kaydı bulmak için ad, isim yazımı, orijinal yazım veya belge numarası yazın.{% endtrans %}</p>
 {% elif listing.total == 0 %}
-<p class="placeholder">“{{ listing.query }}” ile eşleşen çalışan yok.</p>
+<p class="placeholder">{{ _("“%(query)s” ile eşleşen çalışan yok.", query=listing.query) }}</p>
 {% else %}
-<p class="count">{{ listing.total }} çalışan bulundu{% if listing.total > listing.rows|length %}; ilk {{ listing.rows|length }} gösteriliyor, aramayı daraltın{% endif %}</p>
+<p class="count">{{ ngettext("%(num)d çalışan bulundu", "%(num)d çalışan bulundu", listing.total) }}{% if listing.total > listing.rows|length %}{{ ngettext("; ilk %(num)d gösteriliyor, aramayı daraltın", "; ilk %(num)d gösteriliyor, aramayı daraltın", listing.rows|length) }}{% endif %}</p>
 <table class="employees merge-candidates">
   <thead>
-    <tr><th>No</th><th>Ad</th><th>Orijinal yazım</th><th>Uyruk</th><th>Belge sayısı</th><th></th></tr>
+    <tr><th>{{ _("No") }}</th><th>{{ _("Ad") }}</th><th>{{ _("Orijinal yazım") }}</th><th>{{ _("Uyruk") }}</th><th>{{ _("Belge sayısı") }}</th><th></th></tr>
   </thead>
   <tbody>
     {% for row in listing.rows %}
     <tr>
       <td>{{ row.id }}</td>
-      <td><a href="/employees/{{ row.id }}" target="_blank" rel="noopener">{{ row.name }}</a>{% if row.status == "inactive" %} <span class="status-badge status-passive">(pasif)</span>{% endif %}</td>
+      <td><a href="/employees/{{ row.id }}" target="_blank" rel="noopener">{{ row.name }}</a>{% if row.status == "inactive" %} <span class="status-badge status-passive">{{ _("(pasif)") }}</span>{% endif %}</td>
       <td>{{ row.original_script_name or "—" }}</td>
       <td>{{ row.nationality or "—" }}</td>
       <td>{{ row.document_count }}</td>
       <td>
         {% if row.id == employee_id %}
-        <span class="owner">Bu kayıt</span>
+        <span class="owner">{{ _("Bu kayıt") }}</span>
         {% else %}
-        <a class="select-target" href="/employees/{{ employee_id }}/merge/confirm?other={{ row.id|urlencode }}">Seç</a>
+        <a class="select-target" href="/employees/{{ employee_id }}/merge/confirm?other={{ row.id|urlencode }}">{{ _("Seç") }}</a>
         {% endif %}
       </td>
     </tr>

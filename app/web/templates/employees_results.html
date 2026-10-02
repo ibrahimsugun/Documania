@@ -1,14 +1,15 @@
 {# Çalışan listesi parçası: sayı, tablo ve sayfalama. HTMX araması yalnız bunu yeniler. "Paket"
    sütunu açık paket ve eksik zorunlu kalem sayısıdır (14.3.1). Durum süzgeci (10.5.7) Aktif
-   değilse sayı satırı onu söyler; pasif çalışanın durumu kırmızımsı rozettir. #}
-{% set status_note = {"inactive": "yalnız pasif çalışanlar", "all": "tüm durumlar"}.get(listing.status) %}
+   değilse sayı satırı onu söyler; pasif çalışanın durumu kırmızımsı rozettir. Ad, orijinal yazım
+   ve uyruk veridir, çevrilmez. #}
+{% set status_note = {"inactive": _("yalnız pasif çalışanlar"), "all": _("tüm durumlar")}.get(listing.status) %}
 {% if listing.total == 0 %}
-<p class="placeholder">{% if listing.query %}“{{ listing.query }}” ile eşleşen{% if listing.packages %} ve eksik paketi olan{% endif %} çalışan yok.{% elif listing.packages %}Eksik paketi olan çalışan yok.{% elif listing.status == "inactive" %}Pasif çalışan yok.{% else %}Henüz çalışan yok.{% endif %}</p>
+<p class="placeholder">{% if listing.query %}{% if listing.packages %}{{ _("“%(query)s” ile eşleşen ve eksik paketi olan çalışan yok.", query=listing.query) }}{% else %}{{ _("“%(query)s” ile eşleşen çalışan yok.", query=listing.query) }}{% endif %}{% elif listing.packages %}{{ _("Eksik paketi olan çalışan yok.") }}{% elif listing.status == "inactive" %}{{ _("Pasif çalışan yok.") }}{% else %}{{ _("Henüz çalışan yok.") }}{% endif %}</p>
 {% else %}
-<p class="count">{{ listing.total }} çalışan{% if listing.query or listing.packages %} bulundu{% endif %}{% if listing.packages %} · yalnız eksik paketi olanlar{% endif %}{% if status_note %} · {{ status_note }}{% endif %}</p>
+<p class="count">{% if listing.query or listing.packages %}{{ ngettext("%(num)d çalışan bulundu", "%(num)d çalışan bulundu", listing.total) }}{% else %}{{ ngettext("%(num)d çalışan", "%(num)d çalışan", listing.total) }}{% endif %}{% if listing.packages %} · {{ _("yalnız eksik paketi olanlar") }}{% endif %}{% if status_note %} · {{ status_note }}{% endif %}</p>
 <table class="employees">
   <thead>
-    <tr><th>No</th><th>Ad</th><th>Orijinal yazım</th><th>Uyruk</th><th>Belge sayısı</th><th>Paket</th><th>Durum</th></tr>
+    <tr><th>{{ _("No") }}</th><th>{{ _("Ad") }}</th><th>{{ _("Orijinal yazım") }}</th><th>{{ _("Uyruk") }}</th><th>{{ _("Belge sayısı") }}</th><th>{{ _("Paket") }}</th><th>{{ _("Durum") }}</th></tr>
   </thead>
   <tbody>
     {% for row in listing.rows %}
@@ -18,17 +19,17 @@
       <td>{{ row.original_script_name or "—" }}</td>
       <td>{{ row.nationality or "—" }}</td>
       <td>{{ row.document_count }}</td>
-      <td>{{ row.packages }}</td>
-      <td>{% if row.status == "inactive" %}<span class="status-badge status-passive">{{ row.status_label }}</span>{% else %}{{ row.status_label }}{% endif %}</td>
+      <td>{{ translate(row.packages) }}</td>
+      <td>{% if row.status == "inactive" %}<span class="status-badge status-passive">{{ translate(row.status_label) }}</span>{% else %}{{ translate(row.status_label) }}{% endif %}</td>
     </tr>
     {% endfor %}
   </tbody>
 </table>
 {% if listing.page_count > 1 %}
-<nav class="pager" aria-label="Sayfalama">
-  {% if listing.previous_url %}<a href="{{ listing.previous_url }}" rel="prev">← Önceki</a>{% endif %}
-  <span>Sayfa {{ listing.page }} / {{ listing.page_count }}</span>
-  {% if listing.next_url %}<a href="{{ listing.next_url }}" rel="next">Sonraki →</a>{% endif %}
+<nav class="pager" aria-label="{{ _('Sayfalama') }}">
+  {% if listing.previous_url %}<a href="{{ listing.previous_url }}" rel="prev">{{ _("← Önceki") }}</a>{% endif %}
+  <span>{{ _("Sayfa %(page)s / %(count)s", page=listing.page, count=listing.page_count) }}</span>
+  {% if listing.next_url %}<a href="{{ listing.next_url }}" rel="next">{{ _("Sonraki →") }}</a>{% endif %}
 </nav>
 {% endif %}
 {% endif %}

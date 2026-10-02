@@ -43,6 +43,7 @@ from sqlalchemy.orm import Session
 
 from app.db.models import TelegramUser, User, UserRole
 from app.db.session import get_session
+from app.i18n import N_
 from app.storage import DataLayout
 from app.telegram.link import (
     LINK_CODE_TTL,
@@ -84,29 +85,29 @@ router = APIRouter(tags=["users"])
 
 USERS_PATH = "/users"
 ACCOUNT_PASSWORD_PATH = "/account/password"
-USER_NOT_FOUND = "Kullanıcı bulunamadı"
-TELEGRAM_NOT_FOUND = "Bu kullanıcıya bağlı böyle bir Telegram kimliği yok"
-UNKNOWN_ALLOWED = "İzin 'true' ya da 'false' olmalı."
-ADMIN_ONLY = "Bu sayfayı yalnız yönetici açabilir."
-PASSWORDS_DIFFER = "Yeni parola ile tekrarı eşleşmiyor."
-UNKNOWN_ROLE = "Bilinmeyen rol."
-UNKNOWN_STATUS = "Durum 'active' ya da 'inactive' olmalı."
-BOT_NEVER_RAN = (
+USER_NOT_FOUND = N_("Kullanıcı bulunamadı")
+TELEGRAM_NOT_FOUND = N_("Bu kullanıcıya bağlı böyle bir Telegram kimliği yok")
+UNKNOWN_ALLOWED = N_("İzin 'true' ya da 'false' olmalı.")
+ADMIN_ONLY = N_("Bu sayfayı yalnız yönetici açabilir.")
+PASSWORDS_DIFFER = N_("Yeni parola ile tekrarı eşleşmiyor.")
+UNKNOWN_ROLE = N_("Bilinmeyen rol.")
+UNKNOWN_STATUS = N_("Durum 'active' ya da 'inactive' olmalı.")
+BOT_NEVER_RAN = N_(
     "Telegram botu bu kurulumda hiç çalışmadı: .env'e TELEGRAM_BOT_TOKEN ekleyip botu başlatın "
     "(baslat.bat). Bot ilk açılışta adını kaydeder; sonra bağlantı üretilebilir."
 )
-ROLE_LABELS = {UserRole.ADMIN.value: "Yönetici"}
+ROLE_LABELS = {UserRole.ADMIN.value: N_("Yönetici")}
 STATUS_ACTIVE = "active"
 STATUS_INACTIVE = "inactive"
 NOTICES = {
-    "created": "Kullanıcı oluşturuldu.",
-    "password_reset": "Parola sıfırlandı; kullanıcının açık oturumları kapatıldı.",
-    "deactivated": "Kullanıcı pasife alındı; açık oturumları kapatıldı.",
-    "reactivated": "Kullanıcı yeniden etkinleştirildi.",
-    "own_password": "Parolanız değiştirildi; diğer oturumlarınız kapatıldı.",
-    "telegram_added": "Telegram kimliği eklendi ve izni açıldı.",
-    "telegram_allowed": "Telegram kimliğinin izni açıldı.",
-    "telegram_blocked": "Telegram kimliğinin izni kapatıldı; bot bu kimliğe yanıt vermeyecek.",
+    "created": N_("Kullanıcı oluşturuldu."),
+    "password_reset": N_("Parola sıfırlandı; kullanıcının açık oturumları kapatıldı."),
+    "deactivated": N_("Kullanıcı pasife alındı; açık oturumları kapatıldı."),
+    "reactivated": N_("Kullanıcı yeniden etkinleştirildi."),
+    "own_password": N_("Parolanız değiştirildi; diğer oturumlarınız kapatıldı."),
+    "telegram_added": N_("Telegram kimliği eklendi ve izni açıldı."),
+    "telegram_allowed": N_("Telegram kimliğinin izni açıldı."),
+    "telegram_blocked": N_("Telegram kimliğinin izni kapatıldı; bot bu kimliğe yanıt vermeyecek."),
 }
 ALLOWED_TRUE = "true"
 ALLOWED_FALSE = "false"
@@ -298,9 +299,7 @@ def create_user_endpoint(
             if isinstance(exc, UsernameTakenError)
             else status.HTTP_422_UNPROCESSABLE_CONTENT
         )
-        return _users_page(
-            request, user, session, layout, status_code=code, error=str(exc), form=form
-        )
+        return _users_page(request, user, session, layout, status_code=code, error=exc, form=form)
     session.commit()
     return _redirect("created")
 
@@ -332,7 +331,7 @@ def reset_password_endpoint(
             session,
             layout,
             status_code=code,
-            error=str(exc),
+            error=exc,
             error_user_id=user_id,
         )
     session.commit()
@@ -372,7 +371,7 @@ def set_status_endpoint(
             session,
             layout,
             status_code=status.HTTP_409_CONFLICT,
-            error=str(exc),
+            error=exc,
             error_user_id=user_id,
         )
     session.commit()
@@ -407,7 +406,7 @@ def add_telegram_endpoint(
             session,
             layout,
             status_code=code,
-            error=str(exc),
+            error=exc,
             error_user_id=user_id,
             telegram_value=telegram_id.strip(),
         )
@@ -456,7 +455,7 @@ def set_telegram_status_endpoint(
             session,
             layout,
             status_code=status.HTTP_409_CONFLICT,
-            error=str(exc),
+            error=exc,
             error_user_id=user_id,
         )
     session.commit()
@@ -497,7 +496,7 @@ def create_telegram_link_endpoint(
             session,
             layout,
             status_code=status.HTTP_409_CONFLICT,
-            error=str(exc),
+            error=exc,
             error_user_id=user_id,
         )
     session.commit()
@@ -573,6 +572,6 @@ def change_own_password_endpoint(
             if isinstance(exc, WrongPasswordError)
             else status.HTTP_422_UNPROCESSABLE_CONTENT
         )
-        return _account_page(request, user, status_code=code, error=str(exc))
+        return _account_page(request, user, status_code=code, error=exc)
     session.commit()
     return _redirect("own_password")

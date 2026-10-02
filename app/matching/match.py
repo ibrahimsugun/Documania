@@ -159,6 +159,7 @@ from app.db.models import (
     allocate_employee_number,
 )
 from app.events import EventType, record_event
+from app.i18n import N_, Translatable
 from app.matching.mrz import MRZ_FIELDS, MrzResolution, MrzStatus, apply_mrz_priority
 from app.matching.names import (
     EmptyNameError,
@@ -1188,7 +1189,8 @@ PROFILE_FIELDS = (
 PROFILE_TEXT_MAX_LENGTH = 255
 _REQUIRED_NAMES = (GIVEN_NAMES, SURNAME)
 # 05.2.2: ad, soyad ve diğer isimler yalnız Latin harfi taşır.
-LATIN_ONLY_PROBLEM = "Latin harfleriyle yazılmalı; Latin olmayan yazım Orijinal yazım alanına"
+# Form sorunları kaynak dildedir; panel gösterirken çevirir (10.10.3).
+LATIN_ONLY_PROBLEM = N_("Latin harfleriyle yazılmalı; Latin olmayan yazım Orijinal yazım alanına")
 LATIN_MISSING_PROBLEM = f"{LATIN_MISSING}; onayda Latin harfleriyle yazılmalı (05.2.2)"
 
 
@@ -1263,27 +1265,27 @@ def check_profile_fields(fields: ProfileFields, *, today: date | None = None) ->
         try:
             person_slug(fields.given_names, fields.surname)
         except SlugError:
-            errors[GIVEN_NAMES] = "ad-soyad klasör adına çevrilemiyor (K8)"
+            errors[GIVEN_NAMES] = N_("ad-soyad klasör adına çevrilemiyor (K8)")
     born = fields.date_of_birth
     if born is not None and born > (today or date.today()):
-        errors[DATE_OF_BIRTH] = "gelecekte olamaz"
+        errors[DATE_OF_BIRTH] = N_("gelecekte olamaz")
     nationality = fields.nationality
     if nationality is not None and not _NATIONALITY.fullmatch(nationality):
-        errors[NATIONALITY] = "ICAO uyruk kodu olmalı (1–3 büyük harf, ör. RUS, D)"
+        errors[NATIONALITY] = N_("ICAO uyruk kodu olmalı (1–3 büyük harf, ör. RUS, D)")
     return errors
 
 
 def _name_problem(value: str | None) -> str | None:
     if value is None or not value.strip():
-        return "boş olamaz"
+        return N_("boş olamaz")
     if len(value) > PROFILE_TEXT_MAX_LENGTH:
-        return f"en fazla {PROFILE_TEXT_MAX_LENGTH} karakter olabilir"
+        return Translatable(N_("en fazla {limit} karakter olabilir"), limit=PROFILE_TEXT_MAX_LENGTH)
     if any(unicodedata.category(char) == "Cc" for char in value):
-        return "denetim karakteri içeremez"
+        return N_("denetim karakteri içeremez")
     try:
         normalize_name(value)
     except EmptyNameError:
-        return "harf ya da rakam içermiyor"
+        return N_("harf ya da rakam içermiyor")
     return None
 
 

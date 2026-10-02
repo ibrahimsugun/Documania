@@ -1,15 +1,15 @@
 {% extends "base.html" %}
 {# Erişim logu (13.4.1): belgelerine bakılmış çalışanlar. Sayfa yalnız okur. #}
-{% block title %}Erişim logu{% endblock %}
+{% block title %}{{ _("Erişim logu") }}{% endblock %}
 {% block content %}
-<h1>Erişim logu</h1>
-<p class="placeholder">Belgelerine panelden bakılmış ya da bot üzerinden gönderilmiş çalışanlar. Kimin, ne zaman baktığı çalışana tıklayınca görünür. Zamanlar UTC'dir; kayıtlar silinmez.</p>
+<h1>{{ _("Erişim logu") }}</h1>
+<p class="placeholder">{% trans %}Belgelerine panelden bakılmış ya da bot üzerinden gönderilmiş çalışanlar. Kimin, ne zaman baktığı çalışana tıklayınca görünür. Zamanlar UTC'dir; kayıtlar silinmez.{% endtrans %}</p>
 
 {% if overview.rows %}
 <table class="access-log">
   <thead>
     <tr>
-      <th>Çalışan</th><th class="num">Erişim</th><th class="num">Bakan kullanıcı</th><th>Son erişim</th>
+      <th>{{ _("Çalışan") }}</th><th class="num">{{ _("Erişim") }}</th><th class="num">{{ _("Bakan kullanıcı") }}</th><th>{{ _("Son erişim") }}</th>
     </tr>
   </thead>
   <tbody>
@@ -23,12 +23,12 @@
     {% endfor %}
   </tbody>
 </table>
-<nav class="pager" aria-label="Sayfalama">
-  {% if overview.previous_url %}<a href="{{ overview.previous_url }}">← Önceki</a>{% endif %}
-  <span>Sayfa {{ overview.page }} / {{ overview.page_count }} · {{ overview.total }} çalışan</span>
-  {% if overview.next_url %}<a href="{{ overview.next_url }}">Sonraki →</a>{% endif %}
+<nav class="pager" aria-label="{{ _('Sayfalama') }}">
+  {% if overview.previous_url %}<a href="{{ overview.previous_url }}">{{ _("← Önceki") }}</a>{% endif %}
+  <span>{{ _("Sayfa %(page)s / %(count)s", page=overview.page, count=overview.page_count) }} · {{ ngettext("%(num)d çalışan", "%(num)d çalışan", overview.total) }}</span>
+  {% if overview.next_url %}<a href="{{ overview.next_url }}">{{ _("Sonraki →") }}</a>{% endif %}
 </nav>
 {% else %}
-<p class="placeholder">Henüz hiçbir belgeye bakılmadı.</p>
+<p class="placeholder">{{ _("Henüz hiçbir belgeye bakılmadı.") }}</p>
 {% endif %}
 {% endblock %}

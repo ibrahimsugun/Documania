@@ -76,6 +76,7 @@ from app.db.models import (
     UploadStatus,
 )
 from app.db.session import get_session
+from app.i18n import N_, Translatable
 from app.pipeline.analyze import PageAnalysisStatus
 from app.pipeline.dismiss import (
     UploadNotDismissableError,
@@ -123,21 +124,21 @@ CurrentUser = Annotated[PanelUser, Depends(require_panel_user)]
 
 # Yenileme aralığı `upload_result.html`'dedir (`hx-trigger="every 2s"`).
 PIPELINE_STAGES: tuple[tuple[UploadStatus, str], ...] = (
-    (UploadStatus.RECEIVED, "Alındı"),
-    (UploadStatus.RENDERING, "Sayfalar hazırlanıyor"),
-    (UploadStatus.ANALYZING, "Analiz ediliyor"),
-    (UploadStatus.PLANNING, "Plan hazırlanıyor"),
-    (UploadStatus.EXECUTING, "Plan uygulanıyor"),
+    (UploadStatus.RECEIVED, N_("Alındı")),
+    (UploadStatus.RENDERING, N_("Sayfalar hazırlanıyor")),
+    (UploadStatus.ANALYZING, N_("Analiz ediliyor")),
+    (UploadStatus.PLANNING, N_("Plan hazırlanıyor")),
+    (UploadStatus.EXECUTING, N_("Plan uygulanıyor")),
 )
 STATUS_LABELS: dict[UploadStatus, str] = {
     **dict(PIPELINE_STAGES),
-    UploadStatus.DONE: "Tamamlandı",
-    UploadStatus.PARTIAL: "Kısmen tamamlandı — bazı sayfalar analiz edilemedi",
-    UploadStatus.FAILED: "İşlenemedi",
+    UploadStatus.DONE: N_("Tamamlandı"),
+    UploadStatus.PARTIAL: N_("Kısmen tamamlandı — bazı sayfalar analiz edilemedi"),
+    UploadStatus.FAILED: N_("İşlenemedi"),
 }
 FINAL_STATUSES = frozenset({UploadStatus.DONE, UploadStatus.PARTIAL, UploadStatus.FAILED})
 
-NO_FILE_MESSAGE = "Yüklenecek dosya seçilmedi."
+NO_FILE_MESSAGE = N_("Yüklenecek dosya seçilmedi.")
 
 
 @dataclass(frozen=True, slots=True)
@@ -253,7 +254,7 @@ async def submit_upload(
                 context_employee_id=(employee_id or None) if isinstance(employee_id, str) else None,
             )
         except HTTPException as exc:
-            return _result(request, exc.status_code, error=str(exc.detail))
+            return _result(request, exc.status_code, error=exc.detail)
 
     view = build_progress_view(session, created.upload_id)
     # İş kuyrukta atomik olarak hazır; bu HTTP oturumu SQLite kilidini worker'a bırakır.
@@ -276,67 +277,71 @@ def upload_progress(
     try:
         view = build_progress_view(session, upload_id)
     except HTTPException as exc:
-        return _result(request, exc.status_code, error=str(exc.detail))
+        return _result(request, exc.status_code, error=exc.detail)
     return _result(request, progress=view, poll=not view.final)
 
 
 # --- 10.3: yükleme detay sayfası ---------------------------------------------------------------
 
 ROUTE_LABELS: dict[str, str] = {
-    Route.READY.value: "Hazır",
-    Route.UNKNOWN.value: "Tür bilinmiyor kuyruğu",
-    Route.UNREADABLE.value: "Okunamadı kuyruğu",
-    Route.UNRESOLVED.value: "Sahibi belirsiz kuyruğu",
-    Route.SKIP.value: "Atlandı",
+    Route.READY.value: N_("Hazır"),
+    Route.UNKNOWN.value: N_("Tür bilinmiyor kuyruğu"),
+    Route.UNREADABLE.value: N_("Okunamadı kuyruğu"),
+    Route.UNRESOLVED.value: N_("Sahibi belirsiz kuyruğu"),
+    Route.SKIP.value: N_("Atlandı"),
 }
-# Ekranda görünen ad Türkçedir; enum değeri, URL ve diskteki kuyruk klasörü adı (PRD 08.1.1)
-# İngilizce kalır. Klasörle eşleştirmek için İngilizce karşılık `QUEUE_FOLDERS`tadır.
+# Ekranda görünen ad Türkçedir (İngilizce ve Sırpça panelde klasör adıyla: Unknown, Unreadable,
+# Unresolved — §D92 f); enum değeri, URL ve diskteki kuyruk klasörü adı (PRD 08.1.1) İngilizce
+# kalır. Klasörle eşleştirmek için İngilizce karşılık `QUEUE_FOLDERS`tadır.
 QUEUE_LABELS = {
-    "unknown": "Tür bilinmiyor",
-    "unreadable": "Okunamadı",
-    "unresolved": "Sahibi belirsiz",
+    "unknown": N_("Tür bilinmiyor"),
+    "unreadable": N_("Okunamadı"),
+    "unresolved": N_("Sahibi belirsiz"),
 }
 QUEUE_FOLDERS = {"unknown": "Unknown", "unreadable": "Unreadable", "unresolved": "Unresolved"}
 EMPLOYEE_ACTION_LABELS = {
-    "match": "Eşleşti",
-    "create": "Yeni çalışan",
-    "pending": "Onay bekleyen profil",
-    "none": "Çalışan yok",
+    "match": N_("Eşleşti"),
+    "create": N_("Yeni çalışan"),
+    "pending": N_("Onay bekleyen profil"),
+    "none": N_("Çalışan yok"),
 }
-MATCHED_BY_LABELS = {"document_number": "belge numarası", "name_dob": "ad-soyad + doğum tarihi"}
+MATCHED_BY_LABELS = {
+    "document_number": N_("belge numarası"),
+    "name_dob": N_("ad-soyad + doğum tarihi"),
+}
 DOCUMENT_STATUS_LABELS = {
-    DocumentStatus.ACTIVE.value: "Etkin",
-    DocumentStatus.SUPERSEDED.value: "Eski sürüm",
-    DocumentStatus.ARCHIVED.value: "Arşivlendi",
+    DocumentStatus.ACTIVE.value: N_("Etkin"),
+    DocumentStatus.SUPERSEDED.value: N_("Eski sürüm"),
+    DocumentStatus.ARCHIVED.value: N_("Arşivlendi"),
 }
 PAGE_STATUS_LABELS = {
-    PageAnalysisStatus.PENDING.value: "Bekliyor",
-    PageAnalysisStatus.DONE.value: "Analiz edildi",
-    PageAnalysisStatus.SKIPPED.value: "Atlandı",
-    PageAnalysisStatus.FAILED.value: "Analiz edilemedi",
+    PageAnalysisStatus.PENDING.value: N_("Bekliyor"),
+    PageAnalysisStatus.DONE.value: N_("Analiz edildi"),
+    PageAnalysisStatus.SKIPPED.value: N_("Atlandı"),
+    PageAnalysisStatus.FAILED.value: N_("Analiz edilemedi"),
 }
 
 # Onay metinleri (10.3.2). §20.6 tablosu yalnız K16'nın beş manuel işlemini kapsar; yeniden analiz
 # onları bu kalıpla tamamlar: birinci cümle ne yapılacağını, ikinci geri dönüşü olmayan sonucu
 # söyler (PLAN.md §D23).
-REANALYZE_FIRST_CONFIRMATION = "Bu partiyi yeniden analiz etmek üzeresiniz. Emin misiniz?"
-REANALYZE_SECOND_CONFIRMATION = (
+REANALYZE_FIRST_CONFIRMATION = N_("Bu partiyi yeniden analiz etmek üzeresiniz. Emin misiniz?")
+REANALYZE_SECOND_CONFIRMATION = N_(
     "Bu işlem partiye yeni bir plan sürümü açacak; önceki sürümün çıktıları "
     '"eski sürüm" olarak işaretlenecektir. Son kararınız mı?'
 )
 
-UPLOAD_NOT_FOUND = "Parti bulunamadı."
+UPLOAD_NOT_FOUND = N_("Parti bulunamadı.")
 # 10.3.4 — yoksayılan partinin detay bildirimi (PLAN.md §C80) ve işlem reddi.
-DISMISSED_NOTICE = "Bu tarama {when} tarihinde {user} tarafından yoksayıldı."
-DISMISS_BUSY_MESSAGE = "Parti hâlâ işleniyor; süren tarama yoksayılamaz."
-DISMISSED_RESOLUTION = "tarama yoksayıldı"
+DISMISSED_NOTICE = N_("Bu tarama {when} tarihinde {user} tarafından yoksayıldı.")
+DISMISS_BUSY_MESSAGE = N_("Parti hâlâ işleniyor; süren tarama yoksayılamaz.")
+DISMISSED_RESOLUTION = N_("tarama yoksayıldı")
 # 10.3.5 — geri alınacak yoksayma yok.
-NOT_DISMISSED_MESSAGE = "Bu tarama yoksayılmamış; geri alınacak bir yoksayma yok."
+NOT_DISMISSED_MESSAGE = N_("Bu tarama yoksayılmamış; geri alınacak bir yoksayma yok.")
 # 10.7.4 — gerekçeyle kapatılan kuyruk öğesinin çözümü.
-CLOSED_RESOLUTION = "kapatıldı"
-PAGE_IMAGE_NOT_FOUND = "Sayfa görüntüsü bulunamadı."
-BUSY_MESSAGE = "Parti hâlâ işleniyor; işlem bittikten sonra yeniden çalıştırılabilir."
-NO_PLAN_MESSAGE = (
+CLOSED_RESOLUTION = N_("kapatıldı")
+PAGE_IMAGE_NOT_FOUND = N_("Sayfa görüntüsü bulunamadı.")
+BUSY_MESSAGE = N_("Parti hâlâ işleniyor; işlem bittikten sonra yeniden çalıştırılabilir.")
+NO_PLAN_MESSAGE = N_(
     "Partinin planı yok; yeniden çalıştırılacak ya da yeniden analiz edilecek bir sürüm bulunmuyor."
 )
 
@@ -451,11 +456,11 @@ def _format_ts(moment: datetime) -> str:
     return f"{moment:%Y-%m-%d %H:%M:%S} UTC"
 
 
-def _page_ranges(pages: tuple[int, ...] | list[int]) -> str:
+def _page_ranges(pages: tuple[int, ...] | list[int]) -> Translatable:
     """0 tabanlı sayfa sıralarını insanın okuyacağı 1 tabanlı aralığa çevirir: `[0, 1, 2, 4]` →
     `s. 1–3, 5`; sayfa listesi boşsa dosya bütün olarak alınmıştır."""
     if not pages:
-        return "tüm dosya"
+        return Translatable(N_("tüm dosya"))
     runs: list[list[int]] = []
     for page in sorted(pages):
         if runs and page == runs[-1][-1] + 1:
@@ -463,13 +468,17 @@ def _page_ranges(pages: tuple[int, ...] | list[int]) -> str:
         else:
             runs.append([page])
     parts = [f"{run[0] + 1}" if len(run) == 1 else f"{run[0] + 1}–{run[-1] + 1}" for run in runs]
-    return "s. " + ", ".join(parts)
+    return Translatable(N_("s. {pages}"), pages=", ".join(parts))
 
 
-def _source_text(files: dict[int, UploadFile], file_id: int, pages: list[int]) -> str:
+def _source_text(files: dict[int, UploadFile], file_id: int, pages: list[int]) -> Translatable:
     upload_file = files.get(file_id)
-    name = upload_file.original_name if upload_file is not None else f"dosya {file_id}"
-    return f"{name} · {_page_ranges(pages)}"
+    name = (
+        upload_file.original_name
+        if upload_file is not None
+        else Translatable(N_("dosya {id}"), id=file_id)
+    )
+    return Translatable("{name} · {pages}", name=name, pages=_page_ranges(pages))
 
 
 def _employee_label(employees: dict[str, Employee], employee_id: str) -> str:
@@ -479,13 +488,18 @@ def _employee_label(employees: dict[str, Employee], employee_id: str) -> str:
     return f"{employee_id} — {employee.given_names} {employee.surname}"
 
 
-def _plan_employee_text(employee: PlanEmployee, employees: dict[str, Employee]) -> str:
-    text = EMPLOYEE_ACTION_LABELS[employee.action.value]
+def _plan_employee_text(employee: PlanEmployee, employees: dict[str, Employee]) -> Translatable:
+    template = "{action}"
+    values: dict[str, object] = {
+        "action": Translatable(EMPLOYEE_ACTION_LABELS[employee.action.value])
+    }
     if employee.employee_id is not None:
-        text += f" · {_employee_label(employees, employee.employee_id)}"
+        template += " · {employee}"
+        values["employee"] = _employee_label(employees, employee.employee_id)
     if employee.matched_by is not None:
-        text += f" ({MATCHED_BY_LABELS[employee.matched_by.value]})"
-    return text
+        template += " ({matched_by})"
+        values["matched_by"] = Translatable(MATCHED_BY_LABELS[employee.matched_by.value])
+    return Translatable(template, **values)
 
 
 def _plan_view(
@@ -535,14 +549,19 @@ def _page_items(document: PlanDocument | None) -> dict[tuple[int, int], str]:
     return owners
 
 
-def _event_place(event: Event, files: dict[int, UploadFile]) -> str | None:
+def _event_place(event: Event, files: dict[int, UploadFile]) -> str | Translatable | None:
     if event.file_id is None:
         return None
     upload_file = files.get(event.file_id)
-    name = upload_file.original_name if upload_file is not None else f"dosya {event.file_id}"
+    name = (
+        upload_file.original_name
+        if upload_file is not None
+        else Translatable(N_("dosya {id}"), id=event.file_id)
+    )
     if event.page_index is None:
         return name
-    return f"{name} · s. {event.page_index + 1}"
+    page = Translatable(N_("s. {pages}"), pages=event.page_index + 1)
+    return Translatable("{name} · {page}", name=name, page=page)
 
 
 def _page_view(page: Page, item_id: str | None) -> PageView:
@@ -696,26 +715,33 @@ def dismissed_notice(upload: Upload) -> str | None:
     partide `None`."""
     if upload.dismissed_at is None:
         return None
-    return DISMISSED_NOTICE.format(
-        when=_format_ts(upload.dismissed_at), user=upload.dismissed_by or "—"
+    return Translatable(
+        DISMISSED_NOTICE, when=_format_ts(upload.dismissed_at), user=upload.dismissed_by or "—"
     )
 
 
-def resolution_text(queue_item: QueueItem) -> str | None:
+def resolution_text(queue_item: QueueItem) -> Translatable | None:
     """Kuyruk öğesinin çözümü: an ve kullanıcı; partisi yoksayılınca kapanan öğede nedeni de
     (10.3.4), gerekçeyle kapatılan öğede gerekçenin Türkçesi ve notu (10.7.4). Çözülmemiş öğede
     `None`."""
     if queue_item.resolved_at is None:
         return None
-    text = f"{_format_ts(queue_item.resolved_at)} · {queue_item.resolved_by}"
+    template = "{when} · {user}"
+    values: dict[str, object] = {
+        "when": _format_ts(queue_item.resolved_at),
+        "user": queue_item.resolved_by,
+    }
     if queue_item.resolution == QueueResolution.DISMISSED.value:
-        text += f" · {DISMISSED_RESOLUTION}"
+        template += " · {resolution}"
+        values["resolution"] = Translatable(DISMISSED_RESOLUTION)
     elif queue_item.resolution == QueueResolution.CLOSED.value:
-        label = close_reason_label(queue_item.resolution_reason) or "—"
-        text += f" · {CLOSED_RESOLUTION}: {label}"
+        template += " · {resolution}: {reason}"
+        values["resolution"] = Translatable(CLOSED_RESOLUTION)
+        values["reason"] = close_reason_label(queue_item.resolution_reason) or "—"
         if queue_item.resolution_note:
-            text += f" — {queue_item.resolution_note}"
-    return text
+            template += " — {note}"
+            values["note"] = queue_item.resolution_note
+    return Translatable(template, **values)
 
 
 # --- 10.3.2: iki aşamalı onay belirteci --------------------------------------------------------
@@ -844,10 +870,10 @@ def rerun_upload(
         run = rerun_plan(session, layout, upload, executor=executor)
     except HTTPException as exc:
         session.rollback()
-        return _action_result(request, exc.status_code, error=str(exc.detail))
+        return _action_result(request, exc.status_code, error=exc.detail)
     except (NoPlanError, PlanIntegrityError, *PLAN_EXECUTION_ERRORS) as exc:
         session.rollback()
-        return _action_result(request, status.HTTP_409_CONFLICT, error=str(exc))
+        return _action_result(request, status.HTTP_409_CONFLICT, error=exc)
     session.commit()
     return _action_result(
         request, status.HTTP_200_OK, upload_id=upload_id, done="rerun", version=run.plan.version
@@ -870,10 +896,10 @@ def prepare_reanalysis(
         )
     except HTTPException as exc:
         session.rollback()
-        return _action_result(request, exc.status_code, error=str(exc.detail))
+        return _action_result(request, exc.status_code, error=exc.detail)
     except ConfirmationRefusedError as exc:
         session.rollback()
-        return _action_result(request, status.HTTP_400_BAD_REQUEST, error=str(exc))
+        return _action_result(request, status.HTTP_400_BAD_REQUEST, error=exc)
     session.commit()
     return _action_result(
         request,
@@ -928,16 +954,16 @@ def reanalyze_upload_page(
         )
     except HTTPException as exc:
         session.rollback()
-        return _action_result(request, exc.status_code, error=str(exc.detail))
+        return _action_result(request, exc.status_code, error=exc.detail)
     except ConfirmationRefusedError:
         session.rollback()
         return _action_result(request, status.HTTP_400_BAD_REQUEST, error=CONFIRMATION_REFUSED)
     except ReanalysisProviderError as exc:
         session.rollback()
-        return _action_result(request, status.HTTP_503_SERVICE_UNAVAILABLE, error=str(exc))
+        return _action_result(request, status.HTTP_503_SERVICE_UNAVAILABLE, error=exc)
     except (NoPlanError, *PLAN_EXECUTION_ERRORS) as exc:
         session.rollback()
-        return _action_result(request, status.HTTP_409_CONFLICT, error=str(exc))
+        return _action_result(request, status.HTTP_409_CONFLICT, error=exc)
     session.commit()
     return _action_result(
         request,
@@ -991,10 +1017,10 @@ def prepare_dismissal(
         )
     except HTTPException as exc:
         session.rollback()
-        return _action_result(request, exc.status_code, error=str(exc.detail))
+        return _action_result(request, exc.status_code, error=exc.detail)
     except ConfirmationRefusedError as exc:
         session.rollback()
-        return _action_result(request, status.HTTP_400_BAD_REQUEST, error=str(exc))
+        return _action_result(request, status.HTTP_400_BAD_REQUEST, error=exc)
     session.commit()
     return _action_result(
         request,
@@ -1042,7 +1068,7 @@ def dismiss_upload_page(
         dismissal = dismiss_upload(session, upload, actor=user.username)
     except HTTPException as exc:
         session.rollback()
-        return _action_result(request, exc.status_code, error=str(exc.detail))
+        return _action_result(request, exc.status_code, error=exc.detail)
     except ConfirmationRefusedError:
         session.rollback()
         return _action_result(request, status.HTTP_400_BAD_REQUEST, error=CONFIRMATION_REFUSED)

@@ -12,6 +12,8 @@ import enum
 import zipfile
 from io import BytesIO
 
+from app.i18n import N_, Translatable
+
 
 class FileKind(enum.StrEnum):
     """İçerikten tespit edilen dosya türü; değerler K8/naming ile aynı küçük harf biçimidir."""
@@ -30,7 +32,12 @@ class UnsupportedFileTypeError(ValueError):
 
     def __init__(self) -> None:
         super().__init__(
-            "Desteklenmeyen dosya türü. Yalnız PDF, JPEG, PNG, DOC, DOCX, XLS, XLSX kabul edilir."
+            Translatable(
+                N_(
+                    "Desteklenmeyen dosya türü. "
+                    "Yalnız PDF, JPEG, PNG, DOC, DOCX, XLS, XLSX kabul edilir."
+                )
+            )
         )
 
 

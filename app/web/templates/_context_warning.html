@@ -5,16 +5,16 @@
 {% if warning %}
 <section class="context-warning" id="context-warning" role="alert" aria-labelledby="context-warning-title">
   <h2 id="context-warning-title">{{ warning.title }}</h2>
-  <p>Bu belgelerde okunan kişi {{ warning.profile_name }} ({{ warning.employee_id }}) değil görünüyor: profile de başka bir çalışana da otomatik eklenmedi, Unresolved kuyruğunda bekliyor. Belgenin kime ait olduğuna kuyruktan karar verin.</p>
+  <p>{{ _("Bu belgelerde okunan kişi %(name)s (%(id)s) değil görünüyor: profile de başka bir çalışana da otomatik eklenmedi, Unresolved kuyruğunda bekliyor. Belgenin kime ait olduğuna kuyruktan karar verin.", name=warning.profile_name, id=warning.employee_id) }}</p>
   <table class="context-warning-rows">
-    <thead><tr><th>Belge türü</th><th>Belgede okunan ad</th><th>Profil adı</th><th>Kuyruk öğesi</th></tr></thead>
+    <thead><tr><th>{{ _("Belge türü") }}</th><th>{{ _("Belgede okunan ad") }}</th><th>{{ _("Profil adı") }}</th><th>{{ _("Kuyruk öğesi") }}</th></tr></thead>
     <tbody>
       {% for row in warning.rows %}
       <tr>
         <td>{{ row.type_name }}</td>
         <td>{{ row.document_name }}</td>
         <td>{{ row.profile_name }}</td>
-        <td>{% if row.queue_item_id %}<a href="/queues/{{ row.queue_item_id }}">Öğe {{ row.queue_item_id }}</a>{% if row.resolved %} · çözüldü{% endif %}{% else %}henüz kuyruğa alınmadı{% endif %}</td>
+        <td>{% if row.queue_item_id %}<a href="/queues/{{ row.queue_item_id }}">{{ _("Öğe %(item)s", item=row.queue_item_id) }}</a>{% if row.resolved %} · {{ _("çözüldü") }}{% endif %}{% else %}{{ _("henüz kuyruğa alınmadı") }}{% endif %}</td>
       </tr>
       {% endfor %}
     </tbody>

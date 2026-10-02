@@ -3,31 +3,31 @@
    Bağlam çalışanına ait görünmeyen belge varsa kişi denetiminin uyarısı çıkar (10.5.5). #}
 {% from "_context_warning.html" import context_warning %}
 {% if error %}
-<p class="error" role="alert">{{ error }}</p>
+<p class="error" role="alert">{{ translate(error) }}</p>
 {% else %}
 <div class="progress" id="upload-progress"
      {% if poll %}hx-get="/upload/{{ progress.upload_id }}/progress" hx-trigger="every 2s" hx-swap="outerHTML"{% endif %}>
-  <h2>Parti {{ progress.upload_id }}</h2>
-  <p class="status status-{{ progress.status }}" role="status">{{ progress.label }}</p>
-  <p class="detail-link"><a href="/uploads/{{ progress.upload_id }}">Parti ayrıntısını aç</a></p>
+  <h2>{{ _("Parti %(id)s", id=progress.upload_id) }}</h2>
+  <p class="status status-{{ progress.status }}" role="status">{{ translate(progress.label) }}</p>
+  <p class="detail-link"><a href="/uploads/{{ progress.upload_id }}">{{ _("Parti ayrıntısını aç") }}</a></p>
   {{ context_warning(progress.warning) }}
-  {% if notice %}<p class="notice" role="alert">{{ notice }}</p>{% endif %}
+  {% if notice %}<p class="notice" role="alert">{{ translate(notice) }}</p>{% endif %}
   <ol class="steps">
     {% for step in progress.steps %}
-    <li class="step step-{{ step.state }}"{% if step.state == "current" %} aria-current="step"{% endif %}>{{ step.label }}</li>
+    <li class="step step-{{ step.state }}"{% if step.state == "current" %} aria-current="step"{% endif %}>{{ translate(step.label) }}</li>
     {% endfor %}
   </ol>
   {% if not progress.final %}
-  <p class="counts">Sayfaları hazırlanan dosya: {{ progress.rendered_files }} / {{ progress.total_files }}</p>
+  <p class="counts">{{ _("Sayfaları hazırlanan dosya: %(done)s / %(total)s", done=progress.rendered_files, total=progress.total_files) }}</p>
   {% endif %}
   <table class="files">
-    <thead><tr><th>Dosya</th><th>Sayfa</th><th></th></tr></thead>
+    <thead><tr><th>{{ _("Dosya") }}</th><th>{{ _("Sayfa") }}</th><th></th></tr></thead>
     <tbody>
       {% for file in progress.files %}
       <tr>
         <td>{{ file.original_name }}</td>
         <td>{{ file.page_count if file.page_count is not none else "—" }}</td>
-        <td>{% if file.is_duplicate %}<span class="badge">Daha önce yüklenmiş</span>{% endif %}</td>
+        <td>{% if file.is_duplicate %}<span class="badge">{{ _("Daha önce yüklenmiş") }}</span>{% endif %}</td>
       </tr>
       {% endfor %}
     </tbody>

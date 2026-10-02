@@ -62,16 +62,18 @@ from app.groups.service import (
     get_group,
     item_matches,
 )
+from app.i18n import N_, Translatable
 
-COMPLETED_LABEL = "Tamamlandı — başvuru başlatılabilir"
-OPEN_LABEL = "Açık — {met}/{total} zorunlu kalem"
-CANCELLED_LABEL = "İptal edildi"
-CANCEL_NOTE_REQUIRED = "İptal nedeni boş olamaz."
-GROUP_ARCHIVED = "Arşivdeki gruba yeni paket tanımlanamaz."
-ALREADY_CANCELLED = "Paket zaten iptal edilmiş."
-NOT_CANCELLED = "Yalnız iptal edilmiş paket yeniden açılır."
+# Kaynak dildedir (`profil.md` çevrilmez); panel gösterirken `translate` ile çevirir.
+COMPLETED_LABEL = N_("Tamamlandı — başvuru başlatılabilir")
+OPEN_LABEL = N_("Açık — {met}/{total} zorunlu kalem")
+CANCELLED_LABEL = N_("İptal edildi")
+CANCEL_NOTE_REQUIRED = N_("İptal nedeni boş olamaz.")
+GROUP_ARCHIVED = N_("Arşivdeki gruba yeni paket tanımlanamaz.")
+ALREADY_CANCELLED = N_("Paket zaten iptal edilmiş.")
+NOT_CANCELLED = N_("Yalnız iptal edilmiş paket yeniden açılır.")
 # 10.5.9: birleştirilmiş kaydın paketleri kalan kayda taşınmıştır; ona yeni paket tanımlanmaz.
-EMPLOYEE_MERGED = "Bu çalışan başka bir kayıtla birleştirildi; paketi kalan kayda tanımlayın."
+EMPLOYEE_MERGED = N_("Bu çalışan başka bir kayıtla birleştirildi; paketi kalan kayda tanımlayın.")
 
 # Yenilemenin değerlendirdiği durumlar: iptal edilen paket İK yeniden açana dek hesaba girmez.
 _LIVE = (PackageStatus.OPEN.value, PackageStatus.COMPLETED.value)
@@ -187,7 +189,7 @@ class PackageView:
             return CANCELLED_LABEL
         if self.state is PackageStatus.COMPLETED:
             return COMPLETED_LABEL
-        return OPEN_LABEL.format(met=self.required_met, total=self.required_total)
+        return Translatable(OPEN_LABEL, met=self.required_met, total=self.required_total)
 
 
 @dataclass(frozen=True, slots=True)

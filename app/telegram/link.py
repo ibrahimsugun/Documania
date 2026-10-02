@@ -51,6 +51,7 @@ from sqlalchemy.orm import Session
 
 from app.db.models import TelegramLinkCode, TelegramUser, User, utcnow
 from app.events import EventType, record_event
+from app.i18n import N_
 from app.storage import DataLayout, replace_file
 from app.telegram.whitelist import TELEGRAM_ID_MAX, TelegramIdTakenError, add_telegram_id
 
@@ -63,7 +64,9 @@ LINK_VIA = "link"
 LINK_ATTEMPT_LIMIT = 5
 LINK_SILENCE = timedelta(hours=1)
 
-INACTIVE_TARGET = "Pasif kullanıcıya Telegram bağlantısı üretilmez; önce kullanıcıyı etkinleştirin."
+INACTIVE_TARGET = N_(
+    "Pasif kullanıcıya Telegram bağlantısı üretilmez; önce kullanıcıyı etkinleştirin."
+)
 
 TELEGRAM_LINK_BASE = "https://t.me/"
 

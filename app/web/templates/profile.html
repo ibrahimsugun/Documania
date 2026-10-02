@@ -12,68 +12,69 @@
    birleştirilmiş kayıtta üstte kalan kayda bağlantılı bildirim durur ve işlem formları yoktur.
    Sayfa belge içeriğini değiştiren yol taşımaz. #}
 {% from "_context_warning.html" import context_warning %}
-{% block title %}{{ profile.name if profile else "Çalışan bulunamadı" }}{% endblock %}
+{% block title %}{{ profile.name if profile else _("Çalışan bulunamadı") }}{% endblock %}
 {% block content %}
-<p class="back"><a href="/employees">← Çalışanlar</a></p>
+<p class="back"><a href="/employees">{{ _("← Çalışanlar") }}</a></p>
 {% if error %}
-<h1>Çalışan</h1>
-<p class="error" role="alert">{{ error }}</p>
+<h1>{{ _("Çalışan") }}</h1>
+<p class="error" role="alert">{{ translate(error) }}</p>
 {% else %}
 <h1>{{ profile.name }}</h1>
-<p class="profile-meta">{{ profile.id }} · {% if profile.inactive %}<span class="status-badge status-passive">{{ profile.status_label }}</span>{% else %}{{ profile.status_label }}{% endif %} · <a href="/access-log/employees/{{ profile.id }}">Erişim logu</a>{% if profile.editable %} · <a href="/employees/{{ profile.id }}/fields" class="edit-profile">Profili düzenle</a>{% endif %}{% if profile.status_action == "inactive" %} · <a href="/employees/{{ profile.id }}/status/confirm?to=inactive" class="status-action">Pasife al</a>{% endif %}{% if not profile.merged %} · <a href="/employees/{{ profile.id }}/merge/employees" class="merge-action">Başka kayıtla birleştir</a>{% endif %}</p>
-{% if profile_notice %}<p class="notice notice-success" role="status">{{ profile_notice }}</p>{% endif %}
+<p class="profile-meta">{{ profile.id }} · {% if profile.inactive %}<span class="status-badge status-passive">{{ translate(profile.status_label) }}</span>{% else %}{{ translate(profile.status_label) }}{% endif %} · <a href="/access-log/employees/{{ profile.id }}">{{ _("Erişim logu") }}</a>{% if profile.editable %} · <a href="/employees/{{ profile.id }}/fields" class="edit-profile">{{ _("Profili düzenle") }}</a>{% endif %}{% if profile.status_action == "inactive" %} · <a href="/employees/{{ profile.id }}/status/confirm?to=inactive" class="status-action">{{ _("Pasife al") }}</a>{% endif %}{% if not profile.merged %} · <a href="/employees/{{ profile.id }}/merge/employees" class="merge-action">{{ _("Başka kayıtla birleştir") }}</a>{% endif %}</p>
+{% if profile_notice %}<p class="notice notice-success" role="status">{{ translate(profile_notice) }}</p>{% endif %}
 {% if profile.merged %}
 {# 10.5.9: birleştirilmiş kayıt; belgeleri, alt kayıtları ve paketleri kalan kayıtta. #}
 <div class="notice merged-notice" role="status">
-  <p><span class="status-badge status-passive">Birleşti</span> Bu kayıt {% if profile.merged_into %}<a href="/employees/{{ profile.merged_into.id }}">{% if profile.merged_into.name %}{{ profile.merged_into.name }} ({{ profile.merged_into.id }}){% else %}{{ profile.merged_into.id }}{% endif %}</a>{% else %}başka bir kayıt{% endif %} kaydıyla birleştirildi. Belgeleri, belge numaraları, isim yazımları, iletişim bilgileri ve belge paketleri kalan kayıtta; bu kayıt kapalıdır ve geri açılmaz.</p>
+  {% if profile.merged_into %}{% set kept_link %}<a href="/employees/{{ profile.merged_into.id }}">{% if profile.merged_into.name %}{{ profile.merged_into.name }} ({{ profile.merged_into.id }}){% else %}{{ profile.merged_into.id }}{% endif %}</a>{% endset %}{% else %}{% set kept_link = _("başka bir kayıt") %}{% endif %}
+  <p><span class="status-badge status-passive">{{ _("Birleşti") }}</span> {{ _("Bu kayıt %(kept)s kaydıyla birleştirildi.", kept=kept_link) }} {% trans %}Belgeleri, belge numaraları, isim yazımları, iletişim bilgileri ve belge paketleri kalan kayıtta; bu kayıt kapalıdır ve geri açılmaz.{% endtrans %}</p>
 </div>
 {% endif %}
 {% if profile.inactive %}
 {# 10.5.7: pasif çalışanın bildirimi; kimin, ne zaman ve (varsa) hangi notla pasife aldığı. #}
 <div class="notice inactive-notice" role="status">
-  <p><span class="status-badge status-passive">Pasif çalışan</span> Bu çalışana gelen yeni belgeler otomatik yerleşmez, "pasif çalışan" gerekçesiyle Unresolved kuyruğuna düşer; profilden yükleme kapalıdır. Klasör ve belgeler yerinde duruyor.</p>
-  {% if profile.deactivation %}<p class="reason">Pasife alan: {{ profile.deactivation.actor or "—" }} · {{ profile.deactivation.at.strftime("%d.%m.%Y %H:%M") }}{% if profile.deactivation.reason %} · Not: {{ profile.deactivation.reason }}{% endif %}</p>{% endif %}
-  <p><a href="/employees/{{ profile.id }}/status/confirm?to=active" class="status-action">Yeniden etkinleştir</a></p>
+  <p><span class="status-badge status-passive">{{ _("Pasif çalışan") }}</span> {% trans %}Bu çalışana gelen yeni belgeler otomatik yerleşmez, "pasif çalışan" gerekçesiyle Unresolved kuyruğuna düşer; profilden yükleme kapalıdır. Klasör ve belgeler yerinde duruyor.{% endtrans %}</p>
+  {% if profile.deactivation %}<p class="reason">{{ _("Pasife alan:") }} {{ profile.deactivation.actor or "—" }} · {{ profile.deactivation.at.strftime("%d.%m.%Y %H:%M") }}{% if profile.deactivation.reason %} · {{ _("Not:") }} {{ profile.deactivation.reason }}{% endif %}</p>{% endif %}
+  <p><a href="/employees/{{ profile.id }}/status/confirm?to=active" class="status-action">{{ _("Yeniden etkinleştir") }}</a></p>
 </div>
 {% endif %}
 {{ context_warning(profile.context_warning) }}
 {% if profile.latin_missing %}
-<p class="missing" role="status"><span class="badge badge-missing">Latin yazım eksik</span> Ad, soyad ya da diğer isimler Latin olmayan harf taşıyor; Latin yazım belgede ve isim yazımlarında bulunamadı.</p>
+<p class="missing" role="status"><span class="badge badge-missing">{{ _("Latin yazım eksik") }}</span> {% trans %}Ad, soyad ya da diğer isimler Latin olmayan harf taşıyor; Latin yazım belgede ve isim yazımlarında bulunamadı.{% endtrans %}</p>
 {% endif %}
 
-<section class="profile-card" aria-label="Çalışan kartı">
+<section class="profile-card" aria-label="{{ _('Çalışan kartı') }}">
   <div class="profile-photo">
     {% if profile.photo_url %}
-    <img src="{{ profile.photo_url }}" alt="{{ profile.name }} profil fotoğrafı">
+    <img src="{{ profile.photo_url }}" alt="{{ _('%(name)s profil fotoğrafı', name=profile.name) }}">
     {% else %}
-    <div class="photo-placeholder" role="img" aria-label="Profil fotoğrafı yok">
-      <span>Fotoğraf yok</span>
+    <div class="photo-placeholder" role="img" aria-label="{{ _('Profil fotoğrafı yok') }}">
+      <span>{{ _("Fotoğraf yok") }}</span>
     </div>
     {% endif %}
     {% if profile.photo_missing %}
-    <p class="missing" role="status"><span class="badge badge-missing">Eksik belge</span> Profile Picture</p>
+    <p class="missing" role="status"><span class="badge badge-missing">{{ _("Eksik belge") }}</span> Profile Picture</p>
     {% endif %}
   </div>
   {# 05.7.3: alanın kaynağı ve belgede okunan farklı değer; değer değişmez, uyarı kalır. Elle
      girilen alanın (10.5.6) kaynağı bağlantısızdır: "elle (kullanıcı, gün)". #}
-  {% macro source_link(link) %}{% if link.url %}<a href="{{ link.url }}"{% if link.new_tab %} target="_blank" rel="noopener"{% endif %}>{{ link.label }}</a>{% else %}{{ link.label }}{% endif %}{% endmacro %}
+  {% macro source_link(link) %}{% if link.url %}<a href="{{ link.url }}"{% if link.new_tab %} target="_blank" rel="noopener"{% endif %}>{{ translate(link.label) }}</a>{% else %}{{ translate(link.label) }}{% endif %}{% endmacro %}
   {% macro field_sources(info) %}{% if info %}
-    {% if info.source %}<span class="reason field-source">Kaynak: {{ source_link(info.source) }}</span>{% endif %}
-    {% if info.conflicts %}<p class="missing field-conflict" role="status"><span class="badge badge-missing">Farklı değer</span> {{ info.warning }}: {% for link in info.conflicts %}{% if not loop.first %}, {% endif %}{{ source_link(link) }}{% endfor %}</p>{% endif %}
+    {% if info.source %}<span class="reason field-source">{{ _("Kaynak:") }} {{ source_link(info.source) }}</span>{% endif %}
+    {% if info.conflicts %}<p class="missing field-conflict" role="status"><span class="badge badge-missing">{{ _("Farklı değer") }}</span> {{ translate(info.warning) }}: {% for link in info.conflicts %}{% if not loop.first %}, {% endif %}{{ source_link(link) }}{% endfor %}</p>{% endif %}
   {% endif %}{% endmacro %}
   <dl class="profile-fields">
-    <dt>Ad</dt><dd>{{ profile.given_names or "—" }}{{ field_sources(profile.field_sources.get("given_names")) }}</dd>
-    <dt>Soyad</dt><dd>{{ profile.surname or "—" }}{{ field_sources(profile.field_sources.get("surname")) }}</dd>
-    <dt>Diğer isimler</dt><dd>{{ profile.other_names or "—" }}{{ field_sources(profile.field_sources.get("other_names")) }}</dd>
-    <dt>Orijinal yazım</dt><dd>{{ profile.original_script_name or "—" }}{{ field_sources(profile.field_sources.get("original_script_name")) }}</dd>
-    <dt>Vatandaşlık</dt><dd>{{ nationality_badge(profile.nationality) or "—" }}{{ field_sources(profile.field_sources.get("nationality")) }}</dd>
-    <dt>Doğum tarihi</dt><dd>{{ profile.date_of_birth.strftime("%d.%m.%Y") if profile.date_of_birth else "—" }}{{ field_sources(profile.field_sources.get("date_of_birth")) }}</dd>
-    <dt>Yaş</dt><dd>{{ profile.age if profile.age is not none else "—" }}</dd>
+    <dt>{{ _("Ad") }}</dt><dd>{{ profile.given_names or "—" }}{{ field_sources(profile.field_sources.get("given_names")) }}</dd>
+    <dt>{{ _("Soyad") }}</dt><dd>{{ profile.surname or "—" }}{{ field_sources(profile.field_sources.get("surname")) }}</dd>
+    <dt>{{ _("Diğer isimler") }}</dt><dd>{{ profile.other_names or "—" }}{{ field_sources(profile.field_sources.get("other_names")) }}</dd>
+    <dt>{{ _("Orijinal yazım") }}</dt><dd>{{ profile.original_script_name or "—" }}{{ field_sources(profile.field_sources.get("original_script_name")) }}</dd>
+    <dt>{{ _("Vatandaşlık") }}</dt><dd>{{ nationality_badge(profile.nationality) or "—" }}{{ field_sources(profile.field_sources.get("nationality")) }}</dd>
+    <dt>{{ _("Doğum tarihi") }}</dt><dd>{{ profile.date_of_birth.strftime("%d.%m.%Y") if profile.date_of_birth else "—" }}{{ field_sources(profile.field_sources.get("date_of_birth")) }}</dd>
+    <dt>{{ _("Yaş") }}</dt><dd>{{ profile.age if profile.age is not none else "—" }}</dd>
     {% for group in profile.contacts %}
-    <dt>{{ group.label }}</dt>
+    <dt>{{ translate(group.label) }}</dt>
     <dd>{% if group.values %}{% for value in group.values %}{% if not loop.first %}<br>{% endif %}{{ value }}{% endfor %}{% else %}—{% endif %}</dd>
     {% endfor %}
-    <dt>Belge numaraları</dt>
+    <dt>{{ _("Belge numaraları") }}</dt>
     <dd>
       {% if profile.identifiers %}
       <ul class="numbers">
@@ -91,80 +92,80 @@
    geri alınır. Belgede yeniden görülen kaldırılmış kayıt bölümün üstünde uyarılır. İletişim bilgisi
    elle eklenir (tek adım); isim yazımı ve belge numarası yalnız belgeden gelir. Birleştirilmiş
    çalışanda işlem yoktur. #}
-{% macro remove_link(row) %}{% if profile.editable %}<a href="/employees/{{ profile.id }}/records/{{ row.kind }}/{{ row.id }}/remove/confirm" class="record-remove">Kaldır</a>{% endif %}{% endmacro %}
+{% macro remove_link(row) %}{% if profile.editable %}<a href="/employees/{{ profile.id }}/records/{{ row.kind }}/{{ row.id }}/remove/confirm" class="record-remove">{{ _("Kaldır") }}</a>{% endif %}{% endmacro %}
 <section class="profile-records" id="records" aria-labelledby="records-title">
-  <h2 id="records-title">Profil kayıtları</h2>
-  {% if records_notice %}<p class="notice notice-success" role="status">{{ records_notice }}</p>{% endif %}
-  {% for message in record_problems %}<p class="error" role="alert">{{ message }}</p>{% endfor %}
+  <h2 id="records-title">{{ _("Profil kayıtları") }}</h2>
+  {% if records_notice %}<p class="notice notice-success" role="status">{{ translate(records_notice) }}</p>{% endif %}
+  {% for message in record_problems %}<p class="error" role="alert">{{ translate(message) }}</p>{% endfor %}
   {% for warning in profile.records.warnings %}
-  <p class="missing record-warning" role="status"><span class="badge badge-missing">Kaldırılmış kayıt</span> {{ warning }} — <a href="#records-removed">Kaldırılanlar</a></p>
+  <p class="missing record-warning" role="status"><span class="badge badge-missing">{{ _("Kaldırılmış kayıt") }}</span> {{ translate(warning) }} — <a href="#records-removed">{{ _("Kaldırılanlar") }}</a></p>
   {% endfor %}
 
   <details class="record-group record-aliases" id="records-aliases">
-    <summary>Görülen yazımlar ({{ profile.records.aliases|length }})</summary>
+    <summary>{{ _("Görülen yazımlar (%(count)s)", count=profile.records.aliases|length) }}</summary>
     {% if profile.records.aliases %}
     <table class="outputs records">
-      <thead><tr><th>Yazım</th><th>Alfabe</th><th></th></tr></thead>
+      <thead><tr><th>{{ _("Yazım") }}</th><th>{{ _("Alfabe") }}</th><th></th></tr></thead>
       <tbody>
         {% for row in profile.records.aliases %}
-        <tr><td>{{ row.value }}</td><td>{{ row.label }}</td><td class="record-actions">{{ remove_link(row) }}</td></tr>
+        <tr><td>{{ row.value }}</td><td>{{ translate(row.label) }}</td><td class="record-actions">{{ remove_link(row) }}</td></tr>
         {% endfor %}
       </tbody>
     </table>
-    {% else %}<p class="placeholder">Kayıtlı isim yazımı yok.</p>{% endif %}
+    {% else %}<p class="placeholder">{{ _("Kayıtlı isim yazımı yok.") }}</p>{% endif %}
   </details>
 
-  <h3>Belge numaraları</h3>
+  <h3>{{ _("Belge numaraları") }}</h3>
   {% if profile.records.numbers %}
   <table class="outputs records record-numbers">
-    <thead><tr><th>Tür</th><th>Numara</th><th>Kaynak</th><th></th></tr></thead>
+    <thead><tr><th>{{ _("Tür") }}</th><th>{{ _("Numara") }}</th><th>{{ _("Kaynak") }}</th><th></th></tr></thead>
     <tbody>
       {% for row in profile.records.numbers %}
       <tr><td>{{ row.label }}</td><td>{{ row.value }}</td><td>{{ source_link(row.source) }}</td><td class="record-actions">{{ remove_link(row) }}</td></tr>
       {% endfor %}
     </tbody>
   </table>
-  {% else %}<p class="placeholder">Kayıtlı belge numarası yok.</p>{% endif %}
+  {% else %}<p class="placeholder">{{ _("Kayıtlı belge numarası yok.") }}</p>{% endif %}
 
-  <h3>İletişim</h3>
+  <h3>{{ _("İletişim") }}</h3>
   {% if profile.records.contacts %}
   <table class="outputs records record-contacts">
-    <thead><tr><th>Tür</th><th>Değer</th><th>Kaynak</th><th>Durum</th><th></th></tr></thead>
+    <thead><tr><th>{{ _("Tür") }}</th><th>{{ _("Değer") }}</th><th>{{ _("Kaynak") }}</th><th>{{ _("Durum") }}</th><th></th></tr></thead>
     <tbody>
       {% for row in profile.records.contacts %}
-      <tr{% if not row.current %} class="record-history"{% endif %}><td>{{ row.label }}</td><td>{{ row.value }}</td><td>{{ source_link(row.source) }}</td><td>{{ "Güncel" if row.current else "Geçmiş" }}</td><td class="record-actions">{{ remove_link(row) }}</td></tr>
+      <tr{% if not row.current %} class="record-history"{% endif %}><td>{{ translate(row.label) }}</td><td>{{ row.value }}</td><td>{{ source_link(row.source) }}</td><td>{{ _("Güncel") if row.current else _("Geçmiş") }}</td><td class="record-actions">{{ remove_link(row) }}</td></tr>
       {% endfor %}
     </tbody>
   </table>
-  {% else %}<p class="placeholder">Kayıtlı iletişim bilgisi yok.</p>{% endif %}
+  {% else %}<p class="placeholder">{{ _("Kayıtlı iletişim bilgisi yok.") }}</p>{% endif %}
   {% if profile.editable %}
   <form method="post" action="/employees/{{ profile.id }}/contacts" class="contact-form">
-    <label for="contact-kind">Tür</label>
+    <label for="contact-kind">{{ _("Tür") }}</label>
     <select id="contact-kind" name="kind">
       {% for value, label in contact_kinds.items() %}
-      <option value="{{ value }}"{% if contact_form.kind == value %} selected{% endif %}>{{ label }}</option>
+      <option value="{{ value }}"{% if contact_form.kind == value %} selected{% endif %}>{{ translate(label) }}</option>
       {% endfor %}
     </select>
-    <label for="contact-value">Değer</label>
+    <label for="contact-value">{{ _("Değer") }}</label>
     <input id="contact-value" name="value" type="text" maxlength="{{ contact_limit }}" value="{{ contact_form.value }}" required autocomplete="off">
-    <button type="submit">İletişim bilgisi ekle</button>
+    <button type="submit">{{ _("İletişim bilgisi ekle") }}</button>
   </form>
-  <p class="hint">Elle eklenen bilgi güncel olur, aynı türdeki önceki bilgi geçmişte kalır. İsim yazımı ve belge numarası yalnız belgeden gelir.</p>
+  <p class="hint">{% trans %}Elle eklenen bilgi güncel olur, aynı türdeki önceki bilgi geçmişte kalır. İsim yazımı ve belge numarası yalnız belgeden gelir.{% endtrans %}</p>
   {% endif %}
-  {% for field_name, messages in contact_problems.items() %}{% for message in messages %}<p class="error" role="alert">{{ message }}</p>{% endfor %}{% endfor %}
+  {% for field_name, messages in contact_problems.items() %}{% for message in messages %}<p class="error" role="alert">{{ translate(message) }}</p>{% endfor %}{% endfor %}
 
   {% if profile.records.removed %}
   <details class="removed-records" id="records-removed"{% if profile.records.warnings %} open{% endif %}>
-    <summary>Kaldırılanlar ({{ profile.records.removed|length }})</summary>
+    <summary>{{ _("Kaldırılanlar (%(count)s)", count=profile.records.removed|length) }}</summary>
     <ul>
       {% for row in profile.records.removed %}
       <li id="record-{{ row.kind }}-{{ row.id }}">
-        <span class="record-kind">{{ row.kind_label }}</span> {{ row.value }}
-        <span class="reason">— kaldıran: {{ row.removed_by or "—" }}{% if row.removed_at %}, {{ row.removed_at.strftime("%d.%m.%Y %H:%M") }}{% endif %}</span>
-        {% if row.warning %}<span class="missing"><span class="badge badge-missing">Belgede görüldü</span> {{ row.warning }}</span>{% endif %}
+        <span class="record-kind">{{ translate(row.kind_label) }}</span> {{ row.value }}
+        <span class="reason">— {{ _("kaldıran:") }} {{ row.removed_by or "—" }}{% if row.removed_at %}, {{ row.removed_at.strftime("%d.%m.%Y %H:%M") }}{% endif %}</span>
+        {% if row.warning %}<span class="missing"><span class="badge badge-missing">{{ _("Belgede görüldü") }}</span> {{ translate(row.warning) }}</span>{% endif %}
         {% if profile.editable %}
         <form method="post" action="/employees/{{ profile.id }}/records/{{ row.kind }}/{{ row.id }}/restore" class="inline-form">
-          <button type="submit">Geri al</button>
+          <button type="submit">{{ _("Geri al") }}</button>
         </form>
         {% endif %}
       </li>
@@ -177,76 +178,76 @@
 {# 14.2.1–14.2.3: belge paketleri. Tikler görüntülemede belgelerden hesaplanır; GET yazmaz. #}
 {% macro document_link(document) %}{% if document.id in profile.available_document_ids %}<a href="/employees/{{ profile.id }}/documents/{{ document.id }}/file" target="_blank" rel="noopener">{{ document.file_name }}</a>{% else %}<a href="/documents/{{ document.id }}/history">{{ document.file_name }}</a>{% endif %}{% endmacro %}
 <section class="profile-packages" id="packages" aria-labelledby="packages-title">
-  <h2 id="packages-title">Belge paketleri <span class="count">{{ profile.live_packages|length }}</span></h2>
-  {% if package_notice %}<p class="notice-success" role="status">{{ package_notice }}</p>{% endif %}
+  <h2 id="packages-title">{{ _("Belge paketleri") }} <span class="count">{{ profile.live_packages|length }}</span></h2>
+  {% if package_notice %}<p class="notice-success" role="status">{{ translate(package_notice) }}</p>{% endif %}
   {% if profile.live_packages %}
   <div class="package-cards">
     {% for package in profile.live_packages %}
     <article class="package-card package-{{ package.state.value }}" id="package-{{ package.id }}">
       <header class="package-head">
-        <h3><a href="/document-groups/{{ package.group_id }}">{{ package.group_name }}</a>{% if package.group_archived %} <span class="status-badge status-archived">Arşivli grup</span>{% endif %}</h3>
-        <span class="status-badge {{ 'status-active' if package.state.value == 'completed' else 'status-open' }}">{{ package.state_label }}</span>
+        <h3><a href="/document-groups/{{ package.group_id }}">{{ package.group_name }}</a>{% if package.group_archived %} <span class="status-badge status-archived">{{ _("Arşivli grup") }}</span>{% endif %}</h3>
+        <span class="status-badge {{ 'status-active' if package.state.value == 'completed' else 'status-open' }}">{{ translate(package.state_label) }}</span>
       </header>
-      <p class="reason">Tanımlayan: {{ package.requested_by }} · {{ package.requested_at.strftime("%d.%m.%Y %H:%M") }}{% if package.completed_at and package.complete %} · Tamamlandı: {{ package.completed_at.strftime("%d.%m.%Y %H:%M") }}{% endif %}</p>
-      {% if package.note %}<p class="reason">Not: {{ package.note }}</p>{% endif %}
+      <p class="reason">{{ _("Tanımlayan:") }} {{ package.requested_by }} · {{ package.requested_at.strftime("%d.%m.%Y %H:%M") }}{% if package.completed_at and package.complete %} · {{ _("Tamamlandı:") }} {{ package.completed_at.strftime("%d.%m.%Y %H:%M") }}{% endif %}</p>
+      {% if package.note %}<p class="reason">{{ _("Not:") }} {{ package.note }}</p>{% endif %}
       <ul class="package-items">
         {% for item in package.items %}
         <li class="{{ 'item-met' if item.satisfied else 'item-missing' }}">
           <span class="tick" aria-hidden="true">{{ "✓" if item.satisfied else "○" }}</span>
-          <span class="visually-hidden">{{ "Karşılandı:" if item.satisfied else "Eksik:" }}</span>
+          <span class="visually-hidden">{{ _("Karşılandı:") if item.satisfied else _("Eksik:") }}</span>
           <span class="item-title">{{ item.title }}</span>
-          <small class="item-kind">{{ "zorunlu" if item.required else "isteğe bağlı" }}</small>
+          <small class="item-kind">{{ _("zorunlu") if item.required else _("isteğe bağlı") }}</small>
           {% if item.document %}<span class="item-document">{{ document_link(item.document) }}</span>{% endif %}
         </li>
         {% else %}
-        <li class="placeholder">Grubun kalemi yok.</li>
+        <li class="placeholder">{{ _("Grubun kalemi yok.") }}</li>
         {% endfor %}
       </ul>
       <form method="post" action="/employees/{{ profile.id }}/packages/{{ package.id }}/cancel" class="inline-form package-cancel">
-        <label for="cancel-note-{{ package.id }}">İptal nedeni</label>
+        <label for="cancel-note-{{ package.id }}">{{ _("İptal nedeni") }}</label>
         <input id="cancel-note-{{ package.id }}" name="note" type="text" maxlength="{{ note_limit }}" required>
-        <button type="submit">Paketi iptal et</button>
+        <button type="submit">{{ _("Paketi iptal et") }}</button>
       </form>
-      {% for message in cancel_problems.get(package.id, []) %}<p class="error" role="alert">{{ message }}</p>{% endfor %}
+      {% for message in cancel_problems.get(package.id, []) %}<p class="error" role="alert">{{ translate(message) }}</p>{% endfor %}
     </article>
     {% endfor %}
   </div>
   {% else %}
-  <p class="placeholder">Açık ya da tamamlanmış paket yok.</p>
+  <p class="placeholder">{{ _("Açık ya da tamamlanmış paket yok.") }}</p>
   {% endif %}
 
   {% if profile.merged %}
-  <p class="hint">Birleştirilmiş kayda paket tanımlanmaz; paketler kalan kayıttadır.</p>
+  <p class="hint">{{ _("Birleştirilmiş kayda paket tanımlanmaz; paketler kalan kayıttadır.") }}</p>
   {% elif group_choices %}
   <form method="post" action="/employees/{{ profile.id }}/packages" class="package-form">
-    <label for="package-group">Belge grubu</label>
+    <label for="package-group">{{ _("Belge grubu") }}</label>
     <select id="package-group" name="group_id" required>
       {% for group in group_choices %}
-      <option value="{{ group.id }}"{% if package_form.group_id == group.id %} selected{% endif %}>{{ group.name }} ({{ group.item_count }} kalem)</option>
+      <option value="{{ group.id }}"{% if package_form.group_id == group.id %} selected{% endif %}>{{ group.name }} ({{ ngettext("%(num)d kalem", "%(num)d kalem", group.item_count) }})</option>
       {% endfor %}
     </select>
-    <label for="package-note">Not</label>
+    <label for="package-note">{{ _("Not") }}</label>
     <input id="package-note" name="note" type="text" maxlength="{{ note_limit }}" value="{{ package_form.note }}">
     {% if package_form.duplicate %}<input type="hidden" name="confirm_duplicate" value="1">{% endif %}
-    <button type="submit">{{ "Yine de paket tanımla" if package_form.duplicate else "Paket tanımla" }}</button>
+    <button type="submit">{{ _("Yine de paket tanımla") if package_form.duplicate else _("Paket tanımla") }}</button>
   </form>
   {% else %}
-  <p class="hint">Paket tanımlamak için önce <a href="/document-groups">Belge Grupları</a>'nda arşivlenmemiş bir grup açın.</p>
+  <p class="hint">{% trans %}Paket tanımlamak için önce <a href="/document-groups">Belge Grupları</a>'nda arşivlenmemiş bir grup açın.{% endtrans %}</p>
   {% endif %}
-  {% for field_name, messages in package_problems.items() %}{% for message in messages %}<p class="{{ 'notice' if package_form.duplicate else 'error' }}" role="alert">{{ message }}</p>{% endfor %}{% endfor %}
+  {% for field_name, messages in package_problems.items() %}{% for message in messages %}<p class="{{ 'notice' if package_form.duplicate else 'error' }}" role="alert">{{ translate(message) }}</p>{% endfor %}{% endfor %}
 
   {% if profile.cancelled_packages %}
   <details class="cancelled-packages">
-    <summary>İptal edilen paketler ({{ profile.cancelled_packages|length }})</summary>
+    <summary>{{ _("İptal edilen paketler (%(count)s)", count=profile.cancelled_packages|length) }}</summary>
     <ul>
       {% for package in profile.cancelled_packages %}
       <li id="package-{{ package.id }}">
         <strong>{{ package.group_name }}</strong>
-        <span class="reason">— iptal: {{ package.cancelled_by or "—" }}{% if package.cancelled_at %}, {{ package.cancelled_at.strftime("%d.%m.%Y %H:%M") }}{% endif %}{% if package.cancel_note %} · Neden: {{ package.cancel_note }}{% endif %}</span>
+        <span class="reason">— {{ _("iptal:") }} {{ package.cancelled_by or "—" }}{% if package.cancelled_at %}, {{ package.cancelled_at.strftime("%d.%m.%Y %H:%M") }}{% endif %}{% if package.cancel_note %} · {{ _("Neden:") }} {{ package.cancel_note }}{% endif %}</span>
         <form method="post" action="/employees/{{ profile.id }}/packages/{{ package.id }}/reopen" class="inline-form">
-          <button type="submit">Yeniden aç</button>
+          <button type="submit">{{ _("Yeniden aç") }}</button>
         </form>
-        {% for message in cancel_problems.get(package.id, []) %}<p class="error" role="alert">{{ message }}</p>{% endfor %}
+        {% for message in cancel_problems.get(package.id, []) %}<p class="error" role="alert">{{ translate(message) }}</p>{% endfor %}
       </li>
       {% endfor %}
     </ul>
@@ -257,12 +258,12 @@
 {# 08.4.1, 10.5.10: etkin belgede "Arşive taşı", arşivdeki belgede "Arşivden geri al" (iki aşamalı
    onay sayfası); eski sürümde (K18) ve birleştirilmiş kayıtta ikisi de yok. #}
 <section class="profile-documents">
-  <h2 id="documents">Belgeler <span class="count">{{ profile.documents|length }}</span></h2>
-  {% if documents_notice %}<p class="notice notice-success" role="status">{{ documents_notice }}</p>{% endif %}
+  <h2 id="documents">{{ _("Belgeler") }} <span class="count">{{ profile.documents|length }}</span></h2>
+  {% if documents_notice %}<p class="notice notice-success" role="status">{{ translate(documents_notice) }}</p>{% endif %}
   {% if profile.documents %}
   <table class="outputs">
     <thead>
-      <tr><th>Tür</th><th>Dosya</th><th>Biçim</th><th>Durum</th><th>Tarih</th><th></th></tr>
+      <tr><th>{{ _("Tür") }}</th><th>{{ _("Dosya") }}</th><th>{{ _("Biçim") }}</th><th>{{ _("Durum") }}</th><th>{{ _("Tarih") }}</th><th></th></tr>
     </thead>
     <tbody>
       {% for document in profile.documents %}
@@ -270,19 +271,19 @@
         <td>{{ document.type_name }}</td>
         <td>{% if document.available %}<a href="/employees/{{ profile.id }}/documents/{{ document.id }}/file" target="_blank" rel="noopener">{{ document.file_name }}</a>{% else %}{{ document.file_name }}{% endif %}</td>
         <td>{{ document.format }}</td>
-        <td>{{ document.status_label }}</td>
+        <td>{{ translate(document.status_label) }}</td>
         <td>{{ document.created_on.strftime("%d.%m.%Y") }}</td>
         <td class="doc-actions">
-          <a href="/documents/{{ document.id }}/history">Geçmiş</a>
+          <a href="/documents/{{ document.id }}/history">{{ _("Geçmiş") }}</a>
           {% if document.available %}
-          <a href="/employees/{{ profile.id }}/documents/{{ document.id }}/download">İndir</a>
+          <a href="/employees/{{ profile.id }}/documents/{{ document.id }}/download">{{ _("İndir") }}</a>
           {% if profile.editable and document.status == "active" %}
-          <a href="/documents/{{ document.id }}/archive/confirm" class="document-archive">Arşive taşı</a>
+          <a href="/documents/{{ document.id }}/archive/confirm" class="document-archive">{{ _("Arşive taşı") }}</a>
           {% elif profile.editable and document.status == "archived" %}
-          <a href="/documents/{{ document.id }}/unarchive/confirm" class="document-unarchive">Arşivden geri al</a>
+          <a href="/documents/{{ document.id }}/unarchive/confirm" class="document-unarchive">{{ _("Arşivden geri al") }}</a>
           {% endif %}
           {% else %}
-          <span class="reason">Dosya bulunamadı</span>
+          <span class="reason">{{ _("Dosya bulunamadı") }}</span>
           {% endif %}
         </td>
       </tr>
@@ -290,16 +291,16 @@
     </tbody>
   </table>
   {% else %}
-  <p class="placeholder">Henüz belge yok.</p>
+  <p class="placeholder">{{ _("Henüz belge yok.") }}</p>
   {% endif %}
 </section>
 
 <section class="profile-upload">
-  <h2>Belge yükle</h2>
+  <h2>{{ _("Belge yükle") }}</h2>
   {% if profile.merged %}
-  <p class="placeholder">Birleştirilmiş kayda belge yüklenmez; belgeleri kalan kayda yükleyin.</p>
+  <p class="placeholder">{{ _("Birleştirilmiş kayda belge yüklenmez; belgeleri kalan kayda yükleyin.") }}</p>
   {% elif not profile.can_upload %}
-  <p class="placeholder">Pasif çalışana belge yüklenmez. Yüklemek için önce çalışanı yeniden etkinleştirin.</p>
+  <p class="placeholder">{{ _("Pasif çalışana belge yüklenmez. Yüklemek için önce çalışanı yeniden etkinleştirin.") }}</p>
   {% else %}
   <form id="upload-form" class="upload-form"
         hx-post="/upload" hx-encoding="multipart/form-data"
@@ -307,15 +308,15 @@
         hx-disabled-elt="find button[type=submit]">
     <input type="hidden" name="context_employee_id" value="{{ profile.id }}">
     <label class="dropzone" id="dropzone" for="files">
-      <strong>Dosyaları buraya sürükleyip bırakın</strong>
-      <span>ya da seçmek için tıklayın · birden çok dosya seçilebilir</span>
-      <small>PDF, JPEG, PNG · Word ve Excel olduğu gibi saklanır</small>
+      <strong>{{ _("Dosyaları buraya sürükleyip bırakın") }}</strong>
+      <span>{{ _("ya da seçmek için tıklayın · birden çok dosya seçilebilir") }}</span>
+      <small>{{ _("PDF, JPEG, PNG · Word ve Excel olduğu gibi saklanır") }}</small>
       <input id="files" name="files" type="file" multiple
              accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx">
     </label>
     <ul id="file-list" class="file-list" aria-live="polite"></ul>
-    <p class="hint">Yükleme {{ profile.name }} ({{ profile.id }}) çalışanı bağlamıyla yapılır: sahibi belgeden anlaşılamayan dosyalar ona atanır.</p>
-    <button type="submit">Yükle</button>
+    <p class="hint">{{ _("Yükleme %(name)s (%(id)s) çalışanı bağlamıyla yapılır: sahibi belgeden anlaşılamayan dosyalar ona atanır.", name=profile.name, id=profile.id) }}</p>
+    <button type="submit">{{ _("Yükle") }}</button>
   </form>
   <section id="upload-result" class="upload-result" aria-live="polite"></section>
   {% endif %}

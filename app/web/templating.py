@@ -33,6 +33,7 @@ from app.i18n import (
     current_language,
     gettext,
     ngettext,
+    translate,
 )
 from app.web.auth import PanelUser
 
@@ -96,6 +97,9 @@ templates = Jinja2Templates(
 templates.env.policies["ext.i18n.trimmed"] = True
 templates.env.install_gettext_callables(gettext, ngettext, newstyle=True)
 templates.env.globals["menu"] = PANEL_MENU
+# 10.10.3: çekirdekten gelen kaynak dildeki metin (durum adı, hata, bildirim) gösterim anında
+# çevrilir (`app.i18n.translate`); veri (ad, dosya adı, tür adı) bundan geçirilmez.
+templates.env.globals["translate"] = translate
 # 10.1.6: alfa-2, alfa-3 ya da MRZ kodundan bayrak + Türkçe ülke adı (`app/countries`).
 templates.env.globals["country_badge"] = country_badge
 # 10.5.11: profildeki uyruk — bayrak + Türkçe ad + parantez içinde kod; tanınmayan kodda yalnız kod.

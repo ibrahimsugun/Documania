@@ -2231,13 +2231,13 @@
         "description": "PRD 10.10.3 · FR-MOD-10 · Faz 1 · Should (v1). Tam sözleşme PLAN §D92 — önce oku.",
         "details": "KAPSAM: §D92 (e), (f), (g), (l). Şu sayfaların şablonları, yönlendirici mesajları ve modül düzeyi etiketleri işaretlenir, `en` ve `sr` çevrilir: `employees*.html`, `profile*.html`, `employee_*.html`, `document_*.html`, `history.html`, `access_log*.html`, `upload*.html` (yükle, sonuç, detay, eylem sonucu), `uploads_list.html`, `_context_warning.html`, `_manual_check.html`, `users.html`, `account_password.html`; yönlendiriciler `employees.py`, `documents.py`, `upload_page.py`, `uploads.py`, `uploads_list.py`, `access_log.py`, `users.py` (HTML'de görünen `detail` ve form hataları), `app/web/profile_form.py` etiketleri ve yardım metinleri (`N_`), durum adları (çalışan, parti, paket — 14.x profil bölümü dahil). Onay metinleri bu görevde değil (10.10-e). Sayı alan metinler `ngettext`. Belge türü adı, çalışan verisi, dosya adı çevrilmez (§D92 f). Kalıntı taraması bu sayfalar için `en`'de çalışır (sentetik veriyle). Mevcut Türkçe testler `tr` varsayılanıyla aynen geçer; metin değişikliği yok, yalnız işaretleme.",
         "testStrategy": "1) Her sayfa `en` ve `sr` ile çizilir: başlık, tablo başlıkları, düğmeler, boş durum, hata mesajı örnekleri doğru dilde (sayfa başına en az bir anlamlı denetim). 2) Kalıntı taraması bu görevin bütün sayfalarında `en` için temiz. 3) Sırpça çoğul: 1, 2, 5 ve 21 sayılarıyla bir sayaç metni doğru biçimde. 4) `python -m app.i18n check` temiz. 5) `tr` testleri değişmeden yeşil (metin regresyonu yok). 6) Veri çevrilmiyor: belge türü adı ve çalışan adı `en`'de de aynen. 7) Kural bozmaları kırmızı. 8) DoD kapısı yeşil.",
-        "status": "pending",
+        "status": "in-progress",
         "dependencies": [
           "153"
         ],
         "priority": "medium",
         "subtasks": [],
-        "updatedAt": "2026-10-02T12:00:00.000Z"
+        "updatedAt": "2026-10-02T08:39:59.728Z"
       },
       {
         "id": "155",
@@ -2301,7 +2301,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-02T08:38:50.312Z",
+      "lastModified": "2026-10-02T08:39:59.728Z",
       "taskCount": 156,
       "completedCount": 148,
       "tags": [

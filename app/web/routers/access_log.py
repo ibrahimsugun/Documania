@@ -38,6 +38,7 @@ from app.db.models import (
     User,
 )
 from app.db.session import get_session
+from app.i18n import N_
 from app.web.auth import PanelUser, require_panel_user
 from app.web.templating import render_page
 
@@ -46,11 +47,14 @@ router = APIRouter(tags=["access-log"])
 CurrentUser = Annotated[PanelUser, Depends(require_panel_user)]
 
 PAGE_SIZE = 50
-EMPLOYEE_NOT_FOUND = "Çalışan bulunamadı."
+EMPLOYEE_NOT_FOUND = N_("Çalışan bulunamadı.")
 ACTIVE_KEY = "access_log"
 
-ACTION_LABELS = {AccessAction.VIEW.value: "Açtı", AccessAction.DOWNLOAD.value: "İndirdi"}
-CHANNEL_LABELS = {AccessChannel.WEB.value: "Panel", AccessChannel.TELEGRAM.value: "Telegram"}
+ACTION_LABELS = {AccessAction.VIEW.value: N_("Açtı"), AccessAction.DOWNLOAD.value: N_("İndirdi")}
+CHANNEL_LABELS = {
+    AccessChannel.WEB.value: N_("Panel"),
+    AccessChannel.TELEGRAM.value: N_("Telegram"),
+}
 TIME_FORMAT = "%d.%m.%Y %H:%M:%S"
 
 

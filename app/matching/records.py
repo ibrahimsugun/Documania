@@ -47,6 +47,7 @@ from app.db.models import (
     utcnow,
 )
 from app.events import EventType, record_event
+from app.i18n import N_, Translatable
 
 
 class RecordKind(enum.StrEnum):
@@ -73,15 +74,15 @@ ACTIVE_CONTACT: ColumnElement[bool] = EmployeeContact.removed_at.is_(None)
 
 # Uyarı ve onay sayfasındaki tür adları ("Belgede görülen <tür> …").
 KIND_LABELS = {
-    RecordKind.ALIAS: "isim yazımı",
-    RecordKind.IDENTIFIER: "belge numarası",
+    RecordKind.ALIAS: N_("isim yazımı"),
+    RecordKind.IDENTIFIER: N_("belge numarası"),
 }
 CONTACT_KIND_LABELS = {
-    ContactKind.PHONE.value: "telefon",
-    ContactKind.EMAIL.value: "e-posta",
-    ContactKind.ADDRESS.value: "adres",
+    ContactKind.PHONE.value: N_("telefon"),
+    ContactKind.EMAIL.value: N_("e-posta"),
+    ContactKind.ADDRESS.value: N_("adres"),
 }
-SEEN_AFTER_REMOVAL_WARNING = "Belgede görülen {label} kaldırılmış bir kayda uyuyor"
+SEEN_AFTER_REMOVAL_WARNING = N_("Belgede görülen {label} kaldırılmış bir kayda uyuyor")
 
 CONTACT_VALUE_MAX_LENGTH = 500
 # Biçim denetimi hafiftir (§C90-c): yazım hatasını yakalar, geçerliliği kanıtlamaz.
@@ -298,18 +299,29 @@ def normalized_contact(kind: str, value: str | None) -> str:
     sadeleşir. Uymazsa `ContactFormError`."""
     problems: dict[str, list[str]] = {}
     if kind not in CONTACT_KIND_LABELS:
-        problems["kind"] = ["Tür telefon, e-posta ya da adres olmalı."]
+        problems["kind"] = [N_("Tür telefon, e-posta ya da adres olmalı.")]
     text = " ".join((value or "").split())
     if not text:
-        problems["value"] = ["Değer boş olamaz."]
+        problems["value"] = [N_("Değer boş olamaz.")]
     elif len(text) > CONTACT_VALUE_MAX_LENGTH:
-        problems["value"] = [f"Değer en çok {CONTACT_VALUE_MAX_LENGTH} karakter olabilir."]
+        problems["value"] = [
+            Translatable(
+                N_("Değer en çok {limit} karakter olabilir."), limit=CONTACT_VALUE_MAX_LENGTH
+            )
+        ]
     elif kind == ContactKind.EMAIL.value and not _EMAIL.fullmatch(text):
-        problems["value"] = ["E-posta adresi ad@alan.uzantı biçiminde olmalı."]
+        problems["value"] = [N_("E-posta adresi ad@alan.uzantı biçiminde olmalı.")]
     elif kind == ContactKind.PHONE.value and not _valid_phone(text):
         low, high = PHONE_DIGITS
         problems["value"] = [
-            f"Telefon rakam, boşluk, +, -, nokta ve parantezden oluşmalı; {low}–{high} rakam."
+            Translatable(
+                N_(
+                    "Telefon rakam, boşluk, +, -, nokta ve parantezden oluşmalı; "
+                    "{low}–{high} rakam."
+                ),
+                low=low,
+                high=high,
+            )
         ]
     if problems:
         raise ContactFormError(problems)
@@ -338,10 +350,10 @@ def add_contact(
         .order_by(EmployeeContact.id)
     ).all()
     if any(row.value == text and row.is_current and row.removed_at is None for row in rows):
-        raise ContactFormError({"value": ["Bu değer zaten güncel kayıt."]})
+        raise ContactFormError({"value": [N_("Bu değer zaten güncel kayıt.")]})
     if any(row.value == text and row.removed_at is not None for row in rows):
         raise ContactFormError(
-            {"value": ["Bu değer kaldırılanlar arasında; eklemek yerine “Geri al”ı kullanın."]}
+            {"value": [N_("Bu değer kaldırılanlar arasında; eklemek yerine “Geri al”ı kullanın.")]}
         )
     for row in rows:
         if row.is_current:

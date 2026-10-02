@@ -8,6 +8,11 @@ Dil istek başında bir context değişkenine yazılır (`app.i18n.request`); `g
 her çağrıda oradan okur. İstek dışı kod (işçi, bot) değişkeni yazılmamış görür ve
 `DEFAULT_LANGUAGE`'ı alır. Modül düzeyindeki sabit etiketler (`PANEL_MENU` gibi) tanım anında
 çevrilmez: `N_()` ile işaretlenir (çıkarıcı bulsun diye), gösterim anında `gettext` ile çevrilir.
+
+Çekirdek modüllerin metni (durum adı, form hatası) kaynak dilde kalır: aynı metin `profil.md`'ye,
+olay loguna ve bota da gider, onlar çevrilmez (§D92 f). Panel onu gösterirken `translate` ile
+çevirir. Değer taşıyan metin `Translatable`'dır: Türkçe hâli bugünkü dizgenin aynısıdır, şablonu ve
+değerleri gösterim anında çeviri için yanında taşır.
 """
 
 from __future__ import annotations
@@ -35,6 +40,7 @@ __all__ = [
     "SOURCE_LANGUAGE",
     "SUPPORTED_LANGUAGES",
     "Language",
+    "Translatable",
     "N_",
     "activate_language",
     "current_html_lang",
@@ -43,6 +49,7 @@ __all__ = [
     "is_supported",
     "ngettext",
     "resolve_language",
+    "translate",
     "use_language",
 ]
 
@@ -91,3 +98,38 @@ def ngettext(singular: str, plural: str, n: int) -> str:
 def N_(message: str) -> str:
     """Metni çeviri için işaretler, çevirmez: gösterim anında `gettext(message)` çağrılır."""
     return message
+
+
+class Translatable(str):
+    """Değer taşıyan çevrilebilir metin: dizge olarak kaynak dildeki (Türkçe) biçimlenmiş hâlidir,
+    `template` (`N_()` ile işaretli msgid, `{ad}` yer tutuculu) ve `values` gösterim anında
+    `translate` ile isteğin dilinde biçimlenir; `Translatable` olan değer de çevrilir, düz değer
+    (ad, dosya adı) olduğu gibi kalır. Kaynak dili bekleyen kod (log, `profil.md`, testler) farkı
+    görmez."""
+
+    template: str
+    values: dict[str, object]
+
+    def __new__(cls, template: str, /, **values: object) -> Translatable:
+        text = super().__new__(cls, template.format(**values))
+        text.template = template
+        text.values = values
+        return text
+
+
+def translate(text: object) -> str:
+    """Gösterim anında çeviri (panel): `Translatable` şablonu çevrilip değerleriyle biçimlenir; düz
+    metin msgid olarak aranır, katalogda yoksa olduğu gibi döner. İstisna verilirse ilk argümanı
+    (çekirdeğin `Translatable` mesajı) çevrilir. Boş değer boş metindir — `gettext("")` katalog
+    başlığını döndürürdü."""
+    if isinstance(text, BaseException):
+        text = text.args[0] if text.args and isinstance(text.args[0], str) else str(text)
+    if text is None or text == "":
+        return ""
+    if isinstance(text, Translatable):
+        values = {
+            name: translate(value) if isinstance(value, Translatable) else value
+            for name, value in text.values.items()
+        }
+        return gettext(text.template).format(**values)
+    return gettext(str(text))

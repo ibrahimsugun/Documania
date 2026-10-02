@@ -37,7 +37,7 @@ from app.config import Settings
 from app.db.models import User, UserRole, UserSession, utcnow
 from app.db.session import get_session
 from app.events import EventType, record_event
-from app.i18n import is_supported
+from app.i18n import N_, Translatable, is_supported
 
 SESSION_COOKIE = "belgeee_session"
 LOGIN_PATH = "/login"
@@ -110,20 +110,30 @@ def normalize_username(username: str) -> str:
     reddedilir."""
     name = username.strip()
     if not name:
-        raise UserCreationError("Kullanıcı adı boş olamaz.")
+        raise UserCreationError(N_("Kullanıcı adı boş olamaz."))
     if len(name) < USERNAME_MIN_LENGTH:
-        raise UserCreationError(f"Kullanıcı adı en az {USERNAME_MIN_LENGTH} karakter olmalı.")
+        raise UserCreationError(
+            Translatable(
+                N_("Kullanıcı adı en az {limit} karakter olmalı."), limit=USERNAME_MIN_LENGTH
+            )
+        )
     if len(name) > USERNAME_MAX_LENGTH:
-        raise UserCreationError(f"Kullanıcı adı en çok {USERNAME_MAX_LENGTH} karakter olabilir.")
+        raise UserCreationError(
+            Translatable(
+                N_("Kullanıcı adı en çok {limit} karakter olabilir."), limit=USERNAME_MAX_LENGTH
+            )
+        )
     if any(char.isspace() or not char.isprintable() for char in name):
-        raise UserCreationError("Kullanıcı adında boşluk ya da denetim karakteri olamaz.")
+        raise UserCreationError(N_("Kullanıcı adında boşluk ya da denetim karakteri olamaz."))
     return name
 
 
 def check_password(password: str) -> None:
     """Yeni parolanın kuralı: en az `MIN_PASSWORD_LENGTH` karakter."""
     if len(password) < MIN_PASSWORD_LENGTH:
-        raise UserCreationError(f"Parola en az {MIN_PASSWORD_LENGTH} karakter olmalı.")
+        raise UserCreationError(
+            Translatable(N_("Parola en az {limit} karakter olmalı."), limit=MIN_PASSWORD_LENGTH)
+        )
 
 
 def create_user(
@@ -140,7 +150,9 @@ def create_user(
     name = normalize_username(username)
     check_password(password)
     if session.scalar(select(User.id).where(User.username == name)) is not None:
-        raise UsernameTakenError(f"'{name}' kullanıcı adı zaten kullanılıyor.")
+        raise UsernameTakenError(
+            Translatable(N_("'{name}' kullanıcı adı zaten kullanılıyor."), name=name)
+        )
     user = User(username=name, password_hash=hash_password(password), role=role.value, active=True)
     session.add(user)
     session.flush()
@@ -292,7 +304,7 @@ def change_own_password(
     açık kalır, diğer oturumları kapanır; `USER_PASSWORD_CHANGED` (`self: true`). Commit çağırana
     aittir."""
     if not _verify_password(user.password_hash, current_password):
-        raise WrongPasswordError("Şu anki parola hatalı.")
+        raise WrongPasswordError(N_("Şu anki parola hatalı."))
     check_password(new_password)
     user.password_hash = hash_password(new_password)
     close_user_sessions(session, user.id, keep_token=keep_token)
@@ -304,7 +316,7 @@ def reset_password(session: Session, target: User, new_password: str, *, actor: 
     `USER_PASSWORD_CHANGED` (`self: false`). Kendi parolası eski parolayla değişir (409). Commit
     çağırana aittir."""
     if target.id == actor.id:
-        raise UserStatusError("Kendi parolanızı «Parolamı değiştir» sayfasından değiştirin.")
+        raise UserStatusError(N_("Kendi parolanızı «Parolamı değiştir» sayfasından değiştirin."))
     check_password(new_password)
     target.password_hash = hash_password(new_password)
     close_user_sessions(session, target.id)
@@ -320,8 +332,8 @@ def set_user_active(session: Session, target: User, active: bool, *, actor: Pane
     kullanıcı 409. Commit çağırana aittir.
     """
     if target.active == active:
-        state = "etkin" if active else "pasif"
-        raise UserStatusError(f"'{target.username}' zaten {state}.")
+        template = N_("'{name}' zaten etkin.") if active else N_("'{name}' zaten pasif.")
+        raise UserStatusError(Translatable(template, name=target.username))
     if active:
         target.active = True
         session.flush()
@@ -333,7 +345,7 @@ def set_user_active(session: Session, target: User, active: bool, *, actor: Pane
         )
         return
     if target.id == actor.id:
-        raise UserStatusError("Kendi hesabınızı pasife alamazsınız.")
+        raise UserStatusError(N_("Kendi hesabınızı pasife alamazsınız."))
     other = aliased(User)
     other_active_admins = (
         select(func.count(other.id))
@@ -351,7 +363,7 @@ def set_user_active(session: Session, target: User, active: bool, *, actor: Pane
     )
     session.refresh(target)
     if result.rowcount != 1:
-        raise UserStatusError("Son etkin yönetici pasife alınamaz.")
+        raise UserStatusError(N_("Son etkin yönetici pasife alınamaz."))
     close_user_sessions(session, target.id)
     record_event(
         session,

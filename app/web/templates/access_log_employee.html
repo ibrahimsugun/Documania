@@ -1,21 +1,21 @@
 {% extends "base.html" %}
 {# Bir çalışanın erişim logu (13.4.1): kim ne zaman baktı. Sayfa yalnız okur. #}
-{% block title %}{{ log.name if log else "Çalışan bulunamadı" }} · Erişim logu{% endblock %}
+{% block title %}{{ log.name if log else _("Çalışan bulunamadı") }} · {{ _("Erişim logu") }}{% endblock %}
 {% block content %}
-<p class="back"><a href="/access-log">← Erişim logu</a></p>
+<p class="back"><a href="/access-log">{{ _("← Erişim logu") }}</a></p>
 {% if error %}
-<h1>Erişim logu</h1>
-<p class="error" role="alert">{{ error }}</p>
+<h1>{{ _("Erişim logu") }}</h1>
+<p class="error" role="alert">{{ translate(error) }}</p>
 {% else %}
 <h1>{{ log.name }}</h1>
-<p class="profile-meta">{{ log.employee_id }} · <a href="/employees/{{ log.employee_id }}">Profil</a> · {{ log.total }} erişim · zamanlar UTC</p>
+<p class="profile-meta">{{ log.employee_id }} · <a href="/employees/{{ log.employee_id }}">{{ _("Profil") }}</a> · {{ ngettext("%(num)d erişim", "%(num)d erişim", log.total) }} · {{ _("zamanlar UTC") }}</p>
 
 {% if log.entries %}
 <section id="viewers" aria-labelledby="viewers-title">
-  <h2 id="viewers-title">Kimler baktı</h2>
+  <h2 id="viewers-title">{{ _("Kimler baktı") }}</h2>
   <table class="access-log">
     <thead>
-      <tr><th>Kullanıcı</th><th class="num">Açtı</th><th class="num">İndirdi</th><th>Son erişim</th></tr>
+      <tr><th>{{ _("Kullanıcı") }}</th><th class="num">{{ _("Açtı") }}</th><th class="num">{{ _("İndirdi") }}</th><th>{{ _("Son erişim") }}</th></tr>
     </thead>
     <tbody>
       {% for viewer in log.viewers %}
@@ -31,10 +31,10 @@
 </section>
 
 <section id="entries" aria-labelledby="entries-title">
-  <h2 id="entries-title">Erişimler</h2>
+  <h2 id="entries-title">{{ _("Erişimler") }}</h2>
   <table class="access-log">
     <thead>
-      <tr><th>Zaman</th><th>Kullanıcı</th><th>Belge</th><th>Eylem</th><th>Kanal</th></tr>
+      <tr><th>{{ _("Zaman") }}</th><th>{{ _("Kullanıcı") }}</th><th>{{ _("Belge") }}</th><th>{{ _("Eylem") }}</th><th>{{ _("Kanal") }}</th></tr>
     </thead>
     <tbody>
       {% for entry in log.entries %}
@@ -42,20 +42,20 @@
         <td>{{ entry.ts }}</td>
         <td>{{ entry.username }}</td>
         <td>{{ entry.type_name }} · {{ entry.file_name }}</td>
-        <td>{{ entry.action }}</td>
-        <td>{{ entry.channel }}</td>
+        <td>{{ translate(entry.action) }}</td>
+        <td>{{ translate(entry.channel) }}</td>
       </tr>
       {% endfor %}
     </tbody>
   </table>
-  <nav class="pager" aria-label="Sayfalama">
-    {% if log.previous_url %}<a href="{{ log.previous_url }}">← Önceki</a>{% endif %}
-    <span>Sayfa {{ log.page }} / {{ log.page_count }}</span>
-    {% if log.next_url %}<a href="{{ log.next_url }}">Sonraki →</a>{% endif %}
+  <nav class="pager" aria-label="{{ _('Sayfalama') }}">
+    {% if log.previous_url %}<a href="{{ log.previous_url }}">{{ _("← Önceki") }}</a>{% endif %}
+    <span>{{ _("Sayfa %(page)s / %(count)s", page=log.page, count=log.page_count) }}</span>
+    {% if log.next_url %}<a href="{{ log.next_url }}">{{ _("Sonraki →") }}</a>{% endif %}
   </nav>
 </section>
 {% else %}
-<p class="placeholder">Bu çalışanın belgelerine henüz bakılmadı.</p>
+<p class="placeholder">{{ _("Bu çalışanın belgelerine henüz bakılmadı.") }}</p>
 {% endif %}
 {% endif %}
 {% endblock %}

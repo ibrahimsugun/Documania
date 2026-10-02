@@ -5,14 +5,14 @@
 <form method="post" action="/employees/{{ employee_id }}/fields" class="confirm employee-fields-step">
   <table class="outputs field-changes">
     <thead>
-      <tr><th scope="col">Alan</th><th scope="col">Şimdiki</th><th scope="col">Yeni</th></tr>
+      <tr><th scope="col">{{ _("Alan") }}</th><th scope="col">{{ _("Şimdiki") }}</th><th scope="col">{{ _("Yeni") }}</th></tr>
     </thead>
     <tbody>
       {% for row in changes %}
       <tr{% if row.changed %} class="changed"{% endif %}>
-        <th scope="row">{{ row.label }}</th>
+        <th scope="row">{{ translate(row.label) }}</th>
         <td>{{ row.before }}</td>
-        <td>{{ row.after }}{% if row.changed %} <span class="edited">değişiyor</span>{% endif %}</td>
+        <td>{{ row.after }}{% if row.changed %} <span class="edited">{{ _("değişiyor") }}</span>{% endif %}</td>
       </tr>
       {% endfor %}
     </tbody>
@@ -22,6 +22,6 @@
   <input type="hidden" name="{{ name }}" value="{{ value }}">
   {% endfor %}
   <input type="hidden" name="confirmation" value="{{ confirmation }}">
-  <button type="submit">Evet, değiştir</button>
-  <a href="/employees/{{ employee_id }}">Vazgeç</a>
+  <button type="submit">{{ _("Evet, değiştir") }}</button>
+  <a href="/employees/{{ employee_id }}">{{ _("Vazgeç") }}</a>
 </form>

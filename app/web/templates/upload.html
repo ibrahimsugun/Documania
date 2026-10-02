@@ -1,29 +1,29 @@
 {% extends "base.html" %}
-{% block title %}{{ entry.label }}{% endblock %}
+{% block title %}{{ _(entry.label) }}{% endblock %}
 {% block content %}
-<h1>{{ entry.label }}</h1>
-<p class="lede">Seçtiğin dosyalar tek bir <strong>parti</strong> olarak gönderilir. Sistem her sayfayı okur, belgenin türünü ve sahibini bulmaya çalışır; emin olamadığını Kuyruklar'a bırakır. Belgelerin içeriği değiştirilmez.</p>
+<h1>{{ _(entry.label) }}</h1>
+<p class="lede">{% trans %}Seçtiğin dosyalar tek bir <strong>parti</strong> olarak gönderilir. Sistem her sayfayı okur, belgenin türünü ve sahibini bulmaya çalışır; emin olamadığını Kuyruklar'a bırakır. Belgelerin içeriği değiştirilmez.{% endtrans %}</p>
 <form id="upload-form" class="upload-form"
       hx-post="/upload" hx-encoding="multipart/form-data"
       hx-target="#upload-result" hx-swap="innerHTML"
       hx-disabled-elt="find button[type=submit]">
   <label class="dropzone" id="dropzone" for="files">
-    <strong>Dosyaları buraya sürükleyip bırakın</strong>
-    <span>ya da seçmek için tıklayın · birden çok dosya seçilebilir</span>
-    <small>PDF, JPEG, PNG · Word ve Excel olduğu gibi saklanır</small>
+    <strong>{{ _("Dosyaları buraya sürükleyip bırakın") }}</strong>
+    <span>{{ _("ya da seçmek için tıklayın · birden çok dosya seçilebilir") }}</span>
+    <small>{{ _("PDF, JPEG, PNG · Word ve Excel olduğu gibi saklanır") }}</small>
     <input id="files" name="files" type="file" multiple
            accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx">
   </label>
   <ul id="file-list" class="file-list" aria-live="polite"></ul>
-  <label for="context_employee_id">Çalışan <span class="hint">(isteğe bağlı)</span></label>
+  <label for="context_employee_id">{{ _("Çalışan") }} <span class="hint">{{ _("(isteğe bağlı)") }}</span></label>
   <select id="context_employee_id" name="context_employee_id">
-    <option value="">Belirtme — sahibi belgeden bulunsun</option>
+    <option value="">{{ _("Belirtme — sahibi belgeden bulunsun") }}</option>
     {% for employee in employees %}
     <option value="{{ employee.id }}">{{ employee.id }} — {{ employee.given_names }} {{ employee.surname }}</option>
     {% endfor %}
   </select>
-  <p class="hint">Bir çalışan seçerseniz, sahibi belgeden anlaşılamayan dosyalar ona atanır.</p>
-  <button type="submit">Yükle</button>
+  <p class="hint">{{ _("Bir çalışan seçerseniz, sahibi belgeden anlaşılamayan dosyalar ona atanır.") }}</p>
+  <button type="submit">{{ _("Yükle") }}</button>
 </form>
 <section id="upload-result" class="upload-result" aria-live="polite"></section>
 {% endblock %}

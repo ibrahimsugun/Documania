@@ -69,6 +69,7 @@ from app.db.models import (
 )
 from app.db.session import get_session
 from app.events import EventType
+from app.i18n import N_, Translatable
 from app.profiles import write_profile
 from app.storage import (
     ContentMismatchError,
@@ -113,7 +114,7 @@ router = APIRouter(tags=["documents"])
 
 CurrentUser = Annotated[PanelUser, Depends(require_panel_user)]
 
-DOCUMENT_NOT_FOUND = "Belge bulunamadı."
+DOCUMENT_NOT_FOUND = N_("Belge bulunamadı.")
 
 
 @dataclass(frozen=True, slots=True)
@@ -170,12 +171,18 @@ def _reference(ref: Any) -> tuple[int, list[int]] | None:
 def _source_view(session: Session, ref: Any) -> SourceView:
     parsed = _reference(ref)
     if parsed is None:
-        return SourceView("Bozuk köken kaydı", None, "", [], "Kaynak dosya ve sayfa okunamadı.")
+        return SourceView(
+            N_("Bozuk köken kaydı"), None, "", [], N_("Kaynak dosya ve sayfa okunamadı.")
+        )
     file_id, indexes = parsed
     upload_file = session.get(UploadFile, file_id)
     if upload_file is None:
         return SourceView(
-            f"dosya {file_id}", None, _page_ranges(indexes), [], "Kaynak dosya kaydı bulunamadı."
+            Translatable(N_("dosya {id}"), id=file_id),
+            None,
+            _page_ranges(indexes),
+            [],
+            N_("Kaynak dosya kaydı bulunamadı."),
         )
     stored = {
         page.index: page
@@ -202,7 +209,7 @@ def _source_view(session: Session, ref: Any) -> SourceView:
         range_text=_page_ranges(indexes),
         pages=pages,
         note=(
-            "Bu dosya daha önce yüklenmiş bir dosyanın tekrarı; sayfa görüntüsü yok."
+            N_("Bu dosya daha önce yüklenmiş bir dosyanın tekrarı; sayfa görüntüsü yok.")
             if upload_file.is_duplicate_of is not None and not pages
             else None
         ),
@@ -310,12 +317,12 @@ def document_history(
 
 # --- 10.8.2: belgeyi başka çalışana taşıma -------------------------------------------------------
 
-NOT_MOVABLE_NOTE = (
+NOT_MOVABLE_NOTE = N_(
     "Yalnız etkin belge başka çalışana taşınabilir; bu belgenin durumu: {status}. Eski sürüm "
     "yeniden adlandırılmaz (K18), arşivlenmiş belge çalışanın klasöründe durmaz."
 )
-SAME_OWNER = "Belge zaten bu çalışanın; başka bir çalışan seçin."
-MOVE_TARGET_NOT_FOUND = "Çalışan bulunamadı."
+SAME_OWNER = N_("Belge zaten bu çalışanın; başka bir çalışan seçin.")
+MOVE_TARGET_NOT_FOUND = N_("Çalışan bulunamadı.")
 
 
 @dataclass(frozen=True, slots=True)
@@ -332,8 +339,9 @@ def _move_refusal(document: Document) -> str | None:
     """Belge taşınamıyorsa nedeni: yalnız etkin belge taşınır (K18, 08.4.1)."""
     if document.status == DocumentStatus.ACTIVE.value:
         return None
-    return NOT_MOVABLE_NOTE.format(
-        status=DOCUMENT_STATUS_LABELS.get(document.status, document.status)
+    return Translatable(
+        NOT_MOVABLE_NOTE,
+        status=Translatable(DOCUMENT_STATUS_LABELS.get(document.status, document.status)),
     )
 
 
@@ -529,10 +537,10 @@ def move_to_employee(
 
 # --- 08.4.1, 10.5.10: arşive taşıma ve arşivden geri alma (profilden) ----------------------------
 
-NOT_ARCHIVABLE_NOTE = "Yalnız etkin belge arşive taşınır; bu belgenin durumu: {status}."
-NOT_RESTORABLE_NOTE = "Yalnız arşivdeki belge geri alınır; bu belgenin durumu: {status}."
-DOCUMENT_FILE_MISSING = "Belgenin dosyası bulunamadı; taşınamaz."
-OWNER_MERGED = (
+NOT_ARCHIVABLE_NOTE = N_("Yalnız etkin belge arşive taşınır; bu belgenin durumu: {status}.")
+NOT_RESTORABLE_NOTE = N_("Yalnız arşivdeki belge geri alınır; bu belgenin durumu: {status}.")
+DOCUMENT_FILE_MISSING = N_("Belgenin dosyası bulunamadı; taşınamaz.")
+OWNER_MERGED = N_(
     "Belgenin sahibi başka bir kayıtla birleştirildi (10.5.9); işlemi kalan kaydın profilinden "
     "yapın."
 )
@@ -558,9 +566,9 @@ ARCHIVE_FLOW = ArchiveFlow(
     operation=Operation.ARCHIVE,
     required_status=DocumentStatus.ACTIVE.value,
     refusal=NOT_ARCHIVABLE_NOTE,
-    title="Belgeyi arşive taşı",
-    submit_label="Evet, arşive taşı",
-    hint=(
+    title=N_("Belgeyi arşive taşı"),
+    submit_label=N_("Evet, arşive taşı"),
+    hint=N_(
         'Belge silinmez: Archive klasörüne taşınır, profilde "Arşivlendi" durumuyla kalır ve '
         '"Arşivden geri al" ile çalışanın Hazır klasörüne döndürülebilir. Arşivdeki belge belge '
         "paketlerinde sayılmaz."
@@ -572,9 +580,9 @@ UNARCHIVE_FLOW = ArchiveFlow(
     operation=Operation.UNARCHIVE,
     required_status=DocumentStatus.ARCHIVED.value,
     refusal=NOT_RESTORABLE_NOTE,
-    title="Belgeyi arşivden geri al",
-    submit_label="Evet, geri al",
-    hint=(
+    title=N_("Belgeyi arşivden geri al"),
+    submit_label=N_("Evet, geri al"),
+    hint=N_(
         "Belge çalışanın bugünkü adıyla ve türünün dosya etiketiyle adlandırılır (K8); arada aynı "
         "türden yeni belge geldiyse sıradaki sıra ekini alır. İçeriği ve kökeni değişmez."
     ),
@@ -609,8 +617,9 @@ def _archive_step(
     if document.status != flow.required_status:
         raise HTTPException(
             status.HTTP_409_CONFLICT,
-            flow.refusal.format(
-                status=DOCUMENT_STATUS_LABELS.get(document.status, document.status)
+            Translatable(
+                flow.refusal,
+                status=Translatable(DOCUMENT_STATUS_LABELS.get(document.status, document.status)),
             ),
         )
     owner = session.get_one(Employee, document.employee_id)

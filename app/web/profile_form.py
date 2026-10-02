@@ -6,6 +6,9 @@ tarihi, uyruk (`PROFILE_FIELDS`). Başka form alanı okunmaz; belge içeriği (s
 bu formla gönderilemez (K17). Değerler kırpılır, uyruk büyük harfe çevrilir, boş isteğe bağlı alan
 `None`'dır; denetim `check_profile_fields`'tır (05.2.2 Latin kuralı, K8 klasör adı) ve doğum tarihi
 `YYYY-AA-GG` biçimindedir. Hata iletileri kişisel değer taşımaz.
+
+Etiketler, yardım metinleri ve hata iletileri kaynak dildedir (`N_`); şablon gösterirken çevirir
+(`translate`, 10.10.3).
 """
 
 from __future__ import annotations
@@ -19,6 +22,7 @@ from typing import Annotated
 
 from fastapi import Depends, Form
 
+from app.i18n import N_
 from app.matching.match import (
     DATE_OF_BIRTH,
     GIVEN_NAMES,
@@ -32,25 +36,25 @@ from app.matching.match import (
     check_profile_fields,
 )
 
-INVALID_PROFILE = "Profil alanları geçersiz; düzeltip yeniden gönderin."
-BAD_DATE = "YYYY-AA-GG biçiminde bir tarih olmalı"
+INVALID_PROFILE = N_("Profil alanları geçersiz; düzeltip yeniden gönderin.")
+BAD_DATE = N_("YYYY-AA-GG biçiminde bir tarih olmalı")
 PROFILE_LABELS = {
-    GIVEN_NAMES: "Ad",
-    SURNAME: "Soyad",
-    OTHER_NAMES: "Diğer isimler",
-    ORIGINAL_SCRIPT_NAME: "Orijinal yazım",
-    DATE_OF_BIRTH: "Doğum tarihi",
-    NATIONALITY: "Vatandaşlık",
+    GIVEN_NAMES: N_("Ad"),
+    SURNAME: N_("Soyad"),
+    OTHER_NAMES: N_("Diğer isimler"),
+    ORIGINAL_SCRIPT_NAME: N_("Orijinal yazım"),
+    DATE_OF_BIRTH: N_("Doğum tarihi"),
+    NATIONALITY: N_("Vatandaşlık"),
 }
 # 05.2.2: ad, soyad ve diğer isimler yalnız Latin harfi taşır; Latin yazımı belgede olmayan
 # öneride ad ve soyad boş gelir, İK yazar.
-_LATIN_HINT = "Latin harfleriyle (belgedeki Latin yazım ya da MRZ; aksanlı harf olur)"
+_LATIN_HINT = N_("Latin harfleriyle (belgedeki Latin yazım ya da MRZ; aksanlı harf olur)")
 PROFILE_HINTS = {
     GIVEN_NAMES: _LATIN_HINT,
     SURNAME: _LATIN_HINT,
     OTHER_NAMES: _LATIN_HINT,
-    ORIGINAL_SCRIPT_NAME: "İsmin belgede basılı hâli, birebir (Latin de olabilir)",
-    NATIONALITY: "ICAO kodu (ör. RUS, SRB, D)",
+    ORIGINAL_SCRIPT_NAME: N_("İsmin belgede basılı hâli, birebir (Latin de olabilir)"),
+    NATIONALITY: N_("ICAO kodu (ör. RUS, SRB, D)"),
 }
 _ISO_DATE = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}")
 

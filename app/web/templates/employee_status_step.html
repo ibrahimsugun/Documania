@@ -2,37 +2,37 @@
 {# Çalışanı pasife alma ve yeniden etkinleştirme (10.5.7): birinci onay (§20.6 metni birebir, isteğe
    bağlı not), ikinci onay (hedef duruma ve nota bağlı tek kullanımlık belirteç) ya da hata. Klasör,
    belgeler ve olaylar yerinde kalır; hiçbir şey silinmez (R11). Not alanı `<input>`'tur. #}
-{% block title %}{{ title }}{% if target %} · {{ target.name }}{% endif %}{% endblock %}
+{% block title %}{{ translate(title) }}{% if target %} · {{ target.name }}{% endif %}{% endblock %}
 {% block content %}
-<p class="back"><a href="/employees/{{ employee_id }}">← Profile dön</a></p>
-<h1>{{ title }}</h1>
+<p class="back"><a href="/employees/{{ employee_id }}">{{ _("← Profile dön") }}</a></p>
+<h1>{{ translate(title) }}</h1>
 {% if target %}<p class="profile-meta">{{ target.name }} · {{ target.id }}</p>{% endif %}
-{% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+{% if error %}<p class="error" role="alert">{{ translate(error) }}</p>{% endif %}
 {% if first_confirmation %}
 <form method="post" action="/employees/{{ employee_id }}/status/prepare" class="confirm employee-status">
   <input type="hidden" name="to" value="{{ to }}">
   {% if to == "inactive" %}
-  <p class="hint">Pasif çalışanın klasörü, belgeleri ve geçmişi yerinde kalır. Eşleştirme onu bulmaya devam eder; ama ona gelen yeni belgeler otomatik yerleşmez, "pasif çalışan" gerekçesiyle Unresolved kuyruğuna düşer. Profilden yükleme kapanır, çalışan listede varsayılan olarak görünmez.</p>
+  <p class="hint">{% trans %}Pasif çalışanın klasörü, belgeleri ve geçmişi yerinde kalır. Eşleştirme onu bulmaya devam eder; ama ona gelen yeni belgeler otomatik yerleşmez, "pasif çalışan" gerekçesiyle Unresolved kuyruğuna düşer. Profilden yükleme kapanır, çalışan listede varsayılan olarak görünmez.{% endtrans %}</p>
   {% else %}
-  <p class="hint">Çalışan listeye döner; yeni belgeleri yeniden otomatik yerleşir. Pasifken kuyruğa düşen belgeler kendiliğinden yerleşmez: öğeyi atayın ya da partiyi yeniden analiz edin.</p>
+  <p class="hint">{% trans %}Çalışan listeye döner; yeni belgeleri yeniden otomatik yerleşir. Pasifken kuyruğa düşen belgeler kendiliğinden yerleşmez: öğeyi atayın ya da partiyi yeniden analiz edin.{% endtrans %}</p>
   {% endif %}
-  <label for="status-reason">Not (isteğe bağlı)</label>
+  <label for="status-reason">{{ _("Not (isteğe bağlı)") }}</label>
   <input id="status-reason" name="reason" type="text" maxlength="{{ reason_limit }}" value="{{ reason }}" autocomplete="off">
   <p class="confirm-text" role="alert">{{ first_confirmation }}</p>
-  <button type="submit">Evet, devam et</button>
-  <a href="/employees/{{ employee_id }}">Vazgeç</a>
+  <button type="submit">{{ _("Evet, devam et") }}</button>
+  <a href="/employees/{{ employee_id }}">{{ _("Vazgeç") }}</a>
 </form>
 {% elif second_confirmation %}
 <form method="post" action="/employees/{{ employee_id }}/status" class="confirm employee-status-step">
-  {% if reason %}<p class="reason">Not: {{ reason }}</p>{% endif %}
+  {% if reason %}<p class="reason">{{ _("Not:") }} {{ reason }}</p>{% endif %}
   <p class="confirm-text" role="alert">{{ second_confirmation }}</p>
   <input type="hidden" name="to" value="{{ to }}">
   <input type="hidden" name="reason" value="{{ reason }}">
   <input type="hidden" name="confirmation" value="{{ confirmation }}">
-  <button type="submit">{{ "Evet, pasife al" if to == "inactive" else "Evet, etkinleştir" }}</button>
-  <a href="/employees/{{ employee_id }}">Vazgeç</a>
+  <button type="submit">{{ _("Evet, pasife al") if to == "inactive" else _("Evet, etkinleştir") }}</button>
+  <a href="/employees/{{ employee_id }}">{{ _("Vazgeç") }}</a>
 </form>
 {% elif retry and to %}
-<p><a href="/employees/{{ employee_id }}/status/confirm?to={{ to }}">Onayı yeniden başlatın</a></p>
+<p><a href="/employees/{{ employee_id }}/status/confirm?to={{ to }}">{{ _("Onayı yeniden başlatın") }}</a></p>
 {% endif %}
 {% endblock %}

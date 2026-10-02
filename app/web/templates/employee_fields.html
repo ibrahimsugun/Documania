@@ -3,17 +3,17 @@
    orijinal yazım, doğum tarihi, uyruk). Form §20.6'nın birinci onay metnini taşır ve hazırlığa
    gider; ikinci onay adımı `employee_fields_step.html`'dir. Belge içeriği bu sayfadan
    düzenlenemez (K17). #}
-{% block title %}Profili düzenle{% if target %} · {{ target.name }}{% endif %}{% endblock %}
+{% block title %}{{ _("Profili düzenle") }}{% if target %} · {{ target.name }}{% endif %}{% endblock %}
 {% block content %}
-<p class="back"><a href="/employees/{{ employee_id }}">← Profile dön</a></p>
-<h1>Profili düzenle</h1>
+<p class="back"><a href="/employees/{{ employee_id }}">{{ _("← Profile dön") }}</a></p>
+<h1>{{ _("Profili düzenle") }}</h1>
 {% if target %}<p class="profile-meta">{{ target.name }} · {{ target.id }}</p>{% endif %}
 {% if error %}
-<p class="error" role="alert">{{ error }}</p>
+<p class="error" role="alert">{{ translate(error) }}</p>
 {% if field_errors %}
 <ul class="field-errors">
   {% for label, problem in field_errors %}
-  <li>{{ label }}: {{ problem }}</li>
+  <li>{{ translate(label) }}: {{ translate(problem) }}</li>
   {% endfor %}
 </ul>
 {% endif %}
@@ -23,21 +23,21 @@
 {% elif form %}
 <form method="post" action="/employees/{{ employee_id }}/fields/prepare" class="profile-edit employee-fields">
   {% for field in form %}
-  <label for="profile-{{ field.name }}">{{ field.label }}</label>
+  <label for="profile-{{ field.name }}">{{ translate(field.label) }}</label>
   <span class="field">
     <input type="{{ field.input_type }}" id="profile-{{ field.name }}" name="{{ field.name }}"
            value="{{ field.value }}" maxlength="{{ field.maxlength }}"{% if field.required %} required{% endif %} autocomplete="off">
-    {% if field.hint %}<small class="hint">{{ field.hint }}</small>{% endif %}
+    {% if field.hint %}<small class="hint">{{ translate(field.hint) }}</small>{% endif %}
   </span>
   {% endfor %}
-  <p class="hint edit-note">Ad ya da soyad değişirse çalışanın klasörü ve belge dosyaları yeni adla yeniden adlandırılır; E numarası ve belge içerikleri değişmez.</p>
+  <p class="hint edit-note">{% trans %}Ad ya da soyad değişirse çalışanın klasörü ve belge dosyaları yeni adla yeniden adlandırılır; E numarası ve belge içerikleri değişmez.{% endtrans %}</p>
   <p class="confirm-text" role="alert">{{ first_confirmation }}</p>
   <span class="edit-actions">
-    <button type="submit">Evet, devam et</button>
-    <a href="/employees/{{ employee_id }}">Vazgeç</a>
+    <button type="submit">{{ _("Evet, devam et") }}</button>
+    <a href="/employees/{{ employee_id }}">{{ _("Vazgeç") }}</a>
   </span>
 </form>
 {% elif retry %}
-<p><a href="/employees/{{ employee_id }}/fields">Düzenleme formunu yeniden açın</a></p>
+<p><a href="/employees/{{ employee_id }}/fields">{{ _("Düzenleme formunu yeniden açın") }}</a></p>
 {% endif %}
 {% endblock %}

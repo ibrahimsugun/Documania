@@ -32,6 +32,7 @@ from sqlalchemy.orm import Session
 
 from app.db.models import TelegramUser, User
 from app.events import EventType, record_event
+from app.i18n import N_, Translatable
 
 # `telegram_users.telegram_id` `BigInteger`'dır: işaretli 64 bit. Telegram kullanıcı kimlikleri
 # pozitiftir (grup ve kanal kimlikleri negatif; beyaz liste yalnız özel sohbettir).
@@ -39,7 +40,7 @@ TELEGRAM_ID_MAX = 2**63 - 1
 TELEGRAM_ID_MAX_DIGITS = len(str(TELEGRAM_ID_MAX))
 
 
-INVALID_TELEGRAM_ID = (
+INVALID_TELEGRAM_ID = N_(
     "Telegram kimliği yalnız rakamlardan oluşan pozitif bir sayı olmalı (örn. 123456789). Telefon "
     "numarası değildir: kişi kimliğini Telegram'da @userinfobot'a yazarak öğrenir."
 )
@@ -89,7 +90,7 @@ def parse_telegram_id(value: str) -> int:
     yanıtından kopyalanan `Id: 123456789` satırı da kabul edilir; sayı kısmı aynı kurala uyar."""
     text = value.strip()
     if not text:
-        raise TelegramIdError("Telegram kimliği boş olamaz.")
+        raise TelegramIdError(N_("Telegram kimliği boş olamaz."))
     pasted = _PASTED_ID.fullmatch(text)
     if pasted is not None:
         text = pasted.group(1)
@@ -123,10 +124,17 @@ def _owner_id(session: Session, telegram_id: int) -> int | None:
 
 def _taken(telegram_id: int, owner_id: int | None, target: User) -> TelegramIdTakenError:
     if owner_id == target.id:
-        return TelegramIdTakenError(f"{telegram_id} Telegram kimliği zaten bu kullanıcıya bağlı.")
+        return TelegramIdTakenError(
+            Translatable(N_("{id} Telegram kimliği zaten bu kullanıcıya bağlı."), id=telegram_id)
+        )
     return TelegramIdTakenError(
-        f"{telegram_id} Telegram kimliği başka bir kullanıcıya bağlı; kayıt silinmediği için "
-        "taşınamaz."
+        Translatable(
+            N_(
+                "{id} Telegram kimliği başka bir kullanıcıya bağlı; kayıt silinmediği için "
+                "taşınamaz."
+            ),
+            id=telegram_id,
+        )
     )
 
 
@@ -165,6 +173,10 @@ def set_telegram_allowed(
     )
     session.refresh(account)
     if result.rowcount != 1:
-        state = "izinli" if allowed else "engelli"
-        raise TelegramStatusError(f"{account.telegram_id} Telegram kimliği zaten {state}.")
+        template = (
+            N_("{id} Telegram kimliği zaten izinli.")
+            if allowed
+            else N_("{id} Telegram kimliği zaten engelli.")
+        )
+        raise TelegramStatusError(Translatable(template, id=account.telegram_id))
     _record(session, account, actor=actor, added=False)

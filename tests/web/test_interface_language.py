@@ -297,7 +297,8 @@ def test_login_pages_have_no_turkish_residue(anonymous: TestClient, language: st
 
 
 @pytest.mark.parametrize(
-    "unmarked", ["<p>Çalışan bulunamadı</p>", "<button>Kaydet</button>", "<p>{{ _('Yeni') }}</p>"]
+    "unmarked",
+    ["<p>Çalışan bulunamadı</p>", "<button>Kaydet</button>", "<p>{{ _('Yeni pencere') }}</p>"],
 )
 def test_unmarked_turkish_text_on_an_english_page_turns_the_scan_red(
     probe: FastAPI, client: TestClient, unmarked: str

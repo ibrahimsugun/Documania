@@ -3,22 +3,22 @@
    Arama 10.4.2'ninkidir (etkin ve pasif çalışanlar; birleştirilmiş çalışan bulunmaz, kaydın kendisi
    seçilemez). HTMX sonuç parçasını `#merge-results`'a yazar; JavaScript kapalıyken form aynı adrese
    gider ve sayfa sonuçla gelir. Hangi kaydın kalacağı sonraki adımda seçilir. #}
-{% block title %}Başka kayıtla birleştir{% if target %} · {{ target.name }}{% endif %}{% endblock %}
+{% block title %}{{ _("Başka kayıtla birleştir") }}{% if target %} · {{ target.name }}{% endif %}{% endblock %}
 {% block content %}
-<p class="back"><a href="/employees/{{ employee_id }}">← Profile dön</a></p>
-<h1>Başka kayıtla birleştir</h1>
+<p class="back"><a href="/employees/{{ employee_id }}">{{ _("← Profile dön") }}</a></p>
+<h1>{{ _("Başka kayıtla birleştir") }}</h1>
 {% if target %}<p class="profile-meta">{{ target.name }} · {{ target.id }}</p>{% endif %}
 {% if error %}
-<p class="error" role="alert">{{ error }}</p>
+<p class="error" role="alert">{{ translate(error) }}</p>
 {% else %}
-<p class="hint">Aynı kişinin ikinci kaydını arayıp seçin; sonraki adımda iki kaydı yan yana görür ve hangisinin kalacağını seçersiniz. Birleşen kaydın belgeleri, belge numaraları, isim yazımları, iletişim bilgileri ve belge paketleri kalan kayda taşınır; birleşen kayıt kapanır. İşlem geri alınamaz.</p>
+<p class="hint">{% trans %}Aynı kişinin ikinci kaydını arayıp seçin; sonraki adımda iki kaydı yan yana görür ve hangisinin kalacağını seçersiniz. Birleşen kaydın belgeleri, belge numaraları, isim yazımları, iletişim bilgileri ve belge paketleri kalan kayda taşınır; birleşen kayıt kapanır. İşlem geri alınamaz.{% endtrans %}</p>
 <form class="search merge-search" role="search" method="get" action="/employees/{{ employee_id }}/merge/employees"
       hx-get="/employees/{{ employee_id }}/merge/employees" hx-trigger="input changed delay:300ms, submit"
       hx-target="#merge-results" hx-swap="innerHTML" hx-sync="this:replace">
-  <label for="merge-q">Çalışan ara</label>
+  <label for="merge-q">{{ _("Çalışan ara") }}</label>
   <input type="search" id="merge-q" name="q" maxlength="100" value="{{ query or '' }}"
-         placeholder="Ad, isim yazımı, orijinal yazım, belge numarası veya belge türü" autocomplete="off">
-  <button type="submit">Ara</button>
+         placeholder="{{ _('Ad, isim yazımı, orijinal yazım, belge numarası veya belge türü') }}" autocomplete="off">
+  <button type="submit">{{ _("Ara") }}</button>
 </form>
 <div id="merge-results" aria-live="polite">{% include "employee_merge_results.html" %}</div>
 {% endif %}

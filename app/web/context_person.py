@@ -27,12 +27,14 @@ from sqlalchemy.orm import Session
 
 from app.ai.schemas import PageAnalysis
 from app.db.models import Employee, KnownDocumentType, QueueItem, Upload
+from app.i18n import ngettext
 from app.matching.match import PersonKey, build_person_key
 from app.pipeline.analyze import PageAnalysisStatus
 from app.pipeline.orchestrate import current_plan
 from app.pipeline.plan import PlanIntegrityError, PlanItem, read_plan
 from app.pipeline.validate import ValidationName
 
+# Kaynak dildeki başlık; panel `title`'ı isteğin dilinde, sayıya göre çoğul biçimle gösterir.
 WARNING_TITLE = "⚠ Bu profile ait olmayan {count} belge bulundu — profile eklenmedi"
 NO_VALUE = "—"
 
@@ -60,7 +62,13 @@ class ForeignDocumentsWarning:
 
     @property
     def title(self) -> str:
-        return WARNING_TITLE.format(count=len(self.rows))
+        count = len(self.rows)
+        title = ngettext(
+            "⚠ Bu profile ait olmayan {count} belge bulundu — profile eklenmedi",
+            "⚠ Bu profile ait olmayan {count} belge bulundu — profile eklenmedi",
+            count,
+        )
+        return title.format(count=count)
 
 
 def upload_warning(session: Session, upload: Upload) -> ForeignDocumentsWarning | None:

@@ -2,32 +2,32 @@
 {# Profil alt kaydını kaldırma (10.5.8): birinci onay (§20.6 metni birebir), ikinci onay (`kind:rid`'e
    bağlı tek kullanımlık belirteç) ya da hata. Kayıt silinmez (R11): kaldırılmış işaretlenir,
    eşleştirmede ve aramada kullanılmaz, profilde "Kaldırılanlar" altından tek adımda geri alınır. #}
-{% block title %}Kaydı kaldır{% if target %} · {{ target.name }}{% endif %}{% endblock %}
+{% block title %}{{ _("Kaydı kaldır") }}{% if target %} · {{ target.name }}{% endif %}{% endblock %}
 {% block content %}
-<p class="back"><a href="/employees/{{ employee_id }}#records">← Profile dön</a></p>
-<h1>Kaydı kaldır</h1>
+<p class="back"><a href="/employees/{{ employee_id }}#records">{{ _("← Profile dön") }}</a></p>
+<h1>{{ _("Kaydı kaldır") }}</h1>
 {% if target %}<p class="profile-meta">{{ target.name }} · {{ target.id }}</p>{% endif %}
-{% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+{% if error %}<p class="error" role="alert">{{ translate(error) }}</p>{% endif %}
 {% if record %}
 <dl class="record-summary">
-  <dt>{{ record.kind_label }}</dt><dd>{{ record.value }}</dd>
+  <dt>{{ translate(record.kind_label) }}</dt><dd>{{ record.value }}</dd>
 </dl>
 {% endif %}
 {% if first_confirmation %}
 <form method="post" action="/employees/{{ employee_id }}/records/{{ kind }}/{{ record_id }}/remove/prepare" class="confirm profile-record">
-  <p class="hint">Kayıt silinmez: profilde "Kaldırılanlar" altında kim ve ne zaman kaldırdığıyla durur ve tek adımda geri alınır. Kaldırılmış kayıt eşleştirmede ve aramada kullanılmaz; aynı değer bir belgeden yeniden gelirse kayıt kendiliğinden geri açılmaz, profilde uyarı çıkar.</p>
+  <p class="hint">{% trans %}Kayıt silinmez: profilde "Kaldırılanlar" altında kim ve ne zaman kaldırdığıyla durur ve tek adımda geri alınır. Kaldırılmış kayıt eşleştirmede ve aramada kullanılmaz; aynı değer bir belgeden yeniden gelirse kayıt kendiliğinden geri açılmaz, profilde uyarı çıkar.{% endtrans %}</p>
   <p class="confirm-text" role="alert">{{ first_confirmation }}</p>
-  <button type="submit">Evet, devam et</button>
-  <a href="/employees/{{ employee_id }}#records">Vazgeç</a>
+  <button type="submit">{{ _("Evet, devam et") }}</button>
+  <a href="/employees/{{ employee_id }}#records">{{ _("Vazgeç") }}</a>
 </form>
 {% elif second_confirmation %}
 <form method="post" action="/employees/{{ employee_id }}/records/{{ kind }}/{{ record_id }}/remove" class="confirm profile-record-step">
   <p class="confirm-text" role="alert">{{ second_confirmation }}</p>
   <input type="hidden" name="confirmation" value="{{ confirmation }}">
-  <button type="submit">Evet, kaldır</button>
-  <a href="/employees/{{ employee_id }}#records">Vazgeç</a>
+  <button type="submit">{{ _("Evet, kaldır") }}</button>
+  <a href="/employees/{{ employee_id }}#records">{{ _("Vazgeç") }}</a>
 </form>
 {% elif retry %}
-<p><a href="/employees/{{ employee_id }}/records/{{ kind }}/{{ record_id }}/remove/confirm">Onayı yeniden başlatın</a></p>
+<p><a href="/employees/{{ employee_id }}/records/{{ kind }}/{{ record_id }}/remove/confirm">{{ _("Onayı yeniden başlatın") }}</a></p>
 {% endif %}
 {% endblock %}

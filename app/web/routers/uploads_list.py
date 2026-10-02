@@ -40,6 +40,7 @@ from sqlalchemy.orm import Session
 
 from app.db.models import Employee, Page, QueueItem, QueueKind, Upload, UploadFile, UploadStatus
 from app.db.session import get_session
+from app.i18n import N_
 from app.web.auth import PanelUser, require_panel_user
 from app.web.routers.upload_page import QUEUE_LABELS, _format_ts
 from app.web.routers.uploads import UPLOAD_CHANNEL
@@ -54,16 +55,16 @@ ACTIVE_KEY = "uploads"
 PROCESSING_FILTER = "processing"
 
 # Bot (`app.telegram.handlers`) kanalı "telegram" yazar; öbür kanal panelin kendisidir.
-CHANNEL_LABELS = {UPLOAD_CHANNEL: "Panel", "telegram": "Telegram"}
+CHANNEL_LABELS = {UPLOAD_CHANNEL: N_("Panel"), "telegram": N_("Telegram")}
 STATUS_LABELS: dict[str, str] = {
-    UploadStatus.RECEIVED.value: "Alındı",
-    UploadStatus.RENDERING.value: "Sayfalar hazırlanıyor",
-    UploadStatus.ANALYZING.value: "Analiz ediliyor",
-    UploadStatus.PLANNING.value: "Plan hazırlanıyor",
-    UploadStatus.EXECUTING.value: "Plan uygulanıyor",
-    UploadStatus.DONE.value: "Tamamlandı",
-    UploadStatus.PARTIAL.value: "Kısmen tamamlandı",
-    UploadStatus.FAILED.value: "İşlenemedi",
+    UploadStatus.RECEIVED.value: N_("Alındı"),
+    UploadStatus.RENDERING.value: N_("Sayfalar hazırlanıyor"),
+    UploadStatus.ANALYZING.value: N_("Analiz ediliyor"),
+    UploadStatus.PLANNING.value: N_("Plan hazırlanıyor"),
+    UploadStatus.EXECUTING.value: N_("Plan uygulanıyor"),
+    UploadStatus.DONE.value: N_("Tamamlandı"),
+    UploadStatus.PARTIAL.value: N_("Kısmen tamamlandı"),
+    UploadStatus.FAILED.value: N_("İşlenemedi"),
 }
 PROCESSING_STATUSES = (
     UploadStatus.RECEIVED,
@@ -74,25 +75,25 @@ PROCESSING_STATUSES = (
 )
 # Süzgeç değeri → (formdaki ad, o süzgeçle listelenen durumlar).
 STATUS_FILTERS: dict[str, tuple[str, tuple[UploadStatus, ...]]] = {
-    PROCESSING_FILTER: ("İşleniyor", PROCESSING_STATUSES),
-    UploadStatus.DONE.value: ("Tamamlandı", (UploadStatus.DONE,)),
-    UploadStatus.PARTIAL.value: ("Kısmi", (UploadStatus.PARTIAL,)),
-    UploadStatus.FAILED.value: ("Hata", (UploadStatus.FAILED,)),
+    PROCESSING_FILTER: (N_("İşleniyor"), PROCESSING_STATUSES),
+    UploadStatus.DONE.value: (N_("Tamamlandı"), (UploadStatus.DONE,)),
+    UploadStatus.PARTIAL.value: (N_("Kısmi"), (UploadStatus.PARTIAL,)),
+    UploadStatus.FAILED.value: (N_("Hata"), (UploadStatus.FAILED,)),
 }
 
 # 10.3.4 — süzgeç değeri → formdaki ad; değer yoksa yoksayılan parti listelenmez.
 DISMISSED_ONLY = "only"
 DISMISSED_INCLUDE = "include"
 DISMISSED_FILTERS: dict[str, str] = {
-    DISMISSED_ONLY: "Yalnız yoksayılanlar",
-    DISMISSED_INCLUDE: "Yoksayılanlar dahil",
+    DISMISSED_ONLY: N_("Yalnız yoksayılanlar"),
+    DISMISSED_INCLUDE: N_("Yoksayılanlar dahil"),
 }
 
-INVALID_STATUS_WARNING = "Durum süzgeci tanınmadı; yok sayıldı."
-INVALID_FROM_WARNING = "Başlangıç günü geçerli bir tarih değil (YYYY-AA-GG); yok sayıldı."
-INVALID_TO_WARNING = "Bitiş günü geçerli bir tarih değil (YYYY-AA-GG); yok sayıldı."
-REVERSED_RANGE_WARNING = "Başlangıç günü bitiş gününden sonra; tarih süzgeci yok sayıldı."
-INVALID_DISMISSED_WARNING = "Yoksayılanlar süzgeci tanınmadı; yok sayıldı."
+INVALID_STATUS_WARNING = N_("Durum süzgeci tanınmadı; yok sayıldı.")
+INVALID_FROM_WARNING = N_("Başlangıç günü geçerli bir tarih değil (YYYY-AA-GG); yok sayıldı.")
+INVALID_TO_WARNING = N_("Bitiş günü geçerli bir tarih değil (YYYY-AA-GG); yok sayıldı.")
+REVERSED_RANGE_WARNING = N_("Başlangıç günü bitiş gününden sonra; tarih süzgeci yok sayıldı.")
+INVALID_DISMISSED_WARNING = N_("Yoksayılanlar süzgeci tanınmadı; yok sayıldı.")
 
 
 @dataclass(frozen=True, slots=True)

@@ -181,6 +181,7 @@ from app.groups import (
     package_counts,
     reopen_package,
 )
+from app.i18n import N_, Translatable
 from app.matching.edit import (
     MERGED_STATUS,
     EmployeeEditRefusedError,
@@ -207,6 +208,7 @@ from app.matching.records import (
     ACTIVE_CONTACT,
     ACTIVE_IDENTIFIER,
     CONTACT_VALUE_MAX_LENGTH,
+    SEEN_AFTER_REMOVAL_WARNING,
     ContactFormError,
     EmployeeRecords,
     ProfileRecord,
@@ -216,6 +218,7 @@ from app.matching.records import (
     employee_records,
     find_record,
     record_kind,
+    record_label,
     record_value,
     remove_record,
     restore_record,
@@ -281,9 +284,9 @@ STATUS_FILTERS: dict[str, frozenset[str] | None] = {
     ALL_STATUSES: None,
 }
 STATUS_FILTER_LABELS = {
-    EmployeeStatus.ACTIVE.value: "Aktif",
-    EmployeeStatus.INACTIVE.value: "Pasif",
-    ALL_STATUSES: "Hepsi",
+    EmployeeStatus.ACTIVE.value: N_("Aktif"),
+    EmployeeStatus.INACTIVE.value: N_("Pasif"),
+    ALL_STATUSES: N_("Hepsi"),
 }
 DEFAULT_STATUS = EmployeeStatus.ACTIVE.value
 # Atama (10.7.2) ve taşıma (10.8.2) aramaları pasif çalışanı da bulur ("(pasif)" ekiyle).
@@ -334,7 +337,9 @@ def package_cell(counts: PackageCounts | None) -> str:
     """14.3.1 — listenin "Paket" hücresi: "2 açık · 3 eksik"; açık paket yoksa "—"."""
     if counts is None or not counts.open:
         return NO_PACKAGES
-    return f"{counts.open} açık · {counts.missing} eksik"
+    return Translatable(
+        N_("{open} açık · {missing} eksik"), open=counts.open, missing=counts.missing
+    )
 
 
 def search_terms(query: str) -> list[str]:
@@ -578,28 +583,28 @@ def employees_page(
 # --- 10.5: çalışan profili ---------------------------------------------------------------------
 
 PROFILE_PICTURE_SLUG = "profile_picture"
-EMPLOYEE_NOT_FOUND = "Çalışan bulunamadı."
-DOCUMENT_NOT_FOUND = "Belge bulunamadı."
-FILE_NOT_FOUND = "Belge dosyası bulunamadı."
+EMPLOYEE_NOT_FOUND = N_("Çalışan bulunamadı.")
+DOCUMENT_NOT_FOUND = N_("Belge bulunamadı.")
+FILE_NOT_FOUND = N_("Belge dosyası bulunamadı.")
 
 CONTACT_LABELS = {
-    ContactKind.PHONE.value: "Telefon",
-    ContactKind.EMAIL.value: "E-posta",
-    ContactKind.ADDRESS.value: "Adres",
+    ContactKind.PHONE.value: N_("Telefon"),
+    ContactKind.EMAIL.value: N_("E-posta"),
+    ContactKind.ADDRESS.value: N_("Adres"),
 }
 # Kartın alan etiketleri (05.7.3 uyarısı "<alan>: belgede farklı değer okundu").
 FIELD_LABELS = {
-    ProfileField.GIVEN_NAMES: "Ad",
-    ProfileField.SURNAME: "Soyad",
-    ProfileField.OTHER_NAMES: "Diğer isimler",
-    ProfileField.ORIGINAL_SCRIPT_NAME: "Orijinal yazım",
-    ProfileField.NATIONALITY: "Vatandaşlık",
-    ProfileField.DATE_OF_BIRTH: "Doğum tarihi",
+    ProfileField.GIVEN_NAMES: N_("Ad"),
+    ProfileField.SURNAME: N_("Soyad"),
+    ProfileField.OTHER_NAMES: N_("Diğer isimler"),
+    ProfileField.ORIGINAL_SCRIPT_NAME: N_("Orijinal yazım"),
+    ProfileField.NATIONALITY: N_("Vatandaşlık"),
+    ProfileField.DATE_OF_BIRTH: N_("Doğum tarihi"),
 }
-FIELD_CONFLICT_WARNING = "{label}: belgede farklı değer okundu"
+FIELD_CONFLICT_WARNING = N_("{label}: belgede farklı değer okundu")
 # 10.5.6: elle girilen alanın kaynağı; 10.5.9: birleştirmede birleşen kayıttan dolan alanınki.
-MANUAL_SOURCE = "elle ({actor}, {day})"
-MERGE_SOURCE = "birleştirme ({actor}, {day})"
+MANUAL_SOURCE = N_("elle ({actor}, {day})")
+MERGE_SOURCE = N_("birleştirme ({actor}, {day})")
 # Kaynağı belge olmayan alan gözlemlerinin etiketi (bağlantısız).
 _USER_SOURCES = {FieldSource.MANUAL.value: MANUAL_SOURCE, FieldSource.MERGE.value: MERGE_SOURCE}
 # Tarayıcının kendi görüntüleyicisiyle açabildiği çıktı biçimleri; başka biçim (Word/Excel, K2)
@@ -678,16 +683,16 @@ class DeactivationView:
 
 # 10.5.8: kaynağı belge olan ama belge kimliği tutulmamış kayıt (05.7.2, 05.8.1 — birikim çıktı
 # belgesinden önce yapılır); elle eklenen iletişim bilgisi `MANUAL_SOURCE`'u taşır.
-FROM_DOCUMENT = "belgeden"
+FROM_DOCUMENT = N_("belgeden")
 RECORD_KIND_LABELS = {
-    RecordKind.ALIAS.value: "İsim yazımı",
-    RecordKind.IDENTIFIER.value: "Belge numarası",
+    RecordKind.ALIAS.value: N_("İsim yazımı"),
+    RecordKind.IDENTIFIER.value: N_("Belge numarası"),
 }
 ALIAS_SCRIPT_LABELS = {
-    Script.LATIN.value: "Latin",
-    Script.CYRILLIC.value: "Kiril",
-    Script.ARABIC.value: "Arap",
-    Script.OTHER.value: "diğer",
+    Script.LATIN.value: N_("Latin"),
+    Script.CYRILLIC.value: N_("Kiril"),
+    Script.ARABIC.value: N_("Arap"),
+    Script.OTHER.value: N_("diğer"),
 }
 NO_SCRIPT = "—"
 
@@ -959,6 +964,13 @@ def _deactivation(session: Session, employee: Employee) -> DeactivationView | No
     )
 
 
+def _removal_warning(kind: RecordKind, record: ProfileRecord) -> str | None:
+    """`seen_after_removal_warning`'in isteğin dilindeki hâli (10.10.3): kayıt türü de çevrilir."""
+    if seen_after_removal_warning(kind, record) is None:
+        return None
+    return Translatable(SEEN_AFTER_REMOVAL_WARNING, label=Translatable(record_label(kind, record)))
+
+
 def _record_sections(
     employee_id: str,
     records: EmployeeRecords,
@@ -973,7 +985,8 @@ def _record_sections(
             return SourceLink(label=FROM_DOCUMENT, url=None)
         row = by_id.get(document_id)
         if row is None:  # belge artık bu çalışanda değil (taşındı): geçmişi açılır
-            return SourceLink(label=f"Belge {document_id}", url=f"/documents/{document_id}/history")
+            label = Translatable(N_("Belge {id}"), id=document_id)
+            return SourceLink(label=label, url=f"/documents/{document_id}/history")
         if row.available:
             url = f"/employees/{employee_id}/documents/{row.id}/file"
             return SourceLink(label=row.file_name, url=url, new_tab=True)
@@ -983,7 +996,7 @@ def _record_sections(
         removal = {
             "removed_by": record.removed_by,
             "removed_at": record.removed_at,
-            "warning": seen_after_removal_warning(kind, record),
+            "warning": _removal_warning(kind, record),
         }
         if isinstance(record, EmployeeAlias):
             return RecordRow(
@@ -1007,7 +1020,7 @@ def _record_sections(
         label = CONTACT_LABELS.get(record.kind, record.kind)
         if record.added_by:
             day = record.first_seen_at.strftime("%d.%m.%Y")
-            manual = MANUAL_SOURCE.format(actor=record.added_by, day=day)
+            manual = Translatable(MANUAL_SOURCE, actor=record.added_by, day=day)
             source = SourceLink(label=manual, url=None)
         else:
             source = document_source(record.source_document_id)
@@ -1070,11 +1083,14 @@ def _field_sources(
     def link(observation: EmployeeFieldObservation, upload_id: str | None) -> SourceLink:
         if observation.source in _USER_SOURCES:
             day = observation.observed_at.strftime("%d.%m.%Y")
-            label = _USER_SOURCES[observation.source].format(actor=observation.actor, day=day)
+            label = Translatable(
+                _USER_SOURCES[observation.source], actor=observation.actor, day=day
+            )
             return SourceLink(label=label, url=None)
         document = by_source.get((observation.file_id, observation.page_index))
         if document is None:
-            return SourceLink(label=f"Parti {upload_id}", url=f"/uploads/{upload_id}")
+            label = Translatable(N_("Parti {id}"), id=upload_id)
+            return SourceLink(label=label, url=f"/uploads/{upload_id}")
         name = PurePosixPath(document.path).name
         if available.get(document.id, False):
             url = f"/employees/{employee_id}/documents/{document.id}/file"
@@ -1114,7 +1130,7 @@ def _field_sources(
         sources[profile_field.value] = FieldSources(
             source=link(*origin[0]) if origin else None,
             conflicts=conflicts,
-            warning=FIELD_CONFLICT_WARNING.format(label=label),
+            warning=Translatable(FIELD_CONFLICT_WARNING, label=Translatable(label)),
         )
     return sources
 
@@ -1158,40 +1174,45 @@ class PackageFormValues:
 
 
 PACKAGE_NOTICES = {
-    "package_assigned": "Paket tanımlandı.",
-    "package_cancelled": "Paket iptal edildi.",
-    "package_reopened": "Paket yeniden açıldı.",
+    "package_assigned": N_("Paket tanımlandı."),
+    "package_cancelled": N_("Paket iptal edildi."),
+    "package_reopened": N_("Paket yeniden açıldı."),
 }
 # 10.5.6: düzenlemeden sonra profil sayfasının bildirimi.
 PROFILE_NOTICES = {
-    "fields_changed": "Profil bilgileri değiştirildi.",
+    "fields_changed": N_("Profil bilgileri değiştirildi."),
     "fields_renamed": (
-        "Profil bilgileri değiştirildi; klasör ve belge dosyaları yeni adla yeniden adlandırıldı."
+        N_(
+            "Profil bilgileri değiştirildi; klasör ve belge dosyaları yeni adla yeniden "
+            "adlandırıldı."
+        )
     ),
     # 10.5.7
-    "status_inactive": "Çalışan pasife alındı; yeni belgeleri otomatik yerleşmeyecek.",
-    "status_active": "Çalışan yeniden etkinleştirildi.",
+    "status_inactive": N_("Çalışan pasife alındı; yeni belgeleri otomatik yerleşmeyecek."),
+    "status_active": N_("Çalışan yeniden etkinleştirildi."),
     # 10.5.9
     "merged": (
-        "Kayıtlar birleştirildi; birleşen kaydın belgeleri, numaraları, isim yazımları, iletişim "
-        "bilgileri ve belge paketleri bu profile taşındı."
+        N_(
+            "Kayıtlar birleştirildi; birleşen kaydın belgeleri, numaraları, isim yazımları, "
+            "iletişim bilgileri ve belge paketleri bu profile taşındı."
+        )
     ),
 }
 # 10.5.8: alt kayıt işlemlerinden sonra "Profil kayıtları" bölümünün bildirimi.
 RECORD_NOTICES = {
-    "record_removed": "Kayıt kaldırıldı; eşleştirmede ve aramada kullanılmayacak.",
-    "record_restored": "Kayıt geri alındı; yeniden eşleştirmede ve aramada kullanılacak.",
-    "contact_added": "İletişim bilgisi eklendi.",
+    "record_removed": N_("Kayıt kaldırıldı; eşleştirmede ve aramada kullanılmayacak."),
+    "record_restored": N_("Kayıt geri alındı; yeniden eşleştirmede ve aramada kullanılacak."),
+    "contact_added": N_("İletişim bilgisi eklendi."),
 }
 # 08.4.1, 10.5.10: profilden arşive taşıma ve arşivden geri almadan sonra "Belgeler" bölümünün
 # bildirimi.
 DOCUMENT_NOTICES = {
-    "document_archived": "Belge arşive taşındı; çalışanın Hazır klasöründen çıktı.",
-    "document_unarchived": "Belge arşivden geri alındı; çalışanın Hazır klasörüne döndü.",
+    "document_archived": N_("Belge arşive taşındı; çalışanın Hazır klasöründen çıktı."),
+    "document_unarchived": N_("Belge arşivden geri alındı; çalışanın Hazır klasörüne döndü."),
 }
-PACKAGE_NOT_FOUND = "Paket bulunamadı."
-GROUP_NOT_FOUND = "Belge grubu bulunamadı."
-DUPLICATE_PACKAGE = (
+PACKAGE_NOT_FOUND = N_("Paket bulunamadı.")
+GROUP_NOT_FOUND = N_("Belge grubu bulunamadı.")
+DUPLICATE_PACKAGE = N_(
     "Bu çalışanda aynı gruptan iptal edilmemiş bir paket zaten var. Yine de ikinci paket "
     "tanımlamak için onaylayın."
 )
@@ -1314,7 +1335,7 @@ def assign_package_endpoint(
         raise HTTPException(status.HTTP_404_NOT_FOUND, GROUP_NOT_FOUND) from None
     except (GroupArchivedError, PackageStateError) as exc:
         # Arşivdeki grup ya da birleştirilmiş çalışan (10.5.9).
-        problems, status_code = {"group_id": [str(exc)]}, status.HTTP_409_CONFLICT
+        problems, status_code = {"group_id": [exc]}, status.HTTP_409_CONFLICT
     except PackageFormError as exc:
         problems, status_code = exc.problems, status.HTTP_422_UNPROCESSABLE_CONTENT
     else:
@@ -1372,7 +1393,7 @@ def cancel_package_endpoint(
             session,
             layout,
             employee_id,
-            cancel_problems={package_id: [str(exc)]},
+            cancel_problems={package_id: [exc]},
             status_code=(
                 status.HTTP_409_CONFLICT if conflict else status.HTTP_422_UNPROCESSABLE_CONTENT
             ),
@@ -1406,7 +1427,7 @@ def reopen_package_endpoint(
             session,
             layout,
             employee_id,
-            cancel_problems={package_id: [str(exc)]},
+            cancel_problems={package_id: [exc]},
             status_code=status.HTTP_409_CONFLICT,
         )
     session.commit()
@@ -1418,10 +1439,10 @@ def reopen_package_endpoint(
 
 # §20.6 "Çalışan profilini düzenle": metinler birebir `app.web.confirm`'dadır; `<N>` dosyası
 # yeniden adlandırılacak belge sayısıyla dolar.
-NOT_EDITABLE = (
+NOT_EDITABLE = N_(
     "Bu çalışan başka bir kayıtla birleştirildi; profili düzenlenmez, kalan kaydı düzenleyin."
 )
-NO_FIELD_CHANGES = "Hiçbir alan değişmedi; değiştirmek istediğiniz alanı düzenleyin."
+NO_FIELD_CHANGES = N_("Hiçbir alan değişmedi; değiştirmek istediğiniz alanı düzenleyin.")
 
 
 @dataclass(frozen=True, slots=True)
@@ -1606,7 +1627,7 @@ def prepare_employee_fields(
                 employee_id,
                 target=target,
                 status_code=status.HTTP_400_BAD_REQUEST,
-                error=str(exc),
+                error=exc,
             )
         return _refused_fields(request, user, employee_id, target, values, exc)
     session.commit()
@@ -1678,14 +1699,14 @@ STATUS_OPERATIONS = {
     EmployeeStatus.ACTIVE: Operation.REACTIVATE_EMPLOYEE,
 }
 STATUS_TITLES = {
-    EmployeeStatus.INACTIVE: "Çalışanı pasife al",
-    EmployeeStatus.ACTIVE: "Çalışanı yeniden etkinleştir",
+    EmployeeStatus.INACTIVE: N_("Çalışanı pasife al"),
+    EmployeeStatus.ACTIVE: N_("Çalışanı yeniden etkinleştir"),
 }
-BAD_STATUS_TARGET = "Hedef durum yalnız pasif (inactive) ya da aktif (active) olabilir."
-STATUS_NOT_CHANGEABLE = "Bu çalışan başka bir kayıtla birleştirildi; durumu değiştirilmez."
+BAD_STATUS_TARGET = N_("Hedef durum yalnız pasif (inactive) ya da aktif (active) olabilir.")
+STATUS_NOT_CHANGEABLE = N_("Bu çalışan başka bir kayıtla birleştirildi; durumu değiştirilmez.")
 STATUS_ALREADY = {
-    EmployeeStatus.INACTIVE: "Çalışan zaten pasif.",
-    EmployeeStatus.ACTIVE: "Çalışan zaten etkin.",
+    EmployeeStatus.INACTIVE: N_("Çalışan zaten pasif."),
+    EmployeeStatus.ACTIVE: N_("Çalışan zaten etkin."),
 }
 # Form sınırı yalnız aşırı girdiye karşıdır; not kuralını (≤ 200) servis mesajla bildirir.
 STATUS_FORM_LIMIT = 1000
@@ -1744,7 +1765,7 @@ def _status_page(
         employee_id=employee_id,
         target=target,
         to=to.value if to is not None else None,
-        title=STATUS_TITLES[to] if to is not None else "Çalışanın durumu",
+        title=STATUS_TITLES[to] if to is not None else N_("Çalışanın durumu"),
         reason_limit=REASON_MAX_LENGTH,
         **context,
     )
@@ -1826,7 +1847,7 @@ def prepare_employee_status(
             target=target,
             to=wanted,
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            error=str(exc),
+            error=exc,
             first_confirmation=first_text(STATUS_OPERATIONS[wanted], name=target.name),
             reason=reason or "",
         )
@@ -1847,7 +1868,7 @@ def prepare_employee_status(
             target=target,
             to=wanted,
             status_code=status.HTTP_400_BAD_REQUEST,
-            error=str(exc),
+            error=exc,
         )
     session.commit()
     return _status_page(
@@ -1935,10 +1956,14 @@ def change_employee_status_endpoint(
 # --- 10.5.8: profil alt kayıtları -----------------------------------------------------------------
 
 # §20.6 "Profil alt kaydını kaldır": metinler birebir `app.web.confirm`'dadır.
-RECORD_NOT_FOUND = "Kayıt bulunamadı."
-RECORDS_LOCKED = "Bu çalışan başka bir kayıtla birleştirildi; kayıtları kalan kayıtta yönetilir."
-RECORD_ALREADY_REMOVED = "Kayıt zaten kaldırılmış; profildeki “Kaldırılanlar” altından geri alınır."
-RECORD_NOT_REMOVED = "Kayıt kaldırılmamış; geri alınacak bir şey yok."
+RECORD_NOT_FOUND = N_("Kayıt bulunamadı.")
+RECORDS_LOCKED = N_(
+    "Bu çalışan başka bir kayıtla birleştirildi; kayıtları kalan kayıtta yönetilir."
+)
+RECORD_ALREADY_REMOVED = N_(
+    "Kayıt zaten kaldırılmış; profildeki “Kaldırılanlar” altından geri alınır."
+)
+RECORD_NOT_REMOVED = N_("Kayıt kaldırılmamış; geri alınacak bir şey yok.")
 # Form sınırı yalnız aşırı girdiye karşıdır; değer kuralını (≤ 500) servis mesajla bildirir.
 CONTACT_FORM_LIMIT = 2000
 
@@ -2115,7 +2140,7 @@ def prepare_record_removal(
             target=target if refused else None,
             record=view if refused else None,
             status_code=status.HTTP_400_BAD_REQUEST if refused else exc.status_code,
-            error=str(exc) if refused else exc.detail,
+            error=exc if refused else exc.detail,
         )
     session.commit()
     return _record_page(
@@ -2289,22 +2314,24 @@ def add_contact_endpoint(
 
 # §20.6 "İki çalışanı birleştir": metinler birebir `app.web.confirm`'dadır; `<Birleşen Ad Soyad>`,
 # `<Kalan Ad Soyad>` ve `<N>` (kalana bağlanacak belge sayısı) çalışma zamanında dolar.
-MERGE_SAME = "Bir kayıt kendisiyle birleştirilmez; başka bir çalışan seçin."
-MERGE_CLOSED = (
+MERGE_SAME = N_("Bir kayıt kendisiyle birleştirilmez; başka bir çalışan seçin.")
+MERGE_CLOSED = N_(
     "Bu kayıt başka bir kayıtla zaten birleştirildi; birleştirme geri alınmaz, kalan kaydı "
     "kullanın."
 )
-MERGE_OTHER_CLOSED = "Seçilen çalışan başka bir kayıtla zaten birleştirildi; kalan kaydını seçin."
-MERGE_OTHER_NOT_FOUND = "Birleştirilecek çalışan bulunamadı."
-MERGE_BAD_KEEP = "Kalacak kayıt birleştirilen iki çalışandan biri olmalı."
-MERGE_FILES_FAILED = (
+MERGE_OTHER_CLOSED = N_(
+    "Seçilen çalışan başka bir kayıtla zaten birleştirildi; kalan kaydını seçin."
+)
+MERGE_OTHER_NOT_FOUND = N_("Birleştirilecek çalışan bulunamadı.")
+MERGE_BAD_KEEP = N_("Kalacak kayıt birleştirilen iki çalışandan biri olmalı.")
+MERGE_FILES_FAILED = N_(
     "Belge dosyaları taşınamadı; birleştirme yapılmadı, hiçbir şey değişmedi. Dosyaların açık "
     "olmadığından emin olup yeniden deneyin."
 )
 # Özet tablosunda alanın sonucu (`merge_field_preview`).
 MERGE_FIELD_NOTES = {
-    "filled": "kalanın boş alanı bu değerle dolacak",
-    "different": "farklı — kalanın değeri geçerli kalır, profilde uyarı olur",
+    "filled": N_("kalanın boş alanı bu değerle dolacak"),
+    "different": N_("farklı — kalanın değeri geçerli kalır, profilde uyarı olur"),
 }
 MergeOther = Annotated[str, Form(max_length=MAX_QUERY_LENGTH)]
 MergeKeep = Annotated[str, Form(max_length=MAX_QUERY_LENGTH)]
@@ -2536,7 +2563,7 @@ def prepare_merge(
             "employee_merge_step.html",
             employee_id,
             status_code=status.HTTP_400_BAD_REQUEST,
-            error=str(exc),
+            error=exc,
         )
     session.commit()
     return _merge_page(

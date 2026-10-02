@@ -47,6 +47,7 @@ from app.db.models import (
     utcnow,
 )
 from app.events import EventType, record_event
+from app.i18n import N_, Translatable
 from app.storage.slug import SlugError, slugify
 
 NAME_MAX_LENGTH = 120
@@ -59,7 +60,8 @@ NAME_REQUIRED = "Grup adı boş olamaz."
 NAME_TOO_LONG = f"Grup adı en çok {NAME_MAX_LENGTH} karakter olabilir."
 NAME_UNUSABLE = "Grup adı en az bir harf ya da rakam içermeli."
 DESCRIPTION_TOO_LONG = f"Açıklama en çok {DESCRIPTION_MAX_LENGTH} karakter olabilir."
-NOTE_TOO_LONG = f"Not en çok {NOTE_MAX_LENGTH} karakter olabilir."
+# 10.10.3: paket formunun hatası profil sayfasında görünür, gösterimde çevrilir.
+NOTE_TOO_LONG = Translatable(N_("Not en çok {limit} karakter olabilir."), limit=NOTE_MAX_LENGTH)
 MATCH_KIND_INVALID = "Kalem ya bir dosya etiketiyle ya da bir türle tanımlanır."
 LABEL_REQUIRED = "Bir dosya etiketi seçin."
 LABEL_UNKNOWN = "Bu dosya etiketi katalogdaki hiçbir türde yok."

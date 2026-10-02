@@ -2,46 +2,46 @@
 {# Yükleme listesi (10.3.3): partiler en yeni üstte, durum ve tarihe göre süzülür, sayfalanır. Sayfa
    yalnız okur; dosya adı ve kişisel alan yok, yalnız sayılar. Yoksayılan parti (10.3.4) yalnız
    "Yoksayılanlar" süzgeciyle listelenir. #}
-{% block title %}Yüklemeler{% endblock %}
+{% block title %}{{ _("Yüklemeler") }}{% endblock %}
 {% block content %}
-<h1>Yüklemeler</h1>
-<p class="lede">Her satır bir <strong>parti</strong>: tek seferde, tek kanaldan (panel ya da Telegram) gönderilen dosya grubu. Parti numarasına tıklayınca o gönderimdeki dosyalar, sayfalar ve sistemin verdiği kararlar açılır.</p>
-<form class="search uploads-filter" method="get" action="/uploads" aria-label="Yüklemeleri süz">
-  <label for="upload-status">Durum</label>
+<h1>{{ _("Yüklemeler") }}</h1>
+<p class="lede">{% trans %}Her satır bir <strong>parti</strong>: tek seferde, tek kanaldan (panel ya da Telegram) gönderilen dosya grubu. Parti numarasına tıklayınca o gönderimdeki dosyalar, sayfalar ve sistemin verdiği kararlar açılır.{% endtrans %}</p>
+<form class="search uploads-filter" method="get" action="/uploads" aria-label="{{ _('Yüklemeleri süz') }}">
+  <label for="upload-status">{{ _("Durum") }}</label>
   <select id="upload-status" name="status">
-    <option value="">Tümü</option>
+    <option value="">{{ _("Tümü") }}</option>
     {% for value, name in status_filters %}
-    <option value="{{ value }}"{% if listing.filter.status == value %} selected{% endif %}>{{ name }}</option>
+    <option value="{{ value }}"{% if listing.filter.status == value %} selected{% endif %}>{{ translate(name) }}</option>
     {% endfor %}
   </select>
-  <label for="upload-from">Başlangıç</label>
+  <label for="upload-from">{{ _("Başlangıç") }}</label>
   <input type="date" id="upload-from" name="from" value="{{ listing.filter.date_from.isoformat() if listing.filter.date_from else '' }}">
-  <label for="upload-to">Bitiş</label>
+  <label for="upload-to">{{ _("Bitiş") }}</label>
   <input type="date" id="upload-to" name="to" value="{{ listing.filter.date_to.isoformat() if listing.filter.date_to else '' }}">
-  <label for="upload-dismissed">Yoksayılanlar</label>
+  <label for="upload-dismissed">{{ _("Yoksayılanlar") }}</label>
   <select id="upload-dismissed" name="dismissed">
-    <option value="">Gizle</option>
+    <option value="">{{ _("Gizle") }}</option>
     {% for value, name in dismissed_filters %}
-    <option value="{{ value }}"{% if listing.filter.dismissed == value %} selected{% endif %}>{{ name }}</option>
+    <option value="{{ value }}"{% if listing.filter.dismissed == value %} selected{% endif %}>{{ translate(name) }}</option>
     {% endfor %}
   </select>
-  <button type="submit">Süz</button>
-  {% if listing.filter.active %}<a href="/uploads">Süzgeci temizle</a>{% endif %}
+  <button type="submit">{{ _("Süz") }}</button>
+  {% if listing.filter.active %}<a href="/uploads">{{ _("Süzgeci temizle") }}</a>{% endif %}
 </form>
 {% for warning in listing.filter.warnings %}
-<p class="notice" role="alert">{{ warning }}</p>
+<p class="notice" role="alert">{{ translate(warning) }}</p>
 {% endfor %}
 
 {% if listing.total == 0 %}
-<p class="placeholder">{% if listing.filter.active %}Bu süzgece uyan yükleme yok.{% else %}Henüz yükleme yok.{% endif %} <a href="/upload">Yükle</a></p>
+<p class="placeholder">{% if listing.filter.active %}{{ _("Bu süzgece uyan yükleme yok.") }}{% else %}{{ _("Henüz yükleme yok.") }}{% endif %} <a href="/upload">{{ _("Yükle") }}</a></p>
 {% else %}
-<p class="count">{{ listing.total }} yükleme</p>
+<p class="count">{{ ngettext("%(num)d yükleme", "%(num)d yükleme", listing.total) }}</p>
 <table class="access-log uploads-list">
   <thead>
     <tr>
-      <th>Parti</th><th>Tarih</th><th>Kanal</th><th>Yükleyen</th><th>Bağlam çalışanı</th>
-      <th class="num">Dosya</th><th class="num">Sayfa</th><th>Durum</th>
-      {% for header in listing.queue_headers %}<th class="num" title="Çözülmemiş {{ header }} öğesi">{{ header }}</th>{% endfor %}
+      <th>{{ _("Parti") }}</th><th>{{ _("Tarih") }}</th><th>{{ _("Kanal") }}</th><th>{{ _("Yükleyen") }}</th><th>{{ _("Bağlam çalışanı") }}</th>
+      <th class="num">{{ _("Dosya") }}</th><th class="num">{{ _("Sayfa") }}</th><th>{{ _("Durum") }}</th>
+      {% for header in listing.queue_headers %}<th class="num" title="{{ _('Çözülmemiş %(queue)s öğesi', queue=translate(header)) }}">{{ translate(header) }}</th>{% endfor %}
     </tr>
   </thead>
   <tbody>
@@ -49,22 +49,22 @@
     <tr>
       <td><a href="{{ row.url }}">{{ row.id }}</a></td>
       <td>{{ row.created_at }}</td>
-      <td>{{ row.channel }}</td>
+      <td>{{ translate(row.channel) }}</td>
       <td>{{ row.uploaded_by or "—" }}</td>
       <td>{% if row.context_employee_url %}<a href="{{ row.context_employee_url }}">{{ row.context_employee_name }}</a> <span class="reason">{{ row.context_employee_id }}</span>{% else %}—{% endif %}</td>
       <td class="num">{{ row.file_count }}</td>
       <td class="num">{{ row.page_count }}</td>
-      <td class="status-{{ row.status }}">{{ row.status_label }}{% if row.dismissed %} <span class="badge badge-neutral">Yoksayıldı</span>{% endif %}</td>
+      <td class="status-{{ row.status }}">{{ translate(row.status_label) }}{% if row.dismissed %} <span class="badge badge-neutral">{{ _("Yoksayıldı") }}</span>{% endif %}</td>
       {% for queue in row.queue_counts %}<td class="num">{% if queue.shown %}{{ queue.count }}{% endif %}</td>{% endfor %}
     </tr>
     {% endfor %}
   </tbody>
 </table>
 {% if listing.page_count > 1 %}
-<nav class="pager" aria-label="Sayfalama">
-  {% if listing.previous_url %}<a href="{{ listing.previous_url }}" rel="prev">← Önceki</a>{% endif %}
-  <span>Sayfa {{ listing.page }} / {{ listing.page_count }}</span>
-  {% if listing.next_url %}<a href="{{ listing.next_url }}" rel="next">Sonraki →</a>{% endif %}
+<nav class="pager" aria-label="{{ _('Sayfalama') }}">
+  {% if listing.previous_url %}<a href="{{ listing.previous_url }}" rel="prev">{{ _("← Önceki") }}</a>{% endif %}
+  <span>{{ _("Sayfa %(page)s / %(count)s", page=listing.page, count=listing.page_count) }}</span>
+  {% if listing.next_url %}<a href="{{ listing.next_url }}" rel="next">{{ _("Sonraki →") }}</a>{% endif %}
 </nav>
 {% endif %}
 {% endif %}
