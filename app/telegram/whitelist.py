@@ -4,7 +4,7 @@ PLAN.md §C92-e).
 Bot yalnız **izinli** kimliğe yanıt verir: `telegram_users.allowed` doğru ve kimliğin bağlı olduğu
 panel kullanıcısı etkin (`users.active`, 10.1.4). Pasife alınan panel kullanıcısının kimlikleri,
 izinleri açık kalsa da yanıt almaz; kullanıcı yeniden etkinleşince yanıt yeniden başlar. Kapı
-(`bot.is_whitelisted`), belge gönderimi (`intent.DocumentRequests._release`) ve bildirim alıcıları
+(`bot.admission`), belge gönderimi (`intent.DocumentRequests._release`) ve bildirim alıcıları
 (`notify.Notifier`) bu tek tanımı kullanır — `permitted_ids` sorgu, `is_permitted` yüklü satır için.
 
 Yönetim panelin Kullanıcılar sayfasındadır (`app.web.routers.users`): kullanıcıya kimlik eklenir

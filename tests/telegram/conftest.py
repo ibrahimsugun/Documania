@@ -21,15 +21,30 @@ from telegram import Update
 from telegram.ext import Application, ApplicationBuilder
 from telegram.request import BaseRequest, RequestData
 
+import app.telegram.bot as bot_module
 from app.ai.provider import AnalysisProvider, ProviderConfigError
 from app.catalog import import_catalog, load_seed_catalog
 from app.config import Settings
 from app.db.models import Base, TelegramUser, User
 from app.db.session import create_db_engine, create_session_factory
+from app.i18n import use_language
 from app.storage import DataLayout, prepare_data_dir
 from app.telegram.bot import BotConfig, BotMode, build_application
 from app.telegram.handlers import DocumentIntake, ProviderFactory
 from app.telegram.intent import ChoiceStore, DocumentRequests
+
+
+@pytest.fixture(autouse=True)
+def turkish_bot(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
+    """Bot testleri metni kaynak dilde (Türkçe msgid) denetler: tercihi olmayan kullanıcının yanıt
+    dili test sürecinde Türkçedir (panel testlerindeki `PANEL_DEFAULT_LANGUAGE=tr` gibi). Dil
+    davranışını sınayan testler dili açıkça verir (`test_bot_language.py`)."""
+    monkeypatch.setattr(bot_module, "FALLBACK_LANGUAGE", "tr")
+    # Bot dışından doğrudan çağrılan işlevler (`resolve_query`, `build_summary`) de Türkçe görür;
+    # botun kendisi her güncellemede dili yeniden yazar.
+    with use_language("tr"):
+        yield
+
 
 TOKEN = "123456:TEST-token-degeri"
 LISTED_ID = 5_000_000_001

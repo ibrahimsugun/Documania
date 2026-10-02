@@ -1052,7 +1052,7 @@ def test_account_removed_from_the_whitelist_before_delivery_gets_nothing(
     with session_factory() as session:
         session.get_one(TelegramUser, LISTED_ID).allowed = False
         session.commit()
-    monkeypatch.setattr(bot_module, "is_whitelisted", lambda *_args: True)
+    monkeypatch.setattr(bot_module, "admission", lambda *_args: bot_module.Admission())
     sent_before = len(bot.telegram.sent_texts())
 
     bot.feed(callback_update(2, LISTED_ID, buttons(bot)[0][1]))
@@ -1078,7 +1078,7 @@ def test_account_of_a_panel_user_deactivated_before_delivery_gets_nothing(
         account.user.active = False
         session.commit()
         assert account.allowed is True
-    monkeypatch.setattr(bot_module, "is_whitelisted", lambda *_args: True)
+    monkeypatch.setattr(bot_module, "admission", lambda *_args: bot_module.Admission())
     sent_before = len(bot.telegram.sent_texts())
 
     bot.feed(callback_update(2, LISTED_ID, buttons(bot)[0][1]))

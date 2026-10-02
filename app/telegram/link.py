@@ -99,10 +99,13 @@ class IssuedLinkCode:
 @dataclass(frozen=True, slots=True)
 class LinkRedemption:
     """Bağlama sonucu; `username` bağlanan panel kullanıcısının adıdır (`LINKED`,
-    `ALREADY_LINKED`), öbür sonuçlarda boştur."""
+    `ALREADY_LINKED`), öbür sonuçlarda boştur. `language` kodun kullanıcısının arayüz dili
+    (`users.language`; 12.1.6, §D92 k): yanıt o dilde yazılır. Geçersiz kodda ve tercihi
+    olmayan kullanıcıda boştur."""
 
     outcome: LinkOutcome
     username: str | None = None
+    language: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -216,14 +219,14 @@ def redeem_link_code(
             # yanıt kimliğin şimdiki durumuna göre verilir.
             account = _account(session, telegram_id)
         else:
-            return LinkRedemption(LinkOutcome.LINKED, target.username)
+            return LinkRedemption(LinkOutcome.LINKED, target.username, target.language)
     if account is None or account.user_id != target.id:
-        return LinkRedemption(LinkOutcome.TAKEN)
+        return LinkRedemption(LinkOutcome.TAKEN, language=target.language)
     if not account.allowed:
-        return LinkRedemption(LinkOutcome.BLOCKED)
+        return LinkRedemption(LinkOutcome.BLOCKED, language=target.language)
     if not _consume(session, link, telegram_id, now):
         return invalid
-    return LinkRedemption(LinkOutcome.ALREADY_LINKED, target.username)
+    return LinkRedemption(LinkOutcome.ALREADY_LINKED, target.username, target.language)
 
 
 class LinkAttempts:
