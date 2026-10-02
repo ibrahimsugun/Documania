@@ -18,6 +18,12 @@ Blok biçimi `CONVENTIONS.md` §3'te tanımlıdır:
 
 ## Task log (newest-first)
 
+## 98 — §5.2 Faz 1 (v1) kapanış denetimi — done — 2026-10-02
+- Yapıldı: PRD §5.2 kapanış ölçütü ve S16 testlerle eşlendi (panel yolculuğu `tests/web/test_phase1_closure.py`, katalog, aday tür onayı + toplu yeniden analiz, S14, S16); boşluk yok, `app/` ve `tests/` değişmedi; PLAN §0 Faz 1 Kapanış `✅ → KF1`, §K sonuna `#### KF1`.
+- Doğrulama: ruff check/format, compileall (app, tests), `import app.main`, temiz SQLite'ta `alembic upgrade head` (→0024), `python -m app.i18n check`, `git diff --check` exit 0; hedef testler 157 geçti; `pytest -q -m "not live" --cov=app` 6655 geçti, 11 atlandı, 0 kırmızı, kapsam %99; 8 kural bozmasının 8'i kırmızı.
+- Varsayımlar: S14 testi adayı servis yolundan onaylar (panel değil); panelden onayın kanıtı `tests/web/test_candidate_types_page.py` — aday onayını bozma S14'ü kırmızı yapmadı, aday tür testlerini yaptı.
+- Sonraki pencereye not: tm 99 (PRD §5.3 Faz 2 kapanışı, S17 dahil) — canlı Telegram doğrulanmadı (`TELEGRAM_BOT_TOKEN` yok): yeni §D maddesi + `#### KF2`, PLAN satır 13; kusur çıkarsa yeni görev priority `low`.
+
 ## 97 — §5.1 Faz 0 (MVP) kapanış denetimi — done — 2026-10-02
 - Yapıldı: PRD §5.1 kapanış ölçütünün her maddesi testlerle eşlendi (S1–S15, S18; olay logu; köken; yapay zekâsız yeniden çalıştırma; API'den giriş); boşluk yok, `app/` ve `tests/` değişmedi; PLAN §0 Faz 0 Kapanış `✅ → KF0`, §K sonuna `#### KF0`.
 - Doğrulama: ruff check/format, compileall (app, tests), `import app.main`, temiz SQLite'ta `alembic upgrade head` (→0024), `python -m app.i18n check`, `git diff --check` exit 0; senaryo dosyaları 36 geçti; `pytest -q -m "not live" --cov=app` 6655 geçti, 11 atlandı, 0 kırmızı, kapsam %99; 6 kural bozmasının 6'sı kırmızı.
