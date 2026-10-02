@@ -134,7 +134,7 @@ from app.db.models import (
 )
 from app.db.session import get_session
 from app.events import EventType
-from app.i18n import SOURCE_LANGUAGE
+from app.i18n import N_, SOURCE_LANGUAGE
 from app.matching.match import (
     PROFILE_FIELDS,
     EmployeeAction,
@@ -291,7 +291,7 @@ def _issued(
         issued = issue_confirmation(session, request, user, operation, target)
     except ConfirmationRefusedError as exc:
         session.rollback()
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from None
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, _reason(exc)) from None
     session.commit()
     return ConfirmationResponse(
         operation=operation.value,
@@ -325,14 +325,14 @@ def _assign(
             render_image_jpeg_quality=settings.render_image_jpeg_quality,
         )
     except (QueueItemNotFoundError, AssigneeNotFoundError) as exc:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from None
+        raise HTTPException(status.HTTP_404_NOT_FOUND, _reason(exc)) from None
     except (
         QueueAssignmentError,
         PlanIntegrityError,
         QueueItemReferenceError,
         QueueSourceIntegrityError,
     ) as exc:
-        raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from None
+        raise HTTPException(status.HTTP_409_CONFLICT, _reason(exc)) from None
 
 
 @router.post("/{queue_item_id}/assign/prepare", response_model=ConfirmationResponse)
@@ -490,7 +490,7 @@ def archive_document_endpoint(
         archived = archive_document(session, layout, document_id, actor=user.username)
     except DocumentNotArchivableError as exc:
         session.rollback()
-        raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from None
+        raise HTTPException(status.HTTP_409_CONFLICT, _reason(exc)) from None
     session.commit()
     document = archived.document
     return DocumentArchiveResponse(
@@ -504,11 +504,16 @@ def archive_document_endpoint(
     )
 
 
+def _reason(exc: BaseException) -> str:
+    """Çekirdeğin hata metni: ilk argüman (`Translatable` ise gösterimde çevrilir), yoksa metni."""
+    return exc.args[0] if exc.args and isinstance(exc.args[0], str) else str(exc)
+
+
 # --- 10.7.1: kuyruk ekranları -------------------------------------------------------------------
 
 PAGE_SIZE = 25
-QUEUE_ITEM_NOT_FOUND = "Kuyruk öğesi bulunamadı."
-CORRUPT_SOURCE = "Bozuk kaynak kaydı"
+QUEUE_ITEM_NOT_FOUND = N_("Kuyruk öğesi bulunamadı.")
+CORRUPT_SOURCE = N_("Bozuk kaynak kaydı")
 
 
 class QueueState(enum.StrEnum):
@@ -518,30 +523,30 @@ class QueueState(enum.StrEnum):
 
 
 STATE_LABELS = {
-    QueueState.OPEN.value: "Bekleyen",
-    QueueState.RESOLVED.value: "Çözülen",
-    QueueState.SUPERSEDED.value: "Eski sürüm",
+    QueueState.OPEN.value: N_("Bekleyen"),
+    QueueState.RESOLVED.value: N_("Çözülen"),
+    QueueState.SUPERSEDED.value: N_("Eski sürüm"),
 }
 TAB_HINTS = {
-    QueueKind.UNKNOWN.value: (
+    QueueKind.UNKNOWN.value: N_(
         "Belgenin türü katalogda yok ya da belirlenemedi. Yapılacak: Belge Türleri'nden türü "
         "ekleyin, ya da öğeyi açıp doğru türü seçin. (Diskte: Unknown klasörü)"
     ),
-    QueueKind.UNREADABLE.value: (
+    QueueKind.UNREADABLE.value: N_(
         "Belgenin türü belli, ama zorunlu alanlardan biri okunamadı (K1). Yapılacak: gerekçedeki "
         "alanı belgeden okuyup girin, ya da belgeyi daha net tarayıp yeniden yükleyin. "
         "(Diskte: Unreadable klasörü)"
     ),
-    QueueKind.UNRESOLVED.value: (
+    QueueKind.UNRESOLVED.value: N_(
         "Belgenin sahibi ya da yapılacak fiziksel işlem belirlenemedi. Yapılacak: öğeyi açıp "
         "çalışanı seçin, ya da önerilen profili onaylayın. (Diskte: Unresolved klasörü)"
     ),
 }
-QUEUE_INTRO = (
+QUEUE_INTRO = N_(
     "Sistem bir belgeden emin olamadığında onu değiştirmez, buraya alır. Bu sayfadaki her satır "
     "senin kararını bekleyen bir belgedir; karar verince sistem işini tamamlar."
 )
-SUPERSEDED_NOTE = (
+SUPERSEDED_NOTE = N_(
     "Bu öğe partinin eski bir plan sürümüne ait (K18); atanamaz, yalnız kapatılabilir. "
     "Çözülecek öğeler partinin güncel planının kuyruğundadır."
 )
@@ -1028,14 +1033,14 @@ def queue_item_page(
 # --- 10.7.2: kuyruktan çalışana atama -----------------------------------------------------------
 
 # §20.6: metinler birebir `app.web.confirm`'dadır; `<Ad Soyad>` seçilen çalışanın adıyla dolar.
-RESOLVED_NOTE = "Bu öğe zaten çözülmüş; yeniden atanamaz."
-TYPELESS_NOTE = (
+RESOLVED_NOTE = N_("Bu öğe zaten çözülmüş; yeniden atanamaz.")
+TYPELESS_NOTE = N_(
     "Belge türü belirlenmediği için bu öğe bir çalışana atanamaz: "
     "çıktının adı ve işlemi belge türünden seçilir (K8)."
 )
-ASSIGNEE_NOT_FOUND = "Çalışan bulunamadı."
+ASSIGNEE_NOT_FOUND = N_("Çalışan bulunamadı.")
 # 10.5.9: birleştirilmiş kayda atanmaz; belgeler kalan kayda atanır.
-ASSIGNEE_MERGED = "Bu çalışan başka bir kayıtla birleştirildi; öğeyi kalan kayda atayın."
+ASSIGNEE_MERGED = N_("Bu çalışan başka bir kayıtla birleştirildi; öğeyi kalan kayda atayın.")
 
 
 @dataclass(frozen=True, slots=True)
@@ -1113,7 +1118,7 @@ def assignment_search(
         if q.strip():
             listing = list_employees(session, q, statuses=SEARCHABLE_STATUSES)
     except HTTPException as exc:
-        return _assign_result(request, exc.status_code, queue_item_id, error=str(exc.detail))
+        return _assign_result(request, exc.status_code, queue_item_id, error=exc.detail)
     finally:
         session.rollback()
     return _assign_result(request, status.HTTP_200_OK, queue_item_id, search=True, listing=listing)
@@ -1132,7 +1137,7 @@ def assignment_first_confirmation(
         _assignable_item(session, queue_item_id)
         assignee = _assignee(session, employee_id)
     except HTTPException as exc:
-        return _assign_result(request, exc.status_code, queue_item_id, error=str(exc.detail))
+        return _assign_result(request, exc.status_code, queue_item_id, error=exc.detail)
     finally:
         session.rollback()
     return _assign_result(
@@ -1162,10 +1167,12 @@ def prepare_assignment(
         )
     except HTTPException as exc:
         session.rollback()
-        return _assign_result(request, exc.status_code, queue_item_id, error=str(exc.detail))
+        return _assign_result(request, exc.status_code, queue_item_id, error=exc.detail)
     except ConfirmationRefusedError as exc:
         session.rollback()
-        return _assign_result(request, status.HTTP_400_BAD_REQUEST, queue_item_id, error=str(exc))
+        return _assign_result(
+            request, status.HTTP_400_BAD_REQUEST, queue_item_id, error=_reason(exc)
+        )
     session.commit()
     return _assign_result(
         request,
@@ -1214,7 +1221,7 @@ def assign_from_queue(
         assignee = _assignee(session, employee_id)
     except HTTPException as exc:
         session.rollback()
-        return _assign_result(request, exc.status_code, queue_item_id, error=str(exc.detail))
+        return _assign_result(request, exc.status_code, queue_item_id, error=exc.detail)
     except ConfirmationRefusedError:
         session.rollback()
         return _assign_result(
@@ -1237,8 +1244,8 @@ def assign_from_queue(
 
 # §20.6 "Onay bekleyen profili onayla": metinler birebir `app.web.confirm`'dadır; `<Ad Soyad>`
 # onaylanan ad-soyadla dolar.
-PROFILE_RESOLVED_NOTE = "Bu öğe zaten çözülmüş; profil oluşturulamaz."
-NOT_PENDING_NOTE = (
+PROFILE_RESOLVED_NOTE = N_("Bu öğe zaten çözülmüş; profil oluşturulamaz.")
+NOT_PENDING_NOTE = N_(
     "Bu öğe onay bekleyen profil değil (§20.2.2 satır 7): kişisi yeni çalışan olarak açılmaz, "
     "belge kayıtlı bir çalışana atanır."
 )
@@ -1288,7 +1295,7 @@ def _reviewed_profile(
     except QueueItemNotFoundError:
         raise HTTPException(status.HTTP_404_NOT_FOUND, QUEUE_ITEM_NOT_FOUND) from None
     except (QueueAssignmentError, PlanIntegrityError) as exc:
-        raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from None
+        raise HTTPException(status.HTTP_409_CONFLICT, _reason(exc)) from None
 
 
 def _confirmed_profile(
@@ -1316,7 +1323,7 @@ def _profile_section(
     try:
         proposal = _reviewed_profile(session, queue_item.id)
     except HTTPException as exc:
-        return None, str(exc.detail)
+        return None, exc.detail
     return profile_form_fields(profile_values(proposal.fields())), None
 
 
@@ -1375,7 +1382,7 @@ def profile_first_confirmation(
     try:
         _, fields, proposal = _confirmed_profile(session, queue_item_id, values)
     except HTTPException as exc:
-        return _profile_result(request, exc.status_code, queue_item_id, error=str(exc.detail))
+        return _profile_result(request, exc.status_code, queue_item_id, error=exc.detail)
     except ProfileFormError as exc:
         return _invalid_profile(request, queue_item_id, exc.errors)
     finally:
@@ -1412,13 +1419,15 @@ def prepare_profile(
         )
     except HTTPException as exc:
         session.rollback()
-        return _profile_result(request, exc.status_code, queue_item_id, error=str(exc.detail))
+        return _profile_result(request, exc.status_code, queue_item_id, error=exc.detail)
     except ProfileFormError as exc:
         session.rollback()
         return _invalid_profile(request, queue_item_id, exc.errors)
     except ConfirmationRefusedError as exc:
         session.rollback()
-        return _profile_result(request, status.HTTP_400_BAD_REQUEST, queue_item_id, error=str(exc))
+        return _profile_result(
+            request, status.HTTP_400_BAD_REQUEST, queue_item_id, error=_reason(exc)
+        )
     session.commit()
     return _profile_result(
         request,
@@ -1452,14 +1461,14 @@ def _approve_profile(
             fields=fields,
         )
     except QueueItemNotFoundError as exc:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from None
+        raise HTTPException(status.HTTP_404_NOT_FOUND, _reason(exc)) from None
     except (
         QueueAssignmentError,
         PlanIntegrityError,
         QueueItemReferenceError,
         QueueSourceIntegrityError,
     ) as exc:
-        raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from None
+        raise HTTPException(status.HTTP_409_CONFLICT, _reason(exc)) from None
 
 
 @pages_router.post("/queues/{queue_item_id}/profile", response_class=HTMLResponse)
@@ -1501,7 +1510,7 @@ def create_profile_from_queue(
         )
     except HTTPException as exc:
         session.rollback()
-        return _profile_result(request, exc.status_code, queue_item_id, error=str(exc.detail))
+        return _profile_result(request, exc.status_code, queue_item_id, error=exc.detail)
     except ProfileFormError as exc:
         session.rollback()
         return _invalid_profile(request, queue_item_id, exc.errors)
@@ -1526,12 +1535,12 @@ def create_profile_from_queue(
 # --- 10.7.4: kuyruk öğesini kapatma ve yeniden açma -----------------------------------------------
 
 # §20.6 "Kuyruk öğesini kapat": metinler birebir `app.web.confirm`'dadır.
-CLOSE_TITLE = "Kuyruk öğesini kapat"
-REOPEN_TITLE = "Kuyruk öğesini yeniden aç"
-BAD_CLOSE_REASON = "Kapatma gerekçesini seçin: belge değil, zaten var ya da diğer."
+CLOSE_TITLE = N_("Kuyruk öğesini kapat")
+REOPEN_TITLE = N_("Kuyruk öğesini yeniden aç")
+BAD_CLOSE_REASON = N_("Kapatma gerekçesini seçin: belge değil, zaten var ya da diğer.")
 CLOSE_NOTICES = {
-    "closed": "Öğe kapatıldı; kuyruk klasöründeki kopya ve gerekçe dosyası yerinde kaldı.",
-    "reopened": "Öğe yeniden açıldı.",
+    "closed": N_("Öğe kapatıldı; kuyruk klasöründeki kopya ve gerekçe dosyası yerinde kaldı."),
+    "reopened": N_("Öğe yeniden açıldı."),
 }
 
 
@@ -1589,7 +1598,7 @@ def _close_choice(reason: str, note: str) -> tuple[QueueCloseReason, str | None]
     try:
         return choice, clean_close_note(choice, note)
     except CloseNoteError as exc:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from None
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, _reason(exc)) from None
 
 
 def _close_choices(selected: str = "") -> list[CloseReasonChoice]:
@@ -1666,7 +1675,7 @@ def close_first_confirmation(
             queue_item_id,
             step=None,
             status_code=exc.status_code,
-            error=str(exc.detail),
+            error=exc.detail,
         )
     finally:
         session.rollback()
@@ -1706,7 +1715,7 @@ def prepare_close(
                 reason=reason,
                 note=note,
                 status_code=exc.status_code,
-                error=str(exc.detail),
+                error=exc.detail,
             )
         return _close_page(
             request,
@@ -1714,7 +1723,7 @@ def prepare_close(
             queue_item_id,
             step=None,
             status_code=exc.status_code,
-            error=str(exc.detail),
+            error=exc.detail,
         )
     except ConfirmationRefusedError as exc:  # oturum çerezi yok
         session.rollback()
@@ -1724,7 +1733,7 @@ def prepare_close(
             queue_item_id,
             step=step,
             status_code=status.HTTP_400_BAD_REQUEST,
-            error=str(exc),
+            error=_reason(exc),
         )
     session.commit()
     return _close_page(
@@ -1778,7 +1787,7 @@ def close_from_queue(
                 session, queue_item_id, reason=choice, note=cleaned, actor=user.username
             )
         except QueueItemNotClosableError as exc:
-            raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from None
+            raise HTTPException(status.HTTP_409_CONFLICT, _reason(exc)) from None
     except HTTPException as exc:
         session.rollback()
         return _close_page(
@@ -1787,7 +1796,7 @@ def close_from_queue(
             queue_item_id,
             step=None,
             status_code=exc.status_code,
-            error=str(exc.detail),
+            error=exc.detail,
         )
     except ConfirmationRefusedError:
         session.rollback()
@@ -1835,7 +1844,7 @@ def reopen_from_queue(
             step=None,
             title=REOPEN_TITLE,
             status_code=status.HTTP_409_CONFLICT,
-            error=str(exc),
+            error=_reason(exc),
         )
     session.commit()
     return RedirectResponse(f"/queues/{queue_item_id}?notice=reopened", status.HTTP_303_SEE_OTHER)

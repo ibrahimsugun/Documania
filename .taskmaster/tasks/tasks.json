@@ -2248,7 +2248,7 @@
         "description": "PRD 10.10.3 · FR-MOD-10 · Faz 1 · Should (v1). Çeviri görevlerinin sonuncusu: bittiğinde panelin tamamı üç dilde. Tam sözleşme PLAN §D92 — önce oku.",
         "details": "KAPSAM: §D92 (e), (f), (g), (l). İşaretlenir ve `en`/`sr` çevrilir: `catalog*.html` (Belge Türleri, form, kriterler, tanım, örnekler, fotoğraf kuralları, aday türler ve adımları, arşiv adımı, katalog bütçe satırı 11.4.3), `group*.html`, `queue*.html`, `training*.html`, `_training_tabs.html` ve yönlendiricileri `catalog.py`, `groups.py`, `queue.py`, `training.py`, `panel.py`; durum ve gerekçe adları (kuyruk kapatma gerekçeleri, aday durumları, eğitim etiketleri — \"AI kararı\" dahil). Kuyruk adları Unknown/Unreadable/Unresolved çevrilmez. **Bütün panel taraması:** test `app.routes`'taki her `GET` HTML yolunu (parametreli olanlar sentetik kayıtla) `en` ve `sr` ile açar; kalıntı taraması `en`'de temiz, her sayfa 200; listede olmayan yeni HTML yolu testi kırmızı yapar (yeni sayfa çevirisiz eklenemesin). HANDOFF'a: Sırpça çevirinin ana dili Sırpça biri tarafından gözden geçirilmesi önerisi.",
         "testStrategy": "1) Bu görevin sayfaları `en`/`sr`'de doğru başlık, düğme, durum adları. 2) Bütün panel taraması: her HTML GET yolu `en` ve `sr`'de 200 ve `en`'de kalıntı yok; yol listesi `app.routes` ile eşit. 3) Geçici olarak işaretlenmemiş bir metin ya da çevirisiz yeni yol eklenince kırmızı. 4) `check` temiz. 5) `tr` testleri yeşil. 6) Kural bozmaları kırmızı. 7) DoD kapısı yeşil.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [
           "154",
           "156",
@@ -2257,7 +2257,7 @@
         ],
         "priority": "medium",
         "subtasks": [],
-        "updatedAt": "2026-10-02T12:00:00.000Z"
+        "updatedAt": "2026-10-02T21:03:39.694Z"
       },
       {
         "id": "156",
@@ -2364,9 +2364,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-02T19:27:12.826Z",
+      "lastModified": "2026-10-02T21:03:39.694Z",
       "taskCount": 160,
-      "completedCount": 156,
+      "completedCount": 157,
       "tags": [
         "master"
       ]

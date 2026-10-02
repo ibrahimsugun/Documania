@@ -36,20 +36,21 @@ from sqlalchemy.orm import Session
 
 from app.db.models import QueueCloseReason, QueueItem, QueueResolution, Upload, utcnow
 from app.events import EventType, record_event
+from app.i18n import N_, Translatable
 from app.pipeline.route import QueueItemNotFoundError
 
 NOTE_MAX_LENGTH = 200  # `queue_items.resolution_note`
 CLOSE_REASON_LABELS: dict[str, str] = {
-    QueueCloseReason.NOT_A_DOCUMENT.value: "Belge değil / çöp sayfa",
-    QueueCloseReason.ALREADY_EXISTS.value: "Zaten var",
-    QueueCloseReason.OTHER.value: "Diğer",
+    QueueCloseReason.NOT_A_DOCUMENT.value: N_("Belge değil / çöp sayfa"),
+    QueueCloseReason.ALREADY_EXISTS.value: N_("Zaten var"),
+    QueueCloseReason.OTHER.value: N_("Diğer"),
 }
 
-ALREADY_RESOLVED = "Bu öğe zaten çözülmüş; kapatılamaz."
-BATCH_DISMISSED = "Öğenin partisi yoksayılmış; önce yoksaymayı geri alın."
-NOT_CLOSED = "Yalnız kapatılan öğe yeniden açılır; bu öğe kapatılmadı."
-NOTE_TOO_LONG = f"Not en çok {NOTE_MAX_LENGTH} karakter olabilir."
-NOTE_REQUIRED = '"Diğer" gerekçesinde kısa bir not yazın.'
+ALREADY_RESOLVED = N_("Bu öğe zaten çözülmüş; kapatılamaz.")
+BATCH_DISMISSED = N_("Öğenin partisi yoksayılmış; önce yoksaymayı geri alın.")
+NOT_CLOSED = N_("Yalnız kapatılan öğe yeniden açılır; bu öğe kapatılmadı.")
+NOTE_TOO_LONG = Translatable(N_("Not en çok {limit} karakter olabilir."), limit=NOTE_MAX_LENGTH)
+NOTE_REQUIRED = N_('"Diğer" gerekçesinde kısa bir not yazın.')
 
 
 class QueueItemNotClosableError(ValueError):
@@ -65,10 +66,12 @@ class CloseNoteError(ValueError):
 
 
 def close_reason_label(reason: str | None) -> str | None:
-    """Gerekçe kodunun Türkçesi; tanınmayan kod olduğu gibi, kod yoksa `None`."""
+    """Gerekçe kodunun Türkçesi (gösterimde çevrilir, `Translatable`); tanınmayan kod olduğu
+    gibi, kod yoksa `None`."""
     if reason is None:
         return None
-    return CLOSE_REASON_LABELS.get(reason, reason)
+    label = CLOSE_REASON_LABELS.get(reason)
+    return reason if label is None else Translatable(label)
 
 
 def clean_close_note(reason: QueueCloseReason, note: str | None) -> str | None:

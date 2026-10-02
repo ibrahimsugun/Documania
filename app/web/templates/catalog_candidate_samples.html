@@ -6,12 +6,12 @@
     {% if sample.has_image %}
     <a href="/uploads/{{ sample.upload_id }}/pages/{{ sample.page_id }}/image" target="_blank" rel="noopener">
       <img src="/uploads/{{ sample.upload_id }}/pages/{{ sample.page_id }}/image" loading="lazy"
-           alt="{{ sample.file_name }} — sayfa {{ sample.page_index + 1 }}">
+           alt="{{ _('%(file)s — sayfa %(page)d', file=sample.file_name, page=sample.page_index + 1) }}">
     </a>
     {% else %}
-    <span class="no-image">Görüntü yok</span>
+    <span class="no-image">{{ _("Görüntü yok") }}</span>
     {% endif %}
-    <span class="caption"><a href="/uploads/{{ sample.upload_id }}#file-{{ sample.file_id }}">{{ sample.file_name }}</a> · s. {{ sample.page_index + 1 }}</span>
+    <span class="caption"><a href="/uploads/{{ sample.upload_id }}#file-{{ sample.file_id }}">{{ sample.file_name }}</a> · {{ _("s. %(page)d", page=sample.page_index + 1) }}</span>
   </li>
   {% endfor %}
 </ul>

@@ -18,6 +18,12 @@ Blok biçimi `CONVENTIONS.md` §3'te tanımlıdır:
 
 ## Task log (newest-first)
 
+## 155 — 10.10-d Çeviri II ve bütün panel taraması — done — 2026-10-02
+- Yapıldı: Belge Türleri, aday türler, Belge Grupları, Kuyruklar ve Eğitim modu (29 şablon, 4 yönlendirici) ile panelde görünen çekirdek metinleri işaretlendi, `en`/`sr` kataloğuna 570 metin; `tests/web/test_translation_sweep.py` `app.routes`'un her `GET` sayfa yolunu `en`/`sr` ile açar (listede olmayan yol kırmızı); 10.10.1 ve 10.10.3 ✅; kararlar §D105.
+- Doğrulama: ruff check/format, compileall, `import app.main`, temiz SQLite'ta `alembic upgrade head` (→0024), `python -m app.i18n check`, `git diff --check` exit 0; `pytest -q -m "not live" --cov=app` yedi ön plan grubunda 6655 geçti, 11 atlandı, 0 kırmızı, kapsam %99; 10 kural bozmasının 10'u kırmızı.
+- Varsayımlar: §D105 — kayıtlı metin (kuyruk gerekçesi, eğitim notu, olay mesajı) `translate="no"`; katalog şemasının tutarlılık iletileri kaynak dilde; ad/dosya adı hücrelerine öznitelik eklenmedi (mevcut testlerin HTML'i korunsun, sentetik veri Türkçe harf taşımaz).
+- Sonraki pencereye not: pending görev kalmadı; 97/98/99 insan söyleyene kadar `deferred`. Yeni HTML sayfası eklenirse `tests/web/test_translation_sweep.py` `PAGES`'e adresiyle eklenmeli. Sırpça çeviri (`app/i18n/locales/sr/LC_MESSAGES/messages.po`) ana dili Sırpça olan birince gözden geçirilmeli.
+
 ## 161 — 12.1-i Botun mesajları sade, kısa ve teknik terimsiz — done — 2026-10-02
 - Yapıldı: `app/telegram/plain.py` (yasak sözcükler ve biçim sınırı); bütün bot metinleri §D98 d ile yeniden yazıldı (yardım, bağlantı, aldım/özet, belge isteği); bildirim tarama başına tek sade mesaj ve alıcının dilinde; `PIPELINE_FAILED` ve izleme uyarıları Telegram'a gitmez (`watch` kaldırıldı); `en`/`sr` çevirileri; README ve `.env.example`; kararlar §D104.
 - Doğrulama: ruff check/format, compileall, `import app.main`, temiz SQLite'ta `alembic upgrade head` (→0024), `python -m app.i18n check` exit 0; `pytest -q -m "not live" --cov=app` 6644 geçti, 11 atlandı, 0 kırmızı, kapsam %99; 8 kural bozmasının 8'i kırmızı.

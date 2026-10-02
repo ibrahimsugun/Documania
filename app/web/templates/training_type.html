@@ -3,25 +3,25 @@
    yüklendiği baytlardır; küçültmeyi tarayıcı yapar (K11, K17). Silme ve düzenleme yolu yoktur.
    Kaydı olan örnekte etiket kararı (11.9.4): Doğrula (tek ya da toplu), Başka türe taşı ve
    Örneklerden çıkar (ikisi iki aşamalı onaylı; çıkarılan dosya eğitim arşivine taşınır). #}
-{% block title %}{{ known_type.name }} · {{ entry.label }}{% endblock %}
+{% block title %}{{ known_type.name }} · {{ translate(entry.label) }}{% endblock %}
 {% block content %}
-<p class="back"><a href="/training/known">← Bilinen belgeler</a></p>
+<p class="back"><a href="/training/known">← {{ _("Bilinen belgeler") }}</a></p>
 <h1>{{ known_type.name }}</h1>
 {% include "_training_tabs.html" %}
 <dl class="meta">
   <dt>Slug</dt><dd><code>{{ known_type.slug }}</code></dd>
-  <dt>Kaynak</dt><dd>{{ source }}{% if known_type.in_catalog %} · <a href="/document-types/{{ known_type.slug|urlencode }}">Belge türü sayfası</a>{% endif %}</dd>
-  <dt>Ülke</dt><dd>{{ known_type.country_iso3 or known_type.country_iso2 or "—" }}</dd>
-  <dt>Örnek</dt><dd>{{ examples|length }}{% if ai_decision %} · {{ ai_decision }} "AI kararı" {% include "_manual_check.html" %}{% endif %}</dd>
+  <dt>{{ _("Kaynak") }}</dt><dd>{{ translate(source) }}{% if known_type.in_catalog %} · <a href="/document-types/{{ known_type.slug|urlencode }}">{{ _("Belge türü sayfası") }}</a>{% endif %}</dd>
+  <dt>{{ _("Ülke") }}</dt><dd>{{ known_type.country_iso3 or known_type.country_iso2 or "—" }}</dd>
+  <dt>{{ _("Örnek") }}</dt><dd>{{ examples|length }}{% if ai_decision %} · {{ _("%(num)d \"AI kararı\"", num=ai_decision) }} {% include "_manual_check.html" %}{% endif %}</dd>
 </dl>
-{% if notice %}<p class="notice notice-success" role="status">{{ notice }}</p>{% endif %}
+{% if notice %}<p class="notice notice-success" role="status">{{ translate(notice) }}</p>{% endif %}
 {% if examples %}
 {% if ai_decision %}
 {# 11.9.4 toplu doğrulama: kartlardaki onay kutuları bu forma `form` özniteliğiyle bağlıdır. #}
 <form class="verify-form" id="verify-selected" method="post" action="/training/examples/verify">
   <input type="hidden" name="next" value="{{ type_url }}">
-  <p class="hint">"AI kararı" örneklerini inceleyin: doğruysa doğrulayın, yanlış türdeyse başka türe taşıyın ya da örneklerden çıkarın. Doğrulanmamış "AI kararı" örneği açıklama üretimine girmez.</p>
-  <button type="submit">Seçilenleri doğrula</button>
+  <p class="hint">{{ _("\"AI kararı\" örneklerini inceleyin: doğruysa doğrulayın, yanlış türdeyse başka türe taşıyın ya da örneklerden çıkarın. Doğrulanmamış \"AI kararı\" örneği açıklama üretimine girmez.") }}</p>
+  <button type="submit">{{ _("Seçilenleri doğrula") }}</button>
 </form>
 {% endif %}
 <ul class="thumbs training-examples">
@@ -31,32 +31,32 @@
       {% if example.is_image %}<img src="{{ example.url }}" alt="{{ example.name }}" loading="lazy">{% else %}<span class="no-image">PDF</span>{% endif %}
     </a>
     <span class="caption"><a href="{{ example.url }}" target="_blank" rel="noopener">{{ example.name }}</a></span>
-    <span class="reason">{{ example.size_label }}{% if example.method %} · {{ example.method }}{% endif %}</span>
+    <span class="reason">{{ example.size_label }}{% if example.method %} · {{ translate(example.method) }}{% endif %}</span>
     <span class="badges">
-      {% if example.label_text %}<span class="badge{% if not example.manual_check %} badge-neutral{% endif %}">{{ example.label_text }}</span>{% endif %}
+      {% if example.label_text %}<span class="badge{% if not example.manual_check %} badge-neutral{% endif %}">{{ translate(example.label_text) }}</span>{% endif %}
       {% if example.manual_check %}{% include "_manual_check.html" %}{% endif %}
     </span>
-    {% if example.note %}<span class="reason reason-text">{{ example.note }}</span>{% endif %}
+    {% if example.note %}<span class="reason reason-text" translate="no">{{ example.note }}</span>{% endif %}
     {% if example.record_id %}
     <div class="example-decisions">
       {% if example.manual_check %}
-      <label class="hint"><input type="checkbox" name="example_ids" value="{{ example.record_id }}" form="verify-selected"> seç</label>
+      <label class="hint"><input type="checkbox" name="example_ids" value="{{ example.record_id }}" form="verify-selected"> {{ _("seç") }}</label>
       <form class="inline-form" method="post" action="/training/examples/verify">
         <input type="hidden" name="example_ids" value="{{ example.record_id }}">
         <input type="hidden" name="next" value="{{ type_url }}">
-        <button type="submit">Doğrula</button>
+        <button type="submit">{{ _("Doğrula") }}</button>
       </form>
       {% endif %}
       <details class="move-example">
-        <summary>Başka türe taşı</summary>
+        <summary>{{ _("Başka türe taşı") }}</summary>
         <form class="inline-form" method="post" action="/training/examples/{{ example.record_id }}/move/confirm">
-          <label class="hint" for="move-{{ example.record_id }}">Yeni tür</label>
-          <input id="move-{{ example.record_id }}" name="slug" list="known-type-options" required placeholder="bilinen tür (slug)" autocomplete="off">
-          <button type="submit">Taşı…</button>
+          <label class="hint" for="move-{{ example.record_id }}">{{ _("Yeni tür") }}</label>
+          <input id="move-{{ example.record_id }}" name="slug" list="known-type-options" required placeholder="{{ _('bilinen tür (slug)') }}" autocomplete="off">
+          <button type="submit">{{ _("Taşı…") }}</button>
         </form>
       </details>
       <form class="inline-form" method="post" action="/training/examples/{{ example.record_id }}/remove/confirm">
-        <button type="submit">Örneklerden çıkar…</button>
+        <button type="submit">{{ _("Örneklerden çıkar…") }}</button>
       </form>
     </div>
     {% endif %}
@@ -67,6 +67,6 @@
   {% for known in known_types %}{% if known.slug != known_type.slug %}<option value="{{ known.slug }}">{{ known.name }}</option>{% endif %}{% endfor %}
 </datalist>
 {% else %}
-<p class="placeholder">Bu türün henüz örneği yok.</p>
+<p class="placeholder">{{ _("Bu türün henüz örneği yok.") }}</p>
 {% endif %}
 {% endblock %}

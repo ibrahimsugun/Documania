@@ -40,6 +40,7 @@ from pathlib import Path, PurePosixPath
 
 from PIL import Image
 
+from app.i18n import N_, Translatable
 from app.storage.atomic import (
     StoredFile,
     is_partial_write,
@@ -90,10 +91,14 @@ def check_example(original_name: str, content: bytes, *, max_bytes: int) -> File
     `ExampleRejectedError` (yazmadan önce çağrılır)."""
     label = _display_name(original_name)
     if not content:
-        raise ExampleRejectedError(f"'{label}' dosyası boş.")
+        raise ExampleRejectedError(Translatable(N_("'{file}' dosyası boş."), file=label))
     if len(content) > max_bytes:
         raise ExampleRejectedError(
-            f"'{label}' dosyası {max_bytes / (1024 * 1024):.0f} MB sınırını aşıyor."
+            Translatable(
+                N_("'{file}' dosyası {limit} MB sınırını aşıyor."),
+                file=label,
+                limit=f"{max_bytes / (1024 * 1024):.0f}",
+            )
         )
     try:
         kind = detect_file_kind(content)
@@ -102,7 +107,9 @@ def check_example(original_name: str, content: bytes, *, max_bytes: int) -> File
     if kind not in EXAMPLE_EXTENSIONS:
         raise _unsupported(label)
     if not _is_readable(kind, content):
-        raise ExampleRejectedError(f"'{label}' dosyası açılamadı; bozuk olabilir.")
+        raise ExampleRejectedError(
+            Translatable(N_("'{file}' dosyası açılamadı; bozuk olabilir."), file=label)
+        )
     return kind
 
 
@@ -227,7 +234,9 @@ def _is_example_file(entry: os.DirEntry[str]) -> bool:
 
 
 def _unsupported(label: str) -> ExampleRejectedError:
-    return ExampleRejectedError(f"'{label}' örnek olamaz: yalnız PDF, JPEG ve PNG kabul edilir.")
+    return ExampleRejectedError(
+        Translatable(N_("'{file}' örnek olamaz: yalnız PDF, JPEG ve PNG kabul edilir."), file=label)
+    )
 
 
 def _display_name(original_name: str) -> str:

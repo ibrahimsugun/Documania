@@ -15,24 +15,24 @@
    (`?archived=1`) onları geri alma düğmesiyle listeler. Satırın onay kutusu tablonun dışındaki toplu
    işlem formuna (`form="bulk-types"`) bağlıdır — iç içe form yok, JavaScript gerekmez; toplu arşiv
    ve tekil "Arşivle" iki aşamalı onay sayfasına gider, korunan tür arşivlenemez. #}
-{% block title %}{% if show_archived %}Arşivlenen türler · {% endif %}{{ entry.label }}{% endblock %}
+{% block title %}{% if show_archived %}{{ _("Arşivlenen türler") }} · {% endif %}{{ translate(entry.label) }}{% endblock %}
 {% block content %}
-{% if show_archived %}<p class="back"><a href="{{ list_url }}">← {{ entry.label }}</a></p>{% endif %}
-<h1>{% if show_archived %}Arşivlenen türler{% else %}{{ entry.label }}{% endif %}</h1>
-<p class="lede">Şirketin tanıdığı belge türleri. Sistem bir belgeyi ancak buradaki bir türe benzetebilirse yerleştirir; benzetemezse «Tür bilinmiyor» kuyruğuna alır.</p>
+{% if show_archived %}<p class="back"><a href="{{ list_url }}">← {{ translate(entry.label) }}</a></p>{% endif %}
+<h1>{% if show_archived %}{{ _("Arşivlenen türler") }}{% else %}{{ translate(entry.label) }}{% endif %}</h1>
+<p class="lede">{{ _("Şirketin tanıdığı belge türleri. Sistem bir belgeyi ancak buradaki bir türe benzetebilirse yerleştirir; benzetemezse «Tür bilinmiyor» kuyruğuna alır.") }}</p>
 {% if notice_text %}
-<p class="notice notice-success" role="status">{{ notice_text }}</p>
+<p class="notice notice-success" role="status">{{ translate(notice_text) }}</p>
 {% endif %}
 <p>
-  <a class="button-link" href="/document-types/new{{ country_query }}">Yeni tür</a>
-  <a class="button-link" href="/document-types/candidate-types">Aday türler</a> <span class="count">({{ pending_candidates }} onay bekliyor)</span>
-  {% if not show_archived %}<a class="button-link" href="{{ archived_url }}" id="archived-link">Arşivlenen türler</a> <span class="count">({{ archived_total }})</span>{% endif %}
+  <a class="button-link" href="/document-types/new{{ country_query }}">{{ _("Yeni tür") }}</a>
+  <a class="button-link" href="/document-types/candidate-types">{{ _("Aday türler") }}</a> <span class="count">({{ _("%(num)d onay bekliyor", num=pending_candidates) }})</span>
+  {% if not show_archived %}<a class="button-link" href="{{ archived_url }}" id="archived-link">{{ _("Arşivlenen türler") }}</a> <span class="count">({{ archived_total }})</span>{% endif %}
 </p>
 {% if budget %}
-<p class="catalog-budget" id="catalog-budget">Aktif tür: <strong>{{ budget.active_types }}</strong> · analiz talimatındaki katalog metni ≈ <strong>{{ budget.tokens_text }}</strong> token, tahmini (bütçe {{ budget.budget_text }}{% if budget.configured %}, <code>CATALOG_TOKEN_BUDGET</code> ayarından{% else %}, tür sayısıyla ölçekli{% endif %})</p>
+<p class="catalog-budget" id="catalog-budget">{% trans active=budget.active_types, tokens=budget.tokens_text %}Aktif tür: <strong>{{ active }}</strong> · analiz talimatındaki katalog metni ≈ <strong>{{ tokens }}</strong> token, tahmini{% endtrans %} ({% if budget.configured %}{% trans budget=budget.budget_text %}bütçe {{ budget }}, <code>CATALOG_TOKEN_BUDGET</code> ayarından{% endtrans %}{% else %}{% trans budget=budget.budget_text %}bütçe {{ budget }}, tür sayısıyla ölçekli{% endtrans %}{% endif %})</p>
 {% if budget.shortened %}
 <div class="notice catalog-budget-warning" role="status" id="catalog-budget-warning">
-  <p><strong>{{ budget.shortened | length }} türün tanımı kesiliyor — küme büyük.</strong> Katalog metni bütçeye sığmadığı için bu türlerin analizci açıklaması kısaltılarak (ya da hiç) talimata giriyor; alanlar ve kabul kriterleri kesilmez.{% if budget.over_budget %} Tanımlar kısaltıldığı hâlde metin bütçeyi aşıyor.{% endif %} Bütçeyi <code>CATALOG_TOKEN_BUDGET</code> ile büyütün ya da gereksiz türleri pasifleştirin.</p>
+  <p><strong>{% trans count=budget.shortened | length %}{{ count }} türün tanımı kesiliyor — küme büyük.{% pluralize %}{{ count }} türün tanımı kesiliyor — küme büyük.{% endtrans %}</strong> {{ _("Katalog metni bütçeye sığmadığı için bu türlerin analizci açıklaması kısaltılarak (ya da hiç) talimata giriyor; alanlar ve kabul kriterleri kesilmez.") }}{% if budget.over_budget %} {{ _("Tanımlar kısaltıldığı hâlde metin bütçeyi aşıyor.") }}{% endif %} {% trans %}Bütçeyi <code>CATALOG_TOKEN_BUDGET</code> ile büyütün ya da gereksiz türleri pasifleştirin.{% endtrans %}</p>
   <ul class="shortened-types">
     {% for slug, name in budget.shortened %}
     <li><a href="/document-types/{{ slug|urlencode }}">{{ name }}</a> <code>{{ slug }}</code></li>
@@ -41,26 +41,26 @@
 </div>
 {% endif %}
 {% else %}
-<p class="notice" role="status" id="catalog-budget">{{ budget_unavailable }}</p>
+<p class="notice" role="status" id="catalog-budget">{{ translate(budget_unavailable) }}</p>
 {% endif %}
-<p class="hint">Değişiklikler bir sonraki analizden itibaren geçerlidir. Tür silinmez: pasifleştirilen tür yeni belgelere atanmaz, var olan belgeler kalır. Arşivlenen tür listeden, analiz talimatından ve tür seçicilerden de kalkar; «Arşivlenen türler»den tek adımda geri alınır.</p>
-<form class="search country-filter" method="get" action="/document-types" aria-label="Türleri ülkeye göre süz">
+<p class="hint">{{ _("Değişiklikler bir sonraki analizden itibaren geçerlidir. Tür silinmez: pasifleştirilen tür yeni belgelere atanmaz, var olan belgeler kalır. Arşivlenen tür listeden, analiz talimatından ve tür seçicilerden de kalkar; «Arşivlenen türler»den tek adımda geri alınır.") }}</p>
+<form class="search country-filter" method="get" action="/document-types" aria-label="{{ _('Türleri ülkeye göre süz') }}">
   {% if show_archived %}<input type="hidden" name="archived" value="1">{% endif %}
-  <label for="country">Ülke</label>
+  <label for="country">{{ _("Ülke") }}</label>
   {# 10.10.5: `country-select.js`'in görünen metinleri isteğin dilinde buradan okunur (§D92 j). #}
   <select id="country" name="country" onchange="this.form.submit()" data-country-select data-search-label="{{ _('Ülke ara') }}" data-search-placeholder="{{ _('Ülke ara…') }}" data-empty-text="{{ _('Eşleşen ülke yok.') }}">
     {% for option in country_options %}
     <option value="{{ option.value }}"{% if option.flag_url %} data-flag="{{ option.flag_url }}"{% endif %}{% if option.value == selected_country %} selected{% endif %}>{{ option.label }}</option>
     {% endfor %}
   </select>
-  <button type="submit">Uygula</button>
+  <button type="submit">{{ _("Uygula") }}</button>
 </form>
-<p class="count">{{ types|length }} tür gösteriliyor (toplam {{ total_types }})</p>
+<p class="count">{{ _("%(shown)d tür gösteriliyor (toplam %(total)d)", shown=types|length, total=total_types) }}</p>
 {% if show_archived %}
 {% if types %}
 <table class="catalog archived-types">
   <thead>
-    <tr><th>Ad</th><th>Dosya etiketi</th><th>Ülke</th><th>Arşivlendi</th><th>Arşivleyen</th><th></th></tr>
+    <tr><th>{{ _("Ad") }}</th><th>{{ _("Dosya etiketi") }}</th><th>{{ _("Ülke") }}</th><th>{{ _("Arşivlendi") }}</th><th>{{ _("Arşivleyen") }}</th><th></th></tr>
   </thead>
   <tbody>
     {% for item in types %}
@@ -73,7 +73,7 @@
       <td class="doc-actions">
         <form class="inline" method="post" action="/document-types/{{ item.slug|urlencode }}/restore">
           {% if selected_country != "all" %}<input type="hidden" name="country" value="{{ selected_country }}">{% endif %}
-          <button type="submit">Geri al</button>
+          <button type="submit">{{ _("Geri al") }}</button>
         </form>
       </td>
     </tr>
@@ -81,66 +81,66 @@
   </tbody>
 </table>
 {% elif total_types %}
-<p class="placeholder">Bu süzgeçte arşivlenen tür yok. <a href="/document-types?archived=1">Bütün arşivlenen türleri göster</a></p>
+<p class="placeholder">{{ _("Bu süzgeçte arşivlenen tür yok.") }} <a href="/document-types?archived=1">{{ _("Bütün arşivlenen türleri göster") }}</a></p>
 {% else %}
-<p class="placeholder">Arşivlenen tür yok.</p>
+<p class="placeholder">{{ _("Arşivlenen tür yok.") }}</p>
 {% endif %}
 {% elif types %}
-<form class="bulk-bar" id="bulk-types" method="post" action="/document-types/bulk" aria-label="Seçilen türlere toplu işlem">
+<form class="bulk-bar" id="bulk-types" method="post" action="/document-types/bulk" aria-label="{{ _('Seçilen türlere toplu işlem') }}">
   {% if selected_country != "all" %}<input type="hidden" name="country" value="{{ selected_country }}">{% endif %}
-  <span>Seçilenleri:</span>
-  <button type="submit" name="action" value="deactivate">Pasifleştir</button>
-  <button type="submit" name="action" value="activate">Etkinleştir</button>
-  <button type="submit" name="action" value="archive">Arşivle</button>
-  <small class="hint">Tek seferde en çok {{ bulk_limit }} tür; arşivleme iki aşamalı onay ister.</small>
+  <span>{{ _("Seçilenleri:") }}</span>
+  <button type="submit" name="action" value="deactivate">{{ _("Pasifleştir") }}</button>
+  <button type="submit" name="action" value="activate">{{ _("Etkinleştir") }}</button>
+  <button type="submit" name="action" value="archive">{{ _("Arşivle") }}</button>
+  <small class="hint">{{ _("Tek seferde en çok %(limit)d tür; arşivleme iki aşamalı onay ister.", limit=bulk_limit) }}</small>
 </form>
 <table class="catalog catalog-types">
   <thead>
     <tr>
-      <th><span class="visually-hidden">Seç</span></th><th>Ad</th><th>Dosya etiketi</th><th>Ülke</th><th>Yüz</th>
-      <th>Direkt</th><th>Analiz</th><th>Kabul kriteri</th><th>Durum</th><th></th>
+      <th><span class="visually-hidden">{{ _("Seç") }}</span></th><th>{{ _("Ad") }}</th><th>{{ _("Dosya etiketi") }}</th><th>{{ _("Ülke") }}</th><th>{{ _("Yüz") }}</th>
+      <th>{{ _("Direkt") }}</th><th>{{ _("Analiz") }}</th><th>{{ _("Kabul kriteri") }}</th><th>{{ _("Durum") }}</th><th></th>
     </tr>
   </thead>
   <tbody>
     {% for item in types %}
     <tr{% if not item.active %} class="type-passive"{% endif %}>
-      <td><input type="checkbox" name="slugs" value="{{ item.slug }}" form="bulk-types" aria-label="{{ item.name }} seç"></td>
+      <td><input type="checkbox" name="slugs" value="{{ item.slug }}" form="bulk-types" aria-label="{{ _('%(name)s seç', name=item.name) }}"></td>
       <td><a href="/document-types/{{ item.slug|urlencode }}{{ country_query }}" title="{{ item.slug }}">{{ item.name }}</a></td>
       <td>{{ item.file_label }}</td>
       <td>{{ country_badge(item.country) or "—" }}</td>
-      <td>{{ sides_labels.get(item.sides, item.sides) }}</td>
-      <td>{{ "Evet" if item.direct else "Hayır" }}</td>
-      <td>{{ "Evet" if item.analyze else "Hayır" }}</td>
+      <td>{{ translate(sides_labels.get(item.sides, item.sides)) }}</td>
+      <td>{{ _("Evet") if item.direct else _("Hayır") }}</td>
+      <td>{{ _("Evet") if item.analyze else _("Hayır") }}</td>
       <td>{{ item.criteria_count }}</td>
       <td class="cell-nowrap">
-        {% if item.active %}<span class="status-badge status-active">Etkin</span>{% else %}<span class="status-badge status-passive">Pasif</span>{% endif %}
+        {% if item.active %}<span class="status-badge status-active">{{ _("Etkin") }}</span>{% else %}<span class="status-badge status-passive">{{ _("Pasif") }}</span>{% endif %}
         {% if item.problems %}
-        <span class="badge badge-missing" title="{{ item.problems|join(' · ') }}">Tutarsız kayıt</span>
+        <span class="badge badge-missing" title="{{ item.problems|map('translate')|join(' · ') }}">{{ _("Tutarsız kayıt") }}</span>
         {% endif %}
       </td>
       <td class="doc-actions">
-        <a href="/document-types/{{ item.slug|urlencode }}{{ country_query }}">Düzenle</a>
+        <a href="/document-types/{{ item.slug|urlencode }}{{ country_query }}">{{ _("Düzenle") }}</a>
         {% if item.active %}
         <form class="inline" method="post" action="/document-types/{{ item.slug|urlencode }}/deactivate">
           {% if selected_country != "all" %}<input type="hidden" name="country" value="{{ selected_country }}">{% endif %}
-          <button type="submit">Pasifleştir</button>
+          <button type="submit">{{ _("Pasifleştir") }}</button>
         </form>
         {% else %}
         <form class="inline" method="post" action="/document-types/{{ item.slug|urlencode }}/activate">
           {% if selected_country != "all" %}<input type="hidden" name="country" value="{{ selected_country }}">{% endif %}
-          <button type="submit">Etkinleştir</button>
+          <button type="submit">{{ _("Etkinleştir") }}</button>
         </form>
         {% endif %}
-        {% if item.protected %}<span class="hint" title="Boru hattının adıyla kullandığı tür">Korunan</span>{% else %}<a href="/document-types/{{ item.slug|urlencode }}/archive/confirm{{ country_query }}">Arşivle</a>{% endif %}
+        {% if item.protected %}<span class="hint" title="{{ _('Boru hattının adıyla kullandığı tür') }}">{{ _("Korunan") }}</span>{% else %}<a href="/document-types/{{ item.slug|urlencode }}/archive/confirm{{ country_query }}">{{ _("Arşivle") }}</a>{% endif %}
       </td>
     </tr>
     {% endfor %}
   </tbody>
 </table>
 {% elif total_types %}
-<p class="placeholder">Bu süzgeçte tür yok. <a href="/document-types">Bütün türleri göster</a></p>
+<p class="placeholder">{{ _("Bu süzgeçte tür yok.") }} <a href="/document-types">{{ _("Bütün türleri göster") }}</a></p>
 {% else %}
-<p class="placeholder">Katalogda henüz tür yok.</p>
+<p class="placeholder">{{ _("Katalogda henüz tür yok.") }}</p>
 {% endif %}
 {% endblock %}
 {% block scripts %}

@@ -281,7 +281,7 @@ def test_accepted_photos_feed_the_generated_description_which_is_not_saved(
     assert "Fotoğraf türü: evet" in request.prompt
     text = _field_value(response.text, "prompt_description")
     assert text.endswith(f"Kabul edilen fotoğraf: {DEFINITION}.")
-    assert "0 örnek sayfadan ve\n    2 kabul edilen fotoğraftan üretildi" in response.text
+    assert "0 örnek sayfadan ve 2 kabul edilen fotoğraftan üretildi" in response.text
     assert f"<dt>Kabul edilen fotoğraf</dt>\n    <dd>{DEFINITION}</dd>" in response.text
     generated = re.search(
         r'<section class="generated-description".*?</section>', response.text, re.S

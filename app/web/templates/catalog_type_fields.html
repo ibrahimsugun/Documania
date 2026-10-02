@@ -2,139 +2,139 @@
    onay formu (`catalog_candidate.html`, 11.5.2) aynı alanları kullanır. `is_new` ise slug girilir,
    değilse düzenlenen türün slug'ı (`slug`) gösterilir. Alanlar tek satırlık girdidir: şablonlarda
    çok satırlı metin alanı yoktur (10.9.1 kilidi). #}
-{% macro errors(name) %}{% for message in problems.get(name, []) %}<small class="field-error" role="alert">{{ message }}</small>{% endfor %}{% endmacro %}
+{% macro errors(name) %}{% for message in problems.get(name, []) %}<small class="field-error" role="alert">{{ translate(message) }}</small>{% endfor %}{% endmacro %}
   <label for="type-slug">Slug</label>
   <div class="field">
     {% if is_new %}
     <input type="text" id="type-slug" name="slug" value="{{ form.slug }}" maxlength="64" required
            pattern="[a-z][a-z0-9_]*" autocomplete="off">
-    <small class="hint">Benzersiz kimlik (ör. <code>russian_passport</code>); küçük harfle başlar, sonradan değişmez.</small>
+    <small class="hint">{% trans %}Benzersiz kimlik (ör. <code>russian_passport</code>); küçük harfle başlar, sonradan değişmez.{% endtrans %}</small>
     {% else %}
     <code>{{ slug }}</code>
-    <small class="hint">Slug sonradan değişmez.</small>
+    <small class="hint">{{ _("Slug sonradan değişmez.") }}</small>
     {% endif %}
     {{ errors("slug") }}
   </div>
 
-  <label for="type-name">Ad</label>
+  <label for="type-name">{{ _("Ad") }}</label>
   <div class="field">
     <input type="text" id="type-name" name="name" value="{{ form.name }}" maxlength="255" required autocomplete="off">
     {{ errors("name") }}
   </div>
 
-  <label for="type-file-label">Dosya etiketi</label>
+  <label for="type-file-label">{{ _("Dosya etiketi") }}</label>
   <div class="field">
     <input type="text" id="type-file-label" name="file_label" value="{{ form.file_label }}" maxlength="255" required autocomplete="off">
-    <small class="hint">Çıktı dosya adına girer: <code>Ad_Soyad-Etiket.pdf</code>.</small>
+    <small class="hint">{% trans %}Çıktı dosya adına girer: <code>Ad_Soyad-Etiket.pdf</code>.{% endtrans %}</small>
     {{ errors("file_label") }}
   </div>
 
-  <label for="type-country">Ülke</label>
+  <label for="type-country">{{ _("Ülke") }}</label>
   <div class="field">
     <input type="text" id="type-country" name="country" value="{{ form.country }}" maxlength="2" autocomplete="off" placeholder="RU">
-    <small class="hint">İki harfli ülke kodu; boş bırakılabilir.</small>
+    <small class="hint">{{ _("İki harfli ülke kodu; boş bırakılabilir.") }}</small>
     {{ errors("country") }}
   </div>
 
-  <label for="type-description">Açıklama</label>
+  <label for="type-description">{{ _("Açıklama") }}</label>
   <div class="field">
     <input type="text" id="type-description" name="description" value="{{ form.description }}" autocomplete="off">
     {{ errors("description") }}
   </div>
 
-  <span class="label">Beklenen dosya türleri</span>
+  <span class="label">{{ _("Beklenen dosya türleri") }}</span>
   <div class="field">
     <span class="choices">
       {% for value, label in file_types.items() %}
-      <label class="choice"><input type="checkbox" name="expected_file_types" value="{{ value.value }}"{% if value.value in form.expected_file_types %} checked{% endif %}> {{ label }}</label>
+      <label class="choice"><input type="checkbox" name="expected_file_types" value="{{ value.value }}"{% if value.value in form.expected_file_types %} checked{% endif %}> {{ translate(label) }}</label>
       {% endfor %}
     </span>
     {{ errors("expected_file_types") }}
   </div>
 
-  <span class="label">Beklenen sayfa sayısı</span>
+  <span class="label">{{ _("Beklenen sayfa sayısı") }}</span>
   <div class="field">
     <span class="pages">
-      <input type="number" name="pages_min" value="{{ form.pages_min }}" min="1" aria-label="En az sayfa">
+      <input type="number" name="pages_min" value="{{ form.pages_min }}" min="1" aria-label="{{ _('En az sayfa') }}">
       –
-      <input type="number" name="pages_max" value="{{ form.pages_max }}" min="1" aria-label="En çok sayfa">
+      <input type="number" name="pages_max" value="{{ form.pages_max }}" min="1" aria-label="{{ _('En çok sayfa') }}">
     </span>
-    <small class="hint">Ön ve arka yüzlü türde aralık kabul edilen düzenlerden hesaplanır (ayrı sayfalar 2, tek sayfa 1); buraya yazılan değer kullanılmaz.</small>
+    <small class="hint">{{ _("Ön ve arka yüzlü türde aralık kabul edilen düzenlerden hesaplanır (ayrı sayfalar 2, tek sayfa 1); buraya yazılan değer kullanılmaz.") }}</small>
     {{ errors("expected_pages") }}
   </div>
 
-  <label for="type-sides">Yüz yapısı</label>
+  <label for="type-sides">{{ _("Yüz yapısı") }}</label>
   <div class="field">
     <select id="type-sides" name="sides">
       {% for value, label in sides_options.items() %}
-      <option value="{{ value.value }}"{% if value.value == form.sides %} selected{% endif %}>{{ label }}</option>
+      <option value="{{ value.value }}"{% if value.value == form.sides %} selected{% endif %}>{{ translate(label) }}</option>
       {% endfor %}
     </select>
     {{ errors("sides") }}
   </div>
 
-  <span class="label">Kabul edilen düzenler</span>
+  <span class="label">{{ _("Kabul edilen düzenler") }}</span>
   <div class="field">
     <span class="choices">
       {% for value, label in layouts.items() %}
-      <label class="choice"><input type="checkbox" name="front_back_layouts" value="{{ value.value }}"{% if value.value in form.front_back_layouts %} checked{% endif %}> {{ label }}</label>
+      <label class="choice"><input type="checkbox" name="front_back_layouts" value="{{ value.value }}"{% if value.value in form.front_back_layouts %} checked{% endif %}> {{ translate(label) }}</label>
       {% endfor %}
     </span>
-    <small class="hint">Yalnız ön ve arka yüzlü türde seçilir, en az biri. Tek sayfadaki iki yüz ayrılmaz, kırpılmaz; sayfa olduğu gibi kullanılır.</small>
+    <small class="hint">{{ _("Yalnız ön ve arka yüzlü türde seçilir, en az biri. Tek sayfadaki iki yüz ayrılmaz, kırpılmaz; sayfa olduğu gibi kullanılır.") }}</small>
     {{ errors("front_back_layouts") }}
   </div>
 
-  <span class="label">Direkt Belge</span>
+  <span class="label">{{ _("Direkt Belge") }}</span>
   <div class="field">
-    <label class="choice"><input type="checkbox" name="direct"{% if form.direct %} checked{% endif %}> Direkt Belge</label>
-    <small class="hint">Çıktı tek kaynak dosyadan alınan ardışık sayfalardır; birleştirme ve format dönüşümü yapılmaz — dönüşüm listesi boş olmalıdır.</small>
+    <label class="choice"><input type="checkbox" name="direct"{% if form.direct %} checked{% endif %}> {{ _("Direkt Belge") }}</label>
+    <small class="hint">{{ _("Çıktı tek kaynak dosyadan alınan ardışık sayfalardır; birleştirme ve format dönüşümü yapılmaz — dönüşüm listesi boş olmalıdır.") }}</small>
     {{ errors("direct") }}
   </div>
 
-  <span class="label">Analiz</span>
+  <span class="label">{{ _("Analiz") }}</span>
   <div class="field">
-    <label class="choice"><input type="checkbox" name="analyze"{% if form.analyze %} checked{% endif %}> Belge analiz edilir</label>
-    <small class="hint">Analiz edilmeyen türde (Word/Excel eki) zorunlu alan bulunmaz.</small>
+    <label class="choice"><input type="checkbox" name="analyze"{% if form.analyze %} checked{% endif %}> {{ _("Belge analiz edilir") }}</label>
+    <small class="hint">{{ _("Analiz edilmeyen türde (Word/Excel eki) zorunlu alan bulunmaz.") }}</small>
     {{ errors("analyze") }}
   </div>
 
-  <label for="type-required-fields">Zorunlu alanlar</label>
+  <label for="type-required-fields">{{ _("Zorunlu alanlar") }}</label>
   <div class="field">
     <input type="text" id="type-required-fields" name="required_fields" value="{{ form.required_fields }}" autocomplete="off" spellcheck="false" placeholder="surname, given_names, document_number">
-    <small class="hint">Alan adlarını virgülle ayırın (küçük harf, rakam, alt çizgi). Hepsi okunaklıysa belge kabul edilir.</small>
+    <small class="hint">{{ _("Alan adlarını virgülle ayırın (küçük harf, rakam, alt çizgi). Hepsi okunaklıysa belge kabul edilir.") }}</small>
     {{ errors("required_fields") }}
   </div>
 
-  <span class="label">İzinli dönüşümler</span>
+  <span class="label">{{ _("İzinli dönüşümler") }}</span>
   <div class="field">
     <span class="choices">
       {% for value, label in conversions.items() %}
-      <label class="choice"><input type="checkbox" name="allowed_conversions" value="{{ value.value }}"{% if value.value in form.allowed_conversions %} checked{% endif %}> {{ label }}</label>
+      <label class="choice"><input type="checkbox" name="allowed_conversions" value="{{ value.value }}"{% if value.value in form.allowed_conversions %} checked{% endif %}> {{ translate(label) }}</label>
       {% endfor %}
     </span>
     {{ errors("allowed_conversions") }}
   </div>
 
-  <label for="type-output-format">Çıktı biçimi</label>
+  <label for="type-output-format">{{ _("Çıktı biçimi") }}</label>
   <div class="field">
     <select id="type-output-format" name="output_format">
       {% for value, label in output_formats.items() %}
-      <option value="{{ value.value }}"{% if value.value == form.output_format %} selected{% endif %}>{{ label }}</option>
+      <option value="{{ value.value }}"{% if value.value == form.output_format %} selected{% endif %}>{{ translate(label) }}</option>
       {% endfor %}
     </select>
     {{ errors("output_format") }}
   </div>
 
-  <span class="label">Kabul kriterleri</span>
+  <span class="label">{{ _("Kabul kriterleri") }}</span>
   <div class="field">
     {% include "catalog_criteria.html" %}
-    <small class="hint">Zorunlu alan okunaklılığının ötesindeki koşullar; analizciye tür açıklamasıyla verilir, karşılanmayan madde Unresolved gerekçesine yazılır. Boş bırakılabilir. Değişiklik bir sonraki analizden itibaren geçerlidir.</small>
+    <small class="hint">{{ _("Zorunlu alan okunaklılığının ötesindeki koşullar; analizciye tür açıklamasıyla verilir, karşılanmayan madde Unresolved gerekçesine yazılır. Boş bırakılabilir. Değişiklik bir sonraki analizden itibaren geçerlidir.") }}</small>
     {{ errors("acceptance_criteria") }}
   </div>
 
-  <label for="type-prompt-description">Analizci için açıklama</label>
+  <label for="type-prompt-description">{{ _("Analizci için açıklama") }}</label>
   <div class="field">
     <input type="text" id="type-prompt-description" name="prompt_description" value="{{ form.prompt_description }}" autocomplete="off">
-    <small class="hint">Belgenin nasıl göründüğünü anlatan kısa metin (ör. "Kiril ve Latin çift yazımlı, sağ altta iki satır MRZ").</small>
+    <small class="hint">{% trans %}Belgenin nasıl göründüğünü anlatan kısa metin (ör. "Kiril ve Latin çift yazımlı, sağ altta iki satır MRZ").{% endtrans %}</small>
     {{ errors("prompt_description") }}
   </div>

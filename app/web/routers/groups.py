@@ -57,6 +57,7 @@ from app.groups import (
     type_choices,
     update_group,
 )
+from app.i18n import N_, Translatable
 from app.profiles import write_profile
 from app.storage import DataLayout
 from app.web.auth import PanelUser, require_panel_user
@@ -70,25 +71,25 @@ DbSession = Annotated[Session, Depends(get_session)]
 Layout = Annotated[DataLayout, Depends(get_layout)]
 
 LIST_PATH = "/document-groups"
-GROUP_NOT_FOUND = "Belge grubu bulunamadı"
-ITEM_NOT_FOUND = "Kalem bu grupta yok ya da zaten kaldırılmış"
-NAME_TAKEN = "Bu adla bir grup zaten var; grup adı benzersiz olmalı."
-NAME_TAKEN_ARCHIVED = (
+GROUP_NOT_FOUND = N_("Belge grubu bulunamadı")
+ITEM_NOT_FOUND = N_("Kalem bu grupta yok ya da zaten kaldırılmış")
+NAME_TAKEN = N_("Bu adla bir grup zaten var; grup adı benzersiz olmalı.")
+NAME_TAKEN_ARCHIVED = N_(
     "Bu adla arşivde bir grup var; grup adı benzersiz olmalı. Arşivdekini geri alabilirsiniz."
 )
-DUPLICATE_ITEM = "Bu kalem grupta zaten var; aynı etiket ya da tür bir grupta bir kez yer alır."
+DUPLICATE_ITEM = N_("Bu kalem grupta zaten var; aynı etiket ya da tür bir grupta bir kez yer alır.")
 NOTICES = {
-    "created": "Grup oluşturuldu. Şimdi kalemlerini ekleyin.",
-    "updated": "Grubun adı ve açıklaması güncellendi.",
-    "unchanged": "Değişiklik yok.",
-    "item_added": "Kalem eklendi.",
-    "item_removed": "Kalem kaldırıldı.",
-    "archived": "Grup arşivlendi: yeni paket tanımlanamaz, açık paketler sürer.",
-    "restored": "Grup arşivden geri alındı.",
+    "created": N_("Grup oluşturuldu. Şimdi kalemlerini ekleyin."),
+    "updated": N_("Grubun adı ve açıklaması güncellendi."),
+    "unchanged": N_("Değişiklik yok."),
+    "item_added": N_("Kalem eklendi."),
+    "item_removed": N_("Kalem kaldırıldı."),
+    "archived": N_("Grup arşivlendi: yeni paket tanımlanamaz, açık paketler sürer."),
+    "restored": N_("Grup arşivden geri alındı."),
 }
 MATCH_KIND_LABELS = {
-    GroupItemKind.LABEL.value: "Dosya etiketi",
-    GroupItemKind.TYPE.value: "Belge türü",
+    GroupItemKind.LABEL.value: N_("Dosya etiketi"),
+    GroupItemKind.TYPE.value: N_("Belge türü"),
 }
 
 # Form sınırı yalnız aşırı girdiye karşıdır; uzunluk kuralını servis alan başına mesajla bildirir.
@@ -173,12 +174,16 @@ def _item_view(
         choice = labels.get(normalize_label(item.file_label))
         count = choice.type_count if choice else 0
         title = item.file_label or ""
-        detail = f"Ülkeden bağımsız: bu etiketli {count} türden herhangi biri karşılar"
+        detail = Translatable(
+            N_("Ülkeden bağımsız: bu etiketli {count} türden herhangi biri karşılar"), count=count
+        )
     else:
         found = types.get(item.type_slug or "")
         title = found.name if found else item.type_slug or ""
         country = f" · {found.country}" if found and found.country else ""
-        detail = f"Yalnız bu tür karşılar{country} · {item.type_slug}"
+        detail = Translatable(
+            N_("Yalnız bu tür karşılar{country} · {slug}"), country=country, slug=item.type_slug
+        )
     return ItemView(
         id=item.id,
         position=item.position,

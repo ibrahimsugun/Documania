@@ -56,17 +56,21 @@ NOTE_MAX_LENGTH = 120
 # `document_groups.normalized_name` sütununun uzunluğu; sadeleştirme kelime sınırından kısaltılır.
 NORMALIZED_NAME_MAX_LENGTH = 255
 
-NAME_REQUIRED = "Grup adı boş olamaz."
-NAME_TOO_LONG = f"Grup adı en çok {NAME_MAX_LENGTH} karakter olabilir."
-NAME_UNUSABLE = "Grup adı en az bir harf ya da rakam içermeli."
-DESCRIPTION_TOO_LONG = f"Açıklama en çok {DESCRIPTION_MAX_LENGTH} karakter olabilir."
+NAME_REQUIRED = N_("Grup adı boş olamaz.")
+NAME_TOO_LONG = Translatable(
+    N_("Grup adı en çok {limit} karakter olabilir."), limit=NAME_MAX_LENGTH
+)
+NAME_UNUSABLE = N_("Grup adı en az bir harf ya da rakam içermeli.")
+DESCRIPTION_TOO_LONG = Translatable(
+    N_("Açıklama en çok {limit} karakter olabilir."), limit=DESCRIPTION_MAX_LENGTH
+)
 # 10.10.3: paket formunun hatası profil sayfasında görünür, gösterimde çevrilir.
 NOTE_TOO_LONG = Translatable(N_("Not en çok {limit} karakter olabilir."), limit=NOTE_MAX_LENGTH)
-MATCH_KIND_INVALID = "Kalem ya bir dosya etiketiyle ya da bir türle tanımlanır."
-LABEL_REQUIRED = "Bir dosya etiketi seçin."
-LABEL_UNKNOWN = "Bu dosya etiketi katalogdaki hiçbir türde yok."
-TYPE_REQUIRED = "Bir belge türü seçin."
-TYPE_UNKNOWN = "Bu belge türü katalogda yok."
+MATCH_KIND_INVALID = N_("Kalem ya bir dosya etiketiyle ya da bir türle tanımlanır.")
+LABEL_REQUIRED = N_("Bir dosya etiketi seçin.")
+LABEL_UNKNOWN = N_("Bu dosya etiketi katalogdaki hiçbir türde yok.")
+TYPE_REQUIRED = N_("Bir belge türü seçin.")
+TYPE_UNKNOWN = N_("Bu belge türü katalogda yok.")
 
 
 class GroupAction(enum.StrEnum):

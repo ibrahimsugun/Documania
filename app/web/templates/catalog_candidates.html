@@ -5,25 +5,25 @@
    Unknown öğesi bekleyen aday toplu yeniden analiz için ayrıca görünür (11.5.3). "Reddedilenler"
    görünümü (`?status=rejected`, 11.5.7) reddedilen adayları tek adımlı "Geri al" düğmesiyle
    listeler. #}
-{% block title %}Aday türler{% endblock %}
+{% block title %}{{ _("Aday türler") }}{% endblock %}
 {% block content %}
-<p class="back"><a href="/document-types">← Belge Türleri</a></p>
-<h1>Aday türler</h1>
-<p class="lede">Sistemin belgelerde gördüğü, ama katalogda bulunmayan tür önerileri. Onaylarsan katalog türü olur ve bundan sonraki belgeler ona yerleşir.</p>
+<p class="back"><a href="/document-types">← {{ _("Belge Türleri") }}</a></p>
+<h1>{{ _("Aday türler") }}</h1>
+<p class="lede">{{ _("Sistemin belgelerde gördüğü, ama katalogda bulunmayan tür önerileri. Onaylarsan katalog türü olur ve bundan sonraki belgeler ona yerleşir.") }}</p>
 {% if notice_text %}
-<p class="notice notice-success" role="status">{{ notice_text }}</p>
+<p class="notice notice-success" role="status">{{ translate(notice_text) }}</p>
 {% endif %}
-<p class="hint">Analizcinin önerdiği, katalogda olmayan türler. Belge hiçbir türe zorla atanmaz: aday türle görülen belgeler Unknown kuyruğunda bekler. Onaylanan aday standart türler arasına eklenir; reddedilen aday bir daha listeye düşmez. Sistem bekleyen adayların örnek sayfalarını boş zamanında inceleyip tür taslağı hazırlar (İnceleme sütunu); aday kendiliğinden onaylanmaz.</p>
-<nav class="tabs candidate-views" aria-label="Aday tür görünümleri">
-  {% if view == "pending" %}<strong>Bekleyenler ({{ pending|length }})</strong>{% else %}<a href="/document-types/candidate-types">Bekleyenler ({{ pending|length }})</a>{% endif %}
+<p class="hint">{{ _("Analizcinin önerdiği, katalogda olmayan türler. Belge hiçbir türe zorla atanmaz: aday türle görülen belgeler Unknown kuyruğunda bekler. Onaylanan aday standart türler arasına eklenir; reddedilen aday bir daha listeye düşmez. Sistem bekleyen adayların örnek sayfalarını boş zamanında inceleyip tür taslağı hazırlar (İnceleme sütunu); aday kendiliğinden onaylanmaz.") }}</p>
+<nav class="tabs candidate-views" aria-label="{{ _('Aday tür görünümleri') }}">
+  {% if view == "pending" %}<strong>{{ _("Bekleyenler (%(num)d)", num=pending|length) }}</strong>{% else %}<a href="/document-types/candidate-types">{{ _("Bekleyenler (%(num)d)", num=pending|length) }}</a>{% endif %}
   ·
-  {% if view == "rejected" %}<strong>Reddedilenler ({{ rejected|length }})</strong>{% else %}<a href="/document-types/candidate-types?status=rejected">Reddedilenler ({{ rejected|length }})</a>{% endif %}
+  {% if view == "rejected" %}<strong>{{ _("Reddedilenler (%(num)d)", num=rejected|length) }}</strong>{% else %}<a href="/document-types/candidate-types?status=rejected">{{ _("Reddedilenler (%(num)d)", num=rejected|length) }}</a>{% endif %}
 </nav>
 {% if view == "rejected" %}
 {% if rejected %}
 <table class="catalog candidates rejected-candidates">
   <thead>
-    <tr><th>Aday tür</th><th>Görülme</th><th>Örnek sayfalar</th><th>İlk görüldüğü parti</th><th></th></tr>
+    <tr><th>{{ _("Aday tür") }}</th><th>{{ _("Görülme") }}</th><th>{{ _("Örnek sayfalar") }}</th><th>{{ _("İlk görüldüğü parti") }}</th><th></th></tr>
   </thead>
   <tbody>
     {% for item in rejected %}
@@ -34,13 +34,13 @@
         {% if item.samples %}
         {% with samples=item.samples %}{% include "catalog_candidate_samples.html" %}{% endwith %}
         {% else %}
-        <span class="placeholder">Örnek sayfa yok</span>
+        <span class="placeholder">{{ _("Örnek sayfa yok") }}</span>
         {% endif %}
       </td>
       <td><a href="/uploads/{{ item.first_seen_upload_id }}">{{ item.first_seen_upload_id }}</a></td>
       <td class="doc-actions">
         <form class="inline" method="post" action="/document-types/candidate-types/{{ item.id }}/restore">
-          <button type="submit">Geri al</button>
+          <button type="submit">{{ _("Geri al") }}</button>
         </form>
       </td>
     </tr>
@@ -48,12 +48,12 @@
   </tbody>
 </table>
 {% else %}
-<p class="placeholder">Reddedilen aday tür yok.</p>
+<p class="placeholder">{{ _("Reddedilen aday tür yok.") }}</p>
 {% endif %}
 {% elif pending %}
 <table class="catalog candidates">
   <thead>
-    <tr><th>Aday tür</th><th>Görülme</th><th>Örnek sayfalar</th><th>İnceleme</th><th>Bekleyen Unknown öğesi</th><th>İlk görüldüğü parti</th><th></th></tr>
+    <tr><th>{{ _("Aday tür") }}</th><th>{{ _("Görülme") }}</th><th>{{ _("Örnek sayfalar") }}</th><th>{{ _("İnceleme") }}</th><th>{{ _("Bekleyen Unknown öğesi") }}</th><th>{{ _("İlk görüldüğü parti") }}</th><th></th></tr>
   </thead>
   <tbody>
     {% for item in pending %}
@@ -63,29 +63,29 @@
       <td>
         {% if item.samples %}
         {% with samples=item.samples %}{% include "catalog_candidate_samples.html" %}{% endwith %}
-        {% if item.sample_total > item.samples|length %}<small class="hint">+{{ item.sample_total - item.samples|length }} örnek daha</small>{% endif %}
+        {% if item.sample_total > item.samples|length %}<small class="hint">{{ _("+%(num)d örnek daha", num=item.sample_total - item.samples|length) }}</small>{% endif %}
         {% else %}
-        <span class="placeholder">Örnek sayfa yok</span>
+        <span class="placeholder">{{ _("Örnek sayfa yok") }}</span>
         {% endif %}
       </td>
-      <td class="proposal-status proposal-{{ item.proposal_status or 'pending' }}">{{ item.proposal_label }}</td>
+      <td class="proposal-status proposal-{{ item.proposal_status or 'pending' }}">{{ translate(item.proposal_label) }}</td>
       <td>{{ related_counts[item.id] }}</td>
       <td><a href="/uploads/{{ item.first_seen_upload_id }}">{{ item.first_seen_upload_id }}</a></td>
-      <td class="doc-actions"><a href="/document-types/candidate-types/{{ item.id }}">İncele</a></td>
+      <td class="doc-actions"><a href="/document-types/candidate-types/{{ item.id }}">{{ _("İncele") }}</a></td>
     </tr>
     {% endfor %}
   </tbody>
 </table>
 {% else %}
-<p class="placeholder">Onay bekleyen aday tür yok.</p>
+<p class="placeholder">{{ _("Onay bekleyen aday tür yok.") }}</p>
 {% endif %}
 {% if approved and view == "pending" %}
 <section id="approved-candidates">
-  <h2>Onaylanan, Unknown öğesi bekleyen adaylar</h2>
-  <p class="hint">Bu türler kataloğa eklendi; onaydan önce görülen belgeleri toplu yeniden analiz edilebilir.</p>
+  <h2>{{ _("Onaylanan, Unknown öğesi bekleyen adaylar") }}</h2>
+  <p class="hint">{{ _("Bu türler kataloğa eklendi; onaydan önce görülen belgeleri toplu yeniden analiz edilebilir.") }}</p>
   <ul>
     {% for item in approved %}
-    <li><a href="/document-types/candidate-types/{{ item.id }}">{{ item.name }}</a> — {{ related_counts[item.id] }} bekleyen Unknown öğesi</li>
+    <li><a href="/document-types/candidate-types/{{ item.id }}">{{ item.name }}</a> — {{ ngettext("%(num)d bekleyen Unknown öğesi", "%(num)d bekleyen Unknown öğesi", related_counts[item.id]) }}</li>
     {% endfor %}
   </ul>
 </section>

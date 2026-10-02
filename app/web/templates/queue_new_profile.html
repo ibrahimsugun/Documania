@@ -5,7 +5,7 @@
 {% macro summary(rows) %}
 <dl class="profile-fields profile-summary">
   {% for row in rows %}
-  <dt>{{ row.label }}</dt>
+  <dt>{{ translate(row.label) }}</dt>
   <dd>{{ row.value }}{% if row.edited %} <span class="edited">{{ _("düzeltildi") }}</span>{% endif %}</dd>
   {% endfor %}
 </dl>
@@ -20,7 +20,7 @@
 {% if field_errors %}
 <ul class="field-errors">
   {% for label, problem in field_errors %}
-  <li>{{ label }}: {{ problem }}</li>
+  <li>{{ translate(label) }}: {{ translate(problem) }}</li>
   {% endfor %}
 </ul>
 {% endif %}
@@ -29,14 +29,14 @@
   <form class="profile-edit" hx-post="/queues/{{ queue_item_id }}/profile/confirm"
         hx-target="#profile-step" hx-swap="innerHTML" hx-disabled-elt="find button[type=submit]">
     {% for field in profile_form %}
-    <label for="profile-{{ field.name }}">{{ field.label }}</label>
+    <label for="profile-{{ field.name }}">{{ translate(field.label) }}</label>
     <span class="field">
       <input type="{{ field.input_type }}" id="profile-{{ field.name }}" name="{{ field.name }}"
              value="{{ field.value }}" maxlength="{{ field.maxlength }}"{% if field.required %} required{% endif %} autocomplete="off">
-      {% if field.hint %}<small class="hint">{{ field.hint }}</small>{% endif %}
+      {% if field.hint %}<small class="hint">{{ translate(field.hint) }}</small>{% endif %}
     </span>
     {% endfor %}
-    <button type="submit">Onaya gönder</button>
+    <button type="submit">{{ _("Onaya gönder") }}</button>
   </form>
 </div>
 <div id="profile-step" class="action-result" aria-live="polite"></div>
@@ -61,7 +61,7 @@
   <a href="/queues/{{ queue_item_id }}">{{ _("Vazgeç") }}</a>
 </form>
 {% elif done %}
-<p class="notice notice-success" role="status">Çalışan profili oluşturuldu: <a href="/employees/{{ employee.id }}">{{ employee.name }} ({{ employee.id }})</a>. Belge {{ file_name }} olarak çalışanın Hazır klasörüne yazıldı. <a href="/documents/{{ document_id }}/history">Çıktının geçmişi</a> · <a href="/queues/{{ queue_item_id }}">Sayfayı yenileyin</a>.</p>
+<p class="notice notice-success" role="status">{% trans url="/employees/" ~ employee.id, name=employee.name, id=employee.id, file=file_name %}Çalışan profili oluşturuldu: <a href="{{ url }}">{{ name }} ({{ id }})</a>. Belge {{ file }} olarak çalışanın Hazır klasörüne yazıldı.{% endtrans %} <a href="/documents/{{ document_id }}/history">{{ _("Çıktının geçmişi") }}</a> · <a href="/queues/{{ queue_item_id }}">{{ _("Sayfayı yenileyin") }}</a>.</p>
 {# Onaylanmış öğede düzenleme formu kalmasın. #}
 <div id="profile-form" hx-swap-oob="true"></div>
 {% endif %}

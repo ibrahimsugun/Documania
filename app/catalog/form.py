@@ -27,6 +27,7 @@ from typing import Any
 from pydantic import ValidationError
 
 from app.catalog.schema import CONSISTENCY_ERROR, CatalogEntry, FrontBackLayout, layout_pages
+from app.i18n import N_, Translatable
 
 # Zorunlu alan adları tek satırda virgülle (ya da boşlukla/satırla) yazılır.
 # `new` panelde yeni tür formunun adresidir (`/document-types/new`): bu slug'la tür açılamaz.
@@ -117,11 +118,11 @@ def _pages(form: TypeForm, problems: dict[str, list[str]]) -> dict[str, int] | N
         return None
     if not low or not high:
         problems.setdefault("expected_pages", []).append(
-            "en az ve en çok sayfa birlikte yazılmalı (ya da ikisi de boş bırakılmalı)"
+            N_("en az ve en çok sayfa birlikte yazılmalı (ya da ikisi de boş bırakılmalı)")
         )
         return None
     if not (low.isascii() and low.isdigit() and high.isascii() and high.isdigit()):
-        problems.setdefault("expected_pages", []).append("sayfa sayıları tam sayı olmalı")
+        problems.setdefault("expected_pages", []).append(N_("sayfa sayıları tam sayı olmalı"))
         return None
     return {"min": int(low), "max": int(high)}
 
@@ -140,7 +141,9 @@ def _record(form: TypeForm, problems: dict[str, list[str]]) -> dict[str, Any]:
     """Form → §8.6 kaydı (doğrulanmamış). Kırpma ve boş → yok dönüşümü yalnız burada yapılır."""
     slug = form.slug.strip()
     if slug in RESERVED_SLUGS:
-        problems.setdefault("slug", []).append(f"{slug!r} ayrılmış bir ad; başka bir slug seçin")
+        problems.setdefault("slug", []).append(
+            Translatable(N_("{slug} ayrılmış bir ad; başka bir slug seçin"), slug=repr(slug))
+        )
     front_back = form.sides == "front_back"
     return {
         "slug": slug,
@@ -167,22 +170,27 @@ def _message(name: str, error: Any) -> str:
     kind = error["type"]
     ctx = error.get("ctx") or {}
     if kind == "too_short":
-        return "en az bir seçim yapılmalı"
+        return N_("en az bir seçim yapılmalı")
     if kind == "string_too_short":
-        return "boş olamaz"
+        return N_("boş olamaz")
     if kind == "string_too_long":
-        return f"en çok {ctx.get('max_length')} karakter olmalı"
+        return Translatable(N_("en çok {limit} karakter olmalı"), limit=ctx.get("max_length"))
     if kind == "string_pattern_mismatch":
         return {
-            "slug": "küçük harfle başlamalı; yalnız a-z, 0-9 ve _ içerebilir (en çok 64 karakter)",
-            "country": "iki büyük harf olmalı (ör. RU)",
-            "required_fields": (
-                f"geçersiz alan adı {error['input']!r}: küçük harfle başlamalı; "
-                "yalnız a-z, 0-9 ve _ içerebilir"
+            "slug": N_(
+                "küçük harfle başlamalı; yalnız a-z, 0-9 ve _ içerebilir (en çok 64 karakter)"
             ),
-        }.get(name, "geçerli biçimde değil")
+            "country": N_("iki büyük harf olmalı (ör. RU)"),
+            "required_fields": Translatable(
+                N_(
+                    "geçersiz alan adı {name}: küçük harfle başlamalı; "
+                    "yalnız a-z, 0-9 ve _ içerebilir"
+                ),
+                name=repr(error["input"]),
+            ),
+        }.get(name, N_("geçerli biçimde değil"))
     if kind in {"enum", "literal_error"}:
-        return "geçersiz seçim"
+        return N_("geçersiz seçim")
     return str(error["msg"]).removeprefix("Value error, ")
 
 

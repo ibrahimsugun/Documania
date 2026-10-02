@@ -4,24 +4,24 @@
    taşır. Metinler §C92'den birebirdir (K16 dışı, §20.6'ya girmez). Tür silinmez, belgeleri yerinde
    kalır (R11); belge içeriğine dokunulmaz (K11, K17). Süzgeç (11.1.5) gizli `country` alanıyla
    taşınır. #}
-{% block title %}{% if bulk %}Seçilen türleri arşivle{% else %}Türü arşivle{% endif %} · {{ entry.label }}{% endblock %}
+{% block title %}{% if bulk %}{{ _("Seçilen türleri arşivle") }}{% else %}{{ _("Türü arşivle") }}{% endif %} · {{ translate(entry.label) }}{% endblock %}
 {% block content %}
-<p class="back"><a href="{{ back_url }}">← {{ entry.label }}</a></p>
-<h1>{% if bulk %}Seçilen türleri arşivle{% else %}Türü arşivle: {{ type_name }}{% endif %}</h1>
+<p class="back"><a href="{{ back_url }}">← {{ translate(entry.label) }}</a></p>
+<h1>{% if bulk %}{{ _("Seçilen türleri arşivle") }}{% else %}{{ _("Türü arşivle: %(name)s", name=type_name) }}{% endif %}</h1>
 {% if error %}
 <div class="error" role="alert">
-  <p>İşlem yapılmadı:</p>
-  <ul><li>{{ error }}</li></ul>
+  <p>{{ _("İşlem yapılmadı:") }}</p>
+  <ul><li>{{ translate(error) }}</li></ul>
 </div>
 {% else %}
 {% if bulk %}
 <section class="archive-selection" id="archive-selection">
-  <p>Arşivlenecek türler ({{ archivable|length }}):</p>
+  <p>{{ _("Arşivlenecek türler (%(num)d):", num=archivable|length) }}</p>
   <ul class="archive-types">
     {% for name in archivable %}<li>{{ name }}</li>{% endfor %}
   </ul>
   {% if protected %}
-  <p class="hint" id="archive-protected">Korunan türler arşivlenmez, atlanacak ({{ protected|length }}): {{ protected|join(", ") }}</p>
+  <p class="hint" id="archive-protected">{{ _("Korunan türler arşivlenmez, atlanacak (%(num)d): %(names)s", num=protected|length, names=protected|join(", ")) }}</p>
   {% endif %}
 </section>
 {% endif %}
@@ -33,15 +33,15 @@
     {% for item in selected %}<input type="hidden" name="slugs" value="{{ item }}">{% endfor %}
     {% if selected_country != "all" %}<input type="hidden" name="country" value="{{ selected_country }}">{% endif %}
     <input type="hidden" name="confirmation" value="{{ confirmation }}">
-    <button type="submit">Evet, arşivle</button>
-    <a href="{{ back_url }}">Vazgeç</a>
+    <button type="submit">{{ _("Evet, arşivle") }}</button>
+    <a href="{{ back_url }}">{{ _("Vazgeç") }}</a>
   </form>
   {% else %}
   {% if bulk %}<form class="decision-form" method="post" action="/document-types/bulk/prepare">{% else %}<form class="decision-form" method="post" action="/document-types/{{ slug|urlencode }}/archive/prepare">{% endif %}
     {% for item in selected %}<input type="hidden" name="slugs" value="{{ item }}">{% endfor %}
     {% if selected_country != "all" %}<input type="hidden" name="country" value="{{ selected_country }}">{% endif %}
-    <button type="submit">Evet, devam et</button>
-    <a href="{{ back_url }}">Vazgeç</a>
+    <button type="submit">{{ _("Evet, devam et") }}</button>
+    <a href="{{ back_url }}">{{ _("Vazgeç") }}</a>
   </form>
   {% endif %}
 </section>

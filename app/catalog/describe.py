@@ -66,6 +66,7 @@ from app.catalog.photo_rules import PHOTO_RULE_TYPES, PhotoRuleSetting, enabled_
 from app.catalog.schema import CatalogEntry, Sides
 from app.config import Settings
 from app.db.models import Document, DocumentStatus, ExampleFileRecord, ExampleLabel, Page
+from app.i18n import N_, Translatable
 from app.pipeline.render import RenderError, image_copy, render_pdf_images
 from app.storage import DataLayout, FileKind, UnsupportedFileTypeError, detect_file_kind
 from app.storage.examples import (
@@ -80,10 +81,10 @@ MAX_DESCRIPTION_PAGES = 8
 """Bir tür açıklaması isteğine giren en çok görüntü (örnek sayfa + kabul edilen fotoğraf)."""
 
 SCRIPT_LABELS = {
-    Script.LATIN: "Latin",
-    Script.CYRILLIC: "Kiril",
-    Script.ARABIC: "Arap",
-    Script.OTHER: "diğer",
+    Script.LATIN: N_("Latin"),
+    Script.CYRILLIC: N_("Kiril"),
+    Script.ARABIC: N_("Arap"),
+    Script.OTHER: N_("diğer"),
 }
 
 _SENTENCE_ENDINGS = (".", "!", "?", "…")
@@ -321,9 +322,11 @@ def collect_example_pages(
         except (ExampleRejectedError, RenderError, OSError) as exc:
             # Bozuk görüntü Pillow'da `OSError`dır (kesik dosya, tanınmayan içerik).
             skipped.append(
-                str(exc)
+                exc.args[0]
                 if isinstance(exc, ExampleRejectedError)
-                else f"'{example.name}' dosyası açılamadı; bozuk olabilir."
+                else Translatable(
+                    N_("'{file}' dosyası açılamadı; bozuk olabilir."), file=example.name
+                )
             )
             continue
         for number, data in enumerate(rendered, start=1):
@@ -341,11 +344,17 @@ def _render(
     if example.size > max_bytes:
         # Dosya belleğe alınmadan reddedilir; mesaj yüklemedekiyle aynıdır.
         raise ExampleRejectedError(
-            f"'{example.name}' dosyası {max_bytes / (1024 * 1024):.0f} MB sınırını aşıyor."
+            Translatable(
+                N_("'{file}' dosyası {limit} MB sınırını aşıyor."),
+                file=example.name,
+                limit=f"{max_bytes / (1024 * 1024):.0f}",
+            )
         )
     path = example_path(layout, type_slug, example.name)
     if path is None:
-        raise ExampleRejectedError(f"'{example.name}' dosyası bulunamadı.")
+        raise ExampleRejectedError(
+            Translatable(N_("'{file}' dosyası bulunamadı."), file=example.name)
+        )
     content = path.read_bytes()
     kind = check_example(example.name, content, max_bytes=max_bytes)
     return page_images(content, kind, settings, limit)
@@ -397,7 +406,7 @@ def collect_photo_pages(
         try:
             image = _photo_image(layout, settings, photo)
         except PhotoUnreadableError as exc:
-            skipped.append(str(exc))
+            skipped.append(exc.args[0])
             continue
         sent.append(photo.document_id)
         images.append(PageImage(image))
@@ -406,13 +415,17 @@ def collect_photo_pages(
 
 def _photo_image(layout: DataLayout, settings: Settings, photo: AcceptedPhoto) -> bytes:
     # Mesaj belge numarasını taşır, dosya adını değil: ad çalışanın adıdır (CONVENTIONS §6).
-    label = f"Kabul edilen fotoğraf (belge {photo.document_id})"
+    label = Translatable(N_("Kabul edilen fotoğraf (belge {id})"), id=photo.document_id)
     max_bytes = settings.max_upload_file_size_bytes
     try:
         path = layout.resolve(photo.path)
         if path.stat().st_size > max_bytes:
             raise PhotoUnreadableError(
-                f"{label} {max_bytes / (1024 * 1024):.0f} MB sınırını aşıyor."
+                Translatable(
+                    N_("{photo} {limit} MB sınırını aşıyor."),
+                    photo=label,
+                    limit=f"{max_bytes / (1024 * 1024):.0f}",
+                )
             )
         content = path.read_bytes()
         kind = detect_file_kind(content)
@@ -424,7 +437,7 @@ def _photo_image(layout: DataLayout, settings: Settings, photo: AcceptedPhoto) -
     except (ValueError, OSError):
         # `ValueError`: geçersiz saklı yol, tanınmayan içerik, `RenderError` (sayfasız PDF dahil);
         # `OSError`: dosya yok ya da görüntü bozuk.
-        raise PhotoUnreadableError(f"{label} açılamadı.") from None
+        raise PhotoUnreadableError(Translatable(N_("{photo} açılamadı."), photo=label)) from None
     return rendered[0]
 
 

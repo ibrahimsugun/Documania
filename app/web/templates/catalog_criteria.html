@@ -7,12 +7,12 @@
     {% for text in criteria %}
     <li>
       <input type="text" name="acceptance_criteria" value="{{ text }}"
-             aria-label="Kabul kriteri {{ loop.index }}" autocomplete="off">
+             aria-label="{{ _('Kabul kriteri %(num)d', num=loop.index) }}" autocomplete="off">
       <button type="button" class="link-button" hx-post="/document-types/criteria/remove"
-              hx-vals='{"index": {{ loop.index0 }}}' hx-target="#criteria" hx-swap="outerHTML">Çıkar</button>
+              hx-vals='{"index": {{ loop.index0 }}}' hx-target="#criteria" hx-swap="outerHTML">{{ _("Çıkar") }}</button>
     </li>
     {% endfor %}
   </ul>
   <button type="button" hx-post="/document-types/criteria/add"
-          hx-target="#criteria" hx-swap="outerHTML">Madde ekle</button>
+          hx-target="#criteria" hx-swap="outerHTML">{{ _("Madde ekle") }}</button>
 </div>

@@ -77,17 +77,18 @@ from app.db.models import (
     utcnow,
 )
 from app.events import EventType, ai_call_event_data, record_event
+from app.i18n import N_
 from app.matching.names import EmptyNameError, normalize_name
 from app.storage import DataLayout, detect_file_kind
 from app.worker.idle import IdleContext, IdleTable, run_idle_unit
 
 JOB_NAME = "aday-tur-incelemesi"
 
-LEAK_REASON = "Taslakta örnekteki kişiye ait değer bulundu"
+LEAK_REASON = N_("Taslakta örnekteki kişiye ait değer bulundu")
 """Sızıntı denetiminden geçmeyen taslağın gerekçesi; değerin kendisi yazılmaz."""
 
-NO_SAMPLES_REASON = "Görüntüsü kalan örnek sayfa yok"
-ERROR_REASON = "Tür taslağı üretilemedi"
+NO_SAMPLES_REASON = N_("Görüntüsü kalan örnek sayfa yok")
+ERROR_REASON = N_("Tür taslağı üretilemedi")
 """Denemeleri tükenen incelemenin gerekçesi (sağlayıcı hatası ya da şemaya uymayan yanıt)."""
 
 MIN_NAME_WORD_LENGTH = 3

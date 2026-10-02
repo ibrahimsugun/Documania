@@ -235,7 +235,7 @@ from app.db.models import (
     UploadStatus,
 )
 from app.db.session import get_session
-from app.i18n import gettext
+from app.i18n import N_, Translatable, gettext
 from app.pipeline.orchestrate import (
     PLAN_EXECUTION_ERRORS,
     PlanExecutor,
@@ -285,8 +285,8 @@ Layout = Annotated[DataLayout, Depends(get_layout)]
 AppSettings = Annotated[Settings, Depends(get_settings)]
 
 LIST_PATH = "/document-types"
-TYPE_NOT_FOUND = "Belge türü bulunamadı"
-SLUG_TAKEN = "Bu slug'la bir tür zaten var; slug benzersiz olmalı ve sonradan değişmez"
+TYPE_NOT_FOUND = N_("Belge türü bulunamadı")
+SLUG_TAKEN = N_("Bu slug'la bir tür zaten var; slug benzersiz olmalı ve sonradan değişmez")
 
 FILE_TYPE_LABELS = {
     FileType.PDF: "PDF",
@@ -297,31 +297,33 @@ FILE_TYPE_LABELS = {
     FileType.XLS: "Excel (xls)",
     FileType.XLSX: "Excel (xlsx)",
 }
-SIDES_LABELS = {Sides.SINGLE: "Tek yüz", Sides.FRONT_BACK: "Ön ve arka yüz"}
+SIDES_LABELS = {Sides.SINGLE: N_("Tek yüz"), Sides.FRONT_BACK: N_("Ön ve arka yüz")}
 LAYOUT_LABELS = {
-    FrontBackLayout.SEPARATE: "Ön ve arka ayrı sayfalarda",
-    FrontBackLayout.COMBINED: "İki yüz tek sayfada",
+    FrontBackLayout.SEPARATE: N_("Ön ve arka ayrı sayfalarda"),
+    FrontBackLayout.COMBINED: N_("İki yüz tek sayfada"),
 }
 CONVERSION_LABELS = {
-    Conversion.MERGE: "Sayfaları birleştir",
-    Conversion.WRAP_IMAGE: "Görüntüyü PDF'e sar",
-    Conversion.EXTRACT_IMAGE: "Gömülü görüntüyü çıkar",
-    Conversion.RENDER_IMAGE: "Sayfayı görüntüye çevir",
+    Conversion.MERGE: N_("Sayfaları birleştir"),
+    Conversion.WRAP_IMAGE: N_("Görüntüyü PDF'e sar"),
+    Conversion.EXTRACT_IMAGE: N_("Gömülü görüntüyü çıkar"),
+    Conversion.RENDER_IMAGE: N_("Sayfayı görüntüye çevir"),
 }
 OUTPUT_FORMAT_LABELS = {
-    OutputFormat.KEEP: "Kaynağın biçimini koru",
+    OutputFormat.KEEP: N_("Kaynağın biçimini koru"),
     OutputFormat.PDF: "PDF",
     OutputFormat.JPEG: "JPEG",
 }
 NOTICES = {
-    "created": "Tür oluşturuldu.",
-    "updated": "Tür güncellendi. Değişiklik bir sonraki analizden itibaren geçerlidir.",
-    "deactivated": "Tür pasifleştirildi: yeni belgelere atanmaz.",
-    "activated": "Tür yeniden etkinleştirildi.",
-    "archived": "Tür arşivlendi: listeden, analiz talimatından ve tür seçicilerden kalktı; var "
-    "olan belgeleri yerinde.",
-    "restored": "Tür arşivden geri alındı; bir sonraki analizden itibaren yeniden geçerlidir.",
-    "none_selected": "Tür seçilmedi: önce tablodan en az bir türü işaretleyin.",
+    "created": N_("Tür oluşturuldu."),
+    "updated": N_("Tür güncellendi. Değişiklik bir sonraki analizden itibaren geçerlidir."),
+    "deactivated": N_("Tür pasifleştirildi: yeni belgelere atanmaz."),
+    "activated": N_("Tür yeniden etkinleştirildi."),
+    "archived": N_(
+        "Tür arşivlendi: listeden, analiz talimatından ve tür seçicilerden kalktı; var "
+        "olan belgeleri yerinde."
+    ),
+    "restored": N_("Tür arşivden geri alındı; bir sonraki analizden itibaren yeniden geçerlidir."),
+    "none_selected": N_("Tür seçilmedi: önce tablodan en az bir türü işaretleyin."),
 }
 
 # --- 11.1.6: arşiv ve toplu seçim -----------------------------------------------------------------
@@ -330,39 +332,39 @@ BULK_PATH = f"{LIST_PATH}/bulk"
 BULK_LIMIT = 500
 BULK_ACTIONS = ("activate", "deactivate", "archive")
 BULK_NOTICES = {
-    "bulk_deactivated": "{count} tür pasifleştirildi: yeni belgelere atanmaz.",
-    "bulk_activated": "{count} tür yeniden etkinleştirildi.",
-    "bulk_archived": "{count} tür arşivlendi.",
+    "bulk_deactivated": N_("{count} tür pasifleştirildi: yeni belgelere atanmaz."),
+    "bulk_activated": N_("{count} tür yeniden etkinleştirildi."),
+    "bulk_archived": N_("{count} tür arşivlendi."),
 }
-BULK_ARCHIVED_SKIPPED = "{count} tür arşivlendi, {skipped} korunan tür atlandı."
-BULK_UNKNOWN_ACTION = "Tanınmayan toplu işlem."
-BULK_TOO_MANY = f"Tek seferde en çok {BULK_LIMIT} tür seçilebilir."
-BULK_NOTHING_TO_ARCHIVE = (
+BULK_ARCHIVED_SKIPPED = N_("{count} tür arşivlendi, {skipped} korunan tür atlandı.")
+BULK_UNKNOWN_ACTION = N_("Tanınmayan toplu işlem.")
+BULK_TOO_MANY = Translatable(N_("Tek seferde en çok {limit} tür seçilebilir."), limit=BULK_LIMIT)
+BULK_NOTHING_TO_ARCHIVE = N_(
     "Seçilen türlerin hiçbiri arşivlenemez: hepsi korunan tür ya da zaten arşivde."
 )
-TYPE_PROTECTED = "Bu tür boru hattının adıyla kullandığı korunan bir türdür; arşivlenemez."
-TYPE_ALREADY_ARCHIVED = "Bu tür zaten arşivde."
+TYPE_PROTECTED = N_("Bu tür boru hattının adıyla kullandığı korunan bir türdür; arşivlenemez.")
+TYPE_ALREADY_ARCHIVED = N_("Bu tür zaten arşivde.")
 # §20.6 dışı (K16 dışı, PLAN.md §C92-a, §D61-d; §D58'in eğitim emsali): metinler BİREBİR §C92'den.
-ARCHIVE_SECOND = (
+ARCHIVE_SECOND = N_(
     "Tür analiz talimatından ve listelerden kalkacak, var olan belgeler yerinde kalacaktır. Son "
     "kararınız mı?"
 )
 _ARCHIVE_TEXTS: dict[Operation, tuple[str, str]] = {
     Operation.TYPE_ARCHIVE: (
-        "<Tür adı> belge türünü arşivlemek üzeresiniz. Emin misiniz?",
+        N_("<Tür adı> belge türünü arşivlemek üzeresiniz. Emin misiniz?"),
         ARCHIVE_SECOND,
     ),
     Operation.TYPE_ARCHIVE_BULK: (
-        "<N> belge türünü arşivlemek üzeresiniz. Emin misiniz?",
+        N_("<N> belge türünü arşivlemek üzeresiniz. Emin misiniz?"),
         ARCHIVE_SECOND,
     ),
 }
 
-TYPE_PAGE_NOTICES = {"photo_rules": "Fotoğraf kuralları kaydedildi."}
+TYPE_PAGE_NOTICES = {"photo_rules": N_("Fotoğraf kuralları kaydedildi.")}
 
 # --- 11.4.3: katalog bütçesi ---------------------------------------------------------------------
 
-BUDGET_UNAVAILABLE = (
+BUDGET_UNAVAILABLE = N_(
     "Katalog metni ölçülemedi: katalogda tutarsız kayıt var (satırdaki «Tutarsız kayıt» "
     "rozetine bakın). Analiz bu kayıt düzeltilene kadar katalogu okuyamaz."
 )
@@ -509,91 +511,100 @@ def catalog_budget_view(session: Session, settings: Settings) -> CatalogBudgetVi
 
 # --- 11.6: fotoğraf kuralları --------------------------------------------------------------------
 
-NO_PHOTO_RULES = "Bu türün fotoğraf kuralı yok"
+NO_PHOTO_RULES = N_("Bu türün fotoğraf kuralı yok")
 
 # --- 11.2: örnek belgeler ------------------------------------------------------------------------
 
-EXAMPLE_NOT_FOUND = "Örnek belge bulunamadı"
-NO_EXAMPLE_FILE = "Dosya seçilmedi."
-EXAMPLE_DUPLICATE = "'{file}' bu türde zaten örnek (aynı içerik: {existing}); yüklenmedi."
-EXAMPLE_REPEATED = "'{file}' aynı yüklemede '{first}' ile aynı içerikte; yüklenmedi."
-EXAMPLE_RECORD_CLASH = (
+EXAMPLE_NOT_FOUND = N_("Örnek belge bulunamadı")
+NO_EXAMPLE_FILE = N_("Dosya seçilmedi.")
+EXAMPLE_DUPLICATE = N_("'{file}' bu türde zaten örnek (aynı içerik: {existing}); yüklenmedi.")
+EXAMPLE_REPEATED = N_("'{file}' aynı yüklemede '{first}' ile aynı içerikte; yüklenmedi.")
+EXAMPLE_RECORD_CLASH = N_(
     "Örnek dosyası yazıldı ama kaydı tutulamadı: bu adla etkin bir örnek kaydı var. "
     "python -m app.catalog register-examples ile kaydedin."
 )
 
 # --- 11.3: tür açıklaması -----------------------------------------------------------------------
 
-DESCRIPTION_INVALID_FORM = "Açıklama üretilmedi: önce alanların altındaki uyarıları düzeltin."
-DESCRIPTION_NOT_ANALYZED = (
+DESCRIPTION_INVALID_FORM = N_("Açıklama üretilmedi: önce alanların altındaki uyarıları düzeltin.")
+DESCRIPTION_NOT_ANALYZED = N_(
     "Açıklama üretilmedi: analiz edilmeyen türün açıklaması analizde kullanılmaz."
 )
-DESCRIPTION_NO_EXAMPLES = (
+DESCRIPTION_NO_EXAMPLES = N_(
     "Açıklama üretilmedi: bu türün açılabilen örneği yok. Önce örnek belge yükleyin."
 )
-DESCRIPTION_PROVIDER_UNAVAILABLE = (
+DESCRIPTION_PROVIDER_UNAVAILABLE = N_(
     "Açıklama üretilmedi: yapay zekâ sağlayıcısı kurulamadı. {detail}"
 )
-DESCRIPTION_PROVIDER_FAILED = (
+DESCRIPTION_PROVIDER_FAILED = N_(
     "Açıklama üretilmedi: yapay zekâ sağlayıcısı yanıt vermedi ({detail}). Biraz sonra yeniden "
     "deneyin."
 )
-DESCRIPTION_REJECTED = (
+DESCRIPTION_REJECTED = N_(
     "Açıklama üretilmedi: yapay zekânın yanıtı tür açıklaması şemasına uymadı. Yeniden deneyin."
 )
 
 # --- 11.5: aday türler ---------------------------------------------------------------------------
 
 CANDIDATES_PATH = f"{LIST_PATH}/candidate-types"
-CANDIDATE_NOT_FOUND = "Aday tür bulunamadı."
+CANDIDATE_NOT_FOUND = N_("Aday tür bulunamadı.")
 CANDIDATE_STATUS_LABELS = {
-    CandidateTypeStatus.PENDING.value: "Onay bekliyor",
-    CandidateTypeStatus.APPROVED.value: "Onaylandı",
-    CandidateTypeStatus.REJECTED.value: "Reddedildi",
+    CandidateTypeStatus.PENDING.value: N_("Onay bekliyor"),
+    CandidateTypeStatus.APPROVED.value: N_("Onaylandı"),
+    CandidateTypeStatus.REJECTED.value: N_("Reddedildi"),
 }
 DECIDED_NOTES = {
-    CandidateTypeStatus.APPROVED.value: "Bu aday tür onaylanmış; yeniden karara bağlanamaz.",
-    CandidateTypeStatus.REJECTED.value: "Bu aday tür reddedilmiş; yeniden karara bağlanamaz.",
+    CandidateTypeStatus.APPROVED.value: N_("Bu aday tür onaylanmış; yeniden karara bağlanamaz."),
+    CandidateTypeStatus.REJECTED.value: N_("Bu aday tür reddedilmiş; yeniden karara bağlanamaz."),
 }
-DECIDED_NOTE = "Bu aday tür karara bağlanmış; yeniden karara bağlanamaz."
+DECIDED_NOTE = N_("Bu aday tür karara bağlanmış; yeniden karara bağlanamaz.")
 CANDIDATE_NOTICES = {
-    "approved": "Aday tür standart türler arasına eklendi; tür bir sonraki analizden itibaren "
-    "geçerlidir. İlişkili Unknown öğeleri aşağıdan toplu yeniden analiz edilebilir.",
-    "rejected": "Aday tür reddedildi; bir daha listeye düşmez.",
-    "restored": "Aday tür retten geri alındı; yeniden onay bekliyor.",
+    "approved": N_(
+        "Aday tür standart türler arasına eklendi; tür bir sonraki analizden itibaren "
+        "geçerlidir. İlişkili Unknown öğeleri aşağıdan toplu yeniden analiz edilebilir."
+    ),
+    "rejected": N_("Aday tür reddedildi; bir daha listeye düşmez."),
+    "restored": N_("Aday tür retten geri alındı; yeniden onay bekliyor."),
 }
-NOT_REJECTED_NOTE = "Bu aday tür reddedilmiş değil; geri alınacak bir ret yok."
+NOT_REJECTED_NOTE = N_("Bu aday tür reddedilmiş değil; geri alınacak bir ret yok.")
 CANDIDATE_VIEWS = ("pending", "rejected")
+NO_REASON = N_("gerekçe yok")
 # 11.5.6: taslakla dolu onay formunun bandı ve "Yeniden incele".
-PREFILL_FILLED = (
+PREFILL_FILLED = N_(
     "Alanlar sistemin incelemesiyle dolduruldu ({pages} örnek sayfa, {date}). Kaydetmeden önce "
     "kontrol edin."
 )
-PREFILL_UNFILLED = "Şu alanlar önerilemedi, elle doldurun: {fields}"
+PREFILL_UNFILLED = N_("Şu alanlar önerilemedi, elle doldurun: {fields}")
 PREFILL_STATUS = {
-    None: "Sistem bu adayı henüz incelemedi; örnek sayfalar işçinin boş zamanında incelenir. "
-    "Form adayın adıyla açıldı.",
-    CandidateProposalStatus.FAILED.value: "Sistemin incelemesi taslak üretmedi: {reason}. "
-    "Form adayın adıyla açıldı.",
-    CandidateProposalStatus.NO_SAMPLES.value: "Sistemin incelemesi yapılamadı: {reason}. "
-    "Form adayın adıyla açıldı.",
+    None: N_(
+        "Sistem bu adayı henüz incelemedi; örnek sayfalar işçinin boş zamanında incelenir. "
+        "Form adayın adıyla açıldı."
+    ),
+    CandidateProposalStatus.FAILED.value: N_(
+        "Sistemin incelemesi taslak üretmedi: {reason}. Form adayın adıyla açıldı."
+    ),
+    CandidateProposalStatus.NO_SAMPLES.value: N_(
+        "Sistemin incelemesi yapılamadı: {reason}. Form adayın adıyla açıldı."
+    ),
 }
-EXAMINED_NOTICE = "Aday yeniden incelendi."
-EXAMINE_PROVIDER_UNAVAILABLE = "Yeniden incelenmedi: yapay zekâ sağlayıcısı kurulamadı. {detail}"
-EXAMINE_PROVIDER_FAILED = (
+EXAMINED_NOTICE = N_("Aday yeniden incelendi.")
+EXAMINE_PROVIDER_UNAVAILABLE = N_(
+    "Yeniden incelenmedi: yapay zekâ sağlayıcısı kurulamadı. {detail}"
+)
+EXAMINE_PROVIDER_FAILED = N_(
     "Yeniden incelenmedi: yapay zekâ sağlayıcısı yanıt vermedi ({detail}). Biraz sonra yeniden "
     "deneyin."
 )
-EXAMINE_REJECTED = (
+EXAMINE_REJECTED = N_(
     "Yeniden incelenmedi: yapay zekânın yanıtı tür taslağı şemasına uymadı. Yeniden deneyin."
 )
-NOT_APPROVED_NOTE = "Toplu yeniden analiz yalnız onaylanmış aday türde yapılır."
-NO_RELATED_NOTE = (
+NOT_APPROVED_NOTE = N_("Toplu yeniden analiz yalnız onaylanmış aday türde yapılır.")
+NO_RELATED_NOTE = N_(
     "Bu aday türle ilişkili bekleyen Unknown öğesi yok; yeniden analiz edilecek parti bulunmuyor."
 )
 # §20.6 dışı (PLAN.md §D30): yeniden analizin onay metinlerinin (D23) çoğulu.
-BATCH_REANALYZE_FIRST = "Bu {count} partiyi yeniden analiz etmek üzeresiniz. Emin misiniz?"
-BATCH_REANALYZE_SECOND = (
+BATCH_REANALYZE_FIRST = N_("Bu {count} partiyi yeniden analiz etmek üzeresiniz. Emin misiniz?")
+BATCH_REANALYZE_SECOND = N_(
     "Bu işlem her partiye yeni bir plan sürümü açacak; önceki sürümlerin çıktıları "
     '"eski sürüm" olarak işaretlenecektir. Son kararınız mı?'
 )
@@ -866,11 +877,11 @@ def _notice_text(
         if count is None:
             return None
         if key == "bulk_archived" and skipped:
-            return BULK_ARCHIVED_SKIPPED.format(count=count, skipped=skipped)
-        return BULK_NOTICES[key].format(count=count)
+            return Translatable(BULK_ARCHIVED_SKIPPED, count=count, skipped=skipped)
+        return Translatable(BULK_NOTICES[key], count=count)
     text = NOTICES.get(key)
     if text and slug in named:
-        text = f"{named[slug]}: {text}"
+        return Translatable("{name}: {notice}", name=named[slug], notice=Translatable(text))
     return text
 
 
@@ -1064,7 +1075,8 @@ def archive_subject(slug: str) -> str:
 
 def _archive_text(operation: Operation, second: bool, **values: Any) -> str:
     first_text_, second_text_ = _ARCHIVE_TEXTS[operation]
-    return fill(second_text_ if second else first_text_, **values)
+    # İsteğin dilinde (§D92): yer tutucular (`<Tür adı>`, `<N>`) çeviride de aynıdır.
+    return fill(gettext(second_text_ if second else first_text_), **values)
 
 
 def _archive_page(
@@ -1117,10 +1129,10 @@ def _archive_refused(
     tek genel metinle gider; hazırlıkta (`detail`) üretim hatasının nedeni yazılır."""
     session.rollback()
     if isinstance(exc, HTTPException):
-        code, message = exc.status_code, str(exc.detail)
+        code, message = exc.status_code, exc.detail
     else:  # ConfirmationRefusedError
         code = status.HTTP_400_BAD_REQUEST
-        message = str(exc) if detail else CONFIRMATION_REFUSED
+        message = _reason(exc) if detail else CONFIRMATION_REFUSED
     return _archive_page(request, user, code, country=country, error=message)
 
 
@@ -1536,7 +1548,7 @@ async def upload_examples(
         try:
             checked.append((name, content, check_example(name, content, max_bytes=limit)))
         except ExampleRejectedError as exc:
-            errors.append(str(exc))
+            errors.append(_reason(exc))
     if not chosen:
         errors.append(NO_EXAMPLE_FILE)
     status_code = status.HTTP_422_UNPROCESSABLE_CONTENT if chosen else status.HTTP_400_BAD_REQUEST
@@ -1597,9 +1609,9 @@ def _duplicate_examples(
             sha256 = sha256_bytes(content)
             existing = same_type_example(session, slug, sha256, listed)
             if existing is not None:
-                problems.append(EXAMPLE_DUPLICATE.format(file=label, existing=existing))
+                problems.append(Translatable(EXAMPLE_DUPLICATE, file=label, existing=existing))
             elif sha256 in seen:
-                problems.append(EXAMPLE_REPEATED.format(file=label, first=seen[sha256]))
+                problems.append(Translatable(EXAMPLE_REPEATED, file=label, first=seen[sha256]))
             seen.setdefault(sha256, label)
     finally:
         session.rollback()
@@ -1709,18 +1721,23 @@ def generate_description(
     if isinstance(provider, ProviderConfigError):
         return page(
             status.HTTP_503_SERVICE_UNAVAILABLE,
-            error=DESCRIPTION_PROVIDER_UNAVAILABLE.format(detail=provider),
+            error=Translatable(DESCRIPTION_PROVIDER_UNAVAILABLE, detail=str(provider)),
         )
     try:
         generated = describe_type(entry, layout, settings, provider, photos=photos, exclude=exclude)
     except TypeNotAnalyzedError:
         return page(status.HTTP_422_UNPROCESSABLE_CONTENT, error=DESCRIPTION_NOT_ANALYZED)
     except NoExamplePagesError as exc:
-        error = " ".join((DESCRIPTION_NO_EXAMPLES, *exc.skipped))
+        error = Translatable(
+            "{message}{skipped}",
+            message=Translatable(DESCRIPTION_NO_EXAMPLES),
+            skipped="".join(f" {_reason(item)}" for item in exc.skipped),
+        )
         return page(status.HTTP_422_UNPROCESSABLE_CONTENT, error=error)
     except ProviderError as exc:
         return page(
-            status.HTTP_502_BAD_GATEWAY, error=DESCRIPTION_PROVIDER_FAILED.format(detail=exc)
+            status.HTTP_502_BAD_GATEWAY,
+            error=Translatable(DESCRIPTION_PROVIDER_FAILED, detail=str(exc)),
         )
     except TypeDescriptionError:
         return page(status.HTTP_502_BAD_GATEWAY, error=DESCRIPTION_REJECTED)
@@ -1821,7 +1838,11 @@ def _related_view(session: Session, item: QueueItem) -> RelatedItemView:
     file_id, pages = parsed
     # İlk sayfa adayın örnek sayfalarından biridir: dosyası vardır.
     name = session.get_one(UploadFile, file_id).original_name
-    return RelatedItemView(item.id, item.upload_id, f"{name} · {_page_ranges(pages)}")
+    return RelatedItemView(
+        item.id,
+        item.upload_id,
+        Translatable("{name} · {pages}", name=name, pages=_page_ranges(pages)),
+    )
 
 
 def _reanalysis_targets(session: Session, items: list[QueueItem]) -> list[tuple[Upload, Plan, int]]:
@@ -1832,7 +1853,12 @@ def _reanalysis_targets(session: Session, items: list[QueueItem]) -> list[tuple[
     for upload_id in sorted(counts):
         upload = session.get_one(Upload, upload_id)
         if UploadStatus(upload.status) not in FINAL_STATUSES:
-            raise HTTPException(status.HTTP_409_CONFLICT, f"{upload_id}: {BUSY_MESSAGE}")
+            raise HTTPException(
+                status.HTTP_409_CONFLICT,
+                Translatable(
+                    "{upload}: {message}", upload=upload_id, message=Translatable(BUSY_MESSAGE)
+                ),
+            )
         plan = current_plan(session, upload)
         assert plan is not None  # bekleyen öğe partinin güncel planındadır
         targets.append((upload, plan, counts[upload_id]))
@@ -1859,6 +1885,19 @@ def batch_reanalysis_subject(candidate_id: int, targets: list[tuple[Upload, Plan
     planları. Parti kümesi ya da bir partinin planı değişmişse belirteç geçmez."""
     plans = ";".join(f"{upload.id}:{plan.id}" for upload, plan, _ in targets)
     return f"candidate-types:{candidate_id}:{_digest(plans)}"
+
+
+def _reason(exc: BaseException | str) -> str:
+    """Çekirdeğin hata metni: ilk argüman (`Translatable` ise gösterimde çevrilir), yoksa metni."""
+    if isinstance(exc, str):
+        return exc
+    return exc.args[0] if exc.args and isinstance(exc.args[0], str) else str(exc)
+
+
+def _stored(text: str) -> str:
+    """Kayıtlı kaynak metin (taslağın gerekçesi): katalogda karşılığı varsa gösterimde çevrilir;
+    süslü parantez taşıyan metin biçimlenemeyeceği için olduğu gibi kalır."""
+    return text if "{" in text or "}" in text else Translatable(text)
 
 
 def _decided_note(candidate_status: str) -> str:
@@ -1899,7 +1938,7 @@ def _candidate_page(
         try:
             targets = _target_views(_reanalysis_targets(session, related))
         except HTTPException as exc:
-            blocked = str(exc.detail)
+            blocked = exc.detail
     context: dict[str, Any] = {}
     if pending:
         prefill = suggested_form(candidate, known=_known_types(session))
@@ -1919,7 +1958,7 @@ def _candidate_page(
         related=[_related_view(session, item) for item in related],
         targets=targets,
         reanalysis_blocked=blocked,
-        reanalysis_first=BATCH_REANALYZE_FIRST.format(count=len(targets)),
+        reanalysis_first=Translatable(BATCH_REANALYZE_FIRST, count=len(targets)),
         notice_text=notice,
         examine_error=examine_error,
         is_new=True,
@@ -1941,19 +1980,23 @@ def _prefill_context(session: Session, prefill: SuggestedForm) -> dict[str, Any]
     çakışması ve önerilen slug'ın doğrulanmamış "AI kararı" örnekleri."""
     if prefill.filled:
         generated = prefill.proposal_generated_at
-        state = PREFILL_FILLED.format(
+        state = Translatable(
+            PREFILL_FILLED,
             pages=prefill.proposal_pages,
             date="—" if generated is None else f"{generated:%Y-%m-%d}",
         )
     else:
         template = PREFILL_STATUS.get(prefill.proposal_status, PREFILL_STATUS[None])
-        state = template.format(reason=(prefill.proposal_reason or "gerekçe yok").rstrip("."))
+        reason = (prefill.proposal_reason or NO_REASON).rstrip(".")
+        state = Translatable(template, reason=_stored(reason))
     slug = prefill.suggested_slug
     return {
         "prefill": prefill,
         "prefill_state": state,
         "prefill_unfilled": (
-            PREFILL_UNFILLED.format(fields=", ".join(prefill.unfilled))
+            Translatable(
+                PREFILL_UNFILLED, fields=", ".join(gettext(label) for label in prefill.unfilled)
+            )
             if prefill.unfilled
             else None
         ),
@@ -1999,32 +2042,35 @@ def candidate_type_page(
 def _entry_rows(entry: CatalogEntry) -> list[tuple[str, str]]:
     """Onay adımlarında gösterilen, kataloğa eklenecek kayıt."""
     pages = entry.expected_pages
+    # Etiketler `N_` ile işaretli kaynak metindir (şablon çevirir); seçenek adları isteğin dilinde
+    # yazılır, veri (ad, açıklama, kriter) olduğu gibi kalır (§D92 f).
+    yes, no = gettext(N_("Evet")), gettext(N_("Hayır"))
     return [
         ("Slug", entry.slug),
-        ("Ad", entry.name),
-        ("Dosya etiketi", entry.file_label),
-        ("Ülke", entry.country or "—"),
-        ("Açıklama", entry.description or "—"),
+        (N_("Ad"), entry.name),
+        (N_("Dosya etiketi"), entry.file_label),
+        (N_("Ülke"), entry.country or "—"),
+        (N_("Açıklama"), entry.description or "—"),
         (
-            "Beklenen dosya türleri",
+            N_("Beklenen dosya türleri"),
             ", ".join(FILE_TYPE_LABELS[t] for t in entry.expected_file_types),
         ),
-        ("Beklenen sayfa sayısı", "—" if pages is None else f"{pages.min} – {pages.max}"),
-        ("Yüz yapısı", SIDES_LABELS[entry.sides]),
+        (N_("Beklenen sayfa sayısı"), "—" if pages is None else f"{pages.min} – {pages.max}"),
+        (N_("Yüz yapısı"), gettext(SIDES_LABELS[entry.sides])),
         (
-            "Kabul edilen düzenler",
-            ", ".join(LAYOUT_LABELS[layout] for layout in entry.front_back_layouts) or "—",
+            N_("Kabul edilen düzenler"),
+            ", ".join(gettext(LAYOUT_LABELS[layout]) for layout in entry.front_back_layouts) or "—",
         ),
-        ("Direkt Belge", "Evet" if entry.direct else "Hayır"),
-        ("Analiz", "Evet" if entry.analyze else "Hayır"),
-        ("Zorunlu alanlar", ", ".join(entry.required_fields) or "—"),
+        (N_("Direkt Belge"), yes if entry.direct else no),
+        (N_("Analiz"), yes if entry.analyze else no),
+        (N_("Zorunlu alanlar"), ", ".join(entry.required_fields) or "—"),
         (
-            "İzinli dönüşümler",
-            ", ".join(CONVERSION_LABELS[c] for c in entry.allowed_conversions) or "—",
+            N_("İzinli dönüşümler"),
+            ", ".join(gettext(CONVERSION_LABELS[c]) for c in entry.allowed_conversions) or "—",
         ),
-        ("Çıktı biçimi", OUTPUT_FORMAT_LABELS[entry.output_format]),
-        ("Kabul kriterleri", " · ".join(entry.acceptance_criteria) or "—"),
-        ("Analizci için açıklama", entry.prompt_description or "—"),
+        (N_("Çıktı biçimi"), gettext(OUTPUT_FORMAT_LABELS[entry.output_format])),
+        (N_("Kabul kriterleri"), " · ".join(entry.acceptance_criteria) or "—"),
+        (N_("Analizci için açıklama"), entry.prompt_description or "—"),
     ]
 
 
@@ -2053,7 +2099,7 @@ def _approval_refused(
     """Onay adımının reddi: aday yok/karara bağlanmış → hata sayfası; form ya da slug → detay
     sayfası, form girilen değerlerle ve alan başına mesajla (hiçbir şey yazılmadı)."""
     if isinstance(exc, HTTPException):
-        return _step_page(request, user, candidate_id, exc.status_code, error=str(exc.detail))
+        return _step_page(request, user, candidate_id, exc.status_code, error=exc.detail)
     if isinstance(exc, TypeFormError):
         problems, code = exc.problems, status.HTTP_422_UNPROCESSABLE_CONTENT
     else:
@@ -2122,7 +2168,9 @@ def prepare_approval(
         return response
     except ConfirmationRefusedError as exc:
         session.rollback()
-        return _step_page(request, user, candidate_id, status.HTTP_400_BAD_REQUEST, error=str(exc))
+        return _step_page(
+            request, user, candidate_id, status.HTTP_400_BAD_REQUEST, error=_reason(exc)
+        )
     session.commit()
     return _step_page(
         request,
@@ -2280,7 +2328,7 @@ def reexamine_candidate(
     if isinstance(provider, ProviderConfigError):
         return page(
             status.HTTP_503_SERVICE_UNAVAILABLE,
-            error=EXAMINE_PROVIDER_UNAVAILABLE.format(detail=provider),
+            error=Translatable(EXAMINE_PROVIDER_UNAVAILABLE, detail=str(provider)),
         )
     known = _known_types(session)
     suggested = None
@@ -2292,7 +2340,7 @@ def reexamine_candidate(
     try:
         examination = examine(source, layout, provider)
     except ProviderError as exc:
-        error = (EXAMINE_PROVIDER_FAILED.format(detail=exc), exc)
+        error = (Translatable(EXAMINE_PROVIDER_FAILED, detail=str(exc)), exc)
     except TypeProposalError as exc:
         error = (EXAMINE_REJECTED, exc)
     candidate = session.get_one(CandidateDocumentType, candidate_id)
@@ -2353,10 +2401,12 @@ def prepare_batch_reanalysis(
         )
     except HTTPException as exc:
         session.rollback()
-        return _step_page(request, user, candidate_id, exc.status_code, error=str(exc.detail))
+        return _step_page(request, user, candidate_id, exc.status_code, error=exc.detail)
     except ConfirmationRefusedError as exc:
         session.rollback()
-        return _step_page(request, user, candidate_id, status.HTTP_400_BAD_REQUEST, error=str(exc))
+        return _step_page(
+            request, user, candidate_id, status.HTTP_400_BAD_REQUEST, error=_reason(exc)
+        )
     session.commit()
     return _step_page(
         request,
@@ -2430,7 +2480,7 @@ def batch_reanalyze(
             )
     except HTTPException as exc:
         session.rollback()
-        return _step_page(request, user, candidate_id, exc.status_code, error=str(exc.detail))
+        return _step_page(request, user, candidate_id, exc.status_code, error=exc.detail)
     except ConfirmationRefusedError:
         session.rollback()
         return _step_page(
@@ -2439,11 +2489,11 @@ def batch_reanalyze(
     except ReanalysisProviderError as exc:
         session.rollback()
         return _step_page(
-            request, user, candidate_id, status.HTTP_503_SERVICE_UNAVAILABLE, error=str(exc)
+            request, user, candidate_id, status.HTTP_503_SERVICE_UNAVAILABLE, error=_reason(exc)
         )
     except PLAN_EXECUTION_ERRORS as exc:
         session.rollback()
-        return _step_page(request, user, candidate_id, status.HTTP_409_CONFLICT, error=str(exc))
+        return _step_page(request, user, candidate_id, status.HTTP_409_CONFLICT, error=_reason(exc))
     session.commit()
     remaining = len(_related_by_candidate(session, [candidate_id])[candidate_id])
     session.rollback()

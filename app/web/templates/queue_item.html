@@ -3,44 +3,44 @@
    Belge içeriği değiştirilmez; eylemler bekleyen öğeyi çalışana atamak (10.7.2), onay bekleyen
    profili düzenleyip onaylamak (10.7.3) ve çözülmemiş öğeyi gerekçeyle kapatmaktır (10.7.4) — üçü de
    iki onaylı; kapatılan öğe tek adımda yeniden açılır. #}
-{% block title %}{{ "Kuyruk öğesi " ~ item.id if item else "Kuyruk öğesi bulunamadı" }}{% endblock %}
+{% block title %}{{ _("Kuyruk öğesi %(id)s", id=item.id) if item else _("Kuyruk öğesi bulunamadı") }}{% endblock %}
 {% block content %}
 {% if error %}
-<p class="back"><a href="/queues">← Kuyruklar</a></p>
-<h1>Kuyruk öğesi</h1>
-<p class="error" role="alert">{{ error }}</p>
+<p class="back"><a href="/queues">← {{ _("Kuyruklar") }}</a></p>
+<h1>{{ _("Kuyruk öğesi") }}</h1>
+<p class="error" role="alert">{{ translate(error) }}</p>
 {% else %}
-<p class="back"><a href="{{ item.tab_url }}">← {{ item.kind_label }} kuyruğu</a></p>
-<h1>Kuyruk öğesi {{ item.id }}</h1>
-{% if item.notice %}<p class="notice notice-success" role="status">{{ item.notice }}</p>{% endif %}
-{% if item.note %}<p class="notice" role="note">{{ item.note }}</p>{% endif %}
+<p class="back"><a href="{{ item.tab_url }}">← {{ _("%(queue)s kuyruğu", queue=translate(item.kind_label)) }}</a></p>
+<h1>{{ _("Kuyruk öğesi %(id)s", id=item.id) }}</h1>
+{% if item.notice %}<p class="notice notice-success" role="status">{{ translate(item.notice) }}</p>{% endif %}
+{% if item.note %}<p class="notice" role="note">{{ translate(item.note) }}</p>{% endif %}
 <dl class="meta">
-  <dt>Kuyruk</dt><dd>{{ item.kind_label }}</dd>
-  <dt>Durum</dt><dd>{{ item.state_label }}</dd>
+  <dt>{{ _("Kuyruk") }}</dt><dd>{{ translate(item.kind_label) }}</dd>
+  <dt>{{ _("Durum") }}</dt><dd>{{ translate(item.state_label) }}</dd>
   {% if item.resolved %}
-  <dt>Çözüldü</dt>
+  <dt>{{ _("Çözüldü") }}</dt>
   <dd>
-    {{ item.resolved }}
-    {% if item.document_id %}· <a href="/documents/{{ item.document_id }}/history">çıktının geçmişi</a>{% endif %}
+    {{ translate(item.resolved) }}
+    {% if item.document_id %}· <a href="/documents/{{ item.document_id }}/history">{{ _("çıktının geçmişi") }}</a>{% endif %}
   </dd>
   {% endif %}
-  <dt>Parti</dt>
+  <dt>{{ _("Parti") }}</dt>
   <dd>
     <a href="/uploads/{{ item.upload_id }}">{{ item.upload_id }}</a>
-    {% if item.plan_version is not none %}· plan sürüm {{ item.plan_version }}{% endif %}
-    {% if item.item_id %}· <a href="/uploads/{{ item.upload_id }}#item-{{ item.item_id }}">plan öğesi {{ item.item_id }}</a>{% endif %}
+    {% if item.plan_version is not none %}· {{ _("plan sürüm %(version)s", version=item.plan_version) }}{% endif %}
+    {% if item.item_id %}· <a href="/uploads/{{ item.upload_id }}#item-{{ item.item_id }}">{{ _("plan öğesi %(id)s", id=item.item_id) }}</a>{% endif %}
   </dd>
-  <dt>Belge türü</dt><dd>{{ item.type_name or "Belirlenmedi" }}</dd>
-  <dt>Kişi tahmini</dt><dd>{{ item.employee_guess or "—" }}</dd>
-  <dt>Gerekçe</dt><dd class="reason-text">{{ item.reason }}</dd>
+  <dt>{{ _("Belge türü") }}</dt><dd>{{ item.type_name or _("Belirlenmedi") }}</dd>
+  <dt>{{ _("Kişi tahmini") }}</dt><dd>{{ translate(item.employee_guess) or "—" }}</dd>
+  <dt>{{ _("Gerekçe") }}</dt><dd class="reason-text" translate="no">{{ item.reason }}</dd>
 </dl>
 {% if item.inactive_employee %}
 {# 10.5.7: pasif çalışanla eşleşen öğe; İK ya atar ya çalışanı etkinleştirir. #}
 <p class="notice inactive-notice" role="status">
   {% if item.inactive_employee.inactive %}
-  Pasif çalışan <a href="/employees/{{ item.inactive_employee.id }}">{{ item.inactive_employee.name }} ({{ item.inactive_employee.id }})</a> ile eşleşti — atayın ya da çalışanı etkinleştirin.
+  {% trans url="/employees/" ~ item.inactive_employee.id, name=item.inactive_employee.name, id=item.inactive_employee.id %}Pasif çalışan <a href="{{ url }}">{{ name }} ({{ id }})</a> ile eşleşti — atayın ya da çalışanı etkinleştirin.{% endtrans %}
   {% else %}
-  Bu öğe pasif çalışan <a href="/employees/{{ item.inactive_employee.id }}">{{ item.inactive_employee.name }} ({{ item.inactive_employee.id }})</a> ile eşleştiği için kuyruğa düştü; çalışan şimdi {{ item.inactive_employee.status_label|lower }}. Öğeyi atayın ya da partiyi yeniden analiz edin.
+  {% trans url="/employees/" ~ item.inactive_employee.id, name=item.inactive_employee.name, id=item.inactive_employee.id, status=translate(item.inactive_employee.status_label)|lower %}Bu öğe pasif çalışan <a href="{{ url }}">{{ name }} ({{ id }})</a> ile eşleştiği için kuyruğa düştü; çalışan şimdi {{ status }}. Öğeyi atayın ya da partiyi yeniden analiz edin.{% endtrans %}
   {% endif %}
 </p>
 {% endif %}
@@ -50,12 +50,12 @@
    içeriği formda yoktur (K17). HTMX 4xx/5xx yanıtını değiştirmez; adımların hata metni görünsün. #}
 <section id="new-profile" class="actions" aria-labelledby="new-profile-title"
          hx-on::before-swap="if (event.detail.xhr.status >= 400) { event.detail.shouldSwap = true; event.detail.isError = false; }">
-  <h2 id="new-profile-title">Profil oluştur</h2>
+  <h2 id="new-profile-title">{{ _("Profil oluştur") }}</h2>
   {% if item.profile_form %}
-  <p class="hint">Alanlar belgeden okunan önerilen profille dolu; çalışan kaydına yazılmadan önce düzeltilebilir. Belge içeriği değişmez: çıktı kaynak sayfalardan olduğu gibi üretilir, yalnız adı çalışanın adından verilir (K8).</p>
+  <p class="hint">{{ _("Alanlar belgeden okunan önerilen profille dolu; çalışan kaydına yazılmadan önce düzeltilebilir. Belge içeriği değişmez: çıktı kaynak sayfalardan olduğu gibi üretilir, yalnız adı çalışanın adından verilir (K8).") }}</p>
   {% with queue_item_id=item.id, profile_form=item.profile_form %}{% include "queue_new_profile.html" %}{% endwith %}
   {% else %}
-  <p class="notice">{{ item.profile_note }}</p>
+  <p class="notice">{{ translate(item.profile_note) }}</p>
   {% endif %}
 </section>
 {% endif %}
@@ -65,23 +65,23 @@
    değiştirmez; adımların hata metni görünsün. #}
 <section id="assign" class="actions" aria-labelledby="assign-title"
          hx-on::before-swap="if (event.detail.xhr.status >= 400) { event.detail.shouldSwap = true; event.detail.isError = false; }">
-  <h2 id="assign-title">Çalışana ata</h2>
+  <h2 id="assign-title">{{ _("Çalışana ata") }}</h2>
   {% if item.can_assign %}
   <div id="assign-search">
     <form class="search" role="search"
           hx-get="/queues/{{ item.id }}/assign/employees" hx-trigger="input changed delay:300ms, submit"
           hx-target="#assign-results" hx-swap="innerHTML" hx-sync="this:replace">
-      <label for="assign-q">Çalışan ara</label>
+      <label for="assign-q">{{ _("Çalışan ara") }}</label>
       <input type="search" id="assign-q" name="q" maxlength="100"
-             placeholder="Ad, alias, orijinal yazım, belge numarası veya belge türü" autocomplete="off">
-      <button type="submit">Ara</button>
+             placeholder="{{ _('Ad, alias, orijinal yazım, belge numarası veya belge türü') }}" autocomplete="off">
+      <button type="submit">{{ _("Ara") }}</button>
     </form>
   </div>
   <div id="assign-results" aria-live="polite"></div>
   <div id="assign-step" class="action-result" aria-live="polite"></div>
-  <p class="hint">Atama iki onay ister. Çıktı öğenin donmuş planından üretilir, yapay zekâ çağrılmaz; belge içeriği değişmez.</p>
+  <p class="hint">{{ _("Atama iki onay ister. Çıktı öğenin donmuş planından üretilir, yapay zekâ çağrılmaz; belge içeriği değişmez.") }}</p>
   {% else %}
-  <p class="notice">{{ item.assign_note }}</p>
+  <p class="notice">{{ translate(item.assign_note) }}</p>
   {% endif %}
 </section>
 {% endif %}
@@ -89,57 +89,57 @@
 {% if item.can_close %}
 {# 10.7.4: çöp sayfa ya da mükerrer belge gerekçeyle, iki aşamalı onayla (§20.6) kapatılır. #}
 <section id="close" class="actions" aria-labelledby="close-title">
-  <h2 id="close-title">Öğeyi kapat</h2>
-  <p class="hint">Belge değilse (boş ya da çöp sayfa) veya belge zaten sistemdeyse öğeyi gerekçeyle kapatın. Öğe çözülmüş sayılır; kuyruk klasöründeki kopya ve gerekçe dosyası silinmez, "Yeniden aç" ile geri açılabilir.</p>
-  <p><a class="button-link close-item" href="/queues/{{ item.id }}/close/confirm">Öğeyi kapat</a></p>
+  <h2 id="close-title">{{ _("Öğeyi kapat") }}</h2>
+  <p class="hint">{{ _("Belge değilse (boş ya da çöp sayfa) veya belge zaten sistemdeyse öğeyi gerekçeyle kapatın. Öğe çözülmüş sayılır; kuyruk klasöründeki kopya ve gerekçe dosyası silinmez, \"Yeniden aç\" ile geri açılabilir.") }}</p>
+  <p><a class="button-link close-item" href="/queues/{{ item.id }}/close/confirm">{{ _("Öğeyi kapat") }}</a></p>
 </section>
 {% elif item.can_reopen or item.reopen_note %}
 <section id="reopen" class="actions" aria-labelledby="reopen-title">
-  <h2 id="reopen-title">Kapatılan öğe</h2>
+  <h2 id="reopen-title">{{ _("Kapatılan öğe") }}</h2>
   {% if item.can_reopen %}
   <form method="post" action="/queues/{{ item.id }}/reopen" class="reopen-item">
-    <button type="submit">Yeniden aç</button>
+    <button type="submit">{{ _("Yeniden aç") }}</button>
   </form>
-  <p class="hint">Yeniden açılan öğe kuyruğa döner; planı ve kaynakları değişmez.</p>
+  <p class="hint">{{ _("Yeniden açılan öğe kuyruğa döner; planı ve kaynakları değişmez.") }}</p>
   {% else %}
-  <p class="notice">{{ item.reopen_note }}</p>
+  <p class="notice">{{ translate(item.reopen_note) }}</p>
   {% endif %}
 </section>
 {% endif %}
 
 <section id="sources" aria-labelledby="sources-title">
-  <h2 id="sources-title">Kaynak dosyalar ve sayfalar</h2>
+  <h2 id="sources-title">{{ _("Kaynak dosyalar ve sayfalar") }}</h2>
   {% for source in item.sources %}
   <article class="file source">
     <h3>
       {% if source.file_url %}<a href="{{ source.file_url }}">{{ source.file_name }}</a>{% else %}{{ source.file_name }}{% endif %}
-      {% if source.range_text %}<span class="count">{{ source.range_text }}</span>{% endif %}
+      {% if source.range_text %}<span class="count">{{ translate(source.range_text) }}</span>{% endif %}
     </h3>
-    {% if source.note %}<p class="placeholder">{{ source.note }}</p>{% endif %}
+    {% if source.note %}<p class="placeholder">{{ translate(source.note) }}</p>{% endif %}
     {% if source.pages %}
     <ul class="thumbs">
       {% for page in source.pages %}
       <li class="thumb">
         {% if page.image_url %}
         <a href="{{ page.image_url }}" target="_blank" rel="noopener">
-          <img src="{{ page.image_url }}" loading="lazy" alt="{{ source.file_name }} — sayfa {{ page.number }}">
+          <img src="{{ page.image_url }}" loading="lazy" alt="{{ _('%(file)s — sayfa %(page)d', file=source.file_name, page=page.number) }}">
         </a>
         {% else %}
-        <span class="no-image">Görüntü yok</span>
+        <span class="no-image">{{ _("Görüntü yok") }}</span>
         {% endif %}
-        <span class="caption">Sayfa {{ page.number }}</span>
+        <span class="caption">{{ _("Sayfa %(page)d", page=page.number) }}</span>
       </li>
       {% endfor %}
     </ul>
     {% endif %}
   </article>
   {% else %}
-  <p class="placeholder">Bu öğe için kaynak kaydı yok.</p>
+  <p class="placeholder">{{ _("Bu öğe için kaynak kaydı yok.") }}</p>
   {% endfor %}
 </section>
 
 <section id="timeline" aria-labelledby="timeline-title">
-  <h2 id="timeline-title">Olaylar</h2>
+  <h2 id="timeline-title">{{ _("Olaylar") }}</h2>
   {% if item.events %}
   <ol class="timeline">
     {% for event in item.events %}
@@ -147,13 +147,13 @@
       <time datetime="{{ event.ts_iso }}">{{ event.ts }}</time>
       <span class="event-type">{{ event.type }}</span>
       <span class="actor">{{ event.actor }}</span>
-      {% if event.place %}<span class="place">{{ event.place }}</span>{% endif %}
-      {% if event.message %}<span class="message">{{ event.message }}</span>{% endif %}
+      {% if event.place %}<span class="place">{{ translate(event.place) }}</span>{% endif %}
+      {% if event.message %}<span class="message" translate="no">{{ event.message }}</span>{% endif %}
     </li>
     {% endfor %}
   </ol>
   {% else %}
-  <p class="placeholder">Bu öğe için olay yok.</p>
+  <p class="placeholder">{{ _("Bu öğe için olay yok.") }}</p>
   {% endif %}
 </section>
 {% endif %}
