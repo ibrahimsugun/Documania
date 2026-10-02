@@ -47,7 +47,8 @@
 <form class="search country-filter" method="get" action="/document-types" aria-label="Türleri ülkeye göre süz">
   {% if show_archived %}<input type="hidden" name="archived" value="1">{% endif %}
   <label for="country">Ülke</label>
-  <select id="country" name="country" onchange="this.form.submit()" data-country-select>
+  {# 10.10.5: `country-select.js`'in görünen metinleri isteğin dilinde buradan okunur (§D92 j). #}
+  <select id="country" name="country" onchange="this.form.submit()" data-country-select data-search-label="{{ _('Ülke ara') }}" data-search-placeholder="{{ _('Ülke ara…') }}" data-empty-text="{{ _('Eşleşen ülke yok.') }}">
     {% for option in country_options %}
     <option value="{{ option.value }}"{% if option.flag_url %} data-flag="{{ option.flag_url }}"{% endif %}{% if option.value == selected_country %} selected{% endif %}>{{ option.label }}</option>
     {% endfor %}

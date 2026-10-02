@@ -4,8 +4,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Documania panel\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-02 10:44+0000\n"
-"PO-Revision-Date: 2026-10-02 10:44+0000\n"
+"POT-Creation-Date: 2026-10-02 15:52+0000\n"
+"PO-Revision-Date: 2026-10-02 15:52+0000\n"
 "Last-Translator: Documania görev penceresi (gözden geçirilmeli)\n"
 "Language: sr_Latn\n"
 "Language-Team: Srpski\n"
@@ -1057,6 +1057,10 @@ msgstr "Radnja"
 msgid "Eğitim modu"
 msgstr "Režim obuke"
 
+#: app/web/templates/catalog.html
+msgid "Eşleşen ülke yok."
+msgstr "Nema odgovarajuće zemlje."
+
 #: app/web/routers/upload_page.py
 msgid "Eşleşti"
 msgstr "Upareno"
@@ -1068,6 +1072,10 @@ msgstr "Druga vrednost"
 #: app/web/templates/profile.html
 msgid "Fotoğraf yok"
 msgstr "Nema fotografije"
+
+#: app/web/routers/catalog.py
+msgid "Genel — ülkesiz"
+msgstr "Opšte — bez zemlje"
 
 #: app/web/templates/upload_detail.html
 msgid "Gerekçe"
@@ -1151,7 +1159,7 @@ msgstr "Još nema otpremanja."
 msgid "Henüz çalışan yok."
 msgstr "Još nema zaposlenih."
 
-#: app/web/routers/employees.py
+#: app/web/routers/catalog.py app/web/routers/employees.py
 msgid "Hepsi"
 msgstr "Svi"
 
@@ -1349,6 +1357,10 @@ msgid ""
 msgstr ""
 "Kada osoba otvori link i pritisne «Start», bot javlja «Povezano»; zatim "
 "osvežite ovu stranicu."
+
+#: app/web/templates/users.html
+msgid "Kopyalandı"
+msgstr "Kopirano"
 
 #: app/web/templates/access_log_employee.html
 msgid "Kullanıcı"
@@ -2666,6 +2678,14 @@ msgstr "Stavka"
 #, python-format
 msgid "Öğe %(item)s"
 msgstr "Stavka %(item)s"
+
+#: app/web/templates/catalog.html
+msgid "Ülke ara"
+msgstr "Pretraži zemlje"
+
+#: app/web/templates/catalog.html
+msgid "Ülke ara…"
+msgstr "Pretraži zemlje…"
 
 #: app/web/templates/_context_warning.html
 msgid "çözüldü"

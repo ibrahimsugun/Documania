@@ -79,7 +79,7 @@
         <div class="telegram-link-box" id="telegram-link-{{ row.id }}" role="status">
           <label for="telegram-link-url-{{ row.id }}">{{ _("Bağlantı") }}</label>
           <input id="telegram-link-url-{{ row.id }}" value="{{ link.url }}" readonly>
-          <button type="button" data-copy-target="telegram-link-url-{{ row.id }}">{{ _("Bağlantıyı kopyala") }}</button>
+          <button type="button" data-copy-target="telegram-link-url-{{ row.id }}" data-copied-text="{{ _('Kopyalandı') }}">{{ _("Bağlantıyı kopyala") }}</button>
           <a href="{{ link.url }}" target="_blank" rel="noopener noreferrer">{{ _("Telegram'da aç") }}</a>
           <p class="hint">{{ ngettext("Bağlantı %(num)d dakika geçerli (bitiş %(end)s UTC) ve bir kez çalışır; yeni bağlantı bunu geçersiz kılar.", "Bağlantı %(num)d dakika geçerli (bitiş %(end)s UTC) ve bir kez çalışır; yeni bağlantı bunu geçersiz kılar.", link.minutes, end=link.expires_at.strftime("%H:%M")) }} {{ _("Kişi açıp «Başlat»a basınca bot «Bağlandı» der; sonra bu sayfayı yenileyin.") }}</p>
         </div>

@@ -461,7 +461,7 @@ def test_the_select_still_works_without_javascript_and_is_enhanced_with_it(
     assert form is not None
     assert 'method="get" action="/document-types"' in form.group(0)
     assert (
-        '<select id="country" name="country" onchange="this.form.submit()" data-country-select>'
+        '<select id="country" name="country" onchange="this.form.submit()" data-country-select '
         in form.group(0)
     )
     assert '<button type="submit">Uygula</button>' in form.group(0)

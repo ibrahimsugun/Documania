@@ -2279,14 +2279,14 @@
         "description": "PRD 10.10.5, 10.10.3 · FR-MOD-10 · Faz 1 · Should (v1). Tam sözleşme PLAN §D92 — önce oku.",
         "details": "KAPSAM: §D92 (i), (j). (1) Veri: CLDR 48.2.0 `cldr-localenames-full` `en` ve `sr-Latn` `territories.json` indirilir → `app/countries/data/cldr-en-territories.json`, `cldr-sr-Latn-territories.json` (Türkçe dosyayla aynı biçim, yalnız gereken alanlar), `SOURCES.md` kaynak/lisans/indirme tarihi; package-data. Ağ yalnız indirme için; testler ağsız. (2) `app/countries`: ad tablosu dil başına; `country_badge`/`nationality_badge` istek dilini kullanır (imza geriye uyumlu, isteğe bağlı `language`). MRZ istisnaları ve ülke olmayan kodların adları (Vatansız → Stateless / Lice bez državljanstva, BM belgeleri) üç dilde. (3) Ülke süzgeci (11.1.7): seçenek sıralaması dilin harf sırasıyla (Babel `Locale` ya da sabit harf sırası tablosu), \"Hepsi\" / \"Genel — ülkesiz\" çevrilir. (4) JavaScript: `copy-link.js`, `country-select.js`, `upload.js` içindeki görünen dizgeler `data-*` ya da `base.html`'deki JSON bloğundan okunur; `.js` dosyasında Türkçe görünen dizge kalmaz; `country-select.js` arama katlaması Türkçe (`ı/İ/ş/ğ/ç/ö/ü`) ve Sırpça (`č/ć/đ/š/ž`; `đ` hem `d` hem `dj`) aksanları kaldırır.",
         "testStrategy": "1) `RUS` → `en` \"Russia (RUS)\", `sr` \"Rusija (RUS)\", `tr` \"Rusya (RUS)\"; `D` → Germany/Nemačka/Almanya; `XXA` üç dilde bayraksız. 2) Üç dilde 250 ülkenin her birinin adı var (veri bütünlüğü). 3) Süzgeç sıralaması: `sr`'de `Č` `C`'den sonra, `tr`'de `Ç` `C`'den sonra. 4) JS dosyalarında Türkçe harfli görünen dizge yok (statik tarama); `data-*`/JSON metinleri `en`/`sr`'de doğru. 5) Arama katlaması: \"srbija\" → Srbija, \"cesk\" → Češka, \"turkiye\" → Türkiye (JS birim testi varsa ya da tarayıcıda elle, kanıt §K). 6) `SOURCES.md` girişleri. 7) Kural bozmaları kırmızı. 8) DoD kapısı yeşil.",
-        "status": "pending",
+        "status": "in-progress",
         "dependencies": [
           "152",
           "162"
         ],
         "priority": "medium",
         "subtasks": [],
-        "updatedAt": "2026-10-02T12:00:00.000Z"
+        "updatedAt": "2026-10-02T15:42:54.367Z"
       },
       {
         "id": "158",
@@ -2364,7 +2364,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-02T15:34:01.100Z",
+      "lastModified": "2026-10-02T15:42:54.367Z",
       "taskCount": 160,
       "completedCount": 151,
       "tags": [
