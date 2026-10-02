@@ -1,10 +1,11 @@
 """Telegram hesabını bağlantıyla bağlama (PRD 12.1.4; PLAN.md §D87).
 
 Web paneli bir kişinin Telegram kimliğini kendi başına bilemez; kimliği Telegram yalnız kişi bota
-yazdığında verir. Bu yüzden yönetici Kullanıcılar sayfasında bir panel kullanıcısı için **tek
-kullanımlık** bir bot bağlantısı üretir (`https://t.me/<bot>?start=<kod>`, `link_url`); kişi
-bağlantıyı açıp «Başlat»a basınca bot `/start <kod>` alır ve gönderenin kimliğini o kullanıcıya
-izinli bağlar (`redeem_link_code`). Elle kimlik girme (12.1.3) yedek yol olarak kalır.
+yazdığında verir. Bu yüzden kişi Hesabım → Telegram sayfasında kendisi için **tek kullanımlık**
+bir bot bağlantısı üretir (`https://t.me/<bot>?start=<kod>`, `link_url`; 12.1.8, §D97 c: yalnız
+hesabın sahibi bağlar); bağlantıyı açıp «Başlat»a basınca bot `/start <kod>` alır ve gönderenin
+kimliğini o kullanıcıya izinli bağlar (`redeem_link_code`). Elle kimlik girme yedek yol olarak
+kalır. Kodu üreten (`created_by`) kodun kullanıcısının kendisidir; eski kodlarda yöneticidir.
 
 **Kod.** `secrets.token_urlsafe(16)`: 22 karakter, 128 bit; Telegram'ın `start` sınırına (1–64,
 `[A-Za-z0-9_-]`) uyar. Veritabanında yalnız SHA-256 özeti durur (`telegram_link_codes`), düz kod
@@ -16,7 +17,7 @@ yeni kod öncekini `revoked_at` ile geçersiz kılar; pasif kullanıcıya kod ü
 olmalıdır; değilse `INVALID` (bot tek bir genel yanıt verir). Sonra kimliğin durumu:
 
 - kayıtlı değil → `add_telegram_id` ile izinli bağlanır, kod aynı işlemde kullanılmış yazılır,
-  `TELEGRAM_USER_CHANGED` {…, added: true, via: "link"} kodu üreten yöneticinin adıyla (`LINKED`);
+  `TELEGRAM_USER_CHANGED` {…, added: true, via: "link"} kodu üretenin adıyla (`LINKED`);
 - aynı kullanıcıda izinli → değişiklik yok, kod kullanılır (`ALREADY_LINKED`);
 - aynı kullanıcıda engelli → açılmaz, yöneticinin kararıdır (`BLOCKED`); kod kullanılmaz;
 - başka kullanıcıya bağlı → reddedilir, kod kullanılmaz (`TAKEN`).

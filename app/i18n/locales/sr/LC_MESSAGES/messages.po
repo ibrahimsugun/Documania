@@ -4,8 +4,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Documania panel\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-02 17:07+0000\n"
-"PO-Revision-Date: 2026-10-02 17:07+0000\n"
+"POT-Creation-Date: 2026-10-02 18:05+0000\n"
+"PO-Revision-Date: 2026-10-02 18:05+0000\n"
 "Last-Translator: Documania görev penceresi (gözden geçirilmeli)\n"
 "Language: sr_Latn\n"
 "Language-Team: Srpski\n"
@@ -314,6 +314,12 @@ msgstr "Nema otvorenih ni završenih paketa."
 msgid "Açık — {met}/{total} zorunlu kalem"
 msgstr "Otvoren — {met}/{total} obaveznih stavki"
 
+#: app/web/templates/account_telegram.html
+msgid "Açıp «Başlat»a basınca bot «Bağlandı» der; sonra bu sayfayı yenileyin."
+msgstr ""
+"Kada ga otvorite i pritisnete «Start», bot kaže «Povezano»; zatim "
+"osvežite ovu stranicu."
+
 #: app/web/templates/access_log.html
 msgid "Bakan kullanıcı"
 msgstr "Korisnici koji su pregledali"
@@ -327,11 +333,11 @@ msgstr "Zaposleni iz konteksta"
 msgid "Bağlandı: {username}. Belge göndermek ve istemek için /yardim yazın."
 msgstr "Povezano: {username}. Za slanje i traženje dokumenata otkucajte /yardim."
 
-#: app/web/templates/users.html
+#: app/web/templates/account_telegram.html
 msgid "Bağlantı"
 msgstr "Link"
 
-#: app/web/templates/users.html
+#: app/web/templates/account_telegram.html
 #, python-format
 msgid ""
 "Bağlantı %(num)d dakika geçerli (bitiş %(end)s UTC) ve bir kez çalışır; "
@@ -357,11 +363,11 @@ msgstr "Link je nevažeći ili je istekao; zatražite novi od administratora."
 msgid "Bağlantı şu anda işlenemedi; biraz sonra yeniden deneyin."
 msgstr "Link trenutno ne može da se obradi; pokušajte ponovo malo kasnije."
 
-#: app/web/templates/users.html
+#: app/web/templates/account_telegram.html
 msgid "Bağlantıyı kopyala"
 msgstr "Kopiraj link"
 
-#: app/web/templates/users.html
+#: app/web/templates/account_telegram.html app/web/templates/users.html
 msgid "Bağlı Telegram kimliği yok."
 msgstr "Nema povezanog Telegram ID-ja."
 
@@ -940,6 +946,14 @@ msgstr "Jezik"
 msgid "Diğer isimler"
 msgstr "Druga imena"
 
+#: app/web/templates/account_telegram.html
+msgid ""
+"Documania botu yalnız hesabınıza bağlı ve izni açık Telegram kimliğine "
+"yanıt verir. Telegram'ı yalnız siz kendi hesabınıza bağlayabilirsiniz."
+msgstr ""
+"Documania bot odgovara samo Telegram ID-ju koji je povezan sa vašim "
+"nalogom i dozvoljen. Telegram možete povezati samo vi, sa svojim nalogom."
+
 #: app/web/templates/document_archive_step.html app/web/templates/profile.html
 #: app/web/templates/upload_detail.html app/web/templates/upload_result.html
 #: app/web/templates/uploads_list.html
@@ -1015,22 +1029,9 @@ msgstr "Sa nepotpunim paketima"
 msgid "Eksik:"
 msgstr "Nedostaje:"
 
-#: app/web/templates/users.html
-#, python-format
-msgid ""
-"Elle eklemek için: Telegram kimliği telefon numarası değil, Telegram'ın "
-"hesaba verdiği sabit sayıdır. Kişi kendi kimliğini öğrenmek için "
-"Telegram'da <a href=\"%(url)s\" target=\"_blank\" rel=\"noopener "
-"noreferrer\">@userinfobot</a>'u açıp «Başlat»a basar; bot <code>Id: "
-"123456789</code> satırıyla yanıt verir. O sayıyı (ya da satırın tamamını)"
-" aşağıdaki alana yapıştırın."
-msgstr ""
-"Za ručno dodavanje: Telegram ID nije broj telefona, već stalni broj koji "
-"Telegram dodeljuje nalogu. Da bi saznala svoj ID, osoba u Telegramu "
-"otvara <a href=\"%(url)s\" target=\"_blank\" rel=\"noopener "
-"noreferrer\">@userinfobot</a> i pritiska «Start»; bot odgovara redom "
-"<code>Id: 123456789</code>. Nalepite taj broj (ili ceo red) u polje "
-"ispod."
+#: app/web/templates/account_telegram.html
+msgid "Elle ekle"
+msgstr "Dodaj ručno"
 
 #: app/web/templates/profile.html
 msgid ""
@@ -1041,21 +1042,21 @@ msgstr ""
 "ostaje u istoriji. Zapisi imena i brojevi dokumenata dolaze samo iz "
 "dokumenata."
 
-#: app/web/templates/users.html
+#: app/web/templates/account_telegram.html
 msgid ""
-"En kolayı «Telegram'ı bağla»: o kullanıcı için 10 dakika geçerli, tek "
-"kullanımlık bir bot bağlantısı üretilir. Kişi bağlantıyı kendi "
-"telefonunda açıp «Başlat»a basınca bot Telegram kimliğini bu kullanıcıya "
-"kendisi bağlar; sayfayı yenileyince kimlik listede görünür. Bağlantıyı "
-"yalnız o kişiye iletin: süresi içinde açan herkesin hesabı bağlanır."
+"En kolayı «Telegram'ı bağla»: 10 dakika geçerli, tek kullanımlık bir bot "
+"bağlantısı üretilir. Bağlantıyı kendi telefonunuzda açıp «Başlat»a "
+"basınca bot Telegram kimliğinizi hesabınıza kendisi bağlar; sayfayı "
+"yenileyince kimlik listede görünür. Bağlantıyı kimseyle paylaşmayın: "
+"süresi içinde açan herkesin Telegram'ı hesabınıza bağlanır."
 msgstr ""
-"Najlakše je «Poveži Telegram»: za tog korisnika se pravi jednokratni link"
-" za bota koji važi 10 minuta. Kada osoba otvori link na svom telefonu i "
-"pritisne «Start», bot sam povezuje njen Telegram ID sa ovim korisnikom; "
-"posle osvežavanja stranice ID se pojavljuje na listi. Link pošaljite samo"
-" toj osobi: povezuje se nalog svakoga ko ga otvori pre isteka."
+"Najlakše je «Poveži Telegram»: pravi se jednokratni link za bota koji "
+"važi 10 minuta. Kada link otvorite na svom telefonu i pritisnete «Start»,"
+" bot sam poveže vaš Telegram ID sa vašim nalogom; osvežite stranicu i ID "
+"se pojavljuje na listi. Link ne delite ni sa kim: ko god ga otvori dok "
+"važi, njegov Telegram se povezuje sa vašim nalogom."
 
-#: app/web/templates/users.html
+#: app/web/templates/account_telegram.html app/web/templates/users.html
 msgid "Engelli"
 msgstr "Blokiran"
 
@@ -1284,6 +1285,10 @@ msgstr ""
 "odjednom, kroz jedan kanal (panel ili Telegram). Kliknite na broj serije "
 "da otvorite datoteke, strane i odluke sistema za to slanje."
 
+#: app/web/routers/users.py
+msgid "Hesabınıza bağlı böyle bir Telegram kimliği yok"
+msgstr "Takav Telegram ID nije povezan sa vašim nalogom"
+
 #: app/web/routers/employees.py
 msgid "Hiçbir alan değişmedi; değiştirmek istediğiniz alanı düzenleyin."
 msgstr "Nijedno polje se nije promenilo; uredite polje koje želite da promenite."
@@ -1461,7 +1466,7 @@ msgstr ""
 msgid "Kimler baktı"
 msgstr "Ko je pregledao"
 
-#: app/web/templates/users.html
+#: app/web/templates/account_telegram.html
 msgid "Kimlik ekle"
 msgstr "Dodaj ID"
 
@@ -1469,15 +1474,7 @@ msgstr "Dodaj ID"
 msgid "Kiril"
 msgstr "Ćirilica"
 
-#: app/web/templates/users.html
-msgid ""
-"Kişi açıp «Başlat»a basınca bot «Bağlandı» der; sonra bu sayfayı "
-"yenileyin."
-msgstr ""
-"Kada osoba otvori link i pritisne «Start», bot javlja «Povezano»; zatim "
-"osvežite ovu stranicu."
-
-#: app/web/templates/users.html
+#: app/web/templates/account_telegram.html
 msgid "Kopyalandı"
 msgstr "Kopirano"
 
@@ -1821,7 +1818,8 @@ msgstr "Lozinka mora imati najmanje {limit} znakova."
 msgid "Parola sıfırlandı; kullanıcının açık oturumları kapatıldı."
 msgstr "Lozinka je resetovana; otvorene sesije korisnika su zatvorene."
 
-#: app/web/templates/account_password.html app/web/templates/users.html
+#: app/web/templates/account_password.html
+#: app/web/templates/account_telegram.html app/web/templates/users.html
 msgid "Parolamı değiştir"
 msgstr "Promeni moju lozinku"
 
@@ -2292,7 +2290,11 @@ msgstr ""
 msgid "Telegram kimlikleri"
 msgstr "Telegram ID-jevi"
 
-#: app/web/templates/users.html
+#: app/web/templates/account_telegram.html
+msgid "Telegram kimlikleriniz"
+msgstr "Vaši Telegram ID-jevi"
+
+#: app/web/templates/account_telegram.html
 msgid "Telegram kimliği"
 msgstr "Telegram ID"
 
@@ -2303,6 +2305,23 @@ msgstr "Telegram ID ne može biti prazan."
 #: app/web/routers/users.py
 msgid "Telegram kimliği eklendi ve izni açıldı."
 msgstr "Telegram ID je dodat i dozvoljen."
+
+#: app/web/templates/account_telegram.html
+#, python-format
+msgid ""
+"Telegram kimliği telefon numarası değil, Telegram'ın hesabınıza verdiği "
+"sabit sayıdır. Öğrenmek için bota <code>/start</code> yazın; bot "
+"kimliğinizi söyler. İkinci yol: Telegram'da <a href=\"%(url)s\" "
+"target=\"_blank\" rel=\"noopener noreferrer\">@userinfobot</a>'u açıp "
+"«Başlat»a basın; <code>Id: 123456789</code> satırıyla yanıt verir. O "
+"sayıyı (ya da satırın tamamını) aşağıdaki alana yapıştırın."
+msgstr ""
+"Telegram ID nije broj telefona, već stalan broj koji Telegram daje vašem "
+"nalogu. Da biste ga saznali, napišite botu <code>/start</code>; bot vam "
+"kaže vaš ID. Drugi način: u Telegramu otvorite <a href=\"%(url)s\" "
+"target=\"_blank\" rel=\"noopener noreferrer\">@userinfobot</a> i "
+"pritisnite «Start»; odgovara redom <code>Id: 123456789</code>. Taj broj "
+"(ili ceo red) nalepite u polje ispod."
 
 #: app/telegram/whitelist.py
 msgid ""
@@ -2322,13 +2341,27 @@ msgstr "Telegram ID je dozvoljen."
 msgid "Telegram kimliğinin izni kapatıldı; bot bu kimliğe yanıt vermeyecek."
 msgstr "Telegram ID je blokiran; bot mu neće odgovarati."
 
-#: app/web/templates/users.html
+#: app/web/templates/account_telegram.html
 msgid "Telegram'da aç"
 msgstr "Otvori u Telegramu"
 
-#: app/web/templates/users.html
+#: app/web/templates/account_telegram.html
 msgid "Telegram'ı bağla"
 msgstr "Poveži Telegram"
+
+#: app/web/templates/users.html
+msgid ""
+"Telegram'ı herkes yalnız kendi hesabına bağlar: «Telegram'ım» "
+"sayfasından. Burada başkasının kimliğinin iznini kapatıp açabilirsiniz "
+"(ör. telefon kaybolunca)."
+msgstr ""
+"Svako povezuje Telegram samo sa svojim nalogom, na stranici «Moj "
+"Telegram». Ovde možete blokirati ili dozvoliti tuđi ID (npr. kada se "
+"telefon izgubi)."
+
+#: app/web/templates/account_telegram.html app/web/templates/users.html
+msgid "Telegram'ım"
+msgstr "Moj Telegram"
 
 #: app/web/templates/uploads_list.html
 msgid "Tümü"
@@ -2838,7 +2871,7 @@ msgstr "{label}: u dokumentu je pročitana drugačija vrednost"
 msgid "{open} açık · {missing} eksik"
 msgstr "otvoreno: {open} · nedostaje: {missing}"
 
-#: app/web/templates/users.html
+#: app/web/templates/account_telegram.html
 msgid "«Telegram'ı bağla» kapalı."
 msgstr "«Poveži Telegram» je isključeno."
 
@@ -2959,7 +2992,7 @@ msgstr "Pretraži zemlje…"
 msgid "çözüldü"
 msgstr "rešeno"
 
-#: app/web/templates/users.html
+#: app/web/templates/account_telegram.html
 msgid "örn. 123456789"
 msgstr "npr. 123456789"
 
@@ -3031,15 +3064,15 @@ msgstr ""
 msgid "İzin 'true' ya da 'false' olmalı."
 msgstr "Dozvola mora biti 'true' ili 'false'."
 
-#: app/web/templates/users.html
+#: app/web/templates/account_telegram.html app/web/templates/users.html
 msgid "İzinli"
 msgstr "Dozvoljen"
 
-#: app/web/templates/users.html
+#: app/web/templates/account_telegram.html app/web/templates/users.html
 msgid "İzni aç"
 msgstr "Dozvoli"
 
-#: app/web/templates/users.html
+#: app/web/templates/account_telegram.html app/web/templates/users.html
 msgid "İzni kapat"
 msgstr "Blokiraj"
 

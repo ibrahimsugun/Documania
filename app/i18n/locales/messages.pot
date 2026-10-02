@@ -4,7 +4,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Documania panel\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-02 17:07+0000\n"
+"POT-Creation-Date: 2026-10-02 18:05+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -286,6 +286,10 @@ msgstr ""
 msgid "Açık — {met}/{total} zorunlu kalem"
 msgstr ""
 
+#: app/web/templates/account_telegram.html
+msgid "Açıp «Başlat»a basınca bot «Bağlandı» der; sonra bu sayfayı yenileyin."
+msgstr ""
+
 #: app/web/templates/access_log.html
 msgid "Bakan kullanıcı"
 msgstr ""
@@ -299,11 +303,11 @@ msgstr ""
 msgid "Bağlandı: {username}. Belge göndermek ve istemek için /yardim yazın."
 msgstr ""
 
-#: app/web/templates/users.html
+#: app/web/templates/account_telegram.html
 msgid "Bağlantı"
 msgstr ""
 
-#: app/web/templates/users.html
+#: app/web/templates/account_telegram.html
 #, python-format
 msgid ""
 "Bağlantı %(num)d dakika geçerli (bitiş %(end)s UTC) ve bir kez çalışır; "
@@ -322,11 +326,11 @@ msgstr ""
 msgid "Bağlantı şu anda işlenemedi; biraz sonra yeniden deneyin."
 msgstr ""
 
-#: app/web/templates/users.html
+#: app/web/templates/account_telegram.html
 msgid "Bağlantıyı kopyala"
 msgstr ""
 
-#: app/web/templates/users.html
+#: app/web/templates/account_telegram.html app/web/templates/users.html
 msgid "Bağlı Telegram kimliği yok."
 msgstr ""
 
@@ -832,6 +836,12 @@ msgstr ""
 msgid "Diğer isimler"
 msgstr ""
 
+#: app/web/templates/account_telegram.html
+msgid ""
+"Documania botu yalnız hesabınıza bağlı ve izni açık Telegram kimliğine "
+"yanıt verir. Telegram'ı yalnız siz kendi hesabınıza bağlayabilirsiniz."
+msgstr ""
+
 #: app/web/templates/document_archive_step.html app/web/templates/profile.html
 #: app/web/templates/upload_detail.html app/web/templates/upload_result.html
 #: app/web/templates/uploads_list.html
@@ -907,15 +917,8 @@ msgstr ""
 msgid "Eksik:"
 msgstr ""
 
-#: app/web/templates/users.html
-#, python-format
-msgid ""
-"Elle eklemek için: Telegram kimliği telefon numarası değil, Telegram'ın "
-"hesaba verdiği sabit sayıdır. Kişi kendi kimliğini öğrenmek için "
-"Telegram'da <a href=\"%(url)s\" target=\"_blank\" rel=\"noopener "
-"noreferrer\">@userinfobot</a>'u açıp «Başlat»a basar; bot <code>Id: "
-"123456789</code> satırıyla yanıt verir. O sayıyı (ya da satırın tamamını)"
-" aşağıdaki alana yapıştırın."
+#: app/web/templates/account_telegram.html
+msgid "Elle ekle"
 msgstr ""
 
 #: app/web/templates/profile.html
@@ -924,16 +927,16 @@ msgid ""
 " İsim yazımı ve belge numarası yalnız belgeden gelir."
 msgstr ""
 
-#: app/web/templates/users.html
+#: app/web/templates/account_telegram.html
 msgid ""
-"En kolayı «Telegram'ı bağla»: o kullanıcı için 10 dakika geçerli, tek "
-"kullanımlık bir bot bağlantısı üretilir. Kişi bağlantıyı kendi "
-"telefonunda açıp «Başlat»a basınca bot Telegram kimliğini bu kullanıcıya "
-"kendisi bağlar; sayfayı yenileyince kimlik listede görünür. Bağlantıyı "
-"yalnız o kişiye iletin: süresi içinde açan herkesin hesabı bağlanır."
+"En kolayı «Telegram'ı bağla»: 10 dakika geçerli, tek kullanımlık bir bot "
+"bağlantısı üretilir. Bağlantıyı kendi telefonunuzda açıp «Başlat»a "
+"basınca bot Telegram kimliğinizi hesabınıza kendisi bağlar; sayfayı "
+"yenileyince kimlik listede görünür. Bağlantıyı kimseyle paylaşmayın: "
+"süresi içinde açan herkesin Telegram'ı hesabınıza bağlanır."
 msgstr ""
 
-#: app/web/templates/users.html
+#: app/web/templates/account_telegram.html app/web/templates/users.html
 msgid "Engelli"
 msgstr ""
 
@@ -1158,6 +1161,10 @@ msgid ""
 "gönderimdeki dosyalar, sayfalar ve sistemin verdiği kararlar açılır."
 msgstr ""
 
+#: app/web/routers/users.py
+msgid "Hesabınıza bağlı böyle bir Telegram kimliği yok"
+msgstr ""
+
 #: app/web/routers/employees.py
 msgid "Hiçbir alan değişmedi; değiştirmek istediğiniz alanı düzenleyin."
 msgstr ""
@@ -1322,7 +1329,7 @@ msgstr ""
 msgid "Kimler baktı"
 msgstr ""
 
-#: app/web/templates/users.html
+#: app/web/templates/account_telegram.html
 msgid "Kimlik ekle"
 msgstr ""
 
@@ -1330,13 +1337,7 @@ msgstr ""
 msgid "Kiril"
 msgstr ""
 
-#: app/web/templates/users.html
-msgid ""
-"Kişi açıp «Başlat»a basınca bot «Bağlandı» der; sonra bu sayfayı "
-"yenileyin."
-msgstr ""
-
-#: app/web/templates/users.html
+#: app/web/templates/account_telegram.html
 msgid "Kopyalandı"
 msgstr ""
 
@@ -1649,7 +1650,8 @@ msgstr ""
 msgid "Parola sıfırlandı; kullanıcının açık oturumları kapatıldı."
 msgstr ""
 
-#: app/web/templates/account_password.html app/web/templates/users.html
+#: app/web/templates/account_password.html
+#: app/web/templates/account_telegram.html app/web/templates/users.html
 msgid "Parolamı değiştir"
 msgstr ""
 
@@ -2063,7 +2065,11 @@ msgstr ""
 msgid "Telegram kimlikleri"
 msgstr ""
 
-#: app/web/templates/users.html
+#: app/web/templates/account_telegram.html
+msgid "Telegram kimlikleriniz"
+msgstr ""
+
+#: app/web/templates/account_telegram.html
 msgid "Telegram kimliği"
 msgstr ""
 
@@ -2073,6 +2079,17 @@ msgstr ""
 
 #: app/web/routers/users.py
 msgid "Telegram kimliği eklendi ve izni açıldı."
+msgstr ""
+
+#: app/web/templates/account_telegram.html
+#, python-format
+msgid ""
+"Telegram kimliği telefon numarası değil, Telegram'ın hesabınıza verdiği "
+"sabit sayıdır. Öğrenmek için bota <code>/start</code> yazın; bot "
+"kimliğinizi söyler. İkinci yol: Telegram'da <a href=\"%(url)s\" "
+"target=\"_blank\" rel=\"noopener noreferrer\">@userinfobot</a>'u açıp "
+"«Başlat»a basın; <code>Id: 123456789</code> satırıyla yanıt verir. O "
+"sayıyı (ya da satırın tamamını) aşağıdaki alana yapıştırın."
 msgstr ""
 
 #: app/telegram/whitelist.py
@@ -2090,12 +2107,23 @@ msgstr ""
 msgid "Telegram kimliğinin izni kapatıldı; bot bu kimliğe yanıt vermeyecek."
 msgstr ""
 
-#: app/web/templates/users.html
+#: app/web/templates/account_telegram.html
 msgid "Telegram'da aç"
 msgstr ""
 
-#: app/web/templates/users.html
+#: app/web/templates/account_telegram.html
 msgid "Telegram'ı bağla"
+msgstr ""
+
+#: app/web/templates/users.html
+msgid ""
+"Telegram'ı herkes yalnız kendi hesabına bağlar: «Telegram'ım» "
+"sayfasından. Burada başkasının kimliğinin iznini kapatıp açabilirsiniz "
+"(ör. telefon kaybolunca)."
+msgstr ""
+
+#: app/web/templates/account_telegram.html app/web/templates/users.html
+msgid "Telegram'ım"
 msgstr ""
 
 #: app/web/templates/uploads_list.html
@@ -2580,7 +2608,7 @@ msgstr ""
 msgid "{open} açık · {missing} eksik"
 msgstr ""
 
-#: app/web/templates/users.html
+#: app/web/templates/account_telegram.html
 msgid "«Telegram'ı bağla» kapalı."
 msgstr ""
 
@@ -2696,7 +2724,7 @@ msgstr ""
 msgid "çözüldü"
 msgstr ""
 
-#: app/web/templates/users.html
+#: app/web/templates/account_telegram.html
 msgid "örn. 123456789"
 msgstr ""
 
@@ -2764,15 +2792,15 @@ msgstr ""
 msgid "İzin 'true' ya da 'false' olmalı."
 msgstr ""
 
-#: app/web/templates/users.html
+#: app/web/templates/account_telegram.html app/web/templates/users.html
 msgid "İzinli"
 msgstr ""
 
-#: app/web/templates/users.html
+#: app/web/templates/account_telegram.html app/web/templates/users.html
 msgid "İzni aç"
 msgstr ""
 
-#: app/web/templates/users.html
+#: app/web/templates/account_telegram.html app/web/templates/users.html
 msgid "İzni kapat"
 msgstr ""
 

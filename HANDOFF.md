@@ -18,6 +18,12 @@ Blok biçimi `CONVENTIONS.md` §3'te tanımlıdır:
 
 ## Task log (newest-first)
 
+## 159 — 12.1-h Telegram'ı yalnız hesabın sahibi bağlar — done — 2026-10-02
+- Yapıldı: Hesabım → Telegram (`/account/telegram`): kendi kimlikleri, kendisi için bağlantı, elle ekleme (`via: "account"`), kendi kimliğinin izni; yollarda kullanıcı kimliği yok. Kullanıcılar sayfasından `POST /users/{id}/telegram` ve `/users/{id}/telegram/link` kaldırıldı, izin aç/kapat kaldı, «Telegram'ım» bağlantısı eklendi; rehber "bota /start yazın"; README; kararlar §D102.
+- Doğrulama: ruff check/format, compileall, `import app.main`, temiz SQLite'ta `alembic upgrade head` (→0024), `python -m app.i18n check` exit 0; `pytest -q -m "not live" --cov=app` 6612 geçti, 11 atlandı, 0 kırmızı, kapsam %99; 9 kural bozmasının 9'u kırmızı.
+- Varsayımlar: §D102 — kişi kendi kimliğinin iznini yönetici kapatmış olsa da açabilir (sahibi kendisi); hesap sayfası menüde değil. Zamanlamaya bağlı `test_the_handler_returns_before_the_pipeline_finishes` deterministik yapıldı (yük altında iki kez kırmızı olmuştu).
+- Sonraki pencereye not: tm 160 botun kimlik yanıtını ekler — hesap sayfası rehberi zaten "bota /start yazın; bot kimliğinizi söyler" diyor. Bağlantı testleri artık `tests/web/test_account_telegram.py`'de.
+
 ## 158 — 12.1-f Bot yanıtları kullanıcının dilinde — done — 2026-10-02
 - Yapıldı: Beyaz liste kapısı izin ve `users.language`'i tek sorguda okuyup her güncellemede dili yazar (boşsa `PANEL_DEFAULT_LANGUAGE`, varsayılan `en`); `/start <kod>` yanıtı kodun kullanıcısının dilinde, geçersiz kod varsayılanda; yardım, bağlantı, belge alma/özet ve belge isteği metinleri `N_`/`gettext`/`ngettext` ile işaretli, `en`/`sr` kataloğuna 46 metin; kararlar §D101.
 - Doğrulama: ruff check/format, compileall, `import app.main`, temiz SQLite'ta `alembic upgrade head` (→0024), `python -m app.i18n check` exit 0; `pytest -q -m "not live" --cov=app` yedi ön plan grubunda 6611 geçti (+16), 11 atlandı, 0 kırmızı, birleşik kapsam %99 (`app/telegram` %100); 7 kural bozmasının 7'si kırmızı.

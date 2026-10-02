@@ -500,12 +500,15 @@ REVIEWED_MUTATING_ROUTES: dict[tuple[str, str], str] = {
         "kullanıcıyı pasife alma ve etkinleştirme; silinmez (10.1.4, R11)"
     ),
     ("POST", "/account/password"): "kullanıcının kendi parolası (10.1.4)",
-    ("POST", "/users/{user_id}/telegram"): "kullanıcıya Telegram kimliği ekleme (12.1.3)",
     ("POST", "/users/{user_id}/telegram/{telegram_id}/status"): (
         "Telegram kimliğinin iznini kapatma ve açma; silinmez (12.1.3, R11)"
     ),
-    ("POST", "/users/{user_id}/telegram/link"): (
-        "Telegram'ı bağla: tek kullanımlık bot bağlantısı; kimliği bot bağlar (12.1.4)"
+    ("POST", "/account/telegram"): "kendi Telegram kimliğini ekleme (12.1.8)",
+    ("POST", "/account/telegram/{telegram_id}/status"): (
+        "kendi Telegram kimliğinin iznini kapatma ve açma; silinmez (12.1.8, R11)"
+    ),
+    ("POST", "/account/telegram/link"): (
+        "Telegram'ı bağla: kendisi için tek kullanımlık bot bağlantısı (12.1.4, 12.1.8)"
     ),
 }
 

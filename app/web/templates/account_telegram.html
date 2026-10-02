@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{# Hesabım → Telegram (12.1.8, PLAN.md §D97 c): yalnız oturumdaki kullanıcının Telegram kimlikleri.
+   Telegram'ı yalnız hesabın sahibi bağlar; yollarda kullanıcı kimliği yoktur. "Telegram'ı bağla"
+   (12.1.4) tek kullanımlık bot bağlantısı üretir; bağlantı yalnız üretildiği yanıtta görünür. Bot
+   hiç çalışmadıysa (`bot_username` yok) düğme kapalıdır. Elle ekleme ikinci yoldur. #}
+{% block title %}{{ _("Telegram'ım") }}{% endblock %}
+{% block content %}
+<h1>{{ _("Telegram'ım") }}</h1>
+<p class="lede">{% trans %}Documania botu yalnız hesabınıza bağlı ve izni açık Telegram kimliğine yanıt verir. Telegram'ı yalnız siz kendi hesabınıza bağlayabilirsiniz.{% endtrans %}</p>
+{% if notice %}<p class="notice notice-success" role="status">{{ translate(notice) }}</p>{% endif %}
+{% if error %}<p class="error" role="alert" id="account-telegram-error">{{ translate(error) }}</p>{% endif %}
+
+<h2>{{ _("Telegram kimlikleriniz") }}</h2>
+{% if accounts %}
+<ul class="telegram-ids" id="own-telegram-ids">
+  {% for account in accounts %}
+  <li>
+    <code>{{ account.telegram_id }}</code>
+    {% if account.allowed %}<span class="status-badge status-active">{{ _("İzinli") }}</span>{% else %}<span class="status-badge status-archived">{{ _("Engelli") }}</span>{% endif %}
+    <form class="inline-form" method="post" action="/account/telegram/{{ account.telegram_id }}/status">
+      {% if account.allowed %}
+      <input type="hidden" name="allowed" value="false">
+      <button type="submit">{{ _("İzni kapat") }}</button>
+      {% else %}
+      <input type="hidden" name="allowed" value="true">
+      <button type="submit">{{ _("İzni aç") }}</button>
+      {% endif %}
+    </form>
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+<p class="hint">{{ _("Bağlı Telegram kimliği yok.") }}</p>
+{% endif %}
+
+<h2>{{ _("Telegram'ı bağla") }}</h2>
+<p class="hint telegram-link-help">{% trans %}En kolayı «Telegram'ı bağla»: 10 dakika geçerli, tek kullanımlık bir bot bağlantısı üretilir. Bağlantıyı kendi telefonunuzda açıp «Başlat»a basınca bot Telegram kimliğinizi hesabınıza kendisi bağlar; sayfayı yenileyince kimlik listede görünür. Bağlantıyı kimseyle paylaşmayın: süresi içinde açan herkesin Telegram'ı hesabınıza bağlanır.{% endtrans %}</p>
+{% if not bot_username %}<p class="hint telegram-bot-missing" id="telegram-bot-missing">{{ _("«Telegram'ı bağla» kapalı.") }} {{ translate(bot_never_ran) }}</p>{% endif %}
+{% if link %}
+<div class="telegram-link-box" id="telegram-link" role="status">
+  <label for="telegram-link-url">{{ _("Bağlantı") }}</label>
+  <input id="telegram-link-url" value="{{ link.url }}" readonly>
+  <button type="button" data-copy-target="telegram-link-url" data-copied-text="{{ _('Kopyalandı') }}">{{ _("Bağlantıyı kopyala") }}</button>
+  <a href="{{ link.url }}" target="_blank" rel="noopener noreferrer">{{ _("Telegram'da aç") }}</a>
+  <p class="hint">{{ ngettext("Bağlantı %(num)d dakika geçerli (bitiş %(end)s UTC) ve bir kez çalışır; yeni bağlantı bunu geçersiz kılar.", "Bağlantı %(num)d dakika geçerli (bitiş %(end)s UTC) ve bir kez çalışır; yeni bağlantı bunu geçersiz kılar.", link.minutes, end=link.expires_at.strftime("%H:%M")) }} {{ _("Açıp «Başlat»a basınca bot «Bağlandı» der; sonra bu sayfayı yenileyin.") }}</p>
+</div>
+{% endif %}
+<form class="inline-form telegram-link" method="post" action="/account/telegram/link">
+  {% if bot_username %}
+  <button type="submit">{{ _("Telegram'ı bağla") }}</button>
+  {% else %}
+  <button type="submit" disabled aria-describedby="telegram-bot-missing">{{ _("Telegram'ı bağla") }}</button>
+  {% endif %}
+</form>
+
+<h2>{{ _("Elle ekle") }}</h2>
+<p class="hint telegram-help">{% trans url=userinfobot_url %}Telegram kimliği telefon numarası değil, Telegram'ın hesabınıza verdiği sabit sayıdır. Öğrenmek için bota <code>/start</code> yazın; bot kimliğinizi söyler. İkinci yol: Telegram'da <a href="{{ url }}" target="_blank" rel="noopener noreferrer">@userinfobot</a>'u açıp «Başlat»a basın; <code>Id: 123456789</code> satırıyla yanıt verir. O sayıyı (ya da satırın tamamını) aşağıdaki alana yapıştırın.{% endtrans %}</p>
+<form class="inline-form telegram-add" method="post" action="/account/telegram" autocomplete="off">
+  <label for="telegram-new">{{ _("Telegram kimliği") }}</label>
+  <input id="telegram-new" name="telegram_id" value="{{ telegram_value }}" inputmode="numeric" maxlength="32" placeholder="{{ _('örn. 123456789') }}" autocomplete="off" required>
+  <button type="submit">{{ _("Kimlik ekle") }}</button>
+</form>
+<p><a href="/account/password">{{ _("Parolamı değiştir") }}</a></p>
+{% endblock %}
+{% block scripts %}
+<script src="/static/copy-link.js" defer></script>
+{% endblock %}

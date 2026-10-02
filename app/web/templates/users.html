@@ -2,18 +2,15 @@
 {# Kullanıcılar (10.1.4): panel kullanıcıları, yeni kullanıcı, parola sıfırlama, pasife alma ve yeniden
    etkinleştirme. Kullanıcı silinmez (R11). Parola alanları boş gelir, tarayıcı doldurmaz; parola
    hiçbir yerde gösterilmez. İşlemler tek adımlıdır (§D61-b). Her kullanıcının altında Telegram
-   beyaz listesi (12.1.3): kimlik ekle, izni kapat/aç; kimlik silinmez. "Telegram'ı bağla" (12.1.4)
-   tek kullanımlık bot bağlantısı üretir; bağlantı yalnız üretildiği yanıtta görünür. Bot hiç
-   çalışmadıysa (`bot_username` yok) düğme kapalıdır. #}
+   beyaz listesi (12.1.3): izni kapat/aç; kimlik silinmez. Kimliği yalnız hesabın sahibi bağlar
+   (12.1.8, §D97 d): ekleme ve "Telegram'ı bağla" Hesabım → Telegram'dadır (`/account/telegram`). #}
 {% block title %}{{ _(entry.label) }}{% endblock %}
 {% block content %}
 <h1>{{ _(entry.label) }}</h1>
 <p class="lede">{% trans %}Panele giren kullanıcılar. Kullanıcı silinmez: gerekmeyen hesap pasife alınır, pasif kullanıcı giriş yapamaz ve açık oturumları kapanır.{% endtrans %}</p>
 <p class="hint">{% trans %}Telegram botu yalnız izni açık ve kullanıcısı etkin kimliğe yanıt verir. Kimlik silinmez; gerekmeyen kimliğin izni kapatılır.{% endtrans %}</p>
-<p class="hint telegram-link-help">{% trans %}En kolayı «Telegram'ı bağla»: o kullanıcı için 10 dakika geçerli, tek kullanımlık bir bot bağlantısı üretilir. Kişi bağlantıyı kendi telefonunda açıp «Başlat»a basınca bot Telegram kimliğini bu kullanıcıya kendisi bağlar; sayfayı yenileyince kimlik listede görünür. Bağlantıyı yalnız o kişiye iletin: süresi içinde açan herkesin hesabı bağlanır.{% endtrans %}</p>
-{% if not bot_username %}<p class="hint telegram-bot-missing" id="telegram-bot-missing">{{ _("«Telegram'ı bağla» kapalı.") }} {{ translate(bot_never_ran) }}</p>{% endif %}
-<p class="hint telegram-help">{% trans url=userinfobot_url %}Elle eklemek için: Telegram kimliği telefon numarası değil, Telegram'ın hesaba verdiği sabit sayıdır. Kişi kendi kimliğini öğrenmek için Telegram'da <a href="{{ url }}" target="_blank" rel="noopener noreferrer">@userinfobot</a>'u açıp «Başlat»a basar; bot <code>Id: 123456789</code> satırıyla yanıt verir. O sayıyı (ya da satırın tamamını) aşağıdaki alana yapıştırın.{% endtrans %}</p>
-<p><a class="button-link" href="/account/password">{{ _("Parolamı değiştir") }}</a></p>
+<p class="hint telegram-own-help">{% trans %}Telegram'ı herkes yalnız kendi hesabına bağlar: «Telegram'ım» sayfasından. Burada başkasının kimliğinin iznini kapatıp açabilirsiniz (ör. telefon kaybolunca).{% endtrans %}</p>
+<p><a class="button-link" href="/account/password">{{ _("Parolamı değiştir") }}</a> <a class="button-link" href="/account/telegram">{{ _("Telegram'ım") }}</a></p>
 {% if notice %}<p class="notice notice-success" role="status">{{ translate(notice) }}</p>{% endif %}
 {% if error %}<p class="error" role="alert" id="users-error">{{ translate(error) }}</p>{% endif %}
 <table class="catalog users">
@@ -75,29 +72,6 @@
         <span class="hint">{{ _("Bağlı Telegram kimliği yok.") }}</span>
         {% endif %}
         {% if not row.active %}<p class="hint">{{ _("Kullanıcı pasif: bot bu kimliklerin hiçbirine yanıt vermez.") }}</p>{% endif %}
-        {% if link and link.user_id == row.id %}
-        <div class="telegram-link-box" id="telegram-link-{{ row.id }}" role="status">
-          <label for="telegram-link-url-{{ row.id }}">{{ _("Bağlantı") }}</label>
-          <input id="telegram-link-url-{{ row.id }}" value="{{ link.url }}" readonly>
-          <button type="button" data-copy-target="telegram-link-url-{{ row.id }}" data-copied-text="{{ _('Kopyalandı') }}">{{ _("Bağlantıyı kopyala") }}</button>
-          <a href="{{ link.url }}" target="_blank" rel="noopener noreferrer">{{ _("Telegram'da aç") }}</a>
-          <p class="hint">{{ ngettext("Bağlantı %(num)d dakika geçerli (bitiş %(end)s UTC) ve bir kez çalışır; yeni bağlantı bunu geçersiz kılar.", "Bağlantı %(num)d dakika geçerli (bitiş %(end)s UTC) ve bir kez çalışır; yeni bağlantı bunu geçersiz kılar.", link.minutes, end=link.expires_at.strftime("%H:%M")) }} {{ _("Kişi açıp «Başlat»a basınca bot «Bağlandı» der; sonra bu sayfayı yenileyin.") }}</p>
-        </div>
-        {% endif %}
-        {% if row.active %}
-        <form class="inline-form telegram-link" method="post" action="/users/{{ row.id }}/telegram/link">
-          {% if bot_username %}
-          <button type="submit">{{ _("Telegram'ı bağla") }}</button>
-          {% else %}
-          <button type="submit" disabled aria-describedby="telegram-bot-missing">{{ _("Telegram'ı bağla") }}</button>
-          {% endif %}
-        </form>
-        {% endif %}
-        <form class="inline-form telegram-add" method="post" action="/users/{{ row.id }}/telegram" autocomplete="off">
-          <label for="telegram-new-{{ row.id }}">{{ _("Telegram kimliği") }}</label>
-          <input id="telegram-new-{{ row.id }}" name="telegram_id" value="{% if error_user_id == row.id %}{{ telegram_value }}{% endif %}" inputmode="numeric" maxlength="32" placeholder="{{ _('örn. 123456789') }}" autocomplete="off" required>
-          <button type="submit">{{ _("Kimlik ekle") }}</button>
-        </form>
       </td>
     </tr>
     {% endfor %}
@@ -119,7 +93,4 @@
   <p class="hint">{{ _("Kullanıcı adı %(min)s–%(max)s karakter, boşluksuz; parola en az %(password)s karakter.", min=username_min_length, max=username_max_length, password=min_password_length) }}</p>
   <button type="submit">{{ _("Kullanıcı oluştur") }}</button>
 </form>
-{% endblock %}
-{% block scripts %}
-<script src="/static/copy-link.js" defer></script>
 {% endblock %}

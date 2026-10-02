@@ -313,8 +313,12 @@ PAGES: dict[str, dict[str, tuple[str, ...]]] = {
         ),
     },
     "/users": {
-        "en": ("<h1>Users</h1>", "New user", "Create user", "Administrator", "Connect Telegram"),
-        "sr": ("<h1>Korisnici</h1>", "Novi korisnik", "Napravi korisnika", "Administrator"),
+        "en": ("<h1>Users</h1>", "New user", "Create user", "Administrator", "My Telegram"),
+        "sr": ("<h1>Korisnici</h1>", "Novi korisnik", "Napravi korisnika", "Moj Telegram"),
+    },
+    "/account/telegram": {
+        "en": ("<h1>My Telegram</h1>", "Your Telegram IDs", "Connect Telegram", "Add manually"),
+        "sr": ("<h1>Moj Telegram</h1>", "Vaši Telegram ID-jevi", "Poveži Telegram", "Dodaj ručno"),
     },
     "/account/password": {
         "en": ("<h1>Change my password</h1>", "Current password", "Back to the Users page"),

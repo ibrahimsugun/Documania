@@ -1,9 +1,10 @@
-"""Kullanıcılar ekranı (PRD 10.1.4, 12.1.3; PLAN.md §C92-d, §C92-e).
+"""Kullanıcılar ekranı ve Hesabım (PRD 10.1.4, 12.1.3, 12.1.8; PLAN.md §C92-d, §C92-e, §D97).
 
 - `GET /users` panel kullanıcılarını listeler: kullanıcı adı, rol, durum, izinli Telegram kimliği
   sayısı; "Yeni kullanıcı" formu ve her başka kullanıcı için parola sıfırlama ve pasife alma /
   yeniden etkinleştirme. Her kullanıcı satırının altında — kendi satırı dahil — bağlı Telegram
-  kimlikleri izin durumlarıyla ve kimlik ekleme formu durur (12.1.3).
+  kimlikleri izin durumlarıyla durur; yönetici izni kapatıp açabilir (kaybolan telefon), ama
+  başkası adına kimlik ekleyemez ve bağlantı üretemez (12.1.8, §D97 d).
 - `POST /users` kullanıcı açar (ad 3–150, parola ≥ 12, rol `UserRole`'dan); kural dışı değer 422,
   kullanılan ad 409 ile sayfa yeniden çizilir.
 - `POST /users/{id}/password` yöneticinin sıfırlamasıdır; hedefin açık oturumları kapanır. Kendi
@@ -12,22 +13,30 @@
   pasife alma 409; pasife alınanın açık oturumları kapanır.
 - `GET /account/password` + `POST /account/password` kullanıcının kendi parolasıdır: eski parola
   yanlışsa 400; bu oturum açık kalır, diğerleri kapanır.
-- `POST /users/{id}/telegram` (`telegram_id`) kullanıcıya izinli Telegram kimliği bağlar; pozitif
-  tam sayı değilse 422, kimlik zaten bir kullanıcıya bağlıysa 409.
-  `POST /users/{id}/telegram/{tid}/status` (`allowed` = `true` | `false`) izni açar ya da kapatır;
+- `POST /users/{id}/telegram/{tid}/status` (`allowed` = `true` | `false`) izni açar ya da kapatır;
   aynı duruma geçiş 409, kimlik o kullanıcıya bağlı değilse 404. Kayıt silinmez; bot yalnız izinli
   ve etkin kullanıcıya bağlı kimliğe yanıt verir (`app.telegram.whitelist`). Olay
   `TELEGRAM_USER_CHANGED`.
-- `POST /users/{id}/telegram/link` "Telegram'ı bağla" (12.1.4, PLAN.md §D87): kullanıcı için tek
-  kullanımlık, 10 dakika geçerli bot bağlantısı (`https://t.me/<bot>?start=<kod>`) üretir ve
-  sayfayla birlikte bir kez gösterir (yönlendirme yok: kod adres çubuğuna, geçmişe ve loga girmez;
-  yanıt `Cache-Control: no-store`). Kişi bağlantıyı açıp «Başlat»a basınca bot kimliğini kendisi
-  bağlar (`app.telegram.link`). Pasif kullanıcıya 409; bot bu veri dizininde hiç çalışmadıysa
-  (`telegram/bot.json` yok) düğme kapalıdır ve istek 409 döner. Olay `TELEGRAM_LINK_CREATED`.
 
-Yalnız yönetici açar (tek rol `admin`; `require_admin`). Hepsi tek adımlıdır (§D61-b: dosyaya ve
-belgeye dokunmaz, geri alınabilir) ve kullanıcı adıyla olay yazar (`USER_*`). Parola hiçbir olaya,
-loga ya da sayfaya yazılmaz; reddedilen formda parola alanı boş gelir. **Silme yok** (R11).
+**Hesabım → Telegram (12.1.8, §D97 c).** Telegram'ı yalnız hesabın sahibi bağlar. Yolların
+hiçbirinde kullanıcı kimliği yoktur: hedef her zaman oturumdaki kullanıcıdır (`user.id`).
+
+- `GET /account/telegram` kendi kimlikleri izin durumlarıyla; her girişli kullanıcıya açık.
+- `POST /account/telegram/link` "Telegram'ı bağla" (12.1.4, §D87): kendisi için tek kullanımlık,
+  10 dakika geçerli bot bağlantısı (`https://t.me/<bot>?start=<kod>`) üretir ve sayfayla birlikte
+  bir kez gösterir (yönlendirme yok: kod adres çubuğuna, geçmişe ve loga girmez; yanıt
+  `Cache-Control: no-store`). Kişi bağlantıyı açıp «Başlat»a basınca bot kimliğini kendisi bağlar
+  (`app.telegram.link`). Bot bu veri dizininde hiç çalışmadıysa (`telegram/bot.json` yok) düğme
+  kapalıdır ve istek 409 döner. Olay `TELEGRAM_LINK_CREATED` kişinin kendi adıyla.
+- `POST /account/telegram` (`telegram_id`) elle ekleme: pozitif tam sayı değilse 422, kimlik zaten
+  bir kullanıcıya bağlıysa 409; olay `TELEGRAM_USER_CHANGED` {…, via: "account"}.
+- `POST /account/telegram/{tid}/status` kendi kimliğinin izni; kimlik kendisinin değilse 404, aynı
+  duruma geçiş 409.
+
+Kullanıcılar sayfası yalnız yönetici açar (tek rol `admin`; `require_admin`). Hepsi tek adımlıdır
+(§D61-b: dosyaya ve belgeye dokunmaz, geri alınabilir) ve kullanıcı adıyla olay yazar (`USER_*`).
+Parola hiçbir olaya, loga ya da sayfaya yazılmaz; reddedilen formda parola alanı boş gelir.
+**Silme yok** (R11).
 """
 
 from __future__ import annotations
@@ -85,8 +94,12 @@ router = APIRouter(tags=["users"])
 
 USERS_PATH = "/users"
 ACCOUNT_PASSWORD_PATH = "/account/password"
+ACCOUNT_TELEGRAM_PATH = "/account/telegram"
+ACCOUNT_VIA = "account"
+"""`TELEGRAM_USER_CHANGED` olayında kimliği kişinin kendi hesap sayfasından eklediğini söyler."""
 USER_NOT_FOUND = N_("Kullanıcı bulunamadı")
 TELEGRAM_NOT_FOUND = N_("Bu kullanıcıya bağlı böyle bir Telegram kimliği yok")
+OWN_TELEGRAM_NOT_FOUND = N_("Hesabınıza bağlı böyle bir Telegram kimliği yok")
 UNKNOWN_ALLOWED = N_("İzin 'true' ya da 'false' olmalı.")
 ADMIN_ONLY = N_("Bu sayfayı yalnız yönetici açabilir.")
 PASSWORDS_DIFFER = N_("Yeni parola ile tekrarı eşleşmiyor.")
@@ -105,9 +118,13 @@ NOTICES = {
     "deactivated": N_("Kullanıcı pasife alındı; açık oturumları kapatıldı."),
     "reactivated": N_("Kullanıcı yeniden etkinleştirildi."),
     "own_password": N_("Parolanız değiştirildi; diğer oturumlarınız kapatıldı."),
-    "telegram_added": N_("Telegram kimliği eklendi ve izni açıldı."),
     "telegram_allowed": N_("Telegram kimliğinin izni açıldı."),
     "telegram_blocked": N_("Telegram kimliğinin izni kapatıldı; bot bu kimliğe yanıt vermeyecek."),
+}
+ACCOUNT_NOTICES = {
+    "telegram_added": N_("Telegram kimliği eklendi ve izni açıldı."),
+    "telegram_allowed": NOTICES["telegram_allowed"],
+    "telegram_blocked": NOTICES["telegram_blocked"],
 }
 ALLOWED_TRUE = "true"
 ALLOWED_FALSE = "false"
@@ -152,7 +169,6 @@ class UserRow:
 class IssuedLink:
     """Az önce üretilen bot bağlantısı: yalnız bu yanıtta gösterilir (12.1.4)."""
 
-    user_id: int
     url: str
     expires_at: datetime
     minutes: int
@@ -213,10 +229,7 @@ def _users_page(
     error: str | None = None,
     error_user_id: int | None = None,
     form: NewUserValues | None = None,
-    telegram_value: str = "",
-    link: IssuedLink | None = None,
 ) -> HTMLResponse:
-    bot = read_bot_info(layout)
     response = render_page(
         request,
         "users.html",
@@ -229,11 +242,6 @@ def _users_page(
         error=error,
         error_user_id=error_user_id,
         form=form or NewUserValues(),
-        telegram_value=telegram_value,
-        userinfobot_url=USERINFOBOT_URL,
-        bot_username=bot.username if bot is not None else None,
-        bot_never_ran=BOT_NEVER_RAN,
-        link=link,
         min_password_length=MIN_PASSWORD_LENGTH,
         username_min_length=USERNAME_MIN_LENGTH,
         username_max_length=USERNAME_MAX_LENGTH,
@@ -378,42 +386,6 @@ def set_status_endpoint(
     return _redirect("reactivated" if active else "deactivated")
 
 
-@router.post(f"{USERS_PATH}/{{user_id}}/telegram", response_class=HTMLResponse)
-def add_telegram_endpoint(
-    user_id: int,
-    request: Request,
-    user: AdminUser,
-    session: DbSession,
-    layout: Layout,
-    telegram_id: Annotated[str, Form(max_length=64)] = "",
-) -> Response:
-    """12.1.3 kullanıcıya Telegram kimliği ekleme — izin açık gelir; `TELEGRAM_USER_CHANGED`
-    {target_user_id, telegram_id, allowed: true, added: true}. Pozitif tam sayı değilse 422, kimlik
-    zaten bir kullanıcıya bağlıysa 409."""
-    target = _user_or_404(session, user_id)
-    try:
-        add_telegram_id(session, target, parse_telegram_id(telegram_id), actor=user.username)
-    except (TelegramIdError, TelegramIdTakenError) as exc:
-        session.rollback()
-        code = (
-            status.HTTP_409_CONFLICT
-            if isinstance(exc, TelegramIdTakenError)
-            else status.HTTP_422_UNPROCESSABLE_CONTENT
-        )
-        return _users_page(
-            request,
-            user,
-            session,
-            layout,
-            status_code=code,
-            error=exc,
-            error_user_id=user_id,
-            telegram_value=telegram_id.strip(),
-        )
-    session.commit()
-    return _redirect("telegram_added")
-
-
 @router.post(
     f"{USERS_PATH}/{{user_id}}/telegram/{{telegram_id}}/status", response_class=HTMLResponse
 )
@@ -460,60 +432,6 @@ def set_telegram_status_endpoint(
         )
     session.commit()
     return _redirect("telegram_allowed" if allowed else "telegram_blocked")
-
-
-@router.post(f"{USERS_PATH}/{{user_id}}/telegram/link", response_class=HTMLResponse)
-def create_telegram_link_endpoint(
-    user_id: int,
-    request: Request,
-    user: AdminUser,
-    session: DbSession,
-    layout: Layout,
-) -> Response:
-    """12.1.4 "Telegram'ı bağla" — tek kullanımlık bot bağlantısı; `TELEGRAM_LINK_CREATED`
-    {target_user_id, expires_at}. Önceki kullanılmamış bağlantı geçersiz olur. Pasif kullanıcıya
-    ya da bot hiç çalışmamışken 409. Bağlantı yalnız bu yanıtta görünür."""
-    target = _user_or_404(session, user_id)
-    bot = read_bot_info(layout)
-    if bot is None:
-        session.rollback()
-        return _users_page(
-            request,
-            user,
-            session,
-            layout,
-            status_code=status.HTTP_409_CONFLICT,
-            error=BOT_NEVER_RAN,
-            error_user_id=user_id,
-        )
-    try:
-        issued = create_link_code(session, target, actor=user.username)
-    except LinkTargetInactiveError as exc:
-        session.rollback()
-        return _users_page(
-            request,
-            user,
-            session,
-            layout,
-            status_code=status.HTTP_409_CONFLICT,
-            error=exc,
-            error_user_id=user_id,
-        )
-    session.commit()
-    response = _users_page(
-        request,
-        user,
-        session,
-        layout,
-        link=IssuedLink(
-            user_id=user_id,
-            url=link_url(bot.username, issued.code),
-            expires_at=issued.expires_at,
-            minutes=int(LINK_CODE_TTL.total_seconds() // 60),
-        ),
-    )
-    response.headers["Cache-Control"] = "no-store"
-    return response
 
 
 def _account_page(
@@ -575,3 +493,182 @@ def change_own_password_endpoint(
         return _account_page(request, user, status_code=code, error=exc)
     session.commit()
     return _redirect("own_password")
+
+
+# --- Hesabım → Telegram (12.1.8, §D97 c) ------------------------------------------------------
+
+
+def _own_accounts(session: Session, user: PanelUser) -> list[TelegramRow]:
+    return [
+        TelegramRow(telegram_id=row.telegram_id, allowed=row.allowed)
+        for row in session.execute(
+            select(TelegramUser.telegram_id, TelegramUser.allowed)
+            .where(TelegramUser.user_id == user.id)
+            .order_by(TelegramUser.telegram_id)
+        )
+    ]
+
+
+def _account_telegram_page(
+    request: Request,
+    user: PanelUser,
+    session: Session,
+    layout: DataLayout,
+    *,
+    status_code: int = status.HTTP_200_OK,
+    notice: str | None = None,
+    error: str | None = None,
+    telegram_value: str = "",
+    link: IssuedLink | None = None,
+) -> HTMLResponse:
+    bot = read_bot_info(layout)
+    response = render_page(
+        request,
+        "account_telegram.html",
+        user=user,
+        active="users",
+        accounts=_own_accounts(session, user),
+        notice=ACCOUNT_NOTICES.get(notice or ""),
+        error=error,
+        telegram_value=telegram_value,
+        userinfobot_url=USERINFOBOT_URL,
+        bot_username=bot.username if bot is not None else None,
+        bot_never_ran=BOT_NEVER_RAN,
+        link=link,
+        status_code=status_code,
+    )
+    session.rollback()
+    return response
+
+
+def _account_redirect(notice: str) -> RedirectResponse:
+    return RedirectResponse(f"{ACCOUNT_TELEGRAM_PATH}?notice={notice}", status.HTTP_303_SEE_OTHER)
+
+
+@router.get(ACCOUNT_TELEGRAM_PATH, response_class=HTMLResponse)
+def account_telegram_page(
+    request: Request,
+    user: CurrentUser,
+    session: DbSession,
+    layout: Layout,
+    notice: Annotated[str | None, Query(max_length=32)] = None,
+) -> HTMLResponse:
+    """12.1.8 Hesabım → Telegram: yalnız oturumdaki kullanıcının kimlikleri."""
+    return _account_telegram_page(request, user, session, layout, notice=notice)
+
+
+@router.post(ACCOUNT_TELEGRAM_PATH, response_class=HTMLResponse)
+def add_own_telegram_endpoint(
+    request: Request,
+    user: CurrentUser,
+    session: DbSession,
+    layout: Layout,
+    telegram_id: Annotated[str, Form(max_length=64)] = "",
+) -> Response:
+    """12.1.8 kendi Telegram kimliğini elle ekleme — izin açık gelir; `TELEGRAM_USER_CHANGED`
+    {target_user_id = kendi, telegram_id, allowed: true, added: true, via: "account"}. Pozitif tam
+    sayı değilse 422, kimlik zaten bir kullanıcıya bağlıysa 409."""
+    own = _user_or_404(session, user.id)
+    try:
+        add_telegram_id(
+            session, own, parse_telegram_id(telegram_id), actor=user.username, via=ACCOUNT_VIA
+        )
+    except (TelegramIdError, TelegramIdTakenError) as exc:
+        session.rollback()
+        code = (
+            status.HTTP_409_CONFLICT
+            if isinstance(exc, TelegramIdTakenError)
+            else status.HTTP_422_UNPROCESSABLE_CONTENT
+        )
+        return _account_telegram_page(
+            request,
+            user,
+            session,
+            layout,
+            status_code=code,
+            error=exc,
+            telegram_value=telegram_id.strip(),
+        )
+    session.commit()
+    return _account_redirect("telegram_added")
+
+
+@router.post(f"{ACCOUNT_TELEGRAM_PATH}/{{telegram_id}}/status", response_class=HTMLResponse)
+def set_own_telegram_status_endpoint(
+    telegram_id: Annotated[int, Path(ge=1, le=TELEGRAM_ID_MAX)],
+    request: Request,
+    user: CurrentUser,
+    session: DbSession,
+    layout: Layout,
+    allowed_value: Annotated[str, Form(alias="allowed", max_length=8)] = "",
+) -> Response:
+    """12.1.8 kendi kimliğinin iznini kapatma ve açma — `TELEGRAM_USER_CHANGED` {…, added: false}.
+    Kimlik oturumdaki kullanıcının değilse 404, aynı duruma geçiş 409."""
+    if allowed_value not in (ALLOWED_TRUE, ALLOWED_FALSE):
+        return _account_telegram_page(
+            request,
+            user,
+            session,
+            layout,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            error=UNKNOWN_ALLOWED,
+        )
+    account = session.get(TelegramUser, telegram_id)
+    if account is None or account.user_id != user.id:
+        session.rollback()
+        raise HTTPException(status.HTTP_404_NOT_FOUND, OWN_TELEGRAM_NOT_FOUND)
+    allowed = allowed_value == ALLOWED_TRUE
+    try:
+        set_telegram_allowed(session, account, allowed, actor=user.username)
+    except TelegramStatusError as exc:
+        session.rollback()
+        return _account_telegram_page(
+            request, user, session, layout, status_code=status.HTTP_409_CONFLICT, error=exc
+        )
+    session.commit()
+    return _account_redirect("telegram_allowed" if allowed else "telegram_blocked")
+
+
+@router.post(f"{ACCOUNT_TELEGRAM_PATH}/link", response_class=HTMLResponse)
+def create_own_telegram_link_endpoint(
+    request: Request,
+    user: CurrentUser,
+    session: DbSession,
+    layout: Layout,
+) -> Response:
+    """12.1.4, 12.1.8 "Telegram'ı bağla" — kendisi için tek kullanımlık bot bağlantısı;
+    `TELEGRAM_LINK_CREATED` {target_user_id = kendi, expires_at} kendi adıyla. Önceki kullanılmamış
+    bağlantı geçersiz olur. Bot hiç çalışmamışken 409. Bağlantı yalnız bu yanıtta görünür."""
+    own = _user_or_404(session, user.id)
+    bot = read_bot_info(layout)
+    if bot is None:
+        session.rollback()
+        return _account_telegram_page(
+            request,
+            user,
+            session,
+            layout,
+            status_code=status.HTTP_409_CONFLICT,
+            error=BOT_NEVER_RAN,
+        )
+    try:
+        issued = create_link_code(session, own, actor=user.username)
+    except LinkTargetInactiveError as exc:  # pasif kullanıcı giriş yapamaz; yarış için
+        session.rollback()
+        return _account_telegram_page(
+            request, user, session, layout, status_code=status.HTTP_409_CONFLICT, error=exc
+        )
+    session.commit()
+    response = _account_telegram_page(
+        request,
+        user,
+        session,
+        layout,
+        link=IssuedLink(
+            url=link_url(bot.username, issued.code),
+            expires_at=issued.expires_at,
+            minutes=int(LINK_CODE_TTL.total_seconds() // 60),
+        ),
+    )
+    response.headers["Cache-Control"] = "no-store"
+    return response
