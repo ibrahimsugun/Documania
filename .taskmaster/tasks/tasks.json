@@ -2294,7 +2294,7 @@
         "description": "PRD 12.1.6 · FR-MOD-12 · Faz 2 · Should (v2). Tam sözleşme PLAN §D92 — önce oku.",
         "details": "KAPSAM: §D92 (k). Bot metinleri (karşılama, yardım, belge alındı/sonuç özeti 12.2.3, belge isteme yanıtları 12.3, bağlantı yanıtları 12.1.4) msgid olarak işaretlenir ve `en`/`sr` çevrilir. Yanıt dili: izinli kimliğin `telegram_users.user_id` → `users.language`, boşsa `en`; `/start <kod>` → kodun kullanıcısının dili; geçersiz kod, sessizlik ve kişisi bilinmeyen yanıtlar `en`. Dil, güncelleme işlenirken context değişkenine yazılır (panelle aynı `app/i18n`). Belge türü ve çalışan adları çevrilmez. Doğal dil anlama (12.3) değişmez.",
         "testStrategy": "1) `tr`/`sr`/boş tercihli üç kullanıcının izinli kimliğiyle aynı mesaj üç dilde doğru yanıt (boş → `en`). 2) `/start <kod>` başarı yanıtı kodun kullanıcısının dilinde; geçersiz kod `en`. 3) Kullanıcı panelde dili değiştirince botun sonraki yanıtı yeni dilde (yeniden başlatma gerekmez). 4) `check` temiz. 5) Mevcut bot testleri (`tr` varsayılanı) yeşil. 6) Kural bozmaları kırmızı. 7) DoD kapısı yeşil.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [
           "153",
           "149",
@@ -2302,7 +2302,7 @@
         ],
         "priority": "medium",
         "subtasks": [],
-        "updatedAt": "2026-10-02T12:00:00.000Z"
+        "updatedAt": "2026-10-02T17:40:58.505Z"
       },
       {
         "id": "159",
@@ -2364,9 +2364,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-02T16:34:06.966Z",
+      "lastModified": "2026-10-02T17:40:58.505Z",
       "taskCount": 160,
-      "completedCount": 152,
+      "completedCount": 153,
       "tags": [
         "master"
       ]

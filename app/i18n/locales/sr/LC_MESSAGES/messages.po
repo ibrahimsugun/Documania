@@ -4,8 +4,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Documania panel\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-02 15:52+0000\n"
-"PO-Revision-Date: 2026-10-02 15:52+0000\n"
+"POT-Creation-Date: 2026-10-02 17:07+0000\n"
+"PO-Revision-Date: 2026-10-02 17:07+0000\n"
 "Last-Translator: Documania görev penceresi (gözden geçirilmeli)\n"
 "Language: sr_Latn\n"
 "Language-Team: Srpski\n"
@@ -100,6 +100,20 @@ msgstr[0] "%(num)d izlaz je označen kao \"stara verzija\"."
 msgstr[1] "%(num)d izlaza su označena kao \"stara verzija\"."
 msgstr[2] "%(num)d izlaza je označeno kao \"stara verzija\"."
 
+#: app/telegram/handlers.py
+#, python-brace-format
+msgid "'{name}' dosyası Telegram'dan indirilemedi. Lütfen tekrar gönderin."
+msgstr "Fajl '{name}' nije mogao da se preuzme sa Telegrama. Pošaljite ga ponovo."
+
+#: app/telegram/handlers.py
+#, python-brace-format
+msgid ""
+"'{name}' dosyası {limit} MB sınırını aşıyor. Lütfen dosyayı bölüp tekrar "
+"gönderin."
+msgstr ""
+"Fajl '{name}' prelazi ograničenje od {limit} MB. Podelite fajl i "
+"pošaljite ga ponovo."
+
 #: app/web/routers/uploads.py
 #, python-brace-format
 msgid ""
@@ -145,7 +159,7 @@ msgstr "(stara verzija)"
 msgid "(isteğe bağlı)"
 msgstr "(opciono)"
 
-#: app/web/templates/document_move.html
+#: app/telegram/intent.py app/web/templates/document_move.html
 #: app/web/templates/employee_merge_results.html
 msgid "(pasif)"
 msgstr "(neaktivan)"
@@ -308,6 +322,11 @@ msgstr "Korisnici koji su pregledali"
 msgid "Bağlam çalışanı"
 msgstr "Zaposleni iz konteksta"
 
+#: app/telegram/bot.py
+#, python-brace-format
+msgid "Bağlandı: {username}. Belge göndermek ve istemek için /yardim yazın."
+msgstr "Povezano: {username}. Za slanje i traženje dokumenata otkucajte /yardim."
+
 #: app/web/templates/users.html
 msgid "Bağlantı"
 msgstr "Link"
@@ -329,6 +348,14 @@ msgstr[1] ""
 msgstr[2] ""
 "Link važi %(num)d minuta (do %(end)s UTC) i radi jednom; novi link ga "
 "poništava."
+
+#: app/telegram/bot.py
+msgid "Bağlantı geçersiz ya da süresi dolmuş; yöneticinizden yenisini isteyin."
+msgstr "Link je nevažeći ili je istekao; zatražite novi od administratora."
+
+#: app/telegram/bot.py
+msgid "Bağlantı şu anda işlenemedi; biraz sonra yeniden deneyin."
+msgstr "Link trenutno ne može da se obradi; pokušajte ponovo malo kasnije."
 
 #: app/web/templates/users.html
 msgid "Bağlantıyı kopyala"
@@ -380,6 +407,13 @@ msgstr ""
 msgid "Belge Grupları"
 msgstr "Grupe dokumenata"
 
+#: app/telegram/intent.py
+#, python-brace-format
+msgid "Belge Telegram'ın gönderim sınırını ({limit} MB) aşıyor; panelden indirin."
+msgstr ""
+"Dokument prelazi Telegramovo ograničenje za slanje ({limit} MB); "
+"preuzmite ga sa panela."
+
 #: app/web/templating.py
 msgid "Belge Türleri"
 msgstr "Tipovi dokumenata"
@@ -424,6 +458,18 @@ msgstr "Grupa dokumenata"
 #: app/web/routers/employees.py
 msgid "Belge grubu bulunamadı."
 msgstr "Grupa dokumenata nije pronađena."
+
+#: app/telegram/intent.py
+msgid "Belge gönderilemedi. Lütfen tekrar deneyin."
+msgstr "Dokument nije mogao da se pošalje. Pokušajte ponovo."
+
+#: app/telegram/intent.py
+msgid ""
+"Belge isteme şu an çalışmıyor: yapay zekâ sağlayıcısı kurulamadı. "
+"Yöneticiye bildirin."
+msgstr ""
+"Traženje dokumenata trenutno ne radi: AI dobavljač nije mogao da se "
+"podesi. Obavestite administratora."
 
 #: app/web/templates/profile.html
 msgid "Belge numaraları"
@@ -522,6 +568,10 @@ msgstr ""
 #: app/web/routers/documents.py
 msgid "Belgenin dosyası bulunamadı; taşınamaz."
 msgstr "Datoteka dokumenta nije pronađena; ne može se premestiti."
+
+#: app/telegram/intent.py
+msgid "Belgenin dosyası bulunamadı; yöneticiye bildirin."
+msgstr "Fajl dokumenta nije pronađen; obavestite administratora."
 
 #: app/web/templates/document_move.html
 msgid "Belgenin sahibi"
@@ -639,6 +689,31 @@ msgstr "Oštećen zapis o poreklu"
 msgid "Boş"
 msgstr "Prazna"
 
+#: app/telegram/bot.py
+msgid ""
+"Bu Telegram hesabı başka bir panel kullanıcısına bağlı; yöneticinize "
+"başvurun."
+msgstr ""
+"Ovaj Telegram nalog je povezan sa drugim korisnikom panela; obratite se "
+"administratoru."
+
+#: app/telegram/bot.py
+#, python-brace-format
+msgid "Bu Telegram hesabı zaten {username} kullanıcısına bağlı."
+msgstr "Ovaj Telegram nalog je već povezan sa korisnikom {username}."
+
+#: app/telegram/bot.py
+msgid "Bu Telegram hesabının izni kapalı; yöneticinize başvurun."
+msgstr "Dozvola za ovaj Telegram nalog je isključena; obratite se administratoru."
+
+#: app/telegram/intent.py
+msgid ""
+"Bu belge artık güncel değil (arşivlendi ya da yeniden analizle "
+"yenilendi). İsteği yeniden yazın."
+msgstr ""
+"Ovaj dokument više nije aktuelan (arhiviran je ili zamenjen novom "
+"analizom). Ponovo napišite zahtev."
+
 #: app/web/templates/history.html
 msgid "Bu belge için olay yok."
 msgstr "Nema događaja za ovaj dokument."
@@ -698,6 +773,18 @@ msgstr ""
 msgid "Bu kullanıcıya bağlı böyle bir Telegram kimliği yok"
 msgstr "Ovaj korisnik nema takav povezani Telegram ID"
 
+#: app/telegram/intent.py
+msgid ""
+"Bu mesajı bir belge isteği olarak anlayamadım. Bir çalışanın belgesini "
+"istemek için kimin hangi belgesini istediğinizi yazın, örneğin: “Ahmet "
+"Çakar'ın ehliyetini göster”. Bot belge içeriğini değiştirmez; taşıma ve "
+"arşivleme panelden yapılır. Yardım: /yardim"
+msgstr ""
+"Ovu poruku nisam mogao da razumem kao zahtev za dokument. Da biste "
+"zatražili dokument zaposlenog, napišite čiji dokument želite, na primer: "
+"“Ahmet Çakar'ın ehliyetini göster”. Bot ne menja sadržaj dokumenata; "
+"premeštanje i arhiviranje se rade na panelu. Pomoć: /yardim"
+
 #: app/web/templates/upload_detail.html
 msgid "Bu parti için henüz plan yok."
 msgstr "Za ovu seriju još nema plana."
@@ -725,6 +812,10 @@ msgstr "Upravo ćete ponovo analizirati ovu seriju. Da li ste sigurni?"
 #: app/web/routers/users.py
 msgid "Bu sayfayı yalnız yönetici açabilir."
 msgstr "Ovu stranicu može da otvori samo administrator."
+
+#: app/telegram/intent.py
+msgid "Bu seçim artık geçerli değil. İsteği yeniden yazın."
+msgstr "Ovaj izbor više ne važi. Ponovo napišite zahtev."
 
 #: app/web/templates/uploads_list.html
 msgid "Bu süzgece uyan yükleme yok."
@@ -858,6 +949,14 @@ msgstr "Datoteka"
 #: app/web/templates/profile.html
 msgid "Dosya bulunamadı"
 msgstr "Datoteka nije pronađena"
+
+#: app/telegram/handlers.py
+msgid "Dosyalar işlenirken beklenmeyen bir hata oluştu. Lütfen tekrar deneyin."
+msgstr "Došlo je do neočekivane greške pri obradi fajlova. Pokušajte ponovo."
+
+#: app/telegram/handlers.py
+msgid "Dosyalar saklandı; ayrıntı için panelde partiye bakın."
+msgstr "Fajlovi su sačuvani; detalje pogledajte u seriji na panelu."
 
 #: app/web/templates/profile.html app/web/templates/upload.html
 msgid "Dosyaları buraya sürükleyip bırakın"
@@ -1135,6 +1234,14 @@ msgstr "Greška"
 msgid "Hazır"
 msgstr "Spremno"
 
+#: app/telegram/handlers.py
+#, python-brace-format
+msgid "Hazır: {count} belge."
+msgid_plural "Hazır: {count} belge."
+msgstr[0] "Spremno: {count} dokument."
+msgstr[1] "Spremno: {count} dokumenta."
+msgstr[2] "Spremno: {count} dokumenata."
+
 #: app/web/templates/upload_detail.html
 msgid "Hedef"
 msgstr "Cilj"
@@ -1162,6 +1269,10 @@ msgstr "Još nema zaposlenih."
 #: app/web/routers/catalog.py app/web/routers/employees.py
 msgid "Hepsi"
 msgstr "Svi"
+
+#: app/telegram/intent.py
+msgid "Her istekte tek bir çalışanın belgesini isteyin."
+msgstr "U svakom zahtevu tražite dokumente samo jednog zaposlenog."
 
 #: app/web/templates/uploads_list.html
 msgid ""
@@ -1338,6 +1449,14 @@ msgstr "Vaša lozinka: «Promeni moju lozinku»"
 msgid "Kendi parolanızı «Parolamı değiştir» sayfasından değiştirin."
 msgstr "Svoju lozinku promenite na stranici «Promeni moju lozinku»."
 
+#: app/telegram/intent.py
+msgid ""
+"Kimin belgesini istediğinizi yazın: ad-soyad ya da çalışan numarası (ör. "
+"E0001)."
+msgstr ""
+"Napišite čiji dokument želite: ime i prezime ili broj zaposlenog (npr. "
+"E0001)."
+
 #: app/web/templates/access_log_employee.html
 msgid "Kimler baktı"
 msgstr "Ko je pregledao"
@@ -1453,6 +1572,14 @@ msgstr "Redovi"
 msgid "Kuyruğa alınanlar"
 msgstr "Stavljeno u red"
 
+#: app/telegram/handlers.py
+#, python-brace-format
+msgid "Kuyruğa düşen: {count} öğe."
+msgid_plural "Kuyruğa düşen: {count} öğe."
+msgstr[0] "Poslato u red: {count} stavka."
+msgstr[1] "Poslato u red: {count} stavke."
+msgstr[2] "Poslato u red: {count} stavki."
+
 #: app/web/routers/uploads_list.py
 msgid "Kısmen tamamlandı"
 msgstr "Delimično završeno"
@@ -1488,6 +1615,42 @@ msgstr "Nedostaje latinični zapis"
 #: app/web/routers/uploads.py
 msgid "Lütfen dosyayı yeniden adlandırıp tekrar yükleyin."
 msgstr "Preimenujte datoteku i ponovo je otpremite."
+
+#: app/telegram/bot.py
+msgid ""
+"Merhaba, Documania botuna hoş geldiniz.\n"
+"\n"
+"Belge göndermek: belgeyi dosya olarak gönderin. Fotoğraf olarak "
+"gönderilen görüntüyü Telegram sıkıştırır; kimlik belgelerini dosya olarak"
+" gönderin. Birlikte (albüm olarak) gönderilen dosyalar tek parti sayılır;"
+" işlem bitince sonucu yazarım.\n"
+"\n"
+"Belge istemek: kimin hangi belgesini istediğinizi yazın, örneğin “Ahmet "
+"Çakar'ın ehliyetini göster”. Birden çok sonuç bulunursa hangisini "
+"istediğinizi sorarım.\n"
+"\n"
+"Bildirimler: kuyruğa yeni öğe düşünce ya da bir parti işlenemeyince size "
+"kendiliğimden yazarım.\n"
+"\n"
+"Komutlar:\n"
+"/start, /yardim — bu mesaj"
+msgstr ""
+"Zdravo, dobro došli u Documania bota.\n"
+"\n"
+"Slanje dokumenata: pošaljite dokument kao fajl. Telegram kompresuje slike"
+" poslate kao fotografije; dokumente za identifikaciju šaljite kao "
+"fajlove. Fajlovi poslati zajedno (kao album) čine jednu seriju; kada "
+"obrada završi, javiću rezultat.\n"
+"\n"
+"Traženje dokumenata: napišite čiji dokument želite, na primer “Ahmet "
+"Çakar'ın ehliyetini göster”. Ako se pronađe više rezultata, pitaću koji "
+"želite.\n"
+"\n"
+"Obaveštenja: sam ću vam pisati kada nova stavka stigne u red ili kada "
+"serija ne može da se obradi.\n"
+"\n"
+"Komande:\n"
+"/start, /yardim — ova poruka"
 
 #: app/web/templates/upload_detail.html
 msgid "Model:"
@@ -1528,7 +1691,7 @@ msgstr "Napomena:"
 msgid "Numara"
 msgstr "Broj"
 
-#: app/web/routers/upload_page.py
+#: app/telegram/handlers.py app/web/routers/upload_page.py
 msgid "Okunamadı"
 msgstr "Unreadable"
 
@@ -1731,6 +1894,41 @@ msgstr ""
 msgid "Parti {id}"
 msgstr "Serija {id}"
 
+#: app/telegram/handlers.py
+#, python-brace-format
+msgid ""
+"Parti {upload_id}: işleme başka bir işleyiciye geçti; sonucu panelde "
+"görebilirsiniz."
+msgstr ""
+"Serija {upload_id}: obrada je prešla na drugi proces; rezultat možete "
+"videti na panelu."
+
+#: app/telegram/handlers.py
+#, python-brace-format
+msgid ""
+"Parti {upload_id}: {count} dosya alındı ve saklandı, ama yapay zekâ "
+"sağlayıcısı kurulamadığı için işlenmiyor. Yöneticiye bildirin."
+msgid_plural ""
+"Parti {upload_id}: {count} dosya alındı ve saklandı, ama yapay zekâ "
+"sağlayıcısı kurulamadığı için işlenmiyor. Yöneticiye bildirin."
+msgstr[0] ""
+"Serija {upload_id}: {count} fajl je primljen i sačuvan, ali se ne "
+"obrađuje jer AI dobavljač nije mogao da se podesi. Obavestite "
+"administratora."
+msgstr[1] ""
+"Serija {upload_id}: {count} fajla su primljena i sačuvana, ali se ne "
+"obrađuju jer AI dobavljač nije mogao da se podesi. Obavestite "
+"administratora."
+msgstr[2] ""
+"Serija {upload_id}: {count} fajlova je primljeno i sačuvano, ali se ne "
+"obrađuju jer AI dobavljač nije mogao da se podesi. Obavestite "
+"administratora."
+
+#: app/telegram/handlers.py
+#, python-brace-format
+msgid "Parti {upload_id}: {status}."
+msgstr "Serija {upload_id}: {status}."
+
 #: app/web/routers/upload_page.py
 msgid ""
 "Partinin planı yok; yeniden çalıştırılacak ya da yeniden analiz edilecek "
@@ -1852,7 +2050,7 @@ msgstr "Uloga"
 msgid "Rota"
 msgstr "Ruta"
 
-#: app/web/routers/upload_page.py
+#: app/telegram/handlers.py app/web/routers/upload_page.py
 msgid "Sahibi belirsiz"
 msgstr "Unresolved"
 
@@ -2141,7 +2339,7 @@ msgstr "Sve"
 msgid "Tür"
 msgstr "Tip"
 
-#: app/web/routers/upload_page.py
+#: app/telegram/handlers.py app/web/routers/upload_page.py
 msgid "Tür bilinmiyor"
 msgstr "Unknown"
 
@@ -2231,6 +2429,10 @@ msgstr "Starost"
 #: app/web/templates/employee_fields_step.html
 msgid "Yeni"
 msgstr "Novo"
+
+#: app/telegram/handlers.py
+msgid "Yeni belge çıkmadı."
+msgstr "Nije nastao nijedan novi dokument."
 
 #: app/web/templates/users.html
 msgid "Yeni kullanıcı"
@@ -2392,6 +2594,10 @@ msgstr "adresa"
 msgid "başka bir kayıt"
 msgstr "drugim zapisom"
 
+#: app/telegram/intent.py
+msgid "belge"
+msgstr "dokument"
+
 #: app/matching/records.py app/web/routers/upload_page.py
 msgid "belge numarası"
 msgstr "broj dokumenta"
@@ -2426,6 +2632,11 @@ msgstr "drugo"
 msgid "dosya {id}"
 msgstr "datoteka {id}"
 
+#: app/telegram/intent.py
+#, python-brace-format
+msgid "doğum {date}"
+msgstr "rođen(a) {date}"
+
 #: app/web/templates/queue_new_profile.html
 msgid "düzeltildi"
 msgstr "ispravljeno"
@@ -2443,6 +2654,10 @@ msgstr "ručno ({actor}, {day})"
 #, python-brace-format
 msgid "en fazla {limit} karakter olabilir"
 msgstr "može imati najviše {limit} znakova"
+
+#: app/telegram/intent.py
+msgid "etkin belge"
+msgstr "aktivan dokument"
 
 #: app/web/routers/employees.py
 msgid "farklı — kalanın değeri geçerli kalır, profilde uyarı olur"
@@ -2474,6 +2689,10 @@ msgstr "zapis imena"
 msgid "isteğe bağlı"
 msgstr "opciono"
 
+#: app/telegram/handlers.py
+msgid "işlenemedi"
+msgstr "nije mogla da se obradi"
+
 #: app/web/templates/employee_merge_step.html
 msgid "kalan kayda taşınacak"
 msgstr "prelazi na zapis koji ostaje"
@@ -2490,6 +2709,10 @@ msgstr "uklonio:"
 msgid "kapatıldı"
 msgstr "zatvoreno"
 
+#: app/telegram/handlers.py
+msgid "kısmen tamamlandı — bazı sayfalar analiz edilemedi"
+msgstr "delimično završena — neke stranice nisu mogle da se analiziraju"
+
 #: app/web/templates/history.html
 #, python-format
 msgid "plan öğesi %(item)s"
@@ -2499,6 +2722,10 @@ msgstr "stavka plana %(item)s"
 #, python-brace-format
 msgid "s. {pages}"
 msgstr "str. {pages}"
+
+#: app/telegram/handlers.py
+msgid "tamamlandı"
+msgstr "završena"
 
 #: app/web/routers/upload_page.py
 msgid "tarama yoksayıldı"
@@ -2536,6 +2763,42 @@ msgstr "vremena u UTC"
 msgid "zorunlu"
 msgstr "obavezno"
 
+#: app/telegram/handlers.py
+#, python-brace-format
+msgid "{count} dosya alındı. İşleniyor; bitince sonucu yazacağım."
+msgid_plural "{count} dosya alındı. İşleniyor; bitince sonucu yazacağım."
+msgstr[0] "Primljen je {count} fajl. Obrađuje se; javiću rezultat kada završi."
+msgstr[1] "Primljena su {count} fajla. Obrađuju se; javiću rezultat kada završi."
+msgstr[2] "Primljeno je {count} fajlova. Obrađuju se; javiću rezultat kada završi."
+
+#: app/telegram/handlers.py
+#, python-brace-format
+msgid "{count} dosya daha önce yüklenmişti (tekrar), işlenmedi."
+msgid_plural "{count} dosya daha önce yüklenmişti (tekrar), işlenmedi."
+msgstr[0] "{count} fajl je već ranije bio otpremljen (duplikat) i nije obrađen."
+msgstr[1] "{count} fajla su već ranije bila otpremljena (duplikati) i nisu obrađena."
+msgstr[2] ""
+"{count} fajlova je već ranije bilo otpremljeno (duplikati) i nije "
+"obrađeno."
+
+#: app/telegram/intent.py
+#, python-brace-format
+msgid "{count} {kind}"
+msgstr "{kind}: {count}"
+
+#: app/telegram/intent.py
+#, python-brace-format
+msgid "{employee} için {count} {kind} bulundu. Hangisini istiyorsunuz?"
+msgid_plural "{employee} için {count} {kind} bulundu. Hangisini istiyorsunuz?"
+msgstr[0] "Za {employee} pronađen je {count} rezultat ({kind}). Koji želite?"
+msgstr[1] "Za {employee} pronađena su {count} rezultata ({kind}). Koji želite?"
+msgstr[2] "Za {employee} pronađeno je {count} rezultata ({kind}). Koji želite?"
+
+#: app/telegram/intent.py
+#, python-brace-format
+msgid "{employee} için {kind} bulunamadı."
+msgstr "Za {employee} nije pronađen {kind}."
+
 #: app/telegram/whitelist.py
 #, python-brace-format
 msgid ""
@@ -2559,6 +2822,11 @@ msgstr "Telegram ID {id} je već blokiran."
 #, python-brace-format
 msgid "{id} Telegram kimliği zaten izinli."
 msgstr "Telegram ID {id} je već dozvoljen."
+
+#: app/telegram/intent.py
+#, python-brace-format
+msgid "{kind} yok"
+msgstr "nema: {kind}"
 
 #: app/web/routers/employees.py
 #, python-brace-format
@@ -2744,6 +3012,21 @@ msgstr "Zapis imena"
 msgid "İsmin belgede basılı hâli, birebir (Latin de olabilir)"
 msgstr "Ime tačno kako je odštampano u dokumentu (može biti i latinicom)"
 
+#: app/telegram/intent.py
+#, python-brace-format
+msgid ""
+"İstek çok uzun ({limit} karakterden fazla). Kimin hangi belgesini "
+"istediğinizi kısaca yazın."
+msgstr ""
+"Zahtev je predugačak (više od {limit} znakova). Ukratko napišite čiji "
+"dokument želite."
+
+#: app/telegram/intent.py
+msgid "İsteğiniz şu an işlenemedi. Lütfen biraz sonra tekrar deneyin."
+msgstr ""
+"Vaš zahtev trenutno nije mogao da se obradi. Pokušajte ponovo malo "
+"kasnije."
+
 #: app/web/routers/users.py
 msgid "İzin 'true' ya da 'false' olmalı."
 msgstr "Dozvola mora biti 'true' ili 'false'."
@@ -2803,6 +3086,58 @@ msgstr "Nema zaposlenih sa nepotpunim paketima koji odgovaraju upitu “%(query)
 #, python-format
 msgid "“%(query)s” ile eşleşen çalışan yok."
 msgstr "Nema zaposlenih koji odgovaraju upitu “%(query)s”."
+
+#: app/telegram/intent.py
+#, python-brace-format
+msgid "“{kind}” katalogdaki belge türlerinden hiçbirine karşılık gelmiyor."
+msgstr "“{kind}” ne odgovara nijednom tipu dokumenta u katalogu."
+
+#: app/telegram/intent.py
+#, python-brace-format
+msgid "“{person}” ile eşleşen {count} çalışan bulundu. Hangisi?"
+msgid_plural "“{person}” ile eşleşen {count} çalışan bulundu. Hangisi?"
+msgstr[0] "Pronađen je {count} zaposleni koji odgovara upitu “{person}”. Koji?"
+msgstr[1] "Pronađena su {count} zaposlena koja odgovaraju upitu “{person}”. Koji?"
+msgstr[2] "Pronađeno je {count} zaposlenih koji odgovaraju upitu “{person}”. Koji?"
+
+#: app/telegram/intent.py
+#, python-brace-format
+msgid "“{person}” ile eşleşen çalışan bulunamadı."
+msgstr "Nije pronađen zaposleni koji odgovara upitu “{person}”."
+
+#: app/telegram/intent.py
+#, python-brace-format
+msgid "… ve {count} belge daha. Türü belirtin ya da panelden bakın."
+msgid_plural "… ve {count} belge daha. Türü belirtin ya da panelden bakın."
+msgstr[0] "… i još {count} dokument. Navedite tip ili pogledajte na panelu."
+msgstr[1] "… i još {count} dokumenta. Navedite tip ili pogledajte na panelu."
+msgstr[2] "… i još {count} dokumenata. Navedite tip ili pogledajte na panelu."
+
+#: app/telegram/intent.py
+#, python-brace-format
+msgid ""
+"… ve {count} çalışan daha. Adı daha ayrıntılı ya da çalışan numarasıyla "
+"yazın."
+msgid_plural ""
+"… ve {count} çalışan daha. Adı daha ayrıntılı ya da çalışan numarasıyla "
+"yazın."
+msgstr[0] ""
+"… i još {count} zaposleni. Napišite ime detaljnije ili sa brojem "
+"zaposlenog."
+msgstr[1] ""
+"… i još {count} zaposlena. Napišite ime detaljnije ili sa brojem "
+"zaposlenog."
+msgstr[2] ""
+"… i još {count} zaposlenih. Napišite ime detaljnije ili sa brojem "
+"zaposlenog."
+
+#: app/telegram/handlers.py
+#, python-brace-format
+msgid "… ve {count} öğe daha."
+msgid_plural "… ve {count} öğe daha."
+msgstr[0] "… i još {count} stavka."
+msgstr[1] "… i još {count} stavke."
+msgstr[2] "… i još {count} stavki."
 
 #: app/web/templates/catalog_candidate_step.html
 msgid "← Aday tür"

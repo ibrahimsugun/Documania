@@ -29,6 +29,10 @@ sınırını aşan ya da indirilemeyen dosya varsa parti hiç açılmaz (web ile
 kullanıcıya dosyayı bölmesi söylenir. Albümde aynı ada sahip birden çok dosya varsa (aynı partide
 aynı ad olmaz) ikincisi `-2`, üçüncüsü `-3` eki alır; adsız fotoğraf `foto_<kimlik>.jpg` adını alır.
 Mesajın açıklama (`caption`) metni kullanılmaz: çalışan bağlamı bu görevin kapsamında değil.
+
+**Dil (12.1.6).** İletiler gönderenin arayüz dilindedir (`app.telegram.bot.WhitelistGate`'in
+yazdığı dil; arka plan işi onu oluşturulduğu anki bağlamdan alır). Belge türü adı, çalışan numarası
+ve kuyruk gerekçesi veridir, çevrilmez.
 """
 
 from __future__ import annotations
@@ -56,6 +60,7 @@ from app.db.models import (
     UploadFile,
     UploadStatus,
 )
+from app.i18n import N_, gettext, ngettext, translate
 from app.pipeline.orchestrate import ProcessedUpload
 from app.storage import DataLayout
 from app.storage.filetype import extension_for_mime, mime_for_name
@@ -77,32 +82,48 @@ _MAX_LISTED = 10  # özette tek tek sayılan belge/kuyruk öğesi
 _MAX_REASON_LENGTH = 160
 _MAX_MESSAGE_LENGTH = 4000  # Telegram sınırı 4096
 
+# Metinler kaynak dilde (Türkçe msgid) tanımlıdır, gönderilirken `gettext` ile çevrilir (12.1.6).
 STATUS_LABELS: dict[UploadStatus, str] = {
-    UploadStatus.DONE: "tamamlandı",
-    UploadStatus.PARTIAL: "kısmen tamamlandı — bazı sayfalar analiz edilemedi",
-    UploadStatus.FAILED: "işlenemedi",
+    UploadStatus.DONE: N_("tamamlandı"),
+    UploadStatus.PARTIAL: N_("kısmen tamamlandı — bazı sayfalar analiz edilemedi"),
+    UploadStatus.FAILED: N_("işlenemedi"),
 }
 # Panelle aynı Türkçe adlar (app.web.routers.upload_page.QUEUE_LABELS); kuyruk klasörü İngilizce.
 QUEUE_LABELS = {
-    "unknown": "Tür bilinmiyor",
-    "unreadable": "Okunamadı",
-    "unresolved": "Sahibi belirsiz",
+    "unknown": N_("Tür bilinmiyor"),
+    "unreadable": N_("Okunamadı"),
+    "unresolved": N_("Sahibi belirsiz"),
 }
 
-RECEIVED_TEXT = "{count} dosya alındı. İşleniyor; bitince sonucu yazacağım."
-UNPROCESSED_TEXT = (
-    "Parti {upload_id}: {count} dosya alındı ve saklandı, ama yapay zekâ sağlayıcısı "
-    "kurulamadığı için işlenmiyor. Yöneticiye bildirin."
+TOO_LARGE_TEXT = N_(
+    "'{name}' dosyası {limit} MB sınırını aşıyor. Lütfen dosyayı bölüp tekrar gönderin."
 )
-TOO_LARGE_TEXT = (
-    "'{name}' dosyası {limit_mb:.0f} MB sınırını aşıyor. Lütfen dosyayı bölüp tekrar gönderin."
-)
-DOWNLOAD_FAILED_TEXT = "'{name}' dosyası Telegram'dan indirilemedi. Lütfen tekrar gönderin."
-FAILURE_TEXT = "Dosyalar işlenirken beklenmeyen bir hata oluştu. Lütfen tekrar deneyin."
-HANDED_OVER_TEXT = (
+DOWNLOAD_FAILED_TEXT = N_("'{name}' dosyası Telegram'dan indirilemedi. Lütfen tekrar gönderin.")
+FAILURE_TEXT = N_("Dosyalar işlenirken beklenmeyen bir hata oluştu. Lütfen tekrar deneyin.")
+HANDED_OVER_TEXT = N_(
     "Parti {upload_id}: işleme başka bir işleyiciye geçti; sonucu panelde görebilirsiniz."
 )
-NO_OUTPUT_TEXT = "Yeni belge çıkmadı."
+NO_OUTPUT_TEXT = N_("Yeni belge çıkmadı.")
+
+
+def received_text(count: int) -> str:
+    """Parti kaydedilince giden "alındı" iletisi."""
+    return ngettext(
+        "{count} dosya alındı. İşleniyor; bitince sonucu yazacağım.",
+        "{count} dosya alındı. İşleniyor; bitince sonucu yazacağım.",
+        count,
+    ).format(count=count)
+
+
+def unprocessed_text(upload_id: str, count: int) -> str:
+    """Sağlayıcı kurulamadığında giden ileti: dosyalar saklandı, işlenmiyor."""
+    return ngettext(
+        "Parti {upload_id}: {count} dosya alındı ve saklandı, ama yapay zekâ sağlayıcısı "
+        "kurulamadığı için işlenmiyor. Yöneticiye bildirin.",
+        "Parti {upload_id}: {count} dosya alındı ve saklandı, ama yapay zekâ sağlayıcısı "
+        "kurulamadığı için işlenmiyor. Yöneticiye bildirin.",
+        count,
+    ).format(upload_id=upload_id, count=count)
 
 
 @dataclass(frozen=True, slots=True)
@@ -194,7 +215,11 @@ def build_summary(session: Session, upload_id: str, processed: ProcessedUpload) 
     """İşlenmiş partinin kısa özeti (12.2.3): durum, Hazir'a giden belgeler, kuyruğa düşenler.
 
     Yalnız partinin güncel planının çıktıları sayılır. Ad-soyad ve belge numarası yazılmaz."""
-    lines = [f"Parti {upload_id}: {STATUS_LABELS[processed.status]}."]
+    lines = [
+        gettext("Parti {upload_id}: {status}.").format(
+            upload_id=upload_id, status=gettext(STATUS_LABELS[processed.status])
+        )
+    ]
     if processed.plan is not None:
         lines.extend(_output_lines(session, upload_id, processed.plan.id))
     duplicates = session.scalar(
@@ -203,9 +228,15 @@ def build_summary(session: Session, upload_id: str, processed: ProcessedUpload) 
         )
     )
     if duplicates:
-        lines.append(f"{duplicates} dosya daha önce yüklenmişti (tekrar), işlenmedi.")
+        lines.append(
+            ngettext(
+                "{count} dosya daha önce yüklenmişti (tekrar), işlenmedi.",
+                "{count} dosya daha önce yüklenmişti (tekrar), işlenmedi.",
+                duplicates,
+            ).format(count=duplicates)
+        )
     if processed.status is UploadStatus.FAILED:
-        lines.append("Dosyalar saklandı; ayrıntı için panelde partiye bakın.")
+        lines.append(gettext("Dosyalar saklandı; ayrıntı için panelde partiye bakın."))
     return _shorten_message("\n".join(lines))
 
 
@@ -221,19 +252,27 @@ def _output_lines(session: Session, upload_id: str, plan_id: int) -> list[str]:
         )
     )
     if not documents and not queued:
-        return [NO_OUTPUT_TEXT]
+        return [gettext(NO_OUTPUT_TEXT)]
     lines: list[str] = []
     if documents:
-        lines.append(f"Hazır: {len(documents)} belge.")
+        lines.append(
+            ngettext("Hazır: {count} belge.", "Hazır: {count} belge.", len(documents)).format(
+                count=len(documents)
+            )
+        )
         lines.extend(
             f"• {document.document_type.name} — {document.employee_id}"
             for document in documents[:_MAX_LISTED]
         )
         lines.extend(_more(len(documents)))
     if queued:
-        lines.append(f"Kuyruğa düşen: {len(queued)} öğe.")
+        lines.append(
+            ngettext(
+                "Kuyruğa düşen: {count} öğe.", "Kuyruğa düşen: {count} öğe.", len(queued)
+            ).format(count=len(queued))
+        )
         lines.extend(
-            f"• {QUEUE_LABELS.get(item.kind, item.kind)}: "
+            f"• {gettext(QUEUE_LABELS[item.kind]) if item.kind in QUEUE_LABELS else item.kind}: "
             f"{_shorten(item.reason, _MAX_REASON_LENGTH)}"
             for item in queued[:_MAX_LISTED]
         )
@@ -243,7 +282,8 @@ def _output_lines(session: Session, upload_id: str, plan_id: int) -> list[str]:
 
 def _more(total: int) -> Iterable[str]:
     if total > _MAX_LISTED:
-        yield f"… ve {total - _MAX_LISTED} öğe daha."
+        rest = total - _MAX_LISTED
+        yield ngettext("… ve {count} öğe daha.", "… ve {count} öğe daha.", rest).format(count=rest)
 
 
 def _shorten_message(text: str) -> str:
@@ -329,7 +369,7 @@ class DocumentIntake:
         except Exception as exc:
             # İleti kimlik/içerik taşıyabilir (SQL parametresi, dosya yolu); yalnız türü yazılır.
             logger.error("Telegram belge partisi işlenemedi (%s)", type(exc).__name__)
-            text = FAILURE_TEXT
+            text = gettext(FAILURE_TEXT)
         await _send(bot, chat_id, text)
 
     async def _process(
@@ -340,8 +380,8 @@ class DocumentIntake:
         try:
             upload_id = await asyncio.to_thread(self._store, telegram_id, incoming, token)
         except HTTPException as exc:  # sınır aşımı gibi kullanıcıya söylenecek ret (01.3.1)
-            raise _Refused(str(exc.detail)) from None
-        await _send(bot, chat_id, RECEIVED_TEXT.format(count=len(incoming)))
+            raise _Refused(translate(exc.detail)) from None
+        await _send(bot, chat_id, received_text(len(incoming)))
         return await asyncio.to_thread(self._run_pipeline, Claim(upload_id, token), len(incoming))
 
     async def _download(self, bot: Bot, files: Sequence[TelegramFile]) -> list[IncomingFile]:
@@ -359,7 +399,7 @@ class DocumentIntake:
                 if "too big" in str(exc).lower():
                     raise _Refused(_too_large(file.name, limit)) from None
                 logger.error("Telegram dosyası indirilemedi (%s)", type(exc).__name__)
-                raise _Refused(DOWNLOAD_FAILED_TEXT.format(name=file.name)) from None
+                raise _Refused(gettext(DOWNLOAD_FAILED_TEXT).format(name=file.name)) from None
             incoming.append(IncomingFile(file.name, content, file.mime))
         return incoming
 
@@ -388,18 +428,18 @@ class DocumentIntake:
             with self._session_factory() as session:
                 release_claim(session, claim)
                 session.commit()
-            return UNPROCESSED_TEXT.format(upload_id=claim.upload_id, count=file_count)
+            return unprocessed_text(claim.upload_id, file_count)
         processed = run_claimed_upload(
             self._session_factory, self._layout, claim, settings=self._settings, provider=provider
         )
         if processed is None:  # iş bu arada başka bir işleyiciye geçti
-            return HANDED_OVER_TEXT.format(upload_id=claim.upload_id)
+            return gettext(HANDED_OVER_TEXT).format(upload_id=claim.upload_id)
         with self._session_factory() as session:
             return build_summary(session, claim.upload_id, processed)
 
 
 def _too_large(name: str, limit: int) -> str:
-    return TOO_LARGE_TEXT.format(name=name, limit_mb=limit / (1024 * 1024))
+    return gettext(TOO_LARGE_TEXT).format(name=name, limit=f"{limit / (1024 * 1024):.0f}")
 
 
 async def _send(bot: Bot, chat_id: int, text: str) -> None:
