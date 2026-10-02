@@ -18,6 +18,12 @@ Blok biçimi `CONVENTIONS.md` §3'te tanımlıdır:
 
 ## Task log (newest-first)
 
+## 152–158 — Arayüz dili İngilizce/Türkçe/Sırpça — görevler açıldı — 2026-10-02
+- Yapıldı: İnsan isteğiyle PRD 10.10.1–10.10.5, 12.1.6 ve §20.6.3 (onay metinlerinin İngilizce/Sırpça karşılıkları), §8.1 `users.language`, §8.3 `USER_LANGUAGE_CHANGED`, §10 kapsam dışı; PLAN §D92 sözleşmesi, §0/§2 sayaçları, §4/§5 satırları, §G 10.10-a…f ve 12.1-f; Task Master 152–158 (pending). Kod yok.
+- Doğrulama: `task-master validate-dependencies` temiz.
+- Varsayımlar: Sırpça Latin alfabesiyle (Kiril kapsam dışı); tarayıcı dili kullanılmaz, açılış İngilizce; kaynak dil Türkçe (msgid), testler `PANEL_DEFAULT_LANGUAGE=tr` ile.
+- Sonraki pencereye not: Sıra 152 → 153 → 154; 156 ve 157 152'den sonra bağımsız; 155 son çeviri görevi (154, 156, 157'yi bekler); 158 bot. Önce PLAN §D92'yi oku.
+
 ## 151 — Ürün adı Documania — done — 2026-10-02
 - Yapıldı: İnsan kararıyla ürünün görünen adı Documania oldu: panel başlığı/markası, giriş sayfası, bot karşılaması, baslat.bat ve bot penceresi, yorum başlıkları, paket adı (`uv.lock` yeniden çözüldü), README/CLAUDE.md/PRD/PLAN başlığı (§D91).
 - Doğrulama: ruff check/format, `import app.main`, `uv lock --check`; `pytest -q -m "not live"` sekiz paralel grupta 6267 geçti, 6 atlandı, 0 kırmızı.

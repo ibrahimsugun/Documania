@@ -2196,12 +2196,113 @@
         "priority": "medium",
         "subtasks": [],
         "updatedAt": "2026-10-02T10:00:00.000Z"
+      },
+      {
+        "id": "152",
+        "title": "10.10-a — Arayüz dili altyapısı: gettext/Babel kataloğu, istek dili, varsayılan İngilizce, iskelet sayfalar [OPUS-XHIGH]",
+        "description": "PRD 10.10.1, 10.10.3 · FR-MOD-10 · Faz 1 · Should (v1). İnsan isteği (2026-10-02): arayüz İngilizce, Türkçe, Sırpça; açılış İngilizce. Tam sözleşme PLAN §D92 — önce oku.",
+        "details": "KAPSAM: §D92 (a), (b), (e), (f), (g). (1) Bağımlılık: `babel` (`pyproject.toml`, `uv lock`). (2) `app/i18n/` paketi: `SUPPORTED_LANGUAGES` (`en`, `tr`, `sr`; `html_lang` `en`/`tr`/`sr-Latn`; kendi dilinde ad), `current_language()` context değişkeni, `gettext`/`ngettext`/`N_` (istek diline bakar), katalog yükleme (`.mo`, paket verisi, süreç başına önbellek; `tr` msgid'in kendisi), `python -m app.i18n extract|update|compile|check`, `babel.cfg`. Kataloglar `app/i18n/locales/{en,sr}/LC_MESSAGES/messages.{po,mo}`; `sr` `Plural-Forms` CLDR. `app/i18n/GLOSSARY.md` (§D92 l). (3) `Settings.panel_default_language` (`PANEL_DEFAULT_LANGUAGE`, varsayılan `en`, geçersiz → açılış hatası); `.env.example` açıklaması; `tests/conftest.py` testlerde `tr` verir. (4) İstek dili: ara katman ya da bağımlılık — girişli istekte kullanıcının dili (bu görevde sütun yok: yalnız varsayılan; 10.10-b ekler), girişsizde `documania_lang` çerezi, yoksa varsayılan; `Accept-Language` okunmaz. (5) Jinja: `jinja2.ext.i18n`, `install_gettext_callables(newstyle=True)`; `base.html` `<html lang=\"{{ html_lang }}\">`. (6) İskelet sayfalar işaretlenir ve `en`/`sr` çevrilir: `base.html` (menü — `PANEL_MENU` etiketleri `N_`, üst çubuk, çıkış, eski sürüm uyarısı 13.5.3), `login.html` + `routers/auth.py` mesajları, oturumsuz/genel hata sayfaları. Öbür sayfalar Türkçe kalır (sonraki görevler). (7) Türkçe kalıntı tarama yardımcısı (`tests/` altında, §D92 g) ve `check` testi. (8) README: dil ve çeviri komutları kısa not. Kod düzeni: dil seçimi yalnız `app/i18n`'de; başka modül dil dizgesi karşılaştırmaz.",
+        "testStrategy": "1) Varsayılan: ayarsız uygulamada giriş sayfası İngilizce ve `<html lang=\"en\">`; `PANEL_DEFAULT_LANGUAGE=tr` ile Türkçe; geçersiz değer açılışta hata. 2) `Accept-Language: tr` ve `sr` gönderilse de giriş sayfası `en`. 3) Çerez `documania_lang=sr` → giriş sayfası Sırpça, `lang=\"sr-Latn\"`; geçersiz çerez → `en`. 4) Menü üç dilde doğru etiketler (sözlük), sıra değişmez. 5) `check`: boş/fuzzy msgstr, eski `.mo`, uyuşmayan yer tutucu her biri yakalanır (geçici bozuk katalogla); depodaki katalog temiz. 6) Kalıntı taraması iskelet sayfalarda `en` için temiz, geçici olarak işaretlenmemiş bir Türkçe metin eklenince kırmızı. 7) İşçi/bot bağlamında `gettext` varsayılanı döner (istek yok). 8) Mevcut test paketi (`tr`) değişmeden yeşil. 9) Kural bozmaları kırmızı. 10) DoD kapısı yeşil.",
+        "status": "pending",
+        "dependencies": [
+          "151"
+        ],
+        "priority": "medium",
+        "subtasks": [],
+        "updatedAt": "2026-10-02T12:00:00.000Z"
+      },
+      {
+        "id": "153",
+        "title": "10.10-b — Kullanıcının dil tercihi: hesapta saklama, dil seçici, girişte otomatik dil [OPUS-HIGH]",
+        "description": "PRD 10.10.2 · FR-MOD-10 · Faz 1 · Should (v1). İnsan isteği (2026-10-02): kişi dili değiştirirse hesabında kalsın, her girişte kendi dilinde açılsın. Tam sözleşme PLAN §D92 — önce oku.",
+        "details": "KAPSAM: §D92 (b), (c), (d). (1) Göç `0024`: `users.language` `String(8)` boş olabilir, CHECK (`en`,`tr`,`sr`); model + PRD §8.1 zaten yazıldı. (2) `PanelUser.language`; `resolve_session` aynı sorguda okur; istek dili girişlide `users.language` ya da varsayılan. (3) `POST /language` (form `language`, `next`): oturumsuz açık, geçersiz dil 422, `next` güvenli yol denetimi (yalnız `/` ile başlar, `//` ve `/\\\\` ile başlamaz; değilse `/`), 303; çerez `documania_lang` (1 yıl, HttpOnly, SameSite=Lax, Secure kuralı oturum çereziyle aynı); girişliyse `users.language` + `EventType.USER_LANGUAGE_CHANGED` {target_user_id, language, via: \"selector\"} (dil aynıysa olay yok). (4) Girişte (`routers/auth.py`): hesap boş + çerez geçerli → hesaba yaz, olay via \"login\"; hesap dolu → çerezi hesabın diliyle yenile. (5) Seçici: `base.html` üst çubukta kullanıcı adının yanında, `login.html` kutunun altında; üç düğmeli küçük form, seçili `aria-current`, JavaScript'siz; HTMX ile yüklenen parçalarda seçici yok. `panel.css`. (6) `test_access_log.py` açık yol listesi, `test_events.py`, `test_migrations.py`, `test_models.py` güncellenir.",
+        "testStrategy": "1) Göç: boş SQLite'ta 0023→0024 ve geri; CHECK geçersiz değeri reddeder; mevcut kullanıcı boş kalır. 2) Girişli kullanıcı `sr` seçer → 303 aynı sayfa, sayfa Sırpça, `users.language='sr'`, tek olay (actor kendisi, via selector); aynı dili yeniden seçmek olay yazmaz. 3) Çıkış + yeni tarayıcıda (çerezsiz) giriş → panel Sırpça (cihazdan bağımsız). 4) Tercihi boş hesap: girişte çerez `tr` → hesap `tr`, olay via login; çerezsiz → `en`, hesap boş kalır. 5) Hesap `tr` iken çerez `sr` ile giriş → panel `tr`, çerez `tr` olur. 6) Oturumsuz `POST /language` yalnız çerez yazar, olay yok, giriş sayfası o dilde. 7) `next=//evil.example`, `next=https://…`, `next=/\\\\evil` → `/`. 8) Geçersiz dil 422, hiçbir şey değişmez. 9) Başka kullanıcının dili değiştirilemez (yol yok). 10) Kural bozmaları kırmızı. 11) DoD kapısı yeşil (temiz SQLite'ta `alembic upgrade head` → 0024).",
+        "status": "pending",
+        "dependencies": [
+          "152"
+        ],
+        "priority": "medium",
+        "subtasks": [],
+        "updatedAt": "2026-10-02T12:00:00.000Z"
+      },
+      {
+        "id": "154",
+        "title": "10.10-c — Çeviri I: çalışanlar, profil, yükleme, yüklemeler, geçmiş, erişim logu, kullanıcılar, hesap [OPUS-HIGH]",
+        "description": "PRD 10.10.3 · FR-MOD-10 · Faz 1 · Should (v1). Tam sözleşme PLAN §D92 — önce oku.",
+        "details": "KAPSAM: §D92 (e), (f), (g), (l). Şu sayfaların şablonları, yönlendirici mesajları ve modül düzeyi etiketleri işaretlenir, `en` ve `sr` çevrilir: `employees*.html`, `profile*.html`, `employee_*.html`, `document_*.html`, `history.html`, `access_log*.html`, `upload*.html` (yükle, sonuç, detay, eylem sonucu), `uploads_list.html`, `_context_warning.html`, `_manual_check.html`, `users.html`, `account_password.html`; yönlendiriciler `employees.py`, `documents.py`, `upload_page.py`, `uploads.py`, `uploads_list.py`, `access_log.py`, `users.py` (HTML'de görünen `detail` ve form hataları), `app/web/profile_form.py` etiketleri ve yardım metinleri (`N_`), durum adları (çalışan, parti, paket — 14.x profil bölümü dahil). Onay metinleri bu görevde değil (10.10-e). Sayı alan metinler `ngettext`. Belge türü adı, çalışan verisi, dosya adı çevrilmez (§D92 f). Kalıntı taraması bu sayfalar için `en`'de çalışır (sentetik veriyle). Mevcut Türkçe testler `tr` varsayılanıyla aynen geçer; metin değişikliği yok, yalnız işaretleme.",
+        "testStrategy": "1) Her sayfa `en` ve `sr` ile çizilir: başlık, tablo başlıkları, düğmeler, boş durum, hata mesajı örnekleri doğru dilde (sayfa başına en az bir anlamlı denetim). 2) Kalıntı taraması bu görevin bütün sayfalarında `en` için temiz. 3) Sırpça çoğul: 1, 2, 5 ve 21 sayılarıyla bir sayaç metni doğru biçimde. 4) `python -m app.i18n check` temiz. 5) `tr` testleri değişmeden yeşil (metin regresyonu yok). 6) Veri çevrilmiyor: belge türü adı ve çalışan adı `en`'de de aynen. 7) Kural bozmaları kırmızı. 8) DoD kapısı yeşil.",
+        "status": "pending",
+        "dependencies": [
+          "153"
+        ],
+        "priority": "medium",
+        "subtasks": [],
+        "updatedAt": "2026-10-02T12:00:00.000Z"
+      },
+      {
+        "id": "155",
+        "title": "10.10-d — Çeviri II: Belge Türleri, adaylar, Belge Grupları, Kuyruklar, Eğitim modu; bütün panelde kalıntı taraması [OPUS-HIGH]",
+        "description": "PRD 10.10.3 · FR-MOD-10 · Faz 1 · Should (v1). Çeviri görevlerinin sonuncusu: bittiğinde panelin tamamı üç dilde. Tam sözleşme PLAN §D92 — önce oku.",
+        "details": "KAPSAM: §D92 (e), (f), (g), (l). İşaretlenir ve `en`/`sr` çevrilir: `catalog*.html` (Belge Türleri, form, kriterler, tanım, örnekler, fotoğraf kuralları, aday türler ve adımları, arşiv adımı, katalog bütçe satırı 11.4.3), `group*.html`, `queue*.html`, `training*.html`, `_training_tabs.html` ve yönlendiricileri `catalog.py`, `groups.py`, `queue.py`, `training.py`, `panel.py`; durum ve gerekçe adları (kuyruk kapatma gerekçeleri, aday durumları, eğitim etiketleri — \"AI kararı\" dahil). Kuyruk adları Unknown/Unreadable/Unresolved çevrilmez. **Bütün panel taraması:** test `app.routes`'taki her `GET` HTML yolunu (parametreli olanlar sentetik kayıtla) `en` ve `sr` ile açar; kalıntı taraması `en`'de temiz, her sayfa 200; listede olmayan yeni HTML yolu testi kırmızı yapar (yeni sayfa çevirisiz eklenemesin). HANDOFF'a: Sırpça çevirinin ana dili Sırpça biri tarafından gözden geçirilmesi önerisi.",
+        "testStrategy": "1) Bu görevin sayfaları `en`/`sr`'de doğru başlık, düğme, durum adları. 2) Bütün panel taraması: her HTML GET yolu `en` ve `sr`'de 200 ve `en`'de kalıntı yok; yol listesi `app.routes` ile eşit. 3) Geçici olarak işaretlenmemiş bir metin ya da çevirisiz yeni yol eklenince kırmızı. 4) `check` temiz. 5) `tr` testleri yeşil. 6) Kural bozmaları kırmızı. 7) DoD kapısı yeşil.",
+        "status": "pending",
+        "dependencies": [
+          "154",
+          "156",
+          "157"
+        ],
+        "priority": "medium",
+        "subtasks": [],
+        "updatedAt": "2026-10-02T12:00:00.000Z"
+      },
+      {
+        "id": "156",
+        "title": "10.10-e — Onay metinleri üç dilde (PRD §20.6.3 birebir) [SONNET-XHIGH]",
+        "description": "PRD 10.10.4 · FR-MOD-10 · Faz 1 · Should (v1). Tam sözleşme PLAN §D92 — önce oku.",
+        "details": "KAPSAM: §D92 (h). `app/web/confirm.py` `CONFIRMATION_TEXTS` dil başına (`tr` §20.6, `en`/`sr` §20.6.3 — PRD'den birebir, gettext'e değil); `first_text`/`second_text` istek dilini kullanır; yer tutucu doldurma aynı; `CONFIRMATION_REFUSED` ve onay adımı sayfalarındaki çevre metin (düğmeler, \"İptal\", ikinci adım başlığı) gettext ile çevrilir. `USER_CONFIRMED` olayı değişmez. Onay adımı şablonları (`*_step.html`, `document_move.html`, `queue_assign.html`, `queue_new_profile.html`, `employee_merge*.html`) yalnız onay metni ve çevre metin için işaretlenir; sayfaların geri kalanı 10.10-c/10.10-d'de.",
+        "testStrategy": "1) `test_confirm.py` §20.6.3 tablosunu ayrıştırır: 13 işlem × 2 onay × `en`/`sr` kod sabitleriyle birebir; tabloda olup kodda olmayan ya da tersi kırmızı. 2) Her dilde yer tutucu kümesi Türkçe kaynakla aynı. 3) Uçtan uca: `en` kullanıcısı taşımada iki İngilizce metni, `sr` kullanıcısı iki Sırpça metni görür, belirteç akışı değişmez. 4) Olay verisi dil bağımsız aynı. 5) Kural bozmaları (bir sözcük değişikliği, yer tutucu eksik) kırmızı. 6) DoD kapısı yeşil.",
+        "status": "pending",
+        "dependencies": [
+          "152"
+        ],
+        "priority": "medium",
+        "subtasks": [],
+        "updatedAt": "2026-10-02T12:00:00.000Z"
+      },
+      {
+        "id": "157",
+        "title": "10.10-f — Ülke adları ve JavaScript metinleri seçili dilde [OPUS-HIGH]",
+        "description": "PRD 10.10.5, 10.10.3 · FR-MOD-10 · Faz 1 · Should (v1). Tam sözleşme PLAN §D92 — önce oku.",
+        "details": "KAPSAM: §D92 (i), (j). (1) Veri: CLDR 48.2.0 `cldr-localenames-full` `en` ve `sr-Latn` `territories.json` indirilir → `app/countries/data/cldr-en-territories.json`, `cldr-sr-Latn-territories.json` (Türkçe dosyayla aynı biçim, yalnız gereken alanlar), `SOURCES.md` kaynak/lisans/indirme tarihi; package-data. Ağ yalnız indirme için; testler ağsız. (2) `app/countries`: ad tablosu dil başına; `country_badge`/`nationality_badge` istek dilini kullanır (imza geriye uyumlu, isteğe bağlı `language`). MRZ istisnaları ve ülke olmayan kodların adları (Vatansız → Stateless / Lice bez državljanstva, BM belgeleri) üç dilde. (3) Ülke süzgeci (11.1.7): seçenek sıralaması dilin harf sırasıyla (Babel `Locale` ya da sabit harf sırası tablosu), \"Hepsi\" / \"Genel — ülkesiz\" çevrilir. (4) JavaScript: `copy-link.js`, `country-select.js`, `upload.js` içindeki görünen dizgeler `data-*` ya da `base.html`'deki JSON bloğundan okunur; `.js` dosyasında Türkçe görünen dizge kalmaz; `country-select.js` arama katlaması Türkçe (`ı/İ/ş/ğ/ç/ö/ü`) ve Sırpça (`č/ć/đ/š/ž`; `đ` hem `d` hem `dj`) aksanları kaldırır.",
+        "testStrategy": "1) `RUS` → `en` \"Russia (RUS)\", `sr` \"Rusija (RUS)\", `tr` \"Rusya (RUS)\"; `D` → Germany/Nemačka/Almanya; `XXA` üç dilde bayraksız. 2) Üç dilde 250 ülkenin her birinin adı var (veri bütünlüğü). 3) Süzgeç sıralaması: `sr`'de `Č` `C`'den sonra, `tr`'de `Ç` `C`'den sonra. 4) JS dosyalarında Türkçe harfli görünen dizge yok (statik tarama); `data-*`/JSON metinleri `en`/`sr`'de doğru. 5) Arama katlaması: \"srbija\" → Srbija, \"cesk\" → Češka, \"turkiye\" → Türkiye (JS birim testi varsa ya da tarayıcıda elle, kanıt §K). 6) `SOURCES.md` girişleri. 7) Kural bozmaları kırmızı. 8) DoD kapısı yeşil.",
+        "status": "pending",
+        "dependencies": [
+          "152"
+        ],
+        "priority": "medium",
+        "subtasks": [],
+        "updatedAt": "2026-10-02T12:00:00.000Z"
+      },
+      {
+        "id": "158",
+        "title": "12.1-f — Bot yanıtları kullanıcının dilinde [SONNET-XHIGH]",
+        "description": "PRD 12.1.6 · FR-MOD-12 · Faz 2 · Should (v2). Tam sözleşme PLAN §D92 — önce oku.",
+        "details": "KAPSAM: §D92 (k). Bot metinleri (karşılama, yardım, belge alındı/sonuç özeti 12.2.3, belge isteme yanıtları 12.3, bağlantı yanıtları 12.1.4) msgid olarak işaretlenir ve `en`/`sr` çevrilir. Yanıt dili: izinli kimliğin `telegram_users.user_id` → `users.language`, boşsa `en`; `/start <kod>` → kodun kullanıcısının dili; geçersiz kod, sessizlik ve kişisi bilinmeyen yanıtlar `en`. Dil, güncelleme işlenirken context değişkenine yazılır (panelle aynı `app/i18n`). Belge türü ve çalışan adları çevrilmez. Doğal dil anlama (12.3) değişmez.",
+        "testStrategy": "1) `tr`/`sr`/boş tercihli üç kullanıcının izinli kimliğiyle aynı mesaj üç dilde doğru yanıt (boş → `en`). 2) `/start <kod>` başarı yanıtı kodun kullanıcısının dilinde; geçersiz kod `en`. 3) Kullanıcı panelde dili değiştirince botun sonraki yanıtı yeni dilde (yeniden başlatma gerekmez). 4) `check` temiz. 5) Mevcut bot testleri (`tr` varsayılanı) yeşil. 6) Kural bozmaları kırmızı. 7) DoD kapısı yeşil.",
+        "status": "pending",
+        "dependencies": [
+          "153",
+          "149"
+        ],
+        "priority": "medium",
+        "subtasks": [],
+        "updatedAt": "2026-10-02T12:00:00.000Z"
       }
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-02T10:00:00.000Z",
-      "taskCount": 149,
+      "lastModified": "2026-10-02T12:00:00.000Z",
+      "taskCount": 156,
       "completedCount": 146,
       "tags": [
         "master"

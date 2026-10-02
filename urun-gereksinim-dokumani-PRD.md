@@ -321,6 +321,11 @@ Kapsam: FR-MOD-13.
 | 10.8.2 | Belgeyi başka çalışana taşıma | İki onay verilmeden işlem gerçekleşmez; iki profil de güncellenir; olay kullanıcı adıyla loglanır | Must (v1) |
 | 10.9.1 | İçerik düzenlemenin yokluğu (R12) | Panelde belge içeriği düzenleyen hiçbir yol yoktur | Must (v1) |
 | 10.9.2 | Görüntüleme ve indirme logu | Her açma ve indirme kullanıcı ve zamanla kaydedilir | Should (v1) |
+| 10.10.1 | Arayüz dili: İngilizce, Türkçe, Sırpça | Panelin bütün görünen metinleri üç dilde sunulur: English (`en`), Türkçe (`tr`), Srpski (`sr`, Latin alfabesi). Giriş sayfası ve oturumsuz sayfalar İngilizce açılır; tarayıcının dil ayarı dikkate alınmaz. Sayfanın `<html lang>` özniteliği seçili dili taşır (`en`, `tr`, `sr-Latn`) | Should (v1) |
+| 10.10.2 | Kullanıcının dil tercihi | Üst çubukta ve giriş sayfasında dil seçici vardır; dil adları kendi dilinde yazılır (English · Türkçe · Srpski). Girişli kullanıcı dili değiştirince seçim hesabına kaydedilir, olaya yazılır ve aynı sayfada kalınır; sonraki her girişte, hangi cihazdan olursa olsun, panel kullanıcının seçtiği dilde açılır. Tercihi olmayan hesap İngilizce açılır; giriş sayfasında seçilmiş dil, tercihi olmayan hesaba girişte kaydedilir | Should (v1) |
+| 10.10.3 | Çeviri kapsamı ve bütünlüğü | Menü, sayfa ve tablo başlıkları, düğmeler, form etiketleri ve yardım metinleri, durum adları, hata ve uyarı mesajları, boş durum metinleri ve istemci tarafı (JavaScript) metinleri seçili dilde görünür; İngilizce ve Sırpça çeviri kataloğunda eksik, bulanık (fuzzy) ya da yer tutucusu kaynağıyla uyuşmayan metin bulunmaz (test). İngilizce panelde Türkçe arayüz metni kalmaz (test). Veri çevrilmez: belge türü adları ve tanımları, çalışan bilgileri, belge içeriği, dosya ve klasör adları, profil.md, olay logu ve uygulama logları, komut satırı metinleri, JSON API yanıtları. Tarih ve sayı biçimi dilden bağımsızdır | Should (v1) |
+| 10.10.4 | Onay metinleri üç dilde | İki aşamalı onay metinleri (§20.6) seçili dilde gösterilir; İngilizce ve Sırpça karşılıklar §20.6.3 tablosundan **birebir** kullanılır, yer tutucular aynıdır; onay olayı (`USER_CONFIRMED`) değişmez | Should (v1) |
+| 10.10.5 | Ülke adları seçili dilde | Ülke adları (10.1.6, 10.5.11, 11.1.7) seçili dilde gösterilir (CLDR `en`, `tr`, `sr-Latn`); ülke süzgecinde sıralama ve yazarak arama seçili dile göre çalışır, Türkçe ve Sırpça harfler aksansız yazılınca da bulunur | Should (v1) |
 
 ### FR-MOD-11 — Belge türü kataloğu ve öğrenme (Faz 1 · Faz 2)
 
@@ -365,6 +370,7 @@ Kapsam: FR-MOD-13.
 | 12.1.3 | Beyaz listeyi panelden yönetme | Kullanıcı yönetimi sayfasında (10.1.4) her panel kullanıcısına Telegram kimliği eklenir, izni kapatılıp açılır; bot yalnız izinli kimliğe yanıt verir; değişiklik kullanıcı adıyla olaya yazılır; kayıt silinmez. Sayfa kimliğin telefon numarası değil Telegram hesap kimliği olduğunu ve @userinfobot'tan nasıl öğrenileceğini söyler; @userinfobot yanıtından kopyalanan `Id: 123456789` satırı da kabul edilir | Should (v2) |
 | 12.1.4 | Telegram hesabını bağlantıyla otomatik bağlama | Kullanıcılar sayfasında bir kullanıcı için "Telegram'ı bağla" kişiye özel, tek kullanımlık ve 10 dakika geçerli bir bot bağlantısı (`https://t.me/<bot>?start=<kod>`) üretir; kişi bağlantıyı açıp "Başlat"a basınca bot gönderenin Telegram kimliğini o kullanıcıya izinli olarak kendisi kaydeder ve "bağlandı" der, kimlik panelde görünür; elle kimlik girme yedek yol olarak kalır. Kod yalnız bir kez ve süresi içinde çalışır, yeni kod öncekini geçersiz kılar, başka kullanıcıya bağlı ya da engellenmiş kimlik bu yolla açılmaz; geçersiz kodla gelen kişiye tek bir genel yanıt verilir, kodsuz yabancıya yine yanıt verilmez; üretim ve bağlama kullanıcı adıyla olaya yazılır; kod ve kimlik loga yazılmaz | Should (v2) |
 | 12.1.5 | Yerel başlatıcıda bot | `baslat.bat` `.env`'de `TELEGRAM_BOT_TOKEN` doluysa botu (geliştirmede polling) panelle birlikte ayrı pencerede başlatır; boşsa botsuz açılır ve bunu söyler | Should (v2) |
+| 12.1.6 | Bot yanıtları kullanıcının dilinde | Bot, mesajı gönderen izinli kimliğin bağlı olduğu panel kullanıcısının dilinde (10.10.2) yanıt verir; tercihi olmayan kullanıcıya İngilizce. Bağlantıyla bağlamada (12.1.4) yanıt bağlanan kullanıcının dilindedir; geçersiz bağlantı gibi kişisi bilinmeyen genel yanıtlar İngilizcedir. Belge türü ve çalışan adları çevrilmez | Should (v2) |
 | 12.2.1 | Belge alma | Gönderilen belge web ile aynı boru hattından işlenir | Should (v2) |
 | 12.2.2 | Çoklu mesaj grubu | Aynı medya grubundaki dosyalar tek parti sayılır | Should (v2) |
 | 12.2.3 | Sonuç özeti | İşlem sonucu ve kuyruğa düşen öğeler kısa mesajla bildirilir | Should (v2) |
@@ -443,7 +449,7 @@ değiştirmez, boru hattına karışmaz; yalnız çalışanın etkin belgelerine
 | `example_files` | Örnek dosyası kaydı ve etiketi (11.9) | id, type_slug, name, sha256, method, label (`ai_decision`, `verified`), note, training_item_id, created_at |
 | `events` | Olay logu | id, ts, upload_id, file_id, page_index, document_id, employee_id, actor, type, message, data_json |
 | `access_log` | Görüntüleme ve indirme | ts, user_id, document_id, action, channel |
-| `users` | Panel kullanıcıları | id, username, password_hash, role, active (10.1.4) |
+| `users` | Panel kullanıcıları | id, username, password_hash, role, active (10.1.4), language (10.10.2: `en`, `tr`, `sr`; boş = tercih yok) |
 | `telegram_users` | Beyaz liste | telegram_id, user_id, allowed |
 | `document_groups` | Belge grubu (14.1.1) | id, name, normalized_name (tekil), description, created_by, created_at, archived_at, archived_by |
 | `document_group_items` | Grup kalemi (14.1.2) | id, group_id, position, match_kind (`label`, `type`), file_label, type_slug, required, note |
@@ -488,7 +494,7 @@ PROFILE_RECORD_REMOVED · PROFILE_RECORD_RESTORED · CONTACT_ADDED · UNARCHIVED
 QUEUE_ITEM_CLOSED · QUEUE_ITEM_REOPENED · UPLOAD_RESTORED · TYPE_ACTIVATED · TYPE_DEACTIVATED ·
 TYPE_ARCHIVED · TYPE_RESTORED · CANDIDATE_TYPE_RESTORED · TRAINING_ITEM_DISMISSED ·
 TRAINING_ITEM_RESTORED · TRAINING_RUN_ARCHIVED · USER_CREATED · USER_DEACTIVATED ·
-USER_REACTIVATED · USER_PASSWORD_CHANGED · TELEGRAM_USER_CHANGED · TELEGRAM_LINK_CREATED · GROUP_CHANGED ·
+USER_REACTIVATED · USER_PASSWORD_CHANGED · USER_LANGUAGE_CHANGED · TELEGRAM_USER_CHANGED · TELEGRAM_LINK_CREATED · GROUP_CHANGED ·
 PACKAGE_ASSIGNED · PACKAGE_COMPLETED · PACKAGE_REOPENED · PACKAGE_CANCELLED
 
 `EMPLOYEE_CREATED` olayının verisi açılış dayanağını taşır: `basis` = `document_number` (§20.2.2
@@ -497,6 +503,8 @@ satır 6) ya da `name_dob` (satır 6b).
 2026-09-28 açılışının olayları (10.1.4, 10.3.5, 10.5.6–10.5.10, 10.7.4, 11.1.6, 11.5.7, 11.9.6, 12.1.3,
 14.x) kişisel değer taşımaz: alan **adları**, kayıt türü ve kimlikleri, sayılar ve gerekçe kodları yazılır;
 isim, numara, tarih, parola ve iletişim değeri yazılmaz. Hepsi `actor` olarak kullanıcı adını taşır.
+
+`USER_LANGUAGE_CHANGED` (10.10.2) verisi: `target_user_id`, `language` (`en`/`tr`/`sr`) ve `via` (`selector` — dil seçici, `login` — giriş sayfasında seçilmiş dilin tercihi olmayan hesaba girişte kaydı); `actor` kullanıcının kendisidir.
 
 ### 8.4 Sayfa analizi şeması
 
@@ -661,6 +669,9 @@ Aşağıdakiler bu üründe **yapılmayacaktır**:
   yalnız belgelerin hazır olup olmadığını izler.
 - Maliyet ölçümü ve paneli: yapay zekâ çağrılarının token sayısı ve maliyeti tutulmaz, hiçbir
   sayfada gösterilmez (13.1.1 kaldırıldı). Olay logu yalnız sağlayıcı ve model adını taşır.
+- Arayüz dilinde (10.10.x): Kiril alfabesiyle Sırpça, tarayıcı diline göre kendiliğinden dil seçimi, adreste dil öneki
+  (`/en/...`), yöneticinin başka kullanıcının dilini ayarlaması, verinin (belge türü, çalışan, belge, dosya adı, olay)
+  çevirisi ve botun doğal dil isteklerini (12.3) başka dillerde anlaması.
 - Kalıcı silme: hiçbir varlık (çalışan, belge, tür, grup, kullanıcı, olay) veritabanından ya da diskten
   silinmez; pasife alma, arşivleme, kapatma ve kaldırma durum değiştirir ve geri alınabilir (R11).
 
@@ -1049,7 +1060,7 @@ Yazma tamamlandıktan sonra `documents` kaydına kaynak dosya kimliği ve sayfa 
 
 ---
 
-### 20.6 İki aşamalı onay metinleri (gereksinim 10.8.1, 10.8.2, 10.7.2, 10.7.3, 08.4.1, 11.5.2, 10.3.4, 10.5.6, 10.5.7, 10.5.8, 10.5.9, 10.5.10, 10.7.4)
+### 20.6 İki aşamalı onay metinleri (gereksinim 10.8.1, 10.8.2, 10.7.2, 10.7.3, 08.4.1, 11.5.2, 10.3.4, 10.5.6, 10.5.7, 10.5.8, 10.5.9, 10.5.10, 10.7.4, 10.10.4)
 
 K16'daki manuel işlemler iki aşamalı onay ister (salt geri alma işlemleri tek adımdır, K16). Metinler **birebir** aşağıdaki
 gibidir; pencere kendi cümlesini yazmaz. `<…>` yer tutucuları çalışma zamanında doldurulur.
@@ -1099,3 +1110,26 @@ düşülür.
 - Aynı belirteçle ikinci kez gönderilen istek reddedilir.
 - Süresi geçmiş belirteçle gelen istek reddedilir.
 - Başarılı işlemde olay logunda kullanıcı adı ve iki zaman damgası bulunur.
+
+#### 20.6.3 İngilizce ve Sırpça karşılıklar (gereksinim 10.10.4)
+
+Yukarıdaki tablo kaynaktır; İngilizce (`en`) ve Sırpça (`sr`, Latin) panelde metinler **birebir** aşağıdaki gibidir.
+Yer tutucular (`<Ad Soyad>`, `<Birleşen Ad Soyad>`, `<Kalan Ad Soyad>`, `<Tür adı>`, `<N>`, `<M>`) her dilde aynı
+yazılır ve aynı değerle doldurulur. Sayı alan cümleler sayının çoğul uyumunu gerektirmeyecek biçimde kurulmuştur
+("… (<N>) …"). `Hazir`, çalışanın fiziksel klasörünün adıdır; çevrilmez.
+
+| İşlem | Birinci onay (en) | İkinci onay (en) | Birinci onay (sr) | İkinci onay (sr) |
+|---|---|---|---|---|
+| Belgeyi başka çalışana taşı | `You are about to move this document to another employee. Are you sure?` | `This action will change the document organization in the system. Is this your final decision?` | `Upravo ćete premestiti ovaj dokument drugom zaposlenom. Da li ste sigurni?` | `Ova radnja će promeniti organizaciju dokumenata u sistemu. Da li je to vaša konačna odluka?` |
+| Kuyruk öğesini çalışana ata | `You are about to assign this document to employee <Ad Soyad>. Are you sure?` | `This action will change the document organization in the system. Is this your final decision?` | `Upravo ćete dodeliti ovaj dokument zaposlenom <Ad Soyad>. Da li ste sigurni?` | `Ova radnja će promeniti organizaciju dokumenata u sistemu. Da li je to vaša konačna odluka?` |
+| Onay bekleyen profili onayla | `You are about to create a new employee profile for <Ad Soyad>. Are you sure?` | `This action will create a permanent employee record in the system. Is this your final decision?` | `Upravo ćete kreirati novi profil zaposlenog za <Ad Soyad>. Da li ste sigurni?` | `Ova radnja će kreirati trajni zapis o zaposlenom u sistemu. Da li je to vaša konačna odluka?` |
+| Yeni belge türünü onayla | `You are about to add the document type <Tür adı> to the standard types. Are you sure?` | `This action will affect all future document analyses. Is this your final decision?` | `Upravo ćete dodati tip dokumenta <Tür adı> među standardne tipove. Da li ste sigurni?` | `Ova radnja će uticati na sve buduće analize dokumenata. Da li je to vaša konačna odluka?` |
+| Belgeyi arşive taşı | `You are about to move this document to the archive. Are you sure?` | `The document will leave the employee's Hazir folder. Is this your final decision?` | `Upravo ćete premestiti ovaj dokument u arhivu. Da li ste sigurni?` | `Dokument će biti uklonjen iz fascikle Hazir zaposlenog. Da li je to vaša konačna odluka?` |
+| Taramayı yoksay | `You are about to dismiss this scan. Are you sure?` | `The batch and its pending queue items (<N>) will be removed from the lists; generated documents (<M>) stay in place. Is this your final decision?` | `Upravo ćete zanemariti ovo skeniranje. Da li ste sigurni?` | `Serija i njene stavke reda na čekanju (<N>) biće uklonjene sa spiskova; generisani dokumenti (<M>) ostaju na mestu. Da li je to vaša konačna odluka?` |
+| Çalışan profilini düzenle | `You are about to change this employee's profile information. Are you sure?` | `If the first or last name changed, the folder and the document files (<N>) will be renamed. Is this your final decision?` | `Upravo ćete izmeniti podatke profila ovog zaposlenog. Da li ste sigurni?` | `Ako je ime ili prezime promenjeno, fascikla i datoteke dokumenata (<N>) biće preimenovane. Da li je to vaša konačna odluka?` |
+| Çalışanı pasife al | `You are about to deactivate employee <Ad Soyad>. Are you sure?` | `New documents for this employee will not be placed automatically; they will go to the queue. Is this your final decision?` | `Upravo ćete deaktivirati zaposlenog <Ad Soyad>. Da li ste sigurni?` | `Novi dokumenti za ovog zaposlenog neće se automatski raspoređivati, već će ići u red. Da li je to vaša konačna odluka?` |
+| Çalışanı yeniden etkinleştir | `You are about to reactivate employee <Ad Soyad>. Are you sure?` | `The employee will return to the list and new documents will again be placed automatically. Is this your final decision?` | `Upravo ćete ponovo aktivirati zaposlenog <Ad Soyad>. Da li ste sigurni?` | `Zaposleni će se vratiti na spisak, a novi dokumenti će se ponovo automatski raspoređivati. Da li je to vaša konačna odluka?` |
+| Profil alt kaydını kaldır | `You are about to remove this record from the employee profile. Are you sure?` | `The record will no longer be used for matching or search and will remain in the history. Is this your final decision?` | `Upravo ćete ukloniti ovaj zapis iz profila zaposlenog. Da li ste sigurni?` | `Zapis se više neće koristiti za uparivanje i pretragu i ostaće u istoriji. Da li je to vaša konačna odluka?` |
+| İki çalışanı birleştir | `You are about to merge the record <Birleşen Ad Soyad> into the record <Kalan Ad Soyad>. Are you sure?` | `The documents (<N>) will be moved and the merged record will be closed; this action cannot be undone. Is this your final decision?` | `Upravo ćete spojiti zapis <Birleşen Ad Soyad> sa zapisom <Kalan Ad Soyad>. Da li ste sigurni?` | `Dokumenti (<N>) biće premešteni, a spojeni zapis biće zatvoren; ova radnja se ne može poništiti. Da li je to vaša konačna odluka?` |
+| Belgeyi arşivden geri al | `You are about to restore this document from the archive. Are you sure?` | `The document will return to the employee's Hazir folder. Is this your final decision?` | `Upravo ćete vratiti ovaj dokument iz arhive. Da li ste sigurni?` | `Dokument će se vratiti u fasciklu Hazir zaposlenog. Da li je to vaša konačna odluka?` |
+| Kuyruk öğesini kapat | `You are about to close this queue item. Are you sure?` | `The item will be considered resolved; its file copy and reason will stay in place. Is this your final decision?` | `Upravo ćete zatvoriti ovu stavku reda. Da li ste sigurni?` | `Stavka će se smatrati rešenom; kopija datoteke i obrazloženje ostaju na mestu. Da li je to vaša konačna odluka?` |
