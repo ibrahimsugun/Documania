@@ -55,6 +55,7 @@ from sqlalchemy.orm import Session
 
 from app.db.models import ExampleFileRecord, TrainingItem, TrainingItemStatus, TrainingRun
 from app.events import EventType, record_event
+from app.i18n import N_, Translatable
 from app.storage import DataLayout, write_unique
 from app.storage.examples import ExampleLocator, listed_example_slug
 from app.storage.map_paths import (
@@ -91,12 +92,19 @@ SLUG_MAX_LENGTH = 64  # `training_items.hint_slug`
 NAME_MAX_LENGTH = 255  # `training_items.original_name`
 SAMPLE_LIMIT = 50
 
-NO_PATH_COLUMN = (
+NO_PATH_COLUMN = N_(
     "Haritada yol sütunu yok: dest, output_relative_path, ornek_klasoru, "
     "source_collection_path ya da path gerekir."
 )
-NO_ROWS = "Haritada satır yok."
-NOT_UTF8 = "Harita UTF-8 metin değil; CSV'yi UTF-8 olarak kaydedin."
+NO_ROWS = N_("Haritada satır yok.")
+NOT_UTF8 = N_("Harita UTF-8 metin değil; CSV'yi UTF-8 olarak kaydedin.")
+
+
+def map_too_large(max_bytes: int) -> Translatable:
+    """Bayt sınırını aşan haritanın mesajı (yüklemede ve gizli alanın açılmasında aynı)."""
+    return Translatable(
+        N_("Harita {limit} MB sınırını aşıyor."), limit=f"{max_bytes / (1024 * 1024):.0f}"
+    )
 
 
 class MapError(ValueError):
@@ -123,12 +131,12 @@ class SkipReason(enum.StrEnum):
 
 
 SKIP_LABELS: dict[SkipReason, str] = {
-    SkipReason.REFERENCE: "referans — örnek değil",
-    SkipReason.NO_PATH: "yol yok",
-    SkipReason.NO_COLLECTION: "koleksiyon kökü ayarlı değil",
-    SkipReason.UNSAFE_PATH: "güvensiz yol",
-    SkipReason.MISSING: "dosya yok",
-    SkipReason.EMPTY_FOLDER: "klasörde PDF, JPEG ya da PNG yok",
+    SkipReason.REFERENCE: N_("referans — örnek değil"),
+    SkipReason.NO_PATH: N_("yol yok"),
+    SkipReason.NO_COLLECTION: N_("koleksiyon kökü ayarlı değil"),
+    SkipReason.UNSAFE_PATH: N_("güvensiz yol"),
+    SkipReason.MISSING: N_("dosya yok"),
+    SkipReason.EMPTY_FOLDER: N_("klasörde PDF, JPEG ya da PNG yok"),
 }
 
 
@@ -158,7 +166,7 @@ def parse_map(content: bytes, *, max_bytes: int, max_rows: int) -> tuple[MapRow,
     """Haritayı okur (modül açıklaması); okunamıyor ya da sınırı aşıyorsa `MapError`. Boş satır
     atlanır ama numarası sayılır."""
     if len(content) > max_bytes:
-        raise MapError(f"Harita {max_bytes / (1024 * 1024):.0f} MB sınırını aşıyor.")
+        raise MapError(map_too_large(max_bytes))
     try:
         text = content.decode(MAP_ENCODING)
     except UnicodeDecodeError:
@@ -180,10 +188,14 @@ def parse_map(content: bytes, *, max_bytes: int, max_rows: int) -> tuple[MapRow,
             if not any(cell.strip() for cell in record):
                 continue
             if len(rows) >= max_rows:
-                raise MapError(f"Harita {max_rows} satır sınırını aşıyor.")
+                raise MapError(
+                    Translatable(N_("Harita {limit} satır sınırını aşıyor."), limit=max_rows)
+                )
             rows.append(_map_row(number, record, columns))
     except csv.Error:
-        raise MapError(f"Harita CSV olarak okunamadı (satır {reader.line_num}).") from None
+        raise MapError(
+            Translatable(N_("Harita CSV olarak okunamadı (satır {line})."), line=reader.line_num)
+        ) from None
     if not rows:
         raise MapError(NO_ROWS)
     return tuple(rows)
@@ -253,7 +265,9 @@ class SkippedRow:
     @property
     def label(self) -> str:
         text = SKIP_LABELS[self.reason]
-        return f"{text} ({self.detail})" if self.detail else text
+        if not self.detail:
+            return text
+        return Translatable("{reason} ({detail})", reason=Translatable(text), detail=self.detail)
 
 
 @dataclass(frozen=True, slots=True)
@@ -329,7 +343,9 @@ def plan_map(
                     continue
                 entries.append(_entry(row, column, root, file_reference, file, locator, known))
         if len(entries) > max_files:
-            raise MapError(f"Harita {max_files} dosya sınırını aşıyor.")
+            raise MapError(
+                Translatable(N_("Harita {limit} dosya sınırını aşıyor."), limit=max_files)
+            )
     return MapPlan(count, tuple(entries), tuple(skipped))
 
 

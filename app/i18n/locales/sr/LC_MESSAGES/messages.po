@@ -4,8 +4,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Documania panel\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-02 19:00+0000\n"
-"PO-Revision-Date: 2026-10-02 19:00+0000\n"
+"POT-Creation-Date: 2026-10-02 20:18+0000\n"
+"PO-Revision-Date: 2026-10-02 20:18+0000\n"
 "Last-Translator: Documania görev penceresi (gözden geçirilmeli)\n"
 "Language: sr_Latn\n"
 "Language-Team: Srpski\n"
@@ -15,6 +15,52 @@ msgstr ""
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.18.0\n"
+
+#: app/web/templates/training_results.html
+msgid ""
+"\"AI kararı\" satırlarını seçip toplu doğrulayabilirsiniz; başka türe "
+"taşımak ya da örneklerden çıkarmak için sonuç türünün sayfasını açın."
+msgstr ""
+"Izaberite redove „AI odluka“ da ih potvrdite odjednom; da biste ih "
+"premestili u drugi tip ili uklonili iz primera, otvorite stranicu tipa "
+"rezultata."
+
+#: app/web/templates/training_type.html
+msgid ""
+"\"AI kararı\" örneklerini inceleyin: doğruysa doğrulayın, yanlış türdeyse"
+" başka türe taşıyın ya da örneklerden çıkarın. Doğrulanmamış \"AI "
+"kararı\" örneği açıklama üretimine girmez."
+msgstr ""
+"Pregledajte primere „AI odluka“: ako su ispravni, potvrdite ih; ako su u "
+"pogrešnom tipu, premestite ih u drugi tip ili ih uklonite iz primera. "
+"Nepotvrđen primer „AI odluka“ ne koristi se za generisanje opisa."
+
+#: app/pipeline/queue_close.py
+msgid "\"Diğer\" gerekçesinde kısa bir not yazın."
+msgstr "Za razlog „Drugo“ napišite kratku napomenu."
+
+#: app/web/templates/catalog_candidate_step.html
+msgid "\"Eski sürüm\" işaretlenen çıktı"
+msgstr "Izlazi označeni kao „Stara verzija“"
+
+#: app/web/templates/catalog.html
+#, python-format
+msgid "%(count)s türün tanımı kesiliyor — küme büyük."
+msgid_plural "%(count)s türün tanımı kesiliyor — küme büyük."
+msgstr[0] "Opis %(count)s tipa se skraćuje — skup je veliki."
+msgstr[1] "Opisi %(count)s tipa se skraćuju — skup je veliki."
+msgstr[2] "Opisi %(count)s tipova se skraćuju — skup je veliki."
+
+#: app/web/templates/training_results.html
+#, python-format
+msgid "%(done)d/%(total)d işlendi"
+msgstr "Obrađeno %(done)d/%(total)d"
+
+#: app/web/templates/catalog_candidate_samples.html
+#: app/web/templates/queue_item.html
+#, python-format
+msgid "%(file)s — sayfa %(page)d"
+msgstr "%(file)s — strana %(page)d"
 
 #: app/web/templates/history.html app/web/templates/upload_detail.html
 #, python-format
@@ -26,6 +72,40 @@ msgstr "%(file)s — strana %(page)s"
 msgid "%(name)s profil fotoğrafı"
 msgstr "Profilna fotografija: %(name)s"
 
+#: app/web/templates/catalog.html
+#, python-format
+msgid "%(name)s seç"
+msgstr "Izaberi %(name)s"
+
+#: app/web/templates/training_type.html
+#, python-format
+msgid "%(num)d \"AI kararı\""
+msgstr "%(num)d „AI odluka“"
+
+#: app/web/templates/catalog_description.html
+#, python-format
+msgid ""
+"%(num)d \"AI kararı\" örneği İK doğrulamadığı için açıklama üretimine "
+"girmedi."
+msgid_plural ""
+"%(num)d \"AI kararı\" örneği İK doğrulamadığı için açıklama üretimine "
+"girmedi."
+msgstr[0] "%(num)d primer „AI odluka“ nije korišćen za opis jer ga HR nije potvrdio."
+msgstr[1] ""
+"%(num)d primera „AI odluka“ nisu korišćena za opis jer ih HR nije "
+"potvrdio."
+msgstr[2] ""
+"%(num)d primera „AI odluka“ nije korišćeno za opis jer ih HR nije "
+"potvrdio."
+
+#: app/web/templates/catalog_candidates.html
+#, python-format
+msgid "%(num)d bekleyen Unknown öğesi"
+msgid_plural "%(num)d bekleyen Unknown öğesi"
+msgstr[0] "%(num)d stavka Unknown na čekanju"
+msgstr[1] "%(num)d stavke Unknown na čekanju"
+msgstr[2] "%(num)d stavki Unknown na čekanju"
+
 #: app/web/templates/upload_action_result.html
 #, python-format
 msgid "%(num)d belge yerinde kaldı."
@@ -33,6 +113,26 @@ msgid_plural "%(num)d belge yerinde kaldı."
 msgstr[0] "%(num)d dokument ostaje na mestu."
 msgstr[1] "%(num)d dokumenta ostaju na mestu."
 msgstr[2] "%(num)d dokumenata ostaje na mestu."
+
+#: app/web/templates/training_results.html
+#, python-format
+msgid "%(num)d dosya"
+msgid_plural "%(num)d dosya"
+msgstr[0] "%(num)d datoteka"
+msgstr[1] "%(num)d datoteke"
+msgstr[2] "%(num)d datoteka"
+
+#: app/web/templates/training_results.html
+#, python-format
+msgid ""
+"%(num)d dosya sistemin kararını bekliyor; bu bölüm kendiliğinden "
+"yenilenir."
+msgid_plural ""
+"%(num)d dosya sistemin kararını bekliyor; bu bölüm kendiliğinden "
+"yenilenir."
+msgstr[0] "%(num)d datoteka čeka odluku sistema; ovaj odeljak se sam osvežava."
+msgstr[1] "%(num)d datoteke čekaju odluku sistema; ovaj odeljak se sam osvežava."
+msgstr[2] "%(num)d datoteka čeka odluku sistema; ovaj odeljak se sam osvežava."
 
 #: app/web/templates/access_log_employee.html
 #, python-format
@@ -50,6 +150,14 @@ msgstr[0] "%(num)d starija verzija"
 msgstr[1] "%(num)d starije verzije"
 msgstr[2] "%(num)d starijih verzija"
 
+#: app/web/templates/catalog_accepted_photos.html
+#, python-format
+msgid "%(num)d fotoğraf örnek olarak işaretli."
+msgid_plural "%(num)d fotoğraf örnek olarak işaretli."
+msgstr[0] "%(num)d fotografija je označena kao primer."
+msgstr[1] "%(num)d fotografije su označene kao primeri."
+msgstr[2] "%(num)d fotografija je označeno kao primeri."
+
 #: app/web/templates/profile.html
 #, python-format
 msgid "%(num)d kalem"
@@ -58,6 +166,27 @@ msgstr[0] "%(num)d stavka"
 msgstr[1] "%(num)d stavke"
 msgstr[2] "%(num)d stavki"
 
+#: app/web/templates/catalog.html
+#, python-format
+msgid "%(num)d onay bekliyor"
+msgstr "na odobrenju: %(num)d"
+
+#: app/web/templates/catalog_candidate_step.html
+#, python-format
+msgid "%(num)d parti yeniden analiz edildi."
+msgid_plural "%(num)d parti yeniden analiz edildi."
+msgstr[0] "%(num)d serija je ponovo analizirana."
+msgstr[1] "%(num)d serije su ponovo analizirane."
+msgstr[2] "%(num)d serija je ponovo analizirano."
+
+#: app/web/templates/catalog_description.html
+#, python-format
+msgid "%(num)d satır"
+msgid_plural "%(num)d satır"
+msgstr[0] "%(num)d red"
+msgstr[1] "%(num)d reda"
+msgstr[2] "%(num)d redova"
+
 #: app/web/templates/upload_detail.html
 #, python-format
 msgid "%(num)d sayfa"
@@ -65,6 +194,14 @@ msgid_plural "%(num)d sayfa"
 msgstr[0] "%(num)d strana"
 msgstr[1] "%(num)d strane"
 msgstr[2] "%(num)d strana"
+
+#: app/web/templates/group.html app/web/templates/training_known.html
+#, python-format
+msgid "%(num)d tür"
+msgid_plural "%(num)d tür"
+msgstr[0] "%(num)d tip"
+msgstr[1] "%(num)d tipa"
+msgstr[2] "%(num)d tipova"
 
 #: app/web/templates/uploads_list.html
 #, python-format
@@ -84,7 +221,7 @@ msgstr[2] "%(num)d zaposlenih"
 
 #: app/web/templates/document_move.html
 #: app/web/templates/employee_merge_results.html
-#: app/web/templates/employees_results.html
+#: app/web/templates/employees_results.html app/web/templates/queue_assign.html
 #, python-format
 msgid "%(num)d çalışan bulundu"
 msgid_plural "%(num)d çalışan bulundu"
@@ -99,6 +236,96 @@ msgid_plural "%(num)d çıktı \"eski sürüm\" olarak işaretlendi."
 msgstr[0] "%(num)d izlaz je označen kao \"stara verzija\"."
 msgstr[1] "%(num)d izlaza su označena kao \"stara verzija\"."
 msgstr[2] "%(num)d izlaza je označeno kao \"stara verzija\"."
+
+#: app/web/templates/catalog_examples.html
+#, python-format
+msgid ""
+"%(num)d örnek \"AI kararı\" etiketli ve elle kontrol bekliyor; "
+"doğrulanana kadar açıklama üretimine girmez."
+msgid_plural ""
+"%(num)d örnek \"AI kararı\" etiketli ve elle kontrol bekliyor; "
+"doğrulanana kadar açıklama üretimine girmez."
+msgstr[0] ""
+"%(num)d primer ima oznaku „AI odluka“ i čeka ručnu proveru; dok se ne "
+"potvrdi, ne koristi se za generisanje opisa."
+msgstr[1] ""
+"%(num)d primera imaju oznaku „AI odluka“ i čekaju ručnu proveru; dok se "
+"ne potvrde, ne koriste se za generisanje opisa."
+msgstr[2] ""
+"%(num)d primera ima oznaku „AI odluka“ i čeka ručnu proveru; dok se ne "
+"potvrde, ne koriste se za generisanje opisa."
+
+#: app/web/templates/catalog_candidate_step.html
+#, python-format
+msgid ""
+"%(num)d öğe yeniden analizden sonra da bu aday türle Unknown kuyruğunda "
+"bekliyor."
+msgid_plural ""
+"%(num)d öğe yeniden analizden sonra da bu aday türle Unknown kuyruğunda "
+"bekliyor."
+msgstr[0] ""
+"%(num)d stavka i posle ponovne analize čeka u redu Unknown sa ovim "
+"predloženim tipom."
+msgstr[1] ""
+"%(num)d stavke i posle ponovne analize čekaju u redu Unknown sa ovim "
+"predloženim tipom."
+msgstr[2] ""
+"%(num)d stavki i posle ponovne analize čeka u redu Unknown sa ovim "
+"predloženim tipom."
+
+#: app/web/templates/queue_item.html
+#, python-format
+msgid "%(queue)s kuyruğu"
+msgstr "Red %(queue)s"
+
+#: app/web/templates/queue.html
+#, python-format
+msgid "%(queue)s kuyruğunda %(state)s öğe yok."
+msgstr "U redu %(queue)s nema stavki sa statusom „%(state)s“."
+
+#: app/web/templates/catalog.html
+#, python-format
+msgid "%(shown)d tür gösteriliyor (toplam %(total)d)"
+msgstr "Prikazano tipova: %(shown)d (ukupno %(total)d)"
+
+#: app/web/routers/catalog.py
+#, python-brace-format
+msgid "'{file}' aynı yüklemede '{first}' ile aynı içerikte; yüklenmedi."
+msgstr ""
+"'{file}' ima isti sadržaj kao '{first}' u ovom otpremanju; nije "
+"otpremljeno."
+
+#: app/web/routers/catalog.py
+#, python-brace-format
+msgid "'{file}' bu türde zaten örnek (aynı içerik: {existing}); yüklenmedi."
+msgstr ""
+"'{file}' je već primer ovog tipa (isti sadržaj: {existing}); nije "
+"otpremljeno."
+
+#: app/catalog/describe.py app/storage/examples.py
+#, python-brace-format
+msgid "'{file}' dosyası açılamadı; bozuk olabilir."
+msgstr "Datoteka '{file}' nije mogla da se otvori; možda je oštećena."
+
+#: app/storage/examples.py
+#, python-brace-format
+msgid "'{file}' dosyası boş."
+msgstr "Datoteka '{file}' je prazna."
+
+#: app/catalog/describe.py
+#, python-brace-format
+msgid "'{file}' dosyası bulunamadı."
+msgstr "Datoteka '{file}' nije pronađena."
+
+#: app/catalog/describe.py app/storage/examples.py
+#, python-brace-format
+msgid "'{file}' dosyası {limit} MB sınırını aşıyor."
+msgstr "Datoteka '{file}' prelazi ograničenje od {limit} MB."
+
+#: app/storage/examples.py
+#, python-brace-format
+msgid "'{file}' örnek olamaz: yalnız PDF, JPEG ve PNG kabul edilir."
+msgstr "'{file}' ne može biti primer: prihvataju se samo PDF, JPEG i PNG."
 
 #: app/web/routers/uploads.py
 #, python-brace-format
@@ -141,7 +368,7 @@ msgstr "(datoteka nije pronađena)"
 msgid "(eski sürüm)"
 msgstr "(stara verzija)"
 
-#: app/web/templates/upload.html
+#: app/web/templates/training.html app/web/templates/upload.html
 msgid "(isteğe bağlı)"
 msgstr "(opciono)"
 
@@ -154,6 +381,16 @@ msgstr "(neaktivan)"
 msgid "(siz)"
 msgstr "(vi)"
 
+#: app/web/templates/catalog_candidates.html
+#, python-format
+msgid "+%(num)d örnek daha"
+msgstr "+%(num)d primera više"
+
+#: app/catalog/photo_rules.py
+#, python-brace-format
+msgid "1 ile {limit} arasında bir piksel sayısı yazılmalı"
+msgstr "unesite broj piksela između 1 i {limit}"
+
 #: app/web/templates/document_move.html
 #: app/web/templates/employee_merge_results.html
 #, python-format
@@ -163,10 +400,68 @@ msgstr[0] "; prikazan je prvi %(num)d, suzite pretragu"
 msgstr[1] "; prikazana su prva %(num)d, suzite pretragu"
 msgstr[2] "; prikazano je prvih %(num)d, suzite pretragu"
 
-#: app/web/profile_form.py app/web/routers/employees.py
+#: app/web/templates/queue_assign.html
+#, python-format
+msgid "; ilk %(shown)d gösteriliyor, aramayı daraltın"
+msgstr "; prikazano je prvih %(shown)d, suzite pretragu"
+
+#: app/web/routers/training.py
+msgid ""
+"<Dosya> örneğini <Eski tür> türünden <Yeni tür> türüne taşımak "
+"üzeresiniz. Emin misiniz?"
+msgstr ""
+"Upravo ćete premestiti primer <Dosya> iz tipa <Eski tür> u tip <Yeni "
+"tür>. Da li ste sigurni?"
+
+#: app/web/routers/training.py
+msgid "<Dosya> örneğini <Tür> örneklerinden çıkarmak üzeresiniz. Emin misiniz?"
+msgstr ""
+"Upravo ćete ukloniti primer <Dosya> iz primera tipa <Tür>. Da li ste "
+"sigurni?"
+
+#: app/web/routers/training.py
+msgid "<Harita> haritasındaki <N> dosyayı taramak üzeresiniz. Emin misiniz?"
+msgstr "Upravo ćete skenirati <N> datoteka iz mape <Harita>. Da li ste sigurni?"
+
+#: app/web/routers/catalog.py
+msgid "<N> belge türünü arşivlemek üzeresiniz. Emin misiniz?"
+msgstr "Upravo ćete arhivirati <N> tipova dokumenata. Da li ste sigurni?"
+
+#: app/web/routers/catalog.py
+msgid "<Tür adı> belge türünü arşivlemek üzeresiniz. Emin misiniz?"
+msgstr "Upravo ćete arhivirati tip dokumenta <Tür adı>. Da li ste sigurni?"
+
+#: app/web/templates/training_map.html
+#, python-format
+msgid "<strong>%(name)s</strong> haritası okundu."
+msgstr "Mapa <strong>%(name)s</strong> je pročitana."
+
+#: app/web/templates/catalog_description.html
+msgid ""
+"<strong>Henüz kaydedilmedi:</strong> metni gözden geçirip gerekirse "
+"düzenleyin, sonra Kaydet'e basın. Örnekteki kişiye ait bir değer (ad, "
+"numara, tarih) metne girdiyse silin."
+msgstr ""
+"<strong>Još nije sačuvano:</strong> pregledajte tekst, po potrebi ga "
+"izmenite, pa pritisnite Sačuvaj. Ako je u tekst ušla vrednost osobe iz "
+"primera (ime, broj, datum), obrišite je."
+
+#: app/web/routers/training.py app/web/templates/training_known.html
+msgid "AI kararı"
+msgstr "AI odluka"
+
+#: app/web/routers/training.py
+msgid "AI kararı olanlar"
+msgstr "Sa AI odlukama"
+
+#: app/catalog/prefill.py app/web/profile_form.py app/web/routers/catalog.py
+#: app/web/routers/employees.py app/web/templates/catalog.html
+#: app/web/templates/catalog_type_fields.html
 #: app/web/templates/document_move.html
 #: app/web/templates/employee_merge_results.html
-#: app/web/templates/employees_results.html app/web/templates/profile.html
+#: app/web/templates/employees_results.html app/web/templates/group.html
+#: app/web/templates/groups.html app/web/templates/profile.html
+#: app/web/templates/queue_assign.html
 msgid "Ad"
 msgstr "Ime"
 
@@ -179,6 +474,7 @@ msgstr ""
 " dobijaju novo ime; E broj i sadržaj dokumenata se ne menjaju."
 
 #: app/web/templates/employees.html app/web/templates/history.html
+#: app/web/templates/queue_item.html
 msgid "Ad, alias, orijinal yazım, belge numarası veya belge türü"
 msgstr "Ime, alias, originalni zapis, broj dokumenta ili tip dokumenta"
 
@@ -195,8 +491,61 @@ msgstr ""
 "zapis nije pronađen u dokumentu ni u zapisima imena."
 
 #: app/web/templates/catalog_candidate_step.html
+#: app/web/templates/catalog_candidates.html
 msgid "Aday tür"
 msgstr "Predloženi tip"
+
+#: app/web/routers/catalog.py
+msgid "Aday tür bulunamadı."
+msgstr "Predloženi tip nije pronađen."
+
+#: app/web/templates/catalog_candidates.html
+msgid "Aday tür görünümleri"
+msgstr "Prikazi predloženih tipova"
+
+#: app/web/routers/catalog.py
+msgid "Aday tür reddedildi; bir daha listeye düşmez."
+msgstr "Predloženi tip je odbijen; više se neće pojavljivati na listi."
+
+#: app/web/routers/catalog.py
+msgid "Aday tür retten geri alındı; yeniden onay bekliyor."
+msgstr "Odbijanje predloženog tipa je poništeno; ponovo čeka odobrenje."
+
+#: app/web/routers/catalog.py
+msgid ""
+"Aday tür standart türler arasına eklendi; tür bir sonraki analizden "
+"itibaren geçerlidir. İlişkili Unknown öğeleri aşağıdan toplu yeniden "
+"analiz edilebilir."
+msgstr ""
+"Predloženi tip je dodat među standardne tipove; važi od sledeće analize. "
+"Povezane stavke iz reda Unknown mogu se ispod ponovo analizirati "
+"odjednom."
+
+#: app/web/templates/catalog_candidate.html
+#, python-format
+msgid "Aday tür: %(name)s"
+msgstr "Predloženi tip: %(name)s"
+
+#: app/web/templates/catalog_candidate_step.html
+msgid "Aday türe dön"
+msgstr "Nazad na predloženi tip"
+
+#: app/web/templates/catalog.html app/web/templates/catalog_candidate.html
+#: app/web/templates/catalog_candidates.html
+msgid "Aday türler"
+msgstr "Predloženi tipovi"
+
+#: app/web/routers/catalog.py
+msgid "Aday yeniden incelendi."
+msgstr "Predlog je ponovo pregledan."
+
+#: app/web/templates/catalog_candidate.html
+msgid "Aday yeniden onay bekleyenler arasına döner (11.5.7)."
+msgstr "Predlog se vraća među one koji čekaju odobrenje (11.5.7)."
+
+#: app/web/templates/catalog_candidate.html
+msgid "Adayı reddet"
+msgstr "Odbij predlog"
 
 #: app/web/routers/employees.py
 msgid "Adres"
@@ -206,12 +555,54 @@ msgstr "Adresa"
 msgid "Aktif"
 msgstr "Aktivan"
 
+#: app/web/templates/catalog.html
+#, python-format
+msgid ""
+"Aktif tür: <strong>%(active)s</strong> · analiz talimatındaki katalog "
+"metni ≈ <strong>%(tokens)s</strong> token, tahmini"
+msgstr ""
+"Aktivni tipovi: <strong>%(active)s</strong> · tekst kataloga u uputstvu "
+"za analizu ≈ <strong>%(tokens)s</strong> tokena, procena"
+
 #: app/web/templates/employee_fields_step.html
 #: app/web/templates/employee_merge_step.html
 msgid "Alan"
 msgstr "Polje"
 
-#: app/web/templates/profile.html
+#: app/web/templates/catalog_type_fields.html
+msgid ""
+"Alan adlarını virgülle ayırın (küçük harf, rakam, alt çizgi). Hepsi "
+"okunaklıysa belge kabul edilir."
+msgstr ""
+"Nazive polja razdvojite zarezom (mala slova, cifre, donja crta). Dokument"
+" se prihvata ako su sva čitljiva."
+
+#: app/web/templates/queue_item.html
+msgid ""
+"Alanlar belgeden okunan önerilen profille dolu; çalışan kaydına "
+"yazılmadan önce düzeltilebilir. Belge içeriği değişmez: çıktı kaynak "
+"sayfalardan olduğu gibi üretilir, yalnız adı çalışanın adından verilir "
+"(K8)."
+msgstr ""
+"Polja su popunjena predloženim profilom pročitanim iz dokumenta; mogu se "
+"ispraviti pre upisa u zapis zaposlenog. Sadržaj dokumenta se ne menja: "
+"izlaz se pravi od izvornih strana takvih kakve jesu, samo mu se ime daje "
+"po imenu zaposlenog (K8)."
+
+#: app/web/routers/catalog.py
+#, python-brace-format
+msgid ""
+"Alanlar sistemin incelemesiyle dolduruldu ({pages} örnek sayfa, {date}). "
+"Kaydetmeden önce kontrol edin."
+msgstr ""
+"Polja su popunjena na osnovu pregleda sistema ({pages} strana primera, "
+"{date}). Proverite ih pre čuvanja."
+
+#: app/web/templates/catalog_description.html
+msgid "Alanların yeri"
+msgstr "Položaj polja"
+
+#: app/web/templates/catalog_description.html app/web/templates/profile.html
 msgid "Alfabe"
 msgstr "Pismo"
 
@@ -223,6 +614,11 @@ msgstr "Primljeno"
 #: app/web/templates/base.html
 msgid "Ana menü"
 msgstr "Glavni meni"
+
+#: app/catalog/prefill.py app/web/routers/catalog.py
+#: app/web/templates/catalog.html app/web/templates/catalog_type_fields.html
+msgid "Analiz"
+msgstr "Analiza"
 
 #: app/web/routers/upload_page.py
 msgid "Analiz edildi"
@@ -236,20 +632,68 @@ msgstr "Analiza nije uspela"
 msgid "Analiz ediliyor"
 msgstr "Analiza u toku"
 
+#: app/web/templates/catalog_type_fields.html
+msgid "Analiz edilmeyen türde (Word/Excel eki) zorunlu alan bulunmaz."
+msgstr "Tip koji se ne analizira (Word/Excel prilog) nema obavezna polja."
+
+#: app/catalog/prefill.py app/web/routers/catalog.py
+#: app/web/templates/catalog_type_fields.html
+msgid "Analizci için açıklama"
+msgstr "Opis za analizatora"
+
+#: app/web/templates/catalog_candidates.html
+msgid ""
+"Analizcinin önerdiği, katalogda olmayan türler. Belge hiçbir türe zorla "
+"atanmaz: aday türle görülen belgeler Unknown kuyruğunda bekler. Onaylanan"
+" aday standart türler arasına eklenir; reddedilen aday bir daha listeye "
+"düşmez. Sistem bekleyen adayların örnek sayfalarını boş zamanında "
+"inceleyip tür taslağı hazırlar (İnceleme sütunu); aday kendiliğinden "
+"onaylanmaz."
+msgstr ""
+"Tipovi koje je predložio analizator, a kojih nema u katalogu. Dokument se"
+" nikada ne raspoređuje u tip na silu: dokumenti viđeni sa predloženim "
+"tipom čekaju u redu Unknown. Odobreni predlog se dodaje među standardne "
+"tipove; odbijeni se više ne pojavljuje na listi. Sistem u slobodnom "
+"vremenu pregleda strane primera predloga na čekanju i priprema nacrt tipa"
+" (kolona Pregled); predlog se nikada ne odobrava sam."
+
 #: app/web/templates/employee_merge.html app/web/templates/employees.html
-#: app/web/templates/history.html
+#: app/web/templates/history.html app/web/templates/queue_item.html
 msgid "Ara"
 msgstr "Pretraži"
 
-#: app/web/routers/employees.py
+#: app/catalog/describe.py app/web/routers/employees.py
 msgid "Arap"
 msgstr "Arapsko"
+
+#: app/catalog/photo_rules.py
+msgid "Arka plan düz ve sade olmalı; desen, eşya ya da başka kişi görünmemeli."
+msgstr ""
+"Pozadina mora biti ravna i jednostavna; ne smeju se videti šare, predmeti"
+" ni druge osobe."
+
+#: app/web/templates/group.html app/web/templates/training_results.html
+msgid "Arşiv"
+msgstr "Arhiva"
+
+#: app/web/templates/groups.html
+msgid "Arşivde"
+msgstr "U arhivi"
 
 #: app/groups/packages.py
 msgid "Arşivdeki gruba yeni paket tanımlanamaz."
 msgstr "Iz arhivirane grupe ne može se dodeliti novi paket."
 
-#: app/web/templates/profile.html
+#: app/web/templates/groups.html
+msgid "Arşivdekiler de gösteriliyor."
+msgstr "Prikazane su i arhivirane."
+
+#: app/web/templates/groups.html
+#, python-format
+msgid "Arşivdekileri de göster (%(num)d)"
+msgstr "Prikaži i arhivirane (%(num)d)"
+
+#: app/web/templates/group.html app/web/templates/profile.html
 msgid "Arşivden geri al"
 msgstr "Vrati iz arhive"
 
@@ -257,17 +701,91 @@ msgstr "Vrati iz arhive"
 msgid "Arşive taşı"
 msgstr "Premesti u arhivu"
 
-#: app/web/routers/upload_page.py
+#: app/web/templates/catalog.html app/web/templates/training_results.html
+msgid "Arşivle"
+msgstr "Arhiviraj"
+
+#: app/web/routers/upload_page.py app/web/templates/catalog.html
 msgid "Arşivlendi"
 msgstr "Arhivirano"
+
+#: app/web/templates/catalog_archive_step.html
+#, python-format
+msgid "Arşivlenecek türler (%(num)d):"
+msgstr "Tipovi za arhiviranje (%(num)d):"
+
+#: app/web/templates/catalog.html
+msgid "Arşivlenen tür yok."
+msgstr "Nema arhiviranih tipova."
+
+#: app/web/templates/catalog.html
+msgid "Arşivlenen türler"
+msgstr "Arhivirani tipovi"
+
+#: app/web/templates/training_results.html
+msgid ""
+"Arşivlenen çalıştırma listeden ve sayaçlardan kalkar; öğeleri ve "
+"örnekleri değişmez, \"arşivlenenler\" görünümünden geri alınır."
+msgstr ""
+"Arhivirano pokretanje nestaje sa liste i iz brojača; njegove stavke i "
+"primeri se ne menjaju, a vraća se iz prikaza „arhivirana“."
+
+#: app/web/templates/training_results.html
+msgid "Arşivlenen çalıştırma yok."
+msgstr "Nema arhiviranih pokretanja."
+
+#: app/web/templates/training_results.html
+msgid "Arşivlenen çalıştırmalar"
+msgstr "Arhivirana pokretanja"
+
+#: app/web/templates/catalog.html
+msgid "Arşivleyen"
+msgstr "Arhivirao"
 
 #: app/web/templates/profile.html
 msgid "Arşivli grup"
 msgstr "Arhivirana grupa"
 
+#: app/catalog/photo_rules.py
+msgid "Asgari çözünürlük"
+msgstr "Minimalna rezolucija"
+
+#: app/web/templates/queue_item.html
+msgid ""
+"Atama iki onay ister. Çıktı öğenin donmuş planından üretilir, yapay zekâ "
+"çağrılmaz; belge içeriği değişmez."
+msgstr ""
+"Dodela zahteva dve potvrde. Izlaz se pravi iz zamrznutog plana stavke, "
+"veštačka inteligencija se ne poziva; sadržaj dokumenta se ne menja."
+
+#: app/web/templates/queue_assign.html
+msgid ""
+"Atanacak çalışanı bulmak için ad, alias, orijinal yazım veya belge "
+"numarası yazın."
+msgstr ""
+"Da biste pronašli zaposlenog za dodelu, unesite ime, alias, originalni "
+"zapis ili broj dokumenta."
+
+#: app/web/templates/training_map.html
+msgid "Atlanan"
+msgstr "Preskočeno"
+
+#: app/web/templates/training_map.html
+msgid "Atlananlar"
+msgstr "Preskočeno"
+
 #: app/web/routers/upload_page.py
 msgid "Atlandı"
 msgstr "Preskočeno"
+
+#: app/training/decisions.py
+#, python-brace-format
+msgid "Aynı içerik seçilen türde zaten örnek ({name}); taşınmadı."
+msgstr "Isti sadržaj je već primer izabranog tipa ({name}); nije premešteno."
+
+#: app/web/templates/catalog_examples.html
+msgid "Aynı içerik zaten örnek olarak kayıtlı:"
+msgstr "Isti sadržaj je već upisan kao primer:"
 
 #: app/web/templates/employee_merge.html
 msgid ""
@@ -291,6 +809,27 @@ msgstr "Serija ne može sadržati više datoteka sa istim imenom."
 msgid "Açtı"
 msgstr "Otvorio"
 
+#: app/web/templates/catalog_accepted_photos.html
+msgid ""
+"Açık kuralların hepsinden geçen (\"uyuyor\") ve çalışanın Hazir "
+"klasöründe duran fotoğraflar kendiliğinden örnek olarak işaretlenir. "
+"Formdaki \"Örneklerden açıklama üret\" düğmesi bu fotoğrafların en "
+"yenilerini örnek belgelerle birlikte yapay zekâya verir; üretilen "
+"açıklamaya şirketin kabul ettiği fotoğrafın tanımı eklenir. Kural açılıp "
+"kapatılınca örnekler de değişir. Fotoğraflar değişmez ve kopyalanmaz."
+msgstr ""
+"Fotografije koje prolaze sva uključena pravila („odgovara“) i nalaze se u"
+" fascikli Hazir zaposlenog automatski se označavaju kao primeri. Dugme "
+"„Generiši opis iz primera“ u obrascu daje najnovije od tih fotografija "
+"veštačkoj inteligenciji zajedno sa primerima dokumenata; generisanom "
+"opisu dodaje se opis fotografije koju firma prihvata. Kada se pravilo "
+"uključi ili isključi, menjaju se i primeri. Fotografije se ne menjaju i "
+"ne kopiraju."
+
+#: app/web/templates/groups.html
+msgid "Açık paket"
+msgstr "Otvoreni paketi"
+
 #: app/web/templates/profile.html
 msgid "Açık ya da tamamlanmış paket yok."
 msgstr "Nema otvorenih ni završenih paketa."
@@ -299,6 +838,88 @@ msgstr "Nema otvorenih ni završenih paketa."
 #, python-brace-format
 msgid "Açık — {met}/{total} zorunlu kalem"
 msgstr "Otvoren — {met}/{total} obaveznih stavki"
+
+#: app/catalog/prefill.py app/web/routers/catalog.py
+#: app/web/templates/catalog_candidate.html
+#: app/web/templates/catalog_type_fields.html app/web/templates/group.html
+#: app/web/templates/groups.html
+msgid "Açıklama"
+msgstr "Opis"
+
+#: app/web/templates/catalog_description.html
+#, python-format
+msgid ""
+"Açıklama %(pages)s örnek sayfadan ve %(photos)s kabul edilen fotoğraftan "
+"üretildi ve \"Analizci için açıklama\" alanına yazıldı."
+msgstr ""
+"Opis je generisan iz strana primera (%(pages)s) i prihvaćenih fotografija"
+" (%(photos)s) i upisan u polje „Opis za analizatora“."
+
+#: app/web/templates/catalog_description.html
+#, python-format
+msgid ""
+"Açıklama %(pages)s örnek sayfadan üretildi ve \"Analizci için açıklama\" "
+"alanına yazıldı."
+msgstr ""
+"Opis je generisan iz strana primera (%(pages)s) i upisan u polje „Opis za"
+" analizatora“."
+
+#: app/groups/service.py
+#, python-brace-format
+msgid "Açıklama en çok {limit} karakter olabilir."
+msgstr "Opis može imati najviše {limit} znakova."
+
+#: app/web/routers/catalog.py
+msgid ""
+"Açıklama üretilmedi: analiz edilmeyen türün açıklaması analizde "
+"kullanılmaz."
+msgstr ""
+"Opis nije generisan: opis tipa koji se ne analizira ne koristi se u "
+"analizi."
+
+#: app/web/routers/catalog.py
+msgid ""
+"Açıklama üretilmedi: bu türün açılabilen örneği yok. Önce örnek belge "
+"yükleyin."
+msgstr ""
+"Opis nije generisan: ovaj tip nema primer koji se može otvoriti. Prvo "
+"otpremite primer dokumenta."
+
+#: app/web/routers/catalog.py
+#, python-brace-format
+msgid "Açıklama üretilmedi: yapay zekâ sağlayıcısı kurulamadı. {detail}"
+msgstr ""
+"Opis nije generisan: dobavljač veštačke inteligencije nije mogao da se "
+"podesi. {detail}"
+
+#: app/web/routers/catalog.py
+#, python-brace-format
+msgid ""
+"Açıklama üretilmedi: yapay zekâ sağlayıcısı yanıt vermedi ({detail}). "
+"Biraz sonra yeniden deneyin."
+msgstr ""
+"Opis nije generisan: dobavljač veštačke inteligencije nije odgovorio "
+"({detail}). Pokušajte ponovo malo kasnije."
+
+#: app/web/routers/catalog.py
+msgid ""
+"Açıklama üretilmedi: yapay zekânın yanıtı tür açıklaması şemasına uymadı."
+" Yeniden deneyin."
+msgstr ""
+"Opis nije generisan: odgovor veštačke inteligencije ne odgovara šemi "
+"opisa tipa. Pokušajte ponovo."
+
+#: app/web/routers/catalog.py
+msgid "Açıklama üretilmedi: önce alanların altındaki uyarıları düzeltin."
+msgstr "Opis nije generisan: prvo ispravite upozorenja ispod polja."
+
+#: app/web/templates/catalog_description.html
+msgid "Açılamayan örnekler atlandı:"
+msgstr "Primeri koji nisu mogli da se otvore su preskočeni:"
+
+#: app/web/templates/catalog_description.html
+msgid "Açılamayan örnekler ve fotoğraflar atlandı:"
+msgstr "Primeri i fotografije koji nisu mogli da se otvore su preskočeni:"
 
 #: app/web/templates/account_telegram.html
 msgid "Açıp «Başlat»a basınca bot «Bağlandı» der; sonra bu sayfayı yenileyin."
@@ -348,10 +969,32 @@ msgstr "Kopiraj link"
 msgid "Bağlı Telegram kimliği yok."
 msgstr "Nema povezanog Telegram ID-ja."
 
+#: app/catalog/photo_rules.py
+msgid ""
+"Baş örtüsü kabul edilmez. Bu şirket kararıdır; açılmadıkça fotoğraf bu "
+"yüzden elenmez."
+msgstr ""
+"Pokrivalo za glavu nije prihvaćeno. Ovo je odluka firme; dok se ne "
+"uključi, fotografija se zbog toga ne odbacuje."
+
+#: app/catalog/photo_rules.py
+msgid "Baş örtüsü yok"
+msgstr "Bez pokrivala za glavu"
+
+#: app/catalog/candidates.py
+msgid "Başarısız"
+msgstr "Neuspešno"
+
 #: app/web/templates/employee_merge.html
 #: app/web/templates/employee_merge_step.html app/web/templates/profile.html
 msgid "Başka kayıtla birleştir"
 msgstr "Spoji sa drugim zapisom"
+
+#: app/web/templates/catalog_examples.html
+#: app/web/templates/training_decision.html
+#: app/web/templates/training_type.html
+msgid "Başka türe taşı"
+msgstr "Premesti u drugi tip"
 
 #: app/web/templates/history.html
 msgid "Başka çalışana taşı"
@@ -369,13 +1012,66 @@ msgstr "Početni datum je posle krajnjeg; filter datuma je zanemaren."
 msgid "Başlangıç günü geçerli bir tarih değil (YYYY-AA-GG); yok sayıldı."
 msgstr "Početni datum nije ispravan datum (GGGG-MM-DD); zanemaren je."
 
-#: app/web/routers/upload_page.py app/web/templates/upload_detail.html
+#: app/web/templates/catalog_description.html
+msgid "Başlıklar"
+msgstr "Naslovi"
+
+#: app/catalog/prefill.py app/web/routers/catalog.py
+#: app/web/templates/catalog_type_fields.html
+msgid "Beklenen dosya türleri"
+msgstr "Očekivani tipovi datoteka"
+
+#: app/catalog/prefill.py app/web/routers/catalog.py
+#: app/web/templates/catalog_type_fields.html
+msgid "Beklenen sayfa sayısı"
+msgstr "Očekivani broj strana"
+
+#: app/web/templates/training.html app/web/templates/training_results.html
+msgid "Beklenen tür"
+msgstr "Očekivani tip"
+
+#: app/web/routers/training.py
+msgid "Beklenen tür bilinen türlerden biri değil; listeden seçin."
+msgstr "Očekivani tip nije među poznatim tipovima; izaberite ga sa liste."
+
+#: app/web/templates/training.html
+msgid ""
+"Beklenen tür seçerseniz dosyalar önce o türün kurallarıyla denetlenir; "
+"sonuç başka bir türse belge \"Çelişki\" olarak bekler."
+msgstr ""
+"Ako izaberete očekivani tip, datoteke se prvo proveravaju pravilima tog "
+"tipa; ako je rezultat drugi tip, dokument čeka kao „Konflikt“."
+
+#: app/web/routers/queue.py
+msgid "Bekleyen"
+msgstr "Na čekanju"
+
+#: app/web/templates/catalog_candidates.html
+msgid "Bekleyen Unknown öğesi"
+msgstr "Stavke Unknown na čekanju"
+
+#: app/web/templates/queue.html
+msgid "Bekleyen öğe"
+msgstr "Stavke na čekanju"
+
+#: app/web/templates/catalog_candidates.html
+#, python-format
+msgid "Bekleyenler (%(num)d)"
+msgstr "Na čekanju (%(num)d)"
+
+#: app/catalog/candidates.py app/web/routers/upload_page.py
+#: app/web/templates/upload_detail.html
 msgid "Bekliyor"
 msgstr "Na čekanju"
 
 #: app/web/templates/access_log_employee.html
 msgid "Belge"
 msgstr "Dokument"
+
+#: app/web/templates/catalog_accepted_photos.html
+#, python-format
+msgid "Belge %(id)s"
+msgstr "Dokument %(id)s"
 
 #: app/web/templates/document_move.html
 #, python-format
@@ -386,13 +1082,18 @@ msgstr ""
 "Dokument je premešten sa zaposlenog %(previous)s (%(previous_id)s) na "
 "zaposlenog %(target)s (%(target_id)s): %(file)s."
 
-#: app/web/templating.py
+#: app/web/templates/group.html app/web/templating.py
 msgid "Belge Grupları"
 msgstr "Grupe dokumenata"
 
-#: app/web/templating.py
+#: app/web/templates/catalog_candidates.html
+#: app/web/templates/catalog_form.html app/web/templating.py
 msgid "Belge Türleri"
 msgstr "Tipovi dokumenata"
+
+#: app/web/templates/catalog_type_fields.html
+msgid "Belge analiz edilir"
+msgstr "Dokument se analizira"
 
 #: app/web/routers/employees.py
 msgid "Belge arşivden geri alındı; çalışanın Hazır klasörüne döndü."
@@ -409,6 +1110,21 @@ msgstr "Dokument nije pronađen"
 #: app/web/routers/documents.py app/web/routers/employees.py
 msgid "Belge bulunamadı."
 msgstr "Dokument nije pronađen."
+
+#: app/pipeline/queue_close.py
+msgid "Belge değil / çöp sayfa"
+msgstr "Nije dokument / otpadna strana"
+
+#: app/web/templates/queue_item.html
+msgid ""
+"Belge değilse (boş ya da çöp sayfa) veya belge zaten sistemdeyse öğeyi "
+"gerekçeyle kapatın. Öğe çözülmüş sayılır; kuyruk klasöründeki kopya ve "
+"gerekçe dosyası silinmez, \"Yeniden aç\" ile geri açılabilir."
+msgstr ""
+"Ako nije dokument (prazna ili otpadna strana) ili je dokument već u "
+"sistemu, zatvorite stavku uz razlog. Stavka se smatra rešenom; kopija i "
+"datoteka sa razlogom u fascikli reda se ne brišu, a može se ponovo "
+"otvoriti dugmetom „Ponovo otvori“."
 
 #: app/web/routers/employees.py
 msgid ""
@@ -431,6 +1147,10 @@ msgstr "Istorija dokumenta"
 msgid "Belge grubu"
 msgstr "Grupa dokumenata"
 
+#: app/web/routers/groups.py
+msgid "Belge grubu bulunamadı"
+msgstr "Grupa dokumenata nije pronađena"
+
 #: app/web/routers/employees.py
 msgid "Belge grubu bulunamadı."
 msgstr "Grupa dokumenata nije pronađena."
@@ -449,7 +1169,7 @@ msgstr "Paketi dokumenata"
 
 #: app/web/templates/document_move.html
 #: app/web/templates/employee_merge_results.html
-#: app/web/templates/employees_results.html
+#: app/web/templates/employees_results.html app/web/templates/queue_assign.html
 msgid "Belge sayısı"
 msgstr "Broj dokumenata"
 
@@ -464,10 +1184,31 @@ msgstr ""
 "opcijom \"Vrati iz arhive\". Arhivirani dokument se ne računa u pakete "
 "dokumenata."
 
-#: app/web/templates/_context_warning.html
-#: app/web/templates/queue_close_step.html
+#: app/web/routers/groups.py app/web/templates/_context_warning.html
+#: app/web/templates/group.html app/web/templates/queue.html
+#: app/web/templates/queue_close_step.html app/web/templates/queue_item.html
 msgid "Belge türü"
 msgstr "Tip dokumenta"
+
+#: app/web/routers/queue.py
+msgid ""
+"Belge türü belirlenmediği için bu öğe bir çalışana atanamaz: çıktının adı"
+" ve işlemi belge türünden seçilir (K8)."
+msgstr ""
+"Ova stavka ne može da se dodeli zaposlenom jer tip dokumenta nije "
+"određen: ime i obrada izlaza biraju se prema tipu dokumenta (K8)."
+
+#: app/web/routers/catalog.py
+msgid "Belge türü bulunamadı"
+msgstr "Tip dokumenta nije pronađen"
+
+#: app/web/templates/training_type.html
+msgid "Belge türü sayfası"
+msgstr "Stranica tipa dokumenta"
+
+#: app/web/templates/catalog_form.html
+msgid "Belge türünü düzenle"
+msgstr "Uredi tip dokumenta"
 
 #: app/web/templates/profile.html
 msgid "Belge yükle"
@@ -543,6 +1284,14 @@ msgstr "Vaši dokumenti su sačuvani; rezultat će se videti na panelu."
 msgid "Belgenin dosyası bulunamadı; taşınamaz."
 msgstr "Datoteka dokumenta nije pronađena; ne može se premestiti."
 
+#: app/web/templates/catalog_type_fields.html
+msgid ""
+"Belgenin nasıl göründüğünü anlatan kısa metin (ör. \"Kiril ve Latin çift "
+"yazımlı, sağ altta iki satır MRZ\")."
+msgstr ""
+"Kratak tekst koji opisuje kako dokument izgleda (npr. „Pisan ćirilicom i "
+"latinicom, dva reda MRZ dole desno“)."
+
 #: app/web/templates/document_move.html
 msgid "Belgenin sahibi"
 msgstr "Vlasnik dokumenta"
@@ -555,6 +1304,16 @@ msgstr ""
 "Vlasnik dokumenta je spojen sa drugim zapisom (10.5.9); izvršite radnju "
 "sa profila zapisa koji je ostao."
 
+#: app/web/routers/queue.py
+msgid ""
+"Belgenin sahibi ya da yapılacak fiziksel işlem belirlenemedi. Yapılacak: "
+"öğeyi açıp çalışanı seçin, ya da önerilen profili onaylayın. (Diskte: "
+"Unresolved klasörü)"
+msgstr ""
+"Vlasnik dokumenta ili fizička obrada koju treba izvršiti nisu mogli da se"
+" odrede. Šta uraditi: otvorite stavku i izaberite zaposlenog ili odobrite"
+" predloženi profil. (Na disku: fascikla Unresolved)"
+
 #: app/web/templates/document_move.html
 msgid ""
 "Belgenin taşınacağı çalışanı bulmak için ad, alias, orijinal yazım veya "
@@ -562,6 +1321,27 @@ msgid ""
 msgstr ""
 "Da biste pronašli zaposlenog kome se dokument premešta, unesite ime, "
 "alias, originalni zapis ili broj dokumenta."
+
+#: app/web/routers/queue.py
+msgid ""
+"Belgenin türü belli, ama zorunlu alanlardan biri okunamadı (K1). "
+"Yapılacak: gerekçedeki alanı belgeden okuyup girin, ya da belgeyi daha "
+"net tarayıp yeniden yükleyin. (Diskte: Unreadable klasörü)"
+msgstr ""
+"Tip dokumenta je poznat, ali jedno od obaveznih polja nije moglo da se "
+"pročita (K1). Šta uraditi: pročitajte polje navedeno u razlogu iz "
+"dokumenta i unesite ga ili dokument jasnije skenirajte i ponovo "
+"otpremite. (Na disku: fascikla Unreadable)"
+
+#: app/web/routers/queue.py
+msgid ""
+"Belgenin türü katalogda yok ya da belirlenemedi. Yapılacak: Belge "
+"Türleri'nden türü ekleyin, ya da öğeyi açıp doğru türü seçin. (Diskte: "
+"Unknown klasörü)"
+msgstr ""
+"Tip dokumenta nije u katalogu ili nije mogao da se odredi. Šta uraditi: "
+"dodajte tip u Tipovima dokumenata ili otvorite stavku i izaberite pravi "
+"tip. (Na disku: fascikla Unknown)"
 
 #: app/web/routers/documents.py
 msgid "Belgeyi arşivden geri al"
@@ -575,21 +1355,94 @@ msgstr "Premesti dokument u arhivu"
 msgid "Belgeyi gönderemedim. Yeniden deneyin."
 msgstr "Nisam uspeo da pošaljem dokument. Pokušajte ponovo."
 
-#: app/web/templates/queue_close_step.html
+#: app/web/templates/queue.html app/web/templates/queue_close_step.html
+#: app/web/templates/queue_item.html
 msgid "Belirlenmedi"
 msgstr "Nije određeno"
+
+#: app/web/templates/group.html
+msgid "Belirli bir türle kalem ekle"
+msgstr "Dodaj stavku sa određenim tipom"
 
 #: app/web/templates/upload.html
 msgid "Belirtme — sahibi belgeden bulunsun"
 msgstr "Ne navodi — vlasnik se određuje iz dokumenta"
 
+#: app/web/templates/training.html
+msgid "Belirtme — sistem bulsun"
+msgstr "Ne navodi — neka sistem pronađe"
+
+#: app/web/templates/catalog_type_fields.html
+msgid ""
+"Benzersiz kimlik (ör. <code>russian_passport</code>); küçük harfle "
+"başlar, sonradan değişmez."
+msgstr ""
+"Jedinstveni identifikator (npr. <code>russian_passport</code>); počinje "
+"malim slovom i kasnije se ne menja."
+
+#: app/web/templates/group.html
+msgid "Benzersiz olmalı; harf büyüklüğü ve Türkçe harf farkı aynı ad sayılır."
+msgstr ""
+"Mora biti jedinstveno; imena koja se razlikuju samo po veličini slova ili"
+" po turskim slovima smatraju se istim imenom."
+
+#: app/web/templates/_training_tabs.html app/web/templates/training_known.html
+#: app/web/templates/training_type.html
+msgid "Bilinen belgeler"
+msgstr "Poznati dokumenti"
+
+#: app/web/routers/training.py
+msgid "Bilinen tür bulunamadı."
+msgstr "Poznati tip nije pronađen."
+
 #: app/web/routers/users.py
 msgid "Bilinmeyen rol."
 msgstr "Nepoznata uloga."
 
+#: app/web/templates/training.html
+msgid ""
+"Bir CSV haritası yükleyin: satırlardaki türle (<code>slug</code>) ve "
+"yollarla (<code>dest</code>, <code>output_relative_path</code>, "
+"<code>ornek_klasoru</code>, <code>source_collection_path</code> ya da "
+"<code>path</code>) dosyalar toplu taranır. Yollar yalnız veri dizininin "
+"(ya da ayarlıysa koleksiyon kökünün) altında, göreli olarak çözülür. Önce"
+" önizleme gösterilir, hiçbir şey yazılmaz; tarama iki onayla başlar ve "
+"işçide birer birer yürür. Aynı harita yeniden taranırsa kayıtlı dosyalar "
+"atlanır."
+msgstr ""
+"Otpremite CSV mapu: datoteke se skeniraju odjednom prema tipu "
+"(<code>slug</code>) i putanjama (<code>dest</code>, "
+"<code>output_relative_path</code>, <code>ornek_klasoru</code>, "
+"<code>source_collection_path</code> ili <code>path</code>) iz njenih "
+"redova. Putanje se razrešavaju samo relativno, ispod direktorijuma "
+"podataka (ili korena kolekcije, ako je podešen). Prvo se prikazuje "
+"pregled i ništa se ne upisuje; skeniranje počinje posle dve potvrde i "
+"izvršava se u radniku datoteku po datoteku. Ako se ista mapa ponovo "
+"skenira, upisane datoteke se preskaču."
+
+#: app/groups/service.py
+msgid "Bir belge türü seçin."
+msgstr "Izaberite tip dokumenta."
+
+#: app/groups/service.py
+msgid "Bir dosya etiketi seçin."
+msgstr "Izaberite oznaku datoteke."
+
 #: app/web/routers/employees.py
 msgid "Bir kayıt kendisiyle birleştirilmez; başka bir çalışan seçin."
 msgstr "Zapis se ne može spojiti sam sa sobom; izaberite drugog zaposlenog."
+
+#: app/web/templates/groups.html
+msgid ""
+"Bir süreç için gereken belgelerin listesi (örn. Sırbistan iş başvurusu: "
+"fotoğraf, pasaport, kimlik, çevirili diploma). Kalem bir dosya etiketiyle"
+" tanımlanırsa ülkesi önemsizdir: «Passport» kalemini Rus pasaportu da "
+"Türk pasaportu da karşılar."
+msgstr ""
+"Spisak dokumenata potrebnih za neki postupak (npr. zahtev za rad u "
+"Srbiji: fotografija, pasoš, lična karta, prevedena diploma). Ako je "
+"stavka definisana oznakom datoteke, zemlja nije bitna: stavku «Passport» "
+"ispunjava i ruski i turski pasoš."
 
 #: app/web/templates/upload.html
 msgid "Bir çalışan seçerseniz, sahibi belgeden anlaşılamayan dosyalar ona atanır."
@@ -651,6 +1504,10 @@ msgstr "Do"
 msgid "Bitiş günü geçerli bir tarih değil (YYYY-AA-GG); yok sayıldı."
 msgstr "Krajnji datum nije ispravan datum (GGGG-MM-DD); zanemaren je."
 
+#: app/web/routers/training.py
+msgid "Bitti"
+msgstr "Završeno"
+
 #: app/telegram/handlers.py
 msgid "Bitti."
 msgstr "Gotovo."
@@ -658,6 +1515,14 @@ msgstr "Gotovo."
 #: app/web/templates/history.html app/web/templates/profile.html
 msgid "Biçim"
 msgstr "Format"
+
+#: app/web/templates/catalog.html
+msgid "Boru hattının adıyla kullandığı tür"
+msgstr "Tip koji obrada koristi po imenu"
+
+#: app/web/routers/queue.py
+msgid "Bozuk kaynak kaydı"
+msgstr "Oštećen zapis izvora"
 
 #: app/web/routers/documents.py
 msgid "Bozuk köken kaydı"
@@ -683,6 +1548,54 @@ msgstr "Ovaj Telegram ne može da se koristi. Javite administratoru."
 msgid "Bu Telegram zaten hesabınıza bağlı."
 msgstr "Ovaj Telegram je već povezan sa vašim nalogom."
 
+#: app/web/templates/catalog_candidate.html
+msgid "Bu aday reddedildi; bir daha listeye düşmez."
+msgstr "Ovaj predlog je odbijen; više se neće pojavljivati na listi."
+
+#: app/web/routers/catalog.py
+msgid "Bu aday tür karara bağlanmış; yeniden karara bağlanamaz."
+msgstr "O ovom predloženom tipu je već odlučeno; ne može se ponovo odlučivati."
+
+#: app/web/routers/catalog.py
+msgid "Bu aday tür onaylanmış; yeniden karara bağlanamaz."
+msgstr "Ovaj predloženi tip je odobren; ne može se ponovo odlučivati."
+
+#: app/web/routers/catalog.py
+msgid "Bu aday tür reddedilmiş değil; geri alınacak bir ret yok."
+msgstr "Ovaj predloženi tip nije odbijen; nema odbijanja za poništavanje."
+
+#: app/web/routers/catalog.py
+msgid "Bu aday tür reddedilmiş; yeniden karara bağlanamaz."
+msgstr "Ovaj predloženi tip je odbijen; ne može se ponovo odlučivati."
+
+#: app/web/templates/catalog_candidate_step.html
+msgid "Bu aday türle bekleyen Unknown öğesi kalmadı."
+msgstr "Više nema stavki Unknown na čekanju sa ovim predloženim tipom."
+
+#: app/web/templates/catalog_candidate.html
+msgid "Bu aday türle bekleyen Unknown öğesi yok."
+msgstr "Nema stavki Unknown na čekanju sa ovim predloženim tipom."
+
+#: app/web/routers/catalog.py
+msgid ""
+"Bu aday türle ilişkili bekleyen Unknown öğesi yok; yeniden analiz "
+"edilecek parti bulunmuyor."
+msgstr ""
+"Nema stavki Unknown na čekanju povezanih sa ovim predloženim tipom; nema "
+"serije za ponovnu analizu."
+
+#: app/web/routers/groups.py
+msgid ""
+"Bu adla arşivde bir grup var; grup adı benzersiz olmalı. Arşivdekini geri"
+" alabilirsiniz."
+msgstr ""
+"U arhivi već postoji grupa sa ovim imenom; ime grupe mora biti "
+"jedinstveno. Možete vratiti arhiviranu."
+
+#: app/web/routers/groups.py
+msgid "Bu adla bir grup zaten var; grup adı benzersiz olmalı."
+msgstr "Grupa sa ovim imenom već postoji; ime grupe mora biti jedinstveno."
+
 #: app/telegram/bot.py
 msgid ""
 "Bu bağlantının süresi dolmuş. Panelde Hesabım → Telegram'dan yenisini "
@@ -702,6 +1615,10 @@ msgstr "Ovaj dokument se promenio. Ponovo napišite šta želite."
 #: app/web/templates/history.html
 msgid "Bu belge için olay yok."
 msgstr "Nema događaja za ovaj dokument."
+
+#: app/groups/service.py
+msgid "Bu belge türü katalogda yok."
+msgstr "Ovaj tip dokumenta nije u katalogu."
 
 #: app/web/templates/_context_warning.html
 #, python-format
@@ -732,6 +1649,34 @@ msgstr ""
 "Ova datoteka je ponovljena, ranije otpremljena datoteka; nema slika "
 "strana."
 
+#: app/groups/service.py
+msgid "Bu dosya etiketi katalogdaki hiçbir türde yok."
+msgstr "Nijedan tip u katalogu nema ovu oznaku datoteke."
+
+#: app/web/templates/group.html
+#, python-format
+msgid ""
+"Bu grup arşivde (%(actor)s, %(time)s UTC): yeni paket tanımlanamaz, açık "
+"paketler sürer."
+msgstr ""
+"Ova grupa je u arhivi (%(actor)s, %(time)s UTC): novi paket ne može da se"
+" dodeli, otvoreni paketi se nastavljaju."
+
+#: app/web/templates/group.html
+msgid "Bu grupta henüz kalem yok. Aşağıdan dosya etiketiyle ya da türle ekleyin."
+msgstr ""
+"Ova grupa još nema stavki. Dodajte ih ispod prema oznaci datoteke ili "
+"prema tipu."
+
+#: app/web/routers/catalog.py
+msgid ""
+"Bu işlem her partiye yeni bir plan sürümü açacak; önceki sürümlerin "
+"çıktıları \"eski sürüm\" olarak işaretlenecektir. Son kararınız mı?"
+msgstr ""
+"Ovo će otvoriti novu verziju plana za svaku seriju; izlazi prethodnih "
+"verzija biće označeni kao „stara verzija“. Da li je to vaša konačna "
+"odluka?"
+
 #: app/web/routers/upload_page.py
 msgid ""
 "Bu işlem partiye yeni bir plan sürümü açacak; önceki sürümün çıktıları "
@@ -740,6 +1685,14 @@ msgstr ""
 "Ova radnja će otvoriti novu verziju plana za seriju; izlazi prethodne "
 "verzije biće označeni kao \"stara verzija\". Da li je to vaša konačna "
 "odluka?"
+
+#: app/web/routers/groups.py
+msgid ""
+"Bu kalem grupta zaten var; aynı etiket ya da tür bir grupta bir kez yer "
+"alır."
+msgstr ""
+"Ova stavka je već u grupi; ista oznaka ili tip se u grupi javlja samo "
+"jednom."
 
 #: app/web/templates/employee_merge_results.html
 msgid "Bu kayıt"
@@ -794,9 +1747,31 @@ msgstr "Ovu stranicu može da otvori samo administrator."
 msgid "Bu seçim artık geçerli değil. İsteğinizi yeniden yazın."
 msgstr "Ovaj izbor više ne važi. Ponovo napišite šta želite."
 
+#: app/web/routers/catalog.py
+msgid "Bu slug'la bir tür zaten var; slug benzersiz olmalı ve sonradan değişmez"
+msgstr ""
+"Tip sa ovim slug-om već postoji; slug mora biti jedinstven i kasnije se "
+"ne menja"
+
+#: app/web/templates/training_results.html
+msgid "Bu süzgece uyan dosya yok."
+msgstr "Nijedna datoteka ne odgovara ovom filteru."
+
+#: app/web/templates/training_known.html
+msgid "Bu süzgece uyan tür yok."
+msgstr "Nijedan tip ne odgovara ovom filteru."
+
 #: app/web/templates/uploads_list.html
 msgid "Bu süzgece uyan yükleme yok."
 msgstr "Nijedno otpremanje ne odgovara ovom filteru."
+
+#: app/web/templates/catalog.html
+msgid "Bu süzgeçte arşivlenen tür yok."
+msgstr "Nema arhiviranih tipova u ovom filteru."
+
+#: app/web/templates/catalog.html
+msgid "Bu süzgeçte tür yok."
+msgstr "Nema tipova u ovom filteru."
 
 #: app/web/routers/uploads.py
 msgid "Bu tarama yoksayıldı; üzerinde işlem yapılmaz."
@@ -810,6 +1785,56 @@ msgstr "Ovo skeniranje nije zanemareno; nema zanemarivanja za poništavanje."
 #, python-brace-format
 msgid "Bu tarama {when} tarihinde {user} tarafından yoksayıldı."
 msgstr "Ovo skeniranje je zanemario korisnik {user} ({when})."
+
+#: app/web/routers/catalog.py
+msgid "Bu tür boru hattının adıyla kullandığı korunan bir türdür; arşivlenemez."
+msgstr "Ovo je zaštićen tip koji obrada koristi po imenu; ne može se arhivirati."
+
+#: app/web/templates/catalog_candidate.html
+msgid "Bu tür katalogda zaten olabilir:"
+msgstr "Ovaj tip je možda već u katalogu:"
+
+#: app/web/routers/catalog.py
+msgid "Bu tür zaten arşivde."
+msgstr "Ovaj tip je već u arhivi."
+
+#: app/web/templates/catalog_examples.html
+msgid "Bu türe henüz örnek yüklenmedi."
+msgstr "Za ovaj tip još nije otpremljen nijedan primer."
+
+#: app/web/templates/catalog_candidates.html
+msgid ""
+"Bu türler kataloğa eklendi; onaydan önce görülen belgeleri toplu yeniden "
+"analiz edilebilir."
+msgstr ""
+"Ovi tipovi su dodati u katalog; dokumenti viđeni pre odobrenja mogu se "
+"ponovo analizirati odjednom."
+
+#: app/web/routers/catalog.py
+msgid "Bu türün fotoğraf kuralı yok"
+msgstr "Ovaj tip nema pravila za fotografiju"
+
+#: app/web/templates/training_type.html
+msgid "Bu türün henüz örneği yok."
+msgstr "Ovaj tip još nema primera."
+
+#: app/web/templates/catalog_examples.html
+msgid ""
+"Bu türün nasıl göründüğünü gösteren örnekler (PDF, JPEG, PNG). Örnekler "
+"çalışan verisinden ayrı saklanır: çalışan ve belge aramalarında görünmez,"
+" kuyruğa ve çalışan klasörlerine girmez. Yalnız örnek (specimen) ya da "
+"sentetik belge yükleyin; gerçek kimlik belgesi yüklemeyin."
+msgstr ""
+"Primeri koji pokazuju kako ovaj tip izgleda (PDF, JPEG, PNG). Primeri se "
+"čuvaju odvojeno od podataka o zaposlenima: ne pojavljuju se u pretragama "
+"zaposlenih i dokumenata i ne ulaze u red ni u fascikle zaposlenih. "
+"Otpremajte samo uzorke (specimen) ili sintetičke dokumente; ne otpremajte"
+" prave lične dokumente."
+
+#: app/web/routers/catalog.py
+#, python-brace-format
+msgid "Bu {count} partiyi yeniden analiz etmek üzeresiniz. Emin misiniz?"
+msgstr "Upravo ćete ponovo analizirati ove serije ({count}). Da li ste sigurni?"
 
 #: app/web/routers/employees.py
 msgid "Bu çalışan başka bir kayıtla birleştirildi; durumu değiştirilmez."
@@ -845,6 +1870,12 @@ msgstr ""
 "Ovaj zaposleni je spojen sa drugim zapisom; profil se ne može uređivati, "
 "uredite zapis koji je ostao."
 
+#: app/web/routers/queue.py
+msgid "Bu çalışan başka bir kayıtla birleştirildi; öğeyi kalan kayda atayın."
+msgstr ""
+"Ovaj zaposleni je spojen sa drugim zapisom; dodelite stavku zapisu koji "
+"ostaje."
+
 #: app/web/routers/uploads.py
 msgid ""
 "Bu çalışan pasif; ona belge yüklenmez. Önce çalışanı profilinden yeniden "
@@ -875,9 +1906,128 @@ msgstr ""
 msgid "Bu çalışanın belgelerine henüz bakılmadı."
 msgstr "Dokumente ovog zaposlenog još niko nije pregledao."
 
+#: app/training/cleanup.py
+msgid "Bu çalıştırma arşivde değil; geri alınacak bir şey yok."
+msgstr "Ovo pokretanje nije u arhivi; nema šta da se vrati."
+
+#: app/training/cleanup.py
+msgid "Bu çalıştırma zaten arşivde."
+msgstr "Ovo pokretanje je već u arhivi."
+
 #: app/web/templates/history.html
 msgid "Bu çıktı için kaynak kaydı yok."
 msgstr "Za ovaj izlaz nema zapisa o izvoru."
+
+#: app/web/routers/training.py
+msgid ""
+"Bu öğe elle yerleştirilemez: yalnız Yerleştirilemedi, Çelişki ya da "
+"İnceleme gerekli durumundaki öğe türe yerleştirilir."
+msgstr ""
+"Ova stavka ne može da se rasporedi ručno: u tip se raspoređuju samo "
+"stavke u stanju Nije raspoređeno, Konflikt ili Potreban pregled."
+
+#: app/web/templates/queue_item.html
+msgid "Bu öğe için kaynak kaydı yok."
+msgstr "Ova stavka nema zapise izvora."
+
+#: app/web/templates/queue_item.html
+msgid "Bu öğe için olay yok."
+msgstr "Ova stavka nema događaja."
+
+#: app/web/routers/queue.py
+msgid ""
+"Bu öğe onay bekleyen profil değil (§20.2.2 satır 7): kişisi yeni çalışan "
+"olarak açılmaz, belge kayıtlı bir çalışana atanır."
+msgstr ""
+"Ova stavka nije profil koji čeka odobrenje (§20.2.2 red 7): njena osoba "
+"se ne otvara kao novi zaposleni, dokument se dodeljuje upisanom "
+"zaposlenom."
+
+#: app/web/routers/queue.py
+msgid ""
+"Bu öğe partinin eski bir plan sürümüne ait (K18); atanamaz, yalnız "
+"kapatılabilir. Çözülecek öğeler partinin güncel planının kuyruğundadır."
+msgstr ""
+"Ova stavka pripada staroj verziji plana serije (K18); ne može se "
+"dodeliti, samo zatvoriti. Stavke za rešavanje su u redu trenutnog plana "
+"serije."
+
+#: app/web/templates/queue_item.html
+#, python-format
+msgid ""
+"Bu öğe pasif çalışan <a href=\"%(url)s\">%(name)s (%(id)s)</a> ile "
+"eşleştiği için kuyruğa düştü; çalışan şimdi %(status)s. Öğeyi atayın ya "
+"da partiyi yeniden analiz edin."
+msgstr ""
+"Ova stavka je dospela u red jer se poklopila sa neaktivnim zaposlenim <a "
+"href=\"%(url)s\">%(name)s (%(id)s)</a>; zaposleni je sada: %(status)s. "
+"Dodelite stavku ili ponovo analizirajte seriju."
+
+#: app/training/cleanup.py
+msgid ""
+"Bu öğe yoksayılamaz: yalnız Yerleştirilemedi, Çelişki ya da İnceleme "
+"gerekli durumundaki öğe yoksayılır."
+msgstr ""
+"Ova stavka ne može da se zanemari: zanemaruju se samo stavke u stanju "
+"Nije raspoređeno, Konflikt ili Potreban pregled."
+
+#: app/training/cleanup.py
+msgid "Bu öğe yoksayılmamış; geri alınacak bir şey yok."
+msgstr "Ova stavka nije zanemarena; nema šta da se vrati."
+
+#: app/pipeline/queue_close.py
+msgid "Bu öğe zaten çözülmüş; kapatılamaz."
+msgstr "Ova stavka je već rešena; ne može se zatvoriti."
+
+#: app/web/routers/queue.py
+msgid "Bu öğe zaten çözülmüş; profil oluşturulamaz."
+msgstr "Ova stavka je već rešena; profil ne može da se napravi."
+
+#: app/web/routers/queue.py
+msgid "Bu öğe zaten çözülmüş; yeniden atanamaz."
+msgstr "Ova stavka je već rešena; ne može se ponovo dodeliti."
+
+#: app/web/templates/training.html
+msgid ""
+"Buraya yüklenen belgeler yalnız <strong>bilinen belgelerin "
+"örneklerini</strong> besler: çalışan kaydı açılmaz, kişi aranmaz, kuyruğa"
+" ve çalışan klasörlerine hiçbir şey girmez. Sistem önce yapay zekâsız "
+"(mekanik) tanımayı dener; tanıyamadığını yapay zekâya sorar ve \"AI "
+"kararı\" etiketiyle yerleştirir. Hiçbir türe yerleşemeyen belge "
+"\"Yerleştirilemedi\" listesinde sizi bekler. Belgelerin içeriği "
+"değiştirilmez."
+msgstr ""
+"Dokumenti otpremljeni ovde samo dopunjuju <strong>primere poznatih "
+"dokumenata</strong>: ne otvara se zapis zaposlenog, ne traži se osoba, "
+"ništa ne ulazi u red ni u fascikle zaposlenih. Sistem prvo pokušava "
+"prepoznavanje bez veštačke inteligencije (mehaničko); ono što ne prepozna"
+" pita veštačku inteligenciju i raspoređuje sa oznakom „AI odluka“. "
+"Dokument koji ne pristaje nijednom tipu čeka vas na listi „Nije "
+"raspoređeno“. Sadržaj dokumenata se ne menja."
+
+#: app/web/templates/catalog.html
+msgid ""
+"Bütçeyi <code>CATALOG_TOKEN_BUDGET</code> ile büyütün ya da gereksiz "
+"türleri pasifleştirin."
+msgstr ""
+"Povećajte budžet pomoću <code>CATALOG_TOKEN_BUDGET</code> ili "
+"deaktivirajte nepotrebne tipove."
+
+#: app/web/templates/catalog.html
+msgid "Bütün arşivlenen türleri göster"
+msgstr "Prikaži sve arhivirane tipove"
+
+#: app/web/templates/catalog.html
+msgid "Bütün türleri göster"
+msgstr "Prikaži sve tipove"
+
+#: app/web/templates/catalog_accepted_photos.html
+#, python-format
+msgid "Daha eski %(num)d fotoğraf da örnek olarak işaretli."
+msgid_plural "Daha eski %(num)d fotoğraf da örnek olarak işaretli."
+msgstr[0] "Još %(num)d starija fotografija je označena kao primer."
+msgstr[1] "Još %(num)d starije fotografije su označene kao primeri."
+msgstr[2] "Još %(num)d starijih fotografija je označeno kao primeri."
 
 #: app/web/templates/upload_detail.html app/web/templates/upload_result.html
 msgid "Daha önce yüklenmiş"
@@ -908,9 +2058,39 @@ msgstr "Vrednost ne može biti prazna."
 msgid "Değer en çok {limit} karakter olabilir."
 msgstr "Vrednost može imati najviše {limit} znakova."
 
+#: app/web/routers/groups.py
+msgid "Değişiklik yok."
+msgstr "Nema promena."
+
+#: app/web/templates/catalog.html
+msgid ""
+"Değişiklikler bir sonraki analizden itibaren geçerlidir. Tür silinmez: "
+"pasifleştirilen tür yeni belgelere atanmaz, var olan belgeler kalır. "
+"Arşivlenen tür listeden, analiz talimatından ve tür seçicilerden de "
+"kalkar; «Arşivlenen türler»den tek adımda geri alınır."
+msgstr ""
+"Izmene važe od sledeće analize. Tip se nikada ne briše: deaktivirani tip "
+"se ne dodeljuje novim dokumentima, postojeći dokumenti ostaju. Arhivirani"
+" tip nestaje i sa liste, iz uputstva za analizu i iz izbornika tipova; "
+"vraća se u jednom koraku iz «Arhivirani tipovi»."
+
 #: app/web/templates/_language_selector.html
+#: app/web/templates/catalog_description.html
 msgid "Dil"
 msgstr "Jezik"
+
+#: app/web/templates/catalog.html
+msgid "Direkt"
+msgstr "Direktan"
+
+#: app/catalog/prefill.py app/web/routers/catalog.py
+#: app/web/templates/catalog_type_fields.html
+msgid "Direkt Belge"
+msgstr "Direktan dokument"
+
+#: app/pipeline/queue_close.py
+msgid "Diğer"
+msgstr "Drugo"
 
 #: app/web/profile_form.py app/web/routers/employees.py
 #: app/web/templates/profile.html
@@ -926,8 +2106,8 @@ msgstr ""
 "nalogom i dozvoljen. Telegram možete povezati samo vi, sa svojim nalogom."
 
 #: app/web/templates/document_archive_step.html app/web/templates/profile.html
-#: app/web/templates/upload_detail.html app/web/templates/upload_result.html
-#: app/web/templates/uploads_list.html
+#: app/web/templates/training_results.html app/web/templates/upload_detail.html
+#: app/web/templates/upload_result.html app/web/templates/uploads_list.html
 msgid "Dosya"
 msgstr "Datoteka"
 
@@ -935,28 +2115,79 @@ msgstr "Datoteka"
 msgid "Dosya bulunamadı"
 msgstr "Datoteka nije pronađena"
 
+#: app/catalog/prefill.py app/web/routers/catalog.py app/web/routers/groups.py
+#: app/web/templates/catalog.html app/web/templates/catalog_type_fields.html
+#: app/web/templates/group.html
+msgid "Dosya etiketi"
+msgstr "Oznaka datoteke"
+
+#: app/web/templates/group.html
+msgid "Dosya etiketiyle kalem ekle"
+msgstr "Dodaj stavku prema oznaci datoteke"
+
+#: app/web/routers/catalog.py
+msgid "Dosya seçilmedi."
+msgstr "Nije izabrana nijedna datoteka."
+
+#: app/web/routers/training.py
+msgid ""
+"Dosya silinmez, eğitim arşivine taşınır ve bu türün açıklama üretimine "
+"artık girmez. Son kararınız mı?"
+msgstr ""
+"Datoteka se ne briše, premešta se u arhivu obuke i više se ne koristi za "
+"generisanje opisa ovog tipa. Da li je to vaša konačna odluka?"
+
+#: app/web/templates/training_results.html
+msgid "Dosyalar"
+msgstr "Datoteke"
+
 #: app/web/templates/profile.html app/web/templates/upload.html
 msgid "Dosyaları buraya sürükleyip bırakın"
 msgstr "Prevucite i otpustite datoteke ovde"
+
+#: app/web/templates/training_results.html
+msgid "Dosyaları süz"
+msgstr "Filtriraj datoteke"
 
 #: app/telegram/handlers.py
 msgid "Dosyalarınızı alamadım. Lütfen yeniden gönderin."
 msgstr "Nisam mogao da primim vaše fajlove. Pošaljite ih ponovo."
 
+#: app/web/templates/training_results.html app/web/templates/training_type.html
+msgid "Doğrula"
+msgstr "Potvrdi"
+
 #: app/web/templates/upload_detail.html
 msgid "Doğrulamalar"
 msgstr "Provere"
+
+#: app/web/routers/training.py
+msgid "Doğrulanacak \"AI kararı\" örneği seçilmedi; hiçbir şey değişmedi."
+msgstr ""
+"Nije izabran nijedan primer „AI odluka“ za potvrdu; ništa se nije "
+"promenilo."
+
+#: app/web/routers/training.py
+msgid "Doğrulandı"
+msgstr "Potvrđeno"
+
+#: app/web/templates/training_known.html
+msgid "Doğrulanmış"
+msgstr "Potvrđeni"
 
 #: app/web/profile_form.py app/web/routers/employees.py
 #: app/web/templates/profile.html
 msgid "Doğum tarihi"
 msgstr "Datum rođenja"
 
+#: app/web/templates/catalog.html app/web/templates/catalog_candidate.html
 #: app/web/templates/document_archive_step.html
 #: app/web/templates/employee_merge_step.html app/web/templates/employees.html
-#: app/web/templates/employees_results.html app/web/templates/history.html
-#: app/web/templates/profile.html app/web/templates/upload_detail.html
-#: app/web/templates/uploads_list.html app/web/templates/users.html
+#: app/web/templates/employees_results.html app/web/templates/groups.html
+#: app/web/templates/history.html app/web/templates/profile.html
+#: app/web/templates/queue_item.html app/web/templates/training_results.html
+#: app/web/templates/upload_detail.html app/web/templates/uploads_list.html
+#: app/web/templates/users.html
 msgid "Durum"
 msgstr "Status"
 
@@ -967,6 +2198,14 @@ msgstr "Status mora biti 'active' ili 'inactive'."
 #: app/web/routers/uploads_list.py
 msgid "Durum süzgeci tanınmadı; yok sayıldı."
 msgstr "Filter statusa nije prepoznat; zanemaren je."
+
+#: app/web/templates/catalog_description.html
+msgid "Düzen"
+msgstr "Raspored"
+
+#: app/web/templates/catalog.html
+msgid "Düzenle"
+msgstr "Uredi"
 
 #: app/web/templates/employee_fields.html
 msgid "Düzenleme formunu yeniden açın"
@@ -1009,6 +2248,26 @@ msgstr ""
 "ostaje u istoriji. Zapisi imena i brojevi dokumenata dolaze samo iz "
 "dokumenata."
 
+#: app/web/routers/training.py
+msgid "Elle kontrol gerekli"
+msgstr "Potrebna ručna provera"
+
+#: app/web/templates/catalog_photo_rules.html
+msgid "En az genişlik"
+msgstr "Minimalna širina"
+
+#: app/web/templates/catalog_photo_rules.html
+msgid "En az genişlik:"
+msgstr "Minimalna širina:"
+
+#: app/web/templates/catalog_type_fields.html
+msgid "En az sayfa"
+msgstr "Najmanje strana"
+
+#: app/web/templates/catalog_photo_rules.html
+msgid "En az yükseklik:"
+msgstr "Minimalna visina:"
+
 #: app/web/templates/account_telegram.html
 msgid ""
 "En kolayı «Telegram'ı bağla»: 10 dakika geçerli, tek kullanımlık bir bot "
@@ -1022,6 +2281,16 @@ msgstr ""
 " bot sam poveže vaš Telegram ID sa vašim nalogom; osvežite stranicu i ID "
 "se pojavljuje na listi. Link ne delite ni sa kim: ko god ga otvori dok "
 "važi, njegov Telegram se povezuje sa vašim nalogom."
+
+#: app/web/routers/training.py
+msgid "En çok <K> dosya yapay zekâya gönderilebilir. Son kararınız mı?"
+msgstr ""
+"Veštačkoj inteligenciji može biti poslato najviše <K> datoteka. Da li je "
+"to vaša konačna odluka?"
+
+#: app/web/templates/catalog_type_fields.html
+msgid "En çok sayfa"
+msgstr "Najviše strana"
 
 #: app/web/templates/account_telegram.html app/web/templates/users.html
 msgid "Engelli"
@@ -1040,17 +2309,34 @@ msgstr "Dnevnik pristupa"
 msgid "Erişimler"
 msgstr "Pristupi"
 
-#: app/web/routers/upload_page.py
+#: app/web/routers/queue.py app/web/routers/upload_page.py
 msgid "Eski sürüm"
 msgstr "Stara verzija"
 
-#: app/web/routers/upload_page.py app/web/templates/users.html
+#: app/web/templates/training_results.html
+msgid "Etiket"
+msgstr "Oznaka"
+
+#: app/web/routers/upload_page.py app/web/templates/catalog.html
+#: app/web/templates/groups.html app/web/templates/users.html
 msgid "Etkin"
 msgstr "Aktivan"
+
+#: app/web/templates/catalog.html
+msgid "Etkinleştir"
+msgstr "Aktiviraj"
+
+#: app/web/routers/catalog.py app/web/templates/catalog.html
+msgid "Evet"
+msgstr "Da"
 
 #: app/web/routers/documents.py
 msgid "Evet, arşive taşı"
 msgstr "Da, premesti u arhivu"
+
+#: app/web/templates/catalog_archive_step.html
+msgid "Evet, arşivle"
+msgstr "Da, arhiviraj"
 
 #: app/web/templates/queue_assign.html
 msgid "Evet, ata"
@@ -1060,6 +2346,8 @@ msgstr "Da, dodeli"
 msgid "Evet, birleştir"
 msgstr "Da, spoji"
 
+#: app/web/templates/catalog_archive_step.html
+#: app/web/templates/catalog_candidate.html
 #: app/web/templates/catalog_candidate_step.html
 #: app/web/templates/document_archive_step.html
 #: app/web/templates/document_move.html app/web/templates/employee_fields.html
@@ -1068,6 +2356,8 @@ msgstr "Da, spoji"
 #: app/web/templates/profile_record_step.html
 #: app/web/templates/queue_assign.html app/web/templates/queue_close_step.html
 #: app/web/templates/queue_new_profile.html
+#: app/web/templates/training_decision.html
+#: app/web/templates/training_map_step.html
 #: app/web/templates/upload_detail.html
 msgid "Evet, devam et"
 msgstr "Da, nastavi"
@@ -1100,11 +2390,16 @@ msgstr "Da, deaktiviraj"
 msgid "Evet, profili oluştur"
 msgstr "Da, kreiraj profil"
 
+#: app/web/templates/training_map_step.html
+msgid "Evet, taramayı başlat"
+msgstr "Da, pokreni skeniranje"
+
 #: app/web/templates/upload_action_result.html
 msgid "Evet, taramayı yoksay"
 msgstr "Da, zanemari skeniranje"
 
 #: app/web/templates/document_move.html
+#: app/web/templates/training_decision.html
 msgid "Evet, taşı"
 msgstr "Da, premesti"
 
@@ -1112,9 +2407,14 @@ msgstr "Da, premesti"
 msgid "Evet, türü ekle"
 msgstr "Da, dodaj tip"
 
+#: app/web/templates/catalog_candidate_step.html
 #: app/web/templates/upload_action_result.html
 msgid "Evet, yeniden analiz et"
 msgstr "Da, analiziraj ponovo"
+
+#: app/web/templates/training_decision.html
+msgid "Evet, çıkar"
+msgstr "Da, ukloni"
 
 #: app/web/templates/access_log_employee.html
 msgid "Eylem"
@@ -1124,9 +2424,53 @@ msgstr "Radnja"
 msgid "Eğitim modu"
 msgstr "Režim obuke"
 
+#: app/web/templates/_training_tabs.html
+msgid "Eğitim modu görünümleri"
+msgstr "Prikazi režima obuke"
+
+#: app/web/templates/catalog_examples.html
+msgid "Eğitim modunda incele"
+msgstr "Pregledaj u režimu obuke"
+
+#: app/web/templates/training_known.html
+#, python-format
+msgid ""
+"Eğitim modunun örnek yerleştirebildiği türler: %(catalog)s katalog türü "
+"ve %(suggested)s hazır önerilen tür (toplam %(total)s). Önerilen türler "
+"kataloğa kendiliğinden eklenmez; yalnız örnekleri birikir."
+msgstr ""
+"Tipovi u koje režim obuke može da rasporedi primere: tipova iz kataloga "
+"%(catalog)s i gotovih predloženih tipova %(suggested)s (ukupno "
+"%(total)s). Predloženi tipovi se ne dodaju u katalog sami; samo se "
+"skupljaju njihovi primeri."
+
+#: app/web/routers/training.py
+msgid "Eğitim çalıştırması bulunamadı."
+msgstr "Pokretanje obuke nije pronađeno."
+
+#: app/web/routers/training.py
+msgid "Eğitim örneği bulunamadı."
+msgstr "Primer za obuku nije pronađen."
+
+#: app/web/routers/training.py
+msgid "Eğitim öğesi bulunamadı."
+msgstr "Stavka obuke nije pronađena."
+
+#: app/web/routers/training.py
+msgid "Eğitimden önce"
+msgstr "Pre obuke"
+
+#: app/web/templates/training.html
+msgid "Eğitime yükle"
+msgstr "Otpremi za obuku"
+
 #: app/web/templates/catalog.html
 msgid "Eşleşen ülke yok."
 msgstr "Nema odgovarajuće zemlje."
+
+#: app/web/templates/group.html
+msgid "Eşleşme"
+msgstr "Podudaranje"
 
 #: app/web/routers/upload_page.py
 msgid "Eşleşti"
@@ -1136,19 +2480,45 @@ msgstr "Upareno"
 msgid "Farklı değer"
 msgstr "Druga vrednost"
 
+#: app/web/templates/catalog_examples.html
+#, python-format
+msgid ""
+"Formdaki \"Örneklerden açıklama üret\" düğmesi örneklerin ilk %(limit)s "
+"sayfasını yapay zekâya verir ve üretilen açıklamayı \"Analizci için "
+"açıklama\" alanına yazar; siz Kaydet'e basana kadar hiçbir şey "
+"kaydedilmez."
+msgstr ""
+"Dugme „Generiši opis iz primera“ u obrascu daje veštačkoj inteligenciji "
+"prvih %(limit)s strana primera i upisuje generisani opis u polje „Opis za"
+" analizatora“; ništa se ne čuva dok ne pritisnete Sačuvaj."
+
+#: app/web/templates/catalog_photo_rules.html
+msgid "Fotoğraf kuralları"
+msgstr "Pravila za fotografiju"
+
+#: app/web/routers/catalog.py
+msgid "Fotoğraf kuralları kaydedildi."
+msgstr "Pravila za fotografiju su sačuvana."
+
 #: app/web/templates/profile.html
 msgid "Fotoğraf yok"
 msgstr "Nema fotografije"
+
+#: app/catalog/photo_rules.py
+msgid "Fotoğrafta yalnız çalışanın kendisi bulunmalı."
+msgstr "Na fotografiji sme biti samo zaposleni."
 
 #: app/web/routers/catalog.py
 msgid "Genel — ülkesiz"
 msgstr "Opšte — bez zemlje"
 
-#: app/web/templates/upload_detail.html
+#: app/web/templates/queue.html app/web/templates/queue_item.html
+#: app/web/templates/training_map.html app/web/templates/upload_detail.html
 msgid "Gerekçe"
 msgstr "Razlog"
 
-#: app/web/templates/profile.html
+#: app/web/templates/catalog.html app/web/templates/catalog_candidates.html
+#: app/web/templates/profile.html app/web/templates/training_results.html
 msgid "Geri al"
 msgstr "Vrati"
 
@@ -1177,28 +2547,209 @@ msgstr "Prijavi se"
 msgid "Gizle"
 msgstr "Sakrij"
 
+#: app/web/templates/group.html
+msgid "Grubu arşivle"
+msgstr "Arhiviraj grupu"
+
+#: app/web/templates/group.html
+msgid "Grubu oluştur"
+msgstr "Napravi grupu"
+
+#: app/web/routers/groups.py
+msgid "Grubun adı ve açıklaması güncellendi."
+msgstr "Ime i opis grupe su ažurirani."
+
 #: app/web/templates/profile.html
 msgid "Grubun kalemi yok."
 msgstr "Grupa nema stavki."
+
+#: app/groups/service.py
+msgid "Grup adı boş olamaz."
+msgstr "Ime grupe ne može biti prazno."
+
+#: app/groups/service.py
+msgid "Grup adı en az bir harf ya da rakam içermeli."
+msgstr "Ime grupe mora sadržati bar jedno slovo ili cifru."
+
+#: app/groups/service.py
+#, python-brace-format
+msgid "Grup adı en çok {limit} karakter olabilir."
+msgstr "Ime grupe može imati najviše {limit} znakova."
+
+#: app/web/routers/groups.py
+msgid "Grup arşivden geri alındı."
+msgstr "Grupa je vraćena iz arhive."
+
+#: app/web/routers/groups.py
+msgid "Grup arşivlendi: yeni paket tanımlanamaz, açık paketler sürer."
+msgstr ""
+"Grupa je arhivirana: novi paket ne može da se dodeli, otvoreni paketi se "
+"nastavljaju."
+
+#: app/web/templates/group.html
+msgid "Grup kaydedilmedi: alanların altındaki uyarıları düzeltin."
+msgstr "Grupa nije sačuvana: ispravite upozorenja ispod polja."
+
+#: app/web/routers/groups.py
+msgid "Grup oluşturuldu. Şimdi kalemlerini ekleyin."
+msgstr "Grupa je napravljena. Sada dodajte njene stavke."
+
+#: app/web/templates/group.html
+msgid ""
+"Grup silinmez. Arşivlenen gruba yeni paket tanımlanamaz; açık paketler "
+"sürer. Arşivden tek tıkla geri alınır."
+msgstr ""
+"Grupa se nikada ne briše. Arhiviranoj grupi ne može da se dodeli novi "
+"paket; otvoreni paketi se nastavljaju. Iz arhive se vraća jednim klikom."
+
+#: app/web/templates/groups.html
+msgid "Grup silinmez: kullanılmayan grup arşivlenir, arşivden geri alınabilir."
+msgstr ""
+"Grupa se nikada ne briše: grupa koja se ne koristi arhivira se i može se "
+"vratiti iz arhive."
+
+#: app/web/routers/catalog.py
+msgid "Gömülü görüntüyü çıkar"
+msgstr "Izdvoj ugrađenu sliku"
 
 #: app/web/templates/profile.html
 #, python-format
 msgid "Görülen yazımlar (%(count)s)"
 msgstr "Viđeni zapisi (%(count)s)"
 
-#: app/web/templates/history.html app/web/templates/upload_detail.html
+#: app/web/templates/catalog_candidate.html
+#: app/web/templates/catalog_candidates.html
+msgid "Görülme"
+msgstr "Viđenja"
+
+#: app/web/templates/catalog_candidate_samples.html
+#: app/web/templates/history.html app/web/templates/queue_item.html
+#: app/web/templates/upload_detail.html
 msgid "Görüntü yok"
 msgstr "Nema slike"
+
+#: app/catalog/photo_rules.py
+msgid "Görüntünün piksel boyutu asgari genişlik ve yüksekliğin altında olmamalı."
+msgstr "Veličina slike u pikselima ne sme biti ispod minimalne širine i visine."
+
+#: app/catalog/propose.py
+msgid "Görüntüsü kalan örnek sayfa yok"
+msgstr "Nije ostala nijedna strana primera sa slikom"
+
+#: app/web/routers/catalog.py
+msgid "Görüntüyü PDF'e sar"
+msgstr "Spakuj sliku u PDF"
+
+#: app/web/templates/training_results.html
+msgid "Gösterilecek dosya yok."
+msgstr "Nema datoteka za prikaz."
+
+#: app/catalog/photo_rules.py
+msgid "Gözler görünmeli; güneş gözlüğü ya da renkli cam olmamalı."
+msgstr "Oči moraju biti vidljive; bez naočara za sunce ili zatamnjenih stakala."
 
 #: app/web/templates/profile.html
 msgid "Güncel"
 msgstr "Aktuelno"
 
+#: app/web/templates/catalog_candidate.html
+#: app/web/templates/catalog_candidate_step.html
+msgid "Güncel plan sürümü"
+msgstr "Trenutna verzija plana"
+
+#: app/catalog/photo_rules.py
+msgid "Güneş gözlüğü yok"
+msgstr "Bez naočara za sunce"
+
+#: app/web/routers/training.py
+msgid "Harita"
+msgstr "Mapa"
+
+#: app/web/templates/training.html
+msgid "Harita (CSV)"
+msgstr "Mapa (CSV)"
+
+#: app/web/routers/training.py
+msgid "Harita .csv uzantılı bir CSV dosyası olmalı."
+msgstr "Mapa mora biti CSV datoteka sa ekstenzijom .csv."
+
+#: app/training/map_import.py
+#, python-brace-format
+msgid "Harita CSV olarak okunamadı (satır {line})."
+msgstr "Mapa nije mogla da se pročita kao CSV (red {line})."
+
+#: app/training/map_import.py
+msgid "Harita UTF-8 metin değil; CSV'yi UTF-8 olarak kaydedin."
+msgstr "Mapa nije UTF-8 tekst; sačuvajte CSV kao UTF-8."
+
+#: app/web/templates/training.html
+msgid "Harita ile toplu tarama"
+msgstr "Skeniranje odjednom pomoću mape"
+
+#: app/web/routers/training.py
+msgid "Harita saklanamadı; tarama başlatılmadı."
+msgstr "Mapa nije mogla da se sačuva; skeniranje nije pokrenuto."
+
+#: app/web/routers/training.py
+msgid "Harita verisi okunamadı; haritayı yeniden yükleyin."
+msgstr "Podaci mape nisu mogli da se pročitaju; ponovo otpremite mapu."
+
+#: app/web/templates/training.html
+msgid "Harita yükle"
+msgstr "Otpremi mapu"
+
+#: app/training/map_import.py
+#, python-brace-format
+msgid "Harita {limit} MB sınırını aşıyor."
+msgstr "Mapa prelazi ograničenje od {limit} MB."
+
+#: app/training/map_import.py
+#, python-brace-format
+msgid "Harita {limit} dosya sınırını aşıyor."
+msgstr "Mapa prelazi ograničenje od {limit} datoteka."
+
+#: app/training/map_import.py
+#, python-brace-format
+msgid "Harita {limit} satır sınırını aşıyor."
+msgstr "Mapa prelazi ograničenje od {limit} redova."
+
+#: app/web/templates/training_map.html
+msgid "Harita önizlemesi"
+msgstr "Pregled mape"
+
+#: app/training/map_import.py
+msgid "Haritada satır yok."
+msgstr "Mapa nema redova."
+
+#: app/web/templates/training_map.html
+msgid "Haritada taranacak dosya yok; tarama başlatılamaz."
+msgstr "Mapa nema datoteka za skeniranje; skeniranje ne može da se pokrene."
+
+#: app/web/routers/training.py
+msgid "Haritada taranacak dosya yok; tarama başlatılmadı."
+msgstr "Mapa nema datoteka za skeniranje; skeniranje nije pokrenuto."
+
+#: app/training/map_import.py
+msgid ""
+"Haritada yol sütunu yok: dest, output_relative_path, ornek_klasoru, "
+"source_collection_path ya da path gerekir."
+msgstr ""
+"Mapa nema kolonu putanje: potrebna je dest, output_relative_path, "
+"ornek_klasoru, source_collection_path ili path."
+
 #: app/web/routers/uploads_list.py
 msgid "Hata"
 msgstr "Greška"
 
-#: app/web/routers/upload_page.py
+#: app/web/routers/training.py
+msgid "Hatalı"
+msgstr "Neuspešno"
+
+#: app/web/routers/catalog.py app/web/templates/catalog.html
+msgid "Hayır"
+msgstr "Ne"
+
+#: app/catalog/candidates.py app/web/routers/upload_page.py
 msgid "Hazır"
 msgstr "Spremno"
 
@@ -1210,9 +2761,17 @@ msgstr "Cilj"
 msgid "Hedef durum yalnız pasif (inactive) ya da aktif (active) olabilir."
 msgstr "Ciljni status može biti samo neaktivan (inactive) ili aktivan (active)."
 
+#: app/web/templates/groups.html
+msgid "Henüz belge grubu yok. «Yeni grup» ile ilk grubu açın."
+msgstr "Još nema grupa dokumenata. Otvorite prvu grupu pomoću «Nova grupa»."
+
 #: app/web/templates/profile.html
 msgid "Henüz belge yok."
 msgstr "Još nema dokumenata."
+
+#: app/web/templates/training_results.html
+msgid "Henüz eğitim yüklemesi yok."
+msgstr "Još nema otpremanja za obuku."
 
 #: app/web/templates/access_log.html
 msgid "Henüz hiçbir belgeye bakılmadı."
@@ -1225,6 +2784,10 @@ msgstr "Još nema otpremanja."
 #: app/web/templates/employees_results.html
 msgid "Henüz çalışan yok."
 msgstr "Još nema zaposlenih."
+
+#: app/web/templates/catalog_accepted_photos.html
+msgid "Henüz örnek olarak işaretlenen kabul edilmiş fotoğraf yok."
+msgstr "Još nijedna prihvaćena fotografija nije označena kao primer."
 
 #: app/web/routers/catalog.py app/web/routers/employees.py
 msgid "Hepsi"
@@ -1260,6 +2823,38 @@ msgstr "ICAO kod (npr. RUS, SRB, D)"
 msgid "ICAO uyruk kodu olmalı (1–3 büyük harf, ör. RUS, D)"
 msgstr "mora biti ICAO kod državljanstva (1–3 velika slova, npr. RUS, D)"
 
+#: app/catalog/prefill.py app/web/routers/catalog.py
+#: app/web/templates/catalog_type_fields.html
+msgid "Kabul edilen düzenler"
+msgstr "Prihvaćeni rasporedi"
+
+#: app/web/templates/catalog_description.html
+msgid "Kabul edilen fotoğraf"
+msgstr "Prihvaćena fotografija"
+
+#: app/catalog/describe.py
+#, python-brace-format
+msgid "Kabul edilen fotoğraf (belge {id})"
+msgstr "Prihvaćena fotografija (dokument {id})"
+
+#: app/web/templates/catalog_accepted_photos.html
+msgid "Kabul edilen fotoğraflar"
+msgstr "Prihvaćene fotografije"
+
+#: app/web/templates/catalog.html
+msgid "Kabul kriteri"
+msgstr "Kriterijumi prihvatanja"
+
+#: app/web/templates/catalog_criteria.html
+#, python-format
+msgid "Kabul kriteri %(num)d"
+msgstr "Kriterijum prihvatanja %(num)d"
+
+#: app/catalog/prefill.py app/web/routers/catalog.py
+#: app/web/templates/catalog_type_fields.html
+msgid "Kabul kriterleri"
+msgstr "Kriterijumi prihvatanja"
+
 #: app/web/templates/employee_merge_step.html
 msgid "Kalacak kayıt"
 msgstr "Zapis koji ostaje"
@@ -1273,9 +2868,22 @@ msgstr "Zapis koji ostaje mora biti jedan od dva zaposlena koji se spajaju."
 msgid "Kalan: %(name)s (%(id)s)"
 msgstr "Ostaje: %(name)s (%(id)s)"
 
-#: app/web/templates/profile.html
+#: app/web/templates/group.html app/web/templates/profile.html
 msgid "Kaldır"
 msgstr "Ukloni"
+
+#: app/web/templates/group.html
+msgid ""
+"Kaldırılan kalem geçmişte kalır; yeniden gerekirse yukarıdan tekrar "
+"eklenir."
+msgstr ""
+"Uklonjena stavka ostaje u istoriji; ako ponovo zatreba, dodajte je ponovo"
+" iznad."
+
+#: app/web/templates/group.html
+#, python-format
+msgid "Kaldırılan kalemler (%(num)d)"
+msgstr "Uklonjene stavke (%(num)d)"
 
 #: app/web/templates/profile.html
 msgid "Kaldırılanlar"
@@ -1290,6 +2898,52 @@ msgstr "Uklonjeni (%(count)s)"
 msgid "Kaldırılmış kayıt"
 msgstr "Uklonjen zapis"
 
+#: app/web/templates/group.html app/web/templates/groups.html
+msgid "Kalem"
+msgstr "Stavka"
+
+#: app/web/routers/groups.py
+msgid "Kalem bu grupta yok ya da zaten kaldırılmış"
+msgstr "Stavka nije u ovoj grupi ili je već uklonjena"
+
+#: app/web/templates/group.html
+#, python-format
+msgid ""
+"Kalem değişiklikleri <strong>%(count)s</strong> açık pakette hemen "
+"geçerli olacak."
+msgid_plural ""
+"Kalem değişiklikleri <strong>%(count)s</strong> açık pakette hemen "
+"geçerli olacak."
+msgstr[0] ""
+"Izmene stavki odmah će važiti u <strong>%(count)s</strong> otvorenom "
+"paketu."
+msgstr[1] ""
+"Izmene stavki odmah će važiti u <strong>%(count)s</strong> otvorena "
+"paketa."
+msgstr[2] ""
+"Izmene stavki odmah će važiti u <strong>%(count)s</strong> otvorenih "
+"paketa."
+
+#: app/web/routers/groups.py
+msgid "Kalem eklendi."
+msgstr "Stavka je dodata."
+
+#: app/web/routers/groups.py
+msgid "Kalem kaldırıldı."
+msgstr "Stavka je uklonjena."
+
+#: app/groups/service.py
+msgid "Kalem ya bir dosya etiketiyle ya da bir türle tanımlanır."
+msgstr "Stavka se definiše ili oznakom datoteke ili tipom."
+
+#: app/web/templates/group.html
+msgid "Kalemi ekle"
+msgstr "Dodaj stavku"
+
+#: app/web/templates/group.html
+msgid "Kalemler"
+msgstr "Stavke"
+
 #: app/web/templates/access_log_employee.html
 #: app/web/templates/upload_detail.html app/web/templates/uploads_list.html
 msgid "Kanal"
@@ -1303,6 +2957,14 @@ msgstr "Razlog zatvaranja"
 #, python-format
 msgid "Kapatma gerekçesi: %(reason)s"
 msgstr "Razlog zatvaranja: %(reason)s"
+
+#: app/web/routers/queue.py
+msgid "Kapatma gerekçesini seçin: belge değil, zaten var ya da diğer."
+msgstr "Izaberite razlog zatvaranja: nije dokument, već postoji ili drugo."
+
+#: app/web/templates/queue_item.html
+msgid "Kapatılan öğe"
+msgstr "Zatvorena stavka"
 
 #: app/web/templates/queue_close_step.html
 msgid ""
@@ -1320,15 +2982,49 @@ msgstr ""
 msgid "Karşılandı:"
 msgstr "Ispunjeno:"
 
+#: app/web/routers/training.py
+msgid "Katalog"
+msgstr "Katalog"
+
+#: app/web/templates/catalog.html
+msgid ""
+"Katalog metni bütçeye sığmadığı için bu türlerin analizci açıklaması "
+"kısaltılarak (ya da hiç) talimata giriyor; alanlar ve kabul kriterleri "
+"kesilmez."
+msgstr ""
+"Pošto tekst kataloga ne staje u budžet, opisi za analizatora ovih tipova "
+"ulaze u uputstvo skraćeni (ili uopšte ne ulaze); polja i kriterijumi "
+"prihvatanja se ne skraćuju."
+
+#: app/web/routers/catalog.py
+msgid ""
+"Katalog metni ölçülemedi: katalogda tutarsız kayıt var (satırdaki "
+"«Tutarsız kayıt» rozetine bakın). Analiz bu kayıt düzeltilene kadar "
+"katalogu okuyamaz."
+msgstr ""
+"Tekst kataloga nije mogao da se izmeri: katalog ima neusklađen zapis "
+"(pogledajte oznaku «Neusklađen zapis» u njegovom redu). Analiza ne može "
+"da pročita katalog dok se taj zapis ne ispravi."
+
+#: app/web/templates/catalog.html
+msgid "Katalogda henüz tür yok."
+msgstr "Katalog još nema tipova."
+
 #: app/web/templates/catalog_candidate_step.html
 msgid "Kataloğa eklenecek tür:"
 msgstr "Tip koji će biti dodat u katalog:"
+
+#: app/web/templates/catalog_form.html app/web/templates/group.html
+msgid "Kaydet"
+msgstr "Sačuvaj"
 
 #: app/web/templates/profile_record_step.html
 msgid "Kaydı kaldır"
 msgstr "Ukloni zapis"
 
-#: app/web/templates/profile.html app/web/templates/upload_detail.html
+#: app/web/templates/profile.html app/web/templates/queue.html
+#: app/web/templates/training_known.html app/web/templates/training_type.html
+#: app/web/templates/upload_detail.html
 msgid "Kaynak"
 msgstr "Izvor"
 
@@ -1340,13 +3036,17 @@ msgstr "Zapis izvorne datoteke nije pronađen."
 msgid "Kaynak dosya ve sayfa okunamadı."
 msgstr "Izvornu datoteku i strane nije bilo moguće pročitati."
 
-#: app/web/templates/history.html
+#: app/web/templates/history.html app/web/templates/queue_item.html
 msgid "Kaynak dosyalar ve sayfalar"
 msgstr "Izvorne datoteke i strane"
 
 #: app/web/templates/profile.html
 msgid "Kaynak:"
 msgstr "Izvor:"
+
+#: app/web/routers/catalog.py
+msgid "Kaynağın biçimini koru"
+msgstr "Zadrži format izvora"
 
 #: app/web/routers/employees.py
 msgid "Kayıt bulunamadı."
@@ -1401,6 +3101,14 @@ msgstr "Nema zabeleženih kontakt podataka."
 msgid "Kayıtlı isim yazımı yok."
 msgstr "Nema zabeleženih zapisa imena."
 
+#: app/web/templates/catalog_form.html
+msgid ""
+"Kayıtlı tür şu an katalog kurallarına uymuyor; analiz kataloğu okuyamaz. "
+"Alanları düzeltip kaydedin:"
+msgstr ""
+"Sačuvani tip trenutno ne poštuje pravila kataloga; analiza ne može da "
+"pročita katalog. Ispravite polja i sačuvajte:"
+
 #: app/web/auth.py
 msgid "Kendi hesabınızı pasife alamazsınız."
 msgstr "Ne možete deaktivirati sopstveni nalog."
@@ -1425,9 +3133,13 @@ msgstr "Ko je pregledao"
 msgid "Kimlik ekle"
 msgstr "Dodaj ID"
 
-#: app/web/routers/employees.py
+#: app/catalog/describe.py app/web/routers/employees.py
 msgid "Kiril"
 msgstr "Ćirilica"
+
+#: app/web/templates/queue.html app/web/templates/queue_item.html
+msgid "Kişi tahmini"
+msgstr "Pretpostavljena osoba"
 
 #: app/telegram/notify.py
 #, python-brace-format
@@ -1440,6 +3152,15 @@ msgstr[2] "Imate {count} novih dokumenata za proveru. Možete ih pogledati na pa
 #: app/web/templates/account_telegram.html
 msgid "Kopyalandı"
 msgstr "Kopirano"
+
+#: app/web/templates/catalog.html
+msgid "Korunan"
+msgstr "Zaštićen"
+
+#: app/web/templates/catalog_archive_step.html
+#, python-format
+msgid "Korunan türler arşivlenmez, atlanacak (%(num)d): %(names)s"
+msgstr "Zaštićeni tipovi se ne arhiviraju i biće preskočeni (%(num)d): %(names)s"
 
 #: app/web/templates/access_log_employee.html
 msgid "Kullanıcı"
@@ -1512,7 +3233,24 @@ msgstr "Korisnici"
 msgid "Kullanıcılar sayfasına dön"
 msgstr "Nazad na stranicu Korisnici"
 
-#: app/web/templates/queue_close_step.html app/web/templates/upload_detail.html
+#: app/web/templates/catalog_description.html
+msgid "Kullanılan kabul edilen fotoğraflar:"
+msgstr "Korišćene prihvaćene fotografije:"
+
+#: app/web/templates/catalog_description.html
+msgid "Kullanılan örnek sayfalar:"
+msgstr "Korišćene strane primera:"
+
+#: app/web/templates/catalog_photo_rules.html
+msgid "Kurallar kaydedilmedi: alanların altındaki uyarıları düzeltin."
+msgstr "Pravila nisu sačuvana: ispravite upozorenja ispod polja."
+
+#: app/web/templates/catalog_photo_rules.html
+msgid "Kuralları kaydet"
+msgstr "Sačuvaj pravila"
+
+#: app/web/templates/queue_close_step.html app/web/templates/queue_item.html
+#: app/web/templates/upload_detail.html
 msgid "Kuyruk"
 msgstr "Red"
 
@@ -1520,10 +3258,32 @@ msgstr "Red"
 msgid "Kuyruk gerekçesi"
 msgstr "Razlog u redu"
 
-#: app/web/templates/_context_warning.html
+#: app/web/templates/_context_warning.html app/web/templates/queue_item.html
 msgid "Kuyruk öğesi"
 msgstr "Stavka reda"
 
+#: app/web/templates/queue_item.html
+#, python-format
+msgid "Kuyruk öğesi %(id)s"
+msgstr "Stavka reda %(id)s"
+
+#: app/web/templates/queue_item.html
+msgid "Kuyruk öğesi bulunamadı"
+msgstr "Stavka reda nije pronađena"
+
+#: app/web/routers/queue.py
+msgid "Kuyruk öğesi bulunamadı."
+msgstr "Stavka reda nije pronađena."
+
+#: app/web/routers/queue.py
+msgid "Kuyruk öğesini kapat"
+msgstr "Zatvori stavku reda"
+
+#: app/web/routers/queue.py
+msgid "Kuyruk öğesini yeniden aç"
+msgstr "Ponovo otvori stavku reda"
+
+#: app/web/templates/queue.html app/web/templates/queue_item.html
 #: app/web/templating.py
 msgid "Kuyruklar"
 msgstr "Redovi"
@@ -1544,7 +3304,7 @@ msgstr "Delimično završeno — neke strane nije bilo moguće analizirati"
 msgid "Kısmi"
 msgstr "Delimično"
 
-#: app/web/routers/employees.py
+#: app/catalog/describe.py app/web/routers/employees.py
 msgid "Latin"
 msgstr "Latinica"
 
@@ -1567,6 +3327,18 @@ msgstr "Nedostaje latinični zapis"
 #: app/web/routers/uploads.py
 msgid "Lütfen dosyayı yeniden adlandırıp tekrar yükleyin."
 msgstr "Preimenujte datoteku i ponovo je otpremite."
+
+#: app/web/templates/catalog_criteria.html
+msgid "Madde ekle"
+msgstr "Dodaj kriterijum"
+
+#: app/web/routers/training.py
+msgid "Mekanik"
+msgstr "Mehanički"
+
+#: app/web/templates/training_map.html
+msgid "Mekanik hazır"
+msgstr "Mehanički spremno"
 
 #: app/telegram/bot.py
 msgid ""
@@ -1600,11 +3372,13 @@ msgstr "Razlog:"
 
 #: app/web/templates/document_move.html
 #: app/web/templates/employee_merge_results.html
-#: app/web/templates/employees_results.html
+#: app/web/templates/employees_results.html app/web/templates/queue.html
+#: app/web/templates/queue_assign.html app/web/templates/training_results.html
 msgid "No"
 msgstr "Br."
 
-#: app/web/templates/profile.html
+#: app/web/templates/group.html app/web/templates/profile.html
+#: app/web/templates/training_results.html
 msgid "Not"
 msgstr "Napomena"
 
@@ -1616,7 +3390,8 @@ msgstr "Napomena (obavezna za razlog \"Drugo\")"
 msgid "Not (isteğe bağlı)"
 msgstr "Napomena (opciono)"
 
-#: app/groups/service.py app/matching/status.py
+#: app/groups/service.py app/matching/status.py app/pipeline/queue_close.py
+#: app/training/cleanup.py
 #, python-brace-format
 msgid "Not en çok {limit} karakter olabilir."
 msgstr "Napomena može imati najviše {limit} znakova."
@@ -1628,6 +3403,10 @@ msgstr "Napomena:"
 #: app/web/templates/profile.html
 msgid "Numara"
 msgstr "Broj"
+
+#: app/catalog/photo_rules.py
+msgid "Nötr ifade"
+msgstr "Neutralan izraz lica"
 
 #: app/web/routers/upload_page.py
 msgid "Okunamadı"
@@ -1641,7 +3420,7 @@ msgstr "Red Unreadable"
 msgid "Olay zaman çizelgesi"
 msgstr "Vremenska linija događaja"
 
-#: app/web/templates/history.html
+#: app/web/templates/history.html app/web/templates/queue_item.html
 msgid "Olaylar"
 msgstr "Događaji"
 
@@ -1653,9 +3432,17 @@ msgstr "Napravljeno"
 msgid "Oluşturuldu:"
 msgstr "Napravljeno:"
 
+#: app/web/templates/catalog_candidates.html
+msgid "Onay bekleyen aday tür yok."
+msgstr "Nema predloženih tipova koji čekaju odobrenje."
+
 #: app/web/routers/upload_page.py
 msgid "Onay bekleyen profil"
 msgstr "Profil čeka odobrenje"
+
+#: app/web/routers/catalog.py
+msgid "Onay bekliyor"
+msgstr "Čeka odobrenje"
 
 #: app/web/confirm.py
 msgid ""
@@ -1664,6 +3451,18 @@ msgid ""
 msgstr ""
 "Potvrda nije važeća: token ne postoji, istekao je, već je iskorišćen ili "
 "ne pripada ovoj radnji."
+
+#: app/web/templates/queue_new_profile.html
+msgid "Onaya gönder"
+msgstr "Pošalji na potvrdu"
+
+#: app/web/templates/catalog_candidates.html
+msgid "Onaylanan, Unknown öğesi bekleyen adaylar"
+msgstr "Odobreni predlozi sa stavkama Unknown na čekanju"
+
+#: app/web/routers/catalog.py
+msgid "Onaylandı"
+msgstr "Odobreno"
 
 #: app/web/templates/document_archive_step.html
 #: app/web/templates/employee_merge_step.html
@@ -1677,12 +3476,21 @@ msgstr "Ponovo pokrenite potvrdu"
 #: app/web/templates/document_move.html
 #: app/web/templates/employee_merge_results.html
 #: app/web/templates/employees_results.html app/web/templates/profile.html
+#: app/web/templates/queue_assign.html
 msgid "Orijinal yazım"
 msgstr "Originalni zapis"
 
 #: app/web/templates/profile.html app/web/templates/upload.html
 msgid "PDF, JPEG, PNG · Word ve Excel olduğu gibi saklanır"
 msgstr "PDF, JPEG, PNG · Word i Excel se čuvaju u izvornom obliku"
+
+#: app/web/templates/training.html
+msgid ""
+"PDF, JPEG, PNG · yalnız örnek (specimen) ya da sentetik belge; gerçek "
+"kimlik belgesi yüklemeyin"
+msgstr ""
+"PDF, JPEG, PNG · samo uzorci (specimen) ili sintetički dokumenti; ne "
+"otpremajte prave lične dokumente"
 
 #: app/web/templates/employees_results.html
 msgid "Paket"
@@ -1784,8 +3592,11 @@ msgstr "Promeni lozinku"
 msgid "Parolayı sıfırla"
 msgstr "Resetuj lozinku"
 
-#: app/web/templates/history.html app/web/templates/queue_close_step.html
-#: app/web/templates/upload_detail.html app/web/templates/uploads_list.html
+#: app/web/templates/catalog_candidate.html
+#: app/web/templates/catalog_candidate_step.html app/web/templates/history.html
+#: app/web/templates/queue.html app/web/templates/queue_close_step.html
+#: app/web/templates/queue_item.html app/web/templates/upload_detail.html
+#: app/web/templates/uploads_list.html
 msgid "Parti"
 msgstr "Serija"
 
@@ -1840,7 +3651,7 @@ msgid ""
 msgstr "Serija nema plan; nema verzije za ponovno pokretanje ili ponovnu analizu."
 
 #: app/matching/status.py app/web/routers/employees.py
-#: app/web/templates/users.html
+#: app/web/templates/catalog.html app/web/templates/users.html
 msgid "Pasif"
 msgstr "Neaktivan"
 
@@ -1855,6 +3666,15 @@ msgstr ""
 #: app/web/templates/profile.html
 msgid "Pasif çalışan"
 msgstr "Neaktivan zaposleni"
+
+#: app/web/templates/queue_item.html
+#, python-format
+msgid ""
+"Pasif çalışan <a href=\"%(url)s\">%(name)s (%(id)s)</a> ile eşleşti — "
+"atayın ya da çalışanı etkinleştirin."
+msgstr ""
+"Poklopilo se sa neaktivnim zaposlenim <a href=\"%(url)s\">%(name)s "
+"(%(id)s)</a> — dodelite stavku ili ponovo aktivirajte zaposlenog."
 
 #: app/web/templates/employees_results.html
 msgid "Pasif çalışan yok."
@@ -1888,6 +3708,10 @@ msgstr "Deaktiviraj"
 #: app/web/templates/profile.html
 msgid "Pasife alan:"
 msgstr "Deaktivirao:"
+
+#: app/web/templates/catalog.html
+msgid "Pasifleştir"
+msgstr "Deaktiviraj"
 
 #: app/web/templates/history.html app/web/templates/upload_detail.html
 msgid "Plan"
@@ -1938,13 +3762,56 @@ msgstr ""
 msgid "Profil fotoğrafı yok"
 msgstr "Nema profilne fotografije"
 
+#: app/web/templates/catalog_photo_rules.html
+msgid ""
+"Profil fotoğrafının uyması gereken kurallar. İşaretli kural açıktır; "
+"işareti kaldırılan kural kapanır ve fotoğraf bu kurala göre "
+"değerlendirilmez."
+msgstr ""
+"Pravila koja fotografija za profil mora da poštuje. Označeno pravilo je "
+"uključeno; pravilo kojem se ukloni oznaka se isključuje i fotografija se "
+"po njemu ne ocenjuje."
+
 #: app/web/templates/profile.html
 msgid "Profil kayıtları"
 msgstr "Zapisi profila"
 
+#: app/web/templates/queue_item.html
+msgid "Profil oluştur"
+msgstr "Napravi profil"
+
 #: app/web/templates/employee_fields.html app/web/templates/profile.html
 msgid "Profili düzenle"
 msgstr "Uredi profil"
+
+#: app/web/routers/catalog.py
+msgid "Reddedildi"
+msgstr "Odbijeno"
+
+#: app/web/templates/catalog_candidate.html
+msgid ""
+"Reddedilen aday bir daha listeye düşmez; kayıt silinmez, katalog "
+"değişmez. İlişkili belgeler Unknown kuyruğunda kalır."
+msgstr ""
+"Odbijeni predlog se više ne pojavljuje na listi; zapis se ne briše, "
+"katalog se ne menja. Povezani dokumenti ostaju u redu Unknown."
+
+#: app/web/templates/catalog_candidates.html
+msgid "Reddedilen aday tür yok."
+msgstr "Nema odbijenih predloženih tipova."
+
+#: app/web/templates/catalog_candidates.html
+#, python-format
+msgid "Reddedilenler (%(num)d)"
+msgstr "Odbijeni (%(num)d)"
+
+#: app/web/templates/catalog_candidate.html
+msgid "Reddet"
+msgstr "Odbij"
+
+#: app/web/templates/catalog_candidate.html
+msgid "Retten geri al"
+msgstr "Poništi odbijanje"
 
 #: app/web/templates/users.html
 msgid "Rol"
@@ -1954,6 +3821,10 @@ msgstr "Uloga"
 msgid "Rota"
 msgstr "Ruta"
 
+#: app/catalog/photo_rules.py
+msgid "Sade arka plan"
+msgstr "Jednostavna pozadina"
+
 #: app/web/routers/upload_page.py
 msgid "Sahibi belirsiz"
 msgstr "Unresolved"
@@ -1962,9 +3833,23 @@ msgstr "Unresolved"
 msgid "Sahibi belirsiz kuyruğu"
 msgstr "Red Unresolved"
 
+#: app/web/templates/training_map.html
+msgid "Satır"
+msgstr "Red"
+
 #: app/web/templates/upload_result.html app/web/templates/uploads_list.html
 msgid "Sayfa"
 msgstr "Strane"
+
+#: app/web/templates/queue_item.html
+#, python-format
+msgid "Sayfa %(page)d"
+msgstr "Strana %(page)d"
+
+#: app/web/templates/queue.html
+#, python-format
+msgid "Sayfa %(page)d / %(count)d"
+msgstr "Strana %(page)d / %(count)d"
 
 #: app/web/templates/history.html app/web/templates/upload_detail.html
 #, python-format
@@ -1990,7 +3875,8 @@ msgstr ""
 "pripremljene."
 
 #: app/web/templates/access_log.html app/web/templates/access_log_employee.html
-#: app/web/templates/employees_results.html app/web/templates/uploads_list.html
+#: app/web/templates/employees_results.html app/web/templates/queue.html
+#: app/web/templates/uploads_list.html
 msgid "Sayfalama"
 msgstr "Stranice"
 
@@ -2002,20 +3888,60 @@ msgstr "Strane"
 msgid "Sayfalar hazırlanıyor"
 msgstr "Strane se pripremaju"
 
+#: app/web/routers/catalog.py
+msgid "Sayfaları birleştir"
+msgstr "Spoji strane"
+
 #: app/web/templates/upload_result.html
 #, python-format
 msgid "Sayfaları hazırlanan dosya: %(done)s / %(total)s"
 msgstr "Datoteke sa pripremljenim stranama: %(done)s / %(total)s"
 
-#: app/web/templates/document_move.html
+#: app/web/routers/catalog.py
+msgid "Sayfayı görüntüye çevir"
+msgstr "Pretvori stranu u sliku"
+
+#: app/web/templates/document_move.html app/web/templates/queue_assign.html
+#: app/web/templates/queue_new_profile.html
 #: app/web/templates/upload_action_result.html
 msgid "Sayfayı yenileyin"
 msgstr "Osvežite stranicu"
 
-#: app/web/templates/document_move.html
+#: app/web/templates/training_map.html
+msgid "Sayı"
+msgstr "Broj"
+
+#: app/web/templates/catalog.html app/web/templates/document_move.html
 #: app/web/templates/employee_merge_results.html
+#: app/web/templates/queue_assign.html
 msgid "Seç"
 msgstr "Izaberi"
+
+#: app/web/routers/training.py
+msgid "Seçilen \"AI kararı\" örnekleri doğrulandı; elle kontrol ikonu kalktı."
+msgstr ""
+"Izabrani primeri „AI odluka“ su potvrđeni; ikona ručne provere je "
+"uklonjena."
+
+#: app/web/routers/training.py
+msgid "Seçilen tür bilinen türlerden biri değil; listeden seçin."
+msgstr "Izabrani tip nije među poznatim tipovima; izaberite ga sa liste."
+
+#: app/web/templates/catalog.html
+msgid "Seçilen türlere toplu işlem"
+msgstr "Grupna radnja nad izabranim tipovima"
+
+#: app/web/templates/catalog_archive_step.html
+msgid "Seçilen türleri arşivle"
+msgstr "Arhiviraj izabrane tipove"
+
+#: app/web/routers/catalog.py
+msgid ""
+"Seçilen türlerin hiçbiri arşivlenemez: hepsi korunan tür ya da zaten "
+"arşivde."
+msgstr ""
+"Nijedan od izabranih tipova ne može da se arhivira: svi su zaštićeni ili "
+"već u arhivi."
 
 #: app/web/routers/employees.py
 msgid ""
@@ -2029,6 +3955,14 @@ msgstr ""
 #, python-format
 msgid "Seçilen çalışan: %(name)s (%(id)s)"
 msgstr "Izabrani zaposleni: %(name)s (%(id)s)"
+
+#: app/web/templates/training_results.html app/web/templates/training_type.html
+msgid "Seçilenleri doğrula"
+msgstr "Potvrdi izabrane"
+
+#: app/web/templates/catalog.html
+msgid "Seçilenleri:"
+msgstr "Izabrane:"
 
 #: app/web/templates/employee_merge_step.html
 msgid "Seçimi uygula"
@@ -2045,6 +3979,47 @@ msgstr ""
 "ono u šta nije siguran ostavlja u Redovima. Sadržaj dokumenata se ne "
 "menja."
 
+#: app/web/routers/queue.py
+msgid ""
+"Sistem bir belgeden emin olamadığında onu değiştirmez, buraya alır. Bu "
+"sayfadaki her satır senin kararını bekleyen bir belgedir; karar verince "
+"sistem işini tamamlar."
+msgstr ""
+"Kada sistem nije siguran u dokument, ne menja ga, već ga stavlja ovde. "
+"Svaki red na ovoj stranici je dokument koji čeka vašu odluku; kada "
+"odlučite, sistem završava posao."
+
+#: app/web/routers/catalog.py
+msgid ""
+"Sistem bu adayı henüz incelemedi; örnek sayfalar işçinin boş zamanında "
+"incelenir. Form adayın adıyla açıldı."
+msgstr ""
+"Sistem još nije pregledao ovaj predlog; strane primera se pregledaju u "
+"slobodnom vremenu radnika. Obrazac je otvoren sa imenom predloga."
+
+#: app/web/templates/catalog_candidates.html
+msgid ""
+"Sistemin belgelerde gördüğü, ama katalogda bulunmayan tür önerileri. "
+"Onaylarsan katalog türü olur ve bundan sonraki belgeler ona yerleşir."
+msgstr ""
+"Predlozi tipova koje je sistem video u dokumentima, a kojih nema u "
+"katalogu. Ako ga odobrite, postaje tip kataloga i naredni dokumenti se "
+"raspoređuju u njega."
+
+#: app/web/routers/catalog.py
+#, python-brace-format
+msgid "Sistemin incelemesi taslak üretmedi: {reason}. Form adayın adıyla açıldı."
+msgstr ""
+"Pregled sistema nije dao nacrt: {reason}. Obrazac je otvoren sa imenom "
+"predloga."
+
+#: app/web/routers/catalog.py
+#, python-brace-format
+msgid "Sistemin incelemesi yapılamadı: {reason}. Form adayın adıyla açıldı."
+msgstr ""
+"Pregled sistema nije mogao da se obavi: {reason}. Obrazac je otvoren sa "
+"imenom predloga."
+
 #: app/web/templates/employees.html
 msgid ""
 "Sistemin tanıdığı kişiler. Her çalışanın altında ona ait belgeler durur. "
@@ -2055,6 +4030,21 @@ msgstr ""
 "njega. U polje za pretragu možete uneti ime, alias, originalni zapis ili "
 "broj dokumenta."
 
+#: app/web/templates/catalog_candidate.html
+#, python-format
+msgid ""
+"Slug hazır önerilen tür kaydından: <code>%(slug)s</code> (örnek "
+"klasörüyle aynı). Bu klasörde doğrulanmamış \"AI kararı\" örneği: "
+"%(count)s."
+msgstr ""
+"Slug potiče iz zapisa gotovog predloženog tipa: <code>%(slug)s</code> "
+"(isti kao fascikla primera). Nepotvrđeni primeri „AI odluka“ u ovoj "
+"fascikli: %(count)s."
+
+#: app/web/templates/catalog_type_fields.html
+msgid "Slug sonradan değişmez."
+msgstr "Slug se kasnije ne menja."
+
 #: app/web/templates/access_log.html app/web/templates/access_log_employee.html
 msgid "Son erişim"
 msgstr "Poslednji pristup"
@@ -2064,14 +4054,27 @@ msgid "Son etkin yönetici pasife alınamaz."
 msgstr "Poslednji aktivni administrator ne može se deaktivirati."
 
 #: app/web/templates/access_log.html app/web/templates/access_log_employee.html
-#: app/web/templates/employees_results.html app/web/templates/uploads_list.html
+#: app/web/templates/employees_results.html app/web/templates/queue.html
+#: app/web/templates/uploads_list.html
 msgid "Sonraki →"
 msgstr "Sledeća →"
+
+#: app/web/templates/training_results.html
+msgid "Sonuç türü"
+msgstr "Tip rezultata"
+
+#: app/web/templates/training_results.html
+msgid "Sonuçlar"
+msgstr "Rezultati"
 
 #: app/web/profile_form.py app/web/routers/employees.py
 #: app/web/templates/profile.html
 msgid "Soyad"
 msgstr "Prezime"
+
+#: app/web/templates/catalog_candidate.html
+msgid "Standart türlere ekle"
+msgstr "Dodaj među standardne tipove"
 
 #: app/web/templates/catalog_candidate_step.html
 #, python-format
@@ -2091,6 +4094,14 @@ msgstr ""
 msgid "Sürüm %(version)s"
 msgstr "Verzija %(version)s"
 
+#: app/web/routers/training.py
+msgid "Sürüyor"
+msgstr "U toku"
+
+#: app/web/templates/training_map.html
+msgid "Sütun"
+msgstr "Kolona"
+
 #: app/web/templates/uploads_list.html
 msgid "Süz"
 msgstr "Filtriraj"
@@ -2099,9 +4110,30 @@ msgstr "Filtriraj"
 msgid "Süzgeci temizle"
 msgstr "Obriši filter"
 
-#: app/web/templates/history.html app/web/templates/upload_detail.html
+#: app/web/templates/catalog_description.html
+#, python-format
+msgid "Sınır (%(limit)d sayfa) yüzünden %(num)d sayfa gönderilmedi."
+msgid_plural "Sınır (%(limit)d sayfa) yüzünden %(num)d sayfa gönderilmedi."
+msgstr[0] "%(num)d strana nije poslata zbog ograničenja (%(limit)d strana)."
+msgstr[1] "%(num)d strane nisu poslate zbog ograničenja (%(limit)d strana)."
+msgstr[2] "%(num)d strana nije poslato zbog ograničenja (%(limit)d strana)."
+
+#: app/web/templates/catalog_description.html
+#, python-format
+msgid "Sınır yüzünden %(num)d kabul edilen fotoğraf gönderilmedi."
+msgid_plural "Sınır yüzünden %(num)d kabul edilen fotoğraf gönderilmedi."
+msgstr[0] "%(num)d prihvaćena fotografija nije poslata zbog ograničenja."
+msgstr[1] "%(num)d prihvaćene fotografije nisu poslate zbog ograničenja."
+msgstr[2] "%(num)d prihvaćenih fotografija nije poslato zbog ograničenja."
+
+#: app/web/templates/group.html app/web/templates/history.html
+#: app/web/templates/upload_detail.html
 msgid "Sıra"
 msgstr "Redni broj"
+
+#: app/web/routers/training.py
+msgid "Sırada"
+msgstr "U redu čekanja"
 
 #: app/telegram/bot.py
 msgid "Tamam, bağlandınız. Artık belge gönderebilir ve isteyebilirsiniz."
@@ -2119,9 +4151,22 @@ msgstr "Završeno — prijava može da počne"
 msgid "Tamamlandı:"
 msgstr "Završeno:"
 
+#: app/web/templates/catalog.html
+msgid "Tanımlar kısaltıldığı hâlde metin bütçeyi aşıyor."
+msgstr "Iako su opisi skraćeni, tekst prelazi budžet."
+
 #: app/web/templates/profile.html
 msgid "Tanımlayan:"
 msgstr "Dodelio:"
+
+#: app/catalog/photo_rules.py
+#, python-brace-format
+msgid "Tanımsız kural: {rules}"
+msgstr "Nedefinisano pravilo: {rules}"
+
+#: app/web/routers/catalog.py
+msgid "Tanınmayan toplu işlem."
+msgstr "Nepoznata grupna radnja."
 
 #: app/web/templates/upload_action_result.html
 #, python-format
@@ -2144,9 +4189,18 @@ msgstr ""
 "stavke na čekanju iz redova; datoteke, događaji i napravljeni dokumenti "
 "se ne brišu."
 
-#: app/web/templates/profile.html app/web/templates/uploads_list.html
+#: app/web/templates/training_map.html
+msgid "Taranacak dosya"
+msgstr "Datoteke za skeniranje"
+
+#: app/web/templates/profile.html app/web/templates/training_results.html
+#: app/web/templates/uploads_list.html
 msgid "Tarih"
 msgstr "Datum"
+
+#: app/catalog/propose.py
+msgid "Taslakta örnekteki kişiye ait değer bulundu"
+msgstr "U nacrtu je pronađena vrednost osobe iz primera"
 
 #: app/web/templates/history.html
 msgid ""
@@ -2156,6 +4210,30 @@ msgstr ""
 "Premeštanje traži dve potvrde. Datoteka se preimenuje imenom novog "
 "vlasnika i premešta u njegovu fasciklu Hazir; sadržaj dokumenta se ne "
 "menja."
+
+#: app/web/templates/catalog_examples.html app/web/templates/training_type.html
+msgid "Taşı…"
+msgstr "Premesti…"
+
+#: app/catalog/photo_rules.py
+msgid "Tek kişi"
+msgstr "Jedna osoba"
+
+#: app/web/templates/catalog.html
+#, python-format
+msgid "Tek seferde en çok %(limit)d tür; arşivleme iki aşamalı onay ister."
+msgstr ""
+"Najviše %(limit)d tipova odjednom; arhiviranje zahteva potvrdu u dva "
+"koraka."
+
+#: app/web/routers/catalog.py
+#, python-brace-format
+msgid "Tek seferde en çok {limit} tür seçilebilir."
+msgstr "Odjednom se može izabrati najviše {limit} tipova."
+
+#: app/web/routers/catalog.py
+msgid "Tek yüz"
+msgstr "Jedna strana"
 
 #: app/web/templates/upload_detail.html
 msgid "Tekrar dosya: işlenmedi, sayfa görüntüsü yok."
@@ -2277,14 +4355,66 @@ msgstr ""
 msgid "Telegram'ım"
 msgstr "Moj Telegram"
 
-#: app/web/templates/uploads_list.html
+#: app/web/routers/training.py
+msgid ""
+"Toplu tarama başladı. İşçi haritadaki dosyaları birer birer tarar; "
+"ilerleme bu tabloda güncellenir."
+msgstr ""
+"Skeniranje je pokrenuto. Radnik skenira datoteke iz mape jednu po jednu; "
+"napredak se ažurira u ovoj tabeli."
+
+#: app/web/templates/training_map.html app/web/templates/training_map_step.html
+msgid "Toplu taramayı başlat"
+msgstr "Pokreni skeniranje"
+
+#: app/web/templates/catalog_candidate.html
+msgid "Toplu yeniden analiz"
+msgstr "Ponovna analiza odjednom"
+
+#: app/web/routers/catalog.py
+msgid "Toplu yeniden analiz yalnız onaylanmış aday türde yapılır."
+msgstr "Ponovna analiza odjednom radi se samo za odobren predloženi tip."
+
+#: app/web/templates/catalog_candidate_step.html
+#, python-format
+msgid "Toplu yeniden analiz: %(name)s"
+msgstr "Ponovna analiza odjednom: %(name)s"
+
+#: app/web/templates/catalog.html
+msgid "Tutarsız kayıt"
+msgstr "Neusklađen zapis"
+
+#: app/web/routers/training.py app/web/templates/uploads_list.html
 msgid "Tümü"
 msgstr "Sve"
 
 #: app/web/templates/document_archive_step.html app/web/templates/history.html
-#: app/web/templates/profile.html app/web/templates/upload_detail.html
+#: app/web/templates/profile.html app/web/templates/training_known.html
+#: app/web/templates/training_results.html app/web/templates/upload_detail.html
 msgid "Tür"
 msgstr "Tip"
+
+#: app/web/routers/catalog.py
+msgid ""
+"Tür analiz talimatından ve listelerden kalkacak, var olan belgeler "
+"yerinde kalacaktır. Son kararınız mı?"
+msgstr ""
+"Tip će nestati iz uputstva za analizu i sa lista, a postojeći dokumenti "
+"ostaće na svom mestu. Da li je to vaša konačna odluka?"
+
+#: app/web/routers/catalog.py
+msgid ""
+"Tür arşivden geri alındı; bir sonraki analizden itibaren yeniden "
+"geçerlidir."
+msgstr "Tip je vraćen iz arhive; ponovo važi od sledeće analize."
+
+#: app/web/routers/catalog.py
+msgid ""
+"Tür arşivlendi: listeden, analiz talimatından ve tür seçicilerden kalktı;"
+" var olan belgeleri yerinde."
+msgstr ""
+"Tip je arhiviran: nestao je sa liste, iz uputstva za analizu i iz "
+"izbornika tipova; njegovi postojeći dokumenti ostaju na mestu."
 
 #: app/web/routers/upload_page.py
 msgid "Tür bilinmiyor"
@@ -2294,9 +4424,78 @@ msgstr "Unknown"
 msgid "Tür bilinmiyor kuyruğu"
 msgstr "Red Unknown"
 
+#: app/web/templates/catalog_candidate.html
+msgid "Tür eklenmedi: alanların altındaki uyarıları düzeltin."
+msgstr "Tip nije dodat: ispravite upozorenja ispod polja."
+
+#: app/web/templates/catalog_candidate.html
+msgid ""
+"Tür formu sistemin incelemesinden gelen taslakla, taslak yoksa adayın "
+"adıyla açılır; alanları kontrol edip belgenin yapısını (dosya türleri, "
+"yüzler, Direkt Belge, zorunlu alanlar, dönüşümler) tamamlayın. Ekleme iki"
+" aşamalı onay ister; tür bir sonraki analizden itibaren geçerlidir."
+msgstr ""
+"Obrazac tipa se otvara sa nacrtom iz pregleda sistema, a ako nacrta nema,"
+" sa imenom predloga; proverite polja i dopunite strukturu dokumenta "
+"(tipovi datoteka, strane, Direktan dokument, obavezna polja, konverzije)."
+" Dodavanje zahteva potvrdu u dva koraka; tip važi od sledeće analize."
+
+#: app/web/routers/catalog.py
+msgid "Tür güncellendi. Değişiklik bir sonraki analizden itibaren geçerlidir."
+msgstr "Tip je ažuriran. Izmena važi od sledeće analize."
+
+#: app/web/templates/catalog_form.html
+msgid "Tür kaydedilmedi: alanların altındaki uyarıları düzeltin."
+msgstr "Tip nije sačuvan: ispravite upozorenja ispod polja."
+
+#: app/web/routers/catalog.py
+msgid "Tür oluşturuldu."
+msgstr "Tip je napravljen."
+
+#: app/web/routers/catalog.py
+msgid "Tür pasifleştirildi: yeni belgelere atanmaz."
+msgstr "Tip je deaktiviran: ne dodeljuje se novim dokumentima."
+
+#: app/web/routers/catalog.py
+msgid "Tür seçilmedi: önce tablodan en az bir türü işaretleyin."
+msgstr "Nije izabran nijedan tip: prvo označite bar jedan tip u tabeli."
+
+#: app/catalog/propose.py
+msgid "Tür taslağı üretilemedi"
+msgstr "Nacrt tipa nije mogao da se napravi"
+
 #: app/matching/records.py
 msgid "Tür telefon, e-posta ya da adres olmalı."
 msgstr "Vrsta mora biti telefon, e-pošta ili adresa."
+
+#: app/web/routers/catalog.py
+msgid "Tür yeniden etkinleştirildi."
+msgstr "Tip je ponovo aktiviran."
+
+#: app/web/templates/training_results.html
+msgid "Türe yerleştir"
+msgstr "Rasporedi u tip"
+
+#: app/web/templates/training_known.html
+msgid "Türleri süz"
+msgstr "Filtriraj tipove"
+
+#: app/web/templates/catalog.html
+msgid "Türleri ülkeye göre süz"
+msgstr "Filtriraj tipove po zemlji"
+
+#: app/web/templates/catalog_archive_step.html
+msgid "Türü arşivle"
+msgstr "Arhiviraj tip"
+
+#: app/web/templates/catalog_archive_step.html
+#, python-format
+msgid "Türü arşivle: %(name)s"
+msgstr "Arhiviraj tip: %(name)s"
+
+#: app/web/templates/catalog.html
+msgid "Uygula"
+msgstr "Primeni"
 
 #: app/web/templates/upload_detail.html
 msgid "Uygulandı:"
@@ -2308,7 +4507,7 @@ msgstr "Nije primenjeno"
 
 #: app/web/templates/document_move.html
 #: app/web/templates/employee_merge_results.html
-#: app/web/templates/employees_results.html
+#: app/web/templates/employees_results.html app/web/templates/queue_assign.html
 msgid "Uyruk"
 msgstr "Državljanstvo"
 
@@ -2317,15 +4516,19 @@ msgstr "Državljanstvo"
 msgid "Vatandaşlık"
 msgstr "Državljanstvo"
 
+#: app/web/templates/catalog_archive_step.html
 #: app/web/templates/catalog_candidate_step.html
+#: app/web/templates/catalog_form.html
 #: app/web/templates/document_archive_step.html
 #: app/web/templates/document_move.html app/web/templates/employee_fields.html
 #: app/web/templates/employee_fields_step.html
 #: app/web/templates/employee_merge_step.html
-#: app/web/templates/employee_status_step.html
+#: app/web/templates/employee_status_step.html app/web/templates/group.html
 #: app/web/templates/profile_record_step.html
 #: app/web/templates/queue_assign.html app/web/templates/queue_close_step.html
 #: app/web/templates/queue_new_profile.html
+#: app/web/templates/training_decision.html app/web/templates/training_map.html
+#: app/web/templates/training_map_step.html
 #: app/web/templates/upload_action_result.html
 msgid "Vazgeç"
 msgstr "Odustani"
@@ -2338,6 +4541,11 @@ msgstr "mora biti datum u obliku GGGG-MM-DD"
 #, python-brace-format
 msgid "Yalnız arşivdeki belge geri alınır; bu belgenin durumu: {status}."
 msgstr "Vratiti se može samo arhivirani dokument; status ovog dokumenta: {status}."
+
+#: app/web/routers/groups.py
+#, python-brace-format
+msgid "Yalnız bu tür karşılar{country} · {slug}"
+msgstr "Ispunjava je samo ovaj tip{country} · {slug}"
 
 #: app/web/routers/documents.py
 #, python-brace-format
@@ -2357,13 +4565,67 @@ msgstr ""
 "dokumenta: {status}. Stara verzija se ne preimenuje (K18), a arhivirani "
 "dokument se ne nalazi u fascikli zaposlenog."
 
+#: app/web/templates/groups.html
+msgid "Yalnız etkin grupları göster"
+msgstr "Prikaži samo aktivne grupe"
+
 #: app/groups/packages.py
 msgid "Yalnız iptal edilmiş paket yeniden açılır."
 msgstr "Ponovo se može otvoriti samo otkazan paket."
 
+#: app/pipeline/queue_close.py
+msgid "Yalnız kapatılan öğe yeniden açılır; bu öğe kapatılmadı."
+msgstr "Ponovo se otvara samo zatvorena stavka; ova stavka nije zatvorena."
+
+#: app/web/templates/group.html
+msgid "Yalnız seçilen tür kalemi karşılar (örn. yalnız Sırbistan oturma izni)."
+msgstr "Stavku ispunjava samo izabrani tip (npr. samo srpska dozvola boravka)."
+
 #: app/web/routers/uploads_list.py
 msgid "Yalnız yoksayılanlar"
 msgstr "Samo zanemarene"
+
+#: app/web/templates/catalog_type_fields.html
+msgid ""
+"Yalnız ön ve arka yüzlü türde seçilir, en az biri. Tek sayfadaki iki yüz "
+"ayrılmaz, kırpılmaz; sayfa olduğu gibi kullanılır."
+msgstr ""
+"Bira se samo za tip sa prednjom i zadnjom stranom, bar jedan. Dve strane "
+"na jednoj stranici se ne razdvajaju i ne seku; stranica se koristi kakva "
+"jeste."
+
+#: app/web/routers/training.py
+msgid "Yapay zekâ"
+msgstr "Veštačka inteligencija"
+
+#: app/web/templates/training_map.html
+msgid "Yapay zekâ gerekebilecek"
+msgstr "Možda treba veštačka inteligencija"
+
+#: app/web/routers/training.py
+msgid "Yapay zekâ incelemesi bekliyor"
+msgstr "Čeka pregled veštačke inteligencije"
+
+#: app/web/templates/training_map.html
+msgid ""
+"Yapay zekâ sağlayıcısı ayarlı değil: işçi sağlayıcı ayarı olmadan "
+"başlamadığı için taranacak dosyalar \"Sırada\" bekler."
+msgstr ""
+"Dobavljač veštačke inteligencije nije podešen: pošto se radnik ne pokreće"
+" bez tog podešavanja, datoteke za skeniranje čekaju kao „U redu čekanja“."
+
+#: app/web/templates/training.html
+msgid ""
+"Yapay zekâ sağlayıcısı ayarlı değil: mekanik tanınmayan belgeler \"Yapay "
+"zekâ incelemesi bekliyor\" durumunda bekler. Sağlayıcı ayarlanınca işçi "
+"onları inceler. İşçi sağlayıcı ayarı olmadan başlamadığı için harita "
+"taramasının dosyaları da \"Sırada\" bekler."
+msgstr ""
+"Dobavljač veštačke inteligencije nije podešen: dokumenti koji nisu "
+"mehanički prepoznati čekaju u stanju „Čeka pregled veštačke "
+"inteligencije“. Kada se dobavljač podesi, radnik ih pregleda. Pošto se "
+"radnik ne pokreće bez tog podešavanja, i datoteke skeniranja mape čekaju "
+"kao „U redu čekanja“."
 
 #: app/web/templates/profile.html
 msgid "Yazım"
@@ -2381,6 +4643,18 @@ msgstr "Novo"
 msgid "Yeni belge eklenmedi."
 msgstr "Nije dodat nijedan novi dokument."
 
+#: app/web/templates/group.html
+msgid "Yeni belge grubu"
+msgstr "Nova grupa dokumenata"
+
+#: app/web/templates/catalog_form.html
+msgid "Yeni belge türü"
+msgstr "Novi tip dokumenta"
+
+#: app/web/templates/groups.html
+msgid "Yeni grup"
+msgstr "Nova grupa"
+
 #: app/web/templates/users.html
 msgid "Yeni kullanıcı"
 msgstr "Novi korisnik"
@@ -2397,21 +4671,67 @@ msgstr "Nova lozinka (ponovo)"
 msgid "Yeni parola ile tekrarı eşleşmiyor."
 msgstr "Nova lozinka i njeno ponavljanje se ne poklapaju."
 
+#: app/web/templates/catalog_candidate_step.html
+msgid "Yeni sürüm"
+msgstr "Nova verzija"
+
+#: app/web/templates/catalog.html app/web/templates/catalog_examples.html
+#: app/web/templates/training_type.html
+msgid "Yeni tür"
+msgstr "Novi tip"
+
 #: app/web/routers/upload_page.py
 msgid "Yeni çalışan"
 msgstr "Novi zaposleni"
+
+#: app/web/templates/catalog_candidate.html
+msgid "Yeniden analiz edilecek bekleyen Unknown öğesi yok."
+msgstr "Nema stavki Unknown na čekanju za ponovnu analizu."
 
 #: app/web/templates/upload_detail.html
 msgid "Yeniden analiz et"
 msgstr "Analiziraj ponovo"
 
-#: app/web/templates/profile.html
+#: app/web/templates/profile.html app/web/templates/queue.html
+#: app/web/templates/queue_item.html
 msgid "Yeniden aç"
 msgstr "Ponovo otvori"
+
+#: app/web/templates/queue_item.html
+msgid "Yeniden açılan öğe kuyruğa döner; planı ve kaynakları değişmez."
+msgstr "Ponovo otvorena stavka se vraća u red; njen plan i izvori se ne menjaju."
 
 #: app/web/templates/profile.html app/web/templates/users.html
 msgid "Yeniden etkinleştir"
 msgstr "Ponovo aktiviraj"
+
+#: app/web/templates/catalog_candidate.html
+msgid "Yeniden incele"
+msgstr "Pregledaj ponovo"
+
+#: app/web/routers/catalog.py
+#, python-brace-format
+msgid "Yeniden incelenmedi: yapay zekâ sağlayıcısı kurulamadı. {detail}"
+msgstr ""
+"Nije ponovo pregledano: dobavljač veštačke inteligencije nije mogao da se"
+" podesi. {detail}"
+
+#: app/web/routers/catalog.py
+#, python-brace-format
+msgid ""
+"Yeniden incelenmedi: yapay zekâ sağlayıcısı yanıt vermedi ({detail}). "
+"Biraz sonra yeniden deneyin."
+msgstr ""
+"Nije ponovo pregledano: dobavljač veštačke inteligencije nije odgovorio "
+"({detail}). Pokušajte ponovo malo kasnije."
+
+#: app/web/routers/catalog.py
+msgid ""
+"Yeniden incelenmedi: yapay zekânın yanıtı tür taslağı şemasına uymadı. "
+"Yeniden deneyin."
+msgstr ""
+"Nije ponovo pregledano: odgovor veštačke inteligencije ne odgovara šemi "
+"nacrta tipa. Pokušajte ponovo."
 
 #: app/web/templates/upload_detail.html
 msgid "Yeniden çalıştır"
@@ -2427,9 +4747,25 @@ msgstr ""
 " inteligenciji. Ponovna analiza ponovo procenjuje seriju i otvara novu "
 "verziju plana; stari izlazi se ne brišu."
 
+#: app/web/routers/training.py
+msgid "Yerleşti"
+msgstr "Raspoređeno"
+
+#: app/web/routers/training.py
+msgid "Yerleştirilemedi"
+msgstr "Nije raspoređeno"
+
 #: app/web/templates/profile.html
 msgid "Yine de paket tanımla"
 msgstr "Ipak dodeli paket"
+
+#: app/web/templates/catalog_description.html
+msgid "Yok"
+msgstr "Nema"
+
+#: app/web/templates/training_results.html
+msgid "Yoksay"
+msgstr "Zanemari"
 
 #: app/web/templates/upload_action_result.html
 #, python-format
@@ -2453,9 +4789,18 @@ msgstr[2] ""
 msgid "Yoksaymayı geri al"
 msgstr "Poništi zanemarivanje"
 
+#: app/web/templates/training_results.html
+msgid "Yoksayılan dosya yok."
+msgstr "Nema zanemarenih datoteka."
+
 #: app/web/templates/uploads_list.html
 msgid "Yoksayılanlar"
 msgstr "Zanemarene"
+
+#: app/web/templates/training_results.html
+#, python-format
+msgid "Yoksayılanlar (%(num)d)"
+msgstr "Zanemareni (%(num)d)"
 
 #: app/web/routers/uploads_list.py
 msgid "Yoksayılanlar dahil"
@@ -2465,18 +4810,30 @@ msgstr "Uključujući zanemarene"
 msgid "Yoksayılanlar süzgeci tanınmadı; yok sayıldı."
 msgstr "Filter zanemarenih nije prepoznat; zanemaren je."
 
-#: app/web/templates/uploads_list.html
+#: app/web/routers/training.py app/web/templates/uploads_list.html
 msgid "Yoksayıldı"
 msgstr "Zanemareno"
+
+#: app/web/templates/training_map.html
+msgid "Yol"
+msgstr "Putanja"
 
 #: app/web/routers/users.py
 msgid "Yönetici"
 msgstr "Administrator"
 
+#: app/web/templates/training_results.html
+msgid "Yöntem"
+msgstr "Metod"
+
 #: app/web/templates/profile.html app/web/templates/upload.html
 #: app/web/templates/uploads_list.html app/web/templating.py
 msgid "Yükle"
 msgstr "Otpremi"
+
+#: app/web/routers/training.py
+msgid "Yükleme"
+msgstr "Otpremanje"
 
 #: app/web/templates/profile.html
 #, python-format
@@ -2487,6 +4844,19 @@ msgstr ""
 "Otpremanje se vrši u kontekstu zaposlenog %(name)s (%(id)s): datoteke "
 "čiji se vlasnik ne može odrediti iz dokumenta dodeljuju se njemu."
 
+#: app/web/routers/training.py
+msgid ""
+"Yükleme alındı ve mekanik tanıma bitti. Mekanik tanınmayan dosyaları işçi"
+" yapay zekâyla inceler; sonuçlar bu tabloda güncellenir."
+msgstr ""
+"Otpremanje je primljeno i mehaničko prepoznavanje je završeno. Radnik "
+"pomoću veštačke inteligencije pregleda datoteke koje nisu mehanički "
+"prepoznate; rezultati se ažuriraju u ovoj tabeli."
+
+#: app/web/templates/_training_tabs.html
+msgid "Yükleme ve sonuçlar"
+msgstr "Otpremanje i rezultati"
+
 #: app/web/templates/uploads_list.html app/web/templating.py
 msgid "Yüklemeler"
 msgstr "Otpremanja"
@@ -2495,17 +4865,80 @@ msgstr "Otpremanja"
 msgid "Yüklemeleri süz"
 msgstr "Filtriraj otpremanja"
 
-#: app/web/routers/upload_page.py
+#: app/web/routers/training.py app/web/routers/upload_page.py
 msgid "Yüklenecek dosya seçilmedi."
 msgstr "Nije izabrana nijedna datoteka za otpremanje."
 
-#: app/web/templates/uploads_list.html
+#: app/web/routers/training.py
+msgid "Yüklenecek harita seçilmedi."
+msgstr "Nije izabrana mapa za otpremanje."
+
+#: app/web/templates/training_results.html app/web/templates/uploads_list.html
 msgid "Yükleyen"
 msgstr "Otpremio"
+
+#: app/web/templates/catalog.html
+msgid "Yüz"
+msgstr "Strane"
+
+#: app/catalog/photo_rules.py
+msgid "Yüz görünür"
+msgstr "Lice vidljivo"
+
+#: app/catalog/photo_rules.py
+msgid "Yüz ifadesi nötr olmalı; gülme, ağız açma ve göz kısma olmamalı."
+msgstr "Izraz lica mora biti neutralan; bez osmeha, otvorenih usta i žmirkanja."
+
+#: app/catalog/photo_rules.py
+msgid "Yüz tam ve net görünmeli; kapalı ya da kesik olmamalı."
+msgstr ""
+"Lice mora biti potpuno i jasno vidljivo; ne sme biti pokriveno ni "
+"odsečeno."
+
+#: app/catalog/prefill.py app/web/routers/catalog.py
+#: app/web/templates/catalog_type_fields.html
+msgid "Yüz yapısı"
+msgstr "Strane dokumenta"
 
 #: app/web/templates/access_log_employee.html
 msgid "Zaman"
 msgstr "Vreme"
+
+#: app/web/templates/training_map.html
+msgid "Zaten kayıtlı"
+msgstr "Već upisano"
+
+#: app/pipeline/queue_close.py
+msgid "Zaten var"
+msgstr "Već postoji"
+
+#: app/web/routers/training.py
+msgid "Zaten örnek"
+msgstr "Već je primer"
+
+#: app/web/templates/group.html
+msgid "Zorunlu"
+msgstr "Obavezno"
+
+#: app/web/templates/catalog_type_fields.html
+msgid ""
+"Zorunlu alan okunaklılığının ötesindeki koşullar; analizciye tür "
+"açıklamasıyla verilir, karşılanmayan madde Unresolved gerekçesine "
+"yazılır. Boş bırakılabilir. Değişiklik bir sonraki analizden itibaren "
+"geçerlidir."
+msgstr ""
+"Uslovi izvan čitljivosti obaveznih polja; daju se analizatoru uz opis "
+"tipa, a neispunjen kriterijum upisuje se u razlog Unresolved. Može ostati"
+" prazno. Izmena važi od sledeće analize."
+
+#: app/catalog/prefill.py app/web/routers/catalog.py
+#: app/web/templates/catalog_type_fields.html
+msgid "Zorunlu alanlar"
+msgstr "Obavezna polja"
+
+#: app/web/templates/group.html
+msgid "Zorunluluk"
+msgstr "Obaveznost"
 
 #: app/web/routers/uploads.py
 msgid "ad denetim karakteri içeremez"
@@ -2537,6 +4970,14 @@ msgstr "ime i prezime ne mogu se pretvoriti u ime fascikle (K8)"
 msgid "adres"
 msgstr "adresa"
 
+#: app/web/templates/training_results.html
+msgid "arşivde olmayanlar"
+msgstr "nearhivirana"
+
+#: app/web/templates/training_results.html
+msgid "arşivlenenler"
+msgstr "arhivirana"
+
 #: app/web/templates/profile.html
 msgid "başka bir kayıt"
 msgstr "drugim zapisom"
@@ -2544,6 +4985,11 @@ msgstr "drugim zapisom"
 #: app/telegram/intent.py
 msgid "belge"
 msgstr "dokument"
+
+#: app/web/templates/catalog_description.html
+#, python-format
+msgid "belge %(id)s"
+msgstr "dokument %(id)s"
 
 #: app/matching/records.py app/web/routers/upload_page.py
 msgid "belge numarası"
@@ -2553,14 +4999,37 @@ msgstr "broj dokumenta"
 msgid "belgeden"
 msgstr "iz dokumenta"
 
+#: app/web/templates/catalog_examples.html
+#: app/web/templates/training_results.html app/web/templates/training_type.html
+msgid "bilinen tür (slug)"
+msgstr "poznati tip (slug)"
+
+#: app/web/templates/training.html
+msgid "birden çok dosya seçilebilir"
+msgstr "može se izabrati više datoteka"
+
 #: app/web/routers/employees.py
 #, python-brace-format
 msgid "birleştirme ({actor}, {day})"
 msgstr "spajanje ({actor}, {day})"
 
-#: app/matching/match.py
+#: app/catalog/form.py app/matching/match.py
 msgid "boş olamaz"
 msgstr "ne može biti prazno"
+
+#: app/web/templates/catalog.html
+#, python-format
+msgid "bütçe %(budget)s, <code>CATALOG_TOKEN_BUDGET</code> ayarından"
+msgstr "budžet %(budget)s, iz podešavanja <code>CATALOG_TOKEN_BUDGET</code>"
+
+#: app/web/templates/catalog.html
+#, python-format
+msgid "bütçe %(budget)s, tür sayısıyla ölçekli"
+msgstr "budžet %(budget)s, srazmeran broju tipova"
+
+#: app/web/templates/training_results.html
+msgid "bütün çalıştırmalar"
+msgstr "sva pokretanja"
 
 #: app/matching/match.py
 msgid "denetim karakteri içeremez"
@@ -2570,9 +5039,13 @@ msgstr "ne može sadržati kontrolne znakove"
 msgid "değişiyor"
 msgstr "menja se"
 
-#: app/web/routers/employees.py
+#: app/catalog/describe.py app/web/routers/employees.py
 msgid "diğer"
 msgstr "drugo"
+
+#: app/training/map_import.py
+msgid "dosya yok"
+msgstr "datoteka ne postoji"
 
 #: app/web/routers/documents.py app/web/routers/upload_page.py
 #, python-brace-format
@@ -2597,10 +5070,32 @@ msgstr "e-pošta"
 msgid "elle ({actor}, {day})"
 msgstr "ručno ({actor}, {day})"
 
+#: app/catalog/form.py
+msgid "en az bir seçim yapılmalı"
+msgstr "izaberite bar jednu stavku"
+
+#: app/catalog/form.py
+msgid "en az ve en çok sayfa birlikte yazılmalı (ya da ikisi de boş bırakılmalı)"
+msgstr "unesite i najmanji i najveći broj strana (ili ostavite oba prazna)"
+
+#: app/web/templates/catalog_photo_rules.html
+msgid "en az yükseklik"
+msgstr "minimalna visina"
+
 #: app/matching/match.py
 #, python-brace-format
 msgid "en fazla {limit} karakter olabilir"
 msgstr "može imati najviše {limit} znakova"
+
+#: app/web/templates/training_results.html
+#, python-format
+msgid "en yeni %(shown)d gösteriliyor"
+msgstr "prikazano je najnovijih %(shown)d"
+
+#: app/catalog/form.py
+#, python-brace-format
+msgid "en çok {limit} karakter olmalı"
+msgstr "mora imati najviše {limit} znakova"
 
 #: app/web/routers/employees.py
 msgid "farklı — kalanın değeri geçerli kalır, profilde uyarı olur"
@@ -2612,6 +5107,31 @@ msgstr ""
 msgid "gelecekte olamaz"
 msgstr "ne može biti u budućnosti"
 
+#: app/web/routers/catalog.py
+msgid "gerekçe yok"
+msgstr "bez razloga"
+
+#: app/catalog/form.py
+msgid "geçerli biçimde değil"
+msgstr "nije u ispravnom formatu"
+
+#: app/catalog/form.py
+#, python-brace-format
+msgid ""
+"geçersiz alan adı {name}: küçük harfle başlamalı; yalnız a-z, 0-9 ve _ "
+"içerebilir"
+msgstr ""
+"neispravan naziv polja {name}: mora počinjati malim slovom i sme sadržati"
+" samo a-z, 0-9 i _"
+
+#: app/catalog/form.py
+msgid "geçersiz seçim"
+msgstr "neispravan izbor"
+
+#: app/training/map_import.py
+msgid "güvensiz yol"
+msgstr "nebezbedna putanja"
+
 #: app/matching/match.py
 msgid "harf ya da rakam içermiyor"
 msgstr "ne sadrži slova ni cifre"
@@ -2619,6 +5139,10 @@ msgstr "ne sadrži slova ni cifre"
 #: app/web/templates/_context_warning.html
 msgid "henüz kuyruğa alınmadı"
 msgstr "još nije u redu"
+
+#: app/catalog/form.py
+msgid "iki büyük harf olmalı (ör. RU)"
+msgstr "moraju biti dva velika slova (npr. RU)"
 
 #: app/web/templates/profile.html
 msgid "iptal:"
@@ -2628,7 +5152,7 @@ msgstr "otkazao:"
 msgid "isim yazımı"
 msgstr "zapis imena"
 
-#: app/web/templates/profile.html
+#: app/web/templates/profile.html app/web/templates/training_results.html
 msgid "isteğe bağlı"
 msgstr "opciono"
 
@@ -2648,15 +5172,84 @@ msgstr "uklonio:"
 msgid "kapatıldı"
 msgstr "zatvoreno"
 
+#: app/web/templates/catalog_examples.html
+msgid ""
+"kayıtsız — <code>python -m app.catalog register-examples</code> ile "
+"kaydedilince taşınabilir ve çıkarılabilir"
+msgstr ""
+"neupisano — kada se upiše pomoću <code>python -m app.catalog register-"
+"examples</code>, može se premestiti i ukloniti"
+
+#: app/training/map_import.py
+msgid "klasörde PDF, JPEG ya da PNG yok"
+msgstr "u fascikli nema PDF, JPEG ni PNG datoteka"
+
+#: app/training/map_import.py
+msgid "koleksiyon kökü ayarlı değil"
+msgstr "koren kolekcije nije podešen"
+
+#: app/catalog/form.py
+msgid ""
+"küçük harfle başlamalı; yalnız a-z, 0-9 ve _ içerebilir (en çok 64 "
+"karakter)"
+msgstr ""
+"mora počinjati malim slovom i sme sadržati samo a-z, 0-9 i _ (najviše 64 "
+"znaka)"
+
+#: app/web/templates/catalog_candidate.html
+msgid "parti"
+msgstr "serija"
+
+#: app/web/templates/group.html app/web/templates/queue_assign.html
+msgid "pasif"
+msgstr "neaktivan"
+
+#: app/web/templates/catalog_photo_rules.html
+msgid "piksel"
+msgstr "piksela"
+
+#: app/web/templates/queue.html
+#, python-format
+msgid "plan %(version)s"
+msgstr "plan %(version)s"
+
+#: app/web/templates/queue_item.html
+#, python-format
+msgid "plan sürüm %(version)s"
+msgstr "verzija plana %(version)s"
+
+#: app/web/templates/queue_item.html
+#, python-format
+msgid "plan öğesi %(id)s"
+msgstr "stavka plana %(id)s"
+
 #: app/web/templates/history.html
 #, python-format
 msgid "plan öğesi %(item)s"
 msgstr "stavka plana %(item)s"
 
+#: app/training/map_import.py
+msgid "referans — örnek değil"
+msgstr "referenca — nije primer"
+
+#: app/web/templates/catalog_candidate_samples.html
+#: app/web/templates/catalog_description.html
+#, python-format
+msgid "s. %(page)d"
+msgstr "str. %(page)d"
+
 #: app/web/routers/upload_page.py
 #, python-brace-format
 msgid "s. {pages}"
 msgstr "str. {pages}"
+
+#: app/catalog/form.py
+msgid "sayfa sayıları tam sayı olmalı"
+msgstr "brojevi strana moraju biti celi brojevi"
+
+#: app/web/templates/training_results.html app/web/templates/training_type.html
+msgid "seç"
+msgstr "izaberi"
 
 #: app/web/routers/upload_page.py
 msgid "tarama yoksayıldı"
@@ -2673,6 +5266,16 @@ msgstr "cela datoteka"
 #: app/web/templates/employees_results.html
 msgid "tüm durumlar"
 msgstr "svi statusi"
+
+#: app/web/templates/training_map.html
+msgid "türü belirsiz; mekanik tanınmazsa yapay zekâya gider (tahmin, üst sınır)"
+msgstr ""
+"tip nejasan; ide veštačkoj inteligenciji ako se ne prepozna mehanički "
+"(procena, gornja granica)"
+
+#: app/web/templates/training_map.html
+msgid "türü belli; harita + mekanik kontrol, yapay zekâsız"
+msgstr "tip poznat; mapa + mehanička provera, bez veštačke inteligencije"
 
 #: app/telegram/handlers.py
 #, python-brace-format
@@ -2710,6 +5313,14 @@ msgstr "samo oni sa nepotpunim paketima"
 msgid "yalnız pasif çalışanlar"
 msgstr "samo neaktivni zaposleni"
 
+#: app/web/routers/training.py
+msgid "yoksayılan"
+msgstr "zanemareno"
+
+#: app/training/map_import.py
+msgid "yol yok"
+msgstr "nema putanje"
+
 #: app/web/templates/access_log_employee.html
 msgid "zamanlar UTC"
 msgstr "vremena u UTC"
@@ -2741,6 +5352,26 @@ msgid_plural "{count} dosyayı daha önce göndermiştiniz, yeniden eklemedim."
 msgstr[0] "{count} fajl ste već ranije poslali, pa ga nisam ponovo dodao."
 msgstr[1] "{count} fajla ste već ranije poslali, pa ih nisam ponovo dodao."
 msgstr[2] "{count} fajlova ste već ranije poslali, pa ih nisam ponovo dodao."
+
+#: app/web/routers/catalog.py
+#, python-brace-format
+msgid "{count} tür arşivlendi, {skipped} korunan tür atlandı."
+msgstr "Arhivirano tipova: {count}; preskočeno zaštićenih tipova: {skipped}."
+
+#: app/web/routers/catalog.py
+#, python-brace-format
+msgid "{count} tür arşivlendi."
+msgstr "Arhivirano tipova: {count}."
+
+#: app/web/routers/catalog.py
+#, python-brace-format
+msgid "{count} tür pasifleştirildi: yeni belgelere atanmaz."
+msgstr "Deaktivirano tipova: {count}; ne dodeljuju se novim dokumentima."
+
+#: app/web/routers/catalog.py
+#, python-brace-format
+msgid "{count} tür yeniden etkinleştirildi."
+msgstr "Ponovo aktivirano tipova: {count}."
 
 #: app/telegram/intent.py
 #, python-brace-format
@@ -2799,6 +5430,21 @@ msgstr "{label}: u dokumentu je pročitana drugačija vrednost"
 msgid "{open} açık · {missing} eksik"
 msgstr "otvoreno: {open} · nedostaje: {missing}"
 
+#: app/catalog/describe.py
+#, python-brace-format
+msgid "{photo} açılamadı."
+msgstr "{photo} nije mogla da se otvori."
+
+#: app/catalog/describe.py
+#, python-brace-format
+msgid "{photo} {limit} MB sınırını aşıyor."
+msgstr "{photo} prelazi ograničenje od {limit} MB."
+
+#: app/catalog/form.py
+#, python-brace-format
+msgid "{slug} ayrılmış bir ad; başka bir slug seçin"
+msgstr "{slug} je rezervisano ime; izaberite drugi slug"
+
 #: app/web/templates/account_telegram.html
 msgid "«Telegram'ı bağla» kapalı."
 msgstr "«Poveži Telegram» je isključeno."
@@ -2810,6 +5456,7 @@ msgid "Çalışan"
 msgstr "Zaposleni"
 
 #: app/web/templates/employee_merge.html app/web/templates/history.html
+#: app/web/templates/queue_item.html
 msgid "Çalışan ara"
 msgstr "Pretraži zaposlene"
 
@@ -2818,7 +5465,7 @@ msgid "Çalışan bulunamadı"
 msgstr "Zaposleni nije pronađen"
 
 #: app/web/routers/access_log.py app/web/routers/documents.py
-#: app/web/routers/employees.py
+#: app/web/routers/employees.py app/web/routers/queue.py
 msgid "Çalışan bulunamadı."
 msgstr "Zaposleni nije pronađen."
 
@@ -2842,6 +5489,16 @@ msgstr ""
 "Zaposleni je deaktiviran; njegovi novi dokumenti neće se raspoređivati "
 "automatski."
 
+#: app/web/templates/queue_new_profile.html
+#, python-format
+msgid ""
+"Çalışan profili oluşturuldu: <a href=\"%(url)s\">%(name)s (%(id)s)</a>. "
+"Belge %(file)s olarak çalışanın Hazır klasörüne yazıldı."
+msgstr ""
+"Profil zaposlenog je napravljen: <a href=\"%(url)s\">%(name)s "
+"(%(id)s)</a>. Dokument je upisan u fasciklu Hazir zaposlenog kao "
+"%(file)s."
+
 #: app/web/routers/employees.py
 msgid "Çalışan yeniden etkinleştirildi."
 msgstr "Zaposleni je ponovo aktiviran."
@@ -2857,6 +5514,10 @@ msgstr "Zaposleni je već aktivan."
 #: app/web/routers/employees.py
 msgid "Çalışan zaten pasif."
 msgstr "Zaposleni je već neaktivan."
+
+#: app/web/templates/queue_item.html
+msgid "Çalışana ata"
+msgstr "Dodeli zaposlenom"
 
 #: app/web/templating.py
 msgid "Çalışanlar"
@@ -2874,6 +5535,34 @@ msgstr "Ponovo aktiviraj zaposlenog"
 msgid "Çalışanın durumu"
 msgstr "Status zaposlenog"
 
+#: app/web/routers/training.py
+msgid "Çalıştırma arşivden geri alındı."
+msgstr "Pokretanje je vraćeno iz arhive."
+
+#: app/web/routers/training.py
+msgid ""
+"Çalıştırma arşivlendi: listeden ve sayaçlardan kalktı; öğeleri ve "
+"örnekleri değişmedi."
+msgstr ""
+"Pokretanje je arhivirano: nestalo je sa liste i iz brojača; njegove "
+"stavke i primeri se nisu promenili."
+
+#: app/web/templates/training_results.html
+msgid "Çalıştırmalar"
+msgstr "Pokretanja"
+
+#: app/web/routers/training.py
+msgid "Çelişki"
+msgstr "Konflikt"
+
+#: app/web/templates/queue.html app/web/templates/queue_item.html
+msgid "Çözüldü"
+msgstr "Rešeno"
+
+#: app/web/routers/queue.py
+msgid "Çözülen"
+msgstr "Rešeno"
+
 #: app/web/templates/uploads_list.html
 #, python-format
 msgid "Çözülmemiş %(queue)s öğesi"
@@ -2883,30 +5572,292 @@ msgstr "Nerešene stavke: %(queue)s"
 msgid "Çözüm"
 msgstr "Rešenje"
 
+#: app/web/templates/catalog_criteria.html
+msgid "Çıkar"
+msgstr "Ukloni"
+
 #: app/web/templates/history.html
 msgid "Çıktı"
 msgstr "Izlaz"
+
+#: app/catalog/prefill.py app/web/routers/catalog.py
+#: app/web/templates/catalog_type_fields.html
+msgid "Çıktı biçimi"
+msgstr "Izlazni format"
+
+#: app/web/templates/catalog_type_fields.html
+msgid "Çıktı dosya adına girer: <code>Ad_Soyad-Etiket.pdf</code>."
+msgstr "Ulazi u ime izlazne datoteke: <code>Ime_Prezime-Oznaka.pdf</code>."
+
+#: app/web/templates/catalog_type_fields.html
+msgid ""
+"Çıktı tek kaynak dosyadan alınan ardışık sayfalardır; birleştirme ve "
+"format dönüşümü yapılmaz — dönüşüm listesi boş olmalıdır."
+msgstr ""
+"Izlaz su uzastopne strane uzete iz jedne izvorne datoteke; ne radi se "
+"spajanje ni konverzija formata — lista konverzija mora biti prazna."
 
 #: app/web/templates/upload_detail.html
 msgid "Çıktılar"
 msgstr "Izlazi"
 
+#: app/web/templates/queue_assign.html app/web/templates/queue_new_profile.html
+msgid "Çıktının geçmişi"
+msgstr "Istorija izlaza"
+
 #: app/web/templates/base.html
 msgid "Çıkış"
 msgstr "Odjava"
+
+#: app/web/routers/catalog.py
+msgid "Ön ve arka ayrı sayfalarda"
+msgstr "Prednja i zadnja strana na posebnim stranicama"
+
+#: app/web/routers/catalog.py
+msgid "Ön ve arka yüz"
+msgstr "Prednja i zadnja strana"
+
+#: app/web/templates/catalog_type_fields.html
+msgid ""
+"Ön ve arka yüzlü türde aralık kabul edilen düzenlerden hesaplanır (ayrı "
+"sayfalar 2, tek sayfa 1); buraya yazılan değer kullanılmaz."
+msgstr ""
+"Za tip sa prednjom i zadnjom stranom opseg se računa iz prihvaćenih "
+"rasporeda (posebne stranice 2, jedna stranica 1); vrednost upisana ovde "
+"se ne koristi."
+
+#: app/web/templates/catalog_description.html
+msgid "Ön/arka yüz"
+msgstr "Prednja/zadnja strana"
+
+#: app/web/templates/catalog_candidate_step.html
+msgid "Önceki sürüm"
+msgstr "Prethodna verzija"
+
+#: app/web/routers/training.py
+msgid "Önerilen"
+msgstr "Predloženi"
 
 #: app/web/templates/queue_new_profile.html
 msgid "Önerilen profil değiştirilmeden onaylanacak."
 msgstr "Predloženi profil biće odobren bez izmena."
 
+#: app/web/templates/training_map.html
+msgid ""
+"Önizleme hiçbir şey yazmaz: örnek kaydı, kopya ya da çalıştırma oluşmaz. "
+"Tarama başlarsa işçi dosyaları birer birer tarar; türü haritadan belli "
+"olan dosya yapay zekâya gönderilmez, mekanik kontrolden geçmezse "
+"\"İnceleme gerekli\" olarak sizi bekler."
+msgstr ""
+"Pregled ništa ne upisuje: ne nastaju zapis primera, kopija ni pokretanje."
+" Ako skeniranje počne, radnik skenira datoteke jednu po jednu; datoteka "
+"čiji je tip poznat iz mape ne šalje se veštačkoj inteligenciji, a ako ne "
+"prođe mehaničku proveru, čeka vas kao „Potreban pregled“."
+
+#: app/web/templates/training_known.html app/web/templates/training_type.html
+msgid "Örnek"
+msgstr "Primeri"
+
+#: app/web/routers/training.py
+msgid ""
+"Örnek artık <Yeni tür> türünün örneklerinde durur ve o türün açıklama "
+"üretimini etkiler. Son kararınız mı?"
+msgstr ""
+"Primer će tada biti među primerima tipa <Yeni tür> i uticaće na "
+"generisanje opisa tog tipa. Da li je to vaša konačna odluka?"
+
+#: app/web/templates/catalog_examples.html
+msgid "Örnek belge"
+msgstr "Primer dokumenta"
+
+#: app/web/routers/catalog.py
+msgid "Örnek belge bulunamadı"
+msgstr "Primer dokumenta nije pronađen"
+
+#: app/web/templates/catalog_examples.html
+msgid "Örnek belgeler"
+msgstr "Primeri dokumenata"
+
+#: app/web/templates/training.html
+msgid "Örnek belgeleri seçin"
+msgstr "Izaberite primere dokumenata"
+
+#: app/web/routers/training.py
+msgid "Örnek bu türe taşındı ve doğrulanmış olarak kaydedildi."
+msgstr "Primer je premešten u ovaj tip i upisan kao potvrđen."
+
+#: app/web/routers/training.py
+msgid "Örnek bulunamadı."
+msgstr "Primer nije pronađen."
+
+#: app/web/routers/training.py
+msgid "Örnek dosyası taşınamadı; hiçbir şey değişmedi."
+msgstr "Datoteka primera nije mogla da se premesti; ništa se nije promenilo."
+
+#: app/training/decisions.py
+msgid "Örnek dosyası türün klasöründe bulunamadı; işlem yapılmadı."
+msgstr "Datoteka primera nije pronađena u fascikli tipa; ništa nije urađeno."
+
+#: app/web/routers/catalog.py
+msgid ""
+"Örnek dosyası yazıldı ama kaydı tutulamadı: bu adla etkin bir örnek kaydı"
+" var. python -m app.catalog register-examples ile kaydedin."
+msgstr ""
+"Datoteka primera je upisana, ali njen zapis nije mogao da se sačuva: "
+"postoji aktivan zapis primera sa ovim imenom. Upišite ga pomoću python -m"
+" app.catalog register-examples."
+
+#: app/web/templates/catalog_candidates.html
+msgid "Örnek sayfa yok"
+msgstr "Nema strana primera"
+
+#: app/web/templates/catalog_candidate.html
+msgid "Örnek sayfa yok."
+msgstr "Nema strana primera."
+
+#: app/web/templates/catalog_candidate.html
+#: app/web/templates/catalog_candidates.html
+msgid "Örnek sayfalar"
+msgstr "Strane primera"
+
+#: app/catalog/candidates.py
+msgid "Örnek yok"
+msgstr "Nema primera"
+
+#: app/web/templates/catalog_examples.html
+msgid "Örnek yükle"
+msgstr "Otpremi primere"
+
+#: app/web/templates/catalog_examples.html
+msgid "Örnek yüklendi:"
+msgstr "Primer je otpremljen:"
+
+#: app/training/decisions.py
+msgid "Örnek zaten bu türde; başka bir tür seçin."
+msgstr "Primer je već u ovom tipu; izaberite drugi tip."
+
+#: app/training/decisions.py
+msgid "Örnek zaten örneklerden çıkarılmış."
+msgstr "Primer je već uklonjen iz primera."
+
+#: app/web/routers/training.py
+msgid "Örnek örneklerden çıkarıldı: dosya silinmedi, eğitim arşivine taşındı."
+msgstr ""
+"Primer je uklonjen iz primera: datoteka nije obrisana, premeštena je u "
+"arhivu obuke."
+
+#: app/web/templates/catalog_examples.html
+msgid "Örnekler yüklenmedi; hiçbir dosya kaydedilmedi:"
+msgstr "Primeri nisu otpremljeni; nijedna datoteka nije sačuvana:"
+
+#: app/web/templates/catalog_form.html
+msgid "Örneklerden açıklama üret"
+msgstr "Generiši opis iz primera"
+
+#: app/web/templates/training_decision.html
+msgid "Örneklerden çıkar"
+msgstr "Ukloni iz primera"
+
+#: app/web/routers/training.py
+msgid "Örneklerden çıkarıldı"
+msgstr "Uklonjeno iz primera"
+
+#: app/web/templates/catalog_examples.html app/web/templates/training_type.html
+msgid "Örneklerden çıkar…"
+msgstr "Ukloni iz primera…"
+
+#: app/web/templates/training_decision.html
+msgid "Örneği başka türe taşı"
+msgstr "Premesti primer u drugi tip"
+
+#: app/web/routers/training.py
+msgid "Örneği olanlar"
+msgstr "Sa primerima"
+
+#: app/web/templates/training_decision.html
+msgid "Örneği örneklerden çıkar"
+msgstr "Ukloni primer iz primera"
+
 #: app/web/templates/upload_detail.html
 msgid "Öğe"
 msgstr "Stavka"
+
+#: app/web/templates/catalog_candidate.html
+#, python-format
+msgid "Öğe %(id)s"
+msgstr "Stavka %(id)s"
 
 #: app/web/templates/_context_warning.html
 #, python-format
 msgid "Öğe %(item)s"
 msgstr "Stavka %(item)s"
+
+#: app/web/templates/queue_assign.html
+#, python-format
+msgid "Öğe %(name)s (%(id)s) çalışanına atandı: %(file)s."
+msgstr "Stavka je dodeljena zaposlenom %(name)s (%(id)s): %(file)s."
+
+#: app/web/templates/queue.html
+msgid "Öğe durumu"
+msgstr "Stanje stavke"
+
+#: app/web/routers/queue.py
+msgid "Öğe kapatıldı; kuyruk klasöründeki kopya ve gerekçe dosyası yerinde kaldı."
+msgstr ""
+"Stavka je zatvorena; kopija i datoteka sa razlogom u fascikli reda ostale"
+" su na mestu."
+
+#: app/web/routers/training.py
+msgid "Öğe seçilen türe yerleşti; örnek doğrulanmış olarak kaydedildi."
+msgstr "Stavka je raspoređena u izabrani tip; primer je upisan kao potvrđen."
+
+#: app/web/routers/queue.py
+msgid "Öğe yeniden açıldı."
+msgstr "Stavka je ponovo otvorena."
+
+#: app/web/routers/training.py
+msgid "Öğe yerleşmedi: aynı içerik başka bir türde örnek. Notu inceleyin."
+msgstr ""
+"Stavka nije raspoređena: isti sadržaj je primer drugog tipa. Pogledajte "
+"napomenu."
+
+#: app/web/routers/training.py
+msgid "Öğe yerleşmedi: aynı içerik bu türde zaten örnek."
+msgstr "Stavka nije raspoređena: isti sadržaj je već primer ovog tipa."
+
+#: app/web/routers/training.py
+msgid ""
+"Öğe yoksayıldı: listeden kalktı, dosyası yerinde duruyor. Yoksayılanlar "
+"görünümünden geri alabilirsiniz."
+msgstr ""
+"Stavka je zanemarena: nestala je sa liste, njena datoteka ostaje na "
+"mestu. Možete je vratiti iz prikaza Zanemareni."
+
+#: app/web/routers/training.py
+msgid "Öğenin eğitim kopyası okunamadı; yerleştirilmedi."
+msgstr "Kopija stavke za obuku nije mogla da se pročita; nije raspoređena."
+
+#: app/pipeline/queue_close.py
+msgid "Öğenin partisi yoksayılmış; önce yoksaymayı geri alın."
+msgstr "Serija stavke je zanemarena; prvo poništite zanemarivanje."
+
+#: app/web/routers/training.py
+msgid ""
+"Öğenin yoksayılması geri alındı; öğe \"Yerleştirilemedi\" listesinde "
+"bekliyor."
+msgstr ""
+"Zanemarivanje stavke je poništeno; stavka čeka na listi „Nije "
+"raspoređeno“."
+
+#: app/web/templates/queue_item.html
+msgid "Öğeyi kapat"
+msgstr "Zatvori stavku"
+
+#: app/catalog/prefill.py app/web/routers/catalog.py
+#: app/web/templates/catalog.html app/web/templates/catalog_type_fields.html
+#: app/web/templates/training_known.html app/web/templates/training_type.html
+msgid "Ülke"
+msgstr "Zemlja"
 
 #: app/web/templates/catalog.html
 msgid "Ülke ara"
@@ -2916,17 +5867,59 @@ msgstr "Pretraži zemlje"
 msgid "Ülke ara…"
 msgstr "Pretraži zemlje…"
 
+#: app/web/routers/groups.py
+#, python-brace-format
+msgid "Ülkeden bağımsız: bu etiketli {count} türden herhangi biri karşılar"
+msgstr ""
+"Nezavisno od zemlje: ispunjava je bilo koji od tipova sa ovom oznakom "
+"({count})"
+
+#: app/web/templates/group.html
+msgid ""
+"Ülkeden bağımsızdır: seçilen etiketi taşıyan her tür kalemi karşılar. "
+"Sayı, o etiketi taşıyan katalog türlerinin sayısıdır — yakın etiketler "
+"(örn. «Identity Card», «Identity Document») ayrı kalır."
+msgstr ""
+"Nezavisno od zemlje: stavku ispunjava svaki tip sa izabranom oznakom. "
+"Broj je broj tipova kataloga sa tom oznakom — slične oznake (npr. "
+"«Identity Card», «Identity Document») ostaju odvojene."
+
+#: app/web/templates/training_results.html
+#, python-format
+msgid "çalıştırma #%(id)s"
+msgstr "pokretanje br. %(id)s"
+
 #: app/web/templates/_context_warning.html
 msgid "çözüldü"
 msgstr "rešeno"
+
+#: app/web/templates/queue_item.html
+msgid "çıktının geçmişi"
+msgstr "istorija izlaza"
 
 #: app/web/templates/account_telegram.html
 msgid "örn. 123456789"
 msgstr "npr. 123456789"
 
+#: app/web/templates/catalog_accepted_photos.html
+msgid "örnek"
+msgstr "primer"
+
+#: app/web/routers/training.py
+msgid "İK (elle)"
+msgstr "HR (ručno)"
+
+#: app/web/templates/catalog_type_fields.html
+msgid "İki harfli ülke kodu; boş bırakılabilir."
+msgstr "Dvoslovni kod zemlje; može ostati prazno."
+
 #: app/web/templates/document_move.html
 msgid "İki profil de güncellendi:"
 msgstr "Oba profila su ažurirana:"
+
+#: app/web/routers/catalog.py
+msgid "İki yüz tek sayfada"
+msgstr "Obe strane na jednoj stranici"
 
 #: app/web/templates/profile.html
 msgid "İletişim"
@@ -2939,6 +5932,52 @@ msgstr "Dodaj kontakt podatak"
 #: app/web/routers/employees.py
 msgid "İletişim bilgisi eklendi."
 msgstr "Kontakt podatak je dodat."
+
+#: app/web/templates/catalog_candidate.html
+msgid ""
+"İlişkili Unknown öğelerinin partileri güncel katalogla yeniden analiz "
+"edilir: her partiye yeni bir plan sürümü açılır, önceki sürümün çıktıları"
+" silinmez, \"eski sürüm\" işaretlenir."
+msgstr ""
+"Serije povezanih stavki Unknown ponovo se analiziraju sa trenutnim "
+"katalogom: za svaku seriju otvara se nova verzija plana, izlazi prethodne"
+" verzije se ne brišu, već se označavaju kao „stara verzija“."
+
+#: app/web/templates/catalog_candidate.html
+msgid "İlişkili bekleyen Unknown öğeleri"
+msgstr "Povezane stavke Unknown na čekanju"
+
+#: app/web/templates/catalog_candidate.html
+#: app/web/templates/catalog_candidate_step.html
+msgid "İlişkili öğe"
+msgstr "Povezane stavke"
+
+#: app/web/templates/training_map.html
+#, python-format
+msgid "İlk %(num)d atlanan gösteriliyor."
+msgstr "Prikazano je prvih %(num)d preskočenih."
+
+#: app/web/templates/catalog_candidate.html
+#, python-format
+msgid "İlk %(shown)d örnek gösteriliyor (toplam %(total)d)."
+msgstr "Prikazano je prvih %(shown)d primera (ukupno %(total)d)."
+
+#: app/web/templates/catalog_candidate.html
+#: app/web/templates/catalog_candidates.html
+msgid "İlk görüldüğü parti"
+msgstr "Prvi put viđeno u seriji"
+
+#: app/web/templates/catalog_candidates.html
+msgid "İncele"
+msgstr "Pregledaj"
+
+#: app/web/templates/catalog_candidates.html
+msgid "İnceleme"
+msgstr "Pregled"
+
+#: app/web/routers/training.py
+msgid "İnceleme gerekli"
+msgstr "Potreban pregled"
 
 #: app/web/templates/profile.html
 msgid "İndir"
@@ -2973,6 +6012,10 @@ msgstr "Zapis imena"
 msgid "İsmin belgede basılı hâli, birebir (Latin de olabilir)"
 msgstr "Ime tačno kako je odštampano u dokumentu (može biti i latinicom)"
 
+#: app/web/templates/group.html
+msgid "İsteğe bağlı"
+msgstr "Opciono"
+
 #: app/web/routers/users.py
 msgid "İzin 'true' ya da 'false' olmalı."
 msgstr "Dozvola mora biti 'true' ili 'false'."
@@ -2980,6 +6023,11 @@ msgstr "Dozvola mora biti 'true' ili 'false'."
 #: app/web/templates/account_telegram.html app/web/templates/users.html
 msgid "İzinli"
 msgstr "Dozvoljen"
+
+#: app/catalog/prefill.py app/web/routers/catalog.py
+#: app/web/templates/catalog_type_fields.html
+msgid "İzinli dönüşümler"
+msgstr "Dozvoljene konverzije"
 
 #: app/web/templates/account_telegram.html app/web/templates/users.html
 msgid "İzni aç"
@@ -2989,6 +6037,10 @@ msgstr "Dozvoli"
 msgid "İzni kapat"
 msgstr "Blokiraj"
 
+#: app/web/templates/group.html
+msgid "İşaretsiz kalem isteğe bağlıdır: paketin tamamlanmasını beklemez."
+msgstr "Neoznačena stavka je opciona: paket ne čeka na nju da bi bio kompletan."
+
 #: app/web/templates/upload_detail.html
 msgid "İşlem"
 msgstr "Operacija"
@@ -2996,6 +6048,12 @@ msgstr "Operacija"
 #: app/web/templates/catalog_candidate_step.html
 msgid "İşlem yapılmadı"
 msgstr "Radnja nije izvršena"
+
+#: app/web/templates/catalog_archive_step.html app/web/templates/training.html
+#: app/web/templates/training_decision.html
+#: app/web/templates/training_map_step.html
+msgid "İşlem yapılmadı:"
+msgstr "Ništa nije urađeno:"
 
 #: app/web/templates/upload_detail.html app/web/templates/users.html
 msgid "İşlemler"
@@ -3013,6 +6071,25 @@ msgstr "U obradi"
 msgid "Şimdiki"
 msgstr "Trenutno"
 
+#: app/web/templates/catalog_photo_rules.html
+msgid "Şirket kararı"
+msgstr "Odluka firme"
+
+#: app/web/templates/catalog.html
+msgid ""
+"Şirketin tanıdığı belge türleri. Sistem bir belgeyi ancak buradaki bir "
+"türe benzetebilirse yerleştirir; benzetemezse «Tür bilinmiyor» kuyruğuna "
+"alır."
+msgstr ""
+"Tipovi dokumenata koje firma poznaje. Sistem raspoređuje dokument samo "
+"ako ga može povezati sa nekim tipom odavde; ako ne može, stavlja ga u red"
+" «Unknown»."
+
+#: app/web/routers/catalog.py
+#, python-brace-format
+msgid "Şu alanlar önerilemedi, elle doldurun: {fields}"
+msgstr "Ova polja nisu mogla da se predlože, popunite ih ručno: {fields}"
+
 #: app/telegram/intent.py
 msgid "Şu an belge gösteremiyorum. Yöneticinize haber verin."
 msgstr "Trenutno ne mogu da prikažem dokumente. Javite administratoru."
@@ -3029,6 +6106,10 @@ msgstr "Trenutna lozinka"
 msgid "Şu anki parola hatalı."
 msgstr "Trenutna lozinka nije ispravna."
 
+#: app/web/templates/group.html
+msgid "— seçin —"
+msgstr "— izaberite —"
+
 #: app/web/templates/employees_results.html
 #, python-format
 msgid "“%(query)s” ile eşleşen ve eksik paketi olan çalışan yok."
@@ -3036,7 +6117,7 @@ msgstr "Nema zaposlenih sa nepotpunim paketima koji odgovaraju upitu “%(query)
 
 #: app/web/templates/document_move.html
 #: app/web/templates/employee_merge_results.html
-#: app/web/templates/employees_results.html
+#: app/web/templates/employees_results.html app/web/templates/queue_assign.html
 #, python-format
 msgid "“%(query)s” ile eşleşen çalışan yok."
 msgstr "Nema zaposlenih koji odgovaraju upitu “%(query)s”."
@@ -3101,6 +6182,10 @@ msgstr "← Stavka reda %(id)s"
 msgid "← Profile dön"
 msgstr "← Nazad na profil"
 
+#: app/web/templates/training_decision.html
+msgid "← Türün örnekleri"
+msgstr "← Primeri tipa"
+
 #: app/web/templates/upload_detail.html
 msgid "← Yüklemeler"
 msgstr "← Otpremanja"
@@ -3110,7 +6195,8 @@ msgid "← Çalışanlar"
 msgstr "← Zaposleni"
 
 #: app/web/templates/access_log.html app/web/templates/access_log_employee.html
-#: app/web/templates/employees_results.html app/web/templates/uploads_list.html
+#: app/web/templates/employees_results.html app/web/templates/queue.html
+#: app/web/templates/uploads_list.html
 msgid "← Önceki"
 msgstr "← Prethodna"
 

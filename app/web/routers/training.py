@@ -98,6 +98,7 @@ from app.db.models import (
     TrainingRunStatus,
 )
 from app.db.session import get_session
+from app.i18n import N_, gettext
 from app.storage import ContentMismatchError, DataLayout
 from app.storage.examples import example_path, list_examples
 from app.training import (
@@ -133,7 +134,7 @@ from app.training import (
     start_map_scan,
     verify_examples,
 )
-from app.training.map_import import SKIP_LABELS
+from app.training.map_import import SKIP_LABELS, map_too_large
 from app.web.auth import PanelUser, require_panel_user
 from app.web.confirm import (
     CONFIRMATION_REFUSED,
@@ -161,27 +162,27 @@ RUNS_PATH = "/training/runs"
 RUN_LIMIT = 20
 ITEM_LIMIT = 200
 
-NO_FILE_MESSAGE = "Yüklenecek dosya seçilmedi."
-UNKNOWN_HINT_MESSAGE = "Beklenen tür bilinen türlerden biri değil; listeden seçin."
-UNKNOWN_TYPE_MESSAGE = "Seçilen tür bilinen türlerden biri değil; listeden seçin."
-ITEM_NOT_FOUND = "Eğitim öğesi bulunamadı."
-NOT_MANUALLY_PLACEABLE = (
+NO_FILE_MESSAGE = N_("Yüklenecek dosya seçilmedi.")
+UNKNOWN_HINT_MESSAGE = N_("Beklenen tür bilinen türlerden biri değil; listeden seçin.")
+UNKNOWN_TYPE_MESSAGE = N_("Seçilen tür bilinen türlerden biri değil; listeden seçin.")
+ITEM_NOT_FOUND = N_("Eğitim öğesi bulunamadı.")
+NOT_MANUALLY_PLACEABLE = N_(
     "Bu öğe elle yerleştirilemez: yalnız Yerleştirilemedi, Çelişki ya da İnceleme gerekli "
     "durumundaki öğe türe yerleştirilir."
 )
-FILE_MISSING = "Öğenin eğitim kopyası okunamadı; yerleştirilmedi."
-TYPE_NOT_FOUND = "Bilinen tür bulunamadı."
-EXAMPLE_NOT_FOUND = "Örnek bulunamadı."
-MANUAL_CHECK_TEXT = "Elle kontrol gerekli"
-REMOVED_LABEL_TEXT = "Örneklerden çıkarıldı"
-EXAMPLE_RECORD_NOT_FOUND = "Eğitim örneği bulunamadı."
-MOVE_FAILED = "Örnek dosyası taşınamadı; hiçbir şey değişmedi."
-NO_MAP_MESSAGE = "Yüklenecek harita seçilmedi."
-MAP_NOT_CSV = "Harita .csv uzantılı bir CSV dosyası olmalı."
-MAP_DATA_INVALID = "Harita verisi okunamadı; haritayı yeniden yükleyin."
-MAP_EMPTY = "Haritada taranacak dosya yok; tarama başlatılmadı."
-MAP_SAVE_FAILED = "Harita saklanamadı; tarama başlatılmadı."
-RUN_NOT_FOUND = "Eğitim çalıştırması bulunamadı."
+FILE_MISSING = N_("Öğenin eğitim kopyası okunamadı; yerleştirilmedi.")
+TYPE_NOT_FOUND = N_("Bilinen tür bulunamadı.")
+EXAMPLE_NOT_FOUND = N_("Örnek bulunamadı.")
+MANUAL_CHECK_TEXT = N_("Elle kontrol gerekli")
+REMOVED_LABEL_TEXT = N_("Örneklerden çıkarıldı")
+EXAMPLE_RECORD_NOT_FOUND = N_("Eğitim örneği bulunamadı.")
+MOVE_FAILED = N_("Örnek dosyası taşınamadı; hiçbir şey değişmedi.")
+NO_MAP_MESSAGE = N_("Yüklenecek harita seçilmedi.")
+MAP_NOT_CSV = N_("Harita .csv uzantılı bir CSV dosyası olmalı.")
+MAP_DATA_INVALID = N_("Harita verisi okunamadı; haritayı yeniden yükleyin.")
+MAP_EMPTY = N_("Haritada taranacak dosya yok; tarama başlatılmadı.")
+MAP_SAVE_FAILED = N_("Harita saklanamadı; tarama başlatılmadı.")
+RUN_NOT_FOUND = N_("Eğitim çalıştırması bulunamadı.")
 
 # Etiket kararının iki aşamalı onay metinleri (11.9.4) — PLAN.md §D58'den BİREBİR; §20.6'nın
 # dışındadır (K16 dışı, REANALYZE emsali). `tests/web/test_training_decisions.py` §D58 ile
@@ -190,17 +191,17 @@ FILE_PLACEHOLDER = "<Dosya>"
 OLD_TYPE_PLACEHOLDER = "<Eski tür>"
 NEW_TYPE_PLACEHOLDER = "<Yeni tür>"
 TYPE_PLACEHOLDER = "<Tür>"
-MOVE_FIRST_CONFIRMATION = (
+MOVE_FIRST_CONFIRMATION = N_(
     "<Dosya> örneğini <Eski tür> türünden <Yeni tür> türüne taşımak üzeresiniz. Emin misiniz?"
 )
-MOVE_SECOND_CONFIRMATION = (
+MOVE_SECOND_CONFIRMATION = N_(
     "Örnek artık <Yeni tür> türünün örneklerinde durur ve o türün açıklama üretimini etkiler. "
     "Son kararınız mı?"
 )
-REMOVE_FIRST_CONFIRMATION = (
+REMOVE_FIRST_CONFIRMATION = N_(
     "<Dosya> örneğini <Tür> örneklerinden çıkarmak üzeresiniz. Emin misiniz?"
 )
-REMOVE_SECOND_CONFIRMATION = (
+REMOVE_SECOND_CONFIRMATION = N_(
     "Dosya silinmez, eğitim arşivine taşınır ve bu türün açıklama üretimine artık girmez. "
     "Son kararınız mı?"
 )
@@ -209,8 +210,8 @@ REMOVE_SECOND_CONFIRMATION = (
 MAP_PLACEHOLDER = "<Harita>"
 FILES_PLACEHOLDER = "<N>"
 AI_FILES_PLACEHOLDER = "<K>"
-MAP_FIRST_CONFIRMATION = "<Harita> haritasındaki <N> dosyayı taramak üzeresiniz. Emin misiniz?"
-MAP_SECOND_CONFIRMATION = "En çok <K> dosya yapay zekâya gönderilebilir. Son kararınız mı?"
+MAP_FIRST_CONFIRMATION = N_("<Harita> haritasındaki <N> dosyayı taramak üzeresiniz. Emin misiniz?")
+MAP_SECOND_CONFIRMATION = N_("En çok <K> dosya yapay zekâya gönderilebilir. Son kararınız mı?")
 
 MANUALLY_PLACEABLE = frozenset(
     {TrainingItemStatus.UNPLACED, TrainingItemStatus.CONFLICT, TrainingItemStatus.REVIEW}
@@ -220,84 +221,84 @@ sistemde bekleyen öğe (`queued`, `ai_pending`) elle yerleştirilmez: işçinin
 incelemesiyle yarışmasın."""
 
 STATUS_LABELS: dict[str, str] = {
-    TrainingItemStatus.QUEUED: "Sırada",
-    TrainingItemStatus.PLACED: "Yerleşti",
-    TrainingItemStatus.AI_PENDING: "Yapay zekâ incelemesi bekliyor",
-    TrainingItemStatus.SKIPPED: "Zaten örnek",
-    TrainingItemStatus.FAILED: "Hatalı",
-    TrainingItemStatus.UNPLACED: "Yerleştirilemedi",
-    TrainingItemStatus.CONFLICT: "Çelişki",
-    TrainingItemStatus.REVIEW: "İnceleme gerekli",
-    TrainingItemStatus.DISMISSED: "Yoksayıldı",
+    TrainingItemStatus.QUEUED: N_("Sırada"),
+    TrainingItemStatus.PLACED: N_("Yerleşti"),
+    TrainingItemStatus.AI_PENDING: N_("Yapay zekâ incelemesi bekliyor"),
+    TrainingItemStatus.SKIPPED: N_("Zaten örnek"),
+    TrainingItemStatus.FAILED: N_("Hatalı"),
+    TrainingItemStatus.UNPLACED: N_("Yerleştirilemedi"),
+    TrainingItemStatus.CONFLICT: N_("Çelişki"),
+    TrainingItemStatus.REVIEW: N_("İnceleme gerekli"),
+    TrainingItemStatus.DISMISSED: N_("Yoksayıldı"),
 }
 # Çalıştırmanın sonuç sayaçlarında durumun adı (varsayılan: durum etiketinin küçük harfi); 11.9.6
 # yoksayılanları "yoksayılan" diye sayar.
-COUNT_LABELS: dict[str, str] = {TrainingItemStatus.DISMISSED: "yoksayılan"}
+COUNT_LABELS: dict[str, str] = {TrainingItemStatus.DISMISSED: N_("yoksayılan")}
 SHOW_DISMISSED = "dismissed"
 METHOD_LABELS: dict[str, str] = {
-    TrainingMethod.MECHANICAL: "Mekanik",
-    TrainingMethod.AI: "Yapay zekâ",
-    TrainingMethod.MANUAL: "İK (elle)",
-    ExampleMethod.LEGACY: "Eğitimden önce",
+    TrainingMethod.MECHANICAL: N_("Mekanik"),
+    TrainingMethod.AI: N_("Yapay zekâ"),
+    TrainingMethod.MANUAL: N_("İK (elle)"),
+    ExampleMethod.LEGACY: N_("Eğitimden önce"),
 }
 LABEL_TEXTS: dict[str, str] = {
-    ExampleLabel.AI_DECISION: "AI kararı",
-    ExampleLabel.VERIFIED: "Doğrulandı",
+    ExampleLabel.AI_DECISION: N_("AI kararı"),
+    ExampleLabel.VERIFIED: N_("Doğrulandı"),
 }
 RUN_KIND_LABELS: dict[str, str] = {
-    TrainingRunKind.UPLOAD: "Yükleme",
-    TrainingRunKind.MAP: "Harita",
+    TrainingRunKind.UPLOAD: N_("Yükleme"),
+    TrainingRunKind.MAP: N_("Harita"),
 }
 RUN_STATUS_LABELS: dict[str, str] = {
-    TrainingRunStatus.RUNNING: "Sürüyor",
-    TrainingRunStatus.DONE: "Bitti",
+    TrainingRunStatus.RUNNING: N_("Sürüyor"),
+    TrainingRunStatus.DONE: N_("Bitti"),
 }
 
 # Süzgeç anahtarı → etiket (sıra ekrandaki sıradır; boş anahtar "Tümü").
 ITEM_FILTERS: tuple[tuple[str, str], ...] = (
-    ("", "Tümü"),
-    ("ai", "AI kararı"),
-    ("unplaced", "Yerleştirilemedi"),
-    ("conflict", "Çelişki"),
-    ("review", "İnceleme gerekli"),
-    ("mechanical", "Mekanik"),
-    ("failed", "Hatalı"),
+    ("", N_("Tümü")),
+    ("ai", N_("AI kararı")),
+    ("unplaced", N_("Yerleştirilemedi")),
+    ("conflict", N_("Çelişki")),
+    ("review", N_("İnceleme gerekli")),
+    ("mechanical", N_("Mekanik")),
+    ("failed", N_("Hatalı")),
 )
 FILTER_KEYS = frozenset(key for key, _ in ITEM_FILTERS)
 
 # Bilinen belgeler görünümünün süzgeci.
 KNOWN_FILTERS: tuple[tuple[str, str], ...] = (
-    ("", "Tümü"),
-    ("examples", "Örneği olanlar"),
-    ("ai", "AI kararı olanlar"),
+    ("", N_("Tümü")),
+    ("examples", N_("Örneği olanlar")),
+    ("ai", N_("AI kararı olanlar")),
 )
 KNOWN_FILTER_KEYS = frozenset(key for key, _ in KNOWN_FILTERS)
 
 NOTICES: dict[str, str] = {
-    "uploaded": (
+    "uploaded": N_(
         "Yükleme alındı ve mekanik tanıma bitti. Mekanik tanınmayan dosyaları işçi yapay zekâyla "
         "inceler; sonuçlar bu tabloda güncellenir."
     ),
-    "placed": "Öğe seçilen türe yerleşti; örnek doğrulanmış olarak kaydedildi.",
-    "skipped": "Öğe yerleşmedi: aynı içerik bu türde zaten örnek.",
-    "conflict": "Öğe yerleşmedi: aynı içerik başka bir türde örnek. Notu inceleyin.",
-    "verified": 'Seçilen "AI kararı" örnekleri doğrulandı; elle kontrol ikonu kalktı.',
-    "verify_none": 'Doğrulanacak "AI kararı" örneği seçilmedi; hiçbir şey değişmedi.',
-    "moved": "Örnek bu türe taşındı ve doğrulanmış olarak kaydedildi.",
-    "removed": "Örnek örneklerden çıkarıldı: dosya silinmedi, eğitim arşivine taşındı.",
-    "map_started": (
+    "placed": N_("Öğe seçilen türe yerleşti; örnek doğrulanmış olarak kaydedildi."),
+    "skipped": N_("Öğe yerleşmedi: aynı içerik bu türde zaten örnek."),
+    "conflict": N_("Öğe yerleşmedi: aynı içerik başka bir türde örnek. Notu inceleyin."),
+    "verified": N_('Seçilen "AI kararı" örnekleri doğrulandı; elle kontrol ikonu kalktı.'),
+    "verify_none": N_('Doğrulanacak "AI kararı" örneği seçilmedi; hiçbir şey değişmedi.'),
+    "moved": N_("Örnek bu türe taşındı ve doğrulanmış olarak kaydedildi."),
+    "removed": N_("Örnek örneklerden çıkarıldı: dosya silinmedi, eğitim arşivine taşındı."),
+    "map_started": N_(
         "Toplu tarama başladı. İşçi haritadaki dosyaları birer birer tarar; ilerleme bu tabloda "
         "güncellenir."
     ),
-    "dismissed": (
+    "dismissed": N_(
         "Öğe yoksayıldı: listeden kalktı, dosyası yerinde duruyor. Yoksayılanlar görünümünden geri "
         "alabilirsiniz."
     ),
-    "restored": 'Öğenin yoksayılması geri alındı; öğe "Yerleştirilemedi" listesinde bekliyor.',
-    "run_archived": (
+    "restored": N_('Öğenin yoksayılması geri alındı; öğe "Yerleştirilemedi" listesinde bekliyor.'),
+    "run_archived": N_(
         "Çalıştırma arşivlendi: listeden ve sayaçlardan kalktı; öğeleri ve örnekleri değişmedi."
     ),
-    "run_restored": "Çalıştırma arşivden geri alındı.",
+    "run_restored": N_("Çalıştırma arşivden geri alındı."),
 }
 
 _IMAGE_SUFFIXES = (".jpg", ".jpeg", ".png")
@@ -458,8 +459,9 @@ def _results_url(
 
 
 def _counts_text(counts: dict[str, int]) -> str:
+    """Çalıştırmanın sonuç sayaçları isteğin dilinde (durum adı küçük harfle)."""
     parts = [
-        f"{counts[status]} {COUNT_LABELS.get(status, STATUS_LABELS[status].lower())}"
+        f"{counts[status]} {gettext(COUNT_LABELS.get(status, STATUS_LABELS[status])).lower()}"
         for status in TrainingItemStatus
         if counts.get(status)
     ]
@@ -770,7 +772,7 @@ async def submit_training(
         try:
             _validated_name(name)
         except HTTPException as exc:
-            errors.append(str(exc.detail))
+            errors.append(exc.detail)
     known = load_known_types(session)
     if hint_slug is not None and hint_slug not in known:
         errors.append(UNKNOWN_HINT_MESSAGE)
@@ -937,7 +939,7 @@ def dismiss_training_item(
             else status.HTTP_409_CONFLICT
         )
         return _cleanup_refused(
-            request, user, session, provider_problem, status_code=code, message=str(exc)
+            request, user, session, provider_problem, status_code=code, message=_reason(exc)
         )
     session.commit()
     return RedirectResponse(_with_notice(_safe_next(next), "dismissed"), status.HTTP_303_SEE_OTHER)
@@ -964,7 +966,7 @@ def restore_training_item(
             session,
             provider_problem,
             status_code=status.HTTP_409_CONFLICT,
-            message=str(exc),
+            message=_reason(exc),
             show=SHOW_DISMISSED,
         )
     session.commit()
@@ -996,7 +998,7 @@ def _run_action(
             session,
             provider_problem,
             status_code=status.HTTP_409_CONFLICT,
-            message=str(exc),
+            message=_reason(exc),
             archived=not archive,
         )
     session.commit()
@@ -1046,7 +1048,12 @@ def _label_counts(session: Session) -> dict[tuple[str, str], int]:
 
 
 def _source_text(known: KnownType) -> str:
-    return "Katalog" if known.in_catalog else "Önerilen"
+    return N_("Katalog") if known.in_catalog else N_("Önerilen")
+
+
+def _reason(exc: BaseException) -> str:
+    """Çekirdeğin hata metni: ilk argüman (`Translatable` ise gösterimde çevrilir), yoksa metni."""
+    return exc.args[0] if exc.args and isinstance(exc.args[0], str) else str(exc)
 
 
 @router.get(KNOWN_PATH, response_class=HTMLResponse)
@@ -1315,7 +1322,8 @@ def _decision_page(
     first, second = _DECISION_TEXTS[operation]
     text = None
     if decision is not None:
-        text = _fill(second if confirmation else first, **decision.values)
+        # İsteğin dilinde (§D92): yer tutucular (`<Dosya>`, `<Tür>`…) çeviride de aynıdır.
+        text = _fill(gettext(second if confirmation else first), **decision.values)
         back_slug = decision.example.type_slug
     entry = MENU_BY_KEY["training"]
     return render_page(
@@ -1349,13 +1357,13 @@ def _refused_decision(
     back_slug = example.type_slug if example is not None else None
     session.rollback()
     if isinstance(exc, HTTPException):
-        code, message = exc.status_code, str(exc.detail)
+        code, message = exc.status_code, exc.detail
     elif isinstance(exc, UnknownTypeError):
         code, message = status.HTTP_422_UNPROCESSABLE_CONTENT, UNKNOWN_TYPE_MESSAGE
     elif isinstance(exc, ConfirmationRefusedError):
         code, message = status.HTTP_400_BAD_REQUEST, CONFIRMATION_REFUSED
     elif isinstance(exc, ExampleDecisionError):
-        code, message = status.HTTP_409_CONFLICT, str(exc)
+        code, message = status.HTTP_409_CONFLICT, _reason(exc)
     else:  # dosya taşınamadı (`OSError`, `ContentMismatchError`)
         code, message = status.HTTP_409_CONFLICT, MOVE_FAILED
     return _decision_page(
@@ -1563,7 +1571,7 @@ def unpack_map(value: str, *, max_bytes: int) -> bytes:
     except (UnicodeEncodeError, binascii.Error, zlib.error, ValueError):
         raise MapError(MAP_DATA_INVALID) from None
     if len(content) > max_bytes or inflater.unconsumed_tail:
-        raise MapError(f"Harita {max_bytes / (1024 * 1024):.0f} MB sınırını aşıyor.")
+        raise MapError(map_too_large(max_bytes))
     if not inflater.eof or inflater.unused_data:
         raise MapError(MAP_DATA_INVALID)
     return content
@@ -1667,7 +1675,9 @@ def _map_step_page(
             "files": str(scan.preview.files),
             "ai_files": str(scan.preview.ai_possible),
         }
-        text = _fill(MAP_SECOND_CONFIRMATION if confirmation else MAP_FIRST_CONFIRMATION, **values)
+        text = _fill(
+            gettext(MAP_SECOND_CONFIRMATION if confirmation else MAP_FIRST_CONFIRMATION), **values
+        )
     entry = MENU_BY_KEY["training"]
     return render_page(
         request,
@@ -1692,7 +1702,7 @@ def _refused_map(
     if isinstance(exc, ConfirmationRefusedError):
         code, message = status.HTTP_400_BAD_REQUEST, CONFIRMATION_REFUSED
     elif isinstance(exc, MapError):
-        code, message = status.HTTP_400_BAD_REQUEST, str(exc)
+        code, message = status.HTTP_400_BAD_REQUEST, _reason(exc)
     else:  # harita saklanamadı (`OSError`)
         code, message = status.HTTP_409_CONFLICT, MAP_SAVE_FAILED
     return _map_step_page(request, user, code, error=message)
@@ -1733,7 +1743,7 @@ async def upload_map(
             item_filter="",
             provider_problem=provider_problem,
             status_code=status.HTTP_400_BAD_REQUEST,
-            errors=[str(exc)],
+            errors=[_reason(exc)],
         )
     session.rollback()
     return _map_page(request, user, scan, provider_problem=provider_problem)

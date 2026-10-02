@@ -51,6 +51,7 @@ from app.db.models import (
     utcnow,
 )
 from app.events import EventType, record_event
+from app.i18n import N_, Translatable
 from app.storage import DataLayout, sha256_file
 from app.storage.examples import StoredExample, list_examples
 from app.training.placement import UNPLACED_STATUSES, refresh_run
@@ -65,14 +66,14 @@ REGISTERED_NOTE = "Kayıtsız örnek; kaydı register-examples ile tutuldu."
 DISMISSED_NOTE = "İK yoksaydı"
 RESTORED_NOTE = "İK yoksaymayı geri aldı"
 
-NOT_DISMISSABLE = (
+NOT_DISMISSABLE = N_(
     "Bu öğe yoksayılamaz: yalnız Yerleştirilemedi, Çelişki ya da İnceleme gerekli durumundaki öğe "
     "yoksayılır."
 )
-NOT_DISMISSED = "Bu öğe yoksayılmamış; geri alınacak bir şey yok."
-NOTE_TOO_LONG = f"Not en çok {NOTE_MAX_LENGTH} karakter olabilir."
-RUN_ALREADY_ARCHIVED = "Bu çalıştırma zaten arşivde."
-RUN_NOT_ARCHIVED = "Bu çalıştırma arşivde değil; geri alınacak bir şey yok."
+NOT_DISMISSED = N_("Bu öğe yoksayılmamış; geri alınacak bir şey yok.")
+NOTE_TOO_LONG = Translatable(N_("Not en çok {limit} karakter olabilir."), limit=NOTE_MAX_LENGTH)
+RUN_ALREADY_ARCHIVED = N_("Bu çalıştırma zaten arşivde.")
+RUN_NOT_ARCHIVED = N_("Bu çalıştırma arşivde değil; geri alınacak bir şey yok.")
 
 
 class CleanupError(ValueError):

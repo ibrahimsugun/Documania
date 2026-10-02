@@ -4,32 +4,32 @@
    geri alınır; "Türe yerleştir"i bekleyen öğe notla tek adımda yoksayılır, "Yoksayılanlar"
    görünümünden geri alınır. Hiçbiri dosya silmez. #}
 <section id="training-results" class="training-results" aria-live="polite"{% if results.poll %} hx-get="{{ results.poll_url }}" hx-trigger="every 3s" hx-swap="outerHTML"{% endif %}>
-  <h2>{% if results.archived %}Arşivlenen çalıştırmalar{% else %}Çalıştırmalar{% endif %} <span class="count">· <a href="{{ results.archive_toggle_url }}">{% if results.archived %}arşivde olmayanlar{% else %}arşivlenenler{% endif %}</a></span></h2>
+  <h2>{% if results.archived %}{{ _("Arşivlenen çalıştırmalar") }}{% else %}{{ _("Çalıştırmalar") }}{% endif %} <span class="count">· <a href="{{ results.archive_toggle_url }}">{% if results.archived %}{{ _("arşivde olmayanlar") }}{% else %}{{ _("arşivlenenler") }}{% endif %}</a></span></h2>
   {% if results.runs %}
   <table class="items training-runs">
     <thead>
-      <tr><th>No</th><th>Tür</th><th>Tarih</th><th>Yükleyen</th><th>Durum</th><th>Sonuçlar</th><th>Arşiv</th></tr>
+      <tr><th>{{ _("No") }}</th><th>{{ _("Tür") }}</th><th>{{ _("Tarih") }}</th><th>{{ _("Yükleyen") }}</th><th>{{ _("Durum") }}</th><th>{{ _("Sonuçlar") }}</th><th>{{ _("Arşiv") }}</th></tr>
     </thead>
     <tbody>
       {% for run in results.runs %}
       <tr{% if run.selected %} class="selected" aria-current="true"{% endif %}>
         <td><a href="{{ run.url }}">#{{ run.id }}</a></td>
-        <td>{{ run.kind }}{% if run.map_name %} <span class="reason">{{ run.map_name }}</span>{% endif %}</td>
+        <td>{{ translate(run.kind) }}{% if run.map_name %} <span class="reason">{{ run.map_name }}</span>{% endif %}</td>
         <td>{{ run.created_at }}</td>
         <td>{{ run.created_by }}</td>
-        <td class="status-{{ run.status }}">{{ run.status_label }}</td>
+        <td class="status-{{ run.status }}">{{ translate(run.status_label) }}</td>
         <td>
-          {% if run.running and run.total %}<span class="run-progress"><progress max="{{ run.total }}" value="{{ run.processed }}"></progress> {{ run.processed }}/{{ run.total }} işlendi</span><br>{% endif %}
-          {{ run.counts }}
+          {% if run.running and run.total %}<span class="run-progress"><progress max="{{ run.total }}" value="{{ run.processed }}"></progress> {{ _("%(done)d/%(total)d işlendi", done=run.processed, total=run.total) }}</span><br>{% endif %}
+          {{ translate(run.counts) }}
         </td>
         <td>
           {% if run.archived %}
           <form class="inline-form" method="post" action="/training/runs/{{ run.id }}/restore">
-            <button type="submit">Geri al</button>
+            <button type="submit">{{ _("Geri al") }}</button>
           </form>
           {% else %}
           <form class="inline-form" method="post" action="/training/runs/{{ run.id }}/archive">
-            <button type="submit">Arşivle</button>
+            <button type="submit">{{ _("Arşivle") }}</button>
           </form>
           {% endif %}
         </td>
@@ -37,34 +37,34 @@
       {% endfor %}
     </tbody>
   </table>
-  {% if not results.archived %}<p class="hint">Arşivlenen çalıştırma listeden ve sayaçlardan kalkar; öğeleri ve örnekleri değişmez, "arşivlenenler" görünümünden geri alınır.</p>{% endif %}
+  {% if not results.archived %}<p class="hint">{{ _("Arşivlenen çalıştırma listeden ve sayaçlardan kalkar; öğeleri ve örnekleri değişmez, \"arşivlenenler\" görünümünden geri alınır.") }}</p>{% endif %}
   {% else %}
-  <p class="placeholder">{% if results.archived %}Arşivlenen çalıştırma yok.{% else %}Henüz eğitim yüklemesi yok.{% endif %}</p>
+  <p class="placeholder">{% if results.archived %}{{ _("Arşivlenen çalıştırma yok.") }}{% else %}{{ _("Henüz eğitim yüklemesi yok.") }}{% endif %}</p>
   {% endif %}
 
-  <h2>Dosyalar{% if results.run_id %} <span class="count">· çalıştırma #{{ results.run_id }} · <a href="{{ results.all_runs_url }}">bütün çalıştırmalar</a></span>{% endif %}</h2>
-  <nav class="states" aria-label="Dosyaları süz">
+  <h2>{{ _("Dosyalar") }}{% if results.run_id %} <span class="count">· {{ _("çalıştırma #%(id)s", id=results.run_id) }} · <a href="{{ results.all_runs_url }}">{{ _("bütün çalıştırmalar") }}</a></span>{% endif %}</h2>
+  <nav class="states" aria-label="{{ _('Dosyaları süz') }}">
     {% for key, label, url, selected in results.filters %}
-    <a href="{{ url }}"{% if selected %} class="active" aria-current="page"{% endif %}>{{ label }}</a>
+    <a href="{{ url }}"{% if selected %} class="active" aria-current="page"{% endif %}>{{ translate(label) }}</a>
     {% endfor %}
-    <a href="{{ results.dismissed_url }}"{% if results.show %} class="active" aria-current="page"{% endif %}>Yoksayılanlar ({{ results.dismissed }})</a>
+    <a href="{{ results.dismissed_url }}"{% if results.show %} class="active" aria-current="page"{% endif %}>{{ _("Yoksayılanlar (%(num)d)", num=results.dismissed) }}</a>
   </nav>
   {% if results.pending %}
-  <p class="notice" role="status">{{ results.pending }} dosya sistemin kararını bekliyor; bu bölüm kendiliğinden yenilenir.</p>
+  <p class="notice" role="status">{{ ngettext("%(num)d dosya sistemin kararını bekliyor; bu bölüm kendiliğinden yenilenir.", "%(num)d dosya sistemin kararını bekliyor; bu bölüm kendiliğinden yenilenir.", results.pending) }}</p>
   {% endif %}
   {% if results.items %}
-  <p class="count">{{ results.total }} dosya{% if results.total > results.items|length %} · en yeni {{ results.items|length }} gösteriliyor{% endif %}</p>
+  <p class="count">{{ ngettext("%(num)d dosya", "%(num)d dosya", results.total) }}{% if results.total > results.items|length %} · {{ _("en yeni %(shown)d gösteriliyor", shown=results.items|length) }}{% endif %}</p>
   {% if results.verifiable %}
   {# 11.9.4 toplu doğrulama: satırlardaki onay kutuları bu forma `form` özniteliğiyle bağlıdır. #}
   <form class="verify-form" id="verify-results" method="post" action="/training/examples/verify">
     <input type="hidden" name="next" value="{{ results.current_url }}">
-    <button type="submit">Seçilenleri doğrula</button>
-    <span class="hint">"AI kararı" satırlarını seçip toplu doğrulayabilirsiniz; başka türe taşımak ya da örneklerden çıkarmak için sonuç türünün sayfasını açın.</span>
+    <button type="submit">{{ _("Seçilenleri doğrula") }}</button>
+    <span class="hint">{{ _("\"AI kararı\" satırlarını seçip toplu doğrulayabilirsiniz; başka türe taşımak ya da örneklerden çıkarmak için sonuç türünün sayfasını açın.") }}</span>
   </form>
   {% endif %}
   <table class="items training-items">
     <thead>
-      <tr><th>Dosya</th><th>Beklenen tür</th><th>Sonuç türü</th><th>Yöntem</th><th>Durum</th><th>Not</th><th>Etiket</th></tr>
+      <tr><th>{{ _("Dosya") }}</th><th>{{ _("Beklenen tür") }}</th><th>{{ _("Sonuç türü") }}</th><th>{{ _("Yöntem") }}</th><th>{{ _("Durum") }}</th><th>{{ _("Not") }}</th><th>{{ _("Etiket") }}</th></tr>
     </thead>
     <tbody>
       {% for item in results.items %}
@@ -72,40 +72,40 @@
         <td class="cell-break">{{ item.name }} <span class="reason">#{{ item.run_id }}</span></td>
         <td>{% if item.hint %}{% if item.hint.url %}<a href="{{ item.hint.url }}">{{ item.hint.name }}</a>{% else %}<code>{{ item.hint.slug }}</code>{% endif %}{% else %}—{% endif %}</td>
         <td>{% if item.result %}{% if item.result.url %}<a href="{{ item.result.url }}">{{ item.result.name }}</a> <span class="reason">{{ item.result.slug }}</span>{% else %}<code>{{ item.result.slug }}</code>{% endif %}{% else %}—{% endif %}</td>
-        <td class="cell-nowrap">{{ item.method or "—" }}</td>
-        <td class="training-status cell-nowrap">{{ item.status_label }}</td>
-        <td class="reason-text">{{ item.note or "—" }}</td>
+        <td class="cell-nowrap">{{ translate(item.method) or "—" }}</td>
+        <td class="training-status cell-nowrap">{{ translate(item.status_label) }}</td>
+        <td class="reason-text" translate="no">{{ item.note or "—" }}</td>
         <td>
-          {% if item.label_text %}<span class="badge{% if not item.manual_check %} badge-neutral{% endif %}">{{ item.label_text }}</span>{% endif %}
+          {% if item.label_text %}<span class="badge{% if not item.manual_check %} badge-neutral{% endif %}">{{ translate(item.label_text) }}</span>{% endif %}
           {% if item.manual_check %}{% include "_manual_check.html" %}{% endif %}
           {% if not item.label_text %}—{% endif %}
           {% if item.manual_check and item.example_id %}
-          <label class="hint"><input type="checkbox" name="example_ids" value="{{ item.example_id }}" form="verify-results"> seç</label>
+          <label class="hint"><input type="checkbox" name="example_ids" value="{{ item.example_id }}" form="verify-results"> {{ _("seç") }}</label>
           <form class="inline-form" method="post" action="/training/examples/verify">
             <input type="hidden" name="example_ids" value="{{ item.example_id }}">
             <input type="hidden" name="next" value="{{ results.current_url }}#item-{{ item.id }}">
-            <button type="submit">Doğrula</button>
+            <button type="submit">{{ _("Doğrula") }}</button>
           </form>
           {% endif %}
           {% if item.placeable %}
           <form class="place-form" method="post" action="/training/items/{{ item.id }}/place">
-            <label class="hint" for="place-{{ item.id }}">Tür</label>
-            <input id="place-{{ item.id }}" name="slug" list="known-type-options" required placeholder="bilinen tür (slug)" autocomplete="off">
-            <button type="submit">Türe yerleştir</button>
+            <label class="hint" for="place-{{ item.id }}">{{ _("Tür") }}</label>
+            <input id="place-{{ item.id }}" name="slug" list="known-type-options" required placeholder="{{ _('bilinen tür (slug)') }}" autocomplete="off">
+            <button type="submit">{{ _("Türe yerleştir") }}</button>
           </form>
           {% endif %}
           {% if item.dismissable %}
           <form class="dismiss-form" method="post" action="/training/items/{{ item.id }}/dismiss">
             <input type="hidden" name="next" value="{{ results.current_url }}">
-            <label class="hint" for="dismiss-{{ item.id }}">Not</label>
-            <input id="dismiss-{{ item.id }}" name="note" maxlength="200" placeholder="isteğe bağlı" autocomplete="off">
-            <button type="submit">Yoksay</button>
+            <label class="hint" for="dismiss-{{ item.id }}">{{ _("Not") }}</label>
+            <input id="dismiss-{{ item.id }}" name="note" maxlength="200" placeholder="{{ _('isteğe bağlı') }}" autocomplete="off">
+            <button type="submit">{{ _("Yoksay") }}</button>
           </form>
           {% endif %}
           {% if item.dismissed %}
           <form class="inline-form" method="post" action="/training/items/{{ item.id }}/restore">
             <input type="hidden" name="next" value="{{ results.current_url }}">
-            <button type="submit">Geri al</button>
+            <button type="submit">{{ _("Geri al") }}</button>
           </form>
           {% endif %}
         </td>
@@ -114,6 +114,6 @@
     </tbody>
   </table>
   {% else %}
-  <p class="placeholder">{% if results.show %}Yoksayılan dosya yok.{% elif results.filter %}Bu süzgece uyan dosya yok.{% else %}Gösterilecek dosya yok.{% endif %}</p>
+  <p class="placeholder">{% if results.show %}{{ _("Yoksayılan dosya yok.") }}{% elif results.filter %}{{ _("Bu süzgece uyan dosya yok.") }}{% else %}{{ _("Gösterilecek dosya yok.") }}{% endif %}</p>
   {% endif %}
 </section>

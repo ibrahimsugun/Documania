@@ -1,5 +1,5 @@
 {# Eğitim modu sekmesinin iki görünümü (11.9.1): yükleme ve sonuçlar · bilinen belgeler. #}
-<nav class="tabs" aria-label="Eğitim modu görünümleri">
-  <a href="/training"{% if tab == "upload" %} class="active" aria-current="page"{% endif %}>Yükleme ve sonuçlar</a>
-  <a href="/training/known"{% if tab == "known" %} class="active" aria-current="page"{% endif %}>Bilinen belgeler</a>
+<nav class="tabs" aria-label="{{ _('Eğitim modu görünümleri') }}">
+  <a href="/training"{% if tab == "upload" %} class="active" aria-current="page"{% endif %}>{{ _("Yükleme ve sonuçlar") }}</a>
+  <a href="/training/known"{% if tab == "known" %} class="active" aria-current="page"{% endif %}>{{ _("Bilinen belgeler") }}</a>
 </nav>

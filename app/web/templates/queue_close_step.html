@@ -4,17 +4,17 @@
    açmanın hatası da bu sayfadadır. Kuyruk klasöründeki kopya ve gerekçe dosyası silinmez (R11). Not
    alanı `<input>`'tur. Form hedefleri açık yazılır: `tests/web/test_access_log.py` her POST hedefini
    gözden geçirilmiş yollarla karşılaştırır. #}
-{% block title %}{{ title }} {{ queue_item_id }}{% endblock %}
+{% block title %}{{ translate(title) }} {{ queue_item_id }}{% endblock %}
 {% block content %}
 <p class="back"><a href="/queues/{{ queue_item_id }}">{{ _("← Kuyruk öğesi %(id)s", id=queue_item_id) }}</a></p>
-<h1>{{ title }}</h1>
+<h1>{{ translate(title) }}</h1>
 {% if error %}<p class="error" role="alert">{{ translate(error) }}</p>{% endif %}
 {% if step %}
 <dl class="record-summary close-summary">
-  <dt>{{ _("Kuyruk") }}</dt><dd>{{ step.kind_label }} · {{ step.state_label }}</dd>
+  <dt>{{ _("Kuyruk") }}</dt><dd>{{ translate(step.kind_label) }} · {{ translate(step.state_label) }}</dd>
   <dt>{{ _("Parti") }}</dt><dd><a href="/uploads/{{ step.upload_id }}">{{ step.upload_id }}</a></dd>
   <dt>{{ _("Belge türü") }}</dt><dd>{{ step.type_name or _("Belirlenmedi") }}</dd>
-  <dt>{{ _("Kuyruk gerekçesi") }}</dt><dd class="reason-text">{{ step.reason }}</dd>
+  <dt>{{ _("Kuyruk gerekçesi") }}</dt><dd class="reason-text" translate="no">{{ step.reason }}</dd>
 </dl>
 {% endif %}
 {% if first_confirmation %}
@@ -23,7 +23,7 @@
   <fieldset class="close-reasons">
     <legend>{{ _("Kapatma gerekçesi") }}</legend>
     {% for choice in choices %}
-    <label><input type="radio" name="reason" value="{{ choice.value }}" required{% if choice.checked %} checked{% endif %}> {{ choice.label }}</label>
+    <label><input type="radio" name="reason" value="{{ choice.value }}" required{% if choice.checked %} checked{% endif %}> {{ translate(choice.label) }}</label>
     {% endfor %}
   </fieldset>
   <label for="close-note">{{ _("Not (\"Diğer\" gerekçesinde zorunlu)") }}</label>
@@ -34,7 +34,7 @@
 </form>
 {% elif second_confirmation %}
 <form method="post" action="/queues/{{ queue_item_id }}/close" class="confirm queue-close-step">
-  <p class="reason">{{ _("Kapatma gerekçesi: %(reason)s", reason=close_reason_label) }}{% if note %} — {{ note }}{% endif %}</p>
+  <p class="reason">{{ _("Kapatma gerekçesi: %(reason)s", reason=translate(close_reason_label)) }}{% if note %} — {{ note }}{% endif %}</p>
   <p class="confirm-text" role="alert">{{ second_confirmation }}</p>
   <input type="hidden" name="reason" value="{{ close_reason }}">
   <input type="hidden" name="note" value="{{ note }}">

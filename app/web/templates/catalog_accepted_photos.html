@@ -4,29 +4,29 @@
    çıkarılır. Fotoğrafın kendisi burada gösterilmez (açmak erişim kaydı ister, 10.9.2): yalnız belge
    numarası ve köken sayfasına bağlantı. Fotoğraf değişmez, kopyalanmaz (K11, K17). #}
 <section class="accepted-photos" id="accepted-photos">
-  <h2>Kabul edilen fotoğraflar</h2>
-  <p class="hint">
+  <h2>{{ _("Kabul edilen fotoğraflar") }}</h2>
+  <p class="hint">{% trans %}
     Açık kuralların hepsinden geçen ("uyuyor") ve çalışanın Hazir klasöründe duran fotoğraflar
     kendiliğinden örnek olarak işaretlenir. Formdaki "Örneklerden açıklama üret" düğmesi bu
     fotoğrafların en yenilerini örnek belgelerle birlikte yapay zekâya verir; üretilen açıklamaya
     şirketin kabul ettiği fotoğrafın tanımı eklenir. Kural açılıp kapatılınca örnekler de değişir.
     Fotoğraflar değişmez ve kopyalanmaz.
-  </p>
+  {% endtrans %}</p>
   {% if accepted_photos.count %}
-  <p>{{ accepted_photos.count }} fotoğraf örnek olarak işaretli.</p>
+  <p>{{ ngettext("%(num)d fotoğraf örnek olarak işaretli.", "%(num)d fotoğraf örnek olarak işaretli.", accepted_photos.count) }}</p>
   <ul class="accepted-photo-list">
     {% for item in accepted_photos.listed %}
     <li>
-      <a href="/documents/{{ item.document_id }}/history">Belge {{ item.document_id }}</a>
+      <a href="/documents/{{ item.document_id }}/history">{{ _("Belge %(id)s", id=item.document_id) }}</a>
       <span class="count">({{ item.date }})</span>
-      <span class="rule-tag">örnek</span>
+      <span class="rule-tag">{{ _("örnek") }}</span>
     </li>
     {% endfor %}
   </ul>
   {% if accepted_photos.more %}
-  <p class="hint">Daha eski {{ accepted_photos.more }} fotoğraf da örnek olarak işaretli.</p>
+  <p class="hint">{{ ngettext("Daha eski %(num)d fotoğraf da örnek olarak işaretli.", "Daha eski %(num)d fotoğraf da örnek olarak işaretli.", accepted_photos.more) }}</p>
   {% endif %}
   {% else %}
-  <p class="placeholder">Henüz örnek olarak işaretlenen kabul edilmiş fotoğraf yok.</p>
+  <p class="placeholder">{{ _("Henüz örnek olarak işaretlenen kabul edilmiş fotoğraf yok.") }}</p>
   {% endif %}
 </section>

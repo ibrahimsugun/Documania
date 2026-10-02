@@ -8,24 +8,24 @@
    Alanlar tek satırlık girdidir: şablonlarda çok satırlı metin alanı yoktur (10.9.1 kilidi), form
    `action` yolları düz metin yazılır. Listenin ülke süzgeci (11.1.5) geri bağlantılarda ve gizli
    `list_country` alanında taşınır: kaydetme yönlendirmesi aynı süzgece döner (`country` türün alanı). #}
-{% block title %}{{ "Yeni belge türü" if is_new else "Belge türünü düzenle" }}{% endblock %}
+{% block title %}{{ _("Yeni belge türü") if is_new else _("Belge türünü düzenle") }}{% endblock %}
 {% block content %}
-<p class="back"><a href="/document-types{{ list_query }}">← Belge Türleri</a></p>
-<h1>{{ "Yeni belge türü" if is_new else "Belge türünü düzenle" }}</h1>
+<p class="back"><a href="/document-types{{ list_query }}">← {{ _("Belge Türleri") }}</a></p>
+<h1>{{ _("Yeni belge türü") if is_new else _("Belge türünü düzenle") }}</h1>
 {% if notice_text %}
-<p class="notice notice-success" role="status">{{ notice_text }}</p>
+<p class="notice notice-success" role="status">{{ translate(notice_text) }}</p>
 {% endif %}
 {% if problems %}
-<p class="error" role="alert">Tür kaydedilmedi: alanların altındaki uyarıları düzeltin.</p>
+<p class="error" role="alert">{{ _("Tür kaydedilmedi: alanların altındaki uyarıları düzeltin.") }}</p>
 {% endif %}
 {% if current_problems and not problems %}
 <div class="error" role="alert">
-  <p>Kayıtlı tür şu an katalog kurallarına uymuyor; analiz kataloğu okuyamaz. Alanları düzeltip kaydedin:</p>
-  <ul>{% for problem in current_problems %}<li>{{ problem }}</li>{% endfor %}</ul>
+  <p>{{ _("Kayıtlı tür şu an katalog kurallarına uymuyor; analiz kataloğu okuyamaz. Alanları düzeltip kaydedin:") }}</p>
+  <ul>{% for problem in current_problems %}<li>{{ translate(problem) }}</li>{% endfor %}</ul>
 </div>
 {% endif %}
 {% if description_error %}
-<p class="error" role="alert">{{ description_error }}</p>
+<p class="error" role="alert">{{ translate(description_error) }}</p>
 {% endif %}
 {% if generated %}
 {% include "catalog_description.html" %}
@@ -39,13 +39,13 @@
   {% include "catalog_type_fields.html" %}
 
   <div class="form-actions">
-    <button type="submit">Kaydet</button>
+    <button type="submit">{{ _("Kaydet") }}</button>
     {% if not is_new and (examples or (accepted_photos and accepted_photos.count)) and form.analyze %}
     {# 11.3.1: formu (kaydetmeden) açıklama üretimine gönderir; üretilen metin bu alana yazılır.
        Fotoğraf türünde kabul edilen fotoğraflar da örnektir (11.8.1). #}
-    <button type="submit" formaction="/document-types/{{ slug|urlencode }}/description">Örneklerden açıklama üret</button>
+    <button type="submit" formaction="/document-types/{{ slug|urlencode }}/description">{{ _("Örneklerden açıklama üret") }}</button>
     {% endif %}
-    <a href="/document-types{{ list_query }}">Vazgeç</a>
+    <a href="/document-types{{ list_query }}">{{ _("Vazgeç") }}</a>
   </div>
 </form>
 {% if not is_new %}

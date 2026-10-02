@@ -4,64 +4,64 @@
    üstündeki bant taslağın durumunu söyler ve "Yeniden incele" taslağı yeniler (onay iki aşamalıdır,
    §20.6); ret düğmesi durur; onaylanmış adayda ilişkili Unknown öğelerinin partileri toplu yeniden analiz edilir.
    Belge içeriği formda yok (K17). #}
-{% block title %}Aday tür: {{ candidate.name }}{% endblock %}
+{% block title %}{{ _("Aday tür: %(name)s", name=candidate.name) }}{% endblock %}
 {% block content %}
-<p class="back"><a href="/document-types/candidate-types">← Aday türler</a></p>
-<h1>Aday tür: {{ candidate.name }}</h1>
+<p class="back"><a href="/document-types/candidate-types">← {{ _("Aday türler") }}</a></p>
+<h1>{{ _("Aday tür: %(name)s", name=candidate.name) }}</h1>
 {% if notice_text %}
-<p class="notice notice-success" role="status">{{ notice_text }}</p>
+<p class="notice notice-success" role="status">{{ translate(notice_text) }}</p>
 {% endif %}
 <dl class="meta">
-  <dt>Durum</dt>
-  <dd>{{ status_label }}{% if approved_slug %} — <a href="/document-types/{{ approved_slug|urlencode }}"><code>{{ approved_slug }}</code></a>{% endif %}</dd>
-  <dt>Görülme</dt><dd>{{ candidate.seen_count }}</dd>
-  <dt>İlk görüldüğü parti</dt><dd><a href="/uploads/{{ candidate.first_seen_upload_id }}">{{ candidate.first_seen_upload_id }}</a></dd>
-  {% if candidate.description %}<dt>Açıklama</dt><dd>{{ candidate.description }}</dd>{% endif %}
+  <dt>{{ _("Durum") }}</dt>
+  <dd>{{ translate(status_label) }}{% if approved_slug %} — <a href="/document-types/{{ approved_slug|urlencode }}"><code>{{ approved_slug }}</code></a>{% endif %}</dd>
+  <dt>{{ _("Görülme") }}</dt><dd>{{ candidate.seen_count }}</dd>
+  <dt>{{ _("İlk görüldüğü parti") }}</dt><dd><a href="/uploads/{{ candidate.first_seen_upload_id }}">{{ candidate.first_seen_upload_id }}</a></dd>
+  {% if candidate.description %}<dt>{{ _("Açıklama") }}</dt><dd>{{ candidate.description }}</dd>{% endif %}
 </dl>
 
 <section id="samples" aria-labelledby="samples-title">
-  <h2 id="samples-title">Örnek sayfalar</h2>
+  <h2 id="samples-title">{{ _("Örnek sayfalar") }}</h2>
   {% if candidate.samples %}
   {% with samples=candidate.samples %}{% include "catalog_candidate_samples.html" %}{% endwith %}
   {% if candidate.sample_total > candidate.samples|length %}
-  <p class="hint">İlk {{ candidate.samples|length }} örnek gösteriliyor (toplam {{ candidate.sample_total }}).</p>
+  <p class="hint">{{ _("İlk %(shown)d örnek gösteriliyor (toplam %(total)d).", shown=candidate.samples|length, total=candidate.sample_total) }}</p>
   {% endif %}
   {% else %}
-  <p class="placeholder">Örnek sayfa yok.</p>
+  <p class="placeholder">{{ _("Örnek sayfa yok.") }}</p>
   {% endif %}
 </section>
 
 <section id="related" aria-labelledby="related-title">
-  <h2 id="related-title">İlişkili bekleyen Unknown öğeleri</h2>
+  <h2 id="related-title">{{ _("İlişkili bekleyen Unknown öğeleri") }}</h2>
   {% if related %}
   <ul class="related-items">
     {% for item in related %}
-    <li><a href="/queues/{{ item.id }}">Öğe {{ item.id }}</a> · parti <a href="/uploads/{{ item.upload_id }}">{{ item.upload_id }}</a> · {{ item.source }}</li>
+    <li><a href="/queues/{{ item.id }}">{{ _("Öğe %(id)s", id=item.id) }}</a> · {{ _("parti") }} <a href="/uploads/{{ item.upload_id }}">{{ item.upload_id }}</a> · {{ translate(item.source) }}</li>
     {% endfor %}
   </ul>
   {% else %}
-  <p class="placeholder">Bu aday türle bekleyen Unknown öğesi yok.</p>
+  <p class="placeholder">{{ _("Bu aday türle bekleyen Unknown öğesi yok.") }}</p>
   {% endif %}
 </section>
 
 {% if status == "pending" %}
 <section id="approve" aria-labelledby="approve-title">
-  <h2 id="approve-title">Standart türlere ekle</h2>
-  <p class="hint">Tür formu sistemin incelemesinden gelen taslakla, taslak yoksa adayın adıyla açılır; alanları kontrol edip belgenin yapısını (dosya türleri, yüzler, Direkt Belge, zorunlu alanlar, dönüşümler) tamamlayın. Ekleme iki aşamalı onay ister; tür bir sonraki analizden itibaren geçerlidir.</p>
+  <h2 id="approve-title">{{ _("Standart türlere ekle") }}</h2>
+  <p class="hint">{{ _("Tür formu sistemin incelemesinden gelen taslakla, taslak yoksa adayın adıyla açılır; alanları kontrol edip belgenin yapısını (dosya türleri, yüzler, Direkt Belge, zorunlu alanlar, dönüşümler) tamamlayın. Ekleme iki aşamalı onay ister; tür bir sonraki analizden itibaren geçerlidir.") }}</p>
   {# 11.5.6: taslağın bandı — durum, doldurulamayan alanlar, katalog çakışması, önerilen tür kaydı. #}
   <div class="prefill" id="prefill">
-    <p class="{% if prefill.filled %}notice{% else %}hint{% endif %} prefill-state" role="status">{{ prefill_state }}</p>
+    <p class="{% if prefill.filled %}notice{% else %}hint{% endif %} prefill-state" role="status">{{ translate(prefill_state) }}</p>
     {% if prefill_unfilled %}
-    <p class="notice prefill-unfilled" role="alert">{{ prefill_unfilled }}</p>
+    <p class="notice prefill-unfilled" role="alert">{{ translate(prefill_unfilled) }}</p>
     {% endif %}
     {% if prefill.catalog_slug %}
-    <p class="notice prefill-conflict" role="alert">Bu tür katalogda zaten olabilir: <a href="/document-types/{{ prefill.catalog_slug|urlencode }}"><code>{{ prefill.catalog_slug }}</code></a></p>
+    <p class="notice prefill-conflict" role="alert">{{ _("Bu tür katalogda zaten olabilir:") }} <a href="/document-types/{{ prefill.catalog_slug|urlencode }}"><code>{{ prefill.catalog_slug }}</code></a></p>
     {% endif %}
     {% if prefill.suggested_slug %}
-    <p class="hint prefill-suggested">Slug hazır önerilen tür kaydından: <code>{{ prefill.suggested_slug }}</code> (örnek klasörüyle aynı). Bu klasörde doğrulanmamış "AI kararı" örneği: {{ unverified_examples }}.</p>
+    <p class="hint prefill-suggested">{% trans slug=prefill.suggested_slug, count=unverified_examples %}Slug hazır önerilen tür kaydından: <code>{{ slug }}</code> (örnek klasörüyle aynı). Bu klasörde doğrulanmamış "AI kararı" örneği: {{ count }}.{% endtrans %}</p>
     {% endif %}
     {% if examine_error %}
-    <p class="error" role="alert">{{ examine_error }}</p>
+    <p class="error" role="alert">{{ translate(examine_error) }}</p>
     {% endif %}
     {# Yeniden inceleme yapay zekâyı çağırır ve sürebilir: HTMX ile gönderilir, düğmede dönen
        gösterge çıkar; sonuç ya da hata aynı içeriğe yazılır. JavaScript kapalıyken düz formdur. #}
@@ -70,37 +70,37 @@
           hx-target="main.content" hx-select="main.content" hx-swap="outerHTML"
           hx-disabled-elt="find button[type=submit]"
           hx-on::before-swap="if (event.detail.xhr.status >= 400) { event.detail.shouldSwap = true; event.detail.isError = false; }">
-      <button type="submit">Yeniden incele</button>
+      <button type="submit">{{ _("Yeniden incele") }}</button>
     </form>
   </div>
   {% if problems %}
-  <p class="error" role="alert">Tür eklenmedi: alanların altındaki uyarıları düzeltin.</p>
+  <p class="error" role="alert">{{ _("Tür eklenmedi: alanların altındaki uyarıları düzeltin.") }}</p>
   {% endif %}
   <form class="type-form" method="post" action="/document-types/candidate-types/{{ candidate.id }}/approve/confirm">
     {% include "catalog_type_fields.html" %}
 
     <div class="form-actions">
-      <button type="submit">Standart türlere ekle</button>
+      <button type="submit">{{ _("Standart türlere ekle") }}</button>
     </div>
   </form>
 </section>
 
 <section id="reject" aria-labelledby="reject-title">
-  <h2 id="reject-title">Reddet</h2>
-  <p class="hint">Reddedilen aday bir daha listeye düşmez; kayıt silinmez, katalog değişmez. İlişkili belgeler Unknown kuyruğunda kalır.</p>
+  <h2 id="reject-title">{{ _("Reddet") }}</h2>
+  <p class="hint">{{ _("Reddedilen aday bir daha listeye düşmez; kayıt silinmez, katalog değişmez. İlişkili belgeler Unknown kuyruğunda kalır.") }}</p>
   <form class="inline" method="post" action="/document-types/candidate-types/{{ candidate.id }}/reject">
-    <button type="submit">Adayı reddet</button>
+    <button type="submit">{{ _("Adayı reddet") }}</button>
   </form>
 </section>
 {% elif status == "approved" %}
 <section id="reanalyze" aria-labelledby="reanalyze-title">
-  <h2 id="reanalyze-title">Toplu yeniden analiz</h2>
+  <h2 id="reanalyze-title">{{ _("Toplu yeniden analiz") }}</h2>
   {% if reanalysis_blocked %}
-  <p class="error" role="alert">{{ reanalysis_blocked }}</p>
+  <p class="error" role="alert">{{ translate(reanalysis_blocked) }}</p>
   {% elif targets %}
-  <p class="hint">İlişkili Unknown öğelerinin partileri güncel katalogla yeniden analiz edilir: her partiye yeni bir plan sürümü açılır, önceki sürümün çıktıları silinmez, "eski sürüm" işaretlenir.</p>
+  <p class="hint">{{ _("İlişkili Unknown öğelerinin partileri güncel katalogla yeniden analiz edilir: her partiye yeni bir plan sürümü açılır, önceki sürümün çıktıları silinmez, \"eski sürüm\" işaretlenir.") }}</p>
   <table class="items reanalysis-targets">
-    <thead><tr><th>Parti</th><th>Güncel plan sürümü</th><th>İlişkili öğe</th></tr></thead>
+    <thead><tr><th>{{ _("Parti") }}</th><th>{{ _("Güncel plan sürümü") }}</th><th>{{ _("İlişkili öğe") }}</th></tr></thead>
     <tbody>
       {% for target in targets %}
       <tr><td><a href="/uploads/{{ target.upload_id }}">{{ target.upload_id }}</a></td><td>{{ target.version }}</td><td>{{ target.item_count }}</td></tr>
@@ -108,18 +108,18 @@
     </tbody>
   </table>
   <form class="confirm" method="post" action="/document-types/candidate-types/{{ candidate.id }}/reanalyze/prepare">
-    <p class="confirm-text">{{ reanalysis_first }}</p>
-    <button type="submit">Evet, devam et</button>
+    <p class="confirm-text">{{ translate(reanalysis_first) }}</p>
+    <button type="submit">{{ _("Evet, devam et") }}</button>
   </form>
   {% else %}
-  <p class="placeholder">Yeniden analiz edilecek bekleyen Unknown öğesi yok.</p>
+  <p class="placeholder">{{ _("Yeniden analiz edilecek bekleyen Unknown öğesi yok.") }}</p>
   {% endif %}
 </section>
 {% else %}
-<p class="notice" role="status">Bu aday reddedildi; bir daha listeye düşmez.</p>
+<p class="notice" role="status">{{ _("Bu aday reddedildi; bir daha listeye düşmez.") }}</p>
 <form class="inline" method="post" action="/document-types/candidate-types/{{ candidate.id }}/restore">
-  <button type="submit">Retten geri al</button>
-  <small class="hint">Aday yeniden onay bekleyenler arasına döner (11.5.7).</small>
+  <button type="submit">{{ _("Retten geri al") }}</button>
+  <small class="hint">{{ _("Aday yeniden onay bekleyenler arasına döner (11.5.7).") }}</small>
 </form>
 {% endif %}
 {% endblock %}

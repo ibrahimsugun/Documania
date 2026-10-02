@@ -55,14 +55,15 @@ from app.db.models import (
     reopen_rejected_candidate_type,
 )
 from app.events import EventType, record_event
+from app.i18n import N_
 
 LIST_SAMPLE_LIMIT = 3
 DETAIL_SAMPLE_LIMIT = 24
-PROPOSAL_PENDING_LABEL = "Bekliyor"
+PROPOSAL_PENDING_LABEL = N_("Bekliyor")
 PROPOSAL_STATUS_LABELS = {
-    CandidateProposalStatus.READY.value: "Hazır",
-    CandidateProposalStatus.FAILED.value: "Başarısız",
-    CandidateProposalStatus.NO_SAMPLES.value: "Örnek yok",
+    CandidateProposalStatus.READY.value: N_("Hazır"),
+    CandidateProposalStatus.FAILED.value: N_("Başarısız"),
+    CandidateProposalStatus.NO_SAMPLES.value: N_("Örnek yok"),
 }
 """Aday incelemesinin (11.5.5) listede gösterilen durumu; incelenmemiş aday "Bekliyor"."""
 

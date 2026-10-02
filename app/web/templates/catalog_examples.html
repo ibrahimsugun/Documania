@@ -6,21 +6,21 @@
    dosya "kayıtsız" notuyla durur. Çalışan verisinden ayrıdır ve aramada görünmez. Yükleme
    JavaScript'siz düz form gönderimidir; içerik düzenleme yolu yoktur (K17). #}
 <section class="examples" id="examples">
-  <h2>Örnek belgeler</h2>
-  <p class="hint">
+  <h2>{{ _("Örnek belgeler") }}</h2>
+  <p class="hint">{% trans %}
     Bu türün nasıl göründüğünü gösteren örnekler (PDF, JPEG, PNG). Örnekler çalışan verisinden ayrı
     saklanır: çalışan ve belge aramalarında görünmez, kuyruğa ve çalışan klasörlerine girmez.
     Yalnız örnek (specimen) ya da sentetik belge yükleyin; gerçek kimlik belgesi yüklemeyin.
-  </p>
-  <p class="hint">
-    Formdaki "Örneklerden açıklama üret" düğmesi örneklerin ilk {{ max_description_pages }} sayfasını
+  {% endtrans %}</p>
+  <p class="hint">{% trans limit=max_description_pages %}
+    Formdaki "Örneklerden açıklama üret" düğmesi örneklerin ilk {{ limit }} sayfasını
     yapay zekâya verir ve üretilen açıklamayı "Analizci için açıklama" alanına yazar; siz Kaydet'e
     basana kadar hiçbir şey kaydedilmez.
-  </p>
+  {% endtrans %}</p>
   {% if example_errors %}
   <div class="error" role="alert">
-    <p>Örnekler yüklenmedi; hiçbir dosya kaydedilmedi:</p>
-    <ul>{% for message in example_errors %}<li>{{ message }}</li>{% endfor %}</ul>
+    <p>{{ _("Örnekler yüklenmedi; hiçbir dosya kaydedilmedi:") }}</p>
+    <ul>{% for message in example_errors %}<li>{{ translate(message) }}</li>{% endfor %}</ul>
   </div>
   {% endif %}
   {% if example_stored %}
@@ -28,7 +28,7 @@
     <ul>
       {% for item in example_stored %}
       <li>
-        {% if item.duplicate %}Aynı içerik zaten örnek olarak kayıtlı:{% else %}Örnek yüklendi:{% endif %}
+        {% if item.duplicate %}{{ _("Aynı içerik zaten örnek olarak kayıtlı:") }}{% else %}{{ _("Örnek yüklendi:") }}{% endif %}
         <code>{{ item.name }}</code>
       </li>
       {% endfor %}
@@ -38,31 +38,31 @@
   {% if examples %}
   {% set unverified = examples|selectattr("manual_check")|list %}
   {% if unverified %}
-  <p class="notice" role="note">{{ unverified|length }} örnek "AI kararı" etiketli ve elle kontrol bekliyor; doğrulanana kadar açıklama üretimine girmez. <a href="{{ training_type_url }}">Eğitim modunda incele</a></p>
+  <p class="notice" role="note">{{ ngettext("%(num)d örnek \"AI kararı\" etiketli ve elle kontrol bekliyor; doğrulanana kadar açıklama üretimine girmez.", "%(num)d örnek \"AI kararı\" etiketli ve elle kontrol bekliyor; doğrulanana kadar açıklama üretimine girmez.", unverified|length) }} <a href="{{ training_type_url }}">{{ _("Eğitim modunda incele") }}</a></p>
   {% endif %}
   <ul class="example-list">
     {% for item in examples %}
     <li{% if item.manual_check %} class="needs-check"{% endif %}>
       <a href="/document-types/{{ slug|urlencode }}/examples/{{ item.name|urlencode }}" target="_blank" rel="noopener">{{ item.name }}</a>
       <span class="count">({{ item.size_label }})</span>
-      {% if item.label_text %}<span class="badge{% if not item.manual_check %} badge-neutral{% endif %}">{{ item.label_text }}</span>{% endif %}
-      {% if item.manual_check %}{% include "_manual_check.html" %} <a href="{{ training_type_url }}">Eğitim modunda incele</a>{% endif %}
+      {% if item.label_text %}<span class="badge{% if not item.manual_check %} badge-neutral{% endif %}">{{ translate(item.label_text) }}</span>{% endif %}
+      {% if item.manual_check %}{% include "_manual_check.html" %} <a href="{{ training_type_url }}">{{ _("Eğitim modunda incele") }}</a>{% endif %}
       {% if item.record_id %}
       <span class="example-decisions">
         <details class="move-example">
-          <summary>Başka türe taşı</summary>
+          <summary>{{ _("Başka türe taşı") }}</summary>
           <form class="inline-form" method="post" action="/training/examples/{{ item.record_id }}/move/confirm">
-            <label class="hint" for="move-{{ item.record_id }}">Yeni tür</label>
-            <input id="move-{{ item.record_id }}" name="slug" list="move-type-options" required placeholder="bilinen tür (slug)" autocomplete="off">
-            <button type="submit">Taşı…</button>
+            <label class="hint" for="move-{{ item.record_id }}">{{ _("Yeni tür") }}</label>
+            <input id="move-{{ item.record_id }}" name="slug" list="move-type-options" required placeholder="{{ _('bilinen tür (slug)') }}" autocomplete="off">
+            <button type="submit">{{ _("Taşı…") }}</button>
           </form>
         </details>
         <form class="inline-form" method="post" action="/training/examples/{{ item.record_id }}/remove/confirm">
-          <button type="submit">Örneklerden çıkar…</button>
+          <button type="submit">{{ _("Örneklerden çıkar…") }}</button>
         </form>
       </span>
       {% else %}
-      <span class="hint unregistered">kayıtsız — <code>python -m app.catalog register-examples</code> ile kaydedilince taşınabilir ve çıkarılabilir</span>
+      <span class="hint unregistered">{% trans %}kayıtsız — <code>python -m app.catalog register-examples</code> ile kaydedilince taşınabilir ve çıkarılabilir{% endtrans %}</span>
       {% endif %}
     </li>
     {% endfor %}
@@ -73,11 +73,11 @@
   </datalist>
   {% endif %}
   {% else %}
-  <p class="placeholder">Bu türe henüz örnek yüklenmedi.</p>
+  <p class="placeholder">{{ _("Bu türe henüz örnek yüklenmedi.") }}</p>
   {% endif %}
   <form class="example-form" method="post" action="/document-types/{{ slug|urlencode }}/examples" enctype="multipart/form-data">
-    <label for="example-files">Örnek belge</label>
+    <label for="example-files">{{ _("Örnek belge") }}</label>
     <input id="example-files" name="files" type="file" multiple accept=".pdf,.jpg,.jpeg,.png">
-    <button type="submit">Örnek yükle</button>
+    <button type="submit">{{ _("Örnek yükle") }}</button>
   </form>
 </section>

@@ -2,30 +2,30 @@
 {# Kuyruk ekranları (10.7.1): üç kuyruk sekmesi, bekleyen sayaçları ve seçilen kuyruğun öğeleri.
    Atama ve onay eylemleri öğe detayındadır (10.7.2/10.7.3); "Çözülen" görünümünde kapatılan öğe
    gerekçesiyle durur ve tek adımda yeniden açılır (10.7.4). #}
-{% block title %}{{ entry.label }}{% endblock %}
+{% block title %}{{ translate(entry.label) }}{% endblock %}
 {% block content %}
-<h1>{{ entry.label }}</h1>
-<p class="lede">{{ listing.intro }}</p>
-<nav class="tabs" aria-label="Kuyruklar">
+<h1>{{ translate(entry.label) }}</h1>
+<p class="lede">{{ translate(listing.intro) }}</p>
+<nav class="tabs" aria-label="{{ _('Kuyruklar') }}">
   {% for tab in listing.tabs %}
-  <a href="{{ tab.url }}"{% if tab.active %} class="active" aria-current="page"{% endif %}>{{ tab.label }} <span class="counter" title="Bekleyen öğe">{{ tab.open_count }}</span></a>
+  <a href="{{ tab.url }}"{% if tab.active %} class="active" aria-current="page"{% endif %}>{{ translate(tab.label) }} <span class="counter" title="{{ _('Bekleyen öğe') }}">{{ tab.open_count }}</span></a>
   {% endfor %}
 </nav>
-<p class="hint hint-panel">{{ listing.hint }}</p>
-<nav class="states" aria-label="Öğe durumu">
+<p class="hint hint-panel">{{ translate(listing.hint) }}</p>
+<nav class="states" aria-label="{{ _('Öğe durumu') }}">
   {% for state in listing.states %}
-  <a href="{{ state.url }}"{% if state.active %} class="active" aria-current="true"{% endif %}>{{ state.label }} ({{ state.count }})</a>
+  <a href="{{ state.url }}"{% if state.active %} class="active" aria-current="true"{% endif %}>{{ translate(state.label) }} ({{ state.count }})</a>
   {% endfor %}
 </nav>
 
 {% if listing.total == 0 %}
-<p class="placeholder">{{ listing.label }} kuyruğunda {{ listing.state_label | lower }} öğe yok.</p>
+<p class="placeholder">{{ _("%(queue)s kuyruğunda %(state)s öğe yok.", queue=translate(listing.label), state=translate(listing.state_label) | lower) }}</p>
 {% else %}
 <table class="queue-items">
   <thead>
     <tr>
-      <th>No</th><th>Parti</th><th>Belge türü</th><th>Kişi tahmini</th><th>Kaynak</th><th>Gerekçe</th>
-      {% if listing.state == "resolved" %}<th>Çözüldü</th>{% endif %}
+      <th>{{ _("No") }}</th><th>{{ _("Parti") }}</th><th>{{ _("Belge türü") }}</th><th>{{ _("Kişi tahmini") }}</th><th>{{ _("Kaynak") }}</th><th>{{ _("Gerekçe") }}</th>
+      {% if listing.state == "resolved" %}<th>{{ _("Çözüldü") }}</th>{% endif %}
     </tr>
   </thead>
   <tbody>
@@ -34,20 +34,20 @@
       <td><a href="{{ row.url }}">{{ row.id }}</a></td>
       <td>
         <a href="/uploads/{{ row.upload_id }}">{{ row.upload_id }}</a>
-        {% if row.plan_version is not none %}<span class="reason">plan {{ row.plan_version }}{% if row.item_id %} · {{ row.item_id }}{% endif %}</span>{% endif %}
+        {% if row.plan_version is not none %}<span class="reason">{{ _("plan %(version)s", version=row.plan_version) }}{% if row.item_id %} · {{ row.item_id }}{% endif %}</span>{% endif %}
       </td>
-      <td>{{ row.type_name or "Belirlenmedi" }}</td>
-      <td>{{ row.employee_guess or "—" }}</td>
+      <td>{{ row.type_name or _("Belirlenmedi") }}</td>
+      <td>{{ translate(row.employee_guess) or "—" }}</td>
       <td>
-        {% for source in row.sources %}<div>{{ source }}</div>{% else %}—{% endfor %}
+        {% for source in row.sources %}<div>{{ translate(source) }}</div>{% else %}—{% endfor %}
       </td>
-      <td class="reason-text">{{ row.reason }}</td>
+      <td class="reason-text" translate="no">{{ row.reason }}</td>
       {% if listing.state == "resolved" %}
       <td>
-        {{ row.resolved }}
+        {{ translate(row.resolved) }}
         {% if row.can_reopen %}
         <form method="post" action="/queues/{{ row.id }}/reopen" class="reopen-item">
-          <button type="submit">Yeniden aç</button>
+          <button type="submit">{{ _("Yeniden aç") }}</button>
         </form>
         {% endif %}
       </td>
@@ -57,10 +57,10 @@
   </tbody>
 </table>
 {% if listing.page_count > 1 %}
-<nav class="pager" aria-label="Sayfalama">
-  {% if listing.previous_url %}<a href="{{ listing.previous_url }}" rel="prev">← Önceki</a>{% endif %}
-  <span>Sayfa {{ listing.page }} / {{ listing.page_count }}</span>
-  {% if listing.next_url %}<a href="{{ listing.next_url }}" rel="next">Sonraki →</a>{% endif %}
+<nav class="pager" aria-label="{{ _('Sayfalama') }}">
+  {% if listing.previous_url %}<a href="{{ listing.previous_url }}" rel="prev">{{ _("← Önceki") }}</a>{% endif %}
+  <span>{{ _("Sayfa %(page)d / %(count)d", page=listing.page, count=listing.page_count) }}</span>
+  {% if listing.next_url %}<a href="{{ listing.next_url }}" rel="next">{{ _("Sonraki →") }}</a>{% endif %}
 </nav>
 {% endif %}
 {% endif %}

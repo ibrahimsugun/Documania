@@ -4,13 +4,13 @@
    kuralları değiştirmez). Kurallar yalnız saklanır: fotoğrafı değerlendirmek 11.7'nin işidir, bu
    bölüm belge içeriğine dokunmaz (K17). #}
 <section class="photo-rules" id="photo-rules">
-  <h2>Fotoğraf kuralları</h2>
-  <p class="hint">
+  <h2>{{ _("Fotoğraf kuralları") }}</h2>
+  <p class="hint">{% trans %}
     Profil fotoğrafının uyması gereken kurallar. İşaretli kural açıktır; işareti kaldırılan kural
     kapanır ve fotoğraf bu kurala göre değerlendirilmez.
-  </p>
+  {% endtrans %}</p>
   {% if photo_rules.problems %}
-  <p class="error" role="alert">Kurallar kaydedilmedi: alanların altındaki uyarıları düzeltin.</p>
+  <p class="error" role="alert">{{ _("Kurallar kaydedilmedi: alanların altındaki uyarıları düzeltin.") }}</p>
   {% endif %}
   <form class="photo-rules-form" method="post" action="/document-types/{{ slug|urlencode }}/photo-rules">
     <ul class="rule-list">
@@ -18,27 +18,27 @@
       <li class="rule" data-rule="{{ rule.id }}">
         <label class="choice">
           <input type="checkbox" name="enabled" value="{{ rule.id }}"{% if rule.enabled %} checked{% endif %}>
-          <strong>{{ rule.label }}</strong>
+          <strong>{{ translate(rule.label) }}</strong>
         </label>
-        {% if rule.company_decision %}<span class="rule-tag">Şirket kararı</span>{% endif %}
-        <small class="hint">{{ rule.description }}</small>
+        {% if rule.company_decision %}<span class="rule-tag">{{ _("Şirket kararı") }}</span>{% endif %}
+        <small class="hint">{{ translate(rule.description) }}</small>
         {% if rule.id == "min_resolution" %}
         <span class="rule-size">
-          <label for="photo-min-width">En az genişlik</label>
+          <label for="photo-min-width">{{ _("En az genişlik") }}</label>
           <input type="number" id="photo-min-width" name="min_width_px" value="{{ photo_rules.min_width_px }}" min="1" max="20000" required>
-          <label for="photo-min-height">en az yükseklik</label>
+          <label for="photo-min-height">{{ _("en az yükseklik") }}</label>
           <input type="number" id="photo-min-height" name="min_height_px" value="{{ photo_rules.min_height_px }}" min="1" max="20000" required>
-          <span class="hint">piksel</span>
+          <span class="hint">{{ _("piksel") }}</span>
         </span>
-        {% for message in photo_rules.problems.get("min_width_px", []) %}<small class="field-error" role="alert">En az genişlik: {{ message }}</small>{% endfor %}
-        {% for message in photo_rules.problems.get("min_height_px", []) %}<small class="field-error" role="alert">En az yükseklik: {{ message }}</small>{% endfor %}
+        {% for message in photo_rules.problems.get("min_width_px", []) %}<small class="field-error" role="alert">{{ _("En az genişlik:") }} {{ translate(message) }}</small>{% endfor %}
+        {% for message in photo_rules.problems.get("min_height_px", []) %}<small class="field-error" role="alert">{{ _("En az yükseklik:") }} {{ translate(message) }}</small>{% endfor %}
         {% endif %}
       </li>
       {% endfor %}
     </ul>
-    {% for message in photo_rules.problems.get("enabled", []) %}<small class="field-error" role="alert">{{ message }}</small>{% endfor %}
+    {% for message in photo_rules.problems.get("enabled", []) %}<small class="field-error" role="alert">{{ translate(message) }}</small>{% endfor %}
     <div class="form-actions">
-      <button type="submit">Kuralları kaydet</button>
+      <button type="submit">{{ _("Kuralları kaydet") }}</button>
     </div>
   </form>
 </section>

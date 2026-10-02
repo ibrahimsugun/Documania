@@ -1,28 +1,28 @@
 {% extends "base.html" %}
 {# Bilinen belgeler (11.9.1): katalog türleri + hazır önerilen türler; örnek sayısı ve etiketli örnek
    sayısı. "AI kararı" etiketli örneği olan tür elle kontrol ikonuyla görünür. Sayfa yalnız okur. #}
-{% block title %}Bilinen belgeler · {{ entry.label }}{% endblock %}
+{% block title %}{{ _("Bilinen belgeler") }} · {{ translate(entry.label) }}{% endblock %}
 {% block content %}
-<h1>{{ entry.label }}</h1>
+<h1>{{ translate(entry.label) }}</h1>
 {% include "_training_tabs.html" %}
-<p class="lede">Eğitim modunun örnek yerleştirebildiği türler: {{ catalog_count }} katalog türü ve {{ total - catalog_count }} hazır önerilen tür (toplam {{ total }}). Önerilen türler kataloğa kendiliğinden eklenmez; yalnız örnekleri birikir.</p>
-<nav class="states" aria-label="Türleri süz">
+<p class="lede">{% trans catalog=catalog_count, suggested=total - catalog_count, total=total %}Eğitim modunun örnek yerleştirebildiği türler: {{ catalog }} katalog türü ve {{ suggested }} hazır önerilen tür (toplam {{ total }}). Önerilen türler kataloğa kendiliğinden eklenmez; yalnız örnekleri birikir.{% endtrans %}</p>
+<nav class="states" aria-label="{{ _('Türleri süz') }}">
   {% for key, label, url, selected in filters %}
-  <a href="{{ url }}"{% if selected %} class="active" aria-current="page"{% endif %}>{{ label }}</a>
+  <a href="{{ url }}"{% if selected %} class="active" aria-current="page"{% endif %}>{{ translate(label) }}</a>
   {% endfor %}
 </nav>
 {% if rows %}
-<p class="count">{{ rows|length }} tür</p>
+<p class="count">{{ ngettext("%(num)d tür", "%(num)d tür", rows|length) }}</p>
 <table class="catalog known-types">
   <thead>
-    <tr><th>Tür</th><th>Slug</th><th>Kaynak</th><th>Ülke</th><th class="num">Örnek</th><th class="num">AI kararı</th><th class="num">Doğrulanmış</th></tr>
+    <tr><th>{{ _("Tür") }}</th><th>Slug</th><th>{{ _("Kaynak") }}</th><th>{{ _("Ülke") }}</th><th class="num">{{ _("Örnek") }}</th><th class="num">{{ _("AI kararı") }}</th><th class="num">{{ _("Doğrulanmış") }}</th></tr>
   </thead>
   <tbody>
     {% for row in rows %}
     <tr id="type-{{ row.slug }}">
       <td><a href="{{ row.url }}">{{ row.name }}</a></td>
       <td><code>{{ row.slug }}</code></td>
-      <td>{{ row.source }}</td>
+      <td>{{ translate(row.source) }}</td>
       <td>{{ row.country or "—" }}</td>
       <td class="num">{{ row.examples }}</td>
       <td class="num">{% if row.ai_decision %}{{ row.ai_decision }} {% include "_manual_check.html" %}{% else %}0{% endif %}</td>
@@ -32,6 +32,6 @@
   </tbody>
 </table>
 {% else %}
-<p class="placeholder">Bu süzgece uyan tür yok.</p>
+<p class="placeholder">{{ _("Bu süzgece uyan tür yok.") }}</p>
 {% endif %}
 {% endblock %}

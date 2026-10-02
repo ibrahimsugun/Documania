@@ -2,24 +2,24 @@
 {# Belge Grupları (14.1.1): bir süreç için gereken belge kalemlerinin listeleri. Varsayılan yalnız
    arşivsiz gruplar; `?archived=1` arşivdekileri de gösterir. Grup silinmez (R11) — arşivlenir ve geri
    alınır. Açık paket sayısı çalışan profilindeki belge paketlerinindir (tm 125). #}
-{% block title %}{{ entry.label }}{% endblock %}
+{% block title %}{{ translate(entry.label) }}{% endblock %}
 {% block content %}
-<h1>{{ entry.label }}</h1>
-<p class="lede">Bir süreç için gereken belgelerin listesi (örn. Sırbistan iş başvurusu: fotoğraf, pasaport, kimlik, çevirili diploma). Kalem bir dosya etiketiyle tanımlanırsa ülkesi önemsizdir: «Passport» kalemini Rus pasaportu da Türk pasaportu da karşılar.</p>
-<p><a class="button-link" href="/document-groups/new">Yeni grup</a></p>
+<h1>{{ translate(entry.label) }}</h1>
+<p class="lede">{{ _("Bir süreç için gereken belgelerin listesi (örn. Sırbistan iş başvurusu: fotoğraf, pasaport, kimlik, çevirili diploma). Kalem bir dosya etiketiyle tanımlanırsa ülkesi önemsizdir: «Passport» kalemini Rus pasaportu da Türk pasaportu da karşılar.") }}</p>
+<p><a class="button-link" href="/document-groups/new">{{ _("Yeni grup") }}</a></p>
 <p class="hint">
   {% if include_archived %}
-  Arşivdekiler de gösteriliyor. <a href="/document-groups">Yalnız etkin grupları göster</a>
+  {{ _("Arşivdekiler de gösteriliyor.") }} <a href="/document-groups">{{ _("Yalnız etkin grupları göster") }}</a>
   {% elif archived_count %}
-  <a href="/document-groups?archived=1">Arşivdekileri de göster ({{ archived_count }})</a>
+  <a href="/document-groups?archived=1">{{ _("Arşivdekileri de göster (%(num)d)", num=archived_count) }}</a>
   {% else %}
-  Grup silinmez: kullanılmayan grup arşivlenir, arşivden geri alınabilir.
+  {{ _("Grup silinmez: kullanılmayan grup arşivlenir, arşivden geri alınabilir.") }}
   {% endif %}
 </p>
 {% if groups %}
 <table class="catalog document-groups">
   <thead>
-    <tr><th>Ad</th><th>Açıklama</th><th>Kalem</th><th>Açık paket</th><th>Durum</th></tr>
+    <tr><th>{{ _("Ad") }}</th><th>{{ _("Açıklama") }}</th><th>{{ _("Kalem") }}</th><th>{{ _("Açık paket") }}</th><th>{{ _("Durum") }}</th></tr>
   </thead>
   <tbody>
     {% for group in groups %}
@@ -29,13 +29,13 @@
       <td>{{ group.item_count }}</td>
       <td>{{ group.open_packages }}</td>
       <td class="cell-nowrap">
-        {% if group.archived %}<span class="status-badge status-archived">Arşivde</span>{% else %}<span class="status-badge status-active">Etkin</span>{% endif %}
+        {% if group.archived %}<span class="status-badge status-archived">{{ _("Arşivde") }}</span>{% else %}<span class="status-badge status-active">{{ _("Etkin") }}</span>{% endif %}
       </td>
     </tr>
     {% endfor %}
   </tbody>
 </table>
 {% else %}
-<p class="placeholder">Henüz belge grubu yok. «Yeni grup» ile ilk grubu açın.</p>
+<p class="placeholder">{{ _("Henüz belge grubu yok. «Yeni grup» ile ilk grubu açın.") }}</p>
 {% endif %}
 {% endblock %}

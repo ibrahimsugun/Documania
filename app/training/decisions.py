@@ -35,6 +35,7 @@ from sqlalchemy.orm import Session
 
 from app.db.models import ExampleFileRecord, ExampleLabel, utcnow
 from app.events import EventType, record_event
+from app.i18n import N_, Translatable
 from app.storage import DataLayout
 from app.storage.examples import archive_example, example_path, find_example, relocate_example
 from app.training.known_types import KnownTypes
@@ -104,7 +105,7 @@ def check_move(
         raise UnknownTypeError(f"Bilinmeyen tür: {slug!r}")
     _check_active(layout, example)
     if slug == example.type_slug:
-        raise ExampleDecisionError("Örnek zaten bu türde; başka bir tür seçin.")
+        raise ExampleDecisionError(N_("Örnek zaten bu türde; başka bir tür seçin."))
     recorded = session.scalar(
         select(ExampleFileRecord).where(
             ExampleFileRecord.sha256 == example.sha256,
@@ -115,7 +116,11 @@ def check_move(
     listed = find_example(layout, slug, example.sha256) if recorded is None else None
     name = recorded.name if recorded is not None else listed.name if listed is not None else None
     if name is not None:
-        raise ExampleDecisionError(f"Aynı içerik seçilen türde zaten örnek ({name}); taşınmadı.")
+        raise ExampleDecisionError(
+            Translatable(
+                N_("Aynı içerik seçilen türde zaten örnek ({name}); taşınmadı."), name=name
+            )
+        )
 
 
 def move_example(
@@ -199,9 +204,11 @@ def remove_example(
 
 def _check_active(layout: DataLayout, example: ExampleFileRecord) -> None:
     if example.removed_at is not None:
-        raise ExampleDecisionError("Örnek zaten örneklerden çıkarılmış.")
+        raise ExampleDecisionError(N_("Örnek zaten örneklerden çıkarılmış."))
     if example_path(layout, example.type_slug, example.name) is None:
-        raise ExampleDecisionError("Örnek dosyası türün klasöründe bulunamadı; işlem yapılmadı.")
+        raise ExampleDecisionError(
+            N_("Örnek dosyası türün klasöründe bulunamadı; işlem yapılmadı.")
+        )
 
 
 def _require_actor(actor: str) -> None:

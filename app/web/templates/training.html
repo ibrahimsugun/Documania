@@ -3,45 +3,45 @@
    kuyruk öğesi, parti ya da çıktı belgesi oluşmaz. Mekanik tanıma yüklemede biter; yapay zekâ
    incelemesini işçi yapar ve sonuç bölümü o sürerken HTMX ile yenilenir. "Harita yükle" (11.9.5)
    CSV haritasının önizlemesini açar; toplu tarama iki onayla başlar ve işçide yürür. #}
-{% block title %}{{ entry.label }}{% endblock %}
+{% block title %}{{ translate(entry.label) }}{% endblock %}
 {% block content %}
-<h1>{{ entry.label }}</h1>
+<h1>{{ translate(entry.label) }}</h1>
 {% include "_training_tabs.html" %}
-<p class="lede">Buraya yüklenen belgeler yalnız <strong>bilinen belgelerin örneklerini</strong> besler: çalışan kaydı açılmaz, kişi aranmaz, kuyruğa ve çalışan klasörlerine hiçbir şey girmez. Sistem önce yapay zekâsız (mekanik) tanımayı dener; tanıyamadığını yapay zekâya sorar ve "AI kararı" etiketiyle yerleştirir. Hiçbir türe yerleşemeyen belge "Yerleştirilemedi" listesinde sizi bekler. Belgelerin içeriği değiştirilmez.</p>
+<p class="lede">{% trans %}Buraya yüklenen belgeler yalnız <strong>bilinen belgelerin örneklerini</strong> besler: çalışan kaydı açılmaz, kişi aranmaz, kuyruğa ve çalışan klasörlerine hiçbir şey girmez. Sistem önce yapay zekâsız (mekanik) tanımayı dener; tanıyamadığını yapay zekâya sorar ve "AI kararı" etiketiyle yerleştirir. Hiçbir türe yerleşemeyen belge "Yerleştirilemedi" listesinde sizi bekler. Belgelerin içeriği değiştirilmez.{% endtrans %}</p>
 {% if errors %}
 <div class="error" role="alert">
-  <p>İşlem yapılmadı:</p>
-  <ul>{% for message in errors %}<li>{{ message }}</li>{% endfor %}</ul>
+  <p>{{ _("İşlem yapılmadı:") }}</p>
+  <ul>{% for message in errors %}<li>{{ translate(message) }}</li>{% endfor %}</ul>
 </div>
 {% endif %}
-{% if notice %}<p class="notice notice-success" role="status">{{ notice }}</p>{% endif %}
+{% if notice %}<p class="notice notice-success" role="status">{{ translate(notice) }}</p>{% endif %}
 {% if provider_problem %}
-<p class="notice provider-note" role="status">Yapay zekâ sağlayıcısı ayarlı değil: mekanik tanınmayan belgeler "Yapay zekâ incelemesi bekliyor" durumunda bekler. Sağlayıcı ayarlanınca işçi onları inceler. İşçi sağlayıcı ayarı olmadan başlamadığı için harita taramasının dosyaları da "Sırada" bekler. <span class="reason">({{ provider_problem }})</span></p>
+<p class="notice provider-note" role="status">{{ _("Yapay zekâ sağlayıcısı ayarlı değil: mekanik tanınmayan belgeler \"Yapay zekâ incelemesi bekliyor\" durumunda bekler. Sağlayıcı ayarlanınca işçi onları inceler. İşçi sağlayıcı ayarı olmadan başlamadığı için harita taramasının dosyaları da \"Sırada\" bekler.") }} <span class="reason" translate="no">({{ provider_problem }})</span></p>
 {% endif %}
 <form class="upload-form training-form" method="post" action="/training" enctype="multipart/form-data">
   <label class="dropzone" for="training-files">
-    <strong>Örnek belgeleri seçin</strong>
-    <span>birden çok dosya seçilebilir</span>
-    <small>PDF, JPEG, PNG · yalnız örnek (specimen) ya da sentetik belge; gerçek kimlik belgesi yüklemeyin</small>
+    <strong>{{ _("Örnek belgeleri seçin") }}</strong>
+    <span>{{ _("birden çok dosya seçilebilir") }}</span>
+    <small>{{ _("PDF, JPEG, PNG · yalnız örnek (specimen) ya da sentetik belge; gerçek kimlik belgesi yüklemeyin") }}</small>
     <input id="training-files" name="files" type="file" multiple accept=".pdf,.jpg,.jpeg,.png">
   </label>
-  <label for="hint_slug">Beklenen tür <span class="hint">(isteğe bağlı)</span></label>
+  <label for="hint_slug">{{ _("Beklenen tür") }} <span class="hint">{{ _("(isteğe bağlı)") }}</span></label>
   <select id="hint_slug" name="hint_slug">
-    <option value="">Belirtme — sistem bulsun</option>
+    <option value="">{{ _("Belirtme — sistem bulsun") }}</option>
     {% for known in known_types %}
     <option value="{{ known.slug }}"{% if hint_slug == known.slug %} selected{% endif %}>{{ known.name }} — {{ known.slug }}</option>
     {% endfor %}
   </select>
-  <p class="hint">Beklenen tür seçerseniz dosyalar önce o türün kurallarıyla denetlenir; sonuç başka bir türse belge "Çelişki" olarak bekler.</p>
-  <button type="submit">Eğitime yükle</button>
+  <p class="hint">{{ _("Beklenen tür seçerseniz dosyalar önce o türün kurallarıyla denetlenir; sonuç başka bir türse belge \"Çelişki\" olarak bekler.") }}</p>
+  <button type="submit">{{ _("Eğitime yükle") }}</button>
 </form>
 <section class="map-upload" id="map-upload">
-  <h2>Harita ile toplu tarama</h2>
-  <p class="hint">Bir CSV haritası yükleyin: satırlardaki türle (<code>slug</code>) ve yollarla (<code>dest</code>, <code>output_relative_path</code>, <code>ornek_klasoru</code>, <code>source_collection_path</code> ya da <code>path</code>) dosyalar toplu taranır. Yollar yalnız veri dizininin (ya da ayarlıysa koleksiyon kökünün) altında, göreli olarak çözülür. Önce önizleme gösterilir, hiçbir şey yazılmaz; tarama iki onayla başlar ve işçide birer birer yürür. Aynı harita yeniden taranırsa kayıtlı dosyalar atlanır.</p>
+  <h2>{{ _("Harita ile toplu tarama") }}</h2>
+  <p class="hint">{% trans %}Bir CSV haritası yükleyin: satırlardaki türle (<code>slug</code>) ve yollarla (<code>dest</code>, <code>output_relative_path</code>, <code>ornek_klasoru</code>, <code>source_collection_path</code> ya da <code>path</code>) dosyalar toplu taranır. Yollar yalnız veri dizininin (ya da ayarlıysa koleksiyon kökünün) altında, göreli olarak çözülür. Önce önizleme gösterilir, hiçbir şey yazılmaz; tarama iki onayla başlar ve işçide birer birer yürür. Aynı harita yeniden taranırsa kayıtlı dosyalar atlanır.{% endtrans %}</p>
   <form class="upload-form map-form" method="post" action="/training/maps" enctype="multipart/form-data">
-    <label for="training-map">Harita (CSV)</label>
+    <label for="training-map">{{ _("Harita (CSV)") }}</label>
     <input id="training-map" name="map" type="file" accept=".csv,text/csv">
-    <button type="submit">Harita yükle</button>
+    <button type="submit">{{ _("Harita yükle") }}</button>
   </form>
 </section>
 <datalist id="known-type-options">

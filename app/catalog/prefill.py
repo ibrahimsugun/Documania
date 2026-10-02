@@ -48,26 +48,27 @@ from app.catalog.form import TypeForm, TypeFormError, build_entry
 from app.catalog.propose import SuggestedType, load_proposal
 from app.catalog.schema import Sides, layout_pages
 from app.db.models import CandidateDocumentType, ExampleFileRecord, ExampleLabel
+from app.i18n import N_
 from app.storage import SlugError, slugify
 from app.training.known_types import KnownType, KnownTypes
 
 FIELD_LABELS: Mapping[str, str] = {
     "slug": "Slug",
-    "name": "Ad",
-    "file_label": "Dosya etiketi",
-    "country": "Ülke",
-    "description": "Açıklama",
-    "expected_file_types": "Beklenen dosya türleri",
-    "expected_pages": "Beklenen sayfa sayısı",
-    "sides": "Yüz yapısı",
-    "front_back_layouts": "Kabul edilen düzenler",
-    "direct": "Direkt Belge",
-    "analyze": "Analiz",
-    "required_fields": "Zorunlu alanlar",
-    "allowed_conversions": "İzinli dönüşümler",
-    "output_format": "Çıktı biçimi",
-    "acceptance_criteria": "Kabul kriterleri",
-    "prompt_description": "Analizci için açıklama",
+    "name": N_("Ad"),
+    "file_label": N_("Dosya etiketi"),
+    "country": N_("Ülke"),
+    "description": N_("Açıklama"),
+    "expected_file_types": N_("Beklenen dosya türleri"),
+    "expected_pages": N_("Beklenen sayfa sayısı"),
+    "sides": N_("Yüz yapısı"),
+    "front_back_layouts": N_("Kabul edilen düzenler"),
+    "direct": N_("Direkt Belge"),
+    "analyze": N_("Analiz"),
+    "required_fields": N_("Zorunlu alanlar"),
+    "allowed_conversions": N_("İzinli dönüşümler"),
+    "output_format": N_("Çıktı biçimi"),
+    "acceptance_criteria": N_("Kabul kriterleri"),
+    "prompt_description": N_("Analizci için açıklama"),
 }
 """Kayıt alanlarının formdaki adları (`catalog_type_fields.html`), `CatalogEntry` sırasıyla."""
 

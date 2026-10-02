@@ -26,6 +26,8 @@ from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from typing import Any
 
+from app.i18n import N_, Translatable
+
 # Kural setinin geçerli olduğu türler; başka türe kural yazılmaz.
 PHOTO_RULE_TYPES = frozenset({"profile_picture"})
 
@@ -54,33 +56,39 @@ class PhotoRuleSpec:
 
 PHOTO_RULE_SPECS: tuple[PhotoRuleSpec, ...] = (
     PhotoRuleSpec(
-        "face_visible", "Yüz görünür", "Yüz tam ve net görünmeli; kapalı ya da kesik olmamalı."
+        "face_visible",
+        N_("Yüz görünür"),
+        N_("Yüz tam ve net görünmeli; kapalı ya da kesik olmamalı."),
     ),
-    PhotoRuleSpec("single_person", "Tek kişi", "Fotoğrafta yalnız çalışanın kendisi bulunmalı."),
+    PhotoRuleSpec(
+        "single_person", N_("Tek kişi"), N_("Fotoğrafta yalnız çalışanın kendisi bulunmalı.")
+    ),
     PhotoRuleSpec(
         "neutral_expression",
-        "Nötr ifade",
-        "Yüz ifadesi nötr olmalı; gülme, ağız açma ve göz kısma olmamalı.",
+        N_("Nötr ifade"),
+        N_("Yüz ifadesi nötr olmalı; gülme, ağız açma ve göz kısma olmamalı."),
     ),
     PhotoRuleSpec(
         "plain_background",
-        "Sade arka plan",
-        "Arka plan düz ve sade olmalı; desen, eşya ya da başka kişi görünmemeli.",
+        N_("Sade arka plan"),
+        N_("Arka plan düz ve sade olmalı; desen, eşya ya da başka kişi görünmemeli."),
     ),
     PhotoRuleSpec(
         RESOLUTION_RULE,
-        "Asgari çözünürlük",
-        "Görüntünün piksel boyutu asgari genişlik ve yüksekliğin altında olmamalı.",
+        N_("Asgari çözünürlük"),
+        N_("Görüntünün piksel boyutu asgari genişlik ve yüksekliğin altında olmamalı."),
     ),
     PhotoRuleSpec(
         "no_sunglasses",
-        "Güneş gözlüğü yok",
-        "Gözler görünmeli; güneş gözlüğü ya da renkli cam olmamalı.",
+        N_("Güneş gözlüğü yok"),
+        N_("Gözler görünmeli; güneş gözlüğü ya da renkli cam olmamalı."),
     ),
     PhotoRuleSpec(
         "no_head_covering",
-        "Baş örtüsü yok",
-        "Baş örtüsü kabul edilmez. Bu şirket kararıdır; açılmadıkça fotoğraf bu yüzden elenmez.",
+        N_("Baş örtüsü yok"),
+        N_(
+            "Baş örtüsü kabul edilmez. Bu şirket kararıdır; açılmadıkça fotoğraf bu yüzden elenmez."
+        ),
         default_enabled=False,
         company_decision=True,
     ),
@@ -185,7 +193,9 @@ def _form_pixels(text: str, field: str, problems: dict[str, list[str]]) -> int |
     text = text.strip()
     if not (text.isascii() and text.isdigit()) or not 1 <= int(text) <= MAX_RESOLUTION_PX:
         problems.setdefault(field, []).append(
-            f"1 ile {MAX_RESOLUTION_PX} arasında bir piksel sayısı yazılmalı"
+            Translatable(
+                N_("1 ile {limit} arasında bir piksel sayısı yazılmalı"), limit=MAX_RESOLUTION_PX
+            )
         )
         return None
     return int(text)
@@ -200,7 +210,9 @@ def build_photo_rules(form: PhotoRulesForm) -> dict[str, Any]:
     problems: dict[str, list[str]] = {}
     unknown = sorted(set(form.enabled) - set(_SPECS_BY_ID))
     if unknown:
-        problems["enabled"] = [f"Tanımsız kural: {', '.join(unknown)}"]
+        problems["enabled"] = [
+            Translatable(N_("Tanımsız kural: {rules}"), rules=", ".join(unknown))
+        ]
     width = _form_pixels(form.min_width_px, "min_width_px", problems)
     height = _form_pixels(form.min_height_px, "min_height_px", problems)
     if problems:

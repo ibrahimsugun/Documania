@@ -35,12 +35,12 @@
 <h1>{{ _("Standart türlere ekle: %(name)s", name=candidate_name) }}</h1>
 <p>{{ _("Kataloğa eklenecek tür:") }}</p>
 <dl class="meta entry-summary">
-  {% for label, value in rows %}<dt>{{ label }}</dt><dd>{{ value }}</dd>
+  {% for label, value in rows %}<dt>{{ translate(label) }}</dt><dd>{{ value }}</dd>
   {% endfor %}
 </dl>
 {% if second_confirmation %}
 <form class="confirm" method="post" action="/document-types/candidate-types/{{ candidate_id }}/approve">
-  <p class="confirm-text" role="alert">{{ second_confirmation }}</p>
+  <p class="confirm-text" role="alert">{{ translate(second_confirmation) }}</p>
   {{ hidden_fields(form) }}
   <input type="hidden" name="confirmation" value="{{ confirmation }}">
   <button type="submit">{{ _("Evet, türü ekle") }}</button>
@@ -48,16 +48,16 @@
 </form>
 {% else %}
 <form class="confirm" method="post" action="/document-types/candidate-types/{{ candidate_id }}/approve/prepare">
-  <p class="confirm-text" role="alert">{{ first_confirmation }}</p>
+  <p class="confirm-text" role="alert">{{ translate(first_confirmation) }}</p>
   {{ hidden_fields(form) }}
   <button type="submit">{{ _("Evet, devam et") }}</button>
   <a href="/document-types/candidate-types/{{ candidate_id }}">{{ _("Vazgeç") }}</a>
 </form>
 {% endif %}
 {% elif step == "reanalyze" %}
-<h1>Toplu yeniden analiz: {{ candidate_name }}</h1>
+<h1>{{ _("Toplu yeniden analiz: %(name)s", name=candidate_name) }}</h1>
 <table class="items reanalysis-targets">
-  <thead><tr><th>Parti</th><th>Güncel plan sürümü</th><th>İlişkili öğe</th></tr></thead>
+  <thead><tr><th>{{ _("Parti") }}</th><th>{{ _("Güncel plan sürümü") }}</th><th>{{ _("İlişkili öğe") }}</th></tr></thead>
   <tbody>
     {% for target in targets %}
     <tr><td><a href="/uploads/{{ target.upload_id }}">{{ target.upload_id }}</a></td><td>{{ target.version }}</td><td>{{ target.item_count }}</td></tr>
@@ -72,16 +72,16 @@
       hx-target="main.content" hx-select="main.content" hx-swap="outerHTML"
       hx-disabled-elt="find button[type=submit]"
       hx-on::before-swap="if (event.detail.xhr.status >= 400) { event.detail.shouldSwap = true; event.detail.isError = false; }">
-  <p class="confirm-text" role="alert">{{ second_confirmation }}</p>
+  <p class="confirm-text" role="alert">{{ translate(second_confirmation) }}</p>
   <input type="hidden" name="confirmation" value="{{ confirmation }}">
-  <button type="submit">Evet, yeniden analiz et</button>
-  <a href="/document-types/candidate-types/{{ candidate_id }}">Vazgeç</a>
+  <button type="submit">{{ _("Evet, yeniden analiz et") }}</button>
+  <a href="/document-types/candidate-types/{{ candidate_id }}">{{ _("Vazgeç") }}</a>
 </form>
 {% elif step == "reanalyzed" %}
-<h1>Toplu yeniden analiz: {{ candidate_name }}</h1>
-<p class="notice notice-success" role="status">{{ results|length }} parti yeniden analiz edildi.</p>
+<h1>{{ _("Toplu yeniden analiz: %(name)s", name=candidate_name) }}</h1>
+<p class="notice notice-success" role="status">{{ ngettext("%(num)d parti yeniden analiz edildi.", "%(num)d parti yeniden analiz edildi.", results|length) }}</p>
 <table class="items reanalysis-results">
-  <thead><tr><th>Parti</th><th>Önceki sürüm</th><th>Yeni sürüm</th><th>"Eski sürüm" işaretlenen çıktı</th></tr></thead>
+  <thead><tr><th>{{ _("Parti") }}</th><th>{{ _("Önceki sürüm") }}</th><th>{{ _("Yeni sürüm") }}</th><th>{{ _("\"Eski sürüm\" işaretlenen çıktı") }}</th></tr></thead>
   <tbody>
     {% for result in results %}
     <tr><td><a href="/uploads/{{ result.upload_id }}">{{ result.upload_id }}</a></td><td>{{ result.previous_version }}</td><td>{{ result.version }}</td><td>{{ result.superseded }}</td></tr>
@@ -89,10 +89,10 @@
   </tbody>
 </table>
 {% if remaining %}
-<p class="hint">{{ remaining }} öğe yeniden analizden sonra da bu aday türle Unknown kuyruğunda bekliyor.</p>
+<p class="hint">{{ ngettext("%(num)d öğe yeniden analizden sonra da bu aday türle Unknown kuyruğunda bekliyor.", "%(num)d öğe yeniden analizden sonra da bu aday türle Unknown kuyruğunda bekliyor.", remaining) }}</p>
 {% else %}
-<p class="hint">Bu aday türle bekleyen Unknown öğesi kalmadı.</p>
+<p class="hint">{{ _("Bu aday türle bekleyen Unknown öğesi kalmadı.") }}</p>
 {% endif %}
-<p><a href="/document-types/candidate-types/{{ candidate_id }}">Aday türe dön</a></p>
+<p><a href="/document-types/candidate-types/{{ candidate_id }}">{{ _("Aday türe dön") }}</a></p>
 {% endif %}
 {% endblock %}

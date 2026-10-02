@@ -4,27 +4,27 @@
 <p class="error" role="alert">{{ translate(error) }}</p>
 {% elif search %}
 {% if listing is none %}
-<p class="placeholder">Atanacak çalışanı bulmak için ad, alias, orijinal yazım veya belge numarası yazın.</p>
+<p class="placeholder">{{ _("Atanacak çalışanı bulmak için ad, alias, orijinal yazım veya belge numarası yazın.") }}</p>
 {% elif listing.total == 0 %}
-<p class="placeholder">“{{ listing.query }}” ile eşleşen çalışan yok.</p>
+<p class="placeholder">{{ _("“%(query)s” ile eşleşen çalışan yok.", query=listing.query) }}</p>
 {% else %}
-<p class="count">{{ listing.total }} çalışan bulundu{% if listing.total > listing.rows|length %}; ilk {{ listing.rows|length }} gösteriliyor, aramayı daraltın{% endif %}</p>
+<p class="count">{{ ngettext("%(num)d çalışan bulundu", "%(num)d çalışan bulundu", listing.total) }}{% if listing.total > listing.rows|length %}{{ _("; ilk %(shown)d gösteriliyor, aramayı daraltın", shown=listing.rows|length) }}{% endif %}</p>
 <table class="employees assignees">
   <thead>
-    <tr><th>No</th><th>Ad</th><th>Orijinal yazım</th><th>Uyruk</th><th>Belge sayısı</th><th></th></tr>
+    <tr><th>{{ _("No") }}</th><th>{{ _("Ad") }}</th><th>{{ _("Orijinal yazım") }}</th><th>{{ _("Uyruk") }}</th><th>{{ _("Belge sayısı") }}</th><th></th></tr>
   </thead>
   <tbody>
     {% for row in listing.rows %}
     <tr>
       <td>{{ row.id }}</td>
-      <td><a href="/employees/{{ row.id }}" target="_blank" rel="noopener">{{ row.name }}</a>{% if row.status == "inactive" %} <span class="status-badge status-passive">(pasif)</span>{% endif %}</td>
+      <td><a href="/employees/{{ row.id }}" target="_blank" rel="noopener">{{ row.name }}</a>{% if row.status == "inactive" %} <span class="status-badge status-passive">({{ _("pasif") }})</span>{% endif %}</td>
       <td>{{ row.original_script_name or "—" }}</td>
       <td>{{ row.nationality or "—" }}</td>
       <td>{{ row.document_count }}</td>
       <td>
         <button type="button" class="select-assignee"
                 hx-get="/queues/{{ queue_item_id }}/assign/confirm?employee_id={{ row.id|urlencode }}"
-                hx-target="#assign-step" hx-swap="innerHTML">Seç</button>
+                hx-target="#assign-step" hx-swap="innerHTML">{{ _("Seç") }}</button>
       </td>
     </tr>
     {% endfor %}
@@ -51,7 +51,7 @@
   <a href="/queues/{{ queue_item_id }}">{{ _("Vazgeç") }}</a>
 </form>
 {% elif done %}
-<p class="notice notice-success" role="status">Öğe {{ assignee.name }} ({{ assignee.id }}) çalışanına atandı: {{ file_name }}. <a href="/documents/{{ document_id }}/history">Çıktının geçmişi</a> · <a href="/queues/{{ queue_item_id }}">Sayfayı yenileyin</a>.</p>
+<p class="notice notice-success" role="status">{% trans name=assignee.name, id=assignee.id, file=file_name %}Öğe {{ name }} ({{ id }}) çalışanına atandı: {{ file }}.{% endtrans %} <a href="/documents/{{ document_id }}/history">{{ _("Çıktının geçmişi") }}</a> · <a href="/queues/{{ queue_item_id }}">{{ _("Sayfayı yenileyin") }}</a>.</p>
 {# Atanmış öğede arama sonuçları ve arama formu kalmasın. #}
 <div id="assign-results" hx-swap-oob="true"></div>
 <div id="assign-search" hx-swap-oob="true"></div>
