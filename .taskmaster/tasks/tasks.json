@@ -1467,7 +1467,9 @@
           "135",
           "148",
           "149",
-          "150"
+          "150",
+          "159",
+          "160"
         ],
         "priority": "critical",
         "subtasks": [],
@@ -2293,6 +2295,36 @@
         "dependencies": [
           "153",
           "149"
+        ],
+        "priority": "medium",
+        "subtasks": [],
+        "updatedAt": "2026-10-02T12:00:00.000Z"
+      },
+      {
+        "id": "159",
+        "title": "12.1-h — Telegram'ı yalnız hesabın sahibi bağlar: Hesabım → Telegram sayfası; Kullanıcılar sayfasından başkasına bağlama kalkar [OPUS-HIGH]",
+        "description": "PRD 12.1.8 · FR-MOD-12 · Faz 2 · Should (v2). Tam sözleşme PLAN §D97 (c), (d), (e), (f) — önce oku.",
+        "details": "KAPSAM: §D97 c–f. (1) Yeni sayfa `GET /account/telegram` (her girişli kullanıcı; `require_panel_user`): yalnız oturumdaki kullanıcının kimlikleri izin durumuyla; yolda kullanıcı kimliği YOK, hedef her zaman `user.id`. (2) `POST /account/telegram/link` — `create_link_code(session, own, actor=own.username)`; bağlantı yönlendirmesiz aynı yanıtta, `Cache-Control: no-store`; `telegram/bot.json` yoksa düğme kapalı ve POST 409; pasif kullanıcı zaten giriş yapamaz. (3) `POST /account/telegram` elle ekleme (`parse_telegram_id`, `Id: …` satırı kabul; 422/409 kuralları 12.1.3 ile aynı), olay `TELEGRAM_USER_CHANGED` {…, via: \"account\"} kendi adıyla (`add_telegram_id`'in `via` parametresi). (4) `POST /account/telegram/{tid}/status` kendi kimliğinin izni; kimlik kullanıcının değilse 404, aynı duruma geçiş 409. (5) Kullanıcılar sayfası: `POST /users/{id}/telegram` ve `POST /users/{id}/telegram/link` yönlendiricileri SİLİNİR (kendi id'si için de), satırdaki ekleme formu ve \"Telegram'ı bağla\" düğmesi kalkar; kimlik listesi ve `POST /users/{id}/telegram/{tid}/status` KALIR; \"Parolamı değiştir\" yanına \"Telegram'ım\" bağlantısı. (6) Rehber metni: \"bota /start yazın, bot kimliğinizi söyler\" (12.1.7, tm 160 bunu bota ekler); @userinfobot ikinci yol olarak kalabilir. (7) Yeni/değişen metinler msgid, `en`/`sr` çevrilir (sözlük: Hesabım = My account / Moj nalog), `python -m app.i18n check` temiz; kalıntı taraması listesine yeni sayfa eklenir. (8) README Telegram bölümü ve `app/web/routers/users.py` / `app/telegram/link.py` modül açıklamaları güncellenir. (9) `tests/test_access_log.py` yol listesi ve var olan Kullanıcılar/bağlantı testleri yeni yollara taşınır (davranış testleri silinmez, hesap sayfası üzerinden yeniden yazılır). Göç yok, yeni olay türü yok. DOKUNMA: bot tarafı (tm 160), 12.1.4 kod kuralları (tek kullanım, 10 dk, iptal, TAKEN/BLOCKED, kaba kuvvet).",
+        "testStrategy": "1) Kullanıcı A hesap sayfasından bağlantı üretir; kod A'ya bağlı, olay actor=A; `/start <kod>` A'ya bağlar. 2) A, B'ye bağlantı ya da kimlik eklemeye çalışır: `POST /users/{B}/telegram` ve `/users/{B}/telegram/link` 404/405 ve veritabanında değişiklik yok; A kendi id'siyle de aynı. 3) Hesap sayfası yalnız A'nın kimliklerini gösterir (B'nin kimliği sayfada yok); `POST /account/telegram/{B'nin tid}/status` 404. 4) Elle ekleme `Id: 123456789` kabul, harf 422, başkasına bağlı kimlik 409; olay via=account. 5) Yönetici Kullanıcılar sayfasında B'nin kimliğinin iznini kapatıp açabilir. 6) Oturumsuz `/account/telegram` girişe yönlenir. 7) Bağlantı yanıtında no-store, kod adreste yok; bot.json yoksa 409. 8) `check` temiz, `en` sayfasında Türkçe kalıntı yok. 9) Kural bozmaları (yol yeniden eklenir, hedef user.id yerine formdan alınır) kırmızı. 10) DoD kapısı yeşil.",
+        "status": "pending",
+        "dependencies": [
+          "149",
+          "154"
+        ],
+        "priority": "medium",
+        "subtasks": [],
+        "updatedAt": "2026-10-02T12:00:00.000Z"
+      },
+      {
+        "id": "160",
+        "title": "12.1-g — Bot, bağlı olmayan kişiye Telegram kimliğini söyler [SONNET-XHIGH]",
+        "description": "PRD 12.1.7 · FR-MOD-12 · Faz 2 · Should (v2). Tam sözleşme PLAN §D97 (b) — önce oku.",
+        "details": "KAPSAM: §D97 b. Beyaz liste kapısından ÖNCE çalışan yeni işleyici (`app/telegram/bot.py`; `LINK_GROUP` deseni): yalnız özel sohbet, yalnız argümansız `/start`. Gönderen izinliyse (`is_whitelisted`) güncellemeye dokunmaz, kapı ve yardım işleyicisi bugünkü gibi çalışır. İzinli değilse (kayıtsız, izni kapalı, pasif kullanıcıya bağlı — ayrım YOK) tek yanıt: ayrı satırda `Id: <kimlik>` + \"This Telegram account is not linked to Documania. Sign in to the panel and open My account → Telegram to link it.\" (İngilizce, msgid, §D92 k), sonra `ApplicationHandlerStop`. Sohbet başına saatte bir yanıt (bellekte, `LinkAttempts` deseninde ayrı sınırlayıcı, saat enjekte edilebilir); sınır içindeki tekrar sessiz. Veritabanı okunamazsa yanıt yok. İzinli kişinin `/start`/`/yardim` yanıtı ilk satırda `Id: <kimlik>`; 12.1.4 `LINKED`/`ALREADY_LINKED` yanıtları da kimliği söyler (kullanıcının dilinde, 12.1.6). Kimlik, Telegram kullanıcı adı ve ad loga yazılmaz; olay yok. Bot modül açıklaması (`bot.py` başı: \"tek istisna LinkStart\" paragrafı) ve README güncellenir. Metinler `en`/`sr` çevrilir, `check` temiz. DOKUNMA: panel (tm 159), belge alma, doğal dil istekleri.",
+        "testStrategy": "1) Kayıtsız kimlikten `/start` → tek yanıt, `Id: <kimlik>` satırı + bağlı değil metni; 12.1.3 `parse_telegram_id` bu yanıtı ayrıştırıp aynı kimliği verir. 2) İzni kapalı ve pasif kullanıcıya bağlı kimlik aynı metni alır (bayt eşit). 3) Kayıtsız kimlikten belge, düz metin, `/yardim`, gruptan `/start` → yanıt yok, belge işlenmez. 4) Aynı sohbetten saat içinde ikinci `/start` sessiz; saat ilerletilince yine yanıt. 5) İzinli kimliğin `/start`'ı yardım metnini ilk satırda kimlikle alır; `/start <kod>` yolu değişmeden çalışır, bağlandı yanıtı kimliği içerir. 6) Veritabanı hatasında yanıt yok. 7) Loga kimlik yazılmaz (caplog). 8) Kural bozmaları (işleyici kapıdan sonraya, sınırlayıcı kapalı, ayrım yapan metin) kırmızı. 9) DoD kapısı yeşil.",
+        "status": "pending",
+        "dependencies": [
+          "158",
+          "159"
         ],
         "priority": "medium",
         "subtasks": [],
