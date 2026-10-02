@@ -34,6 +34,7 @@ from app.telegram.bot import (
     BotConfig,
     BotConfigError,
     BotMode,
+    IdentityStart,
     LinkStart,
     build_application,
     load_bot_config,
@@ -246,9 +247,10 @@ def test_main_starts_the_bot_and_keeps_the_token_out_of_transport_logs(
         not isinstance(h, MessageHandler | CallbackQueryHandler)
         for h in application.handlers[GATE_GROUP]
     )
-    # 12.1.4: bağlantı kodu kapıdan önce işlenir.
-    [link] = application.handlers[LINK_GROUP]
+    # 12.1.4: bağlantı kodu, 12.1.7: kodsuz `/start` kapıdan önce işlenir.
+    link, identity = application.handlers[LINK_GROUP]
     assert isinstance(link, CommandHandler) and isinstance(link.callback, LinkStart)
+    assert isinstance(identity, CommandHandler) and isinstance(identity.callback, IdentityStart)
     # 12.4: kuyruk/hata bildirimi işleyici değil arka plan taramasıdır; botla başlar ve durur.
     # 12.1.4: açılış kancası ayrıca botun adını veri dizinine yazar.
     assert application.post_init is not None and application.post_shutdown is not None

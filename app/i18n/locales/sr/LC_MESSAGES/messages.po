@@ -4,8 +4,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Documania panel\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-02 18:05+0000\n"
-"PO-Revision-Date: 2026-10-02 18:05+0000\n"
+"POT-Creation-Date: 2026-10-02 18:36+0000\n"
+"PO-Revision-Date: 2026-10-02 18:36+0000\n"
 "Last-Translator: Documania görev penceresi (gözden geçirilmeli)\n"
 "Language: sr_Latn\n"
 "Language-Team: Srpski\n"
@@ -694,6 +694,14 @@ msgstr "Oštećen zapis o poreklu"
 #: app/web/templates/upload_detail.html
 msgid "Boş"
 msgstr "Prazna"
+
+#: app/telegram/bot.py
+msgid ""
+"Bu Telegram henüz Documania'ya bağlı değil. Bağlamak için panelde Hesabım"
+" → Telegram'ı açın. Telegram numaranız:"
+msgstr ""
+"Ovaj Telegram još nije povezan sa Documanijom. Da biste ga povezali, na "
+"panelu otvorite Moj nalog → Telegram. Vaš Telegram broj:"
 
 #: app/telegram/bot.py
 msgid ""
@@ -2340,6 +2348,10 @@ msgstr "Telegram ID je dozvoljen."
 #: app/web/routers/users.py
 msgid "Telegram kimliğinin izni kapatıldı; bot bu kimliğe yanıt vermeyecek."
 msgstr "Telegram ID je blokiran; bot mu neće odgovarati."
+
+#: app/telegram/bot.py
+msgid "Telegram numaranız:"
+msgstr "Vaš Telegram broj:"
 
 #: app/web/templates/account_telegram.html
 msgid "Telegram'da aç"

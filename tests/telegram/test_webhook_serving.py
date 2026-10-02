@@ -79,11 +79,12 @@ def test_webhook_serves_only_requests_carrying_the_secret(
                     url, json=message_update(2, LISTED_ID), headers={HEADER: "yanlis"}
                 )
                 assert telegram.methods() == ["setWebhook"]  # sahte istekler bota ulaşmadı
+                # `/yardim`: kodsuz `/start` bağlı olmayana kimliğini söyler (12.1.7).
                 unlisted = await client.post(
-                    url, json=message_update(3, OTHER_ID), headers={HEADER: SECRET}
+                    url, json=message_update(3, OTHER_ID, "/yardim"), headers={HEADER: SECRET}
                 )
                 genuine = await client.post(
-                    url, json=message_update(4, LISTED_ID), headers={HEADER: SECRET}
+                    url, json=message_update(4, LISTED_ID, "/yardim"), headers={HEADER: SECRET}
                 )
                 await wait_for(lambda: "sendMessage" in telegram.methods())
                 await asyncio.sleep(0.2)

@@ -2326,14 +2326,14 @@
         "description": "PRD 12.1.7 · FR-MOD-12 · Faz 2 · Should (v2). Tam sözleşme PLAN §D97 (b) — önce oku.",
         "details": "KAPSAM: §D97 b. Beyaz liste kapısından ÖNCE çalışan yeni işleyici (`app/telegram/bot.py`; `LINK_GROUP` deseni): yalnız özel sohbet, yalnız argümansız `/start`. Gönderen izinliyse (`is_whitelisted`) güncellemeye dokunmaz, kapı ve yardım işleyicisi bugünkü gibi çalışır. İzinli değilse (kayıtsız, izni kapalı, pasif kullanıcıya bağlı — ayrım YOK) tek yanıt: §D97 b'deki sade cümle (bağlı değil, panelde Hesabım → Telegram) + SON SATIRDA yalnız rakamlarla Telegram numarası (`Id:` öneki YOK; İngilizce, msgid, §D92 k; §D98 sade dil kuralı), sonra `ApplicationHandlerStop`. Sohbet başına saatte bir yanıt (bellekte, `LinkAttempts` deseninde ayrı sınırlayıcı, saat enjekte edilebilir); sınır içindeki tekrar sessiz. Veritabanı okunamazsa yanıt yok. İzinli kişinin `/start`/`/yardim` yanıtı son satırda \"Telegram numaranız:\" + numara; 12.1.4 `LINKED`/`ALREADY_LINKED` yanıtları da kimliği söyler (kullanıcının dilinde, 12.1.6). Kimlik, Telegram kullanıcı adı ve ad loga yazılmaz; olay yok. Bot modül açıklaması (`bot.py` başı: \"tek istisna LinkStart\" paragrafı) ve README güncellenir. Metinler `en`/`sr` çevrilir, `check` temiz. DOKUNMA: panel (tm 159), belge alma, doğal dil istekleri.",
         "testStrategy": "1) Kayıtsız kimlikten `/start` → tek yanıt, bağlı değil cümlesi + son satır yalnız rakam; `parse_telegram_id` son satırı ayrıştırıp aynı kimliği verir. 2) İzni kapalı ve pasif kullanıcıya bağlı kimlik aynı metni alır (bayt eşit). 3) Kayıtsız kimlikten belge, düz metin, `/yardim`, gruptan `/start` → yanıt yok, belge işlenmez. 4) Aynı sohbetten saat içinde ikinci `/start` sessiz; saat ilerletilince yine yanıt. 5) İzinli kimliğin `/start`'ı yardım metnini son satırda numarayla alır; `/start <kod>` yolu değişmeden çalışır, bağlandı yanıtı kimliği içerir. 6) Veritabanı hatasında yanıt yok. 7) Loga kimlik yazılmaz (caplog). 8) Kural bozmaları (işleyici kapıdan sonraya, sınırlayıcı kapalı, ayrım yapan metin) kırmızı. 9) DoD kapısı yeşil.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [
           "158",
           "159"
         ],
         "priority": "medium",
         "subtasks": [],
-        "updatedAt": "2026-10-02T12:00:00.000Z"
+        "updatedAt": "2026-10-02T18:56:04.603Z"
       },
       {
         "id": "161",
@@ -2364,9 +2364,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-02T18:34:06.680Z",
+      "lastModified": "2026-10-02T18:56:04.603Z",
       "taskCount": 160,
-      "completedCount": 154,
+      "completedCount": 155,
       "tags": [
         "master"
       ]

@@ -80,6 +80,12 @@ def _in(language: str, message: str) -> str:
         return gettext(message)
 
 
+def _help(language: str, telegram_id: int) -> str:
+    """Yardım yanıtı `language` dilinde, son satırda numarayla (12.1.7)."""
+    with use_language(language):
+        return bot_module.help_reply(telegram_id)
+
+
 # --- 1: aynı mesaj üç kullanıcıya üç dilde -----------------------------------------------------
 
 
@@ -98,7 +104,11 @@ def test_the_same_message_is_answered_in_each_users_language(
     )
 
     english, serbian = _in("en", HELP_TEXT), _in("sr", HELP_TEXT)
-    assert bot.telegram.sent_texts() == [HELP_TEXT, serbian, english]
+    assert bot.telegram.sent_texts() == [
+        _help("tr", LISTED_ID),
+        _help("sr", OTHER_ID),
+        _help("en", THIRD_ID),
+    ]
     assert english.startswith("Hello") and serbian.startswith("Zdravo")
     assert len({HELP_TEXT, english, serbian}) == 3
 
@@ -111,7 +121,7 @@ def test_an_empty_preference_follows_the_configured_default(
 
     bot.feed(message_update(1, THIRD_ID, "/start"))
 
-    assert bot.telegram.sent_texts() == [_in("sr", HELP_TEXT)]
+    assert bot.telegram.sent_texts() == [_help("sr", THIRD_ID)]
 
 
 def test_an_unsupported_default_is_refused() -> None:
@@ -134,7 +144,7 @@ def test_without_an_explicit_default_the_fallback_is_english_in_production(
     )
     BotHarness(application, telegram).feed(message_update(1, THIRD_ID, "/start"))
 
-    assert telegram.sent_texts() == [_in("en", HELP_TEXT)]
+    assert telegram.sent_texts() == [_help("en", THIRD_ID)]
 
 
 # --- 2: `/start <kod>` -------------------------------------------------------------------------
@@ -155,7 +165,8 @@ def test_the_link_reply_is_in_the_language_of_the_codes_user(
     )
 
     assert bot.telegram.sent_texts() == [
-        _in("sr", LINKED_TEXT).format(username="milan"),
+        _in("sr", LINKED_TEXT).format(username="milan")
+        + f"\n\n{_in('sr', bot_module.YOUR_NUMBER_TEXT)}\n{OTHER_ID}",
         _in("en", INVALID_LINK_TEXT),
     ]
     assert bot.telegram.sent_texts()[0].startswith("Povezano: milan.")
@@ -176,7 +187,11 @@ def test_a_language_change_in_the_panel_applies_to_the_next_reply(
     _set_language(session_factory, ayse, "sr")
     bot.feed(message_update(3, LISTED_ID, "/yardim"))
 
-    assert bot.telegram.sent_texts() == [HELP_TEXT, _in("en", HELP_TEXT), _in("sr", HELP_TEXT)]
+    assert bot.telegram.sent_texts() == [
+        _help("tr", LISTED_ID),
+        _help("en", LISTED_ID),
+        _help("sr", LISTED_ID),
+    ]
 
 
 def test_a_stranger_gets_no_reply_in_any_language(session_factory: sessionmaker[Session]) -> None:
@@ -196,7 +211,7 @@ def test_the_language_does_not_leak_from_one_update_to_the_next(
 
     bot.feed(message_update(1, OTHER_ID, "/yardim"), message_update(2, THIRD_ID, "/yardim"))
 
-    assert bot.telegram.sent_texts() == [_in("sr", HELP_TEXT), _in("en", HELP_TEXT)]
+    assert bot.telegram.sent_texts() == [_help("sr", OTHER_ID), _help("en", THIRD_ID)]
 
 
 # --- belge alma ve belge isteği (arka plan işi dili taşır) ------------------------------------

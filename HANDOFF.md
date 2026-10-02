@@ -18,6 +18,12 @@ Blok biçimi `CONVENTIONS.md` §3'te tanımlıdır:
 
 ## Task log (newest-first)
 
+## 160 — 12.1-g Bot, bağlı olmayan kişiye Telegram numarasını söyler — done — 2026-10-02
+- Yapıldı: Kapıdan önce `IdentityStart`: izinli olmayanın argümansız `/start`'ına tek sade yanıt (bağlı değil, Hesabım → Telegram) ve son satırda yalnız rakamla numara, sohbet başına saatte bir; izinlinin yardımı ve «Bağlandı» yanıtı numarayı söyler; veritabanı hatasında yanıt yok, kimlik loga yazılmaz; kararlar §D103.
+- Doğrulama: ruff check/format, compileall, `import app.main`, temiz SQLite'ta `alembic upgrade head` (→0024), `python -m app.i18n check` exit 0; `pytest -q -m "not live" --cov=app` 6627 geçti (+15), 11 atlandı, 0 kırmızı, kapsam %99; 8 kural bozmasının 8'i kırmızı.
+- Varsayımlar: §D103 — yanıt varsayılan dilde (bağlı kullanıcının dili kullanılmaz); kapı davranışını `/start` ile sınayan eski testler `/yardim`'a geçti.
+- Sonraki pencereye not: tm 161 bot metinlerini sadeleştirir: `HELP_TEXT`, `NOT_LINKED_TEXT`, bağlantı ve belge yanıtları (msgid değişince `.po` girdileri yeniden çevrilir; `help_reply`/`with_number` biçimi korunmalı: numara son satırda yalnız rakam). Bildirim metinleri (`notify.py`) alıcının dilinde gönderilmeli (`bot.admission` dili döner).
+
 ## 159 — 12.1-h Telegram'ı yalnız hesabın sahibi bağlar — done — 2026-10-02
 - Yapıldı: Hesabım → Telegram (`/account/telegram`): kendi kimlikleri, kendisi için bağlantı, elle ekleme (`via: "account"`), kendi kimliğinin izni; yollarda kullanıcı kimliği yok. Kullanıcılar sayfasından `POST /users/{id}/telegram` ve `/users/{id}/telegram/link` kaldırıldı, izin aç/kapat kaldı, «Telegram'ım» bağlantısı eklendi; rehber "bota /start yazın"; README; kararlar §D102.
 - Doğrulama: ruff check/format, compileall, `import app.main`, temiz SQLite'ta `alembic upgrade head` (→0024), `python -m app.i18n check` exit 0; `pytest -q -m "not live" --cov=app` 6612 geçti, 11 atlandı, 0 kırmızı, kapsam %99; 9 kural bozmasının 9'u kırmızı.

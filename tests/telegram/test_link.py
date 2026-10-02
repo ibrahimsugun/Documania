@@ -26,7 +26,6 @@ from app.db.models import Event, TelegramLinkCode, TelegramUser, User
 from app.storage import prepare_data_dir
 from app.telegram.bot import (
     ALREADY_LINKED_TEXT,
-    HELP_TEXT,
     INVALID_LINK_TEXT,
     LINK_BLOCKED_TEXT,
     LINK_FAILED_TEXT,
@@ -35,7 +34,10 @@ from app.telegram.bot import (
     LINKED_TEXT,
     LinkStart,
     build_application,
+    help_reply,
+    not_linked_reply,
     register_bot_info,
+    with_number,
 )
 from app.telegram.link import (
     LINK_CODE_TTL,
@@ -537,13 +539,17 @@ def test_a_stranger_opening_the_link_is_bound_and_then_served(
     bot = _link_bot(session_factory)
 
     bot.feed(
-        message_update(1, OTHER_ID, "/start"),  # listede değil, kodsuz: yanıt yok
+        message_update(1, OTHER_ID, "/start"),  # listede değil, kodsuz: kimliği söylenir (12.1.7)
         message_update(2, OTHER_ID, f"/start {issued.code}"),
         message_update(3, OTHER_ID, "/start"),  # artık listede
     )
 
-    assert bot.telegram.sent_texts() == [LINKED_TEXT.format(username="ayse"), HELP_TEXT]
-    assert [p["chat_id"] for p in bot.telegram.sent("sendMessage")] == [OTHER_ID, OTHER_ID]
+    assert bot.telegram.sent_texts() == [
+        not_linked_reply(OTHER_ID),
+        with_number(LINKED_TEXT.format(username="ayse"), OTHER_ID),
+        help_reply(OTHER_ID),
+    ]
+    assert [p["chat_id"] for p in bot.telegram.sent("sendMessage")] == [OTHER_ID] * 3
     assert _accounts(session_factory) == [(OTHER_ID, ayse, True)]
     assert "/yardim" in LINKED_TEXT
 
@@ -559,7 +565,9 @@ def test_the_link_handler_runs_before_the_gate_and_stops_the_update(
     # Listedeki kişi de kodla gelirse yalnız bağlantı yanıtı gider, yardım metni gitmez.
     bot.feed(message_update(1, LISTED_ID, f"/start {issued.code}"))
 
-    assert bot.telegram.sent_texts() == [ALREADY_LINKED_TEXT.format(username="ayse")]
+    assert bot.telegram.sent_texts() == [
+        with_number(ALREADY_LINKED_TEXT.format(username="ayse"), LISTED_ID)
+    ]
     assert LINK_GROUP in bot.application.handlers
 
 
@@ -618,7 +626,7 @@ def test_invalid_codes_get_one_generic_reply_and_the_sixth_attempt_gets_none(
     )
     assert bot.telegram.sent_texts()[5:] == [
         INVALID_LINK_TEXT,
-        LINKED_TEXT.format(username="ayse"),
+        with_number(LINKED_TEXT.format(username="ayse"), OTHER_ID),
     ]
 
 
@@ -634,7 +642,7 @@ def test_a_link_without_a_known_sender_binds_nothing(
     assert _codes(session_factory)[0].used_at is None
 
 
-@pytest.mark.parametrize("text", ["/start", "/yardim", "merhaba"])
+@pytest.mark.parametrize("text", ["/yardim", "merhaba"])
 def test_a_stranger_without_a_code_still_gets_no_reply(
     session_factory: sessionmaker[Session], text: str
 ) -> None:
