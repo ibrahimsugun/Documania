@@ -82,7 +82,7 @@ HANDLER_GROUP = 0
 HANDLED_UPDATES = (UpdateType.MESSAGE, UpdateType.CALLBACK_QUERY)
 
 HELP_TEXT = (
-    "Merhaba, belgeee botuna hoş geldiniz.\n\n"
+    "Merhaba, Documania botuna hoş geldiniz.\n\n"
     "Belge göndermek: belgeyi dosya olarak gönderin. Fotoğraf olarak gönderilen görüntüyü "
     "Telegram sıkıştırır; kimlik belgelerini dosya olarak gönderin. Birlikte (albüm olarak) "
     "gönderilen dosyalar tek parti sayılır; işlem bitince sonucu yazarım.\n\n"

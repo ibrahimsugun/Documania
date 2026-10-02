@@ -22,7 +22,7 @@ from app.storage import DataLayout, StoredFile, replace_file, write_file
 SEED_RESOURCE = "seed_catalog.yaml"
 
 CATALOG_HEADER = """\
-# belgeee — belge türü kataloğu (PRD §8.6).
+# Documania — belge türü kataloğu (PRD §8.6).
 # Tohum ve dışa aktarım dosyası. Veritabanına yükleme: `python -m app.catalog import`;
 # veritabanından yeniden üretme: `python -m app.catalog export`.
 # Dosya bütün olarak doğrulanır: tek kayıt geçersizse hiçbir kayıt yüklenmez.

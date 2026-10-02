@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# belgeee — yedekten geri yükleme (PRD 13.4.2). Yedek: `scripts/backup.sh`; prosedür: docs/YEDEKLEME.md.
+# Documania — yedekten geri yükleme (PRD 13.4.2). Yedek: `scripts/backup.sh`; prosedür: docs/YEDEKLEME.md.
 #
 # Kullanım: scripts/restore.sh [--force] <belgeee-...tar.gz>
 #

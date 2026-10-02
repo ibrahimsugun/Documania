@@ -112,7 +112,7 @@ def test_list_shows_every_type_with_its_state(client: TestClient, seeded: None) 
     page = client.get("/document-types")
 
     assert page.status_code == 200
-    assert "<title>Belge Türleri · belgeee</title>" in page.text
+    assert "<title>Belge Türleri · Documania</title>" in page.text
     assert 'href="/document-types/new"' in page.text
     assert "Tutarsız kayıt" not in page.text
     # 11.1.4: slug sütunu yok; slug ad bağlantısının adresinde ve `title`'ında durur.

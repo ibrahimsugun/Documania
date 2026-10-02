@@ -397,7 +397,7 @@ def test_candidates_are_listed_with_their_name_seen_count_and_sample_pages(
     page = client.get(BASE)
 
     assert page.status_code == 200
-    assert "<title>Aday türler · belgeee</title>" in page.text
+    assert "<title>Aday türler · Documania</title>" in page.text
     html = page.text
     diploma_row = html[html.index(f'href="{BASE}/{seen.diploma}"') :]
     permit_row = html[html.index(f'href="{BASE}/{seen.permit}"') :]

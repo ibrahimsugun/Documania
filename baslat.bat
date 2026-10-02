@@ -1,5 +1,5 @@
 @echo off
-rem belgeee panelini yerelde baslatir. Bu dosyaya cift tiklamak yeterlidir.
+rem Documania panelini yerelde baslatir. Bu dosyaya cift tiklamak yeterlidir.
 rem Sunucuyu durdurmak icin bu pencerede Ctrl+C.
 rem .env'de TELEGRAM_BOT_TOKEN doluysa Telegram botu da ayri bir pencerede acilir (PRD 12.1.5).
 
@@ -38,7 +38,7 @@ if errorlevel 1 (
   echo Telegram botu kapali: .env'de TELEGRAM_BOT_TOKEN yok. Panel botsuz aciliyor.
 ) else (
   echo Telegram botu ayri pencerede aciliyor. Onceki bot penceresi aciksa once onu kapatin.
-  start "belgeee bot" cmd /k ""%PY%" -m app.telegram.bot"
+  start "Documania bot" cmd /k ""%PY%" -m app.telegram.bot"
 )
 
 echo.

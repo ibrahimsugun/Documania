@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# belgeee — yedekleme ve geri yükleme ortak işlevleri (PRD 13.4.2).
+# Documania — yedekleme ve geri yükleme ortak işlevleri (PRD 13.4.2).
 # `backup.sh` ve `restore.sh` bunu kaynak alır; tek başına çalıştırılmaz.
 #
 # Ayarlar ortam değişkeninden okunur; tanımsızsa depo kökündeki `.env`'e (ya da `ENV_FILE`) bakılır.

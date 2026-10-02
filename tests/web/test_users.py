@@ -110,7 +110,7 @@ def test_page_lists_users_with_role_status_and_allowed_telegram_count(
     page = client.get("/users")
 
     assert page.status_code == 200
-    assert "<title>Kullanıcılar · belgeee</title>" in page.text
+    assert "<title>Kullanıcılar · Documania</title>" in page.text
     assert '<a href="/users" class="active" aria-current="page">Kullanıcılar</a>' in page.text
     rows = {
         match.group(1): match.group(2)

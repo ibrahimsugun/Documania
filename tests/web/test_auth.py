@@ -561,7 +561,7 @@ def test_every_menu_entry_opens_its_page_after_login(anonymous: TestClient, admi
         page = anonymous.get(path, follow_redirects=False)
         assert page.status_code == 200, path
         assert page.headers["content-type"].startswith("text/html")
-        assert f"<title>{label} · belgeee</title>" in page.text
+        assert f"<title>{label} · Documania</title>" in page.text
         assert f"<h1>{label}</h1>" in page.text
         # Menü her sayfada; bulunulan bölüm işaretli, diğerleri değil.
         for other_label, other_path in zip(MENU_LABELS, MENU_PATHS, strict=True):

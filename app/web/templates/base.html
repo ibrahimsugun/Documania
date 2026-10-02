@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}Panel{% endblock %} · belgeee</title>
+  <title>{% block title %}Panel{% endblock %} · Documania</title>
   <link rel="icon" type="image/png" sizes="32x32" href="/static/favicon.png">
   <link rel="apple-touch-icon" href="/static/icon-512.png">
   <link rel="stylesheet" href="/static/panel.css">
@@ -16,7 +16,7 @@
   {% endif %}
   {% if user %}
   <header class="topbar">
-    <a class="brand" href="/">belgeee</a>
+    <a class="brand" href="/">Documania</a>
     <nav class="menu" aria-label="Ana menü">
       {% for entry in menu %}
       <a href="{{ entry.path }}"{% if entry.key == active %} class="active" aria-current="page"{% endif %}>{{ entry.label }}</a>

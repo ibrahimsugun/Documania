@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# belgeee — gece yedeği (PRD 13.4.2).
+# Documania — gece yedeği (PRD 13.4.2).
 #
 # Veritabanının tutarlı bir dökümünü ve `DATA_DIR` dizinini (Inbox, çalışan klasörleri, katalog)
 # tek bir `belgeee-<UTC zaman>.tar.gz` arşivine alır, yanına SHA-256 dosyası yazar, isteğe bağlı

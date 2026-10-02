@@ -194,7 +194,7 @@ def test_history_traces_the_output_back_to_its_source_file_and_page_by_clicking(
 
     html = _history(client, document_id)
 
-    assert "<title>Belge geçmişi · Russian Passport · belgeee</title>" in html
+    assert "<title>Belge geçmişi · Russian Passport · Documania</title>" in html
     assert re.search(
         r'<a href="/employees" class="active" aria-current="page">Çalışanlar</a>', html
     )

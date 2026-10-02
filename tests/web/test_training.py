@@ -138,7 +138,7 @@ def test_the_training_tab_opens_from_the_menu_with_its_upload_form(client: TestC
     page = client.get("/training")
 
     assert page.status_code == 200
-    assert "<title>Eğitim modu · belgeee</title>" in page.text
+    assert "<title>Eğitim modu · Documania</title>" in page.text
     assert '<a href="/training" class="active" aria-current="page">Eğitim modu</a>' in page.text
     assert 'method="post" action="/training" enctype="multipart/form-data"' in page.text
     assert 'name="files" type="file" multiple accept=".pdf,.jpg,.jpeg,.png"' in page.text

@@ -1,1 +1,1 @@
-"""belgeee — akıllı çalışan belge yönetim sistemi."""
+"""Documania — akıllı çalışan belge yönetim sistemi."""

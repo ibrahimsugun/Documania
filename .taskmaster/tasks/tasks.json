@@ -2184,13 +2184,25 @@
         "priority": "medium",
         "subtasks": [],
         "updatedAt": "2026-10-01T23:36:34.883Z"
+      },
+      {
+        "id": "151",
+        "title": "10.1-f — Ürün adı Documania: panel, bot, başlatıcı, belgeler ve paket adı (iç kimlikler korunur) [SONNET-XHIGH]",
+        "description": "PRD ürün kodu, 10.1.5. İnsan kararı (2026-10-02): proje adı belgeee değil Documania. PLAN §D91.",
+        "details": "Görünen ad ve belgeler değişir; veriye ve eski yedeklere bağlı iç kimlikler (veritabanı dosyası, Docker hacmi, Postgres kullanıcısı, yedek arşivi adı, oturum çerezi, geçici dosya öneki, kilit anahtarları) ve depo klasörü değişmez.",
+        "testStrategy": "1) Sayfa başlığı `· Documania` testleri, bot penceresi adı testi. 2) Tam paket yeşil.",
+        "status": "done",
+        "dependencies": [],
+        "priority": "medium",
+        "subtasks": [],
+        "updatedAt": "2026-10-02T10:00:00.000Z"
       }
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-01T23:36:34.884Z",
-      "taskCount": 148,
-      "completedCount": 145,
+      "lastModified": "2026-10-02T10:00:00.000Z",
+      "taskCount": 149,
+      "completedCount": 146,
       "tags": [
         "master"
       ]

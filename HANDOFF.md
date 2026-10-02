@@ -18,6 +18,12 @@ Blok biçimi `CONVENTIONS.md` §3'te tanımlıdır:
 
 ## Task log (newest-first)
 
+## 151 — Ürün adı Documania — done — 2026-10-02
+- Yapıldı: İnsan kararıyla ürünün görünen adı Documania oldu: panel başlığı/markası, giriş sayfası, bot karşılaması, baslat.bat ve bot penceresi, yorum başlıkları, paket adı (`uv.lock` yeniden çözüldü), README/CLAUDE.md/PRD/PLAN başlığı (§D91).
+- Doğrulama: ruff check/format, `import app.main`, `uv lock --check`; `pytest -q -m "not live"` sekiz paralel grupta 6267 geçti, 6 atlandı, 0 kırmızı.
+- Varsayımlar: Veriye ve eski yedeklere bağlı iç kimlikler (`data/belgeee.db`, Docker hacmi, Postgres kullanıcısı, `belgeee-*.tar.gz`, `belgeee_session`, `.belgeee-` öneki, kilit anahtarları) ve depo klasörü bilerek değişmedi; geçmiş kayıtlar yeniden yazılmadı.
+- Sonraki pencereye not: Yeni metinlerde ürün adı "Documania" yazılır; iç kimliklere dokunmak veri göçü ister, ayrı görev olur. Paket adı değişti: `.venv`'deki eski `belgeee` kurulum kaydı zararsızdır, `uv pip install -e .` ile yenilenebilir.
+
 ## 97/98/99 — Döngü durdu, seçilebilir görev yok — deferred (insan tutması geçerli, grafik sağlam) — 2026-10-02 (düzeltme penceresi: panel bulgusu)
 - Yapıldı: Teşhis yine (a). tm 150 kapanınca açık görev olarak yalnız 97, 98 ve 99 kaldı, üçü de `deferred`. run-loop.sh:159–162'deki kapı `deferred`'i seçmiyor, 2. kural da yalnız `pending` critical görev alıyor. (b), (c) ve (d) yok: döngü ya da eksik id yok. 97'nin bağımlılıkları (103/106/107/110/136/137/140) ve 98'inkiler (103–105, 108, 111–134, 138/139, 142–145) done. 99 yalnız 97 ile 98'i bekliyor (135, 148–150 done). §G'deki 140 dilim aktarılmış ve done (13.5-b = tm 109). 199 gereksinim satırının 198'i ✅, kalan 13.1.1 `⛔` (tm 146'da kaldırıldı, açık iş değil). Tutma hâlâ geçerli: 2026-09-22 kararından ("insan söyleyene kadar dokunma") beri bırakıldığına dair kayıt yok. En son insan açılışı (`49854e1`, 2026-10-01) 99'a 149 ve 150 bağımlılığını ekledi, statüyü yine `deferred` bıraktı. Statüye, bağımlılığa, önceliğe ve tasks.json'a dokunulmadı, yeni görev açılmadı.
 - Doğrulama: `task-master validate-dependencies` yeşil (148 görev, 273 bağımlılık). `task-master next` → "All tasks are either completed, blocked by dependencies, or in progress". metadata (148/145) tasks.json ile tutuyor. CONVENTIONS §1.3 sayımı 199 satır / 198 ✅ / 0 ◐ / 0 ⬜, §0 tablosuyla aynı (106+66+16+10). Kod değişmediği için DoD kapısı koşulmadı.

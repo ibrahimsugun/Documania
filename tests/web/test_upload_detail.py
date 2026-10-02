@@ -175,7 +175,7 @@ def test_detail_page_shows_thumbnails_plan_outputs_and_timeline_on_one_page(
 
     assert page.status_code == 200
     assert page.headers["content-type"].startswith("text/html")
-    assert f"<title>Parti {upload_id} · belgeee</title>" in page.text
+    assert f"<title>Parti {upload_id} · Documania</title>" in page.text
     assert f"<h1>Parti {upload_id}</h1>" in page.text
     assert "Tamamlandı" in page.text
     assert re.search(

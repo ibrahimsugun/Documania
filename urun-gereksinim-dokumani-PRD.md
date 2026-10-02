@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Ürün kodu** | belgeee |
+| **Ürün kodu** | Documania (eski adı: belgeee) |
 | **Sürüm** | 1.0 |
 | **Tarih** | 2026-09-05 |
 | **Durum** | Onaylı — otonom yapıma hazır |
@@ -290,7 +290,7 @@ Kapsam: FR-MOD-13.
 | 10.1.2 | Oturum tabanlı giriş | Girişsiz hiçbir panel yolu açılmaz | Must (v1) |
 | 10.1.3 | İlk kullanıcı oluşturma | Komut satırından ilk yönetici oluşturulabilir | Must (v1) |
 | 10.1.4 | Kullanıcı yönetimi | Panelde "Kullanıcılar" sayfası (yalnız yönetici): kullanıcı listesi; yeni kullanıcı (kullanıcı adı, parola, rol); kendi parolasını değiştirme; başka kullanıcının parolasını sıfırlama; pasife alma ve yeniden etkinleştirme. Pasif kullanıcı giriş yapamaz ve açık oturumları kapanır; son etkin yönetici pasife alınamaz, kullanıcı kendini pasife alamaz; kullanıcı silinmez. Her işlem kullanıcı adıyla olaya yazılır, parola hiçbir olaya girmez | Should (v1) |
-| 10.1.5 | Panel sekme simgesi | Giriş dahil her panel sayfası tarayıcı sekmesinde belgeee simgesini gösterir; simge dosyaları oturumsuz sunulur | Should (v1) |
+| 10.1.5 | Panel sekme simgesi | Giriş dahil her panel sayfası tarayıcı sekmesinde Documania simgesini gösterir; simge dosyaları oturumsuz sunulur | Should (v1) |
 | 10.1.6 | Ülke başvuru verisi ve bayrak simgeleri | Depoda ülke başvuru verisi bulunur: ISO 3166-1 alfa-2 ve alfa-3 kodu, Türkçe ülke adı ve ICAO 9303 MRZ uyruk kodlarının ülkeye eşlemesi (`D` → Almanya, `GBD`/`GBN`/`GBO`/`GBP`/`GBS` → Birleşik Krallık gibi istisnalar dahil); her ülkenin küçük bayrak simgesi (SVG) panelin statik dosyalarındadır; kaynak, lisans ve indirme tarihi depoda kayıtlıdır. Panel tek bir yardımcıyla alfa-2, alfa-3 ya da MRZ kodundan bayrak + Türkçe ad üretir; tanınmayan ya da ülke olmayan kod (vatansız `XXA`/`XXB`/`XXC`/`XXX`, BM belgeleri `UNO`/`UNA`/`UNK`) bayraksız, kodun kendisiyle gösterilir | Should (v1) |
 | 10.2.1 | Yükleme sayfası | Sürükle-bırak çoklu yükleme çalışır; isteğe bağlı çalışan seçilebilir | Must (v1) |
 | 10.2.2 | İlerleme görünümü | Yükleme sonrası parti durumu canlı yenilenir | Should (v1) |

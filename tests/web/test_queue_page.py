@@ -478,7 +478,7 @@ def test_item_detail_shows_reason_guess_sources_and_page_images_from_the_real_pi
 
     assert response.status_code == 200
     html = response.text
-    assert f"<title>Kuyruk öğesi {item_id} · belgeee</title>" in html
+    assert f"<title>Kuyruk öğesi {item_id} · Documania</title>" in html
     assert '<a href="/queues?tab=unreadable">← Okunamadı kuyruğu</a>' in html
     assert re.search(r'<a href="/queues" class="active" aria-current="page">Kuyruklar</a>', html)
     assert "<dt>Durum</dt><dd>Bekleyen</dd>" in html

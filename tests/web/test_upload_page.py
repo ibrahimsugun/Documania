@@ -92,7 +92,7 @@ def test_page_offers_a_multi_file_drop_zone_and_loads_its_scripts(client: TestCl
 
     assert page.status_code == 200
     assert page.headers["content-type"].startswith("text/html")
-    assert "<title>Yükle · belgeee</title>" in page.text
+    assert "<title>Yükle · Documania</title>" in page.text
     assert "<h1>Yükle</h1>" in page.text
     assert 'id="dropzone"' in page.text
     assert re.search(r'<input id="files" name="files" type="file" multiple\b', page.text)

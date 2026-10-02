@@ -1,4 +1,4 @@
-# belgeee — ters vekil (PRD 13.5.1). Alan adı için HTTPS sertifikasını Caddy kendisi alır ve yeniler
+# Documania — ters vekil (PRD 13.5.1). Alan adı için HTTPS sertifikasını Caddy kendisi alır ve yeniler
 # (Let's Encrypt); HTTP isteklerini HTTPS'e yönlendirir. Alan adı ve e-posta koda yazılmaz:
 # docker-compose.yml `production` profilinde DOMAIN ve ACME_EMAIL ortam değişkenlerinden gelir.
 {

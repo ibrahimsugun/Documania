@@ -1,8 +1,13 @@
-# belgeee — Akıllı Çalışan Belge Yönetim Sistemi
+# Documania — Akıllı Çalışan Belge Yönetim Sistemi
 
 Çalışanlardan gelen belgeleri **içeriğinden** anlayan, kime ait olduğunu bulan, hatalı
 gönderimleri kurallar dahilinde fiziksel olarak düzenleyen, emin olamadığında insana soran
 ve yaptığı her işi izlenebilir biçimde loglayan bir belge yönetim platformu.
+
+> **Ad:** Ürünün adı **Documania**'dır (eski adı *belgeee*). Depo klasörü, veritabanı dosyası
+> (`data/belgeee.db`), Docker hacmi ve Postgres kullanıcısı, yedek arşivlerinin adı
+> (`belgeee-*.tar.gz`) ve oturum çerezi eski adı taşır: bunlar veriye ve eski yedeklere bağlıdır,
+> bilerek değiştirilmedi (PLAN §D91).
 
 > **Durum:** Uygulama ve test paketi mevcut; gereksinim kapsamı ve pilot/üretim hazırlığı `PLAN.md` ile izlenir. Dağıtım ve süreç sınırları aşağıdaki adımlarda belgelenmiştir.
 
@@ -208,7 +213,7 @@ yere silmeyin.
   sürümü söyler. `GET /health` çalışan sürecin şema sürümünü (`schema`) ve kod parmak izini
   (`code`) döner.
 - **Yerelde Telegram botu `baslat.bat` ile açılır** (PRD 12.1.5). `.env`'de `TELEGRAM_BOT_TOKEN`
-  doluysa bat dosyası göçten sonra botu (geliştirmede polling) ayrı bir "belgeee bot" penceresinde
+  doluysa bat dosyası göçten sonra botu (geliştirmede polling) ayrı bir "Documania bot" penceresinde
   başlatır; boşsa "Telegram botu kapalı: .env'de TELEGRAM_BOT_TOKEN yok" yazar ve paneli botsuz
   açar. Token değeri ekrana yazılmaz. Bot açmak için: Telegram'da [@BotFather](https://t.me/BotFather)'a
   `/newbot` yazıp botu oluşturun, verdiği token'ı `.env`'deki `TELEGRAM_BOT_TOKEN=` satırına yazın

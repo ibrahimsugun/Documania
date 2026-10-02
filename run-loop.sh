@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-# belgeee — Otonom Görev Döngüsü (CANLI loglamalı)
+# Documania — Otonom Görev Döngüsü (CANLI loglamalı)
 # Her görev TEMİZ bir Claude Code penceresinde çalışır; durum Task Master + git'te.
 # Politika: full-otonom (bypassPermissions) | hata → 1 kez temiz pencerede retry
 #           → yine olmazsa görev atlanır (sayılı) | efor görev etiketinden.
@@ -107,7 +107,7 @@ pretty(){
 # =============================================================================
 # Sanity: doğru dizinde miyiz?
 if [ ! -f "$PRD_FILE" ] || [ ! -f "$RUNNER_PROMPT_FILE" ]; then
-  log "✖ HATA: bu script belgeee proje kökünde çalışmalı ($PRD_FILE + $RUNNER_PROMPT_FILE burada olmalı)."
+  log "✖ HATA: bu script Documania proje kökünde çalışmalı ($PRD_FILE + $RUNNER_PROMPT_FILE burada olmalı)."
   exit 1
 fi
 
@@ -115,7 +115,7 @@ fi
 # elle kurulur (panel docs §3.9); bu dal yalnız sıfırdan kurulum için vardır.
 if [ ! -d ".taskmaster" ]; then
   log "⚙ İlk çalıştırma → kurulum (git + parse-prd + efor etiketleri). Canlı izliyorsun:"
-  claude -p "Bu depoyu belgeee otonom yapımına HAZIRLA. Kod YAZMA, yalnız kurulum:
+  claude -p "Bu depoyu Documania otonom yapımına HAZIRLA. Kod YAZMA, yalnız kurulum:
 1) Oku: CLAUDE.md, MASTER-PROMPT.md, CONVENTIONS.md, $PRD_FILE.
 2) Git: repo yoksa 'git init' + 'git branch -M main'. .gitignore zaten var.
    UZAK DEPO EKLEME — remote tanımlamak insanın işidir.

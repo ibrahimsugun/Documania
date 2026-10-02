@@ -1,4 +1,4 @@
-# belgeee — Docker Compose.
+# Documania — Docker Compose.
 #
 # Geliştirme (varsayılan): `docker compose up -d --build` → panel http://127.0.0.1:8000, SQLite.
 #

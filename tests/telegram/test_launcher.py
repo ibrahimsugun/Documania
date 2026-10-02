@@ -51,7 +51,7 @@ def test_launcher_keeps_crlf_and_plain_ascii() -> None:
 
 
 def test_bot_starts_in_its_own_window_with_the_bot_module() -> None:
-    start = next(line for line in _lines() if line.lstrip().startswith('start "belgeee bot"'))
+    start = next(line for line in _lines() if line.lstrip().startswith('start "Documania bot"'))
 
     assert "-m app.telegram.bot" in start
     assert "%PY%" in start, "bot, panelle aynı sanal ortamın Python'uyla açılır"
@@ -61,7 +61,7 @@ def test_bot_starts_in_its_own_window_with_the_bot_module() -> None:
 def test_bot_starts_only_after_migration_and_before_the_server() -> None:
     migrate = _index('"%PY%" -m alembic upgrade head')
     check = next(i for i, line in enumerate(_lines()) if "get_secret_value" in line)
-    start = _index('start "belgeee bot"')
+    start = _index('start "Documania bot"')
     server = _index('"%PY%" -m uvicorn')
 
     assert migrate < check < start < server
@@ -70,7 +70,7 @@ def test_bot_starts_only_after_migration_and_before_the_server() -> None:
 def test_missing_token_says_so_and_goes_on_without_the_bot() -> None:
     lines = _lines()
     closed = next(i for i, line in enumerate(lines) if CLOSED_MESSAGE in line)
-    start = _index('start "belgeee bot"')
+    start = _index('start "Documania bot"')
 
     assert lines[closed - 1].strip() == "if errorlevel 1 (", "boşsa bot kolu atlanır"
     assert lines[closed + 1].strip() == ") else (", "bot yalnız token doluyken açılır"

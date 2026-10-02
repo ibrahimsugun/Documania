@@ -61,7 +61,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     # 10.1.2: girişsiz hiçbir panel yolu açılmaz — otomatik API belgesi sayfaları da kapalı.
     application = FastAPI(
-        title="belgeee", lifespan=lifespan, openapi_url=None, docs_url=None, redoc_url=None
+        title="Documania", lifespan=lifespan, openapi_url=None, docs_url=None, redoc_url=None
     )
     application.add_exception_handler(LoginRequiredError, _redirect_to_login)
     # 13.5.3: açılıştaki kodun parmak izi (eski süreç uyarısı, `/health`'teki `code`) ve bu kodun

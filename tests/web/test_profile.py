@@ -190,7 +190,7 @@ def test_card_shows_every_field_of_the_employee(
 
     assert response.status_code == 200
     assert response.headers["content-type"].startswith("text/html")
-    assert "<title>Dmitry Vasiliev · belgeee</title>" in response.text
+    assert "<title>Dmitry Vasiliev · Documania</title>" in response.text
     assert "<h1>Dmitry Vasiliev</h1>" in response.text
     assert "E0001 · Aktif" in response.text
     assert _fields(response.text) == {

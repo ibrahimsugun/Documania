@@ -1,4 +1,4 @@
-# CLAUDE.md — belgeee (her Claude Code penceresi bunu otomatik okur)
+# CLAUDE.md — Documania (her Claude Code penceresi bunu otomatik okur)
 
 Bu depo, çalışan belgelerini içeriğinden anlayıp doğru çalışana yerleştiren **akıllı belge
 yönetim sisteminin** otonom yapımıdır. Her pencere — interaktif olsun, `run-loop.sh` ile
