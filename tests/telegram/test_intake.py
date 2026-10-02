@@ -10,6 +10,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import mimetypes
+import time
 from collections.abc import Callable
 from datetime import date
 from pathlib import Path
@@ -19,7 +20,9 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload, sessionmaker
 from telegram import Update
 
+from app.ai.provider import AnalysisProvider, ProviderConfigError
 from app.ai.recording_provider import RecordingProvider
+from app.config import Settings
 from app.db.models import (
     Document,
     Event,
@@ -296,15 +299,32 @@ def test_a_document_without_a_mime_type_gets_it_from_its_name_without_the_os_mim
 def test_the_handler_returns_before_the_pipeline_finishes(
     make_intake_bot: Callable[..., IntakeBot], listed: None
 ) -> None:
-    """İşleyici bekletmez: sıradaki güncellemeler (ör. `/yardim`) belge işlenirken de yanıtlanır."""
-    bot = make_intake_bot()
+    """İşleyici bekletmez: sıradaki güncellemeler (ör. `/yardim`) belge işlenirken de yanıtlanır.
+
+    İşleme hattı yardım yanıtı gidene kadar bekler (en çok beş saniye): işleyici belgeyi bitirmeden
+    dönmeseydi yardım hiç gidemez, hat süre dolunca sürer ve yardım özetten sonra gelirdi. "Alındı"
+    iletisi ile yardımın sırası iş parçacığı zamanlamasına bağlıdır, denetlenmez."""
+    holder: list[IntakeBot] = []
+
+    def wait_for_help(_settings: Settings) -> AnalysisProvider:
+        deadline = time.monotonic() + 5
+        while time.monotonic() < deadline:
+            if any(text.startswith("Merhaba") for text in holder[0].telegram.sent_texts()):
+                break
+            time.sleep(0.01)
+        raise ProviderConfigError("Sağlayıcı kurulamadı (test).")
+
+    bot = make_intake_bot(provider_factory=wait_for_help)
+    holder.append(bot)
     bot.telegram.files["f1"] = make_docx_bytes()
 
     bot.feed(document_update(1, LISTED_ID, "f1", "ozgecmis.docx"), message_update(2, LISTED_ID))
 
     texts = bot.telegram.sent_texts()
-    assert texts[0].startswith("Merhaba")  # yardım, belgenin alındı iletisinden önce gitti
     assert len(texts) == 1 + 2  # yardım + "alındı" + "sağlayıcı kurulamadı" özeti
+    help_at = next(index for index, text in enumerate(texts) if text.startswith("Merhaba"))
+    assert help_at < 2  # yardım, belgenin son iletisinden (özet) önce gitti
+    assert texts[2].startswith("Parti ")
 
 
 # --- 12.2.3: sonuç özeti ------------------------------------------------------------------------

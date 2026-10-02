@@ -21,7 +21,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from app.storage import DataLayout
 from app.telegram.link import write_bot_info
-from app.web.auth import PanelUser, create_user, get_current_user
+from app.web.auth import PanelUser, get_current_user
 from tests.web.conftest import SIGNED_IN
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -177,15 +177,12 @@ def test_the_copy_button_carries_the_copied_text_in_the_language(
     button: str | None,
 ) -> None:
     write_bot_info(layout, "documania_test_bot")
-    with session_factory() as session:
-        user_id = create_user(session, "synthetic", "sentetik-parola-1").id
-        session.commit()
     speak(language)
 
-    page = client.post(f"/users/{user_id}/telegram/link", follow_redirects=False)
+    page = client.post("/account/telegram/link", follow_redirects=False)
 
     assert page.status_code == 200
-    button_tag = rf'<button type="button" data-copy-target="telegram-link-url-{user_id}"[^>]*>'
+    button_tag = r'<button type="button" data-copy-target="telegram-link-url"[^>]*>'
     found = re.search(button_tag + r"([^<]*)</button>", page.text)
     assert found is not None
     tag = unescape(found.group(0))

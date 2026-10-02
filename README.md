@@ -164,14 +164,16 @@ belgeleri, veritabanını ve sertifikayı taşır (`-v` hepsini siler).
 **Telegram botu (isteğe bağlı):** komuta `--profile telegram` eklenir; `TELEGRAM_BOT_TOKEN` ve
 `TELEGRAM_WEBHOOK_SECRET` `.env`'e yazılır. Webhook adresi varsayılan olarak
 `https://<DOMAIN>/telegram/webhook`'tur; Caddy `/telegram/*` yolunu bota yönlendirir.
-Bot yalnız beyaz listedeki Telegram kimliklerine yanıt verir. En kolay yol **Kullanıcılar**
-sayfasındaki **Telegram'ı bağla**dır: o kullanıcı için 10 dakika geçerli, tek kullanımlık bir bot
-bağlantısı (`https://t.me/<bot>?start=<kod>`) üretilir; kişi bağlantıyı açıp «Başlat»a basınca bot
-kimliğini o kullanıcıya kendisi bağlar. Düğme, bot en az bir kez çalışıp adını veri dizinine
-(`data/telegram/bot.json`) yazdıktan sonra açılır. Yedek yol elle eklemedir: kimlik telefon
-numarası değil, Telegram'ın hesaba verdiği sabit sayıdır; kişi Telegram'da
-[@userinfobot](https://t.me/userinfobot)'a yazarak öğrenir (`Id: 123456789`), yönetici o kullanıcının
-altına ekler (sayı ya da kopyalanan `Id: …` satırı).
+Bot yalnız beyaz listedeki Telegram kimliklerine yanıt verir. Telegram'ı herkes **yalnız kendi
+hesabına** bağlar: **Hesabım → Telegram** (`/account/telegram`, Kullanıcılar sayfasında
+«Telegram'ım») sayfasındaki **Telegram'ı bağla** kişinin kendisi için 10 dakika geçerli, tek
+kullanımlık bir bot bağlantısı (`https://t.me/<bot>?start=<kod>`) üretir; kişi bağlantıyı kendi
+telefonunda açıp «Başlat»a basınca bot kimliğini hesabına kendisi bağlar. Düğme, bot en az bir kez
+çalışıp adını veri dizinine (`data/telegram/bot.json`) yazdıktan sonra açılır. Yedek yol aynı
+sayfada elle eklemedir: kimlik telefon numarası değil, Telegram'ın hesaba verdiği sabit sayıdır;
+kişi bota `/start` yazarak ya da [@userinfobot](https://t.me/userinfobot)'tan öğrenir (sayı ya da
+kopyalanan `Id: …` satırı). Yönetici Kullanıcılar sayfasında başkasının kimliğinin iznini kapatıp
+açabilir (kaybolan telefon), başkası adına kimlik ekleyemez ve bağlantı üretemez.
 
 **Yedekleme:** gece yedeği ve geri yükleme prosedürü [`docs/YEDEKLEME.md`](docs/YEDEKLEME.md)'de
 (Compose kurulumuna özgü ayarlar orada). Zamanlayıcı (cron) sunucuya elle kurulur.
