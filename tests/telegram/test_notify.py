@@ -1,6 +1,7 @@
-"""12.4.1 — kuyruğa yeni öğe düşünce ve parti başarısız olunca bildirim gider.
+"""12.4.1, 12.1.9 — kuyruğa yeni öğe düşünce tarama başına tek, sade bildirim gider; parti hatası
+Telegram'a gitmez (PLAN.md §D98 e).
 
-Bildirici `events`'i tarar (`QUEUED_*`, `PIPELINE_FAILED`); bu yüzden uçtan uca senaryolar gerçek
+Bildirici `events`'i tarar (`QUEUED_*`); bu yüzden uçtan uca senaryolar gerçek
 boru hattını (Telegram'dan belge → `process_upload`) çalıştırır, birim senaryoları olayı
 doğrudan yazar (web sürecinin yazdığı olaydan farkı yoktur). Bot gerçek `Application` ile kurulur,
 yalnız Telegram aktarıcısı (`FakeTelegram`) ve yapay zekâ sağlayıcısı (kayıtlı yanıtlar) sahtedir.
@@ -29,18 +30,13 @@ from telegram.request import RequestData
 from app.catalog import import_catalog, load_seed_catalog
 from app.db.models import Event, QueueItem, TelegramUser, Upload, UploadStatus, utcnow
 from app.events import EventType, record_event
+from app.i18n import use_language
 from app.storage import prepare_data_dir
 from app.telegram import notify
-from app.telegram.bot import HELP_TEXT, build_application, run
+from app.telegram.bot import build_application, run
 from app.telegram.handlers import DocumentIntake
-from app.telegram.notify import (
-    LOOKBACK,
-    STAGE_LABELS,
-    Notifier,
-    PendingEvent,
-    build_failure_message,
-    build_messages,
-)
+from app.telegram.notify import LOOKBACK, Notifier, queue_message
+from app.telegram.plain import problems
 from tests.fixtures.gen import (
     PERSON_ORNEKOVA,
     make_document_pdf_bytes,
@@ -60,6 +56,11 @@ from tests.telegram.conftest import (
 UPLOAD_ID = "u_20260101_001"
 SECOND_UPLOAD_ID = "u_20260101_002"
 REASON = "Sayfa 1 okunamadı: kural R3 ihlal edildi."
+
+
+def announcement(count: int) -> str:
+    """`count` yeni öğenin Türkçe bildirimi (testler Türkçe varsayılanla koşar)."""
+    return f"Kontrol etmeniz gereken {count} yeni belge var. Panelde bakabilirsiniz."
 
 
 @dataclass
@@ -223,21 +224,22 @@ def test_a_new_queue_item_is_announced_to_every_listed_user(
     assert sent == 1
     for chat_id in (LISTED_ID, OTHER_ID):
         text = notifications(bot.telegram, chat_id)[-1]
-        assert text.splitlines()[0] == f"Kuyruğa yeni öğe düştü — parti {upload_id}: 1 öğe."
-        assert f"• Sahibi belirsiz: {reason[:60]}" in text
-        assert text.endswith("Panelde kuyruğa bakın.")
+        assert text == announcement(1)
+        # §D98 e: parti numarası, kuyruk türü ve gerekçe yazılmaz.
+        assert upload_id not in text and reason[:20] not in text and "Sahibi" not in text
     # Bildirim yalnız özel sohbetlere, listedekilere gitti.
     chats = {parameters["chat_id"] for parameters in bot.telegram.sent("sendMessage")}
     assert chats == {LISTED_ID, OTHER_ID}
 
 
-def test_a_failed_batch_is_announced_with_its_stage_and_nothing_else(
+def test_a_failed_batch_is_not_announced(
     make_notify_bot: Callable[..., NotifyBot],
     session_factory: sessionmaker[Session],
     whitelist: Callable[..., None],
     tmp_path: Path,
 ) -> None:
-    """Sağlayıcı yanıtları bitince analiz durur (09.2.3): parti `failed`, `PIPELINE_FAILED` var."""
+    """Sağlayıcı yanıtları bitince analiz durur (09.2.3): parti `failed`, `PIPELINE_FAILED` var. Bu
+    olay Telegram'a gitmez (§D98 e): gönderen kendi sade yanıtını aldı, panel partiyi gösterir."""
     whitelist(LISTED_ID)
     whitelist(OTHER_ID)
     bot = make_notify_bot(recorded_provider(tmp_path / "kayit", [passport()]))  # type: ignore[list-item]
@@ -246,21 +248,12 @@ def test_a_failed_batch_is_announced_with_its_stage_and_nothing_else(
     with session_factory() as session:
         (upload,) = session.scalars(select(Upload)).all()
         assert upload.status == UploadStatus.FAILED.value
-        failed = session.scalars(
+        assert session.scalars(
             select(Event).where(Event.type == EventType.PIPELINE_FAILED.value)
         ).one()
-        stage = (failed.data_json or {})["stage"]
 
-    scan(bot.application, bot.notifier)
-
-    expected = (
-        f"Parti {upload.id} işlenemedi (aşama: {STAGE_LABELS[stage]}). Dosyalar saklandı; ayrıntı "
-        "için panelde partiye bakın."
-    )
-    assert notifications(bot.telegram, OTHER_ID) == [expected]
-    # Hata türü, iz ve hata metni gitmez.
-    for leaked in ("RuntimeError", "Traceback", ".py", "Ornekova", "00 0000001"):
-        assert leaked not in expected
+    assert scan(bot.application, bot.notifier) == 0
+    assert notifications(bot.telegram, OTHER_ID) == []
 
 
 def test_a_web_batch_that_reaches_the_queue_is_announced_too(
@@ -273,7 +266,7 @@ def test_a_web_batch_that_reaches_the_queue_is_announced_too(
 
     scan(bot.application, bot.notifier)
 
-    assert notifications(bot.telegram)[0].startswith(f"Kuyruğa yeni öğe düştü — parti {UPLOAD_ID}")
+    assert notifications(bot.telegram) == [announcement(1)]
 
 
 def test_a_queue_item_from_a_reanalysis_is_announced(
@@ -288,9 +281,7 @@ def test_a_queue_item_from_a_reanalysis_is_announced(
 
     scan(bot.application, bot.notifier)
 
-    (text,) = notifications(bot.telegram)
-    assert "2 öğe" in text
-    assert "• Tür bilinmiyor:" in text and "• Okunamadı:" in text
+    assert notifications(bot.telegram) == [announcement(2)]
 
 
 # --- kimlere, hangi olaylarda ---------------------------------------------------------------
@@ -334,7 +325,7 @@ def test_ids_of_a_deactivated_panel_user_are_not_told(
     assert notifications(bot.telegram, OTHER_ID) == []
 
 
-def test_events_that_are_not_queue_or_failure_events_are_ignored(
+def test_events_that_are_not_queue_events_are_ignored(
     make_bare_bot: Callable[..., NotifyBot],
     session_factory: sessionmaker[Session],
     uploads: None,
@@ -348,6 +339,7 @@ def test_events_that_are_not_queue_or_failure_events_are_ignored(
             EventType.MANUAL_ASSIGN,
             EventType.PAGE_ANALYSIS_FAILED,
             EventType.VALIDATION_FAILED,
+            EventType.PIPELINE_FAILED,
         ):
             record_event(session, kind, upload_id=UPLOAD_ID)
         session.commit()
@@ -370,8 +362,7 @@ def test_events_that_predate_the_notifier_are_not_announced(
 
     scan(bot.application, bot.notifier)
 
-    (text,) = notifications(bot.telegram)
-    assert SECOND_UPLOAD_ID in text and UPLOAD_ID not in text
+    assert notifications(bot.telegram) == [announcement(1)]  # yalnız sonraki olay sayıldı
 
 
 def test_without_listed_users_nothing_is_sent_and_the_event_is_spent(
@@ -398,15 +389,15 @@ def test_an_event_is_announced_only_once(
 ) -> None:
     bot = make_bare_bot()
     queue_event(session_factory)
-    failure_event(session_factory, SECOND_UPLOAD_ID)
+    failure_event(session_factory, SECOND_UPLOAD_ID)  # parti hatası gönderilmez
 
-    assert scan(bot.application, bot.notifier) == 2
+    assert scan(bot.application, bot.notifier) == 1
     assert scan(bot.application, bot.notifier) == 0
 
-    assert len(notifications(bot.telegram)) == 2
+    assert notifications(bot.telegram) == [announcement(1)]
     queue_event(session_factory)  # sonradan gelen yenisi yine gider
     scan(bot.application, bot.notifier)
-    assert len(notifications(bot.telegram)) == 3
+    assert notifications(bot.telegram) == [announcement(1)] * 2
 
 
 def test_an_event_committed_late_with_a_smaller_number_is_not_skipped(
@@ -430,8 +421,7 @@ def test_an_event_committed_late_with_a_smaller_number_is_not_skipped(
 
     scan(bot.application, bot.notifier)
 
-    texts = notifications(bot.telegram)
-    assert len(texts) == 2 and SECOND_UPLOAD_ID in texts[1]
+    assert notifications(bot.telegram) == [announcement(1), announcement(1)]
 
 
 def test_an_event_older_than_the_lookback_is_not_announced(
@@ -476,7 +466,7 @@ def test_the_memory_of_announced_events_does_not_grow_without_bound(
 # --- mesaj biçimi ---------------------------------------------------------------------------------
 
 
-def test_queue_events_of_one_batch_form_one_message_and_batches_stay_apart(
+def test_queue_events_of_several_batches_form_one_message_with_their_count(
     make_bare_bot: Callable[..., NotifyBot],
     session_factory: sessionmaker[Session],
     uploads: None,
@@ -487,43 +477,12 @@ def test_queue_events_of_one_batch_form_one_message_and_batches_stay_apart(
     queue_event(session_factory, SECOND_UPLOAD_ID, reason="İkinci partinin gerekçesi.")
     queue_event(session_factory, UPLOAD_ID, EventType.QUEUED_UNREADABLE, "İkinci gerekçe.")
 
-    assert scan(bot.application, bot.notifier) == 2
+    assert scan(bot.application, bot.notifier) == 1
 
-    first, second = notifications(bot.telegram)
-    assert first == (
-        f"Kuyruğa yeni öğe düştü — parti {UPLOAD_ID}: 2 öğe.\n"
-        "• Tür bilinmiyor: Birinci gerekçe.\n"
-        "• Okunamadı: İkinci gerekçe.\n"
-        "Panelde kuyruğa bakın."
-    )
-    assert second == (
-        f"Kuyruğa yeni öğe düştü — parti {SECOND_UPLOAD_ID}: 1 öğe.\n"
-        "• Sahibi belirsiz: İkinci partinin gerekçesi.\n"
-        "Panelde kuyruğa bakın."
-    )
+    assert notifications(bot.telegram) == [announcement(3)]
 
 
-def test_messages_keep_the_order_of_their_first_event() -> None:
-    def pending(number: int, kind: EventType, upload_id: str) -> PendingEvent:
-        return PendingEvent(number, utcnow(), kind.value, upload_id, "g", "analyzing")
-
-    texts = build_messages(
-        [
-            pending(1, EventType.QUEUED_UNRESOLVED, "a"),
-            pending(2, EventType.PIPELINE_FAILED, "b"),
-            pending(3, EventType.QUEUED_UNKNOWN, "a"),
-            pending(4, EventType.QUEUED_UNKNOWN, "c"),
-        ]
-    )
-
-    assert [text.split(":")[0].split(" — ")[-1] for text in texts] == [
-        "parti a",
-        "Parti b işlenemedi (aşama",
-        "parti c",
-    ]
-
-
-def test_a_long_queue_is_cut_off_with_the_remaining_count(
+def test_a_long_queue_is_still_one_short_message(
     make_bare_bot: Callable[..., NotifyBot],
     session_factory: sessionmaker[Session],
     uploads: None,
@@ -535,40 +494,10 @@ def test_a_long_queue_is_cut_off_with_the_remaining_count(
 
     scan(bot.application, bot.notifier)
 
-    (text,) = notifications(bot.telegram)
-    assert "12 öğe." in text.splitlines()[0]
-    assert text.count("• Sahibi belirsiz:") == 10
-    assert "… ve 2 öğe daha." in text
-    assert all(len(line) <= 200 for line in text.splitlines())  # gerekçe kısaltıldı
-    assert len(text) <= 4000
+    assert notifications(bot.telegram) == [announcement(12)]
 
 
-def test_a_message_stays_far_below_telegrams_length_limit() -> None:
-    events = [
-        PendingEvent(index, utcnow(), EventType.QUEUED_UNKNOWN.value, "u", "x" * 5000, None)
-        for index in range(50)
-    ]
-
-    (text,) = build_messages(events)
-
-    assert len(text) < 2500  # Telegram sınırı 4096
-
-
-@pytest.mark.parametrize(("stage", "label"), list(STAGE_LABELS.items()))
-def test_the_failure_names_the_stage_it_stopped_at(stage: str, label: str) -> None:
-    event = PendingEvent(1, utcnow(), EventType.PIPELINE_FAILED.value, UPLOAD_ID, None, stage)
-
-    assert f"(aşama: {label})" in build_failure_message(event)
-
-
-@pytest.mark.parametrize("stage", [None, "bilinmeyen"])
-def test_a_failure_without_a_known_stage_still_goes_out(stage: str | None) -> None:
-    event = PendingEvent(1, utcnow(), EventType.PIPELINE_FAILED.value, UPLOAD_ID, None, stage)
-
-    assert "(aşama: bilinmiyor)" in build_failure_message(event)
-
-
-def test_a_failure_message_carries_no_error_text_even_when_the_event_has_one(
+def test_a_failure_with_an_error_text_never_reaches_telegram(
     make_bare_bot: Callable[..., NotifyBot],
     session_factory: sessionmaker[Session],
     uploads: None,
@@ -577,15 +506,43 @@ def test_a_failure_message_carries_no_error_text_even_when_the_event_has_one(
     bot = make_bare_bot()
     failure_event(session_factory, message="Ornekova 00 0000001 okunamadı")
 
+    assert scan(bot.application, bot.notifier) == 0
+    assert bot.telegram.sent("sendMessage") == []
+
+
+@pytest.mark.parametrize("language", ["tr", "en", "sr"])
+@pytest.mark.parametrize("count", [1, 2, 5, 21])
+def test_the_announcement_is_plain_in_every_language(language: str, count: int) -> None:
+    with use_language(language):
+        text = queue_message(count)
+
+    assert str(count) in text
+    assert problems(text, language) == []
+
+
+def test_each_recipient_is_told_in_their_own_language(
+    make_bare_bot: Callable[..., NotifyBot],
+    session_factory: sessionmaker[Session],
+    whitelist: Callable[..., None],
+    uploads: None,
+) -> None:
+    whitelist(LISTED_ID)
+    whitelist(OTHER_ID)
+    with session_factory() as session:
+        session.get_one(TelegramUser, OTHER_ID).user.language = "sr"
+        session.commit()
+    bot = make_bare_bot(default_language="en")
+    queue_event(session_factory)
+    queue_event(session_factory, SECOND_UPLOAD_ID)
+
     scan(bot.application, bot.notifier)
 
-    (text,) = notifications(bot.telegram)
-    assert "Ornekova" not in text and "00 0000001" not in text
-
-
-def test_the_queue_footer_and_help_text_tell_about_notifications() -> None:
-    assert "kuyruğa yeni öğe düşünce" in HELP_TEXT
-    assert "işlenemeyince" in HELP_TEXT
+    assert notifications(bot.telegram, LISTED_ID) == [
+        "There are 2 new documents for you to check. You can look at them in the panel."
+    ]
+    assert notifications(bot.telegram, OTHER_ID) == [
+        "Imate 2 nova dokumenta za proveru. Možete ih pogledati na panelu."
+    ]
 
 
 # --- gönderim hataları ---------------------------------------------------------------------------
@@ -668,7 +625,8 @@ def test_the_loop_starts_with_the_bot_announces_new_events_and_stops_with_it(
             await application.post_init(application)  # ikinci başlatma ikinci döngü açmaz
             queue_event(session_factory)
             await wait_until(lambda: len(notifications(bot.telegram)) == 1)
-            failure_event(session_factory)
+            failure_event(session_factory)  # gönderilmez
+            queue_event(session_factory)
             await wait_until(lambda: len(notifications(bot.telegram)) == 2)
             await application.post_shutdown(application)  # type: ignore[misc]
             queue_event(session_factory, SECOND_UPLOAD_ID)
@@ -678,9 +636,7 @@ def test_the_loop_starts_with_the_bot_announces_new_events_and_stops_with_it(
 
     asyncio.run(_run())
 
-    first, second = notifications(bot.telegram)
-    assert first.startswith("Kuyruğa yeni öğe düştü")
-    assert second.startswith(f"Parti {UPLOAD_ID} işlenemedi")
+    assert notifications(bot.telegram) == [announcement(1), announcement(1)]
 
 
 def test_a_failing_scan_is_logged_and_the_loop_carries_on(
@@ -813,5 +769,5 @@ def test_run_polling_starts_the_notifier_and_stops_it_on_shutdown(
         asyncio.set_event_loop(None)
 
     (text,) = notifications(telegram)
-    assert text.startswith(f"Kuyruğa yeni öğe düştü — parti {UPLOAD_ID}")
+    assert text == announcement(1)
     assert notifier._task is None  # kapanışta döngü durduruldu

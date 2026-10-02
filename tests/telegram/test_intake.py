@@ -324,13 +324,13 @@ def test_the_handler_returns_before_the_pipeline_finishes(
     assert len(texts) == 1 + 2  # yardım + "alındı" + "sağlayıcı kurulamadı" özeti
     help_at = next(index for index, text in enumerate(texts) if text.startswith("Merhaba"))
     assert help_at < 2  # yardım, belgenin son iletisinden (özet) önce gitti
-    assert texts[2].startswith("Parti ")
+    assert texts[2] == "Belgeleriniz kaydedildi ama şu an işlenemedi. Yöneticinize haber verin."
 
 
 # --- 12.2.3: sonuç özeti ------------------------------------------------------------------------
 
 
-def test_summary_lists_the_ready_document_without_names_or_numbers(
+def test_summary_lists_the_ready_document_by_type_and_latin_name_without_numbers(
     make_intake_bot: Callable[..., IntakeBot],
     session_factory: sessionmaker[Session],
     listed: None,
@@ -346,20 +346,19 @@ def test_summary_lists_the_ready_document_without_names_or_numbers(
         (document,) = session.scalars(select(Document)).all()
         type_name = document.document_type.name
         employee_id = document.employee_id
+        latin = f"{document.employee.given_names} {document.employee.surname}"
     received, summary = bot.telegram.sent_texts()
-    assert received == "1 dosya alındı. İşleniyor; bitince sonucu yazacağım."
-    assert f"Parti {upload.id}: tamamlandı." in summary
-    assert "Hazır: 1 belge." in summary
-    assert f"• {type_name} — {employee_id}" in summary
-    assert "Kuyruğa düşen" not in summary
-    # CONVENTIONS §6: kimlik alanları iletiye girmez.
-    for personal in ("Ornekova", "ORNEKOVA", DOCUMENT_NUMBER, "Ekaterina"):
-        assert personal not in summary
+    assert received == "1 dosya aldım, bakıyorum. Bitince haber vereceğim."
+    # §D98 d: "Bitti." ve "tür — Latin ad" (05.2.2); parti ve çalışan numarası yok.
+    assert summary == f"Bitti.\n• {type_name} — {latin}"
+    assert upload.id not in summary and employee_id not in summary
+    # CONVENTIONS §6: belge numarası ve doğum tarihi gibi kimlik alanları iletiye girmez.
+    assert DOCUMENT_NUMBER not in summary
     chats = {p["chat_id"] for name, p in bot.telegram.calls if name == "sendMessage"}
     assert chats == {LISTED_ID}  # yalnız gönderene, özel sohbete
 
 
-def test_queued_items_are_summarised_with_their_kind_and_reason(
+def test_queued_items_are_summarised_as_one_sentence_without_kind_or_reason(
     make_intake_bot: Callable[..., IntakeBot],
     session_factory: sessionmaker[Session],
     listed: None,
@@ -376,13 +375,12 @@ def test_queued_items_are_summarised_with_their_kind_and_reason(
         assert queued.kind == "unresolved"
         reason = " ".join(queued.reason.split())
     _, summary = bot.telegram.sent_texts()
-    assert f"Parti {upload.id}: tamamlandı." in summary
-    assert "Kuyruğa düşen: 1 öğe." in summary
-    assert f"• Sahibi belirsiz: {reason[:60]}" in summary
-    assert "Hazır:" not in summary
+    # §D98 d: bakılması gerekenler tek cümle; kuyruk türü ve gerekçe yazılmaz.
+    assert summary == "Bitti.\n1 belgeye bakmanız gerekiyor; panelde kontrol edin."
+    assert reason[:20] not in summary and "Sahibi" not in summary and upload.id not in summary
 
 
-def test_a_long_queue_is_cut_off_with_the_remaining_count(
+def test_a_long_queue_is_one_count(
     make_intake_bot: Callable[..., IntakeBot],
     session_factory: sessionmaker[Session],
     listed: None,
@@ -401,10 +399,7 @@ def test_a_long_queue_is_cut_off_with_the_remaining_count(
     bot.feed(*updates)
 
     _, summary = bot.telegram.sent_texts()
-    assert "Kuyruğa düşen: 12 öğe." in summary
-    assert summary.count("• Sahibi belirsiz:") == 10
-    assert "… ve 2 öğe daha." in summary
-    assert len(summary) <= 4000
+    assert summary == "Bitti.\n12 belgeye bakmanız gerekiyor; panelde kontrol edin."
 
 
 def test_a_summary_only_counts_its_own_batch(
@@ -422,8 +417,8 @@ def test_a_summary_only_counts_its_own_batch(
     )
 
     _, queue_summary, _, ready_summary = bot.telegram.sent_texts()
-    assert "Kuyruğa düşen: 1 öğe." in queue_summary and "Hazır:" not in queue_summary
-    assert "Hazır: 1 belge." in ready_summary and "Kuyruğa düşen" not in ready_summary
+    assert queue_summary == "Bitti.\n1 belgeye bakmanız gerekiyor; panelde kontrol edin."
+    assert ready_summary.startswith("Bitti.\n• ") and "bakmanız" not in ready_summary
 
 
 def test_many_ready_documents_are_cut_off_with_the_remaining_count(
@@ -432,7 +427,8 @@ def test_many_ready_documents_are_cut_off_with_the_remaining_count(
     listed: None,
     tmp_path: Path,
 ) -> None:
-    monkeypatch.setattr(handlers, "_MAX_LISTED", 1)
+    monkeypatch.setattr(handlers, "MAX_ITEMS", 1)
+    monkeypatch.setattr(handlers, "_MAX_LISTED", 0)
     other = passport_page(
         PERSON_SIDOROV, document_number="00 0000002", expiry_date=date(2031, 1, 1)
     )
@@ -446,9 +442,8 @@ def test_many_ready_documents_are_cut_off_with_the_remaining_count(
     )
 
     summary = bot.telegram.sent_texts()[-1]
-    assert "Hazır: 2 belge." in summary
-    assert summary.count("• ") == 1
-    assert "… ve 1 öğe daha." in summary
+    # Sınır aşılınca son öğe "ve N belge daha" olur (§D98 b).
+    assert summary == "Bitti.\n• ve 2 belge daha"
 
 
 def test_a_repeated_file_is_reported_as_a_duplicate(
@@ -470,9 +465,10 @@ def test_a_repeated_file_is_reported_as_a_duplicate(
     assert first.files[0].is_duplicate_of is None
     assert second.files[0].is_duplicate_of == first.files[0].id  # web ile aynı tekrar tespiti
     summary = bot.telegram.sent_texts()[-1]
-    assert "daha önce yüklenmişti" in summary
     # Özet yalnız kendi partisinin çıktısını sayar: ilk partinin belgesi buraya sızmaz.
-    assert "Hazır:" not in summary
+    assert summary == (
+        "Bitti.\nYeni belge eklenmedi.\n1 dosyayı daha önce göndermiştiniz, yeniden eklemedim."
+    )
 
 
 def test_partial_batch_is_reported_as_such(
@@ -490,7 +486,9 @@ def test_partial_batch_is_reported_as_such(
 
     (upload,) = all_uploads(session_factory)
     assert upload.status == UploadStatus.PARTIAL.value
-    assert "kısmen tamamlandı" in bot.telegram.sent_texts()[-1]
+    assert bot.telegram.sent_texts()[-1].endswith(
+        "\nBazı sayfalar okunamadı; panelde kontrol edin."
+    )
 
 
 def test_a_pipeline_that_stops_is_reported_and_the_file_stays_stored(
@@ -510,8 +508,9 @@ def test_a_pipeline_that_stops_is_reported_and_the_file_stays_stored(
     assert upload.status == UploadStatus.FAILED.value
     assert bot.layout is not None
     assert bot.layout.resolve(upload.files[0].stored_path).read_bytes() == pdf
-    assert bot.telegram.sent_texts()[-1] == (
-        f"Parti {upload.id}: işlenemedi.\nDosyalar saklandı; ayrıntı için panelde partiye bakın."
+    assert (
+        bot.telegram.sent_texts()[-1]
+        == "Belgeleriniz kaydedildi ama şu an işlenemedi. Yöneticinize haber verin."
     )
 
 
@@ -525,9 +524,7 @@ def test_summary_of_a_failed_batch_without_a_plan(
 
         text = build_summary(session, "u_20260101_001", failed)
 
-    assert text == (
-        "Parti u_20260101_001: işlenemedi.\nDosyalar saklandı; ayrıntı için panelde partiye bakın."
-    )
+    assert text == "Belgeleriniz kaydedildi ama şu an işlenemedi. Yöneticinize haber verin."
 
 
 def test_summary_without_outputs_says_so(
@@ -568,9 +565,9 @@ def test_files_of_one_album_form_a_single_upload_and_one_summary(
     assert file_names(session_factory, upload.id) == ["pasaport.pdf", "ozgecmis.docx"]
     assert upload.status == UploadStatus.DONE.value
     received, summary = bot.telegram.sent_texts()
-    assert received == "2 dosya alındı. İşleniyor; bitince sonucu yazacağım."
-    assert "Hazır: 1 belge." in summary
-    assert "Kuyruğa düşen: 1 öğe." in summary
+    assert received == "2 dosya aldım, bakıyorum. Bitince haber vereceğim."
+    assert summary.count("\n• ") == 1
+    assert summary.endswith("\n1 belgeye bakmanız gerekiyor; panelde kontrol edin.")
 
 
 def test_the_wait_restarts_with_every_album_file(
@@ -693,8 +690,8 @@ def test_file_over_the_size_limit_opens_no_upload_and_is_not_downloaded(
     assert all_uploads(session_factory) == []
     assert "getFile" not in bot.telegram.methods()
     assert bot.telegram.sent_texts() == [
-        "'dev.pdf' dosyası 2 MB sınırını aşıyor. Lütfen dosyayı bölüp tekrar gönderin."
-    ]
+        "“dev.pdf” çok büyük, alamadım. Daha küçük parçalar hâlinde gönderin."
+    ]  # §D98 d: sınır değeri ve MB yazılmaz
 
 
 def test_size_limit_is_enforced_on_the_downloaded_bytes_too(
@@ -709,8 +706,9 @@ def test_size_limit_is_enforced_on_the_downloaded_bytes_too(
     bot.feed(document_update(1, LISTED_ID, "big", "dev.pdf"))  # file_size bildirilmedi
 
     assert all_uploads(session_factory) == []
-    (text,) = bot.telegram.sent_texts()
-    assert "'dev.pdf' dosyası" in text and "sınırını aşıyor" in text
+    assert bot.telegram.sent_texts() == [
+        "“dev.pdf” çok büyük, alamadım. Daha küçük parçalar hâlinde gönderin."
+    ]
 
 
 def test_one_oversized_file_rejects_the_whole_album(
@@ -741,10 +739,9 @@ def test_telegram_refusing_a_big_download_is_reported_as_a_size_problem(
     bot.feed(document_update(1, LISTED_ID, "yok", "dev.pdf"))
 
     assert all_uploads(session_factory) == []
-    (text,) = bot.telegram.sent_texts()
-    assert text == (
-        "'dev.pdf' dosyası 20 MB sınırını aşıyor. Lütfen dosyayı bölüp tekrar gönderin."
-    )
+    assert bot.telegram.sent_texts() == [
+        "“dev.pdf” çok büyük, alamadım. Daha küçük parçalar hâlinde gönderin."
+    ]
 
 
 def test_a_failed_download_opens_no_upload(
@@ -782,11 +779,8 @@ def test_without_a_provider_the_files_are_kept_and_the_user_is_told(
     assert bot.layout is not None
     assert bot.layout.resolve(upload.files[0].stored_path).read_bytes() == pdf
     received, notice = bot.telegram.sent_texts()
-    assert received.startswith("1 dosya alındı")
-    assert notice == (
-        f"Parti {upload.id}: 1 dosya alındı ve saklandı, ama yapay zekâ sağlayıcısı "
-        "kurulamadığı için işlenmiyor. Yöneticiye bildirin."
-    )
+    assert received.startswith("1 dosya aldım")
+    assert notice == "Belgeleriniz kaydedildi ama şu an işlenemedi. Yöneticinize haber verin."
     # 13.3.1: iş kuyruğa geri döndü; sağlayıcısı olan işleyici partiyi sonra işler.
     job = the_job(session_factory)
     assert (job.status, job.claimed_by, job.lease_expires_at) == (JobStatus.QUEUED, None, None)

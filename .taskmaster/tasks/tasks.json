@@ -2341,13 +2341,13 @@
         "description": "PRD 12.1.9 (+ 12.4.1 değişikliği) · FR-MOD-12 · Faz 2 · Should (v2). Tam sözleşme PLAN §D98 — önce oku.",
         "details": "KAPSAM: §D98 a–g. (1) `app/telegram/plain.py`: yasak sözcük listesi (tr/en/sr; §D98 c) ve denetim yardımcıları (liste dışı satır sayısı, liste öğesi sayısı, uuid ve `E\\d+` deseni, `%`, MB/KB/GB) — testler bunu kullanır. (2) Bütün bot metinleri §D98 d eşlemesiyle yeniden yazılır: `bot.py` (HELP_TEXT, bağlantı yanıtları; izni kapalı ve başkasına bağlı TEK metin), `handlers.py` (alındı; `build_summary`: parti numarası yok, çalışan numarası yerine Latin ad, kuyruk türü ve gerekçe yok, tek \"panelde kontrol edin\" cümlesi; çok büyük — MB yok; indirilemedi; işlenemedi / sağlayıcı yok / beklenmeyen hata → tek sade cümle; başka işleyiciye geçti → \"sonuç panelde görünecek\"), `intent.py` (katalog ve çalışan numarası örneği yok), 12.1.7 kimlik yanıtı (tm 160) ve `notify.py`. (3) `notify.py`: `PIPELINE_FAILED` Telegram'a gönderilmez; kuyruk olayları tarama başına TEK mesaj \"Kontrol etmeniz gereken N yeni belge var. Panelde bakabilirsiniz.\"; `watch` (13.6.1) bota verilmez — uyarılar yalnız logda (`Uyarı — …`) kalır; `app/worker/monitor.py`, worker ve panel tarafı değişmez. (4) `en`/`sr` çevirileri aynı sadelikte yeniden yazılır; `python -m app.i18n check` temiz. (5) README (Telegram ve İzleme bölümleri: uyarı artık Telegram'a gitmez), `.env.example` açıklama satırı, `notify.py`/`handlers.py`/`bot.py` modül açıklamaları güncellenir. (6) Var olan bot testleri yeni metinlere göre güncellenir; davranış assert'leri silinmez. DOKUNMA: hangi belgenin nereye gittiği, bağlama kuralları, erişim logu (12.3.3), olaylar, log metinleri, panel metinleri.",
         "testStrategy": "1) Bütün bot metin sabitleri ve üretilen örnek mesajlar (özet: tamamlandı / kısmen / işlenemedi, 7 belgeli özet, tekrar, kuyruk bildirimi, belge isteme yanıtları, bağlantı yanıtları, kimlik yanıtı, yardım) üç dilde `plain.py` denetiminden geçer: yasak sözcük 0, uuid 0, `E\\d+` 0, `%` ve MB 0, liste dışı satır ≤ 4, liste öğesi ≤ 5. 2) Özet yerine konan belgeyi \"tür — Latin ad\" olarak verir; kuyruğa düşen öğenin gerekçesi mesajda yok. 3) `PIPELINE_FAILED` olayı Telegram mesajı doğurmaz; iki partiden düşen 3 kuyruk öğesi aynı taramada tek mesaj, sayı 3. 4) İzleme eşiği aşılınca Telegram mesajı gitmez, `Uyarı — …` log satırı yine yazılır (13.6.1 testleri yeşil). 5) Sağlayıcı yokken belge gönderen kişi tek sade cümle alır, dosya yine saklanır. 6) `check` temiz. 7) Kural bozmaları (bir metne parti numarası geri eklenir, `watch` bota verilir, `PIPELINE_FAILED` gönderilir) kırmızı. 8) DoD kapısı yeşil.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [
           "160"
         ],
         "priority": "medium",
         "subtasks": [],
-        "updatedAt": "2026-10-02T12:00:00.000Z"
+        "updatedAt": "2026-10-02T19:27:12.825Z"
       },
       {
         "id": "162",
@@ -2364,9 +2364,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-02T18:56:04.603Z",
+      "lastModified": "2026-10-02T19:27:12.826Z",
       "taskCount": 160,
-      "completedCount": 155,
+      "completedCount": 156,
       "tags": [
         "master"
       ]

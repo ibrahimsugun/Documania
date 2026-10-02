@@ -172,7 +172,10 @@ telefonunda açıp «Başlat»a basınca bot kimliğini hesabına kendisi bağla
 çalışıp adını veri dizinine (`data/telegram/bot.json`) yazdıktan sonra açılır. Yedek yol aynı
 sayfada elle eklemedir: kimlik telefon numarası değil, Telegram'ın hesaba verdiği sabit sayıdır;
 kişi bota `/start` yazarak ya da [@userinfobot](https://t.me/userinfobot)'tan öğrenir (sayı ya da
-kopyalanan `Id: …` satırı). Bot, bağlı olmayan birinin `/start`'ına tek bir kısa yanıt verir:
+kopyalanan `Id: …` satırı). Bot sade, kısa ve teknik terimsiz yazar (12.1.9): parti numarası, kuyruk türü, gerekçe ya da
+çalışan numarası göndermez; kuyruğa yeni öğe düşünce listedekilere tarama başına tek mesaj gider
+("Kontrol etmeniz gereken N yeni belge var"), parti hatası ve izleme uyarısı Telegram'a gitmez.
+Bot, bağlı olmayan birinin `/start`'ına tek bir kısa yanıt verir:
 bağlı değilsiniz, panelde Hesabım → Telegram'ı açın; son satırda yalnız Telegram numarası (sohbet
 başına saatte bir). Bağlı kişinin yardım ve «Bağlandı» yanıtı da numarayı söyler. Yönetici Kullanıcılar sayfasında başkasının kimliğinin iznini kapatıp
 açabilir (kaybolan telefon), başkası adına kimlik ekleyemez ve bağlantı üretemez.
@@ -182,9 +185,9 @@ açabilir (kaybolan telefon), başkası adına kimlik ekleyemez ve bağlantı ü
 
 **İzleme ve uyarı (PRD 13.6.1):** hata (son bir saatte üç işlenemeyen parti), disk doluluğu (veri
 diski yüzde 85), işçi kuyruğu (20 bekleyen parti) ve karar bekleyen kuyruk (50 öğe) eşiği aşınca
-uyarı üretilir: panel, worker ve bot süreçlerinin logunda (`docker compose logs app worker bot`, satır "Uyarı — …")
-ve bot çalışıyorsa beyaz listedeki kullanıcılara Telegram mesajı olarak. Süren uyarı altı saatte bir
-hatırlatılır, eşiğin yüzde 90'ının altına inince "Uyarı giderildi" gider. Eşikler ve aralıklar
+uyarı üretilir: worker sürecinin logunda (`docker compose logs worker`, satır "Uyarı — …"). Uyarı
+Telegram'a gitmez: bot yalnız sade mesaj gönderir (PRD 12.1.9). Süren uyarı altı saatte bir
+hatırlatılır, eşiğin yüzde 90'ının altına inince "Uyarı giderildi" yazılır. Eşikler ve aralıklar
 `.env`'deki `ALERT_*` değişkenleridir (`.env.example`). PostgreSQL'in kendi hacmi (`pgdata`)
 uygulama sürecinden görünmez, ölçülmez.
 

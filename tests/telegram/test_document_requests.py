@@ -272,7 +272,7 @@ def test_request_for_a_single_document_sends_the_stored_bytes_and_logs_the_acces
     assert bot.telegram.uploads == [("Ahmet_Cakar-Driving-License.pdf", pdf("ehliyet"))]
     (sent,) = bot.telegram.sent("sendDocument")
     assert sent["chat_id"] == LISTED_ID
-    assert sent["caption"] == "Serbian Driving License — AHMET ÇAKAR (E0001)"
+    assert sent["caption"] == "Serbian Driving License — AHMET ÇAKAR"  # §D98: numara yok
     assert bot.telegram.sent("sendMessage") == []
     # 12.3.3: gönderilen belge erişim loguna, isteyenin panel kullanıcısıyla yazıldı.
     assert access_rows(session_factory) == [
@@ -435,12 +435,15 @@ def test_two_matching_documents_ask_which_one_and_only_the_chosen_is_sent(
     # Soru sorulur; hiçbir belge gönderilmez, erişim kaydı yazılmaz.
     (question,) = bot.telegram.sent_texts()
     assert question == (
-        "AHMET ÇAKAR (E0001) için 2 ehliyet bulundu. Hangisini istiyorsunuz?\n"
-        "1. Serbian Driving License — Ahmet_Cakar-Driving-License-2.pdf — 01.09.2026\n"
-        "2. Serbian Driving License — Ahmet_Cakar-Driving-License.pdf — 01.03.2026"
+        "AHMET ÇAKAR için 2 ehliyet buldum. Hangisi?\n"
+        "• 1. Serbian Driving License — 01.09.2026\n"
+        "• 2. Serbian Driving License — 01.03.2026"
     )
     labels = [label for label, _ in buttons(bot)]
-    assert labels == ["1. Ahmet_Cakar-Driving-License-2.pdf", "2. Ahmet_Cakar-Driving-License.pdf"]
+    assert labels == [
+        "1. Serbian Driving License — 01.09.2026",
+        "2. Serbian Driving License — 01.03.2026",
+    ]
     assert bot.telegram.uploads == []
     assert access_rows(session_factory) == []
 
@@ -501,20 +504,21 @@ def test_several_matching_employees_are_asked_first_then_their_documents(
     bot, _ = ask(query("Ahmet Çakar"))
 
     (question,) = bot.telegram.sent_texts()
+    # §D98 c: çalışan numarası yok; aynı adlı kişileri doğum tarihi ayırır.
     assert question == (
-        "“Ahmet Çakar” ile eşleşen 2 çalışan bulundu. Hangisi?\n"
-        "1. AHMET ÇAKAR — E0001 — doğum 12.04.1988 — 1 ehliyet\n"
-        "2. AHMET ÇAKAR — E0002 — doğum 01.02.1990 — 2 ehliyet"
+        "“Ahmet Çakar” adında 2 kişi var. Hangisi?\n"
+        "• 1. AHMET ÇAKAR — doğum 12.04.1988 — 1 ehliyet\n"
+        "• 2. AHMET ÇAKAR — doğum 01.02.1990 — 2 ehliyet"
     )
     assert [label for label, _ in buttons(bot)] == [
-        "1. AHMET ÇAKAR (E0001)",
-        "2. AHMET ÇAKAR (E0002)",
+        "1. AHMET ÇAKAR — 12.04.1988",
+        "2. AHMET ÇAKAR — 01.02.1990",
     ]
     assert bot.telegram.uploads == [] and access_rows(session_factory) == []
 
     # Çalışan seçilince onun belgeleri sorulur; belge seçilince gönderilir.
     bot.feed(callback_update(2, LISTED_ID, buttons(bot)[1][1]))
-    assert bot.telegram.sent_texts()[-1].startswith("AHMET ÇAKAR (E0002) için 2 ehliyet bulundu.")
+    assert bot.telegram.sent_texts()[-1].startswith("AHMET ÇAKAR için 2 ehliyet buldum.")
     assert bot.telegram.uploads == []
     bot.feed(callback_update(3, LISTED_ID, buttons(bot)[1][1]))
 
@@ -538,12 +542,12 @@ def test_an_inactive_employee_is_still_found_and_named_with_the_suffix(
     bot, _ = ask(query("Ahmet Çakar"))
 
     assert bot.telegram.sent_texts()[0].splitlines()[1:] == [
-        "1. AHMET ÇAKAR — E0001 — 1 ehliyet",
-        "2. AHMET ÇAKAR (pasif) — E0002 — 1 ehliyet",
+        "• 1. AHMET ÇAKAR — 1 ehliyet",
+        "• 2. AHMET ÇAKAR (pasif) — 1 ehliyet",
     ]
     assert [label for label, _ in buttons(bot)] == [
-        "1. AHMET ÇAKAR (E0001)",
-        "2. AHMET ÇAKAR (E0002) (pasif)",
+        "1. AHMET ÇAKAR",
+        "2. AHMET ÇAKAR (pasif)",
     ]
     bot.feed(callback_update(2, LISTED_ID, buttons(bot)[1][1]))
 
@@ -561,13 +565,13 @@ def test_chosen_employee_with_a_single_document_gets_it_and_one_without_is_told(
 
     bot, _ = ask(query("Ahmet Çakar"))
     assert bot.telegram.sent_texts()[0].splitlines()[1:] == [
-        "1. AHMET ÇAKAR — E0001 — 1 ehliyet",
-        "2. AHMET ÇAKAR — E0002 — ehliyet yok",
+        "• 1. AHMET ÇAKAR — 1 ehliyet",
+        "• 2. AHMET ÇAKAR — ehliyet yok",
     ]
     choices = buttons(bot)
     bot.feed(callback_update(2, LISTED_ID, choices[1][1]))
 
-    assert bot.telegram.sent_texts()[-1] == "AHMET ÇAKAR (E0002) için ehliyet bulunamadı."
+    assert bot.telegram.sent_texts()[-1] == "AHMET ÇAKAR için ehliyet bulamadım."
     assert bot.telegram.uploads == [] and access_rows(session_factory) == []
 
     # Soru tek kullanımlık: aynı sorunun öteki düğmesi artık geçersiz.
@@ -609,9 +613,9 @@ def test_request_without_a_kind_offers_every_active_document(
     )
 
     assert bot.telegram.sent_texts() == [
-        "AHMET ÇAKAR (E0001) için 2 belge bulundu. Hangisini istiyorsunuz?\n"
-        "1. Russian Passport — p.pdf — 01.02.2026\n"
-        "2. Serbian Driving License — l.pdf — 01.01.2026"
+        "AHMET ÇAKAR için 2 belge buldum. Hangisi?\n"
+        "• 1. Russian Passport — 01.02.2026\n"
+        "• 2. Serbian Driving License — 01.01.2026"
     ]
 
 
@@ -634,10 +638,9 @@ def test_long_result_lists_are_cut_at_the_option_limit(
 
     assert isinstance(people, Question) and isinstance(documents, Question)
     assert len(people.options) == len(documents.options) == MAX_OPTIONS
-    assert people.text.endswith(
-        "… ve 2 çalışan daha. Adı daha ayrıntılı ya da çalışan numarasıyla yazın."
-    )
-    assert documents.text.endswith("… ve 1 belge daha. Türü belirtin ya da panelden bakın.")
+    assert MAX_OPTIONS == 5  # §D98 b: listede en çok beş öğe
+    assert people.text.endswith("\nve 2 kişi daha. Adı daha ayrıntılı yazın.")
+    assert documents.text.endswith("\nve 1 belge daha. Türünü de yazarak isteyin.")
     assert all(len(label) <= 60 for label in (*people.labels, *documents.labels))
 
 
@@ -651,9 +654,9 @@ def test_long_result_lists_are_cut_at_the_option_limit(
         (query("Ahmet Çakar", "Mehmet Kaya"), MANY_PEOPLE_TEXT),
         (
             query("Ahmet Çakar", kind="vize", types=()),
-            "“vize” katalogdaki belge türlerinden hiçbirine karşılık gelmiyor.",
+            "“vize” diye bir belge türü bilmiyorum.",
         ),
-        (query("Veli Test"), "“Veli Test” ile eşleşen çalışan bulunamadı."),
+        (query("Veli Test"), "“Veli Test” adında birini bulamadım."),
         (query("Ahmet Çakar", kind="pasaport", types=(PASSPORT,)), None),
         (query(intent_name="other", kind=None, types=()), NOT_A_REQUEST_TEXT),
     ],
@@ -671,17 +674,15 @@ def test_incomplete_or_unmatched_requests_are_answered_without_sending_anything(
 
     bot, _ = ask(response)
 
-    assert bot.telegram.sent_texts() == [
-        expected or "AHMET ÇAKAR (E0001) için pasaport bulunamadı."
-    ]
+    assert bot.telegram.sent_texts() == [expected or "AHMET ÇAKAR için pasaport bulamadım."]
     assert bot.telegram.uploads == []
     assert access_rows(session_factory) == []
 
 
 def test_help_text_describes_sending_and_requesting_documents() -> None:
     assert "henüz etkin değil" not in HELP_TEXT
-    assert "Belge göndermek" in HELP_TEXT and "Belge istemek" in HELP_TEXT
-    assert "Ahmet Çakar'ın ehliyetini göster" in HELP_TEXT
+    assert "Belge göndermek için" in HELP_TEXT and "Bir belgeyi görmek için" in HELP_TEXT
+    assert "Ahmet Çakar'ın ehliyeti" in HELP_TEXT
 
 
 def test_commands_files_and_texts_reach_their_own_handlers(
@@ -715,8 +716,7 @@ def test_long_message_is_refused_without_asking_the_provider(
 
     assert provider.queries == []
     assert bot.telegram.sent_texts() == [
-        f"İstek çok uzun ({MAX_REQUEST_LENGTH} karakterden fazla). Kimin hangi belgesini "
-        "istediğinizi kısaca yazın."
+        "Mesajınız çok uzun. Kimin hangi belgesini istediğinizi kısaca yazın."
     ]
 
 
@@ -898,7 +898,7 @@ def test_very_long_questions_are_cut_to_the_telegram_limit(
     session_factory: sessionmaker[Session],
 ) -> None:
     for number in range(1, MAX_OPTIONS + 1):
-        add_employee(session_factory, number, "Ali " + "Uzun" * 60, f"Test{number:02d}" * 30)
+        add_employee(session_factory, number, "Ali " + "Uzun" * 120, f"Test{number:02d}" * 60)
 
     bot, _ = ask(query("Ali", kind=None, types=()))
 
@@ -947,10 +947,26 @@ def test_document_archived_after_the_question_is_not_sent(
     layout: DataLayout,
 ) -> None:
     employee = add_employee(session_factory, 1)
-    first = add_document(session_factory, layout, employee, LICENSE, "a.pdf", pdf("a"))
-    add_document(session_factory, layout, employee, LICENSE, "b.pdf", pdf("b"))
+    first = add_document(
+        session_factory,
+        layout,
+        employee,
+        LICENSE,
+        "a.pdf",
+        pdf("a"),
+        created_at=datetime(2026, 9, 1, tzinfo=UTC),  # yeniden eskiye: ilk seçenek
+    )
+    add_document(
+        session_factory,
+        layout,
+        employee,
+        LICENSE,
+        "b.pdf",
+        pdf("b"),
+        created_at=datetime(2026, 1, 1, tzinfo=UTC),
+    )
     bot, _ = ask(query("Ahmet Çakar"))
-    choice = next(data for label, data in buttons(bot) if label.endswith("a.pdf"))
+    choice = buttons(bot)[0][1]
     with session_factory() as session:
         session.get_one(Document, first).status = DocumentStatus.ARCHIVED.value
         session.commit()
@@ -1033,7 +1049,7 @@ def test_file_over_the_telegram_limit_is_not_sent(
     bot, _ = ask(query("Ahmet Çakar"))
 
     assert bot.telegram.sent_texts() == [
-        "Belge Telegram'ın gönderim sınırını (0 MB) aşıyor; panelden indirin."
+        "Bu belge Telegram'dan gönderilemeyecek kadar büyük. Panelden indirin."
     ]
     assert bot.telegram.uploads == [] and access_rows(session_factory) == []
 

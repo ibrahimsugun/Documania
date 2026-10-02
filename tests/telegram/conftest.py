@@ -22,6 +22,7 @@ from telegram.ext import Application, ApplicationBuilder
 from telegram.request import BaseRequest, RequestData
 
 import app.telegram.bot as bot_module
+import app.telegram.notify as notify_module
 from app.ai.provider import AnalysisProvider, ProviderConfigError
 from app.catalog import import_catalog, load_seed_catalog
 from app.config import Settings
@@ -40,6 +41,7 @@ def turkish_bot(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     dili test sürecinde Türkçedir (panel testlerindeki `PANEL_DEFAULT_LANGUAGE=tr` gibi). Dil
     davranışını sınayan testler dili açıkça verir (`test_bot_language.py`)."""
     monkeypatch.setattr(bot_module, "FALLBACK_LANGUAGE", "tr")
+    monkeypatch.setattr(notify_module, "FALLBACK_LANGUAGE", "tr")
     # Bot dışından doğrudan çağrılan işlevler (`resolve_query`, `build_summary`) de Türkçe görür;
     # botun kendisi her güncellemede dili yeniden yazar.
     with use_language("tr"):

@@ -4,7 +4,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Documania panel\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-02 18:36+0000\n"
+"POT-Creation-Date: 2026-10-02 19:00+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -87,18 +87,6 @@ msgid "%(num)d çıktı \"eski sürüm\" olarak işaretlendi."
 msgid_plural "%(num)d çıktı \"eski sürüm\" olarak işaretlendi."
 msgstr[0] ""
 msgstr[1] ""
-
-#: app/telegram/handlers.py
-#, python-brace-format
-msgid "'{name}' dosyası Telegram'dan indirilemedi. Lütfen tekrar gönderin."
-msgstr ""
-
-#: app/telegram/handlers.py
-#, python-brace-format
-msgid ""
-"'{name}' dosyası {limit} MB sınırını aşıyor. Lütfen dosyayı bölüp tekrar "
-"gönderin."
-msgstr ""
 
 #: app/web/routers/uploads.py
 #, python-brace-format
@@ -294,13 +282,12 @@ msgstr ""
 msgid "Bakan kullanıcı"
 msgstr ""
 
-#: app/web/templates/upload_detail.html app/web/templates/uploads_list.html
-msgid "Bağlam çalışanı"
+#: app/telegram/handlers.py
+msgid "Bazı sayfalar okunamadı; panelde kontrol edin."
 msgstr ""
 
-#: app/telegram/bot.py
-#, python-brace-format
-msgid "Bağlandı: {username}. Belge göndermek ve istemek için /yardim yazın."
+#: app/web/templates/upload_detail.html app/web/templates/uploads_list.html
+msgid "Bağlam çalışanı"
 msgstr ""
 
 #: app/web/templates/account_telegram.html
@@ -317,14 +304,6 @@ msgid_plural ""
 "yeni bağlantı bunu geçersiz kılar."
 msgstr[0] ""
 msgstr[1] ""
-
-#: app/telegram/bot.py
-msgid "Bağlantı geçersiz ya da süresi dolmuş; yöneticinizden yenisini isteyin."
-msgstr ""
-
-#: app/telegram/bot.py
-msgid "Bağlantı şu anda işlenemedi; biraz sonra yeniden deneyin."
-msgstr ""
 
 #: app/web/templates/account_telegram.html
 msgid "Bağlantıyı kopyala"
@@ -374,11 +353,6 @@ msgstr ""
 msgid "Belge Grupları"
 msgstr ""
 
-#: app/telegram/intent.py
-#, python-brace-format
-msgid "Belge Telegram'ın gönderim sınırını ({limit} MB) aşıyor; panelden indirin."
-msgstr ""
-
 #: app/web/templating.py
 msgid "Belge Türleri"
 msgstr ""
@@ -419,16 +393,6 @@ msgstr ""
 
 #: app/web/routers/employees.py
 msgid "Belge grubu bulunamadı."
-msgstr ""
-
-#: app/telegram/intent.py
-msgid "Belge gönderilemedi. Lütfen tekrar deneyin."
-msgstr ""
-
-#: app/telegram/intent.py
-msgid ""
-"Belge isteme şu an çalışmıyor: yapay zekâ sağlayıcısı kurulamadı. "
-"Yöneticiye bildirin."
 msgstr ""
 
 #: app/web/templates/profile.html
@@ -512,12 +476,16 @@ msgid ""
 "kayıtlar silinmez."
 msgstr ""
 
-#: app/web/routers/documents.py
-msgid "Belgenin dosyası bulunamadı; taşınamaz."
+#: app/telegram/handlers.py
+msgid "Belgeleriniz kaydedildi ama şu an işlenemedi. Yöneticinize haber verin."
 msgstr ""
 
-#: app/telegram/intent.py
-msgid "Belgenin dosyası bulunamadı; yöneticiye bildirin."
+#: app/telegram/handlers.py
+msgid "Belgeleriniz kaydedildi; sonuç panelde görünecek."
+msgstr ""
+
+#: app/web/routers/documents.py
+msgid "Belgenin dosyası bulunamadı; taşınamaz."
 msgstr ""
 
 #: app/web/templates/document_move.html
@@ -542,6 +510,10 @@ msgstr ""
 
 #: app/web/routers/documents.py
 msgid "Belgeyi arşive taşı"
+msgstr ""
+
+#: app/telegram/intent.py
+msgid "Belgeyi gönderemedim. Yeniden deneyin."
 msgstr ""
 
 #: app/web/templates/queue_close_step.html
@@ -608,6 +580,10 @@ msgstr ""
 msgid "Bitiş günü geçerli bir tarih değil (YYYY-AA-GG); yok sayıldı."
 msgstr ""
 
+#: app/telegram/handlers.py
+msgid "Bitti."
+msgstr ""
+
 #: app/web/templates/history.html app/web/templates/profile.html
 msgid "Biçim"
 msgstr ""
@@ -627,24 +603,25 @@ msgid ""
 msgstr ""
 
 #: app/telegram/bot.py
+msgid "Bu Telegram kullanılamıyor. Yöneticinize haber verin."
+msgstr ""
+
+#: app/telegram/bot.py
+msgid "Bu Telegram zaten hesabınıza bağlı."
+msgstr ""
+
+#: app/telegram/bot.py
 msgid ""
-"Bu Telegram hesabı başka bir panel kullanıcısına bağlı; yöneticinize "
-"başvurun."
-msgstr ""
-
-#: app/telegram/bot.py
-#, python-brace-format
-msgid "Bu Telegram hesabı zaten {username} kullanıcısına bağlı."
-msgstr ""
-
-#: app/telegram/bot.py
-msgid "Bu Telegram hesabının izni kapalı; yöneticinize başvurun."
+"Bu bağlantının süresi dolmuş. Panelde Hesabım → Telegram'dan yenisini "
+"alın."
 msgstr ""
 
 #: app/telegram/intent.py
-msgid ""
-"Bu belge artık güncel değil (arşivlendi ya da yeniden analizle "
-"yenilendi). İsteği yeniden yazın."
+msgid "Bu belge Telegram'dan gönderilemeyecek kadar büyük. Panelden indirin."
+msgstr ""
+
+#: app/telegram/intent.py
+msgid "Bu belge değişmiş. İsteğinizi yeniden yazın."
 msgstr ""
 
 #: app/web/templates/history.html
@@ -657,6 +634,10 @@ msgid ""
 "Bu belgelerde okunan kişi %(name)s (%(id)s) değil görünüyor: profile de "
 "başka bir çalışana da otomatik eklenmedi, Unresolved kuyruğunda bekliyor."
 " Belgenin kime ait olduğuna kuyruktan karar verin."
+msgstr ""
+
+#: app/telegram/intent.py
+msgid "Bu belgeyi açamadım. Yöneticinize haber verin."
 msgstr ""
 
 #: app/matching/records.py
@@ -696,14 +677,6 @@ msgstr ""
 msgid "Bu kullanıcıya bağlı böyle bir Telegram kimliği yok"
 msgstr ""
 
-#: app/telegram/intent.py
-msgid ""
-"Bu mesajı bir belge isteği olarak anlayamadım. Bir çalışanın belgesini "
-"istemek için kimin hangi belgesini istediğinizi yazın, örneğin: “Ahmet "
-"Çakar'ın ehliyetini göster”. Bot belge içeriğini değiştirmez; taşıma ve "
-"arşivleme panelden yapılır. Yardım: /yardim"
-msgstr ""
-
 #: app/web/templates/upload_detail.html
 msgid "Bu parti için henüz plan yok."
 msgstr ""
@@ -733,7 +706,7 @@ msgid "Bu sayfayı yalnız yönetici açabilir."
 msgstr ""
 
 #: app/telegram/intent.py
-msgid "Bu seçim artık geçerli değil. İsteği yeniden yazın."
+msgid "Bu seçim artık geçerli değil. İsteğinizi yeniden yazın."
 msgstr ""
 
 #: app/web/templates/uploads_list.html
@@ -858,16 +831,12 @@ msgstr ""
 msgid "Dosya bulunamadı"
 msgstr ""
 
-#: app/telegram/handlers.py
-msgid "Dosyalar işlenirken beklenmeyen bir hata oluştu. Lütfen tekrar deneyin."
-msgstr ""
-
-#: app/telegram/handlers.py
-msgid "Dosyalar saklandı; ayrıntı için panelde partiye bakın."
-msgstr ""
-
 #: app/web/templates/profile.html app/web/templates/upload.html
 msgid "Dosyaları buraya sürükleyip bırakın"
+msgstr ""
+
+#: app/telegram/handlers.py
+msgid "Dosyalarınızı alamadım. Lütfen yeniden gönderin."
 msgstr ""
 
 #: app/web/templates/upload_detail.html
@@ -1121,13 +1090,6 @@ msgstr ""
 msgid "Hazır"
 msgstr ""
 
-#: app/telegram/handlers.py
-#, python-brace-format
-msgid "Hazır: {count} belge."
-msgid_plural "Hazır: {count} belge."
-msgstr[0] ""
-msgstr[1] ""
-
 #: app/web/templates/upload_detail.html
 msgid "Hedef"
 msgstr ""
@@ -1156,15 +1118,15 @@ msgstr ""
 msgid "Hepsi"
 msgstr ""
 
-#: app/telegram/intent.py
-msgid "Her istekte tek bir çalışanın belgesini isteyin."
-msgstr ""
-
 #: app/web/templates/uploads_list.html
 msgid ""
 "Her satır bir <strong>parti</strong>: tek seferde, tek kanaldan (panel ya"
 " da Telegram) gönderilen dosya grubu. Parti numarasına tıklayınca o "
 "gönderimdeki dosyalar, sayfalar ve sistemin verdiği kararlar açılır."
+msgstr ""
+
+#: app/telegram/intent.py
+msgid "Her seferinde tek bir kişinin belgesini isteyin."
 msgstr ""
 
 #: app/web/routers/users.py
@@ -1326,9 +1288,7 @@ msgid "Kendi parolanızı «Parolamı değiştir» sayfasından değiştirin."
 msgstr ""
 
 #: app/telegram/intent.py
-msgid ""
-"Kimin belgesini istediğinizi yazın: ad-soyad ya da çalışan numarası (ör. "
-"E0001)."
+msgid "Kimin belgesini istediğinizi adıyla yazın."
 msgstr ""
 
 #: app/web/templates/access_log_employee.html
@@ -1342,6 +1302,13 @@ msgstr ""
 #: app/web/routers/employees.py
 msgid "Kiril"
 msgstr ""
+
+#: app/telegram/notify.py
+#, python-brace-format
+msgid "Kontrol etmeniz gereken {count} yeni belge var. Panelde bakabilirsiniz."
+msgid_plural "Kontrol etmeniz gereken {count} yeni belge var. Panelde bakabilirsiniz."
+msgstr[0] ""
+msgstr[1] ""
 
 #: app/web/templates/account_telegram.html
 msgid "Kopyalandı"
@@ -1436,13 +1403,6 @@ msgstr ""
 msgid "Kuyruğa alınanlar"
 msgstr ""
 
-#: app/telegram/handlers.py
-#, python-brace-format
-msgid "Kuyruğa düşen: {count} öğe."
-msgid_plural "Kuyruğa düşen: {count} öğe."
-msgstr[0] ""
-msgstr[1] ""
-
 #: app/web/routers/uploads_list.py
 msgid "Kısmen tamamlandı"
 msgstr ""
@@ -1477,26 +1437,23 @@ msgstr ""
 
 #: app/telegram/bot.py
 msgid ""
-"Merhaba, Documania botuna hoş geldiniz.\n"
-"\n"
-"Belge göndermek: belgeyi dosya olarak gönderin. Fotoğraf olarak "
-"gönderilen görüntüyü Telegram sıkıştırır; kimlik belgelerini dosya olarak"
-" gönderin. Birlikte (albüm olarak) gönderilen dosyalar tek parti sayılır;"
-" işlem bitince sonucu yazarım.\n"
-"\n"
-"Belge istemek: kimin hangi belgesini istediğinizi yazın, örneğin “Ahmet "
-"Çakar'ın ehliyetini göster”. Birden çok sonuç bulunursa hangisini "
-"istediğinizi sorarım.\n"
-"\n"
-"Bildirimler: kuyruğa yeni öğe düşünce ya da bir parti işlenemeyince size "
-"kendiliğimden yazarım.\n"
-"\n"
-"Komutlar:\n"
-"/start, /yardim — bu mesaj"
+"Merhaba! Belge göndermek için dosyayı buraya gönderin; kimlik belgelerini"
+" fotoğraf değil dosya olarak gönderin.\n"
+"Bir belgeyi görmek için örneğin “Ahmet Çakar'ın ehliyeti” yazın."
+msgstr ""
+
+#: app/telegram/intent.py
+msgid "Mesajınız çok uzun. Kimin hangi belgesini istediğinizi kısaca yazın."
 msgstr ""
 
 #: app/web/templates/upload_detail.html
 msgid "Model:"
+msgstr ""
+
+#: app/telegram/intent.py
+msgid ""
+"Ne istediğinizi anlayamadım. Bir belgeyi görmek için örneğin “Ahmet "
+"Çakar'ın ehliyeti” yazın."
 msgstr ""
 
 #: app/web/templates/profile.html
@@ -1534,7 +1491,7 @@ msgstr ""
 msgid "Numara"
 msgstr ""
 
-#: app/telegram/handlers.py app/web/routers/upload_page.py
+#: app/web/routers/upload_page.py
 msgid "Okunamadı"
 msgstr ""
 
@@ -1723,29 +1680,6 @@ msgstr ""
 msgid "Parti {id}"
 msgstr ""
 
-#: app/telegram/handlers.py
-#, python-brace-format
-msgid ""
-"Parti {upload_id}: işleme başka bir işleyiciye geçti; sonucu panelde "
-"görebilirsiniz."
-msgstr ""
-
-#: app/telegram/handlers.py
-#, python-brace-format
-msgid ""
-"Parti {upload_id}: {count} dosya alındı ve saklandı, ama yapay zekâ "
-"sağlayıcısı kurulamadığı için işlenmiyor. Yöneticiye bildirin."
-msgid_plural ""
-"Parti {upload_id}: {count} dosya alındı ve saklandı, ama yapay zekâ "
-"sağlayıcısı kurulamadığı için işlenmiyor. Yöneticiye bildirin."
-msgstr[0] ""
-msgstr[1] ""
-
-#: app/telegram/handlers.py
-#, python-brace-format
-msgid "Parti {upload_id}: {status}."
-msgstr ""
-
 #: app/web/routers/upload_page.py
 msgid ""
 "Partinin planı yok; yeniden çalıştırılacak ya da yeniden analiz edilecek "
@@ -1856,7 +1790,7 @@ msgstr ""
 msgid "Rota"
 msgstr ""
 
-#: app/telegram/handlers.py app/web/routers/upload_page.py
+#: app/web/routers/upload_page.py
 msgid "Sahibi belirsiz"
 msgstr ""
 
@@ -1990,6 +1924,10 @@ msgstr ""
 
 #: app/web/templates/history.html app/web/templates/upload_detail.html
 msgid "Sıra"
+msgstr ""
+
+#: app/telegram/bot.py
+msgid "Tamam, bağlandınız. Artık belge gönderebilir ve isteyebilirsiniz."
 msgstr ""
 
 #: app/web/routers/upload_page.py app/web/routers/uploads_list.py
@@ -2145,7 +2083,7 @@ msgstr ""
 msgid "Tür"
 msgstr ""
 
-#: app/telegram/handlers.py app/web/routers/upload_page.py
+#: app/web/routers/upload_page.py
 msgid "Tür bilinmiyor"
 msgstr ""
 
@@ -2232,7 +2170,7 @@ msgid "Yeni"
 msgstr ""
 
 #: app/telegram/handlers.py
-msgid "Yeni belge çıkmadı."
+msgid "Yeni belge eklenmedi."
 msgstr ""
 
 #: app/web/templates/users.html
@@ -2444,10 +2382,6 @@ msgstr ""
 msgid "en fazla {limit} karakter olabilir"
 msgstr ""
 
-#: app/telegram/intent.py
-msgid "etkin belge"
-msgstr ""
-
 #: app/web/routers/employees.py
 msgid "farklı — kalanın değeri geçerli kalır, profilde uyarı olur"
 msgstr ""
@@ -2476,10 +2410,6 @@ msgstr ""
 msgid "isteğe bağlı"
 msgstr ""
 
-#: app/telegram/handlers.py
-msgid "işlenemedi"
-msgstr ""
-
 #: app/web/templates/employee_merge_step.html
 msgid "kalan kayda taşınacak"
 msgstr ""
@@ -2496,10 +2426,6 @@ msgstr ""
 msgid "kapatıldı"
 msgstr ""
 
-#: app/telegram/handlers.py
-msgid "kısmen tamamlandı — bazı sayfalar analiz edilemedi"
-msgstr ""
-
 #: app/web/templates/history.html
 #, python-format
 msgid "plan öğesi %(item)s"
@@ -2508,10 +2434,6 @@ msgstr ""
 #: app/web/routers/upload_page.py
 #, python-brace-format
 msgid "s. {pages}"
-msgstr ""
-
-#: app/telegram/handlers.py
-msgid "tamamlandı"
 msgstr ""
 
 #: app/web/routers/upload_page.py
@@ -2529,6 +2451,27 @@ msgstr ""
 #: app/web/templates/employees_results.html
 msgid "tüm durumlar"
 msgstr ""
+
+#: app/telegram/handlers.py
+#, python-brace-format
+msgid "ve {count} belge daha"
+msgid_plural "ve {count} belge daha"
+msgstr[0] ""
+msgstr[1] ""
+
+#: app/telegram/intent.py
+#, python-brace-format
+msgid "ve {count} belge daha. Türünü de yazarak isteyin."
+msgid_plural "ve {count} belge daha. Türünü de yazarak isteyin."
+msgstr[0] ""
+msgstr[1] ""
+
+#: app/telegram/intent.py
+#, python-brace-format
+msgid "ve {count} kişi daha. Adı daha ayrıntılı yazın."
+msgid_plural "ve {count} kişi daha. Adı daha ayrıntılı yazın."
+msgstr[0] ""
+msgstr[1] ""
 
 #: app/web/templates/profile.html app/web/templates/upload.html
 msgid "ya da seçmek için tıklayın · birden çok dosya seçilebilir"
@@ -2552,15 +2495,22 @@ msgstr ""
 
 #: app/telegram/handlers.py
 #, python-brace-format
-msgid "{count} dosya alındı. İşleniyor; bitince sonucu yazacağım."
-msgid_plural "{count} dosya alındı. İşleniyor; bitince sonucu yazacağım."
+msgid "{count} belgeye bakmanız gerekiyor; panelde kontrol edin."
+msgid_plural "{count} belgeye bakmanız gerekiyor; panelde kontrol edin."
 msgstr[0] ""
 msgstr[1] ""
 
 #: app/telegram/handlers.py
 #, python-brace-format
-msgid "{count} dosya daha önce yüklenmişti (tekrar), işlenmedi."
-msgid_plural "{count} dosya daha önce yüklenmişti (tekrar), işlenmedi."
+msgid "{count} dosya aldım, bakıyorum. Bitince haber vereceğim."
+msgid_plural "{count} dosya aldım, bakıyorum. Bitince haber vereceğim."
+msgstr[0] ""
+msgstr[1] ""
+
+#: app/telegram/handlers.py
+#, python-brace-format
+msgid "{count} dosyayı daha önce göndermiştiniz, yeniden eklemedim."
+msgid_plural "{count} dosyayı daha önce göndermiştiniz, yeniden eklemedim."
 msgstr[0] ""
 msgstr[1] ""
 
@@ -2571,14 +2521,14 @@ msgstr ""
 
 #: app/telegram/intent.py
 #, python-brace-format
-msgid "{employee} için {count} {kind} bulundu. Hangisini istiyorsunuz?"
-msgid_plural "{employee} için {count} {kind} bulundu. Hangisini istiyorsunuz?"
+msgid "{employee} için {count} {kind} buldum. Hangisi?"
+msgid_plural "{employee} için {count} {kind} buldum. Hangisi?"
 msgstr[0] ""
 msgstr[1] ""
 
 #: app/telegram/intent.py
 #, python-brace-format
-msgid "{employee} için {kind} bulunamadı."
+msgid "{employee} için {kind} bulamadım."
 msgstr ""
 
 #: app/telegram/whitelist.py
@@ -2787,17 +2737,6 @@ msgstr ""
 msgid "İsmin belgede basılı hâli, birebir (Latin de olabilir)"
 msgstr ""
 
-#: app/telegram/intent.py
-#, python-brace-format
-msgid ""
-"İstek çok uzun ({limit} karakterden fazla). Kimin hangi belgesini "
-"istediğinizi kısaca yazın."
-msgstr ""
-
-#: app/telegram/intent.py
-msgid "İsteğiniz şu an işlenemedi. Lütfen biraz sonra tekrar deneyin."
-msgstr ""
-
 #: app/web/routers/users.py
 msgid "İzin 'true' ya da 'false' olmalı."
 msgstr ""
@@ -2838,6 +2777,14 @@ msgstr ""
 msgid "Şimdiki"
 msgstr ""
 
+#: app/telegram/intent.py
+msgid "Şu an belge gösteremiyorum. Yöneticinize haber verin."
+msgstr ""
+
+#: app/telegram/bot.py app/telegram/intent.py
+msgid "Şu an olmadı. Birkaç dakika sonra yeniden deneyin."
+msgstr ""
+
 #: app/web/templates/account_password.html
 msgid "Şu anki parola"
 msgstr ""
@@ -2860,43 +2807,33 @@ msgstr ""
 
 #: app/telegram/intent.py
 #, python-brace-format
-msgid "“{kind}” katalogdaki belge türlerinden hiçbirine karşılık gelmiyor."
+msgid "“{kind}” diye bir belge türü bilmiyorum."
 msgstr ""
-
-#: app/telegram/intent.py
-#, python-brace-format
-msgid "“{person}” ile eşleşen {count} çalışan bulundu. Hangisi?"
-msgid_plural "“{person}” ile eşleşen {count} çalışan bulundu. Hangisi?"
-msgstr[0] ""
-msgstr[1] ""
-
-#: app/telegram/intent.py
-#, python-brace-format
-msgid "“{person}” ile eşleşen çalışan bulunamadı."
-msgstr ""
-
-#: app/telegram/intent.py
-#, python-brace-format
-msgid "… ve {count} belge daha. Türü belirtin ya da panelden bakın."
-msgid_plural "… ve {count} belge daha. Türü belirtin ya da panelden bakın."
-msgstr[0] ""
-msgstr[1] ""
-
-#: app/telegram/intent.py
-#, python-brace-format
-msgid ""
-"… ve {count} çalışan daha. Adı daha ayrıntılı ya da çalışan numarasıyla "
-"yazın."
-msgid_plural ""
-"… ve {count} çalışan daha. Adı daha ayrıntılı ya da çalışan numarasıyla "
-"yazın."
-msgstr[0] ""
-msgstr[1] ""
 
 #: app/telegram/handlers.py
 #, python-brace-format
-msgid "… ve {count} öğe daha."
-msgid_plural "… ve {count} öğe daha."
+msgid "“{name}” dosyasını alamadım. Başka bir biçimde yeniden gönderin."
+msgstr ""
+
+#: app/telegram/handlers.py
+#, python-brace-format
+msgid "“{name}” gelmedi, lütfen yeniden gönderin."
+msgstr ""
+
+#: app/telegram/handlers.py
+#, python-brace-format
+msgid "“{name}” çok büyük, alamadım. Daha küçük parçalar hâlinde gönderin."
+msgstr ""
+
+#: app/telegram/intent.py
+#, python-brace-format
+msgid "“{person}” adında birini bulamadım."
+msgstr ""
+
+#: app/telegram/intent.py
+#, python-brace-format
+msgid "“{person}” adında {count} kişi var. Hangisi?"
+msgid_plural "“{person}” adında {count} kişi var. Hangisi?"
 msgstr[0] ""
 msgstr[1] ""
 
