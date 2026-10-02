@@ -2217,13 +2217,13 @@
         "description": "PRD 10.10.2 · FR-MOD-10 · Faz 1 · Should (v1). İnsan isteği (2026-10-02): kişi dili değiştirirse hesabında kalsın, her girişte kendi dilinde açılsın. Tam sözleşme PLAN §D92 — önce oku.",
         "details": "KAPSAM: §D92 (b), (c), (d). (1) Göç `0024`: `users.language` `String(8)` boş olabilir, CHECK (`en`,`tr`,`sr`); model + PRD §8.1 zaten yazıldı. (2) `PanelUser.language`; `resolve_session` aynı sorguda okur; istek dili girişlide `users.language` ya da varsayılan. (3) `POST /language` (form `language`, `next`): oturumsuz açık, geçersiz dil 422, `next` güvenli yol denetimi (yalnız `/` ile başlar, `//` ve `/\\\\` ile başlamaz; değilse `/`), 303; çerez `documania_lang` (1 yıl, HttpOnly, SameSite=Lax, Secure kuralı oturum çereziyle aynı); girişliyse `users.language` + `EventType.USER_LANGUAGE_CHANGED` {target_user_id, language, via: \"selector\"} (dil aynıysa olay yok). (4) Girişte (`routers/auth.py`): hesap boş + çerez geçerli → hesaba yaz, olay via \"login\"; hesap dolu → çerezi hesabın diliyle yenile. (5) Seçici: `base.html` üst çubukta kullanıcı adının yanında, `login.html` kutunun altında; üç düğmeli küçük form, seçili `aria-current`, JavaScript'siz; HTMX ile yüklenen parçalarda seçici yok. `panel.css`. (6) `test_access_log.py` açık yol listesi, `test_events.py`, `test_migrations.py`, `test_models.py` güncellenir.",
         "testStrategy": "1) Göç: boş SQLite'ta 0023→0024 ve geri; CHECK geçersiz değeri reddeder; mevcut kullanıcı boş kalır. 2) Girişli kullanıcı `sr` seçer → 303 aynı sayfa, sayfa Sırpça, `users.language='sr'`, tek olay (actor kendisi, via selector); aynı dili yeniden seçmek olay yazmaz. 3) Çıkış + yeni tarayıcıda (çerezsiz) giriş → panel Sırpça (cihazdan bağımsız). 4) Tercihi boş hesap: girişte çerez `tr` → hesap `tr`, olay via login; çerezsiz → `en`, hesap boş kalır. 5) Hesap `tr` iken çerez `sr` ile giriş → panel `tr`, çerez `tr` olur. 6) Oturumsuz `POST /language` yalnız çerez yazar, olay yok, giriş sayfası o dilde. 7) `next=//evil.example`, `next=https://…`, `next=/\\\\evil` → `/`. 8) Geçersiz dil 422, hiçbir şey değişmez. 9) Başka kullanıcının dili değiştirilemez (yol yok). 10) Kural bozmaları kırmızı. 11) DoD kapısı yeşil (temiz SQLite'ta `alembic upgrade head` → 0024).",
-        "status": "in-progress",
+        "status": "done",
         "dependencies": [
           "152"
         ],
         "priority": "medium",
         "subtasks": [],
-        "updatedAt": "2026-10-02T07:48:08.086Z"
+        "updatedAt": "2026-10-02T08:38:50.311Z"
       },
       {
         "id": "154",
@@ -2301,9 +2301,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-02T07:48:08.086Z",
+      "lastModified": "2026-10-02T08:38:50.312Z",
       "taskCount": 156,
-      "completedCount": 147,
+      "completedCount": 148,
       "tags": [
         "master"
       ]
