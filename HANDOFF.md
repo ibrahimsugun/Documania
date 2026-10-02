@@ -18,6 +18,12 @@ Blok biçimi `CONVENTIONS.md` §3'te tanımlıdır:
 
 ## Task log (newest-first)
 
+## 99 — §5.3 Faz 2 (v2) kapanış denetimi — done — 2026-10-02
+- Yapıldı: PRD §5.3 kapanış ölçütü testlerle eşlendi (beyaz liste: komut, belge, doğal dil, listeden çıkarılan hesap; bot üzerinden belge gönderme; S17 belge isteme; kural ihlalli fotoğraf); boşluk yok, `app/` ve `tests/` değişmedi; PLAN §0 Faz 2 Kapanış `✅ → KF2`, §K sonuna `#### KF2`, kararlar §D106.
+- Doğrulama: ruff check/format, compileall (app, tests), `import app.main`, temiz SQLite'ta `alembic upgrade head` (→0024), `python -m app.i18n check`, `git diff --check` exit 0; hedef testler 438 geçti (2 Windows atlaması); `pytest -q -m "not live" --cov=app` 6655 geçti, 11 atlandı, 0 kırmızı, kapsam %99; 8 kural bozmasının 8'i kırmızı.
+- Varsayımlar: §D106 — uçtan uca `FakeTelegram` sınırıyla; 12.1.7 kimlik yanıtı beyaz liste ölçütünün yazılı istisnası.
+- Sonraki pencereye not: pending görev kalmadı. Faz 3 (Enterprise) kapanışı insan girdisi bekliyor. İlk tokenlı ortamda bot elle denenmeli (§D106 c).
+
 ## 98 — §5.2 Faz 1 (v1) kapanış denetimi — done — 2026-10-02
 - Yapıldı: PRD §5.2 kapanış ölçütü ve S16 testlerle eşlendi (panel yolculuğu `tests/web/test_phase1_closure.py`, katalog, aday tür onayı + toplu yeniden analiz, S14, S16); boşluk yok, `app/` ve `tests/` değişmedi; PLAN §0 Faz 1 Kapanış `✅ → KF1`, §K sonuna `#### KF1`.
 - Doğrulama: ruff check/format, compileall (app, tests), `import app.main`, temiz SQLite'ta `alembic upgrade head` (→0024), `python -m app.i18n check`, `git diff --check` exit 0; hedef testler 157 geçti; `pytest -q -m "not live" --cov=app` 6655 geçti, 11 atlandı, 0 kırmızı, kapsam %99; 8 kural bozmasının 8'i kırmızı.
