@@ -18,6 +18,12 @@ Blok biçimi `CONVENTIONS.md` §3'te tanımlıdır:
 
 ## Task log (newest-first)
 
+## 152 — 10.10-a Arayüz dili altyapısı ve iskelet sayfalar — done — 2026-10-02
+- Yapıldı: `app/i18n` paketi (en/tr/sr, istek başına context dili, `gettext`/`ngettext`/`N_`, `.mo` kataloğu), `python -m app.i18n extract|update|compile|check` (Babel, `babel.cfg`), `PANEL_DEFAULT_LANGUAGE` (varsayılan `en`, geçersizde açılmaz), `documania_lang` çerezi (`Accept-Language` okunmaz); `base.html` (menü, üst çubuk, eski sürüm uyarısı, `<html lang>`) ile giriş sayfası İngilizce/Sırpça çevrildi, `GLOSSARY.md`, README notu; kararlar §D93.
+- Doğrulama: ruff check/format, compileall, `import app.main`, `uv lock --check`, `alembic upgrade head` (→0023), `python -m app.i18n check` exit 0; `pytest -q -m "not live" --cov=app` sekiz paralel ön plan grubunda 6396 geçti (+129), 6 atlandı, 0 kırmızı, `coverage report --fail-under=70` exit 0 (%99); 16 geçici kural bozmasının 16'sı kırmızı.
+- Varsayımlar: §D93 — dil `async` bağımlılıkla çözülür ve router düzeyinde bağlanır (ara katman `dependency_overrides`'taki ayarı göremezdi); istek dışı varsayılan sabit `en`; genel HTML hata sayfası yok (HTTPException JSON), sayfaya özgü 404 metinleri 10.10-c/d'ye kaldı; testler `tests/conftest.py`'de `PANEL_DEFAULT_LANGUAGE=tr` ile koşar.
+- Sonraki pencereye not: Yeni metin akışı `extract → update → .po'da çeviri → compile → check`; çeviri sayfası testinde `tests/i18n/residue.py::assert_no_turkish` ile tarayın, veri öğelerine `translate="no"` verin. Sırpça çeviriyi ana dili Sırpça olan biri gözden geçirmeli (`app/i18n/locales/sr/LC_MESSAGES/messages.po`). Babel yeni bağımlılık: `.venv`'e `uv pip install babel` (ya da `uv sync`) gerekir. Çekirdek kodda çevrilecek hata metni unit testi istek dışında `en` görür — testte `use_language("tr")` kullanın. `icon.png` yine commit dışında.
+
 ## 152–158 — Arayüz dili İngilizce/Türkçe/Sırpça — görevler açıldı — 2026-10-02
 - Yapıldı: İnsan isteğiyle PRD 10.10.1–10.10.5, 12.1.6 ve §20.6.3 (onay metinlerinin İngilizce/Sırpça karşılıkları), §8.1 `users.language`, §8.3 `USER_LANGUAGE_CHANGED`, §10 kapsam dışı; PLAN §D92 sözleşmesi, §0/§2 sayaçları, §4/§5 satırları, §G 10.10-a…f ve 12.1-f; Task Master 152–158 (pending). Kod yok.
 - Doğrulama: `task-master validate-dependencies` temiz.

@@ -221,12 +221,23 @@ yere silmeyin.
   hata verip kapanırsa pencere açık kalır ve nedenini gösterir. Panel durunca bot penceresi
   kendiliğinden kapanmaz; `baslat.bat`'ı yeniden çalıştırmadan önce eski bot penceresini kapatın
   (aynı token'la iki bot aynı anda dinleyemez).
+- **Arayüz dili** (PRD 10.10.1, 10.10.3; PLAN.md §D92): panel English (`en`), Türkçe (`tr`) ve
+  Srpski (`sr`, Latin alfabesi) dillerinde sunulur, açılış dili İngilizcedir. `.env`'deki
+  `PANEL_DEFAULT_LANGUAGE` bunu değiştirir; tarayıcının dil ayarı kullanılmaz. Kaynak dil
+  Türkçedir: şablonda `{{ _("…") }}` ya da `{% trans %}…{% endtrans %}`, Python'da
+  `app.i18n.gettext` (modül düzeyindeki sabit etikette `N_`) ile işaretlenen Türkçe metin
+  msgid'dir. Çeviri akışı: `python -m app.i18n extract` (işaretli metinler →
+  `app/i18n/locales/messages.pot`) → `python -m app.i18n update` (`en`/`sr` `messages.po`'ya yeni
+  metin boş çeviriyle girer) → `.po`'da çeviri ([terim sözlüğü](app/i18n/GLOSSARY.md)) →
+  `python -m app.i18n compile` (`.mo`; çalışma zamanı bunu okur, depoya girer) →
+  `python -m app.i18n check` (boş, bulanık, eksik metin, yer tutucu ve eski `.mo` denetimi; testte
+  de koşar). Testler varsayılan dili `tr` yapar (`tests/conftest.py`).
 - **Faz 0'ın ilk dört görevi DoD kapısının kendisini kurar**; o görevlerde kapı, kurulduğu
   kadarıyla koşulur (`CONVENTIONS.md` §1.1).
 
 ## Yığın
 
 Python 3.12 · FastAPI · SQLAlchemy + Alembic · SQLite (geliştirme) / PostgreSQL (üretim) ·
-PyMuPDF + pypdf + img2pdf + Pillow · Jinja2 + HTMX · python-telegram-bot · Anthropic API
+PyMuPDF + pypdf + img2pdf + Pillow · Jinja2 + HTMX · Babel (gettext) · python-telegram-bot · Anthropic API
 (birincil) + OpenAI (ikincil) · pytest + ruff · Docker Compose. Tam liste ve gerekçeler
 `MASTER-PROMPT.md` §4'te.

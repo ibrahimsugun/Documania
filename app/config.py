@@ -13,6 +13,8 @@ from typing import Literal
 from pydantic import Field, SecretStr, ValidationError, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from app.i18n.languages import DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES, is_supported
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
@@ -87,6 +89,11 @@ class Settings(BaseSettings):
     # PRD 10.1.2 — panel oturumunun ömrü (saniye); süre dolunca yeniden giriş istenir. PRD süre
     # vermez, varsayılan bir iş günü (bkz. PLAN.md §C45).
     session_max_age_seconds: int = Field(default=12 * 60 * 60, gt=0)
+    # PRD 10.10.1 — panelin açılış dili: girişsiz sayfalar (çerezde geçerli dil yoksa) ve dil
+    # tercihi olmayan hesaplar bu dilde açılır. Desteklenenler `app.i18n.SUPPORTED_LANGUAGES`
+    # (`en`, `tr`, `sr`); geçersiz değerle panel açılmaz. Tarayıcının dil ayarı kullanılmaz
+    # (bkz. PLAN.md §D92).
+    panel_default_language: str = DEFAULT_LANGUAGE
     # PRD 11.9.5 — eğitim modunun "Harita yükle"si: CSV haritasının bayt sınırı ve satır sınırı
     # (haritanın çözdüğü dosya sayısına da uygulanır). Haritanın `source_collection_path` sütunu
     # yalnız `TRAINING_COLLECTION_DIR` ayarlıysa o kökün altında çözülür; ayar isteğe bağlıdır,
@@ -110,6 +117,17 @@ class Settings(BaseSettings):
         # çalışma dizinini gösterirdi, boş sayı doğrulamada düşerdi.
         if isinstance(value, str) and not value.strip():
             return None
+        return value
+
+    @field_validator("panel_default_language", mode="before")
+    @classmethod
+    def _supported_language(cls, value: object) -> object:
+        # `PANEL_DEFAULT_LANGUAGE=` (boş) ayarsızdır; başka her değer desteklenen bir dil olmalı.
+        if isinstance(value, str) and not value.strip():
+            return DEFAULT_LANGUAGE
+        if not is_supported(value):
+            supported = ", ".join(SUPPORTED_LANGUAGES)
+            raise ValueError(f"desteklenmeyen arayüz dili {value!r}; geçerli değerler: {supported}")
         return value
 
 

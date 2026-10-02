@@ -25,6 +25,7 @@ dependencies = [
     "python-telegram-bot[webhooks]>=22",
     "argon2-cffi>=23.1",
     "jinja2>=3.1",
+    "babel>=2.17",
 ]
 
 [project.optional-dependencies]
@@ -48,6 +49,14 @@ include = ["app*"]
 "app.web" = ["templates/*.html", "static/*", "static/flags/*"]
 # Ülke başvuru verisi: CLDR dosyaları, lisansı ve kaynak kaydı (PRD 10.1.6).
 "app.countries" = ["data/*", "SOURCES.md"]
+# Arayüz çeviri katalogları (PRD 10.10.3): çalışma zamanı derlenmiş `.mo`'yu okur; şablon, `.po`
+# ve terim sözlüğü gözden geçirme içindir.
+"app.i18n" = [
+    "locales/*.pot",
+    "locales/*/LC_MESSAGES/*.po",
+    "locales/*/LC_MESSAGES/*.mo",
+    "GLOSSARY.md",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -2203,13 +2203,13 @@
         "description": "PRD 10.10.1, 10.10.3 · FR-MOD-10 · Faz 1 · Should (v1). İnsan isteği (2026-10-02): arayüz İngilizce, Türkçe, Sırpça; açılış İngilizce. Tam sözleşme PLAN §D92 — önce oku.",
         "details": "KAPSAM: §D92 (a), (b), (e), (f), (g). (1) Bağımlılık: `babel` (`pyproject.toml`, `uv lock`). (2) `app/i18n/` paketi: `SUPPORTED_LANGUAGES` (`en`, `tr`, `sr`; `html_lang` `en`/`tr`/`sr-Latn`; kendi dilinde ad), `current_language()` context değişkeni, `gettext`/`ngettext`/`N_` (istek diline bakar), katalog yükleme (`.mo`, paket verisi, süreç başına önbellek; `tr` msgid'in kendisi), `python -m app.i18n extract|update|compile|check`, `babel.cfg`. Kataloglar `app/i18n/locales/{en,sr}/LC_MESSAGES/messages.{po,mo}`; `sr` `Plural-Forms` CLDR. `app/i18n/GLOSSARY.md` (§D92 l). (3) `Settings.panel_default_language` (`PANEL_DEFAULT_LANGUAGE`, varsayılan `en`, geçersiz → açılış hatası); `.env.example` açıklaması; `tests/conftest.py` testlerde `tr` verir. (4) İstek dili: ara katman ya da bağımlılık — girişli istekte kullanıcının dili (bu görevde sütun yok: yalnız varsayılan; 10.10-b ekler), girişsizde `documania_lang` çerezi, yoksa varsayılan; `Accept-Language` okunmaz. (5) Jinja: `jinja2.ext.i18n`, `install_gettext_callables(newstyle=True)`; `base.html` `<html lang=\"{{ html_lang }}\">`. (6) İskelet sayfalar işaretlenir ve `en`/`sr` çevrilir: `base.html` (menü — `PANEL_MENU` etiketleri `N_`, üst çubuk, çıkış, eski sürüm uyarısı 13.5.3), `login.html` + `routers/auth.py` mesajları, oturumsuz/genel hata sayfaları. Öbür sayfalar Türkçe kalır (sonraki görevler). (7) Türkçe kalıntı tarama yardımcısı (`tests/` altında, §D92 g) ve `check` testi. (8) README: dil ve çeviri komutları kısa not. Kod düzeni: dil seçimi yalnız `app/i18n`'de; başka modül dil dizgesi karşılaştırmaz.",
         "testStrategy": "1) Varsayılan: ayarsız uygulamada giriş sayfası İngilizce ve `<html lang=\"en\">`; `PANEL_DEFAULT_LANGUAGE=tr` ile Türkçe; geçersiz değer açılışta hata. 2) `Accept-Language: tr` ve `sr` gönderilse de giriş sayfası `en`. 3) Çerez `documania_lang=sr` → giriş sayfası Sırpça, `lang=\"sr-Latn\"`; geçersiz çerez → `en`. 4) Menü üç dilde doğru etiketler (sözlük), sıra değişmez. 5) `check`: boş/fuzzy msgstr, eski `.mo`, uyuşmayan yer tutucu her biri yakalanır (geçici bozuk katalogla); depodaki katalog temiz. 6) Kalıntı taraması iskelet sayfalarda `en` için temiz, geçici olarak işaretlenmemiş bir Türkçe metin eklenince kırmızı. 7) İşçi/bot bağlamında `gettext` varsayılanı döner (istek yok). 8) Mevcut test paketi (`tr`) değişmeden yeşil. 9) Kural bozmaları kırmızı. 10) DoD kapısı yeşil.",
-        "status": "pending",
+        "status": "in-progress",
         "dependencies": [
           "151"
         ],
         "priority": "medium",
         "subtasks": [],
-        "updatedAt": "2026-10-02T12:00:00.000Z"
+        "updatedAt": "2026-10-02T06:59:17.863Z"
       },
       {
         "id": "153",
@@ -2301,7 +2301,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-02T12:00:00.000Z",
+      "lastModified": "2026-10-02T06:59:17.863Z",
       "taskCount": 156,
       "completedCount": 146,
       "tags": [

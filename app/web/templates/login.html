@@ -1,16 +1,16 @@
 {% extends "base.html" %}
-{% block title %}Giriş{% endblock %}
+{% block title %}{{ _("Giriş") }}{% endblock %}
 {% block content %}
 <section class="login">
   <h1>Documania</h1>
   {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
   <form method="post" action="/login">
     <input type="hidden" name="next" value="{{ next }}">
-    <label for="username">Kullanıcı adı</label>
+    <label for="username">{{ _("Kullanıcı adı") }}</label>
     <input id="username" name="username" value="{{ username }}" autocomplete="username" required autofocus>
-    <label for="password">Parola</label>
+    <label for="password">{{ _("Parola") }}</label>
     <input id="password" name="password" type="password" autocomplete="current-password" required>
-    <button type="submit">Giriş yap</button>
+    <button type="submit">{{ _("Giriş yap") }}</button>
   </form>
 </section>
 {% endblock %}

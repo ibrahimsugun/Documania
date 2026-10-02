@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session
 
 from app.config import Settings, get_settings
 from app.db.session import get_session
+from app.i18n import N_, gettext
 from app.web.auth import (
     LOGIN_PATH,
     SESSION_COOKIE,
@@ -33,7 +34,8 @@ from app.web.templating import render_page
 
 router = APIRouter(tags=["auth"])
 
-LOGIN_FAILED = "Kullanıcı adı veya parola hatalı."
+# 10.10.1: giriş sayfası isteğin dilindedir; mesaj gösterim anında çevrilir.
+LOGIN_FAILED = N_("Kullanıcı adı veya parola hatalı.")
 
 
 @router.get(LOGIN_PATH, response_class=HTMLResponse)
@@ -66,7 +68,7 @@ def login(
             user=None,
             next=target,
             username=username.strip(),
-            error=LOGIN_FAILED,
+            error=gettext(LOGIN_FAILED),
             status_code=status.HTTP_401_UNAUTHORIZED,
         )
     # Tarayıcıda kalmış önceki oturum kapanır; her girişte yeni belirteç verilir.

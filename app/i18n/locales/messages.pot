@@ -1,0 +1,89 @@
+# Documania arayüz metinleri — çeviri şablonu. Kaynak dil Türkçedir (msgid).
+# Elle düzenlenmez: `python -m app.i18n extract` kaynaktan üretir.
+msgid ""
+msgstr ""
+"Project-Id-Version: Documania panel\n"
+"Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
+"POT-Creation-Date: 2026-10-02 07:12+0000\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: app/web/templates/base.html
+msgid "Ana menü"
+msgstr ""
+
+#: app/web/templating.py
+msgid "Belge Grupları"
+msgstr ""
+
+#: app/web/templating.py
+msgid "Belge Türleri"
+msgstr ""
+
+#: app/web/templates/base.html
+msgid "Erişim logu"
+msgstr ""
+
+#: app/web/templating.py
+msgid "Eğitim modu"
+msgstr ""
+
+#: app/web/templates/login.html
+msgid "Giriş"
+msgstr ""
+
+#: app/web/templates/login.html
+msgid "Giriş yap"
+msgstr ""
+
+#: app/web/templates/login.html
+msgid "Kullanıcı adı"
+msgstr ""
+
+#: app/web/routers/auth.py
+msgid "Kullanıcı adı veya parola hatalı."
+msgstr ""
+
+#: app/web/templating.py
+msgid "Kullanıcılar"
+msgstr ""
+
+#: app/web/templating.py
+msgid "Kuyruklar"
+msgstr ""
+
+#: app/web/templates/base.html
+msgid "Panel"
+msgstr ""
+
+#: app/web/templates/login.html
+msgid "Parola"
+msgstr ""
+
+#: app/web/templates/base.html
+msgid ""
+"Sunucu eski sürümle çalışıyor — yeniden başlatın "
+"(<code>baslat.bat</code>)."
+msgstr ""
+
+#: app/web/templating.py
+msgid "Yükle"
+msgstr ""
+
+#: app/web/templating.py
+msgid "Yüklemeler"
+msgstr ""
+
+#: app/web/templating.py
+msgid "Çalışanlar"
+msgstr ""
+
+#: app/web/templates/base.html
+msgid "Çıkış"
+msgstr ""
+

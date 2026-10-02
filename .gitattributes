@@ -13,3 +13,10 @@
 
 # SVG görseller: depoda LF
 *.svg text eol=lf
+
+# Çeviri katalogları (PRD 10.10.3): kaynaklar depoda LF; derlenmiş `.mo` ikilidir, dönüştürülmez
+# (`python -m app.i18n check` `.mo`'yu `.po`'nun derlemesiyle bayt bayt karşılaştırır).
+*.po text eol=lf
+*.pot text eol=lf
+*.cfg text eol=lf
+*.mo binary

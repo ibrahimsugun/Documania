@@ -11,6 +11,7 @@ from fastapi.staticfiles import StaticFiles
 from app.catalog import load_catalog_on_startup
 from app.config import Settings, get_settings
 from app.db.schema_check import SchemaVersionError, ensure_schema_current, expected_revision
+from app.i18n.request import use_request_language
 from app.storage import prepare_data_dir
 from app.web.auth import LoginRequiredError, login_url, require_api_user, require_panel_user
 from app.web.code_watch import CodeWatch
@@ -71,18 +72,22 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     application.state.schema_revision = _expected_revision_or_none()
     # Oturumsuz açık olanlar yalnız: giriş/çıkış, `/health` ve stil dosyası (`/static`).
     application.mount("/static", StaticFiles(packages=[("app.web", "static")]), name="static")
-    application.include_router(auth.router)
-    application.include_router(panel.router, dependencies=[Depends(require_panel_user)])
-    application.include_router(upload_page.router, dependencies=[Depends(require_panel_user)])
-    application.include_router(uploads_list.router, dependencies=[Depends(require_panel_user)])
-    application.include_router(employees.router, dependencies=[Depends(require_panel_user)])
-    application.include_router(documents.router, dependencies=[Depends(require_panel_user)])
-    application.include_router(catalog.router, dependencies=[Depends(require_panel_user)])
-    application.include_router(groups.router, dependencies=[Depends(require_panel_user)])
-    application.include_router(queue.pages_router, dependencies=[Depends(require_panel_user)])
-    application.include_router(access_log.router, dependencies=[Depends(require_panel_user)])
-    application.include_router(training.router, dependencies=[Depends(require_panel_user)])
-    application.include_router(users.router, dependencies=[Depends(require_panel_user)])
+    # 10.10.1: sayfa sunan her yolda isteğin dili oturum denetiminden önce çözülür
+    # (`app.i18n.request`); JSON API ve `/health` çevrilmez.
+    language = Depends(use_request_language)
+    panel_page = [language, Depends(require_panel_user)]
+    application.include_router(auth.router, dependencies=[language])
+    application.include_router(panel.router, dependencies=panel_page)
+    application.include_router(upload_page.router, dependencies=panel_page)
+    application.include_router(uploads_list.router, dependencies=panel_page)
+    application.include_router(employees.router, dependencies=panel_page)
+    application.include_router(documents.router, dependencies=panel_page)
+    application.include_router(catalog.router, dependencies=panel_page)
+    application.include_router(groups.router, dependencies=panel_page)
+    application.include_router(queue.pages_router, dependencies=panel_page)
+    application.include_router(access_log.router, dependencies=panel_page)
+    application.include_router(training.router, dependencies=panel_page)
+    application.include_router(users.router, dependencies=panel_page)
     application.include_router(uploads.router, dependencies=[Depends(require_api_user)])
     application.include_router(queue.router, dependencies=[Depends(require_api_user)])
 

@@ -1,32 +1,34 @@
 <!doctype html>
-<html lang="tr">
+<html lang="{{ html_lang }}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}Panel{% endblock %} · Documania</title>
+  <title>{% block title %}{{ _("Panel") }}{% endblock %} · Documania</title>
   <link rel="icon" type="image/png" sizes="32x32" href="/static/favicon.png">
   <link rel="apple-touch-icon" href="/static/icon-512.png">
   <link rel="stylesheet" href="/static/panel.css">
   <script src="/static/htmx.min.js" defer></script>
 </head>
 <body>
+  {# 10.10.1: arayüz metinleri isteğin dilinde (`_()`, `{% trans %}`); kullanıcı adı gibi veri
+     taşıyan öğeler `translate="no"` alır, çevrilmez (PLAN.md §D92 f, g). #}
   {# 13.5.3: kod ya da şablon açılıştan sonra değiştiyse bellekteki kod eskidir (PLAN.md §D77). #}
   {% if code_is_stale(request) %}
-  <div class="stale-process" role="alert">Sunucu eski sürümle çalışıyor — yeniden başlatın (<code>baslat.bat</code>).</div>
+  <div class="stale-process" role="alert">{% trans %}Sunucu eski sürümle çalışıyor — yeniden başlatın (<code>baslat.bat</code>).{% endtrans %}</div>
   {% endif %}
   {% if user %}
   <header class="topbar">
     <a class="brand" href="/">Documania</a>
-    <nav class="menu" aria-label="Ana menü">
+    <nav class="menu" aria-label="{{ _('Ana menü') }}">
       {% for entry in menu %}
-      <a href="{{ entry.path }}"{% if entry.key == active %} class="active" aria-current="page"{% endif %}>{{ entry.label }}</a>
+      <a href="{{ entry.path }}"{% if entry.key == active %} class="active" aria-current="page"{% endif %}>{{ _(entry.label) }}</a>
       {% endfor %}
     </nav>
     {# 13.4.1: erişim logu da menü dışı araçtır. #}
-    <a class="tool-link{% if active == 'access_log' %} active{% endif %}" href="/access-log"{% if active == 'access_log' %} aria-current="page"{% endif %}>Erişim logu</a>
+    <a class="tool-link{% if active == 'access_log' %} active{% endif %}" href="/access-log"{% if active == 'access_log' %} aria-current="page"{% endif %}>{{ _("Erişim logu") }}</a>
     <form class="session" method="post" action="/logout">
-      <span class="username">{{ user.username }}</span>
-      <button type="submit">Çıkış</button>
+      <span class="username" translate="no">{{ user.username }}</span>
+      <button type="submit">{{ _("Çıkış") }}</button>
     </form>
   </header>
   {% endif %}

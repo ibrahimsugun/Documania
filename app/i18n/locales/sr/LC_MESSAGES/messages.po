@@ -1,0 +1,94 @@
+# Documania arayüz metinleri: Srpski (sr). Kaynak dil Türkçe (msgid).
+# Terimler: app/i18n/GLOSSARY.md. Akış: README, "Arayüz dili".
+msgid ""
+msgstr ""
+"Project-Id-Version: Documania panel\n"
+"Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
+"POT-Creation-Date: 2026-10-02 07:12+0000\n"
+"PO-Revision-Date: 2026-10-02 07:12+0000\n"
+"Last-Translator: Documania görev penceresi (gözden geçirilmeli)\n"
+"Language: sr_Latn\n"
+"Language-Team: Srpski\n"
+"Plural-Forms: nplurals=3; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && "
+"n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2);\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: app/web/templates/base.html
+msgid "Ana menü"
+msgstr "Glavni meni"
+
+#: app/web/templating.py
+msgid "Belge Grupları"
+msgstr "Grupe dokumenata"
+
+#: app/web/templating.py
+msgid "Belge Türleri"
+msgstr "Tipovi dokumenata"
+
+#: app/web/templates/base.html
+msgid "Erişim logu"
+msgstr "Dnevnik pristupa"
+
+#: app/web/templating.py
+msgid "Eğitim modu"
+msgstr "Režim obuke"
+
+#: app/web/templates/login.html
+msgid "Giriş"
+msgstr "Prijava"
+
+#: app/web/templates/login.html
+msgid "Giriş yap"
+msgstr "Prijavi se"
+
+#: app/web/templates/login.html
+msgid "Kullanıcı adı"
+msgstr "Korisničko ime"
+
+#: app/web/routers/auth.py
+msgid "Kullanıcı adı veya parola hatalı."
+msgstr "Pogrešno korisničko ime ili lozinka."
+
+#: app/web/templating.py
+msgid "Kullanıcılar"
+msgstr "Korisnici"
+
+#: app/web/templating.py
+msgid "Kuyruklar"
+msgstr "Redovi"
+
+#: app/web/templates/base.html
+msgid "Panel"
+msgstr "Panel"
+
+#: app/web/templates/login.html
+msgid "Parola"
+msgstr "Lozinka"
+
+#: app/web/templates/base.html
+msgid ""
+"Sunucu eski sürümle çalışıyor — yeniden başlatın "
+"(<code>baslat.bat</code>)."
+msgstr ""
+"Server radi sa zastarelom verzijom — ponovo ga pokrenite "
+"(<code>baslat.bat</code>)."
+
+#: app/web/templating.py
+msgid "Yükle"
+msgstr "Otpremi"
+
+#: app/web/templating.py
+msgid "Yüklemeler"
+msgstr "Otpremanja"
+
+#: app/web/templating.py
+msgid "Çalışanlar"
+msgstr "Zaposleni"
+
+#: app/web/templates/base.html
+msgid "Çıkış"
+msgstr "Odjava"
+
