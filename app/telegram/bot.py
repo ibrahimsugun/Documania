@@ -33,8 +33,9 @@ bağlantıyı onunla kurar.
 
 Belge alma (12.2) `app.telegram.handlers.DocumentIntake`'te, doğal dil belge istekleri (12.3)
 `app.telegram.intent.DocumentRequests`'tedir; `build_application`'a verilenler `HANDLER_GROUP`'a
-eklenir. Kuyruk ve hata bildirimleri (12.4) `app.telegram.notify.Notifier`'dır: güncelleme
-işleyicisi değil, botla birlikte başlayıp duran bir arka plan taramasıdır. Hiçbiri verilmezse bot
+eklenir. Kuyruk bildirimi (12.4) `app.telegram.notify.Notifier`'dır: güncelleme işleyicisi
+değil, botla birlikte başlayıp duran bir arka plan taramasıdır; parti hatası ve izleme uyarısı
+Telegram'a gitmez (12.1.9, §D98 e). Hiçbiri verilmezse bot
 yalnız komutlara yanıt verir.
 
 **Yanıt dili (12.1.6, PLAN.md §D92 k).** Bot metinleri panelle aynı katalogdadır (msgid Türkçe,
@@ -92,7 +93,6 @@ from app.telegram.link import (
 )
 from app.telegram.notify import Notifier
 from app.telegram.whitelist import permitted_ids
-from app.worker.monitor import AlertWatch
 
 logger = logging.getLogger(__name__)
 
@@ -103,27 +103,23 @@ HANDLER_GROUP = 0
 # başka güncelleme türü istenmez, dolayısıyla işlenecek yüzey de büyümez.
 HANDLED_UPDATES = (UpdateType.MESSAGE, UpdateType.CALLBACK_QUERY)
 
+# Metinler sade dildedir (12.1.9, §D98): teknik terim yok, kısa cümle (`app.telegram.plain`).
 HELP_TEXT = N_(
-    "Merhaba, Documania botuna hoş geldiniz.\n\n"
-    "Belge göndermek: belgeyi dosya olarak gönderin. Fotoğraf olarak gönderilen görüntüyü "
-    "Telegram sıkıştırır; kimlik belgelerini dosya olarak gönderin. Birlikte (albüm olarak) "
-    "gönderilen dosyalar tek parti sayılır; işlem bitince sonucu yazarım.\n\n"
-    "Belge istemek: kimin hangi belgesini istediğinizi yazın, örneğin “Ahmet Çakar'ın ehliyetini "
-    "göster”. Birden çok sonuç bulunursa hangisini istediğinizi sorarım.\n\n"
-    "Bildirimler: kuyruğa yeni öğe düşünce ya da bir parti işlenemeyince size kendiliğimden "
-    "yazarım.\n\n"
-    "Komutlar:\n"
-    "/start, /yardim — bu mesaj"
+    "Merhaba! Belge göndermek için dosyayı buraya gönderin; kimlik belgelerini fotoğraf değil "
+    "dosya olarak gönderin.\n"
+    "Bir belgeyi görmek için örneğin “Ahmet Çakar'ın ehliyeti” yazın."
 )
 
-LINKED_TEXT = N_("Bağlandı: {username}. Belge göndermek ve istemek için /yardim yazın.")
-ALREADY_LINKED_TEXT = N_("Bu Telegram hesabı zaten {username} kullanıcısına bağlı.")
-LINK_BLOCKED_TEXT = N_("Bu Telegram hesabının izni kapalı; yöneticinize başvurun.")
-LINK_TAKEN_TEXT = N_(
-    "Bu Telegram hesabı başka bir panel kullanıcısına bağlı; yöneticinize başvurun."
+LINKED_TEXT = N_("Tamam, bağlandınız. Artık belge gönderebilir ve isteyebilirsiniz.")
+ALREADY_LINKED_TEXT = N_("Bu Telegram zaten hesabınıza bağlı.")
+# İzni kapalı ve başka hesaba bağlı tek metindir (§D98 d); ayrıntı panelde.
+LINK_REFUSED_TEXT = N_("Bu Telegram kullanılamıyor. Yöneticinize haber verin.")
+LINK_BLOCKED_TEXT = LINK_REFUSED_TEXT
+LINK_TAKEN_TEXT = LINK_REFUSED_TEXT
+INVALID_LINK_TEXT = N_(
+    "Bu bağlantının süresi dolmuş. Panelde Hesabım → Telegram'dan yenisini alın."
 )
-INVALID_LINK_TEXT = N_("Bağlantı geçersiz ya da süresi dolmuş; yöneticinizden yenisini isteyin.")
-LINK_FAILED_TEXT = N_("Bağlantı şu anda işlenemedi; biraz sonra yeniden deneyin.")
+LINK_FAILED_TEXT = N_("Şu an olmadı. Birkaç dakika sonra yeniden deneyin.")
 # 12.1.7 (§D97 b, §D98): bağlı olmayana tek yanıt; numara ayrı satırda, yalnız rakam (uzun basınca
 # tek başına kopyalanır, `parse_telegram_id` düz sayıyı kabul eder).
 NOT_LINKED_TEXT = N_(
@@ -396,9 +392,9 @@ def link_reply(result: LinkRedemption) -> str:
     için tek genel yanıt."""
     match result.outcome:
         case LinkOutcome.LINKED:
-            return gettext(LINKED_TEXT).format(username=result.username)
+            return gettext(LINKED_TEXT)
         case LinkOutcome.ALREADY_LINKED:
-            return gettext(ALREADY_LINKED_TEXT).format(username=result.username)
+            return gettext(ALREADY_LINKED_TEXT)
         case LinkOutcome.BLOCKED:
             return gettext(LINK_BLOCKED_TEXT)
         case LinkOutcome.TAKEN:
@@ -602,7 +598,7 @@ def main() -> int:
         document_requests=document_requests,
         notifier=Notifier(
             session_factory,
-            watch=AlertWatch.from_settings(session_factory, settings, layout.root),
+            default_language=settings.panel_default_language,
         ),
         default_language=settings.panel_default_language,
     )

@@ -18,6 +18,12 @@ Blok biçimi `CONVENTIONS.md` §3'te tanımlıdır:
 
 ## Task log (newest-first)
 
+## 161 — 12.1-i Botun mesajları sade, kısa ve teknik terimsiz — done — 2026-10-02
+- Yapıldı: `app/telegram/plain.py` (yasak sözcükler ve biçim sınırı); bütün bot metinleri §D98 d ile yeniden yazıldı (yardım, bağlantı, aldım/özet, belge isteği); bildirim tarama başına tek sade mesaj ve alıcının dilinde; `PIPELINE_FAILED` ve izleme uyarıları Telegram'a gitmez (`watch` kaldırıldı); `en`/`sr` çevirileri; README ve `.env.example`; kararlar §D104.
+- Doğrulama: ruff check/format, compileall, `import app.main`, temiz SQLite'ta `alembic upgrade head` (→0024), `python -m app.i18n check` exit 0; `pytest -q -m "not live" --cov=app` 6644 geçti, 11 atlandı, 0 kırmızı, kapsam %99; 8 kural bozmasının 8'i kırmızı.
+- Varsayımlar: §D104 — seçimlerde çalışan numarası yerine doğum tarihi; özet "tür — Latin ad"; bildirim dili alıcının tercihi.
+- Sonraki pencereye not: kalan tek pending görev tm 155 (10.10-d çeviri II + bütün panel kalıntı taraması). 97/98/99 insan söyleyene kadar `deferred`. Yeni bot metni eklenirse `tests/telegram/test_plain.py` onu otomatik denetler (`*_TEXT` sabitleri).
+
 ## 160 — 12.1-g Bot, bağlı olmayan kişiye Telegram numarasını söyler — done — 2026-10-02
 - Yapıldı: Kapıdan önce `IdentityStart`: izinli olmayanın argümansız `/start`'ına tek sade yanıt (bağlı değil, Hesabım → Telegram) ve son satırda yalnız rakamla numara, sohbet başına saatte bir; izinlinin yardımı ve «Bağlandı» yanıtı numarayı söyler; veritabanı hatasında yanıt yok, kimlik loga yazılmaz; kararlar §D103.
 - Doğrulama: ruff check/format, compileall, `import app.main`, temiz SQLite'ta `alembic upgrade head` (→0024), `python -m app.i18n check` exit 0; `pytest -q -m "not live" --cov=app` 6627 geçti (+15), 11 atlandı, 0 kırmızı, kapsam %99; 8 kural bozmasının 8'i kırmızı.

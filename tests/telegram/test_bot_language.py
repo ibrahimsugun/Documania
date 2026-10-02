@@ -40,7 +40,7 @@ from tests.telegram.conftest import (
 THIRD_ID = 5_000_000_003
 TURKISH_LETTERS = re.compile(r"[çğıİöşüÇĞÖŞÜ]")
 # Botun doğal dil isteğini anlaması Türkçedir (12.3); yardım ve yanıtlardaki örnek istek çevrilmez.
-EXAMPLE_REQUEST = "Ahmet Çakar'ın ehliyetini göster"
+EXAMPLE_REQUEST = "Ahmet Çakar'ın ehliyeti"
 
 
 def _user(
@@ -169,7 +169,7 @@ def test_the_link_reply_is_in_the_language_of_the_codes_user(
         + f"\n\n{_in('sr', bot_module.YOUR_NUMBER_TEXT)}\n{OTHER_ID}",
         _in("en", INVALID_LINK_TEXT),
     ]
-    assert bot.telegram.sent_texts()[0].startswith("Povezano: milan.")
+    assert bot.telegram.sent_texts()[0].startswith("Gotovo, povezani ste.")
 
 
 # --- 3: panelde dil değişince sonraki yanıt yeni dilde ------------------------------------------
@@ -227,8 +227,10 @@ def test_intake_messages_are_in_the_senders_language(
     bot.feed(document_update(1, OTHER_ID, "f1", "cv.docx"))
 
     received, unprocessed = bot.telegram.sent_texts()
-    assert received == "Primljen je 1 fajl. Obrađuje se; javiću rezultat kada završi."
-    assert unprocessed.startswith("Serija ") and "1 fajl je primljen i sačuvan" in unprocessed
+    assert received == "Primio sam 1 fajl i gledam ga. Javiću vam kada završim."
+    assert unprocessed == (
+        "Vaši dokumenti su sačuvani, ali trenutno nisu mogli da se obrade. Javite administratoru."
+    )
 
 
 def test_document_request_replies_are_in_the_requesters_language(
@@ -240,19 +242,19 @@ def test_document_request_replies_are_in_the_requesters_language(
     bot.feed(message_update(1, OTHER_ID, EXAMPLE_REQUEST))
 
     assert bot.telegram.sent_texts() == [_in("en", intent.UNAVAILABLE_TEXT)]
-    assert bot.telegram.sent_texts()[0].startswith("Document requests are not working")
+    assert bot.telegram.sent_texts()[0].startswith("I cannot show documents right now.")
 
 
 def test_serbian_plurals_follow_the_count() -> None:
     with use_language("sr"):
-        assert handlers.received_text(1).startswith("Primljen je 1 fajl.")
-        assert handlers.received_text(3).startswith("Primljena su 3 fajla.")
-        assert handlers.received_text(5).startswith("Primljeno je 5 fajlova.")
+        assert handlers.received_text(1).startswith("Primio sam 1 fajl i gledam ga.")
+        assert handlers.received_text(3).startswith("Primio sam 3 fajla i gledam ih.")
+        assert handlers.received_text(5).startswith("Primio sam 5 fajlova i gledam ih.")
     with use_language("en"):
-        assert handlers.received_text(1).startswith("1 file received.")
-        assert handlers.received_text(2).startswith("2 files received.")
+        assert handlers.received_text(1).startswith("I got 1 file and I am looking at it.")
+        assert handlers.received_text(2).startswith("I got 2 files and I am looking at them.")
     with use_language("tr"):
-        assert handlers.received_text(2).startswith("2 dosya alındı.")
+        assert handlers.received_text(2).startswith("2 dosya aldım, bakıyorum.")
 
 
 # --- bütün bot metinleri çevrili ---------------------------------------------------------------
@@ -263,12 +265,7 @@ BOT_TEXTS = [
     for name, value in vars(module).items()
     if name.endswith("_TEXT") and isinstance(value, str)
 ]
-LABELS = [
-    *handlers.STATUS_LABELS.values(),
-    *handlers.QUEUE_LABELS.values(),
-    intent.ANY_DOCUMENT,
-    intent.ANY_ACTIVE_DOCUMENT,
-]
+LABELS = [intent.ANY_DOCUMENT, intent.ANY_ACTIVE_DOCUMENT]
 
 
 @pytest.mark.parametrize("language", ["en", "sr"])
@@ -276,7 +273,7 @@ def test_every_bot_text_has_a_translation_without_turkish_residue(language: str)
     assert len(BOT_TEXTS) >= 25
     for text in [*BOT_TEXTS, *LABELS]:
         translated = _in(language, text)
-        assert translated != text or text in handlers.QUEUE_LABELS.values(), text
+        assert translated != text, text
         visible = translated.replace(EXAMPLE_REQUEST, "")
         assert not TURKISH_LETTERS.search(visible), (language, translated)
 
@@ -303,13 +300,13 @@ def test_admission_reads_permission_and_language_in_one_step(
     [
         (
             "en",
-            "Batch u_20260101_001: could not be processed.\n"
-            "The files are stored; see the batch in the panel for details.",
+            "Your documents were saved but could not be handled right now. "
+            "Please tell your administrator.",
         ),
         (
             "sr",
-            "Serija u_20260101_001: nije mogla da se obradi.\n"
-            "Fajlovi su sačuvani; detalje pogledajte u seriji na panelu.",
+            "Vaši dokumenti su sačuvani, ali trenutno nisu mogli da se obrade. "
+            "Javite administratoru.",
         ),
     ],
 )

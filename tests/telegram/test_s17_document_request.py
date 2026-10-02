@@ -112,13 +112,12 @@ def test_s17_one_license_is_sent_and_two_licenses_ask_which_one(
     # S17 iki ehliyet → seçim sorusu: iki seçenek, hiçbir belge gönderilmez, kayıt düşmez.
     bot.feed(message_update(4, LISTED_ID, REQUEST))
     question = bot.telegram.sent("sendMessage")[-1]
-    assert question["text"].splitlines()[0] == (
-        f"AHMET ÇAKAR ({employee.id}) için 2 ehliyet bulundu. Hangisini istiyorsunuz?"
-    )
+    assert question["text"].splitlines()[0] == "AHMET ÇAKAR için 2 ehliyet buldum. Hangisi?"
+    assert employee.id not in question["text"]  # §D98 c: çalışan numarası yazılmaz
     options = [button for row in question["reply_markup"]["inline_keyboard"] for button in row]
     assert [button["text"] for button in options] == [
-        f"1. {Path(newer.path).name}",
-        f"2. {Path(older.path).name}",
+        f"1. Serbian Driving License — {newer.created_at:%d.%m.%Y}",
+        f"2. Serbian Driving License — {older.created_at:%d.%m.%Y}",
     ]
     assert len(bot.telegram.uploads) == 1
     assert len(access_rows(session_factory)) == 1

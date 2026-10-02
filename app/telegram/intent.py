@@ -91,13 +91,14 @@ from app.matching.names import EmptyNameError, normalize_name
 from app.matching.records import ACTIVE_ALIAS
 from app.matching.status import status_suffix
 from app.storage import DataLayout
+from app.telegram.plain import BULLET, MAX_ITEMS
 from app.telegram.whitelist import is_permitted
 from app.web.access import record_access
 
 logger = logging.getLogger(__name__)
 
 MAX_REQUEST_LENGTH = 500  # karakter; daha uzun mesaj yapay zekâya gönderilmez
-MAX_OPTIONS = 10  # seçim sorusundaki en çok düğme
+MAX_OPTIONS = MAX_ITEMS  # seçim sorusundaki en çok düğme ve liste öğesi (§D98 b)
 CHOICE_TTL_SECONDS = 10 * 60
 MAX_PENDING_CHOICES = 1000
 # Bot API'nin bota gönderttiği en büyük dosya (yerel Bot API sunucusu olmadan).
@@ -111,37 +112,27 @@ _EMPLOYEE_NUMBER = re.compile(r"(?<!\w)([Ee]\d{4,})(?:['’]\w+)?(?!\w)")
 _MAX_BUTTON_LENGTH = 60
 _MAX_MESSAGE_LENGTH = 4000  # Telegram sınırı 4096
 
-# Metinler kaynak dilde (Türkçe msgid) tanımlıdır, gönderilirken isteyenin dilinde `gettext` ile
-# çevrilir (12.1.6). Sayı taşıyanlar (`ngettext`) kullanıldıkları yerde yazılıdır.
+# Metinler sade dildedir (12.1.9, §D98: katalog, çalışan numarası, teknik neden yok) ve kaynak
+# dilde (Türkçe msgid) tanımlıdır; gönderilirken isteyenin dilinde `gettext` ile çevrilir (12.1.6).
+# Sayı taşıyanlar (`ngettext`) kullanıldıkları yerde yazılıdır.
 NOT_A_REQUEST_TEXT = N_(
-    "Bu mesajı bir belge isteği olarak anlayamadım. Bir çalışanın belgesini istemek için kimin "
-    "hangi belgesini istediğinizi yazın, örneğin: “Ahmet Çakar'ın ehliyetini göster”. Bot belge "
-    "içeriğini değiştirmez; taşıma ve arşivleme panelden yapılır. Yardım: /yardim"
+    "Ne istediğinizi anlayamadım. Bir belgeyi görmek için örneğin “Ahmet Çakar'ın ehliyeti” yazın."
 )
-NO_PERSON_TEXT = N_(
-    "Kimin belgesini istediğinizi yazın: ad-soyad ya da çalışan numarası (ör. E0001)."
-)
-MANY_PEOPLE_TEXT = N_("Her istekte tek bir çalışanın belgesini isteyin.")
-UNKNOWN_KIND_TEXT = N_("“{kind}” katalogdaki belge türlerinden hiçbirine karşılık gelmiyor.")
-NO_EMPLOYEE_TEXT = N_("“{person}” ile eşleşen çalışan bulunamadı.")
-NO_DOCUMENT_TEXT = N_("{employee} için {kind} bulunamadı.")
-STALE_CHOICE_TEXT = N_("Bu seçim artık geçerli değil. İsteği yeniden yazın.")
-TOO_LONG_TEXT = N_(
-    "İstek çok uzun ({limit} karakterden fazla). Kimin hangi belgesini istediğinizi kısaca yazın."
-)
-UNAVAILABLE_TEXT = N_(
-    "Belge isteme şu an çalışmıyor: yapay zekâ sağlayıcısı kurulamadı. Yöneticiye bildirin."
-)
-FAILURE_TEXT = N_("İsteğiniz şu an işlenemedi. Lütfen biraz sonra tekrar deneyin.")
-DOCUMENT_GONE_TEXT = N_(
-    "Bu belge artık güncel değil (arşivlendi ya da yeniden analizle yenilendi). İsteği yeniden "
-    "yazın."
-)
-FILE_MISSING_TEXT = N_("Belgenin dosyası bulunamadı; yöneticiye bildirin.")
-TOO_LARGE_TEXT = N_("Belge Telegram'ın gönderim sınırını ({limit} MB) aşıyor; panelden indirin.")
-SEND_FAILED_TEXT = N_("Belge gönderilemedi. Lütfen tekrar deneyin.")
+NO_PERSON_TEXT = N_("Kimin belgesini istediğinizi adıyla yazın.")
+MANY_PEOPLE_TEXT = N_("Her seferinde tek bir kişinin belgesini isteyin.")
+UNKNOWN_KIND_TEXT = N_("“{kind}” diye bir belge türü bilmiyorum.")
+NO_EMPLOYEE_TEXT = N_("“{person}” adında birini bulamadım.")
+NO_DOCUMENT_TEXT = N_("{employee} için {kind} bulamadım.")
+STALE_CHOICE_TEXT = N_("Bu seçim artık geçerli değil. İsteğinizi yeniden yazın.")
+TOO_LONG_TEXT = N_("Mesajınız çok uzun. Kimin hangi belgesini istediğinizi kısaca yazın.")
+UNAVAILABLE_TEXT = N_("Şu an belge gösteremiyorum. Yöneticinize haber verin.")
+FAILURE_TEXT = N_("Şu an olmadı. Birkaç dakika sonra yeniden deneyin.")
+DOCUMENT_GONE_TEXT = N_("Bu belge değişmiş. İsteğinizi yeniden yazın.")
+FILE_MISSING_TEXT = N_("Bu belgeyi açamadım. Yöneticinize haber verin.")
+TOO_LARGE_TEXT = N_("Bu belge Telegram'dan gönderilemeyecek kadar büyük. Panelden indirin.")
+SEND_FAILED_TEXT = N_("Belgeyi gönderemedim. Yeniden deneyin.")
 ANY_DOCUMENT = N_("belge")
-ANY_ACTIVE_DOCUMENT = N_("etkin belge")
+ANY_ACTIVE_DOCUMENT = N_("belge")
 
 
 # --- Kişi ve belge araması (12.3.1) ------------------------------------------------------------
@@ -312,8 +303,8 @@ def resolve_documents(session: Session, employee: Employee, lookup: Lookup) -> R
     shown = documents[:MAX_OPTIONS]
     lines = [
         ngettext(
-            "{employee} için {count} {kind} bulundu. Hangisini istiyorsunuz?",
-            "{employee} için {count} {kind} bulundu. Hangisini istiyorsunuz?",
+            "{employee} için {count} {kind} buldum. Hangisi?",
+            "{employee} için {count} {kind} buldum. Hangisi?",
             len(documents),
         ).format(
             employee=_employee_label(employee),
@@ -322,16 +313,14 @@ def resolve_documents(session: Session, employee: Employee, lookup: Lookup) -> R
         )
     ]
     lines.extend(
-        f"{index}. {document.document_type.name} — {_file_name(document)} — "
-        f"{document.created_at:%d.%m.%Y}"
-        for index, document in enumerate(shown, 1)
+        f"{BULLET}{index}. {_document_label(document)}" for index, document in enumerate(shown, 1)
     )
     if len(documents) > MAX_OPTIONS:
         rest = len(documents) - MAX_OPTIONS
         lines.append(
             ngettext(
-                "… ve {count} belge daha. Türü belirtin ya da panelden bakın.",
-                "… ve {count} belge daha. Türü belirtin ya da panelden bakın.",
+                "ve {count} belge daha. Türünü de yazarak isteyin.",
+                "ve {count} belge daha. Türünü de yazarak isteyin.",
                 rest,
             ).format(count=rest)
         )
@@ -340,7 +329,7 @@ def resolve_documents(session: Session, employee: Employee, lookup: Lookup) -> R
         kind="document",
         options=tuple(str(document.id) for document in shown),
         labels=tuple(
-            _button_label(f"{index}. {_file_name(document)}")
+            _button_label(f"{index}. {_document_label(document)}")
             for index, document in enumerate(shown, 1)
         ),
         lookup=lookup,
@@ -355,13 +344,13 @@ def _employee_question(
     kind = lookup.kind or gettext(ANY_DOCUMENT)
     lines = [
         ngettext(
-            "“{person}” ile eşleşen {count} çalışan bulundu. Hangisi?",
-            "“{person}” ile eşleşen {count} çalışan bulundu. Hangisi?",
+            "“{person}” adında {count} kişi var. Hangisi?",
+            "“{person}” adında {count} kişi var. Hangisi?",
             len(employees),
         ).format(person=person, count=len(employees))
     ]
     for index, employee in enumerate(shown, 1):
-        details = [employee.id]
+        details = [_listed_name(employee)]
         if employee.date_of_birth is not None:
             born = f"{employee.date_of_birth:%d.%m.%Y}"
             details.append(gettext("doğum {date}").format(date=born))
@@ -371,13 +360,13 @@ def _employee_question(
             if count
             else gettext("{kind} yok").format(kind=kind)
         )
-        lines.append(f"{index}. {_listed_name(employee)} — " + " — ".join(details))
+        lines.append(f"{BULLET}{index}. " + " — ".join(details))
     if len(employees) > MAX_OPTIONS:
         rest = len(employees) - MAX_OPTIONS
         lines.append(
             ngettext(
-                "… ve {count} çalışan daha. Adı daha ayrıntılı ya da çalışan numarasıyla yazın.",
-                "… ve {count} çalışan daha. Adı daha ayrıntılı ya da çalışan numarasıyla yazın.",
+                "ve {count} kişi daha. Adı daha ayrıntılı yazın.",
+                "ve {count} kişi daha. Adı daha ayrıntılı yazın.",
                 rest,
             ).format(count=rest)
         )
@@ -386,7 +375,7 @@ def _employee_question(
         kind="employee",
         options=tuple(employee.id for employee in shown),
         labels=tuple(
-            _button_label(f"{index}. {_employee_label(employee)}")
+            _button_label(f"{index}. {_choice_label(employee)}")
             for index, employee in enumerate(shown, 1)
         ),
         lookup=lookup,
@@ -417,7 +406,20 @@ def _listed_name(employee: Employee) -> str:
 
 
 def _employee_label(employee: Employee) -> str:
-    return f"{_full_name(employee)} ({employee.id}){_status_suffix(employee)}"
+    # §D98 c: çalışan numarası bot metnine girmez; Latin ad (05.2.2) ve pasif eki yeter.
+    return _full_name(employee) + _status_suffix(employee)
+
+
+def _choice_label(employee: Employee) -> str:
+    """Seçim düğmesi: ad ve (varsa) doğum tarihi — aynı adlı iki kişiyi ayırır, numara yazılmaz."""
+    label = _employee_label(employee)
+    if employee.date_of_birth is not None:
+        label += f" — {employee.date_of_birth:%d.%m.%Y}"
+    return label
+
+
+def _document_label(document: Document) -> str:
+    return f"{document.document_type.name} — {document.created_at:%d.%m.%Y}"
 
 
 def _status_suffix(employee: Employee) -> str:
@@ -612,7 +614,7 @@ class DocumentRequests:
     async def _answer(self, bot: Bot, chat_id: int, telegram_id: int, text: str) -> None:
         reply: Reply
         if len(text) > MAX_REQUEST_LENGTH:
-            reply = TextReply(gettext(TOO_LONG_TEXT).format(limit=MAX_REQUEST_LENGTH))
+            reply = TextReply(gettext(TOO_LONG_TEXT))
         else:
             try:
                 reply = await asyncio.to_thread(self._reply_to, text)
@@ -717,8 +719,7 @@ class DocumentRequests:
             if path is None:
                 return TextReply(gettext(FILE_MISSING_TEXT))
             if path.stat().st_size > TELEGRAM_SEND_LIMIT_BYTES:
-                limit = f"{TELEGRAM_SEND_LIMIT_BYTES / 2**20:.0f}"
-                return TextReply(gettext(TOO_LARGE_TEXT).format(limit=limit))
+                return TextReply(gettext(TOO_LARGE_TEXT))
             file_name = _file_name(document)
             caption = f"{document.document_type.name} — {_employee_label(document.employee)}"
             record_access(

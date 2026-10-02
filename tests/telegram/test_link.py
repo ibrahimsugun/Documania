@@ -551,7 +551,7 @@ def test_a_stranger_opening_the_link_is_bound_and_then_served(
     ]
     assert [p["chat_id"] for p in bot.telegram.sent("sendMessage")] == [OTHER_ID] * 3
     assert _accounts(session_factory) == [(OTHER_ID, ayse, True)]
-    assert "/yardim" in LINKED_TEXT
+    assert "bağlandınız" in LINKED_TEXT  # §D98: sade, komut adı yok
 
 
 def test_the_link_handler_runs_before_the_gate_and_stops_the_update(
@@ -598,7 +598,8 @@ def test_refusals_are_explained_to_the_sender(
     bot.feed(message_update(1, OTHER_ID, f"/start {issued.code}"))
 
     assert bot.telegram.sent_texts() == [reply]
-    assert "yöneticinize başvurun" in reply
+    # §D98 d: izni kapalı ve başka hesaba bağlı tek metindir; ayrıntı yöneticide.
+    assert LINK_TAKEN_TEXT == LINK_BLOCKED_TEXT and "Yöneticinize haber verin" in reply
 
 
 def test_invalid_codes_get_one_generic_reply_and_the_sixth_attempt_gets_none(
