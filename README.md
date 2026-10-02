@@ -231,7 +231,10 @@ yere silmeyin.
   metin boş çeviriyle girer) → `.po`'da çeviri ([terim sözlüğü](app/i18n/GLOSSARY.md)) →
   `python -m app.i18n compile` (`.mo`; çalışma zamanı bunu okur, depoya girer) →
   `python -m app.i18n check` (boş, bulanık, eksik metin, yer tutucu ve eski `.mo` denetimi; testte
-  de koşar). Testler varsayılan dili `tr` yapar (`tests/conftest.py`).
+  de koşar). Testler varsayılan dili `tr` yapar (`tests/conftest.py`). İki aşamalı onay
+  metinleri (PRD §20.6) kataloğa girmez: `app/web/confirm.py` dil başına PRD'den birebir tutar
+  (Türkçe §20.6, İngilizce ve Sırpça §20.6.3; `tests/web/test_confirm.py` tabloyla karşılaştırır) —
+  değişecek metin önce PRD'ye yazılır.
 - **Faz 0'ın ilk dört görevi DoD kapısının kendisini kurar**; o görevlerde kapı, kurulduğu
   kadarıyla koşulur (`CONVENTIONS.md` §1.1).
 

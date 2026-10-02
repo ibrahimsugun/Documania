@@ -25,15 +25,15 @@
 {% endfor %}
 <input type="hidden" name="prompt_description" value="{{ form.prompt_description }}">
 {%- endmacro %}
-{% block title %}Aday tür{% endblock %}
+{% block title %}{{ _("Aday tür") }}{% endblock %}
 {% block content %}
-<p class="back"><a href="/document-types/candidate-types/{{ candidate_id }}">← Aday tür</a></p>
+<p class="back"><a href="/document-types/candidate-types/{{ candidate_id }}">{{ _("← Aday tür") }}</a></p>
 {% if error %}
-<h1>İşlem yapılmadı</h1>
-<p class="error" role="alert">{{ error }}</p>
+<h1>{{ _("İşlem yapılmadı") }}</h1>
+<p class="error" role="alert">{{ translate(error) }}</p>
 {% elif step == "approve" %}
-<h1>Standart türlere ekle: {{ candidate_name }}</h1>
-<p>Kataloğa eklenecek tür:</p>
+<h1>{{ _("Standart türlere ekle: %(name)s", name=candidate_name) }}</h1>
+<p>{{ _("Kataloğa eklenecek tür:") }}</p>
 <dl class="meta entry-summary">
   {% for label, value in rows %}<dt>{{ label }}</dt><dd>{{ value }}</dd>
   {% endfor %}
@@ -43,15 +43,15 @@
   <p class="confirm-text" role="alert">{{ second_confirmation }}</p>
   {{ hidden_fields(form) }}
   <input type="hidden" name="confirmation" value="{{ confirmation }}">
-  <button type="submit">Evet, türü ekle</button>
-  <a href="/document-types/candidate-types/{{ candidate_id }}">Vazgeç</a>
+  <button type="submit">{{ _("Evet, türü ekle") }}</button>
+  <a href="/document-types/candidate-types/{{ candidate_id }}">{{ _("Vazgeç") }}</a>
 </form>
 {% else %}
 <form class="confirm" method="post" action="/document-types/candidate-types/{{ candidate_id }}/approve/prepare">
   <p class="confirm-text" role="alert">{{ first_confirmation }}</p>
   {{ hidden_fields(form) }}
-  <button type="submit">Evet, devam et</button>
-  <a href="/document-types/candidate-types/{{ candidate_id }}">Vazgeç</a>
+  <button type="submit">{{ _("Evet, devam et") }}</button>
+  <a href="/document-types/candidate-types/{{ candidate_id }}">{{ _("Vazgeç") }}</a>
 </form>
 {% endif %}
 {% elif step == "reanalyze" %}

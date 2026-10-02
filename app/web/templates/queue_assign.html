@@ -1,7 +1,7 @@
 {# Kuyruktan çalışana atama (10.7.2) parçası: arama sonucu, birinci ve ikinci onay (§20.6, metinler
    birebir), sonuç ya da hata. Öğe detayındaki `#assign-results` / `#assign-step`'e yazılır. #}
 {% if error %}
-<p class="error" role="alert">{{ error }}</p>
+<p class="error" role="alert">{{ translate(error) }}</p>
 {% elif search %}
 {% if listing is none %}
 <p class="placeholder">Atanacak çalışanı bulmak için ad, alias, orijinal yazım veya belge numarası yazın.</p>
@@ -34,21 +34,21 @@
 {% elif first_confirmation %}
 <form class="confirm" hx-post="/queues/{{ queue_item_id }}/assign/prepare"
       hx-target="#assign-step" hx-swap="innerHTML" hx-disabled-elt="find button[type=submit]">
-  <p class="assignee">Seçilen çalışan: {{ assignee.name }} ({{ assignee.id }})</p>
+  <p class="assignee">{{ _("Seçilen çalışan: %(name)s (%(id)s)", name=assignee.name, id=assignee.id) }}</p>
   <p class="confirm-text" role="alert">{{ first_confirmation }}</p>
   <input type="hidden" name="employee_id" value="{{ assignee.id }}">
-  <button type="submit">Evet, devam et</button>
-  <a href="/queues/{{ queue_item_id }}">Vazgeç</a>
+  <button type="submit">{{ _("Evet, devam et") }}</button>
+  <a href="/queues/{{ queue_item_id }}">{{ _("Vazgeç") }}</a>
 </form>
 {% elif second_confirmation %}
 <form class="confirm" hx-post="/queues/{{ queue_item_id }}/assign"
       hx-target="#assign-step" hx-swap="innerHTML" hx-disabled-elt="find button[type=submit]">
-  <p class="assignee">Seçilen çalışan: {{ assignee.name }} ({{ assignee.id }})</p>
+  <p class="assignee">{{ _("Seçilen çalışan: %(name)s (%(id)s)", name=assignee.name, id=assignee.id) }}</p>
   <p class="confirm-text" role="alert">{{ second_confirmation }}</p>
   <input type="hidden" name="employee_id" value="{{ assignee.id }}">
   <input type="hidden" name="confirmation" value="{{ confirmation }}">
-  <button type="submit">Evet, ata</button>
-  <a href="/queues/{{ queue_item_id }}">Vazgeç</a>
+  <button type="submit">{{ _("Evet, ata") }}</button>
+  <a href="/queues/{{ queue_item_id }}">{{ _("Vazgeç") }}</a>
 </form>
 {% elif done %}
 <p class="notice notice-success" role="status">Öğe {{ assignee.name }} ({{ assignee.id }}) çalışanına atandı: {{ file_name }}. <a href="/documents/{{ document_id }}/history">Çıktının geçmişi</a> · <a href="/queues/{{ queue_item_id }}">Sayfayı yenileyin</a>.</p>

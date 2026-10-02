@@ -4,7 +4,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Documania panel\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-02 08:57+0000\n"
+"POT-Creation-Date: 2026-10-02 10:43+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -171,6 +171,10 @@ msgstr ""
 msgid ""
 "Ad, soyad ya da diğer isimler Latin olmayan harf taşıyor; Latin yazım "
 "belgede ve isim yazımlarında bulunamadı."
+msgstr ""
+
+#: app/web/templates/catalog_candidate_step.html
+msgid "Aday tür"
 msgstr ""
 
 #: app/web/routers/employees.py
@@ -409,6 +413,7 @@ msgid ""
 msgstr ""
 
 #: app/web/templates/_context_warning.html
+#: app/web/templates/queue_close_step.html
 msgid "Belge türü"
 msgstr ""
 
@@ -489,6 +494,10 @@ msgstr ""
 
 #: app/web/routers/documents.py
 msgid "Belgeyi arşive taşı"
+msgstr ""
+
+#: app/web/templates/queue_close_step.html
+msgid "Belirlenmedi"
 msgstr ""
 
 #: app/web/templates/upload.html
@@ -868,15 +877,22 @@ msgstr ""
 msgid "Evet, arşive taşı"
 msgstr ""
 
+#: app/web/templates/queue_assign.html
+msgid "Evet, ata"
+msgstr ""
+
 #: app/web/templates/employee_merge_step.html
 msgid "Evet, birleştir"
 msgstr ""
 
+#: app/web/templates/catalog_candidate_step.html
 #: app/web/templates/document_archive_step.html
 #: app/web/templates/document_move.html app/web/templates/employee_fields.html
 #: app/web/templates/employee_merge_step.html
 #: app/web/templates/employee_status_step.html
 #: app/web/templates/profile_record_step.html
+#: app/web/templates/queue_assign.html app/web/templates/queue_close_step.html
+#: app/web/templates/queue_new_profile.html
 #: app/web/templates/upload_detail.html
 msgid "Evet, devam et"
 msgstr ""
@@ -897,8 +913,16 @@ msgstr ""
 msgid "Evet, kaldır"
 msgstr ""
 
+#: app/web/templates/queue_close_step.html
+msgid "Evet, kapat"
+msgstr ""
+
 #: app/web/templates/employee_status_step.html
 msgid "Evet, pasife al"
+msgstr ""
+
+#: app/web/templates/queue_new_profile.html
+msgid "Evet, profili oluştur"
 msgstr ""
 
 #: app/web/templates/upload_action_result.html
@@ -907,6 +931,10 @@ msgstr ""
 
 #: app/web/templates/document_move.html
 msgid "Evet, taşı"
+msgstr ""
+
+#: app/web/templates/catalog_candidate_step.html
+msgid "Evet, türü ekle"
 msgstr ""
 
 #: app/web/templates/upload_action_result.html
@@ -1073,8 +1101,29 @@ msgstr ""
 msgid "Kanal"
 msgstr ""
 
+#: app/web/templates/queue_close_step.html
+msgid "Kapatma gerekçesi"
+msgstr ""
+
+#: app/web/templates/queue_close_step.html
+#, python-format
+msgid "Kapatma gerekçesi: %(reason)s"
+msgstr ""
+
+#: app/web/templates/queue_close_step.html
+msgid ""
+"Kapatılan öğe çözülmüş sayılır ve kuyruk sayacından düşer; \"Çözülen\" "
+"görünümünde gerekçesiyle durur ve \"Yeniden aç\" ile geri açılabilir. "
+"Kuyruk klasöründeki kopya ve gerekçe dosyası silinmez; sayfaları aday tür"
+" görülmelerinde kalır."
+msgstr ""
+
 #: app/web/templates/profile.html
 msgid "Karşılandı:"
+msgstr ""
+
+#: app/web/templates/catalog_candidate_step.html
+msgid "Kataloğa eklenecek tür:"
 msgstr ""
 
 #: app/web/templates/profile_record_step.html
@@ -1246,8 +1295,12 @@ msgstr ""
 msgid "Kullanıcılar sayfasına dön"
 msgstr ""
 
-#: app/web/templates/upload_detail.html
+#: app/web/templates/queue_close_step.html app/web/templates/upload_detail.html
 msgid "Kuyruk"
+msgstr ""
+
+#: app/web/templates/queue_close_step.html
+msgid "Kuyruk gerekçesi"
 msgstr ""
 
 #: app/web/templates/_context_warning.html
@@ -1312,6 +1365,10 @@ msgstr ""
 msgid "Not"
 msgstr ""
 
+#: app/web/templates/queue_close_step.html
+msgid "Not (\"Diğer\" gerekçesinde zorunlu)"
+msgstr ""
+
 #: app/web/templates/employee_status_step.html
 msgid "Not (isteğe bağlı)"
 msgstr ""
@@ -1357,10 +1414,17 @@ msgstr ""
 msgid "Onay bekleyen profil"
 msgstr ""
 
+#: app/web/confirm.py
+msgid ""
+"Onay geçersiz: belirteç yok, süresi geçmiş, daha önce kullanılmış ya da "
+"bu işleme ait değil."
+msgstr ""
+
 #: app/web/templates/document_archive_step.html
 #: app/web/templates/employee_merge_step.html
 #: app/web/templates/employee_status_step.html
 #: app/web/templates/profile_record_step.html
+#: app/web/templates/queue_close_step.html
 msgid "Onayı yeniden başlatın"
 msgstr ""
 
@@ -1466,8 +1530,8 @@ msgstr ""
 msgid "Parolayı sıfırla"
 msgstr ""
 
-#: app/web/templates/history.html app/web/templates/upload_detail.html
-#: app/web/templates/uploads_list.html
+#: app/web/templates/history.html app/web/templates/queue_close_step.html
+#: app/web/templates/upload_detail.html app/web/templates/uploads_list.html
 msgid "Parti"
 msgstr ""
 
@@ -1687,7 +1751,7 @@ msgid ""
 "seçin."
 msgstr ""
 
-#: app/web/templates/document_move.html
+#: app/web/templates/document_move.html app/web/templates/queue_assign.html
 #, python-format
 msgid "Seçilen çalışan: %(name)s (%(id)s)"
 msgstr ""
@@ -1726,6 +1790,11 @@ msgstr ""
 #: app/web/profile_form.py app/web/routers/employees.py
 #: app/web/templates/profile.html
 msgid "Soyad"
+msgstr ""
+
+#: app/web/templates/catalog_candidate_step.html
+#, python-format
+msgid "Standart türlere ekle: %(name)s"
 msgstr ""
 
 #: app/web/templates/base.html
@@ -1905,12 +1974,15 @@ msgstr ""
 msgid "Vatandaşlık"
 msgstr ""
 
+#: app/web/templates/catalog_candidate_step.html
 #: app/web/templates/document_archive_step.html
 #: app/web/templates/document_move.html app/web/templates/employee_fields.html
 #: app/web/templates/employee_fields_step.html
 #: app/web/templates/employee_merge_step.html
 #: app/web/templates/employee_status_step.html
 #: app/web/templates/profile_record_step.html
+#: app/web/templates/queue_assign.html app/web/templates/queue_close_step.html
+#: app/web/templates/queue_new_profile.html
 #: app/web/templates/upload_action_result.html
 msgid "Vazgeç"
 msgstr ""
@@ -2137,6 +2209,10 @@ msgstr ""
 #: app/web/routers/documents.py app/web/routers/upload_page.py
 #, python-brace-format
 msgid "dosya {id}"
+msgstr ""
+
+#: app/web/templates/queue_new_profile.html
+msgid "düzeltildi"
 msgstr ""
 
 #: app/matching/records.py
@@ -2366,6 +2442,10 @@ msgstr ""
 msgid "Çıkış"
 msgstr ""
 
+#: app/web/templates/queue_new_profile.html
+msgid "Önerilen profil değiştirilmeden onaylanacak."
+msgstr ""
+
 #: app/web/templates/upload_detail.html
 msgid "Öğe"
 msgstr ""
@@ -2452,6 +2532,10 @@ msgstr ""
 msgid "İşlem"
 msgstr ""
 
+#: app/web/templates/catalog_candidate_step.html
+msgid "İşlem yapılmadı"
+msgstr ""
+
 #: app/web/templates/upload_detail.html app/web/templates/users.html
 msgid "İşlemler"
 msgstr ""
@@ -2488,12 +2572,21 @@ msgstr ""
 msgid "“%(query)s” ile eşleşen çalışan yok."
 msgstr ""
 
+#: app/web/templates/catalog_candidate_step.html
+msgid "← Aday tür"
+msgstr ""
+
 #: app/web/templates/document_archive_step.html
 msgid "← Belge geçmişine dön"
 msgstr ""
 
 #: app/web/templates/access_log_employee.html
 msgid "← Erişim logu"
+msgstr ""
+
+#: app/web/templates/queue_close_step.html
+#, python-format
+msgid "← Kuyruk öğesi %(id)s"
 msgstr ""
 
 #: app/web/templates/document_archive_step.html

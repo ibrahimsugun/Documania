@@ -6,7 +6,10 @@ al ve yeniden etkinleştir, profil alt kaydını kaldır, iki çalışanı birle
 al, kuyruk öğesini kapat (§D61) — iki onay ister. Onay metinleri §20.6 tablosundan **birebir**
 buradadır (`CONFIRMATION_TEXTS`); `<Ad Soyad>`, `<Birleşen Ad Soyad>`, `<Kalan Ad Soyad>`,
 `<Tür adı>`, `<N>` ve `<M>` yer tutucuları çalışma zamanında `fill` ile doldurulur, pencere kendi
-cümlesini yazmaz.
+cümlesini yazmaz. İngilizce ve Sırpça (Latin) karşılıklar PRD §20.6.3'ten **birebir** kopyadır
+(`CONFIRMATION_TEXTS_EN`, `CONFIRMATION_TEXTS_SR`; gettext kataloğuna girmez, §D96): `first_text` ve
+`second_text` isteğin dilindeki metni verir, yer tutucular her dilde aynıdır ve aynı değerle
+dolar. `USER_CONFIRMED` olayı metin taşımaz, dilden bağımsızdır.
 
 Metni göstermek tek başına yetmez — istemci atlanabilir. Sunucu tarafı akış (§20.6.1):
 
@@ -32,8 +35,10 @@ from __future__ import annotations
 import enum
 import hashlib
 import secrets
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime, timedelta
+from types import MappingProxyType
 from typing import Any
 
 from fastapi import Request
@@ -42,12 +47,14 @@ from sqlalchemy.orm import Session
 
 from app.db.models import ConfirmationToken, utcnow
 from app.events import EventType, record_event
+from app.i18n import N_, SOURCE_LANGUAGE, SUPPORTED_LANGUAGES, current_language
 from app.web.auth import SESSION_COOKIE, PanelUser
 
 CONFIRMATION_TTL = timedelta(minutes=10)  # §20.6.1 adım 2
 # JSON API'de belirteç bu başlıkla gelir; panel formları `confirmation` alanını kullanır.
 CONFIRMATION_HEADER = "X-Confirmation-Token"
-CONFIRMATION_REFUSED = (
+# Kaynak dildeki (Türkçe) metin: JSON API'nin `detail`'i böyle kalır, panel `translate` ile çevirir.
+CONFIRMATION_REFUSED = N_(
     "Onay geçersiz: belirteç yok, süresi geçmiş, daha önce kullanılmış ya da bu işleme ait değil."
 )
 TARGET_MAX_LENGTH = 255  # `confirmation_tokens.target`
@@ -99,7 +106,8 @@ TYPE_PLACEHOLDER = "<Tür adı>"
 COUNT_PLACEHOLDER = "<N>"
 DOCUMENT_COUNT_PLACEHOLDER = "<M>"
 
-# §20.6 — metinler BİREBİR, değiştirilmez; `tests/web/test_confirm.py` PRD tablosuyla karşılaştırır.
+# §20.6 — Türkçe (kaynak dil) metinler BİREBİR, değiştirilmez; `tests/web/test_confirm.py` PRD
+# tablosuyla karşılaştırır. İngilizce ve Sırpça karşılıklar aşağıda (§20.6.3).
 CONFIRMATION_TEXTS: dict[Operation, ConfirmationTexts] = {
     Operation.MOVE: ConfirmationTexts(
         "Bu belgeyi başka bir çalışana taşımak üzeresiniz. Emin misiniz?",
@@ -162,6 +170,163 @@ CONFIRMATION_TEXTS: dict[Operation, ConfirmationTexts] = {
 }
 
 
+# §20.6.3 — İngilizce (`en`) ve Sırpça (`sr`, Latin) metinler PRD'den BİREBİR kopyadır,
+# değiştirilmez; `tests/web/test_confirm.py` PRD tablosuyla karşılaştırır. Yer tutucular Türkçe
+# kaynaktaki gibi yazılır (`<Ad Soyad>`…) ve aynı değerle dolar; `Hazir` çalışanın fiziksel
+# klasörünün adıdır.
+CONFIRMATION_TEXTS_EN: dict[Operation, ConfirmationTexts] = {
+    Operation.MOVE: ConfirmationTexts(
+        "You are about to move this document to another employee. Are you sure?",
+        "This action will change the document organization in the system. Is this your final "
+        "decision?",
+    ),
+    Operation.ASSIGN: ConfirmationTexts(
+        "You are about to assign this document to employee <Ad Soyad>. Are you sure?",
+        "This action will change the document organization in the system. Is this your final "
+        "decision?",
+    ),
+    Operation.APPROVE_PROFILE: ConfirmationTexts(
+        "You are about to create a new employee profile for <Ad Soyad>. Are you sure?",
+        "This action will create a permanent employee record in the system. Is this your final "
+        "decision?",
+    ),
+    Operation.APPROVE_TYPE: ConfirmationTexts(
+        "You are about to add the document type <Tür adı> to the standard types. Are you sure?",
+        "This action will affect all future document analyses. Is this your final decision?",
+    ),
+    Operation.ARCHIVE: ConfirmationTexts(
+        "You are about to move this document to the archive. Are you sure?",
+        "The document will leave the employee's Hazir folder. Is this your final decision?",
+    ),
+    Operation.DISMISS: ConfirmationTexts(
+        "You are about to dismiss this scan. Are you sure?",
+        "The batch and its pending queue items (<N>) will be removed from the lists; generated "
+        "documents (<M>) stay in place. Is this your final decision?",
+    ),
+    Operation.EDIT_EMPLOYEE: ConfirmationTexts(
+        "You are about to change this employee's profile information. Are you sure?",
+        "If the first or last name changed, the folder and the document files (<N>) will be "
+        "renamed. Is this your final decision?",
+    ),
+    Operation.DEACTIVATE_EMPLOYEE: ConfirmationTexts(
+        "You are about to deactivate employee <Ad Soyad>. Are you sure?",
+        "New documents for this employee will not be placed automatically; they will go to the "
+        "queue. Is this your final decision?",
+    ),
+    Operation.REACTIVATE_EMPLOYEE: ConfirmationTexts(
+        "You are about to reactivate employee <Ad Soyad>. Are you sure?",
+        "The employee will return to the list and new documents will again be placed "
+        "automatically. Is this your final decision?",
+    ),
+    Operation.REMOVE_PROFILE_RECORD: ConfirmationTexts(
+        "You are about to remove this record from the employee profile. Are you sure?",
+        "The record will no longer be used for matching or search and will remain in the history. "
+        "Is this your final decision?",
+    ),
+    Operation.MERGE_EMPLOYEES: ConfirmationTexts(
+        "You are about to merge the record <Birleşen Ad Soyad> into the record <Kalan Ad Soyad>. "
+        "Are you sure?",
+        "The documents (<N>) will be moved and the merged record will be closed; this action "
+        "cannot be undone. Is this your final decision?",
+    ),
+    Operation.UNARCHIVE: ConfirmationTexts(
+        "You are about to restore this document from the archive. Are you sure?",
+        "The document will return to the employee's Hazir folder. Is this your final decision?",
+    ),
+    Operation.CLOSE_QUEUE_ITEM: ConfirmationTexts(
+        "You are about to close this queue item. Are you sure?",
+        "The item will be considered resolved; its file copy and reason will stay in place. Is "
+        "this your final decision?",
+    ),
+}
+
+CONFIRMATION_TEXTS_SR: dict[Operation, ConfirmationTexts] = {
+    Operation.MOVE: ConfirmationTexts(
+        "Upravo ćete premestiti ovaj dokument drugom zaposlenom. Da li ste sigurni?",
+        "Ova radnja će promeniti organizaciju dokumenata u sistemu. Da li je to vaša konačna "
+        "odluka?",
+    ),
+    Operation.ASSIGN: ConfirmationTexts(
+        "Upravo ćete dodeliti ovaj dokument zaposlenom <Ad Soyad>. Da li ste sigurni?",
+        "Ova radnja će promeniti organizaciju dokumenata u sistemu. Da li je to vaša konačna "
+        "odluka?",
+    ),
+    Operation.APPROVE_PROFILE: ConfirmationTexts(
+        "Upravo ćete kreirati novi profil zaposlenog za <Ad Soyad>. Da li ste sigurni?",
+        "Ova radnja će kreirati trajni zapis o zaposlenom u sistemu. Da li je to vaša konačna "
+        "odluka?",
+    ),
+    Operation.APPROVE_TYPE: ConfirmationTexts(
+        "Upravo ćete dodati tip dokumenta <Tür adı> među standardne tipove. Da li ste sigurni?",
+        "Ova radnja će uticati na sve buduće analize dokumenata. Da li je to vaša konačna odluka?",
+    ),
+    Operation.ARCHIVE: ConfirmationTexts(
+        "Upravo ćete premestiti ovaj dokument u arhivu. Da li ste sigurni?",
+        "Dokument će biti uklonjen iz fascikle Hazir zaposlenog. Da li je to vaša konačna odluka?",
+    ),
+    Operation.DISMISS: ConfirmationTexts(
+        "Upravo ćete zanemariti ovo skeniranje. Da li ste sigurni?",
+        "Serija i njene stavke reda na čekanju (<N>) biće uklonjene sa spiskova; generisani "
+        "dokumenti (<M>) ostaju na mestu. Da li je to vaša konačna odluka?",
+    ),
+    Operation.EDIT_EMPLOYEE: ConfirmationTexts(
+        "Upravo ćete izmeniti podatke profila ovog zaposlenog. Da li ste sigurni?",
+        "Ako je ime ili prezime promenjeno, fascikla i datoteke dokumenata (<N>) biće "
+        "preimenovane. Da li je to vaša konačna odluka?",
+    ),
+    Operation.DEACTIVATE_EMPLOYEE: ConfirmationTexts(
+        "Upravo ćete deaktivirati zaposlenog <Ad Soyad>. Da li ste sigurni?",
+        "Novi dokumenti za ovog zaposlenog neće se automatski raspoređivati, već će ići u red. Da "
+        "li je to vaša konačna odluka?",
+    ),
+    Operation.REACTIVATE_EMPLOYEE: ConfirmationTexts(
+        "Upravo ćete ponovo aktivirati zaposlenog <Ad Soyad>. Da li ste sigurni?",
+        "Zaposleni će se vratiti na spisak, a novi dokumenti će se ponovo automatski "
+        "raspoređivati. Da li je to vaša konačna odluka?",
+    ),
+    Operation.REMOVE_PROFILE_RECORD: ConfirmationTexts(
+        "Upravo ćete ukloniti ovaj zapis iz profila zaposlenog. Da li ste sigurni?",
+        "Zapis se više neće koristiti za uparivanje i pretragu i ostaće u istoriji. Da li je to "
+        "vaša konačna odluka?",
+    ),
+    Operation.MERGE_EMPLOYEES: ConfirmationTexts(
+        "Upravo ćete spojiti zapis <Birleşen Ad Soyad> sa zapisom <Kalan Ad Soyad>. Da li ste "
+        "sigurni?",
+        "Dokumenti (<N>) biće premešteni, a spojeni zapis biće zatvoren; ova radnja se ne može "
+        "poništiti. Da li je to vaša konačna odluka?",
+    ),
+    Operation.UNARCHIVE: ConfirmationTexts(
+        "Upravo ćete vratiti ovaj dokument iz arhive. Da li ste sigurni?",
+        "Dokument će se vratiti u fasciklu Hazir zaposlenog. Da li je to vaša konačna odluka?",
+    ),
+    Operation.CLOSE_QUEUE_ITEM: ConfirmationTexts(
+        "Upravo ćete zatvoriti ovu stavku reda. Da li ste sigurni?",
+        "Stavka će se smatrati rešenom; kopija datoteke i obrazloženje ostaju na mestu. Da li je "
+        "to vaša konačna odluka?",
+    ),
+}
+
+# Dil kodu → onay metinleri (`SUPPORTED_LANGUAGES` ile aynı küme): Türkçe kaynaktır.
+CONFIRMATION_TEXTS_BY_LANGUAGE: Mapping[str, Mapping[Operation, ConfirmationTexts]] = (
+    MappingProxyType(
+        {
+            SOURCE_LANGUAGE: CONFIRMATION_TEXTS,
+            "en": CONFIRMATION_TEXTS_EN,
+            "sr": CONFIRMATION_TEXTS_SR,
+        }
+    )
+)
+
+
+def confirmation_texts(operation: Operation, language: str | None = None) -> ConfirmationTexts:
+    """`operation`'ın iki onay metni (yer tutucular henüz dolmamış): `language` dilinde, verilmezse
+    isteğin dilinde. Yalnız §20.6'nın 13 işlemi vardır; başka işlem `KeyError`'dır."""
+    code = current_language() if language is None else language
+    if code not in SUPPORTED_LANGUAGES:
+        raise ValueError(f"desteklenmeyen dil: {code!r}")
+    return CONFIRMATION_TEXTS_BY_LANGUAGE[code][operation]
+
+
 def fill(
     text: str,
     *,
@@ -194,12 +359,15 @@ def fill(
     return text
 
 
-def first_text(operation: Operation, **values: Any) -> str:
-    return fill(CONFIRMATION_TEXTS[operation].first, **values)
+def first_text(operation: Operation, *, language: str | None = None, **values: Any) -> str:
+    """Birinci onay metni, yer tutucuları doldurulmuş: `language` dilinde, verilmezse isteğin
+    dilinde (istek dışında `en`; makine arayüzü olan JSON API kaynak dili ister)."""
+    return fill(confirmation_texts(operation, language).first, **values)
 
 
-def second_text(operation: Operation, **values: Any) -> str:
-    return fill(CONFIRMATION_TEXTS[operation].second, **values)
+def second_text(operation: Operation, *, language: str | None = None, **values: Any) -> str:
+    """İkinci onay metni; `first_text` ile aynı dil kuralı."""
+    return fill(confirmation_texts(operation, language).second, **values)
 
 
 class ConfirmationRefusedError(ValueError):

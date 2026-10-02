@@ -1,9 +1,14 @@
 """10.8.1 — iki aşamalı onay mekanizması: onay metinleri §20.6 tablosundan **birebir** kullanılır;
 sunucu tek kullanımlık belirteç ister ve belirteçsiz isteği reddeder (K16, §20.6.1, §20.6.2).
 
-Metinler PRD dosyasındaki tablonun kendisiyle karşılaştırılır. Belirteç kuralları doğrudan
-`app.web.confirm` üzerinde, geçici SQLite ile sınanır; panel ve API uçlarındaki davranış
-`test_document_move.py`, `test_queue*.py` ve `test_upload_detail.py`'dedir.
+Metinler PRD dosyasındaki tablonun kendisiyle karşılaştırılır: Türkçe kaynak §20.6'nın, İngilizce
+ve Sırpça karşılıklar §20.6.3'ün tablosuyla birebir (10.10.4; PLAN.md §D92 h, §D96). Belirteç
+kuralları doğrudan `app.web.confirm` üzerinde, geçici SQLite ile sınanır; panel ve API uçlarındaki
+davranış `test_document_move.py`, `test_queue*.py` ve `test_upload_detail.py`'dedir; metnin isteğin
+dilinde görünmesi `test_confirm_language.py`'dedir.
+
+İstek dışı `first_text`/`second_text` çağrısı `en` görür (§D93 b); aşağıdaki testler Türkçe kaynağı
+bekler, bu yüzden dosya `tr` bağlamında koşar.
 """
 
 from __future__ import annotations
@@ -21,13 +26,17 @@ from starlette.requests import Request
 import app.web.confirm as confirm
 from app.db.models import ConfirmationToken, Employee, Event, utcnow
 from app.events import EventType
+from app.i18n import SUPPORTED_LANGUAGES, translate, use_language
 from app.web.auth import SESSION_COOKIE, PanelUser
 from app.web.confirm import (
+    CONFIRMATION_REFUSED,
     CONFIRMATION_TEXTS,
+    CONFIRMATION_TEXTS_BY_LANGUAGE,
     ConfirmationRefusedError,
     ConfirmationTexts,
     Operation,
     confirm_operation,
+    confirmation_texts,
     consume_confirmation,
     fill,
     first_text,
@@ -61,6 +70,27 @@ def _section_20_6_rows() -> dict[str, tuple[str, str]]:
     section = text[text.index("### 20.6 ") : text.index("#### 20.6.1")]
     rows = re.findall(r"^\| ([^|`]+?) \| `([^`]+)` \| `([^`]+)` \|$", section, re.M)
     return {name: (first, second) for name, first, second in rows}
+
+
+def _section_20_6_3_rows() -> dict[str, dict[str, ConfirmationTexts]]:
+    """§20.6.3 tablosu: işlem → dil (`en`, `sr`) → iki metin."""
+    text = PRD.read_text(encoding="utf-8")
+    start = text.index("#### 20.6.3 ")
+    end = text.find("\n#", start + 10)  # sonraki başlık; bölüm belgenin sonundaysa dosya sonu
+    section = text[start : end if end != -1 else len(text)]
+    rows = re.findall(
+        r"^\| ([^|`]+?) \| `([^`]+)` \| `([^`]+)` \| `([^`]+)` \| `([^`]+)` \|$", section, re.M
+    )
+    return {
+        name: {"en": ConfirmationTexts(en_1, en_2), "sr": ConfirmationTexts(sr_1, sr_2)}
+        for name, en_1, en_2, sr_1, sr_2 in rows
+    }
+
+
+@pytest.fixture(autouse=True)
+def _source_language() -> Iterator[None]:
+    with use_language("tr"):
+        yield
 
 
 def _request(cookie: str | None = SESSION) -> Request:
@@ -102,6 +132,109 @@ def test_the_texts_are_the_section_20_6_table_verbatim() -> None:
     assert {
         PRD_OPERATIONS[name]: ConfirmationTexts(*texts) for name, texts in rows.items()
     } == CONFIRMATION_TEXTS
+
+
+def test_the_english_and_serbian_texts_are_the_section_20_6_3_table_verbatim() -> None:
+    rows = _section_20_6_3_rows()
+
+    assert set(rows) == set(PRD_OPERATIONS)  # 13 işlem; tabloda olup kodda olmayan ya da tersi yok
+    for language, table in (
+        ("en", confirm.CONFIRMATION_TEXTS_EN),
+        ("sr", confirm.CONFIRMATION_TEXTS_SR),
+    ):
+        assert {PRD_OPERATIONS[name]: texts[language] for name, texts in rows.items()} == table
+        assert CONFIRMATION_TEXTS_BY_LANGUAGE[language] is table
+
+
+def test_the_texts_are_kept_per_language_for_exactly_the_supported_languages() -> None:
+    assert set(CONFIRMATION_TEXTS_BY_LANGUAGE) == set(SUPPORTED_LANGUAGES)
+    assert CONFIRMATION_TEXTS_BY_LANGUAGE["tr"] is CONFIRMATION_TEXTS
+    for table in CONFIRMATION_TEXTS_BY_LANGUAGE.values():
+        assert set(table) == set(PRD_OPERATIONS.values())
+
+
+def _placeholders(text: str) -> list[str]:
+    return sorted(re.findall(r"<[^<>]+>", text))
+
+
+@pytest.mark.parametrize("language", ["en", "sr"])
+def test_every_language_keeps_the_placeholders_of_the_turkish_source(language: str) -> None:
+    for operation, source in CONFIRMATION_TEXTS.items():
+        texts = CONFIRMATION_TEXTS_BY_LANGUAGE[language][operation]
+        assert _placeholders(texts.first) == _placeholders(source.first), operation
+        assert _placeholders(texts.second) == _placeholders(source.second), operation
+        assert texts.first != source.first and texts.second != source.second, operation
+
+
+@pytest.mark.parametrize("language", list(SUPPORTED_LANGUAGES))
+def test_every_language_fills_every_placeholder_with_the_same_values(language: str) -> None:
+    values = {
+        "name": "Ivan Petrov",
+        "merged_name": "Ivan Petrow",
+        "kept_name": "Ivan Petrov",
+        "type_name": "Work permit",
+        "count": 3,
+        "documents": 4,
+    }
+    for operation in CONFIRMATION_TEXTS:
+        for text in (
+            first_text(operation, language=language, **values),
+            second_text(operation, language=language, **values),
+        ):
+            assert not re.search(r"<[^<>]+>", text), (operation, text)
+    assert first_text(Operation.ASSIGN, language=language, **values).count("Ivan Petrov") == 1
+    assert "Ivan Petrow" in first_text(Operation.MERGE_EMPLOYEES, language=language, **values)
+    assert "Work permit" in first_text(Operation.APPROVE_TYPE, language=language, **values)
+    dismissed = second_text(Operation.DISMISS, language=language, queue_items=2, documents=0)
+    assert "2" in dismissed and "0" in dismissed
+    if language != "tr":
+        assert "(2)" in dismissed and "(0)" in dismissed
+
+
+@pytest.mark.parametrize("language", ["en", "sr"])
+def test_a_missing_placeholder_value_is_refused_in_every_language(language: str) -> None:
+    with pytest.raises(ValueError, match="<Ad Soyad>"):
+        first_text(Operation.ASSIGN, language=language)
+    with pytest.raises(ValueError, match="<Tür adı>"):
+        first_text(Operation.APPROVE_TYPE, language=language)
+    with pytest.raises(ValueError, match="<N>"):
+        second_text(Operation.DISMISS, language=language, documents=1)
+    with pytest.raises(ValueError, match="<M>"):
+        second_text(Operation.DISMISS, language=language, queue_items=1)
+
+
+def test_the_texts_follow_the_request_language_and_an_explicit_language_wins() -> None:
+    expected = {
+        "tr": "Bu belgeyi arşive taşımak üzeresiniz. Emin misiniz?",
+        "en": "You are about to move this document to the archive. Are you sure?",
+        "sr": "Upravo ćete premestiti ovaj dokument u arhivu. Da li ste sigurni?",
+    }
+    for language, text in expected.items():
+        with use_language(language):
+            assert first_text(Operation.ARCHIVE) == text
+            assert confirmation_texts(Operation.ARCHIVE).first == text
+    with use_language("en"):
+        assert first_text(Operation.ARCHIVE, language="sr") == expected["sr"]
+        assert second_text(Operation.ARCHIVE, language="tr") == (
+            CONFIRMATION_TEXTS[Operation.ARCHIVE].second
+        )
+    with pytest.raises(ValueError, match="desteklenmeyen dil"):
+        first_text(Operation.ARCHIVE, language="de")
+
+
+def test_the_confirmation_refusal_is_source_text_and_translates_for_the_panel() -> None:
+    assert CONFIRMATION_REFUSED.startswith("Onay geçersiz")
+    assert translate(CONFIRMATION_REFUSED) == CONFIRMATION_REFUSED
+    with use_language("en"):
+        assert translate(CONFIRMATION_REFUSED) == (
+            "Confirmation is invalid: the token is missing, expired, already used or does not "
+            "belong to this action."
+        )
+    with use_language("sr"):
+        assert translate(CONFIRMATION_REFUSED) == (
+            "Potvrda nije važeća: token ne postoji, istekao je, već je iskorišćen ili ne pripada "
+            "ovoj radnji."
+        )
 
 
 def test_placeholders_are_filled_at_run_time_and_never_shown_empty() -> None:

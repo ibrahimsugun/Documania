@@ -4,8 +4,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Documania panel\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-02 08:57+0000\n"
-"PO-Revision-Date: 2026-10-02 09:19+0000\n"
+"POT-Creation-Date: 2026-10-02 10:44+0000\n"
+"PO-Revision-Date: 2026-10-02 10:44+0000\n"
 "Last-Translator: Documania görev penceresi (gözden geçirilmeli)\n"
 "Language: sr_Latn\n"
 "Language-Team: Srpski\n"
@@ -193,6 +193,10 @@ msgid ""
 msgstr ""
 "Ime, prezime ili druga imena sadrže slova koja nisu latinična; latinični "
 "zapis nije pronađen u dokumentu ni u zapisima imena."
+
+#: app/web/templates/catalog_candidate_step.html
+msgid "Aday tür"
+msgstr "Predloženi tip"
 
 #: app/web/routers/employees.py
 msgid "Adres"
@@ -451,6 +455,7 @@ msgstr ""
 "dokumenata."
 
 #: app/web/templates/_context_warning.html
+#: app/web/templates/queue_close_step.html
 msgid "Belge türü"
 msgstr "Tip dokumenta"
 
@@ -545,6 +550,10 @@ msgstr "Vrati dokument iz arhive"
 #: app/web/routers/documents.py
 msgid "Belgeyi arşive taşı"
 msgstr "Premesti dokument u arhivu"
+
+#: app/web/templates/queue_close_step.html
+msgid "Belirlenmedi"
+msgstr "Nije određeno"
 
 #: app/web/templates/upload.html
 msgid "Belirtme — sahibi belgeden bulunsun"
@@ -976,15 +985,22 @@ msgstr "Aktivan"
 msgid "Evet, arşive taşı"
 msgstr "Da, premesti u arhivu"
 
+#: app/web/templates/queue_assign.html
+msgid "Evet, ata"
+msgstr "Da, dodeli"
+
 #: app/web/templates/employee_merge_step.html
 msgid "Evet, birleştir"
 msgstr "Da, spoji"
 
+#: app/web/templates/catalog_candidate_step.html
 #: app/web/templates/document_archive_step.html
 #: app/web/templates/document_move.html app/web/templates/employee_fields.html
 #: app/web/templates/employee_merge_step.html
 #: app/web/templates/employee_status_step.html
 #: app/web/templates/profile_record_step.html
+#: app/web/templates/queue_assign.html app/web/templates/queue_close_step.html
+#: app/web/templates/queue_new_profile.html
 #: app/web/templates/upload_detail.html
 msgid "Evet, devam et"
 msgstr "Da, nastavi"
@@ -1005,9 +1021,17 @@ msgstr "Da, vrati"
 msgid "Evet, kaldır"
 msgstr "Da, ukloni"
 
+#: app/web/templates/queue_close_step.html
+msgid "Evet, kapat"
+msgstr "Da, zatvori"
+
 #: app/web/templates/employee_status_step.html
 msgid "Evet, pasife al"
 msgstr "Da, deaktiviraj"
+
+#: app/web/templates/queue_new_profile.html
+msgid "Evet, profili oluştur"
+msgstr "Da, kreiraj profil"
 
 #: app/web/templates/upload_action_result.html
 msgid "Evet, taramayı yoksay"
@@ -1016,6 +1040,10 @@ msgstr "Da, zanemari skeniranje"
 #: app/web/templates/document_move.html
 msgid "Evet, taşı"
 msgstr "Da, premesti"
+
+#: app/web/templates/catalog_candidate_step.html
+msgid "Evet, türü ekle"
+msgstr "Da, dodaj tip"
 
 #: app/web/templates/upload_action_result.html
 msgid "Evet, yeniden analiz et"
@@ -1184,9 +1212,34 @@ msgstr "Uklonjen zapis"
 msgid "Kanal"
 msgstr "Kanal"
 
+#: app/web/templates/queue_close_step.html
+msgid "Kapatma gerekçesi"
+msgstr "Razlog zatvaranja"
+
+#: app/web/templates/queue_close_step.html
+#, python-format
+msgid "Kapatma gerekçesi: %(reason)s"
+msgstr "Razlog zatvaranja: %(reason)s"
+
+#: app/web/templates/queue_close_step.html
+msgid ""
+"Kapatılan öğe çözülmüş sayılır ve kuyruk sayacından düşer; \"Çözülen\" "
+"görünümünde gerekçesiyle durur ve \"Yeniden aç\" ile geri açılabilir. "
+"Kuyruk klasöründeki kopya ve gerekçe dosyası silinmez; sayfaları aday tür"
+" görülmelerinde kalır."
+msgstr ""
+"Zatvorena stavka smatra se rešenom i uklanja se sa brojača reda; ostaje u"
+" prikazu \"Rešeno\" sa svojim razlogom i može se ponovo otvoriti opcijom "
+"\"Ponovo otvori\". Kopija i datoteka sa razlogom u fascikli reda se ne "
+"brišu; njene strane ostaju u pojavljivanjima predloženog tipa."
+
 #: app/web/templates/profile.html
 msgid "Karşılandı:"
 msgstr "Ispunjeno:"
+
+#: app/web/templates/catalog_candidate_step.html
+msgid "Kataloğa eklenecek tür:"
+msgstr "Tip koji će biti dodat u katalog:"
 
 #: app/web/templates/profile_record_step.html
 msgid "Kaydı kaldır"
@@ -1368,9 +1421,13 @@ msgstr "Korisnici"
 msgid "Kullanıcılar sayfasına dön"
 msgstr "Nazad na stranicu Korisnici"
 
-#: app/web/templates/upload_detail.html
+#: app/web/templates/queue_close_step.html app/web/templates/upload_detail.html
 msgid "Kuyruk"
 msgstr "Red"
+
+#: app/web/templates/queue_close_step.html
+msgid "Kuyruk gerekçesi"
+msgstr "Razlog u redu"
 
 #: app/web/templates/_context_warning.html
 msgid "Kuyruk öğesi"
@@ -1438,6 +1495,10 @@ msgstr "Br."
 msgid "Not"
 msgstr "Napomena"
 
+#: app/web/templates/queue_close_step.html
+msgid "Not (\"Diğer\" gerekçesinde zorunlu)"
+msgstr "Napomena (obavezna za razlog \"Drugo\")"
+
 #: app/web/templates/employee_status_step.html
 msgid "Not (isteğe bağlı)"
 msgstr "Napomena (opciono)"
@@ -1483,10 +1544,19 @@ msgstr "Napravljeno:"
 msgid "Onay bekleyen profil"
 msgstr "Profil čeka odobrenje"
 
+#: app/web/confirm.py
+msgid ""
+"Onay geçersiz: belirteç yok, süresi geçmiş, daha önce kullanılmış ya da "
+"bu işleme ait değil."
+msgstr ""
+"Potvrda nije važeća: token ne postoji, istekao je, već je iskorišćen ili "
+"ne pripada ovoj radnji."
+
 #: app/web/templates/document_archive_step.html
 #: app/web/templates/employee_merge_step.html
 #: app/web/templates/employee_status_step.html
 #: app/web/templates/profile_record_step.html
+#: app/web/templates/queue_close_step.html
 msgid "Onayı yeniden başlatın"
 msgstr "Ponovo pokrenite potvrdu"
 
@@ -1600,8 +1670,8 @@ msgstr "Promeni lozinku"
 msgid "Parolayı sıfırla"
 msgstr "Resetuj lozinku"
 
-#: app/web/templates/history.html app/web/templates/upload_detail.html
-#: app/web/templates/uploads_list.html
+#: app/web/templates/history.html app/web/templates/queue_close_step.html
+#: app/web/templates/upload_detail.html app/web/templates/uploads_list.html
 msgid "Parti"
 msgstr "Serija"
 
@@ -1841,7 +1911,7 @@ msgstr ""
 "Izabrani zaposleni je već spojen sa drugim zapisom; izaberite zapis koji "
 "je ostao."
 
-#: app/web/templates/document_move.html
+#: app/web/templates/document_move.html app/web/templates/queue_assign.html
 #, python-format
 msgid "Seçilen çalışan: %(name)s (%(id)s)"
 msgstr "Izabrani zaposleni: %(name)s (%(id)s)"
@@ -1888,6 +1958,11 @@ msgstr "Sledeća →"
 #: app/web/templates/profile.html
 msgid "Soyad"
 msgstr "Prezime"
+
+#: app/web/templates/catalog_candidate_step.html
+#, python-format
+msgid "Standart türlere ekle: %(name)s"
+msgstr "Dodaj među standardne tipove: %(name)s"
 
 #: app/web/templates/base.html
 msgid ""
@@ -2085,12 +2160,15 @@ msgstr "Državljanstvo"
 msgid "Vatandaşlık"
 msgstr "Državljanstvo"
 
+#: app/web/templates/catalog_candidate_step.html
 #: app/web/templates/document_archive_step.html
 #: app/web/templates/document_move.html app/web/templates/employee_fields.html
 #: app/web/templates/employee_fields_step.html
 #: app/web/templates/employee_merge_step.html
 #: app/web/templates/employee_status_step.html
 #: app/web/templates/profile_record_step.html
+#: app/web/templates/queue_assign.html app/web/templates/queue_close_step.html
+#: app/web/templates/queue_new_profile.html
 #: app/web/templates/upload_action_result.html
 msgid "Vazgeç"
 msgstr "Odustani"
@@ -2336,6 +2414,10 @@ msgstr "drugo"
 msgid "dosya {id}"
 msgstr "datoteka {id}"
 
+#: app/web/templates/queue_new_profile.html
+msgid "düzeltildi"
+msgstr "ispravljeno"
+
 #: app/matching/records.py
 msgid "e-posta"
 msgstr "e-pošta"
@@ -2572,6 +2654,10 @@ msgstr "Izlazi"
 msgid "Çıkış"
 msgstr "Odjava"
 
+#: app/web/templates/queue_new_profile.html
+msgid "Önerilen profil değiştirilmeden onaylanacak."
+msgstr "Predloženi profil biće odobren bez izmena."
+
 #: app/web/templates/upload_detail.html
 msgid "Öğe"
 msgstr "Stavka"
@@ -2658,6 +2744,10 @@ msgstr "Blokiraj"
 msgid "İşlem"
 msgstr "Operacija"
 
+#: app/web/templates/catalog_candidate_step.html
+msgid "İşlem yapılmadı"
+msgstr "Radnja nije izvršena"
+
 #: app/web/templates/upload_detail.html app/web/templates/users.html
 msgid "İşlemler"
 msgstr "Radnje"
@@ -2694,6 +2784,10 @@ msgstr "Nema zaposlenih sa nepotpunim paketima koji odgovaraju upitu “%(query)
 msgid "“%(query)s” ile eşleşen çalışan yok."
 msgstr "Nema zaposlenih koji odgovaraju upitu “%(query)s”."
 
+#: app/web/templates/catalog_candidate_step.html
+msgid "← Aday tür"
+msgstr "← Predloženi tip"
+
 #: app/web/templates/document_archive_step.html
 msgid "← Belge geçmişine dön"
 msgstr "← Nazad na istoriju dokumenta"
@@ -2701,6 +2795,11 @@ msgstr "← Nazad na istoriju dokumenta"
 #: app/web/templates/access_log_employee.html
 msgid "← Erişim logu"
 msgstr "← Dnevnik pristupa"
+
+#: app/web/templates/queue_close_step.html
+#, python-format
+msgid "← Kuyruk öğesi %(id)s"
+msgstr "← Stavka reda %(id)s"
 
 #: app/web/templates/document_archive_step.html
 #: app/web/templates/employee_fields.html app/web/templates/employee_merge.html

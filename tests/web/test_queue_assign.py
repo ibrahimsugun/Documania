@@ -357,7 +357,7 @@ def test_first_confirmation_gives_the_second_one_with_a_token_and_changes_nothin
 
     assert response.status_code == 200
     html = response.text
-    assert SECOND_TEXT == second_text(Operation.ASSIGN)
+    assert SECOND_TEXT == second_text(Operation.ASSIGN, language="tr")
     assert f'<p class="confirm-text" role="alert">{SECOND_TEXT}</p>' in html
     assert f'hx-post="/queues/{item_id}/assign"' in html
     assert f'<input type="hidden" name="employee_id" value="{TARGET}">' in html

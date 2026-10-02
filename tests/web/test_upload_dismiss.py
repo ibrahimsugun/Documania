@@ -294,7 +294,7 @@ def test_prepare_gives_the_section_20_6_second_text_with_counts_and_changes_noth
     response = client.post(f"/uploads/{batch}/dismiss/prepare")
 
     assert response.status_code == 200
-    expected = second_text(Operation.DISMISS, queue_items=1, documents=1)
+    expected = second_text(Operation.DISMISS, language="tr", queue_items=1, documents=1)
     assert expected == (
         "Parti ve bekleyen 1 kuyruk öğesi listelerden kalkacaktır; üretilmiş 1 belge yerinde "
         "kalır. Son kararınız mı?"

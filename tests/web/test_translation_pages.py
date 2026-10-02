@@ -1,6 +1,9 @@
 """10.10.3 arayüz çevirisi I — çalışanlar, profil, yükleme, yüklemeler, belge geçmişi, erişim logu,
 kullanıcılar ve hesap sayfaları İngilizce ve Sırpça (PLAN.md §D92 e, f, g, l; §D95; tm 154).
 
+§20.6 onay metinleri (`confirm-text`) da taranır (10.10.4, tm 156): dil başına PRD'den birebir
+gelirler.
+
 Her sayfa hesabın dil tercihiyle (`PanelUser.language`) çizilir: başlık, tablo başlıkları,
 düğmeler, boş durum ve hata metni seçili dilde görünür; Türkçe kalıntı taraması
 (`tests/i18n/residue.py`) İngilizce ve Sırpça sayfada temizdir. Veri (çalışan adı, belge türü adı,
@@ -13,7 +16,6 @@ Veri sentetiktir; parti gerçek boru hattından kayıtlı yanıt sağlayıcısı
 
 from __future__ import annotations
 
-import re
 from collections.abc import Callable
 from datetime import UTC, date, datetime
 from pathlib import Path
@@ -48,7 +50,7 @@ from tests.fixtures.gen import (
     passport_page,
     recorded_provider,
 )
-from tests.i18n.residue import assert_no_turkish as _assert_no_turkish
+from tests.i18n.residue import assert_no_turkish
 from tests.web.conftest import SIGNED_IN
 
 SETTINGS = Settings(_env_file=None, database_url="sqlite://")
@@ -57,13 +59,6 @@ PASSPORT = "russian_passport"
 FILE_NAME = "Dmitry_Vasiliev-Passport.pdf"
 
 Speak = Callable[[str], None]
-# §20.6 onay metinleri (`confirm-text`) 10.10.4'ün işidir (tm 156, §D92 h): dil başına PRD'den
-# birebir kopyalanır, gettext'e girmez. O görev bitene dek onay paragrafı taramaya girmez.
-_CONFIRM_TEXT = re.compile(r'<p class="confirm-text"[^>]*>.*?</p>', re.S)
-
-
-def assert_no_turkish(html: str, language: str) -> None:
-    _assert_no_turkish(_CONFIRM_TEXT.sub("", html), language)
 
 
 @pytest.fixture

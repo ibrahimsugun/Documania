@@ -281,7 +281,9 @@ def test_first_confirmation_shows_the_edited_profile_verbatim_and_changes_nothin
 
     assert response.status_code == 200, response.text
     html = response.text
-    assert FIRST_TEXT == first_text(Operation.APPROVE_PROFILE, name=f"{GIVEN} {EDITED_SURNAME}")
+    assert FIRST_TEXT == first_text(
+        Operation.APPROVE_PROFILE, language="tr", name=f"{GIVEN} {EDITED_SURNAME}"
+    )
     assert f'<p class="confirm-text" role="alert">{FIRST_TEXT}</p>' in html
     assert f'hx-post="/queues/{item_id}/profile/prepare"' in html
     # Onaylanacak değerler ve öneriden farklı olanlar gösterilir; formun değerleri taşınır.
@@ -346,7 +348,7 @@ def test_first_confirmation_gives_the_second_one_with_a_token_and_changes_nothin
 
     assert response.status_code == 200
     html = response.text
-    assert SECOND_TEXT == second_text(Operation.APPROVE_PROFILE)
+    assert SECOND_TEXT == second_text(Operation.APPROVE_PROFILE, language="tr")
     assert f'<p class="confirm-text" role="alert">{SECOND_TEXT}</p>' in html
     assert f'hx-post="/queues/{item_id}/profile"' in html
     hidden = _hidden(html)

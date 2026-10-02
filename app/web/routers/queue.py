@@ -134,6 +134,7 @@ from app.db.models import (
 )
 from app.db.session import get_session
 from app.events import EventType
+from app.i18n import SOURCE_LANGUAGE
 from app.matching.match import (
     PROFILE_FIELDS,
     EmployeeAction,
@@ -294,8 +295,9 @@ def _issued(
     session.commit()
     return ConfirmationResponse(
         operation=operation.value,
-        first_confirmation=first_text(operation, **texts),
-        second_confirmation=second_text(operation, **texts),
+        # JSON API makine arayüzüdür, çevrilmez (§D92 e): onay metinleri kaynak dilde (Türkçe).
+        first_confirmation=first_text(operation, language=SOURCE_LANGUAGE, **texts),
+        second_confirmation=second_text(operation, language=SOURCE_LANGUAGE, **texts),
         confirmation=issued.token,
         expires_at=issued.expires_at,
     )

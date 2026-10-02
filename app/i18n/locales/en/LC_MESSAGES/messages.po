@@ -4,8 +4,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Documania panel\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-02 08:57+0000\n"
-"PO-Revision-Date: 2026-10-02 09:02+0000\n"
+"POT-Creation-Date: 2026-10-02 10:44+0000\n"
+"PO-Revision-Date: 2026-10-02 10:44+0000\n"
 "Last-Translator: Documania görev penceresi (gözden geçirilmeli)\n"
 "Language: en\n"
 "Language-Team: English\n"
@@ -183,6 +183,10 @@ msgid ""
 msgstr ""
 "The given names, surname or other names contain non-Latin letters; no "
 "Latin spelling was found in the document or the name spellings."
+
+#: app/web/templates/catalog_candidate_step.html
+msgid "Aday tür"
+msgstr "Candidate type"
 
 #: app/web/routers/employees.py
 msgid "Adres"
@@ -441,6 +445,7 @@ msgstr ""
 "document does not count towards document packages."
 
 #: app/web/templates/_context_warning.html
+#: app/web/templates/queue_close_step.html
 msgid "Belge türü"
 msgstr "Document type"
 
@@ -536,6 +541,10 @@ msgstr "Restore the document from the archive"
 #: app/web/routers/documents.py
 msgid "Belgeyi arşive taşı"
 msgstr "Move the document to the archive"
+
+#: app/web/templates/queue_close_step.html
+msgid "Belirlenmedi"
+msgstr "Not determined"
 
 #: app/web/templates/upload.html
 msgid "Belirtme — sahibi belgeden bulunsun"
@@ -975,15 +984,22 @@ msgstr "Active"
 msgid "Evet, arşive taşı"
 msgstr "Yes, move to archive"
 
+#: app/web/templates/queue_assign.html
+msgid "Evet, ata"
+msgstr "Yes, assign"
+
 #: app/web/templates/employee_merge_step.html
 msgid "Evet, birleştir"
 msgstr "Yes, merge"
 
+#: app/web/templates/catalog_candidate_step.html
 #: app/web/templates/document_archive_step.html
 #: app/web/templates/document_move.html app/web/templates/employee_fields.html
 #: app/web/templates/employee_merge_step.html
 #: app/web/templates/employee_status_step.html
 #: app/web/templates/profile_record_step.html
+#: app/web/templates/queue_assign.html app/web/templates/queue_close_step.html
+#: app/web/templates/queue_new_profile.html
 #: app/web/templates/upload_detail.html
 msgid "Evet, devam et"
 msgstr "Yes, continue"
@@ -1004,9 +1020,17 @@ msgstr "Yes, restore"
 msgid "Evet, kaldır"
 msgstr "Yes, remove"
 
+#: app/web/templates/queue_close_step.html
+msgid "Evet, kapat"
+msgstr "Yes, close"
+
 #: app/web/templates/employee_status_step.html
 msgid "Evet, pasife al"
 msgstr "Yes, deactivate"
+
+#: app/web/templates/queue_new_profile.html
+msgid "Evet, profili oluştur"
+msgstr "Yes, create the profile"
 
 #: app/web/templates/upload_action_result.html
 msgid "Evet, taramayı yoksay"
@@ -1015,6 +1039,10 @@ msgstr "Yes, dismiss the scan"
 #: app/web/templates/document_move.html
 msgid "Evet, taşı"
 msgstr "Yes, move"
+
+#: app/web/templates/catalog_candidate_step.html
+msgid "Evet, türü ekle"
+msgstr "Yes, add the type"
 
 #: app/web/templates/upload_action_result.html
 msgid "Evet, yeniden analiz et"
@@ -1183,9 +1211,35 @@ msgstr "Removed record"
 msgid "Kanal"
 msgstr "Channel"
 
+#: app/web/templates/queue_close_step.html
+msgid "Kapatma gerekçesi"
+msgstr "Reason for closing"
+
+#: app/web/templates/queue_close_step.html
+#, python-format
+msgid "Kapatma gerekçesi: %(reason)s"
+msgstr "Reason for closing: %(reason)s"
+
+#: app/web/templates/queue_close_step.html
+msgid ""
+"Kapatılan öğe çözülmüş sayılır ve kuyruk sayacından düşer; \"Çözülen\" "
+"görünümünde gerekçesiyle durur ve \"Yeniden aç\" ile geri açılabilir. "
+"Kuyruk klasöründeki kopya ve gerekçe dosyası silinmez; sayfaları aday tür"
+" görülmelerinde kalır."
+msgstr ""
+"A closed item is considered resolved and is removed from the queue "
+"counter; it stays in the \"Resolved\" view with its reason and can be "
+"reopened with \"Reopen\". The copy and the reason file in the queue "
+"folder are not deleted; its pages remain in the candidate type "
+"occurrences."
+
 #: app/web/templates/profile.html
 msgid "Karşılandı:"
 msgstr "Met:"
+
+#: app/web/templates/catalog_candidate_step.html
+msgid "Kataloğa eklenecek tür:"
+msgstr "Type to be added to the catalog:"
 
 #: app/web/templates/profile_record_step.html
 msgid "Kaydı kaldır"
@@ -1367,9 +1421,13 @@ msgstr "Users"
 msgid "Kullanıcılar sayfasına dön"
 msgstr "Back to the Users page"
 
-#: app/web/templates/upload_detail.html
+#: app/web/templates/queue_close_step.html app/web/templates/upload_detail.html
 msgid "Kuyruk"
 msgstr "Queue"
+
+#: app/web/templates/queue_close_step.html
+msgid "Kuyruk gerekçesi"
+msgstr "Queue reason"
 
 #: app/web/templates/_context_warning.html
 msgid "Kuyruk öğesi"
@@ -1437,6 +1495,10 @@ msgstr "No."
 msgid "Not"
 msgstr "Note"
 
+#: app/web/templates/queue_close_step.html
+msgid "Not (\"Diğer\" gerekçesinde zorunlu)"
+msgstr "Note (required for the \"Other\" reason)"
+
 #: app/web/templates/employee_status_step.html
 msgid "Not (isteğe bağlı)"
 msgstr "Note (optional)"
@@ -1482,10 +1544,19 @@ msgstr "Created:"
 msgid "Onay bekleyen profil"
 msgstr "Profile awaiting approval"
 
+#: app/web/confirm.py
+msgid ""
+"Onay geçersiz: belirteç yok, süresi geçmiş, daha önce kullanılmış ya da "
+"bu işleme ait değil."
+msgstr ""
+"Confirmation is invalid: the token is missing, expired, already used or "
+"does not belong to this action."
+
 #: app/web/templates/document_archive_step.html
 #: app/web/templates/employee_merge_step.html
 #: app/web/templates/employee_status_step.html
 #: app/web/templates/profile_record_step.html
+#: app/web/templates/queue_close_step.html
 msgid "Onayı yeniden başlatın"
 msgstr "Restart the confirmation"
 
@@ -1598,8 +1669,8 @@ msgstr "Change password"
 msgid "Parolayı sıfırla"
 msgstr "Reset password"
 
-#: app/web/templates/history.html app/web/templates/upload_detail.html
-#: app/web/templates/uploads_list.html
+#: app/web/templates/history.html app/web/templates/queue_close_step.html
+#: app/web/templates/upload_detail.html app/web/templates/uploads_list.html
 msgid "Parti"
 msgstr "Batch"
 
@@ -1841,7 +1912,7 @@ msgstr ""
 "The selected employee has already been merged with another record; choose"
 " their remaining record."
 
-#: app/web/templates/document_move.html
+#: app/web/templates/document_move.html app/web/templates/queue_assign.html
 #, python-format
 msgid "Seçilen çalışan: %(name)s (%(id)s)"
 msgstr "Selected employee: %(name)s (%(id)s)"
@@ -1888,6 +1959,11 @@ msgstr "Next →"
 #: app/web/templates/profile.html
 msgid "Soyad"
 msgstr "Surname"
+
+#: app/web/templates/catalog_candidate_step.html
+#, python-format
+msgid "Standart türlere ekle: %(name)s"
+msgstr "Add to the standard types: %(name)s"
 
 #: app/web/templates/base.html
 msgid ""
@@ -2084,12 +2160,15 @@ msgstr "Nationality"
 msgid "Vatandaşlık"
 msgstr "Nationality"
 
+#: app/web/templates/catalog_candidate_step.html
 #: app/web/templates/document_archive_step.html
 #: app/web/templates/document_move.html app/web/templates/employee_fields.html
 #: app/web/templates/employee_fields_step.html
 #: app/web/templates/employee_merge_step.html
 #: app/web/templates/employee_status_step.html
 #: app/web/templates/profile_record_step.html
+#: app/web/templates/queue_assign.html app/web/templates/queue_close_step.html
+#: app/web/templates/queue_new_profile.html
 #: app/web/templates/upload_action_result.html
 msgid "Vazgeç"
 msgstr "Cancel"
@@ -2334,6 +2413,10 @@ msgstr "other"
 msgid "dosya {id}"
 msgstr "file {id}"
 
+#: app/web/templates/queue_new_profile.html
+msgid "düzeltildi"
+msgstr "corrected"
+
 #: app/matching/records.py
 msgid "e-posta"
 msgstr "email"
@@ -2569,6 +2652,10 @@ msgstr "Outputs"
 msgid "Çıkış"
 msgstr "Sign out"
 
+#: app/web/templates/queue_new_profile.html
+msgid "Önerilen profil değiştirilmeden onaylanacak."
+msgstr "The suggested profile will be approved unchanged."
+
 #: app/web/templates/upload_detail.html
 msgid "Öğe"
 msgstr "Item"
@@ -2655,6 +2742,10 @@ msgstr "Block"
 msgid "İşlem"
 msgstr "Operation"
 
+#: app/web/templates/catalog_candidate_step.html
+msgid "İşlem yapılmadı"
+msgstr "No action taken"
+
 #: app/web/templates/upload_detail.html app/web/templates/users.html
 msgid "İşlemler"
 msgstr "Actions"
@@ -2691,6 +2782,10 @@ msgstr "No employees with incomplete packages match “%(query)s”."
 msgid "“%(query)s” ile eşleşen çalışan yok."
 msgstr "No employees match “%(query)s”."
 
+#: app/web/templates/catalog_candidate_step.html
+msgid "← Aday tür"
+msgstr "← Candidate type"
+
 #: app/web/templates/document_archive_step.html
 msgid "← Belge geçmişine dön"
 msgstr "← Back to document history"
@@ -2698,6 +2793,11 @@ msgstr "← Back to document history"
 #: app/web/templates/access_log_employee.html
 msgid "← Erişim logu"
 msgstr "← Access log"
+
+#: app/web/templates/queue_close_step.html
+#, python-format
+msgid "← Kuyruk öğesi %(id)s"
+msgstr "← Queue item %(id)s"
 
 #: app/web/templates/document_archive_step.html
 #: app/web/templates/employee_fields.html app/web/templates/employee_merge.html
