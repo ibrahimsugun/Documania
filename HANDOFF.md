@@ -18,6 +18,18 @@ Blok biçimi `CONVENTIONS.md` §3'te tanımlıdır:
 
 ## Task log (newest-first)
 
+## cloud hazırlığı — Claude Code web'de çalıştırma; tm 162 açıldı — 2026-10-02
+- Yapıldı: `scripts/cloud-setup.sh` + `.claude/settings.json` SessionStart kancası (Linux'ta `uv sync --frozen --extra dev --python 3.12`, `task-master-ai` kurulumu, `.venv/bin` PATH'e `CLAUDE_ENV_FILE` ile; Windows'ta hiçbir şey yapmaz). CLAUDE.md'ye "Cloud'da" bölümü (oturum dalı + PR, aynı anda tek görev). `.gitignore` `data/` → `/data/`: eski desen `app/countries/data/`'yı (CLDR ülke adları, paket verisi) da dışarıda bırakıyordu, temiz klonda `tests/countries` toplama hatası veriyordu; dosyalar bu commit'le depoya girdi. `.claude/worktrees/` ve `settings.local.json` yok sayıldı.
+- Doğrulama: HEAD'in temiz klonu `python:3.12-slim` konteynerinde, kurulum betiğiyle (159 s): ruff check/format, compileall, temiz SQLite'ta `alembic upgrade head`, `import app.main`, `python -m app.i18n check` exit 0; `pytest -q -m "not live" --cov=app` 6524 passed, 13 skipped, **2 failed** (14 dk). İkisi de yerelde yalnız ortam sayesinde geçiyor → tm 162 (high, bağımlılıksız; 155/157/158/159 ona bağlandı).
+- Varsayımlar: `CLAUDE_CODE_REMOTE` belgelerde doğrulanamadı, kanca platforma göre (uname) karar veriyor. Cloud'da `main`'e doğrudan push yerine oturum dalı + PR varsayıldı.
+- Sonraki pencereye not: cloud'da ilk görev tm 162 olmalı; o yeşillenmeden cloud'daki her görevin DoD kapısı bu 2 testte kırmızı kalır. Depo GitHub'da herkese açık (public).
+
+## 159/160/161 — Telegram: kendi hesabından bağlama, kimlik yanıtı, sade bot dili — planlandı — 2026-10-02
+- Yapıldı: İnsan isteğiyle PRD 12.1.7 (bot bağlı olmayana Telegram numarasını söyler), 12.1.8 (Telegram'ı yalnız hesabın sahibi bağlar, Hesabım → Telegram), 12.1.9 (bot mesajları sade, kısa, teknik terimsiz; izleme uyarıları ve parti hatası Telegram'a gitmez) açıldı; 12.1.2/12.1.3/12.1.4/12.4.1 metinlerine çapraz not; PLAN §D97, §D98, sayaçlar, §G 12.1-g/h/i; Task Master 159 (12.1-h), 160 (12.1-g), 161 (12.1-i). Kod yok.
+- Doğrulama: Faz 2 sayımı 16 ✅ · 4 ⬜ tablodan sayıldı; `task-master validate-dependencies` yeşil (291).
+- Varsayımlar: kodsuz otomatik eşleştirme güvenli değil, otomatik kayıt 12.1.4 bağlantısıyla kalır (§D97 a); yönetici başkasının Telegram iznini kapatıp açabilir ama kimlik ekleyemez/bağlantı üretemez (§D97 d); teknik uyarılar için açma ayarı eklenmedi (§D98 e).
+- Sonraki pencereye not: sıra 158 → 159 → 160 → 161 (hepsi bot metinlerine dokunur, .po çakışmasın). 159–161 tm 99'un bağımlılıklarına eklendi; 97/98/99 insan söyleyene kadar `deferred` kalır.
+
 ## 156 — 10.10-e Onay metinleri üç dilde (PRD §20.6.3 birebir) — done — 2026-10-02
 - Yapıldı: `app/web/confirm.py`'ye PRD §20.6.3'ten üretilmiş birebir `CONFIRMATION_TEXTS_EN`/`_SR` ve `CONFIRMATION_TEXTS_BY_LANGUAGE` eklendi; `first_text`/`second_text` isteğin dilini kullanır (`language=` ile zorlanabilir), yer tutucu doldurma ve `USER_CONFIRMED` değişmedi; `CONFIRMATION_REFUSED` `N_` ile işaretli ve panelde çevrilir, JSON API (`_issued`) kaynak dilde kalır; kuyruk atama/profil/kapatma ve aday tür onay adımı şablonlarında çevre metin işaretlendi; `en`/`sr` kataloğuna 19 metin; kararlar §D96.
 - Doğrulama: ruff check/format, compileall, `import app.main`, `alembic upgrade head` (→0024), `python -m app.i18n check` exit 0; `pytest -q -m "not live" --cov=app` on üç ön plan grubunda 6534 geçti (+58), 5 atlandı, 0 kırmızı, `coverage report --fail-under=70` exit 0 (%99, `confirm.py` %100); 8 geçici kural bozmasının 8'i kırmızı.

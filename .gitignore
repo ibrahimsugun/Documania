@@ -20,12 +20,17 @@ dist/
 build/
 
 # --- calisma zamani verisi (GERCEK BELGELER - asla commit edilmez) ---
-data/
+# Yalnız kökteki `data/`: başındaki `/` olmadan `app/countries/data/` (paket verisi) de dışarıda kalıyordu.
+/data/
 # yedekler de gerçek belge içerir
 backups/
 
 # --- otonom dongu ---
 .loop-logs/
+
+# --- Claude Code: depoda yalnız ortak ayar (settings.json); kişisel ayar ve worktree'ler dışarıda ---
+.claude/settings.local.json
+.claude/worktrees/
 
 # --- isletim sistemi ---
 Thumbs.db

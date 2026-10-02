@@ -20,6 +20,18 @@ açılmış olsun — aşağıdaki kurallara uyar.
 - Yalnız hedef görev yapılır; `done` ancak DoD kapısı yeşilse + commit + push + Task Master done.
 - Bağlam hafızadan değil, Task Master + git + `HANDOFF.md`'den kurulur.
 
+## Cloud'da (Claude Code web, Linux)
+
+- Ortamı `scripts/cloud-setup.sh` kurar (SessionStart kancası): `.venv` `uv.lock`'tan, `.venv/bin`
+  PATH'te, `task-master` kurulu. Kurulumu elle tekrarlama; `python`, `pytest`, `ruff`, `alembic`
+  doğrudan çağrılır. `.env` ve `data/` cloud'da yoktur — DoD kapısı ikisine de ihtiyaç duymaz.
+- Bir cloud oturumu = bir görev penceresi: `TASK-RUNNER-PROMPT.md` aynen uygulanır.
+- Git: oturumun kendi dalında çalışılır, kapanışta o dala push edilir ve `main`'e PR açılır; görev
+  dalı adı (CONVENTIONS §2) bu durumda oturumun dalıdır. `main`'e doğrudan push edilmez, PR'ı insan
+  birleştirir. Task Master `done`, PLAN ve HANDOFF aynı PR'dadır.
+- Aynı anda tek görev: her görev `tasks.json`, `PLAN.md`, `HANDOFF.md`'ye yazar. Önceki görevin PR'ı
+  birleşmeden yenisi başlatılmaz.
+
 ## Bu ürünün değişmez kuralı
 
 Sistem belgeyi **anlar**, **değiştirmez**. İçerik üretilmez, yazı değiştirilmez, form

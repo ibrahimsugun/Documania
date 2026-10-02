@@ -1469,7 +1469,8 @@
           "149",
           "150",
           "159",
-          "160"
+          "160",
+          "161"
         ],
         "priority": "critical",
         "subtasks": [],
@@ -2251,7 +2252,8 @@
         "dependencies": [
           "154",
           "156",
-          "157"
+          "157",
+          "162"
         ],
         "priority": "medium",
         "subtasks": [],
@@ -2279,7 +2281,8 @@
         "testStrategy": "1) `RUS` → `en` \"Russia (RUS)\", `sr` \"Rusija (RUS)\", `tr` \"Rusya (RUS)\"; `D` → Germany/Nemačka/Almanya; `XXA` üç dilde bayraksız. 2) Üç dilde 250 ülkenin her birinin adı var (veri bütünlüğü). 3) Süzgeç sıralaması: `sr`'de `Č` `C`'den sonra, `tr`'de `Ç` `C`'den sonra. 4) JS dosyalarında Türkçe harfli görünen dizge yok (statik tarama); `data-*`/JSON metinleri `en`/`sr`'de doğru. 5) Arama katlaması: \"srbija\" → Srbija, \"cesk\" → Češka, \"turkiye\" → Türkiye (JS birim testi varsa ya da tarayıcıda elle, kanıt §K). 6) `SOURCES.md` girişleri. 7) Kural bozmaları kırmızı. 8) DoD kapısı yeşil.",
         "status": "pending",
         "dependencies": [
-          "152"
+          "152",
+          "162"
         ],
         "priority": "medium",
         "subtasks": [],
@@ -2294,7 +2297,8 @@
         "status": "pending",
         "dependencies": [
           "153",
-          "149"
+          "149",
+          "162"
         ],
         "priority": "medium",
         "subtasks": [],
@@ -2309,7 +2313,8 @@
         "status": "pending",
         "dependencies": [
           "149",
-          "154"
+          "154",
+          "162"
         ],
         "priority": "medium",
         "subtasks": [],
@@ -2319,14 +2324,40 @@
         "id": "160",
         "title": "12.1-g — Bot, bağlı olmayan kişiye Telegram kimliğini söyler [SONNET-XHIGH]",
         "description": "PRD 12.1.7 · FR-MOD-12 · Faz 2 · Should (v2). Tam sözleşme PLAN §D97 (b) — önce oku.",
-        "details": "KAPSAM: §D97 b. Beyaz liste kapısından ÖNCE çalışan yeni işleyici (`app/telegram/bot.py`; `LINK_GROUP` deseni): yalnız özel sohbet, yalnız argümansız `/start`. Gönderen izinliyse (`is_whitelisted`) güncellemeye dokunmaz, kapı ve yardım işleyicisi bugünkü gibi çalışır. İzinli değilse (kayıtsız, izni kapalı, pasif kullanıcıya bağlı — ayrım YOK) tek yanıt: ayrı satırda `Id: <kimlik>` + \"This Telegram account is not linked to Documania. Sign in to the panel and open My account → Telegram to link it.\" (İngilizce, msgid, §D92 k), sonra `ApplicationHandlerStop`. Sohbet başına saatte bir yanıt (bellekte, `LinkAttempts` deseninde ayrı sınırlayıcı, saat enjekte edilebilir); sınır içindeki tekrar sessiz. Veritabanı okunamazsa yanıt yok. İzinli kişinin `/start`/`/yardim` yanıtı ilk satırda `Id: <kimlik>`; 12.1.4 `LINKED`/`ALREADY_LINKED` yanıtları da kimliği söyler (kullanıcının dilinde, 12.1.6). Kimlik, Telegram kullanıcı adı ve ad loga yazılmaz; olay yok. Bot modül açıklaması (`bot.py` başı: \"tek istisna LinkStart\" paragrafı) ve README güncellenir. Metinler `en`/`sr` çevrilir, `check` temiz. DOKUNMA: panel (tm 159), belge alma, doğal dil istekleri.",
-        "testStrategy": "1) Kayıtsız kimlikten `/start` → tek yanıt, `Id: <kimlik>` satırı + bağlı değil metni; 12.1.3 `parse_telegram_id` bu yanıtı ayrıştırıp aynı kimliği verir. 2) İzni kapalı ve pasif kullanıcıya bağlı kimlik aynı metni alır (bayt eşit). 3) Kayıtsız kimlikten belge, düz metin, `/yardim`, gruptan `/start` → yanıt yok, belge işlenmez. 4) Aynı sohbetten saat içinde ikinci `/start` sessiz; saat ilerletilince yine yanıt. 5) İzinli kimliğin `/start`'ı yardım metnini ilk satırda kimlikle alır; `/start <kod>` yolu değişmeden çalışır, bağlandı yanıtı kimliği içerir. 6) Veritabanı hatasında yanıt yok. 7) Loga kimlik yazılmaz (caplog). 8) Kural bozmaları (işleyici kapıdan sonraya, sınırlayıcı kapalı, ayrım yapan metin) kırmızı. 9) DoD kapısı yeşil.",
+        "details": "KAPSAM: §D97 b. Beyaz liste kapısından ÖNCE çalışan yeni işleyici (`app/telegram/bot.py`; `LINK_GROUP` deseni): yalnız özel sohbet, yalnız argümansız `/start`. Gönderen izinliyse (`is_whitelisted`) güncellemeye dokunmaz, kapı ve yardım işleyicisi bugünkü gibi çalışır. İzinli değilse (kayıtsız, izni kapalı, pasif kullanıcıya bağlı — ayrım YOK) tek yanıt: §D97 b'deki sade cümle (bağlı değil, panelde Hesabım → Telegram) + SON SATIRDA yalnız rakamlarla Telegram numarası (`Id:` öneki YOK; İngilizce, msgid, §D92 k; §D98 sade dil kuralı), sonra `ApplicationHandlerStop`. Sohbet başına saatte bir yanıt (bellekte, `LinkAttempts` deseninde ayrı sınırlayıcı, saat enjekte edilebilir); sınır içindeki tekrar sessiz. Veritabanı okunamazsa yanıt yok. İzinli kişinin `/start`/`/yardim` yanıtı son satırda \"Telegram numaranız:\" + numara; 12.1.4 `LINKED`/`ALREADY_LINKED` yanıtları da kimliği söyler (kullanıcının dilinde, 12.1.6). Kimlik, Telegram kullanıcı adı ve ad loga yazılmaz; olay yok. Bot modül açıklaması (`bot.py` başı: \"tek istisna LinkStart\" paragrafı) ve README güncellenir. Metinler `en`/`sr` çevrilir, `check` temiz. DOKUNMA: panel (tm 159), belge alma, doğal dil istekleri.",
+        "testStrategy": "1) Kayıtsız kimlikten `/start` → tek yanıt, bağlı değil cümlesi + son satır yalnız rakam; `parse_telegram_id` son satırı ayrıştırıp aynı kimliği verir. 2) İzni kapalı ve pasif kullanıcıya bağlı kimlik aynı metni alır (bayt eşit). 3) Kayıtsız kimlikten belge, düz metin, `/yardim`, gruptan `/start` → yanıt yok, belge işlenmez. 4) Aynı sohbetten saat içinde ikinci `/start` sessiz; saat ilerletilince yine yanıt. 5) İzinli kimliğin `/start`'ı yardım metnini son satırda numarayla alır; `/start <kod>` yolu değişmeden çalışır, bağlandı yanıtı kimliği içerir. 6) Veritabanı hatasında yanıt yok. 7) Loga kimlik yazılmaz (caplog). 8) Kural bozmaları (işleyici kapıdan sonraya, sınırlayıcı kapalı, ayrım yapan metin) kırmızı. 9) DoD kapısı yeşil.",
         "status": "pending",
         "dependencies": [
           "158",
           "159"
         ],
         "priority": "medium",
+        "subtasks": [],
+        "updatedAt": "2026-10-02T12:00:00.000Z"
+      },
+      {
+        "id": "161",
+        "title": "12.1-i — Botun mesajları sade, kısa ve teknik terimsiz; teknik uyarılar Telegram'a gitmez [OPUS-HIGH]",
+        "description": "PRD 12.1.9 (+ 12.4.1 değişikliği) · FR-MOD-12 · Faz 2 · Should (v2). Tam sözleşme PLAN §D98 — önce oku.",
+        "details": "KAPSAM: §D98 a–g. (1) `app/telegram/plain.py`: yasak sözcük listesi (tr/en/sr; §D98 c) ve denetim yardımcıları (liste dışı satır sayısı, liste öğesi sayısı, uuid ve `E\\d+` deseni, `%`, MB/KB/GB) — testler bunu kullanır. (2) Bütün bot metinleri §D98 d eşlemesiyle yeniden yazılır: `bot.py` (HELP_TEXT, bağlantı yanıtları; izni kapalı ve başkasına bağlı TEK metin), `handlers.py` (alındı; `build_summary`: parti numarası yok, çalışan numarası yerine Latin ad, kuyruk türü ve gerekçe yok, tek \"panelde kontrol edin\" cümlesi; çok büyük — MB yok; indirilemedi; işlenemedi / sağlayıcı yok / beklenmeyen hata → tek sade cümle; başka işleyiciye geçti → \"sonuç panelde görünecek\"), `intent.py` (katalog ve çalışan numarası örneği yok), 12.1.7 kimlik yanıtı (tm 160) ve `notify.py`. (3) `notify.py`: `PIPELINE_FAILED` Telegram'a gönderilmez; kuyruk olayları tarama başına TEK mesaj \"Kontrol etmeniz gereken N yeni belge var. Panelde bakabilirsiniz.\"; `watch` (13.6.1) bota verilmez — uyarılar yalnız logda (`Uyarı — …`) kalır; `app/worker/monitor.py`, worker ve panel tarafı değişmez. (4) `en`/`sr` çevirileri aynı sadelikte yeniden yazılır; `python -m app.i18n check` temiz. (5) README (Telegram ve İzleme bölümleri: uyarı artık Telegram'a gitmez), `.env.example` açıklama satırı, `notify.py`/`handlers.py`/`bot.py` modül açıklamaları güncellenir. (6) Var olan bot testleri yeni metinlere göre güncellenir; davranış assert'leri silinmez. DOKUNMA: hangi belgenin nereye gittiği, bağlama kuralları, erişim logu (12.3.3), olaylar, log metinleri, panel metinleri.",
+        "testStrategy": "1) Bütün bot metin sabitleri ve üretilen örnek mesajlar (özet: tamamlandı / kısmen / işlenemedi, 7 belgeli özet, tekrar, kuyruk bildirimi, belge isteme yanıtları, bağlantı yanıtları, kimlik yanıtı, yardım) üç dilde `plain.py` denetiminden geçer: yasak sözcük 0, uuid 0, `E\\d+` 0, `%` ve MB 0, liste dışı satır ≤ 4, liste öğesi ≤ 5. 2) Özet yerine konan belgeyi \"tür — Latin ad\" olarak verir; kuyruğa düşen öğenin gerekçesi mesajda yok. 3) `PIPELINE_FAILED` olayı Telegram mesajı doğurmaz; iki partiden düşen 3 kuyruk öğesi aynı taramada tek mesaj, sayı 3. 4) İzleme eşiği aşılınca Telegram mesajı gitmez, `Uyarı — …` log satırı yine yazılır (13.6.1 testleri yeşil). 5) Sağlayıcı yokken belge gönderen kişi tek sade cümle alır, dosya yine saklanır. 6) `check` temiz. 7) Kural bozmaları (bir metne parti numarası geri eklenir, `watch` bota verilir, `PIPELINE_FAILED` gönderilir) kırmızı. 8) DoD kapısı yeşil.",
+        "status": "pending",
+        "dependencies": [
+          "160"
+        ],
+        "priority": "medium",
+        "subtasks": [],
+        "updatedAt": "2026-10-02T12:00:00.000Z"
+      },
+      {
+        "id": "162",
+        "title": "Düzeltme 10.3.4, 12.2.1 — test seti ortamdan bağımsız yeşil: yerel .env anahtarı ve işletim sisteminin MIME tablosu olmadan [SONNET-XHIGH]",
+        "description": "Temiz Linux ortamında (cloud; python:3.12-slim, .env yok) DoD kapısı 2 testte kırmızı: 6524 geçti, 2 kaldı. İkisi de yerel Windows makinesinde yalnız ortam sayesinde geçiyor. Cloud oturumlarında her görevin kapısını kırar — önce bu görev.",
+        "details": "NEDEN AÇILDI — KANIT (2026-10-02, cloud hazırlığı): `git clone` + `uv sync --frozen --extra dev` + `pytest -q -m \"not live\" --cov=app` temiz `python:3.12-slim` konteynerinde: 2 failed, 6524 passed, 13 skipped. İkisi de üç kez tek başına koşuda kararlı kırmızı.\n\n(1) `tests/web/test_upload_dismiss.py::test_a_dismissed_batch_is_neither_rerun_nor_reanalyzed_nor_dismissed_again` (10.3.4): yoksayılmış partide `POST /api/uploads/{id}/reanalyze` (ve benzeri) 409 yerine 503 döner — `app/web/routers/uploads.py` `reanalyze_upload_plan` sağlayıcıyı `Depends(get_analysis_provider)` ile partinin durumundan ÖNCE kurar; anahtar yoksa `ProviderConfigError` → 503. Testin ayarı `Settings(_env_file=None)` ama uç nokta `get_settings()` üzerinden deponun `.env` dosyasını okuyor: yerelde gerçek anahtar varken geçiyor. Yerelde yeniden üretim: `AI_PROVIDER=anthropic ANTHROPIC_API_KEY= OPENAI_API_KEY= .venv/Scripts/python.exe -m pytest <test>` → aynı 503. Düzeltme: yoksayılmış / bulunamayan parti denetimi sağlayıcı kurulmadan önce yapılır (sağlayıcı, durum uygunsa kurulur; `upload_page.py` `get_reanalysis_provider` yolu da aynı sırayla incelenir) ve testler sağlayıcı ayarını açıkça verir. Kural: 409 (parti yoksayılmış) anahtarın varlığından bağımsızdır.\n\n(2) `tests/telegram/test_intake.py::test_document_without_a_name_gets_one_from_its_identity_and_mime` (12.2.1): adsız `.docx` belgesine ad `belge_u-f9` (uzantısız) verilir — `app/telegram/handlers.py:151` `mimetypes.guess_extension(mime)` Windows'ta kayıt defterinden `.docx` bulur, `/etc/mime.types`'ı olmayan Linux'ta `None`. Düzeltme: uygulamanın kabul ettiği belge türleri için MIME → uzantı eşlemesi işletim sisteminden bağımsız olur (uygulama içinde sabit eşleme ya da açılışta `mimetypes.add_type`; hangisi seçildiyse §D'ye yazılır); eşleme uygulamanın web yüklemesinde kabul ettiği uzantıların hepsini kapsar.\n\n(3) Gizli ortam bağımlılığına karşı genel önlem: testlerde `get_settings()` deponun `.env`'ini okumaz (örn. `tests/conftest.py`'de oturum başında `.env` okumayı kapatan ya da `get_settings` önbelleğini `_env_file=None` ile kuran fixture) — böylece yerel makinede de cloud ile aynı sonuç alınır. Bu değişiklik başka testleri kırarsa onlar da aynı kusuru taşıyordur; düzeltilir.\n\nKAPSAM: yalnız yukarıdaki iki kusur ve (3). Davranış değişikliği: yoksayılmış partide anahtar yokken de 409. Başka yeni özellik yok.",
+        "testStrategy": "1) Yerelde `.env` etkisiz ve anahtarsız (`AI_PROVIDER=anthropic ANTHROPIC_API_KEY= OPENAI_API_KEY=`) tam `pytest -q -m \"not live\"` yeşil. 2) Temiz Linux konteynerinde (`docker run python:3.12-slim`, `scripts/cloud-setup.sh` ile kurulum, `.env` yok) tam DoD kapısı 1–7 exit 0 — komut ve sonuç HANDOFF'a. 3) Yoksayılmış partide anahtar yokken rerun/reanalyze/dismiss-prepare 409; anahtar varken de 409. 4) Adsız `.docx`, `.xlsx`, `.pdf`, `.jpg` belgeleri MIME'den doğru uzantıyı alır; `mimetypes` tablosu boşaltılmış (monkeypatch) olsa da. 5) Kural bozmaları (sağlayıcı yeniden durumdan önce kurulur; eşleme kaldırılır) kırmızı. 6) DoD kapısı yeşil.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "high",
         "subtasks": [],
         "updatedAt": "2026-10-02T12:00:00.000Z"
       }
