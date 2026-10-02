@@ -18,6 +18,12 @@ Blok biçimi `CONVENTIONS.md` §3'te tanımlıdır:
 
 ## Task log (newest-first)
 
+## 97 — §5.1 Faz 0 (MVP) kapanış denetimi — done — 2026-10-02
+- Yapıldı: PRD §5.1 kapanış ölçütünün her maddesi testlerle eşlendi (S1–S15, S18; olay logu; köken; yapay zekâsız yeniden çalıştırma; API'den giriş); boşluk yok, `app/` ve `tests/` değişmedi; PLAN §0 Faz 0 Kapanış `✅ → KF0`, §K sonuna `#### KF0`.
+- Doğrulama: ruff check/format, compileall (app, tests), `import app.main`, temiz SQLite'ta `alembic upgrade head` (→0024), `python -m app.i18n check`, `git diff --check` exit 0; senaryo dosyaları 36 geçti; `pytest -q -m "not live" --cov=app` 6655 geçti, 11 atlandı, 0 kırmızı, kapsam %99; 6 kural bozmasının 6'sı kırmızı.
+- Varsayımlar: 97/98/99 insan kararıyla `deferred` → `pending`; Genel durum ve Must sayacı hücreleri değişmedi (◐/⬜ sayımı 0).
+- Sonraki pencereye not: tm 98 (PRD §5.2 Faz 1 kapanışı, S16 dahil) — `tests/web/test_phase1_closure.py`, `test_catalog_page.py`, `test_candidate_types_page.py`, `test_document_move.py`; aynı biçimde `#### KF1` ve PLAN satır 12.
+
 ## 155 — 10.10-d Çeviri II ve bütün panel taraması — done — 2026-10-02
 - Yapıldı: Belge Türleri, aday türler, Belge Grupları, Kuyruklar ve Eğitim modu (29 şablon, 4 yönlendirici) ile panelde görünen çekirdek metinleri işaretlendi, `en`/`sr` kataloğuna 570 metin; `tests/web/test_translation_sweep.py` `app.routes`'un her `GET` sayfa yolunu `en`/`sr` ile açar (listede olmayan yol kırmızı); 10.10.1 ve 10.10.3 ✅; kararlar §D105.
 - Doğrulama: ruff check/format, compileall, `import app.main`, temiz SQLite'ta `alembic upgrade head` (→0024), `python -m app.i18n check`, `git diff --check` exit 0; `pytest -q -m "not live" --cov=app` yedi ön plan grubunda 6655 geçti, 11 atlandı, 0 kırmızı, kapsam %99; 10 kural bozmasının 10'u kırmızı.
