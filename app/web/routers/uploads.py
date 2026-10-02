@@ -162,6 +162,15 @@ def _undismissed_upload(session: Session, upload_id: str) -> Upload:
     return upload
 
 
+def get_undismissed_upload(
+    upload_id: str, session: Annotated[Session, Depends(get_session)]
+) -> Upload:
+    """`_undismissed_upload` bağımlılık olarak: sağlayıcıdan (`get_analysis_provider`) önce
+    çözülsün diye uç noktada ondan önce bildirilir — bulunamayan parti 404, yoksayılmış parti 409
+    sağlayıcının kurulup kurulamamasından bağımsızdır (10.3.4, PLAN.md §D99)."""
+    return _undismissed_upload(session, upload_id)
+
+
 # Inbox'a yazılamayan adlar Windows'ta hata verir (WinError 123); Linux/Docker'da geçerli olsalar
 # da aynı küme her yerde reddedilir — bir belge hangi makinede yüklendiyse ona her makinede
 # ulaşılabilsin (PLAN.md §D47). Denetim karakterleri ve NUL Linux'ta da yazmayı düşürür.
@@ -419,7 +428,7 @@ def rerun_upload_plan(
 
 @router.post("/{upload_id}/reanalyze", response_model=ReanalysisResponse)
 def reanalyze_upload_plan(
-    upload_id: str,
+    upload: Annotated[Upload, Depends(get_undismissed_upload)],
     session: Annotated[Session, Depends(get_session)],
     layout: Annotated[DataLayout, Depends(get_layout)],
     executor: Annotated[PlanExecutor, Depends(get_plan_executor)],
@@ -427,8 +436,8 @@ def reanalyze_upload_plan(
     settings: Annotated[Settings, Depends(get_settings)],
 ) -> ReanalysisResponse:
     """06.6.2 — partiyi yeniden analiz eder, yeni plan sürümünü açar; plan yok/öğe yürütülemiyor
-    ya da parti yoksayılmış: 409."""
-    upload = _undismissed_upload(session, upload_id)
+    ya da parti yoksayılmış: 409. Parti, sağlayıcıdan önce çözülür (bağımlılıklar bildirim
+    sırasıyla çözülür): sağlayıcı kurulamıyorsa 503 yalnız işlem yapılabilir partide döner."""
     try:
         reanalysis = reanalyze_upload(
             session,

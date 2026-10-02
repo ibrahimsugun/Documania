@@ -924,3 +924,21 @@ def test_analysis_provider_dependency_builds_the_configured_provider(
             get_analysis_provider(settings(**changes))
         assert raised.value.status_code == 503
         assert message in str(raised.value.detail)
+
+
+def test_an_unknown_batch_is_404_even_when_the_provider_cannot_be_built(
+    app: FastAPI, client: TestClient
+) -> None:
+    """Parti, sağlayıcıdan önce çözülür: anahtar yokken de bulunamayan parti 404'tür, 503 değil
+    (tm 162)."""
+    app.dependency_overrides[get_settings] = lambda: Settings(
+        _env_file=None,
+        database_url="sqlite://",
+        ai_provider="anthropic",
+        anthropic_api_key=None,
+        openai_api_key=None,
+    )
+
+    response = client.post("/api/uploads/yok/reanalyze")
+
+    assert response.status_code == 404, response.text

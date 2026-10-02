@@ -35,7 +35,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import mimetypes
 from collections.abc import Callable, Coroutine, Iterable, Sequence
 from dataclasses import dataclass, field, replace
 from pathlib import PurePosixPath
@@ -59,6 +58,7 @@ from app.db.models import (
 )
 from app.pipeline.orchestrate import ProcessedUpload
 from app.storage import DataLayout
+from app.storage.filetype import extension_for_mime, mime_for_name
 from app.web.routers.uploads import IncomingFile, store_upload
 from app.worker import Claim, new_claim_token, release_claim, run_claimed_upload
 
@@ -147,8 +147,8 @@ def telegram_file(message: Message) -> TelegramFile | None:
     """Mesajdaki belgeyi (dosya eki) ya da fotoğrafı okur; ikisi de yoksa `None`."""
     if message.document is not None:
         document = message.document
-        mime = document.mime_type or mimetypes.guess_type(document.file_name or "")[0]
-        extension = mimetypes.guess_extension(mime or "") or ""
+        mime = document.mime_type or mime_for_name(document.file_name)
+        extension = extension_for_mime(mime)
         return TelegramFile(
             file_id=document.file_id,
             name=_sanitized(document.file_name, f"belge_{document.file_unique_id}{extension}"),

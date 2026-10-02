@@ -5,12 +5,23 @@
 
 from __future__ import annotations
 
+import mimetypes
+import re
 import zipfile
 from io import BytesIO
+from pathlib import Path
 
 import pytest
 
-from app.storage.filetype import FileKind, UnsupportedFileTypeError, detect_file_kind
+from app.storage.filetype import (
+    EXTENSION_MIMES,
+    MIME_EXTENSIONS,
+    FileKind,
+    UnsupportedFileTypeError,
+    detect_file_kind,
+    extension_for_mime,
+    mime_for_name,
+)
 
 
 def _zip_with(*entries: str) -> bytes:
@@ -94,3 +105,51 @@ def test_zip_without_ooxml_entries_is_rejected() -> None:
 def test_corrupt_zip_signature_is_rejected() -> None:
     with pytest.raises(UnsupportedFileTypeError):
         detect_file_kind(b"PK\x03\x04" + b"bozuk zip govdesi")
+
+
+# --- tm 162: MIME ↔ uzantı eşlemesi işletim sisteminden bağımsız ---------------------------------
+
+UPLOAD_TEMPLATE = Path(__file__).resolve().parents[2] / "app" / "web" / "templates" / "upload.html"
+
+
+def _accepted_extensions() -> set[str]:
+    (accept,) = re.findall(r'accept="([^"]+)"', UPLOAD_TEMPLATE.read_text(encoding="utf-8"))
+    return set(accept.split(","))
+
+
+def test_the_mapping_covers_every_extension_the_web_upload_accepts() -> None:
+    assert _accepted_extensions() == set(EXTENSION_MIMES)
+    assert {extension.lstrip(".") for extension in MIME_EXTENSIONS.values()} == {
+        "jpg" if kind is FileKind.JPEG else kind.value for kind in FileKind
+    }
+
+
+def test_the_mapping_does_not_use_the_os_mime_table(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(mimetypes, "guess_extension", lambda *args, **kwargs: None)
+    monkeypatch.setattr(mimetypes, "guess_type", lambda *args, **kwargs: (None, None))
+    monkeypatch.setattr(mimetypes, "types_map", {})
+
+    for extension in _accepted_extensions():
+        mime = mime_for_name(f"belge{extension.upper()}")
+        assert mime is not None
+        assert mime_for_name(f"belge{extension}") == mime
+        assert extension_for_mime(mime) == (".jpg" if extension == ".jpeg" else extension)
+
+
+@pytest.mark.parametrize(
+    ("mime", "extension"),
+    [
+        ("application/pdf; charset=binary", ".pdf"),
+        ("IMAGE/PNG", ".png"),
+        ("text/plain", ""),
+        ("", ""),
+        (None, ""),
+    ],
+)
+def test_extension_for_mime_ignores_parameters_and_case(mime: str | None, extension: str) -> None:
+    assert extension_for_mime(mime) == extension
+
+
+@pytest.mark.parametrize("name", [None, "", "uzantisiz", "notlar.txt", ".pdf"])
+def test_mime_for_name_without_an_accepted_extension_is_none(name: str | None) -> None:
+    assert mime_for_name(name) is None
