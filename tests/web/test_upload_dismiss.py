@@ -24,7 +24,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 import app.web.confirm as confirm
 from app.catalog import import_catalog, load_seed_catalog
-from app.config import Settings
+from app.config import Settings, get_settings
 from app.db.models import (
     CandidateDocumentType,
     Document,
@@ -531,9 +531,23 @@ def test_queue_counters_drop_the_dismissed_batch_only(
     assert f'href="/uploads/{kept}"' in rows and f'href="/uploads/{batch}"' not in rows
 
 
+@pytest.mark.parametrize("api_key", [None, "sk-ant-test-anahtar"], ids=["anahtarsiz", "anahtarli"])
 def test_a_dismissed_batch_is_neither_rerun_nor_reanalyzed_nor_dismissed_again(
-    client: TestClient, session_factory: sessionmaker[Session], batch: str
+    app: FastAPI,
+    client: TestClient,
+    session_factory: sessionmaker[Session],
+    batch: str,
+    api_key: str | None,
 ) -> None:
+    """409 (parti yoksayılmış) yapay zekâ anahtarının varlığından bağımsızdır: sağlayıcı kurulamasa
+    da parti denetimi önce yapılır (tm 162)."""
+    app.dependency_overrides[get_settings] = lambda: Settings(
+        _env_file=None,
+        database_url="sqlite://",
+        ai_provider="anthropic",
+        anthropic_api_key=api_key,
+        openai_api_key=None,
+    )
     token = _prepare(client, batch)
     assert client.post(f"/uploads/{batch}/dismiss", data={"confirmation": token}).status_code == 200
     events, state = _events(session_factory), _state(session_factory, batch)

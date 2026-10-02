@@ -18,6 +18,12 @@ Blok biçimi `CONVENTIONS.md` §3'te tanımlıdır:
 
 ## Task log (newest-first)
 
+## 162 — Düzeltme 10.3.4, 12.2.1: test seti ortamdan bağımsız yeşil — done — 2026-10-02
+- Yapıldı: `POST /api/uploads/{id}/reanalyze` partiyi sağlayıcıdan önce çözer (`get_undismissed_upload`; yoksayılmış 409 / bulunamayan 404 anahtar yokken de); Telegram adsız belge uzantısı ve MIME'siz belge türü `app/storage/filetype.py`'deki sabit eşlemeden (`mimetypes` yok); `tests/conftest.py` test sürecinde `.env` okumayı kapatır; kararlar §D99.
+- Doğrulama: Claude Code web (Linux, `.env` yok, `scripts/cloud-setup.sh` ortamı): ruff check/format, compileall, `import app.main`, temiz SQLite'ta `alembic upgrade head` (→0024), `python -m app.i18n check` exit 0; `pytest -q -m "not live" --cov=app` sekiz ön plan grubunda 6555 geçti, 11 atlandı, 0 kırmızı, birleşik `coverage report --fail-under=70` %99; 3 kural bozmasının 3'ü kırmızı (sağlayıcı önce kurulur, `mimetypes` geri gelir, eşlemeden `.xls` kalkar).
+- Varsayımlar: §D99 — sabit eşleme `mimetypes.add_type` yerine; ayrı `docker run python:3.12-slim` koşusu yapılmadı (bu oturumun kendisi `.env`'siz Linux; burada `/etc/mime.types` var, MIME yokluğu testte `mimetypes` monkeypatch'le sınandı).
+- Sonraki pencereye not: test süreci `.env` okumaz — ayar gereken test onu açıkça verir (`Settings(_env_file=None, ...)` ya da `dependency_overrides[get_settings]`). Bağımlı görevler (155/157/158/159) artık açılabilir.
+
 ## cloud hazırlığı — Claude Code web'de çalıştırma; tm 162 açıldı — 2026-10-02
 - Yapıldı: `scripts/cloud-setup.sh` + `.claude/settings.json` SessionStart kancası (Linux'ta `uv sync --frozen --extra dev --python 3.12`, `task-master-ai` kurulumu, `.venv/bin` PATH'e `CLAUDE_ENV_FILE` ile; Windows'ta hiçbir şey yapmaz). CLAUDE.md'ye "Cloud'da" bölümü (oturum dalı + PR, aynı anda tek görev). `.gitignore` `data/` → `/data/`: eski desen `app/countries/data/`'yı (CLDR ülke adları, paket verisi) da dışarıda bırakıyordu, temiz klonda `tests/countries` toplama hatası veriyordu; dosyalar bu commit'le depoya girdi. `.claude/worktrees/` ve `settings.local.json` yok sayıldı.
 - Doğrulama: HEAD'in temiz klonu `python:3.12-slim` konteynerinde, kurulum betiğiyle (159 s): ruff check/format, compileall, temiz SQLite'ta `alembic upgrade head`, `import app.main`, `python -m app.i18n check` exit 0; `pytest -q -m "not live" --cov=app` 6524 passed, 13 skipped, **2 failed** (14 dk). İkisi de yerelde yalnız ortam sayesinde geçiyor → tm 162 (high, bağımlılıksız; 155/157/158/159 ona bağlandı).

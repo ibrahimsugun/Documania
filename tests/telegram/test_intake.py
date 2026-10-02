@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import mimetypes
 from collections.abc import Callable
 from datetime import date
 from pathlib import Path
@@ -63,6 +64,7 @@ from tests.telegram.conftest import (
 )
 
 DOCUMENT_NUMBER = "00 0000001"
+DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 
 
 def passport() -> object:
@@ -238,6 +240,57 @@ def test_document_without_a_name_gets_one_from_its_identity_and_mime(
     (upload,) = all_uploads(session_factory)
     (name,) = file_names(session_factory, upload.id)
     assert name.startswith("belge_u-f9.")  # uzantı MIME türünden
+
+
+@pytest.mark.parametrize(
+    ("mime", "extension"),
+    [
+        ("application/vnd.openxmlformats-officedocument.wordprocessingml.document", ".docx"),
+        ("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", ".xlsx"),
+        ("application/msword", ".doc"),
+        ("application/vnd.ms-excel", ".xls"),
+        ("application/pdf", ".pdf"),
+        ("image/jpeg", ".jpg"),
+        ("image/png", ".png"),
+    ],
+)
+def test_an_unnamed_document_gets_its_extension_without_the_os_mime_table(
+    monkeypatch: pytest.MonkeyPatch, mime: str, extension: str
+) -> None:
+    """MIME → uzantı eşlemesi işletim sisteminin `mimetypes` tablosuna dayanmaz (tm 162): tablo
+    boşken de (Linux'ta `/etc/mime.types` yok) adsız belge doğru uzantıyı alır."""
+    monkeypatch.setattr(mimetypes, "guess_extension", lambda *args, **kwargs: None)
+    monkeypatch.setattr(mimetypes, "guess_type", lambda *args, **kwargs: (None, None))
+    update = Update.de_json(document_update(1, LISTED_ID, "f9", None, mime_type=mime), None)
+
+    file = telegram_file(update.message)  # type: ignore[arg-type]
+
+    assert file is not None
+    assert (file.name, file.mime) == (f"belge_u-f9{extension}", mime)
+
+
+@pytest.mark.parametrize(
+    ("name", "mime"),
+    [
+        ("ozgecmis.DOCX", DOCX_MIME),
+        ("tablo.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
+        ("tarama.pdf", "application/pdf"),
+        ("foto.jpeg", "image/jpeg"),
+        ("foto.jpg", "image/jpeg"),
+        ("notlar.txt", None),
+    ],
+)
+def test_a_document_without_a_mime_type_gets_it_from_its_name_without_the_os_mime_table(
+    monkeypatch: pytest.MonkeyPatch, name: str, mime: str | None
+) -> None:
+    monkeypatch.setattr(mimetypes, "guess_extension", lambda *args, **kwargs: None)
+    monkeypatch.setattr(mimetypes, "guess_type", lambda *args, **kwargs: (None, None))
+    update = Update.de_json(document_update(1, LISTED_ID, "f9", name, mime_type=None), None)
+
+    file = telegram_file(update.message)  # type: ignore[arg-type]
+
+    assert file is not None
+    assert (file.name, file.mime) == (name, mime)
 
 
 def test_the_handler_returns_before_the_pipeline_finishes(

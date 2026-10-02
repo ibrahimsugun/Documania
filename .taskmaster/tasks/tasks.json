@@ -2355,18 +2355,18 @@
         "description": "Temiz Linux ortamında (cloud; python:3.12-slim, .env yok) DoD kapısı 2 testte kırmızı: 6524 geçti, 2 kaldı. İkisi de yerel Windows makinesinde yalnız ortam sayesinde geçiyor. Cloud oturumlarında her görevin kapısını kırar — önce bu görev.",
         "details": "NEDEN AÇILDI — KANIT (2026-10-02, cloud hazırlığı): `git clone` + `uv sync --frozen --extra dev` + `pytest -q -m \"not live\" --cov=app` temiz `python:3.12-slim` konteynerinde: 2 failed, 6524 passed, 13 skipped. İkisi de üç kez tek başına koşuda kararlı kırmızı.\n\n(1) `tests/web/test_upload_dismiss.py::test_a_dismissed_batch_is_neither_rerun_nor_reanalyzed_nor_dismissed_again` (10.3.4): yoksayılmış partide `POST /api/uploads/{id}/reanalyze` (ve benzeri) 409 yerine 503 döner — `app/web/routers/uploads.py` `reanalyze_upload_plan` sağlayıcıyı `Depends(get_analysis_provider)` ile partinin durumundan ÖNCE kurar; anahtar yoksa `ProviderConfigError` → 503. Testin ayarı `Settings(_env_file=None)` ama uç nokta `get_settings()` üzerinden deponun `.env` dosyasını okuyor: yerelde gerçek anahtar varken geçiyor. Yerelde yeniden üretim: `AI_PROVIDER=anthropic ANTHROPIC_API_KEY= OPENAI_API_KEY= .venv/Scripts/python.exe -m pytest <test>` → aynı 503. Düzeltme: yoksayılmış / bulunamayan parti denetimi sağlayıcı kurulmadan önce yapılır (sağlayıcı, durum uygunsa kurulur; `upload_page.py` `get_reanalysis_provider` yolu da aynı sırayla incelenir) ve testler sağlayıcı ayarını açıkça verir. Kural: 409 (parti yoksayılmış) anahtarın varlığından bağımsızdır.\n\n(2) `tests/telegram/test_intake.py::test_document_without_a_name_gets_one_from_its_identity_and_mime` (12.2.1): adsız `.docx` belgesine ad `belge_u-f9` (uzantısız) verilir — `app/telegram/handlers.py:151` `mimetypes.guess_extension(mime)` Windows'ta kayıt defterinden `.docx` bulur, `/etc/mime.types`'ı olmayan Linux'ta `None`. Düzeltme: uygulamanın kabul ettiği belge türleri için MIME → uzantı eşlemesi işletim sisteminden bağımsız olur (uygulama içinde sabit eşleme ya da açılışta `mimetypes.add_type`; hangisi seçildiyse §D'ye yazılır); eşleme uygulamanın web yüklemesinde kabul ettiği uzantıların hepsini kapsar.\n\n(3) Gizli ortam bağımlılığına karşı genel önlem: testlerde `get_settings()` deponun `.env`'ini okumaz (örn. `tests/conftest.py`'de oturum başında `.env` okumayı kapatan ya da `get_settings` önbelleğini `_env_file=None` ile kuran fixture) — böylece yerel makinede de cloud ile aynı sonuç alınır. Bu değişiklik başka testleri kırarsa onlar da aynı kusuru taşıyordur; düzeltilir.\n\nKAPSAM: yalnız yukarıdaki iki kusur ve (3). Davranış değişikliği: yoksayılmış partide anahtar yokken de 409. Başka yeni özellik yok.",
         "testStrategy": "1) Yerelde `.env` etkisiz ve anahtarsız (`AI_PROVIDER=anthropic ANTHROPIC_API_KEY= OPENAI_API_KEY=`) tam `pytest -q -m \"not live\"` yeşil. 2) Temiz Linux konteynerinde (`docker run python:3.12-slim`, `scripts/cloud-setup.sh` ile kurulum, `.env` yok) tam DoD kapısı 1–7 exit 0 — komut ve sonuç HANDOFF'a. 3) Yoksayılmış partide anahtar yokken rerun/reanalyze/dismiss-prepare 409; anahtar varken de 409. 4) Adsız `.docx`, `.xlsx`, `.pdf`, `.jpg` belgeleri MIME'den doğru uzantıyı alır; `mimetypes` tablosu boşaltılmış (monkeypatch) olsa da. 5) Kural bozmaları (sağlayıcı yeniden durumdan önce kurulur; eşleme kaldırılır) kırmızı. 6) DoD kapısı yeşil.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [],
         "priority": "high",
         "subtasks": [],
-        "updatedAt": "2026-10-02T12:00:00.000Z"
+        "updatedAt": "2026-10-02T15:34:01.100Z"
       }
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-02T12:57:24.189Z",
-      "taskCount": 156,
-      "completedCount": 150,
+      "lastModified": "2026-10-02T15:34:01.100Z",
+      "taskCount": 160,
+      "completedCount": 151,
       "tags": [
         "master"
       ]

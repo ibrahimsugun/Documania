@@ -11,6 +11,7 @@ from __future__ import annotations
 import enum
 import zipfile
 from io import BytesIO
+from pathlib import PurePosixPath
 
 from app.i18n import N_, Translatable
 
@@ -25,6 +26,35 @@ class FileKind(enum.StrEnum):
     DOCX = "docx"
     XLS = "xls"
     XLSX = "xlsx"
+
+
+# Kabul edilen yedi türün MIME türü → uzantı eşlemesi (yükleme sayfasının `accept` listesi:
+# .pdf .jpg .jpeg .png .doc .docx .xls .xlsx). İşletim sisteminin `mimetypes` tablosu kullanılmaz:
+# Windows kayıt defterinden `.docx` bulur, `/etc/mime.types`'ı olmayan Linux bulamaz (PLAN.md §D99).
+MIME_EXTENSIONS: dict[str, str] = {
+    "application/pdf": ".pdf",
+    "image/jpeg": ".jpg",
+    "image/png": ".png",
+    "application/msword": ".doc",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document": ".docx",
+    "application/vnd.ms-excel": ".xls",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": ".xlsx",
+}
+# Uzantı → MIME türü; `.jpeg` da JPEG'dir.
+EXTENSION_MIMES: dict[str, str] = {
+    **{extension: mime for mime, extension in MIME_EXTENSIONS.items()},
+    ".jpeg": "image/jpeg",
+}
+
+
+def extension_for_mime(mime: str | None) -> str:
+    """Kabul edilen türün uzantısı (`.docx`); tür tanınmıyorsa boş dizge."""
+    return MIME_EXTENSIONS.get((mime or "").split(";")[0].strip().lower(), "")
+
+
+def mime_for_name(name: str | None) -> str | None:
+    """Dosya adının uzantısından kabul edilen türün MIME türü; tanınmıyorsa `None`."""
+    return EXTENSION_MIMES.get(PurePosixPath(name or "").suffix.lower())
 
 
 class UnsupportedFileTypeError(ValueError):
