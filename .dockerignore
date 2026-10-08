@@ -1,4 +1,4 @@
-# Yapı bağlamına yalnız pyproject.toml ve app/ girer.
+# Yapı bağlamına yalnız pyproject.toml, uv.lock, app/ ve alembic göçleri girer.
 # data/ gerçek belgeler taşır: imaja ASLA girmez.
 data/
 .env

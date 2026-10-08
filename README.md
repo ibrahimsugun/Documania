@@ -158,6 +158,9 @@ docker compose logs worker               # kuyruğun tüketildiğini/worker hata
 
 **Güncelleme:** `git pull` sonra aynı komut (`docker compose --profile production up -d --build`);
 `migrate` yeni göçleri uygular, veri hacimleri (`data`, `pgdata`, `caddy_data`) korunur.
+İmaj bağımlılıkları `uv.lock`'taki sürüm ve hash'lerle kurar; kilit `pyproject.toml` ile uyuşmazsa yapı
+durur (`uv lock` ile kilidi yenileyip commit edin). Her servisin konteyner logu en çok 5 × 10 MB tutulur
+(`docker-compose.yml` `x-logging`); daha eskisi kendiliğinden silinir.
 **Durdurma:** `docker compose --profile production down` — **`-v` vermeyin**: hacimler yüklenen
 belgeleri, veritabanını ve sertifikayı taşır (`-v` hepsini siler).
 

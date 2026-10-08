@@ -167,6 +167,26 @@ def test_migrate_applies_the_schema_once_and_is_not_restarted(
     assert migrate["restart"] == "no"
 
 
+def test_dockerfile_installs_dependencies_from_the_lockfile() -> None:
+    dockerfile = (ROOT / "Dockerfile").read_text(encoding="utf-8")
+
+    # Sürümler uv.lock'tan, hash denetimiyle; kilit pyproject.toml ile uyuşmazsa yapı durur.
+    assert "source=uv.lock,target=uv.lock" in dockerfile
+    assert "uv export --locked --no-dev" in dockerfile
+    assert "pip install --require-hashes" in dockerfile
+    # Uygulama paketi bağımlılık çözmez; bağımlılığı yalnız kilit belirler.
+    assert re.search(r"^RUN pip install --no-deps \.$", dockerfile, re.MULTILINE)
+    assert not re.search(r"^RUN pip install \.$", dockerfile, re.MULTILINE)
+
+
+def test_every_service_caps_its_container_logs(services: dict[str, dict[str, Any]]) -> None:
+    for name, service in services.items():
+        logging = service.get("logging", {})
+        assert logging.get("driver") == "json-file", name
+        assert logging.get("options", {}).get("max-size"), name
+        assert logging.get("options", {}).get("max-file"), name
+
+
 def test_dockerfile_ships_the_migrations_the_migrate_step_runs() -> None:
     dockerfile = (ROOT / "Dockerfile").read_text(encoding="utf-8")
 

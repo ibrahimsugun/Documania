@@ -12,9 +12,18 @@
 # işleyicisini (`worker`) ve HTTPS'i sonlandıran Caddy'yi (`caddy`) ayağa kaldırır. Telegram botu
 # ayrı ve isteğe bağlıdır: `--profile telegram` eklenir. Ayrıntı: README.md "Üretim dağıtımı".
 
+# Konteyner logları: Docker varsayılanı sınırsızdır ve zamanla diski doldurur. Her servis en çok
+# 5 × 10 MB tutar (en eski dosya döner); `docker compose logs` son 50 MB'ı gösterir.
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
 x-app: &app
   build: .
   image: belgeee:dev
+  logging: *logging
   # Uygulama ayarları (API anahtarları, model adları, işçi kuyruğu…) .env'den gelir; dosya yoksa
   # varsayılanlarla açılır. Aşağıdaki `environment` değerleri .env'deki aynı adlı satırlara baskındır:
   # yerel geliştirme .env'indeki `DATABASE_URL=sqlite:///./data/…` ve `DATA_DIR` konteynere geçmez.
@@ -99,6 +108,7 @@ services:
   # kullanılamaz: Compose onu etkin olmayan profillerde de yorumlar ve geliştirme akışını bozar.)
   preflight:
     image: caddy:2-alpine
+    logging: *logging
     profiles: ["production"]
     environment:
       DOMAIN: ${DOMAIN:-}
@@ -125,6 +135,7 @@ services:
   # PostgreSQL 16 (MASTER-PROMPT §4). Parola .env'den gelir; kodda ve depoda yoktur.
   db:
     image: postgres:16-alpine
+    logging: *logging
     profiles: ["production"]
     depends_on:
       preflight:
@@ -150,6 +161,7 @@ services:
   # yenilenir; `caddy_data` hacmi silinirse sertifika yeniden istenir (sağlayıcı sınırlarına dikkat).
   caddy:
     image: caddy:2-alpine
+    logging: *logging
     profiles: ["production"]
     depends_on:
       preflight:

@@ -52,10 +52,10 @@ Bu kurallar ürünün kimliğidir; teknik karşılıkları `MASTER-PROMPT.md` §
 | R5 | **Direkt Belge bütünlüğü.** `direct` işaretli türlerde başka dosyayla birleştirme, format dönüştürme ve yeniden kodlama yasaktır; yalnız tek kaynaktan ardışık sayfa çıkarma serbesttir. |
 | R6 | **Ardışıklık güvenliği.** Bir belgenin sayfaları arasına başka belgeye ait sayfa girmişse sistem bunları otomatik birleştirmez. |
 | R7 | **Emin değilse kuyruğa.** Kişisi veya türü belirlenemeyen belge çalışan klasörüne rastgele yerleştirilmez; Unknown / Unreadable / Unresolved kuyruklarına alınır ve kullanıcı uyarılır. |
-| R8 | **İsim tek başına kimlik değildir.** Yalnız ad-soyad eşleşmesi otomatik eşleştirme sayılmaz. |
+| R8 | **İsim tek başına kimlik değildir.** Yalnız ad-soyad eşleşmesi otomatik eşleştirme sayılmaz. Tek istisna (05.5.4): doğum tarihi taşımayan belge (sözleşme, CV, diploma gibi) ad-soyadıyla **tek bir** etkin çalışana uyuyorsa o çalışana yerleşir; isim yoluyla eşleşen belge profile kimlik bilgisi (isim yazımı, belge numarası, profil alanı, iletişim) eklemez ve profilde "yalnız isimle eşleşti" diye görünür. |
 | R9 | **Yalnız isimden çalışan doğmaz.** Kayıtlı çalışanla eşleşme yoksa otomatik yeni çalışan profili yalnız temiz okunmuş bir belge numarası varsa, ya da Latin harfli ad-soyad ile okunaklı doğum tarihi varsa (doğum tarihi türün zorunlu alanıysa) açılır. Yalnız ad-soyad okunduysa profil onaya düşer. |
 | R10 | **Karar bir kez verilir.** Yapay zekâ analizi Plan JSON olarak dondurulur; fiziksel işlemler bu plandan yürütülür, yeniden yapay zekâya sorulmaz. |
-| R11 | **Silme yoktur, arşiv vardır.** Tek istisna Telegram kimlik kaydıdır (12.1.10): numara başka hesaba bağlanabilsin diye kayıt silinir, izi olay logunda kalır. |
+| R11 | **Sistem kendiliğinden silmez; kalıcı silme yalnız İK'nın elindedir.** Günlük düzen arşivle yürür. İK bir belgeyi (10.5.12) ya da işten ayrılan, pasife alınmış bir çalışanı bütün belgeleriyle (10.5.13) iki aşamalı onayla kalıcı siler: dosyalar diskten, kişisel veriler veritabanından gider; kayıt iskeleti (E numarası, belge kimliği, tür, tarih, kim sildi) "silindi" durumuyla kalır, olay ve erişim logu kırılmaz. Telegram kimlik kaydı da silinebilir (12.1.10): numara başka hesaba bağlanabilsin diye kayıt silinir, izi olay logunda kalır. |
 | R12 | **Manuel içerik düzenleme yoktur.** Kullanıcı belge içeriğini hiçbir arayüzden değiştiremez; yalnız belgenin hangi çalışana ait olduğunu iki aşamalı onayla değiştirebilir. |
 | R13 | **Her işlem izlenebilir.** Üretilen her çıktı hangi kaynak dosyanın hangi sayfalarından üretildiğini taşır. |
 
@@ -216,8 +216,9 @@ Kapsam: FR-MOD-13.
 | 05.3.3 | MRZ önceliği | Görünen metinle MRZ çelişirse MRZ kazanır ve çelişki nota yazılır | Must (MVP) |
 | 05.4.1 | Kişi anahtarı | Belge numaraları, normalize ad-soyad, doğum tarihi ve orijinal yazımdan oluşan anahtar üretilir | Must (MVP) |
 | 05.5.1 | Eşleştirme sırası | Önce belge numarası, sonra normalize isim + doğum tarihi denenir | Must (MVP) |
-| 05.5.2 | Yalnız isim eşleşmesinin reddi (R8) | Sadece isim eşleşmesi Unresolved'a gider, otomatik eşleştirme sayılmaz | Must (MVP) |
+| 05.5.2 | Yalnız isim eşleşmesinin reddi (R8) | Sadece isim eşleşmesi Unresolved'a gider, otomatik eşleştirme sayılmaz (05.5.4'ten beri: belgede doğum tarihi okunduysa ve çalışanınkiyle aynı değilse; doğum tarihi taşımayan belgenin tekil isim eşleşmesi 05.5.4'tedir) | Must (MVP) |
 | 05.5.3 | Belirsiz eşleşme | Birden fazla çalışan eşleşirse Unresolved'a gider ve olay loguna yazılır | Must (MVP) |
+| 05.5.4 | Doğum tarihi taşımayan belgenin tekil isim eşleşmesi (R8 istisnası) | Belge numarasıyla eşleşmeyen ve doğum tarihi okunmamış belgenin normalize ad-soyadı (§20.2.1) birleştirilmemiş tek bir çalışana uyuyorsa ve o çalışan etkinse belge o çalışanın Hazir'ına yerleşir (`matched_by: name`, §20.2.2 satır 5a). İsim birden çok çalışana uyarsa Unresolved (`PERSON_AMBIGUOUS`); çalışan pasifse 10.5.7 kuralı; belgede doğum tarihi okunduysa satır 3/5 geçerlidir. İsim yoluyla eşleşen belge çalışana isim yazımı, belge numarası, profil alanı ya da iletişim bilgisi eklemez (05.7.2, 05.7.3, 05.8.1 uygulanmaz) ve aynı dosyadaki kişisiz sayfalara sahip vermez. Profilin belge listesinde ve yükleme ayrıntısında bu belge "yalnız isimle eşleşti" etiketiyle görünür; yanlışsa İK 10.8.1 ile taşır. Kabul senaryosu S23 | Should (v1) |
 | 05.6.1 | Otomatik çalışan oluşturma (R9) | Kayıtlı çalışanla eşleşmeyen kişide temiz okunmuş belge numarası varsa yeni çalışan ve klasörü açılır | Must (MVP) |
 | 05.6.2 | Ad ve doğum tarihiyle otomatik çalışan oluşturma (R9) | Kayıtlı çalışanla eşleşmeyen kişide temiz numara yoksa, Latin harfli ad-soyad ve okunaklı, tekil, çelişkisiz doğum tarihi varsa ve doğum tarihi türün zorunlu alanıysa yeni çalışan ve klasörü açılır; belge numarası yazılmaz; olay kaydı açılış dayanağını (`document_number` / `name_dob`) taşır; ucuz ön eleme modelinin doğrulanmamış okuması bu yola dayanak olmaz (§20.2.4) | Must (MVP) |
 | 05.7.1 | Onay bekleyen profil | Temiz numara yoksa ve 05.6.2 uymuyorsa (doğum tarihi yok, okunaksız ya da türün zorunlu alanı değil) profil önerisi Unresolved'a düşer; onaysız çalışan oluşmaz | Must (MVP) |
@@ -312,6 +313,8 @@ Kapsam: FR-MOD-13.
 | 10.5.9 | İki çalışanı birleştirme | Profil sayfasındaki "Başka kayıtla birleştir" aramayla ikinci çalışanı seçtirir; İK hangi kaydın kalacağını seçer; iki aşamalı onay ister. Birleşen kaydın belgeleri kalan çalışana K8 adıyla taşınır (10.8.2 ile aynı fiziksel kural), `Alinan/` kopyaları taşınır; numaraları, isim yazımları, iletişim bilgileri, alan kaynakları ve belge paketleri kalan kayda bağlanır (aynı değer tek kalır). Birleşen kayıt `merged` durumuyla ve kalan kaydın numarasıyla kalır, listede görünmez, adresi kalan profile yönlendiren bildirim gösterir; klasörü silinmez, içinde yalnız yönlendirme notu taşıyan profil.md kalır. İşlem geri alınamaz ve ikinci onay bunu söyler; olay iki numarayı ve taşınan belge kimliklerini taşır | Should (v1) |
 | 10.5.10 | Arşive taşıma ve arşivden geri alma profilde | Profil belge listesinde etkin belge için "Arşive taşı" (08.4.1, §20.6 metinleri), arşivdeki belge için "Arşivden geri al" vardır; ikisi de iki aşamalı onaylıdır. Geri alma dosyayı `Archive/<yyyy-mm>/` altından çalışanın `Hazir/` klasörüne K8 adıyla taşır (ad çakışırsa sıradaki sıra ekini alır), durumu etkin yapar, köken bilgisini korur ve olay yazar; belge içeriği değişmez | Must (v1) |
 | 10.5.11 | Profilde uyruk bayrağı | Çalışan profilindeki "Vatandaşlık" satırı uyruk kodunun yanında bayrağı ve Türkçe ülke adını gösterir (örn. `RUS` → bayrak + "Rusya (RUS)"); tanınmayan kodda yalnız kod yazılır; alanın kaynak bilgisi (10.5.6) değişmez | Should (v1) |
+| 10.5.12 | Belgeyi kalıcı silme | Profilin belge listesinde etkin ve arşivdeki her belge için "Kalıcı sil" iki aşamalı onayla (§20.6) çalışır. Belgenin dosyası (Hazir ya da Archive) diskten silinir; belgenin `Alinan` kopyaları, o kopyalar çalışanın başka bir belgesine kaynak değilse silinir; Inbox'taki yüklenen orijinal yalnız hiçbir başka belgeye, açık kuyruk öğesine ya da başka çalışana kaynak değilse silinir, aksi hâlde kalır ve ikinci onay metni bunu sayıyla söyler. Veritabanında belge satırı `deleted` durumuna geçer, dosya yolu ve kişisel alanları boşaltılır; kimliği, türü, çalışanı, tarihleri ve silen kalır. Belge listelerden, aramalardan, paket tiklerinden (14.x), bottan (12.3) ve dosya açma yolundan kalkar (404). Olay `DOCUMENT_DELETED` kullanıcı adıyla, kişisel değer olmadan yazılır. Geri alma yoktur. Kabul senaryosu S24 | Should (v1) |
+| 10.5.13 | Çalışanı kalıcı silme | Yalnız pasif (10.5.7) çalışanın profilinde "Çalışanı kalıcı sil" iki aşamalı onayla (§20.6) çalışır; etkin ve birleştirilmiş kayıtta düğme yoktur, istek reddedilir. Çalışanın bütün belgeleri 10.5.12 kuralıyla silinir; çalışan klasörü (`Hazir`, `Alinan`, `profil.md`) diskten kalkar; isim yazımları, belge numaraları, iletişim bilgileri, profil alanı gözlemleri ve paketleri silinir; çalışanın belgelerinin kaynağı olan sayfa görüntüleri ve sayfa analizleri, başka bir çalışana ya da açık kuyruk öğesine kaynak değilse silinir/boşaltılır; çalışandan türetilmiş kabul edilmiş fotoğraf örnekleri (11.8.1) kalkar. Çalışan satırı `deleted` durumuna geçer: E numarası, oluşturma ve silme tarihi, silen kalır; ad, soyad, doğum tarihi, uyruk, klasör adı boşaltılır; E numarası yeniden verilmez (K8). Bu çalışana bağlı olayların mesajı ve verisindeki kişisel değerler temizlenir, olay satırı kalır. Silinen çalışan listede, aramada, eşleştirmede (05.5) ve botta görünmez; profil adresi "silindi" sayfası döner. Olay `EMPLOYEE_DELETED` kullanıcı adıyla ve yalnız sayılarla (belge, dosya) yazılır. Yedeklerdeki kopyalar yedeğin kendi süresiyle gider (kapsam dışı). Geri alma yoktur. Kabul senaryosu S25 | Should (v1) |
 | 10.6.1 | Belge geçmişi | Bir çıktının kaynak dosya ve sayfaları tıklanarak izlenir | Must (v1) |
 | 10.7.1 | Kuyruk ekranları | Üç kuyruk sekmesi, sayaçlar, öğe detayı ve sayfa görüntüleri | Must (v1) |
 | 10.7.2 | Kuyruktan çalışana atama | Arama ile çalışan seçilir, iki aşamalı onayla atanır | Must (v1) |
@@ -505,7 +508,13 @@ QUEUE_ITEM_CLOSED · QUEUE_ITEM_REOPENED · UPLOAD_RESTORED · TYPE_ACTIVATED ·
 TYPE_ARCHIVED · TYPE_RESTORED · CANDIDATE_TYPE_RESTORED · TRAINING_ITEM_DISMISSED ·
 TRAINING_ITEM_RESTORED · TRAINING_RUN_ARCHIVED · USER_CREATED · USER_DEACTIVATED ·
 USER_REACTIVATED · USER_PASSWORD_CHANGED · USER_LANGUAGE_CHANGED · TELEGRAM_USER_CHANGED · TELEGRAM_LINK_CREATED · GROUP_CHANGED ·
-PACKAGE_ASSIGNED · PACKAGE_COMPLETED · PACKAGE_REOPENED · PACKAGE_CANCELLED
+PACKAGE_ASSIGNED · PACKAGE_COMPLETED · PACKAGE_REOPENED · PACKAGE_CANCELLED · DOCUMENT_DELETED ·
+EMPLOYEE_DELETED
+
+`DOCUMENT_DELETED` (10.5.12) verisi: `document_id`, `document_type_slug`, `previous_status` (`active` /
+`archived` / `superseded`), silinen ve korunan dosya sayıları (`files_deleted`, `files_kept`). `EMPLOYEE_DELETED`
+(10.5.13) verisi: silinen belge, dosya, sayfa ve alt kayıt sayıları. İkisi de kişisel değer taşımaz ve `actor`
+olarak kullanıcı adını taşır.
 
 `EMPLOYEE_CREATED` olayının verisi açılış dayanağını taşır: `basis` = `document_number` (§20.2.2
 satır 6) ya da `name_dob` (satır 6b).
@@ -640,7 +649,7 @@ Her senaryo Faz 0'da otomatik test olur (09.3.2). "Beklenen" sütunu tartışmas
 | S7 | Pasaport sayfası çok sayfalı PDF içinde | Tek sayfa extract ile Passport.pdf; render yok |
 | S8 | PDF ortasında boş sayfa | Atlanır; hata değil |
 | S9 | Bulanık pasaport; belge numarası okunamıyor | Unreadable; "Okunamayan alanlar: document_number" |
-| S10 | Belge yalnız isimle mevcut çalışanla eşleşiyor | Unresolved; otomatik eşleştirme ve yeni çalışan yok |
+| S10 | Belge isimle mevcut çalışanla eşleşiyor ama belgedeki doğum tarihi çalışanınkinden farklı | Unresolved; otomatik eşleştirme ve yeni çalışan yok (doğum tarihi taşımayan belgenin tekil isim eşleşmesi S23'tür) |
 | S11 | Temiz pasaport numarası; kayıtlı çalışan yok | Yeni çalışan, klasör ve profil.md; belge Hazir'da |
 | S12 | Aynı isimli iki çalışan; doğum tarihi birine uyuyor | O çalışana eşleşir; her ikisine veya hiçbirine uymuyorsa Unresolved |
 | S13 | Kiril isimli belge | Latin dosya adı + orijinal yazım profilde |
@@ -653,10 +662,15 @@ Her senaryo Faz 0'da otomatik test olur (09.3.2). "Beklenen" sütunu tartışmas
 | S20 | Eğitim modunda pasaport yükleniyor; ikinci dosya hiçbir türe uymuyor | Pasaport örneklere girer (mekanik ya da "AI kararı" etiketli); ikincisi "Yerleştirilemedi"de; çalışan, kuyruk öğesi, yükleme partisi ve çıktı belgesi oluşmaz |
 | S21 | "Sırbistan iş başvurusu" grubu (Passport etiketi, Profile Picture etiketi, çevirili diploma türü) çalışana paket olarak tanımlı; önce Rus pasaportu, sonra fotoğraf ve çevirili diploma yükleniyor | Pasaport kalemi ülkeye bakılmadan tik alır; üç belge Hazir'a girince paket "Tamamlandı — başvuru başlatılabilir", olay yazılır; diploma arşivlenince paket açığa döner ve olay yazılır |
 | S22 | Pasif çalışanın pasaport numarasıyla yeni belge geliyor | Belge çalışanın klasörüne otomatik girmez; Unresolved'da "pasif çalışan" gerekçesiyle bekler; çalışan etkinleştirilip öğe atanınca Hazir'a girer |
+| S23 | Doğum tarihi taşımayan çalışma izni (ya da sözleşme) genel yüklemeyle geliyor; ad-soyad tek bir etkin çalışana uyuyor, numarası kayıtlı değil / aynı adda iki çalışan var | O çalışanın Hazir'ına `matched_by: name` ile girer; çalışana isim yazımı, numara, alan ve iletişim eklenmez; profilde "yalnız isimle eşleşti" etiketi / Unresolved (`PERSON_AMBIGUOUS`), yeni çalışan yok |
+| S24 | Çalışanın tek kaynaklı pasaportu ve arşivdeki eski pasaportu kalıcı siliniyor: tek onayla / iki onayla | Değişiklik yok / iki dosya, `Alinan` kopyaları ve Inbox orijinali diskten kalkar; belge satırları `deleted`, dosya adresi 404, paket tiki düşer; başka belgeye kaynak olan orijinal kalır; `DOCUMENT_DELETED` kullanıcı adıyla |
+| S25 | Pasif çalışan kalıcı siliniyor; bir yüklemesi yalnız ona, öbürü onunla başka bir çalışana ait | Çalışan klasörü, belgeleri, alt kayıtları, yalnız ona ait yüklemenin orijinali ve sayfa görüntüleri silinir; ortak yüklemenin orijinali ve öbür çalışanın sayfaları kalır; çalışan satırı `deleted`, kişisel alanları boş; aynı kişinin yeni belgesi eski kayda eşleşmez; olaylarda isim kalmaz; etkin çalışanda istek reddedilir |
 
 S19 gereksinim 05.6.2'nin (Faz 0), S20 gereksinim 11.9.1'in (Faz 1) kabul senaryosudur; ikisi de
 kendi gereksinimini karşılayan görevde otomatik test olur. S21 gereksinim 14.2.2–14.2.3'ün, S22
 gereksinim 10.5.7'nin (ikisi de Faz 1) kabul senaryosudur; aynı kuralla kendi görevlerinde test olur.
+S23 gereksinim 05.5.4'ün, S24 10.5.12'nin, S25 10.5.13'ün kabul senaryosudur (2026-10-08 açılışı); aynı
+kuralla kendi görevlerinde test olur. S10'un yeni tanımı 05.5.4 görevinde testine yansır.
 
 ---
 
@@ -682,9 +696,10 @@ Aşağıdakiler bu üründe **yapılmayacaktır**:
 - Arayüz dilinde (10.10.x): Kiril alfabesiyle Sırpça, tarayıcı diline göre kendiliğinden dil seçimi, adreste dil öneki
   (`/en/...`), yöneticinin başka kullanıcının dilini ayarlaması, verinin (belge türü, çalışan, belge, dosya adı, olay)
   çevirisi ve botun doğal dil isteklerini (12.3) başka dillerde anlaması.
-- Kalıcı silme: hiçbir varlık (çalışan, belge, tür, grup, kullanıcı, olay) veritabanından ya da diskten
-  silinmez; pasife alma, arşivleme, kapatma ve kaldırma durum değiştirir ve geri alınabilir (R11). Tek istisna
-  Telegram kimlik kaydıdır (12.1.10); silinen kaydın izi olay logunda kalır.
+- Kendiliğinden ya da toplu kalıcı silme: sistem hiçbir varlığı kendisi silmez, süre dolunca otomatik silme ve
+  toplu silme yoktur. Kalıcı silme yalnız İK'nın tek belge (10.5.12) ve pasif çalışan (10.5.13) için iki aşamalı
+  onayla yaptığı işlemdir; tür, grup, kullanıcı ve olay silinmez (R11). Telegram kimlik kaydı da silinebilir
+  (12.1.10); silinen kaydın izi olay logunda kalır. Yedeklerden silme bu ürünün işi değildir.
 
 ---
 
@@ -892,14 +907,19 @@ Sırayla değerlendirilir; **ilk uyan satır kazanır**, alttakilere bakılmaz.
 | 2 | Aynı numara **birden fazla** çalışana ait | `none` | — | `unresolved` + `PERSON_AMBIGUOUS` |
 | 3 | Numara eşleşmedi; normalize ad-soyad `employee_aliases` içinde eşleşiyor **ve** doğum tarihi eşit, **tek** çalışan | `match` | `name_dob` | `hazir` |
 | 4 | İsim + doğum tarihi **birden fazla** çalışana uyuyor | `none` | — | `unresolved` + `PERSON_AMBIGUOUS` |
-| 5 | Yalnız isim eşleşti (doğum tarihi yok veya farklı) | `none` | — | `unresolved`, gerekçe: "İsim eşleşti ama doğum tarihi veya belge numarası doğrulanamadı" |
+| 5a | Numara eşleşmedi; belgede doğum tarihi **okunmadı**; normalize ad-soyad birleştirilmemiş **tek** çalışana uyuyor (05.5.4) | `match` | `name` | `hazir` (çalışan pasifse 10.5.7 kuralıyla `unresolved`) |
+| 5 | Yalnız isim eşleşti ve satır 5a uymuyor (belgedeki doğum tarihi farklı ya da çalışanın doğum tarihi kayıtlı değil) | `none` | — | `unresolved`, gerekçe: "İsim eşleşti ama doğum tarihi veya belge numarası doğrulanamadı" |
 | 6 | Hiç eşleşme yok **ve** temiz belge numarası **var** (§20.2.3) | `create` | — | `hazir` |
 | 6b | Hiç eşleşme yok, temiz numara **yok**, ama ad-soyad ve doğum tarihi §20.2.4'e uyuyor | `create` | — | `hazir` |
 | 7 | Hiç eşleşme yok, satır 6 ve 6b uymuyor, ama ad-soyad okunabildi | `pending` | — | `unresolved`, payload'da önerilen profil |
 | 8 | Kişi hiç tespit edilemedi (ne isim ne numara) | `none` | — | `unresolved` |
 
 Satır 1 ve 3'te eşleşme başarılıysa: belgedeki yeni isim yazımı `employee_aliases`'a, yeni
-belge numarası `employee_identifiers`'a eklenir (gereksinim 05.7.2).
+belge numarası `employee_identifiers`'a eklenir (gereksinim 05.7.2). Satır 5a'da hiçbir şey birikmez:
+isim yazımı, numara, profil alanı ve iletişim bilgisi eklenmez; kişisiz sayfalara sahip verilmez (05.5.4).
+Satır 5a'nın "tek çalışan" sayımı birleştirilmemiş ve silinmemiş (`active` ve `inactive`) kayıtlar
+üzerindedir. Doğum tarihi okunmamış belgenin adı birden çok böyle kayda uyuyorsa (biri pasif biri etkin olsa da)
+rota `unresolved` + `PERSON_AMBIGUOUS`'tır (satır 4 gibi); satır 5'in gerekçesine düşmez.
 
 **Pasif çalışan (gereksinim 10.5.7).** Tablo pasif (`inactive`) çalışanı da arar ve bulur — kimlik
 gerçektir, sıra değişmez. Satır 1 ya da 3 pasif bir çalışanı bulursa belge otomatik yerleşmez: rota
