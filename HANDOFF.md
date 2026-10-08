@@ -18,6 +18,19 @@ Blok biçimi `CONVENTIONS.md` §3'te tanımlıdır:
 
 ## Task log (newest-first)
 
+## 164 — 12.3-b Botla konuşma: birden çok tür, devam, kişi bilgisi, eksik belgeler; her mesaja yanıt; yazılan dil — done — 2026-10-08
+- Yapıldı: okuma şeması dört niyet + `documents`/`group`/`language`; bot çok türü satır satır yanıtlar, kişisiz isteği son kişiye uygular, yaş/uyruk/belge özetini ve grup eksiklerini (paket açmadan) verir; ses ve öteki mesajlara yanıt, `typing`, yazılan dilde yanıt (§D108).
+- Doğrulama: ruff, compileall, import, alembic, i18n check exit 0; tests/telegram 394, tests/ai 763 yeşil. Tam `pytest --cov` insan kararıyla koşulmadı.
+- Varsayımlar: kişi bilgisi iletişim/kimlik numarası vermez; konuşma belleği süreç içi (yeniden başlatmada boşalır); bildirimler panel dilinde kalır.
+- Sonraki pencereye not: canlı botla elle denenmeli (gerçek model `language` ve `missing_documents` okumasını doğru veriyor mu); ilk tam kapı koşusunda kırmızı çıkarsa önce bu iki görevin dosyalarına bak.
+
+## 163 — 12.1-j Telegram kaydını silme — done — 2026-10-08
+- Yapıldı: yönetici Kullanıcılar'dan, kişi Hesabım → Telegram'dan kaydı siler; numara serbest kalır, yeniden bağlanır; R11 istisnası, iz olay logunda (§D107).
+- Doğrulama: tests/web kullanıcı/hesap/Telegram + tests/telegram 444 yeşil; statik kapılar exit 0. Tam `pytest --cov` insan kararıyla koşulmadı.
+- Varsayımlar: silme tek adımlı (§D61-b), onay penceresi yok.
+- Sonraki pencereye not: Kullanıcılar sayfasının tek satır yerleşimi (td.telegram-cell) de bu dalla geldi.
+
+
 ## 99 — §5.3 Faz 2 (v2) kapanış denetimi — done — 2026-10-02
 - Yapıldı: PRD §5.3 kapanış ölçütü testlerle eşlendi (beyaz liste: komut, belge, doğal dil, listeden çıkarılan hesap; bot üzerinden belge gönderme; S17 belge isteme; kural ihlalli fotoğraf); boşluk yok, `app/` ve `tests/` değişmedi; PLAN §0 Faz 2 Kapanış `✅ → KF2`, §K sonuna `#### KF2`, kararlar §D106.
 - Doğrulama: ruff check/format, compileall (app, tests), `import app.main`, temiz SQLite'ta `alembic upgrade head` (→0024), `python -m app.i18n check`, `git diff --check` exit 0; hedef testler 438 geçti (2 Windows atlaması); `pytest -q -m "not live" --cov=app` 6655 geçti, 11 atlandı, 0 kırmızı, kapsam %99; 8 kural bozmasının 8'i kırmızı.
