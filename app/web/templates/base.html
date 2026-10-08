@@ -7,6 +7,10 @@
   <link rel="icon" type="image/png" sizes="32x32" href="/static/favicon.png">
   <link rel="apple-touch-icon" href="/static/icon-512.png">
   <link rel="stylesheet" href="/static/panel.css">
+  {# 10.1.7: tema panel.css'in üstündedir; açık/koyu seçimi ilk boyamadan önce uygulanır (§D111). #}
+  <link rel="stylesheet" href="/static/theme.css">
+  <script>try{var t=localStorage.getItem("documania-theme");document.documentElement.setAttribute("data-theme",t||(matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light"))}catch(e){}</script>
+  <script src="/static/theme.js" defer></script>
   <script src="/static/htmx.min.js" defer></script>
 </head>
 <body>
@@ -28,6 +32,7 @@
     <a class="tool-link{% if active == 'access_log' %} active{% endif %}" href="/access-log"{% if active == 'access_log' %} aria-current="page"{% endif %}>{{ _("Erişim logu") }}</a>
     {# 10.10.2: dil seçici kullanıcı adının yanında; seçim hesaba kaydedilir, aynı sayfaya dönülür. #}
     {% with back = language_return_path(request) %}{% include "_language_selector.html" %}{% endwith %}
+    <button type="button" class="theme-toggle" data-theme-toggle aria-pressed="false" aria-label="{{ _('Açık ya da koyu tema') }}" title="{{ _('Açık ya da koyu tema') }}"><span class="icon-light" aria-hidden="true">☾</span><span class="icon-dark" aria-hidden="true">☀</span></button>
     <form class="session" method="post" action="/logout">
       <span class="username" translate="no">{{ user.username }}</span>
       <button type="submit">{{ _("Çıkış") }}</button>

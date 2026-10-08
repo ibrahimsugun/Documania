@@ -2451,13 +2451,25 @@
         "priority": "medium",
         "subtasks": [],
         "updatedAt": "2026-10-08T15:41:28.000Z"
+      },
+      {
+        "id": "166",
+        "title": "10.1-g — Panel teması: modern görünüm, açık ve koyu tema [OPUS-HIGH]",
+        "description": "PRD 10.1.7 · FR-MOD-10 · Faz 1 · Should (v1). Sözleşme PLAN §D111.",
+        "details": "theme.css panel.css'ten sonra; açık/koyu değişkenleri; theme.js düğme + localStorage; başlıkta yanıp sönmeyi önleyen satır; giriş sayfası; reduced-motion.",
+        "testStrategy": "tests/web/test_theme.py: yükleme sırası, düğme ve etiketi, giriş sayfası, oturumsuz servis, iki temanın değişkenleri.",
+        "status": "done",
+        "dependencies": [],
+        "priority": "medium",
+        "subtasks": [],
+        "updatedAt": "2026-10-08T16:00:42.000Z"
       }
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-08T15:41:28.000Z",
-      "taskCount": 166,
-      "completedCount": 163,
+      "lastModified": "2026-10-08T16:00:42.000Z",
+      "taskCount": 167,
+      "completedCount": 164,
       "tags": [
         "master"
       ]

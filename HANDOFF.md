@@ -18,6 +18,13 @@ Blok biçimi `CONVENTIONS.md` §3'te tanımlıdır:
 
 ## Task log (newest-first)
 
+## 166 — 10.1-g Panel teması "Aurora" — done — 2026-10-08
+- Yapıldı: `theme.css` (açık + koyu, degrade zemin, cam üst çubuk, kart/tablo/düğme/rozet), `theme.js` açık/koyu düğmesi, giriş sayfası yeniden tasarım (§D111).
+- Doğrulama: yerel önizlemede (geçici DB) 5 sayfa iki temada görüldü; tests/web + tests/countries yeşil, i18n check temiz. Tam `pytest --cov` koşulmadı.
+- Varsayımlar: tema seçimi tarayıcı başına (hesaba yazılmaz); dış yazı tipi yüklenmez.
+- Sonraki pencereye not: panel.css'in eski sabit renkleri koyu temada tek tük kalabilir (seyrek sayfalar: eğitim, aday tür); görülürse theme.css'e seçici ekle. tests/web/test_access_log.py'ye tm 163'ün iki silme yolu eklendi (önceki commit'te eksikti).
+
+
 ## 165 — 12.3-c Profil sorusu, tek kişilik dışa aktarım, konu dışı sayacı — done — 2026-10-08
 - Yapıldı: profil.md'ler ikinci yapay zekâ çağrısıyla soruya yanıt (≤5 kişi, karşılaştırma); tek kişinin bütün belgeleri (≤20), toplu istek reddi; konu dışı mesaja ret → son uyarı → "Seninle konuşmuyorum" + 30 dk sessizlik (§D110).
 - Doğrulama: ruff, i18n check; tests/telegram 407, tests/ai, profiles, groups yeşil; gerçek modelle niyet sınıflandırması 5/5 doğru. Tam `pytest --cov` koşulmadı.

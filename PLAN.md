@@ -9,7 +9,7 @@
 | Faz | PRD | Genel durum | Must sayacı | Kapanış |
 | --- | --- | --- | --- | --- |
 | Faz 0 — MVP | §5.1 | 106 ✅ · 0 ◐ · 1 ⬜ · 0 🔒 | 101/101 Must | AÇIK |
-| Faz 1 — v1 | §5.2 | 71 ✅ · 0 ◐ · 2 ⬜ · 0 🔒 | 41/41 Must | AÇIK |
+| Faz 1 — v1 | §5.2 | 72 ✅ · 0 ◐ · 2 ⬜ · 0 🔒 | 41/41 Must | AÇIK |
 | Faz 2 — v2 | §5.3 | 30 ✅ · 0 ◐ · 0 ⬜ · 0 🔒 | 0/0 Must | AÇIK |
 | Faz 3 — Enterprise | §5.4 | 10 ✅ · 0 ◐ · 0 ⬜ · 0 🔒 | 0/0 Must | AÇIK |
 
@@ -58,7 +58,7 @@ panelde `plan-count-drift` bulgusu doğurur.
 | FR-MOD-07 | Uygulayıcı | 0 | 9 |
 | FR-MOD-08 | Kuyruklar ve çözüm | 0 | 6 |
 | FR-MOD-09 | Çalışan profili ve orkestrasyon | 0 | 10 |
-| FR-MOD-10 | Web yönetim paneli | 1 | 42 |
+| FR-MOD-10 | Web yönetim paneli | 1 | 43 |
 | FR-MOD-11 | Belge türü kataloğu ve öğrenme | 1, 2 | 29 |
 | FR-MOD-12 | Telegram botu | 2 | 26 |
 | FR-MOD-13 | İşletme ve dayanıklılık | 3 | 11 |
@@ -235,6 +235,7 @@ panelde `plan-count-drift` bulgusu doğurur.
 | 10.1.4 | Kullanıcı yönetimi | Should (v1) | ✅ → K10.1 |
 | 10.1.5 | Panel sekme simgesi | Should (v1) | ✅ → K10.1 |
 | 10.1.6 | Ülke başvuru verisi ve bayrak simgeleri | Should (v1) | ✅ → K10.1 |
+| 10.1.7 | Panel teması: modern görünüm, açık ve koyu tema | Should (v1) | ✅ → K10.1 |
 | 10.2.1 | Yükleme sayfası | Must (v1) | ✅ → K10.2 |
 | 10.2.2 | İlerleme görünümü | Should (v1) | ✅ → K10.2 |
 | 10.3.1 | Yükleme detay sayfası | Must (v1) | ✅ → K10.3 |
@@ -2460,6 +2461,8 @@ bu kayıt neden sapıldığının izlenebilir olması içindir.
 
 - **D110 — Profil sorusu, tek kişilik dışa aktarım, konu dışı mesaj sayacı (12.3.8, 12.3.9, 12.1.13; tm 165).** İnsan isteği (2026-10-08): "Model kişilerin profillerine (profil.md) ulaşabilir, mukayese yapabilir. Aynı anda sadece 1 kişinin belgelerini export eder. Toplu dışa aktarımı reddeder. Bot yalnızca kendi sistemi ile ilgili konulara yanıt verir … 3. kez alakasız bir şey sorarsa 'seninle konuşmuyorum' deyip yarım saat yanıt vermez; ardından sayaç sıfırlanır." **(a) Gizlilik kuralı değişti:** CONVENTIONS §6 "başka çalışanın verisi aynı isteğe konmaz" profil sorusu için insan kararıyla kalkar: sistemin deterministik bulduğu en çok 5 kişinin `render_profile` çıktısı (kimlik tablosu, belge numaraları, iletişim, paketler) ikinci bir çağrıyla (`AnalysisProvider.answer_profile_question`, `app/ai/profile_answer.py`, talimat `profile_answer.md`) sağlayıcıya gider. Kişiyi model seçmez; ilk okuma yine yalnız mesajı görür. Yanıttaki çalışan numarası silinir. **(b)** Okuma şemasına `profile_question`, `export_documents`, `bulk_request`, `off_topic` niyetleri; `other` artık yalnız sistemle ilgili ama anlaşılmayan mesajdır. **(c) Dışa aktarım:** tek kişi, en çok 20 belge, her biri erişim kaydıyla; birden çok kişi ya da `bulk_request` → ret, belge yok. **(d) Sayaç:** `Conversations.strike/mute/muted`, kişi başına, bellekte; konuyla ilgili mesaj sıfırlar; üçüncüde `MUTED_TEXT` ve 30 dk. Susturulan kişinin metin, komut ve düğme güncellemeleri kapıda sessizce durur ve yapay zekâya gitmez; dosya ve fotoğraf yine alınır (belge kaybolmasın diye — tam sessizlik istenirse kapıdaki istisna kaldırılır). Bot yeniden başlarsa sayaç ve susturma sıfırlanır. Gerçek modelle denendi: hava durumu → `off_topic`, "bütün belgelerini gönder" → `export_documents`, "herkesin pasaportu" → `bulk_request`, "pasaportu ne zaman bitiyor" → `profile_question`, "merhaba" → `other`.
 
+- **D111 — Panel teması "Aurora" (10.1.7; tm 166).** İnsan isteği (2026-10-08): "Sisteme modern, okuması ve kullanışı kolay, girenlerin 'wow' diyeceği bir tema eklemeni istiyorum." **(a)** Tema ayrı dosyadır (`app/web/static/theme.css`), panel.css'ten sonra yüklenir; panel.css'e dokunulmadı (testler oradaki kuralları okur). Geri almak için base.html'deki iki satır kaldırılır. **(b)** Renk değişkenleri (`--accent`, `--surface`, …) açık ve `html[data-theme="dark"]` için iki kez tanımlanır; panel.css'in sabit renkli ve daha belirgin seçicileri (form gönder düğmesi, çift satır, dil seçici) aynı seçicilerle ezilir. **(c)** Açık/koyu düğmesi üst çubukta (`theme.js`, `localStorage` "documania-theme"); ilk boyamadan önce başlıktaki tek satırlık betik uygular (yanıp sönme yok), seçim yoksa `prefers-color-scheme`. Seçim tarayıcı başınadır, hesaba yazılmaz. **(d)** Dış yazı tipi ya da CDN yok (panel çevrimdışı çalışır): yazı tipi sırası Inter → Segoe UI Variable → system-ui. **(e)** `prefers-reduced-motion` kullanıcısında giriş animasyonu ve geçişler kapanır. Doğrulama: geçici SQLite + test kullanıcısıyla yerel önizlemede giriş, Çalışanlar, profil, Yükle, Kullanıcılar sayfaları açık ve koyu temada görüldü; düğme ve hatırlama tarayıcıda denendi.
+
 ## G. İş Kırılımı Dizini
 
 Task Master'a aktarımın kaynağı budur. Her satır bir görevdir; `ID` sütunu görev
@@ -2623,6 +2626,7 @@ başlığının başında birebir geçer.
 | 12.1-j | Telegram kaydını silme: Kullanıcılar ve Hesabım → Telegram; numara yeniden bağlanabilir | 12.1.10 | [OPUS-HIGH] | 12.1-h, 12.1-i | 2 |
 | 12.3-b | Botla konuşma: birden çok tür, önceki kişiye devam, kişi bilgisi, eksik belgeler; her mesaja yanıt; yazılan dilde yanıt | 12.3.4, 12.3.5, 12.3.6, 12.3.7, 12.1.11, 12.1.12 | [OPUS-XHIGH] | 12.3, 12.1-i, 14.2 | 2 |
 | 12.3-c | Profil sorusu ve karşılaştırma, tek kişilik dışa aktarım, konu dışı mesaj sayacı | 12.3.8, 12.3.9, 12.1.13 | [OPUS-XHIGH] | 12.3-b | 2 |
+| 10.1-g | Panel teması: modern görünüm, açık ve koyu tema | 10.1.7 | [OPUS-HIGH] | 10.1 | 1 |
 | 05.5-b | Doğum tarihi taşımayan belgenin tekil isim eşleşmesi; birikim yok, profilde etiket; S10 yeniden tanımı, S23 | 05.5.4 | [OPUS-XHIGH] | 05.5, 05.7-b, 10.5-d | 0 |
 | 10.5-j | Belgeyi kalıcı silme: dosya, Alinan ve Inbox ölçütleri, iskelet kayıt, profil akışı; S24 | 10.5.12 | [OPUS-XHIGH] | 10.5-g, 10.8 | 1 |
 | 10.5-k | Pasif çalışanı kalıcı silme: klasör, alt kayıtlar, sayfalar, planlar, olay temizliği, görünürlük; S25 | 10.5.13 | [OPUS-XHIGH] | 10.5-j, 10.5-d, 10.5-f | 1 |
@@ -2930,6 +2934,7 @@ var olan maddeler silinmez. Biçim:
 - ✅ Kapı: ruff check/format, compileall, `import app.main`, temiz SQLite'ta `alembic upgrade head` (→0022, göç yok) exit 0; `pytest -q -m "not live" --cov=app` ön plan gruplarında 6227 geçti (yeni 333), 5 PG atlandı; birleşik `coverage report --fail-under=70` exit 0, kapsam %99, `app/countries` ve `templating.py` %100; 15 geçici kural bozmasının 15'i kırmızı · tm 142
 - ✅ 10.1.1 menü sırası ve ana sayfa (tm 147, §D85): `PANEL_MENU` Çalışanlar · Yükle · Belge Türleri · Belge Grupları · Kuyruklar · Yüklemeler · Eğitim modu · Kullanıcılar; `/` → `/employees` · test `tests/web/test_auth.py` (`MENU_LABELS`/`MENU_PATHS` yeni sıra, ana sayfa yönlendirmesi `/employees`) · `pytest -q -m "not live"` sekiz paralel grupta 6160 geçti, 6 atlandı, 0 kırmızı · tm 147
 
+- ✅ 10.1.7 panel teması (tm 166, §D111): `app/web/static/theme.css`, `app/web/static/theme.js`, `app/web/templates/base.html` · test `tests/web/test_theme.py` (5) · tm 166
 #### K10.2 — 10.2.1, 10.2.2 · Yükleme sayfası ve ilerleme görünümü
 - ✅ 10.2.1 yükleme sayfası: `app/web/routers/upload_page.py` (`GET /upload` form + çalışan listesi, `POST /upload` HTMX gönderimi — `create_upload`'ı çağırır, sınır/Inbox/tekrar mantığı tek yerde), `app/web/templates/upload.html` + `upload_result.html`, `app/web/static/upload.js` (sürükle-bırak; art arda bırakılanlar birikir, aynı ad+boyut tekrarlanmaz, seçilenler listelenir), `app/web/static/htmx.min.js` (HTMX 2.0.4), isteğe bağlı çalışan → `uploads.context_employee_id` · test `tests/web/test_upload_page.py` (31) · tm 65
 - ✅ 10.2.2 ilerleme görünümü: `GET /upload/{id}/progress` parçası `hx-trigger="every 2s"` ile yenilenir ve son durumda (`done`/`partial`/`failed`) durur; `POST /upload` yalnız kalıcı `UploadJob` oluşturur, APP içinde provider/background task yoktur; bağımsız `python -m app.worker` kuyruğu tüketir ve kirayla yarıda kalanı sürdürür. Testler HTTP cevabından sonra işin `queued` kaldığını, `Worker.run_once()` ile tamamlandığını ve provider ayarı olmadan APP'nin alım yapabildiğini doğrular · test `tests/web/test_worker_separation.py`, `tests/web/test_upload_page.py`, `tests/worker/test_runtime.py` · tm 109

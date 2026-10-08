@@ -510,6 +510,12 @@ REVIEWED_MUTATING_ROUTES: dict[tuple[str, str], str] = {
     ("POST", "/account/telegram/link"): (
         "Telegram'ı bağla: kendisi için tek kullanımlık bot bağlantısı (12.1.4, 12.1.8)"
     ),
+    ("POST", "/users/{user_id}/telegram/{telegram_id}/delete"): (
+        "Telegram kaydını silme; belge ve dosyaya dokunmaz (12.1.10, §D107 — R11 istisnası)"
+    ),
+    ("POST", "/account/telegram/{telegram_id}/delete"): (
+        "kendi Telegram kaydını silme; belge ve dosyaya dokunmaz (12.1.10, §D107)"
+    ),
 }
 
 # "assign" içindeki "sign" düzenleme sayılmasın: sözcük başı ve sonu harf olmayan sınırdır.

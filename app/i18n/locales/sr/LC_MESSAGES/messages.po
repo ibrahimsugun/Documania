@@ -4,8 +4,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Documania panel\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-08 15:34+0000\n"
-"PO-Revision-Date: 2026-10-08 15:34+0000\n"
+"POT-Creation-Date: 2026-10-08 15:48+0000\n"
+"PO-Revision-Date: 2026-10-08 15:48+0000\n"
 "Last-Translator: Documania görev penceresi (gözden geçirilmeli)\n"
 "Language: sr_Latn\n"
 "Language-Team: Srpski\n"
@@ -834,6 +834,10 @@ msgstr ""
 #: app/web/templates/groups.html
 msgid "Açık paket"
 msgstr "Otvoreni paketi"
+
+#: app/web/templates/base.html
+msgid "Açık ya da koyu tema"
+msgstr "Svetla ili tamna tema"
 
 #: app/web/templates/profile.html
 msgid "Açık ya da tamamlanmış paket yok."

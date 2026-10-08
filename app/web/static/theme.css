@@ -1,0 +1,592 @@
+/* ===========================================================================
+   Documania teması — "Aurora" (PRD 10.1.7; PLAN.md §D111)
+   panel.css'ten SONRA yüklenir ve yalnız görünümü değiştirir: renk değişkenleri,
+   yüzeyler, tipografi, düğme, form, tablo, rozet ve bildirimler. Yerleşim ve
+   davranış panel.css'te kalır. Açık ve koyu tema `html[data-theme]` ile seçilir
+   (theme.js; seçim tarayıcıda hatırlanır, ilk açılışta sistem tercihi).
+   =========================================================================== */
+
+:root {
+  color-scheme: light;
+  --ink: #0f172a;
+  --ink-soft: #334155;
+  --muted-ink: #64748b;
+  --canvas: #f4f6fb;
+  --surface: #ffffff;
+  --surface-soft: #f8fafc;
+  --surface-raised: rgb(255 255 255 / 82%);
+  --line: #e2e8f0;
+  --line-strong: #cbd5e1;
+  --accent: #5b5bd6;
+  --accent-strong: #4338ca;
+  --accent-2: #0ea5a4;
+  --accent-soft: #eef0ff;
+  --accent-gradient: linear-gradient(135deg, #6366f1 0%, #8b5cf6 55%, #0ea5a4 130%);
+  --warning: #b45309;
+  --warning-soft: #fff7e6;
+  --danger: #dc2626;
+  --danger-soft: #fef2f2;
+  --success: #059669;
+  --success-soft: #ecfdf5;
+  --shadow-sm: 0 1px 2px rgb(15 23 42 / 6%), 0 4px 14px rgb(15 23 42 / 5%);
+  --shadow-md: 0 2px 6px rgb(15 23 42 / 6%), 0 18px 40px -12px rgb(15 23 42 / 14%);
+  --shadow-glow: 0 10px 30px -10px rgb(99 102 241 / 55%);
+  --radius-sm: 10px;
+  --radius-md: 16px;
+  --radius-lg: 22px;
+  --focus: 0 0 0 3px rgb(99 102 241 / 30%);
+  --topbar-bg: rgb(15 23 42 / 88%);
+  --topbar-ink: #e2e8f0;
+  --topbar-muted: #94a3b8;
+  --row-hover: #f5f7ff;
+  --aurora-1: rgb(99 102 241 / 16%);
+  --aurora-2: rgb(14 165 164 / 13%);
+  --aurora-3: rgb(236 72 153 / 9%);
+}
+
+html[data-theme="dark"] {
+  color-scheme: dark;
+  --ink: #e5e9f2;
+  --ink-soft: #c3cad8;
+  --muted-ink: #8b95a8;
+  --canvas: #0b0f1a;
+  --surface: #121829;
+  --surface-soft: #161d31;
+  --surface-raised: rgb(18 24 41 / 80%);
+  --line: #232c44;
+  --line-strong: #313c5a;
+  --accent: #8b8cf8;
+  --accent-strong: #a5a6ff;
+  --accent-2: #2dd4bf;
+  --accent-soft: rgb(99 102 241 / 16%);
+  --warning: #fbbf24;
+  --warning-soft: rgb(251 191 36 / 12%);
+  --danger: #f87171;
+  --danger-soft: rgb(248 113 113 / 12%);
+  --success: #34d399;
+  --success-soft: rgb(52 211 153 / 12%);
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 40%), 0 4px 14px rgb(0 0 0 / 25%);
+  --shadow-md: 0 2px 6px rgb(0 0 0 / 40%), 0 18px 40px -12px rgb(0 0 0 / 60%);
+  --shadow-glow: 0 10px 30px -10px rgb(139 140 248 / 55%);
+  --focus: 0 0 0 3px rgb(139 140 248 / 38%);
+  --topbar-bg: rgb(8 11 20 / 82%);
+  --row-hover: rgb(99 102 241 / 8%);
+  --aurora-1: rgb(99 102 241 / 22%);
+  --aurora-2: rgb(45 212 191 / 12%);
+  --aurora-3: rgb(236 72 153 / 10%);
+}
+
+/* --- zemin ve yazı ------------------------------------------------------ */
+
+html { background: var(--canvas); }
+
+body {
+  min-height: 100vh;
+  color: var(--ink);
+  background:
+    radial-gradient(60rem 30rem at 8% -10%, var(--aurora-1), transparent 60%),
+    radial-gradient(50rem 26rem at 100% 0%, var(--aurora-2), transparent 60%),
+    radial-gradient(40rem 30rem at 50% 120%, var(--aurora-3), transparent 60%),
+    var(--canvas);
+  background-attachment: fixed;
+  font-family: "Inter", "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, sans-serif;
+  font-size: 15px;
+  line-height: 1.6;
+  font-feature-settings: "cv11", "ss01";
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection { background: rgb(99 102 241 / 25%); }
+
+a { color: var(--accent-strong); text-underline-offset: 0.18em; }
+a:hover { color: var(--accent); }
+
+h1, h2, h3 { color: var(--ink); letter-spacing: -0.025em; }
+
+h1 {
+  font-size: clamp(1.75rem, 2.4vw, 2.3rem);
+  font-weight: 800;
+  background: linear-gradient(90deg, var(--ink) 0%, var(--ink) 55%, var(--accent) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.lede { color: var(--ink-soft); font-size: 1rem; }
+
+.hint, .placeholder, .count, .reason, .actor, .profile-meta, .username { color: var(--muted-ink); }
+
+/* --- üst çubuk: cam, yapışkan ------------------------------------------ */
+
+.topbar {
+  background: var(--topbar-bg);
+  -webkit-backdrop-filter: saturate(160%) blur(14px);
+  backdrop-filter: saturate(160%) blur(14px);
+  border-bottom: 1px solid rgb(148 163 184 / 14%);
+  box-shadow: 0 8px 30px -14px rgb(2 6 23 / 55%);
+}
+
+.brand {
+  color: #fff;
+  font-weight: 800;
+  font-size: 1.15rem;
+  letter-spacing: -0.03em;
+}
+
+.brand::before {
+  width: 1.55rem;
+  height: 1.55rem;
+  border-radius: 8px;
+  background: var(--accent-gradient);
+  box-shadow: 0 6px 18px -4px rgb(139 92 246 / 70%), inset 0 0 0 1px rgb(255 255 255 / 25%);
+}
+
+.menu a,
+.tool-link {
+  border-radius: 999px;
+  color: var(--topbar-muted);
+  font-weight: 500;
+}
+
+.menu a:hover,
+.tool-link:hover {
+  background: rgb(148 163 184 / 12%);
+  border-color: transparent;
+  color: #fff;
+}
+
+.menu a.active,
+.tool-link.active {
+  background: rgb(99 102 241 / 22%);
+  border-color: rgb(129 140 248 / 45%);
+  color: #fff;
+  box-shadow: 0 0 0 1px rgb(129 140 248 / 20%), 0 6px 18px -8px rgb(99 102 241 / 80%);
+}
+
+.session { border-left-color: rgb(148 163 184 / 20%); }
+.username { color: var(--topbar-muted); }
+
+.session button,
+.theme-toggle {
+  border: 1px solid rgb(148 163 184 / 28%);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--topbar-ink);
+  box-shadow: none;
+}
+
+.session button:hover,
+.theme-toggle:hover { background: rgb(148 163 184 / 14%); }
+
+.theme-toggle {
+  display: inline-grid;
+  place-items: center;
+  width: 2.1rem;
+  height: 2.1rem;
+  padding: 0;
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.theme-toggle .icon-dark { display: none; }
+html[data-theme="dark"] .theme-toggle .icon-light { display: none; }
+html[data-theme="dark"] .theme-toggle .icon-dark { display: inline; }
+
+.language-selector button {
+  border-radius: 999px;
+}
+
+/* --- yüzeyler: kartlar -------------------------------------------------- */
+
+.content section,
+.profile-card,
+.hint-panel,
+.progress,
+.upload-result,
+.context-warning,
+.type-form,
+.confirm,
+.file {
+  background: var(--surface-raised);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+}
+
+.content > * { animation: dm-rise 420ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+.content > *:nth-child(2) { animation-delay: 40ms; }
+.content > *:nth-child(3) { animation-delay: 80ms; }
+.content > *:nth-child(n + 4) { animation-delay: 120ms; }
+
+@keyframes dm-rise {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .content > * { animation: none; }
+  * { transition: none !important; }
+}
+
+/* --- düğmeler ----------------------------------------------------------- */
+
+button,
+.button-link {
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: var(--accent-gradient);
+  background-size: 160% 160%;
+  color: #fff;
+  font-weight: 600;
+  box-shadow: var(--shadow-glow);
+  transition: transform 120ms ease, box-shadow 160ms ease, background-position 300ms ease, filter 160ms ease;
+}
+
+button:hover,
+.button-link:hover {
+  color: #fff;
+  background-position: 100% 0;
+  filter: brightness(1.06);
+  transform: translateY(-1px);
+}
+
+button:active,
+.button-link:active { transform: translateY(0); filter: brightness(0.97); }
+
+button:disabled { opacity: 0.55; transform: none; filter: grayscale(0.4); cursor: not-allowed; }
+
+.button-secondary,
+.link-button,
+.language-selector button,
+.tabs a,
+.states a {
+  background: var(--surface);
+  color: var(--ink-soft);
+  border: 1px solid var(--line-strong);
+  box-shadow: none;
+}
+
+.button-secondary:hover,
+.language-selector button:hover {
+  background: var(--surface-soft);
+  color: var(--ink);
+  filter: none;
+}
+
+.language-selector button.current,
+.language-selector button[aria-current="true"] {
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  border-color: var(--accent);
+}
+
+.topbar .language-selector button {
+  background: transparent;
+  border-color: rgb(148 163 184 / 25%);
+  color: var(--topbar-muted);
+}
+
+.topbar .language-selector button.current,
+.topbar .language-selector button[aria-current="true"] {
+  background: rgb(99 102 241 / 25%);
+  color: #fff;
+  border-color: rgb(129 140 248 / 50%);
+}
+
+.topbar .language-label { color: var(--topbar-muted); }
+
+/* --- formlar ------------------------------------------------------------ */
+
+input,
+select,
+textarea {
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--ink);
+  transition: border-color 140ms ease, box-shadow 140ms ease;
+}
+
+input::placeholder, textarea::placeholder { color: var(--muted-ink); }
+
+input:focus,
+select:focus,
+textarea:focus,
+button:focus-visible,
+a:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: var(--focus);
+}
+
+/* --- tablolar ----------------------------------------------------------- */
+
+table.employees,
+table.catalog,
+table.access-log,
+table.queue,
+table.queue-items,
+table.items,
+table.outputs,
+table.files {
+  border-collapse: separate;
+  border-spacing: 0;
+  overflow: hidden;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+}
+
+.employees th, .catalog th, .access-log th, .queue th, .queue-items th,
+.items th, .outputs th, .files th {
+  background: var(--surface-soft);
+  color: var(--muted-ink);
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--line);
+}
+
+.employees td, .catalog td, .access-log td, .queue td, .queue-items td,
+.items td, .outputs td, .files td {
+  border-bottom: 1px solid var(--line);
+  color: var(--ink);
+}
+
+.employees tbody tr, .catalog tbody tr, .access-log tbody tr, .queue tbody tr,
+.queue-items tbody tr, .items tbody tr, .outputs tbody tr, .files tbody tr {
+  transition: background-color 120ms ease;
+}
+
+.employees tbody tr:hover, .catalog tbody tr:hover, .access-log tbody tr:hover,
+.queue tbody tr:hover, .queue-items tbody tr:hover, .items tbody tr:hover,
+.outputs tbody tr:hover, .files tbody tr:hover { background: var(--row-hover); }
+
+.access-log tbody tr:nth-child(even) { background: transparent; }
+
+tr:last-child td { border-bottom: 0; }
+
+/* --- rozetler, sekmeler ------------------------------------------------- */
+
+.badge,
+.status-badge,
+.counter,
+.rule-tag {
+  border-radius: 999px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.status-active, .status-done, .check-ok, .notice-success {
+  background: var(--success-soft);
+  color: var(--success);
+  border-color: color-mix(in srgb, var(--success) 30%, transparent);
+}
+
+.status-archived, .status-passive, .badge-neutral {
+  background: var(--surface-soft);
+  color: var(--muted-ink);
+  border-color: var(--line-strong);
+}
+
+.status-partial, .badge, .edited {
+  background: var(--warning-soft);
+  color: var(--warning);
+}
+
+.status-failed, .check-fail {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.tabs a, .states a { border-radius: 999px; }
+
+.tabs a:hover, .states a:hover { background: var(--surface-soft); color: var(--ink); }
+
+.tabs a.active, .states a.active {
+  background: var(--accent-gradient);
+  color: #fff;
+  border-color: transparent;
+  box-shadow: var(--shadow-glow);
+}
+
+.tabs a.active .counter { background: rgb(255 255 255 / 25%); color: #fff; }
+
+/* --- bildirimler -------------------------------------------------------- */
+
+.notice,
+.error,
+.stale-process {
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-sm);
+}
+
+.notice-success {
+  border-left: 4px solid var(--success);
+}
+
+.error {
+  background: var(--danger-soft);
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 30%, transparent);
+  border-left: 4px solid var(--danger);
+}
+
+/* --- yükleme alanı ------------------------------------------------------ */
+
+.dropzone {
+  border: 2px dashed color-mix(in srgb, var(--accent) 45%, var(--line-strong));
+  border-radius: var(--radius-lg);
+  background:
+    radial-gradient(30rem 12rem at 50% 0%, var(--accent-soft), transparent 70%),
+    var(--surface);
+  transition: border-color 160ms ease, transform 160ms ease, box-shadow 160ms ease;
+}
+
+.dropzone:hover,
+.dropzone.dragover {
+  border-color: var(--accent);
+  box-shadow: var(--shadow-glow);
+  transform: translateY(-2px);
+}
+
+/* --- giriş sayfası ------------------------------------------------------ */
+
+body:has(.login) {
+  display: grid;
+  place-items: center;
+  background:
+    radial-gradient(40rem 26rem at 15% 10%, rgb(99 102 241 / 35%), transparent 60%),
+    radial-gradient(36rem 26rem at 90% 20%, rgb(14 165 164 / 28%), transparent 60%),
+    radial-gradient(40rem 30rem at 50% 110%, rgb(236 72 153 / 22%), transparent 60%),
+    #0b1020;
+}
+
+body:has(.login) .content { width: 100%; padding: 2rem 1rem; }
+
+.login {
+  max-width: 25rem;
+  margin: 0 auto;
+  padding: 2.4rem 2.2rem;
+  background: rgb(255 255 255 / 92%);
+  border: 1px solid rgb(255 255 255 / 60%);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 30px 80px -20px rgb(2 6 23 / 70%);
+}
+
+html[data-theme="dark"] .login {
+  background: rgb(18 24 41 / 86%);
+  border-color: rgb(148 163 184 / 18%);
+}
+
+.login h1 {
+  font-size: 2rem;
+  background: var(--accent-gradient);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.login button[type="submit"] { width: 100%; padding: 0.7rem 1rem; font-size: 1rem; }
+
+/* --- kaydırma çubuğu ---------------------------------------------------- */
+
+* { scrollbar-color: var(--line-strong) transparent; }
+
+/* --- koyu temada eski sabit renkler ------------------------------------ */
+
+html[data-theme="dark"] .content section,
+html[data-theme="dark"] .profile-card,
+html[data-theme="dark"] .dropzone,
+html[data-theme="dark"] .catalog,
+html[data-theme="dark"] .employees { color: var(--ink); }
+
+html[data-theme="dark"] code { background: rgb(148 163 184 / 14%); color: var(--ink); }
+
+html[data-theme="dark"] .bulk-bar,
+html[data-theme="dark"] .profile-photo,
+html[data-theme="dark"] .photo-placeholder,
+html[data-theme="dark"] .thumb,
+html[data-theme="dark"] .step {
+  background: var(--surface-soft);
+  border-color: var(--line);
+  color: var(--ink-soft);
+}
+
+html[data-theme="dark"] .step-current { background: var(--accent-soft); color: var(--accent-strong); }
+html[data-theme="dark"] .step-done { background: var(--success-soft); color: var(--success); }
+
+/* --- panel.css'in daha belirgin seçicilerini yenen kurallar ------------------ */
+
+form:not(.session) button[type="submit"],
+.action-buttons > button,
+.action-buttons > .button-link {
+  background: var(--accent-gradient);
+  background-size: 160% 160%;
+  border-color: transparent;
+  color: #fff;
+  box-shadow: var(--shadow-glow);
+}
+
+form:not(.session) button[type="submit"]:hover,
+.action-buttons > button:hover,
+.action-buttons > .button-link:hover {
+  background: var(--accent-gradient);
+  background-size: 160% 160%;
+  background-position: 100% 0;
+  color: #fff;
+}
+
+form:not(.session) button.button-secondary,
+form:not(.session) button.button-secondary:hover {
+  background: var(--surface);
+  border-color: var(--line-strong);
+  color: var(--ink-soft);
+  box-shadow: none;
+}
+
+form.language-selector button[type="submit"] {
+  background: var(--surface);
+  border-color: var(--line-strong);
+  color: var(--ink-soft);
+  box-shadow: none;
+  font-weight: 500;
+}
+
+form.language-selector button[type="submit"].current {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent-strong);
+}
+
+.topbar form.language-selector button[type="submit"] {
+  background: transparent;
+  border-color: rgb(148 163 184 / 25%);
+  color: var(--topbar-muted);
+}
+
+.topbar form.language-selector button[type="submit"].current {
+  background: rgb(99 102 241 / 25%);
+  border-color: rgb(129 140 248 / 50%);
+  color: #fff;
+}
+
+.files tbody tr:nth-child(even), .items tbody tr:nth-child(even),
+.outputs tbody tr:nth-child(even), .queue tbody tr:nth-child(even),
+.queue-items tbody tr:nth-child(even), .employees tbody tr:nth-child(even),
+.catalog tbody tr:nth-child(even),
+.access-log tbody tr:nth-child(even) { background: color-mix(in srgb, var(--surface-soft) 70%, transparent); }
+
+.files tbody tr:hover, .items tbody tr:hover, .outputs tbody tr:hover,
+.queue tbody tr:hover, .queue-items tbody tr:hover, .employees tbody tr:hover,
+.catalog tbody tr:hover, .access-log tbody tr:hover { background: var(--row-hover); }
+
+/* Üst çubuk dar ekranda yatay kayar, öğeler sıkışmaz. */
+.topbar { overflow-x: auto; scrollbar-width: none; }
+.topbar::-webkit-scrollbar { display: none; }
