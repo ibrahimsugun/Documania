@@ -1,55 +1,32 @@
 {% extends "base.html" %}
 {# Kullanıcılar (10.1.4): panel kullanıcıları, yeni kullanıcı, parola sıfırlama, pasife alma ve yeniden
    etkinleştirme. Kullanıcı silinmez (R11). Parola alanları boş gelir, tarayıcı doldurmaz; parola
-   hiçbir yerde gösterilmez. İşlemler tek adımlıdır (§D61-b). Her kullanıcının altında Telegram
-   beyaz listesi (12.1.3): izni kapat/aç; kimlik silinmez. Kimliği yalnız hesabın sahibi bağlar
+   hiçbir yerde gösterilmez. İşlemler tek adımlıdır (§D61-b). Her kullanıcı tek satırdır; Telegram
+   beyaz listesi (12.1.3) kendi sütunundadır: izni kapat/aç ve kaydı sil (12.1.10, §D107 — numara
+   serbest kalır, yeniden bağlanabilir). Kimliği yalnız hesabın sahibi bağlar
    (12.1.8, §D97 d): ekleme ve "Telegram'ı bağla" Hesabım → Telegram'dadır (`/account/telegram`). #}
 {% block title %}{{ _(entry.label) }}{% endblock %}
 {% block content %}
 <h1>{{ _(entry.label) }}</h1>
 <p class="lede">{% trans %}Panele giren kullanıcılar. Kullanıcı silinmez: gerekmeyen hesap pasife alınır, pasif kullanıcı giriş yapamaz ve açık oturumları kapanır.{% endtrans %}</p>
-<p class="hint">{% trans %}Telegram botu yalnız izni açık ve kullanıcısı etkin kimliğe yanıt verir. Kimlik silinmez; gerekmeyen kimliğin izni kapatılır.{% endtrans %}</p>
-<p class="hint telegram-own-help">{% trans %}Telegram'ı herkes yalnız kendi hesabına bağlar: «Telegram'ım» sayfasından. Burada başkasının kimliğinin iznini kapatıp açabilirsiniz (ör. telefon kaybolunca).{% endtrans %}</p>
+<p class="hint">{% trans %}Telegram botu yalnız izni açık ve kullanıcısı etkin kimliğe yanıt verir. Geçici olarak durdurmak için izni kapatın. Kaydı silerseniz numara serbest kalır ve aynı ya da başka bir hesaba yeniden bağlanabilir.{% endtrans %}</p>
+<p class="hint telegram-own-help">{% trans %}Telegram'ı herkes yalnız kendi hesabına bağlar: «Telegram'ım» sayfasından. Burada başkasının kimliğinin iznini kapatıp açabilir ya da kaydını silebilirsiniz (ör. telefon kaybolunca ya da değişince).{% endtrans %}</p>
 <p><a class="button-link" href="/account/password">{{ _("Parolamı değiştir") }}</a> <a class="button-link" href="/account/telegram">{{ _("Telegram'ım") }}</a></p>
 {% if notice %}<p class="notice notice-success" role="status">{{ translate(notice) }}</p>{% endif %}
 {% if error %}<p class="error" role="alert" id="users-error">{{ translate(error) }}</p>{% endif %}
 <table class="catalog users">
   <thead>
-    <tr><th>{{ _("Kullanıcı adı") }}</th><th>{{ _("Rol") }}</th><th>{{ _("Durum") }}</th><th>Telegram</th><th>{{ _("İşlemler") }}</th></tr>
+    <tr><th>{{ _("Kullanıcı adı") }}</th><th>{{ _("Rol") }}</th><th>{{ _("Durum") }}</th><th>{{ _("Telegram kimlikleri") }}</th><th>{{ _("İşlemler") }}</th></tr>
   </thead>
   <tbody>
     {% for row in users %}
     <tr id="user-{{ row.id }}"{% if error_user_id == row.id %} class="has-error"{% endif %}>
-      <td>{{ row.username }}{% if row.is_self %} <span class="hint">{{ _("(siz)") }}</span>{% endif %}</td>
+      <td class="cell-nowrap"><strong>{{ row.username }}</strong>{% if row.is_self %} <span class="hint">{{ _("(siz)") }}</span>{% endif %}</td>
       <td>{{ translate(row.role_label) }}</td>
       <td class="cell-nowrap">
         {% if row.active %}<span class="status-badge status-active">{{ _("Etkin") }}</span>{% else %}<span class="status-badge status-archived">{{ _("Pasif") }}</span>{% endif %}
       </td>
-      <td>{{ row.telegram_count }}</td>
-      <td>
-        {% if row.is_self %}
-        <span class="hint">{{ _("Kendi parolanız: «Parolamı değiştir»") }}</span>
-        {% else %}
-        <form class="inline-form" method="post" action="/users/{{ row.id }}/password" autocomplete="off">
-          <label for="reset-{{ row.id }}">{{ _("Yeni parola") }}</label>
-          <input id="reset-{{ row.id }}" name="password" type="password" autocomplete="new-password" minlength="{{ min_password_length }}" required>
-          <button type="submit">{{ _("Parolayı sıfırla") }}</button>
-        </form>
-        <form class="inline-form" method="post" action="/users/{{ row.id }}/status">
-          {% if row.active %}
-          <input type="hidden" name="status" value="inactive">
-          <button type="submit">{{ _("Pasife al") }}</button>
-          {% else %}
-          <input type="hidden" name="status" value="active">
-          <button type="submit">{{ _("Yeniden etkinleştir") }}</button>
-          {% endif %}
-        </form>
-        {% endif %}
-      </td>
-    </tr>
-    <tr class="telegram-row{% if error_user_id == row.id %} has-error{% endif %}" id="telegram-{{ row.id }}">
-      <td colspan="5">
-        <span class="telegram-title">{{ _("Telegram kimlikleri") }}</span>
+      <td class="telegram-cell" id="telegram-{{ row.id }}">
         {% if row.telegram %}
         <ul class="telegram-ids">
           {% for account in row.telegram %}
@@ -59,19 +36,43 @@
             <form class="inline-form" method="post" action="/users/{{ row.id }}/telegram/{{ account.telegram_id }}/status">
               {% if account.allowed %}
               <input type="hidden" name="allowed" value="false">
-              <button type="submit">{{ _("İzni kapat") }}</button>
+              <button type="submit" class="button-small">{{ _("İzni kapat") }}</button>
               {% else %}
               <input type="hidden" name="allowed" value="true">
-              <button type="submit">{{ _("İzni aç") }}</button>
+              <button type="submit" class="button-small">{{ _("İzni aç") }}</button>
               {% endif %}
+            </form>
+            <form class="inline-form telegram-delete" method="post" action="/users/{{ row.id }}/telegram/{{ account.telegram_id }}/delete">
+              <button type="submit" class="button-small button-secondary">{{ _("Kaydı sil") }}</button>
             </form>
           </li>
           {% endfor %}
         </ul>
+        <span class="hint telegram-count" data-allowed="{{ row.telegram_count }}">{{ _("%(count)s izinli kimlik", count=row.telegram_count) }}</span>
+        {% if not row.active %}<span class="hint">{{ _("Kullanıcı pasif: bot bu kimliklerin hiçbirine yanıt vermez.") }}</span>{% endif %}
         {% else %}
-        <span class="hint">{{ _("Bağlı Telegram kimliği yok.") }}</span>
+        <span class="hint telegram-count" data-allowed="0">{{ _("Bağlı Telegram kimliği yok.") }}</span>
         {% endif %}
-        {% if not row.active %}<p class="hint">{{ _("Kullanıcı pasif: bot bu kimliklerin hiçbirine yanıt vermez.") }}</p>{% endif %}
+      </td>
+      <td class="user-actions">
+        {% if row.is_self %}
+        <span class="hint">{{ _("Kendi parolanız: «Parolamı değiştir»") }}</span>
+        {% else %}
+        <form class="inline-form" method="post" action="/users/{{ row.id }}/password" autocomplete="off">
+          <label for="reset-{{ row.id }}">{{ _("Yeni parola") }}</label>
+          <input id="reset-{{ row.id }}" name="password" type="password" autocomplete="new-password" minlength="{{ min_password_length }}" required>
+          <button type="submit" class="button-small">{{ _("Parolayı sıfırla") }}</button>
+        </form>
+        <form class="inline-form" method="post" action="/users/{{ row.id }}/status">
+          {% if row.active %}
+          <input type="hidden" name="status" value="inactive">
+          <button type="submit" class="button-small button-secondary">{{ _("Pasife al") }}</button>
+          {% else %}
+          <input type="hidden" name="status" value="active">
+          <button type="submit" class="button-small">{{ _("Yeniden etkinleştir") }}</button>
+          {% endif %}
+        </form>
+        {% endif %}
       </td>
     </tr>
     {% endfor %}

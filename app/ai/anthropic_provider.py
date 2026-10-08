@@ -127,9 +127,9 @@ DOCUMENT_QUERY_TOOL_NAME = "record_document_query"
 DOCUMENT_QUERY_TOOL: ToolParam = {
     "name": DOCUMENT_QUERY_TOOL_NAME,
     "description": (
-        "İK'nın mesajının belge isteği olarak okunmasını kaydeder: kimin, hangi tür belgesi "
-        "istendi ya da mesajın belge isteği olmadığı. Girdi, belge isteği şemasındaki her "
-        "anahtarı taşıyan tek bir nesnedir."
+        "İK'nın bota yazdığı mesajın okunmasını kaydeder: kimin hangi belgeleri, bilgisi "
+        "ya da eksik belgeleri istendi, mesaj hangi dilde ya da mesajın istek olmadığı. "
+        "Tek bir nesnedir; şemadaki her anahtarı taşır."
     ),
     "input_schema": DocumentQuery.model_json_schema(),
 }

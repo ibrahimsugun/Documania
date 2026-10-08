@@ -2,7 +2,8 @@
 altında kimlikleri, izni kapatma ve açma (PLAN.md §C92-e). Kimlik ekleme ve "Telegram'ı bağla"
 12.1.8'den beri yalnız kişinin kendi hesabındadır (`test_account_telegram.py`, §D97 d).
 
-Kayıt silinmez (R11): engellemek `allowed=False`'tur. Her değişiklik kullanıcı adıyla
+İzni kapatmak kaydı silmez: engellemek `allowed=False`'tur. Kaydı silme 12.1.10'dur
+(`test_telegram_delete.py`). Her değişiklik kullanıcı adıyla
 `TELEGRAM_USER_CHANGED` yazar. Kimlikler sentetiktir.
 """
 
@@ -57,7 +58,7 @@ def _telegram_rows(html: str) -> dict[int, str]:
     return {
         int(match.group(1)): match.group(2)
         for match in re.finditer(
-            r'<tr class="telegram-row[^"]*" id="telegram-(\d+)">(.*?)</tr>', html, re.S
+            r'<td class="telegram-cell" id="telegram-(\d+)">(.*?)</td>', html, re.S
         )
     }
 
@@ -65,7 +66,7 @@ def _telegram_rows(html: str) -> dict[int, str]:
 # --- sayfa ------------------------------------------------------------------------------------
 
 
-def test_every_user_row_is_followed_by_its_telegram_ids_without_an_add_form(
+def test_every_user_row_lists_its_telegram_ids_without_an_add_form(
     client: TestClient, session_factory: sessionmaker[Session]
 ) -> None:
     ayse = _add_user(session_factory, "ayse")
@@ -95,10 +96,10 @@ def test_every_user_row_is_followed_by_its_telegram_ids_without_an_add_form(
     assert "Kullanıcı pasif" not in of_ayse
     # Pasif kullanıcının izinli kimliği de listelenir ama bot ona yanıt vermez; sayfa bunu söyler.
     assert "Kullanıcı pasif: bot bu kimliklerin hiçbirine yanıt vermez." in of_mehmet
-    # Sayaç sütunu yalnız izinli kimlikleri sayar (10.1.4, §D74-f).
-    user_row = re.search(rf'<tr id="user-{ayse}"[^>]*>(.*?)</tr>', page.text, re.S)
-    assert user_row is not None and "<td>1</td>" in user_row.group(1)
-    assert "sil" not in re.sub(r"<[^>]+>", " ", page.text).lower().split()
+    # Sayaç yalnız izinli kimlikleri sayar (10.1.4, §D74-f).
+    assert 'data-allowed="1">1 izinli kimlik' in of_ayse
+    # Kayıt silme düğmesi her kimliktedir (12.1.10, `test_telegram_delete.py`).
+    assert f'action="/users/{ayse}/telegram/{FIRST_ID}/delete"' in of_ayse
 
 
 def test_the_page_points_to_the_own_telegram_page(client: TestClient) -> None:
@@ -225,7 +226,7 @@ def test_whitelist_routes_need_a_session(app: FastAPI) -> None:
     app.dependency_overrides.clear()
 
 
-def test_no_telegram_row_is_ever_deleted(
+def test_permission_changes_never_delete_the_row(
     client: TestClient, session_factory: sessionmaker[Session]
 ) -> None:
     ayse = _add_user(session_factory, "ayse")

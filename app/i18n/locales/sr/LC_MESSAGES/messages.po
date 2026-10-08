@@ -4,8 +4,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Documania panel\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-02 20:18+0000\n"
-"PO-Revision-Date: 2026-10-02 20:18+0000\n"
+"POT-Creation-Date: 2026-10-08 12:27+0000\n"
+"PO-Revision-Date: 2026-10-08 12:27+0000\n"
 "Last-Translator: Documania görev penceresi (gözden geçirilmeli)\n"
 "Language: sr_Latn\n"
 "Language-Team: Srpski\n"
@@ -42,6 +42,11 @@ msgstr "Za razlog „Drugo“ napišite kratku napomenu."
 #: app/web/templates/catalog_candidate_step.html
 msgid "\"Eski sürüm\" işaretlenen çıktı"
 msgstr "Izlazi označeni kao „Stara verzija“"
+
+#: app/web/templates/users.html
+#, python-format
+msgid "%(count)s izinli kimlik"
+msgstr "%(count)s dozvoljenih ID-jeva"
 
 #: app/web/templates/catalog.html
 #, python-format
@@ -1251,6 +1256,15 @@ msgstr "Ime pročitano u dokumentu"
 msgid "Belgeler"
 msgstr "Dokumenti"
 
+#: app/telegram/intent.py
+msgid "Belgeler: yok"
+msgstr "Dokumenti: nema"
+
+#: app/telegram/intent.py
+#, python-brace-format
+msgid "Belgeler: {kinds}"
+msgstr "Dokumenti: {kinds}"
+
 #: app/web/templates/profile.html
 msgid ""
 "Belgeleri, belge numaraları, isim yazımları, iletişim bilgileri ve belge "
@@ -1450,6 +1464,10 @@ msgstr ""
 "Ako izaberete zaposlenog, datoteke čiji se vlasnik ne može odrediti iz "
 "dokumenta dodeljuju se njemu."
 
+#: app/telegram/intent.py
+msgid "Birden çok olanı görmek için yalnız o türü isteyin."
+msgstr "Da biste videli onaj kojih ima više, tražite samo tu vrstu."
+
 #: app/web/templates/employee_merge_step.html
 msgid ""
 "Birleşen kaydın belgeleri kalan kaydın adıyla (K8) onun klasörüne "
@@ -1547,6 +1565,13 @@ msgstr "Ovaj Telegram ne može da se koristi. Javite administratoru."
 #: app/telegram/bot.py
 msgid "Bu Telegram zaten hesabınıza bağlı."
 msgstr "Ovaj Telegram je već povezan sa vašim nalogom."
+
+#: app/telegram/intent.py
+#, python-brace-format
+msgid "Bu ada birden çok belge grubu uyuyor: {groups}. Hangisi olduğunu yazın."
+msgstr ""
+"Ovom nazivu odgovara više grupa dokumenata: {groups}. Napišite koju "
+"mislite."
 
 #: app/web/templates/catalog_candidate.html
 msgid "Bu aday reddedildi; bir daha listeye düşmez."
@@ -1987,6 +2012,10 @@ msgstr "Ova stavka je već rešena; profil ne može da se napravi."
 msgid "Bu öğe zaten çözülmüş; yeniden atanamaz."
 msgstr "Ova stavka je već rešena; ne može se ponovo dodeliti."
 
+#: app/telegram/bot.py
+msgid "Bunu açamıyorum. Belgeyi dosya olarak gönderin ya da sorunuzu yazın."
+msgstr "Ovo ne mogu da otvorim. Pošaljite dokument kao fajl ili napišite pitanje."
+
 #: app/web/templates/training.html
 msgid ""
 "Buraya yüklenen belgeler yalnız <strong>bilinen belgelerin "
@@ -2180,6 +2209,15 @@ msgstr "Potvrđeni"
 msgid "Doğum tarihi"
 msgstr "Datum rođenja"
 
+#: app/telegram/intent.py
+msgid "Doğum tarihi: kayıtlı değil"
+msgstr "Datum rođenja: nije upisan"
+
+#: app/telegram/intent.py
+#, python-brace-format
+msgid "Doğum tarihi: {date} ({age} yaşında)"
+msgstr "Datum rođenja: {date} ({age} god.)"
+
 #: app/web/templates/catalog.html app/web/templates/catalog_candidate.html
 #: app/web/templates/document_archive_step.html
 #: app/web/templates/employee_merge_step.html app/web/templates/employees.html
@@ -2234,6 +2272,11 @@ msgstr "Sa nepotpunim paketima"
 #: app/web/templates/profile.html
 msgid "Eksik:"
 msgstr "Nedostaje:"
+
+#: app/telegram/intent.py
+#, python-brace-format
+msgid "Eksiği olan paket: {groups}"
+msgstr "Paket kome nešto nedostaje: {groups}"
 
 #: app/web/templates/account_telegram.html
 msgid "Elle ekle"
@@ -2804,8 +2847,8 @@ msgstr ""
 "da otvorite datoteke, strane i odluke sistema za to slanje."
 
 #: app/telegram/intent.py
-msgid "Her seferinde tek bir kişinin belgesini isteyin."
-msgstr "Tražite dokumente samo jedne osobe odjednom."
+msgid "Her seferinde tek bir kişiyi sorun."
+msgstr "Pitajte za jednu osobu odjednom."
 
 #: app/web/routers/users.py
 msgid "Hesabınıza bağlı böyle bir Telegram kimliği yok"
@@ -3022,6 +3065,10 @@ msgstr "Sačuvaj"
 msgid "Kaydı kaldır"
 msgstr "Ukloni zapis"
 
+#: app/web/templates/account_telegram.html app/web/templates/users.html
+msgid "Kaydı sil"
+msgstr "Obriši zapis"
+
 #: app/web/templates/profile.html app/web/templates/queue.html
 #: app/web/templates/training_known.html app/web/templates/training_type.html
 #: app/web/templates/upload_detail.html
@@ -3122,8 +3169,8 @@ msgid "Kendi parolanızı «Parolamı değiştir» sayfasından değiştirin."
 msgstr "Svoju lozinku promenite na stranici «Promeni moju lozinku»."
 
 #: app/telegram/intent.py
-msgid "Kimin belgesini istediğinizi adıyla yazın."
-msgstr "Napišite ime osobe čiji dokument želite."
+msgid "Kimi sorduğunuzu adıyla yazın."
+msgstr "Napišite ime osobe za koju pitate."
 
 #: app/web/templates/access_log_employee.html
 msgid "Kimler baktı"
@@ -3344,11 +3391,17 @@ msgstr "Mehanički spremno"
 msgid ""
 "Merhaba! Belge göndermek için dosyayı buraya gönderin; kimlik belgelerini"
 " fotoğraf değil dosya olarak gönderin.\n"
-"Bir belgeyi görmek için örneğin “Ahmet Çakar'ın ehliyeti” yazın."
+"Bir şey sormak için yazın, örneğin:\n"
+"• “Ahmet Çakar'ın ehliyeti”\n"
+"• “Ahmet Çakar kaç yaşında?”\n"
+"• “Ahmet Çakar adres kaydı için hangi belgeleri tamamlamalı?”"
 msgstr ""
 "Zdravo! Da biste poslali dokument, pošaljite fajl ovde; lične dokumente "
-"šaljite kao fajl, a ne kao fotografiju.\n"
-"Da biste videli dokument, napišite na primer “Ahmet Çakar'ın ehliyeti”."
+"šaljite kao fajl, ne kao fotografiju.\n"
+"Da biste nešto pitali, samo napišite, na primer:\n"
+"• „Vozačka dozvola Ahmeta Čakara”\n"
+"• „Koliko godina ima Ahmet Čakar?”\n"
+"• „Koja dokumenta nedostaju Ahmetu Čakaru za prijavu adrese?”"
 
 #: app/telegram/intent.py
 msgid "Mesajınız çok uzun. Kimin hangi belgesini istediğinizi kısaca yazın."
@@ -3360,11 +3413,15 @@ msgstr "Model:"
 
 #: app/telegram/intent.py
 msgid ""
-"Ne istediğinizi anlayamadım. Bir belgeyi görmek için örneğin “Ahmet "
-"Çakar'ın ehliyeti” yazın."
+"Ne istediğinizi anlayamadım. Şöyle sorabilirsiniz:\n"
+"• “Ahmet Çakar'ın ehliyeti”\n"
+"• “Ahmet Çakar kaç yaşında?”\n"
+"• “Ahmet Çakar adres kaydı için hangi belgeleri tamamlamalı?”"
 msgstr ""
-"Nisam razumeo šta želite. Da biste videli dokument, napišite na primer "
-"“Ahmet Çakar'ın ehliyeti”."
+"Nisam razumeo šta želite. Možete pitati ovako:\n"
+"• „Vozačka dozvola Ahmeta Čakara”\n"
+"• „Koliko godina ima Ahmet Čakar?”\n"
+"• „Koja dokumenta nedostaju Ahmetu Čakaru za prijavu adrese?”"
 
 #: app/web/templates/profile.html
 msgid "Neden:"
@@ -3911,6 +3968,10 @@ msgstr "Osvežite stranicu"
 msgid "Sayı"
 msgstr "Broj"
 
+#: app/telegram/bot.py
+msgid "Sesli mesajları dinleyemiyorum. Lütfen isteğinizi yazın."
+msgstr "Ne mogu da slušam glasovne poruke. Molim vas, napišite zahtev."
+
 #: app/web/templates/catalog.html app/web/templates/document_move.html
 #: app/web/templates/employee_merge_results.html
 #: app/web/templates/queue_assign.html
@@ -4252,6 +4313,14 @@ msgstr ""
 "Broj telefona mora se sastojati od cifara, razmaka, +, -, tačaka i "
 "zagrada; {low}–{high} cifara."
 
+#: app/web/templates/account_telegram.html
+msgid ""
+"Telefonunuzu ya da Telegram hesabınızı değiştirdiyseniz eski kaydı silin,"
+" sonra yenisini bağlayın."
+msgstr ""
+"Ako ste promenili telefon ili Telegram nalog, obrišite stari zapis, pa "
+"povežite novi."
+
 #: app/web/routers/access_log.py app/web/routers/uploads_list.py
 msgid "Telegram"
 msgstr "Telegram"
@@ -4269,10 +4338,21 @@ msgstr ""
 #: app/web/templates/users.html
 msgid ""
 "Telegram botu yalnız izni açık ve kullanıcısı etkin kimliğe yanıt verir. "
-"Kimlik silinmez; gerekmeyen kimliğin izni kapatılır."
+"Geçici olarak durdurmak için izni kapatın. Kaydı silerseniz numara "
+"serbest kalır ve aynı ya da başka bir hesaba yeniden bağlanabilir."
 msgstr ""
-"Telegram bot odgovara samo ID-jevima koji imaju dozvolu i čiji je "
-"korisnik aktivan. ID se ne briše; ID koji više nije potreban se blokira."
+"Telegram bot odgovara samo dozvoljenim ID-jevima čiji je korisnik "
+"aktivan. Da biste ID privremeno zaustavili, blokirajte ga. Ako obrišete "
+"zapis, broj postaje slobodan i može se ponovo povezati sa istim ili "
+"drugim nalogom."
+
+#: app/web/routers/users.py
+msgid ""
+"Telegram kaydı silindi. Bu numara artık yeniden bağlanabilir; bot ona "
+"yanıt vermeyecek."
+msgstr ""
+"Telegram zapis je obrisan. Ovaj broj se sada može ponovo povezati; bot mu"
+" neće odgovarati."
 
 #: app/web/templates/users.html
 msgid "Telegram kimlikleri"
@@ -4344,12 +4424,12 @@ msgstr "Poveži Telegram"
 #: app/web/templates/users.html
 msgid ""
 "Telegram'ı herkes yalnız kendi hesabına bağlar: «Telegram'ım» "
-"sayfasından. Burada başkasının kimliğinin iznini kapatıp açabilirsiniz "
-"(ör. telefon kaybolunca)."
+"sayfasından. Burada başkasının kimliğinin iznini kapatıp açabilir ya da "
+"kaydını silebilirsiniz (ör. telefon kaybolunca ya da değişince)."
 msgstr ""
 "Svako povezuje Telegram samo sa svojim nalogom, na stranici «Moj "
-"Telegram». Ovde možete blokirati ili dozvoliti tuđi ID (npr. kada se "
-"telefon izgubi)."
+"Telegram». Ovde možete blokirati ili dozvoliti tuđi ID, ili obrisati "
+"njegov zapis (npr. kada se telefon izgubi ili promeni)."
 
 #: app/web/templates/account_telegram.html app/web/templates/users.html
 msgid "Telegram'ım"
@@ -4510,6 +4590,15 @@ msgstr "Nije primenjeno"
 #: app/web/templates/employees_results.html app/web/templates/queue_assign.html
 msgid "Uyruk"
 msgstr "Državljanstvo"
+
+#: app/telegram/intent.py
+msgid "Uyruk: kayıtlı değil"
+msgstr "Državljanstvo: nije upisano"
+
+#: app/telegram/intent.py
+#, python-brace-format
+msgid "Uyruk: {country}"
+msgstr "Državljanstvo: {country}"
 
 #: app/web/profile_form.py app/web/routers/employees.py
 #: app/web/templates/profile.html
@@ -5287,6 +5376,14 @@ msgstr[2] "i još {count} dokumenata"
 
 #: app/telegram/intent.py
 #, python-brace-format
+msgid "ve {count} belge daha."
+msgid_plural "ve {count} belge daha."
+msgstr[0] "i još {count} dokument."
+msgstr[1] "i još {count} dokumenta."
+msgstr[2] "i još {count} dokumenata."
+
+#: app/telegram/intent.py
+#, python-brace-format
 msgid "ve {count} belge daha. Türünü de yazarak isteyin."
 msgid_plural "ve {count} belge daha. Türünü de yazarak isteyin."
 msgstr[0] "i još {count} dokument. Tražite ponovo i napišite i vrstu dokumenta."
@@ -5300,6 +5397,14 @@ msgid_plural "ve {count} kişi daha. Adı daha ayrıntılı yazın."
 msgstr[0] "i još {count} osoba. Napišite ime detaljnije."
 msgstr[1] "i još {count} osobe. Napišite ime detaljnije."
 msgstr[2] "i još {count} osoba. Napišite ime detaljnije."
+
+#: app/telegram/intent.py
+#, python-brace-format
+msgid "ve {count} tür daha"
+msgid_plural "ve {count} tür daha"
+msgstr[0] "i još {count} vrsta"
+msgstr[1] "i još {count} vrste"
+msgstr[2] "i još {count} vrsta"
 
 #: app/web/templates/profile.html app/web/templates/upload.html
 msgid "ya da seçmek için tıklayın · birden çok dosya seçilebilir"
@@ -5380,6 +5485,16 @@ msgstr "{kind}: {count}"
 
 #: app/telegram/intent.py
 #, python-brace-format
+msgid "{employee} için eksik belgeler:"
+msgstr "Dokumenti koji nedostaju za {employee}:"
+
+#: app/telegram/intent.py
+#, python-brace-format
+msgid "{employee} için eksik belgesi olan paket yok."
+msgstr "{employee} nema paket kome nedostaju dokumenti."
+
+#: app/telegram/intent.py
+#, python-brace-format
 msgid "{employee} için {count} {kind} buldum. Hangisi?"
 msgid_plural "{employee} için {count} {kind} buldum. Hangisi?"
 msgstr[0] "Za {employee} sam našao {count} rezultat ({kind}). Koji?"
@@ -5391,14 +5506,27 @@ msgstr[2] "Za {employee} sam našao {count} rezultata ({kind}). Koji?"
 msgid "{employee} için {kind} bulamadım."
 msgstr "Za {employee} nisam našao: {kind}."
 
+#: app/telegram/intent.py
+#, python-brace-format
+msgid "{employee} — {group}: eksik belge yok."
+msgstr "{employee} — {group}: ništa ne nedostaje."
+
+#: app/telegram/intent.py
+#, python-brace-format
+msgid "{employee} — {group}: {count} eksik belge."
+msgid_plural "{employee} — {group}: {count} eksik belge."
+msgstr[0] "{employee} — {group}: nedostaje {count} dokument."
+msgstr[1] "{employee} — {group}: nedostaju {count} dokumenta."
+msgstr[2] "{employee} — {group}: nedostaje {count} dokumenata."
+
 #: app/telegram/whitelist.py
 #, python-brace-format
 msgid ""
-"{id} Telegram kimliği başka bir kullanıcıya bağlı; kayıt silinmediği için"
-" taşınamaz."
+"{id} Telegram kimliği başka bir kullanıcıya bağlı. Önce o kullanıcının "
+"kaydı silinmeli."
 msgstr ""
-"Telegram ID {id} je povezan sa drugim korisnikom; ne može se premestiti "
-"jer se zapisi ne brišu."
+"Telegram ID {id} je povezan sa drugim korisnikom. Prvo treba obrisati "
+"zapis tog korisnika."
 
 #: app/telegram/whitelist.py
 #, python-brace-format
@@ -5419,6 +5547,29 @@ msgstr "Telegram ID {id} je već dozvoljen."
 #, python-brace-format
 msgid "{kind} yok"
 msgstr "nema: {kind}"
+
+#: app/telegram/intent.py
+#, python-brace-format
+msgid "{kind}: bu türü bilmiyorum"
+msgstr "{kind}: ne poznajem ovu vrstu"
+
+#: app/telegram/intent.py
+#, python-brace-format
+msgid "{kind}: var"
+msgstr "{kind}: ima"
+
+#: app/telegram/intent.py
+#, python-brace-format
+msgid "{kind}: yok"
+msgstr "{kind}: nema"
+
+#: app/telegram/intent.py
+#, python-brace-format
+msgid "{kind}: {count} tane"
+msgid_plural "{kind}: {count} tane"
+msgstr[0] "{kind}: {count}"
+msgstr[1] "{kind}: {count}"
+msgstr[2] "{kind}: {count}"
 
 #: app/web/routers/employees.py
 #, python-brace-format
@@ -6016,6 +6167,14 @@ msgstr "Ime tačno kako je odštampano u dokumentu (može biti i latinicom)"
 msgid "İsteğe bağlı"
 msgstr "Opciono"
 
+#: app/telegram/intent.py
+#, python-brace-format
+msgid "İsteğe bağlı {count} belge de eksik."
+msgid_plural "İsteğe bağlı {count} belge de eksik."
+msgstr[0] "Nedostaje i {count} neobavezan dokument."
+msgstr[1] "Nedostaju i {count} neobavezna dokumenta."
+msgstr[2] "Nedostaje i {count} neobaveznih dokumenata."
+
 #: app/web/routers/users.py
 msgid "İzin 'true' ya da 'false' olmalı."
 msgstr "Dozvola mora biti 'true' ili 'false'."
@@ -6121,6 +6280,11 @@ msgstr "Nema zaposlenih sa nepotpunim paketima koji odgovaraju upitu “%(query)
 #, python-format
 msgid "“%(query)s” ile eşleşen çalışan yok."
 msgstr "Nema zaposlenih koji odgovaraju upitu “%(query)s”."
+
+#: app/telegram/intent.py
+#, python-brace-format
+msgid "“{group}” diye bir belge grubu bilmiyorum."
+msgstr "Ne poznajem grupu dokumenata „{group}”."
 
 #: app/telegram/intent.py
 #, python-brace-format

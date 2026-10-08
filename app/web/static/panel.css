@@ -1178,11 +1178,24 @@ form:not(.session) button[type="submit"]:hover,
 .dismissed-row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 1rem; }
 .dismissed-row .hint { flex-basis: 100%; margin: 0; }
 
-/* 12.1.3: Kullanıcılar sayfasında her kullanıcının altında Telegram beyaz listesi. */
-.users tr.telegram-row td { padding-top: 0.2rem; background: #fafbfc; }
+/* 12.1.3: Kullanıcılar sayfası — her kullanıcı tek satır; Telegram kimlikleri kendi sütununda,
+   işlemler alt alta iki satır (parola / durum). */
+.users th:nth-child(4) { width: 30%; }
+.users th:nth-child(5) { width: 34%; }
+.users td { vertical-align: top; }
+/* Hücreye flex verilmez (td table-cell kalmalı); içerik blok olarak alt alta dizilir. */
+.users .telegram-cell > *, .users .user-actions > * { display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem; margin: 0 0 0.4rem; }
+.users .telegram-cell > :last-child, .users .user-actions > :last-child { margin-bottom: 0; }
+.users .user-actions input[type="password"] { width: 11rem; padding: 0.3rem 0.45rem; border: 1px solid #d0d7de; border-radius: 4px; font: inherit; }
+.users .telegram-count { margin: 0; }
+.button-small { padding: 0.3rem 0.7rem; font-size: 0.88rem; }
+.button-secondary { background: #fff; color: #33414f; border: 1px solid #b8c2cc; }
+.button-secondary:hover { background: #f2f4f7; }
 .telegram-title { font-weight: 600; margin-right: 0.5rem; }
-.telegram-ids { display: inline-flex; flex-wrap: wrap; gap: 0.25rem 1rem; margin: 0; padding: 0; list-style: none; }
-.telegram-ids li { display: inline-flex; align-items: center; gap: 0.35rem; }
+.telegram-ids { display: flex; flex-direction: column; align-items: flex-start; gap: 0.35rem; margin: 0; padding: 0; list-style: none; }
+.users .telegram-ids { align-items: flex-start; }
+.telegram-ids li { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 0.35rem; }
+.telegram-ids .inline-form { margin: 0; }
 .telegram-add input[name="telegram_id"] { min-width: 12rem; padding: 0.3rem; border: 1px solid #d0d7de; border-radius: 4px; font: inherit; }
 /* 12.1.4: "Telegram'ı bağla" — üretilen tek kullanımlık bağlantı kutusu. */
 .telegram-link-box { display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem 0.6rem; margin: 0.4rem 0; padding: 0.5rem 0.7rem; border: 1px solid #a9bbb6; border-radius: 4px; background: #fff; }

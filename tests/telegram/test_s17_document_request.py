@@ -44,8 +44,10 @@ REQUEST = "Ahmet Çakar'ın ehliyetini göster"
 QUERY: dict[str, Any] = {
     "intent": "find_documents",
     "people": ["Ahmet Çakar"],
-    "document_kind": "ehliyet",
-    "document_types": ["serbian_driving_license"],
+    "documents": [{"kind": "ehliyet", "types": ["serbian_driving_license"]}],
+    "group": None,
+    "group_ids": [],
+    "language": "tr",
 }
 
 

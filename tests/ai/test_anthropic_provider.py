@@ -902,7 +902,7 @@ def test_document_query_with_a_slug_outside_the_catalog_is_rejected() -> None:
     with pytest.raises(DocumentQueryError) as caught:
         api.provider().read_document_query(query_request())
 
-    assert caught.value.problems == ["document_types: katalogda olmayan 1 tür"]
+    assert caught.value.problems == ["documents: katalogda olmayan 1 tür"]
 
 
 # --- Canlı çağrı (DoD kapısında dışarıda) ------------------------------------------------------

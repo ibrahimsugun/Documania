@@ -179,6 +179,11 @@ Bot, bağlı olmayan birinin `/start`'ına tek bir kısa yanıt verir:
 bağlı değilsiniz, panelde Hesabım → Telegram'ı açın; son satırda yalnız Telegram numarası (sohbet
 başına saatte bir). Bağlı kişinin yardım ve «Bağlandı» yanıtı da numarayı söyler. Yönetici Kullanıcılar sayfasında başkasının kimliğinin iznini kapatıp
 açabilir (kaybolan telefon), başkası adına kimlik ekleyemez ve bağlantı üretemez.
+Telegram kaydı silinebilir (12.1.10): yönetici Kullanıcılar sayfasında, kişi kendi Hesabım →
+Telegram sayfasında «Kaydı sil»e basar. Numara serbest kalır ve aynı ya da başka bir hesaba yeniden
+bağlanabilir (telefon ya da hesap değişince). Silmenin izi olay logundadır.
+
+**Botla konuşma (12.3, 12.1.11, 12.1.12):** bot belge ister (“Ahmet Çakar'ın ehliyeti”), tek mesajda birden çok türü yanıtlar (“ehliyet ve CV'si var mı?” → her tür için var/yok), kişinin kısa bilgisini verir (“kaç yaşında?”, “hangi belgeleri var?”) ve bir belge grubu için eksikleri söyler (“adres kaydı için hangi belgeleri tamamlamalı?”; paket yoksa paket açmadan grubu kişinin belgeleriyle karşılaştırır). Kişi adı yazılmayan istek (“ehliyeti de”) son 10 dakikadaki kişiye uygulanır. Sesli mesaj, video, çıkartma gibi mesajlara kısa bir yanıt verir. Kişiye yazdığı dilde (Türkçe, İngilizce, Sırpça) yanıt verir; bu dil bot yeniden başlayana dek sonraki yanıtlarda da kullanılır.
 
 **Yedekleme:** gece yedeği ve geri yükleme prosedürü [`docs/YEDEKLEME.md`](docs/YEDEKLEME.md)'de
 (Compose kurulumuna özgü ayarlar orada). Zamanlayıcı (cron) sunucuya elle kurulur.

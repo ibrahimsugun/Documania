@@ -1,24 +1,32 @@
-"""Telegram belge isteğinin okunması sözleşmesi — PRD 12.3.1, 12.3.2.
+"""Telegram mesajının okunması sözleşmesi — PRD 12.3.1, 12.3.2, 12.3.4–12.3.7, 12.1.12.
 
 İK'nın bota yazdığı serbest metin ("Ahmet Çakar'ın ehliyetini göster") yapay zekâya bir kez
 verilir; yanıt bu şemadadır ve isteğin karşılığı olan **tek araç çağrısıdır** (`QueryIntent`):
 
-- `find_documents` — bir çalışanın belgesini bul ve gönder. `people` belgesi istenen kişiler,
-  mesajda yazıldığı gibi ama çekim ekleri atılmış ("Ahmet Çakar"; çalışan numarası yazılmışsa o da,
-  "E0001"); `document_kind` istenen belgenin mesajdaki adı ("ehliyet"; tür söylenmediyse `null`);
-  `document_types` o ada karşılık gelen katalog türleri (slug; karşılığı yoksa boş).
-- `other` — mesaj belge isteği değil (selam, soru, belgeyi değiştirme ya da silme isteği…); öteki
-  alanlar boştur.
+- `find_documents` — çalışanın belgesini bul ve gönder ("göster", "var mı", "yüklemiş mi").
+  `documents` istenen türlerdir: her öğe bir türün mesajdaki adı (`kind`, "ehliyet") ve ona
+  karşılık gelen katalog türleri (`types`, slug; karşılığı yoksa boş). Tür söylenmediyse boş liste.
+  "Ehliyet ve CV" iki öğedir (12.3.4).
+- `employee_info` — çalışanın bilgisini sor ("kaç yaşında", "hangi belgeleri var") (12.3.6).
+- `missing_documents` — çalışanın bir süreç için eksik belgelerini sor (12.3.7). `group` sürecin
+  mesajdaki adı ("adres kaydı"; söylenmediyse `null`), `group_ids` ona karşılık gelen belge
+  grupları (istemdeki listeden; karşılığı yoksa boş).
+- `other` — mesaj bunlardan biri değil (selam, belgeyi değiştirme ya da silme isteği…).
 
-Yapay zekâ veritabanını görmez: kişiyi ve türü yalnız mesajdan okur, türü istekteki katalog
-listesiyle eşler. Çalışanı aramak, sonuç birden çoksa seçim sormak ve belgeyi göndermek
+`people` mesajda adı geçen kişilerdir, çekim ekleri atılmış ("Ahmet Çakar"; çalışan numarası
+yazılmışsa o da, "E0001"). Kişi yazılmamışsa boştur; sistem o zaman aynı sohbetteki önceki kişiyi
+kullanır (12.3.5) — yapay zekâ kişi uydurmaz. `language` mesajın yazıldığı dildir (`tr`, `en`,
+`sr`; anlaşılamazsa `null`); bot o dilde yanıt verir (12.1.12).
+
+Yapay zekâ veritabanını görmez: kişiyi, türü ve süreci yalnız mesajdan okur, türü ve grubu
+istekteki listelerle eşler. Çalışanı aramak, seçim sormak, belgeyi göndermek ve özet yazmak
 deterministik koddur (`app.telegram.intent`); bu yanıt yalnız aramanın girdisidir.
 
 Kurallar öteki sözleşmelerle aynı ölçüdedir: her anahtar yanıtta bulunur, tanımsız anahtar
 reddedilir, tip zorlanmaz, yanıt düzeltilmez (`DocumentQueryError`). Tutarsız yanıt da reddedilir —
-`other` yanıtında kişi ya da tür, tür adı olmadan tür, tekrarlanan ya da katalog dışı slug: yanlış
-okunmuş bir isteğe göre belge aranmaz. Yanıt mesajdan gelen adları taşır; hata mesajına yanıttaki
-değer konmaz (CONVENTIONS §6).
+niyetin taşımadığı alan dolu, tekrarlanan tür adı, slug ya da grup, katalog ya da grup listesi
+dışı değer: yanlış okunmuş bir isteğe göre belge aranmaz. Yanıt mesajdan gelen adları taşır; hata
+mesajına yanıttaki değer konmaz (CONVENTIONS §6).
 """
 
 from __future__ import annotations
@@ -38,6 +46,8 @@ from pydantic import (
 
 MAX_PEOPLE = 10
 """Bir yanıttaki en çok kişi sayısı; sistem zaten tek kişilik isteği yürütür."""
+MAX_DOCUMENT_KINDS = 5
+"""Tek mesajda istenen en çok belge türü (12.3.4; botun liste sınırı, `app.telegram.plain`)."""
 
 PersonText = Annotated[
     str, StringConstraints(strict=True, strip_whitespace=True, min_length=1, max_length=200)
@@ -46,13 +56,24 @@ KindText = Annotated[
     str, StringConstraints(strict=True, strip_whitespace=True, min_length=1, max_length=100)
 ]
 Slug = Annotated[str, StringConstraints(strict=True, pattern=r"^[a-z][a-z0-9_]*$", max_length=64)]
+GroupId = Annotated[int, Field(strict=True, ge=1)]
 
 
 class QueryIntent(enum.StrEnum):
-    """Mesajın karşılığı olan araç (12.3.1)."""
+    """Mesajın karşılığı olan araç (12.3.1, 12.3.6, 12.3.7)."""
 
     FIND_DOCUMENTS = "find_documents"
+    EMPLOYEE_INFO = "employee_info"
+    MISSING_DOCUMENTS = "missing_documents"
     OTHER = "other"
+
+
+class ReplyLanguage(enum.StrEnum):
+    """Mesajın yazıldığı dil (12.1.12); botun desteklediği arayüz dilleri."""
+
+    TR = "tr"
+    EN = "en"
+    SR = "sr"
 
 
 class DocumentQueryError(ValueError):
@@ -65,36 +86,64 @@ class DocumentQueryError(ValueError):
         )
 
 
+class RequestedKind(BaseModel):
+    """İstenen bir belge türü: mesajdaki adı ve katalogdaki karşılıkları (12.3.4)."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    kind: KindText
+    types: tuple[Slug, ...]
+
+    @model_validator(mode="after")
+    def _unique(self) -> RequestedKind:
+        if len(set(self.types)) != len(self.types):
+            raise ValueError("types: her tür bir kez yazılır")
+        return self
+
+
 class DocumentQuery(BaseModel):
-    """İK mesajının araç çağrısı: kimin, hangi tür belgesi istendi ya da mesaj istek değil."""
+    """İK mesajının araç çağrısı: kimin, ne istendi, mesaj hangi dilde."""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     intent: QueryIntent
     people: Annotated[tuple[PersonText, ...], Field(max_length=MAX_PEOPLE)]
-    document_kind: KindText | None
-    document_types: tuple[Slug, ...]
+    documents: Annotated[tuple[RequestedKind, ...], Field(max_length=MAX_DOCUMENT_KINDS)]
+    group: KindText | None
+    group_ids: tuple[GroupId, ...]
+    language: ReplyLanguage | None
 
     @model_validator(mode="after")
     def _consistent(self) -> DocumentQuery:
-        if len(set(self.document_types)) != len(self.document_types):
-            raise ValueError("document_types: her tür bir kez yazılır")
-        if self.document_kind is None and self.document_types:
-            raise ValueError("document_types: document_kind null iken tür yazılmaz")
-        if self.intent is QueryIntent.OTHER and (
-            self.people or self.document_kind is not None or self.document_types
-        ):
-            raise ValueError(
-                "intent: 'other' yanıtında people, document_kind ve document_types boş"
-            )
+        kinds = [item.kind.casefold() for item in self.documents]
+        if len(set(kinds)) != len(kinds):
+            raise ValueError("documents: her tür adı bir kez yazılır")
+        if len(set(self.group_ids)) != len(self.group_ids):
+            raise ValueError("group_ids: her grup bir kez yazılır")
+        if self.group is None and self.group_ids:
+            raise ValueError("group_ids: group null iken grup yazılmaz")
+        if self.intent is not QueryIntent.FIND_DOCUMENTS and self.documents:
+            raise ValueError("documents: yalnız 'find_documents' yanıtında dolu")
+        if self.intent is not QueryIntent.MISSING_DOCUMENTS and self.group is not None:
+            raise ValueError("group: yalnız 'missing_documents' yanıtında dolu")
+        if self.intent is QueryIntent.OTHER and self.people:
+            raise ValueError("people: 'other' yanıtında boş")
         return self
 
+    @property
+    def document_types(self) -> tuple[str, ...]:
+        """İstenen bütün katalog türleri, ilk görülme sırasıyla."""
+        return tuple(dict.fromkeys(slug for item in self.documents for slug in item.types))
 
-def validate_document_query(data: object, *, known_slugs: Iterable[str]) -> DocumentQuery:
+
+def validate_document_query(
+    data: object, *, known_slugs: Iterable[str], known_groups: Iterable[int] = ()
+) -> DocumentQuery:
     """Model yanıtını (JSON metni veya çözülmüş nesne) şemaya göre doğrular.
 
-    `known_slugs` istekte verilen kataloğun slug'larıdır; `document_types`'taki her slug bunlardan
-    biri olmalı. Uymayan yanıt `DocumentQueryError` fırlatır.
+    `known_slugs` istekte verilen kataloğun slug'larıdır; `documents`'taki her slug bunlardan biri
+    olmalı. `known_groups` istekteki belge gruplarının kimlikleridir; `group_ids` bunlardan olmalı.
+    Uymayan yanıt `DocumentQueryError` fırlatır.
     """
     if isinstance(data, BaseModel):
         # Hazır örnek pydantic tarafından yeniden doğrulanmaz; katalog denetimi atlanmasın.
@@ -106,11 +155,18 @@ def validate_document_query(data: object, *, known_slugs: Iterable[str]) -> Docu
             query = DocumentQuery.model_validate(data)
     except ValidationError as exc:
         raise DocumentQueryError(_describe(exc)) from None
+    problems: list[str] = []
     known = frozenset(known_slugs)
-    unknown = sum(1 for slug in query.document_types if slug not in known)
+    unknown = sum(1 for item in query.documents for slug in item.types if slug not in known)
     if unknown:
         # Slug yanıttan gelir ve mesajdaki bir adı taşıyabilir; mesaja yalnız sayısı yazılır.
-        raise DocumentQueryError([f"document_types: katalogda olmayan {unknown} tür"])
+        problems.append(f"documents: katalogda olmayan {unknown} tür")
+    groups = frozenset(known_groups)
+    stray = sum(1 for group_id in query.group_ids if group_id not in groups)
+    if stray:
+        problems.append(f"group_ids: listede olmayan {stray} grup")
+    if problems:
+        raise DocumentQueryError(problems)
     return query
 
 

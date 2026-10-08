@@ -35,8 +35,22 @@ sorulunca geçersizdir; bot yeniden başlarsa eski düğmeler "geçersiz" yanıt
 kilidi, `app.db.session`). Mesaj metni, kişi adı ve belge numarası loga yazılmaz (CONVENTIONS §6);
 yanıt yalnız isteyene, özel sohbete gider (beyaz liste kapısı `bot.GATE_GROUP`).
 
-**Dil (12.1.6).** Yanıtlar isteyenin arayüz dilindedir (`app.telegram.bot.WhitelistGate`). İsteğin
-kendisi Türkçe anlaşılır (12.3 değişmez); belge türü, çalışan ve dosya adları veridir, çevrilmez.
+**Öteki istekler (12.3.4–12.3.7; PLAN.md §D108).** Tek mesajda birden çok tür ("ehliyet ve CV")
+her tür için bir satırla yanıtlanır (var / kaç tane / yok / bilinmiyor) ve tek belgesi olan türün
+belgesi gönderilir. Kişi bilgisi (`employee_info`) doğum tarihi ve yaş, uyruk, belge türleri ve
+eksiği olan paketlerdir; belge gönderilmez, erişim kaydı yazılmaz. Eksik belgeler
+(`missing_documents`) belge grubunun kalemlerini kişinin etkin belgeleriyle karşılaştırır
+(`app.groups.packages`; paket varsa paket, yoksa paket açılmadan grup) ve hiçbir şey yazmaz.
+
+**Konuşma belleği (12.3.5, 12.1.12).** `Conversations` bot sürecinin belleğindedir: sohbet ve kişi
+başına son sonuç verilen çalışan (`CONTEXT_TTL_SECONDS`) ve kişinin son yazdığı dil. Kişi adı
+yazılmayan istek önceki çalışana uygulanır; birden çok kişi bulunan ya da kimsenin bulunamadığı
+istekten sonra bağlam silinir (tahmin edilmez). Bot yeniden başlarsa bellek boşalır.
+
+**Dil (12.1.6, 12.1.12).** Yanıt mesajın yazıldığı dildedir (yapay zekâ `language` olarak söyler);
+o dil kişinin sonraki yanıtlarında da kullanılır (`app.telegram.bot.WhitelistGate` belleğe bakar).
+Dil anlaşılamazsa isteyenin arayüz dilidir. Belge türü, çalışan, grup ve dosya adları veridir,
+çevrilmez.
 """
 
 from __future__ import annotations
@@ -49,6 +63,7 @@ import time
 from collections import Counter, defaultdict
 from collections.abc import Callable, Coroutine, Iterable, Sequence
 from dataclasses import dataclass
+from datetime import date
 from pathlib import Path, PurePosixPath
 from typing import Any, Literal
 
@@ -62,10 +77,11 @@ from telegram import (
     Message,
     Update,
 )
+from telegram.constants import ChatAction
 from telegram.error import TelegramError
 from telegram.ext import Application, CallbackQueryHandler, ContextTypes, MessageHandler, filters
 
-from app.ai.document_query import DocumentQuery, DocumentQueryError, QueryIntent
+from app.ai.document_query import DocumentQuery, DocumentQueryError, QueryIntent, RequestedKind
 from app.ai.prompts import load_document_query_instructions
 from app.ai.provider import (
     DocumentQueryRequest,
@@ -75,18 +91,23 @@ from app.ai.provider import (
     create_provider,
 )
 from app.config import Settings
+from app.countries import lookup as lookup_country
+from app.countries import non_country_label
 from app.db.models import (
     AccessAction,
     AccessChannel,
     Document,
+    DocumentGroup,
     DocumentStatus,
     Employee,
     EmployeeAlias,
     EmployeeStatus,
     KnownDocumentType,
     TelegramUser,
+    utcnow,
 )
-from app.i18n import N_, gettext, ngettext
+from app.groups.packages import PackageItemView, employee_packages, evaluate_group
+from app.i18n import N_, activate_language, current_language, gettext, is_supported, ngettext
 from app.matching.names import EmptyNameError, normalize_name
 from app.matching.records import ACTIVE_ALIAS
 from app.matching.status import status_suffix
@@ -100,6 +121,7 @@ logger = logging.getLogger(__name__)
 MAX_REQUEST_LENGTH = 500  # karakter; daha uzun mesaj yapay zekâya gönderilmez
 MAX_OPTIONS = MAX_ITEMS  # seçim sorusundaki en çok düğme ve liste öğesi (§D98 b)
 CHOICE_TTL_SECONDS = 10 * 60
+CONTEXT_TTL_SECONDS = 10 * 60  # kişi adı yazılmayan istek bu süre içindeki son kişiye uygulanır
 MAX_PENDING_CHOICES = 1000
 # Bot API'nin bota gönderttiği en büyük dosya (yerel Bot API sunucusu olmadan).
 TELEGRAM_SEND_LIMIT_BYTES = 50 * 1024 * 1024
@@ -116,10 +138,13 @@ _MAX_MESSAGE_LENGTH = 4000  # Telegram sınırı 4096
 # dilde (Türkçe msgid) tanımlıdır; gönderilirken isteyenin dilinde `gettext` ile çevrilir (12.1.6).
 # Sayı taşıyanlar (`ngettext`) kullanıldıkları yerde yazılıdır.
 NOT_A_REQUEST_TEXT = N_(
-    "Ne istediğinizi anlayamadım. Bir belgeyi görmek için örneğin “Ahmet Çakar'ın ehliyeti” yazın."
+    "Ne istediğinizi anlayamadım. Şöyle sorabilirsiniz:\n"
+    "• “Ahmet Çakar'ın ehliyeti”\n"
+    "• “Ahmet Çakar kaç yaşında?”\n"
+    "• “Ahmet Çakar adres kaydı için hangi belgeleri tamamlamalı?”"
 )
-NO_PERSON_TEXT = N_("Kimin belgesini istediğinizi adıyla yazın.")
-MANY_PEOPLE_TEXT = N_("Her seferinde tek bir kişinin belgesini isteyin.")
+NO_PERSON_TEXT = N_("Kimi sorduğunuzu adıyla yazın.")
+MANY_PEOPLE_TEXT = N_("Her seferinde tek bir kişiyi sorun.")
 UNKNOWN_KIND_TEXT = N_("“{kind}” diye bir belge türü bilmiyorum.")
 NO_EMPLOYEE_TEXT = N_("“{person}” adında birini bulamadım.")
 NO_DOCUMENT_TEXT = N_("{employee} için {kind} bulamadım.")
@@ -133,6 +158,25 @@ TOO_LARGE_TEXT = N_("Bu belge Telegram'dan gönderilemeyecek kadar büyük. Pane
 SEND_FAILED_TEXT = N_("Belgeyi gönderemedim. Yeniden deneyin.")
 ANY_DOCUMENT = N_("belge")
 ANY_ACTIVE_DOCUMENT = N_("belge")
+# Birden çok tür (12.3.4): her tür bir satır.
+KIND_FOUND_TEXT = N_("{kind}: var")
+KIND_MISSING_TEXT = N_("{kind}: yok")
+KIND_UNKNOWN_TEXT = N_("{kind}: bu türü bilmiyorum")
+ASK_SEPARATELY_TEXT = N_("Birden çok olanı görmek için yalnız o türü isteyin.")
+# Kişi bilgisi (12.3.6).
+BORN_TEXT = N_("Doğum tarihi: {date} ({age} yaşında)")
+BORN_UNKNOWN_TEXT = N_("Doğum tarihi: kayıtlı değil")
+NATIONALITY_TEXT = N_("Uyruk: {country}")
+NATIONALITY_UNKNOWN_TEXT = N_("Uyruk: kayıtlı değil")
+DOCUMENT_KINDS_TEXT = N_("Belgeler: {kinds}")
+NO_DOCUMENTS_TEXT = N_("Belgeler: yok")
+MISSING_PACKAGES_TEXT = N_("Eksiği olan paket: {groups}")
+# Eksik belgeler (12.3.7).
+UNKNOWN_GROUP_TEXT = N_("“{group}” diye bir belge grubu bilmiyorum.")
+MANY_GROUPS_TEXT = N_("Bu ada birden çok belge grubu uyuyor: {groups}. Hangisi olduğunu yazın.")
+NOTHING_MISSING_TEXT = N_("{employee} — {group}: eksik belge yok.")
+NO_OPEN_PACKAGE_TEXT = N_("{employee} için eksik belgesi olan paket yok.")
+OPEN_PACKAGES_TEXT = N_("{employee} için eksik belgeler:")
 
 
 # --- Kişi ve belge araması (12.3.1) ------------------------------------------------------------
@@ -215,11 +259,14 @@ def find_documents(session: Session, employee_id: str, type_slugs: Sequence[str]
     return list(session.scalars(query.order_by(Document.created_at.desc(), Document.id.desc())))
 
 
-def build_query_prompt(types: Iterable[KnownDocumentType], text: str) -> str:
-    """Yapay zekâya giden kullanıcı metni: katalogdaki türler ve İK'nın mesajı.
+def build_query_prompt(
+    types: Iterable[KnownDocumentType], text: str, groups: Iterable[DocumentGroup] = ()
+) -> str:
+    """Yapay zekâya giden kullanıcı metni: katalogdaki türler, belge grupları ve İK'nın mesajı.
 
-    Katalog kişisel veri taşımaz (slug, ad, dosya etiketi, ülke); mesaj bölümü içindeki açı
-    ayraçları benzerleriyle değişir ki metin bölümü kapatıp talimat gibi görünemesin."""
+    Katalog ve gruplar kişisel veri taşımaz (slug, ad, dosya etiketi, ülke; grup kimliği, adı,
+    açıklaması); İK'nın yazdığı metinlerdeki (mesaj, grup adı ve açıklaması) açı ayraçları
+    benzerleriyle değişir ki metin bölümü kapatıp talimat gibi görünemesin."""
     entries = sorted(types, key=lambda entry: entry.slug)
     lines = ["<katalog>"]
     lines.extend(
@@ -228,8 +275,20 @@ def build_query_prompt(types: Iterable[KnownDocumentType], text: str) -> str:
     )
     if not entries:
         lines.append("(katalog boş)")
-    lines += ["</katalog>", "<mesaj>", text.replace("<", "‹").replace(">", "›"), "</mesaj>"]
+    lines += ["</katalog>", "<gruplar>"]
+    known = sorted(groups, key=lambda group: group.id)
+    lines.extend(
+        f"- {group.id} — {_inert(group.name)} — {_inert(group.description or '-')}"
+        for group in known
+    )
+    if not known:
+        lines.append("(grup yok)")
+    lines += ["</gruplar>", "<mesaj>", _inert(text), "</mesaj>"]
     return "\n".join(lines)
+
+
+def _inert(text: str) -> str:
+    return text.replace("<", "‹").replace(">", "›")
 
 
 # --- Yanıtlar ve belirsizlik (12.3.2) ----------------------------------------------------------
@@ -237,12 +296,33 @@ def build_query_prompt(types: Iterable[KnownDocumentType], text: str) -> str:
 ChoiceKind = Literal["employee", "document"]
 
 
+LookupMode = Literal["documents", "info", "missing"]
+
+
 @dataclass(frozen=True, slots=True)
 class Lookup:
-    """Seçimden sonra aramanın sürmesi için isteğin bağlamı: istenen türler, mesajdaki tür adı."""
+    """Kişi belli olunca ne yapılacağı (seçimden sonra da sürer): istenen türler ve mesajdaki tür
+    adı (tek tür), birden çok türde her tür (`kinds`, 12.3.4), kişi bilgisi ya da eksik belgeler
+    (`mode`, 12.3.6, 12.3.7) ve mesajdaki grup adıyla karşılığı olan gruplar."""
 
     type_slugs: tuple[str, ...]
     kind: str | None
+    mode: LookupMode = "documents"
+    kinds: tuple[RequestedKind, ...] = ()
+    group: str | None = None
+    group_ids: tuple[int, ...] = ()
+
+
+def lookup_of(query: DocumentQuery) -> Lookup:
+    """Araç çağrısının, kişi bulunduktan sonra yürütülecek kısmı."""
+    if query.intent is QueryIntent.EMPLOYEE_INFO:
+        return Lookup((), None, "info")
+    if query.intent is QueryIntent.MISSING_DOCUMENTS:
+        return Lookup((), None, "missing", group=query.group, group_ids=query.group_ids)
+    kinds = query.documents
+    if len(kinds) == 1:
+        return Lookup(kinds[0].types, kinds[0].kind, kinds=kinds)
+    return Lookup(query.document_types, None, kinds=kinds)
 
 
 @dataclass(frozen=True, slots=True)
@@ -266,27 +346,212 @@ class SendDocument:
     document_id: int
 
 
-Reply = TextReply | Question | SendDocument
+@dataclass(frozen=True, slots=True)
+class Batch:
+    """Önce metin, ardından belgeler (birden çok tür, 12.3.4)."""
+
+    text: str
+    document_ids: tuple[int, ...]
+
+
+Reply = TextReply | Question | SendDocument | Batch
+
+
+@dataclass(frozen=True, slots=True)
+class Resolution:
+    """Yanıt ve (tek kişi belli olduysa) o çalışan — konuşma belleği için (12.3.5)."""
+
+    reply: Reply
+    employee_id: str | None = None
+    forget: bool = False
+    """Bağlam silinir: kişi bulunamadı ya da birden çok kişi uydu (tahmin edilmez)."""
 
 
 def resolve_query(session: Session, query: DocumentQuery) -> Reply:
     """Araç çağrısını yürütür: ne gönderileceğini ya da ne sorulacağını söyler (belge göndermez)."""
+    return resolve(session, query).reply
+
+
+def resolve(session: Session, query: DocumentQuery, previous: str | None = None) -> Resolution:
+    """`resolve_query` ve hangi çalışan için yanıt verildiği. Kişi yazılmamışsa `previous`
+    (aynı sohbetteki son çalışan, 12.3.5) kullanılır; o da yoksa kişinin adı istenir."""
     if query.intent is QueryIntent.OTHER:
-        return TextReply(gettext(NOT_A_REQUEST_TEXT))
-    if not query.people:
-        return TextReply(gettext(NO_PERSON_TEXT))
+        return Resolution(TextReply(gettext(NOT_A_REQUEST_TEXT)))
     if len(query.people) > 1:
-        return TextReply(gettext(MANY_PEOPLE_TEXT))
-    if query.document_kind is not None and not query.document_types:
-        return TextReply(gettext(UNKNOWN_KIND_TEXT).format(kind=query.document_kind))
+        return Resolution(TextReply(gettext(MANY_PEOPLE_TEXT)))
+    lookup = lookup_of(query)
+    if len(lookup.kinds) == 1 and not lookup.type_slugs:
+        return Resolution(TextReply(gettext(UNKNOWN_KIND_TEXT).format(kind=lookup.kind)))
+    if not query.people:
+        employee = session.get(Employee, previous) if previous is not None else None
+        if employee is None or employee.status == EmployeeStatus.MERGED.value:
+            return Resolution(TextReply(gettext(NO_PERSON_TEXT)))
+        return Resolution(resolve_for(session, employee, lookup), employee.id)
     (person,) = query.people
-    lookup = Lookup(query.document_types, query.document_kind)
     employees = find_employees(session, parse_person(person))
     if not employees:
-        return TextReply(gettext(NO_EMPLOYEE_TEXT).format(person=person))
+        return Resolution(TextReply(gettext(NO_EMPLOYEE_TEXT).format(person=person)), forget=True)
     if len(employees) == 1:
-        return resolve_documents(session, employees[0], lookup)
-    return _employee_question(session, person, employees, lookup)
+        return Resolution(resolve_for(session, employees[0], lookup), employees[0].id)
+    return Resolution(_employee_question(session, person, employees, lookup), forget=True)
+
+
+def resolve_for(session: Session, employee: Employee, lookup: Lookup) -> Reply:
+    """Kişi belli olduktan sonra isteğin niyetine göre yanıt."""
+    if lookup.mode == "info":
+        return employee_info(session, employee)
+    if lookup.mode == "missing":
+        return missing_documents(session, employee, lookup)
+    if len(lookup.kinds) > 1:
+        return several_kinds(session, employee, lookup.kinds)
+    return resolve_documents(session, employee, lookup)
+
+
+def several_kinds(session: Session, employee: Employee, kinds: Sequence[RequestedKind]) -> Reply:
+    """Birden çok tür (12.3.4): her tür bir satır; tek belgesi olan türün belgesi gönderilir."""
+    lines = [f"{_employee_label(employee)}:"]
+    send: list[int] = []
+    several = False
+    for item in kinds[:MAX_OPTIONS]:
+        if not item.types:
+            lines.append(BULLET + gettext(KIND_UNKNOWN_TEXT).format(kind=item.kind))
+            continue
+        documents = find_documents(session, employee.id, item.types)
+        if not documents:
+            lines.append(BULLET + gettext(KIND_MISSING_TEXT).format(kind=item.kind))
+        elif len(documents) == 1:
+            lines.append(BULLET + gettext(KIND_FOUND_TEXT).format(kind=item.kind))
+            if documents[0].id not in send:
+                send.append(documents[0].id)
+        else:
+            several = True
+            count = len(documents)
+            text = ngettext("{kind}: {count} tane", "{kind}: {count} tane", count)
+            lines.append(BULLET + text.format(kind=item.kind, count=count))
+    if several:
+        lines.append(gettext(ASK_SEPARATELY_TEXT))
+    return Batch("\n".join(lines), tuple(send))
+
+
+def employee_info(session: Session, employee: Employee) -> TextReply:
+    """Kişi bilgisi (12.3.6): doğum tarihi ve yaş, uyruk, belge türleri, eksiği olan paketler.
+    Belge gönderilmez, hiçbir şey yazılmaz."""
+    lines = [_employee_label(employee)]
+    born = employee.date_of_birth
+    if born is None:
+        lines.append(BULLET + gettext(BORN_UNKNOWN_TEXT))
+    else:
+        lines.append(BULLET + gettext(BORN_TEXT).format(date=f"{born:%d.%m.%Y}", age=_age(born)))
+    country = _country_name(employee.nationality)
+    if country:
+        lines.append(BULLET + gettext(NATIONALITY_TEXT).format(country=country))
+    else:
+        lines.append(BULLET + gettext(NATIONALITY_UNKNOWN_TEXT))
+    documents = find_documents(session, employee.id, ())
+    names = list(dict.fromkeys(document.document_type.name for document in documents))
+    if not names:
+        lines.append(BULLET + gettext(NO_DOCUMENTS_TEXT))
+    else:
+        shown = ", ".join(names[:MAX_OPTIONS])
+        if len(names) > MAX_OPTIONS:
+            rest = len(names) - MAX_OPTIONS
+            more = ngettext("ve {count} tür daha", "ve {count} tür daha", rest)
+            shown += " " + more.format(count=rest)
+        lines.append(BULLET + gettext(DOCUMENT_KINDS_TEXT).format(kinds=shown))
+    missing = list(
+        dict.fromkeys(
+            view.group_name
+            for view in employee_packages(session, employee.id)
+            if not view.cancelled and not view.complete
+        )
+    )
+    if missing:
+        lines.append(BULLET + gettext(MISSING_PACKAGES_TEXT).format(groups=", ".join(missing)))
+    return TextReply("\n".join(lines))
+
+
+def missing_documents(session: Session, employee: Employee, lookup: Lookup) -> TextReply:
+    """Eksik belgeler (12.3.7). Grup söylendiyse o grup — çalışanın o gruptan paketi varsa paket,
+    yoksa grubun kalemleri paket açılmadan değerlendirilir; söylenmediyse eksiği olan paketler.
+    Hiçbir şey yazılmaz."""
+    label = _employee_label(employee)
+    if lookup.group is not None:
+        found = [
+            group
+            for group in (session.get(DocumentGroup, group_id) for group_id in lookup.group_ids)
+            if group is not None
+        ]
+        if not found:
+            return TextReply(gettext(UNKNOWN_GROUP_TEXT).format(group=lookup.group))
+        if len(found) > 1:
+            names = ", ".join(f"“{group.name}”" for group in found[:MAX_OPTIONS])
+            return TextReply(gettext(MANY_GROUPS_TEXT).format(groups=names))
+        (group,) = found
+        package = next(
+            (
+                view
+                for view in employee_packages(session, employee.id)
+                if view.group_id == group.id and not view.cancelled
+            ),
+            None,
+        )
+        if package is not None:
+            items = package.items
+        else:
+            items = evaluate_group(session, employee.id, group)
+        return TextReply(_missing_text(label, group.name, items))
+    open_packages = [
+        view
+        for view in employee_packages(session, employee.id)
+        if not view.cancelled and not view.complete
+    ]
+    if not open_packages:
+        return TextReply(gettext(NO_OPEN_PACKAGE_TEXT).format(employee=label))
+    lines = [gettext(OPEN_PACKAGES_TEXT).format(employee=label)]
+    for view in open_packages[:MAX_OPTIONS]:
+        titles = [item.title for item in view.items if item.required and not item.satisfied]
+        lines.append(f"{BULLET}{view.group_name}: {', '.join(titles)}")
+    return TextReply("\n".join(lines))
+
+
+def _missing_text(label: str, group: str, items: Sequence[PackageItemView]) -> str:
+    required = [item.title for item in items if item.required and not item.satisfied]
+    optional = sum(1 for item in items if not item.required and not item.satisfied)
+    if not required:
+        lines = [gettext(NOTHING_MISSING_TEXT).format(employee=label, group=group)]
+    else:
+        header = ngettext(
+            "{employee} — {group}: {count} eksik belge.",
+            "{employee} — {group}: {count} eksik belge.",
+            len(required),
+        )
+        lines = [header.format(employee=label, group=group, count=len(required))]
+        lines.extend(f"{BULLET}{title}" for title in required[:MAX_OPTIONS])
+        if len(required) > MAX_OPTIONS:
+            rest = len(required) - MAX_OPTIONS
+            more = ngettext("ve {count} belge daha.", "ve {count} belge daha.", rest)
+            lines.append(more.format(count=rest))
+    if optional:
+        text = ngettext(
+            "İsteğe bağlı {count} belge de eksik.", "İsteğe bağlı {count} belge de eksik.", optional
+        )
+        lines.append(text.format(count=optional))
+    return "\n".join(lines)
+
+
+def _age(born: date) -> int:
+    today = utcnow().date()
+    return today.year - born.year - ((today.month, today.day) < (born.month, born.day))
+
+
+def _country_name(code: str | None) -> str | None:
+    """Uyruk kodunun isteyenin dilindeki adı; ülke olmayan kodda açıklaması, tanınmayanda kod."""
+    if not code or not code.strip():
+        return None
+    country = lookup_country(code)
+    if country is not None:
+        return country.name(current_language())
+    return non_country_label(code) or code.strip()
 
 
 def resolve_documents(session: Session, employee: Employee, lookup: Lookup) -> Reply:
@@ -516,6 +781,65 @@ class ChoiceStore:
         return choice, choice.options[index]
 
 
+class Conversations:
+    """Konuşma belleği (modül açıklaması): sohbet ve kişi başına son çalışan (süreli) ve kişinin
+    son yazdığı dil. Bot sürecinin belleğindedir; en çok `capacity` kayıt tutar (en eski düşer)."""
+
+    def __init__(
+        self,
+        ttl: float = CONTEXT_TTL_SECONDS,
+        *,
+        clock: Callable[[], float] = time.monotonic,
+        capacity: int = MAX_PENDING_CHOICES,
+    ) -> None:
+        self._ttl = ttl
+        self._clock = clock
+        self._capacity = capacity
+        self._people: dict[tuple[int, int], tuple[str, float]] = {}
+        self._languages: dict[int, str] = {}
+
+    def person(self, chat_id: int, telegram_id: int) -> str | None:
+        """Bu sohbette bu kişiye son sonuç verilen çalışan; süresi geçtiyse `None`."""
+        found = self._people.get((chat_id, telegram_id))
+        if found is None:
+            return None
+        employee_id, at = found
+        if self._clock() - at >= self._ttl:
+            del self._people[(chat_id, telegram_id)]
+            return None
+        return employee_id
+
+    def remember(self, chat_id: int, telegram_id: int, employee_id: str) -> None:
+        key = (chat_id, telegram_id)
+        self._people.pop(key, None)
+        while len(self._people) >= self._capacity:
+            del self._people[next(iter(self._people))]
+        self._people[key] = (employee_id, self._clock())
+
+    def forget(self, chat_id: int, telegram_id: int) -> None:
+        self._people.pop((chat_id, telegram_id), None)
+
+    def language(self, telegram_id: int) -> str | None:
+        """Kişinin son yazdığı dil (12.1.12); henüz yazmadıysa `None`."""
+        return self._languages.get(telegram_id)
+
+    def remember_language(self, telegram_id: int, language: str) -> None:
+        if not is_supported(language):
+            return
+        self._languages.pop(telegram_id, None)
+        while len(self._languages) >= self._capacity:
+            del self._languages[next(iter(self._languages))]
+        self._languages[telegram_id] = language
+
+
+@dataclass(frozen=True, slots=True)
+class Answer:
+    """Okunan mesajın sonucu: çözüm ve mesajın dili (anlaşılamadıysa `None`)."""
+
+    resolution: Resolution
+    language: str | None = None
+
+
 def _keyboard(token: str, labels: Sequence[str]) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
@@ -557,12 +881,14 @@ class DocumentRequests:
         *,
         provider_factory: ProviderFactory = create_provider,
         choices: ChoiceStore | None = None,
+        conversations: Conversations | None = None,
     ) -> None:
         self._session_factory = session_factory
         self._layout = layout
         self._settings = settings
         self._provider_factory = provider_factory
         self._choices = choices if choices is not None else ChoiceStore()
+        self.conversations = conversations if conversations is not None else Conversations()
         self._instructions = load_document_query_instructions()
         self._tasks: set[asyncio.Task[None]] = set()
 
@@ -616,36 +942,56 @@ class DocumentRequests:
         if len(text) > MAX_REQUEST_LENGTH:
             reply = TextReply(gettext(TOO_LONG_TEXT))
         else:
+            await _typing(bot, chat_id)
+            previous = self.conversations.person(chat_id, telegram_id)
             try:
-                reply = await asyncio.to_thread(self._reply_to, text)
+                answer = await asyncio.to_thread(self._reply_to, text, previous)
             except Exception as exc:
                 # İleti kimlik taşıyabilir (SQL parametresi); yalnız türü yazılır.
                 logger.error("Telegram belge isteği yanıtlanamadı (%s)", type(exc).__name__)
                 reply = TextReply(gettext(FAILURE_TEXT))
+            else:
+                reply = answer.resolution.reply
+                if answer.language is not None:
+                    # 12.1.12: bu yanıt ve kişinin sonraki yanıtları yazdığı dilde.
+                    self.conversations.remember_language(telegram_id, answer.language)
+                    activate_language(answer.language)
+                if answer.resolution.employee_id is not None:
+                    self.conversations.remember(chat_id, telegram_id, answer.resolution.employee_id)
+                elif answer.resolution.forget:
+                    self.conversations.forget(chat_id, telegram_id)
         await self._deliver(bot, chat_id, telegram_id, reply)
 
-    def _reply_to(self, text: str) -> Reply:
-        """İsteği yapay zekâya okutur ve aramayı yürütür (iş parçacığında)."""
+    def _reply_to(self, text: str, previous: str | None = None) -> Answer:
+        """İsteği yapay zekâya okutur ve aramayı yürütür (iş parçacığında). `previous` aynı
+        sohbetteki son çalışandır (12.3.5)."""
         try:
             provider = self._provider_factory(self._settings)
         except ProviderConfigError as exc:
             logger.error("Belge isteği okunamadı: sağlayıcı kurulamadı (%s)", type(exc).__name__)
-            return TextReply(gettext(UNAVAILABLE_TEXT))
+            return Answer(Resolution(TextReply(gettext(UNAVAILABLE_TEXT))))
         with self._session_factory() as session:
             types = session.scalars(select(KnownDocumentType)).all()
+            groups = session.scalars(select(DocumentGroup)).all()
             request = DocumentQueryRequest(
                 instructions=self._instructions,
-                prompt=build_query_prompt(types, text),
+                prompt=build_query_prompt(types, text, groups),
                 known_slugs=frozenset(entry.slug for entry in types),
+                known_groups=frozenset(group.id for group in groups),
             )
         # Oturum kapandı: sağlayıcı çağrısı sürerken yazma kilidi tutulmaz.
         try:
             query = provider.read_document_query(request)
         except (ProviderError, DocumentQueryError) as exc:
             logger.error("Belge isteği okunamadı (%s)", type(exc).__name__)
-            return TextReply(gettext(FAILURE_TEXT))
+            return Answer(Resolution(TextReply(gettext(FAILURE_TEXT))))
+        language = query.language.value if query.language is not None else None
+        if language is not None and is_supported(language):
+            activate_language(language)  # yalnız bu iş parçacığının bağlamında
+        else:
+            language = None
         with self._session_factory() as session:
-            return resolve_query(session, query)
+            return Answer(resolve(session, query, previous), language)
 
     async def _continue(self, bot: Bot, choice: Choice, option: str) -> None:
         reply: Reply
@@ -657,6 +1003,9 @@ class DocumentRequests:
             except Exception as exc:
                 logger.error("Telegram seçimi sürdürülemedi (%s)", type(exc).__name__)
                 reply = TextReply(gettext(FAILURE_TEXT))
+            else:
+                # Seçilen kişi sonraki kişisiz isteklerin bağlamıdır (12.3.5).
+                self.conversations.remember(choice.chat_id, choice.telegram_id, option)
         await self._deliver(bot, choice.chat_id, choice.telegram_id, reply)
 
     def _documents_of(self, employee_id: str, lookup: Lookup) -> Reply:
@@ -664,7 +1013,7 @@ class DocumentRequests:
             employee = session.get(Employee, employee_id)
             if employee is None:
                 return TextReply(gettext(STALE_CHOICE_TEXT))
-            return resolve_documents(session, employee, lookup)
+            return resolve_for(session, employee, lookup)
 
     async def _deliver(self, bot: Bot, chat_id: int, telegram_id: int, reply: Reply) -> None:
         if isinstance(reply, TextReply):
@@ -672,6 +1021,10 @@ class DocumentRequests:
         elif isinstance(reply, Question):
             token = self._choices.add(chat_id, telegram_id, reply)
             await _send_text(bot, chat_id, reply.text, reply_markup=_keyboard(token, reply.labels))
+        elif isinstance(reply, Batch):
+            await _send_text(bot, chat_id, reply.text)
+            for document_id in reply.document_ids:
+                await self._send_document(bot, chat_id, telegram_id, document_id)
         else:
             await self._send_document(bot, chat_id, telegram_id, reply.document_id)
 
@@ -748,6 +1101,14 @@ async def _send_text(
     except TelegramError as exc:
         # Metin loga yazılmaz (ad, belge adı taşır).
         logger.error("Telegram iletisi gönderilemedi (%s)", type(exc).__name__)
+
+
+async def _typing(bot: Bot, chat_id: int) -> None:
+    """Sohbette "yazıyor…" gösterir (12.1.11); gösterilemezse yanıt yine gider."""
+    try:
+        await bot.send_chat_action(chat_id=chat_id, action=ChatAction.TYPING)
+    except TelegramError as exc:
+        logger.warning("Telegram yazıyor göstergesi gönderilemedi (%s)", type(exc).__name__)
 
 
 async def _answer_callback(query: CallbackQuery, text: str | None) -> None:

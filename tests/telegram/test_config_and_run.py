@@ -240,9 +240,17 @@ def test_main_starts_the_bot_and_keeps_the_token_out_of_transport_logs(
     assert config.mode is BotMode.POLLING
     assert application.bot.token == TOKEN
     # 12.2: belge/fotoğraf işleyicisi komutlarla aynı grupta, beyaz liste kapısının arkasında bağlı;
-    # 12.3: metin (belge isteği) ve seçim düğmesi işleyicileri de öyle.
+    # 12.3: metin (belge isteği) ve seçim düğmesi işleyicileri de öyle; 12.1.11: en sonda
+    # bilinmeyen komut ve desteklenmeyen mesaj yedekleri.
     kinds = [type(handler) for handler in application.handlers[HANDLER_GROUP]]
-    assert kinds == [CommandHandler, MessageHandler, MessageHandler, CallbackQueryHandler]
+    assert kinds == [
+        CommandHandler,
+        MessageHandler,
+        MessageHandler,
+        CallbackQueryHandler,
+        MessageHandler,
+        MessageHandler,
+    ]
     assert all(
         not isinstance(h, MessageHandler | CallbackQueryHandler)
         for h in application.handlers[GATE_GROUP]

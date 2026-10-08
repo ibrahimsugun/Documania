@@ -307,11 +307,13 @@ class DocumentQueryRequest:
     - `instructions`: sistem talimatı (`app.ai.prompts.document_query`).
     - `prompt`: katalog türleri ve İK'nın mesajı (`app.telegram.intent.build_query_prompt`).
     - `known_slugs`: istemdeki kataloğun slug'ları; başka slug taşıyan yanıt reddedilir.
+    - `known_groups`: istemdeki belge gruplarının kimlikleri (12.3.7); başka grup reddedilir.
     """
 
     instructions: str = field(repr=False)
     prompt: str = field(repr=False)
     known_slugs: frozenset[str]
+    known_groups: frozenset[int] = frozenset()
 
     def __post_init__(self) -> None:
         if not self.instructions.strip():
@@ -322,6 +324,7 @@ class DocumentQueryRequest:
             raise TypeError("known_slugs tek bir metin değil, slug koleksiyonu olmalı")
         # Çağıran liste/demet verebilir; istek değişmez olsun diye kopyalanır.
         object.__setattr__(self, "known_slugs", frozenset(self.known_slugs))
+        object.__setattr__(self, "known_groups", frozenset(self.known_groups))
 
 
 class AnalysisProvider(abc.ABC):
@@ -409,7 +412,9 @@ class AnalysisProvider(abc.ABC):
         düzeltilmez.
         """
         raw = _with_retry(self._request_document_query, request)
-        return validate_document_query(raw, known_slugs=request.known_slugs)
+        return validate_document_query(
+            raw, known_slugs=request.known_slugs, known_groups=request.known_groups
+        )
 
     @final
     def propose_type(self, request: TypeProposalRequest) -> TypeProposal:

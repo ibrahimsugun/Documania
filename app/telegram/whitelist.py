@@ -8,13 +8,15 @@ izinleri açık kalsa da yanıt almaz; kullanıcı yeniden etkinleşince yanıt 
 (`notify.Notifier`) bu tek tanımı kullanır — `permitted_ids` sorgu, `is_permitted` yüklü satır için.
 
 Yönetim panelin Kullanıcılar sayfasındadır (`app.web.routers.users`): kullanıcıya kimlik eklenir
-(`allowed=True`), izin kapatılıp açılır. **Kayıt silinmez** (R11): engellemek `allowed=False`'tur.
-Kimlik tablonun birincil anahtarıdır; bu yüzden bir kez bir kullanıcıya bağlanan kimlik başka bir
-kullanıcıya bağlanamaz (409). İşlemler tek adımlıdır (§D61-b) ve kullanıcı adıyla
-`TELEGRAM_USER_CHANGED` yazar (`target_user_id`, `telegram_id`, `allowed`, `added`). Commit her
-zaman çağırana aittir. Kimliği elle girmek yerine yönetici tek kullanımlık bir bot bağlantısı da
-üretebilir; kişi bağlantıyı açınca bot kimliği aynı `add_telegram_id` ile bağlar (`via: "link"`,
-12.1.4, `app.telegram.link`). Bot kendiliğinden kimseyi listeye almaz: kod yöneticiden gelir.
+(`allowed=True`), izin kapatılıp açılır ve kayıt silinir. Engellemek `allowed=False`'tur; satır
+durur. Kimlik tablonun birincil anahtarıdır; bu yüzden bir kullanıcıya bağlı kimlik başka bir
+kullanıcıya bağlanamaz (409). Numarayı serbest bırakmanın yolu kaydı silmektir (12.1.10, §D107):
+R11'in tek istisnası; izi olay logunda kalır (`removed: true`). İşlemler tek adımlıdır (§D61-b)
+ve kullanıcı adıyla `TELEGRAM_USER_CHANGED` yazar (`target_user_id`, `telegram_id`, `allowed`,
+`added`; silmede `removed`). Commit her zaman çağırana aittir. Kimliği elle girmek yerine
+tek kullanımlık bir bot bağlantısı da üretilebilir; kişi bağlantıyı açınca bot kimliği aynı
+`add_telegram_id` ile bağlar (`via: "link"`, 12.1.4, `app.telegram.link`). Bot kendiliğinden
+kimseyi listeye almaz: kod panelden gelir.
 
 **Kimlik nereden gelir (PLAN §D86).** Kimlik telefon numarası değil, Telegram'ın hesaba verdiği
 değişmez sayıdır; bot gönderenin `user.id`'sini bununla karşılaştırır. Kişi kendi kimliğini
@@ -26,7 +28,7 @@ from __future__ import annotations
 
 import re
 
-from sqlalchemy import Select, select, update
+from sqlalchemy import Select, delete, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -130,8 +132,8 @@ def _taken(telegram_id: int, owner_id: int | None, target: User) -> TelegramIdTa
     return TelegramIdTakenError(
         Translatable(
             N_(
-                "{id} Telegram kimliği başka bir kullanıcıya bağlı; kayıt silinmediği için "
-                "taşınamaz."
+                "{id} Telegram kimliği başka bir kullanıcıya bağlı. Önce o kullanıcının kaydı "
+                "silinmeli."
             ),
             id=telegram_id,
         )
@@ -180,3 +182,39 @@ def set_telegram_allowed(
         )
         raise TelegramStatusError(Translatable(template, id=account.telegram_id))
     _record(session, account, actor=actor, added=False)
+
+
+def remove_telegram_id(
+    session: Session, owner_id: int, telegram_id: int, *, actor: str, via: str | None = None
+) -> None:
+    """Kimlik kaydını siler (12.1.10, §D107; R11'in tek istisnası) ve aynı işlemde
+    `TELEGRAM_USER_CHANGED` {target_user_id, telegram_id, allowed, added: false, removed: true}
+    yazar. Kimlik `owner_id` kullanıcısına bağlı değilse (yok ya da başkasının) `LookupError`.
+    Silinen numara hemen ardından aynı ya da başka bir hesaba bağlanabilir; eski olaylar ve
+    kullanılmış bağlantı kodları değişmez. Koşullu silmeyle yapılır: aynı anda iki istek aynı kaydı
+    silerse biri olay yazar, öteki `LookupError` alır."""
+    allowed = session.scalar(
+        select(TelegramUser.allowed).where(
+            TelegramUser.telegram_id == telegram_id, TelegramUser.user_id == owner_id
+        )
+    )
+    result = session.execute(
+        delete(TelegramUser)
+        .where(TelegramUser.telegram_id == telegram_id, TelegramUser.user_id == owner_id)
+        .execution_options(synchronize_session=False)
+    )
+    if allowed is None or result.rowcount != 1:
+        raise LookupError(telegram_id)
+    stale = session.get(TelegramUser, telegram_id)
+    if stale is not None:
+        session.expunge(stale)
+    data: dict[str, object] = {
+        "target_user_id": owner_id,
+        "telegram_id": telegram_id,
+        "allowed": bool(allowed),
+        "added": False,
+        "removed": True,
+    }
+    if via is not None:
+        data["via"] = via
+    record_event(session, EventType.TELEGRAM_USER_CHANGED, actor=actor, data=data)

@@ -262,14 +262,23 @@ def query_payload(
     return {
         "intent": intent,
         "people": list(people or (SYNTHETIC_REQUESTED_PERSON,)),
-        "document_kind": kind,
-        "document_types": list(types),
+        "documents": [] if kind is None else [{"kind": kind, "types": list(types)}],
+        "group": None,
+        "group_ids": [],
+        "language": "tr",
     }
 
 
 def other_payload() -> dict[str, Any]:
     """Belge isteği olmayan mesajın yanıtı."""
-    return {"intent": "other", "people": [], "document_kind": None, "document_types": []}
+    return {
+        "intent": "other",
+        "people": [],
+        "documents": [],
+        "group": None,
+        "group_ids": [],
+        "language": None,
+    }
 
 
 def query_request(

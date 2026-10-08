@@ -121,11 +121,12 @@ def test_page_lists_users_with_role_status_and_allowed_telegram_count(
     assert "test-yonetici" in own and "(siz)" in own
     assert "/password" not in own and "/status" not in own  # kendi satırında işlem yok
     assert "Yönetici" in rows[str(ayse)] and "Etkin" in rows[str(ayse)]
-    assert "<td>2</td>" in rows[str(ayse)]  # engelli kimlik sayılmaz
+    assert 'data-allowed="2">2 izinli kimlik' in rows[str(ayse)]  # engelli kimlik sayılmaz
     assert "Pasif" in rows[str(ayse + 1)] and "Yeniden etkinleştir" in rows[str(ayse + 1)]
     assert "Pasife al" in rows[str(ayse)]
     assert 'href="/account/password"' in page.text
-    assert "sil" not in re.sub(r"<[^>]+>", " ", page.text).lower().split()
+    # Kullanıcı silinmez (R11); silinebilen tek kayıt Telegram kimliğidir (12.1.10).
+    assert re.search(r'action="/users/\d+/delete"', page.text) is None
 
 
 def test_password_fields_are_empty_and_not_autofilled(

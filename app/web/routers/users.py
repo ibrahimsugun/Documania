@@ -14,9 +14,11 @@
 - `GET /account/password` + `POST /account/password` kullanıcının kendi parolasıdır: eski parola
   yanlışsa 400; bu oturum açık kalır, diğerleri kapanır.
 - `POST /users/{id}/telegram/{tid}/status` (`allowed` = `true` | `false`) izni açar ya da kapatır;
-  aynı duruma geçiş 409, kimlik o kullanıcıya bağlı değilse 404. Kayıt silinmez; bot yalnız izinli
-  ve etkin kullanıcıya bağlı kimliğe yanıt verir (`app.telegram.whitelist`). Olay
-  `TELEGRAM_USER_CHANGED`.
+  aynı duruma geçiş 409, kimlik o kullanıcıya bağlı değilse 404. Bot yalnız izinli ve etkin
+  kullanıcıya bağlı kimliğe yanıt verir (`app.telegram.whitelist`). Olay `TELEGRAM_USER_CHANGED`.
+- `POST /users/{id}/telegram/{tid}/delete` kaydı siler (12.1.10, §D107): numara serbest kalır ve
+  aynı ya da başka bir hesaba yeniden bağlanabilir; kimlik o kullanıcıya bağlı değilse 404. Olay
+  `TELEGRAM_USER_CHANGED` {…, removed: true}.
 
 **Hesabım → Telegram (12.1.8, §D97 c).** Telegram'ı yalnız hesabın sahibi bağlar. Yolların
 hiçbirinde kullanıcı kimliği yoktur: hedef her zaman oturumdaki kullanıcıdır (`user.id`).
@@ -32,11 +34,13 @@ hiçbirinde kullanıcı kimliği yoktur: hedef her zaman oturumdaki kullanıcıd
   bir kullanıcıya bağlıysa 409; olay `TELEGRAM_USER_CHANGED` {…, via: "account"}.
 - `POST /account/telegram/{tid}/status` kendi kimliğinin izni; kimlik kendisinin değilse 404, aynı
   duruma geçiş 409.
+- `POST /account/telegram/{tid}/delete` kendi kimliğinin kaydını siler (12.1.10); kimlik kendisinin
+  değilse 404; olay {…, removed: true, via: "account"}.
 
 Kullanıcılar sayfası yalnız yönetici açar (tek rol `admin`; `require_admin`). Hepsi tek adımlıdır
 (§D61-b: dosyaya ve belgeye dokunmaz, geri alınabilir) ve kullanıcı adıyla olay yazar (`USER_*`).
 Parola hiçbir olaya, loga ya da sayfaya yazılmaz; reddedilen formda parola alanı boş gelir.
-**Silme yok** (R11).
+Kullanıcı silinmez (R11); silinebilen tek kayıt Telegram kimliğidir (12.1.10, §D107).
 """
 
 from __future__ import annotations
@@ -69,6 +73,7 @@ from app.telegram.whitelist import (
     TelegramStatusError,
     add_telegram_id,
     parse_telegram_id,
+    remove_telegram_id,
     set_telegram_allowed,
 )
 from app.web.auth import (
@@ -120,11 +125,15 @@ NOTICES = {
     "own_password": N_("Parolanız değiştirildi; diğer oturumlarınız kapatıldı."),
     "telegram_allowed": N_("Telegram kimliğinin izni açıldı."),
     "telegram_blocked": N_("Telegram kimliğinin izni kapatıldı; bot bu kimliğe yanıt vermeyecek."),
+    "telegram_removed": N_(
+        "Telegram kaydı silindi. Bu numara artık yeniden bağlanabilir; bot ona yanıt vermeyecek."
+    ),
 }
 ACCOUNT_NOTICES = {
     "telegram_added": N_("Telegram kimliği eklendi ve izni açıldı."),
     "telegram_allowed": NOTICES["telegram_allowed"],
     "telegram_blocked": NOTICES["telegram_blocked"],
+    "telegram_removed": NOTICES["telegram_removed"],
 }
 ALLOWED_TRUE = "true"
 ALLOWED_FALSE = "false"
@@ -434,6 +443,27 @@ def set_telegram_status_endpoint(
     return _redirect("telegram_allowed" if allowed else "telegram_blocked")
 
 
+@router.post(
+    f"{USERS_PATH}/{{user_id}}/telegram/{{telegram_id}}/delete", response_class=HTMLResponse
+)
+def delete_telegram_endpoint(
+    user_id: int,
+    telegram_id: Annotated[int, Path(ge=1, le=TELEGRAM_ID_MAX)],
+    user: AdminUser,
+    session: DbSession,
+) -> Response:
+    """12.1.10 kaydı silme (§D107) — `TELEGRAM_USER_CHANGED` {target_user_id, telegram_id, allowed,
+    added: false, removed: true}. Kimlik bu kullanıcıya bağlı değilse 404."""
+    target = _user_or_404(session, user_id)
+    try:
+        remove_telegram_id(session, target.id, telegram_id, actor=user.username)
+    except LookupError:
+        session.rollback()
+        raise HTTPException(status.HTTP_404_NOT_FOUND, TELEGRAM_NOT_FOUND) from None
+    session.commit()
+    return _redirect("telegram_removed")
+
+
 def _account_page(
     request: Request,
     user: PanelUser,
@@ -627,6 +657,23 @@ def set_own_telegram_status_endpoint(
         )
     session.commit()
     return _account_redirect("telegram_allowed" if allowed else "telegram_blocked")
+
+
+@router.post(f"{ACCOUNT_TELEGRAM_PATH}/{{telegram_id}}/delete", response_class=HTMLResponse)
+def delete_own_telegram_endpoint(
+    telegram_id: Annotated[int, Path(ge=1, le=TELEGRAM_ID_MAX)],
+    user: CurrentUser,
+    session: DbSession,
+) -> Response:
+    """12.1.10 kendi kimliğinin kaydını silme — `TELEGRAM_USER_CHANGED` {…, removed: true,
+    via: "account"}. Hedef her zaman oturumdaki kullanıcıdır; kimlik onun değilse 404."""
+    try:
+        remove_telegram_id(session, user.id, telegram_id, actor=user.username, via=ACCOUNT_VIA)
+    except LookupError:
+        session.rollback()
+        raise HTTPException(status.HTTP_404_NOT_FOUND, OWN_TELEGRAM_NOT_FOUND) from None
+    session.commit()
+    return _account_redirect("telegram_removed")
 
 
 @router.post(f"{ACCOUNT_TELEGRAM_PATH}/link", response_class=HTMLResponse)

@@ -160,9 +160,9 @@ DOCUMENT_QUERY_TOOL: ChatCompletionFunctionToolParam = {
     "function": {
         "name": DOCUMENT_QUERY_TOOL_NAME,
         "description": (
-            "İK'nın mesajının belge isteği olarak okunmasını kaydeder: kimin, hangi tür belgesi "
-            "istendi ya da mesajın belge isteği olmadığı. Argümanlar, belge isteği şemasındaki "
-            "her anahtarı taşıyan tek bir nesnedir."
+            "İK'nın bota yazdığı mesajın okunmasını kaydeder: kimin hangi belgeleri, bilgisi "
+            "ya da eksik belgeleri istendi, mesaj hangi dilde ya da mesajın istek olmadığı. "
+            "Tek bir nesnedir; şemadaki her anahtarı taşır."
         ),
         "parameters": DocumentQuery.model_json_schema(),
         "strict": False,

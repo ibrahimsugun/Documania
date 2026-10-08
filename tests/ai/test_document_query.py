@@ -1,5 +1,5 @@
-"""12.3.1 — belge isteği sözleşmesi, isteği, sağlayıcının ortak `read_document_query` adımı, kayıtlı
-yanıt sağlayıcısı ve talimat metni.
+"""12.3.1, 12.3.4–12.3.7, 12.1.12 — belge isteği sözleşmesi, isteği, sağlayıcının ortak
+`read_document_query` adımı, kayıtlı yanıt sağlayıcısı ve talimat metni.
 
 Yapay zekâ canlı çağrılmaz: sağlayıcılar ağsız test sınıfları ya da kayıtlı yanıttır.
 """
@@ -24,7 +24,7 @@ from app.ai import (
     QueryIntent,
     validate_document_query,
 )
-from app.ai.document_query import MAX_PEOPLE
+from app.ai.document_query import MAX_DOCUMENT_KINDS, MAX_PEOPLE, ReplyLanguage
 from app.ai.prompts import load_document_query_instructions
 from app.ai.provider import MAX_ANALYSIS_ATTEMPTS, RETRY_BACKOFF_SECONDS
 from app.ai.recording_provider import RecordingProvider
@@ -86,8 +86,9 @@ def test_payload_is_accepted_from_object_json_text_and_model() -> None:
     assert from_object == from_text == from_model
     assert from_object.intent is QueryIntent.FIND_DOCUMENTS
     assert from_object.people == ("Ornekova Test E0001",)
-    assert from_object.document_kind == "pasaport"
+    assert [item.kind for item in from_object.documents] == ["pasaport"]
     assert from_object.document_types == (LICENSE, "russian_passport")
+    assert from_object.language is ReplyLanguage.TR
 
 
 def test_other_request_carries_nothing_and_text_is_stripped() -> None:
@@ -96,23 +97,56 @@ def test_other_request_carries_nothing_and_text_is_stripped() -> None:
         query_payload("  Ornekova  ", kind=" ehliyet "), known_slugs=SLUGS
     )
 
-    assert (other.intent, other.people, other.document_kind, other.document_types) == (
+    assert (other.intent, other.people, other.documents, other.group, other.language) == (
         QueryIntent.OTHER,
         (),
-        None,
         (),
+        None,
+        None,
     )
-    assert (stripped.people, stripped.document_kind) == (("Ornekova",), "ehliyet")
+    assert (stripped.people, stripped.documents[0].kind) == (("Ornekova",), "ehliyet")
 
 
 def test_request_without_a_kind_or_person_is_a_valid_find_documents_call() -> None:
-    # Kişi ya da tür söylenmemesi okumada hata değildir; ne yapılacağına sistem karar verir.
+    # Kişi ya da tür söylenmemesi okumada hata değildir; ne yapılacağına sistem karar verir
+    # (kişisiz istek önceki kişiye uygulanır, 12.3.5).
     query = validate_document_query(
-        {"intent": "find_documents", "people": [], "document_kind": None, "document_types": []},
+        {**query_payload(kind=None), "people": []},
         known_slugs=SLUGS,
     )
 
-    assert (query.people, query.document_kind, query.document_types) == ((), None, ())
+    assert (query.people, query.documents, query.document_types) == ((), (), ())
+
+
+def test_several_kinds_info_and_missing_documents_are_valid_calls() -> None:
+    several = validate_document_query(
+        {
+            **query_payload(),
+            "documents": [
+                {"kind": "ehliyet", "types": [LICENSE]},
+                {"kind": "CV", "types": []},
+            ],
+        },
+        known_slugs=SLUGS,
+    )
+    info = validate_document_query(
+        {**query_payload(kind=None), "intent": "employee_info"}, known_slugs=SLUGS
+    )
+    missing = validate_document_query(
+        {
+            **query_payload(kind=None),
+            "intent": "missing_documents",
+            "group": "adres kaydı",
+            "group_ids": [3],
+        },
+        known_slugs=SLUGS,
+        known_groups=[3, 4],
+    )
+
+    assert [item.kind for item in several.documents] == ["ehliyet", "CV"]
+    assert several.document_types == (LICENSE,)
+    assert info.intent is QueryIntent.EMPLOYEE_INFO
+    assert (missing.group, missing.group_ids) == ("adres kaydı", (3,))
 
 
 def _without(key: str) -> dict[str, Any]:
@@ -127,13 +161,19 @@ def _with(**changes: Any) -> dict[str, Any]:
     return payload
 
 
+def _kinds(*items: tuple[Any, Any]) -> list[dict[str, Any]]:
+    return [{"kind": kind, "types": types} for kind, types in items]
+
+
 @pytest.mark.parametrize(
     ("payload", "location"),
     [
         (_without("intent"), "intent"),
         (_without("people"), "people"),
-        (_without("document_kind"), "document_kind"),
-        (_without("document_types"), "document_types"),
+        (_without("documents"), "documents"),
+        (_without("group"), "group"),
+        (_without("group_ids"), "group_ids"),
+        (_without("language"), "language"),
         (_with(extra="x"), "extra"),
         (_with(intent="send_all"), "intent"),
         (_with(people="Ornekova"), "people"),
@@ -142,22 +182,40 @@ def _with(**changes: Any) -> dict[str, Any]:
         (_with(people=[7]), "people.0"),
         (_with(people=["x" * 201]), "people.0"),
         (_with(people=[f"Kisi {n}" for n in range(MAX_PEOPLE + 1)]), "people"),
-        (_with(document_kind=""), "document_kind"),
-        (_with(document_kind=3), "document_kind"),
-        (_with(document_types=["Serbian License"]), "document_types.0"),
-        (_with(document_types=[LICENSE, LICENSE]), "yanıt"),
-        (_with(document_kind=None), "yanıt"),
+        (_with(documents=_kinds(("", [LICENSE]))), "documents.0.kind"),
+        (_with(documents=_kinds((3, [LICENSE]))), "documents.0.kind"),
+        (_with(documents=_kinds(("ehliyet", ["Serbian License"]))), "documents.0.types.0"),
+        (_with(documents=_kinds(("ehliyet", [LICENSE, LICENSE]))), "documents.0"),
+        (_with(documents=_kinds(("ehliyet", [LICENSE]), ("Ehliyet", []))), "yanıt"),
+        (
+            _with(documents=_kinds(*((f"t{n}", []) for n in range(MAX_DOCUMENT_KINDS + 1)))),
+            "documents",
+        ),
+        (_with(documents=[{"kind": "ehliyet"}]), "documents.0.types"),
+        (_with(language="de"), "language"),
+        (_with(group="adres kaydı"), "yanıt"),
+        (_with(group_ids=[1]), "yanıt"),
+        (_with(intent="employee_info"), "yanıt"),
+        (
+            {**_with(intent="missing_documents", documents=[]), "group_ids": [1, 1], "group": "x"},
+            "yanıt",
+        ),
+        (
+            {**_with(intent="missing_documents", documents=[]), "group_ids": [0], "group": "x"},
+            "group_ids.0",
+        ),
         ({**other_payload(), "people": ["Ornekova"]}, "yanıt"),
-        ({**other_payload(), "document_kind": "ehliyet"}, "yanıt"),
-        ({**other_payload(), "document_types": [LICENSE]}, "yanıt"),
+        ({**other_payload(), "documents": _kinds(("ehliyet", [LICENSE]))}, "yanıt"),
         ("{bozuk", "yanıt"),
         ([], "yanıt"),
     ],
     ids=[
         "intent-yok",
         "people-yok",
-        "kind-yok",
-        "types-yok",
+        "documents-yok",
+        "group-yok",
+        "group-ids-yok",
+        "language-yok",
         "tanimsiz-anahtar",
         "bilinmeyen-arac",
         "people-liste-degil",
@@ -170,17 +228,24 @@ def _with(**changes: Any) -> dict[str, Any]:
         "sayi-tur-adi",
         "slug-bicimi",
         "tekrar-slug",
-        "tur-adisiz-slug",
+        "tekrar-tur-adi",
+        "cok-tur",
+        "types-yok",
+        "bilinmeyen-dil",
+        "belge-isteginde-grup",
+        "grup-adisiz-grup",
+        "bilgi-isteginde-tur",
+        "tekrar-grup",
+        "gecersiz-grup",
         "other-kisi",
-        "other-tur-adi",
-        "other-slug",
+        "other-tur",
         "bozuk-json",
         "nesne-degil",
     ],
 )
 def test_non_conforming_payload_is_rejected(payload: object, location: str) -> None:
     with pytest.raises(DocumentQueryError) as caught:
-        validate_document_query(payload, known_slugs=SLUGS)
+        validate_document_query(payload, known_slugs=SLUGS, known_groups=[1])
 
     assert any(problem.startswith(location) for problem in caught.value.problems)
 
@@ -191,8 +256,23 @@ def test_slug_outside_the_asked_catalog_is_rejected_and_only_counted() -> None:
     with pytest.raises(DocumentQueryError) as caught:
         validate_document_query(payload, known_slugs=SLUGS)
 
-    assert caught.value.problems == ["document_types: katalogda olmayan 2 tür"]
+    assert caught.value.problems == ["documents: katalogda olmayan 2 tür"]
     assert "ornekova" not in str(caught.value)
+
+
+def test_group_outside_the_asked_list_is_rejected_and_only_counted() -> None:
+    payload = {
+        **query_payload(kind=None),
+        "intent": "missing_documents",
+        "group": "Ornekova süreci",
+        "group_ids": [1, 9],
+    }
+
+    with pytest.raises(DocumentQueryError) as caught:
+        validate_document_query(payload, known_slugs=SLUGS, known_groups=[1])
+
+    assert caught.value.problems == ["group_ids: listede olmayan 1 grup"]
+    assert "Ornekova" not in str(caught.value)
 
 
 def test_rejection_does_not_echo_values_from_the_message() -> None:
@@ -205,12 +285,25 @@ def test_rejection_does_not_echo_values_from_the_message() -> None:
     assert "x" * 101 not in str(caught.value)
 
 
-def test_schema_lists_the_two_tools_and_forbids_unknown_keys() -> None:
+def test_schema_lists_the_tools_and_forbids_unknown_keys() -> None:
     schema = DocumentQuery.model_json_schema()
 
     assert schema["additionalProperties"] is False
-    assert set(schema["required"]) == {"intent", "people", "document_kind", "document_types"}
-    assert schema["$defs"]["QueryIntent"]["enum"] == ["find_documents", "other"]
+    assert set(schema["required"]) == {
+        "intent",
+        "people",
+        "documents",
+        "group",
+        "group_ids",
+        "language",
+    }
+    assert schema["$defs"]["QueryIntent"]["enum"] == [
+        "find_documents",
+        "employee_info",
+        "missing_documents",
+        "other",
+    ]
+    assert schema["$defs"]["ReplyLanguage"]["enum"] == ["tr", "en", "sr"]
 
 
 # --- İstek ---------------------------------------------------------------------------------------
@@ -222,6 +315,7 @@ def test_request_copies_known_slugs_and_hides_text_from_repr() -> None:
     )
 
     assert request.known_slugs == frozenset({LICENSE})
+    assert request.known_groups == frozenset()
     assert "Ornekova" not in repr(request)
     assert "Gizli" not in repr(request)
 
@@ -334,5 +428,5 @@ def test_every_schema_key_is_described_in_the_instructions(key: str) -> None:
 
 
 @pytest.mark.parametrize("value", [intent.value for intent in QueryIntent])
-def test_both_tools_are_named_in_the_instructions(value: str) -> None:
+def test_every_tool_is_named_in_the_instructions(value: str) -> None:
     assert f"`{value}`" in load_document_query_instructions()

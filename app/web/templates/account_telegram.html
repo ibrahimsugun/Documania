@@ -2,7 +2,8 @@
 {# Hesabım → Telegram (12.1.8, PLAN.md §D97 c): yalnız oturumdaki kullanıcının Telegram kimlikleri.
    Telegram'ı yalnız hesabın sahibi bağlar; yollarda kullanıcı kimliği yoktur. "Telegram'ı bağla"
    (12.1.4) tek kullanımlık bot bağlantısı üretir; bağlantı yalnız üretildiği yanıtta görünür. Bot
-   hiç çalışmadıysa (`bot_username` yok) düğme kapalıdır. Elle ekleme ikinci yoldur. #}
+   hiç çalışmadıysa (`bot_username` yok) düğme kapalıdır. Elle ekleme ikinci yoldur. Kayıt silinebilir
+   (12.1.10, §D107): numara serbest kalır, yeniden bağlanabilir. #}
 {% block title %}{{ _("Telegram'ım") }}{% endblock %}
 {% block content %}
 <h1>{{ _("Telegram'ım") }}</h1>
@@ -26,12 +27,16 @@
       <button type="submit">{{ _("İzni aç") }}</button>
       {% endif %}
     </form>
+    <form class="inline-form telegram-delete" method="post" action="/account/telegram/{{ account.telegram_id }}/delete">
+      <button type="submit" class="button-secondary">{{ _("Kaydı sil") }}</button>
+    </form>
   </li>
   {% endfor %}
 </ul>
 {% else %}
 <p class="hint">{{ _("Bağlı Telegram kimliği yok.") }}</p>
 {% endif %}
+<p class="hint telegram-delete-help">{{ _("Telefonunuzu ya da Telegram hesabınızı değiştirdiyseniz eski kaydı silin, sonra yenisini bağlayın.") }}</p>
 
 <h2>{{ _("Telegram'ı bağla") }}</h2>
 <p class="hint telegram-link-help">{% trans %}En kolayı «Telegram'ı bağla»: 10 dakika geçerli, tek kullanımlık bir bot bağlantısı üretilir. Bağlantıyı kendi telefonunuzda açıp «Başlat»a basınca bot Telegram kimliğinizi hesabınıza kendisi bağlar; sayfayı yenileyince kimlik listede görünür. Bağlantıyı kimseyle paylaşmayın: süresi içinde açan herkesin Telegram'ı hesabınıza bağlanır.{% endtrans %}</p>

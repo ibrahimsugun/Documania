@@ -38,6 +38,11 @@ değil, botla birlikte başlayıp duran bir arka plan taramasıdır; parti hatas
 Telegram'a gitmez (12.1.9, §D98 e). Hiçbiri verilmezse bot
 yalnız komutlara yanıt verir.
 
+**Her mesaja yanıt (12.1.11, PLAN.md §D108).** Kapıdan geçen ama hiçbir işleyicinin almadığı mesaj
+sessiz kalmaz: sesli mesaj ve ses dosyası "dinleyemiyorum, yazın", öteki türler (video, çıkartma,
+konum, kişi kartı…) "açamıyorum" yanıtını alır; bilinmeyen komut yardımı alır (`HANDLER_GROUP`'ta
+en sona eklenen yedek işleyiciler).
+
 **Yanıt dili (12.1.6, PLAN.md §D92 k).** Bot metinleri panelle aynı katalogdadır (msgid Türkçe,
 `app.i18n`). Kapı izin verdiği güncellemede kimliğin bağlı olduğu panel kullanıcısının dilini
 (`users.language`) her güncellemede yeniden okur ve context değişkenine yazar; tercih boşsa
@@ -45,7 +50,9 @@ yalnız komutlara yanıt verir.
 değişince botun sonraki yanıtı yeni dildedir, yeniden başlatma gerekmez. Arka plan işleri
 (`asyncio.create_task`, `asyncio.to_thread`) dili oluşturuldukları anki bağlamdan alır.
 `/start <kod>` yanıtı kodun kullanıcısının dilindedir; geçersiz kod ve kişisi bilinmeyen yanıt
-varsayılan dildedir. Belge türü ve çalışan adları veridir, çevrilmez.
+varsayılan dildedir. Belge türü ve çalışan adları veridir, çevrilmez. 12.1.12'den beri kişi bota
+yazdığı dilde yanıt alır: belge isteği mesajın dilini konuşma belleğine yazar
+(`app.telegram.intent.Conversations`), kapı o dili panel tercihinden önce kullanır.
 """
 
 from __future__ import annotations
@@ -71,6 +78,7 @@ from telegram.ext import (
     ApplicationHandlerStop,
     CommandHandler,
     ContextTypes,
+    MessageHandler,
     TypeHandler,
     filters,
 )
@@ -107,8 +115,14 @@ HANDLED_UPDATES = (UpdateType.MESSAGE, UpdateType.CALLBACK_QUERY)
 HELP_TEXT = N_(
     "Merhaba! Belge göndermek için dosyayı buraya gönderin; kimlik belgelerini fotoğraf değil "
     "dosya olarak gönderin.\n"
-    "Bir belgeyi görmek için örneğin “Ahmet Çakar'ın ehliyeti” yazın."
+    "Bir şey sormak için yazın, örneğin:\n"
+    "• “Ahmet Çakar'ın ehliyeti”\n"
+    "• “Ahmet Çakar kaç yaşında?”\n"
+    "• “Ahmet Çakar adres kaydı için hangi belgeleri tamamlamalı?”"
 )
+# 12.1.11: işlenemeyen mesaj türleri sessiz kalmaz.
+VOICE_TEXT = N_("Sesli mesajları dinleyemiyorum. Lütfen isteğinizi yazın.")
+UNSUPPORTED_TEXT = N_("Bunu açamıyorum. Belgeyi dosya olarak gönderin ya da sorunuzu yazın.")
 
 LINKED_TEXT = N_("Tamam, bağlandınız. Artık belge gönderebilir ve isteyebilirsiniz.")
 ALREADY_LINKED_TEXT = N_("Bu Telegram zaten hesabınıza bağlı.")
@@ -255,10 +269,14 @@ class WhitelistGate:
     İzin verdiği güncellemenin dilini (12.1.6) yazar: kullanıcının tercihi ya da varsayılan."""
 
     def __init__(
-        self, session_factory: sessionmaker[Session], default_language: str = DEFAULT_LANGUAGE
+        self,
+        session_factory: sessionmaker[Session],
+        default_language: str = DEFAULT_LANGUAGE,
+        written_language: Callable[[int], str | None] | None = None,
     ) -> None:
         self._session_factory = session_factory
         self._default_language = default_language
+        self._written_language = written_language
 
     async def __call__(self, update: Update, _context: ContextTypes.DEFAULT_TYPE) -> None:
         # Önceki güncellemenin dili sızmasın: kişi bilinene kadar varsayılan dil.
@@ -268,7 +286,14 @@ class WhitelistGate:
             # Kimlik ve içerik loga yazılmaz (CONVENTIONS §6); yalnız güncelleme numarası.
             logger.info("Beyaz liste dışı güncelleme yok sayıldı (update_id=%s)", update.update_id)
             raise ApplicationHandlerStop
-        activate_language(language)
+        # 12.1.12: kişinin bota son yazdığı dil, panel tercihinden önce gelir.
+        user = update.effective_user
+        written = (
+            self._written_language(user.id)
+            if self._written_language is not None and user is not None
+            else None
+        )
+        activate_language(written if written is not None and is_supported(written) else language)
 
     async def _admit(self, update: Update) -> str | None:
         """İzin varsa yanıtın dili, yoksa `None`; liste ve dil tek sorguda okunur (kapı sıradaki
@@ -487,6 +512,17 @@ def register_bot_info(application: Application, layout: DataLayout) -> None:
     application.post_init = _write
 
 
+async def _send_unsupported(update: Update, _context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Hiçbir işleyicinin almadığı mesaj (12.1.11): ses için "dinleyemiyorum", ötekiler için
+    "açamıyorum"."""
+    message = update.effective_message
+    if message is None:
+        return
+    spoken = message.voice is not None or message.audio is not None
+    text = VOICE_TEXT if spoken else UNSUPPORTED_TEXT
+    await message.reply_text(gettext(text))
+
+
 async def _send_help(update: Update, _context: ContextTypes.DEFAULT_TYPE) -> None:
     message, user = update.effective_message, update.effective_user
     if message is not None:
@@ -529,7 +565,19 @@ def build_application(
     LinkStart(session_factory, link_attempts, default_language).register(application)
     IdentityStart(session_factory, identity_replies, default_language).register(application)
     application.add_handler(
-        TypeHandler(Update, WhitelistGate(session_factory, default_language), block=True),
+        TypeHandler(
+            Update,
+            WhitelistGate(
+                session_factory,
+                default_language,
+                written_language=(
+                    document_requests.conversations.language
+                    if document_requests is not None
+                    else None
+                ),
+            ),
+            block=True,
+        ),
         group=GATE_GROUP,
     )
     application.add_handler(CommandHandler(["start", "yardim"], _send_help), group=HANDLER_GROUP)
@@ -537,6 +585,15 @@ def build_application(
         intake.register(application, group=HANDLER_GROUP)
     if document_requests is not None:
         document_requests.register(application, group=HANDLER_GROUP)
+    # 12.1.11: yedekler en sondadır — aynı gruptaki ilk eşleşen işleyici çalışır.
+    application.add_handler(MessageHandler(filters.COMMAND, _send_help), group=HANDLER_GROUP)
+    application.add_handler(
+        MessageHandler(
+            filters.UpdateType.MESSAGE & ~filters.TEXT & ~filters.Document.ALL & ~filters.PHOTO,
+            _send_unsupported,
+        ),
+        group=HANDLER_GROUP,
+    )
     if layout is not None:
         register_bot_info(application, layout)
     if notifier is not None:

@@ -4,8 +4,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Documania panel\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-02 20:18+0000\n"
-"PO-Revision-Date: 2026-10-02 20:18+0000\n"
+"POT-Creation-Date: 2026-10-08 12:27+0000\n"
+"PO-Revision-Date: 2026-10-08 12:27+0000\n"
 "Last-Translator: Documania görev penceresi (gözden geçirilmeli)\n"
 "Language: en\n"
 "Language-Team: English\n"
@@ -42,6 +42,11 @@ msgstr "Write a short note for the \"Other\" reason."
 #: app/web/templates/catalog_candidate_step.html
 msgid "\"Eski sürüm\" işaretlenen çıktı"
 msgstr "Outputs marked \"Old version\""
+
+#: app/web/templates/users.html
+#, python-format
+msgid "%(count)s izinli kimlik"
+msgstr "%(count)s allowed ID(s)"
 
 #: app/web/templates/catalog.html
 #, python-format
@@ -1240,6 +1245,15 @@ msgstr "Name read in the document"
 msgid "Belgeler"
 msgstr "Documents"
 
+#: app/telegram/intent.py
+msgid "Belgeler: yok"
+msgstr "Documents: none"
+
+#: app/telegram/intent.py
+#, python-brace-format
+msgid "Belgeler: {kinds}"
+msgstr "Documents: {kinds}"
+
 #: app/web/templates/profile.html
 msgid ""
 "Belgeleri, belge numaraları, isim yazımları, iletişim bilgileri ve belge "
@@ -1439,6 +1453,10 @@ msgstr ""
 "If you choose an employee, files whose owner cannot be determined from "
 "the document are assigned to them."
 
+#: app/telegram/intent.py
+msgid "Birden çok olanı görmek için yalnız o türü isteyin."
+msgstr "To see one that has several, ask for that type alone."
+
 #: app/web/templates/employee_merge_step.html
 msgid ""
 "Birleşen kaydın belgeleri kalan kaydın adıyla (K8) onun klasörüne "
@@ -1538,6 +1556,11 @@ msgstr "This Telegram cannot be used. Please tell your administrator."
 #: app/telegram/bot.py
 msgid "Bu Telegram zaten hesabınıza bağlı."
 msgstr "This Telegram is already linked to your account."
+
+#: app/telegram/intent.py
+#, python-brace-format
+msgid "Bu ada birden çok belge grubu uyuyor: {groups}. Hangisi olduğunu yazın."
+msgstr "Several document groups match this name: {groups}. Write which one."
 
 #: app/web/templates/catalog_candidate.html
 msgid "Bu aday reddedildi; bir daha listeye düşmez."
@@ -1985,6 +2008,10 @@ msgstr "This item is already resolved; no profile can be created."
 msgid "Bu öğe zaten çözülmüş; yeniden atanamaz."
 msgstr "This item is already resolved; it cannot be assigned again."
 
+#: app/telegram/bot.py
+msgid "Bunu açamıyorum. Belgeyi dosya olarak gönderin ya da sorunuzu yazın."
+msgstr "I can't open this. Send the document as a file or write your question."
+
 #: app/web/templates/training.html
 msgid ""
 "Buraya yüklenen belgeler yalnız <strong>bilinen belgelerin "
@@ -2176,6 +2203,15 @@ msgstr "Verified"
 msgid "Doğum tarihi"
 msgstr "Date of birth"
 
+#: app/telegram/intent.py
+msgid "Doğum tarihi: kayıtlı değil"
+msgstr "Date of birth: not recorded"
+
+#: app/telegram/intent.py
+#, python-brace-format
+msgid "Doğum tarihi: {date} ({age} yaşında)"
+msgstr "Date of birth: {date} ({age} years old)"
+
 #: app/web/templates/catalog.html app/web/templates/catalog_candidate.html
 #: app/web/templates/document_archive_step.html
 #: app/web/templates/employee_merge_step.html app/web/templates/employees.html
@@ -2230,6 +2266,11 @@ msgstr "With incomplete packages"
 #: app/web/templates/profile.html
 msgid "Eksik:"
 msgstr "Missing:"
+
+#: app/telegram/intent.py
+#, python-brace-format
+msgid "Eksiği olan paket: {groups}"
+msgstr "Package with missing documents: {groups}"
 
 #: app/web/templates/account_telegram.html
 msgid "Elle ekle"
@@ -2801,8 +2842,8 @@ msgstr ""
 " files, pages and decisions the system made for that submission."
 
 #: app/telegram/intent.py
-msgid "Her seferinde tek bir kişinin belgesini isteyin."
-msgstr "Ask for one person's documents at a time."
+msgid "Her seferinde tek bir kişiyi sorun."
+msgstr "Ask about one person at a time."
 
 #: app/web/routers/users.py
 msgid "Hesabınıza bağlı böyle bir Telegram kimliği yok"
@@ -3017,6 +3058,10 @@ msgstr "Save"
 msgid "Kaydı kaldır"
 msgstr "Remove record"
 
+#: app/web/templates/account_telegram.html app/web/templates/users.html
+msgid "Kaydı sil"
+msgstr "Delete record"
+
 #: app/web/templates/profile.html app/web/templates/queue.html
 #: app/web/templates/training_known.html app/web/templates/training_type.html
 #: app/web/templates/upload_detail.html
@@ -3117,8 +3162,8 @@ msgid "Kendi parolanızı «Parolamı değiştir» sayfasından değiştirin."
 msgstr "Change your own password on the «Change my password» page."
 
 #: app/telegram/intent.py
-msgid "Kimin belgesini istediğinizi adıyla yazın."
-msgstr "Write the name of the person whose document you want."
+msgid "Kimi sorduğunuzu adıyla yazın."
+msgstr "Write the name of the person you are asking about."
 
 #: app/web/templates/access_log_employee.html
 msgid "Kimler baktı"
@@ -3342,11 +3387,17 @@ msgstr "Mechanically ready"
 msgid ""
 "Merhaba! Belge göndermek için dosyayı buraya gönderin; kimlik belgelerini"
 " fotoğraf değil dosya olarak gönderin.\n"
-"Bir belgeyi görmek için örneğin “Ahmet Çakar'ın ehliyeti” yazın."
+"Bir şey sormak için yazın, örneğin:\n"
+"• “Ahmet Çakar'ın ehliyeti”\n"
+"• “Ahmet Çakar kaç yaşında?”\n"
+"• “Ahmet Çakar adres kaydı için hangi belgeleri tamamlamalı?”"
 msgstr ""
 "Hello! To send a document, send the file here; send identity documents as"
 " a file, not as a photo.\n"
-"To see a document, write for example “Ahmet Çakar'ın ehliyeti”."
+"To ask something, just write, for example:\n"
+"• “Ahmet Cakar's driving licence”\n"
+"• “How old is Ahmet Cakar?”\n"
+"• “Which documents is Ahmet Cakar missing for address registration?”"
 
 #: app/telegram/intent.py
 msgid "Mesajınız çok uzun. Kimin hangi belgesini istediğinizi kısaca yazın."
@@ -3358,11 +3409,15 @@ msgstr "Model:"
 
 #: app/telegram/intent.py
 msgid ""
-"Ne istediğinizi anlayamadım. Bir belgeyi görmek için örneğin “Ahmet "
-"Çakar'ın ehliyeti” yazın."
+"Ne istediğinizi anlayamadım. Şöyle sorabilirsiniz:\n"
+"• “Ahmet Çakar'ın ehliyeti”\n"
+"• “Ahmet Çakar kaç yaşında?”\n"
+"• “Ahmet Çakar adres kaydı için hangi belgeleri tamamlamalı?”"
 msgstr ""
-"I did not understand what you want. To see a document, write for example "
-"“Ahmet Çakar'ın ehliyeti”."
+"I did not understand what you want. You can ask like this:\n"
+"• “Ahmet Cakar's driving licence”\n"
+"• “How old is Ahmet Cakar?”\n"
+"• “Which documents is Ahmet Cakar missing for address registration?”"
 
 #: app/web/templates/profile.html
 msgid "Neden:"
@@ -3910,6 +3965,10 @@ msgstr "Refresh the page"
 msgid "Sayı"
 msgstr "Count"
 
+#: app/telegram/bot.py
+msgid "Sesli mesajları dinleyemiyorum. Lütfen isteğinizi yazın."
+msgstr "I can't listen to voice messages. Please write your request."
+
 #: app/web/templates/catalog.html app/web/templates/document_move.html
 #: app/web/templates/employee_merge_results.html
 #: app/web/templates/queue_assign.html
@@ -4249,6 +4308,14 @@ msgstr ""
 "A phone number must consist of digits, spaces, +, -, dots and "
 "parentheses; {low}–{high} digits."
 
+#: app/web/templates/account_telegram.html
+msgid ""
+"Telefonunuzu ya da Telegram hesabınızı değiştirdiyseniz eski kaydı silin,"
+" sonra yenisini bağlayın."
+msgstr ""
+"If you changed your phone or Telegram account, delete the old record, "
+"then link the new one."
+
 #: app/web/routers/access_log.py app/web/routers/uploads_list.py
 msgid "Telegram"
 msgstr "Telegram"
@@ -4266,10 +4333,20 @@ msgstr ""
 #: app/web/templates/users.html
 msgid ""
 "Telegram botu yalnız izni açık ve kullanıcısı etkin kimliğe yanıt verir. "
-"Kimlik silinmez; gerekmeyen kimliğin izni kapatılır."
+"Geçici olarak durdurmak için izni kapatın. Kaydı silerseniz numara "
+"serbest kalır ve aynı ya da başka bir hesaba yeniden bağlanabilir."
 msgstr ""
 "The Telegram bot replies only to IDs that are allowed and whose user is "
-"active. IDs are never deleted; an ID that is no longer needed is blocked."
+"active. To pause an ID, block it. If you delete the record, the number is"
+" freed and can be linked again to the same or another account."
+
+#: app/web/routers/users.py
+msgid ""
+"Telegram kaydı silindi. Bu numara artık yeniden bağlanabilir; bot ona "
+"yanıt vermeyecek."
+msgstr ""
+"The Telegram record was deleted. This number can now be linked again; the"
+" bot will not reply to it."
 
 #: app/web/templates/users.html
 msgid "Telegram kimlikleri"
@@ -4341,12 +4418,12 @@ msgstr "Connect Telegram"
 #: app/web/templates/users.html
 msgid ""
 "Telegram'ı herkes yalnız kendi hesabına bağlar: «Telegram'ım» "
-"sayfasından. Burada başkasının kimliğinin iznini kapatıp açabilirsiniz "
-"(ör. telefon kaybolunca)."
+"sayfasından. Burada başkasının kimliğinin iznini kapatıp açabilir ya da "
+"kaydını silebilirsiniz (ör. telefon kaybolunca ya da değişince)."
 msgstr ""
 "Everyone links Telegram only to their own account, on the «My Telegram» "
-"page. Here you can block or allow someone else's ID (e.g. when a phone is"
-" lost)."
+"page. Here you can block or allow someone else's ID, or delete its record"
+" (e.g. when a phone is lost or replaced)."
 
 #: app/web/templates/account_telegram.html app/web/templates/users.html
 msgid "Telegram'ım"
@@ -4510,6 +4587,15 @@ msgstr "Not applied"
 #: app/web/templates/employees_results.html app/web/templates/queue_assign.html
 msgid "Uyruk"
 msgstr "Nationality"
+
+#: app/telegram/intent.py
+msgid "Uyruk: kayıtlı değil"
+msgstr "Nationality: not recorded"
+
+#: app/telegram/intent.py
+#, python-brace-format
+msgid "Uyruk: {country}"
+msgstr "Nationality: {country}"
 
 #: app/web/profile_form.py app/web/routers/employees.py
 #: app/web/templates/profile.html
@@ -5282,6 +5368,13 @@ msgstr[1] "and {count} more documents"
 
 #: app/telegram/intent.py
 #, python-brace-format
+msgid "ve {count} belge daha."
+msgid_plural "ve {count} belge daha."
+msgstr[0] "and {count} more document."
+msgstr[1] "and {count} more documents."
+
+#: app/telegram/intent.py
+#, python-brace-format
 msgid "ve {count} belge daha. Türünü de yazarak isteyin."
 msgid_plural "ve {count} belge daha. Türünü de yazarak isteyin."
 msgstr[0] "and {count} more document. Ask again and also write the document type."
@@ -5293,6 +5386,13 @@ msgid "ve {count} kişi daha. Adı daha ayrıntılı yazın."
 msgid_plural "ve {count} kişi daha. Adı daha ayrıntılı yazın."
 msgstr[0] "and {count} more person. Write the name in more detail."
 msgstr[1] "and {count} more people. Write the name in more detail."
+
+#: app/telegram/intent.py
+#, python-brace-format
+msgid "ve {count} tür daha"
+msgid_plural "ve {count} tür daha"
+msgstr[0] "and {count} more type"
+msgstr[1] "and {count} more types"
 
 #: app/web/templates/profile.html app/web/templates/upload.html
 msgid "ya da seçmek için tıklayın · birden çok dosya seçilebilir"
@@ -5374,6 +5474,16 @@ msgstr "{kind}: {count}"
 
 #: app/telegram/intent.py
 #, python-brace-format
+msgid "{employee} için eksik belgeler:"
+msgstr "Missing documents for {employee}:"
+
+#: app/telegram/intent.py
+#, python-brace-format
+msgid "{employee} için eksik belgesi olan paket yok."
+msgstr "{employee} has no package with missing documents."
+
+#: app/telegram/intent.py
+#, python-brace-format
 msgid "{employee} için {count} {kind} buldum. Hangisi?"
 msgid_plural "{employee} için {count} {kind} buldum. Hangisi?"
 msgstr[0] "I found {count} match ({kind}) for {employee}. Which one?"
@@ -5384,14 +5494,26 @@ msgstr[1] "I found {count} matches ({kind}) for {employee}. Which one?"
 msgid "{employee} için {kind} bulamadım."
 msgstr "I could not find a {kind} for {employee}."
 
+#: app/telegram/intent.py
+#, python-brace-format
+msgid "{employee} — {group}: eksik belge yok."
+msgstr "{employee} — {group}: nothing is missing."
+
+#: app/telegram/intent.py
+#, python-brace-format
+msgid "{employee} — {group}: {count} eksik belge."
+msgid_plural "{employee} — {group}: {count} eksik belge."
+msgstr[0] "{employee} — {group}: {count} document missing."
+msgstr[1] "{employee} — {group}: {count} documents missing."
+
 #: app/telegram/whitelist.py
 #, python-brace-format
 msgid ""
-"{id} Telegram kimliği başka bir kullanıcıya bağlı; kayıt silinmediği için"
-" taşınamaz."
+"{id} Telegram kimliği başka bir kullanıcıya bağlı. Önce o kullanıcının "
+"kaydı silinmeli."
 msgstr ""
-"Telegram ID {id} is linked to another user; it cannot be moved because "
-"records are never deleted."
+"Telegram ID {id} is linked to another user. That user's record must be "
+"deleted first."
 
 #: app/telegram/whitelist.py
 #, python-brace-format
@@ -5412,6 +5534,28 @@ msgstr "Telegram ID {id} is already allowed."
 #, python-brace-format
 msgid "{kind} yok"
 msgstr "no {kind}"
+
+#: app/telegram/intent.py
+#, python-brace-format
+msgid "{kind}: bu türü bilmiyorum"
+msgstr "{kind}: I don't know this type"
+
+#: app/telegram/intent.py
+#, python-brace-format
+msgid "{kind}: var"
+msgstr "{kind}: yes"
+
+#: app/telegram/intent.py
+#, python-brace-format
+msgid "{kind}: yok"
+msgstr "{kind}: no"
+
+#: app/telegram/intent.py
+#, python-brace-format
+msgid "{kind}: {count} tane"
+msgid_plural "{kind}: {count} tane"
+msgstr[0] "{kind}: {count}"
+msgstr[1] "{kind}: {count}"
 
 #: app/web/routers/employees.py
 #, python-brace-format
@@ -6013,6 +6157,13 @@ msgstr "The name exactly as printed in the document (may also be Latin)"
 msgid "İsteğe bağlı"
 msgstr "Optional"
 
+#: app/telegram/intent.py
+#, python-brace-format
+msgid "İsteğe bağlı {count} belge de eksik."
+msgid_plural "İsteğe bağlı {count} belge de eksik."
+msgstr[0] "{count} optional document is missing too."
+msgstr[1] "{count} optional documents are missing too."
+
 #: app/web/routers/users.py
 msgid "İzin 'true' ya da 'false' olmalı."
 msgstr "The permission must be 'true' or 'false'."
@@ -6120,6 +6271,11 @@ msgstr "No employees with incomplete packages match “%(query)s”."
 #, python-format
 msgid "“%(query)s” ile eşleşen çalışan yok."
 msgstr "No employees match “%(query)s”."
+
+#: app/telegram/intent.py
+#, python-brace-format
+msgid "“{group}” diye bir belge grubu bilmiyorum."
+msgstr "I don't know a document group called “{group}”."
 
 #: app/telegram/intent.py
 #, python-brace-format

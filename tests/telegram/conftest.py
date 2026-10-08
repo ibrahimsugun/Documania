@@ -116,8 +116,9 @@ class FakeTelegram(BaseRequest):
         return [parameters for name, parameters in self.calls if name == method]
 
     def methods(self) -> list[str]:
-        """`getMe` (başlatma) dışında botun Telegram'a yaptığı çağrılar."""
-        return [name for name, _ in self.calls if name != "getMe"]
+        """`getMe` (başlatma) ve "yazıyor…" göstergesi (`sendChatAction`, 12.1.11) dışında botun
+        Telegram'a yaptığı çağrılar."""
+        return [name for name, _ in self.calls if name not in ("getMe", "sendChatAction")]
 
 
 def _error(description: str) -> bytes:

@@ -45,6 +45,7 @@ from sqlalchemy.orm import Session
 
 from app.db.models import (
     Document,
+    DocumentGroup,
     DocumentStatus,
     Employee,
     EmployeePackage,
@@ -242,35 +243,7 @@ def evaluate_packages(session: Session, packages: Sequence[EmployeePackage]) -> 
     views = []
     for package in packages:
         group = package.group
-        candidates = documents[package.employee_id]
-        items = []
-        for item in active_items(group):
-            found = next(
-                (candidate for candidate in candidates if item_matches(item, candidate)), None
-            )
-            if item.match_kind == GroupItemKind.TYPE and item.document_type is not None:
-                title = item.document_type.name
-            else:
-                title = item.file_label or item.type_slug or ""
-            items.append(
-                PackageItemView(
-                    item_id=item.id,
-                    position=item.position,
-                    match_kind=item.match_kind,
-                    title=title,
-                    required=item.required,
-                    note=item.note,
-                    document=(
-                        None
-                        if found is None
-                        else MatchedDocument(
-                            id=found.document_id,
-                            file_name=found.file_name,
-                            type_name=found.type_name,
-                        )
-                    ),
-                )
-            )
+        items = _item_views(group, documents[package.employee_id])
         views.append(
             PackageView(
                 id=package.id,
@@ -286,10 +259,51 @@ def evaluate_packages(session: Session, packages: Sequence[EmployeePackage]) -> 
                 cancelled_at=package.cancelled_at,
                 cancelled_by=package.cancelled_by,
                 cancel_note=package.cancel_note,
-                items=tuple(items),
+                items=items,
             )
         )
     return views
+
+
+def _item_views(
+    group: DocumentGroup, candidates: Sequence[_Candidate]
+) -> tuple[PackageItemView, ...]:
+    """Grubun kaldırılmamış kalemleri ve her birini karşılayan en yeni belge (14.1.2)."""
+    items = []
+    for item in active_items(group):
+        found = next((candidate for candidate in candidates if item_matches(item, candidate)), None)
+        if item.match_kind == GroupItemKind.TYPE and item.document_type is not None:
+            title = item.document_type.name
+        else:
+            title = item.file_label or item.type_slug or ""
+        items.append(
+            PackageItemView(
+                item_id=item.id,
+                position=item.position,
+                match_kind=item.match_kind,
+                title=title,
+                required=item.required,
+                note=item.note,
+                document=(
+                    None
+                    if found is None
+                    else MatchedDocument(
+                        id=found.document_id,
+                        file_name=found.file_name,
+                        type_name=found.type_name,
+                    )
+                ),
+            )
+        )
+    return tuple(items)
+
+
+def evaluate_group(
+    session: Session, employee_id: str, group: DocumentGroup
+) -> tuple[PackageItemView, ...]:
+    """Grubun kalemlerini, çalışana paket tanımlamadan, onun etkin belgeleriyle karşılaştırır
+    (Telegram'da "… için hangi belgeler eksik", 12.3.7). Paket açılmaz, hiçbir şey yazılmaz."""
+    return _item_views(group, _active_documents(session, [employee_id])[employee_id])
 
 
 def evaluate_package(session: Session, package: EmployeePackage) -> PackageView:

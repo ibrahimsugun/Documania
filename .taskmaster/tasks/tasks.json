@@ -2360,12 +2360,42 @@
         "priority": "high",
         "subtasks": [],
         "updatedAt": "2026-10-02T15:34:01.100Z"
+      },
+      {
+        "id": "163",
+        "title": "12.1-j — Telegram kaydını silme: Kullanıcılar ve Hesabım → Telegram; numara yeniden bağlanabilir [OPUS-HIGH]",
+        "description": "PRD 12.1.10 · FR-MOD-12 · Faz 2 · Should (v2). Tam sözleşme PLAN §D107 — önce oku. R11'in tek istisnası (insan kararı 2026-10-08): kayıt gerçekten silinir.",
+        "details": "KAPSAM: §D107 a–f. (1) `app/telegram/whitelist.py`: `remove_telegram_id(session, *, owner, telegram_id, actor, via=None)` — kimlik `owner`'a bağlı değilse `LookupError`; satır silinir; aynı işlemde `TELEGRAM_USER_CHANGED` {telegram_id, target_user_id, removed: true, (hesap yolunda) via: \"account\"} yazılır. Göç yok. (2) `app/web/routers/users.py`: `POST /users/{id}/telegram/{tid}/delete` (yönetici) ve `POST /account/telegram/{tid}/delete` (hedef her zaman oturumdaki user.id; istekteki user/user_id yok sayılır); bağlı değilse 404; başarıda 303 aynı sayfa. (3) `users.html` (çalışma ağacındaki tamamlanmamış `td.telegram-cell` düzeni üzerine — o değişiklikler bu görevle birlikte commit'lenir) ve `account_telegram.html`: her kimlikte \"İzni kapat/aç\" yanında \"Sil\" (button-small, ikincil); tek adım, hx-confirm yok (§D61-b); \"Kimlik silinmez\" metinleri ve şablon yorumları düzeltilir, silinen numaranın yeniden bağlanabileceği ipucu. (4) Çeviri: yeni/değişen msgid'ler en/sr, `python -m app.i18n check` temiz. (5) README Telegram bölümü ve PLAN §C92 e'ye §D107 göndermesi. (6) Var olan testlerdeki \"sil yok\" assert'i (`tests/web/test_users_telegram.py`) yeni davranışa göre değişir; diğer davranış assert'leri silinmez. DOKUNMA: bot işleyicileri (yalnız test), bağlantı kodu kuralları (TAKEN/BLOCKED aynen), kullanıcı (panel hesabı) silinmez, olay türleri listesi.",
+        "testStrategy": "1) Yönetici A kullanıcısının kimliğini siler: satır yok, olay `removed: true` + yöneticinin adı; sayfa 303 sonrası kimliği listelemez. 2) Silinen numara B kullanıcısına bağlantı koduyla (12.1.4) bağlanır — silmeden önce aynı deneme TAKEN idi; elle eklemede de (Hesabım → Telegram) aynı. 3) Kişi kendi kimliğini Hesabım → Telegram'dan siler (`via: account`); başkasının kimliğini silmeye çalışırsa 404 ve satır yerinde; sorgu/formla kaçırılan user_id hedefi değiştirmez. 4) Kullanıcılar yolunda kimlik o kullanıcıya bağlı değilse 404. 5) İzni kapalı ve pasif kullanıcıya bağlı kimlik de silinebilir. 6) Silinen kimlikten gelen güncelleme kapıda durur, argümansız /start 12.1.7 'bağlı değil' yanıtını alır, eski dil kullanılmaz. 7) Eski olaylar ve `telegram_link_codes.used_telegram_id` değişmez. 8) i18n check temiz. 9) Kural bozmaları (silme sahiplik denetimini atlar; olay yazılmaz; hesap yolu istekteki user_id'yi kullanır) kırmızı. 10) DoD kapısı yeşil.",
+        "status": "in-progress",
+        "dependencies": [
+          "159",
+          "161"
+        ],
+        "priority": "medium",
+        "subtasks": [],
+        "updatedAt": "2026-10-08T12:04:22.842Z"
+      },
+      {
+        "id": "164",
+        "title": "12.3-b — Botla konuşma: birden çok tür, önceki kişiye devam, kişi bilgisi, eksik belgeler; her mesaja yanıt; yazılan dilde yanıt [OPUS-XHIGH]",
+        "description": "PRD 12.3.4, 12.3.5, 12.3.6, 12.3.7, 12.1.11, 12.1.12 · FR-MOD-12 · Faz 2 · Should (v2). Sözleşme PLAN §D108. İnsan isteği (2026-10-08, ekran görüntüsü): bot 'Ehliyet ve CV yüklemiş mi', 'Ehliyet işte', 'kaç yaşında', 'adres kaydı için hangi belgeleri tamamlamalı' sorularını anlamadı, sesli mesaja hiç yanıt vermedi, Türkçe yazana İngilizce yanıt verdi.",
+        "details": "KAPSAM: §D108. (1) `app/ai/document_query.py`: şema — intent ∈ find_documents | employee_info | missing_documents | other; `documents` [{kind, types}] (en çok 5); `group`, `group_ids`; `language` ∈ tr|en|sr|null. Tutarlılık kuralları ve katalog/grup dışı değer reddi. `DocumentQueryRequest.known_groups`. Talimat `document_query.md` yeni niyetler, kişisiz istek ve dil. (2) `app/telegram/intent.py`: çok türlü yanıt (satır başına var/yok, tek belgesi olan tür gönderilir), `Conversation` belleği (sohbet+kişi başına son kişi 10 dk, son dil), kişi bilgisi özeti, eksik belgeler (`app.groups.packages` ile; paket yoksa grup kişinin belgeleriyle değerlendirilir, yazılmaz), seçim sonrası aynı niyet sürer, işlerken `typing`. (3) `app/telegram/bot.py`: kapı yanıt dilini önce konuşma belleğinden alır; desteklenmeyen mesaj ve bilinmeyen komut yanıtı; yardım metni yeni yetenekleri söyler. (4) `app/groups/packages.py`: paketsiz grup değerlendirmesi. (5) Çeviri en/sr; sade dil (`plain.py`) kurallarına uyum. (6) README Telegram bölümü.",
+        "testStrategy": "1) 'Ehliyet ve CV' → tek mesajda iki satır (var/yok), tek ehliyet gönderilir, erişim kaydı 1. 2) Kişisiz 'ehliyet de' önceki kişiye uygulanır; bağlam yoksa ad sorulur; 10 dk sonra bağlam düşer; çok kişili sonuçtan sonra bağlam yok. 3) 'kaç yaşında' → doğum tarihi + yaş + uyruk + belge türleri; belge gönderilmez, erişim kaydı yok. 4) 'adres kaydı için eksikler' → paketli ve paketsiz; eksik yok; tanınmayan grup; grup söylenmeden açık paketler; hiçbir satır yazılmaz. 5) Sesli mesaj, video, çıkartma, konum → yanıt; bilinmeyen komut → yardım. 6) Türkçe yazan İngilizce tercihli kişiye Türkçe yanıt; sonraki belge alma özeti de Türkçe. 7) Şema: tutarsız yanıtlar reddedilir. 8) Bütün yeni metinler üç dilde plain kurallarından geçer. 9) i18n check temiz. 10) DoD kapısı yeşil.",
+        "status": "in-progress",
+        "dependencies": [
+          "161",
+          "163"
+        ],
+        "priority": "medium",
+        "subtasks": [],
+        "updatedAt": "2026-10-08T12:16:48.000Z"
       }
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-02T22:31:19.460Z",
-      "taskCount": 160,
+      "lastModified": "2026-10-08T12:16:48.000Z",
+      "taskCount": 162,
       "completedCount": 160,
       "tags": [
         "master"
