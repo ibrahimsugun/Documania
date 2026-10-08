@@ -14,9 +14,10 @@ def test_every_page_loads_the_theme_after_the_panel_styles(client: TestClient) -
 
     assert page.index('href="/static/panel.css"') < page.index('href="/static/theme.css"')
     assert '<script src="/static/theme.js" defer></script>' in page
-    # Seçim ilk boyamadan önce: satır içi betik theme.js'ten önce ve başlıkta.
+    # Seçim ilk boyamadan önce: engelleyici (defer'siz) betik başlıkta; satır içi betik yok.
     head = page[: page.index("</head>")]
-    assert 'localStorage.getItem("documania-theme")' in head
+    assert '<script src="/static/theme-init.js"></script>' in head
+    assert "<script>" not in page
 
 
 def test_the_topbar_has_a_labelled_theme_toggle(client: TestClient) -> None:
@@ -43,7 +44,7 @@ def test_theme_files_are_served_without_a_session(app) -> None:  # noqa: ANN001
     del app.dependency_overrides[get_current_user]
     anonymous = TestClient(app)
 
-    for path in ("/static/theme.css", "/static/theme.js"):
+    for path in ("/static/theme.css", "/static/theme.js", "/static/theme-init.js"):
         assert anonymous.get(path).status_code == 200, path
     app.dependency_overrides.clear()
 
