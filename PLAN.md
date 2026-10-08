@@ -10,7 +10,7 @@
 | --- | --- | --- | --- | --- |
 | Faz 0 — MVP | §5.1 | 106 ✅ · 0 ◐ · 1 ⬜ · 0 🔒 | 101/101 Must | AÇIK |
 | Faz 1 — v1 | §5.2 | 71 ✅ · 0 ◐ · 2 ⬜ · 0 🔒 | 41/41 Must | AÇIK |
-| Faz 2 — v2 | §5.3 | 27 ✅ · 0 ◐ · 0 ⬜ · 0 🔒 | 0/0 Must | AÇIK |
+| Faz 2 — v2 | §5.3 | 30 ✅ · 0 ◐ · 0 ⬜ · 0 🔒 | 0/0 Must | AÇIK |
 | Faz 3 — Enterprise | §5.4 | 10 ✅ · 0 ◐ · 0 ⬜ · 0 🔒 | 0/0 Must | AÇIK |
 
 ## 1. Bu planın nasıl okunacağı
@@ -60,7 +60,7 @@ panelde `plan-count-drift` bulgusu doğurur.
 | FR-MOD-09 | Çalışan profili ve orkestrasyon | 0 | 10 |
 | FR-MOD-10 | Web yönetim paneli | 1 | 42 |
 | FR-MOD-11 | Belge türü kataloğu ve öğrenme | 1, 2 | 29 |
-| FR-MOD-12 | Telegram botu | 2 | 23 |
+| FR-MOD-12 | Telegram botu | 2 | 26 |
 | FR-MOD-13 | İşletme ve dayanıklılık | 3 | 11 |
 | FR-MOD-14 | Belge grupları ve başvuru paketleri | 1 | 6 |
 
@@ -340,6 +340,7 @@ panelde `plan-count-drift` bulgusu doğurur.
 | 12.1.10 | Telegram kaydını silme | Should (v2) | ✅ → K12.1 |
 | 12.1.11 | Bot her mesaja yanıt verir | Should (v2) | ✅ → K12.1 |
 | 12.1.12 | Bot, kişinin yazdığı dilde yanıt verir | Should (v2) | ✅ → K12.1 |
+| 12.1.13 | Bot yalnız kendi konusunda konuşur | Should (v2) | ✅ → K12.1 |
 | 12.2.1 | Belge alma | Should (v2) | ✅ → K12.2 |
 | 12.2.2 | Çoklu mesaj grubu | Should (v2) | ✅ → K12.2 |
 | 12.2.3 | Sonuç özeti | Should (v2) | ✅ → K12.2 |
@@ -350,6 +351,8 @@ panelde `plan-count-drift` bulgusu doğurur.
 | 12.3.5 | Önceki kişiye devam | Should (v2) | ✅ → K12.3 |
 | 12.3.6 | Kişi bilgisi | Should (v2) | ✅ → K12.3 |
 | 12.3.7 | Eksik belgeler | Should (v2) | ✅ → K12.3 |
+| 12.3.8 | Profil sorusu ve karşılaştırma | Should (v2) | ✅ → K12.3 |
+| 12.3.9 | Tek kişinin belgelerini dışa aktarma, toplu dışa aktarımın reddi | Should (v2) | ✅ → K12.3 |
 | 12.4.1 | Kuyruk ve hata bildirimi | Could (v3) | ✅ → K12.4 |
 
 ## 6. FAZ 3 — Enterprise (PRD §5.4)
@@ -2455,6 +2458,8 @@ bu kayıt neden sapıldığının izlenebilir olması içindir.
 
 - **D109 — Uzun katalogda tür okuması: uydurulan slug atılır, ülkesiz tür etikete tamamlanır (12.3.1, 12.3.4; tm 164 düzeltmesi).** İnsan bildirimi (2026-10-08, ekran görüntüsü): "Pasaport ve CV yüklemiş mi" → "Pasaport: yok" (kişinin Türk pasaportu var); "Hani pasaport yoktu?" ve "Bu adamın pasaportunu bana ver" → "Şu an olmadı". Gerçek modelle yeniden üretildi: katalogda ~100 pasaport türü var; model hepsini saymaya çalışıp `turkish_passport`'u unuttu, öteki iki mesajda katalogda olmayan slug uydurdu ve sözleşme bütün yanıtı reddetti. **(a)** `validate_document_query` katalog dışı slug'ı ve liste dışı grubu artık reddetmez, atar; yalnız sayısı loga yazılır. Tutarsız yanıt (niyet/alan, tekrar) hâlâ reddedilir. **(b)** `intent.complete_kinds`: modelin birden çok tür verdiği ad aynı dosya etiketli bütün türlere tamamlanır; tek tür verilen ad ("Sırp ehliyeti") olduğu gibi kalır. **(c)** `find_kind_documents`: istenen türde belge yoksa aynı etiketli türlerde aranır (yanlış ülke okunmuşsa). Doğrulama: gerçek model + gerçek veritabanı ile ekran görüntüsündeki altı mesaj (yalnız okuma) doğru yanıtlandı.
 
+- **D110 — Profil sorusu, tek kişilik dışa aktarım, konu dışı mesaj sayacı (12.3.8, 12.3.9, 12.1.13; tm 165).** İnsan isteği (2026-10-08): "Model kişilerin profillerine (profil.md) ulaşabilir, mukayese yapabilir. Aynı anda sadece 1 kişinin belgelerini export eder. Toplu dışa aktarımı reddeder. Bot yalnızca kendi sistemi ile ilgili konulara yanıt verir … 3. kez alakasız bir şey sorarsa 'seninle konuşmuyorum' deyip yarım saat yanıt vermez; ardından sayaç sıfırlanır." **(a) Gizlilik kuralı değişti:** CONVENTIONS §6 "başka çalışanın verisi aynı isteğe konmaz" profil sorusu için insan kararıyla kalkar: sistemin deterministik bulduğu en çok 5 kişinin `render_profile` çıktısı (kimlik tablosu, belge numaraları, iletişim, paketler) ikinci bir çağrıyla (`AnalysisProvider.answer_profile_question`, `app/ai/profile_answer.py`, talimat `profile_answer.md`) sağlayıcıya gider. Kişiyi model seçmez; ilk okuma yine yalnız mesajı görür. Yanıttaki çalışan numarası silinir. **(b)** Okuma şemasına `profile_question`, `export_documents`, `bulk_request`, `off_topic` niyetleri; `other` artık yalnız sistemle ilgili ama anlaşılmayan mesajdır. **(c) Dışa aktarım:** tek kişi, en çok 20 belge, her biri erişim kaydıyla; birden çok kişi ya da `bulk_request` → ret, belge yok. **(d) Sayaç:** `Conversations.strike/mute/muted`, kişi başına, bellekte; konuyla ilgili mesaj sıfırlar; üçüncüde `MUTED_TEXT` ve 30 dk. Susturulan kişinin metin, komut ve düğme güncellemeleri kapıda sessizce durur ve yapay zekâya gitmez; dosya ve fotoğraf yine alınır (belge kaybolmasın diye — tam sessizlik istenirse kapıdaki istisna kaldırılır). Bot yeniden başlarsa sayaç ve susturma sıfırlanır. Gerçek modelle denendi: hava durumu → `off_topic`, "bütün belgelerini gönder" → `export_documents`, "herkesin pasaportu" → `bulk_request`, "pasaportu ne zaman bitiyor" → `profile_question`, "merhaba" → `other`.
+
 ## G. İş Kırılımı Dizini
 
 Task Master'a aktarımın kaynağı budur. Her satır bir görevdir; `ID` sütunu görev
@@ -2617,6 +2622,7 @@ başlığının başında birebir geçer.
 | 12.1-i | Botun mesajları sade, kısa ve teknik terimsiz; teknik uyarılar Telegram'a gitmez | 12.1.9, 12.4.1 | [OPUS-HIGH] | 12.1-g | 2 |
 | 12.1-j | Telegram kaydını silme: Kullanıcılar ve Hesabım → Telegram; numara yeniden bağlanabilir | 12.1.10 | [OPUS-HIGH] | 12.1-h, 12.1-i | 2 |
 | 12.3-b | Botla konuşma: birden çok tür, önceki kişiye devam, kişi bilgisi, eksik belgeler; her mesaja yanıt; yazılan dilde yanıt | 12.3.4, 12.3.5, 12.3.6, 12.3.7, 12.1.11, 12.1.12 | [OPUS-XHIGH] | 12.3, 12.1-i, 14.2 | 2 |
+| 12.3-c | Profil sorusu ve karşılaştırma, tek kişilik dışa aktarım, konu dışı mesaj sayacı | 12.3.8, 12.3.9, 12.1.13 | [OPUS-XHIGH] | 12.3-b | 2 |
 | 05.5-b | Doğum tarihi taşımayan belgenin tekil isim eşleşmesi; birikim yok, profilde etiket; S10 yeniden tanımı, S23 | 05.5.4 | [OPUS-XHIGH] | 05.5, 05.7-b, 10.5-d | 0 |
 | 10.5-j | Belgeyi kalıcı silme: dosya, Alinan ve Inbox ölçütleri, iskelet kayıt, profil akışı; S24 | 10.5.12 | [OPUS-XHIGH] | 10.5-g, 10.8 | 1 |
 | 10.5-k | Pasif çalışanı kalıcı silme: klasör, alt kayıtlar, sayfalar, planlar, olay temizliği, görünürlük; S25 | 10.5.13 | [OPUS-XHIGH] | 10.5-j, 10.5-d, 10.5-f | 1 |
@@ -3105,6 +3111,8 @@ var olan maddeler silinmez. Biçim:
 - ✅ 12.1.11 her mesaja yanıt ve 12.1.12 yazılan dilde yanıt (tm 164, §D108): `app/telegram/bot.py` (yedek işleyiciler: bilinmeyen komut → yardım, ses → «dinleyemiyorum», öteki → «açamıyorum»; kapı `written_language`), `app/telegram/intent.py` (`Conversations` dil belleği, `typing`) · test `tests/telegram/test_bot_conversation.py` · tm 164
 - ✅ Kapı (tm 163, 164): ruff check/format, compileall, `import app.main`, temiz SQLite'ta `alembic upgrade head` (→0024), `python -m app.i18n check`, `git diff --check` exit 0; hedef testler yeşil — `tests/telegram` 394, `tests/ai` 763, `tests/web` kullanıcı/hesap/Telegram 457. Tam `pytest --cov` koşusu insan kararıyla (süre) koşulmadı.
 
+- ✅ 12.1.13 konu dışı mesaja kısa ret, ikincide son uyarı, üçüncüde 30 dk sessizlik (tm 165, §D110): `intent.Conversations` sayaç ve susturma, `bot.WhitelistGate(muted=…)` · test `tests/telegram/test_bot_conversation.py` · kapı: ruff, i18n check, tests/telegram 407 + tests/ai + profiles + groups yeşil; tam `pytest --cov` koşulmadı · tm 165
+
 #### K12.3 — 12.3.1, 12.3.2, 12.3.3 · Doğal dil belge istekleri
 - ✅ 12.3.1 "Ahmet Çakar'ın ehliyetini göster" isteği doğru belgeyi bulur: sözleşme `app/ai/document_query.py` (`DocumentQuery`, `validate_document_query`) + `app/ai/provider.py` `read_document_query`/`DocumentQueryRequest` (Anthropic/OpenAI zorlanmış `record_document_query`, görüntüsüz; kayıtlı yanıt sağlayıcısı aynı sıradan) + talimat `app/ai/prompts/document_query.md` + yürütme `app/telegram/intent.py` (`build_query_prompt`, `parse_person`, `find_employees` tam kelime/ad yazımı başına, `find_documents` etkin + tür + yeniden eskiye, `resolve_query`) + bağlantı `app/telegram/bot.py` (`build_application(document_requests=)`, `main`, yardım metni) — test `tests/telegram/test_s17_document_request.py` (1: S17 uçtan uca — ehliyet bota gönderilip boru hattından Hazir'a girer, istek dosyayı Hazir'daki baytlarla gönderir), `tests/telegram/test_document_requests.py` (52), `tests/ai/test_document_query.py` (45), `tests/ai/test_anthropic_provider.py` (+5), `tests/ai/test_openai_provider.py` (+5), `tests/telegram/test_config_and_run.py` (`main` metin ve düğme işleyicilerini bağlar) · C68, D40 · tm 85
 - ✅ 12.3.2 birden fazla sonuçta kullanıcıdan seçim istenir: `resolve_documents`/`_employee_question` (önce çalışan, sonra belge; en çok 10 seçenek, fazlası notla) + `ChoiceStore` (rastgele belirteç, tek kullanımlık, sohbet ve kullanıcıya bağlı, 10 dk, sohbette yalnız son soru) + `DocumentRequests.choose` (düğmeler kaldırılır, geçersiz basış uyarı alır) — test S17 (ikinci ehliyet `-2` ekiyle gelince iki seçenekli soru, belge gitmez; seçilen gönderilir), `tests/telegram/test_document_requests.py` (iki belge, iki çalışan → belge, belgesi olmayan çalışan, türsüz istek, seçenek sınırı, tek kullanım, başka sohbet/kullanıcı, süre, yeni soru, erişilemeyen ileti) · tm 85
@@ -3114,6 +3122,8 @@ var olan maddeler silinmez. Biçim:
 - ✅ 12.3.4–12.3.7 birden çok tür, önceki kişiye devam, kişi bilgisi, eksik belgeler (tm 164, §D108): şema `app/ai/document_query.py` (`documents`, `group`/`group_ids`, `language`, dört niyet), talimat `app/ai/prompts/document_query.md`, `app/telegram/intent.py` (`resolve`, `several_kinds`, `employee_info`, `missing_documents`, `Conversations`), `app/groups/packages.py` `evaluate_group` (paket açmadan) · test `tests/telegram/test_bot_conversation.py` (25), `tests/ai/test_document_query.py` · tm 164
 
 - ✅ 12.3.1/12.3.4 düzeltme (§D109): uydurulan slug atılır (`app/ai/document_query.py`), ülkesiz tür etikete tamamlanır ve yanlış ülkede etikete düşülür (`app/telegram/intent.py` `complete_kinds`, `find_kind_documents`) · test `tests/telegram/test_bot_conversation.py` (+3), `tests/ai/test_document_query.py` · tm 164
+
+- ✅ 12.3.8 profil sorusu ve karşılaştırma, 12.3.9 tek kişilik dışa aktarım ve toplu reddi (tm 165, §D110): `app/ai/profile_answer.py`, `app/ai/prompts/profile_answer.md`, sağlayıcılarda `_request_profile_answer`, `app/telegram/intent.py` (`AskProfiles`, `_compare`, `export_documents`, `build_profile_prompt`) · test `tests/telegram/test_bot_conversation.py` (+14) · tm 165
 
 #### K12.4 — 12.4.1 · Kuyruk ve hata bildirimleri
 - ✅ 12.4.1 kuyruğa yeni öğe düşünce ve parti başarısız olunca beyaz listedeki kullanıcılara bildirim gider — `app/telegram/notify.py` (`Notifier`: `events` taraması `QUEUED_UNKNOWN`/`QUEUED_UNREADABLE`/`QUEUED_UNRESOLVED` + `PIPELINE_FAILED`, kurulduğu andan sonrası, `LOOKBACK` penceresinde numarayla tekilleştirme, en çok bir kez, `notify_once`/`start`/`stop`/`register`; `build_messages` partinin kuyruk olaylarını tek mesaja toplar, en çok 10 satır, gerekçe 160 karakter; `build_failure_message` aşamayı söyler, hata metni/türü/iz gitmez) + bağlantı `app/telegram/bot.py` (`build_application(notifier=)` `post_init`/`post_shutdown`, `main`, yardım metni) · test `tests/telegram/test_notify.py` (31: gerçek boru hattıyla Telegram'dan gelen Word eki kuyruğa düşer ve iki listedeki kullanıcıya bildirim gider, sağlayıcısı biten parti `failed` olur ve aşamasıyla bildirilir, web partisinin olayı, yeniden analiz olayları, yalnız `allowed` kullanıcılar, ilgisiz olaylar yok sayılır, kurulmadan önceki olaylar gitmez, alıcı yokken olay tüketilir, en çok bir kez, geç commit edilen küçük numaralı olay atlanmaz, pencereyi geçen olay gitmez ve bellek büyümez, partiye göre gruplama ve sıra, uzun kuyruk kesilir, aşama etiketleri, bilinmeyen aşama, hata metni sızmaz, ulaşılamayan alıcı ötekileri durdurmaz ve yeniden denenmez, döngü botla başlar/durur ve ikinci başlatma ikinci döngü açmaz, tarama hatası loga türüyle yazılır ve döngü sürer, oluşturucudan gelen kancalar korunur, `run_polling` yolu), `tests/telegram/test_config_and_run.py` (`main` bildirimi bağlar) · C69, D41 · tm 86

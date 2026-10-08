@@ -46,12 +46,14 @@ from anthropic.types import Message, MessageParam, ToolParam
 
 from app.ai.document_query import DocumentQuery, DocumentQueryError
 from app.ai.photo_check import PhotoCheck, PhotoCheckError
+from app.ai.profile_answer import ProfileAnswer, ProfileAnswerError
 from app.ai.provider import (
     AnalysisProvider,
     DocumentQueryRequest,
     PageAnalysisRequest,
     PageImage,
     PhotoCheckRequest,
+    ProfileAnswerRequest,
     ProviderConfigError,
     ProviderConnectionError,
     ProviderError,
@@ -132,6 +134,18 @@ DOCUMENT_QUERY_TOOL: ToolParam = {
         "Tek bir nesnedir; şemadaki her anahtarı taşır."
     ),
     "input_schema": DocumentQuery.model_json_schema(),
+}
+
+
+PROFILE_ANSWER_TOOL_NAME = "record_profile_answer"
+
+PROFILE_ANSWER_TOOL: ToolParam = {
+    "name": PROFILE_ANSWER_TOOL_NAME,
+    "description": (
+        "İK'nın çalışanlar hakkındaki sorusuna, yalnız verilen profillerden yazılmış kısa yanıtı "
+        "kaydeder."
+    ),
+    "input_schema": ProfileAnswer.model_json_schema(),
 }
 
 
@@ -246,6 +260,16 @@ class AnthropicProvider(AnalysisProvider):
             DOCUMENT_QUERY_TOOL,
             label="belge isteği aracı",
             error=DocumentQueryError,
+        )
+
+    def _request_profile_answer(self, request: ProfileAnswerRequest) -> object:
+        return self._forced_tool_call(
+            request.instructions,
+            (),
+            request.prompt,
+            PROFILE_ANSWER_TOOL,
+            label="profil yanıtı aracı",
+            error=ProfileAnswerError,
         )
 
     def _forced_tool_call(

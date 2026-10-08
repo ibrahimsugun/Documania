@@ -273,10 +273,12 @@ class WhitelistGate:
         session_factory: sessionmaker[Session],
         default_language: str = DEFAULT_LANGUAGE,
         written_language: Callable[[int], str | None] | None = None,
+        muted: Callable[[int], bool] | None = None,
     ) -> None:
         self._session_factory = session_factory
         self._default_language = default_language
         self._written_language = written_language
+        self._muted = muted
 
     async def __call__(self, update: Update, _context: ContextTypes.DEFAULT_TYPE) -> None:
         # Önceki güncellemenin dili sızmasın: kişi bilinene kadar varsayılan dil.
@@ -286,8 +288,16 @@ class WhitelistGate:
             # Kimlik ve içerik loga yazılmaz (CONVENTIONS §6); yalnız güncelleme numarası.
             logger.info("Beyaz liste dışı güncelleme yok sayıldı (update_id=%s)", update.update_id)
             raise ApplicationHandlerStop
-        # 12.1.12: kişinin bota son yazdığı dil, panel tercihinden önce gelir.
         user = update.effective_user
+        if self._muted is not None and user is not None and self._muted(user.id):
+            # 12.1.13: susturulan kişiye yanıt yok; gönderdiği dosya yine alınır (belge kaybolmaz).
+            message = update.effective_message
+            if message is None or (message.document is None and not message.photo):
+                logger.info(
+                    "Susturulan kişinin güncellemesi yok sayıldı (update_id=%s)", update.update_id
+                )
+                raise ApplicationHandlerStop
+        # 12.1.12: kişinin bota son yazdığı dil, panel tercihinden önce gelir.
         written = (
             self._written_language(user.id)
             if self._written_language is not None and user is not None
@@ -570,8 +580,14 @@ def build_application(
             WhitelistGate(
                 session_factory,
                 default_language,
+                # Bellek her güncellemede `document_requests`'ten okunur (değiştirilebilir).
                 written_language=(
-                    document_requests.conversations.language
+                    (lambda telegram_id: document_requests.conversations.language(telegram_id))
+                    if document_requests is not None
+                    else None
+                ),
+                muted=(
+                    (lambda telegram_id: document_requests.conversations.muted(telegram_id))
                     if document_requests is not None
                     else None
                 ),

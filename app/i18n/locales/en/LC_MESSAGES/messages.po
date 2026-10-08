@@ -4,8 +4,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Documania panel\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-08 12:27+0000\n"
-"PO-Revision-Date: 2026-10-08 12:27+0000\n"
+"POT-Creation-Date: 2026-10-08 15:34+0000\n"
+"PO-Revision-Date: 2026-10-08 15:34+0000\n"
 "Last-Translator: Documania görev penceresi (gözden geçirilmeli)\n"
 "Language: en\n"
 "Language-Team: English\n"
@@ -1730,6 +1730,22 @@ msgstr ""
 "This record has already been merged with another record; a merge cannot "
 "be undone, use the remaining record."
 
+#: app/telegram/intent.py
+msgid ""
+"Bu konuda yardımcı olamıyorum. Bu son uyarı: bir daha konu dışı "
+"yazarsanız yarım saat yanıt vermeyeceğim."
+msgstr ""
+"I can't help with that. This is the last warning: if you write about "
+"something unrelated again, I will not reply for half an hour."
+
+#: app/telegram/intent.py
+msgid ""
+"Bu konuda yardımcı olamıyorum. Yalnız çalışanlar ve belgeleriyle ilgili "
+"soruları yanıtlarım."
+msgstr ""
+"I can't help with that. I only answer questions about employees and their"
+" documents."
+
 #: app/web/routers/users.py
 msgid "Bu kullanıcıya bağlı böyle bir Telegram kimliği yok"
 msgstr "This user has no such linked Telegram ID"
@@ -2327,6 +2343,11 @@ msgstr "At most <K> files may be sent to the AI. Is this your final decision?"
 #: app/web/templates/catalog_type_fields.html
 msgid "En çok sayfa"
 msgstr "Maximum pages"
+
+#: app/telegram/intent.py
+#, python-brace-format
+msgid "En çok {count} kişiyi birlikte sorabilirsiniz."
+msgstr "You can ask about at most {count} people together."
 
 #: app/web/templates/account_telegram.html app/web/templates/users.html
 msgid "Engelli"
@@ -3965,6 +3986,10 @@ msgstr "Refresh the page"
 msgid "Sayı"
 msgstr "Count"
 
+#: app/telegram/intent.py
+msgid "Seninle konuşmuyorum."
+msgstr "I'm not talking to you."
+
 #: app/telegram/bot.py
 msgid "Sesli mesajları dinleyemiyorum. Lütfen isteğinizi yazın."
 msgstr "I can't listen to voice messages. Please write your request."
@@ -4428,6 +4453,17 @@ msgstr ""
 #: app/web/templates/account_telegram.html app/web/templates/users.html
 msgid "Telegram'ım"
 msgstr "My Telegram"
+
+#: app/telegram/intent.py
+#, python-brace-format
+msgid "Toplam {total} belge var; kalanları panelden indirin."
+msgstr "There are {total} documents in total; download the rest from the panel."
+
+#: app/telegram/intent.py
+msgid ""
+"Toplu dışa aktarım yapamıyorum. Her seferinde yalnız bir kişinin "
+"belgelerini isteyin."
+msgstr "I can't export in bulk. Ask for one person's documents at a time."
 
 #: app/web/routers/training.py
 msgid ""
@@ -5506,6 +5542,13 @@ msgid_plural "{employee} — {group}: {count} eksik belge."
 msgstr[0] "{employee} — {group}: {count} document missing."
 msgstr[1] "{employee} — {group}: {count} documents missing."
 
+#: app/telegram/intent.py
+#, python-brace-format
+msgid "{employee}: {count} belge gönderiyorum."
+msgid_plural "{employee}: {count} belge gönderiyorum."
+msgstr[0] "{employee}: sending {count} document."
+msgstr[1] "{employee}: sending {count} documents."
+
 #: app/telegram/whitelist.py
 #, python-brace-format
 msgid ""
@@ -6296,6 +6339,13 @@ msgstr "“{name}” did not arrive, please send it again."
 #, python-brace-format
 msgid "“{name}” çok büyük, alamadım. Daha küçük parçalar hâlinde gönderin."
 msgstr "“{name}” is too big, I could not take it. Please send it in smaller parts."
+
+#: app/telegram/intent.py
+#, python-brace-format
+msgid "“{person}” adında birden çok kişi var. Adı daha ayrıntılı yazın."
+msgstr ""
+"There is more than one person called “{person}”. Write the name in more "
+"detail."
 
 #: app/telegram/intent.py
 #, python-brace-format

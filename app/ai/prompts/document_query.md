@@ -42,18 +42,36 @@ belgelerinin olduğu ("kaç yaşında", "nereli", "hangi belgeleri var", "dosyas
 `missing_documents`: mesaj kişinin bir süreç ya da başvuru için eksik belgelerini soruyor —
 "... için hangi belgeleri tamamlamalı", "eksiği ne", "neler eksik", "başvurusu tamam mı".
 
-`other`: selamlaşma, teşekkür, bot hakkında soru, kişinin belge ve kimlik dışı bilgisi
-("Ahmet'in telefonu ne?", "maaşı ne?"), belge yüklendiğini bildiren mesaj ve belgeyi değiştirme,
-düzeltme, doldurma, silme, taşıma, arşivleme ya da onaylama istekleri — bot bunları yapmaz. Ne
-istendiğini çıkaramadığın mesaj da `other`dır.
+`profile_question`: bir ya da birkaç kişi hakkında, profil bilgisinden yanıtlanacak daha ayrıntılı
+soru ya da karşılaştırma — "Mehmet ile Ayşe'den hangisi daha yaşlı?", "ikisinin belgelerini
+karşılaştır", "pasaportunun bitiş tarihi ne?", "hangi paketi tamamlanmış?". Basit yaş, uyruk ve
+belge listesi sorusu `employee_info`'dur. Karşılaştırılan her kişi `people`'da bir öğedir.
+
+`export_documents`: tek bir kişinin **bütün** belgelerini istiyor — "bütün belgelerini gönder",
+"dosyasını dışa aktar", "hepsini indir".
+
+`bulk_request`: birden çok kişinin ya da herkesin belgelerini toplu istiyor — "herkesin
+pasaportunu gönder", "tüm çalışanların belgelerini dışa aktar", "Ahmet ve Mehmet'in bütün
+belgelerini gönder". Bot toplu dışa aktarım yapmaz; kişileri yine `people`'a yaz.
+
+`other`: sistemle ilgili ama yukarıdakilerden biri olmayan mesaj — selamlaşma, teşekkür, botun ne
+yaptığına dair soru, belge yüklendiğini bildiren mesaj ve belgeyi değiştirme, düzeltme, doldurma,
+silme, taşıma, arşivleme ya da onaylama istekleri (bot bunları yapmaz). Sistemle ilgili olduğu
+belli ama ne istendiğini çıkaramadığın mesaj da `other`dır.
+
+`off_topic`: çalışanlar, belgeleri, profilleri ve bu sistemle ilgisi olmayan konu — hava durumu,
+fıkra, genel kültür, haber, siyaset, kod yazma, çeviri, kişisel sohbet, kişinin belge ve kimlik dışı
+bilgisi ("maaşı ne?", "telefonu ne?"). Küfür ya da hakaret içeren ama bir istek taşıyan mesaj
+isteğe göre okunur; yalnız hakaretse `off_topic`dir.
 
 ## Yanıt alanları
 
-- `intent`: `find_documents`, `employee_info`, `missing_documents` veya `other`.
+- `intent`: `find_documents`, `employee_info`, `missing_documents`, `profile_question`,
+  `export_documents`, `bulk_request`, `other` veya `off_topic`.
 - `people`: adı geçen her kişi için **bir öğe**, mesajdaki sırayla; öğe o kişinin mesajdaki adı
   (ve soyadı), eksiz. Kişi için bir çalışan numarası yazılmışsa (`E` ve rakamlar, ör. `E0001`)
   numarayı da aynı öğeye aynen yaz ("Ahmet Çakar E0001", yalnız numara yazılmışsa "E0001"). Kişi
-  yazılmamışsa ya da `intent` `other` ise `[]`.
+  yazılmamışsa ya da `intent` `other` veya `off_topic` ise `[]`.
 - `documents`: yalnız `find_documents`'ta; istenen her belge türü için bir öğe, mesajdaki sırayla
   (en çok 5). "Ehliyet ve CV" iki öğedir. Öğe:
   - `kind`: türün mesajdaki adı, eksiz ("ehliyet", "CV", "oturma izni").

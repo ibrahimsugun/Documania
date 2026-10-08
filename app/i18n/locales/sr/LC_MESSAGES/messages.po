@@ -4,8 +4,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Documania panel\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-08 12:27+0000\n"
-"PO-Revision-Date: 2026-10-08 12:27+0000\n"
+"POT-Creation-Date: 2026-10-08 15:34+0000\n"
+"PO-Revision-Date: 2026-10-08 15:34+0000\n"
 "Last-Translator: Documania görev penceresi (gözden geçirilmeli)\n"
 "Language: sr_Latn\n"
 "Language-Team: Srpski\n"
@@ -1736,6 +1736,22 @@ msgstr ""
 "Ovaj zapis je već spojen sa drugim zapisom; spajanje se ne može "
 "poništiti, koristite zapis koji je ostao."
 
+#: app/telegram/intent.py
+msgid ""
+"Bu konuda yardımcı olamıyorum. Bu son uyarı: bir daha konu dışı "
+"yazarsanız yarım saat yanıt vermeyeceğim."
+msgstr ""
+"U tome ne mogu da pomognem. Ovo je poslednje upozorenje: ako opet "
+"napišete nešto nevezano, pola sata neću odgovarati."
+
+#: app/telegram/intent.py
+msgid ""
+"Bu konuda yardımcı olamıyorum. Yalnız çalışanlar ve belgeleriyle ilgili "
+"soruları yanıtlarım."
+msgstr ""
+"U tome ne mogu da pomognem. Odgovaram samo na pitanja o zaposlenima i "
+"njihovim dokumentima."
+
 #: app/web/routers/users.py
 msgid "Bu kullanıcıya bağlı böyle bir Telegram kimliği yok"
 msgstr "Ovaj korisnik nema takav povezani Telegram ID"
@@ -2334,6 +2350,11 @@ msgstr ""
 #: app/web/templates/catalog_type_fields.html
 msgid "En çok sayfa"
 msgstr "Najviše strana"
+
+#: app/telegram/intent.py
+#, python-brace-format
+msgid "En çok {count} kişiyi birlikte sorabilirsiniz."
+msgstr "Možete pitati za najviše {count} osoba zajedno."
 
 #: app/web/templates/account_telegram.html app/web/templates/users.html
 msgid "Engelli"
@@ -3968,6 +3989,10 @@ msgstr "Osvežite stranicu"
 msgid "Sayı"
 msgstr "Broj"
 
+#: app/telegram/intent.py
+msgid "Seninle konuşmuyorum."
+msgstr "Ne pričam s tobom."
+
 #: app/telegram/bot.py
 msgid "Sesli mesajları dinleyemiyorum. Lütfen isteğinizi yazın."
 msgstr "Ne mogu da slušam glasovne poruke. Molim vas, napišite zahtev."
@@ -4434,6 +4459,17 @@ msgstr ""
 #: app/web/templates/account_telegram.html app/web/templates/users.html
 msgid "Telegram'ım"
 msgstr "Moj Telegram"
+
+#: app/telegram/intent.py
+#, python-brace-format
+msgid "Toplam {total} belge var; kalanları panelden indirin."
+msgstr "Ukupno ima {total} dokumenata; ostale preuzmite sa panela."
+
+#: app/telegram/intent.py
+msgid ""
+"Toplu dışa aktarım yapamıyorum. Her seferinde yalnız bir kişinin "
+"belgelerini isteyin."
+msgstr "Ne mogu da izvozim grupno. Tražite dokumente samo jedne osobe odjednom."
 
 #: app/web/routers/training.py
 msgid ""
@@ -5519,6 +5555,14 @@ msgstr[0] "{employee} — {group}: nedostaje {count} dokument."
 msgstr[1] "{employee} — {group}: nedostaju {count} dokumenta."
 msgstr[2] "{employee} — {group}: nedostaje {count} dokumenata."
 
+#: app/telegram/intent.py
+#, python-brace-format
+msgid "{employee}: {count} belge gönderiyorum."
+msgid_plural "{employee}: {count} belge gönderiyorum."
+msgstr[0] "{employee}: šaljem {count} dokument."
+msgstr[1] "{employee}: šaljem {count} dokumenta."
+msgstr[2] "{employee}: šaljem {count} dokumenata."
+
 #: app/telegram/whitelist.py
 #, python-brace-format
 msgid ""
@@ -6307,6 +6351,11 @@ msgid "“{name}” çok büyük, alamadım. Daha küçük parçalar hâlinde g�
 msgstr ""
 "“{name}” je prevelik, nisam mogao da ga primim. Pošaljite ga u manjim "
 "delovima."
+
+#: app/telegram/intent.py
+#, python-brace-format
+msgid "“{person}” adında birden çok kişi var. Adı daha ayrıntılı yazın."
+msgstr "Postoji više osoba sa imenom „{person}”. Napišite ime detaljnije."
 
 #: app/telegram/intent.py
 #, python-brace-format

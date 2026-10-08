@@ -42,6 +42,7 @@ from app.ai.provider import (
     DocumentQueryRequest,
     PageAnalysisRequest,
     PhotoCheckRequest,
+    ProfileAnswerRequest,
     TrainingClassificationRequest,
     TypeDescriptionRequest,
     TypeProposalRequest,
@@ -73,6 +74,7 @@ class RecordingProvider(AnalysisProvider):
         self.training_requests: list[TrainingClassificationRequest] = []
         self.photo_check_requests: list[PhotoCheckRequest] = []
         self.query_requests: list[DocumentQueryRequest] = []
+        self.profile_requests: list[ProfileAnswerRequest] = []
 
     @classmethod
     def from_directory(cls, directory: Path, *, model: str = "recording") -> RecordingProvider:
@@ -107,6 +109,10 @@ class RecordingProvider(AnalysisProvider):
 
     def _request_document_query(self, request: DocumentQueryRequest) -> object:
         self.query_requests.append(request)
+        return self._next_recording()
+
+    def _request_profile_answer(self, request: ProfileAnswerRequest) -> object:
+        self.profile_requests.append(request)
         return self._next_recording()
 
     def _next_recording(self) -> str:

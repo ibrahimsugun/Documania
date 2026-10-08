@@ -82,9 +82,12 @@ from telegram.error import TelegramError
 from telegram.ext import Application, CallbackQueryHandler, ContextTypes, MessageHandler, filters
 
 from app.ai.document_query import DocumentQuery, DocumentQueryError, QueryIntent, RequestedKind
-from app.ai.prompts import load_document_query_instructions
+from app.ai.profile_answer import MAX_COMPARED_PEOPLE, ProfileAnswerError
+from app.ai.prompts import load_document_query_instructions, load_profile_answer_instructions
 from app.ai.provider import (
+    AnalysisProvider,
     DocumentQueryRequest,
+    ProfileAnswerRequest,
     ProviderConfigError,
     ProviderError,
     ProviderFactory,
@@ -111,6 +114,7 @@ from app.i18n import N_, activate_language, current_language, gettext, is_suppor
 from app.matching.names import EmptyNameError, normalize_name
 from app.matching.records import ACTIVE_ALIAS
 from app.matching.status import status_suffix
+from app.profiles.render import render_profile
 from app.storage import DataLayout
 from app.telegram.plain import BULLET, MAX_ITEMS
 from app.telegram.whitelist import is_permitted
@@ -122,6 +126,9 @@ MAX_REQUEST_LENGTH = 500  # karakter; daha uzun mesaj yapay zekâya gönderilmez
 MAX_OPTIONS = MAX_ITEMS  # seçim sorusundaki en çok düğme ve liste öğesi (§D98 b)
 CHOICE_TTL_SECONDS = 10 * 60
 CONTEXT_TTL_SECONDS = 10 * 60  # kişi adı yazılmayan istek bu süre içindeki son kişiye uygulanır
+MUTE_SECONDS = 30 * 60  # art arda üçüncü konu dışı mesajdan sonra sessizlik (12.1.13)
+OFF_TOPIC_LIMIT = 3  # art arda kaçıncı konu dışı mesajda susulur
+MAX_EXPORT_DOCUMENTS = 20  # bütün belgeler isteğinde en çok gönderilen (12.3.9)
 MAX_PENDING_CHOICES = 1000
 # Bot API'nin bota gönderttiği en büyük dosya (yerel Bot API sunucusu olmadan).
 TELEGRAM_SEND_LIMIT_BYTES = 50 * 1024 * 1024
@@ -177,6 +184,23 @@ MANY_GROUPS_TEXT = N_("Bu ada birden çok belge grubu uyuyor: {groups}. Hangisi 
 NOTHING_MISSING_TEXT = N_("{employee} — {group}: eksik belge yok.")
 NO_OPEN_PACKAGE_TEXT = N_("{employee} için eksik belgesi olan paket yok.")
 OPEN_PACKAGES_TEXT = N_("{employee} için eksik belgeler:")
+# Bütün belgeler ve toplu istek (12.3.9).
+BULK_REFUSED_TEXT = N_(
+    "Toplu dışa aktarım yapamıyorum. Her seferinde yalnız bir kişinin belgelerini isteyin."
+)
+EXPORT_LIMIT_TEXT = N_("Toplam {total} belge var; kalanları panelden indirin.")
+# Profil sorusu ve karşılaştırma (12.3.8).
+AMBIGUOUS_PERSON_TEXT = N_("“{person}” adında birden çok kişi var. Adı daha ayrıntılı yazın.")
+TOO_MANY_COMPARED_TEXT = N_("En çok {count} kişiyi birlikte sorabilirsiniz.")
+# Konu dışı mesajlar (12.1.13): art arda birinci, ikinci ve üçüncü.
+OFF_TOPIC_TEXT = N_(
+    "Bu konuda yardımcı olamıyorum. Yalnız çalışanlar ve belgeleriyle ilgili soruları yanıtlarım."
+)
+OFF_TOPIC_LAST_TEXT = N_(
+    "Bu konuda yardımcı olamıyorum. Bu son uyarı: bir daha konu dışı yazarsanız yarım saat yanıt "
+    "vermeyeceğim."
+)
+MUTED_TEXT = N_("Seninle konuşmuyorum.")
 
 
 # --- Kişi ve belge araması (12.3.1) ------------------------------------------------------------
@@ -328,6 +352,19 @@ def build_query_prompt(
     return "\n".join(lines)
 
 
+def build_profile_prompt(profiles: Sequence[str], question: str, language: str) -> str:
+    """Profil sorusunun istemi (12.3.8): yanıt dili, profiller ve soru; İK'nın sorusundaki açı
+    ayraçları etkisizleştirilir."""
+    lines = [f"<dil>{language}</dil>", "<profiller>"]
+    for profile in profiles:
+        lines += ["<profil>", _inert(profile), "</profil>"]
+    lines += ["</profiller>", "<soru>", _inert(question), "</soru>"]
+    return "\n".join(lines)
+
+
+_EMPLOYEE_NUMBER_IN_ANSWER = re.compile(r"\s*\(?(?<![A-Za-z0-9])E\d{4,}\)?")
+
+
 def _inert(text: str) -> str:
     return text.replace("<", "‹").replace(">", "›")
 
@@ -337,14 +374,15 @@ def _inert(text: str) -> str:
 ChoiceKind = Literal["employee", "document"]
 
 
-LookupMode = Literal["documents", "info", "missing"]
+LookupMode = Literal["documents", "info", "missing", "export", "profile"]
 
 
 @dataclass(frozen=True, slots=True)
 class Lookup:
     """Kişi belli olunca ne yapılacağı (seçimden sonra da sürer): istenen türler ve mesajdaki tür
-    adı (tek tür), birden çok türde her tür (`kinds`, 12.3.4), kişi bilgisi ya da eksik belgeler
-    (`mode`, 12.3.6, 12.3.7) ve mesajdaki grup adıyla karşılığı olan gruplar."""
+    adı (tek tür), birden çok türde her tür (`kinds`, 12.3.4), kişi bilgisi, eksik belgeler, bütün
+    belgeler ya da profil sorusu (`mode`, 12.3.6–12.3.9), mesajdaki grup adıyla karşılığı olan
+    gruplar ve profil sorusunun metni (`question`)."""
 
     type_slugs: tuple[str, ...]
     kind: str | None
@@ -352,14 +390,19 @@ class Lookup:
     kinds: tuple[RequestedKind, ...] = ()
     group: str | None = None
     group_ids: tuple[int, ...] = ()
+    question: str = ""
 
 
-def lookup_of(query: DocumentQuery) -> Lookup:
-    """Araç çağrısının, kişi bulunduktan sonra yürütülecek kısmı."""
+def lookup_of(query: DocumentQuery, text: str = "") -> Lookup:
+    """Araç çağrısının, kişi bulunduktan sonra yürütülecek kısmı; `text` İK'nın mesajıdır."""
     if query.intent is QueryIntent.EMPLOYEE_INFO:
         return Lookup((), None, "info")
     if query.intent is QueryIntent.MISSING_DOCUMENTS:
         return Lookup((), None, "missing", group=query.group, group_ids=query.group_ids)
+    if query.intent is QueryIntent.EXPORT_DOCUMENTS:
+        return Lookup((), None, "export")
+    if query.intent is QueryIntent.PROFILE_QUESTION:
+        return Lookup((), None, "profile", question=text)
     kinds = query.documents
     if len(kinds) == 1:
         return Lookup(kinds[0].types, kinds[0].kind, kinds=kinds)
@@ -389,13 +432,22 @@ class SendDocument:
 
 @dataclass(frozen=True, slots=True)
 class Batch:
-    """Önce metin, ardından belgeler (birden çok tür, 12.3.4)."""
+    """Önce metin, ardından belgeler (birden çok tür, 12.3.4; bütün belgeler, 12.3.9)."""
 
     text: str
     document_ids: tuple[int, ...]
 
 
-Reply = TextReply | Question | SendDocument | Batch
+@dataclass(frozen=True, slots=True)
+class AskProfiles:
+    """Profil sorusu (12.3.8): bu çalışanların profilleri ve soru ikinci bir yapay zekâ çağrısına
+    gider (`DocumentRequests`); yanıt metin olarak döner."""
+
+    employee_ids: tuple[str, ...]
+    question: str
+
+
+Reply = TextReply | Question | SendDocument | Batch | AskProfiles
 
 
 @dataclass(frozen=True, slots=True)
@@ -413,14 +465,25 @@ def resolve_query(session: Session, query: DocumentQuery) -> Reply:
     return resolve(session, query).reply
 
 
-def resolve(session: Session, query: DocumentQuery, previous: str | None = None) -> Resolution:
+def resolve(
+    session: Session, query: DocumentQuery, previous: str | None = None, text: str = ""
+) -> Resolution:
     """`resolve_query` ve hangi çalışan için yanıt verildiği. Kişi yazılmamışsa `previous`
-    (aynı sohbetteki son çalışan, 12.3.5) kullanılır; o da yoksa kişinin adı istenir."""
+    (aynı sohbetteki son çalışan, 12.3.5) kullanılır; o da yoksa kişinin adı istenir. `text`
+    İK'nın mesajıdır (profil sorusu, 12.3.8)."""
     if query.intent is QueryIntent.OTHER:
         return Resolution(TextReply(gettext(NOT_A_REQUEST_TEXT)))
+    if query.intent is QueryIntent.OFF_TOPIC:
+        return Resolution(TextReply(gettext(OFF_TOPIC_TEXT)))
+    if query.intent is QueryIntent.BULK_REQUEST:
+        return Resolution(TextReply(gettext(BULK_REFUSED_TEXT)))
+    lookup = lookup_of(complete_kinds(session, query), text)
     if len(query.people) > 1:
+        if query.intent is QueryIntent.PROFILE_QUESTION:
+            return _compare(session, query.people, lookup)
+        if query.intent is QueryIntent.EXPORT_DOCUMENTS:
+            return Resolution(TextReply(gettext(BULK_REFUSED_TEXT)))
         return Resolution(TextReply(gettext(MANY_PEOPLE_TEXT)))
-    lookup = lookup_of(complete_kinds(session, query))
     if len(lookup.kinds) == 1 and not lookup.type_slugs:
         return Resolution(TextReply(gettext(UNKNOWN_KIND_TEXT).format(kind=lookup.kind)))
     if not query.people:
@@ -437,15 +500,62 @@ def resolve(session: Session, query: DocumentQuery, previous: str | None = None)
     return Resolution(_employee_question(session, person, employees, lookup), forget=True)
 
 
+def _compare(session: Session, people: Sequence[str], lookup: Lookup) -> Resolution:
+    """Birden çok kişiye profil sorusu (12.3.8): her ad tek bir çalışana uymalı; uymazsa söylenir
+    (tahmin edilmez). En çok `MAX_COMPARED_PEOPLE` kişi."""
+    if len(people) > MAX_COMPARED_PEOPLE:
+        return Resolution(
+            TextReply(gettext(TOO_MANY_COMPARED_TEXT).format(count=MAX_COMPARED_PEOPLE))
+        )
+    found: list[str] = []
+    for person in people:
+        employees = find_employees(session, parse_person(person))
+        if not employees:
+            return Resolution(
+                TextReply(gettext(NO_EMPLOYEE_TEXT).format(person=person)), forget=True
+            )
+        if len(employees) > 1:
+            return Resolution(
+                TextReply(gettext(AMBIGUOUS_PERSON_TEXT).format(person=person)), forget=True
+            )
+        if employees[0].id not in found:
+            found.append(employees[0].id)
+    return Resolution(AskProfiles(tuple(found), lookup.question), forget=True)
+
+
 def resolve_for(session: Session, employee: Employee, lookup: Lookup) -> Reply:
     """Kişi belli olduktan sonra isteğin niyetine göre yanıt."""
     if lookup.mode == "info":
         return employee_info(session, employee)
     if lookup.mode == "missing":
         return missing_documents(session, employee, lookup)
+    if lookup.mode == "export":
+        return export_documents(session, employee)
+    if lookup.mode == "profile":
+        return AskProfiles((employee.id,), lookup.question)
     if len(lookup.kinds) > 1:
         return several_kinds(session, employee, lookup.kinds)
     return resolve_documents(session, employee, lookup)
+
+
+def export_documents(session: Session, employee: Employee) -> Reply:
+    """Tek kişinin bütün etkin belgeleri (12.3.9): kısa bir satır ve belgeler, en çok
+    `MAX_EXPORT_DOCUMENTS`; fazlası için panel söylenir. Her belge erişim kaydıyla gider."""
+    label = _employee_label(employee)
+    documents = find_documents(session, employee.id, ())
+    if not documents:
+        return TextReply(
+            gettext(NO_DOCUMENT_TEXT).format(employee=label, kind=gettext(ANY_ACTIVE_DOCUMENT))
+        )
+    shown = documents[:MAX_EXPORT_DOCUMENTS]
+    header = ngettext(
+        "{employee}: {count} belge gönderiyorum.",
+        "{employee}: {count} belge gönderiyorum.",
+        len(shown),
+    ).format(employee=label, count=len(shown))
+    if len(documents) > MAX_EXPORT_DOCUMENTS:
+        header += "\n" + gettext(EXPORT_LIMIT_TEXT).format(total=len(documents))
+    return Batch(header, tuple(document.id for document in shown))
 
 
 def several_kinds(session: Session, employee: Employee, kinds: Sequence[RequestedKind]) -> Reply:
@@ -823,8 +933,9 @@ class ChoiceStore:
 
 
 class Conversations:
-    """Konuşma belleği (modül açıklaması): sohbet ve kişi başına son çalışan (süreli) ve kişinin
-    son yazdığı dil. Bot sürecinin belleğindedir; en çok `capacity` kayıt tutar (en eski düşer)."""
+    """Konuşma belleği (modül açıklaması): sohbet ve kişi başına son çalışan (süreli), kişinin
+    son yazdığı dil ve art arda konu dışı mesaj sayısıyla sessizlik süresi (12.1.13). Bot
+    sürecinin belleğindedir; en çok `capacity` kayıt tutar (en eski düşer)."""
 
     def __init__(
         self,
@@ -838,6 +949,8 @@ class Conversations:
         self._capacity = capacity
         self._people: dict[tuple[int, int], tuple[str, float]] = {}
         self._languages: dict[int, str] = {}
+        self._strikes: dict[int, int] = {}
+        self._muted_until: dict[int, float] = {}
 
     def person(self, chat_id: int, telegram_id: int) -> str | None:
         """Bu sohbette bu kişiye son sonuç verilen çalışan; süresi geçtiyse `None`."""
@@ -872,13 +985,45 @@ class Conversations:
             del self._languages[next(iter(self._languages))]
         self._languages[telegram_id] = language
 
+    def strike(self, telegram_id: int) -> int:
+        """Konu dışı mesajı sayar; art arda kaçıncı olduğunu döner (12.1.13)."""
+        count = self._strikes.pop(telegram_id, 0) + 1
+        while len(self._strikes) >= self._capacity:
+            del self._strikes[next(iter(self._strikes))]
+        self._strikes[telegram_id] = count
+        return count
+
+    def clear_strikes(self, telegram_id: int) -> None:
+        """Konuyla ilgili bir mesaj sayacı sıfırlar ("art arda")."""
+        self._strikes.pop(telegram_id, None)
+
+    def mute(self, telegram_id: int, seconds: float = MUTE_SECONDS) -> None:
+        """Kişiye `seconds` boyunca yanıt verilmez; sayaç sıfırlanır."""
+        self._strikes.pop(telegram_id, None)
+        while len(self._muted_until) >= self._capacity:
+            del self._muted_until[next(iter(self._muted_until))]
+        self._muted_until[telegram_id] = self._clock() + seconds
+
+    def muted(self, telegram_id: int) -> bool:
+        """Kişi susturulmuş mu; süre bittiyse kayıt silinir ve yanıt yeniden başlar."""
+        until = self._muted_until.get(telegram_id)
+        if until is None:
+            return False
+        if self._clock() >= until:
+            del self._muted_until[telegram_id]
+            self._strikes.pop(telegram_id, None)
+            return False
+        return True
+
 
 @dataclass(frozen=True, slots=True)
 class Answer:
-    """Okunan mesajın sonucu: çözüm ve mesajın dili (anlaşılamadıysa `None`)."""
+    """Okunan mesajın sonucu: çözüm, mesajın dili (anlaşılamadıysa `None`) ve mesajın konu dışı
+    olup olmadığı (12.1.13; yanıtı sayaç belirler)."""
 
     resolution: Resolution
     language: str | None = None
+    off_topic: bool = False
 
 
 def _keyboard(token: str, labels: Sequence[str]) -> InlineKeyboardMarkup:
@@ -931,6 +1076,7 @@ class DocumentRequests:
         self._choices = choices if choices is not None else ChoiceStore()
         self.conversations = conversations if conversations is not None else Conversations()
         self._instructions = load_document_query_instructions()
+        self._profile_instructions = load_profile_answer_instructions()
         self._tasks: set[asyncio.Task[None]] = set()
 
     def register(self, application: Application, *, group: int) -> None:
@@ -997,11 +1143,28 @@ class DocumentRequests:
                     # 12.1.12: bu yanıt ve kişinin sonraki yanıtları yazdığı dilde.
                     self.conversations.remember_language(telegram_id, answer.language)
                     activate_language(answer.language)
+                if answer.off_topic:
+                    reply = self._off_topic(telegram_id)
+                else:
+                    self.conversations.clear_strikes(telegram_id)
                 if answer.resolution.employee_id is not None:
                     self.conversations.remember(chat_id, telegram_id, answer.resolution.employee_id)
                 elif answer.resolution.forget:
                     self.conversations.forget(chat_id, telegram_id)
         await self._deliver(bot, chat_id, telegram_id, reply)
+
+    def _off_topic(self, telegram_id: int) -> TextReply:
+        """Art arda konu dışı mesaj (12.1.13): birinci kibar ret, ikinci son uyarı, üçüncü
+        "seninle konuşmuyorum" ve `MUTE_SECONDS` sessizlik (kapı o sürede mesajları yanıtsız
+        bırakır, `app.telegram.bot.WhitelistGate`)."""
+        count = self.conversations.strike(telegram_id)
+        if count >= OFF_TOPIC_LIMIT:
+            self.conversations.mute(telegram_id)
+            logger.info("Konu dışı üçüncü mesaj: kişi %d dakika susturuldu", MUTE_SECONDS // 60)
+            return TextReply(gettext(MUTED_TEXT))
+        if count == OFF_TOPIC_LIMIT - 1:
+            return TextReply(gettext(OFF_TOPIC_LAST_TEXT))
+        return TextReply(gettext(OFF_TOPIC_TEXT))
 
     def _reply_to(self, text: str, previous: str | None = None) -> Answer:
         """İsteği yapay zekâya okutur ve aramayı yürütür (iş parçacığında). `previous` aynı
@@ -1031,8 +1194,41 @@ class DocumentRequests:
             activate_language(language)  # yalnız bu iş parçacığının bağlamında
         else:
             language = None
+        if query.intent is QueryIntent.OFF_TOPIC:
+            return Answer(Resolution(TextReply("")), language, off_topic=True)
         with self._session_factory() as session:
-            return Answer(resolve(session, query, previous), language)
+            resolution = resolve(session, query, previous, text)
+        if isinstance(resolution.reply, AskProfiles):
+            reply = self._profile_reply(provider, resolution.reply, language)
+            resolution = Resolution(reply, resolution.employee_id, resolution.forget)
+        return Answer(resolution, language)
+
+    def _profile_reply(
+        self, provider: AnalysisProvider, ask: AskProfiles, language: str | None
+    ) -> TextReply:
+        """Profil sorusu (12.3.8; iş parçacığında): kişilerin `profil.md` içeriği ve soru ikinci
+        bir yapay zekâ çağrısına gider (PLAN.md §D110: kişisel veri sağlayıcıya gider). Yanıttaki
+        çalışan numarası silinir (§D98)."""
+        with self._session_factory() as session:
+            profiles = [
+                render_profile(session, employee)
+                for employee in (
+                    session.get(Employee, employee_id) for employee_id in ask.employee_ids
+                )
+                if employee is not None
+            ]
+        if not profiles:
+            return TextReply(gettext(STALE_CHOICE_TEXT))
+        request = ProfileAnswerRequest(
+            instructions=self._profile_instructions,
+            prompt=build_profile_prompt(profiles, ask.question, language or current_language()),
+        )
+        try:
+            answer = provider.answer_profile_question(request)
+        except (ProviderError, ProfileAnswerError) as exc:
+            logger.error("Profil sorusu yanıtlanamadı (%s)", type(exc).__name__)
+            return TextReply(gettext(FAILURE_TEXT))
+        return TextReply(_EMPLOYEE_NUMBER_IN_ANSWER.sub("", answer.answer).strip())
 
     async def _continue(self, bot: Bot, choice: Choice, option: str) -> None:
         reply: Reply
@@ -1047,7 +1243,20 @@ class DocumentRequests:
             else:
                 # Seçilen kişi sonraki kişisiz isteklerin bağlamıdır (12.3.5).
                 self.conversations.remember(choice.chat_id, choice.telegram_id, option)
+            if isinstance(reply, AskProfiles):
+                try:
+                    reply = await asyncio.to_thread(self._standalone_profile_reply, reply)
+                except Exception as exc:
+                    logger.error("Profil sorusu yanıtlanamadı (%s)", type(exc).__name__)
+                    reply = TextReply(gettext(FAILURE_TEXT))
         await self._deliver(bot, choice.chat_id, choice.telegram_id, reply)
+
+    def _standalone_profile_reply(self, ask: AskProfiles) -> TextReply:
+        try:
+            provider = self._provider_factory(self._settings)
+        except ProviderConfigError:
+            return TextReply(gettext(UNAVAILABLE_TEXT))
+        return self._profile_reply(provider, ask, None)
 
     def _documents_of(self, employee_id: str, lookup: Lookup) -> Reply:
         with self._session_factory() as session:

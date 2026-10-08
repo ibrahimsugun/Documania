@@ -70,6 +70,7 @@ from typing import ClassVar, Literal, final
 
 from app.ai.document_query import DocumentQuery, validate_document_query
 from app.ai.photo_check import PhotoCheck, validate_photo_check
+from app.ai.profile_answer import ProfileAnswer, validate_profile_answer
 from app.ai.schemas import PageAnalysis, PageAnalysisError, validate_page_analysis
 from app.ai.training_classification import (
     TrainingClassification,
@@ -327,6 +328,21 @@ class DocumentQueryRequest:
         object.__setattr__(self, "known_groups", frozenset(self.known_groups))
 
 
+@dataclass(frozen=True, slots=True, kw_only=True)
+class ProfileAnswerRequest:
+    """Profil sorusunun yanıtı (12.3.8): talimat ve istem (profiller, soru, dil). Görüntü yoktur.
+    Metinler kişisel veri taşır; `repr`'a girmez."""
+
+    instructions: str = field(repr=False)
+    prompt: str = field(repr=False)
+
+    def __post_init__(self) -> None:
+        if not self.instructions.strip():
+            raise ValueError("instructions boş olamaz")
+        if not self.prompt.strip():
+            raise ValueError("prompt boş olamaz")
+
+
 class AnalysisProvider(abc.ABC):
     """Sayfa analizi sağlayıcısı. `name` `AI_PROVIDER` değeridir, `model` kullanılan modeldir.
 
@@ -417,6 +433,12 @@ class AnalysisProvider(abc.ABC):
         )
 
     @final
+    def answer_profile_question(self, request: ProfileAnswerRequest) -> ProfileAnswer:
+        """Verilen profillerden soruyu yanıtlatır (12.3.8). Yeniden deneme `analyze_page`'teki
+        gibidir; uymayan yanıt `ProfileAnswerError` olur, düzeltilmez."""
+        return validate_profile_answer(_with_retry(self._request_profile_answer, request))
+
+    @final
     def propose_type(self, request: TypeProposalRequest) -> TypeProposal:
         """Aday türün örnek sayfalarından tam katalog kaydı taslağı ürettirir (11.5.5).
 
@@ -466,6 +488,11 @@ class AnalysisProvider(abc.ABC):
         (sözleşmesi `_request_analysis`'inkidir; yapılandırılmış çıktı yoksa
         `DocumentQueryError`). Varsayılan: sağlayıcı bu işi yapmaz."""
         raise ProviderError(f"'{self.name}' sağlayıcısı belge isteği okumuyor")
+
+    def _request_profile_answer(self, request: ProfileAnswerRequest) -> object:
+        """Profil sorusu için sağlayıcıyı bir kez çağırır, yapılandırılmış çıktıyı doğrulamadan
+        döner (yapılandırılmış çıktı yoksa `ProfileAnswerError`). Varsayılan: bu işi yapmaz."""
+        raise ProviderError(f"'{self.name}' sağlayıcısı profil sorusu yanıtlamıyor")
 
     def _request_type_proposal(self, request: TypeProposalRequest) -> object:
         """Tür taslağı için sağlayıcıyı bir kez çağırır, yapılandırılmış çıktıyı doğrulamadan döner

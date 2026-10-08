@@ -18,6 +18,13 @@ Blok biçimi `CONVENTIONS.md` §3'te tanımlıdır:
 
 ## Task log (newest-first)
 
+## 165 — 12.3-c Profil sorusu, tek kişilik dışa aktarım, konu dışı sayacı — done — 2026-10-08
+- Yapıldı: profil.md'ler ikinci yapay zekâ çağrısıyla soruya yanıt (≤5 kişi, karşılaştırma); tek kişinin bütün belgeleri (≤20), toplu istek reddi; konu dışı mesaja ret → son uyarı → "Seninle konuşmuyorum" + 30 dk sessizlik (§D110).
+- Doğrulama: ruff, i18n check; tests/telegram 407, tests/ai, profiles, groups yeşil; gerçek modelle niyet sınıflandırması 5/5 doğru. Tam `pytest --cov` koşulmadı.
+- Varsayımlar: susturulan kişinin dosyaları yine alınır; profiller sağlayıcıya gider (CONVENTIONS §6 insan kararıyla değişti).
+- Sonraki pencereye not: CONVENTIONS §6'ya profil sorusu istisnası henüz yazılmadı; susturma ve sayaç bot yeniden başlayınca sıfırlanır.
+
+
 ## 164 — düzeltme: pasaport bulunamadı / "Şu an olmadı" (§D109) — done — 2026-10-08
 - Yapıldı: katalog dışı slug yanıtı düşürmüyor, atılıyor; ülkesiz tür aynı etiketin bütün türlerine tamamlanıyor; yanlış ülkede etikete düşülüyor.
 - Doğrulama: ruff, tests/ai + tests/telegram + tests/groups 1225 yeşil; gerçek model + gerçek DB ile ekran görüntüsündeki 6 mesaj doğru.

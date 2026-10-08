@@ -2437,13 +2437,27 @@
         "priority": "high",
         "subtasks": [],
         "updatedAt": "2026-10-08T14:30:00.000Z"
+      },
+      {
+        "id": "165",
+        "title": "12.3-c — Profil sorusu ve karşılaştırma, tek kişilik dışa aktarım, konu dışı mesaj sayacı [OPUS-XHIGH]",
+        "description": "PRD 12.3.8, 12.3.9, 12.1.13 · FR-MOD-12 · Faz 2 · Should (v2). Sözleşme PLAN §D110.",
+        "details": "Profil sorusu: kişiler deterministik bulunur, render_profile çıktıları + soru ikinci çağrıya (answer_profile_question). Dışa aktarım: tek kişi ≤20 belge, toplu ret. Konu dışı: ret, son uyarı, 'Seninle konuşmuyorum' + 30 dk susturma (Conversations, kapı).",
+        "testStrategy": "tests/telegram/test_bot_conversation.py: karşılaştırma istemi iki profili taşır, numara silinir; belirsiz ad; dışa aktarım + erişim kaydı; toplu ret (3 durum); sayaç ret→uyarı→susturma→30 dk sonra yanıt; ilgili mesaj sayacı sıfırlar; metinler üç dilde sade.",
+        "status": "done",
+        "dependencies": [
+          "164"
+        ],
+        "priority": "medium",
+        "subtasks": [],
+        "updatedAt": "2026-10-08T15:41:28.000Z"
       }
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-08T14:30:00.000Z",
-      "taskCount": 165,
-      "completedCount": 162,
+      "lastModified": "2026-10-08T15:41:28.000Z",
+      "taskCount": 166,
+      "completedCount": 163,
       "tags": [
         "master"
       ]

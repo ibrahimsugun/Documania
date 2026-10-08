@@ -56,12 +56,14 @@ from openai.types.chat import (
 
 from app.ai.document_query import DocumentQuery, DocumentQueryError
 from app.ai.photo_check import PhotoCheck, PhotoCheckError
+from app.ai.profile_answer import ProfileAnswer, ProfileAnswerError
 from app.ai.provider import (
     AnalysisProvider,
     DocumentQueryRequest,
     PageAnalysisRequest,
     PageImage,
     PhotoCheckRequest,
+    ProfileAnswerRequest,
     ProviderConfigError,
     ProviderConnectionError,
     ProviderError,
@@ -178,6 +180,22 @@ _PERMANENT_RATE_LIMIT_CODES = frozenset({"insufficient_quota"})
 """429 ile dönen ama beklemekle geçmeyen durumlar (kota/bakiye bitti): yeniden denenmez."""
 
 
+PROFILE_ANSWER_TOOL_NAME = "record_profile_answer"
+
+PROFILE_ANSWER_TOOL: ChatCompletionFunctionToolParam = {
+    "type": "function",
+    "function": {
+        "name": PROFILE_ANSWER_TOOL_NAME,
+        "description": (
+            "İK'nın çalışanlar hakkındaki sorusuna, yalnız verilen profillerden yazılmış kısa "
+            "yanıtı kaydeder."
+        ),
+        "parameters": ProfileAnswer.model_json_schema(),
+        "strict": False,
+    },
+}
+
+
 class OpenAIProvider(AnalysisProvider):
     """OpenAI Chat Completions API ile sayfa analizi, tür açıklaması, tür taslağı, eğitim
     sınıflandırması, fotoğraf kontrolü ve belge isteği (`AI_PROVIDER=openai`)."""
@@ -287,6 +305,16 @@ class OpenAIProvider(AnalysisProvider):
             DOCUMENT_QUERY_TOOL,
             label="belge isteği işlevi",
             error=DocumentQueryError,
+        )
+
+    def _request_profile_answer(self, request: ProfileAnswerRequest) -> object:
+        return self._forced_function_call(
+            request.instructions,
+            (),
+            request.prompt,
+            PROFILE_ANSWER_TOOL,
+            label="profil yanıtı işlevi",
+            error=ProfileAnswerError,
         )
 
     def _forced_function_call(

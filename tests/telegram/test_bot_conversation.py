@@ -640,3 +640,158 @@ def test_a_single_wrong_country_falls_back_to_the_same_label(
     say(bot, "Mehmet Örnek pasaportu")
 
     assert bot.telegram.uploads == [("p.pdf", pdf("p"))]
+
+
+# --- 12.3.8–12.3.9, 12.1.13: profil sorusu, dışa aktarım, konu dışı -----------------------------
+
+
+class ProfileProvider(QueryProvider):
+    """Okumalara ve profil yanıtlarına sırayla verilen yanıtı döner; profil isteklerini saklar."""
+
+    def __init__(self, *responses: object, answers: tuple[object, ...] = ()) -> None:
+        super().__init__(*responses)
+        self._answers = list(answers)
+        self.profile_requests: list[Any] = []
+
+    def _request_profile_answer(self, request: Any) -> object:
+        self.profile_requests.append(request)
+        return self._answers.pop(0)
+
+
+def test_a_comparison_sends_both_profiles_and_the_question_to_the_model(
+    make_request_bot: Callable[..., IntakeBot],
+    listed: None,
+    session_factory: sessionmaker[Session],
+) -> None:
+    add_employee(session_factory, 1, "MEHMET", "ÖRNEK", date_of_birth=date(1984, 8, 14))
+    add_employee(session_factory, 2, "AYŞE", "DENEME", date_of_birth=date(1990, 1, 1))
+    provider = ProfileProvider(
+        ask_for("Mehmet Örnek", "Ayşe Deneme", intent_name="profile_question"),
+        answers=({"answer": "Mehmet Örnek (E0001) daha yaşlı."},),
+    )
+    bot = make_request_bot(provider)
+
+    say(bot, "Mehmet Örnek ile Ayşe Deneme'den hangisi daha yaşlı?")
+
+    assert bot.telegram.sent_texts() == ["Mehmet Örnek daha yaşlı."]  # numara silindi
+    (request,) = provider.profile_requests
+    assert request.prompt.count("<profil>") == 2
+    assert "# MEHMET ÖRNEK" in request.prompt and "# AYŞE DENEME" in request.prompt
+    assert "hangisi daha yaşlı" in request.prompt and "<dil>tr</dil>" in request.prompt
+
+
+def test_a_profile_question_about_an_ambiguous_name_asks_for_more_detail(
+    make_request_bot: Callable[..., IntakeBot],
+    listed: None,
+    session_factory: sessionmaker[Session],
+) -> None:
+    add_employee(session_factory, 1, "MEHMET", "ÖRNEK")
+    add_employee(session_factory, 2, "AHMET", "ÇAKAR")
+    add_employee(session_factory, 3, "AHMET", "ÇAKAR")
+    provider = ProfileProvider(
+        ask_for("Mehmet Örnek", "Ahmet Çakar", intent_name="profile_question")
+    )
+    bot = make_request_bot(provider)
+
+    say(bot, "Mehmet ile Ahmet'i karşılaştır")
+
+    assert bot.telegram.sent_texts() == [
+        "“Ahmet Çakar” adında birden çok kişi var. Adı daha ayrıntılı yazın."
+    ]
+    assert provider.profile_requests == []
+
+
+def test_all_documents_of_one_person_are_sent_with_access_rows(
+    chat: Callable[..., tuple[IntakeBot, QueryProvider]],
+    session_factory: sessionmaker[Session],
+    layout: DataLayout,
+) -> None:
+    employee = add_employee(session_factory, 1, "MEHMET", "ÖRNEK")
+    add_document(session_factory, layout, employee, PASSPORT, "p.pdf", pdf("p"))
+    add_document(session_factory, layout, employee, LICENSE, "l.pdf", pdf("l"))
+    bot, _ = chat(ask_for("Mehmet Örnek", intent_name="export_documents"))
+
+    say(bot, "Mehmet Örnek'in bütün belgelerini gönder")
+
+    assert bot.telegram.sent_texts() == ["MEHMET ÖRNEK: 2 belge gönderiyorum."]
+    assert sorted(name for name, _ in bot.telegram.uploads) == ["l.pdf", "p.pdf"]
+    assert len(access_rows(session_factory)) == 2
+
+
+@pytest.mark.parametrize(
+    "response",
+    [
+        ask_for("Mehmet Örnek", "Ayşe Deneme", intent_name="export_documents"),
+        ask_for(intent_name="bulk_request"),
+        ask_for("Mehmet Örnek", "Ayşe Deneme", intent_name="bulk_request"),
+    ],
+    ids=["iki-kisi", "herkes", "toplu-adli"],
+)
+def test_bulk_export_is_refused(
+    chat: Callable[..., tuple[IntakeBot, QueryProvider]],
+    session_factory: sessionmaker[Session],
+    layout: DataLayout,
+    response: dict[str, Any],
+) -> None:
+    employee = add_employee(session_factory, 1, "MEHMET", "ÖRNEK")
+    add_document(session_factory, layout, employee, PASSPORT, "p.pdf", pdf("p"))
+    bot, _ = chat(response)
+
+    say(bot, "herkesin belgelerini gönder")
+
+    assert bot.telegram.sent_texts() == [gettext(intent.BULK_REFUSED_TEXT)]
+    assert bot.telegram.uploads == [] and access_rows(session_factory) == []
+
+
+def test_off_topic_is_refused_then_warned_then_muted_for_half_an_hour(
+    chat: Callable[..., tuple[IntakeBot, QueryProvider]],
+    session_factory: sessionmaker[Session],
+) -> None:
+    now = [0.0]
+    add_employee(session_factory, 1, "MEHMET", "ÖRNEK")
+    off = ask_for(intent_name="off_topic")
+    bot, provider = chat(
+        off, off, off, ask_for("Mehmet Örnek", intent_name="employee_info"), clock=lambda: now[0]
+    )
+
+    say(bot, "hava nasıl", "bir fıkra anlat", "maç kaç kaç")
+    say(bot, "Mehmet Örnek kimdir", "/yardim", start=4)  # susturuldu: yanıt yok
+    now[0] = intent.MUTE_SECONDS + 1
+    say(bot, "Mehmet Örnek kimdir", start=6)
+
+    texts = bot.telegram.sent_texts()
+    assert texts[:3] == [
+        gettext(intent.OFF_TOPIC_TEXT),
+        gettext(intent.OFF_TOPIC_LAST_TEXT),
+        "Seninle konuşmuyorum.",
+    ]
+    assert len(texts) == 4 and texts[3].startswith("MEHMET ÖRNEK")
+    assert len(provider.queries) == 4  # susturulduğu sürede yapay zekâya da gitmedi
+
+
+def test_a_related_message_resets_the_off_topic_count(
+    chat: Callable[..., tuple[IntakeBot, QueryProvider]],
+    session_factory: sessionmaker[Session],
+) -> None:
+    add_employee(session_factory, 1, "MEHMET", "ÖRNEK")
+    off = ask_for(intent_name="off_topic")
+    bot, _ = chat(off, ask_for("Mehmet Örnek", intent_name="employee_info"), off, off)
+
+    say(bot, "hava nasıl", "Mehmet Örnek kimdir", "fıkra", "maç")
+
+    texts = bot.telegram.sent_texts()
+    assert texts[0] == gettext(intent.OFF_TOPIC_TEXT)
+    assert texts[2:] == [gettext(intent.OFF_TOPIC_TEXT), gettext(intent.OFF_TOPIC_LAST_TEXT)]
+
+
+@pytest.mark.parametrize("language", ["tr", "en", "sr"])
+def test_refusal_texts_are_plain(language: str) -> None:
+    with use_language(language):
+        for message in (
+            intent.OFF_TOPIC_TEXT,
+            intent.OFF_TOPIC_LAST_TEXT,
+            intent.MUTED_TEXT,
+            intent.BULK_REFUSED_TEXT,
+            intent.AMBIGUOUS_PERSON_TEXT,
+        ):
+            assert problems(gettext(message), language) == []

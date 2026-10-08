@@ -11,7 +11,14 @@ verilir; yanıt bu şemadadır ve isteğin karşılığı olan **tek araç çağ
 - `missing_documents` — çalışanın bir süreç için eksik belgelerini sor (12.3.7). `group` sürecin
   mesajdaki adı ("adres kaydı"; söylenmediyse `null`), `group_ids` ona karşılık gelen belge
   grupları (istemdeki listeden; karşılığı yoksa boş).
-- `other` — mesaj bunlardan biri değil (selam, belgeyi değiştirme ya da silme isteği…).
+- `profile_question` — bir ya da birkaç kişinin profilinden yanıtlanacak soru ya da karşılaştırma
+  (12.3.8); sistem profilleri ikinci bir çağrıyla modele verir (`app.ai.profile_answer`).
+- `export_documents` — tek kişinin bütün belgelerini gönder (12.3.9).
+- `bulk_request` — birden çok kişinin ya da herkesin belgelerini toplu isteme; reddedilir (12.3.9).
+- `other` — sistemle ilgili ama bunlardan biri değil (selam, teşekkür, belgeyi değiştirme ya da
+  silme isteği…).
+- `off_topic` — sistemle ilgisiz konu (hava durumu, fıkra, genel bilgi…); kısa red, art arda
+  üçüncüsünde yarım saat sessizlik (12.1.13).
 
 `people` mesajda adı geçen kişilerdir, çekim ekleri atılmış ("Ahmet Çakar"; çalışan numarası
 yazılmışsa o da, "E0001"). Kişi yazılmamışsa boştur; sistem o zaman aynı sohbetteki önceki kişiyi
@@ -64,12 +71,20 @@ GroupId = Annotated[int, Field(strict=True, ge=1)]
 
 
 class QueryIntent(enum.StrEnum):
-    """Mesajın karşılığı olan araç (12.3.1, 12.3.6, 12.3.7)."""
+    """Mesajın karşılığı olan araç (12.3.1, 12.3.6–12.3.10, 12.1.13)."""
 
     FIND_DOCUMENTS = "find_documents"
     EMPLOYEE_INFO = "employee_info"
     MISSING_DOCUMENTS = "missing_documents"
+    PROFILE_QUESTION = "profile_question"
+    EXPORT_DOCUMENTS = "export_documents"
+    BULK_REQUEST = "bulk_request"
     OTHER = "other"
+    OFF_TOPIC = "off_topic"
+
+
+SILENT_INTENTS = frozenset({QueryIntent.OTHER, QueryIntent.OFF_TOPIC})
+"""Kişi taşımayan niyetler."""
 
 
 class ReplyLanguage(enum.StrEnum):
@@ -130,8 +145,8 @@ class DocumentQuery(BaseModel):
             raise ValueError("documents: yalnız 'find_documents' yanıtında dolu")
         if self.intent is not QueryIntent.MISSING_DOCUMENTS and self.group is not None:
             raise ValueError("group: yalnız 'missing_documents' yanıtında dolu")
-        if self.intent is QueryIntent.OTHER and self.people:
-            raise ValueError("people: 'other' yanıtında boş")
+        if self.intent in SILENT_INTENTS and self.people:
+            raise ValueError("people: 'other' ve 'off_topic' yanıtında boş")
         return self
 
     @property

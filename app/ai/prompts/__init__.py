@@ -11,6 +11,7 @@ from app.ai.prompts.page_analysis import (
     load_page_analysis_template,
 )
 from app.ai.prompts.photo_check import load_photo_check_instructions
+from app.ai.prompts.profile_answer import load_profile_answer_instructions
 from app.ai.prompts.training_classification import (
     DOC_KINDS_SLOT,
     TrainingClassificationInstructions,
@@ -31,6 +32,7 @@ __all__ = [
     "load_document_query_instructions",
     "load_page_analysis_template",
     "load_photo_check_instructions",
+    "load_profile_answer_instructions",
     "load_training_classification_template",
     "load_type_description_instructions",
     "load_type_proposal_instructions",

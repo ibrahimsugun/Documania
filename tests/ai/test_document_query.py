@@ -297,7 +297,11 @@ def test_schema_lists_the_tools_and_forbids_unknown_keys() -> None:
         "find_documents",
         "employee_info",
         "missing_documents",
+        "profile_question",
+        "export_documents",
+        "bulk_request",
         "other",
+        "off_topic",
     ]
     assert schema["$defs"]["ReplyLanguage"]["enum"] == ["tr", "en", "sr"]
 

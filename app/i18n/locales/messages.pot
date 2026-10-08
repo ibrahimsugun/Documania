@@ -4,7 +4,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Documania panel\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-08 12:27+0000\n"
+"POT-Creation-Date: 2026-10-08 15:34+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1505,6 +1505,18 @@ msgid ""
 " kalan kaydı kullanın."
 msgstr ""
 
+#: app/telegram/intent.py
+msgid ""
+"Bu konuda yardımcı olamıyorum. Bu son uyarı: bir daha konu dışı "
+"yazarsanız yarım saat yanıt vermeyeceğim."
+msgstr ""
+
+#: app/telegram/intent.py
+msgid ""
+"Bu konuda yardımcı olamıyorum. Yalnız çalışanlar ve belgeleriyle ilgili "
+"soruları yanıtlarım."
+msgstr ""
+
 #: app/web/routers/users.py
 msgid "Bu kullanıcıya bağlı böyle bir Telegram kimliği yok"
 msgstr ""
@@ -2031,6 +2043,11 @@ msgstr ""
 
 #: app/web/templates/catalog_type_fields.html
 msgid "En çok sayfa"
+msgstr ""
+
+#: app/telegram/intent.py
+#, python-brace-format
+msgid "En çok {count} kişiyi birlikte sorabilirsiniz."
 msgstr ""
 
 #: app/web/templates/account_telegram.html app/web/templates/users.html
@@ -3566,6 +3583,10 @@ msgstr ""
 msgid "Sayı"
 msgstr ""
 
+#: app/telegram/intent.py
+msgid "Seninle konuşmuyorum."
+msgstr ""
+
 #: app/telegram/bot.py
 msgid "Sesli mesajları dinleyemiyorum. Lütfen isteğinizi yazın."
 msgstr ""
@@ -3965,6 +3986,17 @@ msgstr ""
 
 #: app/web/templates/account_telegram.html app/web/templates/users.html
 msgid "Telegram'ım"
+msgstr ""
+
+#: app/telegram/intent.py
+#, python-brace-format
+msgid "Toplam {total} belge var; kalanları panelden indirin."
+msgstr ""
+
+#: app/telegram/intent.py
+msgid ""
+"Toplu dışa aktarım yapamıyorum. Her seferinde yalnız bir kişinin "
+"belgelerini isteyin."
 msgstr ""
 
 #: app/web/routers/training.py
@@ -4980,6 +5012,13 @@ msgid_plural "{employee} — {group}: {count} eksik belge."
 msgstr[0] ""
 msgstr[1] ""
 
+#: app/telegram/intent.py
+#, python-brace-format
+msgid "{employee}: {count} belge gönderiyorum."
+msgid_plural "{employee}: {count} belge gönderiyorum."
+msgstr[0] ""
+msgstr[1] ""
+
 #: app/telegram/whitelist.py
 #, python-brace-format
 msgid ""
@@ -5716,6 +5755,11 @@ msgstr ""
 #: app/telegram/handlers.py
 #, python-brace-format
 msgid "“{name}” çok büyük, alamadım. Daha küçük parçalar hâlinde gönderin."
+msgstr ""
+
+#: app/telegram/intent.py
+#, python-brace-format
+msgid "“{person}” adında birden çok kişi var. Adı daha ayrıntılı yazın."
 msgstr ""
 
 #: app/telegram/intent.py

@@ -16,6 +16,7 @@ from app.ai.photo_check import (
     PhotoRuleVerdict,
     validate_photo_check,
 )
+from app.ai.profile_answer import ProfileAnswer, ProfileAnswerError, validate_profile_answer
 from app.ai.prompts import PageAnalysisInstructions, build_page_analysis_instructions
 from app.ai.provider import (
     PROVIDER_FACTORIES,
@@ -24,6 +25,7 @@ from app.ai.provider import (
     PageAnalysisRequest,
     PageImage,
     PhotoCheckRequest,
+    ProfileAnswerRequest,
     ProviderConfigError,
     ProviderConnectionError,
     ProviderError,
@@ -68,6 +70,10 @@ __all__ = [
     "DocumentQuery",
     "DocumentQueryError",
     "DocumentQueryRequest",
+    "ProfileAnswer",
+    "ProfileAnswerError",
+    "ProfileAnswerRequest",
+    "validate_profile_answer",
     "FieldLocation",
     "FieldReading",
     "MrzDescription",
