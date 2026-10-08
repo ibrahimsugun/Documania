@@ -4,7 +4,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Documania panel\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-08 15:48+0000\n"
+"POT-Creation-Date: 2026-10-08 18:26+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -977,6 +977,12 @@ msgstr ""
 
 #: app/web/routers/employees.py
 msgid "Belge arşive taşındı; çalışanın Hazır klasöründen çıktı."
+msgstr ""
+
+#: app/web/templates/profile.html
+msgid ""
+"Belge bu çalışana yalnız ad-soyadla yerleşti; belge numarası ya da doğum "
+"tarihi doğrulanmadı. Yanlışsa belgeyi taşıyın."
 msgstr ""
 
 #: app/web/templates/history.html
@@ -4215,6 +4221,10 @@ msgstr ""
 msgid "Yalnız iptal edilmiş paket yeniden açılır."
 msgstr ""
 
+#: app/web/templates/profile.html app/web/templates/upload_detail.html
+msgid "Yalnız isimle eşleşti"
+msgstr ""
+
 #: app/pipeline/queue_close.py
 msgid "Yalnız kapatılan öğe yeniden açılır; bu öğe kapatılmadı."
 msgstr ""
@@ -4910,6 +4920,10 @@ msgstr[1] ""
 
 #: app/web/templates/profile.html app/web/templates/upload.html
 msgid "ya da seçmek için tıklayın · birden çok dosya seçilebilir"
+msgstr ""
+
+#: app/web/routers/upload_page.py
+msgid "yalnız ad-soyad"
 msgstr ""
 
 #: app/web/templates/employees_results.html

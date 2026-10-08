@@ -538,24 +538,16 @@ class _NameOnly:
     numbers: tuple[tuple[str, str], ...]
 
 
-def _name_without_birth_date() -> _NameOnly:
-    # Çalışma izninde doğum tarihi yok; numarası temiz ama çalışanın kayıtlı numaralarında değil.
-    return _NameOnly(
-        _sidorov_permit(), PERSON_SIDOROV, (("serbian_driving_license", LICENSE_NUMBER),)
-    )
-
-
 def _name_with_another_birth_date() -> _NameOnly:
     # Pasaportun doğum tarihi kayıtlı çalışanınkinden farklı; numarası temiz ama kayıtlı değil.
     return _NameOnly(_passport(), replace(PERSON_ORNEKOVA, date_of_birth=date(1980, 1, 1)), ())
 
 
+# S10'un yeni tanımı (05.5.4): belgede doğum tarihi okundu ve çalışanınkinden farklı. Doğum tarihi
+# taşımayan belgenin (eski `dogum-tarihi-yok` düzeni) tekil isim eşleşmesi S23'tür
+# (`tests/test_scenario_s23.py`).
 @pytest.mark.parametrize(
-    "arrange",
-    [
-        pytest.param(_name_without_birth_date, id="dogum-tarihi-yok"),
-        pytest.param(_name_with_another_birth_date, id="dogum-tarihi-farkli"),
-    ],
+    "arrange", [pytest.param(_name_with_another_birth_date, id="dogum-tarihi-farkli")]
 )
 def test_s10_name_only_match_goes_to_unresolved_without_matching_or_a_new_employee(
     session: Session,
@@ -573,8 +565,8 @@ def test_s10_name_only_match_goes_to_unresolved_without_matching_or_a_new_employ
 
     _process(session, layout, upload, provider)
 
-    # §20.2.2 satır 5: isim eşleşti, doğum tarihi yok ya da farklı → Unresolved (R8). Numara temiz
-    # olsa da satır 6'ya inilmez: yeni çalışan açılmaz.
+    # §20.2.2 satır 5: isim eşleşti, doğum tarihi farklı → Unresolved (R8). Numara temiz olsa da
+    # satır 6'ya inilmez: yeni çalışan açılmaz.
     (item,) = _items(session, upload)
     assert (item.route, item.operation, item.target_name, item.route_reason) == (
         Route.UNRESOLVED,

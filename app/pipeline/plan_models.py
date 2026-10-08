@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import enum
 import json
+from collections.abc import Iterable
 from itertools import pairwise
 from typing import Annotated
 
@@ -20,7 +21,7 @@ from pydantic import (
 
 from app.catalog import FileType
 from app.catalog.schema import Slug, Text
-from app.db.models import Plan
+from app.db.models import Document, Plan
 from app.matching.match import EmployeeAction, MatchedBy
 from app.pipeline.validate import ValidationName
 from app.storage import sha256_bytes
@@ -269,3 +270,41 @@ def read_plan(row: Plan) -> PlanDocument:
             "sonra değişmiş"
         )
     return document
+
+
+def name_matched_documents(documents: Iterable[Document]) -> frozenset[int]:
+    """Belgelerden planın satır 5a isim eşleşmesiyle (`matched_by: name`, 05.5.4) bugünkü sahibinin
+    Hazir'ına yerleştirdiklerinin kimlikleri.
+
+    Belgenin öğesi planı (`documents.plan_id`) ve kökeniyle (`source_refs_json` öğenin `sources`'u,
+    `app.pipeline.execute.executed_document` gibi) bulunur. Öğe Hazir'a gitmiş, `matched_by: name`
+    taşıyor ve çalışanı belgenin bugünkü sahibi olmalıdır: kuyruktan atanan (kişi tahmini isimle
+    olsa da), İK'nın başka çalışana taşıdığı ya da birleştirmeyle kalan kayda geçen belge isimle
+    yerleşmiş sayılmaz — sahibini İK belirledi. Planı olmayan ya da sözleşmeye uymayan (K9) belge
+    sayılmaz. Her plan bir kez okunur; veritabanına yazılmaz.
+    """
+    plans: dict[int, PlanDocument | None] = {}
+    matched: set[int] = set()
+    for document in documents:
+        plan_id = document.plan_id
+        if plan_id is None:
+            continue
+        if plan_id not in plans:
+            try:
+                plans[plan_id] = None if document.plan is None else read_plan(document.plan)
+            except PlanIntegrityError:
+                plans[plan_id] = None
+        plan = plans[plan_id]
+        if plan is not None and any(_placed_by_name(item, document) for item in plan.items):
+            matched.add(document.id)
+    return frozenset(matched)
+
+
+def _placed_by_name(item: PlanItem, document: Document) -> bool:
+    employee = item.employee
+    return (
+        item.route is Route.READY
+        and employee.matched_by is MatchedBy.NAME
+        and employee.employee_id == document.employee_id
+        and [source.model_dump(mode="json") for source in item.sources] == document.source_refs_json
+    )

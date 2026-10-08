@@ -139,7 +139,7 @@
         <td>{% for source in item.sources %}<div>{{ translate(source) }}</div>{% endfor %}</td>
         <td>{{ item.operation or "—" }}</td>
         <td>{{ item.target_name or "—" }}</td>
-        <td>{{ translate(item.employee) }}</td>
+        <td>{{ translate(item.employee) }}{% if item.name_only %} <span class="badge name-only">{{ _("Yalnız isimle eşleşti") }}</span>{% endif %}</td>
         <td>{{ translate(item.route_label) }}{% if item.reason %}<div class="reason" translate="no">{{ item.reason }}</div>{% endif %}</td>
         <td>
           {% for name, ok in item.validations %}<span class="check {{ 'check-ok' if ok else 'check-fail' }}">{{ '✓' if ok else '✗' }} {{ name }}</span> {% else %}—{% endfor %}
@@ -165,7 +165,7 @@
     <tbody>
       {% for output in detail.outputs %}
       <tr id="output-{{ output.id }}" class="output-{{ output.status }}">
-        <td>{{ output.employee }}</td>
+        <td>{{ output.employee }}{% if output.name_only %} <span class="badge name-only">{{ _("Yalnız isimle eşleşti") }}</span>{% endif %}</td>
         <td>{{ output.type_slug }}</td>
         <td>{{ output.path }}</td>
         <td>{{ output.sequence_no }}</td>

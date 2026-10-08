@@ -105,14 +105,18 @@ atılmaz (§8.3'te tür yok): hüküm planın gerekçesinde ve kuyruk olayında 
 **Çalışan.** Her analizli adayın kişi anahtarı (05.4) kayıtlı çalışanlarla eşleştirilir (05.5).
 Kararın yan etkileri yalnız belge düzeyinde kabul edilen adayda (1–4'te hükmü olmayan) yürür:
 satır 1/3 eşleşmesinde yeni isim yazımı, temiz numara ve iletişim bilgisi çalışana eklenir (05.7.2,
-05.8) ve boş profil alanları belgeden dolar (05.7.3); eşleşme yoksa satır 6'da (temiz numara) ya
+05.8) ve boş profil alanları belgeden dolar (05.7.3); satır 5a'nın isim eşleşmesinde (05.5.4,
+doğum tarihi taşımayan belge, tek etkin çalışan) belge Hazir'a `matched_by: name` ile gider ama
+hiçbir şey birikmez; eşleşme yoksa satır 6'da (temiz numara) ya
 da 6b'de (Latin ad-soyad + doğum tarihi, §20.2.4) çalışan açılır (05.6; alanlarının kaynağı belgeye
 bağlanır, 05.7.3), satır 7'de profil onaya önerilir (05.7.1), satır 8 ve tablo dışı eksik kişi
 Unresolved'a gider. Kuyruğa giden adaydan çalışan açılmaz, profil
 önerilmez, kimlik, profil alanı ya da iletişim bilgisi birikmez — yapısı veya okunaklılığı kabul
 edilmemiş belgenin okumasına güvenilmez. Eşleştirme hükmü o adayda yalnız kişi tahmini olarak kalır
-(08.1.2): satır 1/3'te `match` ve çalışan, öteki hükümlerde `none`; eşleştirme hükmü de kuyruğa
-gönderiyorsa (satır 2, 4, 5, çelişkili anahtar) gerekçesi eklenir.
+(08.1.2): satır 1/3'te `match` ve çalışan, öteki hükümlerde (satır 5a'nın isim eşleşmesi dahil:
+okunması kabul edilmemiş belgede isim yetmez, R8) `none`; eşleştirme hükmü de kuyruğa gönderiyorsa
+(satır 2, 4, 5a'nın belirsizi, 5, çelişkili anahtar) gerekçesi eklenir. Satır 5a'nın pasif
+çalışanı (10.5.7) kabul edilmiş belgede kişi tahminidir.
 
 **Profilden yüklemede kişi denetimi (10.5.5, PLAN.md §C83).** Parti bir bağlam çalışanıyla
 yüklendiyse (`uploads.context_employee_id`) yapı doğrulamasından geçen her analizli adayın kişi
@@ -122,8 +126,9 @@ tarihi → ad). `different` hükmü `context_person` doğrulayıcısını geçir
 otomatik gitmez —, çalışan açılmaz, profil önerilmez, isim yazımı, numara, iletişim bilgisi ve
 profil alanı birikmez (05.7.2, 05.8.1, 05.7.3). Gerekçe uyuşmayan adımı yazar, değeri yazmaz;
 geçmeyen doğrulama her doğrulayıcı gibi `VALIDATION_FAILED` olayına düşer. `same` ve `unknown`
-akışı değiştirmez; bağlam K6'yı gevşetmez — bağlamlı yüklemede yalnız isimle eşleşen belge yine
-Unresolved'a gider. Word/Excel eki (04.7.1) bu denetime girmez.
+akışı değiştirmez; bağlam K6'yı gevşetmez — bağlamlı yüklemede satır 5'in yalnız isim eşleşmesi
+yine Unresolved'a gider, satır 5a bağlamsız yüklemedeki gibidir. Word/Excel eki (04.7.1) bu
+denetime girmez.
 
 **Kişi taşımayan belgenin sahibi (D29, §9 S3/S4).** Zorunlu alanı olmayan türün (profil
 fotoğrafı) belge düzeyinde kabul edilmiş, satır 8'e düşen adayı — ne numara ne isim okunmuş —
@@ -131,10 +136,11 @@ aynı yüklenen dosyadaki kimlikli adaylardan sahip alır: o dosyanın sayfasın
 bir şey okumuş adayların hepsi tek bir kayıtlı çalışana satır 1/3 ile bağlıysa (kuyruğa gidende kişi
 tahmini) ve en az biri Hazir'a gidiyorsa öğe o çalışanla (`match`, `matched_by: null`) Hazir'a
 gider. Yeni açılan çalışan (satır 6, 6b), onay bekleyen profil, belirsiz, yalnız isim ya da
-çelişkili hüküm, ikinci bir çalışan, partinin başka dosyası ve bağlam çalışanı sahip vermez; o zaman
-satır 8 (Unresolved) aynen kalır. Kural yalnız kişi hükmünü değiştirir: belge düzeyindeki ret
-(işlem, dosya türü) onu ezer, kimlik ve iletişim bilgisi birikmez, olay atılmaz. Sahip, kimlikli
-adayların hükmü belli olduktan sonra, ikinci geçişte bulunur; öğe kimlikleri ve sırası değişmez.
+çelişkili hüküm, satır 5a'nın isim eşleşmesi (05.5.4), ikinci bir çalışan, partinin başka dosyası
+ve bağlam çalışanı sahip vermez; o zaman satır 8 (Unresolved) aynen kalır. Kural yalnız kişi
+hükmünü değiştirir: belge düzeyindeki ret (işlem, dosya türü) onu ezer, kimlik ve iletişim bilgisi
+birikmez, olay atılmaz. Sahip, kimlikli adayların hükmü belli olduktan sonra, ikinci geçişte
+bulunur; öğe kimlikleri ve sırası değişmez.
 
 Word/Excel ekinin sahibi partinin bağlam çalışanıdır (`match`, `matched_by: null`); bağlam yoksa ek
 Unresolved'a gider (04.7.1). İşlemi olmayan ekte işlem gerekçesi sahiplik gerekçesinden önce gelir;

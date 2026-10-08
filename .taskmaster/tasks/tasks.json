@@ -2397,7 +2397,7 @@
         "description": "PRD 05.5.4 (R8 ve K6 istisnası; 05.5.2 ve §20.2.2 satır 5a güncel) · FR-MOD-05 · Faz 0 · Should (v1). Sözleşme PLAN §D109. İnsan isteği (2026-10-08): yükleme önce mevcut personeli taramalı; sözleşme/CV/diploma gibi doğum tarihi taşımayan belge kayıtlı çalışana bile yerleşemiyor. İnsan kararı: isim tek bir çalışana uyuyorsa otomatik; yalnız isimle yeni çalışan açılmaz.",
         "details": "KAPSAM: PRD 05.5.4, §20.2.2 satır 5a ve not paragrafı, R8, K6 (MASTER-PROMPT), §9 S10 yeni tanımı ve S23. Tam sözleşme PLAN §D109 — önce oku.\n\nNE YAPILACAK: (1) `app/matching/match.py`: `MatchedBy.NAME = \"name\"`, `MatchRule.NAME` (satır 5a) ve `MatchRule.NAME_AMBIGUOUS`; `match_employee` numara eşleşmeyince ve kişi anahtarında doğum tarihi yokken normalize adı birleştirilmemiş (`active`, `inactive`) kayıtlarda arar: tek kayıt → NAME (olay `PERSON_MATCHED`, `matched_by: name`), birden çok → `PERSON_AMBIGUOUS` + Unresolved (satır 4 gerekçe kalıbı). Doğum tarihi okunmuş belgede satır 3/4/5 aynen. (2) `app/pipeline/plan_planner.py` `_decide_employee`: NAME → `EmployeeAction.MATCH`, Hazir; pasif çalışan mevcut `_inactive_verdict` yolundan Unresolved. `_file_owner` isim eşleşmesini sahip saymaz (`matched_by == NAME` dışlanır). (3) Birikim yok: `accumulate_identity` (05.7.2), profil alanı dolgusu (05.7.3, `app/profiles/field_fill.py` gözlem yazımı dahil) ve `accumulate_contacts` (05.8.1) `matched_by == name` öğesinde çalışmaz; temiz numara da yazılmaz. (4) Plan şeması `PlanEmployee.matched_by` `name`'i kabul eder (`app/pipeline/plan_models.py`); eski planlar değişmez (K9). (5) Görünürlük: profil belge listesi (`app/web/templates/profile.html`, `app/web/routers/employees.py`) ve yükleme ayrıntısının çıktı/plan satırı `matched_by == name` belgeye \"Yalnız isimle eşleşti\" etiketi; `en`/`sr` çeviri, `python -m app.i18n check` temiz. (6) S10 testi (`tests/test_scenarios_s06_s10.py`): `dogum-tarihi-yok` düzeni S23'e taşınır, S10 `dogum-tarihi-farkli` ile kalır; S23 yeni test (tek etkin çalışan → Hazir, birikim yok; aynı adda iki kayıt → Unresolved + PERSON_AMBIGUOUS, yeni çalışan yok; tek pasif çalışan → Unresolved inactive_employee).\n\nGİRDİ: app/matching/match.py (`MatchedBy` :502, `MatchRule` :509, `NAME_ONLY_REASON`, `_MATCHED_BY`, `_EVENT_TYPES`, `accumulate_identity` :1472), app/pipeline/plan_planner.py (`_candidate_item` :162, `_file_owner` :214, `_decide_employee` :336), app/pipeline/route.py (`accumulate_contacts` çağrıları), app/profiles/field_fill.py, app/pipeline/plan_models.py (:103), tests/test_scenarios_s06_s10.py (:533-600), tests/matching/*.\n\nÇIKTI: yukarıdaki modüller + şablon/yönlendirici + `.po` dosyaları + testler; PLAN 05.5.4 satırı ve `#### K05.5` kanıtı, HANDOFF.\n\nBU GÖREVİ BAĞLAYAN KİLİTLİ KURALLAR: K6 (güncel metin: yalnız isim eşleşmesi otomatik değildir; tek istisna doğum tarihi okunmamış belgenin tek etkin çalışana uyan adı, kimlik bilgisi biriktirmez). K7 değişmedi: yalnız isimle yeni çalışan AÇILMAZ. K9: plan dondurulur, yeniden çalıştırma aynı planı kullanır. R7: emin değilse kuyruğa.\n\nTUZAKLAR: `_file_owner` bugün `matched_by is not None` olanı sahip sayar — NAME eklenince kişisiz sayfalar yanlışlıkla sahip alır; dışla. Kişi anahtarında doğum tarihinin \"yok\" olması ile \"okunamadı\" ayrımı: zorunlu alan olan türde okunamayan doğum tarihi K1 gereği zaten Unreadable'dır; satır 5a'ya inmemelidir. Ad sayımı `removed_at IS NULL` aliaslar üzerinden yapılır; aynı çalışanın iki aliası tek kayıt sayılır. Ucuz ön eleme modelinin (13.2.1) okuması bu yolu değiştirmez. Bağlam çalışanlı yükleme (10.5.5) önce gelir.\n\nKAPSAM SINIRI: yalnız isimle yeni çalışan açma, yakın (bulanık) isim eşleşmesi, yüz/sayfa sayısı kurallarının gevşetilmesi yok.\n\nKAPANIŞ: DoD kapısı (CONVENTIONS §1) yeşil; geçici kural bozmaları (birikim yapılır, sahip verilir, iki adaşta Hazir, pasifte Hazir, doğum tarihi farklıyken Hazir) kırmızı olmalı. Faz 0 Kapanış hücresi AÇIK kalır; kapanışın yeniden denetimi insan kararıdır.",
         "testStrategy": "1) Birim: match_employee — numarasız, doğum tarihsiz anahtar tek kayda → NAME; iki kayda → NAME_AMBIGUOUS; birleştirilmiş kayıt sayılmaz; doğum tarihi farklı → NAME_ONLY (satır 5). 2) Planlayıcı: NAME → Hazir, pasif → Unresolved inactive_employee, `_file_owner` NAME'i sahip saymaz. 3) Birikim yok: alias, identifier, alan gözlemi, iletişim satır sayıları değişmez. 4) S10 (`dogum-tarihi-farkli`) Unresolved; S23 üç düzen. 5) Profil ve yükleme ayrıntısında etiket üç dilde; i18n check temiz. 6) Eski plan yeniden çalıştırmada değişmez (K9). 7) DoD kapısı yeşil.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [
           "36",
           "107",
@@ -2405,7 +2405,7 @@
         ],
         "priority": "high",
         "subtasks": [],
-        "updatedAt": "2026-10-08T14:30:00.000Z"
+        "updatedAt": "2026-10-08T19:37:07.413Z"
       },
       {
         "id": "166",
@@ -2479,9 +2479,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-08T18:06:27.000Z",
+      "lastModified": "2026-10-08T19:37:07.414Z",
       "taskCount": 168,
-      "completedCount": 165,
+      "completedCount": 166,
       "tags": [
         "master"
       ]

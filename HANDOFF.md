@@ -18,6 +18,12 @@ Blok biçimi `CONVENTIONS.md` §3'te tanımlıdır:
 
 ## Task log (newest-first)
 
+## 165 — 05.5-b Doğum tarihi taşımayan belgenin tekil isim eşleşmesi — done — 2026-10-08
+- Yapıldı: §20.2.2 satır 5a — doğum tarihi okunmamış belgenin adı birleştirilmemiş tek çalışana uyuyorsa Hazir'a `matched_by: name` ile girer, hiçbir şey biriktirmez, kişisiz sayfaya sahip vermez; birden çok kayıtta `name_ambiguous` + Unresolved; profil ve yükleme ayrıntısında "Yalnız isimle eşleşti" etiketi (İK taşıyınca kalkar); S10 yeniden tanımı, S23 (§D109).
+- Doğrulama: ruff check/format, compileall, `import app.main`, temiz SQLite'ta `alembic upgrade head` (→0024), i18n check exit 0; tam paralel kapı (`-n 12 --cov`) 6756 geçti, 5 atlandı, kapsam %99,21, 14 dk 38 sn; 5 kural bozmasının 5'i kırmızı.
+- Varsayımlar: pasif çalışan sayıma girer (biri pasif iki adaş da belirsizdir); okunmayan belgede (Unreadable vb.) isim eşleşmesi kişi tahmini de vermez.
+- Sonraki pencereye not: tasks.json'da `"id": "165"` iki kez var (bu görev ve kapanmış 12.3-c); `task-master` ilk eşleşeni günceller — kimlik düzeltmesi ayrı görev olmalı.
+
 ## 167 — Test kapısı paralel (pytest-xdist) — done — 2026-10-08
 - Yapıldı: pytest-xdist dev bağımlılığı (uv.lock), iki kararsız parametre kimliği `ids=` ile sabitlendi, CONVENTIONS §1 4+5 tek komut + kararsızlık kuralı (§D112).
 - Süreler: önce seri 59 dk 18 sn (kapsamsız) + ayrıca kapsamlı koşu; sonra `-n 12 --dist worksteal` ~9 dk 36 sn (insan ölçümü). Seçilen N=12.

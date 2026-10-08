@@ -24,6 +24,7 @@ from .plan_models import (
     Route,
     TargetName,
     UploadId,
+    name_matched_documents,
     read_plan,
 )
 from .plan_planner import (
@@ -119,6 +120,7 @@ __all__ = [
     "check_direct_operation",
     "check_photo_rules",
     "create_plan",
+    "name_matched_documents",
     "operation_source",
     "read_plan",
     "select_operation",

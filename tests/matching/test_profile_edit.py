@@ -177,7 +177,7 @@ def test_edited_fields_are_named_in_form_order() -> None:
     assert tuple(PROFILE.fields().values()) == PROFILE_FIELDS
 
 
-# --- düzeltme ikinci çalışan açtırmaz (satır 3–5) -------------------------------------------------
+# --- düzeltme ikinci çalışan açtırmaz (satır 3–5a) ------------------------------------------------
 
 
 @pytest.mark.parametrize(
@@ -187,7 +187,8 @@ def test_edited_fields_are_named_in_form_order() -> None:
             _fields(given_names="KAYITLI", surname="KISI", date_of_birth=date(1985, 5, 5)),
             "name_dob (E0042)",
         ),
-        (_fields(given_names="KAYITLI", surname="KISI", date_of_birth=None), "name_only (E0042)"),
+        # Doğum tarihi silinen düzeltme satır 5a'yla (05.5.4) aynı çalışana uyar.
+        (_fields(given_names="KAYITLI", surname="KISI", date_of_birth=None), "name (E0042)"),
         (
             _fields(original_script_name="Кисі Кайитли", date_of_birth=date(1985, 5, 5)),
             "name_dob (E0042)",

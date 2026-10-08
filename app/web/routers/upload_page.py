@@ -1,5 +1,5 @@
 """Yükleme sayfası, canlı ilerleme görünümü ve yükleme detayı (PRD 10.2.1, 10.2.2, 10.3.1, 10.3.2,
-10.3.4, 10.3.5, 10.5.5).
+10.3.4, 10.3.5, 10.5.5, 05.5.4).
 
 `GET /upload` sürükle-bırak çoklu yükleme formunu ve isteğe bağlı çalışan seçimini çizer.
 `POST /upload` (HTMX) dosyaları `POST /api/uploads` ile aynı işlevle (`create_upload`) partiye
@@ -16,7 +16,9 @@ Worker ayarları eksikse iş kuyrukta kalır; servis hatası worker loglarında 
 planın öğeleri, çıktıları (belgeler ve kuyruğa alınanlar) ve olay zaman çizelgesi tek sayfada
 görünür. Sayfa görüntüsü `GET /uploads/{upload_id}/pages/{page_id}/image`'dan gelir: analiz
 kopyasıdır (`cache/pages/`), belgenin kendisi değil; küçültmeyi tarayıcı yapar, sunucu görüntüyü
-işlemez (K11, K17).
+işlemez (K11, K17). Planın yalnız isimle eşleştirdiği öğe (§20.2.2 satır 5a, `matched_by: name`)
+ve o öğenin çıktısı (`name_matched_documents`) "Yalnız isimle eşleşti" etiketi taşır (05.5.4):
+yanlışsa İK belgeyi başka çalışana taşır (10.8.1).
 
 `POST /uploads/{upload_id}/rerun` güncel planı yapay zekâ çağırmadan yeniden uygular (06.6.1);
 `POST /uploads/{upload_id}/reanalyze` partiyi yeniden analiz edip yeni plan sürümünü açar (06.6.2,
@@ -77,6 +79,7 @@ from app.db.models import (
 )
 from app.db.session import get_session
 from app.i18n import N_, Translatable
+from app.matching.match import MatchedBy
 from app.pipeline.analyze import PageAnalysisStatus
 from app.pipeline.dismiss import (
     UploadNotDismissableError,
@@ -94,7 +97,14 @@ from app.pipeline.orchestrate import (
     reanalyze_upload,
     rerun_plan,
 )
-from app.pipeline.plan import PlanDocument, PlanEmployee, PlanIntegrityError, Route, read_plan
+from app.pipeline.plan import (
+    PlanDocument,
+    PlanEmployee,
+    PlanIntegrityError,
+    Route,
+    name_matched_documents,
+    read_plan,
+)
 from app.pipeline.queue_close import close_reason_label
 from app.storage import DataLayout
 from app.web.auth import PanelUser, require_panel_user
@@ -308,6 +318,7 @@ EMPLOYEE_ACTION_LABELS = {
 MATCHED_BY_LABELS = {
     "document_number": N_("belge numarası"),
     "name_dob": N_("ad-soyad + doğum tarihi"),
+    "name": N_("yalnız ad-soyad"),
 }
 DOCUMENT_STATUS_LABELS = {
     DocumentStatus.ACTIVE.value: N_("Etkin"),
@@ -381,6 +392,8 @@ class ItemView:
     route_label: str
     reason: str | None
     validations: list[tuple[str, bool]]
+    # 05.5.4: çalışan yalnız isimle eşleşti (§20.2.2 satır 5a).
+    name_only: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -407,6 +420,8 @@ class OutputView:
     status_label: str
     plan_version: int | None
     sources: list[str]
+    # 05.5.4: planın yalnız isimle yerleştirdiği belge.
+    name_only: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -524,6 +539,7 @@ def _plan_view(
             route_label=ROUTE_LABELS[item.route.value],
             reason=item.route_reason,
             validations=[(check.name.value, check.ok) for check in item.validations],
+            name_only=item.employee.matched_by is MatchedBy.NAME,
         )
         for item in (document.items if document is not None else ())
     ]
@@ -609,6 +625,7 @@ def build_detail_view(session: Session, upload: Upload) -> DetailView:
         )
     )
 
+    by_name = name_matched_documents(outputs)
     employee_ids = {output.employee_id for output in outputs}
     if upload.context_employee_id is not None:
         employee_ids.add(upload.context_employee_id)
@@ -677,6 +694,7 @@ def build_detail_view(session: Session, upload: Upload) -> DetailView:
                     _source_text(files, int(ref["file_id"]), list(ref.get("pages", [])))
                     for ref in output.source_refs_json
                 ],
+                name_only=output.id in by_name,
             )
             for output in outputs
         ],

@@ -269,7 +269,7 @@
       {% for document in profile.documents %}
       <tr{% if document.status != "active" %} class="output-superseded"{% endif %}>
         <td>{{ document.type_name }}</td>
-        <td>{% if document.available %}<a href="/employees/{{ profile.id }}/documents/{{ document.id }}/file" target="_blank" rel="noopener">{{ document.file_name }}</a>{% else %}{{ document.file_name }}{% endif %}</td>
+        <td>{% if document.available %}<a href="/employees/{{ profile.id }}/documents/{{ document.id }}/file" target="_blank" rel="noopener">{{ document.file_name }}</a>{% else %}{{ document.file_name }}{% endif %}{% if document.name_only %} <span class="badge name-only" title="{{ _('Belge bu çalışana yalnız ad-soyadla yerleşti; belge numarası ya da doğum tarihi doğrulanmadı. Yanlışsa belgeyi taşıyın.') }}">{{ _("Yalnız isimle eşleşti") }}</span>{% endif %}</td>
         <td>{{ document.format }}</td>
         <td>{{ translate(document.status_label) }}</td>
         <td>{{ document.created_on.strftime("%d.%m.%Y") }}</td>

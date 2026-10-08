@@ -181,11 +181,11 @@ def test_the_same_profile_is_not_approved_twice(
     session: Session, layout: DataLayout, born: date | None
 ) -> None:
     # Aynı kişinin her numarasız belgesi ayrı öneridir (C29); ilk onaydan sonra öteki öneriler
-    # onaylanmaz — kişi kayıtlıdır (satır 3, doğum tarihi yoksa satır 5).
+    # onaylanmaz — kişi kayıtlıdır (satır 3, doğum tarihi yoksa satır 5a).
     key = _key(numbers=(), born=born)
     _approve(session, layout, key)
 
-    with pytest.raises(ProfileApprovalRefusedError, match="eşleştirme hükmü name_"):
+    with pytest.raises(ProfileApprovalRefusedError, match="eşleştirme hükmü name"):
         _approve(session, layout, key)
 
     assert _counts(session) == (1, 2, 0)

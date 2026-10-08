@@ -1021,6 +1021,132 @@ def test_name_only_match_goes_to_unresolved_without_an_employee(
     assert (_count(session, Employee), _count(session, EmployeeAlias)) == (1, 1)
 
 
+# --- §20.2.2 satır 5a: doğum tarihi taşımayan belgenin tekil isim eşleşmesi (05.5.4, S23) -------
+
+NAME_MATCHED_PERMIT = "Kayitli_Kisi-Work-Permit.pdf"
+NAME_AMBIGUOUS_REASON = (
+    "Belirsiz eşleşme: belgede doğum tarihi yok, ad-soyad birden fazla çalışana uyuyor "
+    "(E0007, E0008). Çalışan otomatik eşleştirilmez."
+)
+
+
+def _permit_without_birth_date() -> dict[str, Any]:
+    # Çalışma izni doğum tarihi taşımaz; numarası temiz ama kayıtlı değil, uyruk ve telefon yazılı.
+    person = _person(date_of_birth=None, document_number="WP-0000042")
+    person["contact"]["phone"] = PHONE
+    return _page(PERMIT, person=person)
+
+
+def _assert_nothing_accumulated(session: Session) -> None:
+    # 05.5.4: isim yazımı, numara, profil alanı ve iletişim bilgisi eklenmez.
+    assert list(session.scalars(select(EmployeeAlias.raw_name))) == ["Test Ornekova"] * _count(
+        session, Employee
+    )
+    assert _count(session, EmployeeIdentifier) == 0
+    assert (_count(session, EmployeeContact), _observations(session)) == (0, [])
+    assert _events(session, EventType.EMPLOYEE_FIELD_FILLED) == []
+
+
+def test_name_without_a_birth_date_places_the_document_with_the_single_employee(
+    session: Session, layout: DataLayout
+) -> None:
+    # Satır 5a: numara kayıtlı değil, belgede doğum tarihi yok, ad tek etkin çalışana uyuyor →
+    # Hazir, `matched_by: name`; hiçbir şey birikmez, numara temiz olsa da satır 6'ya inilmez.
+    _employee(session)
+    upload = _upload(session, layout, _pdf(_permit_without_birth_date()))
+
+    (item,) = _plan(session, layout, upload).items
+
+    assert (item.route, item.route_reason, item.employee, item.target_name) == (
+        Route.READY,
+        None,
+        _matched(by=MatchedBy.NAME),
+        NAME_MATCHED_PERMIT,
+    )
+    _assert_nothing_accumulated(session)
+    (matched,) = _events(session, EventType.PERSON_MATCHED)
+    assert (matched.employee_id, matched.data_json) == (
+        "E0007",
+        {"rule": "name", "matched_by": "name", "employee_ids": ["E0007"]},
+    )
+    assert _count(session, Employee) == 1
+    _assert_no_personal_values(session)
+
+
+def test_name_without_a_birth_date_and_an_inactive_employee_goes_to_unresolved(
+    session: Session, layout: DataLayout
+) -> None:
+    # Satır 5a'nın çalışanı pasif (10.5.7): belge yerleşmez, çalışan kişi tahminidir; birikim yok.
+    _deactivate(_employee(session))
+    upload = _upload(session, layout, _pdf(_permit_without_birth_date()))
+    (file_id,) = _file_ids(upload)
+
+    document = _plan(session, layout, upload)
+
+    assert document.items == (
+        _item(
+            "i1",
+            [(file_id, (0,))],
+            slug=PERMIT,
+            employee=_matched(by=MatchedBy.NAME),
+            reason=inactive_employee_reason("E0007"),
+        ),
+    )
+    _assert_nothing_accumulated(session)
+
+
+def test_name_without_a_birth_date_fitting_two_employees_goes_to_unresolved(
+    session: Session, layout: DataLayout
+) -> None:
+    # Satır 5a'nın belirsizi: ad iki kayda uyuyor (biri pasif) → Unresolved, kişi tahmini yok,
+    # yalnız isimle yeni çalışan açılmaz (K7).
+    _employee(session)
+    _deactivate(_employee(session, "E0008", born=date(1980, 1, 1)))
+    upload = _upload(session, layout, _pdf(_permit_without_birth_date()))
+    (file_id,) = _file_ids(upload)
+
+    document = _plan(session, layout, upload)
+
+    assert document.items == (
+        _item("i1", [(file_id, (0,))], slug=PERMIT, reason=NAME_AMBIGUOUS_REASON),
+    )
+    assert _count(session, Employee) == 2
+    _assert_nothing_accumulated(session)
+    (ambiguous,) = _events(session, EventType.PERSON_AMBIGUOUS)
+    assert ambiguous.data_json["rule"] == "name_ambiguous"
+
+
+def test_photo_next_to_a_document_matched_by_name_only_gets_no_owner(
+    session: Session, layout: DataLayout
+) -> None:
+    # D29: satır 5a'nın isim eşleşmesi aynı dosyadaki kişisiz sayfaya sahip vermez (05.5.4).
+    _employee(session)
+    upload = _upload(session, layout, _pdf(_photo(), _permit_without_birth_date()))
+    (file_id,) = _file_ids(upload)
+
+    photo, permit = _plan(session, layout, upload).items
+
+    assert photo == _no_owner("i1", file_id, 0)
+    assert (permit.route, permit.employee) == (Route.READY, _matched(by=MatchedBy.NAME))
+
+
+def test_unreadable_birth_date_of_a_type_that_requires_it_is_not_placed_by_name(
+    session: Session, layout: DataLayout
+) -> None:
+    # K1: doğum tarihi zorunlu türde okunamayan tarih belgeyi Unreadable'a gönderir; satır 5a'ya
+    # inilmez — ad tek çalışana uysa da kişi tahmini yok, hiçbir şey birikmez.
+    _employee(session)
+    passport = _page(PASSPORT, illegible=("date_of_birth",))
+    upload = _upload(session, layout, _pdf(passport))
+
+    (item,) = _plan(session, layout, upload).items
+
+    assert (item.route, item.employee, item.target_name) == (Route.UNREADABLE, NOBODY, None)
+    assert item.route_reason is not None
+    assert item.route_reason.startswith("Okunamayan alanlar: date_of_birth")
+    _assert_nothing_accumulated(session)
+
+
 def test_name_without_clean_number_is_a_pending_profile(
     session: Session, layout: DataLayout
 ) -> None:
@@ -2984,7 +3110,7 @@ def test_queued_identity_document_guessing_the_same_employee_does_not_block_the_
                 _page(PERMIT, person=_person(date_of_birth=None, document_number="AB12")),
             ),
             ((NUMBER,),),
-            id="kuyruktaki-belgenin-kisisi-yalniz-isimden",
+            id="ayni-calisana-yalniz-isimle-yerlesen-belge",
         ),
         pytest.param(
             (_photo(), _illegible_expiry(_passport())),
@@ -3005,8 +3131,9 @@ def test_photo_stays_unresolved_unless_the_file_belongs_to_one_registered_employ
     registered: tuple[tuple[str, ...], ...],
 ) -> None:
     # D29 koşul 3: dosyanın kişi okunan adaylarının hepsi tek bir kayıtlı çalışana satır 1/3 ile
-    # bağlı ve en az biri Hazir'da olmalı. İkinci çalışan, kişisi doğrulanamayan belge, yalnız
-    # kuyruk, yeni açılan çalışan (satır 6) ya da kimliksiz dosya sahip vermez: satır 8 kalır.
+    # bağlı ve en az biri Hazir'da olmalı. İkinci çalışan, kişisi yalnız isimle bulunan belge
+    # (satır 5a, Hazir'a gitse de), yalnız kuyruk, yeni açılan çalışan (satır 6) ya da kimliksiz
+    # dosya sahip vermez: satır 8 kalır.
     for number, numbers in enumerate(registered, start=7):
         _employee(session, f"E{number:04d}", numbers=numbers)
     upload = _upload(session, layout, _pdf(*pages))

@@ -4,8 +4,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Documania panel\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-08 15:48+0000\n"
-"PO-Revision-Date: 2026-10-08 15:48+0000\n"
+"POT-Creation-Date: 2026-10-08 18:26+0000\n"
+"PO-Revision-Date: 2026-10-08 18:26+0000\n"
 "Last-Translator: Documania görev penceresi (gözden geçirilmeli)\n"
 "Language: en\n"
 "Language-Team: English\n"
@@ -1099,6 +1099,14 @@ msgid "Belge arşive taşındı; çalışanın Hazır klasöründen çıktı."
 msgstr ""
 "The document was moved to the archive; it left the employee's Hazir "
 "folder."
+
+#: app/web/templates/profile.html
+msgid ""
+"Belge bu çalışana yalnız ad-soyadla yerleşti; belge numarası ya da doğum "
+"tarihi doğrulanmadı. Yanlışsa belgeyi taşıyın."
+msgstr ""
+"The document was placed with this employee by name only; no document "
+"number or date of birth was verified. If it is wrong, move the document."
 
 #: app/web/templates/history.html
 msgid "Belge bulunamadı"
@@ -4701,6 +4709,10 @@ msgstr "Show only active groups"
 msgid "Yalnız iptal edilmiş paket yeniden açılır."
 msgstr "Only a cancelled package can be reopened."
 
+#: app/web/templates/profile.html app/web/templates/upload_detail.html
+msgid "Yalnız isimle eşleşti"
+msgstr "Matched by name only"
+
 #: app/pipeline/queue_close.py
 msgid "Yalnız kapatılan öğe yeniden açılır; bu öğe kapatılmadı."
 msgstr "Only a closed item can be reopened; this item was not closed."
@@ -5437,6 +5449,10 @@ msgstr[1] "and {count} more types"
 #: app/web/templates/profile.html app/web/templates/upload.html
 msgid "ya da seçmek için tıklayın · birden çok dosya seçilebilir"
 msgstr "or click to choose · several files can be selected"
+
+#: app/web/routers/upload_page.py
+msgid "yalnız ad-soyad"
+msgstr "name only"
 
 #: app/web/templates/employees_results.html
 msgid "yalnız eksik paketi olanlar"

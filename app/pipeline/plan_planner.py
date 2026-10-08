@@ -22,6 +22,7 @@ from app.matching.fields import complete_profile_fields
 from app.matching.match import (
     EmployeeAction,
     EmployeeMatch,
+    MatchedBy,
     MatchRule,
     PersonKey,
     UnmatchedResolution,
@@ -102,6 +103,8 @@ class _Ownerless:
 
 
 _NO_EMPLOYEE = PlanEmployee(action=EmployeeAction.NONE, employee_id=None, matched_by=None)
+# Aynı dosyadaki kişisiz adaya sahip verebilen eşleşmeler (D29): satır 5a'nın isim eşleşmesi değil.
+_OWNING_MATCHES = frozenset({MatchedBy.DOCUMENT_NUMBER, MatchedBy.NAME_DOB})
 
 _Subject = tuple[tuple[int, int], Callable[[str], PlanItem]]
 
@@ -182,13 +185,15 @@ class _Planner:
         verdicts, selected, validations = self._document_verdicts(candidate, entry, sources, key)
         if entry is None or verdicts:
             # Belge kabul edilmedi: eşleştirme hükmü yalnız kişi tahminidir, yan etki yok. Bağlam
-            # çalışanına ait görünmeyen belgenin kişi tahmini de yoktur (10.5.5).
+            # çalışanına ait görünmeyen belgenin kişi tahmini de yoktur (10.5.5); satır 5a'nın isim
+            # eşleşmesi de tahmin vermez — okunmayan belgede isim yetmez (R8), doğum tarihi zorunlu
+            # türde okunamayan tarih K1 ile Unreadable'dır, satır 5a'ya inilmez (05.5.4).
             guess = _verdict_of(match)
             if guess is not None:
                 verdicts.append(guess)
-            foreign = _foreign(validations)
-            employee = _NO_EMPLOYEE if foreign else _employee_guess(match)
-            inactive = None if foreign else self._inactive_verdict(match.employee_id)
+            unguessed = _foreign(validations) or match.matched_by is MatchedBy.NAME
+            employee = _NO_EMPLOYEE if unguessed else _employee_guess(match)
+            inactive = None if unguessed else self._inactive_verdict(match.employee_id)
             if inactive is not None:
                 verdicts.append(inactive)
             return self._item(item_id, sources, entry, employee, verdicts, None, validations)
@@ -222,7 +227,8 @@ class _Planner:
         # Aynı yüklenen dosyadaki kimlikli adayların hepsi — Hazir'a gideni de kuyruğa gideni de —
         # tek bir kayıtlı çalışana satır 1/3 ile bağlıysa (kuyruktakinde kişi tahmini) ve en az
         # biri Hazir'a gidiyorsa sahip odur. Yeni açılan çalışan, onay bekleyen profil, belirsiz
-        # ya da yalnız isim hükmü ve ikinci bir çalışan sahip vermez.
+        # ya da yalnız isim hükmü, satır 5a'nın isim eşleşmesi (05.5.4) ve ikinci bir çalışan sahip
+        # vermez.
         files = {source.file_id for source in sources}
         people = [
             other
@@ -231,7 +237,7 @@ class _Planner:
             and files.intersection(source.file_id for source in other.sources)
         ]
         owners = {
-            other.employee.employee_id if other.employee.matched_by is not None else None
+            other.employee.employee_id if other.employee.matched_by in _OWNING_MATCHES else None
             for other in people
         }
         if len(owners) != 1 or not any(other.route is Route.READY for other in people):
@@ -347,6 +353,15 @@ class _Planner:
             # 10.5.7: pasif çalışan bulunur ama belge otomatik yerleşmez (R7); çalışan kişi
             # tahminidir, kimlik, profil alanı ve iletişim bilgisi birikmez.
             return _employee_guess(match), inactive
+        if match.matched_by is MatchedBy.NAME:
+            # §20.2.2 satır 5a (05.5.4): belge tek etkin çalışana isimle yerleşir ama hiçbir şey
+            # birikmez — isim yazımı, numara, profil alanı ve iletişim bilgisi eklenmez.
+            employee = PlanEmployee(
+                action=EmployeeAction.MATCH,
+                employee_id=match.employee_id,
+                matched_by=MatchedBy.NAME,
+            )
+            return employee, None
         if match.employee_id is not None:
             # §20.2.2 satır 1/3: yeni yazım, temiz numara, boş profil alanı ve iletişim bilgisi
             # birikir.
@@ -366,8 +381,8 @@ class _Planner:
             )
             return employee, None
         if match.rule is not MatchRule.NO_MATCH:
-            # Çelişkili anahtar, belirsiz eşleşme, yalnız isim (satır 2, 4, 5): yalnız adla eşleşme
-            # yeni çalışan açmaz (R8), satır 6b'ye inilmez.
+            # Çelişkili anahtar, belirsiz eşleşme, yalnız isim (satır 2, 4, 5a'nın belirsizi, 5):
+            # yalnız adla eşleşme yeni çalışan açmaz (R8, K7), satır 6b'ye inilmez.
             return _NO_EMPLOYEE, _verdict_of(match)
         # Satır 6 (temiz numara) ya da 6b (Latin ad-soyad + doğum tarihi, §20.2.4): ikisi de
         # `employee.action: create`; dayanak `EMPLOYEE_CREATED` verisindedir. Makul yaş partinin
@@ -639,7 +654,8 @@ def _reads_no_person(key: PersonKey, match: EmployeeMatch) -> bool:
 
 
 def _employee_guess(match: EmployeeMatch) -> PlanEmployee:
-    # Kuyruğa giden belgenin kişi tahmini (08.1.2): yalnız satır 1/3'ün çalışanı.
+    # Kuyruğa giden belgenin kişi tahmini (08.1.2): yalnız satır 1/3'ün çalışanı; satır 5a'nınki
+    # yalnız belge düzeyinde kabul edilmiş belgede, pasif çalışan hükmüyle (10.5.7).
     if match.employee_id is None:
         return _NO_EMPLOYEE
     return PlanEmployee(

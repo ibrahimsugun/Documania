@@ -8,13 +8,16 @@ yazılmaz, her kimlik (parti, kuyruk öğesi, belge) bir önceki yanıttan okunu
 çağrılmaz: sağlayıcı `tests/fixtures/gen.py`'nin sentetik sayfasının kayıtlı yanıtını okur. Gerçek
 kimlik belgesi yoktur (CONVENTIONS §6).
 
-Çalışma izninde doğum tarihi yoktur ve numarası çalışanın kaydında yoktur: belge yalnız isimden
-eşleşir ve Unresolved'a gider (§20.2.2 satır 5). İK onu iki aşamalı onayla (K16) çalışana atar.
+Çalışma izninde okunan doğum tarihi çalışanın kaydındakinden farklıdır ve numarası çalışanın
+kaydında yoktur: belge yalnız isimden eşleşir ve Unresolved'a gider (§20.2.2 satır 5). İK onu iki
+aşamalı onayla (K16) çalışana atar. (Doğum tarihi taşımayan izin satır 5a'yla doğrudan Hazir'a
+giderdi, 05.5.4 — kabul senaryosu S23.)
 """
 
 from __future__ import annotations
 
 import re
+from dataclasses import replace
 from datetime import date
 from pathlib import Path
 
@@ -33,14 +36,28 @@ from app.web.auth import SESSION_COOKIE
 from app.worker import Worker
 from tests.fixtures.gen import (
     PERSON_SIDOROV,
+    document_page,
     make_document_pdf_bytes,
     recorded_provider,
-    work_permit_page,
 )
 from tests.web.conftest import SESSION, SIGNED_IN
 
-PERMIT = work_permit_page(
-    PERSON_SIDOROV, document_number="WP-0000042", expiry_date=date(2027, 3, 31)
+PERMIT = document_page(
+    "work_permit",
+    title="RADNA DOZVOLA / WORK PERMIT",
+    person=replace(PERSON_SIDOROV, date_of_birth=date(1984, 4, 4)),
+    document_number="WP-0000042",
+    expiry_date=date(2027, 3, 31),
+    shows=(
+        "surname",
+        "given_names",
+        "date_of_birth",
+        "nationality",
+        "document_number",
+        "expiry_date",
+    ),
+    language="sr",
+    script="latin",
 )
 EMPLOYEE_NAME = "Ivan Sidorov"
 POLLING = 'hx-trigger="every 2s"'

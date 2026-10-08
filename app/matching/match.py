@@ -1,5 +1,5 @@
 """Kişi anahtarı, çalışan eşleştirme sırası, otomatik çalışan oluşturma, onay bekleyen profil,
-profil onayı ve alias birikimi — PRD 05.4.1, 05.5.1–05.5.3, 05.6.1, 05.6.2, 05.7.1, 05.7.2, 08.3.1,
+profil onayı ve alias birikimi — PRD 05.4.1, 05.5.1–05.5.4, 05.6.1, 05.6.2, 05.7.1, 05.7.2, 08.3.1,
 05.2.2 (§20.2; K6, K7, K8, K16, R7, R8, R9).
 
 Bir belge adayının (04.1–04.3) sayfalarından çalışan eşleştirmesinin (05.5) ve profil açmanın
@@ -68,8 +68,18 @@ sırasıyla karşılaştırır; ilk uyan satır kazanır, alttakilere bakılmaz:
    (`matched_by: name_dob`).
 4. İsim + doğum tarihi birden fazla çalışana uyuyor → belirsiz eşleşme, Unresolved +
    `PERSON_AMBIGUOUS`.
-5. Yalnız isim eşleşti (doğum tarihi belgede ya da çalışanda yok, veya farklı) → Unresolved (R8):
-   otomatik eşleştirme sayılmaz, alttaki satırlara da inilmez — yeni çalışan açılmaz.
+5a. Numara eşleşmedi ve anahtarda doğum tarihi yok (tür taşımıyor ya da okunmadı); isim
+   anahtarlarından biri birleştirilmemiş (etkin ya da pasif) **tek** çalışanın alias'ıyla eşleşiyor
+   → eşleşme (`matched_by: name`; 05.5.4, PLAN.md §D109). Aynı çalışanın iki alias'ı tek kayıttır.
+   İsim birden fazla çalışana uyuyorsa (biri pasif olsa da) belirsiz eşleşme, Unresolved +
+   `PERSON_AMBIGUOUS` (satır 4 gibi). Satır 5a'nın eşleşmesi hiçbir şey biriktirmez: isim yazımı,
+   numara, profil alanı ve iletişim bilgisi eklenmez (`accumulate_identity` reddeder; planlayıcı
+   alan ve iletişim adımlarını çağırmaz). Doğum tarihi zorunlu alan olan türde okunmayan tarih K1
+   gereği Unreadable'dır; belge düzeyinde reddedilen belgede planlayıcı satır 5a'dan kişi tahmini
+   de vermez.
+5. Yalnız isim eşleşti ve satır 5a uymuyor (belgedeki doğum tarihi farklı ya da çalışanınki kayıtlı
+   değil) → Unresolved (R8): otomatik eşleştirme sayılmaz, alttaki satırlara da inilmez — yeni
+   çalışan açılmaz.
 
 Hiçbiri uymazsa hüküm `NO_MATCH`'tir: satır 6–8 (yeni çalışan, onay bekleyen profil, kişi tespit
 edilemedi) temiz numara (§20.2.3) ve ad + doğum tarihi (§20.2.4) tanımlarına bağlıdır ve
@@ -125,8 +135,9 @@ kaydına yazılacak alanlarını (`ProfileFields`) onaydan önce düzeltebilir (
 çalışan kaydını değiştirir, belge içeriğini ve okumalarını değil (K17); düzeltilmiş ad ya da doğum
 tarihi kayıtlı bir çalışana uyuyorsa (satır 3–5) ikinci çalışan açılmaz.
 
-**Alias ve numara birikimi (05.7.2).** Satır 1 ve 3'teki eşleşmede `accumulate_identity` belgedeki
-yeni isim yazımlarını `employee_aliases`'a, yeni belge numarasını `employee_identifiers`'a ekler.
+**Alias ve numara birikimi (05.7.2).** Satır 1 ve 3'teki eşleşmede (5a'da değil)
+`accumulate_identity` belgedeki yeni isim yazımlarını `employee_aliases`'a, yeni belge numarasını
+`employee_identifiers`'a ekler.
 Numara yalnız §20.2.3'e göre temizse eklenir: yanlış okunmuş numara başka birinin belgesini satır
 1'le bu çalışana bağlayabilir (D11).
 
@@ -504,6 +515,7 @@ class MatchedBy(enum.StrEnum):
 
     DOCUMENT_NUMBER = "document_number"
     NAME_DOB = "name_dob"
+    NAME = "name"  # satır 5a (05.5.4): kimlik birikmez
 
 
 class MatchRule(enum.StrEnum):
@@ -514,6 +526,8 @@ class MatchRule(enum.StrEnum):
     DOCUMENT_NUMBER_AMBIGUOUS = "document_number_ambiguous"  # satır 2
     NAME_DOB = "name_dob"  # satır 3
     NAME_DOB_AMBIGUOUS = "name_dob_ambiguous"  # satır 4
+    NAME = "name"  # satır 5a
+    NAME_AMBIGUOUS = "name_ambiguous"  # satır 5a, birden fazla çalışan
     NAME_ONLY = "name_only"  # satır 5
     NO_MATCH = "no_match"  # satır 6–8: 05.6 / 05.7
 
@@ -524,12 +538,15 @@ NAME_ONLY_REASON = "İsim eşleşti ama doğum tarihi veya belge numarası doğr
 _MATCHED_BY = {
     MatchRule.DOCUMENT_NUMBER: MatchedBy.DOCUMENT_NUMBER,
     MatchRule.NAME_DOB: MatchedBy.NAME_DOB,
+    MatchRule.NAME: MatchedBy.NAME,
 }
 _EVENT_TYPES = {
     MatchRule.DOCUMENT_NUMBER: EventType.PERSON_MATCHED,
     MatchRule.NAME_DOB: EventType.PERSON_MATCHED,
+    MatchRule.NAME: EventType.PERSON_MATCHED,
     MatchRule.DOCUMENT_NUMBER_AMBIGUOUS: EventType.PERSON_AMBIGUOUS,
     MatchRule.NAME_DOB_AMBIGUOUS: EventType.PERSON_AMBIGUOUS,
+    MatchRule.NAME_AMBIGUOUS: EventType.PERSON_AMBIGUOUS,
 }
 
 
@@ -537,9 +554,9 @@ _EVENT_TYPES = {
 class EmployeeMatch:
     """Belge adayının çalışan eşleştirme hükmü (05.5); kurallar modül açıklamasındadır.
 
-    `employee_ids` hükmün dayandığı çalışanlardır (E numarası sırasıyla): eşleşmede tek çalışan,
-    belirsiz eşleşmede uyan bütün çalışanlar, yalnız isim eşleşmesinde ismi eşleşen bütün
-    çalışanlar; çelişkili anahtarda ve `NO_MATCH`'te boştur. `conflicts` çelişkili anahtarın
+    `employee_ids` hükmün dayandığı çalışanlardır (E numarası sırasıyla): eşleşmede (satır 5a dahil)
+    tek çalışan, belirsiz eşleşmede uyan bütün çalışanlar, yalnız isim eşleşmesinde ismi eşleşen
+    bütün çalışanlar; çelişkili anahtarda ve `NO_MATCH`'te boştur. `conflicts` çelişkili anahtarın
     çelişen alan adlarıdır (`KEY_FIELDS` sırasıyla).
     """
 
@@ -553,7 +570,7 @@ class EmployeeMatch:
 
     @property
     def employee_id(self) -> str | None:
-        """Eşleşen çalışan; yalnız satır 1 ve 3'te dolu."""
+        """Eşleşen çalışan; yalnız satır 1, 3 ve 5a'da dolu."""
         return self.employee_ids[0] if self.matched_by is not None else None
 
     @property
@@ -591,6 +608,11 @@ class EmployeeMatch:
                 return (
                     "Belirsiz eşleşme: ad-soyad ve doğum tarihi birden fazla çalışana uyuyor "
                     f"({employees}). Çalışan otomatik eşleştirilmez."
+                )
+            case MatchRule.NAME_AMBIGUOUS:
+                return (
+                    "Belirsiz eşleşme: belgede doğum tarihi yok, ad-soyad birden fazla çalışana "
+                    f"uyuyor ({employees}). Çalışan otomatik eşleştirilmez."
                 )
             case MatchRule.NAME_ONLY:
                 label = "çalışan" if len(self.employee_ids) == 1 else "çalışanlar"
@@ -654,7 +676,8 @@ def _decide(session: Session, key: PersonKey) -> EmployeeMatch:
 
 def _decide_by_name(session: Session, name_keys: Sequence[str], born: date | None) -> EmployeeMatch:
     # §20.2.2 satır 3–5: isim anahtarlarından biri bir alias'la eşleşiyor mu, doğum tarihi tutuyor
-    # mu. Profil onayı (08.3.1, 10.7.3) çalışana yazılacak yazımları da bununla sınar.
+    # mu; doğum tarihi yoksa satır 5a. Profil onayı (08.3.1, 10.7.3) çalışana yazılacak yazımları
+    # da bununla sınar.
     if not name_keys:
         return EmployeeMatch(MatchRule.NO_MATCH)
     # Birleştirilmiş çalışan (10.5.9) aranmaz: yazımları kalan kayda taşınmıştır.
@@ -676,9 +699,12 @@ def _decide_by_name(session: Session, name_keys: Sequence[str], born: date | Non
         return EmployeeMatch(MatchRule.NAME_DOB, fitting)
     if fitting:
         return EmployeeMatch(MatchRule.NAME_DOB_AMBIGUOUS, fitting)
-    return EmployeeMatch(
-        MatchRule.NAME_ONLY, _employee_ids(employee_id for employee_id, _ in named)
-    )
+    employees = _employee_ids(employee_id for employee_id, _ in named)
+    if born is None:
+        # Satır 5a (05.5.4): sayım çalışan başınadır — aynı çalışanın iki alias'ı tek kayıt.
+        rule = MatchRule.NAME if len(employees) == 1 else MatchRule.NAME_AMBIGUOUS
+        return EmployeeMatch(rule, employees)
+    return EmployeeMatch(MatchRule.NAME_ONLY, employees)
 
 
 def _employee_ids(ids: Iterable[str]) -> tuple[str, ...]:
@@ -1475,8 +1501,9 @@ def accumulate_identity(
     """§20.2.2 satır 1 ve 3'teki eşleşmede belgedeki yeni isim yazımını `employee_aliases`'a, yeni
     belge numarasını `employee_identifiers`'a ekler (05.7.2).
 
-    Hüküm veritabanında olaysız yeniden değerlendirilir: satır 1 ya da 3 uymuyorsa
-    `IdentityAccumulationRefusedError` — hiçbir şey yazılmaz. Uyuyorsa eşleşen çalışana:
+    Hüküm veritabanında olaysız yeniden değerlendirilir: satır 1 ya da 3 uymuyorsa (satır 5a'nın
+    isim eşleşmesi dahil, 05.5.4) `IdentityAccumulationRefusedError` — hiçbir şey yazılmaz.
+    Uyuyorsa eşleşen çalışana:
 
     - `employee_aliases`: `Ad Soyad` yazımı ve orijinal yazım, anahtarın normalize değeriyle —
       çalışanda aynı ham yazım (`raw_name`) yoksa; `script` yazımın alfabesidir (`detect_script`,
@@ -1494,7 +1521,8 @@ def accumulate_identity(
     D11); oturum commit edilmez.
     """
     match = _decide(session, key)
-    employee_id = match.employee_id
+    # Satır 5a'nın eşleşmesi kimlik biriktirmez (05.5.4): yanlış isim eşleşmesi yayılmasın.
+    employee_id = None if match.matched_by is MatchedBy.NAME else match.employee_id
     if employee_id is None:
         raise IdentityAccumulationRefusedError(
             "İsim yazımı ve belge numarası eklenmez (§20.2.2 satır 1, 3): "

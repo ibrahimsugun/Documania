@@ -4,8 +4,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Documania panel\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-08 15:48+0000\n"
-"PO-Revision-Date: 2026-10-08 15:48+0000\n"
+"POT-Creation-Date: 2026-10-08 18:26+0000\n"
+"PO-Revision-Date: 2026-10-08 18:26+0000\n"
 "Last-Translator: Documania görev penceresi (gözden geçirilmeli)\n"
 "Language: sr_Latn\n"
 "Language-Team: Srpski\n"
@@ -1111,6 +1111,15 @@ msgstr "Dokument je vraćen iz arhive; ponovo je u fascikli Hazir zaposlenog."
 #: app/web/routers/employees.py
 msgid "Belge arşive taşındı; çalışanın Hazır klasöründen çıktı."
 msgstr "Dokument je premešten u arhivu; napustio je fasciklu Hazir zaposlenog."
+
+#: app/web/templates/profile.html
+msgid ""
+"Belge bu çalışana yalnız ad-soyadla yerleşti; belge numarası ya da doğum "
+"tarihi doğrulanmadı. Yanlışsa belgeyi taşıyın."
+msgstr ""
+"Dokument je dodeljen ovom zaposlenom samo po imenu i prezimenu; broj "
+"dokumenta ni datum rođenja nisu potvrđeni. Ako je pogrešno, premestite "
+"dokument."
 
 #: app/web/templates/history.html
 msgid "Belge bulunamadı"
@@ -4702,6 +4711,10 @@ msgstr "Prikaži samo aktivne grupe"
 msgid "Yalnız iptal edilmiş paket yeniden açılır."
 msgstr "Ponovo se može otvoriti samo otkazan paket."
 
+#: app/web/templates/profile.html app/web/templates/upload_detail.html
+msgid "Yalnız isimle eşleşti"
+msgstr "Upareno samo po imenu"
+
 #: app/pipeline/queue_close.py
 msgid "Yalnız kapatılan öğe yeniden açılır; bu öğe kapatılmadı."
 msgstr "Ponovo se otvara samo zatvorena stavka; ova stavka nije zatvorena."
@@ -5449,6 +5462,10 @@ msgstr[2] "i još {count} vrsta"
 #: app/web/templates/profile.html app/web/templates/upload.html
 msgid "ya da seçmek için tıklayın · birden çok dosya seçilebilir"
 msgstr "ili kliknite da izaberete · može se izabrati više datoteka"
+
+#: app/web/routers/upload_page.py
+msgid "yalnız ad-soyad"
+msgstr "samo ime i prezime"
 
 #: app/web/templates/employees_results.html
 msgid "yalnız eksik paketi olanlar"

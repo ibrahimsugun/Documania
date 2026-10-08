@@ -1,6 +1,8 @@
 """05.5.1 — önce belge numarası, sonra normalize isim + doğum tarihi denenir; 05.5.2 — yalnız isim
 eşleşmesi Unresolved'a gider, otomatik eşleştirme sayılmaz (R8); 05.5.3 — birden fazla çalışan
-eşleşirse Unresolved'a gider ve olay loguna yazılır. Kabul senaryoları: S10, S12.
+eşleşirse Unresolved'a gider ve olay loguna yazılır; 05.5.4 — doğum tarihi taşımayan belgenin adı
+birleştirilmemiş tek çalışana uyuyorsa eşleşir (`matched_by: name`, §20.2.2 satır 5a). Kabul
+senaryoları: S10, S12, S23.
 
 Birim testleri §20.2.2 karar tablosunu elle kurulan `PersonKey` ve geçici SQLite'taki sentetik
 çalışanlarla sınar. Entegrasyon testleri sentetik PDF'i gerçek render adımlarından ve kayıtlı yanıt
@@ -12,7 +14,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Callable
-from datetime import date
+from datetime import UTC, date, datetime
 from pathlib import Path
 
 import pytest
@@ -27,6 +29,7 @@ from app.db.models import (
     Employee,
     EmployeeAlias,
     EmployeeIdentifier,
+    EmployeeStatus,
     Event,
     QueueKind,
     Upload,
@@ -292,8 +295,8 @@ def test_name_and_birth_date_fitting_several_employees_is_ambiguous(session: Ses
 
 @pytest.mark.parametrize(
     ("document_birth", "employee_birth"),
-    [(OTHER_BIRTH, BORN), (None, BORN), (BORN, None), (None, None)],
-    ids=["different", "document-without-birth", "employee-without-birth", "neither"],
+    [(OTHER_BIRTH, BORN), (BORN, None)],
+    ids=["different", "employee-without-birth"],
 )
 @pytest.mark.parametrize("numbers", [(), (OTHER_NUMBER,)], ids=["no-number", "unmatched-number"])
 def test_name_only_match_goes_to_unresolved(
@@ -302,7 +305,8 @@ def test_name_only_match_goes_to_unresolved(
     employee_birth: date | None,
     numbers: tuple[str, ...],
 ) -> None:
-    # §20.2.2 satır 5 (05.5.2, R8, S10): otomatik eşleştirme yok, yeni çalışan da yok.
+    # §20.2.2 satır 5 (05.5.2, R8, S10): belgede doğum tarihi var ama çalışanınkiyle aynı değil ya
+    # da çalışanınki kayıtlı değil — otomatik eşleştirme yok, yeni çalışan da yok.
     _employee(session, "E0001", born=employee_birth)
 
     result = match_employee(session, _key(numbers=numbers, born=document_birth))
@@ -331,6 +335,117 @@ def test_name_only_match_goes_to_unresolved(
     }
     assert (_count(session, Employee), _count(session, EmployeeAlias)) == (1, 1)
     assert _count(session, EmployeeIdentifier) == 0
+
+
+# --- satır 5a: doğum tarihi taşımayan belgenin tekil isim eşleşmesi (05.5.4) -------------------
+
+
+@pytest.mark.parametrize(
+    "employee_birth", [BORN, None], ids=["employee-birth", "no-employee-birth"]
+)
+@pytest.mark.parametrize("numbers", [(), (OTHER_NUMBER,)], ids=["no-number", "unmatched-number"])
+def test_name_without_a_document_birth_date_matches_the_single_employee(
+    session: Session, employee_birth: date | None, numbers: tuple[str, ...]
+) -> None:
+    # §20.2.2 satır 5a (S23): numara eşleşmedi, belgede doğum tarihi yok, ad tek çalışana uyuyor →
+    # eşleşme (`matched_by: name`). Bu adım veritabanına olaydan başka bir şey yazmaz.
+    _employee(session, "E0001", born=employee_birth)
+
+    result = match_employee(session, _key(numbers=numbers, born=None))
+
+    assert result == EmployeeMatch(MatchRule.NAME, ("E0001",))
+    assert (result.employee_id, result.matched_by, result.action, result.queue, result.reason) == (
+        "E0001",
+        MatchedBy.NAME,
+        EmployeeAction.MATCH,
+        None,
+        None,
+    )
+    (event,) = _events(session)
+    assert (event.type, event.employee_id, event.message) == (
+        EventType.PERSON_MATCHED,
+        "E0001",
+        None,
+    )
+    assert event.data_json == {"rule": "name", "matched_by": "name", "employee_ids": ["E0001"]}
+    assert (_count(session, Employee), _count(session, EmployeeAlias)) == (1, 1)
+    assert _count(session, EmployeeIdentifier) == 0
+
+
+def test_name_without_a_birth_date_counts_an_employee_with_two_spellings_once(
+    session: Session,
+) -> None:
+    # Ad-soyad ve orijinal yazım aynı çalışanın iki alias'ına uyuyor: tek kayıt, eşleşme.
+    _employee(session, "E0001", aliases=("ORNEKOVA TEST", CYRILLIC))
+
+    result = match_employee(session, _key(numbers=(), born=None, original=CYRILLIC))
+
+    assert result == EmployeeMatch(MatchRule.NAME, ("E0001",))
+
+
+def test_name_without_a_birth_date_finds_an_inactive_employee(session: Session) -> None:
+    # Pasif çalışan da sayılır ve bulunur (10.5.7); belgeyi yerleştirmemek planlayıcının işidir.
+    _employee(session, "E0001").status = EmployeeStatus.INACTIVE.value
+    session.flush()
+
+    assert match_employee(session, _key(numbers=(), born=None)) == EmployeeMatch(
+        MatchRule.NAME, ("E0001",)
+    )
+
+
+def test_name_without_a_birth_date_does_not_count_a_merged_or_removed_spelling(
+    session: Session,
+) -> None:
+    # Birleştirilmiş kayıt (10.5.9) ve İK'nın kaldırdığı isim yazımı (10.5.8) sayıma girmez.
+    _employee(session, "E0001").status = EmployeeStatus.MERGED.value
+    removed = _employee(session, "E0002")
+    removed.aliases[0].removed_at = datetime(2026, 9, 1, tzinfo=UTC)
+    _employee(session, "E0003")
+    session.flush()
+
+    assert match_employee(session, _key(numbers=(), born=None)) == EmployeeMatch(
+        MatchRule.NAME, ("E0003",)
+    )
+
+
+@pytest.mark.parametrize(
+    "second_status",
+    [EmployeeStatus.ACTIVE, EmployeeStatus.INACTIVE],
+    ids=["both-active", "one-inactive"],
+)
+def test_name_without_a_birth_date_fitting_two_employees_is_ambiguous(
+    session: Session, second_status: EmployeeStatus
+) -> None:
+    # Satır 5a'nın belirsizi: ad birden çok kayda uyuyor (biri pasif olsa da) → Unresolved +
+    # `PERSON_AMBIGUOUS`, satır 4'ün kalıbıyla; satır 5'in gerekçesine düşmez.
+    _employee(session, "E0001")
+    _employee(session, "E0002", born=OTHER_BIRTH).status = second_status.value
+    session.flush()
+
+    result = match_employee(session, _key(numbers=(), born=None))
+
+    assert result == EmployeeMatch(MatchRule.NAME_AMBIGUOUS, ("E0001", "E0002"))
+    assert (result.employee_id, result.matched_by, result.action, result.queue) == (
+        None,
+        None,
+        EmployeeAction.NONE,
+        QueueKind.UNRESOLVED,
+    )
+    assert result.reason == (
+        "Belirsiz eşleşme: belgede doğum tarihi yok, ad-soyad birden fazla çalışana uyuyor "
+        "(E0001, E0002). Çalışan otomatik eşleştirilmez."
+    )
+    (event,) = _events(session)
+    assert (event.type, event.employee_id, event.message) == (
+        EventType.PERSON_AMBIGUOUS,
+        None,
+        result.reason,
+    )
+    assert event.data_json == {
+        "rule": "name_ambiguous",
+        "queue": "unresolved",
+        "employee_ids": ["E0001", "E0002"],
+    }
 
 
 def test_name_only_reason_is_the_prd_text() -> None:

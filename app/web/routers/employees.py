@@ -42,7 +42,10 @@ başlayan belgesine (etkin olan, sonra en yeni) bağlanır — dosyası varsa ye
 geçmişine; belge bu çalışanda yoksa (henüz yürütülmedi, başka çalışana taşındı) parti sayfasına.
 Belge listesi çalışanın **tüm** belgelerini (etkin, eski sürüm, arşivlenmiş) gösterir; her belge
 yeni sekmede açılır (`.../file`) ve indirilir (`.../download`), ikisi de yalnız `GET`'tir — panelde
-belge içeriğini değiştiren yol yoktur (10.5.2, K17). Fotoğraf ayrı bir adresten (`.../photo`)
+belge içeriğini değiştiren yol yoktur (10.5.2, K17). Planın yalnız isimle yerleştirdiği belge
+(§20.2.2 satır 5a, `matched_by: name`; `app.pipeline.plan.name_matched_documents`) listede "Yalnız
+isimle eşleşti" etiketi taşır (05.5.4); yanlışsa İK belgeyi taşır (10.8.1). Fotoğraf ayrı bir
+adresten (`.../photo`)
 sunulur: profil sayfasını çizmek belgeyi "açmak" sayılmasın (10.9.2 açma ve indirmeyi loglar, sayfa
 görüntülemeyi değil): `.../file` `view`, `.../download` `download` olarak `access_log`'a kullanıcı
 ve zamanla yazılır (`app.web.access`), satır sunmadan önce commit edilir.
@@ -235,6 +238,7 @@ from app.matching.status import (
     status_label,
     status_target,
 )
+from app.pipeline.plan import name_matched_documents
 from app.profiles import write_profile
 from app.profiles.latin_names import needs_latin_repair
 from app.profiles.render import calculate_age
@@ -643,6 +647,8 @@ class DocumentRow:
     status_label: str
     created_on: date
     available: bool
+    # 05.5.4: planın yalnız isimle yerleştirdiği belge.
+    name_only: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -873,6 +879,7 @@ def build_profile(
         .order_by(Document.created_at.desc(), Document.id.desc())
     ).all()
 
+    by_name = name_matched_documents(document for document, _ in documents)
     rows = [
         DocumentRow(
             id=document.id,
@@ -883,6 +890,7 @@ def build_profile(
             status_label=DOCUMENT_STATUS_LABELS.get(document.status, document.status),
             created_on=document.created_at.date(),
             available=_stored_file(layout, document.path) is not None,
+            name_only=document.id in by_name,
         )
         for document, type_name in documents
     ]

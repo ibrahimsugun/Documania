@@ -15,6 +15,9 @@ alanın kaynağı kayıtlı değildi. `fill_profile_fields` mevcut çalışanlar
 3. Kaynak belgenin ilk sayfasıdır; aynı kaynaktan daha önce gözlenmiş alan atlanır. Bu yüzden
    komut tekrar çalıştırılabilir: ikinci çalıştırma alan, gözlem ya da olay yazmaz; boru hattının
    bu kuraldan sonra işlediği belgeler de yeniden sayılmaz.
+4. Planın yalnız isimle yerleştirdiği belge (§20.2.2 satır 5a, `matched_by: name`; 05.5.4,
+   `app.pipeline.plan_models.name_matched_documents`) atlanır: boru hattında olduğu gibi profil
+   alanı doldurmaz, gözlem yazmaz.
 
 Olaylar (`EMPLOYEE_FIELD_FILLED`) verilen kullanıcı adıyla ve belge kimliğiyle yazılır. Klasör ve
 dosya adları (K8), eşleştirme anahtarı, isim yazımları ve belge içeriği değişmez.
@@ -35,6 +38,7 @@ from app.db.models import Document, DocumentStatus, Employee, Page, ProfileField
 from app.matching.fields import FieldCompletion, complete_profile_fields
 from app.matching.match import build_person_key
 from app.pipeline.analyze import PageAnalysisStatus
+from app.pipeline.plan_models import name_matched_documents
 
 
 @dataclass(frozen=True, slots=True)
@@ -70,7 +74,7 @@ def fill_profile_fields(session: Session, *, actor: str = "system") -> list[Prof
 
 
 def _active_documents(session: Session, employee_id: str) -> list[Document]:
-    return list(
+    documents = list(
         session.scalars(
             select(Document)
             .where(
@@ -80,6 +84,9 @@ def _active_documents(session: Session, employee_id: str) -> list[Document]:
             .order_by(Document.created_at, Document.id)
         )
     )
+    # 05.5.4: isimle yerleşen belge kimlik ve profil alanı biriktirmez.
+    by_name = name_matched_documents(documents)
+    return [document for document in documents if document.id not in by_name]
 
 
 def _complete(session: Session, document: Document, *, actor: str) -> FieldCompletion | None:
