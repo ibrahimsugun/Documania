@@ -249,6 +249,47 @@ def find_employees(session: Session, person: PersonReference) -> list[Employee]:
     ]
 
 
+def same_label_types(session: Session, type_slugs: Iterable[str]) -> tuple[str, ...]:
+    """Verilen türlerin dosya etiketlerini (Passport, Driving License…) taşıyan bütün katalog
+    türleri, verilenler önde (§D109): ülkesiz "pasaport" her ülkenin pasaportudur."""
+    given = tuple(dict.fromkeys(type_slugs))
+    if not given:
+        return ()
+    labels = select(KnownDocumentType.file_label).where(KnownDocumentType.slug.in_(given))
+    same = session.scalars(
+        select(KnownDocumentType.slug)
+        .where(KnownDocumentType.file_label.in_(labels))
+        .order_by(KnownDocumentType.slug)
+    )
+    return tuple(dict.fromkeys((*given, *same)))
+
+
+def complete_kinds(session: Session, query: DocumentQuery) -> DocumentQuery:
+    """Modelin birden çok tür verdiği adı (ülkesiz "pasaport") aynı etiketli bütün türlere
+    tamamlar: uzun katalog listesinde unutulan tür (ör. Türk pasaportu) kaybolmaz (§D109). Tek tür
+    verilen ad ("Sırp ehliyeti") olduğu gibi kalır."""
+    if not query.documents:
+        return query
+    documents = tuple(
+        item.model_copy(update={"types": same_label_types(session, item.types)})
+        if len(item.types) > 1
+        else item
+        for item in query.documents
+    )
+    return query.model_copy(update={"documents": documents})
+
+
+def find_kind_documents(
+    session: Session, employee_id: str, type_slugs: Sequence[str]
+) -> list[Document]:
+    """İstenen türlerdeki belgeler; hiç yoksa aynı etiketli türlerde (ülkesi yanlış okunmuş belge:
+    "pasaport" için yalnız bir ülke seçilmişse ama kişinin pasaportu başka ülkeninse) (§D109)."""
+    documents = find_documents(session, employee_id, type_slugs)
+    if documents or not type_slugs:
+        return documents
+    return find_documents(session, employee_id, same_label_types(session, type_slugs))
+
+
 def find_documents(session: Session, employee_id: str, type_slugs: Sequence[str]) -> list[Document]:
     """Çalışanın etkin belgeleri; `type_slugs` boş değilse yalnız o türlerden, yeniden eskiye."""
     query = select(Document).where(
@@ -379,7 +420,7 @@ def resolve(session: Session, query: DocumentQuery, previous: str | None = None)
         return Resolution(TextReply(gettext(NOT_A_REQUEST_TEXT)))
     if len(query.people) > 1:
         return Resolution(TextReply(gettext(MANY_PEOPLE_TEXT)))
-    lookup = lookup_of(query)
+    lookup = lookup_of(complete_kinds(session, query))
     if len(lookup.kinds) == 1 and not lookup.type_slugs:
         return Resolution(TextReply(gettext(UNKNOWN_KIND_TEXT).format(kind=lookup.kind)))
     if not query.people:
@@ -416,7 +457,7 @@ def several_kinds(session: Session, employee: Employee, kinds: Sequence[Requeste
         if not item.types:
             lines.append(BULLET + gettext(KIND_UNKNOWN_TEXT).format(kind=item.kind))
             continue
-        documents = find_documents(session, employee.id, item.types)
+        documents = find_kind_documents(session, employee.id, item.types)
         if not documents:
             lines.append(BULLET + gettext(KIND_MISSING_TEXT).format(kind=item.kind))
         elif len(documents) == 1:
@@ -556,7 +597,7 @@ def _country_name(code: str | None) -> str | None:
 
 def resolve_documents(session: Session, employee: Employee, lookup: Lookup) -> Reply:
     """Kişi belli olduktan sonra: tek belge gönderilir, birden çoğu sorulur, hiç yoksa söylenir."""
-    documents = find_documents(session, employee.id, lookup.type_slugs)
+    documents = find_kind_documents(session, employee.id, lookup.type_slugs)
     if not documents:
         return TextReply(
             gettext(NO_DOCUMENT_TEXT).format(

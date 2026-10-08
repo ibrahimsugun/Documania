@@ -250,29 +250,25 @@ def test_non_conforming_payload_is_rejected(payload: object, location: str) -> N
     assert any(problem.startswith(location) for problem in caught.value.problems)
 
 
-def test_slug_outside_the_asked_catalog_is_rejected_and_only_counted() -> None:
+def test_slugs_and_groups_outside_the_request_are_dropped_and_only_counted_in_the_log(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    # §D109: katalog yüzlerce tür taşır; model bir slug uydurursa bütün istek düşmez, slug atılır.
     payload = query_payload(types=(LICENSE, "ornekova_test", "diploma"))
-
-    with pytest.raises(DocumentQueryError) as caught:
-        validate_document_query(payload, known_slugs=SLUGS)
-
-    assert caught.value.problems == ["documents: katalogda olmayan 2 tür"]
-    assert "ornekova" not in str(caught.value)
-
-
-def test_group_outside_the_asked_list_is_rejected_and_only_counted() -> None:
-    payload = {
+    missing = {
         **query_payload(kind=None),
         "intent": "missing_documents",
         "group": "Ornekova süreci",
         "group_ids": [1, 9],
     }
 
-    with pytest.raises(DocumentQueryError) as caught:
-        validate_document_query(payload, known_slugs=SLUGS, known_groups=[1])
+    query = validate_document_query(payload, known_slugs=SLUGS)
+    group_query = validate_document_query(missing, known_slugs=SLUGS, known_groups=[1])
 
-    assert caught.value.problems == ["group_ids: listede olmayan 1 grup"]
-    assert "Ornekova" not in str(caught.value)
+    assert query.documents[0].types == (LICENSE,)
+    assert group_query.group_ids == (1,)
+    assert "katalog dışı 2 tür" in caplog.text and "liste dışı 1 grup" in caplog.text
+    assert "ornekova" not in caplog.text.lower()
 
 
 def test_rejection_does_not_echo_values_from_the_message() -> None:
@@ -349,10 +345,11 @@ def test_read_document_query_validates_the_answer_against_the_request_catalog() 
 
     assert query.document_types == (LICENSE,)
     assert provider.queries == [request]
-    with pytest.raises(DocumentQueryError):
-        QueryingProvider(query_payload()).read_document_query(
-            query_request(known_slugs=("russian_passport",))
-        )
+    # Katalog dışı slug atılır (§D109).
+    narrowed = QueryingProvider(query_payload()).read_document_query(
+        query_request(known_slugs=("russian_passport",))
+    )
+    assert narrowed.documents[0].types == ()
 
 
 def test_read_document_query_retries_server_errors_like_analysis(no_sleep: list[float]) -> None:

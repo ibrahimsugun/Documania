@@ -18,6 +18,13 @@ Blok biçimi `CONVENTIONS.md` §3'te tanımlıdır:
 
 ## Task log (newest-first)
 
+## 164 — düzeltme: pasaport bulunamadı / "Şu an olmadı" (§D109) — done — 2026-10-08
+- Yapıldı: katalog dışı slug yanıtı düşürmüyor, atılıyor; ülkesiz tür aynı etiketin bütün türlerine tamamlanıyor; yanlış ülkede etikete düşülüyor.
+- Doğrulama: ruff, tests/ai + tests/telegram + tests/groups 1225 yeşil; gerçek model + gerçek DB ile ekran görüntüsündeki 6 mesaj doğru.
+- Varsayımlar: tek türlü ad ("Sırp ehliyeti") genişletilmez, yalnız belge bulunamazsa etikete düşülür.
+- Sonraki pencereye not: istem her mesajda bütün katalogu (~400 tür) taşıyor; gecikme sorun olursa katalog etikete göre kısaltılabilir.
+
+
 ## 164 — 12.3-b Botla konuşma: birden çok tür, devam, kişi bilgisi, eksik belgeler; her mesaja yanıt; yazılan dil — done — 2026-10-08
 - Yapıldı: okuma şeması dört niyet + `documents`/`group`/`language`; bot çok türü satır satır yanıtlar, kişisiz isteği son kişiye uygular, yaş/uyruk/belge özetini ve grup eksiklerini (paket açmadan) verir; ses ve öteki mesajlara yanıt, `typing`, yazılan dilde yanıt (§D108).
 - Doğrulama: ruff, compileall, import, alembic, i18n check exit 0; tests/telegram 394, tests/ai 763 yeşil. Tam `pytest --cov` insan kararıyla koşulmadı.

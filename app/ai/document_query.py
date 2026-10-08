@@ -24,14 +24,16 @@ deterministik koddur (`app.telegram.intent`); bu yanıt yalnız aramanın girdis
 
 Kurallar öteki sözleşmelerle aynı ölçüdedir: her anahtar yanıtta bulunur, tanımsız anahtar
 reddedilir, tip zorlanmaz, yanıt düzeltilmez (`DocumentQueryError`). Tutarsız yanıt da reddedilir —
-niyetin taşımadığı alan dolu, tekrarlanan tür adı, slug ya da grup, katalog ya da grup listesi
-dışı değer: yanlış okunmuş bir isteğe göre belge aranmaz. Yanıt mesajdan gelen adları taşır; hata
-mesajına yanıttaki değer konmaz (CONVENTIONS §6).
+niyetin taşımadığı alan dolu, tekrarlanan tür adı, slug ya da grup: yanlış okunmuş bir isteğe göre
+belge aranmaz. Katalog ya da grup listesi dışındaki slug ve grup ise yalnız atılır (§D109): katalog
+uzun olduğundan model tek bir slug uydurabilir, istek bunun için düşmez. Yanıt mesajdan gelen
+adları taşır; hata ve log mesajına yanıttaki değer konmaz (CONVENTIONS §6).
 """
 
 from __future__ import annotations
 
 import enum
+import logging
 from collections.abc import Iterable
 from typing import Annotated
 
@@ -43,6 +45,8 @@ from pydantic import (
     ValidationError,
     model_validator,
 )
+
+logger = logging.getLogger(__name__)
 
 MAX_PEOPLE = 10
 """Bir yanıttaki en çok kişi sayısı; sistem zaten tek kişilik isteği yürütür."""
@@ -155,19 +159,24 @@ def validate_document_query(
             query = DocumentQuery.model_validate(data)
     except ValidationError as exc:
         raise DocumentQueryError(_describe(exc)) from None
-    problems: list[str] = []
+    # Katalog ya da grup listesi dışındaki değer atılır, yanıt reddedilmez (PLAN.md §D109): katalog
+    # yüzlerce tür taşır ("pasaport" ~100 ülke); model uzun listede bir slug uydurursa bütün istek
+    # düşmesin. Atılan slug ve grup yalnız sayıyla loga yazılır (mesajdaki adı taşıyabilir).
     known = frozenset(known_slugs)
-    unknown = sum(1 for item in query.documents for slug in item.types if slug not in known)
-    if unknown:
-        # Slug yanıttan gelir ve mesajdaki bir adı taşıyabilir; mesaja yalnız sayısı yazılır.
-        problems.append(f"documents: katalogda olmayan {unknown} tür")
     groups = frozenset(known_groups)
+    unknown = sum(1 for item in query.documents for slug in item.types if slug not in known)
     stray = sum(1 for group_id in query.group_ids if group_id not in groups)
-    if stray:
-        problems.append(f"group_ids: listede olmayan {stray} grup")
-    if problems:
-        raise DocumentQueryError(problems)
-    return query
+    if not unknown and not stray:
+        return query
+    logger.warning(
+        "Belge isteği okumasından katalog dışı %d tür ve liste dışı %d grup atıldı", unknown, stray
+    )
+    documents = tuple(
+        item.model_copy(update={"types": tuple(slug for slug in item.types if slug in known)})
+        for item in query.documents
+    )
+    group_ids = tuple(group_id for group_id in query.group_ids if group_id in groups)
+    return query.model_copy(update={"documents": documents, "group_ids": group_ids})
 
 
 def _describe(exc: ValidationError) -> list[str]:

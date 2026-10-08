@@ -741,9 +741,8 @@ def test_missing_provider_is_reported(
     [
         ProviderServerError("Ahmet Çakar 5xx", status_code=503),
         {"intent": "find_documents", "people": ["Ahmet Çakar"]},
-        query("Ahmet Çakar", types=("ahmet_cakar",)),
     ],
-    ids=["saglayici-hatasi", "eksik-yanit", "katalog-disi-slug"],
+    ids=["saglayici-hatasi", "eksik-yanit"],
 )
 def test_provider_failure_or_invalid_answer_is_a_failure_message_and_logs_no_names(
     ask: Callable[..., tuple[IntakeBot, QueryProvider]],

@@ -578,3 +578,65 @@ def test_after_choosing_between_two_people_the_info_follows_and_the_choice_is_th
     assert "2 kişi var" in texts[0]
     assert texts[1].startswith("AHMET ÇAKAR\n• Doğum tarihi: 05.05.1991")
     assert bot.telegram.uploads == [("l.pdf", pdf("l"))]
+
+
+# --- §D109: uzun katalogda unutulan ya da uydurulan tür -----------------------------------------
+
+
+def test_an_invented_slug_is_dropped_instead_of_failing_the_request(
+    chat: Callable[..., tuple[IntakeBot, QueryProvider]],
+    session_factory: sessionmaker[Session],
+    layout: DataLayout,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    employee = add_employee(session_factory, 1, "MEHMET", "ÖRNEK")
+    add_document(session_factory, layout, employee, "turkish_passport", "p.pdf", pdf("p"))
+    # Ekran görüntüsündeki okuma: pasaport listesi uydurma slug taşıyor ("Şu an olmadı" idi).
+    bot, _ = chat(
+        ask_for(
+            "Mehmet Örnek",
+            documents=[("pasaport", ["russian_passport", "martian_passport", "turkish_passport"])],
+        )
+    )
+
+    say(bot, "Bu adamın pasaportnu bana ver")
+
+    assert bot.telegram.sent_texts() == []
+    assert bot.telegram.uploads == [("p.pdf", pdf("p"))]
+    assert "katalog dışı 1 tür" in caplog.text and "martian" not in caplog.text
+
+
+def test_a_passport_the_model_forgot_to_list_is_still_found(
+    chat: Callable[..., tuple[IntakeBot, QueryProvider]],
+    session_factory: sessionmaker[Session],
+    layout: DataLayout,
+) -> None:
+    employee = add_employee(session_factory, 1, "MEHMET", "ÖRNEK")
+    add_document(session_factory, layout, employee, "turkish_passport", "p.pdf", pdf("p"))
+    # Ekran görüntüsü: model ~100 pasaport türünü saydı ama Türk pasaportunu unuttu → "yok" idi.
+    bot, _ = chat(
+        ask_for(
+            "Mehmet Örnek",
+            documents=[("Pasaport", ["russian_passport", "serbian_passport"]), ("CV", [])],
+        )
+    )
+
+    say(bot, "Pasaport ve CV yüklemiş mi")
+
+    (text,) = bot.telegram.sent_texts()
+    assert text == "MEHMET ÖRNEK:\n• Pasaport: var\n• CV: bu türü bilmiyorum"
+    assert bot.telegram.uploads == [("p.pdf", pdf("p"))]
+
+
+def test_a_single_wrong_country_falls_back_to_the_same_label(
+    chat: Callable[..., tuple[IntakeBot, QueryProvider]],
+    session_factory: sessionmaker[Session],
+    layout: DataLayout,
+) -> None:
+    employee = add_employee(session_factory, 1, "MEHMET", "ÖRNEK")
+    add_document(session_factory, layout, employee, "turkish_passport", "p.pdf", pdf("p"))
+    bot, _ = chat(ask_for("Mehmet Örnek", documents=[("pasaport", ["russian_passport"])]))
+
+    say(bot, "Mehmet Örnek pasaportu")
+
+    assert bot.telegram.uploads == [("p.pdf", pdf("p"))]

@@ -895,14 +895,14 @@ def test_document_query_response_without_query_tool_call_is_rejected(
     assert expected in caught.value.problems[0]
 
 
-def test_document_query_with_a_slug_outside_the_catalog_is_rejected() -> None:
+def test_document_query_drops_a_slug_outside_the_catalog() -> None:
+    # §D109: katalog dışı slug atılır, istek düşmez.
     payload = query_payload(types=("diploma",))
     api = FakeApi(message([tool_use(payload, name=DOCUMENT_QUERY_TOOL_NAME)]))
 
-    with pytest.raises(DocumentQueryError) as caught:
-        api.provider().read_document_query(query_request())
+    query = api.provider().read_document_query(query_request())
 
-    assert caught.value.problems == ["documents: katalogda olmayan 1 tür"]
+    assert query.documents[0].types == ()
 
 
 # --- Canlı çağrı (DoD kapısında dışarıda) ------------------------------------------------------
