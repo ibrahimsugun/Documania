@@ -727,7 +727,14 @@ def _name_and_birth_date_twice(session: Session) -> None:
         (_name_and_birth_date_twice, _key(numbers=()), MatchRule.NAME_DOB_AMBIGUOUS),
         (_registered_number, _key(conflicts=("surname",)), MatchRule.CONFLICTING_KEY),
     ],
-    ids=str,
+    # Kimlik süreçten sürece aynı olmalı (pytest-xdist): fonksiyonun bellek adresi değil adı.
+    ids=[
+        "nobody",
+        "registered_name",
+        "number_owned_twice",
+        "name_and_birth_date_twice",
+        "registered_number",
+    ],
 )
 def test_accumulation_is_refused_without_a_match(
     session: Session, registered: Callable[[Session], None], key: PersonKey, rule: MatchRule

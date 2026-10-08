@@ -2463,13 +2463,25 @@
         "priority": "medium",
         "subtasks": [],
         "updatedAt": "2026-10-08T16:00:42.000Z"
+      },
+      {
+        "id": "167",
+        "title": "Test kapısı paralel — pytest-xdist, tek komutta kapsam",
+        "description": "CONVENTIONS §1 · Sözleşme PLAN §D112.",
+        "details": "xdist dev bağımlılığı; iki kararsız ids; DoD 4+5 tek komut; kararsızlık kuralı.",
+        "testStrategy": "İki süreçte --collect-only farkı sıfır; değişen dosyalar -n 12 ile yeşil.",
+        "status": "done",
+        "dependencies": [],
+        "priority": "medium",
+        "subtasks": [],
+        "updatedAt": "2026-10-08T18:06:27.000Z"
       }
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-08T16:00:42.000Z",
-      "taskCount": 167,
-      "completedCount": 164,
+      "lastModified": "2026-10-08T18:06:27.000Z",
+      "taskCount": 168,
+      "completedCount": 165,
       "tags": [
         "master"
       ]

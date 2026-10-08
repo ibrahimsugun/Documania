@@ -444,6 +444,8 @@ def test_one_unsupported_file_refuses_the_whole_batch_and_names_it(
         ("a.xls", make_legacy_xls_bytes()),
         ("a.xlsx", make_xlsx_bytes()),
     ],
+    # docx/xlsx baytları zip zaman damgası taşır; kimlik süreçten sürece aynı kalsın (pytest-xdist).
+    ids=["pdf", "jpg", "png", "doc", "docx", "xls", "xlsx"],
 )
 def test_each_of_the_seven_types_is_accepted(
     client: TestClient, session_factory: sessionmaker[Session], name: str, content: bytes

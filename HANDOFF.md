@@ -18,6 +18,13 @@ Blok biçimi `CONVENTIONS.md` §3'te tanımlıdır:
 
 ## Task log (newest-first)
 
+## 167 — Test kapısı paralel (pytest-xdist) — done — 2026-10-08
+- Yapıldı: pytest-xdist dev bağımlılığı (uv.lock), iki kararsız parametre kimliği `ids=` ile sabitlendi, CONVENTIONS §1 4+5 tek komut + kararsızlık kuralı (§D112).
+- Süreler: önce seri 59 dk 18 sn (kapsamsız) + ayrıca kapsamlı koşu; sonra `-n 12 --dist worksteal` ~9 dk 36 sn (insan ölçümü). Seçilen N=12.
+- Doğrulama: iki süreçte `--collect-only` farkı sıfır (6743); değişen iki test dosyası seri ve `-n 12` ile yeşil; ruff, compileall temiz.
+- Koşulmadı (insan kararı): kapsamlı paralel tam kapı, N=8/auto karşılaştırması, art arda iki yeşil kanıtı. Sonraki pencere ilk iş bunu koşsun; tm 163–166'nın atlanan kapısı da böylece kapanır. Kırmızı çıkarsa §1.4 kararsızlık kuralı.
+
+
 ## 166 — Kirli çalışma ağacı — commit edilmedi, yarım iş bırakıldı — 2026-10-08 (düzeltme penceresi: panel bulgusu)
 - Yapıldı: Bulgudaki 11 + 3 dosyanın hepsi bu pencere commit'leyemeden başka bir oturumun `2410a0e` commit'iyle main'e girdi ve push edildi. Commit mesajı "Kullanıcılar tablosu tek satır" diyor ama içerik tm 166'nın teması (theme.css/js, base.html, test_theme.py, i18n, PRD 10.1.7, PLAN §D111/K10.1, tasks.json, HANDOFF) ve tm 163'ün `test_access_log.py` düzeltmesi. Mesajın anlattığı Kullanıcılar tablosu düzeni `users.html`'de zaten daha önceki bir commit'ten var. History rewrite yasak, commit olduğu gibi kaldı: tm 166 = `2410a0e`.
 - Doğrulama: ruff check/format, compileall, `import app.main`, temiz SQLite'ta `alembic upgrade head` (→0024), `python -m app.i18n check` exit 0. `test_access_log.py` değişikliği olmadan 2 test kırmızı, değişiklikle yeşil. tests/i18n 104 yeşil. PLAN sayımı (Faz 1: 72 ✅ · 2 ⬜, FR-MOD-10: 43 = PRD) ve tasks.json metadata (167/164) tutuyor. Sır taraması temiz.

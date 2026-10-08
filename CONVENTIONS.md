@@ -16,8 +16,7 @@ exit 0** döner. Biri bile kırmızıysa görev `done` değildir.
 | 1 | `ruff check .` | Lint temiz |
 | 2 | `ruff format --check .` | Biçim tutarlı |
 | 3 | `python -m compileall -q app tests` | Sözdizimi hatası yok |
-| 4 | `pytest -q -m "not live"` | Tüm testler yeşil (unit + entegrasyon) |
-| 5 | `pytest -q -m "not live" --cov=app --cov-fail-under=70` | Kapsam eşiği (Faz 0 sonundan itibaren zorunlu) |
+| 4–5 | `pytest -q -m "not live" -n 12 --dist worksteal --cov=app --cov-fail-under=70` | Tüm testler yeşil (unit + entegrasyon) ve kapsam eşiği, tek paralel koşuda (~10 dk; seri koşu ~59 dk idi) |
 | 6 | `alembic upgrade head` (temiz geçici SQLite üzerinde) | Göç zinciri kırılmamış |
 | 7 | `python -c "import app.main"` | Uygulama içe aktarılabiliyor |
 | 8 | Görevin **kendi kabul kriteri** (PRD'deki satır) | İşin gerçekten yapıldığı |
@@ -87,7 +86,13 @@ desene ver.
 
 - Testler **ön planda** koşulur. `run_in_background` ile başlatılan test/build komutu, pencere
   sırasını bitirdiği anda oturumla birlikte ölür ve sonuç asla gelmez. Uzun süren suite için
-  yeterli `timeout` ver (tam suite için 900000 ms).
+  yeterli `timeout` ver (paralel tam suite ~10 dk; 900000 ms yeter).
+- `-n 12` yalnız tam kapı komutundadır, `addopts`'a konmaz (tek dosya koşusunu yavaşlatır).
+- **Kararsızlık kuralı:** paralel koşuda düşüp seri koşuda geçen test "paralel yüzünden" denip
+  geçilmez. Ortak durum (modül düzeyi önbellek, sabit dosya yolu, `os.environ`, sabit port,
+  `get_settings` önbelleği) aranır ve test tarafında düzeltilir; `-p no:randomly`, yeniden deneme
+  ya da skip kullanılmaz. Parametre kimlikleri süreçten sürece aynı olmalıdır (bellek adresi,
+  zaman damgalı bayt taşımaz; gerekirse `ids=`).
 - Testler ağ erişimi olmadan geçmelidir. Canlı yapay zekâ çağrısı yapan testler `live`
   işaretlidir ve kapıda `-m "not live"` ile dışarıda bırakılır.
 - Test veritabanı her koşuda geçici ve izoledir; paylaşılan bir veritabanına karşı koşulmaz.
