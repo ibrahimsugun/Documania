@@ -18,6 +18,12 @@ Blok biçimi `CONVENTIONS.md` §3'te tanımlıdır:
 
 ## Task log (newest-first)
 
+## 166 — Kirli çalışma ağacı — commit edilmedi, yarım iş bırakıldı — 2026-10-08 (düzeltme penceresi: panel bulgusu)
+- Yapıldı: Bulgudaki 11 + 3 dosyanın hepsi bu pencere commit'leyemeden başka bir oturumun `2410a0e` commit'iyle main'e girdi ve push edildi. Commit mesajı "Kullanıcılar tablosu tek satır" diyor ama içerik tm 166'nın teması (theme.css/js, base.html, test_theme.py, i18n, PRD 10.1.7, PLAN §D111/K10.1, tasks.json, HANDOFF) ve tm 163'ün `test_access_log.py` düzeltmesi. Mesajın anlattığı Kullanıcılar tablosu düzeni `users.html`'de zaten daha önceki bir commit'ten var. History rewrite yasak, commit olduğu gibi kaldı: tm 166 = `2410a0e`.
+- Doğrulama: ruff check/format, compileall, `import app.main`, temiz SQLite'ta `alembic upgrade head` (→0024), `python -m app.i18n check` exit 0. `test_access_log.py` değişikliği olmadan 2 test kırmızı, değişiklikle yeşil. tests/i18n 104 yeşil. PLAN sayımı (Faz 1: 72 ✅ · 2 ⬜, FR-MOD-10: 43 = PRD) ve tasks.json metadata (167/164) tutuyor. Sır taraması temiz.
+- Varsayımlar: Commit edilmeyen kalan değişiklik (18:38'de yazıldı) hâlâ açık olan başka bir oturumun işi. Sahibi bitirmeden üstüne commit atılmadı.
+- Sonraki pencereye not: Yarım iş: `app/web/static/theme-init.js` (yeni), `app/web/templates/base.html`, `tests/web/test_theme.py`. Başlıktaki satır içi tema betiği engelleyici dış dosyaya taşınıyor (test sayfada `<script>` istemiyor). `test_theme.py` bu hâliyle 5/5 yeşil. Eksikler: `theme.js:3` yorumu ve PLAN §D111(c) hâlâ "satır içi betik / tek satırlık betik" diyor, K10.1'e kanıt maddesi yok, gerekçe (CSP vb.) hiçbir yerde yazılı değil. Bunlar tamamlanınca üç dosyayla birlikte `fix(web): …` olarak commit'lenir. Sahibi vazgeçerse `git restore app/web/templates/base.html tests/web/test_theme.py` ile `theme-init.js` silinir.
+
 ## 166 — 10.1-g Panel teması "Aurora" — done — 2026-10-08
 - Yapıldı: `theme.css` (açık + koyu, degrade zemin, cam üst çubuk, kart/tablo/düğme/rozet), `theme.js` açık/koyu düğmesi, giriş sayfası yeniden tasarım (§D111).
 - Doğrulama: yerel önizlemede (geçici DB) 5 sayfa iki temada görüldü; tests/web + tests/countries yeşil, i18n check temiz. Tam `pytest --cov` koşulmadı.
