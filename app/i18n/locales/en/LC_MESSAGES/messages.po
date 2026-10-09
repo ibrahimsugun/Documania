@@ -4,8 +4,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Documania panel\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-08 20:09+0000\n"
-"PO-Revision-Date: 2026-10-08 20:09+0000\n"
+"POT-Creation-Date: 2026-10-09 00:24+0000\n"
+"PO-Revision-Date: 2026-10-09 00:24+0000\n"
 "Last-Translator: Documania görev penceresi (gözden geçirilmeli)\n"
 "Language: en\n"
 "Language-Team: English\n"
@@ -1266,6 +1266,7 @@ msgstr "A {label} seen in a document matches a removed record"
 msgid "Belgede okunan ad"
 msgstr "Name read in the document"
 
+#: app/web/templates/employee_delete_step.html
 #: app/web/templates/employee_merge_step.html app/web/templates/profile.html
 #: app/web/templates/upload_detail.html
 msgid "Belgeler"
@@ -1901,6 +1902,11 @@ msgstr ""
 msgid "Bu {count} partiyi yeniden analiz etmek üzeresiniz. Emin misiniz?"
 msgstr "You are about to re-analyze these {count} batches. Are you sure?"
 
+#: app/web/templates/employee_deleted.html
+#, python-format
+msgid "Bu çalışan %(at)s tarihinde %(user)s tarafından kalıcı olarak silindi."
+msgstr "This employee was permanently deleted on %(at)s by %(user)s."
+
 #: app/web/routers/employees.py
 msgid "Bu çalışan başka bir kayıtla birleştirildi; durumu değiştirilmez."
 msgstr ""
@@ -1942,6 +1948,12 @@ msgid "Bu çalışan başka bir kayıtla birleştirildi; öğeyi kalan kayda ata
 msgstr ""
 "This employee was merged into another record; assign the item to the "
 "remaining record."
+
+#: app/web/routers/uploads.py
+msgid "Bu çalışan kalıcı olarak silindi; ona belge yüklenmez."
+msgstr ""
+"This employee was permanently deleted; documents cannot be uploaded to "
+"them."
 
 #: app/web/routers/uploads.py
 msgid ""
@@ -2262,6 +2274,7 @@ msgstr "Date of birth: {date} ({age} years old)"
 #: app/web/templates/catalog.html app/web/templates/catalog_candidate.html
 #: app/web/templates/document_archive_step.html
 #: app/web/templates/document_delete_step.html
+#: app/web/templates/employee_delete_step.html
 #: app/web/templates/employee_merge_step.html app/web/templates/employees.html
 #: app/web/templates/employees_results.html app/web/templates/groups.html
 #: app/web/templates/history.html app/web/templates/profile.html
@@ -2440,7 +2453,9 @@ msgstr "Yes, merge"
 #: app/web/templates/catalog_candidate_step.html
 #: app/web/templates/document_archive_step.html
 #: app/web/templates/document_delete_step.html
-#: app/web/templates/document_move.html app/web/templates/employee_fields.html
+#: app/web/templates/document_move.html
+#: app/web/templates/employee_delete_step.html
+#: app/web/templates/employee_fields.html
 #: app/web/templates/employee_merge_step.html
 #: app/web/templates/employee_status_step.html
 #: app/web/templates/profile_record_step.html
@@ -2505,6 +2520,10 @@ msgstr "Yes, add the type"
 #: app/web/templates/upload_action_result.html
 msgid "Evet, yeniden analiz et"
 msgstr "Yes, re-analyze"
+
+#: app/web/routers/employees.py
+msgid "Evet, çalışanı kalıcı olarak sil"
+msgstr "Yes, permanently delete the employee"
 
 #: app/web/templates/training_decision.html
 msgid "Evet, çıkar"
@@ -3060,6 +3079,23 @@ msgstr ""
 "place. The record disappears from the lists, search, document packages "
 "and the bot; its history and who deleted it remain in the event log."
 
+#: app/web/routers/employees.py
+msgid ""
+"Kalıcı silme geri alınamaz. Çalışanın klasörü (Hazir, Alinan, profil.md),"
+" bütün belgeleri (etkin, arşivdeki, eski sürüm), isim yazımları, belge "
+"numaraları, iletişim bilgileri ve paketleri silinir; yalnız bu çalışana "
+"ait yüklemelerin orijinali ve sayfa görüntüleri de gider. Başka bir "
+"çalışana ya da açık kuyruk öğesine kaynak olan dosyalar yerinde kalır. "
+"Olay ve erişim logu satırları kalır, kişisel değerleri temizlenir."
+msgstr ""
+"Permanent deletion cannot be undone. The employee's folder (Hazir, "
+"Alinan, profil.md), all documents (active, archived, previous versions), "
+"name spellings, document numbers, contact details and packages are "
+"deleted; the originals and page images of uploads that belong only to "
+"this employee are removed as well. Files that are also the source for "
+"another employee or an open queue item stay in place. Event and access "
+"log rows stay, their personal values are cleared."
+
 #: app/web/templates/access_log_employee.html
 #: app/web/templates/upload_detail.html app/web/templates/uploads_list.html
 msgid "Kanal"
@@ -3261,6 +3297,16 @@ msgstr "Cyrillic"
 #: app/web/templates/queue.html app/web/templates/queue_item.html
 msgid "Kişi tahmini"
 msgstr "Person guess"
+
+#: app/web/templates/employee_deleted.html
+msgid ""
+"Klasörü, belgeleri ve kişisel bilgileri silindi; yalnız E numarası "
+"kayıtlarda kalır. Geçmiş olaylar ve erişim logu yerinde durur, kişisel "
+"değerleri temizlendi."
+msgstr ""
+"Their folder, documents and personal information were deleted; only the E"
+" number remains in the records. Past events and the access log stay in "
+"place, with personal values cleared."
 
 #: app/telegram/notify.py
 #, python-brace-format
@@ -3600,6 +3646,7 @@ msgstr "Approved"
 
 #: app/web/templates/document_archive_step.html
 #: app/web/templates/document_delete_step.html
+#: app/web/templates/employee_delete_step.html
 #: app/web/templates/employee_merge_step.html
 #: app/web/templates/employee_status_step.html
 #: app/web/templates/profile_record_step.html
@@ -4132,9 +4179,17 @@ msgstr ""
 "whatever it is not sure about goes to the Queues. Document contents are "
 "never changed."
 
-#: app/web/routers/upload_page.py
+#: app/matching/status.py app/web/routers/upload_page.py
 msgid "Silindi"
 msgstr "Deleted"
+
+#: app/web/routers/employees.py
+msgid ""
+"Silinecek belge sayısı onaydan sonra değişti; hiçbir şey silinmedi. Onayı"
+" yeniden başlatın."
+msgstr ""
+"The number of documents to delete changed after the confirmation; nothing"
+" was deleted. Start the confirmation again."
 
 #: app/web/routers/documents.py
 msgid ""
@@ -4726,7 +4781,9 @@ msgstr "Nationality"
 #: app/web/templates/catalog_form.html
 #: app/web/templates/document_archive_step.html
 #: app/web/templates/document_delete_step.html
-#: app/web/templates/document_move.html app/web/templates/employee_fields.html
+#: app/web/templates/document_move.html
+#: app/web/templates/employee_delete_step.html
+#: app/web/templates/employee_fields.html
 #: app/web/templates/employee_fields_step.html
 #: app/web/templates/employee_merge_step.html
 #: app/web/templates/employee_status_step.html app/web/templates/group.html
@@ -4788,6 +4845,15 @@ msgstr "Matched by name only"
 #: app/pipeline/queue_close.py
 msgid "Yalnız kapatılan öğe yeniden açılır; bu öğe kapatılmadı."
 msgstr "Only a closed item can be reopened; this item was not closed."
+
+#: app/web/routers/employees.py
+#, python-brace-format
+msgid ""
+"Yalnız pasif çalışan kalıcı silinir; önce çalışanı pasife alın. Bu "
+"çalışanın durumu: {status}."
+msgstr ""
+"Only an inactive employee can be permanently deleted; deactivate the "
+"employee first. This employee's status: {status}."
 
 #: app/web/templates/group.html
 msgid "Yalnız seçilen tür kalemi karşılar (örn. yalnız Sırbistan oturma izni)."
@@ -5745,6 +5811,22 @@ msgstr "Employee not found"
 msgid "Çalışan bulunamadı."
 msgstr "Employee not found."
 
+#: app/web/routers/employees.py
+msgid ""
+"Çalışan kalıcı olarak silindi, ancak bazı dosyaları diskten kaldırılamadı"
+" (açık ya da kilitli olabilir); sayısı olay logunda. Sistem yöneticisine "
+"bildirin."
+msgstr ""
+"The employee was permanently deleted, but some of their files could not "
+"be removed from disk (they may be open or locked); the count is in the "
+"event log. Notify the system administrator."
+
+#: app/web/routers/employees.py
+msgid "Çalışan kalıcı olarak silindi; klasörü ve belgeleri diskten kaldırıldı."
+msgstr ""
+"The employee was permanently deleted; their folder and documents were "
+"removed from disk."
+
 #: app/web/templates/profile.html
 msgid "Çalışan kartı"
 msgstr "Employee card"
@@ -5776,6 +5858,10 @@ msgstr ""
 "(%(id)s)</a>. The document was written to the employee's Hazir folder as "
 "%(file)s."
 
+#: app/web/templates/employee_deleted.html
+msgid "Çalışan silindi"
+msgstr "Employee deleted"
+
 #: app/web/routers/employees.py
 msgid "Çalışan yeniden etkinleştirildi."
 msgstr "The employee was reactivated."
@@ -5799,6 +5885,10 @@ msgstr "Assign to an employee"
 #: app/web/templating.py
 msgid "Çalışanlar"
 msgstr "Employees"
+
+#: app/web/routers/employees.py app/web/templates/profile.html
+msgid "Çalışanı kalıcı sil"
+msgstr "Permanently delete employee"
 
 #: app/web/routers/employees.py
 msgid "Çalışanı pasife al"
@@ -6475,6 +6565,7 @@ msgstr "← Queue item %(id)s"
 
 #: app/web/templates/document_archive_step.html
 #: app/web/templates/document_delete_step.html
+#: app/web/templates/employee_delete_step.html
 #: app/web/templates/employee_fields.html app/web/templates/employee_merge.html
 #: app/web/templates/employee_merge_step.html
 #: app/web/templates/employee_status_step.html
@@ -6489,6 +6580,10 @@ msgstr "← The type's examples"
 #: app/web/templates/upload_detail.html
 msgid "← Yüklemeler"
 msgstr "← Uploads"
+
+#: app/web/templates/employee_deleted.html
+msgid "← Çalışan listesine dön"
+msgstr "← Back to the employee list"
 
 #: app/web/templates/history.html app/web/templates/profile.html
 msgid "← Çalışanlar"

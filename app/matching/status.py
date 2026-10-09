@@ -29,7 +29,11 @@ STATUS_LABELS: dict[str, str] = {
     EmployeeStatus.ACTIVE.value: N_("Aktif"),
     EmployeeStatus.INACTIVE.value: N_("Pasif"),
     EmployeeStatus.MERGED.value: N_("Birleşti"),
+    EmployeeStatus.DELETED.value: N_("Silindi"),
 }
+# Kaydı kapanmış çalışanlar: birleştirilmiş (10.5.9) ve kalıcı silinmiş (10.5.13). Eşleştirme,
+# aramalar ve bot onları bulmaz; belge, kayıt ya da paket almazlar.
+CLOSED_STATUSES = (EmployeeStatus.MERGED.value, EmployeeStatus.DELETED.value)
 # Arama sonuçlarında (atama, taşıma, bot) pasif çalışanın adının eki.
 INACTIVE_SUFFIX = " (pasif)"
 # Profilde isteğe bağlı durum notu (§C90-b); form sınırı yalnız aşırı girdiye karşıdır.
@@ -79,6 +83,11 @@ def is_merged(employee: Employee) -> bool:
     return employee.status == EmployeeStatus.MERGED.value
 
 
+def is_deleted(employee: Employee) -> bool:
+    """Çalışan kalıcı silindi mi (10.5.13): kaydı iskelettir, hiçbir yerde görünmez."""
+    return employee.status == EmployeeStatus.DELETED.value
+
+
 def status_suffix(status: str) -> str:
     """Pasif çalışanın adına eklenen " (pasif)"; öteki durumlarda boş."""
     return INACTIVE_SUFFIX if status == EmployeeStatus.INACTIVE.value else ""
@@ -97,9 +106,10 @@ def is_inactive_employee_reason(reason: str | None) -> bool:
 def status_target(employee: Employee) -> EmployeeStatus:
     """Profildeki düğmenin hedefi: etkin çalışan pasife alınır, pasif olan etkinleştirilir.
 
-    Birleştirilmiş çalışan `EmployeeMergedError`; tanınmayan durumdaki çalışan etkinleştirilir.
+    Birleştirilmiş ya da kalıcı silinmiş çalışan `EmployeeMergedError`; tanınmayan durumdaki
+    çalışan etkinleştirilir.
     """
-    if employee.status == EmployeeStatus.MERGED.value:
+    if employee.status in CLOSED_STATUSES:
         raise EmployeeMergedError(
             f"Çalışan {employee.id} birleştirilmiş; durumu değiştirilmez (10.5.9)"
         )
@@ -112,7 +122,7 @@ def check_status_change(employee: Employee, target: EmployeeStatus) -> None:
     """Değişikliğin denetimi; hiçbir şey yazmaz. Hedef yalnız `active` ya da `inactive`."""
     if target not in _EVENTS:
         raise ValueError(f"Hedef durum active ya da inactive olmalı: {target.value}")
-    if employee.status == EmployeeStatus.MERGED.value:
+    if employee.status in CLOSED_STATUSES:
         raise EmployeeMergedError(
             f"Çalışan {employee.id} birleştirilmiş; durumu değiştirilmez (10.5.9)"
         )

@@ -131,6 +131,19 @@ kayda bağlantılı bildirim durur; düzenleme, durum, alt kayıt, paket, yükle
 işlemleri yoktur. Çalışan ya da seçilen kayıt yoksa 404; aynı kayıt ya da biri zaten
 birleştirilmişse 409; kalan ikisinden biri değilse 422; belirteç reddi 400; dosya taşıması düşerse
 409 — hiçbirinde bir şey değişmez.
+
+**Pasif çalışanı kalıcı silme (10.5.13; K16, R11, PLAN.md §D110, §D116).** Yalnız pasif profilin
+bildiriminde "Çalışanı kalıcı sil" (tehlike görünümü) vardır. Aynı üç adımlı kalıptır: `GET
+/employees/{id}/delete/confirm` §20.6'nın birinci metnini çalışanın adıyla, `POST
+.../delete/prepare` ikinci metni (`<N>` silinecek belge sayısı,
+`app.storage.plan_employee_deletion`) ve çalışana ve bu sayıya bağlı tek kullanımlık belirteci
+verir; `POST .../delete` belirteci ve sayıyı taşır: belirteç tüketilir, `USER_CONFIRMED` ve
+`delete_employee`'nin `EMPLOYEE_DELETED`'i tek işlemde yazılır, commit'ten sonra dosyalar ve klasör
+diskten kalkar (`remove_employee_files`). Etkin ya da birleştirilmiş çalışan 409, belirteç reddi
+400, belge sayısı onaydan sonra değiştiyse 409 — hiçbirinde bir şey değişmez. Silinen çalışanın
+bütün `/employees/{id}…` adresleri yönlendiricinin bağımlılığıyla (`reject_deleted_employee`) "Bu
+çalışan <tarih> tarihinde <kullanıcı> tarafından kalıcı olarak silindi" sayfasını (410) döner;
+listede (`?status=all` dahil), aramada, atama, taşıma ve birleştirme aramalarında görünmez.
 """
 
 from __future__ import annotations
@@ -243,7 +256,17 @@ from app.pipeline.plan import name_matched_documents
 from app.profiles import write_profile
 from app.profiles.latin_names import needs_latin_repair
 from app.profiles.render import calculate_age
-from app.storage import DataLayout, EmployeeMergeError, EmployeeRenameError
+from app.storage import (
+    DataLayout,
+    EmployeeDeletionChangedError,
+    EmployeeMergeError,
+    EmployeeNotDeletableError,
+    EmployeeRenameError,
+    check_employee_deletable,
+    delete_employee,
+    plan_employee_deletion,
+    remove_employee_files,
+)
 from app.web.access import record_access
 from app.web.auth import PanelUser, require_panel_user
 from app.web.confirm import (
@@ -286,7 +309,14 @@ ALL_STATUSES = "all"
 STATUS_FILTERS: dict[str, frozenset[str] | None] = {
     EmployeeStatus.ACTIVE.value: frozenset({EmployeeStatus.ACTIVE.value}),
     EmployeeStatus.INACTIVE.value: frozenset({EmployeeStatus.INACTIVE.value}),
-    ALL_STATUSES: None,
+    # Hepsi: etkin, pasif ve birleştirilmiş; kalıcı silinen (10.5.13) hiçbir süzgeçte yoktur.
+    ALL_STATUSES: frozenset(
+        {
+            EmployeeStatus.ACTIVE.value,
+            EmployeeStatus.INACTIVE.value,
+            EmployeeStatus.MERGED.value,
+        }
+    ),
 }
 STATUS_FILTER_LABELS = {
     EmployeeStatus.ACTIVE.value: N_("Aktif"),
@@ -1974,6 +2004,294 @@ def change_employee_status_endpoint(
     )
 
 
+# --- 10.5.13: pasif çalışanı kalıcı silme ------------------------------------------------------
+
+# §20.6 "Çalışanı kalıcı sil": metinler birebir `app.web.confirm`'dadır; `<Ad Soyad>` çalışanın
+# adıyla, `<N>` silinecek belge sayısıyla dolar.
+DELETE_EMPLOYEE_TITLE = N_("Çalışanı kalıcı sil")
+DELETE_EMPLOYEE_SUBMIT = N_("Evet, çalışanı kalıcı olarak sil")
+DELETE_EMPLOYEE_HINT = N_(
+    "Kalıcı silme geri alınamaz. Çalışanın klasörü (Hazir, Alinan, profil.md), bütün belgeleri "
+    "(etkin, arşivdeki, eski sürüm), isim yazımları, belge numaraları, iletişim bilgileri ve "
+    "paketleri silinir; yalnız bu çalışana ait yüklemelerin orijinali ve sayfa görüntüleri de "
+    "gider. Başka bir çalışana ya da açık kuyruk öğesine kaynak olan dosyalar yerinde kalır. Olay "
+    "ve erişim logu satırları kalır, kişisel değerleri temizlenir."
+)
+EMPLOYEE_NOT_DELETABLE = N_(
+    "Yalnız pasif çalışan kalıcı silinir; önce çalışanı pasife alın. Bu çalışanın durumu: {status}."
+)
+EMPLOYEE_DELETION_CHANGED = N_(
+    "Silinecek belge sayısı onaydan sonra değişti; hiçbir şey silinmedi. Onayı yeniden başlatın."
+)
+# Silme yönlendirmesinden sonra "silindi" sayfasının bildirimi.
+EMPLOYEE_DELETED_NOTICES = {
+    "employee_deleted": N_(
+        "Çalışan kalıcı olarak silindi; klasörü ve belgeleri diskten kaldırıldı."
+    ),
+    "employee_deleted_partial": N_(
+        "Çalışan kalıcı olarak silindi, ancak bazı dosyaları diskten kaldırılamadı (açık ya da "
+        "kilitli olabilir); sayısı olay logunda. Sistem yöneticisine bildirin."
+    ),
+}
+
+
+@dataclass(frozen=True, slots=True)
+class EmployeeDeleteStepView:
+    id: str
+    name: str
+    status_label: str
+    documents: int
+
+
+def employee_deletion_subject(employee_id: str, documents: int) -> str:
+    """Silme belirtecinin bağlı olduğu hedef: çalışan ve ikinci onayda gösterilen belge sayısı —
+    kullanıcı hangi sayıyı onayladıysa belirteç yalnız onunla tüketilir."""
+    return f"{employee_id}:{documents}"
+
+
+def _deletable_employee(session: Session, employee_id: str) -> Employee:
+    """Silinebilecek çalışan: yoksa 404; pasif değilse (etkin, birleştirilmiş) 409."""
+    employee = session.get(Employee, employee_id)
+    if employee is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, EMPLOYEE_NOT_FOUND)
+    try:
+        check_employee_deletable(employee)
+    except EmployeeNotDeletableError:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            Translatable(
+                EMPLOYEE_NOT_DELETABLE, status=Translatable(status_label(employee.status))
+            ),
+        ) from None
+    return employee
+
+
+def _employee_delete_step(
+    session: Session, layout: DataLayout, employee_id: str
+) -> EmployeeDeleteStepView:
+    employee = _deletable_employee(session, employee_id)
+    plan = plan_employee_deletion(session, layout, employee)
+    return EmployeeDeleteStepView(
+        id=employee.id,
+        name=f"{employee.given_names} {employee.surname}",
+        status_label=status_label(employee.status),
+        documents=plan.document_count,
+    )
+
+
+def _employee_delete_page(
+    request: Request,
+    user: PanelUser,
+    employee_id: str,
+    *,
+    step: EmployeeDeleteStepView | None,
+    status_code: int = status.HTTP_200_OK,
+    **context: object,
+) -> HTMLResponse:
+    """`employee_delete_step.html`: birinci onay, ikinci onay ya da hata."""
+    return render_page(
+        request,
+        "employee_delete_step.html",
+        user=user,
+        active=MENU_BY_KEY["employees"].key,
+        status_code=status_code,
+        employee_id=employee_id,
+        step=step,
+        title=DELETE_EMPLOYEE_TITLE,
+        hint=DELETE_EMPLOYEE_HINT,
+        submit_label=DELETE_EMPLOYEE_SUBMIT,
+        **context,
+    )
+
+
+@router.get("/employees/{employee_id}/delete/confirm", response_class=HTMLResponse)
+def employee_delete_first_confirmation(
+    employee_id: str,
+    request: Request,
+    user: CurrentUser,
+    session: Annotated[Session, Depends(get_session)],
+    layout: Annotated[DataLayout, Depends(get_layout)],
+) -> HTMLResponse:
+    """10.5.13 — silinecek çalışan, belge sayısı ve §20.6'nın birinci onay metni; hiçbir şey
+    değişmez."""
+    try:
+        step = _employee_delete_step(session, layout, employee_id)
+    except HTTPException as exc:
+        return _employee_delete_page(
+            request, user, employee_id, step=None, status_code=exc.status_code, error=exc.detail
+        )
+    finally:
+        session.rollback()
+    return _employee_delete_page(
+        request,
+        user,
+        employee_id,
+        step=step,
+        first_confirmation=first_text(Operation.DELETE_EMPLOYEE, name=step.name),
+    )
+
+
+@router.post("/employees/{employee_id}/delete/prepare", response_class=HTMLResponse)
+def prepare_employee_delete(
+    employee_id: str,
+    request: Request,
+    user: CurrentUser,
+    session: Annotated[Session, Depends(get_session)],
+    layout: Annotated[DataLayout, Depends(get_layout)],
+) -> HTMLResponse:
+    """10.5.13 — ikinci onay metni (`<N>` silme planından) ve çalışana ve bu sayıya bağlı tek
+    kullanımlık belirteç (§20.6.1). Hiçbir şey değişmez (S16)."""
+    step: EmployeeDeleteStepView | None = None
+    try:
+        step = _employee_delete_step(session, layout, employee_id)
+        issued = issue_confirmation(
+            session,
+            request,
+            user,
+            Operation.DELETE_EMPLOYEE,
+            employee_deletion_subject(employee_id, step.documents),
+        )
+    except HTTPException as exc:
+        session.rollback()
+        return _employee_delete_page(
+            request, user, employee_id, step=None, status_code=exc.status_code, error=exc.detail
+        )
+    except ConfirmationRefusedError as exc:  # oturum çerezi yok
+        session.rollback()
+        return _employee_delete_page(
+            request,
+            user,
+            employee_id,
+            step=step,
+            status_code=status.HTTP_400_BAD_REQUEST,
+            error=str(exc),
+        )
+    session.commit()
+    return _employee_delete_page(
+        request,
+        user,
+        employee_id,
+        step=step,
+        second_confirmation=second_text(Operation.DELETE_EMPLOYEE, count=step.documents),
+        confirmation=issued.token,
+    )
+
+
+@router.post("/employees/{employee_id}/delete", response_class=HTMLResponse)
+def delete_employee_endpoint(
+    employee_id: str,
+    request: Request,
+    user: CurrentUser,
+    session: Annotated[Session, Depends(get_session)],
+    layout: Annotated[DataLayout, Depends(get_layout)],
+    confirmation: Annotated[str | None, Form()] = None,
+    documents: Annotated[int | None, Form(ge=0)] = None,
+) -> Response:
+    """10.5.13 — belirteçle pasif çalışanı kalıcı siler (K16, R11): önce veritabanı (iskelet, alt
+    kayıtlar, planlar, olay temizliği, `USER_CONFIRMED`, `EMPLOYEE_DELETED`) tek işlemde commit
+    edilir, sonra dosyalar ve klasör diskten kalkar. Belirteç yoksa, süresi geçmişse, kullanılmışsa
+    ya da başka çalışana, sayıya, işleme veya oturuma aitse 400; çalışan pasif değilse ya da belge
+    sayısı onaydan sonra değiştiyse 409 — hiçbirinde bir şey değişmez."""
+    try:
+        _deletable_employee(session, employee_id)
+        if documents is None:
+            raise ConfirmationRefusedError("İkinci onayın sayısı yok.")
+        confirm_operation(
+            session,
+            request,
+            user,
+            Operation.DELETE_EMPLOYEE,
+            employee_deletion_subject(employee_id, documents),
+            confirmation,
+            event_target={"employee_id": employee_id},
+            employee_id=employee_id,
+        )
+        try:
+            deleted = delete_employee(
+                session, layout, employee_id, actor=user.username, expected_documents=documents
+            )
+        except EmployeeDeletionChangedError:
+            raise HTTPException(status.HTTP_409_CONFLICT, EMPLOYEE_DELETION_CHANGED) from None
+    except HTTPException as exc:
+        session.rollback()
+        return _employee_delete_page(
+            request,
+            user,
+            employee_id,
+            step=None,
+            status_code=exc.status_code,
+            error=exc.detail,
+            retry=exc.detail == EMPLOYEE_DELETION_CHANGED,
+        )
+    except ConfirmationRefusedError:
+        session.rollback()
+        return _employee_delete_page(
+            request,
+            user,
+            employee_id,
+            step=None,
+            status_code=status.HTTP_400_BAD_REQUEST,
+            error=CONFIRMATION_REFUSED,
+            retry=True,
+        )
+    # §D110 b: önce veritabanı; dosyalar ancak silme kalıcılaştıktan sonra diskten kalkar.
+    session.commit()
+    failed = remove_employee_files(session, deleted)
+    if failed:
+        session.commit()
+    notice = "employee_deleted_partial" if failed else "employee_deleted"
+    return RedirectResponse(f"/employees/{employee_id}?notice={notice}", status.HTTP_303_SEE_OTHER)
+
+
+class EmployeeDeletedError(Exception):
+    """10.5.13: istenen çalışan kalıcı silinmiş; `/employees/{id}` altındaki her adres "silindi"
+    sayfasını (410) döner (`employee_deleted_page`)."""
+
+    def __init__(self, employee: Employee, user: PanelUser) -> None:
+        super().__init__(employee.id)
+        self.employee_id = employee.id
+        self.deleted_at = employee.deleted_at
+        self.deleted_by = employee.deleted_by
+        self.user = user
+
+
+def reject_deleted_employee(
+    request: Request,
+    user: CurrentUser,
+    session: Annotated[Session, Depends(get_session)],
+) -> None:
+    """Yönlendiricinin bağımlılığı: yolda `employee_id` varsa ve çalışan kalıcı silinmişse
+    `EmployeeDeletedError` — profil, düzenleme, durum, alt kayıt, birleştirme, paket, silme ve belge
+    dosyası adresleri silinen kaydı göstermez, değiştirmez."""
+    employee_id = request.path_params.get("employee_id")
+    if not isinstance(employee_id, str):
+        return
+    employee = session.get(Employee, employee_id)
+    if employee is not None and employee.status == EmployeeStatus.DELETED.value:
+        session.rollback()
+        raise EmployeeDeletedError(employee, user)
+
+
+def employee_deleted_page(request: Request, exc: Exception) -> Response:
+    """`EmployeeDeletedError` → "Bu çalışan <tarih> tarihinde <kullanıcı> tarafından silindi"
+    (410); kişisel değer yoktur, yalnız E numarası (10.5.13)."""
+    assert isinstance(exc, EmployeeDeletedError)
+    notice = EMPLOYEE_DELETED_NOTICES.get(request.query_params.get("notice", ""))
+    return render_page(
+        request,
+        "employee_deleted.html",
+        user=exc.user,
+        active=MENU_BY_KEY["employees"].key,
+        status_code=status.HTTP_410_GONE,
+        employee_id=exc.employee_id,
+        deleted_at=(
+            exc.deleted_at.strftime("%d.%m.%Y %H:%M") if exc.deleted_at is not None else "—"
+        ),
+        deleted_by=exc.deleted_by,
+        notice=notice,
+    )
+
+
 # --- 10.5.8: profil alt kayıtları -----------------------------------------------------------------
 
 # §20.6 "Profil alt kaydını kaldır": metinler birebir `app.web.confirm`'dadır.
@@ -2400,15 +2718,17 @@ def merge_subject(keep_id: str, merge_id: str) -> str:
 def _merge_pair(
     session: Session, employee_id: str, other_id: str, keep_id: str | None, *, lock: bool = False
 ) -> tuple[Employee, Employee]:
-    """(kalan, birleşen). Profil ya da seçilen çalışan yoksa 404; aynı kayıtsa ya da biri zaten
-    birleştirilmişse 409; kalan ikisinden biri değilse 422. `lock` iki satırı kilitler."""
+    """(kalan, birleşen). Profil ya da seçilen çalışan yoksa (ya da kalıcı silinmişse) 404; aynı
+    kayıtsa ya da biri zaten birleştirilmişse 409; kalan ikisinden biri değilse 422. `lock` iki
+    satırı kilitler."""
     employee = session.get(Employee, employee_id, with_for_update=lock)
     if employee is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, EMPLOYEE_NOT_FOUND)
     if employee.status == MERGED_STATUS:
         raise HTTPException(status.HTTP_409_CONFLICT, MERGE_CLOSED)
     other = session.get(Employee, other_id, with_for_update=lock)
-    if other is None:
+    # 10.5.13: kalıcı silinen kayıt seçilemez; bulunamamış sayılır.
+    if other is None or other.status == EmployeeStatus.DELETED.value:
         raise HTTPException(status.HTTP_404_NOT_FOUND, MERGE_OTHER_NOT_FOUND)
     if other.id == employee.id:
         raise HTTPException(status.HTTP_409_CONFLICT, MERGE_SAME)

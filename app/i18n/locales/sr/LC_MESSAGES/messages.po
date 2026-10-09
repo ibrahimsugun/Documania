@@ -4,8 +4,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Documania panel\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-08 20:09+0000\n"
-"PO-Revision-Date: 2026-10-08 20:09+0000\n"
+"POT-Creation-Date: 2026-10-09 00:24+0000\n"
+"PO-Revision-Date: 2026-10-09 00:24+0000\n"
 "Last-Translator: Documania görev penceresi (gözden geçirilmeli)\n"
 "Language: sr_Latn\n"
 "Language-Team: Srpski\n"
@@ -1278,6 +1278,7 @@ msgstr "Zapis ({label}) viđen u dokumentu odgovara uklonjenom zapisu"
 msgid "Belgede okunan ad"
 msgstr "Ime pročitano u dokumentu"
 
+#: app/web/templates/employee_delete_step.html
 #: app/web/templates/employee_merge_step.html app/web/templates/profile.html
 #: app/web/templates/upload_detail.html
 msgid "Belgeler"
@@ -1908,6 +1909,11 @@ msgstr ""
 msgid "Bu {count} partiyi yeniden analiz etmek üzeresiniz. Emin misiniz?"
 msgstr "Upravo ćete ponovo analizirati ove serije ({count}). Da li ste sigurni?"
 
+#: app/web/templates/employee_deleted.html
+#, python-format
+msgid "Bu çalışan %(at)s tarihinde %(user)s tarafından kalıcı olarak silindi."
+msgstr "Ovaj zaposleni je trajno obrisan %(at)s, obrisao: %(user)s."
+
 #: app/web/routers/employees.py
 msgid "Bu çalışan başka bir kayıtla birleştirildi; durumu değiştirilmez."
 msgstr "Ovaj zaposleni je spojen sa drugim zapisom; status mu se ne može menjati."
@@ -1947,6 +1953,10 @@ msgid "Bu çalışan başka bir kayıtla birleştirildi; öğeyi kalan kayda ata
 msgstr ""
 "Ovaj zaposleni je spojen sa drugim zapisom; dodelite stavku zapisu koji "
 "ostaje."
+
+#: app/web/routers/uploads.py
+msgid "Bu çalışan kalıcı olarak silindi; ona belge yüklenmez."
+msgstr "Ovaj zaposleni je trajno obrisan; dokumenti mu se ne mogu otpremiti."
 
 #: app/web/routers/uploads.py
 msgid ""
@@ -2269,6 +2279,7 @@ msgstr "Datum rođenja: {date} ({age} god.)"
 #: app/web/templates/catalog.html app/web/templates/catalog_candidate.html
 #: app/web/templates/document_archive_step.html
 #: app/web/templates/document_delete_step.html
+#: app/web/templates/employee_delete_step.html
 #: app/web/templates/employee_merge_step.html app/web/templates/employees.html
 #: app/web/templates/employees_results.html app/web/templates/groups.html
 #: app/web/templates/history.html app/web/templates/profile.html
@@ -2448,7 +2459,9 @@ msgstr "Da, spoji"
 #: app/web/templates/catalog_candidate_step.html
 #: app/web/templates/document_archive_step.html
 #: app/web/templates/document_delete_step.html
-#: app/web/templates/document_move.html app/web/templates/employee_fields.html
+#: app/web/templates/document_move.html
+#: app/web/templates/employee_delete_step.html
+#: app/web/templates/employee_fields.html
 #: app/web/templates/employee_merge_step.html
 #: app/web/templates/employee_status_step.html
 #: app/web/templates/profile_record_step.html
@@ -2513,6 +2526,10 @@ msgstr "Da, dodaj tip"
 #: app/web/templates/upload_action_result.html
 msgid "Evet, yeniden analiz et"
 msgstr "Da, analiziraj ponovo"
+
+#: app/web/routers/employees.py
+msgid "Evet, çalışanı kalıcı olarak sil"
+msgstr "Da, trajno obriši zaposlenog"
 
 #: app/web/templates/training_decision.html
 msgid "Evet, çıkar"
@@ -3069,6 +3086,23 @@ msgstr ""
 "nestaje sa spiskova, iz pretrage, paketa dokumenata i bota; njegova "
 "istorija i ko ga je obrisao ostaju u dnevniku događaja."
 
+#: app/web/routers/employees.py
+msgid ""
+"Kalıcı silme geri alınamaz. Çalışanın klasörü (Hazir, Alinan, profil.md),"
+" bütün belgeleri (etkin, arşivdeki, eski sürüm), isim yazımları, belge "
+"numaraları, iletişim bilgileri ve paketleri silinir; yalnız bu çalışana "
+"ait yüklemelerin orijinali ve sayfa görüntüleri de gider. Başka bir "
+"çalışana ya da açık kuyruk öğesine kaynak olan dosyalar yerinde kalır. "
+"Olay ve erişim logu satırları kalır, kişisel değerleri temizlenir."
+msgstr ""
+"Trajno brisanje se ne može poništiti. Fascikla zaposlenog (Hazir, Alinan,"
+" profil.md), svi dokumenti (aktivni, u arhivi, prethodne verzije), zapisi"
+" imena, brojevi dokumenata, kontakt podaci i paketi se brišu; brišu se i "
+"originali i slike stranica otpremanja koja pripadaju samo ovom "
+"zaposlenom. Datoteke koje su izvor i za drugog zaposlenog ili za otvorenu"
+" stavku reda ostaju na mestu. Redovi dnevnika događaja i pristupa ostaju,"
+" a lični podaci u njima se uklanjaju."
+
 #: app/web/templates/access_log_employee.html
 #: app/web/templates/upload_detail.html app/web/templates/uploads_list.html
 msgid "Kanal"
@@ -3269,6 +3303,16 @@ msgstr "Ćirilica"
 #: app/web/templates/queue.html app/web/templates/queue_item.html
 msgid "Kişi tahmini"
 msgstr "Pretpostavljena osoba"
+
+#: app/web/templates/employee_deleted.html
+msgid ""
+"Klasörü, belgeleri ve kişisel bilgileri silindi; yalnız E numarası "
+"kayıtlarda kalır. Geçmiş olaylar ve erişim logu yerinde durur, kişisel "
+"değerleri temizlendi."
+msgstr ""
+"Fascikla, dokumenti i lični podaci su obrisani; u evidenciji ostaje samo "
+"E broj. Prethodni događaji i dnevnik pristupa ostaju, a lični podaci u "
+"njima su uklonjeni."
 
 #: app/telegram/notify.py
 #, python-brace-format
@@ -3605,6 +3649,7 @@ msgstr "Odobreno"
 
 #: app/web/templates/document_archive_step.html
 #: app/web/templates/document_delete_step.html
+#: app/web/templates/employee_delete_step.html
 #: app/web/templates/employee_merge_step.html
 #: app/web/templates/employee_status_step.html
 #: app/web/templates/profile_record_step.html
@@ -4136,9 +4181,17 @@ msgstr ""
 "ono u šta nije siguran ostavlja u Redovima. Sadržaj dokumenata se ne "
 "menja."
 
-#: app/web/routers/upload_page.py
+#: app/matching/status.py app/web/routers/upload_page.py
 msgid "Silindi"
 msgstr "Obrisano"
+
+#: app/web/routers/employees.py
+msgid ""
+"Silinecek belge sayısı onaydan sonra değişti; hiçbir şey silinmedi. Onayı"
+" yeniden başlatın."
+msgstr ""
+"Broj dokumenata za brisanje promenio se posle potvrde; ništa nije "
+"obrisano. Ponovo pokrenite potvrdu."
 
 #: app/web/routers/documents.py
 msgid ""
@@ -4730,7 +4783,9 @@ msgstr "Državljanstvo"
 #: app/web/templates/catalog_form.html
 #: app/web/templates/document_archive_step.html
 #: app/web/templates/document_delete_step.html
-#: app/web/templates/document_move.html app/web/templates/employee_fields.html
+#: app/web/templates/document_move.html
+#: app/web/templates/employee_delete_step.html
+#: app/web/templates/employee_fields.html
 #: app/web/templates/employee_fields_step.html
 #: app/web/templates/employee_merge_step.html
 #: app/web/templates/employee_status_step.html app/web/templates/group.html
@@ -4790,6 +4845,15 @@ msgstr "Upareno samo po imenu"
 #: app/pipeline/queue_close.py
 msgid "Yalnız kapatılan öğe yeniden açılır; bu öğe kapatılmadı."
 msgstr "Ponovo se otvara samo zatvorena stavka; ova stavka nije zatvorena."
+
+#: app/web/routers/employees.py
+#, python-brace-format
+msgid ""
+"Yalnız pasif çalışan kalıcı silinir; önce çalışanı pasife alın. Bu "
+"çalışanın durumu: {status}."
+msgstr ""
+"Trajno se može obrisati samo neaktivan zaposleni; prvo deaktivirajte "
+"zaposlenog. Status ovog zaposlenog: {status}."
 
 #: app/web/templates/group.html
 msgid "Yalnız seçilen tür kalemi karşılar (örn. yalnız Sırbistan oturma izni)."
@@ -5761,6 +5825,20 @@ msgstr "Zaposleni nije pronađen"
 msgid "Çalışan bulunamadı."
 msgstr "Zaposleni nije pronađen."
 
+#: app/web/routers/employees.py
+msgid ""
+"Çalışan kalıcı olarak silindi, ancak bazı dosyaları diskten kaldırılamadı"
+" (açık ya da kilitli olabilir); sayısı olay logunda. Sistem yöneticisine "
+"bildirin."
+msgstr ""
+"Zaposleni je trajno obrisan, ali neke datoteke nisu mogle da se uklone sa"
+" diska (možda su otvorene ili zaključane); broj je u dnevniku događaja. "
+"Obavestite administratora sistema."
+
+#: app/web/routers/employees.py
+msgid "Çalışan kalıcı olarak silindi; klasörü ve belgeleri diskten kaldırıldı."
+msgstr "Zaposleni je trajno obrisan; fascikla i dokumenti su uklonjeni sa diska."
+
 #: app/web/templates/profile.html
 msgid "Çalışan kartı"
 msgstr "Kartica zaposlenog"
@@ -5791,6 +5869,10 @@ msgstr ""
 "(%(id)s)</a>. Dokument je upisan u fasciklu Hazir zaposlenog kao "
 "%(file)s."
 
+#: app/web/templates/employee_deleted.html
+msgid "Çalışan silindi"
+msgstr "Zaposleni obrisan"
+
 #: app/web/routers/employees.py
 msgid "Çalışan yeniden etkinleştirildi."
 msgstr "Zaposleni je ponovo aktiviran."
@@ -5814,6 +5896,10 @@ msgstr "Dodeli zaposlenom"
 #: app/web/templating.py
 msgid "Çalışanlar"
 msgstr "Zaposleni"
+
+#: app/web/routers/employees.py app/web/templates/profile.html
+msgid "Çalışanı kalıcı sil"
+msgstr "Trajno obriši zaposlenog"
 
 #: app/web/routers/employees.py
 msgid "Çalışanı pasife al"
@@ -6487,6 +6573,7 @@ msgstr "← Stavka reda %(id)s"
 
 #: app/web/templates/document_archive_step.html
 #: app/web/templates/document_delete_step.html
+#: app/web/templates/employee_delete_step.html
 #: app/web/templates/employee_fields.html app/web/templates/employee_merge.html
 #: app/web/templates/employee_merge_step.html
 #: app/web/templates/employee_status_step.html
@@ -6501,6 +6588,10 @@ msgstr "← Primeri tipa"
 #: app/web/templates/upload_detail.html
 msgid "← Yüklemeler"
 msgstr "← Otpremanja"
+
+#: app/web/templates/employee_deleted.html
+msgid "← Çalışan listesine dön"
+msgstr "← Nazad na listu zaposlenih"
 
 #: app/web/templates/history.html app/web/templates/profile.html
 msgid "← Çalışanlar"

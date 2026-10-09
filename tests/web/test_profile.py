@@ -1084,8 +1084,13 @@ def test_panel_has_no_way_to_change_a_document(
     # çevirir; dosyaya dokunmaz (`tests/web/test_employee_status.py`). Alt kayıt yolları (10.5.8)
     # yalnız isim yazımı, numara ve iletişim satırlarını işaretler ya da ekler; dosyaya dokunmaz
     # (`tests/web/test_profile_records.py`). Birleştirme yolları (10.5.9) belgeleri kalan kayda K8
-    # adıyla taşır; içerik bayt bayt aynı kalır (`tests/web/test_employee_merge.py`).
+    # adıyla taşır; içerik bayt bayt aynı kalır (`tests/web/test_employee_merge.py`). Kalıcı silme
+    # yolları (10.5.13) pasif çalışanın dosyalarını yalnız diskten kaldırır, içerik yazmaz
+    # (`tests/web/test_employee_delete.py`).
     assert profile_paths == {
+        "/employees/{employee_id}/delete": {"post"},
+        "/employees/{employee_id}/delete/confirm": {"get"},
+        "/employees/{employee_id}/delete/prepare": {"post"},
         "/employees/{employee_id}/fields": {"get", "post"},
         "/employees/{employee_id}/fields/prepare": {"post"},
         "/employees/{employee_id}": {"get"},

@@ -4,7 +4,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Documania panel\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-08 20:08+0000\n"
+"POT-Creation-Date: 2026-10-09 00:24+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1123,6 +1123,7 @@ msgstr ""
 msgid "Belgede okunan ad"
 msgstr ""
 
+#: app/web/templates/employee_delete_step.html
 #: app/web/templates/employee_merge_step.html app/web/templates/profile.html
 #: app/web/templates/upload_detail.html
 msgid "Belgeler"
@@ -1658,6 +1659,11 @@ msgstr ""
 msgid "Bu {count} partiyi yeniden analiz etmek üzeresiniz. Emin misiniz?"
 msgstr ""
 
+#: app/web/templates/employee_deleted.html
+#, python-format
+msgid "Bu çalışan %(at)s tarihinde %(user)s tarafından kalıcı olarak silindi."
+msgstr ""
+
 #: app/web/routers/employees.py
 msgid "Bu çalışan başka bir kayıtla birleştirildi; durumu değiştirilmez."
 msgstr ""
@@ -1686,6 +1692,10 @@ msgstr ""
 
 #: app/web/routers/queue.py
 msgid "Bu çalışan başka bir kayıtla birleştirildi; öğeyi kalan kayda atayın."
+msgstr ""
+
+#: app/web/routers/uploads.py
+msgid "Bu çalışan kalıcı olarak silindi; ona belge yüklenmez."
 msgstr ""
 
 #: app/web/routers/uploads.py
@@ -1967,6 +1977,7 @@ msgstr ""
 #: app/web/templates/catalog.html app/web/templates/catalog_candidate.html
 #: app/web/templates/document_archive_step.html
 #: app/web/templates/document_delete_step.html
+#: app/web/templates/employee_delete_step.html
 #: app/web/templates/employee_merge_step.html app/web/templates/employees.html
 #: app/web/templates/employees_results.html app/web/templates/groups.html
 #: app/web/templates/history.html app/web/templates/profile.html
@@ -2136,7 +2147,9 @@ msgstr ""
 #: app/web/templates/catalog_candidate_step.html
 #: app/web/templates/document_archive_step.html
 #: app/web/templates/document_delete_step.html
-#: app/web/templates/document_move.html app/web/templates/employee_fields.html
+#: app/web/templates/document_move.html
+#: app/web/templates/employee_delete_step.html
+#: app/web/templates/employee_fields.html
 #: app/web/templates/employee_merge_step.html
 #: app/web/templates/employee_status_step.html
 #: app/web/templates/profile_record_step.html
@@ -2200,6 +2213,10 @@ msgstr ""
 #: app/web/templates/catalog_candidate_step.html
 #: app/web/templates/upload_action_result.html
 msgid "Evet, yeniden analiz et"
+msgstr ""
+
+#: app/web/routers/employees.py
+msgid "Evet, çalışanı kalıcı olarak sil"
 msgstr ""
 
 #: app/web/templates/training_decision.html
@@ -2725,6 +2742,16 @@ msgid ""
 "durur."
 msgstr ""
 
+#: app/web/routers/employees.py
+msgid ""
+"Kalıcı silme geri alınamaz. Çalışanın klasörü (Hazir, Alinan, profil.md),"
+" bütün belgeleri (etkin, arşivdeki, eski sürüm), isim yazımları, belge "
+"numaraları, iletişim bilgileri ve paketleri silinir; yalnız bu çalışana "
+"ait yüklemelerin orijinali ve sayfa görüntüleri de gider. Başka bir "
+"çalışana ya da açık kuyruk öğesine kaynak olan dosyalar yerinde kalır. "
+"Olay ve erişim logu satırları kalır, kişisel değerleri temizlenir."
+msgstr ""
+
 #: app/web/templates/access_log_employee.html
 #: app/web/templates/upload_detail.html app/web/templates/uploads_list.html
 msgid "Kanal"
@@ -2905,6 +2932,13 @@ msgstr ""
 
 #: app/web/templates/queue.html app/web/templates/queue_item.html
 msgid "Kişi tahmini"
+msgstr ""
+
+#: app/web/templates/employee_deleted.html
+msgid ""
+"Klasörü, belgeleri ve kişisel bilgileri silindi; yalnız E numarası "
+"kayıtlarda kalır. Geçmiş olaylar ve erişim logu yerinde durur, kişisel "
+"değerleri temizlendi."
 msgstr ""
 
 #: app/telegram/notify.py
@@ -3223,6 +3257,7 @@ msgstr ""
 
 #: app/web/templates/document_archive_step.html
 #: app/web/templates/document_delete_step.html
+#: app/web/templates/employee_delete_step.html
 #: app/web/templates/employee_merge_step.html
 #: app/web/templates/employee_status_step.html
 #: app/web/templates/profile_record_step.html
@@ -3707,8 +3742,14 @@ msgid ""
 "emin olamadığını Kuyruklar'a bırakır. Belgelerin içeriği değiştirilmez."
 msgstr ""
 
-#: app/web/routers/upload_page.py
+#: app/matching/status.py app/web/routers/upload_page.py
 msgid "Silindi"
+msgstr ""
+
+#: app/web/routers/employees.py
+msgid ""
+"Silinecek belge sayısı onaydan sonra değişti; hiçbir şey silinmedi. Onayı"
+" yeniden başlatın."
 msgstr ""
 
 #: app/web/routers/documents.py
@@ -4233,7 +4274,9 @@ msgstr ""
 #: app/web/templates/catalog_form.html
 #: app/web/templates/document_archive_step.html
 #: app/web/templates/document_delete_step.html
-#: app/web/templates/document_move.html app/web/templates/employee_fields.html
+#: app/web/templates/document_move.html
+#: app/web/templates/employee_delete_step.html
+#: app/web/templates/employee_fields.html
 #: app/web/templates/employee_fields_step.html
 #: app/web/templates/employee_merge_step.html
 #: app/web/templates/employee_status_step.html app/web/templates/group.html
@@ -4287,6 +4330,13 @@ msgstr ""
 
 #: app/pipeline/queue_close.py
 msgid "Yalnız kapatılan öğe yeniden açılır; bu öğe kapatılmadı."
+msgstr ""
+
+#: app/web/routers/employees.py
+#, python-brace-format
+msgid ""
+"Yalnız pasif çalışan kalıcı silinir; önce çalışanı pasife alın. Bu "
+"çalışanın durumu: {status}."
 msgstr ""
 
 #: app/web/templates/group.html
@@ -5199,6 +5249,17 @@ msgstr ""
 msgid "Çalışan bulunamadı."
 msgstr ""
 
+#: app/web/routers/employees.py
+msgid ""
+"Çalışan kalıcı olarak silindi, ancak bazı dosyaları diskten kaldırılamadı"
+" (açık ya da kilitli olabilir); sayısı olay logunda. Sistem yöneticisine "
+"bildirin."
+msgstr ""
+
+#: app/web/routers/employees.py
+msgid "Çalışan kalıcı olarak silindi; klasörü ve belgeleri diskten kaldırıldı."
+msgstr ""
+
 #: app/web/templates/profile.html
 msgid "Çalışan kartı"
 msgstr ""
@@ -5219,6 +5280,10 @@ msgstr ""
 msgid ""
 "Çalışan profili oluşturuldu: <a href=\"%(url)s\">%(name)s (%(id)s)</a>. "
 "Belge %(file)s olarak çalışanın Hazır klasörüne yazıldı."
+msgstr ""
+
+#: app/web/templates/employee_deleted.html
+msgid "Çalışan silindi"
 msgstr ""
 
 #: app/web/routers/employees.py
@@ -5243,6 +5308,10 @@ msgstr ""
 
 #: app/web/templating.py
 msgid "Çalışanlar"
+msgstr ""
+
+#: app/web/routers/employees.py app/web/templates/profile.html
+msgid "Çalışanı kalıcı sil"
 msgstr ""
 
 #: app/web/routers/employees.py
@@ -5876,6 +5945,7 @@ msgstr ""
 
 #: app/web/templates/document_archive_step.html
 #: app/web/templates/document_delete_step.html
+#: app/web/templates/employee_delete_step.html
 #: app/web/templates/employee_fields.html app/web/templates/employee_merge.html
 #: app/web/templates/employee_merge_step.html
 #: app/web/templates/employee_status_step.html
@@ -5889,6 +5959,10 @@ msgstr ""
 
 #: app/web/templates/upload_detail.html
 msgid "← Yüklemeler"
+msgstr ""
+
+#: app/web/templates/employee_deleted.html
+msgid "← Çalışan listesine dön"
 msgstr ""
 
 #: app/web/templates/history.html app/web/templates/profile.html

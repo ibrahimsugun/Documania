@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{# Pasif çalışanı kalıcı silme (10.5.13): birinci onay (§20.6 metni birebir, çalışanın adıyla),
+   ikinci onay (<N> silinecek belge sayısı; belirteç çalışana ve bu sayıya bağlı) ya da hata. Geri
+   alınamaz (K16, R11); yalnız E numarası iskelet olarak kalır. #}
+{% block title %}{{ translate(title) }}{% if step %} · {{ step.name }}{% endif %}{% endblock %}
+{% block content %}
+<p class="back"><a href="/employees/{{ employee_id }}">{{ _("← Profile dön") }}</a></p>
+<h1>{{ translate(title) }}</h1>
+{% if step %}<p class="profile-meta">{{ step.name }} · {{ step.id }}</p>{% endif %}
+{% if error %}<p class="error" role="alert">{{ translate(error) }}</p>{% endif %}
+{% if step %}
+<dl class="record-summary archive-summary">
+  <dt>{{ _("Belgeler") }}</dt><dd>{{ step.documents }}</dd>
+  <dt>{{ _("Durum") }}</dt><dd>{{ translate(step.status_label) }}</dd>
+</dl>
+{% endif %}
+{# Form hedefleri açık yazılır: `tests/web/test_access_log.py` her POST hedefini gözden geçirilmiş
+   yollarla karşılaştırır. #}
+{% if first_confirmation %}
+<form method="post" action="/employees/{{ employee_id }}/delete/prepare" class="confirm employee-delete">
+  <p class="hint">{{ translate(hint) }}</p>
+  <p class="confirm-text" role="alert">{{ first_confirmation }}</p>
+  <button type="submit">{{ _("Evet, devam et") }}</button>
+  <a href="/employees/{{ employee_id }}">{{ _("Vazgeç") }}</a>
+</form>
+{% elif second_confirmation %}
+<form method="post" action="/employees/{{ employee_id }}/delete" class="confirm employee-delete-step">
+  <p class="confirm-text" role="alert">{{ second_confirmation }}</p>
+  <input type="hidden" name="confirmation" value="{{ confirmation }}">
+  <input type="hidden" name="documents" value="{{ step.documents }}">
+  <button type="submit" class="danger">{{ translate(submit_label) }}</button>
+  <a href="/employees/{{ employee_id }}">{{ _("Vazgeç") }}</a>
+</form>
+{% elif retry %}
+<p><a href="/employees/{{ employee_id }}/delete/confirm">{{ _("Onayı yeniden başlatın") }}</a></p>
+{% endif %}
+{% endblock %}

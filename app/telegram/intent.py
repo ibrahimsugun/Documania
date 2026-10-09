@@ -113,7 +113,7 @@ from app.groups.packages import PackageItemView, employee_packages, evaluate_gro
 from app.i18n import N_, activate_language, current_language, gettext, is_supported, ngettext
 from app.matching.names import EmptyNameError, normalize_name
 from app.matching.records import ACTIVE_ALIAS
-from app.matching.status import status_suffix
+from app.matching.status import CLOSED_STATUSES, status_suffix
 from app.profiles.render import render_profile
 from app.storage import DataLayout
 from app.telegram.plain import BULLET, MAX_ITEMS
@@ -246,10 +246,11 @@ def find_employees(session: Session, person: PersonReference) -> list[Employee]:
     """İfadeye uyan çalışanlar, soyad-ad sırasıyla (modül açıklaması, adım 1)."""
     if not person.numbers and not person.words:
         return []
-    # 10.5.9: birleştirilmiş kayıt aranmaz; belgeleri ve yazımları kalan kayda taşındı.
+    # 10.5.9: birleştirilmiş kayıt aranmaz; belgeleri ve yazımları kalan kayda taşındı. 10.5.13:
+    # kalıcı silinen kayıt da aranmaz (E numarasıyla da bulunmaz).
     query = (
         select(Employee)
-        .where(Employee.status != EmployeeStatus.MERGED.value)
+        .where(Employee.status.not_in(CLOSED_STATUSES))
         .order_by(func.lower(Employee.surname), func.lower(Employee.given_names), Employee.id)
     )
     # İK'nın kaldırdığı yazım (10.5.8) aramada kullanılmaz.
@@ -488,7 +489,9 @@ def resolve(
         return Resolution(TextReply(gettext(UNKNOWN_KIND_TEXT).format(kind=lookup.kind)))
     if not query.people:
         employee = session.get(Employee, previous) if previous is not None else None
-        if employee is None or employee.status == EmployeeStatus.MERGED.value:
+        # 12.3.5: konuşma belleğindeki kişi sonradan birleştirildiyse ya da kalıcı silindiyse
+        # (10.5.13) unutulur.
+        if employee is None or employee.status in CLOSED_STATUSES:
             return Resolution(TextReply(gettext(NO_PERSON_TEXT)))
         return Resolution(resolve_for(session, employee, lookup), employee.id)
     (person,) = query.people
@@ -1215,7 +1218,7 @@ class DocumentRequests:
                 for employee in (
                     session.get(Employee, employee_id) for employee_id in ask.employee_ids
                 )
-                if employee is not None
+                if employee is not None and employee.status != EmployeeStatus.DELETED.value
             ]
         if not profiles:
             return TextReply(gettext(STALE_CHOICE_TEXT))
@@ -1261,7 +1264,8 @@ class DocumentRequests:
     def _documents_of(self, employee_id: str, lookup: Lookup) -> Reply:
         with self._session_factory() as session:
             employee = session.get(Employee, employee_id)
-            if employee is None:
+            # 10.5.13: düğme gösterildikten sonra kalıcı silinen kişi seçilemez.
+            if employee is None or employee.status == EmployeeStatus.DELETED.value:
                 return TextReply(gettext(STALE_CHOICE_TEXT))
             return resolve_for(session, employee, lookup)
 

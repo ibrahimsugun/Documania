@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{# Kalıcı silinen çalışanın adresi (10.5.13): 410 ve "silindi" bildirimi. Kişisel değer yoktur —
+   yalnız E numarası, silme anı ve silen kullanıcı (iskelet kayıt). Profilin bütün alt adresleri
+   (düzenleme, durum, kayıtlar, birleştirme, paketler, belge dosyaları) aynı sayfayı döner. #}
+{% block title %}{{ _("Çalışan silindi") }} · {{ employee_id }}{% endblock %}
+{% block content %}
+<p class="back"><a href="/employees">{{ _("← Çalışan listesine dön") }}</a></p>
+<h1>{{ _("Çalışan silindi") }}</h1>
+<p class="profile-meta">{{ employee_id }}</p>
+{% if notice %}<p class="notice notice-success" role="status">{{ translate(notice) }}</p>{% endif %}
+<div class="notice deleted-notice" role="status">
+  <p>{{ _("Bu çalışan %(at)s tarihinde %(user)s tarafından kalıcı olarak silindi.", at=deleted_at, user=deleted_by or "—") }}</p>
+  <p class="hint">{% trans %}Klasörü, belgeleri ve kişisel bilgileri silindi; yalnız E numarası kayıtlarda kalır. Geçmiş olaylar ve erişim logu yerinde durur, kişisel değerleri temizlendi.{% endtrans %}</p>
+</div>
+{% endblock %}

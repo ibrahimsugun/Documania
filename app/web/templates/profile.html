@@ -34,7 +34,8 @@
 <div class="notice inactive-notice" role="status">
   <p><span class="status-badge status-passive">{{ _("Pasif çalışan") }}</span> {% trans %}Bu çalışana gelen yeni belgeler otomatik yerleşmez, "pasif çalışan" gerekçesiyle Unresolved kuyruğuna düşer; profilden yükleme kapalıdır. Klasör ve belgeler yerinde duruyor.{% endtrans %}</p>
   {% if profile.deactivation %}<p class="reason">{{ _("Pasife alan:") }} {{ profile.deactivation.actor or "—" }} · {{ profile.deactivation.at.strftime("%d.%m.%Y %H:%M") }}{% if profile.deactivation.reason %} · {{ _("Not:") }} {{ profile.deactivation.reason }}{% endif %}</p>{% endif %}
-  <p><a href="/employees/{{ profile.id }}/status/confirm?to=active" class="status-action">{{ _("Yeniden etkinleştir") }}</a></p>
+  {# 10.5.13: kalıcı silme yalnız pasif çalışanda (tehlike görünümü; iki aşamalı onay). #}
+  <p><a href="/employees/{{ profile.id }}/status/confirm?to=active" class="status-action">{{ _("Yeniden etkinleştir") }}</a> · <a href="/employees/{{ profile.id }}/delete/confirm" class="employee-delete">{{ _("Çalışanı kalıcı sil") }}</a></p>
 </div>
 {% endif %}
 {{ context_warning(profile.context_warning) }}

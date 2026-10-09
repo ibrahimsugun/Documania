@@ -437,6 +437,11 @@ REVIEWED_MUTATING_ROUTES: dict[tuple[str, str], str] = {
     ("POST", "/employees/{employee_id}/packages/{package_id}/reopen"): (
         "belge paketi kaydı: iptali geri alma (14.2.3)"
     ),
+    ("POST", "/employees/{employee_id}/delete/prepare"): "onay belirteci",
+    ("POST", "/employees/{employee_id}/delete"): (
+        "pasif çalışanı kalıcı silme: klasör, belgeler ve alt kayıtlar gider, satır iskelet olarak "
+        "kalır; içerik yazılmaz (10.5.13, K16, §D110)"
+    ),
     ("POST", "/employees/{employee_id}/status/prepare"): "onay belirteci",
     ("POST", "/employees/{employee_id}/status"): (
         "çalışan kaydı: pasife alma / yeniden etkinleştirme, klasör ve belgeler yerinde "

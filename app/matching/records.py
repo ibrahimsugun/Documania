@@ -151,7 +151,8 @@ def number_owners(session: Session, numbers: Iterable[str]) -> set[str]:
 
     "Aynı numara birden fazla çalışana ait" hükmü kaldırılmış satırı saymaz: numarayı bir
     çalışandan kaldırmak onu öteki çalışanın tek sahipliğine bırakır. Birleştirilmiş (`merged`,
-    10.5.9) çalışan sahip sayılmaz: numaraları kalan kayda taşınmıştır, süzgeç güvenlik içindir.
+    10.5.9) çalışan sahip sayılmaz: numaraları kalan kayda taşınmıştır; kalıcı silinen (`deleted`,
+    10.5.13) çalışanın numaraları silinmiştir. Süzgeç güvenlik içindir.
     """
     values = list(dict.fromkeys(numbers))
     if not values:
@@ -163,7 +164,7 @@ def number_owners(session: Session, numbers: Iterable[str]) -> set[str]:
             .where(
                 EmployeeIdentifier.value.in_(values),
                 ACTIVE_IDENTIFIER,
-                Employee.status != EmployeeStatus.MERGED.value,
+                Employee.status.not_in((EmployeeStatus.MERGED.value, EmployeeStatus.DELETED.value)),
             )
         )
     )
@@ -254,6 +255,8 @@ def _check_employee(employee: Employee, actor: str) -> None:
         raise ProfileRecordStateError(
             f"Çalışan {employee.id} birleştirilmiş; kayıtları kalan kayıtta yönetilir (10.5.9)"
         )
+    if employee.status == EmployeeStatus.DELETED.value:
+        raise ProfileRecordStateError(f"Çalışan {employee.id} kalıcı silinmiş (10.5.13)")
 
 
 def remove_record(

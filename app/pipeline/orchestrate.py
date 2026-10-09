@@ -131,6 +131,7 @@ from app.db.models import (
     Document,
     DocumentStatus,
     Employee,
+    EmployeeStatus,
     Page,
     Plan,
     Upload,
@@ -568,8 +569,11 @@ def _write_profiles(session: Session, layout: DataLayout, upload_id: str) -> Non
         .join(Plan, Document.plan_id == Plan.id)
         .where(Plan.upload_id == upload_id)
     )
+    # 10.5.13: kalıcı silinen çalışanın klasörü yoktur; yeniden çalıştırma onu geri açmaz.
     employees = session.scalars(
-        select(Employee).where(Employee.id.in_(owners)).order_by(Employee.id)
+        select(Employee)
+        .where(Employee.id.in_(owners), Employee.status != EmployeeStatus.DELETED.value)
+        .order_by(Employee.id)
     )
     for employee in employees:
         refresh_employee_packages(session, employee.id)

@@ -188,6 +188,21 @@ bağlanabilir (telefon ya da hesap değişince). Silmenin izi olay logundadır.
 
 **Botla konuşma (12.3, 12.1.11, 12.1.12):** bot belge ister (“Ahmet Çakar'ın ehliyeti”), tek mesajda birden çok türü yanıtlar (“ehliyet ve CV'si var mı?” → her tür için var/yok), kişinin kısa bilgisini verir (“kaç yaşında?”, “hangi belgeleri var?”) ve bir belge grubu için eksikleri söyler (“adres kaydı için hangi belgeleri tamamlamalı?”; paket yoksa paket açmadan grubu kişinin belgeleriyle karşılaştırır). Kişi adı yazılmayan istek (“ehliyeti de”) son 10 dakikadaki kişiye uygulanır. Sesli mesaj, video, çıkartma gibi mesajlara kısa bir yanıt verir. Kişiye yazdığı dilde (Türkçe, İngilizce, Sırpça) yanıt verir; bu dil bot yeniden başlayana dek sonraki yanıtlarda da kullanılır.
 
+**Kalıcı silme (10.5.12, 10.5.13; PLAN.md §D110, §D113, §D116):** sistem kendiliğinden hiçbir şey
+silmez; İK elle ve iki aşamalı onayla siler, geri alma yoktur. Profilin belge listesindeki «Kalıcı
+sil» tek belgeyi siler. İşten ayrılan çalışan önce pasife alınır, sonra pasif profildeki «Çalışanı
+kalıcı sil» onu bütün belgeleriyle siler (etkin çalışan silinmez). **Silinenler:** çalışan klasörü
+(`Hazir`, `Alinan`, `profil.md`), belgelerin dosyaları (etkin, arşivdeki, eski sürüm), isim
+yazımları, belge numaraları, iletişim bilgileri, profil alanı gözlemleri, paketler, yalnız o
+çalışana ait yüklemelerin Inbox orijinali ve sayfa görüntüleri; planlardaki hedef dosya adı ve
+olayların mesajı/verisindeki kişisel değerler temizlenir. **Kalanlar:** çalışan ve belge satırı
+iskelet olarak (E numarası, belge kimliği, tür, tarihler, kim ve ne zaman sildi; E numarası bir
+daha verilmez), olay ve erişim logu satırları, başka bir çalışana ya da açık kuyruk öğesine de
+kaynak olan orijinal ve sayfalar, yüklemenin dosya adı kaydı (`upload_files.original_name`).
+Silinen çalışanın adresi «silindi» sayfasıdır (410); liste, arama, eşleştirme ve bot onu görmez,
+aynı kişinin yeni belgesi yeni çalışan açar. **Yedekler:** gece yedeğindeki kopyalar yedeğin kendi
+saklama süresiyle gider; silme yedeklere dokunmaz.
+
 **Yedekleme:** gece yedeği ve geri yükleme prosedürü [`docs/YEDEKLEME.md`](docs/YEDEKLEME.md)'de
 (Compose kurulumuna özgü ayarlar orada). Zamanlayıcı (cron) sunucuya elle kurulur.
 

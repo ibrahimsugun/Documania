@@ -114,6 +114,10 @@ def move_document(
             f"Belge {document.id} taşınamaz: {new_owner.id} başka bir kayıtla birleştirildi "
             "(10.5.9); kalan kayda taşıyın"
         )
+    if new_owner.status == EmployeeStatus.DELETED.value:
+        raise DocumentNotMovableError(
+            f"Belge {document.id} taşınamaz: {new_owner.id} kalıcı silindi (10.5.13)"
+        )
     previous_owner = session.get_one(Employee, document.employee_id)
     document_type = session.get_one(KnownDocumentType, document.type_slug)
 

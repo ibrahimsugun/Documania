@@ -45,7 +45,7 @@ from app.db.models import Employee, Upload, UploadFile, allocate_upload_id
 from app.db.session import get_session
 from app.events import EventType, event_context, record_event
 from app.i18n import N_, Translatable
-from app.matching.status import is_inactive, is_merged
+from app.matching.status import is_deleted, is_inactive, is_merged
 from app.pipeline.dismiss import is_dismissed
 from app.pipeline.orchestrate import (
     PLAN_EXECUTION_ERRORS,
@@ -79,6 +79,8 @@ INACTIVE_CONTEXT_MESSAGE = N_(
 MERGED_CONTEXT_MESSAGE = N_(
     "Bu çalışan başka bir kayıtla birleştirildi; ona belge yüklenmez. Kalan kayda yükleyin."
 )
+# 10.5.13: kalıcı silinen çalışana da yapılmaz.
+DELETED_CONTEXT_MESSAGE = N_("Bu çalışan kalıcı olarak silindi; ona belge yüklenmez.")
 
 
 @dataclass(frozen=True, slots=True)
@@ -303,6 +305,8 @@ def store_upload(
             raise HTTPException(status.HTTP_409_CONFLICT, INACTIVE_CONTEXT_MESSAGE)
         if is_merged(context_employee):
             raise HTTPException(status.HTTP_409_CONFLICT, MERGED_CONTEXT_MESSAGE)
+        if is_deleted(context_employee):
+            raise HTTPException(status.HTTP_409_CONFLICT, DELETED_CONTEXT_MESSAGE)
 
     upload_id = allocate_upload_id(session)
     session.add(

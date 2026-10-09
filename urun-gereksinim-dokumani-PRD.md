@@ -1095,7 +1095,7 @@ Yazma tamamlandıktan sonra `documents` kaydına kaynak dosya kimliği ve sayfa 
 
 ---
 
-### 20.6 İki aşamalı onay metinleri (gereksinim 10.8.1, 10.8.2, 10.7.2, 10.7.3, 08.4.1, 11.5.2, 10.3.4, 10.5.6, 10.5.7, 10.5.8, 10.5.9, 10.5.10, 10.7.4, 10.10.4, 10.5.12)
+### 20.6 İki aşamalı onay metinleri (gereksinim 10.8.1, 10.8.2, 10.7.2, 10.7.3, 08.4.1, 11.5.2, 10.3.4, 10.5.6, 10.5.7, 10.5.8, 10.5.9, 10.5.10, 10.7.4, 10.10.4, 10.5.12, 10.5.13)
 
 K16'daki manuel işlemler iki aşamalı onay ister (salt geri alma işlemleri tek adımdır, K16). Metinler **birebir** aşağıdaki
 gibidir; pencere kendi cümlesini yazmaz. `<…>` yer tutucuları çalışma zamanında doldurulur.
@@ -1116,6 +1116,7 @@ gibidir; pencere kendi cümlesini yazmaz. `<…>` yer tutucuları çalışma zam
 | Belgeyi arşivden geri al | `Bu belgeyi arşivden geri almak üzeresiniz. Emin misiniz?` | `Belge çalışanın Hazır klasörüne dönecektir. Son kararınız mı?` |
 | Kuyruk öğesini kapat | `Bu kuyruk öğesini kapatmak üzeresiniz. Emin misiniz?` | `Öğe çözülmüş sayılacak, dosya kopyası ve gerekçesi yerinde kalacaktır. Son kararınız mı?` |
 | Belgeyi kalıcı sil | `Bu belgeyi kalıcı olarak silmek üzeresiniz. Emin misiniz?` | `Belge dosyası ve kopyaları (<N>) diskten silinecek, başka belgelere de kaynak olan dosyalar (<M>) kalacaktır; bu işlem geri alınamaz. Son kararınız mı?` |
+| Çalışanı kalıcı sil | `<Ad Soyad> çalışanını bütün belgeleriyle kalıcı olarak silmek üzeresiniz. Emin misiniz?` | `Çalışanın klasörü, belgeleri (<N>) ve kişisel bilgileri silinecek, yalnız E numarası kalacaktır; bu işlem geri alınamaz. Son kararınız mı?` |
 
 İlk iki satırdaki metinler ürün tanımında birebir bu şekilde yazılmıştır; **değiştirilmez**.
 Kalan satırlar aynı kalıptan türetilmiştir: birinci cümle *ne yapılacağını*, ikinci cümle
@@ -1170,3 +1171,4 @@ yazılır ve aynı değerle doldurulur. Sayı alan cümleler sayının çoğul u
 | Belgeyi arşivden geri al | `You are about to restore this document from the archive. Are you sure?` | `The document will return to the employee's Hazir folder. Is this your final decision?` | `Upravo ćete vratiti ovaj dokument iz arhive. Da li ste sigurni?` | `Dokument će se vratiti u fasciklu Hazir zaposlenog. Da li je to vaša konačna odluka?` |
 | Kuyruk öğesini kapat | `You are about to close this queue item. Are you sure?` | `The item will be considered resolved; its file copy and reason will stay in place. Is this your final decision?` | `Upravo ćete zatvoriti ovu stavku reda. Da li ste sigurni?` | `Stavka će se smatrati rešenom; kopija datoteke i obrazloženje ostaju na mestu. Da li je to vaša konačna odluka?` |
 | Belgeyi kalıcı sil | `You are about to permanently delete this document. Are you sure?` | `The document file and its copies (<N>) will be deleted from disk; files that are also the source of other documents (<M>) will stay; this action cannot be undone. Is this your final decision?` | `Upravo ćete trajno obrisati ovaj dokument. Da li ste sigurni?` | `Datoteka dokumenta i njene kopije (<N>) biće obrisane sa diska; datoteke koje su izvor i drugih dokumenata (<M>) ostaju; ova radnja se ne može poništiti. Da li je to vaša konačna odluka?` |
+| Çalışanı kalıcı sil | `You are about to permanently delete employee <Ad Soyad> together with all documents. Are you sure?` | `The employee's folder, documents (<N>) and personal information will be deleted; only the E number will remain; this action cannot be undone. Is this your final decision?` | `Upravo ćete trajno obrisati zaposlenog <Ad Soyad> zajedno sa svim dokumentima. Da li ste sigurni?` | `Fascikla zaposlenog, dokumenti (<N>) i lični podaci biće obrisani, ostaće samo E broj; ova radnja se ne može poništiti. Da li je to vaša konačna odluka?` |

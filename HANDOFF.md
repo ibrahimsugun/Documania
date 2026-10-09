@@ -18,6 +18,12 @@ Blok biçimi `CONVENTIONS.md` §3'te tanımlıdır:
 
 ## Task log (newest-first)
 
+## 167 — 10.5-k Pasif çalışanı kalıcı silme — done — 2026-10-09
+- Yapıldı: göç 0026 (`deleted_at/by`, `status` CHECK), `app/storage/delete_employee.py` (belgeler birlikte planlanır, alt kayıtlar ve paketler silinir, birleştirilmiş kayıtlar da gider, plan hedef adları `deleted-<öğe>` + hash, olaylarda `PERSONAL_DATA_KEYS` ve kişi değeri taraması, iskelet, `EMPLOYEE_DELETED`; dosya ve klasör commit'ten sonra), pasif profilde iki onaylı silme, silinenin bütün adresleri 410 "silindi" sayfası, eşleştirme/bot/arama/atama/taşıma/birleştirme silineni görmez; kararlar §D116.
+- Doğrulama: yalnız bu görevin ağacında (ayrı worktree) ruff, format, compileall, `import app.main`, temiz SQLite'ta `alembic upgrade head` (→0026), i18n check exit 0; tam paralel kapı 6821 geçti, 5 atlandı, %99,08. İki kırmızı: `test_profile.py` yol listesi (bu görev, düzeltildi, yeniden koşuda yeşil) ve `test_intake.py::test_a_summary_only_counts_its_own_batch` (`pause=0.3` duvar saati zamanlaması yük altında; tek başına ve tests/telegram -n 12'de yeşil, bu göreve bağlı değil).
+- Varsayımlar: liste hiçbir süzgeçte silineni göstermez; `upload_files.original_name` ve açık kuyruk öğesi yükü kalır (§D116 i); aynı baytların yeniden yüklenmesi silinmiş orijinalin K10 tekrarı sayılıp işlenmez (§D116 j — ayrı görev önerilir).
+- Sonraki pencereye not: Commit yalnız tm 167'yi içerir; PLAN/PRD/panel.css/tasks.json HEAD tabanlı kopyalarla stage'lendi. Çalışma ağacında başka oturumların işi duruyor (dil seçici bayrak menüsü, tm 168–169 planlaması). tasks.json'da 165/166/167 kimlikleri iki kez var; `task-master` ilk eşleşeni (10.5-k) günceller. `test_intake` zamanlama kararsızlığı ayrı görev olmalı (§1.4).
+
 ## 166 — 10.5-j Belgeyi kalıcı silme — done — 2026-10-09
 - Yapıldı: göç 0025 (`deleted_at/by`, boş `path`, durum CHECK), `app/storage/delete.py` (plan: belge, Alinan, Inbox + tekrarlar, kuyruk kopyaları, sayfa görüntüsü; iskelet + `DOCUMENT_DELETED`; dosyalar commit'ten sonra), profilden iki onaylı silme (`<N>`/`<M>`, sayı değişince 409), görünürlük ve rerun `reason: deleted`; kararlar §D113.
 - Doğrulama: ruff, format, compileall, `import app.main`, temiz SQLite'ta `alembic upgrade head` (→0025), i18n check exit 0; commit ağacında tam paralel kapı 6793 geçti, 5 atlandı, %99,16 — tek kırmızı `test_profile_records.py` manuel iletişim testi UTC gece yarısı yarışı (yeniden koşuda yeşil); 7 kural bozmasının 7'si kırmızı.

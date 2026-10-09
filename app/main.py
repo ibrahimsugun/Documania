@@ -65,6 +65,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         title="Documania", lifespan=lifespan, openapi_url=None, docs_url=None, redoc_url=None
     )
     application.add_exception_handler(LoginRequiredError, _redirect_to_login)
+    application.add_exception_handler(
+        employees.EmployeeDeletedError, employees.employee_deleted_page
+    )
     # 13.5.3: açılıştaki kodun parmak izi (eski süreç uyarısı, `/health`'teki `code`) ve bu kodun
     # beklediği şema sürümü. Uygulama nesnesi kurulurken alınır: süreç bellekteki kodu bu andan
     # itibaren değiştirmez.
@@ -80,7 +83,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     application.include_router(panel.router, dependencies=panel_page)
     application.include_router(upload_page.router, dependencies=panel_page)
     application.include_router(uploads_list.router, dependencies=panel_page)
-    application.include_router(employees.router, dependencies=panel_page)
+    # 10.5.13: kalıcı silinen çalışanın bütün adresleri "silindi" sayfasını (410) döner.
+    application.include_router(
+        employees.router,
+        dependencies=[*panel_page, Depends(employees.reject_deleted_employee)],
+    )
     application.include_router(documents.router, dependencies=panel_page)
     application.include_router(catalog.router, dependencies=panel_page)
     application.include_router(groups.router, dependencies=panel_page)

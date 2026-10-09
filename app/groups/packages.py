@@ -490,6 +490,8 @@ def assign_package(
         raise PackageEmployeeNotFoundError(employee_id)
     if employee.status == EmployeeStatus.MERGED.value:
         raise PackageStateError(EMPLOYEE_MERGED)
+    if employee.status == EmployeeStatus.DELETED.value:
+        raise PackageEmployeeNotFoundError(employee_id)
     group = get_group(session, group_id)
     if group.archived_at is not None:
         raise GroupArchivedError(GROUP_ARCHIVED)

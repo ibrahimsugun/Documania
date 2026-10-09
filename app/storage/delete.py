@@ -52,7 +52,7 @@ from __future__ import annotations
 
 import enum
 import logging
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -186,20 +186,47 @@ def plan_document_deletion(
     Hiçbir şey yazmaz; hazırlık adımı `<N>`/`<M>`'yi, `delete_document` aynı planı işlem anında
     yeniden hesaplar.
     """
-    sources = _load_sources(session, document)
+    remove, keep, pages = plan_documents_files(session, layout, [document])
+    return DocumentDeletionPlan(document_id=document.id, remove=remove, keep=keep, pages=pages)
+
+
+def plan_documents_files(
+    session: Session,
+    layout: DataLayout,
+    documents: Sequence[Document],
+    *,
+    clear_gone_files: bool = False,
+) -> tuple[tuple[PlannedFile, ...], tuple[PlannedFile, ...], tuple[PlannedPage, ...]]:
+    """Belgelerin **birlikte** silinmesi diskte neyi kaldırır, neyi bırakır: `(remove, keep,
+    pages)`. Ölçütler modül açıklamasındadır; birlikte silinen belgeler birbirine dayanmaz (çalışanı
+    silme, 10.5.13 — aynı PDF'ten çıkan iki belgesi orijinali birbirine bırakmaz).
+    `clear_gone_files` doğruysa orijinali giden dosyanın belgeye girmemiş sayfaları da (boş sayfa,
+    atlanan sayfa) boşalır: dosyanın hiçbir sayfası artık başka kayda kaynak değildir (çalışanı
+    silme, PLAN.md §D116 c). Hiçbir şey yazmaz."""
+    sources = _load_sources(session, documents)
     remove: dict[Path, FileRole] = {}
     keep: dict[Path, FileRole] = {}
 
-    own_file = _stored(layout, document.path)
-    if own_file is not None:
-        remove[own_file] = FileRole.DOCUMENT
+    for document in documents:
+        own_file = _stored(layout, document.path)
+        if own_file is not None:
+            remove[own_file] = FileRole.DOCUMENT
 
-    holders = _received_holders(session, document)
+    holders = list(
+        {
+            employee.id: employee
+            for document in documents
+            for employee in _received_holders(session, document)
+        }.values()
+    )
+    gone_files: set[int] = set()
     for file_id in dict.fromkeys(file_id for file_id, _ in sources.refs):
         upload_file = sources.files.get(file_id)
         if upload_file is None:
             continue
         gone = not _file_still_needed(sources, upload_file)
+        if gone:
+            gone_files.add(file_id)
         target = remove if gone else keep
         inbox = _stored(layout, upload_file.stored_path)
         if inbox is not None:
@@ -219,11 +246,10 @@ def plan_document_deletion(
             for copy in _content_copies(layout.received_dir(employee.folder_name), upload_file):
                 (keep if needed else remove)[copy] = FileRole.RECEIVED
 
-    return DocumentDeletionPlan(
-        document_id=document.id,
-        remove=tuple(PlannedFile(role, path) for path, role in remove.items()),
-        keep=tuple(PlannedFile(role, path) for path, role in keep.items() if path not in remove),
-        pages=_pages_to_clear(session, layout, sources),
+    return (
+        tuple(PlannedFile(role, path) for path, role in remove.items()),
+        tuple(PlannedFile(role, path) for path, role in keep.items() if path not in remove),
+        _pages_to_clear(session, layout, sources, gone_files if clear_gone_files else set()),
     )
 
 
@@ -360,8 +386,9 @@ def _queue_refs(item: QueueItem) -> list[tuple[int, tuple[int, ...] | None]] | N
     return refs or None
 
 
-def _load_sources(session: Session, document: Document) -> _Sources:
-    refs = _refs(document.source_refs_json)
+def _load_sources(session: Session, documents: Sequence[Document]) -> _Sources:
+    refs = [ref for document in documents for ref in _refs(document.source_refs_json)]
+    deleting = {document.id for document in documents}
     file_ids = {file_id for file_id, _ in refs}
     files = {
         upload_file.id: upload_file
@@ -383,7 +410,7 @@ def _load_sources(session: Session, document: Document) -> _Sources:
         session.scalars(
             select(Document)
             .where(
-                Document.id != document.id,
+                Document.id.not_in(deleting),
                 Document.status != DocumentStatus.DELETED.value,
                 or_(Document.plan_id.in_(plans), Document.plan_id.is_(None)),
             )
@@ -455,7 +482,7 @@ def _received_holders(session: Session, document: Document) -> list[Employee]:
 
 
 def _pages_to_clear(
-    session: Session, layout: DataLayout, sources: _Sources
+    session: Session, layout: DataLayout, sources: _Sources, gone_files: set[int]
 ) -> tuple[PlannedPage, ...]:
     wanted = {(file_id, pages) for file_id, pages in sources.refs if file_id in sources.files}
     if not wanted:
@@ -467,6 +494,9 @@ def _pages_to_clear(
     )
     planned: list[PlannedPage] = []
     for page in rows:
+        if page.file_id in gone_files:
+            planned.append(PlannedPage(page.id, _stored(layout, page.image_path)))
+            continue
         if not any(
             file_id == page.file_id and (pages is None or page.index in pages)
             for file_id, pages in wanted
@@ -528,5 +558,6 @@ __all__ = [
     "PlannedPage",
     "delete_document",
     "plan_document_deletion",
+    "plan_documents_files",
     "remove_document_files",
 ]

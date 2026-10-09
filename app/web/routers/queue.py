@@ -143,6 +143,7 @@ from app.matching.match import (
     edited_profile_fields,
 )
 from app.matching.status import (
+    is_deleted,
     is_inactive,
     is_inactive_employee_reason,
     is_merged,
@@ -1078,6 +1079,8 @@ def _assignee(session: Session, employee_id: str) -> AssigneeView:
         raise HTTPException(status.HTTP_404_NOT_FOUND, ASSIGNEE_NOT_FOUND)
     if is_merged(employee):
         raise HTTPException(status.HTTP_409_CONFLICT, ASSIGNEE_MERGED)
+    if is_deleted(employee):  # 10.5.13: kalıcı silinen kayıt atama hedefi değildir
+        raise HTTPException(status.HTTP_404_NOT_FOUND, ASSIGNEE_NOT_FOUND)
     return AssigneeView(id=employee.id, name=f"{employee.given_names} {employee.surname}")
 
 

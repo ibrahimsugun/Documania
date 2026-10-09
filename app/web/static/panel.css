@@ -1284,3 +1284,8 @@ button.danger:hover {
   color: #fff;
   box-shadow: none;
 }
+
+/* 10.5.13: pasif profildeki "Çalışanı kalıcı sil" de tehlike görünümündedir; "silindi" sayfası. */
+.inactive-notice a.employee-delete { color: var(--danger); font-weight: 600; }
+.deleted-notice { margin: 0.75rem 0; padding: 0.5rem 0.75rem; border-radius: 6px; background: var(--warning-soft); }
+.deleted-notice p { margin: 0.25rem 0; }

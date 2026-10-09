@@ -34,7 +34,7 @@ def _assert_schema_matches_models(database_url: str) -> None:
             assert tables == set(Base.metadata.tables) | {"alembic_version"}
             context = MigrationContext.configure(connection, opts={"compare_type": True})
             assert compare_metadata(context, Base.metadata) == []
-            assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "0025"
+            assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "0026"
     finally:
         engine.dispose()
 
@@ -1394,6 +1394,48 @@ def test_document_deletion_migration_keeps_documents_and_checks_the_status(
             columns = {c["name"]: c for c in inspect(connection).get_columns("documents")}
             assert "deleted_at" not in columns and not columns["path"]["nullable"]
             assert connection.scalar(text("SELECT status FROM documents")) == "active"
+    finally:
+        engine.dispose()
+
+
+def test_employee_deletion_migration_keeps_employees_and_checks_the_status(
+    sqlite_url: str,
+) -> None:
+    # 0026 (10.5.13): var olan çalışanın silme alanları boş kalır; `status` yalnız dört değeri alır;
+    # geri alış sütunları ve kısıtı düşürür, çalışan kalır.
+    config = _alembic_config(sqlite_url)
+    command.upgrade(config, "0025")
+    engine = create_engine(sqlite_url)
+    set_status = text("UPDATE employees SET status = :status WHERE id = 'E0001'")
+    try:
+        with engine.begin() as connection:
+            connection.execute(
+                text(
+                    "INSERT INTO employees (id, folder_name, given_names, surname, status, "
+                    "created_at) VALUES ('E0001', 'Test_Kisi_E0001', 'Test', 'Kisi', 'inactive', "
+                    "'2026-10-01 10:00:00')"
+                )
+            )
+
+        command.upgrade(config, "0026")
+        with engine.connect() as connection:
+            columns = {c["name"]: c for c in inspect(connection).get_columns("employees")}
+            assert columns["deleted_at"]["nullable"] and columns["deleted_by"]["nullable"]
+            assert connection.execute(
+                text("SELECT folder_name, status, deleted_at, deleted_by FROM employees")
+            ).all() == [("Test_Kisi_E0001", "inactive", None, None)]
+        for status in ("active", "merged", "deleted", "inactive"):
+            with engine.begin() as connection:
+                connection.execute(set_status, {"status": status})
+        for invalid in ("removed", "DELETED", ""):
+            with pytest.raises(IntegrityError), engine.begin() as connection:
+                connection.execute(set_status, {"status": invalid})
+
+        command.downgrade(config, "0025")
+        with engine.connect() as connection:
+            columns = {c["name"]: c for c in inspect(connection).get_columns("employees")}
+            assert "deleted_at" not in columns and "deleted_by" not in columns
+            assert connection.scalar(text("SELECT status FROM employees")) == "inactive"
     finally:
         engine.dispose()
 

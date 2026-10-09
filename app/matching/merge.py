@@ -145,6 +145,10 @@ def check_merge(keep: Employee, merge: Employee) -> None:
             raise EmployeeAlreadyMergedError(
                 f"Çalışan {employee.id} zaten birleştirilmiş; birleştirme geri alınmaz (10.5.9)"
             )
+        if employee.status == EmployeeStatus.DELETED.value:
+            raise EmployeeAlreadyMergedError(
+                f"Çalışan {employee.id} kalıcı silinmiş; birleştirilmez (10.5.13)"
+            )
 
 
 def merge_field_preview(keep: Employee, merge: Employee) -> dict[str, str]:

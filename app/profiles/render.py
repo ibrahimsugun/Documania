@@ -101,12 +101,15 @@ def render_profile(session: Session, employee: Employee, *, today: date | None =
 
 def write_profile(
     session: Session, layout: DataLayout, employee: Employee, *, today: date | None = None
-) -> StoredFile:
+) -> StoredFile | None:
     """`render_profile`'ın çıktısını çalışanın `profil.md`'sine atomik olarak yazar (09.1.1).
 
     Dosya varsa baştan üretilir (`replace_file`), yoksa oluşturulur; elle düzenleme beklenmez
-    (§8.2).
+    (§8.2). Kalıcı silinen çalışanın (10.5.13) klasörü yoktur: hiçbir şey yazılmaz, `None` döner —
+    sonradan bir yeniden çalıştırma ya da grup değişikliği klasörü geri açmasın.
     """
+    if employee.status == EmployeeStatus.DELETED.value:
+        return None
     content = render_profile(session, employee, today=today)
     return replace_file(layout.profile_path(employee.folder_name), content.encode("utf-8"))
 

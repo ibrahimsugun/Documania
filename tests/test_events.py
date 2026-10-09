@@ -46,7 +46,8 @@ def test_all_prd_event_types_are_present() -> None:
     10.1.4) tm 134'le; Telegram beyaz listesi olayı (`TELEGRAM_USER_CHANGED`, 12.1.3) tm 135'le;
     Telegram bağlantısı üretme olayı (`TELEGRAM_LINK_CREATED`, 12.1.4) tm 149'la; arayüz dili
     tercihi olayı (`USER_LANGUAGE_CHANGED`, 10.10.2) tm 153'le; belgeyi kalıcı silme olayı
-    (`DOCUMENT_DELETED`, 10.5.12) tm 166'yla. `EMPLOYEE_DELETED` (10.5.13) tm 167'nindir."""
+    (`DOCUMENT_DELETED`, 10.5.12) tm 166'yla; pasif çalışanı kalıcı silme olayı
+    (`EMPLOYEE_DELETED`, 10.5.13) tm 167'yle."""
     expected = {
         "FILE_UPLOADED",
         "FILE_DUPLICATE",
@@ -128,6 +129,7 @@ def test_all_prd_event_types_are_present() -> None:
         "TELEGRAM_USER_CHANGED",
         "TELEGRAM_LINK_CREATED",
         "DOCUMENT_DELETED",
+        "EMPLOYEE_DELETED",
     }
     assert {member.value for member in EventType} == expected
 

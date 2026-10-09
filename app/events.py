@@ -102,7 +102,51 @@ class EventType(enum.StrEnum):
     TELEGRAM_USER_CHANGED = "TELEGRAM_USER_CHANGED"
     TELEGRAM_LINK_CREATED = "TELEGRAM_LINK_CREATED"
     DOCUMENT_DELETED = "DOCUMENT_DELETED"
+    EMPLOYEE_DELETED = "EMPLOYEE_DELETED"
 
+
+# 10.5.13 (PLAN.md §D110 d, §D116 e): kalıcı silinen çalışanın olaylarının verisinden çıkarılan
+# anahtarlar — kişisel değer taşıyabilen her şey: ad, soyad, doğum tarihi, uyruk, numara, iletişim,
+# dosya adı ve yolu, klasör adı, okumalar. Tek liste buradadır; `app.storage.delete_employee`
+# bunları her derinlikte siler, ayrıca kişinin değerlerini taşıyan dizgeleri de atar.
+# `tests/storage/test_delete_employee.py` her olay türüne karşı sınar.
+PERSONAL_DATA_KEYS = frozenset(
+    {
+        "given_names",
+        "surname",
+        "other_names",
+        "original_script_name",
+        "date_of_birth",
+        "nationality",
+        "name",
+        "names",
+        "raw_name",
+        "normalized_name",
+        "aliases",
+        "person",
+        "proposed_profile",
+        "readings",
+        "document_number",
+        "document_numbers",
+        "number",
+        "value",
+        "contacts",
+        "phone",
+        "email",
+        "address",
+        "path",
+        "from",
+        "to",
+        "file_name",
+        "original_name",
+        "stored_path",
+        "target_name",
+        "folder_name",
+        "merged_into_folder",
+        "text",
+        "text_layer",
+    }
+)
 
 PRESCREEN_DATA_KEY = "prescreen"
 """Ön eleme sonucu (PRD 13.2.1): `{"model": "<ucuz model>", "accepted": true}` ya da

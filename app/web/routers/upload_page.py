@@ -499,7 +499,8 @@ def _source_text(files: dict[int, UploadFile], file_id: int, pages: list[int]) -
 
 def _employee_label(employees: dict[str, Employee], employee_id: str) -> str:
     employee = employees.get(employee_id)
-    if employee is None:
+    # 10.5.13: kalıcı silinen çalışanın adı yoktur; yalnız E numarası görünür.
+    if employee is None or employee.status == EmployeeStatus.DELETED.value:
         return employee_id
     return f"{employee_id} — {employee.given_names} {employee.surname}"
 

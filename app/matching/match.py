@@ -680,14 +680,15 @@ def _decide_by_name(session: Session, name_keys: Sequence[str], born: date | Non
     # da bununla sınar.
     if not name_keys:
         return EmployeeMatch(MatchRule.NO_MATCH)
-    # Birleştirilmiş çalışan (10.5.9) aranmaz: yazımları kalan kayda taşınmıştır.
+    # Birleştirilmiş çalışan (10.5.9) aranmaz: yazımları kalan kayda taşınmıştır. Kalıcı silinen
+    # çalışan (10.5.13) da aranmaz: aynı kişinin yeni belgesi yeni çalışan açabilir.
     named = session.execute(
         select(Employee.id, Employee.date_of_birth)
         .join(EmployeeAlias, EmployeeAlias.employee_id == Employee.id)
         .where(
             EmployeeAlias.normalized_name.in_(name_keys),
             ACTIVE_ALIAS,
-            Employee.status != EmployeeStatus.MERGED.value,
+            Employee.status.not_in((EmployeeStatus.MERGED.value, EmployeeStatus.DELETED.value)),
         )
     ).all()
     if not named:

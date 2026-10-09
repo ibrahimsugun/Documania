@@ -58,6 +58,7 @@ from app.ai.provider import AnalysisProvider, ProviderConfigError, create_provid
 from app.config import Settings
 from app.db.models import (
     Document,
+    DocumentStatus,
     QueueItem,
     TelegramUser,
     UploadFile,
@@ -239,8 +240,13 @@ def build_summary(session: Session, upload_id: str, processed: ProcessedUpload) 
 def _output_lines(session: Session, upload_id: str, plan_id: int) -> list[str]:
     # Yeni işlenmiş partinin tek plan sürümü vardır (yeniden analiz K18'in işidir): planın
     # belgeleri hep `active`, kuyruk öğeleri hep bu partinindir.
+    # 10.5.12, 10.5.13: kalıcı silinen belge (ve silinen çalışanın belgeleri) bildirilmez.
     documents = list(
-        session.scalars(select(Document).where(Document.plan_id == plan_id).order_by(Document.id))
+        session.scalars(
+            select(Document)
+            .where(Document.plan_id == plan_id, Document.status != DocumentStatus.DELETED.value)
+            .order_by(Document.id)
+        )
     )
     queued = session.scalar(select(func.count()).where(QueueItem.upload_id == upload_id)) or 0
     if not documents and not queued:

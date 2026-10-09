@@ -62,7 +62,12 @@ def _events(session: Session) -> list[Event]:
 
 
 def test_every_status_has_a_turkish_label_and_unknown_shows_raw() -> None:
-    assert STATUS_LABELS == {"active": "Aktif", "inactive": "Pasif", "merged": "Birleşti"}
+    assert STATUS_LABELS == {
+        "active": "Aktif",
+        "inactive": "Pasif",
+        "merged": "Birleşti",
+        "deleted": "Silindi",  # 10.5.13
+    }
     assert set(STATUS_LABELS) == {status.value for status in EmployeeStatus}
     assert status_label("pending") == "pending"
 

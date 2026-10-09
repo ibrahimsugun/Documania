@@ -107,6 +107,13 @@ PAGES: dict[str, tuple[tuple[str, int], ...]] = {
         ("/employees/E0001", 200),
         ("/employees/E0002", 200),
         ("/employees/E9999", 404),
+        ("/employees/E0009", 410),  # 10.5.13: kalıcı silinen çalışanın "silindi" sayfası
+        ("/employees/E0009?notice=employee_deleted", 410),
+    ),
+    # 10.5.13 (tm 167): yalnız pasif çalışan silinir; etkin çalışan 409.
+    "/employees/{employee_id}/delete/confirm": (
+        ("/employees/E0002/delete/confirm", 200),
+        ("/employees/E0001/delete/confirm", 409),
     ),
     "/employees/{employee_id}/fields": (("/employees/E0001/fields", 200),),
     "/employees/{employee_id}/status/confirm": (
@@ -393,6 +400,18 @@ def world(
             session, 1, "Dmitry", "Vasiliev", nationality="RUS", date_of_birth=date(1990, 5, 1)
         )
         _employee(session, 2, "Anna", "Petrova", status="inactive")
+        # 10.5.13: kalıcı silinmiş çalışanın iskeleti (kişisel sütunlar boş).
+        session.add(
+            Employee(
+                id="E0009",
+                folder_name="deleted_E0009",
+                given_names="",
+                surname="",
+                status="deleted",
+                deleted_at=datetime(2026, 10, 9, 9, 0, tzinfo=UTC),
+                deleted_by="ik",
+            )
+        )
         document = _document(session, layout, dmitry, FILE_NAME, DocumentStatus.ACTIVE)
         archived = _document(
             session, layout, dmitry, "Dmitry_Vasiliev-Passport_2.pdf", DocumentStatus.ARCHIVED

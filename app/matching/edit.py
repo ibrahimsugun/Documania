@@ -209,6 +209,8 @@ def _checked(
         raise EmployeeNotEditableError(
             f"Çalışan {employee.id} birleştirilmiş; profili düzenlenmez (10.5.9)"
         )
+    if employee.status == EmployeeStatus.DELETED.value:
+        raise EmployeeNotEditableError(f"Çalışan {employee.id} kalıcı silinmiş (10.5.13)")
     errors = check_profile_fields(fields, today=today)
     if errors:
         raise ProfileFieldsError(errors)

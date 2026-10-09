@@ -62,6 +62,7 @@ PRD_OPERATIONS = {
     "Belgeyi arşivden geri al": Operation.UNARCHIVE,  # 10.5.10, §D61 (tm 130)
     "Kuyruk öğesini kapat": Operation.CLOSE_QUEUE_ITEM,  # 10.7.4, §D61 (tm 131)
     "Belgeyi kalıcı sil": Operation.DELETE_DOCUMENT,  # 10.5.12, §D110 (tm 166)
+    "Çalışanı kalıcı sil": Operation.DELETE_EMPLOYEE,  # 10.5.13, §D110 (tm 167)
 }
 TARGET = "7:E0002"
 
@@ -138,7 +139,7 @@ def test_the_texts_are_the_section_20_6_table_verbatim() -> None:
 def test_the_english_and_serbian_texts_are_the_section_20_6_3_table_verbatim() -> None:
     rows = _section_20_6_3_rows()
 
-    assert set(rows) == set(PRD_OPERATIONS)  # 14 işlem; tabloda olup kodda olmayan ya da tersi yok
+    assert set(rows) == set(PRD_OPERATIONS)  # 15 işlem; tabloda olup kodda olmayan ya da tersi yok
     for language, table in (
         ("en", confirm.CONFIRMATION_TEXTS_EN),
         ("sr", confirm.CONFIRMATION_TEXTS_SR),
@@ -254,6 +255,18 @@ def test_placeholders_are_filled_at_run_time_and_never_shown_empty() -> None:
         first_text(Operation.ASSIGN)
     with pytest.raises(ValueError, match="<Tür adı>"):
         fill("<Tür adı> belge türünü", name="Ad")
+
+
+@pytest.mark.parametrize("language", list(SUPPORTED_LANGUAGES))
+def test_the_employee_deletion_texts_carry_the_name_and_document_count(language: str) -> None:
+    # 10.5.13: birinci metin çalışanın adını, ikinci metin silinecek belge sayısını (<N>) taşır;
+    # sıfır da yazılır.
+    first = first_text(Operation.DELETE_EMPLOYEE, language=language, name="Zorana Testovic")
+    second = second_text(Operation.DELETE_EMPLOYEE, language=language, count=0)
+    assert "Zorana Testovic" in first and "(0)" in second
+    assert not re.search(r"<[^<>]+>", first + second)
+    with pytest.raises(ValueError, match="<N>"):
+        second_text(Operation.DELETE_EMPLOYEE, language=language)
 
 
 @pytest.mark.parametrize("language", list(SUPPORTED_LANGUAGES))

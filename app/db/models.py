@@ -325,12 +325,17 @@ class EmployeeStatus(enum.StrEnum):
     kimliği gerçektir, eşleştirme onu bulmaya devam eder ama gelen belge otomatik yerleşmez,
     Unresolved'a düşer (R7). `merged` başka bir kayıtla birleştirilen çalışandır (10.5.9):
     belgeleri, alt kayıtları ve paketleri kalan kayda (`merged_into_id`) taşınmıştır, eşleştirme ve
-    aramalar onu bulmaz, kaydı geri açılmaz. Hiçbiri silmez: klasör ve olaylar yerinde kalır (R11).
+    aramalar onu bulmaz, kaydı geri açılmaz. Bu üçü silmez: klasör ve olaylar yerinde kalır (R11).
+    `deleted` İK'nın iki aşamalı onayla kalıcı sildiği pasif çalışandır (10.5.13, K16): klasörü,
+    belgelerinin dosyaları ve alt kayıtları gitmiştir; satır iskelet olarak kalır (E numarası,
+    oluşturma ve silme anı, silen), kişisel sütunları boştur. Liste, arama, eşleştirme ve bot onu
+    görmez; E numarası yeniden verilmez (K8).
     """
 
     ACTIVE = "active"
     INACTIVE = "inactive"
     MERGED = "merged"
+    DELETED = "deleted"
 
 
 # --- çalışan -----------------------------------------------------------------------------
@@ -338,6 +343,7 @@ class EmployeeStatus(enum.StrEnum):
 
 class Employee(Base):
     __tablename__ = "employees"
+    __table_args__ = (CheckConstraint(_one_of("status", EmployeeStatus), name="status"),)
 
     # K8: E numarası sistem tarafından verilir ve asla değişmez (bkz. allocate_employee_number).
     id: Mapped[str] = mapped_column(String(16), primary_key=True)
@@ -353,6 +359,10 @@ class Employee(Base):
     # 10.5.9: birleştirilen (`merged`) çalışanın kalan kaydı; öteki durumlarda boş.
     merged_into_id: Mapped[str | None] = mapped_column(ForeignKey("employees.id"))
     created_at: Mapped[datetime] = mapped_column(UtcDateTime, default=utcnow)
+    # 10.5.13: kalıcı silme anı (UTC) ve iki aşamalı onayı tamamlayan kullanıcı; öteki durumlarda
+    # boş.
+    deleted_at: Mapped[datetime | None] = mapped_column(UtcDateTime)
+    deleted_by: Mapped[str | None] = mapped_column(String(255))
 
     identifiers: Mapped[list[EmployeeIdentifier]] = relationship(back_populates="employee")
     aliases: Mapped[list[EmployeeAlias]] = relationship(back_populates="employee")
@@ -1140,7 +1150,8 @@ def allocate_employee_number(session: Session) -> str:
       işlemin başından beri bu işlemdedir.
 
     Numara bir kez verilip işlem geri alınırsa aynı numara sonraki çağrıya tekrar verilir;
-    commit edilmiş numara silme olmadığı için (K16) bir daha asla verilmez.
+    commit edilmiş numara bir daha asla verilmez: kalıcı silinen çalışanın satırı da iskelet olarak
+    kalır (10.5.13), en büyük numara sayımına girer.
     """
     if session.get_bind().dialect.name == "postgresql":
         session.execute(select(func.pg_advisory_xact_lock(_EMPLOYEE_NUMBER_LOCK_KEY)))
