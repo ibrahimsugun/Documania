@@ -4,8 +4,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Documania panel\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-09 00:24+0000\n"
-"PO-Revision-Date: 2026-10-09 00:24+0000\n"
+"POT-Creation-Date: 2026-10-09 01:25+0000\n"
+"PO-Revision-Date: 2026-10-09 01:25+0000\n"
 "Last-Translator: Documania görev penceresi (gözden geçirilmeli)\n"
 "Language: sr_Latn\n"
 "Language-Team: Srpski\n"
@@ -1788,6 +1788,15 @@ msgstr ""
 msgid "Bu kullanıcıya bağlı böyle bir Telegram kimliği yok"
 msgstr "Ovaj korisnik nema takav povezani Telegram ID"
 
+#: app/web/routers/upload_page.py
+#, python-brace-format
+msgid ""
+"Bu parti 10 dakikada tamamlanamadığı için {when} tarihinde otomatik iptal"
+" edildi."
+msgstr ""
+"Ova serija je automatski otkazana ({when}) jer nije mogla da se završi za"
+" 10 minuta."
+
 #: app/web/templates/upload_detail.html
 msgid "Bu parti için henüz plan yok."
 msgstr "Za ovu seriju još nema plana."
@@ -1795,6 +1804,11 @@ msgstr "Za ovu seriju još nema plana."
 #: app/web/templates/upload_detail.html
 msgid "Bu parti için olay yok."
 msgstr "Nema događaja za ovu seriju."
+
+#: app/web/routers/upload_page.py
+#, python-brace-format
+msgid "Bu parti {when} tarihinde {user} tarafından iptal edildi."
+msgstr "Ovu seriju je otkazao korisnik {user} ({when})."
 
 #: app/web/templates/upload_detail.html
 msgid "Bu partide dosya yok."
@@ -2496,6 +2510,10 @@ msgstr "Da, trajno obriši"
 #: app/web/templates/queue_close_step.html
 msgid "Evet, kapat"
 msgstr "Da, zatvori"
+
+#: app/web/templates/upload_action_result.html
+msgid "Evet, partiyi iptal et"
+msgstr "Da, otkaži seriju"
 
 #: app/web/templates/employee_status_step.html
 msgid "Evet, pasife al"
@@ -3809,6 +3827,27 @@ msgstr "Serija se još obrađuje; skeniranje u toku ne može se zanemariti."
 #: app/web/templates/upload_action_result.html
 #, python-format
 msgid ""
+"Parti iptal edildi (iptal anında: %(stage)s); dosyalar ve üretilen "
+"belgeler yerinde kaldı."
+msgstr ""
+"Serija je otkazana (u tom trenutku: %(stage)s); datoteke i generisani "
+"dokumenti ostaju na mestu."
+
+#: app/web/routers/uploads.py
+msgid ""
+"Parti iptal edildi; yeniden çalıştırılmaz ve yeniden analiz edilmez. "
+"Dosyaları yeniden yükleyebilirsiniz."
+msgstr ""
+"Serija je otkazana; ne pokreće se ponovo niti se ponovo analizira. "
+"Datoteke možete ponovo otpremiti."
+
+#: app/web/routers/upload_page.py
+msgid "Parti son durumda; iptal edilecek süren bir işlem yok."
+msgstr "Serija je već završena; nema obrade u toku koja bi se otkazala."
+
+#: app/web/templates/upload_action_result.html
+#, python-format
+msgid ""
 "Parti yeniden analiz edildi: yeni plan sürümü %(version)s (önceki: "
 "%(previous)s);"
 msgstr ""
@@ -3834,6 +3873,20 @@ msgid ""
 "Partinin planı yok; yeniden çalıştırılacak ya da yeniden analiz edilecek "
 "bir sürüm bulunmuyor."
 msgstr "Serija nema plan; nema verzije za ponovno pokretanje ili ponovnu analizu."
+
+#: app/web/templates/upload_detail.html
+msgid "Partiyi iptal et"
+msgstr "Otkaži seriju"
+
+#: app/web/templates/upload_detail.html
+msgid ""
+"Partiyi iptal etmek işlemesini durdurur; dosyalar, sayfalar ve o ana "
+"kadar üretilen belgeler silinmez. Alındıktan 10 dakika sonra hâlâ "
+"bitmemiş parti kendiliğinden iptal edilir."
+msgstr ""
+"Otkazivanje serije zaustavlja njenu obradu; datoteke, stranice i "
+"dokumenti nastali do sada se ne brišu. Serija koja ni 10 minuta posle "
+"prijema nije završena otkazuje se automatski."
 
 #: app/matching/status.py app/web/routers/employees.py
 #: app/web/templates/catalog.html app/web/templates/users.html
@@ -6365,7 +6418,12 @@ msgstr "Preuzmi"
 msgid "İndirdi"
 msgstr "Preuzeo"
 
-#: app/groups/packages.py
+#: app/web/routers/uploads_list.py
+msgid "İptal"
+msgstr "Otkazano"
+
+#: app/groups/packages.py app/web/routers/upload_page.py
+#: app/web/routers/uploads_list.py
 msgid "İptal edildi"
 msgstr "Otkazan"
 

@@ -351,6 +351,25 @@ def test_invalid_worker_settings_rejected(
         load_settings(_env_file=None)
 
 
+def test_the_upload_timeout_is_built_in_and_only_overridden_by_the_environment(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # 10.3.7: 10 dakika yerleşik varsayılandır; `.env.example` satırı yorumdur, yalnız ezer.
+    monkeypatch.setenv("DATABASE_URL", "sqlite:///./data/test.db")
+    monkeypatch.delenv("UPLOAD_TIMEOUT_SECONDS", raising=False)
+    assert load_settings(_env_file=None).upload_timeout_seconds == 600
+
+    monkeypatch.setenv("UPLOAD_TIMEOUT_SECONDS", "900")
+    assert load_settings(_env_file=None).upload_timeout_seconds == 900
+
+    monkeypatch.setenv("UPLOAD_TIMEOUT_SECONDS", "59")
+    with pytest.raises(ValidationError, match="upload_timeout_seconds"):
+        load_settings(_env_file=None)
+
+    example = (Path(__file__).resolve().parents[1] / ".env.example").read_text(encoding="utf-8")
+    assert "\n# UPLOAD_TIMEOUT_SECONDS=600\n" in example
+
+
 ALERT_VARIABLES = (
     "ALERT_ERROR_COUNT",
     "ALERT_ERROR_WINDOW_MINUTES",

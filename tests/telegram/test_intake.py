@@ -34,6 +34,7 @@ from app.db.models import (
     UploadStatus,
 )
 from app.events import EventType
+from app.pipeline.cancel import CancelReason, cancel_upload
 from app.pipeline.orchestrate import ProcessedUpload
 from app.telegram import handlers
 from app.telegram.handlers import (
@@ -198,6 +199,38 @@ def test_a_batch_taken_over_by_another_worker_is_reported_as_such(
 
     (upload,) = all_uploads(session_factory)
     assert bot.telegram.sent_texts()[-1] == HANDED_OVER_TEXT.format(upload_id=upload.id)
+
+
+def test_a_batch_cancelled_while_the_bot_holds_it_is_not_reported_as_failed(
+    make_intake_bot: Callable[..., IntakeBot],
+    session_factory: sessionmaker[Session],
+    listed: None,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # 10.3.6, 12.1.9: İK partiyi panelden iptal eder; bot "işlenemedi" demez, teknik ayrıntı da
+    # yazmaz — sonucun panelde olduğunu söyler. Parti `cancelled` kalır, `failed` olmaz.
+    real_run = handlers.run_claimed_upload
+
+    def cancel_then_run(*args: object, **kwargs: object) -> object:
+        with session_factory() as session:
+            (upload,) = session.scalars(select(Upload)).all()
+            cancel_upload(session, upload, actor="ik-kullanici", reason=CancelReason.MANUAL)
+            session.commit()
+        return real_run(*args, **kwargs)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(handlers, "run_claimed_upload", cancel_then_run)
+    provider = provider_for(tmp_path, [passport()])
+    bot = make_intake_bot(provider)
+    bot.telegram.files["f1"] = passport_pdf()
+
+    bot.feed(document_update(1, LISTED_ID, "f1", "pasaport.pdf"))
+
+    (upload,) = all_uploads(session_factory)
+    assert upload.status == UploadStatus.CANCELLED
+    assert bot.telegram.sent_texts()[-1] == HANDED_OVER_TEXT.format(upload_id=upload.id)
+    assert FAILURE_TEXT not in bot.telegram.sent_texts()
+    assert provider.requests == []
 
 
 def test_photo_is_stored_as_its_largest_size_under_a_generated_name(

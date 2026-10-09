@@ -4,8 +4,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Documania panel\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-09 00:24+0000\n"
-"PO-Revision-Date: 2026-10-09 00:24+0000\n"
+"POT-Creation-Date: 2026-10-09 01:25+0000\n"
+"PO-Revision-Date: 2026-10-09 01:25+0000\n"
 "Last-Translator: Documania görev penceresi (gözden geçirilmeli)\n"
 "Language: en\n"
 "Language-Team: English\n"
@@ -1781,6 +1781,15 @@ msgstr ""
 msgid "Bu kullanıcıya bağlı böyle bir Telegram kimliği yok"
 msgstr "This user has no such linked Telegram ID"
 
+#: app/web/routers/upload_page.py
+#, python-brace-format
+msgid ""
+"Bu parti 10 dakikada tamamlanamadığı için {when} tarihinde otomatik iptal"
+" edildi."
+msgstr ""
+"This batch was cancelled automatically on {when} because it could not be "
+"completed within 10 minutes."
+
 #: app/web/templates/upload_detail.html
 msgid "Bu parti için henüz plan yok."
 msgstr "No plan for this batch yet."
@@ -1788,6 +1797,11 @@ msgstr "No plan for this batch yet."
 #: app/web/templates/upload_detail.html
 msgid "Bu parti için olay yok."
 msgstr "No events for this batch."
+
+#: app/web/routers/upload_page.py
+#, python-brace-format
+msgid "Bu parti {when} tarihinde {user} tarafından iptal edildi."
+msgstr "This batch was cancelled by {user} on {when}."
 
 #: app/web/templates/upload_detail.html
 msgid "Bu partide dosya yok."
@@ -2490,6 +2504,10 @@ msgstr "Yes, delete permanently"
 #: app/web/templates/queue_close_step.html
 msgid "Evet, kapat"
 msgstr "Yes, close"
+
+#: app/web/templates/upload_action_result.html
+msgid "Evet, partiyi iptal et"
+msgstr "Yes, cancel the batch"
 
 #: app/web/templates/employee_status_step.html
 msgid "Evet, pasife al"
@@ -3807,6 +3825,27 @@ msgstr "The batch is still being processed; a running scan cannot be dismissed."
 #: app/web/templates/upload_action_result.html
 #, python-format
 msgid ""
+"Parti iptal edildi (iptal anında: %(stage)s); dosyalar ve üretilen "
+"belgeler yerinde kaldı."
+msgstr ""
+"The batch was cancelled (at the time: %(stage)s); files and generated "
+"documents stay in place."
+
+#: app/web/routers/uploads.py
+msgid ""
+"Parti iptal edildi; yeniden çalıştırılmaz ve yeniden analiz edilmez. "
+"Dosyaları yeniden yükleyebilirsiniz."
+msgstr ""
+"The batch was cancelled; it is not run again or re-analysed. You can "
+"upload the files again."
+
+#: app/web/routers/upload_page.py
+msgid "Parti son durumda; iptal edilecek süren bir işlem yok."
+msgstr "The batch has already ended; there is no running processing to cancel."
+
+#: app/web/templates/upload_action_result.html
+#, python-format
+msgid ""
 "Parti yeniden analiz edildi: yeni plan sürümü %(version)s (önceki: "
 "%(previous)s);"
 msgstr ""
@@ -3832,6 +3871,20 @@ msgid ""
 "Partinin planı yok; yeniden çalıştırılacak ya da yeniden analiz edilecek "
 "bir sürüm bulunmuyor."
 msgstr "The batch has no plan; there is no version to re-run or re-analyze."
+
+#: app/web/templates/upload_detail.html
+msgid "Partiyi iptal et"
+msgstr "Cancel the batch"
+
+#: app/web/templates/upload_detail.html
+msgid ""
+"Partiyi iptal etmek işlemesini durdurur; dosyalar, sayfalar ve o ana "
+"kadar üretilen belgeler silinmez. Alındıktan 10 dakika sonra hâlâ "
+"bitmemiş parti kendiliğinden iptal edilir."
+msgstr ""
+"Cancelling the batch stops its processing; files, pages and documents "
+"produced so far are not deleted. A batch that is still unfinished 10 "
+"minutes after it was received is cancelled automatically."
 
 #: app/matching/status.py app/web/routers/employees.py
 #: app/web/templates/catalog.html app/web/templates/users.html
@@ -6357,7 +6410,12 @@ msgstr "Download"
 msgid "İndirdi"
 msgstr "Downloaded"
 
-#: app/groups/packages.py
+#: app/web/routers/uploads_list.py
+msgid "İptal"
+msgstr "Cancelled"
+
+#: app/groups/packages.py app/web/routers/upload_page.py
+#: app/web/routers/uploads_list.py
 msgid "İptal edildi"
 msgstr "Cancelled"
 

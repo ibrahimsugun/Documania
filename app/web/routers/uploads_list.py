@@ -1,4 +1,5 @@
-"""Yükleme listesi (PRD 10.3.3): Yüklemeler menüsü partileri en yeni üstte listeler.
+"""Yükleme listesi (PRD 10.3.3, 10.3.6, 10.3.7): Yüklemeler menüsü partileri en yeni üstte
+listeler.
 
 `GET /uploads` her partiyi tek satırda gösterir: alındığı an, kanal, yükleyen, bağlam çalışanı
 (profiline bağlantı), dosya ve sayfa sayısı, durum ve **çözülmemiş** kuyruk öğelerinin sayısı
@@ -7,8 +8,9 @@ sayfasına (10.3.1) gider. Durumlar kendi adlarıyla görünür: işlemdeki beş
 altında toplanmaz, `partial` ile `failed` da `done`'dan ayrıdır. Zamanlar panelin öbür
 sayfalarındaki gibi UTC'dir.
 
-**Süzme (GET).** `status` (`processing` | `done` | `partial` | `failed`; `processing` işlemdeki
-beş durumun hepsidir), `from` / `to` (`YYYY-MM-DD`, ikisi de dahil gün, UTC) ve `dismissed`
+**Süzme (GET).** `status` (`processing` | `done` | `partial` | `failed` | `cancelled`;
+`processing` işlemdeki beş durumun hepsidir, `cancelled` iptal edilen partilerdir — 10.3.6),
+`from` / `to` (`YYYY-MM-DD`, ikisi de dahil gün, UTC) ve `dismissed`
 (10.3.4). Yoksayılan parti varsayılan olarak listelenmez; `dismissed=only` yalnız yoksayılanları,
 `dismissed=include` hepsini gösterir — yoksayılan parti bulunamaz hâle gelmez, satırında
 "Yoksayıldı" yazar. Geçersiz değer
@@ -21,7 +23,11 @@ eder. Başlangıç günü bitiş gününden sonraysa tarih süzgeci bütünüyle
 skaler alt sorgudur; liste, satır sayısından bağımsız olarak sabit sayıda sorguyla çizilir (N+1
 yok).
 
-Sayfa yalnız okur: olay yazmaz, toplu işlem, silme ya da canlı yenileme sunmaz. Dosya adı ve belge
+Sayfa partileri okur; toplu işlem, silme ya da canlı yenileme sunmaz. Tek yazdığı otomatik
+iptaldir (10.3.7): sayfa açılırken alındığından beri `UPLOAD_TIMEOUT_SECONDS` (600) geçmiş bitmemiş
+partiler `system` adına iptal edilir ve `UPLOAD_CANCELLED` yazılır
+(`app.web.routers.upload_page.expire_stale_uploads`) — işleyici kapalıyken de takılan parti
+yakalanır. Dosya adı ve belge
 içeriği ya da kişisel alan gösterilmez — dosya adı kişi adı taşıyabilir, bu yüzden yalnız sayılar
 görünür (K11, K17).
 """
@@ -38,11 +44,12 @@ from fastapi.responses import HTMLResponse
 from sqlalchemy import ColumnElement, ScalarSelect, func, select
 from sqlalchemy.orm import Session
 
+from app.config import Settings, get_settings
 from app.db.models import Employee, Page, QueueItem, QueueKind, Upload, UploadFile, UploadStatus
 from app.db.session import get_session
 from app.i18n import N_
 from app.web.auth import PanelUser, require_panel_user
-from app.web.routers.upload_page import QUEUE_LABELS, _format_ts
+from app.web.routers.upload_page import QUEUE_LABELS, Clock, _format_ts, expire_stale_uploads
 from app.web.routers.uploads import UPLOAD_CHANNEL
 from app.web.templating import render_page
 
@@ -65,6 +72,7 @@ STATUS_LABELS: dict[str, str] = {
     UploadStatus.DONE.value: N_("Tamamlandı"),
     UploadStatus.PARTIAL.value: N_("Kısmen tamamlandı"),
     UploadStatus.FAILED.value: N_("İşlenemedi"),
+    UploadStatus.CANCELLED.value: N_("İptal edildi"),
 }
 PROCESSING_STATUSES = (
     UploadStatus.RECEIVED,
@@ -79,6 +87,7 @@ STATUS_FILTERS: dict[str, tuple[str, tuple[UploadStatus, ...]]] = {
     UploadStatus.DONE.value: (N_("Tamamlandı"), (UploadStatus.DONE,)),
     UploadStatus.PARTIAL.value: (N_("Kısmi"), (UploadStatus.PARTIAL,)),
     UploadStatus.FAILED.value: (N_("Hata"), (UploadStatus.FAILED,)),
+    UploadStatus.CANCELLED.value: (N_("İptal"), (UploadStatus.CANCELLED,)),
 }
 
 # 10.3.4 — süzgeç değeri → formdaki ad; değer yoksa yoksayılan parti listelenmez.
@@ -358,12 +367,16 @@ def uploads_list_page(
     request: Request,
     user: CurrentUser,
     session: Annotated[Session, Depends(get_session)],
+    settings: Annotated[Settings, Depends(get_settings)],
+    now: Clock,
     status: str | None = None,
     date_from: Annotated[str | None, Query(alias="from")] = None,
     date_to: Annotated[str | None, Query(alias="to")] = None,
     page: str | None = None,
     dismissed: str | None = None,
 ) -> HTMLResponse:
+    # 10.3.7: bu GET bilerek yazar — süresi dolan partiler önce iptal edilir (modül açıklaması).
+    expire_stale_uploads(session, settings, now)
     listing = build_listing(session, status, date_from, date_to, page, dismissed)
     # Okuma işlemi de SQLite'ta yazma kilidini tutar (`app.db.session`): sayfa çizilirken
     # arka plandaki bir işleyici beklemesin.

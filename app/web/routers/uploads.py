@@ -24,7 +24,9 @@ plan sürümünü açar (`app.pipeline.orchestrate`). İkisi de işi tek işlemd
 hiçbir şey commit edilmez. Planı uygulayan adım `get_plan_executor` bağımlılığıdır — uygulamanın
 uygulayıcısı (`plan_executor`: çıktılar 07.x, kuyruk 08.1, profil 09.1; 09.2 bağlar). Plan öğesini
 yürütemeyen hata (kayıt, Inbox bütünlüğü K10, işlem) 409 döner. Yoksayılan parti (10.3.4) ne yeniden
-çalıştırılır ne yeniden analiz edilir (409): kapanan kuyruk öğeleri geri gelmez.
+çalıştırılır ne yeniden analiz edilir (409): kapanan kuyruk öğeleri geri gelmez. İptal edilen parti
+(10.3.6, 10.3.7) de öyle (409): iptal yeniden başlatmanın yolu değildir, dosyalar yeniden yüklenir.
+`GET /{upload_id}` (01.6.1) iptal edilen partide `status = cancelled` döner.
 """
 
 from __future__ import annotations
@@ -41,7 +43,7 @@ from sqlalchemy.orm import Session
 from app.ai.provider import AnalysisProvider, ProviderConfigError, create_provider
 from app.catalog import export_catalog
 from app.config import Settings, get_settings
-from app.db.models import Employee, Upload, UploadFile, allocate_upload_id
+from app.db.models import Employee, Upload, UploadFile, UploadStatus, allocate_upload_id
 from app.db.session import get_session
 from app.events import EventType, event_context, record_event
 from app.i18n import N_, Translatable
@@ -71,6 +73,11 @@ router = APIRouter(prefix="/api/uploads", tags=["uploads"])
 
 UPLOAD_CHANNEL = "web"
 DISMISSED_MESSAGE = N_("Bu tarama yoksayıldı; üzerinde işlem yapılmaz.")
+# 10.3.6, 10.3.7: iptal edilen parti yeniden çalıştırılmaz, yeniden analiz edilmez (§D114).
+CANCELLED_MESSAGE = N_(
+    "Parti iptal edildi; yeniden çalıştırılmaz ve yeniden analiz edilmez. Dosyaları yeniden "
+    "yükleyebilirsiniz."
+)
 # 10.5.7: pasif çalışana bağlam yüklemesi yapılmaz; parti açılmaz.
 INACTIVE_CONTEXT_MESSAGE = N_(
     "Bu çalışan pasif; ona belge yüklenmez. Önce çalışanı profilinden yeniden etkinleştirin."
@@ -157,10 +164,12 @@ def _get_upload(session: Session, upload_id: str) -> Upload:
 
 
 def _undismissed_upload(session: Session, upload_id: str) -> Upload:
-    """İşlem yapılacak parti; yoksayılmışsa (10.3.4) 409."""
+    """İşlem yapılacak parti; yoksayılmışsa (10.3.4) ya da iptal edilmişse (10.3.6) 409."""
     upload = _get_upload(session, upload_id)
     if is_dismissed(upload):
         raise HTTPException(status.HTTP_409_CONFLICT, DISMISSED_MESSAGE)
+    if upload.status == UploadStatus.CANCELLED.value:
+        raise HTTPException(status.HTTP_409_CONFLICT, CANCELLED_MESSAGE)
     return upload
 
 

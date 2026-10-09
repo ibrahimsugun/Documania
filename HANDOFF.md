@@ -18,6 +18,12 @@ Blok biçimi `CONVENTIONS.md` §3'te tanımlıdır:
 
 ## Task log (newest-first)
 
+## 168 — 10.3-d Süren partiyi iptal et ve 10 dakikada çözülmeyeni otomatik iptal et — done — 2026-10-09
+- Yapıldı: göç 0027 (`cancelled` parti/iş durumu), `app/pipeline/cancel.py` (`cancel_upload`, `cancel_stale_uploads`, `UPLOAD_CANCELLED`), `UPLOAD_TIMEOUT_SECONDS` 600 yerleşik; otomatik iptal işleyici turunda ve `GET /uploads`, `GET /uploads/{id}` açılırken; detayda iki onaylı "Partiyi iptal et", bildirim, liste "İptal" süzgeci; iptal edilen dosya tekrar sayılmaz; iptal edilen parti rerun/reanalyze 409; kararlar §D117.
+- Doğrulama: ruff check, ruff format --check, compileall, `import app.main`, temiz SQLite'ta `alembic upgrade head` (→0027), i18n check exit 0; tam paralel kapı (`-n 12 --cov`, dil seçici WIP'i olmayan ayrı worktree'de) 6874 geçti, 5 atlandı, kapsam %99,04, 14 dk 57 sn; 7 geçici kural bozmasının 7'si kırmızı (tek onay, son durum, 9 dk, işleyici failed, tekrar sayımı, silme, hata oranı).
+- Varsayımlar: iptal edilen parti yeniden çalıştırılmaz (dosya yeniden yüklenir); Sırpça durum etiketi paket iptalindeki "Otkazan" msgid'ini paylaşır.
+- Sonraki pencereye not: Commit tm 168'i ve çalışma ağacındaki tm 168–169 planlamasını (PRD 10.1.8–9/10.3.6–7, PLAN §D114–115, tasks.json) içerir; dil seçici bayrak menüsü WIP'i (`_language_selector.html`, `languages.py`, `theme.css/js`, `panel.css`, `test_language_preference.py`) commit'lenmedi, çalışma ağacında duruyor (ruff E501 ondan).
+
 ## 167 — 10.5-k Pasif çalışanı kalıcı silme — done — 2026-10-09
 - Yapıldı: göç 0026 (`deleted_at/by`, `status` CHECK), `app/storage/delete_employee.py` (belgeler birlikte planlanır, alt kayıtlar ve paketler silinir, birleştirilmiş kayıtlar da gider, plan hedef adları `deleted-<öğe>` + hash, olaylarda `PERSONAL_DATA_KEYS` ve kişi değeri taraması, iskelet, `EMPLOYEE_DELETED`; dosya ve klasör commit'ten sonra), pasif profilde iki onaylı silme, silinenin bütün adresleri 410 "silindi" sayfası, eşleştirme/bot/arama/atama/taşıma/birleştirme silineni görmez; kararlar §D116.
 - Doğrulama: yalnız bu görevin ağacında (ayrı worktree) ruff, format, compileall, `import app.main`, temiz SQLite'ta `alembic upgrade head` (→0026), i18n check exit 0; tam paralel kapı 6821 geçti, 5 atlandı, %99,08. İki kırmızı: `test_profile.py` yol listesi (bu görev, düzeltildi, yeniden koşuda yeşil) ve `test_intake.py::test_a_summary_only_counts_its_own_batch` (`pause=0.3` duvar saati zamanlaması yük altında; tek başına ve tests/telegram -n 12'de yeşil, bu göreve bağlı değil).

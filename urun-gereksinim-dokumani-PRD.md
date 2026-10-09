@@ -294,6 +294,8 @@ Kapsam: FR-MOD-13.
 | 10.1.5 | Panel sekme simgesi | Giriş dahil her panel sayfası tarayıcı sekmesinde Documania simgesini gösterir; simge dosyaları oturumsuz sunulur | Should (v1) |
 | 10.1.6 | Ülke başvuru verisi ve bayrak simgeleri | Depoda ülke başvuru verisi bulunur: ISO 3166-1 alfa-2 ve alfa-3 kodu, Türkçe ülke adı ve ICAO 9303 MRZ uyruk kodlarının ülkeye eşlemesi (`D` → Almanya, `GBD`/`GBN`/`GBO`/`GBP`/`GBS` → Birleşik Krallık gibi istisnalar dahil); her ülkenin küçük bayrak simgesi (SVG) panelin statik dosyalarındadır; kaynak, lisans ve indirme tarihi depoda kayıtlıdır. Panel tek bir yardımcıyla alfa-2, alfa-3 ya da MRZ kodundan bayrak + Türkçe ad üretir; tanınmayan ya da ülke olmayan kod (vatansız `XXA`/`XXB`/`XXC`/`XXX`, BM belgeleri `UNO`/`UNA`/`UNK`) bayraksız, kodun kendisiyle gösterilir | Should (v1) |
 | 10.1.7 | Panel teması: modern görünüm, açık ve koyu tema | Panelin bütün sayfaları tek bir tema dosyasıyla modern bir görünüm taşır: yumuşak degrade zemin, cam görünümlü yapışkan üst çubuk, yuvarlak köşeli kartlar ve tablolar, degrade birincil düğmeler, belirgin odak halkası, hap biçimli rozet ve sekmeler. Üst çubuktaki düğmeyle açık ve koyu tema arasında geçilir; seçim tarayıcıda hatırlanır, ilk açılışta sistem tercihi kullanılır ve sayfa yanlış temayla yanıp sönmez. Giriş sayfası kendi koyu degrade zeminini taşır. Hareket azaltma tercihi olan kullanıcıda geçiş animasyonları kapanır. Tema yalnız görünümü değiştirir; yerleşim, metin ve davranış aynı kalır | Should (v1) |
+| 10.1.8 | Yetki seviyeleri: Root (gizli), İK, Kullanıcı | Her panel kullanıcısının tek rolü vardır: `root`, `hr` (İK), `user` (Kullanıcı). **İK** bugünkü bütün yazma işlemlerini yapar (yükleme, kuyruk, profil, katalog, grup, eğitim, arşiv, silme, kullanıcı yönetimi). **Kullanıcı** paneli yalnız salt okunur gezer: sayfaları ve belgeleri açar/indirir (erişim kaydı yazılır) ama hiçbir yazma düğmesi görünmez ve her yazma isteği sunucuda 403 ile reddedilir; yalnız kendi parolası, dili, Telegram bağlantısı ve çıkış açıktır; Telegram'dan belge gönderemez, belge isteyebilir. **Root** en yetkilidir (İK'nın her şeyi + erişim logu) ve **gizlidir**: sistemde tek root vardır (`Zvz`); "Root" rol etiketi yalnız root'un kendi ekranında görünür; root hesabı Kullanıcılar sayfasının hiçbir tablosunda (kullanıcılar, Telegram kimlikleri) listelenmez, rol seçiminde sunulmaz, panelden root'a yönelik her istek 404 döner; root yalnız komut satırından verilir ve ikinci root açılamaz. İK ve Kullanıcı rolü Kullanıcılar sayfasında atanır/değiştirilir (`USER_ROLE_CHANGED`, kullanıcı adıyla); kullanıcı kendi rolünü değiştiremez; son etkin İK düşürülemez ve pasife alınamaz (root sayılmaz, hata metni root'u ele vermez). Rol değişikliği açık oturumda bir sonraki istekte geçerlidir. Kabul senaryosu S27 | Should (v1) |
+| 10.1.9 | Erişim logu yalnız root | "Erişim logu" üst çubuk bağlantısı, profildeki erişim logu bağlantısı ve `/access-log` altındaki bütün yollar yalnız root'a açıktır; İK ve Kullanıcı için bağlantı hiç görünmez, adres 404 döner. Erişim kaydı tutulması (10.9.2) her rol için sürer | Should (v1) |
 | 10.2.1 | Yükleme sayfası | Sürükle-bırak çoklu yükleme çalışır; isteğe bağlı çalışan seçilebilir | Must (v1) |
 | 10.2.2 | İlerleme görünümü | Yükleme sonrası parti durumu canlı yenilenir | Should (v1) |
 | 10.3.1 | Yükleme detay sayfası | Sayfa küçük resimleri, plan öğeleri, çıktılar ve olay zaman çizelgesi tek sayfada görünür | Must (v1) |
@@ -301,6 +303,8 @@ Kapsam: FR-MOD-13.
 | 10.3.3 | Yükleme listesi | Yüklemeler menüsü partileri en yeni üstte listeler: tarih, kanal, yükleyen, bağlam çalışanı, dosya ve sayfa sayısı, durum ve kuyruğa düşen belge sayısı; durum ve tarihe göre süzülür, sayfalanır; satırdan parti detayına gidilir | Must (v1) |
 | 10.3.4 | Partiyi yoksay | Yükleme detayının İşlemler bölümünde "Yeniden çalıştır" ve "Yeniden analiz et" düğmelerinin yanında "Taramayı yoksay" vardır; iki aşamalı onaydan sonra partinin bekleyen kuyruk öğeleri kapanır, parti yükleme listesinde ve kuyruklarda görünmez. Dosya, olay ve üretilmiş çıktı silinmez. Yoksayma **çalışma yüzeyinden kaldırır, öğrenileni silmez**: partinin sayfaları aday tür görülmelerinde ve örneklerinde kalır (11.5.1), sonraki tür eğitimi bu birikime dayanır | Should (v1) |
 | 10.3.5 | Yoksanan partiyi geri alma | Yoksanan partinin detay sayfasındaki bildirimin yanında "Yoksaymayı geri al" vardır; tek adımda partiyi listeye geri getirir ve yoksaymayla kapanan kuyruk öğelerini yeniden açar (başka yolla çözülmüş öğe açılmaz); olay kullanıcı adıyla yazılır | Should (v1) |
+| 10.3.6 | Süren partiyi iptal et | Süren (`received`, `rendering`, `analyzing`, `planning`, `executing`) partinin detay sayfasında İşlemler bölümünde "Partiyi iptal et" vardır (`Yeniden çalıştır` ve `Yeniden analiz` o sırada kapalıdır, bu düğme açıktır); iki aşamalı onaydan (§20.6) sonra parti `cancelled` ("İptal edildi") durumuna geçer, işi kuyruktan düşer, çalışan işleyici partiye bir daha yazmaz. Yükleme listesine "İptal" süzgeci ve durum etiketi eklenir. İptal **silme değildir**: Inbox dosyaları, o ana kadar commit edilmiş sayfalar, analizler, plan, kuyruk öğeleri ve üretilmiş belgeler yerinde kalır (K10, K15). İptal edilen partinin dosyaları SHA-256 tekrar tespitinde (01.4.1) "özgün" sayılmaz: aynı dosya yeniden yüklenince tekrar diye atlanmaz, yeniden işlenir. İptal edilmiş parti yoksayılabilir (10.3.4). Olay `UPLOAD_CANCELLED` kullanıcı adıyla yazılır. Kabul senaryosu S26 | Should (v1) |
+| 10.3.7 | Takılan partinin otomatik iptali | Bir parti, alındığı andan (`uploads.created_at`) itibaren **10 dakika** içinde son duruma (`done`, `partial`, `failed`) varamazsa sistem onu kendiliğinden iptal eder; 10 dakika bu işlem için yeterlidir, geçmesi bir sorun belirtisidir (işleyici kapalı, kuyruk tıkalı, takılmış adım). Süre yerleşik varsayılandır (`.env` yalnız ezer: `UPLOAD_TIMEOUT_SECONDS`, 600). Otomatik iptal 10.3.6 ile aynı sonucu verir (aynı `cancelled` durumu, hiçbir şey silinmez) ve `UPLOAD_CANCELLED` olayına `reason = timeout` yazar; `actor` sistemdir. Denetim işleyici sürecinde her kuyruk turunda ve işleyici kapalı olsa da çalışması için panelde yükleme listesi ve detay açılırken yapılır. Panelde iptal edilen partinin detayında "10 dakikada tamamlanamadığı için otomatik iptal edildi" yazar; Telegram'a teknik ayrıntı gitmez (12.1.9). Kabul senaryosu S26 | Should (v1) |
 | 10.4.1 | Çalışan listesi | Ad, orijinal yazım, uyruk, belge sayısı ve durum listelenir | Must (v1) |
 | 10.4.2 | Arama | Ad, alias, orijinal yazım, belge numarası ve belge türü üzerinde arama çalışır | Must (v1) |
 | 10.5.1 | Çalışan profili sayfası | CV benzeri kart şunların hepsini gösterir: profil fotoğrafı, ad, soyad, diğer isimler, orijinal yazım, vatandaşlık, doğum tarihi ve yaş, iletişim bilgileri, belge numaraları. Bilinmeyen alan "—" olarak görünür, gizlenmez | Must (v1) |
@@ -513,7 +517,12 @@ TYPE_ARCHIVED · TYPE_RESTORED · CANDIDATE_TYPE_RESTORED · TRAINING_ITEM_DISMI
 TRAINING_ITEM_RESTORED · TRAINING_RUN_ARCHIVED · USER_CREATED · USER_DEACTIVATED ·
 USER_REACTIVATED · USER_PASSWORD_CHANGED · USER_LANGUAGE_CHANGED · TELEGRAM_USER_CHANGED · TELEGRAM_LINK_CREATED · GROUP_CHANGED ·
 PACKAGE_ASSIGNED · PACKAGE_COMPLETED · PACKAGE_REOPENED · PACKAGE_CANCELLED · DOCUMENT_DELETED ·
-EMPLOYEE_DELETED
+EMPLOYEE_DELETED · UPLOAD_CANCELLED
+
+`UPLOAD_CANCELLED` (10.3.6, 10.3.7) verisi: `stage` (iptal anındaki parti durumu), `reason` (`manual` — elle,
+iki aşamalı onayla / `timeout` — 10 dakikalık süre aşımı), `waited_seconds` (alındığından beri geçen süre),
+`job_status` (işçi kuyruğundaki işin iptal anındaki durumu). Kişisel değer taşımaz; `actor` elle iptalde
+kullanıcı adı, otomatik iptalde `system`'dir.
 
 `DOCUMENT_DELETED` (10.5.12) verisi: `document_id`, `document_type_slug`, `previous_status` (`active` /
 `archived` / `superseded`), silinen ve korunan dosya sayıları (`files_deleted`, `files_kept`). `EMPLOYEE_DELETED`
@@ -669,11 +678,13 @@ Her senaryo Faz 0'da otomatik test olur (09.3.2). "Beklenen" sütunu tartışmas
 | S23 | Doğum tarihi taşımayan çalışma izni (ya da sözleşme) genel yüklemeyle geliyor; ad-soyad tek bir etkin çalışana uyuyor, numarası kayıtlı değil / aynı adda iki çalışan var | O çalışanın Hazir'ına `matched_by: name` ile girer; çalışana isim yazımı, numara, alan ve iletişim eklenmez; profilde "yalnız isimle eşleşti" etiketi / Unresolved (`PERSON_AMBIGUOUS`), yeni çalışan yok |
 | S24 | Çalışanın tek kaynaklı pasaportu ve arşivdeki eski pasaportu kalıcı siliniyor: tek onayla / iki onayla | Değişiklik yok / iki dosya, `Alinan` kopyaları ve Inbox orijinali diskten kalkar; belge satırları `deleted`, dosya adresi 404, paket tiki düşer; başka belgeye kaynak olan orijinal kalır; `DOCUMENT_DELETED` kullanıcı adıyla |
 | S25 | Pasif çalışan kalıcı siliniyor; bir yüklemesi yalnız ona, öbürü onunla başka bir çalışana ait | Çalışan klasörü, belgeleri, alt kayıtları, yalnız ona ait yüklemenin orijinali ve sayfa görüntüleri silinir; ortak yüklemenin orijinali ve öbür çalışanın sayfaları kalır; çalışan satırı `deleted`, kişisel alanları boş; aynı kişinin yeni belgesi eski kayda eşleşmez; olaylarda isim kalmaz; etkin çalışanda istek reddedilir |
+| S26 | Süren parti iptal ediliyor: elle (tek onay / iki onay); işleyici kapalıyken 10 dakikayı aşan parti; işleyici adımın ortasındayken iptal; iptal edilen partinin aynı dosyası yeniden yükleniyor | Tek onayla değişiklik yok / iki onayla parti `cancelled`, işi kuyruktan düşer, Inbox dosyası, sayfalar, plan ve belgeler yerinde, `UPLOAD_CANCELLED` kullanıcı adıyla; 10 dakikayı aşan parti kendiliğinden `cancelled` olur (`reason = timeout`, `actor` sistem), 10 dakikayı aşmamış parti ve son durumdaki parti dokunulmaz; çalışan işleyici iptalden sonra partiye yazmaz (parti `cancelled` kalır, `failed` olmaz); aynı dosya tekrar yüklenince tekrar sayılmaz, yeniden işlenir |
+| S27 | Üç rol: `Zvz` (root), bir İK, bir Kullanıcı panelde geziyor | Kullanıcı her sayfayı ve belgeyi açar, hiçbir yazma düğmesi görmez, her yazma isteği 403 ve veri değişmez, kendi parolasını ve dilini değiştirir; İK yazar, Kullanıcılar tablosunda root'u görmez, root'a yönelik istek 404, erişim logu bağlantısı yok ve adresi 404; root erişim logunu ve kendi ekranında "Root" etiketini görür, Kullanıcılar tablosunda kendisi de listelenmez; ikinci root açılamaz |
 
 S19 gereksinim 05.6.2'nin (Faz 0), S20 gereksinim 11.9.1'in (Faz 1) kabul senaryosudur; ikisi de
 kendi gereksinimini karşılayan görevde otomatik test olur. S21 gereksinim 14.2.2–14.2.3'ün, S22
 gereksinim 10.5.7'nin (ikisi de Faz 1) kabul senaryosudur; aynı kuralla kendi görevlerinde test olur.
-S23 gereksinim 05.5.4'ün, S24 10.5.12'nin, S25 10.5.13'ün kabul senaryosudur (2026-10-08 açılışı); aynı
+S23 gereksinim 05.5.4'ün, S24 10.5.12'nin, S25 10.5.13'ün, S26 10.3.6 ve 10.3.7'nin, S27 10.1.8 ve 10.1.9'un kabul senaryosudur (2026-10-08/09 açılışı); aynı
 kuralla kendi görevlerinde test olur. S10'un yeni tanımı 05.5.4 görevinde testine yansır.
 
 ---
@@ -1095,7 +1106,7 @@ Yazma tamamlandıktan sonra `documents` kaydına kaynak dosya kimliği ve sayfa 
 
 ---
 
-### 20.6 İki aşamalı onay metinleri (gereksinim 10.8.1, 10.8.2, 10.7.2, 10.7.3, 08.4.1, 11.5.2, 10.3.4, 10.5.6, 10.5.7, 10.5.8, 10.5.9, 10.5.10, 10.7.4, 10.10.4, 10.5.12, 10.5.13)
+### 20.6 İki aşamalı onay metinleri (gereksinim 10.8.1, 10.8.2, 10.7.2, 10.7.3, 08.4.1, 11.5.2, 10.3.4, 10.5.6, 10.5.7, 10.5.8, 10.5.9, 10.5.10, 10.7.4, 10.10.4, 10.5.12, 10.5.13, 10.3.6)
 
 K16'daki manuel işlemler iki aşamalı onay ister (salt geri alma işlemleri tek adımdır, K16). Metinler **birebir** aşağıdaki
 gibidir; pencere kendi cümlesini yazmaz. `<…>` yer tutucuları çalışma zamanında doldurulur.
@@ -1117,6 +1128,7 @@ gibidir; pencere kendi cümlesini yazmaz. `<…>` yer tutucuları çalışma zam
 | Kuyruk öğesini kapat | `Bu kuyruk öğesini kapatmak üzeresiniz. Emin misiniz?` | `Öğe çözülmüş sayılacak, dosya kopyası ve gerekçesi yerinde kalacaktır. Son kararınız mı?` |
 | Belgeyi kalıcı sil | `Bu belgeyi kalıcı olarak silmek üzeresiniz. Emin misiniz?` | `Belge dosyası ve kopyaları (<N>) diskten silinecek, başka belgelere de kaynak olan dosyalar (<M>) kalacaktır; bu işlem geri alınamaz. Son kararınız mı?` |
 | Çalışanı kalıcı sil | `<Ad Soyad> çalışanını bütün belgeleriyle kalıcı olarak silmek üzeresiniz. Emin misiniz?` | `Çalışanın klasörü, belgeleri (<N>) ve kişisel bilgileri silinecek, yalnız E numarası kalacaktır; bu işlem geri alınamaz. Son kararınız mı?` |
+| Partiyi iptal et | `Bu partiyi iptal etmek üzeresiniz. Emin misiniz?` | `Partinin işlenmesi durdurulacak; dosyalar ve o ana kadar üretilen belgeler silinmez. İptal geri alınamaz ama dosyalar yeniden yüklenebilir. Son kararınız mı?` |
 
 İlk iki satırdaki metinler ürün tanımında birebir bu şekilde yazılmıştır; **değiştirilmez**.
 Kalan satırlar aynı kalıptan türetilmiştir: birinci cümle *ne yapılacağını*, ikinci cümle
@@ -1138,7 +1150,7 @@ Onay tamamlandığında `USER_CONFIRMED` olayı yazılır: kullanıcı adı, iş
 birinci ve ikinci onayın zaman damgaları. Ardından işlemin kendi olayı (`MANUAL_MOVE`,
 `MANUAL_ASSIGN`, `MANUAL_APPROVE`, `TYPE_APPROVED`, `ARCHIVED`, `UPLOAD_DISMISSED`,
 `EMPLOYEE_EDITED`, `EMPLOYEE_DEACTIVATED`, `EMPLOYEE_REACTIVATED`, `PROFILE_RECORD_REMOVED`,
-`EMPLOYEE_MERGED`, `UNARCHIVED`, `QUEUE_ITEM_CLOSED`, `DOCUMENT_DELETED`)
+`EMPLOYEE_MERGED`, `UNARCHIVED`, `QUEUE_ITEM_CLOSED`, `DOCUMENT_DELETED`, `UPLOAD_CANCELLED`)
 düşülür.
 
 #### 20.6.2 Testte doğrulanacak davranış
@@ -1172,3 +1184,4 @@ yazılır ve aynı değerle doldurulur. Sayı alan cümleler sayının çoğul u
 | Kuyruk öğesini kapat | `You are about to close this queue item. Are you sure?` | `The item will be considered resolved; its file copy and reason will stay in place. Is this your final decision?` | `Upravo ćete zatvoriti ovu stavku reda. Da li ste sigurni?` | `Stavka će se smatrati rešenom; kopija datoteke i obrazloženje ostaju na mestu. Da li je to vaša konačna odluka?` |
 | Belgeyi kalıcı sil | `You are about to permanently delete this document. Are you sure?` | `The document file and its copies (<N>) will be deleted from disk; files that are also the source of other documents (<M>) will stay; this action cannot be undone. Is this your final decision?` | `Upravo ćete trajno obrisati ovaj dokument. Da li ste sigurni?` | `Datoteka dokumenta i njene kopije (<N>) biće obrisane sa diska; datoteke koje su izvor i drugih dokumenata (<M>) ostaju; ova radnja se ne može poništiti. Da li je to vaša konačna odluka?` |
 | Çalışanı kalıcı sil | `You are about to permanently delete employee <Ad Soyad> together with all documents. Are you sure?` | `The employee's folder, documents (<N>) and personal information will be deleted; only the E number will remain; this action cannot be undone. Is this your final decision?` | `Upravo ćete trajno obrisati zaposlenog <Ad Soyad> zajedno sa svim dokumentima. Da li ste sigurni?` | `Fascikla zaposlenog, dokumenti (<N>) i lični podaci biće obrisani, ostaće samo E broj; ova radnja se ne može poništiti. Da li je to vaša konačna odluka?` |
+| Partiyi iptal et | `You are about to cancel this batch. Are you sure?` | `Processing will stop; files and documents produced so far are not deleted. The cancellation cannot be undone, but the files can be uploaded again. Is this your final decision?` | `Upravo ćete otkazati ovu seriju. Da li ste sigurni?` | `Obrada će biti zaustavljena; datoteke i dokumenti nastali do sada se ne brišu. Otkazivanje se ne može poništiti, ali se datoteke mogu ponovo otpremiti. Da li je to vaša konačna odluka?` |

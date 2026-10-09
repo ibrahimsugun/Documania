@@ -1,5 +1,5 @@
 """Yükleme sayfası, canlı ilerleme görünümü ve yükleme detayı (PRD 10.2.1, 10.2.2, 10.3.1, 10.3.2,
-10.3.4, 10.3.5, 10.5.5, 05.5.4).
+10.3.4, 10.3.5, 10.3.6, 10.3.7, 10.5.5, 05.5.4).
 
 `GET /upload` sürükle-bırak çoklu yükleme formunu ve isteğe bağlı çalışan seçimini çizer.
 `POST /upload` (HTMX) dosyaları `POST /api/uploads` ile aynı işlevle (`create_upload`) partiye
@@ -46,6 +46,22 @@ al" düğmesi durur: `POST .../undismiss` tek adımdır (salt durum çevirir) ve
 `UPLOAD_RESTORED` yazar (`app.pipeline.dismiss.restore_upload`). Parti listeye döner; yalnız
 yoksaymayla kapanan kuyruk öğeleri yeniden açılır, arada başka yolla (atama, onay, kapatma) çözülmüş
 öğe açılmaz. Yoksayılmamış partide 409.
+
+**Süren partiyi iptal et (10.3.6; K16, §20.6; PLAN.md §D114).** Süren (`received` … `executing`)
+partinin İşlemler bölümünde "Partiyi iptal et" vardır; yeniden çalıştırma ve yeniden analiz o sırada
+kapalıdır. Birinci onaydan sonra `POST .../cancel/prepare` §20.6'nın ikinci metnini ve partiye bağlı
+tek kullanımlık belirteci verir; `POST .../cancel` belirteçle gelir: belirtecin tüketilmesi,
+`USER_CONFIRMED`, iptal ve `UPLOAD_CANCELLED` tek işlemdedir (`app.pipeline.cancel`). Belirteçsiz ya
+da geçersiz istek 400; parti bu arada son duruma vardıysa 409 ve belirteç tüketilmez. İptal edilen
+partinin detayında kimin ne zaman iptal ettiği (ya da 10 dakikada tamamlanamadığı için otomatik
+iptal edildiği) yazar. İptal edilen parti yeniden çalıştırılmaz ve yeniden analiz edilmez (409,
+planı olsa da): iptal partiyi yeniden başlatmanın yolu değildir, dosyalar yeniden yüklenir —
+tekrar sayılmaz (§D114 g). Yoksayılabilir (10.3.4).
+
+**Otomatik iptal (10.3.7).** Yükleme listesi ve parti detayı tam sayfa olarak açılırken alındığından
+beri `UPLOAD_TIMEOUT_SECONDS` (600) geçmiş bitmemiş partiler iptal edilir ve commit edilir
+(`expire_stale_uploads`): işleyici kapalıyken de takılan parti böyle yakalanır. Bu iki `GET` bilerek
+yazar; HTMX ilerleme parçası yazmaz. Saat `get_clock` bağımlılığıdır (testte enjekte edilir).
 """
 
 from __future__ import annotations
@@ -76,11 +92,20 @@ from app.db.models import (
     Upload,
     UploadFile,
     UploadStatus,
+    utcnow,
 )
 from app.db.session import get_session
 from app.i18n import N_, Translatable
 from app.matching.match import MatchedBy
 from app.pipeline.analyze import PageAnalysisStatus
+from app.pipeline.cancel import (
+    CancelReason,
+    UploadNotCancellableError,
+    cancel_stale_uploads,
+    cancel_upload,
+    is_cancellable,
+    last_cancellation,
+)
 from app.pipeline.dismiss import (
     UploadNotDismissableError,
     UploadNotRestorableError,
@@ -119,6 +144,7 @@ from app.web.confirm import (
 )
 from app.web.context_person import ForeignDocumentsWarning, upload_warning
 from app.web.routers.uploads import (
+    CANCELLED_MESSAGE,
     DISMISSED_MESSAGE,
     UploadFileStatusResponse,
     create_upload,
@@ -145,8 +171,13 @@ STATUS_LABELS: dict[UploadStatus, str] = {
     UploadStatus.DONE: N_("Tamamlandı"),
     UploadStatus.PARTIAL: N_("Kısmen tamamlandı — bazı sayfalar analiz edilemedi"),
     UploadStatus.FAILED: N_("İşlenemedi"),
+    UploadStatus.CANCELLED: N_("İptal edildi"),
 }
-FINAL_STATUSES = frozenset({UploadStatus.DONE, UploadStatus.PARTIAL, UploadStatus.FAILED})
+FINAL_STATUSES = frozenset(
+    {UploadStatus.DONE, UploadStatus.PARTIAL, UploadStatus.FAILED, UploadStatus.CANCELLED}
+)
+# Adım çizelgesinde hiçbir adımı "tamam" göstermeyen son durumlar: parti sona varmadan durdu.
+_STOPPED_STATUSES = frozenset({UploadStatus.FAILED, UploadStatus.CANCELLED})
 
 NO_FILE_MESSAGE = N_("Yüklenecek dosya seçilmedi.")
 
@@ -184,7 +215,7 @@ def build_progress_view(session: Session, upload_id: str) -> ProgressView:
     reached = False
     for stage, label in PIPELINE_STAGES:
         if final:
-            state = "todo" if current is UploadStatus.FAILED else "done"
+            state = "todo" if current in _STOPPED_STATUSES else "done"
         elif stage is current:
             state, reached = "current", True
         else:
@@ -356,6 +387,12 @@ BUSY_MESSAGE = N_("Parti hâlâ işleniyor; işlem bittikten sonra yeniden çal�
 NO_PLAN_MESSAGE = N_(
     "Partinin planı yok; yeniden çalıştırılacak ya da yeniden analiz edilecek bir sürüm bulunmuyor."
 )
+# 10.3.6, 10.3.7 — iptal edilen partinin bildirimi (PLAN.md §D114 f), işlem reddi ve iptal reddi.
+CANCELLED_NOTICE = N_("Bu parti {when} tarihinde {user} tarafından iptal edildi.")
+TIMEOUT_CANCELLED_NOTICE = N_(
+    "Bu parti 10 dakikada tamamlanamadığı için {when} tarihinde otomatik iptal edildi."
+)
+NOT_CANCELLABLE_MESSAGE = N_("Parti son durumda; iptal edilecek süren bir işlem yok.")
 
 
 class ReanalysisProviderError(RuntimeError):
@@ -466,6 +503,9 @@ class DetailView:
     # 10.3.4: yoksayılan partinin bildirimi; yoksayma düğmesi yalnız `can_dismiss` iken.
     dismissed_notice: str | None = None
     can_dismiss: bool = False
+    # 10.3.6, 10.3.7: iptal edilen partinin bildirimi; iptal düğmesi yalnız `can_cancel` iken.
+    cancelled_notice: str | None = None
+    can_cancel: bool = False
 
 
 def _format_ts(moment: datetime) -> str:
@@ -647,6 +687,8 @@ def build_detail_view(session: Session, upload: Upload) -> DetailView:
     blocked_reason = None
     if is_dismissed(upload):
         blocked_reason = DISMISSED_MESSAGE
+    elif current_status is UploadStatus.CANCELLED:
+        blocked_reason = CANCELLED_MESSAGE
     elif current_status not in FINAL_STATUSES:
         blocked_reason = BUSY_MESSAGE
     elif plan is None:
@@ -727,7 +769,24 @@ def build_detail_view(session: Session, upload: Upload) -> DetailView:
         context_warning=upload_warning(session, upload),
         dismissed_notice=dismissed_notice(upload),
         can_dismiss=not is_dismissed(upload) and current_status in FINAL_STATUSES,
+        cancelled_notice=cancelled_notice(session, upload),
+        can_cancel=is_cancellable(upload),
     )
+
+
+def cancelled_notice(session: Session, upload: Upload) -> Translatable | None:
+    """10.3.6, 10.3.7 — elle: "Bu parti <tarih> tarihinde <kullanıcı> tarafından iptal edildi";
+    otomatik: "… 10 dakikada tamamlanamadığı için … otomatik iptal edildi". İptal edilmemiş partide
+    `None`."""
+    if upload.status != UploadStatus.CANCELLED.value:
+        return None
+    found = last_cancellation(session, upload.id)
+    if found is None:
+        return Translatable(CANCELLED_NOTICE, when="—", user="—")
+    when, actor, reason = found
+    if reason == CancelReason.TIMEOUT.value:
+        return Translatable(TIMEOUT_CANCELLED_NOTICE, when=_format_ts(when))
+    return Translatable(CANCELLED_NOTICE, when=_format_ts(when), user=actor)
 
 
 def dismissed_notice(upload: Upload) -> str | None:
@@ -794,6 +853,27 @@ ReanalysisProvider = Annotated[
 ]
 
 
+def get_clock() -> datetime:
+    """Otomatik iptalin saati (10.3.7): şimdiki UTC an; testte bağımlılık olarak değiştirilir."""
+    return utcnow()
+
+
+Clock = Annotated[datetime, Depends(get_clock)]
+
+
+def expire_stale_uploads(session: Session, settings: Settings, now: datetime) -> list[str]:
+    """10.3.7 — süresi dolan bitmemiş partileri `system` adına iptal eder ve commit eder; iptal
+    edilenlerin kimliklerini döner. Yükleme listesi ve parti detayı açılırken çağrılır (modül
+    açıklaması): işleyici kapalıyken de takılan parti yakalanır. İptal edilecek parti yoksa tek
+    sorgudur, commit edilmez."""
+    cancelled = cancel_stale_uploads(
+        session, timeout_seconds=settings.upload_timeout_seconds, now=now
+    )
+    if cancelled:
+        session.commit()
+    return cancelled
+
+
 # --- 10.3: uç noktalar -------------------------------------------------------------------------
 
 
@@ -810,7 +890,11 @@ def upload_detail(
     request: Request,
     user: CurrentUser,
     session: Annotated[Session, Depends(get_session)],
+    settings: Annotated[Settings, Depends(get_settings)],
+    now: Clock,
 ) -> HTMLResponse:
+    # 10.3.7: bu GET bilerek yazar — süresi dolan partiler iptal edilir (modül açıklaması).
+    expire_stale_uploads(session, settings, now)
     upload = session.get(Upload, upload_id)
     entry = MENU_BY_KEY["uploads"]
     if upload is None:
@@ -834,6 +918,7 @@ def upload_detail(
         detail=view,
         first_confirmation=REANALYZE_FIRST_CONFIRMATION,
         dismiss_first_confirmation=first_text(Operation.DISMISS),
+        cancel_first_confirmation=first_text(Operation.CANCEL_UPLOAD),
     )
 
 
@@ -867,6 +952,8 @@ def _actionable_upload(session: Session, upload_id: str) -> tuple[Upload, Plan]:
         raise HTTPException(status.HTTP_404_NOT_FOUND, UPLOAD_NOT_FOUND)
     if is_dismissed(upload):
         raise HTTPException(status.HTTP_409_CONFLICT, DISMISSED_MESSAGE)
+    if upload.status == UploadStatus.CANCELLED.value:
+        raise HTTPException(status.HTTP_409_CONFLICT, CANCELLED_MESSAGE)
     if UploadStatus(upload.status) not in FINAL_STATUSES:
         raise HTTPException(status.HTTP_409_CONFLICT, BUSY_MESSAGE)
     plan = current_plan(session, upload)
@@ -1136,4 +1223,97 @@ def undismiss_upload(
         upload_id=upload_id,
         done="undismiss",
         reopened=len(restoration.queue_item_ids),
+    )
+
+
+# --- 10.3.6: süren partiyi iptal et --------------------------------------------------------------
+
+
+def cancellation_subject(upload_id: str) -> str:
+    """İptal belirtecinin bağlı olduğu hedef: parti (10.8.1 belirteci, işlem
+    `Operation.CANCEL_UPLOAD`)."""
+    return upload_id
+
+
+@router.post("/uploads/{upload_id}/cancel/prepare", response_class=HTMLResponse)
+def prepare_cancellation(
+    upload_id: str,
+    request: Request,
+    user: CurrentUser,
+    session: Annotated[Session, Depends(get_session)],
+) -> HTMLResponse:
+    """10.3.6 — birinci onaydan sonra §20.6'nın ikinci metnini ve tek kullanımlık onay belirtecini
+    verir; hiçbir şeyi değiştirmez (S16). Parti yoksa 404, son durumdaysa 409."""
+    upload = session.get(Upload, upload_id)
+    if upload is None:
+        session.rollback()
+        return _action_result(request, status.HTTP_404_NOT_FOUND, error=UPLOAD_NOT_FOUND)
+    if not is_cancellable(upload):
+        session.rollback()
+        return _action_result(request, status.HTTP_409_CONFLICT, error=NOT_CANCELLABLE_MESSAGE)
+    try:
+        issued = issue_confirmation(
+            session, request, user, Operation.CANCEL_UPLOAD, cancellation_subject(upload.id)
+        )
+    except ConfirmationRefusedError as exc:
+        session.rollback()
+        return _action_result(request, status.HTTP_400_BAD_REQUEST, error=exc)
+    session.commit()
+    return _action_result(
+        request,
+        status.HTTP_200_OK,
+        upload_id=upload_id,
+        confirm_action="cancel",
+        second_confirmation=second_text(Operation.CANCEL_UPLOAD),
+        confirmation=issued.token,
+    )
+
+
+@router.post("/uploads/{upload_id}/cancel", response_class=HTMLResponse)
+def cancel_upload_page(
+    upload_id: str,
+    request: Request,
+    user: CurrentUser,
+    session: Annotated[Session, Depends(get_session)],
+    confirmation: Annotated[str | None, Form()] = None,
+) -> HTMLResponse:
+    """10.3.6 — ikinci onayın belirteciyle süren partiyi iptal eder (`app.pipeline.cancel`).
+
+    Belirteçsiz, kullanılmış, süresi geçmiş ya da başka partiye ait istek 400; parti bu arada son
+    duruma vardıysa 409 — ikisinde de hiçbir şey değişmez ve belirteç tüketilmez.
+    """
+    upload = session.get(Upload, upload_id)
+    if upload is None:
+        session.rollback()
+        return _action_result(request, status.HTTP_404_NOT_FOUND, error=UPLOAD_NOT_FOUND)
+    try:
+        # §20.6.1: belirteç tüketilir ve `USER_CONFIRMED` (kullanıcı adı, işlem, hedef, iki onayın
+        # zamanı) yazılır, ardından işlemin kendi olayı (`UPLOAD_CANCELLED`) düşer.
+        confirm_operation(
+            session,
+            request,
+            user,
+            Operation.CANCEL_UPLOAD,
+            cancellation_subject(upload.id),
+            confirmation,
+            event_target={"upload_id": upload.id},
+            upload_id=upload.id,
+        )
+        cancellation = cancel_upload(
+            session, upload, actor=user.username, reason=CancelReason.MANUAL
+        )
+    except ConfirmationRefusedError:
+        session.rollback()
+        return _action_result(request, status.HTTP_400_BAD_REQUEST, error=CONFIRMATION_REFUSED)
+    except UploadNotCancellableError:
+        # Parti bu arada bitti, işlenemedi ya da başka istekle (ya da süre aşımıyla) iptal edildi.
+        session.rollback()
+        return _action_result(request, status.HTTP_409_CONFLICT, error=NOT_CANCELLABLE_MESSAGE)
+    session.commit()
+    return _action_result(
+        request,
+        status.HTTP_200_OK,
+        upload_id=upload_id,
+        done="cancel",
+        stage=STATUS_LABELS[cancellation.stage],
     )

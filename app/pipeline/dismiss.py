@@ -1,8 +1,9 @@
 """Taramayı (partiyi) yoksayma ve yoksaymayı geri alma — PRD 10.3.4, 10.3.5 (K16'nın altıncı manuel
 işlemi; K10, K15, PLAN.md §C80, §C91, §D50, §D61).
 
-İK son durumdaki (`done`, `partial`, `failed`) bir partiyi yoksayar: parti yükleme listesinden,
-partinin kuyruk öğeleri kuyruklardan kalkar. İşlem **silme değildir** ve yalnız veritabanına yazar:
+İK son durumdaki (`done`, `partial`, `failed`, `cancelled`) bir partiyi yoksayar: parti yükleme
+listesinden, partinin kuyruk öğeleri kuyruklardan kalkar. İşlem **silme değildir** ve yalnız
+veritabanına yazar:
 
 - Partiye `dismissed_at` (UTC) ve `dismissed_by` yazılır; `uploads.status` değişmez (durum makinesi
   09.2.1 bozulmaz).
@@ -14,7 +15,8 @@ partinin kuyruk öğeleri kuyruklardan kalkar. İşlem **silme değildir** ve ya
 Dokunulmayanlar: Inbox dosyaları (K10), sayfa görüntüleri, planlar, olaylar (K15), üretilmiş
 belgeler (çalışanın Hazır klasöründe kalır; kaldırmak arşivin, 08.4.1'in işidir) ve kuyruk
 klasörlerindeki kaynak kopyaları ile `reason.json` — dosya sistemine hiçbir şey yazılmaz. SHA-256
-tekrar tespiti (01.4.1) yoksayılan partinin dosyasını da görmeye devam eder.
+tekrar tespiti (01.4.1) yoksayılan partinin dosyasını da görmeye devam eder (iptal edilen
+partininkini görmez, `app.storage.hashing`).
 
 İki aşamalı onay (§20.6 "Taramayı yoksay", 10.8.1) çağıranın işidir — panel `app.web.confirm` ile
 yapar; bu modül `USER_CONFIRMED` yazmaz. Hiçbir fonksiyon commit etmez; hata olursa çağıran geri
@@ -49,8 +51,11 @@ from app.db.models import (
 )
 from app.events import EventType, record_event
 
-# Yeniden çalıştırma ve yeniden analizle aynı koşul (10.3.2): süren parti yoksayılmaz.
-DISMISSABLE_STATUSES = frozenset({UploadStatus.DONE, UploadStatus.PARTIAL, UploadStatus.FAILED})
+# Süren parti yoksayılmaz; son durumdaki her parti — iptal edilen de (10.3.6, PLAN.md §D114 b) —
+# yoksayılabilir.
+DISMISSABLE_STATUSES = frozenset(
+    {UploadStatus.DONE, UploadStatus.PARTIAL, UploadStatus.FAILED, UploadStatus.CANCELLED}
+)
 
 
 class UploadNotDismissableError(ValueError):

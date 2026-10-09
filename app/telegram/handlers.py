@@ -70,7 +70,7 @@ from app.storage import DataLayout
 from app.storage.filetype import extension_for_mime, mime_for_name
 from app.telegram.plain import BULLET, MAX_ITEMS
 from app.web.routers.uploads import IncomingFile, store_upload
-from app.worker import Claim, new_claim_token, release_claim, run_claimed_upload
+from app.worker import Claim, LeaseLostError, new_claim_token, release_claim, run_claimed_upload
 
 logger = logging.getLogger(__name__)
 
@@ -419,9 +419,14 @@ class DocumentIntake:
                 "Telegram partisi işlenemedi: sağlayıcı kurulamadı (%s)", type(exc).__name__
             )
             # İş kuyruğa geri döner: sağlayıcısı olan bir işleyici partiyi sonra işler (13.3.1).
+            # Parti bu arada iptal edildiyse (10.3.6, 10.3.7) iş artık bu işleyicinin değildir.
             with self._session_factory() as session:
-                release_claim(session, claim)
-                session.commit()
+                try:
+                    release_claim(session, claim)
+                except LeaseLostError:
+                    session.rollback()
+                else:
+                    session.commit()
             return gettext(NOT_PROCESSED_TEXT)
         processed = run_claimed_upload(
             self._session_factory, self._layout, claim, settings=self._settings, provider=provider

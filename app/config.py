@@ -72,6 +72,10 @@ class Settings(BaseSettings):
     worker_lease_seconds: int = Field(default=120, ge=10)
     worker_max_attempts: int = Field(default=3, ge=1)
     worker_poll_seconds: float = Field(default=5.0, gt=0)
+    # PRD 10.3.7 — alındığı andan (`uploads.created_at`) bu kadar saniye içinde son duruma varamayan
+    # parti kendiliğinden iptal edilir (`app.pipeline.cancel`; PLAN.md §D114 d). 600 yerleşik
+    # varsayılandır; `UPLOAD_TIMEOUT_SECONDS` yalnız ezer.
+    upload_timeout_seconds: int = Field(default=600, ge=60)
     # PRD 13.6.1 — izleme ve uyarı (`app.worker.monitor`). Hata, disk doluluğu ve kuyruk uzunluğu
     # eşiği aşınca uyarı üretilir: panel ve bot süreçlerinin logu ile Telegram bildirimi. Son
     # `ALERT_ERROR_WINDOW_MINUTES` dakikada `ALERT_ERROR_COUNT` parti işlenemediyse hata; veri

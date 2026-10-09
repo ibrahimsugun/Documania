@@ -34,7 +34,7 @@ def _assert_schema_matches_models(database_url: str) -> None:
             assert tables == set(Base.metadata.tables) | {"alembic_version"}
             context = MigrationContext.configure(connection, opts={"compare_type": True})
             assert compare_metadata(context, Base.metadata) == []
-            assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "0026"
+            assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "0027"
     finally:
         engine.dispose()
 
@@ -1436,6 +1436,60 @@ def test_employee_deletion_migration_keeps_employees_and_checks_the_status(
             columns = {c["name"]: c for c in inspect(connection).get_columns("employees")}
             assert "deleted_at" not in columns and "deleted_by" not in columns
             assert connection.scalar(text("SELECT status FROM employees")) == "inactive"
+    finally:
+        engine.dispose()
+
+
+def test_upload_cancellation_migration_accepts_cancelled_and_is_reversible(
+    sqlite_url: str,
+) -> None:
+    # 0027 (10.3.6, 10.3.7): parti ve işin durum CHECK'leri `cancelled`'ı kabul eder; var olan parti
+    # ve iş değişmez; geri alış eski kısıtları kurar.
+    config = _alembic_config(sqlite_url)
+    command.upgrade(config, "0026")
+    engine = create_engine(sqlite_url)
+    set_upload = text("UPDATE uploads SET status = :status WHERE id = 'u_1'")
+    set_job = text("UPDATE upload_jobs SET status = :status WHERE upload_id = 'u_1'")
+    try:
+        with engine.begin() as connection:
+            connection.execute(
+                text(
+                    "INSERT INTO uploads (id, channel, status, created_at) "
+                    "VALUES ('u_1', 'web', 'received', '2026-10-09 09:00:00')"
+                )
+            )
+            connection.execute(
+                text(
+                    "INSERT INTO upload_jobs (upload_id, status, attempts, enqueued_at) "
+                    "VALUES ('u_1', 'queued', 0, '2026-10-09 09:00:00')"
+                )
+            )
+            with pytest.raises(IntegrityError), connection.begin_nested():
+                connection.execute(set_upload, {"status": "cancelled"})
+
+        command.upgrade(config, "0027")
+        with engine.connect() as connection:
+            assert connection.execute(
+                text(
+                    "SELECT u.status, j.status FROM uploads u "
+                    "JOIN upload_jobs j ON j.upload_id = u.id"
+                )
+            ).all() == [("received", "queued")]
+        with engine.begin() as connection:
+            connection.execute(set_upload, {"status": "cancelled"})
+            connection.execute(set_job, {"status": "cancelled"})
+        for statement, invalid in ((set_upload, "canceled"), (set_job, "stopped")):
+            with pytest.raises(IntegrityError), engine.begin() as connection:
+                connection.execute(statement, {"status": invalid})
+        with engine.begin() as connection:
+            connection.execute(set_upload, {"status": "received"})
+            connection.execute(set_job, {"status": "queued"})
+
+        command.downgrade(config, "0026")
+        with pytest.raises(IntegrityError), engine.begin() as connection:
+            connection.execute(set_upload, {"status": "cancelled"})
+        with engine.connect() as connection:
+            assert connection.scalar(text("SELECT status FROM uploads")) == "received"
     finally:
         engine.dispose()
 

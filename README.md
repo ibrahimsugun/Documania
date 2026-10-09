@@ -203,6 +203,13 @@ Silinen çalışanın adresi «silindi» sayfasıdır (410); liste, arama, eşle
 aynı kişinin yeni belgesi yeni çalışan açar. **Yedekler:** gece yedeğindeki kopyalar yedeğin kendi
 saklama süresiyle gider; silme yedeklere dokunmaz.
 
+**Takılan parti (PRD 10.3.6, 10.3.7):** partiyi yalnız ayrı worker süreci işler; worker kapalıysa
+parti "Alındı"da bekler. Süren partinin detayında "Partiyi iptal et" iki onayla partiyi durdurur;
+alındıktan 10 dakika sonra hâlâ bitmemiş parti kendiliğinden "İptal edildi" olur (denetim worker'ın
+her kuyruk turunda ve panelde yükleme listesi ya da parti detayı açılırken). İptal hiçbir dosyayı,
+sayfayı ya da belgeyi silmez; aynı dosya yeniden yüklenince tekrar sayılmaz, yeniden işlenir. Süre
+yerleşik 600 saniyedir, `.env`'de `UPLOAD_TIMEOUT_SECONDS` yalnız ezer (en az 60).
+
 **Yedekleme:** gece yedeği ve geri yükleme prosedürü [`docs/YEDEKLEME.md`](docs/YEDEKLEME.md)'de
 (Compose kurulumuna özgü ayarlar orada). Zamanlayıcı (cron) sunucuya elle kurulur.
 

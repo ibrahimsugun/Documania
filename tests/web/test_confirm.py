@@ -63,6 +63,7 @@ PRD_OPERATIONS = {
     "Kuyruk öğesini kapat": Operation.CLOSE_QUEUE_ITEM,  # 10.7.4, §D61 (tm 131)
     "Belgeyi kalıcı sil": Operation.DELETE_DOCUMENT,  # 10.5.12, §D110 (tm 166)
     "Çalışanı kalıcı sil": Operation.DELETE_EMPLOYEE,  # 10.5.13, §D110 (tm 167)
+    "Partiyi iptal et": Operation.CANCEL_UPLOAD,  # 10.3.6, §D114 (tm 168)
 }
 TARGET = "7:E0002"
 
@@ -139,7 +140,7 @@ def test_the_texts_are_the_section_20_6_table_verbatim() -> None:
 def test_the_english_and_serbian_texts_are_the_section_20_6_3_table_verbatim() -> None:
     rows = _section_20_6_3_rows()
 
-    assert set(rows) == set(PRD_OPERATIONS)  # 15 işlem; tabloda olup kodda olmayan ya da tersi yok
+    assert set(rows) == set(PRD_OPERATIONS)  # 16 işlem; tabloda olup kodda olmayan ya da tersi yok
     for language, table in (
         ("en", confirm.CONFIRMATION_TEXTS_EN),
         ("sr", confirm.CONFIRMATION_TEXTS_SR),

@@ -107,7 +107,12 @@ class IdleClaimMixin:
 
 
 class UploadStatus(enum.StrEnum):
-    """Parti durum makinesi (PRD 09.2.1)."""
+    """Parti durum makinesi (PRD 09.2.1).
+
+    `cancelled` (10.3.6, 10.3.7; PLAN.md §D114): süren parti elle ya da 10 dakikalık süre aşımıyla
+    iptal edildi. Son durumdur ve `failed` değildir — hata değil karardır; hata izleme ve botun
+    "işlenemedi" bildirimi onu saymaz (`app.pipeline.cancel`).
+    """
 
     RECEIVED = "received"
     RENDERING = "rendering"
@@ -117,6 +122,7 @@ class UploadStatus(enum.StrEnum):
     DONE = "done"
     PARTIAL = "partial"
     FAILED = "failed"
+    CANCELLED = "cancelled"
 
 
 class ContactKind(enum.StrEnum):
@@ -1055,13 +1061,16 @@ class JobStatus(enum.StrEnum):
     (`lease_expires_at`) tutar; parti son duruma (`done`, `partial`, `failed`) vardığı işlemde iş
     `finished` olur. Kirası dolmuş `running` iş sahipsiz sayılır ve yeniden alınır; alınıp
     bitirilemeden kirası en çok izin verilen deneme kadar dolan işten vazgeçilir (`abandoned`) ve
-    parti `failed` olur.
+    parti `failed` olur. Parti iptal edilince (10.3.6, 10.3.7) iş `cancelled` olur ve kirası
+    boşalır: kimse onu almaz, onu tutan işleyici bir sonraki geçişte işi kaybeder
+    (`LeaseLostError`).
     """
 
     QUEUED = "queued"
     RUNNING = "running"
     FINISHED = "finished"
     ABANDONED = "abandoned"
+    CANCELLED = "cancelled"
 
 
 class UploadJob(Base):

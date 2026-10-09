@@ -1,5 +1,6 @@
-{# Yükleme detayındaki işlemlerin sonucu (10.3.2, 10.3.4, 10.3.5): hata, ikinci onay formu ya da
-   işlem özeti. İkinci onay formu yeniden analizin ya da taramayı yoksaymanın (`confirm_action`);
+{# Yükleme detayındaki işlemlerin sonucu (10.3.2, 10.3.4, 10.3.5, 10.3.6): hata, ikinci onay formu
+   ya da işlem özeti. İkinci onay formu yeniden analizin, taramayı yoksaymanın ya da partiyi iptal
+   etmenin (`confirm_action`);
    hedef yol her birinde sabittir — değiştirici yolların denetimi (10.9.1) şablonu okur. #}
 {% if error %}
 <p class="error" role="alert">{{ translate(error) }}</p>
@@ -9,6 +10,14 @@
   <p class="confirm-text" role="alert">{{ second_confirmation }}</p>
   <input type="hidden" name="confirmation" value="{{ confirmation }}">
   <button type="submit">{{ _("Evet, taramayı yoksay") }}</button>
+  <a href="/uploads/{{ upload_id }}">{{ _("Vazgeç") }}</a>
+</form>
+{% elif second_confirmation and confirm_action == "cancel" %}
+<form class="confirm" hx-post="/uploads/{{ upload_id }}/cancel"
+      hx-target="#action-result" hx-swap="innerHTML" hx-disabled-elt="find button[type=submit]">
+  <p class="confirm-text" role="alert">{{ second_confirmation }}</p>
+  <input type="hidden" name="confirmation" value="{{ confirmation }}">
+  <button type="submit">{{ _("Evet, partiyi iptal et") }}</button>
   <a href="/uploads/{{ upload_id }}">{{ _("Vazgeç") }}</a>
 </form>
 {% elif second_confirmation %}
@@ -25,6 +34,8 @@
 <p class="notice notice-success" role="status">{{ ngettext("Yoksayma geri alındı: parti yükleme listesine döndü; %(num)d kuyruk öğesi yeniden açıldı.", "Yoksayma geri alındı: parti yükleme listesine döndü; %(num)d kuyruk öğesi yeniden açıldı.", reopened) }} <a href="/uploads/{{ upload_id }}">{{ _("Sayfayı yenileyin") }}</a>.</p>
 {# Geri alınan partide yoksayma bildirimi ve düğmesi kalmasın. #}
 <div id="dismissed-row" hx-swap-oob="true"></div>
+{% elif done == "cancel" %}
+<p class="notice notice-success" role="status">{{ _("Parti iptal edildi (iptal anında: %(stage)s); dosyalar ve üretilen belgeler yerinde kaldı.", stage=translate(stage)) }} <a href="/uploads/{{ upload_id }}">{{ _("Sayfayı yenileyin") }}</a>.</p>
 {% elif done == "dismiss" %}
 <p class="notice notice-success" role="status">{{ ngettext("Tarama yoksayıldı: %(num)d kuyruk öğesi kapandı;", "Tarama yoksayıldı: %(num)d kuyruk öğesi kapandı;", closed) }} {{ ngettext("%(num)d belge yerinde kaldı.", "%(num)d belge yerinde kaldı.", kept) }} <a href="/uploads/{{ upload_id }}">{{ _("Sayfayı yenileyin") }}</a>.</p>
 {% elif done == "reanalyze" %}

@@ -28,10 +28,18 @@ from app.db.models import (
     UploadStatus,
 )
 from app.web.auth import get_current_user
+from app.web.routers.upload_page import get_clock
 from app.web.routers.uploads_list import PAGE_SIZE
 
 BASE = datetime(2026, 9, 10, 12, 0, 0, tzinfo=UTC)
 SECRET_FILE_NAME = "Ivan_Petrov-Pasaport-ozel.pdf"
+
+
+@pytest.fixture(autouse=True)
+def _clock(app: FastAPI) -> None:
+    # 10.3.7: sayfa açılırken süresi dolan parti iptal edilir; saat sabittir ve buradaki süren
+    # partiler `BASE`'ten sonra alınmıştır — süreleri dolmamıştır (iptal `test_upload_cancel.py`).
+    app.dependency_overrides[get_clock] = lambda: BASE
 
 
 def _rows(html: str) -> list[list[str]]:
@@ -219,6 +227,7 @@ def test_processing_statuses_keep_their_own_names_and_partial_and_failed_are_dis
         UploadStatus.DONE: "Tamamlandı",
         UploadStatus.PARTIAL: "Kısmen tamamlandı",
         UploadStatus.FAILED: "İşlenemedi",
+        UploadStatus.CANCELLED: "İptal edildi",
     }
     for number, status in enumerate(labels):
         _upload(
@@ -250,6 +259,7 @@ def test_the_status_filter_narrows_the_list_and_processing_covers_all_running_st
     assert _ids(client.get("/uploads", params={"status": "done"}).text) == ["u_done"]
     assert _ids(client.get("/uploads", params={"status": "partial"}).text) == ["u_partial"]
     assert _ids(client.get("/uploads", params={"status": "failed"}).text) == ["u_failed"]
+    assert _ids(client.get("/uploads", params={"status": "cancelled"}).text) == ["u_cancelled"]
     assert len(_ids(client.get("/uploads", params={"status": ""}).text)) == len(UploadStatus)
     selected = client.get("/uploads", params={"status": "partial"}).text
     assert '<option value="partial" selected>Kısmi</option>' in selected
@@ -542,7 +552,8 @@ def test_the_number_of_queries_does_not_grow_with_the_number_of_rows(
     many = _statements("/uploads")
 
     assert few == many
-    assert many <= 3
+    # Sayım, liste ve SQLite'ın `BEGIN IMMEDIATE`'i; 10.3.7'nin süre aşımı denetimi tek sorgudur.
+    assert many <= 4
 
 
 # --- 10.3.4: yoksayılan partiler ------------------------------------------------------------------

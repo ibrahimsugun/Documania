@@ -175,15 +175,18 @@ def _passport_pdf() -> bytes:
 
 
 def test_the_state_machine_is_the_prd_chain_and_any_unfinished_state_may_fail() -> None:
+    # 10.3.6, 10.3.7 (tm 168): bitmemiş her durum iptal de edilebilir; `cancelled` son durumdur.
+    stop = {UploadStatus.FAILED, UploadStatus.CANCELLED}
     assert dict(UPLOAD_TRANSITIONS) == {
-        UploadStatus.RECEIVED: {UploadStatus.RENDERING, UploadStatus.FAILED},
-        UploadStatus.RENDERING: {UploadStatus.ANALYZING, UploadStatus.FAILED},
-        UploadStatus.ANALYZING: {UploadStatus.PLANNING, UploadStatus.FAILED},
-        UploadStatus.PLANNING: {UploadStatus.EXECUTING, UploadStatus.FAILED},
-        UploadStatus.EXECUTING: {UploadStatus.DONE, UploadStatus.PARTIAL, UploadStatus.FAILED},
+        UploadStatus.RECEIVED: {UploadStatus.RENDERING, *stop},
+        UploadStatus.RENDERING: {UploadStatus.ANALYZING, *stop},
+        UploadStatus.ANALYZING: {UploadStatus.PLANNING, *stop},
+        UploadStatus.PLANNING: {UploadStatus.EXECUTING, *stop},
+        UploadStatus.EXECUTING: {UploadStatus.DONE, UploadStatus.PARTIAL, *stop},
         UploadStatus.DONE: set(),
         UploadStatus.PARTIAL: set(),
         UploadStatus.FAILED: set(),
+        UploadStatus.CANCELLED: set(),
     }
     assert set(UPLOAD_TRANSITIONS) == set(UploadStatus)
 

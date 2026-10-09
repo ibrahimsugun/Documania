@@ -4,7 +4,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Documania panel\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-09 00:24+0000\n"
+"POT-Creation-Date: 2026-10-09 01:25+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1547,12 +1547,24 @@ msgstr ""
 msgid "Bu kullanıcıya bağlı böyle bir Telegram kimliği yok"
 msgstr ""
 
+#: app/web/routers/upload_page.py
+#, python-brace-format
+msgid ""
+"Bu parti 10 dakikada tamamlanamadığı için {when} tarihinde otomatik iptal"
+" edildi."
+msgstr ""
+
 #: app/web/templates/upload_detail.html
 msgid "Bu parti için henüz plan yok."
 msgstr ""
 
 #: app/web/templates/upload_detail.html
 msgid "Bu parti için olay yok."
+msgstr ""
+
+#: app/web/routers/upload_page.py
+#, python-brace-format
+msgid "Bu parti {when} tarihinde {user} tarafından iptal edildi."
 msgstr ""
 
 #: app/web/templates/upload_detail.html
@@ -2183,6 +2195,10 @@ msgstr ""
 
 #: app/web/templates/queue_close_step.html
 msgid "Evet, kapat"
+msgstr ""
+
+#: app/web/templates/upload_action_result.html
+msgid "Evet, partiyi iptal et"
 msgstr ""
 
 #: app/web/templates/employee_status_step.html
@@ -3407,6 +3423,23 @@ msgstr ""
 #: app/web/templates/upload_action_result.html
 #, python-format
 msgid ""
+"Parti iptal edildi (iptal anında: %(stage)s); dosyalar ve üretilen "
+"belgeler yerinde kaldı."
+msgstr ""
+
+#: app/web/routers/uploads.py
+msgid ""
+"Parti iptal edildi; yeniden çalıştırılmaz ve yeniden analiz edilmez. "
+"Dosyaları yeniden yükleyebilirsiniz."
+msgstr ""
+
+#: app/web/routers/upload_page.py
+msgid "Parti son durumda; iptal edilecek süren bir işlem yok."
+msgstr ""
+
+#: app/web/templates/upload_action_result.html
+#, python-format
+msgid ""
 "Parti yeniden analiz edildi: yeni plan sürümü %(version)s (önceki: "
 "%(previous)s);"
 msgstr ""
@@ -3426,6 +3459,17 @@ msgstr ""
 msgid ""
 "Partinin planı yok; yeniden çalıştırılacak ya da yeniden analiz edilecek "
 "bir sürüm bulunmuyor."
+msgstr ""
+
+#: app/web/templates/upload_detail.html
+msgid "Partiyi iptal et"
+msgstr ""
+
+#: app/web/templates/upload_detail.html
+msgid ""
+"Partiyi iptal etmek işlemesini durdurur; dosyalar, sayfalar ve o ana "
+"kadar üretilen belgeler silinmez. Alındıktan 10 dakika sonra hâlâ "
+"bitmemiş parti kendiliğinden iptal edilir."
 msgstr ""
 
 #: app/matching/status.py app/web/routers/employees.py
@@ -5744,7 +5788,12 @@ msgstr ""
 msgid "İndirdi"
 msgstr ""
 
-#: app/groups/packages.py
+#: app/web/routers/uploads_list.py
+msgid "İptal"
+msgstr ""
+
+#: app/groups/packages.py app/web/routers/upload_page.py
+#: app/web/routers/uploads_list.py
 msgid "İptal edildi"
 msgstr ""
 

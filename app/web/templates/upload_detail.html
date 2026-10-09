@@ -3,7 +3,8 @@
    çizelgesi tek sayfada. İşlemler (10.3.2, 10.3.4) HTMX ile `#action-result`'a yazılır. Bağlam
    çalışanına ait görünmeyen belgeler kişi denetiminin uyarısıyla en üstte (10.5.5); yoksayılan
    taramanın bildirimi başlığın hemen altında (10.3.4), yanında tek adımlı "Yoksaymayı geri al"
-   (10.3.5). #}
+   (10.3.5). Süren partide "Partiyi iptal et" (10.3.6); iptal edilen partinin bildirimi (elle ya da
+   10 dakikalık süre aşımıyla, 10.3.7) başlığın altında. #}
 {% from "_context_warning.html" import context_warning %}
 {% block title %}{% if detail %}{{ _("Parti %(id)s", id=detail.upload_id) }}{% else %}{{ _("Parti") }}{% endif %}{% endblock %}
 {% block content %}
@@ -22,6 +23,9 @@
   <p class="hint">{% trans %}Parti yükleme listesine döner ve yoksaymayla kapanan kuyruk öğeleri yeniden açılır; arada atanan ya da kapatılan öğeler çözülmüş kalır.{% endtrans %}</p>
 </div>
 {% endif %}
+{% if detail.cancelled_notice %}
+<p class="notice" id="cancelled-notice" role="status">{{ translate(detail.cancelled_notice) }}</p>
+{% endif %}
 <p class="status status-{{ detail.status }}" role="status">{{ translate(detail.label) }}</p>
 <dl class="meta">
   <dt>{{ _("Kanal") }}</dt><dd>{{ detail.channel }}</dd>
@@ -38,7 +42,7 @@
   {% if detail.blocked_reason %}
   <p class="notice">{{ translate(detail.blocked_reason) }}</p>
   {% endif %}
-  {% if not detail.blocked_reason or detail.can_dismiss %}
+  {% if not detail.blocked_reason or detail.can_dismiss or detail.can_cancel %}
   <div class="action-buttons">
     {% if not detail.blocked_reason %}
     <button type="button" id="rerun-button"
@@ -49,6 +53,15 @@
       <p class="confirm-text">{{ translate(first_confirmation) }}</p>
       <button type="button" id="reanalyze-continue"
               hx-post="/uploads/{{ detail.upload_id }}/reanalyze/prepare"
+              hx-target="#action-result" hx-swap="innerHTML" hx-disabled-elt="this">{{ _("Evet, devam et") }}</button>
+    </details>
+    {% endif %}
+    {% if detail.can_cancel %}
+    <details class="reanalyze dismiss" id="cancel-step">
+      <summary>{{ _("Partiyi iptal et") }}</summary>
+      <p class="confirm-text">{{ cancel_first_confirmation }}</p>
+      <button type="button" id="cancel-continue"
+              hx-post="/uploads/{{ detail.upload_id }}/cancel/prepare"
               hx-target="#action-result" hx-swap="innerHTML" hx-disabled-elt="this">{{ _("Evet, devam et") }}</button>
     </details>
     {% endif %}
@@ -65,6 +78,9 @@
   {% endif %}
   {% if not detail.blocked_reason %}
   <p class="hint">{% trans %}Yeniden çalıştırma güncel planı yapay zekâya sormadan yeniden uygular. Yeniden analiz partiyi yeniden değerlendirir ve yeni bir plan sürümü açar; eski çıktılar silinmez.{% endtrans %}</p>
+  {% endif %}
+  {% if detail.can_cancel %}
+  <p class="hint">{% trans %}Partiyi iptal etmek işlemesini durdurur; dosyalar, sayfalar ve o ana kadar üretilen belgeler silinmez. Alındıktan 10 dakika sonra hâlâ bitmemiş parti kendiliğinden iptal edilir.{% endtrans %}</p>
   {% endif %}
   {% if detail.can_dismiss %}
   <p class="hint">{% trans %}Taramayı yoksaymak partiyi yükleme listesinden ve bekleyen öğelerini kuyruklardan kaldırır; dosyalar, olaylar ve üretilmiş belgeler silinmez.{% endtrans %}</p>

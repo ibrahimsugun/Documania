@@ -333,7 +333,9 @@ def test_an_access_changes_only_the_access_log(
 # belgenin **içeriğini** yazmaz: yükleme yeni dosya alır, taşıma/arşiv yalnız yeri ve adı değiştirir
 # (K11, K16), kuyruk/onay/profil akışları kayıt alanı yazar, yeniden analiz yeni plan sürümü üretir
 # (K18), geri kalanı oturum ve onay belirtecidir. Yeni bir yol eklenirse bu liste bilerek
-# genişletilir; içerik yazan bir yol buraya girmez (K17).
+# genişletilir; içerik yazan bir yol buraya girmez (K17). Bilerek yazan iki `GET` vardır ve
+# burada sayılmaz: yükleme listesi ve parti detayı açılırken süresi dolan parti iptal edilir
+# (`GET /uploads`, `GET /uploads/{upload_id}`; 10.3.7, §D114 e — yalnız parti ve işin durumu).
 REVIEWED_MUTATING_ROUTES: dict[tuple[str, str], str] = {
     ("POST", "/login"): "oturum",
     ("POST", "/logout"): "oturum",
@@ -347,6 +349,10 @@ REVIEWED_MUTATING_ROUTES: dict[tuple[str, str], str] = {
     ("POST", "/api/uploads/{upload_id}/reanalyze"): "yeni plan sürümü (K18)",
     ("POST", "/uploads/{upload_id}/dismiss"): "taramayı yoksayma: kayıt alanı, silme yok (10.3.4)",
     ("POST", "/uploads/{upload_id}/dismiss/prepare"): "onay belirteci",
+    ("POST", "/uploads/{upload_id}/cancel"): (
+        "süren partiyi iptal etme: durum alanı, iş kuyruktan düşer; silme yok (10.3.6, K16, §D114)"
+    ),
+    ("POST", "/uploads/{upload_id}/cancel/prepare"): "onay belirteci",
     ("POST", "/queues/{queue_item_id}/assign"): "kuyruk ataması (K16)",
     ("POST", "/queues/{queue_item_id}/assign/prepare"): "onay belirteci",
     ("POST", "/queues/{queue_item_id}/profile"): "profil onayı (K16)",

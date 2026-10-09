@@ -83,9 +83,14 @@ from app.storage.layout import REASON_FILE, DataLayout
 logger = logging.getLogger(__name__)
 
 # Partisi bu durumlardan birinde olan dosya ve sayfaları silinebilir; öbür durumlar işlenmektedir
-# (09.2.1) — boru hattının okuyacağı dosya silinmez.
+# (09.2.1) — boru hattının okuyacağı dosya silinmez. İptal edilen parti (10.3.6) de son durumdadır.
 _SETTLED_UPLOADS = frozenset(
-    {UploadStatus.DONE.value, UploadStatus.PARTIAL.value, UploadStatus.FAILED.value}
+    {
+        UploadStatus.DONE.value,
+        UploadStatus.PARTIAL.value,
+        UploadStatus.FAILED.value,
+        UploadStatus.CANCELLED.value,
+    }
 )
 # (dosya, sayfa sırası); sayfa `None` ise dosyanın bütünü (köken kaydında boş sayfa listesi).
 _WHOLE_FILE = None

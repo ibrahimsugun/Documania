@@ -79,6 +79,7 @@ class Operation(enum.StrEnum):
     CLOSE_QUEUE_ITEM = "close_queue_item"  # kuyruk öğesini kapat, 10.7.4 (§D61)
     DELETE_DOCUMENT = "delete_document"  # belgeyi kalıcı sil, 10.5.12 (§D110)
     DELETE_EMPLOYEE = "delete_employee"  # pasif çalışanı kalıcı sil, 10.5.13 (§D110)
+    CANCEL_UPLOAD = "cancel_upload"  # süren partiyi iptal et, 10.3.6 (§D114)
     # §20.6'nın dışında: yeniden analizin onayı (10.3.2, metinler PLAN.md §D23).
     REANALYZE = "reanalyze"
     # §20.6'nın dışında (K16 dışı, PLAN.md §D58): eğitim örneğini başka türe taşı ve örneklerden
@@ -183,6 +184,11 @@ CONFIRMATION_TEXTS: dict[Operation, ConfirmationTexts] = {
         "Çalışanın klasörü, belgeleri (<N>) ve kişisel bilgileri silinecek, yalnız E numarası "
         "kalacaktır; bu işlem geri alınamaz. Son kararınız mı?",
     ),
+    Operation.CANCEL_UPLOAD: ConfirmationTexts(
+        "Bu partiyi iptal etmek üzeresiniz. Emin misiniz?",
+        "Partinin işlenmesi durdurulacak; dosyalar ve o ana kadar üretilen belgeler silinmez. "
+        "İptal geri alınamaz ama dosyalar yeniden yüklenebilir. Son kararınız mı?",
+    ),
 }
 
 
@@ -266,6 +272,12 @@ CONFIRMATION_TEXTS_EN: dict[Operation, ConfirmationTexts] = {
         "The employee's folder, documents (<N>) and personal information will be deleted; only the "
         "E number will remain; this action cannot be undone. Is this your final decision?",
     ),
+    Operation.CANCEL_UPLOAD: ConfirmationTexts(
+        "You are about to cancel this batch. Are you sure?",
+        "Processing will stop; files and documents produced so far are not deleted. The "
+        "cancellation cannot be undone, but the files can be uploaded again. Is this your final "
+        "decision?",
+    ),
 }
 
 CONFIRMATION_TEXTS_SR: dict[Operation, ConfirmationTexts] = {
@@ -343,6 +355,12 @@ CONFIRMATION_TEXTS_SR: dict[Operation, ConfirmationTexts] = {
         "sigurni?",
         "Fascikla zaposlenog, dokumenti (<N>) i lični podaci biće obrisani, ostaće samo E broj; "
         "ova radnja se ne može poništiti. Da li je to vaša konačna odluka?",
+    ),
+    Operation.CANCEL_UPLOAD: ConfirmationTexts(
+        "Upravo ćete otkazati ovu seriju. Da li ste sigurni?",
+        "Obrada će biti zaustavljena; datoteke i dokumenti nastali do sada se ne brišu. "
+        "Otkazivanje se ne može poništiti, ali se datoteke mogu ponovo otpremiti. Da li je to vaša "
+        "konačna odluka?",
     ),
 }
 

@@ -3,8 +3,9 @@ ve partiyi yeniden analiz — PRD 09.2.1, 09.2.2, 09.2.3, 13.3.1, 06.6.1, 06.6.2
 S18).
 
 **Durum makinesi (09.2.1).** Parti `received → rendering → analyzing → planning → executing →
-done | partial` yolunu izler; bitmemiş her durumdan `failed`'a geçilir, son durumlardan (`done`,
-`partial`, `failed`) çıkış yoktur (`UPLOAD_TRANSITIONS`). Her geçiş `uploads.status`'a yazılır ve
+done | partial` yolunu izler; bitmemiş her durumdan `failed`'a ve `cancelled`'a (iptal, 10.3.6,
+10.3.7 — `app.pipeline.cancel`) geçilir, son durumlardan (`done`, `partial`, `failed`,
+`cancelled`) çıkış yoktur (`UPLOAD_TRANSITIONS`). Her geçiş `uploads.status`'a yazılır ve
 hemen commit edilir: durum her an başka bir oturumdan sorgulanabilir (`GET /api/uploads/{id}`,
 01.6.1) ve adımın veritabanı işi (sayfalar, analizler, plan) geçişle birlikte kalıcı olur. §8.3'ün
 kapalı listesinde durum geçişi için olay türü yoktur (PLAN.md §D21): geçişin izi sütunun kendisi,
@@ -156,19 +157,20 @@ from app.pipeline.route import QueueItemReferenceError, QueueSourceIntegrityErro
 from app.profiles import write_profile
 from app.storage import DataLayout, FileKind, UnsupportedFileTypeError, detect_file_kind
 
-# 09.2.1: bitmemiş her durumdan `failed`'a geçilir; `done`, `partial` ve `failed` son durumdur.
+# 09.2.1: bitmemiş her durumdan `failed`'a geçilir; 10.3.6/10.3.7: ve `cancelled`'a (iptal,
+# `app.pipeline.cancel`). `done`, `partial`, `failed` ve `cancelled` son durumdur.
+_STOPS = frozenset({UploadStatus.FAILED, UploadStatus.CANCELLED})
 UPLOAD_TRANSITIONS: Mapping[UploadStatus, frozenset[UploadStatus]] = MappingProxyType(
     {
-        UploadStatus.RECEIVED: frozenset({UploadStatus.RENDERING, UploadStatus.FAILED}),
-        UploadStatus.RENDERING: frozenset({UploadStatus.ANALYZING, UploadStatus.FAILED}),
-        UploadStatus.ANALYZING: frozenset({UploadStatus.PLANNING, UploadStatus.FAILED}),
-        UploadStatus.PLANNING: frozenset({UploadStatus.EXECUTING, UploadStatus.FAILED}),
-        UploadStatus.EXECUTING: frozenset(
-            {UploadStatus.DONE, UploadStatus.PARTIAL, UploadStatus.FAILED}
-        ),
+        UploadStatus.RECEIVED: frozenset({UploadStatus.RENDERING, *_STOPS}),
+        UploadStatus.RENDERING: frozenset({UploadStatus.ANALYZING, *_STOPS}),
+        UploadStatus.ANALYZING: frozenset({UploadStatus.PLANNING, *_STOPS}),
+        UploadStatus.PLANNING: frozenset({UploadStatus.EXECUTING, *_STOPS}),
+        UploadStatus.EXECUTING: frozenset({UploadStatus.DONE, UploadStatus.PARTIAL, *_STOPS}),
         UploadStatus.DONE: frozenset(),
         UploadStatus.PARTIAL: frozenset(),
         UploadStatus.FAILED: frozenset(),
+        UploadStatus.CANCELLED: frozenset(),
     }
 )
 

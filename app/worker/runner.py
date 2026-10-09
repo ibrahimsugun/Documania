@@ -14,12 +14,15 @@ kimse alamaz, kilit geçişte bırakılır ve kira o geçişte zaten yenilenmiş
 
 **Kuyruk döngüsü.** `Worker` ayrı HTTP dışı süreçte
 (`python -m app.worker`, Compose `worker` servisi) çalışır.
-`WORKER_POLL_SECONDS` aralıkla kuyruğu tarar: önce kirası en çok deneme kadar dolmuş
-işlerden vazgeçer, sonra sıradaki işi (bekleyen ya da kirası dolmuş) alıp işler; iş buldukça
-beklemeden devam eder. Uygulama yeniden başlayınca yarıda kalan partinin kirası dolar ve döngü onu
-kaldığı aşamadan sürdürür — kabul kriteri budur. Shutdown isteği yeni işi almadan önce beklenir;
-aktif iş tamamlanır, sonra süreç kapanır. Sağlayıcı ayarı worker başlarken doğrulanır; hatalı ayarda
-worker süreci görünür hatayla kapanır, kuyruktaki işler kalır.
+`WORKER_POLL_SECONDS` aralıkla kuyruğu tarar: önce alındığından beri `UPLOAD_TIMEOUT_SECONDS`
+(600) geçmiş bitmemiş partileri iptal eder (10.3.7, `app.pipeline.cancel`), sonra kirası en çok
+deneme kadar dolmuş işlerden vazgeçer, sonra sıradaki işi (bekleyen ya da kirası dolmuş) alıp
+işler; iş buldukça beklemeden devam eder. İptal edilen partinin işini kimse almaz; onu işleyen
+işleyici bir sonraki geçişte işi kaybeder (`LeaseLostError`) ve parti `cancelled` kalır. Uygulama
+yeniden başlayınca yarıda kalan partinin kirası dolar ve döngü onu kaldığı aşamadan sürdürür — kabul
+kriteri budur. Shutdown isteği yeni işi almadan önce beklenir; aktif iş tamamlanır, sonra süreç
+kapanır. Sağlayıcı ayarı worker başlarken doğrulanır; hatalı ayarda worker süreci görünür hatayla
+kapanır, kuyruktaki işler kalır.
 
 **Boş-zaman işleri.** Kuyruk boşken (`run_once()` `False`) döngü en çok bir boş-zaman birimi koşar
 (`run_idle_once`, `app.worker.idle`, PLAN.md §C85); yükleme işi her zaman önce gelir. İşleri
@@ -46,6 +49,7 @@ from app.ai.provider import AnalysisProvider, ProviderConfigError, create_provid
 from app.config import Settings
 from app.db.models import Upload, UploadStatus
 from app.db.session import create_db_engine, create_session_factory
+from app.pipeline.cancel import cancel_stale_uploads
 from app.pipeline.orchestrate import (
     UPLOAD_TRANSITIONS,
     Checkpoint,
@@ -179,9 +183,14 @@ class Worker:
         self._thread: threading.Thread | None = None
 
     def run_once(self) -> bool:
-        """Tükenen işlerden vazgeçer, sıradaki işi alıp işler; iş aldıysa `True`."""
+        """Süresi dolan partileri iptal eder, tükenen işlerden vazgeçer, sıradaki işi alıp işler;
+        iş aldıysa `True`."""
         settings = self._settings
         with self._session_factory() as session:
+            for upload_id in cancel_stale_uploads(
+                session, timeout_seconds=settings.upload_timeout_seconds
+            ):
+                logger.warning("Parti %s süresinde tamamlanamadı; otomatik iptal edildi", upload_id)
             for upload_id in abandon_exhausted(session, max_attempts=settings.worker_max_attempts):
                 logger.error("Parti %s bırakıldı: işleyicisi defalarca yarıda kaldı", upload_id)
             claim = claim_next(
