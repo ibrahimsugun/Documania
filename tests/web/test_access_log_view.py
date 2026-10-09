@@ -1,7 +1,9 @@
 """13.4.1 — erişim logu görünümü: çalışan bazında kim, ne zaman baktı görülebilir.
 
 Kayıtlar gerçek yoldan (`GET .../file`, `.../download`) ve bot yolunun yazdığı biçimde
-(`record_access(channel=telegram)`) oluşur; sayfalar `TestClient` ile çizilir. Veri sentetiktir
+(`record_access(channel=telegram)`) oluşur; sayfalar `TestClient` ile çizilir. 10.1.9: erişim logu
+yalnız root'a açıktır; bu dosyada oturumdaki kullanıcı root'tur (İK ve Kullanıcı'nın 404'ü
+`tests/web/test_roles.py`'de). Veri sentetiktir
 (`tests/fixtures/gen.py`); gerçek kimlik belgesi, yapay zekâ ya da ağ çağrısı yoktur.
 """
 
@@ -27,13 +29,23 @@ from app.db.models import (
 )
 from app.storage import DataLayout
 from app.web.access import record_access
-from app.web.auth import PanelUser
+from app.web.auth import PanelUser, get_current_user
 from app.web.routers.access_log import PAGE_SIZE
 from tests.fixtures.gen import make_pdf_bytes
 from tests.web.conftest import SIGNED_IN
 
 BASE = datetime(2026, 9, 1, 8, 30, 0, tzinfo=UTC)
-ANNA = PanelUser(id=2, username="anna-ik", role="admin")
+ANNA = PanelUser(id=2, username="anna-ik", role="hr")
+ROOT = PanelUser(id=SIGNED_IN.id, username=SIGNED_IN.username, role="root")
+
+
+@pytest.fixture(autouse=True)
+def _signed_in_as_root(app: FastAPI, session_factory: sessionmaker[Session]) -> None:
+    """10.1.9: erişim logunu yalnız root açar; oturumdaki test kullanıcısı root olur."""
+    with session_factory() as session:
+        session.get_one(User, ROOT.id).role = "root"
+        session.commit()
+    app.dependency_overrides[get_current_user] = lambda: ROOT
 
 
 def _rows(html: str, table_index: int = 0) -> list[list[str]]:
@@ -95,7 +107,7 @@ def world(session_factory: sessionmaker[Session], layout: DataLayout) -> dict[st
                 output_format="pdf",
             )
         )
-        session.add(User(id=ANNA.id, username=ANNA.username, password_hash="yok", role="admin"))
+        session.add(User(id=ANNA.id, username=ANNA.username, password_hash="yok", role="hr"))
         _, dmitry_doc = _employee(session, layout, 1, "Dmitry Vasiliev")
         _, olga_doc = _employee(session, layout, 2, "Olga Petrova")
         session.commit()

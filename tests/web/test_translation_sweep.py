@@ -295,7 +295,8 @@ def speak(app: FastAPI) -> Speak:
     """Oturumdaki kullanıcının dil tercihini koyar (girişli istekte dil hesabın tercihidir)."""
 
     def choose(language: str) -> None:
-        user = PanelUser(SIGNED_IN.id, SIGNED_IN.username, SIGNED_IN.role, language=language)
+        # 10.1.9: root her sayfayı (erişim logu dahil) açar; tarama her sayfayı çizer.
+        user = PanelUser(SIGNED_IN.id, SIGNED_IN.username, "root", language=language)
         app.dependency_overrides[get_current_user] = lambda: user
 
     return choose

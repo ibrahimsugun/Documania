@@ -45,7 +45,8 @@
 </p>
 {% endif %}
 
-{% if item.profile_form or item.profile_note %}
+{# 10.1.8: salt okunur Kullanıcı'da profil, atama, kapatma ve yeniden açma bölümleri yoktur. #}
+{% if user.can_write and (item.profile_form or item.profile_note) %}
 {# 10.7.3: önerilen profil düzenlenip iki aşamalı onayla (§20.6) çalışan olarak açılır; belge
    içeriği formda yoktur (K17). HTMX 4xx/5xx yanıtını değiştirmez; adımların hata metni görünsün. #}
 <section id="new-profile" class="actions" aria-labelledby="new-profile-title"
@@ -60,7 +61,7 @@
 </section>
 {% endif %}
 
-{% if item.can_assign or item.assign_note %}
+{% if user.can_write and (item.can_assign or item.assign_note) %}
 {# 10.7.2: çalışan aranarak seçilir, iki aşamalı onayla atanır (§20.6). HTMX 4xx/5xx yanıtını
    değiştirmez; adımların hata metni görünsün. #}
 <section id="assign" class="actions" aria-labelledby="assign-title"
@@ -86,7 +87,8 @@
 </section>
 {% endif %}
 
-{% if item.can_close %}
+{% if not user.can_write %}
+{% elif item.can_close %}
 {# 10.7.4: çöp sayfa ya da mükerrer belge gerekçeyle, iki aşamalı onayla (§20.6) kapatılır. #}
 <section id="close" class="actions" aria-labelledby="close-title">
   <h2 id="close-title">{{ _("Öğeyi kapat") }}</h2>

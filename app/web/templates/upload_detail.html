@@ -17,10 +17,12 @@
 {% if detail.dismissed_notice %}
 <div class="dismissed-row" id="dismissed-row">
   <p class="notice" id="dismissed-notice" role="status">{{ translate(detail.dismissed_notice) }}</p>
+  {% if user.can_write %}
   <button type="button" id="undismiss-button"
           hx-post="/uploads/{{ detail.upload_id }}/undismiss"
           hx-target="#action-result" hx-swap="innerHTML" hx-disabled-elt="this">{{ _("Yoksaymayı geri al") }}</button>
   <p class="hint">{% trans %}Parti yükleme listesine döner ve yoksaymayla kapanan kuyruk öğeleri yeniden açılır; arada atanan ya da kapatılan öğeler çözülmüş kalır.{% endtrans %}</p>
+  {% endif %}
 </div>
 {% endif %}
 {% if detail.cancelled_notice %}
@@ -35,7 +37,9 @@
 {{ context_warning(detail.context_warning) }}
 
 {# HTMX 4xx/5xx yanıtını değiştirmez; işlem parçalarının hata metni görünsün. Olay mesajı, plan ve
-   kuyruk gerekçesi kayıtlı metindir, çevrilmez (`translate="no"`, PLAN.md §D92 f). #}
+   kuyruk gerekçesi kayıtlı metindir, çevrilmez (`translate="no"`, PLAN.md §D92 f). 10.1.8: salt
+   okunur Kullanıcı'da işlemler bölümü yoktur. #}
+{% if user.can_write %}
 <section id="actions" class="actions" aria-labelledby="actions-title"
          hx-on::before-swap="if (event.detail.xhr.status >= 400) { event.detail.shouldSwap = true; event.detail.isError = false; }">
   <h2 id="actions-title">{{ _("İşlemler") }}</h2>
@@ -87,6 +91,7 @@
   {% endif %}
   <div id="action-result" class="action-result" aria-live="polite"></div>
 </section>
+{% endif %}
 
 <section id="pages" aria-labelledby="pages-title">
   <h2 id="pages-title">{{ _("Sayfalar") }}</h2>

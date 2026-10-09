@@ -253,7 +253,7 @@ from app.storage.examples import (
 )
 from app.training.cleanup import listed_hashes, record_uploaded_example, same_type_example
 from app.training.known_types import KnownTypes, load_known_types
-from app.web.auth import PanelUser, require_panel_user
+from app.web.auth import WRITER_ONLY, PanelUser, require_panel_user
 from app.web.confirm import (
     CONFIRMATION_REFUSED,
     ConfirmationRefusedError,
@@ -929,7 +929,7 @@ def catalog_page(
     )
 
 
-@router.get(f"{LIST_PATH}/new", response_class=HTMLResponse)
+@router.get(f"{LIST_PATH}/new", response_class=HTMLResponse, dependencies=WRITER_ONLY)
 def new_type_page(
     request: Request, user: CurrentUser, list_country: ListCountryQuery = None
 ) -> HTMLResponse:
@@ -1361,7 +1361,9 @@ def _archivable(session: Session, slug: str) -> KnownDocumentType:
     return row
 
 
-@router.get(f"{LIST_PATH}/{{slug}}/archive/confirm", response_class=HTMLResponse)
+@router.get(
+    f"{LIST_PATH}/{{slug}}/archive/confirm", response_class=HTMLResponse, dependencies=WRITER_ONLY
+)
 def archive_first_confirmation(
     slug: str,
     request: Request,

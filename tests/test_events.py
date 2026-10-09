@@ -48,7 +48,7 @@ def test_all_prd_event_types_are_present() -> None:
     tercihi olayı (`USER_LANGUAGE_CHANGED`, 10.10.2) tm 153'le; belgeyi kalıcı silme olayı
     (`DOCUMENT_DELETED`, 10.5.12) tm 166'yla; pasif çalışanı kalıcı silme olayı
     (`EMPLOYEE_DELETED`, 10.5.13) tm 167'yle; süren partiyi iptal etme olayı (`UPLOAD_CANCELLED`,
-    10.3.6, 10.3.7) tm 168'le."""
+    10.3.6, 10.3.7) tm 168'le; rol değiştirme olayı (`USER_ROLE_CHANGED`, 10.1.8) tm 169'la."""
     expected = {
         "FILE_UPLOADED",
         "FILE_DUPLICATE",
@@ -128,6 +128,7 @@ def test_all_prd_event_types_are_present() -> None:
         "USER_REACTIVATED",
         "USER_PASSWORD_CHANGED",
         "USER_LANGUAGE_CHANGED",
+        "USER_ROLE_CHANGED",
         "TELEGRAM_USER_CHANGED",
         "TELEGRAM_LINK_CREATED",
         "DOCUMENT_DELETED",

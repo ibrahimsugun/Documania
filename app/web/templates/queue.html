@@ -45,7 +45,7 @@
       {% if listing.state == "resolved" %}
       <td>
         {{ translate(row.resolved) }}
-        {% if row.can_reopen %}
+        {% if row.can_reopen and user.can_write %}
         <form method="post" action="/queues/{{ row.id }}/reopen" class="reopen-item">
           <button type="submit">{{ _("Yeniden aç") }}</button>
         </form>

@@ -268,7 +268,7 @@ from app.storage import (
     remove_employee_files,
 )
 from app.web.access import record_access
-from app.web.auth import PanelUser, require_panel_user
+from app.web.auth import WRITER_ONLY, PanelUser, require_panel_user
 from app.web.confirm import (
     CONFIRMATION_REFUSED,
     ConfirmationRefusedError,
@@ -1627,7 +1627,9 @@ _FIELDS_REFUSALS = (
 )
 
 
-@router.get("/employees/{employee_id}/fields", response_class=HTMLResponse)
+@router.get(
+    "/employees/{employee_id}/fields", response_class=HTMLResponse, dependencies=WRITER_ONLY
+)
 def employee_fields_form(
     employee_id: str,
     request: Request,
@@ -1822,7 +1824,9 @@ def _status_page(
     )
 
 
-@router.get("/employees/{employee_id}/status/confirm", response_class=HTMLResponse)
+@router.get(
+    "/employees/{employee_id}/status/confirm", response_class=HTMLResponse, dependencies=WRITER_ONLY
+)
 def employee_status_first_confirmation(
     employee_id: str,
     request: Request,
@@ -2104,7 +2108,9 @@ def _employee_delete_page(
     )
 
 
-@router.get("/employees/{employee_id}/delete/confirm", response_class=HTMLResponse)
+@router.get(
+    "/employees/{employee_id}/delete/confirm", response_class=HTMLResponse, dependencies=WRITER_ONLY
+)
 def employee_delete_first_confirmation(
     employee_id: str,
     request: Request,
@@ -2402,6 +2408,7 @@ def _records_redirect(employee_id: str, notice: str) -> RedirectResponse:
 @router.get(
     "/employees/{employee_id}/records/{kind}/{record_id}/remove/confirm",
     response_class=HTMLResponse,
+    dependencies=WRITER_ONLY,
 )
 def record_removal_first_confirmation(
     employee_id: str,
@@ -2796,7 +2803,11 @@ def _merge_page(
     )
 
 
-@router.get("/employees/{employee_id}/merge/employees", response_class=HTMLResponse)
+@router.get(
+    "/employees/{employee_id}/merge/employees",
+    response_class=HTMLResponse,
+    dependencies=WRITER_ONLY,
+)
 def merge_search(
     employee_id: str,
     request: Request,
@@ -2832,7 +2843,9 @@ def merge_search(
     return response
 
 
-@router.get("/employees/{employee_id}/merge/confirm", response_class=HTMLResponse)
+@router.get(
+    "/employees/{employee_id}/merge/confirm", response_class=HTMLResponse, dependencies=WRITER_ONLY
+)
 def merge_first_confirmation(
     employee_id: str,
     request: Request,

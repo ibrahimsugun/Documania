@@ -8,8 +8,17 @@ dolunca ya da çıkışta geçersizdir; kapanan oturum satırı silinmez (`revok
 Kullanıcı yönetimi (10.1.4, PLAN.md §C92-d): kullanıcı silinmez, pasife alınır (`users.active`).
 Pasif kullanıcı giriş yapamaz (hata metni yanlış parolanınkiyle aynı) ve açık oturumları kapanır;
 oturum denetimi her istekte `users.active`'i okur (önbellek yok). Kullanıcı kendini pasife alamaz,
-son etkin yönetici pasife alınamaz. Parola değişince kullanıcının diğer oturumları kapanır. Her
+son etkin İK pasife alınamaz. Parola değişince kullanıcının diğer oturumları kapanır. Her
 işlem kullanıcı adıyla olaya yazılır; parola hiçbir olaya girmez (K15).
+
+Yetki seviyeleri (10.1.8, 10.1.9; PLAN.md §D115): `hr` (İK) ve `root` yazar, `user` (Kullanıcı)
+salt okunur gezer. Rol, `users.active` gibi her istekte veritabanından okunur: rol değişikliği açık
+oturumda bir sonraki istekte geçerlidir. Yazma kapısı sunucudadır: `app.main` her yönlendiriciye
+`panel_write_gate`/`api_write_gate` bağlar — güvenli olmayan her yöntem `require_writer`'ın
+kuralından geçer (Kullanıcı'ya 403, hiçbir şey yazılmaz); yalnız giriş/çıkış, dil seçici ve kendi
+hesabının yolları (`/account/...`) bu kapının dışındadır. `require_root` erişim logunu root'a
+ayırır, ötekine 404 döner. Root gizlidir ve tektir: panel root üretmez ve atamaz (`create_root`
+yalnız komut satırı), son etkin İK kuralı root'u saymaz ve hata metni onu anmaz.
 
 10.1.2 "girişsiz hiçbir panel yolu açılmaz": panel sayfaları `require_panel_user` ile girişe
 yönlendirir (303), API uç noktaları `require_api_user` ile 401 döner. İkisi de oturumu
@@ -24,7 +33,7 @@ import secrets
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from functools import lru_cache
-from typing import Annotated
+from typing import Annotated, Any
 from urllib.parse import urlencode
 
 from argon2 import PasswordHasher
@@ -44,6 +53,13 @@ LOGIN_PATH = "/login"
 USERNAME_MIN_LENGTH = 3
 USERNAME_MAX_LENGTH = 150  # `users.username` sütun uzunluğu
 MIN_PASSWORD_LENGTH = 12  # komut satırı ve panel aynı kuralı kullanır (§C92-d)
+# 10.1.8: yazan roller; panelde (ve `create-user`'da) atanabilen roller — root yalnız
+# `create-root`'la verilir.
+WRITER_ROLES = frozenset({UserRole.HR.value, UserRole.ROOT.value})
+ASSIGNABLE_ROLES = (UserRole.HR, UserRole.USER)
+SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
+READ_ONLY = N_("Hesabınız salt okunur: bu işlemi yapamazsınız.")
+LAST_ACTIVE_HR = N_("Son etkin İK pasife alınamaz ve rolü düşürülemez.")
 
 _hasher = PasswordHasher()
 
@@ -57,6 +73,16 @@ class PanelUser:
     role: str
     # 10.10.2: hesabın arayüz dili tercihi (`en`/`tr`/`sr`); `None` = tercih yok.
     language: str | None = None
+
+    @property
+    def can_write(self) -> bool:
+        """10.1.8: İK ve root yazar; Kullanıcı salt okunurdur (şablon yazma düğmelerini gizler)."""
+        return self.role in WRITER_ROLES
+
+    @property
+    def is_root(self) -> bool:
+        """10.1.8, 10.1.9: root'un kendi ekranındaki etiket ve erişim logu."""
+        return self.role == UserRole.ROOT.value
 
 
 class UserCreationError(ValueError):
@@ -72,8 +98,16 @@ class WrongPasswordError(ValueError):
 
 
 class UserStatusError(ValueError):
-    """Kullanıcı işlemi kuralla reddedildi: kendini pasife alma, son etkin yönetici, zaten o
-    durumda olma, kendi parolasını sıfırlama (panelde 409)."""
+    """Kullanıcı işlemi kuralla reddedildi: kendini pasife alma, son etkin İK, zaten o durumda ya da
+    rolde olma, kendi parolasını sıfırlama, kendi rolünü değiştirme (panelde 409)."""
+
+
+class RootExistsError(UserCreationError):
+    """İkinci root açılamaz (10.1.8): komut satırı reddeder, veritabanı indeksi de reddeder."""
+
+
+class RootTargetError(LookupError):
+    """Panelden root'a yönelik işlem (10.1.8): panel bunu "kullanıcı bulunamadı" (404) sayar."""
 
 
 class LoginRequiredError(Exception):
@@ -141,12 +175,29 @@ def create_user(
     username: str,
     password: str,
     *,
-    role: UserRole = UserRole.ADMIN,
+    role: UserRole = UserRole.HR,
     actor: str | None = None,
 ) -> User:
-    """10.1.3, 10.1.4 — panel kullanıcısı açar; parola argon2 özetiyle saklanır. Paneldeki açılış
-    (`actor` verilir) `USER_CREATED` yazar; komut satırının ilk yöneticisi olay yazmaz. Commit
-    çağırana aittir."""
+    """10.1.3, 10.1.4, 10.1.8 — İK ya da Kullanıcı açar; parola argon2 özetiyle saklanır. Root
+    buradan açılmaz (`create_root`). Paneldeki açılış (`actor` verilir) `USER_CREATED` yazar; komut
+    satırının açtığı kullanıcı olay yazmaz. Commit çağırana aittir."""
+    if role not in ASSIGNABLE_ROLES:
+        raise ValueError(f"create_user root açmaz: {role!r}")
+    return _new_user(session, username, password, role=role, actor=actor)
+
+
+def create_root(session: Session, username: str, password: str) -> User:
+    """10.1.8 — tek root'u açar; yalnız komut satırı çağırır (`python -m app.web create-root`).
+    Root zaten varsa `RootExistsError`; aynı anda iki açılışı `uq_users_single_root` indeksi
+    reddeder. Olay yazmaz (komut satırının açtığı kullanıcı gibi). Commit çağırana aittir."""
+    if session.scalar(select(User.id).where(User.role == UserRole.ROOT.value)) is not None:
+        raise RootExistsError(N_("Sistemde zaten bir root var; ikinci root açılamaz."))
+    return _new_user(session, username, password, role=UserRole.ROOT, actor=None)
+
+
+def _new_user(
+    session: Session, username: str, password: str, *, role: UserRole, actor: str | None
+) -> User:
     name = normalize_username(username)
     check_password(password)
     if session.scalar(select(User.id).where(User.username == name)) is not None:
@@ -312,9 +363,10 @@ def change_own_password(
 
 
 def reset_password(session: Session, target: User, new_password: str, *, actor: PanelUser) -> None:
-    """Yönetici başka bir kullanıcının parolasını sıfırlar; hedefin bütün oturumları kapanır,
+    """İK başka bir kullanıcının parolasını sıfırlar; hedefin bütün oturumları kapanır,
     `USER_PASSWORD_CHANGED` (`self: false`). Kendi parolası eski parolayla değişir (409). Commit
     çağırana aittir."""
+    _refuse_root_target(target)
     if target.id == actor.id:
         raise UserStatusError(N_("Kendi parolanızı «Parolamı değiştir» sayfasından değiştirin."))
     check_password(new_password)
@@ -323,14 +375,33 @@ def reset_password(session: Session, target: User, new_password: str, *, actor: 
     _record_password_change(session, target, actor=actor.username, own=False)
 
 
+def _refuse_root_target(target: User) -> None:
+    """10.1.8: panel root'a yönelik hiçbir işlem yapmaz (yönlendirici bunu 404'e çevirir)."""
+    if target.role == UserRole.ROOT.value:
+        raise RootTargetError(target.id)
+
+
+def _other_active_hr(target: User) -> Any:
+    """`target` dışındaki etkin İK sayısı (alt sorgu). Root sayılmaz (10.1.8): gizlidir; İK kalmazsa
+    panel yazan görünür kişiyi kaybeder."""
+    other = aliased(User)
+    return (
+        select(func.count(other.id))
+        .where(other.active.is_(True), other.role == UserRole.HR.value, other.id != target.id)
+        .scalar_subquery()
+    )
+
+
 def set_user_active(session: Session, target: User, active: bool, *, actor: PanelUser) -> None:
     """Kullanıcıyı pasife alır ya da yeniden etkinleştirir; kullanıcı silinmez (R11).
 
-    Pasife alma kendini (409) ve son etkin yöneticiyi (409) reddeder; koşullu güncellemeyle yapılır
-    (arada başka bir istek son diğer yöneticiyi pasife aldıysa satır değişmez), hedefin açık
-    oturumları kapanır, `USER_DEACTIVATED`. Etkinleştirme `USER_REACTIVATED`. Zaten o durumdaki
-    kullanıcı 409. Commit çağırana aittir.
+    Pasife alma kendini (409) ve son etkin İK'yı (409; root sayılmaz, metin root'u anmaz) reddeder;
+    koşullu güncellemeyle yapılır (arada başka bir istek son diğer İK'yı pasife aldıysa ya da
+    düşürdüyse satır değişmez), hedefin açık oturumları kapanır, `USER_DEACTIVATED`. Etkinleştirme
+    `USER_REACTIVATED`. Zaten o durumdaki kullanıcı 409. Root hedefi `RootTargetError`. Commit
+    çağırana aittir.
     """
+    _refuse_root_target(target)
     if target.active == active:
         template = N_("'{name}' zaten etkin.") if active else N_("'{name}' zaten pasif.")
         raise UserStatusError(Translatable(template, name=target.username))
@@ -346,30 +417,62 @@ def set_user_active(session: Session, target: User, active: bool, *, actor: Pane
         return
     if target.id == actor.id:
         raise UserStatusError(N_("Kendi hesabınızı pasife alamazsınız."))
-    other = aliased(User)
-    other_active_admins = (
-        select(func.count(other.id))
-        .where(other.active.is_(True), other.role == UserRole.ADMIN.value, other.id != target.id)
-        .scalar_subquery()
-    )
-    conditions = [User.id == target.id, User.active.is_(True)]
-    if target.role == UserRole.ADMIN.value:
-        conditions.append(other_active_admins > 0)
     result = session.execute(
         update(User)
-        .where(*conditions)
+        .where(
+            User.id == target.id,
+            User.active.is_(True),
+            (User.role != UserRole.HR.value) | (_other_active_hr(target) > 0),
+        )
         .values(active=False)
         .execution_options(synchronize_session=False)
     )
     session.refresh(target)
     if result.rowcount != 1:
-        raise UserStatusError(N_("Son etkin yönetici pasife alınamaz."))
+        raise UserStatusError(LAST_ACTIVE_HR)
     close_user_sessions(session, target.id)
     record_event(
         session,
         EventType.USER_DEACTIVATED,
         actor=actor.username,
         data={"target_user_id": target.id},
+    )
+
+
+def set_user_role(session: Session, target: User, role: UserRole, *, actor: PanelUser) -> None:
+    """10.1.8 — İK ile Kullanıcı arasında rol değiştirir; `USER_ROLE_CHANGED` {target_user_id, from,
+    to} kullanıcı adıyla. Root ne hedeftir (`RootTargetError`) ne de seçenek (`ValueError`). Kendi
+    rolü, aynı role geçiş ve son etkin İK'yı Kullanıcı'ya düşürme 409 (`UserStatusError`; koşullu
+    güncelleme, `set_user_active` gibi). Açık oturumlar kapanmaz: rol her istekte okunur, değişiklik
+    bir sonraki istekte geçerlidir. Commit çağırana aittir."""
+    if role not in ASSIGNABLE_ROLES:
+        raise ValueError(f"panelden atanamayan rol: {role!r}")
+    _refuse_root_target(target)
+    if target.id == actor.id:
+        raise UserStatusError(N_("Kendi rolünüzü değiştiremezsiniz."))
+    previous = target.role
+    if previous == role.value:
+        raise UserStatusError(Translatable(N_("'{name}' zaten bu rolde."), name=target.username))
+    result = session.execute(
+        update(User)
+        .where(
+            User.id == target.id,
+            User.role == previous,
+            (User.role != UserRole.HR.value)
+            | User.active.is_(False)
+            | (_other_active_hr(target) > 0),
+        )
+        .values(role=role.value)
+        .execution_options(synchronize_session=False)
+    )
+    session.refresh(target)
+    if result.rowcount != 1:
+        raise UserStatusError(LAST_ACTIVE_HR)
+    record_event(
+        session,
+        EventType.USER_ROLE_CHANGED,
+        actor=actor.username,
+        data={"target_user_id": target.id, "from": previous, "to": role.value},
     )
 
 
@@ -456,3 +559,47 @@ def require_api_user(user: Annotated[PanelUser | None, Depends(get_current_user)
     if user is None:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Oturum açılmamış; önce giriş yapın.")
     return user
+
+
+# --- yetki (10.1.8, 10.1.9; PLAN.md §D115) ----------------------------------------------------
+
+
+def _writer(user: PanelUser) -> PanelUser:
+    if not user.can_write:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, READ_ONLY)
+    return user
+
+
+def require_writer(user: Annotated[PanelUser, Depends(require_panel_user)]) -> PanelUser:
+    """Yalnız yazmaya götüren panel sayfası (form, onay adımı) ve yazan yol: İK ve root;
+    Kullanıcı'ya 403. Kapı sunucudadır — şablonun düğmeyi gizlemesi güvenlik değildir."""
+    return _writer(user)
+
+
+# Yalnız yazmaya götüren `GET` sayfalarının (yükleme ve düzenleme formu, taşıma, atama ve
+# birleştirme araması, iki aşamalı onayın ilk adımı) yol bağımlılığı:
+# `@router.get(..., dependencies=WRITER_ONLY)`.
+WRITER_ONLY = [Depends(require_writer)]
+
+
+def require_root(user: Annotated[PanelUser, Depends(require_panel_user)]) -> PanelUser:
+    """10.1.9 erişim logu: yalnız root; İK ve Kullanıcı için yol yokmuş gibi 404."""
+    if not user.is_root:
+        raise HTTPException(status.HTTP_404_NOT_FOUND)
+    return user
+
+
+def panel_write_gate(
+    request: Request, user: Annotated[PanelUser, Depends(require_panel_user)]
+) -> None:
+    """Yönlendirici düzeyinde (`app.main`): güvenli olmayan her yöntem `require_writer`'ın
+    kuralından geçer; yeni eklenen her yazan yol kendiliğinden kapıdadır
+    (`tests/web/test_roles.py` tarar)."""
+    if request.method not in SAFE_METHODS:
+        _writer(user)
+
+
+def api_write_gate(request: Request, user: Annotated[PanelUser, Depends(require_api_user)]) -> None:
+    """`panel_write_gate`'in JSON API karşılığı: oturum yoksa 401, Kullanıcı yazarsa 403."""
+    if request.method not in SAFE_METHODS:
+        _writer(user)

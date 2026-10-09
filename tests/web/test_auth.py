@@ -119,7 +119,7 @@ def test_create_user_stores_only_an_argon2_hash(
         stored = session.scalars(select(User)).one()
 
     assert stored.username == USERNAME
-    assert stored.role == UserRole.ADMIN
+    assert stored.role == UserRole.HR
     assert stored.password_hash.startswith("$argon2id$")
     assert PASSWORD not in stored.password_hash
     assert PasswordHasher().verify(stored.password_hash, PASSWORD)
@@ -167,7 +167,7 @@ def test_authenticate_rehashes_a_hash_made_with_outdated_parameters(
 ) -> None:
     weak = PasswordHasher(time_cost=1, memory_cost=8, parallelism=1).hash(PASSWORD)
     with session_factory() as session:
-        session.add(User(username=USERNAME, password_hash=weak, role=UserRole.ADMIN.value))
+        session.add(User(username=USERNAME, password_hash=weak, role=UserRole.HR.value))
         session.commit()
         user = authenticate(session, USERNAME, PASSWORD)
         assert user is not None
@@ -182,7 +182,7 @@ def test_authenticate_rehashes_a_hash_made_with_outdated_parameters(
 
 def test_a_broken_stored_hash_fails_closed(session_factory: sessionmaker[Session]) -> None:
     with session_factory() as session:
-        session.add(User(username=USERNAME, password_hash="bozuk", role="admin"))
+        session.add(User(username=USERNAME, password_hash="bozuk", role="hr"))
         session.commit()
         assert authenticate(session, USERNAME, PASSWORD) is None
 
@@ -240,7 +240,7 @@ def test_last_active_admin_rule_holds_even_for_another_actor(
     session_factory: sessionmaker[Session], admin: User
 ) -> None:
     # Kural koşullu güncellemededir: işlemi yapan (burada zaten pasif) başka biri olsa da son etkin
-    # yönetici pasife alınamaz.
+    # İK pasife alınamaz.
     with session_factory() as session:
         other = create_user(session, "baska", PASSWORD)
         other.active = False
@@ -249,7 +249,7 @@ def test_last_active_admin_rule_holds_even_for_another_actor(
         target = session.get(User, admin.id)
         assert target is not None
 
-        with pytest.raises(UserStatusError, match="Son etkin yönetici"):
+        with pytest.raises(UserStatusError, match="Son etkin İK"):
             set_user_active(session, target, False, actor=actor)
         assert target.active is True
 
@@ -266,7 +266,7 @@ def test_session_keeps_only_the_token_hash_and_resolves_until_closed(
 
         user = resolve_session(session, token)
         assert user is not None
-        assert (user.id, user.username, user.role) == (admin.id, USERNAME, "admin")
+        assert (user.id, user.username, user.role) == (admin.id, USERNAME, "hr")
         assert resolve_session(session, token + "x") is None
 
         assert close_session(session, token) is True

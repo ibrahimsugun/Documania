@@ -141,10 +141,14 @@ ayrı servisler olarak başlar. Worker `python -m app.worker` çalıştırır, H
 aynı DB/veri hacmini kullanır. Caddy, sağlıklı `app` servisini bekleyip HTTPS'i sonlandırır.
 Komut bitince `https://<DOMAIN>` açılır; HTTP istekleri HTTPS'e yönlendirilir.
 
-**3. İlk yönetici** (panel girişsiz açılmaz; parola terminalden gizli sorulur):
+**3. İlk kullanıcılar** (panel girişsiz açılmaz; parola terminalden gizli sorulur). Roller
+(10.1.8): `hr` (İK) bütün işlemleri yapar, `user` (Kullanıcı) paneli yalnız okur, `root` İK'nın
+her şeyini ve erişim logunu açar; root tektir, gizlidir ve yalnız komut satırından verilir — ikinci
+`create-root` reddedilir. Sonraki kullanıcılar panelin Kullanıcılar sayfasından açılır:
 
 ```bash
-docker compose exec app python -m app.web create-admin --username <ad>
+docker compose exec app python -m app.web create-root --username <ad>
+docker compose exec app python -m app.web create-user --username <ad> --role hr
 ```
 
 **4. Doğrulama:**

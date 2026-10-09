@@ -50,7 +50,7 @@ def _user(session_factory: sessionmaker[Session], username: str) -> int:
 def _actor(session_factory: sessionmaker[Session]) -> PanelUser:
     """`set_user_active` kendini pasife almayı reddeder: işlemi ayrı bir yönetici yapar."""
     user_id = _user(session_factory, ADMIN)
-    return PanelUser(id=user_id, username=ADMIN, role="admin")
+    return PanelUser(id=user_id, username=ADMIN, role="hr")
 
 
 def _add(session_factory: sessionmaker[Session], user_id: int, telegram_id: int) -> None:
@@ -182,8 +182,8 @@ def test_permitted_ids_need_both_the_permission_and_an_active_panel_user(
     session_factory: sessionmaker[Session],
 ) -> None:
     with session_factory() as session:
-        active = User(username="etkin", password_hash="x", role="admin", active=True)
-        passive = User(username="pasif", password_hash="x", role="admin", active=False)
+        active = User(username="etkin", password_hash="x", role="hr", active=True)
+        passive = User(username="pasif", password_hash="x", role="hr", active=False)
         session.add_all(
             [
                 TelegramUser(telegram_id=1, user=active, allowed=True),

@@ -181,7 +181,7 @@ def seed_project(project: Project) -> None:
     engine = create_db_engine(f"sqlite:///{project.db.as_posix()}")
     Base.metadata.create_all(engine)
     with Session(engine) as session:
-        session.add(User(id=1, username="ik-yonetici", password_hash="yok", role="admin"))
+        session.add(User(id=1, username="ik-yonetici", password_hash="yok", role="hr"))
         session.add(
             KnownDocumentType(
                 slug="russian_passport",

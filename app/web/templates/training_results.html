@@ -23,7 +23,8 @@
           {{ translate(run.counts) }}
         </td>
         <td>
-          {% if run.archived %}
+          {% if not user.can_write %}
+          {% elif run.archived %}
           <form class="inline-form" method="post" action="/training/runs/{{ run.id }}/restore">
             <button type="submit">{{ _("Geri al") }}</button>
           </form>
@@ -54,7 +55,7 @@
   {% endif %}
   {% if results.items %}
   <p class="count">{{ ngettext("%(num)d dosya", "%(num)d dosya", results.total) }}{% if results.total > results.items|length %} · {{ _("en yeni %(shown)d gösteriliyor", shown=results.items|length) }}{% endif %}</p>
-  {% if results.verifiable %}
+  {% if results.verifiable and user.can_write %}
   {# 11.9.4 toplu doğrulama: satırlardaki onay kutuları bu forma `form` özniteliğiyle bağlıdır. #}
   <form class="verify-form" id="verify-results" method="post" action="/training/examples/verify">
     <input type="hidden" name="next" value="{{ results.current_url }}">
@@ -79,7 +80,8 @@
           {% if item.label_text %}<span class="badge{% if not item.manual_check %} badge-neutral{% endif %}">{{ translate(item.label_text) }}</span>{% endif %}
           {% if item.manual_check %}{% include "_manual_check.html" %}{% endif %}
           {% if not item.label_text %}—{% endif %}
-          {% if item.manual_check and item.example_id %}
+          {# 10.1.8: salt okunur Kullanıcı'da karar formları yoktur. #}
+          {% if item.manual_check and item.example_id and user.can_write %}
           <label class="hint"><input type="checkbox" name="example_ids" value="{{ item.example_id }}" form="verify-results"> {{ _("seç") }}</label>
           <form class="inline-form" method="post" action="/training/examples/verify">
             <input type="hidden" name="example_ids" value="{{ item.example_id }}">
@@ -87,14 +89,14 @@
             <button type="submit">{{ _("Doğrula") }}</button>
           </form>
           {% endif %}
-          {% if item.placeable %}
+          {% if item.placeable and user.can_write %}
           <form class="place-form" method="post" action="/training/items/{{ item.id }}/place">
             <label class="hint" for="place-{{ item.id }}">{{ _("Tür") }}</label>
             <input id="place-{{ item.id }}" name="slug" list="known-type-options" required placeholder="{{ _('bilinen tür (slug)') }}" autocomplete="off">
             <button type="submit">{{ _("Türe yerleştir") }}</button>
           </form>
           {% endif %}
-          {% if item.dismissable %}
+          {% if item.dismissable and user.can_write %}
           <form class="dismiss-form" method="post" action="/training/items/{{ item.id }}/dismiss">
             <input type="hidden" name="next" value="{{ results.current_url }}">
             <label class="hint" for="dismiss-{{ item.id }}">{{ _("Not") }}</label>
@@ -102,7 +104,7 @@
             <button type="submit">{{ _("Yoksay") }}</button>
           </form>
           {% endif %}
-          {% if item.dismissed %}
+          {% if item.dismissed and user.can_write %}
           <form class="inline-form" method="post" action="/training/items/{{ item.id }}/restore">
             <input type="hidden" name="next" value="{{ results.current_url }}">
             <button type="submit">{{ _("Geri al") }}</button>

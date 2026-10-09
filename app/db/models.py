@@ -982,15 +982,23 @@ class AccessLog(Base):
 
 
 class UserRole(enum.StrEnum):
-    """Panel kullanıcısının rolü (`users.role`). Komut satırı ilk yöneticiyi açar (10.1.3); panelde
-    "Kullanıcılar" sayfası yeni kullanıcı açar (10.1.4). Tek rol vardır."""
+    """Panel kullanıcısının rolü (`users.role`; 10.1.8, PLAN.md §D115).
 
-    ADMIN = "admin"
+    `hr` (İK) bütün yazma işlemlerini yapar; `user` (Kullanıcı) paneli salt okunur gezer;
+    `root` İK'nın her şeyini ve erişim logunu (10.1.9) açar, gizlidir ve tektir
+    (`uq_users_single_root`). Root yalnız komut satırından verilir
+    (`python -m app.web create-root`); panel hiçbir yoldan root üretmez."""
+
+    ROOT = "root"
+    HR = "hr"
+    USER = "user"
 
 
 class User(Base):
-    """Panel kullanıcısı (10.1.3, 10.1.4). Kullanıcı silinmez (R11): pasife alınır (`active`);
-    pasif kullanıcı giriş yapamaz ve açık oturumları geçersizdir (`app.web.auth`).
+    """Panel kullanıcısı (10.1.3, 10.1.4, 10.1.8). Kullanıcı silinmez (R11): pasife alınır
+    (`active`); pasif kullanıcı giriş yapamaz ve açık oturumları geçersizdir (`app.web.auth`). Rol
+    (`UserRole`) her istekte buradan okunur: değişiklik açık oturumda bir sonraki istekte
+    geçerlidir.
 
     `language` arayüz dili tercihidir (10.10.2, PLAN.md §D92 c, d): `en`, `tr`, `sr` ya da boş
     (tercih yok — panel varsayılan dilde açılır)."""
@@ -999,6 +1007,15 @@ class User(Base):
     __table_args__ = (
         # `app.i18n.SUPPORTED_LANGUAGES` ile aynı küme (test denetler; göç 0024 sabit yazar).
         CheckConstraint("language IN ('en', 'tr', 'sr')", name="language"),
+        CheckConstraint(_one_of("role", UserRole), name="role"),
+        # 10.1.8: sistemde en çok bir root (göç 0028).
+        Index(
+            "uq_users_single_root",
+            "role",
+            unique=True,
+            sqlite_where=text("role = 'root'"),
+            postgresql_where=text("role = 'root'"),
+        ),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)

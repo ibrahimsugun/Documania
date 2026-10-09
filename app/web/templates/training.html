@@ -18,6 +18,8 @@
 {% if provider_problem %}
 <p class="notice provider-note" role="status">{{ _("Yapay zekâ sağlayıcısı ayarlı değil: mekanik tanınmayan belgeler \"Yapay zekâ incelemesi bekliyor\" durumunda bekler. Sağlayıcı ayarlanınca işçi onları inceler. İşçi sağlayıcı ayarı olmadan başlamadığı için harita taramasının dosyaları da \"Sırada\" bekler.") }} <span class="reason" translate="no">({{ provider_problem }})</span></p>
 {% endif %}
+{# 10.1.8: salt okunur Kullanıcı eğitime yüklemez; yükleme ve harita formları yalnız İK ve root'ta. #}
+{% if user.can_write %}
 <form class="upload-form training-form" method="post" action="/training" enctype="multipart/form-data">
   <label class="dropzone" for="training-files">
     <strong>{{ _("Örnek belgeleri seçin") }}</strong>
@@ -44,6 +46,7 @@
     <button type="submit">{{ _("Harita yükle") }}</button>
   </form>
 </section>
+{% endif %}
 <datalist id="known-type-options">
   {% for known in known_types %}<option value="{{ known.slug }}">{{ known.name }}</option>{% endfor %}
 </datalist>

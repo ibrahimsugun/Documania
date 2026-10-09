@@ -18,6 +18,12 @@ Blok biçimi `CONVENTIONS.md` §3'te tanımlıdır:
 
 ## Task log (newest-first)
 
+## 169 — 10.1-h Yetki sistemi: root (gizli, tek Zvz), İK, Kullanıcı salt okunur; erişim logu yalnız root — done — 2026-10-09
+- Yapıldı: göç 0028 (rol CHECK root|hr|user, tek root indeksi; Zvz→root, öteki admin→hr), yönlendirici düzeyinde yazma kapısı (Kullanıcı'nın her yazan isteği 403, kendi hesabı/dil/çıkış hariç), 18 yazmaya götüren GET sayfası `WRITER_ONLY`, şablonlarda `user.can_write`, root süzme ve root hedefi 404, `POST /users/{id}/role` + `USER_ROLE_CHANGED`, erişim logu `require_root`, `create-user --role`/`create-root`, Telegram Kullanıcı belge reddi ve bildirim yalnız İK/root; kararlar §D118.
+- Doğrulama: ayrı worktree'de (dil seçici WIP'siz) ruff, format, compileall, `import app.main`, temiz SQLite'ta `alembic upgrade head` (→0028), i18n check exit 0; tam paralel kapı 6911 geçti, 5 atlandı, %99,02 — tek kırmızı `test_translation_pages[en]` (eski `Administrator` beklentisi) düzeltildi, dosya yeniden 10/10 yeşil; 5 kural bozmasının 5'i kırmızı.
+- Varsayımlar: Kullanıcılar sayfası Kullanıcı'ya salt okunur açık; yeni kullanıcı formunda varsayılan rol `user`; GET'te yazan yollar (otomatik iptal, erişim kaydı) her rolde çalışır; `create-admin` kaldırıldı (README güncel).
+- Sonraki pencereye not: Commit yalnız tm 169'u içerir; dil seçici bayrak menüsü WIP'i (`_language_selector.html`, `languages.py`, `theme.css/js`, `panel.css`, `test_language_preference.py`) hâlâ commit'lenmedi. Bot yardım metni Kullanıcı rolüne de belge göndermeyi anlatıyor — ayrı görev önerilir. Yerel veritabanında `alembic upgrade head` gerekir (Zvz root olur).
+
 ## 168 — 10.3-d Süren partiyi iptal et ve 10 dakikada çözülmeyeni otomatik iptal et — done — 2026-10-09
 - Yapıldı: göç 0027 (`cancelled` parti/iş durumu), `app/pipeline/cancel.py` (`cancel_upload`, `cancel_stale_uploads`, `UPLOAD_CANCELLED`), `UPLOAD_TIMEOUT_SECONDS` 600 yerleşik; otomatik iptal işleyici turunda ve `GET /uploads`, `GET /uploads/{id}` açılırken; detayda iki onaylı "Partiyi iptal et", bildirim, liste "İptal" süzgeci; iptal edilen dosya tekrar sayılmaz; iptal edilen parti rerun/reanalyze 409; kararlar §D117.
 - Doğrulama: ruff check, ruff format --check, compileall, `import app.main`, temiz SQLite'ta `alembic upgrade head` (→0027), i18n check exit 0; tam paralel kapı (`-n 12 --cov`, dil seçici WIP'i olmayan ayrı worktree'de) 6874 geçti, 5 atlandı, kapsam %99,04, 14 dk 57 sn; 7 geçici kural bozmasının 7'si kırmızı (tek onay, son durum, 9 dk, işleyici failed, tekrar sayımı, silme, hata oranı).

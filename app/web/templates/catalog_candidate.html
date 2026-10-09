@@ -65,6 +65,7 @@
     {% endif %}
     {# Yeniden inceleme yapay zekâyı çağırır ve sürebilir: HTMX ile gönderilir, düğmede dönen
        gösterge çıkar; sonuç ya da hata aynı içeriğe yazılır. JavaScript kapalıyken düz formdur. #}
+    {% if user.can_write %}
     <form class="inline" method="post" action="/document-types/candidate-types/{{ candidate.id }}/examine"
           hx-post="/document-types/candidate-types/{{ candidate.id }}/examine"
           hx-target="main.content" hx-select="main.content" hx-swap="outerHTML"
@@ -72,10 +73,12 @@
           hx-on::before-swap="if (event.detail.xhr.status >= 400) { event.detail.shouldSwap = true; event.detail.isError = false; }">
       <button type="submit">{{ _("Yeniden incele") }}</button>
     </form>
+    {% endif %}
   </div>
   {% if problems %}
   <p class="error" role="alert">{{ _("Tür eklenmedi: alanların altındaki uyarıları düzeltin.") }}</p>
   {% endif %}
+  {% if user.can_write %}
   <form class="type-form" method="post" action="/document-types/candidate-types/{{ candidate.id }}/approve/confirm">
     {% include "catalog_type_fields.html" %}
 
@@ -83,8 +86,12 @@
       <button type="submit">{{ _("Standart türlere ekle") }}</button>
     </div>
   </form>
+  {% else %}
+  {# 10.1.8: salt okunur Kullanıcı taslağı görür; onay ve ret İK'nındır. #}
+  <div class="type-form read-only"><fieldset disabled>{% include "catalog_type_fields.html" %}</fieldset></div>
+  {% endif %}
 </section>
-
+{% if user.can_write %}
 <section id="reject" aria-labelledby="reject-title">
   <h2 id="reject-title">{{ _("Reddet") }}</h2>
   <p class="hint">{{ _("Reddedilen aday bir daha listeye düşmez; kayıt silinmez, katalog değişmez. İlişkili belgeler Unknown kuyruğunda kalır.") }}</p>
@@ -92,6 +99,7 @@
     <button type="submit">{{ _("Adayı reddet") }}</button>
   </form>
 </section>
+{% endif %}
 {% elif status == "approved" %}
 <section id="reanalyze" aria-labelledby="reanalyze-title">
   <h2 id="reanalyze-title">{{ _("Toplu yeniden analiz") }}</h2>
@@ -107,19 +115,23 @@
       {% endfor %}
     </tbody>
   </table>
+  {% if user.can_write %}
   <form class="confirm" method="post" action="/document-types/candidate-types/{{ candidate.id }}/reanalyze/prepare">
     <p class="confirm-text">{{ translate(reanalysis_first) }}</p>
     <button type="submit">{{ _("Evet, devam et") }}</button>
   </form>
+  {% endif %}
   {% else %}
   <p class="placeholder">{{ _("Yeniden analiz edilecek bekleyen Unknown öğesi yok.") }}</p>
   {% endif %}
 </section>
 {% else %}
 <p class="notice" role="status">{{ _("Bu aday reddedildi; bir daha listeye düşmez.") }}</p>
+{% if user.can_write %}
 <form class="inline" method="post" action="/document-types/candidate-types/{{ candidate.id }}/restore">
   <button type="submit">{{ _("Retten geri al") }}</button>
   <small class="hint">{{ _("Aday yeniden onay bekleyenler arasına döner (11.5.7).") }}</small>
 </form>
+{% endif %}
 {% endif %}
 {% endblock %}

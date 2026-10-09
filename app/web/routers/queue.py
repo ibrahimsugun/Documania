@@ -180,7 +180,7 @@ from app.storage import (
     DocumentNotArchivableError,
     archive_document,
 )
-from app.web.auth import PanelUser, require_api_user, require_panel_user
+from app.web.auth import WRITER_ONLY, PanelUser, require_api_user, require_panel_user
 from app.web.confirm import (
     CONFIRMATION_HEADER,
     CONFIRMATION_REFUSED,
@@ -1105,7 +1105,11 @@ def _assign_result(
     )
 
 
-@pages_router.get("/queues/{queue_item_id}/assign/employees", response_class=HTMLResponse)
+@pages_router.get(
+    "/queues/{queue_item_id}/assign/employees",
+    response_class=HTMLResponse,
+    dependencies=WRITER_ONLY,
+)
 def assignment_search(
     queue_item_id: int,
     request: Request,
@@ -1127,7 +1131,9 @@ def assignment_search(
     return _assign_result(request, status.HTTP_200_OK, queue_item_id, search=True, listing=listing)
 
 
-@pages_router.get("/queues/{queue_item_id}/assign/confirm", response_class=HTMLResponse)
+@pages_router.get(
+    "/queues/{queue_item_id}/assign/confirm", response_class=HTMLResponse, dependencies=WRITER_ONLY
+)
 def assignment_first_confirmation(
     queue_item_id: int,
     request: Request,
@@ -1661,7 +1667,9 @@ def _first_close_step(
     )
 
 
-@pages_router.get("/queues/{queue_item_id}/close/confirm", response_class=HTMLResponse)
+@pages_router.get(
+    "/queues/{queue_item_id}/close/confirm", response_class=HTMLResponse, dependencies=WRITER_ONLY
+)
 def close_first_confirmation(
     queue_item_id: int,
     request: Request,

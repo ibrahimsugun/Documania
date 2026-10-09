@@ -33,6 +33,10 @@ birden çok dosya varsa (aynı partide aynı ad olmaz) ikincisi `-2`, üçüncü
 fotoğraf `foto_<kimlik>.jpg` adını alır.
 Mesajın açıklama (`caption`) metni kullanılmaz: çalışan bağlamı bu görevin kapsamında değil.
 
+**Salt okunur Kullanıcı (10.1.8, PLAN.md §D115 f).** Bağlı panel hesabı Kullanıcı rolündeyse
+gönderdiği dosya indirilmez ve işlenmez; tek sade cümle döner (belge istemek ve profil sorusu
+açıktır). Rol her mesajda veritabanından okunur.
+
 **Dil (12.1.6).** İletiler gönderenin arayüz dilindedir (`app.telegram.bot.WhitelistGate`'in
 yazdığı dil; arka plan işi onu oluşturulduğu anki bağlamdan alır). Belge türü adı, çalışan numarası
 ve kuyruk gerekçesi veridir, çevrilmez.
@@ -63,6 +67,8 @@ from app.db.models import (
     TelegramUser,
     UploadFile,
     UploadStatus,
+    User,
+    UserRole,
 )
 from app.i18n import N_, Translatable, gettext, ngettext
 from app.pipeline.orchestrate import ProcessedUpload
@@ -99,6 +105,8 @@ TOO_LARGE_TEXT = N_("“{name}” çok büyük, alamadım. Daha küçük parçal
 DOWNLOAD_FAILED_TEXT = N_("“{name}” gelmedi, lütfen yeniden gönderin.")
 REFUSED_FILE_TEXT = N_("“{name}” dosyasını alamadım. Başka bir biçimde yeniden gönderin.")
 REFUSED_TEXT = N_("Dosyalarınızı alamadım. Lütfen yeniden gönderin.")
+# 10.1.8: Kullanıcı rolündeki bağlı hesap belge gönderemez, belge isteyebilir (§D115 f).
+READ_ONLY_TEXT = N_("Bu hesapla belge gönderemezsiniz; belge isteyebilirsiniz.")
 # Listede en çok bu kadar belge; fazlası "ve N belge daha" öğesi olur (§D98 b: en çok beş öğe).
 _MAX_LISTED = MAX_ITEMS - 1
 
@@ -357,7 +365,11 @@ class DocumentIntake:
         self, bot: Bot, chat_id: int, telegram_id: int, files: Sequence[TelegramFile]
     ) -> None:
         try:
-            text = await self._process(bot, chat_id, telegram_id, unique_names(files))
+            if await asyncio.to_thread(self._read_only, telegram_id):
+                # 10.1.8: salt okunur Kullanıcı belge gönderemez — dosya indirilmez, parti açılmaz.
+                text = gettext(READ_ONLY_TEXT)
+            else:
+                text = await self._process(bot, chat_id, telegram_id, unique_names(files))
         except _Refused as refusal:
             text = str(refusal)
         except Exception as exc:
@@ -396,6 +408,17 @@ class DocumentIntake:
                 raise _Refused(gettext(DOWNLOAD_FAILED_TEXT).format(name=file.name)) from None
             incoming.append(IncomingFile(file.name, content, file.mime))
         return incoming
+
+    def _read_only(self, telegram_id: int) -> bool:
+        """Bağlı panel kullanıcısı salt okunur Kullanıcı mı (10.1.8)? Rol her mesajda okunur:
+        panelde rol değişince bir sonraki mesajda geçerlidir."""
+        with self._session_factory() as session:
+            role = session.scalar(
+                select(User.role)
+                .join(TelegramUser, TelegramUser.user_id == User.id)
+                .where(TelegramUser.telegram_id == telegram_id)
+            )
+        return role == UserRole.USER.value
 
     def _store(self, telegram_id: int, files: list[IncomingFile], token: str) -> str:
         with self._session_factory() as session:

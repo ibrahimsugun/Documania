@@ -1,4 +1,5 @@
-"""10.1.3 — komut satırından ilk yönetici oluşturulur: `python -m app.web create-admin`."""
+"""10.1.3, 10.1.8 — komut satırından İK, Kullanıcı ve tek root açılır: `python -m app.web
+create-user --role hr|user` ve `create-root` (ikinci root reddedilir)."""
 
 import io
 import os
@@ -26,6 +27,7 @@ from app.web.routers.uploads import get_layout
 REPO_ROOT = Path(__file__).resolve().parents[2]
 USERNAME = "yonetici"
 PASSWORD = "ilk-yonetici-parolasi"
+CREATE_HR = ["create-user", "--username", USERNAME, "--role", "hr", "--password-stdin"]
 
 
 @pytest.fixture
@@ -57,7 +59,7 @@ def _typed(monkeypatch: pytest.MonkeyPatch, *answers: str) -> list[str]:
     return prompts
 
 
-def test_create_admin_reads_the_password_from_stdin(
+def test_create_user_reads_the_password_from_stdin(
     environment: None,
     session_factory: sessionmaker[Session],
     monkeypatch: pytest.MonkeyPatch,
@@ -65,32 +67,33 @@ def test_create_admin_reads_the_password_from_stdin(
 ) -> None:
     _stdin(monkeypatch, f"{PASSWORD}\r\n")
 
-    assert main(["create-admin", "--username", USERNAME, "--password-stdin"]) == 0
+    assert main(CREATE_HR) == 0
 
     (user,) = _users(session_factory)
-    assert (user.username, user.role) == (USERNAME, "admin")
+    assert (user.username, user.role) == (USERNAME, "hr")
     assert user.password_hash.startswith("$argon2id$")
     assert PasswordHasher().verify(user.password_hash, PASSWORD)
     output = capsys.readouterr()
-    assert output.out.strip() == f"Yönetici oluşturuldu: {USERNAME}"
+    assert output.out.strip() == f"İK kullanıcısı oluşturuldu: {USERNAME}"
     assert PASSWORD not in output.out + output.err
 
 
-def test_create_admin_asks_for_the_password_twice_without_echo(
+def test_create_user_asks_for_the_password_twice_without_echo(
     environment: None,
     session_factory: sessionmaker[Session],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     prompts = _typed(monkeypatch, PASSWORD, PASSWORD)
 
-    assert main(["create-admin", "--username", USERNAME]) == 0
+    assert main(["create-user", "--username", USERNAME, "--role", "user"]) == 0
 
     assert prompts == ["Parola: ", "Parola (tekrar): "]
     (user,) = _users(session_factory)
+    assert user.role == "user"
     assert PasswordHasher().verify(user.password_hash, PASSWORD)
 
 
-def test_create_admin_refuses_mismatched_passwords(
+def test_create_user_refuses_mismatched_passwords(
     environment: None,
     session_factory: sessionmaker[Session],
     monkeypatch: pytest.MonkeyPatch,
@@ -98,7 +101,7 @@ def test_create_admin_refuses_mismatched_passwords(
 ) -> None:
     _typed(monkeypatch, PASSWORD, PASSWORD + "x")
 
-    assert main(["create-admin", "--username", USERNAME]) == 1
+    assert main(["create-user", "--username", USERNAME, "--role", "hr"]) == 1
 
     assert "Parolalar eşleşmiyor." in capsys.readouterr().err
     assert _users(session_factory) == []
@@ -114,7 +117,7 @@ def test_create_admin_refuses_mismatched_passwords(
         ("ad soyad", PASSWORD, "boşluk"),
     ],
 )
-def test_create_admin_reports_invalid_input_and_writes_nothing(
+def test_create_user_reports_invalid_input_and_writes_nothing(
     environment: None,
     session_factory: sessionmaker[Session],
     monkeypatch: pytest.MonkeyPatch,
@@ -124,21 +127,51 @@ def test_create_admin_reports_invalid_input_and_writes_nothing(
     message: str,
 ) -> None:
     _stdin(monkeypatch, f"{PASSWORD}\n")
-    assert main(["create-admin", "--username", USERNAME, "--password-stdin"]) == 0
+    assert main(CREATE_HR) == 0
     capsys.readouterr()
 
     _stdin(monkeypatch, f"{password}\n")
-    assert main(["create-admin", "--username", username, "--password-stdin"]) == 1
+    assert main(["create-user", "--username", username, "--role", "hr", "--password-stdin"]) == 1
 
     assert message in capsys.readouterr().err
     assert [user.username for user in _users(session_factory)] == [USERNAME]
 
 
-def test_create_admin_requires_a_username() -> None:
+@pytest.mark.parametrize(
+    "arguments",
+    [
+        ["create-user", "--role", "hr"],
+        ["create-user", "--username", USERNAME],
+        ["create-user", "--username", USERNAME, "--role", "root"],
+        ["create-user", "--username", USERNAME, "--role", "admin"],
+        ["create-root"],
+        ["create-admin", "--username", USERNAME],
+    ],
+    ids=["no-username", "no-role", "root-role", "admin-role", "root-no-username", "old"],
+)
+def test_the_command_requires_a_username_and_an_assignable_role(arguments: list[str]) -> None:
+    # 10.1.8: root yalnız create-root ile açılır; create-user rolü yalnız hr ya da user.
     with pytest.raises(SystemExit) as caught:
-        main(["create-admin"])
+        main(arguments)
 
     assert caught.value.code == 2
+
+
+def test_create_root_opens_the_single_root_and_refuses_a_second_one(
+    environment: None,
+    session_factory: sessionmaker[Session],
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    _stdin(monkeypatch, f"{PASSWORD}\n")
+    assert main(["create-root", "--username", "Zvz", "--password-stdin"]) == 0
+    assert capsys.readouterr().out.strip() == "Root oluşturuldu: Zvz"
+
+    _stdin(monkeypatch, f"{PASSWORD}\n")
+    assert main(["create-root", "--username", "ikinci-root", "--password-stdin"]) == 1
+
+    assert "ikinci root açılamaz" in capsys.readouterr().err
+    assert [(user.username, user.role) for user in _users(session_factory)] == [("Zvz", "root")]
 
 
 def test_admin_created_from_the_command_line_can_sign_in_and_open_the_panel(
@@ -151,7 +184,7 @@ def test_admin_created_from_the_command_line_can_sign_in_and_open_the_panel(
     config.attributes["configure_logger"] = False
     command.upgrade(config, "head")
 
-    arguments = ["create-admin", "--username", USERNAME, "--password-stdin"]
+    arguments = CREATE_HR
     result = subprocess.run(
         [sys.executable, "-m", "app.web", *arguments],
         cwd=REPO_ROOT,
@@ -164,7 +197,7 @@ def test_admin_created_from_the_command_line_can_sign_in_and_open_the_panel(
         check=False,
     )
     assert result.returncode == 0, result.stderr
-    assert f"Yönetici oluşturuldu: {USERNAME}" in result.stdout
+    assert f"İK kullanıcısı oluşturuldu: {USERNAME}" in result.stdout
 
     engine = create_db_engine(database_url)
     factory = create_session_factory(engine)

@@ -4,6 +4,9 @@ Kaynak `access_log` tablosudur (10.9.2, 12.3.3): panelden belge açma/indirme ve
 gönderilen her belge kullanıcı, zaman, eylem ve kanalla yazılır. Bu görünüm yalnız okur; hiçbir
 kayıt ve belge değişmez, günlükte silme ya da düzeltme yolu yoktur.
 
+Yalnız root açar (10.1.9, PLAN.md §D115 e): `require_root` yönlendiricinin bütün yollarındadır; İK
+ve Kullanıcı için adres yokmuş gibi 404 döner, bağlantı da görünmez. Kayıt tutma her rolde sürer.
+
 - `GET /access-log` belgelerine bakılmış çalışanları listeler: erişim sayısı, kaç farklı kullanıcı
   baktığı ve son erişim; en son bakılan çalışan üstte. Hiç bakılmamış çalışan listede yoktur.
 - `GET /access-log/employees/{employee_id}` bir çalışanın dökümüdür: kullanıcı bazında özet
@@ -39,10 +42,10 @@ from app.db.models import (
 )
 from app.db.session import get_session
 from app.i18n import N_
-from app.web.auth import PanelUser, require_panel_user
+from app.web.auth import PanelUser, require_panel_user, require_root
 from app.web.templating import render_page
 
-router = APIRouter(tags=["access-log"])
+router = APIRouter(tags=["access-log"], dependencies=[Depends(require_root)])
 
 CurrentUser = Annotated[PanelUser, Depends(require_panel_user)]
 

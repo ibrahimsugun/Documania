@@ -30,6 +30,15 @@
 {% if generated %}
 {% include "catalog_description.html" %}
 {% endif %}
+{% if not user.can_write %}
+{# 10.1.8: salt okunur Kullanıcı türün tanımını görür, kaydedemez: alanlar kapalı, form ve düğme yok. #}
+<div class="type-form read-only">
+  <fieldset disabled>
+  {% include "catalog_type_fields.html" %}
+  </fieldset>
+  <div class="form-actions"><a href="/document-types{{ list_query }}">{{ _("Vazgeç") }}</a></div>
+</div>
+{% else %}
 {% if is_new %}
 <form class="type-form" method="post" action="/document-types">
 {% else %}
@@ -48,6 +57,7 @@
     <a href="/document-types{{ list_query }}">{{ _("Vazgeç") }}</a>
   </div>
 </form>
+{% endif %}
 {% if not is_new %}
 {% if photo_rules %}
 {% include "catalog_photo_rules.html" %}

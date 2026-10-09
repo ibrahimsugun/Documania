@@ -34,6 +34,7 @@ from app.db.models import (
     Upload,
     UploadFile,
     User,
+    UserRole,
 )
 from app.db.session import create_session_factory
 from app.i18n import SUPPORTED_LANGUAGES
@@ -144,7 +145,7 @@ def test_relationships_navigate_in_both_directions(engine: Engine) -> None:
         candidate = CandidateDocumentType(
             proposed_name="Test Card", normalized_name="test card", first_seen_upload=upload
         )
-        user = User(username="ik", password_hash="hash", role="admin")
+        user = User(username="ik", password_hash="hash", role="hr")
         telegram = TelegramUser(telegram_id=9_000_000_001, user=user)
         access = AccessLog(user=user, document=document, action="view", channel="web")
         event = Event(
@@ -391,8 +392,8 @@ def test_foreign_keys_are_enforced(session: Session) -> None:
             status="done",
             requested_by="ik",
         ),
-        lambda: User(username="ik", password_hash="hash", role="admin", language="de"),
-        lambda: User(username="ik", password_hash="hash", role="admin", language="sr-Latn"),
+        lambda: User(username="ik", password_hash="hash", role="hr", language="de"),
+        lambda: User(username="ik", password_hash="hash", role="hr", language="sr-Latn"),
     ],
     ids=[
         "upload-status",
@@ -469,7 +470,7 @@ def test_user_opens_without_a_language_preference_and_accepts_each_supported_lan
     session: Session,
 ) -> None:
     # 10.10.2: tercih yok = boş; CHECK kümesi arayüz dilleriyle aynı (göç 0024 de bunu yazar).
-    user = User(username="ik", password_hash="hash", role="admin")
+    user = User(username="ik", password_hash="hash", role="hr")
     session.add(user)
     session.commit()
     assert user.language is None
@@ -481,6 +482,29 @@ def test_user_opens_without_a_language_preference_and_accepts_each_supported_lan
     (check,) = (
         constraint.sqltext.text
         for constraint in User.__table__.constraints
-        if isinstance(constraint, CheckConstraint)
+        if isinstance(constraint, CheckConstraint) and "language" in constraint.sqltext.text
     )
     assert set(re.findall(r"'([^']+)'", check)) == set(SUPPORTED_LANGUAGES)
+
+
+def test_user_role_is_one_of_three_and_there_is_at_most_one_root(session: Session) -> None:
+    # 10.1.8 (göç 0028): rol yalnız root, hr ya da user; ikinci root veritabanında reddedilir.
+    session.add_all(
+        [
+            User(username="root-1", password_hash="hash", role="root"),
+            User(username="ik", password_hash="hash", role="hr"),
+            User(username="izleyen", password_hash="hash", role="user"),
+        ]
+    )
+    session.commit()
+    for role in ("root", "admin", ""):
+        session.add(User(username=f"fazla-{role or 'bos'}", password_hash="hash", role=role))
+        with pytest.raises(IntegrityError):
+            session.commit()
+        session.rollback()
+    (check,) = (
+        constraint.sqltext.text
+        for constraint in User.__table__.constraints
+        if isinstance(constraint, CheckConstraint) and "role" in constraint.sqltext.text
+    )
+    assert set(re.findall(r"'([^']+)'", check)) == {role.value for role in UserRole}

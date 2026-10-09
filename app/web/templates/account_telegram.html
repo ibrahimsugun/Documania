@@ -7,6 +7,8 @@
 {% block title %}{{ _("Telegram'ım") }}{% endblock %}
 {% block content %}
 <h1>{{ _("Telegram'ım") }}</h1>
+{# 10.1.8: Hesabım'da root kendi rolünü görür; başka hiçbir rolde ve ekranda görünmez. #}
+{% if user.is_root %}<p class="account-role"><span class="badge role-badge" translate="no">Root</span></p>{% endif %}
 <p class="lede">{% trans %}Documania botu yalnız hesabınıza bağlı ve izni açık Telegram kimliğine yanıt verir. Telegram'ı yalnız siz kendi hesabınıza bağlayabilirsiniz.{% endtrans %}</p>
 {% if notice %}<p class="notice notice-success" role="status">{{ translate(notice) }}</p>{% endif %}
 {% if error %}<p class="error" role="alert" id="account-telegram-error">{{ translate(error) }}</p>{% endif %}

@@ -416,7 +416,7 @@ def test_readme_documents_the_single_command_and_the_production_settings() -> No
         "APP_ENV=production",
     ):
         assert name in readme, name
-    assert "create-admin" in readme
+    assert "create-root" in readme and "create-user" in readme
     assert "-v` vermeyin" in readme
 
 

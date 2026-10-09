@@ -6,7 +6,7 @@
 {% block content %}
 <h1>{{ translate(entry.label) }}</h1>
 <p class="lede">{{ _("Bir süreç için gereken belgelerin listesi (örn. Sırbistan iş başvurusu: fotoğraf, pasaport, kimlik, çevirili diploma). Kalem bir dosya etiketiyle tanımlanırsa ülkesi önemsizdir: «Passport» kalemini Rus pasaportu da Türk pasaportu da karşılar.") }}</p>
-<p><a class="button-link" href="/document-groups/new">{{ _("Yeni grup") }}</a></p>
+{% if user.can_write %}<p><a class="button-link" href="/document-groups/new">{{ _("Yeni grup") }}</a></p>{% endif %}
 <p class="hint">
   {% if include_archived %}
   {{ _("Arşivdekiler de gösteriliyor.") }} <a href="/document-groups">{{ _("Yalnız etkin grupları göster") }}</a>

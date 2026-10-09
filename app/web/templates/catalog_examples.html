@@ -48,6 +48,7 @@
       {% if item.label_text %}<span class="badge{% if not item.manual_check %} badge-neutral{% endif %}">{{ translate(item.label_text) }}</span>{% endif %}
       {% if item.manual_check %}{% include "_manual_check.html" %} <a href="{{ training_type_url }}">{{ _("Eğitim modunda incele") }}</a>{% endif %}
       {% if item.record_id %}
+      {% if user.can_write %}
       <span class="example-decisions">
         <details class="move-example">
           <summary>{{ _("Başka türe taşı") }}</summary>
@@ -61,6 +62,7 @@
           <button type="submit">{{ _("Örneklerden çıkar…") }}</button>
         </form>
       </span>
+      {% endif %}
       {% else %}
       <span class="hint unregistered">{% trans %}kayıtsız — <code>python -m app.catalog register-examples</code> ile kaydedilince taşınabilir ve çıkarılabilir{% endtrans %}</span>
       {% endif %}
@@ -75,9 +77,11 @@
   {% else %}
   <p class="placeholder">{{ _("Bu türe henüz örnek yüklenmedi.") }}</p>
   {% endif %}
+  {% if user.can_write %}
   <form class="example-form" method="post" action="/document-types/{{ slug|urlencode }}/examples" enctype="multipart/form-data">
     <label for="example-files">{{ _("Örnek belge") }}</label>
     <input id="example-files" name="files" type="file" multiple accept=".pdf,.jpg,.jpeg,.png">
     <button type="submit">{{ _("Örnek yükle") }}</button>
   </form>
+  {% endif %}
 </section>

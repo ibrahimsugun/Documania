@@ -10,7 +10,8 @@
    yazımlarını, belge numaralarını ve iletişim bilgilerini kaldırma, geri alma ve iletişim ekleme
    formlarıyla listeler. "Başka kayıtla birleştir" (10.5.9) ikinci kaydı arayan sayfaya gider;
    birleştirilmiş kayıtta üstte kalan kayda bağlantılı bildirim durur ve işlem formları yoktur.
-   Sayfa belge içeriğini değiştiren yol taşımaz. #}
+   Sayfa belge içeriğini değiştiren yol taşımaz. 10.1.8: salt okunur Kullanıcı'da (`user.can_write`
+   yanlış) hiçbir yazma bağlantısı ve formu yoktur; erişim logu bağlantısı yalnız root'ta (10.1.9). #}
 {% from "_context_warning.html" import context_warning %}
 {% block title %}{{ profile.name if profile else _("Çalışan bulunamadı") }}{% endblock %}
 {% block content %}
@@ -20,7 +21,7 @@
 <p class="error" role="alert">{{ translate(error) }}</p>
 {% else %}
 <h1>{{ profile.name }}</h1>
-<p class="profile-meta">{{ profile.id }} · {% if profile.inactive %}<span class="status-badge status-passive">{{ translate(profile.status_label) }}</span>{% else %}{{ translate(profile.status_label) }}{% endif %} · <a href="/access-log/employees/{{ profile.id }}">{{ _("Erişim logu") }}</a>{% if profile.editable %} · <a href="/employees/{{ profile.id }}/fields" class="edit-profile">{{ _("Profili düzenle") }}</a>{% endif %}{% if profile.status_action == "inactive" %} · <a href="/employees/{{ profile.id }}/status/confirm?to=inactive" class="status-action">{{ _("Pasife al") }}</a>{% endif %}{% if not profile.merged %} · <a href="/employees/{{ profile.id }}/merge/employees" class="merge-action">{{ _("Başka kayıtla birleştir") }}</a>{% endif %}</p>
+<p class="profile-meta">{{ profile.id }} · {% if profile.inactive %}<span class="status-badge status-passive">{{ translate(profile.status_label) }}</span>{% else %}{{ translate(profile.status_label) }}{% endif %}{% if user.is_root %} · <a href="/access-log/employees/{{ profile.id }}">{{ _("Erişim logu") }}</a>{% endif %}{% if user.can_write %}{% if profile.editable %} · <a href="/employees/{{ profile.id }}/fields" class="edit-profile">{{ _("Profili düzenle") }}</a>{% endif %}{% if profile.status_action == "inactive" %} · <a href="/employees/{{ profile.id }}/status/confirm?to=inactive" class="status-action">{{ _("Pasife al") }}</a>{% endif %}{% if not profile.merged %} · <a href="/employees/{{ profile.id }}/merge/employees" class="merge-action">{{ _("Başka kayıtla birleştir") }}</a>{% endif %}{% endif %}</p>
 {% if profile_notice %}<p class="notice notice-success" role="status">{{ translate(profile_notice) }}</p>{% endif %}
 {% if profile.merged %}
 {# 10.5.9: birleştirilmiş kayıt; belgeleri, alt kayıtları ve paketleri kalan kayıtta. #}
@@ -35,7 +36,7 @@
   <p><span class="status-badge status-passive">{{ _("Pasif çalışan") }}</span> {% trans %}Bu çalışana gelen yeni belgeler otomatik yerleşmez, "pasif çalışan" gerekçesiyle Unresolved kuyruğuna düşer; profilden yükleme kapalıdır. Klasör ve belgeler yerinde duruyor.{% endtrans %}</p>
   {% if profile.deactivation %}<p class="reason">{{ _("Pasife alan:") }} {{ profile.deactivation.actor or "—" }} · {{ profile.deactivation.at.strftime("%d.%m.%Y %H:%M") }}{% if profile.deactivation.reason %} · {{ _("Not:") }} {{ profile.deactivation.reason }}{% endif %}</p>{% endif %}
   {# 10.5.13: kalıcı silme yalnız pasif çalışanda (tehlike görünümü; iki aşamalı onay). #}
-  <p><a href="/employees/{{ profile.id }}/status/confirm?to=active" class="status-action">{{ _("Yeniden etkinleştir") }}</a> · <a href="/employees/{{ profile.id }}/delete/confirm" class="employee-delete">{{ _("Çalışanı kalıcı sil") }}</a></p>
+  {% if user.can_write %}<p><a href="/employees/{{ profile.id }}/status/confirm?to=active" class="status-action">{{ _("Yeniden etkinleştir") }}</a> · <a href="/employees/{{ profile.id }}/delete/confirm" class="employee-delete">{{ _("Çalışanı kalıcı sil") }}</a></p>{% endif %}
 </div>
 {% endif %}
 {{ context_warning(profile.context_warning) }}
@@ -93,7 +94,7 @@
    geri alınır. Belgede yeniden görülen kaldırılmış kayıt bölümün üstünde uyarılır. İletişim bilgisi
    elle eklenir (tek adım); isim yazımı ve belge numarası yalnız belgeden gelir. Birleştirilmiş
    çalışanda işlem yoktur. #}
-{% macro remove_link(row) %}{% if profile.editable %}<a href="/employees/{{ profile.id }}/records/{{ row.kind }}/{{ row.id }}/remove/confirm" class="record-remove">{{ _("Kaldır") }}</a>{% endif %}{% endmacro %}
+{% macro remove_link(row) %}{% if profile.editable and user.can_write %}<a href="/employees/{{ profile.id }}/records/{{ row.kind }}/{{ row.id }}/remove/confirm" class="record-remove">{{ _("Kaldır") }}</a>{% endif %}{% endmacro %}
 <section class="profile-records" id="records" aria-labelledby="records-title">
   <h2 id="records-title">{{ _("Profil kayıtları") }}</h2>
   {% if records_notice %}<p class="notice notice-success" role="status">{{ translate(records_notice) }}</p>{% endif %}
@@ -139,7 +140,7 @@
     </tbody>
   </table>
   {% else %}<p class="placeholder">{{ _("Kayıtlı iletişim bilgisi yok.") }}</p>{% endif %}
-  {% if profile.editable %}
+  {% if profile.editable and user.can_write %}
   <form method="post" action="/employees/{{ profile.id }}/contacts" class="contact-form">
     <label for="contact-kind">{{ _("Tür") }}</label>
     <select id="contact-kind" name="kind">
@@ -164,7 +165,7 @@
         <span class="record-kind">{{ translate(row.kind_label) }}</span> {{ row.value }}
         <span class="reason">— {{ _("kaldıran:") }} {{ row.removed_by or "—" }}{% if row.removed_at %}, {{ row.removed_at.strftime("%d.%m.%Y %H:%M") }}{% endif %}</span>
         {% if row.warning %}<span class="missing"><span class="badge badge-missing">{{ _("Belgede görüldü") }}</span> {{ translate(row.warning) }}</span>{% endif %}
-        {% if profile.editable %}
+        {% if profile.editable and user.can_write %}
         <form method="post" action="/employees/{{ profile.id }}/records/{{ row.kind }}/{{ row.id }}/restore" class="inline-form">
           <button type="submit">{{ _("Geri al") }}</button>
         </form>
@@ -204,11 +205,13 @@
         <li class="placeholder">{{ _("Grubun kalemi yok.") }}</li>
         {% endfor %}
       </ul>
+      {% if user.can_write %}
       <form method="post" action="/employees/{{ profile.id }}/packages/{{ package.id }}/cancel" class="inline-form package-cancel">
         <label for="cancel-note-{{ package.id }}">{{ _("İptal nedeni") }}</label>
         <input id="cancel-note-{{ package.id }}" name="note" type="text" maxlength="{{ note_limit }}" required>
         <button type="submit">{{ _("Paketi iptal et") }}</button>
       </form>
+      {% endif %}
       {% for message in cancel_problems.get(package.id, []) %}<p class="error" role="alert">{{ translate(message) }}</p>{% endfor %}
     </article>
     {% endfor %}
@@ -217,7 +220,9 @@
   <p class="placeholder">{{ _("Açık ya da tamamlanmış paket yok.") }}</p>
   {% endif %}
 
-  {% if profile.merged %}
+  {% if not user.can_write %}
+  {# 10.1.8: salt okunur Kullanıcı paket tanımlamaz. #}
+  {% elif profile.merged %}
   <p class="hint">{{ _("Birleştirilmiş kayda paket tanımlanmaz; paketler kalan kayıttadır.") }}</p>
   {% elif group_choices %}
   <form method="post" action="/employees/{{ profile.id }}/packages" class="package-form">
@@ -245,9 +250,11 @@
       <li id="package-{{ package.id }}">
         <strong>{{ package.group_name }}</strong>
         <span class="reason">— {{ _("iptal:") }} {{ package.cancelled_by or "—" }}{% if package.cancelled_at %}, {{ package.cancelled_at.strftime("%d.%m.%Y %H:%M") }}{% endif %}{% if package.cancel_note %} · {{ _("Neden:") }} {{ package.cancel_note }}{% endif %}</span>
+        {% if user.can_write %}
         <form method="post" action="/employees/{{ profile.id }}/packages/{{ package.id }}/reopen" class="inline-form">
           <button type="submit">{{ _("Yeniden aç") }}</button>
         </form>
+        {% endif %}
         {% for message in cancel_problems.get(package.id, []) %}<p class="error" role="alert">{{ translate(message) }}</p>{% endfor %}
       </li>
       {% endfor %}
@@ -279,15 +286,15 @@
           <a href="/documents/{{ document.id }}/history">{{ _("Geçmiş") }}</a>
           {% if document.available %}
           <a href="/employees/{{ profile.id }}/documents/{{ document.id }}/download">{{ _("İndir") }}</a>
-          {% if profile.editable and document.status == "active" %}
+          {% if profile.editable and user.can_write and document.status == "active" %}
           <a href="/documents/{{ document.id }}/archive/confirm" class="document-archive">{{ _("Arşive taşı") }}</a>
-          {% elif profile.editable and document.status == "archived" %}
+          {% elif profile.editable and user.can_write and document.status == "archived" %}
           <a href="/documents/{{ document.id }}/unarchive/confirm" class="document-unarchive">{{ _("Arşivden geri al") }}</a>
           {% endif %}
           {% else %}
           <span class="reason">{{ _("Dosya bulunamadı") }}</span>
           {% endif %}
-          {% if profile.editable and document.status in ("active", "archived") %}
+          {% if profile.editable and user.can_write and document.status in ("active", "archived") %}
           <a href="/documents/{{ document.id }}/delete/confirm" class="document-delete">{{ _("Kalıcı sil") }}</a>
           {% endif %}
         </td>
@@ -300,6 +307,8 @@
   {% endif %}
 </section>
 
+{# 10.1.8: salt okunur Kullanıcı'da yükleme bölümü yoktur. #}
+{% if user.can_write %}
 <section class="profile-upload">
   <h2>{{ _("Belge yükle") }}</h2>
   {% if profile.merged %}
@@ -326,6 +335,7 @@
   <section id="upload-result" class="upload-result" aria-live="polite"></section>
   {% endif %}
 </section>
+{% endif %}
 {% endif %}
 {% endblock %}
 {% block scripts %}

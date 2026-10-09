@@ -4,8 +4,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Documania panel\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-09 01:25+0000\n"
-"PO-Revision-Date: 2026-10-09 01:25+0000\n"
+"POT-Creation-Date: 2026-10-09 02:33+0000\n"
+"PO-Revision-Date: 2026-10-09 02:33+0000\n"
 "Last-Translator: Documania görev penceresi (gözden geçirilmeli)\n"
 "Language: sr_Latn\n"
 "Language-Team: Srpski\n"
@@ -354,6 +354,11 @@ msgstr ""
 #, python-brace-format
 msgid "'{name}' kullanıcı adı zaten kullanılıyor."
 msgstr "Korisničko ime '{name}' je već zauzeto."
+
+#: app/web/auth.py
+#, python-brace-format
+msgid "'{name}' zaten bu rolde."
+msgstr "'{name}' već ima ovu ulogu."
 
 #: app/web/auth.py
 #, python-brace-format
@@ -1725,6 +1730,10 @@ msgstr ""
 "Ova grupa još nema stavki. Dodajte ih ispod prema oznaci datoteke ili "
 "prema tipu."
 
+#: app/telegram/handlers.py
+msgid "Bu hesapla belge gönderemezsiniz; belge isteyebilirsiniz."
+msgstr "Sa ovim nalogom ne možete slati dokumente; možete tražiti dokumente."
+
 #: app/web/routers/catalog.py
 msgid ""
 "Bu işlem her partiye yeni bir plan sürümü açacak; önceki sürümlerin "
@@ -1825,10 +1834,6 @@ msgstr "Nijedna stavka iz ove serije nije stavljena u red."
 #: app/web/routers/upload_page.py
 msgid "Bu partiyi yeniden analiz etmek üzeresiniz. Emin misiniz?"
 msgstr "Upravo ćete ponovo analizirati ovu seriju. Da li ste sigurni?"
-
-#: app/web/routers/users.py
-msgid "Bu sayfayı yalnız yönetici açabilir."
-msgstr "Ovu stranicu može da otvori samo administrator."
 
 #: app/telegram/intent.py
 msgid "Bu seçim artık geçerli değil. İsteğinizi yeniden yazın."
@@ -2944,6 +2949,10 @@ msgstr ""
 msgid "Her seferinde tek bir kişiyi sorun."
 msgstr "Pitajte za jednu osobu odjednom."
 
+#: app/web/auth.py
+msgid "Hesabınız salt okunur: bu işlemi yapamazsınız."
+msgstr "Vaš nalog je samo za čitanje: ne možete to da uradite."
+
 #: app/web/routers/users.py
 msgid "Hesabınıza bağlı böyle bir Telegram kimliği yok"
 msgstr "Takav Telegram ID nije povezan sa vašim nalogom"
@@ -3302,6 +3311,10 @@ msgstr "Vaša lozinka: «Promeni moju lozinku»"
 msgid "Kendi parolanızı «Parolamı değiştir» sayfasından değiştirin."
 msgstr "Svoju lozinku promenite na stranici «Promeni moju lozinku»."
 
+#: app/web/auth.py
+msgid "Kendi rolünüzü değiştiremezsiniz."
+msgstr "Ne možete promeniti svoju ulogu."
+
 #: app/telegram/intent.py
 msgid "Kimi sorduğunuzu adıyla yazın."
 msgstr "Napišite ime osobe za koju pitate."
@@ -3353,7 +3366,7 @@ msgstr "Zaštićen"
 msgid "Korunan türler arşivlenmez, atlanacak (%(num)d): %(names)s"
 msgstr "Zaštićeni tipovi se ne arhiviraju i biće preskočeni (%(num)d): %(names)s"
 
-#: app/web/templates/access_log_employee.html
+#: app/web/routers/users.py app/web/templates/access_log_employee.html
 msgid "Kullanıcı"
 msgstr "Korisnik"
 
@@ -3423,6 +3436,10 @@ msgstr "Korisnici"
 #: app/web/templates/account_password.html
 msgid "Kullanıcılar sayfasına dön"
 msgstr "Nazad na stranicu Korisnici"
+
+#: app/web/routers/users.py
+msgid "Kullanıcının rolü değişti; bir sonraki isteğinde geçerli olur."
+msgstr "Uloga korisnika je promenjena; važi od sledećeg zahteva."
 
 #: app/web/templates/catalog_description.html
 msgid "Kullanılan kabul edilen fotoğraflar:"
@@ -4064,6 +4081,10 @@ msgstr "Poništi odbijanje"
 msgid "Rol"
 msgstr "Uloga"
 
+#: app/web/templates/users.html
+msgid "Rolü değiştir"
+msgstr "Promeni ulogu"
+
 #: app/web/templates/upload_detail.html
 msgid "Rota"
 msgstr "Ruta"
@@ -4272,6 +4293,10 @@ msgstr ""
 "Sistem još nije pregledao ovaj predlog; strane primera se pregledaju u "
 "slobodnom vremenu radnika. Obrazac je otvoren sa imenom predloga."
 
+#: app/web/auth.py
+msgid "Sistemde zaten bir root var; ikinci root açılamaz."
+msgstr "U sistemu već postoji root; drugi root se ne može napraviti."
+
 #: app/web/templates/catalog_candidates.html
 msgid ""
 "Sistemin belgelerde gördüğü, ama katalogda bulunmayan tür önerileri. "
@@ -4325,8 +4350,10 @@ msgid "Son erişim"
 msgstr "Poslednji pristup"
 
 #: app/web/auth.py
-msgid "Son etkin yönetici pasife alınamaz."
-msgstr "Poslednji aktivni administrator ne može se deaktivirati."
+msgid "Son etkin İK pasife alınamaz ve rolü düşürülemez."
+msgstr ""
+"Poslednji aktivni HR korisnik ne može se deaktivirati niti mu se može "
+"promeniti uloga."
 
 #: app/web/templates/access_log.html app/web/templates/access_log_employee.html
 #: app/web/templates/employees_results.html app/web/templates/queue.html
@@ -5148,10 +5175,6 @@ msgstr "Zanemareno"
 #: app/web/templates/training_map.html
 msgid "Yol"
 msgstr "Putanja"
-
-#: app/web/routers/users.py
-msgid "Yönetici"
-msgstr "Administrator"
 
 #: app/web/templates/training_results.html
 msgid "Yöntem"
@@ -6336,9 +6359,21 @@ msgstr "npr. 123456789"
 msgid "örnek"
 msgstr "primer"
 
+#: app/web/routers/users.py
+msgid "İK"
+msgstr "HR"
+
 #: app/web/routers/training.py
 msgid "İK (elle)"
 msgstr "HR (ručno)"
+
+#: app/web/templates/users.html
+msgid ""
+"İK bütün işlemleri yapar; Kullanıcı paneli yalnız okur, hiçbir şey "
+"değiştiremez."
+msgstr ""
+"HR obavlja sve radnje; Korisnik panel samo pregleda i ništa ne može da "
+"menja."
 
 #: app/web/templates/catalog_type_fields.html
 msgid "İki harfli ülke kodu; boş bırakılabilir."

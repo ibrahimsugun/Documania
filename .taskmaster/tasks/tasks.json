@@ -2496,21 +2496,21 @@
         "description": "PRD 10.1.8, 10.1.9 · FR-MOD-10 · Faz 1 · Should (v1). Sözleşme PLAN §D115. İnsan isteği (2026-10-09): İK yazar, Kullanıcı salt okunur gezer, root gizli ve en yetkili (tek root: Zvz); erişim logu yalnız root; root Kullanıcılar tablolarında görünmez.",
         "details": "KAPSAM: PRD 10.1.8, 10.1.9, S27; PLAN §D115 (tamamı — önce oku). 10.1.4 metni rollerle uyumlu güncellenir.\n\nNE YAPILACAK: (1) Model + göç (head+1): UserRole root|hr|user, CHECK, en çok bir root; göç Zvz→root, diğer admin→hr. (2) app/web/auth.py: require_writer, require_root; rol her istekte veritabanından. (3) Bütün yazan panel/API yollarına require_writer; istisna listesi (çıkış, kendi parola/dil/Telegram, dil seçici); app.routes taraması testi. (4) Şablonlar can_write ile yazma düğmelerini gizler; Yükle menüsü Kullanıcı'da yok. (5) users.py: root satırları süzülür, root hedefi 404, rol seçimi hr/user, rol değiştirme POST /users/{id}/role (USER_ROLE_CHANGED), son etkin İK kuralı. (6) access_log.py require_root (aksi 404); base.html ve profile.html bağlantısı yalnız root. (7) app/web/__main__.py: create-user --role hr|user, create-root (ikinci root reddi), README. (8) Telegram: user rolü belge gönderemez (sade tek cümle, üç dil); kuyruk bildirimi yalnız hr/root. (9) app/events.py + PRD §8.3 USER_ROLE_CHANGED. (10) i18n en/sr. (11) tests/test_scenario_s27.py + birim testleri; mevcut testlerdeki admin fixture'ları hr/root'a.\n\nGİRDİ: app/db/models.py (UserRole), app/web/auth.py, app/web/routers/*.py, app/web/templates/base.html, profile.html, users.html, app/web/__main__.py, app/telegram/handlers.py, app/telegram/notify.py, tests/web/test_access_log.py (REVIEWED_MUTATING_ROUTES).\n\nKİLİTLİ KURALLAR: K15 (olay actor kullanıcı adı değişmez), K16, R11 (kullanıcı silinmez), 12.1.9 sade bot dili. Gerçek parola/secret depoya girmez.\n\nTUZAKLAR: gizlemek güvenlik değildir — kapı sunucuda; 403 (Kullanıcı yazma) ile 404 (root hedefi, erişim logu) ayrımı; hata metinleri root'u ele vermemeli; açık oturumda rol düşürme bir sonraki istekte geçerli; GET'te yazan yollar Kullanıcı'da da çalışır.\n\nKAPSAM SINIRI: özel izin matrisi, sayfa bazlı izin, çalışan bazlı görünürlük, root'u panelden yönetme yok.\n\nKAPANIŞ: DoD kapısı yeşil; geçici kural bozmaları (Kullanıcı yazabilir, İK erişim logunu açar, root tabloda görünür, ikinci root açılır, Kullanıcı Telegram'dan belge gönderir) kırmızı olmalı. Faz 1 Kapanış hücresi AÇIK kalır.",
         "testStrategy": "1) Göç: Zvz root, diğerleri hr; downgrade. 2) Rota taraması: her yazan yol user ile 403 ve veri değişmez; istisnalar çalışır. 3) Şablon: user'da yazma düğmesi yok. 4) Gizlilik: root tablolarda yok (root'un kendi ekranı dahil), root hedefi 404, rol seçiminde yok, etiket yalnız root'ta. 5) Erişim logu: hr/user 404 ve bağlantı yok; root görür. 6) Tek root: create-root ikincide reddeder. 7) Rol değiştirme olayı, kendi rolü reddi, son İK kuralı. 8) Telegram user belge reddi, bildirim alıcıları. 9) S27. 10) DoD kapısı yeşil.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [
           "167",
           "168"
         ],
         "priority": "high",
         "subtasks": [],
-        "updatedAt": "2026-10-09T01:30:00.000Z"
+        "updatedAt": "2026-10-09T03:32:29.399Z"
       }
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-09T02:10:26.050Z",
+      "lastModified": "2026-10-09T03:32:29.400Z",
       "taskCount": 170,
-      "completedCount": 169,
+      "completedCount": 170,
       "tags": [
         "master"
       ]

@@ -120,7 +120,7 @@ def test_page_lists_users_with_role_status_and_allowed_telegram_count(
     own = rows[str(SIGNED_IN.id)]
     assert "test-yonetici" in own and "(siz)" in own
     assert "/password" not in own and "/status" not in own  # kendi satırında işlem yok
-    assert "Yönetici" in rows[str(ayse)] and "Etkin" in rows[str(ayse)]
+    assert "<td>İK</td>" in rows[str(ayse)] and "Etkin" in rows[str(ayse)]
     assert 'data-allowed="2">2 izinli kimlik' in rows[str(ayse)]  # engelli kimlik sayılmaz
     assert "Pasif" in rows[str(ayse + 1)] and "Yeniden etkinleştir" in rows[str(ayse + 1)]
     assert "Pasife al" in rows[str(ayse)]
@@ -146,14 +146,24 @@ def test_password_fields_are_empty_and_not_autofilled(
                 assert 'autocomplete="off"' in form, form
 
 
-def test_only_an_admin_opens_the_page(app: FastAPI, client: TestClient) -> None:
+def test_a_read_only_user_sees_the_list_without_forms_and_cannot_write(
+    app: FastAPI, client: TestClient, session_factory: sessionmaker[Session]
+) -> None:
+    # 10.1.8: Kullanıcı listeyi görür; yazan her istek 403, veri değişmez.
+    ayse = _add_user(session_factory, "ayse")
     app.dependency_overrides[get_current_user] = lambda: PanelUser(
-        id=SIGNED_IN.id, username=SIGNED_IN.username, role="izleyici"
+        id=SIGNED_IN.id, username=SIGNED_IN.username, role="user"
     )
 
-    assert client.get("/users").status_code == 403
-    assert client.post("/users", data={"username": "ayse"}).status_code == 403
-    assert client.post("/users/1/status", data={"status": "inactive"}).status_code == 403
+    page = client.get("/users")
+    assert page.status_code == 200
+    assert f'id="user-{ayse}"' in page.text
+    assert re.findall(r'method="post" action="([^"]+)"', page.text) == ["/language", "/logout"]
+    assert client.post("/users", data={"username": "mehmet"}).status_code == 403
+    assert client.post(f"/users/{ayse}/status", data={"status": "inactive"}).status_code == 403
+    assert client.post(f"/users/{ayse}/role", data={"role": "user"}).status_code == 403
+    assert _user(session_factory, ayse).active is True
+    assert _events(session_factory) == []
 
 
 def test_the_page_needs_a_session(app: FastAPI) -> None:
@@ -176,7 +186,7 @@ def test_new_user_is_created_hashed_active_and_logged_without_the_password(
 ) -> None:
     response = client.post(
         "/users",
-        data={"username": " ayse ", "password": PASSWORD, "role": "admin"},
+        data={"username": " ayse ", "password": PASSWORD, "role": "hr"},
         follow_redirects=False,
     )
 
@@ -184,11 +194,11 @@ def test_new_user_is_created_hashed_active_and_logged_without_the_password(
     assert response.headers["location"] == "/users?notice=created"
     with session_factory() as session:
         user = session.scalars(select(User).where(User.username == "ayse")).one()
-    assert (user.role, user.active) == ("admin", True)
+    assert (user.role, user.active) == ("hr", True)
     assert PasswordHasher().verify(user.password_hash, PASSWORD)
     (event,) = _events(session_factory)
     assert (event.type, event.actor) == ("USER_CREATED", SIGNED_IN.username)
-    assert event.data_json == {"target_user_id": user.id, "role": "admin"}
+    assert event.data_json == {"target_user_id": user.id, "role": "hr"}
     assert "Kullanıcı oluşturuldu." in client.get(response.headers["location"]).text
 
 
@@ -345,7 +355,7 @@ def test_deactivated_user_loses_open_sessions_and_cannot_log_in(
     ayse_client = real("ayse")
     assert _signed_in(ayse_client)
     cookie = ayse_client.cookies[SESSION_COOKIE]
-    ayse_user = PanelUser(id=ayse, username="ayse", role="admin")
+    ayse_user = PanelUser(id=ayse, username="ayse", role="hr")
     token = issue_token(session_factory, Operation.DISMISS, "u_yok", cookie=cookie, user=ayse_user)
 
     response = admin_client.post(
@@ -420,7 +430,7 @@ def test_last_active_admin_cannot_be_deactivated(
     response = client.post(f"/users/{ayse}/status", data={"status": "inactive"})
 
     assert response.status_code == 409
-    assert "Son etkin yönetici pasife alınamaz." in response.text
+    assert "Son etkin İK pasife alınamaz ve rolü düşürülemez." in response.text
     assert _user(session_factory, ayse).active is True
     assert _events(session_factory) == []
 

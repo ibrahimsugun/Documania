@@ -30,7 +30,8 @@
 </dl>
 
 {# 10.8.2: belge başka çalışana iki aşamalı onayla taşınır (§20.6). HTMX 4xx/5xx yanıtını
-   değiştirmez; adımların hata metni görünsün. #}
+   değiştirmez; adımların hata metni görünsün. 10.1.8: salt okunur Kullanıcı'da bölüm yoktur. #}
+{% if user.can_write %}
 <section id="move" class="actions" aria-labelledby="move-title"
          hx-on::before-swap="if (event.detail.xhr.status >= 400) { event.detail.shouldSwap = true; event.detail.isError = false; }">
   <h2 id="move-title">{{ _("Başka çalışana taşı") }}</h2>
@@ -52,6 +53,7 @@
   <p class="notice">{{ translate(history.move_note) }}</p>
   {% endif %}
 </section>
+{% endif %}
 
 <section id="sources" aria-labelledby="sources-title">
   <h2 id="sources-title">{{ _("Kaynak dosyalar ve sayfalar") }}</h2>

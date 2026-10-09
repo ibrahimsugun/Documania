@@ -1,6 +1,7 @@
 """Kuyruk bildirimi (PRD 12.4.1, 12.1.9; K13; PLAN.md §D98 e).
 
-Kuyruğa yeni öğe düşünce beyaz listedeki her kullanıcıya özel sohbetten tek, sade bir mesaj gider:
+Kuyruğa yeni öğe düşünce beyaz listedeki her İK ve root kullanıcısına (10.1.8: salt okunur Kullanıcı
+almaz) özel sohbetten tek, sade bir mesaj gider:
 "Kontrol etmeniz gereken N yeni belge var. Panelde bakabilirsiniz." Bot paneli çalıştıran süreçten
 ayrı bir süreçtir; iki süreç arasındaki köprü `events` tablosudur (K15): kuyruğa alma
 `QUEUED_UNKNOWN`/`QUEUED_UNREADABLE`/`QUEUED_UNRESOLVED` (`app.pipeline.route.route_queue_item`)
@@ -43,7 +44,7 @@ from telegram import Bot
 from telegram.error import TelegramError
 from telegram.ext import Application
 
-from app.db.models import Event, TelegramUser, User, utcnow
+from app.db.models import Event, TelegramUser, User, UserRole, utcnow
 from app.events import EventType
 from app.i18n import DEFAULT_LANGUAGE, is_supported, ngettext, use_language
 from app.telegram.whitelist import permitted_ids
@@ -56,6 +57,9 @@ LOOKBACK = timedelta(minutes=10)
 # Dil verilmezse tercihi olmayan alıcının dili; `bot.main` ayardaki `PANEL_DEFAULT_LANGUAGE`'ı
 # verir, bot testleri bunu `tr` yapar (`tests/telegram/conftest.py`).
 FALLBACK_LANGUAGE = DEFAULT_LANGUAGE
+
+# 10.1.8 (PLAN.md §D115 f): kuyruğu İK ve root çözer; salt okunur Kullanıcı bildirim almaz.
+NOTIFIED_ROLES = (UserRole.HR.value, UserRole.ROOT.value)
 
 QUEUE_EVENT_TYPES = frozenset(
     {
@@ -196,7 +200,10 @@ class Notifier:
             recipients = [
                 Recipient(row.telegram_id, row.language)
                 for row in session.execute(
-                    permitted_ids().add_columns(User.language).order_by(TelegramUser.telegram_id)
+                    permitted_ids()
+                    .add_columns(User.language)
+                    .where(User.role.in_(NOTIFIED_ROLES))
+                    .order_by(TelegramUser.telegram_id)
                 )
             ]
         return events, recipients

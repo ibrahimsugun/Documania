@@ -712,6 +712,7 @@ def training_page(
 @router.get(ITEMS_PATH, response_class=HTMLResponse)
 def training_items(
     request: Request,
+    user: CurrentUser,
     session: DbSession,
     run: str | None = None,
     filter: str | None = None,
@@ -720,7 +721,8 @@ def training_items(
 ) -> HTMLResponse:
     """Sonuç bölümü (HTMX yoklamasının hedefi): kararı sistemde bekleyen öğe varken yenilenir.
     Yoksayılan öğe varsayılan olarak gösterilmez (`?show=dismissed` yalnız onları gösterir), arşivli
-    çalıştırmalar `?archived=1` ile görünür (11.9.6)."""
+    çalıştırmalar `?archived=1` ile görünür (11.9.6). Parçanın karar formları oturumdaki
+    kullanıcının rolüne bağlıdır (10.1.8): salt okunur Kullanıcı'da yoktur."""
     known = load_known_types(session)
     results = build_results_view(
         session,
@@ -734,7 +736,7 @@ def training_items(
     return render_page(
         request,
         "training_results.html",
-        user=None,
+        user=user,
         results=results,
         manual_check_text=MANUAL_CHECK_TEXT,
     )

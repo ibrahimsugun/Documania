@@ -12,7 +12,8 @@
   {% if photo_rules.problems %}
   <p class="error" role="alert">{{ _("Kurallar kaydedilmedi: alanların altındaki uyarıları düzeltin.") }}</p>
   {% endif %}
-  <form class="photo-rules-form" method="post" action="/document-types/{{ slug|urlencode }}/photo-rules">
+  {# 10.1.8: salt okunur Kullanıcı kuralları görür, kaydedemez (form yerine kapalı alan kümesi). #}
+  {% if user.can_write %}<form class="photo-rules-form" method="post" action="/document-types/{{ slug|urlencode }}/photo-rules">{% else %}<fieldset class="photo-rules-form" disabled>{% endif %}
     <ul class="rule-list">
       {% for rule in photo_rules.rules %}
       <li class="rule" data-rule="{{ rule.id }}">
@@ -37,8 +38,12 @@
       {% endfor %}
     </ul>
     {% for message in photo_rules.problems.get("enabled", []) %}<small class="field-error" role="alert">{{ translate(message) }}</small>{% endfor %}
+    {% if user.can_write %}
     <div class="form-actions">
       <button type="submit">{{ _("Kuralları kaydet") }}</button>
     </div>
   </form>
+    {% else %}
+  </fieldset>
+    {% endif %}
 </section>

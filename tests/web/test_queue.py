@@ -51,7 +51,7 @@ from tests.web.conftest import SESSION, issue_token
 TARGET = "E0042"
 TARGET_FOLDER = "Kayitli_Kisi_E0042"
 ACTOR = "ik.ayse"
-USER = PanelUser(id=7, username=ACTOR, role="admin")
+USER = PanelUser(id=7, username=ACTOR, role="hr")
 
 
 def _queued_item(

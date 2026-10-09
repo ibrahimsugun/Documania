@@ -15,6 +15,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import pytest
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
@@ -33,7 +34,7 @@ from app.db.models import (
 from app.events import EventType
 from app.storage import DataLayout, archive_document, copy_to_received
 from app.telegram.intent import find_documents
-from app.web.auth import SESSION_COOKIE
+from app.web.auth import SESSION_COOKIE, PanelUser, get_current_user
 from app.web.confirm import CONFIRMATION_REFUSED, Operation
 from app.web.routers.documents import DELETION_CHANGED, deletion_subject
 from tests.web.conftest import SESSION, SIGNED_IN, issue_token
@@ -414,12 +415,15 @@ def test_the_file_address_answers_404_and_the_history_says_deleted(
 
 
 def test_the_access_log_keeps_the_row_and_says_the_document_was_deleted(
-    client: TestClient, docs: Docs
+    app: FastAPI, client: TestClient, docs: Docs
 ) -> None:
     assert client.get(f"/employees/{OWNER}/documents/{docs.active}/file").status_code == 200
 
     _delete(client, docs.active)
 
+    # 10.1.9: erişim logunu yalnız root açar.
+    root = PanelUser(SIGNED_IN.id, SIGNED_IN.username, "root")
+    app.dependency_overrides[get_current_user] = lambda: root
     page = client.get(f"/access-log/employees/{OWNER}")
     assert page.status_code == 200
     assert "belge silindi" in page.text and READY_NAME not in page.text

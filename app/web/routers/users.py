@@ -1,16 +1,19 @@
-"""Kullanıcılar ekranı ve Hesabım (PRD 10.1.4, 12.1.3, 12.1.8; PLAN.md §C92-d, §C92-e, §D97).
+"""Kullanıcılar ekranı ve Hesabım (PRD 10.1.4, 10.1.8, 12.1.3, 12.1.8; PLAN.md §C92-d, §C92-e,
+§D97, §D115).
 
 - `GET /users` panel kullanıcılarını listeler: kullanıcı adı, rol, durum, izinli Telegram kimliği
-  sayısı; "Yeni kullanıcı" formu ve her başka kullanıcı için parola sıfırlama ve pasife alma /
+  sayısı; "Yeni kullanıcı" formu ve her başka kullanıcı için rol, parola sıfırlama ve pasife alma /
   yeniden etkinleştirme. Her kullanıcı satırının altında — kendi satırı dahil — bağlı Telegram
   kimlikleri izin durumlarıyla durur; yönetici izni kapatıp açabilir (kaybolan telefon), ama
   başkası adına kimlik ekleyemez ve bağlantı üretemez (12.1.8, §D97 d).
-- `POST /users` kullanıcı açar (ad 3–150, parola ≥ 12, rol `UserRole`'dan); kural dışı değer 422,
-  kullanılan ad 409 ile sayfa yeniden çizilir.
+- `POST /users` kullanıcı açar (ad 3–150, parola ≥ 12, rol `hr` | `user`); kural dışı değer (root
+  dahil) 422, kullanılan ad 409 ile sayfa yeniden çizilir.
+- `POST /users/{id}/role` (`role` = `hr` | `user`, 10.1.8): `USER_ROLE_CHANGED` {target_user_id,
+  from, to}; kendi rolü, aynı rol ve son etkin İK'yı düşürme 409, root ya da bilinmeyen rol 422.
 - `POST /users/{id}/password` yöneticinin sıfırlamasıdır; hedefin açık oturumları kapanır. Kendi
   parolası buradan değişmez (409).
-- `POST /users/{id}/status` (`active` | `inactive`): kendini pasife alma ve son etkin yöneticiyi
-  pasife alma 409; pasife alınanın açık oturumları kapanır.
+- `POST /users/{id}/status` (`active` | `inactive`): kendini pasife alma ve son etkin İK'yı pasife
+  alma 409; pasife alınanın açık oturumları kapanır.
 - `GET /account/password` + `POST /account/password` kullanıcının kendi parolasıdır: eski parola
   yanlışsa 400; bu oturum açık kalır, diğerleri kapanır.
 - `POST /users/{id}/telegram/{tid}/status` (`allowed` = `true` | `false`) izni açar ya da kapatır;
@@ -37,8 +40,15 @@ hiçbirinde kullanıcı kimliği yoktur: hedef her zaman oturumdaki kullanıcıd
 - `POST /account/telegram/{tid}/delete` kendi kimliğinin kaydını siler (12.1.10); kimlik kendisinin
   değilse 404; olay {…, removed: true, via: "account"}.
 
-Kullanıcılar sayfası yalnız yönetici açar (tek rol `admin`; `require_admin`). Hepsi tek adımlıdır
-(§D61-b: dosyaya ve belgeye dokunmaz, geri alınabilir) ve kullanıcı adıyla olay yazar (`USER_*`).
+**Yetki (10.1.8, §D115).** Kullanıcılar sayfasını her rol açar; yazma işlemleri (`router`) İK ve
+root'undur — `app.main`'deki kapı Kullanıcı'nın her `POST`'una 403 döner, şablon
+Kullanıcı'ya formları göstermez. Hesabım yolları (`account_router`: kendi parolası ve Telegram'ı)
+her role açıktır.
+**Root gizlidir:** root satırı kullanıcı ve Telegram tablolarından süzülür (root'un kendi ekranında
+da), rol seçiminde yoktur ve `/users/{root_id}/…` her rol için "kullanıcı bulunamadı" (404) döner.
+
+Hepsi tek adımlıdır (§D61-b: dosyaya ve belgeye dokunmaz, geri alınabilir) ve kullanıcı adıyla olay
+yazar (`USER_*`).
 Parola hiçbir olaya, loga ya da sayfaya yazılmaz; reddedilen formda parola alanı boş gelir.
 Kullanıcı silinmez (R11); silinebilen tek kayıt Telegram kimliğidir (12.1.10, §D107).
 """
@@ -77,6 +87,7 @@ from app.telegram.whitelist import (
     set_telegram_allowed,
 )
 from app.web.auth import (
+    ASSIGNABLE_ROLES,
     MIN_PASSWORD_LENGTH,
     SESSION_COOKIE,
     USERNAME_MAX_LENGTH,
@@ -91,11 +102,14 @@ from app.web.auth import (
     require_panel_user,
     reset_password,
     set_user_active,
+    set_user_role,
 )
 from app.web.routers.uploads import get_layout
 from app.web.templating import MENU_BY_KEY, render_page
 
 router = APIRouter(tags=["users"])
+# Kişinin kendi hesabı (parola, Telegram): yazma kapısının dışında, her role açık (10.1.8).
+account_router = APIRouter(tags=["account"])
 
 USERS_PATH = "/users"
 ACCOUNT_PASSWORD_PATH = "/account/password"
@@ -106,7 +120,6 @@ USER_NOT_FOUND = N_("Kullanıcı bulunamadı")
 TELEGRAM_NOT_FOUND = N_("Bu kullanıcıya bağlı böyle bir Telegram kimliği yok")
 OWN_TELEGRAM_NOT_FOUND = N_("Hesabınıza bağlı böyle bir Telegram kimliği yok")
 UNKNOWN_ALLOWED = N_("İzin 'true' ya da 'false' olmalı.")
-ADMIN_ONLY = N_("Bu sayfayı yalnız yönetici açabilir.")
 PASSWORDS_DIFFER = N_("Yeni parola ile tekrarı eşleşmiyor.")
 UNKNOWN_ROLE = N_("Bilinmeyen rol.")
 UNKNOWN_STATUS = N_("Durum 'active' ya da 'inactive' olmalı.")
@@ -114,7 +127,9 @@ BOT_NEVER_RAN = N_(
     "Telegram botu bu kurulumda hiç çalışmadı: .env'e TELEGRAM_BOT_TOKEN ekleyip botu başlatın "
     "(baslat.bat). Bot ilk açılışta adını kaydeder; sonra bağlantı üretilebilir."
 )
-ROLE_LABELS = {UserRole.ADMIN.value: N_("Yönetici")}
+# 10.1.8: tablolarda root satırı yoktur; "Root" etiketi yalnız root'un kendi ekranındadır
+# (`base.html`, Hesabım).
+ROLE_LABELS = {UserRole.HR.value: N_("İK"), UserRole.USER.value: N_("Kullanıcı")}
 STATUS_ACTIVE = "active"
 STATUS_INACTIVE = "inactive"
 NOTICES = {
@@ -122,6 +137,7 @@ NOTICES = {
     "password_reset": N_("Parola sıfırlandı; kullanıcının açık oturumları kapatıldı."),
     "deactivated": N_("Kullanıcı pasife alındı; açık oturumları kapatıldı."),
     "reactivated": N_("Kullanıcı yeniden etkinleştirildi."),
+    "role_changed": N_("Kullanıcının rolü değişti; bir sonraki isteğinde geçerli olur."),
     "own_password": N_("Parolanız değiştirildi; diğer oturumlarınız kapatıldı."),
     "telegram_allowed": N_("Telegram kimliğinin izni açıldı."),
     "telegram_blocked": N_("Telegram kimliğinin izni kapatıldı; bot bu kimliğe yanıt vermeyecek."),
@@ -143,14 +159,8 @@ FORM_TEXT_LIMIT = 1000
 TextField = Annotated[str, Form(max_length=FORM_TEXT_LIMIT)]
 
 
-def require_admin(user: Annotated[PanelUser, Depends(require_panel_user)]) -> PanelUser:
-    """10.1.4 "yalnız yönetici": tek rol `admin`'dir; başka rol tanımlanırsa sayfa 403 döner."""
-    if user.role != UserRole.ADMIN.value:
-        raise HTTPException(status.HTTP_403_FORBIDDEN, ADMIN_ONLY)
-    return user
-
-
-AdminUser = Annotated[PanelUser, Depends(require_admin)]
+# Yazma yolları yalnız İK ve root'a açıktır: kapı `app.main`'de yönlendirici düzeyindedir
+# (`panel_write_gate`); burada yalnız oturumdaki kullanıcı okunur.
 CurrentUser = Annotated[PanelUser, Depends(require_panel_user)]
 DbSession = Annotated[Session, Depends(get_session)]
 Layout = Annotated[DataLayout, Depends(get_layout)]
@@ -188,7 +198,7 @@ class NewUserValues:
     """Reddedilen "Yeni kullanıcı" formunda yeniden gösterilen değerler (parola hiç gösterilmez)."""
 
     username: str = ""
-    role: str = UserRole.ADMIN.value
+    role: str = UserRole.USER.value
 
 
 def _rows(session: Session, user: PanelUser) -> list[UserRow]:
@@ -198,16 +208,19 @@ def _rows(session: Session, user: PanelUser) -> list[UserRow]:
         .group_by(TelegramUser.user_id)
         .subquery()
     )
+    # 10.1.8: root hiçbir tabloda listelenmez — root'un kendi ekranında da.
     rows = session.execute(
         select(User.id, User.username, User.role, User.active, telegram.c.allowed)
         .outerjoin(telegram, telegram.c.user_id == User.id)
+        .where(User.role != UserRole.ROOT.value)
         .order_by(User.id)
     ).all()
     accounts: dict[int, list[TelegramRow]] = {}
     for account in session.execute(
-        select(TelegramUser.user_id, TelegramUser.telegram_id, TelegramUser.allowed).order_by(
-            TelegramUser.user_id, TelegramUser.telegram_id
-        )
+        select(TelegramUser.user_id, TelegramUser.telegram_id, TelegramUser.allowed)
+        .join(User, User.id == TelegramUser.user_id)
+        .where(User.role != UserRole.ROOT.value)
+        .order_by(TelegramUser.user_id, TelegramUser.telegram_id)
     ):
         accounts.setdefault(account.user_id, []).append(
             TelegramRow(telegram_id=account.telegram_id, allowed=account.allowed)
@@ -246,7 +259,7 @@ def _users_page(
         active="users",
         entry=MENU_BY_KEY["users"],
         users=_rows(session, user),
-        roles=[(role.value, ROLE_LABELS.get(role.value, role.value)) for role in UserRole],
+        roles=[(role.value, ROLE_LABELS[role.value]) for role in ASSIGNABLE_ROLES],
         notice=NOTICES.get(notice or ""),
         error=error,
         error_user_id=error_user_id,
@@ -265,17 +278,32 @@ def _redirect(notice: str) -> RedirectResponse:
 
 
 def _user_or_404(session: Session, user_id: int) -> User:
+    """`/users/{id}/…` hedefi. 10.1.8: root yokmuş gibidir — her rol için aynı 404 ve aynı metin."""
     target = session.get(User, user_id)
-    if target is None:
+    if target is None or target.role == UserRole.ROOT.value:
         session.rollback()
         raise HTTPException(status.HTTP_404_NOT_FOUND, USER_NOT_FOUND)
     return target
 
 
+def _own_user(session: Session, user: PanelUser) -> User:
+    """Hesabım yollarının hedefi: her zaman oturumdaki kullanıcı (root dahil)."""
+    own = session.get(User, user.id)
+    if own is None:
+        session.rollback()
+        raise HTTPException(status.HTTP_404_NOT_FOUND, USER_NOT_FOUND)
+    return own
+
+
+def _assignable_role(value: str) -> UserRole | None:
+    """Formdaki rol: yalnız `hr` ya da `user`; root ve bilinmeyen değer `None` (aynı 422 metni)."""
+    return next((role for role in ASSIGNABLE_ROLES if role.value == value), None)
+
+
 @router.get(USERS_PATH, response_class=HTMLResponse)
 def users_page(
     request: Request,
-    user: AdminUser,
+    user: CurrentUser,
     session: DbSession,
     layout: Layout,
     notice: Annotated[str | None, Query(max_length=32)] = None,
@@ -286,18 +314,18 @@ def users_page(
 @router.post(USERS_PATH, response_class=HTMLResponse)
 def create_user_endpoint(
     request: Request,
-    user: AdminUser,
+    user: CurrentUser,
     session: DbSession,
     layout: Layout,
     username: TextField = "",
     password: TextField = "",
-    role: TextField = UserRole.ADMIN.value,
+    role: TextField = UserRole.USER.value,
 ) -> Response:
-    """10.1.4 "yeni kullanıcı" — `USER_CREATED` {target_user_id, role} kullanıcı adıyla."""
+    """10.1.4, 10.1.8 "yeni kullanıcı" — `USER_CREATED` {target_user_id, role} kullanıcı adıyla.
+    Rol `hr` ya da `user`; root ve bilinmeyen rol aynı metinle 422 (root ele verilmez)."""
     form = NewUserValues(username=username.strip(), role=role)
-    try:
-        chosen = UserRole(role)
-    except ValueError:
+    chosen = _assignable_role(role)
+    if chosen is None:
         return _users_page(
             request,
             user,
@@ -321,11 +349,52 @@ def create_user_endpoint(
     return _redirect("created")
 
 
+@router.post(f"{USERS_PATH}/{{user_id}}/role", response_class=HTMLResponse)
+def set_role_endpoint(
+    user_id: int,
+    request: Request,
+    user: CurrentUser,
+    session: DbSession,
+    layout: Layout,
+    role: Annotated[str, Form(max_length=16)] = "",
+) -> Response:
+    """10.1.8 rol değiştirme (İK ↔ Kullanıcı) — `USER_ROLE_CHANGED` {target_user_id, from, to}.
+    Root hedefi 404; root ya da bilinmeyen rol 422; kendi rolü, aynı rol ve son etkin İK 409. Açık
+    oturumlar kapanmaz: yeni rol hedefin bir sonraki isteğinde geçerlidir."""
+    target = _user_or_404(session, user_id)
+    chosen = _assignable_role(role)
+    if chosen is None:
+        return _users_page(
+            request,
+            user,
+            session,
+            layout,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            error=UNKNOWN_ROLE,
+            error_user_id=user_id,
+        )
+    try:
+        set_user_role(session, target, chosen, actor=user)
+    except UserStatusError as exc:
+        session.rollback()
+        return _users_page(
+            request,
+            user,
+            session,
+            layout,
+            status_code=status.HTTP_409_CONFLICT,
+            error=exc,
+            error_user_id=user_id,
+        )
+    session.commit()
+    return _redirect("role_changed")
+
+
 @router.post(f"{USERS_PATH}/{{user_id}}/password", response_class=HTMLResponse)
 def reset_password_endpoint(
     user_id: int,
     request: Request,
-    user: AdminUser,
+    user: CurrentUser,
     session: DbSession,
     layout: Layout,
     password: TextField = "",
@@ -359,13 +428,13 @@ def reset_password_endpoint(
 def set_status_endpoint(
     user_id: int,
     request: Request,
-    user: AdminUser,
+    user: CurrentUser,
     session: DbSession,
     layout: Layout,
     status_value: Annotated[str, Form(alias="status", max_length=16)] = "",
 ) -> Response:
     """10.1.4 pasife alma ve yeniden etkinleştirme — `USER_DEACTIVATED`/`USER_REACTIVATED`
-    {target_user_id}. Kendini ya da son etkin yöneticiyi pasife alma, aynı duruma geçiş 409."""
+    {target_user_id}. Kendini ya da son etkin İK'yı pasife alma, aynı duruma geçiş 409."""
     if status_value not in (STATUS_ACTIVE, STATUS_INACTIVE):
         return _users_page(
             request,
@@ -402,7 +471,7 @@ def set_telegram_status_endpoint(
     user_id: int,
     telegram_id: Annotated[int, Path(ge=1, le=TELEGRAM_ID_MAX)],
     request: Request,
-    user: AdminUser,
+    user: CurrentUser,
     session: DbSession,
     layout: Layout,
     allowed_value: Annotated[str, Form(alias="allowed", max_length=8)] = "",
@@ -449,7 +518,7 @@ def set_telegram_status_endpoint(
 def delete_telegram_endpoint(
     user_id: int,
     telegram_id: Annotated[int, Path(ge=1, le=TELEGRAM_ID_MAX)],
-    user: AdminUser,
+    user: CurrentUser,
     session: DbSession,
 ) -> Response:
     """12.1.10 kaydı silme (§D107) — `TELEGRAM_USER_CHANGED` {target_user_id, telegram_id, allowed,
@@ -482,12 +551,12 @@ def _account_page(
     )
 
 
-@router.get(ACCOUNT_PASSWORD_PATH, response_class=HTMLResponse)
+@account_router.get(ACCOUNT_PASSWORD_PATH, response_class=HTMLResponse)
 def account_password_page(request: Request, user: CurrentUser) -> HTMLResponse:
     return _account_page(request, user)
 
 
-@router.post(ACCOUNT_PASSWORD_PATH, response_class=HTMLResponse)
+@account_router.post(ACCOUNT_PASSWORD_PATH, response_class=HTMLResponse)
 def change_own_password_endpoint(
     request: Request,
     user: CurrentUser,
@@ -499,7 +568,7 @@ def change_own_password_endpoint(
     """10.1.4 "kendi parolasını değiştirme" — eski parola yanlışsa 400, yeni parola kısa ya da
     tekrarı farklıysa 422; bu oturum açık kalır, diğerleri kapanır; `USER_PASSWORD_CHANGED`
     {target_user_id, self: true}."""
-    own = _user_or_404(session, user.id)
+    own = _own_user(session, user)
     if new_password != new_password_repeat:
         session.rollback()
         return _account_page(
@@ -575,7 +644,7 @@ def _account_redirect(notice: str) -> RedirectResponse:
     return RedirectResponse(f"{ACCOUNT_TELEGRAM_PATH}?notice={notice}", status.HTTP_303_SEE_OTHER)
 
 
-@router.get(ACCOUNT_TELEGRAM_PATH, response_class=HTMLResponse)
+@account_router.get(ACCOUNT_TELEGRAM_PATH, response_class=HTMLResponse)
 def account_telegram_page(
     request: Request,
     user: CurrentUser,
@@ -587,7 +656,7 @@ def account_telegram_page(
     return _account_telegram_page(request, user, session, layout, notice=notice)
 
 
-@router.post(ACCOUNT_TELEGRAM_PATH, response_class=HTMLResponse)
+@account_router.post(ACCOUNT_TELEGRAM_PATH, response_class=HTMLResponse)
 def add_own_telegram_endpoint(
     request: Request,
     user: CurrentUser,
@@ -598,7 +667,7 @@ def add_own_telegram_endpoint(
     """12.1.8 kendi Telegram kimliğini elle ekleme — izin açık gelir; `TELEGRAM_USER_CHANGED`
     {target_user_id = kendi, telegram_id, allowed: true, added: true, via: "account"}. Pozitif tam
     sayı değilse 422, kimlik zaten bir kullanıcıya bağlıysa 409."""
-    own = _user_or_404(session, user.id)
+    own = _own_user(session, user)
     try:
         add_telegram_id(
             session, own, parse_telegram_id(telegram_id), actor=user.username, via=ACCOUNT_VIA
@@ -623,7 +692,7 @@ def add_own_telegram_endpoint(
     return _account_redirect("telegram_added")
 
 
-@router.post(f"{ACCOUNT_TELEGRAM_PATH}/{{telegram_id}}/status", response_class=HTMLResponse)
+@account_router.post(f"{ACCOUNT_TELEGRAM_PATH}/{{telegram_id}}/status", response_class=HTMLResponse)
 def set_own_telegram_status_endpoint(
     telegram_id: Annotated[int, Path(ge=1, le=TELEGRAM_ID_MAX)],
     request: Request,
@@ -659,7 +728,7 @@ def set_own_telegram_status_endpoint(
     return _account_redirect("telegram_allowed" if allowed else "telegram_blocked")
 
 
-@router.post(f"{ACCOUNT_TELEGRAM_PATH}/{{telegram_id}}/delete", response_class=HTMLResponse)
+@account_router.post(f"{ACCOUNT_TELEGRAM_PATH}/{{telegram_id}}/delete", response_class=HTMLResponse)
 def delete_own_telegram_endpoint(
     telegram_id: Annotated[int, Path(ge=1, le=TELEGRAM_ID_MAX)],
     user: CurrentUser,
@@ -676,7 +745,7 @@ def delete_own_telegram_endpoint(
     return _account_redirect("telegram_removed")
 
 
-@router.post(f"{ACCOUNT_TELEGRAM_PATH}/link", response_class=HTMLResponse)
+@account_router.post(f"{ACCOUNT_TELEGRAM_PATH}/link", response_class=HTMLResponse)
 def create_own_telegram_link_endpoint(
     request: Request,
     user: CurrentUser,
@@ -686,7 +755,7 @@ def create_own_telegram_link_endpoint(
     """12.1.4, 12.1.8 "Telegram'ı bağla" — kendisi için tek kullanımlık bot bağlantısı;
     `TELEGRAM_LINK_CREATED` {target_user_id = kendi, expires_at} kendi adıyla. Önceki kullanılmamış
     bağlantı geçersiz olur. Bot hiç çalışmamışken 409. Bağlantı yalnız bu yanıtta görünür."""
-    own = _user_or_404(session, user.id)
+    own = _own_user(session, user)
     bot = read_bot_info(layout)
     if bot is None:
         session.rollback()

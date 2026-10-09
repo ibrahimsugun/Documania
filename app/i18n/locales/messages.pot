@@ -4,7 +4,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Documania panel\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-09 01:25+0000\n"
+"POT-Creation-Date: 2026-10-09 02:33+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -300,6 +300,11 @@ msgstr ""
 #: app/web/auth.py
 #, python-brace-format
 msgid "'{name}' kullanıcı adı zaten kullanılıyor."
+msgstr ""
+
+#: app/web/auth.py
+#, python-brace-format
+msgid "'{name}' zaten bu rolde."
 msgstr ""
 
 #: app/web/auth.py
@@ -1498,6 +1503,10 @@ msgstr ""
 msgid "Bu grupta henüz kalem yok. Aşağıdan dosya etiketiyle ya da türle ekleyin."
 msgstr ""
 
+#: app/telegram/handlers.py
+msgid "Bu hesapla belge gönderemezsiniz; belge isteyebilirsiniz."
+msgstr ""
+
 #: app/web/routers/catalog.py
 msgid ""
 "Bu işlem her partiye yeni bir plan sürümü açacak; önceki sürümlerin "
@@ -1581,10 +1590,6 @@ msgstr ""
 
 #: app/web/routers/upload_page.py
 msgid "Bu partiyi yeniden analiz etmek üzeresiniz. Emin misiniz?"
-msgstr ""
-
-#: app/web/routers/users.py
-msgid "Bu sayfayı yalnız yönetici açabilir."
 msgstr ""
 
 #: app/telegram/intent.py
@@ -2612,6 +2617,10 @@ msgstr ""
 msgid "Her seferinde tek bir kişiyi sorun."
 msgstr ""
 
+#: app/web/auth.py
+msgid "Hesabınız salt okunur: bu işlemi yapamazsınız."
+msgstr ""
+
 #: app/web/routers/users.py
 msgid "Hesabınıza bağlı böyle bir Telegram kimliği yok"
 msgstr ""
@@ -2930,6 +2939,10 @@ msgstr ""
 msgid "Kendi parolanızı «Parolamı değiştir» sayfasından değiştirin."
 msgstr ""
 
+#: app/web/auth.py
+msgid "Kendi rolünüzü değiştiremezsiniz."
+msgstr ""
+
 #: app/telegram/intent.py
 msgid "Kimi sorduğunuzu adıyla yazın."
 msgstr ""
@@ -2977,7 +2990,7 @@ msgstr ""
 msgid "Korunan türler arşivlenmez, atlanacak (%(num)d): %(names)s"
 msgstr ""
 
-#: app/web/templates/access_log_employee.html
+#: app/web/routers/users.py app/web/templates/access_log_employee.html
 msgid "Kullanıcı"
 msgstr ""
 
@@ -3044,6 +3057,10 @@ msgstr ""
 
 #: app/web/templates/account_password.html
 msgid "Kullanıcılar sayfasına dön"
+msgstr ""
+
+#: app/web/routers/users.py
+msgid "Kullanıcının rolü değişti; bir sonraki isteğinde geçerli olur."
 msgstr ""
 
 #: app/web/templates/catalog_description.html
@@ -3628,6 +3645,10 @@ msgstr ""
 msgid "Rol"
 msgstr ""
 
+#: app/web/templates/users.html
+msgid "Rolü değiştir"
+msgstr ""
+
 #: app/web/templates/upload_detail.html
 msgid "Rota"
 msgstr ""
@@ -3815,6 +3836,10 @@ msgid ""
 "incelenir. Form adayın adıyla açıldı."
 msgstr ""
 
+#: app/web/auth.py
+msgid "Sistemde zaten bir root var; ikinci root açılamaz."
+msgstr ""
+
 #: app/web/templates/catalog_candidates.html
 msgid ""
 "Sistemin belgelerde gördüğü, ama katalogda bulunmayan tür önerileri. "
@@ -3855,7 +3880,7 @@ msgid "Son erişim"
 msgstr ""
 
 #: app/web/auth.py
-msgid "Son etkin yönetici pasife alınamaz."
+msgid "Son etkin İK pasife alınamaz ve rolü düşürülemez."
 msgstr ""
 
 #: app/web/templates/access_log.html app/web/templates/access_log_employee.html
@@ -4596,10 +4621,6 @@ msgstr ""
 
 #: app/web/templates/training_map.html
 msgid "Yol"
-msgstr ""
-
-#: app/web/routers/users.py
-msgid "Yönetici"
 msgstr ""
 
 #: app/web/templates/training_results.html
@@ -5709,8 +5730,18 @@ msgstr ""
 msgid "örnek"
 msgstr ""
 
+#: app/web/routers/users.py
+msgid "İK"
+msgstr ""
+
 #: app/web/routers/training.py
 msgid "İK (elle)"
+msgstr ""
+
+#: app/web/templates/users.html
+msgid ""
+"İK bütün işlemleri yapar; Kullanıcı paneli yalnız okur, hiçbir şey "
+"değiştiremez."
 msgstr ""
 
 #: app/web/templates/catalog_type_fields.html

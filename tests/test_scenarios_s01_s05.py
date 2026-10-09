@@ -85,7 +85,7 @@ from tests.fixtures.gen import (
 
 CATALOG = load_seed_catalog()
 SETTINGS = Settings(_env_file=None, database_url="sqlite://")
-SIGNED_IN = PanelUser(id=1, username="ik-uzmani", role="admin")
+SIGNED_IN = PanelUser(id=1, username="ik-uzmani", role="hr")
 
 PASSPORT_NUMBER = "00 0000001"
 LICENSE_NUMBER = "000123456"

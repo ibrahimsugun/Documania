@@ -24,7 +24,7 @@
 <p class="notice notice-success" role="status">{{ translate(notice_text) }}</p>
 {% endif %}
 <p>
-  <a class="button-link" href="/document-types/new{{ country_query }}">{{ _("Yeni tür") }}</a>
+  {% if user.can_write %}<a class="button-link" href="/document-types/new{{ country_query }}">{{ _("Yeni tür") }}</a>{% endif %}
   <a class="button-link" href="/document-types/candidate-types">{{ _("Aday türler") }}</a> <span class="count">({{ _("%(num)d onay bekliyor", num=pending_candidates) }})</span>
   {% if not show_archived %}<a class="button-link" href="{{ archived_url }}" id="archived-link">{{ _("Arşivlenen türler") }}</a> <span class="count">({{ archived_total }})</span>{% endif %}
 </p>
@@ -71,10 +71,12 @@
       <td class="cell-nowrap">{{ item.archived_at.strftime("%Y-%m-%d %H:%M") }}</td>
       <td>{{ item.archived_by or "—" }}</td>
       <td class="doc-actions">
+        {% if user.can_write %}
         <form class="inline" method="post" action="/document-types/{{ item.slug|urlencode }}/restore">
           {% if selected_country != "all" %}<input type="hidden" name="country" value="{{ selected_country }}">{% endif %}
           <button type="submit">{{ _("Geri al") }}</button>
         </form>
+        {% endif %}
       </td>
     </tr>
     {% endfor %}
@@ -86,6 +88,7 @@
 <p class="placeholder">{{ _("Arşivlenen tür yok.") }}</p>
 {% endif %}
 {% elif types %}
+{% if user.can_write %}
 <form class="bulk-bar" id="bulk-types" method="post" action="/document-types/bulk" aria-label="{{ _('Seçilen türlere toplu işlem') }}">
   {% if selected_country != "all" %}<input type="hidden" name="country" value="{{ selected_country }}">{% endif %}
   <span>{{ _("Seçilenleri:") }}</span>
@@ -94,6 +97,7 @@
   <button type="submit" name="action" value="archive">{{ _("Arşivle") }}</button>
   <small class="hint">{{ _("Tek seferde en çok %(limit)d tür; arşivleme iki aşamalı onay ister.", limit=bulk_limit) }}</small>
 </form>
+{% endif %}
 <table class="catalog catalog-types">
   <thead>
     <tr>
@@ -104,7 +108,7 @@
   <tbody>
     {% for item in types %}
     <tr{% if not item.active %} class="type-passive"{% endif %}>
-      <td><input type="checkbox" name="slugs" value="{{ item.slug }}" form="bulk-types" aria-label="{{ _('%(name)s seç', name=item.name) }}"></td>
+      <td>{% if user.can_write %}<input type="checkbox" name="slugs" value="{{ item.slug }}" form="bulk-types" aria-label="{{ _('%(name)s seç', name=item.name) }}">{% endif %}</td>
       <td><a href="/document-types/{{ item.slug|urlencode }}{{ country_query }}" title="{{ item.slug }}">{{ item.name }}</a></td>
       <td>{{ item.file_label }}</td>
       <td>{{ country_badge(item.country) or "—" }}</td>
@@ -119,6 +123,8 @@
         {% endif %}
       </td>
       <td class="doc-actions">
+        {# 10.1.8: salt okunur Kullanıcı tür sayfasını adından açar; işlem bağlantısı ve formu yok. #}
+        {% if user.can_write %}
         <a href="/document-types/{{ item.slug|urlencode }}{{ country_query }}">{{ _("Düzenle") }}</a>
         {% if item.active %}
         <form class="inline" method="post" action="/document-types/{{ item.slug|urlencode }}/deactivate">
@@ -132,6 +138,7 @@
         </form>
         {% endif %}
         {% if item.protected %}<span class="hint" title="{{ _('Boru hattının adıyla kullandığı tür') }}">{{ _("Korunan") }}</span>{% else %}<a href="/document-types/{{ item.slug|urlencode }}/archive/confirm{{ country_query }}">{{ _("Arşivle") }}</a>{% endif %}
+        {% endif %}
       </td>
     </tr>
     {% endfor %}

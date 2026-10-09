@@ -290,7 +290,7 @@ Kapsam: FR-MOD-13.
 | 10.1.1 | Panel iskeleti ve gezinme | Çalışanlar, Yükle, Belge Türleri, Belge Grupları, Kuyruklar, Yüklemeler, Eğitim modu, Kullanıcılar menüleri bu sırayla açılır; panelin ana sayfası (`/`) Çalışanlar'dır | Must (v1) |
 | 10.1.2 | Oturum tabanlı giriş | Girişsiz hiçbir panel yolu açılmaz | Must (v1) |
 | 10.1.3 | İlk kullanıcı oluşturma | Komut satırından ilk yönetici oluşturulabilir | Must (v1) |
-| 10.1.4 | Kullanıcı yönetimi | Panelde "Kullanıcılar" sayfası (yalnız yönetici): kullanıcı listesi; yeni kullanıcı (kullanıcı adı, parola, rol); kendi parolasını değiştirme; başka kullanıcının parolasını sıfırlama; pasife alma ve yeniden etkinleştirme. Pasif kullanıcı giriş yapamaz ve açık oturumları kapanır; son etkin yönetici pasife alınamaz, kullanıcı kendini pasife alamaz; kullanıcı silinmez. Her işlem kullanıcı adıyla olaya yazılır, parola hiçbir olaya girmez | Should (v1) |
+| 10.1.4 | Kullanıcı yönetimi | Panelde "Kullanıcılar" sayfası (işlemler İK ve root'ta; Kullanıcı rolü listeyi salt okunur görür, 10.1.8): kullanıcı listesi; yeni kullanıcı (kullanıcı adı, parola, rol: İK ya da Kullanıcı); rol değiştirme; kendi parolasını değiştirme; başka kullanıcının parolasını sıfırlama; pasife alma ve yeniden etkinleştirme. Pasif kullanıcı giriş yapamaz ve açık oturumları kapanır; son etkin İK pasife alınamaz ve rolü düşürülemez, kullanıcı kendini pasife alamaz; kullanıcı silinmez. Her işlem kullanıcı adıyla olaya yazılır, parola hiçbir olaya girmez | Should (v1) |
 | 10.1.5 | Panel sekme simgesi | Giriş dahil her panel sayfası tarayıcı sekmesinde Documania simgesini gösterir; simge dosyaları oturumsuz sunulur | Should (v1) |
 | 10.1.6 | Ülke başvuru verisi ve bayrak simgeleri | Depoda ülke başvuru verisi bulunur: ISO 3166-1 alfa-2 ve alfa-3 kodu, Türkçe ülke adı ve ICAO 9303 MRZ uyruk kodlarının ülkeye eşlemesi (`D` → Almanya, `GBD`/`GBN`/`GBO`/`GBP`/`GBS` → Birleşik Krallık gibi istisnalar dahil); her ülkenin küçük bayrak simgesi (SVG) panelin statik dosyalarındadır; kaynak, lisans ve indirme tarihi depoda kayıtlıdır. Panel tek bir yardımcıyla alfa-2, alfa-3 ya da MRZ kodundan bayrak + Türkçe ad üretir; tanınmayan ya da ülke olmayan kod (vatansız `XXA`/`XXB`/`XXC`/`XXX`, BM belgeleri `UNO`/`UNA`/`UNK`) bayraksız, kodun kendisiyle gösterilir | Should (v1) |
 | 10.1.7 | Panel teması: modern görünüm, açık ve koyu tema | Panelin bütün sayfaları tek bir tema dosyasıyla modern bir görünüm taşır: yumuşak degrade zemin, cam görünümlü yapışkan üst çubuk, yuvarlak köşeli kartlar ve tablolar, degrade birincil düğmeler, belirgin odak halkası, hap biçimli rozet ve sekmeler. Üst çubuktaki düğmeyle açık ve koyu tema arasında geçilir; seçim tarayıcıda hatırlanır, ilk açılışta sistem tercihi kullanılır ve sayfa yanlış temayla yanıp sönmez. Giriş sayfası kendi koyu degrade zeminini taşır. Hareket azaltma tercihi olan kullanıcıda geçiş animasyonları kapanır. Tema yalnız görünümü değiştirir; yerleşim, metin ve davranış aynı kalır | Should (v1) |
@@ -515,7 +515,7 @@ PROFILE_RECORD_REMOVED · PROFILE_RECORD_RESTORED · CONTACT_ADDED · UNARCHIVED
 QUEUE_ITEM_CLOSED · QUEUE_ITEM_REOPENED · UPLOAD_RESTORED · TYPE_ACTIVATED · TYPE_DEACTIVATED ·
 TYPE_ARCHIVED · TYPE_RESTORED · CANDIDATE_TYPE_RESTORED · TRAINING_ITEM_DISMISSED ·
 TRAINING_ITEM_RESTORED · TRAINING_RUN_ARCHIVED · USER_CREATED · USER_DEACTIVATED ·
-USER_REACTIVATED · USER_PASSWORD_CHANGED · USER_LANGUAGE_CHANGED · TELEGRAM_USER_CHANGED · TELEGRAM_LINK_CREATED · GROUP_CHANGED ·
+USER_REACTIVATED · USER_PASSWORD_CHANGED · USER_LANGUAGE_CHANGED · USER_ROLE_CHANGED · TELEGRAM_USER_CHANGED · TELEGRAM_LINK_CREATED · GROUP_CHANGED ·
 PACKAGE_ASSIGNED · PACKAGE_COMPLETED · PACKAGE_REOPENED · PACKAGE_CANCELLED · DOCUMENT_DELETED ·
 EMPLOYEE_DELETED · UPLOAD_CANCELLED
 
@@ -523,6 +523,9 @@ EMPLOYEE_DELETED · UPLOAD_CANCELLED
 iki aşamalı onayla / `timeout` — 10 dakikalık süre aşımı), `waited_seconds` (alındığından beri geçen süre),
 `job_status` (işçi kuyruğundaki işin iptal anındaki durumu). Kişisel değer taşımaz; `actor` elle iptalde
 kullanıcı adı, otomatik iptalde `system`'dir.
+
+`USER_ROLE_CHANGED` (10.1.8) verisi: `target_user_id`, `from`, `to` (`hr` / `user`). `actor` rolü değiştirenin
+kullanıcı adıdır; root rolü panelden atanmadığı için bu olayda görünmez.
 
 `DOCUMENT_DELETED` (10.5.12) verisi: `document_id`, `document_type_slug`, `previous_status` (`active` /
 `archived` / `superseded`), silinen ve korunan dosya sayıları (`files_deleted`, `files_kept`). `EMPLOYEE_DELETED`

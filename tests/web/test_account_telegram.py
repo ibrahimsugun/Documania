@@ -78,7 +78,7 @@ def _own_ids(html: str) -> str:
 
 def _as(app: FastAPI, user_id: int, username: str) -> None:
     app.dependency_overrides[get_current_user] = lambda: PanelUser(
-        id=user_id, username=username, role="admin"
+        id=user_id, username=username, role="hr"
     )
 
 

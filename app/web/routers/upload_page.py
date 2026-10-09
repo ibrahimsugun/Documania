@@ -132,7 +132,7 @@ from app.pipeline.plan import (
 )
 from app.pipeline.queue_close import close_reason_label
 from app.storage import DataLayout
-from app.web.auth import PanelUser, require_panel_user
+from app.web.auth import WRITER_ONLY, PanelUser, require_panel_user
 from app.web.confirm import (
     CONFIRMATION_REFUSED,
     ConfirmationRefusedError,
@@ -252,7 +252,7 @@ def _result(request: Request, status_code: int = 200, **context: object) -> HTML
     return render_page(request, "upload_result.html", user=None, status_code=status_code, **context)
 
 
-@router.get("/upload", response_class=HTMLResponse)
+@router.get("/upload", response_class=HTMLResponse, dependencies=WRITER_ONLY)
 def upload_page(
     request: Request, user: CurrentUser, session: Annotated[Session, Depends(get_session)]
 ) -> HTMLResponse:

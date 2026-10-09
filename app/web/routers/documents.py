@@ -101,7 +101,7 @@ from app.storage import (
     remove_document_files,
     unarchive_document,
 )
-from app.web.auth import PanelUser, require_panel_user
+from app.web.auth import WRITER_ONLY, PanelUser, require_panel_user
 from app.web.confirm import (
     CONFIRMATION_REFUSED,
     ConfirmationRefusedError,
@@ -409,7 +409,9 @@ def _move_result(
     )
 
 
-@router.get("/documents/{document_id}/move/employees", response_class=HTMLResponse)
+@router.get(
+    "/documents/{document_id}/move/employees", response_class=HTMLResponse, dependencies=WRITER_ONLY
+)
 def move_search(
     document_id: int,
     request: Request,
@@ -432,7 +434,9 @@ def move_search(
     )
 
 
-@router.get("/documents/{document_id}/move/confirm", response_class=HTMLResponse)
+@router.get(
+    "/documents/{document_id}/move/confirm", response_class=HTMLResponse, dependencies=WRITER_ONLY
+)
 def move_first_confirmation(
     document_id: int,
     request: Request,
@@ -838,7 +842,11 @@ def _complete(
     )
 
 
-@router.get("/documents/{document_id}/archive/confirm", response_class=HTMLResponse)
+@router.get(
+    "/documents/{document_id}/archive/confirm",
+    response_class=HTMLResponse,
+    dependencies=WRITER_ONLY,
+)
 def archive_first_confirmation(
     document_id: int,
     request: Request,
@@ -875,7 +883,11 @@ def archive_from_profile(
     return _complete(request, user, session, layout, document_id, ARCHIVE_FLOW, confirmation)
 
 
-@router.get("/documents/{document_id}/unarchive/confirm", response_class=HTMLResponse)
+@router.get(
+    "/documents/{document_id}/unarchive/confirm",
+    response_class=HTMLResponse,
+    dependencies=WRITER_ONLY,
+)
 def unarchive_first_confirmation(
     document_id: int,
     request: Request,
@@ -1015,7 +1027,9 @@ def _delete_page(
     )
 
 
-@router.get("/documents/{document_id}/delete/confirm", response_class=HTMLResponse)
+@router.get(
+    "/documents/{document_id}/delete/confirm", response_class=HTMLResponse, dependencies=WRITER_ONLY
+)
 def delete_first_confirmation(
     document_id: int,
     request: Request,

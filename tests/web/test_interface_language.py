@@ -258,6 +258,9 @@ def test_topbar_and_stale_banner_in_each_language(
     probe: FastAPI, client: TestClient, language: str
 ) -> None:
     _default_language(probe, language)
+    # 10.1.9: erişim logu bağlantısı yalnız root'un üst çubuğunda.
+    root = PanelUser(SIGNED_IN.id, SIGNED_IN.username, "root")
+    probe.dependency_overrides[get_current_user] = lambda: root
 
     response = client.get(SKELETON)
 

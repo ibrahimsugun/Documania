@@ -310,7 +310,7 @@ def whitelist(session_factory: sessionmaker[Session]) -> Callable[..., None]:
 
     def _add(telegram_id: int, *, allowed: bool = True) -> None:
         with session_factory() as session:
-            user = User(username=f"ik-{telegram_id}", password_hash="x", role="admin")
+            user = User(username=f"ik-{telegram_id}", password_hash="x", role="hr")
             session.add(TelegramUser(telegram_id=telegram_id, user=user, allowed=allowed))
             session.commit()
 

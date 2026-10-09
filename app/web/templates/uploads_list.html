@@ -33,7 +33,7 @@
 {% endfor %}
 
 {% if listing.total == 0 %}
-<p class="placeholder">{% if listing.filter.active %}{{ _("Bu süzgece uyan yükleme yok.") }}{% else %}{{ _("Henüz yükleme yok.") }}{% endif %} <a href="/upload">{{ _("Yükle") }}</a></p>
+<p class="placeholder">{% if listing.filter.active %}{{ _("Bu süzgece uyan yükleme yok.") }}{% else %}{{ _("Henüz yükleme yok.") }}{% endif %}{% if user.can_write %} <a href="/upload">{{ _("Yükle") }}</a>{% endif %}</p>
 {% else %}
 <p class="count">{{ ngettext("%(num)d yükleme", "%(num)d yükleme", listing.total) }}</p>
 <table class="access-log uploads-list">

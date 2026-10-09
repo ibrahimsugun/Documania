@@ -24,7 +24,7 @@ from app.web.auth import SESSION_COOKIE, PanelUser, get_current_user
 from app.web.confirm import Operation, issue_confirmation
 from app.web.routers.uploads import get_layout
 
-SIGNED_IN = PanelUser(id=1, username="test-yonetici", role="admin")
+SIGNED_IN = PanelUser(id=1, username="test-yonetici", role="hr")
 # Onay belirteci oturum çerezine bağlıdır (10.8.1); oturum bağımlılığı testte geçersiz kılındığı
 # için çerez elle konur.
 SESSION = "oturum-bir"

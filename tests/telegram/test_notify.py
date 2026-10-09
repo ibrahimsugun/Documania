@@ -325,6 +325,31 @@ def test_ids_of_a_deactivated_panel_user_are_not_told(
     assert notifications(bot.telegram, OTHER_ID) == []
 
 
+def test_only_hr_and_root_are_told_a_read_only_user_is_not(
+    make_bare_bot: Callable[..., NotifyBot],
+    session_factory: sessionmaker[Session],
+    whitelist: Callable[..., None],
+    uploads: None,
+) -> None:
+    """10.1.8 (PLAN.md §D115 f): kuyruğu İK ve root çözer; salt okunur Kullanıcı'nın kimliği
+    izinli olsa da bildirim almaz."""
+    root_id, user_id = OTHER_ID + 1, OTHER_ID + 2
+    for telegram_id in (LISTED_ID, root_id, user_id):
+        whitelist(telegram_id)
+    with session_factory() as session:
+        session.get_one(TelegramUser, root_id).user.role = "root"
+        session.get_one(TelegramUser, user_id).user.role = "user"
+        session.commit()
+    bot = make_bare_bot()
+    queue_event(session_factory)
+
+    scan(bot.application, bot.notifier)
+
+    assert notifications(bot.telegram, LISTED_ID) == [announcement(1)]
+    assert notifications(bot.telegram, root_id) == [announcement(1)]
+    assert notifications(bot.telegram, user_id) == []
+
+
 def test_events_that_are_not_queue_events_are_ignored(
     make_bare_bot: Callable[..., NotifyBot],
     session_factory: sessionmaker[Session],

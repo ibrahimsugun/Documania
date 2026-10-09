@@ -60,7 +60,7 @@ from app.groups import (
 from app.i18n import N_, Translatable
 from app.profiles import write_profile
 from app.storage import DataLayout
-from app.web.auth import PanelUser, require_panel_user
+from app.web.auth import WRITER_ONLY, PanelUser, require_panel_user
 from app.web.routers.uploads import get_layout
 from app.web.templating import MENU_BY_KEY, render_page
 
@@ -296,7 +296,7 @@ def groups_page(
 
 
 # `/document-groups/{group_id}`'dan önce kayıtlı olmalı: yol tek parçadır.
-@router.get(f"{LIST_PATH}/new", response_class=HTMLResponse)
+@router.get(f"{LIST_PATH}/new", response_class=HTMLResponse, dependencies=WRITER_ONLY)
 def new_group_page(request: Request, user: CurrentUser) -> HTMLResponse:
     return _new_page(request, user, GroupFormValues())
 

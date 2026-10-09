@@ -13,7 +13,14 @@ from app.config import Settings, get_settings
 from app.db.schema_check import SchemaVersionError, ensure_schema_current, expected_revision
 from app.i18n.request import use_request_language
 from app.storage import prepare_data_dir
-from app.web.auth import LoginRequiredError, login_url, require_api_user, require_panel_user
+from app.web.auth import (
+    LoginRequiredError,
+    api_write_gate,
+    login_url,
+    panel_write_gate,
+    require_api_user,
+    require_panel_user,
+)
 from app.web.code_watch import CodeWatch
 from app.web.routers import (
     access_log,
@@ -79,24 +86,30 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     # (`app.i18n.request`); JSON API ve `/health` çevrilmez.
     language = Depends(use_request_language)
     panel_page = [language, Depends(require_panel_user)]
+    # 10.1.8 (PLAN.md §D115 c): yazan her yol — güvenli olmayan her yöntem — İK ya da root ister;
+    # Kullanıcı'ya 403. Kapının dışında yalnız giriş/çıkış ve dil seçici (`auth.router`) ile kişinin
+    # kendi hesabı (`users.account_router`: parola, Telegram) kalır.
+    panel_writes = [*panel_page, Depends(panel_write_gate)]
+    api_writes = [Depends(require_api_user), Depends(api_write_gate)]
     application.include_router(auth.router, dependencies=[language])
-    application.include_router(panel.router, dependencies=panel_page)
-    application.include_router(upload_page.router, dependencies=panel_page)
-    application.include_router(uploads_list.router, dependencies=panel_page)
+    application.include_router(panel.router, dependencies=panel_writes)
+    application.include_router(upload_page.router, dependencies=panel_writes)
+    application.include_router(uploads_list.router, dependencies=panel_writes)
     # 10.5.13: kalıcı silinen çalışanın bütün adresleri "silindi" sayfasını (410) döner.
     application.include_router(
         employees.router,
-        dependencies=[*panel_page, Depends(employees.reject_deleted_employee)],
+        dependencies=[*panel_writes, Depends(employees.reject_deleted_employee)],
     )
-    application.include_router(documents.router, dependencies=panel_page)
-    application.include_router(catalog.router, dependencies=panel_page)
-    application.include_router(groups.router, dependencies=panel_page)
-    application.include_router(queue.pages_router, dependencies=panel_page)
-    application.include_router(access_log.router, dependencies=panel_page)
-    application.include_router(training.router, dependencies=panel_page)
-    application.include_router(users.router, dependencies=panel_page)
-    application.include_router(uploads.router, dependencies=[Depends(require_api_user)])
-    application.include_router(queue.router, dependencies=[Depends(require_api_user)])
+    application.include_router(documents.router, dependencies=panel_writes)
+    application.include_router(catalog.router, dependencies=panel_writes)
+    application.include_router(groups.router, dependencies=panel_writes)
+    application.include_router(queue.pages_router, dependencies=panel_writes)
+    application.include_router(access_log.router, dependencies=panel_writes)
+    application.include_router(training.router, dependencies=panel_writes)
+    application.include_router(users.router, dependencies=panel_writes)
+    application.include_router(users.account_router, dependencies=panel_page)
+    application.include_router(uploads.router, dependencies=api_writes)
+    application.include_router(queue.router, dependencies=api_writes)
 
     @application.get("/health")
     def health() -> dict[str, Any]:

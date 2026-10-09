@@ -114,7 +114,7 @@ def test_snapshot_includes_committed_rows_still_waiting_in_the_wal(project: Proj
     holder.execute("PRAGMA journal_mode=WAL")
     holder.execute("PRAGMA wal_autocheckpoint=0")
     holder.execute(
-        "insert into users (id, username, password_hash, role) values (9, 'wal', 'x', 'admin')"
+        "insert into users (id, username, password_hash, role) values (9, 'wal', 'x', 'hr')"
     )
     holder.commit()
     assert Path(f"{project.db}-wal").stat().st_size > 0

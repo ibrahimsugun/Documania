@@ -8,11 +8,15 @@
     <li>
       <input type="text" name="acceptance_criteria" value="{{ text }}"
              aria-label="{{ _('Kabul kriteri %(num)d', num=loop.index) }}" autocomplete="off">
+      {% if user.can_write %}
       <button type="button" class="link-button" hx-post="/document-types/criteria/remove"
               hx-vals='{"index": {{ loop.index0 }}}' hx-target="#criteria" hx-swap="outerHTML">{{ _("Çıkar") }}</button>
+      {% endif %}
     </li>
     {% endfor %}
   </ul>
+  {% if user.can_write %}
   <button type="button" hx-post="/document-types/criteria/add"
           hx-target="#criteria" hx-swap="outerHTML">{{ _("Madde ekle") }}</button>
+  {% endif %}
 </div>

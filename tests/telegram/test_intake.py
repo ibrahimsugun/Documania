@@ -28,6 +28,7 @@ from app.db.models import (
     Event,
     JobStatus,
     QueueItem,
+    TelegramUser,
     Upload,
     UploadFile,
     UploadJob,
@@ -42,6 +43,7 @@ from app.telegram.handlers import (
     FAILURE_TEXT,
     HANDED_OVER_TEXT,
     NO_OUTPUT_TEXT,
+    READ_ONLY_TEXT,
     TelegramFile,
     build_summary,
     telegram_file,
@@ -156,6 +158,38 @@ def test_document_goes_through_the_same_pipeline_as_a_web_upload(
     # 13.3.1: partinin işi bota alınmış açıldı ve bot onu bitirdi.
     job = the_job(session_factory)
     assert (job.upload_id, job.status, job.attempts) == (upload.id, JobStatus.FINISHED, 1)
+
+
+def test_a_read_only_user_cannot_send_documents_and_is_told_so_in_one_sentence(
+    make_intake_bot: Callable[..., IntakeBot],
+    session_factory: sessionmaker[Session],
+    listed: None,
+    tmp_path: Path,
+) -> None:
+    # 10.1.8 (PLAN.md §D115 f): Kullanıcı rolündeki bağlı hesabın dosyası indirilmez, parti açılmaz.
+    with session_factory() as session:
+        session.get_one(TelegramUser, LISTED_ID).user.role = "user"
+        session.commit()
+    provider = provider_for(tmp_path, [passport()])
+    bot = make_intake_bot(provider)
+    bot.telegram.files["f1"] = passport_pdf()
+
+    bot.feed(document_update(1, LISTED_ID, "f1", "pasaport.pdf"))
+
+    assert all_uploads(session_factory) == []
+    assert "getFile" not in bot.telegram.methods()
+    assert bot.telegram.sent_texts() == [READ_ONLY_TEXT]
+    assert provider.requests == []
+    assert bot.layout is not None
+    assert list((bot.layout.root / "Inbox").iterdir()) == []
+
+    # Rol İK'ya dönünce bir sonraki dosya her zamanki gibi işlenir.
+    with session_factory() as session:
+        session.get_one(TelegramUser, LISTED_ID).user.role = "hr"
+        session.commit()
+    bot.feed(document_update(2, LISTED_ID, "f1", "pasaport.pdf"))
+    (upload,) = all_uploads(session_factory)
+    assert upload.status == UploadStatus.DONE.value
 
 
 def test_the_bot_s_batch_is_claimed_when_it_is_stored_so_no_other_worker_takes_it(

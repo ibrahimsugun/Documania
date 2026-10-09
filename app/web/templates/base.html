@@ -24,17 +24,22 @@
   <header class="topbar">
     <a class="brand" href="/">Documania</a>
     <nav class="menu" aria-label="{{ _('Ana menü') }}">
-      {% for entry in menu %}
+      {# 10.1.8: salt okunur Kullanıcı'da Yükle menüsü yoktur (yazma yolu; `user.can_write`). #}
+      {% for entry in menu if entry.key != "upload" or user.can_write %}
       <a href="{{ entry.path }}"{% if entry.key == active %} class="active" aria-current="page"{% endif %}>{{ _(entry.label) }}</a>
       {% endfor %}
     </nav>
-    {# 13.4.1: erişim logu da menü dışı araçtır. #}
+    {# 13.4.1: erişim logu da menü dışı araçtır; 10.1.9: yalnız root görür. #}
+    {% if user.is_root %}
     <a class="tool-link{% if active == 'access_log' %} active{% endif %}" href="/access-log"{% if active == 'access_log' %} aria-current="page"{% endif %}>{{ _("Erişim logu") }}</a>
+    {% endif %}
     {# 10.10.2: dil seçici kullanıcı adının yanında; seçim hesaba kaydedilir, aynı sayfaya dönülür. #}
     {% with back = language_return_path(request) %}{% include "_language_selector.html" %}{% endwith %}
     <button type="button" class="theme-toggle" data-theme-toggle aria-pressed="false" aria-label="{{ _('Açık ya da koyu tema') }}" title="{{ _('Açık ya da koyu tema') }}"><span class="icon-light" aria-hidden="true">☾</span><span class="icon-dark" aria-hidden="true">☀</span></button>
     <form class="session" method="post" action="/logout">
       <span class="username" translate="no">{{ user.username }}</span>
+      {# 10.1.8: "Root" etiketi yalnız root'un kendi ekranında; başka hiçbir yerde rol root görünmez. #}
+      {% if user.is_root %}<span class="badge role-badge" translate="no">Root</span>{% endif %}
       <button type="submit">{{ _("Çıkış") }}</button>
     </form>
   </header>

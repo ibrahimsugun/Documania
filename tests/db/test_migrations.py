@@ -34,7 +34,7 @@ def _assert_schema_matches_models(database_url: str) -> None:
             assert tables == set(Base.metadata.tables) | {"alembic_version"}
             context = MigrationContext.configure(connection, opts={"compare_type": True})
             assert compare_metadata(context, Base.metadata) == []
-            assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "0027"
+            assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "0028"
     finally:
         engine.dispose()
 
@@ -122,7 +122,8 @@ def test_user_sessions_migration_is_reversible_and_keeps_users(sqlite_url: str) 
         command.upgrade(config, "head")
         with engine.connect() as connection:
             assert "user_sessions" in inspect(connection).get_table_names()
-            assert connection.execute(text(user)).all() == [("yonetici", "admin")]
+            # 0028 (10.1.8): tek rol admin kalktı; Zvz dışındaki yönetici İK olur.
+            assert connection.execute(text(user)).all() == [("yonetici", "hr")]
 
         command.downgrade(config, "0002")
         with engine.connect() as connection:
@@ -1490,6 +1491,61 @@ def test_upload_cancellation_migration_accepts_cancelled_and_is_reversible(
             connection.execute(set_upload, {"status": "cancelled"})
         with engine.connect() as connection:
             assert connection.scalar(text("SELECT status FROM uploads")) == "received"
+    finally:
+        engine.dispose()
+
+
+def test_user_roles_migration_makes_zvz_root_and_every_other_admin_hr_and_is_reversible(
+    sqlite_url: str,
+) -> None:
+    # 0028 (10.1.8, PLAN.md §D115 a): yalnız `Zvz` root olur, öteki her admin İK; adla rol tahmin
+    # edilmez (`USER` adlı hesap da İK). Rol yalnız root, hr ya da user; en çok bir root. Geri alış
+    # her rolü admin'e çevirir.
+    config = _alembic_config(sqlite_url)
+    command.upgrade(config, "0027")
+    engine = create_engine(sqlite_url)
+    roles = "SELECT username, role FROM users ORDER BY id"
+    insert = text("INSERT INTO users (username, password_hash, role) VALUES (:name, 'ozet', :role)")
+    try:
+        with engine.begin() as connection:
+            for name in ("Zvz", "USER", "zvz"):
+                connection.execute(insert, {"name": name, "role": "admin"})
+
+        command.upgrade(config, "0028")
+        with engine.connect() as connection:
+            assert connection.execute(text(roles)).all() == [
+                ("Zvz", "root"),
+                ("USER", "hr"),
+                ("zvz", "hr"),
+            ]
+        with engine.begin() as connection:
+            connection.execute(insert, {"name": "okuyan", "role": "user"})
+        for name, role in (("ikinci-root", "root"), ("eski", "admin"), ("bos", "")):
+            with pytest.raises(IntegrityError), engine.begin() as connection:
+                connection.execute(insert, {"name": name, "role": role})
+
+        command.downgrade(config, "0027")
+        with engine.connect() as connection:
+            assert {role for _, role in connection.execute(text(roles))} == {"admin"}
+    finally:
+        engine.dispose()
+
+
+def test_user_roles_migration_opens_no_root_without_zvz(sqlite_url: str) -> None:
+    # Temiz ya da Zvz'siz kurulumda root yoktur; komut satırı (create-root) açar.
+    config = _alembic_config(sqlite_url)
+    command.upgrade(config, "0027")
+    engine = create_engine(sqlite_url)
+    try:
+        with engine.begin() as connection:
+            connection.execute(
+                text(
+                    "INSERT INTO users (username, password_hash, role) VALUES ('ik', 'o', 'admin')"
+                )
+            )
+        command.upgrade(config, "head")
+        with engine.connect() as connection:
+            assert connection.execute(text("SELECT role FROM users")).all() == [("hr",)]
     finally:
         engine.dispose()
 

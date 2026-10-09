@@ -16,7 +16,7 @@
 </dl>
 {% if notice %}<p class="notice notice-success" role="status">{{ translate(notice) }}</p>{% endif %}
 {% if examples %}
-{% if ai_decision %}
+{% if ai_decision and user.can_write %}
 {# 11.9.4 toplu doğrulama: kartlardaki onay kutuları bu forma `form` özniteliğiyle bağlıdır. #}
 <form class="verify-form" id="verify-selected" method="post" action="/training/examples/verify">
   <input type="hidden" name="next" value="{{ type_url }}">
@@ -37,7 +37,8 @@
       {% if example.manual_check %}{% include "_manual_check.html" %}{% endif %}
     </span>
     {% if example.note %}<span class="reason reason-text" translate="no">{{ example.note }}</span>{% endif %}
-    {% if example.record_id %}
+    {# 10.1.8: salt okunur Kullanıcı'da karar formları yoktur. #}
+    {% if example.record_id and user.can_write %}
     <div class="example-decisions">
       {% if example.manual_check %}
       <label class="hint"><input type="checkbox" name="example_ids" value="{{ example.record_id }}" form="verify-selected"> {{ _("seç") }}</label>

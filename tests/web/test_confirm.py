@@ -433,7 +433,7 @@ def test_an_expired_or_not_yet_valid_token_is_refused(
 
 def test_a_token_is_bound_to_its_session_and_its_user(session: Session) -> None:
     token = _issue(session)
-    other_user = PanelUser(id=2, username="baska-yonetici", role="admin")
+    other_user = PanelUser(id=2, username="baska-yonetici", role="hr")
 
     with pytest.raises(ConfirmationRefusedError, match="oturuma ait değil"):
         _consume(session, token, cookie="oturum-iki")

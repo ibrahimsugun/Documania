@@ -39,9 +39,11 @@
       </td>
       <td><a href="/uploads/{{ item.first_seen_upload_id }}">{{ item.first_seen_upload_id }}</a></td>
       <td class="doc-actions">
+        {% if user.can_write %}
         <form class="inline" method="post" action="/document-types/candidate-types/{{ item.id }}/restore">
           <button type="submit">{{ _("Geri al") }}</button>
         </form>
+        {% endif %}
       </td>
     </tr>
     {% endfor %}

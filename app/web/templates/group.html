@@ -18,6 +18,13 @@
 <p class="notice" role="status" id="group-archived">{{ _("Bu grup arşivde (%(actor)s, %(time)s UTC): yeni paket tanımlanamaz, açık paketler sürer.", actor=group.archived_by, time=group.archived_at.strftime("%Y-%m-%d %H:%M")) }}</p>
 {% endif %}
 
+{% if not user.can_write %}
+{# 10.1.8: salt okunur Kullanıcı grubu görür; ad, kalem ve arşiv formları yok. #}
+<dl class="meta group-meta">
+  <dt>{{ _("Ad") }}</dt><dd>{{ form.name }}</dd>
+  <dt>{{ _("Açıklama") }}</dt><dd>{{ form.description or "—" }}</dd>
+</dl>
+{% else %}
 {% if group %}
 <form class="type-form group-form" method="post" action="/document-groups/{{ group.id }}">
 {% else %}
@@ -39,6 +46,7 @@
     <a href="/document-groups">{{ _("Vazgeç") }}</a>
   </div>
 </form>
+{% endif %}
 
 {% if group %}
 <section class="group-items" aria-labelledby="group-items-title">
@@ -58,9 +66,11 @@
         <td>{{ _("Zorunlu") if item.required else _("İsteğe bağlı") }}</td>
         <td>{{ item.note or "—" }}</td>
         <td class="doc-actions">
+          {% if user.can_write %}
           <form class="inline" method="post" action="/document-groups/{{ group.id }}/items/{{ item.id }}/remove">
             <button type="submit">{{ _("Kaldır") }}</button>
           </form>
+          {% endif %}
         </td>
       </tr>
       {% endfor %}
@@ -70,6 +80,7 @@
   <p class="placeholder">{{ _("Bu grupta henüz kalem yok. Aşağıdan dosya etiketiyle ya da türle ekleyin.") }}</p>
   {% endif %}
 
+  {% if user.can_write %}
   <h3>{{ _("Dosya etiketiyle kalem ekle") }}</h3>
   <p class="hint">{{ _("Ülkeden bağımsızdır: seçilen etiketi taşıyan her tür kalemi karşılar. Sayı, o etiketi taşıyan katalog türlerinin sayısıdır — yakın etiketler (örn. «Identity Card», «Identity Document») ayrı kalır.") }}</p>
   <form class="type-form item-form" method="post" action="/document-groups/{{ group.id }}/items" id="add-label-item">
@@ -125,6 +136,7 @@
   {% if item_form.match_kind not in ("label", "type") and item_problems %}
   {{ errors(item_problems, "match_kind") }}
   {% endif %}
+  {% endif %}
 
   {% if removed_items %}
   <details class="removed-items">
@@ -139,6 +151,7 @@
   {% endif %}
 </section>
 
+{% if user.can_write %}
 <section class="group-archive" aria-labelledby="group-archive-title">
   <h2 id="group-archive-title">{{ _("Arşiv") }}</h2>
   {% if group.archived_at %}
@@ -152,5 +165,6 @@
   </form>
   {% endif %}
 </section>
+{% endif %}
 {% endif %}
 {% endblock %}

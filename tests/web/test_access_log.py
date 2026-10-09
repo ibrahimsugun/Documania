@@ -169,9 +169,9 @@ def test_the_log_names_who_looked_when_several_users_do(
     session_factory: sessionmaker[Session],
     stored: dict[str, Any],
 ) -> None:
-    second = PanelUser(id=2, username="ikinci-yonetici", role="admin")
+    second = PanelUser(id=2, username="ikinci-yonetici", role="hr")
     with session_factory() as session:
-        session.add(User(id=second.id, username=second.username, password_hash="x", role="admin"))
+        session.add(User(id=second.id, username=second.username, password_hash="x", role="hr"))
         session.commit()
 
     client.get(f"{stored['url']}/file")
@@ -511,7 +511,10 @@ REVIEWED_MUTATING_ROUTES: dict[tuple[str, str], str] = {
         "toplu tarama: eğitim öğeleri ve haritanın kopyası, çalışan verisi değil (11.9.5)"
     ),
     ("POST", "/users"): "panel kullanıcısı açma (10.1.4)",
-    ("POST", "/users/{user_id}/password"): "yöneticinin parola sıfırlaması (10.1.4)",
+    ("POST", "/users/{user_id}/password"): "İK'nın parola sıfırlaması (10.1.4)",
+    ("POST", "/users/{user_id}/role"): (
+        "kullanıcının rolü: İK ya da Kullanıcı; root atanmaz, silme yok (10.1.8, §D115)"
+    ),
     ("POST", "/users/{user_id}/status"): (
         "kullanıcıyı pasife alma ve etkinleştirme; silinmez (10.1.4, R11)"
     ),

@@ -66,7 +66,8 @@ def speak(app: FastAPI) -> Speak:
     """Oturumdaki kullanıcının dil tercihini koyar (girişli istekte dil hesabın tercihidir)."""
 
     def choose(language: str) -> None:
-        user = PanelUser(SIGNED_IN.id, SIGNED_IN.username, SIGNED_IN.role, language=language)
+        # 10.1.9: root her sayfayı (erişim logu dahil) açar; tarama her sayfayı çizer.
+        user = PanelUser(SIGNED_IN.id, SIGNED_IN.username, "root", language=language)
         app.dependency_overrides[get_current_user] = lambda: user
 
     return choose
@@ -313,8 +314,14 @@ PAGES: dict[str, dict[str, tuple[str, ...]]] = {
         ),
     },
     "/users": {
-        "en": ("<h1>Users</h1>", "New user", "Create user", "Administrator", "My Telegram"),
-        "sr": ("<h1>Korisnici</h1>", "Novi korisnik", "Napravi korisnika", "Moj Telegram"),
+        "en": ("<h1>Users</h1>", "New user", "Create user", "<td>HR</td>", "My Telegram"),
+        "sr": (
+            "<h1>Korisnici</h1>",
+            "Novi korisnik",
+            "Napravi korisnika",
+            "<td>HR</td>",
+            "Moj Telegram",
+        ),
     },
     "/account/telegram": {
         "en": ("<h1>My Telegram</h1>", "Your Telegram IDs", "Connect Telegram", "Add manually"),
@@ -430,9 +437,7 @@ def test_form_errors_speak_the_chosen_language(
             "/employees/E0001/packages", data={"group_id": "1", "note": "n" * 121}
         ),
         "upload": client.post("/upload", data={}),
-        "user": client.post(
-            "/users", data={"username": "ab", "password": "x" * 12, "role": "admin"}
-        ),
+        "user": client.post("/users", data={"username": "ab", "password": "x" * 12, "role": "hr"}),
         "password": client.post(
             "/account/password",
             data={
