@@ -4,8 +4,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Documania panel\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-08 18:26+0000\n"
-"PO-Revision-Date: 2026-10-08 18:26+0000\n"
+"POT-Creation-Date: 2026-10-08 20:09+0000\n"
+"PO-Revision-Date: 2026-10-08 20:09+0000\n"
 "Last-Translator: Documania görev penceresi (gözden geçirilmeli)\n"
 "Language: sr_Latn\n"
 "Language-Team: Srpski\n"
@@ -1173,6 +1173,20 @@ msgstr "Grupa dokumenata nije pronađena"
 msgid "Belge grubu bulunamadı."
 msgstr "Grupa dokumenata nije pronađena."
 
+#: app/web/routers/employees.py
+msgid ""
+"Belge kalıcı olarak silindi, ancak bazı dosyaları diskten kaldırılamadı "
+"(açık ya da kilitli olabilir); sayısı olay logunda. Sistem yöneticisine "
+"bildirin."
+msgstr ""
+"Dokument je trajno obrisan, ali neke njegove datoteke nije bilo moguće "
+"ukloniti sa diska (možda su otvorene ili zaključane); broj je u dnevniku "
+"događaja. Obavestite administratora sistema."
+
+#: app/web/routers/employees.py
+msgid "Belge kalıcı olarak silindi; dosyaları diskten kaldırıldı."
+msgstr "Dokument je trajno obrisan; njegove datoteke su uklonjene sa diska."
+
 #: app/web/templates/profile.html
 msgid "Belge numaraları"
 msgstr "Brojevi dokumenata"
@@ -1381,6 +1395,10 @@ msgstr "Premesti dokument u arhivu"
 #: app/telegram/intent.py
 msgid "Belgeyi gönderemedim. Yeniden deneyin."
 msgstr "Nisam uspeo da pošaljem dokument. Pokušajte ponovo."
+
+#: app/web/routers/documents.py
+msgid "Belgeyi kalıcı sil"
+msgstr "Trajno obriši dokument"
 
 #: app/web/templates/queue.html app/web/templates/queue_close_step.html
 #: app/web/templates/queue_item.html
@@ -2163,7 +2181,8 @@ msgstr ""
 "Documania bot odgovara samo Telegram ID-ju koji je povezan sa vašim "
 "nalogom i dozvoljen. Telegram možete povezati samo vi, sa svojim nalogom."
 
-#: app/web/templates/document_archive_step.html app/web/templates/profile.html
+#: app/web/templates/document_archive_step.html
+#: app/web/templates/document_delete_step.html app/web/templates/profile.html
 #: app/web/templates/training_results.html app/web/templates/upload_detail.html
 #: app/web/templates/upload_result.html app/web/templates/uploads_list.html
 msgid "Dosya"
@@ -2249,6 +2268,7 @@ msgstr "Datum rođenja: {date} ({age} god.)"
 
 #: app/web/templates/catalog.html app/web/templates/catalog_candidate.html
 #: app/web/templates/document_archive_step.html
+#: app/web/templates/document_delete_step.html
 #: app/web/templates/employee_merge_step.html app/web/templates/employees.html
 #: app/web/templates/employees_results.html app/web/templates/groups.html
 #: app/web/templates/history.html app/web/templates/profile.html
@@ -2427,6 +2447,7 @@ msgstr "Da, spoji"
 #: app/web/templates/catalog_candidate.html
 #: app/web/templates/catalog_candidate_step.html
 #: app/web/templates/document_archive_step.html
+#: app/web/templates/document_delete_step.html
 #: app/web/templates/document_move.html app/web/templates/employee_fields.html
 #: app/web/templates/employee_merge_step.html
 #: app/web/templates/employee_status_step.html
@@ -2454,6 +2475,10 @@ msgstr "Da, vrati"
 #: app/web/templates/profile_record_step.html
 msgid "Evet, kaldır"
 msgstr "Da, ukloni"
+
+#: app/web/routers/documents.py
+msgid "Evet, kalıcı olarak sil"
+msgstr "Da, trajno obriši"
 
 #: app/web/templates/queue_close_step.html
 msgid "Evet, kapat"
@@ -3021,6 +3046,29 @@ msgstr "Dodaj stavku"
 msgid "Kalemler"
 msgstr "Stavke"
 
+#: app/web/templates/history.html
+#, python-format
+msgid "Kalıcı olarak silindi: %(at)s · %(user)s"
+msgstr "Trajno obrisano: %(at)s · %(user)s"
+
+#: app/web/templates/profile.html
+msgid "Kalıcı sil"
+msgstr "Trajno obriši"
+
+#: app/web/routers/documents.py
+msgid ""
+"Kalıcı silme geri alınamaz. Belge dosyası ve yalnız bu belgeye ait "
+"kopyaları diskten kaldırılır; başka bir belgeye ya da açık kuyruk öğesine"
+" kaynak olan dosyalar yerinde kalır. Kayıt listelerden, aramadan, belge "
+"paketlerinden ve bottan kalkar; geçmişi ve kimin sildiği olay logunda "
+"durur."
+msgstr ""
+"Trajno brisanje se ne može poništiti. Datoteka dokumenta i kopije koje "
+"pripadaju samo ovom dokumentu uklanjaju se sa diska; datoteke koje su "
+"izvor i drugog dokumenta ili otvorene stavke reda ostaju na mestu. Zapis "
+"nestaje sa spiskova, iz pretrage, paketa dokumenata i bota; njegova "
+"istorija i ko ga je obrisao ostaju u dnevniku događaja."
+
 #: app/web/templates/access_log_employee.html
 #: app/web/templates/upload_detail.html app/web/templates/uploads_list.html
 msgid "Kanal"
@@ -3556,6 +3604,7 @@ msgid "Onaylandı"
 msgstr "Odobreno"
 
 #: app/web/templates/document_archive_step.html
+#: app/web/templates/document_delete_step.html
 #: app/web/templates/employee_merge_step.html
 #: app/web/templates/employee_status_step.html
 #: app/web/templates/profile_record_step.html
@@ -3871,6 +3920,15 @@ msgstr "Zapisi profila"
 msgid "Profil oluştur"
 msgstr "Napravi profil"
 
+#: app/web/routers/documents.py
+#, python-brace-format
+msgid ""
+"Profilden yalnız etkin ya da arşivdeki belge kalıcı silinir; bu belgenin "
+"durumu: {status}."
+msgstr ""
+"Sa profila se može trajno obrisati samo aktivan ili arhiviran dokument; "
+"status ovog dokumenta: {status}."
+
 #: app/web/templates/employee_fields.html app/web/templates/profile.html
 msgid "Profili düzenle"
 msgstr "Uredi profil"
@@ -4077,6 +4135,18 @@ msgstr ""
 "Sistem čita svaku stranu i pokušava da odredi tip i vlasnika dokumenta; "
 "ono u šta nije siguran ostavlja u Redovima. Sadržaj dokumenata se ne "
 "menja."
+
+#: app/web/routers/upload_page.py
+msgid "Silindi"
+msgstr "Obrisano"
+
+#: app/web/routers/documents.py
+msgid ""
+"Silinecek ya da kalacak dosya sayısı onaydan sonra değişti; hiçbir şey "
+"silinmedi. Onayı yeniden başlatın."
+msgstr ""
+"Broj datoteka za brisanje ili zadržavanje promenio se posle potvrde; "
+"ništa nije obrisano. Ponovo pokrenite potvrdu."
 
 #: app/web/routers/queue.py
 msgid ""
@@ -4517,7 +4587,8 @@ msgstr "Neusklađen zapis"
 msgid "Tümü"
 msgstr "Sve"
 
-#: app/web/templates/document_archive_step.html app/web/templates/history.html
+#: app/web/templates/document_archive_step.html
+#: app/web/templates/document_delete_step.html app/web/templates/history.html
 #: app/web/templates/profile.html app/web/templates/training_known.html
 #: app/web/templates/training_results.html app/web/templates/upload_detail.html
 msgid "Tür"
@@ -4658,6 +4729,7 @@ msgstr "Državljanstvo"
 #: app/web/templates/catalog_candidate_step.html
 #: app/web/templates/catalog_form.html
 #: app/web/templates/document_archive_step.html
+#: app/web/templates/document_delete_step.html
 #: app/web/templates/document_move.html app/web/templates/employee_fields.html
 #: app/web/templates/employee_fields_step.html
 #: app/web/templates/employee_merge_step.html
@@ -5136,6 +5208,10 @@ msgstr "dokument %(id)s"
 #: app/matching/records.py app/web/routers/upload_page.py
 msgid "belge numarası"
 msgstr "broj dokumenta"
+
+#: app/web/templates/access_log_employee.html
+msgid "belge silindi"
+msgstr "dokument obrisan"
 
 #: app/web/routers/employees.py
 msgid "belgeden"
@@ -6396,6 +6472,7 @@ msgid "← Aday tür"
 msgstr "← Predloženi tip"
 
 #: app/web/templates/document_archive_step.html
+#: app/web/templates/document_delete_step.html
 msgid "← Belge geçmişine dön"
 msgstr "← Nazad na istoriju dokumenta"
 
@@ -6409,6 +6486,7 @@ msgid "← Kuyruk öğesi %(id)s"
 msgstr "← Stavka reda %(id)s"
 
 #: app/web/templates/document_archive_step.html
+#: app/web/templates/document_delete_step.html
 #: app/web/templates/employee_fields.html app/web/templates/employee_merge.html
 #: app/web/templates/employee_merge_step.html
 #: app/web/templates/employee_status_step.html

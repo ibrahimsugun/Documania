@@ -43,6 +43,20 @@ ikinci metin ve belgeye bağlı tek kullanımlık belirteç, `POST …/archive` 
 arşivdeki belge girer (eski sürüm hiçbirine, K18); belge yoksa 404, durumu uymuyorsa, dosyası yoksa
 ya da sahibi birleştirilmişse 409. Başarıdan sonra profile dönülür; paketler ve `profil.md`
 servisin içinde yenilenir. Dosya yalnız taşınır ve yeniden adlandırılır (K11).
+
+**Belgeyi kalıcı silme (10.5.12; K16, R11, §D110).** Profilin etkin ve arşivdeki belge satırından
+açılır; aynı üç adımlı kalıptır ve `document_delete_step.html`'i kullanır: `GET
+/documents/{id}/delete/confirm` §20.6 "Belgeyi kalıcı sil" satırının birinci metni; `POST
+…/delete/prepare` silme planını (`app.storage.plan_document_deletion`) hesaplar, ikinci metnin `<N>`
+(diskten silinecek dosya) ve `<M>` (başka belgeye ya da açık kuyruk öğesine kaynak olduğu için kalan
+dosya) sayılarını doldurur ve belgeye **ve bu iki sayıya** bağlı tek kullanımlık belirteci verir;
+`POST …/delete` belirteci ve iki sayıyı taşır: belirteç tüketilir, `USER_CONFIRMED` ve
+`delete_document` çağrısının `DOCUMENT_DELETED` olayı tek işlemde yazılır, commit edilir, dosyalar
+ancak commit'ten sonra diskten kaldırılır (`remove_document_files`; kaldırılamayan dosya olaya
+`files_failed` olarak eklenir ve bildirim bunu söyler). Plan işlem anında yeniden hesaplanır:
+sayılar onaydan sonra değiştiyse hiçbir şey silinmez, 409 ve onay yeniden istenir. Profilden yalnız
+etkin ve arşivdeki belge silinir (eski sürüm 409, K18); belge yoksa 404; dosyası diskte olmayan
+belge de silinebilir (kaydı iskelete döner). Geri alma yoktur.
 """
 
 from __future__ import annotations
@@ -74,12 +88,17 @@ from app.profiles import write_profile
 from app.storage import (
     ContentMismatchError,
     DataLayout,
+    DeletionChangedError,
     DocumentNotArchivableError,
+    DocumentNotDeletableError,
     DocumentNotMovableError,
     DocumentNotRestorableError,
     MovedDocument,
     archive_document,
+    delete_document,
     move_document,
+    plan_document_deletion,
+    remove_document_files,
     unarchive_document,
 )
 from app.web.auth import PanelUser, require_panel_user
@@ -138,12 +157,14 @@ class HistoryView:
     employee_id: str
     employee: str
     type_name: str
-    file_name: str
+    file_name: str | None  # kalıcı silinen belgede boş (10.5.12)
     format: str
     sequence_no: int
     status: str
     status_label: str
     created_at: str
+    deleted_at: str | None
+    deleted_by: str | None
     plan_version: int | None
     open_url: str | None
     upload_id: str | None
@@ -259,12 +280,14 @@ def build_history(session: Session, layout: DataLayout, document_id: int) -> His
         employee_id=document.employee_id,
         employee=_employee_label(owners, document.employee_id),
         type_name=document_type.name if document_type is not None else document.type_slug,
-        file_name=PurePosixPath(document.path).name,
+        file_name=PurePosixPath(document.path).name if document.path is not None else None,
         format=document.format,
         sequence_no=document.sequence_no,
         status=document.status,
         status_label=DOCUMENT_STATUS_LABELS.get(document.status, document.status),
         created_at=_format_ts(document.created_at),
+        deleted_at=_format_ts(document.deleted_at) if document.deleted_at is not None else None,
+        deleted_by=document.deleted_by,
         plan_version=plan.version if plan is not None else None,
         open_url=(
             f"/employees/{document.employee_id}/documents/{document.id}/file"
@@ -888,3 +911,255 @@ def unarchive_from_profile(
     """10.5.10 — belirteçle arşivdeki belgeyi sahibinin `Hazir/`'ına K8 adıyla döndürür (K8, K11,
     K16); içerik ve köken değişmez."""
     return _complete(request, user, session, layout, document_id, UNARCHIVE_FLOW, confirmation)
+
+
+# --- 10.5.12: belgeyi kalıcı silme (profilden) ---------------------------------------------------
+
+# Profil "Kalıcı sil"i yalnız bu durumlarda gösterir (10.5.12); eski sürüm silinmez (K18).
+DELETABLE_STATUSES = frozenset({DocumentStatus.ACTIVE.value, DocumentStatus.ARCHIVED.value})
+NOT_DELETABLE_NOTE = N_(
+    "Profilden yalnız etkin ya da arşivdeki belge kalıcı silinir; bu belgenin durumu: {status}."
+)
+DELETION_CHANGED = N_(
+    "Silinecek ya da kalacak dosya sayısı onaydan sonra değişti; hiçbir şey silinmedi. Onayı "
+    "yeniden başlatın."
+)
+DELETE_TITLE = N_("Belgeyi kalıcı sil")
+DELETE_SUBMIT = N_("Evet, kalıcı olarak sil")
+DELETE_HINT = N_(
+    "Kalıcı silme geri alınamaz. Belge dosyası ve yalnız bu belgeye ait kopyaları diskten "
+    "kaldırılır; başka bir belgeye ya da açık kuyruk öğesine kaynak olan dosyalar yerinde kalır. "
+    "Kayıt listelerden, aramadan, belge paketlerinden ve bottan kalkar; geçmişi ve kimin sildiği "
+    "olay logunda durur."
+)
+
+
+@dataclass(frozen=True, slots=True)
+class DeleteStepView:
+    document_id: int
+    employee_id: str
+    employee: str
+    type_name: str
+    file_name: str | None
+    status_label: str
+    files_deleted: int
+    files_kept: int
+
+
+def deletion_subject(document_id: int, files_deleted: int, files_kept: int) -> str:
+    """Silme belirtecinin bağlı olduğu hedef: belge ve ikinci onayda gösterilen iki sayı — kullanıcı
+    hangi sayıları onayladıysa belirteç yalnız onlarla tüketilir."""
+    return f"{document_id}:{files_deleted}:{files_kept}"
+
+
+def _deletable_document(session: Session, document_id: int) -> Document:
+    """Profilden silinebilecek belge: yoksa 404; etkin ya da arşivde değilse veya sahibi
+    birleştirilmişse 409."""
+    document = session.get(Document, document_id)
+    if document is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, DOCUMENT_NOT_FOUND)
+    if document.status not in DELETABLE_STATUSES:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            Translatable(
+                NOT_DELETABLE_NOTE,
+                status=Translatable(DOCUMENT_STATUS_LABELS.get(document.status, document.status)),
+            ),
+        )
+    if session.get_one(Employee, document.employee_id).status == EmployeeStatus.MERGED.value:
+        raise HTTPException(status.HTTP_409_CONFLICT, OWNER_MERGED)
+    return document
+
+
+def _delete_step(session: Session, layout: DataLayout, document_id: int) -> DeleteStepView:
+    """Silinecek belge ve silme planının iki sayısı (`<N>`, `<M>`); denetimler
+    `_deletable_document`'tadır."""
+    document = _deletable_document(session, document_id)
+    owner = session.get_one(Employee, document.employee_id)
+    document_type = session.get(KnownDocumentType, document.type_slug)
+    plan = plan_document_deletion(session, layout, document)
+    return DeleteStepView(
+        document_id=document.id,
+        employee_id=owner.id,
+        employee=_employee_name(owner),
+        type_name=document_type.name if document_type is not None else document.type_slug,
+        file_name=PurePosixPath(document.path).name if document.path is not None else None,
+        status_label=DOCUMENT_STATUS_LABELS.get(document.status, document.status),
+        files_deleted=plan.files_deleted,
+        files_kept=plan.files_kept,
+    )
+
+
+def _delete_page(
+    request: Request,
+    user: PanelUser,
+    document_id: int,
+    *,
+    step: DeleteStepView | None,
+    status_code: int = status.HTTP_200_OK,
+    **context: object,
+) -> HTMLResponse:
+    """`document_delete_step.html`: birinci onay, ikinci onay ya da hata."""
+    return render_page(
+        request,
+        "document_delete_step.html",
+        user=user,
+        active=MENU_BY_KEY["employees"].key,
+        status_code=status_code,
+        document_id=document_id,
+        step=step,
+        title=DELETE_TITLE,
+        hint=DELETE_HINT,
+        submit_label=DELETE_SUBMIT,
+        **context,
+    )
+
+
+@router.get("/documents/{document_id}/delete/confirm", response_class=HTMLResponse)
+def delete_first_confirmation(
+    document_id: int,
+    request: Request,
+    user: CurrentUser,
+    session: Annotated[Session, Depends(get_session)],
+    layout: Annotated[DataLayout, Depends(get_layout)],
+) -> HTMLResponse:
+    """10.5.12 — silinecek belge ve §20.6'nın birinci onay metni; hiçbir şey değişmez."""
+    try:
+        step = _delete_step(session, layout, document_id)
+    except HTTPException as exc:
+        return _delete_page(
+            request, user, document_id, step=None, status_code=exc.status_code, error=exc.detail
+        )
+    finally:
+        session.rollback()
+    return _delete_page(
+        request,
+        user,
+        document_id,
+        step=step,
+        first_confirmation=first_text(Operation.DELETE_DOCUMENT),
+    )
+
+
+@router.post("/documents/{document_id}/delete/prepare", response_class=HTMLResponse)
+def prepare_delete(
+    document_id: int,
+    request: Request,
+    user: CurrentUser,
+    session: Annotated[Session, Depends(get_session)],
+    layout: Annotated[DataLayout, Depends(get_layout)],
+) -> HTMLResponse:
+    """10.5.12 — ikinci onay metni (`<N>`, `<M>` silme planından) ve belgeye ve iki sayıya bağlı
+    tek kullanımlık belirteç (§20.6.1). Belge değişmez (S16)."""
+    step: DeleteStepView | None = None
+    try:
+        step = _delete_step(session, layout, document_id)
+        issued = issue_confirmation(
+            session,
+            request,
+            user,
+            Operation.DELETE_DOCUMENT,
+            deletion_subject(document_id, step.files_deleted, step.files_kept),
+        )
+    except HTTPException as exc:
+        session.rollback()
+        return _delete_page(
+            request, user, document_id, step=None, status_code=exc.status_code, error=exc.detail
+        )
+    except ConfirmationRefusedError as exc:  # oturum çerezi yok
+        session.rollback()
+        return _delete_page(
+            request,
+            user,
+            document_id,
+            step=step,
+            status_code=status.HTTP_400_BAD_REQUEST,
+            error=str(exc),
+        )
+    session.commit()
+    return _delete_page(
+        request,
+        user,
+        document_id,
+        step=step,
+        second_confirmation=second_text(
+            Operation.DELETE_DOCUMENT, count=step.files_deleted, documents=step.files_kept
+        ),
+        confirmation=issued.token,
+    )
+
+
+@router.post("/documents/{document_id}/delete", response_class=HTMLResponse)
+def delete_from_profile(
+    document_id: int,
+    request: Request,
+    user: CurrentUser,
+    session: Annotated[Session, Depends(get_session)],
+    layout: Annotated[DataLayout, Depends(get_layout)],
+    confirmation: Annotated[str | None, Form()] = None,
+    files_deleted: Annotated[int | None, Form(ge=0)] = None,
+    files_kept: Annotated[int | None, Form(ge=0)] = None,
+) -> Response:
+    """10.5.12 — belirteçle belgeyi kalıcı siler (K16, R11): önce veritabanı (iskelet, olaylar)
+    commit edilir, sonra dosyalar diskten kalkar. Belirteç yoksa, süresi geçmişse, kullanılmışsa ya
+    da başka belgeye, sayılara, işleme veya oturuma aitse 400; sayılar onaydan sonra değiştiyse
+    409 — ikisinde de hiçbir şey değişmez."""
+    try:
+        document = _deletable_document(session, document_id)
+        employee_id = document.employee_id
+        if files_deleted is None or files_kept is None:
+            raise ConfirmationRefusedError("İkinci onayın sayıları yok.")
+        confirm_operation(
+            session,
+            request,
+            user,
+            Operation.DELETE_DOCUMENT,
+            deletion_subject(document_id, files_deleted, files_kept),
+            confirmation,
+            event_target={"document_id": document_id},
+            document_id=document_id,
+            employee_id=employee_id,
+        )
+        try:
+            deleted = delete_document(
+                session,
+                layout,
+                document_id,
+                actor=user.username,
+                expected_counts=(files_deleted, files_kept),
+            )
+        except DeletionChangedError:
+            raise HTTPException(status.HTTP_409_CONFLICT, DELETION_CHANGED) from None
+        except DocumentNotDeletableError as exc:
+            raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from None
+    except HTTPException as exc:
+        session.rollback()
+        return _delete_page(
+            request,
+            user,
+            document_id,
+            step=None,
+            status_code=exc.status_code,
+            error=exc.detail,
+            retry=exc.detail == DELETION_CHANGED,
+        )
+    except ConfirmationRefusedError:
+        session.rollback()
+        return _delete_page(
+            request,
+            user,
+            document_id,
+            step=None,
+            status_code=status.HTTP_400_BAD_REQUEST,
+            error=CONFIRMATION_REFUSED,
+            retry=True,
+        )
+    # §D110 b: önce veritabanı; dosyalar ancak silme kalıcılaştıktan sonra diskten kalkar.
+    session.commit()
+    failed = remove_document_files(session, deleted)
+    if failed:
+        session.commit()
+    notice = "document_deleted_partial" if failed else "document_deleted"
+    return RedirectResponse(
+        f"/employees/{employee_id}?notice={notice}#documents", status.HTTP_303_SEE_OTHER
+    )

@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{# Belgeyi kalıcı silme (10.5.12): birinci onay (§20.6 metni birebir), ikinci onay (<N>/<M> silme
+   planından; belirteç belgeye ve iki sayıya bağlı) ya da hata. Geri alınamaz (K16, R11); belge
+   içeriği değiştirilmez, dosya yalnız diskten kaldırılır. #}
+{% block title %}{{ translate(title) }}{% if step %} · {{ step.employee }}{% endif %}{% endblock %}
+{% block content %}
+{% set back = "/employees/" ~ step.employee_id ~ "#documents" if step else "/documents/" ~ document_id ~ "/history" %}
+<p class="back"><a href="{{ back }}">{% if step %}{{ _("← Profile dön") }}{% else %}{{ _("← Belge geçmişine dön") }}{% endif %}</a></p>
+<h1>{{ translate(title) }}</h1>
+{% if step %}<p class="profile-meta">{{ step.employee }} · {{ step.employee_id }}</p>{% endif %}
+{% if error %}<p class="error" role="alert">{{ translate(error) }}</p>{% endif %}
+{% if step %}
+<dl class="record-summary archive-summary">
+  <dt>{{ _("Tür") }}</dt><dd>{{ step.type_name }}</dd>
+  <dt>{{ _("Dosya") }}</dt><dd>{{ step.file_name or "—" }}</dd>
+  <dt>{{ _("Durum") }}</dt><dd>{{ translate(step.status_label) }}</dd>
+</dl>
+{% endif %}
+{# Form hedefleri açık yazılır: `tests/web/test_access_log.py` her POST hedefini gözden geçirilmiş
+   yollarla karşılaştırır. #}
+{% if first_confirmation %}
+<form method="post" action="/documents/{{ document_id }}/delete/prepare" class="confirm document-delete">
+  <p class="hint">{{ translate(hint) }}</p>
+  <p class="confirm-text" role="alert">{{ first_confirmation }}</p>
+  <button type="submit">{{ _("Evet, devam et") }}</button>
+  <a href="{{ back }}">{{ _("Vazgeç") }}</a>
+</form>
+{% elif second_confirmation %}
+<form method="post" action="/documents/{{ document_id }}/delete" class="confirm document-delete-step">
+  <p class="confirm-text" role="alert">{{ second_confirmation }}</p>
+  <input type="hidden" name="confirmation" value="{{ confirmation }}">
+  <input type="hidden" name="files_deleted" value="{{ step.files_deleted }}">
+  <input type="hidden" name="files_kept" value="{{ step.files_kept }}">
+  <button type="submit" class="danger">{{ translate(submit_label) }}</button>
+  <a href="{{ back }}">{{ _("Vazgeç") }}</a>
+</form>
+{% elif retry %}
+<p><a href="/documents/{{ document_id }}/delete/confirm">{{ _("Onayı yeniden başlatın") }}</a></p>
+{% endif %}
+{% endblock %}

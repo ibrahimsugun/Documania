@@ -40,9 +40,10 @@ değeri okuyan ilk belge. Belgede farklı değer okunduysa alan değişmez; alt�
 farklı değer okundu" uyarısı ve belgelere bağlantı çıkar. Kaynak, çalışanın kökeni o sayfayla
 başlayan belgesine (etkin olan, sonra en yeni) bağlanır — dosyası varsa yeni sekmede açılır, yoksa
 geçmişine; belge bu çalışanda yoksa (henüz yürütülmedi, başka çalışana taşındı) parti sayfasına.
-Belge listesi çalışanın **tüm** belgelerini (etkin, eski sürüm, arşivlenmiş) gösterir; her belge
-yeni sekmede açılır (`.../file`) ve indirilir (`.../download`), ikisi de yalnız `GET`'tir — panelde
-belge içeriğini değiştiren yol yoktur (10.5.2, K17). Planın yalnız isimle yerleştirdiği belge
+Belge listesi çalışanın **tüm** belgelerini (etkin, eski sürüm, arşivlenmiş) gösterir — kalıcı
+silinen belge (10.5.12) listede yoktur, dosya adresi 404 döner; her belge yeni sekmede açılır
+(`.../file`) ve indirilir (`.../download`), ikisi de yalnız `GET`'tir — panelde belge içeriğini
+değiştiren yol yoktur (10.5.2, K17). Planın yalnız isimle yerleştirdiği belge
 (§20.2.2 satır 5a, `matched_by: name`; `app.pipeline.plan.name_matched_documents`) listede "Yalnız
 isimle eşleşti" etiketi taşır (05.5.4); yanlışsa İK belgeyi taşır (10.8.1). Fotoğraf ayrı bir
 adresten (`.../photo`)
@@ -802,8 +803,11 @@ class StoredDocument:
     format: str
 
 
-def _stored_file(layout: DataLayout, relative_path: str) -> Path | None:
-    """Belgenin diskteki dosyası; yolu veri dizininden kaçıyorsa ya da dosya yoksa `None`."""
+def _stored_file(layout: DataLayout, relative_path: str | None) -> Path | None:
+    """Belgenin diskteki dosyası; yolu boşsa (kalıcı silinmiş belge, 10.5.12), veri dizininden
+    kaçıyorsa ya da dosya yoksa `None`."""
+    if relative_path is None:
+        return None
     try:
         path = layout.resolve(relative_path)
     except ValueError:
@@ -813,7 +817,7 @@ def _stored_file(layout: DataLayout, relative_path: str) -> Path | None:
 
 def _stored_document(layout: DataLayout, document: Document) -> StoredDocument | None:
     path = _stored_file(layout, document.path)
-    if path is None:
+    if path is None or document.path is None:
         return None
     return StoredDocument(
         path=path, name=PurePosixPath(document.path).name, format=document.format.lower()
@@ -875,7 +879,11 @@ def build_profile(
     documents = session.execute(
         select(Document, KnownDocumentType.name)
         .join(KnownDocumentType, KnownDocumentType.slug == Document.type_slug)
-        .where(Document.employee_id == employee_id)
+        .where(
+            Document.employee_id == employee_id,
+            # 10.5.12: kalıcı silinen belge listeden kalkar (iskeleti geçmiş sayfasında görünür).
+            Document.status != DocumentStatus.DELETED.value,
+        )
         .order_by(Document.created_at.desc(), Document.id.desc())
     ).all()
 
@@ -1212,11 +1220,16 @@ RECORD_NOTICES = {
     "record_restored": N_("Kayıt geri alındı; yeniden eşleştirmede ve aramada kullanılacak."),
     "contact_added": N_("İletişim bilgisi eklendi."),
 }
-# 08.4.1, 10.5.10: profilden arşive taşıma ve arşivden geri almadan sonra "Belgeler" bölümünün
-# bildirimi.
+# 08.4.1, 10.5.10, 10.5.12: profilden arşive taşıma, arşivden geri alma ve kalıcı silmeden sonra
+# "Belgeler" bölümünün bildirimi.
 DOCUMENT_NOTICES = {
     "document_archived": N_("Belge arşive taşındı; çalışanın Hazır klasöründen çıktı."),
     "document_unarchived": N_("Belge arşivden geri alındı; çalışanın Hazır klasörüne döndü."),
+    "document_deleted": N_("Belge kalıcı olarak silindi; dosyaları diskten kaldırıldı."),
+    "document_deleted_partial": N_(
+        "Belge kalıcı olarak silindi, ancak bazı dosyaları diskten kaldırılamadı (açık ya da "
+        "kilitli olabilir); sayısı olay logunda. Sistem yöneticisine bildirin."
+    ),
 }
 PACKAGE_NOT_FOUND = N_("Paket bulunamadı.")
 GROUP_NOT_FOUND = N_("Belge grubu bulunamadı.")
@@ -2690,12 +2703,16 @@ def _employee_document(
     action: AccessAction,
 ) -> StoredDocument:
     """Belgeyi erişim logunu yazarak çözer (10.9.2); belge bu çalışana ait değilse, kaydı ya da
-    dosyası yoksa 404 ve log yazılmaz.
+    dosyası yoksa ya da kalıcı silinmişse (10.5.12) 404 ve log yazılmaz.
 
     Satır sunmadan **önce** yazılır ve commit edilir: log yazılamazsa istek düşer, belge gitmez.
     """
     document = session.scalars(
-        select(Document).where(Document.id == document_id, Document.employee_id == employee_id)
+        select(Document).where(
+            Document.id == document_id,
+            Document.employee_id == employee_id,
+            Document.status != DocumentStatus.DELETED.value,
+        )
     ).first()
     stored = _stored_document(layout, document) if document is not None else None
     if document is None or stored is None:

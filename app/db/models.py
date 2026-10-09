@@ -4,7 +4,8 @@ kalıcı işçi kuyruğu (13.3.1), profil alanlarının belge gözlemleri (05.7.
 (10.3.4), aday türün incelemesi (11.5.5), eğitim modu (11.9), belge grupları (14.1), çalışanın
 belge paketleri (14.2) ve Telegram hesabını bağlama kodu (12.1.4).
 
-Silme yoktur, arşiv vardır (K16): ilişkilerde silme kaskadı tanımlanmaz.
+Sistem kendiliğinden silmez, günlük düzen arşivle yürür (K16): ilişkilerde silme kaskadı
+tanımlanmaz. İK'nın kalıcı sildiği belge satır olarak kalır, `deleted` iskeletine döner (10.5.12).
 Dosya yolu burada üretilmez (yol kuralı: `app/storage/`); yol sütunları yalnız saklar.
 Şema değişikliği yalnız Alembic göçüyle yapılır (`alembic/versions/`).
 """
@@ -158,12 +159,15 @@ class DocumentStatus(enum.StrEnum):
     Belge `active` yazılır. Parti yeniden analiz edilince önceki plan sürümlerinin etkin çıktıları
     "eski sürüm" (`superseded`) işaretlenir; satır ve dosya silinmez, yeniden adlandırılmaz (K18,
     06.6.2). Yalnız `active` belge arşivlenir (K16, 08.4.1); arşive taşınan belge `archived`
-    işaretlenir, satır ve dosya yine silinmez.
+    işaretlenir, satır ve dosya yine silinmez. İK'nın kalıcı sildiği belge (10.5.12, K16) `deleted`
+    işaretlenir: dosyası diskten kalkar, satır iskelet olarak kalır (`path` boş; kimlik, tür,
+    çalışan, tarihler, `deleted_at`/`deleted_by`) — olay ve erişim logu ona bağlı kalır (K15).
     """
 
     ACTIVE = "active"
     SUPERSEDED = "superseded"
     ARCHIVED = "archived"
+    DELETED = "deleted"
 
 
 class ProfileField(enum.StrEnum):
@@ -561,11 +565,14 @@ class Plan(Base):
 
 class Document(Base):
     __tablename__ = "documents"
+    __table_args__ = (CheckConstraint(_one_of("status", DocumentStatus), name="status"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     employee_id: Mapped[str] = mapped_column(ForeignKey("employees.id"), index=True)
     type_slug: Mapped[str] = mapped_column(ForeignKey("known_document_types.slug"))
-    path: Mapped[str] = mapped_column(String(1024))
+    # Veri köküne göreli yol; yalnız kalıcı silinen (`deleted`, 10.5.12) belgede boş — dosya adı
+    # kişi adı taşır (K8), iskelette kalmaz.
+    path: Mapped[str | None] = mapped_column(String(1024))
     format: Mapped[str] = mapped_column(String(16))
     # K8: aynı türden ikinci belge `-2`, üçüncü `-3` eki alır; ilk belge 1.
     sequence_no: Mapped[int] = mapped_column(Integer, default=1)
@@ -574,6 +581,10 @@ class Document(Base):
     source_refs_json: Mapped[list[dict[str, Any]]] = mapped_column(JSON)
     status: Mapped[str] = mapped_column(String(16), default=DocumentStatus.ACTIVE.value)
     created_at: Mapped[datetime] = mapped_column(UtcDateTime, default=utcnow)
+    # 10.5.12: kalıcı silme anı (UTC) ve iki aşamalı onayı tamamlayan kullanıcı; öteki durumlarda
+    # boş.
+    deleted_at: Mapped[datetime | None] = mapped_column(UtcDateTime)
+    deleted_by: Mapped[str | None] = mapped_column(String(255))
 
     employee: Mapped[Employee] = relationship(back_populates="documents")
     plan: Mapped[Plan | None] = relationship(back_populates="documents")

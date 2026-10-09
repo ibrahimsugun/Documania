@@ -41,7 +41,7 @@
       <tr>
         <td>{{ entry.ts }}</td>
         <td>{{ entry.username }}</td>
-        <td>{{ entry.type_name }} · {{ entry.file_name }}</td>
+        <td>{{ entry.type_name }} · {% if entry.file_name is not none %}{{ entry.file_name }}{% else %}<span class="reason">{{ _("belge silindi") }}</span>{% endif %}</td>
         <td>{{ translate(entry.action) }}</td>
         <td>{{ translate(entry.channel) }}</td>
       </tr>

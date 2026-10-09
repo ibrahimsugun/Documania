@@ -97,7 +97,7 @@ class AccessEntry:
     ts: str
     username: str
     type_name: str
-    file_name: str
+    file_name: str | None  # belge kalıcı silindiyse boş; satır kalır (10.5.12)
     action: str
     channel: str
 
@@ -225,7 +225,8 @@ def build_employee_log(
             ts=_stamp(access.ts),
             username=username,
             type_name=type_name,
-            file_name=PurePosixPath(document.path).name,
+            # 10.5.12: kalıcı silinen belgenin satırı kalır, dosya adı kalmaz.
+            file_name=PurePosixPath(document.path).name if document.path is not None else None,
             action=ACTION_LABELS.get(access.action, access.action),
             channel=CHANNEL_LABELS.get(access.channel, access.channel),
         )

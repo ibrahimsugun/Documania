@@ -256,7 +256,8 @@
 </section>
 
 {# 08.4.1, 10.5.10: etkin belgede "Arşive taşı", arşivdeki belgede "Arşivden geri al" (iki aşamalı
-   onay sayfası); eski sürümde (K18) ve birleştirilmiş kayıtta ikisi de yok. #}
+   onay sayfası); eski sürümde (K18) ve birleştirilmiş kayıtta ikisi de yok. 10.5.12: etkin ve
+   arşivdeki belgede "Kalıcı sil" (tehlike görünümü; dosyası diskte olmasa da). #}
 <section class="profile-documents">
   <h2 id="documents">{{ _("Belgeler") }} <span class="count">{{ profile.documents|length }}</span></h2>
   {% if documents_notice %}<p class="notice notice-success" role="status">{{ translate(documents_notice) }}</p>{% endif %}
@@ -284,6 +285,9 @@
           {% endif %}
           {% else %}
           <span class="reason">{{ _("Dosya bulunamadı") }}</span>
+          {% endif %}
+          {% if profile.editable and document.status in ("active", "archived") %}
+          <a href="/documents/{{ document.id }}/delete/confirm" class="document-delete">{{ _("Kalıcı sil") }}</a>
           {% endif %}
         </td>
       </tr>

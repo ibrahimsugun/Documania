@@ -1095,7 +1095,7 @@ Yazma tamamlandıktan sonra `documents` kaydına kaynak dosya kimliği ve sayfa 
 
 ---
 
-### 20.6 İki aşamalı onay metinleri (gereksinim 10.8.1, 10.8.2, 10.7.2, 10.7.3, 08.4.1, 11.5.2, 10.3.4, 10.5.6, 10.5.7, 10.5.8, 10.5.9, 10.5.10, 10.7.4, 10.10.4)
+### 20.6 İki aşamalı onay metinleri (gereksinim 10.8.1, 10.8.2, 10.7.2, 10.7.3, 08.4.1, 11.5.2, 10.3.4, 10.5.6, 10.5.7, 10.5.8, 10.5.9, 10.5.10, 10.7.4, 10.10.4, 10.5.12)
 
 K16'daki manuel işlemler iki aşamalı onay ister (salt geri alma işlemleri tek adımdır, K16). Metinler **birebir** aşağıdaki
 gibidir; pencere kendi cümlesini yazmaz. `<…>` yer tutucuları çalışma zamanında doldurulur.
@@ -1115,6 +1115,7 @@ gibidir; pencere kendi cümlesini yazmaz. `<…>` yer tutucuları çalışma zam
 | İki çalışanı birleştir | `<Birleşen Ad Soyad> kaydını <Kalan Ad Soyad> kaydıyla birleştirmek üzeresiniz. Emin misiniz?` | `<N> belge taşınacak ve birleşen kayıt kapanacaktır; bu işlem geri alınamaz. Son kararınız mı?` |
 | Belgeyi arşivden geri al | `Bu belgeyi arşivden geri almak üzeresiniz. Emin misiniz?` | `Belge çalışanın Hazır klasörüne dönecektir. Son kararınız mı?` |
 | Kuyruk öğesini kapat | `Bu kuyruk öğesini kapatmak üzeresiniz. Emin misiniz?` | `Öğe çözülmüş sayılacak, dosya kopyası ve gerekçesi yerinde kalacaktır. Son kararınız mı?` |
+| Belgeyi kalıcı sil | `Bu belgeyi kalıcı olarak silmek üzeresiniz. Emin misiniz?` | `Belge dosyası ve kopyaları (<N>) diskten silinecek, başka belgelere de kaynak olan dosyalar (<M>) kalacaktır; bu işlem geri alınamaz. Son kararınız mı?` |
 
 İlk iki satırdaki metinler ürün tanımında birebir bu şekilde yazılmıştır; **değiştirilmez**.
 Kalan satırlar aynı kalıptan türetilmiştir: birinci cümle *ne yapılacağını*, ikinci cümle
@@ -1136,7 +1137,7 @@ Onay tamamlandığında `USER_CONFIRMED` olayı yazılır: kullanıcı adı, iş
 birinci ve ikinci onayın zaman damgaları. Ardından işlemin kendi olayı (`MANUAL_MOVE`,
 `MANUAL_ASSIGN`, `MANUAL_APPROVE`, `TYPE_APPROVED`, `ARCHIVED`, `UPLOAD_DISMISSED`,
 `EMPLOYEE_EDITED`, `EMPLOYEE_DEACTIVATED`, `EMPLOYEE_REACTIVATED`, `PROFILE_RECORD_REMOVED`,
-`EMPLOYEE_MERGED`, `UNARCHIVED`, `QUEUE_ITEM_CLOSED`)
+`EMPLOYEE_MERGED`, `UNARCHIVED`, `QUEUE_ITEM_CLOSED`, `DOCUMENT_DELETED`)
 düşülür.
 
 #### 20.6.2 Testte doğrulanacak davranış
@@ -1168,3 +1169,4 @@ yazılır ve aynı değerle doldurulur. Sayı alan cümleler sayının çoğul u
 | İki çalışanı birleştir | `You are about to merge the record <Birleşen Ad Soyad> into the record <Kalan Ad Soyad>. Are you sure?` | `The documents (<N>) will be moved and the merged record will be closed; this action cannot be undone. Is this your final decision?` | `Upravo ćete spojiti zapis <Birleşen Ad Soyad> sa zapisom <Kalan Ad Soyad>. Da li ste sigurni?` | `Dokumenti (<N>) biće premešteni, a spojeni zapis biće zatvoren; ova radnja se ne može poništiti. Da li je to vaša konačna odluka?` |
 | Belgeyi arşivden geri al | `You are about to restore this document from the archive. Are you sure?` | `The document will return to the employee's Hazir folder. Is this your final decision?` | `Upravo ćete vratiti ovaj dokument iz arhive. Da li ste sigurni?` | `Dokument će se vratiti u fasciklu Hazir zaposlenog. Da li je to vaša konačna odluka?` |
 | Kuyruk öğesini kapat | `You are about to close this queue item. Are you sure?` | `The item will be considered resolved; its file copy and reason will stay in place. Is this your final decision?` | `Upravo ćete zatvoriti ovu stavku reda. Da li ste sigurni?` | `Stavka će se smatrati rešenom; kopija datoteke i obrazloženje ostaju na mestu. Da li je to vaša konačna odluka?` |
+| Belgeyi kalıcı sil | `You are about to permanently delete this document. Are you sure?` | `The document file and its copies (<N>) will be deleted from disk; files that are also the source of other documents (<M>) will stay; this action cannot be undone. Is this your final decision?` | `Upravo ćete trajno obrisati ovaj dokument. Da li ste sigurni?` | `Datoteka dokumenta i njene kopije (<N>) biće obrisane sa diska; datoteke koje su izvor i drugih dokumenata (<M>) ostaju; ova radnja se ne može poništiti. Da li je to vaša konačna odluka?` |

@@ -34,7 +34,7 @@ def _assert_schema_matches_models(database_url: str) -> None:
             assert tables == set(Base.metadata.tables) | {"alembic_version"}
             context = MigrationContext.configure(connection, opts={"compare_type": True})
             assert compare_metadata(context, Base.metadata) == []
-            assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "0024"
+            assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "0025"
     finally:
         engine.dispose()
 
@@ -1334,6 +1334,66 @@ def test_user_language_migration_adds_a_checked_nullable_column_and_is_reversibl
             columns = {c["name"] for c in inspect(connection).get_columns("users")}
             assert "language" not in columns
             assert connection.scalar(text("SELECT username FROM users")) == "yonetici"
+    finally:
+        engine.dispose()
+
+
+def test_document_deletion_migration_keeps_documents_and_checks_the_status(
+    sqlite_url: str,
+) -> None:
+    # 0025 (10.5.12): var olan belgenin yolu dolu, silme alanları boş kalır; `path` boş olabilir,
+    # `status` yalnız dört değeri alır; geri alış sütunları ve kısıtı düşürür, belge kalır.
+    config = _alembic_config(sqlite_url)
+    command.upgrade(config, "0024")
+    engine = create_engine(sqlite_url)
+    set_status = text("UPDATE documents SET status = :status WHERE id = 1")
+    try:
+        # Yabancı anahtar denetimi bu ham bağlantıda kapalı: satır yalnız göçün kopyalaması için.
+        with engine.begin() as connection:
+            connection.execute(
+                text(
+                    "INSERT INTO documents (id, employee_id, type_slug, path, format, sequence_no, "
+                    "source_refs_json, status, created_at) VALUES (1, 'E0001', 'test_passport', "
+                    "'Employees/Test_Kisi_E0001/Hazir/Test_Kisi-Passport.pdf', 'pdf', 1, '[]', "
+                    "'active', '2026-10-01 10:00:00')"
+                )
+            )
+
+        command.upgrade(config, "0025")
+        with engine.connect() as connection:
+            columns = {c["name"]: c for c in inspect(connection).get_columns("documents")}
+            assert columns["path"]["nullable"]
+            assert columns["deleted_at"]["nullable"] and columns["deleted_by"]["nullable"]
+            assert connection.execute(
+                text("SELECT path, status, deleted_at, deleted_by FROM documents")
+            ).all() == [
+                ("Employees/Test_Kisi_E0001/Hazir/Test_Kisi-Passport.pdf", "active", None, None)
+            ]
+        for status in ("superseded", "archived", "active"):
+            with engine.begin() as connection:
+                connection.execute(set_status, {"status": status})
+        for invalid in ("removed", "DELETED", ""):
+            with pytest.raises(IntegrityError), engine.begin() as connection:
+                connection.execute(set_status, {"status": invalid})
+        with engine.begin() as connection:
+            connection.execute(
+                text(
+                    "UPDATE documents SET status = 'deleted', path = NULL, deleted_by = 'ik', "
+                    "deleted_at = '2026-10-08 12:00:00' WHERE id = 1"
+                )
+            )
+            connection.execute(
+                text(
+                    "UPDATE documents SET status = 'active', deleted_by = NULL, deleted_at = NULL, "
+                    "path = 'Employees/Test_Kisi_E0001/Hazir/Test_Kisi-Passport.pdf' WHERE id = 1"
+                )
+            )
+
+        command.downgrade(config, "0024")
+        with engine.connect() as connection:
+            columns = {c["name"]: c for c in inspect(connection).get_columns("documents")}
+            assert "deleted_at" not in columns and not columns["path"]["nullable"]
+            assert connection.scalar(text("SELECT status FROM documents")) == "active"
     finally:
         engine.dispose()
 

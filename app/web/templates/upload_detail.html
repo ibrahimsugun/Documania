@@ -167,7 +167,7 @@
       <tr id="output-{{ output.id }}" class="output-{{ output.status }}">
         <td>{{ output.employee }}{% if output.name_only %} <span class="badge name-only">{{ _("Yalnız isimle eşleşti") }}</span>{% endif %}</td>
         <td>{{ output.type_slug }}</td>
-        <td>{{ output.path }}</td>
+        <td>{{ output.path or "—" }}</td>
         <td>{{ output.sequence_no }}</td>
         <td>{{ translate(output.status_label) }}</td>
         <td>{% if output.plan_version is not none %}{{ _("Sürüm %(version)s", version=output.plan_version) }}{% else %}—{% endif %}</td>

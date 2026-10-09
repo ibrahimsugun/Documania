@@ -48,7 +48,7 @@ from app.pipeline.orchestrate import process_upload
 from app.pipeline.plan import create_plan, read_plan
 from app.pipeline.queue_close import close_reason_label
 from app.pipeline.route import route_queue_item
-from app.storage import DataLayout
+from app.storage import DataLayout, delete_document, remove_document_files
 from app.training.map_import import SkippedRow, SkipReason
 from app.web.auth import SESSION_COOKIE, PanelUser, get_current_user, require_api_user
 from app.web.routers.training import get_training_provider_problem
@@ -127,6 +127,7 @@ PAGES: dict[str, tuple[tuple[str, int], ...]] = {
     "/documents/{document_id}/history": (
         ("/documents/{document}/history", 200),
         ("/documents/{archived}/history", 200),
+        ("/documents/{deleted}/history", 200),  # 10.5.12: iskelet ve "kalıcı olarak silindi"
         ("/documents/9999/history", 404),
     ),
     "/documents/{document_id}/move/employees": (
@@ -138,6 +139,11 @@ PAGES: dict[str, tuple[tuple[str, int], ...]] = {
     "/documents/{document_id}/archive/confirm": (("/documents/{document}/archive/confirm", 200),),
     "/documents/{document_id}/unarchive/confirm": (
         ("/documents/{archived}/unarchive/confirm", 200),
+    ),
+    # 10.5.12 (tm 166): etkin ve arşivdeki belge silinebilir.
+    "/documents/{document_id}/delete/confirm": (
+        ("/documents/{document}/delete/confirm", 200),
+        ("/documents/{archived}/delete/confirm", 200),
     ),
     "/document-types": (
         ("/document-types", 200),
@@ -391,6 +397,9 @@ def world(
         archived = _document(
             session, layout, dmitry, "Dmitry_Vasiliev-Passport_2.pdf", DocumentStatus.ARCHIVED
         )
+        deleted = _document(
+            session, layout, dmitry, "Dmitry_Vasiliev-Passport-3.pdf", DocumentStatus.ACTIVE
+        )
         alias = EmployeeAlias(
             employee_id=dmitry,
             raw_name="Dmitry Vasiliev",
@@ -484,9 +493,16 @@ def world(
     assert trained.status_code in (200, 303), trained.text
     opened = client.get(f"/employees/{dmitry}/documents/{document}/file")
     assert opened.status_code == 200
+    # 10.5.12: açılmış sonra kalıcı silinmiş belge — erişim logunda satırı "belge silindi" kalır.
+    assert client.get(f"/employees/{dmitry}/documents/{deleted}/file").status_code == 200
+    with session_factory() as session:
+        removed = delete_document(session, layout, deleted, actor="ik")
+        session.commit()
+        remove_document_files(session, removed)
     return {
         "document": document,
         "archived": archived,
+        "deleted": deleted,
         "alias": alias_id,
         "identifier": identifier_id,
         "group": group_id,

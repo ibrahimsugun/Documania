@@ -1273,3 +1273,14 @@ form.language-selector button[type="submit"][aria-current="true"] {
   width: 100%;
   margin-top: 1.2rem;
 }
+
+/* 10.5.12: kalıcı silme tehlike görünümündedir — profildeki bağlantı ve son onay düğmesi. */
+.doc-actions a.document-delete { color: var(--danger); font-weight: 600; }
+
+button.danger,
+button.danger:hover {
+  background: var(--danger);
+  border-color: var(--danger);
+  color: #fff;
+  box-shadow: none;
+}

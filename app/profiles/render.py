@@ -13,7 +13,7 @@ ve kimlik tablosu aynı kimlik alanlarını taşır: `given_names`/`surname` Lat
 belgede de dolu. İkisi birlikte göründüğü için ayrı bir dönüştürme adımı gerekmez (09.1.2).
 Okunmamış alan `—` ile gösterilir; içerik üretilmez, yalnız var olan veritabanı satırı
 görüntülenir (K11, K17). İK'nın profilden kaldırdığı belge numarası ve iletişim bilgisi (10.5.8)
-dosyaya girmez.
+ve kalıcı silinen belge (10.5.12) dosyaya girmez.
 
 "Belge paketleri" bölümü (14.3.1) çalışana tanımlı paketleri panelin profil sayfasıyla aynı
 hesapla (`app.groups.employee_packages`) gösterir: iptal edilmemiş her paket için grup adı, durum
@@ -39,6 +39,7 @@ from sqlalchemy.orm import Session
 
 from app.db.models import (
     Document,
+    DocumentStatus,
     Employee,
     EmployeeContact,
     EmployeeIdentifier,
@@ -158,7 +159,11 @@ def _documents(session: Session, employee_id: str) -> Sequence[tuple[Document, K
     return session.execute(
         select(Document, KnownDocumentType)
         .join(KnownDocumentType, KnownDocumentType.slug == Document.type_slug)
-        .where(Document.employee_id == employee_id)
+        .where(
+            Document.employee_id == employee_id,
+            # 10.5.12: kalıcı silinen belge listeden kalkar; iskeleti yalnız veritabanındadır.
+            Document.status != DocumentStatus.DELETED.value,
+        )
         .order_by(Document.created_at, Document.id)
     ).all()
 

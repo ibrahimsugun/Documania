@@ -50,7 +50,9 @@ kopya diskte kalır.
   fazla bir öğeye bağladığı için (`PlanDocument`) bu eşleşme tekildir; satırın durumu ve sahibi
   sonradan değişmiş olabilir (eski sürüm, arşiv, başka çalışana taşıma — K16, K18), yine o öğenin
   çıktısıdır. Böyle satır varsa öğe yeniden uygulanmaz: kaynak okunmaz, işlem yürümez, diske ve
-  `documents`'a hiçbir şey yazılmaz; `OUTPUT_SKIPPED` o satırla loglanır ve satır döner.
+  `documents`'a hiçbir şey yazılmaz; `OUTPUT_SKIPPED` o satırla loglanır ve satır döner. İK'nın
+  kalıcı sildiği çıktı (`deleted`, 10.5.12) da böyle atlanır — silinen belge yeniden üretilmez —
+  ve olayın verisi `reason: deleted` taşır (`SKIPPED_DELETED`).
 - Uygulama geri alınmışsa (işlem commit edilmeden öldü ya da geri alındı) çıktı diskte kalmış,
   satırı yoktur. Yeniden uygulamada işlem yürür; aynı gövdeyle ve aynı SHA-256'yla `Hazir/`'da
   duran ve hiçbir `documents` satırının göstermediği dosya varsa yeni dosya yazılmaz, o dosya
@@ -175,6 +177,8 @@ _OPERATION_EVENTS: dict[Operation, EventType] = {
 }
 
 _EMPLOYEE_LOCK_NAMESPACE = "belgeee.employees.outputs"
+# `OUTPUT_SKIPPED` verisinin `reason`'ı: öğenin çıktısı kalıcı silinmiş (10.5.12, PLAN.md §D110 c).
+SKIPPED_DELETED = "deleted"
 
 
 def execute_ready_item(
@@ -260,13 +264,15 @@ def execute_item(
     provenance = {"item_id": item.item_id, "plan_id": plan.id, "sources": source_refs}
     existing = executed_document(session, plan, item)
     if existing is not None:
+        # 10.5.12 (K9, §D110 c): İK'nın kalıcı sildiği çıktı yeniden üretilmez; gerekçesi `deleted`.
+        deleted = existing.status == DocumentStatus.DELETED.value
         record_event(
             session,
             EventType.OUTPUT_SKIPPED,
             **origin,
             document_id=existing.id,
             employee_id=existing.employee_id,
-            data=provenance,
+            data={**provenance, "reason": SKIPPED_DELETED} if deleted else provenance,
         )
         return ExecutedItem(existing, None, ())
 
@@ -488,6 +494,7 @@ __all__ = [
     "PdfProtection",
     "PlanItemReferenceError",
     "RenderImageSourceError",
+    "SKIPPED_DELETED",
     "SourceIntegrityError",
     "WrapImageSourceError",
     "_EMPLOYEE_LOCK_NAMESPACE",

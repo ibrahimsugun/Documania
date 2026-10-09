@@ -14,7 +14,7 @@
   <dt>{{ _("Çalışan") }}</dt><dd><a href="/employees/{{ history.employee_id }}">{{ history.employee }}</a></dd>
   <dt>{{ _("Tür") }}</dt><dd>{{ history.type_name }}</dd>
   <dt>{{ _("Çıktı") }}</dt>
-  <dd>{% if history.open_url %}<a href="{{ history.open_url }}" target="_blank" rel="noopener">{{ history.file_name }}</a>{% else %}{{ history.file_name }} <span class="reason">{{ _("(dosya bulunamadı)") }}</span>{% endif %}</dd>
+  <dd>{% if history.deleted_at %}<span class="reason">{{ _("Kalıcı olarak silindi: %(at)s · %(user)s", at=history.deleted_at, user=history.deleted_by) }}</span>{% elif history.open_url %}<a href="{{ history.open_url }}" target="_blank" rel="noopener">{{ history.file_name }}</a>{% else %}{{ history.file_name }} <span class="reason">{{ _("(dosya bulunamadı)") }}</span>{% endif %}</dd>
   <dt>{{ _("Biçim") }}</dt><dd>{{ history.format }}</dd>
   <dt>{{ _("Sıra") }}</dt><dd>{{ history.sequence_no }}</dd>
   <dt>{{ _("Durum") }}</dt><dd>{{ translate(history.status_label) }}</dd>

@@ -18,6 +18,12 @@ Blok biçimi `CONVENTIONS.md` §3'te tanımlıdır:
 
 ## Task log (newest-first)
 
+## 166 — 10.5-j Belgeyi kalıcı silme — done — 2026-10-09
+- Yapıldı: göç 0025 (`deleted_at/by`, boş `path`, durum CHECK), `app/storage/delete.py` (plan: belge, Alinan, Inbox + tekrarlar, kuyruk kopyaları, sayfa görüntüsü; iskelet + `DOCUMENT_DELETED`; dosyalar commit'ten sonra), profilden iki onaylı silme (`<N>`/`<M>`, sayı değişince 409), görünürlük ve rerun `reason: deleted`; kararlar §D113.
+- Doğrulama: ruff, format, compileall, `import app.main`, temiz SQLite'ta `alembic upgrade head` (→0025), i18n check exit 0; commit ağacında tam paralel kapı 6793 geçti, 5 atlandı, %99,16 — tek kırmızı `test_profile_records.py` manuel iletişim testi UTC gece yarısı yarışı (yeniden koşuda yeşil); 7 kural bozmasının 7'si kırmızı.
+- Varsayımlar: sıra eki yeniden kullanılabilir (§D113 h); eski sürüm profilden silinmez (409); profil kayıtları ve eski olaylar belgeyle silinmez (tm 167'nin işi).
+- Sonraki pencereye not: Commit yalnız tm 166'yı içerir. Çalışma ağacında başka oturumların commit'lenmemiş işi bırakıldı: dil seçici bayrak menüsü (`_language_selector.html`, `languages.py`, `theme.css/js`, `panel.css` üst kısmı, `test_language_preference.py` — ruff E501 ve `test_profile.py` `<img` kırmızısı bundan) ve tm 168–170 planlaması (PRD/PLAN/tasks.json). `test_profile_records.py:592` gün damgası gece yarısı yarışı ayrı görev olmalı (§1.4).
+
 ## 165 — 05.5-b Doğum tarihi taşımayan belgenin tekil isim eşleşmesi — done — 2026-10-08
 - Yapıldı: §20.2.2 satır 5a — doğum tarihi okunmamış belgenin adı birleştirilmemiş tek çalışana uyuyorsa Hazir'a `matched_by: name` ile girer, hiçbir şey biriktirmez, kişisiz sayfaya sahip vermez; birden çok kayıtta `name_ambiguous` + Unresolved; profil ve yükleme ayrıntısında "Yalnız isimle eşleşti" etiketi (İK taşıyınca kalkar); S10 yeniden tanımı, S23 (§D109).
 - Doğrulama: ruff check/format, compileall, `import app.main`, temiz SQLite'ta `alembic upgrade head` (→0024), i18n check exit 0; tam paralel kapı (`-n 12 --cov`) 6756 geçti, 5 atlandı, kapsam %99,21, 14 dk 38 sn; 5 kural bozmasının 5'i kırmızı.

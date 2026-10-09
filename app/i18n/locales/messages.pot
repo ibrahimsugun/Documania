@@ -4,7 +4,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Documania panel\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-08 18:26+0000\n"
+"POT-Creation-Date: 2026-10-08 20:08+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1030,6 +1030,17 @@ msgstr ""
 msgid "Belge grubu bulunamadı."
 msgstr ""
 
+#: app/web/routers/employees.py
+msgid ""
+"Belge kalıcı olarak silindi, ancak bazı dosyaları diskten kaldırılamadı "
+"(açık ya da kilitli olabilir); sayısı olay logunda. Sistem yöneticisine "
+"bildirin."
+msgstr ""
+
+#: app/web/routers/employees.py
+msgid "Belge kalıcı olarak silindi; dosyaları diskten kaldırıldı."
+msgstr ""
+
 #: app/web/templates/profile.html
 msgid "Belge numaraları"
 msgstr ""
@@ -1204,6 +1215,10 @@ msgstr ""
 
 #: app/telegram/intent.py
 msgid "Belgeyi gönderemedim. Yeniden deneyin."
+msgstr ""
+
+#: app/web/routers/documents.py
+msgid "Belgeyi kalıcı sil"
 msgstr ""
 
 #: app/web/templates/queue.html app/web/templates/queue_close_step.html
@@ -1868,7 +1883,8 @@ msgid ""
 "yanıt verir. Telegram'ı yalnız siz kendi hesabınıza bağlayabilirsiniz."
 msgstr ""
 
-#: app/web/templates/document_archive_step.html app/web/templates/profile.html
+#: app/web/templates/document_archive_step.html
+#: app/web/templates/document_delete_step.html app/web/templates/profile.html
 #: app/web/templates/training_results.html app/web/templates/upload_detail.html
 #: app/web/templates/upload_result.html app/web/templates/uploads_list.html
 msgid "Dosya"
@@ -1950,6 +1966,7 @@ msgstr ""
 
 #: app/web/templates/catalog.html app/web/templates/catalog_candidate.html
 #: app/web/templates/document_archive_step.html
+#: app/web/templates/document_delete_step.html
 #: app/web/templates/employee_merge_step.html app/web/templates/employees.html
 #: app/web/templates/employees_results.html app/web/templates/groups.html
 #: app/web/templates/history.html app/web/templates/profile.html
@@ -2118,6 +2135,7 @@ msgstr ""
 #: app/web/templates/catalog_candidate.html
 #: app/web/templates/catalog_candidate_step.html
 #: app/web/templates/document_archive_step.html
+#: app/web/templates/document_delete_step.html
 #: app/web/templates/document_move.html app/web/templates/employee_fields.html
 #: app/web/templates/employee_merge_step.html
 #: app/web/templates/employee_status_step.html
@@ -2144,6 +2162,10 @@ msgstr ""
 
 #: app/web/templates/profile_record_step.html
 msgid "Evet, kaldır"
+msgstr ""
+
+#: app/web/routers/documents.py
+msgid "Evet, kalıcı olarak sil"
 msgstr ""
 
 #: app/web/templates/queue_close_step.html
@@ -2685,6 +2707,24 @@ msgstr ""
 msgid "Kalemler"
 msgstr ""
 
+#: app/web/templates/history.html
+#, python-format
+msgid "Kalıcı olarak silindi: %(at)s · %(user)s"
+msgstr ""
+
+#: app/web/templates/profile.html
+msgid "Kalıcı sil"
+msgstr ""
+
+#: app/web/routers/documents.py
+msgid ""
+"Kalıcı silme geri alınamaz. Belge dosyası ve yalnız bu belgeye ait "
+"kopyaları diskten kaldırılır; başka bir belgeye ya da açık kuyruk öğesine"
+" kaynak olan dosyalar yerinde kalır. Kayıt listelerden, aramadan, belge "
+"paketlerinden ve bottan kalkar; geçmişi ve kimin sildiği olay logunda "
+"durur."
+msgstr ""
+
 #: app/web/templates/access_log_employee.html
 #: app/web/templates/upload_detail.html app/web/templates/uploads_list.html
 msgid "Kanal"
@@ -3182,6 +3222,7 @@ msgid "Onaylandı"
 msgstr ""
 
 #: app/web/templates/document_archive_step.html
+#: app/web/templates/document_delete_step.html
 #: app/web/templates/employee_merge_step.html
 #: app/web/templates/employee_status_step.html
 #: app/web/templates/profile_record_step.html
@@ -3466,6 +3507,13 @@ msgstr ""
 msgid "Profil oluştur"
 msgstr ""
 
+#: app/web/routers/documents.py
+#, python-brace-format
+msgid ""
+"Profilden yalnız etkin ya da arşivdeki belge kalıcı silinir; bu belgenin "
+"durumu: {status}."
+msgstr ""
+
 #: app/web/templates/employee_fields.html app/web/templates/profile.html
 msgid "Profili düzenle"
 msgstr ""
@@ -3657,6 +3705,16 @@ msgid ""
 "Seçtiğin dosyalar tek bir <strong>parti</strong> olarak gönderilir. "
 "Sistem her sayfayı okur, belgenin türünü ve sahibini bulmaya çalışır; "
 "emin olamadığını Kuyruklar'a bırakır. Belgelerin içeriği değiştirilmez."
+msgstr ""
+
+#: app/web/routers/upload_page.py
+msgid "Silindi"
+msgstr ""
+
+#: app/web/routers/documents.py
+msgid ""
+"Silinecek ya da kalacak dosya sayısı onaydan sonra değişti; hiçbir şey "
+"silinmedi. Onayı yeniden başlatın."
 msgstr ""
 
 #: app/web/routers/queue.py
@@ -4040,7 +4098,8 @@ msgstr ""
 msgid "Tümü"
 msgstr ""
 
-#: app/web/templates/document_archive_step.html app/web/templates/history.html
+#: app/web/templates/document_archive_step.html
+#: app/web/templates/document_delete_step.html app/web/templates/history.html
 #: app/web/templates/profile.html app/web/templates/training_known.html
 #: app/web/templates/training_results.html app/web/templates/upload_detail.html
 msgid "Tür"
@@ -4173,6 +4232,7 @@ msgstr ""
 #: app/web/templates/catalog_candidate_step.html
 #: app/web/templates/catalog_form.html
 #: app/web/templates/document_archive_step.html
+#: app/web/templates/document_delete_step.html
 #: app/web/templates/document_move.html app/web/templates/employee_fields.html
 #: app/web/templates/employee_fields_step.html
 #: app/web/templates/employee_merge_step.html
@@ -4609,6 +4669,10 @@ msgstr ""
 
 #: app/matching/records.py app/web/routers/upload_page.py
 msgid "belge numarası"
+msgstr ""
+
+#: app/web/templates/access_log_employee.html
+msgid "belge silindi"
 msgstr ""
 
 #: app/web/routers/employees.py
@@ -5797,6 +5861,7 @@ msgid "← Aday tür"
 msgstr ""
 
 #: app/web/templates/document_archive_step.html
+#: app/web/templates/document_delete_step.html
 msgid "← Belge geçmişine dön"
 msgstr ""
 
@@ -5810,6 +5875,7 @@ msgid "← Kuyruk öğesi %(id)s"
 msgstr ""
 
 #: app/web/templates/document_archive_step.html
+#: app/web/templates/document_delete_step.html
 #: app/web/templates/employee_fields.html app/web/templates/employee_merge.html
 #: app/web/templates/employee_merge_step.html
 #: app/web/templates/employee_status_step.html

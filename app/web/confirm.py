@@ -3,13 +3,13 @@
 K16'nın manuel işlemleri — belgeyi başka çalışana taşı, kuyruk öğesini ata, onay bekleyen profili
 onayla, yeni türü onayla, arşive taşı, taramayı yoksay, çalışan profilini düzenle, çalışanı pasife
 al ve yeniden etkinleştir, profil alt kaydını kaldır, iki çalışanı birleştir, belgeyi arşivden geri
-al, kuyruk öğesini kapat (§D61) — iki onay ister. Onay metinleri §20.6 tablosundan **birebir**
-buradadır (`CONFIRMATION_TEXTS`); `<Ad Soyad>`, `<Birleşen Ad Soyad>`, `<Kalan Ad Soyad>`,
-`<Tür adı>`, `<N>` ve `<M>` yer tutucuları çalışma zamanında `fill` ile doldurulur, pencere kendi
-cümlesini yazmaz. İngilizce ve Sırpça (Latin) karşılıklar PRD §20.6.3'ten **birebir** kopyadır
-(`CONFIRMATION_TEXTS_EN`, `CONFIRMATION_TEXTS_SR`; gettext kataloğuna girmez, §D96): `first_text` ve
-`second_text` isteğin dilindeki metni verir, yer tutucular her dilde aynıdır ve aynı değerle
-dolar. `USER_CONFIRMED` olayı metin taşımaz, dilden bağımsızdır.
+al, kuyruk öğesini kapat (§D61), belgeyi kalıcı sil (§D110) — iki onay ister. Onay metinleri §20.6
+tablosundan **birebir** buradadır (`CONFIRMATION_TEXTS`); `<Ad Soyad>`, `<Birleşen Ad Soyad>`,
+`<Kalan Ad Soyad>`, `<Tür adı>`, `<N>` ve `<M>` yer tutucuları çalışma zamanında `fill` ile
+doldurulur, pencere kendi cümlesini yazmaz. İngilizce ve Sırpça (Latin) karşılıklar PRD §20.6.3'ten
+**birebir** kopyadır (`CONFIRMATION_TEXTS_EN`, `CONFIRMATION_TEXTS_SR`; gettext kataloğuna girmez,
+§D96): `first_text` ve `second_text` isteğin dilindeki metni verir, yer tutucular her dilde aynıdır
+ve aynı değerle dolar. `USER_CONFIRMED` olayı metin taşımaz, dilden bağımsızdır.
 
 Metni göstermek tek başına yetmez — istemci atlanabilir. Sunucu tarafı akış (§20.6.1):
 
@@ -76,6 +76,7 @@ class Operation(enum.StrEnum):
     MERGE_EMPLOYEES = "merge_employees"  # iki çalışanı birleştir, 10.5.9 (§D61)
     UNARCHIVE = "unarchive"  # belgeyi arşivden geri al, 10.5.10 (§D61)
     CLOSE_QUEUE_ITEM = "close_queue_item"  # kuyruk öğesini kapat, 10.7.4 (§D61)
+    DELETE_DOCUMENT = "delete_document"  # belgeyi kalıcı sil, 10.5.12 (§D110)
     # §20.6'nın dışında: yeniden analizin onayı (10.3.2, metinler PLAN.md §D23).
     REANALYZE = "reanalyze"
     # §20.6'nın dışında (K16 dışı, PLAN.md §D58): eğitim örneğini başka türe taşı ve örneklerden
@@ -102,8 +103,11 @@ MERGED_NAME_PLACEHOLDER = "<Birleşen Ad Soyad>"
 KEPT_NAME_PLACEHOLDER = "<Kalan Ad Soyad>"
 TYPE_PLACEHOLDER = "<Tür adı>"
 # `<N>`: taramayı yoksaymada kuyruk öğesi sayısı (`queue_items`), profil düzenlemede yeniden
-# adlandırılacak belge dosyası sayısı, birleştirmede taşınacak belge sayısı (`count`).
+# adlandırılacak belge dosyası sayısı, birleştirmede taşınacak belge sayısı, kalıcı silmede diskten
+# silinecek dosya sayısı (`count`).
 COUNT_PLACEHOLDER = "<N>"
+# `<M>` (`documents`): taramayı yoksaymada yerinde kalan belge sayısı, kalıcı silmede başka belgeye
+# kaynak olduğu için kalan dosya sayısı.
 DOCUMENT_COUNT_PLACEHOLDER = "<M>"
 
 # §20.6 — Türkçe (kaynak dil) metinler BİREBİR, değiştirilmez; `tests/web/test_confirm.py` PRD
@@ -166,6 +170,11 @@ CONFIRMATION_TEXTS: dict[Operation, ConfirmationTexts] = {
     Operation.CLOSE_QUEUE_ITEM: ConfirmationTexts(
         "Bu kuyruk öğesini kapatmak üzeresiniz. Emin misiniz?",
         "Öğe çözülmüş sayılacak, dosya kopyası ve gerekçesi yerinde kalacaktır. Son kararınız mı?",
+    ),
+    Operation.DELETE_DOCUMENT: ConfirmationTexts(
+        "Bu belgeyi kalıcı olarak silmek üzeresiniz. Emin misiniz?",
+        "Belge dosyası ve kopyaları (<N>) diskten silinecek, başka belgelere de kaynak olan "
+        "dosyalar (<M>) kalacaktır; bu işlem geri alınamaz. Son kararınız mı?",
     ),
 }
 
@@ -238,6 +247,12 @@ CONFIRMATION_TEXTS_EN: dict[Operation, ConfirmationTexts] = {
         "The item will be considered resolved; its file copy and reason will stay in place. Is "
         "this your final decision?",
     ),
+    Operation.DELETE_DOCUMENT: ConfirmationTexts(
+        "You are about to permanently delete this document. Are you sure?",
+        "The document file and its copies (<N>) will be deleted from disk; files that are also the "
+        "source of other documents (<M>) will stay; this action cannot be undone. Is this your "
+        "final decision?",
+    ),
 }
 
 CONFIRMATION_TEXTS_SR: dict[Operation, ConfirmationTexts] = {
@@ -304,6 +319,12 @@ CONFIRMATION_TEXTS_SR: dict[Operation, ConfirmationTexts] = {
         "Stavka će se smatrati rešenom; kopija datoteke i obrazloženje ostaju na mestu. Da li je "
         "to vaša konačna odluka?",
     ),
+    Operation.DELETE_DOCUMENT: ConfirmationTexts(
+        "Upravo ćete trajno obrisati ovaj dokument. Da li ste sigurni?",
+        "Datoteka dokumenta i njene kopije (<N>) biće obrisane sa diska; datoteke koje su izvor i "
+        "drugih dokumenata (<M>) ostaju; ova radnja se ne može poništiti. Da li je to vaša konačna "
+        "odluka?",
+    ),
 }
 
 # Dil kodu → onay metinleri (`SUPPORTED_LANGUAGES` ile aynı küme): Türkçe kaynaktır.
@@ -320,7 +341,7 @@ CONFIRMATION_TEXTS_BY_LANGUAGE: Mapping[str, Mapping[Operation, ConfirmationText
 
 def confirmation_texts(operation: Operation, language: str | None = None) -> ConfirmationTexts:
     """`operation`'ın iki onay metni (yer tutucular henüz dolmamış): `language` dilinde, verilmezse
-    isteğin dilinde. Yalnız §20.6'nın 13 işlemi vardır; başka işlem `KeyError`'dır."""
+    isteğin dilinde. Yalnız §20.6'nın 14 işlemi vardır; başka işlem `KeyError`'dır."""
     code = current_language() if language is None else language
     if code not in SUPPORTED_LANGUAGES:
         raise ValueError(f"desteklenmeyen dil: {code!r}")

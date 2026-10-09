@@ -61,6 +61,7 @@ PRD_OPERATIONS = {
     "İki çalışanı birleştir": Operation.MERGE_EMPLOYEES,  # 10.5.9, §D61 (tm 129)
     "Belgeyi arşivden geri al": Operation.UNARCHIVE,  # 10.5.10, §D61 (tm 130)
     "Kuyruk öğesini kapat": Operation.CLOSE_QUEUE_ITEM,  # 10.7.4, §D61 (tm 131)
+    "Belgeyi kalıcı sil": Operation.DELETE_DOCUMENT,  # 10.5.12, §D110 (tm 166)
 }
 TARGET = "7:E0002"
 
@@ -137,7 +138,7 @@ def test_the_texts_are_the_section_20_6_table_verbatim() -> None:
 def test_the_english_and_serbian_texts_are_the_section_20_6_3_table_verbatim() -> None:
     rows = _section_20_6_3_rows()
 
-    assert set(rows) == set(PRD_OPERATIONS)  # 13 işlem; tabloda olup kodda olmayan ya da tersi yok
+    assert set(rows) == set(PRD_OPERATIONS)  # 14 işlem; tabloda olup kodda olmayan ya da tersi yok
     for language, table in (
         ("en", confirm.CONFIRMATION_TEXTS_EN),
         ("sr", confirm.CONFIRMATION_TEXTS_SR),
@@ -253,6 +254,17 @@ def test_placeholders_are_filled_at_run_time_and_never_shown_empty() -> None:
         first_text(Operation.ASSIGN)
     with pytest.raises(ValueError, match="<Tür adı>"):
         fill("<Tür adı> belge türünü", name="Ad")
+
+
+@pytest.mark.parametrize("language", list(SUPPORTED_LANGUAGES))
+def test_the_deletion_counts_are_filled_in_every_language(language: str) -> None:
+    # 10.5.12: <N> diskten silinecek dosya (`count`), <M> kalan dosya (`documents`); sıfır da
+    # yazılır.
+    text = second_text(Operation.DELETE_DOCUMENT, language=language, count=3, documents=0)
+    assert "(3)" in text and "(0)" in text
+    assert not re.search(r"<[^<>]+>", text)
+    with pytest.raises(ValueError, match="<M>"):
+        second_text(Operation.DELETE_DOCUMENT, language=language, count=3)
 
 
 def test_the_dismissal_counts_are_filled_and_never_shown_empty() -> None:

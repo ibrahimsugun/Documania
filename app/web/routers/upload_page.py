@@ -324,6 +324,7 @@ DOCUMENT_STATUS_LABELS = {
     DocumentStatus.ACTIVE.value: N_("Etkin"),
     DocumentStatus.SUPERSEDED.value: N_("Eski sürüm"),
     DocumentStatus.ARCHIVED.value: N_("Arşivlendi"),
+    DocumentStatus.DELETED.value: N_("Silindi"),
 }
 PAGE_STATUS_LABELS = {
     PageAnalysisStatus.PENDING.value: N_("Bekliyor"),
@@ -413,7 +414,7 @@ class OutputView:
     id: int
     employee: str
     type_slug: str
-    path: str
+    path: str | None  # kalıcı silinen belgede boş (10.5.12)
     format: str
     sequence_no: int
     status: str

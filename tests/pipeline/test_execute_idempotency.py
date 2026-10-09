@@ -23,10 +23,15 @@ import app.pipeline.execute as execute_module
 from app.db.models import Document, DocumentStatus, Plan, UploadFile
 from app.db.session import create_session_factory
 from app.events import EventType
-from app.pipeline.execute import ExecutedItem, execute_wrap_image, executed_document
+from app.pipeline.execute import (
+    SKIPPED_DELETED,
+    ExecutedItem,
+    execute_wrap_image,
+    executed_document,
+)
 from app.pipeline.orchestrate import rerun_plan
 from app.pipeline.plan import Operation, PlanDocument, PlanItem, Route, create_plan, read_plan
-from app.storage import DataLayout, sha256_file
+from app.storage import DataLayout, delete_document, remove_document_files, sha256_file
 from tests.fixtures.gen import make_half_filled_image_bytes, make_pdf_bytes, make_text_pdf_bytes
 from tests.pipeline.test_execute import _files
 from tests.pipeline.test_execute_output import (
@@ -577,3 +582,31 @@ def test_s18_rerun_from_the_existing_plan_gives_the_same_outputs_and_no_second_f
     assert [event.document_id for event in _skipped(session)] == [output.id] * 2
     assert len(_events(session, EventType.PLAN_RERUN)) == 2
     assert _count(session, Plan) == 1
+
+
+def test_rerun_does_not_bring_back_a_permanently_deleted_output(
+    session: Session, layout: DataLayout, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # 10.5.12 (K9, §D110 c): silinen çıktının plan öğesi yeniden üretilmez; `OUTPUT_SKIPPED`
+    # gerekçesi `deleted`, `Hazir/`'a dosya dönmez.
+    upload = _passport_upload(session, layout)
+    plan = create_plan(session, layout, upload, catalog=CATALOG, model="recording")
+    _apply_ready_items(session, layout, plan, read_plan(plan))
+    session.commit()
+    (output,) = _documents(session)
+    deleted = delete_document(session, layout, output.id, actor="ik")
+    session.commit()
+    assert remove_document_files(session, deleted) == 0
+    _forbid_ai(monkeypatch)
+
+    rerun_plan(session, layout, upload, executor=_apply_ready_items)
+    session.commit()
+
+    assert [(row.id, row.status, row.path) for row in _documents(session)] == [
+        (output.id, "deleted", None)
+    ]
+    assert _files(layout.ready_dir(FOLDER)) == []
+    (skipped,) = _skipped(session)
+    assert skipped.document_id == output.id
+    assert skipped.data_json is not None and skipped.data_json["reason"] == SKIPPED_DELETED
+    assert len(_events(session, EventType.OUTPUT_SAVED)) == 1
