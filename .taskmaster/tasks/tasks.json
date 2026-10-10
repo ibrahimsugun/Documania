@@ -2547,17 +2547,18 @@
         "description": "tests/telegram/test_intake.py::test_a_summary_only_counts_its_own_batch iki partiyi bot.feed(..., pause=0.3) ile ardışık besliyor; tam paralel kapıda (-n 12) özetlerin sırası/sayısı duvar saatine bağlı kaldığı için kırmızı çıkıyor (tm 167 kapısı ve tm 172 kapısı 2026-10-10, tek başına geçiyor). CONVENTIONS §1.4 kararsızlık kuralı: ortak durum/zamanlama test tarafında düzeltilir (ör. ilk partinin bitmesini intake.join() ile bekleyip sonra ikinciyi beslemek); retry, skip, -p no:randomly yok. Yalnız tests/ değişir; kabul: tam paralel kapı art arda iki koşuda bu test yeşil.",
         "details": "",
         "testStrategy": "",
-        "status": "pending",
+        "status": "done",
         "dependencies": [],
         "priority": "high",
-        "subtasks": []
+        "subtasks": [],
+        "updatedAt": "2026-10-10T11:15:16.065Z"
       }
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-10T10:24:49.912Z",
+      "lastModified": "2026-10-10T11:15:16.065Z",
       "taskCount": 174,
-      "completedCount": 173,
+      "completedCount": 174,
       "tags": [
         "master"
       ]

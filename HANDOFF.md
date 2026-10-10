@@ -18,6 +18,12 @@ Blok biçimi `CONVENTIONS.md` §3'te tanımlıdır:
 
 ## Task log (newest-first)
 
+## 173 — 12.2.3 Kararsız test: test_a_summary_only_counts_its_own_batch — done — 2026-10-10
+- Yapıldı: Kök neden: tekil dosyalar arka planda eşzamanlı işleniyor, test ise dört iletiyi sırayla okuyordu. `pause=0.3` yük altında ilk partinin özetinin ikinci partiden önce gelmesini garanti etmiyordu. Test artık iki ayrı `feed` ile besliyor. Her `feed` kapanmadan önce `intake.join()` ile kendi partisini bekliyor, böylece sıra deterministik oldu. Yalnız `tests/telegram/test_intake.py` değişti. PLAN `#### K12.2`'ye 2 madde eklendi, tablo damgası zaten `✅`.
+- Doğrulama: Eski hâl 20 süreçlik CPU yükünde kırmızı, yeni hâl aynı yükte iki koşuda yeşil. ruff, format (460), compileall, `import app.main`, temiz SQLite'ta `alembic upgrade head` (→0028) ve `git diff --check` exit 0. Tam paralel kapı art arda iki koşuda 6919 geçti, 5 atlandı, %99,02, exit 0.
+- Varsayımlar: yok. retry, skip ve `-p no:randomly` kullanılmadı.
+- Sonraki pencereye not: Aynı dosyadaki `test_a_repeated_file_is_reported_as_a_duplicate` de `pause=0.3` ile besleyip `sent_texts()[-1]`'i okuyor, yani kalıp aynı. Yapay yükte kırmızı görülmedi, o yüzden görev açılmadı; kırmızı çıkarsa aynı yolla düzeltin. `test_separate_albums_and_single_messages_are_separate_uploads` (`group_wait=0.05`) yalnız aşırı yapay yükte bir kez kırmızı çıktı, gerçek kapıda hiç görülmedi.
+
 ## 172 — §5.3 Faz 2 (v2) yeniden kapanış denetimi — done — 2026-10-10
 - Yapıldı: Faz 2 ölçütü güncel koda karşı yeniden kanıtlandı. Beyaz liste kapısı (`GATE_GROUP`) 12.1.11 yedeklerinden, belge isteğinden ve `typing`'den önce çalışıyor. KF2 sessizlik testleri yalnız metin ve komut beslediği için `tests/telegram/test_phase2_closure.py` (6) eklendi. Listede olmayan, izni kapalı, kaydı silinen ve pasif panel kullanıcısına bağlı hesap, 13 mesaj türünün hiçbiri için yanıt ya da `typing` almıyor; dosyası indirilmiyor, yapay zekâya da gidilmiyor. Susturulan kişinin ehliyeti yine Hazir'a giriyor. Kullanıcı rolündeki hesap belge isteyebiliyor (S17 tek ehliyet, erişim logu) ama belge gönderemiyor. PLAN §0'da Faz 2 Kapanış hücresi `✅ → KF2` oldu, `#### KF2`'ye 6 madde eklendi. `app/` değişmedi.
 - Doğrulama: hedef koşu 501 geçti. ruff, format (460), compileall, `import app.main`, `git diff --check`, temiz SQLite'ta `alembic upgrade head` (→0028) ve i18n check exit 0. İkinci tam paralel kapı 6919 geçti, 5 atlandı (PostgreSQL), %99,02, exit 0. 5 geçici kural bozmasının 5'i kırmızı.

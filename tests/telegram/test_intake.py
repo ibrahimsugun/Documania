@@ -477,11 +477,11 @@ def test_a_summary_only_counts_its_own_batch(
     bot.telegram.files["w"] = make_docx_bytes()
     bot.telegram.files["p"] = passport_pdf()
 
-    bot.feed(
-        document_update(1, LISTED_ID, "w", "ozgecmis.docx"),
-        document_update(2, LISTED_ID, "p", "pasaport.pdf"),
-        pause=0.3,
-    )
+    # Tekil dosyalar arka planda eşzamanlı işlenir: duvar saati beklemesi (`pause`) yük altında
+    # özetleri karıştırır. Her `feed` kapanmadan `intake.join()` ile bekler; ikinci parti ancak
+    # ilki özetini gönderdikten sonra gelir (CONVENTIONS §1.4).
+    bot.feed(document_update(1, LISTED_ID, "w", "ozgecmis.docx"))
+    bot.feed(document_update(2, LISTED_ID, "p", "pasaport.pdf"))
 
     _, queue_summary, _, ready_summary = bot.telegram.sent_texts()
     assert queue_summary == "Bitti.\n1 belgeye bakmanız gerekiyor; panelde kontrol edin."
