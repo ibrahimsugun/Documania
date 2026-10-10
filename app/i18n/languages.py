@@ -17,14 +17,15 @@ class Language:
     code: str
     html_lang: str
     name: str
+    flag: str = ""  # `app/web/static/flags/<flag>.svg` (ISO 3166-1 alfa-2, küçük harf)
 
 
 # Sıra dil seçicideki sıradır: English · Türkçe · Srpski. Sırpça Latin alfabesiyledir (§D92 a).
 SUPPORTED_LANGUAGES = MappingProxyType(
     {
-        "en": Language("en", "en", "English"),
-        "tr": Language("tr", "tr", "Türkçe"),
-        "sr": Language("sr", "sr-Latn", "Srpski"),
+        "en": Language("en", "en", "English", "gb"),
+        "tr": Language("tr", "tr", "Türkçe", "tr"),
+        "sr": Language("sr", "sr-Latn", "Srpski", "rs"),
     }
 )
 # Açılış dili: girişsiz sayfa (çerezde geçerli dil yoksa) ve tercihi olmayan hesap. Panelde

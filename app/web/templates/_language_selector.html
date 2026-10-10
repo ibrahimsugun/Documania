@@ -1,11 +1,16 @@
-{# 10.10.2: dil seçici — üç düğme, dil adları kendi dilinde, seçili olan `aria-current`;
-   JavaScript gerekmez. `back`: dönülecek yol (çağıran verir). Dil adları çevrilmez. #}
+{# 10.10.2: dil seçici — açılır menü (`<details>`; JavaScript gerekmez). Kapalı hâlde seçili dilin
+   bayrağı + adı görünür; açılınca her dil bayrağıyla bir düğmedir, seçili olan `aria-current`.
+   `back`: dönülecek yol (çağıran verir). Dil adları çevrilmez. #}
 <form class="language-selector" method="post" action="/language">
   <input type="hidden" name="next" value="{{ back }}">
-  <span class="language-label" id="language-label">{{ _("Dil") }}</span>
-  <span role="group" aria-labelledby="language-label">
-    {% for entry in languages %}
-    <button type="submit" name="language" value="{{ entry.code }}" lang="{{ entry.html_lang }}" translate="no"{% if entry.code == language %} aria-current="true" class="current"{% endif %}>{{ entry.name }}</button>
-    {% endfor %}
-  </span>
+  <details>
+    <summary aria-label="{{ _('Dil') }}" title="{{ _('Dil') }}">
+      {% for entry in languages if entry.code == language %}<img src="/static/flags/{{ entry.flag }}.svg" alt="" width="20" height="15"><span translate="no" lang="{{ entry.html_lang }}">{{ entry.name }}</span>{% endfor %}
+    </summary>
+    <span class="language-menu" role="group" aria-label="{{ _('Dil') }}">
+      {% for entry in languages %}
+      <button type="submit" name="language" value="{{ entry.code }}" lang="{{ entry.html_lang }}" translate="no"{% if entry.code == language %} aria-current="true" class="current"{% endif %}><img src="/static/flags/{{ entry.flag }}.svg" alt="" width="20" height="15">{{ entry.name }}</button>
+      {% endfor %}
+    </span>
+  </details>
 </form>

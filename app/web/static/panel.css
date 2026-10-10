@@ -12,9 +12,9 @@ body {
 
 a { color: #0b5cad; }
 
-/* Üst çubuk tam genişlikte; içeriği .content ile aynı 72rem sütuna hizalanır. */
+/* Üst çubuk tam genişlikte; içeriği .content ile aynı 80rem sütuna hizalanır. */
 .topbar {
-  --gutter: max(1.5rem, calc((100% - 72rem) / 2 + 1.5rem));
+  --gutter: max(1.5rem, calc((100% - 80rem) / 2 + 1.5rem));
   display: flex;
   align-items: center;
   gap: 1.75rem;
@@ -1218,16 +1218,75 @@ form:not(.session) button[type="submit"]:hover,
   margin: 0;
 }
 
-.language-selector [role="group"] { display: inline-flex; gap: 0.2rem; }
+/* Açılır menü: `<details>`; özet = seçili dilin bayrağı + adı, menü = bayraklı dil düğmeleri. */
+.language-selector details { position: relative; }
 
-.language-label {
+.language-selector summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.25rem 0.55rem;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 600;
+  list-style: none;
+  color: var(--ink);
+  user-select: none;
+}
+
+.language-selector summary::-webkit-details-marker { display: none; }
+
+.language-selector summary::after {
+  content: "";
+  width: 0.4rem;
+  height: 0.4rem;
+  margin-left: 0.15rem;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: translateY(-2px) rotate(45deg);
+}
+
+.language-selector details[open] summary::after { transform: translateY(1px) rotate(225deg); }
+
+.language-selector img {
+  flex: none;
+  width: 20px;
+  height: 15px;
+  object-fit: cover;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.15);
+}
+
+.language-menu {
   position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip-path: inset(50%);
+  z-index: 20;
+  top: calc(100% + 0.35rem);
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 100%;
+  padding: 0.3rem;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+}
+
+form.language-selector .language-menu button[type="submit"] {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  border-radius: 6px;
+  text-align: left;
   white-space: nowrap;
 }
+
+.login .language-selector details { margin: 0 auto; }
+.login .language-menu { right: auto; left: 50%; transform: translateX(-50%); top: auto; bottom: calc(100% + 0.35rem); }
+.topbar .language-selector summary { color: #f3f8f6; border-color: rgb(148 163 184 / 35%); }
 
 form.language-selector button[type="submit"] {
   min-height: 0;
@@ -1253,7 +1312,6 @@ form.language-selector button[type="submit"][aria-current="true"] {
   font-weight: 700;
 }
 
-.topbar .language-selector { margin-left: auto; }
 
 .topbar form.language-selector button[type="submit"] { color: #aec1c0; }
 

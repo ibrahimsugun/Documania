@@ -827,8 +827,10 @@ def test_a_recorded_photo_that_cannot_be_shown_gets_the_placeholder_not_a_broken
 
     for employee_id in ("E0001", "E0002"):
         page = client.get(f"/employees/{employee_id}").text
-        assert "<img" not in page
-        assert "Fotoğraf yok" in page
+        # Dil seçicinin bayrakları (10.10.2) sayfanın içeriği değildir; içerikte görüntü yok.
+        content = page[page.index('<main class="content">') :]
+        assert "<img" not in content
+        assert "Fotoğraf yok" in content
         assert client.get(f"/employees/{employee_id}/photo").status_code == 404
 
 

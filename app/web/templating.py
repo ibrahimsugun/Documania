@@ -9,15 +9,18 @@ Arayüz dili (PRD 10.10.1, PLAN.md §D92 e): şablonlarda `jinja2.ext.i18n` — 
 doldurulur, otomatik kaçış korunur). Menü etiketleri `N_()` ile işaretli Türkçe msgid'lerdir,
 `base.html` onları gösterirken çevirir. `html_lang` her sayfaya `<html lang>` değerini verir.
 
-Dil seçici (PRD 10.10.2, PLAN.md §D92 c): `_language_selector.html` üst çubukta ve giriş kutusunun
-altında `POST /language`'a giden üç düğmeli formdur (JavaScript'siz); `languages` dilleri seçici
-sırasıyla, `language` isteğin dilini verir. Dönülecek yol `language_return_path`'tir.
+Dil seçici (PRD 10.10.2, PLAN.md §D92 c): `_language_selector.html` üst çubuğun altındaki araç
+alanında ve giriş kutusunun altında `POST /language`'a giden açılır formdur (JavaScript'siz);
+`languages` dilleri seçici sırasıyla, `language` isteğin dilini verir. Dönülecek yol
+`language_return_path`'tir.
 """
 
 from __future__ import annotations
 
+import hashlib
 import logging
 from dataclasses import dataclass
+from importlib import resources
 from typing import Any
 
 import jinja2
@@ -123,6 +126,25 @@ def code_is_stale(request: Request) -> bool:
 
 templates.env.globals["code_is_stale"] = code_is_stale
 templates.env.globals["language_return_path"] = language_return_path
+
+
+def _asset_version() -> str:
+    """Her sayfanın yüklediği kendi stil ve betik dosyalarının içerik özeti (12 karakter).
+
+    Adrese `?v=<özet>` olarak eklenir: dosya değişince adres de değişir, tarayıcı ve önündeki
+    önbellek (Cloudflare gibi) eski kopyayı süresi dolana kadar sunmaz. Açılışta bir kez hesaplanır;
+    dosya değişikliği zaten yeniden başlatma ister (13.5.3).
+    """
+    digest = hashlib.sha256()
+    static = resources.files("app.web").joinpath("static")
+    for name in VERSIONED_ASSETS:
+        digest.update(static.joinpath(name).read_bytes())
+    return digest.hexdigest()[:12]
+
+
+# `base.html`in sürüm ekiyle yüklediği dosyalar.
+VERSIONED_ASSETS = ("panel.css", "theme.css", "theme-init.js", "theme.js")
+templates.env.globals["asset_version"] = _asset_version()
 
 
 def render_page(

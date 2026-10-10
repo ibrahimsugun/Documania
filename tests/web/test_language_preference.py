@@ -431,7 +431,8 @@ def test_topbar_selector_lists_languages_in_their_own_names_and_marks_the_curren
     selector = _selector(page.text)
     buttons = re.findall(
         r'<button type="submit" name="language" value="([a-z]+)" lang="([^"]+)"'
-        r' translate="no"( aria-current="true" class="current")?>([^<]+)</button>',
+        r' translate="no"( aria-current="true" class="current")?>'
+        r'<img src="/static/flags/[a-z]+\.svg" alt="" width="20" height="15">([^<]+)</button>',
         selector,
     )
     assert [(code, lang, name) for code, lang, _, name in buttons] == [
@@ -444,10 +445,13 @@ def test_topbar_selector_lists_languages_in_their_own_names_and_marks_the_curren
     assert '<input type="hidden" name="next" value="/employees?q=ana&amp;page=2">' in selector
     assert SELECTOR_LABEL[language] in selector
     assert "<script" not in selector and "onclick" not in selector and "hx-" not in selector
-    # Üst çubukta kullanıcı adının yanında.
+    # Üst çubuğun hemen altında, içeriğin sağ üstündeki araç alanında; üst çubukta değil.
     topbar = re.search(r'<header class="topbar">.*?</header>', page.text, re.DOTALL)
-    assert topbar is not None and selector in topbar.group(0)
-    assert topbar.group(0).index(selector) < topbar.group(0).index('class="username"')
+    assert topbar is not None and "language-selector" not in topbar.group(0)
+    tools = re.search(
+        r'</header>\s*<div class="page-tools">(.*?)</div>\s*<main', page.text, re.DOTALL
+    )
+    assert tools is not None and selector in tools.group(1)
 
 
 @pytest.mark.parametrize("language", list(SUPPORTED_LANGUAGES))

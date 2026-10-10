@@ -178,7 +178,7 @@ def test_a_row_shows_time_channel_uploader_files_pages_status_and_open_queue_cou
     # Çözülmüş Unreadable öğesi sayılmaz; sıfır boş hücredir.
     assert row == [
         "u_web",
-        "2026-09-10 08:05:09 UTC",
+        "2026-09-10 08:05",
         "Panel",
         "anna-ik",
         "—",

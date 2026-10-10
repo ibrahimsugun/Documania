@@ -6,7 +6,8 @@ listeler.
 (Unknown, Unreadable, Unresolved ayrı sütunlarda; sıfırsa boş). Parti kimliği partinin detay
 sayfasına (10.3.1) gider. Durumlar kendi adlarıyla görünür: işlemdeki beş durum "işleniyor"
 altında toplanmaz, `partial` ile `failed` da `done`'dan ayrıdır. Zamanlar panelin öbür
-sayfalarındaki gibi UTC'dir.
+sayfalarındaki gibi UTC'dir; listede dakikaya kadar yazılır (`2026-10-08 12:07`), saniye ve "UTC"
+eki detay sayfasında kalır.
 
 **Süzme (GET).** `status` (`processing` | `done` | `partial` | `failed` | `cancelled`;
 `processing` işlemdeki beş durumun hepsidir, `cancelled` iptal edilen partilerdir — 10.3.6),
@@ -49,7 +50,7 @@ from app.db.models import Employee, Page, QueueItem, QueueKind, Upload, UploadFi
 from app.db.session import get_session
 from app.i18n import N_
 from app.web.auth import PanelUser, require_panel_user
-from app.web.routers.upload_page import QUEUE_LABELS, Clock, _format_ts, expire_stale_uploads
+from app.web.routers.upload_page import QUEUE_LABELS, Clock, expire_stale_uploads
 from app.web.routers.uploads import UPLOAD_CHANNEL
 from app.web.templating import render_page
 
@@ -181,6 +182,11 @@ class UploadListing:
     previous_url: str | None
     next_url: str | None
     queue_headers: list[str]
+
+
+def _format_minute(moment: datetime) -> str:
+    """Listenin tarih hücresi: UTC, dakikaya kadar (`2026-10-08 12:07`)."""
+    return f"{moment:%Y-%m-%d %H:%M}"
 
 
 def _parse_day(value: str | None) -> tuple[date | None, bool]:
@@ -326,7 +332,7 @@ def build_listing(
             UploadRow(
                 id=upload.id,
                 url=f"/uploads/{upload.id}",
-                created_at=_format_ts(upload.created_at),
+                created_at=_format_minute(upload.created_at),
                 channel=CHANNEL_LABELS.get(upload.channel, upload.channel),
                 uploaded_by=upload.uploaded_by or None,
                 context_employee_id=upload.context_employee_id,

@@ -29,3 +29,32 @@
     }
   });
 })();
+
+// Dil menüsü (`<details>` tabanlı, PRD 10.10.2): dışarı tıklanınca ya da Esc ile kapanır.
+(function () {
+  "use strict";
+  function menus() {
+    return document.querySelectorAll(".language-selector details[open]");
+  }
+  document.addEventListener("click", function (event) {
+    var open = menus();
+    for (var i = 0; i < open.length; i += 1) {
+      if (!open[i].contains(event.target)) {
+        open[i].removeAttribute("open");
+      }
+    }
+  });
+  document.addEventListener("keydown", function (event) {
+    if (event.key !== "Escape") {
+      return;
+    }
+    var open = menus();
+    for (var i = 0; i < open.length; i += 1) {
+      open[i].removeAttribute("open");
+      var summary = open[i].querySelector("summary");
+      if (summary) {
+        summary.focus();
+      }
+    }
+  });
+})();

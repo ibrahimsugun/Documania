@@ -158,7 +158,8 @@ def test_a_read_only_user_sees_the_list_without_forms_and_cannot_write(
     page = client.get("/users")
     assert page.status_code == 200
     assert f'id="user-{ayse}"' in page.text
-    assert re.findall(r'method="post" action="([^"]+)"', page.text) == ["/language", "/logout"]
+    # Yalnız oturum (üst çubuk) ve dil seçici (araç alanı) formları; yazan form yok.
+    assert re.findall(r'method="post" action="([^"]+)"', page.text) == ["/logout", "/language"]
     assert client.post("/users", data={"username": "mehmet"}).status_code == 403
     assert client.post(f"/users/{ayse}/status", data={"status": "inactive"}).status_code == 403
     assert client.post(f"/users/{ayse}/role", data={"role": "user"}).status_code == 403

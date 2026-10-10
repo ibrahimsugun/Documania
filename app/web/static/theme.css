@@ -28,6 +28,8 @@
   --danger-soft: #fef2f2;
   --success: #059669;
   --success-soft: #ecfdf5;
+  --cancelled: #475569;
+  --cancelled-soft: #eef2f7;
   --shadow-sm: 0 1px 2px rgb(15 23 42 / 6%), 0 4px 14px rgb(15 23 42 / 5%);
   --shadow-md: 0 2px 6px rgb(15 23 42 / 6%), 0 18px 40px -12px rgb(15 23 42 / 14%);
   --shadow-glow: 0 10px 30px -10px rgb(99 102 241 / 55%);
@@ -65,6 +67,8 @@ html[data-theme="dark"] {
   --danger-soft: rgb(248 113 113 / 12%);
   --success: #34d399;
   --success-soft: rgb(52 211 153 / 12%);
+  --cancelled: #a3b1c6;
+  --cancelled-soft: rgb(148 163 184 / 14%);
   --shadow-sm: 0 1px 2px rgb(0 0 0 / 40%), 0 4px 14px rgb(0 0 0 / 25%);
   --shadow-md: 0 2px 6px rgb(0 0 0 / 40%), 0 18px 40px -12px rgb(0 0 0 / 60%);
   --shadow-glow: 0 10px 30px -10px rgb(139 140 248 / 55%);
@@ -248,7 +252,10 @@ button,
 button:hover,
 .button-link:hover {
   color: #fff;
+  background: var(--accent-gradient);
+  background-size: 160% 160%;
   background-position: 100% 0;
+  border-color: transparent;
   filter: brightness(1.06);
   transform: translateY(-1px);
 }
@@ -270,6 +277,9 @@ button:disabled { opacity: 0.55; transform: none; filter: grayscale(0.4); cursor
 }
 
 .button-secondary:hover,
+.link-button:hover,
+.tabs a:hover,
+.states a:hover,
 .language-selector button:hover {
   background: var(--surface-soft);
   color: var(--ink);
@@ -388,7 +398,7 @@ tr:last-child td { border-bottom: 0; }
   border-color: color-mix(in srgb, var(--success) 30%, transparent);
 }
 
-.status-archived, .status-passive, .badge-neutral {
+.status-archived, .badge-neutral {
   background: var(--surface-soft);
   color: var(--muted-ink);
   border-color: var(--line-strong);
@@ -399,9 +409,10 @@ tr:last-child td { border-bottom: 0; }
   color: var(--warning);
 }
 
-.status-failed, .check-fail {
+.status-failed, .status-passive, .check-fail {
   background: var(--danger-soft);
   color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 30%, transparent);
 }
 
 .tabs a, .states a { border-radius: 999px; }
@@ -587,6 +598,107 @@ form.language-selector button[type="submit"].current {
 .queue tbody tr:hover, .queue-items tbody tr:hover, .employees tbody tr:hover,
 .catalog tbody tr:hover, .access-log tbody tr:hover { background: var(--row-hover); }
 
-/* Üst çubuk dar ekranda yatay kayar, öğeler sıkışmaz. */
-.topbar { overflow-x: auto; scrollbar-width: none; }
-.topbar::-webkit-scrollbar { display: none; }
+/* Üst çubuk dar ekranda sarar (panel.css); taşma kesilmez, çünkü dil menüsü çubuğun dışına açılır. */
+.topbar { overflow: visible; }
+
+/* Belge Türleri ülke süzgeci (11.1.7): düğme metni okunur, açılan liste altındaki içeriğin üstünde. */
+.country-filter,
+.content > :has(.country-filter) { position: relative; z-index: 30; }
+
+.country-select-button,
+.country-select-button:hover {
+  background: var(--surface);
+  color: var(--ink);
+  border-color: var(--line-strong);
+  box-shadow: none;
+  transform: none;
+  filter: none;
+}
+
+.country-select-popup { z-index: 40; background: var(--surface); }
+
+/* Kart yüzeyi taşıyan bölümler ve formlar: yazı kart kenarına yapışmasın. */
+.content section { padding: 1.1rem 1.4rem; }
+.type-form,
+.confirm { padding: 1.1rem 1.4rem; }
+
+/* Dil menüsü: açılan liste üst çubuğun renklerinden bağımsız, okunur bir yüzeydir. */
+.language-menu { background: var(--surface-raised, var(--surface)); }
+
+form.language-selector .language-menu button[type="submit"] {
+  background: transparent;
+  border-color: transparent;
+  color: var(--ink);
+  box-shadow: none;
+}
+
+form.language-selector .language-menu button[type="submit"]:hover {
+  background: var(--surface-soft);
+  color: var(--ink);
+}
+
+form.language-selector .language-menu button[type="submit"].current {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent-strong);
+}
+
+/* Üst çubuk yalnız gezinme ve oturumu taşır; sığmazsa alt satıra sarar, sayfa yatay kaymaz. */
+.topbar { flex-wrap: wrap; row-gap: 0.4rem; }
+.topbar .session { margin-left: auto; }
+
+/* Dil seçici ve tema düğmesi (10.10.2, 10.1.7): üst çubuğun altında, içerik sütununun sağ üstünde.
+   Alan yüksekliksizdir: içeriği aşağı itmez, düğmeler sütunun üst boşluğuna oturur. */
+.page-tools {
+  position: relative;
+  z-index: 9;
+  display: flex;
+  justify-content: flex-end;
+  align-items: flex-start;
+  gap: 0.5rem;
+  max-width: 80rem;
+  height: 0;
+  margin: 0 auto;
+  padding: 0 1.5rem;
+}
+
+.page-tools > * { margin-top: 0.75rem; }
+
+.page-tools .language-selector summary,
+.page-tools .theme-toggle {
+  height: 2.1rem;
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  color: var(--ink);
+  box-shadow: var(--shadow-sm);
+}
+
+.page-tools .language-selector summary:hover,
+.page-tools .theme-toggle:hover { background: var(--surface-soft); color: var(--ink); }
+
+@media (max-width: 52rem) {
+  .page-tools { height: auto; padding: 0.75rem 1rem 0; }
+  .page-tools > * { margin-top: 0; }
+}
+
+/* 10.3.6: iptal edilen parti — hata değil, bilinçli durdurma: kırmızı ve sarıdan ayrı, nötr gri-mavi. */
+.status-cancelled {
+  background: var(--cancelled-soft);
+  color: var(--cancelled);
+}
+
+/* Yükleme listesinde tarih dakikaya kadar yazılır; sütun dar ve sabit. */
+.uploads-list th:nth-child(2),
+.uploads-list td:nth-child(2) { width: 100px; }
+.uploads-list .nowrap { white-space: nowrap; }
+
+/* Onay adımını açan düğmeler (yeniden analiz, yoksay, iptal): iki temada da okunur yüzey. */
+.reanalyze summary {
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.reanalyze summary:hover { background: var(--surface-soft); }

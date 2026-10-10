@@ -48,7 +48,8 @@
     {% for row in listing.rows %}
     <tr>
       <td><a href="{{ row.url }}">{{ row.id }}</a></td>
-      <td>{{ row.created_at }}</td>
+      {# Tarih ve saat kendi içinde bölünmez: dar sütunda iki satıra ayrılır, tireden kırılmaz. #}
+      <td>{% for part in row.created_at.split(" ") %}<span class="nowrap">{{ part }}</span>{% if not loop.last %} {% endif %}{% endfor %}</td>
       <td>{{ translate(row.channel) }}</td>
       <td>{{ row.uploaded_by or "—" }}</td>
       <td>{% if row.context_employee_url %}<a href="{{ row.context_employee_url }}">{{ row.context_employee_name }}</a> <span class="reason">{{ row.context_employee_id }}</span>{% else %}—{% endif %}</td>
