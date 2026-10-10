@@ -18,6 +18,12 @@ Blok biçimi `CONVENTIONS.md` §3'te tanımlıdır:
 
 ## Task log (newest-first)
 
+## 171 — §5.2 Faz 1 (v1) yeniden kapanış denetimi — done — 2026-10-10
+- Yapıldı: Faz 1 ölçütü güncel koda karşı yeniden kanıtlandı. KF1'in 14 test kimliği yerinde. Yolculuk, katalog, aday tür ve S16 `hr` rolüyle yazıyor, bu yolların hepsi Kullanıcı'ya 403 (`test_roles` taraması, S27). Katalog türüne silme yolu eklenmedi. Otomatik iptal yolculuğun taze ve biten partisine dokunmuyor. `target="_blank" rel="noopener"` hâlâ assert ediliyor. S24–S27 ek kanıt olarak yeşil. PLAN §0'da Faz 1 Kapanış hücresi `✅ → KF1` oldu, `#### KF1`'e 7 madde eklendi. `app/` ve `tests/` değişmedi.
+- Doğrulama: hedef dosyalar ayrı koşuda 173 geçti. ruff, format (459), compileall, `import app.main`, `git diff --check`, temiz SQLite'ta `alembic upgrade head` (→0028) ve i18n check exit 0. Tam paralel kapı 6913 geçti, 5 atlandı (PostgreSQL), %99,02, 14 dk 47 sn. 3 geçici kural bozmasının 3'ü kırmızı.
+- Varsayımlar: Görev ayrıntısı "yolculuk yükleme detayını açıyor" diyordu. Yolculuk aslında detayı açmıyor, yalnız bağlantıyı assert ediyor. Biten parti `CANCELLABLE_STATUSES`'ta olmadığı için bu fark kanıtı değiştirmiyor. Çalışma ağacı temizdi, ayrı worktree gerekmedi.
+- Sonraki pencereye not: Seri hedef koşusu (~10 dk) ön plan sınırını aşar, `-n 12` ile 2 dk sürer. Windows'ta oturum sonunda `pytest-current` izin hatası exit 1 verir (testler geçse de); her koşuya taze `--basetemp` ver. Sırada tm 172 (Faz 2) var.
+
 ## 170 — §5.1 Faz 0 (MVP) yeniden kapanış denetimi — done — 2026-10-10
 - Yapıldı: Faz 0 ölçütü güncel koda karşı yeniden kanıtlandı. S10'un gövdesi yeni tanımın (doğum tarihi farklı → Unresolved, eşleştirme ve yeni çalışan yok) her parçasını sınıyor. S11 ve S12 satır 5a'dan etkilenmedi, S23 ek kanıt olarak yeşil. Yetki (`hr` rolüyle 201), iptal (`DONE` assert edilir) ve kalıcı silme (köken) senaryoları bozmuyor. PLAN §0'da Faz 0 Kapanış hücresi `✅ → KF0`, `#### KF0`'ye 6 madde eklendi. `app/` ve `tests/` değişmedi.
 - Doğrulama: senaryo dosyaları 40 geçti; ruff, format (459), compileall, `import app.main`, `git diff --check`, temiz SQLite'ta `alembic upgrade head` (→0028), i18n check exit 0; tam paralel kapı 6913 geçti, 5 atlandı, %99,03; 2 geçici kural bozmasının 2'si kırmızı.
