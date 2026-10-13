@@ -1152,6 +1152,24 @@ class TelegramLinkCode(Base):
     user: Mapped[User] = relationship()
 
 
+class RecordedText(Base):
+    """Kayda İngilizce yazılan sistem metninin yapısı (10.10.6; PLAN.md §D121).
+
+    Gerekçe, plan öğesi ve olay metni kayıtta düz İngilizce metindir; panel onu kullanıcının
+    dilinde gösterebilsin diye metnin kaynağı (Türkçe msgid şablonu ve değerleri,
+    `app.i18n.recorded`) burada saklanır. Anahtar metnin SHA-256 özetidir; aynı metin bir kez
+    yazılır. Metin kişisel değer taşımaz (gerekçeler için §08.1.2); satır silinmez.
+    """
+
+    __tablename__ = "recorded_texts"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    text_hash: Mapped[str] = mapped_column(String(64), unique=True)
+    text: Mapped[str] = mapped_column(Text)
+    source_json: Mapped[dict[str, Any]] = mapped_column(JSON)
+    created_at: Mapped[datetime] = mapped_column(UtcDateTime, default=utcnow)
+
+
 # --- çalışan numarası üretici (00.3.3) -----------------------------------------------------
 
 EMPLOYEE_NUMBER_PREFIX = "E"

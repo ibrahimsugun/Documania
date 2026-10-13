@@ -67,6 +67,7 @@ from tests.fixtures.gen import (
     passport_page,
     write_recordings,
 )
+from tests.recorded import source_notes
 
 SETTINGS = Settings(
     _env_file=None, database_url="sqlite://", worker_lease_seconds=60, worker_max_attempts=3
@@ -144,6 +145,8 @@ def _items(session_factory: sessionmaker[Session], layout: DataLayout, count: in
 def _item(session_factory: sessionmaker[Session], item_id: int) -> TrainingItem:
     with session_factory() as session:
         item = session.get_one(TrainingItem, item_id)
+        # 10.10.6: not kayıtta İngilizce; test kaynağını (Türkçe) okur.
+        source_notes(session, [item])
         session.expunge(item)
     return item
 

@@ -120,7 +120,9 @@ def proposal_payload(**top: Any) -> dict[str, Any]:
         "name": "Montenegrin Residence Permit",
         "file_label": "Residence Permit",
         "country": "ME",
-        "description": "Karadağ'da yabancılara verilen oturma izni kartı; ön ve arka yüzlü.",
+        "description": (
+            "Residence permit card issued to foreigners in Montenegro; front and back sides."
+        ),
         "expected_file_types": ["jpeg", "png"],
         "expected_pages": {"min": 1, "max": 2},
         "sides": "front_back",
@@ -137,20 +139,23 @@ def proposal_payload(**top: Any) -> dict[str, Any]:
             "expiry_date",
         ],
         "acceptance_criteria": [
-            "Kartın iki yüzü de tam görünür olmalı, kenarlar kesilmemiş",
-            "Arka yüzdeki MRZ üç satırı da okunabilir olmalı",
+            "Both sides of the card must be fully visible, edges not cut off",
+            "All three MRZ lines on the back must be legible",
         ],
         "appearance": description_payload(
-            layout="Kart, yatay; ön yüzde fotoğraf solda, etiketli satırlar sağda",
+            layout=(
+                "Card, landscape; on the front the photo is on the left, labelled lines on the "
+                "right"
+            ),
             headings=["DOZVOLA ZA BORAVAK"],
             languages=["sr", "en"],
             scripts=["latin"],
             field_locations=[
-                {"field": "surname", "location": "ön yüzde fotoğrafın sağında, ilk satır"},
-                {"field": "document_number", "location": "ön yüzün sağ üst köşesi"},
+                {"field": "surname", "location": "on the front, right of the photo, first line"},
+                {"field": "document_number", "location": "top right corner of the front"},
             ],
-            mrz={"line_count": 3, "location": "arka yüzün altında"},
-            side_differences="Ön yüzde fotoğraf ve kişisel alanlar; arka yüzde MRZ",
+            mrz={"line_count": 3, "location": "bottom of the back side"},
+            side_differences="Photo and personal fields on the front; MRZ on the back",
         ),
     }
     data.update(top)
@@ -185,7 +190,7 @@ def training_payload(**top: Any) -> dict[str, Any]:
         "doc_kind": "pasaport",
         "proposed_name": "Albanian Passport",
         "side": "single",
-        "notes": "Başlıkta ülke adı ve pasaport yazıyor; MRZ belge kodu P.",
+        "notes": "The heading shows the country name and passport; MRZ document code P.",
     }
     data.update(top)
     return data

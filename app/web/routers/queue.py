@@ -135,6 +135,7 @@ from app.db.models import (
 from app.db.session import get_session
 from app.events import EventType
 from app.i18n import N_, SOURCE_LANGUAGE
+from app.i18n.recorded import localized, recall, recall_texts
 from app.matching.match import (
     PROFILE_FIELDS,
     EmployeeAction,
@@ -829,6 +830,7 @@ def list_queue(
         )
     )
     lookups = _lookups(session, items)
+    recalled = recall_texts(session, (item.reason for item in items))
     return QueueListing(
         kind=kind.value,
         label=QUEUE_LABELS[kind.value],
@@ -867,7 +869,7 @@ def list_queue(
                 type_name=lookups.type_name(item.payload_json),
                 employee_guess=lookups.employee_guess(item.payload_json),
                 sources=lookups.source_texts(item.payload_json),
-                reason=item.reason,
+                reason=localized(recalled, item.reason),
                 resolved=_resolved_text(item),
                 can_reopen=item.resolution == QueueResolution.CLOSED.value,
             )
@@ -923,6 +925,7 @@ def build_item_view(session: Session, queue_item_id: int) -> QueueItemView | Non
     reopen_note = reopening_refusal(session, queue_item) if closed else None
     can_assign = _assign_refusal(session, queue_item) is None
     can_close = closing_refusal(session, queue_item) is None
+    recalled = recall_texts(session, [queue_item.reason, *(event.message for event in events)])
     steps: list[Step] = []
     if state is QueueState.OPEN:
         steps = item_steps(
@@ -944,7 +947,7 @@ def build_item_view(session: Session, queue_item_id: int) -> QueueItemView | Non
             lookups.plan_versions.get(queue_item.plan_id) if queue_item.plan_id else None
         ),
         item_id=queue_item.plan_item_id,
-        reason=queue_item.reason,
+        reason=localized(recalled, queue_item.reason),
         type_name=lookups.type_name(queue_item.payload_json),
         employee_guess=lookups.employee_guess(queue_item.payload_json),
         sources=[_source_view(session, ref) for ref in _payload_refs(queue_item.payload_json)],
@@ -974,7 +977,7 @@ def build_item_view(session: Session, queue_item_id: int) -> QueueItemView | Non
                 type=event.type,
                 actor=event.actor,
                 place=_event_place(event, lookups.files),
-                message=event.message,
+                message=localized(recalled, event.message),
             )
             for event in events
         ],
@@ -1615,7 +1618,7 @@ def _closable_item(session: Session, queue_item_id: int) -> tuple[QueueItem, Clo
         state_label=STATE_LABELS[state.value],
         upload_id=queue_item.upload_id,
         type_name=_lookups(session, [queue_item]).type_name(queue_item.payload_json),
-        reason=queue_item.reason,
+        reason=recall(session, queue_item.reason),
     )
 
 

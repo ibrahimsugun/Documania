@@ -55,6 +55,7 @@ from tests.fixtures.gen import (
     make_mrz_lines,
     make_text_pdf_bytes,
 )
+from tests.recorded import source_message, source_notes
 from tests.training.invariants import assert_employee_data_untouched
 from tests.web.conftest import SIGNED_IN
 from tests.web.flash import flashed
@@ -114,7 +115,10 @@ def _upload(
 
 def _items(session_factory: sessionmaker[Session]) -> list[TrainingItem]:
     with session_factory() as session:
-        return list(session.scalars(select(TrainingItem).order_by(TrainingItem.id)))
+        # 10.10.6: not kayıtta İngilizcedir; içerik kaynak dilde karşılaştırılır.
+        return source_notes(
+            session, session.scalars(select(TrainingItem).order_by(TrainingItem.id))
+        )
 
 
 def _count(session_factory: sessionmaker[Session], model: type) -> int:
@@ -565,7 +569,7 @@ def test_place_into_type_puts_the_unplaced_item_there_as_verified(
             "manual",
             SIGNED_IN.username,
         )
-        assert (item.note or "").startswith(
+        assert (source_message(session, item.note) or "").startswith(
             "Elle yerleştirildi → `serbian_residence_card`; önceki not: Yapay zekâ önerisi"
         )
         record = session.scalars(
@@ -655,7 +659,7 @@ def test_place_into_type_keeps_the_duplicate_rule(
     with session_factory() as session:
         item = session.get_one(TrainingItem, item_id)
         assert item.status == "conflict"
-        assert "başka türde örnek: albanian_passport" in (item.note or "")
+        assert "başka türde örnek: albanian_passport" in (source_message(session, item.note) or "")
     page = client.get(response.headers["location"])
     assert "Öğe yerleşmedi: aynı içerik başka bir türde örnek." in page.text
 

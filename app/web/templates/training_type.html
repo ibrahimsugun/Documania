@@ -35,7 +35,7 @@
       {% if example.label_text %}<span class="badge{% if not example.manual_check %} badge-neutral{% endif %}">{{ translate(example.label_text) }}</span>{% endif %}
       {% if example.manual_check %}{% include "_manual_check.html" %}{% endif %}
     </span>
-    {% if example.note %}<span class="reason reason-text" translate="no">{{ example.note }}</span>{% endif %}
+    {% if example.note %}<span class="reason reason-text"{{ recorded_attrs(example.note) }}>{{ recorded(example.note) }}</span>{% endif %}
     {# 10.1.8: salt okunur Kullanıcı'da karar formları yoktur. #}
     {% if example.record_id and user.can_write %}
     <div class="example-decisions">

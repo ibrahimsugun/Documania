@@ -60,6 +60,7 @@ from tests.fixtures.gen import (
     residence_card_pages,
     work_permit_page,
 )
+from tests.recorded import source_text
 from tests.test_scenarios_s01_s05 import (
     CATALOG,
     ORNEKOVA_FOLDER,
@@ -91,8 +92,8 @@ UPLOAD_AGAIN = "Uygun formatta yeniden gönderin."
 S6_REASON = f"Direkt Belge: beklenen dosya türü pdf, gelen jpeg. {UPLOAD_AGAIN}"
 S9_REASON = "Okunamayan alanlar: document_number"
 S9_NOTES = (
-    "Belge numarası ve MRZ bölgesi bulanık, karakterler seçilemiyor. Karşılanmayan kabul "
-    "kriteri: MRZ iki satırı da okunabilir olmalı"
+    "Document number and MRZ zone are blurred, characters cannot be made out. Unmet acceptance "
+    "criterion: MRZ iki satırı da okunabilir olmalı"
 )
 S10_REASON = (
     f"{NAME_ONLY_REASON}. İsmi eşleşen çalışan: E0001. Yalnız isim eşleşmesi otomatik "
@@ -225,7 +226,7 @@ def test_s6_direct_passport_as_jpeg_goes_to_unresolved_without_conversion(
 
     # Unresolved: JPEG olduğu gibi (dönüştürülmeden) kuyrukta, gerekçe dosyasında PRD notu.
     entry = _assert_queued_alone(session, layout, upload, "unresolved", "pasaport.jpg", jpeg)
-    assert entry["reason"] == S6_REASON
+    assert source_text(session, entry["reason"]) == S6_REASON
     assert (entry["document_type_slug"], entry["sources"]) == (
         PASSPORT,
         [{"file_id": upload.files[0].id, "pages": [0]}],
@@ -494,7 +495,7 @@ def test_s9_blurred_passport_number_goes_to_unreadable_naming_the_field(
     assert item.route_reason is not None and item.route_reason.startswith(S9_REASON)
     assert _failed_validations(item) == [ValidationName.REQUIRED_FIELDS]
     entry = _assert_queued_alone(session, layout, upload, "unreadable", "pasaport.pdf", content)
-    assert entry["reason"] == item.route_reason
+    assert source_text(session, entry["reason"]) == item.route_reason
 
     # Okunamayan belgeden çalışan açılmaz, profil önerilmez, kayıtlı çalışana hiçbir şey eklenmez;
     # kayıtlı çalışan yalnız kişi tahmini olarak kalır.
@@ -581,7 +582,7 @@ def test_s10_name_only_match_goes_to_unresolved_without_matching_or_a_new_employ
     )
     assert item.validations and all(validation.ok for validation in item.validations)
     entry = _assert_queued_alone(session, layout, upload, "unresolved", "belge.pdf", content)
-    assert entry["reason"] == S10_REASON
+    assert source_text(session, entry["reason"]) == S10_REASON
     assert entry["employee_guess"] == {"action": "none", "employee_id": None, "matched_by": None}
 
     # Otomatik eşleştirme yok: kayıtlı çalışanın klasörüne ve kaydına hiçbir şey girmez.

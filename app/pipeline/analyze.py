@@ -400,7 +400,9 @@ def measure_resolution(layout: DataLayout, page: Page, rule: PhotoRuleSetting) -
     `unsure`. Kaynak okunamıyor ya da açılamıyorsa `PhotoMeasureError`.
     """
     min_width, min_height = rule.min_width_px or 0, rule.min_height_px or 0
-    minimum = f"asgari {min_width}×{min_height}"
+    # Not fotoğraf kontrolüne yapay zekâ notlarının yanına yazılır; kayıt dili İngilizcedir
+    # (10.10.6).
+    minimum = f"minimum {min_width}×{min_height}"
     try:
         content = layout.resolve(page.file.stored_path).read_bytes()
         size = photo_pixel_size(content, page.index)
@@ -412,14 +414,17 @@ def measure_resolution(layout: DataLayout, page: Page, rule: PhotoRuleSetting) -
         return PhotoRuleVerdict(
             rule=rule.id,
             result=PhotoRuleResult.UNSURE,
-            note=f"Sayfa tek bir gömülü görüntü değil; piksel boyutu ölçülemez ({minimum}).",
+            note=(
+                f"The page is not a single embedded image; pixel size cannot be measured "
+                f"({minimum})."
+            ),
         )
     width, height = size
     enough = width >= min_width and height >= min_height
     return PhotoRuleVerdict(
         rule=rule.id,
         result=PhotoRuleResult.PASS if enough else PhotoRuleResult.FAIL,
-        note=f"{width}×{height} piksel; {minimum}.",
+        note=f"{width}×{height} px; {minimum}.",
     )
 
 

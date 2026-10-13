@@ -698,7 +698,7 @@ def test_conflicting_visible_text_loses_to_the_mrz_and_the_conflict_is_noted(
     if field in VISIBLE:
         assert resolved.fields[field].model_dump() == {"value": mrz_text, "legible": True}
     assert resolved.notes == (
-        f"Alt kenar hafif bulanık. MRZ ile görünen metin çelişiyor, MRZ değeri kullanıldı: {field}."
+        f"Alt kenar hafif bulanık. MRZ conflicts with the visible text, MRZ value used: {field}."
     )
     assert visible not in resolved.notes and mrz_text not in resolved.notes
     untouched = page.model_dump(exclude={"person", "fields", "notes"})
@@ -729,7 +729,7 @@ def test_several_conflicts_are_noted_in_mrz_field_order() -> None:
 
     assert resolution.conflicts == ("surname", "document_number", "nationality", "expiry_date")
     assert resolution.analysis.notes == (
-        "MRZ ile görünen metin çelişiyor, MRZ değeri kullanıldı: "
+        "MRZ conflicts with the visible text, MRZ value used: "
         "surname, document_number, nationality, expiry_date."
     )
 
@@ -893,7 +893,7 @@ def test_field_with_failing_check_digit_becomes_illegible_even_if_visible_text_a
     if field in PERSON_FIELDS:
         assert getattr(resolved.person, field) is None
     assert resolved.notes == (
-        f"Parlama yok. MRZ kontrol hanesi tutmuyor, alan okunamadı sayıldı: {field}."
+        f"Parlama yok. MRZ check digit does not match, field treated as illegible: {field}."
     )
     assert resolution.conflicts == ()
     others = {name for name in VISIBLE if name != field}
@@ -924,7 +924,7 @@ def test_failing_composite_keeps_the_values_but_blocks_a_clean_document_number()
     assert resolution.analysis.person.document_number == "000000001"
     assert resolution.analysis.fields["document_number"].legible
     assert resolution.analysis.notes == (
-        "MRZ bileşik kontrol hanesi tutmuyor; MRZ bütün olarak şüpheli."
+        "MRZ composite check digit does not match; the whole MRZ is suspect."
     )
 
 
@@ -939,7 +939,7 @@ def test_malformed_mrz_value_becomes_illegible_with_its_own_note() -> None:
     assert not resolved.fields["date_of_birth"].legible
     assert not resolved.fields["surname"].legible
     assert resolved.notes == (
-        "MRZ değeri geçersiz, alan okunamadı sayıldı: surname, given_names, date_of_birth."
+        "MRZ value is invalid, field treated as illegible: surname, given_names, date_of_birth."
     )
     assert resolution.allows_clean_document_number
 
@@ -953,19 +953,17 @@ def test_all_notes_come_together_without_personal_values() -> None:
     notes = resolution.analysis.notes
 
     assert notes == (
-        "MRZ kontrol hanesi tutmuyor, alan okunamadı sayıldı: expiry_date. "
-        "MRZ bileşik kontrol hanesi tutmuyor; MRZ bütün olarak şüpheli. "
-        "MRZ değeri geçersiz, alan okunamadı sayıldı: date_of_birth. "
-        "MRZ ile görünen metin çelişiyor, MRZ değeri kullanıldı: surname."
+        "MRZ check digit does not match, field treated as illegible: expiry_date. "
+        "MRZ composite check digit does not match; the whole MRZ is suspect. "
+        "MRZ value is invalid, field treated as illegible: date_of_birth. "
+        "MRZ conflicts with the visible text, MRZ value used: surname."
     )
     for value in ("ORNEKOVA", "PETROVA", "TEST", "000000001", "0000001", "1990", "900230", "RUS"):
         assert value not in notes
 
 
 def test_priority_is_idempotent_and_keeps_the_analysts_notes() -> None:
-    criterion = (
-        "Karşılanmayan kabul kriteri: Kimlik sayfası tam görünür olmalı, kenarlar kesilmemiş"
-    )
+    criterion = "Unmet acceptance criterion: Kimlik sayfası tam görünür olmalı, kenarlar kesilmemiş"
     page = _page(
         _passport_mrz(checks={"document_number": "4"}),
         fields=_readings(surname="PETROVA"),
@@ -999,7 +997,7 @@ def test_unrecognized_mrz_is_ignored_with_a_note(lines: list[str]) -> None:
     assert resolution.mrz is None and resolution.conflicts == ()
     assert resolution.analysis.person.surname == "PETROVA"
     assert resolution.analysis.notes == (
-        "MRZ satırları TD1, TD2 veya TD3 biçimine uymuyor; MRZ yok sayıldı."
+        "MRZ lines do not match the TD1, TD2 or TD3 format; MRZ ignored."
     )
     assert resolution.analysis.model_dump(exclude={"notes"}) == page.model_dump(exclude={"notes"})
     assert resolution.allows_clean_document_number
@@ -1016,7 +1014,7 @@ def test_invalid_mrz_is_not_used_and_blocks_a_clean_document_number() -> None:
     assert resolution.mrz is None
     assert resolution.analysis.person.surname == "PETROVA"
     assert resolution.analysis.notes == (
-        "MRZ satırlarında izin verilmeyen karakter var; MRZ geçersiz sayıldı."
+        "MRZ lines contain characters that are not allowed; MRZ treated as invalid."
     )
     assert not resolution.allows_clean_document_number
 

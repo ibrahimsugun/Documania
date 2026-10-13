@@ -14,7 +14,7 @@
   <dt>{{ _("Kuyruk") }}</dt><dd>{{ translate(step.kind_label) }} · {{ translate(step.state_label) }}</dd>
   <dt>{{ _("Parti") }}</dt><dd><a href="/uploads/{{ step.upload_id }}">{{ step.upload_id }}</a></dd>
   <dt>{{ _("Belge türü") }}</dt><dd>{{ step.type_name or _("Belirlenmedi") }}</dd>
-  <dt>{{ _("Kuyruk gerekçesi") }}</dt><dd class="reason-text" translate="no">{{ step.reason }}</dd>
+  <dt>{{ _("Kuyruk gerekçesi") }}</dt><dd class="reason-text"{{ recorded_attrs(step.reason) }}>{{ recorded(step.reason) }}</dd>
 </dl>
 {% endif %}
 {% if first_confirmation %}

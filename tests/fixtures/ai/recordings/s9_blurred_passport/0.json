@@ -26,5 +26,5 @@
     "document_number": {"value": null, "legible": false},
     "expiry_date": {"value": "2030-01-01", "legible": true}
   },
-  "notes": "Belge numarası ve MRZ bölgesi bulanık, karakterler seçilemiyor. Karşılanmayan kabul kriteri: MRZ iki satırı da okunabilir olmalı"
+  "notes": "Document number and MRZ zone are blurred, characters cannot be made out. Unmet acceptance criterion: MRZ iki satırı da okunabilir olmalı"
 }

@@ -34,7 +34,6 @@ from app.ai.prompts import load_type_description_instructions, load_type_proposa
 from app.ai.provider import MAX_ANALYSIS_ATTEMPTS, RETRY_BACKOFF_SECONDS
 from app.ai.recording_provider import RecordingExhaustedError, RecordingProvider
 from app.ai.type_proposal import MAX_ACCEPTANCE_CRITERIA, MAX_REQUIRED_FIELDS, STANDARD_FIELDS
-from app.catalog import load_seed_catalog
 from app.catalog.schema import (
     Conversion,
     FileType,
@@ -110,7 +109,9 @@ def test_payload_is_accepted_from_object_and_json_text() -> None:
         "Residence Permit",
         "ME",
     )
-    assert from_object.description.startswith("Karadağ'da")
+    assert from_object.description.startswith(
+        "Residence permit card issued to foreigners in Montenegro"
+    )
     assert from_object.expected_file_types == (FileType.JPEG, FileType.PNG)
     assert from_object.expected_pages == PageRange(min=1, max=2)
     assert from_object.sides is Sides.FRONT_BACK
@@ -637,13 +638,12 @@ def test_instructions_give_checkable_criteria_in_the_catalog_style() -> None:
 
     assert "sayfada gözle denetlenebilir" in criteria
     assert "kişisel değer taşımaz" in criteria
-    assert "Türkçe" in criteria
+    # 10.10.6: maddeler İngilizce (PLAN.md §D121); başlangıç kataloğunun Türkçe maddeleri değişmez.
+    assert "İngilizcedir, en çok 120 karakterdir" in criteria
+    assert "Türkçe" not in criteria
     assert f"En çok {MAX_ACCEPTANCE_CRITERIA} madde" in criteria
-    # Örnekler başlangıç kataloğundaki maddelerin kendisidir (seed_catalog.yaml biçimi).
-    passport = load_seed_catalog().get("russian_passport")
-    assert passport is not None
-    for criterion in passport.acceptance_criteria:
-        assert f'"{criterion}"' in criteria, criterion
+    assert '"The identity page must be fully visible, edges not cut' in criteria
+    assert '"Both MRZ lines must be legible"' in criteria
 
 
 def test_instructions_set_the_languages_and_have_no_slot() -> None:
@@ -651,6 +651,7 @@ def test_instructions_set_the_languages_and_have_no_slot() -> None:
     language = text.split("### 4. Dil", 1)[1].split("\n## ", 1)[0]
 
     assert "`name` ve `file_label` katalogdaki adlar gibi İngilizcedir" in language
-    assert "Türkçedir" in language
+    assert "Türkçe" not in language
+    assert "de İngilizcedir" in language
     # Talimat sabittir: doldurulacak yuva yok.
     assert re.search(r"\{\{\s*\w+\s*\}\}", text) is None

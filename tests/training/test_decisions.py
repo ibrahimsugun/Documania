@@ -46,6 +46,7 @@ from app.training import (
 from app.training.decisions import REMOVED_NOTE, moved_note
 from app.training.mechanical import recognize
 from tests.fixtures.gen import make_pdf_bytes, make_portrait_image_bytes
+from tests.recorded import source_events, source_message
 from tests.training.invariants import assert_employee_data_untouched
 
 LIMIT = 1024 * 1024
@@ -79,7 +80,9 @@ def _placed(
 
 
 def _events(session: Session, event_type: EventType) -> list[Event]:
-    return list(session.scalars(select(Event).where(Event.type == event_type.value)))
+    return source_events(
+        session, session.scalars(select(Event).where(Event.type == event_type.value))
+    )
 
 
 def _files(root: Path) -> list[str]:
@@ -185,8 +188,8 @@ def test_moving_relocates_the_file_and_updates_the_record_and_the_item(
         "ai",
     )
     note = moved_note(FROM_SLUG, TO_SLUG)
-    assert example.note == f"AI kararı; {note}"
-    assert item.result_slug == TO_SLUG and (item.note or "").endswith(note)
+    assert source_message(session, example.note) == f"AI kararı; {note}"
+    assert item.result_slug == TO_SLUG and (source_message(session, item.note) or "").endswith(note)
     assert item.status == "placed"
     (event,) = _events(session, EventType.TRAINING_EXAMPLE_MOVED)
     assert event.actor == "ik.uzmani"
@@ -316,8 +319,11 @@ def test_removing_archives_the_file_and_marks_the_record_without_deleting_anythi
         "ornek.png",
         "ai_decision",
     )
-    assert (example.note or "").endswith(REMOVED_NOTE)
-    assert (item.status, (item.note or "").endswith(REMOVED_NOTE)) == ("placed", True)
+    assert (source_message(session, example.note) or "").endswith(REMOVED_NOTE)
+    assert (item.status, (source_message(session, item.note) or "").endswith(REMOVED_NOTE)) == (
+        "placed",
+        True,
+    )
     assert session.get(ExampleFileRecord, example.id) is example  # kayıt silinmedi
     (event,) = _events(session, EventType.TRAINING_EXAMPLE_REMOVED)
     assert event.actor == "ik.uzmani"

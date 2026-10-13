@@ -42,7 +42,7 @@
       <td>
         {% for source in row.sources %}<div>{{ translate(source) }}</div>{% else %}—{% endfor %}
       </td>
-      <td class="reason-text" translate="no">{{ row.reason }}</td>
+      <td class="reason-text"{{ recorded_attrs(row.reason) }}>{{ recorded(row.reason) }}</td>
       {% if listing.state == "resolved" %}
       <td>
         {{ translate(row.resolved) }}

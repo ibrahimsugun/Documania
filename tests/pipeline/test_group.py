@@ -72,6 +72,7 @@ from tests.fixtures.gen import (
     make_xlsx_bytes,
     photo_check_response,
 )
+from tests.recorded import source_events
 
 ROOT = Path(__file__).resolve().parents[2]
 RECORDINGS = ROOT / "tests" / "fixtures" / "ai" / "recordings"
@@ -1764,7 +1765,9 @@ def _recordings(tmp_path: Path, responses: list[dict[str, Any]]) -> RecordingPro
 
 
 def _events(session: Session, event_type: EventType) -> list[Event]:
-    return list(session.scalars(select(Event).where(Event.type == event_type).order_by(Event.id)))
+    return source_events(
+        session, session.scalars(select(Event).where(Event.type == event_type).order_by(Event.id))
+    )
 
 
 def test_s4_sequential_pdf_yields_three_independent_candidates(

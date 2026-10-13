@@ -4,8 +4,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Documania panel\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-13 15:07+0000\n"
-"PO-Revision-Date: 2026-10-13 15:07+0000\n"
+"POT-Creation-Date: 2026-10-13 19:22+0000\n"
+"PO-Revision-Date: 2026-10-13 19:22+0000\n"
 "Last-Translator: Documania görev penceresi (gözden geçirilmeli)\n"
 "Language: sr_Latn\n"
 "Language-Team: Srpski\n"
@@ -452,9 +452,23 @@ msgstr ""
 msgid "AI kararı"
 msgstr "AI odluka"
 
+#: app/training/classification.py
+#, python-brace-format
+msgid ""
+"AI kararı `{slug}` {hint} `{hint_slug}` ile çelişiyor ({basis}, model "
+"{model})"
+msgstr ""
+"Odluka AI `{slug}` je u sukobu sa {hint} `{hint_slug}` ({basis}, model "
+"{model})"
+
 #: app/web/routers/training.py
 msgid "AI kararı olanlar"
 msgstr "Sa AI odlukama"
+
+#: app/training/classification.py
+#, python-brace-format
+msgid "AI kararı: `{slug}` ({basis}, model {model})"
+msgstr "Odluka AI: `{slug}` ({basis}, model {model})"
 
 #: app/catalog/prefill.py app/web/profile_form.py app/web/routers/catalog.py
 #: app/web/routers/employees.py app/web/templates/catalog.html
@@ -700,6 +714,21 @@ msgstr ""
 "vremenu pregleda strane primera predloga na čekanju i priprema nacrt tipa"
 " (kolona Pregled); predlog se nikada ne odobrava sam."
 
+#: app/pipeline/plan_planner.py
+#, python-brace-format
+msgid ""
+"Analizi yapılamamış sayfa ({pages}): içeriği bilinmediği için hiçbir "
+"belgeye katılmaz ve çıktı üretmez (R7); yeniden analizle değerlendirilir."
+msgstr ""
+"Stranica nije mogla biti analizirana ({pages}): sadržaj nije poznat, pa "
+"se ne pridružuje nijednom dokumentu i ne daje izlaz (R7); procenjuje se "
+"ponovnom analizom."
+
+#: app/pipeline/group.py
+#, python-brace-format
+msgid "Analizi yapılamamış sayfalar: {pages}."
+msgstr "Stranice koje nisu mogle biti analizirane: {pages}."
+
 #: app/web/templates/employee_merge.html app/web/templates/employees.html
 #: app/web/templates/history.html app/web/templates/queue_item.html
 msgid "Ara"
@@ -712,6 +741,28 @@ msgstr "Arapsko"
 #: app/web/feedback.py
 msgid "Ardından parti sayfasından partiyi yeniden analiz edin."
 msgstr "Zatim ponovo analizirajte seriju sa njene stranice."
+
+#: app/pipeline/group.py
+#, python-brace-format
+msgid ""
+"Ardışıklık güvenlik kuralı ({rule}): bu parça ({pages}) ile aynı belgeye "
+"ait olabilecek parça ({others}) arasında {between} var; parçalar otomatik"
+" birleştirilmez."
+msgstr ""
+"Bezbednosno pravilo uzastopnosti ({rule}): između ovog dela ({pages}) i "
+"dela koji može pripadati istom dokumentu ({others}) nalazi se {between}; "
+"delovi se ne spajaju automatski."
+
+#: app/pipeline/group.py
+#, python-brace-format
+msgid ""
+"Ardışıklık güvenlik kuralı ({rule}): bu parça ({pages}) ile aynı belgeye "
+"ait olabilecek parçalar ({others}) arasında {between} var; parçalar "
+"otomatik birleştirilmez."
+msgstr ""
+"Bezbednosno pravilo uzastopnosti ({rule}): između ovog dela ({pages}) i "
+"delova koji mogu pripadati istom dokumentu ({others}) nalazi se "
+"{between}; delovi se ne spajaju automatski."
 
 #: app/catalog/photo_rules.py
 msgid "Arka plan düz ve sade olmalı; desen, eşya ya da başka kişi görünmemeli."
@@ -857,6 +908,13 @@ msgstr ""
 #: app/web/routers/uploads.py
 msgid "Aynı partide aynı adda birden çok dosya olamaz."
 msgstr "Serija ne može sadržati više datoteka sa istim imenom."
+
+#: app/pipeline/group.py
+#, python-brace-format
+msgid "Aynı türün yüzü ön ya da arka okunmamış sayfaları: {pages}."
+msgstr ""
+"Stranice istog tipa koje nisu pročitane kao prednja ili zadnja strana: "
+"{pages}."
 
 #: app/web/routers/access_log.py app/web/templates/access_log_employee.html
 msgid "Açtı"
@@ -1086,6 +1144,15 @@ msgstr "Očekivani tipovi datoteka"
 #: app/web/templates/catalog_type_fields.html
 msgid "Beklenen sayfa sayısı"
 msgstr "Očekivani broj strana"
+
+#: app/pipeline/group.py
+#, python-brace-format
+msgid ""
+"Beklenen sayfa sayısı kontrolü (04.5.1): bu aday {count} sayfa ({pages}) "
+"taşıyor, tür {expected} bekliyor."
+msgstr ""
+"Provera očekivanog broja stranica (04.5.1): ovaj kandidat ima stranica: "
+"{count} ({pages}), tip očekuje {expected}."
 
 #: app/web/templates/training.html app/web/templates/training_results.html
 msgid "Beklenen tür"
@@ -1438,6 +1505,42 @@ msgstr "Nije određeno"
 msgid "Belirli bir türle kalem ekle"
 msgstr "Dodaj stavku sa određenim tipom"
 
+#: app/matching/match.py
+#, python-brace-format
+msgid ""
+"Belirsiz eşleşme: ad-soyad ve doğum tarihi birden fazla çalışana uyuyor "
+"({employees}). Çalışan otomatik eşleştirilmez."
+msgstr ""
+"Dvosmisleno uparivanje: ime i datum rođenja odgovaraju većem broju "
+"zaposlenih ({employees}). Zaposleni se ne uparuje automatski."
+
+#: app/matching/match.py
+#, python-brace-format
+msgid ""
+"Belirsiz eşleşme: belge numarası birden fazla çalışana ait ({employees})."
+" Çalışan otomatik eşleştirilmez."
+msgstr ""
+"Dvosmisleno uparivanje: broj dokumenta pripada većem broju zaposlenih "
+"({employees}). Zaposleni se ne uparuje automatski."
+
+#: app/matching/match.py
+#, python-brace-format
+msgid ""
+"Belirsiz eşleşme: belgede doğum tarihi yok, ad-soyad birden fazla "
+"çalışana uyuyor ({employees}). Çalışan otomatik eşleştirilmez."
+msgstr ""
+"Dvosmisleno uparivanje: dokument nema datum rođenja, a ime odgovara većem"
+" broju zaposlenih ({employees}). Zaposleni se ne uparuje automatski."
+
+#: app/pipeline/group.py
+#, python-brace-format
+msgid ""
+"Belirsiz ön/arka yüz eşleştirmesi: bu yüz ({face}) partide tek anlamlı "
+"bir eşle eşleştirilemiyor."
+msgstr ""
+"Dvosmisleno uparivanje prednje/zadnje strane: ova strana ({face}) ne može"
+" se jednoznačno upariti u seriji."
+
 #: app/web/templates/upload.html
 msgid "Belirtme — sahibi belgeden bulunsun"
 msgstr "Ne navodi — vlasnik se određuje iz dokumenta"
@@ -1472,6 +1575,35 @@ msgstr "Poznati dokumenti"
 #: app/web/routers/training.py
 msgid "Bilinen tür bulunamadı."
 msgstr "Poznati tip nije pronađen."
+
+#: app/pipeline/group.py
+#, python-brace-format
+msgid ""
+"Bilinmeyen belge türü (04.6.1): bu adayın ({pages}) analizde yazılan türü"
+" ({slug}) güncel katalogda yok. Belge katalogdaki bir türe zorla atanmaz."
+msgstr ""
+"Nepoznat tip dokumenta (04.6.1): tip upisan u analizi za ovog kandidata "
+"({pages}) ({slug}) nije u trenutnom katalogu. Dokument se ne dodeljuje "
+"silom nekom tipu iz kataloga."
+
+#: app/pipeline/group.py
+#, python-brace-format
+msgid ""
+"Bilinmeyen belge türü (04.6.1): bu adayın ({pages}) türü belirlenemedi. "
+"Belge katalogdaki bir türe zorla atanmaz."
+msgstr ""
+"Nepoznat tip dokumenta (04.6.1): tip ovog kandidata ({pages}) nije mogao "
+"biti utvrđen. Dokument se ne dodeljuje silom nekom tipu iz kataloga."
+
+#: app/pipeline/group.py
+#, python-brace-format
+msgid ""
+"Bilinmeyen belge türü (04.6.1): bu adayın ({pages}) türü katalogda yok; "
+"önerilen aday tür: \"{name}\". Belge katalogdaki bir türe zorla atanmaz."
+msgstr ""
+"Nepoznat tip dokumenta (04.6.1): tip ovog kandidata ({pages}) nije u "
+"katalogu; predloženi kandidat tip: \"{name}\". Dokument se ne dodeljuje "
+"silom nekom tipu iz kataloga."
 
 #: app/web/routers/users.py
 msgid "Bilinmeyen rol."
@@ -1613,6 +1745,13 @@ msgstr "Oštećen zapis o poreklu"
 #: app/web/templates/upload_detail.html
 msgid "Boş"
 msgstr "Prazna"
+
+#: app/pipeline/plan_planner.py
+#, python-brace-format
+msgid "Boş sayfa ({pages}): atlanır; çıktıya ve kuyruğa girmez, hata sayılmaz."
+msgstr ""
+"Prazna stranica ({pages}): preskače se; ne ulazi ni u izlaz ni u red i ne"
+" smatra se greškom."
 
 #: app/telegram/bot.py
 msgid ""
@@ -2240,6 +2379,30 @@ msgstr "Direktan"
 msgid "Direkt Belge"
 msgstr "Direktan dokument"
 
+#: app/pipeline/validate.py
+#, python-brace-format
+msgid ""
+"Direkt Belge tek kaynak doğrulaması (06.5.1, direct_single_source): çıktı"
+" tek kaynak dosyanın ardışık sayfalarından oluşur (K3); {findings}."
+msgstr ""
+"Provera jednog izvora direktnog dokumenta (06.5.1, direct_single_source):"
+" izlaz se sastoji od uzastopnih stranica jedne izvorne datoteke (K3); "
+"{findings}."
+
+#: app/pipeline/plan_rules.py
+#, python-brace-format
+msgid ""
+"Direkt Belge: beklenen dosya türü {expected}, gelen {received}. Uygun "
+"formatta yeniden gönderin."
+msgstr ""
+"Direktan dokument: očekivani tip datoteke {expected}, primljen "
+"{received}. Pošaljite ponovo u odgovarajućem formatu."
+
+#: app/pipeline/plan_rules.py
+#, python-brace-format
+msgid "Direkt Belge: {operation} bu tür için yapılamaz."
+msgstr "Direktan dokument: {operation} nije moguće za ovaj tip."
+
 #: app/pipeline/queue_close.py
 msgid "Diğer"
 msgstr "Drugo"
@@ -2290,6 +2453,16 @@ msgstr ""
 "Datoteka se ne briše, premešta se u arhivu obuke i više se ne koristi za "
 "generisanje opisa ovog tipa. Da li je to vaša konačna odluka?"
 
+#: app/pipeline/validate.py
+#, python-brace-format
+msgid ""
+"Dosya türü doğrulaması (06.5.1, file_type): beklenen dosya türü "
+"{expected}, gelen {received}. Uygun formatta yeniden gönderin."
+msgstr ""
+"Provera tipa datoteke (06.5.1, file_type): očekivani tip datoteke "
+"{expected}, primljen {received}. Pošaljite ponovo u odgovarajućem "
+"formatu."
+
 #: app/web/templates/training_results.html
 msgid "Dosyalar"
 msgstr "Datoteke"
@@ -2333,6 +2506,15 @@ msgstr "Potvrđeni"
 msgid "Doğum tarihi"
 msgstr "Datum rođenja"
 
+#: app/pipeline/validate.py
+#, python-brace-format
+msgid ""
+"Doğum tarihi doğrulaması (06.5.1, dob_plausible): okunan doğum tarihi "
+"{finding}; tarih yanlış okunmuş olabilir."
+msgstr ""
+"Provera datuma rođenja (06.5.1, dob_plausible): pročitani datum rođenja "
+"je {finding}; datum je možda pogrešno pročitan."
+
 #: app/telegram/intent.py
 msgid "Doğum tarihi: kayıtlı değil"
 msgstr "Datum rođenja: nije upisan"
@@ -2362,6 +2544,16 @@ msgstr "Status mora biti 'active' ili 'inactive'."
 #: app/web/routers/uploads_list.py
 msgid "Durum süzgeci tanınmadı; yok sayıldı."
 msgstr "Filter statusa nije prepoznat; zanemaren je."
+
+#: app/pipeline/plan_rules.py
+#, python-brace-format
+msgid ""
+"Dönüşüm izni yok (06.4.1): {operation} bu türün izinli dönüşümleri "
+"arasında değil (allowed_conversions: {allowed}). Belge dönüştürülmez."
+msgstr ""
+"Konverzija nije dozvoljena (06.4.1): {operation} nije među dozvoljenim "
+"konverzijama ovog tipa (allowed_conversions: {allowed}). Dokument se ne "
+"konvertuje."
 
 #: app/web/templates/catalog_description.html
 msgid "Düzen"
@@ -2420,6 +2612,11 @@ msgstr ""
 #: app/web/routers/training.py
 msgid "Elle kontrol gerekli"
 msgstr "Potrebna ručna provera"
+
+#: app/web/routers/training.py
+#, python-brace-format
+msgid "Elle yerleştirildi → `{slug}`"
+msgstr "Ručno smešteno → `{slug}`"
 
 #: app/web/templates/catalog_photo_rules.html
 msgid "En az genişlik"
@@ -2637,21 +2834,106 @@ msgstr ""
 "%(total)s). Predloženi tipovi se ne dodaju u katalog sami; samo se "
 "skupljaju njihovi primeri."
 
+#: app/training/cleanup.py
+#, python-brace-format
+msgid "Eğitim çalıştırması #{run} arşivden geri alındı."
+msgstr "Pokretanje obuke #{run} vraćeno je iz arhive."
+
+#: app/training/cleanup.py
+#, python-brace-format
+msgid "Eğitim çalıştırması #{run} arşivlendi."
+msgstr "Pokretanje obuke #{run} je arhivirano."
+
 #: app/web/routers/training.py
 msgid "Eğitim çalıştırması bulunamadı."
 msgstr "Pokretanje obuke nije pronađeno."
+
+#: app/training/placement.py
+#, python-brace-format
+msgid "Eğitim örneği `{slug}` türüne yerleşti ({method})."
+msgstr "Primer za obuku smešten je u tip `{slug}` ({method})."
+
+#: app/training/decisions.py
+#, python-brace-format
+msgid "Eğitim örneği `{slug}` örneklerinden çıkarıldı; arşive taşındı."
+msgstr ""
+"Primer za obuku uklonjen je iz primera tipa `{slug}`; premešten je u "
+"arhivu."
+
+#: app/training/decisions.py
+#, python-brace-format
+msgid "Eğitim örneği `{source}` türünden `{target}` türüne taşındı."
+msgstr "Primer za obuku premešten je iz tipa `{source}` u tip `{target}`."
 
 #: app/web/routers/training.py
 msgid "Eğitim örneği bulunamadı."
 msgstr "Primer za obuku nije pronađen."
 
+#: app/training/decisions.py
+#, python-brace-format
+msgid "Eğitim örneği doğrulandı (`{slug}`)."
+msgstr "Primer za obuku je potvrđen (`{slug}`)."
+
 #: app/web/routers/training.py
 msgid "Eğitim öğesi bulunamadı."
 msgstr "Stavka obuke nije pronađena."
 
+#: app/training/placement.py
+#, python-brace-format
+msgid "Eğitim öğesi yerleşmedi: aynı içerik `{slug}` türünde zaten örnek."
+msgstr "Stavka obuke nije smeštena: isti sadržaj je već primer tipa `{slug}`."
+
+#: app/training/placement.py
+#, python-brace-format
+msgid ""
+"Eğitim öğesi yerleşmedi: aynı içerik başka türde örnek (`{existing}`, "
+"önerilen `{slug}`)."
+msgstr ""
+"Stavka obuke nije smeštena: isti sadržaj je primer drugog tipa "
+"(`{existing}`, predloženo `{slug}`)."
+
+#: app/training/placement.py
+msgid "Eğitim öğesi yerleşmedi: harita satırı İK incelemesi bekliyor."
+msgstr "Stavka obuke nije smeštena: red mape čeka HR pregled."
+
+#: app/training/placement.py
+msgid "Eğitim öğesi yerleşmedi: hiçbir bilinen türe inmedi."
+msgstr "Stavka obuke nije smeštena: nije odgovarala nijednom poznatom tipu."
+
+#: app/training/placement.py
+#, python-brace-format
+msgid "Eğitim öğesi yerleşmedi: sonuç `{slug}` beklenen türle çelişiyor."
+msgstr ""
+"Stavka obuke nije smeštena: rezultat `{slug}` je u sukobu sa očekivanim "
+"tipom."
+
+#: app/training/classification.py
+msgid "Eğitim öğesi yerleşmedi: yapay zekâ incelemesi yapılamadı."
+msgstr "Stavka obuke nije smeštena: AI pregled nije mogao biti obavljen."
+
+#: app/training/classification.py
+msgid "Eğitim öğesi yerleşmedi: yapay zekâ incelemesi yarıda kaldı."
+msgstr "Stavka obuke nije smeštena: AI pregled je prekinut."
+
+#: app/training/cleanup.py
+msgid "Eğitim öğesi yoksayıldı."
+msgstr "Stavka obuke je zanemarena."
+
+#: app/training/classification.py
+msgid "Eğitim öğesinin yapay zekâ incelemesi hata verdi; yeniden denenecek."
+msgstr "AI pregled stavke obuke nije uspeo; biće ponovljen."
+
+#: app/training/cleanup.py
+msgid "Eğitim öğesinin yoksayılması geri alındı."
+msgstr "Zanemarivanje stavke obuke je poništeno."
+
 #: app/web/routers/training.py
 msgid "Eğitimden önce"
 msgstr "Pre obuke"
+
+#: app/training/placement.py
+msgid "Eğitimden önce örnek klasörüne konmuş; kaydı eğitimde tutuldu."
+msgstr "Stavljeno u fasciklu primera pre obuke; zapis je napravljen tokom obuke."
 
 #: app/web/templates/training.html
 msgid "Eğitime yükle"
@@ -2664,6 +2946,16 @@ msgstr "Nema odgovarajuće zemlje."
 #: app/web/templates/group.html
 msgid "Eşleşme"
 msgstr "Podudaranje"
+
+#: app/pipeline/group.py
+#, python-brace-format
+msgid "Eşleşmemiş arka yüzler: {pages}."
+msgstr "Neuparene zadnje strane: {pages}."
+
+#: app/pipeline/group.py
+#, python-brace-format
+msgid "Eşleşmemiş ön yüzler: {pages}."
+msgstr "Neuparene prednje strane: {pages}."
 
 #: app/web/routers/upload_page.py
 msgid "Eşleşti"
@@ -2689,10 +2981,20 @@ msgstr ""
 msgid "Fotoğraf kuralları"
 msgstr "Pravila za fotografiju"
 
+#: app/pipeline/plan_rules.py
+#, python-brace-format
+msgid "Fotoğraf kuralları değerlendirilmedi (11.7.1): {rules}."
+msgstr "Pravila za fotografiju nisu procenjena (11.7.1): {rules}."
+
 #: app/web/feedback.py
 #, python-brace-format
 msgid "Fotoğraf kuralları kaydedildi: {slug}."
 msgstr "Pravila za fotografiju su sačuvana: {slug}."
+
+#: app/pipeline/plan_rules.py
+#, python-brace-format
+msgid "Fotoğraf kurallarına uymuyor (11.7.1): {rules}."
+msgstr "Ne ispunjava pravila za fotografiju (11.7.1): {rules}."
 
 #: app/web/templates/profile.html
 msgid "Fotoğraf yok"
@@ -2888,9 +3190,25 @@ msgstr "Mapa nije UTF-8 tekst; sačuvajte CSV kao UTF-8."
 msgid "Harita ile toplu tarama"
 msgstr "Skeniranje odjednom pomoću mape"
 
+#: app/training/map_import.py
+#, python-brace-format
+msgid "Harita ile toplu tarama başladı: {count} dosya."
+msgstr "Masovno skeniranje sa mapom je pokrenuto, datoteka: {count}."
+
 #: app/web/routers/training.py
 msgid "Harita saklanamadı; tarama başlatılmadı."
 msgstr "Mapa nije mogla da se sačuva; skeniranje nije pokrenuto."
+
+#: app/training/map_scan.py
+#, python-brace-format
+msgid "Harita taraması yapılamadı ({error}); denemeler tükendi"
+msgstr ""
+"Skeniranje mape nije moglo biti obavljeno ({error}); pokušaji su "
+"iscrpljeni"
+
+#: app/training/map_scan.py
+msgid "Harita taraması yarıda kaldı; denemeler tükendi"
+msgstr "Skeniranje mape je prekinuto; pokušaji su iscrpljeni"
 
 #: app/web/routers/training.py
 msgid "Harita verisi okunamadı; haritayı yeniden yükleyin."
@@ -3228,6 +3546,11 @@ msgstr ""
 msgid "Karşılandı:"
 msgstr "Ispunjeno:"
 
+#: app/pipeline/legibility.py
+#, python-brace-format
+msgid "Karşılanmayan kabul kriterleri: {criteria}"
+msgstr "Neispunjeni kriterijumi prihvatanja: {criteria}"
+
 #: app/web/routers/training.py
 msgid "Katalog"
 msgstr "Katalog"
@@ -3363,6 +3686,10 @@ msgstr ""
 "Sačuvani tip trenutno ne poštuje pravila kataloga; analiza ne može da "
 "pročita katalog. Ispravite polja i sačuvajte:"
 
+#: app/training/cleanup.py
+msgid "Kayıtsız örnek; kaydı register-examples ile tutuldu."
+msgstr "Neregistrovan primer; zapis je napravljen pomoću register-examples."
+
 #: app/web/auth.py
 msgid "Kendi hesabınızı pasife alamazsınız."
 msgstr "Ne možete deaktivirati sopstveni nalog."
@@ -3395,9 +3722,31 @@ msgstr "Dodaj ID"
 msgid "Kiril"
 msgstr "Ćirilica"
 
+#: app/matching/match.py
+#, python-brace-format
+msgid ""
+"Kişi anahtarı çelişkili: adayın sayfaları şu alanları farklı okuyor: "
+"{fields}. Çalışan otomatik eşleştirilmez."
+msgstr ""
+"Konfliktan ključ osobe: stranice kandidata različito čitaju ova polja: "
+"{fields}. Zaposleni se ne uparuje automatski."
+
+#: app/matching/match.py
+#, python-brace-format
+msgid ""
+"Kişi eksik okundu: kayıtlı çalışanla eşleşme yok, {detail}. Yeni çalışan "
+"açılmaz, profil önerilmez."
+msgstr ""
+"Osoba nepotpuno pročitana: nema uparivanja sa registrovanim zaposlenim, "
+"{detail}. Novi zaposleni se ne otvara i profil se ne predlaže."
+
 #: app/web/templates/queue.html app/web/templates/queue_item.html
 msgid "Kişi tahmini"
 msgstr "Pretpostavljena osoba"
+
+#: app/matching/match.py
+msgid "Kişi tespit edilemedi: belgede ne ad-soyad ne belge numarası okundu."
+msgstr "Osoba nije utvrđena: na dokumentu nije pročitano ni ime ni broj dokumenta."
 
 #: app/web/templates/employee_deleted.html
 msgid ""
@@ -3592,6 +3941,10 @@ msgstr ""
 "mora biti napisano latiničnim slovima; zapis koji nije latinični ide u "
 "polje Originalni zapis"
 
+#: app/matching/match.py
+msgid "Latin yazım belgede yok"
+msgstr "Na dokumentu nema latiničnog zapisa"
+
 #: app/web/templates/profile.html
 msgid "Latin yazım eksik"
 msgstr "Nedostaje latinični zapis"
@@ -3599,6 +3952,45 @@ msgstr "Nedostaje latinični zapis"
 #: app/web/routers/uploads.py
 msgid "Lütfen dosyayı yeniden adlandırıp tekrar yükleyin."
 msgstr "Preimenujte datoteku i ponovo je otpremite."
+
+#: app/training/mechanical.py
+#, python-brace-format
+msgid "MRZ ({readings}) belge kodu bir belge türüne eşlenmiyor"
+msgstr "Kod dokumenta u MRZ ({readings}) ne odgovara nijednom tipu dokumenta"
+
+#: app/training/mechanical.py
+#, python-brace-format
+msgid "MRZ ({readings}) tek bir bilinen türe inmiyor"
+msgstr "MRZ ({readings}) ne odgovara jednom poznatom tipu"
+
+#: app/training/mechanical.py
+#, python-brace-format
+msgid "MRZ ({readings}) tuttu"
+msgstr "MRZ ({readings}) se poklopio"
+
+#: app/training/mechanical.py
+#, python-brace-format
+msgid "MRZ `{slug}` gösteriyor ama yapısına uymuyor: {problems}"
+msgstr "MRZ ukazuje na `{slug}`, ali ne odgovara njegovoj strukturi: {problems}"
+
+#: app/training/mechanical.py
+#, python-brace-format
+msgid "MRZ kontrol haneleri tutmuyor ({checks})"
+msgstr "Kontrolne cifre MRZ se ne slažu ({checks})"
+
+#: app/pipeline/validate.py
+#, python-brace-format
+msgid ""
+"MRZ kontrol hanesi doğrulaması (06.5.1, mrz_checksum): {pages}. Kontrol "
+"hanesi tutmayan MRZ geçersiz sayılır."
+msgstr ""
+"Provera kontrolnih cifara MRZ (06.5.1, mrz_checksum): {pages}. MRZ čije "
+"kontrolne cifre se ne slažu smatra se nevažećim."
+
+#: app/training/mechanical.py
+#, python-brace-format
+msgid "MRZ'ler farklı türlere işaret ediyor ({readings})"
+msgstr "MRZ ukazuju na različite tipove ({readings})"
 
 #: app/web/templates/catalog_criteria.html
 msgid "Madde ekle"
@@ -3611,6 +4003,16 @@ msgstr "Mehanički"
 #: app/web/templates/training_map.html
 msgid "Mekanik hazır"
 msgstr "Mehanički spremno"
+
+#: app/training/mechanical.py
+#, python-brace-format
+msgid "Mekanik tanınmadı: {reason}"
+msgstr "Nije mehanički prepoznato: {reason}"
+
+#: app/training/map_scan.py app/training/mechanical.py
+#, python-brace-format
+msgid "Mekanik: {basis} → `{slug}`"
+msgstr "Mehanički: {basis} → `{slug}`"
 
 #: app/telegram/bot.py
 msgid ""
@@ -3698,6 +4100,11 @@ msgstr "Unreadable"
 msgid "Okunamadı kuyruğu"
 msgstr "Red Unreadable"
 
+#: app/pipeline/legibility.py
+#, python-brace-format
+msgid "Okunamayan alanlar: {fields}"
+msgstr "Nečitljiva polja: {fields}"
+
 #: app/web/templates/upload_detail.html
 msgid "Olay zaman çizelgesi"
 msgstr "Vremenska linija događaja"
@@ -3721,6 +4128,30 @@ msgstr "Nema predloženih tipova koji čekaju odobrenje."
 #: app/web/routers/upload_page.py
 msgid "Onay bekleyen profil"
 msgstr "Profil čeka odobrenje"
+
+#: app/matching/match.py
+msgid ""
+"Onay bekleyen profil: kayıtlı çalışanla eşleşme yok, temiz belge numarası"
+" yok (§20.2.3) ve doğum tarihi yeni çalışan açmaya yetmiyor (§20.2.4: "
+"türün zorunlu alanı değil, okunmadı, sayfalar arasında çelişiyor ya da "
+"doğrulanmadı). Yeni çalışan yalnız onayla açılır (K7)."
+msgstr ""
+"Profil čeka odobrenje: nema uparivanja sa registrovanim zaposlenim, nema "
+"čistog broja dokumenta (§20.2.3), a datum rođenja nije dovoljan za "
+"otvaranje novog zaposlenog (§20.2.4: nije obavezno polje tipa, nije "
+"pročitan, razlikuje se među stranicama ili nije potvrđen). Novi zaposleni"
+" se otvara samo uz odobrenje (K7)."
+
+#: app/matching/match.py
+#, python-brace-format
+msgid ""
+"Onay bekleyen profil: {missing}. Ad-soyad yalnız Latin olmayan alfabeyle "
+"okundu ve tahminle çevrilmez (05.2.2); İK onayda Latin adı yazar. Yeni "
+"çalışan yalnız onayla açılır (K7)."
+msgstr ""
+"Profil čeka odobrenje: {missing}. Ime je pročitano samo nelatiničnim "
+"pismom i ne prevodi se nagađanjem (05.2.2); HR upisuje latinično ime pri "
+"odobrenju. Novi zaposleni se otvara samo uz odobrenje (K7)."
 
 #: app/web/routers/catalog.py
 msgid "Onay bekliyor"
@@ -3770,6 +4201,23 @@ msgstr "Ponovo pokrenite potvrdu"
 msgid "Orijinal yazım"
 msgstr "Originalni zapis"
 
+#: app/training/mechanical.py
+msgid "PDF metin katmanı okunamadı"
+msgstr "Tekstualni sloj PDF-a nije mogao biti pročitan"
+
+#: app/training/mechanical.py
+#, python-brace-format
+msgid "PDF metin katmanında MRZ ({readings})"
+msgstr "MRZ u tekstualnom sloju PDF-a ({readings})"
+
+#: app/training/mechanical.py
+msgid "PDF metin katmanında MRZ yok"
+msgstr "nema MRZ u tekstualnom sloju PDF-a"
+
+#: app/training/mechanical.py
+msgid "PDF'te metin katmanı yok"
+msgstr "PDF nema tekstualni sloj"
+
 #: app/web/templates/profile.html app/web/templates/upload.html
 msgid "PDF, JPEG, PNG · Word ve Excel olduğu gibi saklanır"
 msgstr "PDF, JPEG, PNG · Word i Excel se čuvaju u izvornom obliku"
@@ -3781,6 +4229,16 @@ msgid ""
 msgstr ""
 "PDF, JPEG, PNG · samo uzorci (specimen) ili sintetički dokumenti; ne "
 "otpremajte prave lične dokumente"
+
+#: app/training/mechanical.py
+#, python-brace-format
+msgid "PDF, {pages} sayfa"
+msgstr "PDF, stranica: {pages}"
+
+#: app/training/mechanical.py
+#, python-brace-format
+msgid "PDF, {pages} sayfa (beklenen {expected})"
+msgstr "PDF, stranica: {pages} (očekivano {expected})"
 
 #: app/web/templates/employees_results.html
 msgid "Paket"
@@ -3996,6 +4454,17 @@ msgstr ""
 msgid "Pasif çalışan"
 msgstr "Neaktivan zaposleni"
 
+#: app/matching/status.py
+#, python-brace-format
+msgid ""
+"Pasif çalışan ({employee_id}) ile eşleşti ({code}): belge otomatik "
+"yerleşmez (R7); öğeyi bir çalışana atayın ya da çalışanı etkinleştirip "
+"partiyi yeniden analiz edin."
+msgstr ""
+"Upareno sa neaktivnim zaposlenim ({employee_id}) ({code}): dokument se ne"
+" smešta automatski (R7); dodelite stavku zaposlenom ili aktivirajte "
+"zaposlenog i ponovo analizirajte seriju."
+
 #: app/web/templates/queue_item.html
 #, python-format
 msgid ""
@@ -4123,6 +4592,15 @@ msgstr ""
 "Sa profila se može trajno obrisati samo aktivan ili arhiviran dokument; "
 "status ovog dokumenta: {status}."
 
+#: app/pipeline/validate.py
+#, python-brace-format
+msgid ""
+"Profilden yüklenen belge bu profile ait görünmüyor (context_person): "
+"{finding}."
+msgstr ""
+"Dokument otpremljen sa profila ne izgleda kao da pripada ovom profilu "
+"(context_person): {finding}."
+
 #: app/web/templates/employee_fields.html app/web/templates/profile.html
 msgid "Profili düzenle"
 msgstr "Uredi profil"
@@ -4167,6 +4645,28 @@ msgstr "Promeni ulogu"
 #: app/web/templates/upload_detail.html
 msgid "Rota"
 msgstr "Ruta"
+
+#: app/training/mechanical.py
+#, python-brace-format
+msgid "SHA-256 birden çok türde kayıtlı ({slugs})"
+msgstr "SHA-256 je registrovan u više tipova ({slugs})"
+
+#: app/training/mechanical.py
+#, python-brace-format
+msgid "SHA-256 kayıtlı değil; {reason}"
+msgstr "SHA-256 nije registrovan; {reason}"
+
+#: app/training/mechanical.py
+msgid "SHA-256 tuttu"
+msgstr "SHA-256 se poklopio"
+
+#: app/training/mechanical.py
+msgid "SHA-256 örnek envanterinde"
+msgstr "SHA-256 u inventaru primera"
+
+#: app/training/mechanical.py
+msgid "SHA-256 örnek kaydında"
+msgstr "SHA-256 u zapisima primera"
 
 #: app/catalog/photo_rules.py
 msgid "Sade arka plan"
@@ -4587,6 +5087,11 @@ msgstr ""
 msgid "Taranacak dosya"
 msgstr "Datoteke za skeniranje"
 
+#: app/training/map_scan.py
+#, python-brace-format
+msgid "Taranamadı ({row}): {problem}"
+msgstr "Nije moglo biti skenirano ({row}): {problem}"
+
 #: app/web/templates/profile.html app/web/templates/training_results.html
 #: app/web/templates/uploads_list.html
 msgid "Tarih"
@@ -4632,6 +5137,15 @@ msgstr "Jedna strana"
 #: app/web/templates/upload_detail.html
 msgid "Tekrar dosya: işlenmedi, sayfa görüntüsü yok."
 msgstr "Ponovljena datoteka: nije obrađena, nema slika strana."
+
+#: app/pipeline/plan_planner.py
+#, python-brace-format
+msgid ""
+"Tekrar yükleme (01.4.1): dosya {file}, daha önce yüklenen dosya "
+"{original} ile aynı içerikte; yeniden işlenmez, çıktı üretmez."
+msgstr ""
+"Ponovno otpremanje (01.4.1): datoteka {file} ima isti sadržaj kao ranije "
+"otpremljena datoteka {original}; ne obrađuje se ponovo i ne daje izlaz."
 
 #: app/web/routers/employees.py
 msgid "Telefon"
@@ -4950,6 +5464,15 @@ msgstr ""
 msgid "Türü kataloğa ekleyip partiyi yeniden analiz edin ya da öğeyi kapatın."
 msgstr "Dodajte tip u katalog i ponovo analizirajte seriju, ili zatvorite stavku."
 
+#: app/pipeline/group.py
+#, python-brace-format
+msgid "Türü kesin belirlenemeyen sayfalar: {pages}."
+msgstr "Stranice čiji tip nije mogao biti pouzdano utvrđen: {pages}."
+
+#: app/storage/map_paths.py
+msgid "UNC yolu"
+msgstr "UNC putanja"
+
 #: app/web/templates/catalog_candidates.html
 msgid "Unknown kuyruğuna bakın"
 msgstr "Pogledajte red Unknown"
@@ -5005,6 +5528,16 @@ msgstr "Državljanstvo"
 #: app/web/templates/upload_action_result.html
 msgid "Vazgeç"
 msgstr "Odustani"
+
+#: app/pipeline/group.py
+msgid ""
+"Word/Excel eki (04.7.1): parti bir çalışan bağlamıyla yüklenmedi, sahibi "
+"belirlenemedi; belge analiz edilmez, dönüştürülmez, gerekçesiyle kuyruğa "
+"alınır."
+msgstr ""
+"Word/Excel prilog (04.7.1): serija nije otpremljena u kontekstu "
+"zaposlenog, pa vlasnik nije mogao biti utvrđen; dokument se ne analizira "
+"i ne konvertuje, već se stavlja u red sa razlogom."
 
 #: app/web/profile_form.py
 msgid "YYYY-AA-GG biçiminde bir tarih olmalı"
@@ -5092,6 +5625,15 @@ msgstr "Možda treba veštačka inteligencija"
 msgid "Yapay zekâ incelemesi bekliyor"
 msgstr "Čeka pregled veštačke inteligencije"
 
+#: app/training/classification.py
+#, python-brace-format
+msgid "Yapay zekâ incelemesi yapılamadı ({error}); denemeler tükendi"
+msgstr "AI pregled nije mogao biti obavljen ({error}); pokušaji su iscrpljeni"
+
+#: app/training/classification.py
+msgid "Yapay zekâ incelemesi yarıda kaldı; denemeler tükendi"
+msgstr "AI pregled je prekinut; pokušaji su iscrpljeni"
+
 #: app/web/templates/training_map.html
 msgid ""
 "Yapay zekâ sağlayıcısı ayarlı değil: işçi sağlayıcı ayarı olmadan "
@@ -5112,6 +5654,15 @@ msgstr ""
 "inteligencije“. Kada se dobavljač podesi, radnik ih pregleda. Pošto se "
 "radnik ne pokreće bez tog podešavanja, i datoteke skeniranja mape čekaju "
 "kao „U redu čekanja“."
+
+#: app/training/classification.py
+msgid "Yapay zekâ önerisi yok"
+msgstr "Nema AI predloga"
+
+#: app/training/classification.py
+#, python-brace-format
+msgid "Yapay zekâ önerisi: {name}"
+msgstr "AI predlog: {name}"
 
 #: app/web/templates/profile.html
 msgid "Yazım"
@@ -5382,6 +5933,15 @@ msgstr "Otpremio"
 msgid "Yüz"
 msgstr "Strane"
 
+#: app/pipeline/validate.py
+#, python-brace-format
+msgid ""
+"Yüz doğrulaması (06.5.1, sides): tür {which} kabul ediyor: {accepted}. "
+"Gelen düzen {received}; bu adayın yüzleri: {faces}."
+msgstr ""
+"Provera strana (06.5.1, sides): tip prihvata {which}: {accepted}. "
+"Primljeni raspored {received}; strane ovog kandidata: {faces}."
+
 #: app/catalog/photo_rules.py
 msgid "Yüz görünür"
 msgstr "Lice vidljivo"
@@ -5400,6 +5960,10 @@ msgstr ""
 #: app/web/templates/catalog_type_fields.html
 msgid "Yüz yapısı"
 msgstr "Strane dokumenta"
+
+#: app/pipeline/group.py
+msgid "Yüzler dosyalar arasında otomatik eşleştirilmez."
+msgstr "Strane se ne uparuju automatski između datoteka."
 
 #: app/web/templates/access_log_employee.html
 msgid "Zaman"
@@ -5457,6 +6021,19 @@ msgstr ""
 msgid "Zorunluluk"
 msgstr "Obaveznost"
 
+#: app/storage/map_paths.py
+msgid "`..` parçası"
+msgstr "segment `..`"
+
+#: app/training/classification.py
+msgid "ad"
+msgstr "ime"
+
+#: app/training/classification.py
+#, python-brace-format
+msgid "ad `{slug}` türüne iniyor ama yanıttaki {clashes} tutmuyor"
+msgstr "ime odgovara tipu `{slug}`, ali se {clashes} u odgovoru ne poklapa"
+
 #: app/web/routers/uploads.py
 msgid "ad denetim karakteri içeremez"
 msgstr "ime ne može sadržati kontrolne znakove"
@@ -5469,6 +6046,15 @@ msgstr "ime može imati najviše {limit} bajtova"
 #: app/web/routers/uploads.py
 msgid "ad nokta veya boşlukla bitemez"
 msgstr "ime se ne može završavati tačkom ili razmakom"
+
+#: app/pipeline/validate.py
+msgid "ad uyuşmuyor"
+msgstr "ime se ne poklapa"
+
+#: app/training/classification.py
+#, python-brace-format
+msgid "ad {name}"
+msgstr "ime {name}"
 
 #: app/web/routers/uploads.py
 #, python-brace-format
@@ -5483,9 +6069,20 @@ msgstr "ime i prezime + datum rođenja"
 msgid "ad-soyad klasör adına çevrilemiyor (K8)"
 msgstr "ime i prezime ne mogu se pretvoriti u ime fascikle (K8)"
 
+#: app/matching/match.py
+msgid "ad-soyad okunmadı"
+msgstr "ime nije pročitano"
+
 #: app/matching/records.py
 msgid "adres"
 msgstr "adresa"
+
+#: app/pipeline/group.py
+#, python-brace-format
+msgid "analizi yapılamamış, başka belgeye ait olabilecek sayfa ({pages})"
+msgstr ""
+"stranica koja nije mogla biti analizirana i može pripadati drugom "
+"dokumentu ({pages})"
 
 #: app/web/templates/training_results.html
 msgid "arşivde olmayanlar"
@@ -5495,9 +6092,27 @@ msgstr "nearhivirana"
 msgid "arşivlenenler"
 msgstr "arhivirana"
 
+#: app/pipeline/route.py
+msgid "açmak için parola gerekiyor"
+msgstr "za otvaranje je potrebna lozinka"
+
+#: app/pipeline/group.py
+#, python-brace-format
+msgid "başka belgeye ait sayfa ({pages})"
+msgstr "stranica drugog dokumenta ({pages})"
+
 #: app/web/templates/profile.html
 msgid "başka bir kayıt"
 msgstr "drugim zapisom"
+
+#: app/training/placement.py
+#, python-brace-format
+msgid "başka türde örnek: {slug}"
+msgstr "primer drugog tipa: {slug}"
+
+#: app/training/mechanical.py
+msgid "beklenen tür"
+msgstr "očekivani tip"
 
 #: app/telegram/intent.py
 msgid "belge"
@@ -5512,6 +6127,10 @@ msgstr "dokument %(id)s"
 msgid "belge numarası"
 msgstr "broj dokumenta"
 
+#: app/pipeline/validate.py
+msgid "belge numarası başka çalışanda"
+msgstr "broj dokumenta pripada drugom zaposlenom"
+
 #: app/web/templates/access_log_employee.html
 msgid "belge silindi"
 msgstr "dokument obrisan"
@@ -5519,6 +6138,21 @@ msgstr "dokument obrisan"
 #: app/web/routers/employees.py
 msgid "belgeden"
 msgstr "iz dokumenta"
+
+#: app/pipeline/validate.py
+#, python-brace-format
+msgid "belgenin sayfaları {count} kaynak dosyadan geliyor"
+msgstr "stranice dokumenta potiču iz izvornih datoteka: {count}"
+
+#: app/pipeline/plan_rules.py
+msgid "belirlenemedi (output_format: keep, kaynak biçimi tanınmadı)"
+msgstr "nije moguće utvrditi (output_format: keep, format izvora nije prepoznat)"
+
+#: app/pipeline/plan_rules.py
+msgid "belirlenemedi (output_format: keep, kaynaklar farklı biçimde)"
+msgstr ""
+"nije moguće utvrditi (output_format: keep, izvori su u različitim "
+"formatima)"
 
 #: app/web/templates/catalog_examples.html
 #: app/web/templates/training_results.html app/web/templates/training_type.html
@@ -5533,6 +6167,14 @@ msgstr "može se izabrati više datoteka"
 #, python-brace-format
 msgid "birleştirme ({actor}, {day})"
 msgstr "spajanje ({actor}, {day})"
+
+#: app/pipeline/plan_rules.py
+msgid "biçimi tanınmadı"
+msgstr "format nije prepoznat"
+
+#: app/pipeline/plan_rules.py
+msgid "boş"
+msgstr "prazno"
 
 #: app/catalog/form.py app/matching/match.py
 msgid "boş olamaz"
@@ -5564,14 +6206,54 @@ msgstr "menja se"
 msgid "diğer"
 msgstr "drugo"
 
-#: app/training/map_import.py
+#: app/training/map_scan.py
+msgid "dosya okunamadı"
+msgstr "datoteka nije mogla biti pročitana"
+
+#: app/training/mechanical.py
+#, python-brace-format
+msgid "dosya türü {kind} izinli değil (izinli: {allowed})"
+msgstr "tip datoteke {kind} nije dozvoljen (dozvoljeno: {allowed})"
+
+#: app/training/map_import.py app/training/map_scan.py
 msgid "dosya yok"
 msgstr "datoteka ne postoji"
+
+#: app/pipeline/plan_rules.py
+#, python-brace-format
+msgid "dosya {file} ({kind}, bütün dosya)"
+msgstr "datoteka {file} ({kind}, cela datoteka)"
+
+#: app/pipeline/group.py app/pipeline/plan_rules.py app/pipeline/validate.py
+#, python-brace-format
+msgid "dosya {file}, sayfa {pages}"
+msgstr "datoteka {file}, stranica {pages}"
+
+#: app/pipeline/validate.py
+#, python-brace-format
+msgid "dosya {file}, sayfa {pages}: {side}"
+msgstr "datoteka {file}, stranica {pages}: {side}"
 
 #: app/web/routers/documents.py app/web/routers/upload_page.py
 #, python-brace-format
 msgid "dosya {id}"
 msgstr "datoteka {id}"
+
+#: app/pipeline/plan_rules.py
+msgid "dosyanın ardışık alt kümesi"
+msgstr "uzastopni podskup datoteke"
+
+#: app/pipeline/plan_rules.py
+msgid "dosyanın ardışık olmayan alt kümesi"
+msgstr "neuzastopni podskup datoteke"
+
+#: app/pipeline/plan_rules.py
+msgid "dosyanın tüm sayfaları"
+msgstr "sve stranice datoteke"
+
+#: app/pipeline/validate.py
+msgid "doğum tarihi uyuşmuyor"
+msgstr "datum rođenja se ne poklapa"
 
 #: app/telegram/intent.py
 #, python-brace-format
@@ -5649,6 +6331,18 @@ msgstr ""
 msgid "geçersiz seçim"
 msgstr "neispravan izbor"
 
+#: app/storage/map_paths.py
+msgid "geçersiz yol"
+msgstr "nevažeća putanja"
+
+#: app/pipeline/validate.py
+msgid "geçmişte değil"
+msgstr "nije u prošlosti"
+
+#: app/training/mechanical.py
+msgid "görüntü dosyasında metin katmanı yok (OCR yapılmaz)"
+msgstr "slikovna datoteka nema tekstualni sloj (OCR se ne radi)"
+
 #: app/training/map_import.py
 msgid "güvensiz yol"
 msgstr "nebezbedna putanja"
@@ -5657,17 +6351,45 @@ msgstr "nebezbedna putanja"
 msgid "harf ya da rakam içermiyor"
 msgstr "ne sadrži slova ni cifre"
 
+#: app/training/mechanical.py
+#, python-brace-format
+msgid "harita satırı {row}"
+msgstr "red mape {row}"
+
+#: app/training/mechanical.py
+msgid "haritadaki SHA-256 dosyayla tutmuyor"
+msgstr "SHA-256 iz mape se ne slaže sa datotekom"
+
+#: app/training/map_scan.py
+msgid "haritadaki yol kaydı yok"
+msgstr "mapa nema zapis putanje"
+
 #: app/web/templates/_context_warning.html
 msgid "henüz kuyruğa alınmadı"
 msgstr "još nije u redu"
+
+#: app/pipeline/validate.py
+msgid "hiçbir düzene uymuyor (eksik, fazla ya da sırası ters yüz)"
+msgstr ""
+"ne odgovara nijednom rasporedu (strana nedostaje, višak je ili je "
+"redosled obrnut)"
 
 #: app/catalog/form.py
 msgid "iki büyük harf olmalı (ör. RU)"
 msgstr "moraju biti dva velika slova (npr. RU)"
 
+#: app/pipeline/validate.py
+msgid "iki yüz tek sayfada (combined: front_and_back)"
+msgstr "obe strane na jednoj stranici (combined: front_and_back)"
+
 #: app/web/templates/profile.html
 msgid "iptal:"
 msgstr "otkazao:"
+
+#: app/training/mechanical.py
+#, python-brace-format
+msgid "ipucu `{slug}` bilinen bir tür değil"
+msgstr "nagoveštaj `{slug}` nije poznat tip"
 
 #: app/matching/records.py
 msgid "isim yazımı"
@@ -5693,6 +6415,20 @@ msgstr "uklonio:"
 msgid "kapatıldı"
 msgstr "zatvoreno"
 
+#: app/training/classification.py
+msgid "katalog türü"
+msgstr "tip iz kataloga"
+
+#: app/training/classification.py
+#, python-brace-format
+msgid "katalog türü `{slug}` bilinen türlerde yok"
+msgstr "tip iz kataloga `{slug}` nije među poznatim tipovima"
+
+#: app/training/classification.py
+#, python-brace-format
+msgid "katalog türü `{slug}` yanıttaki {clashes} bilgisiyle çelişiyor"
+msgstr "tip iz kataloga `{slug}` je u sukobu sa podatkom {clashes} u odgovoru"
+
 #: app/web/templates/catalog_examples.html
 msgid ""
 "kayıtsız — <code>python -m app.catalog register-examples</code> ile "
@@ -5709,6 +6445,14 @@ msgstr "u fascikli nema PDF, JPEG ni PNG datoteka"
 msgid "koleksiyon kökü ayarlı değil"
 msgstr "koren kolekcije nije podešen"
 
+#: app/training/mechanical.py
+msgid "kontrol haneleri tuttu"
+msgstr "kontrolne cifre su se poklopile"
+
+#: app/storage/map_paths.py
+msgid "kökün dışına çıkıyor"
+msgstr "izlazi iz korena"
+
 #: app/catalog/form.py
 msgid ""
 "küçük harfle başlamalı; yalnız a-z, 0-9 ve _ içerebilir (en çok 64 "
@@ -5716,6 +6460,10 @@ msgid ""
 msgstr ""
 "mora počinjati malim slovom i sme sadržati samo a-z, 0-9 i _ (najviše 64 "
 "znaka)"
+
+#: app/storage/map_paths.py
+msgid "mutlak yol"
+msgstr "apsolutna putanja"
 
 #: app/web/templates/catalog_candidate.html
 msgid "parti"
@@ -5749,6 +6497,11 @@ msgstr "stavka plana %(id)s"
 msgid "plan öğesi %(item)s"
 msgstr "stavka plana %(item)s"
 
+#: app/pipeline/validate.py
+#, python-brace-format
+msgid "referans güne göre {low}–{high} yaş aralığı dışında"
+msgstr "izvan raspona od {low}–{high} godina na referentni dan"
+
 #: app/training/map_import.py
 msgid "referans — örnek değil"
 msgstr "referenca — nije primer"
@@ -5764,13 +6517,35 @@ msgstr "str. %(page)d"
 msgid "s. {pages}"
 msgstr "str. {pages}"
 
+#: app/pipeline/route.py
+msgid "sahip parolalı (AES), pypdf sayfaları çözemiyor"
+msgstr "lozinka vlasnika (AES), pypdf ne može da dešifruje stranice"
+
 #: app/catalog/form.py
 msgid "sayfa sayıları tam sayı olmalı"
 msgstr "brojevi strana moraju biti celi brojevi"
 
+#: app/training/mechanical.py
+#, python-brace-format
+msgid "sayfa sayısı {pages}, beklenen {expected}"
+msgstr "broj stranica {pages}, očekivano {expected}"
+
+#: app/pipeline/group.py
+#, python-brace-format
+msgid "sayfa {pages}"
+msgstr "stranica {pages}"
+
 #: app/web/templates/training_results.html app/web/templates/training_type.html
 msgid "seç"
 msgstr "izaberi"
+
+#: app/storage/map_paths.py
+msgid "sürücü harfi"
+msgstr "slovo diska"
+
+#: app/pipeline/validate.py
+msgid "tanınmayan biçim"
+msgstr "neprepoznat format"
 
 #: app/web/routers/upload_page.py
 msgid "tarama yoksayıldı"
@@ -5788,6 +6563,14 @@ msgstr "cela datoteka"
 msgid "tüm durumlar"
 msgstr "svi statusi"
 
+#: app/training/classification.py
+msgid "tür"
+msgstr "tip"
+
+#: app/training/cleanup.py
+msgid "tür sayfasından yüklendi"
+msgstr "otpremljeno sa stranice tipa"
+
 #: app/web/templates/training_map.html
 msgid "türü belirsiz; mekanik tanınmazsa yapay zekâya gider (tahmin, üst sınır)"
 msgstr ""
@@ -5797,6 +6580,10 @@ msgstr ""
 #: app/web/templates/training_map.html
 msgid "türü belli; harita + mekanik kontrol, yapay zekâsız"
 msgstr "tip poznat; mapa + mehanička provera, bez veštačke inteligencije"
+
+#: app/training/map_scan.py
+msgid "türü haritadan belli olduğu için yapay zekâya gönderilmedi"
+msgstr "nije poslato AI jer je tip poznat iz mape"
 
 #: app/telegram/handlers.py
 #, python-brace-format
@@ -5854,6 +6641,14 @@ msgstr "samo oni sa nepotpunim paketima"
 msgid "yalnız pasif çalışanlar"
 msgstr "samo neaktivni zaposleni"
 
+#: app/pipeline/validate.py
+msgid "yalnız şu düzeni"
+msgstr "samo ovaj raspored"
+
+#: app/training/classification.py
+msgid "yapay zekâ türü belirlemedi"
+msgstr "AI nije utvrdio tip"
+
 #: app/web/routers/training.py
 msgid "yoksayılan"
 msgstr "zanemareno"
@@ -5865,6 +6660,11 @@ msgstr "nema putanje"
 #: app/web/templates/access_log_employee.html
 msgid "zamanlar UTC"
 msgstr "vremena u UTC"
+
+#: app/training/placement.py
+#, python-brace-format
+msgid "zaten örnek: {name}"
+msgstr "već je primer: {name}"
 
 #: app/web/templates/profile.html
 msgid "zorunlu"
@@ -5893,6 +6693,11 @@ msgid_plural "{count} dosyayı daha önce göndermiştiniz, yeniden eklemedim."
 msgstr[0] "{count} fajl ste već ranije poslali, pa ga nisam ponovo dodao."
 msgstr[1] "{count} fajla ste već ranije poslali, pa ih nisam ponovo dodao."
 msgstr[2] "{count} fajlova ste već ranije poslali, pa ih nisam ponovo dodao."
+
+#: app/pipeline/group.py
+#, python-brace-format
+msgid "{count} sayfa"
+msgstr "stranica: {count}"
 
 #: app/telegram/intent.py
 #, python-brace-format
@@ -5942,6 +6747,31 @@ msgid_plural "{employee}: {count} belge gönderiyorum."
 msgstr[0] "{employee}: šaljem {count} dokument."
 msgstr[1] "{employee}: šaljem {count} dokumenta."
 msgstr[2] "{employee}: šaljem {count} dokumenata."
+
+#: app/pipeline/group.py
+#, python-brace-format
+msgid "{first} ve {second}"
+msgstr "{first} i {second}"
+
+#: app/pipeline/validate.py
+#, python-brace-format
+msgid "{first} ya da {second}"
+msgstr "{first} ili {second}"
+
+#: app/training/mechanical.py
+#, python-brace-format
+msgid "{hint} `{slug}` MRZ ({readings}) ile çelişiyor"
+msgstr "{hint} `{slug}` je u sukobu sa MRZ ({readings})"
+
+#: app/training/mechanical.py
+#, python-brace-format
+msgid "{hint} `{slug}` SHA-256 kaydıyla (`{recorded}`) çelişiyor"
+msgstr "{hint} `{slug}` je u sukobu sa SHA-256 zapisom (`{recorded}`)"
+
+#: app/training/mechanical.py
+#, python-brace-format
+msgid "{hint} `{slug}` yapısına uymuyor: {problems}"
+msgstr "{hint} `{slug}` struktura ne odgovara: {problems}"
 
 #: app/telegram/whitelist.py
 #, python-brace-format
@@ -6000,10 +6830,35 @@ msgstr[2] "{kind}: {count}"
 msgid "{label}: belgede farklı değer okundu"
 msgstr "{label}: u dokumentu je pročitana drugačija vrednost"
 
+#: app/training/cleanup.py
+#, python-brace-format
+msgid "{label}: {text}"
+msgstr "{label}: {text}"
+
+#: app/pipeline/validate.py
+#, python-brace-format
+msgid "{layout}, tür bu düzeni kabul etmiyor"
+msgstr "je {layout}, a tip ne prihvata taj raspored"
+
+#: app/pipeline/group.py
+#, python-brace-format
+msgid "{low}-{high} sayfa"
+msgstr "{low}-{high} stranica"
+
+#: app/web/routers/training.py
+#, python-brace-format
+msgid "{note}; önceki not: {previous}"
+msgstr "{note}; prethodna napomena: {previous}"
+
 #: app/web/routers/employees.py
 #, python-brace-format
 msgid "{open} açık · {missing} eksik"
 msgstr "otvoreno: {open} · nedostaje: {missing}"
+
+#: app/pipeline/validate.py
+#, python-brace-format
+msgid "{pages} ardışık değil"
+msgstr "{pages} nisu uzastopne"
 
 #: app/catalog/describe.py
 #, python-brace-format
@@ -6015,10 +6870,60 @@ msgstr "{photo} nije mogla da se otvori."
 msgid "{photo} {limit} MB sınırını aşıyor."
 msgstr "{photo} prelazi ograničenje od {limit} MB."
 
+#: app/matching/match.py
+#, python-brace-format
+msgid "{problem}, temiz belge numarası var"
+msgstr "{problem}, čist broj dokumenta postoji"
+
+#: app/matching/match.py
+#, python-brace-format
+msgid "{problem}, temiz belge numarası yok"
+msgstr "{problem}, nema čistog broja dokumenta"
+
+#: app/matching/match.py
+#, python-brace-format
+msgid ""
+"{reason}. İsmi eşleşen çalışan: {employees}. Yalnız isim eşleşmesi "
+"otomatik eşleştirme sayılmaz (R8)."
+msgstr ""
+"{reason}. Zaposleni čije se ime poklopilo: {employees}. Poklapanje samo "
+"po imenu nije automatsko uparivanje (R8)."
+
+#: app/matching/match.py
+#, python-brace-format
+msgid ""
+"{reason}. İsmi eşleşen çalışanlar: {employees}. Yalnız isim eşleşmesi "
+"otomatik eşleştirme sayılmaz (R8)."
+msgstr ""
+"{reason}. Zaposleni čija su se imena poklopila: {employees}. Poklapanje "
+"samo po imenu nije automatsko uparivanje (R8)."
+
 #: app/catalog/form.py
 #, python-brace-format
 msgid "{slug} ayrılmış bir ad; başka bir slug seçin"
 msgstr "{slug} je rezervisano ime; izaberite drugi slug"
+
+#: app/training/classification.py
+#, python-brace-format
+msgid "{what} bilinen bir türe inmiyor"
+msgstr "{what} ne odgovara poznatom tipu"
+
+#: app/training/classification.py
+#, python-brace-format
+msgid "{what} birden çok türe iniyor ({slugs})"
+msgstr "{what} odgovara većem broju tipova ({slugs})"
+
+#: app/pipeline/validate.py
+#, python-brace-format
+msgid "{where}: izin verilmeyen karakter var, kontrol haneleri doğrulanamadı"
+msgstr ""
+"{where}: postoji nedozvoljen znak, kontrolne cifre nisu mogle biti "
+"proverene"
+
+#: app/pipeline/validate.py
+#, python-brace-format
+msgid "{where}: tutmayan kontrol haneleri {checks}"
+msgstr "{where}: kontrolne cifre koje se ne slažu {checks}"
 
 #: app/web/templates/account_telegram.html
 msgid "«Telegram'ı bağla» kapalı."
@@ -6509,6 +7414,12 @@ msgstr "rešeno"
 msgid "çıktının geçmişi"
 msgstr "istorija izlaza"
 
+#: app/pipeline/validate.py
+msgid "ön ve arka ayrı sayfalarda, önce ön sonra arka (separate: front, back)"
+msgstr ""
+"prednja i zadnja strana na posebnim stranicama, prvo prednja pa zadnja "
+"(separate: front, back)"
+
 #: app/web/templates/account_telegram.html
 msgid "örn. 123456789"
 msgstr "npr. 123456789"
@@ -6516,6 +7427,19 @@ msgstr "npr. 123456789"
 #: app/web/templates/catalog_accepted_photos.html
 msgid "örnek"
 msgstr "primer"
+
+#: app/training/classification.py
+msgid "ülke"
+msgstr "zemlja"
+
+#: app/training/classification.py
+msgid "ülke ve tür"
+msgstr "zemlja i tip"
+
+#: app/training/classification.py
+#, python-brace-format
+msgid "ülke ve tür {country}/{kind}"
+msgstr "zemlja i tip {country}/{kind}"
 
 #: app/web/routers/users.py
 msgid "İK"
@@ -6525,6 +7449,11 @@ msgstr "HR"
 msgid "İK (elle)"
 msgstr "HR (ručno)"
 
+#: app/training/decisions.py
+#, python-brace-format
+msgid "İK başka türe taşıdı: `{source}` → `{target}`"
+msgstr "HR je premestio u drugi tip: `{source}` → `{target}`"
+
 #: app/web/templates/users.html
 msgid ""
 "İK bütün işlemleri yapar; Kullanıcı paneli yalnız okur, hiçbir şey "
@@ -6532,6 +7461,18 @@ msgid ""
 msgstr ""
 "HR obavlja sve radnje; Korisnik panel samo pregleda i ništa ne može da "
 "menja."
+
+#: app/training/cleanup.py
+msgid "İK yoksaydı"
+msgstr "HR je zanemario"
+
+#: app/training/cleanup.py
+msgid "İK yoksaymayı geri aldı"
+msgstr "HR je poništio zanemarivanje"
+
+#: app/training/decisions.py
+msgid "İK örneklerden çıkardı; dosya eğitim arşivinde."
+msgstr "HR je uklonio iz primera; datoteka je u arhivi obuke."
 
 #: app/web/feedback.py
 msgid "İK'nın kararını bekliyor; bir sorun görürseniz İK'ya bildirin."
@@ -6611,6 +7552,20 @@ msgstr "Pregled"
 msgid "İnceleme gerekli"
 msgstr "Potreban pregled"
 
+#: app/training/map_scan.py
+#, python-brace-format
+msgid ""
+"İnceleme gerekli ({row}): haritadaki tür `{map_slug}`, dosya `{slug}` "
+"örnek klasöründe"
+msgstr ""
+"Potreban pregled ({row}): tip u mapi je `{map_slug}`, datoteka je u "
+"fascikli primera `{slug}`"
+
+#: app/training/map_scan.py
+#, python-brace-format
+msgid "İnceleme gerekli ({row}): {problem}"
+msgstr "Potreban pregled ({row}): {problem}"
+
 #: app/web/templates/profile.html
 msgid "İndir"
 msgstr "Preuzmi"
@@ -6645,6 +7600,12 @@ msgstr "Razlog otkazivanja"
 #: app/groups/packages.py
 msgid "İptal nedeni boş olamaz."
 msgstr "Razlog otkazivanja ne može biti prazan."
+
+#: app/matching/match.py
+msgid "İsim eşleşti ama doğum tarihi veya belge numarası doğrulanamadı"
+msgstr ""
+"Ime se poklopilo, ali datum rođenja ili broj dokumenta nisu mogli biti "
+"potvrđeni"
 
 #: app/web/routers/employees.py
 msgid "İsim yazımı"
@@ -6695,6 +7656,28 @@ msgstr "Neoznačena stavka je opciona: paket ne čeka na nju da bi bio kompletan
 msgid "İşlem"
 msgstr "Operacija"
 
+#: app/pipeline/plan_rules.py
+#, python-brace-format
+msgid ""
+"İşlem seçilemedi (06.2.1): Kaynak: {sources}. Hedef biçim: {target}. "
+"§20.3'te bu kaynak, kapsama ve biçim için uyan fiziksel işlem yok; belge "
+"dönüştürülmez."
+msgstr ""
+"Operacija nije mogla biti izabrana (06.2.1): Izvor: {sources}. Ciljni "
+"format: {target}. §20.3 nema fizičku operaciju za ovaj izvor, obuhvat i "
+"format; dokument se ne konvertuje."
+
+#: app/pipeline/plan_rules.py
+#, python-brace-format
+msgid ""
+"İşlem seçilemedi (06.2.1): Kaynaklar: {sources}. Hedef biçim: {target}. "
+"§20.3'te bu kaynak, kapsama ve biçim için uyan fiziksel işlem yok; belge "
+"dönüştürülmez."
+msgstr ""
+"Operacija nije mogla biti izabrana (06.2.1): Izvori: {sources}. Ciljni "
+"format: {target}. §20.3 nema fizičku operaciju za ovaj izvor, obuhvat i "
+"format; dokument se ne konvertuje."
+
 #: app/web/feedback.py
 msgid "İşlem tamamlanamadı. Ayrıntı sayfada."
 msgstr "Radnja nije mogla da se završi. Detalji su na stranici."
@@ -6729,9 +7712,29 @@ msgstr "Radnje"
 msgid "İşlenemedi"
 msgstr "Obrada nije uspela"
 
+#: app/pipeline/plan_planner.py
+#, python-brace-format
+msgid ""
+"İşlenemeyen dosya (dosya {file}): sayfası üretilmemiş ve Word/Excel eki "
+"olarak tanınmadı; çıktı üretmez (R7)."
+msgstr ""
+"Neobradiva datoteka (datoteka {file}): stranice nisu napravljene i nije "
+"prepoznata kao Word/Excel prilog; ne daje izlaz (R7)."
+
 #: app/web/routers/uploads_list.py
 msgid "İşleniyor"
 msgstr "U obradi"
+
+#: app/pipeline/route.py
+#, python-brace-format
+msgid ""
+"Şifreli PDF, sayfalar kopyalanamıyor (08.1.3): dosya {file}, istenen "
+"işlem {operation} — {protection}; şifre kaldırılmaz, dosya yeniden "
+"yazılmaz (K11)."
+msgstr ""
+"Šifrovan PDF, stranice ne mogu da se kopiraju (08.1.3): datoteka {file}, "
+"tražena operacija {operation} — {protection}; šifra se ne uklanja i "
+"datoteka se ne prepisuje (K11)."
 
 #: app/web/templates/employee_fields_step.html
 msgid "Şimdiki"
@@ -6771,6 +7774,10 @@ msgstr "Trenutna lozinka"
 #: app/web/auth.py
 msgid "Şu anki parola hatalı."
 msgstr "Trenutna lozinka nije ispravna."
+
+#: app/pipeline/validate.py
+msgid "şu düzenleri"
+msgstr "ove rasporede"
 
 #: app/web/templates/group.html
 msgid "— seçin —"

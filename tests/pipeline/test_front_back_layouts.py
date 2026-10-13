@@ -43,6 +43,7 @@ from tests.fixtures.gen import (
     two_driving_licenses_page,
     work_permit_page,
 )
+from tests.recorded import source_document, source_text
 
 SEED = load_seed_catalog()
 SETTINGS = Settings(_env_file=None, database_url="sqlite://")
@@ -113,7 +114,7 @@ def _process(
     assert result.status is UploadStatus.DONE
     plan = current_plan(session, upload)
     assert plan is not None
-    return upload, read_plan(plan).items
+    return upload, source_document(session, read_plan(plan)).items
 
 
 def _item(*args: Any, **kwargs: Any) -> PlanItem:
@@ -134,7 +135,7 @@ def _unresolved_without_output(session: Session, layout: DataLayout, item: PlanI
     assert session.scalar(select(func.count()).select_from(Document)) == 0
     assert not layout.employee_dir(FOLDER).exists()
     (queued,) = session.scalars(select(QueueItem))
-    assert (queued.kind, queued.reason) == ("unresolved", item.route_reason)
+    assert (queued.kind, source_text(session, queued.reason)) == ("unresolved", item.route_reason)
 
 
 # --- iki düzen de kabul edilir (tohum: separate + combined, 1–2 sayfa) --------------------------

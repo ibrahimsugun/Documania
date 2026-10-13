@@ -519,7 +519,9 @@ def start_map_scan(
         session,
         EventType.TRAINING_MAP_STARTED,
         actor=actor,
-        message=f"Harita ile toplu tarama başladı: {preview.files} dosya.",
+        message=Translatable(
+            N_("Harita ile toplu tarama başladı: {count} dosya."), count=preview.files
+        ),
         data={"run_id": run.id} | preview.as_event_data(),
     )
     target = layout.training_map_path(run.id)

@@ -53,6 +53,7 @@ from tests.fixtures.gen import (
     photo_check_response,
     profile_picture_page,
 )
+from tests.recorded import source_events
 
 CATALOG = load_seed_catalog()
 UPLOAD_ID = "u_20260919_0081"
@@ -141,7 +142,9 @@ def _analyze(
 
 
 def _events(session: Session, event_type: EventType) -> list[Event]:
-    return list(session.scalars(select(Event).where(Event.type == event_type).order_by(Event.id)))
+    return source_events(
+        session, session.scalars(select(Event).where(Event.type == event_type).order_by(Event.id))
+    )
 
 
 def _page(upload: Upload, file_number: int = 0) -> Page:
@@ -174,7 +177,7 @@ def test_photo_page_is_checked_against_every_open_rule_and_the_result_is_stored(
     }
     resolution = check.verdict("min_resolution")
     assert resolution is not None
-    assert resolution.note == "480×600 piksel; asgari 400×400."
+    assert resolution.note == "480×600 px; minimum 400×400."
     assert page.analysis_status == PageAnalysisStatus.DONE
     assert page.photo_check_json == check.model_dump(mode="json")
     assert PhotoCheck.model_validate(page.photo_check_json) == check
@@ -235,7 +238,7 @@ def test_photo_check_instructions_forbid_changing_or_describing_the_person() -> 
             make_portrait_image_bytes(size=(300, 400)),
             None,
             PhotoRuleResult.FAIL,
-            "300×400 piksel; asgari 400×400.",
+            "300×400 px; minimum 400×400.",
             id="dusuk-jpeg",
         ),
         pytest.param(
@@ -243,7 +246,7 @@ def test_photo_check_instructions_forbid_changing_or_describing_the_person() -> 
             make_portrait_image_bytes("PNG", size=(400, 400)),
             None,
             PhotoRuleResult.PASS,
-            "400×400 piksel; asgari 400×400.",
+            "400×400 px; minimum 400×400.",
             id="sinirda-png",
         ),
         pytest.param(
@@ -251,7 +254,7 @@ def test_photo_check_instructions_forbid_changing_or_describing_the_person() -> 
             make_portrait_image_bytes(size=(399, 800)),
             None,
             PhotoRuleResult.FAIL,
-            "399×800 piksel; asgari 400×400.",
+            "399×800 px; minimum 400×400.",
             id="genislik-eksik",
         ),
         pytest.param(
@@ -259,7 +262,7 @@ def test_photo_check_instructions_forbid_changing_or_describing_the_person() -> 
             make_half_filled_image_bytes("JPEG", (600, 450), orientation=6),
             {"min_resolution": {"enabled": True, "min_width_px": 500, "min_height_px": 400}},
             PhotoRuleResult.FAIL,
-            "450×600 piksel; asgari 500×400.",
+            "450×600 px; minimum 500×400.",
             id="exif-yonelimiyle-gorunen-boyut",
         ),
         pytest.param(
@@ -267,7 +270,7 @@ def test_photo_check_instructions_forbid_changing_or_describing_the_person() -> 
             make_document_pdf_bytes([profile_picture_page(size=(300, 400))]),
             None,
             PhotoRuleResult.FAIL,
-            "300×400 piksel; asgari 400×400.",
+            "300×400 px; minimum 400×400.",
             id="pdf-gomulu-goruntu",
         ),
         pytest.param(
@@ -275,7 +278,8 @@ def test_photo_check_instructions_forbid_changing_or_describing_the_person() -> 
             make_text_pdf_bytes(["FOTOGRAF"]),
             None,
             PhotoRuleResult.UNSURE,
-            "Sayfa tek bir gömülü görüntü değil; piksel boyutu ölçülemez (asgari 400×400).",
+            "The page is not a single embedded image; pixel size cannot be measured "
+            "(minimum 400×400).",
             id="pdf-tek-goruntu-degil",
         ),
     ],

@@ -24,6 +24,7 @@ from importlib import resources
 from typing import Any
 
 import jinja2
+import markupsafe
 from fastapi import Request
 from fastapi.responses import HTMLResponse
 from starlette.templating import Jinja2Templates
@@ -32,6 +33,7 @@ from app.countries import country_badge, nationality_badge
 from app.i18n import (
     N_,
     SUPPORTED_LANGUAGES,
+    Translatable,
     current_html_lang,
     current_language,
     gettext,
@@ -115,6 +117,27 @@ templates.env.globals["menu"] = PANEL_MENU
 templates.env.globals["translate"] = translate
 # Liste öğelerini çevirmek için süzgeç olarak da (`problems|map("translate")`).
 templates.env.filters["translate"] = translate
+
+
+def recorded(text: object) -> str:
+    """10.10.6 (§D121): kayıtlı sistem metni — kaynağı geri çağrılmışsa (`Translatable`,
+    `app.i18n.recorded`) isteğin dilinde, değilse (eski Türkçe kayıt, yapay zekâ notu, insanın
+    notu) olduğu gibi."""
+    if isinstance(text, Translatable):
+        return translate(text)
+    return "" if text is None else str(text)
+
+
+def recorded_attrs(text: object) -> markupsafe.Markup:
+    """Kayıtlı metnin öğesine `translate="no"`: yalnız çevrilmeyen (olduğu gibi gösterilen) metin
+    tarayıcı çevirisine ve kalıntı taramasına kapalıdır."""
+    if isinstance(text, Translatable):
+        return markupsafe.Markup("")
+    return markupsafe.Markup(' translate="no"')
+
+
+templates.env.globals["recorded"] = recorded
+templates.env.globals["recorded_attrs"] = recorded_attrs
 # 10.1.6: alfa-2, alfa-3 ya da MRZ kodundan bayrak + Türkçe ülke adı (`app/countries`).
 templates.env.globals["country_badge"] = country_badge
 # 10.5.11: profildeki uyruk — bayrak + Türkçe ad + parantez içinde kod; tanınmayan kodda yalnız kod.

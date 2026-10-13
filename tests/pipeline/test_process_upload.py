@@ -56,6 +56,7 @@ from tests.fixtures.gen import (
     make_sized_pdf_bytes,
     make_text_pdf_bytes,
 )
+from tests.recorded import source_document, source_events
 
 ROOT = Path(__file__).resolve().parents[2]
 RECORDINGS = ROOT / "tests" / "fixtures" / "ai" / "recordings"
@@ -149,7 +150,7 @@ def _events(session: Session, event_type: EventType | None = None) -> list[Event
     query = select(Event).order_by(Event.id)
     if event_type is not None:
         query = query.where(Event.type == event_type)
-    return list(session.scalars(query))
+    return source_events(session, session.scalars(query))
 
 
 def _count(session: Session, model: type[Any]) -> int:
@@ -245,7 +246,7 @@ def test_one_call_takes_the_upload_from_received_to_done(
     assert (plan.version, plan.model, plan.executed_at is not None) == (1, provider.model, True)
 
     # Plan: pasaport çıktısı, boş sayfa atlanır, bağlamsız Word dosyası Unresolved'a gider.
-    items = read_plan(plan).items
+    items = source_document(session, read_plan(plan)).items
     assert [(item.item_id, item.route, item.operation) for item in items] == [
         ("i1", Route.READY, Operation.EXTRACT),
         ("i2", Route.SKIP, None),
@@ -345,7 +346,10 @@ def test_a_failed_page_analysis_ends_the_upload_as_partial(
     assert result.status == UploadStatus.PARTIAL
     assert committed == [*CHAIN, UploadStatus.PARTIAL]
     assert result.plan is not None
-    assert [(item.route, item.operation) for item in read_plan(result.plan).items] == [
+    assert [
+        (item.route, item.operation)
+        for item in source_document(session, read_plan(result.plan)).items
+    ] == [
         (Route.UNRESOLVED, None),
         (Route.SKIP, None),
     ]
@@ -372,7 +376,7 @@ def test_front_and_back_images_are_rendered_and_merged_s5(
     assert result.status == UploadStatus.DONE
     assert [file.page_count for file in upload.files] == [1, 1]
     assert result.plan is not None
-    (item,) = read_plan(result.plan).items
+    (item,) = source_document(session, read_plan(result.plan)).items
     assert (item.route, item.operation) == (Route.READY, Operation.MERGE)
     (output,) = session.scalars(select(Document)).all()
     assert output.source_refs_json == [
@@ -400,7 +404,7 @@ def test_a_duplicate_upload_is_skipped_without_analysis_s2(
     (duplicate,) = second.files
     assert (duplicate.is_duplicate_of, duplicate.page_count, duplicate.pages) == (1, None, [])
     assert result.plan is not None
-    (item,) = read_plan(result.plan).items
+    (item,) = source_document(session, read_plan(result.plan)).items
     assert item.route is Route.SKIP
     assert _count(session, Document) == 1
     assert _names(layout.ready_dir(FOLDER)) == [PASSPORT_NAME]
@@ -433,7 +437,7 @@ def test_files_that_cannot_be_rendered_go_to_unresolved_without_failing_the_uplo
     assert [(file.page_count, file.pages) for file in upload.files] == [(None, [])] * 3
     assert _count(session, Page) == 0
     assert result.plan is not None
-    items = read_plan(result.plan).items
+    items = source_document(session, read_plan(result.plan)).items
     assert [item.route for item in items] == [Route.UNRESOLVED] * 3
     assert all("İşlenemeyen dosya" in (item.route_reason or "") for item in items)
     assert len(_events(session, EventType.QUEUED_UNRESOLVED)) == 3

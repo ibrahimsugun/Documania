@@ -16,6 +16,8 @@ from app.catalog import Catalog, CatalogEntry
 from app.catalog.photo_rules import PHOTO_RULE_TYPES, enabled_photo_rules
 from app.db.models import Employee, QueueKind, Upload, UploadFile
 from app.events import EventType, record_event
+from app.i18n import N_, Translatable, join_text
+from app.i18n.recorded import record_text
 from app.matching.contacts import accumulate_contacts
 from app.matching.context import context_person_verdict
 from app.matching.fields import complete_profile_fields
@@ -151,14 +153,21 @@ class _Planner:
             first = candidate.pages[0]
             yield (first.file_id, first.index), partial(self._candidate_item, candidate=candidate)
         for file_grouping in grouping.files:
-            yield from _page_subjects(file_grouping)
+            yield from _page_subjects(file_grouping, self._record)
         attached = {attachment.file_id for attachment in grouping.attachments}
         for attachment in grouping.attachments:
             yield (attachment.file_id, -1), partial(self._attachment_item, attachment=attachment)
         for upload_file in self._upload.files:
             duplicate = upload_file.is_duplicate_of is not None
             if duplicate or (not upload_file.pages and upload_file.id not in attached):
-                yield (upload_file.id, -1), partial(_file_item, upload_file=upload_file)
+                yield (
+                    (upload_file.id, -1),
+                    partial(_file_item, upload_file=upload_file, record=self._record),
+                )
+
+    def _record(self, reason: str) -> str:
+        # 10.10.6: gerekçe plana İngilizce yazılır, kaynağı panelde çevrilmek üzere saklanır.
+        return record_text(self._session, reason)
 
     # --- belge adayı --------------------------------------------------------------------------
 
@@ -451,7 +460,8 @@ class _Planner:
             PlanValidation(name=validation.name, ok=validation.ok) for validation in validations
         )
         if verdicts or entry is None or selected is None or employee.employee_id is None:
-            return _queued_item(item_id, slug, sources, employee, verdicts, checked)
+            reason = self._record(join_text(verdict.reason for verdict in verdicts))
+            return _queued_item(item_id, slug, sources, employee, verdicts, checked, reason)
         owner = self._session.get_one(Employee, employee.employee_id)
         stem = document_stem(owner.given_names, owner.surname, entry.file_label)
         return PlanItem(
@@ -670,6 +680,7 @@ def _queued_item(
     employee: PlanEmployee,
     verdicts: Sequence[_Verdict],
     validations: tuple[PlanValidation, ...],
+    reason: str,
 ) -> PlanItem:
     return PlanItem(
         item_id=item_id,
@@ -680,20 +691,20 @@ def _queued_item(
         target_name=None,
         employee=employee,
         route=Route(verdicts[0].queue.value),
-        route_reason=" ".join(verdict.reason for verdict in verdicts),
+        route_reason=reason,
         validations=validations,
     )
 
 
-_BLANK_PAGES_REASON = "Boş sayfa ({pages}): atlanır; çıktıya ve kuyruğa girmez, hata sayılmaz."
+_BLANK_PAGES_REASON = N_("Boş sayfa ({pages}): atlanır; çıktıya ve kuyruğa girmez, hata sayılmaz.")
 
-_UNANALYZED_PAGES_REASON = (
+_UNANALYZED_PAGES_REASON = N_(
     "Analizi yapılamamış sayfa ({pages}): içeriği bilinmediği için hiçbir belgeye katılmaz ve "
     "çıktı üretmez (R7); yeniden analizle değerlendirilir."
 )
 
 
-def _page_subjects(grouping: FileGrouping) -> Iterator[_Subject]:
+def _page_subjects(grouping: FileGrouping, record: Callable[[str], str]) -> Iterator[_Subject]:
     # Adaya girmeyen sayfalar: boş sayfa atlanır (S8), analizi olmayan sayfa kuyruğa gider (R7).
     file_id = grouping.file_id
     for pages, route, reason in (
@@ -707,26 +718,35 @@ def _page_subjects(grouping: FileGrouping) -> Iterator[_Subject]:
                 file_id=file_id,
                 pages=ordered,
                 route=route,
-                reason=reason.format(pages=_pages_text(file_id, ordered)),
+                reason=record(Translatable(reason, pages=_pages_text(file_id, ordered))),
             )
             yield (file_id, ordered[0]), build
 
 
-def _file_item(item_id: str, *, upload_file: UploadFile) -> PlanItem:
+def _file_item(item_id: str, *, upload_file: UploadFile, record: Callable[[str], str]) -> PlanItem:
     # Bütün olarak ele alınan dosya: tekrar yükleme ya da sayfası üretilmemiş, tanınmayan dosya.
     if upload_file.is_duplicate_of is not None:
         route = Route.SKIP
-        reason = (
-            f"Tekrar yükleme (01.4.1): dosya {upload_file.id}, daha önce yüklenen dosya "
-            f"{upload_file.is_duplicate_of} ile aynı içerikte; yeniden işlenmez, çıktı üretmez."
+        reason = Translatable(
+            N_(
+                "Tekrar yükleme (01.4.1): dosya {file}, daha önce yüklenen dosya {original} ile "
+                "aynı içerikte; yeniden işlenmez, çıktı üretmez."
+            ),
+            file=upload_file.id,
+            original=upload_file.is_duplicate_of,
         )
     else:
         route = Route.UNRESOLVED
-        reason = (
-            f"İşlenemeyen dosya (dosya {upload_file.id}): sayfası üretilmemiş ve Word/Excel eki "
-            "olarak tanınmadı; çıktı üretmez (R7)."
+        reason = Translatable(
+            N_(
+                "İşlenemeyen dosya (dosya {file}): sayfası üretilmemiş ve Word/Excel eki olarak "
+                "tanınmadı; çıktı üretmez (R7)."
+            ),
+            file=upload_file.id,
         )
-    return _unowned_item(item_id, file_id=upload_file.id, pages=(), route=route, reason=reason)
+    return _unowned_item(
+        item_id, file_id=upload_file.id, pages=(), route=route, reason=record(reason)
+    )
 
 
 def _unowned_item(

@@ -465,7 +465,7 @@ def test_text_is_one_line_and_inner_punctuation_is_not_doubled() -> None:
         description_payload(
             layout="Kart\nyatay!",
             field_locations=[{"field": "surname", "location": "üst satır.  "}],
-            mrz={"line_count": 3, "location": "arka yüzün altında;"},
+            mrz={"line_count": 3, "location": "bottom of the back side;"},
             side_differences="Arkada\n  MRZ",
         )
     )
@@ -475,7 +475,7 @@ def test_text_is_one_line_and_inner_punctuation_is_not_doubled() -> None:
     assert "\n" not in text
     assert text.startswith("Kart yatay! ")
     assert "Alanlar: surname — üst satır. " in text
-    assert "MRZ: 3 satır, arka yüzün altında. " in text
+    assert "MRZ: 3 satır, bottom of the back side. " in text
     assert text.endswith("Ön/arka yüz: Arkada MRZ.")
 
 

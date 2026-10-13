@@ -63,6 +63,7 @@ from app.db.models import (
     utcnow,
 )
 from app.events import EventType, record_event
+from app.i18n import N_, Translatable, join_text
 from app.storage import ContentMismatchError, DataLayout, FileKind, sha256_bytes, write_file
 from app.storage.examples import (
     EXAMPLE_EXTENSIONS,
@@ -76,7 +77,7 @@ from app.storage.pdfinfo import count_pdf_pages
 from app.training.known_types import KnownTypes
 
 SYSTEM_ACTOR = "system"
-LEGACY_NOTE = "Eğitimden önce örnek klasörüne konmuş; kaydı eğitimde tutuldu."
+LEGACY_NOTE = Translatable(N_("Eğitimden önce örnek klasörüne konmuş; kaydı eğitimde tutuldu."))
 _NAME_MAX_LENGTH = 255
 
 LABEL_BY_METHOD = MappingProxyType(
@@ -190,7 +191,9 @@ def check_content(
     try:
         kind = check_example(original_name, content, max_bytes=max_bytes)
     except ExampleRejectedError as exc:
-        _decide(item, TrainingItemStatus.FAILED, note=str(exc), actor=SYSTEM_ACTOR)
+        # Ret gerekçesi çekirdeğin `Translatable`'ıdır: düzleşmeden kayda İngilizce gider.
+        reason = exc.args[0] if exc.args and isinstance(exc.args[0], str) else str(exc)
+        _decide(item, TrainingItemStatus.FAILED, note=reason, actor=SYSTEM_ACTOR)
         return False
     item.sha256 = sha256_bytes(content)
     item.file_kind = kind.value
@@ -304,7 +307,11 @@ def place_example(
         session,
         EventType.TRAINING_EXAMPLE_PLACED,
         actor=actor,
-        message=f"Eğitim örneği `{slug}` türüne yerleşti ({method.value}).",
+        message=Translatable(
+            N_("Eğitim örneği `{slug}` türüne yerleşti ({method})."),
+            slug=slug,
+            method=method.value,
+        ),
         data={
             "run_id": item.run_id,
             "training_item_id": item.id,
@@ -348,11 +355,13 @@ def leave_unplaced(
     _decide(item, status, slug=slug, method=method, note=note, actor=actor)
     session.flush()
     if message is None and status is TrainingItemStatus.UNPLACED:
-        message = "Eğitim öğesi yerleşmedi: hiçbir bilinen türe inmedi."
+        message = Translatable(N_("Eğitim öğesi yerleşmedi: hiçbir bilinen türe inmedi."))
     elif message is None and status is TrainingItemStatus.REVIEW:
-        message = "Eğitim öğesi yerleşmedi: harita satırı İK incelemesi bekliyor."
+        message = Translatable(N_("Eğitim öğesi yerleşmedi: harita satırı İK incelemesi bekliyor."))
     elif message is None:
-        message = f"Eğitim öğesi yerleşmedi: sonuç `{slug}` beklenen türle çelişiyor."
+        message = Translatable(
+            N_("Eğitim öğesi yerleşmedi: sonuç `{slug}` beklenen türle çelişiyor."), slug=slug
+        )
     record_event(
         session,
         EventType.TRAINING_ITEM_UNPLACED,
@@ -406,16 +415,22 @@ def _not_placed(
 ) -> Placement:
     if skipped:
         status = TrainingItemStatus.SKIPPED
-        reason = f"zaten örnek: {existing.name}"
-        message = f"Eğitim öğesi yerleşmedi: aynı içerik `{slug}` türünde zaten örnek."
+        reason = Translatable(N_("zaten örnek: {name}"), name=existing.name)
+        message = Translatable(
+            N_("Eğitim öğesi yerleşmedi: aynı içerik `{slug}` türünde zaten örnek."), slug=slug
+        )
     else:
         status = TrainingItemStatus.CONFLICT
-        reason = f"başka türde örnek: {existing.type_slug}"
-        message = (
-            f"Eğitim öğesi yerleşmedi: aynı içerik başka türde örnek "
-            f"(`{existing.type_slug}`, önerilen `{slug}`)."
+        reason = Translatable(N_("başka türde örnek: {slug}"), slug=existing.type_slug)
+        message = Translatable(
+            N_(
+                "Eğitim öğesi yerleşmedi: aynı içerik başka türde örnek (`{existing}`, önerilen "
+                "`{slug}`)."
+            ),
+            existing=existing.type_slug,
+            slug=slug,
         )
-    full_note = "; ".join(part for part in (note, reason) if part)
+    full_note = join_text((note or "", reason), "; ")
     _decide(item, status, slug=slug, method=method, note=full_note, actor=actor)
     session.flush()
     record_event(

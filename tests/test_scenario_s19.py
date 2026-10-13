@@ -48,6 +48,7 @@ from tests.fixtures.gen import (
     make_document_pdf_bytes,
     recorded_provider,
 )
+from tests.recorded import source_text
 from tests.test_scenarios_s01_s05 import (
     CATALOG,
     _assert_no_personal_values,
@@ -197,7 +198,7 @@ def test_s19_type_not_requiring_the_birth_date_leaves_a_pending_profile(
     assert (item.route, item.route_reason) == (Route.UNRESOLVED, PENDING_PROFILE_REASON)
     assert (item.employee.action, item.employee.employee_id) == (EmployeeAction.PENDING, None)
     entry = _assert_queued_alone(session, layout, upload, "unresolved", NAME, content)
-    assert entry["reason"] == PENDING_PROFILE_REASON
+    assert source_text(session, entry["reason"]) == PENDING_PROFILE_REASON
     assert _count(session, Employee) == 0
     types = [row.type for row in _events(session, upload)]
     assert EventType.EMPLOYEE_PENDING in types and EventType.EMPLOYEE_CREATED not in types

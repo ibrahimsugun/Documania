@@ -70,6 +70,7 @@ from app.pipeline.render import (
 )
 from app.storage import DataLayout, write_to_inbox
 from tests.fixtures.gen import make_text_pdf_bytes
+from tests.recorded import source_events
 
 ROOT = Path(__file__).resolve().parents[2]
 RECORDINGS = ROOT / "tests" / "fixtures" / "ai" / "recordings"
@@ -168,7 +169,7 @@ def _counts(session: Session) -> tuple[int, int, int]:
 
 
 def _events(session: Session) -> list[Event]:
-    return list(session.scalars(select(Event).order_by(Event.id)))
+    return source_events(session, session.scalars(select(Event).order_by(Event.id)))
 
 
 def _folders(layout: DataLayout) -> list[str]:

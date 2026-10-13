@@ -4,5 +4,5 @@
   "doc_kind": "pasaport",
   "proposed_name": "Russian Passport",
   "side": "single",
-  "notes": "Kimlik sayfası; başlıkta pasaport yazıyor, MRZ belge kodu P, veren devlet RUS."
+  "notes": "Identity page; the heading says passport, MRZ document code P, issuing state RUS."
 }

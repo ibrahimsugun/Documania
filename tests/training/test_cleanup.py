@@ -59,6 +59,7 @@ from app.training.cleanup import (
     clean_note,
 )
 from tests.fixtures.gen import make_pdf_bytes, make_portrait_image_bytes
+from tests.recorded import source_events, source_message
 from tests.training.invariants import assert_employee_data_untouched
 
 LIMIT = 1024 * 1024
@@ -90,8 +91,9 @@ def _item(
 
 
 def _events(session: Session, event_type: EventType) -> list[Event]:
-    return list(
-        session.scalars(select(Event).where(Event.type == event_type.value).order_by(Event.id))
+    return source_events(
+        session,
+        session.scalars(select(Event).where(Event.type == event_type.value).order_by(Event.id)),
     )
 
 
@@ -115,7 +117,9 @@ def test_an_item_waiting_for_hr_is_dismissed_with_the_note_kept_and_an_event(
     session.commit()
 
     assert item.status == TrainingItemStatus.DISMISSED
-    assert item.note == f"bilinen türe inmedi; {DISMISSED_NOTE}: çöp tarama"
+    assert (
+        source_message(session, item.note) == f"bilinen türe inmedi; {DISMISSED_NOTE}: çöp tarama"
+    )
     assert item.decided_by == ACTOR and item.decided_at is not None
     # Dosya yerinde ve aynı; örnek kaydı açılmaz (R11).
     assert staged.read_bytes() == before
@@ -142,7 +146,7 @@ def test_a_dismissal_without_a_note_says_only_that_hr_dismissed_it(
 
     dismiss_item(session, item, actor=ACTOR, note="   ")
 
-    assert item.note == DISMISSED_NOTE
+    assert source_message(session, item.note) == DISMISSED_NOTE
 
 
 @pytest.mark.parametrize(
@@ -160,12 +164,12 @@ def test_only_items_waiting_for_hr_can_be_dismissed(
     session: Session, layout: DataLayout, run: TrainingRun, status: TrainingItemStatus
 ) -> None:
     item = _item(session, layout, run, status)
-    note = item.note
+    note = source_message(session, item.note)
 
     with pytest.raises(CleanupError, match=NOT_DISMISSABLE):
         dismiss_item(session, item, actor=ACTOR)
 
-    assert item.status == status and item.note == note
+    assert item.status == status and source_message(session, item.note) == note
     assert _events(session, EventType.TRAINING_ITEM_DISMISSED) == []
 
 
@@ -225,7 +229,10 @@ def test_restoring_a_dismissed_item_makes_it_wait_as_unplaced(
     session.commit()
 
     assert item.status == TrainingItemStatus.UNPLACED
-    assert item.note == f"bilinen türe inmedi; {DISMISSED_NOTE}; {RESTORED_NOTE}"
+    assert (
+        source_message(session, item.note)
+        == f"bilinen türe inmedi; {DISMISSED_NOTE}; {RESTORED_NOTE}"
+    )
     assert item.decided_by == "ik2"
     (event,) = _events(session, EventType.TRAINING_ITEM_RESTORED)
     assert event.actor == "ik2"
@@ -273,7 +280,7 @@ def test_archiving_a_run_keeps_its_items_and_examples(
     placed = stage_file(session, layout, run, "yer.png", _png(230), max_bytes=LIMIT)
     place_example(session, layout, known, placed, SLUG, method=TrainingMethod.MANUAL, actor=ACTOR)
     waiting = _item(session, layout, run, TrainingItemStatus.UNPLACED)
-    items_before = [(i.id, i.status, i.note) for i in run.items]
+    items_before = [(i.id, i.status, source_message(session, i.note)) for i in run.items]
     examples_before = [
         (e.id, e.type_slug, e.name) for e in session.scalars(select(ExampleFileRecord))
     ]
@@ -283,7 +290,7 @@ def test_archiving_a_run_keeps_its_items_and_examples(
     session.commit()
 
     assert run.archived_at is not None
-    assert [(i.id, i.status, i.note) for i in run.items] == items_before
+    assert [(i.id, i.status, source_message(session, i.note)) for i in run.items] == items_before
     assert [
         (e.id, e.type_slug, e.name) for e in session.scalars(select(ExampleFileRecord))
     ] == examples_before
@@ -331,7 +338,7 @@ def test_an_uploaded_example_is_recorded_as_manual_and_verified_without_an_event
     assert record.method == ExampleMethod.MANUAL
     assert record.label == ExampleLabel.VERIFIED
     assert record.training_item_id is None
-    assert record.note == UPLOADED_NOTE
+    assert source_message(session, record.note) == UPLOADED_NOTE
     assert session.scalars(select(Event)).all() == []
 
 
@@ -395,7 +402,7 @@ def test_register_examples_records_unregistered_files_once(
     ]
     by_name = {r.name: r for r in rows}
     assert by_name["b.pdf"].sha256 == sha256_bytes(make_pdf_bytes(1))
-    assert all(r.label is None and r.note == REGISTERED_NOTE for r in rows)
+    assert all(r.label is None and source_message(session, r.note) == REGISTERED_NOTE for r in rows)
     assert session.scalars(select(Event)).all() == []
 
     again = register_examples(session, layout)

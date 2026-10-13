@@ -57,6 +57,7 @@ from tests.fixtures.gen import (
     make_portrait_image_bytes,
     make_text_pdf_bytes,
 )
+from tests.recorded import source_events, source_message
 from tests.training.invariants import assert_employee_data_untouched
 
 LIMIT = 1024 * 1024
@@ -169,8 +170,9 @@ def _write_inventory(layout: DataLayout, rows: list[tuple[str, str, str]]) -> Ex
 
 
 def _placed_events(session: Session) -> list[Event]:
-    return list(
-        session.scalars(select(Event).where(Event.type == EventType.TRAINING_EXAMPLE_PLACED.value))
+    return source_events(
+        session,
+        session.scalars(select(Event).where(Event.type == EventType.TRAINING_EXAMPLE_PLACED.value)),
     )
 
 
@@ -198,7 +200,7 @@ def test_a_file_that_cannot_be_an_example_fails_before_recognition(
     item = _upload(session, layout, known, "belge.pdf", content, hint="turkish_passport")
 
     assert item.status == TrainingItemStatus.FAILED
-    assert reason in (item.note or "")
+    assert reason in (source_message(session, item.note) or "")
     assert (item.checks_json, item.method, item.result_slug, item.staged_path) == (
         None,
         None,
@@ -226,7 +228,7 @@ def test_a_known_sha256_is_recognized_and_the_same_file_is_not_added_twice(
         "albanian_passport",
         TrainingMethod.MECHANICAL,
     )
-    assert again.note == (
+    assert source_message(session, again.note) == (
         "Mekanik: SHA-256 örnek kaydında → `albanian_passport`; JPEG; "
         f"zaten örnek: {_records(session)[0].name}"
     )
@@ -263,7 +265,10 @@ def test_an_inventory_sha256_places_the_file_into_its_type(
         "kosovar_passport",
         "mechanical",
     )
-    assert item.note == "Mekanik: SHA-256 örnek envanterinde → `kosovar_passport`; PNG"
+    assert (
+        source_message(session, item.note)
+        == "Mekanik: SHA-256 örnek envanterinde → `kosovar_passport`; PNG"
+    )
     assert item.checks_json is not None
     assert item.checks_json["sha256"] == {"index": [], "inventory": ["kosovar_passport"]}
     [record] = _records(session)
@@ -326,7 +331,7 @@ def test_a_sha256_recorded_in_two_types_is_not_mechanical(
     item = _upload(session, layout, known, "tekrar.jpg", content, inventory=inventory)
 
     assert item.status == TrainingItemStatus.AI_PENDING
-    assert item.note == (
+    assert source_message(session, item.note) == (
         "Mekanik tanınmadı: SHA-256 birden çok türde kayıtlı "
         "(`afghan_passport`, `albanian_passport`); JPEG"
     )
@@ -420,7 +425,7 @@ def test_a_known_hint_whose_structure_holds_is_placed_mechanically(
 ) -> None:
     item = _upload(session, layout, known, name, content, hint=hint)
 
-    assert (item.status, item.result_slug, item.method, item.note) == (
+    assert (item.status, item.result_slug, item.method, source_message(session, item.note)) == (
         "placed",
         hint,
         "mechanical",
@@ -435,7 +440,12 @@ def test_a_known_hint_whose_structure_holds_is_placed_mechanically(
     }
     assert item.checks_json["result"] == {"slug": hint, "basis": "hint"}
     [record] = _records(session)
-    assert (record.type_slug, record.method, record.label, record.note) == (
+    assert (
+        record.type_slug,
+        record.method,
+        record.label,
+        source_message(session, record.note),
+    ) == (
         hint,
         "mechanical",
         None,
@@ -481,9 +491,11 @@ def test_a_hint_whose_structure_fails_goes_to_ai(
     item = _upload(session, layout, known, name, content, hint=hint)
 
     assert (item.status, item.result_slug, item.method) == ("ai_pending", None, None)
-    assert item.note is not None
-    assert item.note.startswith(f"Mekanik tanınmadı: beklenen tür `{hint}` yapısına uymuyor: ")
-    assert problem in item.note
+    assert source_message(session, item.note) is not None
+    assert source_message(session, item.note).startswith(
+        f"Mekanik tanınmadı: beklenen tür `{hint}` yapısına uymuyor: "
+    )
+    assert problem in source_message(session, item.note)
     assert item.checks_json is not None
     assert item.checks_json["hint"]["structure"] == [problem]
     assert item.checks_json["result"]["slug"] is None
@@ -521,7 +533,10 @@ def test_a_map_row_whose_sha256_holds_is_placed_with_the_row_in_the_note(
 
     assert outcome.status == TrainingItemStatus.PLACED
     assert outcome.recognition.basis is RecognitionBasis.HINT
-    assert item.note == "Mekanik: harita satırı 12 → `albanian_passport`; SHA-256 tuttu; JPEG"
+    assert (
+        source_message(session, item.note)
+        == "Mekanik: harita satırı 12 → `albanian_passport`; SHA-256 tuttu; JPEG"
+    )
     assert item.checks_json is not None
     assert item.checks_json["hint"]["from"] == "map"
     assert item.checks_json["hint_sha256"] is True
@@ -536,7 +551,10 @@ def test_a_map_row_whose_sha256_does_not_hold_goes_to_ai(
     outcome = recognize_item(session, layout, known, item, inventory=None, hint_sha256="0" * 64)
 
     assert (outcome.status, outcome.placement) == (TrainingItemStatus.AI_PENDING, None)
-    assert item.note == "Mekanik tanınmadı: haritadaki SHA-256 dosyayla tutmuyor; JPEG"
+    assert (
+        source_message(session, item.note)
+        == "Mekanik tanınmadı: haritadaki SHA-256 dosyayla tutmuyor; JPEG"
+    )
     assert item.checks_json is not None
     assert item.checks_json["hint_sha256"] is False
     assert _records(session) == []
@@ -551,7 +569,7 @@ def test_a_hint_that_contradicts_the_sha256_record_goes_to_ai(
     item = _upload(session, layout, known, "afgan.jpg", content, hint="afghan_passport")
 
     assert item.status == TrainingItemStatus.AI_PENDING
-    assert item.note == (
+    assert source_message(session, item.note) == (
         "Mekanik tanınmadı: beklenen tür `afghan_passport` SHA-256 kaydıyla "
         "(`albanian_passport`) çelişiyor; JPEG"
     )
@@ -567,7 +585,7 @@ def test_an_unknown_hint_is_ignored_and_recognition_continues_without_it(
     passport = _upload(session, layout, known, "p.pdf", _mrz_pdf(_mrz()), hint="no_such_type")
 
     assert image.status == TrainingItemStatus.AI_PENDING
-    assert image.note == (
+    assert source_message(session, image.note) == (
         "Mekanik tanınmadı: SHA-256 kayıtlı değil; görüntü dosyasında metin katmanı yok "
         "(OCR yapılmaz); ipucu `no_such_type` bilinen bir tür değil; JPEG"
     )
@@ -589,7 +607,7 @@ def test_a_valid_td3_mrz_in_the_text_layer_recognizes_the_passport(
         "turkish_passport",
         "mechanical",
     )
-    assert item.note == (
+    assert source_message(session, item.note) == (
         "Mekanik: PDF metin katmanında MRZ (TD3, P, TUR) → `turkish_passport`; "
         "kontrol haneleri tuttu; PDF, 1 sayfa (beklenen 1–1)"
     )
@@ -611,7 +629,9 @@ def test_a_valid_td3_mrz_in_the_text_layer_recognizes_the_passport(
     assert item.checks_json["result"] == {"slug": "turkish_passport", "basis": "mrz"}
     [record] = _records(session)
     [event] = _placed_events(session)
-    _assert_no_personal_values(item.note, item.checks_json, record.note, event.data_json)
+    _assert_no_personal_values(
+        item.note, item.checks_json, source_message(session, record.note), event.data_json
+    )
     _assert_no_personal_values(event.message)
     assert_employee_data_untouched(session, layout)
 
@@ -638,8 +658,10 @@ def test_mrz_codes_and_states_map_to_the_single_known_type(
     item = _upload(session, layout, known, "kart.pdf", _mrz_pdf(lines, heading="KART"))
 
     assert (item.status, item.result_slug) == ("placed", slug)
-    assert item.note is not None
-    assert item.note.startswith(f"Mekanik: PDF metin katmanında MRZ ({described}) → `{slug}`")
+    assert source_message(session, item.note) is not None
+    assert source_message(session, item.note).startswith(
+        f"Mekanik: PDF metin katmanında MRZ ({described}) → `{slug}`"
+    )
 
 
 def test_an_mrz_with_spaces_between_characters_is_still_read(
@@ -659,7 +681,7 @@ def test_an_mrz_whose_check_digits_fail_goes_to_ai(
     item = _upload(session, layout, known, "pasaport.pdf", _mrz_pdf(_broken(_mrz())))
 
     assert (item.status, item.result_slug) == ("ai_pending", None)
-    assert item.note == (
+    assert source_message(session, item.note) == (
         "Mekanik tanınmadı: SHA-256 kayıtlı değil; MRZ kontrol haneleri tutmuyor "
         "(composite, document_number); PDF, 1 sayfa"
     )
@@ -716,8 +738,10 @@ def test_a_pdf_without_a_conclusive_mrz_goes_to_ai(
     item = _upload(session, layout, known, "belge.pdf", content)
 
     assert item.status == TrainingItemStatus.AI_PENDING
-    assert item.note is not None
-    assert item.note.startswith(f"Mekanik tanınmadı: SHA-256 kayıtlı değil; {reason}; PDF, ")
+    assert source_message(session, item.note) is not None
+    assert source_message(session, item.note).startswith(
+        f"Mekanik tanınmadı: SHA-256 kayıtlı değil; {reason}; PDF, "
+    )
     assert item.checks_json is not None
     assert item.checks_json["mrz"]["status"] == status
     assert _records(session) == []
@@ -729,7 +753,7 @@ def test_an_image_file_without_a_hint_goes_to_ai(
     item = _upload(session, layout, known, "tarama.jpg", make_portrait_image_bytes("JPEG"))
 
     assert item.status == TrainingItemStatus.AI_PENDING
-    assert item.note == (
+    assert source_message(session, item.note) == (
         "Mekanik tanınmadı: SHA-256 kayıtlı değil; görüntü dosyasında metin katmanı yok "
         "(OCR yapılmaz); JPEG"
     )
@@ -744,7 +768,7 @@ def test_an_mrz_type_whose_structure_fails_goes_to_ai(
     item = _upload(session, layout, known, "pasaport.pdf", _mrz_pdf(_mrz(), None))
 
     assert item.status == TrainingItemStatus.AI_PENDING
-    assert item.note == (
+    assert source_message(session, item.note) == (
         "Mekanik tanınmadı: MRZ `turkish_passport` gösteriyor ama yapısına uymuyor: "
         "sayfa sayısı 2, beklenen 1–1; PDF, 2 sayfa"
     )
@@ -763,7 +787,7 @@ def test_a_hint_confirmed_by_the_mrz_is_placed_on_the_hint(
     )
 
     assert (item.status, item.result_slug) == ("placed", "turkish_passport")
-    assert item.note == (
+    assert source_message(session, item.note) == (
         "Mekanik: beklenen tür → `turkish_passport`; MRZ (TD3, P, TUR) tuttu; "
         "PDF, 1 sayfa (beklenen 1–1)"
     )
@@ -787,9 +811,11 @@ def test_a_hint_that_contradicts_a_valid_mrz_goes_to_ai(
     item = _upload(session, layout, known, "belge.pdf", _mrz_pdf(lines), hint=hint)
 
     assert item.status == TrainingItemStatus.AI_PENDING
-    assert item.note is not None
-    assert item.note.startswith(f"Mekanik tanınmadı: beklenen tür `{hint}` MRZ (")
-    assert ") ile çelişiyor; PDF, 1 sayfa" in item.note
+    assert source_message(session, item.note) is not None
+    assert source_message(session, item.note).startswith(
+        f"Mekanik tanınmadı: beklenen tür `{hint}` MRZ ("
+    )
+    assert ") ile çelişiyor; PDF, 1 sayfa" in source_message(session, item.note)
     assert _records(session) == []
     _assert_no_personal_values(item.note, item.checks_json)
 
@@ -802,7 +828,10 @@ def test_an_invalid_mrz_is_not_evidence_against_the_hint(
     item = _upload(session, layout, known, "pasaport.pdf", content, hint="turkish_passport")
 
     assert (item.status, item.result_slug) == ("placed", "turkish_passport")
-    assert item.note == "Mekanik: beklenen tür → `turkish_passport`; PDF, 1 sayfa (beklenen 1–1)"
+    assert (
+        source_message(session, item.note)
+        == "Mekanik: beklenen tür → `turkish_passport`; PDF, 1 sayfa (beklenen 1–1)"
+    )
 
 
 # --- MRZ adayları ve kod eşlemesi -----------------------------------------------------------------
@@ -976,4 +1005,6 @@ def test_a_mechanical_placement_uses_the_placement_core(
     item = _upload(session, layout, known, "tekrar.jpg", content)
 
     assert (item.status, item.result_slug) == ("skipped", "afghan_passport")
-    assert item.note is not None and item.note.startswith("Mekanik: SHA-256 örnek kaydında")
+    assert source_message(session, item.note) is not None and source_message(
+        session, item.note
+    ).startswith("Mekanik: SHA-256 örnek kaydında")

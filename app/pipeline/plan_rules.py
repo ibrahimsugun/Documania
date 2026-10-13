@@ -10,6 +10,7 @@ from app.ai.photo_check import PhotoCheck, PhotoRuleResult, PhotoRuleVerdict
 from app.catalog import CatalogEntry, Conversion, FileType, OutputFormat
 from app.catalog.photo_rules import RESOLUTION_RULE, PhotoRuleSetting
 from app.db.models import QueueKind, UploadFile
+from app.i18n import N_, Translatable, join_text
 from app.pipeline.validate import file_types_text, unexpected_file_types
 from app.storage import FileKind
 
@@ -75,18 +76,30 @@ class NoApplicableOperation:
 
     @property
     def reason(self) -> str:
-        label = "Kaynak" if len(self.sources) == 1 else "Kaynaklar"
-        described = "; ".join(_operation_source_text(source) for source in self.sources)
+        described = join_text((_operation_source_text(source) for source in self.sources), "; ")
+        target: str
         if self.target_format is not None:
             target = self.target_format.value
         elif any(source.kind is None for source in self.sources):
-            target = "belirlenemedi (output_format: keep, kaynak biçimi tanınmadı)"
+            target = Translatable(
+                N_("belirlenemedi (output_format: keep, kaynak biçimi tanınmadı)")
+            )
         else:
-            target = "belirlenemedi (output_format: keep, kaynaklar farklı biçimde)"
-        return (
-            f"İşlem seçilemedi (06.2.1): {label}: {described}. Hedef biçim: {target}. §20.3'te bu "
-            "kaynak, kapsama ve biçim için uyan fiziksel işlem yok; belge dönüştürülmez."
+            target = Translatable(
+                N_("belirlenemedi (output_format: keep, kaynaklar farklı biçimde)")
+            )
+        template = (
+            N_(
+                "İşlem seçilemedi (06.2.1): Kaynak: {sources}. Hedef biçim: {target}. §20.3'te bu "
+                "kaynak, kapsama ve biçim için uyan fiziksel işlem yok; belge dönüştürülmez."
+            )
+            if len(self.sources) == 1
+            else N_(
+                "İşlem seçilemedi (06.2.1): Kaynaklar: {sources}. Hedef biçim: {target}. §20.3'te "
+                "bu kaynak, kapsama ve biçim için uyan fiziksel işlem yok; belge dönüştürülmez."
+            )
         )
+        return Translatable(template, sources=described, target=target)
 
 
 def select_operation(
@@ -173,20 +186,32 @@ def operation_source(
 
 def _pages_text(file_id: int, pages: Iterable[int]) -> str:
     # Sayfa numarası kullanıcının gördüğü gibi 1'den başlar.
-    return f"dosya {file_id}, sayfa " + ", ".join(str(index + 1) for index in pages)
+    return Translatable(
+        N_("dosya {file}, sayfa {pages}"),
+        file=file_id,
+        pages=", ".join(str(index + 1) for index in pages),
+    )
 
 
 def _operation_source_text(source: OperationSource) -> str:
-    kind = "biçimi tanınmadı" if source.kind is None else source.kind.value
+    kind = Translatable(N_("biçimi tanınmadı")) if source.kind is None else source.kind.value
     if not source.pages:
-        return f"dosya {source.file_id} ({kind}, bütün dosya)"
+        return Translatable(
+            N_("dosya {file} ({kind}, bütün dosya)"), file=source.file_id, kind=kind
+        )
     if source.whole:
-        coverage = "dosyanın tüm sayfaları"
+        coverage = Translatable(N_("dosyanın tüm sayfaları"))
     elif source.contiguous:
-        coverage = "dosyanın ardışık alt kümesi"
+        coverage = Translatable(N_("dosyanın ardışık alt kümesi"))
     else:
-        coverage = "dosyanın ardışık olmayan alt kümesi"
-    return f"{_pages_text(source.file_id, source.pages)} ({kind}, {coverage})"
+        coverage = Translatable(N_("dosyanın ardışık olmayan alt kümesi"))
+    # Yalnız yer tutuculu şablon: çevrilecek sözcüğü yok, katalogda değildir.
+    return Translatable(
+        "{pages} ({kind}, {coverage})",
+        pages=_pages_text(source.file_id, source.pages),
+        kind=kind,
+        coverage=coverage,
+    )
 
 
 DIRECT_OPERATIONS = frozenset({Operation.PASSTHROUGH, Operation.EXTRACT})
@@ -209,9 +234,13 @@ class DirectFileTypeMismatch:
 
     @property
     def reason(self) -> str:
-        return (
-            f"Direkt Belge: beklenen dosya türü {file_types_text(self.expected_file_types)}, gelen "
-            f"{file_types_text(self.received)}. Uygun formatta yeniden gönderin."
+        return Translatable(
+            N_(
+                "Direkt Belge: beklenen dosya türü {expected}, gelen {received}. Uygun formatta "
+                "yeniden gönderin."
+            ),
+            expected=file_types_text(self.expected_file_types),
+            received=file_types_text(self.received),
         )
 
 
@@ -230,7 +259,9 @@ class DirectOperationForbidden:
 
     @property
     def reason(self) -> str:
-        return f"Direkt Belge: {self.operation.value} bu tür için yapılamaz."
+        return Translatable(
+            N_("Direkt Belge: {operation} bu tür için yapılamaz."), operation=self.operation.value
+        )
 
 
 def check_direct_file_types(
@@ -285,10 +316,16 @@ class ConversionNotAllowed:
 
     @property
     def reason(self) -> str:
-        allowed = "/".join(conversion.value for conversion in self.allowed_conversions) or "boş"
-        return (
-            f"Dönüşüm izni yok (06.4.1): {self.operation.value} bu türün izinli dönüşümleri "
-            f"arasında değil (allowed_conversions: {allowed}). Belge dönüştürülmez."
+        allowed = "/".join(conversion.value for conversion in self.allowed_conversions) or (
+            Translatable(N_("boş"))
+        )
+        return Translatable(
+            N_(
+                "Dönüşüm izni yok (06.4.1): {operation} bu türün izinli dönüşümleri arasında "
+                "değil (allowed_conversions: {allowed}). Belge dönüştürülmez."
+            ),
+            operation=self.operation.value,
+            allowed=allowed,
         )
 
 
@@ -323,12 +360,20 @@ class PhotoRulesNotMet:
     def reason(self) -> str:
         parts: list[str] = []
         if self.failed:
-            parts.append(f"Fotoğraf kurallarına uymuyor (11.7.1): {'; '.join(self.failed)}.")
+            parts.append(
+                Translatable(
+                    N_("Fotoğraf kurallarına uymuyor (11.7.1): {rules}."),
+                    rules=join_text(self.failed, "; "),
+                )
+            )
         if self.unchecked:
             parts.append(
-                f"Fotoğraf kuralları değerlendirilmedi (11.7.1): {', '.join(self.unchecked)}."
+                Translatable(
+                    N_("Fotoğraf kuralları değerlendirilmedi (11.7.1): {rules}."),
+                    rules=join_text(self.unchecked, ", "),
+                )
             )
-        return " ".join(parts)
+        return join_text(parts)
 
 
 def check_photo_rules(
@@ -357,7 +402,7 @@ def check_photo_rules(
         if violation is not None:
             failed.append(_photo_rule_text(rule, violation))
         elif any(verdict is None for verdict in verdicts):
-            unchecked.append(rule.label)
+            unchecked.append(Translatable(rule.label))
     if not failed and not unchecked:
         return None
     return PhotoRulesNotMet(tuple(failed), tuple(unchecked))
@@ -367,5 +412,8 @@ def _photo_rule_text(rule: PhotoRuleSetting, verdict: PhotoRuleVerdict) -> str:
     # Çözünürlüğün notu sistemin kendi ölçümüdür (`measure_resolution`); öteki notlar yapay
     # zekânındır ve gerekçeye girmez.
     if rule.id == RESOLUTION_RULE and verdict.note is not None:
-        return f"{rule.label} ({verdict.note.rstrip('.')})"
-    return rule.label
+        # Yalnız yer tutuculu şablon; ölçüm notu kayıtta İngilizcedir (`measure_resolution`).
+        return Translatable(
+            "{rule} ({note})", rule=Translatable(rule.label), note=verdict.note.rstrip(".")
+        )
+    return Translatable(rule.label)

@@ -59,8 +59,8 @@ PASSPORT = "russian_passport"
 UPLOAD_ID = "u_kuyruk1"
 UNREADABLE_REASON = "Okunamayan alanlar: document_number"
 UNREADABLE_NOTES = (
-    "Belge numarası ve MRZ bölgesi bulanık, karakterler seçilemiyor. Karşılanmayan kabul "
-    "kriteri: MRZ iki satırı da okunabilir olmalı"
+    "Document number and MRZ zone are blurred, characters cannot be made out. Unmet acceptance "
+    "criterion: MRZ iki satırı da okunabilir olmalı"
 )
 
 

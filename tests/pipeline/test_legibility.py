@@ -49,7 +49,7 @@ PHOTO = "profile_picture"  # zorunlu alan yok
 REQUIRED = ("surname", "given_names", "date_of_birth", "document_number", "expiry_date")
 EDGE_CRITERION = "Kimlik sayfası tam görünür olmalı, kenarlar kesilmemiş"
 MRZ_CRITERION = "MRZ iki satırı da okunabilir olmalı"
-UNMET = "Karşılanmayan kabul kriteri:"
+UNMET = "Unmet acceptance criterion:"
 
 
 def _readings(*illegible: str, names: tuple[str, ...] = REQUIRED) -> dict[str, Any]:

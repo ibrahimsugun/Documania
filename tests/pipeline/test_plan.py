@@ -114,6 +114,7 @@ from tests.fixtures.gen import (
     photo_check_response,
 )
 from tests.matching.test_mrz import make_mrz
+from tests.recorded import source_document, source_events
 
 ROOT = Path(__file__).resolve().parents[2]
 RECORDINGS = ROOT / "tests" / "fixtures" / "ai" / "recordings"
@@ -381,7 +382,9 @@ def _plan(
     catalog: Catalog = CATALOG,
     **kwargs: Any,
 ) -> PlanDocument:
-    return read_plan(create_plan(session, layout, upload, catalog=catalog, model=MODEL, **kwargs))
+    # 10.10.6: gerekçe kayıtta İngilizcedir; testler içeriği kaynak dilde (Türkçe) karşılaştırır.
+    plan = create_plan(session, layout, upload, catalog=catalog, model=MODEL, **kwargs)
+    return source_document(session, read_plan(plan))
 
 
 def _item(
@@ -440,7 +443,8 @@ def _events(session: Session, event_type: EventType | None = None) -> list[Event
     query = select(Event).order_by(Event.id)
     if event_type is not None:
         query = query.where(Event.type == event_type)
-    return list(session.scalars(query))
+    # 10.10.6: olay mesajı kayıtta İngilizcedir; içerik kaynak dilde karşılaştırılır.
+    return source_events(session, session.scalars(query))
 
 
 def _assert_no_personal_values(session: Session) -> None:
@@ -1289,7 +1293,7 @@ def test_every_verdict_sending_the_document_to_a_queue_is_in_the_reason(
     # Okunamayan alan kuyruğu seçer (K1); karşılanmayan kabul kriteri ve yalnız isim eşleşmesi
     # gerekçeye sırayla eklenir (08.1.2).
     _employee(session, born=date(1980, 1, 1))
-    passport = _illegible_expiry(_passport(notes=f"Karşılanmayan kabul kriteri: {UNMET_MRZ}"))
+    passport = _illegible_expiry(_passport(notes=f"Unmet acceptance criterion: {UNMET_MRZ}"))
     upload = _upload(session, layout, _pdf(passport))
 
     (item,) = _plan(session, layout, upload).items
@@ -1306,7 +1310,7 @@ def test_unmet_acceptance_criterion_alone_goes_to_unresolved(
     session: Session, layout: DataLayout
 ) -> None:
     upload = _upload(
-        session, layout, _pdf(_passport(notes=f"Karşılanmayan kabul kriteri: {UNMET_MRZ}"))
+        session, layout, _pdf(_passport(notes=f"Unmet acceptance criterion: {UNMET_MRZ}"))
     )
 
     (item,) = _plan(session, layout, upload).items
@@ -2956,7 +2960,7 @@ def test_failed_validations_are_written_in_their_order_after_the_gate_and_before
     # eklenir. Her geçmeyen doğrulama kendi olayını yazar.
     _employee(session, born=date(1980, 1, 1))
     catalog = _catalog_with(PASSPORT, expected_file_types=["pdf"])
-    passport = _illegible_expiry(_passport(notes=f"Karşılanmayan kabul kriteri: {UNMET_MRZ}"))
+    passport = _illegible_expiry(_passport(notes=f"Unmet acceptance criterion: {UNMET_MRZ}"))
     passport["person"]["date_of_birth"] = "2031-01-01"
     passport["fields"]["date_of_birth"] = {"value": "2031-01-01", "legible": True}
     upload = _upload(session, layout, _image(passport))
@@ -3277,14 +3281,14 @@ def test_photo_below_the_minimum_resolution_names_the_measured_size(
     # Çözünürlüğün notu sistemin kendi ölçümüdür ve gerekçeye girer; yapay zekânın notu girmez.
     check = _photo_check(min_resolution="fail", single_person="fail")
     check["rules"][1]["note"] = "Arka planda ORNEKOVA yazan bir kişi var."
-    check["rules"][4]["note"] = "300×400 piksel; asgari 400×400."
+    check["rules"][4]["note"] = "300×400 px; minimum 400×400."
     file_id, upload = _photo_with_owner(session, layout, check)
 
     photo, _ = _plan(session, layout, upload).items
 
     assert photo.route_reason == (
-        "Fotoğraf kurallarına uymuyor (11.7.1): Tek kişi; Asgari çözünürlük (300×400 piksel; "
-        "asgari 400×400)."
+        "Fotoğraf kurallarına uymuyor (11.7.1): Tek kişi; Asgari çözünürlük (300×400 px; "
+        "minimum 400×400)."
     )
     _assert_no_personal_values(session)
 

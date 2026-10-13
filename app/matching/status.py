@@ -42,7 +42,7 @@ REASON_MAX_LENGTH = 200
 # Pasif çalışanla eşleşen öğenin gerekçe kodu (§20.2.2 notu, R7): gerekçe metninde durur, kuyruk
 # öğesinin detayı onu tanıyıp çalışanın profiline bağlantı verir.
 INACTIVE_EMPLOYEE_CODE = "inactive_employee"
-INACTIVE_EMPLOYEE_REASON = (
+INACTIVE_EMPLOYEE_REASON = N_(
     "Pasif çalışan ({employee_id}) ile eşleşti ({code}): belge otomatik yerleşmez (R7); öğeyi bir "
     "çalışana atayın ya da çalışanı etkinleştirip partiyi yeniden analiz edin."
 )
@@ -95,7 +95,9 @@ def status_suffix(status: str) -> str:
 
 def inactive_employee_reason(employee_id: str) -> str:
     """Pasif çalışanla eşleşen öğenin gerekçesi: kod ve E numarası, kişisel değer yok (08.1.2)."""
-    return INACTIVE_EMPLOYEE_REASON.format(employee_id=employee_id, code=INACTIVE_EMPLOYEE_CODE)
+    return Translatable(
+        INACTIVE_EMPLOYEE_REASON, employee_id=employee_id, code=INACTIVE_EMPLOYEE_CODE
+    )
 
 
 def is_inactive_employee_reason(reason: str | None) -> bool:

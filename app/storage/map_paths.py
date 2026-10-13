@@ -24,6 +24,7 @@ import os
 import re
 from pathlib import Path
 
+from app.i18n import N_
 from app.storage.atomic import is_partial_write
 
 MAP_FILE_SUFFIXES = frozenset({".pdf", ".jpg", ".jpeg", ".png"})
@@ -46,13 +47,14 @@ class UnsafePathReason(enum.StrEnum):
     INVALID = "invalid"
 
 
+# Etiket eğitim öğesinin notuna da girer; kayıtta İngilizce, panelde kullanıcının dilinde (10.10.6).
 UNSAFE_PATH_LABELS: dict[UnsafePathReason, str] = {
-    UnsafePathReason.ABSOLUTE: "mutlak yol",
-    UnsafePathReason.DRIVE: "sürücü harfi",
-    UnsafePathReason.UNC: "UNC yolu",
-    UnsafePathReason.PARENT: "`..` parçası",
-    UnsafePathReason.ESCAPE: "kökün dışına çıkıyor",
-    UnsafePathReason.INVALID: "geçersiz yol",
+    UnsafePathReason.ABSOLUTE: N_("mutlak yol"),
+    UnsafePathReason.DRIVE: N_("sürücü harfi"),
+    UnsafePathReason.UNC: N_("UNC yolu"),
+    UnsafePathReason.PARENT: N_("`..` parçası"),
+    UnsafePathReason.ESCAPE: N_("kökün dışına çıkıyor"),
+    UnsafePathReason.INVALID: N_("geçersiz yol"),
 }
 
 

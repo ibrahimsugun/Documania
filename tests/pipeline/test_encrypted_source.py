@@ -72,6 +72,7 @@ from tests.pipeline.test_execute_output import (
 )
 from tests.pipeline.test_plan import PERMIT, _count, _events
 from tests.pipeline.test_process_upload import CATALOG, RECORDINGS, _received_upload
+from tests.recorded import source_document, source_text
 
 SETTINGS = Settings(_env_file=None, database_url="sqlite://")
 PERMIT_NAME = "Test_Ornekova-Work-Permit.pdf"
@@ -105,7 +106,7 @@ def _run(session: Session, layout: DataLayout, plan: Plan) -> None:
         session,
         layout,
         plan,
-        read_plan(plan),
+        source_document(session, read_plan(plan)),
         render_image_dpi=SETTINGS.render_image_dpi,
         render_image_jpeg_quality=SETTINGS.render_image_jpeg_quality,
     )
@@ -249,7 +250,12 @@ def test_owner_locked_aes_extract_goes_to_unreadable_and_the_plain_item_is_appli
         f"{ENCRYPTED_REASON}: dosya {locked.id}, istenen işlem extract — sahip parolalı (AES), "
         "pypdf sayfaları çözemiyor; şifre kaldırılmaz, dosya yeniden yazılmaz (K11)."
     )
-    assert (queued.kind, queued.plan_id, queued.plan_item_id, queued.reason) == (
+    assert (
+        queued.kind,
+        queued.plan_id,
+        queued.plan_item_id,
+        source_text(session, queued.reason),
+    ) == (
         "unreadable",
         plan.id,
         "i1",
@@ -273,7 +279,11 @@ def test_owner_locked_aes_extract_goes_to_unreadable_and_the_plain_item_is_appli
     assert (unreadable / "resmi.pdf").read_bytes() == AES_PDF
     assert layout.resolve(locked.stored_path).read_bytes() == AES_PDF
     (entry,) = _reason_json(layout)["items"]
-    assert (entry["plan_item_id"], entry["reason"], entry["encrypted_source"]) == (
+    assert (
+        entry["plan_item_id"],
+        source_text(session, entry["reason"]),
+        entry["encrypted_source"],
+    ) == (
         "i1",
         reason,
         encrypted_source,
@@ -331,7 +341,7 @@ def test_encrypted_merge_source_goes_to_unreadable_and_the_plain_item_is_applied
 
     (queued,) = session.scalars(select(QueueItem)).all()
     assert (queued.kind, queued.plan_item_id) == ("unreadable", "i1")
-    assert queued.reason.startswith(
+    assert source_text(session, queued.reason).startswith(
         f"{ENCRYPTED_REASON}: dosya {locked.id}, istenen işlem merge — {text}"
     )
     assert queued.payload_json is not None
@@ -564,13 +574,15 @@ def test_an_upload_with_an_owner_locked_passport_ends_done_with_the_passport_in_
     assert plan is not None
     assert (result.status, result.failed_stage) == (UploadStatus.DONE, None)
     assert _events(session, EventType.PIPELINE_FAILED) == []
-    items = {item.item_id: item for item in read_plan(plan).items}
+    items = {item.item_id: item for item in source_document(session, read_plan(plan)).items}
     passport_item = next(item for item in items.values() if item.sources[0].file_id == 1)
     assert (passport_item.route, passport_item.operation) == (Route.READY, Operation.EXTRACT)
     # Pasaport Unreadable'da, gerekçesiyle; ön/arka yüz birleştirilip yazıldı.
     (queued,) = session.scalars(select(QueueItem)).all()
     assert (queued.kind, queued.plan_item_id) == ("unreadable", passport_item.item_id)
-    assert queued.reason.startswith(f"{ENCRYPTED_REASON}: dosya 1, istenen işlem extract")
+    assert source_text(session, queued.reason).startswith(
+        f"{ENCRYPTED_REASON}: dosya 1, istenen işlem extract"
+    )
     assert _files(layout.queue_dir("unreadable", upload.id)) == ["pasaport.pdf", "reason.json"]
     (output,) = session.scalars(select(Document)).all()
     assert output.source_refs_json == [

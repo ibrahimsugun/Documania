@@ -533,7 +533,7 @@ class MatchRule(enum.StrEnum):
 
 
 # §20.2.2 satır 5'in gerekçesi, PRD'deki yazımıyla.
-NAME_ONLY_REASON = "İsim eşleşti ama doğum tarihi veya belge numarası doğrulanamadı"
+NAME_ONLY_REASON = N_("İsim eşleşti ama doğum tarihi veya belge numarası doğrulanamadı")
 
 _MATCHED_BY = {
     MatchRule.DOCUMENT_NUMBER: MatchedBy.DOCUMENT_NUMBER,
@@ -595,30 +595,51 @@ class EmployeeMatch:
         employees = ", ".join(self.employee_ids)
         match self.rule:
             case MatchRule.CONFLICTING_KEY:
-                return (
-                    "Kişi anahtarı çelişkili: adayın sayfaları şu alanları farklı okuyor: "
-                    f"{', '.join(self.conflicts)}. Çalışan otomatik eşleştirilmez."
+                return Translatable(
+                    N_(
+                        "Kişi anahtarı çelişkili: adayın sayfaları şu alanları farklı okuyor: "
+                        "{fields}. Çalışan otomatik eşleştirilmez."
+                    ),
+                    fields=", ".join(self.conflicts),
                 )
             case MatchRule.DOCUMENT_NUMBER_AMBIGUOUS:
-                return (
-                    f"Belirsiz eşleşme: belge numarası birden fazla çalışana ait ({employees}). "
-                    "Çalışan otomatik eşleştirilmez."
+                return Translatable(
+                    N_(
+                        "Belirsiz eşleşme: belge numarası birden fazla çalışana ait "
+                        "({employees}). Çalışan otomatik eşleştirilmez."
+                    ),
+                    employees=employees,
                 )
             case MatchRule.NAME_DOB_AMBIGUOUS:
-                return (
-                    "Belirsiz eşleşme: ad-soyad ve doğum tarihi birden fazla çalışana uyuyor "
-                    f"({employees}). Çalışan otomatik eşleştirilmez."
+                return Translatable(
+                    N_(
+                        "Belirsiz eşleşme: ad-soyad ve doğum tarihi birden fazla çalışana uyuyor "
+                        "({employees}). Çalışan otomatik eşleştirilmez."
+                    ),
+                    employees=employees,
                 )
             case MatchRule.NAME_AMBIGUOUS:
-                return (
-                    "Belirsiz eşleşme: belgede doğum tarihi yok, ad-soyad birden fazla çalışana "
-                    f"uyuyor ({employees}). Çalışan otomatik eşleştirilmez."
+                return Translatable(
+                    N_(
+                        "Belirsiz eşleşme: belgede doğum tarihi yok, ad-soyad birden fazla "
+                        "çalışana uyuyor ({employees}). Çalışan otomatik eşleştirilmez."
+                    ),
+                    employees=employees,
                 )
             case MatchRule.NAME_ONLY:
-                label = "çalışan" if len(self.employee_ids) == 1 else "çalışanlar"
-                return (
-                    f"{NAME_ONLY_REASON}. İsmi eşleşen {label}: {employees}. Yalnız isim "
-                    "eşleşmesi otomatik eşleştirme sayılmaz (R8)."
+                template = (
+                    N_(
+                        "{reason}. İsmi eşleşen çalışan: {employees}. Yalnız isim eşleşmesi "
+                        "otomatik eşleştirme sayılmaz (R8)."
+                    )
+                    if len(self.employee_ids) == 1
+                    else N_(
+                        "{reason}. İsmi eşleşen çalışanlar: {employees}. Yalnız isim eşleşmesi "
+                        "otomatik eşleştirme sayılmaz (R8)."
+                    )
+                )
+                return Translatable(
+                    template, reason=Translatable(NAME_ONLY_REASON), employees=employees
                 )
             case _:
                 return None
@@ -907,14 +928,14 @@ def _profile_name(key: PersonKey) -> _ProfileName | str:
     # Ad-soyad okunmuş, Latin yazımı var (05.2.2) ve klasör adı veriyorsa çalışan kaydına yazılacak
     # Latin değerleri, değilse kişisel değer taşımayan sorun.
     if key.given_names is None or key.surname is None or key.normalized_name is None:
-        return "ad-soyad okunmadı"
+        return Translatable(N_("ad-soyad okunmadı"))
     given_names, surname = key.latin_given_names, key.latin_surname
     if given_names is None or surname is None:
-        return LATIN_MISSING
+        return Translatable(LATIN_MISSING)
     try:
         person_slug(given_names, surname)
     except SlugError:
-        return "ad-soyad klasör adına çevrilemiyor (K8)"
+        return Translatable(N_("ad-soyad klasör adına çevrilemiyor (K8)"))
     return _ProfileName(given_names, surname, key.normalized_name)
 
 
@@ -943,20 +964,28 @@ class UnmatchedRule(enum.StrEnum):
     INCOMPLETE_PERSON = "incomplete_person"  # tabloda yok: D9, D10
 
 
-PENDING_PROFILE_REASON = (
-    "Onay bekleyen profil: kayıtlı çalışanla eşleşme yok, temiz belge numarası yok (§20.2.3) ve "
-    "doğum tarihi yeni çalışan açmaya yetmiyor (§20.2.4: türün zorunlu alanı değil, okunmadı, "
-    "sayfalar arasında çelişiyor ya da doğrulanmadı). Yeni çalışan yalnız onayla açılır (K7)."
+PENDING_PROFILE_REASON = Translatable(
+    N_(
+        "Onay bekleyen profil: kayıtlı çalışanla eşleşme yok, temiz belge numarası yok (§20.2.3) "
+        "ve doğum tarihi yeni çalışan açmaya yetmiyor (§20.2.4: türün zorunlu alanı değil, "
+        "okunmadı, sayfalar arasında çelişiyor ya da doğrulanmadı). Yeni çalışan yalnız onayla "
+        "açılır (K7)."
+    )
 )
 # 05.2.2: ad-soyad okundu ama Latin yazımı ne belgede basılı, ne MRZ'de var, ne Kiril çevirisiyle
 # bulunuyor; temiz numara olsa da çalışan otomatik açılmaz.
-LATIN_MISSING = "Latin yazım belgede yok"
-PENDING_PROFILE_LATIN_REASON = (
-    f"Onay bekleyen profil: {LATIN_MISSING}. Ad-soyad yalnız Latin olmayan alfabeyle okundu ve "
-    "tahminle çevrilmez (05.2.2); İK onayda Latin adı yazar. Yeni çalışan yalnız onayla açılır "
-    "(K7)."
+LATIN_MISSING = N_("Latin yazım belgede yok")
+PENDING_PROFILE_LATIN_REASON = Translatable(
+    N_(
+        "Onay bekleyen profil: {missing}. Ad-soyad yalnız Latin olmayan alfabeyle okundu ve "
+        "tahminle çevrilmez (05.2.2); İK onayda Latin adı yazar. Yeni çalışan yalnız onayla "
+        "açılır (K7)."
+    ),
+    missing=Translatable(LATIN_MISSING),
 )
-NO_PERSON_REASON = "Kişi tespit edilemedi: belgede ne ad-soyad ne belge numarası okundu."
+NO_PERSON_REASON = Translatable(
+    N_("Kişi tespit edilemedi: belgede ne ad-soyad ne belge numarası okundu.")
+)
 
 
 class PendingProfileRefusedError(ValueError):
@@ -1065,9 +1094,12 @@ class UnmatchedResolution:
             case UnmatchedRule.NO_PERSON:
                 return NO_PERSON_REASON
             case UnmatchedRule.INCOMPLETE_PERSON:
-                return (
-                    f"Kişi eksik okundu: kayıtlı çalışanla eşleşme yok, {self.detail}. "
-                    "Yeni çalışan açılmaz, profil önerilmez."
+                return Translatable(
+                    N_(
+                        "Kişi eksik okundu: kayıtlı çalışanla eşleşme yok, {detail}. Yeni çalışan "
+                        "açılmaz, profil önerilmez."
+                    ),
+                    detail=self.detail,
                 )
             case _:
                 return None
@@ -1119,10 +1151,12 @@ def resolve_unmatched(
     )
     if read_nothing:
         return UnmatchedResolution(UnmatchedRule.NO_PERSON)
-    numbered = "var" if number is not None else "yok"
-    return UnmatchedResolution(
-        UnmatchedRule.INCOMPLETE_PERSON, detail=f"{name}, temiz belge numarası {numbered}"
+    detail = (
+        Translatable(N_("{problem}, temiz belge numarası var"), problem=name)
+        if number is not None
+        else Translatable(N_("{problem}, temiz belge numarası yok"), problem=name)
     )
+    return UnmatchedResolution(UnmatchedRule.INCOMPLETE_PERSON, detail=detail)
 
 
 def propose_pending_profile(

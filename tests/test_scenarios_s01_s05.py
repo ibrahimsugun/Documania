@@ -82,6 +82,7 @@ from tests.fixtures.gen import (
     unknown_document_page,
     work_permit_page,
 )
+from tests.recorded import source_document, source_events, source_text, source_value
 
 CATALOG = load_seed_catalog()
 SETTINGS = Settings(_env_file=None, database_url="sqlite://")
@@ -208,12 +209,12 @@ def _register_employee(
 def _items(session: Session, upload: Upload) -> tuple[PlanItem, ...]:
     plan = current_plan(session, upload)
     assert plan is not None
-    return read_plan(plan).items
+    return source_document(session, read_plan(plan)).items
 
 
 def _events(session: Session, upload: Upload) -> list[Event]:
     query = select(Event).where(Event.upload_id == upload.id).order_by(Event.id)
-    return list(session.scalars(query))
+    return source_events(session, session.scalars(query))
 
 
 def _chain(events: Sequence[Event]) -> list[tuple[EventType, int | None, int | None]]:
@@ -569,7 +570,9 @@ def test_s3_interleaved_pdf_splits_documents_and_queues_the_license_pieces(
     unresolved = layout.queue_dir("unresolved", upload.id)
     assert _names(unresolved) == ["belgeler.pdf", "reason.json"]
     assert (unresolved / "belgeler.pdf").read_bytes() == content
-    reason = json.loads((unresolved / "reason.json").read_text(encoding="utf-8"))
+    reason = source_value(
+        session, json.loads((unresolved / "reason.json").read_text(encoding="utf-8"))
+    )
     assert json.dumps(reason, ensure_ascii=False).count(R6_REASON) == 2
     assert layout.resolve(upload.files[0].stored_path).read_bytes() == content
     _assert_no_personal_values(_events(session, upload), SIDOROV_PERSONAL)
@@ -697,7 +700,7 @@ def test_s3_without_a_registered_employee_the_photo_stays_queued_and_hr_assigns_
         pytest.param(
             lambda: profile_picture_page(size=(300, 400)),
             ((300, 400), 1),
-            "Fotoğraf kurallarına uymuyor (11.7.1): Asgari çözünürlük (300×400 piksel; asgari "
+            "Fotoğraf kurallarına uymuyor (11.7.1): Asgari çözünürlük (300×400 px; minimum "
             "400×400).",
             id="dusuk-cozunurluk",
         ),
@@ -728,7 +731,7 @@ def test_s4_photo_breaking_a_rule_stays_out_of_hazir_and_is_not_changed(
     assert (license_item.route, residence_item.route) == (Route.READY, Route.READY)
     assert _names(layout.ready_dir(SIDOROV_FOLDER)) == [LICENSE_OUTPUT, RESIDENCE_OUTPUT]
     queued = _queued(session, upload)["i2"]
-    assert (queued.kind, queued.reason) == ("unresolved", reason)
+    assert (queued.kind, source_text(session, queued.reason)) == ("unresolved", reason)
     (queued_event,) = [
         event
         for event in _events(session, upload)

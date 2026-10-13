@@ -33,6 +33,7 @@ from app.training import create_run, leave_unplaced, load_known_types, place_exa
 from app.training.cleanup import DISMISSED_NOTE, NOT_DISMISSABLE, NOT_DISMISSED, NOTE_TOO_LONG
 from app.web.routers.training import get_training_provider_problem
 from tests.fixtures.gen import make_half_filled_image_bytes
+from tests.recorded import source_notes
 from tests.training.invariants import assert_employee_data_untouched
 from tests.web.conftest import SIGNED_IN
 from tests.web.flash import flashed
@@ -125,6 +126,8 @@ def _item(session_factory: sessionmaker[Session], item_id: int) -> TrainingItem:
     with session_factory() as session:
         item = session.get(TrainingItem, item_id)
         assert item is not None
+        # 10.10.6: not kayıtta İngilizce; test kaynağını (Türkçe) okur.
+        source_notes(session, [item])
         session.expunge(item)
         return item
 

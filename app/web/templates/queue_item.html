@@ -31,7 +31,7 @@
   </dd>
   <dt>{{ _("Belge türü") }}</dt><dd>{{ item.type_name or _("Belirlenmedi") }}</dd>
   <dt>{{ _("Kişi tahmini") }}</dt><dd>{{ translate(item.employee_guess) or "—" }}</dd>
-  <dt>{{ _("Gerekçe") }}</dt><dd class="reason-text" translate="no">{{ item.reason }}</dd>
+  <dt>{{ _("Gerekçe") }}</dt><dd class="reason-text"{{ recorded_attrs(item.reason) }}>{{ recorded(item.reason) }}</dd>
 </dl>
 {# 10.11.2: bekleyen öğede kuyruk türüne göre önerilen adımlar, sırayla; bağlantı kararın verileceği
    bölüme (#new-profile, #assign, #close) ya da sayfaya gider. Salt okunur Kullanıcı (10.1.8) yazma
@@ -164,7 +164,7 @@
       <span class="event-type">{{ event.type }}</span>
       <span class="actor">{{ event.actor }}</span>
       {% if event.place %}<span class="place">{{ translate(event.place) }}</span>{% endif %}
-      {% if event.message %}<span class="message" translate="no">{{ event.message }}</span>{% endif %}
+      {% if event.message %}<span class="message"{{ recorded_attrs(event.message) }}>{{ recorded(event.message) }}</span>{% endif %}
     </li>
     {% endfor %}
   </ol>

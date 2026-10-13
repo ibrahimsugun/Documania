@@ -60,6 +60,7 @@ from typing import ClassVar, Protocol
 from app.ai.schemas import Side
 from app.catalog import CatalogEntry, FileType, FrontBackLayout, Sides
 from app.db.models import QueueKind
+from app.i18n import N_, Translatable, join_text
 from app.matching.context import ContextPersonBasis, ContextPersonResult, ContextPersonVerdict
 from app.matching.match import MAX_AGE, MIN_AGE, dob_plausible
 from app.matching.mrz import MrzStatus, apply_mrz_priority
@@ -79,10 +80,10 @@ LAYOUT_SIDES = {
 }
 # Gerekçedeki düzen adları.
 LAYOUT_REASON_TEXTS = {
-    FrontBackLayout.SEPARATE: (
-        "ön ve arka ayrı sayfalarda, önce ön sonra arka (separate: front, back)"
+    FrontBackLayout.SEPARATE: Translatable(
+        N_("ön ve arka ayrı sayfalarda, önce ön sonra arka (separate: front, back)")
     ),
-    FrontBackLayout.COMBINED: "iki yüz tek sayfada (combined: front_and_back)",
+    FrontBackLayout.COMBINED: Translatable(N_("iki yüz tek sayfada (combined: front_and_back)")),
 }
 
 
@@ -189,21 +190,46 @@ class SidesMismatch:
 
     @property
     def reason(self) -> str:
-        faces = "; ".join(
-            f"dosya {page.file_id}, sayfa {page.index + 1}: {side.value}"
-            for page, side in zip(self.pages, self.sides, strict=True)
+        faces = join_text(
+            (
+                Translatable(
+                    N_("dosya {file}, sayfa {pages}: {side}"),
+                    file=page.file_id,
+                    pages=page.index + 1,
+                    side=side.value,
+                )
+                for page, side in zip(self.pages, self.sides, strict=True)
+            ),
+            "; ",
         )
-        accepted = " ya da ".join(LAYOUT_REASON_TEXTS[layout] for layout in self.layouts)
-        which = "yalnız şu düzeni" if len(self.layouts) == 1 else "şu düzenleri"
+        texts = [LAYOUT_REASON_TEXTS[layout] for layout in self.layouts]
+        accepted = (
+            Translatable(N_("{first} ya da {second}"), first=texts[0], second=texts[1])
+            if len(texts) == 2
+            else join_text(texts)
+        )
+        which = (
+            Translatable(N_("yalnız şu düzeni"))
+            if len(self.layouts) == 1
+            else Translatable(N_("şu düzenleri"))
+        )
         layout = self.layout
         received = (
-            "hiçbir düzene uymuyor (eksik, fazla ya da sırası ters yüz)"
+            Translatable(N_("hiçbir düzene uymuyor (eksik, fazla ya da sırası ters yüz)"))
             if layout is None
-            else f"{LAYOUT_REASON_TEXTS[layout]}, tür bu düzeni kabul etmiyor"
+            else Translatable(
+                N_("{layout}, tür bu düzeni kabul etmiyor"), layout=LAYOUT_REASON_TEXTS[layout]
+            )
         )
-        return (
-            f"Yüz doğrulaması (06.5.1, sides): tür {which} kabul ediyor: {accepted}. "
-            f"Gelen düzen {received}; bu adayın yüzleri: {faces}."
+        return Translatable(
+            N_(
+                "Yüz doğrulaması (06.5.1, sides): tür {which} kabul ediyor: {accepted}. Gelen "
+                "düzen {received}; bu adayın yüzleri: {faces}."
+            ),
+            which=which,
+            accepted=accepted,
+            received=received,
+            faces=faces,
         )
 
 
@@ -239,13 +265,22 @@ class DirectSourceNotSingle:
     def reason(self) -> str:
         findings: list[str] = []
         if len(self.file_ids) != 1:
-            findings.append(f"belgenin sayfaları {len(self.file_ids)} kaynak dosyadan geliyor")
+            findings.append(
+                Translatable(
+                    N_("belgenin sayfaları {count} kaynak dosyadan geliyor"),
+                    count=len(self.file_ids),
+                )
+            )
         findings.extend(
-            f"{_pages_text(file_id, pages)} ardışık değil" for file_id, pages in self.scattered
+            Translatable(N_("{pages} ardışık değil"), pages=_pages_text(file_id, pages))
+            for file_id, pages in self.scattered
         )
-        return (
-            "Direkt Belge tek kaynak doğrulaması (06.5.1, direct_single_source): çıktı tek kaynak "
-            f"dosyanın ardışık sayfalarından oluşur (K3); {'; '.join(findings)}."
+        return Translatable(
+            N_(
+                "Direkt Belge tek kaynak doğrulaması (06.5.1, direct_single_source): çıktı tek "
+                "kaynak dosyanın ardışık sayfalarından oluşur (K3); {findings}."
+            ),
+            findings=join_text(findings, "; "),
         )
 
 
@@ -282,10 +317,13 @@ class FileTypeMismatch:
 
     @property
     def reason(self) -> str:
-        return (
-            f"Dosya türü doğrulaması (06.5.1, file_type): beklenen dosya türü "
-            f"{file_types_text(self.expected_file_types)}, gelen {file_types_text(self.received)}. "
-            "Uygun formatta yeniden gönderin."
+        return Translatable(
+            N_(
+                "Dosya türü doğrulaması (06.5.1, file_type): beklenen dosya türü {expected}, gelen "
+                "{received}. Uygun formatta yeniden gönderin."
+            ),
+            expected=file_types_text(self.expected_file_types),
+            received=file_types_text(self.received),
         )
 
 
@@ -316,8 +354,12 @@ def check_file_type(
 
 def file_types_text(file_types: Iterable[FileType | None]) -> str:
     """Gerekçedeki biçim listesi: `/` ile (virgül gerekçenin cümlesiyle karışır, C32)."""
-    return "/".join(
-        "tanınmayan biçim" if file_type is None else file_type.value for file_type in file_types
+    return join_text(
+        (
+            Translatable(N_("tanınmayan biçim")) if file_type is None else file_type.value
+            for file_type in file_types
+        ),
+        "/",
     )
 
 
@@ -339,10 +381,19 @@ class MrzPageFailure:
 
     @property
     def text(self) -> str:
-        where = f"dosya {self.page.file_id}, sayfa {self.page.index + 1}"
+        where = Translatable(
+            N_("dosya {file}, sayfa {pages}"), file=self.page.file_id, pages=self.page.index + 1
+        )
         if self.invalid:
-            return f"{where}: izin verilmeyen karakter var, kontrol haneleri doğrulanamadı"
-        return f"{where}: tutmayan kontrol haneleri {', '.join(self.failed_checks)}"
+            return Translatable(
+                N_("{where}: izin verilmeyen karakter var, kontrol haneleri doğrulanamadı"),
+                where=where,
+            )
+        return Translatable(
+            N_("{where}: tutmayan kontrol haneleri {checks}"),
+            where=where,
+            checks=", ".join(self.failed_checks),
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -359,10 +410,12 @@ class MrzChecksumFailure:
 
     @property
     def reason(self) -> str:
-        described = "; ".join(page.text for page in self.pages)
-        return (
-            f"MRZ kontrol hanesi doğrulaması (06.5.1, mrz_checksum): {described}. Kontrol hanesi "
-            "tutmayan MRZ geçersiz sayılır."
+        return Translatable(
+            N_(
+                "MRZ kontrol hanesi doğrulaması (06.5.1, mrz_checksum): {pages}. Kontrol hanesi "
+                "tutmayan MRZ geçersiz sayılır."
+            ),
+            pages=join_text((page.text for page in self.pages), "; "),
         )
 
 
@@ -401,12 +454,17 @@ class ImplausibleDateOfBirth:
     @property
     def reason(self) -> str:
         if self.future:
-            finding = "geçmişte değil"
+            finding = Translatable(N_("geçmişte değil"))
         else:
-            finding = f"referans güne göre {MIN_AGE}–{MAX_AGE} yaş aralığı dışında"
-        return (
-            f"Doğum tarihi doğrulaması (06.5.1, dob_plausible): okunan doğum tarihi {finding}; "
-            "tarih yanlış okunmuş olabilir."
+            finding = Translatable(
+                N_("referans güne göre {low}–{high} yaş aralığı dışında"), low=MIN_AGE, high=MAX_AGE
+            )
+        return Translatable(
+            N_(
+                "Doğum tarihi doğrulaması (06.5.1, dob_plausible): okunan doğum tarihi {finding}; "
+                "tarih yanlış okunmuş olabilir."
+            ),
+            finding=finding,
         )
 
 
@@ -427,9 +485,9 @@ def check_dob_plausible(
 
 # Gerekçenin uyuşmayan adımı (PLAN.md §C83): değer değil, adım.
 CONTEXT_PERSON_FINDINGS = {
-    ContextPersonBasis.DOCUMENT_NUMBER: "belge numarası başka çalışanda",
-    ContextPersonBasis.DATE_OF_BIRTH: "doğum tarihi uyuşmuyor",
-    ContextPersonBasis.NAME: "ad uyuşmuyor",
+    ContextPersonBasis.DOCUMENT_NUMBER: Translatable(N_("belge numarası başka çalışanda")),
+    ContextPersonBasis.DATE_OF_BIRTH: Translatable(N_("doğum tarihi uyuşmuyor")),
+    ContextPersonBasis.NAME: Translatable(N_("ad uyuşmuyor")),
 }
 
 
@@ -447,9 +505,9 @@ class ContextPersonMismatch:
 
     @property
     def reason(self) -> str:
-        return (
-            "Profilden yüklenen belge bu profile ait görünmüyor (context_person): "
-            f"{CONTEXT_PERSON_FINDINGS[self.basis]}."
+        return Translatable(
+            N_("Profilden yüklenen belge bu profile ait görünmüyor (context_person): {finding}."),
+            finding=CONTEXT_PERSON_FINDINGS[self.basis],
         )
 
 
@@ -463,4 +521,8 @@ def check_context_person(verdict: ContextPersonVerdict) -> ContextPersonMismatch
 
 def _pages_text(file_id: int, pages: Iterable[int]) -> str:
     # Sayfa numarası kullanıcının gördüğü gibi 1'den başlar.
-    return f"dosya {file_id}, sayfa " + ", ".join(str(index + 1) for index in pages)
+    return Translatable(
+        N_("dosya {file}, sayfa {pages}"),
+        file=file_id,
+        pages=", ".join(str(index + 1) for index in pages),
+    )

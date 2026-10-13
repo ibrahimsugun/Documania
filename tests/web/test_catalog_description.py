@@ -206,8 +206,8 @@ def test_generated_description_fills_the_field_and_is_not_saved(
     assert 'id="description"' in page
     # Yapılandırılmış hâli ayrıca gösterilir.
     assert "<dt>Başlıklar</dt>" in page and "ПАСПОРТ / PASSPORT" in page
-    assert "<code>given_names</code> — soyadı satırının altında" in page
-    assert "2 satır, sayfanın altında, eş aralıklı yazıyla" in page
+    assert "<code>given_names</code> — below the surname line" in page
+    assert "2 satır, at the bottom of the page, in monospaced type" in page
     assert "Kiril, Latin" in page
     assert (
         "<code>foto.png</code> (s. 1), <code>sablon.pdf</code> (s. 1), "

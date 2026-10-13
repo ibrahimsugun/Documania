@@ -161,7 +161,7 @@
         <td>{{ item.operation or "—" }}</td>
         <td>{{ item.target_name or "—" }}</td>
         <td>{{ translate(item.employee) }}{% if item.name_only %} <span class="badge name-only">{{ _("Yalnız isimle eşleşti") }}</span>{% endif %}</td>
-        <td>{{ translate(item.route_label) }}{% if item.reason %}<div class="reason" translate="no">{{ item.reason }}</div>{% endif %}</td>
+        <td>{{ translate(item.route_label) }}{% if item.reason %}<div class="reason"{{ recorded_attrs(item.reason) }}>{{ recorded(item.reason) }}</div>{% endif %}</td>
         <td>
           {% for name, ok in item.validations %}<span class="check {{ 'check-ok' if ok else 'check-fail' }}">{{ '✓' if ok else '✗' }} {{ name }}</span> {% else %}—{% endfor %}
         </td>
@@ -215,7 +215,7 @@
       <tr id="queue-{{ row.id }}"{% if not row.current %} class="output-superseded"{% endif %}>
         <td>{% if row.url %}<a href="{{ row.url }}">{{ translate(row.kind_label) }}</a>{% else %}{{ translate(row.kind_label) }}{% endif %}</td>
         <td>{% if row.plan_version is not none %}{{ _("Sürüm %(version)s", version=row.plan_version) }}{% if not row.current %} {{ _("(eski sürüm)") }}{% endif %}{% else %}—{% endif %}{% if row.item_id %} · {{ row.item_id }}{% endif %}</td>
-        <td translate="no">{{ row.reason }}</td>
+        <td{{ recorded_attrs(row.reason) }}>{{ recorded(row.reason) }}</td>
         <td class="resolution">
           {%- if row.resolved %}{{ translate(row.resolved) }}
           {%- elif user.can_write %}<span class="next-step">{{ translate(row.hint) }}</span>
@@ -242,7 +242,7 @@
       <span class="event-type">{{ event.type }}</span>
       <span class="actor">{{ event.actor }}</span>
       {% if event.place %}<span class="place">{{ translate(event.place) }}</span>{% endif %}
-      {% if event.message %}<span class="message" translate="no">{{ event.message }}</span>{% endif %}
+      {% if event.message %}<span class="message"{{ recorded_attrs(event.message) }}>{{ recorded(event.message) }}</span>{% endif %}
     </li>
     {% endfor %}
   </ol>

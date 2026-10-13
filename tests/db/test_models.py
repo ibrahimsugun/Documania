@@ -73,6 +73,7 @@ BEYOND_SECTION_8_1_TABLES = {
     "upload_jobs",
     "employee_field_observations",
     "telegram_link_codes",  # 12.1.4, PLAN.md §D87
+    "recorded_texts",  # 10.10.6, PLAN.md §D121
 }
 
 

@@ -75,7 +75,7 @@
         <td>{% if item.result %}{% if item.result.url %}<a href="{{ item.result.url }}">{{ item.result.name }}</a>{% else %}{{ item.result.name or item.result.slug }}{% endif %}{% else %}—{% endif %}</td>
         <td class="cell-wrap2">{{ translate(item.method) or "—" }}</td>
         <td class="training-status cell-wrap2">{{ translate(item.status_label) }}</td>
-        <td class="reason-text" translate="no">{{ item.note or "—" }}</td>
+        <td class="reason-text"{{ recorded_attrs(item.note) }}>{{ recorded(item.note) or "—" }}</td>
         <td>
           {% if item.label_text %}<span class="badge{% if not item.manual_check %} badge-neutral{% endif %}">{{ translate(item.label_text) }}</span>{% endif %}
           {% if item.manual_check %}{% include "_manual_check.html" %}{% endif %}

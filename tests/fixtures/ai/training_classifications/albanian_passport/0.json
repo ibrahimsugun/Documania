@@ -4,5 +4,5 @@
   "doc_kind": "pasaport",
   "proposed_name": "Albanian Passport",
   "side": "single",
-  "notes": "Başlıkta ülke adı ve pasaport yazıyor; MRZ belge kodu P, veren devlet ALB."
+  "notes": "The heading shows the country name and passport; MRZ document code P, issuing state ALB."
 }

@@ -1156,8 +1156,10 @@ def test_the_approval_form_opens_filled_with_the_examination_proposal(
     assert _field(html, "required_fields") == (
         "surname, given_names, date_of_birth, document_number, expiry_date"
     )
-    assert _field(html, "prompt_description").startswith("Kart, yatay; ön yüzde fotoğraf solda")
-    assert "MRZ: 3 satır, arka yüzün altında." in _field(html, "prompt_description")
+    assert _field(html, "prompt_description").startswith(
+        "Card, landscape; on the front the photo is on the left"
+    )
+    assert "MRZ: 3 satır, bottom of the back side." in _field(html, "prompt_description")
     for criterion in PROPOSAL["acceptance_criteria"]:
         assert f'value="{criterion}"' in html
     # Kanıt taslağı ezdi (11.5.5): örnekler tek yüzlü PDF'tir.

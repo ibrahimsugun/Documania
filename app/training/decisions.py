@@ -36,12 +36,13 @@ from sqlalchemy.orm import Session
 from app.db.models import ExampleFileRecord, ExampleLabel, utcnow
 from app.events import EventType, record_event
 from app.i18n import N_, Translatable
+from app.i18n.recorded import append_text
 from app.storage import DataLayout
 from app.storage.examples import archive_example, example_path, find_example, relocate_example
 from app.training.known_types import KnownTypes
 from app.training.placement import UnknownTypeError
 
-REMOVED_NOTE = "İK örneklerden çıkardı; dosya eğitim arşivinde."
+REMOVED_NOTE = Translatable(N_("İK örneklerden çıkardı; dosya eğitim arşivinde."))
 
 
 class ExampleDecisionError(ValueError):
@@ -60,7 +61,9 @@ class MovedExample:
 
 
 def moved_note(from_slug: str, to_slug: str) -> str:
-    return f"İK başka türe taşıdı: `{from_slug}` → `{to_slug}`"
+    return Translatable(
+        N_("İK başka türe taşıdı: `{source}` → `{target}`"), source=from_slug, target=to_slug
+    )
 
 
 def verify_examples(
@@ -79,7 +82,9 @@ def verify_examples(
             session,
             EventType.TRAINING_LABEL_VERIFIED,
             actor=actor,
-            message=f"Eğitim örneği doğrulandı (`{example.type_slug}`).",
+            message=Translatable(
+                N_("Eğitim örneği doğrulandı (`{slug}`)."), slug=example.type_slug
+            ),
             data={
                 "example_file_id": example.id,
                 "training_item_id": example.training_item_id,
@@ -141,17 +146,21 @@ def move_example(
     example.type_slug = slug
     example.name = stored.path.name
     example.label = ExampleLabel.VERIFIED.value
-    example.note = _append(example.note, note)
+    example.note = append_text(session, example.note, note)
     item = example.training_item
     if item is not None:
         item.result_slug = slug
-        item.note = _append(item.note, note)
+        item.note = append_text(session, item.note, note)
     session.flush()
     record_event(
         session,
         EventType.TRAINING_EXAMPLE_MOVED,
         actor=actor,
-        message=f"Eğitim örneği `{from_slug}` türünden `{slug}` türüne taşındı.",
+        message=Translatable(
+            N_("Eğitim örneği `{source}` türünden `{target}` türüne taşındı."),
+            source=from_slug,
+            target=slug,
+        ),
         data={
             "example_file_id": example.id,
             "training_item_id": example.training_item_id,
@@ -182,16 +191,19 @@ def remove_example(
     example.removed_at = utcnow()
     example.removed_by = actor
     example.removed_path = layout.relative(stored.path)
-    example.note = _append(example.note, REMOVED_NOTE)
+    example.note = append_text(session, example.note, REMOVED_NOTE)
     item = example.training_item
     if item is not None:
-        item.note = _append(item.note, REMOVED_NOTE)
+        item.note = append_text(session, item.note, REMOVED_NOTE)
     session.flush()
     record_event(
         session,
         EventType.TRAINING_EXAMPLE_REMOVED,
         actor=actor,
-        message=f"Eğitim örneği `{example.type_slug}` örneklerinden çıkarıldı; arşive taşındı.",
+        message=Translatable(
+            N_("Eğitim örneği `{slug}` örneklerinden çıkarıldı; arşive taşındı."),
+            slug=example.type_slug,
+        ),
         data={
             "example_file_id": example.id,
             "training_item_id": example.training_item_id,
@@ -214,7 +226,3 @@ def _check_active(layout: DataLayout, example: ExampleFileRecord) -> None:
 def _require_actor(actor: str) -> None:
     if not actor.strip():
         raise ValueError("Etiket kararı kullanıcı adıyla loglanır: actor boş olamaz")
-
-
-def _append(note: str | None, addition: str) -> str:
-    return f"{note}; {addition}" if note else addition

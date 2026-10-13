@@ -62,6 +62,7 @@ from tests.pipeline.test_plan import (
     _person,
 )
 from tests.pipeline.test_plan import _upload as _upload_with_analyses
+from tests.recorded import source_document
 from tests.web.conftest import SESSION, SIGNED_IN, issue_token
 from tests.web.flash import hx_toasts
 from tests.web.test_queue import _queued_item, _refuse_provider
@@ -107,7 +108,7 @@ def _pending_items(
         page = _page(PERMIT, person=_person(document_number=SHORT_NUMBER))
         upload = _upload_with_analyses(session, layout, *(_pdf(page) for _ in range(count)))
         plan = create_plan(session, layout, upload, catalog=CATALOG, model=MODEL)
-        items = read_plan(plan).items
+        items = source_document(session, read_plan(plan)).items
         assert [item.employee.action.value for item in items] == ["pending"] * count
         ids = [route_queue_item(session, layout, plan, item).queue_item.id for item in items]
         session.commit()
@@ -769,7 +770,7 @@ def arabic_item_id(session_factory: sessionmaker[Session], layout: DataLayout) -
         page = _page(PERMIT, person=person, language="ar", script="arabic")
         upload = _upload_with_analyses(session, layout, _pdf(page))
         plan = create_plan(session, layout, upload, catalog=CATALOG, model=MODEL)
-        (item,) = read_plan(plan).items
+        (item,) = source_document(session, read_plan(plan)).items
         assert item.employee.action.value == "pending"
         queue_item_id = route_queue_item(session, layout, plan, item).queue_item.id
         session.commit()

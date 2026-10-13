@@ -43,6 +43,7 @@ from typing import ClassVar
 from app.ai.schemas import PageAnalysis
 from app.catalog import Catalog
 from app.db.models import QueueKind
+from app.i18n import N_, Translatable
 from app.pipeline.group import DocumentCandidate
 
 _NON_WORD = re.compile(r"[\W_]+")
@@ -65,7 +66,7 @@ class IllegibleRequiredFields:
     @property
     def reason(self) -> str:
         """Okunamayan alan adları; değer taşımaz."""
-        return f"Okunamayan alanlar: {', '.join(self.fields)}"
+        return Translatable(N_("Okunamayan alanlar: {fields}"), fields=", ".join(self.fields))
 
 
 @dataclass(frozen=True, slots=True)
@@ -83,7 +84,7 @@ class UnmetAcceptanceCriteria:
     def reason(self) -> str:
         """Karşılanmayan maddeler adlarıyla; madde katalog metnidir, kişisel değer taşımaz."""
         names = "; ".join(f'"{criterion}"' for criterion in self.criteria)
-        return f"Karşılanmayan kabul kriterleri: {names}"
+        return Translatable(N_("Karşılanmayan kabul kriterleri: {criteria}"), criteria=names)
 
 
 @dataclass(frozen=True, slots=True)

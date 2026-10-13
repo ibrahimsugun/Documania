@@ -74,6 +74,7 @@ from tests.fixtures.gen import (
     passport_page,
     unknown_document_page,
 )
+from tests.recorded import source_events, source_message
 from tests.training.invariants import assert_employee_data_untouched
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -166,8 +167,9 @@ def _apply(
 
 
 def _events(session: Session, event_type: EventType) -> list[Event]:
-    return list(
-        session.scalars(select(Event).where(Event.type == event_type.value).order_by(Event.id))
+    return source_events(
+        session,
+        session.scalars(select(Event).where(Event.type == event_type.value).order_by(Event.id)),
     )
 
 
@@ -369,14 +371,19 @@ def test_a_suggested_type_is_placed_with_the_ai_decision_label(
         "albanian_passport",
         note,
     )
-    assert (item.status, item.method, item.result_slug, item.note) == (
+    assert (item.status, item.method, item.result_slug, source_message(session, item.note)) == (
         "placed",
         "ai",
         "albanian_passport",
         note,
     )
     (example,) = session.scalars(select(ExampleFileRecord)).all()
-    assert (example.type_slug, example.method, example.label, example.note) == (
+    assert (
+        example.type_slug,
+        example.method,
+        example.label,
+        source_message(session, example.note),
+    ) == (
         "albanian_passport",
         "ai",
         "ai_decision",
@@ -418,7 +425,10 @@ def test_a_catalog_type_is_placed_with_the_ai_decision_label(
     )
 
     assert outcome.status == TrainingItemStatus.PLACED
-    assert item.note == "AI kararı: `russian_passport` (katalog türü, model sahte-model)"
+    assert (
+        source_message(session, item.note)
+        == "AI kararı: `russian_passport` (katalog türü, model sahte-model)"
+    )
     (example,) = session.scalars(select(ExampleFileRecord)).all()
     assert (example.type_slug, example.label) == ("russian_passport", "ai_decision")
     assert_employee_data_untouched(session, layout)
@@ -436,7 +446,7 @@ def test_the_expected_type_confirmed_by_the_ai_is_placed(
 
     assert outcome.status == TrainingItemStatus.PLACED
     assert item.result_slug == "turkish_passport"
-    assert item.note == (
+    assert source_message(session, item.note) == (
         "AI kararı: `turkish_passport` (ülke ve tür TUR/pasaport, model sahte-model)"
     )
 
@@ -478,7 +488,7 @@ def test_a_result_that_differs_from_the_expected_type_is_a_conflict(
         "albanian_passport",
         note,
     )
-    assert (item.status, item.method, item.result_slug, item.note) == (
+    assert (item.status, item.method, item.result_slug, source_message(session, item.note)) == (
         "conflict",
         "ai",
         "albanian_passport",
@@ -520,7 +530,7 @@ def test_a_map_row_is_named_in_the_conflict_note(
     _apply(session, layout, known, item, _answer(country_iso3="ALB", doc_kind="pasaport"))
 
     assert item.status == "conflict"
-    assert "harita satırı 12 `turkish_passport`" in (item.note or "")
+    assert "harita satırı 12 `turkish_passport`" in (source_message(session, item.note) or "")
 
 
 def test_an_unknown_hint_is_not_a_conflict(
@@ -552,7 +562,7 @@ def test_an_answer_without_a_known_type_is_left_unplaced_with_the_proposal(
         None,
         note,
     )
-    assert (item.status, item.method, item.result_slug, item.note) == (
+    assert (item.status, item.method, item.result_slug, source_message(session, item.note)) == (
         "unplaced",
         "ai",
         None,
@@ -564,7 +574,7 @@ def test_an_answer_without_a_known_type_is_left_unplaced_with_the_proposal(
     assert (item.checks_json or {})[AI_CHECK_KEY]["result"] == {
         "slug": None,
         "basis": None,
-        "reason": "ad bilinen bir türe inmiyor",
+        "reason": "name does not resolve to a known type",  # döküm kayıtta İngilizce (10.10.6)
         "status": "unplaced",
     }
     (event,) = _events(session, EventType.TRAINING_ITEM_UNPLACED)
@@ -581,7 +591,7 @@ def test_an_ambiguous_pair_is_left_unplaced(
     _apply(session, layout, known, item, _answer(country_iso3="RUS", doc_kind="kimlik_karti"))
 
     assert item.status == "unplaced"
-    assert item.note == (
+    assert source_message(session, item.note) == (
         "Yapay zekâ önerisi yok; RUS/kimlik_karti birden çok türe iniyor "
         "(`russian_identity_card`, `russian_internal_passport`); model sahte-model"
     )
@@ -622,7 +632,7 @@ def test_notes_checks_and_events_carry_no_file_name_or_personal_value(
     _apply(session, layout, known, unplaced, _answer(proposed_name="Library Membership Card"))
 
     texts = [json.dumps(item.checks_json, ensure_ascii=False) for item in (placed, unplaced)]
-    texts += [item.note or "" for item in (placed, unplaced)]
+    texts += [source_message(session, item.note) or "" for item in (placed, unplaced)]
     for event in session.scalars(select(Event)):
         texts += [event.message or "", json.dumps(event.data_json, ensure_ascii=False)]
     for text in texts:
@@ -728,7 +738,7 @@ def test_a_failed_attempt_records_its_error_and_keeps_the_item_pending(
     session: Session, layout: DataLayout, known: KnownTypes
 ) -> None:
     item = _pending(session, layout, known)
-    note = item.note
+    note = source_message(session, item.note)
     store_classification_error(
         session,
         item,
@@ -737,7 +747,7 @@ def test_a_failed_attempt_records_its_error_and_keeps_the_item_pending(
         provider=Classifier(),
     )
 
-    assert (item.status, item.note) == ("ai_pending", note)
+    assert (item.status, source_message(session, item.note)) == ("ai_pending", note)
     (event,) = _events(session, EventType.TRAINING_ITEM_UNPLACED)
     assert event.data_json["status"] == "ai_pending"
     assert event.data_json["error"] == "TrainingClassificationError"
@@ -759,7 +769,7 @@ def test_a_final_failure_leaves_the_item_unplaced_for_hr(
 
     assert item.status == "unplaced"
     assert item.method == "ai"
-    assert item.note == ERROR_NOTE.format(error="ProviderServerError")
+    assert source_message(session, item.note) == ERROR_NOTE.format(error="ProviderServerError")
     assert item.run.status == "done"
     (event,) = _events(session, EventType.TRAINING_ITEM_UNPLACED)
     assert event.data_json["status"] == "unplaced"
@@ -805,12 +815,18 @@ def test_s20_the_passport_gets_the_ai_decision_label_and_the_other_file_waits_un
     assert (example.type_slug, example.label) == ("russian_passport", "ai_decision")
     assert [entry.name for entry in list_examples(layout, "russian_passport")] == ["pasaport.jpg"]
     assert second.status == "unplaced"
-    assert (second.note or "").startswith("Yapay zekâ önerisi: Library Membership Card;")
+    assert (source_message(session, second.note) or "").startswith(
+        "Yapay zekâ önerisi: Library Membership Card;"
+    )
     assert session.get_one(TrainingRun, run.id).counts_json == {"placed": 1, "unplaced": 1}
     assert session.get_one(TrainingRun, run.id).status == "done"
     assert len(provider.training_requests) == 2
     assert provider.requests == []  # sayfa analizi yok
     assert_employee_data_untouched(session, layout)
-    for text in (first.note, second.note, json.dumps(first.checks_json, ensure_ascii=False)):
+    for text in (
+        first.note,
+        source_message(session, second.note),
+        json.dumps(first.checks_json, ensure_ascii=False),
+    ):
         for value in PERSONAL_VALUES:
             assert value not in (text or "")

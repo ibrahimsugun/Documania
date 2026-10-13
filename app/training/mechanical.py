@@ -61,6 +61,8 @@ from app.db.models import (
     TrainingMethod,
     TrainingRun,
 )
+from app.i18n import N_, Translatable, join_text
+from app.i18n.recorded import english
 from app.matching.mrz import MrzFormat, parse_mrz
 from app.pipeline.render import RenderError, extract_pdf_content_text
 from app.storage import DataLayout, FileKind
@@ -72,6 +74,10 @@ from app.training.placement import (
     refresh_run,
     stage_file,
 )
+
+# Mekanik tanımanın notlarında ve harita taramasında ortak parçalar (10.10.6: kayıtta İngilizce).
+SHA256_MISMATCH = Translatable(N_("haritadaki SHA-256 dosyayla tutmuyor"))
+SHA256_RECORDED = Translatable(N_("SHA-256 örnek kaydında"))
 
 MRZ_DOC_KINDS: Mapping[str, str] = MappingProxyType(
     {
@@ -289,21 +295,30 @@ class MrzEvidence:
     def reason(self) -> str:
         """Tür vermeyen kanıtın Türkçe gerekçesi."""
         if self.status == MrzSearchStatus.NOT_PDF:
-            return "görüntü dosyasında metin katmanı yok (OCR yapılmaz)"
+            return Translatable(N_("görüntü dosyasında metin katmanı yok (OCR yapılmaz)"))
         if self.status == MrzSearchStatus.UNREADABLE:
-            return "PDF metin katmanı okunamadı"
+            return Translatable(N_("PDF metin katmanı okunamadı"))
         if self.status == MrzSearchStatus.NO_TEXT:
-            return "PDF'te metin katmanı yok"
+            return Translatable(N_("PDF'te metin katmanı yok"))
         if self.status == MrzSearchStatus.ABSENT:
-            return "PDF metin katmanında MRZ yok"
+            return Translatable(N_("PDF metin katmanında MRZ yok"))
         if self.status == MrzSearchStatus.FAILED_CHECKS:
             failed = sorted({name for reading in self.readings for name in reading.failed_checks})
-            return f"MRZ kontrol haneleri tutmuyor ({', '.join(failed)})"
+            return Translatable(
+                N_("MRZ kontrol haneleri tutmuyor ({checks})"), checks=", ".join(failed)
+            )
         if self.status == MrzSearchStatus.AMBIGUOUS:
-            return f"MRZ'ler farklı türlere işaret ediyor ({self.describe()})"
+            return Translatable(
+                N_("MRZ'ler farklı türlere işaret ediyor ({readings})"), readings=self.describe()
+            )
         if self.status == MrzSearchStatus.UNMAPPED_CODE:
-            return f"MRZ ({self.describe()}) belge kodu bir belge türüne eşlenmiyor"
-        return f"MRZ ({self.describe()}) tek bir bilinen türe inmiyor"
+            return Translatable(
+                N_("MRZ ({readings}) belge kodu bir belge türüne eşlenmiyor"),
+                readings=self.describe(),
+            )
+        return Translatable(
+            N_("MRZ ({readings}) tek bir bilinen türe inmiyor"), readings=self.describe()
+        )
 
     def as_check(self) -> dict[str, Any]:
         return {
@@ -396,13 +411,15 @@ def recognize(
             "known": hint is not None,
         }
         if hint is None:
-            extras.append(f"ipucu `{item.hint_slug}` bilinen bir tür değil")
+            extras.append(
+                Translatable(N_("ipucu `{slug}` bilinen bir tür değil"), slug=item.hint_slug)
+            )
     if hint_sha256 is not None:
         sha_holds = hint_sha256.strip().lower() == item.sha256
         checks["hint_sha256"] = sha_holds
         if not sha_holds:
-            return _pending(checks, "haritadaki SHA-256 dosyayla tutmuyor", extras, item)
-        extras.append("SHA-256 tuttu")
+            return _pending(checks, SHA256_MISMATCH, extras, item)
+        extras.append(Translatable(N_("SHA-256 tuttu")))
 
     # (2) SHA-256: örnek kaydı dizini ve envanter.
     recorded = session.scalars(
@@ -418,16 +435,23 @@ def recognize(
     sha_slugs = sorted(set(indexed) | set(listed or ()))
     if len(sha_slugs) > 1:
         names = ", ".join(f"`{slug}`" for slug in sha_slugs)
-        return _pending(checks, f"SHA-256 birden çok türde kayıtlı ({names})", extras, item)
+        reason = Translatable(N_("SHA-256 birden çok türde kayıtlı ({slugs})"), slugs=names)
+        return _pending(checks, reason, extras, item)
     if sha_slugs:
         (slug,) = sha_slugs
         if hint is not None and hint.slug != slug:
-            reason = f"{hint_text} `{hint.slug}` SHA-256 kaydıyla (`{slug}`) çelişiyor"
+            reason = Translatable(
+                N_("{hint} `{slug}` SHA-256 kaydıyla (`{recorded}`) çelişiyor"),
+                hint=hint_text,
+                slug=hint.slug,
+                recorded=slug,
+            )
             return _pending(checks, reason, extras, item)
         if slug in indexed:
-            basis, basis_text = RecognitionBasis.SHA256_INDEX, "SHA-256 örnek kaydında"
+            basis, basis_text = RecognitionBasis.SHA256_INDEX, SHA256_RECORDED
         else:
-            basis, basis_text = RecognitionBasis.SHA256_INVENTORY, "SHA-256 örnek envanterinde"
+            basis = RecognitionBasis.SHA256_INVENTORY
+            basis_text = Translatable(N_("SHA-256 örnek envanterinde"))
         return _recognized(checks, slug, basis, basis_text, [*extras, _file_text(item)])
 
     # (3) ipucu ve (4) PDF metin katmanında MRZ.
@@ -437,13 +461,23 @@ def recognize(
         problems = _structure_problems(hint, item)
         checks["hint"]["structure"] = problems
         if problems:
-            reason = f"{hint_text} `{hint.slug}` yapısına uymuyor: {'; '.join(problems)}"
+            reason = Translatable(
+                N_("{hint} `{slug}` yapısına uymuyor: {problems}"),
+                hint=hint_text,
+                slug=hint.slug,
+                problems=join_text(problems, "; "),
+            )
             return _pending(checks, reason, extras, item)
         if evidence.valid_readings and not evidence.confirms(hint):
-            reason = f"{hint_text} `{hint.slug}` MRZ ({evidence.describe()}) ile çelişiyor"
+            reason = Translatable(
+                N_("{hint} `{slug}` MRZ ({readings}) ile çelişiyor"),
+                hint=hint_text,
+                slug=hint.slug,
+                readings=evidence.describe(),
+            )
             return _pending(checks, reason, extras, item)
         if evidence.valid_readings:
-            extras.append(f"MRZ ({evidence.describe()}) tuttu")
+            extras.append(Translatable(N_("MRZ ({readings}) tuttu"), readings=evidence.describe()))
         return _recognized(
             checks, hint.slug, RecognitionBasis.HINT, hint_text, [*extras, _file_text(item, hint)]
         )
@@ -452,17 +486,24 @@ def recognize(
         problems = _structure_problems(matched, item)
         checks["mrz"]["structure"] = problems
         if problems:
-            reason = f"MRZ `{matched.slug}` gösteriyor ama yapısına uymuyor: {'; '.join(problems)}"
+            reason = Translatable(
+                N_("MRZ `{slug}` gösteriyor ama yapısına uymuyor: {problems}"),
+                slug=matched.slug,
+                problems=join_text(problems, "; "),
+            )
             return _pending(checks, reason, extras, item)
-        basis_text = f"PDF metin katmanında MRZ ({evidence.describe()})"
+        basis_text = Translatable(
+            N_("PDF metin katmanında MRZ ({readings})"), readings=evidence.describe()
+        )
         return _recognized(
             checks,
             matched.slug,
             RecognitionBasis.MRZ,
             basis_text,
-            [*extras, "kontrol haneleri tuttu", _file_text(item, matched)],
+            [*extras, Translatable(N_("kontrol haneleri tuttu")), _file_text(item, matched)],
         )
-    return _pending(checks, f"SHA-256 kayıtlı değil; {evidence.reason()}", extras, item)
+    reason = Translatable(N_("SHA-256 kayıtlı değil; {reason}"), reason=evidence.reason())
+    return _pending(checks, reason, extras, item)
 
 
 def recognize_item(
@@ -537,8 +578,13 @@ def stage_and_recognize(
 def hint_label(item: TrainingItem) -> str:
     """İpucunun Türkçe adı: harita satırıysa "harita satırı N", değilse "beklenen tür"."""
     if item.row_number is not None:
-        return f"harita satırı {item.row_number}"
-    return "beklenen tür"
+        return map_row_label(item.row_number)
+    return Translatable(N_("beklenen tür"))
+
+
+def map_row_label(row: int | None) -> str:
+    """Harita satırının adı ("harita satırı N")."""
+    return Translatable(N_("harita satırı {row}"), row=row)
 
 
 def _page_range(known: KnownType) -> PageRange | None:
@@ -560,12 +606,24 @@ def _structure_problems(known: KnownType, item: TrainingItem) -> list[str]:
     allowed = entry.expected_file_types
     if FileType(item.file_kind) not in allowed:
         names = ", ".join(_FILE_LABELS.get(kind, kind.upper()) for kind in allowed)
-        problems.append(f"dosya türü {_label(item)} izinli değil (izinli: {names})")
+        problems.append(
+            Translatable(
+                N_("dosya türü {kind} izinli değil (izinli: {allowed})"),
+                kind=_label(item),
+                allowed=names,
+            )
+        )
     limit = _page_range(known)
     pages = item.page_count or 1
     if item.file_kind == FileKind.PDF and limit is not None:
         if not limit.min <= pages <= limit.max:
-            problems.append(f"sayfa sayısı {pages}, beklenen {_range_text(limit)}")
+            problems.append(
+                Translatable(
+                    N_("sayfa sayısı {pages}, beklenen {expected}"),
+                    pages=pages,
+                    expected=_range_text(limit),
+                )
+            )
     return problems
 
 
@@ -580,11 +638,15 @@ def _range_text(limit: PageRange) -> str:
 def _file_text(item: TrainingItem, known: KnownType | None = None) -> str:
     if item.file_kind != FileKind.PDF:
         return _label(item)
-    text = f"PDF, {item.page_count or 1} sayfa"
+    pages = item.page_count or 1
     limit = _page_range(known) if known is not None else None
     if limit is not None:
-        text += f" (beklenen {_range_text(limit)})"
-    return text
+        return Translatable(
+            N_("PDF, {pages} sayfa (beklenen {expected})"),
+            pages=pages,
+            expected=_range_text(limit),
+        )
+    return Translatable(N_("PDF, {pages} sayfa"), pages=pages)
 
 
 def _recognized(
@@ -595,13 +657,16 @@ def _recognized(
     extras: Iterable[str],
 ) -> Recognition:
     checks["result"] = {"slug": slug, "basis": basis.value}
-    note = "; ".join([f"Mekanik: {basis_text} → `{slug}`", *extras])
+    head = Translatable(N_("Mekanik: {basis} → `{slug}`"), basis=basis_text, slug=slug)
+    note = join_text([head, *extras], "; ")
     return Recognition(slug, basis, note, checks)
 
 
 def _pending(
     checks: dict[str, Any], reason: str, extras: Iterable[str], item: TrainingItem
 ) -> Recognition:
-    checks["result"] = {"slug": None, "reason": reason}
-    note = "; ".join([f"Mekanik tanınmadı: {reason}", *extras, _file_text(item)])
+    # Döküm de kayıttır: gerekçe İngilizce yazılır (10.10.6).
+    checks["result"] = {"slug": None, "reason": english(reason)}
+    head = Translatable(N_("Mekanik tanınmadı: {reason}"), reason=reason)
+    note = join_text([head, *extras, _file_text(item)], "; ")
     return Recognition(None, None, note, checks)

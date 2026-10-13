@@ -57,6 +57,7 @@ from tests.fixtures.gen import (
     make_document_pdf_bytes,
     recorded_provider,
 )
+from tests.recorded import source_events, source_text
 from tests.test_scenarios_s01_s05 import (
     LICENSE_NUMBER,
     PERMIT_NUMBER,
@@ -152,15 +153,16 @@ def _plan_items(session: Session, upload_id: str) -> tuple[PlanItem, ...]:
 def _queued_rows(session: Session, upload_id: str) -> list[tuple[str, str]]:
     session.expire_all()
     query = select(QueueItem).where(QueueItem.upload_id == upload_id).order_by(QueueItem.id)
-    rows = [(row.kind, row.reason) for row in session.scalars(query)]
+    rows = [(row.kind, source_text(session, row.reason)) for row in session.scalars(query)]
     session.rollback()
     return rows
 
 
 def _upload_events(session: Session, upload_id: str) -> list[Event]:
     session.expire_all()
-    return list(
-        session.scalars(select(Event).where(Event.upload_id == upload_id).order_by(Event.id))
+    return source_events(
+        session,
+        session.scalars(select(Event).where(Event.upload_id == upload_id).order_by(Event.id)),
     )
 
 

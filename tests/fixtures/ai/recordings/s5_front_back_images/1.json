@@ -26,5 +26,5 @@
     "document_number": {"value": null, "legible": false},
     "expiry_date": {"value": null, "legible": false}
   },
-  "notes": "Arka yüzde yalnız ehliyet sınıfları tablosu var; zorunlu alanlar ön yüzde."
+  "notes": "The back side only has the licence categories table; required fields are on the front."
 }

@@ -2603,21 +2603,21 @@
         "description": "PRD 10.10.6 · FR-MOD-10 · Faz 1 · Should (v1). Sözleşme PLAN §D121. İnsan isteği (2026-10-13): yükleme sonucu çıktılar ve yapay zekâ çıktıları İngilizce olsun, herkes Türkçe bilmiyor.",
         "details": "KAPSAM: PRD 10.10.6; PLAN §D121 — önce oku.\n\nNE YAPILACAK: (1) Talimatlar: `app/ai/prompts/photo_check.md`, `training_classification.md`, `type_description.md`, `type_proposal.md`, `page_analysis.md` — serbest metin alanları İngilizce istenir, örnek değerler İngilizce; uzunluk sınırları korunur. Talimat sürüm/özet değişirse (`app/ai/prompts/*.py`) önbellek ve kayıtlı yanıtlar buna göre. (2) Sistem gerekçeleri: `grep -rn` ile `app/pipeline`, `app/decision`, `app/matching`, `app/catalog`'daki kayda yazılan Türkçe gerekçe/özne metinlerini envanterle (ör. `app/pipeline/group.py:320`); kayıtta İngilizce, panelde `Translatable` (10.10.3) ile kullanıcının dilinde. Saklama biçimi kararı §D121'e. (3) Panel: gerekçe gösterilen yerler (parti detayı plan ve kuyruk tabloları, kuyruk öğesi, olay zaman çizelgesi, eğitim sonuçları Not sütunu) yeni biçimi dilde gösterir; yapay zekâ notu (serbest metin) çevrilmez, İngilizce gösterilir (`translate=\"no\"`). (4) Testler: `tests/ai/test_type_proposal.py` :640, :654 ve `tests/ai/test_type_description.py` :436 Türkçe bekliyor — İngilizceye; kayıtlı yanıtlar/sabitler güncellenir; en/sr `.po` dolu, `python -m app.i18n check` exit 0.\n\nBU GÖREVİ BAĞLAYAN KİLİTLİ KURALLAR: R12/K17 — belgeden okunan değer çevrilmez, değiştirilmez. 12.1.12 bot dili değişmez. Gerçek kimlik belgesi depoya girmez.\n\nTUZAKLAR: Eşleştirme/karar kodu gerekçe metnini dizge olarak karşılaştırıyorsa (ör. `startswith`) kırılır — önce ara. Eski Türkçe kayıtlar panelde olduğu gibi kalır; gösterim katmanı eski düz metne dayanıklı olmalı. Katalog tohumundaki Türkçe tür açıklamaları kapsam dışı.\n\nKAPSAM SINIRI: profil.md dili, katalog tohumu, geriye dönük çeviri yok.\n\nKAPANIŞ: DoD kapısı yeşil; geçici bozma (talimat Türkçe ister, Sırpça panelde Türkçe gerekçe) kırmızı olmalı. PLAN 10.10.6 satırı ve `#### K10.10` kanıtına ek, HANDOFF.",
         "testStrategy": "1) Her talimat İngilizce serbest metin ister (metin testi). 2) Kayıtlı yanıtlarla pipeline: notlar İngilizce. 3) Bilinmeyen tür gerekçesi kayıtta İngilizce; parti detayı en/tr/sr isteklerinde doğru dilde. 4) Eski Türkçe gerekçe kaydı panelde kırılmadan görünür. 5) app.i18n check exit 0. 6) DoD kapısı yeşil.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [
           "157",
           "79"
         ],
         "priority": "medium",
         "subtasks": [],
-        "updatedAt": "2026-10-13T13:00:00.000Z"
+        "updatedAt": "2026-10-13T20:01:44.373Z"
       }
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-13T16:02:05.453Z",
+      "lastModified": "2026-10-13T20:01:44.373Z",
       "taskCount": 178,
-      "completedCount": 177,
+      "completedCount": 178,
       "tags": [
         "master"
       ]

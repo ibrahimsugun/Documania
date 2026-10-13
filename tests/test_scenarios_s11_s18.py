@@ -72,6 +72,7 @@ from tests.fixtures.gen import (
     residence_card_pages,
     unknown_document_page,
 )
+from tests.recorded import source_document, source_text
 from tests.test_scenarios_s01_s05 import (
     ORNEKOVA_FOLDER,
     ORNEKOVA_PERSONAL,
@@ -464,12 +465,12 @@ def test_s12_namesakes_both_or_neither_matching_the_birth_date_go_to_unresolved(
     )
     assert (item.employee.action, item.employee.employee_id) == (EmployeeAction.NONE, None)
     (queued,) = _queue_rows(session, upload)
-    assert (queued.kind, queued.reason) == ("unresolved", reason)
+    assert (queued.kind, source_text(session, queued.reason)) == ("unresolved", reason)
     directory = layout.queue_dir("unresolved", upload.id)
     assert _names(directory) == ["pasaport.pdf", "reason.json"]
     assert (directory / "pasaport.pdf").read_bytes() == content
     (entry,) = _reason_file(layout, "unresolved", upload)["items"]
-    assert entry["reason"] == reason
+    assert source_text(session, entry["reason"]) == reason
 
     assert _count(session, Employee) == 2
     assert _outputs(session) == []
@@ -599,7 +600,7 @@ def test_s14_catalog_less_type_goes_to_unknown_then_to_hazir_after_approval_and_
 
     # 1) Unknown + aday tür: türe zorla atanmaz, çalışana yerleşmez (R7); aday tür kaydı açılır.
     (first_plan,) = _plans(session, upload)
-    (item,) = read_plan(first_plan).items
+    (item,) = source_document(session, read_plan(first_plan)).items
     assert (item.route, item.document_type_slug, item.operation, item.target_name) == (
         Route.UNKNOWN,
         None,
@@ -613,7 +614,10 @@ def test_s14_catalog_less_type_goes_to_unknown_then_to_hazir_after_approval_and_
     assert _names(unknown_dir) == ["diploma.pdf", "reason.json"]
     assert (unknown_dir / "diploma.pdf").read_bytes() == content
     (entry,) = _reason_file(layout, "unknown", upload)["items"]
-    assert (entry["reason"], entry["document_type_slug"]) == (UNKNOWN_REASON, None)
+    assert (source_text(session, entry["reason"]), entry["document_type_slug"]) == (
+        UNKNOWN_REASON,
+        None,
+    )
 
     (candidate,) = session.scalars(select(CandidateDocumentType)).all()
     (page,) = session.scalars(select(Page).where(Page.file_id == upload.files[0].id)).all()
@@ -653,7 +657,7 @@ def test_s14_catalog_less_type_goes_to_unknown_then_to_hazir_after_approval_and_
     assert response.json()["superseded_document_ids"] == []
 
     # Yeni sürümde belge katalog türüyle Hazir'da: ad + doğum tarihiyle kayıtlı çalışana (satır 3).
-    (item,) = read_plan(new_plan).items
+    (item,) = source_document(session, read_plan(new_plan)).items
     assert (item.route, item.document_type_slug, item.operation, item.target_name) == (
         Route.READY,
         DIPLOMA,
@@ -679,7 +683,7 @@ def test_s14_catalog_less_type_goes_to_unknown_then_to_hazir_after_approval_and_
     assert _identifiers(session, employee.id) == [(DIPLOMA, normalized(DIPLOMA_NUMBER))]
 
     # K18: eski plan ve Unknown kaydı yerinde, kuyruk kopyası silinmez; aday yeniden sayılmaz.
-    (old_item,) = read_plan(old_plan).items
+    (old_item,) = source_document(session, read_plan(old_plan)).items
     assert old_item.route is Route.UNKNOWN
     assert [(row.plan_id, row.kind) for row in _queue_rows(session, upload)] == [
         (first_plan.id, "unknown")
@@ -807,12 +811,15 @@ def test_s15_word_cv_from_a_general_upload_goes_to_unresolved_unchanged(
     assert item.route_reason == ATTACHMENT_REASON
     assert item.employee.employee_id is None
     (queued,) = _queue_rows(session, upload)
-    assert (queued.kind, queued.reason) == ("unresolved", ATTACHMENT_REASON)
+    assert (queued.kind, source_text(session, queued.reason)) == ("unresolved", ATTACHMENT_REASON)
     directory = layout.queue_dir("unresolved", upload.id)
     assert _names(directory) == [name, "reason.json"]
     assert (directory / name).read_bytes() == content
     (entry,) = _reason_file(layout, "unresolved", upload)["items"]
-    assert (entry["reason"], entry["document_type_slug"]) == (ATTACHMENT_REASON, ATTACHMENT)
+    assert (source_text(session, entry["reason"]), entry["document_type_slug"]) == (
+        ATTACHMENT_REASON,
+        ATTACHMENT,
+    )
 
     assert _outputs(session) == []
     folder = layout.employee_dir(employee.folder_name)
@@ -873,7 +880,7 @@ def test_s18_rerunning_the_existing_plan_gives_the_same_outputs_without_the_prov
     _process(session, layout, upload, first)
 
     (plan,) = _plans(session, upload)
-    items = read_plan(plan).items
+    items = source_document(session, read_plan(plan)).items
     assert [(item.route, item.target_name) for item in items] == [
         (Route.READY, LICENSE_OUTPUT),
         (Route.READY, PHOTO_OUTPUT),

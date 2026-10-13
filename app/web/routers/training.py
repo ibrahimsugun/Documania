@@ -71,7 +71,7 @@ import base64
 import binascii
 import hashlib
 import zlib
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import PurePosixPath
@@ -98,7 +98,8 @@ from app.db.models import (
     TrainingRunStatus,
 )
 from app.db.session import get_session
-from app.i18n import N_, gettext
+from app.i18n import N_, Translatable, gettext
+from app.i18n.recorded import localized, recall, recall_texts
 from app.storage import ContentMismatchError, DataLayout
 from app.storage.examples import example_path, list_examples
 from app.training import (
@@ -491,7 +492,12 @@ def _examples_of(session: Session, item_ids: Iterable[int]) -> dict[int, Example
     return {record.training_item_id: record for record in records if record.training_item_id}
 
 
-def _item_row(item: TrainingItem, known: KnownTypes, example: ExampleFileRecord | None) -> ItemRow:
+def _item_row(
+    item: TrainingItem,
+    known: KnownTypes,
+    example: ExampleFileRecord | None,
+    recalled: Mapping[str, Translatable],
+) -> ItemRow:
     removed = example is not None and example.removed_at is not None
     label = example.label if example is not None and not removed else None
     return ItemRow(
@@ -503,7 +509,7 @@ def _item_row(item: TrainingItem, known: KnownTypes, example: ExampleFileRecord 
         method=METHOD_LABELS.get(item.method) if item.method else None,
         status=item.status,
         status_label=STATUS_LABELS.get(item.status, item.status),
-        note=item.note,
+        note=localized(recalled, item.note),
         label=label,
         label_text=REMOVED_LABEL_TEXT if removed else LABEL_TEXTS.get(label) if label else None,
         manual_check=label == ExampleLabel.AI_DECISION,
@@ -586,7 +592,9 @@ def build_results_view(
     )
     dismissed = total if showing_dismissed else _count(session, scope.where(is_dismissed))
 
-    rows = [_item_row(item, known, examples.get(item.id)) for item in items]
+    # 10.10.6: kayıtlı not panelde isteğin dilinde; yapay zekânın serbest notu olduğu gibi.
+    recalled = recall_texts(session, (item.note for item in items))
+    rows = [_item_row(item, known, examples.get(item.id), recalled) for item in items]
 
     def url(path: str, run: int | None, key: str, view: str = show) -> str:
         return _results_url(path, run, key, show=view, archived=archived)
@@ -842,9 +850,14 @@ def place_item(
     chosen = slug.strip()
     if chosen not in known:
         return refused(status.HTTP_422_UNPROCESSABLE_CONTENT, UNKNOWN_TYPE_MESSAGE)
-    note = f"Elle yerleştirildi → `{chosen}`"
+    # 10.10.6: not kayda İngilizce gider; önceki not kaynağıyla geri çağrılır.
+    note = Translatable(N_("Elle yerleştirildi → `{slug}`"), slug=chosen)
     if item.note:
-        note = f"{note}; önceki not: {item.note}"
+        note = Translatable(
+            N_("{note}; önceki not: {previous}"),
+            note=note,
+            previous=recall(session, item.note) or item.note,
+        )
     # Haritanın yerindeki öğesinin eğitim kopyası yoktur: dosya türün örnek klasöründen gelir.
     source = item_source_path(layout, item)
     if source is None:
@@ -1133,6 +1146,7 @@ def known_document(
             )
         )
     }
+    recalled = recall_texts(session, (record.note for record in records.values()))
     session.rollback()
     examples = []
     for example in list_examples(layout, slug):
@@ -1148,7 +1162,7 @@ def known_document(
                 label=label,
                 label_text=LABEL_TEXTS.get(label) if label else None,
                 manual_check=label == ExampleLabel.AI_DECISION,
-                note=record.note if record is not None else None,
+                note=localized(recalled, record.note) if record is not None else None,
                 created_at=_format_ts(record.created_at) if record is not None else None,
                 record_id=record.id if record is not None else None,
             )

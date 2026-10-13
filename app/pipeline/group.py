@@ -144,6 +144,7 @@ from app.db.models import (
     record_candidate_type_sighting,
 )
 from app.events import EventType, event_context, record_event
+from app.i18n import N_, Translatable, join_text
 from app.pipeline.analyze import PageAnalysisStatus
 from app.storage import DataLayout, UnsupportedFileTypeError, detect_file_kind
 
@@ -212,18 +213,42 @@ class ContiguityViolation:
         """Değer taşımayan gerekçe; sayfa numarası kullanıcının gördüğü gibi 1'den başlar."""
         between: list[str] = []
         if self.intervening_pages:
-            between.append(f"başka belgeye ait sayfa ({_page_numbers(self.intervening_pages)})")
+            between.append(
+                Translatable(
+                    N_("başka belgeye ait sayfa ({pages})"),
+                    pages=_page_numbers(self.intervening_pages),
+                )
+            )
         if self.unanalyzed_pages:
             between.append(
-                "analizi yapılamamış, başka belgeye ait olabilecek sayfa "
-                f"({_page_numbers(self.unanalyzed_pages)})"
+                Translatable(
+                    N_("analizi yapılamamış, başka belgeye ait olabilecek sayfa ({pages})"),
+                    pages=_page_numbers(self.unanalyzed_pages),
+                )
             )
-        others = "; ".join(_page_numbers(pages) for pages in self.counterparts)
-        piece = "parça" if len(self.counterparts) == 1 else "parçalar"
-        return (
-            f"Ardışıklık güvenlik kuralı ({self.rule}): bu parça ({_page_numbers(self.pages)}) "
-            f"ile aynı belgeye ait olabilecek {piece} ({others}) arasında {' ve '.join(between)} "
-            "var; parçalar otomatik birleştirilmez."
+        template = (
+            N_(
+                "Ardışıklık güvenlik kuralı ({rule}): bu parça ({pages}) ile aynı belgeye ait "
+                "olabilecek parça ({others}) arasında {between} var; parçalar otomatik "
+                "birleştirilmez."
+            )
+            if len(self.counterparts) == 1
+            else N_(
+                "Ardışıklık güvenlik kuralı ({rule}): bu parça ({pages}) ile aynı belgeye ait "
+                "olabilecek parçalar ({others}) arasında {between} var; parçalar otomatik "
+                "birleştirilmez."
+            )
+        )
+        return Translatable(
+            template,
+            rule=self.rule,
+            pages=_page_numbers(self.pages),
+            others=join_text((_page_numbers(pages) for pages in self.counterparts), "; "),
+            between=(
+                Translatable(N_("{first} ve {second}"), first=between[0], second=between[1])
+                if len(between) == 2
+                else join_text(between)
+            ),
         )
 
 
@@ -250,21 +275,29 @@ class AmbiguousPairing:
     @property
     def reason(self) -> str:
         """Değer taşımayan gerekçe; dosyadaki sayfa numarası kullanıcının gördüğü gibi 1'den."""
-        sentences = [
-            f"Belirsiz ön/arka yüz eşleştirmesi: bu yüz ({_page_refs((self.face,))}) partide tek "
-            "anlamlı bir eşle eşleştirilemiyor.",
-            f"Eşleşmemiş ön yüzler: {_page_refs(self.fronts)}.",
-            f"Eşleşmemiş arka yüzler: {_page_refs(self.backs)}.",
+        sentences: list[str] = [
+            Translatable(
+                N_(
+                    "Belirsiz ön/arka yüz eşleştirmesi: bu yüz ({face}) partide tek anlamlı bir "
+                    "eşle eşleştirilemiyor."
+                ),
+                face=_page_refs((self.face,)),
+            ),
+            Translatable(N_("Eşleşmemiş ön yüzler: {pages}."), pages=_page_refs(self.fronts)),
+            Translatable(N_("Eşleşmemiş arka yüzler: {pages}."), pages=_page_refs(self.backs)),
         ]
-        for label, refs in (
-            ("Aynı türün yüzü ön ya da arka okunmamış sayfaları", self.unoriented_pages),
-            ("Analizi yapılamamış sayfalar", self.unanalyzed_pages),
-            ("Türü kesin belirlenemeyen sayfalar", self.uncertain_type_pages),
+        for template, refs in (
+            (
+                N_("Aynı türün yüzü ön ya da arka okunmamış sayfaları: {pages}."),
+                self.unoriented_pages,
+            ),
+            (N_("Analizi yapılamamış sayfalar: {pages}."), self.unanalyzed_pages),
+            (N_("Türü kesin belirlenemeyen sayfalar: {pages}."), self.uncertain_type_pages),
         ):
             if refs:
-                sentences.append(f"{label}: {_page_refs(refs)}.")
-        sentences.append("Yüzler dosyalar arasında otomatik eşleştirilmez.")
-        return " ".join(sentences)
+                sentences.append(Translatable(template, pages=_page_refs(refs)))
+        sentences.append(Translatable(N_("Yüzler dosyalar arasında otomatik eşleştirilmez.")))
+        return join_text(sentences)
 
 
 @dataclass(frozen=True, slots=True)
@@ -286,13 +319,20 @@ class PageCountViolation:
     def reason(self) -> str:
         """Değer taşımayan gerekçe; sayfa sayısı ve beklenen aralık."""
         expected = (
-            f"{self.expected_min} sayfa"
+            Translatable(N_("{count} sayfa"), count=self.expected_min)
             if self.expected_min == self.expected_max
-            else f"{self.expected_min}-{self.expected_max} sayfa"
+            else Translatable(
+                N_("{low}-{high} sayfa"), low=self.expected_min, high=self.expected_max
+            )
         )
-        return (
-            f"Beklenen sayfa sayısı kontrolü (04.5.1): bu aday {len(self.pages)} sayfa "
-            f"({_page_refs(self.pages)}) taşıyor, tür {expected} bekliyor."
+        return Translatable(
+            N_(
+                "Beklenen sayfa sayısı kontrolü (04.5.1): bu aday {count} sayfa ({pages}) "
+                "taşıyor, tür {expected} bekliyor."
+            ),
+            count=len(self.pages),
+            pages=_page_refs(self.pages),
+            expected=expected,
         )
 
 
@@ -317,15 +357,32 @@ class UnknownDocumentType:
     @property
     def reason(self) -> str:
         """Değer taşımayan gerekçe; sayfalar dosya kimliği ve 1'den başlayan sayfa numarasıyla."""
-        subject = f"Bilinmeyen belge türü (04.6.1): bu adayın ({_page_refs(self.pages)})"
+        pages = _page_refs(self.pages)
         if self.candidate_type_name is not None:
-            name = " ".join(self.candidate_type_name.split())
-            finding = f'türü katalogda yok; önerilen aday tür: "{name}".'
-        elif self.document_type_slug is not None:
-            finding = f"analizde yazılan türü ({self.document_type_slug}) güncel katalogda yok."
-        else:
-            finding = "türü belirlenemedi."
-        return f"{subject} {finding} Belge katalogdaki bir türe zorla atanmaz."
+            return Translatable(
+                N_(
+                    "Bilinmeyen belge türü (04.6.1): bu adayın ({pages}) türü katalogda yok; "
+                    'önerilen aday tür: "{name}". Belge katalogdaki bir türe zorla atanmaz.'
+                ),
+                pages=pages,
+                name=" ".join(self.candidate_type_name.split()),
+            )
+        if self.document_type_slug is not None:
+            return Translatable(
+                N_(
+                    "Bilinmeyen belge türü (04.6.1): bu adayın ({pages}) analizde yazılan türü "
+                    "({slug}) güncel katalogda yok. Belge katalogdaki bir türe zorla atanmaz."
+                ),
+                pages=pages,
+                slug=self.document_type_slug,
+            )
+        return Translatable(
+            N_(
+                "Bilinmeyen belge türü (04.6.1): bu adayın ({pages}) türü belirlenemedi. Belge "
+                "katalogdaki bir türe zorla atanmaz."
+            ),
+            pages=pages,
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -343,9 +400,11 @@ class AttachmentWithoutContext:
 
     @property
     def reason(self) -> str:
-        return (
-            "Word/Excel eki (04.7.1): parti bir çalışan bağlamıyla yüklenmedi, sahibi "
-            "belirlenemedi; belge analiz edilmez, dönüştürülmez, gerekçesiyle kuyruğa alınır."
+        return Translatable(
+            N_(
+                "Word/Excel eki (04.7.1): parti bir çalışan bağlamıyla yüklenmedi, sahibi "
+                "belirlenemedi; belge analiz edilmez, dönüştürülmez, gerekçesiyle kuyruğa alınır."
+            )
         )
 
 
@@ -760,7 +819,7 @@ def _indexes(candidate: DocumentCandidate) -> tuple[int, ...]:
 
 
 def _page_numbers(indexes: Iterable[int]) -> str:
-    return "sayfa " + ", ".join(str(index + 1) for index in indexes)
+    return Translatable(N_("sayfa {pages}"), pages=", ".join(str(index + 1) for index in indexes))
 
 
 @dataclass(slots=True)
@@ -877,7 +936,13 @@ def _page_ref(page: CandidatePage) -> PageRef:
 
 
 def _page_refs(refs: Iterable[PageRef]) -> str:
-    return "; ".join(f"dosya {ref.file_id}, sayfa {ref.index + 1}" for ref in refs)
+    return join_text(
+        (
+            Translatable(N_("dosya {file}, sayfa {pages}"), file=ref.file_id, pages=ref.index + 1)
+            for ref in refs
+        ),
+        "; ",
+    )
 
 
 def _reads_as_blank(analysis: PageAnalysis) -> bool:
@@ -1026,7 +1091,7 @@ def _record_type_event(session: Session, candidate: DocumentCandidate) -> None:
         event_type,
         file_id=first.file_id,
         page_index=first.index,
-        message=" ".join(reasons) or None,
+        message=join_text(reasons) or None,
         data=data,
     )
 

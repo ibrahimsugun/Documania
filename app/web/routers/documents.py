@@ -84,6 +84,7 @@ from app.db.models import (
 from app.db.session import get_session
 from app.events import EventType
 from app.i18n import N_, Translatable
+from app.i18n.recorded import localized, recall_texts
 from app.profiles import write_profile
 from app.storage import (
     ContentMismatchError,
@@ -285,6 +286,7 @@ def build_history(session: Session, layout: DataLayout, document_id: int) -> His
     if upload_id is None:
         upload_id = next((files[fid].upload_id for fid in sorted(files)), None)
 
+    recalled = recall_texts(session, (event.message for event in events))
     return HistoryView(
         document_id=document.id,
         employee_id=document.employee_id,
@@ -314,7 +316,7 @@ def build_history(session: Session, layout: DataLayout, document_id: int) -> His
                 type=event.type,
                 actor=event.actor,
                 place=_event_place(event, files),
-                message=event.message,
+                message=localized(recalled, event.message),
             )
             for event in events
         ],

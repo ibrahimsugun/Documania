@@ -40,6 +40,7 @@ from tests.fixtures.gen import (
     make_pdf_bytes,
     make_portrait_image_bytes,
 )
+from tests.recorded import source_events, source_message
 from tests.training.invariants import assert_employee_data_untouched
 
 LIMIT = 1024 * 1024
@@ -63,7 +64,9 @@ def _files(root: Path) -> list[str]:
 
 
 def _events(session: Session, event_type: EventType) -> list[Event]:
-    return list(session.scalars(select(Event).where(Event.type == event_type.value)))
+    return source_events(
+        session, session.scalars(select(Event).where(Event.type == event_type.value))
+    )
 
 
 def _records(session: Session) -> list[ExampleFileRecord]:
@@ -136,7 +139,7 @@ def test_a_file_that_cannot_be_an_example_fails_and_writes_nothing(
     item = _stage(session, layout, run, name, content)
 
     assert item.status == "failed"
-    assert reason in (item.note or "")
+    assert reason in (source_message(session, item.note) or "")
     assert (item.staged_path, item.sha256, item.file_kind) == (None, None, None)
     assert (item.decided_by, item.decided_at is not None) == (SYSTEM_ACTOR, True)
     assert _files(layout.root) == []
@@ -211,13 +214,18 @@ def test_a_placed_example_is_copied_recorded_and_logged(
         "Pasaport-Taramasi.pdf",
         sha256_bytes(content),
     )
-    assert (record.method, record.label, record.note, record.training_item_id) == (
+    assert (
+        record.method,
+        record.label,
+        source_message(session, record.note),
+        record.training_item_id,
+    ) == (
         method.value,
         label,
         note,
         item.id,
     )
-    assert (item.status, item.result_slug, item.method, item.note) == (
+    assert (item.status, item.result_slug, item.method, source_message(session, item.note)) == (
         "placed",
         CATALOG_SLUG,
         method.value,
@@ -254,7 +262,11 @@ def test_a_suggested_type_outside_the_catalog_receives_examples(
     place_example(session, layout, known, item, SUGGESTED_SLUG, method=TrainingMethod.MECHANICAL)
 
     assert [example.name for example in list_examples(layout, SUGGESTED_SLUG)] == ["a.png"]
-    assert (item.status, item.result_slug, item.note) == ("placed", SUGGESTED_SLUG, None)
+    assert (item.status, item.result_slug, source_message(session, item.note)) == (
+        "placed",
+        SUGGESTED_SLUG,
+        None,
+    )
 
 
 def test_the_same_content_in_the_same_type_is_skipped(
@@ -272,7 +284,7 @@ def test_the_same_content_in_the_same_type_is_skipped(
 
     assert placement.status == "skipped" and placement.copied is False
     assert placement.example.name == "ilk.jpg"
-    assert (second.status, second.result_slug, second.note) == (
+    assert (second.status, second.result_slug, source_message(session, second.note)) == (
         "skipped",
         SUGGESTED_SLUG,
         "AI kararı; zaten örnek: ilk.jpg",
@@ -306,7 +318,12 @@ def test_the_same_content_in_another_type_is_a_conflict(
     )
 
     assert placement.status == "conflict" and placement.copied is False
-    assert (second.status, second.result_slug, second.note, second.decided_by) == (
+    assert (
+        second.status,
+        second.result_slug,
+        source_message(session, second.note),
+        second.decided_by,
+    ) == (
         "conflict",
         SUGGESTED_SLUG,
         f"başka türde örnek: {OTHER_SLUG}",
@@ -338,7 +355,7 @@ def test_an_unrecorded_example_already_in_the_folder_is_recorded_as_legacy(
     )
 
     assert placement.status == "skipped"
-    assert item.note == "zaten örnek: elle.png"
+    assert source_message(session, item.note) == "zaten örnek: elle.png"
     assert [example.name for example in list_examples(layout, SUGGESTED_SLUG)] == ["elle.png"]
     (legacy,) = _records(session)
     assert (legacy.type_slug, legacy.name, legacy.method, legacy.label) == (
@@ -422,7 +439,7 @@ def test_a_file_already_in_the_example_folder_is_recorded_in_place(
     )
 
     assert skipped.status == "skipped"
-    assert again.note == "zaten örnek: yerinde.pdf"
+    assert source_message(session, again.note) == "zaten örnek: yerinde.pdf"
     assert _files(layout.root) == before
 
 
@@ -648,7 +665,13 @@ def test_an_item_left_unplaced_waits_for_hr_without_a_file(
         event_data={"provider": "sahte"},
     )
 
-    assert (item.status, item.method, item.result_slug, item.note, item.decided_by) == (
+    assert (
+        item.status,
+        item.method,
+        item.result_slug,
+        source_message(session, item.note),
+        item.decided_by,
+    ) == (
         status.value,
         "ai",
         slug,

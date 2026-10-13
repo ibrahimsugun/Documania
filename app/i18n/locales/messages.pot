@@ -4,7 +4,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Documania panel\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-13 15:07+0000\n"
+"POT-Creation-Date: 2026-10-13 19:22+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -392,8 +392,20 @@ msgstr ""
 msgid "AI kararı"
 msgstr ""
 
+#: app/training/classification.py
+#, python-brace-format
+msgid ""
+"AI kararı `{slug}` {hint} `{hint_slug}` ile çelişiyor ({basis}, model "
+"{model})"
+msgstr ""
+
 #: app/web/routers/training.py
 msgid "AI kararı olanlar"
+msgstr ""
+
+#: app/training/classification.py
+#, python-brace-format
+msgid "AI kararı: `{slug}` ({basis}, model {model})"
 msgstr ""
 
 #: app/catalog/prefill.py app/web/profile_form.py app/web/routers/catalog.py
@@ -608,6 +620,18 @@ msgid ""
 "onaylanmaz."
 msgstr ""
 
+#: app/pipeline/plan_planner.py
+#, python-brace-format
+msgid ""
+"Analizi yapılamamış sayfa ({pages}): içeriği bilinmediği için hiçbir "
+"belgeye katılmaz ve çıktı üretmez (R7); yeniden analizle değerlendirilir."
+msgstr ""
+
+#: app/pipeline/group.py
+#, python-brace-format
+msgid "Analizi yapılamamış sayfalar: {pages}."
+msgstr ""
+
 #: app/web/templates/employee_merge.html app/web/templates/employees.html
 #: app/web/templates/history.html app/web/templates/queue_item.html
 msgid "Ara"
@@ -619,6 +643,22 @@ msgstr ""
 
 #: app/web/feedback.py
 msgid "Ardından parti sayfasından partiyi yeniden analiz edin."
+msgstr ""
+
+#: app/pipeline/group.py
+#, python-brace-format
+msgid ""
+"Ardışıklık güvenlik kuralı ({rule}): bu parça ({pages}) ile aynı belgeye "
+"ait olabilecek parça ({others}) arasında {between} var; parçalar otomatik"
+" birleştirilmez."
+msgstr ""
+
+#: app/pipeline/group.py
+#, python-brace-format
+msgid ""
+"Ardışıklık güvenlik kuralı ({rule}): bu parça ({pages}) ile aynı belgeye "
+"ait olabilecek parçalar ({others}) arasında {between} var; parçalar "
+"otomatik birleştirilmez."
 msgstr ""
 
 #: app/catalog/photo_rules.py
@@ -751,6 +791,11 @@ msgstr ""
 
 #: app/web/routers/uploads.py
 msgid "Aynı partide aynı adda birden çok dosya olamaz."
+msgstr ""
+
+#: app/pipeline/group.py
+#, python-brace-format
+msgid "Aynı türün yüzü ön ya da arka okunmamış sayfaları: {pages}."
 msgstr ""
 
 #: app/web/routers/access_log.py app/web/templates/access_log_employee.html
@@ -948,6 +993,13 @@ msgstr ""
 #: app/catalog/prefill.py app/web/routers/catalog.py
 #: app/web/templates/catalog_type_fields.html
 msgid "Beklenen sayfa sayısı"
+msgstr ""
+
+#: app/pipeline/group.py
+#, python-brace-format
+msgid ""
+"Beklenen sayfa sayısı kontrolü (04.5.1): bu aday {count} sayfa ({pages}) "
+"taşıyor, tür {expected} bekliyor."
 msgstr ""
 
 #: app/web/templates/training.html app/web/templates/training_results.html
@@ -1263,6 +1315,34 @@ msgstr ""
 msgid "Belirli bir türle kalem ekle"
 msgstr ""
 
+#: app/matching/match.py
+#, python-brace-format
+msgid ""
+"Belirsiz eşleşme: ad-soyad ve doğum tarihi birden fazla çalışana uyuyor "
+"({employees}). Çalışan otomatik eşleştirilmez."
+msgstr ""
+
+#: app/matching/match.py
+#, python-brace-format
+msgid ""
+"Belirsiz eşleşme: belge numarası birden fazla çalışana ait ({employees})."
+" Çalışan otomatik eşleştirilmez."
+msgstr ""
+
+#: app/matching/match.py
+#, python-brace-format
+msgid ""
+"Belirsiz eşleşme: belgede doğum tarihi yok, ad-soyad birden fazla "
+"çalışana uyuyor ({employees}). Çalışan otomatik eşleştirilmez."
+msgstr ""
+
+#: app/pipeline/group.py
+#, python-brace-format
+msgid ""
+"Belirsiz ön/arka yüz eşleştirmesi: bu yüz ({face}) partide tek anlamlı "
+"bir eşle eşleştirilemiyor."
+msgstr ""
+
 #: app/web/templates/upload.html
 msgid "Belirtme — sahibi belgeden bulunsun"
 msgstr ""
@@ -1292,6 +1372,27 @@ msgstr ""
 
 #: app/web/routers/training.py
 msgid "Bilinen tür bulunamadı."
+msgstr ""
+
+#: app/pipeline/group.py
+#, python-brace-format
+msgid ""
+"Bilinmeyen belge türü (04.6.1): bu adayın ({pages}) analizde yazılan türü"
+" ({slug}) güncel katalogda yok. Belge katalogdaki bir türe zorla atanmaz."
+msgstr ""
+
+#: app/pipeline/group.py
+#, python-brace-format
+msgid ""
+"Bilinmeyen belge türü (04.6.1): bu adayın ({pages}) türü belirlenemedi. "
+"Belge katalogdaki bir türe zorla atanmaz."
+msgstr ""
+
+#: app/pipeline/group.py
+#, python-brace-format
+msgid ""
+"Bilinmeyen belge türü (04.6.1): bu adayın ({pages}) türü katalogda yok; "
+"önerilen aday tür: \"{name}\". Belge katalogdaki bir türe zorla atanmaz."
 msgstr ""
 
 #: app/web/routers/users.py
@@ -1408,6 +1509,11 @@ msgstr ""
 
 #: app/web/templates/upload_detail.html
 msgid "Boş"
+msgstr ""
+
+#: app/pipeline/plan_planner.py
+#, python-brace-format
+msgid "Boş sayfa ({pages}): atlanır; çıktıya ve kuyruğa girmez, hata sayılmaz."
 msgstr ""
 
 #: app/telegram/bot.py
@@ -1942,6 +2048,25 @@ msgstr ""
 msgid "Direkt Belge"
 msgstr ""
 
+#: app/pipeline/validate.py
+#, python-brace-format
+msgid ""
+"Direkt Belge tek kaynak doğrulaması (06.5.1, direct_single_source): çıktı"
+" tek kaynak dosyanın ardışık sayfalarından oluşur (K3); {findings}."
+msgstr ""
+
+#: app/pipeline/plan_rules.py
+#, python-brace-format
+msgid ""
+"Direkt Belge: beklenen dosya türü {expected}, gelen {received}. Uygun "
+"formatta yeniden gönderin."
+msgstr ""
+
+#: app/pipeline/plan_rules.py
+#, python-brace-format
+msgid "Direkt Belge: {operation} bu tür için yapılamaz."
+msgstr ""
+
 #: app/pipeline/queue_close.py
 msgid "Diğer"
 msgstr ""
@@ -1988,6 +2113,13 @@ msgid ""
 "artık girmez. Son kararınız mı?"
 msgstr ""
 
+#: app/pipeline/validate.py
+#, python-brace-format
+msgid ""
+"Dosya türü doğrulaması (06.5.1, file_type): beklenen dosya türü "
+"{expected}, gelen {received}. Uygun formatta yeniden gönderin."
+msgstr ""
+
 #: app/web/templates/training_results.html
 msgid "Dosyalar"
 msgstr ""
@@ -2029,6 +2161,13 @@ msgstr ""
 msgid "Doğum tarihi"
 msgstr ""
 
+#: app/pipeline/validate.py
+#, python-brace-format
+msgid ""
+"Doğum tarihi doğrulaması (06.5.1, dob_plausible): okunan doğum tarihi "
+"{finding}; tarih yanlış okunmuş olabilir."
+msgstr ""
+
 #: app/telegram/intent.py
 msgid "Doğum tarihi: kayıtlı değil"
 msgstr ""
@@ -2057,6 +2196,13 @@ msgstr ""
 
 #: app/web/routers/uploads_list.py
 msgid "Durum süzgeci tanınmadı; yok sayıldı."
+msgstr ""
+
+#: app/pipeline/plan_rules.py
+#, python-brace-format
+msgid ""
+"Dönüşüm izni yok (06.4.1): {operation} bu türün izinli dönüşümleri "
+"arasında değil (allowed_conversions: {allowed}). Belge dönüştürülmez."
 msgstr ""
 
 #: app/web/templates/catalog_description.html
@@ -2112,6 +2258,11 @@ msgstr ""
 
 #: app/web/routers/training.py
 msgid "Elle kontrol gerekli"
+msgstr ""
+
+#: app/web/routers/training.py
+#, python-brace-format
+msgid "Elle yerleştirildi → `{slug}`"
 msgstr ""
 
 #: app/web/templates/catalog_photo_rules.html
@@ -2319,20 +2470,99 @@ msgid ""
 "kataloğa kendiliğinden eklenmez; yalnız örnekleri birikir."
 msgstr ""
 
+#: app/training/cleanup.py
+#, python-brace-format
+msgid "Eğitim çalıştırması #{run} arşivden geri alındı."
+msgstr ""
+
+#: app/training/cleanup.py
+#, python-brace-format
+msgid "Eğitim çalıştırması #{run} arşivlendi."
+msgstr ""
+
 #: app/web/routers/training.py
 msgid "Eğitim çalıştırması bulunamadı."
+msgstr ""
+
+#: app/training/placement.py
+#, python-brace-format
+msgid "Eğitim örneği `{slug}` türüne yerleşti ({method})."
+msgstr ""
+
+#: app/training/decisions.py
+#, python-brace-format
+msgid "Eğitim örneği `{slug}` örneklerinden çıkarıldı; arşive taşındı."
+msgstr ""
+
+#: app/training/decisions.py
+#, python-brace-format
+msgid "Eğitim örneği `{source}` türünden `{target}` türüne taşındı."
 msgstr ""
 
 #: app/web/routers/training.py
 msgid "Eğitim örneği bulunamadı."
 msgstr ""
 
+#: app/training/decisions.py
+#, python-brace-format
+msgid "Eğitim örneği doğrulandı (`{slug}`)."
+msgstr ""
+
 #: app/web/routers/training.py
 msgid "Eğitim öğesi bulunamadı."
 msgstr ""
 
+#: app/training/placement.py
+#, python-brace-format
+msgid "Eğitim öğesi yerleşmedi: aynı içerik `{slug}` türünde zaten örnek."
+msgstr ""
+
+#: app/training/placement.py
+#, python-brace-format
+msgid ""
+"Eğitim öğesi yerleşmedi: aynı içerik başka türde örnek (`{existing}`, "
+"önerilen `{slug}`)."
+msgstr ""
+
+#: app/training/placement.py
+msgid "Eğitim öğesi yerleşmedi: harita satırı İK incelemesi bekliyor."
+msgstr ""
+
+#: app/training/placement.py
+msgid "Eğitim öğesi yerleşmedi: hiçbir bilinen türe inmedi."
+msgstr ""
+
+#: app/training/placement.py
+#, python-brace-format
+msgid "Eğitim öğesi yerleşmedi: sonuç `{slug}` beklenen türle çelişiyor."
+msgstr ""
+
+#: app/training/classification.py
+msgid "Eğitim öğesi yerleşmedi: yapay zekâ incelemesi yapılamadı."
+msgstr ""
+
+#: app/training/classification.py
+msgid "Eğitim öğesi yerleşmedi: yapay zekâ incelemesi yarıda kaldı."
+msgstr ""
+
+#: app/training/cleanup.py
+msgid "Eğitim öğesi yoksayıldı."
+msgstr ""
+
+#: app/training/classification.py
+msgid "Eğitim öğesinin yapay zekâ incelemesi hata verdi; yeniden denenecek."
+msgstr ""
+
+#: app/training/cleanup.py
+msgid "Eğitim öğesinin yoksayılması geri alındı."
+msgstr ""
+
 #: app/web/routers/training.py
 msgid "Eğitimden önce"
+msgstr ""
+
+#: app/training/placement.py
+msgid "Eğitimden önce örnek klasörüne konmuş; kaydı eğitimde tutuldu."
 msgstr ""
 
 #: app/web/templates/training.html
@@ -2345,6 +2575,16 @@ msgstr ""
 
 #: app/web/templates/group.html
 msgid "Eşleşme"
+msgstr ""
+
+#: app/pipeline/group.py
+#, python-brace-format
+msgid "Eşleşmemiş arka yüzler: {pages}."
+msgstr ""
+
+#: app/pipeline/group.py
+#, python-brace-format
+msgid "Eşleşmemiş ön yüzler: {pages}."
 msgstr ""
 
 #: app/web/routers/upload_page.py
@@ -2368,9 +2608,19 @@ msgstr ""
 msgid "Fotoğraf kuralları"
 msgstr ""
 
+#: app/pipeline/plan_rules.py
+#, python-brace-format
+msgid "Fotoğraf kuralları değerlendirilmedi (11.7.1): {rules}."
+msgstr ""
+
 #: app/web/feedback.py
 #, python-brace-format
 msgid "Fotoğraf kuralları kaydedildi: {slug}."
+msgstr ""
+
+#: app/pipeline/plan_rules.py
+#, python-brace-format
+msgid "Fotoğraf kurallarına uymuyor (11.7.1): {rules}."
 msgstr ""
 
 #: app/web/templates/profile.html
@@ -2561,8 +2811,22 @@ msgstr ""
 msgid "Harita ile toplu tarama"
 msgstr ""
 
+#: app/training/map_import.py
+#, python-brace-format
+msgid "Harita ile toplu tarama başladı: {count} dosya."
+msgstr ""
+
 #: app/web/routers/training.py
 msgid "Harita saklanamadı; tarama başlatılmadı."
+msgstr ""
+
+#: app/training/map_scan.py
+#, python-brace-format
+msgid "Harita taraması yapılamadı ({error}); denemeler tükendi"
+msgstr ""
+
+#: app/training/map_scan.py
+msgid "Harita taraması yarıda kaldı; denemeler tükendi"
 msgstr ""
 
 #: app/web/routers/training.py
@@ -2871,6 +3135,11 @@ msgstr ""
 msgid "Karşılandı:"
 msgstr ""
 
+#: app/pipeline/legibility.py
+#, python-brace-format
+msgid "Karşılanmayan kabul kriterleri: {criteria}"
+msgstr ""
+
 #: app/web/routers/training.py
 msgid "Katalog"
 msgstr ""
@@ -2991,6 +3260,10 @@ msgid ""
 "Alanları düzeltip kaydedin:"
 msgstr ""
 
+#: app/training/cleanup.py
+msgid "Kayıtsız örnek; kaydı register-examples ile tutuldu."
+msgstr ""
+
 #: app/web/auth.py
 msgid "Kendi hesabınızı pasife alamazsınız."
 msgstr ""
@@ -3023,8 +3296,26 @@ msgstr ""
 msgid "Kiril"
 msgstr ""
 
+#: app/matching/match.py
+#, python-brace-format
+msgid ""
+"Kişi anahtarı çelişkili: adayın sayfaları şu alanları farklı okuyor: "
+"{fields}. Çalışan otomatik eşleştirilmez."
+msgstr ""
+
+#: app/matching/match.py
+#, python-brace-format
+msgid ""
+"Kişi eksik okundu: kayıtlı çalışanla eşleşme yok, {detail}. Yeni çalışan "
+"açılmaz, profil önerilmez."
+msgstr ""
+
 #: app/web/templates/queue.html app/web/templates/queue_item.html
 msgid "Kişi tahmini"
+msgstr ""
+
+#: app/matching/match.py
+msgid "Kişi tespit edilemedi: belgede ne ad-soyad ne belge numarası okundu."
 msgstr ""
 
 #: app/web/templates/employee_deleted.html
@@ -3210,12 +3501,53 @@ msgstr ""
 msgid "Latin harfleriyle yazılmalı; Latin olmayan yazım Orijinal yazım alanına"
 msgstr ""
 
+#: app/matching/match.py
+msgid "Latin yazım belgede yok"
+msgstr ""
+
 #: app/web/templates/profile.html
 msgid "Latin yazım eksik"
 msgstr ""
 
 #: app/web/routers/uploads.py
 msgid "Lütfen dosyayı yeniden adlandırıp tekrar yükleyin."
+msgstr ""
+
+#: app/training/mechanical.py
+#, python-brace-format
+msgid "MRZ ({readings}) belge kodu bir belge türüne eşlenmiyor"
+msgstr ""
+
+#: app/training/mechanical.py
+#, python-brace-format
+msgid "MRZ ({readings}) tek bir bilinen türe inmiyor"
+msgstr ""
+
+#: app/training/mechanical.py
+#, python-brace-format
+msgid "MRZ ({readings}) tuttu"
+msgstr ""
+
+#: app/training/mechanical.py
+#, python-brace-format
+msgid "MRZ `{slug}` gösteriyor ama yapısına uymuyor: {problems}"
+msgstr ""
+
+#: app/training/mechanical.py
+#, python-brace-format
+msgid "MRZ kontrol haneleri tutmuyor ({checks})"
+msgstr ""
+
+#: app/pipeline/validate.py
+#, python-brace-format
+msgid ""
+"MRZ kontrol hanesi doğrulaması (06.5.1, mrz_checksum): {pages}. Kontrol "
+"hanesi tutmayan MRZ geçersiz sayılır."
+msgstr ""
+
+#: app/training/mechanical.py
+#, python-brace-format
+msgid "MRZ'ler farklı türlere işaret ediyor ({readings})"
 msgstr ""
 
 #: app/web/templates/catalog_criteria.html
@@ -3228,6 +3560,16 @@ msgstr ""
 
 #: app/web/templates/training_map.html
 msgid "Mekanik hazır"
+msgstr ""
+
+#: app/training/mechanical.py
+#, python-brace-format
+msgid "Mekanik tanınmadı: {reason}"
+msgstr ""
+
+#: app/training/map_scan.py app/training/mechanical.py
+#, python-brace-format
+msgid "Mekanik: {basis} → `{slug}`"
 msgstr ""
 
 #: app/telegram/bot.py
@@ -3306,6 +3648,11 @@ msgstr ""
 msgid "Okunamadı kuyruğu"
 msgstr ""
 
+#: app/pipeline/legibility.py
+#, python-brace-format
+msgid "Okunamayan alanlar: {fields}"
+msgstr ""
+
 #: app/web/templates/upload_detail.html
 msgid "Olay zaman çizelgesi"
 msgstr ""
@@ -3328,6 +3675,22 @@ msgstr ""
 
 #: app/web/routers/upload_page.py
 msgid "Onay bekleyen profil"
+msgstr ""
+
+#: app/matching/match.py
+msgid ""
+"Onay bekleyen profil: kayıtlı çalışanla eşleşme yok, temiz belge numarası"
+" yok (§20.2.3) ve doğum tarihi yeni çalışan açmaya yetmiyor (§20.2.4: "
+"türün zorunlu alanı değil, okunmadı, sayfalar arasında çelişiyor ya da "
+"doğrulanmadı). Yeni çalışan yalnız onayla açılır (K7)."
+msgstr ""
+
+#: app/matching/match.py
+#, python-brace-format
+msgid ""
+"Onay bekleyen profil: {missing}. Ad-soyad yalnız Latin olmayan alfabeyle "
+"okundu ve tahminle çevrilmez (05.2.2); İK onayda Latin adı yazar. Yeni "
+"çalışan yalnız onayla açılır (K7)."
 msgstr ""
 
 #: app/web/routers/catalog.py
@@ -3374,6 +3737,23 @@ msgstr ""
 msgid "Orijinal yazım"
 msgstr ""
 
+#: app/training/mechanical.py
+msgid "PDF metin katmanı okunamadı"
+msgstr ""
+
+#: app/training/mechanical.py
+#, python-brace-format
+msgid "PDF metin katmanında MRZ ({readings})"
+msgstr ""
+
+#: app/training/mechanical.py
+msgid "PDF metin katmanında MRZ yok"
+msgstr ""
+
+#: app/training/mechanical.py
+msgid "PDF'te metin katmanı yok"
+msgstr ""
+
 #: app/web/templates/profile.html app/web/templates/upload.html
 msgid "PDF, JPEG, PNG · Word ve Excel olduğu gibi saklanır"
 msgstr ""
@@ -3382,6 +3762,16 @@ msgstr ""
 msgid ""
 "PDF, JPEG, PNG · yalnız örnek (specimen) ya da sentetik belge; gerçek "
 "kimlik belgesi yüklemeyin"
+msgstr ""
+
+#: app/training/mechanical.py
+#, python-brace-format
+msgid "PDF, {pages} sayfa"
+msgstr ""
+
+#: app/training/mechanical.py
+#, python-brace-format
+msgid "PDF, {pages} sayfa (beklenen {expected})"
 msgstr ""
 
 #: app/web/templates/employees_results.html
@@ -3576,6 +3966,14 @@ msgstr ""
 msgid "Pasif çalışan"
 msgstr ""
 
+#: app/matching/status.py
+#, python-brace-format
+msgid ""
+"Pasif çalışan ({employee_id}) ile eşleşti ({code}): belge otomatik "
+"yerleşmez (R7); öğeyi bir çalışana atayın ya da çalışanı etkinleştirip "
+"partiyi yeniden analiz edin."
+msgstr ""
+
 #: app/web/templates/queue_item.html
 #, python-format
 msgid ""
@@ -3687,6 +4085,13 @@ msgid ""
 "durumu: {status}."
 msgstr ""
 
+#: app/pipeline/validate.py
+#, python-brace-format
+msgid ""
+"Profilden yüklenen belge bu profile ait görünmüyor (context_person): "
+"{finding}."
+msgstr ""
+
 #: app/web/templates/employee_fields.html app/web/templates/profile.html
 msgid "Profili düzenle"
 msgstr ""
@@ -3728,6 +4133,28 @@ msgstr ""
 
 #: app/web/templates/upload_detail.html
 msgid "Rota"
+msgstr ""
+
+#: app/training/mechanical.py
+#, python-brace-format
+msgid "SHA-256 birden çok türde kayıtlı ({slugs})"
+msgstr ""
+
+#: app/training/mechanical.py
+#, python-brace-format
+msgid "SHA-256 kayıtlı değil; {reason}"
+msgstr ""
+
+#: app/training/mechanical.py
+msgid "SHA-256 tuttu"
+msgstr ""
+
+#: app/training/mechanical.py
+msgid "SHA-256 örnek envanterinde"
+msgstr ""
+
+#: app/training/mechanical.py
+msgid "SHA-256 örnek kaydında"
 msgstr ""
 
 #: app/catalog/photo_rules.py
@@ -4102,6 +4529,11 @@ msgstr ""
 msgid "Taranacak dosya"
 msgstr ""
 
+#: app/training/map_scan.py
+#, python-brace-format
+msgid "Taranamadı ({row}): {problem}"
+msgstr ""
+
 #: app/web/templates/profile.html app/web/templates/training_results.html
 #: app/web/templates/uploads_list.html
 msgid "Tarih"
@@ -4141,6 +4573,13 @@ msgstr ""
 
 #: app/web/templates/upload_detail.html
 msgid "Tekrar dosya: işlenmedi, sayfa görüntüsü yok."
+msgstr ""
+
+#: app/pipeline/plan_planner.py
+#, python-brace-format
+msgid ""
+"Tekrar yükleme (01.4.1): dosya {file}, daha önce yüklenen dosya "
+"{original} ile aynı içerikte; yeniden işlenmez, çıktı üretmez."
 msgstr ""
 
 #: app/web/routers/employees.py
@@ -4421,6 +4860,15 @@ msgstr ""
 msgid "Türü kataloğa ekleyip partiyi yeniden analiz edin ya da öğeyi kapatın."
 msgstr ""
 
+#: app/pipeline/group.py
+#, python-brace-format
+msgid "Türü kesin belirlenemeyen sayfalar: {pages}."
+msgstr ""
+
+#: app/storage/map_paths.py
+msgid "UNC yolu"
+msgstr ""
+
 #: app/web/templates/catalog_candidates.html
 msgid "Unknown kuyruğuna bakın"
 msgstr ""
@@ -4475,6 +4923,13 @@ msgstr ""
 #: app/web/templates/training_map_step.html
 #: app/web/templates/upload_action_result.html
 msgid "Vazgeç"
+msgstr ""
+
+#: app/pipeline/group.py
+msgid ""
+"Word/Excel eki (04.7.1): parti bir çalışan bağlamıyla yüklenmedi, sahibi "
+"belirlenemedi; belge analiz edilmez, dönüştürülmez, gerekçesiyle kuyruğa "
+"alınır."
 msgstr ""
 
 #: app/web/profile_form.py
@@ -4553,6 +5008,15 @@ msgstr ""
 msgid "Yapay zekâ incelemesi bekliyor"
 msgstr ""
 
+#: app/training/classification.py
+#, python-brace-format
+msgid "Yapay zekâ incelemesi yapılamadı ({error}); denemeler tükendi"
+msgstr ""
+
+#: app/training/classification.py
+msgid "Yapay zekâ incelemesi yarıda kaldı; denemeler tükendi"
+msgstr ""
+
 #: app/web/templates/training_map.html
 msgid ""
 "Yapay zekâ sağlayıcısı ayarlı değil: işçi sağlayıcı ayarı olmadan "
@@ -4565,6 +5029,15 @@ msgid ""
 "zekâ incelemesi bekliyor\" durumunda bekler. Sağlayıcı ayarlanınca işçi "
 "onları inceler. İşçi sağlayıcı ayarı olmadan başlamadığı için harita "
 "taramasının dosyaları da \"Sırada\" bekler."
+msgstr ""
+
+#: app/training/classification.py
+msgid "Yapay zekâ önerisi yok"
+msgstr ""
+
+#: app/training/classification.py
+#, python-brace-format
+msgid "Yapay zekâ önerisi: {name}"
 msgstr ""
 
 #: app/web/templates/profile.html
@@ -4820,6 +5293,13 @@ msgstr ""
 msgid "Yüz"
 msgstr ""
 
+#: app/pipeline/validate.py
+#, python-brace-format
+msgid ""
+"Yüz doğrulaması (06.5.1, sides): tür {which} kabul ediyor: {accepted}. "
+"Gelen düzen {received}; bu adayın yüzleri: {faces}."
+msgstr ""
+
 #: app/catalog/photo_rules.py
 msgid "Yüz görünür"
 msgstr ""
@@ -4835,6 +5315,10 @@ msgstr ""
 #: app/catalog/prefill.py app/web/routers/catalog.py
 #: app/web/templates/catalog_type_fields.html
 msgid "Yüz yapısı"
+msgstr ""
+
+#: app/pipeline/group.py
+msgid "Yüzler dosyalar arasında otomatik eşleştirilmez."
 msgstr ""
 
 #: app/web/templates/access_log_employee.html
@@ -4886,6 +5370,19 @@ msgstr ""
 msgid "Zorunluluk"
 msgstr ""
 
+#: app/storage/map_paths.py
+msgid "`..` parçası"
+msgstr ""
+
+#: app/training/classification.py
+msgid "ad"
+msgstr ""
+
+#: app/training/classification.py
+#, python-brace-format
+msgid "ad `{slug}` türüne iniyor ama yanıttaki {clashes} tutmuyor"
+msgstr ""
+
 #: app/web/routers/uploads.py
 msgid "ad denetim karakteri içeremez"
 msgstr ""
@@ -4897,6 +5394,15 @@ msgstr ""
 
 #: app/web/routers/uploads.py
 msgid "ad nokta veya boşlukla bitemez"
+msgstr ""
+
+#: app/pipeline/validate.py
+msgid "ad uyuşmuyor"
+msgstr ""
+
+#: app/training/classification.py
+#, python-brace-format
+msgid "ad {name}"
 msgstr ""
 
 #: app/web/routers/uploads.py
@@ -4912,8 +5418,17 @@ msgstr ""
 msgid "ad-soyad klasör adına çevrilemiyor (K8)"
 msgstr ""
 
+#: app/matching/match.py
+msgid "ad-soyad okunmadı"
+msgstr ""
+
 #: app/matching/records.py
 msgid "adres"
+msgstr ""
+
+#: app/pipeline/group.py
+#, python-brace-format
+msgid "analizi yapılamamış, başka belgeye ait olabilecek sayfa ({pages})"
 msgstr ""
 
 #: app/web/templates/training_results.html
@@ -4924,8 +5439,26 @@ msgstr ""
 msgid "arşivlenenler"
 msgstr ""
 
+#: app/pipeline/route.py
+msgid "açmak için parola gerekiyor"
+msgstr ""
+
+#: app/pipeline/group.py
+#, python-brace-format
+msgid "başka belgeye ait sayfa ({pages})"
+msgstr ""
+
 #: app/web/templates/profile.html
 msgid "başka bir kayıt"
+msgstr ""
+
+#: app/training/placement.py
+#, python-brace-format
+msgid "başka türde örnek: {slug}"
+msgstr ""
+
+#: app/training/mechanical.py
+msgid "beklenen tür"
 msgstr ""
 
 #: app/telegram/intent.py
@@ -4941,12 +5474,29 @@ msgstr ""
 msgid "belge numarası"
 msgstr ""
 
+#: app/pipeline/validate.py
+msgid "belge numarası başka çalışanda"
+msgstr ""
+
 #: app/web/templates/access_log_employee.html
 msgid "belge silindi"
 msgstr ""
 
 #: app/web/routers/employees.py
 msgid "belgeden"
+msgstr ""
+
+#: app/pipeline/validate.py
+#, python-brace-format
+msgid "belgenin sayfaları {count} kaynak dosyadan geliyor"
+msgstr ""
+
+#: app/pipeline/plan_rules.py
+msgid "belirlenemedi (output_format: keep, kaynak biçimi tanınmadı)"
+msgstr ""
+
+#: app/pipeline/plan_rules.py
+msgid "belirlenemedi (output_format: keep, kaynaklar farklı biçimde)"
 msgstr ""
 
 #: app/web/templates/catalog_examples.html
@@ -4961,6 +5511,14 @@ msgstr ""
 #: app/web/routers/employees.py
 #, python-brace-format
 msgid "birleştirme ({actor}, {day})"
+msgstr ""
+
+#: app/pipeline/plan_rules.py
+msgid "biçimi tanınmadı"
+msgstr ""
+
+#: app/pipeline/plan_rules.py
+msgid "boş"
 msgstr ""
 
 #: app/catalog/form.py app/matching/match.py
@@ -4993,13 +5551,53 @@ msgstr ""
 msgid "diğer"
 msgstr ""
 
-#: app/training/map_import.py
+#: app/training/map_scan.py
+msgid "dosya okunamadı"
+msgstr ""
+
+#: app/training/mechanical.py
+#, python-brace-format
+msgid "dosya türü {kind} izinli değil (izinli: {allowed})"
+msgstr ""
+
+#: app/training/map_import.py app/training/map_scan.py
 msgid "dosya yok"
+msgstr ""
+
+#: app/pipeline/plan_rules.py
+#, python-brace-format
+msgid "dosya {file} ({kind}, bütün dosya)"
+msgstr ""
+
+#: app/pipeline/group.py app/pipeline/plan_rules.py app/pipeline/validate.py
+#, python-brace-format
+msgid "dosya {file}, sayfa {pages}"
+msgstr ""
+
+#: app/pipeline/validate.py
+#, python-brace-format
+msgid "dosya {file}, sayfa {pages}: {side}"
 msgstr ""
 
 #: app/web/routers/documents.py app/web/routers/upload_page.py
 #, python-brace-format
 msgid "dosya {id}"
+msgstr ""
+
+#: app/pipeline/plan_rules.py
+msgid "dosyanın ardışık alt kümesi"
+msgstr ""
+
+#: app/pipeline/plan_rules.py
+msgid "dosyanın ardışık olmayan alt kümesi"
+msgstr ""
+
+#: app/pipeline/plan_rules.py
+msgid "dosyanın tüm sayfaları"
+msgstr ""
+
+#: app/pipeline/validate.py
+msgid "doğum tarihi uyuşmuyor"
 msgstr ""
 
 #: app/telegram/intent.py
@@ -5074,6 +5672,18 @@ msgstr ""
 msgid "geçersiz seçim"
 msgstr ""
 
+#: app/storage/map_paths.py
+msgid "geçersiz yol"
+msgstr ""
+
+#: app/pipeline/validate.py
+msgid "geçmişte değil"
+msgstr ""
+
+#: app/training/mechanical.py
+msgid "görüntü dosyasında metin katmanı yok (OCR yapılmaz)"
+msgstr ""
+
 #: app/training/map_import.py
 msgid "güvensiz yol"
 msgstr ""
@@ -5082,16 +5692,42 @@ msgstr ""
 msgid "harf ya da rakam içermiyor"
 msgstr ""
 
+#: app/training/mechanical.py
+#, python-brace-format
+msgid "harita satırı {row}"
+msgstr ""
+
+#: app/training/mechanical.py
+msgid "haritadaki SHA-256 dosyayla tutmuyor"
+msgstr ""
+
+#: app/training/map_scan.py
+msgid "haritadaki yol kaydı yok"
+msgstr ""
+
 #: app/web/templates/_context_warning.html
 msgid "henüz kuyruğa alınmadı"
+msgstr ""
+
+#: app/pipeline/validate.py
+msgid "hiçbir düzene uymuyor (eksik, fazla ya da sırası ters yüz)"
 msgstr ""
 
 #: app/catalog/form.py
 msgid "iki büyük harf olmalı (ör. RU)"
 msgstr ""
 
+#: app/pipeline/validate.py
+msgid "iki yüz tek sayfada (combined: front_and_back)"
+msgstr ""
+
 #: app/web/templates/profile.html
 msgid "iptal:"
+msgstr ""
+
+#: app/training/mechanical.py
+#, python-brace-format
+msgid "ipucu `{slug}` bilinen bir tür değil"
 msgstr ""
 
 #: app/matching/records.py
@@ -5118,6 +5754,20 @@ msgstr ""
 msgid "kapatıldı"
 msgstr ""
 
+#: app/training/classification.py
+msgid "katalog türü"
+msgstr ""
+
+#: app/training/classification.py
+#, python-brace-format
+msgid "katalog türü `{slug}` bilinen türlerde yok"
+msgstr ""
+
+#: app/training/classification.py
+#, python-brace-format
+msgid "katalog türü `{slug}` yanıttaki {clashes} bilgisiyle çelişiyor"
+msgstr ""
+
 #: app/web/templates/catalog_examples.html
 msgid ""
 "kayıtsız — <code>python -m app.catalog register-examples</code> ile "
@@ -5132,10 +5782,22 @@ msgstr ""
 msgid "koleksiyon kökü ayarlı değil"
 msgstr ""
 
+#: app/training/mechanical.py
+msgid "kontrol haneleri tuttu"
+msgstr ""
+
+#: app/storage/map_paths.py
+msgid "kökün dışına çıkıyor"
+msgstr ""
+
 #: app/catalog/form.py
 msgid ""
 "küçük harfle başlamalı; yalnız a-z, 0-9 ve _ içerebilir (en çok 64 "
 "karakter)"
+msgstr ""
+
+#: app/storage/map_paths.py
+msgid "mutlak yol"
 msgstr ""
 
 #: app/web/templates/catalog_candidate.html
@@ -5170,6 +5832,11 @@ msgstr ""
 msgid "plan öğesi %(item)s"
 msgstr ""
 
+#: app/pipeline/validate.py
+#, python-brace-format
+msgid "referans güne göre {low}–{high} yaş aralığı dışında"
+msgstr ""
+
 #: app/training/map_import.py
 msgid "referans — örnek değil"
 msgstr ""
@@ -5185,12 +5852,34 @@ msgstr ""
 msgid "s. {pages}"
 msgstr ""
 
+#: app/pipeline/route.py
+msgid "sahip parolalı (AES), pypdf sayfaları çözemiyor"
+msgstr ""
+
 #: app/catalog/form.py
 msgid "sayfa sayıları tam sayı olmalı"
 msgstr ""
 
+#: app/training/mechanical.py
+#, python-brace-format
+msgid "sayfa sayısı {pages}, beklenen {expected}"
+msgstr ""
+
+#: app/pipeline/group.py
+#, python-brace-format
+msgid "sayfa {pages}"
+msgstr ""
+
 #: app/web/templates/training_results.html app/web/templates/training_type.html
 msgid "seç"
+msgstr ""
+
+#: app/storage/map_paths.py
+msgid "sürücü harfi"
+msgstr ""
+
+#: app/pipeline/validate.py
+msgid "tanınmayan biçim"
 msgstr ""
 
 #: app/web/routers/upload_page.py
@@ -5209,12 +5898,24 @@ msgstr ""
 msgid "tüm durumlar"
 msgstr ""
 
+#: app/training/classification.py
+msgid "tür"
+msgstr ""
+
+#: app/training/cleanup.py
+msgid "tür sayfasından yüklendi"
+msgstr ""
+
 #: app/web/templates/training_map.html
 msgid "türü belirsiz; mekanik tanınmazsa yapay zekâya gider (tahmin, üst sınır)"
 msgstr ""
 
 #: app/web/templates/training_map.html
 msgid "türü belli; harita + mekanik kontrol, yapay zekâsız"
+msgstr ""
+
+#: app/training/map_scan.py
+msgid "türü haritadan belli olduğu için yapay zekâya gönderilmedi"
 msgstr ""
 
 #: app/telegram/handlers.py
@@ -5268,6 +5969,14 @@ msgstr ""
 msgid "yalnız pasif çalışanlar"
 msgstr ""
 
+#: app/pipeline/validate.py
+msgid "yalnız şu düzeni"
+msgstr ""
+
+#: app/training/classification.py
+msgid "yapay zekâ türü belirlemedi"
+msgstr ""
+
 #: app/web/routers/training.py
 msgid "yoksayılan"
 msgstr ""
@@ -5278,6 +5987,11 @@ msgstr ""
 
 #: app/web/templates/access_log_employee.html
 msgid "zamanlar UTC"
+msgstr ""
+
+#: app/training/placement.py
+#, python-brace-format
+msgid "zaten örnek: {name}"
 msgstr ""
 
 #: app/web/templates/profile.html
@@ -5304,6 +6018,11 @@ msgid "{count} dosyayı daha önce göndermiştiniz, yeniden eklemedim."
 msgid_plural "{count} dosyayı daha önce göndermiştiniz, yeniden eklemedim."
 msgstr[0] ""
 msgstr[1] ""
+
+#: app/pipeline/group.py
+#, python-brace-format
+msgid "{count} sayfa"
+msgstr ""
 
 #: app/telegram/intent.py
 #, python-brace-format
@@ -5350,6 +6069,31 @@ msgid "{employee}: {count} belge gönderiyorum."
 msgid_plural "{employee}: {count} belge gönderiyorum."
 msgstr[0] ""
 msgstr[1] ""
+
+#: app/pipeline/group.py
+#, python-brace-format
+msgid "{first} ve {second}"
+msgstr ""
+
+#: app/pipeline/validate.py
+#, python-brace-format
+msgid "{first} ya da {second}"
+msgstr ""
+
+#: app/training/mechanical.py
+#, python-brace-format
+msgid "{hint} `{slug}` MRZ ({readings}) ile çelişiyor"
+msgstr ""
+
+#: app/training/mechanical.py
+#, python-brace-format
+msgid "{hint} `{slug}` SHA-256 kaydıyla (`{recorded}`) çelişiyor"
+msgstr ""
+
+#: app/training/mechanical.py
+#, python-brace-format
+msgid "{hint} `{slug}` yapısına uymuyor: {problems}"
+msgstr ""
 
 #: app/telegram/whitelist.py
 #, python-brace-format
@@ -5405,9 +6149,34 @@ msgstr[1] ""
 msgid "{label}: belgede farklı değer okundu"
 msgstr ""
 
+#: app/training/cleanup.py
+#, python-brace-format
+msgid "{label}: {text}"
+msgstr ""
+
+#: app/pipeline/validate.py
+#, python-brace-format
+msgid "{layout}, tür bu düzeni kabul etmiyor"
+msgstr ""
+
+#: app/pipeline/group.py
+#, python-brace-format
+msgid "{low}-{high} sayfa"
+msgstr ""
+
+#: app/web/routers/training.py
+#, python-brace-format
+msgid "{note}; önceki not: {previous}"
+msgstr ""
+
 #: app/web/routers/employees.py
 #, python-brace-format
 msgid "{open} açık · {missing} eksik"
+msgstr ""
+
+#: app/pipeline/validate.py
+#, python-brace-format
+msgid "{pages} ardışık değil"
 msgstr ""
 
 #: app/catalog/describe.py
@@ -5420,9 +6189,53 @@ msgstr ""
 msgid "{photo} {limit} MB sınırını aşıyor."
 msgstr ""
 
+#: app/matching/match.py
+#, python-brace-format
+msgid "{problem}, temiz belge numarası var"
+msgstr ""
+
+#: app/matching/match.py
+#, python-brace-format
+msgid "{problem}, temiz belge numarası yok"
+msgstr ""
+
+#: app/matching/match.py
+#, python-brace-format
+msgid ""
+"{reason}. İsmi eşleşen çalışan: {employees}. Yalnız isim eşleşmesi "
+"otomatik eşleştirme sayılmaz (R8)."
+msgstr ""
+
+#: app/matching/match.py
+#, python-brace-format
+msgid ""
+"{reason}. İsmi eşleşen çalışanlar: {employees}. Yalnız isim eşleşmesi "
+"otomatik eşleştirme sayılmaz (R8)."
+msgstr ""
+
 #: app/catalog/form.py
 #, python-brace-format
 msgid "{slug} ayrılmış bir ad; başka bir slug seçin"
+msgstr ""
+
+#: app/training/classification.py
+#, python-brace-format
+msgid "{what} bilinen bir türe inmiyor"
+msgstr ""
+
+#: app/training/classification.py
+#, python-brace-format
+msgid "{what} birden çok türe iniyor ({slugs})"
+msgstr ""
+
+#: app/pipeline/validate.py
+#, python-brace-format
+msgid "{where}: izin verilmeyen karakter var, kontrol haneleri doğrulanamadı"
+msgstr ""
+
+#: app/pipeline/validate.py
+#, python-brace-format
+msgid "{where}: tutmayan kontrol haneleri {checks}"
 msgstr ""
 
 #: app/web/templates/account_telegram.html
@@ -5873,12 +6686,29 @@ msgstr ""
 msgid "çıktının geçmişi"
 msgstr ""
 
+#: app/pipeline/validate.py
+msgid "ön ve arka ayrı sayfalarda, önce ön sonra arka (separate: front, back)"
+msgstr ""
+
 #: app/web/templates/account_telegram.html
 msgid "örn. 123456789"
 msgstr ""
 
 #: app/web/templates/catalog_accepted_photos.html
 msgid "örnek"
+msgstr ""
+
+#: app/training/classification.py
+msgid "ülke"
+msgstr ""
+
+#: app/training/classification.py
+msgid "ülke ve tür"
+msgstr ""
+
+#: app/training/classification.py
+#, python-brace-format
+msgid "ülke ve tür {country}/{kind}"
 msgstr ""
 
 #: app/web/routers/users.py
@@ -5889,10 +6719,27 @@ msgstr ""
 msgid "İK (elle)"
 msgstr ""
 
+#: app/training/decisions.py
+#, python-brace-format
+msgid "İK başka türe taşıdı: `{source}` → `{target}`"
+msgstr ""
+
 #: app/web/templates/users.html
 msgid ""
 "İK bütün işlemleri yapar; Kullanıcı paneli yalnız okur, hiçbir şey "
 "değiştiremez."
+msgstr ""
+
+#: app/training/cleanup.py
+msgid "İK yoksaydı"
+msgstr ""
+
+#: app/training/cleanup.py
+msgid "İK yoksaymayı geri aldı"
+msgstr ""
+
+#: app/training/decisions.py
+msgid "İK örneklerden çıkardı; dosya eğitim arşivinde."
 msgstr ""
 
 #: app/web/feedback.py
@@ -5970,6 +6817,18 @@ msgstr ""
 msgid "İnceleme gerekli"
 msgstr ""
 
+#: app/training/map_scan.py
+#, python-brace-format
+msgid ""
+"İnceleme gerekli ({row}): haritadaki tür `{map_slug}`, dosya `{slug}` "
+"örnek klasöründe"
+msgstr ""
+
+#: app/training/map_scan.py
+#, python-brace-format
+msgid "İnceleme gerekli ({row}): {problem}"
+msgstr ""
+
 #: app/web/templates/profile.html
 msgid "İndir"
 msgstr ""
@@ -6003,6 +6862,10 @@ msgstr ""
 
 #: app/groups/packages.py
 msgid "İptal nedeni boş olamaz."
+msgstr ""
+
+#: app/matching/match.py
+msgid "İsim eşleşti ama doğum tarihi veya belge numarası doğrulanamadı"
 msgstr ""
 
 #: app/web/routers/employees.py
@@ -6053,6 +6916,22 @@ msgstr ""
 msgid "İşlem"
 msgstr ""
 
+#: app/pipeline/plan_rules.py
+#, python-brace-format
+msgid ""
+"İşlem seçilemedi (06.2.1): Kaynak: {sources}. Hedef biçim: {target}. "
+"§20.3'te bu kaynak, kapsama ve biçim için uyan fiziksel işlem yok; belge "
+"dönüştürülmez."
+msgstr ""
+
+#: app/pipeline/plan_rules.py
+#, python-brace-format
+msgid ""
+"İşlem seçilemedi (06.2.1): Kaynaklar: {sources}. Hedef biçim: {target}. "
+"§20.3'te bu kaynak, kapsama ve biçim için uyan fiziksel işlem yok; belge "
+"dönüştürülmez."
+msgstr ""
+
 #: app/web/feedback.py
 msgid "İşlem tamamlanamadı. Ayrıntı sayfada."
 msgstr ""
@@ -6085,8 +6964,23 @@ msgstr ""
 msgid "İşlenemedi"
 msgstr ""
 
+#: app/pipeline/plan_planner.py
+#, python-brace-format
+msgid ""
+"İşlenemeyen dosya (dosya {file}): sayfası üretilmemiş ve Word/Excel eki "
+"olarak tanınmadı; çıktı üretmez (R7)."
+msgstr ""
+
 #: app/web/routers/uploads_list.py
 msgid "İşleniyor"
+msgstr ""
+
+#: app/pipeline/route.py
+#, python-brace-format
+msgid ""
+"Şifreli PDF, sayfalar kopyalanamıyor (08.1.3): dosya {file}, istenen "
+"işlem {operation} — {protection}; şifre kaldırılmaz, dosya yeniden "
+"yazılmaz (K11)."
 msgstr ""
 
 #: app/web/templates/employee_fields_step.html
@@ -6123,6 +7017,10 @@ msgstr ""
 
 #: app/web/auth.py
 msgid "Şu anki parola hatalı."
+msgstr ""
+
+#: app/pipeline/validate.py
+msgid "şu düzenleri"
 msgstr ""
 
 #: app/web/templates/group.html

@@ -49,9 +49,10 @@ from app.db.models import (
     TrainingRun,
     TrainingRunKind,
 )
+from app.i18n import N_, Translatable, join_text
 from app.storage import DataLayout
 from app.storage.examples import listed_example_slug
-from app.storage.map_paths import UnsafePathError, resolve_reference
+from app.storage.map_paths import UNSAFE_PATH_LABELS, UnsafePathError, resolve_reference
 from app.training.known_types import KnownTypes, load_known_types
 from app.training.map_import import (
     MAP_CHECK_KEY,
@@ -61,9 +62,12 @@ from app.training.map_import import (
     SkipReason,
 )
 from app.training.mechanical import (
+    SHA256_MISMATCH,
+    SHA256_RECORDED,
     ExampleInventory,
     hint_label,
     load_example_inventory,
+    map_row_label,
     recognize,
 )
 from app.training.placement import (
@@ -78,10 +82,10 @@ from app.training.placement import (
 from app.worker.idle import IdleContext, IdleTable, run_idle_unit
 
 JOB_NAME = "egitim-haritasi"
-SHA_MISMATCH = "haritadaki SHA-256 dosyayla tutmuyor"
-NOT_TO_AI = "türü haritadan belli olduğu için yapay zekâya gönderilmedi"
-ERROR_NOTE = "Harita taraması yapılamadı ({error}); denemeler tükendi"
-ABANDONED_NOTE = "Harita taraması yarıda kaldı; denemeler tükendi"
+SHA_MISMATCH = SHA256_MISMATCH
+NOT_TO_AI = Translatable(N_("türü haritadan belli olduğu için yapay zekâya gönderilmedi"))
+ERROR_NOTE = N_("Harita taraması yapılamadı ({error}); denemeler tükendi")
+ABANDONED_NOTE = Translatable(N_("Harita taraması yarıda kaldı; denemeler tükendi"))
 
 
 # --- girdi ve dosya --------------------------------------------------------------------------
@@ -121,21 +125,26 @@ def load_map_file(source: MapScanSource, *, layout: DataLayout, settings: Settin
     bağ değişmiş olabilir); en çok `max_upload_file_size_bytes + 1` bayt okunur. Veritabanına
     dokunmaz."""
     if source.root is None or not source.reference:
-        return MapFile(None, problem="haritadaki yol kaydı yok")
+        return MapFile(None, problem=Translatable(N_("haritadaki yol kaydı yok")))
     base = layout.root if source.root is MapRoot.DATA else settings.training_collection_dir
     if base is None:
-        return MapFile(None, problem=SKIP_LABELS[SkipReason.NO_COLLECTION])
+        return MapFile(None, problem=Translatable(SKIP_LABELS[SkipReason.NO_COLLECTION]))
     try:
         path = resolve_reference(base, source.reference)
     except UnsafePathError as exc:
-        return MapFile(None, problem=f"{SKIP_LABELS[SkipReason.UNSAFE_PATH]} ({exc})")
+        problem = Translatable(
+            "{label} ({detail})",
+            label=Translatable(SKIP_LABELS[SkipReason.UNSAFE_PATH]),
+            detail=Translatable(UNSAFE_PATH_LABELS[exc.reason]),
+        )
+        return MapFile(None, problem=problem)
     if not path.is_file():
-        return MapFile(path, problem=SKIP_LABELS[SkipReason.MISSING])
+        return MapFile(path, problem=Translatable(SKIP_LABELS[SkipReason.MISSING]))
     try:
         with path.open("rb") as handle:
             content = handle.read(settings.max_upload_file_size_bytes + 1)
     except OSError:
-        return MapFile(path, problem="dosya okunamadı")
+        return MapFile(path, problem=Translatable(N_("dosya okunamadı")))
     return MapFile(path, content)
 
 
@@ -156,9 +165,14 @@ def scan_map_item(
     etmez. Öğe `queued` değilse `ItemNotPlaceableError`."""
     if item.status != TrainingItemStatus.QUEUED:
         raise ItemNotPlaceableError(f"Öğe {item.id} taranmayı beklemiyor: {item.status}")
-    row = f"harita satırı {item.row_number}"
+    row = map_row_label(item.row_number)
     if loaded.problem is not None or loaded.path is None or loaded.content is None:
-        fail_item(session, item, note=f"Taranamadı ({row}): {loaded.problem or 'dosya yok'}")
+        note = Translatable(
+            N_("Taranamadı ({row}): {problem}"),
+            row=row,
+            problem=loaded.problem or Translatable(N_("dosya yok")),
+        )
+        fail_item(session, item, note=note)
         return TrainingItemStatus.FAILED
     path, content = loaded.path, loaded.content
     if not check_content(item, item.original_name, content, max_bytes=max_bytes):
@@ -180,16 +194,27 @@ def scan_map_item(
 
     if in_place is not None and map_slug and map_slug != in_place:
         item.hint_slug = map_hint
-        note = (
-            f"İnceleme gerekli ({row}): haritadaki tür `{map_slug}`, dosya `{in_place}` örnek "
-            "klasöründe"
+        note = Translatable(
+            N_(
+                "İnceleme gerekli ({row}): haritadaki tür `{map_slug}`, dosya `{slug}` örnek "
+                "klasöründe"
+            ),
+            row=row,
+            map_slug=map_slug,
+            slug=in_place,
         )
         return _review(session, item, note, in_place)
     item.hint_slug = type_slug or map_hint
     if map_sha256 is not None and map_sha256 != item.sha256:
-        return _review(session, item, f"İnceleme gerekli ({row}): {SHA_MISMATCH}", type_slug)
+        note = Translatable(
+            N_("İnceleme gerekli ({row}): {problem}"), row=row, problem=SHA_MISMATCH
+        )
+        return _review(session, item, note, type_slug)
     if type_slug is not None and _registered(session, item.sha256, type_slug):
-        note = f"Mekanik: {hint_label(item)} → `{type_slug}`; SHA-256 örnek kaydında"
+        head = Translatable(
+            N_("Mekanik: {basis} → `{slug}`"), basis=hint_label(item), slug=type_slug
+        )
+        note = join_text((head, SHA256_RECORDED), "; ")
         placement = place_example(
             session,
             layout,
@@ -210,13 +235,13 @@ def scan_map_item(
     item.checks_json = {MAP_CHECK_KEY: check, **recognition.checks}
     if recognition.slug is None:
         if type_slug is not None:
-            return _review(session, item, f"{recognition.note}; {NOT_TO_AI}", type_slug)
+            return _review(session, item, join_text((recognition.note, NOT_TO_AI), "; "), type_slug)
         item.status = TrainingItemStatus.AI_PENDING.value
         item.note = recognition.note
         refresh_run(session, item.run)
         return TrainingItemStatus.AI_PENDING
     if in_place is not None and recognition.slug != in_place:  # ipucu yerindeki tür: olmamalı
-        return _review(session, item, f"{recognition.note}; {NOT_TO_AI}", in_place)
+        return _review(session, item, join_text((recognition.note, NOT_TO_AI), "; "), in_place)
     placement = place_example(
         session,
         layout,
@@ -265,7 +290,7 @@ def _registered(session: Session, sha256: str | None, slug: str) -> bool:
 def _abandoned(session: Session, item: TrainingItem) -> None:
     """İşleyicisi yarıda kalmış ve denemesi tükenmiş öğe (`IdleTable.abandoned`): durum `failed`'ı
     çerçeve yazdı; not ve çalıştırma sayaçları burada."""
-    fail_item(session, item, note=ABANDONED_NOTE)
+    fail_item(session, item, note=ABANDONED_NOTE)  # `Translatable`
 
 
 TRAINING_MAP_ITEMS = IdleTable(
@@ -337,7 +362,7 @@ class TrainingMapJob:
             # Çerçeve bu kancayı hatanın `except` bloğunda çağırır; yalnız türü yazılır.
             active = sys.exception()
             error = type(active).__name__ if active is not None else "Exception"
-            fail_item(session, item, note=ERROR_NOTE.format(error=error))
+            fail_item(session, item, note=Translatable(ERROR_NOTE, error=error))
 
         return run_idle_unit(
             context,

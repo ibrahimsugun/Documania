@@ -17,7 +17,7 @@ değerleri gösterim anında çeviri için yanında taşır.
 
 from __future__ import annotations
 
-from collections.abc import Iterator
+from collections.abc import Iterable, Iterator
 from contextlib import contextmanager
 from contextvars import ContextVar
 
@@ -47,6 +47,7 @@ __all__ = [
     "current_language",
     "gettext",
     "is_supported",
+    "join_text",
     "ngettext",
     "resolve_language",
     "translate",
@@ -133,3 +134,16 @@ def translate(text: object) -> str:
         }
         return gettext(text.template).format(**values)
     return gettext(str(text))
+
+
+def join_text(parts: Iterable[str], separator: str = " ") -> str:
+    """Metinleri birleştirir; parçalardan biri `Translatable` ise sonuç da `Translatable`'dır
+    (kayıtta ve panelde her parça kendi şablonuyla çevrilir). Boş parça atlanır."""
+    kept = [part for part in parts if part]
+    if not any(isinstance(part, Translatable) for part in kept):
+        return separator.join(kept)
+    if len(kept) == 1:
+        return kept[0]
+    names = [f"part{index}" for index in range(len(kept))]
+    template = separator.join("{" + name + "}" for name in names)
+    return Translatable(template, **dict(zip(names, kept, strict=True)))

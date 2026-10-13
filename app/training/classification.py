@@ -62,6 +62,8 @@ from app.catalog.sync import export_catalog
 from app.config import Settings
 from app.db.models import TrainingItem, TrainingItemStatus, TrainingMethod
 from app.events import EventType, ai_call_event_data, record_event
+from app.i18n import N_, Translatable, join_text
+from app.i18n.recorded import english
 from app.storage import DataLayout, FileKind
 from app.training.known_types import KnownType, KnownTypes, build_known_types, load_known_types
 from app.training.mechanical import hint_label
@@ -81,9 +83,9 @@ MAX_CLASSIFICATION_PAGES = 2
 AI_CHECK_KEY = "ai"
 """`training_items.checks_json`'da yapay zekâ sınıflandırmasının dökümünün anahtarı."""
 
-NO_TYPE_REASON = "yapay zekâ türü belirlemedi"
-ERROR_NOTE = "Yapay zekâ incelemesi yapılamadı ({error}); denemeler tükendi"
-ABANDONED_NOTE = "Yapay zekâ incelemesi yarıda kaldı; denemeler tükendi"
+NO_TYPE_REASON = Translatable(N_("yapay zekâ türü belirlemedi"))
+ERROR_NOTE = N_("Yapay zekâ incelemesi yapılamadı ({error}); denemeler tükendi")
+ABANDONED_NOTE = Translatable(N_("Yapay zekâ incelemesi yarıda kaldı; denemeler tükendi"))
 
 _FILE_LABELS = {FileKind.PDF: "PDF", FileKind.JPEG: "JPEG", FileKind.PNG: "PNG"}
 
@@ -199,20 +201,31 @@ def resolve_classification(known: KnownTypes, classification: TrainingClassifica
         slug = classification.catalog_slug
         target = known.get(slug)
         if target is None:
-            return Resolution(None, reason=f"katalog türü `{slug}` bilinen türlerde yok")
+            return Resolution(
+                None,
+                reason=Translatable(N_("katalog türü `{slug}` bilinen türlerde yok"), slug=slug),
+            )
         clashes = _clashes(target, classification)
         if clashes:
             return Resolution(
-                None, reason=f"katalog türü `{slug}` yanıttaki {clashes} bilgisiyle çelişiyor"
+                None,
+                reason=Translatable(
+                    N_("katalog türü `{slug}` yanıttaki {clashes} bilgisiyle çelişiyor"),
+                    slug=slug,
+                    clashes=clashes,
+                ),
             )
-        return Resolution(target, ResolutionBasis.CATALOG, "katalog türü")
+        return Resolution(target, ResolutionBasis.CATALOG, Translatable(N_("katalog türü")))
     reasons: list[str] = []
     country, kind = classification.country_iso3, classification.doc_kind
     if country is not None and kind is not None:
         matches = known.kind_matches(country, kind)
         if len(matches) == 1:
-            return Resolution(matches[0], ResolutionBasis.KIND, f"ülke ve tür {country}/{kind}")
-        reasons.append(_many_or_none(f"{country}/{kind}", matches))
+            basis_text = Translatable(
+                N_("ülke ve tür {country}/{kind}"), country=country, kind=kind
+            )
+            return Resolution(matches[0], ResolutionBasis.KIND, basis_text)
+        reasons.append(_many_or_none(f"{country}/{kind}", matches))  # veri: çevrilmez
     name = classification.proposed_name
     if name is not None:
         matches = known.name_matches(name)
@@ -220,11 +233,19 @@ def resolve_classification(known: KnownTypes, classification: TrainingClassifica
             (target,) = matches
             clashes = _clashes(target, classification)
             if not clashes:
-                return Resolution(target, ResolutionBasis.NAME, f"ad {name}")
-            reasons.append(f"ad `{target.slug}` türüne iniyor ama yanıttaki {clashes} tutmuyor")
+                return Resolution(
+                    target, ResolutionBasis.NAME, Translatable(N_("ad {name}"), name=name)
+                )
+            reasons.append(
+                Translatable(
+                    N_("ad `{slug}` türüne iniyor ama yanıttaki {clashes} tutmuyor"),
+                    slug=target.slug,
+                    clashes=clashes,
+                )
+            )
         else:
-            reasons.append(_many_or_none("ad", matches))
-    return Resolution(None, reason="; ".join(reasons) or NO_TYPE_REASON)
+            reasons.append(_many_or_none(Translatable(N_("ad")), matches))
+    return Resolution(None, reason=join_text(reasons, "; ") or NO_TYPE_REASON)
 
 
 def _clashes(target: KnownType, classification: TrainingClassification) -> str:
@@ -234,18 +255,25 @@ def _clashes(target: KnownType, classification: TrainingClassification) -> str:
     country = classification.country_iso3
     if country is not None and target.country_iso3 is not None:
         if country != target.country_iso3.strip().upper():
-            parts.append("ülke")
+            parts.append("country")
     kind = classification.doc_kind
     if kind is not None and target.doc_kind is not None and kind != target.doc_kind:
-        parts.append("tür")
-    return " ve ".join(parts)
+        parts.append("kind")
+    return _CLASH_TEXTS.get(tuple(parts), "")
+
+
+_CLASH_TEXTS = {
+    ("country",): Translatable(N_("ülke")),
+    ("kind",): Translatable(N_("tür")),
+    ("country", "kind"): Translatable(N_("ülke ve tür")),
+}
 
 
 def _many_or_none(what: str, matches: tuple[KnownType, ...]) -> str:
     if matches:
         slugs = ", ".join(f"`{match.slug}`" for match in matches)
-        return f"{what} birden çok türe iniyor ({slugs})"
-    return f"{what} bilinen bir türe inmiyor"
+        return Translatable(N_("{what} birden çok türe iniyor ({slugs})"), what=what, slugs=slugs)
+    return Translatable(N_("{what} bilinen bir türe inmiyor"), what=what)
 
 
 # --- sonuç -----------------------------------------------------------------------------------
@@ -285,8 +313,14 @@ def apply_classification(
 
     if target is None:
         proposal = classification.proposed_name
-        head = f"Yapay zekâ önerisi: {proposal}" if proposal else "Yapay zekâ önerisi yok"
-        note = f"{head}; {resolution.reason}; model {model}"
+        head = (
+            Translatable(N_("Yapay zekâ önerisi: {name}"), name=proposal)
+            if proposal
+            else Translatable(N_("Yapay zekâ önerisi yok"))
+        )
+        note = Translatable(
+            "{head}; {reason}; model {model}", head=head, reason=resolution.reason, model=model
+        )
         _record_check(item, provider, classification, resolution, TrainingItemStatus.UNPLACED)
         leave_unplaced(
             session,
@@ -300,9 +334,13 @@ def apply_classification(
 
     extra["basis"] = resolution.basis.value if resolution.basis is not None else None
     if hint is not None and hint.slug != target.slug:
-        note = (
-            f"AI kararı `{target.slug}` {hint_label(item)} `{hint.slug}` ile çelişiyor "
-            f"({resolution.basis_text}, model {model})"
+        note = Translatable(
+            N_("AI kararı `{slug}` {hint} `{hint_slug}` ile çelişiyor ({basis}, model {model})"),
+            slug=target.slug,
+            hint=hint_label(item),
+            hint_slug=hint.slug,
+            basis=resolution.basis_text,
+            model=model,
         )
         _record_check(item, provider, classification, resolution, TrainingItemStatus.CONFLICT)
         leave_unplaced(
@@ -316,7 +354,12 @@ def apply_classification(
         )
         return ClassificationOutcome(TrainingItemStatus.CONFLICT, target.slug, note)
 
-    note = f"AI kararı: `{target.slug}` ({resolution.basis_text}, model {model})"
+    note = Translatable(
+        N_("AI kararı: `{slug}` ({basis}, model {model})"),
+        slug=target.slug,
+        basis=resolution.basis_text,
+        model=model,
+    )
     placement = place_example(
         session,
         layout,
@@ -342,7 +385,7 @@ def _record_check(
     result: dict[str, Any] = {
         "slug": resolution.known.slug if resolution.known is not None else None,
         "basis": resolution.basis.value if resolution.basis is not None else None,
-        "reason": resolution.reason or None,
+        "reason": english(resolution.reason) or None,
         "status": status.value,
     }
     check = {
@@ -374,10 +417,10 @@ def store_classification_error(
             session,
             item,
             TrainingItemStatus.UNPLACED,
-            note=ERROR_NOTE.format(error=error),
+            note=Translatable(ERROR_NOTE, error=error),
             method=TrainingMethod.AI,
             event_data=extra,
-            message="Eğitim öğesi yerleşmedi: yapay zekâ incelemesi yapılamadı.",
+            message=Translatable(N_("Eğitim öğesi yerleşmedi: yapay zekâ incelemesi yapılamadı.")),
         )
         return
     # Öğe `ai_pending` kalır ve yeniden denenir; olay harcanan kullanımı taşır (13.1.1).
@@ -385,7 +428,9 @@ def store_classification_error(
         session,
         EventType.TRAINING_ITEM_UNPLACED,
         actor=SYSTEM_ACTOR,
-        message="Eğitim öğesinin yapay zekâ incelemesi hata verdi; yeniden denenecek.",
+        message=Translatable(
+            N_("Eğitim öğesinin yapay zekâ incelemesi hata verdi; yeniden denenecek.")
+        ),
         data={
             "run_id": item.run_id,
             "training_item_id": item.id,
@@ -407,7 +452,7 @@ def _abandoned(session: Session, item: TrainingItem) -> None:
         TrainingItemStatus.UNPLACED,
         note=ABANDONED_NOTE,
         method=TrainingMethod.AI,
-        message="Eğitim öğesi yerleşmedi: yapay zekâ incelemesi yarıda kaldı.",
+        message=Translatable(N_("Eğitim öğesi yerleşmedi: yapay zekâ incelemesi yarıda kaldı.")),
     )
 
 

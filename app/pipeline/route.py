@@ -127,6 +127,8 @@ from app.db.models import (
 )
 from app.events import EventType, event_context, record_event
 from app.groups import refresh_employee_packages
+from app.i18n import N_, Translatable
+from app.i18n.recorded import record_text
 from app.matching.contacts import accumulate_contacts
 from app.matching.match import (
     EmployeeAction,
@@ -188,8 +190,8 @@ _QUEUE_EVENTS: dict[Route, EventType] = {
 # 08.1.3: şifreli kaynağın sayfalarını kopyalayan işlemler ve korunma biçiminin gerekçedeki metni.
 _PAGE_COPYING_OPERATIONS = frozenset({Operation.EXTRACT, Operation.MERGE})
 _PROTECTION_TEXTS: dict[PdfProtection, str] = {
-    PdfProtection.PASSWORD: "açmak için parola gerekiyor",
-    PdfProtection.AES: "sahip parolalı (AES), pypdf sayfaları çözemiyor",
+    PdfProtection.PASSWORD: Translatable(N_("açmak için parola gerekiyor")),
+    PdfProtection.AES: Translatable(N_("sahip parolalı (AES), pypdf sayfaları çözemiyor")),
 }
 
 
@@ -274,6 +276,8 @@ def route_queue_item(
     taşımaz). Oturum commit edilmez.
     """
     route, reason, payload = _queue_decision(item, encrypted)
+    # 10.10.6: plandan gelen gerekçe zaten İngilizcedir; şifreli kaynağınki burada kaydedilir.
+    reason = record_text(session, reason)
 
     existing = session.scalar(
         select(QueueItem).where(
@@ -344,10 +348,14 @@ def _queue_decision(
         "file_id": file_id,
         "protection": encrypted.protection.value,
     }
-    reason = (
-        f"Şifreli PDF, sayfalar kopyalanamıyor (08.1.3): dosya {file_id}, istenen işlem "
-        f"{operation.value} — {_PROTECTION_TEXTS[encrypted.protection]}; şifre kaldırılmaz, "
-        "dosya yeniden yazılmaz (K11)."
+    reason = Translatable(
+        N_(
+            "Şifreli PDF, sayfalar kopyalanamıyor (08.1.3): dosya {file}, istenen işlem "
+            "{operation} — {protection}; şifre kaldırılmaz, dosya yeniden yazılmaz (K11)."
+        ),
+        file=file_id,
+        operation=operation.value,
+        protection=_PROTECTION_TEXTS[encrypted.protection],
     )
     return Route.UNREADABLE, reason, payload
 

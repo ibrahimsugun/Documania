@@ -66,6 +66,7 @@ yazar; HTMX ilerleme parçası yazmaz. Saat `get_clock` bağımlılığıdır (t
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Annotated
@@ -97,6 +98,7 @@ from app.db.models import (
 )
 from app.db.session import get_session
 from app.i18n import N_, Translatable
+from app.i18n.recorded import localized, recall_texts
 from app.matching.match import MatchedBy
 from app.pipeline.analyze import PageAnalysisStatus
 from app.pipeline.cancel import (
@@ -598,6 +600,7 @@ def _plan_view(
     employees: dict[str, Employee],
     document: PlanDocument | None,
     error: str | None,
+    recalled: Mapping[str, Translatable],
 ) -> PlanView:
     items = [
         ItemView(
@@ -611,7 +614,7 @@ def _plan_view(
             employee=_plan_employee_text(item.employee, employees),
             route=item.route.value,
             route_label=ROUTE_LABELS[item.route.value],
-            reason=item.route_reason,
+            reason=localized(recalled, item.route_reason),
             validations=[(check.name.value, check.ok) for check in item.validations],
             name_only=item.employee.matched_by is MatchedBy.NAME,
         )
@@ -700,6 +703,16 @@ def build_detail_view(session: Session, upload: Upload) -> DetailView:
         )
     )
 
+    # 10.10.6: kayıtlı gerekçe ve olay metni panelde isteğin dilinde (§D121).
+    recalled = recall_texts(
+        session,
+        [
+            *(item.route_reason for item in (document.items if document is not None else ())),
+            *(row.reason for row in upload.queue_items),
+            *(event.message for event in events),
+        ],
+    )
+
     by_name = name_matched_documents(outputs)
     employee_ids = {output.employee_id for output in outputs}
     if upload.context_employee_id is not None:
@@ -752,7 +765,7 @@ def build_detail_view(session: Session, upload: Upload) -> DetailView:
             for upload_file in upload.files
         ],
         plan=(
-            _plan_view(plan, upload, files, employees, document, plan_error)
+            _plan_view(plan, upload, files, employees, document, plan_error, recalled)
             if plan is not None
             else None
         ),
@@ -775,7 +788,10 @@ def build_detail_view(session: Session, upload: Upload) -> DetailView:
             )
             for output in outputs
         ],
-        queue=[_queue_view(row, plan, plan_versions, candidates) for row in upload.queue_items],
+        queue=[
+            _queue_view(row, plan, plan_versions, candidates, recalled)
+            for row in upload.queue_items
+        ],
         events=[
             EventView(
                 ts=_format_ts(event.ts),
@@ -783,7 +799,7 @@ def build_detail_view(session: Session, upload: Upload) -> DetailView:
                 type=event.type,
                 actor=event.actor,
                 place=_event_place(event, files),
-                message=event.message,
+                message=localized(recalled, event.message),
             )
             for event in events
         ],
@@ -801,6 +817,7 @@ def _queue_view(
     plan: Plan | None,
     plan_versions: dict[int, int],
     candidates: dict[int, CandidateDocumentType],
+    recalled: Mapping[str, Translatable],
 ) -> QueueView:
     """ "Kuyruğa alınanlar" satırı (10.11.2): satır kuyruk öğesine bağlanır; bekleyen öğe yapılacak
     işi ve — Unknown ise — bağlı aday türü taşır. Eski plan sürümünün satırı bağlantı ve ipucu almaz
@@ -814,7 +831,7 @@ def _queue_view(
         kind_label=QUEUE_LABELS.get(row.kind, row.kind),
         plan_version=plan_versions.get(row.plan_id) if row.plan_id else None,
         item_id=row.plan_item_id,
-        reason=row.reason,
+        reason=localized(recalled, row.reason),
         resolved=resolution_text(row),
         current=current,
         url=f"/queues/{row.id}" if current else None,

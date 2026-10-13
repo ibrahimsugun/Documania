@@ -52,6 +52,7 @@ from app.db.models import (
 )
 from app.events import EventType, record_event
 from app.i18n import N_, Translatable
+from app.i18n.recorded import append_text, record_text
 from app.storage import DataLayout, sha256_file
 from app.storage.examples import StoredExample, list_examples
 from app.training.placement import UNPLACED_STATUSES, refresh_run
@@ -61,10 +62,10 @@ DISMISSABLE_STATUSES = UNPLACED_STATUSES
 """Yoksayılabilen durumlar: İK'nın "Türe yerleştir"ini bekleyenler (`unplaced`, `conflict`,
 `review`). Kararı sistemde bekleyen ya da son kararındaki öğe yoksayılmaz."""
 
-UPLOADED_NOTE = "tür sayfasından yüklendi"
-REGISTERED_NOTE = "Kayıtsız örnek; kaydı register-examples ile tutuldu."
-DISMISSED_NOTE = "İK yoksaydı"
-RESTORED_NOTE = "İK yoksaymayı geri aldı"
+UPLOADED_NOTE = Translatable(N_("tür sayfasından yüklendi"))
+REGISTERED_NOTE = Translatable(N_("Kayıtsız örnek; kaydı register-examples ile tutuldu."))
+DISMISSED_NOTE = Translatable(N_("İK yoksaydı"))
+RESTORED_NOTE = Translatable(N_("İK yoksaymayı geri aldı"))
 
 NOT_DISMISSABLE = N_(
     "Bu öğe yoksayılamaz: yalnız Yerleştirilemedi, Çelişki ya da İnceleme gerekli durumundaki öğe "
@@ -105,13 +106,17 @@ def dismiss_item(
     _require_actor(actor)
     text = clean_note(note)
     previous = item.status
-    addition = f"{DISMISSED_NOTE}: {text}" if text else DISMISSED_NOTE
+    addition = (
+        Translatable(N_("{label}: {text}"), label=DISMISSED_NOTE, text=text)
+        if text
+        else DISMISSED_NOTE
+    )
     _transition(
         session,
         item,
         allowed=DISMISSABLE_STATUSES,
         status=TrainingItemStatus.DISMISSED,
-        note=_append(item.note, addition),
+        note=append_text(session, item.note, addition),
         actor=actor,
         refusal=NOT_DISMISSABLE,
     )
@@ -119,7 +124,7 @@ def dismiss_item(
         session,
         EventType.TRAINING_ITEM_DISMISSED,
         actor=actor,
-        message="Eğitim öğesi yoksayıldı.",
+        message=Translatable(N_("Eğitim öğesi yoksayıldı.")),
         data={
             "training_item_id": item.id,
             "run_id": item.run_id,
@@ -140,7 +145,7 @@ def restore_item(session: Session, item: TrainingItem, *, actor: str) -> Trainin
         item,
         allowed=frozenset({TrainingItemStatus.DISMISSED}),
         status=TrainingItemStatus.UNPLACED,
-        note=_append(item.note, RESTORED_NOTE),
+        note=append_text(session, item.note, RESTORED_NOTE),
         actor=actor,
         refusal=NOT_DISMISSED,
     )
@@ -148,7 +153,7 @@ def restore_item(session: Session, item: TrainingItem, *, actor: str) -> Trainin
         session,
         EventType.TRAINING_ITEM_RESTORED,
         actor=actor,
-        message="Eğitim öğesinin yoksayılması geri alındı.",
+        message=Translatable(N_("Eğitim öğesinin yoksayılması geri alındı.")),
         data={
             "training_item_id": item.id,
             "run_id": item.run_id,
@@ -181,7 +186,13 @@ def _transition(
             TrainingItem.id == item.id,
             TrainingItem.status.in_([value.value for value in allowed]),
         )
-        .values(status=status.value, note=note, decided_by=actor, decided_at=utcnow())
+        # Çekirdek güncellemesi ORM flush'ından geçmez: not burada İngilizceye çevrilir (10.10.6).
+        .values(
+            status=status.value,
+            note=record_text(session, note),
+            decided_by=actor,
+            decided_at=utcnow(),
+        )
         .execution_options(synchronize_session=False)
     )
     if result.rowcount != 1:
@@ -226,9 +237,9 @@ def _set_run_archive(
         EventType.TRAINING_RUN_ARCHIVED,
         actor=actor,
         message=(
-            f"Eğitim çalıştırması #{run.id} arşivlendi."
+            Translatable(N_("Eğitim çalıştırması #{run} arşivlendi."), run=run.id)
             if archived
-            else f"Eğitim çalıştırması #{run.id} arşivden geri alındı."
+            else Translatable(N_("Eğitim çalıştırması #{run} arşivden geri alındı."), run=run.id)
         ),
         data={"run_id": run.id, "restored": not archived},
     )
@@ -370,7 +381,3 @@ def _example_slugs(layout: DataLayout) -> list[str]:
 def _require_actor(actor: str) -> None:
     if not actor.strip():
         raise ValueError("Eğitim temizliği kullanıcı adıyla loglanır: actor boş olamaz")
-
-
-def _append(note: str | None, addition: str) -> str:
-    return f"{note}; {addition}" if note else addition

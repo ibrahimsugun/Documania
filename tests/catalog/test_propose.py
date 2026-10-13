@@ -634,12 +634,12 @@ def test_proposal_texts_cover_every_free_text() -> None:
         *proposal.acceptance_criteria,
         proposal.appearance.layout,
         *proposal.appearance.headings,
-        "ön yüzde fotoğrafın sağında, ilk satır",
-        "ön yüzün sağ üst köşesi",
-        "Ön yüzde fotoğraf ve kişisel alanlar; arka yüzde MRZ",
+        "on the front, right of the photo, first line",
+        "top right corner of the front",
+        "Photo and personal fields on the front; MRZ on the back",
         "Beyaz fon",
     ]
-    assert "arka yüzün altında" in proposal_texts(BASE)
+    assert "bottom of the back side" in proposal_texts(BASE)
 
 
 # --- saklama -----------------------------------------------------------------------------------

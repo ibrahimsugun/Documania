@@ -29,6 +29,7 @@ from app.web.routers import catalog as catalog_router
 from app.web.routers.catalog import EXAMPLE_RECORD_CLASH
 from app.web.routers.training import decision_subject
 from tests.fixtures.gen import make_docx_bytes, make_pdf_bytes, make_portrait_image_bytes
+from tests.recorded import source_notes
 from tests.web.conftest import SESSION, issue_token
 from tests.web.flash import toasts
 
@@ -453,7 +454,9 @@ def test_an_ai_decision_example_shows_the_manual_check_icon_in_the_type_page_lis
 
 def _records(session_factory: sessionmaker[Session]) -> list[ExampleFileRecord]:
     with session_factory() as session:
-        records = list(session.scalars(select(ExampleFileRecord).order_by(ExampleFileRecord.id)))
+        query = select(ExampleFileRecord).order_by(ExampleFileRecord.id)
+        # 10.10.6: not kayıtta İngilizcedir; içerik kaynak dilde karşılaştırılır.
+        records = source_notes(session, session.scalars(query))
         session.expunge_all()
         return records
 

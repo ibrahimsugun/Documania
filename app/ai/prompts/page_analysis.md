@@ -89,7 +89,7 @@ anahtar eklenmez.
   Tek yüzlü türde `single`. Katalog dışı belgede kartın yüzü açıkça belliyse aynı değerler
   (`front`, `back`, `front_and_back`), tek yüzlüyse `single`. Sayfada birden çok kişinin ya da
   birden çok belgenin yüzü varsa (ör. iki ayrı kart, iki kişinin kartı) `front_and_back` değildir:
-  `unknown` yaz ve `notes`'a `Sayfada birden fazla belge var` yaz. Hangisi olduğu anlaşılmıyorsa
+  `unknown` yaz ve `notes`'a `More than one document on the page` yaz. Hangisi olduğu anlaşılmıyorsa
   `unknown`. Türün bu düzeni kabul edip etmediğine sen karar vermezsin; yalnız sayfada gördüğünü
   yaz — katalogdaki "Kabul edilen düzenler" satırı yüz seçimini değiştirmez.
   - `front_and_back` sayfada `person`, `fields` ve `mrz_lines` iki yüzden birlikte okunur:
@@ -140,11 +140,13 @@ anahtar eklenmez.
   Türün zorunlu alanı yoksa veya `document_type_slug` `null` ise `fields` boş nesnedir (`{}`).
 - `notes`: okunaklılık ve belirsizlik hakkında kısa not — hangi alan neden okunamadı, kenar kesik mi,
   parlama var mı, metin katmanı görüntüyle çelişiyor mu, türün kabul kriterlerinden hangisi açıkça
-  karşılanmıyor. Notta isim, numara, tarih gibi kişisel değerleri tekrar yazma. Söylenecek bir şey
-  yoksa `null`.
+  karşılanmıyor. Not İngilizce yazılır (belgeler ve İK farklı dillerdendir, sistemin ürettiği
+  metnin ortak dili İngilizcedir). Notta isim, numara, tarih gibi kişisel değerleri tekrar yazma.
+  Söylenecek bir şey yoksa `null`.
   - Türün kabul kriterlerinden bu sayfada açıkça karşılanmayan her birini katalogda yazıldığı gibi,
-    kelimesi kelimesine yaz: `Karşılanmayan kabul kriteri: <katalogdaki madde metni>`. Sistem
-    karşılanmayan maddeyi bu metinden tanır; maddeyi kısaltma, başka sözcüklerle anlatma.
+    kelimesi kelimesine yaz: `Unmet acceptance criterion: <katalogdaki madde metni>`. Sistem
+    karşılanmayan maddeyi bu metinden tanır; maddeyi kısaltma, başka sözcüklerle anlatma ve
+    çevirme — madde metni notun geri kalanı İngilizce olsa da katalogdaki dilde kalır.
     Karşılanan maddeyi ve konusu bu sayfada olmayabilecek maddeyi (ör. kartın öteki yüzündeki MRZ)
     yazma.
 

@@ -433,6 +433,8 @@ def test_instructions_name_every_response_key_and_the_privacy_rule() -> None:
         assert f"`{key}`" in text, key
     assert "Türü anlat, kişiyi değil" in text
     assert "değerini yazma" in text
-    assert "Türkçe" in text
+    # 10.10.6: serbest metinler İngilizce (PLAN.md §D121).
+    assert "İngilizce yaz" in text
+    assert "Türkçe" not in text
     # Talimat sabittir: doldurulacak yuva yok.
     assert re.search(r"\{\{\s*\w+\s*\}\}", text) is None

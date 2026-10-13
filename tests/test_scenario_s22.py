@@ -38,6 +38,7 @@ from tests.fixtures.gen import (
     passport_page,
     recorded_provider,
 )
+from tests.recorded import source_document, source_text
 from tests.test_scenarios_s01_s05 import (
     ORNEKOVA_FOLDER,
     PASSPORT_NUMBER,
@@ -135,7 +136,7 @@ def _assert_waits_in_unresolved(
     session.expire_all()
     (queued,) = session.scalars(select(QueueItem).where(QueueItem.upload_id == upload_id)).all()
     assert queued.kind == QueueKind.UNRESOLVED.value
-    assert queued.reason.startswith(
+    assert source_text(session, queued.reason).startswith(
         f"Pasif çalışan ({employee_id}) ile eşleşti (inactive_employee)"
     )
     assert queued.payload_json["employee_guess"] == {
@@ -236,6 +237,6 @@ def test_s22_after_reactivation_a_rerun_keeps_the_frozen_plan_and_a_reanalysis_p
         select(Plan).where(Plan.upload_id == upload_id).order_by(Plan.version.desc())
     ).first()
     assert latest is not None
-    (item,) = read_plan(latest).items
+    (item,) = source_document(session, read_plan(latest)).items
     assert (item.route, item.employee.employee_id) == (Route.READY, employee_id)
     session.rollback()

@@ -49,6 +49,7 @@ from tests.fixtures.gen import (
     passport_page,
     recorded_provider,
 )
+from tests.recorded import source_text
 
 SETTINGS = Settings(_env_file=None, database_url="sqlite://")
 PASSPORT_NUMBER = "00 0000001"
@@ -172,7 +173,10 @@ def test_passport_of_someone_else_uploaded_from_a_profile_is_warned_about_everyw
         assert session.scalars(select(Document)).all() == []
         assert session.get_one(Upload, upload_id).status == "done"
     assert queued.kind == "unresolved"
-    assert queued.reason.startswith("Profilden yüklenen belge bu profile ait görünmüyor")
+    with session_factory() as session:
+        reason = source_text(session, queued.reason)
+    assert reason is not None
+    assert reason.startswith("Profilden yüklenen belge bu profile ait görünmüyor")
 
     # 10.2.2: gönderim anında parti sürüyordu, uyarı son durumu bekler; yenilenen ilerleme
     # görünümü parti bitince uyarıyı taşır.
@@ -203,7 +207,9 @@ def test_passport_of_someone_else_uploaded_from_a_profile_is_warned_about_everyw
         ]
     assert logged
     assert not [line for line in logged if "ORNEKOVA" in line or "Prueba" in line]
-    assert "ORNEKOVA" not in queued.reason and "Prueba" not in queued.reason
+    assert "ORNEKOVA" not in source_text(session, queued.reason) and "Prueba" not in source_text(
+        session, queued.reason
+    )
 
 
 def test_profile_warning_stays_until_the_queue_item_is_resolved(

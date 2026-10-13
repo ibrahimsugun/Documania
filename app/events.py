@@ -17,6 +17,7 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from app.db.models import Event
+from app.i18n.recorded import record_text
 
 
 class EventType(enum.StrEnum):
@@ -224,9 +225,12 @@ def record_event(
 ) -> Event:
     """Bir olayı `events` tablosuna yazar (K15).
 
-    upload_id/file_id/page_index açıkça verilmezse etkin `event_context`ten alınır.
+    upload_id/file_id/page_index açıkça verilmezse etkin `event_context`ten alınır. `message`
+    `Translatable` ise kayda İngilizce yazılır, kaynağı panelde çevrilmek üzere saklanır (10.10.6).
     """
     ctx = _current_context.get()
+    if message is not None:
+        message = record_text(session, message)
     row = Event(
         upload_id=upload_id if upload_id is not None else ctx.upload_id,
         file_id=file_id if file_id is not None else ctx.file_id,

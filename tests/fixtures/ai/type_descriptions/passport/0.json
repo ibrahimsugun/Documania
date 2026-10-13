@@ -1,5 +1,5 @@
 {
-  "layout": "Tek sayfalık pasaport kimlik sayfası; üstte başlık, altında etiketli satırlar",
+  "layout": "Single-page passport identity page; heading at the top, labelled lines below",
   "headings": [
     "ПАСПОРТ",
     "PASSPORT"
@@ -15,20 +15,20 @@
   "field_locations": [
     {
       "field": "surname",
-      "location": "başlığın altında, ilk etiketli satır"
+      "location": "below the heading, first labelled line"
     },
     {
       "field": "given_names",
-      "location": "soyadı satırının altında"
+      "location": "below the surname line"
     },
     {
       "field": "document_number",
-      "location": "etiketli satırların ortasında"
+      "location": "in the middle of the labelled lines"
     }
   ],
   "mrz": {
     "line_count": 2,
-    "location": "sayfanın altında, eş aralıklı yazıyla"
+    "location": "at the bottom of the page, in monospaced type"
   },
   "side_differences": null,
   "accepted_photo": null

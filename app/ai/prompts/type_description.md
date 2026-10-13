@@ -38,9 +38,10 @@ kelimeden kısa bir cümleye kadardır; tekrar etme, süsleme.
 
 ### 3. Dil
 
-Serbest metinleri (`layout`, `location`, `side_differences`, `accepted_photo`) Türkçe yaz. `headings`'e belgede basılı
-başlıkları belgede yazıldığı gibi, kendi alfabesiyle aktar (ör. `ПАСПОРТ`, `VOZAČKA DOZVOLA`);
-çevirme.
+Serbest metinleri (`layout`, `location`, `side_differences`, `accepted_photo`) İngilizce yaz:
+belgeler ve İK farklı dillerdendir, sistemin ürettiği metnin ortak dili İngilizcedir. `headings`'e
+belgede basılı başlıkları belgede yazıldığı gibi, kendi alfabesiyle aktar (ör. `ПАСПОРТ`,
+`VOZAČKA DOZVOLA`); çevirme.
 
 ## Yanıt alanları
 
@@ -56,15 +57,16 @@ başlıkları belgede yazıldığı gibi, kendi alfabesiyle aktar (ör. `ПАС�
   boş liste.
 - `field_locations`: türün zorunlu alanlarının sayfadaki yeri, en çok 12. `field` kullanıcı
   mesajındaki "Zorunlu alanlar" satırındaki ad, aynen (`surname`, `document_number` …); `location`
-  kısa yer tarifi (ör. "fotoğrafın sağında, ilk satır", "ön yüzde 4b numaralı satır", "arka yüzün
-  üst kısmı"). Her alan bir kez yazılır; görüntülerde bulamadığın alanı yazma.
+  kısa yer tarifi (ör. "right of the photo, first line", "line 4b on the front", "top of the back
+  side"). Her alan bir kez yazılır; görüntülerde bulamadığın alanı yazma.
 - `mrz`: belgede makine tarafından okunabilir bölge (MRZ; `<` dolgulu, eş aralıklı satırlar) varsa
-  satır sayısı (`line_count`: `2` ya da `3`) ve yeri (`location`, ör. "kimlik sayfasının altında",
-  "arka yüzün altında"); MRZ yoksa `null`.
+  satır sayısı (`line_count`: `2` ya da `3`) ve yeri (`location`, ör. "bottom of the identity page",
+  "bottom of the back side"); MRZ yoksa `null`.
 - `side_differences`: türün ön ve arka yüzü varsa iki yüzü birbirinden ayıran görünüş (hangi yüzde
   fotoğraf, hangisinde MRZ ya da tablo var); tek yüzlü türde `null`. En çok 200 karakter.
 - `accepted_photo`: yalnız fotoğraf türünde ("Fotoğraf türü: evet") — şirketin kabul ettiği
   fotoğrafın tanımı: görüntülerdeki fotoğrafların hepsinde ortak olan çekim özellikleri (ör.
-  "omuzdan yukarı, yüz ortada ve karşıya bakıyor; düz açık renk arka plan; renkli, eşit ışık").
+  "head and shoulders, face centred and looking straight ahead; plain light background; colour,
+  even lighting").
   Yalnız bir fotoğrafta görülen özelliği yazma; ortak özellik bulamıyorsan `null`. Fotoğraf türü
   olmayan belgede her zaman `null`. En çok 200 karakter.

@@ -47,9 +47,10 @@ birkaç kelimeden kısa bir cümleye kadardır; tekrar etme, süsleme.
 ### 4. Dil
 
 `name` ve `file_label` katalogdaki adlar gibi İngilizcedir. `description`, `acceptance_criteria` ve
-`appearance`'ın serbest metinleri (`layout`, `location`, `side_differences`) Türkçedir.
-`headings`'e belgede basılı başlıkları belgede yazıldığı gibi, kendi alfabesiyle aktar (ör.
-`ПАСПОРТ`, `VOZAČKA DOZVOLA`); çevirme.
+`appearance`'ın serbest metinleri (`layout`, `location`, `side_differences`) de İngilizcedir:
+belgeler ve İK farklı dillerdendir, sistemin ürettiği metnin ortak dili İngilizcedir. `headings`'e
+belgede basılı başlıkları belgede yazıldığı gibi, kendi alfabesiyle aktar (ör. `ПАСПОРТ`,
+`VOZAČKA DOZVOLA`); çevirme.
 
 ## Standart alan sözlüğü
 
@@ -95,11 +96,11 @@ koşullar. Her madde:
 
 - sayfada gözle denetlenebilir;
 - kişisel değer taşımaz;
-- Türkçedir, en çok 120 karakterdir;
-- katalogdaki maddeler gibi yazılır: "Kimlik sayfası tam görünür olmalı, kenarlar kesilmemiş",
-  "MRZ iki satırı da okunabilir olmalı".
+- İngilizcedir, en çok 120 karakterdir;
+- kısa bir koşul cümlesi olarak yazılır: "The identity page must be fully visible, edges not cut
+  off", "Both MRZ lines must be legible".
 
-"Alanlar okunaklı olmalı" gibi zorunlu alan kuralını tekrarlayan madde yazma. En çok 5 madde; koşul
+"Fields must be legible" gibi zorunlu alan kuralını tekrarlayan madde yazma. En çok 5 madde; koşul
 yoksa boş liste.
 
 ## Yanıt alanları
@@ -113,8 +114,8 @@ yoksa boş liste.
   "Diploma"). En çok 40 karakter.
 - `country`: belgeyi veren ülkenin ISO 3166-1 alfa-2 kodu, büyük harfle (`RS`, `TR`, `PE`).
   Belirleyemiyorsan ya da belge bir ülkeye ait değilse `null`.
-- `description`: İK için Türkçe kısa tanım (ör. "Sırbistan'da yabancılara verilen oturma izni
-  kartı; ön ve arka yüzlü."). En çok 200 karakter.
+- `description`: İK için İngilizce kısa tanım (ör. "Residence permit card issued to foreigners in
+  Serbia; front and back sides."). En çok 200 karakter.
 - `expected_file_types`: gözlenen örnek dosya türleri: `pdf`, `jpeg`, `png`. En az bir tür.
 - `expected_pages`: bir belgenin sayfa sayısı aralığı (`min`, `max`); belirleyemiyorsan `null`.
   Ön ve arka yüzlü türde düzenlerden türer: `separate` → 2–2, `combined` → 1–1, ikisi → 1–2.
@@ -143,8 +144,8 @@ yoksa boş liste.
   - `scripts`: basılı metnin alfabeleri: `latin`, `cyrillic`, `arabic` veya `other`.
     Belirleyemiyorsan boş liste.
   - `field_locations`: zorunlu alanların sayfadaki yeri, en çok 12. `field` yalnız
-    `required_fields`'taki bir addır, aynen; `location` kısa yer tarifi (ör. "fotoğrafın sağında,
-    ilk satır", "ön yüzde 4b numaralı satır", "arka yüzün üst kısmı"). Her alan bir kez yazılır;
+    `required_fields`'taki bir addır, aynen; `location` kısa yer tarifi (ör. "right of the photo,
+    first line", "line 4b on the front", "top of the back side"). Her alan bir kez yazılır;
     görüntülerde bulamadığın alanı yazma.
   - `mrz`: belgede makine tarafından okunabilir bölge (MRZ; `<` dolgulu, eş aralıklı satırlar)
     varsa satır sayısı (`line_count`: `2` ya da `3`) ve yeri (`location`); MRZ yoksa `null`.

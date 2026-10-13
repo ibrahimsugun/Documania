@@ -58,6 +58,7 @@ from app.pipeline.render import (
 )
 from app.storage import DataLayout, write_to_inbox
 from tests.fixtures.gen import make_text_pdf_bytes
+from tests.recorded import source_events
 
 ROOT = Path(__file__).resolve().parents[2]
 RECORDINGS = ROOT / "tests" / "fixtures" / "ai" / "recordings"
@@ -121,7 +122,7 @@ def _key(
 
 
 def _events(session: Session) -> list[Event]:
-    return list(session.scalars(select(Event).order_by(Event.id)))
+    return source_events(session, session.scalars(select(Event).order_by(Event.id)))
 
 
 def _count(session: Session, model: type[object]) -> int:
@@ -707,7 +708,9 @@ def test_recorded_passport_is_matched_in_table_order(
 
     assert result == expected
     assert _count(session, Employee) == before
-    (event,) = session.scalars(select(Event).where(Event.type.like("PERSON_%")))
+    (event,) = source_events(
+        session, session.scalars(select(Event).where(Event.type.like("PERSON_%")))
+    )
     assert (event.type, event.upload_id, event.file_id, event.page_index) == (
         event_type,
         UPLOAD_ID,

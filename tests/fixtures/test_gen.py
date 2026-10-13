@@ -66,12 +66,15 @@ SLUGS = CATALOG.slugs()
 TODAY = date(2026, 9, 18)
 
 S9_NOTES = (
-    "Belge numarası ve MRZ bölgesi bulanık, karakterler seçilemiyor. Karşılanmayan kabul "
-    "kriteri: MRZ iki satırı da okunabilir olmalı"
+    "Document number and MRZ zone are blurred, characters cannot be made out. Unmet acceptance "
+    "criterion: MRZ iki satırı da okunabilir olmalı"
 )
-S14_NOTES = "Katalogda Peru diploması türü yok; belge aday tür olarak önerildi."
+S14_NOTES = (
+    "No Peruvian diploma type in the catalog; the document was proposed as a candidate type."
+)
 S3_BACK_NOTES = (
-    "Arka yüzde yalnız ehliyet sınıfları tablosu var; önceki sayfa başka bir belgenin arka yüzü."
+    "The back side only has the licence categories table; the previous page is the back of "
+    "another document."
 )
 
 

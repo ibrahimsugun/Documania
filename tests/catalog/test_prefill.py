@@ -117,7 +117,9 @@ def test_a_ready_candidate_opens_with_every_field_of_the_proposal() -> None:
         name=NAME,
         file_label="Residence Permit",
         country="ME",
-        description="Karadağ'da yabancılara verilen oturma izni kartı; ön ve arka yüzlü.",
+        description=(
+            "Residence permit card issued to foreigners in Montenegro; front and back sides."
+        ),
         expected_file_types=("jpeg", "png"),
         pages_min="1",
         pages_max="2",
@@ -129,13 +131,13 @@ def test_a_ready_candidate_opens_with_every_field_of_the_proposal() -> None:
         allowed_conversions=("merge", "wrap_image"),
         output_format="pdf",
         acceptance_criteria=(
-            "Kartın iki yüzü de tam görünür olmalı, kenarlar kesilmemiş",
-            "Arka yüzdeki MRZ üç satırı da okunabilir olmalı",
+            "Both sides of the card must be fully visible, edges not cut off",
+            "All three MRZ lines on the back must be legible",
         ),
         prompt_description=format_description(proposal.appearance),
     )
-    assert prefill.form.prompt_description.startswith("Kart, yatay;")
-    assert "MRZ: 3 satır, arka yüzün altında." in prefill.form.prompt_description
+    assert prefill.form.prompt_description.startswith("Card, landscape;")
+    assert "MRZ: 3 satır, bottom of the back side." in prefill.form.prompt_description
     assert (prefill.filled, prefill.unfilled, prefill.catalog_slug) == (True, (), None)
     assert (prefill.proposal_status, prefill.proposal_pages) == ("ready", 3)
     assert prefill.proposal_generated_at == GENERATED

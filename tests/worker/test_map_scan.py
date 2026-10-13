@@ -75,6 +75,7 @@ from tests.fixtures.gen import (
     passport_page,
     write_recordings,
 )
+from tests.recorded import source_notes
 from tests.training.invariants import assert_employee_data_untouched
 
 SETTINGS = Settings(
@@ -204,6 +205,8 @@ def _scan_all(
 def _item(session_factory: sessionmaker[Session], item_id: int) -> TrainingItem:
     with session_factory() as session:
         item = session.get_one(TrainingItem, item_id)
+        # 10.10.6: not kayıtta İngilizce; test kaynağını (Türkçe) okur.
+        source_notes(session, [item])
         session.expunge(item)
     return item
 
@@ -716,6 +719,11 @@ def test_a_reference_that_became_unsafe_or_lost_fails_at_scan_time(
     assert _item(session_factory, lost).note == (
         "Taranamadı (harita satırı 3): haritadaki yol kaydı yok"
     )
+    # 10.10.6: yolun reddedilme nedeni de kayıtta İngilizcedir, Türkçe parça kalmaz.
+    with session_factory() as session:
+        assert session.get_one(TrainingItem, unsafe).note == (
+            "Could not be scanned (map row 2): unsafe path (`..` segment)"
+        )
     assert _incoming(layout) == []
 
 

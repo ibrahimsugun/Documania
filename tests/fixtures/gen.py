@@ -339,7 +339,7 @@ _FIELD_LABELS = {
     "expiry_date": "Date of expiry",
 }
 DRIVING_LICENSE_BACK_NOTES = (
-    "Arka yüzde yalnız ehliyet sınıfları tablosu var; zorunlu alanlar ön yüzde."
+    "The back side only has the licence categories table; required fields are on the front."
 )
 RESIDENCE_CARD_ADDRESS = "Belgrade, Test Street 1"
 _document_keys = itertools.count(1)
@@ -622,7 +622,7 @@ def driving_license_pages(
     return front, back
 
 
-MULTIPLE_DOCUMENTS_NOTE = "Sayfada birden fazla belge var: iki ayrı sürücü belgesi."
+MULTIPLE_DOCUMENTS_NOTE = "More than one document on the page: two separate driving licences."
 
 
 def driving_license_combined_page(

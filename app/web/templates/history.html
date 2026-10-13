@@ -96,7 +96,7 @@
       <span class="event-type">{{ event.type }}</span>
       <span class="actor">{{ event.actor }}</span>
       {% if event.place %}<span class="place">{{ translate(event.place) }}</span>{% endif %}
-      {% if event.message %}<span class="message" translate="no">{{ event.message }}</span>{% endif %}
+      {% if event.message %}<span class="message"{{ recorded_attrs(event.message) }}>{{ recorded(event.message) }}</span>{% endif %}
     </li>
     {% endfor %}
   </ol>

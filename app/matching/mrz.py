@@ -77,9 +77,10 @@ _NATIONALITY = re.compile(r"[A-Z]{1,3}")
 # §20.2.1 belge numarası normalizasyonu: boşluk, tire, nokta, eğik çizgi silinir.
 _NUMBER_SEPARATORS = re.compile(r"[\s./-]+")
 
-_UNRECOGNIZED_NOTE = "MRZ satırları TD1, TD2 veya TD3 biçimine uymuyor; MRZ yok sayıldı."
-_INVALID_NOTE = "MRZ satırlarında izin verilmeyen karakter var; MRZ geçersiz sayıldı."
-_COMPOSITE_NOTE = "MRZ bileşik kontrol hanesi tutmuyor; MRZ bütün olarak şüpheli."
+# Notlar sayfa analizinin (yapay zekâ) notuna eklenir; o notun dili İngilizcedir (10.10.6).
+_UNRECOGNIZED_NOTE = "MRZ lines do not match the TD1, TD2 or TD3 format; MRZ ignored."
+_INVALID_NOTE = "MRZ lines contain characters that are not allowed; MRZ treated as invalid."
+_COMPOSITE_NOTE = "MRZ composite check digit does not match; the whole MRZ is suspect."
 
 
 class MrzFormat(enum.StrEnum):
@@ -485,15 +486,17 @@ def _resolution_notes(mrz: Mrz, conflicts: Sequence[str]) -> list[str]:
     notes: list[str] = []
     checks = [name for name in mrz.failed_checks if name != COMPOSITE]
     if checks:
-        notes.append(f"MRZ kontrol hanesi tutmuyor, alan okunamadı sayıldı: {', '.join(checks)}.")
+        notes.append(
+            f"MRZ check digit does not match, field treated as illegible: {', '.join(checks)}."
+        )
     if not mrz.composite_valid:
         notes.append(_COMPOSITE_NOTE)
     malformed = [name for name in mrz.illegible_fields if name not in mrz.failed_checks]
     if malformed:
-        notes.append(f"MRZ değeri geçersiz, alan okunamadı sayıldı: {', '.join(malformed)}.")
+        notes.append(f"MRZ value is invalid, field treated as illegible: {', '.join(malformed)}.")
     if conflicts:
         notes.append(
-            f"MRZ ile görünen metin çelişiyor, MRZ değeri kullanıldı: {', '.join(conflicts)}."
+            f"MRZ conflicts with the visible text, MRZ value used: {', '.join(conflicts)}."
         )
     return notes
 

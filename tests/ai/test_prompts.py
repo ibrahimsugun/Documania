@@ -164,9 +164,11 @@ def test_notes_report_unmet_acceptance_criteria_word_for_word() -> None:
     # 04.4.2: karar motoru karşılanmayan maddeyi `notes`'taki katalog metninden tanır.
     fields = flat(section(TEMPLATE, "## Yanıt alanları"))
 
-    assert "`Karşılanmayan kabul kriteri: <katalogdaki madde metni>`" in fields
+    assert "`Unmet acceptance criterion: <katalogdaki madde metni>`" in fields
     assert "katalogda yazıldığı gibi, kelimesi kelimesine yaz" in fields
-    assert "maddeyi kısaltma, başka sözcüklerle anlatma" in fields
+    assert "maddeyi kısaltma, başka sözcüklerle anlatma ve çevirme" in fields
+    # 10.10.6: not İngilizcedir, ama madde metni katalogdaki dilde kalır — karşılaştırma onunla.
+    assert "madde metni notun geri kalanı İngilizce olsa da katalogdaki dilde kalır" in fields
     assert "Karşılanan maddeyi ve konusu bu sayfada olmayabilecek maddeyi" in fields
 
 
