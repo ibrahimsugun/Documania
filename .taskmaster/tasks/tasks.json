@@ -2571,14 +2571,14 @@
         "description": "PRD 10.11.1, 10.11.3 · FR-MOD-10 · Faz 1 · Should (v1). Sözleşme PLAN §D120 (a, b, c, e). İnsan isteği (2026-10-13): işlem sonrası kısa, geçici, kullanıcının panel dilinde bildirim; bugün bildirimler sayfa sayfa dağınık, yenilemede tekrar çıkıyor, birçok yazma işleminde hiç yok.",
         "details": "KAPSAM: PRD 10.11.1, 10.11.3; PLAN §D120 a, b, c, e — önce oku. Bu görev altyapıyı kurar ve mevcut bildirimleri taşır; yol gösterme (10.11.2) tm 176'dadır.\n\nNE YAPILACAK: (1) `app/web/feedback.py`: `FeedbackKind` (success/info/warning/error), `Feedback(key, kind, template)` kaydı, `flash(response, key, **params)` (tam sayfa yönlendirmesi: çerez `documania_flash`, HttpOnly, SameSite=Lax, Path=/, Max-Age 60), `hx_flash(response, key, **params)` (HTMX: `HX-Trigger` başlığı `documania:toast`), `pop_flash(request, response)` (okur, siler; bilinmeyen anahtar ve izinli tip dışı parametre yok sayılır). Parametre tipleri: int, E numarası, parti kimliği, tür slug'ı. (2) `base.html`: `<main>` öncesinde `<div class=\"toasts\" aria-live=\"polite\">` alanı; sunucunun bastığı bildirim burada; `<noscript>` hâlinde kalıcı not. Çerezi okuyup yanıtta silme yolu (bağlam işlevi ya da ara katman) seçilir, §D120'ye yazılır. (3) `app/web/static/toast.js` (defer, `base.html`'de): sunucu bildirimlerini ve `documania:toast` olaylarını aynı görünüme bağlar; başarı/bilgi 5 sn (hover'da durur), uyarı/hata kalıcı, en fazla 3, kapatma düğmesi (etiketi `data-` özniteliğiyle seçili dilde, 10.10.3 JS metin kalıbı — `country-select.js`'e bak). (4) `theme.css`: `.toasts`/`.toast` (dört tür renk + simge, açık/koyu tema, mobil tam genişlik, `prefers-reduced-motion`). (5) Taşıma: `?notice=` kullanan her yönlendirme `flash(...)`'e geçer — `app/web/routers/catalog.py` (`NOTICES`, `BULK_NOTICES`, `TYPE_PAGE_NOTICES`, `CANDIDATE_NOTICES`), `employees.py` (`PACKAGE_`, `PROFILE_`, `RECORD_`, `DOCUMENT_`, `EMPLOYEE_DELETED_NOTICES`), `groups.py` (`NOTICES`), `users.py`, Hesabım → Telegram; şablonlardaki `.notice` kutuları kalkar (`grep -rln notice app/web/templates`). Eski `?notice=` adresleri için geriye uyum kararı §D120'ye. (6) Bildirimsiz yazma işlemleri: `grep -n '@router.post' app/web/routers/*.py` ile envanter çıkar (~93 rota), sonucu sessiz olanlara bildirim ekle (ör. kuyruk öğesini kapat/yeniden aç, çalışanı pasife al/etkinleştir, parti yeniden çalıştır/analiz/yoksay/iptal, kullanıcı rolü/parolası/durumu, Telegram izni, tür etkinleştir/pasifleştir/arşivle, eğitim doğrulama). Hata yolları (403, 409, doğrulama) uyarı/hata bildirimi verir; form alan hataları yerinde kalır. Envanter ve kapsam dışı bırakılan rotalar §D120'ye liste olarak. (7) Çeviri: yeni msgid'ler `pybabel extract` + `update`, `en`/`sr` `.po` dolu, `.mo` derlenir; `tests/web/test_translation_sweep.py` `PAGES`'e bildirim gösteren sayfa durumları.\n\nGİRDİ: app/web/templating.py, app/web/templates/base.html, app/i18n/__init__.py (`Translatable`, `N_`, `translate`), app/web/auth.py (çerez ayarları kalıbı :316), app/web/static/country-select.js, app/web/static/theme.css, app/web/routers/*.py, app/i18n/locales/{en,sr}/LC_MESSAGES/messages.po, babel.cfg.\n\nÇIKTI: `app/web/feedback.py`, `app/web/static/toast.js`, base.html/theme.css değişiklikleri, taşınmış yönlendiriciler ve şablonlar, `.po`/`.mo`, testler; PLAN 10.11.1 ve 10.11.3 satırları ve `#### K10.11` kanıtı, §D120'ye uygulama kararları, HANDOFF.\n\nBU GÖREVİ BAĞLAYAN KİLİTLİ KURALLAR: R12/K17 — belge içeriğini değiştiren yol yok, ipucu da önermez. 10.1.8 — salt okunur Kullanıcı yazma bağlantısı görmez. 10.10.3 — yeni her görünen metin `_()`/`N_()` ile işaretli, `.po` (en, sr) dolu, `python -m app.i18n check` exit 0; Türkçe kaynak dildir. Kişisel değer (ad-soyad, belge numarası, doğum tarihi) bildirim parametresi ya da çerez içeriği olamaz. Gerçek kimlik belgesi depoya girmez (sentetik fixture).\n\nTUZAKLAR: Çerezi okuyan yanıt onu silmezse bildirim her sayfada çıkar. 303 zincirinde bildirim ilk tam sayfada gösterilmeli, ara yönlendirmede tüketilmemeli. HTMX `hx-select` ile kısmi değişimde toast alanı değişmeyen bölgededir — çift gösterim olmasın. Dosya indirme/görüntüleme yanıtları (`FileResponse`) çerezi tüketmemeli. İki aşamalı onayda (§20.6) bildirim yalnız son adımda (işlem yapıldığında) çıkar, hazırlık adımında değil. Dil: bildirim gösterildiği isteğin dilinde biçimlenir, çerezde metin değil anahtar durur.\n\nKAPSAM SINIRI: yol gösterme ipuçları, parti detayı bağlantıları ve aday tür sonrası bildirim (tm 176); Telegram botu; yeni yazma işlemi yok.\n\nKAPANIŞ: DoD kapısı yeşil; geçici kural bozmaları (yenilemede tekrar çıkar, çerezde ad-soyad, bilinmeyen anahtar metin basar, Sırpça istekte Türkçe metin, hazırlık adımında bildirim) kırmızı olmalı. Faz 1 Kapanış hücresi AÇIK kalır.",
         "testStrategy": "1) feedback.py: flash → çerez yalnız anahtar+izinli parametre; pop_flash okur ve siler; bilinmeyen anahtar yok sayılır; kişisel değer parametresi reddedilir (kayıt taraması). 2) Tam sayfa: POST → 303 → GET'te bildirim bir kez, ikinci GET'te yok; adreste `notice` yok. 3) HTMX: yanıtta HX-Trigger documania:toast, çerez yok. 4) Dil: aynı anahtar en/tr/sr isteklerinde doğru metin; app.i18n check exit 0. 5) Taşıma: eski NOTICES sözlüklerinin her anahtarı yeni kayıtta; şablonlarda `.notice` kutusu kalmadı (dışarıda bırakılanlar §D'de). 6) Envanterdeki bildirimsiz rotalar artık bildirim veriyor (parametrik test). 7) İki aşamalı onayda yalnız son adımda bildirim. 8) Salt okunur Kullanıcı'nın 403'ü hata bildirimi. 9) DoD kapısı yeşil.",
-        "status": "pending",
+        "status": "in-progress",
         "dependencies": [
           "157",
           "169"
         ],
         "priority": "medium",
         "subtasks": [],
-        "updatedAt": "2026-10-13T12:00:00.000Z"
+        "updatedAt": "2026-10-13T13:09:05.706Z"
       },
       {
         "id": "176",
@@ -2596,12 +2596,27 @@
         "priority": "medium",
         "subtasks": [],
         "updatedAt": "2026-10-13T12:00:00.000Z"
+      },
+      {
+        "id": "177",
+        "title": "10.10-g — Yapay zekâ serbest metinleri ve sistem gerekçeleri İngilizce; gerekçeler panelde kullanıcının dilinde [OPUS-HIGH]",
+        "description": "PRD 10.10.6 · FR-MOD-10 · Faz 1 · Should (v1). Sözleşme PLAN §D121. İnsan isteği (2026-10-13): yükleme sonucu çıktılar ve yapay zekâ çıktıları İngilizce olsun, herkes Türkçe bilmiyor.",
+        "details": "KAPSAM: PRD 10.10.6; PLAN §D121 — önce oku.\n\nNE YAPILACAK: (1) Talimatlar: `app/ai/prompts/photo_check.md`, `training_classification.md`, `type_description.md`, `type_proposal.md`, `page_analysis.md` — serbest metin alanları İngilizce istenir, örnek değerler İngilizce; uzunluk sınırları korunur. Talimat sürüm/özet değişirse (`app/ai/prompts/*.py`) önbellek ve kayıtlı yanıtlar buna göre. (2) Sistem gerekçeleri: `grep -rn` ile `app/pipeline`, `app/decision`, `app/matching`, `app/catalog`'daki kayda yazılan Türkçe gerekçe/özne metinlerini envanterle (ör. `app/pipeline/group.py:320`); kayıtta İngilizce, panelde `Translatable` (10.10.3) ile kullanıcının dilinde. Saklama biçimi kararı §D121'e. (3) Panel: gerekçe gösterilen yerler (parti detayı plan ve kuyruk tabloları, kuyruk öğesi, olay zaman çizelgesi, eğitim sonuçları Not sütunu) yeni biçimi dilde gösterir; yapay zekâ notu (serbest metin) çevrilmez, İngilizce gösterilir (`translate=\"no\"`). (4) Testler: `tests/ai/test_type_proposal.py` :640, :654 ve `tests/ai/test_type_description.py` :436 Türkçe bekliyor — İngilizceye; kayıtlı yanıtlar/sabitler güncellenir; en/sr `.po` dolu, `python -m app.i18n check` exit 0.\n\nBU GÖREVİ BAĞLAYAN KİLİTLİ KURALLAR: R12/K17 — belgeden okunan değer çevrilmez, değiştirilmez. 12.1.12 bot dili değişmez. Gerçek kimlik belgesi depoya girmez.\n\nTUZAKLAR: Eşleştirme/karar kodu gerekçe metnini dizge olarak karşılaştırıyorsa (ör. `startswith`) kırılır — önce ara. Eski Türkçe kayıtlar panelde olduğu gibi kalır; gösterim katmanı eski düz metne dayanıklı olmalı. Katalog tohumundaki Türkçe tür açıklamaları kapsam dışı.\n\nKAPSAM SINIRI: profil.md dili, katalog tohumu, geriye dönük çeviri yok.\n\nKAPANIŞ: DoD kapısı yeşil; geçici bozma (talimat Türkçe ister, Sırpça panelde Türkçe gerekçe) kırmızı olmalı. PLAN 10.10.6 satırı ve `#### K10.10` kanıtına ek, HANDOFF.",
+        "testStrategy": "1) Her talimat İngilizce serbest metin ister (metin testi). 2) Kayıtlı yanıtlarla pipeline: notlar İngilizce. 3) Bilinmeyen tür gerekçesi kayıtta İngilizce; parti detayı en/tr/sr isteklerinde doğru dilde. 4) Eski Türkçe gerekçe kaydı panelde kırılmadan görünür. 5) app.i18n check exit 0. 6) DoD kapısı yeşil.",
+        "status": "pending",
+        "dependencies": [
+          "157",
+          "79"
+        ],
+        "priority": "medium",
+        "subtasks": [],
+        "updatedAt": "2026-10-13T13:00:00.000Z"
       }
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-13T12:00:00.000Z",
-      "taskCount": 177,
+      "lastModified": "2026-10-13T13:00:00.000Z",
+      "taskCount": 178,
       "completedCount": 175,
       "tags": [
         "master"
