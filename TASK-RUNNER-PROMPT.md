@@ -59,7 +59,7 @@ adım aynı kesintisiz çalışmanın parçasıdır; kapanışa (§3) ulaşmadan
 - **Düzeltme.** Kapı kırmızıysa düzelt ve yeniden koş. Yeşile dönmüyorsa "herhalde oldu" DEME.
 
 **Kapı komutlarını ARKA PLANA ATMA — pencereyi öldürür.** Test/build komutlarını daima ÖN
-PLANDA, yeterli `timeout` ile çalıştır (tam suite için `timeout: 900000`). `run_in_background`
+PLANDA, yeterli `timeout` ile çalıştır (tam suite için `timeout: 2400000`; üst sınır `.claude/settings.json`'da 60 dk, 10 dk kırpması yok — kapıyı bölme, yeniden başlatma). `run_in_background`
 kullanırsan komut oturuma bağlıdır: sıranı bitirdiğin anda `-p` oturumu kapanır, arka plandaki
 koşu da onunla birlikte ölür — sonuç bildirimi ASLA gelmez, kapanış hiç çalışmaz, döngü bunu
 `blocked` sayar.

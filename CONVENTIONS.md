@@ -86,7 +86,10 @@ desene ver.
 
 - Testler **ön planda** koşulur. `run_in_background` ile başlatılan test/build komutu, pencere
   sırasını bitirdiği anda oturumla birlikte ölür ve sonuç asla gelmez. Uzun süren suite için
-  yeterli `timeout` ver (paralel tam suite ~10 dk; 900000 ms yeter).
+  yeterli `timeout` ver: tam suite için `timeout: 2400000` (40 dk). Paralel suite ~10 dk sürer; aracın
+  varsayılan üst sınırı 600000 ms'dir ve daha büyük değer sessizce 10 dakikaya kırpılıp kapı yarıda
+  kesilirdi. Sınır `.claude/settings.json` → `env.BASH_MAX_TIMEOUT_MS = 3600000` ile 60 dakikaya açıktır;
+  bu ayarı kaldırma, kapıyı da parçalara bölme.
 - `-n 12` yalnız tam kapı komutundadır, `addopts`'a konmaz (tek dosya koşusunu yavaşlatır).
 - **Kararsızlık kuralı:** paralel koşuda düşüp seri koşuda geçen test "paralel yüzünden" denip
   geçilmez. Ortak durum (modül düzeyi önbellek, sabit dosya yolu, `os.environ`, sabit port,
