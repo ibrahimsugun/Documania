@@ -9,7 +9,7 @@
 | Faz | PRD | Genel durum | Must sayacı | Kapanış |
 | --- | --- | --- | --- | --- |
 | Faz 0 — MVP | §5.1 | 107 ✅ · 0 ◐ · 0 ⬜ · 0 🔒 | 101/101 Must | ✅ → KF0 |
-| Faz 1 — v1 | §5.2 | 78 ✅ · 0 ◐ · 0 ⬜ · 0 🔒 | 41/41 Must | ✅ → KF1 |
+| Faz 1 — v1 | §5.2 | 78 ✅ · 0 ◐ · 3 ⬜ · 0 🔒 | 41/41 Must | AÇIK |
 | Faz 2 — v2 | §5.3 | 30 ✅ · 0 ◐ · 0 ⬜ · 0 🔒 | 0/0 Must | ✅ → KF2 |
 | Faz 3 — Enterprise | §5.4 | 10 ✅ · 0 ◐ · 0 ⬜ · 0 🔒 | 0/0 Must | ✅ → KF3 |
 
@@ -58,7 +58,7 @@ panelde `plan-count-drift` bulgusu doğurur.
 | FR-MOD-07 | Uygulayıcı | 0 | 9 |
 | FR-MOD-08 | Kuyruklar ve çözüm | 0 | 6 |
 | FR-MOD-09 | Çalışan profili ve orkestrasyon | 0 | 10 |
-| FR-MOD-10 | Web yönetim paneli | 1 | 47 |
+| FR-MOD-10 | Web yönetim paneli | 1 | 50 |
 | FR-MOD-11 | Belge türü kataloğu ve öğrenme | 1, 2 | 29 |
 | FR-MOD-12 | Telegram botu | 2 | 26 |
 | FR-MOD-13 | İşletme ve dayanıklılık | 3 | 11 |
@@ -276,6 +276,9 @@ panelde `plan-count-drift` bulgusu doğurur.
 | 10.10.3 | Çeviri kapsamı ve bütünlüğü | Should (v1) | ✅ → K10.10 |
 | 10.10.4 | Onay metinleri üç dilde | Should (v1) | ✅ → K10.10 |
 | 10.10.5 | Ülke adları seçili dilde | Should (v1) | ✅ → K10.10 |
+| 10.11.1 | İşlem sonrası geçici bildirim | Should (v1) | ⬜ |
+| 10.11.2 | Bekleyen işte yol gösterme | Should (v1) | ⬜ |
+| 10.11.3 | Bildirim ve ipuçları seçili dilde | Should (v1) | ⬜ |
 
 ### 4.2 FR-MOD-11 — Belge türü kataloğu ve öğrenme (Faz 1 kalemleri)
 
@@ -2483,6 +2486,8 @@ bu kayıt neden sapıldığının izlenebilir olması içindir.
 
 - **D119 — (§5.4; tm 174).** Faz 3 kapanış ölçütünün yorumu ve canlı kurulumun sapmaları. **(a) Yorum:** PRD §5.4'teki "sunucuda" ilk cümleyi ("alan adıyla çalışıyor") niteler; ikinci cümle ("yedekten geri yükleme bir kez denendi") prosedürün bir kez denenmesini ister. Bu deneme 2026-09-19'da gerçek `scripts/backup.sh` + `scripts/restore.sh` ile, canlıdakiyle aynı veritabanı yolunda (SQLite) yapıldı (`docs/YEDEKLEME.md` "Deneme kaydı", `#### K13.4`) ve her kapıda yeniden koşar. Önceki pencerelerin daha sıkı okuması ("sunucuda backup.sh + restore.sh provası", HANDOFF tm 97–99 notu) bu maddeyle bilerek gevşetildi. **(b) Kilitli üretim yığınından sapma (insan kararı, 2026-10-09):** canlı kurulum (YanPC, https://belge.siyahkus.com) MASTER-PROMPT §4'teki "Veritabanı (üretim) PostgreSQL 16" yerine SQLite (`docker-compose.yml` varsayılanı), "Ters vekil (üretim) Caddy" yerine cloudflared tüneli kullanır; servisler varsayılan profil + `--profile telegram` (`app`, `worker`, `bot`). 13.5.1'in `production` profili depoda durur ve değişmedi. **(c) Sınırlar:** sunucuda gerçek veriyle geri yükleme provası yapılmadı; sunucuda zamanlanmış gece yedeği yok (2026-10-10 gözlemi: crontab ve kullanıcı zamanlayıcılarında yedek 0; `docs/YEDEKLEME.md` "Sunucu düzeyi" kurulumu insanın işi sayar); canlı kurulum PostgreSQL'e geçerse YEDEKLEME'deki gerçek `pg_restore` provası çekincesi geçerli olur. Sunucudaki yedek/geri yükleme betikleri 2026-10-11'de depodakiyle sha256 eşit.
 
+- **D120 — Geri bildirim ve yol gösterme: sözleşme (10.11.1–10.11.3; tm 175, tm 176).** İnsan isteği (2026-10-13): "Kullanıcıya yaptığı şeyler sonucunda ufak geri bildirimler, işlemi nerede nasıl çözebileceğine dair ipuçları, geçici alert gibi yazılar. Kullanıcı paneli hangi dilde kullanıyorsa geri bildirim ve alertler uygun dilde." Tetikleyen gözlem: parti detayında "Tür bilinmiyor · Bekliyor" satırı var ama onayın verileceği yere (Belge Türleri → Aday türler, Kuyruklar → öğe) hiçbir bağlantı yok; insan mekanizmayı bulamadı. Bugün bildirim sayfa sayfa dağınık: `?notice=<anahtar>` + sayfaya özel sözlükler (`app/web/routers/catalog.py` `NOTICES`/`BULK_NOTICES`/`TYPE_PAGE_NOTICES`/`CANDIDATE_NOTICES`, `employees.py` `PACKAGE_/PROFILE_/RECORD_/DOCUMENT_/EMPLOYEE_DELETED_NOTICES`, `groups.py` `NOTICES`, `users.py` `notice`); yenilemede tekrar çıkar, adreste kalır, birçok yazma işleminde (ör. kuyruk öğesini kapatma, çalışanı pasife alma, parti yeniden çalıştırma) hiç yoktur. **(a) Taşıyıcı:** tek kullanımlık, `HttpOnly`, `SameSite=Lax`, `Path=/`, ömrü 60 sn bir çerez (`documania_flash`); içinde yalnız merkezi kayıttaki (`app/web/feedback.py`) bildirim **anahtarı** ve kişisel olmayan parametreler (tam sayı, E numarası, parti kimliği, tür slug'ı) durur — serbest metin yok. Bilinmeyen anahtar sessizce yok sayılır; bu yüzden imza gerekmez (kullanıcı ancak kendine sahte "başarılı" gösterebilir). Bir sonraki tam sayfa yanıtı çerezi okur, `base.html`'deki bildirim alanına basar ve siler. HTMX isteğinde aynı bildirim `HX-Trigger: {"documania:toast": {...}}` başlığıyla gider, çerez yazılmaz; istemci betiği (`app/web/static/toast.js`) iki yolu tek görünüme bağlar. Adres çubuğu (`?notice=`) taşıyıcı olmaz; eski anahtarlı adresler bir sürüm geriye uyumlu okunur, sonra kaldırılır — görev karar verir, §D'ye yazar. **(b) Kayıt:** `Feedback(key, kind, template)`; `kind` ∈ success/info/warning/error; `template` `N_()` ile işaretli, `{ad}` yer tutuculu msgid (`Translatable` kalıbı). Metin gösterimde isteğin dilinde biçimlenir (10.11.3). Kişisel değer (ad-soyad, belge numarası, doğum tarihi) parametre olamaz — kayıt testi bunu denetler. **(c) Görünüm:** sağ üst köşe, en fazla 3 bildirim üst üste; başarı/bilgi 5 sn (üzerine gelince durur), uyarı/hata kalıcı; kapatma düğmesi; `prefers-reduced-motion`'da animasyon yok; açık ve koyu temada (10.1.7) okunur; mobilde tam genişlik. Var olan sayfa içi `.notice` kutuları kaldırılır; form alanı hataları (`.error`, `field_errors`) yerinde kalır. **(d) Yol gösterme (10.11.2):** ipucu metinleri de kayıttan gelir; bağlantılar rol süzgecinden (`user.can_write`) geçer. Parti detayında kuyruk satırı → `/queues/{id}`; tür bilinmiyor satırında plan öğesinin önerdiği aday tür varsa → `/document-types/candidate-types/{id}`. "Çözüm" sütunu kuyruk türüne göre fiil söyler ("Aday türü onaylayın ya da öğeyi kapatın", "Sayfayı yeniden yükleyin ya da öğeyi kapatın", "Çalışana atayın ya da profil oluşturun"). Aday tür onayı/reddi bildirimi, o adaya bağlı açık kuyruk öğesi sayısını ve sonraki adımı (yeniden analiz) söyler; aday tür onayının bekleyen öğeyi kendiliğinden çözüp çözmediği koddan doğrulanır, metin buna göre yazılır, tahmin edilmez. **(e) Sınırlar:** Telegram botu kapsam dışı (kendi dil kuralı 12.1.12). Yeni yazma işlemi, yeni onay adımı, belge içeriğine dokunan yol yok (R12). Bildirimler olay loguna yazılmaz (olaylar zaten işlemin kendisini kaydeder).
+
 ## G. İş Kırılımı Dizini
 
 Task Master'a aktarımın kaynağı budur. Her satır bir görevdir; `ID` sütunu görev
@@ -2652,6 +2657,8 @@ başlığının başında birebir geçer.
 | 10.5-k | Pasif çalışanı kalıcı silme: klasör, alt kayıtlar, sayfalar, planlar, olay temizliği, görünürlük; S25 | 10.5.13 | [OPUS-XHIGH] | 10.5-j, 10.5-d, 10.5-f | 1 |
 | 10.3-d | Süren partiyi iptal et ve 10 dakikada çözülmeyeni otomatik iptal et; S26 | 10.3.6, 10.3.7 | [OPUS-HIGH] | 10.3-c, 13.3.1, 10.8 | 1 |
 | 10.1-h | Yetki sistemi: root (gizli, tek Zvz), İK, Kullanıcı salt okunur; erişim logu yalnız root; S27 | 10.1.8, 10.1.9 | [OPUS-XHIGH] | 10.1, 10.9, 12.1 | 1 |
+| 10.11-a | Geçici bildirim altyapısı: tek kullanımlık bildirim, dört tür, üç dil; sayfa içi `?notice=` bildirimlerinin taşınması, bildirimsiz yazma işlemlerine bildirim | 10.11.1, 10.11.3 | [OPUS-HIGH] | 10.10-f, 10.1-h | 1 |
+| 10.11-b | Bekleyen işte yol gösterme: parti detayı kuyruk satırı bağlantıları, kuyruk türüne göre adımlar, aday tür onayı sonrası bildirim, boş durumlar, rol süzgeci; S28 | 10.11.2, 10.11.3 | [OPUS-HIGH] | 10.11-a, 11.5, 10.7-d | 1 |
 
 ## K. Kanıt Geçmişi (evidence log)
 

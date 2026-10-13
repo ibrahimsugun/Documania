@@ -18,6 +18,12 @@ Blok biçimi `CONVENTIONS.md` §3'te tanımlıdır:
 
 ## Task log (newest-first)
 
+## 175, 176 — 10.11 geri bildirim ve yol gösterme açıldı — pending — 2026-10-13 (interaktif oturum: insan isteği)
+- Yapıldı: İnsan isteği "işlem sonrası kısa geri bildirim, nerede nasıl çözüleceğine dair ipucu, geçici alert; panel dilinde" PRD 10.11.1–10.11.3 + S28, PLAN §4.1 satırları (⬜), §G 10.11-a/10.11-b, §D120 sözleşmesi ve tm 175 (altyapı + taşıma) / tm 176 (yol gösterme, S28) olarak açıldı. Faz 1 Kapanış hücresi AÇIK'a döndü (78 ✅ · 3 ⬜).
+- Doğrulama: `task-master validate-dependencies` yeşil (177 görev, 317 bağımlılık), `task-master next` → #175. Sayım: 229 satır, 225 ✅, 3 ⬜ (CONVENTIONS §1.3). Kod değişmediği için DoD kapısı koşulmadı.
+- Varsayımlar: Taşıyıcı olarak URL yerine tek kullanımlık çerez (§D120 a) seçildi; insan sormadı, yenilemede tekrar çıkmaması isteğin doğal okuması. tasks.json'da önceden var olan çift id'ler (165, 166, 167 ikişer kez) bu açılışta düzeltilmedi; tm 175 bağımlılığı tema görevi yerine 157/169'a bağlandı.
+- Sonraki pencereye not: Tetikleyen gözlem — parti detayında "Tür bilinmiyor · Bekliyor" satırından aday tür onayına (Belge Türleri → Aday türler) yol yok; tm 176 bunu kapatır. Aday tür onayının bekleyen kuyruk öğesini kendiliğinden çözüp çözmediği koddan doğrulanmalı.
+
 ## 174 — §5.4 Faz 3 (Enterprise) kapanış denetimi — done — 2026-10-11
 - Yapıldı: Faz 3 ölçütü salt okunur kanıtlandı. `https://belge.siyahkus.com/health` 200 `{"status":"ok","schema":"0028"}` (yerel head 0028), sertifika `-k`'sız geçerli, oturumsuz `/` → 303 `/login`. Geri yükleme kolu 09-19 provasıyla (gerçek betikler, SQLite) karşılandı; canlı kurulum aynı SQLite yolunda. PLAN §0'da Faz 3 Kapanış hücresi `✅ → KF3` oldu, `#### KF3` (3 madde) ve §D119 (yorum, PostgreSQL/Caddy → SQLite/cloudflared sapması, sınırlar) eklendi. Yalnız PLAN.md, HANDOFF.md, tasks.json değişti.
 - Doğrulama: `tests/scripts` 27 geçti, 0 atlandı (iki prova PASSED). ruff, format (460), compileall, `import app.main`, `git diff --check`, temiz SQLite'ta `alembic upgrade head` (→0028), i18n check exit 0. Tam paralel kapı 6919 geçti, 5 atlandı (PostgreSQL), %99,02, exit 0. Sunucuda koşulan ssh komutları yalnız şu ikisi: `cd ~/documania && docker compose ps` (app healthy, worker, bot; db/caddy yok) ve `cd ~/documania && sha256sum scripts/backup.sh scripts/backup-lib.sh scripts/restore.sh` (üçü de `git show HEAD:scripts/…` ile eşit).
