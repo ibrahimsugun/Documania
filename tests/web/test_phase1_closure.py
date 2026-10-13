@@ -30,6 +30,9 @@ from app.catalog import import_catalog, load_seed_catalog
 from app.config import Settings, get_settings
 from app.db.models import Employee, EmployeeAlias, allocate_employee_number
 from app.db.session import get_session_factory
+from app.i18n import Translatable
+from app.i18n.recorded import english
+from app.matching.match import NAME_ONLY_REASON
 from app.matching.names import normalize_name
 from app.storage import DataLayout, employee_folder_name
 from app.web.auth import SESSION_COOKIE
@@ -118,6 +121,13 @@ def _token(html: str) -> str:
     return _one(r'name="confirmation" value="([^"]+)"', html)
 
 
+def _open_count(listing: str) -> int:
+    """Açık sekmenin bekleyen sayacı (öbür sekmelerin sayaçları da sayfadadır)."""
+    return int(
+        _one(r'aria-current="page">[^<]*<span class="counter" title="Bekleyen öğe">(\d+)<', listing)
+    )
+
+
 def test_hr_uploads_resolves_the_queue_sees_the_document_on_the_profile_and_opens_it_in_a_new_tab(
     client: TestClient,
     layout: DataLayout,
@@ -143,11 +153,17 @@ def test_hr_uploads_resolves_the_queue_sees_the_document_on_the_profile_and_open
 
     # 2) Kuyruk: belge Unresolved sekmesinde bekler, satırı öğe detayına gider.
     listing = client.get("/queues", params={"tab": "unresolved"}).text
-    assert 'title="Bekleyen öğe">1</span>' in listing
+    assert _open_count(listing) == 1
     item_url = _one(r'<td><a href="(/queues/\d+)">', listing)
     assert f'<a href="/uploads/{upload_id}">' in listing
     detail = client.get(item_url).text
     assert f'hx-get="{item_url}/assign/employees"' in detail
+    # 10.10.6: gerekçe kayıtta İngilizce, kaynağı geri çağrılır; İK neden beklediğini kuyrukta ve
+    # öğede oturumun dilinde (tr) okur. Olduğu gibi gösterilen metnin `translate="no"`'su yoktur.
+    reason = _one(r'<dt>Gerekçe</dt><dd class="reason-text">([^<]+)</dd>', detail)
+    assert reason.startswith(f"{NAME_ONLY_REASON}. ")
+    assert f'<td class="reason-text">{reason}</td>' in listing
+    assert english(Translatable(NAME_ONLY_REASON)) not in listing + detail
 
     # 3) Kuyruğu çöz: çalışanı ara, seç, iki onayı ver (K16; belirteç yanıttan okunur).
     found = client.get(f"{item_url}/assign/employees", params={"q": "sidorov"}).text
@@ -173,7 +189,8 @@ def test_hr_uploads_resolves_the_queue_sees_the_document_on_the_profile_and_open
 
     # Kuyruk boşaldı; öğe çözüldü ve olay kullanıcı adıyla yazıldı.
     listing = client.get("/queues", params={"tab": "unresolved"}).text
-    assert 'title="Bekleyen öğe">0</span>' in listing
+    assert _open_count(listing) == 0
+    assert f'<a href="{item_url}">' not in listing
     detail = client.get(item_url).text
     assert "<dt>Durum</dt><dd>Çözülen</dd>" in detail
     assert "MANUAL_ASSIGN" in detail and SIGNED_IN.username in detail
