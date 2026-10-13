@@ -202,7 +202,7 @@
       select.value = item.option.value;
       fill(current, item.option);
       close(false);
-      form.submit();
+      if (form.requestSubmit) { form.requestSubmit(); } else { form.submit(); }
     }
 
     button.addEventListener("click", function () {
