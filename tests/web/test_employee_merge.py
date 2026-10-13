@@ -59,6 +59,7 @@ from app.web.routers.queue import ASSIGNEE_MERGED, _assignee
 from app.web.routers.uploads import MERGED_CONTEXT_MESSAGE
 from tests.fixtures.gen import make_pdf_bytes
 from tests.web.conftest import SESSION, SIGNED_IN, issue_token
+from tests.web.flash import flashed
 
 KEEP, MERGE, INACTIVE, CLOSED = "E0001", "E0005", "E0007", "E0009"
 KEEP_FOLDER, MERGE_FOLDER = "Ivan_Petrov_E0001", "Ivan_Petrow_E0005"
@@ -403,7 +404,8 @@ def test_merging_moves_the_documents_logs_both_events_and_renders_both_profiles(
     response = _merge(client, token)
 
     assert response.status_code == 303, response.text
-    assert response.headers["location"] == f"/employees/{KEEP}?notice=merged"
+    assert response.headers["location"] == f"/employees/{KEEP}"
+    assert flashed(response) == ("employees.merged", {})
     confirmed, merged = _events(
         session_factory, EventType.USER_CONFIRMED, EventType.EMPLOYEE_MERGED
     )
@@ -445,7 +447,7 @@ def test_the_kept_profile_shows_the_notice_and_the_merge_source_of_a_filled_fiel
 ) -> None:
     _merge(client, _token(_prepare(client).text))
 
-    page = client.get(f"/employees/{KEEP}?notice=merged").text
+    page = client.get(f"/employees/{KEEP}").text
 
     assert "Kayıtlar birleştirildi; birleşen kaydın belgeleri" in page
     assert re.search(rf"Kaynak: birleştirme \({SIGNED_IN.username}, \d\d\.\d\d\.\d{{4}}\)", page), (

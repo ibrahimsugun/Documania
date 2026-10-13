@@ -38,6 +38,7 @@ from app.web.auth import SESSION_COOKIE, PanelUser, get_current_user
 from app.web.confirm import CONFIRMATION_REFUSED, Operation
 from app.web.routers.documents import DELETION_CHANGED, deletion_subject
 from tests.web.conftest import SESSION, SIGNED_IN, issue_token
+from tests.web.flash import flashed, toasts
 
 OWNER, FOLDER = "E0001", "Test_Kisi_E0001"
 TYPE_SLUG = "test_passport"
@@ -245,7 +246,8 @@ def test_deletion_needs_both_confirmations_and_logs_the_user(
     )
 
     assert done.status_code == 303
-    assert done.headers["location"] == f"/employees/{OWNER}?notice=document_deleted#documents"
+    assert done.headers["location"] == f"/employees/{OWNER}#documents"
+    assert flashed(done) == ("employees.document_deleted", {})
     row = _document_row(session_factory, docs.active)
     assert (row.status, row.path, row.deleted_by) == ("deleted", None, SIGNED_IN.username)
     assert not ready.exists() and not inbox.exists()
@@ -261,10 +263,9 @@ def test_deletion_needs_both_confirmations_and_logs_the_user(
     assert (deleted.data_json["files_deleted"], deleted.data_json["files_kept"]) == (3, 0)
 
     profile = client.get(f"/employees/{OWNER}").text
-    assert (
-        "Belge kalıcı olarak silindi; dosyaları diskten kaldırıldı."
-        in client.get(f"/employees/{OWNER}?notice=document_deleted").text
-    )
+    assert toasts(profile) == ["Belge kalıcı olarak silindi; dosyaları diskten kaldırıldı."]
+    # 10.11.1: bildirim tek kullanımlık; yenilemede yeniden çıkmaz.
+    assert toasts(client.get(f"/employees/{OWNER}").text) == []
     section = profile.split('<section class="profile-documents">', 1)[1].split("</section>")[0]
     assert READY_NAME not in section and f"/documents/{docs.active}/" not in section
 
@@ -463,9 +464,9 @@ def test_a_file_that_cannot_be_removed_says_so_on_the_profile(
     )
 
     assert done.status_code == 303
-    assert "notice=document_deleted_partial" in done.headers["location"]
+    assert flashed(done) == ("employees.document_deleted_partial", {})
     assert _document_row(session_factory, docs.active).status == "deleted"
     (deleted,) = _events(session_factory, EventType.DOCUMENT_DELETED)
     assert deleted.data_json is not None and deleted.data_json["files_failed"] == 1
-    page = client.get(f"/employees/{OWNER}?notice=document_deleted_partial").text
+    page = client.get(f"/employees/{OWNER}").text
     assert "bazı dosyaları diskten kaldırılamadı" in page

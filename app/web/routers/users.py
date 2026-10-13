@@ -59,7 +59,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Form, HTTPException, Path, Query, Request, status
+from fastapi import APIRouter, Depends, Form, HTTPException, Path, Request, status
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -104,6 +104,22 @@ from app.web.auth import (
     set_user_active,
     set_user_role,
 )
+from app.web.feedback import (
+    OWN_PASSWORD,
+    TELEGRAM_ADDED,
+    TELEGRAM_ALLOWED,
+    TELEGRAM_BLOCKED,
+    TELEGRAM_LINK_CREATED,
+    TELEGRAM_REMOVED,
+    USER_CREATED,
+    USER_DEACTIVATED,
+    USER_PASSWORD_RESET,
+    USER_REACTIVATED,
+    USER_ROLE_CHANGED,
+    Toast,
+    flash,
+    render,
+)
 from app.web.routers.uploads import get_layout
 from app.web.templating import MENU_BY_KEY, render_page
 
@@ -132,25 +148,6 @@ BOT_NEVER_RAN = N_(
 ROLE_LABELS = {UserRole.HR.value: N_("İK"), UserRole.USER.value: N_("Kullanıcı")}
 STATUS_ACTIVE = "active"
 STATUS_INACTIVE = "inactive"
-NOTICES = {
-    "created": N_("Kullanıcı oluşturuldu."),
-    "password_reset": N_("Parola sıfırlandı; kullanıcının açık oturumları kapatıldı."),
-    "deactivated": N_("Kullanıcı pasife alındı; açık oturumları kapatıldı."),
-    "reactivated": N_("Kullanıcı yeniden etkinleştirildi."),
-    "role_changed": N_("Kullanıcının rolü değişti; bir sonraki isteğinde geçerli olur."),
-    "own_password": N_("Parolanız değiştirildi; diğer oturumlarınız kapatıldı."),
-    "telegram_allowed": N_("Telegram kimliğinin izni açıldı."),
-    "telegram_blocked": N_("Telegram kimliğinin izni kapatıldı; bot bu kimliğe yanıt vermeyecek."),
-    "telegram_removed": N_(
-        "Telegram kaydı silindi. Bu numara artık yeniden bağlanabilir; bot ona yanıt vermeyecek."
-    ),
-}
-ACCOUNT_NOTICES = {
-    "telegram_added": N_("Telegram kimliği eklendi ve izni açıldı."),
-    "telegram_allowed": NOTICES["telegram_allowed"],
-    "telegram_blocked": NOTICES["telegram_blocked"],
-    "telegram_removed": NOTICES["telegram_removed"],
-}
 ALLOWED_TRUE = "true"
 ALLOWED_FALSE = "false"
 
@@ -247,7 +244,6 @@ def _users_page(
     layout: DataLayout,
     *,
     status_code: int = status.HTTP_200_OK,
-    notice: str | None = None,
     error: str | None = None,
     error_user_id: int | None = None,
     form: NewUserValues | None = None,
@@ -260,7 +256,6 @@ def _users_page(
         entry=MENU_BY_KEY["users"],
         users=_rows(session, user),
         roles=[(role.value, ROLE_LABELS[role.value]) for role in ASSIGNABLE_ROLES],
-        notice=NOTICES.get(notice or ""),
         error=error,
         error_user_id=error_user_id,
         form=form or NewUserValues(),
@@ -273,8 +268,11 @@ def _users_page(
     return response
 
 
-def _redirect(notice: str) -> RedirectResponse:
-    return RedirectResponse(f"{USERS_PATH}?notice={notice}", status.HTTP_303_SEE_OTHER)
+def _redirect(key: str, path: str = USERS_PATH) -> RedirectResponse:
+    """İşlemden sonra dönüş; bildirim tek kullanımlık çerezde (10.11.1, PLAN.md §D120)."""
+    response = RedirectResponse(path, status.HTTP_303_SEE_OTHER)
+    flash(response, key)
+    return response
 
 
 def _user_or_404(session: Session, user_id: int) -> User:
@@ -306,9 +304,8 @@ def users_page(
     user: CurrentUser,
     session: DbSession,
     layout: Layout,
-    notice: Annotated[str | None, Query(max_length=32)] = None,
 ) -> HTMLResponse:
-    return _users_page(request, user, session, layout, notice=notice)
+    return _users_page(request, user, session, layout)
 
 
 @router.post(USERS_PATH, response_class=HTMLResponse)
@@ -346,7 +343,7 @@ def create_user_endpoint(
         )
         return _users_page(request, user, session, layout, status_code=code, error=exc, form=form)
     session.commit()
-    return _redirect("created")
+    return _redirect(USER_CREATED)
 
 
 @router.post(f"{USERS_PATH}/{{user_id}}/role", response_class=HTMLResponse)
@@ -387,7 +384,7 @@ def set_role_endpoint(
             error_user_id=user_id,
         )
     session.commit()
-    return _redirect("role_changed")
+    return _redirect(USER_ROLE_CHANGED)
 
 
 @router.post(f"{USERS_PATH}/{{user_id}}/password", response_class=HTMLResponse)
@@ -421,7 +418,7 @@ def reset_password_endpoint(
             error_user_id=user_id,
         )
     session.commit()
-    return _redirect("password_reset")
+    return _redirect(USER_PASSWORD_RESET)
 
 
 @router.post(f"{USERS_PATH}/{{user_id}}/status", response_class=HTMLResponse)
@@ -461,7 +458,7 @@ def set_status_endpoint(
             error_user_id=user_id,
         )
     session.commit()
-    return _redirect("reactivated" if active else "deactivated")
+    return _redirect(USER_REACTIVATED if active else USER_DEACTIVATED)
 
 
 @router.post(
@@ -509,7 +506,7 @@ def set_telegram_status_endpoint(
             error_user_id=user_id,
         )
     session.commit()
-    return _redirect("telegram_allowed" if allowed else "telegram_blocked")
+    return _redirect(TELEGRAM_ALLOWED if allowed else TELEGRAM_BLOCKED)
 
 
 @router.post(
@@ -530,7 +527,7 @@ def delete_telegram_endpoint(
         session.rollback()
         raise HTTPException(status.HTTP_404_NOT_FOUND, TELEGRAM_NOT_FOUND) from None
     session.commit()
-    return _redirect("telegram_removed")
+    return _redirect(TELEGRAM_REMOVED)
 
 
 def _account_page(
@@ -591,7 +588,7 @@ def change_own_password_endpoint(
         )
         return _account_page(request, user, status_code=code, error=exc)
     session.commit()
-    return _redirect("own_password")
+    return _redirect(OWN_PASSWORD)
 
 
 # --- Hesabım → Telegram (12.1.8, §D97 c) ------------------------------------------------------
@@ -615,10 +612,10 @@ def _account_telegram_page(
     layout: DataLayout,
     *,
     status_code: int = status.HTTP_200_OK,
-    notice: str | None = None,
     error: str | None = None,
     telegram_value: str = "",
     link: IssuedLink | None = None,
+    feedback: Toast | None = None,
 ) -> HTMLResponse:
     bot = read_bot_info(layout)
     response = render_page(
@@ -627,7 +624,6 @@ def _account_telegram_page(
         user=user,
         active="users",
         accounts=_own_accounts(session, user),
-        notice=ACCOUNT_NOTICES.get(notice or ""),
         error=error,
         telegram_value=telegram_value,
         userinfobot_url=USERINFOBOT_URL,
@@ -635,13 +631,14 @@ def _account_telegram_page(
         bot_never_ran=BOT_NEVER_RAN,
         link=link,
         status_code=status_code,
+        feedback=feedback,
     )
     session.rollback()
     return response
 
 
-def _account_redirect(notice: str) -> RedirectResponse:
-    return RedirectResponse(f"{ACCOUNT_TELEGRAM_PATH}?notice={notice}", status.HTTP_303_SEE_OTHER)
+def _account_redirect(key: str) -> RedirectResponse:
+    return _redirect(key, ACCOUNT_TELEGRAM_PATH)
 
 
 @account_router.get(ACCOUNT_TELEGRAM_PATH, response_class=HTMLResponse)
@@ -650,10 +647,9 @@ def account_telegram_page(
     user: CurrentUser,
     session: DbSession,
     layout: Layout,
-    notice: Annotated[str | None, Query(max_length=32)] = None,
 ) -> HTMLResponse:
     """12.1.8 Hesabım → Telegram: yalnız oturumdaki kullanıcının kimlikleri."""
-    return _account_telegram_page(request, user, session, layout, notice=notice)
+    return _account_telegram_page(request, user, session, layout)
 
 
 @account_router.post(ACCOUNT_TELEGRAM_PATH, response_class=HTMLResponse)
@@ -689,7 +685,7 @@ def add_own_telegram_endpoint(
             telegram_value=telegram_id.strip(),
         )
     session.commit()
-    return _account_redirect("telegram_added")
+    return _account_redirect(TELEGRAM_ADDED)
 
 
 @account_router.post(f"{ACCOUNT_TELEGRAM_PATH}/{{telegram_id}}/status", response_class=HTMLResponse)
@@ -725,7 +721,7 @@ def set_own_telegram_status_endpoint(
             request, user, session, layout, status_code=status.HTTP_409_CONFLICT, error=exc
         )
     session.commit()
-    return _account_redirect("telegram_allowed" if allowed else "telegram_blocked")
+    return _account_redirect(TELEGRAM_ALLOWED if allowed else TELEGRAM_BLOCKED)
 
 
 @account_router.post(f"{ACCOUNT_TELEGRAM_PATH}/{{telegram_id}}/delete", response_class=HTMLResponse)
@@ -742,7 +738,7 @@ def delete_own_telegram_endpoint(
         session.rollback()
         raise HTTPException(status.HTTP_404_NOT_FOUND, OWN_TELEGRAM_NOT_FOUND) from None
     session.commit()
-    return _account_redirect("telegram_removed")
+    return _account_redirect(TELEGRAM_REMOVED)
 
 
 @account_router.post(f"{ACCOUNT_TELEGRAM_PATH}/link", response_class=HTMLResponse)
@@ -785,6 +781,7 @@ def create_own_telegram_link_endpoint(
             expires_at=issued.expires_at,
             minutes=int(LINK_CODE_TTL.total_seconds() // 60),
         ),
+        feedback=render(TELEGRAM_LINK_CREATED),
     )
     response.headers["Cache-Control"] = "no-store"
     return response

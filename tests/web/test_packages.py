@@ -30,6 +30,7 @@ from app.events import EventType
 from app.groups import add_item, create_group, set_group_archived
 from app.storage import DataLayout
 from tests.web.conftest import SIGNED_IN
+from tests.web.flash import flashed, toasts
 
 OWNER, OWNER_FOLDER = "E0001", "Ivan_Petrov_E0001"
 OTHER, OTHER_FOLDER = "E0002", "Ana_Prueba_E0002"
@@ -192,7 +193,8 @@ def test_assigning_a_package_redirects_to_the_profile_and_logs_the_user(
     response = _assign(client, seeded["serbia"], note="Belgrad ofisi")
 
     assert response.status_code == 303
-    assert response.headers["location"] == f"/employees/{OWNER}?notice=package_assigned#packages"
+    assert response.headers["location"] == f"/employees/{OWNER}#packages"
+    assert flashed(response) == ("employees.package_assigned", {})
     assert _packages(session_factory) == [(OWNER, seeded["serbia"], "open")]
     package_id = _package_id(session_factory)
     assert _package_events(session_factory) == [
@@ -342,11 +344,13 @@ def test_cancelling_needs_a_reason_and_folds_the_package_under_details(
 
     done = client.post(url, data={"note": "Başvuru ertelendi"}, follow_redirects=False)
     assert done.status_code == 303
-    assert done.headers["location"] == f"/employees/{OWNER}?notice=package_cancelled#packages"
+    assert done.headers["location"] == f"/employees/{OWNER}#packages"
+    assert flashed(done) == ("employees.package_cancelled", {})
     assert _packages(session_factory) == [(OWNER, seeded["serbia"], "cancelled")]
     page = client.get(done.headers["location"])
     section = _section(page.text)
-    assert "Paket iptal edildi." in section and "Açık ya da tamamlanmış paket yok." in section
+    assert toasts(page.text) == ["Paket iptal edildi."]
+    assert "Açık ya da tamamlanmış paket yok." in section
     folded = re.search(r'<details class="cancelled-packages">.*?</details>', section, re.S)
     assert folded is not None
     assert "İptal edilen paketler (1)" in folded.group(0)
@@ -367,7 +371,8 @@ def test_reopening_brings_the_package_back_in_one_step(
     response = client.post(reopen, follow_redirects=False)
 
     assert response.status_code == 303
-    assert response.headers["location"] == f"/employees/{OWNER}?notice=package_reopened#packages"
+    assert response.headers["location"] == f"/employees/{OWNER}#packages"
+    assert flashed(response) == ("employees.package_reopened", {})
     assert _packages(session_factory) == [(OWNER, seeded["serbia"], "open")]
     assert [(kind, actor) for kind, actor, _ in _package_events(session_factory)] == [
         ("PACKAGE_ASSIGNED", SIGNED_IN.username),

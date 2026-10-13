@@ -61,7 +61,8 @@
   <a href="/queues/{{ queue_item_id }}">{{ _("Vazgeç") }}</a>
 </form>
 {% elif done %}
-<p class="notice notice-success" role="status">{% trans url="/employees/" ~ employee.id, name=employee.name, id=employee.id, file=file_name %}Çalışan profili oluşturuldu: <a href="{{ url }}">{{ name }} ({{ id }})</a>. Belge {{ file }} olarak çalışanın Hazır klasörüne yazıldı.{% endtrans %} <a href="/documents/{{ document_id }}/history">{{ _("Çıktının geçmişi") }}</a> · <a href="/queues/{{ queue_item_id }}">{{ _("Sayfayı yenileyin") }}</a>.</p>
+{# 10.11.1: işlemin sonucu bildirimdir (`HX-Trigger`); burada yalnız yeni adres ve bağlantılar. #}
+<p class="profile-done">{{ _("Yeni dosya adı: %(file)s.", file=file_name) }} <a href="/employees/{{ employee.id }}">{{ employee.name }} ({{ employee.id }})</a> · <a href="/documents/{{ document_id }}/history">{{ _("Çıktının geçmişi") }}</a> · <a href="/queues/{{ queue_item_id }}">{{ _("Sayfayı yenileyin") }}</a>.</p>
 {# Onaylanmış öğede düzenleme formu kalmasın. #}
 <div id="profile-form" hx-swap-oob="true"></div>
 {% endif %}

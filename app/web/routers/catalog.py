@@ -245,7 +245,6 @@ from app.pipeline.orchestrate import (
 from app.storage import DataLayout, sha256_bytes
 from app.storage.examples import (
     ExampleRejectedError,
-    StoredExample,
     check_example,
     example_path,
     list_examples,
@@ -263,6 +262,29 @@ from app.web.confirm import (
     first_text,
     issue_confirmation,
     second_text,
+)
+from app.web.feedback import (
+    CANDIDATE_APPROVED,
+    CANDIDATE_EXAMINED,
+    CANDIDATE_REANALYZED,
+    CANDIDATE_REJECTED,
+    CANDIDATE_RESTORED,
+    EXAMPLES_STORED,
+    PHOTO_RULES_SAVED,
+    TYPE_ACTIVATED,
+    TYPE_ARCHIVED,
+    TYPE_CREATED,
+    TYPE_DEACTIVATED,
+    TYPE_NONE_SELECTED,
+    TYPE_RESTORED,
+    TYPE_UPDATED,
+    TYPES_ACTIVATED,
+    TYPES_ARCHIVED,
+    TYPES_ARCHIVED_SKIPPED,
+    TYPES_DEACTIVATED,
+    Toast,
+    flash,
+    render,
 )
 from app.web.routers.documents import _reference
 from app.web.routers.queue import QueueState, _payload_refs, _state_filter
@@ -313,30 +335,11 @@ OUTPUT_FORMAT_LABELS = {
     OutputFormat.PDF: "PDF",
     OutputFormat.JPEG: "JPEG",
 }
-NOTICES = {
-    "created": N_("Tür oluşturuldu."),
-    "updated": N_("Tür güncellendi. Değişiklik bir sonraki analizden itibaren geçerlidir."),
-    "deactivated": N_("Tür pasifleştirildi: yeni belgelere atanmaz."),
-    "activated": N_("Tür yeniden etkinleştirildi."),
-    "archived": N_(
-        "Tür arşivlendi: listeden, analiz talimatından ve tür seçicilerden kalktı; var "
-        "olan belgeleri yerinde."
-    ),
-    "restored": N_("Tür arşivden geri alındı; bir sonraki analizden itibaren yeniden geçerlidir."),
-    "none_selected": N_("Tür seçilmedi: önce tablodan en az bir türü işaretleyin."),
-}
-
 # --- 11.1.6: arşiv ve toplu seçim -----------------------------------------------------------------
 
 BULK_PATH = f"{LIST_PATH}/bulk"
 BULK_LIMIT = 500
 BULK_ACTIONS = ("activate", "deactivate", "archive")
-BULK_NOTICES = {
-    "bulk_deactivated": N_("{count} tür pasifleştirildi: yeni belgelere atanmaz."),
-    "bulk_activated": N_("{count} tür yeniden etkinleştirildi."),
-    "bulk_archived": N_("{count} tür arşivlendi."),
-}
-BULK_ARCHIVED_SKIPPED = N_("{count} tür arşivlendi, {skipped} korunan tür atlandı.")
 BULK_UNKNOWN_ACTION = N_("Tanınmayan toplu işlem.")
 BULK_TOO_MANY = Translatable(N_("Tek seferde en çok {limit} tür seçilebilir."), limit=BULK_LIMIT)
 BULK_NOTHING_TO_ARCHIVE = N_(
@@ -359,8 +362,6 @@ _ARCHIVE_TEXTS: dict[Operation, tuple[str, str]] = {
         ARCHIVE_SECOND,
     ),
 }
-
-TYPE_PAGE_NOTICES = {"photo_rules": N_("Fotoğraf kuralları kaydedildi.")}
 
 # --- 11.4.3: katalog bütçesi ---------------------------------------------------------------------
 
@@ -558,14 +559,6 @@ DECIDED_NOTES = {
     CandidateTypeStatus.REJECTED.value: N_("Bu aday tür reddedilmiş; yeniden karara bağlanamaz."),
 }
 DECIDED_NOTE = N_("Bu aday tür karara bağlanmış; yeniden karara bağlanamaz.")
-CANDIDATE_NOTICES = {
-    "approved": N_(
-        "Aday tür standart türler arasına eklendi; tür bir sonraki analizden itibaren "
-        "geçerlidir. İlişkili Unknown öğeleri aşağıdan toplu yeniden analiz edilebilir."
-    ),
-    "rejected": N_("Aday tür reddedildi; bir daha listeye düşmez."),
-    "restored": N_("Aday tür retten geri alındı; yeniden onay bekliyor."),
-}
 NOT_REJECTED_NOTE = N_("Bu aday tür reddedilmiş değil; geri alınacak bir ret yok.")
 CANDIDATE_VIEWS = ("pending", "rejected")
 NO_REASON = N_("gerekçe yok")
@@ -587,7 +580,6 @@ PREFILL_STATUS = {
         "Sistemin incelemesi yapılamadı: {reason}. Form adayın adıyla açıldı."
     ),
 }
-EXAMINED_NOTICE = N_("Aday yeniden incelendi.")
 EXAMINE_PROVIDER_UNAVAILABLE = N_(
     "Yeniden incelenmedi: yapay zekâ sağlayıcısı kurulamadı. {detail}"
 )
@@ -669,8 +661,8 @@ def _form_page(
     photo: dict[str, Any] | None = None,
     generated: GeneratedDescription | None = None,
     description_error: str | None = None,
-    notice_text: str | None = None,
     list_country: str | None = None,
+    feedback: Toast | None = None,
 ) -> HTMLResponse:
     """Tür formunu çizer. `slug` düzenlenen türdür (yeni türde `None`); `examples` düzenleme
     sayfasının örnek belge bölümünün bağlamıdır (`_examples_context`), `photo` fotoğraf kuralları
@@ -691,7 +683,7 @@ def _form_page(
         **(photo or {}),
         generated=generated,
         description_error=description_error,
-        notice_text=notice_text,
+        feedback=feedback,
         script_labels=SCRIPT_LABELS,
         max_description_pages=MAX_DESCRIPTION_PAGES,
         is_new=slug is None,
@@ -737,14 +729,14 @@ def _examples_context(
     layout: DataLayout,
     slug: str,
     *,
-    stored: list[StoredExample] | None = None,
     errors: list[str] | None = None,
 ) -> dict[str, Any]:
-    """Düzenleme sayfasındaki örnek belge bölümünün bağlamı: türün örnekleri (dosya sistemi), bu
-    yüklemenin sonucu ve hataları. Kaydı olan örnek (`example_files`) etiketini taşır; "AI kararı"
-    etiketli örnek elle kontrol ikonuyla görünür ve eğitim sekmesindeki tür sayfasına bağlanır
-    (doğrula orada, 11.9.4). Kaydı olan her örnek kaydın kimliğiyle (`record_id`) "Başka türe taşı"
-    ve "Örneklerden çıkar" akışına bağlanır (11.9.6); kaydı olmayan dosyada `record_id` boştur."""
+    """Düzenleme sayfasındaki örnek belge bölümünün bağlamı: türün örnekleri (dosya sistemi) ve
+    yüklemenin hataları (sonucu bildirimdir, 10.11.1). Kaydı olan örnek (`example_files`)
+    etiketini taşır; "AI kararı" etiketli örnek elle kontrol ikonuyla görünür ve eğitim
+    sekmesindeki tür sayfasına bağlanır (doğrula orada, 11.9.4). Kaydı olan her örnek kaydın
+    kimliğiyle (`record_id`) "Başka türe taşı" ve "Örneklerden çıkar" akışına bağlanır (11.9.6);
+    kaydı olmayan dosyada `record_id` boştur."""
     records = _example_records(session, slug)
     examples = []
     for item in list_examples(layout, slug):
@@ -762,7 +754,6 @@ def _examples_context(
     registered = any(example["record_id"] is not None for example in examples)
     return {
         "examples": examples,
-        "example_stored": stored or [],
         "example_errors": errors or [],
         "manual_check_text": MANUAL_CHECK_TEXT,
         "training_type_url": f"/training/known/{quote(slug)}",
@@ -853,36 +844,11 @@ def _list_url(*, country: str | None = None, archived: bool = False, **params: s
     return f"{LIST_PATH}?{urlencode(query)}" if query else LIST_PATH
 
 
-def _redirect(
-    notice: str, slug: str | None = None, *, country: str | None = None, **counts: int
-) -> RedirectResponse:
-    params: dict[str, str | int] = {"notice": notice}
-    if slug is not None:
-        params["slug"] = slug
-    params.update(counts)
-    return RedirectResponse(_list_url(country=country, **params), status.HTTP_303_SEE_OTHER)
-
-
-def _notice_text(
-    notice: str | None,
-    slug: str | None,
-    named: dict[str, str],
-    count: int | None,
-    skipped: int | None,
-) -> str | None:
-    """Liste bildiriminin metni; tanınmayan bildirim yok sayılır. Tekil bildirim türün adını taşır,
-    toplu bildirim sayıları (11.1.6)."""
-    key = notice or ""
-    if key in BULK_NOTICES:
-        if count is None:
-            return None
-        if key == "bulk_archived" and skipped:
-            return Translatable(BULK_ARCHIVED_SKIPPED, count=count, skipped=skipped)
-        return Translatable(BULK_NOTICES[key], count=count)
-    text = NOTICES.get(key)
-    if text and slug in named:
-        return Translatable("{name}: {notice}", name=named[slug], notice=Translatable(text))
-    return text
+def _redirect(key: str, *, country: str | None = None, **params: object) -> RedirectResponse:
+    """Listeye dönüş; işlemin bildirimi tek kullanımlık çerezde (10.11.1, PLAN.md §D120)."""
+    response = RedirectResponse(_list_url(country=country), status.HTTP_303_SEE_OTHER)
+    flash(response, key, **params)
+    return response
 
 
 @router.get(LIST_PATH, response_class=HTMLResponse)
@@ -891,19 +857,14 @@ def catalog_page(
     user: CurrentUser,
     session: DbSession,
     settings: AppSettings,
-    notice: Annotated[str | None, Query(max_length=32)] = None,
-    slug: Annotated[str | None, Query(max_length=64)] = None,
     country: Annotated[str | None, Query(max_length=8)] = None,
     archived: Annotated[str | None, Query(max_length=1)] = None,
-    count: Annotated[int | None, Query(ge=0, le=BULK_LIMIT)] = None,
-    skipped: Annotated[int | None, Query(ge=0, le=BULK_LIMIT)] = None,
 ) -> HTMLResponse:
     """Belge Türleri (11.1.1): arşivsiz türler; `archived=1` "Arşivlenen türler" görünümüdür
     (11.1.6). Ülke süzgeci (11.1.5) iki görünümde de görünümün kendi türlerinden üretilir."""
     every_type = list_types(session, include_archived=True)
     show_archived = archived == "1"
     types = [item for item in every_type if (item.archived_at is not None) == show_archived]
-    named = {item.slug: item.name for item in every_type}
     selected_country = _normalize_country(country)
     return render_page(
         request,
@@ -921,7 +882,6 @@ def catalog_page(
         country_options=_country_options(types),
         selected_country=selected_country,
         country_query=_country_suffix(selected_country),
-        notice_text=_notice_text(notice, slug, named, count, skipped),
         sides_labels=SIDES_LABELS,
         pending_candidates=count_pending_candidate_types(session),
         budget=catalog_budget_view(session, settings),
@@ -942,7 +902,6 @@ def candidate_types_page(
     request: Request,
     user: CurrentUser,
     session: DbSession,
-    notice: Annotated[str | None, Query(max_length=32)] = None,
     view: Annotated[str | None, Query(alias="status", max_length=16)] = None,
 ) -> HTMLResponse:
     """11.5.1 — bekleyen aday türler adı, görülme sayısı ve örnek sayfalarıyla; onaylanmış ama
@@ -969,7 +928,6 @@ def candidate_types_page(
         rejected=rejected,
         approved=[item for item in approved if related[item.id]],
         related_counts={key: len(items) for key, items in related.items()},
-        notice_text=CANDIDATE_NOTICES.get(notice or ""),
     )
     # Okuma işlemi de SQLite'ta yazma kilidini tutar (`app.db.session`).
     session.rollback()
@@ -1010,7 +968,7 @@ def create_type_endpoint(
             status_code=status.HTTP_409_CONFLICT,
             list_country=list_country,
         )
-    return _redirect("created", entry.slug, country=list_country)
+    return _redirect(TYPE_CREATED, country=list_country, slug=entry.slug)
 
 
 # --- 11.1.6: toplu seçim ------------------------------------------------------------------------
@@ -1161,7 +1119,7 @@ def bulk_types(
             country,
         )
     if not any(slug.strip() for slug in slugs or ()):
-        return _redirect("none_selected", country=country)
+        return _redirect(TYPE_NONE_SELECTED, country=country)
     if action == "archive" and confirmation is None:
         try:
             plan = _bulk_archive(session, slugs)
@@ -1199,9 +1157,14 @@ def bulk_types(
                 for row in plan.archivable
             )
             session.commit()
-            return _redirect(
-                "bulk_archived", country=country, count=archived, skipped=len(plan.protected)
-            )
+            if plan.protected:
+                return _redirect(
+                    TYPES_ARCHIVED_SKIPPED,
+                    country=country,
+                    count=archived,
+                    skipped=len(plan.protected),
+                )
+            return _redirect(TYPES_ARCHIVED, country=country, count=archived)
         selected, _ = _bulk_selection(session, slugs)
         active = action == "activate"
         changed = sum(
@@ -1211,7 +1174,9 @@ def bulk_types(
     except (HTTPException, ConfirmationRefusedError) as exc:
         return _archive_refused(request, user, session, exc, country)
     session.commit()
-    return _redirect(f"bulk_{action}d", country=country, count=changed)
+    return _redirect(
+        TYPES_ACTIVATED if active else TYPES_DEACTIVATED, country=country, count=changed
+    )
 
 
 @router.post(f"{BULK_PATH}/prepare", response_class=HTMLResponse)
@@ -1255,7 +1220,6 @@ def type_page(
     user: CurrentUser,
     session: DbSession,
     layout: Layout,
-    notice: Annotated[str | None, Query(max_length=32)] = None,
     list_country: ListCountryQuery = None,
 ) -> HTMLResponse:
     try:
@@ -1272,7 +1236,6 @@ def type_page(
         current_problems=record_problems(record),
         examples=_examples_context(session, layout, slug),
         photo=_photo_context(session, slug, record["photo_rules"]),
-        notice_text=TYPE_PAGE_NOTICES.get(notice or ""),
         list_country=list_country,
     )
 
@@ -1313,7 +1276,7 @@ def update_type_endpoint(
     except TypeNotFoundError:
         session.rollback()
         raise HTTPException(status.HTTP_404_NOT_FOUND, TYPE_NOT_FOUND) from None
-    return _redirect("updated", slug, country=list_country)
+    return _redirect(TYPE_UPDATED, country=list_country, slug=slug)
 
 
 def _set_active(
@@ -1327,7 +1290,7 @@ def _set_active(
     except TypeNotFoundError:
         session.rollback()
         raise HTTPException(status.HTTP_404_NOT_FOUND, TYPE_NOT_FOUND) from None
-    return _redirect("activated" if active else "deactivated", slug, country=country)
+    return _redirect(TYPE_ACTIVATED if active else TYPE_DEACTIVATED, country=country, slug=slug)
 
 
 @router.post(f"{LIST_PATH}/{{slug}}/deactivate")
@@ -1448,7 +1411,7 @@ def archive_selected_type(
     except (HTTPException, ConfirmationRefusedError) as exc:
         return _archive_refused(request, user, session, exc, country)
     session.commit()
-    return _redirect("archived", slug, country=country)
+    return _redirect(TYPE_ARCHIVED, country=country, slug=slug)
 
 
 @router.post(f"{LIST_PATH}/{{slug}}/restore")
@@ -1463,7 +1426,7 @@ def restore_archived_type(
     except TypeNotFoundError:
         session.rollback()
         raise HTTPException(status.HTTP_404_NOT_FOUND, TYPE_NOT_FOUND) from None
-    return _redirect("restored", slug, country=country)
+    return _redirect(TYPE_RESTORED, country=country, slug=slug)
 
 
 @router.post(f"{LIST_PATH}/{{slug}}/photo-rules", response_class=HTMLResponse)
@@ -1503,9 +1466,9 @@ def save_photo_rules(
         )
     set_photo_rules(session, slug, rules)
     session.commit()
-    return RedirectResponse(
-        f"{LIST_PATH}/{quote(slug)}?notice=photo_rules#photo-rules", status.HTTP_303_SEE_OTHER
-    )
+    response = RedirectResponse(f"{LIST_PATH}/{quote(slug)}#photo-rules", status.HTTP_303_SEE_OTHER)
+    flash(response, PHOTO_RULES_SAVED, slug=slug)
+    return response
 
 
 def _known_type(session: Session, slug: str) -> dict[str, Any]:
@@ -1592,8 +1555,13 @@ async def upload_examples(
         TypeForm.from_record(record),
         slug=slug,
         current_problems=record_problems(record),
-        examples=_examples_context(session, layout, slug, stored=stored),
+        examples=_examples_context(session, layout, slug),
         photo=_photo_context(session, slug, record["photo_rules"]),
+        feedback=render(
+            EXAMPLES_STORED,
+            count=sum(1 for example in stored if not example.duplicate),
+            skipped=sum(1 for example in stored if example.duplicate),
+        ),
     )
 
 
@@ -1921,7 +1889,7 @@ def _candidate_page(
     *,
     form: TypeForm | None = None,
     problems: dict[str, list[str]] | None = None,
-    notice: str | None = None,
+    feedback: Toast | None = None,
     examine_error: str | None = None,
     status_code: int = status.HTTP_200_OK,
 ) -> HTMLResponse:
@@ -1961,7 +1929,7 @@ def _candidate_page(
         targets=targets,
         reanalysis_blocked=blocked,
         reanalysis_first=Translatable(BATCH_REANALYZE_FIRST, count=len(targets)),
-        notice_text=notice,
+        feedback=feedback,
         examine_error=examine_error,
         is_new=True,
         **context,
@@ -2007,7 +1975,13 @@ def _prefill_context(session: Session, prefill: SuggestedForm) -> dict[str, Any]
 
 
 def _step_page(
-    request: Request, user: PanelUser, candidate_id: int, status_code: int, **context: object
+    request: Request,
+    user: PanelUser,
+    candidate_id: int,
+    status_code: int,
+    *,
+    feedback: Toast | None = None,
+    **context: object,
 ) -> HTMLResponse:
     """Onay ve yeniden analiz adımlarının sayfası (`catalog_candidate_step.html`): onay metni,
     sonuç ya da hata."""
@@ -2017,6 +1991,7 @@ def _step_page(
         user=user,
         active="document_types",
         status_code=status_code,
+        feedback=feedback,
         candidate_id=candidate_id,
         **context,
     )
@@ -2028,12 +2003,9 @@ def candidate_type_page(
     request: Request,
     user: CurrentUser,
     session: DbSession,
-    notice: Annotated[str | None, Query(max_length=32)] = None,
 ) -> HTMLResponse:
     candidate = _candidate_or_404(session, candidate_id)
-    response = _candidate_page(
-        request, user, session, candidate, notice=CANDIDATE_NOTICES.get(notice or "")
-    )
+    response = _candidate_page(request, user, session, candidate)
     session.rollback()
     return response
 
@@ -2230,9 +2202,9 @@ def approve_candidate(
             request, user, candidate_id, status.HTTP_409_CONFLICT, error=_decided_note(exc.status)
         )
     session.commit()
-    return RedirectResponse(
-        f"{CANDIDATES_PATH}/{candidate_id}?notice=approved", status.HTTP_303_SEE_OTHER
-    )
+    response = RedirectResponse(f"{CANDIDATES_PATH}/{candidate_id}", status.HTTP_303_SEE_OTHER)
+    flash(response, CANDIDATE_APPROVED)
+    return response
 
 
 # --- 11.5.4: ret --------------------------------------------------------------------------------
@@ -2257,7 +2229,9 @@ def reject_candidate(
             request, user, candidate_id, status.HTTP_409_CONFLICT, error=_decided_note(exc.status)
         )
     session.commit()
-    return RedirectResponse(f"{CANDIDATES_PATH}?notice=rejected", status.HTTP_303_SEE_OTHER)
+    response = RedirectResponse(CANDIDATES_PATH, status.HTTP_303_SEE_OTHER)
+    flash(response, CANDIDATE_REJECTED)
+    return response
 
 
 @router.post(f"{CANDIDATES_PATH}/{{candidate_id}}/restore", response_class=HTMLResponse)
@@ -2279,7 +2253,9 @@ def restore_candidate(
             request, user, candidate_id, status.HTTP_409_CONFLICT, error=NOT_REJECTED_NOTE
         )
     session.commit()
-    return RedirectResponse(f"{CANDIDATES_PATH}?notice=restored", status.HTTP_303_SEE_OTHER)
+    response = RedirectResponse(CANDIDATES_PATH, status.HTTP_303_SEE_OTHER)
+    flash(response, CANDIDATE_RESTORED)
+    return response
 
 
 # --- 11.5.6: yeniden incele ---------------------------------------------------------------------
@@ -2308,7 +2284,7 @@ def reexamine_candidate(
     candidate = _candidate_or_404(session, candidate_id)
 
     def page(
-        status_code: int, *, notice: str | None = None, error: str | None = None
+        status_code: int, *, feedback: Toast | None = None, error: str | None = None
     ) -> HTMLResponse:
         current = session.get_one(CandidateDocumentType, candidate_id)
         response = _candidate_page(
@@ -2316,7 +2292,7 @@ def reexamine_candidate(
             user,
             session,
             current,
-            notice=notice,
+            feedback=feedback,
             examine_error=error,
             status_code=status_code,
         )
@@ -2366,7 +2342,7 @@ def reexamine_candidate(
     candidate.idle_attempts = 0
     CANDIDATE_EXAMINATIONS.clear(candidate)
     session.commit()
-    return page(status.HTTP_200_OK, notice=EXAMINED_NOTICE)
+    return page(status.HTTP_200_OK, feedback=render(CANDIDATE_EXAMINED))
 
 
 # --- 11.5.3: toplu yeniden analiz ---------------------------------------------------------------
@@ -2505,6 +2481,7 @@ def batch_reanalyze(
         candidate_id,
         status.HTTP_200_OK,
         step="reanalyzed",
+        feedback=render(CANDIDATE_REANALYZED, count=len(results)),
         candidate_name=candidate.proposed_name,
         results=results,
         remaining=remaining,

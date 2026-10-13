@@ -37,6 +37,7 @@ from app.web.routers.queue import (
 )
 from app.web.routers.upload_page import reanalysis_subject
 from tests.web.conftest import SESSION, SIGNED_IN, issue_token
+from tests.web.flash import hx_toasts
 from tests.web.test_queue import PERMIT, TARGET, TARGET_FOLDER, _queued_item, _refuse_provider
 from tests.web.test_queue_page import _payload, _plan, _queue_item, _source_file, _upload
 
@@ -409,7 +410,9 @@ def test_confirmed_assignment_writes_the_output_and_logs_the_user_with_both_time
         assert first <= second <= utcnow()
         assert TARGET_NAME not in str(data)  # olay kişisel değer taşımaz (CONVENTIONS §6)
     html = response.text
-    assert f"Öğe {TARGET_NAME} ({TARGET}) çalışanına atandı: Kayitli_Kisi-Work-Permit.pdf" in html
+    assert hx_toasts(response) == [{"kind": "success", "text": f"Öğe {TARGET} çalışanına atandı."}]
+    assert "Yeni dosya adı: Kayitli_Kisi-Work-Permit.pdf." in html
+    assert f'<a href="/employees/{TARGET}">{TARGET_NAME} ({TARGET})</a>' in html
     assert f'<a href="/documents/{document.id}/history">Çıktının geçmişi</a>' in html
     assert '<div id="assign-results" hx-swap-oob="true"></div>' in html
 

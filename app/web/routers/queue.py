@@ -191,6 +191,15 @@ from app.web.confirm import (
     issue_confirmation,
     second_text,
 )
+from app.web.feedback import (
+    QUEUE_ASSIGNED,
+    QUEUE_CLOSED,
+    QUEUE_PROFILE_CREATED,
+    QUEUE_REOPENED,
+    Toast,
+    flash,
+    render,
+)
 from app.web.profile_form import (
     INVALID_PROFILE,
     PROFILE_LABELS,
@@ -650,11 +659,10 @@ class QueueItemView:
     profile_form: list[ProfileFieldView] | None
     profile_note: str | None
     inactive_employee: InactiveEmployeeView | None = None
-    # 10.7.4: kapatma bağlantısı, yeniden açma düğmesi ya da açılamama nedeni, işlem bildirimi.
+    # 10.7.4: kapatma bağlantısı, yeniden açma düğmesi ya da açılamama nedeni.
     can_close: bool = False
     can_reopen: bool = False
     reopen_note: str | None = None
-    notice: str | None = None
 
 
 def _queue_url(kind: str, state: QueueState = QueueState.OPEN, page: int = 1) -> str:
@@ -899,11 +907,8 @@ def _item_events(session: Session, queue_item: QueueItem) -> list[Event]:
     return [event for event in events if _mentions_item(event, queue_item.id)]
 
 
-def build_item_view(
-    session: Session, queue_item_id: int, *, notice: str | None = None
-) -> QueueItemView | None:
-    """10.7.1 — öğenin detayı; öğe yoksa `None`. Yalnız okur, oturum commit edilmez. `notice`
-    kapatma ya da yeniden açmanın bildirim kodudur (10.7.4)."""
+def build_item_view(session: Session, queue_item_id: int) -> QueueItemView | None:
+    """10.7.1 — öğenin detayı; öğe yoksa `None`. Yalnız okur, oturum commit edilmez."""
     queue_item = session.get(QueueItem, queue_item_id)
     if queue_item is None:
         return None
@@ -954,7 +959,6 @@ def build_item_view(
         can_close=closing_refusal(session, queue_item) is None,
         can_reopen=closed and reopen_note is None,
         reopen_note=reopen_note,
-        notice=CLOSE_NOTICES.get(notice or ""),
         events=[
             EventView(
                 ts=_format_ts(event.ts),
@@ -1014,9 +1018,8 @@ def queue_item_page(
     request: Request,
     user: CurrentUser,
     session: Annotated[Session, Depends(get_session)],
-    notice: Annotated[str | None, Query(max_length=32)] = None,
 ) -> HTMLResponse:
-    view = build_item_view(session, queue_item_id, notice=notice)
+    view = build_item_view(session, queue_item_id)
     session.rollback()
     entry = MENU_BY_KEY["queues"]
     if view is None:
@@ -1091,7 +1094,12 @@ def assignment_subject(queue_item_id: int, employee_id: str) -> str:
 
 
 def _assign_result(
-    request: Request, status_code: int, queue_item_id: int, **context: object
+    request: Request,
+    status_code: int,
+    queue_item_id: int,
+    *,
+    feedback: Toast | None = None,
+    **context: object,
 ) -> HTMLResponse:
     """`queue_assign.html` parçası (HTMX hedefi: öğe detayındaki `#assign-results` ya da
     `#assign-step`)."""
@@ -1100,6 +1108,7 @@ def _assign_result(
         "queue_assign.html",
         user=None,
         status_code=status_code,
+        feedback=feedback,
         queue_item_id=queue_item_id,
         **context,
     )
@@ -1244,6 +1253,7 @@ def assign_from_queue(
         queue_item_id,
         assignee=assignee,
         done=True,
+        feedback=render(QUEUE_ASSIGNED, employee_id=assignee.id),
         document_id=document.id,
         file_name=PurePosixPath(document.path).name,
     )
@@ -1349,7 +1359,12 @@ def _profile_rows(proposal: ProposedProfile, fields: ProfileFields) -> list[Prof
 
 
 def _profile_result(
-    request: Request, status_code: int, queue_item_id: int, **context: object
+    request: Request,
+    status_code: int,
+    queue_item_id: int,
+    *,
+    feedback: Toast | None = None,
+    **context: object,
 ) -> HTMLResponse:
     """`queue_new_profile.html` parçası (HTMX hedefi: öğe detayındaki `#profile-step`)."""
     return render_page(
@@ -1357,6 +1372,7 @@ def _profile_result(
         "queue_new_profile.html",
         user=None,
         status_code=status_code,
+        feedback=feedback,
         queue_item_id=queue_item_id,
         **context,
     )
@@ -1535,6 +1551,7 @@ def create_profile_from_queue(
         status.HTTP_200_OK,
         queue_item_id,
         done=True,
+        feedback=render(QUEUE_PROFILE_CREATED, employee_id=employee.id),
         employee=AssigneeView(id=employee.id, name=f"{employee.given_names} {employee.surname}"),
         document_id=document.id,
         file_name=PurePosixPath(document.path).name,
@@ -1547,10 +1564,6 @@ def create_profile_from_queue(
 CLOSE_TITLE = N_("Kuyruk öğesini kapat")
 REOPEN_TITLE = N_("Kuyruk öğesini yeniden aç")
 BAD_CLOSE_REASON = N_("Kapatma gerekçesini seçin: belge değil, zaten var ya da diğer.")
-CLOSE_NOTICES = {
-    "closed": N_("Öğe kapatıldı; kuyruk klasöründeki kopya ve gerekçe dosyası yerinde kaldı."),
-    "reopened": N_("Öğe yeniden açıldı."),
-}
 
 
 @dataclass(frozen=True, slots=True)
@@ -1821,7 +1834,7 @@ def close_from_queue(
             retry=True,
         )
     session.commit()
-    return RedirectResponse(f"/queues/{queue_item_id}?notice=closed", status.HTTP_303_SEE_OTHER)
+    return _item_redirect(queue_item_id, QUEUE_CLOSED)
 
 
 @pages_router.post("/queues/{queue_item_id}/reopen", response_class=HTMLResponse)
@@ -1858,4 +1871,11 @@ def reopen_from_queue(
             error=_reason(exc),
         )
     session.commit()
-    return RedirectResponse(f"/queues/{queue_item_id}?notice=reopened", status.HTTP_303_SEE_OTHER)
+    return _item_redirect(queue_item_id, QUEUE_REOPENED)
+
+
+def _item_redirect(queue_item_id: int, key: str) -> RedirectResponse:
+    """Öğe sayfasına dönüş; işlemin bildirimi tek kullanımlık çerezde (10.11.1, §D120)."""
+    response = RedirectResponse(f"/queues/{queue_item_id}", status.HTTP_303_SEE_OTHER)
+    flash(response, key)
+    return response

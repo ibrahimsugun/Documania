@@ -60,6 +60,7 @@ from tests.fixtures.gen import (
     unknown_document_page,
 )
 from tests.web.conftest import SESSION, issue_token
+from tests.web.flash import hx_toasts
 
 SETTINGS = Settings(_env_file=None, database_url="sqlite://")
 USER = "test-yonetici"
@@ -266,7 +267,10 @@ def test_a_final_batch_without_a_plan_can_still_be_dismissed(
     response = client.post(f"/uploads/{upload_id}/dismiss", data={"confirmation": token})
 
     assert response.status_code == 200, response.text
-    assert "Tarama yoksayıldı: 0 kuyruk öğesi kapandı; 0 belge yerinde kaldı." in response.text
+    assert hx_toasts(response)[0]["text"] == (
+        f"Tarama yoksayıldı: {upload_id}. Kapanan kuyruk öğesi: 0."
+    )
+    assert "0 belge yerinde kaldı." in response.text
     assert dismissal_subject(upload_id, None) == f"{upload_id}:none"
 
 
@@ -410,7 +414,8 @@ def test_a_confirmed_dismissal_closes_the_items_and_logs_the_user_in_one_step(
     response = client.post(f"/uploads/{batch}/dismiss", data={"confirmation": token})
 
     assert response.status_code == 200, response.text
-    assert "Tarama yoksayıldı: 1 kuyruk öğesi kapandı; 1 belge yerinde kaldı." in response.text
+    assert hx_toasts(response)[0]["text"] == f"Tarama yoksayıldı: {batch}. Kapanan kuyruk öğesi: 1."
+    assert "1 belge yerinde kaldı." in response.text
     with session_factory() as session:
         upload = session.get_one(Upload, batch)
         assert upload.dismissed_by == USER

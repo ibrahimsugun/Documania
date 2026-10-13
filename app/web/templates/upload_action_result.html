@@ -1,7 +1,7 @@
 {# Yükleme detayındaki işlemlerin sonucu (10.3.2, 10.3.4, 10.3.5, 10.3.6): hata, ikinci onay formu
-   ya da işlem özeti. İkinci onay formu yeniden analizin, taramayı yoksaymanın ya da partiyi iptal
-   etmenin (`confirm_action`);
-   hedef yol her birinde sabittir — değiştirici yolların denetimi (10.9.1) şablonu okur. #}
+   ya da işlemin ayrıntısı. İşlemin kendisi bildirimle söylenir (10.11.1, `HX-Trigger`); burada
+   bildirimde olmayan ayrıntı ve yenileme bağlantısı kalır. İkinci onay formu yeniden analizin,
+   taramayı yoksaymanın ya da partiyi iptal etmenin (`confirm_action`); hedef yol her birinde sabittir — değiştirici yolların denetimi (10.9.1) şablonu okur. #}
 {% if error %}
 <p class="error" role="alert">{{ translate(error) }}</p>
 {% elif second_confirmation and confirm_action == "dismiss" %}
@@ -29,15 +29,15 @@
   <a href="/uploads/{{ upload_id }}">{{ _("Vazgeç") }}</a>
 </form>
 {% elif done == "rerun" %}
-<p class="notice notice-success" role="status">{{ _("Plan (sürüm %(version)s) yeniden uygulandı.", version=version) }} <a href="/uploads/{{ upload_id }}">{{ _("Sayfayı yenileyin") }}</a>.</p>
+<p class="action-done"><a href="/uploads/{{ upload_id }}">{{ _("Sayfayı yenileyin") }}</a>.</p>
 {% elif done == "undismiss" %}
-<p class="notice notice-success" role="status">{{ ngettext("Yoksayma geri alındı: parti yükleme listesine döndü; %(num)d kuyruk öğesi yeniden açıldı.", "Yoksayma geri alındı: parti yükleme listesine döndü; %(num)d kuyruk öğesi yeniden açıldı.", reopened) }} <a href="/uploads/{{ upload_id }}">{{ _("Sayfayı yenileyin") }}</a>.</p>
+<p class="action-done">{{ _("Parti yükleme listesine döndü.") }} <a href="/uploads/{{ upload_id }}">{{ _("Sayfayı yenileyin") }}</a>.</p>
 {# Geri alınan partide yoksayma bildirimi ve düğmesi kalmasın. #}
 <div id="dismissed-row" hx-swap-oob="true"></div>
 {% elif done == "cancel" %}
-<p class="notice notice-success" role="status">{{ _("Parti iptal edildi (iptal anında: %(stage)s); dosyalar ve üretilen belgeler yerinde kaldı.", stage=translate(stage)) }} <a href="/uploads/{{ upload_id }}">{{ _("Sayfayı yenileyin") }}</a>.</p>
+<p class="action-done">{{ _("İptal anındaki aşama: %(stage)s.", stage=translate(stage)) }} <a href="/uploads/{{ upload_id }}">{{ _("Sayfayı yenileyin") }}</a>.</p>
 {% elif done == "dismiss" %}
-<p class="notice notice-success" role="status">{{ ngettext("Tarama yoksayıldı: %(num)d kuyruk öğesi kapandı;", "Tarama yoksayıldı: %(num)d kuyruk öğesi kapandı;", closed) }} {{ ngettext("%(num)d belge yerinde kaldı.", "%(num)d belge yerinde kaldı.", kept) }} <a href="/uploads/{{ upload_id }}">{{ _("Sayfayı yenileyin") }}</a>.</p>
+<p class="action-done">{{ ngettext("%(num)d belge yerinde kaldı.", "%(num)d belge yerinde kaldı.", kept) }} <a href="/uploads/{{ upload_id }}">{{ _("Sayfayı yenileyin") }}</a>.</p>
 {% elif done == "reanalyze" %}
-<p class="notice notice-success" role="status">{{ _("Parti yeniden analiz edildi: yeni plan sürümü %(version)s (önceki: %(previous)s);", version=version, previous=previous_version) }} {{ ngettext("%(num)d çıktı \"eski sürüm\" olarak işaretlendi.", "%(num)d çıktı \"eski sürüm\" olarak işaretlendi.", superseded) }} <a href="/uploads/{{ upload_id }}">{{ _("Sayfayı yenileyin") }}</a>.</p>
+<p class="action-done">{{ ngettext("%(num)d çıktı \"eski sürüm\" olarak işaretlendi.", "%(num)d çıktı \"eski sürüm\" olarak işaretlendi.", superseded) }} <a href="/uploads/{{ upload_id }}">{{ _("Sayfayı yenileyin") }}</a>.</p>
 {% endif %}

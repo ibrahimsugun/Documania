@@ -79,7 +79,6 @@
 </form>
 {% elif step == "reanalyzed" %}
 <h1>{{ _("Toplu yeniden analiz: %(name)s", name=candidate_name) }}</h1>
-<p class="notice notice-success" role="status">{{ ngettext("%(num)d parti yeniden analiz edildi.", "%(num)d parti yeniden analiz edildi.", results|length) }}</p>
 <table class="items reanalysis-results">
   <thead><tr><th>{{ _("Parti") }}</th><th>{{ _("Önceki sürüm") }}</th><th>{{ _("Yeni sürüm") }}</th><th>{{ _("\"Eski sürüm\" işaretlenen çıktı") }}</th></tr></thead>
   <tbody>

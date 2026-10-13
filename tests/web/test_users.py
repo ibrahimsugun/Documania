@@ -21,6 +21,7 @@ from app.web.auth import SESSION_COOKIE, PanelUser, create_user, get_current_use
 from app.web.confirm import CONFIRMATION_HEADER, Operation
 from app.web.routers.auth import LOGIN_FAILED
 from tests.web.conftest import SIGNED_IN, issue_token
+from tests.web.flash import flashed
 
 PASSWORD = "sentetik-parola-1"
 NEW_PASSWORD = "yeni-sentetik-parola-2"
@@ -192,7 +193,8 @@ def test_new_user_is_created_hashed_active_and_logged_without_the_password(
     )
 
     assert response.status_code == 303
-    assert response.headers["location"] == "/users?notice=created"
+    assert response.headers["location"] == "/users"
+    assert flashed(response) == ("users.created", {})
     with session_factory() as session:
         user = session.scalars(select(User).where(User.username == "ayse")).one()
     assert (user.role, user.active) == ("hr", True)
@@ -247,7 +249,8 @@ def test_admin_resets_another_users_password_and_closes_their_sessions(
     )
 
     assert response.status_code == 303
-    assert response.headers["location"] == "/users?notice=password_reset"
+    assert response.headers["location"] == "/users"
+    assert flashed(response) == ("users.password_reset", {})
     assert not _signed_in(ayse_client)
     assert _signed_in(admin_client)
     assert _open_sessions(session_factory, ayse) == 0
@@ -299,7 +302,8 @@ def test_own_password_change_keeps_this_session_and_closes_the_others(
     )
 
     assert response.status_code == 303
-    assert response.headers["location"] == "/users?notice=own_password"
+    assert response.headers["location"] == "/users"
+    assert flashed(response) == ("users.own_password", {})
     assert _signed_in(here)
     assert not _signed_in(elsewhere)
     assert _open_sessions(session_factory, ayse) == 1
@@ -364,7 +368,8 @@ def test_deactivated_user_loses_open_sessions_and_cannot_log_in(
     )
 
     assert response.status_code == 303
-    assert response.headers["location"] == "/users?notice=deactivated"
+    assert response.headers["location"] == "/users"
+    assert flashed(response) == ("users.deactivated", {})
     assert _user(session_factory, ayse).active is False
     assert _open_sessions(session_factory, ayse) == 0
     # Açık oturum ve onun onay belirteci geçersiz: sayfa girişe, API 401.
@@ -394,7 +399,8 @@ def test_deactivated_user_loses_open_sessions_and_cannot_log_in(
         f"/users/{ayse}/status", data={"status": "active"}, follow_redirects=False
     )
 
-    assert again.headers["location"] == "/users?notice=reactivated"
+    assert again.headers["location"] == "/users"
+    assert flashed(again) == ("users.reactivated", {})
     assert _user(session_factory, ayse).active is True
     assert _signed_in(real("ayse"))
     assert not _signed_in(ayse_client)  # kapanan oturum geri açılmaz

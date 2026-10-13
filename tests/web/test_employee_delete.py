@@ -36,6 +36,7 @@ from app.web.auth import SESSION_COOKIE
 from app.web.confirm import CONFIRMATION_REFUSED, Operation
 from app.web.routers.employees import EMPLOYEE_DELETION_CHANGED, employee_deletion_subject
 from tests.web.conftest import SESSION, SIGNED_IN, issue_token
+from tests.web.flash import flashed
 
 GONE, GONE_FOLDER = "E0001", "Zorana_Testovic_E0001"
 OTHER, OTHER_FOLDER = "E0002", "Milan_Probic_E0002"
@@ -259,7 +260,8 @@ def test_two_confirmations_delete_the_employee(
     )
 
     assert deleted.status_code == 303
-    assert deleted.headers["location"] == f"/employees/{GONE}?notice=employee_deleted"
+    assert deleted.headers["location"] == f"/employees/{GONE}"
+    assert flashed(deleted) == ("employees.deleted", {})
     assert _status(session_factory, GONE) == EmployeeStatus.DELETED.value
     assert not layout.employee_dir(GONE_FOLDER).exists()
     confirmed, event = _events(session_factory, "USER_CONFIRMED", "EMPLOYEE_DELETED")
@@ -301,7 +303,7 @@ def test_every_address_of_a_deleted_employee_is_the_deleted_page(
 ) -> None:
     _delete(client)
 
-    profile = client.get(f"/employees/{GONE}?notice=employee_deleted")
+    profile = client.get(f"/employees/{GONE}")
     assert profile.status_code == 410
     assert "kalıcı olarak silindi" in profile.text and SIGNED_IN.username in profile.text
     assert "Zorana" not in profile.text and "Testovic" not in profile.text
@@ -357,7 +359,8 @@ def test_a_failed_file_removal_is_reported(
         follow_redirects=False,
     )
 
-    assert deleted.headers["location"] == f"/employees/{GONE}?notice=employee_deleted_partial"
+    assert deleted.headers["location"] == f"/employees/{GONE}"
+    assert flashed(deleted) == ("employees.deleted_partial", {})
     (event,) = _events(session_factory, "EMPLOYEE_DELETED")
     assert event.data_json["files_failed"] >= 1
     assert _status(session_factory, GONE) == EmployeeStatus.DELETED.value

@@ -47,7 +47,6 @@ from app.web.confirm import CONFIRMATION_REFUSED, CONFIRMATION_TEXTS, Operation
 from app.web.routers import queue as queue_router
 from app.web.routers.queue import (
     BAD_CLOSE_REASON,
-    CLOSE_NOTICES,
     QUEUE_ITEM_NOT_FOUND,
     RESOLVED_NOTE,
     SUPERSEDED_NOTE,
@@ -62,6 +61,7 @@ from tests.fixtures.gen import (
     unknown_document_page,
 )
 from tests.web.conftest import issue_token
+from tests.web.flash import flashed, toasts
 
 SETTINGS = Settings(_env_file=None, database_url="sqlite://")
 USER = "test-yonetici"
@@ -412,7 +412,8 @@ def test_a_confirmed_close_resolves_the_item_logs_the_user_and_keeps_every_file(
     response = _close(client, item_id, token, reason="other", note="ikinci tarama")
 
     assert response.status_code == 303
-    assert response.headers["location"] == f"/queues/{item_id}?notice=closed"
+    assert response.headers["location"] == f"/queues/{item_id}"
+    assert flashed(response) == ("queue.closed", {})
     with session_factory() as session:
         item = session.get_one(QueueItem, item_id)
         assert item.resolved_at is not None and before <= item.resolved_at <= utcnow()
@@ -456,6 +457,10 @@ def test_a_closed_item_leaves_the_counters_and_shows_its_reason_among_the_resolv
     assert _close(client, item_id, token).status_code == 303
 
     pending = client.get("/queues?tab=unknown").text
+    # 10.11.1: yönlendirmeden sonraki ilk sayfa bildirimi bir kez gösterir.
+    assert toasts(pending) == [
+        "Öğe kapatıldı; kuyruk klasöründeki kopya ve gerekçe dosyası yerinde kaldı."
+    ]
     assert _queue_rows(pending) == []
     assert _tab_counters(pending)["Tür bilinmiyor"] == 0
     resolved = client.get("/queues?tab=unknown&state=resolved").text
@@ -467,15 +472,15 @@ def test_a_closed_item_leaves_the_counters_and_shows_its_reason_among_the_resolv
     )
     assert f'action="/queues/{item_id}/reopen"' in resolved
     assert "Yeniden aç</button>" in resolved
-    # Detay: bildirim, çözüm metni, yeniden açma düğmesi ve olaylar; kapatma bağlantısı yok.
-    page = client.get(f"/queues/{item_id}?notice=closed").text
-    assert CLOSE_NOTICES["closed"] in page
+    # Detay: çözüm metni, yeniden açma düğmesi ve olaylar; kapatma bağlantısı yok.
+    page = client.get(f"/queues/{item_id}").text
+    assert toasts(page) == []
     assert "kapatıldı: Belge değil / çöp sayfa" in page
     assert f'action="/queues/{item_id}/reopen"' in page
     assert f'href="/queues/{item_id}/close/confirm"' not in page
     assert "QUEUE_ITEM_CLOSED" in page
-    # Tanınmayan bildirim kodu yok sayılır.
-    assert CLOSE_NOTICES["closed"] not in client.get(f"/queues/{item_id}?notice=yok").text
+    # Eski `?notice=` adresi bildirim göstermez (PLAN.md §D120).
+    assert toasts(client.get(f"/queues/{item_id}?notice=closed").text) == []
 
 
 def test_the_note_is_shown_with_the_reason(client: TestClient, item_id: int) -> None:
@@ -610,7 +615,8 @@ def test_reopening_is_one_step_logs_the_user_and_brings_the_item_back(
     response = client.post(f"/queues/{item_id}/reopen", follow_redirects=False)
 
     assert response.status_code == 303
-    assert response.headers["location"] == f"/queues/{item_id}?notice=reopened"
+    assert response.headers["location"] == f"/queues/{item_id}"
+    assert flashed(response) == ("queue.reopened", {})
     with session_factory() as session:
         item = session.get_one(QueueItem, item_id)
         assert (item.resolved_at, item.resolved_by, item.resolution) == (None, None, None)
@@ -622,10 +628,10 @@ def test_reopening_is_one_step_logs_the_user_and_brings_the_item_back(
         assert event.data_json == {"queue_item_id": item_id, "reason": "other"}
     assert _files(layout) == files_before
     pending = client.get("/queues?tab=unknown").text
+    assert toasts(pending) == ["Öğe yeniden açıldı."]
     assert _queue_rows(pending) == [item_id]
     assert _tab_counters(pending)["Tür bilinmiyor"] == 1
-    page = client.get(f"/queues/{item_id}?notice=reopened").text
-    assert CLOSE_NOTICES["reopened"] in page
+    page = client.get(f"/queues/{item_id}").text
     assert f'href="/queues/{item_id}/close/confirm"' in page
     assert "QUEUE_ITEM_REOPENED" in page
     # Açılan öğe yeniden kapatılabilir.

@@ -17,6 +17,7 @@ from app.telegram.link import LinkOutcome, create_link_code, redeem_link_code
 from app.telegram.whitelist import add_telegram_id, permitted_ids, remove_telegram_id
 from app.web.auth import PanelUser, create_user, get_current_user
 from tests.web.conftest import SIGNED_IN
+from tests.web.flash import flashed
 
 PASSWORD = "sentetik-parola-1"
 FIRST_ID = 5_000_000_101
@@ -85,7 +86,8 @@ def test_the_admin_deletes_a_users_record_and_the_page_no_longer_lists_it(
     response = client.post(f"/users/{ayse}/telegram/{FIRST_ID}/delete", follow_redirects=False)
 
     assert response.status_code == 303
-    assert response.headers["location"] == "/users?notice=telegram_removed"
+    assert response.headers["location"] == "/users"
+    assert flashed(response) == ("users.telegram_removed", {})
     assert _accounts(session_factory) == [(SECOND_ID, ayse, True)]
     assert _events(session_factory) == [(SIGNED_IN.username, _removed(ayse, FIRST_ID))]
     page = client.get(response.headers["location"]).text
@@ -195,7 +197,8 @@ def test_a_user_deletes_their_own_record_from_the_account_page(
     response = client.post(f"/account/telegram/{FIRST_ID}/delete", follow_redirects=False)
 
     assert response.status_code == 303
-    assert response.headers["location"] == "/account/telegram?notice=telegram_removed"
+    assert response.headers["location"] == "/account/telegram"
+    assert flashed(response) == ("users.telegram_removed", {})
     assert _accounts(session_factory) == []
     assert _events(session_factory) == [
         (SIGNED_IN.username, _removed(SIGNED_IN.id, FIRST_ID, via="account"))

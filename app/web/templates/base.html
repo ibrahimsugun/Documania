@@ -11,7 +11,10 @@
   <link rel="stylesheet" href="/static/theme.css?v={{ asset_version }}">
   <script src="/static/theme-init.js?v={{ asset_version }}"></script>
   <script src="/static/theme.js?v={{ asset_version }}" defer></script>
+  <script src="/static/toast.js?v={{ asset_version }}" defer></script>
   <script src="/static/htmx.min.js" defer></script>
+  {# 10.11.1: JavaScript kapalıyken bildirim sayfanın başında kalıcı not olarak durur. #}
+  <noscript><style>.toasts { position: static; width: auto; margin: 0.75rem 1rem; } .toast { animation: none; }</style></noscript>
 </head>
 <body>
   {# 10.10.1: arayüz metinleri isteğin dilinde (`_()`, `{% trans %}`); kullanıcı adı gibi veri
@@ -48,6 +51,15 @@
     <button type="button" class="theme-toggle" data-theme-toggle aria-pressed="false" aria-label="{{ _('Açık ya da koyu tema') }}" title="{{ _('Açık ya da koyu tema') }}"><span class="icon-light" aria-hidden="true">☾</span><span class="icon-dark" aria-hidden="true">☀</span></button>
   </div>
   {% endif %}
+  {# 10.11.1 (PLAN.md §D120): geçici bildirim alanı. Sunucunun bastığı bildirimler (bir önceki
+     yönlendirmenin çerezi ya da bu yanıtın kendi bildirimi) burada; HTMX yanıtlarının
+     `documania:toast` olayları `toast.js` ile aynı alana eklenir. Kapatma düğmesinin etiketi
+     isteğin dilinde `data-close-label`'dadır (10.10.3). #}
+  <div class="toasts" aria-live="polite" data-close-label="{{ _('Bildirimi kapat') }}">
+    {% for toast in toasts %}
+    <div class="toast toast-{{ toast.kind.value }}" role="{{ toast.role }}" data-kind="{{ toast.kind.value }}"><span class="toast-icon" aria-hidden="true"></span><p class="toast-text">{{ toast.text }}</p></div>
+    {% endfor %}
+  </div>
   <main class="content">
     {% block content %}{% endblock %}
   </main>

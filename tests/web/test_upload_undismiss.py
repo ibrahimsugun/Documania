@@ -51,6 +51,7 @@ from tests.fixtures.gen import (
     recorded_provider,
     unknown_document_page,
 )
+from tests.web.flash import hx_toasts
 
 SETTINGS = Settings(_env_file=None, database_url="sqlite://")
 USER = "test-yonetici"
@@ -202,10 +203,13 @@ def test_restoring_brings_back_the_batch_and_only_the_items_the_dismissal_closed
     response = client.post(f"/uploads/{upload_id}/undismiss")
 
     assert response.status_code == 200, response.text
-    assert (
-        "Yoksayma geri alındı: parti yükleme listesine döndü; 1 kuyruk öğesi yeniden açıldı."
-        in response.text
-    )
+    assert hx_toasts(response) == [
+        {
+            "kind": "success",
+            "text": f"Yoksayma geri alındı: {upload_id}. Yeniden açılan kuyruk öğesi: 1.",
+        }
+    ]
+    assert "Parti yükleme listesine döndü." in response.text
     assert '<div id="dismissed-row" hx-swap-oob="true"></div>' in response.text
     with session_factory() as session:
         upload = session.get_one(Upload, upload_id)
@@ -243,7 +247,7 @@ def test_a_restored_batch_can_be_dismissed_and_restored_again(
     again = client.post(f"/uploads/{upload_id}/undismiss")
 
     assert again.status_code == 200
-    assert "1 kuyruk öğesi yeniden açıldı" in again.text
+    assert hx_toasts(again)[0]["text"].endswith("Yeniden açılan kuyruk öğesi: 1.")
     with session_factory() as session:
         assert session.get_one(QueueItem, batch["pending"]).resolved_at is None
 

@@ -22,7 +22,6 @@
 {% else %}
 <h1>{{ profile.name }}</h1>
 <p class="profile-meta">{{ profile.id }} · {% if profile.inactive %}<span class="status-badge status-passive">{{ translate(profile.status_label) }}</span>{% else %}{{ translate(profile.status_label) }}{% endif %}{% if user.is_root %} · <a href="/access-log/employees/{{ profile.id }}">{{ _("Erişim logu") }}</a>{% endif %}{% if user.can_write %}{% if profile.editable %} · <a href="/employees/{{ profile.id }}/fields" class="edit-profile">{{ _("Profili düzenle") }}</a>{% endif %}{% if profile.status_action == "inactive" %} · <a href="/employees/{{ profile.id }}/status/confirm?to=inactive" class="status-action">{{ _("Pasife al") }}</a>{% endif %}{% if not profile.merged %} · <a href="/employees/{{ profile.id }}/merge/employees" class="merge-action">{{ _("Başka kayıtla birleştir") }}</a>{% endif %}{% endif %}</p>
-{% if profile_notice %}<p class="notice notice-success" role="status">{{ translate(profile_notice) }}</p>{% endif %}
 {% if profile.merged %}
 {# 10.5.9: birleştirilmiş kayıt; belgeleri, alt kayıtları ve paketleri kalan kayıtta. #}
 <div class="notice merged-notice" role="status">
@@ -97,7 +96,6 @@
 {% macro remove_link(row) %}{% if profile.editable and user.can_write %}<a href="/employees/{{ profile.id }}/records/{{ row.kind }}/{{ row.id }}/remove/confirm" class="record-remove">{{ _("Kaldır") }}</a>{% endif %}{% endmacro %}
 <section class="profile-records" id="records" aria-labelledby="records-title">
   <h2 id="records-title">{{ _("Profil kayıtları") }}</h2>
-  {% if records_notice %}<p class="notice notice-success" role="status">{{ translate(records_notice) }}</p>{% endif %}
   {% for message in record_problems %}<p class="error" role="alert">{{ translate(message) }}</p>{% endfor %}
   {% for warning in profile.records.warnings %}
   <p class="missing record-warning" role="status"><span class="badge badge-missing">{{ _("Kaldırılmış kayıt") }}</span> {{ translate(warning) }} — <a href="#records-removed">{{ _("Kaldırılanlar") }}</a></p>
@@ -181,7 +179,6 @@
 {% macro document_link(document) %}{% if document.id in profile.available_document_ids %}<a href="/employees/{{ profile.id }}/documents/{{ document.id }}/file" target="_blank" rel="noopener">{{ document.file_name }}</a>{% else %}<a href="/documents/{{ document.id }}/history">{{ document.file_name }}</a>{% endif %}{% endmacro %}
 <section class="profile-packages" id="packages" aria-labelledby="packages-title">
   <h2 id="packages-title">{{ _("Belge paketleri") }} <span class="count">{{ profile.live_packages|length }}</span></h2>
-  {% if package_notice %}<p class="notice-success" role="status">{{ translate(package_notice) }}</p>{% endif %}
   {% if profile.live_packages %}
   <div class="package-cards">
     {% for package in profile.live_packages %}
@@ -268,7 +265,6 @@
    arşivdeki belgede "Kalıcı sil" (tehlike görünümü; dosyası diskte olmasa da). #}
 <section class="profile-documents">
   <h2 id="documents">{{ _("Belgeler") }} <span class="count">{{ profile.documents|length }}</span></h2>
-  {% if documents_notice %}<p class="notice notice-success" role="status">{{ translate(documents_notice) }}</p>{% endif %}
   {% if profile.documents %}
   <table class="outputs">
     <thead>

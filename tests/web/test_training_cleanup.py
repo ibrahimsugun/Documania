@@ -35,6 +35,7 @@ from app.web.routers.training import get_training_provider_problem
 from tests.fixtures.gen import make_half_filled_image_bytes
 from tests.training.invariants import assert_employee_data_untouched
 from tests.web.conftest import SIGNED_IN
+from tests.web.flash import flashed
 
 LIMIT = 1024 * 1024
 
@@ -173,7 +174,8 @@ def test_dismissing_hides_the_item_counts_it_and_logs_the_user(
     response = _dismiss(client, items[name], note="çöp tarama", next="/training?filter=" + name)
 
     assert response.status_code == 303
-    assert response.headers["location"] == f"/training?filter={name}&notice=dismissed"
+    assert response.headers["location"] == f"/training?filter={name}"
+    assert flashed(response) == ("training.dismissed", {})
     item = _item(session_factory, items[name])
     assert item.status == TrainingItemStatus.DISMISSED
     assert item.note is not None and item.note.endswith(f"{DISMISSED_NOTE}: çöp tarama")
@@ -184,7 +186,7 @@ def test_dismissing_hides_the_item_counts_it_and_logs_the_user(
     assert event.data_json["training_item_id"] == items[name]
     assert event.data_json["previous_status"] == name
 
-    page = client.get(f"/training?filter={name}&notice=dismissed")
+    page = client.get(f"/training?filter={name}")
     assert items[name] not in _row_ids(page.text)
     assert "Öğe yoksayıldı" in page.text
     everything = client.get("/training").text
@@ -265,7 +267,8 @@ def test_an_unsafe_next_falls_back_to_the_training_tab(
 ) -> None:
     response = _dismiss(client, items["unplaced"], next="https://example.org/training")
 
-    assert response.headers["location"] == "/training?notice=dismissed"
+    assert response.headers["location"] == "/training"
+    assert flashed(response) == ("training.dismissed", {})
 
 
 # --- geri al ----------------------------------------------------------------------------------
@@ -283,7 +286,8 @@ def test_restoring_brings_the_item_back_as_unplaced(
     )
 
     assert response.status_code == 303
-    assert response.headers["location"] == "/training?show=dismissed&notice=restored"
+    assert response.headers["location"] == "/training?show=dismissed"
+    assert flashed(response) == ("training.restored", {})
     assert _item(session_factory, items["conflict"]).status == TrainingItemStatus.UNPLACED
     (event,) = _events(session_factory, EventType.TRAINING_ITEM_RESTORED)
     assert event.actor == SIGNED_IN.username
@@ -334,8 +338,10 @@ def test_archiving_a_run_drops_it_from_the_list_and_the_counters(
     response = client.post(f"/training/runs/{items['run1']}/archive", follow_redirects=False)
 
     assert response.status_code == 303
-    assert response.headers["location"] == "/training?notice=run_archived"
-    page = client.get("/training?notice=run_archived").text
+    assert response.headers["location"] == "/training"
+    assert flashed(response) == ("training.run_archived", {})
+    assert flashed(response) == ("training.run_archived", {})
+    page = client.get("/training").text
     assert _run_rows(page) == [items["run2"]]
     assert _row_ids(page) == [items["other"]]
     assert "1 dosya" in page
@@ -374,7 +380,8 @@ def test_restoring_a_run_brings_it_back(
     response = client.post(f"/training/runs/{items['run1']}/restore", follow_redirects=False)
 
     assert response.status_code == 303
-    assert response.headers["location"] == "/training?notice=run_restored"
+    assert response.headers["location"] == "/training"
+    assert flashed(response) == ("training.run_restored", {})
     page = client.get("/training").text
     assert _run_rows(page) == [items["run2"], items["run1"]]
     assert items["unplaced"] in _row_ids(page)

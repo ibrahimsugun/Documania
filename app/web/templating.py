@@ -39,6 +39,16 @@ from app.i18n import (
     translate,
 )
 from app.web.auth import PanelUser
+from app.web.feedback import (
+    FLASH_COOKIE,
+    Toast,
+    add_toasts,
+    clear_flash,
+    is_htmx,
+    read_flash,
+    render,
+    status_feedback,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -143,7 +153,7 @@ def _asset_version() -> str:
 
 
 # `base.html`in sürüm ekiyle yüklediği dosyalar.
-VERSIONED_ASSETS = ("panel.css", "theme.css", "theme-init.js", "theme.js")
+VERSIONED_ASSETS = ("panel.css", "theme.css", "theme-init.js", "theme.js", "toast.js")
 templates.env.globals["asset_version"] = _asset_version()
 
 
@@ -154,12 +164,36 @@ def render_page(
     user: PanelUser | None,
     active: str | None = None,
     status_code: int = 200,
+    feedback: Toast | None = None,
     **context: Any,
 ) -> HTMLResponse:
-    """`name` şablonunu çizer; `user` varsa üst çubukta menü ve çıkış görünür."""
-    return templates.TemplateResponse(
+    """`name` şablonunu çizer; `user` varsa üst çubukta menü ve çıkış görünür.
+
+    Geçici bildirim (10.11.1, PLAN.md §D120): `feedback` bu yanıtın kendi bildirimidir; verilmezse
+    hata koduyla çizilen bir yazma isteği (`POST`; sayfa ya da HTMX parçası) kodun özet bildirimini
+    alır. Bir önceki
+    yönlendirmenin çerezdeki bildirimi (`app.web.feedback.flash`) de burada okunur ve aynı yanıtta
+    silinir. Tam sayfada bildirimler `base.html`'in bildirim alanına basılır; HTMX isteğinde
+    (`HX-Request`) `HX-Trigger` başlığıyla gider — `hx-select` ile seçilen parça bildirim alanını
+    içermez, çift gösterim olmaz."""
+    htmx = is_htmx(request)
+    toasts: list[Toast] = []
+    if feedback is not None:
+        toasts.append(feedback)
+    elif request.method == "POST":
+        automatic = status_feedback(status_code)
+        if automatic is not None:
+            toasts.append(render(automatic))
+    flashed = read_flash(request)
+    response = templates.TemplateResponse(
         request,
         name,
-        {"user": user, "active": active, **context},
+        {"user": user, "active": active, "toasts": [] if htmx else [*flashed, *toasts], **context},
         status_code=status_code,
     )
+    if FLASH_COOKIE in request.cookies:
+        clear_flash(response)
+    # Başlık tam sayfada da yazılır: tarayıcı yok sayar, ama HTMX hedefi olan bir parça (yalnız
+    # `hx-post` taşıyan form) HTMX'siz istenirse bildirim yine yanıttadır.
+    add_toasts(response, [*flashed, *toasts])
+    return response

@@ -45,6 +45,7 @@ from app.web.routers.employees import (
 )
 from tests.fixtures.gen import make_pdf_bytes
 from tests.web.conftest import SESSION, SIGNED_IN, issue_token
+from tests.web.flash import flashed
 
 EMPLOYEE_ID = "E0001"
 FOLDER = "Ivan_Petrov_E0001"
@@ -410,7 +411,8 @@ def test_removal_marks_the_number_logs_both_events_and_keeps_the_files(
     response = _remove(client, "identifier", number, token)
 
     assert response.status_code == 303, response.text
-    assert response.headers["location"] == f"/employees/{EMPLOYEE_ID}?notice=record_removed#records"
+    assert response.headers["location"] == f"/employees/{EMPLOYEE_ID}#records"
+    assert flashed(response) == ("employees.record_removed", {})
     assert _removed(session_factory) == [("EmployeeIdentifier", SIGNED_IN.username)]
     confirmed, removed = _events(session_factory, *RECORD_EVENTS)
     assert (confirmed.type, confirmed.actor, confirmed.employee_id) == (
@@ -452,7 +454,7 @@ def test_a_removed_record_leaves_the_card_and_waits_under_removed_with_a_restore
 ) -> None:
     _flip(client, "identifier", seeded["number"])
 
-    page = client.get(f"/employees/{EMPLOYEE_ID}?notice=record_removed").text
+    page = client.get(f"/employees/{EMPLOYEE_ID}").text
 
     assert "Kayıt kaldırıldı; eşleştirmede ve aramada kullanılmayacak." in page
     card = _section(page, '<section class="profile-card"')
@@ -504,7 +506,8 @@ def test_search_does_not_find_a_removed_spelling_or_number_until_restored(
     for kind, record_id in (("alias", variant), ("identifier", number)):
         response = client.post(_url(kind, record_id, "restore"), follow_redirects=False)
         assert response.status_code == 303
-        assert response.headers["location"].endswith("?notice=record_restored#records")
+        assert response.headers["location"].endswith(f"/employees/{EMPLOYEE_ID}#records")
+        assert flashed(response) == ("employees.record_restored", {})
 
     assert found("Jovan") and found("711 234 567")
     restored = _events(session_factory, EventType.PROFILE_RECORD_RESTORED)
@@ -563,7 +566,8 @@ def test_a_manual_contact_becomes_current_carries_its_adder_and_is_logged(
     )
 
     assert response.status_code == 303, response.text
-    assert response.headers["location"] == f"/employees/{EMPLOYEE_ID}?notice=contact_added#records"
+    assert response.headers["location"] == f"/employees/{EMPLOYEE_ID}#records"
+    assert flashed(response) == ("employees.contact_added", {})
     with session_factory() as session:
         phones = session.scalars(
             select(EmployeeContact)
@@ -587,7 +591,7 @@ def test_a_manual_contact_becomes_current_carries_its_adder_and_is_logged(
     assert new_phone in layout.profile_path(FOLDER).read_text(encoding="utf-8")
     assert _tree(layout.root) == seeded["tree"]
 
-    page = client.get(f"/employees/{EMPLOYEE_ID}?notice=contact_added").text
+    page = client.get(f"/employees/{EMPLOYEE_ID}").text
     assert "İletişim bilgisi eklendi." in page
     day = utcnow().strftime("%d.%m.%Y")
     assert (

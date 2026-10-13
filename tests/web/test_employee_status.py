@@ -45,6 +45,7 @@ from app.web.routers.employees import (
 from app.web.routers.uploads import INACTIVE_CONTEXT_MESSAGE
 from tests.fixtures.gen import make_pdf_bytes
 from tests.web.conftest import SESSION, SIGNED_IN, issue_token
+from tests.web.flash import flashed
 
 EMPLOYEE_ID = "E0001"
 FOLDER = "Ivan_Petrov_E0001"
@@ -276,7 +277,8 @@ def test_deactivation_flips_the_status_logs_both_events_and_keeps_the_files(
     response = _flip(client, "inactive", NOTE)
 
     assert response.status_code == 303, response.text
-    assert response.headers["location"] == f"/employees/{EMPLOYEE_ID}?notice=status_inactive"
+    assert response.headers["location"] == f"/employees/{EMPLOYEE_ID}"
+    assert flashed(response) == ("employees.status_inactive", {})
     assert _status(session_factory) == "inactive"
     confirmed, deactivated = _events(
         session_factory, EventType.USER_CONFIRMED, EventType.EMPLOYEE_DEACTIVATED
@@ -304,7 +306,7 @@ def test_an_inactive_profile_shows_the_notice_hides_the_upload_and_offers_reacti
 ) -> None:
     _flip(client, "inactive", NOTE)
 
-    page = client.get(f"/employees/{EMPLOYEE_ID}?notice=status_inactive").text
+    page = client.get(f"/employees/{EMPLOYEE_ID}").text
 
     assert "Çalışan pasife alındı; yeni belgeleri otomatik yerleşmeyecek." in page
     notice = page.split('<div class="notice inactive-notice"', 1)[1].split("</div>", 1)[0]
@@ -348,7 +350,8 @@ def test_reactivation_returns_the_employee_to_the_list_and_the_upload_form(
     assert REACTIVATE_SECOND in prepared.text
     response = _change(client, _token(prepared.text), "active")
 
-    assert response.headers["location"] == f"/employees/{EMPLOYEE_ID}?notice=status_active"
+    assert response.headers["location"] == f"/employees/{EMPLOYEE_ID}"
+    assert flashed(response) == ("employees.status_active", {})
     assert _status(session_factory) == "active"
     (reactivated,) = _events(session_factory, EventType.EMPLOYEE_REACTIVATED)
     assert (reactivated.actor, reactivated.data_json) == (

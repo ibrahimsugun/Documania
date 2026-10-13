@@ -8,9 +8,6 @@
 {% block content %}
 <p class="back"><a href="/document-types/candidate-types">← {{ _("Aday türler") }}</a></p>
 <h1>{{ _("Aday tür: %(name)s", name=candidate.name) }}</h1>
-{% if notice_text %}
-<p class="notice notice-success" role="status">{{ translate(notice_text) }}</p>
-{% endif %}
 <dl class="meta">
   <dt>{{ _("Durum") }}</dt>
   <dd>{{ translate(status_label) }}{% if approved_slug %} — <a href="/document-types/{{ approved_slug|urlencode }}"><code>{{ approved_slug }}</code></a>{% endif %}</dd>

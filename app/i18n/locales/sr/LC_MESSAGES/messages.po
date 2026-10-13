@@ -4,8 +4,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Documania panel\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-09 02:33+0000\n"
-"PO-Revision-Date: 2026-10-09 02:33+0000\n"
+"POT-Creation-Date: 2026-10-13 13:44+0000\n"
+"PO-Revision-Date: 2026-10-13 13:44+0000\n"
 "Last-Translator: Documania görev penceresi (gözden geçirilmeli)\n"
 "Language: sr_Latn\n"
 "Language-Team: Srpski\n"
@@ -175,14 +175,6 @@ msgstr[2] "%(num)d stavki"
 #, python-format
 msgid "%(num)d onay bekliyor"
 msgstr "na odobrenju: %(num)d"
-
-#: app/web/templates/catalog_candidate_step.html
-#, python-format
-msgid "%(num)d parti yeniden analiz edildi."
-msgid_plural "%(num)d parti yeniden analiz edildi."
-msgstr[0] "%(num)d serija je ponovo analizirana."
-msgstr[1] "%(num)d serije su ponovo analizirane."
-msgstr[2] "%(num)d serija je ponovo analizirano."
 
 #: app/web/templates/catalog_description.html
 #, python-format
@@ -513,15 +505,15 @@ msgstr "Predloženi tip nije pronađen."
 msgid "Aday tür görünümleri"
 msgstr "Prikazi predloženih tipova"
 
-#: app/web/routers/catalog.py
+#: app/web/feedback.py
 msgid "Aday tür reddedildi; bir daha listeye düşmez."
 msgstr "Predloženi tip je odbijen; više se neće pojavljivati na listi."
 
-#: app/web/routers/catalog.py
+#: app/web/feedback.py
 msgid "Aday tür retten geri alındı; yeniden onay bekliyor."
 msgstr "Odbijanje predloženog tipa je poništeno; ponovo čeka odobrenje."
 
-#: app/web/routers/catalog.py
+#: app/web/feedback.py
 msgid ""
 "Aday tür standart türler arasına eklendi; tür bir sonraki analizden "
 "itibaren geçerlidir. İlişkili Unknown öğeleri aşağıdan toplu yeniden "
@@ -545,7 +537,7 @@ msgstr "Nazad na predloženi tip"
 msgid "Aday türler"
 msgstr "Predloženi tipovi"
 
-#: app/web/routers/catalog.py
+#: app/web/feedback.py
 msgid "Aday yeniden incelendi."
 msgstr "Predlog je ponovo pregledan."
 
@@ -728,6 +720,16 @@ msgstr "Tipovi za arhiviranje (%(num)d):"
 msgid "Arşivlenen tür yok."
 msgstr "Nema arhiviranih tipova."
 
+#: app/web/feedback.py
+#, python-brace-format
+msgid "Arşivlenen tür: {count}."
+msgstr "Arhivirano tipova: {count}."
+
+#: app/web/feedback.py
+#, python-brace-format
+msgid "Arşivlenen tür: {count}; atlanan korunan tür: {skipped}."
+msgstr "Arhivirano tipova: {count}; preskočeno zaštićenih tipova: {skipped}."
+
 #: app/web/templates/catalog.html
 msgid "Arşivlenen türler"
 msgstr "Arhivirani tipovi"
@@ -792,10 +794,6 @@ msgstr "Preskočeno"
 #, python-brace-format
 msgid "Aynı içerik seçilen türde zaten örnek ({name}); taşınmadı."
 msgstr "Isti sadržaj je već primer izabranog tipa ({name}); nije premešteno."
-
-#: app/web/templates/catalog_examples.html
-msgid "Aynı içerik zaten örnek olarak kayıtlı:"
-msgstr "Isti sadržaj je već upisan kao primer:"
 
 #: app/web/templates/employee_merge.html
 msgid ""
@@ -975,6 +973,10 @@ msgstr[2] ""
 "Link važi %(num)d minuta (do %(end)s UTC) i radi jednom; novi link ga "
 "poništava."
 
+#: app/web/feedback.py
+msgid "Bağlantı kodu oluşturuldu; ekrandaki adımları izleyin."
+msgstr "Kod za povezivanje je napravljen; pratite korake na ekranu."
+
 #: app/web/templates/account_telegram.html
 msgid "Bağlantıyı kopyala"
 msgstr "Kopiraj link"
@@ -1087,15 +1089,6 @@ msgstr "Dokument"
 msgid "Belge %(id)s"
 msgstr "Dokument %(id)s"
 
-#: app/web/templates/document_move.html
-#, python-format
-msgid ""
-"Belge %(previous)s (%(previous_id)s) çalışanından %(target)s "
-"(%(target_id)s) çalışanına taşındı: %(file)s."
-msgstr ""
-"Dokument je premešten sa zaposlenog %(previous)s (%(previous_id)s) na "
-"zaposlenog %(target)s (%(target_id)s): %(file)s."
-
 #: app/web/templates/group.html app/web/templating.py
 msgid "Belge Grupları"
 msgstr "Grupe dokumenata"
@@ -1109,11 +1102,11 @@ msgstr "Tipovi dokumenata"
 msgid "Belge analiz edilir"
 msgstr "Dokument se analizira"
 
-#: app/web/routers/employees.py
+#: app/web/feedback.py
 msgid "Belge arşivden geri alındı; çalışanın Hazır klasörüne döndü."
 msgstr "Dokument je vraćen iz arhive; ponovo je u fascikli Hazir zaposlenog."
 
-#: app/web/routers/employees.py
+#: app/web/feedback.py
 msgid "Belge arşive taşındı; çalışanın Hazır klasöründen çıktı."
 msgstr "Dokument je premešten u arhivu; napustio je fasciklu Hazir zaposlenog."
 
@@ -1178,7 +1171,7 @@ msgstr "Grupa dokumenata nije pronađena"
 msgid "Belge grubu bulunamadı."
 msgstr "Grupa dokumenata nije pronađena."
 
-#: app/web/routers/employees.py
+#: app/web/feedback.py
 msgid ""
 "Belge kalıcı olarak silindi, ancak bazı dosyaları diskten kaldırılamadı "
 "(açık ya da kilitli olabilir); sayısı olay logunda. Sistem yöneticisine "
@@ -1188,7 +1181,7 @@ msgstr ""
 "ukloniti sa diska (možda su otvorene ili zaključane); broj je u dnevniku "
 "događaja. Obavestite administratora sistema."
 
-#: app/web/routers/employees.py
+#: app/web/feedback.py
 msgid "Belge kalıcı olarak silindi; dosyaları diskten kaldırıldı."
 msgstr "Dokument je trajno obrisan; njegove datoteke su uklonjene sa diska."
 
@@ -1254,6 +1247,11 @@ msgstr "Otpremi dokumente"
 #: app/web/routers/documents.py
 msgid "Belge zaten bu çalışanın; başka bir çalışan seçin."
 msgstr "Dokument već pripada ovom zaposlenom; izaberite drugog zaposlenog."
+
+#: app/web/feedback.py
+#, python-brace-format
+msgid "Belge {employee_id} çalışanına taşındı."
+msgstr "Dokument je premešten na zaposlenog {employee_id}."
 
 #: app/web/routers/employees.py
 #, python-brace-format
@@ -1436,6 +1434,10 @@ msgid "Benzersiz olmalı; harf büyüklüğü ve Türkçe harf farkı aynı ad s
 msgstr ""
 "Mora biti jedinstveno; imena koja se razlikuju samo po veličini slova ili"
 " po turskim slovima smatraju se istim imenom."
+
+#: app/web/templates/base.html
+msgid "Bildirimi kapat"
+msgstr "Zatvori obaveštenje"
 
 #: app/web/templates/_training_tabs.html app/web/templates/training_known.html
 #: app/web/templates/training_type.html
@@ -2163,7 +2165,7 @@ msgstr "Vrednost ne može biti prazna."
 msgid "Değer en çok {limit} karakter olabilir."
 msgstr "Vrednost može imati najviše {limit} znakova."
 
-#: app/web/routers/groups.py
+#: app/web/feedback.py
 msgid "Değişiklik yok."
 msgstr "Nema promena."
 
@@ -2267,7 +2269,7 @@ msgstr "Potvrdi"
 msgid "Doğrulamalar"
 msgstr "Provere"
 
-#: app/web/routers/training.py
+#: app/web/feedback.py
 msgid "Doğrulanacak \"AI kararı\" örneği seçilmedi; hiçbir şey değişmedi."
 msgstr ""
 "Nije izabran nijedan primer „AI odluka“ za potvrdu; ništa se nije "
@@ -2638,9 +2640,10 @@ msgstr ""
 msgid "Fotoğraf kuralları"
 msgstr "Pravila za fotografiju"
 
-#: app/web/routers/catalog.py
-msgid "Fotoğraf kuralları kaydedildi."
-msgstr "Pravila za fotografiju su sačuvana."
+#: app/web/feedback.py
+#, python-brace-format
+msgid "Fotoğraf kuralları kaydedildi: {slug}."
+msgstr "Pravila za fotografiju su sačuvana: {slug}."
 
 #: app/web/templates/profile.html
 msgid "Fotoğraf yok"
@@ -2697,7 +2700,7 @@ msgstr "Arhiviraj grupu"
 msgid "Grubu oluştur"
 msgstr "Napravi grupu"
 
-#: app/web/routers/groups.py
+#: app/web/feedback.py
 msgid "Grubun adı ve açıklaması güncellendi."
 msgstr "Ime i opis grupe su ažurirani."
 
@@ -2718,11 +2721,11 @@ msgstr "Ime grupe mora sadržati bar jedno slovo ili cifru."
 msgid "Grup adı en çok {limit} karakter olabilir."
 msgstr "Ime grupe može imati najviše {limit} znakova."
 
-#: app/web/routers/groups.py
+#: app/web/feedback.py
 msgid "Grup arşivden geri alındı."
 msgstr "Grupa je vraćena iz arhive."
 
-#: app/web/routers/groups.py
+#: app/web/feedback.py
 msgid "Grup arşivlendi: yeni paket tanımlanamaz, açık paketler sürer."
 msgstr ""
 "Grupa je arhivirana: novi paket ne može da se dodeli, otvoreni paketi se "
@@ -2732,7 +2735,7 @@ msgstr ""
 msgid "Grup kaydedilmedi: alanların altındaki uyarıları düzeltin."
 msgstr "Grupa nije sačuvana: ispravite upozorenja ispod polja."
 
-#: app/web/routers/groups.py
+#: app/web/feedback.py
 msgid "Grup oluşturuldu. Şimdi kalemlerini ekleyin."
 msgstr "Grupa je napravljena. Sada dodajte njene stavke."
 
@@ -2753,6 +2756,10 @@ msgstr ""
 #: app/web/routers/catalog.py
 msgid "Gömülü görüntüyü çıkar"
 msgstr "Izdvoj ugrađenu sliku"
+
+#: app/web/feedback.py
+msgid "Gönderilen dosya izin verilen sınırı aşıyor."
+msgstr "Poslata datoteka prelazi dozvoljeno ograničenje."
 
 #: app/web/templates/profile.html
 #, python-format
@@ -2949,7 +2956,7 @@ msgstr ""
 msgid "Her seferinde tek bir kişiyi sorun."
 msgstr "Pitajte za jednu osobu odjednom."
 
-#: app/web/auth.py
+#: app/web/auth.py app/web/feedback.py
 msgid "Hesabınız salt okunur: bu işlemi yapamazsınız."
 msgstr "Vaš nalog je samo za čitanje: ne možete to da uradite."
 
@@ -3070,11 +3077,11 @@ msgstr[2] ""
 "Izmene stavki odmah će važiti u <strong>%(count)s</strong> otvorenih "
 "paketa."
 
-#: app/web/routers/groups.py
+#: app/web/feedback.py
 msgid "Kalem eklendi."
 msgstr "Stavka je dodata."
 
-#: app/web/routers/groups.py
+#: app/web/feedback.py
 msgid "Kalem kaldırıldı."
 msgstr "Stavka je uklonjena."
 
@@ -3200,6 +3207,10 @@ msgstr "Katalog još nema tipova."
 msgid "Kataloğa eklenecek tür:"
 msgstr "Tip koji će biti dodat u katalog:"
 
+#: app/web/feedback.py
+msgid "Kaydedilmedi: işaretli alanları düzeltip yeniden gönderin."
+msgstr "Nije sačuvano: ispravite označena polja i pošaljite ponovo."
+
 #: app/web/templates/catalog_form.html app/web/templates/group.html
 msgid "Kaydet"
 msgstr "Sačuvaj"
@@ -3242,11 +3253,11 @@ msgstr "Zadrži format izvora"
 msgid "Kayıt bulunamadı."
 msgstr "Zapis nije pronađen."
 
-#: app/web/routers/employees.py
+#: app/web/feedback.py
 msgid "Kayıt geri alındı; yeniden eşleştirmede ve aramada kullanılacak."
 msgstr "Zapis je vraćen; ponovo će se koristiti za uparivanje i pretragu."
 
-#: app/web/routers/employees.py
+#: app/web/feedback.py
 msgid "Kayıt kaldırıldı; eşleştirmede ve aramada kullanılmayacak."
 msgstr "Zapis je uklonjen; više se neće koristiti za uparivanje i pretragu."
 
@@ -3271,7 +3282,7 @@ msgstr ""
 msgid "Kayıt zaten kaldırılmış; profildeki “Kaldırılanlar” altından geri alınır."
 msgstr "Zapis je već uklonjen; vraća se iz odeljka “Uklonjeni” na profilu."
 
-#: app/web/routers/employees.py
+#: app/web/feedback.py
 msgid ""
 "Kayıtlar birleştirildi; birleşen kaydın belgeleri, numaraları, isim "
 "yazımları, iletişim bilgileri ve belge paketleri bu profile taşındı."
@@ -3413,7 +3424,7 @@ msgstr "Korisnik nije pronađen"
 msgid "Kullanıcı oluştur"
 msgstr "Napravi korisnika"
 
-#: app/web/routers/users.py
+#: app/web/feedback.py
 msgid "Kullanıcı oluşturuldu."
 msgstr "Korisnik je napravljen."
 
@@ -3421,11 +3432,11 @@ msgstr "Korisnik je napravljen."
 msgid "Kullanıcı pasif: bot bu kimliklerin hiçbirine yanıt vermez."
 msgstr "Korisnik je neaktivan: bot ne odgovara nijednom od ovih ID-jeva."
 
-#: app/web/routers/users.py
+#: app/web/feedback.py
 msgid "Kullanıcı pasife alındı; açık oturumları kapatıldı."
 msgstr "Korisnik je deaktiviran; njegove otvorene sesije su zatvorene."
 
-#: app/web/routers/users.py
+#: app/web/feedback.py
 msgid "Kullanıcı yeniden etkinleştirildi."
 msgstr "Korisnik je ponovo aktiviran."
 
@@ -3437,7 +3448,7 @@ msgstr "Korisnici"
 msgid "Kullanıcılar sayfasına dön"
 msgstr "Nazad na stranicu Korisnici"
 
-#: app/web/routers/users.py
+#: app/web/feedback.py
 msgid "Kullanıcının rolü değişti; bir sonraki isteğinde geçerli olur."
 msgstr "Uloga korisnika je promenjena; važi od sledećeg zahteva."
 
@@ -3720,7 +3731,7 @@ msgstr "Paketi"
 msgid "Paket bulunamadı."
 msgstr "Paket nije pronađen."
 
-#: app/web/routers/employees.py
+#: app/web/feedback.py
 msgid "Paket iptal edildi."
 msgstr "Paket je otkazan."
 
@@ -3736,11 +3747,11 @@ msgstr ""
 "Da biste dodelili paket, prvo napravite nearhiviranu grupu u odeljku <a "
 "href=\"/document-groups\">Grupe dokumenata</a>."
 
-#: app/web/routers/employees.py
+#: app/web/feedback.py
 msgid "Paket tanımlandı."
 msgstr "Paket je dodeljen."
 
-#: app/web/routers/employees.py
+#: app/web/feedback.py
 msgid "Paket yeniden açıldı."
 msgstr "Paket je ponovo otvoren."
 
@@ -3783,7 +3794,7 @@ msgstr[2] "Lozinka mora imati najmanje %(num)d znakova."
 msgid "Parola en az {limit} karakter olmalı."
 msgstr "Lozinka mora imati najmanje {limit} znakova."
 
-#: app/web/routers/users.py
+#: app/web/feedback.py
 msgid "Parola sıfırlandı; kullanıcının açık oturumları kapatıldı."
 msgstr "Lozinka je resetovana; otvorene sesije korisnika su zatvorene."
 
@@ -3800,7 +3811,7 @@ msgstr ""
 "Kada se lozinka promeni, ova sesija ostaje otvorena, a vaše sesije u "
 "drugim pregledačima se zatvaraju."
 
-#: app/web/routers/users.py
+#: app/web/feedback.py
 msgid "Parolanız değiştirildi; diğer oturumlarınız kapatıldı."
 msgstr "Vaša lozinka je promenjena; ostale sesije su zatvorene."
 
@@ -3841,14 +3852,14 @@ msgstr "Serija se još obrađuje; može se ponovo pokrenuti kada obrada završi.
 msgid "Parti hâlâ işleniyor; süren tarama yoksayılamaz."
 msgstr "Serija se još obrađuje; skeniranje u toku ne može se zanemariti."
 
-#: app/web/templates/upload_action_result.html
-#, python-format
+#: app/web/feedback.py
+#, python-brace-format
 msgid ""
-"Parti iptal edildi (iptal anında: %(stage)s); dosyalar ve üretilen "
-"belgeler yerinde kaldı."
+"Parti iptal edildi: {upload_id}. Dosyalar ve üretilen belgeler yerinde "
+"kaldı."
 msgstr ""
-"Serija je otkazana (u tom trenutku: %(stage)s); datoteke i generisani "
-"dokumenti ostaju na mestu."
+"Serija je otkazana: {upload_id}. Datoteke i generisani dokumenti ostaju "
+"na mestu."
 
 #: app/web/routers/uploads.py
 msgid ""
@@ -3862,14 +3873,18 @@ msgstr ""
 msgid "Parti son durumda; iptal edilecek süren bir işlem yok."
 msgstr "Serija je već završena; nema obrade u toku koja bi se otkazala."
 
-#: app/web/templates/upload_action_result.html
-#, python-format
+#: app/web/feedback.py
+#, python-brace-format
 msgid ""
-"Parti yeniden analiz edildi: yeni plan sürümü %(version)s (önceki: "
-"%(previous)s);"
+"Parti yeniden analiz edildi: {upload_id}, yeni plan sürümü {version} "
+"(önceki: {previous})."
 msgstr ""
-"Serija je ponovo analizirana: nova verzija plana %(version)s (prethodna: "
-"%(previous)s);"
+"Serija je ponovo analizirana: {upload_id}, nova verzija plana {version} "
+"(prethodna: {previous})."
+
+#: app/web/templates/upload_action_result.html
+msgid "Parti yükleme listesine döndü."
+msgstr "Serija se vratila na listu otpremanja."
 
 #: app/web/templates/upload_detail.html
 msgid ""
@@ -3968,14 +3983,19 @@ msgstr "Deaktivirao:"
 msgid "Pasifleştir"
 msgstr "Deaktiviraj"
 
+#: app/web/feedback.py
+#, python-brace-format
+msgid "Pasifleştirilen tür: {count}. Yeni belgelere atanmazlar."
+msgstr "Deaktivirano tipova: {count}. Ne dodeljuju se novim dokumentima."
+
 #: app/web/templates/history.html app/web/templates/upload_detail.html
 msgid "Plan"
 msgstr "Plan"
 
-#: app/web/templates/upload_action_result.html
-#, python-format
-msgid "Plan (sürüm %(version)s) yeniden uygulandı."
-msgstr "Plan (verzija %(version)s) je ponovo primenjen."
+#: app/web/feedback.py
+#, python-brace-format
+msgid "Plan (sürüm {version}) yeniden uygulandı: {upload_id}."
+msgstr "Plan (verzija {version}) je ponovo primenjen: {upload_id}."
 
 #: app/web/routers/upload_page.py app/web/routers/uploads_list.py
 msgid "Plan hazırlanıyor"
@@ -4001,11 +4021,11 @@ msgstr "Ime na profilu"
 msgid "Profil alanları geçersiz; düzeltip yeniden gönderin."
 msgstr "Polja profila nisu ispravna; ispravite ih i pošaljite ponovo."
 
-#: app/web/routers/employees.py
+#: app/web/feedback.py
 msgid "Profil bilgileri değiştirildi."
 msgstr "Podaci profila su promenjeni."
 
-#: app/web/routers/employees.py
+#: app/web/feedback.py
 msgid ""
 "Profil bilgileri değiştirildi; klasör ve belge dosyaları yeni adla "
 "yeniden adlandırıldı."
@@ -4193,7 +4213,7 @@ msgstr "Ne mogu da slušam glasovne poruke. Molim vas, napišite zahtev."
 msgid "Seç"
 msgstr "Izaberi"
 
-#: app/web/routers/training.py
+#: app/web/feedback.py
 msgid "Seçilen \"AI kararı\" örnekleri doğrulandı; elle kontrol ikonu kalktı."
 msgstr ""
 "Izabrani primeri „AI odluka“ su potvrđeni; ikona ručne provere je "
@@ -4470,13 +4490,10 @@ msgstr "Nedefinisano pravilo: {rules}"
 msgid "Tanınmayan toplu işlem."
 msgstr "Nepoznata grupna radnja."
 
-#: app/web/templates/upload_action_result.html
-#, python-format
-msgid "Tarama yoksayıldı: %(num)d kuyruk öğesi kapandı;"
-msgid_plural "Tarama yoksayıldı: %(num)d kuyruk öğesi kapandı;"
-msgstr[0] "Skeniranje je zanemareno: zatvorena je %(num)d stavka reda;"
-msgstr[1] "Skeniranje je zanemareno: zatvorene su %(num)d stavke reda;"
-msgstr[2] "Skeniranje je zanemareno: zatvoreno je %(num)d stavki reda;"
+#: app/web/feedback.py
+#, python-brace-format
+msgid "Tarama yoksayıldı: {upload_id}. Kapanan kuyruk öğesi: {count}."
+msgstr "Skeniranje je zanemareno: {upload_id}. Zatvoreno stavki reda: {count}."
 
 #: app/web/templates/upload_detail.html
 msgid "Taramayı yoksay"
@@ -4587,7 +4604,7 @@ msgstr ""
 "zapis, broj postaje slobodan i može se ponovo povezati sa istim ili "
 "drugim nalogom."
 
-#: app/web/routers/users.py
+#: app/web/feedback.py
 msgid ""
 "Telegram kaydı silindi. Bu numara artık yeniden bağlanabilir; bot ona "
 "yanıt vermeyecek."
@@ -4611,7 +4628,7 @@ msgstr "Telegram ID"
 msgid "Telegram kimliği boş olamaz."
 msgstr "Telegram ID ne može biti prazan."
 
-#: app/web/routers/users.py
+#: app/web/feedback.py
 msgid "Telegram kimliği eklendi ve izni açıldı."
 msgstr "Telegram ID je dodat i dozvoljen."
 
@@ -4642,11 +4659,11 @@ msgstr ""
 "123456789). To nije broj telefona: osoba saznaje svoj ID tako što u "
 "Telegramu piše botu @userinfobot."
 
-#: app/web/routers/users.py
+#: app/web/feedback.py
 msgid "Telegram kimliğinin izni açıldı."
 msgstr "Telegram ID je dozvoljen."
 
-#: app/web/routers/users.py
+#: app/web/feedback.py
 msgid "Telegram kimliğinin izni kapatıldı; bot bu kimliğe yanıt vermeyecek."
 msgstr "Telegram ID je blokiran; bot mu neće odgovarati."
 
@@ -4687,7 +4704,7 @@ msgid ""
 "belgelerini isteyin."
 msgstr "Ne mogu da izvozim grupno. Tražite dokumente samo jedne osobe odjednom."
 
-#: app/web/routers/training.py
+#: app/web/feedback.py
 msgid ""
 "Toplu tarama başladı. İşçi haritadaki dosyaları birer birer tarar; "
 "ilerleme bu tabloda güncellenir."
@@ -4735,19 +4752,21 @@ msgstr ""
 "Tip će nestati iz uputstva za analizu i sa lista, a postojeći dokumenti "
 "ostaće na svom mestu. Da li je to vaša konačna odluka?"
 
-#: app/web/routers/catalog.py
+#: app/web/feedback.py
+#, python-brace-format
 msgid ""
-"Tür arşivden geri alındı; bir sonraki analizden itibaren yeniden "
+"Tür arşivden geri alındı: {slug}. Bir sonraki analizden itibaren yeniden "
 "geçerlidir."
-msgstr "Tip je vraćen iz arhive; ponovo važi od sledeće analize."
+msgstr "Tip je vraćen iz arhive: {slug}. Ponovo važi od sledeće analize."
 
-#: app/web/routers/catalog.py
+#: app/web/feedback.py
+#, python-brace-format
 msgid ""
-"Tür arşivlendi: listeden, analiz talimatından ve tür seçicilerden kalktı;"
-" var olan belgeleri yerinde."
+"Tür arşivlendi: {slug}. Listeden, analiz talimatından ve tür seçicilerden"
+" kalktı; var olan belgeleri yerinde."
 msgstr ""
-"Tip je arhiviran: nestao je sa liste, iz uputstva za analizu i iz "
-"izbornika tipova; njegovi postojeći dokumenti ostaju na mestu."
+"Tip je arhiviran: {slug}. Nestao je sa liste, iz uputstva za analizu i iz"
+" izbornika tipova; njegovi postojeći dokumenti ostaju na mestu."
 
 #: app/web/routers/upload_page.py
 msgid "Tür bilinmiyor"
@@ -4773,23 +4792,28 @@ msgstr ""
 "(tipovi datoteka, strane, Direktan dokument, obavezna polja, konverzije)."
 " Dodavanje zahteva potvrdu u dva koraka; tip važi od sledeće analize."
 
-#: app/web/routers/catalog.py
-msgid "Tür güncellendi. Değişiklik bir sonraki analizden itibaren geçerlidir."
-msgstr "Tip je ažuriran. Izmena važi od sledeće analize."
+#: app/web/feedback.py
+#, python-brace-format
+msgid ""
+"Tür güncellendi: {slug}. Değişiklik bir sonraki analizden itibaren "
+"geçerlidir."
+msgstr "Tip je ažuriran: {slug}. Izmena važi od sledeće analize."
 
 #: app/web/templates/catalog_form.html
 msgid "Tür kaydedilmedi: alanların altındaki uyarıları düzeltin."
 msgstr "Tip nije sačuvan: ispravite upozorenja ispod polja."
 
-#: app/web/routers/catalog.py
-msgid "Tür oluşturuldu."
-msgstr "Tip je napravljen."
+#: app/web/feedback.py
+#, python-brace-format
+msgid "Tür oluşturuldu: {slug}."
+msgstr "Tip je napravljen: {slug}."
 
-#: app/web/routers/catalog.py
-msgid "Tür pasifleştirildi: yeni belgelere atanmaz."
-msgstr "Tip je deaktiviran: ne dodeljuje se novim dokumentima."
+#: app/web/feedback.py
+#, python-brace-format
+msgid "Tür pasifleştirildi: {slug}. Yeni belgelere atanmaz."
+msgstr "Tip je deaktiviran: {slug}. Ne dodeljuje se novim dokumentima."
 
-#: app/web/routers/catalog.py
+#: app/web/feedback.py
 msgid "Tür seçilmedi: önce tablodan en az bir türü işaretleyin."
 msgstr "Nije izabran nijedan tip: prvo označite bar jedan tip u tabeli."
 
@@ -4801,9 +4825,10 @@ msgstr "Nacrt tipa nije mogao da se napravi"
 msgid "Tür telefon, e-posta ya da adres olmalı."
 msgstr "Vrsta mora biti telefon, e-pošta ili adresa."
 
-#: app/web/routers/catalog.py
-msgid "Tür yeniden etkinleştirildi."
-msgstr "Tip je ponovo aktiviran."
+#: app/web/feedback.py
+#, python-brace-format
+msgid "Tür yeniden etkinleştirildi: {slug}."
+msgstr "Tip je ponovo aktiviran: {slug}."
 
 #: app/web/templates/training_results.html
 msgid "Türe yerleştir"
@@ -5009,6 +5034,12 @@ msgstr "Nova grupa dokumenata"
 msgid "Yeni belge türü"
 msgstr "Novi tip dokumenta"
 
+#: app/web/templates/document_move.html app/web/templates/queue_assign.html
+#: app/web/templates/queue_new_profile.html
+#, python-format
+msgid "Yeni dosya adı: %(file)s."
+msgstr "Novi naziv datoteke: %(file)s."
+
 #: app/web/templates/groups.html
 msgid "Yeni grup"
 msgstr "Nova grupa"
@@ -5046,6 +5077,11 @@ msgstr "Novi zaposleni"
 msgid "Yeniden analiz edilecek bekleyen Unknown öğesi yok."
 msgstr "Nema stavki Unknown na čekanju za ponovnu analizu."
 
+#: app/web/feedback.py
+#, python-brace-format
+msgid "Yeniden analiz edilen parti: {count}."
+msgstr "Ponovo analizirano serija: {count}."
+
 #: app/web/templates/upload_detail.html
 msgid "Yeniden analiz et"
 msgstr "Analiziraj ponovo"
@@ -5062,6 +5098,11 @@ msgstr "Ponovo otvorena stavka se vraća u red; njen plan i izvori se ne menjaju
 #: app/web/templates/profile.html app/web/templates/users.html
 msgid "Yeniden etkinleştir"
 msgstr "Ponovo aktiviraj"
+
+#: app/web/feedback.py
+#, python-brace-format
+msgid "Yeniden etkinleştirilen tür: {count}."
+msgstr "Ponovo aktivirano tipova: {count}."
 
 #: app/web/templates/catalog_candidate.html
 msgid "Yeniden incele"
@@ -5125,23 +5166,12 @@ msgstr "Nema"
 msgid "Yoksay"
 msgstr "Zanemari"
 
-#: app/web/templates/upload_action_result.html
-#, python-format
-msgid ""
-"Yoksayma geri alındı: parti yükleme listesine döndü; %(num)d kuyruk öğesi"
-" yeniden açıldı."
-msgid_plural ""
-"Yoksayma geri alındı: parti yükleme listesine döndü; %(num)d kuyruk öğesi"
-" yeniden açıldı."
-msgstr[0] ""
-"Zanemarivanje je poništeno: serija se vratila na listu otpremanja; ponovo"
-" je otvorena %(num)d stavka reda."
-msgstr[1] ""
-"Zanemarivanje je poništeno: serija se vratila na listu otpremanja; ponovo"
-" su otvorene %(num)d stavke reda."
-msgstr[2] ""
-"Zanemarivanje je poništeno: serija se vratila na listu otpremanja; ponovo"
-" je otvoreno %(num)d stavki reda."
+#: app/web/feedback.py
+#, python-brace-format
+msgid "Yoksayma geri alındı: {upload_id}. Yeniden açılan kuyruk öğesi: {count}."
+msgstr ""
+"Zanemarivanje je poništeno: {upload_id}. Ponovo otvoreno stavki reda: "
+"{count}."
 
 #: app/web/templates/upload_detail.html
 msgid "Yoksaymayı geri al"
@@ -5198,7 +5228,7 @@ msgstr ""
 "Otpremanje se vrši u kontekstu zaposlenog %(name)s (%(id)s): datoteke "
 "čiji se vlasnik ne može odrediti iz dokumenta dodeljuju se njemu."
 
-#: app/web/routers/training.py
+#: app/web/feedback.py
 msgid ""
 "Yükleme alındı ve mekanik tanıma bitti. Mekanik tanınmayan dosyaları işçi"
 " yapay zekâyla inceler; sonuçlar bu tabloda güncellenir."
@@ -5206,6 +5236,11 @@ msgstr ""
 "Otpremanje je primljeno i mehaničko prepoznavanje je završeno. Radnik "
 "pomoću veštačke inteligencije pregleda datoteke koje nisu mehanički "
 "prepoznate; rezultati se ažuriraju u ovoj tabeli."
+
+#: app/web/feedback.py
+#, python-brace-format
+msgid "Yükleme alındı: {upload_id}. İlerleme aşağıda izlenir."
+msgstr "Otpremanje je primljeno: {upload_id}. Napredak pratite ispod."
 
 #: app/web/templates/_training_tabs.html
 msgid "Yükleme ve sonuçlar"
@@ -5226,6 +5261,11 @@ msgstr "Nije izabrana nijedna datoteka za otpremanje."
 #: app/web/routers/training.py
 msgid "Yüklenecek harita seçilmedi."
 msgstr "Nije izabrana mapa za otpremanje."
+
+#: app/web/feedback.py
+#, python-brace-format
+msgid "Yüklenen örnek: {count}; zaten kayıtlı olduğu için atlanan: {skipped}."
+msgstr "Otpremljeno primera: {count}; preskočeno jer su već upisani: {skipped}."
 
 #: app/web/templates/training_results.html app/web/templates/uploads_list.html
 msgid "Yükleyen"
@@ -5731,26 +5771,6 @@ msgstr[0] "{count} fajl ste već ranije poslali, pa ga nisam ponovo dodao."
 msgstr[1] "{count} fajla ste već ranije poslali, pa ih nisam ponovo dodao."
 msgstr[2] "{count} fajlova ste već ranije poslali, pa ih nisam ponovo dodao."
 
-#: app/web/routers/catalog.py
-#, python-brace-format
-msgid "{count} tür arşivlendi, {skipped} korunan tür atlandı."
-msgstr "Arhivirano tipova: {count}; preskočeno zaštićenih tipova: {skipped}."
-
-#: app/web/routers/catalog.py
-#, python-brace-format
-msgid "{count} tür arşivlendi."
-msgstr "Arhivirano tipova: {count}."
-
-#: app/web/routers/catalog.py
-#, python-brace-format
-msgid "{count} tür pasifleştirildi: yeni belgelere atanmaz."
-msgstr "Deaktivirano tipova: {count}; ne dodeljuju se novim dokumentima."
-
-#: app/web/routers/catalog.py
-#, python-brace-format
-msgid "{count} tür yeniden etkinleştirildi."
-msgstr "Ponovo aktivirano tipova: {count}."
-
 #: app/telegram/intent.py
 #, python-brace-format
 msgid "{count} {kind}"
@@ -5901,7 +5921,7 @@ msgstr "Zaposleni nije pronađen"
 msgid "Çalışan bulunamadı."
 msgstr "Zaposleni nije pronađen."
 
-#: app/web/routers/employees.py
+#: app/web/feedback.py
 msgid ""
 "Çalışan kalıcı olarak silindi, ancak bazı dosyaları diskten kaldırılamadı"
 " (açık ya da kilitli olabilir); sayısı olay logunda. Sistem yöneticisine "
@@ -5911,7 +5931,7 @@ msgstr ""
 " diska (možda su otvorene ili zaključane); broj je u dnevniku događaja. "
 "Obavestite administratora sistema."
 
-#: app/web/routers/employees.py
+#: app/web/feedback.py
 msgid "Çalışan kalıcı olarak silindi; klasörü ve belgeleri diskten kaldırıldı."
 msgstr "Zaposleni je trajno obrisan; fascikla i dokumenti su uklonjeni sa diska."
 
@@ -5929,27 +5949,26 @@ msgstr ""
 " automatski. Dokumenti koji su dok je bio neaktivan otišli u red ne "
 "raspoređuju se sami: dodelite stavku ili ponovo analizirajte seriju."
 
-#: app/web/routers/employees.py
+#: app/web/feedback.py
 msgid "Çalışan pasife alındı; yeni belgeleri otomatik yerleşmeyecek."
 msgstr ""
 "Zaposleni je deaktiviran; njegovi novi dokumenti neće se raspoređivati "
 "automatski."
 
-#: app/web/templates/queue_new_profile.html
-#, python-format
+#: app/web/feedback.py
+#, python-brace-format
 msgid ""
-"Çalışan profili oluşturuldu: <a href=\"%(url)s\">%(name)s (%(id)s)</a>. "
-"Belge %(file)s olarak çalışanın Hazır klasörüne yazıldı."
+"Çalışan profili oluşturuldu: {employee_id}. Belge çalışanın Hazır "
+"klasörüne yazıldı."
 msgstr ""
-"Profil zaposlenog je napravljen: <a href=\"%(url)s\">%(name)s "
-"(%(id)s)</a>. Dokument je upisan u fasciklu Hazir zaposlenog kao "
-"%(file)s."
+"Profil zaposlenog je napravljen: {employee_id}. Dokument je upisan u "
+"fasciklu Hazir zaposlenog."
 
 #: app/web/templates/employee_deleted.html
 msgid "Çalışan silindi"
 msgstr "Zaposleni obrisan"
 
-#: app/web/routers/employees.py
+#: app/web/feedback.py
 msgid "Çalışan yeniden etkinleştirildi."
 msgstr "Zaposleni je ponovo aktiviran."
 
@@ -5989,11 +6008,11 @@ msgstr "Ponovo aktiviraj zaposlenog"
 msgid "Çalışanın durumu"
 msgstr "Status zaposlenog"
 
-#: app/web/routers/training.py
+#: app/web/feedback.py
 msgid "Çalıştırma arşivden geri alındı."
 msgstr "Pokretanje je vraćeno iz arhive."
 
-#: app/web/routers/training.py
+#: app/web/feedback.py
 msgid ""
 "Çalıştırma arşivlendi: listeden ve sayaçlardan kalktı; öğeleri ve "
 "örnekleri değişmedi."
@@ -6136,7 +6155,7 @@ msgstr "Primeri dokumenata"
 msgid "Örnek belgeleri seçin"
 msgstr "Izaberite primere dokumenata"
 
-#: app/web/routers/training.py
+#: app/web/feedback.py
 msgid "Örnek bu türe taşındı ve doğrulanmış olarak kaydedildi."
 msgstr "Primer je premešten u ovaj tip i upisan kao potvrđen."
 
@@ -6182,10 +6201,6 @@ msgstr "Nema primera"
 msgid "Örnek yükle"
 msgstr "Otpremi primere"
 
-#: app/web/templates/catalog_examples.html
-msgid "Örnek yüklendi:"
-msgstr "Primer je otpremljen:"
-
 #: app/training/decisions.py
 msgid "Örnek zaten bu türde; başka bir tür seçin."
 msgstr "Primer je već u ovom tipu; izaberite drugi tip."
@@ -6194,7 +6209,7 @@ msgstr "Primer je već u ovom tipu; izaberite drugi tip."
 msgid "Örnek zaten örneklerden çıkarılmış."
 msgstr "Primer je već uklonjen iz primera."
 
-#: app/web/routers/training.py
+#: app/web/feedback.py
 msgid "Örnek örneklerden çıkarıldı: dosya silinmedi, eğitim arşivine taşındı."
 msgstr ""
 "Primer je uklonjen iz primera: datoteka nije obrisana, premeštena je u "
@@ -6246,46 +6261,46 @@ msgstr "Stavka %(id)s"
 msgid "Öğe %(item)s"
 msgstr "Stavka %(item)s"
 
-#: app/web/templates/queue_assign.html
-#, python-format
-msgid "Öğe %(name)s (%(id)s) çalışanına atandı: %(file)s."
-msgstr "Stavka je dodeljena zaposlenom %(name)s (%(id)s): %(file)s."
-
 #: app/web/templates/queue.html
 msgid "Öğe durumu"
 msgstr "Stanje stavke"
 
-#: app/web/routers/queue.py
+#: app/web/feedback.py
 msgid "Öğe kapatıldı; kuyruk klasöründeki kopya ve gerekçe dosyası yerinde kaldı."
 msgstr ""
 "Stavka je zatvorena; kopija i datoteka sa razlogom u fascikli reda ostale"
 " su na mestu."
 
-#: app/web/routers/training.py
+#: app/web/feedback.py
 msgid "Öğe seçilen türe yerleşti; örnek doğrulanmış olarak kaydedildi."
 msgstr "Stavka je raspoređena u izabrani tip; primer je upisan kao potvrđen."
 
-#: app/web/routers/queue.py
+#: app/web/feedback.py
 msgid "Öğe yeniden açıldı."
 msgstr "Stavka je ponovo otvorena."
 
-#: app/web/routers/training.py
+#: app/web/feedback.py
 msgid "Öğe yerleşmedi: aynı içerik başka bir türde örnek. Notu inceleyin."
 msgstr ""
 "Stavka nije raspoređena: isti sadržaj je primer drugog tipa. Pogledajte "
 "napomenu."
 
-#: app/web/routers/training.py
+#: app/web/feedback.py
 msgid "Öğe yerleşmedi: aynı içerik bu türde zaten örnek."
 msgstr "Stavka nije raspoređena: isti sadržaj je već primer ovog tipa."
 
-#: app/web/routers/training.py
+#: app/web/feedback.py
 msgid ""
 "Öğe yoksayıldı: listeden kalktı, dosyası yerinde duruyor. Yoksayılanlar "
 "görünümünden geri alabilirsiniz."
 msgstr ""
 "Stavka je zanemarena: nestala je sa liste, njena datoteka ostaje na "
 "mestu. Možete je vratiti iz prikaza Zanemareni."
+
+#: app/web/feedback.py
+#, python-brace-format
+msgid "Öğe {employee_id} çalışanına atandı."
+msgstr "Stavka je dodeljena zaposlenom {employee_id}."
 
 #: app/web/routers/training.py
 msgid "Öğenin eğitim kopyası okunamadı; yerleştirilmedi."
@@ -6295,7 +6310,7 @@ msgstr "Kopija stavke za obuku nije mogla da se pročita; nije raspoređena."
 msgid "Öğenin partisi yoksayılmış; önce yoksaymayı geri alın."
 msgstr "Serija stavke je zanemarena; prvo poništite zanemarivanje."
 
-#: app/web/routers/training.py
+#: app/web/feedback.py
 msgid ""
 "Öğenin yoksayılması geri alındı; öğe \"Yerleştirilemedi\" listesinde "
 "bekliyor."
@@ -6395,7 +6410,7 @@ msgstr "Kontakt"
 msgid "İletişim bilgisi ekle"
 msgstr "Dodaj kontakt podatak"
 
-#: app/web/routers/employees.py
+#: app/web/feedback.py
 msgid "İletişim bilgisi eklendi."
 msgstr "Kontakt podatak je dodat."
 
@@ -6456,6 +6471,11 @@ msgstr "Preuzeo"
 #: app/web/routers/uploads_list.py
 msgid "İptal"
 msgstr "Otkazano"
+
+#: app/web/templates/upload_action_result.html
+#, python-format
+msgid "İptal anındaki aşama: %(stage)s."
+msgstr "Faza u trenutku otkazivanja: %(stage)s."
 
 #: app/groups/packages.py app/web/routers/upload_page.py
 #: app/web/routers/uploads_list.py
@@ -6523,6 +6543,22 @@ msgstr "Neoznačena stavka je opciona: paket ne čeka na nju da bi bio kompletan
 #: app/web/templates/upload_detail.html
 msgid "İşlem"
 msgstr "Operacija"
+
+#: app/web/feedback.py
+msgid "İşlem tamamlanamadı. Ayrıntı sayfada."
+msgstr "Radnja nije mogla da se završi. Detalji su na stranici."
+
+#: app/web/feedback.py
+msgid ""
+"İşlem yapılamadı: kayıt bu durumda değiştirilemez ya da bu arada değişti."
+" Ayrıntı sayfada."
+msgstr ""
+"Radnja nije izvršena: zapis se u ovom stanju ne može menjati ili se u "
+"međuvremenu promenio. Detalji su na stranici."
+
+#: app/web/feedback.py
+msgid "İşlem yapılamadı: kayıt bulunamadı."
+msgstr "Radnja nije izvršena: zapis nije pronađen."
 
 #: app/web/templates/catalog_candidate_step.html
 msgid "İşlem yapılmadı"

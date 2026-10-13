@@ -30,6 +30,7 @@ from app.web.routers.catalog import EXAMPLE_RECORD_CLASH
 from app.web.routers.training import decision_subject
 from tests.fixtures.gen import make_docx_bytes, make_pdf_bytes, make_portrait_image_bytes
 from tests.web.conftest import SESSION, issue_token
+from tests.web.flash import toasts
 
 SLUG = "sample_card"
 EXAMPLES_URL = f"/document-types/{SLUG}/examples"
@@ -109,8 +110,10 @@ def test_an_uploaded_example_is_stored_listed_and_served_unchanged(
     response = _upload(client, ("Ön Yüz.png", content))
 
     assert response.status_code == 200
-    assert "Örnek yüklendi:" in response.text
-    assert "<code>On-Yuz.png</code>" in response.text
+    # 10.11.1: yüklemenin sonucu bildirimdir; dosya örnek listesinde görünür.
+    # Önceki bildirim (türün oluşturulması) bu ilk tam sayfada gösterilir, sonra bu işlemin.
+    assert toasts(response.text)[-1] == "Yüklenen örnek: 1; zaten kayıtlı olduğu için atlanan: 0."
+    assert "On-Yuz.png" in response.text
     assert (
         layout.root / "KnownDocuments" / "examples" / SLUG / "On-Yuz.png"
     ).read_bytes() == content
@@ -233,12 +236,16 @@ def test_examples_placed_by_hand_are_listed_and_a_rejected_edit_still_shows_them
 
 def test_uploading_an_example_does_not_touch_the_type_record(client: TestClient) -> None:
     # Form alanları karşılaştırılır; düğmeler değil — örnek varken "Örneklerden açıklama üret"
-    # düğmesi çıkar (11.3.1).
-    before = client.get(f"/document-types/{SLUG}").text.split('class="form-actions"')[0]
+    # düğmesi çıkar (11.3.1). Bildirim alanı (10.11.1) içerikten önce, karşılaştırma dışı.
+    def form() -> str:
+        page = client.get(f"/document-types/{SLUG}").text
+        return page.split('<main class="content">')[1].split('class="form-actions"')[0]
+
+    before = form()
 
     _upload(client, ("sayfa.png", make_portrait_image_bytes("PNG")))
 
-    after = client.get(f"/document-types/{SLUG}").text.split('class="form-actions"')[0]
+    after = form()
     assert after == before
 
 

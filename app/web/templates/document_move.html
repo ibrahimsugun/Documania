@@ -55,7 +55,8 @@
   <a href="/documents/{{ document_id }}/history">{{ _("Vazgeç") }}</a>
 </form>
 {% elif done %}
-<p class="notice notice-success" role="status">{{ _("Belge %(previous)s (%(previous_id)s) çalışanından %(target)s (%(target_id)s) çalışanına taşındı: %(file)s.", previous=previous.name, previous_id=previous.id, target=target.name, target_id=target.id, file=file_name) }} {{ _("İki profil de güncellendi:") }} <a href="/employees/{{ previous.id }}">{{ previous.name }}</a> · <a href="/employees/{{ target.id }}">{{ target.name }}</a> · <a href="/documents/{{ document_id }}/history">{{ _("Sayfayı yenileyin") }}</a>.</p>
+{# 10.11.1: işlemin sonucu bildirimdir (`HX-Trigger`); burada yalnız yeni adres ve bağlantılar. #}
+<p class="move-done">{{ _("Yeni dosya adı: %(file)s.", file=file_name) }} {{ _("İki profil de güncellendi:") }} <a href="/employees/{{ previous.id }}">{{ previous.name }}</a> · <a href="/employees/{{ target.id }}">{{ target.name }}</a> · <a href="/documents/{{ document_id }}/history">{{ _("Sayfayı yenileyin") }}</a>.</p>
 {# Taşınan belgede arama sonuçları ve arama formu kalmasın. #}
 <div id="move-results" hx-swap-oob="true"></div>
 <div id="move-search" hx-swap-oob="true"></div>

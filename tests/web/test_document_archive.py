@@ -37,6 +37,7 @@ from app.web.routers.documents import (
     document_subject,
 )
 from tests.web.conftest import SESSION, SIGNED_IN, issue_token
+from tests.web.flash import flashed
 
 OWNER, FOLDER = "E0001", "Test_Kisi_E0001"
 TYPE_SLUG = "test_passport"
@@ -199,7 +200,8 @@ def test_archive_needs_both_confirmations_and_logs_the_user(
     )
 
     assert done.status_code == 303
-    assert done.headers["location"] == f"/employees/{OWNER}?notice=document_archived#documents"
+    assert done.headers["location"] == f"/employees/{OWNER}#documents"
+    assert flashed(done) == ("employees.document_archived", {})
     status, path, _ = _state(session_factory, docs.active)
     assert status == DocumentStatus.ARCHIVED.value
     assert path.startswith("Archive/")
@@ -276,7 +278,8 @@ def test_unarchive_needs_both_confirmations_and_returns_the_file_to_hazir(
     )
 
     assert done.status_code == 303
-    assert done.headers["location"] == f"/employees/{OWNER}?notice=document_unarchived#documents"
+    assert done.headers["location"] == f"/employees/{OWNER}#documents"
+    assert flashed(done) == ("employees.document_unarchived", {})
     status, path, sequence_no = _state(session_factory, docs.archived)
     assert status == DocumentStatus.ACTIVE.value
     # Kendi eki (-2) boştu; belge ona döner.

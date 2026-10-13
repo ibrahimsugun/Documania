@@ -143,6 +143,16 @@ from app.web.confirm import (
     second_text,
 )
 from app.web.context_person import ForeignDocumentsWarning, upload_warning
+from app.web.feedback import (
+    UPLOAD_CANCELLED,
+    UPLOAD_DISMISSED,
+    UPLOAD_REANALYZED,
+    UPLOAD_RECEIVED,
+    UPLOAD_RERUN,
+    UPLOAD_UNDISMISSED,
+    Toast,
+    render,
+)
 from app.web.routers.uploads import (
     CANCELLED_MESSAGE,
     DISMISSED_MESSAGE,
@@ -247,9 +257,18 @@ def _employee_options(session: Session) -> list[Employee]:
     )
 
 
-def _result(request: Request, status_code: int = 200, **context: object) -> HTMLResponse:
+def _result(
+    request: Request, status_code: int = 200, *, feedback: Toast | None = None, **context: object
+) -> HTMLResponse:
     """`upload_result.html` parçasını çizer (HTMX hedefi: sayfadaki `#upload-result`)."""
-    return render_page(request, "upload_result.html", user=None, status_code=status_code, **context)
+    return render_page(
+        request,
+        "upload_result.html",
+        user=None,
+        status_code=status_code,
+        feedback=feedback,
+        **context,
+    )
 
 
 @router.get("/upload", response_class=HTMLResponse, dependencies=WRITER_ONLY)
@@ -305,6 +324,7 @@ async def submit_upload(
         status.HTTP_201_CREATED,
         progress=view,
         poll=not view.final,
+        feedback=render(UPLOAD_RECEIVED, upload_id=created.upload_id),
     )
 
 
@@ -877,10 +897,19 @@ def expire_stale_uploads(session: Session, settings: Settings, now: datetime) ->
 # --- 10.3: uç noktalar -------------------------------------------------------------------------
 
 
-def _action_result(request: Request, status_code: int, **context: object) -> HTMLResponse:
-    """`upload_action_result.html` parçası (HTMX hedefi: sayfadaki `#action-result`)."""
+def _action_result(
+    request: Request, status_code: int, *, feedback: Toast | None = None, **context: object
+) -> HTMLResponse:
+    """`upload_action_result.html` parçası (HTMX hedefi: sayfadaki `#action-result`); işlemin
+    sonucu `feedback` bildirimidir (10.11.1), parça yalnız ayrıntıyı ve yenileme bağlantısını
+    taşır."""
     return render_page(
-        request, "upload_action_result.html", user=None, status_code=status_code, **context
+        request,
+        "upload_action_result.html",
+        user=None,
+        status_code=status_code,
+        feedback=feedback,
+        **context,
     )
 
 
@@ -983,7 +1012,11 @@ def rerun_upload(
         return _action_result(request, status.HTTP_409_CONFLICT, error=exc)
     session.commit()
     return _action_result(
-        request, status.HTTP_200_OK, upload_id=upload_id, done="rerun", version=run.plan.version
+        request,
+        status.HTTP_200_OK,
+        upload_id=upload_id,
+        done="rerun",
+        feedback=render(UPLOAD_RERUN, version=run.plan.version, upload_id=upload_id),
     )
 
 
@@ -1077,9 +1110,13 @@ def reanalyze_upload_page(
         status.HTTP_200_OK,
         upload_id=upload_id,
         done="reanalyze",
-        version=reanalysis.plan.version,
-        previous_version=reanalysis.previous_plan.version,
         superseded=len(reanalysis.superseded_document_ids),
+        feedback=render(
+            UPLOAD_REANALYZED,
+            upload_id=upload_id,
+            version=reanalysis.plan.version,
+            previous=reanalysis.previous_plan.version,
+        ),
     )
 
 
@@ -1189,8 +1226,8 @@ def dismiss_upload_page(
         status.HTTP_200_OK,
         upload_id=upload_id,
         done="dismiss",
-        closed=len(dismissal.queue_item_ids),
         kept=len(dismissal.active_document_ids),
+        feedback=render(UPLOAD_DISMISSED, upload_id=upload_id, count=len(dismissal.queue_item_ids)),
     )
 
 
@@ -1222,7 +1259,9 @@ def undismiss_upload(
         status.HTTP_200_OK,
         upload_id=upload_id,
         done="undismiss",
-        reopened=len(restoration.queue_item_ids),
+        feedback=render(
+            UPLOAD_UNDISMISSED, upload_id=upload_id, count=len(restoration.queue_item_ids)
+        ),
     )
 
 
@@ -1316,4 +1355,5 @@ def cancel_upload_page(
         upload_id=upload_id,
         done="cancel",
         stage=STATUS_LABELS[cancellation.stage],
+        feedback=render(UPLOAD_CANCELLED, upload_id=upload_id),
     )

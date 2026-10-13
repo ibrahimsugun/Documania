@@ -63,6 +63,7 @@ from tests.pipeline.test_plan import (
 )
 from tests.pipeline.test_plan import _upload as _upload_with_analyses
 from tests.web.conftest import SESSION, SIGNED_IN, issue_token
+from tests.web.flash import hx_toasts
 from tests.web.test_queue import _queued_item, _refuse_provider
 
 # §20.2.3 koşul 2: normalize hâli 5 karakterden kısa numara temiz değildir → satır 7.
@@ -437,8 +438,14 @@ def test_confirmed_edited_profile_opens_the_employee_and_binds_the_unchanged_doc
             assert value not in logged
     html = response.text
     link = f'<a href="/employees/{NEW}">{GIVEN} {EDITED_SURNAME} ({NEW})</a>'
-    assert f"Çalışan profili oluşturuldu: {link}" in html
-    assert "Belge Test_Ornekovic-Work-Permit.pdf olarak çalışanın Hazır klasörüne yazıldı." in html
+    assert hx_toasts(response) == [
+        {
+            "kind": "success",
+            "text": f"Çalışan profili oluşturuldu: {NEW}. Belge çalışanın Hazır klasörüne yazıldı.",
+        }
+    ]
+    assert link in html
+    assert "Yeni dosya adı: Test_Ornekovic-Work-Permit.pdf." in html
     assert f'<a href="/documents/{document.id}/history">Çıktının geçmişi</a>' in html
     assert '<div id="profile-form" hx-swap-oob="true"></div>' in html
 

@@ -4,8 +4,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Documania panel\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-09 02:33+0000\n"
-"PO-Revision-Date: 2026-10-09 02:33+0000\n"
+"POT-Creation-Date: 2026-10-13 13:44+0000\n"
+"PO-Revision-Date: 2026-10-13 13:44+0000\n"
 "Last-Translator: Documania görev penceresi (gözden geçirilmeli)\n"
 "Language: en\n"
 "Language-Team: English\n"
@@ -169,13 +169,6 @@ msgstr[1] "%(num)d items"
 #, python-format
 msgid "%(num)d onay bekliyor"
 msgstr "%(num)d awaiting approval"
-
-#: app/web/templates/catalog_candidate_step.html
-#, python-format
-msgid "%(num)d parti yeniden analiz edildi."
-msgid_plural "%(num)d parti yeniden analiz edildi."
-msgstr[0] "%(num)d batch was re-analyzed."
-msgstr[1] "%(num)d batches were re-analyzed."
 
 #: app/web/templates/catalog_description.html
 #, python-format
@@ -491,17 +484,17 @@ msgstr "Candidate type not found."
 msgid "Aday tür görünümleri"
 msgstr "Candidate type views"
 
-#: app/web/routers/catalog.py
+#: app/web/feedback.py
 msgid "Aday tür reddedildi; bir daha listeye düşmez."
 msgstr "The candidate type was rejected; it will not appear in the list again."
 
-#: app/web/routers/catalog.py
+#: app/web/feedback.py
 msgid "Aday tür retten geri alındı; yeniden onay bekliyor."
 msgstr ""
 "The rejection of the candidate type was undone; it is awaiting approval "
 "again."
 
-#: app/web/routers/catalog.py
+#: app/web/feedback.py
 msgid ""
 "Aday tür standart türler arasına eklendi; tür bir sonraki analizden "
 "itibaren geçerlidir. İlişkili Unknown öğeleri aşağıdan toplu yeniden "
@@ -525,7 +518,7 @@ msgstr "Back to the candidate type"
 msgid "Aday türler"
 msgstr "Candidate types"
 
-#: app/web/routers/catalog.py
+#: app/web/feedback.py
 msgid "Aday yeniden incelendi."
 msgstr "The candidate was examined again."
 
@@ -711,6 +704,16 @@ msgstr "Types to archive (%(num)d):"
 msgid "Arşivlenen tür yok."
 msgstr "No archived types."
 
+#: app/web/feedback.py
+#, python-brace-format
+msgid "Arşivlenen tür: {count}."
+msgstr "Types archived: {count}."
+
+#: app/web/feedback.py
+#, python-brace-format
+msgid "Arşivlenen tür: {count}; atlanan korunan tür: {skipped}."
+msgstr "Types archived: {count}; protected types skipped: {skipped}."
+
 #: app/web/templates/catalog.html
 msgid "Arşivlenen türler"
 msgstr "Archived types"
@@ -777,10 +780,6 @@ msgid "Aynı içerik seçilen türde zaten örnek ({name}); taşınmadı."
 msgstr ""
 "The same content is already an example of the chosen type ({name}); not "
 "moved."
-
-#: app/web/templates/catalog_examples.html
-msgid "Aynı içerik zaten örnek olarak kayıtlı:"
-msgstr "The same content is already registered as an example:"
 
 #: app/web/templates/employee_merge.html
 msgid ""
@@ -958,6 +957,10 @@ msgstr[1] ""
 "The link is valid for %(num)d minutes (until %(end)s UTC) and works once;"
 " a new link invalidates it."
 
+#: app/web/feedback.py
+msgid "Bağlantı kodu oluşturuldu; ekrandaki adımları izleyin."
+msgstr "The link code was created; follow the steps on the screen."
+
 #: app/web/templates/account_telegram.html
 msgid "Bağlantıyı kopyala"
 msgstr "Copy link"
@@ -1071,15 +1074,6 @@ msgstr "Document"
 msgid "Belge %(id)s"
 msgstr "Document %(id)s"
 
-#: app/web/templates/document_move.html
-#, python-format
-msgid ""
-"Belge %(previous)s (%(previous_id)s) çalışanından %(target)s "
-"(%(target_id)s) çalışanına taşındı: %(file)s."
-msgstr ""
-"The document was moved from employee %(previous)s (%(previous_id)s) to "
-"employee %(target)s (%(target_id)s): %(file)s."
-
 #: app/web/templates/group.html app/web/templating.py
 msgid "Belge Grupları"
 msgstr "Document groups"
@@ -1093,13 +1087,13 @@ msgstr "Document types"
 msgid "Belge analiz edilir"
 msgstr "The document is analyzed"
 
-#: app/web/routers/employees.py
+#: app/web/feedback.py
 msgid "Belge arşivden geri alındı; çalışanın Hazır klasörüne döndü."
 msgstr ""
 "The document was restored from the archive; it is back in the employee's "
 "Hazir folder."
 
-#: app/web/routers/employees.py
+#: app/web/feedback.py
 msgid "Belge arşive taşındı; çalışanın Hazır klasöründen çıktı."
 msgstr ""
 "The document was moved to the archive; it left the employee's Hazir "
@@ -1164,7 +1158,7 @@ msgstr "Document group not found"
 msgid "Belge grubu bulunamadı."
 msgstr "Document group not found."
 
-#: app/web/routers/employees.py
+#: app/web/feedback.py
 msgid ""
 "Belge kalıcı olarak silindi, ancak bazı dosyaları diskten kaldırılamadı "
 "(açık ya da kilitli olabilir); sayısı olay logunda. Sistem yöneticisine "
@@ -1174,7 +1168,7 @@ msgstr ""
 "removed from disk (they may be open or locked); the count is in the event"
 " log. Notify the system administrator."
 
-#: app/web/routers/employees.py
+#: app/web/feedback.py
 msgid "Belge kalıcı olarak silindi; dosyaları diskten kaldırıldı."
 msgstr "The document was permanently deleted; its files were removed from disk."
 
@@ -1241,6 +1235,11 @@ msgstr "Upload documents"
 #: app/web/routers/documents.py
 msgid "Belge zaten bu çalışanın; başka bir çalışan seçin."
 msgstr "The document already belongs to this employee; choose another employee."
+
+#: app/web/feedback.py
+#, python-brace-format
+msgid "Belge {employee_id} çalışanına taşındı."
+msgstr "The document was moved to employee {employee_id}."
 
 #: app/web/routers/employees.py
 #, python-brace-format
@@ -1424,6 +1423,10 @@ msgid "Benzersiz olmalı; harf büyüklüğü ve Türkçe harf farkı aynı ad s
 msgstr ""
 "Must be unique; names differing only in letter case or in Turkish letters"
 " count as the same name."
+
+#: app/web/templates/base.html
+msgid "Bildirimi kapat"
+msgstr "Close notification"
 
 #: app/web/templates/_training_tabs.html app/web/templates/training_known.html
 #: app/web/templates/training_type.html
@@ -2159,7 +2162,7 @@ msgstr "The value cannot be empty."
 msgid "Değer en çok {limit} karakter olabilir."
 msgstr "The value can be at most {limit} characters long."
 
-#: app/web/routers/groups.py
+#: app/web/feedback.py
 msgid "Değişiklik yok."
 msgstr "No changes."
 
@@ -2264,7 +2267,7 @@ msgstr "Verify"
 msgid "Doğrulamalar"
 msgstr "Validations"
 
-#: app/web/routers/training.py
+#: app/web/feedback.py
 msgid "Doğrulanacak \"AI kararı\" örneği seçilmedi; hiçbir şey değişmedi."
 msgstr "No \"AI decision\" example was selected for verification; nothing changed."
 
@@ -2633,9 +2636,10 @@ msgstr ""
 msgid "Fotoğraf kuralları"
 msgstr "Photo rules"
 
-#: app/web/routers/catalog.py
-msgid "Fotoğraf kuralları kaydedildi."
-msgstr "The photo rules were saved."
+#: app/web/feedback.py
+#, python-brace-format
+msgid "Fotoğraf kuralları kaydedildi: {slug}."
+msgstr "The photo rules were saved: {slug}."
 
 #: app/web/templates/profile.html
 msgid "Fotoğraf yok"
@@ -2692,7 +2696,7 @@ msgstr "Archive the group"
 msgid "Grubu oluştur"
 msgstr "Create the group"
 
-#: app/web/routers/groups.py
+#: app/web/feedback.py
 msgid "Grubun adı ve açıklaması güncellendi."
 msgstr "The group's name and description were updated."
 
@@ -2713,11 +2717,11 @@ msgstr "The group name must contain at least one letter or digit."
 msgid "Grup adı en çok {limit} karakter olabilir."
 msgstr "The group name can be at most {limit} characters long."
 
-#: app/web/routers/groups.py
+#: app/web/feedback.py
 msgid "Grup arşivden geri alındı."
 msgstr "The group was restored from the archive."
 
-#: app/web/routers/groups.py
+#: app/web/feedback.py
 msgid "Grup arşivlendi: yeni paket tanımlanamaz, açık paketler sürer."
 msgstr ""
 "The group was archived: no new package can be assigned, open packages "
@@ -2727,7 +2731,7 @@ msgstr ""
 msgid "Grup kaydedilmedi: alanların altındaki uyarıları düzeltin."
 msgstr "The group was not saved: correct the warnings under the fields."
 
-#: app/web/routers/groups.py
+#: app/web/feedback.py
 msgid "Grup oluşturuldu. Şimdi kalemlerini ekleyin."
 msgstr "The group was created. Now add its items."
 
@@ -2749,6 +2753,10 @@ msgstr ""
 #: app/web/routers/catalog.py
 msgid "Gömülü görüntüyü çıkar"
 msgstr "Extract the embedded image"
+
+#: app/web/feedback.py
+msgid "Gönderilen dosya izin verilen sınırı aşıyor."
+msgstr "The submitted file exceeds the allowed limit."
 
 #: app/web/templates/profile.html
 #, python-format
@@ -2945,7 +2953,7 @@ msgstr ""
 msgid "Her seferinde tek bir kişiyi sorun."
 msgstr "Ask about one person at a time."
 
-#: app/web/auth.py
+#: app/web/auth.py app/web/feedback.py
 msgid "Hesabınız salt okunur: bu işlemi yapamazsınız."
 msgstr "Your account is read-only: you can't do this."
 
@@ -3063,11 +3071,11 @@ msgstr[1] ""
 "Item changes will apply at once in <strong>%(count)s</strong> open "
 "packages."
 
-#: app/web/routers/groups.py
+#: app/web/feedback.py
 msgid "Kalem eklendi."
 msgstr "The item was added."
 
-#: app/web/routers/groups.py
+#: app/web/feedback.py
 msgid "Kalem kaldırıldı."
 msgstr "The item was removed."
 
@@ -3194,6 +3202,10 @@ msgstr "The catalog has no types yet."
 msgid "Kataloğa eklenecek tür:"
 msgstr "Type to be added to the catalog:"
 
+#: app/web/feedback.py
+msgid "Kaydedilmedi: işaretli alanları düzeltip yeniden gönderin."
+msgstr "Not saved: correct the marked fields and submit again."
+
 #: app/web/templates/catalog_form.html app/web/templates/group.html
 msgid "Kaydet"
 msgstr "Save"
@@ -3236,11 +3248,11 @@ msgstr "Keep the source's format"
 msgid "Kayıt bulunamadı."
 msgstr "Record not found."
 
-#: app/web/routers/employees.py
+#: app/web/feedback.py
 msgid "Kayıt geri alındı; yeniden eşleştirmede ve aramada kullanılacak."
 msgstr "The record was restored; it will be used again for matching and search."
 
-#: app/web/routers/employees.py
+#: app/web/feedback.py
 msgid "Kayıt kaldırıldı; eşleştirmede ve aramada kullanılmayacak."
 msgstr "The record was removed; it will no longer be used for matching and search."
 
@@ -3265,7 +3277,7 @@ msgstr ""
 msgid "Kayıt zaten kaldırılmış; profildeki “Kaldırılanlar” altından geri alınır."
 msgstr "The record is already removed; restore it from “Removed” on the profile."
 
-#: app/web/routers/employees.py
+#: app/web/feedback.py
 msgid ""
 "Kayıtlar birleştirildi; birleşen kaydın belgeleri, numaraları, isim "
 "yazımları, iletişim bilgileri ve belge paketleri bu profile taşındı."
@@ -3410,7 +3422,7 @@ msgstr "User not found"
 msgid "Kullanıcı oluştur"
 msgstr "Create user"
 
-#: app/web/routers/users.py
+#: app/web/feedback.py
 msgid "Kullanıcı oluşturuldu."
 msgstr "User created."
 
@@ -3418,11 +3430,11 @@ msgstr "User created."
 msgid "Kullanıcı pasif: bot bu kimliklerin hiçbirine yanıt vermez."
 msgstr "The user is inactive: the bot does not reply to any of these IDs."
 
-#: app/web/routers/users.py
+#: app/web/feedback.py
 msgid "Kullanıcı pasife alındı; açık oturumları kapatıldı."
 msgstr "The user was deactivated; their open sessions were closed."
 
-#: app/web/routers/users.py
+#: app/web/feedback.py
 msgid "Kullanıcı yeniden etkinleştirildi."
 msgstr "The user was reactivated."
 
@@ -3434,7 +3446,7 @@ msgstr "Users"
 msgid "Kullanıcılar sayfasına dön"
 msgstr "Back to the Users page"
 
-#: app/web/routers/users.py
+#: app/web/feedback.py
 msgid "Kullanıcının rolü değişti; bir sonraki isteğinde geçerli olur."
 msgstr "The user's role changed; it takes effect on their next request."
 
@@ -3717,7 +3729,7 @@ msgstr "Packages"
 msgid "Paket bulunamadı."
 msgstr "Package not found."
 
-#: app/web/routers/employees.py
+#: app/web/feedback.py
 msgid "Paket iptal edildi."
 msgstr "The package was cancelled."
 
@@ -3733,11 +3745,11 @@ msgstr ""
 "To assign a package, first create a non-archived group in <a href"
 "=\"/document-groups\">Document groups</a>."
 
-#: app/web/routers/employees.py
+#: app/web/feedback.py
 msgid "Paket tanımlandı."
 msgstr "The package was assigned."
 
-#: app/web/routers/employees.py
+#: app/web/feedback.py
 msgid "Paket yeniden açıldı."
 msgstr "The package was reopened."
 
@@ -3779,7 +3791,7 @@ msgstr[1] "The password must be at least %(num)d characters long."
 msgid "Parola en az {limit} karakter olmalı."
 msgstr "The password must be at least {limit} characters long."
 
-#: app/web/routers/users.py
+#: app/web/feedback.py
 msgid "Parola sıfırlandı; kullanıcının açık oturumları kapatıldı."
 msgstr "The password was reset; the user's open sessions were closed."
 
@@ -3796,7 +3808,7 @@ msgstr ""
 "When your password changes, this session stays open and your sessions in "
 "other browsers are closed."
 
-#: app/web/routers/users.py
+#: app/web/feedback.py
 msgid "Parolanız değiştirildi; diğer oturumlarınız kapatıldı."
 msgstr "Your password was changed; your other sessions were closed."
 
@@ -3839,14 +3851,14 @@ msgstr ""
 msgid "Parti hâlâ işleniyor; süren tarama yoksayılamaz."
 msgstr "The batch is still being processed; a running scan cannot be dismissed."
 
-#: app/web/templates/upload_action_result.html
-#, python-format
+#: app/web/feedback.py
+#, python-brace-format
 msgid ""
-"Parti iptal edildi (iptal anında: %(stage)s); dosyalar ve üretilen "
-"belgeler yerinde kaldı."
+"Parti iptal edildi: {upload_id}. Dosyalar ve üretilen belgeler yerinde "
+"kaldı."
 msgstr ""
-"The batch was cancelled (at the time: %(stage)s); files and generated "
-"documents stay in place."
+"The batch was cancelled: {upload_id}. Files and generated documents stay "
+"in place."
 
 #: app/web/routers/uploads.py
 msgid ""
@@ -3860,14 +3872,18 @@ msgstr ""
 msgid "Parti son durumda; iptal edilecek süren bir işlem yok."
 msgstr "The batch has already ended; there is no running processing to cancel."
 
-#: app/web/templates/upload_action_result.html
-#, python-format
+#: app/web/feedback.py
+#, python-brace-format
 msgid ""
-"Parti yeniden analiz edildi: yeni plan sürümü %(version)s (önceki: "
-"%(previous)s);"
+"Parti yeniden analiz edildi: {upload_id}, yeni plan sürümü {version} "
+"(önceki: {previous})."
 msgstr ""
-"The batch was re-analyzed: new plan version %(version)s (previous: "
-"%(previous)s);"
+"The batch was re-analyzed: {upload_id}, new plan version {version} "
+"(previous: {previous})."
+
+#: app/web/templates/upload_action_result.html
+msgid "Parti yükleme listesine döndü."
+msgstr "The batch is back in the upload list."
 
 #: app/web/templates/upload_detail.html
 msgid ""
@@ -3966,14 +3982,19 @@ msgstr "Deactivated by:"
 msgid "Pasifleştir"
 msgstr "Deactivate"
 
+#: app/web/feedback.py
+#, python-brace-format
+msgid "Pasifleştirilen tür: {count}. Yeni belgelere atanmazlar."
+msgstr "Types deactivated: {count}. They are not assigned to new documents."
+
 #: app/web/templates/history.html app/web/templates/upload_detail.html
 msgid "Plan"
 msgstr "Plan"
 
-#: app/web/templates/upload_action_result.html
-#, python-format
-msgid "Plan (sürüm %(version)s) yeniden uygulandı."
-msgstr "The plan (version %(version)s) was applied again."
+#: app/web/feedback.py
+#, python-brace-format
+msgid "Plan (sürüm {version}) yeniden uygulandı: {upload_id}."
+msgstr "The plan (version {version}) was applied again: {upload_id}."
 
 #: app/web/routers/upload_page.py app/web/routers/uploads_list.py
 msgid "Plan hazırlanıyor"
@@ -3999,11 +4020,11 @@ msgstr "Profile name"
 msgid "Profil alanları geçersiz; düzeltip yeniden gönderin."
 msgstr "The profile fields are invalid; correct them and submit again."
 
-#: app/web/routers/employees.py
+#: app/web/feedback.py
 msgid "Profil bilgileri değiştirildi."
 msgstr "The profile information was changed."
 
-#: app/web/routers/employees.py
+#: app/web/feedback.py
 msgid ""
 "Profil bilgileri değiştirildi; klasör ve belge dosyaları yeni adla "
 "yeniden adlandırıldı."
@@ -4191,7 +4212,7 @@ msgstr "I can't listen to voice messages. Please write your request."
 msgid "Seç"
 msgstr "Select"
 
-#: app/web/routers/training.py
+#: app/web/feedback.py
 msgid "Seçilen \"AI kararı\" örnekleri doğrulandı; elle kontrol ikonu kalktı."
 msgstr ""
 "The selected \"AI decision\" examples were verified; the manual check "
@@ -4465,12 +4486,10 @@ msgstr "Undefined rule: {rules}"
 msgid "Tanınmayan toplu işlem."
 msgstr "Unrecognized bulk action."
 
-#: app/web/templates/upload_action_result.html
-#, python-format
-msgid "Tarama yoksayıldı: %(num)d kuyruk öğesi kapandı;"
-msgid_plural "Tarama yoksayıldı: %(num)d kuyruk öğesi kapandı;"
-msgstr[0] "Scan dismissed: %(num)d queue item was closed;"
-msgstr[1] "Scan dismissed: %(num)d queue items were closed;"
+#: app/web/feedback.py
+#, python-brace-format
+msgid "Tarama yoksayıldı: {upload_id}. Kapanan kuyruk öğesi: {count}."
+msgstr "Scan dismissed: {upload_id}. Queue items closed: {count}."
 
 #: app/web/templates/upload_detail.html
 msgid "Taramayı yoksay"
@@ -4580,7 +4599,7 @@ msgstr ""
 "active. To pause an ID, block it. If you delete the record, the number is"
 " freed and can be linked again to the same or another account."
 
-#: app/web/routers/users.py
+#: app/web/feedback.py
 msgid ""
 "Telegram kaydı silindi. Bu numara artık yeniden bağlanabilir; bot ona "
 "yanıt vermeyecek."
@@ -4604,7 +4623,7 @@ msgstr "Telegram ID"
 msgid "Telegram kimliği boş olamaz."
 msgstr "The Telegram ID cannot be empty."
 
-#: app/web/routers/users.py
+#: app/web/feedback.py
 msgid "Telegram kimliği eklendi ve izni açıldı."
 msgstr "The Telegram ID was added and allowed."
 
@@ -4635,11 +4654,11 @@ msgstr ""
 "123456789). It is not a phone number: the person finds out their ID by "
 "writing to @userinfobot in Telegram."
 
-#: app/web/routers/users.py
+#: app/web/feedback.py
 msgid "Telegram kimliğinin izni açıldı."
 msgstr "The Telegram ID was allowed."
 
-#: app/web/routers/users.py
+#: app/web/feedback.py
 msgid "Telegram kimliğinin izni kapatıldı; bot bu kimliğe yanıt vermeyecek."
 msgstr "The Telegram ID was blocked; the bot will not reply to it."
 
@@ -4680,7 +4699,7 @@ msgid ""
 "belgelerini isteyin."
 msgstr "I can't export in bulk. Ask for one person's documents at a time."
 
-#: app/web/routers/training.py
+#: app/web/feedback.py
 msgid ""
 "Toplu tarama başladı. İşçi haritadaki dosyaları birer birer tarar; "
 "ilerleme bu tabloda güncellenir."
@@ -4728,21 +4747,24 @@ msgstr ""
 "The type will leave the analysis instructions and the lists; existing "
 "documents will stay where they are. Is this your final decision?"
 
-#: app/web/routers/catalog.py
+#: app/web/feedback.py
+#, python-brace-format
 msgid ""
-"Tür arşivden geri alındı; bir sonraki analizden itibaren yeniden "
+"Tür arşivden geri alındı: {slug}. Bir sonraki analizden itibaren yeniden "
 "geçerlidir."
 msgstr ""
-"The type was restored from the archive; it applies again from the next "
-"analysis on."
+"The type was restored from the archive: {slug}. It applies again from the"
+" next analysis on."
 
-#: app/web/routers/catalog.py
+#: app/web/feedback.py
+#, python-brace-format
 msgid ""
-"Tür arşivlendi: listeden, analiz talimatından ve tür seçicilerden kalktı;"
-" var olan belgeleri yerinde."
+"Tür arşivlendi: {slug}. Listeden, analiz talimatından ve tür seçicilerden"
+" kalktı; var olan belgeleri yerinde."
 msgstr ""
-"The type was archived: it left the list, the analysis instructions and "
-"the type pickers; its existing documents stay where they are."
+"The type was archived: {slug}. It left the list, the analysis "
+"instructions and the type pickers; its existing documents stay where they"
+" are."
 
 #: app/web/routers/upload_page.py
 msgid "Tür bilinmiyor"
@@ -4769,23 +4791,30 @@ msgstr ""
 "fields, conversions). Adding needs a two-step confirmation; the type "
 "applies from the next analysis on."
 
-#: app/web/routers/catalog.py
-msgid "Tür güncellendi. Değişiklik bir sonraki analizden itibaren geçerlidir."
-msgstr "The type was updated. The change applies from the next analysis on."
+#: app/web/feedback.py
+#, python-brace-format
+msgid ""
+"Tür güncellendi: {slug}. Değişiklik bir sonraki analizden itibaren "
+"geçerlidir."
+msgstr ""
+"The type was updated: {slug}. The change applies from the next analysis "
+"on."
 
 #: app/web/templates/catalog_form.html
 msgid "Tür kaydedilmedi: alanların altındaki uyarıları düzeltin."
 msgstr "The type was not saved: correct the warnings under the fields."
 
-#: app/web/routers/catalog.py
-msgid "Tür oluşturuldu."
-msgstr "The type was created."
+#: app/web/feedback.py
+#, python-brace-format
+msgid "Tür oluşturuldu: {slug}."
+msgstr "The type was created: {slug}."
 
-#: app/web/routers/catalog.py
-msgid "Tür pasifleştirildi: yeni belgelere atanmaz."
-msgstr "The type was deactivated: it is not assigned to new documents."
+#: app/web/feedback.py
+#, python-brace-format
+msgid "Tür pasifleştirildi: {slug}. Yeni belgelere atanmaz."
+msgstr "The type was deactivated: {slug}. It is not assigned to new documents."
 
-#: app/web/routers/catalog.py
+#: app/web/feedback.py
 msgid "Tür seçilmedi: önce tablodan en az bir türü işaretleyin."
 msgstr "No type was selected: first check at least one type in the table."
 
@@ -4797,9 +4826,10 @@ msgstr "No type draft could be produced"
 msgid "Tür telefon, e-posta ya da adres olmalı."
 msgstr "The kind must be phone, email or address."
 
-#: app/web/routers/catalog.py
-msgid "Tür yeniden etkinleştirildi."
-msgstr "The type was reactivated."
+#: app/web/feedback.py
+#, python-brace-format
+msgid "Tür yeniden etkinleştirildi: {slug}."
+msgstr "The type was reactivated: {slug}."
 
 #: app/web/templates/training_results.html
 msgid "Türe yerleştir"
@@ -5007,6 +5037,12 @@ msgstr "New document group"
 msgid "Yeni belge türü"
 msgstr "New document type"
 
+#: app/web/templates/document_move.html app/web/templates/queue_assign.html
+#: app/web/templates/queue_new_profile.html
+#, python-format
+msgid "Yeni dosya adı: %(file)s."
+msgstr "New file name: %(file)s."
+
 #: app/web/templates/groups.html
 msgid "Yeni grup"
 msgstr "New group"
@@ -5044,6 +5080,11 @@ msgstr "New employee"
 msgid "Yeniden analiz edilecek bekleyen Unknown öğesi yok."
 msgstr "There are no pending Unknown items to re-analyze."
 
+#: app/web/feedback.py
+#, python-brace-format
+msgid "Yeniden analiz edilen parti: {count}."
+msgstr "Batches re-analyzed: {count}."
+
 #: app/web/templates/upload_detail.html
 msgid "Yeniden analiz et"
 msgstr "Re-analyze"
@@ -5060,6 +5101,11 @@ msgstr "A reopened item returns to the queue; its plan and sources do not change
 #: app/web/templates/profile.html app/web/templates/users.html
 msgid "Yeniden etkinleştir"
 msgstr "Reactivate"
+
+#: app/web/feedback.py
+#, python-brace-format
+msgid "Yeniden etkinleştirilen tür: {count}."
+msgstr "Types reactivated: {count}."
 
 #: app/web/templates/catalog_candidate.html
 msgid "Yeniden incele"
@@ -5121,20 +5167,10 @@ msgstr "None"
 msgid "Yoksay"
 msgstr "Dismiss"
 
-#: app/web/templates/upload_action_result.html
-#, python-format
-msgid ""
-"Yoksayma geri alındı: parti yükleme listesine döndü; %(num)d kuyruk öğesi"
-" yeniden açıldı."
-msgid_plural ""
-"Yoksayma geri alındı: parti yükleme listesine döndü; %(num)d kuyruk öğesi"
-" yeniden açıldı."
-msgstr[0] ""
-"Dismissal undone: the batch is back in the upload list; %(num)d queue "
-"item was reopened."
-msgstr[1] ""
-"Dismissal undone: the batch is back in the upload list; %(num)d queue "
-"items were reopened."
+#: app/web/feedback.py
+#, python-brace-format
+msgid "Yoksayma geri alındı: {upload_id}. Yeniden açılan kuyruk öğesi: {count}."
+msgstr "Dismissal undone: {upload_id}. Queue items reopened: {count}."
 
 #: app/web/templates/upload_detail.html
 msgid "Yoksaymayı geri al"
@@ -5191,7 +5227,7 @@ msgstr ""
 "The upload is made in the context of employee %(name)s (%(id)s): files "
 "whose owner cannot be determined from the document are assigned to them."
 
-#: app/web/routers/training.py
+#: app/web/feedback.py
 msgid ""
 "Yükleme alındı ve mekanik tanıma bitti. Mekanik tanınmayan dosyaları işçi"
 " yapay zekâyla inceler; sonuçlar bu tabloda güncellenir."
@@ -5199,6 +5235,11 @@ msgstr ""
 "The upload was received and mechanical recognition finished. The worker "
 "reviews the files not recognized mechanically with the AI; the results "
 "are updated in this table."
+
+#: app/web/feedback.py
+#, python-brace-format
+msgid "Yükleme alındı: {upload_id}. İlerleme aşağıda izlenir."
+msgstr "Upload received: {upload_id}. Follow the progress below."
 
 #: app/web/templates/_training_tabs.html
 msgid "Yükleme ve sonuçlar"
@@ -5219,6 +5260,11 @@ msgstr "No file was selected for upload."
 #: app/web/routers/training.py
 msgid "Yüklenecek harita seçilmedi."
 msgstr "No map was selected for upload."
+
+#: app/web/feedback.py
+#, python-brace-format
+msgid "Yüklenen örnek: {count}; zaten kayıtlı olduğu için atlanan: {skipped}."
+msgstr "Examples uploaded: {count}; skipped as already registered: {skipped}."
 
 #: app/web/templates/training_results.html app/web/templates/uploads_list.html
 msgid "Yükleyen"
@@ -5719,26 +5765,6 @@ msgid_plural "{count} dosyayı daha önce göndermiştiniz, yeniden eklemedim."
 msgstr[0] "You had already sent {count} file before, so I did not add it again."
 msgstr[1] "You had already sent {count} files before, so I did not add them again."
 
-#: app/web/routers/catalog.py
-#, python-brace-format
-msgid "{count} tür arşivlendi, {skipped} korunan tür atlandı."
-msgstr "{count} types archived, {skipped} protected types skipped."
-
-#: app/web/routers/catalog.py
-#, python-brace-format
-msgid "{count} tür arşivlendi."
-msgstr "{count} types archived."
-
-#: app/web/routers/catalog.py
-#, python-brace-format
-msgid "{count} tür pasifleştirildi: yeni belgelere atanmaz."
-msgstr "{count} types deactivated: they are not assigned to new documents."
-
-#: app/web/routers/catalog.py
-#, python-brace-format
-msgid "{count} tür yeniden etkinleştirildi."
-msgstr "{count} types reactivated."
-
 #: app/telegram/intent.py
 #, python-brace-format
 msgid "{count} {kind}"
@@ -5885,7 +5911,7 @@ msgstr "Employee not found"
 msgid "Çalışan bulunamadı."
 msgstr "Employee not found."
 
-#: app/web/routers/employees.py
+#: app/web/feedback.py
 msgid ""
 "Çalışan kalıcı olarak silindi, ancak bazı dosyaları diskten kaldırılamadı"
 " (açık ya da kilitli olabilir); sayısı olay logunda. Sistem yöneticisine "
@@ -5895,7 +5921,7 @@ msgstr ""
 "be removed from disk (they may be open or locked); the count is in the "
 "event log. Notify the system administrator."
 
-#: app/web/routers/employees.py
+#: app/web/feedback.py
 msgid "Çalışan kalıcı olarak silindi; klasörü ve belgeleri diskten kaldırıldı."
 msgstr ""
 "The employee was permanently deleted; their folder and documents were "
@@ -5916,27 +5942,26 @@ msgstr ""
 "inactive are not placed by themselves: assign the item or re-analyze the "
 "batch."
 
-#: app/web/routers/employees.py
+#: app/web/feedback.py
 msgid "Çalışan pasife alındı; yeni belgeleri otomatik yerleşmeyecek."
 msgstr ""
 "The employee was deactivated; their new documents will not be placed "
 "automatically."
 
-#: app/web/templates/queue_new_profile.html
-#, python-format
+#: app/web/feedback.py
+#, python-brace-format
 msgid ""
-"Çalışan profili oluşturuldu: <a href=\"%(url)s\">%(name)s (%(id)s)</a>. "
-"Belge %(file)s olarak çalışanın Hazır klasörüne yazıldı."
+"Çalışan profili oluşturuldu: {employee_id}. Belge çalışanın Hazır "
+"klasörüne yazıldı."
 msgstr ""
-"The employee profile was created: <a href=\"%(url)s\">%(name)s "
-"(%(id)s)</a>. The document was written to the employee's Hazir folder as "
-"%(file)s."
+"The employee profile was created: {employee_id}. The document was written"
+" to the employee's Hazir folder."
 
 #: app/web/templates/employee_deleted.html
 msgid "Çalışan silindi"
 msgstr "Employee deleted"
 
-#: app/web/routers/employees.py
+#: app/web/feedback.py
 msgid "Çalışan yeniden etkinleştirildi."
 msgstr "The employee was reactivated."
 
@@ -5976,11 +6001,11 @@ msgstr "Reactivate employee"
 msgid "Çalışanın durumu"
 msgstr "Employee status"
 
-#: app/web/routers/training.py
+#: app/web/feedback.py
 msgid "Çalıştırma arşivden geri alındı."
 msgstr "The run was restored from the archive."
 
-#: app/web/routers/training.py
+#: app/web/feedback.py
 msgid ""
 "Çalıştırma arşivlendi: listeden ve sayaçlardan kalktı; öğeleri ve "
 "örnekleri değişmedi."
@@ -6124,7 +6149,7 @@ msgstr "Example documents"
 msgid "Örnek belgeleri seçin"
 msgstr "Choose example documents"
 
-#: app/web/routers/training.py
+#: app/web/feedback.py
 msgid "Örnek bu türe taşındı ve doğrulanmış olarak kaydedildi."
 msgstr "The example was moved to this type and registered as verified."
 
@@ -6170,10 +6195,6 @@ msgstr "No samples"
 msgid "Örnek yükle"
 msgstr "Upload examples"
 
-#: app/web/templates/catalog_examples.html
-msgid "Örnek yüklendi:"
-msgstr "Example uploaded:"
-
 #: app/training/decisions.py
 msgid "Örnek zaten bu türde; başka bir tür seçin."
 msgstr "The example is already in this type; choose another type."
@@ -6182,7 +6203,7 @@ msgstr "The example is already in this type; choose another type."
 msgid "Örnek zaten örneklerden çıkarılmış."
 msgstr "The example was already removed from the examples."
 
-#: app/web/routers/training.py
+#: app/web/feedback.py
 msgid "Örnek örneklerden çıkarıldı: dosya silinmedi, eğitim arşivine taşındı."
 msgstr ""
 "The example was removed from the examples: the file was not deleted, it "
@@ -6234,50 +6255,50 @@ msgstr "Item %(id)s"
 msgid "Öğe %(item)s"
 msgstr "Item %(item)s"
 
-#: app/web/templates/queue_assign.html
-#, python-format
-msgid "Öğe %(name)s (%(id)s) çalışanına atandı: %(file)s."
-msgstr "The item was assigned to the employee %(name)s (%(id)s): %(file)s."
-
 #: app/web/templates/queue.html
 msgid "Öğe durumu"
 msgstr "Item state"
 
-#: app/web/routers/queue.py
+#: app/web/feedback.py
 msgid "Öğe kapatıldı; kuyruk klasöründeki kopya ve gerekçe dosyası yerinde kaldı."
 msgstr ""
 "The item was closed; the copy and the reason file in the queue folder "
 "stayed in place."
 
-#: app/web/routers/training.py
+#: app/web/feedback.py
 msgid "Öğe seçilen türe yerleşti; örnek doğrulanmış olarak kaydedildi."
 msgstr ""
 "The item was placed into the chosen type; the example was registered as "
 "verified."
 
-#: app/web/routers/queue.py
+#: app/web/feedback.py
 msgid "Öğe yeniden açıldı."
 msgstr "The item was reopened."
 
-#: app/web/routers/training.py
+#: app/web/feedback.py
 msgid "Öğe yerleşmedi: aynı içerik başka bir türde örnek. Notu inceleyin."
 msgstr ""
 "The item was not placed: the same content is an example of another type. "
 "Check the note."
 
-#: app/web/routers/training.py
+#: app/web/feedback.py
 msgid "Öğe yerleşmedi: aynı içerik bu türde zaten örnek."
 msgstr ""
 "The item was not placed: the same content is already an example of this "
 "type."
 
-#: app/web/routers/training.py
+#: app/web/feedback.py
 msgid ""
 "Öğe yoksayıldı: listeden kalktı, dosyası yerinde duruyor. Yoksayılanlar "
 "görünümünden geri alabilirsiniz."
 msgstr ""
 "The item was dismissed: it left the list, its file stays in place. You "
 "can restore it from the Dismissed view."
+
+#: app/web/feedback.py
+#, python-brace-format
+msgid "Öğe {employee_id} çalışanına atandı."
+msgstr "The item was assigned to employee {employee_id}."
 
 #: app/web/routers/training.py
 msgid "Öğenin eğitim kopyası okunamadı; yerleştirilmedi."
@@ -6287,7 +6308,7 @@ msgstr "The item's training copy could not be read; it was not placed."
 msgid "Öğenin partisi yoksayılmış; önce yoksaymayı geri alın."
 msgstr "The item's batch was dismissed; undo the dismissal first."
 
-#: app/web/routers/training.py
+#: app/web/feedback.py
 msgid ""
 "Öğenin yoksayılması geri alındı; öğe \"Yerleştirilemedi\" listesinde "
 "bekliyor."
@@ -6383,7 +6404,7 @@ msgstr "Contact"
 msgid "İletişim bilgisi ekle"
 msgstr "Add contact detail"
 
-#: app/web/routers/employees.py
+#: app/web/feedback.py
 msgid "İletişim bilgisi eklendi."
 msgstr "The contact detail was added."
 
@@ -6444,6 +6465,11 @@ msgstr "Downloaded"
 #: app/web/routers/uploads_list.py
 msgid "İptal"
 msgstr "Cancelled"
+
+#: app/web/templates/upload_action_result.html
+#, python-format
+msgid "İptal anındaki aşama: %(stage)s."
+msgstr "Stage at the time of cancellation: %(stage)s."
 
 #: app/groups/packages.py app/web/routers/upload_page.py
 #: app/web/routers/uploads_list.py
@@ -6512,6 +6538,22 @@ msgstr ""
 #: app/web/templates/upload_detail.html
 msgid "İşlem"
 msgstr "Operation"
+
+#: app/web/feedback.py
+msgid "İşlem tamamlanamadı. Ayrıntı sayfada."
+msgstr "The action could not be completed. Details are on the page."
+
+#: app/web/feedback.py
+msgid ""
+"İşlem yapılamadı: kayıt bu durumda değiştirilemez ya da bu arada değişti."
+" Ayrıntı sayfada."
+msgstr ""
+"The action was not done: the record can't be changed in this state or "
+"changed in the meantime. Details are on the page."
+
+#: app/web/feedback.py
+msgid "İşlem yapılamadı: kayıt bulunamadı."
+msgstr "The action was not done: record not found."
 
 #: app/web/templates/catalog_candidate_step.html
 msgid "İşlem yapılmadı"

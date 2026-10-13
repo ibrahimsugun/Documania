@@ -66,7 +66,7 @@ from pathlib import PurePosixPath
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request, status
-from fastapi.responses import HTMLResponse, RedirectResponse, Response
+from fastapi.responses import HTMLResponse, Response
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -111,12 +111,22 @@ from app.web.confirm import (
     issue_confirmation,
     second_text,
 )
+from app.web.feedback import (
+    DOCUMENT_ARCHIVED,
+    DOCUMENT_DELETED,
+    DOCUMENT_DELETED_PARTIAL,
+    DOCUMENT_MOVED,
+    DOCUMENT_UNARCHIVED,
+    Toast,
+    render,
+)
 from app.web.routers.employees import (
     MAX_QUERY_LENGTH,
     SEARCHABLE_STATUSES,
     EmployeeListing,
     _stored_file,
     list_employees,
+    profile_redirect,
 )
 from app.web.routers.upload_page import (
     DOCUMENT_STATUS_LABELS,
@@ -395,7 +405,12 @@ def move_subject(document_id: int, employee_id: str) -> str:
 
 
 def _move_result(
-    request: Request, status_code: int, document_id: int, **context: object
+    request: Request,
+    status_code: int,
+    document_id: int,
+    *,
+    feedback: Toast | None = None,
+    **context: object,
 ) -> HTMLResponse:
     """`document_move.html` parçası (HTMX hedefi: geçmiş sayfasındaki `#move-results` ya da
     `#move-step`)."""
@@ -404,6 +419,7 @@ def _move_result(
         "document_move.html",
         user=None,
         status_code=status_code,
+        feedback=feedback,
         document_id=document_id,
         **context,
     )
@@ -559,6 +575,7 @@ def move_to_employee(
         previous=previous,
         done=True,
         file_name=file_name,
+        feedback=render(DOCUMENT_MOVED, employee_id=target.id),
     )
 
 
@@ -576,7 +593,8 @@ OWNER_MERGED = N_(
 @dataclass(frozen=True, slots=True)
 class ArchiveFlow:
     """Profilden açılan iki akıştan biri: arşive taşı (`archive`) ya da arşivden geri al
-    (`unarchive`). `action` yolun parçasıdır; `notice` profil bildiriminin kodudur."""
+    (`unarchive`). `action` yolun parçasıdır; `feedback` profil bildiriminin anahtarıdır
+    (`app.web.feedback`)."""
 
     action: str
     operation: Operation
@@ -585,7 +603,7 @@ class ArchiveFlow:
     title: str
     submit_label: str
     hint: str
-    notice: str
+    feedback: str
 
 
 ARCHIVE_FLOW = ArchiveFlow(
@@ -600,7 +618,7 @@ ARCHIVE_FLOW = ArchiveFlow(
         '"Arşivden geri al" ile çalışanın Hazır klasörüne döndürülebilir. Arşivdeki belge belge '
         "paketlerinde sayılmaz."
     ),
-    notice="document_archived",
+    feedback=DOCUMENT_ARCHIVED,
 )
 UNARCHIVE_FLOW = ArchiveFlow(
     action="unarchive",
@@ -613,7 +631,7 @@ UNARCHIVE_FLOW = ArchiveFlow(
         "Belge çalışanın bugünkü adıyla ve türünün dosya etiketiyle adlandırılır (K8); arada aynı "
         "türden yeni belge geldiyse sıradaki sıra ekini alır. İçeriği ve kökeni değişmez."
     ),
-    notice="document_unarchived",
+    feedback=DOCUMENT_UNARCHIVED,
 )
 
 
@@ -836,10 +854,7 @@ def _complete(
             retry=True,
         )
     session.commit()
-    return RedirectResponse(
-        f"/employees/{step.employee_id}?notice={flow.notice}#documents",
-        status.HTTP_303_SEE_OTHER,
-    )
+    return profile_redirect(step.employee_id, flow.feedback, "documents")
 
 
 @router.get(
@@ -1173,7 +1188,6 @@ def delete_from_profile(
     failed = remove_document_files(session, deleted)
     if failed:
         session.commit()
-    notice = "document_deleted_partial" if failed else "document_deleted"
-    return RedirectResponse(
-        f"/employees/{employee_id}?notice={notice}#documents", status.HTTP_303_SEE_OTHER
+    return profile_redirect(
+        employee_id, DOCUMENT_DELETED_PARTIAL if failed else DOCUMENT_DELETED, "documents"
     )

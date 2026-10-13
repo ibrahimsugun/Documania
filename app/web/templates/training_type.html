@@ -14,7 +14,6 @@
   <dt>{{ _("Ülke") }}</dt><dd>{{ known_type.country_iso3 or known_type.country_iso2 or "—" }}</dd>
   <dt>{{ _("Örnek") }}</dt><dd>{{ examples|length }}{% if ai_decision %} · {{ _("%(num)d \"AI kararı\"", num=ai_decision) }} {% include "_manual_check.html" %}{% endif %}</dd>
 </dl>
-{% if notice %}<p class="notice notice-success" role="status">{{ translate(notice) }}</p>{% endif %}
 {% if examples %}
 {% if ai_decision and user.can_write %}
 {# 11.9.4 toplu doğrulama: kartlardaki onay kutuları bu forma `form` özniteliğiyle bağlıdır. #}

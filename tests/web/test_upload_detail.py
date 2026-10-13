@@ -60,6 +60,7 @@ from tests.fixtures.gen import (
     passport_page,
     recorded_provider,
 )
+from tests.web.flash import hx_toasts
 
 SETTINGS = Settings(_env_file=None, database_url="sqlite://")
 PASSPORT_NUMBER = "00 0000001"
@@ -459,7 +460,9 @@ def test_rerun_reapplies_the_current_plan_without_analysis_or_new_outputs(
     response = client.post(f"/uploads/{upload_id}/rerun")
 
     assert response.status_code == 200
-    assert "Plan (sürüm 1) yeniden uygulandı." in response.text
+    assert hx_toasts(response) == [
+        {"kind": "success", "text": f"Plan (sürüm 1) yeniden uygulandı: {upload_id}."}
+    ]
     assert _count(session_factory, Plan) == 1
     assert _count(session_factory, Document) == 1
     after = _event_types(session_factory, upload_id)
@@ -582,7 +585,10 @@ def test_confirmed_reanalysis_opens_a_new_plan_version_and_marks_old_outputs_sup
     response = client.post(f"/uploads/{upload_id}/reanalyze", data={"confirmation": token})
 
     assert response.status_code == 200
-    assert "yeni plan sürümü 2 (önceki: 1); 1 çıktı" in response.text
+    assert hx_toasts(response)[0]["text"] == (
+        f"Parti yeniden analiz edildi: {upload_id}, yeni plan sürümü 2 (önceki: 1)."
+    )
+    assert '1 çıktı "eski sürüm" olarak işaretlendi.' in response.text
     assert len(reanalysis_provider.requests) > 0
     with session_factory() as session:
         assert sorted(plan.version for plan in session.scalars(select(Plan))) == [1, 2]

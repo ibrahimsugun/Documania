@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from app.db.models import Event, TelegramUser
 from app.web.auth import PanelUser, create_user, get_current_user
 from tests.web.conftest import SIGNED_IN
+from tests.web.flash import flashed
 
 PASSWORD = "sentetik-parola-1"
 FIRST_ID = 5_000_000_101
@@ -123,7 +124,8 @@ def test_blocking_and_allowing_flip_the_permission_keep_the_row_and_log_each_cha
     blocked = client.post(path, data={"allowed": "false"}, follow_redirects=False)
 
     assert blocked.status_code == 303
-    assert blocked.headers["location"] == "/users?notice=telegram_blocked"
+    assert blocked.headers["location"] == "/users"
+    assert flashed(blocked) == ("users.telegram_blocked", {})
     assert _accounts(session_factory) == [(FIRST_ID, ayse, False)]  # silinmedi
     page = client.get(blocked.headers["location"]).text
     assert "Telegram kimliğinin izni kapatıldı; bot bu kimliğe yanıt vermeyecek." in page
@@ -132,7 +134,8 @@ def test_blocking_and_allowing_flip_the_permission_keep_the_row_and_log_each_cha
     allowed = client.post(path, data={"allowed": "true"}, follow_redirects=False)
 
     assert allowed.status_code == 303
-    assert allowed.headers["location"] == "/users?notice=telegram_allowed"
+    assert allowed.headers["location"] == "/users"
+    assert flashed(allowed) == ("users.telegram_allowed", {})
     assert _accounts(session_factory) == [(FIRST_ID, ayse, True)]
     assert "Telegram kimliğinin izni açıldı." in client.get(allowed.headers["location"]).text
     assert [(event.actor, event.data_json) for event in _events(session_factory)] == [

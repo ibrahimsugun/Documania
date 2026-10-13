@@ -50,6 +50,7 @@ from app.web.auth import (
 from app.web.routers.training import get_training_provider_problem
 from tests.web import test_translation_sweep as sweep
 from tests.web.conftest import SIGNED_IN
+from tests.web.flash import flashed
 
 world = sweep.world
 
@@ -514,7 +515,8 @@ def test_hr_changes_a_role_with_an_event_under_its_name(
     response = client.post(f"/users/{ayse}/role", data={"role": "user"}, follow_redirects=False)
 
     assert response.status_code == 303
-    assert response.headers["location"] == "/users?notice=role_changed"
+    assert response.headers["location"] == "/users"
+    assert flashed(response) == ("users.role_changed", {})
     with session_factory() as session:
         assert session.get_one(User, ayse).role == "user"
         (event,) = session.scalars(select(Event)).all()

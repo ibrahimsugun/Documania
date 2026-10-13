@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from app.db.models import DocumentGroup, DocumentGroupItem, Event, KnownDocumentType
 from app.events import EventType
 from tests.web.conftest import SIGNED_IN
+from tests.web.flash import flashed
 
 CATALOG = (
     ("russian_passport", "Russian Passport", "Passport", "RU", True),
@@ -50,7 +51,8 @@ def _create(client: TestClient, name: str = "Sırbistan iş başvurusu", **extra
         follow_redirects=False,
     )
     assert response.status_code == 303
-    match = re.fullmatch(r"/document-groups/(\d+)\?notice=created", response.headers["location"])
+    match = re.fullmatch(r"/document-groups/(\d+)", response.headers["location"])
+    assert flashed(response) == ("groups.created", {})
     assert match, response.headers["location"]
     return int(match.group(1))
 
@@ -101,7 +103,7 @@ def test_creating_a_group_opens_its_page(
 ) -> None:
     group_id = _create(client)
 
-    page = client.get(f"/document-groups/{group_id}?notice=created")
+    page = client.get(f"/document-groups/{group_id}")
     assert page.status_code == 200
     assert "<h1>Sırbistan iş başvurusu</h1>" in page.text
     assert "Grup oluşturuldu" in page.text
@@ -175,7 +177,7 @@ def test_label_and_type_items_are_added_and_listed(
     )
     assert _add(client, group_id, match_kind="type", type_slug="residence_card") == 303
 
-    page = client.get(f"/document-groups/{group_id}?notice=item_added")
+    page = client.get(f"/document-groups/{group_id}")
     table = _items_table(page.text)
     assert "Kalem eklendi." in page.text
     assert "Passport" in table and "Serbian Residence Card" in table
@@ -249,7 +251,8 @@ def test_removing_an_item_keeps_it_in_the_history(
     )
 
     assert response.status_code == 303
-    assert response.headers["location"] == f"/document-groups/{group_id}?notice=item_removed"
+    assert response.headers["location"] == f"/document-groups/{group_id}"
+    assert flashed(response) == ("groups.item_removed", {})
     page = client.get(response.headers["location"])
     assert "Kalem kaldırıldı." in page.text
     assert _items_table(page.text) == ""
@@ -276,7 +279,8 @@ def test_group_name_and_description_are_changed_on_the_group_page(
         follow_redirects=False,
     )
     assert updated.status_code == 303
-    assert updated.headers["location"] == f"/document-groups/{group_id}?notice=updated"
+    assert updated.headers["location"] == f"/document-groups/{group_id}"
+    assert flashed(updated) == ("groups.updated", {})
     assert "<h1>Sırbistan başvurusu</h1>" in client.get(updated.headers["location"]).text
 
     same = client.post(
@@ -284,7 +288,8 @@ def test_group_name_and_description_are_changed_on_the_group_page(
         data={"name": "Sırbistan başvurusu", "description": "Yeni açıklama"},
         follow_redirects=False,
     )
-    assert same.headers["location"] == f"/document-groups/{group_id}?notice=unchanged"
+    assert same.headers["location"] == f"/document-groups/{group_id}"
+    assert flashed(same) == ("groups.unchanged", {})
 
     taken = client.post(f"/document-groups/{group_id}", data={"name": "almanya VIZE"})
     assert taken.status_code == 409
@@ -331,7 +336,8 @@ def test_archive_hides_the_group_until_asked_and_restore_brings_it_back(
     assert '<span class="status-badge status-archived">Arşivde</span>' in with_archived.text
 
     restored = client.post(f"/document-groups/{group_id}/restore", follow_redirects=False)
-    assert restored.headers["location"] == f"/document-groups/{group_id}?notice=restored"
+    assert restored.headers["location"] == f"/document-groups/{group_id}"
+    assert flashed(restored) == ("groups.restored", {})
     assert f'href="/document-groups/{group_id}"' in client.get("/document-groups").text
 
     with session_factory() as session:

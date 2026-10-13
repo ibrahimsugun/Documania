@@ -26,7 +26,7 @@ from tests.web.conftest import SIGNED_IN
 
 ROOT = Path(__file__).resolve().parents[2]
 STATIC = ROOT / "app" / "web" / "static"
-SCRIPTS = ("copy-link.js", "country-select.js", "upload.js")
+SCRIPTS = ("copy-link.js", "country-select.js", "toast.js", "upload.js")
 TURKISH_LETTERS = re.compile(r"[çğıİöşüÇĞÖŞÜ]")
 
 

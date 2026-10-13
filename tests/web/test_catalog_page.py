@@ -42,6 +42,7 @@ from app.web.auth import SESSION_COOKIE
 from app.web.routers.catalog import BUDGET_UNAVAILABLE
 from tests.fixtures.gen import make_text_pdf_bytes
 from tests.web.conftest import SIGNED_IN
+from tests.web.flash import flashed, toasts
 
 ROOT = Path(__file__).resolve().parents[2]
 RECORDINGS = ROOT / "tests" / "fixtures" / "ai" / "recordings"
@@ -253,16 +254,25 @@ def test_inconsistent_stored_type_is_flagged_and_listed(
     assert '<span class="badge badge-missing"' in status.group(1)
 
 
-def test_notice_names_the_type_and_ignores_unknown_notices(client: TestClient) -> None:
-    _create(client, name="<b>Kart</b>")
+def test_the_notice_names_the_type_by_slug_once_and_the_address_carries_none(
+    client: TestClient,
+) -> None:
+    # 10.11.1 (PLAN.md §D120): bildirim çerezle bir kez gelir; adres çubuğu taşıyıcı değildir, eski
+    # `?notice=` adresi yok sayılır (ne bildirim ne 422).
+    response = client.post(
+        "/document-types", data=_data(name="<b>Kart</b>"), follow_redirects=False
+    )
+    assert response.headers["location"] == "/document-types"
 
-    page = client.get("/document-types?notice=created&slug=sample_card")
-    assert "&lt;b&gt;Kart&lt;/b&gt;: Tür oluşturuldu." in page.text
+    page = client.get("/document-types")
+    assert toasts(page.text) == ["Tür oluşturuldu: sample_card."]
     assert "<b>Kart</b>" not in page.text
+    assert toasts(client.get("/document-types").text) == []
 
-    other = client.get("/document-types?notice=%3Cscript%3E&slug=sample_card")
-    assert 'role="status"' not in other.text
-    assert client.get("/document-types?notice=" + "x" * 33).status_code == 422
+    old = client.get("/document-types?notice=created&slug=sample_card")
+    assert old.status_code == 200
+    assert toasts(old.text) == []
+    assert client.get("/document-types?notice=" + "x" * 33).status_code == 200
 
 
 # --- 11.1.5: ülke süzgeci ---------------------------------------------------------------------
@@ -461,8 +471,8 @@ def test_the_select_still_works_without_javascript_and_is_enhanced_with_it(
     assert form is not None
     assert 'method="get" action="/document-types"' in form.group(0)
     assert (
-        '<select id="country" name="country" onchange="this.form.requestSubmit()" data-country-select '
-        in form.group(0)
+        '<select id="country" name="country" onchange="this.form.requestSubmit()" '
+        "data-country-select " in form.group(0)
     )
     # JavaScript'le süzgeç sayfayı yenilemeden tabloyu değiştirir; düğme yalnız JS kapalıyken.
     assert 'hx-target="#catalog-results"' in form.group(0)
@@ -583,11 +593,10 @@ def test_deactivating_with_a_filter_keeps_it_in_the_redirect_and_the_notice(
     )
 
     assert response.status_code == 303
-    assert (
-        response.headers["location"] == "/document-types?notice=deactivated&slug=tr_one&country=TR"
-    )
+    assert response.headers["location"] == "/document-types?country=TR"
+    assert flashed(response) == ("catalog.deactivated", {"slug": "tr_one"})
     page = client.get(response.headers["location"])
-    assert "TR One: Tür pasifleştirildi" in page.text
+    assert toasts(page.text) == ["Tür pasifleştirildi: tr_one. Yeni belgelere atanmaz."]
     assert 'data-flag="/static/flags/tr.svg" selected>Türkiye (2)</option>' in page.text
     row_links = re.findall(r'href="(/document-types/tr_one\?country=TR)"', page.text)
     assert len(row_links) == 2  # ad bağlantısı ve "Düzenle"
@@ -601,7 +610,8 @@ def test_activating_without_a_filter_does_not_add_one_to_the_redirect(
 
     response = client.post("/document-types/sample_card/activate", follow_redirects=False)
 
-    assert response.headers["location"] == "/document-types?notice=activated&slug=sample_card"
+    assert response.headers["location"] == "/document-types"
+    assert flashed(response) == ("catalog.activated", {"slug": "sample_card"})
 
 
 def test_activating_with_an_invalid_filter_falls_back_to_all(client: TestClient) -> None:
@@ -612,7 +622,8 @@ def test_activating_with_an_invalid_filter_falls_back_to_all(client: TestClient)
         "/document-types/sample_card/activate", data={"country": "T1"}, follow_redirects=False
     )
 
-    assert response.headers["location"] == "/document-types?notice=activated&slug=sample_card"
+    assert response.headers["location"] == "/document-types"
+    assert flashed(response) == ("catalog.activated", {"slug": "sample_card"})
 
 
 def test_editing_from_a_filtered_list_returns_to_the_same_filter(client: TestClient) -> None:
@@ -631,9 +642,10 @@ def test_editing_from_a_filtered_list_returns_to_the_same_filter(client: TestCli
     )
 
     assert response.status_code == 303
-    assert response.headers["location"] == "/document-types?notice=updated&slug=tr_one&country=TR"
+    assert response.headers["location"] == "/document-types?country=TR"
+    assert flashed(response) == ("catalog.updated", {"slug": "tr_one"})
     listed = client.get(response.headers["location"])
-    assert "TR One: Tür güncellendi." in listed.text
+    assert toasts(listed.text)[0].startswith("Tür güncellendi: tr_one.")
     assert 'data-flag="/static/flags/tr.svg" selected>Türkiye (2)</option>' in listed.text
 
 
@@ -670,11 +682,10 @@ def test_creating_from_a_filtered_list_returns_to_the_same_filter(client: TestCl
         follow_redirects=False,
     )
 
-    assert response.headers["location"] == (
-        "/document-types?notice=created&slug=none_three&country=general"
-    )
+    assert response.headers["location"] == ("/document-types?country=general")
+    assert flashed(response) == ("catalog.created", {"slug": "none_three"})
     listed = client.get(response.headers["location"])
-    assert "None Three: Tür oluşturuldu." in listed.text
+    assert toasts(listed.text) == ["Tür oluşturuldu: none_three."]
     assert _row_names(_types_table(listed.text)) == ["None One", "None Three", "None Two"]
 
 
@@ -688,7 +699,8 @@ def test_the_form_without_a_filter_carries_no_hidden_filter_field(client: TestCl
         assert 'name="list_country"' not in html
         assert '<p class="back"><a href="/document-types">' in html
     response = client.post("/document-types/sample_card", data=_data(), follow_redirects=False)
-    assert response.headers["location"] == "/document-types?notice=updated&slug=sample_card"
+    assert response.headers["location"] == "/document-types"
+    assert flashed(response) == ("catalog.updated", {"slug": "sample_card"})
 
 
 # --- 11.1.1: oluşturma ----------------------------------------------------------------------------
@@ -733,7 +745,8 @@ def test_creating_a_type_stores_it_and_returns_to_the_list(
     )
 
     assert response.status_code == 303
-    assert response.headers["location"] == "/document-types?notice=created&slug=sample_card"
+    assert response.headers["location"] == "/document-types"
+    assert flashed(response) == ("catalog.created", {"slug": "sample_card"})
     row = _rows(session_factory)["sample_card"]
     assert (row.name, row.file_label, row.country) == ("Sample Card", "Sample Card", "RS")
     assert row.expected_file_types == ["pdf", "jpeg"]
@@ -745,7 +758,9 @@ def test_creating_a_type_stores_it_and_returns_to_the_list(
     assert row.photo_rules is None
     with session_factory() as session:
         assert export_catalog(session).slugs() == ("sample_card",)
-    assert "Tür oluşturuldu." in client.get(response.headers["location"]).text
+    assert toasts(client.get(response.headers["location"]).text) == [
+        "Tür oluşturuldu: sample_card."
+    ]
 
 
 def test_a_direct_type_without_conversions_is_created(
@@ -946,7 +961,8 @@ def test_updating_a_type_writes_the_form_and_keeps_the_slug_from_the_address(
     )
 
     assert response.status_code == 303
-    assert response.headers["location"] == "/document-types?notice=updated&slug=sample_card"
+    assert response.headers["location"] == "/document-types"
+    assert flashed(response) == ("catalog.updated", {"slug": "sample_card"})
     rows = _rows(session_factory)
     assert set(rows) == {"sample_card"}
     row = rows["sample_card"]
@@ -1036,7 +1052,8 @@ def test_deactivating_keeps_the_type_and_takes_it_out_of_the_analysis(
     response = client.post("/document-types/sample_card/deactivate", follow_redirects=False)
 
     assert response.status_code == 303
-    assert response.headers["location"] == "/document-types?notice=deactivated&slug=sample_card"
+    assert response.headers["location"] == "/document-types"
+    assert flashed(response) == ("catalog.deactivated", {"slug": "sample_card"})
     assert _rows(session_factory)["sample_card"].active is False
     with session_factory() as session:
         catalog = export_catalog(session)
@@ -1053,7 +1070,8 @@ def test_a_passive_type_can_be_activated_again(
 
     response = client.post("/document-types/sample_card/activate", follow_redirects=False)
 
-    assert response.headers["location"] == "/document-types?notice=activated&slug=sample_card"
+    assert response.headers["location"] == "/document-types"
+    assert flashed(response) == ("catalog.activated", {"slug": "sample_card"})
     assert _rows(session_factory)["sample_card"].active is True
     with session_factory() as session:
         catalog = export_catalog(session)
@@ -1503,11 +1521,12 @@ def test_archiving_takes_two_confirmations_and_moves_the_type_to_the_archive_vie
     )
 
     assert done.status_code == 303
-    assert done.headers["location"] == "/document-types?notice=archived&slug=sample_card"
+    assert done.headers["location"] == "/document-types"
+    assert flashed(done) == ("catalog.archived", {"slug": "sample_card"})
     row = _rows(session_factory)["sample_card"]
     assert (row.archived_by, row.archived_at is not None) == (SIGNED_IN.username, True)
     page = client.get(done.headers["location"]).text
-    assert "Sample Card: Tür arşivlendi" in page
+    assert toasts(page)[0].startswith("Tür arşivlendi: sample_card.")
     assert 'title="sample_card"' not in _types_table(page)
     assert 'Arşivlenen türler</a> <span class="count">(1)</span>' in page
     archived = client.get("/document-types?archived=1").text
@@ -1587,9 +1606,8 @@ def test_restoring_is_one_step_and_logged(
     )
 
     assert response.status_code == 303
-    assert response.headers["location"] == (
-        "/document-types?notice=restored&slug=sample_card&country=RS"
-    )
+    assert response.headers["location"] == ("/document-types?country=RS")
+    assert flashed(response) == ("catalog.restored", {"slug": "sample_card"})
     assert _rows(session_factory)["sample_card"].archived_at is None
     assert 'title="sample_card"' in _types_table(client.get("/document-types").text)
     (event,) = _type_events(session_factory, EventType.TYPE_RESTORED)
@@ -1615,7 +1633,8 @@ def test_the_archive_flow_keeps_the_country_filter(
         follow_redirects=False,
     )
 
-    assert done.headers["location"] == "/document-types?notice=archived&slug=tr_one&country=TR"
+    assert done.headers["location"] == "/document-types?country=TR"
+    assert flashed(done) == ("catalog.archived", {"slug": "tr_one"})
     page = client.get(done.headers["location"]).text
     assert 'href="/document-types?archived=1&amp;country=TR"' in page
     archived = client.get("/document-types?archived=1&country=TR").text
@@ -1640,10 +1659,11 @@ def test_bulk_deactivate_and_activate_are_one_step_with_an_event_per_type(
     )
 
     assert response.status_code == 303
-    assert response.headers["location"] == (
-        "/document-types?notice=bulk_deactivated&count=2&country=TR"
+    assert response.headers["location"] == ("/document-types?country=TR")
+    assert flashed(response) == ("catalog.bulk_deactivated", {"count": 2})
+    assert toasts(client.get(response.headers["location"]).text)[0].startswith(
+        "Pasifleştirilen tür: 2."
     )
-    assert "2 tür pasifleştirildi" in client.get(response.headers["location"]).text
     rows = _rows(session_factory)
     assert [rows[slug].active for slug in ("tr_one", "tr_two", "ru_one")] == [False, False, True]
     events = _type_events(session_factory, EventType.TYPE_DEACTIVATED)
@@ -1657,7 +1677,8 @@ def test_bulk_deactivate_and_activate_are_one_step_with_an_event_per_type(
         data={"action": "activate", "slugs": ["tr_one", "ru_one"]},
         follow_redirects=False,
     )
-    assert again.headers["location"] == "/document-types?notice=bulk_activated&count=1"
+    assert again.headers["location"] == "/document-types"
+    assert flashed(again) == ("catalog.bulk_activated", {"count": 1})
     assert _rows(session_factory)["tr_one"].active is True
     assert len(_type_events(session_factory, EventType.TYPE_ACTIVATED)) == 1
 
@@ -1687,8 +1708,11 @@ def test_bulk_archive_takes_two_confirmations_and_skips_protected_types(
     )
 
     assert done.status_code == 303
-    assert done.headers["location"] == "/document-types?notice=bulk_archived&count=2&skipped=1"
-    assert "2 tür arşivlendi, 1 korunan tür atlandı." in client.get(done.headers["location"]).text
+    assert done.headers["location"] == "/document-types"
+    assert flashed(done) == ("catalog.bulk_archived_skipped", {"count": 2, "skipped": 1})
+    assert toasts(client.get(done.headers["location"]).text) == [
+        "Arşivlenen tür: 2; atlanan korunan tür: 1."
+    ]
     archived = {slug for slug, row in _rows(session_factory).items() if row.archived_at}
     assert archived == {"work_permit", "turkish_passport"}
     confirmed, *events = _type_events(
@@ -1741,7 +1765,8 @@ def test_bulk_requests_outside_the_rules_change_nothing(
         data={"action": "deactivate", "country": "RS"},
         follow_redirects=False,
     )
-    assert empty.headers["location"] == "/document-types?notice=none_selected&country=RS"
+    assert empty.headers["location"] == "/document-types?country=RS"
+    assert flashed(empty) == ("catalog.none_selected", {})
     assert "Tür seçilmedi" in client.get(empty.headers["location"]).text
 
     unknown_action = client.post(

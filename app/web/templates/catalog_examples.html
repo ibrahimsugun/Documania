@@ -23,18 +23,6 @@
     <ul>{% for message in example_errors %}<li>{{ translate(message) }}</li>{% endfor %}</ul>
   </div>
   {% endif %}
-  {% if example_stored %}
-  <div class="notice notice-success" role="status">
-    <ul>
-      {% for item in example_stored %}
-      <li>
-        {% if item.duplicate %}{{ _("Aynı içerik zaten örnek olarak kayıtlı:") }}{% else %}{{ _("Örnek yüklendi:") }}{% endif %}
-        <code>{{ item.name }}</code>
-      </li>
-      {% endfor %}
-    </ul>
-  </div>
-  {% endif %}
   {% if examples %}
   {% set unverified = examples|selectattr("manual_check")|list %}
   {% if unverified %}

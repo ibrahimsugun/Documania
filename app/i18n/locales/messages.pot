@@ -4,7 +4,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Documania panel\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-09 02:33+0000\n"
+"POT-Creation-Date: 2026-10-13 13:42+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -152,13 +152,6 @@ msgstr[1] ""
 #, python-format
 msgid "%(num)d onay bekliyor"
 msgstr ""
-
-#: app/web/templates/catalog_candidate_step.html
-#, python-format
-msgid "%(num)d parti yeniden analiz edildi."
-msgid_plural "%(num)d parti yeniden analiz edildi."
-msgstr[0] ""
-msgstr[1] ""
 
 #: app/web/templates/catalog_description.html
 #, python-format
@@ -448,15 +441,15 @@ msgstr ""
 msgid "Aday tür görünümleri"
 msgstr ""
 
-#: app/web/routers/catalog.py
+#: app/web/feedback.py
 msgid "Aday tür reddedildi; bir daha listeye düşmez."
 msgstr ""
 
-#: app/web/routers/catalog.py
+#: app/web/feedback.py
 msgid "Aday tür retten geri alındı; yeniden onay bekliyor."
 msgstr ""
 
-#: app/web/routers/catalog.py
+#: app/web/feedback.py
 msgid ""
 "Aday tür standart türler arasına eklendi; tür bir sonraki analizden "
 "itibaren geçerlidir. İlişkili Unknown öğeleri aşağıdan toplu yeniden "
@@ -477,7 +470,7 @@ msgstr ""
 msgid "Aday türler"
 msgstr ""
 
-#: app/web/routers/catalog.py
+#: app/web/feedback.py
 msgid "Aday yeniden incelendi."
 msgstr ""
 
@@ -642,6 +635,16 @@ msgstr ""
 msgid "Arşivlenen tür yok."
 msgstr ""
 
+#: app/web/feedback.py
+#, python-brace-format
+msgid "Arşivlenen tür: {count}."
+msgstr ""
+
+#: app/web/feedback.py
+#, python-brace-format
+msgid "Arşivlenen tür: {count}; atlanan korunan tür: {skipped}."
+msgstr ""
+
 #: app/web/templates/catalog.html
 msgid "Arşivlenen türler"
 msgstr ""
@@ -699,10 +702,6 @@ msgstr ""
 #: app/training/decisions.py
 #, python-brace-format
 msgid "Aynı içerik seçilen türde zaten örnek ({name}); taşınmadı."
-msgstr ""
-
-#: app/web/templates/catalog_examples.html
-msgid "Aynı içerik zaten örnek olarak kayıtlı:"
 msgstr ""
 
 #: app/web/templates/employee_merge.html
@@ -848,6 +847,10 @@ msgid_plural ""
 msgstr[0] ""
 msgstr[1] ""
 
+#: app/web/feedback.py
+msgid "Bağlantı kodu oluşturuldu; ekrandaki adımları izleyin."
+msgstr ""
+
 #: app/web/templates/account_telegram.html
 msgid "Bağlantıyı kopyala"
 msgstr ""
@@ -956,13 +959,6 @@ msgstr ""
 msgid "Belge %(id)s"
 msgstr ""
 
-#: app/web/templates/document_move.html
-#, python-format
-msgid ""
-"Belge %(previous)s (%(previous_id)s) çalışanından %(target)s "
-"(%(target_id)s) çalışanına taşındı: %(file)s."
-msgstr ""
-
 #: app/web/templates/group.html app/web/templating.py
 msgid "Belge Grupları"
 msgstr ""
@@ -976,11 +972,11 @@ msgstr ""
 msgid "Belge analiz edilir"
 msgstr ""
 
-#: app/web/routers/employees.py
+#: app/web/feedback.py
 msgid "Belge arşivden geri alındı; çalışanın Hazır klasörüne döndü."
 msgstr ""
 
-#: app/web/routers/employees.py
+#: app/web/feedback.py
 msgid "Belge arşive taşındı; çalışanın Hazır klasöründen çıktı."
 msgstr ""
 
@@ -1035,14 +1031,14 @@ msgstr ""
 msgid "Belge grubu bulunamadı."
 msgstr ""
 
-#: app/web/routers/employees.py
+#: app/web/feedback.py
 msgid ""
 "Belge kalıcı olarak silindi, ancak bazı dosyaları diskten kaldırılamadı "
 "(açık ya da kilitli olabilir); sayısı olay logunda. Sistem yöneticisine "
 "bildirin."
 msgstr ""
 
-#: app/web/routers/employees.py
+#: app/web/feedback.py
 msgid "Belge kalıcı olarak silindi; dosyaları diskten kaldırıldı."
 msgstr ""
 
@@ -1101,6 +1097,11 @@ msgstr ""
 
 #: app/web/routers/documents.py
 msgid "Belge zaten bu çalışanın; başka bir çalışan seçin."
+msgstr ""
+
+#: app/web/feedback.py
+#, python-brace-format
+msgid "Belge {employee_id} çalışanına taşındı."
 msgstr ""
 
 #: app/web/routers/employees.py
@@ -1252,6 +1253,10 @@ msgstr ""
 
 #: app/web/templates/group.html
 msgid "Benzersiz olmalı; harf büyüklüğü ve Türkçe harf farkı aynı ad sayılır."
+msgstr ""
+
+#: app/web/templates/base.html
+msgid "Bildirimi kapat"
 msgstr ""
 
 #: app/web/templates/_training_tabs.html app/web/templates/training_known.html
@@ -1869,7 +1874,7 @@ msgstr ""
 msgid "Değer en çok {limit} karakter olabilir."
 msgstr ""
 
-#: app/web/routers/groups.py
+#: app/web/feedback.py
 msgid "Değişiklik yok."
 msgstr ""
 
@@ -1965,7 +1970,7 @@ msgstr ""
 msgid "Doğrulamalar"
 msgstr ""
 
-#: app/web/routers/training.py
+#: app/web/feedback.py
 msgid "Doğrulanacak \"AI kararı\" örneği seçilmedi; hiçbir şey değişmedi."
 msgstr ""
 
@@ -2317,8 +2322,9 @@ msgstr ""
 msgid "Fotoğraf kuralları"
 msgstr ""
 
-#: app/web/routers/catalog.py
-msgid "Fotoğraf kuralları kaydedildi."
+#: app/web/feedback.py
+#, python-brace-format
+msgid "Fotoğraf kuralları kaydedildi: {slug}."
 msgstr ""
 
 #: app/web/templates/profile.html
@@ -2376,7 +2382,7 @@ msgstr ""
 msgid "Grubu oluştur"
 msgstr ""
 
-#: app/web/routers/groups.py
+#: app/web/feedback.py
 msgid "Grubun adı ve açıklaması güncellendi."
 msgstr ""
 
@@ -2397,11 +2403,11 @@ msgstr ""
 msgid "Grup adı en çok {limit} karakter olabilir."
 msgstr ""
 
-#: app/web/routers/groups.py
+#: app/web/feedback.py
 msgid "Grup arşivden geri alındı."
 msgstr ""
 
-#: app/web/routers/groups.py
+#: app/web/feedback.py
 msgid "Grup arşivlendi: yeni paket tanımlanamaz, açık paketler sürer."
 msgstr ""
 
@@ -2409,7 +2415,7 @@ msgstr ""
 msgid "Grup kaydedilmedi: alanların altındaki uyarıları düzeltin."
 msgstr ""
 
-#: app/web/routers/groups.py
+#: app/web/feedback.py
 msgid "Grup oluşturuldu. Şimdi kalemlerini ekleyin."
 msgstr ""
 
@@ -2425,6 +2431,10 @@ msgstr ""
 
 #: app/web/routers/catalog.py
 msgid "Gömülü görüntüyü çıkar"
+msgstr ""
+
+#: app/web/feedback.py
+msgid "Gönderilen dosya izin verilen sınırı aşıyor."
 msgstr ""
 
 #: app/web/templates/profile.html
@@ -2617,7 +2627,7 @@ msgstr ""
 msgid "Her seferinde tek bir kişiyi sorun."
 msgstr ""
 
-#: app/web/auth.py
+#: app/web/auth.py app/web/feedback.py
 msgid "Hesabınız salt okunur: bu işlemi yapamazsınız."
 msgstr ""
 
@@ -2729,11 +2739,11 @@ msgid_plural ""
 msgstr[0] ""
 msgstr[1] ""
 
-#: app/web/routers/groups.py
+#: app/web/feedback.py
 msgid "Kalem eklendi."
 msgstr ""
 
-#: app/web/routers/groups.py
+#: app/web/feedback.py
 msgid "Kalem kaldırıldı."
 msgstr ""
 
@@ -2837,6 +2847,10 @@ msgstr ""
 msgid "Kataloğa eklenecek tür:"
 msgstr ""
 
+#: app/web/feedback.py
+msgid "Kaydedilmedi: işaretli alanları düzeltip yeniden gönderin."
+msgstr ""
+
 #: app/web/templates/catalog_form.html app/web/templates/group.html
 msgid "Kaydet"
 msgstr ""
@@ -2879,11 +2893,11 @@ msgstr ""
 msgid "Kayıt bulunamadı."
 msgstr ""
 
-#: app/web/routers/employees.py
+#: app/web/feedback.py
 msgid "Kayıt geri alındı; yeniden eşleştirmede ve aramada kullanılacak."
 msgstr ""
 
-#: app/web/routers/employees.py
+#: app/web/feedback.py
 msgid "Kayıt kaldırıldı; eşleştirmede ve aramada kullanılmayacak."
 msgstr ""
 
@@ -2903,7 +2917,7 @@ msgstr ""
 msgid "Kayıt zaten kaldırılmış; profildeki “Kaldırılanlar” altından geri alınır."
 msgstr ""
 
-#: app/web/routers/employees.py
+#: app/web/feedback.py
 msgid ""
 "Kayıtlar birleştirildi; birleşen kaydın belgeleri, numaraları, isim "
 "yazımları, iletişim bilgileri ve belge paketleri bu profile taşındı."
@@ -3035,7 +3049,7 @@ msgstr ""
 msgid "Kullanıcı oluştur"
 msgstr ""
 
-#: app/web/routers/users.py
+#: app/web/feedback.py
 msgid "Kullanıcı oluşturuldu."
 msgstr ""
 
@@ -3043,11 +3057,11 @@ msgstr ""
 msgid "Kullanıcı pasif: bot bu kimliklerin hiçbirine yanıt vermez."
 msgstr ""
 
-#: app/web/routers/users.py
+#: app/web/feedback.py
 msgid "Kullanıcı pasife alındı; açık oturumları kapatıldı."
 msgstr ""
 
-#: app/web/routers/users.py
+#: app/web/feedback.py
 msgid "Kullanıcı yeniden etkinleştirildi."
 msgstr ""
 
@@ -3059,7 +3073,7 @@ msgstr ""
 msgid "Kullanıcılar sayfasına dön"
 msgstr ""
 
-#: app/web/routers/users.py
+#: app/web/feedback.py
 msgid "Kullanıcının rolü değişti; bir sonraki isteğinde geçerli olur."
 msgstr ""
 
@@ -3324,7 +3338,7 @@ msgstr ""
 msgid "Paket bulunamadı."
 msgstr ""
 
-#: app/web/routers/employees.py
+#: app/web/feedback.py
 msgid "Paket iptal edildi."
 msgstr ""
 
@@ -3338,11 +3352,11 @@ msgid ""
 "Grupları</a>'nda arşivlenmemiş bir grup açın."
 msgstr ""
 
-#: app/web/routers/employees.py
+#: app/web/feedback.py
 msgid "Paket tanımlandı."
 msgstr ""
 
-#: app/web/routers/employees.py
+#: app/web/feedback.py
 msgid "Paket yeniden açıldı."
 msgstr ""
 
@@ -3381,7 +3395,7 @@ msgstr[1] ""
 msgid "Parola en az {limit} karakter olmalı."
 msgstr ""
 
-#: app/web/routers/users.py
+#: app/web/feedback.py
 msgid "Parola sıfırlandı; kullanıcının açık oturumları kapatıldı."
 msgstr ""
 
@@ -3396,7 +3410,7 @@ msgid ""
 "oturumlarınız kapanır."
 msgstr ""
 
-#: app/web/routers/users.py
+#: app/web/feedback.py
 msgid "Parolanız değiştirildi; diğer oturumlarınız kapatıldı."
 msgstr ""
 
@@ -3437,11 +3451,11 @@ msgstr ""
 msgid "Parti hâlâ işleniyor; süren tarama yoksayılamaz."
 msgstr ""
 
-#: app/web/templates/upload_action_result.html
-#, python-format
+#: app/web/feedback.py
+#, python-brace-format
 msgid ""
-"Parti iptal edildi (iptal anında: %(stage)s); dosyalar ve üretilen "
-"belgeler yerinde kaldı."
+"Parti iptal edildi: {upload_id}. Dosyalar ve üretilen belgeler yerinde "
+"kaldı."
 msgstr ""
 
 #: app/web/routers/uploads.py
@@ -3454,11 +3468,15 @@ msgstr ""
 msgid "Parti son durumda; iptal edilecek süren bir işlem yok."
 msgstr ""
 
-#: app/web/templates/upload_action_result.html
-#, python-format
+#: app/web/feedback.py
+#, python-brace-format
 msgid ""
-"Parti yeniden analiz edildi: yeni plan sürümü %(version)s (önceki: "
-"%(previous)s);"
+"Parti yeniden analiz edildi: {upload_id}, yeni plan sürümü {version} "
+"(önceki: {previous})."
+msgstr ""
+
+#: app/web/templates/upload_action_result.html
+msgid "Parti yükleme listesine döndü."
 msgstr ""
 
 #: app/web/templates/upload_detail.html
@@ -3541,13 +3559,18 @@ msgstr ""
 msgid "Pasifleştir"
 msgstr ""
 
+#: app/web/feedback.py
+#, python-brace-format
+msgid "Pasifleştirilen tür: {count}. Yeni belgelere atanmazlar."
+msgstr ""
+
 #: app/web/templates/history.html app/web/templates/upload_detail.html
 msgid "Plan"
 msgstr ""
 
-#: app/web/templates/upload_action_result.html
-#, python-format
-msgid "Plan (sürüm %(version)s) yeniden uygulandı."
+#: app/web/feedback.py
+#, python-brace-format
+msgid "Plan (sürüm {version}) yeniden uygulandı: {upload_id}."
 msgstr ""
 
 #: app/web/routers/upload_page.py app/web/routers/uploads_list.py
@@ -3574,11 +3597,11 @@ msgstr ""
 msgid "Profil alanları geçersiz; düzeltip yeniden gönderin."
 msgstr ""
 
-#: app/web/routers/employees.py
+#: app/web/feedback.py
 msgid "Profil bilgileri değiştirildi."
 msgstr ""
 
-#: app/web/routers/employees.py
+#: app/web/feedback.py
 msgid ""
 "Profil bilgileri değiştirildi; klasör ve belge dosyaları yeni adla "
 "yeniden adlandırıldı."
@@ -3755,7 +3778,7 @@ msgstr ""
 msgid "Seç"
 msgstr ""
 
-#: app/web/routers/training.py
+#: app/web/feedback.py
 msgid "Seçilen \"AI kararı\" örnekleri doğrulandı; elle kontrol ikonu kalktı."
 msgstr ""
 
@@ -3994,12 +4017,10 @@ msgstr ""
 msgid "Tanınmayan toplu işlem."
 msgstr ""
 
-#: app/web/templates/upload_action_result.html
-#, python-format
-msgid "Tarama yoksayıldı: %(num)d kuyruk öğesi kapandı;"
-msgid_plural "Tarama yoksayıldı: %(num)d kuyruk öğesi kapandı;"
-msgstr[0] ""
-msgstr[1] ""
+#: app/web/feedback.py
+#, python-brace-format
+msgid "Tarama yoksayıldı: {upload_id}. Kapanan kuyruk öğesi: {count}."
+msgstr ""
 
 #: app/web/templates/upload_detail.html
 msgid "Taramayı yoksay"
@@ -4091,7 +4112,7 @@ msgid ""
 "serbest kalır ve aynı ya da başka bir hesaba yeniden bağlanabilir."
 msgstr ""
 
-#: app/web/routers/users.py
+#: app/web/feedback.py
 msgid ""
 "Telegram kaydı silindi. Bu numara artık yeniden bağlanabilir; bot ona "
 "yanıt vermeyecek."
@@ -4113,7 +4134,7 @@ msgstr ""
 msgid "Telegram kimliği boş olamaz."
 msgstr ""
 
-#: app/web/routers/users.py
+#: app/web/feedback.py
 msgid "Telegram kimliği eklendi ve izni açıldı."
 msgstr ""
 
@@ -4135,11 +4156,11 @@ msgid ""
 "@userinfobot'a yazarak öğrenir."
 msgstr ""
 
-#: app/web/routers/users.py
+#: app/web/feedback.py
 msgid "Telegram kimliğinin izni açıldı."
 msgstr ""
 
-#: app/web/routers/users.py
+#: app/web/feedback.py
 msgid "Telegram kimliğinin izni kapatıldı; bot bu kimliğe yanıt vermeyecek."
 msgstr ""
 
@@ -4177,7 +4198,7 @@ msgid ""
 "belgelerini isteyin."
 msgstr ""
 
-#: app/web/routers/training.py
+#: app/web/feedback.py
 msgid ""
 "Toplu tarama başladı. İşçi haritadaki dosyaları birer birer tarar; "
 "ilerleme bu tabloda güncellenir."
@@ -4221,16 +4242,18 @@ msgid ""
 "yerinde kalacaktır. Son kararınız mı?"
 msgstr ""
 
-#: app/web/routers/catalog.py
+#: app/web/feedback.py
+#, python-brace-format
 msgid ""
-"Tür arşivden geri alındı; bir sonraki analizden itibaren yeniden "
+"Tür arşivden geri alındı: {slug}. Bir sonraki analizden itibaren yeniden "
 "geçerlidir."
 msgstr ""
 
-#: app/web/routers/catalog.py
+#: app/web/feedback.py
+#, python-brace-format
 msgid ""
-"Tür arşivlendi: listeden, analiz talimatından ve tür seçicilerden kalktı;"
-" var olan belgeleri yerinde."
+"Tür arşivlendi: {slug}. Listeden, analiz talimatından ve tür seçicilerden"
+" kalktı; var olan belgeleri yerinde."
 msgstr ""
 
 #: app/web/routers/upload_page.py
@@ -4253,23 +4276,28 @@ msgid ""
 " aşamalı onay ister; tür bir sonraki analizden itibaren geçerlidir."
 msgstr ""
 
-#: app/web/routers/catalog.py
-msgid "Tür güncellendi. Değişiklik bir sonraki analizden itibaren geçerlidir."
+#: app/web/feedback.py
+#, python-brace-format
+msgid ""
+"Tür güncellendi: {slug}. Değişiklik bir sonraki analizden itibaren "
+"geçerlidir."
 msgstr ""
 
 #: app/web/templates/catalog_form.html
 msgid "Tür kaydedilmedi: alanların altındaki uyarıları düzeltin."
 msgstr ""
 
-#: app/web/routers/catalog.py
-msgid "Tür oluşturuldu."
+#: app/web/feedback.py
+#, python-brace-format
+msgid "Tür oluşturuldu: {slug}."
 msgstr ""
 
-#: app/web/routers/catalog.py
-msgid "Tür pasifleştirildi: yeni belgelere atanmaz."
+#: app/web/feedback.py
+#, python-brace-format
+msgid "Tür pasifleştirildi: {slug}. Yeni belgelere atanmaz."
 msgstr ""
 
-#: app/web/routers/catalog.py
+#: app/web/feedback.py
 msgid "Tür seçilmedi: önce tablodan en az bir türü işaretleyin."
 msgstr ""
 
@@ -4281,8 +4309,9 @@ msgstr ""
 msgid "Tür telefon, e-posta ya da adres olmalı."
 msgstr ""
 
-#: app/web/routers/catalog.py
-msgid "Tür yeniden etkinleştirildi."
+#: app/web/feedback.py
+#, python-brace-format
+msgid "Tür yeniden etkinleştirildi: {slug}."
 msgstr ""
 
 #: app/web/templates/training_results.html
@@ -4472,6 +4501,12 @@ msgstr ""
 msgid "Yeni belge türü"
 msgstr ""
 
+#: app/web/templates/document_move.html app/web/templates/queue_assign.html
+#: app/web/templates/queue_new_profile.html
+#, python-format
+msgid "Yeni dosya adı: %(file)s."
+msgstr ""
+
 #: app/web/templates/groups.html
 msgid "Yeni grup"
 msgstr ""
@@ -4509,6 +4544,11 @@ msgstr ""
 msgid "Yeniden analiz edilecek bekleyen Unknown öğesi yok."
 msgstr ""
 
+#: app/web/feedback.py
+#, python-brace-format
+msgid "Yeniden analiz edilen parti: {count}."
+msgstr ""
+
 #: app/web/templates/upload_detail.html
 msgid "Yeniden analiz et"
 msgstr ""
@@ -4524,6 +4564,11 @@ msgstr ""
 
 #: app/web/templates/profile.html app/web/templates/users.html
 msgid "Yeniden etkinleştir"
+msgstr ""
+
+#: app/web/feedback.py
+#, python-brace-format
+msgid "Yeniden etkinleştirilen tür: {count}."
 msgstr ""
 
 #: app/web/templates/catalog_candidate.html
@@ -4579,16 +4624,10 @@ msgstr ""
 msgid "Yoksay"
 msgstr ""
 
-#: app/web/templates/upload_action_result.html
-#, python-format
-msgid ""
-"Yoksayma geri alındı: parti yükleme listesine döndü; %(num)d kuyruk öğesi"
-" yeniden açıldı."
-msgid_plural ""
-"Yoksayma geri alındı: parti yükleme listesine döndü; %(num)d kuyruk öğesi"
-" yeniden açıldı."
-msgstr[0] ""
-msgstr[1] ""
+#: app/web/feedback.py
+#, python-brace-format
+msgid "Yoksayma geri alındı: {upload_id}. Yeniden açılan kuyruk öğesi: {count}."
+msgstr ""
 
 #: app/web/templates/upload_detail.html
 msgid "Yoksaymayı geri al"
@@ -4643,10 +4682,15 @@ msgid ""
 "anlaşılamayan dosyalar ona atanır."
 msgstr ""
 
-#: app/web/routers/training.py
+#: app/web/feedback.py
 msgid ""
 "Yükleme alındı ve mekanik tanıma bitti. Mekanik tanınmayan dosyaları işçi"
 " yapay zekâyla inceler; sonuçlar bu tabloda güncellenir."
+msgstr ""
+
+#: app/web/feedback.py
+#, python-brace-format
+msgid "Yükleme alındı: {upload_id}. İlerleme aşağıda izlenir."
 msgstr ""
 
 #: app/web/templates/_training_tabs.html
@@ -4667,6 +4711,11 @@ msgstr ""
 
 #: app/web/routers/training.py
 msgid "Yüklenecek harita seçilmedi."
+msgstr ""
+
+#: app/web/feedback.py
+#, python-brace-format
+msgid "Yüklenen örnek: {count}; zaten kayıtlı olduğu için atlanan: {skipped}."
 msgstr ""
 
 #: app/web/templates/training_results.html app/web/templates/uploads_list.html
@@ -5150,26 +5199,6 @@ msgid_plural "{count} dosyayı daha önce göndermiştiniz, yeniden eklemedim."
 msgstr[0] ""
 msgstr[1] ""
 
-#: app/web/routers/catalog.py
-#, python-brace-format
-msgid "{count} tür arşivlendi, {skipped} korunan tür atlandı."
-msgstr ""
-
-#: app/web/routers/catalog.py
-#, python-brace-format
-msgid "{count} tür arşivlendi."
-msgstr ""
-
-#: app/web/routers/catalog.py
-#, python-brace-format
-msgid "{count} tür pasifleştirildi: yeni belgelere atanmaz."
-msgstr ""
-
-#: app/web/routers/catalog.py
-#, python-brace-format
-msgid "{count} tür yeniden etkinleştirildi."
-msgstr ""
-
 #: app/telegram/intent.py
 #, python-brace-format
 msgid "{count} {kind}"
@@ -5314,14 +5343,14 @@ msgstr ""
 msgid "Çalışan bulunamadı."
 msgstr ""
 
-#: app/web/routers/employees.py
+#: app/web/feedback.py
 msgid ""
 "Çalışan kalıcı olarak silindi, ancak bazı dosyaları diskten kaldırılamadı"
 " (açık ya da kilitli olabilir); sayısı olay logunda. Sistem yöneticisine "
 "bildirin."
 msgstr ""
 
-#: app/web/routers/employees.py
+#: app/web/feedback.py
 msgid "Çalışan kalıcı olarak silindi; klasörü ve belgeleri diskten kaldırıldı."
 msgstr ""
 
@@ -5336,22 +5365,22 @@ msgid ""
 "partiyi yeniden analiz edin."
 msgstr ""
 
-#: app/web/routers/employees.py
+#: app/web/feedback.py
 msgid "Çalışan pasife alındı; yeni belgeleri otomatik yerleşmeyecek."
 msgstr ""
 
-#: app/web/templates/queue_new_profile.html
-#, python-format
+#: app/web/feedback.py
+#, python-brace-format
 msgid ""
-"Çalışan profili oluşturuldu: <a href=\"%(url)s\">%(name)s (%(id)s)</a>. "
-"Belge %(file)s olarak çalışanın Hazır klasörüne yazıldı."
+"Çalışan profili oluşturuldu: {employee_id}. Belge çalışanın Hazır "
+"klasörüne yazıldı."
 msgstr ""
 
 #: app/web/templates/employee_deleted.html
 msgid "Çalışan silindi"
 msgstr ""
 
-#: app/web/routers/employees.py
+#: app/web/feedback.py
 msgid "Çalışan yeniden etkinleştirildi."
 msgstr ""
 
@@ -5391,11 +5420,11 @@ msgstr ""
 msgid "Çalışanın durumu"
 msgstr ""
 
-#: app/web/routers/training.py
+#: app/web/feedback.py
 msgid "Çalıştırma arşivden geri alındı."
 msgstr ""
 
-#: app/web/routers/training.py
+#: app/web/feedback.py
 msgid ""
 "Çalıştırma arşivlendi: listeden ve sayaçlardan kalktı; öğeleri ve "
 "örnekleri değişmedi."
@@ -5525,7 +5554,7 @@ msgstr ""
 msgid "Örnek belgeleri seçin"
 msgstr ""
 
-#: app/web/routers/training.py
+#: app/web/feedback.py
 msgid "Örnek bu türe taşındı ve doğrulanmış olarak kaydedildi."
 msgstr ""
 
@@ -5568,10 +5597,6 @@ msgstr ""
 msgid "Örnek yükle"
 msgstr ""
 
-#: app/web/templates/catalog_examples.html
-msgid "Örnek yüklendi:"
-msgstr ""
-
 #: app/training/decisions.py
 msgid "Örnek zaten bu türde; başka bir tür seçin."
 msgstr ""
@@ -5580,7 +5605,7 @@ msgstr ""
 msgid "Örnek zaten örneklerden çıkarılmış."
 msgstr ""
 
-#: app/web/routers/training.py
+#: app/web/feedback.py
 msgid "Örnek örneklerden çıkarıldı: dosya silinmedi, eğitim arşivine taşındı."
 msgstr ""
 
@@ -5630,39 +5655,39 @@ msgstr ""
 msgid "Öğe %(item)s"
 msgstr ""
 
-#: app/web/templates/queue_assign.html
-#, python-format
-msgid "Öğe %(name)s (%(id)s) çalışanına atandı: %(file)s."
-msgstr ""
-
 #: app/web/templates/queue.html
 msgid "Öğe durumu"
 msgstr ""
 
-#: app/web/routers/queue.py
+#: app/web/feedback.py
 msgid "Öğe kapatıldı; kuyruk klasöründeki kopya ve gerekçe dosyası yerinde kaldı."
 msgstr ""
 
-#: app/web/routers/training.py
+#: app/web/feedback.py
 msgid "Öğe seçilen türe yerleşti; örnek doğrulanmış olarak kaydedildi."
 msgstr ""
 
-#: app/web/routers/queue.py
+#: app/web/feedback.py
 msgid "Öğe yeniden açıldı."
 msgstr ""
 
-#: app/web/routers/training.py
+#: app/web/feedback.py
 msgid "Öğe yerleşmedi: aynı içerik başka bir türde örnek. Notu inceleyin."
 msgstr ""
 
-#: app/web/routers/training.py
+#: app/web/feedback.py
 msgid "Öğe yerleşmedi: aynı içerik bu türde zaten örnek."
 msgstr ""
 
-#: app/web/routers/training.py
+#: app/web/feedback.py
 msgid ""
 "Öğe yoksayıldı: listeden kalktı, dosyası yerinde duruyor. Yoksayılanlar "
 "görünümünden geri alabilirsiniz."
+msgstr ""
+
+#: app/web/feedback.py
+#, python-brace-format
+msgid "Öğe {employee_id} çalışanına atandı."
 msgstr ""
 
 #: app/web/routers/training.py
@@ -5673,7 +5698,7 @@ msgstr ""
 msgid "Öğenin partisi yoksayılmış; önce yoksaymayı geri alın."
 msgstr ""
 
-#: app/web/routers/training.py
+#: app/web/feedback.py
 msgid ""
 "Öğenin yoksayılması geri alındı; öğe \"Yerleştirilemedi\" listesinde "
 "bekliyor."
@@ -5764,7 +5789,7 @@ msgstr ""
 msgid "İletişim bilgisi ekle"
 msgstr ""
 
-#: app/web/routers/employees.py
+#: app/web/feedback.py
 msgid "İletişim bilgisi eklendi."
 msgstr ""
 
@@ -5821,6 +5846,11 @@ msgstr ""
 
 #: app/web/routers/uploads_list.py
 msgid "İptal"
+msgstr ""
+
+#: app/web/templates/upload_action_result.html
+#, python-format
+msgid "İptal anındaki aşama: %(stage)s."
 msgstr ""
 
 #: app/groups/packages.py app/web/routers/upload_page.py
@@ -5887,6 +5917,20 @@ msgstr ""
 
 #: app/web/templates/upload_detail.html
 msgid "İşlem"
+msgstr ""
+
+#: app/web/feedback.py
+msgid "İşlem tamamlanamadı. Ayrıntı sayfada."
+msgstr ""
+
+#: app/web/feedback.py
+msgid ""
+"İşlem yapılamadı: kayıt bu durumda değiştirilemez ya da bu arada değişti."
+" Ayrıntı sayfada."
+msgstr ""
+
+#: app/web/feedback.py
+msgid "İşlem yapılamadı: kayıt bulunamadı."
 msgstr ""
 
 #: app/web/templates/catalog_candidate_step.html

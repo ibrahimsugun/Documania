@@ -279,6 +279,22 @@ from app.web.confirm import (
     second_text,
 )
 from app.web.context_person import ForeignDocumentsWarning, profile_warning
+from app.web.feedback import (
+    CONTACT_ADDED,
+    EMPLOYEE_DELETED,
+    EMPLOYEE_DELETED_PARTIAL,
+    FIELDS_CHANGED,
+    FIELDS_RENAMED,
+    MERGED,
+    PACKAGE_ASSIGNED,
+    PACKAGE_CANCELLED,
+    PACKAGE_REOPENED,
+    RECORD_REMOVED,
+    RECORD_RESTORED,
+    STATUS_ACTIVE,
+    STATUS_INACTIVE,
+    flash,
+)
 from app.web.profile_form import (
     INVALID_PROFILE,
     PROFILE_LABELS,
@@ -1219,48 +1235,6 @@ class PackageFormValues:
     duplicate: bool = False
 
 
-PACKAGE_NOTICES = {
-    "package_assigned": N_("Paket tanımlandı."),
-    "package_cancelled": N_("Paket iptal edildi."),
-    "package_reopened": N_("Paket yeniden açıldı."),
-}
-# 10.5.6: düzenlemeden sonra profil sayfasının bildirimi.
-PROFILE_NOTICES = {
-    "fields_changed": N_("Profil bilgileri değiştirildi."),
-    "fields_renamed": (
-        N_(
-            "Profil bilgileri değiştirildi; klasör ve belge dosyaları yeni adla yeniden "
-            "adlandırıldı."
-        )
-    ),
-    # 10.5.7
-    "status_inactive": N_("Çalışan pasife alındı; yeni belgeleri otomatik yerleşmeyecek."),
-    "status_active": N_("Çalışan yeniden etkinleştirildi."),
-    # 10.5.9
-    "merged": (
-        N_(
-            "Kayıtlar birleştirildi; birleşen kaydın belgeleri, numaraları, isim yazımları, "
-            "iletişim bilgileri ve belge paketleri bu profile taşındı."
-        )
-    ),
-}
-# 10.5.8: alt kayıt işlemlerinden sonra "Profil kayıtları" bölümünün bildirimi.
-RECORD_NOTICES = {
-    "record_removed": N_("Kayıt kaldırıldı; eşleştirmede ve aramada kullanılmayacak."),
-    "record_restored": N_("Kayıt geri alındı; yeniden eşleştirmede ve aramada kullanılacak."),
-    "contact_added": N_("İletişim bilgisi eklendi."),
-}
-# 08.4.1, 10.5.10, 10.5.12: profilden arşive taşıma, arşivden geri alma ve kalıcı silmeden sonra
-# "Belgeler" bölümünün bildirimi.
-DOCUMENT_NOTICES = {
-    "document_archived": N_("Belge arşive taşındı; çalışanın Hazır klasöründen çıktı."),
-    "document_unarchived": N_("Belge arşivden geri alındı; çalışanın Hazır klasörüne döndü."),
-    "document_deleted": N_("Belge kalıcı olarak silindi; dosyaları diskten kaldırıldı."),
-    "document_deleted_partial": N_(
-        "Belge kalıcı olarak silindi, ancak bazı dosyaları diskten kaldırılamadı (açık ya da "
-        "kilitli olabilir); sayısı olay logunda. Sistem yöneticisine bildirin."
-    ),
-}
 PACKAGE_NOT_FOUND = N_("Paket bulunamadı.")
 GROUP_NOT_FOUND = N_("Belge grubu bulunamadı.")
 DUPLICATE_PACKAGE = N_(
@@ -1279,7 +1253,6 @@ def _profile_page(
     layout: DataLayout,
     employee_id: str,
     *,
-    notice: str | None = None,
     package_form: PackageFormValues | None = None,
     package_problems: dict[str, list[str]] | None = None,
     cancel_problems: dict[int, list[str]] | None = None,
@@ -1314,11 +1287,7 @@ def _profile_page(
         package_form=package_form or PackageFormValues(),
         package_problems=package_problems or {},
         cancel_problems=cancel_problems or {},
-        package_notice=PACKAGE_NOTICES.get(notice or ""),
-        profile_notice=PROFILE_NOTICES.get(notice or ""),
         note_limit=NOTE_MAX_LENGTH,
-        records_notice=RECORD_NOTICES.get(notice or ""),
-        documents_notice=DOCUMENT_NOTICES.get(notice or ""),
         record_problems=record_problems or [],
         contact_form=contact_form or ContactFormValues(),
         contact_problems=contact_problems or {},
@@ -1334,15 +1303,21 @@ def employee_profile(
     user: CurrentUser,
     session: Annotated[Session, Depends(get_session)],
     layout: Annotated[DataLayout, Depends(get_layout)],
-    notice: Annotated[str | None, Query(max_length=32)] = None,
 ) -> HTMLResponse:
-    return _profile_page(request, user, session, layout, employee_id, notice=notice)
+    return _profile_page(request, user, session, layout, employee_id)
 
 
-def _package_redirect(employee_id: str, notice: str) -> RedirectResponse:
-    return RedirectResponse(
-        f"/employees/{employee_id}?notice={notice}#packages", status.HTTP_303_SEE_OTHER
-    )
+def profile_redirect(employee_id: str, key: str, section: str = "") -> RedirectResponse:
+    """Profile dönüş (`section` sayfa içi çapa); işlemin bildirimi tek kullanımlık çerezde
+    (10.11.1, PLAN.md §D120)."""
+    anchor = f"#{section}" if section else ""
+    response = RedirectResponse(f"/employees/{employee_id}{anchor}", status.HTTP_303_SEE_OTHER)
+    flash(response, key)
+    return response
+
+
+def _package_redirect(employee_id: str, key: str) -> RedirectResponse:
+    return profile_redirect(employee_id, key, "packages")
 
 
 def _rewrite_profile(session: Session, layout: DataLayout, employee_id: str) -> None:
@@ -1404,7 +1379,7 @@ def assign_package_endpoint(
             )
         session.commit()
         _rewrite_profile(session, layout, employee_id)
-        return _package_redirect(employee_id, "package_assigned")
+        return _package_redirect(employee_id, PACKAGE_ASSIGNED)
     session.rollback()
     return _profile_page(
         request,
@@ -1451,7 +1426,7 @@ def cancel_package_endpoint(
         )
     session.commit()
     _rewrite_profile(session, layout, employee_id)
-    return _package_redirect(employee_id, "package_cancelled")
+    return _package_redirect(employee_id, PACKAGE_CANCELLED)
 
 
 @router.post("/employees/{employee_id}/packages/{package_id}/reopen", response_class=HTMLResponse)
@@ -1483,7 +1458,7 @@ def reopen_package_endpoint(
         )
     session.commit()
     _rewrite_profile(session, layout, employee_id)
-    return _package_redirect(employee_id, "package_reopened")
+    return _package_redirect(employee_id, PACKAGE_REOPENED)
 
 
 # --- 10.5.6: çalışan profilini düzenleme -------------------------------------------------------
@@ -1738,9 +1713,8 @@ def change_employee_fields(
         session.rollback()
         return _refused_fields(request, user, employee_id, target, values, exc)
     session.commit()
-    notice = "fields_renamed" if edited.renamed else "fields_changed"
     _rewrite_profile(session, layout, employee_id)
-    return RedirectResponse(f"/employees/{employee_id}?notice={notice}", status.HTTP_303_SEE_OTHER)
+    return profile_redirect(employee_id, FIELDS_RENAMED if edited.renamed else FIELDS_CHANGED)
 
 
 # --- 10.5.7: çalışanı pasife alma ve yeniden etkinleştirme -------------------------------------
@@ -2003,8 +1977,8 @@ def change_employee_status_endpoint(
         )
     session.commit()
     _rewrite_profile(session, layout, employee_id)
-    return RedirectResponse(
-        f"/employees/{employee_id}?notice=status_{wanted.value}", status.HTTP_303_SEE_OTHER
+    return profile_redirect(
+        employee_id, STATUS_ACTIVE if wanted == EmployeeStatus.ACTIVE else STATUS_INACTIVE
     )
 
 
@@ -2027,16 +2001,6 @@ EMPLOYEE_NOT_DELETABLE = N_(
 EMPLOYEE_DELETION_CHANGED = N_(
     "Silinecek belge sayısı onaydan sonra değişti; hiçbir şey silinmedi. Onayı yeniden başlatın."
 )
-# Silme yönlendirmesinden sonra "silindi" sayfasının bildirimi.
-EMPLOYEE_DELETED_NOTICES = {
-    "employee_deleted": N_(
-        "Çalışan kalıcı olarak silindi; klasörü ve belgeleri diskten kaldırıldı."
-    ),
-    "employee_deleted_partial": N_(
-        "Çalışan kalıcı olarak silindi, ancak bazı dosyaları diskten kaldırılamadı (açık ya da "
-        "kilitli olabilir); sayısı olay logunda. Sistem yöneticisine bildirin."
-    ),
-}
 
 
 @dataclass(frozen=True, slots=True)
@@ -2245,8 +2209,7 @@ def delete_employee_endpoint(
     failed = remove_employee_files(session, deleted)
     if failed:
         session.commit()
-    notice = "employee_deleted_partial" if failed else "employee_deleted"
-    return RedirectResponse(f"/employees/{employee_id}?notice={notice}", status.HTTP_303_SEE_OTHER)
+    return profile_redirect(employee_id, EMPLOYEE_DELETED_PARTIAL if failed else EMPLOYEE_DELETED)
 
 
 class EmployeeDeletedError(Exception):
@@ -2282,7 +2245,6 @@ def employee_deleted_page(request: Request, exc: Exception) -> Response:
     """`EmployeeDeletedError` → "Bu çalışan <tarih> tarihinde <kullanıcı> tarafından silindi"
     (410); kişisel değer yoktur, yalnız E numarası (10.5.13)."""
     assert isinstance(exc, EmployeeDeletedError)
-    notice = EMPLOYEE_DELETED_NOTICES.get(request.query_params.get("notice", ""))
     return render_page(
         request,
         "employee_deleted.html",
@@ -2294,7 +2256,6 @@ def employee_deleted_page(request: Request, exc: Exception) -> Response:
             exc.deleted_at.strftime("%d.%m.%Y %H:%M") if exc.deleted_at is not None else "—"
         ),
         deleted_by=exc.deleted_by,
-        notice=notice,
     )
 
 
@@ -2399,10 +2360,8 @@ def _record_page(
     )
 
 
-def _records_redirect(employee_id: str, notice: str) -> RedirectResponse:
-    return RedirectResponse(
-        f"/employees/{employee_id}?notice={notice}#records", status.HTTP_303_SEE_OTHER
-    )
+def _records_redirect(employee_id: str, key: str) -> RedirectResponse:
+    return profile_redirect(employee_id, key, "records")
 
 
 @router.get(
@@ -2570,7 +2529,7 @@ def remove_record_endpoint(
         )
     session.commit()
     _rewrite_profile(session, layout, employee_id)
-    return _records_redirect(employee_id, "record_removed")
+    return _records_redirect(employee_id, RECORD_REMOVED)
 
 
 @router.post(
@@ -2602,7 +2561,7 @@ def restore_record_endpoint(
     else:
         session.commit()
         _rewrite_profile(session, layout, employee_id)
-        return _records_redirect(employee_id, "record_restored")
+        return _records_redirect(employee_id, RECORD_RESTORED)
     return _profile_page(
         request,
         user,
@@ -2642,7 +2601,7 @@ def add_contact_endpoint(
     else:
         session.commit()
         _rewrite_profile(session, layout, employee_id)
-        return _records_redirect(employee_id, "contact_added")
+        return _records_redirect(employee_id, CONTACT_ADDED)
     session.rollback()
     return _profile_page(
         request,
@@ -3006,7 +2965,7 @@ def merge_employees_endpoint(
     # 09.1.1: iki profil de değişti; birleştirmenin commit edilmiş hâlinden üretilir.
     _rewrite_profile(session, layout, merged_id)
     _rewrite_profile(session, layout, kept_id)
-    return RedirectResponse(f"/employees/{kept_id}?notice=merged", status.HTTP_303_SEE_OTHER)
+    return profile_redirect(kept_id, MERGED)
 
 
 def _file_response(stored: StoredDocument, *, disposition: str) -> FileResponse:

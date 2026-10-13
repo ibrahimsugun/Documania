@@ -53,6 +53,7 @@ from tests.fixtures.gen import (
     recorded_provider,
 )
 from tests.web.conftest import SESSION, SIGNED_IN, issue_token
+from tests.web.flash import hx_toasts
 
 SETTINGS = Settings(_env_file=None, database_url="sqlite://")
 OWNER, OWNER_FOLDER = "E0001", "Test_Ornekova_E0001"
@@ -377,7 +378,13 @@ def test_s16_two_confirmations_move_the_document_update_both_profiles_and_log_th
     assert f"/documents/{moving.document_id}/" not in owner_page
     assert f"/employees/{TARGET}/documents/{moving.document_id}/file" in target_page
     html = response.text
-    assert f"{TARGET_NAME} ({TARGET}) çalışanına taşındı: {MOVED_NAME}" in html
+    # 10.11.1: sonuç bildirimdir (kişisel değer yok, yalnız E numarası); parça yeni adı ve
+    # bağlantıları taşır.
+    assert hx_toasts(response) == [
+        {"kind": "success", "text": f"Belge {TARGET} çalışanına taşındı."}
+    ]
+    assert TARGET_NAME not in response.headers["HX-Trigger"]
+    assert f"Yeni dosya adı: {MOVED_NAME}." in html
     assert f'<a href="/employees/{OWNER}">' in html and f'<a href="/employees/{TARGET}">' in html
     assert '<div id="move-results" hx-swap-oob="true"></div>' in html
 

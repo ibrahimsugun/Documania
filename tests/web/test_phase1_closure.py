@@ -41,6 +41,7 @@ from tests.fixtures.gen import (
     recorded_provider,
 )
 from tests.web.conftest import SESSION, SIGNED_IN
+from tests.web.flash import hx_toasts
 
 PERMIT = document_page(
     "work_permit",
@@ -164,9 +165,10 @@ def test_hr_uploads_resolves_the_queue_sees_the_document_on_the_profile_and_open
         data={"employee_id": employee.id, "confirmation": _token(second.text)},
     )
     assert assigned.status_code == 200, assigned.text
-    file_name = _one(
-        rf"Öğe {EMPLOYEE_NAME} \({employee.id}\) çalışanına atandı: ([^<]+?)\. ", assigned.text
-    )
+    assert hx_toasts(assigned) == [
+        {"kind": "success", "text": f"Öğe {employee.id} çalışanına atandı."}
+    ]
+    file_name = _one(r"Yeni dosya adı: ([^<]+?)\. ", assigned.text)
     assert file_name.endswith(".pdf")
 
     # Kuyruk boşaldı; öğe çözüldü ve olay kullanıcı adıyla yazıldı.

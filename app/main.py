@@ -4,8 +4,10 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from typing import Any
 
-from fastapi import Depends, FastAPI, Request, status
-from fastapi.responses import RedirectResponse
+from fastapi import Depends, FastAPI, HTTPException, Request, status
+from fastapi.exception_handlers import http_exception_handler, request_validation_exception_handler
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from app.catalog import load_catalog_on_startup
@@ -14,6 +16,7 @@ from app.db.schema_check import SchemaVersionError, ensure_schema_current, expec
 from app.i18n.request import use_request_language
 from app.storage import prepare_data_dir
 from app.web.auth import (
+    SAFE_METHODS,
     LoginRequiredError,
     api_write_gate,
     login_url,
@@ -22,6 +25,7 @@ from app.web.auth import (
     require_panel_user,
 )
 from app.web.code_watch import CodeWatch
+from app.web.feedback import READ_ONLY, add_toasts, flash, is_htmx, render, status_feedback
 from app.web.routers import (
     access_log,
     auth,
@@ -42,6 +46,37 @@ from app.web.routers import (
 def _redirect_to_login(_request: Request, exc: Exception) -> RedirectResponse:
     assert isinstance(exc, LoginRequiredError)
     return RedirectResponse(login_url(exc.next_path), status.HTTP_303_SEE_OTHER)
+
+
+def _with_feedback(request: Request, response: Response, status_code: int) -> Response:
+    """Panelin yazma isteğinin hata yanıtına özet bildirim ekler (10.11.1, PLAN.md §D120): HTMX'te
+    `HX-Trigger` başlığı, tam sayfa gönderiminde bir sonraki sayfanın göstereceği çerez. JSON API
+    (`/api/...`), okuma istekleri ve oturumsuzluk (401) bildirim almaz."""
+    key = status_feedback(status_code)
+    if key is None or request.method in SAFE_METHODS or request.url.path.startswith("/api/"):
+        return response
+    # 10.1.8: yetki reddi (salt okunur Kullanıcı'nın yazma isteği) kendi metniyle.
+    if status_code == status.HTTP_403_FORBIDDEN:
+        key = READ_ONLY
+    if is_htmx(request):
+        add_toasts(response, [render(key)])
+    else:
+        flash(response, key)
+    return response
+
+
+async def _http_error_with_feedback(request: Request, exc: Exception) -> Response:
+    """Yanıt FastAPI'nin varsayılanıdır (JSON `detail`); yazma isteğine bildirim eklenir."""
+    assert isinstance(exc, HTTPException)
+    response = await http_exception_handler(request, exc)
+    return _with_feedback(request, response, exc.status_code)
+
+
+async def _invalid_request_with_feedback(request: Request, exc: Exception) -> Response:
+    """Doğrulanamayan form (422) — yanıt FastAPI'nin varsayılanıdır, yazma isteğine bildirim."""
+    assert isinstance(exc, RequestValidationError)
+    response = await request_validation_exception_handler(request, exc)
+    return _with_feedback(request, response, response.status_code)
 
 
 def _expected_revision_or_none() -> str | None:
@@ -72,6 +107,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         title="Documania", lifespan=lifespan, openapi_url=None, docs_url=None, redoc_url=None
     )
     application.add_exception_handler(LoginRequiredError, _redirect_to_login)
+    application.add_exception_handler(HTTPException, _http_error_with_feedback)
+    application.add_exception_handler(RequestValidationError, _invalid_request_with_feedback)
     application.add_exception_handler(
         employees.EmployeeDeletedError, employees.employee_deleted_page
     )

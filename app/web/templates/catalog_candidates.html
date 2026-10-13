@@ -10,9 +10,6 @@
 <p class="back"><a href="/document-types">← {{ _("Belge Türleri") }}</a></p>
 <h1>{{ _("Aday türler") }}</h1>
 <p class="lede">{{ _("Sistemin belgelerde gördüğü, ama katalogda bulunmayan tür önerileri. Onaylarsan katalog türü olur ve bundan sonraki belgeler ona yerleşir.") }}</p>
-{% if notice_text %}
-<p class="notice notice-success" role="status">{{ translate(notice_text) }}</p>
-{% endif %}
 <p class="hint">{{ _("Analizcinin önerdiği, katalogda olmayan türler. Belge hiçbir türe zorla atanmaz: aday türle görülen belgeler Unknown kuyruğunda bekler. Onaylanan aday standart türler arasına eklenir; reddedilen aday bir daha listeye düşmez. Sistem bekleyen adayların örnek sayfalarını boş zamanında inceleyip tür taslağı hazırlar (İnceleme sütunu); aday kendiliğinden onaylanmaz.") }}</p>
 <nav class="tabs candidate-views" aria-label="{{ _('Aday tür görünümleri') }}">
   {% if view == "pending" %}<strong>{{ _("Bekleyenler (%(num)d)", num=pending|length) }}</strong>{% else %}<a href="/document-types/candidate-types">{{ _("Bekleyenler (%(num)d)", num=pending|length) }}</a>{% endif %}

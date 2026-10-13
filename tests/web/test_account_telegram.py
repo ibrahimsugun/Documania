@@ -23,6 +23,7 @@ from app.telegram.link import LinkOutcome, redeem_link_code, write_bot_info
 from app.web.auth import PanelUser, create_user, get_current_user
 from tests.i18n.residue import assert_no_turkish
 from tests.web.conftest import SIGNED_IN
+from tests.web.flash import flashed
 
 PASSWORD = "sentetik-parola-1"
 BOT = "belgeee_test_bot"
@@ -167,7 +168,8 @@ def test_adding_an_own_id_binds_it_allowed_and_logs_it_as_from_the_account(
     response = client.post(PAGE, data={"telegram_id": f" {FIRST_ID} "}, follow_redirects=False)
 
     assert response.status_code == 303
-    assert response.headers["location"] == "/account/telegram?notice=telegram_added"
+    assert response.headers["location"] == "/account/telegram"
+    assert flashed(response) == ("users.telegram_added", {})
     assert _accounts(session_factory) == [(FIRST_ID, OWN, True)]
     (event,) = _events(session_factory, "TELEGRAM_USER_CHANGED")
     assert (event.actor, event.data_json) == (
@@ -254,8 +256,10 @@ def test_blocking_and_allowing_an_own_id(
     same = client.post(path, data={"allowed": "true"})
     unknown = client.post(path, data={"allowed": "sil"})
 
-    assert blocked.headers["location"] == "/account/telegram?notice=telegram_blocked"
-    assert allowed.headers["location"] == "/account/telegram?notice=telegram_allowed"
+    assert blocked.headers["location"] == "/account/telegram"
+    assert flashed(blocked) == ("users.telegram_blocked", {})
+    assert allowed.headers["location"] == "/account/telegram"
+    assert flashed(allowed) == ("users.telegram_allowed", {})
     assert same.status_code == 409 and "zaten izinli" in same.text
     assert unknown.status_code == 422
     assert _accounts(session_factory) == [(FIRST_ID, OWN, True)]

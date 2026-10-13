@@ -16,6 +16,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from datetime import UTC, date, datetime
+from html import escape
 from pathlib import Path
 
 import pytest
@@ -51,6 +52,8 @@ from app.pipeline.route import route_queue_item
 from app.storage import DataLayout, delete_document, remove_document_files
 from app.training.map_import import SkippedRow, SkipReason
 from app.web.auth import SESSION_COOKIE, PanelUser, get_current_user, require_api_user
+from app.web.feedback import FLASH_COOKIE, REGISTRY, render
+from app.web.feedback import _encode as encode_flash
 from app.web.routers.training import get_training_provider_problem
 from app.web.routers.upload_page import resolution_text
 from tests.fixtures.gen import (
@@ -71,6 +74,7 @@ from tests.pipeline.test_plan import _pdf as plan_pdf
 from tests.pipeline.test_plan import _person as plan_person
 from tests.pipeline.test_plan import _upload as plan_upload
 from tests.web.conftest import SIGNED_IN
+from tests.web.flash import toasts
 
 SETTINGS = Settings(_env_file=None, database_url="sqlite://")
 LANGUAGES = ("en", "sr")
@@ -108,7 +112,6 @@ PAGES: dict[str, tuple[tuple[str, int], ...]] = {
         ("/employees/E0002", 200),
         ("/employees/E9999", 404),
         ("/employees/E0009", 410),  # 10.5.13: kalıcı silinen çalışanın "silindi" sayfası
-        ("/employees/E0009?notice=employee_deleted", 410),
     ),
     # 10.5.13 (tm 167): yalnız pasif çalışan silinir; etkin çalışan 409.
     "/employees/{employee_id}/delete/confirm": (
@@ -157,20 +160,15 @@ PAGES: dict[str, tuple[tuple[str, int], ...]] = {
         ("/document-types?country=RU", 200),
         ("/document-types?country=general", 200),
         ("/document-types?archived=1", 200),
-        ("/document-types?notice=created&slug=russian_passport", 200),
-        ("/document-types?notice=bulk_archived&count=2&skipped=1", 200),
-        ("/document-types?notice=none_selected", 200),
     ),
     "/document-types/new": (("/document-types/new", 200),),
     "/document-types/candidate-types": (
         ("/document-types/candidate-types", 200),
         ("/document-types/candidate-types?status=rejected", 200),
-        ("/document-types/candidate-types?notice=rejected", 200),
     ),
     "/document-types/{slug}": (
         ("/document-types/russian_passport", 200),
         ("/document-types/profile_picture", 200),
-        ("/document-types/profile_picture?notice=photo_rules", 200),
     ),
     "/document-types/{slug}/archive/confirm": (
         ("/document-types/russian_passport/archive/confirm", 200),
@@ -178,7 +176,6 @@ PAGES: dict[str, tuple[tuple[str, int], ...]] = {
     ),
     "/document-types/candidate-types/{candidate_id}": (
         ("/document-types/candidate-types/{candidate}", 200),
-        ("/document-types/candidate-types/{candidate}?notice=restored", 200),
     ),
     "/document-groups": (
         ("/document-groups", 200),
@@ -187,7 +184,6 @@ PAGES: dict[str, tuple[tuple[str, int], ...]] = {
     "/document-groups/new": (("/document-groups/new", 200),),
     "/document-groups/{group_id}": (
         ("/document-groups/{group}", 200),
-        ("/document-groups/{group}?notice=created", 200),
         ("/document-groups/{archived_group}", 200),
     ),
     "/queues": (
@@ -201,7 +197,6 @@ PAGES: dict[str, tuple[tuple[str, int], ...]] = {
         ("/queues/{unknown_item}", 200),
         ("/queues/{unresolved_item}", 200),
         ("/queues/{unreadable_item}", 200),
-        ("/queues/{unresolved_item}?notice=reopened", 200),
         ("/queues/99999", 404),
     ),
     "/queues/{queue_item_id}/assign/employees": (
@@ -221,7 +216,6 @@ PAGES: dict[str, tuple[tuple[str, int], ...]] = {
     ),
     "/training": (
         ("/training", 200),
-        ("/training?notice=uploaded", 200),
         ("/training?filter=mechanical", 200),
         ("/training?show=dismissed", 200),
         ("/training?archived=1", 200),
@@ -234,13 +228,30 @@ PAGES: dict[str, tuple[tuple[str, int], ...]] = {
     ),
     "/training/known/{slug}": (
         ("/training/known/russian_passport", 200),
-        ("/training/known/russian_passport?notice=moved", 200),
         ("/training/known/albanian_passport", 200),
     ),
     "/users": (("/users", 200),),
     "/account/password": (("/account/password", 200),),
     "/account/telegram": (("/account/telegram", 200),),
 }
+# 10.11.1, 10.11.3 (PLAN.md §D120): bildirim gösteren sayfa durumları. Adres açılmadan önce bir
+# önceki işlemin yönlendirmesi gibi bildirim çerezi konur; bildirim metni de taramadan geçer.
+FLASH_PAGES: tuple[tuple[str, int, str, dict[str, object]], ...] = (
+    ("/employees/E0009", 410, "employees.deleted", {}),
+    ("/employees/E0001", 200, "employees.status_inactive", {}),
+    ("/document-types", 200, "catalog.created", {"slug": PASSPORT}),
+    ("/document-types", 200, "catalog.bulk_archived_skipped", {"count": 2, "skipped": 1}),
+    ("/document-types", 200, "catalog.none_selected", {}),
+    ("/document-types/candidate-types", 200, "catalog.candidate_rejected", {}),
+    ("/document-types/profile_picture", 200, "catalog.photo_rules", {"slug": "profile_picture"}),
+    ("/document-types/candidate-types/{candidate}", 200, "catalog.candidate_restored", {}),
+    ("/document-groups/{group}", 200, "groups.created", {}),
+    ("/queues/{unresolved_item}", 200, "queue.reopened", {}),
+    ("/training", 200, "training.uploaded", {}),
+    ("/training/known/russian_passport", 200, "training.moved", {}),
+    ("/users", 200, "access.read_only", {}),
+    ("/account/telegram", 200, "users.telegram_added", {}),
+)
 # HTML çizmeyen `GET` yolları: dosya, görüntü, yönlendirme ve makine arayüzü.
 NOT_HTML = frozenset(
     {
@@ -565,6 +576,33 @@ def test_every_panel_page_opens_in_the_chosen_language_without_turkish_residue(
             residue = turkish_residue(response.text, language)
             if residue:
                 failures.append(f"{path}: {residue}")
+    for template, expected, key, params in FLASH_PAGES:
+        speak(language)
+        path = template.format(**world)
+        client.cookies.set(FLASH_COOKIE, encode_flash([{"k": key, "p": params}]))
+        response = client.get(path, follow_redirects=False)
+        shown = toasts(response.text)
+        if response.status_code != expected or len(shown) != 1:
+            failures.append(f"{path} ({key}): {response.status_code}, bildirim {shown}")
+            continue
+        residue = turkish_residue(response.text, language)
+        if residue:
+            failures.append(f"{path} ({key}): {residue}")
+    assert not failures, "\n".join(failures)
+
+
+@pytest.mark.parametrize("language", LANGUAGES)
+def test_every_registered_notice_speaks_the_chosen_language(language: str) -> None:
+    # 10.11.3: kayıttaki her bildirim (yer tutucular örnek değerle) seçili dilde biçimlenir.
+    samples = {"count": 2, "skipped": 1, "version": 3, "previous": 2}
+    samples |= {"employee_id": "E0001", "upload_id": "u_20990101_0001", "slug": PASSPORT}
+    failures = []
+    with use_language(language):
+        for key, feedback in REGISTRY.items():
+            text = render(key, **{name: samples[name] for name in feedback.params}).text
+            residue = turkish_residue(f"<p>{escape(text)}</p>", language)
+            if residue:
+                failures.append(f"{key}: {residue}")
     assert not failures, "\n".join(failures)
 
 
@@ -595,14 +633,6 @@ EXPECTED: dict[str, dict[str, tuple[str, ...]]] = {
             "Uredi",
             "Aktivan",
         ),
-    },
-    "/document-types?notice=bulk_archived&count=2&skipped=1": {
-        "en": ("2 types archived, 1 protected types skipped.",),
-        "sr": ("Arhivirano tipova: 2; preskočeno zaštićenih tipova: 1.",),
-    },
-    "/document-types?notice=created&slug=russian_passport": {
-        "en": ("Russian Passport: The type was created.",),
-        "sr": ("Russian Passport: Tip je napravljen.",),
     },
     "/document-types/new": {
         "en": ("<h1>New document type</h1>", "File label", "Add criterion", "Save", "Cancel"),

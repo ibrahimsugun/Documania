@@ -45,6 +45,7 @@ from app.web.profile_form import BAD_DATE, INVALID_PROFILE
 from app.web.routers.employees import NO_FIELD_CHANGES, NOT_EDITABLE, fields_subject
 from tests.fixtures.gen import make_pdf_bytes
 from tests.web.conftest import SESSION, SIGNED_IN, issue_token
+from tests.web.flash import flashed
 
 EMPLOYEE_ID = "E0001"
 OLD_FOLDER, NEW_FOLDER = "Ivan_Petrov_E0001", "Ivan_Petrova_E0001"
@@ -371,7 +372,8 @@ def test_the_token_changes_the_fields_renames_the_files_and_logs_both_events(
     response = _change(client, RENAMED, token)
 
     assert response.status_code == 303, response.text
-    assert response.headers["location"] == f"/employees/{EMPLOYEE_ID}?notice=fields_renamed"
+    assert response.headers["location"] == f"/employees/{EMPLOYEE_ID}"
+    assert flashed(response) == ("employees.fields_renamed", {})
     page = client.get(response.headers["location"]).text
     assert "klasör ve belge dosyaları yeni adla yeniden adlandırıldı" in page
     with session_factory() as session:
@@ -434,7 +436,8 @@ def test_a_field_only_change_keeps_the_folder_and_says_so(
     values = CURRENT | {"nationality": "KAZ"}
     response = _change(client, values, _token(_prepare(client, values).text))
 
-    assert response.headers["location"] == f"/employees/{EMPLOYEE_ID}?notice=fields_changed"
+    assert response.headers["location"] == f"/employees/{EMPLOYEE_ID}"
+    assert flashed(response) == ("employees.fields_changed", {})
     assert "Profil bilgileri değiştirildi." in client.get(response.headers["location"]).text
     with session_factory() as session:
         employee = session.get_one(Employee, EMPLOYEE_ID)

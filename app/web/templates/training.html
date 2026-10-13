@@ -14,7 +14,6 @@
   <ul>{% for message in errors %}<li>{{ translate(message) }}</li>{% endfor %}</ul>
 </div>
 {% endif %}
-{% if notice %}<p class="notice notice-success" role="status">{{ translate(notice) }}</p>{% endif %}
 {% if provider_problem %}
 <p class="notice provider-note" role="status">{{ _("Yapay zekâ sağlayıcısı ayarlı değil: mekanik tanınmayan belgeler \"Yapay zekâ incelemesi bekliyor\" durumunda bekler. Sağlayıcı ayarlanınca işçi onları inceler. İşçi sağlayıcı ayarı olmadan başlamadığı için harita taramasının dosyaları da \"Sırada\" bekler.") }} <span class="reason" translate="no">({{ provider_problem }})</span></p>
 {% endif %}

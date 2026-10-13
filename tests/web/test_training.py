@@ -57,6 +57,7 @@ from tests.fixtures.gen import (
 )
 from tests.training.invariants import assert_employee_data_untouched
 from tests.web.conftest import SIGNED_IN
+from tests.web.flash import flashed
 
 LIMIT = 1024 * 1024
 SURNAME, GIVEN, NUMBER = "ORNEKOVA", "TEST", "U00000001"
@@ -197,7 +198,8 @@ def test_upload_places_a_mechanically_recognized_passport_at_once(
     response = _upload(client, [("pasaport.pdf", _passport_pdf())])
 
     assert response.status_code == 303
-    assert response.headers["location"] == "/training?run=1&notice=uploaded"
+    assert response.headers["location"] == "/training?run=1"
+    assert flashed(response) == ("training.uploaded", {})
     (item,) = _items(session_factory)
     assert (item.status, item.result_slug, item.method) == (
         "placed",
@@ -553,7 +555,8 @@ def test_place_into_type_puts_the_unplaced_item_there_as_verified(
     )
 
     assert response.status_code == 303
-    assert response.headers["location"] == f"/training?run=1&notice=placed#item-{item_id}"
+    assert response.headers["location"] == f"/training?run=1#item-{item_id}"
+    assert flashed(response) == ("training.placed", {})
     with session_factory() as session:
         item = session.get_one(TrainingItem, item_id)
         assert (item.status, item.result_slug, item.method, item.decided_by) == (
@@ -647,7 +650,7 @@ def test_place_into_type_keeps_the_duplicate_rule(
     )
 
     assert response.status_code == 303
-    assert "notice=conflict" in response.headers["location"]
+    assert flashed(response) == ("training.conflict", {})
     assert list_examples(layout, "serbian_residence_card") == []
     with session_factory() as session:
         item = session.get_one(TrainingItem, item_id)

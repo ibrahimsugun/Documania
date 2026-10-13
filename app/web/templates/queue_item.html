@@ -12,7 +12,6 @@
 {% else %}
 <p class="back"><a href="{{ item.tab_url }}">← {{ _("%(queue)s kuyruğu", queue=translate(item.kind_label)) }}</a></p>
 <h1>{{ _("Kuyruk öğesi %(id)s", id=item.id) }}</h1>
-{% if item.notice %}<p class="notice notice-success" role="status">{{ translate(item.notice) }}</p>{% endif %}
 {% if item.note %}<p class="notice" role="note">{{ translate(item.note) }}</p>{% endif %}
 <dl class="meta">
   <dt>{{ _("Kuyruk") }}</dt><dd>{{ translate(item.kind_label) }}</dd>

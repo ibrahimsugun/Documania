@@ -46,6 +46,7 @@ from tests.fixtures.gen import (
 )
 from tests.i18n.residue import assert_no_turkish
 from tests.web.conftest import SESSION, SIGNED_IN, issue_token
+from tests.web.flash import hx_toasts
 
 SETTINGS = Settings(_env_file=None, database_url="sqlite://")
 USER = "test-yonetici"
@@ -253,7 +254,13 @@ def test_one_confirmation_changes_nothing_and_two_cancel_the_batch_keeping_every
     response = client.post(f"/uploads/{running}/cancel", data={"confirmation": token})
 
     assert response.status_code == 200
-    assert "Parti iptal edildi" in response.text
+    assert hx_toasts(response) == [
+        {
+            "kind": "success",
+            "text": f"Parti iptal edildi: {running}. Dosyalar ve üretilen belgeler yerinde kaldı.",
+        }
+    ]
+    assert "İptal anındaki aşama:" in response.text
     assert _state(session_factory, running) == (UploadStatus.CANCELLED, JobStatus.CANCELLED)
     confirmed, cancelled = _events(session_factory)[-2:]
     assert (confirmed.type, confirmed.actor) == (EventType.USER_CONFIRMED, USER)

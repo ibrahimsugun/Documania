@@ -25,6 +25,7 @@ from app.catalog import (
 )
 from app.db.models import Document, Event, KnownDocumentType, Upload
 from tests.fixtures.gen import make_docx_bytes
+from tests.web.flash import flashed, toasts
 
 SLUG = "profile_picture"
 PAGE = f"/document-types/{SLUG}"
@@ -128,14 +129,15 @@ def test_saving_stores_the_set_in_the_catalog_and_the_page_shows_it_back(
     response = _save(client, chosen, min_width_px="640", min_height_px="480")
 
     assert response.status_code == 303
-    assert response.headers["location"] == f"{PAGE}?notice=photo_rules#photo-rules"
+    assert response.headers["location"] == f"{PAGE}#photo-rules"
+    assert flashed(response) == ("catalog.photo_rules", {"slug": SLUG})
     stored = _stored(session_factory)
     assert stored == build_photo_rules(
         PhotoRulesForm(enabled=tuple(chosen), min_width_px="640", min_height_px="480")
     )
     assert tuple(stored) == ALL_IDS  # her kural açıkça yazılır
-    page = client.get(f"{PAGE}?notice=photo_rules")
-    assert "Fotoğraf kuralları kaydedildi." in page.text
+    page = client.get(PAGE)
+    assert toasts(page.text) == [f"Fotoğraf kuralları kaydedildi: {SLUG}."]
     assert _checked(page.text) == ("face_visible", "min_resolution", "no_head_covering")
     assert _size(page.text) == ("640", "480")
     # Katalog (analiz ve dışa aktarım) kural setiyle okunur; kapalı kurallar sorulmaz.
@@ -322,12 +324,13 @@ def test_the_rule_section_stays_on_every_render_of_the_edit_page(
     assert _stored(session_factory) == stored
 
 
-def test_the_notice_is_shown_only_for_known_names_and_is_escaped(client: TestClient) -> None:
-    assert "Fotoğraf kuralları kaydedildi." in client.get(f"{PAGE}?notice=photo_rules").text
+def test_an_old_notice_address_shows_nothing(client: TestClient) -> None:
+    # 10.11.1 (PLAN.md §D120): adres çubuğu bildirim taşımaz; eski `?notice=` yok sayılır.
+    assert toasts(client.get(f"{PAGE}?notice=photo_rules").text) == []
     other = client.get(f"{PAGE}?notice=%3Cscript%3E")
-    assert 'role="status"' not in other.text
+    assert toasts(other.text) == []
     assert "<script>" not in other.text
-    assert client.get(f"{PAGE}?notice=" + "x" * 33).status_code == 422
+    assert client.get(f"{PAGE}?notice=" + "x" * 33).status_code == 200
 
 
 # --- kapsam: içerik ve kayıtlar değişmez ----------------------------------------------------------

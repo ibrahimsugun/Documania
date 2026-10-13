@@ -76,7 +76,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import PurePosixPath
 from typing import Annotated
-from urllib.parse import parse_qsl, quote, urlencode, urlsplit
+from urllib.parse import quote, urlencode
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, status
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse, Response
@@ -142,6 +142,22 @@ from app.web.confirm import (
     Operation,
     confirm_operation,
     issue_confirmation,
+)
+from app.web.feedback import (
+    TRAINING_CONFLICT,
+    TRAINING_DISMISSED,
+    TRAINING_MAP_STARTED,
+    TRAINING_MOVED,
+    TRAINING_PLACED,
+    TRAINING_REMOVED,
+    TRAINING_RESTORED,
+    TRAINING_RUN_ARCHIVED,
+    TRAINING_RUN_RESTORED,
+    TRAINING_SKIPPED,
+    TRAINING_UPLOADED,
+    TRAINING_VERIFIED,
+    TRAINING_VERIFY_NONE,
+    flash,
 )
 from app.web.routers.uploads import _validated_name, get_layout
 from app.web.templating import MENU_BY_KEY, render_page
@@ -274,31 +290,11 @@ KNOWN_FILTERS: tuple[tuple[str, str], ...] = (
 )
 KNOWN_FILTER_KEYS = frozenset(key for key, _ in KNOWN_FILTERS)
 
-NOTICES: dict[str, str] = {
-    "uploaded": N_(
-        "Yükleme alındı ve mekanik tanıma bitti. Mekanik tanınmayan dosyaları işçi yapay zekâyla "
-        "inceler; sonuçlar bu tabloda güncellenir."
-    ),
-    "placed": N_("Öğe seçilen türe yerleşti; örnek doğrulanmış olarak kaydedildi."),
-    "skipped": N_("Öğe yerleşmedi: aynı içerik bu türde zaten örnek."),
-    "conflict": N_("Öğe yerleşmedi: aynı içerik başka bir türde örnek. Notu inceleyin."),
-    "verified": N_('Seçilen "AI kararı" örnekleri doğrulandı; elle kontrol ikonu kalktı.'),
-    "verify_none": N_('Doğrulanacak "AI kararı" örneği seçilmedi; hiçbir şey değişmedi.'),
-    "moved": N_("Örnek bu türe taşındı ve doğrulanmış olarak kaydedildi."),
-    "removed": N_("Örnek örneklerden çıkarıldı: dosya silinmedi, eğitim arşivine taşındı."),
-    "map_started": N_(
-        "Toplu tarama başladı. İşçi haritadaki dosyaları birer birer tarar; ilerleme bu tabloda "
-        "güncellenir."
-    ),
-    "dismissed": N_(
-        "Öğe yoksayıldı: listeden kalktı, dosyası yerinde duruyor. Yoksayılanlar görünümünden geri "
-        "alabilirsiniz."
-    ),
-    "restored": N_('Öğenin yoksayılması geri alındı; öğe "Yerleştirilemedi" listesinde bekliyor.'),
-    "run_archived": N_(
-        "Çalıştırma arşivlendi: listeden ve sayaçlardan kalktı; öğeleri ve örnekleri değişmedi."
-    ),
-    "run_restored": N_("Çalıştırma arşivden geri alındı."),
+# 11.9.3: tek öğe yerleştirmenin sonucu → bildirim.
+PLACEMENT_FEEDBACK = {
+    TrainingItemStatus.PLACED: TRAINING_PLACED,
+    TrainingItemStatus.SKIPPED: TRAINING_SKIPPED,
+    TrainingItemStatus.CONFLICT: TRAINING_CONFLICT,
 }
 
 _IMAGE_SUFFIXES = (".jpg", ".jpeg", ".png")
@@ -629,7 +625,6 @@ def _training_page(
     provider_problem: str | None,
     status_code: int = 200,
     errors: list[str] | None = None,
-    notice: str | None = None,
     hint_slug: str | None = None,
     show: str = "",
     archived: bool = False,
@@ -653,7 +648,6 @@ def _training_page(
         results=results,
         provider_problem=provider_problem,
         errors=errors or [],
-        notice=NOTICES.get(notice or ""),
         hint_slug=hint_slug,
         manual_check_text=MANUAL_CHECK_TEXT,
     )
@@ -692,7 +686,6 @@ def training_page(
     provider_problem: ProviderProblem,
     run: str | None = None,
     filter: str | None = None,
-    notice: str | None = None,
     show: str | None = None,
     archived: str | None = None,
 ) -> HTMLResponse:
@@ -703,7 +696,6 @@ def training_page(
         run_id=_run_param(run),
         item_filter=_filter_param(filter),
         provider_problem=provider_problem,
-        notice=notice,
         show=_show_param(show),
         archived=_archived_param(archived),
     )
@@ -808,10 +800,7 @@ async def submit_training(
             hint_slug=hint_slug,
         )
     session.commit()
-    return RedirectResponse(
-        f"{TRAINING_PATH}?{urlencode({'run': run.id, 'notice': 'uploaded'})}",
-        status.HTTP_303_SEE_OTHER,
-    )
+    return _redirect(f"{TRAINING_PATH}?{urlencode({'run': run.id})}", TRAINING_UPLOADED)
 
 
 @router.post(f"{ITEMS_PATH}/{{item_id}}/place", response_class=HTMLResponse)
@@ -875,8 +864,10 @@ def place_item(
     except (ItemNotPlaceableError, ContentMismatchError, OSError):
         return refused(status.HTTP_409_CONFLICT, FILE_MISSING)
     session.commit()
-    query = urlencode({"run": run_id, "notice": placement.status.value})
-    return RedirectResponse(f"{TRAINING_PATH}?{query}#item-{item_id}", status.HTTP_303_SEE_OTHER)
+    query = urlencode({"run": run_id})
+    return _redirect(
+        f"{TRAINING_PATH}?{query}#item-{item_id}", PLACEMENT_FEEDBACK[placement.status]
+    )
 
 
 # --- temizlik: öğeyi yoksay, çalıştırmayı arşivle (11.9.6) --------------------------------------
@@ -944,7 +935,7 @@ def dismiss_training_item(
             request, user, session, provider_problem, status_code=code, message=_reason(exc)
         )
     session.commit()
-    return RedirectResponse(_with_notice(_safe_next(next), "dismissed"), status.HTTP_303_SEE_OTHER)
+    return _redirect(_safe_next(next), TRAINING_DISMISSED)
 
 
 @router.post(f"{ITEMS_PATH}/{{item_id}}/restore", response_class=HTMLResponse)
@@ -972,7 +963,7 @@ def restore_training_item(
             show=SHOW_DISMISSED,
         )
     session.commit()
-    return RedirectResponse(_with_notice(_safe_next(next), "restored"), status.HTTP_303_SEE_OTHER)
+    return _redirect(_safe_next(next), TRAINING_RESTORED)
 
 
 def _run_action(
@@ -1006,8 +997,7 @@ def _run_action(
     session.commit()
     # Arşivlenen çalıştırma varsayılan listeden kalkar: dönüş arşivsiz liste; geri alınan
     # çalıştırma yeniden listededir.
-    notice = "run_archived" if archive else "run_restored"
-    return RedirectResponse(f"{TRAINING_PATH}?notice={notice}", status.HTTP_303_SEE_OTHER)
+    return _redirect(TRAINING_PATH, TRAINING_RUN_ARCHIVED if archive else TRAINING_RUN_RESTORED)
 
 
 @router.post(f"{RUNS_PATH}/{{run_id}}/archive", response_class=HTMLResponse)
@@ -1126,7 +1116,6 @@ def known_document(
     user: CurrentUser,
     session: DbSession,
     layout: Layout,
-    notice: str | None = None,
 ) -> HTMLResponse:
     """Bilinen türün örnekleri: dosya, kaydı (yöntem, etiket, not) ve görüntüsü; "AI kararı"
     etiketli örnekte elle kontrol ikonu ve etiket kararı (doğrula, başka türe taşı, örneklerden
@@ -1178,7 +1167,6 @@ def known_document(
         examples=examples,
         ai_decision=sum(1 for example in examples if example.manual_check),
         manual_check_text=MANUAL_CHECK_TEXT,
-        notice=NOTICES.get(notice or ""),
         type_url=_known_url(slug),
     )
 
@@ -1204,11 +1192,11 @@ def _safe_next(value: str | None) -> str:
     return TRAINING_PATH
 
 
-def _with_notice(url: str, notice: str) -> str:
-    parts = urlsplit(url)
-    query = [(key, item) for key, item in parse_qsl(parts.query) if key != "notice"]
-    fragment = f"#{parts.fragment}" if parts.fragment else ""
-    return f"{parts.path}?{urlencode([*query, ('notice', notice)])}{fragment}"
+def _redirect(url: str, key: str) -> RedirectResponse:
+    """İşlemden sonra dönüş; bildirim tek kullanımlık çerezde, adreste değil (10.11.1, §D120)."""
+    response = RedirectResponse(url, status.HTTP_303_SEE_OTHER)
+    flash(response, key)
+    return response
 
 
 @router.post(f"{EXAMPLES_PATH}/verify")
@@ -1232,8 +1220,7 @@ def verify_selected(
         session.commit()
     else:
         session.rollback()
-    notice = "verified" if verified else "verify_none"
-    return RedirectResponse(_with_notice(_safe_next(next), notice), status.HTTP_303_SEE_OTHER)
+    return _redirect(_safe_next(next), TRAINING_VERIFIED if verified else TRAINING_VERIFY_NONE)
 
 
 def _type_name(known: KnownTypes, slug: str) -> str:
@@ -1485,9 +1472,7 @@ def move_selected(
     except (*_DECISION_ERRORS, ConfirmationRefusedError, ContentMismatchError, OSError) as exc:
         return _refused_decision(request, user, session, operation, example_id, exc)
     session.commit()
-    return RedirectResponse(
-        f"{_known_url(decision.target)}?notice=moved", status.HTTP_303_SEE_OTHER
-    )
+    return _redirect(_known_url(decision.target), TRAINING_MOVED)
 
 
 @router.post(f"{EXAMPLES_PATH}/{{example_id}}/remove/confirm", response_class=HTMLResponse)
@@ -1536,7 +1521,7 @@ def remove_selected(
     except (*_DECISION_ERRORS, ConfirmationRefusedError, ContentMismatchError, OSError) as exc:
         return _refused_decision(request, user, session, operation, example_id, exc)
     session.commit()
-    return RedirectResponse(f"{_known_url(slug)}?notice=removed", status.HTTP_303_SEE_OTHER)
+    return _redirect(_known_url(slug), TRAINING_REMOVED)
 
 
 # --- harita yükle ve toplu tarama (11.9.5) ----------------------------------------------------
@@ -1825,7 +1810,4 @@ async def start_map(
     except (MapError, ConfirmationRefusedError, OSError) as exc:
         return _refused_map(request, user, session, exc)
     session.commit()
-    return RedirectResponse(
-        f"{TRAINING_PATH}?{urlencode({'run': run.id, 'notice': 'map_started'})}",
-        status.HTTP_303_SEE_OTHER,
-    )
+    return _redirect(f"{TRAINING_PATH}?{urlencode({'run': run.id})}", TRAINING_MAP_STARTED)

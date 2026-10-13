@@ -8,9 +8,6 @@
 {% block content %}
 <p class="back"><a href="/document-groups">← {{ _("Belge Grupları") }}</a></p>
 <h1>{{ group.name if group else _("Yeni belge grubu") }}</h1>
-{% if notice_text %}
-<p class="notice notice-success" role="status">{{ translate(notice_text) }}</p>
-{% endif %}
 {% if problems %}
 <p class="error" role="alert">{{ _("Grup kaydedilmedi: alanların altındaki uyarıları düzeltin.") }}</p>
 {% endif %}

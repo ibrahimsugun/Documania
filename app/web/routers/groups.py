@@ -61,6 +61,16 @@ from app.i18n import N_, Translatable
 from app.profiles import write_profile
 from app.storage import DataLayout
 from app.web.auth import WRITER_ONLY, PanelUser, require_panel_user
+from app.web.feedback import (
+    GROUP_ARCHIVED,
+    GROUP_CREATED,
+    GROUP_ITEM_ADDED,
+    GROUP_ITEM_REMOVED,
+    GROUP_RESTORED,
+    GROUP_UNCHANGED,
+    GROUP_UPDATED,
+    flash,
+)
 from app.web.routers.uploads import get_layout
 from app.web.templating import MENU_BY_KEY, render_page
 
@@ -78,15 +88,6 @@ NAME_TAKEN_ARCHIVED = N_(
     "Bu adla arşivde bir grup var; grup adı benzersiz olmalı. Arşivdekini geri alabilirsiniz."
 )
 DUPLICATE_ITEM = N_("Bu kalem grupta zaten var; aynı etiket ya da tür bir grupta bir kez yer alır.")
-NOTICES = {
-    "created": N_("Grup oluşturuldu. Şimdi kalemlerini ekleyin."),
-    "updated": N_("Grubun adı ve açıklaması güncellendi."),
-    "unchanged": N_("Değişiklik yok."),
-    "item_added": N_("Kalem eklendi."),
-    "item_removed": N_("Kalem kaldırıldı."),
-    "archived": N_("Grup arşivlendi: yeni paket tanımlanamaz, açık paketler sürer."),
-    "restored": N_("Grup arşivden geri alındı."),
-}
 MATCH_KIND_LABELS = {
     GroupItemKind.LABEL.value: N_("Dosya etiketi"),
     GroupItemKind.TYPE.value: N_("Belge türü"),
@@ -133,12 +134,11 @@ class ItemView:
     removed_by: str | None
 
 
-def _notice(notice: str | None) -> str | None:
-    return NOTICES.get(notice or "")
-
-
-def _group_redirect(group_id: int, notice: str) -> RedirectResponse:
-    return RedirectResponse(f"{LIST_PATH}/{group_id}?notice={notice}", status.HTTP_303_SEE_OTHER)
+def _group_redirect(group_id: int, key: str) -> RedirectResponse:
+    """Grup sayfasına dönüş; işlemin bildirimi tek kullanımlık çerezde (10.11.1, §D120)."""
+    response = RedirectResponse(f"{LIST_PATH}/{group_id}", status.HTTP_303_SEE_OTHER)
+    flash(response, key)
+    return response
 
 
 def _write_package_profiles(session: Session, layout: DataLayout, group_id: int) -> None:
@@ -237,7 +237,6 @@ def _group_page(
     problems: dict[str, list[str]] | None = None,
     item_form: ItemFormValues | None = None,
     item_problems: dict[str, list[str]] | None = None,
-    notice_text: str | None = None,
     status_code: int = status.HTTP_200_OK,
 ) -> HTMLResponse:
     labels = label_choices(session)
@@ -264,7 +263,6 @@ def _group_page(
         label_choices=labels,
         type_choices=types,
         open_packages=open_package_count(session, group.id),
-        notice_text=notice_text,
         limits=_limits(),
     )
     # Okuma işlemi de SQLite'ta yazma kilidini tutar (`app.db.session`).
@@ -331,7 +329,7 @@ def create_group_endpoint(
             problems={"name": [NAME_TAKEN_ARCHIVED if exc.archived else NAME_TAKEN]},
             status_code=status.HTTP_409_CONFLICT,
         )
-    return _group_redirect(group.id, "created")
+    return _group_redirect(group.id, GROUP_CREATED)
 
 
 @router.get(f"{LIST_PATH}/{{group_id}}", response_class=HTMLResponse)
@@ -340,10 +338,9 @@ def group_page(
     request: Request,
     user: CurrentUser,
     session: DbSession,
-    notice: Annotated[str | None, Query(max_length=32)] = None,
 ) -> HTMLResponse:
     group = _group_or_404(session, group_id)
-    return _group_page(request, user, session, group, notice_text=_notice(notice))
+    return _group_page(request, user, session, group)
 
 
 @router.post(f"{LIST_PATH}/{{group_id}}", response_class=HTMLResponse)
@@ -387,7 +384,7 @@ def update_group_endpoint(
         )
     if changed:
         _write_package_profiles(session, layout, group_id)
-    return _group_redirect(group_id, "updated" if changed else "unchanged")
+    return _group_redirect(group_id, GROUP_UPDATED if changed else GROUP_UNCHANGED)
 
 
 @router.post(f"{LIST_PATH}/{{group_id}}/items", response_class=HTMLResponse)
@@ -431,7 +428,7 @@ def add_item_endpoint(
         problems, status_code = {field_name: [DUPLICATE_ITEM]}, status.HTTP_409_CONFLICT
     else:
         _write_package_profiles(session, layout, group_id)
-        return _group_redirect(group_id, "item_added")
+        return _group_redirect(group_id, GROUP_ITEM_ADDED)
     session.rollback()
     return _group_page(
         request,
@@ -458,7 +455,7 @@ def remove_item_endpoint(
         session.rollback()
         raise HTTPException(status.HTTP_404_NOT_FOUND, ITEM_NOT_FOUND) from None
     _write_package_profiles(session, layout, group_id)
-    return _group_redirect(group_id, "item_removed")
+    return _group_redirect(group_id, GROUP_ITEM_REMOVED)
 
 
 def _set_archived(
@@ -470,7 +467,7 @@ def _set_archived(
     except GroupNotFoundError:
         session.rollback()
         raise HTTPException(status.HTTP_404_NOT_FOUND, GROUP_NOT_FOUND) from None
-    return _group_redirect(group_id, "archived" if archived else "restored")
+    return _group_redirect(group_id, GROUP_ARCHIVED if archived else GROUP_RESTORED)
 
 
 @router.post(f"{LIST_PATH}/{{group_id}}/archive")

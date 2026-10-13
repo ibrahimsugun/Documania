@@ -51,7 +51,8 @@
   <a href="/queues/{{ queue_item_id }}">{{ _("Vazgeç") }}</a>
 </form>
 {% elif done %}
-<p class="notice notice-success" role="status">{% trans name=assignee.name, id=assignee.id, file=file_name %}Öğe {{ name }} ({{ id }}) çalışanına atandı: {{ file }}.{% endtrans %} <a href="/documents/{{ document_id }}/history">{{ _("Çıktının geçmişi") }}</a> · <a href="/queues/{{ queue_item_id }}">{{ _("Sayfayı yenileyin") }}</a>.</p>
+{# 10.11.1: işlemin sonucu bildirimdir (`HX-Trigger`); burada yalnız yeni adres ve bağlantılar. #}
+<p class="assign-done">{{ _("Yeni dosya adı: %(file)s.", file=file_name) }} <a href="/employees/{{ assignee.id }}">{{ assignee.name }} ({{ assignee.id }})</a> · <a href="/documents/{{ document_id }}/history">{{ _("Çıktının geçmişi") }}</a> · <a href="/queues/{{ queue_item_id }}">{{ _("Sayfayı yenileyin") }}</a>.</p>
 {# Atanmış öğede arama sonuçları ve arama formu kalmasın. #}
 <div id="assign-results" hx-swap-oob="true"></div>
 <div id="assign-search" hx-swap-oob="true"></div>

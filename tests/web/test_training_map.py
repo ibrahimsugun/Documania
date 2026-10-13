@@ -54,6 +54,7 @@ from app.worker import IdleContext
 from tests.fixtures.gen import make_half_filled_image_bytes
 from tests.training.invariants import assert_employee_data_untouched
 from tests.web.conftest import SESSION, SIGNED_IN, issue_token
+from tests.web.flash import flashed
 from tests.web.test_confirm import PRD_OPERATIONS
 
 PLAN = Path(__file__).resolve().parents[2] / "PLAN.md"
@@ -329,7 +330,8 @@ def test_starting_takes_two_confirmations_then_queues_the_scan(
             (3, "b.jpg", "queued"),
         ]
         assert_employee_data_untouched(session, layout)
-    assert done.headers["location"] == f"/training?run={run.id}&notice=map_started"
+    assert done.headers["location"] == f"/training?run={run.id}"
+    assert flashed(done) == ("training.map_started", {})
     assert (layout.training_maps / f"{run.id}.csv").read_bytes() == content
     (confirmed,) = _events(session_factory, EventType.USER_CONFIRMED)
     assert confirmed.actor == SIGNED_IN.username

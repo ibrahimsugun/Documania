@@ -44,6 +44,7 @@ from app.web.routers.training import (
 from tests.fixtures.gen import make_portrait_image_bytes
 from tests.training.invariants import assert_employee_data_untouched
 from tests.web.conftest import SESSION, SIGNED_IN, issue_token
+from tests.web.flash import flashed
 from tests.web.test_confirm import PRD_OPERATIONS
 
 LIMIT = 1024 * 1024
@@ -213,7 +214,8 @@ def test_verifying_one_example_removes_its_icon_and_logs_the_user(
     )
 
     assert response.status_code == 303
-    assert response.headers["location"] == f"/training/known/{FROM_SLUG}?notice=verified"
+    assert response.headers["location"] == f"/training/known/{FROM_SLUG}"
+    assert flashed(response) == ("training.verified", {})
     assert _record(session_factory, example_id).label == "verified"
     assert _files(layout.root) == files  # tek adım; dosya işlemi değil
     (event,) = _events(session_factory, EventType.TRAINING_LABEL_VERIFIED)
@@ -243,7 +245,8 @@ def test_bulk_verification_from_the_results_table(
         follow_redirects=False,
     )
 
-    assert response.headers["location"] == "/training?filter=ai&notice=verified"
+    assert response.headers["location"] == "/training?filter=ai"
+    assert flashed(response) == ("training.verified", {})
     labels = [_record(session_factory, key).label for key in (first, second, mechanical)]
     assert labels == ["verified", "verified", None]
     assert len(_events(session_factory, EventType.TRAINING_LABEL_VERIFIED)) == 2
@@ -267,7 +270,8 @@ def test_verification_without_a_selection_changes_nothing_and_never_leaves_the_t
 
     response = client.post("/training/examples/verify", data=data, follow_redirects=False)
 
-    assert response.headers["location"] == "/training?notice=verify_none"
+    assert response.headers["location"] == "/training"
+    assert flashed(response) == ("training.verify_none", {})
     assert _state(session_factory, layout) == before
     assert _record(session_factory, example_id).label == "ai_decision"
 
@@ -308,7 +312,8 @@ def test_moving_takes_two_confirmations_and_then_moves_the_file(
     )
 
     assert done.status_code == 303
-    assert done.headers["location"] == f"/training/known/{TO_SLUG}?notice=moved"
+    assert done.headers["location"] == f"/training/known/{TO_SLUG}"
+    assert flashed(done) == ("training.moved", {})
     assert [e.name for e in list_examples(layout, FROM_SLUG)] == []
     assert (layout.type_examples_dir(TO_SLUG) / "ornek.png").read_bytes() == content
     record = _record(session_factory, example_id)
@@ -463,7 +468,8 @@ def test_removing_takes_two_confirmations_and_archives_without_deleting(
     )
 
     assert done.status_code == 303
-    assert done.headers["location"] == f"/training/known/{FROM_SLUG}?notice=removed"
+    assert done.headers["location"] == f"/training/known/{FROM_SLUG}"
+    assert flashed(done) == ("training.removed", {})
     archived = layout.root / f"KnownDocuments/_egitim/cikarilan/{FROM_SLUG}/ornek.png"
     assert archived.read_bytes() == content
     assert list_examples(layout, FROM_SLUG) == []

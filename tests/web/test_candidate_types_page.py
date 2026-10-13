@@ -89,6 +89,7 @@ from tests.fixtures.gen import (
     unknown_document_page,
 )
 from tests.web.conftest import SIGNED_IN, issue_token
+from tests.web.flash import flashed, toasts
 
 SETTINGS = Settings(_env_file=None, database_url="sqlite://")
 PROPOSAL_RECORDING = (
@@ -538,7 +539,8 @@ def test_approval_takes_two_confirmations_and_puts_the_type_in_the_catalog(
     )
 
     assert done.status_code == 303
-    assert done.headers["location"] == f"{BASE}/{seen.diploma}?notice=approved"
+    assert done.headers["location"] == f"{BASE}/{seen.diploma}"
+    assert flashed(done) == ("catalog.candidate_approved", {})
     with session_factory() as session:
         assert export_catalog(session).get(DIPLOMA) == EXPECTED_ENTRY
     assert _candidate(session_factory, seen.diploma).status == "approved"
@@ -762,7 +764,8 @@ def test_a_rejected_candidate_never_returns_to_the_list(
     response = client.post(f"{BASE}/{seen.diploma}/reject", follow_redirects=False)
 
     assert response.status_code == 303
-    assert response.headers["location"] == f"{BASE}?notice=rejected"
+    assert response.headers["location"] == BASE
+    assert flashed(response) == ("catalog.candidate_rejected", {})
     listing = client.get(response.headers["location"]).text
     assert "Aday tür reddedildi; bir daha listeye düşmez." in listing
     assert DIPLOMA_NAME not in listing
@@ -849,7 +852,7 @@ def test_after_approval_related_unknown_items_are_reanalyzed_together(
 
     assert done.status_code == 200, done.text
     assert '<main class="content">' in done.text  # hx-select'in aldığı içerik
-    assert "2 parti yeniden analiz edildi." in done.text
+    assert toasts(done.text) == ["Yeniden analiz edilen parti: 2."]
     assert "Bu aday türle bekleyen Unknown öğesi kalmadı." in done.text
     assert len(reanalysis_provider.requests) == 2
     for upload_id in (seen.first, seen.second):
@@ -920,7 +923,7 @@ def test_batch_reanalysis_needs_an_approved_candidate_and_a_matching_token(
     replay = client.post(f"{BASE}/{seen.diploma}/reanalyze", data={"confirmation": token})
 
     assert done.status_code == 200
-    assert "1 parti yeniden analiz edildi." in done.text
+    assert toasts(done.text) == ["Yeniden analiz edilen parti: 1."]
     assert replay.status_code == 409
     assert "Bu aday türle ilişkili bekleyen Unknown öğesi yok" in replay.text
     assert [len(_plans(session_factory, u)) for u in (seen.first, seen.second)] == [2, 1]
@@ -1439,7 +1442,8 @@ def test_restoring_a_rejected_candidate_makes_it_pending_again_in_one_step(
     response = client.post(f"{BASE}/{seen.diploma}/restore", follow_redirects=False)
 
     assert response.status_code == 303
-    assert response.headers["location"] == f"{BASE}?notice=restored"
+    assert response.headers["location"] == BASE
+    assert flashed(response) == ("catalog.candidate_restored", {})
     listing = client.get(response.headers["location"]).text
     assert "Aday tür retten geri alındı; yeniden onay bekliyor." in listing
     assert DIPLOMA_NAME in listing

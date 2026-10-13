@@ -18,6 +18,12 @@ Blok biçimi `CONVENTIONS.md` §3'te tanımlıdır:
 
 ## Task log (newest-first)
 
+## 175 — 10.11-a Geçici bildirim altyapısı ve `?notice=` taşıması — done — 2026-10-13
+- Yapıldı: `app/web/feedback.py` merkezi kayıt (dört tür, yalnız int/E no/parti/slug parametresi) + tek kullanımlık `documania_flash` çerezi ve `HX-Trigger` (`documania:toast`); `render_page` çerezi okuyup siler, POST hata kodlarında özet bildirim verir, `HTTPException`/`RequestValidationError` işleyicileri JSON gövdeyi koruyup bildirim ekler (403 salt okunur → hata). `base.html` bildirim alanı + noscript, `static/toast.js`, `theme.css`. Bütün `?notice=` yönlendirmeleri ve sayfa içi başarı kutuları kalktı; HTMX sonuç parçalarının ana cümlesi bildirime geçti; önceden sessiz yazma işlemleri (parti işlemleri, atama, taşıma, örnek yükleme …) bildirim veriyor. Kararlar §D120 "uygulama kararları"nda; PLAN 10.11.1 ✅, 10.11.3 ◐.
+- Doğrulama: ruff check/format (463), compileall, `import app.main`, `git diff --check`, `node --check toast.js`, temiz SQLite `alembic upgrade head` (→0028), `python -m app.i18n check` exit 0. Tam suite 10 dk ön plan sınırı yüzünden dört parçada `--cov-append` ile: 6951 geçti, 5 atlandı, kapsam %99,01 (eşik 70) exit 0. Yeni `tests/web/test_feedback.py` (28), ortak yardımcı `tests/web/flash.py`.
+- Varsayımlar: eski `?notice=` adresleri hiç okunmuyor (bir sürüm geriye uyum yerine; gerekçe §D120 c). Tür bildirimleri ad yerine slug taşır. HEAD'de `tests/web/test_catalog_page.py`'deki bir satır E501 ile ruff'ı kırıyordu, bu committe bölündü.
+- Sonraki pencereye not: tm 176 ipucu metinlerini de `app/web/feedback.py` kaydına `_register` ile eklemeli; aday tür onayı bildirimi (bağlı öğe sayısı + sonraki adım) bugünkü `catalog.candidate_approved` anahtarının yerine parametreli yeni bir anahtar olmalı (`count` izinli). 10.11.3 ◐ ancak ipuçları da üç dilde olunca ✅ olur.
+
 ## 175, 176 — 10.11 geri bildirim ve yol gösterme açıldı — pending — 2026-10-13 (interaktif oturum: insan isteği)
 - Yapıldı: İnsan isteği "işlem sonrası kısa geri bildirim, nerede nasıl çözüleceğine dair ipucu, geçici alert; panel dilinde" PRD 10.11.1–10.11.3 + S28, PLAN §4.1 satırları (⬜), §G 10.11-a/10.11-b, §D120 sözleşmesi ve tm 175 (altyapı + taşıma) / tm 176 (yol gösterme, S28) olarak açıldı. Faz 1 Kapanış hücresi AÇIK'a döndü (78 ✅ · 3 ⬜).
 - Doğrulama: `task-master validate-dependencies` yeşil (177 görev, 317 bağımlılık), `task-master next` → #175. Sayım: 229 satır, 225 ✅, 3 ⬜ (CONVENTIONS §1.3). Kod değişmediği için DoD kapısı koşulmadı.
