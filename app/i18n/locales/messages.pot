@@ -4,7 +4,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Documania panel\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-13 19:22+0000\n"
+"POT-Creation-Date: 2026-10-13 23:37+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -2034,6 +2034,10 @@ msgid ""
 "kalkar; «Arşivlenen türler»den tek adımda geri alınır."
 msgstr ""
 
+#: app/web/templates/users.html
+msgid "Değiştir"
+msgstr ""
+
 #: app/web/templates/_language_selector.html
 #: app/web/templates/catalog_description.html
 msgid "Dil"
@@ -3862,10 +3866,6 @@ msgstr ""
 msgid "Parolayı değiştir"
 msgstr ""
 
-#: app/web/templates/users.html
-msgid "Parolayı sıfırla"
-msgstr ""
-
 #: app/web/templates/catalog_candidate.html
 #: app/web/templates/catalog_candidate_step.html app/web/templates/history.html
 #: app/web/templates/queue.html app/web/templates/queue_close_step.html
@@ -4125,10 +4125,6 @@ msgstr ""
 
 #: app/web/templates/users.html
 msgid "Rol"
-msgstr ""
-
-#: app/web/templates/users.html
-msgid "Rolü değiştir"
 msgstr ""
 
 #: app/web/templates/upload_detail.html
@@ -4452,6 +4448,10 @@ msgstr ""
 
 #: app/web/templates/uploads_list.html
 msgid "Süzgeci temizle"
+msgstr ""
+
+#: app/web/templates/users.html
+msgid "Sıfırla"
 msgstr ""
 
 #: app/web/templates/catalog_description.html

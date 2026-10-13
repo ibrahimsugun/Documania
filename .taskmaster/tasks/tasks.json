@@ -2623,6 +2623,18 @@
         "priority": "critical",
         "subtasks": [],
         "updatedAt": "2026-10-13T21:22:34.151Z"
+      },
+      {
+        "id": "179",
+        "title": "Kullanıcılar sayfası düğme düzeni: Pasife al kullanıcı adının yanında; «Değiştir» / «Sıfırla» kısa etiketleri",
+        "description": "İnsan isteği (2026-10-14): Kullanıcılar tablosunda Pasife al / Yeniden etkinleştir düğmesi kullanıcı adı hücresine taşınır; «Rolü değiştir» → «Değiştir», «Parolayı sıfırla» → «Sıfırla»; en/sr çevirileri.",
+        "details": "app/web/templates/users.html (durum formu ad hücresinde, yalnız yazma yetkisi olan ve kendi satırı olmayan kullanıcıya), app/web/static/panel.css (.user-name-cell), app/i18n katalogları (Değiştir → Change/Promeni, Sıfırla → Reset/Resetuj). Sunucu tarafı değişmez.",
+        "testStrategy": "tests/web/test_users.py yeşil; python -m app.i18n check exit 0; tam paralel kapı yeşil.",
+        "status": "done",
+        "dependencies": [],
+        "priority": "low",
+        "subtasks": [],
+        "updatedAt": "2026-10-13T23:49:57.000Z"
       }
     ],
     "metadata": {

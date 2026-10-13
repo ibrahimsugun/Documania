@@ -18,6 +18,12 @@ Blok biçimi `CONVENTIONS.md` §3'te tanımlıdır:
 
 ## Task log (newest-first)
 
+## 179 — Kullanıcılar sayfası düğme düzeni — done — 2026-10-14
+- Yapıldı: Pasife al / Yeniden etkinleştir kullanıcı adı hücresine taşındı; rol düğmesi «Değiştir», parola düğmesi «Sıfırla» (en: Change/Reset, sr: Promeni/Resetuj). Sunucu tarafı değişmedi.
+- Doğrulama: tam paralel kapı 7007 geçti, 5 atlandı (PostgreSQL), exit 0; ruff check ve `python -m app.i18n check` exit 0.
+- Varsayımlar: yok.
+- Sonraki pencereye not: yok.
+
 ## 178 — §5.2 Faz 1 (v1) yeniden kapanış denetimi — done — 2026-10-13
 - Yapıldı: Faz 1 ölçütü bildirim (tm 175), yol gösterme (tm 176) ve İngilizce gerekçe (tm 177) sonrası güncel koda karşı yeniden kanıtlandı. KF1'in test kimliklerinin hepsi toplanıyor. Kanıt testleri `?notice=`'ten bildirime geçerken veri assert'lerini korumuş. Tek boşluk yolculuktaydı: `'title="Bekleyen öğe">0</span>' in listing` öbür sekmelerin 0 sayacıyla eşleşiyordu ve atama yazılmasa da geçiyordu. `tests/web/test_phase1_closure.py` artık açık sekmenin sayacını okuyor ve Unresolved gerekçesinin İK'nın dilinde (tr) gösterildiğini assert ediyor. PLAN §0'da Faz 1 Kapanış hücresi `✅ → KF1` oldu, `#### KF1`'e 8 madde eklendi. `app/` değişmedi.
 - Doğrulama: hedef dosyalar ayrı koşuda 206 geçti, skip/xfail yok. ruff check/format (472), compileall, `import app.main`, `git diff --check`, temiz SQLite'ta `alembic upgrade head` (→0029) ve i18n check exit 0. Tam paralel kapı 7007 geçti, 5 atlandı (PostgreSQL), %99,00, exit 0, 14 dk 7 sn. 4 geçici kural bozmasının 4'ü kırmızı.

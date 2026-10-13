@@ -4,8 +4,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Documania panel\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-13 19:22+0000\n"
-"PO-Revision-Date: 2026-10-13 19:22+0000\n"
+"POT-Creation-Date: 2026-10-13 23:38+0000\n"
+"PO-Revision-Date: 2026-10-13 23:38+0000\n"
 "Last-Translator: Documania görev penceresi (gözden geçirilmeli)\n"
 "Language: sr_Latn\n"
 "Language-Team: Srpski\n"
@@ -2365,6 +2365,10 @@ msgstr ""
 " tip nestaje i sa liste, iz uputstva za analizu i iz izbornika tipova; "
 "vraća se u jednom koraku iz «Arhivirani tipovi»."
 
+#: app/web/templates/users.html
+msgid "Değiştir"
+msgstr "Promeni"
+
 #: app/web/templates/_language_selector.html
 #: app/web/templates/catalog_description.html
 msgid "Dil"
@@ -4336,10 +4340,6 @@ msgstr "Vaša lozinka je promenjena; ostale sesije su zatvorene."
 msgid "Parolayı değiştir"
 msgstr "Promeni lozinku"
 
-#: app/web/templates/users.html
-msgid "Parolayı sıfırla"
-msgstr "Resetuj lozinku"
-
 #: app/web/templates/catalog_candidate.html
 #: app/web/templates/catalog_candidate_step.html app/web/templates/history.html
 #: app/web/templates/queue.html app/web/templates/queue_close_step.html
@@ -4637,10 +4637,6 @@ msgstr "Poništi odbijanje"
 #: app/web/templates/users.html
 msgid "Rol"
 msgstr "Uloga"
-
-#: app/web/templates/users.html
-msgid "Rolü değiştir"
-msgstr "Promeni ulogu"
 
 #: app/web/templates/upload_detail.html
 msgid "Rota"
@@ -5006,6 +5002,10 @@ msgstr "Filtriraj"
 #: app/web/templates/uploads_list.html
 msgid "Süzgeci temizle"
 msgstr "Obriši filter"
+
+#: app/web/templates/users.html
+msgid "Sıfırla"
+msgstr "Resetuj"
 
 #: app/web/templates/catalog_description.html
 #, python-format

@@ -1188,6 +1188,9 @@ form:not(.session) button[type="submit"]:hover,
 .users .telegram-cell > :last-child, .users .user-actions > :last-child { margin-bottom: 0; }
 .users .user-actions input[type="password"] { width: 11rem; padding: 0.3rem 0.45rem; border: 1px solid #d0d7de; border-radius: 4px; font: inherit; }
 .users .telegram-count { margin: 0; }
+/* Pasife al kullanıcı adının yanında; dar sütunda ad uzunsa düğme alta kayar. */
+.users .user-name-cell { white-space: normal; }
+.users .user-name-cell .user-status { margin: 0 0 0 0.4rem; vertical-align: middle; }
 .button-small { padding: 0.3rem 0.7rem; font-size: 0.88rem; }
 .button-secondary { background: #fff; color: #33414f; border: 1px solid #b8c2cc; }
 .button-secondary:hover { background: #f2f4f7; }

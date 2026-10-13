@@ -4,8 +4,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Documania panel\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-13 19:22+0000\n"
-"PO-Revision-Date: 2026-10-13 19:22+0000\n"
+"POT-Creation-Date: 2026-10-13 23:38+0000\n"
+"PO-Revision-Date: 2026-10-13 23:38+0000\n"
 "Last-Translator: Documania görev penceresi (gözden geçirilmeli)\n"
 "Language: en\n"
 "Language-Team: English\n"
@@ -2358,6 +2358,10 @@ msgstr ""
 "stay. An archived type also leaves the list, the analysis instructions "
 "and the type pickers; it is restored in one step from «Archived types»."
 
+#: app/web/templates/users.html
+msgid "Değiştir"
+msgstr "Change"
+
 #: app/web/templates/_language_selector.html
 #: app/web/templates/catalog_description.html
 msgid "Dil"
@@ -4329,10 +4333,6 @@ msgstr "Your password was changed; your other sessions were closed."
 msgid "Parolayı değiştir"
 msgstr "Change password"
 
-#: app/web/templates/users.html
-msgid "Parolayı sıfırla"
-msgstr "Reset password"
-
 #: app/web/templates/catalog_candidate.html
 #: app/web/templates/catalog_candidate_step.html app/web/templates/history.html
 #: app/web/templates/queue.html app/web/templates/queue_close_step.html
@@ -4632,10 +4632,6 @@ msgstr "Undo the rejection"
 #: app/web/templates/users.html
 msgid "Rol"
 msgstr "Role"
-
-#: app/web/templates/users.html
-msgid "Rolü değiştir"
-msgstr "Change role"
 
 #: app/web/templates/upload_detail.html
 msgid "Rota"
@@ -5000,6 +4996,10 @@ msgstr "Filter"
 #: app/web/templates/uploads_list.html
 msgid "Süzgeci temizle"
 msgstr "Clear filter"
+
+#: app/web/templates/users.html
+msgid "Sıfırla"
+msgstr "Reset"
 
 #: app/web/templates/catalog_description.html
 #, python-format

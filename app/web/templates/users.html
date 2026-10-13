@@ -6,7 +6,8 @@
    serbest kalır, yeniden bağlanabilir). Kimliği yalnız hesabın sahibi bağlar
    (12.1.8, §D97 d): ekleme ve "Telegram'ı bağla" Hesabım → Telegram'dadır (`/account/telegram`).
    10.1.8 (§D115): rol İK ya da Kullanıcı'dır ve burada değişir (kendi satırında değil). Salt okunur
-   Kullanıcı tabloyu görür, hiçbir form görmez. Root hiçbir satırda yoktur (sunucu süzer). #}
+   Kullanıcı tabloyu görür, hiçbir form görmez. Root hiçbir satırda yoktur (sunucu süzer).
+   Pasife al / Yeniden etkinleştir kullanıcı adının yanındadır; rol ve parola düğmeleri yalnız «Değiştir» / «Sıfırla» der. #}
 {% block title %}{{ _(entry.label) }}{% endblock %}
 {% block content %}
 <h1>{{ _(entry.label) }}</h1>
@@ -22,7 +23,20 @@
   <tbody>
     {% for row in users %}
     <tr id="user-{{ row.id }}"{% if error_user_id == row.id %} class="has-error"{% endif %}>
-      <td class="cell-nowrap"><strong>{{ row.username }}</strong>{% if row.is_self %} <span class="hint">{{ _("(siz)") }}</span>{% endif %}</td>
+      <td class="user-name-cell">
+        <strong>{{ row.username }}</strong>{% if row.is_self %} <span class="hint">{{ _("(siz)") }}</span>{% endif %}
+        {% if user.can_write and not row.is_self %}
+        <form class="inline-form user-status" method="post" action="/users/{{ row.id }}/status">
+          {% if row.active %}
+          <input type="hidden" name="status" value="inactive">
+          <button type="submit" class="button-small button-secondary">{{ _("Pasife al") }}</button>
+          {% else %}
+          <input type="hidden" name="status" value="active">
+          <button type="submit" class="button-small">{{ _("Yeniden etkinleştir") }}</button>
+          {% endif %}
+        </form>
+        {% endif %}
+      </td>
       <td>{{ translate(row.role_label) }}</td>
       <td class="cell-nowrap">
         {% if row.active %}<span class="status-badge status-active">{{ _("Etkin") }}</span>{% else %}<span class="status-badge status-archived">{{ _("Pasif") }}</span>{% endif %}
@@ -68,21 +82,12 @@
             <option value="{{ value }}"{% if value == row.role %} selected{% endif %}>{{ translate(label) }}</option>
             {% endfor %}
           </select>
-          <button type="submit" class="button-small">{{ _("Rolü değiştir") }}</button>
+          <button type="submit" class="button-small">{{ _("Değiştir") }}</button>
         </form>
         <form class="inline-form" method="post" action="/users/{{ row.id }}/password" autocomplete="off">
           <label for="reset-{{ row.id }}">{{ _("Yeni parola") }}</label>
           <input id="reset-{{ row.id }}" name="password" type="password" autocomplete="new-password" minlength="{{ min_password_length }}" required>
-          <button type="submit" class="button-small">{{ _("Parolayı sıfırla") }}</button>
-        </form>
-        <form class="inline-form" method="post" action="/users/{{ row.id }}/status">
-          {% if row.active %}
-          <input type="hidden" name="status" value="inactive">
-          <button type="submit" class="button-small button-secondary">{{ _("Pasife al") }}</button>
-          {% else %}
-          <input type="hidden" name="status" value="active">
-          <button type="submit" class="button-small">{{ _("Yeniden etkinleştir") }}</button>
-          {% endif %}
+          <button type="submit" class="button-small">{{ _("Sıfırla") }}</button>
         </form>
         {% endif %}
       </td>
