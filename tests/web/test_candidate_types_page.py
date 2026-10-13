@@ -540,7 +540,10 @@ def test_approval_takes_two_confirmations_and_puts_the_type_in_the_catalog(
 
     assert done.status_code == 303
     assert done.headers["location"] == f"{BASE}/{seen.diploma}"
-    assert flashed(done) == ("catalog.candidate_approved", {})
+    # 10.11.2: onay bağlı iki bekleyen Unknown öğesini çözmez; bildirim sayıyı ve sonraki adımı
+    # söyler.
+    assert flashed(done) == ("catalog.candidate_approved", {"slug": DIPLOMA, "count": 2})
+    assert len(_open_unknown(session_factory, seen.first)) == 1
     with session_factory() as session:
         assert export_catalog(session).get(DIPLOMA) == EXPECTED_ENTRY
     assert _candidate(session_factory, seen.diploma).status == "approved"
@@ -564,7 +567,10 @@ def test_approval_takes_two_confirmations_and_puts_the_type_in_the_catalog(
     }
 
     detail = client.get(done.headers["location"])
-    assert "Aday tür standart türler arasına eklendi" in detail.text
+    assert (
+        f"Aday tür standart türler arasına eklendi: {DIPLOMA}. Bağlı bekleyen Unknown öğesi: 2; "
+        "öğeler kendiliğinden çözülmez — aşağıdan partilerini yeniden analiz edin."
+    ) in toasts(detail.text)
     assert f'<a href="/document-types/{DIPLOMA}"><code>{DIPLOMA}</code></a>' in detail.text
     assert "/approve/confirm" not in detail.text
     assert "/reject" not in detail.text
@@ -765,9 +771,14 @@ def test_a_rejected_candidate_never_returns_to_the_list(
 
     assert response.status_code == 303
     assert response.headers["location"] == BASE
-    assert flashed(response) == ("catalog.candidate_rejected", {})
+    # 10.11.2: ret bağlı iki bekleyen Unknown öğesini kapatmaz; bildirim sayıyı ve elle kapatmayı
+    # söyler.
+    assert flashed(response) == ("catalog.candidate_rejected", {"count": 2})
     listing = client.get(response.headers["location"]).text
-    assert "Aday tür reddedildi; bir daha listeye düşmez." in listing
+    assert toasts(listing) == [
+        "Aday tür reddedildi; bir daha listeye düşmez. Bağlı bekleyen Unknown öğesi: 2; öğeler "
+        "kendiliğinden kapanmaz — Kuyruklar'dan açıp kapatın."
+    ]
     assert DIPLOMA_NAME not in listing
     assert PERMIT_NAME in listing
     (event,) = _events(session_factory, EventType.TYPE_REJECTED)
@@ -798,6 +809,29 @@ def test_a_rejected_candidate_never_returns_to_the_list(
     assert (candidate.status, candidate.seen_count) == ("rejected", 3)
     assert DIPLOMA_NAME not in client.get(BASE).text
     assert "(1 onay bekliyor)" in client.get("/document-types").text
+
+
+def test_a_decision_without_waiting_items_says_there_is_nothing_left_to_do(
+    client: TestClient, session_factory: sessionmaker[Session], seen: Seen
+) -> None:
+    # 10.11.2: bağlı bekleyen öğe yoksa bildirim sayı ve sonraki adım söylemez. Çözülmüş öğe
+    # (burada elle kapatılmış) bekleyen sayılmaz.
+    with session_factory() as session:
+        for item in session.scalars(select(QueueItem).where(QueueItem.kind == "unknown")):
+            item.resolved_at, item.resolved_by = utcnow(), SIGNED_IN.username
+            item.resolution, item.resolution_reason = "closed", "other"
+        session.commit()
+
+    rejected = client.post(f"{BASE}/{seen.permit}/reject", follow_redirects=False)
+    assert flashed(rejected) == ("catalog.candidate_rejected_alone", {})
+
+    fields = _prepared(client, seen.diploma, _form())
+    approved = client.post(f"{BASE}/{seen.diploma}/approve", data=fields, follow_redirects=False)
+    assert flashed(approved) == ("catalog.candidate_approved_alone", {"slug": DIPLOMA})
+    assert toasts(client.get(approved.headers["location"]).text) == [
+        f"Aday tür standart türler arasına eklendi: {DIPLOMA}. Bağlı bekleyen Unknown öğesi "
+        "yok; tür bir sonraki analizden itibaren geçerlidir."
+    ]
 
 
 def test_a_decided_candidate_is_neither_approved_nor_rejected_again(

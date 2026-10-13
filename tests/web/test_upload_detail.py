@@ -282,7 +282,13 @@ def test_unreadable_item_shows_its_queue_row_and_reason(
     assert queue_html is not None
     assert "Okunamadı" in queue_html.group(0)
     assert "Okunamayan alanlar: document_number" in queue_html.group(0)
-    assert "Bekliyor" in queue_html.group(0)
+    # 10.11.2: "Çözüm" "Bekliyor" yerine yapılacak işi söyler, satır kuyruk öğesine bağlıdır.
+    assert "Bekliyor" not in queue_html.group(0)
+    assert (
+        "Daha net bir kopyayı yeniden yükleyin, öğeyi çalışana atayın ya da kapatın."
+        in queue_html.group(0)
+    )
+    assert re.search(r'<td><a href="/queues/\d+">Okunamadı</a></td>', queue_html.group(0))
     plan_html = re.search(r'<section id="plan".*?</section>', page.text, re.S)
     assert plan_html is not None
     assert "Okunamadı kuyruğu" in plan_html.group(0)

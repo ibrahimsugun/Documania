@@ -76,7 +76,7 @@
   </tbody>
 </table>
 {% else %}
-<p class="placeholder">{{ _("Onay bekleyen aday tür yok.") }}</p>
+<p class="placeholder">{{ _("Onay bekleyen aday tür yok.") }} <a href="/queues?tab=unknown">{{ _("Unknown kuyruğuna bakın") }}</a></p>
 {% endif %}
 {% if approved and view == "pending" %}
 <section id="approved-candidates">

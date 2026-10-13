@@ -33,6 +33,21 @@
   <dt>{{ _("Kişi tahmini") }}</dt><dd>{{ translate(item.employee_guess) or "—" }}</dd>
   <dt>{{ _("Gerekçe") }}</dt><dd class="reason-text" translate="no">{{ item.reason }}</dd>
 </dl>
+{# 10.11.2: bekleyen öğede kuyruk türüne göre önerilen adımlar, sırayla; bağlantı kararın verileceği
+   bölüme (#new-profile, #assign, #close) ya da sayfaya gider. Salt okunur Kullanıcı (10.1.8) yazma
+   adımlarını görmez, "İK'ya bildirin" ipucunu görür. Çözülmüş ve eski sürüm öğe adım taşımaz. #}
+{% if user.can_write and item.steps %}
+<section id="next-steps" class="next-steps" aria-labelledby="next-steps-title">
+  <h2 id="next-steps-title">{{ _("Önerilen adımlar") }}</h2>
+  <ol>
+    {% for step in item.steps %}
+    <li><a href="{{ step.url }}">{{ translate(step.text) }}</a></li>
+    {% endfor %}
+  </ol>
+</section>
+{% elif not user.can_write and item.reader_hint %}
+<p class="hint hint-panel reader-hint" id="next-steps" role="note">{{ translate(item.reader_hint) }}</p>
+{% endif %}
 {% if item.inactive_employee %}
 {# 10.5.7: pasif çalışanla eşleşen öğe; İK ya atar ya çalışanı etkinleştirir. #}
 <p class="notice inactive-notice" role="status">

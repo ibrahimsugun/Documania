@@ -845,3 +845,11 @@ form.language-selector .language-menu button[type="submit"].current {
     padding: 0.5rem;
   }
 }
+
+/* --- yol gösterme (10.11.2) ------------------------------------------------ */
+
+.next-steps { border-left: 3px solid var(--accent); }
+.next-steps ol { margin: 0.25rem 0 0; padding-left: 1.4rem; }
+.next-steps li { margin: 0.25rem 0; }
+.resolution .next-step { display: block; }
+.resolution .candidate-link { display: inline-block; margin-top: 0.15rem; }

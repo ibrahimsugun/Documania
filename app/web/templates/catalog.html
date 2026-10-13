@@ -146,7 +146,7 @@
 {% elif total_types %}
 <p class="placeholder">{{ _("Bu süzgeçte tür yok.") }} <a href="/document-types">{{ _("Bütün türleri göster") }}</a></p>
 {% else %}
-<p class="placeholder">{{ _("Katalogda henüz tür yok.") }}</p>
+<p class="placeholder">{{ _("Katalogda henüz tür yok.") }}{% if user.can_write %} <a href="/document-types/new">{{ _("Yeni tür") }}</a>{% endif %}</p>
 {% endif %}
 </div>
 {% endblock %}

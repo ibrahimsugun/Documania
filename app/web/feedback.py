@@ -227,16 +227,34 @@ EXAMPLES_STORED = _register(
     _OK,
     N_("Yüklenen örnek: {count}; zaten kayıtlı olduğu için atlanan: {skipped}."),
 )
+# 10.11.2: onay ve ret bağlı bekleyen Unknown öğelerini çözmez (`app.catalog.candidates`); bildirim
+# kaç öğenin beklediğini ve sonraki adımı söyler (PLAN.md §D120 d).
 CANDIDATE_APPROVED = _register(
     "catalog.candidate_approved",
     _OK,
     N_(
-        "Aday tür standart türler arasına eklendi; tür bir sonraki analizden itibaren "
-        "geçerlidir. İlişkili Unknown öğeleri aşağıdan toplu yeniden analiz edilebilir."
+        "Aday tür standart türler arasına eklendi: {slug}. Bağlı bekleyen Unknown öğesi: {count}; "
+        "öğeler kendiliğinden çözülmez — aşağıdan partilerini yeniden analiz edin."
+    ),
+)
+CANDIDATE_APPROVED_ALONE = _register(
+    "catalog.candidate_approved_alone",
+    _OK,
+    N_(
+        "Aday tür standart türler arasına eklendi: {slug}. Bağlı bekleyen Unknown öğesi yok; tür "
+        "bir sonraki analizden itibaren geçerlidir."
     ),
 )
 CANDIDATE_REJECTED = _register(
-    "catalog.candidate_rejected", _OK, N_("Aday tür reddedildi; bir daha listeye düşmez.")
+    "catalog.candidate_rejected",
+    _OK,
+    N_(
+        "Aday tür reddedildi; bir daha listeye düşmez. Bağlı bekleyen Unknown öğesi: {count}; "
+        "öğeler kendiliğinden kapanmaz — Kuyruklar'dan açıp kapatın."
+    ),
+)
+CANDIDATE_REJECTED_ALONE = _register(
+    "catalog.candidate_rejected_alone", _OK, N_("Aday tür reddedildi; bir daha listeye düşmez.")
 )
 CANDIDATE_RESTORED = _register(
     "catalog.candidate_restored", _OK, N_("Aday tür retten geri alındı; yeniden onay bekliyor.")
@@ -475,6 +493,134 @@ TELEGRAM_REMOVED = _register(
 )
 TELEGRAM_LINK_CREATED = _register(
     "users.telegram_link", _OK, N_("Bağlantı kodu oluşturuldu; ekrandaki adımları izleyin.")
+)
+
+
+# --- Yol gösterme ipuçları (10.11.2; PLAN.md §D120 d) --------------------------------------------
+# Bekleyen bir kararın yanında duran tek cümlelik "ne yapmalı" metni. Bildirim değildir (taşıyıcısı
+# yok, sayfada çizilir), ama bildirimler gibi bu kayıttan gelir ve isteğin dilinde gösterilir.
+# Yazma yetkisi gerektiren adım salt okunur Kullanıcı'ya gösterilmez; o, `reader` ipucunu görür
+# (10.1.8). Hiçbir ipucu belge içeriğini değiştiren bir yol önermez (R12, K17).
+
+HINTS: dict[str, str] = {}
+
+
+def _hint(key: str, template: str) -> str:
+    if placeholders(template):
+        raise ValueError(f"{key}: ipucu yer tutucu taşımaz")
+    if key in HINTS:
+        raise ValueError(f"{key}: ipucu anahtarı iki kez kayıtlı")
+    HINTS[key] = template
+    return key
+
+
+# Parti detayındaki "Kuyruğa alınanlar" tablosunun "Çözüm" sütunu: bekleyen öğede yapılacak iş.
+RESOLVE_UNKNOWN_CANDIDATE = _hint(
+    "resolve.unknown_candidate", N_("Aday türü onaylayın ya da öğeyi kapatın.")
+)
+RESOLVE_UNKNOWN_APPROVED = _hint(
+    "resolve.unknown_approved",
+    N_("Aday tür onaylandı: partiyi yeniden analiz edin ya da öğeyi kapatın."),
+)
+RESOLVE_UNKNOWN = _hint(
+    "resolve.unknown",
+    N_("Türü kataloğa ekleyip partiyi yeniden analiz edin ya da öğeyi kapatın."),
+)
+RESOLVE_UNREADABLE = _hint(
+    "resolve.unreadable",
+    N_("Daha net bir kopyayı yeniden yükleyin, öğeyi çalışana atayın ya da kapatın."),
+)
+RESOLVE_UNRESOLVED_PROFILE = _hint(
+    "resolve.unresolved_profile",
+    N_("Önerilen profili onaylayın, öğeyi çalışana atayın ya da kapatın."),
+)
+RESOLVE_UNRESOLVED = _hint("resolve.unresolved", N_("Çalışana atayın ya da öğeyi kapatın."))
+RESOLVE_UNRESOLVED_TYPELESS = _hint(
+    "resolve.unresolved_typeless",
+    N_("Belgeyi uygun biçimde yeniden yükleyin ya da öğeyi kapatın."),
+)
+RESOLVE_READER = _hint(
+    "resolve.reader", N_("İK'nın kararını bekliyor; bir sorun görürseniz İK'ya bildirin.")
+)
+RESOLVE_SUPERSEDED = _hint("resolve.superseded", N_("Eski sürüm: işlem gerekmez."))
+
+# Kuyruk öğesi sayfasının "Önerilen adımlar" kutusu: kuyruk türüne göre sıralı adımlar.
+STEP_CANDIDATE_APPROVE = _hint(
+    "step.candidate_approve", N_("Önerilen aday türü inceleyip onaylayın.")
+)
+STEP_CANDIDATE_REANALYZE = _hint(
+    "step.candidate_reanalyze",
+    N_("Onaydan sonra aday türün sayfasından bu partiyi yeniden analiz edin."),
+)
+STEP_CANDIDATE_APPROVED = _hint(
+    "step.candidate_approved",
+    N_("Aday tür onaylandı: aday türün sayfasından bu partiyi yeniden analiz edin."),
+)
+STEP_TYPE_ADD = _hint(
+    "step.type_add", N_("Tür katalogda yoksa Belge Türleri'nden yeni tür olarak ekleyin.")
+)
+STEP_UPLOAD_REANALYZE = _hint(
+    "step.upload_reanalyze", N_("Ardından parti sayfasından partiyi yeniden analiz edin.")
+)
+STEP_SOURCES = _hint("step.sources", N_("Gerekçede okunamayan alan yazar; kaynak sayfalara bakın."))
+STEP_PROFILE = _hint("step.profile", N_("Önerilen profili gözden geçirip onaylayın."))
+STEP_ASSIGN = _hint("step.assign", N_("Belgenin sahibi kayıtlı bir çalışansa ona atayın."))
+STEP_REUPLOAD = _hint(
+    "step.reupload", N_("Daha net ya da uygun biçimde bir kopya gerekiyorsa yeniden yükleyin.")
+)
+STEP_CLOSE = _hint(
+    "step.close", N_("Belge değilse ya da sistemde zaten varsa öğeyi gerekçeyle kapatın.")
+)
+STEP_READER = _hint(
+    "step.reader",
+    N_(
+        "Bu öğe İK'nın kararını bekliyor. Hesabınız salt okunur; bir sorun görürseniz İK'ya "
+        "bildirin."
+    ),
+)
+
+# Kuyruklar listesinde her sekmenin başındaki tek cümle.
+TAB_UNKNOWN = _hint(
+    "tab.unknown",
+    N_(
+        "Türü katalogda olmayan belgeler: öğeyi açıp önerilen aday türü onaylayın ya da belge "
+        "değilse kapatın."
+    ),
+)
+TAB_UNREADABLE = _hint(
+    "tab.unreadable",
+    N_(
+        "Zorunlu alanı okunamayan belgeler: öğeyi açıp çalışana atayın ya da daha net kopya "
+        "yüklendiyse kapatın."
+    ),
+)
+TAB_UNRESOLVED = _hint(
+    "tab.unresolved",
+    N_(
+        "Sahibi belirlenemeyen belgeler: öğeyi açıp çalışana atayın, önerilen profili onaylayın "
+        "ya da kapatın."
+    ),
+)
+TAB_UNKNOWN_READER = _hint(
+    "tab.unknown_reader",
+    N_(
+        "Türü katalogda olmayan belgeler İK'nın kararını bekler; bir sorun görürseniz İK'ya "
+        "bildirin."
+    ),
+)
+TAB_UNREADABLE_READER = _hint(
+    "tab.unreadable_reader",
+    N_(
+        "Zorunlu alanı okunamayan belgeler İK'nın kararını bekler; bir sorun görürseniz İK'ya "
+        "bildirin."
+    ),
+)
+TAB_UNRESOLVED_READER = _hint(
+    "tab.unresolved_reader",
+    N_(
+        "Sahibi belirlenemeyen belgeler İK'nın kararını bekler; bir sorun görürseniz İK'ya "
+        "bildirin."
+    ),
 )
 
 

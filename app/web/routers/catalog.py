@@ -265,9 +265,11 @@ from app.web.confirm import (
 )
 from app.web.feedback import (
     CANDIDATE_APPROVED,
+    CANDIDATE_APPROVED_ALONE,
     CANDIDATE_EXAMINED,
     CANDIDATE_REANALYZED,
     CANDIDATE_REJECTED,
+    CANDIDATE_REJECTED_ALONE,
     CANDIDATE_RESTORED,
     EXAMPLES_STORED,
     PHOTO_RULES_SAVED,
@@ -286,6 +288,7 @@ from app.web.feedback import (
     flash,
     render,
 )
+from app.web.guidance import first_page
 from app.web.routers.documents import _reference
 from app.web.routers.queue import QueueState, _payload_refs, _state_filter
 from app.web.routers.training import LABEL_TEXTS, MANUAL_CHECK_TEXT
@@ -1774,13 +1777,9 @@ class ReanalyzedView:
 
 
 def _first_page(item: QueueItem) -> tuple[int, int] | None:
-    """Öğenin ilk kaynak sayfası `(dosya kimliği, 0 tabanlı sıra)`; kayıt bozuk ya da sayfasızsa
-    `None` (öğe hiçbir adayla ilişkilendirilmez)."""
-    refs = _payload_refs(item.payload_json)
-    parsed = _reference(refs[0]) if refs else None
-    if parsed is None or not parsed[1]:
-        return None
-    return parsed[0], parsed[1][0]
+    """Öğenin ilk kaynak sayfası; ilişkinin tek tanımı `app.web.guidance.first_page`tır (parti
+    detayı ve kuyruk öğesi de aday türe onunla bağlanır, 10.11.2)."""
+    return first_page(item.payload_json)
 
 
 def _related_by_candidate(session: Session, candidate_ids: list[int]) -> dict[int, list[QueueItem]]:
@@ -2201,9 +2200,15 @@ def approve_candidate(
         return _step_page(
             request, user, candidate_id, status.HTTP_409_CONFLICT, error=_decided_note(exc.status)
         )
+    # 10.11.2: onay bağlı bekleyen Unknown öğelerini çözmez; bildirim sayıyı ve sonraki adımı
+    # (aday türün sayfasındaki toplu yeniden analiz, 11.5.3) söyler.
+    waiting = len(_related_by_candidate(session, [candidate_id])[candidate_id])
     session.commit()
     response = RedirectResponse(f"{CANDIDATES_PATH}/{candidate_id}", status.HTTP_303_SEE_OTHER)
-    flash(response, CANDIDATE_APPROVED)
+    if waiting:
+        flash(response, CANDIDATE_APPROVED, slug=entry.slug, count=waiting)
+    else:
+        flash(response, CANDIDATE_APPROVED_ALONE, slug=entry.slug)
     return response
 
 
@@ -2228,9 +2233,15 @@ def reject_candidate(
         return _step_page(
             request, user, candidate_id, status.HTTP_409_CONFLICT, error=_decided_note(exc.status)
         )
+    # 10.11.2: ret bağlı bekleyen Unknown öğelerini kapatmaz; bildirim sayıyı ve elle kapatmayı
+    # söyler.
+    waiting = len(_related_by_candidate(session, [candidate_id])[candidate_id])
     session.commit()
     response = RedirectResponse(CANDIDATES_PATH, status.HTTP_303_SEE_OTHER)
-    flash(response, CANDIDATE_REJECTED)
+    if waiting:
+        flash(response, CANDIDATE_REJECTED, count=waiting)
+    else:
+        flash(response, CANDIDATE_REJECTED_ALONE)
     return response
 
 

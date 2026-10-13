@@ -2586,7 +2586,7 @@
         "description": "PRD 10.11.2, 10.11.3, S28 · FR-MOD-10 · Faz 1 · Should (v1). Sözleşme PLAN §D120 (d, e). Tetikleyen gözlem (2026-10-13): parti detayında \"Tür bilinmiyor · Bekliyor\" satırı var ama onayın verileceği yere bağlantı yok; insan aday tür onay mekanizmasını bulamadı.",
         "details": "KAPSAM: PRD 10.11.2, 10.11.3, S28; PLAN §D120 d, e — önce oku. tm 175'in kurduğu `app/web/feedback.py` kaydını ve toast'ı kullanır.\n\nNE YAPILACAK: (1) Parti detayı (`app/web/templates/upload_detail.html` \"Kuyruğa alınanlar\" tablosu, `app/web/routers/uploads.py` detay modeli): satır kuyruk öğesine (`/queues/{id}`) bağlanır; `unknown` satırında plan öğesinin önerdiği aday tür (11.5, `CANDIDATE_TYPE_PROPOSED` olayı / aday kaydı) varsa `/document-types/candidate-types/{id}` bağlantısı; \"Çözüm\" sütunu `Bekliyor` yerine kuyruk türüne göre fiil cümlesi (kayıttan, §D120 d). (2) Kuyruk öğesi sayfası (`queue_item.html`, `app/web/routers/queue.py`): kuyruk türüne göre (unknown / unreadable / unresolved) \"Önerilen adımlar\" kutusu — sıralı, bağlantılı, sayfadaki ilgili bölüme (`#new-profile`, `#assign`, `#close`) çapalı. Kuyruklar listesinde her kuyruk sekmesinin başında tek cümle ipucu. (3) Aday tür onayı/reddi (`app/web/routers/catalog.py` approve/reject): sonucu bildirim (tm 175 `flash`) — bağlı açık kuyruk öğesi sayısı ve sonraki adım. Önce koddan doğrula: onay bekleyen öğeyi kendiliğinden çözüyor mu, yeniden analiz mi gerekiyor (`app/pipeline/`, 11.5 sözleşmesi PLAN §D'de); metin buna göre, tahminle değil. (4) Boş durumlar: `.placeholder` metinleri (`grep -rn placeholder app/web/templates`) ilk adıma bağlantı verir (ör. çalışan yokken Yükle, kuyruk boşken Yüklemeler), yetkiye göre. (5) Rol süzgeci: salt okunur Kullanıcı (10.1.8) yazma bağlantısı/adımı görmez, \"İK'ya bildirin\" ipucunu görür; root'a özel yol (erişim logu) ipucunda geçmez. (6) Çeviri: yeni metinler en/sr; `test_translation_sweep.py` `PAGES`'e parti detayı (kuyruklu), kuyruk öğesi (üç tür), aday tür sonrası. (7) S28 kabul testi `tests/test_scenario_s28.py` (kalıp: `tests/test_scenario_s25.py`).\n\nGİRDİ: app/web/templates/upload_detail.html (:205 kuyruk tablosu), app/web/routers/uploads.py, app/web/templates/queue_item.html, app/web/routers/queue.py, app/web/templates/catalog_candidates.html + catalog_candidate.html, app/web/routers/catalog.py (:940 aday listesi, :2188 approve, :2241 reject), app/db/models.py (`QueueKind` :136, `QueueResolution`), app/web/feedback.py (tm 175).\n\nÇIKTI: şablon ve yönlendirici değişiklikleri, kayıt girdileri, `.po`/`.mo`, testler, S28; PLAN 10.11.2 satırı (10.11.3 tm 175'te kapanmadıysa o da) ve `#### K10.11` kanıtı, §D120 d'ye uygulama kararları, HANDOFF.\n\nBU GÖREVİ BAĞLAYAN KİLİTLİ KURALLAR: R12/K17 — belge içeriğini değiştiren yol yok, ipucu da önermez. 10.1.8 — salt okunur Kullanıcı yazma bağlantısı görmez. 10.10.3 — yeni her görünen metin `_()`/`N_()` ile işaretli, `.po` (en, sr) dolu, `python -m app.i18n check` exit 0; Türkçe kaynak dildir. Kişisel değer (ad-soyad, belge numarası, doğum tarihi) bildirim parametresi ya da çerez içeriği olamaz. Gerçek kimlik belgesi depoya girmez (sentetik fixture).\n\nTUZAKLAR: Aday tür ile kuyruk öğesi arasındaki bağ modelde doğrudan olmayabilir (olay verisi, plan öğesi önerisi) — en sağlam bağı bul, yoksa aday tür listesine bağlan ve §D'ye yaz. Eski plan sürümünün (`output-superseded`) kuyruk satırı bağlantı/ipucu almaz. Kapanmış/çözülmüş öğe \"ne yapmalı\" demez, çözümü söyler. Aday reddedilince bekleyen öğe için doğru sonraki adım koddan doğrulanır.\n\nKAPSAM SINIRI: aday tür onayının bekleyen öğeyi otomatik çözmesi gibi davranış değişikliği YOK — yalnız mevcut davranışı görünür kılar; davranış eksikse ayrı görev önerisi olarak HANDOFF'a yazılır. Telegram botu yok.\n\nKAPANIŞ: DoD kapısı yeşil; geçici kural bozmaları (Kullanıcı onay bağlantısı görür, eski sürüm satırı bağlantılı, Sırpça istekte Türkçe ipucu, kapalı öğe 'ne yapmalı' der) kırmızı olmalı. 10.11.1–10.11.3 ✅ olunca Faz 1 Kapanış hücresi için kapanış denetimi görevi ayrıca açılır (PLAN §1.2; elle ✅ yok).",
         "testStrategy": "1) Parti detayı: unknown satırı kuyruk öğesine ve aday türe bağlı; unresolved/unreadable satırı öğeye bağlı; Çözüm sütunu tür fiilini söyler; eski sürüm satırı bağlantısız. 2) Kuyruk öğesi: üç türde doğru sıralı adımlar ve çapalar; çözülmüş öğede adım yok. 3) Aday onayı/reddi: bildirim bağlı öğe sayısını ve doğrulanmış sonraki adımı söyler. 4) Boş durumlar bağlantılı. 5) Rol: Kullanıcı yazma bağlantısı görmez, 'İK'ya bildirin' görür. 6) Dil: en/tr/sr; app.i18n check exit 0; çeviri taraması. 7) S28. 8) DoD kapısı yeşil.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [
           "175",
           "79",
@@ -2595,7 +2595,7 @@
         ],
         "priority": "medium",
         "subtasks": [],
-        "updatedAt": "2026-10-13T12:00:00.000Z"
+        "updatedAt": "2026-10-13T16:02:05.452Z"
       },
       {
         "id": "177",
@@ -2615,9 +2615,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-13T14:57:56.974Z",
+      "lastModified": "2026-10-13T16:02:05.453Z",
       "taskCount": 178,
-      "completedCount": 176,
+      "completedCount": 177,
       "tags": [
         "master"
       ]

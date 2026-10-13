@@ -4,7 +4,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Documania panel\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-13 13:42+0000\n"
+"POT-Creation-Date: 2026-10-13 15:07+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -442,7 +442,23 @@ msgid "Aday tür görünümleri"
 msgstr ""
 
 #: app/web/feedback.py
+msgid "Aday tür onaylandı: aday türün sayfasından bu partiyi yeniden analiz edin."
+msgstr ""
+
+#: app/web/feedback.py
+msgid "Aday tür onaylandı: partiyi yeniden analiz edin ya da öğeyi kapatın."
+msgstr ""
+
+#: app/web/feedback.py
 msgid "Aday tür reddedildi; bir daha listeye düşmez."
+msgstr ""
+
+#: app/web/feedback.py
+#, python-brace-format
+msgid ""
+"Aday tür reddedildi; bir daha listeye düşmez. Bağlı bekleyen Unknown "
+"öğesi: {count}; öğeler kendiliğinden kapanmaz — Kuyruklar'dan açıp "
+"kapatın."
 msgstr ""
 
 #: app/web/feedback.py
@@ -450,10 +466,22 @@ msgid "Aday tür retten geri alındı; yeniden onay bekliyor."
 msgstr ""
 
 #: app/web/feedback.py
+#, python-brace-format
 msgid ""
-"Aday tür standart türler arasına eklendi; tür bir sonraki analizden "
-"itibaren geçerlidir. İlişkili Unknown öğeleri aşağıdan toplu yeniden "
-"analiz edilebilir."
+"Aday tür standart türler arasına eklendi: {slug}. Bağlı bekleyen Unknown "
+"öğesi yok; tür bir sonraki analizden itibaren geçerlidir."
+msgstr ""
+
+#: app/web/feedback.py
+#, python-brace-format
+msgid ""
+"Aday tür standart türler arasına eklendi: {slug}. Bağlı bekleyen Unknown "
+"öğesi: {count}; öğeler kendiliğinden çözülmez — aşağıdan partilerini "
+"yeniden analiz edin."
+msgstr ""
+
+#: app/web/templates/upload_detail.html
+msgid "Aday tür:"
 msgstr ""
 
 #: app/web/templates/catalog_candidate.html
@@ -468,6 +496,10 @@ msgstr ""
 #: app/web/templates/catalog.html app/web/templates/catalog_candidate.html
 #: app/web/templates/catalog_candidates.html
 msgid "Aday türler"
+msgstr ""
+
+#: app/web/feedback.py
+msgid "Aday türü onaylayın ya da öğeyi kapatın."
 msgstr ""
 
 #: app/web/feedback.py
@@ -583,6 +615,10 @@ msgstr ""
 
 #: app/catalog/describe.py app/web/routers/employees.py
 msgid "Arap"
+msgstr ""
+
+#: app/web/feedback.py
+msgid "Ardından parti sayfasından partiyi yeniden analiz edin."
 msgstr ""
 
 #: app/catalog/photo_rules.py
@@ -946,7 +982,6 @@ msgid "Bekleyenler (%(num)d)"
 msgstr ""
 
 #: app/catalog/candidates.py app/web/routers/upload_page.py
-#: app/web/templates/upload_detail.html
 msgid "Bekliyor"
 msgstr ""
 
@@ -1003,6 +1038,10 @@ msgid ""
 "Belge değilse (boş ya da çöp sayfa) veya belge zaten sistemdeyse öğeyi "
 "gerekçeyle kapatın. Öğe çözülmüş sayılır; kuyruk klasöründeki kopya ve "
 "gerekçe dosyası silinmez, \"Yeniden aç\" ile geri açılabilir."
+msgstr ""
+
+#: app/web/feedback.py
+msgid "Belge değilse ya da sistemde zaten varsa öğeyi gerekçeyle kapatın."
 msgstr ""
 
 #: app/web/routers/employees.py
@@ -1185,31 +1224,14 @@ msgid ""
 "kaydın profilinden yapın."
 msgstr ""
 
-#: app/web/routers/queue.py
-msgid ""
-"Belgenin sahibi ya da yapılacak fiziksel işlem belirlenemedi. Yapılacak: "
-"öğeyi açıp çalışanı seçin, ya da önerilen profili onaylayın. (Diskte: "
-"Unresolved klasörü)"
+#: app/web/feedback.py
+msgid "Belgenin sahibi kayıtlı bir çalışansa ona atayın."
 msgstr ""
 
 #: app/web/templates/document_move.html
 msgid ""
 "Belgenin taşınacağı çalışanı bulmak için ad, alias, orijinal yazım veya "
 "belge numarası yazın."
-msgstr ""
-
-#: app/web/routers/queue.py
-msgid ""
-"Belgenin türü belli, ama zorunlu alanlardan biri okunamadı (K1). "
-"Yapılacak: gerekçedeki alanı belgeden okuyup girin, ya da belgeyi daha "
-"net tarayıp yeniden yükleyin. (Diskte: Unreadable klasörü)"
-msgstr ""
-
-#: app/web/routers/queue.py
-msgid ""
-"Belgenin türü katalogda yok ya da belirlenemedi. Yapılacak: Belge "
-"Türleri'nden türü ekleyin, ya da öğeyi açıp doğru türü seçin. (Diskte: "
-"Unknown klasörü)"
 msgstr ""
 
 #: app/web/routers/documents.py
@@ -1226,6 +1248,10 @@ msgstr ""
 
 #: app/web/routers/documents.py
 msgid "Belgeyi kalıcı sil"
+msgstr ""
+
+#: app/web/feedback.py
+msgid "Belgeyi uygun biçimde yeniden yükleyin ya da öğeyi kapatın."
 msgstr ""
 
 #: app/web/templates/queue.html app/web/templates/queue_close_step.html
@@ -1811,6 +1837,12 @@ msgstr ""
 msgid "Bu öğe zaten çözülmüş; yeniden atanamaz."
 msgstr ""
 
+#: app/web/feedback.py
+msgid ""
+"Bu öğe İK'nın kararını bekliyor. Hesabınız salt okunur; bir sorun "
+"görürseniz İK'ya bildirin."
+msgstr ""
+
 #: app/telegram/bot.py
 msgid "Bunu açamıyorum. Belgeyi dosya olarak gönderin ya da sorunuzu yazın."
 msgstr ""
@@ -1846,6 +1878,16 @@ msgid "Daha eski %(num)d fotoğraf da örnek olarak işaretli."
 msgid_plural "Daha eski %(num)d fotoğraf da örnek olarak işaretli."
 msgstr[0] ""
 msgstr[1] ""
+
+#: app/web/feedback.py
+msgid ""
+"Daha net bir kopyayı yeniden yükleyin, öğeyi çalışana atayın ya da "
+"kapatın."
+msgstr ""
+
+#: app/web/feedback.py
+msgid "Daha net ya da uygun biçimde bir kopya gerekiyorsa yeniden yükleyin."
+msgstr ""
 
 #: app/web/templates/upload_detail.html app/web/templates/upload_result.html
 msgid "Daha önce yüklenmiş"
@@ -2131,6 +2173,10 @@ msgstr ""
 msgid "Eski sürüm"
 msgstr ""
 
+#: app/web/feedback.py
+msgid "Eski sürüm: işlem gerekmez."
+msgstr ""
+
 #: app/web/templates/training_results.html
 msgid "Etiket"
 msgstr ""
@@ -2342,6 +2388,10 @@ msgstr ""
 #: app/web/templates/queue.html app/web/templates/queue_item.html
 #: app/web/templates/training_map.html app/web/templates/upload_detail.html
 msgid "Gerekçe"
+msgstr ""
+
+#: app/web/feedback.py
+msgid "Gerekçede okunamayan alan yazar; kaynak sayfalara bakın."
 msgstr ""
 
 #: app/web/templates/catalog.html app/web/templates/catalog_candidates.html
@@ -3294,6 +3344,10 @@ msgstr ""
 msgid "Onaya gönder"
 msgstr ""
 
+#: app/web/feedback.py
+msgid "Onaydan sonra aday türün sayfasından bu partiyi yeniden analiz edin."
+msgstr ""
+
 #: app/web/templates/catalog_candidates.html
 msgid "Onaylanan, Unknown öğesi bekleyen adaylar"
 msgstr ""
@@ -3678,6 +3732,18 @@ msgstr ""
 
 #: app/catalog/photo_rules.py
 msgid "Sade arka plan"
+msgstr ""
+
+#: app/web/feedback.py
+msgid ""
+"Sahibi belirlenemeyen belgeler İK'nın kararını bekler; bir sorun "
+"görürseniz İK'ya bildirin."
+msgstr ""
+
+#: app/web/feedback.py
+msgid ""
+"Sahibi belirlenemeyen belgeler: öğeyi açıp çalışana atayın, önerilen "
+"profili onaylayın ya da kapatın."
 msgstr ""
 
 #: app/web/routers/upload_page.py
@@ -4283,6 +4349,10 @@ msgid ""
 "geçerlidir."
 msgstr ""
 
+#: app/web/feedback.py
+msgid "Tür katalogda yoksa Belge Türleri'nden yeni tür olarak ekleyin."
+msgstr ""
+
 #: app/web/templates/catalog_form.html
 msgid "Tür kaydedilmedi: alanların altındaki uyarıları düzeltin."
 msgstr ""
@@ -4333,6 +4403,26 @@ msgstr ""
 #: app/web/templates/catalog_archive_step.html
 #, python-format
 msgid "Türü arşivle: %(name)s"
+msgstr ""
+
+#: app/web/feedback.py
+msgid ""
+"Türü katalogda olmayan belgeler İK'nın kararını bekler; bir sorun "
+"görürseniz İK'ya bildirin."
+msgstr ""
+
+#: app/web/feedback.py
+msgid ""
+"Türü katalogda olmayan belgeler: öğeyi açıp önerilen aday türü onaylayın "
+"ya da belge değilse kapatın."
+msgstr ""
+
+#: app/web/feedback.py
+msgid "Türü kataloğa ekleyip partiyi yeniden analiz edin ya da öğeyi kapatın."
+msgstr ""
+
+#: app/web/templates/catalog_candidates.html
+msgid "Unknown kuyruğuna bakın"
 msgstr ""
 
 #: app/web/templates/catalog.html
@@ -4701,6 +4791,10 @@ msgstr ""
 msgid "Yüklemeler"
 msgstr ""
 
+#: app/web/templates/queue.html
+msgid "Yüklemelere bakın"
+msgstr ""
+
 #: app/web/templates/uploads_list.html
 msgid "Yüklemeleri süz"
 msgstr ""
@@ -4774,6 +4868,18 @@ msgstr ""
 #: app/catalog/prefill.py app/web/routers/catalog.py
 #: app/web/templates/catalog_type_fields.html
 msgid "Zorunlu alanlar"
+msgstr ""
+
+#: app/web/feedback.py
+msgid ""
+"Zorunlu alanı okunamayan belgeler İK'nın kararını bekler; bir sorun "
+"görürseniz İK'ya bildirin."
+msgstr ""
+
+#: app/web/feedback.py
+msgid ""
+"Zorunlu alanı okunamayan belgeler: öğeyi açıp çalışana atayın ya da daha "
+"net kopya yüklendiyse kapatın."
 msgstr ""
 
 #: app/web/templates/group.html
@@ -5400,6 +5506,10 @@ msgstr ""
 msgid "Çalışana ata"
 msgstr ""
 
+#: app/web/feedback.py
+msgid "Çalışana atayın ya da öğeyi kapatın."
+msgstr ""
+
 #: app/web/templating.py
 msgid "Çalışanlar"
 msgstr ""
@@ -5516,8 +5626,24 @@ msgstr ""
 msgid "Önerilen"
 msgstr ""
 
+#: app/web/feedback.py
+msgid "Önerilen aday türü inceleyip onaylayın."
+msgstr ""
+
+#: app/web/templates/queue_item.html
+msgid "Önerilen adımlar"
+msgstr ""
+
 #: app/web/templates/queue_new_profile.html
 msgid "Önerilen profil değiştirilmeden onaylanacak."
+msgstr ""
+
+#: app/web/feedback.py
+msgid "Önerilen profili gözden geçirip onaylayın."
+msgstr ""
+
+#: app/web/feedback.py
+msgid "Önerilen profili onaylayın, öğeyi çalışana atayın ya da kapatın."
 msgstr ""
 
 #: app/web/templates/training_map.html
@@ -5769,6 +5895,10 @@ msgid ""
 "değiştiremez."
 msgstr ""
 
+#: app/web/feedback.py
+msgid "İK'nın kararını bekliyor; bir sorun görürseniz İK'ya bildirin."
+msgstr ""
+
 #: app/web/templates/catalog_type_fields.html
 msgid "İki harfli ülke kodu; boş bırakılabilir."
 msgstr ""
@@ -5817,6 +5947,10 @@ msgstr ""
 #: app/web/templates/catalog_candidate.html
 #, python-format
 msgid "İlk %(shown)d örnek gösteriliyor (toplam %(total)d)."
+msgstr ""
+
+#: app/web/templates/employees_results.html
+msgid "İlk belgeleri yükleyin"
 msgstr ""
 
 #: app/web/templates/catalog_candidate.html

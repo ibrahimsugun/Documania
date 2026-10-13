@@ -617,7 +617,7 @@ def employees_page(
     listing = list_employees(session, q, page, packages, status_filter=status_filter)
     entry = MENU_BY_KEY["employees"]
     if _wants_fragment(request):
-        response = render_page(request, "employees_results.html", user=None, listing=listing)
+        response = render_page(request, "employees_results.html", user=user, listing=listing)
     else:
         response = render_page(
             request,

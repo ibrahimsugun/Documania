@@ -192,14 +192,17 @@ from app.web.confirm import (
     second_text,
 )
 from app.web.feedback import (
+    HINTS,
     QUEUE_ASSIGNED,
     QUEUE_CLOSED,
     QUEUE_PROFILE_CREATED,
     QUEUE_REOPENED,
+    STEP_READER,
     Toast,
     flash,
     render,
 )
+from app.web.guidance import TAB_HINTS, Step, candidates_of, item_steps
 from app.web.profile_form import (
     INVALID_PROFILE,
     PROFILE_LABELS,
@@ -537,21 +540,6 @@ STATE_LABELS = {
     QueueState.RESOLVED.value: N_("Çözülen"),
     QueueState.SUPERSEDED.value: N_("Eski sürüm"),
 }
-TAB_HINTS = {
-    QueueKind.UNKNOWN.value: N_(
-        "Belgenin türü katalogda yok ya da belirlenemedi. Yapılacak: Belge Türleri'nden türü "
-        "ekleyin, ya da öğeyi açıp doğru türü seçin. (Diskte: Unknown klasörü)"
-    ),
-    QueueKind.UNREADABLE.value: N_(
-        "Belgenin türü belli, ama zorunlu alanlardan biri okunamadı (K1). Yapılacak: gerekçedeki "
-        "alanı belgeden okuyup girin, ya da belgeyi daha net tarayıp yeniden yükleyin. "
-        "(Diskte: Unreadable klasörü)"
-    ),
-    QueueKind.UNRESOLVED.value: N_(
-        "Belgenin sahibi ya da yapılacak fiziksel işlem belirlenemedi. Yapılacak: öğeyi açıp "
-        "çalışanı seçin, ya da önerilen profili onaylayın. (Diskte: Unresolved klasörü)"
-    ),
-}
 QUEUE_INTRO = N_(
     "Sistem bir belgeden emin olamadığında onu değiştirmez, buraya alır. Bu sayfadaki her satır "
     "senin kararını bekleyen bir belgedir; karar verince sistem işini tamamlar."
@@ -611,7 +599,9 @@ class QueueListing:
     kind: str
     label: str
     intro: str
+    # 10.11.2: sekmenin başındaki tek cümle; salt okunur Kullanıcı `reader_hint`'i görür (10.1.8).
     hint: str
+    reader_hint: str
     state: str
     state_label: str
     tabs: list[TabView]
@@ -663,6 +653,10 @@ class QueueItemView:
     can_close: bool = False
     can_reopen: bool = False
     reopen_note: str | None = None
+    # 10.11.2: bekleyen öğenin önerilen adımları (yazabilen kullanıcıya) ve salt okunur
+    # Kullanıcı'nın ipucu; çözülmüş ya da eski sürüm öğede ikisi de yok — çözüm ya da not söyler.
+    steps: tuple[Step, ...] = ()
+    reader_hint: str | None = None
 
 
 def _queue_url(kind: str, state: QueueState = QueueState.OPEN, page: int = 1) -> str:
@@ -839,7 +833,8 @@ def list_queue(
         kind=kind.value,
         label=QUEUE_LABELS[kind.value],
         intro=QUEUE_INTRO,
-        hint=TAB_HINTS[kind.value],
+        hint=TAB_HINTS[kind.value][0],
+        reader_hint=TAB_HINTS[kind.value][1],
         state=state.value,
         state_label=STATE_LABELS[state.value],
         tabs=[
@@ -926,6 +921,17 @@ def build_item_view(session: Session, queue_item_id: int) -> QueueItemView | Non
     profile_form, profile_note = _profile_section(session, queue_item, state)
     closed = queue_item.resolution == QueueResolution.CLOSED.value
     reopen_note = reopening_refusal(session, queue_item) if closed else None
+    can_assign = _assign_refusal(session, queue_item) is None
+    can_close = closing_refusal(session, queue_item) is None
+    steps: list[Step] = []
+    if state is QueueState.OPEN:
+        steps = item_steps(
+            queue_item,
+            candidates_of(session, [queue_item]).get(queue_item.id),
+            can_profile=profile_form is not None,
+            can_assign=can_assign,
+            can_close=can_close,
+        )
     return QueueItemView(
         id=queue_item.id,
         kind=queue_item.kind,
@@ -945,7 +951,7 @@ def build_item_view(session: Session, queue_item_id: int) -> QueueItemView | Non
         resolved=_resolved_text(queue_item),
         document_id=resolution.document_id if resolution is not None else None,
         note=SUPERSEDED_NOTE if state is QueueState.SUPERSEDED else None,
-        can_assign=_assign_refusal(session, queue_item) is None,
+        can_assign=can_assign,
         assign_note=(
             TYPELESS_NOTE
             if state is QueueState.OPEN and _type_slug(queue_item.payload_json) is None
@@ -956,9 +962,11 @@ def build_item_view(session: Session, queue_item_id: int) -> QueueItemView | Non
         inactive_employee=(
             _inactive_employee(queue_item, lookups) if state is QueueState.OPEN else None
         ),
-        can_close=closing_refusal(session, queue_item) is None,
+        can_close=can_close,
         can_reopen=closed and reopen_note is None,
         reopen_note=reopen_note,
+        steps=tuple(steps),
+        reader_hint=HINTS[STEP_READER] if state is QueueState.OPEN else None,
         events=[
             EventView(
                 ts=_format_ts(event.ts),

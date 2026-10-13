@@ -80,6 +80,7 @@ from app.ai.provider import AnalysisProvider, ProviderConfigError, create_provid
 from app.catalog import export_catalog
 from app.config import Settings, get_settings
 from app.db.models import (
+    CandidateDocumentType,
     Document,
     DocumentStatus,
     Employee,
@@ -144,6 +145,9 @@ from app.web.confirm import (
 )
 from app.web.context_person import ForeignDocumentsWarning, upload_warning
 from app.web.feedback import (
+    HINTS,
+    RESOLVE_READER,
+    RESOLVE_SUPERSEDED,
     UPLOAD_CANCELLED,
     UPLOAD_DISMISSED,
     UPLOAD_REANALYZED,
@@ -153,6 +157,7 @@ from app.web.feedback import (
     Toast,
     render,
 )
+from app.web.guidance import candidate_url, candidates_of, resolution_hint
 from app.web.routers.uploads import (
     CANCELLED_MESSAGE,
     DISMISSED_MESSAGE,
@@ -491,6 +496,13 @@ class QueueView:
     reason: str
     resolved: str | None
     current: bool
+    # 10.11.2: kuyruk öğesinin adresi (eski sürümün çözülmemiş satırı bağlantı almaz), bekleyen
+    # öğede yapılacak iş (msgid) ve Unknown öğesinin bağlı olduğu aday tür (`app.web.guidance`).
+    url: str | None = None
+    hint: str | None = None
+    reader_hint: str | None = None
+    candidate_url: str | None = None
+    candidate_name: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -669,6 +681,7 @@ def build_detail_view(session: Session, upload: Upload) -> DetailView:
         except PlanIntegrityError as exc:
             plan_error = str(exc)
     plan_versions = {row.id: row.version for row in upload.plans}
+    candidates = candidates_of(session, upload.queue_items)
     outputs = list(
         session.scalars(
             select(Document).where(Document.plan_id.in_(list(plan_versions))).order_by(Document.id)
@@ -762,18 +775,7 @@ def build_detail_view(session: Session, upload: Upload) -> DetailView:
             )
             for output in outputs
         ],
-        queue=[
-            QueueView(
-                id=row.id,
-                kind_label=QUEUE_LABELS.get(row.kind, row.kind),
-                plan_version=plan_versions.get(row.plan_id) if row.plan_id else None,
-                item_id=row.plan_item_id,
-                reason=row.reason,
-                resolved=resolution_text(row),
-                current=plan is not None and row.plan_id == plan.id,
-            )
-            for row in upload.queue_items
-        ],
+        queue=[_queue_view(row, plan, plan_versions, candidates) for row in upload.queue_items],
         events=[
             EventView(
                 ts=_format_ts(event.ts),
@@ -791,6 +793,35 @@ def build_detail_view(session: Session, upload: Upload) -> DetailView:
         can_dismiss=not is_dismissed(upload) and current_status in FINAL_STATUSES,
         cancelled_notice=cancelled_notice(session, upload),
         can_cancel=is_cancellable(upload),
+    )
+
+
+def _queue_view(
+    row: QueueItem,
+    plan: Plan | None,
+    plan_versions: dict[int, int],
+    candidates: dict[int, CandidateDocumentType],
+) -> QueueView:
+    """ "Kuyruğa alınanlar" satırı (10.11.2): satır kuyruk öğesine bağlanır; bekleyen öğe yapılacak
+    işi ve — Unknown ise — bağlı aday türü taşır. Eski plan sürümünün satırı bağlantı ve ipucu almaz
+    (K18); çözülmüş öğe ne yapılacağını değil çözümünü söyler."""
+    current = plan is not None and row.plan_id == plan.id
+    pending = current and row.resolved_at is None
+    candidate = candidates.get(row.id) if pending else None
+    superseded = HINTS[RESOLVE_SUPERSEDED] if not current and row.resolved_at is None else None
+    return QueueView(
+        id=row.id,
+        kind_label=QUEUE_LABELS.get(row.kind, row.kind),
+        plan_version=plan_versions.get(row.plan_id) if row.plan_id else None,
+        item_id=row.plan_item_id,
+        reason=row.reason,
+        resolved=resolution_text(row),
+        current=current,
+        url=f"/queues/{row.id}" if current else None,
+        hint=resolution_hint(row, candidate) if pending else superseded,
+        reader_hint=HINTS[RESOLVE_READER] if pending else superseded,
+        candidate_url=candidate_url(candidate),
+        candidate_name=candidate.proposed_name if candidate is not None else None,
     )
 
 

@@ -4,8 +4,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Documania panel\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-13 13:44+0000\n"
-"PO-Revision-Date: 2026-10-13 13:44+0000\n"
+"POT-Creation-Date: 2026-10-13 15:07+0000\n"
+"PO-Revision-Date: 2026-10-13 15:07+0000\n"
 "Last-Translator: Documania görev penceresi (gözden geçirilmeli)\n"
 "Language: sr_Latn\n"
 "Language-Team: Srpski\n"
@@ -506,22 +506,59 @@ msgid "Aday tür görünümleri"
 msgstr "Prikazi predloženih tipova"
 
 #: app/web/feedback.py
+msgid "Aday tür onaylandı: aday türün sayfasından bu partiyi yeniden analiz edin."
+msgstr ""
+"Predloženi tip je odobren: ponovo analizirajte ovu seriju sa stranice "
+"predloženog tipa."
+
+#: app/web/feedback.py
+msgid "Aday tür onaylandı: partiyi yeniden analiz edin ya da öğeyi kapatın."
+msgstr ""
+"Predloženi tip je odobren: ponovo analizirajte seriju ili zatvorite "
+"stavku."
+
+#: app/web/feedback.py
 msgid "Aday tür reddedildi; bir daha listeye düşmez."
 msgstr "Predloženi tip je odbijen; više se neće pojavljivati na listi."
+
+#: app/web/feedback.py
+#, python-brace-format
+msgid ""
+"Aday tür reddedildi; bir daha listeye düşmez. Bağlı bekleyen Unknown "
+"öğesi: {count}; öğeler kendiliğinden kapanmaz — Kuyruklar'dan açıp "
+"kapatın."
+msgstr ""
+"Predloženi tip je odbijen; više se neće pojavljivati na listi. Povezane "
+"stavke Unknown na čekanju: {count}; ne zatvaraju se same — otvorite ih iz"
+" Redova i zatvorite."
 
 #: app/web/feedback.py
 msgid "Aday tür retten geri alındı; yeniden onay bekliyor."
 msgstr "Odbijanje predloženog tipa je poništeno; ponovo čeka odobrenje."
 
 #: app/web/feedback.py
+#, python-brace-format
 msgid ""
-"Aday tür standart türler arasına eklendi; tür bir sonraki analizden "
-"itibaren geçerlidir. İlişkili Unknown öğeleri aşağıdan toplu yeniden "
-"analiz edilebilir."
+"Aday tür standart türler arasına eklendi: {slug}. Bağlı bekleyen Unknown "
+"öğesi yok; tür bir sonraki analizden itibaren geçerlidir."
 msgstr ""
-"Predloženi tip je dodat među standardne tipove; važi od sledeće analize. "
-"Povezane stavke iz reda Unknown mogu se ispod ponovo analizirati "
-"odjednom."
+"Predloženi tip je dodat među standardne tipove: {slug}. Nema povezanih "
+"stavki Unknown na čekanju; tip važi od sledeće analize."
+
+#: app/web/feedback.py
+#, python-brace-format
+msgid ""
+"Aday tür standart türler arasına eklendi: {slug}. Bağlı bekleyen Unknown "
+"öğesi: {count}; öğeler kendiliğinden çözülmez — aşağıdan partilerini "
+"yeniden analiz edin."
+msgstr ""
+"Predloženi tip je dodat među standardne tipove: {slug}. Povezane stavke "
+"Unknown na čekanju: {count}; ne rešavaju se same — ponovo analizirajte "
+"njihove serije ispod."
+
+#: app/web/templates/upload_detail.html
+msgid "Aday tür:"
+msgstr "Predloženi tip:"
 
 #: app/web/templates/catalog_candidate.html
 #, python-format
@@ -536,6 +573,10 @@ msgstr "Nazad na predloženi tip"
 #: app/web/templates/catalog_candidates.html
 msgid "Aday türler"
 msgstr "Predloženi tipovi"
+
+#: app/web/feedback.py
+msgid "Aday türü onaylayın ya da öğeyi kapatın."
+msgstr "Odobrite predloženi tip ili zatvorite stavku."
 
 #: app/web/feedback.py
 msgid "Aday yeniden incelendi."
@@ -667,6 +708,10 @@ msgstr "Pretraži"
 #: app/catalog/describe.py app/web/routers/employees.py
 msgid "Arap"
 msgstr "Arapsko"
+
+#: app/web/feedback.py
+msgid "Ardından parti sayfasından partiyi yeniden analiz edin."
+msgstr "Zatim ponovo analizirajte seriju sa njene stranice."
 
 #: app/catalog/photo_rules.py
 msgid "Arka plan düz ve sade olmalı; desen, eşya ya da başka kişi görünmemeli."
@@ -1076,7 +1121,6 @@ msgid "Bekleyenler (%(num)d)"
 msgstr "Na čekanju (%(num)d)"
 
 #: app/catalog/candidates.py app/web/routers/upload_page.py
-#: app/web/templates/upload_detail.html
 msgid "Bekliyor"
 msgstr "Na čekanju"
 
@@ -1141,6 +1185,10 @@ msgstr ""
 "sistemu, zatvorite stavku uz razlog. Stavka se smatra rešenom; kopija i "
 "datoteka sa razlogom u fascikli reda se ne brišu, a može se ponovo "
 "otvoriti dugmetom „Ponovo otvori“."
+
+#: app/web/feedback.py
+msgid "Belge değilse ya da sistemde zaten varsa öğeyi gerekçeyle kapatın."
+msgstr "Ako nije dokument ili je već u sistemu, zatvorite stavku uz razlog."
 
 #: app/web/routers/employees.py
 msgid ""
@@ -1349,15 +1397,9 @@ msgstr ""
 "Vlasnik dokumenta je spojen sa drugim zapisom (10.5.9); izvršite radnju "
 "sa profila zapisa koji je ostao."
 
-#: app/web/routers/queue.py
-msgid ""
-"Belgenin sahibi ya da yapılacak fiziksel işlem belirlenemedi. Yapılacak: "
-"öğeyi açıp çalışanı seçin, ya da önerilen profili onaylayın. (Diskte: "
-"Unresolved klasörü)"
-msgstr ""
-"Vlasnik dokumenta ili fizička obrada koju treba izvršiti nisu mogli da se"
-" odrede. Šta uraditi: otvorite stavku i izaberite zaposlenog ili odobrite"
-" predloženi profil. (Na disku: fascikla Unresolved)"
+#: app/web/feedback.py
+msgid "Belgenin sahibi kayıtlı bir çalışansa ona atayın."
+msgstr "Ako dokument pripada registrovanom zaposlenom, dodelite ga njemu."
 
 #: app/web/templates/document_move.html
 msgid ""
@@ -1366,27 +1408,6 @@ msgid ""
 msgstr ""
 "Da biste pronašli zaposlenog kome se dokument premešta, unesite ime, "
 "alias, originalni zapis ili broj dokumenta."
-
-#: app/web/routers/queue.py
-msgid ""
-"Belgenin türü belli, ama zorunlu alanlardan biri okunamadı (K1). "
-"Yapılacak: gerekçedeki alanı belgeden okuyup girin, ya da belgeyi daha "
-"net tarayıp yeniden yükleyin. (Diskte: Unreadable klasörü)"
-msgstr ""
-"Tip dokumenta je poznat, ali jedno od obaveznih polja nije moglo da se "
-"pročita (K1). Šta uraditi: pročitajte polje navedeno u razlogu iz "
-"dokumenta i unesite ga ili dokument jasnije skenirajte i ponovo "
-"otpremite. (Na disku: fascikla Unreadable)"
-
-#: app/web/routers/queue.py
-msgid ""
-"Belgenin türü katalogda yok ya da belirlenemedi. Yapılacak: Belge "
-"Türleri'nden türü ekleyin, ya da öğeyi açıp doğru türü seçin. (Diskte: "
-"Unknown klasörü)"
-msgstr ""
-"Tip dokumenta nije u katalogu ili nije mogao da se odredi. Šta uraditi: "
-"dodajte tip u Tipovima dokumenata ili otvorite stavku i izaberite pravi "
-"tip. (Na disku: fascikla Unknown)"
 
 #: app/web/routers/documents.py
 msgid "Belgeyi arşivden geri al"
@@ -1403,6 +1424,10 @@ msgstr "Nisam uspeo da pošaljem dokument. Pokušajte ponovo."
 #: app/web/routers/documents.py
 msgid "Belgeyi kalıcı sil"
 msgstr "Trajno obriši dokument"
+
+#: app/web/feedback.py
+msgid "Belgeyi uygun biçimde yeniden yükleyin ya da öğeyi kapatın."
+msgstr "Ponovo otpremite dokument u odgovarajućem formatu ili zatvorite stavku."
 
 #: app/web/templates/queue.html app/web/templates/queue_close_step.html
 #: app/web/templates/queue_item.html
@@ -2090,6 +2115,14 @@ msgstr "Ova stavka je već rešena; profil ne može da se napravi."
 msgid "Bu öğe zaten çözülmüş; yeniden atanamaz."
 msgstr "Ova stavka je već rešena; ne može se ponovo dodeliti."
 
+#: app/web/feedback.py
+msgid ""
+"Bu öğe İK'nın kararını bekliyor. Hesabınız salt okunur; bir sorun "
+"görürseniz İK'ya bildirin."
+msgstr ""
+"Ova stavka čeka odluku HR-a. Vaš nalog je samo za čitanje; ako primetite "
+"problem, obavestite HR."
+
 #: app/telegram/bot.py
 msgid "Bunu açamıyorum. Belgeyi dosya olarak gönderin ya da sorunuzu yazın."
 msgstr "Ovo ne mogu da otvorim. Pošaljite dokument kao fajl ili napišite pitanje."
@@ -2135,6 +2168,18 @@ msgid_plural "Daha eski %(num)d fotoğraf da örnek olarak işaretli."
 msgstr[0] "Još %(num)d starija fotografija je označena kao primer."
 msgstr[1] "Još %(num)d starije fotografije su označene kao primeri."
 msgstr[2] "Još %(num)d starijih fotografija je označeno kao primeri."
+
+#: app/web/feedback.py
+msgid ""
+"Daha net bir kopyayı yeniden yükleyin, öğeyi çalışana atayın ya da "
+"kapatın."
+msgstr "Otpremite jasniju kopiju, dodelite stavku zaposlenom ili je zatvorite."
+
+#: app/web/feedback.py
+msgid "Daha net ya da uygun biçimde bir kopya gerekiyorsa yeniden yükleyin."
+msgstr ""
+"Ako je potrebna jasnija kopija ili kopija u odgovarajućem formatu, "
+"otpremite je ponovo."
 
 #: app/web/templates/upload_detail.html app/web/templates/upload_result.html
 msgid "Daha önce yüklenmiş"
@@ -2442,6 +2487,10 @@ msgstr "Pristupi"
 msgid "Eski sürüm"
 msgstr "Stara verzija"
 
+#: app/web/feedback.py
+msgid "Eski sürüm: işlem gerekmez."
+msgstr "Stara verzija: nije potrebna radnja."
+
 #: app/web/templates/training_results.html
 msgid "Etiket"
 msgstr "Oznaka"
@@ -2661,6 +2710,10 @@ msgstr "Opšte — bez zemlje"
 #: app/web/templates/training_map.html app/web/templates/upload_detail.html
 msgid "Gerekçe"
 msgstr "Razlog"
+
+#: app/web/feedback.py
+msgid "Gerekçede okunamayan alan yazar; kaynak sayfalara bakın."
+msgstr "Razlog navodi nečitljivo polje; pogledajte izvorne stranice."
 
 #: app/web/templates/catalog.html app/web/templates/catalog_candidates.html
 #: app/web/templates/profile.html app/web/templates/training_results.html
@@ -3685,6 +3738,12 @@ msgstr ""
 msgid "Onaya gönder"
 msgstr "Pošalji na potvrdu"
 
+#: app/web/feedback.py
+msgid "Onaydan sonra aday türün sayfasından bu partiyi yeniden analiz edin."
+msgstr ""
+"Posle odobrenja ponovo analizirajte ovu seriju sa stranice predloženog "
+"tipa."
+
 #: app/web/templates/catalog_candidates.html
 msgid "Onaylanan, Unknown öğesi bekleyen adaylar"
 msgstr "Odobreni predlozi sa stavkama Unknown na čekanju"
@@ -4112,6 +4171,22 @@ msgstr "Ruta"
 #: app/catalog/photo_rules.py
 msgid "Sade arka plan"
 msgstr "Jednostavna pozadina"
+
+#: app/web/feedback.py
+msgid ""
+"Sahibi belirlenemeyen belgeler İK'nın kararını bekler; bir sorun "
+"görürseniz İK'ya bildirin."
+msgstr ""
+"Dokumenti čiji vlasnik nije utvrđen čekaju odluku HR-a; ako primetite "
+"problem, obavestite HR."
+
+#: app/web/feedback.py
+msgid ""
+"Sahibi belirlenemeyen belgeler: öğeyi açıp çalışana atayın, önerilen "
+"profili onaylayın ya da kapatın."
+msgstr ""
+"Dokumenti čiji vlasnik nije utvrđen: otvorite stavku i dodelite je "
+"zaposlenom, odobrite predloženi profil ili je zatvorite."
 
 #: app/web/routers/upload_page.py
 msgid "Sahibi belirsiz"
@@ -4799,6 +4874,10 @@ msgid ""
 "geçerlidir."
 msgstr "Tip je ažuriran: {slug}. Izmena važi od sledeće analize."
 
+#: app/web/feedback.py
+msgid "Tür katalogda yoksa Belge Türleri'nden yeni tür olarak ekleyin."
+msgstr "Ako tip nije u katalogu, dodajte ga kao novi tip u Tipovima dokumenata."
+
 #: app/web/templates/catalog_form.html
 msgid "Tür kaydedilmedi: alanların altındaki uyarıları düzeltin."
 msgstr "Tip nije sačuvan: ispravite upozorenja ispod polja."
@@ -4850,6 +4929,30 @@ msgstr "Arhiviraj tip"
 #, python-format
 msgid "Türü arşivle: %(name)s"
 msgstr "Arhiviraj tip: %(name)s"
+
+#: app/web/feedback.py
+msgid ""
+"Türü katalogda olmayan belgeler İK'nın kararını bekler; bir sorun "
+"görürseniz İK'ya bildirin."
+msgstr ""
+"Dokumenti čiji tip nije u katalogu čekaju odluku HR-a; ako primetite "
+"problem, obavestite HR."
+
+#: app/web/feedback.py
+msgid ""
+"Türü katalogda olmayan belgeler: öğeyi açıp önerilen aday türü onaylayın "
+"ya da belge değilse kapatın."
+msgstr ""
+"Dokumenti čiji tip nije u katalogu: otvorite stavku i odobrite predloženi"
+" tip, ili je zatvorite ako nije dokument."
+
+#: app/web/feedback.py
+msgid "Türü kataloğa ekleyip partiyi yeniden analiz edin ya da öğeyi kapatın."
+msgstr "Dodajte tip u katalog i ponovo analizirajte seriju, ili zatvorite stavku."
+
+#: app/web/templates/catalog_candidates.html
+msgid "Unknown kuyruğuna bakın"
+msgstr "Pogledajte red Unknown"
 
 #: app/web/templates/catalog.html
 msgid "Uygula"
@@ -5250,6 +5353,10 @@ msgstr "Otpremanje i rezultati"
 msgid "Yüklemeler"
 msgstr "Otpremanja"
 
+#: app/web/templates/queue.html
+msgid "Yüklemelere bakın"
+msgstr "Pogledajte otpremanja"
+
 #: app/web/templates/uploads_list.html
 msgid "Yüklemeleri süz"
 msgstr "Filtriraj otpremanja"
@@ -5329,6 +5436,22 @@ msgstr ""
 #: app/web/templates/catalog_type_fields.html
 msgid "Zorunlu alanlar"
 msgstr "Obavezna polja"
+
+#: app/web/feedback.py
+msgid ""
+"Zorunlu alanı okunamayan belgeler İK'nın kararını bekler; bir sorun "
+"görürseniz İK'ya bildirin."
+msgstr ""
+"Dokumenti sa nečitljivim obaveznim poljem čekaju odluku HR-a; ako "
+"primetite problem, obavestite HR."
+
+#: app/web/feedback.py
+msgid ""
+"Zorunlu alanı okunamayan belgeler: öğeyi açıp çalışana atayın ya da daha "
+"net kopya yüklendiyse kapatın."
+msgstr ""
+"Dokumenti sa nečitljivim obaveznim poljem: otvorite stavku i dodelite je "
+"zaposlenom, ili je zatvorite kada je otpremljena jasnija kopija."
 
 #: app/web/templates/group.html
 msgid "Zorunluluk"
@@ -5988,6 +6111,10 @@ msgstr "Zaposleni je već neaktivan."
 msgid "Çalışana ata"
 msgstr "Dodeli zaposlenom"
 
+#: app/web/feedback.py
+msgid "Çalışana atayın ya da öğeyi kapatın."
+msgstr "Dodelite je zaposlenom ili zatvorite stavku."
+
 #: app/web/templating.py
 msgid "Çalışanlar"
 msgstr "Zaposleni"
@@ -6111,9 +6238,25 @@ msgstr "Prethodna verzija"
 msgid "Önerilen"
 msgstr "Predloženi"
 
+#: app/web/feedback.py
+msgid "Önerilen aday türü inceleyip onaylayın."
+msgstr "Pregledajte i odobrite predloženi tip."
+
+#: app/web/templates/queue_item.html
+msgid "Önerilen adımlar"
+msgstr "Predloženi koraci"
+
 #: app/web/templates/queue_new_profile.html
 msgid "Önerilen profil değiştirilmeden onaylanacak."
 msgstr "Predloženi profil biće odobren bez izmena."
+
+#: app/web/feedback.py
+msgid "Önerilen profili gözden geçirip onaylayın."
+msgstr "Pregledajte i odobrite predloženi profil."
+
+#: app/web/feedback.py
+msgid "Önerilen profili onaylayın, öğeyi çalışana atayın ya da kapatın."
+msgstr "Odobrite predloženi profil, dodelite stavku zaposlenom ili je zatvorite."
 
 #: app/web/templates/training_map.html
 msgid ""
@@ -6390,6 +6533,10 @@ msgstr ""
 "HR obavlja sve radnje; Korisnik panel samo pregleda i ništa ne može da "
 "menja."
 
+#: app/web/feedback.py
+msgid "İK'nın kararını bekliyor; bir sorun görürseniz İK'ya bildirin."
+msgstr "Čeka odluku HR-a; ako primetite problem, obavestite HR."
+
 #: app/web/templates/catalog_type_fields.html
 msgid "İki harfli ülke kodu; boş bırakılabilir."
 msgstr "Dvoslovni kod zemlje; može ostati prazno."
@@ -6442,6 +6589,10 @@ msgstr "Prikazano je prvih %(num)d preskočenih."
 #, python-format
 msgid "İlk %(shown)d örnek gösteriliyor (toplam %(total)d)."
 msgstr "Prikazano je prvih %(shown)d primera (ukupno %(total)d)."
+
+#: app/web/templates/employees_results.html
+msgid "İlk belgeleri yükleyin"
+msgstr "Otpremite prve dokumente"
 
 #: app/web/templates/catalog_candidate.html
 #: app/web/templates/catalog_candidates.html

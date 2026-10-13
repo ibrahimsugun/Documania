@@ -202,6 +202,9 @@
   <p class="placeholder">{{ _("Bu partiden henüz belge çıktısı yok.") }}</p>
   {% endif %}
   <h3>{{ _("Kuyruğa alınanlar") }}</h3>
+  {# 10.11.2: satır kuyruk öğesine bağlanır; bekleyen öğede "Çözüm" yapılacak işi söyler, Unknown
+     öğesi bağlı aday türe bağlanır. Salt okunur Kullanıcı (10.1.8) aday türün onay bağlantısını ve
+     yazma adımını görmez, "İK'ya bildirin" ipucunu görür. Eski sürümün satırı bağlantısızdır. #}
   {% if detail.queue %}
   <table class="queue">
     <thead>
@@ -210,10 +213,16 @@
     <tbody>
       {% for row in detail.queue %}
       <tr id="queue-{{ row.id }}"{% if not row.current %} class="output-superseded"{% endif %}>
-        <td>{{ translate(row.kind_label) }}</td>
+        <td>{% if row.url %}<a href="{{ row.url }}">{{ translate(row.kind_label) }}</a>{% else %}{{ translate(row.kind_label) }}{% endif %}</td>
         <td>{% if row.plan_version is not none %}{{ _("Sürüm %(version)s", version=row.plan_version) }}{% if not row.current %} {{ _("(eski sürüm)") }}{% endif %}{% else %}—{% endif %}{% if row.item_id %} · {{ row.item_id }}{% endif %}</td>
         <td translate="no">{{ row.reason }}</td>
-        <td>{{ translate(row.resolved) or _("Bekliyor") }}</td>
+        <td class="resolution">
+          {%- if row.resolved %}{{ translate(row.resolved) }}
+          {%- elif user.can_write %}<span class="next-step">{{ translate(row.hint) }}</span>
+          {%- if row.candidate_url %} <a class="candidate-link" href="{{ row.candidate_url }}">{{ _("Aday tür:") }} <span translate="no">{{ row.candidate_name }}</span></a>{% endif %}
+          {%- else %}<span class="next-step">{{ translate(row.reader_hint) }}</span>
+          {%- endif -%}
+        </td>
       </tr>
       {% endfor %}
     </tbody>

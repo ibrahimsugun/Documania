@@ -11,7 +11,8 @@
   <a href="{{ tab.url }}"{% if tab.active %} class="active" aria-current="page"{% endif %}>{{ translate(tab.label) }} <span class="counter" title="{{ _('Bekleyen öğe') }}">{{ tab.open_count }}</span></a>
   {% endfor %}
 </nav>
-<p class="hint hint-panel">{{ translate(listing.hint) }}</p>
+{# 10.11.2: sekmenin tek cümlelik ipucu; salt okunur Kullanıcı yazma adımı yerine "İK'ya bildirin"i görür. #}
+<p class="hint hint-panel">{{ translate(listing.hint if user.can_write else listing.reader_hint) }}</p>
 <nav class="states" aria-label="{{ _('Öğe durumu') }}">
   {% for state in listing.states %}
   <a href="{{ state.url }}"{% if state.active %} class="active" aria-current="true"{% endif %}>{{ translate(state.label) }} ({{ state.count }})</a>
@@ -19,7 +20,7 @@
 </nav>
 
 {% if listing.total == 0 %}
-<p class="placeholder">{{ _("%(queue)s kuyruğunda %(state)s öğe yok.", queue=translate(listing.label), state=translate(listing.state_label) | lower) }}</p>
+<p class="placeholder">{{ _("%(queue)s kuyruğunda %(state)s öğe yok.", queue=translate(listing.label), state=translate(listing.state_label) | lower) }} <a href="/uploads">{{ _("Yüklemelere bakın") }}</a></p>
 {% else %}
 <table class="queue-items">
   <thead>

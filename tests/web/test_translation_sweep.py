@@ -242,7 +242,20 @@ FLASH_PAGES: tuple[tuple[str, int, str, dict[str, object]], ...] = (
     ("/document-types", 200, "catalog.created", {"slug": PASSPORT}),
     ("/document-types", 200, "catalog.bulk_archived_skipped", {"count": 2, "skipped": 1}),
     ("/document-types", 200, "catalog.none_selected", {}),
-    ("/document-types/candidate-types", 200, "catalog.candidate_rejected", {}),
+    ("/document-types/candidate-types", 200, "catalog.candidate_rejected", {"count": 2}),
+    ("/document-types/candidate-types", 200, "catalog.candidate_rejected_alone", {}),
+    (
+        "/document-types/candidate-types/{candidate}",
+        200,
+        "catalog.candidate_approved",
+        {"slug": PASSPORT, "count": 1},
+    ),
+    (
+        "/document-types/candidate-types/{candidate}",
+        200,
+        "catalog.candidate_approved_alone",
+        {"slug": PASSPORT},
+    ),
     ("/document-types/profile_picture", 200, "catalog.photo_rules", {"slug": "profile_picture"}),
     ("/document-types/candidate-types/{candidate}", 200, "catalog.candidate_restored", {}),
     ("/document-groups/{group}", 200, "groups.created", {}),
@@ -588,6 +601,37 @@ def test_every_panel_page_opens_in_the_chosen_language_without_turkish_residue(
         residue = turkish_residue(response.text, language)
         if residue:
             failures.append(f"{path} ({key}): {residue}")
+    assert not failures, "\n".join(failures)
+
+
+# 10.11.2, 10.11.3 (tm 176): yol gösterme ipuçları rol süzgecinden geçer; salt okunur Kullanıcı'nın
+# gördüğü "İK'ya bildirin" ipuçları da seçili dildedir (yukarıdaki tarama root'la, yazma adımlarıyla
+# çizer: parti detayının kuyruk satırları, üç türde kuyruk öğesi, aday tür bağlantısı).
+READER_PAGES = (
+    "/uploads/{unknown_upload}",
+    "/uploads/{unreadable_upload}",
+    "/queues/{unknown_item}",
+    "/queues/{unreadable_item}",
+    "/queues/{unresolved_item}",
+    "/queues",
+    "/queues?tab=unreadable",
+    "/queues?tab=unresolved",
+)
+
+
+@pytest.mark.parametrize("language", LANGUAGES)
+def test_the_read_only_view_of_pending_work_speaks_the_chosen_language(
+    app: FastAPI, client: TestClient, world: dict[str, object], language: str
+) -> None:
+    reader = PanelUser(SIGNED_IN.id, SIGNED_IN.username, "user", language=language)
+    app.dependency_overrides[get_current_user] = lambda: reader
+    failures = []
+    for template in READER_PAGES:
+        path = template.format(**world)
+        response = client.get(path)
+        residue = turkish_residue(response.text, language)
+        if response.status_code != 200 or residue:
+            failures.append(f"{path}: {response.status_code} {residue}")
     assert not failures, "\n".join(failures)
 
 

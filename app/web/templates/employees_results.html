@@ -4,7 +4,7 @@
    ve uyruk veridir, çevrilmez. #}
 {% set status_note = {"inactive": _("yalnız pasif çalışanlar"), "all": _("tüm durumlar")}.get(listing.status) %}
 {% if listing.total == 0 %}
-<p class="placeholder">{% if listing.query %}{% if listing.packages %}{{ _("“%(query)s” ile eşleşen ve eksik paketi olan çalışan yok.", query=listing.query) }}{% else %}{{ _("“%(query)s” ile eşleşen çalışan yok.", query=listing.query) }}{% endif %}{% elif listing.packages %}{{ _("Eksik paketi olan çalışan yok.") }}{% elif listing.status == "inactive" %}{{ _("Pasif çalışan yok.") }}{% else %}{{ _("Henüz çalışan yok.") }}{% endif %}</p>
+<p class="placeholder">{% if listing.query %}{% if listing.packages %}{{ _("“%(query)s” ile eşleşen ve eksik paketi olan çalışan yok.", query=listing.query) }}{% else %}{{ _("“%(query)s” ile eşleşen çalışan yok.", query=listing.query) }}{% endif %}{% elif listing.packages %}{{ _("Eksik paketi olan çalışan yok.") }}{% elif listing.status == "inactive" %}{{ _("Pasif çalışan yok.") }}{% else %}{{ _("Henüz çalışan yok.") }}{% if user and user.can_write %} <a href="/upload">{{ _("İlk belgeleri yükleyin") }}</a>{% endif %}{% endif %}</p>
 {% else %}
 <p class="count">{% if listing.query or listing.packages %}{{ ngettext("%(num)d çalışan bulundu", "%(num)d çalışan bulundu", listing.total) }}{% else %}{{ ngettext("%(num)d çalışan", "%(num)d çalışan", listing.total) }}{% endif %}{% if listing.packages %} · {{ _("yalnız eksik paketi olanlar") }}{% endif %}{% if status_note %} · {{ status_note }}{% endif %}</p>
 <table class="employees">
