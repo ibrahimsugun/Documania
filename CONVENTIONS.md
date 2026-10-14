@@ -16,7 +16,7 @@ exit 0** döner. Biri bile kırmızıysa görev `done` değildir.
 | 1 | `ruff check .` | Lint temiz |
 | 2 | `ruff format --check .` | Biçim tutarlı |
 | 3 | `python -m compileall -q app tests` | Sözdizimi hatası yok |
-| 4–5 | `pytest -q -m "not live" -n 12 --dist worksteal --cov=app --cov-fail-under=70` | Tüm testler yeşil (unit + entegrasyon) ve kapsam eşiği, tek paralel koşuda (~10 dk; seri koşu ~59 dk idi) |
+| 4–5 | `pytest -q -m "not live" -n 12 --dist worksteal --cov=app --cov-fail-under=70` | Tüm testler yeşil (unit + entegrasyon) ve kapsam eşiği, tek paralel koşuda (~10 dk) |
 | 6 | `alembic upgrade head` (temiz geçici SQLite üzerinde) | Göç zinciri kırılmamış |
 | 7 | `python -c "import app.main"` | Uygulama içe aktarılabiliyor |
 | 8 | Görevin **kendi kabul kriteri** (PRD'deki satır) | İşin gerçekten yapıldığı |
@@ -33,11 +33,8 @@ Ek koşullu kapılar:
 
 ### 1.1 Kapıyı kuran görevler istisnadır
 
-Faz 0'ın ilk görevleri (`00.1.1` … `00.1.4`) kapının kendisini kurar. O görevlerde kapı,
-**o görevin kurduğu kadarıyla** koşulur: `pytest` henüz test yokken "0 test" ile geçerse
-bu kabul edilir, ama `00.1.2` bittiğinde en az bir gerçek test bulunmak zorundadır.
-`00.1.4` bittikten sonra 1–4 arası maddeler her görevde koşulur, 5. madde Faz 0 kapanışından
-itibaren zorunludur.
+Faz 0'ın ilk görevleri (`00.1.1` … `00.1.4`) kapının kendisini kurar; kapı o görevlerde kurulduğu kadarıyla
+koşulur. Faz 0 bitti, pencereler için geçerli değil. Gerekçe/ölçümler: docs/conventions-gerekce.md §1.1.
 
 ### 1.2 PLAN.md kanıt disiplini: hücrede damga, dipnotta geçmiş
 
@@ -59,10 +56,14 @@ olarak eklenir**:
 
 Var olan maddeler silinmez, üzerine yazılmaz — bu bir geçmiş kaydıdır, ekleyerek büyür.
 
-**Sebebi ölçümdür.** Kanıt hücrede biriktiğinde tablo satırı on binlerce karaktere çıkar;
-sonraki her pencerenin `grep`'i o tek satırı okurken bağlam bütçesinin önemli bir kısmını
-yakar. Ayrıca kanıt metnindeki kaçırılmamış `|` karakterleri satırı yanlış sütunlara böler
-ve panel durumu yanlış okur.
+Canlı dosyada en fazla son 3 madde kalır (açık görevlere ait maddeler dahil); fazlası **aynı commit'te**
+`docs/archive/plan-kanit/` altına birebir taşınır, blokta `_Önceki maddeler: docs/archive/plan-kanit/ (#### K<kod>)_`
+satırı bırakılır. Taşıma: `node scripts/arsiv-dondur.mjs --apply` (çalıştırmadan önce `node scripts/arsiv-dondur.mjs`
+ne taşıyacağını söyler). Eski kanıt gerekiyorsa baştan okuma, `grep -rn 'tm <id>' docs/archive/plan-kanit` ile ara.
+Yeni madde kalıbı (kısa tut): `- ✅ <ne> — <dosya:satır> · test <dosya> (n) · tm <id>`.
+`C` ve `D` bölümlerinde de canlıda son 5 madde kalır; aynı betik taşır. Bir bloğun canlı kalan maddesinde kapanışsız
+"**Kalan" / "henüz yapılmadı" bırakma (panel `suspicious-done` açar); gerekirse `Durum: KAPANDI (tm <id>)` satırı ekle.
+Sebep (ölçüm): docs/conventions-gerekce.md §1.2.
 
 ### 1.3 Sayım kuralı
 
@@ -84,18 +85,14 @@ desene ver.
 
 ### 1.4 Kapının önkoşulları
 
-- Testler **ön planda** koşulur. `run_in_background` ile başlatılan test/build komutu, pencere
-  sırasını bitirdiği anda oturumla birlikte ölür ve sonuç asla gelmez. Uzun süren suite için
-  yeterli `timeout` ver: tam suite için `timeout: 2400000` (40 dk). Paralel suite ~10 dk sürer; aracın
-  varsayılan üst sınırı 600000 ms'dir ve daha büyük değer sessizce 10 dakikaya kırpılıp kapı yarıda
-  kesilirdi. Sınır `.claude/settings.json` → `env.BASH_MAX_TIMEOUT_MS = 3600000` ile 60 dakikaya açıktır;
-  bu ayarı kaldırma, kapıyı da parçalara bölme.
+- Testler **ön planda** koşulur (`run_in_background` oturumla ölür). Tam suite için `timeout: 2400000` (40 dk);
+  üst sınır `.claude/settings.json` → `env.BASH_MAX_TIMEOUT_MS = 3600000` — kaldırma, kapıyı bölme.
+  Gerekçe/ölçümler: docs/conventions-gerekce.md §1.4.
 - `-n 12` yalnız tam kapı komutundadır, `addopts`'a konmaz (tek dosya koşusunu yavaşlatır).
 - **Kararsızlık kuralı:** paralel koşuda düşüp seri koşuda geçen test "paralel yüzünden" denip
-  geçilmez. Ortak durum (modül düzeyi önbellek, sabit dosya yolu, `os.environ`, sabit port,
-  `get_settings` önbelleği) aranır ve test tarafında düzeltilir; `-p no:randomly`, yeniden deneme
-  ya da skip kullanılmaz. Parametre kimlikleri süreçten sürece aynı olmalıdır (bellek adresi,
-  zaman damgalı bayt taşımaz; gerekirse `ids=`).
+  geçilmez. Ortak durum aranır ve test tarafında düzeltilir; `-p no:randomly`, yeniden deneme
+  ya da skip kullanılmaz. Parametre kimlikleri süreçten sürece aynıdır (gerekirse `ids=`).
+  Ayrıntı: docs/conventions-gerekce.md §1.4.
 - Testler ağ erişimi olmadan geçmelidir. Canlı yapay zekâ çağrısı yapan testler `live`
   işaretlidir ve kapıda `-m "not live"` ile dışarıda bırakılır.
 - Test veritabanı her koşuda geçici ve izoledir; paylaşılan bir veritabanına karşı koşulmaz.
@@ -138,6 +135,12 @@ altına** şu blok eklenir. En fazla dört madde; uzun anlatım yazılmaz.
 - Varsayımlar: <onay beklemeden yapılan varsayım; yoksa "yok">
 - Sonraki pencereye not: <bir sonraki işin bilmesi gereken tek şey>
 ```
+
+**Canlı dosya sınırı.** `HANDOFF.md` en fazla son 5 görev bloğu + açık (pending/in-progress/blocked/review)
+görevlerin bloklarını tutar. Kapanışta yeni blok eklenince en alttaki fazla bloklar **aynı commit'te**
+`docs/archive/handoff/` altındaki arşiv dosyasına (`HANDOFF-arsiv-<YYYY-MM-DD>.md`, blokların başına,
+newest-first) birebir taşınır: `node scripts/arsiv-dondur.mjs --apply`. Eski kayıt gerekirse
+`grep -rn 'tm <id>' docs/archive/handoff` ile ara; arşivi baştan okuma.
 
 Blocked kapanışında `Yapıldı` yerine `Nerede kaldı`, `Doğrulama` yerine `Son hata` yazılır ve
 denenen çözümler kısaca listelenir.

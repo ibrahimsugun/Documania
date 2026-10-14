@@ -27,8 +27,10 @@ Sırayla:
       yalnız yerlerini ve mevcut durumlarını not al.
    c. **Kanıt tabloda DEĞİL**, `## K. Kanıt Geçmişi` bölümündedir. Gerekirse
       `grep -n '^#### K05.3' PLAN.md` ile bul ve dar bir aralıkla oku. Gerekmiyorsa hiç açma.
-6. `HANDOFF.md` — **tam okuma.** Bloklar newest-first sıralıdır; sana gereken en üstteki birkaç
-   blok: `head -60 HANDOFF.md`. Eski bir işi arıyorsan `grep -n 'tm <id>' HANDOFF.md | head -5`.
+      `PLAN.md` ~170 KB'dır (eski kanıt, C ve D maddeleri `docs/archive/plan-kanit/` altında). Eski kayıt/kanıt
+      gerekiyorsa `docs/archive/` altında `grep -rn` ile ara; **arşivi baştan okuma.**
+6. `HANDOFF.md` — canlı dosya küçüktür (~12 KB: son 5 görev + açık görevler), baştan sona oku.
+   Bloklar newest-first sıralıdır. Eski bir işi arıyorsan `grep -rn 'tm <id>' docs/archive/handoff | head -5`.
 7. `git log --oneline -20` + `git status` — repo şu an nerede.
 8. **Görevin `GİRDİ` bölümünde adı geçen dosyaları oku.** Bunlar bağımlı görevlerin ürettiği,
    senin üzerine inşa edeceğin gerçek koddur — imzaları ve veri yapıları oradadır, tahmin etme.
@@ -92,7 +94,7 @@ yeşile çevir ya `blocked` ilan edip §3'ün blocked dalını çalıştır — 
    (`grep -n '^#### K05.3' PLAN.md`) ve **bloğun sonuna madde ekle**:
    ``- ✅ <ne yapıldı> — `<dosya>` · test `<dosya>` (n) · tm <id>``
    Blok yoksa `## K.` bölümünün sonuna `#### K<kod> — <PRD kodu> · <kısa başlık>` diye aç.
-   Var olan maddeleri SİLME — bu bir geçmiş kaydıdır, ekleyerek büyür.
+   Var olan maddeleri SİLME. Blokta 3'ten fazla madde olursa fazlası aynı commit'te arşive taşınır (CONVENTIONS §1.2).
 
    Görevin kapattığı **her** satırı güncelle. Gereksinimi kısmen karşıladıysan `◐` bırak ve
    eksiği (ii)'deki maddeye yaz — kapanış uğruna `✅` UYDURMA.
@@ -102,6 +104,8 @@ yeşile çevir ya `blocked` ilan edip §3'ün blocked dalını çalıştır — 
 
 3. `HANDOFF.md`'ye kapanış bloğu ekle (CONVENTIONS §3 formatı). Ekleme noktası
    `## Task log (newest-first)` başlığının hemen altı. Blok kısa olsun — dört madde yeter.
+   Son 5 görevden fazlası aynı commit'te arşive taşınır: `node scripts/arsiv-dondur.mjs --apply` (CONVENTIONS §3);
+   ardından `node scripts/arsiv-dogrula.mjs` içerik kaybı olmadığını doğrular.
 
 4. `git add -A` → Conventional Commit. `PLAN.md` ve `HANDOFF.md` düzenlemeleri **bu commit'in
    içinde** olmalı, ayrı commit'e bırakma.

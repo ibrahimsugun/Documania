@@ -11,6 +11,10 @@ açılmış olsun — aşağıdaki kurallara uyar.
   geçmeden bitmiş değildir.
 - **Ne yapılacak, kabul kriteri ne:** `urun-gereksinim-dokumani-PRD.md`. Kimliksiz iş yapılmaz.
 - **Neredeyiz:** `PLAN.md`. Baştan sona okuma — hedef satırı `grep -n` ile bul.
+- **Eski kayıt/kanıt:** `docs/archive/` (handoff, plan-kanit, tasks). Canlı dosyalar küçüktür
+  (HANDOFF ~12 KB, PLAN ~170 KB, tasks.json ~250 KB); eski bir şey gerekirse arşivde `grep -rn` ile ara, **baştan okuma**.
+  Fazlalık aynı commit'te `node scripts/arsiv-dondur.mjs --apply` ile taşınır (CONVENTIONS §1.2, §3).
+- **Kural gerekçeleri:** `docs/conventions-gerekce.md` (kural değil, tarihçe; okuma zorunlu değil).
 - **Tarihsel kaynak:** `docs/UYGULAMA-PLANI-KAYNAK.md` — ilk uygulama planı. Taşınmaz, silinmez.
 - **Tek orkestratör:** implementasyon subagent'a dağıtılmaz; pencere kendi araçlarıyla çalışır.
 
