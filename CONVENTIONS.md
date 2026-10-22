@@ -20,7 +20,7 @@ exit 0** döner. Biri bile kırmızıysa görev `done` değildir.
 | 6 | `alembic upgrade head` (temiz geçici SQLite üzerinde) | Göç zinciri kırılmamış |
 | 7 | `python -c "import app.main"` | Uygulama içe aktarılabiliyor |
 | 8 | Görevin **kendi kabul kriteri** (PRD'deki satır) | İşin gerçekten yapıldığı |
-| 9 | Yeni kod için **test yazılmış olması** | Kapsam iddiası değil, dosya kanıtı |
+| 9 | Yeni kod için **test yazılmış olması** (hafif, §1.4) | Kapsam iddiası değil, dosya kanıtı |
 | 10 | `PLAN.md` gereksinim satırının güncellenmiş olması | Plan bayatlamıyor |
 
 Ek koşullu kapılar:
@@ -85,9 +85,15 @@ desene ver.
 
 ### 1.4 Kapının önkoşulları
 
-- Testler **ön planda** koşulur (`run_in_background` oturumla ölür). Tam suite için `timeout: 2400000` (40 dk);
-  üst sınır `.claude/settings.json` → `env.BASH_MAX_TIMEOUT_MS = 3600000` — kaldırma, kapıyı bölme.
-  Gerekçe/ölçümler: docs/conventions-gerekce.md §1.4.
+- Testler **arka planda** koşulur (`run_in_background: true`); zaman aşımı sınırına takılmaz,
+  sonuç gelmeden pencere sırasını bitirmez (`Monitor`/bitiş bildirimiyle bekler; yoksa koşu oturumla ölür). Çıktı dosyaya yazılır
+  (`> <scratch>/pytest.log 2>&1`), sonuç exit code + son satırlardan okunur. Aynı anda tek
+  tam suite koşar.
+- **Testler hafif yazılır.** Her davranış için tek, odaklı test yeterlidir: mutlu yol + en
+  önemli bir kenar durum. Aynı şeyi tekrar eden parametre patlaması, büyük gerçek boyutlu
+  belge üretimi, uzun döngüler, `sleep` ve gereksiz uçtan uca tekrarlar yazılmaz. Tek test
+  1 sn'yi geçiyorsa küçültülür (daha küçük sentetik belge, daha az sayfa, mock). Kapsam eşiği
+  (%70) korunur; amaç sağlamlık, dayanıklılık testi değil.
 - `-n 12` yalnız tam kapı komutundadır, `addopts`'a konmaz (tek dosya koşusunu yavaşlatır).
 - **Kararsızlık kuralı:** paralel koşuda düşüp seri koşuda geçen test "paralel yüzünden" denip
   geçilmez. Ortak durum aranır ve test tarafında düzeltilir; `-p no:randomly`, yeniden deneme

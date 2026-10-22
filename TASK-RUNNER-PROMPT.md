@@ -60,11 +60,12 @@ adım aynı kesintisiz çalışmanın parçasıdır; kapanışa (§3) ulaşmadan
   pytest, alembic upgrade head, import sanity, görevin kendi kabul kriteri.
 - **Düzeltme.** Kapı kırmızıysa düzelt ve yeniden koş. Yeşile dönmüyorsa "herhalde oldu" DEME.
 
-**Kapı komutlarını ARKA PLANA ATMA — pencereyi öldürür.** Test/build komutlarını daima ÖN
-PLANDA, yeterli `timeout` ile çalıştır (tam suite için `timeout: 2400000`; üst sınır `.claude/settings.json`'da 60 dk, 10 dk kırpması yok — kapıyı bölme, yeniden başlatma). `run_in_background`
-kullanırsan komut oturuma bağlıdır: sıranı bitirdiğin anda `-p` oturumu kapanır, arka plandaki
-koşu da onunla birlikte ölür — sonuç bildirimi ASLA gelmez, kapanış hiç çalışmaz, döngü bunu
-`blocked` sayar.
+**Kapı testlerini ARKA PLANDA koş, sonucu gelmeden sıranı BİTİRME.** Tam suite
+`run_in_background: true` ile başlatılır, çıktı log dosyasına yazılır (CONVENTIONS §1.4). Komut
+oturuma bağlıdır: sonuç gelmeden yanıtını bitirirsen `-p` oturumu kapanır ve koşu ölür. Bu yüzden
+başlattıktan sonra `Monitor` ile bitişi bekle (ya da bildirimi bekle), exit code'u ve logun son
+satırlarını oku, ancak ondan sonra kapanışa geç. Beklerken kapıyla çakışmayan işi yapabilirsin
+(PLAN/HANDOFF taslağı); kodu değiştirme. Testleri hafif yaz (CONVENTIONS §1.4).
 
 **Bu projeye özgü iki kural:**
 

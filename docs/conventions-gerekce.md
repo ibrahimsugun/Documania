@@ -35,7 +35,9 @@ harcanıyordu. 2026-10-14'te eski bloklar/maddeler `docs/archive/` altına bireb
   kaldırma, kapıyı da parçalara bölme.
 - Tam suite için `timeout: 2400000` (40 dk).
 - `run_in_background` ile başlatılan test/build komutu, pencere sırasını bitirdiği anda oturumla
-  birlikte ölür ve sonuç asla gelmez.
+  birlikte ölür ve sonuç asla gelmez. 2026-10-23 insan kararı: testler yine de arka planda koşulur
+  (zaman aşımı sınırı ve kaynak yönetimi için); pencere sonuç gelene kadar sırasını bitirmez
+  (`Monitor`/bildirim). Aynı kararla testler hafif yazılır — suite süresi kısalsın.
 - `-n 12` yalnız tam kapı komutundadır, `addopts`'a konmaz (tek dosya koşusunu yavaşlatır).
 - Kararsızlık kuralının ayrıntısı: paralel koşuda düşüp seri koşuda geçen test "paralel yüzünden"
   denip geçilmez; ortak durum (modül düzeyi önbellek, sabit dosya yolu, `os.environ`, sabit port,
