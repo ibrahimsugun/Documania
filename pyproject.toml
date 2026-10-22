@@ -69,6 +69,8 @@ markers = [
 
 [tool.coverage.run]
 source = ["app"]
+# Python 3.12 sys.monitoring: satır kapsamı için varsayılan izleyiciden belirgin hızlıdır (dal kapsamı yok).
+core = "sysmon"
 
 [tool.ruff]
 line-length = 100
