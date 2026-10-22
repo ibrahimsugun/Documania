@@ -12,6 +12,9 @@ Aranan alanlar:
   (Kiril ↔ Latin) farkı aramayı bozmaz; orijinal yazım hem çalışan kaydında hem alias olarak aranır;
 - belge numarası (`employee_identifiers.value`): numara saklanırken normalize edilir (§20.2.1),
   aranan metin de aynı biçime indirilir — boşluk, tire ve nokta farkı yok sayılır;
+- kişisel numara (`employees.personal_number`, 15.3.1): olduğu gibi saklanır, karşılaştırmada iki
+  taraftan da boşluk, tire ve nokta silinir, harf büyüklüğü fark etmez (15.3.3,
+  `app.matching.numbers`);
 - belge türü: katalogdaki tür adı, dosya etiketi ve `slug`; çalışanın **etkin** bir belgesi o
   türdeyse çalışan uyar.
 
@@ -29,15 +32,19 @@ bağlantıdır; JavaScript kapalıyken de arama form gönderimiyle çalışır.
 
 `GET /employees/{employee_id}` çalışanın profil sayfasıdır (10.5.1): CV benzeri kart profil
 fotoğrafını, adı, soyadı, diğer isimleri, orijinal yazımı, vatandaşlığı, doğum tarihi ve yaşı,
-iletişim bilgilerini ve belge numaralarını gösterir; bilinmeyen alan gizlenmez, "—" görünür.
+iletişim bilgilerini ve belge numaralarını; 15.3.1'den beri anne adı, baba adı, doğum yeri,
+kişisel numara (ülkesiyle) ve pasaport numarasını (`app.matching.records.passport_number`: katalog
+dosya etiketi `Passport` olan türlerin en son kaydedilen etkin numarası) da gösterir; bilinmeyen
+alan gizlenmez, "—" görünür.
 Çalışanın etkin bir `profile_picture` belgesi yoksa kart yer tutucu çizer ve belgeyi eksik olarak
 işaretler (10.5.4). Ad, soyad ve diğer isimler Latin yazımdır, Latin olmayan yazım "Orijinal
 yazım"da durur (05.2.2); bu alanlardan biri hâlâ Latin olmayan harf taşıyorsa (onarımın Latin
 yazım bulamadığı eski kayıt, `python -m app.profiles repair-latin-names`) kart "Latin yazım eksik"
-uyarısı gösterir. Ad, soyad, diğer isimler, orijinal yazım, vatandaşlık ve doğum tarihinin
-yanında kaynağı durur (05.7.3, `employee_field_observations`): alanı dolduran belge, yoksa aynı
-değeri okuyan ilk belge. Belgede farklı değer okunduysa alan değişmez; altında "<alan>: belgede
-farklı değer okundu" uyarısı ve belgelere bağlantı çıkar. Kaynak, çalışanın kökeni o sayfayla
+uyarısı gösterir. Ad, soyad, diğer isimler, orijinal yazım, vatandaşlık, doğum tarihi ve ek
+alanların (kişisel numaranın ülkesi numarayla birlikte) yanında kaynağı durur (05.7.3,
+`employee_field_observations`): alanı dolduran belge, yoksa aynı değeri okuyan ilk belge. Belgede
+farklı değer okunduysa alan değişmez; altında "<alan>: belgede farklı değer okundu"
+uyarısı ve belgelere bağlantı çıkar. Kaynak, çalışanın kökeni o sayfayla
 başlayan belgesine (etkin olan, sonra en yeni) bağlanır — dosyası varsa yeni sekmede açılır, yoksa
 geçmişine; belge bu çalışanda yoksa (henüz yürütülmedi, başka çalışana taşındı) parti sayfasına.
 Belge listesi çalışanın **tüm** belgelerini (etkin, eski sürüm, arşivlenmiş) gösterir — kalıcı
@@ -69,7 +76,8 @@ commit'ten sonra çalışanın `profil.md`'sini yeniden üretir (09.1.1, 14.3.1)
 
 **Profili düzenleme (10.5.6; PLAN.md §C90-a, §D61).** Profil sayfasındaki "Profili düzenle"
 bağlantısı (birleştirilmiş çalışanda yok) `GET /employees/{id}/fields` formunu açar: ad, soyad,
-diğer isimler, orijinal yazım, doğum tarihi, uyruk — başka alan yoktur, belge içeriği bu formla
+diğer isimler, orijinal yazım, doğum tarihi, uyruk, anne adı, baba adı, doğum yeri, kişisel
+numara ve ülkesi (`EMPLOYEE_FIELDS`, 15.3.1) — başka alan yoktur, belge içeriği bu formla
 değişmez (K17). Form §20.6'nın **birinci** onay metnini taşır; gönderim `POST .../fields/prepare`'e
 gider: alanlar denetlenir (`app.web.profile_form`; geçersizse ya da hiçbir alan değişmediyse 422 ve
 form hatası), değişikliklerin özeti, **ikinci** metin (`<N>` = dosyası yeniden adlandırılacak belge
@@ -204,11 +212,12 @@ from app.matching.edit import (
     EmployeeEditRefusedError,
     NoFieldChangesError,
     current_profile_fields,
+    observed_field,
     preview_employee_edit,
     update_employee_fields,
 )
 from app.matching.match import (
-    PROFILE_FIELDS,
+    EMPLOYEE_FIELDS,
     ProfileFields,
     ProfileFieldsError,
     normalize_document_number,
@@ -220,6 +229,7 @@ from app.matching.merge import (
     merge_field_preview,
 )
 from app.matching.names import EmptyNameError, normalize_name
+from app.matching.numbers import personal_number_column, strip_separators
 from app.matching.records import (
     ACTIVE_ALIAS,
     ACTIVE_CONTACT,
@@ -234,6 +244,7 @@ from app.matching.records import (
     add_contact,
     employee_records,
     find_record,
+    passport_number,
     record_kind,
     record_label,
     record_value,
@@ -448,6 +459,12 @@ def _term_matches(session: Session, term: str) -> ColumnElement[bool]:
         *name_fields,
         exists().where(EmployeeAlias.employee_id == Employee.id, ACTIVE_ALIAS, alias_match),
     ]
+    # 15.3.3: kişisel numara olduğu gibi saklanır; iki taraftan ayırıcılar silinir.
+    personal = strip_separators(term)
+    if personal:
+        predicates.append(
+            personal_number_column(Employee.personal_number).icontains(personal, autoescape=True)
+        )
     number = normalize_document_number(term)
     if number:
         predicates.append(
@@ -651,6 +668,10 @@ FIELD_LABELS = {
     ProfileField.ORIGINAL_SCRIPT_NAME: N_("Orijinal yazım"),
     ProfileField.NATIONALITY: N_("Vatandaşlık"),
     ProfileField.DATE_OF_BIRTH: N_("Doğum tarihi"),
+    ProfileField.MOTHER_NAME: N_("Anne adı"),
+    ProfileField.FATHER_NAME: N_("Baba adı"),
+    ProfileField.PLACE_OF_BIRTH: N_("Doğum yeri"),
+    ProfileField.PERSONAL_NUMBER: N_("Kişisel numara"),
 }
 FIELD_CONFLICT_WARNING = N_("{label}: belgede farklı değer okundu")
 # 10.5.6: elle girilen alanın kaynağı; 10.5.9: birleştirmede birleşen kayıttan dolan alanınki.
@@ -795,6 +816,13 @@ class ProfileView:
     date_of_birth: date | None
     age: int | None
     contacts: list[ContactGroup]
+    # 15.3.1: ek alanlar ve pasaport türlerinden gelen numara (yoksa "—").
+    mother_name: str | None
+    father_name: str | None
+    place_of_birth: str | None
+    personal_number: str | None
+    personal_number_country: str | None
+    passport_number: str | None
     identifiers: list[IdentifierRow]
     photo_url: str | None
     photo_missing: bool
@@ -977,6 +1005,12 @@ def build_profile(
             )
             for kind, label in CONTACT_LABELS.items()
         ],
+        mother_name=employee.mother_name,
+        father_name=employee.father_name,
+        place_of_birth=employee.place_of_birth,
+        personal_number=employee.personal_number,
+        personal_number_country=employee.personal_number_country,
+        passport_number=passport_number(session, employee.id),
         identifiers=[
             IdentifierRow(label=type_names.get(item.kind, item.kind), value=item.value)
             for item in identifiers
@@ -1511,7 +1545,8 @@ def _edit_target(employee: Employee) -> EditTarget:
 
 
 def _field_changes(employee: Employee, fields: ProfileFields) -> list[FieldChangeView]:
-    before, after = profile_values(current_profile_fields(employee)), profile_values(fields)
+    before = profile_values(current_profile_fields(employee), EMPLOYEE_FIELDS)
+    after = profile_values(fields, EMPLOYEE_FIELDS)
     return [
         FieldChangeView(
             label=PROFILE_LABELS[name],
@@ -1519,7 +1554,7 @@ def _field_changes(employee: Employee, fields: ProfileFields) -> list[FieldChang
             after=profile_text(name, after[name]),
             changed=before[name] != after[name],
         )
-        for name in PROFILE_FIELDS
+        for name in EMPLOYEE_FIELDS
     ]
 
 
@@ -1588,7 +1623,7 @@ def _refused_fields(
         status_code=status_code,
         error=error,
         field_errors=field_errors,
-        form=profile_form_fields(values),
+        form=profile_form_fields(values, EMPLOYEE_FIELDS),
     )
 
 
@@ -1616,12 +1651,14 @@ def employee_fields_form(
     try:
         employee = _editable_employee(session, employee_id)
         target = _edit_target(employee)
-        values = profile_values(current_profile_fields(employee))
+        values = profile_values(current_profile_fields(employee), EMPLOYEE_FIELDS)
     except HTTPException as exc:
         return _refused_fields(request, user, employee_id, None, {}, exc)
     finally:
         session.rollback()
-    return _fields_page(request, user, employee_id, target=target, form=profile_form_fields(values))
+    return _fields_page(
+        request, user, employee_id, target=target, form=profile_form_fields(values, EMPLOYEE_FIELDS)
+    )
 
 
 @router.post("/employees/{employee_id}/fields/prepare", response_class=HTMLResponse)
@@ -1640,7 +1677,7 @@ def prepare_employee_fields(
     try:
         employee = _editable_employee(session, employee_id)
         target = _edit_target(employee)
-        fields = parse_profile(values)
+        fields = parse_profile(values, EMPLOYEE_FIELDS)
         preview = preview_employee_edit(session, layout, employee, fields)
         changes = _field_changes(employee, fields)
         issued = issue_confirmation(
@@ -1666,7 +1703,7 @@ def prepare_employee_fields(
         target=target,
         changes=changes,
         second_confirmation=second_text(Operation.EDIT_EMPLOYEE, count=preview.documents),
-        hidden=profile_values(fields),
+        hidden=profile_values(fields, EMPLOYEE_FIELDS),
         confirmation=issued.token,
     )
 
@@ -1694,7 +1731,7 @@ def change_employee_fields(
     try:
         employee = _editable_employee(session, employee_id)
         target = _edit_target(employee)
-        fields = parse_profile(values)
+        fields = parse_profile(values, EMPLOYEE_FIELDS)
         # §20.6.1: belirteç tüketilir ve `USER_CONFIRMED` (kullanıcı adı, işlem, hedef, iki onayın
         # zamanı) yazılır, ardından işlemin kendi olayı (`EMPLOYEE_EDITED`) düşer. Alan değerleri
         # olaya girmez (CONVENTIONS §6).
@@ -2716,8 +2753,8 @@ def _merge_side(session: Session, employee: Employee) -> MergeSideView:
 
 
 def _merge_view(session: Session, keep: Employee, merge: Employee) -> MergeView:
-    kept = profile_values(current_profile_fields(keep))
-    merged = profile_values(current_profile_fields(merge))
+    kept = profile_values(current_profile_fields(keep), EMPLOYEE_FIELDS)
+    merged = profile_values(current_profile_fields(merge), EMPLOYEE_FIELDS)
     outcomes = merge_field_preview(keep, merge)
     return MergeView(
         keep=_merge_side(session, keep),
@@ -2727,9 +2764,9 @@ def _merge_view(session: Session, keep: Employee, merge: Employee) -> MergeView:
                 label=PROFILE_LABELS[name],
                 keep=profile_text(name, kept[name]),
                 merge=profile_text(name, merged[name]),
-                note=MERGE_FIELD_NOTES.get(outcomes[name]),
+                note=MERGE_FIELD_NOTES.get(outcomes[observed_field(name)]),
             )
-            for name in PROFILE_FIELDS
+            for name in EMPLOYEE_FIELDS
         ],
     )
 

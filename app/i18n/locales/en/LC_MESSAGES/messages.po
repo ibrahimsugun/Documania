@@ -4,8 +4,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Documania panel\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-22 22:19+0000\n"
-"PO-Revision-Date: 2026-10-22 22:19+0000\n"
+"POT-Creation-Date: 2026-10-22 22:56+0000\n"
+"PO-Revision-Date: 2026-10-22 22:56+0000\n"
 "Last-Translator: Documania görev penceresi (gözden geçirilmeli)\n"
 "Language: en\n"
 "Language-Team: English\n"
@@ -710,6 +710,11 @@ msgstr ""
 msgid "Analizi yapılamamış sayfalar: {pages}."
 msgstr "Pages that could not be analysed: {pages}."
 
+#: app/web/profile_form.py app/web/routers/employees.py
+#: app/web/templates/profile.html
+msgid "Anne adı"
+msgstr "Mother's name"
+
 #: app/web/templates/employee_merge.html app/web/templates/employees.html
 #: app/web/templates/history.html app/web/templates/queue_item.html
 msgid "Ara"
@@ -1023,6 +1028,11 @@ msgid "Açıp «Başlat»a basınca bot «Bağlandı» der; sonra bu sayfayı ye
 msgstr ""
 "When you open it and press «Start», the bot says «Linked»; then refresh "
 "this page."
+
+#: app/web/profile_form.py app/web/routers/employees.py
+#: app/web/templates/profile.html
+msgid "Baba adı"
+msgstr "Father's name"
 
 #: app/web/templates/access_log.html
 msgid "Bakan kullanıcı"
@@ -2519,6 +2529,11 @@ msgstr "Date of birth: not recorded"
 msgid "Doğum tarihi: {date} ({age} yaşında)"
 msgstr "Date of birth: {date} ({age} years old)"
 
+#: app/web/profile_form.py app/web/routers/employees.py
+#: app/web/templates/profile.html
+msgid "Doğum yeri"
+msgstr "Place of birth"
+
 #: app/web/templates/catalog.html app/web/templates/catalog_candidate.html
 #: app/web/templates/document_archive_step.html
 #: app/web/templates/document_delete_step.html
@@ -3744,6 +3759,15 @@ msgstr ""
 "No person identified: neither a name nor a document number was read on "
 "the document."
 
+#: app/web/profile_form.py app/web/routers/employees.py
+#: app/web/templates/profile.html
+msgid "Kişisel numara"
+msgstr "Personal number"
+
+#: app/web/profile_form.py
+msgid "Kişisel numaranın ülkesi"
+msgstr "Country of the personal number"
+
 #: app/web/templates/employee_deleted.html
 msgid ""
 "Klasörü, belgeleri ve kişisel bilgileri silindi; yalnız E numarası "
@@ -4086,6 +4110,10 @@ msgstr "Note:"
 #: app/web/templates/profile.html
 msgid "Numara"
 msgstr "Number"
+
+#: app/web/profile_form.py
+msgid "Numarayı veren ülkenin ICAO kodu (ör. SRB, TUR)"
+msgstr "ICAO code of the issuing country (e.g. SRB, TUR)"
 
 #: app/catalog/photo_rules.py
 msgid "Nötr ifade"
@@ -4431,6 +4459,10 @@ msgstr ""
 "Cancelling the batch stops its processing; files, pages and documents "
 "produced so far are not deleted. A batch that is still unfinished 10 "
 "minutes after it was received is cancelled automatically."
+
+#: app/web/templates/profile.html
+msgid "Pasaport numarası"
+msgstr "Passport number"
 
 #: app/matching/status.py app/web/routers/employees.py
 #: app/web/templates/catalog.html app/web/templates/users.html
@@ -6436,6 +6468,10 @@ msgstr ""
 "unregistered — once registered with <code>python -m app.catalog register-"
 "examples</code> it can be moved and removed"
 
+#: app/matching/match.py
+msgid "kişisel numara olmadan ülke girilmez"
+msgstr "a country cannot be entered without a personal number"
+
 #: app/training/map_import.py
 msgid "klasörde PDF, JPEG ya da PNG yok"
 msgstr "no PDF, JPEG or PNG in the folder"
@@ -7397,6 +7433,14 @@ msgstr ""
 "Independent of country: every type carrying the chosen label meets the "
 "item. The number is the count of catalog types with that label — similar "
 "labels (e.g. «Identity Card», «Identity Document») stay separate."
+
+#: app/web/profile_form.py
+msgid ""
+"Ülkesinin vatandaşlık ya da kimlik numarası, olduğu gibi (ör. JMBG); "
+"boşluk, tire ve nokta farkı aramada yok sayılır"
+msgstr ""
+"The citizenship or identity number of their country, as written (e.g. "
+"JMBG); spaces, hyphens and dots are ignored in search"
 
 #: app/web/templates/training_results.html
 #, python-format

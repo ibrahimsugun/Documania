@@ -4,8 +4,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Documania panel\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-22 22:19+0000\n"
-"PO-Revision-Date: 2026-10-22 22:19+0000\n"
+"POT-Creation-Date: 2026-10-22 22:56+0000\n"
+"PO-Revision-Date: 2026-10-22 22:56+0000\n"
 "Last-Translator: Documania görev penceresi (gözden geçirilmeli)\n"
 "Language: sr_Latn\n"
 "Language-Team: Srpski\n"
@@ -729,6 +729,11 @@ msgstr ""
 msgid "Analizi yapılamamış sayfalar: {pages}."
 msgstr "Stranice koje nisu mogle biti analizirane: {pages}."
 
+#: app/web/profile_form.py app/web/routers/employees.py
+#: app/web/templates/profile.html
+msgid "Anne adı"
+msgstr "Ime majke"
+
 #: app/web/templates/employee_merge.html app/web/templates/employees.html
 #: app/web/templates/history.html app/web/templates/queue_item.html
 msgid "Ara"
@@ -1041,6 +1046,11 @@ msgid "Açıp «Başlat»a basınca bot «Bağlandı» der; sonra bu sayfayı ye
 msgstr ""
 "Kada ga otvorite i pritisnete «Start», bot kaže «Povezano»; zatim "
 "osvežite ovu stranicu."
+
+#: app/web/profile_form.py app/web/routers/employees.py
+#: app/web/templates/profile.html
+msgid "Baba adı"
+msgstr "Ime oca"
 
 #: app/web/templates/access_log.html
 msgid "Bakan kullanıcı"
@@ -2528,6 +2538,11 @@ msgstr "Datum rođenja: nije upisan"
 msgid "Doğum tarihi: {date} ({age} yaşında)"
 msgstr "Datum rođenja: {date} ({age} god.)"
 
+#: app/web/profile_form.py app/web/routers/employees.py
+#: app/web/templates/profile.html
+msgid "Doğum yeri"
+msgstr "Mesto rođenja"
+
 #: app/web/templates/catalog.html app/web/templates/catalog_candidate.html
 #: app/web/templates/document_archive_step.html
 #: app/web/templates/document_delete_step.html
@@ -3752,6 +3767,15 @@ msgstr "Pretpostavljena osoba"
 msgid "Kişi tespit edilemedi: belgede ne ad-soyad ne belge numarası okundu."
 msgstr "Osoba nije utvrđena: na dokumentu nije pročitano ni ime ni broj dokumenta."
 
+#: app/web/profile_form.py app/web/routers/employees.py
+#: app/web/templates/profile.html
+msgid "Kişisel numara"
+msgstr "Lični broj"
+
+#: app/web/profile_form.py
+msgid "Kişisel numaranın ülkesi"
+msgstr "Država ličnog broja"
+
 #: app/web/templates/employee_deleted.html
 msgid ""
 "Klasörü, belgeleri ve kişisel bilgileri silindi; yalnız E numarası "
@@ -4091,6 +4115,10 @@ msgstr "Napomena:"
 #: app/web/templates/profile.html
 msgid "Numara"
 msgstr "Broj"
+
+#: app/web/profile_form.py
+msgid "Numarayı veren ülkenin ICAO kodu (ör. SRB, TUR)"
+msgstr "ICAO kod države koja je izdala broj (npr. SRB, TUR)"
 
 #: app/catalog/photo_rules.py
 msgid "Nötr ifade"
@@ -4436,6 +4464,10 @@ msgstr ""
 "Otkazivanje serije zaustavlja njenu obradu; datoteke, stranice i "
 "dokumenti nastali do sada se ne brišu. Serija koja ni 10 minuta posle "
 "prijema nije završena otkazuje se automatski."
+
+#: app/web/templates/profile.html
+msgid "Pasaport numarası"
+msgstr "Broj pasoša"
 
 #: app/matching/status.py app/web/routers/employees.py
 #: app/web/templates/catalog.html app/web/templates/users.html
@@ -6437,6 +6469,10 @@ msgstr ""
 "neupisano — kada se upiše pomoću <code>python -m app.catalog register-"
 "examples</code>, može se premestiti i ukloniti"
 
+#: app/matching/match.py
+msgid "kişisel numara olmadan ülke girilmez"
+msgstr "država se ne unosi bez ličnog broja"
+
 #: app/training/map_import.py
 msgid "klasörde PDF, JPEG ya da PNG yok"
 msgstr "u fascikli nema PDF, JPEG ni PNG datoteka"
@@ -7400,6 +7436,14 @@ msgstr ""
 "Nezavisno od zemlje: stavku ispunjava svaki tip sa izabranom oznakom. "
 "Broj je broj tipova kataloga sa tom oznakom — slične oznake (npr. "
 "«Identity Card», «Identity Document») ostaju odvojene."
+
+#: app/web/profile_form.py
+msgid ""
+"Ülkesinin vatandaşlık ya da kimlik numarası, olduğu gibi (ör. JMBG); "
+"boşluk, tire ve nokta farkı aramada yok sayılır"
+msgstr ""
+"Broj državljanstva ili lični broj njegove države, onako kako je napisan "
+"(npr. JMBG); razmaci, crtice i tačke se u pretrazi zanemaruju"
 
 #: app/web/templates/training_results.html
 #, python-format

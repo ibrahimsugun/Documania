@@ -121,6 +121,12 @@ PERSONAL_DATA_KEYS = frozenset(
         "original_script_name",
         "date_of_birth",
         "nationality",
+        # 15.3.1: ek profil alanları (olaylar yalnız alan adlarını taşır; değer anahtarı değil).
+        "mother_name",
+        "father_name",
+        "place_of_birth",
+        "personal_number",
+        "personal_number_country",
         "name",
         "names",
         "raw_name",

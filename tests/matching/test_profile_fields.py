@@ -377,9 +377,11 @@ def test_a_new_employee_records_its_document_fields_as_filled(session: Session) 
 
     result = _complete(session, _key(), _source(session), created=True)
 
-    assert result.filled == tuple(field.value for field in ProfileField)
+    # 15.3.1'in ek alanları anahtarda yok (belgeden dolumları 15.3.2'nin işi).
+    identity = tuple(field.value for field in ProfileField)[:6]
+    assert result.filled == identity
     assert result.same == result.conflicts == ()
-    assert len(_filled_events(session)) == len(ProfileField)
+    assert len(_filled_events(session)) == len(identity)
 
 
 def test_neither_the_events_nor_the_observations_carry_values(session: Session) -> None:

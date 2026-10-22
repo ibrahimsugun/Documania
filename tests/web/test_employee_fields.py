@@ -63,8 +63,22 @@ CURRENT = {
     "original_script_name": "Иван Петров",
     "date_of_birth": BORN.isoformat(),
     "nationality": "RUS",
+    # 15.3.1: ek alanlar; çalışanda boş.
+    "mother_name": "",
+    "father_name": "",
+    "place_of_birth": "",
+    "personal_number": "",
+    "personal_number_country": "",
 }
 RENAMED = CURRENT | {"surname": "Petrova"}
+# 15.3.1: elle girilen ek alanlar (kişisel numara olduğu gibi; ülke büyük harfe çevrilir).
+DETAILS = {
+    "mother_name": "Olga",
+    "father_name": "Sergey",
+    "place_of_birth": "Kazan",
+    "personal_number": "1990 0101-123.45",
+    "personal_number_country": "rus",
+}
 
 
 @pytest.fixture(autouse=True)
@@ -176,6 +190,11 @@ def _fields(values: dict[str, str]) -> ProfileFields:
         original_script_name=values["original_script_name"] or None,
         date_of_birth=date.fromisoformat(values["date_of_birth"]),
         nationality=values["nationality"] or None,
+        mother_name=values["mother_name"] or None,
+        father_name=values["father_name"] or None,
+        place_of_birth=values["place_of_birth"] or None,
+        personal_number=values["personal_number"] or None,
+        personal_number_country=values["personal_number_country"] or None,
     )
 
 
@@ -207,7 +226,7 @@ def test_the_profile_links_to_the_edit_form_unless_the_employee_is_merged(
     assert 'name="given_names"' not in response.text
 
 
-def test_the_form_holds_the_six_fields_with_current_values_and_the_first_text(
+def test_the_form_holds_the_profile_fields_with_current_values_and_the_first_text(
     client: TestClient, seeded: dict[str, Any]
 ) -> None:
     response = client.get(f"/employees/{EMPLOYEE_ID}/fields")
@@ -308,6 +327,19 @@ def test_prepare_counts_no_file_when_the_name_stays(
         ({"surname": ""}, "Soyad: boş olamaz"),
         ({"date_of_birth": "1990-13-01"}, f"Doğum tarihi: {BAD_DATE}"),
         ({"nationality": "RUSS"}, "Vatandaşlık: ICAO uyruk kodu olmalı"),
+        # 15.3.1, 15.3.3: numara olduğu gibi ama harf ya da rakam taşır, sütuna sığar; ülke ICAO
+        # kodudur ve numarasız girilmez.
+        ({"personal_number": "- . -"}, "Kişisel numara: harf ya da rakam içermiyor"),
+        ({"personal_number": "1" * 65}, "Kişisel numara: en fazla 64 karakter olabilir"),
+        (
+            {"personal_number": "123", "personal_number_country": "SERB"},
+            "Kişisel numaranın ülkesi: ICAO uyruk kodu olmalı",
+        ),
+        (
+            {"personal_number_country": "SRB"},
+            "Kişisel numaranın ülkesi: kişisel numara olmadan ülke girilmez",
+        ),
+        ({"mother_name": "x" * 256}, "Anne adı: en fazla 255 karakter olabilir"),
     ],
 )
 def test_invalid_fields_are_refused_with_the_form_errors(
@@ -551,6 +583,96 @@ def _upload_file(session: Session, name: str) -> int:
     session.add(upload_file)
     session.flush()
     return upload_file.id
+
+
+# --- 15.3.1: ek profil alanları elle girilir ---------------------------------------------------
+
+
+def test_detail_fields_are_entered_by_hand_with_a_manual_source_and_named_events(
+    client: TestClient,
+    session_factory: sessionmaker[Session],
+    layout: DataLayout,
+    seeded: dict[str, Any],
+) -> None:
+    values = CURRENT | DETAILS
+    prepared = _prepare(client, values)
+    assert prepared.status_code == 200, prepared.text
+    assert SECOND_TEXT.format(n=0) in prepared.text  # ad değişmedi: dosya adlandırılmaz
+    changed = re.findall(r'<tr class="changed">\s*<th scope="row">([^<]+)</th>', prepared.text)
+    assert changed == [
+        "Anne adı",
+        "Baba adı",
+        "Doğum yeri",
+        "Kişisel numara",
+        "Kişisel numaranın ülkesi",
+    ]
+
+    response = _change(client, values, _token(prepared.text))
+
+    assert response.status_code == 303, response.text
+    with session_factory() as session:
+        employee = session.get_one(Employee, EMPLOYEE_ID)
+        assert (
+            employee.mother_name,
+            employee.father_name,
+            employee.place_of_birth,
+            employee.personal_number,
+            employee.personal_number_country,
+            employee.folder_name,
+        ) == ("Olga", "Sergey", "Kazan", "1990 0101-123.45", "RUS", OLD_FOLDER)
+        # Ülke numarayla birlikte gözlenir: dört elle gözlem, ülkenin ayrı gözlemi yok.
+        observations = session.scalars(
+            select(EmployeeFieldObservation).order_by(EmployeeFieldObservation.id)
+        ).all()
+        assert [(o.field, o.source, o.actor) for o in observations] == [
+            (name, "manual", SIGNED_IN.username)
+            for name in ("mother_name", "father_name", "place_of_birth", "personal_number")
+        ]
+        edited = session.scalars(
+            select(Event).where(Event.type == EventType.EMPLOYEE_EDITED.value)
+        ).one()
+        assert edited.data_json == {
+            "fields": list(DETAILS),
+            "renamed": False,
+            "documents": [],
+        }
+        # 15.3.3: değerler hiçbir olaya girmez — numaranın ayırıcısız biçimi de.
+        logged = json.dumps(
+            [event.data_json for event in session.scalars(select(Event))], ensure_ascii=False
+        )
+        for value in ("Olga", "Sergey", "Kazan", "1990", "0101", "199001011234"):
+            assert value not in logged
+
+    page = client.get(f"/employees/{EMPLOYEE_ID}").text
+    today = datetime.now(UTC).strftime("%d.%m.%Y")
+    for label, value in (
+        ("Anne adı", "Olga"),
+        ("Baba adı", "Sergey"),
+        ("Doğum yeri", "Kazan"),
+        ("Kişisel numara", "1990 0101-123.45"),
+    ):
+        field = _field_html(page, label)
+        assert value in field
+        assert f"Kaynak: elle ({SIGNED_IN.username}, {today})" in field
+    assert "(RUS)" in _field_html(page, "Kişisel numara")
+    # profil.md commit'ten sonra yeni alanlarla yeniden üretildi (09.1.1).
+    profile = layout.profile_path(OLD_FOLDER).read_text(encoding="utf-8")
+    assert "| Kişisel numara | 1990 0101-123.45 (RUS) |" in profile
+
+    # Yalnız ülke değişirse olay sütun adını taşır, gözlem yine numaranındır.
+    again = values | {"personal_number_country": "KAZ"}
+    _change(client, again, _token(_prepare(client, again).text))
+    with session_factory() as session:
+        last = session.scalars(
+            select(Event)
+            .where(Event.type == EventType.EMPLOYEE_EDITED.value)
+            .order_by(Event.id.desc())
+        ).first()
+        assert last is not None and last.data_json["fields"] == ["personal_number_country"]
+        newest = session.scalars(
+            select(EmployeeFieldObservation).order_by(EmployeeFieldObservation.id.desc())
+        ).first()
+        assert newest is not None and newest.field == "personal_number"
 
 
 def test_the_card_names_the_manual_source_and_drops_older_conflicts(

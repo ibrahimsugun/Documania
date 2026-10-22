@@ -71,6 +71,14 @@
     <dt>{{ _("Vatandaşlık") }}</dt><dd>{{ nationality_badge(profile.nationality) or "—" }}{{ field_sources(profile.field_sources.get("nationality")) }}</dd>
     <dt>{{ _("Doğum tarihi") }}</dt><dd>{{ profile.date_of_birth.strftime("%d.%m.%Y") if profile.date_of_birth else "—" }}{{ field_sources(profile.field_sources.get("date_of_birth")) }}</dd>
     <dt>{{ _("Yaş") }}</dt><dd>{{ profile.age if profile.age is not none else "—" }}</dd>
+    {# 15.3.1: ek alanlar; kişisel numara olduğu gibi, yanında veren ülke. Pasaport numarası
+       pasaport türlü belgelerin en son kaydedilen numarasıdır (ayrı alan değil, kaynağı
+       "Profil kayıtları"nda). #}
+    <dt>{{ _("Anne adı") }}</dt><dd>{{ profile.mother_name or "—" }}{{ field_sources(profile.field_sources.get("mother_name")) }}</dd>
+    <dt>{{ _("Baba adı") }}</dt><dd>{{ profile.father_name or "—" }}{{ field_sources(profile.field_sources.get("father_name")) }}</dd>
+    <dt>{{ _("Doğum yeri") }}</dt><dd>{{ profile.place_of_birth or "—" }}{{ field_sources(profile.field_sources.get("place_of_birth")) }}</dd>
+    <dt>{{ _("Kişisel numara") }}</dt><dd>{% if profile.personal_number %}{{ profile.personal_number }}{% if profile.personal_number_country %} · {{ nationality_badge(profile.personal_number_country) }}{% endif %}{% else %}—{% endif %}{{ field_sources(profile.field_sources.get("personal_number")) }}</dd>
+    <dt>{{ _("Pasaport numarası") }}</dt><dd>{{ profile.passport_number or "—" }}</dd>
     {% for group in profile.contacts %}
     <dt>{{ translate(group.label) }}</dt>
     <dd>{% if group.values %}{% for value in group.values %}{% if not loop.first %}<br>{% endif %}{{ value }}{% endfor %}{% else %}—{% endif %}</dd>

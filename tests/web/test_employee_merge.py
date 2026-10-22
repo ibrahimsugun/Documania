@@ -291,6 +291,31 @@ def test_the_first_step_shows_both_records_side_by_side_and_the_first_text(
     _unchanged(session_factory, layout, seeded)
 
 
+def test_the_first_step_lists_the_detail_fields_and_the_number_fills_with_its_country(
+    client: TestClient,
+    session_factory: sessionmaker[Session],
+    layout: DataLayout,
+    seeded: dict[str, str],
+) -> None:
+    # 15.3.1: ek alanlar da yan yana; kişisel numaranın ülkesi numarayla aynı sonucu taşır.
+    with session_factory() as session:
+        merge = session.get_one(Employee, MERGE)
+        merge.personal_number, merge.personal_number_country = "1990 0101", "RUS"
+        session.commit()
+
+    html = client.get(f"/employees/{KEEP}/merge/confirm?other={MERGE}").text
+
+    for label in ("Anne adı", "Baba adı", "Doğum yeri", "Kişisel numara"):
+        assert f'<th scope="row">{label}</th>' in html, label
+    row = html.split("Kişisel numaranın ülkesi</th>", 1)[1].split("</tr>", 1)[0]
+    assert "RUS" in row and "kalanın boş alanı bu değerle dolacak" in row
+
+    _merge(client, _token(_prepare(client).text))
+    with session_factory() as session:
+        keep = session.get_one(Employee, KEEP)
+        assert (keep.personal_number, keep.personal_number_country) == ("1990 0101", "RUS")
+
+
 def test_choosing_the_other_record_to_keep_swaps_the_names_in_the_first_text(
     client: TestClient, seeded: dict[str, str]
 ) -> None:

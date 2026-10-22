@@ -1,6 +1,7 @@
 """Çalışan profilini düzenleme — PRD 10.5.6 (PLAN.md §C90-a, §D61; K8, K16, K17).
 
-İK profil sayfasından ad, soyad, diğer isimler, orijinal yazım, doğum tarihi ve uyruğu değiştirir.
+İK profil sayfasından ad, soyad, diğer isimler, orijinal yazım, doğum tarihi ve uyruğu; 15.3.1'den
+beri anne adı, baba adı, doğum yeri, kişisel numara ve ülkesini de değiştirir (`EMPLOYEE_FIELDS`).
 Değerler onaylanan profilin kuralıyla denetlenir (`check_profile_fields`, 10.7.3): ad ve soyad
 zorunlu, yalnız Latin harfli (05.2.2) ve klasör adına çevrilebilir (00.4.2); doğum tarihi gelecekte
 olamaz, uyruk ICAO kodudur. Yalnız çalışan kaydı değişir — belge içeriği, sayfa okumaları ve köken
@@ -9,7 +10,8 @@ kaydı değişmez (K11, K17, R12).
 `update_employee_fields` iki aşamalı onaydan (K16, §20.6) sonra çağrılır ve tek işlemde:
 
 - değişen alanları çalışana yazar; her değişen alan için `employee_field_observations`'a
-  `source=manual`, `actor` satırı ekler (değer yok). 05.7.3 dolgusu dolu alanı zaten ezmez
+  `source=manual`, `actor` satırı ekler (değer yok; kişisel numaranın ülkesi numaranın
+  gözlemine katılır, `personal_number`). 05.7.3 dolgusu dolu alanı zaten ezmez
   (`app.matching.fields`): elle girilen değer sonraki belgelerle değişmez, farklı okuyan belge
   profilde uyarı olur;
 - ad-soyad ya da orijinal yazım değiştiyse yeni yazımı `employee_aliases`'a ekler (onaylanan
@@ -46,9 +48,11 @@ from app.db.models import (
 )
 from app.events import EventType, record_event
 from app.matching.match import (
+    EMPLOYEE_FIELDS,
     GIVEN_NAMES,
     ORIGINAL_SCRIPT_NAME,
-    PROFILE_FIELDS,
+    PERSONAL_NUMBER,
+    PERSONAL_NUMBER_COUNTRY,
     SURNAME,
     ProfileFields,
     ProfileFieldsError,
@@ -81,7 +85,7 @@ class NoFieldChangesError(EmployeeEditRefusedError):
 @dataclass(frozen=True, slots=True)
 class EditPreview:
     """Onaydan önce düzenlemenin sonucu (ikinci onay metninin `<N>`'i): değişen alan adları
-    (`PROFILE_FIELDS` sırasıyla), klasörün yeniden adlandırılıp adlandırılmayacağı ve dosyası
+    (`EMPLOYEE_FIELDS` sırasıyla), klasörün yeniden adlandırılıp adlandırılmayacağı ve dosyası
     yeniden adlandırılacak belge sayısı. Kişisel değer taşımaz."""
 
     changed: tuple[str, ...]
@@ -110,13 +114,24 @@ def current_profile_fields(employee: Employee) -> ProfileFields:
         original_script_name=_text(employee.original_script_name),
         date_of_birth=employee.date_of_birth,
         nationality=_text(employee.nationality),
+        mother_name=_text(employee.mother_name),
+        father_name=_text(employee.father_name),
+        place_of_birth=_text(employee.place_of_birth),
+        personal_number=_text(employee.personal_number),
+        personal_number_country=_text(employee.personal_number_country),
     )
 
 
+def observed_field(name: str) -> str:
+    """Sütunun gözlem alanı (`ProfileField`): kişisel numaranın ülkesi numarayla birlikte
+    `personal_number` adıyla gözlenir (15.3.1); öteki sütunlar kendi adıyla."""
+    return PERSONAL_NUMBER if name == PERSONAL_NUMBER_COUNTRY else name
+
+
 def changed_fields(employee: Employee, fields: ProfileFields) -> tuple[str, ...]:
-    """Kayıttan farklı alanların adları (`PROFILE_FIELDS` sırasıyla); karşılaştırma birebirdir."""
+    """Kayıttan farklı alanların adları (`EMPLOYEE_FIELDS` sırasıyla); karşılaştırma birebirdir."""
     current, wanted = current_profile_fields(employee).values(), fields.values()
-    return tuple(name for name in PROFILE_FIELDS if current[name] != wanted[name])
+    return tuple(name for name in EMPLOYEE_FIELDS if current[name] != wanted[name])
 
 
 def preview_employee_edit(
@@ -165,6 +180,7 @@ def update_employee_fields(
     for name in changed:
         # `ProfileFields` alan adları `employees` sütun adlarıdır.
         setattr(employee, name, getattr(changes, name))
+    for name in dict.fromkeys(observed_field(name) for name in changed):
         session.add(
             EmployeeFieldObservation(
                 employee_id=employee.id,

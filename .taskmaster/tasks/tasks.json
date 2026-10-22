@@ -2642,11 +2642,11 @@
         "description": "PRD 15.3.1, 15.3.3 · FR-MOD-15 · Faz 1 · Must (v1). Sözleşme PLAN §D123 (e). İnsan isteği (2026-10-23): profillerde anne adı, baba adı, vatandaşlık numarası (ülkeye göre yazımı değişir), pasaport numarası, doğum yeri gibi daha spesifik bilgiler olsun.",
         "details": "KAPSAM: PRD 15.3.1, 15.3.3; PLAN §D123 e — önce oku.\n\nNE YAPILACAK: (1) `app/db/models.py` `Employee`: `mother_name`, `father_name`, `place_of_birth` (String 255), `personal_number` (String 64), `personal_number_country` (String 8); `ProfileField`'a dört üye; Alembic göçü 0030 (null, geriye dönük). (2) Profil kartı (`profile.html`, `app/web/routers/employees.py` profil modeli): dört alan \"—\" ile, kaynak bağlantısı/çelişki uyarısı kalıbıyla (05.7.3 `field_sources`); \"Pasaport numarası\" satırı `employee_identifiers`'tan (katalog `file_label` = Passport türlü belgelerin en son görülen numarası; yoksa \"—\"). (3) Profil düzenleme (10.5.6, `app/web/profile_form.py`, `employee_fields*.html`): dört alan; elle kaynağı (`FieldSource.MANUAL`) ve `EMPLOYEE_EDITED` alan adları; §20.6 metni değişmez. (4) `app/profiles/render.py` profil.md kimlik tablosu dört satır + pasaport numarası. (5) Arama (10.4.2, `app/web/routers/employees.py` / `app/matching`): `personal_number` ile bulma; karşılaştırma boşluk/tire/nokta yok sayar (15.3.3) — tek yardımcı `app/matching/numbers.py` (ad önerisi). (6) Birleştirme (10.5.9) kalan kaydın boş alanını birleşenden doldurur (`FieldSource.MERGE`); kalıcı silme (10.5.13) alanları boşaltır; olay temizliği alan adlarını bırakır. (7) Üç dil: yeni etiketler en/sr.\n\nGİRDİ: app/db/models.py (Employee, ProfileField, EmployeeFieldObservation), app/matching/fields.py, app/web/profile_form.py, app/web/routers/employees.py, app/profiles/render.py, app/storage/delete_employee.py, app/matching/merge.py.\n\nÇIKTI: göç 0030, model, profil kartı/düzenleme/profil.md, arama, tests/db, tests/web/test_profile.py, test_employee_fields.py, test_employee_merge.py, test_employee_delete.py, tests/profiles, PLAN, HANDOFF.\n\nTUZAKLAR: `personal_number` değeri hiçbir olaya, bildirime ve loga yazılmaz (15.3.3); `EMPLOYEE_DELETED` temizliği yeni sütunları da boşaltmalı; 05.5.4 isimle eşleşen belge bu alanları doldurmaz (burada yalnız elle giriş). Kabul senaryosu testleri (S25) yeni alanlarla güncellenir.\n\nBU GÖREVİ BAĞLAYAN KİLİTLİ KURALLAR: PLAN §D123 (sözleşme — önce oku), R2/R11, K8 (adlandırma), K9/R10 (dondurulmuş harita), K15 (olay; kişisel değer yok), 10.1.8 (yetki), 10.10.3 (üç dil, `python -m app.i18n extract|update|compile|check`), 10.11.1 (bildirim kaydı), docs/ARAYUZ-STANDARDI.md (şablon ve stil; `tests/web/test_ui_standard.py`), MASTER-PROMPT yol kuralı (yol yalnız `app/storage/`), §8 (sütun ve olay adları).\n\nKAPANIŞ: PLAN satırları ✅ → K15.x (yeni blok `#### K15.1` / `K15.2` / `K15.3`), HANDOFF bloğu, Task Master done, commit mesajında `PRD 15.x — tm <id>`; CONVENTIONS §1 kapısı (tam paralel koşu uzun sürerse HANDOFF'a hangi klasörlerin koşulduğunu yaz).",
         "testStrategy": "tests/db (göç ileri/geri temiz SQLite), tests/web/test_profile.py (dört alan + pasaport satırı, \"—\"), test_employee_fields.py (elle giriş, kaynak elle, olay alan adları), test_employee_merge.py, test_employee_delete.py (boşaltma), tests/profiles (profil.md), arama testi `personal_number` normalize; python -m app.i18n check; tam paralel kapı.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [],
         "priority": "medium",
         "subtasks": [],
-        "updatedAt": "2026-10-22T22:35:37.000Z"
+        "updatedAt": "2026-10-22T23:25:14.197Z"
       },
       {
         "id": "181",
@@ -2734,9 +2734,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-22T22:35:37.000Z",
-      "taskCount": 186,
-      "completedCount": 179,
+      "lastModified": "2026-10-22T23:25:14.198Z",
+      "taskCount": 187,
+      "completedCount": 181,
       "tags": [
         "master"
       ]

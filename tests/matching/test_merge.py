@@ -563,6 +563,66 @@ def test_a_manual_value_that_fills_the_kept_field_takes_its_source_along(
     assert _observations(session, MERGE)[-1] == ("other_names", "filled", "manual", None)
 
 
+def test_detail_fields_fill_the_kept_record_and_the_personal_number_brings_its_country(
+    session: Session, layout: DataLayout, pair: Pair
+) -> None:
+    # 15.3.1: kalanın boş ek alanı birleşenin değeriyle dolar, dolu alan değişmez; kişisel numara
+    # ülkesiyle gelir (ülke ayrı alan değil). Ayırıcı farkı (15.3.3) farklı numara sayılmaz.
+    keep, merge = session.get_one(Employee, KEEP), session.get_one(Employee, MERGE)
+    keep.mother_name = "Olga"
+    merge.mother_name = "Olga Petrovna"
+    merge.father_name = "Sergey"
+    merge.place_of_birth = "Kazan"
+    merge.personal_number = "1990-0101 123"
+    merge.personal_number_country = "RUS"
+    session.commit()
+
+    preview = merge_field_preview(keep, merge)
+    assert {name: preview[name] for name in DETAIL} == {
+        "mother_name": "different",
+        "father_name": "filled",
+        "place_of_birth": "filled",
+        "personal_number": "filled",
+    }
+
+    result = _merge(session, layout)
+
+    assert result.fields == (
+        "original_script_name",
+        "father_name",
+        "place_of_birth",
+        "personal_number",
+    )
+    keep = session.get_one(Employee, KEEP)
+    assert (
+        keep.mother_name,
+        keep.father_name,
+        keep.place_of_birth,
+        keep.personal_number,
+        keep.personal_number_country,
+    ) == ("Olga", "Sergey", "Kazan", "1990-0101 123", "RUS")
+    merged = [row[0] for row in _observations(session, KEEP) if row[2] == "merge"]
+    assert merged == list(result.fields)
+    logged = json.dumps(
+        [event.data_json for event in _events(session, EventType.EMPLOYEE_FIELD_FILLED)]
+    )
+    assert "1990" not in logged and "Kazan" not in logged
+
+
+def test_the_same_personal_number_with_other_separators_is_not_a_difference(
+    session: Session, pair: Pair
+) -> None:
+    keep, merge = session.get_one(Employee, KEEP), session.get_one(Employee, MERGE)
+    keep.personal_number, merge.personal_number = "AB 12-34.56", "ab123456"
+
+    assert merge_field_preview(keep, merge)["personal_number"] == "same"
+    merge.personal_number = "AB123457"
+    assert merge_field_preview(keep, merge)["personal_number"] == "different"
+
+
+DETAIL = ("mother_name", "father_name", "place_of_birth", "personal_number")
+
+
 def test_a_cancelled_package_moves_as_it_is_and_is_not_counted_as_a_duplicate(
     session: Session, layout: DataLayout, pair: Pair
 ) -> None:
@@ -588,6 +648,11 @@ def test_the_field_preview_tells_what_happens_to_each_field(session: Session, pa
         "original_script_name": "filled",
         "date_of_birth": "same",
         "nationality": "none",
+        # 15.3.1: ek alanlar; iki kayıtta da boş.
+        "mother_name": "none",
+        "father_name": "none",
+        "place_of_birth": "none",
+        "personal_number": "none",
     }
     assert merge_document_count(session, MERGE) == 4
     assert merge_document_count(session, KEEP) == 1

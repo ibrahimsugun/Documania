@@ -178,7 +178,9 @@ class DocumentStatus(enum.StrEnum):
 
 class ProfileField(enum.StrEnum):
     """Belgeden tamamlanan profil alanı (05.7.3; `employee_field_observations.field`): `employees`
-    sütun adları. Belge numarası ve iletişim bilgisi kendi birikim yolundadır (05.7.2, 05.8.1)."""
+    sütun adları. Belge numarası ve iletişim bilgisi kendi birikim yolundadır (05.7.2, 05.8.1).
+    Kişisel numaranın ülkesi (`personal_number_country`, 15.3.1) ayrı alan değildir: numarayla
+    birlikte gözlenir, gözlemi `personal_number` adını taşır (PLAN.md §D123 e)."""
 
     GIVEN_NAMES = "given_names"
     SURNAME = "surname"
@@ -186,6 +188,11 @@ class ProfileField(enum.StrEnum):
     ORIGINAL_SCRIPT_NAME = "original_script_name"
     DATE_OF_BIRTH = "date_of_birth"
     NATIONALITY = "nationality"
+    # 15.3.1: ek profil alanları.
+    MOTHER_NAME = "mother_name"
+    FATHER_NAME = "father_name"
+    PLACE_OF_BIRTH = "place_of_birth"
+    PERSONAL_NUMBER = "personal_number"
 
 
 class FieldOutcome(enum.StrEnum):
@@ -361,6 +368,14 @@ class Employee(Base):
     original_script_name: Mapped[str | None] = mapped_column(String(255))
     date_of_birth: Mapped[date | None] = mapped_column(Date)
     nationality: Mapped[str | None] = mapped_column(String(8))
+    # 15.3.1: ek profil alanları. Kişisel numara ülkesinin vatandaşlık/kimlik numarasıdır, olduğu
+    # gibi saklanır (15.3.3); yanında ülkenin ICAO/alfa-3 kodu. Pasaport numarası sütun değildir,
+    # `employee_identifiers`'tadır.
+    mother_name: Mapped[str | None] = mapped_column(String(255))
+    father_name: Mapped[str | None] = mapped_column(String(255))
+    place_of_birth: Mapped[str | None] = mapped_column(String(255))
+    personal_number: Mapped[str | None] = mapped_column(String(64))
+    personal_number_country: Mapped[str | None] = mapped_column(String(8))
     status: Mapped[str] = mapped_column(String(16), default=EmployeeStatus.ACTIVE.value)
     # 10.5.9: birleştirilen (`merged`) çalışanın kalan kaydı; öteki durumlarda boş.
     merged_into_id: Mapped[str | None] = mapped_column(ForeignKey("employees.id"))

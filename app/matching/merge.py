@@ -17,7 +17,8 @@ alınamaz**; hiçbir şey silinmez (R11):
   Aynı iletişim değerinin görülme zamanları kalandaki satıra katlanır; türde en çok bir güncel
   satır kalır — en son görülen (05.8.2).
 - **Alan kaynakları** (`employee_field_observations`) kalan kayda bağlanır. Kalanın boş alanı
-  birleşenin dolu alanıyla dolar (05.7.3'ün kuralı: dolu alan değişmez): `source=merge` gözlemi ve
+  birleşenin dolu alanıyla dolar (05.7.3'ün kuralı: dolu alan değişmez; ek alanlar da, 15.3.1 —
+  kişisel numara ülkesiyle birlikte): `source=merge` gözlemi ve
   `EMPLOYEE_FIELD_FILLED` (`source: merge`) yazılır. İki kayıtta farklı değer taşıyan alanda
   birleşenin belge gözlemi kalanın değeriyle çelişir, sonucu `conflict` olur (profil uyarısı);
   kalanda aynı kaynaktan gözlem varsa birleşeninki birleşende kalır. Elle ve birleştirmeyle yazılmış
@@ -429,6 +430,9 @@ def _merge_fields(
     filled = tuple(name for name, relation in relations.items() if relation is _Relation.FILLED)
     for name in filled:
         setattr(keep, name, getattr(merge, name))
+        if name == ProfileField.PERSONAL_NUMBER:
+            # 15.3.1: ülke numarayla birlikte gelir (ayrı alan değil).
+            keep.personal_number_country = merge.personal_number_country
         session.add(
             EmployeeFieldObservation(
                 employee_id=keep.id,

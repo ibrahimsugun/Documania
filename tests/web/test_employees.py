@@ -332,6 +332,34 @@ def test_search_by_document_number(client: TestClient, query: str, expected: lis
     assert _ids(client, query) == expected
 
 
+@pytest.mark.parametrize(
+    ("query", "expected"),
+    [
+        ("1204991715003", ["E0001"]),  # saklı "1204-991 715.003": ayırıcılar yok sayılır
+        ("1204 991-715.003", ["E0001"]),
+        ("991715", ["E0001"]),  # parça
+        ("tc 98765", ["E0002"]),  # harf büyüklüğü ve boşluk farkı ("TC-98765")
+        ("TC98765", ["E0002"]),
+        ("1204991715004", []),
+    ],
+)
+def test_search_by_personal_number(
+    client: TestClient,
+    session_factory: sessionmaker[Session],
+    seeded: None,
+    query: str,
+    expected: list[str],
+) -> None:
+    # 15.3.1, 15.3.3: kişisel numara olduğu gibi saklanır; arama boşluk, tire ve nokta farkını
+    # iki taraftan da yok sayar.
+    with session_factory() as session:
+        session.get_one(Employee, "E0001").personal_number = "1204-991 715.003"
+        session.get_one(Employee, "E0002").personal_number = "TC-98765"
+        session.commit()
+
+    assert _ids(client, query) == expected
+
+
 @pytest.mark.usefixtures("seeded")
 @pytest.mark.parametrize(
     ("query", "expected"),

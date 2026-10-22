@@ -72,8 +72,24 @@ SECOND = (
     "Çalışanın klasörü, belgeleri ({n}) ve kişisel bilgileri silinecek, yalnız E numarası "
     "kalacaktır; bu işlem geri alınamaz. Son kararınız mı?"
 )
+# 15.3.1: Sidorov'un elle girilmiş ek alanları (sentetik).
+SIDOROV_DETAILS = {
+    "mother_name": "Galina",
+    "father_name": "Petr",
+    "place_of_birth": "Tula",
+    "personal_number": "4510-123 456",
+    "personal_number_country": "RUS",
+}
 # Silmeden sonra olaylarda, planlarda ve çalışan satırında geçmemesi gereken değerler.
-SIDOROV_VALUES = ("sidorov", "1985-05-05", "0000077", LICENSE_NUMBER)
+SIDOROV_VALUES = (
+    "sidorov",
+    "1985-05-05",
+    "0000077",
+    LICENSE_NUMBER,
+    "galina",
+    "tula",
+    "4510-123 456",
+)
 
 
 def _token(html: str) -> str:
@@ -105,6 +121,8 @@ def _world(
     ornekova = _register_employee(
         session, layout, PERSON_ORNEKOVA, [("russian_passport", PASSPORT_NUMBER)]
     ).id
+    for name, value in SIDOROV_DETAILS.items():
+        setattr(session.get_one(Employee, sidorov), name, value)
     session.commit()
 
     own = [
@@ -161,7 +179,13 @@ def _personal_dump(session: Session, employee_id: str) -> str:
     rows.extend(plan.json for plan in session.scalars(select(Plan)))
     employee = session.get_one(Employee, employee_id)
     rows.append(
-        [employee.given_names, employee.surname, employee.folder_name, str(employee.date_of_birth)]
+        [
+            employee.given_names,
+            employee.surname,
+            employee.folder_name,
+            str(employee.date_of_birth),
+            *(getattr(employee, name) for name in SIDOROV_DETAILS),
+        ]
     )
     return json.dumps(rows, ensure_ascii=False, default=str).casefold()
 
@@ -224,6 +248,8 @@ def test_s25_the_inactive_employee_is_deleted_and_the_shared_upload_stays(
     employee = session.get_one(Employee, sidorov)
     assert employee.status == EmployeeStatus.DELETED.value
     assert (employee.given_names, employee.surname, employee.date_of_birth) == ("", "", None)
+    # 15.3.1: ek alanlar da boş.
+    assert all(getattr(employee, name) is None for name in SIDOROV_DETAILS)
     assert {
         d.status for d in session.scalars(select(Document).where(Document.employee_id == sidorov))
     } == {"deleted"}

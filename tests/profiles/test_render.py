@@ -41,6 +41,7 @@ def _employee(
     original_script_name: str | None = ORIGINAL_NAME,
     nationality: str | None = "RUS",
     date_of_birth: date | None = date(1990, 4, 12),
+    **details: str,
 ) -> Employee:
     employee = Employee(
         id=EMPLOYEE_ID,
@@ -51,6 +52,7 @@ def _employee(
         original_script_name=original_script_name,
         nationality=nationality,
         date_of_birth=date_of_birth,
+        **details,
     )
     session.add(employee)
     session.flush()
@@ -144,6 +146,13 @@ def test_profile_has_front_matter_identity_table_and_document_list(
         "nationality": "RUS",
         "date_of_birth": date(1990, 4, 12),
         "age": 36,
+        # 15.3.1: ek alanlar boş; pasaport numarası `Passport` etiketli türün numarası.
+        "mother_name": None,
+        "father_name": None,
+        "place_of_birth": None,
+        "personal_number": None,
+        "personal_number_country": None,
+        "passport_number": "711234567",
         "document_numbers": [{"kind": TYPE_SLUG, "value": "711234567"}],
         "contacts": [
             {"kind": "email", "value": "dmitry@example.com"},
@@ -226,11 +235,62 @@ def test_missing_optional_fields_render_as_placeholder(
     assert "| Vatandaşlık | — |" in content
     assert "| Doğum tarihi | — |" in content
     assert "| Yaş | — |" in content
+    for label in ("Anne adı", "Baba adı", "Doğum yeri", "Kişisel numara", "Pasaport numarası"):
+        assert f"| {label} | — |" in content
     assert "| Belge numaraları | — |" in content
     assert "| Telefon | — |" in content
     assert "| E-posta | — |" in content
     assert "| Adres | — |" in content
     assert "Henüz belge yok." in content
+
+
+def test_detail_fields_and_passport_number_are_in_both_places(
+    session: Session, layout: DataLayout
+) -> None:
+    # 15.3.1: anne ve baba adı, doğum yeri, kişisel numara (olduğu gibi, ülkesiyle) ve pasaport
+    # numarası hem ön blokta hem kimlik tablosunda; pasaport numarası `Passport` etiketli türlerin
+    # en son kaydedilen etkin numarasıdır, başka türün numarası sayılmaz.
+    _employee(
+        session,
+        mother_name="Olga",
+        father_name="Ivan",
+        place_of_birth="Kazan | Tatarstan",
+        personal_number="1204990-710.012",
+        personal_number_country="RUS",
+    )
+    _catalog_entry(session)
+    _catalog_entry(session, slug="work_permit", name="Work Permit")
+    session.get_one(KnownDocumentType, "work_permit").file_label = "Work Permit"
+    _identifier(session)
+    _identifier(session, value="722222222")
+    _identifier(session, kind="work_permit", value="WP-1")
+
+    content = render_profile(session, session.get_one(Employee, EMPLOYEE_ID), today=TODAY)
+
+    parsed = yaml.safe_load(content.removeprefix("---\n").partition("\n---\n")[0])
+    assert {key: parsed[key] for key in parsed if key in DETAIL_KEYS} == {
+        "mother_name": "Olga",
+        "father_name": "Ivan",
+        "place_of_birth": "Kazan | Tatarstan",
+        "personal_number": "1204990-710.012",
+        "personal_number_country": "RUS",
+        "passport_number": "722222222",
+    }
+    assert "| Anne adı | Olga |" in content
+    assert "| Baba adı | Ivan |" in content
+    assert "| Doğum yeri | Kazan \\| Tatarstan |" in content
+    assert "| Kişisel numara | 1204990-710.012 (RUS) |" in content
+    assert "| Pasaport numarası | 722222222 |" in content
+
+
+DETAIL_KEYS = (
+    "mother_name",
+    "father_name",
+    "place_of_birth",
+    "personal_number",
+    "personal_number_country",
+    "passport_number",
+)
 
 
 def test_only_current_contact_is_shown(session: Session, layout: DataLayout) -> None:

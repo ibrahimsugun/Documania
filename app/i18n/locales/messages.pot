@@ -4,7 +4,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Documania panel\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-22 22:19+0000\n"
+"POT-Creation-Date: 2026-10-22 22:56+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -632,6 +632,11 @@ msgstr ""
 msgid "Analizi yapılamamış sayfalar: {pages}."
 msgstr ""
 
+#: app/web/profile_form.py app/web/routers/employees.py
+#: app/web/templates/profile.html
+msgid "Anne adı"
+msgstr ""
+
 #: app/web/templates/employee_merge.html app/web/templates/employees.html
 #: app/web/templates/history.html app/web/templates/queue_item.html
 msgid "Ara"
@@ -899,6 +904,11 @@ msgstr ""
 
 #: app/web/templates/account_telegram.html
 msgid "Açıp «Başlat»a basınca bot «Bağlandı» der; sonra bu sayfayı yenileyin."
+msgstr ""
+
+#: app/web/profile_form.py app/web/routers/employees.py
+#: app/web/templates/profile.html
+msgid "Baba adı"
 msgstr ""
 
 #: app/web/templates/access_log.html
@@ -2181,6 +2191,11 @@ msgstr ""
 msgid "Doğum tarihi: {date} ({age} yaşında)"
 msgstr ""
 
+#: app/web/profile_form.py app/web/routers/employees.py
+#: app/web/templates/profile.html
+msgid "Doğum yeri"
+msgstr ""
+
 #: app/web/templates/catalog.html app/web/templates/catalog_candidate.html
 #: app/web/templates/document_archive_step.html
 #: app/web/templates/document_delete_step.html
@@ -3322,6 +3337,15 @@ msgstr ""
 msgid "Kişi tespit edilemedi: belgede ne ad-soyad ne belge numarası okundu."
 msgstr ""
 
+#: app/web/profile_form.py app/web/routers/employees.py
+#: app/web/templates/profile.html
+msgid "Kişisel numara"
+msgstr ""
+
+#: app/web/profile_form.py
+msgid "Kişisel numaranın ülkesi"
+msgstr ""
+
 #: app/web/templates/employee_deleted.html
 msgid ""
 "Klasörü, belgeleri ve kişisel bilgileri silindi; yalnız E numarası "
@@ -3640,6 +3664,10 @@ msgstr ""
 msgid "Numara"
 msgstr ""
 
+#: app/web/profile_form.py
+msgid "Numarayı veren ülkenin ICAO kodu (ör. SRB, TUR)"
+msgstr ""
+
 #: app/catalog/photo_rules.py
 msgid "Nötr ifade"
 msgstr ""
@@ -3949,6 +3977,10 @@ msgid ""
 "Partiyi iptal etmek işlemesini durdurur; dosyalar, sayfalar ve o ana "
 "kadar üretilen belgeler silinmez. Alındıktan 10 dakika sonra hâlâ "
 "bitmemiş parti kendiliğinden iptal edilir."
+msgstr ""
+
+#: app/web/templates/profile.html
+msgid "Pasaport numarası"
 msgstr ""
 
 #: app/matching/status.py app/web/routers/employees.py
@@ -5774,6 +5806,10 @@ msgid ""
 "kaydedilince taşınabilir ve çıkarılabilir"
 msgstr ""
 
+#: app/matching/match.py
+msgid "kişisel numara olmadan ülke girilmez"
+msgstr ""
+
 #: app/training/map_import.py
 msgid "klasörde PDF, JPEG ya da PNG yok"
 msgstr ""
@@ -6671,6 +6707,12 @@ msgid ""
 "Ülkeden bağımsızdır: seçilen etiketi taşıyan her tür kalemi karşılar. "
 "Sayı, o etiketi taşıyan katalog türlerinin sayısıdır — yakın etiketler "
 "(örn. «Identity Card», «Identity Document») ayrı kalır."
+msgstr ""
+
+#: app/web/profile_form.py
+msgid ""
+"Ülkesinin vatandaşlık ya da kimlik numarası, olduğu gibi (ör. JMBG); "
+"boşluk, tire ve nokta farkı aramada yok sayılır"
 msgstr ""
 
 #: app/web/templates/training_results.html

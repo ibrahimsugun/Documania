@@ -1,8 +1,8 @@
 {% extends "base.html" %}
-{# Çalışan profilini düzenleme (10.5.6): yalnız çalışan kaydının altı alanı (ad, soyad, diğer isimler,
-   orijinal yazım, doğum tarihi, uyruk). Form §20.6'nın birinci onay metnini taşır ve hazırlığa
-   gider; ikinci onay adımı `employee_fields_step.html`'dir. Belge içeriği bu sayfadan
-   düzenlenemez (K17). #}
+{# Çalışan profilini düzenleme (10.5.6): yalnız çalışan kaydının alanları (ad, soyad, diğer isimler,
+   orijinal yazım, doğum tarihi, uyruk; 15.3.1: anne adı, baba adı, doğum yeri, kişisel numara ve
+   ülkesi). Form §20.6'nın birinci onay metnini taşır ve hazırlığa gider; ikinci onay adımı
+   `employee_fields_step.html`'dir. Belge içeriği bu sayfadan düzenlenemez (K17). #}
 {% block title %}{{ _("Profili düzenle") }}{% if target %} · {{ target.name }}{% endif %}{% endblock %}
 {% block content %}
 <p class="back"><a href="/employees/{{ employee_id }}">{{ _("← Profile dön") }}</a></p>

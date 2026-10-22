@@ -21,10 +21,12 @@ silinmiş kayıt silinmez (`EmployeeNotDeletableError`). Geri alma yoktur. Belge
    - **Olaylar (K15):** satır silinmez. Bu çalışanın olaylarının mesajı "<tür> — silinmiş çalışan"
      olur; verisinden `PERSONAL_DATA_KEYS` anahtarları her derinlikte çıkar. Ayrıca bu çalışanın,
      belgelerinin, kaynak dosyalarının ve partilerinin olaylarında kişinin değerlerini (ad, soyad,
-     yazımları, klasör adı, doğum tarihi, belge numaraları, iletişim bilgileri) taşıyan dizgeler
+     yazımları, anne ve baba adı, doğum yeri, kişisel numara, klasör adı, doğum tarihi, belge
+     numaraları, iletişim bilgileri) taşıyan dizgeler
      atılır, böyle bir mesaj genel metne çevrilir.
    - **Çalışan satırı** `deleted` iskeletine döner: E numarası, oluşturma anı, `deleted_at`,
-     `deleted_by` kalır; ad, soyad, diğer isimler, orijinal yazım, doğum tarihi, uyruk boşalır,
+     `deleted_by` kalır; ad, soyad, diğer isimler, orijinal yazım, doğum tarihi, uyruk, anne ve
+     baba adı, doğum yeri, kişisel numara ve ülkesi (15.3.1) boşalır,
      klasör adı `deleted_<E>` olur. E numarası yeniden verilmez: `allocate_employee_number` en büyük
      numarayı iskelet dahil sayar (K8).
    - Bu çalışana `merged_into_id` ile bağlı birleştirilmiş kayıtlar (10.5.9) aynı kişidir:
@@ -248,6 +250,11 @@ def delete_employee(
         person.original_script_name = None
         person.date_of_birth = None
         person.nationality = None
+        person.mother_name = None
+        person.father_name = None
+        person.place_of_birth = None
+        person.personal_number = None
+        person.personal_number_country = None
         person.folder_name = f"{DELETED_FOLDER_PREFIX}{person.id}"
         person.deleted_at = deleted_at
         person.deleted_by = actor
@@ -361,9 +368,12 @@ def _person_pattern(session: Session, people: Sequence[Employee]) -> re.Pattern[
                 person.surname,
                 person.other_names,
                 person.original_script_name,
+                person.mother_name,
+                person.father_name,
             )
             if text
         )
+        values.update(text for text in (person.place_of_birth, person.personal_number) if text)
         values.add(person.folder_name)
         names.extend(word for word in _WORDS.split(person.folder_name) if word != person.id)
         if person.date_of_birth is not None:

@@ -173,8 +173,14 @@ def test_edited_fields_are_named_in_form_order() -> None:
         "original_script_name": CYRILLIC,
         "date_of_birth": "1990-01-01",
         "nationality": "RUS",
+        # 15.3.1: onay bekleyen profil ek alanları taşımaz; sıra profil düzenlemesininki.
+        "mother_name": None,
+        "father_name": None,
+        "place_of_birth": None,
+        "personal_number": None,
+        "personal_number_country": None,
     }
-    assert tuple(PROFILE.fields().values()) == PROFILE_FIELDS
+    assert tuple(PROFILE.fields().values())[: len(PROFILE_FIELDS)] == PROFILE_FIELDS
 
 
 # --- düzeltme ikinci çalışan açtırmaz (satır 3–5a) ------------------------------------------------

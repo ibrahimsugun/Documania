@@ -181,6 +181,7 @@ from app.matching.names import (
     normalize_name,
     transliterate_name,
 )
+from app.matching.numbers import PERSONAL_NUMBER_MAX_LENGTH
 from app.matching.records import ACTIVE_ALIAS, note_seen_after_removal, number_owners
 from app.storage import DataLayout, SlugError, employee_folder_name, person_slug
 
@@ -191,6 +192,12 @@ DATE_OF_BIRTH = "date_of_birth"
 ORIGINAL_SCRIPT_NAME = "original_script_name"
 OTHER_NAMES = "other_names"
 NATIONALITY = "nationality"
+# 15.3.1: ek profil alanları (çalışan kaydı; anahtar bunları okumaz).
+MOTHER_NAME = "mother_name"
+FATHER_NAME = "father_name"
+PLACE_OF_BIRTH = "place_of_birth"
+PERSONAL_NUMBER = "personal_number"
+PERSONAL_NUMBER_COUNTRY = "personal_number_country"
 # Anahtarın okuduğu §8.4 `person` alanları; `conflicts` bu sırayla yazılır.
 KEY_FIELDS = (DOCUMENT_NUMBER, SURNAME, GIVEN_NAMES, DATE_OF_BIRTH, ORIGINAL_SCRIPT_NAME)
 # Yalnız Latin harfi taşıyan çalışan alanları (05.2.2) → `PersonKey`'deki Latin yazımları.
@@ -1246,6 +1253,17 @@ PROFILE_FIELDS = (
     DATE_OF_BIRTH,
     NATIONALITY,
 )
+# 15.3.1: profil düzenlemesinin (10.5.6) ek alanları; onay bekleyen profilin formunda (10.7.3)
+# yoktur. Kişisel numaranın ülkesi numarayla birlikte durur.
+DETAIL_FIELDS = (
+    MOTHER_NAME,
+    FATHER_NAME,
+    PLACE_OF_BIRTH,
+    PERSONAL_NUMBER,
+    PERSONAL_NUMBER_COUNTRY,
+)
+# Profil düzenleme formunun (10.5.6) bütün alanları, formdaki ve olay verisindeki sırasıyla.
+EMPLOYEE_FIELDS = PROFILE_FIELDS + DETAIL_FIELDS
 # `employees` isim sütunları `String(255)`dir.
 PROFILE_TEXT_MAX_LENGTH = 255
 _REQUIRED_NAMES = (GIVEN_NAMES, SURNAME)
@@ -1271,9 +1289,15 @@ class ProfileFields:
     original_script_name: str | None = None
     date_of_birth: date | None = None
     nationality: str | None = None
+    # 15.3.1: yalnız profil düzenlemesi (10.5.6) yazar; onaylanan profil (10.7.3) bunları taşımaz.
+    mother_name: str | None = None
+    father_name: str | None = None
+    place_of_birth: str | None = None
+    personal_number: str | None = None
+    personal_number_country: str | None = None
 
     def values(self) -> dict[str, str | None]:
-        """JSON uyumlu değerler (`PROFILE_FIELDS` sırasıyla; tarih `YYYY-AA-GG`)."""
+        """JSON uyumlu değerler (`EMPLOYEE_FIELDS` sırasıyla; tarih `YYYY-AA-GG`)."""
         born = self.date_of_birth
         return {
             GIVEN_NAMES: self.given_names,
@@ -1282,6 +1306,11 @@ class ProfileFields:
             ORIGINAL_SCRIPT_NAME: self.original_script_name,
             DATE_OF_BIRTH: None if born is None else born.isoformat(),
             NATIONALITY: self.nationality,
+            MOTHER_NAME: self.mother_name,
+            FATHER_NAME: self.father_name,
+            PLACE_OF_BIRTH: self.place_of_birth,
+            PERSONAL_NUMBER: self.personal_number,
+            PERSONAL_NUMBER_COUNTRY: self.personal_number_country,
         }
 
 
@@ -1333,6 +1362,40 @@ def check_profile_fields(fields: ProfileFields, *, today: date | None = None) ->
     nationality = fields.nationality
     if nationality is not None and not _NATIONALITY.fullmatch(nationality):
         errors[NATIONALITY] = N_("ICAO uyruk kodu olmalı (1–3 büyük harf, ör. RUS, D)")
+    errors.update(_detail_problems(fields))
+    return errors
+
+
+def _detail_problems(fields: ProfileFields) -> dict[str, str]:
+    # 15.3.1: ek alanlar serbest metindir (alfabe kuralı yok); kişisel numara olduğu gibi saklanır,
+    # biçimi denetlenmez (15.3.3) ama harf ya da rakam taşımalıdır; ülke ICAO kodudur ve numarasız
+    # girilmez.
+    errors: dict[str, str] = {}
+    texts = {
+        MOTHER_NAME: (fields.mother_name, PROFILE_TEXT_MAX_LENGTH),
+        FATHER_NAME: (fields.father_name, PROFILE_TEXT_MAX_LENGTH),
+        PLACE_OF_BIRTH: (fields.place_of_birth, PROFILE_TEXT_MAX_LENGTH),
+        PERSONAL_NUMBER: (fields.personal_number, PERSONAL_NUMBER_MAX_LENGTH),
+    }
+    for name, (value, limit) in texts.items():
+        if value is None:
+            continue
+        if not value.strip():
+            errors[name] = N_("boş olamaz")
+        elif len(value) > limit:
+            errors[name] = Translatable(N_("en fazla {limit} karakter olabilir"), limit=limit)
+        elif any(unicodedata.category(char) == "Cc" for char in value):
+            errors[name] = N_("denetim karakteri içeremez")
+        elif not any(char.isalnum() for char in value):
+            errors[name] = N_("harf ya da rakam içermiyor")
+    country = fields.personal_number_country
+    if country is not None:
+        if not _NATIONALITY.fullmatch(country):
+            errors[PERSONAL_NUMBER_COUNTRY] = N_(
+                "ICAO uyruk kodu olmalı (1–3 büyük harf, ör. RUS, D)"
+            )
+        elif fields.personal_number is None:
+            errors[PERSONAL_NUMBER_COUNTRY] = N_("kişisel numara olmadan ülke girilmez")
     return errors
 
 

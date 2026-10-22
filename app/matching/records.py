@@ -44,6 +44,7 @@ from app.db.models import (
     EmployeeIdentifier,
     EmployeeStatus,
     Event,
+    KnownDocumentType,
     utcnow,
 )
 from app.events import EventType, record_event
@@ -179,6 +180,30 @@ def active_numbers(session: Session, employee_id: str) -> frozenset[str]:
             )
         )
     )
+
+
+# 15.3.1 (PLAN.md §D123 d, e): pasaport türlerinin katalogdaki dosya etiketi. Pasaport numarası
+# ayrı sütun değildir; bu etiketli türlerden gelen etkin belge numarasıdır.
+PASSPORT_FILE_LABEL = "Passport"
+
+
+def passport_number(session: Session, employee_id: str) -> str | None:
+    """Çalışanın pasaport numarası: katalog `file_label`'ı `Passport` olan türlerden gelen etkin
+    belge numaralarının en son kaydedileni; yoksa `None`. Değer yalnız gösterim içindir, olaya
+    yazılmaz."""
+    passport_types = select(KnownDocumentType.slug).where(
+        KnownDocumentType.file_label == PASSPORT_FILE_LABEL
+    )
+    return session.scalars(
+        select(EmployeeIdentifier.value)
+        .where(
+            EmployeeIdentifier.employee_id == employee_id,
+            ACTIVE_IDENTIFIER,
+            EmployeeIdentifier.kind.in_(passport_types),
+        )
+        .order_by(EmployeeIdentifier.id.desc())
+        .limit(1)
+    ).first()
 
 
 def active_alias_keys(session: Session, employee_id: str) -> list[str]:

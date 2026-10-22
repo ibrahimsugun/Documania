@@ -51,7 +51,8 @@ ARCHIVED = DocumentStatus.ARCHIVED.value
 
 def _catalog(session: Session) -> None:
     for slug, name, label in (
-        (PASSPORT, "Rus Pasaportu", "Pasaport"),
+        # 15.3.1: pasaport numarası satırı `Passport` dosya etiketli türlerden gelir.
+        (PASSPORT, "Rus Pasaportu", "Passport"),
         (PHOTO, "Profile Picture", "Profile-Picture"),
         (ATTACHMENT, "Ek Dosya", "Attachment"),
     ):
@@ -154,9 +155,15 @@ def test_card_shows_every_field_of_the_employee(
             original_script_name="Васильев Дмитрий",
             nationality="RUS",
             date_of_birth=date_of_birth,
+            mother_name="Olga",
+            father_name="Ivan",
+            place_of_birth="Kazan",
+            personal_number="1403988 710 012",
+            personal_number_country="RUS",
         )
         session.add_all(
             [
+                EmployeeIdentifier(employee_id=employee.id, kind=PASSPORT, value="701111111"),
                 EmployeeIdentifier(employee_id=employee.id, kind=PASSPORT, value="711234567"),
                 EmployeeIdentifier(employee_id=employee.id, kind="work_permit", value="WP-0042"),
                 EmployeeContact(
@@ -201,10 +208,17 @@ def test_card_shows_every_field_of_the_employee(
         "Vatandaşlık": "Rusya (RUS)",
         "Doğum tarihi": "14.03.1988",
         "Yaş": str(calculate_age(date_of_birth, today=date.today())),
+        # 15.3.1: ek alanlar; kişisel numara olduğu gibi, ülkesiyle; pasaport numarası pasaport
+        # türlerinin en son kaydedilen numarası.
+        "Anne adı": "Olga",
+        "Baba adı": "Ivan",
+        "Doğum yeri": "Kazan",
+        "Kişisel numara": "1403988 710 012 · Rusya (RUS)",
+        "Pasaport numarası": "711234567",
         "Telefon": "+90 555 000 11 22 +90 555 999 88 77",
         "E-posta": "dmitry@example.test",
         "Adres": "Örnek Mah. 1. Sok. No:2, İstanbul",
-        "Belge numaraları": "Rus Pasaportu 711234567 work_permit WP-0042",
+        "Belge numaraları": "Rus Pasaportu 701111111 Rus Pasaportu 711234567 work_permit WP-0042",
     }
     card = response.text.split('<section class="profile-card"', 1)[1].split("</section>", 1)[0]
     assert "+90 555 111 11 11" not in card
@@ -230,6 +244,11 @@ def test_unknown_fields_show_a_dash_instead_of_disappearing(
         "Vatandaşlık": EMPTY,
         "Doğum tarihi": EMPTY,
         "Yaş": EMPTY,
+        "Anne adı": EMPTY,
+        "Baba adı": EMPTY,
+        "Doğum yeri": EMPTY,
+        "Kişisel numara": EMPTY,
+        "Pasaport numarası": EMPTY,
         "Telefon": EMPTY,
         "E-posta": EMPTY,
         "Adres": EMPTY,

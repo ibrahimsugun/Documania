@@ -336,6 +336,29 @@ def test_lists_searches_and_merge_do_not_show_a_deleted_employee(
     assert GONE not in moves.text
 
 
+def test_the_personal_number_is_emptied_and_no_longer_found(
+    client: TestClient, world: dict[str, int], session_factory: sessionmaker[Session]
+) -> None:
+    # 15.3.1: kalıcı silme kişisel numarayı (ve öteki ek alanları) boşaltır; arama bulmaz.
+    with session_factory() as session:
+        employee = session.get_one(Employee, GONE)
+        employee.personal_number, employee.personal_number_country = "1204991715003", "SRB"
+        employee.mother_name = "Dragana"
+        session.commit()
+    assert f"/employees/{GONE}" in client.get("/employees?status=all&q=1204991-715003").text
+
+    _delete(client)
+
+    assert f"/employees/{GONE}" not in client.get("/employees?status=all&q=1204991715003").text
+    with session_factory() as session:
+        employee = session.get_one(Employee, GONE)
+        assert (
+            employee.personal_number,
+            employee.personal_number_country,
+            employee.mother_name,
+        ) == (None, None, None)
+
+
 def test_a_failed_file_removal_is_reported(
     client: TestClient,
     world: dict[str, int],

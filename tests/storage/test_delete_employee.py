@@ -481,6 +481,41 @@ def test_an_inactive_employee_is_deleted_with_documents_records_and_folder(
     assert event.message is None
 
 
+def test_the_detail_fields_are_emptied_and_the_events_keep_only_the_field_names(
+    session: Session, layout: DataLayout, world: dict[str, Any]
+) -> None:
+    # 15.3.1: anne ve baba adı, doğum yeri, kişisel numara ve ülkesi iskelette boşalır; olayların
+    # alan adları kalır, kişinin bu değerlerini taşıyan dizge atılır.
+    employee = session.get_one(Employee, GONE)
+    employee.mother_name, employee.father_name = "Dragana", "Bogdan"
+    employee.place_of_birth, employee.personal_number = "Kragujevac", "1204991-715003"
+    employee.personal_number_country = "SRB"
+    fields = ["mother_name", "father_name", "place_of_birth", "personal_number"]
+    edited = record_event(
+        session, EventType.EMPLOYEE_EDITED, employee_id=GONE, actor=ACTOR, data={"fields": fields}
+    )
+    leaked = record_event(
+        session,
+        EventType.FILE_UPLOADED,
+        file_id=world["shared"],
+        data={"note": "Kragujevac doğumlu", "size": 1},
+    )
+    session.commit()
+
+    _delete(session, layout)
+
+    employee = session.get_one(Employee, GONE)
+    assert (
+        employee.mother_name,
+        employee.father_name,
+        employee.place_of_birth,
+        employee.personal_number,
+        employee.personal_number_country,
+    ) == (None, None, None, None, None)
+    assert session.get_one(Event, edited.id).data_json == {"fields": fields}
+    assert session.get_one(Event, leaked.id).data_json == {"size": 1}
+
+
 def test_only_an_inactive_employee_is_deleted(
     session: Session, layout: DataLayout, world: dict[str, Any]
 ) -> None:

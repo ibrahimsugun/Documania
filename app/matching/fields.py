@@ -18,7 +18,9 @@ farklı okuyorsa (çelişki) alanın değeri yoktur.
 - alan boşsa (`None` ya da boş metin) belgedeki değerle doldurulur → `filled`;
 - alan doluysa **hiçbir durumda değiştirilmez**: değerler aynıysa `same`, farklıysa `conflict`.
   İsim alanlarında aynılık §20.2.1 normalizasyonudur (`normalize_name`: harf çevirisi, aksan,
-  büyük/küçük harf, noktalama, kelime sırası); doğum tarihinde takvim günü, uyrukta ICAO kodu.
+  büyük/küçük harf, noktalama, kelime sırası) — anne ve baba adında, doğum yerinde de (15.3.1);
+  doğum tarihinde takvim günü, uyrukta ICAO kodu, kişisel numarada boşluk/tire/nokta farkı yok
+  sayılarak numara (15.3.3, `app.matching.numbers`).
   `conflict` profil kartında "<alan>: belgede farklı değer okundu" uyarısıdır (10.5.1).
 
 Yeni açılan çalışanın alanlarını `create_employee` aynı anahtardan yazmıştır; `created` çağrısı
@@ -48,6 +50,7 @@ from app.db.models import Employee, EmployeeFieldObservation, FieldOutcome, Prof
 from app.events import EventType, record_event
 from app.matching.match import PersonKey
 from app.matching.names import EmptyNameError, normalize_name
+from app.matching.numbers import same_personal_number
 
 FILL_RULE = "05.7.3"
 FILL_SOURCE = "document"
@@ -56,6 +59,10 @@ _NAME_FIELDS = (
     ProfileField.SURNAME,
     ProfileField.OTHER_NAMES,
     ProfileField.ORIGINAL_SCRIPT_NAME,
+    # 15.3.1: anne ve baba adı, doğum yeri de §20.2.1 normalizasyonuyla karşılaştırılır.
+    ProfileField.MOTHER_NAME,
+    ProfileField.FATHER_NAME,
+    ProfileField.PLACE_OF_BIRTH,
 )
 
 
@@ -75,7 +82,9 @@ def document_field_values(key: PersonKey) -> dict[ProfileField, str | date]:
     """Anahtarın profil alanı değerleri (`PersonKey.employee_fields()`), `ProfileField` sırasıyla;
     değeri olmayan alan yoktur."""
     values = key.employee_fields()
-    return {field: value for field in ProfileField if (value := values[field.value]) is not None}
+    return {
+        field: value for field in ProfileField if (value := values.get(field.value)) is not None
+    }
 
 
 def complete_profile_fields(
@@ -159,6 +168,8 @@ def _same(field: ProfileField, current: str | date, value: str | date) -> bool:
         return _name_key(str(current)) == _name_key(str(value))
     if field is ProfileField.NATIONALITY:
         return str(current).strip().upper() == str(value).strip().upper()
+    if field is ProfileField.PERSONAL_NUMBER:
+        return same_personal_number(str(current), str(value))
     return current == value
 
 

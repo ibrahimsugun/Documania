@@ -34,7 +34,7 @@ def _assert_schema_matches_models(database_url: str) -> None:
             assert tables == set(Base.metadata.tables) | {"alembic_version"}
             context = MigrationContext.configure(connection, opts={"compare_type": True})
             assert compare_metadata(context, Base.metadata) == []
-            assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "0029"
+            assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "0030"
     finally:
         engine.dispose()
 
@@ -1546,6 +1546,60 @@ def test_user_roles_migration_opens_no_root_without_zvz(sqlite_url: str) -> None
         command.upgrade(config, "head")
         with engine.connect() as connection:
             assert connection.execute(text("SELECT role FROM users")).all() == [("hr",)]
+    finally:
+        engine.dispose()
+
+
+def test_employee_detail_fields_migration_adds_nullable_columns_and_is_reversible(
+    sqlite_url: str,
+) -> None:
+    # 0030 (15.3.1): beş ek alan boş olabilir, var olan çalışanınki boş kalır; `status` CHECK'i
+    # tablo yeniden kurulurken korunur; gözlem CHECK'i dört yeni alanı kabul eder, ülkeyi (ayrı
+    # alan değil) kabul etmez. Geri alış sütunları ve yeni alanların gözlemlerini kaldırır.
+    config = _alembic_config(sqlite_url)
+    command.upgrade(config, "0029")
+    engine = create_engine(sqlite_url)
+    detail = ("mother_name", "father_name", "place_of_birth", "personal_number")
+    observe = text(
+        "INSERT INTO employee_field_observations (employee_id, field, outcome, observed_at, "
+        "source, actor) VALUES ('E0001', :field, 'filled', '2026-10-23 00:00:00', 'manual', 'ik')"
+    )
+    try:
+        with engine.begin() as connection:
+            connection.execute(
+                text(
+                    "INSERT INTO employees (id, folder_name, given_names, surname, status, "
+                    "created_at) VALUES ('E0001', 'Test_Kisi_E0001', 'Test', 'Kisi', 'active', "
+                    "'2026-10-23 00:00:00')"
+                )
+            )
+            connection.execute(observe, {"field": "nationality"})
+
+        command.upgrade(config, "0030")
+        with engine.connect() as connection:
+            columns = {c["name"]: c for c in inspect(connection).get_columns("employees")}
+            for name in (*detail, "personal_number_country"):
+                assert columns[name]["nullable"]
+            assert connection.execute(
+                text(f"SELECT {', '.join(detail)}, personal_number_country FROM employees")
+            ).all() == [(None, None, None, None, None)]
+        with engine.begin() as connection:
+            for name in detail:
+                connection.execute(observe, {"field": name})
+        for invalid in ("personal_number_country", "passport_number"):
+            with pytest.raises(IntegrityError), engine.begin() as connection:
+                connection.execute(observe, {"field": invalid})
+        with pytest.raises(IntegrityError), engine.begin() as connection:
+            connection.execute(text("UPDATE employees SET status = 'removed'"))
+
+        command.downgrade(config, "0029")
+        with engine.connect() as connection:
+            columns = {c["name"] for c in inspect(connection).get_columns("employees")}
+            assert not columns & {*detail, "personal_number_country"}
+            fields = connection.execute(
+                text("SELECT field FROM employee_field_observations ORDER BY id")
+            ).scalars()
+            assert list(fields) == ["nationality"]
     finally:
         engine.dispose()
 

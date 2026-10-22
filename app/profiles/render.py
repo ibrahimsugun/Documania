@@ -11,6 +11,8 @@ Kimlik tablosunun "Durum" satırı çalışanın durumunu gösterir (Aktif, Pasi
 ve kimlik tablosu aynı kimlik alanlarını taşır: `given_names`/`surname` Latin yazımdır
 (05.2.2), `original_script_name` ismin belgede basılı hâlidir — alfabesi ne olursa olsun, Latin
 belgede de dolu. İkisi birlikte göründüğü için ayrı bir dönüştürme adımı gerekmez (09.1.2).
+15.3.1'in ek alanları — anne adı, baba adı, doğum yeri, kişisel numara (ülkesiyle) — ve pasaport
+numarası (`app.matching.records.passport_number`) da iki yerde durur.
 Okunmamış alan `—` ile gösterilir; içerik üretilmez, yalnız var olan veritabanı satırı
 görüntülenir (K11, K17). İK'nın profilden kaldırdığı belge numarası ve iletişim bilgisi (10.5.8)
 ve kalıcı silinen belge (10.5.12) dosyaya girmez.
@@ -47,7 +49,7 @@ from app.db.models import (
     KnownDocumentType,
 )
 from app.groups import PackageView, employee_packages
-from app.matching.records import ACTIVE_CONTACT, ACTIVE_IDENTIFIER
+from app.matching.records import ACTIVE_CONTACT, ACTIVE_IDENTIFIER, passport_number
 from app.matching.status import status_label
 from app.storage import DataLayout, StoredFile, replace_file
 
@@ -84,8 +86,9 @@ def render_profile(session: Session, employee: Employee, *, today: date | None =
         if employee.date_of_birth is None
         else calculate_age(employee.date_of_birth, today=reference_date)
     )
+    passport = passport_number(session, employee.id)
     front_matter = yaml.safe_dump(
-        _front_matter_data(employee, identifiers, contacts, age),
+        _front_matter_data(employee, identifiers, contacts, age, passport),
         allow_unicode=True,
         default_flow_style=False,
         sort_keys=False,
@@ -93,7 +96,7 @@ def render_profile(session: Session, employee: Employee, *, today: date | None =
     return (
         f"---\n{front_matter}---\n\n"
         f"# {employee.given_names} {employee.surname}\n\n"
-        f"{_identity_table(employee, identifiers, contacts, age)}\n"
+        f"{_identity_table(employee, identifiers, contacts, age, passport)}\n"
         f"{_document_list(documents)}\n"
         f"{_package_list(employee_packages(session, employee.id))}"
     )
@@ -176,6 +179,7 @@ def _front_matter_data(
     identifiers: Sequence[EmployeeIdentifier],
     contacts: Sequence[EmployeeContact],
     age: int | None,
+    passport: str | None,
 ) -> dict[str, Any]:
     return {
         "employee_id": employee.id,
@@ -187,6 +191,12 @@ def _front_matter_data(
         "nationality": employee.nationality,
         "date_of_birth": employee.date_of_birth,
         "age": age,
+        "mother_name": employee.mother_name,
+        "father_name": employee.father_name,
+        "place_of_birth": employee.place_of_birth,
+        "personal_number": employee.personal_number,
+        "personal_number_country": employee.personal_number_country,
+        "passport_number": passport,
         "document_numbers": [
             {"kind": identifier.kind, "value": identifier.value} for identifier in identifiers
         ],
@@ -199,6 +209,7 @@ def _identity_table(
     identifiers: Sequence[EmployeeIdentifier],
     contacts: Sequence[EmployeeContact],
     age: int | None,
+    passport: str | None,
 ) -> str:
     numbers = ", ".join(f"{i.kind}: {i.value}" for i in identifiers) or _EMPTY
     contact_by_kind = {contact.kind: contact.value for contact in contacts}
@@ -212,12 +223,26 @@ def _identity_table(
         ("Vatandaşlık", employee.nationality or _EMPTY),
         ("Doğum tarihi", employee.date_of_birth.isoformat() if employee.date_of_birth else _EMPTY),
         ("Yaş", str(age) if age is not None else _EMPTY),
+        ("Anne adı", _cell(employee.mother_name) if employee.mother_name else _EMPTY),
+        ("Baba adı", _cell(employee.father_name) if employee.father_name else _EMPTY),
+        ("Doğum yeri", _cell(employee.place_of_birth) if employee.place_of_birth else _EMPTY),
+        ("Kişisel numara", _personal_number(employee)),
+        ("Pasaport numarası", passport or _EMPTY),
         ("Belge numaraları", numbers),
         *((label, contact_by_kind.get(kind, _EMPTY)) for kind, label in _CONTACT_LABELS.items()),
     ]
     header = "## Kimlik\n\n| Alan | Değer |\n|---|---|\n"
     body = "".join(f"| {field} | {value} |\n" for field, value in rows)
     return header + body
+
+
+def _personal_number(employee: Employee) -> str:
+    # 15.3.1: numara olduğu gibi, yanında ülkesinin kodu.
+    if not employee.personal_number:
+        return _EMPTY
+    number = _cell(employee.personal_number)
+    country = employee.personal_number_country
+    return f"{number} ({country})" if country else number
 
 
 def _document_list(documents: Sequence[tuple[Document, KnownDocumentType]]) -> str:
