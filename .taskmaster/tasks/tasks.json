@@ -2730,27 +2730,12 @@
         "priority": "medium",
         "subtasks": [],
         "updatedAt": "2026-10-22T22:35:37.000Z"
-      },
-      {
-        "id": "187",
-        "title": "§5.2 — Faz 1 (v1) yeniden kapanış denetimi: hazır şablonlar, çıktı hazırlama ve ek profil alanları sonrası ölçütü yeniden kanıtla; KF1 üçüncü tur [OPUS-HIGH]",
-        "description": "PRD §5.2 · Faz 1. FR-MOD-15 (tm 180–186) Faz 1 Kapanış hücresini AÇIK'a çevirdi (PLAN §0). Ölçüt: İK belge yükleyip kuyruğu çözüp profilde görüp açabiliyor; katalog panelden yönetiliyor; yeni tür onayı uçtan uca. Yeni modülün ölçütü bozmadığı kanıtlanır.",
-        "details": "KAPSAM: PLAN §0 Faz 1 satırı, `#### KF1`; tm 171/178 kalıbı — önce HANDOFF'taki tm 178 bloğunu oku.\n\nNE YAPILACAK: (1) `tests/web/test_phase1_closure.py` (ya da ardılı) ölçüt testlerini FR-MOD-15 sonrası koda karşı koştur; üretilen belgenin belge listesi, paket, kuyruk ve bot akışlarına karışmadığını ölçüt testine ekle (S29 ile çakışmayan tek assert). (2) PLAN §0 Faz 1 hücresi `✅ → KF1`, `#### KF1`'e madde, sayım kuralı (CONVENTIONS §1.3) ile sayılar. (3) `node scripts/arsiv-dondur.mjs --apply` gerekiyorsa aynı commit'te.\n\nÇIKTI: PLAN, HANDOFF, test eki; kod değişmez (bulgu varsa yeni görev açılır, burada düzeltilmez).\n\nBU GÖREVİ BAĞLAYAN KİLİTLİ KURALLAR: PLAN §D123 (sözleşme — önce oku), R2/R11, K8 (adlandırma), K9/R10 (dondurulmuş harita), K15 (olay; kişisel değer yok), 10.1.8 (yetki), 10.10.3 (üç dil, `python -m app.i18n extract|update|compile|check`), 10.11.1 (bildirim kaydı), docs/ARAYUZ-STANDARDI.md (şablon ve stil; `tests/web/test_ui_standard.py`), MASTER-PROMPT yol kuralı (yol yalnız `app/storage/`), §8 (sütun ve olay adları).\n\nKAPANIŞ: PLAN satırları ✅ → K15.x (yeni blok `#### K15.1` / `K15.2` / `K15.3`), HANDOFF bloğu, Task Master done, commit mesajında `PRD 15.x — tm <id>`; CONVENTIONS §1 kapısı (tam paralel koşu uzun sürerse HANDOFF'a hangi klasörlerin koşulduğunu yaz).",
-        "testStrategy": "tests/web/test_phase1_closure.py yeşil; tam paralel kapı; sayım komutları §0 ile eşit.",
-        "status": "pending",
-        "dependencies": [
-          "181",
-          "186"
-        ],
-        "priority": "critical",
-        "subtasks": [],
-        "updatedAt": "2026-10-22T22:35:37.000Z"
       }
     ],
     "metadata": {
       "version": "1.0.0",
       "lastModified": "2026-10-22T22:35:37.000Z",
-      "taskCount": 187,
+      "taskCount": 186,
       "completedCount": 179,
       "tags": [
         "master"
