@@ -20,6 +20,12 @@ Blok biçimi `CONVENTIONS.md` §3'te tanımlıdır:
 
 ## Task log (newest-first)
 
+## Panel yeniden tasarımı + arayüz standardı — done — 2026-10-23 (interaktif oturum: insan isteği, tm yok)
+- Yapıldı: `base.html` sol gezinmeli SaaS kabuğu; `panel.css` baştan yazıldı (tasarım değişkenleri + bileşenler), `theme.css` yalnız palet (açık/koyu). Şablon işaretlemesi değişmedi, i18n kataloğuna yeni msgid girmedi. `docs/ARAYUZ-STANDARDI.md` standardı ve `tests/web/test_ui_standard.py` denetimi eklendi; `CLAUDE.md` ona bağlandı. Karar §D122, kanıt K10.1.
+- Doğrulama: `pytest tests/web -n 4` 1538 geçti, 3 kırmızı — `test_language_preference::test_stylesheet_styles_the_selector` düzeltildi (seçici panel.css'e geri kondu); `test_training_map`/`test_training_decisions` D58 testleri `PLAN.md`'de artık olmayan `- **D58 —` bloğunu arıyor (fd50142 arşivleme commit'inden kalma, bu değişiklikten bağımsız). ruff check/format, `python -m app.i18n check` exit 0. Tarayıcıda açık/koyu temada 9 sayfa bakıldı.
+- Varsayımlar: 10.1.7'nin "degrade zemin / cam çubuk" tarifi görünüm tercihi sayıldı, ölçülen maddeleri korundu (§D122 b). Yerel önizleme için `uipreview` İK hesabı açıldı (geliştirme DB'si); gerekmiyorsa Kullanıcılar sayfasından pasife alın.
+- Sonraki pencereye not: D58 testleri için ayrı küçük görev: testler `docs/archive/plan-kanit/` dosyasını okumalı ya da D58 metni PLAN'a geri alınmalı. Şablon/stil değişikliği yapan her pencere önce `docs/ARAYUZ-STANDARDI.md`'yi okur.
+
 ## 179 — Kullanıcılar sayfası düğme düzeni — done — 2026-10-14
 - Yapıldı: Pasife al / Yeniden etkinleştir kullanıcı adı hücresine taşındı; rol düğmesi «Değiştir», parola düğmesi «Sıfırla» (en: Change/Reset, sr: Promeni/Resetuj). Sunucu tarafı değişmedi.
 - Doğrulama: tam paralel kapı 7007 geçti, 5 atlandı (PostgreSQL), exit 0; ruff check ve `python -m app.i18n check` exit 0.

@@ -4,7 +4,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Documania panel\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-13 23:37+0000\n"
+"POT-Creation-Date: 2026-10-22 22:19+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -6248,8 +6248,8 @@ msgstr ""
 msgid "Çalışan"
 msgstr ""
 
-#: app/web/templates/employee_merge.html app/web/templates/history.html
-#: app/web/templates/queue_item.html
+#: app/web/templates/base.html app/web/templates/employee_merge.html
+#: app/web/templates/history.html app/web/templates/queue_item.html
 msgid "Çalışan ara"
 msgstr ""
 

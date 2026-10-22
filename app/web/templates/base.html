@@ -16,7 +16,10 @@
   {# 10.11.1: JavaScript kapalıyken bildirim sayfanın başında kalıcı not olarak durur. #}
   <noscript><style>.toasts { position: static; width: auto; margin: 0.75rem 1rem; } .toast { animation: none; }</style></noscript>
 </head>
-<body>
+{# Uygulama kabuğu: girişli sayfada sol gezinme sütunu (`.topbar`), içerik sütununun üstünde araç
+   şeridi (`.page-tools`) ve içerik (`.content`); girişsiz sayfa (`body.auth`) tek sütundur. Sınıf
+   adları testlerin ve PRD 10.1.x'in tanıdığı adlardır; yerleşimi panel.css verir. #}
+<body class="{% if user %}app{% else %}auth{% endif %}">
   {# 10.10.1: arayüz metinleri isteğin dilinde (`_()`, `{% trans %}`); kullanıcı adı gibi veri
      taşıyan öğeler `translate="no"` alır, çevrilmez (PLAN.md §D92 f, g). #}
   {# 13.5.3: kod ya da şablon açılıştan sonra değiştiyse bellekteki kod eskidir (PLAN.md §D77). #}
@@ -25,7 +28,7 @@
   {% endif %}
   {% if user %}
   <header class="topbar">
-    <a class="brand" href="/">Documania</a>
+    <a class="brand" href="/"><span class="brand-mark" aria-hidden="true"></span><span class="brand-name">Documania</span></a>
     <nav class="menu" aria-label="{{ _('Ana menü') }}">
       {# 10.1.8: salt okunur Kullanıcı'da Yükle menüsü yoktur (yazma yolu; `user.can_write`). #}
       {% for entry in menu if entry.key != "upload" or user.can_write %}
@@ -37,16 +40,22 @@
     <a class="tool-link{% if active == 'access_log' %} active{% endif %}" href="/access-log"{% if active == 'access_log' %} aria-current="page"{% endif %}>{{ _("Erişim logu") }}</a>
     {% endif %}
     <form class="session" method="post" action="/logout">
-      <span class="username" translate="no">{{ user.username }}</span>
-      {# 10.1.8: "Root" etiketi yalnız root'un kendi ekranında; başka hiçbir yerde rol root görünmez. #}
-      {% if user.is_root %}<span class="badge role-badge" translate="no">Root</span>{% endif %}
+      <span class="avatar" aria-hidden="true" translate="no">{{ user.username[:1]|upper }}</span>
+      <span class="session-who">
+        <span class="username" translate="no">{{ user.username }}</span>
+        {# 10.1.8: "Root" etiketi yalnız root'un kendi ekranında; başka hiçbir yerde rol root görünmez. #}
+        {% if user.is_root %}<span class="badge role-badge" translate="no">Root</span>{% endif %}
+      </span>
       <button type="submit">{{ _("Çıkış") }}</button>
     </form>
   </header>
-  {# 10.10.2, 10.1.7: dil seçici ve tema düğmesi üst çubuğun altında, içeriğin sağ üstünde; üst çubuk
-     menüye yer kalsın diye yalnız gezinme ve oturumu taşır. Dil seçimi hesaba kaydedilir, aynı
-     sayfaya dönülür. #}
+  {# 10.10.2, 10.1.7: dil seçici ve tema düğmesi içerik sütununun üst şeridinde, sağda; solda
+     çalışan araması (10.4.2'nin arama sayfasına gider). Dil seçimi hesaba kaydedilir, aynı sayfaya
+     dönülür. #}
   <div class="page-tools">
+    <form class="global-search" method="get" action="/employees" role="search">
+      <input type="search" name="q" maxlength="100" placeholder="{{ _('Çalışan ara') }}" aria-label="{{ _('Çalışan ara') }}" autocomplete="off">
+    </form>
     {% with back = language_return_path(request) %}{% include "_language_selector.html" %}{% endwith %}
     <button type="button" class="theme-toggle" data-theme-toggle aria-pressed="false" aria-label="{{ _('Açık ya da koyu tema') }}" title="{{ _('Açık ya da koyu tema') }}"><span class="icon-light" aria-hidden="true">☾</span><span class="icon-dark" aria-hidden="true">☀</span></button>
   </div>

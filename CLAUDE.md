@@ -16,6 +16,9 @@ açılmış olsun — aşağıdaki kurallara uyar.
   Fazlalık aynı commit'te `node scripts/arsiv-dondur.mjs --apply` ile taşınır (CONVENTIONS §1.2, §3).
 - **Kural gerekçeleri:** `docs/conventions-gerekce.md` (kural değil, tarihçe; okuma zorunlu değil).
 - **Tarihsel kaynak:** `docs/UYGULAMA-PLANI-KAYNAK.md` — ilk uygulama planı. Taşınmaz, silinmez.
+- **Panel şablonu/stili değişiyorsa:** `docs/ARAYUZ-STANDARDI.md` (katmanlar, sayfa anatomisi, bileşen sözlüğü,
+  hook kaydı). `tests/web/test_ui_standard.py` standardı denetler; yeni sınıf, satır içi stil ya da simgesiz menü
+  girdisi kapıda kırmızıdır.
 - **Tek orkestratör:** implementasyon subagent'a dağıtılmaz; pencere kendi araçlarıyla çalışır.
 
 ## Otonom döngüde

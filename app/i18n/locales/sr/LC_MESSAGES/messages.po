@@ -4,8 +4,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Documania panel\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-13 23:38+0000\n"
-"PO-Revision-Date: 2026-10-13 23:38+0000\n"
+"POT-Creation-Date: 2026-10-22 22:19+0000\n"
+"PO-Revision-Date: 2026-10-22 22:19+0000\n"
 "Last-Translator: Documania görev penceresi (gözden geçirilmeli)\n"
 "Language: sr_Latn\n"
 "Language-Team: Srpski\n"
@@ -6935,8 +6935,8 @@ msgstr "«Poveži Telegram» je isključeno."
 msgid "Çalışan"
 msgstr "Zaposleni"
 
-#: app/web/templates/employee_merge.html app/web/templates/history.html
-#: app/web/templates/queue_item.html
+#: app/web/templates/base.html app/web/templates/employee_merge.html
+#: app/web/templates/history.html app/web/templates/queue_item.html
 msgid "Çalışan ara"
 msgstr "Pretraži zaposlene"
 
