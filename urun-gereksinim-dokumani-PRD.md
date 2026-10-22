@@ -47,7 +47,7 @@ Bu kurallar ürünün kimliğidir; teknik karşılıkları `MASTER-PROMPT.md` §
 |----|-------|
 | R1 | **Okunaklılık tek kabul ölçütüdür.** Belge türünün zorunlu alanlarının hepsi okunaklıysa belge kabul edilir. Bir tanesi bile okunamıyorsa belge Unreadable kuyruğuna gider ve hangi alanın okunamadığı yazılır. Ayrı bir "güven skoru" yoktur. |
 | R2 | **Orijinal dokunulmazdır.** Yüklenen dosya hiçbir koşulda değiştirilmez. |
-| R3 | **İçerik üretilmez.** Sistem isim, tarih, numara değiştirmez; form doldurmaz; eksik bilgi eklemez; belgedeki yazıyı yeniden üretmez. |
+| R3 | **İçerik üretilmez.** Sistem isim, tarih, numara değiştirmez; form doldurmaz; eksik bilgi eklemez; belgedeki yazıyı yeniden üretmez. Kural **çalışan belgeleri** içindir (yüklenen orijinaller ve onlardan üretilen çıktı belgeleri). İK'nın kendi hazır şablonundan çalışan profili verisiyle üretilen **üretilen belge** (FR-MOD-15) ayrı bir varlık sınıfıdır: şablonun kopyasına yalnız profildeki değerler yazılır, belgeden okunan içerik yeniden üretilmez, imza ve kaşe alanı boş kalır; üretilen belge boru hattına, eşleştirmeye ve paketlere girmez (insan kararı 2026-10-23, PLAN §D123). |
 | R4 | **Yalnız fiziksel düzenleme.** İzinli işlemler: sayfa çıkarma, sayfa birleştirme, görüntüyü kayıpsız PDF'e sarma, gömülü görüntüyü kayıpsız çıkarma, sabit çözünürlükle görüntüye çevirme, yeniden adlandırma, kopyalama, taşıma. |
 | R5 | **Direkt Belge bütünlüğü.** `direct` işaretli türlerde başka dosyayla birleştirme, format dönüştürme ve yeniden kodlama yasaktır; yalnız tek kaynaktan ardışık sayfa çıkarma serbesttir. |
 | R6 | **Ardışıklık güvenliği.** Bir belgenin sayfaları arasına başka belgeye ait sayfa girmişse sistem bunları otomatik birleştirmez. |
@@ -56,7 +56,7 @@ Bu kurallar ürünün kimliğidir; teknik karşılıkları `MASTER-PROMPT.md` §
 | R9 | **Yalnız isimden çalışan doğmaz.** Kayıtlı çalışanla eşleşme yoksa otomatik yeni çalışan profili yalnız temiz okunmuş bir belge numarası varsa, ya da Latin harfli ad-soyad ile okunaklı doğum tarihi varsa (doğum tarihi türün zorunlu alanıysa) açılır. Yalnız ad-soyad okunduysa profil onaya düşer. |
 | R10 | **Karar bir kez verilir.** Yapay zekâ analizi Plan JSON olarak dondurulur; fiziksel işlemler bu plandan yürütülür, yeniden yapay zekâya sorulmaz. |
 | R11 | **Sistem kendiliğinden silmez; kalıcı silme yalnız İK'nın elindedir.** Günlük düzen arşivle yürür. İK bir belgeyi (10.5.12) ya da işten ayrılan, pasife alınmış bir çalışanı bütün belgeleriyle (10.5.13) iki aşamalı onayla kalıcı siler: dosyalar diskten, kişisel veriler veritabanından gider; kayıt iskeleti (E numarası, belge kimliği, tür, tarih, kim sildi) "silindi" durumuyla kalır, olay ve erişim logu kırılmaz. Telegram kimlik kaydı da silinebilir (12.1.10): numara başka hesaba bağlanabilsin diye kayıt silinir, izi olay logunda kalır. |
-| R12 | **Manuel içerik düzenleme yoktur.** Kullanıcı belge içeriğini hiçbir arayüzden değiştiremez; yalnız belgenin hangi çalışana ait olduğunu iki aşamalı onayla değiştirebilir. |
+| R12 | **Manuel içerik düzenleme yoktur.** Kullanıcı belge içeriğini hiçbir arayüzden değiştiremez; yalnız belgenin hangi çalışana ait olduğunu iki aşamalı onayla değiştirebilir. Hazır şablonun alan haritasını (hangi boşluğa hangi profil alanı yazılacağı) düzenlemek belge içeriği düzenlemek değildir; üretilen belgenin metni ise hiçbir arayüzden düzenlenmez — yanlışsa profil düzeltilir ve belge yeniden üretilir (FR-MOD-15). |
 | R13 | **Her işlem izlenebilir.** Üretilen her çıktı hangi kaynak dosyanın hangi sayfalarından üretildiğini taşır. |
 
 ## 4. Sözlük
@@ -79,6 +79,9 @@ Bu kurallar ürünün kimliğidir; teknik karşılıkları `MASTER-PROMPT.md` §
 | Dosya etiketi | Türün ülkeden bağımsız adı (`file_label`, örn. Passport); çıktı adında (K8) ve belge grubu kalemi eşleşmesinde (14.1.2) kullanılır |
 | Belge grubu | Bir süreç için gereken belge kalemlerinin adlandırılmış listesi (örn. "Sırbistan iş başvurusu": fotoğraf, pasaport, kimlik, çevirili diploma) |
 | Belge paketi | Bir belge grubunun bir çalışana tanımlanmış örneği; kalemleri çalışanın etkin belgeleriyle karşılanır, hepsi karşılanınca paket tamamlanır |
+| Hazır şablon | İK'nın çalışanlar için çıktı alacağı, boşlukları çalışan bilgisiyle dolacak belge kalıbı (örn. iş sözleşmesi, başvuru formu); çalışan belgesi değildir, `KnownDocuments/_sablonlar/` altında durur (FR-MOD-15) |
+| Alan haritası | Bir hazır şablonun hangi boşluğuna hangi çalışan profili alanının, hangi sayfa ve koordinata yazılacağını söyleyen dondurulmuş JSON (§8.7); yapay zekâ önerir, İK onaylar |
+| Üretilen belge | Hazır şablonun kopyasına çalışanın profil değerleri yazılarak oluşturulan PDF; çalışanın `Uretilen/` klasöründe durur, boru hattına, eşleştirmeye ve paketlere girmez (FR-MOD-15) |
 
 ## 5. Fazlar
 
@@ -97,7 +100,7 @@ olay logu baştan sona okunabiliyor; her çıktının kökeni yazılı; yeniden 
 
 **Hedef:** İK'nın günlük kullanabileceği web paneli ve kendini genişleten belge kataloğu.
 
-Kapsam: FR-MOD-10, FR-MOD-11 (11.1–11.5, 11.9), FR-MOD-14.
+Kapsam: FR-MOD-10, FR-MOD-11 (11.1–11.5, 11.9), FR-MOD-14, FR-MOD-15 (2026-10-23 açılışı).
 
 **Kapanış ölçütü:** İK bir belgeyi yükleyip, kuyruğu çözüp, profilde görüp yeni sekmede
 açabiliyor; katalog panelden yönetiliyor; yeni tür onayı uçtan uca çalışıyor.
@@ -287,7 +290,7 @@ Kapsam: FR-MOD-13.
 
 | ID | Gereksinim | Kabul kriteri | Öncelik |
 |---|---|---|---|
-| 10.1.1 | Panel iskeleti ve gezinme | Çalışanlar, Yükle, Belge Türleri, Belge Grupları, Kuyruklar, Yüklemeler, Eğitim modu, Kullanıcılar menüleri bu sırayla açılır; panelin ana sayfası (`/`) Çalışanlar'dır | Must (v1) |
+| 10.1.1 | Panel iskeleti ve gezinme | Çalışanlar, Yükle, Belge Türleri, Belge Grupları, Hazır Şablonlar (15.1.1'den itibaren), Kuyruklar, Yüklemeler, Eğitim modu, Kullanıcılar menüleri bu sırayla açılır; panelin ana sayfası (`/`) Çalışanlar'dır | Must (v1) |
 | 10.1.2 | Oturum tabanlı giriş | Girişsiz hiçbir panel yolu açılmaz | Must (v1) |
 | 10.1.3 | İlk kullanıcı oluşturma | Komut satırından ilk yönetici oluşturulabilir | Must (v1) |
 | 10.1.4 | Kullanıcı yönetimi | Panelde "Kullanıcılar" sayfası (işlemler İK ve root'ta; Kullanıcı rolü listeyi salt okunur görür, 10.1.8): kullanıcı listesi; yeni kullanıcı (kullanıcı adı, parola, rol: İK ya da Kullanıcı); rol değiştirme; kendi parolasını değiştirme; başka kullanıcının parolasını sıfırlama; pasife alma ve yeniden etkinleştirme. Pasif kullanıcı giriş yapamaz ve açık oturumları kapanır; son etkin İK pasife alınamaz ve rolü düşürülemez, kullanıcı kendini pasife alamaz; kullanıcı silinmez. Her işlem kullanıcı adıyla olaya yazılır, parola hiçbir olaya girmez | Should (v1) |
@@ -435,6 +438,29 @@ değiştirmez, boru hattına karışmaz; yalnız çalışanın etkin belgelerine
 | 14.2.3 | Paket tamamlanması ve iptali | Zorunlu kalemlerin hepsi karşılanınca paket "Tamamlandı — başvuru başlatılabilir" olur, tamamlanma zamanı ve olay yazılır; sonradan eksik oluşursa paket açığa döner ve olay yazılır. Paket notla tek adımda iptal edilir ve "Yeniden aç" ile geri alınır; iptal edilen paket profilde katlanmış listede kalır, silinmez | Must (v1) |
 | 14.3.1 | Paket görünürlüğü listede | Çalışan listesinde açık paket sayısı ve eksik kalem sayısı görünür; "eksik paketi olanlar" süzgeci vardır; profil.md "Belge paketleri" bölümünü taşır | Should (v1) |
 
+### FR-MOD-15 — Hazır şablonlar ve çıktı hazırlama (Faz 1 · 2026-10-23 açılışı)
+
+İK, çalışanlar için çıktı alacağı belge kalıplarını (iş sözleşmesi, başvuru formu, beyan …) sisteme
+yükler; yapay zekâ kalıbın düzenini (çerçeve, logo, tablo, imza ve kaşe alanı, doldurulacak boşluklar)
+tanıyıp bir **alan haritası** önerir; İK haritayı önizleyip onaylar. Çalışanın profilinden "Çıktıya
+hazırla" denince şablonun kopyasına yalnız çalışanın profil değerleri yazılır; sabit metin olduğu gibi
+kalır, imza ve kaşe alanı boş kalır, eksik profil alanı boş bırakılır ve uyarılır. Üretilen belge
+çalışan belgesi değildir (R3, R12 notları): boru hattına, eşleştirmeye, paketlere ve bota girmez,
+ayrı klasörde ve tabloda durur. İnsan isteği (2026-10-23) PLAN §D123'te birebir kayıtlıdır.
+
+| ID | Gereksinim | Kabul kriteri | Öncelik |
+|---|---|---|---|
+| 15.1.1 | Hazır Şablonlar sekmesi ve şablon yükleme | Panelde "Hazır Şablonlar" menüsü (10.1.1 sırası; yazma yolları İK ve root'ta, Kullanıcı salt okunur görür): şablon listesi (ad, açıklama, sayfa sayısı, alan sayısı, durum `taslak` / `hazır` / `arşiv`, yükleyen, zaman, ilk sayfa küçük resmi); yükleme formu ad + açıklama + tek dosya (PDF, JPEG, PNG; görüntü K11 kuralıyla kayıpsız PDF'e sarılır, Word/Excel kabul edilmez); dosya `KnownDocuments/_sablonlar/<id>/` altına değişmeden yazılır, SHA-256 ile aynı dosya ikinci kez şablon olmaz; şablon arşivlenir ve geri alınır, silinmez (R11); olay `TEMPLATE_UPLOADED` kullanıcı adıyla. Şablon yüklemesi yükleme partisi, çalışan, kuyruk öğesi ve çıktı belgesi oluşturmaz | Must (v1) |
+| 15.1.2 | Yapay zekâ şablon incelemesi ve alan haritası önerisi | Yüklenen şablonun sayfaları (02.x ile aynı sayfa görüntüsü) işçide yapay zekâya gönderilir; yanıt §8.7 şemasıyla doğrulanır ve **alan haritası sürümü** olarak dondurulur (K9/R10: üretim bu haritayı kullanır, yapay zekâya tekrar sorulmaz). Harita her doldurulacak boşluk için sayfa, normalize kutu (`x0,y0,x1,y1` ∈ [0,1]), hangi profil alanına bağlı olduğu (§8.7 `source` listesi) ya da `unassigned`, yazı boyutu tahmini ve en çok karakter taşır; **imza, kaşe, mühür, logo, fotoğraf ve çerçeve** alanları `kind: signature / stamp / logo / photo / decoration` ile tanınır ve asla doldurulacak boşluk sayılmaz; sabit metin okunmaz ve yeniden üretilmez. Sağlayıcı ayarlı değilse ya da yanıt şemaya uymuyorsa şablon `taslak` kalır ve sebebi listede görünür; olay `TEMPLATE_EXAMINED` (model adı, boşluk sayısı; kişisel değer yok). Kayıtlı yanıt testi zorunlu (03.6.1 kalıbı) | Must (v1) |
+| 15.1.3 | Harita önizleme ve onay | Şablon sayfasında kutular sayfa görüntüsünün üstünde çizilir (önizleme); her kutunun bağlı alanı açılır listeden değiştirilir, kutu "boş bırak" yapılır, imza/kaşe kutusu doldurulamaz; "Haritayı onayla" tek adımlıdır (geri alınabilir: yeni inceleme ya da düzenleme yeni sürüm açar, eski sürüm silinmez) ve şablonu `hazır` yapar; olay `TEMPLATE_MAP_APPROVED` (sürüm, alan sayısı). Haritada en az bir bağlı alan yoksa onay reddedilir. Önizleme belge içeriğini değiştirmez; kutu çizme/taşıma bu sürümde yoktur, yalnız atama değişir | Must (v1) |
+| 15.1.4 | Şablon görüntüleme ve indirme | Şablonun orijinali yeni sekmede açılır ve indirilir (10.9.2 ile aynı erişim kaydı, `template_id` ile); liste duruma göre süzülür; arşivdeki şablon profilde seçilemez, var olan üretilen belgeler yerinde kalır | Should (v1) |
+| 15.2.1 | Profilden "Çıktıya hazırla" | Çalışan profilinde "Hazır şablonlar" bölümü `hazır` şablonları listeler; her birinin "Çıktıya hazırla" düğmesi (yazma yetkisi; pasif ya da birleştirilmiş çalışanda yok) tek adımda şablonun kopyasına onaylı haritadaki alanlara **yalnız profildeki değerleri** yazar (PyMuPDF metin kutusu, haritanın yazı boyutu; taşan değer küçültülür, yine sığmazsa kesilmez, uyarı yazılır): Latin ad-soyad (05.2.2), tarih `GG.AA.YYYY`, uyruk alanında ülkenin İngilizce CLDR adı (belge dili ne olursa olsun; §D123), bugünün tarihi sunucu günü. Profilde boş olan alan boş bırakılır, uydurulmaz; eksik alan adları sonuç bildiriminde ve üretilen belge kaydında listelenir. Orijinal şablon dosyası değişmez (R2) | Must (v1) |
+| 15.2.2 | Üretilen belgeler bölümü | Profilde "Üretilen belgeler": şablon adı, tarih, üreten, harita sürümü, eksik alanlar, durum; belge yeni sekmede açılır ve indirilir (erişim kaydı `generated_document_id` ile; 10.9.2); aynı şablondan yeniden üretim yeni sıra numarası alır, önceki `superseded` olur ve silinmez (K18 kalıbı); üretilen belge tek adımda arşivlenir ve geri alınır; profil.md "Üretilen belgeler" bölümünü taşır. Üretilen belge `documents` tablosunda, belge listesinde, paket hesabında (14.2.2), eşleştirmede ve botta (12.3) görünmez | Must (v1) |
+| 15.2.3 | Adlandırma, konum ve yaşam döngüsü | Dosya `Employees/<Ad_Soyad_E0001>/Uretilen/<Ad_Soyad>-<Sablon-Etiketi>-<n>.pdf` (şablon etiketi şablon adından K8 kuralıyla; `n` şablon başına sıra); çalışan yeniden adlandırılınca (10.5.6) `Uretilen/` dosyaları da K8 adıyla yeniden adlandırılır, birleştirmede (10.5.9) kalan kayda taşınır, kalıcı silmede (10.5.13) diskten kalkar ve satır `deleted` olur; olay `OUTPUT_GENERATED` (şablon kimliği, harita sürümü, yazılan ve eksik alan **adları**; değer yok), `OUTPUT_ARCHIVED` / `OUTPUT_RESTORED` kullanıcı adıyla. Kabul senaryosu S29 | Must (v1) |
+| 15.3.1 | Ek profil alanları | `employees` tablosuna `mother_name`, `father_name`, `place_of_birth`, `personal_number` (ülkesinin vatandaşlık/kimlik numarası, olduğu gibi; yanında `personal_number_country` alfa-3) eklenir; profil kartı (10.5.1) bunları ve çalışanın pasaport numarasını (`employee_identifiers`, pasaport türlerinden) "—" ile gösterir; profil düzenleme formu (10.5.6) dört alanı alır (elle kaynağı, 05.7.3 ezmez); profil.md taşır; birleştirme (10.5.9) boş alanı birleşenden doldurur; kalıcı silme (10.5.13) boşaltır; olaylar alan **adlarını** taşır. Arama (10.4.2) `personal_number` ile de bulur | Must (v1) |
+| 15.3.2 | Ek alanların belgeden otomatik dolumu | Sayfa analizi şeması (§8.4 `person`) `mother_name`, `father_name`, `place_of_birth`, `personal_number` (+ `personal_number_country`) alır; talimat yalnız belgede **açıkça yazılı** değeri ister, çıkarım yapmaz (03.1.4 kalıbı); MRZ'nin isteğe bağlı veri alanındaki kişisel numara (TD1 — Sırp ve Türk kimlik kartı gibi) görünen metinden önce gelir (05.3.3 kalıbı, §20.1.3 eki). 05.7.3 kuralı bu alanlara da uygulanır: boş alan dolar, dolu alan değişmez, farklı değer profilde uyarı olur, kaynak belgeye bağlanır, `EMPLOYEE_FIELD_FILLED`; yalnız isimle eşleşen belge doldurmaz (05.5.4). Var olan çalışanlar için `python -m app.profiles fill-fields` geçmiş belgelerden doldurur. Kayıtlı yanıt testleri güncellenir | Must (v1) |
+| 15.3.3 | Kişisel numaranın ülkeye göre yazımı | `personal_number` olduğu gibi saklanır (ülkeden ülkeye uzunluk ve biçim değişir); karşılaştırma ve arama boşluk, tire ve nokta farkını yok sayar; sayısal doğrulama (JMBG kontrol hanesi gibi) bu sürümde yoktur; numara hiçbir olaya, bildirime ve loga değer olarak yazılmaz | Should (v1) |
+
 ---
 
 ## 7. Fonksiyonel olmayan gereksinimler
@@ -457,7 +483,7 @@ değiştirmez, boru hattına karışmaz; yalnız çalışanın etkin belgelerine
 
 | Tablo | Amaç | Önemli alanlar |
 |---|---|---|
-| `employees` | Çalışan ana kaydı | id (E0001), folder_name, given_names, surname, original_script_name, date_of_birth, nationality, status (`active`, `inactive`, `merged` — 10.5.7, 10.5.9), merged_into_id, created_at |
+| `employees` | Çalışan ana kaydı | id (E0001), folder_name, given_names, surname, original_script_name, date_of_birth, nationality, mother_name, father_name, place_of_birth, personal_number, personal_number_country (15.3.1), status (`active`, `inactive`, `merged` — 10.5.7, 10.5.9), merged_into_id, created_at |
 | `employee_identifiers` | Belge numaraları | employee_id, kind, value, source_document_id, removed_at, removed_by (10.5.8) |
 | `employee_aliases` | Görülen isim yazımları | employee_id, raw_name, normalized_name, script, removed_at, removed_by (10.5.8) |
 | `employee_contacts` | İletişim bilgileri | employee_id, kind (`phone`, `email`, `address`), value, source_document_id, first_seen_at, last_seen_at, is_current, added_by, removed_at, removed_by (10.5.8) |
@@ -479,6 +505,9 @@ değiştirmez, boru hattına karışmaz; yalnız çalışanın etkin belgelerine
 | `document_groups` | Belge grubu (14.1.1) | id, name, normalized_name (tekil), description, created_by, created_at, archived_at, archived_by |
 | `document_group_items` | Grup kalemi (14.1.2) | id, group_id, position, match_kind (`label`, `type`), file_label, type_slug, required, note |
 | `employee_packages` | Çalışana tanımlı paket (14.2) | id, employee_id, group_id, status (`open`, `completed`, `cancelled`), requested_by, requested_at, completed_at, cancelled_at, cancelled_by, note |
+| `output_templates` | Hazır şablon (15.1.1) | id, name, normalized_name (tekil), file_label (K8 etiketi), description, file_path, sha256, page_count, status (`draft`, `ready`, `archived`), examine_error, uploaded_by, created_at, archived_at, archived_by |
+| `output_template_maps` | Alan haritası sürümü (15.1.2, 15.1.3) | id, template_id, version, json (§8.7), model, map_hash, created_at, approved_at, approved_by |
+| `generated_documents` | Üretilen belge (15.2) | id, employee_id, template_id, map_id, path, sequence_no, status (`active`, `superseded`, `archived`, `deleted`), filled_fields_json (alan adları), missing_fields_json (alan adları), generated_by, generated_at, archived_at, archived_by |
 
 ### 8.2 Veri dizini
 
@@ -488,6 +517,7 @@ data/
   Employees/<Ad_Soyad_E0001>/
       Alinan/                     bu çalışana ait orijinallerin kopyası
       Hazir/                      çıktı belgeleri ve Attachment dosyaları
+      Uretilen/                   hazır şablondan üretilen belgeler (15.2.3); çalışan belgesi değildir
       profil.md                   sistem üretir, elle düzenlenmez
   Unknown/<upload_id>/            kaynak kopyası + reason.json
   Unreadable/<upload_id>/         kaynak kopyası + reason.json
@@ -499,6 +529,7 @@ data/
       _egitim/gelen/<run>/        eğitim modunda yüklenen dosyaların kopyası (11.9)
       _egitim/haritalar/          yüklenen harita CSV'leri (11.9.5)
       _egitim/cikarilan/<tur_slug>/  örneklerden çıkarılanlar; silinmez (11.9.4)
+      _sablonlar/<template_id>/   hazır şablonun orijinali (değişmez) ve sayfa görüntüleri (15.1.1)
   cache/pages/<file_id>/          analiz için üretilmiş sayfa görüntüleri
 ```
 
@@ -521,7 +552,12 @@ TYPE_ARCHIVED · TYPE_RESTORED · CANDIDATE_TYPE_RESTORED · TRAINING_ITEM_DISMI
 TRAINING_ITEM_RESTORED · TRAINING_RUN_ARCHIVED · USER_CREATED · USER_DEACTIVATED ·
 USER_REACTIVATED · USER_PASSWORD_CHANGED · USER_LANGUAGE_CHANGED · USER_ROLE_CHANGED · TELEGRAM_USER_CHANGED · TELEGRAM_LINK_CREATED · GROUP_CHANGED ·
 PACKAGE_ASSIGNED · PACKAGE_COMPLETED · PACKAGE_REOPENED · PACKAGE_CANCELLED · DOCUMENT_DELETED ·
-EMPLOYEE_DELETED · UPLOAD_CANCELLED
+EMPLOYEE_DELETED · UPLOAD_CANCELLED · TEMPLATE_UPLOADED · TEMPLATE_EXAMINED · TEMPLATE_MAP_APPROVED ·
+TEMPLATE_ARCHIVED · TEMPLATE_RESTORED · OUTPUT_GENERATED · OUTPUT_ARCHIVED · OUTPUT_RESTORED
+
+`OUTPUT_GENERATED` (15.2.3) verisi: `template_id`, `map_version`, `generated_document_id`, `filled_fields` ve
+`missing_fields` (alan **adları**), `truncated_fields`. `TEMPLATE_EXAMINED` (15.1.2) verisi: `template_id`, `model`,
+`field_count`, `error`. Hiçbiri kişisel değer taşımaz; `actor` üretimde ve onayda kullanıcı adı, incelemede `system`'dir.
 
 `UPLOAD_CANCELLED` (10.3.6, 10.3.7) verisi: `stage` (iptal anındaki parti durumu), `reason` (`manual` — elle,
 iki aşamalı onayla / `timeout` — 10 dakikalık süre aşımı), `waited_seconds` (alındığından beri geçen süre),
@@ -566,6 +602,11 @@ isim, numara, tarih, parola ve iletişim değeri yazılmaz. Hepsi `actor` olarak
     "date_of_birth": "1990-04-12",
     "nationality": "RUS",
     "document_number": "71 1234567",
+    "mother_name": null,
+    "father_name": null,
+    "place_of_birth": "MOSKVA",
+    "personal_number": null,
+    "personal_number_country": null,
     "mrz_lines": ["...", "..."],
     "contact": {
       "phone": null,
@@ -588,7 +629,10 @@ aynı kartın iki yüzü tek sayfada; başka kişiye ya da başka belgeye ait y�
 
 `language`: ISO 639-1 kodu (`tr`, `ru`, `sr`, `es`, `en`, `ar` …). `script`: `latin`,
 `cyrillic`, `arabic` veya `other`. `contact`: belgede **açıkça yazılı** iletişim bilgisi;
-yoksa alanlar `null` kalır — çıkarım yapılmaz, uydurulmaz (gereksinim 03.1.4).
+yoksa alanlar `null` kalır — çıkarım yapılmaz, uydurulmaz (gereksinim 03.1.4). `mother_name`,
+`father_name`, `place_of_birth`, `personal_number` (+ `personal_number_country`, alfa-3) aynı kuralla
+yalnız belgede açıkça yazılıysa dolar (15.3.2); MRZ'nin isteğe bağlı veri alanındaki kişisel numara
+görünen metinden önce gelir (§20.1.3).
 
 ### 8.5 Plan JSON şeması
 
@@ -652,6 +696,38 @@ biri seçilir, tek yüzlü türde boştur. `expected_pages` bu türde düzenlerd
 `separate` → 2–2, yalnız `combined` → 1–1, ikisi → 1–2. Tek sayfadaki iki yüz ayrılmaz, kırpılmaz;
 sayfa olduğu gibi çıktı olur.
 
+### 8.7 Alan haritası şeması (15.1.2)
+
+```json
+{
+  "template_id": 3,
+  "version": 1,
+  "pages": 2,
+  "fields": [
+    {
+      "field_id": "f1",
+      "page": 0,
+      "box": [0.31, 0.142, 0.78, 0.168],
+      "kind": "text",
+      "label_text": "Ime i prezime",
+      "source": "full_name",
+      "font_size": 10,
+      "max_chars": 40
+    },
+    {"field_id": "f2", "page": 1, "box": [0.60, 0.84, 0.92, 0.93], "kind": "signature", "label_text": "Potpis", "source": null}
+  ],
+  "notes": "Two-page contract; stamp area bottom left of page 2."
+}
+```
+
+`kind`: text · date · signature · stamp · logo · photo · decoration. Yalnız `text` ve `date` doldurulur.
+`source` (yalnız `text`/`date`): given_names · surname · full_name · other_names · original_script_name ·
+date_of_birth · place_of_birth · mother_name · father_name · personal_number · passport_number ·
+nationality · address · phone · email · today · unassigned. `box` sayfa boyutuna göre normalize
+`[x0, y0, x1, y1]`; `label_text` boşluğun yanındaki basılı etiket (yalnız eşleştirme için, yeniden
+üretilmez); `notes` İngilizce (10.10.6). Harita onaylanınca `map_hash` ile dondurulur; üretim bu
+haritayı değiştirmeden uygular.
+
 ---
 
 ## 9. Kabul senaryoları
@@ -687,12 +763,13 @@ Her senaryo Faz 0'da otomatik test olur (09.3.2). "Beklenen" sütunu tartışmas
 | S25 | Pasif çalışan kalıcı siliniyor; bir yüklemesi yalnız ona, öbürü onunla başka bir çalışana ait | Çalışan klasörü, belgeleri, alt kayıtları, yalnız ona ait yüklemenin orijinali ve sayfa görüntüleri silinir; ortak yüklemenin orijinali ve öbür çalışanın sayfaları kalır; çalışan satırı `deleted`, kişisel alanları boş; aynı kişinin yeni belgesi eski kayda eşleşmez; olaylarda isim kalmaz; etkin çalışanda istek reddedilir |
 | S26 | Süren parti iptal ediliyor: elle (tek onay / iki onay); işleyici kapalıyken 10 dakikayı aşan parti; işleyici adımın ortasındayken iptal; iptal edilen partinin aynı dosyası yeniden yükleniyor | Tek onayla değişiklik yok / iki onayla parti `cancelled`, işi kuyruktan düşer, Inbox dosyası, sayfalar, plan ve belgeler yerinde, `UPLOAD_CANCELLED` kullanıcı adıyla; 10 dakikayı aşan parti kendiliğinden `cancelled` olur (`reason = timeout`, `actor` sistem), 10 dakikayı aşmamış parti ve son durumdaki parti dokunulmaz; çalışan işleyici iptalden sonra partiye yazmaz (parti `cancelled` kalır, `failed` olmaz); aynı dosya tekrar yüklenince tekrar sayılmaz, yeniden işlenir |
 | S27 | Üç rol: `Zvz` (root), bir İK, bir Kullanıcı panelde geziyor | Kullanıcı her sayfayı ve belgeyi açar, hiçbir yazma düğmesi görmez, her yazma isteği 403 ve veri değişmez, kendi parolasını ve dilini değiştirir; İK yazar, Kullanıcılar tablosunda root'u görmez, root'a yönelik istek 404, erişim logu bağlantısı yok ve adresi 404; root erişim logunu ve kendi ekranında "Root" etiketini görür, Kullanıcılar tablosunda kendisi de listelenmez; ikinci root açılamaz |
+| S29 | İK iki sayfalık sözleşme şablonunu yükler; yapay zekâ 6 boşluk (ad-soyad, doğum tarihi, doğum yeri, anne adı, kişisel numara, tarih) ve bir imza alanı önerir; İK bir kutuyu "boş bırak" yapıp onaylar; anne adı boş bir çalışanın profilinden "Çıktıya hazırla"; sonra aynı çalışan için yeniden üretir ve çalışanı kalıcı siler | Üretilen PDF `Uretilen/` altında K8 adıyla; 4 alan profil değeriyle dolu, anne adı boş ve bildirimde "eksik: anne adı", imza alanı ve sabit metin değişmemiş; orijinal şablonun SHA-256'sı aynı; `documents` tablosu ve paketler değişmedi; ikinci üretim `-2`, ilki `superseded`; kalıcı silmede iki dosya diskten kalkar, satırlar `deleted`; olaylar değer taşımaz |
 | S28 | İK, "Tür bilinmiyor" kuyruğunda bekleyen bir CV'nin partisini açıyor, satırdan aday türe gidip onaylıyor; ardından bir çalışanı pasife alıyor, panel dilini Sırpçaya çevirip sayfayı yeniliyor; salt okunur Kullanıcı aynı partiyi açıyor | Kuyruk satırı öğeye ve aday türe bağlı, "Çözüm" yapılacak işi söyler; onaydan sonra bağlı bekleyen öğe sayısı ve sonraki adım bildirimle söylenir; pasife alma başarı bildirimi verir, yenilemede tekrar çıkmaz; bildirim ve ipuçları Sırpçadır; Kullanıcı onay bağlantısı görmez, "İK'ya bildirin" ipucunu görür |
 
 S19 gereksinim 05.6.2'nin (Faz 0), S20 gereksinim 11.9.1'in (Faz 1) kabul senaryosudur; ikisi de
 kendi gereksinimini karşılayan görevde otomatik test olur. S21 gereksinim 14.2.2–14.2.3'ün, S22
 gereksinim 10.5.7'nin (ikisi de Faz 1) kabul senaryosudur; aynı kuralla kendi görevlerinde test olur.
-S23 gereksinim 05.5.4'ün, S24 10.5.12'nin, S25 10.5.13'ün, S26 10.3.6 ve 10.3.7'nin, S27 10.1.8 ve 10.1.9'un, S28 10.11.1–10.11.3'ün kabul senaryosudur (2026-10-08/09 açılışı); aynı
+S29 gereksinim 15.1.2, 15.2.1 ve 15.2.3'ün (Faz 1, 2026-10-23 açılışı) kabul senaryosudur. S23 gereksinim 05.5.4'ün, S24 10.5.12'nin, S25 10.5.13'ün, S26 10.3.6 ve 10.3.7'nin, S27 10.1.8 ve 10.1.9'un, S28 10.11.1–10.11.3'ün kabul senaryosudur (2026-10-08/09 açılışı); aynı
 kuralla kendi görevlerinde test olur. S10'un yeni tanımı 05.5.4 görevinde testine yansır.
 
 ---
@@ -701,7 +778,10 @@ kuralla kendi görevlerinde test olur. S10'un yeni tanımı 05.5.4 görevinde te
 
 Aşağıdakiler bu üründe **yapılmayacaktır**:
 
-- Belge içeriğini düzenleme, doldurma, imzalama veya damgalama.
+- Çalışan belgesinin içeriğini düzenleme, doldurma, imzalama veya damgalama. (İK'nın kendi hazır şablonuna profil
+  değeri yazılması FR-MOD-15'tir ve çalışan belgesine dokunmaz; şablona imza ya da kaşe basılması yine kapsam dışıdır.)
+- Hazır şablonda (FR-MOD-15): Word/Excel şablonu, kutu çizme/taşıma ile harita düzenleme, çok çalışanlı toplu üretim,
+  üretilen belgenin metnini düzenleme, e-imza.
 - Sahtecilik tespiti ve belge doğrulama (resmî kurum sorgusu). İlk aşamada gelen belgenin
   içerik olarak doğru olduğu varsayılır.
 - Görüntü iyileştirme: kırpma, döndürme (EXIF dışında), kontrast düzeltme, arka plan temizleme.

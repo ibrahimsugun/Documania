@@ -1,0 +1,17 @@
+# HANDOFF arşivi — 2026-10-22
+
+Kaynak: HANDOFF.md (canlı dosyadan taşındı, birebir). Blok sayısı: 2.
+
+<!-- bloklar (newest-first) -->
+
+## 180–187 — FR-MOD-15 Hazır şablonlar, çıktı hazırlama ve ek profil alanları açıldı — pending — 2026-10-23 (interaktif oturum: insan isteği)
+- Yapıldı: İnsan isteği (2026-10-23, PLAN §D123'te birebir) PRD FR-MOD-15 (15.1.1–15.3.3, 10 satır), §3 R3/R12 notları, §4 sözlük, §5.2 kapsam, 10.1.1 menü sırası, §8.1 üç tablo + `employees` sütunları, §8.2 `Uretilen/` ve `_sablonlar/`, §8.3 olaylar, §8.4 `person` alanları, §8.7 alan haritası şeması, §9 S29, §10 kapsam dışı; MASTER-PROMPT K11/K16/K17 istisnası (insan kararı); PLAN §0 (Faz 1: 82 ✅ · 10 ⬜, 41/49 Must, Kapanış AÇIK), §2 matris, §4.4 tablo, §D123 sözleşme, §G 8 satır; tasks.json tm 180–187 (15.3-a/b, 15.1-a/b/c, 15.2-a/b, §5.2 kapanış), bağımlılıklar ve etiketler. Kod değişmedi.
+- Doğrulama: PRD §20.6 tablosu değişmedi (`tests/web/test_confirm.py` okur) — test yeşil; `tests/web/test_ui_standard.py`, `tests/i18n` yeşil; sayım komutları (CONVENTIONS §1.3) §0 ile eşit; `node scripts/arsiv-dondur.mjs` dry-run sonucu HANDOFF'un altında.
+- Varsayımlar: (1) R3/R12/K11/K17 daraltması insanın bu isteğiyle verilmiş kabul edildi; metin §D123 a'da — insan vetolarsa FR-MOD-15 satırları ⛔ olur, tm 180–187 iptal edilir. (2) Word/Excel şablonu, kutu çizme, toplu üretim, e-imza kapsam dışı bırakıldı (ayrı insan isteği). (3) Pasaport numarası ayrı sütun değil, `employee_identifiers`'tan gösterim. (4) Onay ve üretim tek adımlı (§D61 geri alınabilirlik), §20.6'ya satır yok. (5) Sıra: önce tm 180 (alanlar) ve tm 182 (depo) paralel açılabilir; 181 → 180; 183 → 182; 184 → 183; 185 → 184+180; 186 → 185; 187 → 181+186.
+- Sonraki pencereye not: `task-master next` tm 180 ya da 182'yi verir; `[OPUS-XHIGH]`. Her görev `docs/ARAYUZ-STANDARDI.md`'ye uyar ve `test_ui_standard`'ı yeşil tutar. D58 testleri (tm yok) hâlâ `PLAN.md`'de olmayan D58 bloğunu arıyor — ayrı küçük görev önerisi: testler `docs/archive/plan-kanit/`'ten okusun.
+
+## Panel yeniden tasarımı + arayüz standardı — done — 2026-10-23 (interaktif oturum: insan isteği, tm yok)
+- Yapıldı: `base.html` sol gezinmeli SaaS kabuğu; `panel.css` baştan yazıldı (tasarım değişkenleri + bileşenler), `theme.css` yalnız palet (açık/koyu). Şablon işaretlemesi değişmedi, i18n kataloğuna yeni msgid girmedi. `docs/ARAYUZ-STANDARDI.md` standardı ve `tests/web/test_ui_standard.py` denetimi eklendi; `CLAUDE.md` ona bağlandı. Karar §D122, kanıt K10.1.
+- Doğrulama: `pytest tests/web -n 4` 1538 geçti, 3 kırmızı — `test_language_preference::test_stylesheet_styles_the_selector` düzeltildi (seçici panel.css'e geri kondu); `test_training_map`/`test_training_decisions` D58 testleri `PLAN.md`'de artık olmayan `- **D58 —` bloğunu arıyor (fd50142 arşivleme commit'inden kalma, bu değişiklikten bağımsız). ruff check/format, `python -m app.i18n check` exit 0. Tarayıcıda açık/koyu temada 9 sayfa bakıldı.
+- Varsayımlar: 10.1.7'nin "degrade zemin / cam çubuk" tarifi görünüm tercihi sayıldı, ölçülen maddeleri korundu (§D122 b). Yerel önizleme için `uipreview` İK hesabı açıldı (geliştirme DB'si); gerekmiyorsa Kullanıcılar sayfasından pasife alın.
+- Sonraki pencereye not: D58 testleri için ayrı küçük görev: testler `docs/archive/plan-kanit/` dosyasını okumalı ya da D58 metni PLAN'a geri alınmalı. Şablon/stil değişikliği yapan her pencere önce `docs/ARAYUZ-STANDARDI.md`'yi okur.
