@@ -16,7 +16,7 @@ exit 0** döner. Biri bile kırmızıysa görev `done` değildir.
 | 1 | `ruff check .` | Lint temiz |
 | 2 | `ruff format --check .` | Biçim tutarlı |
 | 3 | `python -m compileall -q app tests` | Sözdizimi hatası yok |
-| 4–5 | `pytest -q -m "not live" -n 12 --dist worksteal --cov=app --cov-fail-under=70` | Tüm testler yeşil (unit + entegrasyon) ve kapsam eşiği, tek paralel koşuda (~10 dk) |
+| 4–5 | `pytest -q -m "not live" -n 6 --dist worksteal --cov=app --cov-fail-under=70` | Tüm testler yeşil (unit + entegrasyon) ve kapsam eşiği, tek paralel koşuda |
 | 6 | `alembic upgrade head` (temiz geçici SQLite üzerinde) | Göç zinciri kırılmamış |
 | 7 | `python -c "import app.main"` | Uygulama içe aktarılabiliyor |
 | 8 | Görevin **kendi kabul kriteri** (PRD'deki satır) | İşin gerçekten yapıldığı |
@@ -94,7 +94,10 @@ desene ver.
   belge üretimi, uzun döngüler, `sleep` ve gereksiz uçtan uca tekrarlar yazılmaz. Tek test
   1 sn'yi geçiyorsa küçültülür (daha küçük sentetik belge, daha az sayfa, mock). Kapsam eşiği
   (%70) korunur; amaç sağlamlık, dayanıklılık testi değil.
-- `-n 12` yalnız tam kapı komutundadır, `addopts`'a konmaz (tek dosya koşusunu yavaşlatır).
+- `-n 6` yalnız tam kapı komutundadır, `addopts`'a konmaz (tek dosya koşusunu yavaşlatır). 12 işçi
+  makineyi zorluyordu (2026-10-23 insan kararı); sayı artırılmaz.
+- Test sürecinde SQLite diske yazma onayını beklemez (`tests/conftest.py`: `synchronous=OFF`,
+  günlük ve geçici tablolar bellekte). Uygulamanın motor ayarı değişmez.
 - **Kararsızlık kuralı:** paralel koşuda düşüp seri koşuda geçen test "paralel yüzünden" denip
   geçilmez. Ortak durum aranır ve test tarafında düzeltilir; `-p no:randomly`, yeniden deneme
   ya da skip kullanılmaz. Parametre kimlikleri süreçten sürece aynıdır (gerekirse `ids=`).
