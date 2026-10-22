@@ -551,13 +551,13 @@ başlığının başında birebir geçer.
 | 11.1-c | Belge Türleri: ülkeye göre süzme (genel türler dahil) | 11.1.5 | [SONNET-XHIGH] | 11.1-b | 1 |
 | 14.1 | Belge grupları: tablolar, sekme, grup ve kalem yönetimi | 14.1.1, 14.1.2 | [OPUS-XHIGH] | 10.1, 11.1, 11.1-c | 1 |
 | 14.2 | Çalışan profilinde belge paketleri: tanımlama, karşılanma, tamamlanma, iptal, liste | 14.2.1, 14.2.2, 14.2.3, 14.3.1 | [OPUS-XHIGH] | 14.1, 10.5, 09.1-b | 1 |
-| 15.3-a | Ek profil alanları: sütunlar ve göç, profil kartı, düzenleme formu, profil.md, arama, birleştirme ve kalıcı silme | 15.3.1, 15.3.3 | [OPUS-XHIGH] | 10.5-c, 10.5-f, 10.5-k | 1 |
-| 15.3-b | Ek alanların belgeden dolumu: analiz şeması ve talimat, MRZ isteğe bağlı alan, 05.7.3 genişletmesi, geri dolum komutu, kayıtlı yanıtlar | 15.3.2 | [OPUS-XHIGH] | 15.3-a, 05.7-b | 1 |
-| 15.1-a | Hazır şablon deposu: tablolar ve göç, dizin, yükleme, liste, arşiv, görüntüleme/indirme, menü girdisi | 15.1.1, 15.1.4 | [OPUS-XHIGH] | 10.1, 10.9, 02.1 | 1 |
-| 15.1-b | Şablon incelemesi: alan haritası şeması, talimat, işçi işi, sürüm dondurma, kayıtlı yanıt testi | 15.1.2 | [OPUS-XHIGH] | 15.1-a, 03.6 | 1 |
-| 15.1-c | Harita önizleme ve onay ekranı: kutu çizimi, atama düzenleme, boş bırak, onay | 15.1.3 | [OPUS-XHIGH] | 15.1-b | 1 |
-| 15.2-a | Çıktıya hazırla: üretim (PyMuPDF), değer biçimleri, eksik alan uyarısı, adlandırma, kayıt, olaylar, profil bölümleri, aç/indir; S29 | 15.2.1, 15.2.2 | [OPUS-XHIGH] | 15.1-c, 15.3-a | 1 |
-| 15.2-b | Üretilen belge yaşam döngüsü: yeniden üretim ve eski sürüm, arşiv/geri al, yeniden adlandırma, birleştirme, kalıcı silme, profil.md | 15.2.3 | [OPUS-XHIGH] | 15.2-a | 1 |
+| 15.3-a | Ek profil alanları: sütunlar ve göç, profil kartı, düzenleme formu, profil.md, arama, birleştirme ve kalıcı silme | 15.3.1, 15.3.3 | [OPUS-HIGH] | 10.5-c, 10.5-f, 10.5-k | 1 |
+| 15.3-b | Ek alanların belgeden dolumu: analiz şeması ve talimat, MRZ isteğe bağlı alan, 05.7.3 genişletmesi, geri dolum komutu, kayıtlı yanıtlar | 15.3.2 | [OPUS-HIGH] | 15.3-a, 05.7-b | 1 |
+| 15.1-a | Hazır şablon deposu: tablolar ve göç, dizin, yükleme, liste, arşiv, görüntüleme/indirme, menü girdisi | 15.1.1, 15.1.4 | [OPUS-HIGH] | 10.1, 10.9, 02.1 | 1 |
+| 15.1-b | Şablon incelemesi: alan haritası şeması, talimat, işçi işi, sürüm dondurma, kayıtlı yanıt testi | 15.1.2 | [OPUS-HIGH] | 15.1-a, 03.6 | 1 |
+| 15.1-c | Harita önizleme ve onay ekranı: kutu çizimi, atama düzenleme, boş bırak, onay | 15.1.3 | [OPUS-HIGH] | 15.1-b | 1 |
+| 15.2-a | Çıktıya hazırla: üretim (PyMuPDF), değer biçimleri, eksik alan uyarısı, adlandırma, kayıt, olaylar, profil bölümleri, aç/indir; S29 | 15.2.1, 15.2.2 | [OPUS-HIGH] | 15.1-c, 15.3-a | 1 |
+| 15.2-b | Üretilen belge yaşam döngüsü: yeniden üretim ve eski sürüm, arşiv/geri al, yeniden adlandırma, birleştirme, kalıcı silme, profil.md | 15.2.3 | [OPUS-HIGH] | 15.2-a | 1 |
 | 10.5-c | Çalışan profilini düzenleme (K8 yeniden adlandırma dahil) | 10.5.6 | [OPUS-XHIGH] | 10.5, 05.7-b, 09.1-b, 10.8 | 1 |
 | 10.5-d | Çalışanı pasife alma ve yeniden etkinleştirme | 10.5.7 | [OPUS-XHIGH] | 10.5-c, 10.4, 10.7-b | 1 |
 | 10.5-e | Profil alt kayıtları: alias, numara, iletişim kaldırma; iletişim ekleme | 10.5.8 | [OPUS-HIGH] | 10.5-c | 1 |
