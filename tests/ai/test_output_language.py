@@ -1,6 +1,6 @@
 """10.10.6 — yapay zekânın ürettiği serbest metinler İngilizce (PLAN.md §D121).
 
-Yükleme ve katalog işlerinin beş talimatı serbest metni İngilizce ister; örnek değerler de
+Yükleme, katalog ve şablon işlerinin altı talimatı serbest metni İngilizce ister; örnek değerler de
 İngilizcedir (model örneğin dilini taklit eder). Talimatın kendi dili Türkçe kalabilir. Belgeden
 okunan değer (başlık, ad, numara) ve katalogdaki kabul kriteri maddesi çevrilmez.
 """
@@ -15,6 +15,7 @@ import pytest
 from app.ai.prompts import (
     load_page_analysis_template,
     load_photo_check_instructions,
+    load_template_map_instructions,
     load_training_classification_template,
     load_type_description_instructions,
     load_type_proposal_instructions,
@@ -24,6 +25,7 @@ from app.ai.prompts import (
 ENGLISH_RULES: dict[str, tuple[Callable[[], str], str]] = {
     "page_analysis": (load_page_analysis_template, "Not İngilizce yazılır"),
     "photo_check": (load_photo_check_instructions, "`note` İngilizce, tek kısa cümledir"),
+    "template_map": (load_template_map_instructions, "`notes` İngilizce yazılır"),
     "training_classification": (
         load_training_classification_template,
         "kararının kısa gerekçesi, İngilizce, en çok 200 karakter",

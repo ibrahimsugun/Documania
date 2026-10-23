@@ -34,7 +34,7 @@ def _assert_schema_matches_models(database_url: str) -> None:
             assert tables == set(Base.metadata.tables) | {"alembic_version"}
             context = MigrationContext.configure(connection, opts={"compare_type": True})
             assert compare_metadata(context, Base.metadata) == []
-            assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "0031"
+            assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "0032"
     finally:
         engine.dispose()
 
@@ -1600,6 +1600,43 @@ def test_employee_detail_fields_migration_adds_nullable_columns_and_is_reversibl
                 text("SELECT field FROM employee_field_observations ORDER BY id")
             ).scalars()
             assert list(fields) == ["nationality"]
+    finally:
+        engine.dispose()
+
+
+def test_output_template_examination_migration_adds_queue_columns_and_is_reversible(
+    sqlite_url: str,
+) -> None:
+    # 0032 (15.1.2): var olan şablon incelenmemiş ve kuyrukta değil (istek boş, deneme 0) kalır.
+    config = _alembic_config(sqlite_url)
+    command.upgrade(config, "0031")
+    engine = create_engine(sqlite_url)
+    columns = {"examine_requested_at", "idle_claimed_by", "idle_claim_expires_at", "idle_attempts"}
+    try:
+        with engine.begin() as connection:
+            connection.execute(
+                text(
+                    "INSERT INTO output_templates (id, name, normalized_name, file_label, sha256, "
+                    "page_count, status, uploaded_by, created_at) VALUES (1, 'Ugovor', 'ugovor', "
+                    "'Ugovor', 'aa', 1, 'draft', 'ik', '2026-10-23 00:00:00')"
+                )
+            )
+
+        command.upgrade(config, "head")
+        with engine.connect() as connection:
+            row = connection.execute(
+                text(
+                    "SELECT status, examine_requested_at, idle_claimed_by, idle_attempts "
+                    "FROM output_templates"
+                )
+            ).one()
+            assert tuple(row) == ("draft", None, None, 0)
+
+        command.downgrade(config, "0031")
+        with engine.connect() as connection:
+            names = {c["name"] for c in inspect(connection).get_columns("output_templates")}
+            assert not names & columns
+            assert connection.scalar(text("SELECT status FROM output_templates")) == "draft"
     finally:
         engine.dispose()
 

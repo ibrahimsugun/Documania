@@ -78,15 +78,21 @@ class IdleJob(Protocol):
 def default_idle_jobs(settings: Settings) -> tuple[IdleJob, ...]:
     """`create_worker`'ın işçiye verdiği boş-zaman işleri. Tüketen görevler işini buraya ekler:
     aday tür incelemesi (11.5.5, `app.catalog.propose`), eğitim sınıflandırması (11.9.3,
-    `app.training.classification`) ve harita ile toplu taramanın mekanik adımı (11.9.5,
-    `app.training.map_scan`; sağlayıcı çağırmaz). İşler sırayla fırsat bulur
-    (`Worker.run_idle_once`)."""
+    `app.training.classification`), harita ile toplu taramanın mekanik adımı (11.9.5,
+    `app.training.map_scan`; sağlayıcı çağırmaz) ve hazır şablon incelemesi (15.1.2,
+    `app.output_templates.examine`). İşler sırayla fırsat bulur (`Worker.run_idle_once`)."""
     # İş modülleri bu modülü içe aktarır; paket başlatılırken döngü olmasın diye burada alınır.
     from app.catalog.propose import CandidateExaminationJob
+    from app.output_templates.examine import TemplateExaminationJob
     from app.training.classification import TrainingClassificationJob
     from app.training.map_scan import TrainingMapJob
 
-    return (CandidateExaminationJob(), TrainingClassificationJob(), TrainingMapJob())
+    return (
+        CandidateExaminationJob(),
+        TrainingClassificationJob(),
+        TrainingMapJob(),
+        TemplateExaminationJob(),
+    )
 
 
 @dataclass(frozen=True, slots=True)

@@ -30,6 +30,7 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.ai.schemas import FILLABLE_KINDS
 from app.config import Settings
 from app.db.models import OutputTemplate, OutputTemplateStatus, utcnow
 from app.events import EventType, record_event
@@ -45,8 +46,6 @@ from app.storage.slug import SlugError, slugify
 NAME_MAX_LENGTH = 120
 DESCRIPTION_MAX_LENGTH = 200
 NORMALIZED_NAME_MAX_LENGTH = 255
-# §8.7: yalnız bu türlerdeki boşluklar doldurulur; liste "alan sayısı" bunları sayar.
-FILLABLE_KINDS = frozenset({"text", "date"})
 
 NAME_REQUIRED = N_("Şablon adı boş olamaz.")
 NAME_TOO_LONG = Translatable(
@@ -110,6 +109,8 @@ class TemplateSummary:
     status: str
     uploaded_by: str
     created_at: datetime
+    examine_error: str | None = None
+    examining: bool = False
 
 
 @dataclass(slots=True)
@@ -225,7 +226,8 @@ def _prepare_file(
 
 
 def field_count(template: OutputTemplate) -> int:
-    """Son harita sürümündeki doldurulacak boşluk sayısı (§8.7 `text`/`date`); harita yoksa 0."""
+    """Son harita sürümündeki doldurulacak boşluk sayısı (§8.7 `text`/`date`, `FILLABLE_KINDS`);
+    harita yoksa 0."""
     if not template.maps:
         return 0
     fields = template.maps[-1].json.get("fields") or []
@@ -253,6 +255,8 @@ def list_templates(session: Session, *, status: str | None = None) -> list[Templ
             status=template.status,
             uploaded_by=template.uploaded_by,
             created_at=template.created_at,
+            examine_error=template.examine_error,
+            examining=template.examine_requested_at is not None,
         )
         for template in session.scalars(query)
     ]

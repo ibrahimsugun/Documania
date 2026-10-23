@@ -4,7 +4,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Documania panel\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-23 00:10+0000\n"
+"POT-Creation-Date: 2026-10-23 01:00+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -567,6 +567,10 @@ msgid ""
 "okunaklıysa belge kabul edilir."
 msgstr ""
 
+#: app/web/templates/output_template.html
+msgid "Alan haritası"
+msgstr ""
+
 #: app/web/templates/queue_item.html
 msgid ""
 "Alanlar belgeden okunan önerilen profille dolu; çalışan kaydına "
@@ -696,6 +700,10 @@ msgstr ""
 
 #: app/groups/packages.py
 msgid "Arşivdeki gruba yeni paket tanımlanamaz."
+msgstr ""
+
+#: app/web/routers/output_templates.py
+msgid "Arşivdeki şablon incelenmez; önce arşivden geri alın."
 msgstr ""
 
 #: app/web/templates/groups.html
@@ -2165,6 +2173,10 @@ msgid ""
 "yanıt verir. Telegram'ı yalnız siz kendi hesabınıza bağlayabilirsiniz."
 msgstr ""
 
+#: app/web/templates/output_template.html
+msgid "Doldurulacak boşluk"
+msgstr ""
+
 #: app/web/templates/document_archive_step.html
 #: app/web/templates/document_delete_step.html
 #: app/web/templates/output_template.html app/web/templates/profile.html
@@ -2969,6 +2981,10 @@ msgstr ""
 msgid "Harita önizlemesi"
 msgstr ""
 
+#: app/web/templates/output_template.html
+msgid "Harita özeti"
+msgstr ""
+
 #: app/training/map_import.py
 msgid "Haritada satır yok."
 msgstr ""
@@ -3014,6 +3030,10 @@ msgstr ""
 
 #: app/web/routers/employees.py
 msgid "Hedef durum yalnız pasif (inactive) ya da aktif (active) olabilir."
+msgstr ""
+
+#: app/web/templates/output_template.html
+msgid "Henüz alan haritası yok."
 msgstr ""
 
 #: app/web/templates/groups.html
@@ -3721,6 +3741,10 @@ msgstr ""
 msgid "Mesajınız çok uzun. Kimin hangi belgesini istediğinizi kısaca yazın."
 msgstr ""
 
+#: app/web/templates/output_template.html
+msgid "Model"
+msgstr ""
+
 #: app/web/templates/upload_detail.html
 msgid "Model:"
 msgstr ""
@@ -3806,6 +3830,10 @@ msgstr ""
 
 #: app/web/templates/upload_detail.html
 msgid "Oluşturuldu:"
+msgstr ""
+
+#: app/web/templates/output_template.html
+msgid "Oluşturulma"
 msgstr ""
 
 #: app/web/templates/catalog_candidates.html
@@ -4580,6 +4608,10 @@ msgid ""
 "(<code>baslat.bat</code>)."
 msgstr ""
 
+#: app/web/templates/output_template.html
+msgid "Sürüm"
+msgstr ""
+
 #: app/web/templates/history.html app/web/templates/upload_detail.html
 #, python-format
 msgid "Sürüm %(version)s"
@@ -4885,6 +4917,10 @@ msgstr ""
 msgid "Tutarsız kayıt"
 msgstr ""
 
+#: app/web/templates/output_template.html
+msgid "Tüm alanlar"
+msgstr ""
+
 #: app/web/routers/training.py app/web/templates/uploads_list.html
 msgid "Tümü"
 msgstr ""
@@ -5166,6 +5202,10 @@ msgstr ""
 msgid "Yapay zekâ"
 msgstr ""
 
+#: app/web/feedback.py
+msgid "Yapay zekâ ayarlı olmadığı için şablon incelenemedi."
+msgstr ""
+
 #: app/web/templates/training_map.html
 msgid "Yapay zekâ gerekebilecek"
 msgstr ""
@@ -5204,6 +5244,12 @@ msgstr ""
 #: app/training/classification.py
 #, python-brace-format
 msgid "Yapay zekâ önerisi: {name}"
+msgstr ""
+
+#: app/web/templates/output_template.html
+msgid ""
+"Yapay zekâ şablonu inceliyor; harita hazır olunca yeni sürüm olarak "
+"burada görünür."
 msgstr ""
 
 #: app/web/templates/profile.html
@@ -5305,7 +5351,12 @@ msgid "Yeniden etkinleştirilen tür: {count}."
 msgstr ""
 
 #: app/web/templates/catalog_candidate.html
+#: app/web/templates/output_template.html
 msgid "Yeniden incele"
+msgstr ""
+
+#: app/web/templates/output_template.html
+msgid "Yeniden inceleme yeni bir harita sürümü açar; eski sürümler silinmez."
 msgstr ""
 
 #: app/web/routers/catalog.py
@@ -5976,6 +6027,14 @@ msgstr ""
 
 #: app/storage/map_paths.py
 msgid "mutlak yol"
+msgstr ""
+
+#: app/web/templates/output_template.html
+msgid "onay bekliyor"
+msgstr ""
+
+#: app/web/templates/output_template.html
+msgid "onaylı"
 msgstr ""
 
 #: app/web/templates/catalog_candidate.html
@@ -7028,6 +7087,36 @@ msgstr ""
 msgid "İnceleme gerekli ({row}): {problem}"
 msgstr ""
 
+#: app/web/feedback.py
+msgid ""
+"İnceleme sıraya alındı; alan haritası hazır olunca yeni sürüm olarak "
+"görünür."
+msgstr ""
+
+#: app/web/routers/output_templates.py
+msgid "İncelenemedi"
+msgstr ""
+
+#: app/web/routers/output_templates.py
+msgid "İncelenemedi: sayfa görüntüsü bulunamadı"
+msgstr ""
+
+#: app/web/routers/output_templates.py
+msgid "İncelenemedi: yanıt alan haritası şemasına uymadı"
+msgstr ""
+
+#: app/web/routers/output_templates.py
+msgid "İncelenemedi: yapay zekâ çağrısı tamamlanamadı"
+msgstr ""
+
+#: app/web/routers/output_templates.py
+msgid "İnceleniyor"
+msgstr ""
+
+#: app/web/routers/output_templates.py
+msgid "İncelenmedi: yapay zekâ ayarlı değil"
+msgstr ""
+
 #: app/web/templates/output_template.html app/web/templates/profile.html
 msgid "İndir"
 msgstr ""
@@ -7216,6 +7305,13 @@ msgstr ""
 #: app/web/templates/output_template.html
 #: app/web/templates/output_templates.html
 msgid "Şablon yükle"
+msgstr ""
+
+#: app/web/feedback.py
+#, python-brace-format
+msgid ""
+"Şablon yüklendi ({count} sayfa), ancak yapay zekâ ayarlı olmadığı için "
+"incelenmedi; ayar yapılınca şablon sayfasından yeniden inceleyin."
 msgstr ""
 
 #: app/web/feedback.py

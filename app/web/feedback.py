@@ -275,11 +275,29 @@ GROUP_ARCHIVED = _register(
 )
 GROUP_RESTORED = _register("groups.restored", _OK, N_("Grup arşivden geri alındı."))
 
-# --- Hazır Şablonlar (15.1.1, 15.1.4) ------------------------------------------------------------
+# --- Hazır Şablonlar (15.1.1, 15.1.2, 15.1.4) ---------------------------------------------------
 TEMPLATE_UPLOADED = _register(
     "templates.uploaded",
     _OK,
     N_("Şablon yüklendi ({count} sayfa). Taslak olarak listede; alan haritası incelemeyle gelir."),
+)
+TEMPLATE_UPLOADED_UNEXAMINED = _register(
+    "templates.uploaded_unexamined",
+    _WARN,
+    N_(
+        "Şablon yüklendi ({count} sayfa), ancak yapay zekâ ayarlı olmadığı için incelenmedi; "
+        "ayar yapılınca şablon sayfasından yeniden inceleyin."
+    ),
+)
+TEMPLATE_EXAMINE_REQUESTED = _register(
+    "templates.examine_requested",
+    _OK,
+    N_("İnceleme sıraya alındı; alan haritası hazır olunca yeni sürüm olarak görünür."),
+)
+TEMPLATE_EXAMINE_UNAVAILABLE = _register(
+    "templates.examine_unavailable",
+    _WARN,
+    N_("Yapay zekâ ayarlı olmadığı için şablon incelenemedi."),
 )
 TEMPLATE_DUPLICATE = _register(
     "templates.duplicate",

@@ -1,7 +1,7 @@
 """Yapay zekâ analiz katmanı: sayfa analizi sözleşmesi (03.1), sağlayıcı soyutlaması (03.2),
 analiz talimatı (03.4), tür açıklaması sözleşmesi (11.3.1), tür taslağı sözleşmesi (11.5.5),
-eğitim sınıflandırması sözleşmesi (11.9.3), fotoğraf kontrolü sözleşmesi (11.7.1) ve Telegram belge
-isteği sözleşmesi (12.3.1)."""
+eğitim sınıflandırması sözleşmesi (11.9.3), fotoğraf kontrolü sözleşmesi (11.7.1), Telegram belge
+isteği sözleşmesi (12.3.1) ve hazır şablonun alan haritası sözleşmesi (15.1.2)."""
 
 from app.ai.document_query import (
     DocumentQuery,
@@ -31,6 +31,7 @@ from app.ai.provider import (
     ProviderError,
     ProviderRateLimitError,
     ProviderServerError,
+    TemplateMapRequest,
     TrainingClassificationRequest,
     TypeDescriptionRequest,
     TypeProposalRequest,
@@ -46,7 +47,11 @@ from app.ai.schemas import (
     PagePerson,
     Script,
     Side,
+    TemplateField,
+    TemplateFieldMap,
+    TemplateFieldMapError,
     validate_page_analysis,
+    validate_template_field_map,
 )
 from app.ai.training_classification import (
     TrainingClassification,
@@ -97,6 +102,10 @@ __all__ = [
     "QueryIntent",
     "Script",
     "Side",
+    "TemplateField",
+    "TemplateFieldMap",
+    "TemplateFieldMapError",
+    "TemplateMapRequest",
     "TrainingClassification",
     "TrainingClassificationError",
     "TrainingClassificationRequest",
@@ -111,6 +120,7 @@ __all__ = [
     "validate_document_query",
     "validate_page_analysis",
     "validate_photo_check",
+    "validate_template_field_map",
     "validate_training_classification",
     "validate_type_description",
     "validate_type_proposal",

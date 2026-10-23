@@ -1,6 +1,10 @@
-"""15.1.1, 15.1.4 — Hazır Şablonlar sekmesi: menü, liste ve durum süzgeci, yükleme (PDF, görüntü
-kayıpsız sarılır, Word reddi, SHA-256 tekrarı, ad tekrarı), arşiv/geri al, orijinali açma/indirme
-ve erişim kaydı, sayfa önizlemesi, Kullanıcı'nın salt okunur görünümü (PLAN.md §D123)."""
+"""15.1.1, 15.1.2, 15.1.4 — Hazır Şablonlar sekmesi: menü, liste ve durum süzgeci, yükleme (PDF,
+görüntü kayıpsız sarılır, Word reddi, SHA-256 tekrarı, ad tekrarı), incelemeye alma ve listede
+sebep, yeniden inceleme, arşiv/geri al, orijinali açma/indirme ve erişim kaydı, sayfa önizlemesi,
+Kullanıcı'nın salt okunur görünümü (PLAN.md §D123).
+
+Sağlayıcının ayarlı olup olmadığı ortama (`.env`) bağlı kalmasın diye `provider_available` her
+testte ayarlı sayılır; ayarsız durumu kendi testi değiştirir."""
 
 import io
 import re
@@ -25,12 +29,18 @@ from app.events import EventType
 from app.storage import DataLayout
 from app.web.access import record_access
 from app.web.auth import PanelUser, get_current_user
+from app.web.routers.output_templates import provider_available
 from app.web.templating import PANEL_MENU
 from tests.fixtures.gen import make_docx_bytes, make_pdf_bytes
 from tests.web.conftest import SIGNED_IN
 from tests.web.flash import flashed, toasts
 
 READER = PanelUser(SIGNED_IN.id, SIGNED_IN.username, UserRole.USER.value)
+
+
+@pytest.fixture(autouse=True)
+def _provider_configured(app: FastAPI) -> None:
+    app.dependency_overrides[provider_available] = lambda: True
 
 
 def _png() -> bytes:
@@ -225,3 +235,43 @@ def test_a_read_only_user_sees_the_list_and_preview_but_cannot_write(
     assert client.post(f"/output-templates/{template_id}/archive").status_code == 403
     with session_factory() as session:
         assert session.get_one(OutputTemplate, template_id).status == "draft"
+    assert client.post(f"/output-templates/{template_id}/examine").status_code == 403
+
+
+def test_upload_queues_the_examination_and_the_list_says_so(
+    client: TestClient, session_factory: sessionmaker[Session]
+) -> None:
+    template_id = _created_id(_upload(client, make_pdf_bytes(1)))
+
+    with session_factory() as session:
+        template = session.get_one(OutputTemplate, template_id)
+        assert template.examine_requested_at is not None
+        assert template.examine_error is None
+    assert "İnceleniyor" in client.get("/output-templates").text
+    page = client.get(f"/output-templates/{template_id}")
+    assert 'id="template-examining"' in page.text
+    assert "Henüz alan haritası yok." not in page.text
+
+
+def test_without_a_provider_the_list_shows_the_reason_and_reexamine_requeues(
+    app: FastAPI, client: TestClient, session_factory: sessionmaker[Session]
+) -> None:
+    app.dependency_overrides[provider_available] = lambda: False
+    response = _upload(client, make_pdf_bytes(1))
+    template_id = _created_id(response)
+
+    assert flashed(response) == ("templates.uploaded_unexamined", {"count": 1})
+    assert "İncelenmedi: yapay zekâ ayarlı değil" in client.get("/output-templates").text
+    (event,) = _events(session_factory, EventType.TEMPLATE_EXAMINED)
+    assert event.data_json["error"] == "provider_unavailable"
+
+    app.dependency_overrides[provider_available] = lambda: True
+    again = client.post(f"/output-templates/{template_id}/examine", follow_redirects=False)
+    assert again.status_code == 303
+    assert flashed(again) == ("templates.examine_requested", {})
+    with session_factory() as session:
+        template = session.get_one(OutputTemplate, template_id)
+        assert (template.examine_error, template.examine_requested_at is not None) == (None, True)
+
+    client.post(f"/output-templates/{template_id}/archive")
+    assert client.post(f"/output-templates/{template_id}/examine").status_code == 409

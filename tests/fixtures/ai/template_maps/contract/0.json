@@ -1,0 +1,13 @@
+{
+  "fields": [
+    {"field_id": "f1", "page": 0, "box": [0.31, 0.142, 0.78, 0.168], "kind": "text", "label_text": "Ime i prezime", "source": "full_name", "font_size": 10, "max_chars": 40},
+    {"field_id": "f2", "page": 0, "box": [0.31, 0.182, 0.55, 0.206], "kind": "date", "label_text": "Datum rođenja", "source": "date_of_birth", "font_size": 10, "max_chars": 10},
+    {"field_id": "f3", "page": 0, "box": [0.31, 0.222, 0.78, 0.246], "kind": "text", "label_text": "Mjesto rođenja", "source": "place_of_birth", "font_size": 10, "max_chars": 40},
+    {"field_id": "f4", "page": 0, "box": [0.31, 0.262, 0.78, 0.286], "kind": "text", "label_text": "Ime majke", "source": "mother_name", "font_size": 10, "max_chars": 40},
+    {"field_id": "f5", "page": 0, "box": [0.31, 0.302, 0.62, 0.326], "kind": "text", "label_text": "JMBG", "source": "personal_number", "font_size": 10, "max_chars": 13},
+    {"field_id": "f6", "page": 1, "box": [0.10, 0.80, 0.35, 0.83], "kind": "date", "label_text": "Datum", "source": "today", "font_size": 10, "max_chars": 10},
+    {"field_id": "f7", "page": 1, "box": [0.60, 0.84, 0.92, 0.93], "kind": "signature", "label_text": "Potpis", "source": null},
+    {"field_id": "f8", "page": 1, "box": [0.08, 0.86, 0.30, 0.96], "kind": "stamp", "label_text": null, "source": null}
+  ],
+  "notes": "Two-page contract; employee signature bottom right and company stamp bottom left of page 2."
+}

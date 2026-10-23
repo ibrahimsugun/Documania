@@ -109,6 +109,8 @@ class EventType(enum.StrEnum):
     # FR-MOD-15 (15.1.1, PLAN.md §D123): hazır şablon yükleme ve arşivi; veri şablon kimliğidir,
     # kişisel değer taşımaz.
     TEMPLATE_UPLOADED = "TEMPLATE_UPLOADED"
+    # 15.1.2: yapay zekâ incelemesi (`actor` system); veri şablon, model, boşluk sayısı, hata.
+    TEMPLATE_EXAMINED = "TEMPLATE_EXAMINED"
     TEMPLATE_ARCHIVED = "TEMPLATE_ARCHIVED"
     TEMPLATE_RESTORED = "TEMPLATE_RESTORED"
 

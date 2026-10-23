@@ -964,7 +964,7 @@ class GeneratedDocumentStatus(enum.StrEnum):
     DELETED = "deleted"
 
 
-class OutputTemplate(Base):
+class OutputTemplate(IdleClaimMixin, Base):
     """Hazır şablon (§8.1 `output_templates`, 15.1.1): İK'nın çalışanlar için çıktı alacağı belge
     kalıbı. Çalışan belgesi değildir: yükleme partisi, kuyruk öğesi, `documents` satırı açmaz.
 
@@ -972,7 +972,8 @@ class OutputTemplate(Base):
     göreli; görüntü şablonu K11 ile kayıpsız PDF'e sarılmıştır). `sha256` o dosyanındır ve tekildir:
     aynı dosya ikinci kez şablon olmaz. `normalized_name` adın tekillik anahtarı, `file_label`
     üretilen belgenin K8 etiketidir (15.2.3). `examine_error` yapay zekâ incelemesinin (15.1.2)
-    sebebidir.
+    başarısızlık sebebinin kodudur (`app.output_templates.examine.ExamineError`).
+    `examine_requested_at` doluysa inceleme işçide bekler (boş-zaman işi, `IdleClaimMixin`).
     """
 
     __tablename__ = "output_templates"
@@ -989,6 +990,7 @@ class OutputTemplate(Base):
     page_count: Mapped[int] = mapped_column(Integer)
     status: Mapped[str] = mapped_column(String(16), default=OutputTemplateStatus.DRAFT.value)
     examine_error: Mapped[str | None] = mapped_column(Text)
+    examine_requested_at: Mapped[datetime | None] = mapped_column(UtcDateTime)
     uploaded_by: Mapped[str] = mapped_column(String(255))
     created_at: Mapped[datetime] = mapped_column(UtcDateTime, default=utcnow)
     archived_at: Mapped[datetime | None] = mapped_column(UtcDateTime)

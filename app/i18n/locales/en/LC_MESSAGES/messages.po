@@ -4,8 +4,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Documania panel\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-23 00:10+0000\n"
-"PO-Revision-Date: 2026-10-23 00:10+0000\n"
+"POT-Creation-Date: 2026-10-23 01:01+0000\n"
+"PO-Revision-Date: 2026-10-23 01:01+0000\n"
 "Last-Translator: Documania görev penceresi (gözden geçirilmeli)\n"
 "Language: en\n"
 "Language-Team: English\n"
@@ -628,6 +628,10 @@ msgstr ""
 "Separate the field names with commas (lowercase letters, digits, "
 "underscore). The document is accepted if all of them are legible."
 
+#: app/web/templates/output_template.html
+msgid "Alan haritası"
+msgstr "Field map"
+
 #: app/web/templates/queue_item.html
 msgid ""
 "Alanlar belgeden okunan önerilen profille dolu; çalışan kaydına "
@@ -783,6 +787,10 @@ msgstr "Archived"
 #: app/groups/packages.py
 msgid "Arşivdeki gruba yeni paket tanımlanamaz."
 msgstr "A new package cannot be assigned from an archived group."
+
+#: app/web/routers/output_templates.py
+msgid "Arşivdeki şablon incelenmez; önce arşivden geri alın."
+msgstr "An archived template is not examined; restore it from the archive first."
 
 #: app/web/templates/groups.html
 msgid "Arşivdekiler de gösteriliyor."
@@ -2506,6 +2514,10 @@ msgstr ""
 "The Documania bot only replies to a Telegram ID that is linked to your "
 "account and allowed. Only you can link Telegram to your own account."
 
+#: app/web/templates/output_template.html
+msgid "Doldurulacak boşluk"
+msgstr "Fields to fill"
+
 #: app/web/templates/document_archive_step.html
 #: app/web/templates/document_delete_step.html
 #: app/web/templates/output_template.html app/web/templates/profile.html
@@ -3354,6 +3366,10 @@ msgstr "The map exceeds the limit of {limit} rows."
 msgid "Harita önizlemesi"
 msgstr "Map preview"
 
+#: app/web/templates/output_template.html
+msgid "Harita özeti"
+msgstr "Map hash"
+
 #: app/training/map_import.py
 msgid "Haritada satır yok."
 msgstr "The map has no rows."
@@ -3402,6 +3418,10 @@ msgstr "Target"
 #: app/web/routers/employees.py
 msgid "Hedef durum yalnız pasif (inactive) ya da aktif (active) olabilir."
 msgstr "The target status can only be inactive or active."
+
+#: app/web/templates/output_template.html
+msgid "Henüz alan haritası yok."
+msgstr "No field map yet."
 
 #: app/web/templates/groups.html
 msgid "Henüz belge grubu yok. «Yeni grup» ile ilk grubu açın."
@@ -4176,6 +4196,10 @@ msgstr ""
 msgid "Mesajınız çok uzun. Kimin hangi belgesini istediğinizi kısaca yazın."
 msgstr "Your message is too long. Briefly write whose document you want."
 
+#: app/web/templates/output_template.html
+msgid "Model"
+msgstr "Model"
+
 #: app/web/templates/upload_detail.html
 msgid "Model:"
 msgstr "Model:"
@@ -4266,6 +4290,10 @@ msgstr "Created"
 #: app/web/templates/upload_detail.html
 msgid "Oluşturuldu:"
 msgstr "Created:"
+
+#: app/web/templates/output_template.html
+msgid "Oluşturulma"
+msgstr "Created"
 
 #: app/web/templates/catalog_candidates.html
 msgid "Onay bekleyen aday tür yok."
@@ -5141,6 +5169,10 @@ msgstr ""
 "The server is running an outdated version — restart it "
 "(<code>baslat.bat</code>)."
 
+#: app/web/templates/output_template.html
+msgid "Sürüm"
+msgstr "Version"
+
 #: app/web/templates/history.html app/web/templates/upload_detail.html
 #, python-format
 msgid "Sürüm %(version)s"
@@ -5483,6 +5515,10 @@ msgstr "Bulk re-analysis: %(name)s"
 msgid "Tutarsız kayıt"
 msgstr "Inconsistent record"
 
+#: app/web/templates/output_template.html
+msgid "Tüm alanlar"
+msgstr "All areas"
+
 #: app/web/routers/training.py app/web/templates/uploads_list.html
 msgid "Tümü"
 msgstr "All"
@@ -5802,6 +5838,10 @@ msgstr ""
 msgid "Yapay zekâ"
 msgstr "AI"
 
+#: app/web/feedback.py
+msgid "Yapay zekâ ayarlı olmadığı için şablon incelenemedi."
+msgstr "The template could not be examined because AI is not configured."
+
 #: app/web/templates/training_map.html
 msgid "Yapay zekâ gerekebilecek"
 msgstr "May need the AI"
@@ -5847,6 +5887,14 @@ msgstr "No AI proposal"
 #, python-brace-format
 msgid "Yapay zekâ önerisi: {name}"
 msgstr "AI proposal: {name}"
+
+#: app/web/templates/output_template.html
+msgid ""
+"Yapay zekâ şablonu inceliyor; harita hazır olunca yeni sürüm olarak "
+"burada görünür."
+msgstr ""
+"AI is examining the template; when the map is ready it appears here as a "
+"new version."
 
 #: app/web/templates/profile.html
 msgid "Yazım"
@@ -5947,8 +5995,13 @@ msgid "Yeniden etkinleştirilen tür: {count}."
 msgstr "Types reactivated: {count}."
 
 #: app/web/templates/catalog_candidate.html
+#: app/web/templates/output_template.html
 msgid "Yeniden incele"
 msgstr "Examine again"
+
+#: app/web/templates/output_template.html
+msgid "Yeniden inceleme yeni bir harita sürümü açar; eski sürümler silinmez."
+msgstr "Re-examining opens a new map version; old versions are not deleted."
 
 #: app/web/routers/catalog.py
 #, python-brace-format
@@ -6657,6 +6710,14 @@ msgstr ""
 #: app/storage/map_paths.py
 msgid "mutlak yol"
 msgstr "absolute path"
+
+#: app/web/templates/output_template.html
+msgid "onay bekliyor"
+msgstr "awaiting approval"
+
+#: app/web/templates/output_template.html
+msgid "onaylı"
+msgstr "approved"
 
 #: app/web/templates/catalog_candidate.html
 msgid "parti"
@@ -7782,6 +7843,38 @@ msgstr ""
 msgid "İnceleme gerekli ({row}): {problem}"
 msgstr "Review needed ({row}): {problem}"
 
+#: app/web/feedback.py
+msgid ""
+"İnceleme sıraya alındı; alan haritası hazır olunca yeni sürüm olarak "
+"görünür."
+msgstr ""
+"Examination queued; the field map appears as a new version when it is "
+"ready."
+
+#: app/web/routers/output_templates.py
+msgid "İncelenemedi"
+msgstr "Could not be examined"
+
+#: app/web/routers/output_templates.py
+msgid "İncelenemedi: sayfa görüntüsü bulunamadı"
+msgstr "Could not be examined: page image not found"
+
+#: app/web/routers/output_templates.py
+msgid "İncelenemedi: yanıt alan haritası şemasına uymadı"
+msgstr "Could not be examined: the response did not match the field map schema"
+
+#: app/web/routers/output_templates.py
+msgid "İncelenemedi: yapay zekâ çağrısı tamamlanamadı"
+msgstr "Could not be examined: the AI call did not complete"
+
+#: app/web/routers/output_templates.py
+msgid "İnceleniyor"
+msgstr "Examining"
+
+#: app/web/routers/output_templates.py
+msgid "İncelenmedi: yapay zekâ ayarlı değil"
+msgstr "Not examined: AI is not configured"
+
 #: app/web/templates/output_template.html app/web/templates/profile.html
 msgid "İndir"
 msgstr "Download"
@@ -7990,6 +8083,16 @@ msgstr ""
 #: app/web/templates/output_templates.html
 msgid "Şablon yükle"
 msgstr "Upload template"
+
+#: app/web/feedback.py
+#, python-brace-format
+msgid ""
+"Şablon yüklendi ({count} sayfa), ancak yapay zekâ ayarlı olmadığı için "
+"incelenmedi; ayar yapılınca şablon sayfasından yeniden inceleyin."
+msgstr ""
+"Template uploaded ({count} pages), but it was not examined because AI is "
+"not configured; once it is configured, re-examine it from the template "
+"page."
 
 #: app/web/feedback.py
 #, python-brace-format

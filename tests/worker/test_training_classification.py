@@ -40,6 +40,7 @@ from app.db.models import (
     utcnow,
 )
 from app.events import EventType
+from app.output_templates.examine import TemplateExaminationJob
 from app.storage import DataLayout
 from app.training import (
     create_run,
@@ -506,13 +507,15 @@ def test_only_the_ai_step_writes_a_provider_field(
 def test_the_training_classification_is_a_default_idle_job(
     layout: DataLayout, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    # Üçüncü iş toplu taramanın mekanik adımıdır (11.9.5, `tests/worker/test_map_scan.py`).
+    # Üçüncü iş toplu taramanın mekanik adımıdır (11.9.5, `tests/worker/test_map_scan.py`),
+    # dördüncüsü hazır şablon incelemesi (15.1.2, `tests/worker/test_template_examination.py`).
     jobs = default_idle_jobs(SETTINGS)
 
     assert [type(job) for job in jobs] == [
         CandidateExaminationJob,
         TrainingClassificationJob,
         TrainingMapJob,
+        TemplateExaminationJob,
     ]
     job = jobs[1]
     assert isinstance(job, IdleJob)
@@ -526,6 +529,7 @@ def test_the_training_classification_is_a_default_idle_job(
             CandidateExaminationJob,
             TrainingClassificationJob,
             TrainingMapJob,
+            TemplateExaminationJob,
         ]
     finally:
         worker.stop()

@@ -1,0 +1,6 @@
+{
+  "fields": [
+    {"field_id": "f1", "page": 0, "box": [0.60, 0.84, 0.92, 0.93], "kind": "signature", "label_text": "Potpis", "source": "full_name", "font_size": 10, "max_chars": 40}
+  ],
+  "notes": "Signature box wrongly bound to a profile field."
+}

@@ -25,6 +25,10 @@ Eğitim sınıflandırması (11.9.3) da aynı biçimdedir: kullanıcı mesajınd
 ilk iki sayfası, sırayla), sonra öğeye özgü metin; zorlanmış işlev `TRAINING_TOOL_NAME`, parametre
 şeması `TrainingClassification.model_json_schema()`.
 
+Şablon incelemesi (15.1.2) de aynı biçimdedir: kullanıcı mesajında şablonun bütün sayfaları
+(sırayla), sonra şablona özgü metin; zorlanmış işlev `TEMPLATE_MAP_TOOL_NAME`, parametre şeması
+`TemplateFieldMap.model_json_schema()`.
+
 Fotoğraf kontrolü (11.7.1) de aynı biçimdedir: kullanıcı mesajında fotoğraf sayfasının görüntüsü,
 sonra değerlendirilecek kuralların metni; zorlanmış işlev `PHOTO_CHECK_TOOL_NAME`, parametre şeması
 `PhotoCheck.model_json_schema()`.
@@ -69,11 +73,17 @@ from app.ai.provider import (
     ProviderError,
     ProviderRateLimitError,
     ProviderServerError,
+    TemplateMapRequest,
     TrainingClassificationRequest,
     TypeDescriptionRequest,
     TypeProposalRequest,
 )
-from app.ai.schemas import PageAnalysis, PageAnalysisError
+from app.ai.schemas import (
+    PageAnalysis,
+    PageAnalysisError,
+    TemplateFieldMap,
+    TemplateFieldMapError,
+)
 from app.ai.training_classification import TrainingClassification, TrainingClassificationError
 from app.ai.type_description import TypeDescription, TypeDescriptionError
 from app.ai.type_proposal import TypeProposal, TypeProposalError
@@ -120,6 +130,22 @@ PROPOSAL_TOOL: ChatCompletionFunctionToolParam = {
             "kaydeder. Argümanlar, tür taslağı şemasındaki her anahtarı taşıyan tek bir nesnedir."
         ),
         "parameters": TypeProposal.model_json_schema(),
+        "strict": False,
+    },
+}
+
+TEMPLATE_MAP_TOOL_NAME = "record_template_field_map"
+
+TEMPLATE_MAP_TOOL: ChatCompletionFunctionToolParam = {
+    "type": "function",
+    "function": {
+        "name": TEMPLATE_MAP_TOOL_NAME,
+        "description": (
+            "Hazır şablonun alan haritasını kaydeder: doldurulacak boşluklar ve doldurulmayacak "
+            "imza, kaşe, logo, fotoğraf, çerçeve alanları. Argümanlar, alan haritası şemasındaki "
+            "her anahtarı taşıyan tek bir nesnedir."
+        ),
+        "parameters": TemplateFieldMap.model_json_schema(),
         "strict": False,
     },
 }
@@ -275,6 +301,16 @@ class OpenAIProvider(AnalysisProvider):
             PROPOSAL_TOOL,
             label="tür taslağı işlevi",
             error=TypeProposalError,
+        )
+
+    def _request_template_map(self, request: TemplateMapRequest) -> object:
+        return self._forced_function_call(
+            request.instructions,
+            request.images,
+            request.prompt,
+            TEMPLATE_MAP_TOOL,
+            label="alan haritası işlevi",
+            error=TemplateFieldMapError,
         )
 
     def _request_training_classification(self, request: TrainingClassificationRequest) -> object:

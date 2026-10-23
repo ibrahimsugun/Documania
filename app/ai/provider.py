@@ -54,6 +54,12 @@ sözlüğündeki tür, önerilen ad, yüz; kişisel alan yok). Yanıt kabulü
 deneme ortaktır; somut sağlayıcı `_request_training_classification`'ı uygular, şemaya uymayan yanıt
 `TrainingClassificationError`'dır. Uygulamayan sağlayıcı `ProviderError` verir.
 
+**Şablon incelemesi (15.1.2).** Yedinci iş: `examine_template(TemplateMapRequest)` hazır
+şablonun bütün sayfa görüntülerinden (tek istekte, sırayla) alan haritası (`TemplateFieldMap`,
+§8.7) ürettirir. Yanıt kabulü (`validate_template_field_map`: şablonun sayfaları dışında `page`
+yok) ve yeniden deneme ortaktır; somut sağlayıcı `_request_template_map`'i uygular, şemaya
+uymayan yanıt `TemplateFieldMapError`'dır. Uygulamayan sağlayıcı `ProviderError` verir.
+
 **Ön eleme modeli (13.2.1).** Sağlayıcı ana modelinin yanında aynı API'nin ucuz bir modelini
 taşıyabilir (`<SAĞLAYICI>_PRESCREEN_MODEL`): `prescreen_provider()` o modelle çalışan kopyayı verir.
 Kopyanın sözleşmesi aynıdır (yanıt kabulü, yeniden deneme); somut sağlayıcı yalnız `_with_model`'i
@@ -71,7 +77,13 @@ from typing import ClassVar, Literal, final
 from app.ai.document_query import DocumentQuery, validate_document_query
 from app.ai.photo_check import PhotoCheck, validate_photo_check
 from app.ai.profile_answer import ProfileAnswer, validate_profile_answer
-from app.ai.schemas import PageAnalysis, PageAnalysisError, validate_page_analysis
+from app.ai.schemas import (
+    PageAnalysis,
+    PageAnalysisError,
+    TemplateFieldMap,
+    validate_page_analysis,
+    validate_template_field_map,
+)
 from app.ai.training_classification import (
     TrainingClassification,
     validate_training_classification,
@@ -343,6 +355,37 @@ class ProfileAnswerRequest:
             raise ValueError("prompt boş olamaz")
 
 
+@dataclass(frozen=True, slots=True, kw_only=True)
+class TemplateMapRequest:
+    """Şablon incelemesi isteği (15.1.2); hiçbir alanı sağlayıcıya özgü değildir.
+
+    - `images`: şablonun bütün sayfa görüntüleri, sayfa sırasıyla (en az bir).
+    - `instructions`: sistem talimatı (`app.ai.prompts.template_map`).
+    - `prompt`: şablona özgü metin (sayfa sayısı, görüntülerin sırası).
+    - `page_count`: şablonun sayfa sayısı; yanıttaki `page` bunun dışındaysa reddedilir.
+    """
+
+    images: tuple[PageImage, ...]
+    instructions: str = field(repr=False)
+    prompt: str = field(repr=False)
+    page_count: int
+
+    def __post_init__(self) -> None:
+        # Çağıran liste verebilir; istek değişmez olsun diye demete çevrilir.
+        images = tuple(self.images)
+        if not images:
+            raise ValueError("images en az bir görüntü içermeli")
+        if not all(isinstance(image, PageImage) for image in images):
+            raise TypeError("images yalnız PageImage içermeli")
+        if not self.instructions.strip():
+            raise ValueError("instructions boş olamaz")
+        if not self.prompt.strip():
+            raise ValueError("prompt boş olamaz")
+        if type(self.page_count) is not int or self.page_count < 1:
+            raise ValueError("page_count pozitif tamsayı olmalı")
+        object.__setattr__(self, "images", images)
+
+
 class AnalysisProvider(abc.ABC):
     """Sayfa analizi sağlayıcısı. `name` `AI_PROVIDER` değeridir, `model` kullanılan modeldir.
 
@@ -462,6 +505,16 @@ class AnalysisProvider(abc.ABC):
             raw, known_slugs=request.known_slugs, doc_kinds=request.doc_kinds
         )
 
+    @final
+    def examine_template(self, request: TemplateMapRequest) -> TemplateFieldMap:
+        """Hazır şablonun sayfalarından alan haritası ürettirir (15.1.2).
+
+        Yeniden deneme `analyze_page`'teki gibidir (03.5.1). Yanıt `validate_template_field_map`'ten
+        geçer; uymayan yanıt `TemplateFieldMapError` olur, düzeltilmez.
+        """
+        raw = _with_retry(self._request_template_map, request)
+        return validate_template_field_map(raw, page_count=request.page_count)
+
     @abc.abstractmethod
     def _request_analysis(self, request: PageAnalysisRequest) -> object:
         """Sağlayıcıyı bir kez çağırır, yapılandırılmış çıktıyı doğrulamadan döner.
@@ -505,6 +558,12 @@ class AnalysisProvider(abc.ABC):
         doğrulamadan döner (sözleşmesi `_request_analysis`'inkidir; yapılandırılmış çıktı yoksa
         `TrainingClassificationError`). Varsayılan: sağlayıcı bu işi yapmaz."""
         raise ProviderError(f"'{self.name}' sağlayıcısı eğitim sınıflandırması yapmıyor")
+
+    def _request_template_map(self, request: TemplateMapRequest) -> object:
+        """Şablon incelemesi için sağlayıcıyı bir kez çağırır, yapılandırılmış çıktıyı doğrulamadan
+        döner (sözleşmesi `_request_analysis`'inkidir; yapılandırılmış çıktı yoksa
+        `TemplateFieldMapError`). Varsayılan: sağlayıcı bu işi yapmaz."""
+        raise ProviderError(f"'{self.name}' sağlayıcısı şablon incelemesi yapmıyor")
 
 
 def _with_retry[R](call: Callable[[R], object], request: R) -> object:

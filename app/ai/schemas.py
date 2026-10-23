@@ -24,6 +24,12 @@ doldurulmaz. Kurallar:
 
 Veritabanından geri okunan `pages.analysis_json` katalog verilmeden `PageAnalysis.model_validate`
 ile okunur: katalog analizden sonra değişmiş olabilir, slug denetimi yalnız yanıt kabulündedir.
+
+**Alan haritası (15.1.2, §8.7).** Modülün sonundaki `TemplateFieldMap` hazır şablonun yapay zekâ
+incelemesinin yanıtıdır: her boşluk için sayfa, normalize kutu, `kind`, `source`, yazı boyutu ve en
+çok karakter; `notes` İngilizce (10.10.6). Şablon kimliği, sürüm ve sayfa sayısı yanıtta değil,
+saklanan haritada sistemce eklenir (`app.output_templates.examine`). Aynı katılık: tanımsız anahtar
+reddedilir, tip zorlanmaz, yanıt düzeltilmez — uymayan yanıt `TemplateFieldMapError`.
 """
 
 from __future__ import annotations
@@ -32,7 +38,7 @@ import enum
 import re
 from collections.abc import Iterable
 from datetime import date
-from typing import Annotated
+from typing import Annotated, Literal, get_args
 
 from pydantic import (
     AfterValidator,
@@ -286,3 +292,147 @@ def _describe(exc: ValidationError) -> list[str]:
         where = ".".join(str(part) for part in error["loc"]) or "yanıt"
         problems.append(f"{where}: {error['msg'].removeprefix('Value error, ')}")
     return problems
+
+
+# --- alan haritası (15.1.2, §8.7) --------------------------------------------------------------
+
+TemplateFieldKind = Literal["text", "date", "signature", "stamp", "logo", "photo", "decoration"]
+"""§8.7 `kind`; yalnız `FILLABLE_KINDS` doldurulur, ötekiler (imza, kaşe, mühür, logo, fotoğraf,
+çerçeve) asla boşluk sayılmaz."""
+
+TemplateFieldSource = Literal[
+    "given_names",
+    "surname",
+    "full_name",
+    "other_names",
+    "original_script_name",
+    "date_of_birth",
+    "place_of_birth",
+    "mother_name",
+    "father_name",
+    "personal_number",
+    "passport_number",
+    "nationality",
+    "address",
+    "phone",
+    "email",
+    "today",
+    "unassigned",
+]
+"""§8.7 `source`: boşluğun bağlandığı profil alanı; bağlanamayan boşluk `unassigned`."""
+
+TEMPLATE_FIELD_KINDS: tuple[str, ...] = get_args(TemplateFieldKind)
+TEMPLATE_FIELD_SOURCES: tuple[str, ...] = get_args(TemplateFieldSource)
+FILLABLE_KINDS = frozenset({"text", "date"})
+
+MAX_TEMPLATE_FIELDS = 200
+MAX_FONT_SIZE = 72
+MAX_FIELD_CHARS = 2000
+_PAGES = "pages"
+
+BoxEdge = Annotated[float, Field(strict=True, ge=0, le=1)]
+FieldId = Annotated[
+    str, StringConstraints(strict=True, min_length=1, max_length=16, pattern=r"^[A-Za-z0-9_-]+$")
+]
+LabelText = Annotated[str, StringConstraints(strict=True, strip_whitespace=True, max_length=200)]
+MapNotes = Annotated[str, StringConstraints(strict=True, strip_whitespace=True, max_length=1000)]
+
+
+class TemplateFieldMapError(ValueError):
+    """Model yanıtı alan haritası şemasına (§8.7) uymadı; `problems` her ihlal için bir satır."""
+
+    def __init__(self, problems: list[str]) -> None:
+        self.problems = problems
+        super().__init__(
+            "Alan haritası yanıtı reddedildi:\n" + "\n".join(f"- {p}" for p in problems)
+        )
+
+
+class TemplateField(BaseModel):
+    """Şablondaki tek alan (§8.7 `fields[]`). `box` sayfa boyutuna göre normalize `[x0, y0, x1, y1]`
+    (sol üst köşe başlangıç). `label_text` boşluğun yanındaki basılı etikettir, yalnız eşleştirme
+    içindir ve yeniden üretilmez. `source`, `font_size` ve `max_chars` yalnız `text`/`date`
+    alanındadır; öteki türlerde `null`dır."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    field_id: FieldId
+    page: Annotated[StrictInt, Field(ge=0)]
+    box: tuple[BoxEdge, BoxEdge, BoxEdge, BoxEdge]
+    kind: TemplateFieldKind
+    label_text: LabelText | None = None
+    source: TemplateFieldSource | None = None
+    font_size: Annotated[float, Field(strict=True, gt=0, le=MAX_FONT_SIZE)] | None = None
+    max_chars: Annotated[StrictInt, Field(ge=1, le=MAX_FIELD_CHARS)] | None = None
+
+    @field_validator("page")
+    @classmethod
+    def _page_in_template(cls, value: int, info: ValidationInfo) -> int:
+        pages = (info.context or {}).get(_PAGES)
+        if pages is not None and value >= pages:
+            raise ValueError(f"şablonda {pages} sayfa var")
+        return value
+
+    @field_validator("box")
+    @classmethod
+    def _box_has_area(
+        cls, value: tuple[float, float, float, float]
+    ) -> tuple[float, float, float, float]:
+        x0, y0, x1, y1 = value
+        if not (x0 < x1 and y0 < y1):
+            raise ValueError("kutu x0 < x1 ve y0 < y1 olmalı")
+        return value
+
+    @model_validator(mode="after")
+    def _fillable_only_has_source(self) -> TemplateField:
+        if self.kind in FILLABLE_KINDS:
+            missing = [
+                name for name in ("source", "font_size", "max_chars") if getattr(self, name) is None
+            ]
+            if missing:
+                raise ValueError(f"{self.kind} alanında dolu olmalı: {', '.join(missing)}")
+        else:
+            filled = [
+                name
+                for name in ("source", "font_size", "max_chars")
+                if getattr(self, name) is not None
+            ]
+            if filled:
+                raise ValueError(f"{self.kind} alanı doldurulmaz; null olmalı: {', '.join(filled)}")
+        return self
+
+
+class TemplateFieldMap(BaseModel):
+    """Hazır şablonun incelemesinin yanıtı (15.1.2): alanlar ve İngilizce not (§8.7)."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    fields: Annotated[tuple[TemplateField, ...], Field(max_length=MAX_TEMPLATE_FIELDS)]
+    notes: MapNotes
+
+    @field_validator("fields")
+    @classmethod
+    def _unique_ids(cls, value: tuple[TemplateField, ...]) -> tuple[TemplateField, ...]:
+        ids = [item.field_id for item in value]
+        if len(set(ids)) != len(ids):
+            raise ValueError("field_id tekrarsız olmalı")
+        return value
+
+    @property
+    def fillable_count(self) -> int:
+        """Doldurulacak boşluk sayısı (`text`/`date`)."""
+        return sum(1 for item in self.fields if item.kind in FILLABLE_KINDS)
+
+
+def validate_template_field_map(data: object, *, page_count: int) -> TemplateFieldMap:
+    """Model yanıtını (JSON metni veya çözülmüş nesne) §8.7'ye göre doğrular; `page_count` şablonun
+    sayfa sayısıdır, dışındaki `page` reddedilir. Uymayan yanıt `TemplateFieldMapError`."""
+    context = {_PAGES: page_count}
+    if isinstance(data, BaseModel):
+        data = data.model_dump(mode="json")
+    try:
+        if isinstance(data, str | bytes | bytearray):
+            return TemplateFieldMap.model_validate_json(data, context=context)
+        return TemplateFieldMap.model_validate(data, context=context)
+    except ValidationError as exc:
+        raise TemplateFieldMapError(_describe(exc)) from None

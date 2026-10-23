@@ -11,6 +11,7 @@ import base64
 import json
 import os
 from collections.abc import Callable
+from pathlib import Path
 from typing import Any
 
 import anthropic
@@ -57,13 +58,15 @@ from app.ai.anthropic_provider import (
     PHOTO_CHECK_TOOL_NAME,
     PROPOSAL_TOOL,
     PROPOSAL_TOOL_NAME,
+    TEMPLATE_MAP_TOOL,
+    TEMPLATE_MAP_TOOL_NAME,
     TOOL_NAME,
     TRAINING_TOOL,
     TRAINING_TOOL_NAME,
     AnthropicProvider,
 )
-from app.ai.provider import MAX_ANALYSIS_ATTEMPTS, RETRY_BACKOFF_SECONDS
-from app.ai.schemas import ISO_639_1_CODES
+from app.ai.provider import MAX_ANALYSIS_ATTEMPTS, RETRY_BACKOFF_SECONDS, TemplateMapRequest
+from app.ai.schemas import ISO_639_1_CODES, TemplateFieldMap, TemplateFieldMapError
 from app.config import Settings, load_settings
 from tests.ai.payloads import (
     DOC_KINDS,
@@ -930,3 +933,51 @@ def test_live_anthropic_returns_schema_conforming_analysis() -> None:
     analysis = provider.analyze_page(request)
 
     assert analysis.page_index == 0
+
+
+# --- Şablon incelemesi (15.1.2): bütün sayfalar + metin, zorlanmış alan haritası aracı ---------
+
+
+def _template_map_payload() -> dict[str, Any]:
+    path = Path(__file__).resolve().parents[1] / "fixtures" / "ai" / "template_maps" / "contract"
+    return json.loads((path / "0.json").read_text(encoding="utf-8"))
+
+
+def _template_map_request() -> TemplateMapRequest:
+    return TemplateMapRequest(
+        images=tuple(
+            PageImage(make_half_filled_image_bytes("JPEG", (200 + index, 100)))
+            for index in range(2)
+        ),
+        instructions="Şablon talimatı",
+        prompt="Şablon metni",
+        page_count=2,
+    )
+
+
+def test_template_map_request_sends_every_page_then_text_with_forced_map_tool() -> None:
+    api = FakeApi(message([tool_use(_template_map_payload(), name=TEMPLATE_MAP_TOOL_NAME)]))
+    request = _template_map_request()
+
+    field_map = api.provider().examine_template(request)
+
+    assert field_map.fillable_count == 6
+    body = api.body()
+    assert body["system"] == "Şablon talimatı"
+    *image_blocks, text_block = body["messages"][0]["content"]
+    assert [base64.b64decode(block["source"]["data"]) for block in image_blocks] == [
+        image.data for image in request.images
+    ]
+    assert text_block == {"type": "text", "text": "Şablon metni"}
+    assert body["tools"][0]["input_schema"] == TemplateFieldMap.model_json_schema()
+    assert body["tools"] == [json.loads(json.dumps(TEMPLATE_MAP_TOOL))]
+    assert body["tool_choice"]["name"] == TEMPLATE_MAP_TOOL_NAME
+
+
+def test_template_map_outside_the_pages_is_rejected() -> None:
+    payload = _template_map_payload()
+    payload["fields"][0]["page"] = 5
+    api = FakeApi(message([tool_use(payload, name=TEMPLATE_MAP_TOOL_NAME)]))
+
+    with pytest.raises(TemplateFieldMapError, match="şablonda 2 sayfa var"):
+        api.provider().examine_template(_template_map_request())

@@ -27,6 +27,10 @@ Fotoğraf kontrolü (11.7.1) de aynı biçimdedir: kullanıcı turunda fotoğraf
 sonra değerlendirilecek kuralların metni; zorlanmış araç `PHOTO_CHECK_TOOL_NAME`, girdi şeması
 `PhotoCheck.model_json_schema()`.
 
+Şablon incelemesi (15.1.2) de aynı biçimdedir: kullanıcı turunda şablonun bütün sayfaları (sırayla),
+sonra şablona özgü metin; zorlanmış araç `TEMPLATE_MAP_TOOL_NAME`, girdi şeması
+`TemplateFieldMap.model_json_schema()`.
+
 Belge isteği (12.3.1) görüntüsüzdür: kullanıcı turunda yalnız katalog ve İK'nın mesajı; zorlanmış
 araç `DOCUMENT_QUERY_TOOL_NAME`, girdi şeması `DocumentQuery.model_json_schema()`.
 
@@ -59,11 +63,17 @@ from app.ai.provider import (
     ProviderError,
     ProviderRateLimitError,
     ProviderServerError,
+    TemplateMapRequest,
     TrainingClassificationRequest,
     TypeDescriptionRequest,
     TypeProposalRequest,
 )
-from app.ai.schemas import PageAnalysis, PageAnalysisError
+from app.ai.schemas import (
+    PageAnalysis,
+    PageAnalysisError,
+    TemplateFieldMap,
+    TemplateFieldMapError,
+)
 from app.ai.training_classification import TrainingClassification, TrainingClassificationError
 from app.ai.type_description import TypeDescription, TypeDescriptionError
 from app.ai.type_proposal import TypeProposal, TypeProposalError
@@ -136,6 +146,18 @@ DOCUMENT_QUERY_TOOL: ToolParam = {
     "input_schema": DocumentQuery.model_json_schema(),
 }
 
+TEMPLATE_MAP_TOOL_NAME = "record_template_field_map"
+
+TEMPLATE_MAP_TOOL: ToolParam = {
+    "name": TEMPLATE_MAP_TOOL_NAME,
+    "description": (
+        "Hazır şablonun alan haritasını kaydeder: doldurulacak boşluklar ve doldurulmayacak imza, "
+        "kaşe, logo, fotoğraf, çerçeve alanları. Girdi, alan haritası şemasındaki her anahtarı "
+        "taşıyan tek bir nesnedir."
+    ),
+    "input_schema": TemplateFieldMap.model_json_schema(),
+}
+
 
 PROFILE_ANSWER_TOOL_NAME = "record_profile_answer"
 
@@ -151,7 +173,8 @@ PROFILE_ANSWER_TOOL: ToolParam = {
 
 class AnthropicProvider(AnalysisProvider):
     """Anthropic Messages API ile sayfa analizi, tür açıklaması, tür taslağı, eğitim
-    sınıflandırması, fotoğraf kontrolü ve belge isteği (`AI_PROVIDER=anthropic`)."""
+    sınıflandırması, fotoğraf kontrolü, belge isteği ve şablon incelemesi
+    (`AI_PROVIDER=anthropic`)."""
 
     name = "anthropic"
 
@@ -230,6 +253,16 @@ class AnthropicProvider(AnalysisProvider):
             PROPOSAL_TOOL,
             label="tür taslağı aracı",
             error=TypeProposalError,
+        )
+
+    def _request_template_map(self, request: TemplateMapRequest) -> object:
+        return self._forced_tool_call(
+            request.instructions,
+            request.images,
+            request.prompt,
+            TEMPLATE_MAP_TOOL,
+            label="alan haritası aracı",
+            error=TemplateFieldMapError,
         )
 
     def _request_training_classification(self, request: TrainingClassificationRequest) -> object:

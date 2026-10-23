@@ -1,7 +1,8 @@
 {% extends "base.html" %}
-{# Hazır Şablonlar (15.1.1, 15.1.4): İK'nın çalışanlar için çıktı alacağı belge kalıpları. Varsayılan
+{# Hazır Şablonlar (15.1.1, 15.1.2, 15.1.4): İK'nın çalışanlar için çıktı alacağı belge kalıpları. Varsayılan
    arşivdekiler dışındakiler; `?status=` duruma göre süzer. Şablon silinmez (R11) — arşivlenir ve geri
-   alınır. Kullanıcı (10.1.8) listeyi görür, yükleme bağlantısı yalnız İK/root'ta. #}
+   alınır. Durum hücresi incelemenin sürdüğünü ya da harita üretmeme sebebini (15.1.2) gösterir. Kullanıcı
+   (10.1.8) listeyi görür, yükleme bağlantısı yalnız İK/root'ta. #}
 {% block title %}{{ translate(entry.label) }}{% endblock %}
 {% block content %}
 <h1>{{ translate(entry.label) }}</h1>
@@ -30,7 +31,10 @@
       <td translate="no">{{ template.description or "—" }}</td>
       <td class="num">{{ template.page_count }}</td>
       <td class="num">{{ template.field_count }}</td>
-      <td class="cell-nowrap"><span class="status-badge {{ status_badges[template.status] }}">{{ translate(status_labels[template.status]) }}</span></td>
+      <td class="cell-nowrap"><span class="status-badge {{ status_badges[template.status] }}">{{ translate(status_labels[template.status]) }}</span>
+        {% if template.examining %}<br><small class="hint">{{ translate(examining_label) }}</small>
+        {% elif template.examine_error %}<br><small class="field-error">{{ translate(examine_error_label(template.examine_error)) }}</small>{% endif %}
+      </td>
       <td translate="no">{{ template.uploaded_by }}</td>
       <td class="cell-nowrap">{{ template.created_at.strftime("%Y-%m-%d %H:%M") }} UTC</td>
     </tr>

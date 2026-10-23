@@ -8,6 +8,10 @@
   dosya (SHA-256) 409 ile form yeniden çizilir; tekrar dosya ayrıca uyarı bildirimi alır.
 - `GET /output-templates/{id}` şablonun sayfasıdır: bilgiler, sayfa önizlemeleri, orijinali yeni
   sekmede açma ve indirme, arşivleme ve geri alma (`POST .../archive`, `.../restore`).
+- Yükleme şablonu yapay zekâ incelemesine koyar (15.1.2, `app.output_templates.examine`); işçi
+  haritayı yeni sürüm olarak yazar. Sağlayıcı ayarlı değilse kuyruğa girmez, sebep listede ve
+  sayfada görünür. `POST .../examine` ("yeniden incele") aynı isteği tekrarlar; sonuç yeni sürümdür,
+  eski sürüm silinmez. Arşivdeki şablon incelenmez (409).
 - `GET .../file` (açma) ve `.../download` (indirme) dosyayı olduğu gibi sunar ve önce erişim
   logunu `template_id` ile yazar (10.9.2); `GET .../pages/{n}` önizleme görüntüsüdür, kayda
   girmez (sayfa görüntülemek dosyayı açmak sayılmaz, §D123 f kararı).
@@ -28,6 +32,7 @@ from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse, Resp
 from sqlalchemy.orm import Session
 from starlette.datastructures import UploadFile as StarletteUploadFile
 
+from app.ai.provider import ProviderConfigError, create_provider
 from app.config import Settings, get_settings
 from app.db.models import AccessAction, OutputTemplate, OutputTemplateStatus
 from app.db.session import get_session
@@ -46,14 +51,23 @@ from app.output_templates import (
     set_template_archived,
     status_counts,
 )
+from app.output_templates.examine import (
+    ExamineError,
+    TemplateArchivedError,
+    is_examining,
+    request_examination,
+)
 from app.storage import DataLayout
 from app.web.access import record_access
 from app.web.auth import WRITER_ONLY, PanelUser, require_panel_user
 from app.web.feedback import (
     TEMPLATE_ARCHIVED,
     TEMPLATE_DUPLICATE,
+    TEMPLATE_EXAMINE_REQUESTED,
+    TEMPLATE_EXAMINE_UNAVAILABLE,
     TEMPLATE_RESTORED,
     TEMPLATE_UPLOADED,
+    TEMPLATE_UPLOADED_UNEXAMINED,
     flash,
     render,
 )
@@ -76,6 +90,16 @@ NAME_TAKEN_ARCHIVED = N_(
     "Bu adla arşivde bir şablon var; şablon adı benzersiz olmalı. Arşivdekini geri alabilirsiniz."
 )
 DUPLICATE_FILE = N_("Bu dosya zaten şablon olarak yüklenmiş.")
+ARCHIVED_NOT_EXAMINED = N_("Arşivdeki şablon incelenmez; önce arşivden geri alın.")
+EXAMINING_LABEL = N_("İnceleniyor")
+# 15.1.2: inceleme haritası üretmediyse listede ve sayfada görünen sebep.
+EXAMINE_ERROR_LABELS = {
+    ExamineError.PROVIDER_UNAVAILABLE.value: N_("İncelenmedi: yapay zekâ ayarlı değil"),
+    ExamineError.INVALID_RESPONSE.value: N_("İncelenemedi: yanıt alan haritası şemasına uymadı"),
+    ExamineError.PROVIDER_ERROR.value: N_("İncelenemedi: yapay zekâ çağrısı tamamlanamadı"),
+    ExamineError.NO_PAGES.value: N_("İncelenemedi: sayfa görüntüsü bulunamadı"),
+}
+EXAMINE_ERROR_FALLBACK = N_("İncelenemedi")
 STATUS_LABELS = {
     OutputTemplateStatus.DRAFT.value: N_("Taslak"),
     OutputTemplateStatus.READY.value: N_("Hazır"),
@@ -91,6 +115,26 @@ PDF_MEDIA_TYPE = "application/pdf"
 JPEG_MEDIA_TYPE = "image/jpeg"
 FILE_HEADERS = {"X-Content-Type-Options": "nosniff", "Cache-Control": "private, no-store"}
 FORM_TEXT_LIMIT = 1000
+
+
+def provider_available(settings: Annotated[Settings, Depends(get_settings)]) -> bool:
+    """İncelemenin (15.1.2) sağlayıcısı kurulabiliyor mu; çağrıyı işçi yapar, burada yalnız ayar
+    denetlenir."""
+    try:
+        create_provider(settings)
+    except ProviderConfigError:
+        return False
+    return True
+
+
+ProviderAvailable = Annotated[bool, Depends(provider_available)]
+
+
+def examine_error_label(code: str | None) -> str | None:
+    """`examine_error` kodunun gösterilen sebebi; kod yoksa `None`."""
+    if not code:
+        return None
+    return EXAMINE_ERROR_LABELS.get(code, EXAMINE_ERROR_FALLBACK)
 
 
 @dataclass(frozen=True, slots=True)
@@ -184,6 +228,8 @@ def templates_page(
         selected=selected,
         status_labels=STATUS_LABELS,
         status_badges=STATUS_BADGES,
+        examine_error_label=examine_error_label,
+        examining_label=EXAMINING_LABEL,
     )
     # Okuma işlemi de SQLite'ta yazma kilidini tutar (`app.db.session`).
     session.rollback()
@@ -203,6 +249,7 @@ async def upload_template(
     session: DbSession,
     layout: Layout,
     settings: Annotated[Settings, Depends(get_settings)],
+    available: ProviderAvailable,
 ) -> Response:
     # Form elle okunur: dosya seçilmeden gönderilen formda tarayıcı adı boş tek bir parça yollar,
     # Starlette onu dosya değil düz alan sayar (`app.web.routers.upload_page` ile aynı sebep).
@@ -226,6 +273,7 @@ async def upload_template(
             content=content,
             actor=user.username,
         )
+        queued = request_examination(session, template, provider_available=available)
         session.commit()
     except TemplateFormError as exc:
         session.rollback()
@@ -255,7 +303,8 @@ async def upload_template(
             duplicate_id=exc.template_id,
             status_code=status.HTTP_409_CONFLICT,
         )
-    return _template_redirect(template.id, TEMPLATE_UPLOADED, count=template.page_count)
+    key = TEMPLATE_UPLOADED if queued else TEMPLATE_UPLOADED_UNEXAMINED
+    return _template_redirect(template.id, key, count=template.page_count)
 
 
 @router.get(f"{LIST_PATH}/{{template_id}}", response_class=HTMLResponse)
@@ -273,6 +322,9 @@ def template_page(
         status_labels=STATUS_LABELS,
         status_badges=STATUS_BADGES,
         pages=range(template.page_count),
+        latest_map=template.maps[-1] if template.maps else None,
+        examining=is_examining(template),
+        examine_error=examine_error_label(template.examine_error),
     )
     session.rollback()
     return response
@@ -376,3 +428,19 @@ def archive_template(template_id: int, user: CurrentUser, session: DbSession) ->
 @router.post(f"{LIST_PATH}/{{template_id}}/restore")
 def restore_template(template_id: int, user: CurrentUser, session: DbSession) -> RedirectResponse:
     return _set_archived(session, template_id, False, user)
+
+
+@router.post(f"{LIST_PATH}/{{template_id}}/examine")
+def reexamine_template(
+    template_id: int, user: CurrentUser, session: DbSession, available: ProviderAvailable
+) -> RedirectResponse:
+    """15.1.2 — şablonu yeniden incelemeye koyar (tek adım); sonuç yeni harita sürümüdür."""
+    template = _template_or_404(session, template_id)
+    try:
+        queued = request_examination(session, template, provider_available=available)
+    except TemplateArchivedError:
+        session.rollback()
+        raise HTTPException(status.HTTP_409_CONFLICT, ARCHIVED_NOT_EXAMINED) from None
+    session.commit()
+    key = TEMPLATE_EXAMINE_REQUESTED if queued else TEMPLATE_EXAMINE_UNAVAILABLE
+    return _template_redirect(template_id, key)

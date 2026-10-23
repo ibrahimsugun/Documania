@@ -12,18 +12,21 @@ Bir kayıt dizini, sıradaki her `analyze_page` çağrısına karşılık gelen 
 taşıyan `<sıra>.json` dosyalarından oluşur (`0.json`, `1.json`, ...) ve dosya adına göre
 sıralı okunur. Tür açıklaması isteği (`describe_type`, 11.3.1), tür taslağı isteği
 (`propose_type`, 11.5.5), eğitim sınıflandırması isteği (`classify_training_page`, 11.9.3),
-fotoğraf kontrolü isteği (`check_photo`, 11.7.1) ve belge isteği (`read_document_query`, 12.3.1)
+fotoğraf kontrolü isteği (`check_photo`, 11.7.1), belge isteği (`read_document_query`, 12.3.1) ve
+şablon incelemesi isteği (`examine_template`, 15.1.2)
 aynı sıradan bir kayıt alır: kayıtlar istek türüne bakılmadan
 geldiği sırayla dağıtılır — fotoğraf türündeki sayfanın kontrol kaydı o sayfanın analiz kaydının
 hemen ardından gelir. İçerik ayrıştırılmadan olduğu gibi döner — doğrulama
 `AnalysisProvider.analyze_page` içindeki `validate_page_analysis`'in (tür açıklamasında
 `validate_type_description`'ın, tür taslağında `validate_type_proposal`'ın, eğitim
 sınıflandırmasında `validate_training_classification`'ın, fotoğraf kontrolünde
-`validate_photo_check`'in, belge isteğinde `validate_document_query`'nin) işidir (bozuk kayıt
+`validate_photo_check`'in, belge isteğinde `validate_document_query`'nin, şablon incelemesinde
+`validate_template_field_map`'in) işidir (bozuk kayıt
 orada `PageAnalysisError` olur, burada değil — somut sağlayıcılarla aynı sorumluluk ayrımı, bkz.
 `provider.py`). Tür açıklaması, tür taslağı ve eğitim sınıflandırması kayıtları sayfa analizi
 kayıtlarından ayrı dizinlerdedir (`tests/fixtures/ai/type_descriptions/`,
-`tests/fixtures/ai/type_proposals/`, `tests/fixtures/ai/training_classifications/`).
+`tests/fixtures/ai/type_proposals/`, `tests/fixtures/ai/training_classifications/`,
+`tests/fixtures/ai/template_maps/`).
 
 `AI_PROVIDER` kayıt defterine (`PROVIDER_FACTORIES`) eklenmez: bu sağlayıcının kurulması bir
 dizin yolu ister, `.env`'den okunacak bir ayar değil, testin kendisidir. Testler
@@ -43,6 +46,7 @@ from app.ai.provider import (
     PageAnalysisRequest,
     PhotoCheckRequest,
     ProfileAnswerRequest,
+    TemplateMapRequest,
     TrainingClassificationRequest,
     TypeDescriptionRequest,
     TypeProposalRequest,
@@ -75,6 +79,7 @@ class RecordingProvider(AnalysisProvider):
         self.photo_check_requests: list[PhotoCheckRequest] = []
         self.query_requests: list[DocumentQueryRequest] = []
         self.profile_requests: list[ProfileAnswerRequest] = []
+        self.template_map_requests: list[TemplateMapRequest] = []
 
     @classmethod
     def from_directory(cls, directory: Path, *, model: str = "recording") -> RecordingProvider:
@@ -113,6 +118,10 @@ class RecordingProvider(AnalysisProvider):
 
     def _request_profile_answer(self, request: ProfileAnswerRequest) -> object:
         self.profile_requests.append(request)
+        return self._next_recording()
+
+    def _request_template_map(self, request: TemplateMapRequest) -> object:
+        self.template_map_requests.append(request)
         return self._next_recording()
 
     def _next_recording(self) -> str:

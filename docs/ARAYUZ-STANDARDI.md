@@ -76,8 +76,8 @@ kırmızıdır. Yeni hook eklerken buraya yaz (alfabetik):
 `reanalysis-targets`, `record-aliases`, `record-contacts`, `record-numbers`, `record-remove`,
 `record-warning`, `records`, `rejected-candidates`, `select-assignee`, `select-target`, `source`,
 `telegram-bot-missing`, `telegram-delete`, `telegram-delete-help`, `telegram-help`,
-`telegram-link-help`, `telegram-own-help`, `template-archive`, `template-details`, `template-pages`,
-`template-upload`, `training-form`, `training-results`, `training-runs`,
+`telegram-link-help`, `telegram-own-help`, `template-archive`, `template-details`, `template-map`,
+`template-pages`, `template-upload`, `training-form`, `training-results`, `training-runs`,
 `unregistered`, `user-role`.
 
 ## 5. Kurallar

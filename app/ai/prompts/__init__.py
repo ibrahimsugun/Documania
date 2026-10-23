@@ -1,6 +1,7 @@
 """Yapay zekâ talimat metinleri: sayfa analizi talimatı ve disiplin kuralları (03.4), tür açıklaması
 talimatı (11.3.1), tür taslağı talimatı (11.5.5), eğitim sınıflandırması talimatı (11.9.3), profil
-fotoğrafı kontrolü talimatı (11.7.1) ve Telegram belge isteği okuma talimatı (12.3.1)."""
+fotoğrafı kontrolü talimatı (11.7.1), Telegram belge isteği okuma talimatı (12.3.1) ve hazır şablon
+inceleme talimatı (15.1.2)."""
 
 from app.ai.prompts.document_query import load_document_query_instructions
 from app.ai.prompts.page_analysis import (
@@ -12,6 +13,7 @@ from app.ai.prompts.page_analysis import (
 )
 from app.ai.prompts.photo_check import load_photo_check_instructions
 from app.ai.prompts.profile_answer import load_profile_answer_instructions
+from app.ai.prompts.template_map import load_template_map_instructions
 from app.ai.prompts.training_classification import (
     DOC_KINDS_SLOT,
     TrainingClassificationInstructions,
@@ -33,6 +35,7 @@ __all__ = [
     "load_page_analysis_template",
     "load_photo_check_instructions",
     "load_profile_answer_instructions",
+    "load_template_map_instructions",
     "load_training_classification_template",
     "load_type_description_instructions",
     "load_type_proposal_instructions",

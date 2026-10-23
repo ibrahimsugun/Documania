@@ -4,8 +4,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Documania panel\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-23 00:10+0000\n"
-"PO-Revision-Date: 2026-10-23 00:10+0000\n"
+"POT-Creation-Date: 2026-10-23 01:01+0000\n"
+"PO-Revision-Date: 2026-10-23 01:01+0000\n"
 "Last-Translator: Documania görev penceresi (gözden geçirilmeli)\n"
 "Language: sr_Latn\n"
 "Language-Team: Srpski\n"
@@ -650,6 +650,10 @@ msgstr ""
 "Nazive polja razdvojite zarezom (mala slova, cifre, donja crta). Dokument"
 " se prihvata ako su sva čitljiva."
 
+#: app/web/templates/output_template.html
+msgid "Alan haritası"
+msgstr "Mapa polja"
+
 #: app/web/templates/queue_item.html
 msgid ""
 "Alanlar belgeden okunan önerilen profille dolu; çalışan kaydına "
@@ -803,6 +807,10 @@ msgstr "U arhivi"
 #: app/groups/packages.py
 msgid "Arşivdeki gruba yeni paket tanımlanamaz."
 msgstr "Iz arhivirane grupe ne može se dodeliti novi paket."
+
+#: app/web/routers/output_templates.py
+msgid "Arşivdeki şablon incelenmez; önce arşivden geri alın."
+msgstr "Šablon u arhivi se ne pregleda; prvo ga vratite iz arhive."
 
 #: app/web/templates/groups.html
 msgid "Arşivdekiler de gösteriliyor."
@@ -2515,6 +2523,10 @@ msgstr ""
 "Documania bot odgovara samo Telegram ID-ju koji je povezan sa vašim "
 "nalogom i dozvoljen. Telegram možete povezati samo vi, sa svojim nalogom."
 
+#: app/web/templates/output_template.html
+msgid "Doldurulacak boşluk"
+msgstr "Polja za popunjavanje"
+
 #: app/web/templates/document_archive_step.html
 #: app/web/templates/document_delete_step.html
 #: app/web/templates/output_template.html app/web/templates/profile.html
@@ -3366,6 +3378,10 @@ msgstr "Mapa prelazi ograničenje od {limit} redova."
 msgid "Harita önizlemesi"
 msgstr "Pregled mape"
 
+#: app/web/templates/output_template.html
+msgid "Harita özeti"
+msgstr "Heš mape"
+
 #: app/training/map_import.py
 msgid "Haritada satır yok."
 msgstr "Mapa nema redova."
@@ -3414,6 +3430,10 @@ msgstr "Cilj"
 #: app/web/routers/employees.py
 msgid "Hedef durum yalnız pasif (inactive) ya da aktif (active) olabilir."
 msgstr "Ciljni status može biti samo neaktivan (inactive) ili aktivan (active)."
+
+#: app/web/templates/output_template.html
+msgid "Henüz alan haritası yok."
+msgstr "Još nema mape polja."
 
 #: app/web/templates/groups.html
 msgid "Henüz belge grubu yok. «Yeni grup» ile ilk grubu açın."
@@ -4185,6 +4205,10 @@ msgstr ""
 msgid "Mesajınız çok uzun. Kimin hangi belgesini istediğinizi kısaca yazın."
 msgstr "Vaša poruka je predugačka. Ukratko napišite čiji dokument želite."
 
+#: app/web/templates/output_template.html
+msgid "Model"
+msgstr "Model"
+
 #: app/web/templates/upload_detail.html
 msgid "Model:"
 msgstr "Model:"
@@ -4275,6 +4299,10 @@ msgstr "Napravljeno"
 #: app/web/templates/upload_detail.html
 msgid "Oluşturuldu:"
 msgstr "Napravljeno:"
+
+#: app/web/templates/output_template.html
+msgid "Oluşturulma"
+msgstr "Kreirano"
 
 #: app/web/templates/catalog_candidates.html
 msgid "Onay bekleyen aday tür yok."
@@ -5151,6 +5179,10 @@ msgstr ""
 "Server radi sa zastarelom verzijom — ponovo ga pokrenite "
 "(<code>baslat.bat</code>)."
 
+#: app/web/templates/output_template.html
+msgid "Sürüm"
+msgstr "Verzija"
+
 #: app/web/templates/history.html app/web/templates/upload_detail.html
 #, python-format
 msgid "Sürüm %(version)s"
@@ -5495,6 +5527,10 @@ msgstr "Ponovna analiza odjednom: %(name)s"
 msgid "Tutarsız kayıt"
 msgstr "Neusklađen zapis"
 
+#: app/web/templates/output_template.html
+msgid "Tüm alanlar"
+msgstr "Sve oblasti"
+
 #: app/web/routers/training.py app/web/templates/uploads_list.html
 msgid "Tümü"
 msgstr "Sve"
@@ -5803,6 +5839,10 @@ msgstr ""
 msgid "Yapay zekâ"
 msgstr "Veštačka inteligencija"
 
+#: app/web/feedback.py
+msgid "Yapay zekâ ayarlı olmadığı için şablon incelenemedi."
+msgstr "Šablon nije mogao biti pregledan jer veštačka inteligencija nije podešena."
+
 #: app/web/templates/training_map.html
 msgid "Yapay zekâ gerekebilecek"
 msgstr "Možda treba veštačka inteligencija"
@@ -5849,6 +5889,14 @@ msgstr "Nema AI predloga"
 #, python-brace-format
 msgid "Yapay zekâ önerisi: {name}"
 msgstr "AI predlog: {name}"
+
+#: app/web/templates/output_template.html
+msgid ""
+"Yapay zekâ şablonu inceliyor; harita hazır olunca yeni sürüm olarak "
+"burada görünür."
+msgstr ""
+"Veštačka inteligencija pregleda šablon; kada mapa bude spremna, pojaviće "
+"se ovde kao nova verzija."
 
 #: app/web/templates/profile.html
 msgid "Yazım"
@@ -5949,8 +5997,13 @@ msgid "Yeniden etkinleştirilen tür: {count}."
 msgstr "Ponovo aktivirano tipova: {count}."
 
 #: app/web/templates/catalog_candidate.html
+#: app/web/templates/output_template.html
 msgid "Yeniden incele"
 msgstr "Pregledaj ponovo"
+
+#: app/web/templates/output_template.html
+msgid "Yeniden inceleme yeni bir harita sürümü açar; eski sürümler silinmez."
+msgstr "Ponovni pregled otvara novu verziju mape; stare verzije se ne brišu."
 
 #: app/web/routers/catalog.py
 #, python-brace-format
@@ -6662,6 +6715,14 @@ msgstr ""
 #: app/storage/map_paths.py
 msgid "mutlak yol"
 msgstr "apsolutna putanja"
+
+#: app/web/templates/output_template.html
+msgid "onay bekliyor"
+msgstr "čeka odobrenje"
+
+#: app/web/templates/output_template.html
+msgid "onaylı"
+msgstr "odobreno"
 
 #: app/web/templates/catalog_candidate.html
 msgid "parti"
@@ -7791,6 +7852,38 @@ msgstr ""
 msgid "İnceleme gerekli ({row}): {problem}"
 msgstr "Potreban pregled ({row}): {problem}"
 
+#: app/web/feedback.py
+msgid ""
+"İnceleme sıraya alındı; alan haritası hazır olunca yeni sürüm olarak "
+"görünür."
+msgstr ""
+"Pregled je stavljen u red; mapa polja će se pojaviti kao nova verzija "
+"kada bude spremna."
+
+#: app/web/routers/output_templates.py
+msgid "İncelenemedi"
+msgstr "Nije moglo biti pregledano"
+
+#: app/web/routers/output_templates.py
+msgid "İncelenemedi: sayfa görüntüsü bulunamadı"
+msgstr "Nije moglo biti pregledano: slika stranice nije pronađena"
+
+#: app/web/routers/output_templates.py
+msgid "İncelenemedi: yanıt alan haritası şemasına uymadı"
+msgstr "Nije moglo biti pregledano: odgovor ne odgovara šemi mape polja"
+
+#: app/web/routers/output_templates.py
+msgid "İncelenemedi: yapay zekâ çağrısı tamamlanamadı"
+msgstr "Nije moglo biti pregledano: poziv veštačkoj inteligenciji nije završen"
+
+#: app/web/routers/output_templates.py
+msgid "İnceleniyor"
+msgstr "Pregleda se"
+
+#: app/web/routers/output_templates.py
+msgid "İncelenmedi: yapay zekâ ayarlı değil"
+msgstr "Nije pregledano: veštačka inteligencija nije podešena"
+
 #: app/web/templates/output_template.html app/web/templates/profile.html
 msgid "İndir"
 msgstr "Preuzmi"
@@ -7997,6 +8090,16 @@ msgstr ""
 #: app/web/templates/output_templates.html
 msgid "Şablon yükle"
 msgstr "Otpremi šablon"
+
+#: app/web/feedback.py
+#, python-brace-format
+msgid ""
+"Şablon yüklendi ({count} sayfa), ancak yapay zekâ ayarlı olmadığı için "
+"incelenmedi; ayar yapılınca şablon sayfasından yeniden inceleyin."
+msgstr ""
+"Šablon je otpremljen ({count} str.), ali nije pregledan jer veštačka "
+"inteligencija nije podešena; kada se podesi, ponovo ga pregledajte sa "
+"stranice šablona."
 
 #: app/web/feedback.py
 #, python-brace-format

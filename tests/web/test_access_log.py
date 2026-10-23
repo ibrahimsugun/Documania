@@ -437,6 +437,9 @@ REVIEWED_MUTATING_ROUTES: dict[tuple[str, str], str] = {
     ("POST", "/output-templates"): (
         "hazır şablon kaydı: yükleme, dosya değişmeden saklanır; parti açmaz (15.1.1)"
     ),
+    ("POST", "/output-templates/{template_id}/examine"): (
+        "hazır şablon kaydı: yeniden inceleme, yeni harita sürümü (15.1.2)"
+    ),
     ("POST", "/output-templates/{template_id}/archive"): (
         "hazır şablon kaydı: arşivleme, silme yok (15.1.4, R11)"
     ),
