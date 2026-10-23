@@ -13,6 +13,7 @@ set -uo pipefail
 # --- Ayarlar -----------------------------------------------------------------
 # Görev başlığındaki etiket hem MODELİ hem EFORU seçer (MASTER-PROMPT §6):
 #   [SONNET-HIGH]  → sonnet + high    küçük, tek dosyalık, riski düşük iş
+#   [OPUS-MEDIUM]  → opus   + medium  kapsamı net, düşük riskli iş
 #   [OPUS-HIGH]    → opus   + high
 #   [SONNET-XHIGH] → sonnet + xhigh   mekanik, kapsamı net iş
 #   [OPUS-XHIGH]   → opus   + xhigh   karar/bütünlük taşıyan iş
@@ -33,6 +34,7 @@ MODEL_SMALL="claude-sonnet-5-5" # Sonnet 5.5
 EFFORT_MAX="max"            # opus 'max' desteklemiyorsa: "high"
 EFFORT_XHIGH="xhigh"        # [*-XHIGH] ve etiketsiz görevler
 EFFORT_HIGH="high"          # [*-HIGH] görevler
+EFFORT_MEDIUM="medium"      # [*-MEDIUM] görevler
 PERM="bypassPermissions"    # tam otonom, prompt YOK. Güvenli alternatif: "auto"
 MAX_TURNS=250
 RUNNER_PROMPT_FILE="TASK-RUNNER-PROMPT.md"
@@ -65,7 +67,7 @@ COST_HIGH_PCT="${LOOP_COST_HIGH_PCT:-10}"
 # davranışa (temiz çıkış + panelden otomatik devam) dönülür.
 WAIT_RESET_MAX_MIN="${LOOP_WAIT_RESET_MAX_MIN:-90}"
 
-pick_schema='{"type":"object","properties":{"has_task":{"type":"boolean"},"task_id":{"type":"string"},"model":{"type":"string","enum":["sonnet","opus"]},"effort":{"type":"string","enum":["max","xhigh","high"]},"remaining":{"type":"integer"}},"required":["has_task"]}'
+pick_schema='{"type":"object","properties":{"has_task":{"type":"boolean"},"task_id":{"type":"string"},"model":{"type":"string","enum":["sonnet","opus"]},"effort":{"type":"string","enum":["max","xhigh","high","medium"]},"remaining":{"type":"integer"}},"required":["has_task"]}'
 result_schema='{"type":"object","properties":{"status":{"type":"string","enum":["done","blocked"]},"task_id":{"type":"string"},"summary":{"type":"string"}},"required":["status"]}'
 
 log(){ echo "[$(date -u +%H:%M:%S)] $*"; }
@@ -185,10 +187,11 @@ MODEL ve EFOR seçilen işin BAŞLIĞINDAKİ ETİKETTEN okunur (MASTER-PROMPT §
   [SONNET-HIGH]  -> model=\"sonnet\", effort=\"high\"
   [SONNET-XHIGH] -> model=\"sonnet\", effort=\"xhigh\"
   [SONNET-MAX]   -> model=\"sonnet\", effort=\"max\"
+  [OPUS-MEDIUM]  -> model=\"opus\",   effort=\"medium\"
   [OPUS-HIGH]    -> model=\"opus\",   effort=\"high\"
   [OPUS-XHIGH]   -> model=\"opus\",   effort=\"xhigh\"
   [OPUS-MAX]     -> model=\"opus\",   effort=\"max\"
-Etiketi OLDUĞU GİBİ uygula — HIGH'ı xhigh'a, XHIGH'ı max'a YÜKSELTME.
+Etiketi OLDUĞU GİBİ uygula — MEDIUM'u high'a, HIGH'ı xhigh'a, XHIGH'ı max'a YÜKSELTME.
 Eski tek boyutlu etiketler: [MAX] -> opus+max; [XHIGH], etiket YOK veya tanınmayan etiket -> opus+xhigh." \
     --model "$MODEL" --effort low --permission-mode "$PERM" --max-turns 10 $ALLOW \
     --output-format json --json-schema "$pick_schema" 2>>"$LOG_DIR/pick.err" \
@@ -334,6 +337,7 @@ while true; do
   case "$eff_label" in
     max)  eff="$EFFORT_MAX" ;;
     high) eff="$EFFORT_HIGH" ;;
+    medium) eff="$EFFORT_MEDIUM" ;;
     *)    eff="$EFFORT_XHIGH" ;;
   esac
   mdl=$(echo "$pick" | jq -r '.model // empty')

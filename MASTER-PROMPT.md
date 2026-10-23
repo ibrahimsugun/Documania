@@ -128,6 +128,7 @@ değişmez. Sürüm değişikliği insan kararıdır ve yalnız bu iki değişke
 | Etiket | Model | Efor | Ne tür iş |
 |---|---|---|---|
 | `[SONNET-HIGH]` | sonnet | high | Küçük, tek dosyalık, riski düşük iş (metin, stil, basit düzeltme) |
+| `[OPUS-MEDIUM]` | opus | medium | Opus gerektiren, kapsamı net ve riski düşük iş (insan kararı 2026-10-23) |
 | `[OPUS-HIGH]` | opus | high | Opus gerektiren ama küçük ve kapsamı dar iş |
 | `[SONNET-XHIGH]` | sonnet | xhigh | Kapsamı net, kabul kriteri ölçülebilir, gizli karmaşıklığı düşük mekanik iş |
 | `[OPUS-XHIGH]` | opus | xhigh | Karar, bütünlük veya kimlik mantığı taşıyan iş |

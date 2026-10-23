@@ -614,8 +614,8 @@ başlığının başında birebir geçer.
 | 10.11-a | Geçici bildirim altyapısı: tek kullanımlık bildirim, dört tür, üç dil; sayfa içi `?notice=` bildirimlerinin taşınması, bildirimsiz yazma işlemlerine bildirim | 10.11.1, 10.11.3 | [OPUS-HIGH] | 10.10-f, 10.1-h | 1 |
 | 10.11-b | Bekleyen işte yol gösterme: parti detayı kuyruk satırı bağlantıları, kuyruk türüne göre adımlar, aday tür onayı sonrası bildirim, boş durumlar, rol süzgeci; S28 | 10.11.2, 10.11.3 | [OPUS-HIGH] | 10.11-a, 11.5, 10.7-d | 1 |
 | 10.10-g | Yapay zekâ serbest metinleri ve sistem gerekçeleri İngilizce; gerekçeler panelde kullanıcının dilinde | 10.10.6 | [OPUS-HIGH] | 10.10-f, 11.5 | 1 |
-| 03.8-a | Çalışma zamanı yapay zekâ ayarı: `ai_settings` ve göç, tek etkin sağlayıcı, model listesi, efor her iki sağlayıcıda, modele göre istek biçimi, yeniden başlatmasız geçiş | 03.8.1, 03.8.2 | [OPUS-XHIGH] | 03.2, 03.3, 03.6 | 1 |
-| 10.1-i | Yapay zekâ ayarları sayfası yalnız root (gizli): anahtar durumu, etkin/pasif, model ve efor, olay | 10.1.10 | [OPUS-HIGH] | 03.8-a, 10.1-h | 1 |
+| 03.8-a | Çalışma zamanı yapay zekâ ayarı: `ai_settings` ve göç, tek etkin sağlayıcı, model listesi, efor her iki sağlayıcıda, modele göre istek biçimi, yeniden başlatmasız geçiş | 03.8.1, 03.8.2 | [OPUS-HIGH] | 03.2, 03.3, 03.6 | 1 |
+| 10.1-i | Yapay zekâ ayarları sayfası yalnız root (gizli): anahtar durumu, etkin/pasif, model ve efor, olay | 10.1.10 | [OPUS-MEDIUM] | 03.8-a, 10.1-h | 1 |
 
 ## K. Kanıt Geçmişi (evidence log)
 
