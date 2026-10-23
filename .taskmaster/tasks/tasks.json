@@ -2680,13 +2680,13 @@
         "description": "PRD 15.1.2 · FR-MOD-15 · Faz 1 · Must (v1). Sözleşme PLAN §D123 (c). Yapay zekâ şablonu tanır: çerçeve, imza, kaşe, logo alanlarını doldurulamaz işaretler; boşlukları profil alanlarına bağlar.",
         "details": "KAPSAM: PRD 15.1.2, §8.7; PLAN §D123 c; 03.4.1, 03.6.1 kalıbı — önce oku. tm 182 üzerine.\n\nNE YAPILACAK: (1) `app/ai/schemas.py` `TemplateFieldMap` (pydantic, §8.7 birebir: `fields[]` field_id, page, box ∈ [0,1], kind, label_text, source, font_size, max_chars; `notes` İngilizce); doğrulama: `kind` ∉ {text, date} ise `source` null; `source` listesi sabit. (2) `app/ai/prompts/template_map.md` + `.py`: çok modlu, sayfa görüntüleri; talimat sabit metni yeniden üretmemeyi, imza/kaşe/logo/fotoğraf/çerçeveyi `kind` ile işaretlemeyi, yalnız boşlukları önermeyi söyler; 10.10.6 İngilizce. (3) Sağlayıcı arayüzü (`app/ai/provider.py`) yeni çağrı; `recording_provider` kaydı; OpenAI sağlayıcı aynı arayüz. (4) İşçi işi (`app/worker`, 11.9/tm 111 idle çerçevesi): şablon yüklenince kuyruğa; sonuç `output_template_maps` sürüm n (`map_hash` = kanonik JSON SHA-256), şablon `draft` kalır (onay tm 184); sağlayıcı yoksa ya da şema hatasıysa `examine_error` + listede sebep; yeniden inceleme düğmesi yeni sürüm. (5) Olay `TEMPLATE_EXAMINED` (model, alan sayısı, hata; kişisel değer yok). (6) Kayıtlı yanıt testi zorunlu; canlı test `live` işaretli.\n\nGİRDİ: app/ai/schemas.py, app/ai/prompts/*, app/ai/provider.py, app/ai/anthropic_provider.py, app/ai/openai_provider.py, app/worker, app/catalog/propose.py (benzer: aday tür taslağı), tests/ai, tests/recorded.py.\n\nÇIKTI: şema, talimat, sağlayıcı çağrısı, işçi işi, olay, tests/ai/test_template_map.py, tests/worker, PLAN, HANDOFF.\n\nTUZAKLAR: harita değişmez sayılır (K9): onaydan sonra düzenleme yeni sürümdür; `box` sayfa boyutuna normalize; yanıt içinde belgeden okunan kişisel değer olmamalı (şablon boş kalıp — yine de `label_text` dışında metin saklama).\n\nBU GÖREVİ BAĞLAYAN KİLİTLİ KURALLAR: PLAN §D123 (sözleşme — önce oku), R2/R11, K8 (adlandırma), K9/R10 (dondurulmuş harita), K15 (olay; kişisel değer yok), 10.1.8 (yetki), 10.10.3 (üç dil, `python -m app.i18n extract|update|compile|check`), 10.11.1 (bildirim kaydı), docs/ARAYUZ-STANDARDI.md (şablon ve stil; `tests/web/test_ui_standard.py`), MASTER-PROMPT yol kuralı (yol yalnız `app/storage/`), §8 (sütun ve olay adları).\n\nKAPANIŞ: PLAN satırları ✅ → K15.x (yeni blok `#### K15.1` / `K15.2` / `K15.3`), HANDOFF bloğu, Task Master done, commit mesajında `PRD 15.x — tm <id>`; CONVENTIONS §1 kapısı (tam paralel koşu uzun sürerse HANDOFF'a hangi klasörlerin koşulduğunu yaz).",
         "testStrategy": "tests/ai/test_template_map.py (şema doğrulama: kind/source kuralı, box aralığı; kayıtlı yanıtla harita üretimi; şema dışı yanıt → examine_error), tests/worker (iş kuyruğu, sağlayıcı yok durumu), tests/web (liste sebep metni, yeniden incele); İngilizce çıktı testi; tam paralel kapı.",
-        "status": "in-progress",
+        "status": "done",
         "dependencies": [
           "182"
         ],
         "priority": "medium",
         "subtasks": [],
-        "updatedAt": "2026-10-23T00:51:32.078Z"
+        "updatedAt": "2026-10-23T01:14:20.774Z"
       },
       {
         "id": "184",
@@ -2734,9 +2734,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-23T00:51:32.079Z",
+      "lastModified": "2026-10-23T01:14:20.775Z",
       "taskCount": 187,
-      "completedCount": 183,
+      "completedCount": 184,
       "tags": [
         "master"
       ]
