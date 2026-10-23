@@ -644,8 +644,11 @@ def _provider_data(
 ) -> dict[str, object]:
     """Olayın sağlayıcı ve model alanları; `model` analizi kabul edilen modeldir (verilmezse ana
     model). Ön eleme yapıldıysa kararı da eklenir."""
+    # Efor ana modelin seçimidir; ön elemenin modeli kabul edildiyse o kendi varsayılanıyla çalıştı.
     data = ai_call_event_data(
-        provider=provider.name, model=provider.model if model is None else model
+        provider=provider.name,
+        model=provider.model if model is None else model,
+        effort=provider.effort if model is None or model == provider.model else None,
     )
     if screening is not None:
         data[PRESCREEN_DATA_KEY] = screening.to_event_data()

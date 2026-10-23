@@ -225,7 +225,14 @@ def store_examination(
     if examination.field_map is None:
         error = examination.error or ExamineError.INVALID_RESPONSE
         template.examine_error = error.value
-        _record(session, template, model=provider.model, provider=provider.name, error=error)
+        _record(
+            session,
+            template,
+            model=provider.model,
+            provider=provider.name,
+            effort=provider.effort,
+            error=error,
+        )
         return None
     template.examine_error = None
     row = store_map(session, template, examination.field_map, model=provider.model)
@@ -234,6 +241,7 @@ def store_examination(
         template,
         model=provider.model,
         provider=provider.name,
+        effort=provider.effort,
         field_count=examination.field_map.fillable_count,
         version=row.version,
     )
@@ -257,6 +265,7 @@ def store_error(
         template,
         model=provider.model,
         provider=provider.name,
+        effort=provider.effort,
         error=ExamineError.PROVIDER_ERROR,
         error_type=error_type,
         final=final,
@@ -269,6 +278,7 @@ def _record(
     *,
     model: str | None,
     provider: str | None = None,
+    effort: str | None = None,
     field_count: int = 0,
     error: ExamineError | None = None,
     version: int | None = None,
@@ -282,7 +292,7 @@ def _record(
         "error": None if error is None else error.value,
     }
     if provider is not None:
-        data |= ai_call_event_data(provider=provider, model=model or "")
+        data |= ai_call_event_data(provider=provider, model=model or "", effort=effort)
     if version is not None:
         data["version"] = version
     if error_type is not None:

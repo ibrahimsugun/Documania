@@ -308,7 +308,9 @@ def apply_classification(
     resolution = resolve_classification(known, classification)
     hint = known.get(item.hint_slug) if item.hint_slug else None
     model = provider.model
-    extra: dict[str, object] = ai_call_event_data(provider=provider.name, model=model)
+    extra: dict[str, object] = ai_call_event_data(
+        provider=provider.name, model=model, effort=provider.effort
+    )
     target = resolution.known
 
     if target is None:
@@ -410,7 +412,7 @@ def store_classification_error(
     durum `unplaced`'ı boş-zaman çerçevesi yazdı) öğe İK'yı bekler ve notu hatayı söyler. `error`
     hatanın türüdür, mesajı değil."""
     extra: dict[str, object] = {"error": error} | ai_call_event_data(
-        provider=provider.name, model=provider.model
+        provider=provider.name, model=provider.model, effort=provider.effort
     )
     if final:
         leave_unplaced(

@@ -671,7 +671,7 @@ def _record(
         data["pages"] = pages
     if error is not None:
         data["error"] = error
-    data |= ai_call_event_data(provider=provider.name, model=provider.model)
+    data |= ai_call_event_data(provider=provider.name, model=provider.model, effort=provider.effort)
     record_event(session, EventType.CANDIDATE_TYPE_EXAMINED, data=data)
 
 

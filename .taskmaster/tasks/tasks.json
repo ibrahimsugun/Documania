@@ -2737,11 +2737,11 @@
         "description": "PRD 03.8.1, 03.8.2 · FR-MOD-03 · Faz 1 · Must (v1). Sözleşme PLAN §D124 (a–d, f, g). İnsan isteği (2026-10-23): OpenAI'nin yanında Anthropic anahtarıyla da çalışmak; ikisinde model ve efor ayarı; tek etkin sağlayıcı.",
         "details": "KAPSAM: PRD 03.8.1, 03.8.2; PLAN §D124 — önce oku. Panel sayfası bu görevde YOK (tm 189); bu görev ayarın veri modeli, okunması ve sağlayıcıların istek biçimidir.\n\nNE YAPILACAK: (1) Model + göç (head+1): `ai_settings` tek satır (PRD §8.1), anahtar sütunu yok; servis fonksiyonları (oku, yaz, tek etkin kuralı, anahtarı tanımsız sağlayıcıyı etkinleştirme reddi). (2) Etkin ayar: satır `.env`'i ezer, satır yoksa bugünkü davranış — `create_provider` çağıranları (worker/runner.py, telegram/handlers.py, telegram/intent.py, web/routers/catalog.py, output_templates.py, training.py, uploads.py, upload_page.py) tek bir girişten etkin ayarı alır; işçi sağlayıcıyı iş başına kurar ya da ayar değişince yeniler; yeniden başlatmasız geçiş testle kanıtlanır. (3) Model listesi depoda (`app/ai/` altında, kaynak + tarih; modele göre efor kümesi ve istek biçimi). Anthropic ve OpenAI güncel model/efor bilgisini resmî dokümandan doğrula (Anthropic için claude-api başvurusu; OpenAI model dokümanı) ve §D'ye yaz. (4) Anthropic sağlayıcı: `output_config.effort` (seçiliyse); zorlanmış araç + `thinking: disabled` yalnız kabul eden model/efor bileşiminde, öteki modellerde (Opus 5.5, Sonnet 5.5, Fable 5.1; Opus 5 ve Haiku 5.5'te xhigh/max) `tool_choice: auto` + `strict: true` + talimatta araç adı (ya da yapılandırılmış çıktı); araç çağrısı gelmezse ya da şemaya uymazsa bugünkü hata yolu (`invalid_response`). Bütün çağrı türleri (sayfa analizi, tür açıklaması, aday tür, eğitim, fotoğraf kontrolü, şablon incelemesi, belge isteği) aynı biçim seçicisinden geçer. (5) OpenAI sağlayıcı: `reasoning_effort` seçiliyse gönderilir; işlev çağrısıyla uyumsuz değer o model için listede yok. (6) `ai_call_event_data` verisine `effort`. (7) `.env.example` yorumları: iki anahtar birlikte tanımlanabilir, seçim root panelinden (tm 189). README'de kısa not.\n\nGİRDİ: app/config.py, app/ai/provider.py, app/ai/anthropic_provider.py, app/ai/openai_provider.py, app/ai/recording_provider.py, app/worker/runner.py, app/db/models.py, alembic/versions/, .env.example, tests/ai/.\n\nÇIKTI: göç, model, servis, sağlayıcı değişiklikleri, model listesi dosyası, tests/ai/test_ai_settings.py (+ sağlayıcı istek gövdesi testleri), tests/db/test_migrations.py eki, PLAN, HANDOFF.\n\nTUZAKLAR: anahtar hiçbir yerde loglanmaz/olaya yazılmaz (hata mesajları dahil); satır yokken bugünkü testler değişmeden geçmeli; işçinin uzun ömürlü sağlayıcısı eski ayarda kalmamalı; süren çağrı yarıda değişmez; Opus 5.5'te `thinking` göndermek 400 — parametreyi hiç gönderme; `temperature`/`top_p` gönderilmez; SQLite ve PostgreSQL göçü.\n\nKAPSAM SINIRI: panel sayfası (tm 189), anahtarı panelden girme, yedek sağlayıcı, iş türüne göre sağlayıcı, ön eleme modelini ayara taşıma YOK.\n\nBU GÖREVİ BAĞLAYAN KİLİTLİ KURALLAR: PLAN §D124 (sözleşme — önce oku), CONVENTIONS sır kuralı (anahtar depoya, veritabanına, olaya, log'a girmez), 03.6.1 (testler ağsız, kayıtlı yanıt), 10.1.8/10.1.9 (root gizliliği), K15 (olay; anahtar ya da kişisel değer yok), 10.10.3 (üç dil, `python -m app.i18n extract|update|compile|check`), 10.11.1 (bildirim kaydı), docs/ARAYUZ-STANDARDI.md (`tests/web/test_ui_standard.py`), §8 (sütun ve olay adları).\n\nKAPANIŞ: PLAN satırları ✅ → K03.8 / K10.1 (blok yoksa açılır), HANDOFF bloğu, Task Master done, commit mesajında `PRD <kod> — tm <id>`; CONVENTIONS §1 kapısı.",
         "testStrategy": "1) Göç: upgrade/downgrade, tek satır kuralı. 2) Satır yok → `.env` davranışı aynen (mevcut tests/ai yeşil). 3) Satır var → etkin sağlayıcı/model/efor bütün çağıranlara geçer; ayar değişince işçinin bir sonraki işi yeni ayarı kullanır (yeniden başlatmasız). 4) Anahtarı tanımsız sağlayıcı etkinleştirilemez; ikisini birden etkin yapmak mümkün değil. 5) Sahte istemciyle istek gövdesi: Opus 5 (high) zorlanmış araç + disabled; Opus 5.5 / Sonnet 5.5 auto + strict, `thinking` yok, effort var; OpenAI reasoning_effort. 6) Olay verisinde effort, anahtar yok. 7) Kayıtlı yanıt testleri ağsız. 8) DoD kapısı yeşil.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [],
         "priority": "medium",
         "subtasks": [],
-        "updatedAt": "2026-10-23T12:00:00.000Z"
+        "updatedAt": "2026-10-23T15:49:41.297Z"
       },
       {
         "id": "189",
@@ -2760,9 +2760,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-23T12:00:00.000Z",
+      "lastModified": "2026-10-23T15:49:41.297Z",
       "taskCount": 189,
-      "completedCount": 187,
+      "completedCount": 188,
       "tags": [
         "master"
       ]

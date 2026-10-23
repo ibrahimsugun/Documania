@@ -46,6 +46,8 @@ class Settings(BaseSettings):
     render_image_jpeg_quality: int = Field(default=90, ge=1, le=100)
     # PRD 03.2.1 — sayfa analizi sağlayıcısı adıyla seçilir (`app.ai.provider.create_provider`);
     # sağlayıcıya özgü anahtar/model yalnız o sağlayıcı kurulurken okunur (bkz. PLAN.md §C13).
+    # PRD 03.8.1 — veritabanındaki `ai_settings` satırı varsa `AI_PROVIDER`, `*_MODEL` ve `*_EFFORT`
+    # değerlerini ezer (`app.ai.runtime.active_settings`); iki anahtar birlikte tanımlanabilir.
     ai_provider: str = Field(default="anthropic", pattern=r"^[a-z][a-z0-9_]*$")
     ai_max_output_tokens: int = Field(default=4096, gt=0)
     ai_request_timeout_seconds: float = Field(default=120.0, gt=0)
@@ -59,6 +61,11 @@ class Settings(BaseSettings):
     openai_api_key: SecretStr | None = None
     openai_model: str = Field(default="gpt-6-luna", min_length=1)
     openai_prescreen_model: str | None = None
+    # PRD 03.8.2 — efor: Anthropic `output_config.effort`, OpenAI `reasoning_effort`. Boş
+    # ("varsayılan") parametreyi göndermez; geçerli değerler modele göredir (`app.ai.model_list`,
+    # PLAN.md §D124).
+    anthropic_effort: str | None = None
+    openai_effort: str | None = None
     # PRD 11.4.3 — analiz talimatındaki katalog metninin token bütçesi (tahmini token,
     # `app.catalog.prompt_builder.estimate_tokens`). İsteğe bağlıdır; boşsa (varsayılan) bütçe aktif
     # analiz edilen tür sayısıyla ölçeklenir: `max(4000, 200 × tür sayısı)`
@@ -114,11 +121,17 @@ class Settings(BaseSettings):
     telegram_webhook_listen: str = Field(default="127.0.0.1", min_length=1)
     telegram_webhook_port: int = Field(default=8443, ge=1, le=65535)
 
-    @field_validator("training_collection_dir", "catalog_token_budget", mode="before")
+    @field_validator(
+        "training_collection_dir",
+        "catalog_token_budget",
+        "anthropic_effort",
+        "openai_effort",
+        mode="before",
+    )
     @classmethod
     def _blank_is_unset(cls, value: object) -> object:
-        # `TRAINING_COLLECTION_DIR=` ya da `CATALOG_TOKEN_BUDGET=` (boş) ayarsızdır; `Path("")`
-        # çalışma dizinini gösterirdi, boş sayı doğrulamada düşerdi.
+        # `TRAINING_COLLECTION_DIR=`, `CATALOG_TOKEN_BUDGET=` ya da `*_EFFORT=` (boş) ayarsızdır;
+        # `Path("")` çalışma dizinini gösterirdi, boş sayı doğrulamada düşerdi.
         if isinstance(value, str) and not value.strip():
             return None
         return value

@@ -93,6 +93,7 @@ from app.ai.provider import (
     ProviderFactory,
     create_provider,
 )
+from app.ai.runtime import active_settings_from
 from app.config import Settings
 from app.countries import lookup as lookup_country
 from app.countries import non_country_label
@@ -1173,7 +1174,9 @@ class DocumentRequests:
         """İsteği yapay zekâya okutur ve aramayı yürütür (iş parçacığında). `previous` aynı
         sohbetteki son çalışandır (12.3.5)."""
         try:
-            provider = self._provider_factory(self._settings)
+            provider = self._provider_factory(
+                active_settings_from(self._settings, self._session_factory)
+            )
         except ProviderConfigError as exc:
             logger.error("Belge isteği okunamadı: sağlayıcı kurulamadı (%s)", type(exc).__name__)
             return Answer(Resolution(TextReply(gettext(UNAVAILABLE_TEXT))))
@@ -1256,7 +1259,9 @@ class DocumentRequests:
 
     def _standalone_profile_reply(self, ask: AskProfiles) -> TextReply:
         try:
-            provider = self._provider_factory(self._settings)
+            provider = self._provider_factory(
+                active_settings_from(self._settings, self._session_factory)
+            )
         except ProviderConfigError:
             return TextReply(gettext(UNAVAILABLE_TEXT))
         return self._profile_reply(provider, ask, None)

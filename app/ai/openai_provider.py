@@ -40,15 +40,19 @@ SDK'nın kendi yeniden denemesi kapalıdır (`max_retries=0`): geri çekilmeli d
 iki katman üst üste denemesin. İstek `store=False` gider: sayfa görüntüsü kimlik belgesi olabilir,
 sağlayıcı tarafında saklanmasını istemiyoruz (CONVENTIONS §6).
 
-İstek `reasoning_effort="none"` gider: GPT-6 Luna Chat Completions'ta işlev çağrısını bu ayarla
-destekler (OpenAI model dokümanı). Yanıtın kabulü akıl yürütmeye dayanmaz: her yanıt `validate_*`
-şemasından geçer.
+Efor (03.8.2; PLAN.md §D124): seçilmişse `reasoning_effort` o değerle gider. Seçilmemişse modelin
+işlev çağrısıyla uyumlu varsayılanı gider (`app.ai.model_list.openai_request_effort`): GPT-6 Luna
+Chat Completions'ta işlev çağrısını yalnız `reasoning_effort="none"` ile destekler (OpenAI model
+dokümanı), bu yüzden listede ona yalnız `none` seçilebilir ve "varsayılan"da da `none` gider;
+listede olmayan modelde de bugünkü gibi `none`. Yanıtın kabulü akıl yürütmeye dayanmaz: her yanıt
+`validate_*` şemasından geçer.
 """
 
 from __future__ import annotations
 
 import base64
 from collections.abc import Callable, Sequence
+from typing import Any
 
 import httpx2
 import openai
@@ -59,6 +63,7 @@ from openai.types.chat import (
 )
 
 from app.ai.document_query import DocumentQuery, DocumentQueryError
+from app.ai.model_list import check_effort, openai_request_effort
 from app.ai.photo_check import PhotoCheck, PhotoCheckError
 from app.ai.profile_answer import ProfileAnswer, ProfileAnswerError
 from app.ai.provider import (
@@ -235,8 +240,9 @@ class OpenAIProvider(AnalysisProvider):
         model: str,
         max_output_tokens: int,
         prescreen_model: str | None = None,
+        effort: str | None = None,
     ) -> None:
-        super().__init__(model=model, prescreen_model=prescreen_model)
+        super().__init__(model=model, prescreen_model=prescreen_model, effort=effort)
         if max_output_tokens <= 0:
             raise ValueError("max_output_tokens pozitif olmalı")
         self._client = client
@@ -246,7 +252,8 @@ class OpenAIProvider(AnalysisProvider):
     def from_settings(
         cls, settings: Settings, *, http_client: httpx2.Client | None = None
     ) -> OpenAIProvider:
-        """Ayarlardan istemci kurar; `OPENAI_API_KEY` boşsa `ProviderConfigError`.
+        """Ayarlardan istemci kurar; `OPENAI_API_KEY` boşsa ya da efor modelde seçilemiyorsa
+        `ProviderConfigError`.
 
         `http_client` yalnız taşıma katmanını değiştirmek içindir (test, vekil).
         """
@@ -256,6 +263,10 @@ class OpenAIProvider(AnalysisProvider):
                 "AI_PROVIDER=openai için OPENAI_API_KEY tanımlı olmalı. "
                 "Bkz. .env.example dosyasındaki açıklama."
             )
+        try:
+            check_effort(cls.name, settings.openai_model, settings.openai_effort)
+        except ValueError as exc:
+            raise ProviderConfigError(str(exc)) from None
         client = openai.OpenAI(
             api_key=api_key.get_secret_value().strip(),
             max_retries=0,
@@ -267,10 +278,12 @@ class OpenAIProvider(AnalysisProvider):
             model=settings.openai_model,
             max_output_tokens=settings.ai_max_output_tokens,
             prescreen_model=settings.openai_prescreen_model,
+            effort=settings.openai_effort,
         )
 
     def _with_model(self, model: str) -> OpenAIProvider:
-        # Ön eleme kopyası aynı istemciyi (anahtar, zaman aşımı, taşıma) paylaşır (13.2.1).
+        # Ön eleme kopyası aynı istemciyi (anahtar, zaman aşımı, taşıma) paylaşır (13.2.1). Efor ana
+        # modelin seçimidir; ön eleme modeli kendi varsayılan eforuyla çalışır.
         return OpenAIProvider(self._client, model=model, max_output_tokens=self._max_output_tokens)
 
     def _request_analysis(self, request: PageAnalysisRequest) -> object:
@@ -384,6 +397,9 @@ class OpenAIProvider(AnalysisProvider):
                 ],
             },
         ]
+        # Efor: seçilen ya da modelin işlev çağrısıyla uyumlu varsayılanı (modül belgesi).
+        effort = openai_request_effort(self.model, self.effort)
+        options: dict[str, Any] = {} if effort is None else {"reasoning_effort": effort}
         try:
             response = self._client.chat.completions.create(
                 model=self.model,
@@ -393,8 +409,7 @@ class OpenAIProvider(AnalysisProvider):
                 tool_choice={"type": "function", "function": {"name": name}},
                 parallel_tool_calls=False,
                 store=False,
-                # Akıl yürütmeli modeller işlevi yalnız bu değerle kabul eder (modül belgesi).
-                reasoning_effort="none",
+                **options,
             )
         except openai.APIStatusError as exc:
             raise _status_error(exc) from exc

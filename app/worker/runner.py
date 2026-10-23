@@ -24,6 +24,13 @@ kriteri budur. Shutdown isteği yeni işi almadan önce beklenir; aktif iş tama
 kapanır. Sağlayıcı ayarı worker başlarken doğrulanır; hatalı ayarda worker süreci görünür hatayla
 kapanır, kuyruktaki işler kalır.
 
+**Etkin yapay zekâ ayarı (03.8.1; PLAN.md §D124 b).** `create_worker`'ın kurduğu işleyici
+sağlayıcıyı her iş (ve her boş-zaman birimi) başında etkin ayardan alır
+(`app.ai.runtime.active_settings_from`: `.env` + `ai_settings` satırı). Ayar değişmediyse aynı
+sağlayıcı kullanılır, değiştiyse yenisi kurulur: geçiş yeniden başlatma istemez, süren iş başladığı
+sağlayıcıyla biter. Yeni ayarla sağlayıcı kurulamazsa iş alınmaz (kuyrukta bekler) ve hata türü
+loglanır. Doğrudan `Worker(...)` kurulumunda (`provider_factory` yok) verilen sağlayıcı sabittir.
+
 **Boş-zaman işleri.** Kuyruk boşken (`run_once()` `False`) döngü en çok bir boş-zaman birimi koşar
 (`run_idle_once`, `app.worker.idle`, PLAN.md §C85); yükleme işi her zaman önce gelir. İşleri
 `create_worker` verir; doğrudan `Worker(...)` kurulumunda liste boştur, sağlayıcı yoksa koşmazlar.
@@ -43,9 +50,11 @@ import threading
 from collections.abc import Sequence
 
 from sqlalchemy import Engine
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session, sessionmaker
 
-from app.ai.provider import AnalysisProvider, ProviderConfigError, create_provider
+from app.ai.provider import AnalysisProvider, ProviderConfigError, ProviderFactory, create_provider
+from app.ai.runtime import active_settings_from
 from app.config import Settings
 from app.db.models import Upload, UploadStatus
 from app.db.session import create_db_engine, create_session_factory
@@ -167,11 +176,14 @@ class Worker:
         provider: AnalysisProvider,
         engine: Engine | None = None,
         idle_jobs: Sequence[IdleJob] = (),
+        provider_factory: ProviderFactory | None = None,
     ) -> None:
         self._session_factory = session_factory
         self._layout = layout
         self._settings = settings
-        self._provider = provider
+        self._provider: AnalysisProvider | None = provider
+        self._provider_factory = provider_factory
+        self._provider_key: tuple[object, ...] | None = None
         self._engine = engine  # işleyicinin kendi motoru: durunca kapatılır
         self._idle_jobs = tuple(idle_jobs)
         self._idle_next = 0  # sıradaki boş-zaman işi: işler sırayla fırsat bulur
@@ -186,6 +198,9 @@ class Worker:
         """Süresi dolan partileri iptal eder, tükenen işlerden vazgeçer, sıradaki işi alıp işler;
         iş aldıysa `True`."""
         settings = self._settings
+        # Sağlayıcı iş alınmadan seçilir; kurulamıyorsa iş kuyrukta bekler (modül açıklaması).
+        provider = self.current_provider()
+        unavailable = provider is None and self._provider_factory is not None
         with self._session_factory() as session:
             for upload_id in cancel_stale_uploads(
                 session, timeout_seconds=settings.upload_timeout_seconds
@@ -193,19 +208,48 @@ class Worker:
                 logger.warning("Parti %s süresinde tamamlanamadı; otomatik iptal edildi", upload_id)
             for upload_id in abandon_exhausted(session, max_attempts=settings.worker_max_attempts):
                 logger.error("Parti %s bırakıldı: işleyicisi defalarca yarıda kaldı", upload_id)
-            claim = claim_next(
-                session,
-                token=new_claim_token(),
-                lease_seconds=settings.worker_lease_seconds,
-                max_attempts=settings.worker_max_attempts,
-            )
+            claim = None
+            if not unavailable:
+                claim = claim_next(
+                    session,
+                    token=new_claim_token(),
+                    lease_seconds=settings.worker_lease_seconds,
+                    max_attempts=settings.worker_max_attempts,
+                )
             session.commit()
         if claim is None:
             return False
         run_claimed_upload(
-            self._session_factory, self._layout, claim, settings=settings, provider=self._provider
+            self._session_factory,
+            self._layout,
+            claim,
+            settings=settings,
+            provider=provider,  # type: ignore[arg-type]  # doğrudan kurulumda verilen sağlayıcı
         )
         return True
+
+    def current_provider(self) -> AnalysisProvider | None:
+        """Sıradaki işin sağlayıcısı (modül açıklaması: etkin yapay zekâ ayarı). Ayar okunamazsa
+        (veritabanı hatası) eldeki sağlayıcı kalır; yeni ayarla sağlayıcı kurulamazsa `None`."""
+        factory = self._provider_factory
+        if factory is None:
+            return self._provider
+        try:
+            active = active_settings_from(self._settings, self._session_factory)
+        except SQLAlchemyError as exc:
+            logger.error("Yapay zekâ ayarı okunamadı (%s)", type(exc).__name__)
+            return self._provider
+        key = _choice_key(active)
+        if key != self._provider_key:
+            try:
+                self._provider = factory(active)
+            except ProviderConfigError as exc:
+                # Mesaj anahtar taşımaz, yine de loga yalnız tür yazılır (CONVENTIONS §6).
+                logger.error("Yapay zekâ sağlayıcısı kurulamadı (%s)", type(exc).__name__)
+                self._provider, self._provider_key = None, None
+                return None
+            self._provider_key = key
+        return self._provider
 
     @property
     def idle_jobs(self) -> tuple[IdleJob, ...]:
@@ -219,9 +263,12 @@ class Worker:
         yükselmez: loga yalnız hata türü yazılır ve tur biter (`False`).
         """
         jobs = self._idle_jobs
-        if self._provider is None or not jobs:
+        if not jobs:
             return False
-        context = IdleContext(self._session_factory, self._layout, self._settings, self._provider)
+        provider = self.current_provider()
+        if provider is None:
+            return False
+        context = IdleContext(self._session_factory, self._layout, self._settings, provider)
         for offset in range(len(jobs)):
             if self._stopping.is_set():
                 return False
@@ -305,16 +352,41 @@ def create_worker(
 ) -> Worker:
     """Kurur fakat başlatmaz; bağımsız CLI ya da embedded kullanımına worker verir.
 
-    Boş-zaman işleri verilmezse `default_idle_jobs(settings)` kullanılır."""
-    provider = create_provider(settings)
+    Boş-zaman işleri verilmezse `default_idle_jobs(settings)` kullanılır. Sağlayıcı etkin yapay zekâ
+    ayarıyla kurulur ve her işte yenilenir (modül açıklaması); ayar okunamazsa (göçsüz veritabanı)
+    `.env` geçerlidir."""
     engine = create_db_engine(settings.database_url)
-    return Worker(
-        create_session_factory(engine),
+    session_factory = create_session_factory(engine)
+    try:
+        active = active_settings_from(settings, session_factory)
+    except SQLAlchemyError:
+        active = settings
+    try:
+        provider = create_provider(active)
+    except ProviderConfigError:
+        engine.dispose()
+        raise
+    worker = Worker(
+        session_factory,
         layout,
         settings=settings,
         provider=provider,
         engine=engine,
         idle_jobs=default_idle_jobs(settings) if idle_jobs is None else idle_jobs,
+        provider_factory=create_provider,
+    )
+    worker._provider_key = _choice_key(active)
+    return worker
+
+
+def _choice_key(settings: Settings) -> tuple[object, ...]:
+    """Sağlayıcıyı belirleyen ayarlar: biri değişince işleyici sağlayıcıyı yeniden kurar."""
+    return (
+        settings.ai_provider,
+        settings.anthropic_model,
+        settings.anthropic_effort,
+        settings.openai_model,
+        settings.openai_effort,
     )
 
 

@@ -1301,6 +1301,37 @@ class TelegramLinkCode(Base):
     user: Mapped[User] = relationship()
 
 
+class AiProviderName(enum.StrEnum):
+    """`ai_settings.provider`: etkin yapay zekâ sağlayıcısı (03.8.1; `AI_PROVIDER` değerleri)."""
+
+    ANTHROPIC = "anthropic"
+    OPENAI = "openai"
+
+
+class AiSettings(Base):
+    """Yapay zekâ çalışma zamanı ayarı (03.8.1, 03.8.2; PLAN.md §D124) — tek satır (`id` = 1).
+
+    Satır varsa `.env`'in `AI_PROVIDER` ve `*_MODEL` değerlerini ezer; yoksa `.env` geçerlidir
+    (`app.ai.runtime`). `provider` tek sütun olduğu için aynı anda tek sağlayıcı etkindir. Efor
+    boşsa sağlayıcının varsayılanıdır. API anahtarı sütunu yoktur: anahtar yalnız `.env`'de
+    durur."""
+
+    __tablename__ = "ai_settings"
+    __table_args__ = (
+        CheckConstraint("id = 1", name="single_row"),
+        CheckConstraint(_one_of("provider", AiProviderName), name="provider"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=False)
+    provider: Mapped[str] = mapped_column(String(32))
+    anthropic_model: Mapped[str] = mapped_column(String(100))
+    anthropic_effort: Mapped[str | None] = mapped_column(String(16))
+    openai_model: Mapped[str] = mapped_column(String(100))
+    openai_effort: Mapped[str | None] = mapped_column(String(16))
+    updated_by: Mapped[str] = mapped_column(String(150))
+    updated_at: Mapped[datetime] = mapped_column(UtcDateTime, default=utcnow)
+
+
 class RecordedText(Base):
     """Kayda İngilizce yazılan sistem metninin yapısı (10.10.6; PLAN.md §D121).
 

@@ -135,6 +135,7 @@ from app.pipeline.plan import (
 )
 from app.pipeline.queue_close import close_reason_label
 from app.storage import DataLayout
+from app.web.ai_runtime import ActiveAiSettings
 from app.web.auth import WRITER_ONLY, PanelUser, require_panel_user
 from app.web.confirm import (
     CONFIRMATION_REFUSED,
@@ -907,7 +908,7 @@ def dismissal_subject(upload_id: str, plan_id: int | None) -> str:
 
 
 def get_reanalysis_provider(
-    settings: Annotated[Settings, Depends(get_settings)],
+    settings: ActiveAiSettings,
 ) -> AnalysisProvider | ProviderConfigError:
     """Yeniden analizin sağlayıcısı; kurulamazsa nedenini taşıyan hata (kullanıcıya gösterilir)."""
     try:

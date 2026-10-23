@@ -67,6 +67,7 @@ from app.storage import (
     write_to_inbox,
 )
 from app.storage.pdfinfo import count_pdf_pages
+from app.web.ai_runtime import ActiveAiSettings
 from app.worker.queue import claim_upload, enqueue_upload
 
 router = APIRouter(prefix="/api/uploads", tags=["uploads"])
@@ -147,9 +148,9 @@ def get_plan_executor(settings: Annotated[Settings, Depends(get_settings)]) -> P
 
 
 def get_analysis_provider(
-    settings: Annotated[Settings, Depends(get_settings)],
+    settings: ActiveAiSettings,
 ) -> AnalysisProvider:
-    """`.env`'deki `AI_PROVIDER` sağlayıcısı (03.2.1); kurulamıyorsa 503."""
+    """Etkin yapay zekâ ayarının sağlayıcısı (03.2.1, 03.8.1); kurulamıyorsa 503."""
     try:
         return create_provider(settings)
     except ProviderConfigError as exc:

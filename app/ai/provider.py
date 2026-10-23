@@ -390,15 +390,20 @@ class AnalysisProvider(abc.ABC):
     """Sayfa analizi sağlayıcısı. `name` `AI_PROVIDER` değeridir, `model` kullanılan modeldir.
 
     `prescreen_model` aynı sağlayıcının ucuz ön eleme modelidir (13.2.1); boş ya da `model`'le
-    aynıysa `None` olur ve ön eleme yapılmaz.
+    aynıysa `None` olur ve ön eleme yapılmaz. `effort` seçilen efordur (03.8.2); `None` sağlayıcının
+    varsayılanıdır. Yapay zekâ çağrısı olayı ikisini de taşır (`ai_call_event_data`).
     """
 
     name: ClassVar[str]
+    effort: str | None = None
 
-    def __init__(self, *, model: str, prescreen_model: str | None = None) -> None:
+    def __init__(
+        self, *, model: str, prescreen_model: str | None = None, effort: str | None = None
+    ) -> None:
         if not model:
             raise ValueError("model adı boş olamaz")
         self.model = model
+        self.effort = effort
         prescreen = (prescreen_model or "").strip() or None
         self.prescreen_model = None if prescreen == model else prescreen
 

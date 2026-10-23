@@ -252,6 +252,7 @@ from app.storage.examples import (
 )
 from app.training.cleanup import listed_hashes, record_uploaded_example, same_type_example
 from app.training.known_types import KnownTypes, load_known_types
+from app.web.ai_runtime import ActiveAiSettings
 from app.web.auth import WRITER_ONLY, PanelUser, require_panel_user
 from app.web.confirm import (
     CONFIRMATION_REFUSED,
@@ -1617,7 +1618,9 @@ def example_file(slug: str, name: str, session: DbSession, layout: Layout) -> Fi
     return FileResponse(path, headers={"X-Content-Type-Options": "nosniff"})
 
 
-def get_description_provider(settings: AppSettings) -> AnalysisProvider | ProviderConfigError:
+def get_description_provider(
+    settings: ActiveAiSettings,
+) -> AnalysisProvider | ProviderConfigError:
     """Tür açıklamasının (11.3.1) sağlayıcısı; kurulamazsa nedenini taşıyan hata (kullanıcıya
     gösterilir)."""
     try:

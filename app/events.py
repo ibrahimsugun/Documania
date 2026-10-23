@@ -183,13 +183,19 @@ PROVIDER_DATA_KEY = "provider"
 """Yapay zekâ çağrısı olayının sağlayıcı adı anahtarı (`ai_call_event_data` her zaman yazar)."""
 
 
-def ai_call_event_data(*, provider: str, model: str) -> dict[str, object]:
-    """Yapay zekâ çağrısı olayının sağlayıcı ve model alanları (denetim için).
+def ai_call_event_data(
+    *, provider: str, model: str, effort: str | None = None
+) -> dict[str, object]:
+    """Yapay zekâ çağrısı olayının sağlayıcı, model ve efor alanları (denetim için).
 
     Token sayısı ve maliyet tutulmaz (PLAN §D84): olay yalnız hangi sağlayıcının hangi modelle
-    çağrıldığını söyler.
+    çağrıldığını söyler. `effort` seçilen efordur (03.8.2); seçilmemişse (sağlayıcı varsayılanı)
+    anahtar yazılmaz. API anahtarı hiçbir zaman yazılmaz.
     """
-    return {PROVIDER_DATA_KEY: provider, "model": model}
+    data: dict[str, object] = {PROVIDER_DATA_KEY: provider, "model": model}
+    if effort is not None:
+        data["effort"] = effort
+    return data
 
 
 @dataclass(frozen=True, slots=True)

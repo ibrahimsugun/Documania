@@ -136,6 +136,7 @@ from app.training import (
     verify_examples,
 )
 from app.training.map_import import SKIP_LABELS, map_too_large
+from app.web.ai_runtime import ActiveAiSettings
 from app.web.auth import PanelUser, require_panel_user
 from app.web.confirm import (
     CONFIRMATION_REFUSED,
@@ -301,7 +302,7 @@ PLACEMENT_FEEDBACK = {
 _IMAGE_SUFFIXES = (".jpg", ".jpeg", ".png")
 
 
-def get_training_provider_problem(settings: AppSettings) -> str | None:
+def get_training_provider_problem(settings: ActiveAiSettings) -> str | None:
     """Yapay zekâ sağlayıcısı kurulamıyorsa nedeni (sekmede bilgi notu); kurulabiliyorsa `None`.
     Sekme sağlayıcıyı çağırmaz; inceleme işçinindir."""
     try:

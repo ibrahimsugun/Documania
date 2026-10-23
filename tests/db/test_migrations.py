@@ -34,7 +34,7 @@ def _assert_schema_matches_models(database_url: str) -> None:
             assert tables == set(Base.metadata.tables) | {"alembic_version"}
             context = MigrationContext.configure(connection, opts={"compare_type": True})
             assert compare_metadata(context, Base.metadata) == []
-            assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "0032"
+            assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "0033"
     finally:
         engine.dispose()
 
@@ -1637,6 +1637,35 @@ def test_output_template_examination_migration_adds_queue_columns_and_is_reversi
             names = {c["name"] for c in inspect(connection).get_columns("output_templates")}
             assert not names & columns
             assert connection.scalar(text("SELECT status FROM output_templates")) == "draft"
+    finally:
+        engine.dispose()
+
+
+def test_ai_settings_migration_creates_a_single_row_table_and_is_reversible(
+    sqlite_url: str,
+) -> None:
+    # 0033 (03.8.1): tablo boş açılır (satır yokken `.env` geçerli), `id = 1` dışı satır girmez.
+    config = _alembic_config(sqlite_url)
+    command.upgrade(config, "0032")
+    command.upgrade(config, "head")
+    engine = create_engine(sqlite_url)
+    insert = (
+        "INSERT INTO ai_settings (id, provider, anthropic_model, openai_model, updated_by, "
+        "updated_at) VALUES ({id}, '{provider}', 'claude-opus-5', 'gpt-6-luna', 'zvz', "
+        "'2026-10-23 00:00:00')"
+    )
+    try:
+        with engine.connect() as connection:
+            assert connection.scalar(text("SELECT COUNT(*) FROM ai_settings")) == 0
+        with engine.begin() as connection:
+            connection.execute(text(insert.format(id=1, provider="openai")))
+        for row_id, provider in ((2, "openai"), (1, "ikisi")):
+            with pytest.raises(IntegrityError), engine.begin() as connection:
+                connection.execute(text(insert.format(id=row_id, provider=provider)))
+
+        command.downgrade(config, "0032")
+        with engine.connect() as connection:
+            assert "ai_settings" not in inspect(connection).get_table_names()
     finally:
         engine.dispose()
 

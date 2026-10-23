@@ -4,6 +4,14 @@ Kaynak: HANDOFF.md (canlı dosyadan taşındı, birebir). Blok sayısı: 1.
 
 <!-- bloklar (newest-first) -->
 
+## 182 — 15.1-a Hazır şablon deposu — done — 2026-10-23
+- Yapıldı: göç 0031 (`output_templates`, boş `output_template_maps`, `generated_documents`; `access_log` `template_id`/`generated_document_id` + CHECK), `app/output_templates/` (yükleme PDF/JPEG/PNG img2pdf kayıpsız, Word/Excel 422, SHA-256 ve ad tekrarı 409, arşiv/geri al, `TEMPLATE_UPLOADED/ARCHIVED/RESTORED`), `_sablonlar/<id>/sablon.pdf` + `pages/`, `Uretilen/` çalışan klasöründe; `/output-templates` liste/süzgeç/şablon sayfası, orijinali aç/indir erişim kaydıyla, menü "Hazır Şablonlar" simgeli, üç dil.
+- Doğrulama: ruff check/format, compileall, temiz SQLite'ta `alembic upgrade head` (→0031), `import app.main`, `python -m app.i18n check`, `git diff --check` exit 0; tam paralel kapı (`-n 6 --cov`) 7085 geçti, 6 atlandı, kapsam %98,86 — 2 kırmızı (`…plan_d58_verbatim`) HEAD'de de kırmızı (D58 bloğu PLAN'da yok), bu görevle ilgisiz.
+- Varsayımlar: §D123 (k)'ye yazıldı — erişim kaydı ayrı sütunlarla (`action` genişlemedi), önizleme görüntüsü kayda girmez, `sha256` saklanan PDF'in, "Etkin" süzgeci = `draft` + `ready`, `_sablonlar/` `static_dirs`'e girmez (yedek kapsamında).
+- Sonraki pencereye not: tm 183 haritayı `output_template_maps`'e yazar; liste "alan sayısı" son sürümün `text`/`date` alanlarını sayar (`field_count`), geri alınan şablon onaylı harita varsa `ready`'ye döner. Yeni POST yolları `tests/web/test_access_log.py` `REVIEWED_MUTATING_ROUTES`'a eklenmeli. D58 testleri için ayrı küçük görev hâlâ gerekli.
+
+
+
 ## 181 — 15.3-b Ek alanların belgeden otomatik dolumu — done — 2026-10-23
 - Yapıldı: `PagePerson` beş isteğe bağlı alan (eksikse `null`; sağlayıcı şeması hepsini `required` ister), `page_analysis.md` yalnız açıkça yazılı değer; `Mrz.personal_number` (TD1 satır 1 16–30, bileşik + belge no hanesi tutarsa; ülke = veren devlet) ve `apply_mrz_priority` önceliği/notu; `PersonKey` ek alanlar → 05.7.3 dolumu (ülke numarayla), 05.5.4 doldurmaz (test), `fill-fields` yeni alanlar; kayıtlı yanıtlar + `gen.py` (`DETAIL_PAGE_FIELDS`, oturma izni MRZ'sinde numara); PRD §20.1.3 eki; uçtan uca `tests/test_detail_fields_upload.py`.
 - Doğrulama: ruff check/format, compileall, temiz SQLite'ta `alembic upgrade head` (→0030, göç yok), `import app.main`, `python -m app.i18n check`, `git diff --check` exit 0; tam paralel kapı (`-n 6 --cov`) 7073 geçti, 6 atlandı, kapsam %99,00 — 2 kırmızı (`test_training_decisions.py`/`test_training_map.py` `…plan_d58_verbatim`) temiz HEAD'de de kırmızı (tm 180 notundaki D58 sorunu), bu görevle ilgisiz.

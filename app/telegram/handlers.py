@@ -59,6 +59,7 @@ from telegram.error import TelegramError
 from telegram.ext import Application, ContextTypes, MessageHandler, filters
 
 from app.ai.provider import AnalysisProvider, ProviderConfigError, create_provider
+from app.ai.runtime import active_settings_from
 from app.config import Settings
 from app.db.models import (
     Document,
@@ -436,7 +437,9 @@ class DocumentIntake:
     def _run_pipeline(self, claim: Claim, file_count: int) -> str:
         """Partiyi web ile aynı adımlardan geçirir ve özet metnini döner (iş parçacığında)."""
         try:
-            provider = self._provider_factory(self._settings)
+            provider = self._provider_factory(
+                active_settings_from(self._settings, self._session_factory)
+            )
         except ProviderConfigError as exc:
             logger.error(
                 "Telegram partisi işlenemedi: sağlayıcı kurulamadı (%s)", type(exc).__name__

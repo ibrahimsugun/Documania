@@ -127,7 +127,7 @@ sunucuyu göstermeli; sunucuda 80 ve 443 dışarıya açık olmalı.
 | `ACME_EMAIL` | Sertifika uyarıları için e-posta |
 | `POSTGRES_PASSWORD` | `openssl rand -hex 24` çıktısı (yalnız harf/rakam) |
 | `APP_DATABASE_URL` | `postgresql+psycopg://belgeee:<POSTGRES_PASSWORD>@db:5432/belgeee` |
-| `ANTHROPIC_API_KEY` (ya da `AI_PROVIDER=openai` + `OPENAI_API_KEY`) | Worker için zorunlu; eksikse worker hata verip yeniden başlar, kuyruk işlenmez — dağıtımdan önce sağlayıcı ayarını girin |
+| `ANTHROPIC_API_KEY` (ya da `AI_PROVIDER=openai` + `OPENAI_API_KEY`) | Worker için zorunlu; eksikse worker hata verip yeniden başlar, kuyruk işlenmez — dağıtımdan önce sağlayıcı ayarını girin. İki anahtar birlikte durabilir: etkin sağlayıcıyı, modeli ve eforu root panelden seçer (yeniden başlatmasız); anahtarı değiştirmek için `.env` düzenlenip konteynerler `docker compose --profile production up -d` ile yeniden yaratılır |
 
 **2. Tek komut:**
 

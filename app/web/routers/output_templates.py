@@ -80,6 +80,7 @@ from app.output_templates.examine import (
 from app.output_templates.labels import FIELD_LABELS
 from app.storage import DataLayout
 from app.web.access import record_access
+from app.web.ai_runtime import ActiveAiSettings
 from app.web.auth import WRITER_ONLY, PanelUser, require_panel_user
 from app.web.feedback import (
     TEMPLATE_ARCHIVED,
@@ -162,7 +163,7 @@ KIND_LABELS = {
 FALLBACK_PAGE_SIZE = (1000, 1414)
 
 
-def provider_available(settings: Annotated[Settings, Depends(get_settings)]) -> bool:
+def provider_available(settings: ActiveAiSettings) -> bool:
     """İncelemenin (15.1.2) sağlayıcısı kurulabiliyor mu; çağrıyı işçi yapar, burada yalnız ayar
     denetlenir."""
     try:

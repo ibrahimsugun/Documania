@@ -36,12 +36,26 @@ araç `DOCUMENT_QUERY_TOOL_NAME`, girdi şeması `DocumentQuery.model_json_schem
 
 SDK'nın kendi yeniden denemesi kapalıdır (`max_retries=0`): geri çekilmeli deneme 03.5'in işidir,
 iki katman üst üste denemesin.
+
+**Efor ve istek biçimi (03.8.2; PLAN.md §D124).** Efor seçilmişse `output_config.effort` gider,
+"varsayılan"da gönderilmez. Zorlanmış araç + kapalı düşünme yalnız onu kabul eden model/efor
+bileşiminde kullanılır (`app.ai.model_list.anthropic_request_format`); öteki bileşimlerde (Opus 5.5,
+Sonnet 5.5, Fable 5.1; Opus 5 ve Haiku 5.5'te `xhigh`/`max`) istek `tool_choice: auto` (paralel araç
+kapalı) ile gider, `thinking` hiç gönderilmez (model uyarlanabilir düşünür), sistem talimatının
+sonuna aracın adını söyleyen tek cümle eklenir ve araç şeması izin veriyorsa katıdır (`strict:
+true`, şema SDK'nın `transform_schema`'sıyla). Katı şema açık sözlük (`patternProperties`) taşıyamaz
+— sayfa analizinin `fields`'ı katı biçimde boş nesneye iner (§C13) — bu yüzden o araç katı
+gönderilmez. Düşünme açıkken çıktı sınırı en az `THINKING_MIN_OUTPUT_TOKENS`'tır: düşünme aynı
+sınırdan harcar. Araç çağrısı gelmezse ya da kesikse yanıt bugünkü hata yoluyla reddedilir; kabul
+yine şema doğrulamasıdır (`validate_*`). `temperature`/`top_p` hiçbir biçimde gönderilmez.
 """
 
 from __future__ import annotations
 
 import base64
+import json
 from collections.abc import Callable, Sequence
+from functools import cache
 from typing import Any
 
 import anthropic
@@ -49,6 +63,7 @@ import httpx2
 from anthropic.types import Message, MessageParam, ToolParam
 
 from app.ai.document_query import DocumentQuery, DocumentQueryError
+from app.ai.model_list import RequestFormat, anthropic_request_format, check_effort
 from app.ai.photo_check import PhotoCheck, PhotoCheckError
 from app.ai.profile_answer import ProfileAnswer, ProfileAnswerError
 from app.ai.provider import (
@@ -78,6 +93,10 @@ from app.ai.training_classification import TrainingClassification, TrainingClass
 from app.ai.type_description import TypeDescription, TypeDescriptionError
 from app.ai.type_proposal import TypeProposal, TypeProposalError
 from app.config import Settings
+
+THINKING_MIN_OUTPUT_TOKENS = 16_000
+"""Düşünme açıkken (`AUTO_TOOL`) çıktı sınırının alt sınırı: düşünme `max_tokens`'tan harcar, araç
+girdisi kesilmesin. Akışsız istekte SDK'nın zaman aşımı sınırının altındadır."""
 
 TOOL_NAME = "record_page_analysis"
 
@@ -185,8 +204,9 @@ class AnthropicProvider(AnalysisProvider):
         model: str,
         max_output_tokens: int,
         prescreen_model: str | None = None,
+        effort: str | None = None,
     ) -> None:
-        super().__init__(model=model, prescreen_model=prescreen_model)
+        super().__init__(model=model, prescreen_model=prescreen_model, effort=effort)
         if max_output_tokens <= 0:
             raise ValueError("max_output_tokens pozitif olmalı")
         self._client = client
@@ -196,7 +216,8 @@ class AnthropicProvider(AnalysisProvider):
     def from_settings(
         cls, settings: Settings, *, http_client: httpx2.Client | None = None
     ) -> AnthropicProvider:
-        """Ayarlardan istemci kurar; `ANTHROPIC_API_KEY` boşsa `ProviderConfigError`.
+        """Ayarlardan istemci kurar; `ANTHROPIC_API_KEY` boşsa ya da efor modelde seçilemiyorsa
+        `ProviderConfigError`.
 
         `http_client` yalnız taşıma katmanını değiştirmek içindir (test, vekil).
         """
@@ -206,6 +227,10 @@ class AnthropicProvider(AnalysisProvider):
                 "AI_PROVIDER=anthropic için ANTHROPIC_API_KEY tanımlı olmalı. "
                 "Bkz. .env.example dosyasındaki açıklama."
             )
+        try:
+            check_effort(cls.name, settings.anthropic_model, settings.anthropic_effort)
+        except ValueError as exc:
+            raise ProviderConfigError(str(exc)) from None
         client = anthropic.Anthropic(
             api_key=api_key.get_secret_value().strip(),
             max_retries=0,
@@ -217,16 +242,18 @@ class AnthropicProvider(AnalysisProvider):
             model=settings.anthropic_model,
             max_output_tokens=settings.ai_max_output_tokens,
             prescreen_model=settings.anthropic_prescreen_model,
+            effort=settings.anthropic_effort,
         )
 
     def _with_model(self, model: str) -> AnthropicProvider:
-        # Ön eleme kopyası aynı istemciyi (anahtar, zaman aşımı, taşıma) paylaşır (13.2.1).
+        # Ön eleme kopyası aynı istemciyi (anahtar, zaman aşımı, taşıma) paylaşır (13.2.1). Efor ana
+        # modelin seçimidir; ön eleme modeli kendi varsayılan eforu ve kendi biçimiyle çalışır.
         return AnthropicProvider(
             self._client, model=model, max_output_tokens=self._max_output_tokens
         )
 
     def _request_analysis(self, request: PageAnalysisRequest) -> object:
-        return self._forced_tool_call(
+        return self._tool_call(
             request.instructions,
             (request.image,),
             request.prompt,
@@ -236,7 +263,7 @@ class AnthropicProvider(AnalysisProvider):
         )
 
     def _request_description(self, request: TypeDescriptionRequest) -> object:
-        return self._forced_tool_call(
+        return self._tool_call(
             request.instructions,
             request.images,
             request.prompt,
@@ -246,7 +273,7 @@ class AnthropicProvider(AnalysisProvider):
         )
 
     def _request_type_proposal(self, request: TypeProposalRequest) -> object:
-        return self._forced_tool_call(
+        return self._tool_call(
             request.instructions,
             request.images,
             request.prompt,
@@ -256,7 +283,7 @@ class AnthropicProvider(AnalysisProvider):
         )
 
     def _request_template_map(self, request: TemplateMapRequest) -> object:
-        return self._forced_tool_call(
+        return self._tool_call(
             request.instructions,
             request.images,
             request.prompt,
@@ -266,7 +293,7 @@ class AnthropicProvider(AnalysisProvider):
         )
 
     def _request_training_classification(self, request: TrainingClassificationRequest) -> object:
-        return self._forced_tool_call(
+        return self._tool_call(
             request.instructions,
             request.images,
             request.prompt,
@@ -276,7 +303,7 @@ class AnthropicProvider(AnalysisProvider):
         )
 
     def _request_photo_check(self, request: PhotoCheckRequest) -> object:
-        return self._forced_tool_call(
+        return self._tool_call(
             request.instructions,
             (request.image,),
             request.prompt,
@@ -286,7 +313,7 @@ class AnthropicProvider(AnalysisProvider):
         )
 
     def _request_document_query(self, request: DocumentQueryRequest) -> object:
-        return self._forced_tool_call(
+        return self._tool_call(
             request.instructions,
             (),
             request.prompt,
@@ -296,7 +323,7 @@ class AnthropicProvider(AnalysisProvider):
         )
 
     def _request_profile_answer(self, request: ProfileAnswerRequest) -> object:
-        return self._forced_tool_call(
+        return self._tool_call(
             request.instructions,
             (),
             request.prompt,
@@ -305,7 +332,7 @@ class AnthropicProvider(AnalysisProvider):
             error=ProfileAnswerError,
         )
 
-    def _forced_tool_call(
+    def _tool_call(
         self,
         instructions: str,
         images: Sequence[PageImage],
@@ -315,9 +342,9 @@ class AnthropicProvider(AnalysisProvider):
         label: str,
         error: Callable[[list[str]], Exception],
     ) -> object:
-        """Görüntüler (sırayla; olmayabilir) ve metinle tek istek; `tool` zorlanır, girdisi
-        doğrulanmadan döner. Yanıtta tek ve tamamlanmış `tool` çağrısı yoksa `error` (`label`
-        mesajdaki araç adıdır)."""
+        """Görüntüler (sırayla; olmayabilir) ve metinle tek istek; `tool`'un girdisi doğrulanmadan
+        döner. İstek biçimi modele ve efora göredir (modül açıklaması). Yanıtta tek ve tamamlanmış
+        `tool` çağrısı yoksa `error` (`label` mesajdaki araç adıdır)."""
         message: MessageParam = {
             "role": "user",
             "content": [
@@ -337,17 +364,7 @@ class AnthropicProvider(AnalysisProvider):
         }
         try:
             response = self._client.messages.create(
-                model=self.model,
-                max_tokens=self._max_output_tokens,
-                system=instructions,
-                messages=[message],
-                tools=[tool],
-                tool_choice={
-                    "type": "tool",
-                    "name": tool["name"],
-                    "disable_parallel_tool_use": True,
-                },
-                thinking={"type": "disabled"},
+                messages=[message], **self._request_options(instructions, tool)
             )
         except anthropic.APIStatusError as exc:
             raise _status_error(exc) from exc
@@ -356,6 +373,68 @@ class AnthropicProvider(AnalysisProvider):
         except anthropic.AnthropicError as exc:
             raise ProviderError(f"Anthropic isteği başarısız: {type(exc).__name__}") from exc
         return _tool_input(response, tool["name"], label, error)
+
+    def _request_options(self, instructions: str, tool: ToolParam) -> dict[str, Any]:
+        """İsteğin mesaj dışı alanları; biçim modele ve efora göredir (modül açıklaması)."""
+        options: dict[str, Any] = {"model": self.model}
+        if self.effort is not None:
+            options["output_config"] = {"effort": self.effort}
+        if anthropic_request_format(self.model, self.effort) is RequestFormat.FORCED_TOOL:
+            return options | {
+                "max_tokens": self._max_output_tokens,
+                "system": instructions,
+                "tools": [tool],
+                "tool_choice": {
+                    "type": "tool",
+                    "name": tool["name"],
+                    "disable_parallel_tool_use": True,
+                },
+                "thinking": {"type": "disabled"},
+            }
+        return options | {
+            "max_tokens": max(self._max_output_tokens, THINKING_MIN_OUTPUT_TOKENS),
+            "system": instructions + tool_instruction(tool["name"]),
+            "tools": [_strict_tool(tool["name"])],
+            "tool_choice": {"type": "auto", "disable_parallel_tool_use": True},
+        }
+
+
+def tool_instruction(name: str) -> str:
+    """`AUTO_TOOL` biçiminde sistem talimatının sonuna eklenen cümle: yanıt aracın tek
+    çağrısıdır."""
+    return (
+        f"\n\nYanıtını yalnız `{name}` aracını tam bir kez çağırarak ver; araç dışında metin yazma."
+    )
+
+
+_TOOLS: dict[str, ToolParam] = {
+    tool["name"]: tool
+    for tool in (
+        ANALYSIS_TOOL,
+        DESCRIPTION_TOOL,
+        PROPOSAL_TOOL,
+        TRAINING_TOOL,
+        PHOTO_CHECK_TOOL,
+        DOCUMENT_QUERY_TOOL,
+        TEMPLATE_MAP_TOOL,
+        PROFILE_ANSWER_TOOL,
+    )
+}
+
+
+@cache
+def _strict_tool(name: str) -> ToolParam:
+    """`AUTO_TOOL` biçimindeki araç: şeması katı biçime uyabiliyorsa `strict: true` ile SDK'nın
+    dönüştürdüğü şema; açık sözlük (`patternProperties`) taşıyorsa olduğu gibi (modül
+    açıklaması)."""
+    tool = _TOOLS[name]
+    if "patternProperties" in json.dumps(tool["input_schema"]):
+        return tool
+    return {
+        **tool,
+        "input_schema": anthropic.transform_schema(dict(tool["input_schema"])),
+        "strict": True,
+    }
 
 
 def _status_error(exc: anthropic.APIStatusError) -> ProviderError:
