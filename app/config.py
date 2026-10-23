@@ -52,7 +52,7 @@ class Settings(BaseSettings):
     ai_max_output_tokens: int = Field(default=4096, gt=0)
     ai_request_timeout_seconds: float = Field(default=120.0, gt=0)
     anthropic_api_key: SecretStr | None = None
-    anthropic_model: str = Field(default="claude-opus-5", min_length=1)
+    anthropic_model: str = Field(default="claude-sonnet-5-5", min_length=1)
     # PRD 13.2.1 — ucuz model ön elemesi: tanımlıysa her sayfa önce bu modele sorulur, kolay sayfa
     # ölçütünü karşılamayan yanıt atılır ve sayfa ana modele (`*_MODEL`) sorulur
     # (`app.pipeline.analyze`). Boş ya da ana modelle aynıysa ön eleme yapılmaz (bkz. PLAN.md §C71).
