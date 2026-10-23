@@ -100,7 +100,7 @@ olay logu baştan sona okunabiliyor; her çıktının kökeni yazılı; yeniden 
 
 **Hedef:** İK'nın günlük kullanabileceği web paneli ve kendini genişleten belge kataloğu.
 
-Kapsam: FR-MOD-10, FR-MOD-11 (11.1–11.5, 11.9), FR-MOD-14, FR-MOD-15 (2026-10-23 açılışı).
+Kapsam: FR-MOD-10, FR-MOD-11 (11.1–11.5, 11.9), FR-MOD-14, FR-MOD-15 (2026-10-23 açılışı), FR-MOD-03 03.8 (yapay zekâ ayarları, 2026-10-23 açılışı).
 
 **Kapanış ölçütü:** İK bir belgeyi yükleyip, kuyruğu çözüp, profilde görüp yeni sekmede
 açabiliyor; katalog panelden yönetiliyor; yeni tür onayı uçtan uca çalışıyor.
@@ -175,7 +175,7 @@ Kapsam: FR-MOD-13.
 | 02.4.1 | Boş sayfa tespiti | Boş sayfa işaretlenir, analizciye gönderilmez, hata sayılmaz | Must (MVP) |
 | 02.5.1 | Gömülü tek görüntü tespiti | Sayfa tek tam-sayfa görüntüden oluşuyorsa işaretlenir (kayıpsız çıkarma için) | Must (MVP) |
 
-### FR-MOD-03 — Yapay zekâ analiz katmanı (Faz 0)
+### FR-MOD-03 — Yapay zekâ analiz katmanı (Faz 0 · 03.8: Faz 1, 2026-10-23 açılışı)
 
 | ID | Gereksinim | Kabul kriteri | Öncelik |
 |---|---|---|---|
@@ -191,6 +191,8 @@ Kapsam: FR-MOD-13.
 | 03.6.1 | Kayıtlı yanıtla test sağlayıcısı | Testler ağ erişimi olmadan çalışır ve deterministik sonuç verir | Must (MVP) |
 | 03.7.1 | Sayfa analizi çalıştırıcı | Sayfalar sırayla, önceki sayfa özetiyle analiz edilir | Must (MVP) |
 | 03.7.2 | Kısmi başarı davranışı | Bir sayfanın analizi başarısız olursa parti `partial` olur, diğer sayfalar tamamlanır | Must (MVP) |
+| 03.8.1 | Çalışma zamanı sağlayıcı seçimi | Bütün yapay zekâ çağrılarının (sayfa analizi, tür açıklaması, aday tür taslağı, eğitim sınıflandırması, fotoğraf kontrolü, şablon incelemesi, belge isteği) sağlayıcısı, modeli ve eforu veritabanındaki tek satırlık ayardan (`ai_settings`) okunur; satır yoksa `.env` (`AI_PROVIDER`, `ANTHROPIC_MODEL`, `OPENAI_MODEL`) geçerlidir ve bugünkü kurulum değişmeden çalışır (03.2.1 genişler). Aynı anda tek sağlayıcı etkindir; anahtarı `.env`'de tanımsız sağlayıcı etkinleştirilemez. API anahtarları yalnız `.env`'de durur: veritabanına, panele, olaya ve log'a girmez. Ayar değişikliği yeniden başlatma istemez: panel, işçi ve bot bir sonraki çağrıda yeni ayarı kullanır; süren çağrı başladığı ayarla biter | Must (v1) |
+| 03.8.2 | Model ve efor ayarı | Her iki sağlayıcıda model depodaki model listesinden (kaynak ve tarihiyle) seçilir; efor sağlayıcının kendi kümesindendir: Anthropic `output_config.effort` (`low`, `medium`, `high`, `xhigh`, `max`), OpenAI `reasoning_effort` (seçili modelin yapılandırılmış çıktıyla desteklediği değerler); "varsayılan" seçimi parametreyi göndermez. Listedeki her modelde bütün yapay zekâ çağrıları şemaya uygun yanıt üretir: zorlanmış araç seçimini ya da düşünmeyi kapatmayı reddeden modellerde (Claude Opus 5.5, Sonnet 5.5, Fable 5.1; Claude Opus 5 ve Haiku 5.5'te `xhigh`/`max` efor) istek biçimi modele göre seçilir, yanıtın kabulü yine şema doğrulamasıdır (`validate_*`). Kullanılan model ve efor yapay zekâ çağrısı olayının verisine yazılır | Must (v1) |
 
 ### FR-MOD-04 — Karar motoru (Faz 0)
 
@@ -299,6 +301,7 @@ Kapsam: FR-MOD-13.
 | 10.1.7 | Panel teması: modern görünüm, açık ve koyu tema | Panelin bütün sayfaları tek bir tema dosyasıyla modern bir görünüm taşır: yumuşak degrade zemin, cam görünümlü yapışkan üst çubuk, yuvarlak köşeli kartlar ve tablolar, degrade birincil düğmeler, belirgin odak halkası, hap biçimli rozet ve sekmeler. Üst çubuktaki düğmeyle açık ve koyu tema arasında geçilir; seçim tarayıcıda hatırlanır, ilk açılışta sistem tercihi kullanılır ve sayfa yanlış temayla yanıp sönmez. Giriş sayfası kendi koyu degrade zeminini taşır. Hareket azaltma tercihi olan kullanıcıda geçiş animasyonları kapanır. Tema yalnız görünümü değiştirir; yerleşim, metin ve davranış aynı kalır | Should (v1) |
 | 10.1.8 | Yetki seviyeleri: Root (gizli), İK, Kullanıcı | Her panel kullanıcısının tek rolü vardır: `root`, `hr` (İK), `user` (Kullanıcı). **İK** bugünkü bütün yazma işlemlerini yapar (yükleme, kuyruk, profil, katalog, grup, eğitim, arşiv, silme, kullanıcı yönetimi). **Kullanıcı** paneli yalnız salt okunur gezer: sayfaları ve belgeleri açar/indirir (erişim kaydı yazılır) ama hiçbir yazma düğmesi görünmez ve her yazma isteği sunucuda 403 ile reddedilir; yalnız kendi parolası, dili, Telegram bağlantısı ve çıkış açıktır; Telegram'dan belge gönderemez, belge isteyebilir. **Root** en yetkilidir (İK'nın her şeyi + erişim logu) ve **gizlidir**: sistemde tek root vardır (`Zvz`); "Root" rol etiketi yalnız root'un kendi ekranında görünür; root hesabı Kullanıcılar sayfasının hiçbir tablosunda (kullanıcılar, Telegram kimlikleri) listelenmez, rol seçiminde sunulmaz, panelden root'a yönelik her istek 404 döner; root yalnız komut satırından verilir ve ikinci root açılamaz. İK ve Kullanıcı rolü Kullanıcılar sayfasında atanır/değiştirilir (`USER_ROLE_CHANGED`, kullanıcı adıyla); kullanıcı kendi rolünü değiştiremez; son etkin İK düşürülemez ve pasife alınamaz (root sayılmaz, hata metni root'u ele vermez). Rol değişikliği açık oturumda bir sonraki istekte geçerlidir. Kabul senaryosu S27 | Should (v1) |
 | 10.1.9 | Erişim logu yalnız root | "Erişim logu" üst çubuk bağlantısı, profildeki erişim logu bağlantısı ve `/access-log` altındaki bütün yollar yalnız root'a açıktır; İK ve Kullanıcı için bağlantı hiç görünmez, adres 404 döner. Erişim kaydı tutulması (10.9.2) her rol için sürer | Should (v1) |
+| 10.1.10 | Yapay zekâ ayarları yalnız root | Root'a özel "Yapay zekâ ayarları" sayfası (`/ai-settings`): her sağlayıcı (Anthropic, OpenAI) için bir kart — anahtar durumu (yalnız "tanımlı" / "tanımsız"; anahtarın hiçbir parçası gösterilmez), etkin/pasif, model ve efor seçimi (03.8.1, 03.8.2). Kaydetme tek adımlıdır (geri alınabilir); bir sağlayıcıyı etkinleştirmek ötekini pasife alır; olay `AI_SETTINGS_CHANGED`. Bağlantı yalnız root'un gezinmesinde görünür (erişim logu gibi, 10.1.9); İK ve Kullanıcı için bağlantı hiç görünmez, adres ve bütün alt yolları bilinmeyen yolla aynı 404'ü döner; sayfanın varlığı başka hiçbir sayfada, bildirimde, hata metninde ya da Telegram'da geçmez. Üç dil (10.10.3) | Must (v1) |
 | 10.2.1 | Yükleme sayfası | Sürükle-bırak çoklu yükleme çalışır; isteğe bağlı çalışan seçilebilir | Must (v1) |
 | 10.2.2 | İlerleme görünümü | Yükleme sonrası parti durumu canlı yenilenir | Should (v1) |
 | 10.3.1 | Yükleme detay sayfası | Sayfa küçük resimleri, plan öğeleri, çıktılar ve olay zaman çizelgesi tek sayfada görünür | Must (v1) |
@@ -508,6 +511,7 @@ ayrı klasörde ve tabloda durur. İnsan isteği (2026-10-23) PLAN §D123'te bir
 | `output_templates` | Hazır şablon (15.1.1) | id, name, normalized_name (tekil), file_label (K8 etiketi), description, file_path, sha256, page_count, status (`draft`, `ready`, `archived`), examine_error, uploaded_by, created_at, archived_at, archived_by |
 | `output_template_maps` | Alan haritası sürümü (15.1.2, 15.1.3) | id, template_id, version, json (§8.7), model, map_hash, created_at, approved_at, approved_by |
 | `generated_documents` | Üretilen belge (15.2) | id, employee_id, template_id, map_id, path, sequence_no, status (`active`, `superseded`, `archived`, `deleted`), filled_fields_json (alan adları), missing_fields_json (alan adları), generated_by, generated_at, archived_at, archived_by |
+| `ai_settings` | Yapay zekâ çalışma zamanı ayarı (03.8.1; tek satır) | id (= 1), provider (`anthropic`, `openai`), anthropic_model, anthropic_effort, openai_model, openai_effort (boş = sağlayıcı varsayılanı), updated_by, updated_at — anahtar sütunu yoktur |
 
 ### 8.2 Veri dizini
 
@@ -553,7 +557,8 @@ TRAINING_ITEM_RESTORED · TRAINING_RUN_ARCHIVED · USER_CREATED · USER_DEACTIVA
 USER_REACTIVATED · USER_PASSWORD_CHANGED · USER_LANGUAGE_CHANGED · USER_ROLE_CHANGED · TELEGRAM_USER_CHANGED · TELEGRAM_LINK_CREATED · GROUP_CHANGED ·
 PACKAGE_ASSIGNED · PACKAGE_COMPLETED · PACKAGE_REOPENED · PACKAGE_CANCELLED · DOCUMENT_DELETED ·
 EMPLOYEE_DELETED · UPLOAD_CANCELLED · TEMPLATE_UPLOADED · TEMPLATE_EXAMINED · TEMPLATE_MAP_APPROVED ·
-TEMPLATE_ARCHIVED · TEMPLATE_RESTORED · OUTPUT_GENERATED · OUTPUT_ARCHIVED · OUTPUT_RESTORED
+TEMPLATE_ARCHIVED · TEMPLATE_RESTORED · OUTPUT_GENERATED · OUTPUT_ARCHIVED · OUTPUT_RESTORED ·
+AI_SETTINGS_CHANGED
 
 `OUTPUT_GENERATED` (15.2.3) verisi: `template_id`, `map_version`, `generated_document_id`, `filled_fields` ve
 `missing_fields` (alan **adları**), `truncated_fields`. `TEMPLATE_EXAMINED` (15.1.2) verisi: `template_id`, `model`,
@@ -563,6 +568,8 @@ TEMPLATE_ARCHIVED · TEMPLATE_RESTORED · OUTPUT_GENERATED · OUTPUT_ARCHIVED ·
 iki aşamalı onayla / `timeout` — 10 dakikalık süre aşımı), `waited_seconds` (alındığından beri geçen süre),
 `job_status` (işçi kuyruğundaki işin iptal anındaki durumu). Kişisel değer taşımaz; `actor` elle iptalde
 kullanıcı adı, otomatik iptalde `system`'dir.
+
+`AI_SETTINGS_CHANGED` (03.8.1, 10.1.10) verisi: `provider` ve her sağlayıcının `model` / `effort` değerinin önceki ve sonraki hâli (`from`, `to`). API anahtarı ya da anahtarın herhangi bir parçası yazılmaz. `actor` root'un kullanıcı adıdır; olay belgeye ya da çalışana bağlı değildir, belge ve çalışan geçmişlerinde görünmez.
 
 `USER_ROLE_CHANGED` (10.1.8) verisi: `target_user_id`, `from`, `to` (`hr` / `user`). `actor` rolü değiştirenin
 kullanıcı adıdır; root rolü panelden atanmadığı için bu olayda görünmez.
