@@ -22,7 +22,7 @@ ortamı gerekmez). PostgreSQL için ayrıca `pg_dump`, `pg_restore`, `psql` (`po
   PostgreSQL'de `pg_dump --format=custom`. Parola komut satırına değil `PGPASSWORD` ortamına
   konur (`ps` çıktısında görünmez).
 - **Veri dizini** (`DATA_DIR`): Inbox'taki orijinal yüklemeler, çalışan klasörleri (`Alinan`,
-  `Hazir`), katalog ve örnekler. SQLite dosyası veri dizininin içindeyse canlı dosya (ve `-wal`,
+  `Hazir`, `Uretilen`), katalog, örnekler ve hazır şablonlar (`KnownDocuments/_sablonlar/`). SQLite dosyası veri dizininin içindeyse canlı dosya (ve `-wal`,
   `-shm`, `-journal`) arşive girmez; yerine tutarlı anlık görüntü girer.
 - Arşivin içi: `MANIFEST.txt` (zaman, veritabanı türü, veritabanı dökümünün SHA-256'sı, dosya
   sayısı), `db/…`, `data/…`. Arşiv `umask 077` ile yazılır (yalnız sahibi okur) — kimlik belgesi

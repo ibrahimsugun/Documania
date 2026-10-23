@@ -2,7 +2,8 @@
 kaydı (04.6.1) ve kararı (11.5), panel oturumu (10.1.2), iki aşamalı onayın belirteci (10.8.1),
 kalıcı işçi kuyruğu (13.3.1), profil alanlarının belge gözlemleri (05.7.3), partinin yoksayılması
 (10.3.4), aday türün incelemesi (11.5.5), eğitim modu (11.9), belge grupları (14.1), çalışanın
-belge paketleri (14.2) ve Telegram hesabını bağlama kodu (12.1.4).
+belge paketleri (14.2), Telegram hesabını bağlama kodu (12.1.4), hazır şablonlar, alan haritası
+sürümleri ve üretilen belgeler (15.1, 15.2).
 
 Sistem kendiliğinden silmez, günlük düzen arşivle yürür (K16): ilişkilerde silme kaskadı
 tanımlanmaz. İK'nın kalıcı sildiği belge satır olarak kalır, `deleted` iskeletine döner (10.5.12).
@@ -936,6 +937,121 @@ class EmployeePackage(Base):
     group: Mapped[DocumentGroup] = relationship()
 
 
+# --- hazır şablonlar ve üretilen belgeler (15.1, 15.2; PLAN.md §D123) -------------------------
+
+
+class OutputTemplateStatus(enum.StrEnum):
+    """Hazır şablonun durumu (`output_templates.status`, 15.1.1).
+
+    Şablon `draft` yüklenir; alan haritası onaylanınca (15.1.3) `ready` olur. `archived` İK'nın
+    arşividir: profilde seçilemez, üretilmiş belgeler yerinde kalır (15.1.4); geri alınınca onaylı
+    haritası varsa `ready`'ye, yoksa `draft`'a döner. Şablon silinmez (R11).
+    """
+
+    DRAFT = "draft"
+    READY = "ready"
+    ARCHIVED = "archived"
+
+
+class GeneratedDocumentStatus(enum.StrEnum):
+    """Üretilen belgenin durumu (`generated_documents.status`, 15.2.2, 15.2.3): aynı şablondan
+    yeniden üretim öncekini `superseded` yapar (K18 kalıbı), İK arşivler ve geri alır, çalışanın
+    kalıcı silinmesiyle `deleted` iskeletine döner."""
+
+    ACTIVE = "active"
+    SUPERSEDED = "superseded"
+    ARCHIVED = "archived"
+    DELETED = "deleted"
+
+
+class OutputTemplate(Base):
+    """Hazır şablon (§8.1 `output_templates`, 15.1.1): İK'nın çalışanlar için çıktı alacağı belge
+    kalıbı. Çalışan belgesi değildir: yükleme partisi, kuyruk öğesi, `documents` satırı açmaz.
+
+    Dosya `KnownDocuments/_sablonlar/<id>/` altında değişmeden durur (`file_path` veri köküne
+    göreli; görüntü şablonu K11 ile kayıpsız PDF'e sarılmıştır). `sha256` o dosyanındır ve tekildir:
+    aynı dosya ikinci kez şablon olmaz. `normalized_name` adın tekillik anahtarı, `file_label`
+    üretilen belgenin K8 etiketidir (15.2.3). `examine_error` yapay zekâ incelemesinin (15.1.2)
+    sebebidir.
+    """
+
+    __tablename__ = "output_templates"
+    __table_args__ = (CheckConstraint(_one_of("status", OutputTemplateStatus), name="status"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str] = mapped_column(String(120))
+    normalized_name: Mapped[str] = mapped_column(String(255), unique=True)
+    file_label: Mapped[str] = mapped_column(String(64))
+    description: Mapped[str | None] = mapped_column(String(200))
+    # Satır dosyadan önce eklenir (kimlik dizinin adıdır); yol yazılınca dolar.
+    file_path: Mapped[str | None] = mapped_column(String(1024))
+    sha256: Mapped[str] = mapped_column(String(64), unique=True)
+    page_count: Mapped[int] = mapped_column(Integer)
+    status: Mapped[str] = mapped_column(String(16), default=OutputTemplateStatus.DRAFT.value)
+    examine_error: Mapped[str | None] = mapped_column(Text)
+    uploaded_by: Mapped[str] = mapped_column(String(255))
+    created_at: Mapped[datetime] = mapped_column(UtcDateTime, default=utcnow)
+    archived_at: Mapped[datetime | None] = mapped_column(UtcDateTime)
+    archived_by: Mapped[str | None] = mapped_column(String(255))
+
+    maps: Mapped[list[OutputTemplateMap]] = relationship(
+        back_populates="template", order_by="OutputTemplateMap.version"
+    )
+
+
+class OutputTemplateMap(Base):
+    """Alan haritası sürümü (§8.1 `output_template_maps`, 15.1.2, 15.1.3; §8.7 şeması).
+
+    Her inceleme ya da düzenleme yeni sürüm açar, eski sürüm silinmez; onaylanan sürüm
+    `approved_at`/`approved_by` taşır ve `map_hash` ile dondurulur (K9/R10).
+    """
+
+    __tablename__ = "output_template_maps"
+    __table_args__ = (UniqueConstraint("template_id", "version"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    template_id: Mapped[int] = mapped_column(ForeignKey("output_templates.id"), index=True)
+    version: Mapped[int] = mapped_column(Integer)
+    json: Mapped[dict[str, Any]] = mapped_column(JSON)
+    model: Mapped[str | None] = mapped_column(String(255))
+    map_hash: Mapped[str] = mapped_column(String(64))
+    created_at: Mapped[datetime] = mapped_column(UtcDateTime, default=utcnow)
+    approved_at: Mapped[datetime | None] = mapped_column(UtcDateTime)
+    approved_by: Mapped[str | None] = mapped_column(String(255))
+
+    template: Mapped[OutputTemplate] = relationship(back_populates="maps")
+
+
+class GeneratedDocument(Base):
+    """Üretilen belge (§8.1 `generated_documents`, 15.2): hazır şablonun kopyasına çalışanın profil
+    değerleri yazılarak oluşan PDF. `documents` tablosuna, paketlere, eşleştirmeye ve bota girmez.
+
+    `path` veri köküne göreli (`Employees/<klasör>/Uretilen/…`); kalıcı silinende boş.
+    `filled_fields_json`/`missing_fields_json` yalnız alan **adlarını** taşır, değer taşımaz.
+    """
+
+    __tablename__ = "generated_documents"
+    __table_args__ = (CheckConstraint(_one_of("status", GeneratedDocumentStatus), name="status"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    employee_id: Mapped[str] = mapped_column(ForeignKey("employees.id"), index=True)
+    template_id: Mapped[int] = mapped_column(ForeignKey("output_templates.id"), index=True)
+    map_id: Mapped[int] = mapped_column(ForeignKey("output_template_maps.id"))
+    path: Mapped[str | None] = mapped_column(String(1024))
+    sequence_no: Mapped[int] = mapped_column(Integer, default=1)
+    status: Mapped[str] = mapped_column(String(16), default=GeneratedDocumentStatus.ACTIVE.value)
+    filled_fields_json: Mapped[list[str]] = mapped_column(JSON)
+    missing_fields_json: Mapped[list[str]] = mapped_column(JSON)
+    generated_by: Mapped[str] = mapped_column(String(255))
+    generated_at: Mapped[datetime] = mapped_column(UtcDateTime, default=utcnow)
+    archived_at: Mapped[datetime | None] = mapped_column(UtcDateTime)
+    archived_by: Mapped[str | None] = mapped_column(String(255))
+
+    employee: Mapped[Employee] = relationship()
+    template: Mapped[OutputTemplate] = relationship()
+    template_map: Mapped[OutputTemplateMap] = relationship()
+
+
 # --- log ve kullanıcılar -------------------------------------------------------------------
 
 
@@ -976,24 +1092,40 @@ class AccessChannel(enum.StrEnum):
     TELEGRAM = "telegram"
 
 
+# 10.9.2, 15.1.4, 15.2.2 (PLAN.md §D123 f): erişilen şey tam olarak biridir — çalışan belgesi, hazır
+# şablon ya da üretilen belge.
+_ACCESS_TARGET = (
+    "(document_id IS NOT NULL AND template_id IS NULL AND generated_document_id IS NULL) OR "
+    "(document_id IS NULL AND template_id IS NOT NULL AND generated_document_id IS NULL) OR "
+    "(document_id IS NULL AND template_id IS NULL AND generated_document_id IS NOT NULL)"
+)
+
+
 class AccessLog(Base):
     """Belge erişim logu (10.9.2): kim, hangi belgeyi, ne zaman, hangi kanaldan açtı ya da indirdi.
 
     Satırı `app.web.access.record_access` yazar; silinmez ve değiştirilmez. `action` ve `channel`
-    değerleri `AccessAction` / `AccessChannel`'dan gelir.
+    değerleri `AccessAction` / `AccessChannel`'dan gelir. Erişilen şey `document_id` (çalışan
+    belgesi), `template_id` (hazır şablon, 15.1.4) ya da `generated_document_id` (üretilen belge,
+    15.2.2) sütunlarından tam olarak biridir (CHECK `target`; PLAN.md §D123 f).
     """
 
     __tablename__ = "access_log"
+    __table_args__ = (CheckConstraint(_ACCESS_TARGET, name="target"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     ts: Mapped[datetime] = mapped_column(UtcDateTime, default=utcnow)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
-    document_id: Mapped[int] = mapped_column(ForeignKey("documents.id"), index=True)
+    document_id: Mapped[int | None] = mapped_column(ForeignKey("documents.id"), index=True)
+    template_id: Mapped[int | None] = mapped_column(ForeignKey("output_templates.id"), index=True)
+    generated_document_id: Mapped[int | None] = mapped_column(
+        ForeignKey("generated_documents.id"), index=True
+    )
     action: Mapped[str] = mapped_column(String(16))
     channel: Mapped[str] = mapped_column(String(16))
 
     user: Mapped[User] = relationship()
-    document: Mapped[Document] = relationship()
+    document: Mapped[Document | None] = relationship()
 
 
 class UserRole(enum.StrEnum):

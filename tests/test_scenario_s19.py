@@ -127,7 +127,7 @@ def test_s19_numberless_document_with_name_and_birth_date_opens_a_new_employee(
     assert _identifiers(session) == []
     assert _count(session, EmployeeAlias) == 1
     folder = layout.employee_dir(FOLDER)
-    assert _names(folder) == ["Alinan", "Hazir", "profil.md"]
+    assert _names(folder) == ["Alinan", "Hazir", "Uretilen", "profil.md"]
     assert _names(folder / "Hazir") == [OUTPUT]
     assert (folder / "Hazir" / OUTPUT).read_bytes() == content
     assert _names(folder / "Alinan") == ["is-sozlesmesi.pdf"]

@@ -434,6 +434,15 @@ REVIEWED_MUTATING_ROUTES: dict[tuple[str, str], str] = {
     ("POST", "/document-groups/{group_id}/restore"): (
         "belge grubu kaydı: arşivden geri alma (14.1.1)"
     ),
+    ("POST", "/output-templates"): (
+        "hazır şablon kaydı: yükleme, dosya değişmeden saklanır; parti açmaz (15.1.1)"
+    ),
+    ("POST", "/output-templates/{template_id}/archive"): (
+        "hazır şablon kaydı: arşivleme, silme yok (15.1.4, R11)"
+    ),
+    ("POST", "/output-templates/{template_id}/restore"): (
+        "hazır şablon kaydı: arşivden geri alma (15.1.4)"
+    ),
     ("POST", "/employees/{employee_id}/packages"): (
         "belge paketi kaydı: gruptan paket tanımlama, belgeye dokunmaz (14.2.1)"
     ),

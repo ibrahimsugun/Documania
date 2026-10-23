@@ -25,6 +25,7 @@ from app.db.models import (
     Event,
     ExampleFileRecord,
     KnownDocumentType,
+    OutputTemplate,
     Page,
     Plan,
     QueueItem,
@@ -58,6 +59,9 @@ SECTION_8_1_TABLES = {
     "document_groups",
     "document_group_items",
     "employee_packages",
+    "output_templates",
+    "output_template_maps",
+    "generated_documents",
     "events",
     "access_log",
     "users",
@@ -394,6 +398,19 @@ def test_foreign_keys_are_enforced(session: Session) -> None:
             requested_by="ik",
         ),
         lambda: User(username="ik", password_hash="hash", role="hr", language="de"),
+        lambda: OutputTemplate(
+            name="T",
+            normalized_name="t",
+            file_label="T",
+            sha256="0" * 64,
+            page_count=1,
+            status="done",
+            uploaded_by="ik",
+        ),
+        # 15.1.4 (§D123 f): erişim satırı belge, şablon ya da üretilen belgeden birini taşır.
+        lambda: AccessLog(
+            user=User(username="ik", password_hash="hash", role="hr"), action="view", channel="web"
+        ),
         lambda: User(username="ik", password_hash="hash", role="hr", language="sr-Latn"),
     ],
     ids=[
@@ -412,6 +429,8 @@ def test_foreign_keys_are_enforced(session: Session) -> None:
         "group-item-type-without-slug",
         "package-status",
         "user-language",
+        "template-status",
+        "access-log-without-target",
         "user-language-html-code",
     ],
 )

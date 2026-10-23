@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{# Hazır Şablonlar (15.1.1, 15.1.4): İK'nın çalışanlar için çıktı alacağı belge kalıpları. Varsayılan
+   arşivdekiler dışındakiler; `?status=` duruma göre süzer. Şablon silinmez (R11) — arşivlenir ve geri
+   alınır. Kullanıcı (10.1.8) listeyi görür, yükleme bağlantısı yalnız İK/root'ta. #}
+{% block title %}{{ translate(entry.label) }}{% endblock %}
+{% block content %}
+<h1>{{ translate(entry.label) }}</h1>
+<p class="lede">{{ _("İK'nın çalışanlar için çıktı alacağı belge kalıpları (iş sözleşmesi, başvuru formu). Şablon çalışan belgesi değildir: yüklemesi parti açmaz, boru hattına girmez; dosyası değişmeden saklanır, önizlenir ve indirilir.") }}</p>
+<nav class="states" aria-label="{{ _('Şablon durumu') }}">
+  {% for state in states %}
+  <a href="{{ state.href }}"{% if state.current %} class="active" aria-current="page"{% endif %}>{{ translate(state.label) }} ({{ state.count }})</a>
+  {% endfor %}
+</nav>
+{% if user.can_write %}<p><a class="button-link" href="/output-templates/new">{{ _("Şablon yükle") }}</a></p>{% endif %}
+{% if templates %}
+<p class="count">{{ ngettext("%(num)d şablon", "%(num)d şablon", templates|length) }}</p>
+<table class="catalog output-templates">
+  <thead>
+    <tr><th>{{ _("İlk sayfa") }}</th><th>{{ _("Ad") }}</th><th>{{ _("Açıklama") }}</th><th class="num">{{ _("Sayfa") }}</th><th class="num">{{ _("Alan") }}</th><th>{{ _("Durum") }}</th><th>{{ _("Yükleyen") }}</th><th>{{ _("Zaman") }}</th></tr>
+  </thead>
+  <tbody>
+    {% for template in templates %}
+    <tr>
+      <td>
+        <ul class="thumbs">
+          <li class="thumb"><a href="/output-templates/{{ template.id }}"><img src="/output-templates/{{ template.id }}/pages/0" loading="lazy" alt="{{ _('%(name)s — sayfa 1', name=template.name) }}"></a></li>
+        </ul>
+      </td>
+      <td><a href="/output-templates/{{ template.id }}" translate="no">{{ template.name }}</a></td>
+      <td translate="no">{{ template.description or "—" }}</td>
+      <td class="num">{{ template.page_count }}</td>
+      <td class="num">{{ template.field_count }}</td>
+      <td class="cell-nowrap"><span class="status-badge {{ status_badges[template.status] }}">{{ translate(status_labels[template.status]) }}</span></td>
+      <td translate="no">{{ template.uploaded_by }}</td>
+      <td class="cell-nowrap">{{ template.created_at.strftime("%Y-%m-%d %H:%M") }} UTC</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% elif selected %}
+<p class="placeholder">{{ _("Bu durumda şablon yok.") }} <a href="/output-templates">{{ _("Etkin şablonları göster") }}</a></p>
+{% elif user.can_write %}
+<p class="placeholder">{{ _("Henüz hazır şablon yok.") }} <a href="/output-templates/new">{{ _("İlk şablonu yükleyin.") }}</a></p>
+{% else %}
+<p class="placeholder">{{ _("Henüz hazır şablon yok; şablonları İK yükler.") }}</p>
+{% endif %}
+{% endblock %}

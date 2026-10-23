@@ -4,8 +4,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Documania panel\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-22 22:56+0000\n"
-"PO-Revision-Date: 2026-10-22 22:56+0000\n"
+"POT-Creation-Date: 2026-10-23 00:10+0000\n"
+"PO-Revision-Date: 2026-10-23 00:10+0000\n"
 "Last-Translator: Documania görev penceresi (gözden geçirilmeli)\n"
 "Language: sr_Latn\n"
 "Language-Team: Srpski\n"
@@ -81,6 +81,11 @@ msgstr "Profilna fotografija: %(name)s"
 #, python-format
 msgid "%(name)s seç"
 msgstr "Izaberi %(name)s"
+
+#: app/web/templates/output_templates.html
+#, python-format
+msgid "%(name)s — sayfa 1"
+msgstr "%(name)s — strana 1"
 
 #: app/web/templates/training_type.html
 #, python-format
@@ -269,6 +274,14 @@ msgstr[1] ""
 msgstr[2] ""
 "%(num)d stavki i posle ponovne analize čeka u redu Unknown sa ovim "
 "predloženim tipom."
+
+#: app/web/templates/output_templates.html
+#, python-format
+msgid "%(num)d şablon"
+msgid_plural "%(num)d şablon"
+msgstr[0] "%(num)d šablon"
+msgstr[1] "%(num)d šablona"
+msgstr[2] "%(num)d šablona"
 
 #: app/web/templates/queue_item.html
 #, python-format
@@ -476,7 +489,8 @@ msgstr "Odluka AI: `{slug}` ({basis}, model {model})"
 #: app/web/templates/document_move.html
 #: app/web/templates/employee_merge_results.html
 #: app/web/templates/employees_results.html app/web/templates/group.html
-#: app/web/templates/groups.html app/web/templates/profile.html
+#: app/web/templates/groups.html app/web/templates/output_template.html
+#: app/web/templates/output_templates.html app/web/templates/profile.html
 #: app/web/templates/queue_assign.html
 msgid "Ad"
 msgstr "Ime"
@@ -623,6 +637,8 @@ msgstr ""
 
 #: app/web/templates/employee_fields_step.html
 #: app/web/templates/employee_merge_step.html
+#: app/web/templates/output_template.html
+#: app/web/templates/output_templates.html
 msgid "Alan"
 msgstr "Polje"
 
@@ -775,11 +791,12 @@ msgstr ""
 "Pozadina mora biti ravna i jednostavna; ne smeju se videti šare, predmeti"
 " ni druge osobe."
 
-#: app/web/templates/group.html app/web/templates/training_results.html
+#: app/web/templates/group.html app/web/templates/output_template.html
+#: app/web/templates/training_results.html
 msgid "Arşiv"
 msgstr "Arhiva"
 
-#: app/web/templates/groups.html
+#: app/web/routers/output_templates.py app/web/templates/groups.html
 msgid "Arşivde"
 msgstr "U arhivi"
 
@@ -796,7 +813,8 @@ msgstr "Prikazane su i arhivirane."
 msgid "Arşivdekileri de göster (%(num)d)"
 msgstr "Prikaži i arhivirane (%(num)d)"
 
-#: app/web/templates/group.html app/web/templates/profile.html
+#: app/web/templates/group.html app/web/templates/output_template.html
+#: app/web/templates/profile.html
 msgid "Arşivden geri al"
 msgstr "Vrati iz arhive"
 
@@ -962,7 +980,8 @@ msgstr "Otvoren — {met}/{total} obaveznih stavki"
 #: app/catalog/prefill.py app/web/routers/catalog.py
 #: app/web/templates/catalog_candidate.html
 #: app/web/templates/catalog_type_fields.html app/web/templates/group.html
-#: app/web/templates/groups.html
+#: app/web/templates/groups.html app/web/templates/output_template.html
+#: app/web/templates/output_templates.html
 msgid "Açıklama"
 msgstr "Opis"
 
@@ -984,7 +1003,7 @@ msgstr ""
 "Opis je generisan iz strana primera (%(pages)s) i upisan u polje „Opis za"
 " analizatora“."
 
-#: app/groups/service.py
+#: app/groups/service.py app/output_templates/service.py
 #, python-brace-format
 msgid "Açıklama en çok {limit} karakter olabilir."
 msgstr "Opis može imati najviše {limit} znakova."
@@ -1573,9 +1592,22 @@ msgstr ""
 "Mora biti jedinstveno; imena koja se razlikuju samo po veličini slova ili"
 " po turskim slovima smatraju se istim imenom."
 
+#: app/web/templates/output_template.html
+msgid ""
+"Benzersiz olmalı; harf büyüklüğü ve Türkçe harf farkı aynı ad sayılır. "
+"Üretilen belgenin dosya adı bu addan gelir."
+msgstr ""
+"Mora biti jedinstveno; razlike u veličini slova i turskim slovima "
+"smatraju se istim imenom. Naziv datoteke generisanog dokumenta potiče od "
+"ovog imena."
+
 #: app/web/templates/base.html
 msgid "Bildirimi kapat"
 msgstr "Zatvori obaveštenje"
+
+#: app/web/templates/output_template.html
+msgid "Bilgiler"
+msgstr "Podaci"
 
 #: app/web/templates/_training_tabs.html app/web/templates/training_known.html
 #: app/web/templates/training_type.html
@@ -1669,6 +1701,10 @@ msgid "Bir çalışan seçerseniz, sahibi belgeden anlaşılamayan dosyalar ona 
 msgstr ""
 "Ako izaberete zaposlenog, datoteke čiji se vlasnik ne može odrediti iz "
 "dokumenta dodeljuju se njemu."
+
+#: app/output_templates/service.py
+msgid "Bir şablon dosyası seçin (PDF, JPEG ya da PNG)."
+msgstr "Izaberite datoteku šablona (PDF, JPEG ili PNG)."
 
 #: app/telegram/intent.py
 msgid "Birden çok olanı görmek için yalnız o türü isteyin."
@@ -1830,9 +1866,21 @@ msgstr ""
 "U arhivi već postoji grupa sa ovim imenom; ime grupe mora biti "
 "jedinstveno. Možete vratiti arhiviranu."
 
+#: app/web/routers/output_templates.py
+msgid ""
+"Bu adla arşivde bir şablon var; şablon adı benzersiz olmalı. Arşivdekini "
+"geri alabilirsiniz."
+msgstr ""
+"Šablon sa ovim imenom postoji u arhivi; ime šablona mora biti "
+"jedinstveno. Možete vratiti onaj iz arhive."
+
 #: app/web/routers/groups.py
 msgid "Bu adla bir grup zaten var; grup adı benzersiz olmalı."
 msgstr "Grupa sa ovim imenom već postoji; ime grupe mora biti jedinstveno."
+
+#: app/web/routers/output_templates.py
+msgid "Bu adla bir şablon zaten var; şablon adı benzersiz olmalı."
+msgstr "Šablon sa ovim imenom već postoji; ime šablona mora biti jedinstveno."
 
 #: app/telegram/bot.py
 msgid ""
@@ -1881,6 +1929,12 @@ msgstr "Ova vrednost je među uklonjenima; umesto dodavanja upotrebite “Vrati�
 msgid "Bu değer zaten güncel kayıt."
 msgstr "Ova vrednost je već aktuelni zapis."
 
+#: app/output_templates/service.py
+msgid "Bu dosya PDF, JPEG ya da PNG değil; şablon yalnız bu biçimlerde yüklenir."
+msgstr ""
+"Ova datoteka nije PDF, JPEG ni PNG; šablon se otprema samo u ovim "
+"formatima."
+
 #: app/web/routers/documents.py
 msgid "Bu dosya daha önce yüklenmiş bir dosyanın tekrarı; sayfa görüntüsü yok."
 msgstr ""
@@ -1890,6 +1944,18 @@ msgstr ""
 #: app/groups/service.py
 msgid "Bu dosya etiketi katalogdaki hiçbir türde yok."
 msgstr "Nijedan tip u katalogu nema ovu oznaku datoteke."
+
+#: app/web/feedback.py
+msgid "Bu dosya zaten bir şablon; aynı dosya ikinci kez yüklenmez."
+msgstr "Ova datoteka je već šablon; ista datoteka se ne otprema dva puta."
+
+#: app/web/routers/output_templates.py
+msgid "Bu dosya zaten şablon olarak yüklenmiş."
+msgstr "Ova datoteka je već otpremljena kao šablon."
+
+#: app/web/templates/output_templates.html
+msgid "Bu durumda şablon yok."
+msgstr "Nema šablona u ovom statusu."
 
 #: app/web/templates/group.html
 #, python-format
@@ -2272,6 +2338,21 @@ msgstr ""
 "Ova stavka čeka odluku HR-a. Vaš nalog je samo za čitanje; ako primetite "
 "problem, obavestite HR."
 
+#: app/web/templates/output_template.html
+#, python-format
+msgid ""
+"Bu şablon arşivde (%(actor)s, %(time)s UTC): profilde seçilemez, "
+"üretilmiş belgeler yerinde kalır."
+msgstr ""
+"Ovaj šablon je u arhivi (%(actor)s, %(time)s UTC): ne može se izabrati na"
+" profilu; već generisani dokumenti ostaju na mestu."
+
+#: app/web/templates/output_template.html
+msgid "Bu şablon taslak: alan haritası onaylanmadan çıktıya hazırlanamaz."
+msgstr ""
+"Ovaj šablon je nacrt: ne može se pripremiti za izlaz dok mapa polja ne "
+"bude odobrena."
+
 #: app/telegram/bot.py
 msgid "Bunu açamıyorum. Belgeyi dosya olarak gönderin ya da sorunuzu yazın."
 msgstr "Ovo ne mogu da otvorim. Pošaljite dokument kao fajl ili napišite pitanje."
@@ -2435,11 +2516,18 @@ msgstr ""
 "nalogom i dozvoljen. Telegram možete povezati samo vi, sa svojim nalogom."
 
 #: app/web/templates/document_archive_step.html
-#: app/web/templates/document_delete_step.html app/web/templates/profile.html
+#: app/web/templates/document_delete_step.html
+#: app/web/templates/output_template.html app/web/templates/profile.html
 #: app/web/templates/training_results.html app/web/templates/upload_detail.html
 #: app/web/templates/upload_result.html app/web/templates/uploads_list.html
 msgid "Dosya"
 msgstr "Datoteka"
+
+#: app/output_templates/service.py
+msgid "Dosya açılamadı: bozuk ya da parola korumalı olabilir."
+msgstr ""
+"Datoteka nije mogla da se otvori: možda je oštećena ili zaštićena "
+"lozinkom."
 
 #: app/web/templates/profile.html
 msgid "Dosya bulunamadı"
@@ -2447,7 +2535,7 @@ msgstr "Datoteka nije pronađena"
 
 #: app/catalog/prefill.py app/web/routers/catalog.py app/web/routers/groups.py
 #: app/web/templates/catalog.html app/web/templates/catalog_type_fields.html
-#: app/web/templates/group.html
+#: app/web/templates/group.html app/web/templates/output_template.html
 msgid "Dosya etiketi"
 msgstr "Oznaka datoteke"
 
@@ -2476,6 +2564,16 @@ msgstr ""
 "Provera tipa datoteke (06.5.1, file_type): očekivani tip datoteke "
 "{expected}, primljen {received}. Pošaljite ponovo u odgovarajućem "
 "formatu."
+
+#: app/output_templates/service.py
+#, python-brace-format
+msgid "Dosya {limit} MB sınırını aşıyor."
+msgstr "Datoteka prelazi ograničenje od {limit} MB."
+
+#: app/output_templates/service.py
+#, python-brace-format
+msgid "Dosya {limit} sayfa sınırını aşıyor ({count} sayfa)."
+msgstr "Datoteka prelazi ograničenje od {limit} strana ({count} strana)."
 
 #: app/web/templates/training_results.html
 msgid "Dosyalar"
@@ -2549,7 +2647,8 @@ msgstr "Mesto rođenja"
 #: app/web/templates/employee_delete_step.html
 #: app/web/templates/employee_merge_step.html app/web/templates/employees.html
 #: app/web/templates/employees_results.html app/web/templates/groups.html
-#: app/web/templates/history.html app/web/templates/profile.html
+#: app/web/templates/history.html app/web/templates/output_template.html
+#: app/web/templates/output_templates.html app/web/templates/profile.html
 #: app/web/templates/queue_item.html app/web/templates/training_results.html
 #: app/web/templates/upload_detail.html app/web/templates/uploads_list.html
 #: app/web/templates/users.html
@@ -2711,10 +2810,15 @@ msgstr "Stara verzija: nije potrebna radnja."
 msgid "Etiket"
 msgstr "Oznaka"
 
-#: app/web/routers/upload_page.py app/web/templates/catalog.html
-#: app/web/templates/groups.html app/web/templates/users.html
+#: app/web/routers/output_templates.py app/web/routers/upload_page.py
+#: app/web/templates/catalog.html app/web/templates/groups.html
+#: app/web/templates/users.html
 msgid "Etkin"
 msgstr "Aktivan"
+
+#: app/web/templates/output_templates.html
+msgid "Etkin şablonları göster"
+msgstr "Prikaži aktivne šablone"
 
 #: app/web/templates/catalog.html
 msgid "Etkinleştir"
@@ -3145,6 +3249,12 @@ msgstr "Viđeni zapisi (%(count)s)"
 msgid "Görülme"
 msgstr "Viđenja"
 
+#: app/output_templates/service.py
+msgid "Görüntü kayıpsız PDF'e sarılamadı; şablonu PDF olarak yükleyin."
+msgstr ""
+"Slika nije mogla da se bez gubitaka upakuje u PDF; otpremite šablon kao "
+"PDF."
+
 #: app/web/templates/catalog_candidate_samples.html
 #: app/web/templates/history.html app/web/templates/queue_item.html
 #: app/web/templates/upload_detail.html
@@ -3288,9 +3398,14 @@ msgstr "Neuspešno"
 msgid "Hayır"
 msgstr "Ne"
 
-#: app/catalog/candidates.py app/web/routers/upload_page.py
+#: app/catalog/candidates.py app/web/routers/output_templates.py
+#: app/web/routers/upload_page.py
 msgid "Hazır"
 msgstr "Spremno"
+
+#: app/web/templates/output_template.html app/web/templating.py
+msgid "Hazır Şablonlar"
+msgstr "Šabloni"
 
 #: app/web/templates/upload_detail.html
 msgid "Hedef"
@@ -3311,6 +3426,14 @@ msgstr "Još nema dokumenata."
 #: app/web/templates/training_results.html
 msgid "Henüz eğitim yüklemesi yok."
 msgstr "Još nema otpremanja za obuku."
+
+#: app/web/templates/output_templates.html
+msgid "Henüz hazır şablon yok."
+msgstr "Još nema šablona."
+
+#: app/web/templates/output_templates.html
+msgid "Henüz hazır şablon yok; şablonları İK yükler."
+msgstr "Još nema šablona; šablone otprema kadrovska služba."
 
 #: app/web/templates/access_log.html
 msgid "Henüz hiçbir belgeye bakılmadı."
@@ -4250,6 +4373,14 @@ msgstr "nema MRZ u tekstualnom sloju PDF-a"
 msgid "PDF'te metin katmanı yok"
 msgstr "PDF nema tekstualni sloj"
 
+#: app/web/templates/output_template.html
+msgid ""
+"PDF, JPEG ya da PNG; tek dosya. Görüntü kayıpsız PDF'e sarılır, PDF "
+"olduğu gibi saklanır. Word ve Excel kabul edilmez."
+msgstr ""
+"PDF, JPEG ili PNG; jedna datoteka. Slika se bez gubitaka pakuje u PDF, "
+"PDF se čuva kakav jeste. Word i Excel se ne prihvataju."
+
 #: app/web/templates/profile.html app/web/templates/upload.html
 msgid "PDF, JPEG, PNG · Word ve Excel olduğu gibi saklanır"
 msgstr "PDF, JPEG, PNG · Word i Excel se čuvaju u izvornom obliku"
@@ -4728,11 +4859,13 @@ msgstr "Red Unresolved"
 msgid "Satır"
 msgstr "Red"
 
-#: app/web/templates/upload_result.html app/web/templates/uploads_list.html
+#: app/web/templates/output_template.html
+#: app/web/templates/output_templates.html app/web/templates/upload_result.html
+#: app/web/templates/uploads_list.html
 msgid "Sayfa"
 msgstr "Strane"
 
-#: app/web/templates/queue_item.html
+#: app/web/templates/output_template.html app/web/templates/queue_item.html
 #, python-format
 msgid "Sayfa %(page)d"
 msgstr "Strana %(page)d"
@@ -4753,6 +4886,10 @@ msgstr "Strana %(page)s"
 msgid "Sayfa %(page)s / %(count)s"
 msgstr "Strana %(page)s / %(count)s"
 
+#: app/web/routers/output_templates.py
+msgid "Sayfa görüntüsü bulunamadı"
+msgstr "Slika strane nije pronađena"
+
 #: app/web/routers/upload_page.py
 msgid "Sayfa görüntüsü bulunamadı."
 msgstr "Slika strane nije pronađena."
@@ -4771,7 +4908,7 @@ msgstr ""
 msgid "Sayfalama"
 msgstr "Stranice"
 
-#: app/web/templates/upload_detail.html
+#: app/web/templates/output_template.html app/web/templates/upload_detail.html
 msgid "Sayfalar"
 msgstr "Strane"
 
@@ -5128,6 +5265,10 @@ msgstr "Nije moglo biti skenirano ({row}): {problem}"
 #: app/web/templates/uploads_list.html
 msgid "Tarih"
 msgstr "Datum"
+
+#: app/web/routers/output_templates.py
+msgid "Taslak"
+msgstr "Nacrt"
 
 #: app/catalog/propose.py
 msgid "Taslakta örnekteki kişiye ait değer bulundu"
@@ -5536,6 +5677,10 @@ msgstr "Državljanstvo: nije upisano"
 msgid "Uyruk: {country}"
 msgstr "Državljanstvo: {country}"
 
+#: app/web/templates/output_template.html
+msgid "Var olan şablonu aç"
+msgstr "Otvori postojeći šablon"
+
 #: app/web/profile_form.py app/web/routers/employees.py
 #: app/web/templates/profile.html
 msgid "Vatandaşlık"
@@ -5552,6 +5697,7 @@ msgstr "Državljanstvo"
 #: app/web/templates/employee_fields_step.html
 #: app/web/templates/employee_merge_step.html
 #: app/web/templates/employee_status_step.html app/web/templates/group.html
+#: app/web/templates/output_template.html
 #: app/web/templates/profile_record_step.html
 #: app/web/templates/queue_assign.html app/web/templates/queue_close_step.html
 #: app/web/templates/queue_new_profile.html
@@ -5560,6 +5706,14 @@ msgstr "Državljanstvo"
 #: app/web/templates/upload_action_result.html
 msgid "Vazgeç"
 msgstr "Odustani"
+
+#: app/output_templates/service.py
+msgid ""
+"Word ve Excel dosyası şablon olarak kabul edilmez; şablonu PDF, JPEG ya "
+"da PNG olarak yükleyin."
+msgstr ""
+"Word i Excel datoteke se ne prihvataju kao šablon; otpremite šablon kao "
+"PDF, JPEG ili PNG."
 
 #: app/pipeline/group.py
 msgid ""
@@ -5745,6 +5899,10 @@ msgstr "Nova lozinka (ponovo)"
 #: app/web/routers/users.py
 msgid "Yeni parola ile tekrarı eşleşmiyor."
 msgstr "Nova lozinka i njeno ponavljanje se ne poklapaju."
+
+#: app/web/templates/output_template.html
+msgid "Yeni sekmede aç"
+msgstr "Otvori u novoj kartici"
 
 #: app/web/templates/catalog_candidate_step.html
 msgid "Yeni sürüm"
@@ -5957,6 +6115,8 @@ msgstr "Nije izabrana mapa za otpremanje."
 msgid "Yüklenen örnek: {count}; zaten kayıtlı olduğu için atlanan: {skipped}."
 msgstr "Otpremljeno primera: {count}; preskočeno jer su već upisani: {skipped}."
 
+#: app/web/templates/output_template.html
+#: app/web/templates/output_templates.html
 #: app/web/templates/training_results.html app/web/templates/uploads_list.html
 msgid "Yükleyen"
 msgstr "Otpremio"
@@ -5998,6 +6158,8 @@ msgid "Yüzler dosyalar arasında otomatik eşleştirilmez."
 msgstr "Strane se ne uparuju automatski između datoteka."
 
 #: app/web/templates/access_log_employee.html
+#: app/web/templates/output_template.html
+#: app/web/templates/output_templates.html
 msgid "Zaman"
 msgstr "Vreme"
 
@@ -7522,6 +7684,17 @@ msgstr "HR je uklonio iz primera; datoteka je u arhivi obuke."
 msgid "İK'nın kararını bekliyor; bir sorun görürseniz İK'ya bildirin."
 msgstr "Čeka odluku HR-a; ako primetite problem, obavestite HR."
 
+#: app/web/templates/output_templates.html
+msgid ""
+"İK'nın çalışanlar için çıktı alacağı belge kalıpları (iş sözleşmesi, "
+"başvuru formu). Şablon çalışan belgesi değildir: yüklemesi parti açmaz, "
+"boru hattına girmez; dosyası değişmeden saklanır, önizlenir ve indirilir."
+msgstr ""
+"Obrasci dokumenata koje kadrovska služba štampa za zaposlene (ugovor o "
+"radu, obrazac prijave). Šablon nije dokument zaposlenog: njegovo "
+"otpremanje ne otvara paket i ne ulazi u obradu; datoteka se čuva "
+"nepromenjena, pregleda i preuzima."
+
 #: app/web/templates/catalog_type_fields.html
 msgid "İki harfli ülke kodu; boş bırakılabilir."
 msgstr "Dvoslovni kod zemlje; može ostati prazno."
@@ -7584,6 +7757,14 @@ msgstr "Otpremite prve dokumente"
 msgid "İlk görüldüğü parti"
 msgstr "Prvi put viđeno u seriji"
 
+#: app/web/templates/output_templates.html
+msgid "İlk sayfa"
+msgstr "Prva strana"
+
+#: app/web/templates/output_templates.html
+msgid "İlk şablonu yükleyin."
+msgstr "Otpremite prvi šablon."
+
 #: app/web/templates/catalog_candidates.html
 msgid "İncele"
 msgstr "Pregledaj"
@@ -7610,7 +7791,7 @@ msgstr ""
 msgid "İnceleme gerekli ({row}): {problem}"
 msgstr "Potreban pregled ({row}): {problem}"
 
-#: app/web/templates/profile.html
+#: app/web/templates/output_template.html app/web/templates/profile.html
 msgid "İndir"
 msgstr "Preuzmi"
 
@@ -7768,6 +7949,83 @@ msgstr ""
 #: app/web/routers/uploads_list.py
 msgid "İşleniyor"
 msgstr "U obradi"
+
+#: app/output_templates/service.py
+msgid "Şablon adı boş olamaz."
+msgstr "Ime šablona ne može biti prazno."
+
+#: app/output_templates/service.py
+msgid "Şablon adı en az bir harf ya da rakam içermeli."
+msgstr "Ime šablona mora sadržati bar jedno slovo ili cifru."
+
+#: app/output_templates/service.py
+#, python-brace-format
+msgid "Şablon adı en çok {limit} karakter olabilir."
+msgstr "Ime šablona može imati najviše {limit} znakova."
+
+#: app/web/feedback.py
+msgid "Şablon arşivden geri alındı."
+msgstr "Šablon je vraćen iz arhive."
+
+#: app/web/feedback.py
+msgid "Şablon arşivlendi: profilde seçilemez, üretilmiş belgeler yerinde kalır."
+msgstr ""
+"Šablon je arhiviran: ne može se izabrati na profilu; već generisani "
+"dokumenti ostaju na mestu."
+
+#: app/web/routers/output_templates.py
+msgid "Şablon bulunamadı"
+msgstr "Šablon nije pronađen"
+
+#: app/web/routers/output_templates.py
+msgid "Şablon dosyası bulunamadı"
+msgstr "Datoteka šablona nije pronađena"
+
+#: app/web/templates/output_templates.html
+msgid "Şablon durumu"
+msgstr "Status šablona"
+
+#: app/web/templates/output_template.html
+msgid ""
+"Şablon silinmez. Arşivlenen şablon profilde seçilemez; üretilmiş belgeler"
+" yerinde kalır. Arşivden tek tıkla geri alınır."
+msgstr ""
+"Šablon se ne briše. Arhivirani šablon ne može se izabrati na profilu; već"
+" generisani dokumenti ostaju na mestu. Iz arhive se vraća jednim klikom."
+
+#: app/web/templates/output_template.html
+#: app/web/templates/output_templates.html
+msgid "Şablon yükle"
+msgstr "Otpremi šablon"
+
+#: app/web/feedback.py
+#, python-brace-format
+msgid ""
+"Şablon yüklendi ({count} sayfa). Taslak olarak listede; alan haritası "
+"incelemeyle gelir."
+msgstr ""
+"Šablon je otpremljen ({count} strana). Na listi je kao nacrt; mapa polja "
+"dolazi sa pregledom."
+
+#: app/web/templates/output_template.html
+msgid "Şablon yüklenmedi: alanların altındaki uyarıları düzeltin."
+msgstr "Šablon nije otpremljen: ispravite upozorenja ispod polja."
+
+#: app/web/templates/output_template.html
+msgid "Şablonu arşivle"
+msgstr "Arhiviraj šablon"
+
+#: app/web/templates/output_template.html
+msgid "Şablonu yükle"
+msgstr "Otpremi šablon"
+
+#: app/web/templates/output_template.html
+msgid ""
+"Şablonun dosyası yüklendiği gibi durur; aşağıdaki sayfa görüntüleri "
+"yalnız önizlemedir."
+msgstr ""
+"Datoteka šablona ostaje onakva kakva je otpremljena; slike strana ispod "
+"su samo pregled."
 
 #: app/pipeline/route.py
 #, python-brace-format

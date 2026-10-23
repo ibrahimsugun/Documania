@@ -2668,11 +2668,11 @@
         "description": "PRD 15.1.1, 15.1.4 · FR-MOD-15 · Faz 1 · Must/Should (v1). Sözleşme PLAN §D123 (a, b, f, g). İnsan isteği (2026-10-23): \"Hazır template\" sekmesi; İK'nın çıktı alacağı belgeler burada yüklenir, görüntülenir, önizlenir ve durur.",
         "details": "KAPSAM: PRD 15.1.1, 15.1.4; PLAN §D123 a, b, f, g — önce oku. Yapay zekâ incelemesi tm 183'te, onay ekranı tm 184'te.\n\nNE YAPILACAK: (1) Model + göç 0031: `output_templates`, `output_template_maps` (boş kullanılacak), `generated_documents` (§8.1 sütunları; §8.1'i birebir uygula). (2) `app/storage/layout.py`: `templates_dir()`, `template_dir(template_id)`, `template_original_path`, `template_page_image_path`, `generated_dir(folder_name)` (Uretilen/); `ensure_employee_tree` Uretilen'i kurar. (3) Yönlendirici `app/web/routers/output_templates.py` + şablonlar `output_templates.html`, `output_template.html`: menü `PANEL_MENU` \"Hazır Şablonlar\" (`/output-templates`, Belge Grupları'ndan sonra; `tests/web/test_auth.py` MENU_LABELS/PATHS ve PRD 10.1.1 sırası), liste (ad, açıklama, sayfa, alan sayısı, durum, yükleyen, zaman, ilk sayfa küçük resmi), yükleme formu (ad tekil `normalized_name`, açıklama, tek dosya PDF/JPEG/PNG; görüntü `app/pipeline/render.py` img2pdf kayıpsız sarma; SHA-256 tekrar → 409 + bildirim), sayfa görüntüleri 02.1 ile `_sablonlar/<id>/pages/`, arşivle/geri al tek adım, şablon sayfası (önizleme görüntüleri, orijinali yeni sekmede aç/indir). (4) Erişim kaydı 10.9.2: `access_log` için şablon/üretilen belge kimliği — ayrı sütun ya da `action` türü; karar §D'ye. (5) Olaylar `TEMPLATE_UPLOADED`, `TEMPLATE_ARCHIVED`, `TEMPLATE_RESTORED` (`app/events.py`). (6) 10.1.8: yazma yolları İK/root; Kullanıcı listeyi ve önizlemeyi görür. (7) Bildirimler (10.11.1 kaydı), üç dil, panel.css'e `.menu a[href=\"/output-templates\"]` simgesi + yeni sınıflar standarda göre; `docs/ARAYUZ-STANDARDI.md` §3/§4 güncellenir.\n\nGİRDİ: app/db/models.py, alembic/versions, app/storage/layout.py, app/web/templating.py (PANEL_MENU), app/web/routers/groups.py (benzer sekme kalıbı), app/pipeline/render.py, app/web/access.py, app/events.py.\n\nÇIKTI: göç 0031, model, storage, yönlendirici, şablonlar, CSS simgesi, olaylar, tests/web/test_output_templates.py, tests/storage, PLAN, HANDOFF, PRD §8.1/§8.3 uyumu.\n\nTUZAKLAR: şablon yüklemesi `uploads` partisi açmaz, boru hattına girmez, `documents`'a yazmaz; `_sablonlar/` `static_dirs`/yedekleme kapsamına girer mi bak (docs/YEDEKLEME.md); dosya adı K8 etiketi `file_label` şablon adından üretilir.\n\nBU GÖREVİ BAĞLAYAN KİLİTLİ KURALLAR: PLAN §D123 (sözleşme — önce oku), R2/R11, K8 (adlandırma), K9/R10 (dondurulmuş harita), K15 (olay; kişisel değer yok), 10.1.8 (yetki), 10.10.3 (üç dil, `python -m app.i18n extract|update|compile|check`), 10.11.1 (bildirim kaydı), docs/ARAYUZ-STANDARDI.md (şablon ve stil; `tests/web/test_ui_standard.py`), MASTER-PROMPT yol kuralı (yol yalnız `app/storage/`), §8 (sütun ve olay adları).\n\nKAPANIŞ: PLAN satırları ✅ → K15.x (yeni blok `#### K15.1` / `K15.2` / `K15.3`), HANDOFF bloğu, Task Master done, commit mesajında `PRD 15.x — tm <id>`; CONVENTIONS §1 kapısı (tam paralel koşu uzun sürerse HANDOFF'a hangi klasörlerin koşulduğunu yaz).",
         "testStrategy": "tests/web/test_output_templates.py (menü sırası, liste, yükleme PDF/JPEG, Word reddi, SHA tekrar, arşiv/geri al, aç/indir + erişim kaydı, Kullanıcı 403/salt okunur), tests/storage (yollar), tests/db (göç), tests/web/test_auth.py güncel, test_ui_standard yeşil; python -m app.i18n check; tam paralel kapı.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [],
         "priority": "medium",
         "subtasks": [],
-        "updatedAt": "2026-10-22T22:35:37.000Z"
+        "updatedAt": "2026-10-23T00:50:30.272Z"
       },
       {
         "id": "183",
@@ -2734,9 +2734,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-23T00:00:51.296Z",
+      "lastModified": "2026-10-23T00:50:30.273Z",
       "taskCount": 187,
-      "completedCount": 182,
+      "completedCount": 183,
       "tags": [
         "master"
       ]

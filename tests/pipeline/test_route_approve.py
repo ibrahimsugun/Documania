@@ -294,6 +294,7 @@ def test_approval_writes_the_new_employees_profile(session: Session, layout: Dat
     assert sorted(path.name for path in layout.employee_dir(FOLDER).iterdir()) == [
         "Alinan",
         "Hazir",
+        "Uretilen",
         "profil.md",
     ]
 

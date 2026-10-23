@@ -67,6 +67,7 @@ PANEL_MENU = (
     MenuEntry("upload", N_("Yükle"), "/upload"),
     MenuEntry("document_types", N_("Belge Türleri"), "/document-types"),
     MenuEntry("document_groups", N_("Belge Grupları"), "/document-groups"),
+    MenuEntry("output_templates", N_("Hazır Şablonlar"), "/output-templates"),
     MenuEntry("queues", N_("Kuyruklar"), "/queues"),
     MenuEntry("uploads", N_("Yüklemeler"), "/uploads"),
     MenuEntry("training", N_("Eğitim modu"), "/training"),

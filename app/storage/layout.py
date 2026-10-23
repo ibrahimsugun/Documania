@@ -8,6 +8,7 @@ data/
   Inbox/<upload_id>/              orijinaller, değişmez
   Employees/<Ad_Soyad_E0001>/
       Alinan/  Hazir/  profil.md
+      Uretilen/                   hazır şablondan üretilen belgeler (15.2.3); çalışan belgesi değil
   Unknown/<upload_id>/            kaynak kopyası + reason.json
   Unreadable/<upload_id>/         kaynak kopyası + reason.json
   Unresolved/<upload_id>/         kaynak kopyası + reason.json
@@ -18,6 +19,8 @@ data/
       _egitim/gelen/<run>/            eğitim modunda yüklenen dosyaların kopyası (11.9)
       _egitim/haritalar/              yüklenen harita CSV'leri (11.9.5)
       _egitim/cikarilan/<tur_slug>/   örneklerden çıkarılanlar; silinmez (11.9.4)
+      _sablonlar/<template_id>/       hazır şablonun orijinali (sablon.pdf, değişmez) ve
+                                      pages/<sayfa>.jpg önizleme görüntüleri (15.1.1)
   cache/pages/<file_id>/          analiz için üretilmiş sayfa görüntüleri
   telegram/bot.json               botun Telegram kullanıcı adı; bot açılışta yazar (12.1.4)
 ```
@@ -39,6 +42,7 @@ INBOX = "Inbox"
 EMPLOYEES = "Employees"
 RECEIVED = "Alinan"
 READY = "Hazir"
+GENERATED = "Uretilen"
 PROFILE_FILE = "profil.md"
 UNKNOWN = "Unknown"
 UNREADABLE = "Unreadable"
@@ -53,6 +57,8 @@ TRAINING = "_egitim"
 TRAINING_INCOMING = "gelen"
 TRAINING_MAPS = "haritalar"
 TRAINING_REMOVED = "cikarilan"
+TEMPLATES = "_sablonlar"
+TEMPLATE_ORIGINAL_FILE = "sablon.pdf"
 CACHE = "cache"
 PAGES = "pages"
 PAGE_IMAGE_EXTENSION = "jpg"
@@ -102,6 +108,13 @@ class DataLayout:
     @property
     def training_maps(self) -> Path:
         return self.training / TRAINING_MAPS
+
+    @property
+    def templates_dir(self) -> Path:
+        """`KnownDocuments/_sablonlar/` — hazır şablonlar (15.1.1). Çalışan belgesi ya da örnek
+        değildir; dizin ilk şablon yüklenince açılır. Yedek veri dizininin tamamını aldığı için
+        (docs/YEDEKLEME.md) şablonlar da yedeğe girer."""
+        return self.known_documents / TEMPLATES
 
     @property
     def page_cache(self) -> Path:
@@ -157,13 +170,18 @@ class DataLayout:
         """`Hazir/` — çıktı belgeleri ve Attachment dosyaları."""
         return self.employee_dir(folder_name) / READY
 
+    def generated_dir(self, folder_name: str) -> Path:
+        """`Uretilen/` — hazır şablondan üretilen belgeler (15.2.3); çalışan belgesi değildir."""
+        return self.employee_dir(folder_name) / GENERATED
+
     def profile_path(self, folder_name: str) -> Path:
         return self.employee_dir(folder_name) / PROFILE_FILE
 
     def ensure_employee_tree(self, folder_name: str) -> Path:
-        """Çalışan klasörünü `Alinan/` ve `Hazir/` ile açar; klasör yolunu döndürür."""
+        """Çalışan klasörünü `Alinan/`, `Hazir/` ve `Uretilen/` ile açar; klasör yolunu döndürür."""
         self.received_dir(folder_name).mkdir(parents=True, exist_ok=True)
         self.ready_dir(folder_name).mkdir(parents=True, exist_ok=True)
+        self.generated_dir(folder_name).mkdir(parents=True, exist_ok=True)
         return self.employee_dir(folder_name)
 
     def queue_dir(self, kind: str, upload_id: str) -> Path:
@@ -200,6 +218,22 @@ class DataLayout:
     def training_removed_dir(self, type_slug: str) -> Path:
         """`_egitim/cikarilan/<tur_slug>/` — örneklerden çıkarılanlar; silinmez (11.9.4)."""
         return self.training / TRAINING_REMOVED / _segment(type_slug, "type_slug")
+
+    def template_dir(self, template_id: int | str) -> Path:
+        """`_sablonlar/<template_id>/` — tek hazır şablonun dizini (15.1.1)."""
+        return self.templates_dir / _segment(str(template_id), "template_id")
+
+    def template_original_path(self, template_id: int | str) -> Path:
+        """`_sablonlar/<template_id>/sablon.pdf` — şablonun değişmeyen dosyası (görüntü şablonu
+        K11 ile kayıpsız PDF'e sarılmış hâliyle)."""
+        return self.template_dir(template_id) / TEMPLATE_ORIGINAL_FILE
+
+    def template_page_image_path(self, template_id: int | str, page_index: int) -> Path:
+        """`_sablonlar/<template_id>/pages/0000.jpg` — 0 tabanlı sayfanın önizleme görüntüsü
+        (02.1.1 ile aynı render ayarı)."""
+        if page_index < 0:
+            raise ValueError(f"Geçersiz sayfa sırası: {page_index!r}")
+        return self.template_dir(template_id) / PAGES / f"{page_index:04d}.{PAGE_IMAGE_EXTENSION}"
 
     def page_cache_dir(self, file_id: int | str) -> Path:
         return self.page_cache / _segment(str(file_id), "file_id")

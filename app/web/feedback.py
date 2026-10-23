@@ -275,6 +275,24 @@ GROUP_ARCHIVED = _register(
 )
 GROUP_RESTORED = _register("groups.restored", _OK, N_("Grup arşivden geri alındı."))
 
+# --- Hazır Şablonlar (15.1.1, 15.1.4) ------------------------------------------------------------
+TEMPLATE_UPLOADED = _register(
+    "templates.uploaded",
+    _OK,
+    N_("Şablon yüklendi ({count} sayfa). Taslak olarak listede; alan haritası incelemeyle gelir."),
+)
+TEMPLATE_DUPLICATE = _register(
+    "templates.duplicate",
+    _WARN,
+    N_("Bu dosya zaten bir şablon; aynı dosya ikinci kez yüklenmez."),
+)
+TEMPLATE_ARCHIVED = _register(
+    "templates.archived",
+    _OK,
+    N_("Şablon arşivlendi: profilde seçilemez, üretilmiş belgeler yerinde kalır."),
+)
+TEMPLATE_RESTORED = _register("templates.restored", _OK, N_("Şablon arşivden geri alındı."))
+
 # --- Çalışanlar (10.5) ---------------------------------------------------------------------------
 PACKAGE_ASSIGNED = _register("employees.package_assigned", _OK, N_("Paket tanımlandı."))
 PACKAGE_CANCELLED = _register("employees.package_cancelled", _OK, N_("Paket iptal edildi."))

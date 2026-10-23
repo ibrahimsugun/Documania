@@ -4,8 +4,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Documania panel\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-22 22:56+0000\n"
-"PO-Revision-Date: 2026-10-22 22:56+0000\n"
+"POT-Creation-Date: 2026-10-23 00:10+0000\n"
+"PO-Revision-Date: 2026-10-23 00:10+0000\n"
 "Last-Translator: Documania görev penceresi (gözden geçirilmeli)\n"
 "Language: en\n"
 "Language-Team: English\n"
@@ -80,6 +80,11 @@ msgstr "Profile photo of %(name)s"
 #, python-format
 msgid "%(name)s seç"
 msgstr "Select %(name)s"
+
+#: app/web/templates/output_templates.html
+#, python-format
+msgid "%(name)s — sayfa 1"
+msgstr "%(name)s — page 1"
 
 #: app/web/templates/training_type.html
 #, python-format
@@ -250,6 +255,13 @@ msgstr[0] ""
 msgstr[1] ""
 "%(num)d items are still waiting in the Unknown queue with this candidate "
 "type after the re-analysis."
+
+#: app/web/templates/output_templates.html
+#, python-format
+msgid "%(num)d şablon"
+msgid_plural "%(num)d şablon"
+msgstr[0] "%(num)d template"
+msgstr[1] "%(num)d templates"
 
 #: app/web/templates/queue_item.html
 #, python-format
@@ -454,7 +466,8 @@ msgstr "AI decision: `{slug}` ({basis}, model {model})"
 #: app/web/templates/document_move.html
 #: app/web/templates/employee_merge_results.html
 #: app/web/templates/employees_results.html app/web/templates/group.html
-#: app/web/templates/groups.html app/web/templates/profile.html
+#: app/web/templates/groups.html app/web/templates/output_template.html
+#: app/web/templates/output_templates.html app/web/templates/profile.html
 #: app/web/templates/queue_assign.html
 msgid "Ad"
 msgstr "Name"
@@ -602,6 +615,8 @@ msgstr ""
 
 #: app/web/templates/employee_fields_step.html
 #: app/web/templates/employee_merge_step.html
+#: app/web/templates/output_template.html
+#: app/web/templates/output_templates.html
 msgid "Alan"
 msgstr "Field"
 
@@ -756,11 +771,12 @@ msgstr ""
 "The background must be plain and simple; no patterns, objects or other "
 "people may be visible."
 
-#: app/web/templates/group.html app/web/templates/training_results.html
+#: app/web/templates/group.html app/web/templates/output_template.html
+#: app/web/templates/training_results.html
 msgid "Arşiv"
 msgstr "Archive"
 
-#: app/web/templates/groups.html
+#: app/web/routers/output_templates.py app/web/templates/groups.html
 msgid "Arşivde"
 msgstr "Archived"
 
@@ -777,7 +793,8 @@ msgstr "Archived ones are shown too."
 msgid "Arşivdekileri de göster (%(num)d)"
 msgstr "Show archived ones too (%(num)d)"
 
-#: app/web/templates/group.html app/web/templates/profile.html
+#: app/web/templates/group.html app/web/templates/output_template.html
+#: app/web/templates/profile.html
 msgid "Arşivden geri al"
 msgstr "Restore from archive"
 
@@ -943,7 +960,8 @@ msgstr "Open — {met}/{total} required items"
 #: app/catalog/prefill.py app/web/routers/catalog.py
 #: app/web/templates/catalog_candidate.html
 #: app/web/templates/catalog_type_fields.html app/web/templates/group.html
-#: app/web/templates/groups.html
+#: app/web/templates/groups.html app/web/templates/output_template.html
+#: app/web/templates/output_templates.html
 msgid "Açıklama"
 msgstr "Description"
 
@@ -966,7 +984,7 @@ msgstr ""
 "The description was generated from %(pages)s sample pages and written "
 "into the \"Description for the analyzer\" field."
 
-#: app/groups/service.py
+#: app/groups/service.py app/output_templates/service.py
 #, python-brace-format
 msgid "Açıklama en çok {limit} karakter olabilir."
 msgstr "The description can be at most {limit} characters long."
@@ -1560,9 +1578,21 @@ msgstr ""
 "Must be unique; names differing only in letter case or in Turkish letters"
 " count as the same name."
 
+#: app/web/templates/output_template.html
+msgid ""
+"Benzersiz olmalı; harf büyüklüğü ve Türkçe harf farkı aynı ad sayılır. "
+"Üretilen belgenin dosya adı bu addan gelir."
+msgstr ""
+"Must be unique; differences in letter case and Turkish letters count as "
+"the same name. The file name of generated documents comes from this name."
+
 #: app/web/templates/base.html
 msgid "Bildirimi kapat"
 msgstr "Close notification"
+
+#: app/web/templates/output_template.html
+msgid "Bilgiler"
+msgstr "Details"
 
 #: app/web/templates/_training_tabs.html app/web/templates/training_known.html
 #: app/web/templates/training_type.html
@@ -1656,6 +1686,10 @@ msgid "Bir çalışan seçerseniz, sahibi belgeden anlaşılamayan dosyalar ona 
 msgstr ""
 "If you choose an employee, files whose owner cannot be determined from "
 "the document are assigned to them."
+
+#: app/output_templates/service.py
+msgid "Bir şablon dosyası seçin (PDF, JPEG ya da PNG)."
+msgstr "Choose a template file (PDF, JPEG or PNG)."
 
 #: app/telegram/intent.py
 msgid "Birden çok olanı görmek için yalnız o türü isteyin."
@@ -1819,9 +1853,21 @@ msgstr ""
 "An archived group already has this name; group names must be unique. You "
 "can restore the archived one."
 
+#: app/web/routers/output_templates.py
+msgid ""
+"Bu adla arşivde bir şablon var; şablon adı benzersiz olmalı. Arşivdekini "
+"geri alabilirsiniz."
+msgstr ""
+"An archived template already has this name; template names must be "
+"unique. You can restore the archived one."
+
 #: app/web/routers/groups.py
 msgid "Bu adla bir grup zaten var; grup adı benzersiz olmalı."
 msgstr "A group with this name already exists; group names must be unique."
+
+#: app/web/routers/output_templates.py
+msgid "Bu adla bir şablon zaten var; şablon adı benzersiz olmalı."
+msgstr "A template with this name already exists; template names must be unique."
 
 #: app/telegram/bot.py
 msgid ""
@@ -1875,6 +1921,12 @@ msgstr ""
 msgid "Bu değer zaten güncel kayıt."
 msgstr "This value is already the current record."
 
+#: app/output_templates/service.py
+msgid "Bu dosya PDF, JPEG ya da PNG değil; şablon yalnız bu biçimlerde yüklenir."
+msgstr ""
+"This file is not a PDF, JPEG or PNG; templates can only be uploaded in "
+"these formats."
+
 #: app/web/routers/documents.py
 msgid "Bu dosya daha önce yüklenmiş bir dosyanın tekrarı; sayfa görüntüsü yok."
 msgstr ""
@@ -1884,6 +1936,18 @@ msgstr ""
 #: app/groups/service.py
 msgid "Bu dosya etiketi katalogdaki hiçbir türde yok."
 msgstr "No type in the catalog has this file label."
+
+#: app/web/feedback.py
+msgid "Bu dosya zaten bir şablon; aynı dosya ikinci kez yüklenmez."
+msgstr "This file is already a template; the same file is not uploaded twice."
+
+#: app/web/routers/output_templates.py
+msgid "Bu dosya zaten şablon olarak yüklenmiş."
+msgstr "This file has already been uploaded as a template."
+
+#: app/web/templates/output_templates.html
+msgid "Bu durumda şablon yok."
+msgstr "No templates in this status."
 
 #: app/web/templates/group.html
 #, python-format
@@ -2268,6 +2332,21 @@ msgstr ""
 "This item is waiting for HR's decision. Your account is read-only; if you"
 " see a problem, tell HR."
 
+#: app/web/templates/output_template.html
+#, python-format
+msgid ""
+"Bu şablon arşivde (%(actor)s, %(time)s UTC): profilde seçilemez, "
+"üretilmiş belgeler yerinde kalır."
+msgstr ""
+"This template is archived (%(actor)s, %(time)s UTC): it cannot be "
+"selected on profiles; documents already generated stay in place."
+
+#: app/web/templates/output_template.html
+msgid "Bu şablon taslak: alan haritası onaylanmadan çıktıya hazırlanamaz."
+msgstr ""
+"This template is a draft: it cannot be used to prepare output until its "
+"field map is approved."
+
 #: app/telegram/bot.py
 msgid "Bunu açamıyorum. Belgeyi dosya olarak gönderin ya da sorunuzu yazın."
 msgstr "I can't open this. Send the document as a file or write your question."
@@ -2428,11 +2507,16 @@ msgstr ""
 "account and allowed. Only you can link Telegram to your own account."
 
 #: app/web/templates/document_archive_step.html
-#: app/web/templates/document_delete_step.html app/web/templates/profile.html
+#: app/web/templates/document_delete_step.html
+#: app/web/templates/output_template.html app/web/templates/profile.html
 #: app/web/templates/training_results.html app/web/templates/upload_detail.html
 #: app/web/templates/upload_result.html app/web/templates/uploads_list.html
 msgid "Dosya"
 msgstr "File"
+
+#: app/output_templates/service.py
+msgid "Dosya açılamadı: bozuk ya da parola korumalı olabilir."
+msgstr "The file could not be opened: it may be damaged or password protected."
 
 #: app/web/templates/profile.html
 msgid "Dosya bulunamadı"
@@ -2440,7 +2524,7 @@ msgstr "File not found"
 
 #: app/catalog/prefill.py app/web/routers/catalog.py app/web/routers/groups.py
 #: app/web/templates/catalog.html app/web/templates/catalog_type_fields.html
-#: app/web/templates/group.html
+#: app/web/templates/group.html app/web/templates/output_template.html
 msgid "Dosya etiketi"
 msgstr "File label"
 
@@ -2469,6 +2553,16 @@ msgid ""
 msgstr ""
 "File type check (06.5.1, file_type): expected file type {expected}, "
 "received {received}. Send it again in a suitable format."
+
+#: app/output_templates/service.py
+#, python-brace-format
+msgid "Dosya {limit} MB sınırını aşıyor."
+msgstr "The file exceeds the {limit} MB limit."
+
+#: app/output_templates/service.py
+#, python-brace-format
+msgid "Dosya {limit} sayfa sınırını aşıyor ({count} sayfa)."
+msgstr "The file exceeds the {limit}-page limit ({count} pages)."
 
 #: app/web/templates/training_results.html
 msgid "Dosyalar"
@@ -2540,7 +2634,8 @@ msgstr "Place of birth"
 #: app/web/templates/employee_delete_step.html
 #: app/web/templates/employee_merge_step.html app/web/templates/employees.html
 #: app/web/templates/employees_results.html app/web/templates/groups.html
-#: app/web/templates/history.html app/web/templates/profile.html
+#: app/web/templates/history.html app/web/templates/output_template.html
+#: app/web/templates/output_templates.html app/web/templates/profile.html
 #: app/web/templates/queue_item.html app/web/templates/training_results.html
 #: app/web/templates/upload_detail.html app/web/templates/uploads_list.html
 #: app/web/templates/users.html
@@ -2701,10 +2796,15 @@ msgstr "Old version: no action needed."
 msgid "Etiket"
 msgstr "Label"
 
-#: app/web/routers/upload_page.py app/web/templates/catalog.html
-#: app/web/templates/groups.html app/web/templates/users.html
+#: app/web/routers/output_templates.py app/web/routers/upload_page.py
+#: app/web/templates/catalog.html app/web/templates/groups.html
+#: app/web/templates/users.html
 msgid "Etkin"
 msgstr "Active"
+
+#: app/web/templates/output_templates.html
+msgid "Etkin şablonları göster"
+msgstr "Show active templates"
 
 #: app/web/templates/catalog.html
 msgid "Etkinleştir"
@@ -3139,6 +3239,12 @@ msgstr "Seen spellings (%(count)s)"
 msgid "Görülme"
 msgstr "Sightings"
 
+#: app/output_templates/service.py
+msgid "Görüntü kayıpsız PDF'e sarılamadı; şablonu PDF olarak yükleyin."
+msgstr ""
+"The image could not be wrapped losslessly into a PDF; upload the template"
+" as a PDF."
+
 #: app/web/templates/catalog_candidate_samples.html
 #: app/web/templates/history.html app/web/templates/queue_item.html
 #: app/web/templates/upload_detail.html
@@ -3280,9 +3386,14 @@ msgstr "Failed"
 msgid "Hayır"
 msgstr "No"
 
-#: app/catalog/candidates.py app/web/routers/upload_page.py
+#: app/catalog/candidates.py app/web/routers/output_templates.py
+#: app/web/routers/upload_page.py
 msgid "Hazır"
 msgstr "Ready"
+
+#: app/web/templates/output_template.html app/web/templating.py
+msgid "Hazır Şablonlar"
+msgstr "Templates"
 
 #: app/web/templates/upload_detail.html
 msgid "Hedef"
@@ -3303,6 +3414,14 @@ msgstr "No documents yet."
 #: app/web/templates/training_results.html
 msgid "Henüz eğitim yüklemesi yok."
 msgstr "No training uploads yet."
+
+#: app/web/templates/output_templates.html
+msgid "Henüz hazır şablon yok."
+msgstr "No templates yet."
+
+#: app/web/templates/output_templates.html
+msgid "Henüz hazır şablon yok; şablonları İK yükler."
+msgstr "No templates yet; HR uploads templates."
 
 #: app/web/templates/access_log.html
 msgid "Henüz hiçbir belgeye bakılmadı."
@@ -4244,6 +4363,14 @@ msgstr "no MRZ in the PDF text layer"
 msgid "PDF'te metin katmanı yok"
 msgstr "the PDF has no text layer"
 
+#: app/web/templates/output_template.html
+msgid ""
+"PDF, JPEG ya da PNG; tek dosya. Görüntü kayıpsız PDF'e sarılır, PDF "
+"olduğu gibi saklanır. Word ve Excel kabul edilmez."
+msgstr ""
+"PDF, JPEG or PNG; a single file. An image is wrapped losslessly into a "
+"PDF; a PDF is stored as it is. Word and Excel are not accepted."
+
 #: app/web/templates/profile.html app/web/templates/upload.html
 msgid "PDF, JPEG, PNG · Word ve Excel olduğu gibi saklanır"
 msgstr "PDF, JPEG, PNG · Word and Excel are stored as they are"
@@ -4723,11 +4850,13 @@ msgstr "Unresolved queue"
 msgid "Satır"
 msgstr "Row"
 
-#: app/web/templates/upload_result.html app/web/templates/uploads_list.html
+#: app/web/templates/output_template.html
+#: app/web/templates/output_templates.html app/web/templates/upload_result.html
+#: app/web/templates/uploads_list.html
 msgid "Sayfa"
 msgstr "Pages"
 
-#: app/web/templates/queue_item.html
+#: app/web/templates/output_template.html app/web/templates/queue_item.html
 #, python-format
 msgid "Sayfa %(page)d"
 msgstr "Page %(page)d"
@@ -4748,6 +4877,10 @@ msgstr "Page %(page)s"
 msgid "Sayfa %(page)s / %(count)s"
 msgstr "Page %(page)s / %(count)s"
 
+#: app/web/routers/output_templates.py
+msgid "Sayfa görüntüsü bulunamadı"
+msgstr "Page image not found"
+
 #: app/web/routers/upload_page.py
 msgid "Sayfa görüntüsü bulunamadı."
 msgstr "Page image not found."
@@ -4766,7 +4899,7 @@ msgstr ""
 msgid "Sayfalama"
 msgstr "Pagination"
 
-#: app/web/templates/upload_detail.html
+#: app/web/templates/output_template.html app/web/templates/upload_detail.html
 msgid "Sayfalar"
 msgstr "Pages"
 
@@ -5120,6 +5253,10 @@ msgstr "Could not be scanned ({row}): {problem}"
 #: app/web/templates/uploads_list.html
 msgid "Tarih"
 msgstr "Date"
+
+#: app/web/routers/output_templates.py
+msgid "Taslak"
+msgstr "Draft"
 
 #: app/catalog/propose.py
 msgid "Taslakta örnekteki kişiye ait değer bulundu"
@@ -5536,6 +5673,10 @@ msgstr "Nationality: not recorded"
 msgid "Uyruk: {country}"
 msgstr "Nationality: {country}"
 
+#: app/web/templates/output_template.html
+msgid "Var olan şablonu aç"
+msgstr "Open the existing template"
+
 #: app/web/profile_form.py app/web/routers/employees.py
 #: app/web/templates/profile.html
 msgid "Vatandaşlık"
@@ -5552,6 +5693,7 @@ msgstr "Nationality"
 #: app/web/templates/employee_fields_step.html
 #: app/web/templates/employee_merge_step.html
 #: app/web/templates/employee_status_step.html app/web/templates/group.html
+#: app/web/templates/output_template.html
 #: app/web/templates/profile_record_step.html
 #: app/web/templates/queue_assign.html app/web/templates/queue_close_step.html
 #: app/web/templates/queue_new_profile.html
@@ -5560,6 +5702,14 @@ msgstr "Nationality"
 #: app/web/templates/upload_action_result.html
 msgid "Vazgeç"
 msgstr "Cancel"
+
+#: app/output_templates/service.py
+msgid ""
+"Word ve Excel dosyası şablon olarak kabul edilmez; şablonu PDF, JPEG ya "
+"da PNG olarak yükleyin."
+msgstr ""
+"Word and Excel files are not accepted as templates; upload the template "
+"as a PDF, JPEG or PNG."
 
 #: app/pipeline/group.py
 msgid ""
@@ -5747,6 +5897,10 @@ msgstr "New password (again)"
 #: app/web/routers/users.py
 msgid "Yeni parola ile tekrarı eşleşmiyor."
 msgstr "The new password and its repetition do not match."
+
+#: app/web/templates/output_template.html
+msgid "Yeni sekmede aç"
+msgstr "Open in new tab"
 
 #: app/web/templates/catalog_candidate_step.html
 msgid "Yeni sürüm"
@@ -5955,6 +6109,8 @@ msgstr "No map was selected for upload."
 msgid "Yüklenen örnek: {count}; zaten kayıtlı olduğu için atlanan: {skipped}."
 msgstr "Examples uploaded: {count}; skipped as already registered: {skipped}."
 
+#: app/web/templates/output_template.html
+#: app/web/templates/output_templates.html
 #: app/web/templates/training_results.html app/web/templates/uploads_list.html
 msgid "Yükleyen"
 msgstr "Uploaded by"
@@ -5996,6 +6152,8 @@ msgid "Yüzler dosyalar arasında otomatik eşleştirilmez."
 msgstr "Sides are not paired automatically across files."
 
 #: app/web/templates/access_log_employee.html
+#: app/web/templates/output_template.html
+#: app/web/templates/output_templates.html
 msgid "Zaman"
 msgstr "Time"
 
@@ -7517,6 +7675,17 @@ msgstr "HR removed it from the examples; the file is in the training archive."
 msgid "İK'nın kararını bekliyor; bir sorun görürseniz İK'ya bildirin."
 msgstr "Waiting for HR's decision; if you see a problem, tell HR."
 
+#: app/web/templates/output_templates.html
+msgid ""
+"İK'nın çalışanlar için çıktı alacağı belge kalıpları (iş sözleşmesi, "
+"başvuru formu). Şablon çalışan belgesi değildir: yüklemesi parti açmaz, "
+"boru hattına girmez; dosyası değişmeden saklanır, önizlenir ve indirilir."
+msgstr ""
+"Document templates HR prints out for employees (employment contract, "
+"application form). A template is not an employee document: uploading it "
+"opens no batch and it does not enter the pipeline; its file is stored "
+"unchanged, previewed and downloaded."
+
 #: app/web/templates/catalog_type_fields.html
 msgid "İki harfli ülke kodu; boş bırakılabilir."
 msgstr "Two-letter country code; can be left empty."
@@ -7579,6 +7748,14 @@ msgstr "Upload the first documents"
 msgid "İlk görüldüğü parti"
 msgstr "First seen in batch"
 
+#: app/web/templates/output_templates.html
+msgid "İlk sayfa"
+msgstr "First page"
+
+#: app/web/templates/output_templates.html
+msgid "İlk şablonu yükleyin."
+msgstr "Upload the first template."
+
 #: app/web/templates/catalog_candidates.html
 msgid "İncele"
 msgstr "Review"
@@ -7605,7 +7782,7 @@ msgstr ""
 msgid "İnceleme gerekli ({row}): {problem}"
 msgstr "Review needed ({row}): {problem}"
 
-#: app/web/templates/profile.html
+#: app/web/templates/output_template.html app/web/templates/profile.html
 msgid "İndir"
 msgstr "Download"
 
@@ -7764,6 +7941,84 @@ msgstr ""
 #: app/web/routers/uploads_list.py
 msgid "İşleniyor"
 msgstr "Processing"
+
+#: app/output_templates/service.py
+msgid "Şablon adı boş olamaz."
+msgstr "Template name cannot be empty."
+
+#: app/output_templates/service.py
+msgid "Şablon adı en az bir harf ya da rakam içermeli."
+msgstr "Template name must contain at least one letter or digit."
+
+#: app/output_templates/service.py
+#, python-brace-format
+msgid "Şablon adı en çok {limit} karakter olabilir."
+msgstr "Template name can be at most {limit} characters."
+
+#: app/web/feedback.py
+msgid "Şablon arşivden geri alındı."
+msgstr "Template restored from archive."
+
+#: app/web/feedback.py
+msgid "Şablon arşivlendi: profilde seçilemez, üretilmiş belgeler yerinde kalır."
+msgstr ""
+"Template archived: it cannot be selected on profiles; documents already "
+"generated stay in place."
+
+#: app/web/routers/output_templates.py
+msgid "Şablon bulunamadı"
+msgstr "Template not found"
+
+#: app/web/routers/output_templates.py
+msgid "Şablon dosyası bulunamadı"
+msgstr "Template file not found"
+
+#: app/web/templates/output_templates.html
+msgid "Şablon durumu"
+msgstr "Template status"
+
+#: app/web/templates/output_template.html
+msgid ""
+"Şablon silinmez. Arşivlenen şablon profilde seçilemez; üretilmiş belgeler"
+" yerinde kalır. Arşivden tek tıkla geri alınır."
+msgstr ""
+"Templates are not deleted. An archived template cannot be selected on "
+"profiles; documents already generated stay in place. It is restored from "
+"the archive with one click."
+
+#: app/web/templates/output_template.html
+#: app/web/templates/output_templates.html
+msgid "Şablon yükle"
+msgstr "Upload template"
+
+#: app/web/feedback.py
+#, python-brace-format
+msgid ""
+"Şablon yüklendi ({count} sayfa). Taslak olarak listede; alan haritası "
+"incelemeyle gelir."
+msgstr ""
+"Template uploaded ({count} pages). It is listed as a draft; the field map"
+" comes with the review."
+
+#: app/web/templates/output_template.html
+msgid "Şablon yüklenmedi: alanların altındaki uyarıları düzeltin."
+msgstr "Template not uploaded: fix the warnings below the fields."
+
+#: app/web/templates/output_template.html
+msgid "Şablonu arşivle"
+msgstr "Archive template"
+
+#: app/web/templates/output_template.html
+msgid "Şablonu yükle"
+msgstr "Upload template"
+
+#: app/web/templates/output_template.html
+msgid ""
+"Şablonun dosyası yüklendiği gibi durur; aşağıdaki sayfa görüntüleri "
+"yalnız önizlemedir."
+msgstr ""
+"The template file is kept exactly as uploaded; the page images below are "
+"only a preview."
 
 #: app/pipeline/route.py
 #, python-brace-format

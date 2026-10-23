@@ -69,14 +69,15 @@ kırmızıdır. Yeni hook eklerken buraya yaz (alfabetik):
 `employee-merge`, `employee-merge-step`, `employee-status-step`, `employees`, `entry-summary`,
 `examples`, `files`, `generated-description`, `group-archive`, `group-items`, `group-items-table`,
 `group-meta`, `item-title`, `items`, `map-preview`, `map-skip-reasons`, `map-skip-rows`, `map-skipped`,
-`map-start`, `map-upload`, `merge-candidates`, `merge-search`, `move-example`, `outputs`,
-`prefill`, `prefill-conflict`, `prefill-state`, `prefill-suggested`, `prefill-unfilled`,
+`map-start`, `map-upload`, `merge-candidates`, `merge-search`, `move-example`, `output-templates`,
+`outputs`, `prefill`, `prefill-conflict`, `prefill-state`, `prefill-suggested`, `prefill-unfilled`,
 `profile-documents`, `profile-packages`, `profile-record`, `profile-record-step`, `profile-records`,
 `profile-upload`, `queue`, `queue-close-step`, `queue-items`, `reader-hint`, `reanalysis-results`,
 `reanalysis-targets`, `record-aliases`, `record-contacts`, `record-numbers`, `record-remove`,
 `record-warning`, `records`, `rejected-candidates`, `select-assignee`, `select-target`, `source`,
 `telegram-bot-missing`, `telegram-delete`, `telegram-delete-help`, `telegram-help`,
-`telegram-link-help`, `telegram-own-help`, `training-form`, `training-results`, `training-runs`,
+`telegram-link-help`, `telegram-own-help`, `template-archive`, `template-details`, `template-pages`,
+`template-upload`, `training-form`, `training-results`, `training-runs`,
 `unregistered`, `user-role`.
 
 ## 5. Kurallar

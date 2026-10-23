@@ -340,6 +340,7 @@ def test_assignment_regenerates_the_assigned_employees_profile(
     assert sorted(path.name for path in layout.employee_dir(TARGET_FOLDER).iterdir()) == [
         "Alinan",
         "Hazir",
+        "Uretilen",
         "profil.md",
     ]
 

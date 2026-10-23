@@ -499,7 +499,7 @@ ayrı klasörde ve tabloda durur. İnsan isteği (2026-10-23) PLAN §D123'te bir
 | `training_items` | Eğitim modunda işlenen dosya (11.9) | id, run_id, row_number, original_name, source_ref, staged_path, sha256, file_kind, page_count, hint_slug, result_slug, method (`mechanical`, `ai`, `manual`), status, note, checks_json, decided_by, decided_at |
 | `example_files` | Örnek dosyası kaydı ve etiketi (11.9) | id, type_slug, name, sha256, method, label (`ai_decision`, `verified`), note, training_item_id, created_at |
 | `events` | Olay logu | id, ts, upload_id, file_id, page_index, document_id, employee_id, actor, type, message, data_json |
-| `access_log` | Görüntüleme ve indirme | ts, user_id, document_id, action, channel |
+| `access_log` | Görüntüleme ve indirme | ts, user_id, document_id, template_id (15.1.4), generated_document_id (15.2.2), action, channel — üç hedeften tam biri dolu |
 | `users` | Panel kullanıcıları | id, username, password_hash, role, active (10.1.4), language (10.10.2: `en`, `tr`, `sr`; boş = tercih yok) |
 | `telegram_users` | Beyaz liste | telegram_id, user_id, allowed |
 | `document_groups` | Belge grubu (14.1.1) | id, name, normalized_name (tekil), description, created_by, created_at, archived_at, archived_by |

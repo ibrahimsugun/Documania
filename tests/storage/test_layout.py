@@ -84,6 +84,7 @@ def test_identity_paths(tmp_path: Path) -> None:
     assert layout.upload_inbox_dir("01J8Z3-abc") == tmp_path / "Inbox" / "01J8Z3-abc"
     assert layout.received_dir(folder) == tmp_path / "Employees" / folder / "Alinan"
     assert layout.ready_dir(folder) == tmp_path / "Employees" / folder / "Hazir"
+    assert layout.generated_dir(folder) == tmp_path / "Employees" / folder / "Uretilen"
     assert layout.profile_path(folder) == tmp_path / "Employees" / folder / "profil.md"
     assert layout.catalog_path == tmp_path / "KnownDocuments" / "catalog.yaml"
     assert layout.example_inventory_path == tmp_path / "KnownDocuments" / "_ornek_envanteri.csv"
@@ -101,6 +102,13 @@ def test_identity_paths(tmp_path: Path) -> None:
     assert layout.training_removed_dir("albanian_passport") == (
         training / "cikarilan" / "albanian_passport"
     )
+    # Hazır şablonlar (15.1.1, §8.2): `_sablonlar/<id>/` orijinal ve sayfa önizlemeleri.
+    templates = tmp_path / "KnownDocuments" / "_sablonlar"
+    assert layout.templates_dir == templates
+    assert layout.template_original_path(3) == templates / "3" / "sablon.pdf"
+    assert layout.template_page_image_path(3, 1) == templates / "3" / "pages" / "0001.jpg"
+    with pytest.raises(ValueError):
+        layout.template_page_image_path(3, -1)
     assert layout.archive_dir(date(2026, 9, 14)) == tmp_path / "Archive" / "2026-09"
     assert layout.archive_dir(datetime(2027, 1, 2, 3, 4)) == tmp_path / "Archive" / "2027-01"
 
@@ -133,6 +141,7 @@ def test_ensure_employee_tree(tmp_path: Path) -> None:
     assert employee_dir == tmp_path / "Employees" / "Ahmet_Cakar_E0001"
     assert (employee_dir / "Alinan").is_dir()
     assert (employee_dir / "Hazir").is_dir()
+    assert (employee_dir / "Uretilen").is_dir()
 
 
 @pytest.mark.parametrize("segment", ["", ".", "..", "../Inbox", "a/b", "a\\b", "C:", "a b", "_x"])

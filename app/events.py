@@ -106,6 +106,11 @@ class EventType(enum.StrEnum):
     TELEGRAM_LINK_CREATED = "TELEGRAM_LINK_CREATED"
     DOCUMENT_DELETED = "DOCUMENT_DELETED"
     EMPLOYEE_DELETED = "EMPLOYEE_DELETED"
+    # FR-MOD-15 (15.1.1, PLAN.md §D123): hazır şablon yükleme ve arşivi; veri şablon kimliğidir,
+    # kişisel değer taşımaz.
+    TEMPLATE_UPLOADED = "TEMPLATE_UPLOADED"
+    TEMPLATE_ARCHIVED = "TEMPLATE_ARCHIVED"
+    TEMPLATE_RESTORED = "TEMPLATE_RESTORED"
 
 
 # 10.5.13 (PLAN.md §D110 d, §D116 e): kalıcı silinen çalışanın olaylarının verisinden çıkarılan

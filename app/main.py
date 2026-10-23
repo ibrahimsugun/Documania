@@ -33,6 +33,7 @@ from app.web.routers import (
     documents,
     employees,
     groups,
+    output_templates,
     panel,
     queue,
     training,
@@ -140,6 +141,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     application.include_router(documents.router, dependencies=panel_writes)
     application.include_router(catalog.router, dependencies=panel_writes)
     application.include_router(groups.router, dependencies=panel_writes)
+    application.include_router(output_templates.router, dependencies=panel_writes)
     application.include_router(queue.pages_router, dependencies=panel_writes)
     application.include_router(access_log.router, dependencies=panel_writes)
     application.include_router(training.router, dependencies=panel_writes)

@@ -186,6 +186,15 @@ PAGES: dict[str, tuple[tuple[str, int], ...]] = {
         ("/document-groups/{group}", 200),
         ("/document-groups/{archived_group}", 200),
     ),
+    "/output-templates": (
+        ("/output-templates", 200),
+        ("/output-templates?status=archived", 200),
+    ),
+    "/output-templates/new": (("/output-templates/new", 200),),
+    "/output-templates/{template_id}": (
+        ("/output-templates/{template}", 200),
+        ("/output-templates/{archived_template}", 200),
+    ),
     "/queues": (
         ("/queues", 200),
         ("/queues?tab=unreadable", 200),
@@ -259,6 +268,7 @@ FLASH_PAGES: tuple[tuple[str, int, str, dict[str, object]], ...] = (
     ("/document-types/profile_picture", 200, "catalog.photo_rules", {"slug": "profile_picture"}),
     ("/document-types/candidate-types/{candidate}", 200, "catalog.candidate_restored", {}),
     ("/document-groups/{group}", 200, "groups.created", {}),
+    ("/output-templates/{template}", 200, "templates.uploaded", {"count": 1}),
     ("/queues/{unresolved_item}", 200, "queue.reopened", {}),
     ("/training", 200, "training.uploaded", {}),
     ("/training/known/russian_passport", 200, "training.moved", {}),
@@ -276,6 +286,9 @@ NOT_HTML = frozenset(
         "/employees/{employee_id}/photo",
         "/document-types/{slug}/examples/{name}",
         "/training/known/{slug}/examples/{name}",
+        "/output-templates/{template_id}/file",
+        "/output-templates/{template_id}/download",
+        "/output-templates/{template_id}/pages/{page_index}",
     }
 )
 
@@ -480,6 +493,18 @@ def world(
         session.commit()
         alias_id, identifier_id = alias.id, identifier.id
     client.post(f"/document-groups/{old_id}/archive")
+    # 15.1.1: hazır şablon (taslak) ve arşivdeki şablon.
+    templates = []
+    for name, pages in (("Work contract", 1), ("Old contract", 2)):
+        uploaded = client.post(
+            "/output-templates",
+            data={"name": name, "description": "Contract"},
+            files={"file": ("contract.pdf", make_pdf_bytes(pages), "application/pdf")},
+            follow_redirects=False,
+        )
+        assert uploaded.status_code == 303, uploaded.text
+        templates.append(int(uploaded.headers["location"].rsplit("/", 1)[1]))
+    client.post(f"/output-templates/{templates[1]}/archive")
 
     unknown_upload = _process(
         client,
@@ -551,6 +576,8 @@ def world(
         "identifier": identifier_id,
         "group": group_id,
         "archived_group": old_id,
+        "template": templates[0],
+        "archived_template": templates[1],
         "unknown_upload": unknown_upload,
         "unreadable_upload": unreadable_upload,
         "unknown_item": items["unknown"],

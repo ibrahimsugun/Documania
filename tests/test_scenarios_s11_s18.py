@@ -294,7 +294,7 @@ def test_s11_clean_passport_number_without_a_registered_employee_opens_a_new_emp
     assert _names(layout.employees) == sorted(
         [folder_name, *([other.folder_name] if other is not None else [])]
     )
-    assert _names(folder) == ["Alinan", "Hazir", "profil.md"]
+    assert _names(folder) == ["Alinan", "Hazir", "Uretilen", "profil.md"]
     assert _names(folder / "Hazir") == [PASSPORT_OUTPUT]
     assert (folder / "Hazir" / PASSPORT_OUTPUT).read_bytes() == content
     assert _names(folder / "Alinan") == ["pasaport.pdf"]
