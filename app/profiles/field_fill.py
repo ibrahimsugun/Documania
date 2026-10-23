@@ -19,6 +19,12 @@ alanın kaynağı kayıtlı değildi. `fill_profile_fields` mevcut çalışanlar
    `app.pipeline.plan_models.name_matched_documents`) atlanır: boru hattında olduğu gibi profil
    alanı doldurmaz, gözlem yazmaz.
 
+**Ek alanlar (15.3.2).** Anne adı, baba adı, doğum yeri ve kişisel numara (ülkesiyle) aynı yolla
+dolar. Saklanan analiz yeniden istenmez (K9): 15.3.2'den önce analiz edilmiş sayfanın analizinde
+bu anahtarlar yoktur (`null` sayılır), o belgeden yalnız MRZ'nin taşıdığı kişisel numara (TD1)
+dolar. Daha önce gözlenmiş bir kaynağın yeni alanı ilk kez gözlenir — gözlem alan başınadır —
+eski alanları yeniden sayılmaz.
+
 Olaylar (`EMPLOYEE_FIELD_FILLED`) verilen kullanıcı adıyla ve belge kimliğiyle yazılır. Klasör ve
 dosya adları (K8), eşleştirme anahtarı, isim yazımları ve belge içeriği değişmez.
 """

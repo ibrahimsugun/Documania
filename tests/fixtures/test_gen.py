@@ -721,6 +721,33 @@ def test_the_test_tree_holds_no_document_files() -> None:
     assert {path.suffix for path in RECORDINGS.rglob("*") if path.is_file()} == {".json"}
 
 
+def test_detail_fields_are_written_after_the_others_and_read_as_written() -> None:
+    # 15.3.2: ek alanlar yalnız sayfada yazılıysa okunur; ülke numarayla gelir.
+    person = replace(
+        PERSON_ORNEKOVA,
+        mother_name="Galina",
+        place_of_birth="TULA",
+        personal_number="4510 123456",
+        personal_number_country="RUS",
+    )
+    page = document_page(
+        "russian_passport",
+        title="T",
+        person=person,
+        shows=("surname", "mother_name", "place_of_birth", "personal_number"),
+        blurred=("place_of_birth",),
+    )
+    read = _accepted(page.analysis()).person
+
+    assert [label for label, _ in page.lines][-3:] == [
+        "Mother's name",
+        "Place of birth",
+        "Personal No.",
+    ]
+    assert (read.mother_name, read.father_name, read.place_of_birth) == ("Galina", None, None)
+    assert (read.personal_number, read.personal_number_country) == ("4510 123456", "RUS")
+
+
 def test_every_page_field_can_be_shown() -> None:
     page = document_page(
         "russian_passport",

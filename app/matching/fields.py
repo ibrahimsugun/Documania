@@ -3,8 +3,10 @@
 
 Eşleşen (§20.2.2 satır 1/3) ya da yeni açılan (satır 6) çalışanın profil alanları belgenin kişi
 anahtarıyla (`PersonKey`, 05.4.1) karşılaştırılır: ad, soyad, diğer isimler, orijinal yazım, doğum
-tarihi ve uyruk (`ProfileField`). Belge numarası (05.7.2) ve iletişim bilgisi (05.8.1) kendi birikim
-yollarındadır.
+tarihi, uyruk ve 15.3.2'den beri anne adı, baba adı, doğum yeri ve kişisel numara
+(`ProfileField`). Kişisel numaranın ülkesi ayrı alan değildir: numara dolarken anahtarın ülkesiyle
+birlikte yazılır, gözlemi ve olayı `personal_number` adını taşır (PLAN.md §D123 i). Belge
+numarası (05.7.2) ve iletişim bilgisi (05.8.1) kendi birikim yollarındadır.
 
 **Değer.** Belgenin değeri yeni çalışan kaydına yazılan değerle aynıdır
 (`PersonKey.employee_fields()`): ad, soyad ve diğer isimler Latin yazımdır (05.2.2, §C81), Latin
@@ -123,6 +125,8 @@ def complete_profile_fields(
         current = getattr(employee, field.value)
         if _is_empty(current):
             setattr(employee, field.value, value)
+            if field is ProfileField.PERSONAL_NUMBER:
+                employee.personal_number_country = key.personal_number_country
             outcome = FieldOutcome.FILLED
         elif _same(field, current, value):
             outcome = FieldOutcome.FILLED if created else FieldOutcome.SAME

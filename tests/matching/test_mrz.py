@@ -1039,6 +1039,78 @@ def test_birth_century_follows_the_given_day() -> None:
 # --- entegrasyon: kayıtlı yanıtlar ve okunaklılık kapısı (04.4) --------------------------------
 
 
+# --- 15.3.2 TD1 isteğe bağlı verideki kişisel numara (§20.1.3 eki) ----------------------------
+
+# Sentetik Türk kimlik kartı biçimi: belge kodu `ID`, veren devlet `TUR`, satır 1 konum 16–30
+# kişisel numara. Kişi ve numara uydurmadır.
+ID_CARD = PASSPORT | {
+    "code": "ID",
+    "state": "TUR",
+    "number": "A12B34567",
+    "optional": "12345678901",
+}
+
+
+def _id_card(**changes: Any) -> list[str]:
+    return make_mrz(MrzFormat.TD1, **(ID_CARD | changes))
+
+
+def _card_page(*, extra: dict[str, Any] | None = None, **person: Any) -> PageAnalysis:
+    # Görünen metin MRZ'nin öteki alanlarıyla aynı; yalnız kişisel numara okumaları değişir.
+    fields = _readings(document_number="A12B34567") | (extra or {})
+    return _page(_id_card(), fields=fields, document_number="A12B34567", **person)
+
+
+def test_td1_optional_data_gives_the_personal_number_and_the_issuing_state() -> None:
+    mrz = _parse(_id_card())
+
+    assert (mrz.personal_number, mrz.personal_number_country) == ("12345678901", "TUR")
+    # TD3'ün isteğe bağlı verisi kişisel numara sayılmaz.
+    assert _parse(_passport_mrz(optional="12345678901")).personal_number is None
+
+
+@pytest.mark.parametrize(
+    "lines",
+    [
+        _id_card(composite="0" if _id_card()[1][-1] != "0" else "1"),
+        _id_card(checks={"document_number": "<"}),
+        _id_card(optional=""),
+        _id_card(optional="123<456"),
+    ],
+    ids=["composite_fails", "long_document_number", "empty", "split"],
+)
+def test_no_personal_number_without_a_checked_single_value(lines: list[str]) -> None:
+    mrz = _parse(lines)
+
+    assert (mrz.personal_number, mrz.personal_number_country) == (None, None)
+
+
+def test_mrz_personal_number_fills_and_wins_over_a_conflicting_visible_number() -> None:
+    missing = _resolve(_card_page(personal_number_country="SRB"))
+    agreeing = _resolve(_card_page(personal_number="123 456 789 01"))
+    conflicting = _resolve(
+        _card_page(
+            extra={"personal_number": {"value": "1234567890", "legible": True}},
+            personal_number="1234567890",
+        )
+    )
+
+    assert (missing.analysis.person.personal_number, missing.conflicts) == (
+        "12345678901",
+        ("personal_number_country",),
+    )
+    assert missing.analysis.person.personal_number_country == "TUR"
+    assert (agreeing.analysis.person.personal_number, agreeing.conflicts) == ("123 456 789 01", ())
+    assert agreeing.analysis.person.personal_number_country == "TUR"
+    assert conflicting.conflicts == ("personal_number",)
+    assert conflicting.analysis.fields["personal_number"].value == "12345678901"
+    assert conflicting.analysis.notes == (
+        "MRZ conflicts with the visible text, MRZ value used: personal_number."
+    )
+    # Öncelik tekrar uygulanınca değişmez.
+    assert _resolve(conflicting.analysis).analysis == conflicting.analysis
+
+
 def _recording(name: str) -> dict[str, Any]:
     return json.loads((RECORDINGS / name / "0.json").read_text("utf-8"))
 

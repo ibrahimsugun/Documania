@@ -1,5 +1,6 @@
 """03.1.1–03.1.4 — model yanıtı §8.4 şemasına uyar, uymayan yanıt reddedilir; dil/alfabe kapalı
-kümededir; ek isimler ayrı döner ve çalışan kaydına taşınır; iletişim bilgisi yoksa `null`dır."""
+kümededir; ek isimler ayrı döner ve çalışan kaydına taşınır; iletişim bilgisi yoksa `null`dır.
+15.3.2 — anne/baba adı, doğum yeri ve kişisel numara (+ ülkesi) isteğe bağlı: eski yanıt geçer."""
 
 import copy
 import json
@@ -46,6 +47,11 @@ SECTION_8_4_EXAMPLE = """\
     "date_of_birth": "1990-04-12",
     "nationality": "RUS",
     "document_number": "71 1234567",
+    "mother_name": null,
+    "father_name": null,
+    "place_of_birth": "MOSKVA",
+    "personal_number": null,
+    "personal_number_country": null,
     "mrz_lines": ["...", "..."],
     "contact": {
       "phone": null,
@@ -86,9 +92,23 @@ PERSON_KEYS = [
     "date_of_birth",
     "nationality",
     "document_number",
+    "mother_name",
+    "father_name",
+    "place_of_birth",
+    "personal_number",
+    "personal_number_country",
     "mrz_lines",
     "contact",
 ]
+# 15.3.2: 15.3.2'den önce kaydedilmiş yanıtlarda bulunmayan, eksikse `null` sayılan anahtarlar.
+DETAIL_KEYS = [
+    "mother_name",
+    "father_name",
+    "place_of_birth",
+    "personal_number",
+    "personal_number_country",
+]
+REQUIRED_PERSON_KEYS = [key for key in PERSON_KEYS if key not in DETAIL_KEYS]
 CONTACT_KEYS = ["phone", "email", "address"]
 
 
@@ -161,11 +181,41 @@ def test_missing_top_level_key_is_rejected(key: str) -> None:
     assert f"{key}: Field required" in rejected(data)
 
 
-@pytest.mark.parametrize("key", PERSON_KEYS)
+@pytest.mark.parametrize("key", REQUIRED_PERSON_KEYS)
 def test_missing_person_key_is_rejected(key: str) -> None:
     data = example()
     del data["person"][key]
     assert f"person.{key}: Field required" in rejected(data)
+
+
+def test_a_response_recorded_before_the_detail_fields_is_accepted_with_nulls() -> None:
+    # 15.3.2: eski kayıtlı yanıt ve `pages.analysis_json` ek anahtarları taşımaz.
+    data = example()
+    for key in DETAIL_KEYS:
+        del data["person"][key]
+
+    person = validate_page_analysis(data, known_slugs=SLUGS).person
+
+    assert [getattr(person, key) for key in DETAIL_KEYS] == [None] * len(DETAIL_KEYS)
+    assert person.surname == "VASILIEV"
+
+
+def test_detail_fields_are_read_as_written() -> None:
+    data = with_person(
+        mother_name="Ана",
+        father_name="PETAR",
+        personal_number=" 0101990 710006 ",
+        personal_number_country="SRB",
+    )
+
+    person = validate_page_analysis(data, known_slugs=SLUGS).person
+
+    assert (person.mother_name, person.father_name, person.place_of_birth) == (
+        "Ана",
+        "PETAR",
+        "MOSKVA",
+    )
+    assert (person.personal_number, person.personal_number_country) == ("0101990 710006", "SRB")
 
 
 @pytest.mark.parametrize("key", CONTACT_KEYS)
@@ -237,6 +287,11 @@ def test_top_level_value_outside_schema_is_rejected(key: str, value: object) -> 
         ("nationality", "RUSS"),
         ("document_number", 711234567),
         ("document_number", "7" * 129),
+        ("personal_number", ""),
+        ("personal_number", 1234567890123),
+        ("personal_number", "1" * 65),
+        ("personal_number_country", "Serbia"),
+        ("mother_name", "X" * 256),
         ("mrz_lines", []),
         ("mrz_lines", "P<RUSVASILIEV<<DMITRY"),
         ("mrz_lines", ["P<RUS", ""]),

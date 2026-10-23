@@ -9,6 +9,7 @@ kişi/belge yok; ağ çağrısı yok.
 
 from __future__ import annotations
 
+import dataclasses
 import json
 from datetime import date
 from typing import Any
@@ -377,11 +378,63 @@ def test_a_new_employee_records_its_document_fields_as_filled(session: Session) 
 
     result = _complete(session, _key(), _source(session), created=True)
 
-    # 15.3.1'in ek alanları anahtarda yok (belgeden dolumları 15.3.2'nin işi).
+    # `_key()` ek alan (15.3.2) taşımaz.
     identity = tuple(field.value for field in ProfileField)[:6]
     assert result.filled == identity
     assert result.same == result.conflicts == ()
     assert len(_filled_events(session)) == len(identity)
+
+
+# --- 15.3.2: anne/baba adı, doğum yeri, kişisel numara ----------------------------------------
+
+DETAILS = {
+    "mother_name": "Galina",
+    "father_name": "Petr",
+    "place_of_birth": "TULA",
+    "personal_number": "4510 123456",
+    "personal_number_country": "RUS",
+}
+
+
+def test_detail_fields_fill_like_the_others_and_the_country_comes_with_the_number(
+    session: Session,
+) -> None:
+    employee = _employee(session, father_name="Pavel", place_of_birth="Tula")
+    file_id = _source(session)
+    key = dataclasses.replace(_key(other_names=None, original=None, born=None), **DETAILS)
+
+    result = _complete(session, key, file_id)
+
+    # Orijinal yazım okunmadı: Latin okumalar basılı isimdir (05.2.2).
+    assert result.filled == (
+        "original_script_name",
+        "nationality",
+        "mother_name",
+        "personal_number",
+    )
+    assert (result.same, result.conflicts) == (
+        ("given_names", "surname", "place_of_birth"),
+        ("father_name",),
+    )
+    assert (employee.mother_name, employee.father_name, employee.place_of_birth) == (
+        "Galina",
+        "Pavel",
+        "Tula",
+    )
+    assert (employee.personal_number, employee.personal_number_country) == ("4510 123456", "RUS")
+    assert [event.data_json["field"] for event in _filled_events(session)] == list(result.filled)
+
+
+def test_a_stored_personal_number_with_other_separators_is_the_same_and_keeps_its_country(
+    session: Session,
+) -> None:
+    employee = _employee(session, personal_number="4510-123-456", personal_number_country="RUS")
+    key = dataclasses.replace(_key(), personal_number="4510123456", personal_number_country="SRB")
+
+    result = _complete(session, key, _source(session))
+
+    assert "personal_number" in result.same
+    assert (employee.personal_number, employee.personal_number_country) == ("4510-123-456", "RUS")
 
 
 def test_neither_the_events_nor_the_observations_carry_values(session: Session) -> None:

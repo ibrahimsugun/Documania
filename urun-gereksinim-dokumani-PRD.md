@@ -922,6 +922,14 @@ Satır 2 — konumlar birebir:
 `16-18` uyruk, `19-29` isteğe bağlı veri, `30` bileşik kontrol hanesi.
 Satır 3: isim alanı (30 karakter).
 
+**Kişisel numara (15.3.2 eki).** TD1 satır 1'in `16-30` isteğe bağlı verisi kimlik kartlarında
+kişisel numarayı taşır (Sırp kimliği JMBG, Türk kimliği TC kimlik no). Alanın kendi kontrol hanesi
+yoktur, onu yalnız bileşik hane kapsar: numara bileşik hane ve belge numarası hanesi tutuyorsa
+okunur; değer dolgusuz, tek parça harf/rakamdır (belge numarası 9 karakteri aşınca devamı bu alana
+yazılır ve hanesi `<` olur — o zaman numara okunmaz). Numaranın ülkesi (`personal_number_country`)
+satır 1 `3-5` veren devlettir, uyruk değildir. MRZ'nin numarası görünen metinden önce gelir
+(05.3.3; çelişki `notes`'a). TD2 ve TD3'ün isteğe bağlı verisi kişisel numara sayılmaz.
+
 #### 20.1.4 Kontrol hanesi algoritması
 
 Tek bir algoritma, her alan için aynı:

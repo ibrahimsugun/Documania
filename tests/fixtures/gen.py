@@ -303,6 +303,12 @@ class SyntheticPerson:
     sex: str = MRZ_FILLER
     original_script_name: str | None = None
     other_names: str | None = None
+    # 15.3.2: ek profil alanları; sayfada yalnız `shows` ile yazılır (`DETAIL_PAGE_FIELDS`).
+    mother_name: str | None = None
+    father_name: str | None = None
+    place_of_birth: str | None = None
+    personal_number: str | None = None
+    personal_number_country: str | None = None
 
 
 # Kayıtlı yanıtlardaki (`tests/fixtures/ai/recordings/`) kurgusal kişilerle aynı değerler.
@@ -330,6 +336,9 @@ PAGE_FIELDS = (
     "document_number",
     "expiry_date",
 )
+# 15.3.2: kişinin ek alanları; sayfada ana alanlardan sonra yazılır. Kişisel numaranın ülkesi
+# numarayla birlikte okunur.
+DETAIL_PAGE_FIELDS = ("mother_name", "father_name", "place_of_birth", "personal_number")
 _FIELD_LABELS = {
     "surname": "Surname",
     "given_names": "Given names",
@@ -337,6 +346,10 @@ _FIELD_LABELS = {
     "nationality": "Nationality",
     "document_number": "Document No.",
     "expiry_date": "Date of expiry",
+    "mother_name": "Mother's name",
+    "father_name": "Father's name",
+    "place_of_birth": "Place of birth",
+    "personal_number": "Personal No.",
 }
 DRIVING_LICENSE_BACK_NOTES = (
     "The back side only has the licence categories table; required fields are on the front."
@@ -451,7 +464,7 @@ def document_page(
     verilen adlarla birlikte okunur. `mrz_legible=False` MRZ'yi lekeler, yanıtta `mrz_lines` null.
     """
     shown = set(shows)
-    unknown = shown - set(PAGE_FIELDS)
+    unknown = shown - set(PAGE_FIELDS) - set(DETAIL_PAGE_FIELDS)
     if unknown:
         raise ValueError(f"bilinmeyen sayfa alanı: {sorted(unknown)}")
     smudged = set(blurred)
@@ -464,9 +477,10 @@ def document_page(
         "nationality": None if person is None else person.nationality,
         "document_number": document_number,
         "expiry_date": expiry_date,
+        **{name: None if person is None else getattr(person, name) for name in DETAIL_PAGE_FIELDS},
     }
     lines: list[tuple[str, str | None]] = []
-    for name in PAGE_FIELDS:
+    for name in (*PAGE_FIELDS, *DETAIL_PAGE_FIELDS):
         if name not in shown:
             continue
         value = values[name]
@@ -506,6 +520,12 @@ def document_page(
             "date_of_birth": read("date_of_birth"),
             "nationality": read("nationality"),
             "document_number": read("document_number"),
+            **{name: read(name) for name in DETAIL_PAGE_FIELDS},
+            "personal_number_country": (
+                person.personal_number_country
+                if person is not None and read("personal_number")
+                else None
+            ),
             "mrz_lines": list(mrz_lines) if mrz_lines and mrz_legible else None,
             "contact": {"phone": None, "email": None, "address": address},
         },
@@ -677,11 +697,14 @@ def residence_card_pages(
     address: str = RESIDENCE_CARD_ADDRESS,
     with_mrz: bool = False,
     blurred: Iterable[str] = (),
+    details: Iterable[str] = (),
 ) -> tuple[SyntheticPage, SyntheticPage]:
     """Sırbistan oturma izni: ön yüzde kimlik, arka yüzde son geçerlilik ve adres.
 
     `with_mrz` arka yüze kontrol haneleri geçerli TD1 MRZ (belge kodu `IR`, veren devlet `SRB`)
-    ekler; MRZ'yi okuyan analizci onu arka yüzün yanıtına da yazar.
+    ekler; MRZ'yi okuyan analizci onu arka yüzün yanıtına da yazar. Kişinin kişisel numarası varsa
+    MRZ'nin birinci satırının isteğe bağlı verisine ayırıcısız yazılır (15.3.2). `details` ön yüzde
+    ayrıca yazılı ek alanlardır (`DETAIL_PAGE_FIELDS`).
     """
     title = "DOZVOLA ZA BORAVAK / RESIDENCE PERMIT"
     front = document_page(
@@ -689,7 +712,14 @@ def residence_card_pages(
         title=title,
         person=person,
         document_number=document_number,
-        shows=("surname", "given_names", "date_of_birth", "nationality", "document_number"),
+        shows=(
+            "surname",
+            "given_names",
+            "date_of_birth",
+            "nationality",
+            "document_number",
+            *details,
+        ),
         blurred=blurred,
         side="front",
         language="sr",
@@ -710,6 +740,7 @@ def residence_card_pages(
             date_of_birth=person.date_of_birth,
             sex=person.sex,
             expiry_date=expiry_date,
+            optional_data=_NUMBER_SEPARATORS.sub("", person.personal_number or ""),
         )
     back = document_page(
         "serbian_residence_card",

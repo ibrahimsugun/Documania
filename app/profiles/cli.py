@@ -9,7 +9,8 @@ olmayan harf taşıyan çalışanları onarır (`app.profiles.latin_names`).
 
 `fill-fields` (PRD 05.7.3, PLAN.md §C82): mevcut çalışanların boş profil alanlarını etkin
 belgelerinden, en eski belge önce, boru hattının kuralıyla doldurur; dolu alan değişmez, farklı
-değer profil kartında uyarı olur (`app.profiles.field_fill`).
+değer profil kartında uyarı olur (`app.profiles.field_fill`). 15.3.2'den beri anne adı, baba adı,
+doğum yeri ve kişisel numara (ülkesiyle) da dolar.
 
 `fill-original-spelling` (PRD 05.2.2, PLAN.md §C83): orijinal yazımı boş olan çalışanların alanını
 kayıttaki Latin adlardan doldurur (`app.profiles.original_spelling`); Latin belgeyle açılmış eski

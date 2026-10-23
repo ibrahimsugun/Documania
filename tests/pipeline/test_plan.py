@@ -1035,8 +1035,15 @@ NAME_AMBIGUOUS_REASON = (
 
 
 def _permit_without_birth_date() -> dict[str, Any]:
-    # Çalışma izni doğum tarihi taşımaz; numarası temiz ama kayıtlı değil, uyruk ve telefon yazılı.
-    person = _person(date_of_birth=None, document_number="WP-0000042")
+    # Çalışma izni doğum tarihi taşımaz; numarası temiz ama kayıtlı değil, uyruk ve telefon yazılı;
+    # 15.3.2'nin anne adı ve kişisel numarası da yazılı.
+    person = _person(
+        date_of_birth=None,
+        document_number="WP-0000042",
+        mother_name="Galina",
+        personal_number="4510 123456",
+        personal_number_country="RUS",
+    )
     person["contact"]["phone"] = PHONE
     return _page(PERMIT, person=person)
 
@@ -1049,6 +1056,8 @@ def _assert_nothing_accumulated(session: Session) -> None:
     assert _count(session, EmployeeIdentifier) == 0
     assert (_count(session, EmployeeContact), _observations(session)) == (0, [])
     assert _events(session, EventType.EMPLOYEE_FIELD_FILLED) == []
+    for employee in session.scalars(select(Employee)):
+        assert (employee.mother_name, employee.personal_number) == (None, None)
 
 
 def test_name_without_a_birth_date_places_the_document_with_the_single_employee(

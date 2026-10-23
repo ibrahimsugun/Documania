@@ -16,6 +16,11 @@
     "date_of_birth": "1992-03-15",
     "nationality": "RUS",
     "document_number": "00 0000013",
+    "mother_name": null,
+    "father_name": null,
+    "place_of_birth": null,
+    "personal_number": null,
+    "personal_number_country": null,
     "mrz_lines": [
       "P<RUSTESTOVA<SHCHELKINA<<IULIA<<<<<<<<<<<<<<",
       "0000000136RUS9203158F3203156<<<<<<<<<<<<<<04"

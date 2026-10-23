@@ -2654,13 +2654,13 @@
         "description": "PRD 15.3.2 · FR-MOD-15 · Faz 1 · Must (v1). Sözleşme PLAN §D123 (e). Belge yüklendikçe anne adı, baba adı, doğum yeri ve kişisel numara profile otomatik işlenir (05.7.3 kuralı).",
         "details": "KAPSAM: PRD 15.3.2; PLAN §D123 e; 03.1.4, 05.3.3, 05.7.3 — önce oku. tm 180 üzerine.\n\nNE YAPILACAK: (1) `app/ai/schemas.py` `PagePerson`: `mother_name`, `father_name`, `place_of_birth` (ShortText | None), `personal_number` (DocumentNumber kalıbı | None), `personal_number_country` (NationalityCode | None) — hepsi isteğe bağlı, eski kayıtlı yanıtlar geçer. (2) `app/ai/prompts/page_analysis.md`: yalnız belgede açıkça yazılı değer; çıkarım/uydurma yok; örnekler İngilizce (10.10.6). (3) MRZ (`app/matching/mrz.py`, §20.1.3): TD1 isteğe bağlı veri alanındaki kişisel numara (Sırp kimlik JMBG, Türk kimlik TC no) çıkarılır ve görünen metinden önce gelir (05.3.3); PRD §20.1.3'e ek satır (tablo biçimini koru — `tests/matching` §20.1'i okur mu bak). (4) `app/matching/match.py` `PersonKey` ve `app/matching/fields.py`: yeni `ProfileField`'lar `document_field_values`'a girer; boş alan dolar, dolu alan değişmez, farklı değer gözlem (`FieldOutcome`), kaynak belge; `EMPLOYEE_FIELD_FILLED` alan adları. (5) 05.5.4 (`matched_by: name`) doldurmaz — var olan kural korunur, test. (6) `python -m app.profiles fill-fields` yeni alanları da geçmiş belgelerden doldurur (tekrar çalıştırılabilirlik korunur). (7) `tests/fixtures` kayıtlı yanıtları ve `tests/recorded.py` güncellenir; `tests/ai/test_output_language.py` İngilizce kuralı yeni alanlar için.\n\nGİRDİ: app/ai/schemas.py, app/ai/prompts/page_analysis.md, app/matching/mrz.py, app/matching/match.py, app/matching/fields.py, app/profiles/field_fill.py, tests/ai, tests/matching, tests/profiles.\n\nÇIKTI: şema, talimat, MRZ, alan dolumu, CLI, testler, PRD §20.1.3 eki, PLAN, HANDOFF.\n\nTUZAKLAR: `personal_number_country` MRZ'de belge ülkesidir (issuing state), uyruk değil; değer olaya yazılmaz; kayıtlı yanıt sabitlerinde gerçek kişi verisi yok (sentetik).\n\nBU GÖREVİ BAĞLAYAN KİLİTLİ KURALLAR: PLAN §D123 (sözleşme — önce oku), R2/R11, K8 (adlandırma), K9/R10 (dondurulmuş harita), K15 (olay; kişisel değer yok), 10.1.8 (yetki), 10.10.3 (üç dil, `python -m app.i18n extract|update|compile|check`), 10.11.1 (bildirim kaydı), docs/ARAYUZ-STANDARDI.md (şablon ve stil; `tests/web/test_ui_standard.py`), MASTER-PROMPT yol kuralı (yol yalnız `app/storage/`), §8 (sütun ve olay adları).\n\nKAPANIŞ: PLAN satırları ✅ → K15.x (yeni blok `#### K15.1` / `K15.2` / `K15.3`), HANDOFF bloğu, Task Master done, commit mesajında `PRD 15.x — tm <id>`; CONVENTIONS §1 kapısı (tam paralel koşu uzun sürerse HANDOFF'a hangi klasörlerin koşulduğunu yaz).",
         "testStrategy": "tests/ai (şema isteğe bağlı alanlar, eski kayıt geçer, talimat metni İngilizce), tests/matching (MRZ TD1 isteğe bağlı veri → personal_number, öncelik), tests/matching/test_fields.py (dolum/çelişki/kaynak), tests/profiles (fill-fields yeni alanlar, idempotent), senaryo testi: belge yüklenince profilde anne adı dolu; python -m app.i18n check; tam paralel kapı.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [
           "180"
         ],
         "priority": "medium",
         "subtasks": [],
-        "updatedAt": "2026-10-22T22:35:37.000Z"
+        "updatedAt": "2026-10-23T00:00:51.296Z"
       },
       {
         "id": "182",
@@ -2734,9 +2734,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-22T23:25:14.198Z",
+      "lastModified": "2026-10-23T00:00:51.296Z",
       "taskCount": 187,
-      "completedCount": 181,
+      "completedCount": 182,
       "tags": [
         "master"
       ]

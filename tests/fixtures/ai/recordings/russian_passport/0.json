@@ -16,6 +16,11 @@
     "date_of_birth": "1990-01-01",
     "nationality": "RUS",
     "document_number": "00 0000001",
+    "mother_name": null,
+    "father_name": null,
+    "place_of_birth": null,
+    "personal_number": null,
+    "personal_number_country": null,
     "mrz_lines": [
       "P<RUSORNEKOVA<<TEST<<<<<<<<<<<<<<<<<<<<<<<<<",
       "0000000011RUS9001011F3001019<<<<<<<<<<<<<<04"

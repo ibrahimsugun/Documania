@@ -14,6 +14,11 @@ doldurulmaz. Kurallar:
   ve çalışan kaydının `other_names` sütununa gider (03.1.3, `PagePerson.employee_fields`).
 - `person.contact` belgede açıkça yazılı telefon, e-posta ve adrestir; yazılı olmayan `null`dır
   (03.1.4). Alan adları `employee_contacts.kind` değerleriyle aynıdır (§8.1).
+- `person.mother_name`, `father_name`, `place_of_birth`, `personal_number` ve
+  `personal_number_country` (ICAO alfa-3 kodu) aynı kuralla yalnız belgede açıkça yazılıysa dolar
+  (15.3.2). Bu beş anahtar §8.4'ün öteki anahtarlarından farklı olarak yanıtta **eksik
+  olabilir** (`null` sayılır): 15.3.2'den önce kaydedilmiş yanıtlar ve `pages.analysis_json`
+  satırları onları taşımaz. Sağlayıcıya giden şema (`model_json_schema`) yine her anahtarı ister.
 - `fields` okumaları: `legible: true` ise `value` doludur, `legible: false` ise `null`dır —
   okunamayan alanın değeri taşınmaz (K1).
 
@@ -60,6 +65,14 @@ ISO_639_1_CODES: frozenset[str] = frozenset(
     """.split()
 )
 
+# 15.3.2: 15.3.2'den önceki yanıtlarda bulunmayan `person` anahtarları (bkz. modül açıklaması).
+DETAIL_FIELDS = (
+    "mother_name",
+    "father_name",
+    "place_of_birth",
+    "personal_number",
+    "personal_number_country",
+)
 # 03.1.3 — kişiden çalışan kaydına (`employees`, §8.1) taşınan alanlar; sütun adları birebir aynı.
 EMPLOYEE_FIELDS = (
     "surname",
@@ -68,6 +81,7 @@ EMPLOYEE_FIELDS = (
     "original_script_name",
     "date_of_birth",
     "nationality",
+    *DETAIL_FIELDS,
 )
 
 _KNOWN_SLUGS = "known_slugs"
@@ -141,6 +155,15 @@ DocumentNumber = Annotated[
 ]
 # MRZ satırı olduğu gibi taşınır; biçim ve karakter kümesi 05.3'ün işidir (§20.1).
 MrzLine = Annotated[str, StringConstraints(strict=True, min_length=1)]
+# 15.3.1: `employees.personal_number` `String(64)`dür; numara olduğu gibi taşınır (15.3.3).
+PersonalNumber = Annotated[
+    str, StringConstraints(strict=True, strip_whitespace=True, min_length=1, max_length=64)
+]
+
+
+def _require_every_key(schema: dict[str, object]) -> None:
+    # Sağlayıcı her anahtarı yazar (değer yoksa `null`); varsayılan yalnız eski kayıtlar içindir.
+    schema["required"] = list(schema["properties"])  # type: ignore[call-overload]
 
 
 class PageContact(BaseModel):
@@ -154,9 +177,13 @@ class PageContact(BaseModel):
 
 
 class PagePerson(BaseModel):
-    """Sayfadan okunan kişi; okunmayan alan `null`, ek isimler `other_names`'te ayrı (03.1.3)."""
+    """Sayfadan okunan kişi; okunmayan alan `null`, ek isimler `other_names`'te ayrı (03.1.3).
 
-    model_config = ConfigDict(extra="forbid", frozen=True)
+    `mother_name` … `personal_number_country` (15.3.2) eski yanıtlarda yoktur ve `null` sayılır;
+    `personal_number_country` numaranın ülkesidir (kimliği veren devlet), uyruk değildir.
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True, json_schema_extra=_require_every_key)
 
     surname: ShortText | None
     given_names: ShortText | None
@@ -165,6 +192,11 @@ class PagePerson(BaseModel):
     date_of_birth: IsoDate | None
     nationality: NationalityCode | None
     document_number: DocumentNumber | None
+    mother_name: ShortText | None = None
+    father_name: ShortText | None = None
+    place_of_birth: ShortText | None = None
+    personal_number: PersonalNumber | None = None
+    personal_number_country: NationalityCode | None = None
     mrz_lines: Annotated[tuple[MrzLine, ...], Field(min_length=1)] | None
     contact: PageContact
 

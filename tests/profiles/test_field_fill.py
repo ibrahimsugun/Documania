@@ -30,10 +30,12 @@ from app.db.models import (
     UploadFile,
 )
 from app.events import EventType
+from app.matching.mrz import MrzFormat
 from app.profiles.cli import main
 from app.profiles.field_fill import ProfileFieldFill, fill_profile_fields
 from app.storage import DataLayout
 from tests.ai.payloads import analysis_payload
+from tests.matching.test_mrz import ID_CARD, make_mrz
 
 ACTOR = "ik.admin"
 FOLDER = "Test_Ornekova_E0001"
@@ -207,6 +209,38 @@ def test_second_run_writes_nothing(session: Session) -> None:
     assert _observations(session) == rows
     assert len(_filled_events(session)) == events
     assert employee.date_of_birth == BORN
+
+
+def test_detail_fields_fill_from_new_analyses_and_old_ones_give_only_the_mrz_number(
+    session: Session,
+) -> None:
+    # 15.3.2: 15.3.2'den önce saklanan analiz ek anahtarları taşımaz; TD1 MRZ'si numarayı verir.
+    employee = _employee(session)
+    old = _payload(mrz_lines=make_mrz(MrzFormat.TD1, **(ID_CARD | {"number": "000000001"})))
+    for key in ("mother_name", "father_name", "place_of_birth", "personal_number"):
+        del old["person"][key]
+    del old["person"]["personal_number_country"]
+    _, old_file = _document(session, "E0001", old, created_at=_at(10))
+    _, new_file = _document(
+        session, "E0001", _payload(mother_name="Galina", place_of_birth="TULA"), created_at=_at(20)
+    )
+
+    (fill,) = fill_profile_fields(session, actor=ACTOR)
+    again = fill_profile_fields(session, actor=ACTOR)
+
+    assert fill.filled == (
+        "original_script_name",
+        "date_of_birth",
+        "nationality",
+        "mother_name",
+        "place_of_birth",
+        "personal_number",
+    )
+    assert (employee.personal_number, employee.personal_number_country) == ("12345678901", "TUR")
+    assert (employee.mother_name, employee.place_of_birth) == ("Galina", "TULA")
+    assert ("E0001", "personal_number", "filled", old_file, 0) in _observations(session)
+    assert ("E0001", "mother_name", "filled", new_file, 0) in _observations(session)
+    assert again == [ProfileFieldFill("E0001", documents=2, filled=(), conflicts=())]
 
 
 def test_a_source_the_pipeline_already_observed_is_not_observed_again(session: Session) -> None:

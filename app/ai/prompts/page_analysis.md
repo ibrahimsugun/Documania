@@ -125,6 +125,22 @@ anahtar eklenmez.
     okunamıyorsa `null`.
   - `document_number`: belgenin kendi numarası, belgede yazıldığı gibi (boşluklar dahil). Kişisel
     kimlik numarası, seri numarası veya başvuru numarası gibi başka numaraları buraya yazma.
+  - `mother_name`, `father_name`, `place_of_birth`, `personal_number` ve
+    `personal_number_country` yalnız belgede bu anlamı taşıyan ayrı bir alanda **açıkça yazılıysa**
+    dolar; yoksa `null`dır (`contact` ile aynı kural). Başka bir bilgiden çıkarma, tamamlama,
+    uydurma (kural 1).
+  - `mother_name`, `father_name`: anne adı ve baba adı alanında (ör. `Mother's name`,
+    `Father's name`) yazıldığı gibi, alfabesi ne olursa olsun. İsmin parçası olarak yazılmış baba
+    adı (отчество) `other_names`'tedir; ayrı bir baba adı alanı yoksa `father_name` `null`dır.
+  - `place_of_birth`: doğum yeri alanında yazıldığı gibi (ör. `Place of birth`); kısaltmayı açma, ülke
+    ekleme. Belgeyi veren yer veya adres doğum yeri değildir.
+  - `personal_number`: kişinin kendi ülkesindeki kişisel kimlik ya da vatandaşlık numarası, belgede
+    bu anlamda etiketlenmiş alanda (ör. `Personal No.`, `JMBG`) yazıldığı gibi (boşluk ve tire
+    dahil). Belgenin kendi numarası (`document_number`), seri numarası veya başvuru numarası
+    değildir. Numara yalnız MRZ'de yazılıysa buraya taşıma; MRZ'deki numarayı sistem kendisi okur.
+  - `personal_number_country`: `personal_number`'ı veren devletin ICAO 9303 kodu (`SRB`, `TUR`),
+    yalnız belgede açıkça görülüyorsa — numara belgeyi veren devletin kişisel numarasıysa o
+    devletin kodu. Kişinin uyruğu değildir. `personal_number` `null`sa bu da `null`dır.
   - `mrz_lines`: sayfada MRZ (makine okunur bölge) varsa her satır ayrı bir öğe olarak, karakteri
     karakterine: `<` dolgu karakterleri dahil, boşluk eklemeden, kontrol hanesini düzeltmeden. MRZ
     yoksa veya tek bir karakteri bile kesin okunamıyorsa `null`; nedeni `notes`'a.

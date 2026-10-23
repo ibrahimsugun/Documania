@@ -37,6 +37,18 @@ karşılaştırılır:
 - Görünen okuma yoksa (`null`, `legible: false`) MRZ değeri yazılır — MRZ önce okunur (K6).
 - MRZ'de okunamadı sayılan alan görünen okuma okunaklı olsa bile `legible: false` olur (§20.1.7).
 
+**Kişisel numara (15.3.2, §20.1.3 eki).** TD1'in birinci satırındaki isteğe bağlı veri (konum
+16–30) kimlik kartlarında kişisel numarayı taşır (Sırp kimliği JMBG, Türk kimliği TC kimlik no;
+`Mrz.personal_number`). Alanın kendi kontrol hanesi yoktur; onu yalnız bileşik hane kapsar. Bu
+yüzden numara yalnız bileşik hane ve belge numarası hanesi tutuyorsa okunur (belge numarası 9
+karakterden uzunsa devamı bu alana yazılır, hanesi `<` olur), değer tek parça harf/rakamdır.
+Numaranın ülkesi (`personal_number_country`) MRZ'yi **veren devlettir**, uyruk değildir. Öncelik
+öteki alanlarla aynıdır: görünen okuma (`person.personal_number`, `fields.personal_number`)
+15.3.3 karşılaştırmasıyla (boşluk, tire, nokta, harf büyüklüğü) aynıysa olduğu gibi kalır,
+çelişirse MRZ kazanır ve `personal_number` nota yazılır; ülke MRZ'nin veren devletiyle yazılır,
+farklı okunduysa `personal_number_country` da nota yazılır. TD2 ve TD3'ün isteğe bağlı verisi
+kişisel numara sayılmaz (§D123 e).
+
 Notlar yalnız alan adı taşır, kişisel değer taşımaz (CONVENTIONS §6); var olan not korunur, aynı
 cümle ikinci kez eklenmez. Sayfa boş ya da okunamaz diyorsa MRZ okumasına güvenilmez (C21). Modül
 saf işlevdir: veritabanına ve olay loguna yazmaz.
@@ -53,6 +65,7 @@ from datetime import date
 
 from app.ai.schemas import PageAnalysis
 from app.matching.names import EmptyNameError, normalize_name
+from app.matching.numbers import same_personal_number
 
 FILLER = "<"
 OPTIONAL_DATA = "optional_data"
@@ -68,6 +81,10 @@ MRZ_FIELDS = (
     "expiry_date",
 )
 _PERSON_FIELDS = frozenset(MRZ_FIELDS) - {"expiry_date"}
+# 15.3.2: TD1 isteğe bağlı verisindeki kişisel numara ve onu veren devlet (§20.1.3 eki).
+PERSONAL_NUMBER = "personal_number"
+PERSONAL_NUMBER_COUNTRY = "personal_number_country"
+_PERSONAL_NUMBER = re.compile(r"[A-Z0-9]+")
 
 _ALLOWED = re.compile(r"[A-Z0-9<]+")
 _UPPERCASE = str.maketrans(string.ascii_lowercase, string.ascii_uppercase)
@@ -224,6 +241,28 @@ class Mrz:
         """Bileşik hane tutuyor; tutmuyorsa MRZ bütün olarak şüphelidir (§20.1.7)."""
         return COMPOSITE not in self.failed_checks
 
+    @property
+    def personal_number(self) -> str | None:
+        """TD1 birinci satırının isteğe bağlı verisindeki kişisel numara (15.3.2, §20.1.3 eki).
+
+        Alanı yalnız bileşik hane kapsar: bileşik hane ya da belge numarası hanesi tutmuyorsa
+        (uzun belge numarasının devamı bu alandadır) `None`. Değer dolgusuz tek parça harf/rakamdır;
+        boş ya da `<` ile bölünmüş veri numara sayılmaz."""
+        if self.format is not MrzFormat.TD1 or self.optional_data is None:
+            return None
+        if not self.composite_valid or "document_number" in self.failed_checks:
+            return None
+        value = self.optional_data[0]
+        return value if _PERSONAL_NUMBER.fullmatch(value) else None
+
+    @property
+    def personal_number_country(self) -> str | None:
+        """Kişisel numarayı veren devlet: MRZ'nin veren devleti (uyruk değil); numara yoksa
+        `None`."""
+        if self.personal_number is None:
+            return None
+        return self.issuing_state if _NATIONALITY.fullmatch(self.issuing_state) else None
+
 
 @dataclass(frozen=True, slots=True)
 class MrzResolution:
@@ -310,11 +349,44 @@ def apply_mrz_priority(analysis: PageAnalysis, *, today: date | None = None) -> 
         if not agrees:
             conflicts.append(name)
         _write(person, fields, name, value, only_missing=agrees)
+    conflicts.extend(_apply_personal_number(analysis, mrz, person, fields))
 
     resolved = _rebuild(
         analysis, person=person, fields=fields, notes=_resolution_notes(mrz, conflicts)
     )
     return MrzResolution(resolved, MrzStatus.READ, mrz, tuple(conflicts))
+
+
+def _apply_personal_number(
+    analysis: PageAnalysis,
+    mrz: Mrz,
+    person: dict[str, object],
+    fields: dict[str, dict[str, object]],
+) -> list[str]:
+    # 15.3.2: MRZ'nin kişisel numarası görünen okumadan önce gelir; çelişen alan adları döner.
+    number, country = mrz.personal_number, mrz.personal_number_country
+    if number is None:
+        return []
+    conflicts: list[str] = []
+    readings = [analysis.person.personal_number]
+    reading = analysis.fields.get(PERSONAL_NUMBER)
+    if reading is not None:
+        readings.append(reading.value)
+    if not all(same_personal_number(value, number) for value in readings if value is not None):
+        conflicts.append(PERSONAL_NUMBER)
+        person[PERSONAL_NUMBER] = number
+        if reading is not None:
+            fields[PERSONAL_NUMBER] = {"value": number, "legible": True}
+    else:
+        if person[PERSONAL_NUMBER] is None:
+            person[PERSONAL_NUMBER] = number
+        if reading is not None and not reading.legible:
+            fields[PERSONAL_NUMBER] = {"value": number, "legible": True}
+    visible_country = analysis.person.personal_number_country
+    if visible_country is not None and visible_country != country:
+        conflicts.append(PERSONAL_NUMBER_COUNTRY)
+    person[PERSONAL_NUMBER_COUNTRY] = country
+    return conflicts
 
 
 def _value(char: str) -> int:

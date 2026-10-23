@@ -42,6 +42,15 @@ Anahtar ayrıca yeni çalışan kaydının (03.1.3, `employee_fields`) okumalar�
 `nationality` ICAO uyruk koduyla (`RUS`, `D`) karşılaştırılır. Bu iki alan kimlik alanı değildir:
 okunmazsa ya da çelişirse `None` olur, `conflicts`'e yazılmaz.
 
+**Ek profil alanları (15.3.2).** Anahtar anne adı, baba adı, doğum yeri ve kişisel numarayı da
+taşır (`employee_fields`, 05.7.3 dolgusu): kimlik alanı değildirler, okunmazsa ya da sayfalar
+arasında çelişirse `None` olurlar, `conflicts`'e yazılmazlar. İsim ve doğum yeri isim anahtarıyla,
+kişisel numara 15.3.3 anahtarıyla (boşluk, tire, nokta, harf büyüklüğü) karşılaştırılır; değer
+anahtara inen ilk okumadır, yazıldığı gibi (alfabe kuralı yok, PLAN.md §D123 i). MRZ'si kişisel
+numara taşıyan sayfa (TD1, `Mrz.personal_number`) varsa numara yalnız böyle sayfalardan okunur
+(05.3.3). Numaranın ülkesi (`personal_number_country`) numarayı veren sayfaların okumasıdır ve
+yalnız numarayla birlikte taşınır: numara yoksa ülke de yoktur.
+
 **Latin ad (05.2.2, PLAN.md §C81).** Çalışan kaydının ad, soyad ve diğer isimler alanları yalnız
 Latin harfi taşır; anahtar her parçanın Latin yazımını ayrıca verir (`latin_*`,
 `app.matching.names.latin_person_name`): anahtara inen basılı Latin okuma, sonra kontrol haneleri
@@ -181,7 +190,7 @@ from app.matching.names import (
     normalize_name,
     transliterate_name,
 )
-from app.matching.numbers import PERSONAL_NUMBER_MAX_LENGTH
+from app.matching.numbers import PERSONAL_NUMBER_MAX_LENGTH, personal_number_key
 from app.matching.records import ACTIVE_ALIAS, note_seen_after_removal, number_owners
 from app.storage import DataLayout, SlugError, employee_folder_name, person_slug
 
@@ -192,7 +201,7 @@ DATE_OF_BIRTH = "date_of_birth"
 ORIGINAL_SCRIPT_NAME = "original_script_name"
 OTHER_NAMES = "other_names"
 NATIONALITY = "nationality"
-# 15.3.1: ek profil alanları (çalışan kaydı; anahtar bunları okumaz).
+# 15.3.1: ek profil alanları (çalışan kaydı; anahtar bunları 05.7.3 dolgusu için okur, 15.3.2).
 MOTHER_NAME = "mother_name"
 FATHER_NAME = "father_name"
 PLACE_OF_BIRTH = "place_of_birth"
@@ -200,6 +209,9 @@ PERSONAL_NUMBER = "personal_number"
 PERSONAL_NUMBER_COUNTRY = "personal_number_country"
 # Anahtarın okuduğu §8.4 `person` alanları; `conflicts` bu sırayla yazılır.
 KEY_FIELDS = (DOCUMENT_NUMBER, SURNAME, GIVEN_NAMES, DATE_OF_BIRTH, ORIGINAL_SCRIPT_NAME)
+# 15.3.2: isim anahtarıyla karşılaştırılan ek alanlar; MRZ'nin anahtara verdiği alanlar.
+_DETAIL_NAMES = (MOTHER_NAME, FATHER_NAME, PLACE_OF_BIRTH)
+_MRZ_KEY_FIELDS = frozenset((*MRZ_FIELDS, PERSONAL_NUMBER))
 # Yalnız Latin harfi taşıyan çalışan alanları (05.2.2) → `PersonKey`'deki Latin yazımları.
 _LATIN_FIELDS = {
     SURNAME: "latin_surname",
@@ -254,6 +266,11 @@ class PersonKey:
     latin_given_names: str | None = None
     latin_other_names: str | None = None
     date_of_birth_legible: bool = False
+    mother_name: str | None = None
+    father_name: str | None = None
+    place_of_birth: str | None = None
+    personal_number: str | None = None
+    personal_number_country: str | None = None
 
     def __post_init__(self) -> None:
         for name, latin_name in _LATIN_FIELDS.items():
@@ -293,6 +310,14 @@ class PersonKey:
             ORIGINAL_SCRIPT_NAME: self.original_spelling,
             DATE_OF_BIRTH: self.date_of_birth,
             NATIONALITY: self.nationality,
+            MOTHER_NAME: self.mother_name,
+            FATHER_NAME: self.father_name,
+            PLACE_OF_BIRTH: self.place_of_birth,
+            PERSONAL_NUMBER: self.personal_number,
+            # Ülke yalnız numarayla gelir (15.3.1).
+            PERSONAL_NUMBER_COUNTRY: (
+                None if self.personal_number is None else self.personal_number_country
+            ),
         }
 
 
@@ -319,6 +344,9 @@ def build_person_key(analyses: Iterable[PageAnalysis], *, today: date | None = N
     originals = _collect(pages, ORIGINAL_SCRIPT_NAME, _name_key)
     other_names = _collect(pages, OTHER_NAMES, _name_key)
     nationalities = _collect(pages, NATIONALITY, _nationality_key)
+    details = {name: _collect(pages, name, _name_key) for name in _DETAIL_NAMES}
+    personal_numbers = _collect(pages, PERSONAL_NUMBER, _personal_number_key)
+    personal_number = _single_reading(personal_numbers)
     collected = {
         DOCUMENT_NUMBER: numbers,
         SURNAME: surnames,
@@ -361,7 +389,31 @@ def build_person_key(analyses: Iterable[PageAnalysis], *, today: date | None = N
         latin_other_names=latin[OTHER_NAMES],
         date_of_birth_legible=_legible_single(births)
         or (len(births) == 1 and any(_mrz_carries(page, DATE_OF_BIRTH) for page in pages)),
+        mother_name=_single_reading(details[MOTHER_NAME]),
+        father_name=_single_reading(details[FATHER_NAME]),
+        place_of_birth=_single_reading(details[PLACE_OF_BIRTH]),
+        personal_number=personal_number,
+        personal_number_country=None
+        if personal_number is None
+        else _personal_number_country(pages, personal_numbers),
     )
+
+
+def _personal_number_country(
+    pages: Sequence[MrzResolution], numbers: dict[str, _Reading]
+) -> str | None:
+    # 15.3.2: numarayı veren sayfaların (MRZ'si numara taşıyan sayfa önce) okuduğu ülke, tekil.
+    (number,) = numbers
+    carriers = [page for page in pages if _mrz_carries(page, PERSONAL_NUMBER)] or pages
+    sources = [
+        page
+        for page in carriers
+        if any(
+            _personal_number_key(raw, None) == number
+            for raw, _ in _readings(page.analysis, PERSONAL_NUMBER)
+        )
+    ]
+    return _single(_collect(sources, PERSONAL_NUMBER_COUNTRY, _nationality_key))
 
 
 def _latin_names(
@@ -445,7 +497,7 @@ def _collect[K](
 
 def _mrz_carries(page: MrzResolution, name: str) -> bool:
     return (
-        name in MRZ_FIELDS
+        name in _MRZ_KEY_FIELDS
         and page.status is MrzStatus.READ
         and page.mrz is not None
         and getattr(page.mrz, name) is not None
@@ -484,6 +536,10 @@ def _date_key(raw: str | date, language: str | None) -> date | None:
         return date.fromisoformat(raw)
     except ValueError:
         return None
+
+
+def _personal_number_key(raw: str | date, language: str | None) -> str | None:
+    return personal_number_key(str(raw)) or None
 
 
 def _nationality_key(raw: str | date, language: str | None) -> str | None:

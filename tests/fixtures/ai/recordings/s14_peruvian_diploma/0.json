@@ -16,6 +16,11 @@
     "date_of_birth": "1995-03-15",
     "nationality": null,
     "document_number": "DIP-0000077",
+    "mother_name": null,
+    "father_name": null,
+    "place_of_birth": null,
+    "personal_number": null,
+    "personal_number_country": null,
     "mrz_lines": null,
     "contact": {"phone": null, "email": null, "address": null}
   },

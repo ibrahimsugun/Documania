@@ -251,9 +251,61 @@ def test_employee_fields_are_the_first_readings_as_written() -> None:
         "original_script_name": "Орнекова Тест",
         "date_of_birth": date(1990, 1, 1),
         "nationality": "RUS",
+        "mother_name": None,
+        "father_name": None,
+        "place_of_birth": None,
+        "personal_number": None,
+        "personal_number_country": None,
     }
     assert tuple(key.employee_fields()) == EMPLOYEE_FIELDS
     assert key.conflicts == ()
+
+
+# --- ek profil alanları (15.3.2) -------------------------------------------------------------
+
+
+def test_detail_fields_are_the_first_readings_and_a_disagreement_leaves_them_out() -> None:
+    first = _page(mother_name="Galina", place_of_birth="TULA", father_name="PETR")
+    # Aynı değerin başka yazımı tek okumadır; farklı baba adı çelişkidir ama kimlik alanı değildir.
+    second = _page(fields={}, mother_name="GALINA", place_of_birth="Tula", father_name="PAVEL")
+
+    key = _key(first, second)
+
+    assert (key.mother_name, key.place_of_birth, key.father_name) == ("Galina", "TULA", None)
+    assert key.conflicts == ()
+
+
+def test_personal_number_comes_with_its_country_and_a_country_alone_is_dropped() -> None:
+    numbered = _key(_page(personal_number="0101990-710006", personal_number_country="SRB"))
+    alone = _key(_page(personal_number_country="SRB"))
+
+    assert numbered.employee_fields()["personal_number"] == "0101990-710006"
+    assert numbered.employee_fields()["personal_number_country"] == "SRB"
+    assert alone.employee_fields()["personal_number_country"] is None
+
+
+def test_the_mrz_personal_number_comes_before_the_visible_text_of_the_other_side() -> None:
+    # Ön yüz numarayı farklı okudu; arka yüzün TD1 MRZ'si numarayı ve veren devleti taşır (05.3.3).
+    front = _page(personal_number="11111111111", personal_number_country="RUS")
+    back = _page(
+        fields=ILLEGIBLE,
+        top={"side": "back"},
+        **NO_PERSON,
+        mrz=make_mrz(
+            MrzFormat.TD1,
+            code="ID",
+            state="TUR",
+            name="ORNEKOVA<<TEST",
+            number="A12B34567",
+            nationality="RUS",
+            birth="900101",
+            optional="12345678901",
+        ),
+    )
+
+    key = _key(front, back)
+
+    assert (key.personal_number, key.personal_number_country) == ("12345678901", "TUR")
 
 
 def test_empty_key_has_empty_employee_fields() -> None:
