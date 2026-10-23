@@ -17,6 +17,10 @@ kalır, hiçbir dosya kopyalanmaz ya da silinmez. Taşıma sabit bağ + eski ad�
 - **`Alinan/`** klasöründeki her dosya adıyla kalanın `Alinan/`'ına taşınır; ad doluysa
   `ad-2.uzantı` (`write_unique`'in kuralı). Aynı içerik orada olsa da taşınır — silme yoktur
   (K16, R11).
+- **Üretilen belge** (15.2.3; etkin, eski sürüm ve arşivdeki) kalanın `Uretilen/`'ine kalanın K8
+  adıyla taşınır: `document_stem(kalanın adı, kalanın soyadı, şablonun file_label'ı)`; sıra eki
+  kalanın o şablondaki en büyük sıra numarasından sonra gelir (birleşenin sırasıyla), gövde
+  `Uretilen/`'de doluysa bir sonraki boş ek. Durumu değişmez.
 
 Birleşenin klasörü, `Alinan/` ve `Hazir/` dizinleri yerinde kalır (boş); `profil.md`'si çağıranca
 yönlendirme notuyla yeniden üretilir.
@@ -33,10 +37,18 @@ import os
 from dataclasses import dataclass
 from pathlib import Path, PurePath
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.db.models import Document, DocumentStatus, Employee, KnownDocumentType
+from app.db.models import (
+    Document,
+    DocumentStatus,
+    Employee,
+    GeneratedDocument,
+    GeneratedDocumentStatus,
+    KnownDocumentType,
+    OutputTemplate,
+)
 from app.storage.atomic import is_partial_write
 from app.storage.layout import DataLayout
 from app.storage.naming import document_stem, normalize_extension, sequenced_stem
@@ -67,16 +79,22 @@ class RelocatedDocument:
 
 @dataclass(frozen=True, slots=True)
 class EmployeeMergePlan:
-    """`plan_employee_merge` sonucu: dosyası taşınacak belgeler ve `Alinan/` kopyaları."""
+    """`plan_employee_merge` sonucu: dosyası taşınacak belgeler, `Alinan/` kopyaları ve üretilen
+    belgeler (`outputs`; oradaki `document_id` üretilen belgenin kimliğidir)."""
 
     keep_folder: str
     merge_folder: str
     documents: tuple[RelocatedDocument, ...]
     received: tuple[FileMove, ...]
+    outputs: tuple[RelocatedDocument, ...] = ()
 
     @property
     def moves(self) -> tuple[FileMove, ...]:
-        return (*(document.move for document in self.documents), *self.received)
+        return (
+            *(document.move for document in self.documents),
+            *self.received,
+            *(output.move for output in self.outputs),
+        )
 
 
 def plan_employee_merge(
@@ -116,7 +134,56 @@ def plan_employee_merge(
         merge_folder=merge.folder_name,
         documents=tuple(relocated),
         received=_received_moves(layout, keep.folder_name, merge.folder_name),
+        outputs=_output_moves(session, layout, keep, merge),
     )
+
+
+def _output_moves(
+    session: Session, layout: DataLayout, keep: Employee, merge: Employee
+) -> tuple[RelocatedDocument, ...]:
+    """15.2.3 — birleşenin üretilen belgelerinin kalanın `Uretilen/`'indeki K8 adı ve sıra
+    numarası (modül açıklaması); dosyası yerinde olmayanın dosya işi yoktur."""
+    generated = layout.generated_dir(keep.folder_name)
+    taken = _stems_in_use(generated)
+    last: dict[int, int] = {
+        template_id: sequence_no
+        for template_id, sequence_no in session.execute(
+            select(GeneratedDocument.template_id, func.max(GeneratedDocument.sequence_no))
+            .where(GeneratedDocument.employee_id == keep.id)
+            .group_by(GeneratedDocument.template_id)
+        )
+    }
+    rows = session.execute(
+        select(GeneratedDocument, OutputTemplate.file_label)
+        .join(OutputTemplate, OutputTemplate.id == GeneratedDocument.template_id)
+        .where(
+            GeneratedDocument.employee_id == merge.id,
+            GeneratedDocument.status != GeneratedDocumentStatus.DELETED.value,
+        )
+        .order_by(GeneratedDocument.template_id, GeneratedDocument.sequence_no)
+    ).all()
+    moves: list[RelocatedDocument] = []
+    for output, file_label in rows:
+        current = _current_file(layout, output)
+        if current is None:
+            continue
+        stem = document_stem(keep.given_names, keep.surname, file_label)
+        sequence_no = last.get(output.template_id, 0) + 1
+        while sequenced_stem(stem, sequence_no).casefold() in taken:
+            sequence_no += 1
+        last[output.template_id] = sequence_no
+        chosen = sequenced_stem(stem, sequence_no)
+        taken.add(chosen.casefold())
+        target = generated / f"{chosen}{current.suffix}"
+        moves.append(
+            RelocatedDocument(
+                document_id=output.id,
+                path=layout.relative(target),
+                sequence_no=sequence_no,
+                move=FileMove(current, target),
+            )
+        )
+    return tuple(moves)
 
 
 def relocate_merged_files(layout: DataLayout, plan: EmployeeMergePlan) -> None:
@@ -138,7 +205,7 @@ def relocate_merged_files(layout: DataLayout, plan: EmployeeMergePlan) -> None:
     layout.ensure_employee_tree(plan.merge_folder)
 
 
-def _current_file(layout: DataLayout, document: Document) -> Path | None:
+def _current_file(layout: DataLayout, document: Document | GeneratedDocument) -> Path | None:
     try:
         path = layout.resolve(document.path)
     except ValueError:

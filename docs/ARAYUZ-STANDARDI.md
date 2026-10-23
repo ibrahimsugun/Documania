@@ -71,7 +71,7 @@ kırmızıdır. Yeni hook eklerken buraya yaz (alfabetik):
 `examples`, `files`, `generate-output`, `generated-description`, `generated-documents`, `group-archive`, `group-items`, `group-items-table`,
 `group-meta`, `item-title`, `items`, `map-preview`, `map-skip-reasons`, `map-skip-rows`, `map-skipped`,
 `map-start`, `map-upload`, `merge-candidates`, `merge-search`, `move-example`, `output-templates`,
-`outputs`, `prefill`, `prefill-conflict`, `prefill-state`, `prefill-suggested`, `prefill-unfilled`,
+`output-archive`, `output-restore`, `outputs`, `prefill`, `prefill-conflict`, `prefill-state`, `prefill-suggested`, `prefill-unfilled`,
 `profile-documents`, `profile-outputs`, `profile-packages`, `profile-record`, `profile-record-step`,
 `profile-records`, `profile-template-list`, `profile-templates`, `profile-upload`, `queue`, `queue-close-step`, `queue-items`, `reader-hint`, `reanalysis-results`,
 `reanalysis-targets`, `record-aliases`, `record-contacts`, `record-numbers`, `record-remove`,

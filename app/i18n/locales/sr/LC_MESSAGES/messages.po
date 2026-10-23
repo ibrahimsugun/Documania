@@ -4,8 +4,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Documania panel\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-23 01:46+0000\n"
-"PO-Revision-Date: 2026-10-23 01:46+0000\n"
+"POT-Creation-Date: 2026-10-23 02:30+0000\n"
+"PO-Revision-Date: 2026-10-23 02:30+0000\n"
 "Last-Translator: Documania görev penceresi (gözden geçirilmeli)\n"
 "Language: sr_Latn\n"
 "Language-Team: Srpski\n"
@@ -822,6 +822,11 @@ msgstr "U arhivi"
 msgid "Arşivdeki gruba yeni paket tanımlanamaz."
 msgstr "Iz arhivirane grupe ne može se dodeliti novi paket."
 
+#: app/web/templates/profile.html
+#, python-format
+msgid "Arşivdeki üretilen belgeler (%(count)s)"
+msgstr "Arhivirani generisani dokumenti (%(count)s)"
+
 #: app/web/routers/output_templates.py
 msgid "Arşivdeki şablon incelenmez; önce arşivden geri alın."
 msgstr "Šablon u arhivi se ne pregleda; prvo ga vratite iz arhive."
@@ -848,7 +853,8 @@ msgstr "Vrati iz arhive"
 msgid "Arşive taşı"
 msgstr "Premesti u arhivu"
 
-#: app/web/templates/catalog.html app/web/templates/training_results.html
+#: app/web/templates/catalog.html app/web/templates/profile.html
+#: app/web/templates/training_results.html
 msgid "Arşivle"
 msgstr "Arhiviraj"
 
@@ -895,7 +901,7 @@ msgstr "Nema arhiviranih pokretanja."
 msgid "Arşivlenen çalıştırmalar"
 msgstr "Arhivirana pokretanja"
 
-#: app/web/templates/catalog.html
+#: app/web/templates/catalog.html app/web/templates/profile.html
 msgid "Arşivleyen"
 msgstr "Arhivirao"
 
@@ -7870,6 +7876,18 @@ msgstr ""
 #: app/web/templates/profile.html
 msgid "Üreten"
 msgstr "Generisao"
+
+#: app/web/feedback.py
+msgid "Üretilen belge arşivden geri alındı."
+msgstr "Generisani dokument je vraćen iz arhive."
+
+#: app/web/feedback.py
+msgid ""
+"Üretilen belge arşivlendi; dosya yerinde kalır, arşivdekiler bölümünden "
+"geri alınır."
+msgstr ""
+"Generisani dokument je arhiviran; datoteka ostaje na mestu i vraća se iz "
+"odeljka arhiviranih."
 
 #: app/web/routers/generated_documents.py
 msgid "Üretilen belge bulunamadı"

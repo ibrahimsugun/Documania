@@ -23,6 +23,10 @@ hesapla (`app.groups.employee_packages`) gösterir: iptal edilmemiş her paket i
 zorunlu/isteğe bağlı, karşılayan belgenin dosya adı); iptal edilenler ayrı listede. Üretim paket
 durumunu yazmaz (yenileme noktalarının işi). Tanımlama notu ve iptal nedeni dosyaya girmez.
 
+"Üretilen belgeler" bölümü (15.2.2) hazır şablondan üretilen belgeleri (çalışan belgesi değildir,
+"Belgeler"de yoktur) şablon adı, dosya adı, durum (`active`, `superseded`, `archived`) ve üretim
+tarihiyle listeler; kalıcı silinen (`deleted`) satır dosyaya girmez.
+
 Başka bir kayıtla birleştirilen çalışanın (`merged`, 10.5.9) belgeleri, alt kayıtları ve paketleri
 kalan kayda taşınmıştır; `profil.md`'si yalnız yönlendirme notudur: kısa YAML ön blok (numara,
 klasör, durum, kalan kaydın numarası ve klasörü), başlık ve "Bu kayıt <E> ile birleştirildi" notu.
@@ -46,7 +50,10 @@ from app.db.models import (
     EmployeeContact,
     EmployeeIdentifier,
     EmployeeStatus,
+    GeneratedDocument,
+    GeneratedDocumentStatus,
     KnownDocumentType,
+    OutputTemplate,
 )
 from app.groups import PackageView, employee_packages
 from app.matching.records import ACTIVE_CONTACT, ACTIVE_IDENTIFIER, passport_number
@@ -72,7 +79,8 @@ def calculate_age(date_of_birth: date, *, today: date) -> int:
 def render_profile(session: Session, employee: Employee, *, today: date | None = None) -> str:
     """`profil.md` içeriğini çalışanın güncel veritabanı kaydından üretir (09.1.1-09.1.3).
 
-    Sıra: YAML ön blok, kimlik tablosu, belge listesi, belge paketleri. `today` yaş hesaplamasının
+    Sıra: YAML ön blok, kimlik tablosu, belge listesi, belge paketleri, üretilen belgeler. `today`
+    yaş hesaplamasının
     referans günüdür (verilmezse bugün); testler belirlenebilirlik için verir.
     """
     if employee.status == EmployeeStatus.MERGED.value and employee.merged_into_id is not None:
@@ -98,7 +106,8 @@ def render_profile(session: Session, employee: Employee, *, today: date | None =
         f"# {employee.given_names} {employee.surname}\n\n"
         f"{_identity_table(employee, identifiers, contacts, age, passport)}\n"
         f"{_document_list(documents)}\n"
-        f"{_package_list(employee_packages(session, employee.id))}"
+        f"{_package_list(employee_packages(session, employee.id))}\n"
+        f"{_output_list(_outputs(session, employee.id))}"
     )
 
 
@@ -171,6 +180,20 @@ def _documents(session: Session, employee_id: str) -> Sequence[tuple[Document, K
             Document.status != DocumentStatus.DELETED.value,
         )
         .order_by(Document.created_at, Document.id)
+    ).all()
+
+
+def _outputs(
+    session: Session, employee_id: str
+) -> Sequence[tuple[GeneratedDocument, OutputTemplate]]:
+    return session.execute(
+        select(GeneratedDocument, OutputTemplate)
+        .join(OutputTemplate, OutputTemplate.id == GeneratedDocument.template_id)
+        .where(
+            GeneratedDocument.employee_id == employee_id,
+            GeneratedDocument.status != GeneratedDocumentStatus.DELETED.value,
+        )
+        .order_by(GeneratedDocument.generated_at, GeneratedDocument.id)
     ).all()
 
 
@@ -298,3 +321,17 @@ def _package_list(packages: Sequence[PackageView]) -> str:
             )
         )
     return header + "\n".join(sections)
+
+
+def _output_list(outputs: Sequence[tuple[GeneratedDocument, OutputTemplate]]) -> str:
+    header = "## Üretilen belgeler\n\n"
+    if not outputs:
+        return header + "Henüz üretilen belge yok.\n"
+    header += "| Şablon | Dosya | Durum | Tarih |\n|---|---|---|---|\n"
+    rows = "".join(
+        f"| {_cell(template.name)} | "
+        f"{PurePosixPath(output.path).name if output.path else _EMPTY} | {output.status} | "
+        f"{output.generated_at.date().isoformat()} |\n"
+        for output, template in outputs
+    )
+    return header + rows

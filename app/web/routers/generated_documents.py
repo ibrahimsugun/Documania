@@ -10,6 +10,13 @@
 - `GET .../outputs/{generated_document_id}/file` (yeni sekmede açma) ve `.../download` (indirme)
   üretilen belgeyi olduğu gibi sunar ve önce erişim logunu `generated_document_id` ile yazar
   (10.9.2). Belge bu çalışanın değilse, kalıcı silinmişse ya da dosyası yoksa 404, kayıt düşmez.
+  Eski sürüm (`superseded`) ve arşivdeki belge de açılır ve indirilir.
+- `POST .../outputs/{generated_document_id}/archive` ve `.../restore` üretilen belgeyi tek adımda
+  arşivler ve geri alır (15.2.2; `app.output_templates.lifecycle`, `OUTPUT_ARCHIVED` /
+  `OUTPUT_RESTORED`). Belge bu çalışanın değilse ya da kalıcı silinmişse 404.
+
+Her yazmadan sonra `profil.md` commit edilmiş hâlden yeniden üretilir ("Üretilen belgeler"
+bölümü, 09.1.1).
 
 Yazma yolu İK/root'tur (10.1.8: `app.main` yazma kapısını bağlar); Kullanıcı bölümleri görür,
 belgeyi açar ve indirir. Kalıcı silinen çalışanın adresleri "silindi" sayfasını döner
@@ -42,14 +49,18 @@ from app.output_templates.generate import (
     TemplateNotReadyError,
     generate_document,
 )
+from app.output_templates.lifecycle import OutputNotFoundError, set_output_archived
+from app.profiles import write_profile
 from app.storage import DataLayout
 from app.web.access import record_access
 from app.web.auth import PanelUser, require_panel_user
 from app.web.feedback import (
+    OUTPUT_ARCHIVED,
     OUTPUT_GENERATED,
     OUTPUT_GENERATED_MISSING,
     OUTPUT_GENERATED_MISSING_OVERFLOW,
     OUTPUT_GENERATED_OVERFLOW,
+    OUTPUT_RESTORED,
     flash,
 )
 from app.web.routers.uploads import get_layout
@@ -112,6 +123,7 @@ def generate_output(
     except TemplateFileMissingError:
         session.rollback()
         raise HTTPException(status.HTTP_404_NOT_FOUND, TEMPLATE_FILE_NOT_FOUND) from None
+    _rewrite_profile(session, layout, employee_id)
     missing = ",".join(result.missing)
     overflow = ",".join(result.truncated)
     if missing and overflow:
@@ -123,6 +135,58 @@ def generate_output(
     if overflow:
         return _redirect(employee_id, OUTPUT_GENERATED_OVERFLOW, overflow=overflow)
     return _redirect(employee_id, OUTPUT_GENERATED, count=len(result.filled))
+
+
+def _rewrite_profile(session: Session, layout: DataLayout, employee_id: str) -> None:
+    # 09.1.1: profil.md "Üretilen belgeler" bölümünün commit edilmiş hâlini gösterir.
+    employee = session.get(Employee, employee_id)
+    if employee is not None:
+        write_profile(session, layout, employee)
+    session.rollback()
+
+
+def _set_archived(
+    session: Session,
+    layout: DataLayout,
+    employee_id: str,
+    generated_document_id: int,
+    archived: bool,
+    user: PanelUser,
+) -> RedirectResponse:
+    try:
+        set_output_archived(
+            session, employee_id, generated_document_id, archived, actor=user.username
+        )
+        session.commit()
+    except OutputNotFoundError:
+        session.rollback()
+        raise HTTPException(status.HTTP_404_NOT_FOUND, OUTPUT_NOT_FOUND) from None
+    _rewrite_profile(session, layout, employee_id)
+    return _redirect(employee_id, OUTPUT_ARCHIVED if archived else OUTPUT_RESTORED)
+
+
+@router.post("/employees/{employee_id}/outputs/{generated_document_id}/archive")
+def archive_output(
+    employee_id: str,
+    generated_document_id: int,
+    user: CurrentUser,
+    session: DbSession,
+    layout: Layout,
+) -> RedirectResponse:
+    """15.2.2 — üretilen belgeyi arşivler (tek adım); dosya yerinde kalır."""
+    return _set_archived(session, layout, employee_id, generated_document_id, True, user)
+
+
+@router.post("/employees/{employee_id}/outputs/{generated_document_id}/restore")
+def restore_output(
+    employee_id: str,
+    generated_document_id: int,
+    user: CurrentUser,
+    session: DbSession,
+    layout: Layout,
+) -> RedirectResponse:
+    """15.2.2 — arşivdeki üretilen belgeyi geri alır (tek adım)."""
+    return _set_archived(session, layout, employee_id, generated_document_id, False, user)
 
 
 def _stored_output(

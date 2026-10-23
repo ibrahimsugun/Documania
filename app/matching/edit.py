@@ -18,10 +18,12 @@ kaydı değişmez (K11, K17, R12).
   profildeki gibi, `_employee_aliases`): isim eşleştirmesi (§20.2.2 satır 3–5) yeni yazımla da
   bulur, eski yazımlar kalır;
 - ad ya da soyad klasör adını değiştiriyorsa klasörü ve `Hazir/`'daki etkin belge dosyalarını K8
-  adına yeniden adlandırır (`app.storage.rename`); E numarası ve çalışanın kimliği değişmez;
+  adına yeniden adlandırır (`app.storage.rename`); `Uretilen/`'deki üretilen belgeler de K8 adını
+  alır (15.2.3); E numarası ve çalışanın kimliği değişmez;
 - `EMPLOYEE_EDITED` olayını kullanıcı adıyla yazar: `fields` (değişen alan adları), `renamed`
-  (klasör yeniden adlandırıldı mı), `documents` (dosyası yeniden adlandırılan belge kimlikleri) —
-  değer yazılmaz (PRD §8.3, D51).
+  (klasör yeniden adlandırıldı mı), `documents` (dosyası yeniden adlandırılan belge kimlikleri),
+  `outputs` (dosyası yeniden adlandırılan üretilen belge kimlikleri) — değer yazılmaz (PRD §8.3,
+  D51).
 
 Satırlar önce yazılıp `flush` edilir, dosyalar en son taşınır; taşıma yarıda kalırsa dosyalar geri
 alınır ve `EmployeeRenameError` yükselir — çağıran oturumu geri alır, hiçbir şey değişmemiş olur.
@@ -200,12 +202,18 @@ def update_employee_fields(
             )
         )
     documents = () if plan is None else plan.renamed_document_ids
+    outputs = () if plan is None else plan.renamed_output_ids
     event = record_event(
         session,
         EventType.EMPLOYEE_EDITED,
         employee_id=employee.id,
         actor=actor,
-        data={"fields": list(changed), "renamed": plan is not None, "documents": list(documents)},
+        data={
+            "fields": list(changed),
+            "renamed": plan is not None,
+            "documents": list(documents),
+            "outputs": list(outputs),
+        },
     )
     session.flush()
     if plan is not None:

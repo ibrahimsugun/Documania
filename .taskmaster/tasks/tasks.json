@@ -2723,20 +2723,20 @@
         "description": "PRD 15.2.3 · FR-MOD-15 · Faz 1 · Must (v1). Sözleşme PLAN §D123 (d). Üretilen belge çalışanın yaşam döngüsünü izler; sistem silmez, İK arşivler; kalıcı silme 10.5.13 ile.",
         "details": "KAPSAM: PRD 15.2.3, S29 ikinci yarı; PLAN §D123 d — önce oku. tm 185 üzerine.\n\nNE YAPILACAK: (1) Aynı şablondan yeniden üretim: yeni `sequence_no`, önceki `superseded` (K18 kalıbı; dosya silinmez, yeniden adlandırılmaz). (2) Arşivle / geri al tek adımlı (`archived`, `OUTPUT_ARCHIVED` / `OUTPUT_RESTORED`); arşivdeki üretilen belge listede katlanmış bölümde. (3) 10.5.6 yeniden adlandırma: `Uretilen/` dosyaları K8 adıyla yeniden adlandırılır, `generated_documents.path` güncellenir, yarıda kesilirse hiçbir şey değişmiş görünmez (var olan kalıp `app/storage/rename`). (4) 10.5.9 birleştirme: üretilen belgeler kalan kayda taşınır (K8 adıyla), olay kimlikleri taşır. (5) 10.5.13 kalıcı silme: `Uretilen/` diskten kalkar, satırlar `deleted` (path boş), `EMPLOYEE_DELETED` sayıları üretilen belgeyi de sayar. (6) 15.1.4: arşivdeki şablon profilde seçilemez, üretilmiş belgeler yerinde. (7) profil.md \"Üretilen belgeler\" bölümü (`app/profiles/render.py`). (8) S29 senaryo testi tamamlanır.\n\nGİRDİ: tm 185 çıktıları, app/storage/delete_employee.py, app/storage/rename*.py, app/matching/merge.py, app/profiles/render.py.\n\nÇIKTI: yönlendirici, storage, merge/delete/rename genişletmeleri, profil.md, tests, tests/test_scenario_s29.py tam, PLAN, HANDOFF.\n\nTUZAKLAR: yeniden adlandırma atomikliği; `superseded` üretilen belge erişimi (aç/indir) sürer; kalıcı silmede Inbox ölçütü üretilen belgeyi ilgilendirmez (kaynak yok).\n\nBU GÖREVİ BAĞLAYAN KİLİTLİ KURALLAR: PLAN §D123 (sözleşme — önce oku), R2/R11, K8 (adlandırma), K9/R10 (dondurulmuş harita), K15 (olay; kişisel değer yok), 10.1.8 (yetki), 10.10.3 (üç dil, `python -m app.i18n extract|update|compile|check`), 10.11.1 (bildirim kaydı), docs/ARAYUZ-STANDARDI.md (şablon ve stil; `tests/web/test_ui_standard.py`), MASTER-PROMPT yol kuralı (yol yalnız `app/storage/`), §8 (sütun ve olay adları).\n\nKAPANIŞ: PLAN satırları ✅ → K15.x (yeni blok `#### K15.1` / `K15.2` / `K15.3`), HANDOFF bloğu, Task Master done, commit mesajında `PRD 15.x — tm <id>`; CONVENTIONS §1 kapısı (tam paralel koşu uzun sürerse HANDOFF'a hangi klasörlerin koşulduğunu yaz).",
         "testStrategy": "tests/web (yeniden üretim -2 + superseded, arşiv/geri al + olaylar), tests/storage (yeniden adlandırma, birleştirme taşıma, kalıcı silme), tests/profiles (profil.md bölümü), tests/test_scenario_s29.py tam; tam paralel kapı.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [
           "185"
         ],
         "priority": "medium",
         "subtasks": [],
-        "updatedAt": "2026-10-22T22:35:37.000Z"
+        "updatedAt": "2026-10-23T02:50:23.608Z"
       }
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-23T02:16:47.910Z",
+      "lastModified": "2026-10-23T02:50:23.608Z",
       "taskCount": 187,
-      "completedCount": 186,
+      "completedCount": 187,
       "tags": [
         "master"
       ]

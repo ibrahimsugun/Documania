@@ -344,7 +344,8 @@
 
 {# 15.2.2: üretilen belgeler (çalışan belgesi değildir; "Belgeler"de ve sayılarında yoktur). Belge
    yeni sekmede açılır ve indirilir; ikisi de erişim loguna yazılır. Eksik alanlar profilde boş
-   olduğu için boş bırakılan alanların adlarıdır. #}
+   olduğu için boş bırakılan alanların adlarıdır. Yeniden üretim öncekini "Eski sürüm" yapar (K18);
+   "Arşivle" / "Geri al" tek adımlıdır ve yazma yetkisindedir, arşivdekiler katlanmış bölümdedir. #}
 <section class="profile-outputs" id="outputs" aria-labelledby="outputs-title">
   <h2 id="outputs-title">{{ _("Üretilen belgeler") }} <span class="count">{{ profile.outputs|length }}</span></h2>
   {% if profile.outputs %}
@@ -362,13 +363,40 @@
         <td class="num">{{ output.map_version }}</td>
         <td>{% if output.missing %}{% for label in output.missing %}{% if not loop.first %}, {% endif %}{{ translate(label) }}{% endfor %}{% else %}—{% endif %}</td>
         <td>{{ translate(output.status_label) }}</td>
-        <td class="doc-actions">{% if output.available %}<a href="/employees/{{ profile.id }}/outputs/{{ output.id }}/download">{{ _("İndir") }}</a>{% else %}<span class="reason">{{ _("Dosya bulunamadı") }}</span>{% endif %}</td>
+        <td class="doc-actions">{% if output.available %}<a href="/employees/{{ profile.id }}/outputs/{{ output.id }}/download">{{ _("İndir") }}</a>{% else %}<span class="reason">{{ _("Dosya bulunamadı") }}</span>{% endif %}{% if user.can_write %}
+          <form method="post" action="/employees/{{ profile.id }}/outputs/{{ output.id }}/archive" class="inline-form output-archive">
+            <button type="submit" class="link-button">{{ _("Arşivle") }}</button>
+          </form>{% endif %}</td>
       </tr>
       {% endfor %}
     </tbody>
   </table>
   {% else %}
   <p class="placeholder">{{ _('Henüz üretilen belge yok. Yukarıdaki hazır şablonlardan birinde "Çıktıya hazırla" düğmesini kullanın.') }}</p>
+  {% endif %}
+  {% if profile.archived_outputs %}
+  <details class="archived-outputs" id="outputs-archived">
+    <summary>{{ _("Arşivdeki üretilen belgeler (%(count)s)", count=profile.archived_outputs|length) }}</summary>
+    <table class="outputs generated-documents">
+      <thead>
+        <tr><th>{{ _("Şablon") }}</th><th>{{ _("Dosya") }}</th><th>{{ _("Tarih") }}</th><th>{{ _("Arşivleyen") }}</th><th></th></tr>
+      </thead>
+      <tbody>
+        {% for output in profile.archived_outputs %}
+        <tr id="output-{{ output.id }}" class="output-superseded">
+          <td translate="no">{{ output.template_name }}</td>
+          <td>{% if output.available %}<a href="/employees/{{ profile.id }}/outputs/{{ output.id }}/file" target="_blank" rel="noopener" translate="no">{{ output.file_name }}</a>{% else %}<span translate="no">{{ output.file_name }}</span>{% endif %}</td>
+          <td class="cell-nowrap">{{ output.generated_at.strftime("%d.%m.%Y %H:%M") }}</td>
+          <td translate="no">{{ output.archived_by or "—" }}</td>
+          <td class="doc-actions">{% if output.available %}<a href="/employees/{{ profile.id }}/outputs/{{ output.id }}/download">{{ _("İndir") }}</a>{% else %}<span class="reason">{{ _("Dosya bulunamadı") }}</span>{% endif %}{% if user.can_write %}
+            <form method="post" action="/employees/{{ profile.id }}/outputs/{{ output.id }}/restore" class="inline-form output-restore">
+              <button type="submit" class="link-button">{{ _("Geri al") }}</button>
+            </form>{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </details>
   {% endif %}
 </section>
 

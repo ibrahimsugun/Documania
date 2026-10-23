@@ -120,6 +120,7 @@ class FileRole(enum.StrEnum):
     INBOX = "inbox"  # yüklenen orijinal ya da tekrar yüklemesi
     QUEUE = "queue"  # Unknown/, Unreadable/, Unresolved/ altındaki kopya
     PAGE_IMAGE = "page_image"  # cache/pages/<dosya>/ altındaki analiz görüntüsü
+    GENERATED = "generated"  # Uretilen/ altındaki üretilen belge (15.2.3)
 
 
 @dataclass(frozen=True, slots=True)

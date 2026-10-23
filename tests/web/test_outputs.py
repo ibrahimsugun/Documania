@@ -182,3 +182,53 @@ def test_opening_and_downloading_an_output_is_logged_and_foreign_ids_are_404(
             (output.id, None, "view"),
             (output.id, None, "download"),
         ]
+
+
+def test_regenerating_supersedes_and_archive_restore_are_single_steps(
+    app: FastAPI, client: TestClient, session_factory: sessionmaker[Session], template_id: int
+) -> None:
+    _generate(client, template_id)
+    _generate(client, template_id)
+    first, second = sorted(_outputs(session_factory), key=lambda output: output.id)
+    assert (first.status, second.status, second.sequence_no) == ("superseded", "active", 2)
+    page = client.get("/employees/E0001").text
+    assert "Eski sürüm" in page and 'class="archived-outputs"' not in page
+    assert f'action="/employees/E0001/outputs/{first.id}/archive"' in page
+
+    archived = client.post(f"/employees/E0001/outputs/{first.id}/archive", follow_redirects=False)
+
+    assert archived.status_code == 303
+    assert archived.headers["location"] == "/employees/E0001#outputs"
+    assert flashed(archived) == ("employees.output_archived", {})
+    page = client.get("/employees/E0001").text
+    folded = page.split('<details class="archived-outputs" id="outputs-archived">', 1)[1]
+    assert "Arşivdeki üretilen belgeler (1)" in folded
+    assert f'action="/employees/E0001/outputs/{first.id}/restore"' in folded
+    # Arşivdeki belge açılmaya devam eder.
+    assert client.get(f"/employees/E0001/outputs/{first.id}/file").status_code == 200
+
+    app.dependency_overrides[get_current_user] = lambda: READER
+    assert "/restore" not in client.get("/employees/E0001").text
+    assert client.post(f"/employees/E0001/outputs/{first.id}/restore").status_code == 403
+    app.dependency_overrides[get_current_user] = lambda: SIGNED_IN
+
+    restored = client.post(f"/employees/E0001/outputs/{first.id}/restore", follow_redirects=False)
+    assert flashed(restored) == ("employees.output_restored", {})
+    assert {output.id: output.status for output in _outputs(session_factory)} == {
+        first.id: "superseded",
+        second.id: "active",
+    }
+    assert client.post("/employees/E0001/outputs/999/archive").status_code == 404
+
+
+def test_an_archived_template_is_not_selectable_and_its_outputs_stay(
+    client: TestClient, session_factory: sessionmaker[Session], template_id: int
+) -> None:
+    _generate(client, template_id)
+    assert client.post(f"/output-templates/{template_id}/archive").status_code in {200, 303}
+
+    page = client.get("/employees/E0001").text
+
+    assert f'name="template_id" value="{template_id}"' not in page
+    assert "Ivan_Petrov-Work-contract.pdf" in page
+    assert _generate(client, template_id).status_code == 409

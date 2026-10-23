@@ -114,6 +114,7 @@ def test_generation_writes_profile_values_into_a_copy_and_leaves_the_rest_empty(
         "filled_fields": ["full_name", "date_of_birth"],
         "missing_fields": ["mother_name"],
         "truncated_fields": [],
+        "superseded": [],
     }
     assert "Ivan" not in str(event.data_json) and "1990" not in str(event.data_json)
 

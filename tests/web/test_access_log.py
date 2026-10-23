@@ -453,6 +453,12 @@ REVIEWED_MUTATING_ROUTES: dict[tuple[str, str], str] = {
         "üretilen belge kaydı: hazır şablonun kopyasına profil değerleri, şablon ve çalışan "
         "belgesi değişmez (15.2.1, §D123)"
     ),
+    ("POST", "/employees/{employee_id}/outputs/{generated_document_id}/archive"): (
+        "üretilen belge kaydı: arşivleme, dosya yerinde kalır, silme yok (15.2.2, R11)"
+    ),
+    ("POST", "/employees/{employee_id}/outputs/{generated_document_id}/restore"): (
+        "üretilen belge kaydı: arşivden geri alma (15.2.2)"
+    ),
     ("POST", "/employees/{employee_id}/packages"): (
         "belge paketi kaydı: gruptan paket tanımlama, belgeye dokunmaz (14.2.1)"
     ),

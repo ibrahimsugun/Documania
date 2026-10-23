@@ -445,6 +445,7 @@ def test_the_token_changes_the_fields_renames_the_files_and_logs_both_events(
             "fields": ["surname"],
             "renamed": True,
             "documents": sorted(seeded["documents"].values()),
+            "outputs": [],
         }
         logged = json.dumps([confirmed.data_json, edited.data_json], ensure_ascii=False)
         assert "Petrov" not in logged and "Ivan" not in logged
@@ -635,6 +636,7 @@ def test_detail_fields_are_entered_by_hand_with_a_manual_source_and_named_events
             "fields": list(DETAILS),
             "renamed": False,
             "documents": [],
+            "outputs": [],
         }
         # 15.3.3: değerler hiçbir olaya girmez — numaranın ayırıcısız biçimi de.
         logged = json.dumps(

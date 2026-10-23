@@ -27,10 +27,13 @@ girmez; satırı `generated_documents`'tadır.
   `n` şablon başına sıradır, ilki eksiz). Satır yazılamazsa yayınlanan dosya geri alınır.
 - **Kayıt.** `generated_documents` satırı yalnız alan **adlarını** taşır; olay
   `OUTPUT_GENERATED` (`template_id`, `map_version`, `generated_document_id`, `filled_fields`,
-  `missing_fields`, `truncated_fields`) kullanıcı adıyla — değer hiçbir olaya ve loga yazılmaz.
+  `missing_fields`, `truncated_fields`, `superseded`) kullanıcı adıyla — değer hiçbir olaya ve
+  loga yazılmaz.
+- **Yeniden üretim (15.2.2, K18 kalıbı).** Aynı çalışana aynı şablondan yeni belge üretilince o
+  şablonun `active` belgeleri `superseded` olur; dosyaları silinmez, yeniden adlandırılmaz ve
+  açılıp indirilmeye devam eder. Arşivdeki belge arşivde kalır.
 
-Yeniden üretimin öncekini eski sürüm yapması, arşiv ve yaşam döngüsü 15.2.3'tür (tm 186). Hiçbir
-fonksiyon commit etmez.
+Arşiv/geri al `app.output_templates.lifecycle`'dadır. Hiçbir fonksiyon commit etmez.
 """
 
 from __future__ import annotations
@@ -250,6 +253,22 @@ def _next_sequence_no(session: Session, employee_id: str, template_id: int) -> i
     return (previous or 0) + 1
 
 
+def _supersede_previous(session: Session, employee_id: str, template_id: int) -> tuple[int, ...]:
+    """K18 kalıbı: çalışanın bu şablondan `active` belgeleri `superseded` olur; kimlikleri."""
+    previous = session.scalars(
+        select(GeneratedDocument)
+        .where(
+            GeneratedDocument.employee_id == employee_id,
+            GeneratedDocument.template_id == template_id,
+            GeneratedDocument.status == GeneratedDocumentStatus.ACTIVE.value,
+        )
+        .order_by(GeneratedDocument.id)
+    ).all()
+    for row in previous:
+        row.status = GeneratedDocumentStatus.SUPERSEDED.value
+    return tuple(row.id for row in previous)
+
+
 def generate_document(
     session: Session,
     layout: DataLayout,
@@ -260,7 +279,8 @@ def generate_document(
     today: date | None = None,
 ) -> Generation:
     """15.2.1 — şablonun kopyasını çalışanın profil değerleriyle doldurur, `Uretilen/`'e yazar,
-    `generated_documents` satırını ve `OUTPUT_GENERATED` olayını ekler (tek adım, §D61).
+    `generated_documents` satırını ve `OUTPUT_GENERATED` olayını ekler (tek adım, §D61); aynı
+    şablonun önceki etkin belgesi `superseded` olur (15.2.2).
 
     Çalışan etkin değilse `EmployeeNotEligibleError`; şablon hazır değilse ya da onaylı haritası
     yoksa `TemplateNotReadyError`; şablon dosyası yoksa `TemplateFileMissingError`.
@@ -291,6 +311,7 @@ def generate_document(
         preferred_sequence_no=_next_sequence_no(session, employee.id, template.id),
     )
     try:
+        superseded = _supersede_previous(session, employee.id, template.id)
         document = GeneratedDocument(
             employee_id=employee.id,
             template_id=template.id,
@@ -316,6 +337,7 @@ def generate_document(
                 "filled_fields": list(filled.filled),
                 "missing_fields": list(filled.missing),
                 "truncated_fields": list(filled.truncated),
+                "superseded": list(superseded),
             },
         )
     except BaseException:

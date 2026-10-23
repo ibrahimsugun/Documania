@@ -14,6 +14,10 @@ aynı kalır.
   adlarını korur; dosyası yerinde olmayan belgenin yalnız yolu güncellenir.
 - Klasörün altındaki her `documents` satırının `path`'i yeni klasörü gösterir; köken kaydı
   (`source_refs_json`) ve arşiv (`Archive/…`) altındaki belgeler değişmez.
+- `Uretilen/` altındaki **üretilen belgeler** (15.2.3; etkin, eski sürüm ve arşivdeki — hepsi
+  `Uretilen/`'de durur) yeni K8 adını alır: `document_stem(yeni ad, yeni soyad, şablonun
+  file_label'ı)` + sıra eki (`sequence_no`; gövde `Uretilen/`'de doluysa ilk boş ek). Satırın
+  `path`'i ve `sequence_no`'su güncellenir; kalıcı silinmiş (yolu boş) satıra dokunulmaz.
 
 Sıra (`move_document` sözleşmesi): plan diske dokunmadan kurulur (`plan_employee_rename`); satırlar
 yeni yolla güncellenip `flush` edilir; sonra dosyalar taşınır. Taşıma yarıda kalırsa yapılan her
@@ -26,13 +30,21 @@ from __future__ import annotations
 
 import os
 import secrets
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.db.models import Document, DocumentStatus, Employee, KnownDocumentType
+from app.db.models import (
+    Document,
+    DocumentStatus,
+    Employee,
+    GeneratedDocument,
+    GeneratedDocumentStatus,
+    KnownDocumentType,
+    OutputTemplate,
+)
 from app.storage.layout import DataLayout
 from app.storage.naming import (
     document_stem,
@@ -61,16 +73,23 @@ class RenamedFile:
 @dataclass(frozen=True, slots=True)
 class EmployeeRenamePlan:
     """`plan_employee_rename` sonucu: eski ve yeni klasör adı, klasörün altındaki her belgenin yeni
-    göreli yolu (`paths`) ve adı değişen dosyalar (`files`)."""
+    göreli yolu (`paths`) ve adı değişen dosyalar (`files`); üretilen belgeler için aynısı
+    (`output_paths`, `outputs`; oradaki `document_id` üretilen belgenin kimliğidir)."""
 
     old_folder: str
     new_folder: str
     paths: dict[int, str]
     files: tuple[RenamedFile, ...]
+    output_paths: dict[int, str] = field(default_factory=dict)
+    outputs: tuple[RenamedFile, ...] = ()
 
     @property
     def renamed_document_ids(self) -> tuple[int, ...]:
         return tuple(renamed.document_id for renamed in self.files)
+
+    @property
+    def renamed_output_ids(self) -> tuple[int, ...]:
+        return tuple(renamed.document_id for renamed in self.outputs)
 
 
 def plan_employee_rename(
@@ -105,7 +124,57 @@ def plan_employee_rename(
             files.append(renamed)
             new_path = layout.ready_dir(new_folder) / renamed.target_name
         paths[document.id] = layout.relative(new_path)
-    return EmployeeRenamePlan(employee.folder_name, new_folder, paths, tuple(files))
+    output_paths, outputs = _plan_outputs(
+        session, layout, employee, new_folder, given_names=given_names, surname=surname
+    )
+    return EmployeeRenamePlan(
+        employee.folder_name, new_folder, paths, tuple(files), output_paths, outputs
+    )
+
+
+def _plan_outputs(
+    session: Session,
+    layout: DataLayout,
+    employee: Employee,
+    new_folder: str,
+    *,
+    given_names: str,
+    surname: str,
+) -> tuple[dict[int, str], tuple[RenamedFile, ...]]:
+    """15.2.3 — üretilen belgelerin yeni yolu ve `Uretilen/`'de adı değişen dosyalar."""
+    old_generated = layout.generated_dir(employee.folder_name)
+    new_generated = layout.generated_dir(new_folder)
+    prefix = f"{layout.relative(old_generated)}/"
+    rows = session.execute(
+        select(GeneratedDocument, OutputTemplate.file_label)
+        .join(OutputTemplate, OutputTemplate.id == GeneratedDocument.template_id)
+        .where(
+            GeneratedDocument.employee_id == employee.id,
+            GeneratedDocument.status != GeneratedDocumentStatus.DELETED.value,
+            GeneratedDocument.path.startswith(prefix, autoescape=True),
+        )
+        .order_by(GeneratedDocument.sequence_no, GeneratedDocument.id)
+    ).all()
+    taken = _stems_in_use(old_generated)
+    paths: dict[int, str] = {}
+    outputs: list[RenamedFile] = []
+    for output, file_label in rows:
+        relative_part = PurePosixPath(output.path).relative_to(PurePosixPath(prefix))
+        new_path = new_generated.joinpath(*relative_part.parts)
+        current = layout.resolve(output.path)
+        if current.parent == old_generated and current.is_file():
+            stem = document_stem(given_names, surname, file_label)
+            sequence_no = _free_sequence(stem, max(output.sequence_no, 1), current.stem, taken)
+            renamed = RenamedFile(
+                document_id=output.id,
+                source_name=current.name,
+                target_name=sequenced_filename(stem, sequence_no, current.suffix),
+                sequence_no=sequence_no,
+            )
+            outputs.append(renamed)
+            new_path = new_generated / renamed.target_name
+        paths[output.id] = layout.relative(new_path)
+    return paths, tuple(outputs)
 
 
 def rename_employee_folder(
@@ -130,6 +199,12 @@ def rename_employee_folder(
         document.path = path
         if document_id in sequences:
             document.sequence_no = sequences[document_id]
+    output_sequences = {renamed.document_id: renamed.sequence_no for renamed in plan.outputs}
+    for output_id, path in plan.output_paths.items():
+        output = session.get_one(GeneratedDocument, output_id)
+        output.path = path
+        if output_id in output_sequences:
+            output.sequence_no = output_sequences[output_id]
     employee.folder_name = plan.new_folder
     session.flush()
 
@@ -138,9 +213,12 @@ def rename_employee_folder(
         if old_dir.exists():
             _rename(old_dir, new_dir)
             done.append((old_dir, new_dir))
-        ready = layout.ready_dir(plan.new_folder)
-        for renamed in plan.files:
-            source, target = ready / renamed.source_name, ready / renamed.target_name
+        renames = (
+            *((layout.ready_dir(plan.new_folder), renamed) for renamed in plan.files),
+            *((layout.generated_dir(plan.new_folder), renamed) for renamed in plan.outputs),
+        )
+        for directory, renamed in renames:
+            source, target = directory / renamed.source_name, directory / renamed.target_name
             if source.name != target.name:
                 _rename(source, target)
                 done.append((source, target))
@@ -178,24 +256,31 @@ def _renamed_file(
     if document_type is None:
         return None
     stem = document_stem(given_names, surname, document_type.file_label)
-    own = current.stem.casefold()
-
-    def free(sequence_no: int) -> bool:
-        candidate = sequenced_stem(stem, sequence_no).casefold()
-        return candidate == own or candidate not in taken
-
-    sequence_no = document.sequence_no if document.sequence_no >= 1 else 1
-    if not free(sequence_no):
-        sequence_no = 1
-        while not free(sequence_no):
-            sequence_no += 1
-    taken.add(sequenced_stem(stem, sequence_no).casefold())
+    sequence_no = _free_sequence(stem, max(document.sequence_no, 1), current.stem, taken)
     return RenamedFile(
         document_id=document.id,
         source_name=current.name,
         target_name=sequenced_filename(stem, sequence_no, extension),
         sequence_no=sequence_no,
     )
+
+
+def _free_sequence(stem: str, preferred: int, own_stem: str, taken: set[str]) -> int:
+    """Gövdenin sıra eki: tercih edilen ek boşsa (ya da dosyanın kendi adıysa) o, değilse ilk boş
+    ek; seçilen gövde `taken`'a eklenir."""
+    own = own_stem.casefold()
+
+    def free(sequence_no: int) -> bool:
+        candidate = sequenced_stem(stem, sequence_no).casefold()
+        return candidate == own or candidate not in taken
+
+    sequence_no = preferred
+    if not free(sequence_no):
+        sequence_no = 1
+        while not free(sequence_no):
+            sequence_no += 1
+    taken.add(sequenced_stem(stem, sequence_no).casefold())
+    return sequence_no
 
 
 def _stems_in_use(directory: Path) -> set[str]:

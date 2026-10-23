@@ -12,6 +12,9 @@ silinmiş kayıt silinmez (`EmployeeNotDeletableError`). Geri alma yoktur. Belge
      (`plan_documents_files`): çalışanın kendi belgeleri birbirinin orijinalini tutmaz. Başka
      çalışana ya da açık kuyruk öğesine kaynak olan orijinal ve sayfa kalır (K10, ortak yükleme).
      Orijinali giden dosyanın bütün sayfaları (belgeye girmeyen boş sayfa dahil) boşalır.
+   - **Üretilen belgeler** (15.2.3; etkin, eski sürüm, arşivdeki) `deleted` olur, yolu boşalır;
+     dosyası `Uretilen/`'den kalkar. Kaynağı yoktur: Inbox ve sayfa ölçütleri onları
+     ilgilendirmez. Şablonun orijinali yerinde kalır; erişim logu satırları kalır.
    - **Alt kayıtlar** (`employee_aliases`, `employee_identifiers`, `employee_contacts`,
      `employee_field_observations`, `employee_packages`) satır olarak silinir.
    - **Planlar (K9):** bu çalışana yerleştirilmiş plan öğelerinin hedef adı (K8 adı kişi adı taşır)
@@ -31,7 +34,8 @@ silinmiş kayıt silinmez (`EmployeeNotDeletableError`). Geri alma yoktur. Belge
      numarayı iskelet dahil sayar (K8).
    - Bu çalışana `merged_into_id` ile bağlı birleştirilmiş kayıtlar (10.5.9) aynı kişidir:
      klasörleri ve `profil.md`'leri de kişinin adını taşır; birlikte silinir (PLAN.md §D116 b).
-   - `EMPLOYEE_DELETED` kullanıcı adıyla ve yalnız sayılarla yazılır (§8.3).
+   - `EMPLOYEE_DELETED` kullanıcı adıyla ve yalnız sayılarla yazılır (§8.3); `outputs` silinen
+     üretilen belge sayısıdır, dosyaları `files_deleted`'a katılır.
 
 2. Çağıran commit eder, sonra `remove_employee_files` planlanan dosyaları ve çalışan klasörlerini
    (`Hazir`, `Alinan`, `profil.md`) diskten kaldırır. Kaldırılamayan dosya geri sarmaz: sayısı
@@ -68,6 +72,8 @@ from app.db.models import (
     EmployeePackage,
     EmployeeStatus,
     Event,
+    GeneratedDocument,
+    GeneratedDocumentStatus,
     Page,
     Plan,
     UploadFile,
@@ -127,6 +133,8 @@ class EmployeeDeletionPlan:
     keep: tuple[PlannedFile, ...]
     pages: tuple[PlannedPage, ...]
     folders: tuple[Path, ...]
+    # 15.2.3: kalıcı silinmemiş üretilen belgeler; dosyaları `remove`'dadır.
+    outputs: tuple[int, ...] = ()
 
     @property
     def document_count(self) -> int:
@@ -170,6 +178,17 @@ def plan_employee_deletion(
         )
     )
     remove, keep, pages = plan_documents_files(session, layout, documents, clear_gone_files=True)
+    outputs = list(
+        session.scalars(
+            select(GeneratedDocument)
+            .where(
+                GeneratedDocument.employee_id.in_(ids),
+                GeneratedDocument.status != GeneratedDocumentStatus.DELETED.value,
+            )
+            .order_by(GeneratedDocument.id)
+        )
+    )
+    remove = (*remove, *_output_files(layout, outputs))
     folders = tuple(
         folder
         for folder in (_employee_dir(layout, person.folder_name) for person in people)
@@ -183,7 +202,22 @@ def plan_employee_deletion(
         keep=keep,
         pages=pages,
         folders=folders,
+        outputs=tuple(output.id for output in outputs),
     )
+
+
+def _output_files(
+    layout: DataLayout, outputs: Sequence[GeneratedDocument]
+) -> tuple[PlannedFile, ...]:
+    files: list[PlannedFile] = []
+    for output in outputs:
+        try:
+            path = layout.resolve(output.path or "")
+        except ValueError:
+            continue
+        if path.is_file():
+            files.append(PlannedFile(FileRole.GENERATED, path))
+    return tuple(files)
 
 
 def delete_employee(
@@ -226,6 +260,10 @@ def delete_employee(
         document.path = None
         document.deleted_at = deleted_at
         document.deleted_by = actor
+    for output_id in plan.outputs:
+        output = session.get_one(GeneratedDocument, output_id)
+        output.status = GeneratedDocumentStatus.DELETED.value
+        output.path = None
     for planned in plan.pages:
         page = session.get_one(Page, planned.page_id)
         page.image_path = None
@@ -267,6 +305,7 @@ def delete_employee(
         actor=actor,
         data={
             "documents": len(plan.documents),
+            "outputs": len(plan.outputs),
             "files_deleted": len(plan.remove),
             "files_kept": len(plan.keep),
             "pages_cleared": len(plan.pages),

@@ -4,7 +4,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Documania panel\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-23 01:46+0000\n"
+"POT-Creation-Date: 2026-10-23 02:30+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -716,6 +716,11 @@ msgstr ""
 msgid "Arşivdeki gruba yeni paket tanımlanamaz."
 msgstr ""
 
+#: app/web/templates/profile.html
+#, python-format
+msgid "Arşivdeki üretilen belgeler (%(count)s)"
+msgstr ""
+
 #: app/web/routers/output_templates.py
 msgid "Arşivdeki şablon incelenmez; önce arşivden geri alın."
 msgstr ""
@@ -742,7 +747,8 @@ msgstr ""
 msgid "Arşive taşı"
 msgstr ""
 
-#: app/web/templates/catalog.html app/web/templates/training_results.html
+#: app/web/templates/catalog.html app/web/templates/profile.html
+#: app/web/templates/training_results.html
 msgid "Arşivle"
 msgstr ""
 
@@ -787,7 +793,7 @@ msgstr ""
 msgid "Arşivlenen çalıştırmalar"
 msgstr ""
 
-#: app/web/templates/catalog.html
+#: app/web/templates/catalog.html app/web/templates/profile.html
 msgid "Arşivleyen"
 msgstr ""
 
@@ -7092,6 +7098,16 @@ msgstr ""
 
 #: app/web/templates/profile.html
 msgid "Üreten"
+msgstr ""
+
+#: app/web/feedback.py
+msgid "Üretilen belge arşivden geri alındı."
+msgstr ""
+
+#: app/web/feedback.py
+msgid ""
+"Üretilen belge arşivlendi; dosya yerinde kalır, arşivdekiler bölümünden "
+"geri alınır."
 msgstr ""
 
 #: app/web/routers/generated_documents.py

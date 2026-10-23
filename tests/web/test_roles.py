@@ -117,6 +117,7 @@ WORLD_PARAMS = {
     "telegram_id": "1",
     "example_id": "1",
     "run_id": "1",
+    "generated_document_id": "1",
 }
 
 POST_TARGET = re.compile(r'method="post"\s+action="([^"]+)"')

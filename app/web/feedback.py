@@ -364,6 +364,15 @@ OUTPUT_GENERATED_MISSING_OVERFLOW = _register(
         "sığmayan alanlar kesilmeden yazıldı — taşan: {overflow}."
     ),
 )
+# 15.2.2: üretilen belgeyi arşivleme ve geri alma (tek adım).
+OUTPUT_ARCHIVED = _register(
+    "employees.output_archived",
+    _OK,
+    N_("Üretilen belge arşivlendi; dosya yerinde kalır, arşivdekiler bölümünden geri alınır."),
+)
+OUTPUT_RESTORED = _register(
+    "employees.output_restored", _OK, N_("Üretilen belge arşivden geri alındı.")
+)
 
 # --- Çalışanlar (10.5) ---------------------------------------------------------------------------
 PACKAGE_ASSIGNED = _register("employees.package_assigned", _OK, N_("Paket tanımlandı."))

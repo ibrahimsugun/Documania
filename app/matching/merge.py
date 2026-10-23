@@ -11,6 +11,9 @@ alınamaz**; hiçbir şey silinmez (R11):
   boş sıra ekiyle taşınır (10.8.2'nin fiziksel kuralı), eski sürüm adını korur (K18), arşivdeki
   belge `Archive/` altında kalır; `Alinan/` kopyaları kalanın `Alinan/`'ına taşınır
   (`app.storage.merge`). Belge başına `MANUAL_MOVE` yazılmaz.
+- **Üretilen belgeler** (15.2.3) kalan kayda bağlanır (`generated_documents.employee_id`); dosyası
+  kalanın `Uretilen/`'ine K8 adıyla ve kalanın o şablondaki sırasından sonraki ekle taşınır, durumu
+  değişmez (`app.storage.merge`).
 - **Alt kayıtlar** (isim yazımları, belge numaraları, iletişim bilgileri) kalan kayda bağlanır; aynı
   değer tek kalır: kalanda aynı `(kind, value)` — isim yazımında aynı ham yazım ya da normalize
   anahtar — varsa birleşenin satırı birleşende kalır ve `removed_at`/`removed_by` alır (silinmez).
@@ -62,6 +65,7 @@ from app.db.models import (
     Event,
     FieldOutcome,
     FieldSource,
+    GeneratedDocument,
     PackageStatus,
     ProfileField,
     utcnow,
@@ -134,6 +138,7 @@ class MergedEmployees:
     packages: tuple[int, ...]
     cancelled_packages: tuple[int, ...]
     event: Event
+    outputs: tuple[int, ...] = ()
 
 
 def check_merge(keep: Employee, merge: Employee) -> None:
@@ -189,6 +194,7 @@ def merge_employees(
     plan = plan_employee_merge(session, layout, keep, merge)
 
     documents = _merge_documents(session, keep, merge, plan.documents)
+    outputs = _merge_outputs(session, keep, merge, plan.outputs)
     records = (
         _merge_aliases(session, keep, merge, now=now, actor=actor)
         + _merge_identifiers(session, keep, merge, now=now, actor=actor)
@@ -215,6 +221,7 @@ def merge_employees(
             "fields": list(filled),
             "packages": list(packages),
             "cancelled_packages": list(duplicates),
+            "outputs": list(outputs),
         },
     )
     for field_name in filled:
@@ -249,6 +256,7 @@ def merge_employees(
         packages=packages,
         cancelled_packages=duplicates,
         event=event,
+        outputs=outputs,
     )
 
 
@@ -269,6 +277,24 @@ def _merge_documents(
             document.path = relocation.path
             document.sequence_no = relocation.sequence_no
     return tuple(document.id for document in documents)
+
+
+def _merge_outputs(
+    session: Session, keep: Employee, merge: Employee, relocations: Sequence[RelocatedDocument]
+) -> tuple[int, ...]:
+    by_id = {relocation.document_id: relocation for relocation in relocations}
+    outputs = session.scalars(
+        select(GeneratedDocument)
+        .where(GeneratedDocument.employee_id == merge.id)
+        .order_by(GeneratedDocument.id)
+    ).all()
+    for output in outputs:
+        output.employee_id = keep.id
+        relocation = by_id.get(output.id)
+        if relocation is not None:
+            output.path = relocation.path
+            output.sequence_no = relocation.sequence_no
+    return tuple(output.id for output in outputs)
 
 
 # --- alt kayıtlar -------------------------------------------------------------------------------

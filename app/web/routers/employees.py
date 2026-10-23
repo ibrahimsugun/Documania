@@ -189,6 +189,7 @@ from app.db.models import (
     EmployeeStatus,
     FieldOutcome,
     FieldSource,
+    GeneratedDocumentStatus,
     KnownDocumentType,
     ProfileField,
     UploadFile,
@@ -739,6 +740,9 @@ class ReadyTemplateRow:
     field_count: int
 
 
+ARCHIVED_OUTPUT = GeneratedDocumentStatus.ARCHIVED.value
+
+
 @dataclass(frozen=True, slots=True)
 class OutputRow:
     """15.2.2 — üretilen belge satırı; `missing` profilde boş kalan alanların etiketleridir (§8.7
@@ -755,6 +759,7 @@ class OutputRow:
     status: str
     status_label: str
     available: bool
+    archived_by: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -885,9 +890,11 @@ class ProfileView:
     # 10.5.9: birleştirilmiş kaydın kalan kaydı (bildirim ve bağlantı); "Başka kayıtla birleştir"
     # bağlantısı birleştirilmişte yok.
     merged_into: MergedIntoView | None = None
-    # 15.2.1, 15.2.2: hazır şablonlar ve üretilen belgeler (kalıcı silinenler dışında).
+    # 15.2.1, 15.2.2: hazır şablonlar ve üretilen belgeler (kalıcı silinenler dışında); arşivdeki
+    # üretilen belgeler katlanmış ayrı bölümdedir.
     ready_templates: list[ReadyTemplateRow] = field(default_factory=list)
     outputs: list[OutputRow] = field(default_factory=list)
+    archived_outputs: list[OutputRow] = field(default_factory=list)
 
     @property
     def merged(self) -> bool:
@@ -1029,6 +1036,7 @@ def build_profile(
     photo = _active_photo_document(session, employee_id)
     photo_stored = _stored_document(layout, photo) if photo is not None else None
     photo_shown = photo_stored is not None and photo_stored.format in IMAGE_FORMATS
+    outputs = _output_rows(session, layout, employee_id)
     return ProfileView(
         id=employee.id,
         name=f"{employee.given_names} {employee.surname}",
@@ -1084,7 +1092,8 @@ def build_profile(
             )
             for template in ready_templates(session)
         ],
-        outputs=_output_rows(session, layout, employee_id),
+        outputs=[row for row in outputs if row.status != ARCHIVED_OUTPUT],
+        archived_outputs=[row for row in outputs if row.status == ARCHIVED_OUTPUT],
     )
 
 
@@ -1105,6 +1114,7 @@ def _output_rows(session: Session, layout: DataLayout, employee_id: str) -> list
             status=output.status,
             status_label=DOCUMENT_STATUS_LABELS.get(output.status, output.status),
             available=_stored_file(layout, output.path) is not None,
+            archived_by=output.archived_by,
         )
         for output in employee_outputs(session, employee_id)
     ]

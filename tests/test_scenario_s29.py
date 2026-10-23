@@ -1,12 +1,13 @@
-"""S29 — hazır şablondan çıktı hazırlama (PRD §9; 15.1.2, 15.2.1; PLAN.md §D123).
+"""S29 — hazır şablondan çıktı hazırlama (PRD §9; 15.1.2, 15.2.1, 15.2.3; PLAN.md §D123).
 
-İlk yarı (tm 185): İK iki sayfalık sözleşme şablonunu yükler; yapay zekâ (kayıtlı yanıt) 6 boşluk
-(ad-soyad, doğum tarihi, doğum yeri, anne adı, kişisel numara, tarih), bir imza ve bir kaşe alanı
-önerir; İK kişisel numara kutusunu "boş bırak" yapıp onaylar; anne adı boş bir çalışanın
-profilinden "Çıktıya hazırla". Beklenen: PDF `Uretilen/` altında K8 adıyla; 4 alan profil
-değeriyle dolu, anne adı boş ve bildirimde "eksik: Anne adı"; imza alanı ve sabit metin
-değişmemiş; orijinal şablonun SHA-256'sı aynı; `documents` tablosu değişmedi; olaylar değer
-taşımaz. İkinci yarı (yeniden üretim, kalıcı silme) 15.2.3'ündür (tm 186).
+İK iki sayfalık sözleşme şablonunu yükler; yapay zekâ (kayıtlı yanıt) 6 boşluk (ad-soyad, doğum
+tarihi, doğum yeri, anne adı, kişisel numara, tarih), bir imza ve bir kaşe alanı önerir; İK kişisel
+numara kutusunu "boş bırak" yapıp onaylar; anne adı boş bir çalışanın profilinden "Çıktıya
+hazırla"; sonra aynı çalışan için yeniden üretir ve çalışanı (pasife alınmış) kalıcı siler.
+Beklenen: PDF `Uretilen/` altında K8 adıyla; 4 alan profil değeriyle dolu, anne adı boş ve
+bildirimde "eksik: Anne adı"; imza alanı ve sabit metin değişmemiş; orijinal şablonun SHA-256'sı
+aynı; `documents` tablosu değişmedi; ikinci üretim `-2`, ilki `superseded`; kalıcı silmede iki
+dosya diskten kalkar, satırlar `deleted`; olaylar değer taşımaz.
 
 Şablon ve çalışan sentetiktir; yapay zekâ canlı çağrılmaz.
 """
@@ -25,15 +26,25 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.ai.recording_provider import RecordingProvider
-from app.db.models import Document, Employee, Event, GeneratedDocument, OutputTemplate
+from app.db.models import (
+    Document,
+    Employee,
+    EmployeeStatus,
+    Event,
+    GeneratedDocument,
+    OutputTemplate,
+    User,
+)
 from app.db.session import create_session_factory
 from app.output_templates.examine import examine, read_source, store_examination
 from app.output_templates.generate import format_date
 from app.storage import DataLayout
 from app.storage.atomic import sha256_file
+from app.web.auth import SESSION_COOKIE
 from app.web.routers.output_templates import provider_available
 from tests import test_scenarios_s01_s05 as s01_s05
 from tests.fixtures.gen import make_text_pdf_bytes
+from tests.test_scenarios_s01_s05 import SIGNED_IN
 from tests.web.flash import flashed, toasts
 
 # Senaryo ortamı S1–S5'inkidir: geçici veritabanı, veri dizini ve panel kullanıcısıyla istemci.
@@ -69,7 +80,13 @@ def _provider_configured(client: TestClient) -> None:
     client.app.dependency_overrides[provider_available] = lambda: True
 
 
-def test_s29_first_half_generates_a_copy_with_profile_values_only(
+def _token(html: str) -> str:
+    match = re.search(r'name="confirmation" value="([^"]+)"', html)
+    assert match is not None, html
+    return match.group(1)
+
+
+def test_s29_generates_a_copy_with_profile_values_only_then_regenerates_and_deletes(
     client: TestClient, session_factory: sessionmaker[Session], layout: DataLayout
 ) -> None:
     # 1) İK iki sayfalık şablonu yükler; inceleme kayıtlı yanıtla haritayı önerir.
@@ -154,5 +171,58 @@ def test_s29_first_half_generates_a_copy_with_profile_values_only(
     # Olaylar kişisel değer taşımaz.
     recorded = " ".join(f"{event.message} {event.data_json}" for event in events)
     assert "OUTPUT_GENERATED" in {event.type for event in events}
+    for value in ("Ivan", "Petrov", "Novi Sad", "0703990710012", "1990"):
+        assert value not in recorded
+
+    # 4) Aynı çalışan için yeniden üretim: `-2`, ilki eski sürüm ve dosyası yerinde.
+    again = client.post(
+        "/employees/E0001/outputs", data={"template_id": str(template_id)}, follow_redirects=False
+    )
+    assert again.status_code == 303
+    with session_factory() as session:
+        first, second = session.scalars(
+            select(GeneratedDocument).order_by(GeneratedDocument.id)
+        ).all()
+        assert (first.status, second.status) == ("superseded", "active")
+        assert second.path.endswith("/Uretilen/Ivan_Petrov-Ugovor-o-radu-2.pdf")
+        files = [layout.resolve(first.path), layout.resolve(second.path)]
+        profile_md = layout.profile_path("Ivan_Petrov_E0001").read_text(encoding="utf-8")
+    assert all(path.is_file() for path in files)
+    assert "## Üretilen belgeler" in profile_md and "Ivan_Petrov-Ugovor-o-radu-2.pdf" in profile_md
+
+    # 5) Çalışan pasife alınıp iki onayla kalıcı silinir (onay belirteci oturuma bağlıdır).
+    client.cookies.set(SESSION_COOKIE, "s29-oturum")
+    with session_factory() as session:
+        if session.get(User, SIGNED_IN.id) is None:
+            session.add(
+                User(
+                    id=SIGNED_IN.id,
+                    username=SIGNED_IN.username,
+                    password_hash="sentetik",
+                    role=SIGNED_IN.role,
+                )
+            )
+        session.get_one(Employee, "E0001").status = EmployeeStatus.INACTIVE.value
+        session.commit()
+    prepared = client.post("/employees/E0001/delete/prepare")
+    assert prepared.status_code == 200
+    done = client.post(
+        "/employees/E0001/delete",
+        data={"confirmation": _token(prepared.text), "documents": "0"},
+        follow_redirects=False,
+    )
+    assert done.status_code == 303, done.text
+
+    assert not any(path.exists() for path in files)
+    assert sha256_file(original) == original_sha
+    with session_factory() as session:
+        rows = session.scalars(select(GeneratedDocument)).all()
+        assert {(row.status, row.path) for row in rows} == {("deleted", None)}
+        assert session.scalar(select(func.count()).select_from(Document)) == 0
+        (deleted,) = session.scalars(select(Event).where(Event.type == "EMPLOYEE_DELETED")).all()
+        assert deleted.data_json["outputs"] == 2
+        recorded = " ".join(
+            f"{event.message} {event.data_json}" for event in session.scalars(select(Event))
+        )
     for value in ("Ivan", "Petrov", "Novi Sad", "0703990710012", "1990"):
         assert value not in recorded

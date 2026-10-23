@@ -399,9 +399,11 @@ def test_profile_without_packages_says_so_after_the_document_list(
 
     content = render_profile(session, session.get_one(Employee, EMPLOYEE_ID), today=TODAY)
 
-    documents, packages = content.split("## Belge paketleri\n\n")
+    documents, rest = content.split("## Belge paketleri\n\n")
+    packages, outputs = rest.split("\n## Üretilen belgeler\n\n")
     assert "## Belgeler" in documents
     assert packages == "Tanımlı paket yok.\n"
+    assert outputs == "Henüz üretilen belge yok.\n"
 
 
 def test_profile_lists_packages_with_their_state_and_items_but_no_notes(
@@ -451,6 +453,6 @@ def test_a_package_of_an_empty_group_is_complete_and_says_it_has_no_items(
 
     content = render_profile(session, session.get_one(Employee, EMPLOYEE_ID), today=TODAY)
 
-    packages = content.split("## Belge paketleri\n\n", 1)[1]
+    packages = content.split("## Belge paketleri\n\n", 1)[1].split("\n## Üretilen")[0]
     assert packages.startswith("### Boş grup — Tamamlandı — başvuru başlatılabilir\n\n")
     assert " · Tamamlandı: " in packages and packages.endswith("\n\nGrubun kalemi yok.\n")

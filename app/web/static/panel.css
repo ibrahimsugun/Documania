@@ -1331,9 +1331,9 @@ td .thumb img { height: 7rem; }
 .cancelled-packages li, .removed-records li, .removed-items li { margin-bottom: 0.5rem; }
 
 /* Açılır gruplar (profil kayıtları, kaldırılanlar). */
-details.record-group, details.removed-records, details.removed-items, details.cancelled-packages { margin: 0.75rem 0; padding: 0.6rem 0.9rem; background: var(--surface-soft); border: 1px solid var(--line); border-radius: var(--radius-sm); }
-details.record-group summary, details.removed-records summary, details.removed-items summary, details.cancelled-packages summary { cursor: pointer; font-weight: 600; font-size: var(--text-md); }
-details.record-group[open] summary, details.removed-records[open] summary, details.removed-items[open] summary, details.cancelled-packages[open] summary { margin-bottom: 0.6rem; }
+details.record-group, details.removed-records, details.removed-items, details.cancelled-packages, details.archived-outputs { margin: 0.75rem 0; padding: 0.6rem 0.9rem; background: var(--surface-soft); border: 1px solid var(--line); border-radius: var(--radius-sm); }
+details.record-group summary, details.removed-records summary, details.removed-items summary, details.cancelled-packages summary, details.archived-outputs summary { cursor: pointer; font-weight: 600; font-size: var(--text-md); }
+details.record-group[open] summary, details.removed-records[open] summary, details.removed-items[open] summary, details.cancelled-packages[open] summary, details.archived-outputs[open] summary { margin-bottom: 0.6rem; }
 .removed-records .record-kind { font-weight: 600; }
 
 /* Önerilen adımlar (10.11.2). */

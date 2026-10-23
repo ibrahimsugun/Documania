@@ -716,6 +716,7 @@ def test_the_merged_record_is_closed_and_one_event_carries_the_numbers_and_ids(
         "fields": ["original_script_name"],
         "packages": [pair.passport_package, pair.visa_package],
         "cancelled_packages": [pair.visa_package],
+        "outputs": [],
     }
     # Belge başına taşıma olayı yazılmaz; olay verisi kişisel değer taşımaz.
     assert _events(session, EventType.MANUAL_MOVE) == []

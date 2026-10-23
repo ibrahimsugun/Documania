@@ -118,6 +118,10 @@ class EventType(enum.StrEnum):
     # 15.2.1, 15.2.3: şablon kopyasından üretilen belge; veri şablon, harita sürümü, üretilen belge
     # ve alan **adları** (yazılan, eksik, taşan) — değer yok.
     OUTPUT_GENERATED = "OUTPUT_GENERATED"
+    # 15.2.2, 15.2.3: İK üretilen belgeyi arşivledi / geri aldı; veri üretilen belge, şablon ve
+    # yeni durum.
+    OUTPUT_ARCHIVED = "OUTPUT_ARCHIVED"
+    OUTPUT_RESTORED = "OUTPUT_RESTORED"
 
 
 # 10.5.13 (PLAN.md §D110 d, §D116 e): kalıcı silinen çalışanın olaylarının verisinden çıkarılan

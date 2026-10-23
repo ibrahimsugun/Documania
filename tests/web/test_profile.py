@@ -1109,6 +1109,7 @@ def test_panel_has_no_way_to_change_a_document(
     # yolları (10.5.13) pasif çalışanın dosyalarını yalnız diskten kaldırır, içerik yazmaz
     # (`tests/web/test_employee_delete.py`). Çıktıya hazırla (15.2.1) yalnız hazır şablonun
     # kopyasını `Uretilen/`'e yazar; çalışan belgesine dokunmaz (`tests/web/test_outputs.py`).
+    # Üretilen belgeyi arşivleme ve geri alma (15.2.2) yalnız satırın durumunu çevirir.
     assert profile_paths == {
         "/employees/{employee_id}/delete": {"post"},
         "/employees/{employee_id}/delete/confirm": {"get"},
@@ -1137,6 +1138,8 @@ def test_panel_has_no_way_to_change_a_document(
         "/employees/{employee_id}/outputs": {"post"},
         "/employees/{employee_id}/outputs/{generated_document_id}/file": {"get"},
         "/employees/{employee_id}/outputs/{generated_document_id}/download": {"get"},
+        "/employees/{employee_id}/outputs/{generated_document_id}/archive": {"post"},
+        "/employees/{employee_id}/outputs/{generated_document_id}/restore": {"post"},
     }
 
     urls = (

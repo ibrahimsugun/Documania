@@ -249,7 +249,12 @@ def test_a_date_of_birth_change_writes_the_field_and_moves_no_file(
     assert _tree(layout.root) == before
     (event,) = _edited_events(session)
     assert (event.actor, event.employee_id) == (ACTOR, EMPLOYEE_ID)
-    assert event.data_json == {"fields": ["date_of_birth"], "renamed": False, "documents": []}
+    assert event.data_json == {
+        "fields": ["date_of_birth"],
+        "renamed": False,
+        "documents": [],
+        "outputs": [],
+    }
     (observation,) = session.scalars(select(EmployeeFieldObservation)).all()
     assert (
         observation.field,
