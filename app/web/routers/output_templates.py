@@ -77,6 +77,7 @@ from app.output_templates.examine import (
     is_examining,
     request_examination,
 )
+from app.output_templates.labels import FIELD_LABELS
 from app.storage import DataLayout
 from app.web.access import record_access
 from app.web.auth import WRITER_ONLY, PanelUser, require_panel_user
@@ -146,26 +147,8 @@ MAP_NOT_FOUND = N_("Alan haritasının bu sürümü yok.")
 MAP_STALE = N_("Harita bu arada yeni bir sürüm aldı; son sürümü gözden geçirip yeniden onaylayın.")
 ARCHIVED_NOT_APPROVED = N_("Arşivdeki şablonun haritası onaylanmaz; önce arşivden geri alın.")
 MAP_ASSIGNMENT_INVALID = N_("Atama geçersiz: her doldurulacak kutu listedeki bir alana bağlanır.")
-# §8.7 `source` seçenekleri; açılır listenin sırası budur, "boş bırak" en sonda.
-SOURCE_LABELS = {
-    "given_names": N_("Ad"),
-    "surname": N_("Soyad"),
-    "full_name": N_("Ad soyad"),
-    "other_names": N_("Diğer isimler"),
-    "original_script_name": N_("Orijinal yazım"),
-    "date_of_birth": N_("Doğum tarihi"),
-    "place_of_birth": N_("Doğum yeri"),
-    "mother_name": N_("Anne adı"),
-    "father_name": N_("Baba adı"),
-    "personal_number": N_("Kişisel numara"),
-    "passport_number": N_("Pasaport numarası"),
-    "nationality": N_("Vatandaşlık"),
-    "address": N_("Adres"),
-    "phone": N_("Telefon"),
-    "email": N_("E-posta"),
-    "today": N_("Bugünün tarihi"),
-    UNASSIGNED: N_("Boş bırak"),
-}
+# §8.7 `source` seçenekleri (`app.output_templates.labels`); açılır listenin sırası budur.
+SOURCE_LABELS = FIELD_LABELS
 KIND_LABELS = {
     "text": N_("Metin"),
     "date": N_("Tarih"),

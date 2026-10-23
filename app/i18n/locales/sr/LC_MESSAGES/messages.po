@@ -4,8 +4,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Documania panel\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-23 01:22+0000\n"
-"PO-Revision-Date: 2026-10-23 01:22+0000\n"
+"POT-Creation-Date: 2026-10-23 01:46+0000\n"
+"PO-Revision-Date: 2026-10-23 01:46+0000\n"
 "Last-Translator: Documania görev penceresi (gözden geçirilmeli)\n"
 "Language: sr_Latn\n"
 "Language-Team: Srpski\n"
@@ -483,9 +483,10 @@ msgstr "Sa AI odlukama"
 msgid "AI kararı: `{slug}` ({basis}, model {model})"
 msgstr "Odluka AI: `{slug}` ({basis}, model {model})"
 
-#: app/catalog/prefill.py app/web/profile_form.py app/web/routers/catalog.py
-#: app/web/routers/employees.py app/web/routers/output_templates.py
-#: app/web/templates/catalog.html app/web/templates/catalog_type_fields.html
+#: app/catalog/prefill.py app/output_templates/labels.py
+#: app/web/profile_form.py app/web/routers/catalog.py
+#: app/web/routers/employees.py app/web/templates/catalog.html
+#: app/web/templates/catalog_type_fields.html
 #: app/web/templates/document_move.html
 #: app/web/templates/employee_merge_results.html
 #: app/web/templates/employees_results.html app/web/templates/group.html
@@ -495,7 +496,7 @@ msgstr "Odluka AI: `{slug}` ({basis}, model {model})"
 msgid "Ad"
 msgstr "Ime"
 
-#: app/web/routers/output_templates.py
+#: app/output_templates/labels.py
 msgid "Ad soyad"
 msgstr "Ime i prezime"
 
@@ -622,7 +623,7 @@ msgstr "Predlog se vraća među one koji čekaju odobrenje (11.5.7)."
 msgid "Adayı reddet"
 msgstr "Odbij predlog"
 
-#: app/web/routers/employees.py app/web/routers/output_templates.py
+#: app/output_templates/labels.py app/web/routers/employees.py
 msgid "Adres"
 msgstr "Adresa"
 
@@ -642,7 +643,7 @@ msgstr ""
 #: app/web/templates/employee_fields_step.html
 #: app/web/templates/employee_merge_step.html
 #: app/web/templates/output_template.html
-#: app/web/templates/output_templates.html
+#: app/web/templates/output_templates.html app/web/templates/profile.html
 msgid "Alan"
 msgstr "Polje"
 
@@ -762,8 +763,8 @@ msgstr ""
 msgid "Analizi yapılamamış sayfalar: {pages}."
 msgstr "Stranice koje nisu mogle biti analizirane: {pages}."
 
-#: app/web/profile_form.py app/web/routers/employees.py
-#: app/web/routers/output_templates.py app/web/templates/profile.html
+#: app/output_templates/labels.py app/web/profile_form.py
+#: app/web/routers/employees.py app/web/templates/profile.html
 msgid "Anne adı"
 msgstr "Ime majke"
 
@@ -1012,7 +1013,7 @@ msgstr "Otvoren — {met}/{total} obaveznih stavki"
 #: app/web/templates/catalog_candidate.html
 #: app/web/templates/catalog_type_fields.html app/web/templates/group.html
 #: app/web/templates/groups.html app/web/templates/output_template.html
-#: app/web/templates/output_templates.html
+#: app/web/templates/output_templates.html app/web/templates/profile.html
 msgid "Açıklama"
 msgstr "Opis"
 
@@ -1097,8 +1098,8 @@ msgstr ""
 "Kada ga otvorite i pritisnete «Start», bot kaže «Povezano»; zatim "
 "osvežite ovu stranicu."
 
-#: app/web/profile_form.py app/web/routers/employees.py
-#: app/web/routers/output_templates.py app/web/templates/profile.html
+#: app/output_templates/labels.py app/web/profile_form.py
+#: app/web/routers/employees.py app/web/templates/profile.html
 msgid "Baba adı"
 msgstr "Ime oca"
 
@@ -1827,7 +1828,7 @@ msgstr "Oštećen zapis o poreklu"
 msgid "Boş"
 msgstr "Prazna"
 
-#: app/web/routers/output_templates.py
+#: app/output_templates/labels.py
 msgid "Boş bırak"
 msgstr "Ostavi prazno"
 
@@ -2400,7 +2401,7 @@ msgstr ""
 "Ovaj šablon je nacrt: ne može se pripremiti za izlaz dok mapa polja ne "
 "bude odobrena."
 
-#: app/web/routers/output_templates.py
+#: app/output_templates/labels.py
 msgid "Bugünün tarihi"
 msgstr "Današnji datum"
 
@@ -2562,8 +2563,8 @@ msgstr "Direktan dokument: {operation} nije moguće za ovaj tip."
 msgid "Diğer"
 msgstr "Drugo"
 
-#: app/web/profile_form.py app/web/routers/employees.py
-#: app/web/routers/output_templates.py app/web/templates/profile.html
+#: app/output_templates/labels.py app/web/profile_form.py
+#: app/web/routers/employees.py app/web/templates/profile.html
 msgid "Diğer isimler"
 msgstr "Druga imena"
 
@@ -2681,8 +2682,8 @@ msgstr "Potvrđeno"
 msgid "Doğrulanmış"
 msgstr "Potvrđeni"
 
-#: app/web/profile_form.py app/web/routers/employees.py
-#: app/web/routers/output_templates.py app/web/templates/profile.html
+#: app/output_templates/labels.py app/web/profile_form.py
+#: app/web/routers/employees.py app/web/templates/profile.html
 msgid "Doğum tarihi"
 msgstr "Datum rođenja"
 
@@ -2704,8 +2705,8 @@ msgstr "Datum rođenja: nije upisan"
 msgid "Doğum tarihi: {date} ({age} yaşında)"
 msgstr "Datum rođenja: {date} ({age} god.)"
 
-#: app/web/profile_form.py app/web/routers/employees.py
-#: app/web/routers/output_templates.py app/web/templates/profile.html
+#: app/output_templates/labels.py app/web/profile_form.py
+#: app/web/routers/employees.py app/web/templates/profile.html
 msgid "Doğum yeri"
 msgstr "Mesto rođenja"
 
@@ -2753,13 +2754,17 @@ msgstr "Uredi"
 msgid "Düzenleme formunu yeniden açın"
 msgstr "Ponovo otvorite obrazac za uređivanje"
 
-#: app/web/routers/employees.py app/web/routers/output_templates.py
+#: app/output_templates/labels.py app/web/routers/employees.py
 msgid "E-posta"
 msgstr "E-pošta"
 
 #: app/matching/records.py
 msgid "E-posta adresi ad@alan.uzantı biçiminde olmalı."
 msgstr "Adresa e-pošte mora biti u obliku ime@domen.nastavak."
+
+#: app/web/templates/profile.html
+msgid "Eksik alanlar"
+msgstr "Nedostajuća polja"
 
 #: app/web/templates/profile.html
 msgid "Eksik belge"
@@ -3413,6 +3418,10 @@ msgstr "Mapa nije odobrena: bar jedno polje mora biti povezano sa poljem profila
 msgid "Harita saklanamadı; tarama başlatılmadı."
 msgstr "Mapa nije mogla da se sačuva; skeniranje nije pokrenuto."
 
+#: app/web/templates/profile.html
+msgid "Harita sürümü"
+msgstr "Verzija mape"
+
 #: app/training/map_scan.py
 #, python-brace-format
 msgid "Harita taraması yapılamadı ({error}); denemeler tükendi"
@@ -3500,6 +3509,18 @@ msgstr "Spremno"
 msgid "Hazır Şablonlar"
 msgstr "Šabloni"
 
+#: app/web/templates/profile.html
+msgid ""
+"Hazır şablon yok. Şablonu <a href=\"/output-templates\">Hazır "
+"Şablonlar</a>'da yükleyip alan haritasını onaylayın."
+msgstr ""
+"Nema spremnih šablona. Otpremite šablon u <a href=\"/output-"
+"templates\">Šabloni</a> i odobrite mapu polja."
+
+#: app/web/templates/profile.html
+msgid "Hazır şablonlar"
+msgstr "Spremni šabloni"
+
 #: app/web/templates/upload_detail.html
 msgid "Hedef"
 msgstr "Cilj"
@@ -3551,6 +3572,14 @@ msgstr "Još nema zaposlenih."
 #: app/web/templates/catalog_accepted_photos.html
 msgid "Henüz örnek olarak işaretlenen kabul edilmiş fotoğraf yok."
 msgstr "Još nijedna prihvaćena fotografija nije označena kao primer."
+
+#: app/web/templates/profile.html
+msgid ""
+"Henüz üretilen belge yok. Yukarıdaki hazır şablonlardan birinde \"Çıktıya"
+" hazırla\" düğmesini kullanın."
+msgstr ""
+"Još nema generisanih dokumenata. Koristite „Pripremi dokument“ na jednom "
+"od spremnih šablona iznad."
 
 #: app/web/routers/catalog.py app/web/routers/employees.py
 msgid "Hepsi"
@@ -4006,8 +4035,8 @@ msgstr "Pretpostavljena osoba"
 msgid "Kişi tespit edilemedi: belgede ne ad-soyad ne belge numarası okundu."
 msgstr "Osoba nije utvrđena: na dokumentu nije pročitano ni ime ni broj dokumenta."
 
-#: app/web/profile_form.py app/web/routers/employees.py
-#: app/web/routers/output_templates.py app/web/templates/profile.html
+#: app/output_templates/labels.py app/web/profile_form.py
+#: app/web/routers/employees.py app/web/templates/profile.html
 msgid "Kişisel numara"
 msgstr "Lični broj"
 
@@ -4481,8 +4510,8 @@ msgstr "Odobreno"
 msgid "Onayı yeniden başlatın"
 msgstr "Ponovo pokrenite potvrdu"
 
-#: app/web/profile_form.py app/web/routers/employees.py
-#: app/web/routers/output_templates.py app/web/templates/document_move.html
+#: app/output_templates/labels.py app/web/profile_form.py
+#: app/web/routers/employees.py app/web/templates/document_move.html
 #: app/web/templates/employee_merge_results.html
 #: app/web/templates/employees_results.html app/web/templates/profile.html
 #: app/web/templates/queue_assign.html
@@ -4729,7 +4758,7 @@ msgstr ""
 "dokumenti nastali do sada se ne brišu. Serija koja ni 10 minuta posle "
 "prijema nije završena otkazuje se automatski."
 
-#: app/web/routers/output_templates.py app/web/templates/profile.html
+#: app/output_templates/labels.py app/web/templates/profile.html
 msgid "Pasaport numarası"
 msgstr "Broj pasoša"
 
@@ -4745,6 +4774,10 @@ msgid ""
 msgstr ""
 "Za neaktivnog korisnika se ne pravi Telegram link; prvo aktivirajte "
 "korisnika."
+
+#: app/web/templates/profile.html
+msgid "Pasif ya da birleştirilmiş çalışana çıktı hazırlanmaz."
+msgstr "Za neaktivnog ili spojenog zaposlenog dokument se ne priprema."
 
 #: app/web/templates/profile.html
 msgid "Pasif çalışan"
@@ -5262,8 +5295,8 @@ msgstr "Tip rezultata"
 msgid "Sonuçlar"
 msgstr "Rezultati"
 
-#: app/web/profile_form.py app/web/routers/employees.py
-#: app/web/routers/output_templates.py app/web/templates/profile.html
+#: app/output_templates/labels.py app/web/profile_form.py
+#: app/web/routers/employees.py app/web/templates/profile.html
 msgid "Soyad"
 msgstr "Prezime"
 
@@ -5457,7 +5490,7 @@ msgstr ""
 "Ponovno otpremanje (01.4.1): datoteka {file} ima isti sadržaj kao ranije "
 "otpremljena datoteka {original}; ne obrađuje se ponovo i ne daje izlaz."
 
-#: app/web/routers/employees.py app/web/routers/output_templates.py
+#: app/output_templates/labels.py app/web/routers/employees.py
 msgid "Telefon"
 msgstr "Telefon"
 
@@ -5823,8 +5856,8 @@ msgstr "Državljanstvo: {country}"
 msgid "Var olan şablonu aç"
 msgstr "Otvori postojeći šablon"
 
-#: app/web/profile_form.py app/web/routers/employees.py
-#: app/web/routers/output_templates.py app/web/templates/profile.html
+#: app/output_templates/labels.py app/web/profile_form.py
+#: app/web/routers/employees.py app/web/templates/profile.html
 msgid "Vatandaşlık"
 msgstr "Državljanstvo"
 
@@ -5902,6 +5935,14 @@ msgstr ""
 #: app/web/templates/groups.html
 msgid "Yalnız etkin grupları göster"
 msgstr "Prikaži samo aktivne grupe"
+
+#: app/web/routers/generated_documents.py
+msgid ""
+"Yalnız etkin çalışana çıktı hazırlanır; pasif ya da birleştirilmiş kayda "
+"hazırlanmaz."
+msgstr ""
+"Dokument se priprema samo za aktivnog zaposlenog, ne za neaktivan ili "
+"spojen zapis."
 
 #: app/groups/packages.py
 msgid "Yalnız iptal edilmiş paket yeniden açılır."
@@ -7305,6 +7346,7 @@ msgstr "Zaposleni"
 msgid "Çalışan ara"
 msgstr "Pretraži zaposlene"
 
+#: app/web/routers/generated_documents.py
 #: app/web/templates/access_log_employee.html app/web/templates/profile.html
 msgid "Çalışan bulunamadı"
 msgstr "Zaposleni nije pronađen"
@@ -7463,6 +7505,40 @@ msgstr "Izlazni format"
 msgid "Çıktı dosya adına girer: <code>Ad_Soyad-Etiket.pdf</code>."
 msgstr "Ulazi u ime izlazne datoteke: <code>Ime_Prezime-Oznaka.pdf</code>."
 
+#: app/web/feedback.py
+#, python-brace-format
+msgid ""
+"Çıktı hazırlandı; kutusuna sığmayan alanlar kesilmeden yazıldı — taşan: "
+"{overflow}."
+msgstr ""
+"Dokument je pripremljen; polja koja nisu stala u okvir upisana su u "
+"celosti — prelaze: {overflow}."
+
+#: app/web/feedback.py
+#, python-brace-format
+msgid ""
+"Çıktı hazırlandı; profilde boş olan alanlar boş bırakıldı — eksik: "
+"{fields}."
+msgstr ""
+"Dokument je pripremljen; polja prazna u profilu ostavljena su prazna — "
+"nedostaje: {fields}."
+
+#: app/web/feedback.py
+#, python-brace-format
+msgid ""
+"Çıktı hazırlandı; profilde boş olan alanlar boş bırakıldı — eksik: "
+"{fields}. Kutusuna sığmayan alanlar kesilmeden yazıldı — taşan: "
+"{overflow}."
+msgstr ""
+"Dokument je pripremljen; polja prazna u profilu ostavljena su prazna — "
+"nedostaje: {fields}. Polja koja nisu stala u okvir upisana su u celosti —"
+" prelaze: {overflow}."
+
+#: app/web/feedback.py
+#, python-brace-format
+msgid "Çıktı hazırlandı; {count} alan profilden dolduruldu."
+msgstr "Dokument je pripremljen; {count} polja popunjeno iz profila."
+
 #: app/web/templates/catalog_type_fields.html
 msgid ""
 "Çıktı tek kaynak dosyadan alınan ardışık sayfalardır; birleştirme ve "
@@ -7487,6 +7563,10 @@ msgstr "Izlazi"
 #: app/web/templates/queue_assign.html app/web/templates/queue_new_profile.html
 msgid "Çıktının geçmişi"
 msgstr "Istorija izlaza"
+
+#: app/web/templates/profile.html
+msgid "Çıktıya hazırla"
+msgstr "Pripremi dokument"
 
 #: app/web/templates/base.html
 msgid "Çıkış"
@@ -7786,6 +7866,22 @@ msgid ""
 msgstr ""
 "Broj državljanstva ili lični broj njegove države, onako kako je napisan "
 "(npr. JMBG); razmaci, crtice i tačke se u pretrazi zanemaruju"
+
+#: app/web/templates/profile.html
+msgid "Üreten"
+msgstr "Generisao"
+
+#: app/web/routers/generated_documents.py
+msgid "Üretilen belge bulunamadı"
+msgstr "Generisani dokument nije pronađen"
+
+#: app/web/templates/profile.html
+msgid "Üretilen belgeler"
+msgstr "Generisani dokumenti"
+
+#: app/web/routers/generated_documents.py
+msgid "Üretilen belgenin dosyası bulunamadı"
+msgstr "Datoteka generisanog dokumenta nije pronađena"
 
 #: app/web/templates/training_results.html
 #, python-format
@@ -8166,6 +8262,10 @@ msgstr ""
 msgid "İşleniyor"
 msgstr "U obradi"
 
+#: app/web/templates/profile.html
+msgid "Şablon"
+msgstr "Šablon"
+
 #: app/output_templates/service.py
 msgid "Şablon adı boş olamaz."
 msgstr "Ime šablona ne može biti prazno."
@@ -8189,17 +8289,25 @@ msgstr ""
 "Šablon je arhiviran: ne može se izabrati na profilu; već generisani "
 "dokumenti ostaju na mestu."
 
-#: app/web/routers/output_templates.py
+#: app/web/routers/generated_documents.py app/web/routers/output_templates.py
 msgid "Şablon bulunamadı"
 msgstr "Šablon nije pronađen"
 
-#: app/web/routers/output_templates.py
+#: app/web/routers/generated_documents.py app/web/routers/output_templates.py
 msgid "Şablon dosyası bulunamadı"
 msgstr "Datoteka šablona nije pronađena"
 
 #: app/web/templates/output_templates.html
 msgid "Şablon durumu"
 msgstr "Status šablona"
+
+#: app/web/routers/generated_documents.py
+msgid ""
+"Şablon hazır değil: alan haritası onaylanmamış ya da şablon arşivde. Önce"
+" şablonu hazırlayın."
+msgstr ""
+"Šablon nije spreman: mapa polja nije odobrena ili je šablon u arhivi. "
+"Prvo pripremite šablon."
 
 #: app/web/templates/output_template.html
 msgid ""

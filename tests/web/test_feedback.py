@@ -145,7 +145,7 @@ def test_flash_refuses_an_unknown_key_and_a_personal_value() -> None:
 
 def test_the_registry_allows_only_non_personal_placeholders() -> None:
     # Kişisel değer (ad-soyad, belge numarası, doğum tarihi) parametre olamaz; izinli tipler:
-    # tam sayı, E numarası, parti kimliği, tür slug'ı (§D120 b).
+    # tam sayı, E numarası, parti kimliği, tür slug'ı (§D120 b); profil alanı adları (15.2.1).
     assert set(PARAMETERS) == {
         "count",
         "skipped",
@@ -154,6 +154,8 @@ def test_the_registry_allows_only_non_personal_placeholders() -> None:
         "employee_id",
         "upload_id",
         "slug",
+        "fields",
+        "overflow",
     }
     for key, feedback in REGISTRY.items():
         assert feedback.key == key

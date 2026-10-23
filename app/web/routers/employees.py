@@ -74,6 +74,13 @@ ikinci gönderim paketi açar. `POST .../packages/{pkg}/cancel` paketi nedeniyle
 eşleştirmeyi değiştirmez, geri alınabilir), `PACKAGE_*` olayını kullanıcı adıyla yazar (K15) ve
 commit'ten sonra çalışanın `profil.md`'sini yeniden üretir (09.1.1, 14.3.1). Paket silinmez (R11).
 
+**Hazır şablonlar ve üretilen belgeler (15.2.1, 15.2.2; PLAN.md §D123 d, g).** Profilin "Hazır
+şablonlar" bölümü `ready` şablonları listeler; "Çıktıya hazırla" düğmesi yazma yetkisinde ve yalnız
+etkin çalışanda vardır (`ProfileView.can_generate`; yol `app.web.routers.generated_documents`).
+"Üretilen belgeler" bölümü şablonu, tarihi, üreteni, harita sürümünü, eksik alan adlarını ve durumu
+gösterir; belge yeni sekmede açılır ve indirilir (erişim kaydı `generated_document_id` ile).
+Üretilen belge "Belgeler" listesinde ve sayılarında yoktur.
+
 **Profili düzenleme (10.5.6; PLAN.md §C90-a, §D61).** Profil sayfasındaki "Profili düzenle"
 bağlantısı (birleştirilmiş çalışanda yok) `GET /employees/{id}/fields` formunu açar: ad, soyad,
 diğer isimler, orijinal yazım, doğum tarihi, uyruk, anne adı, baba adı, doğum yeri, kişisel
@@ -263,6 +270,9 @@ from app.matching.status import (
     status_label,
     status_target,
 )
+from app.output_templates import field_count
+from app.output_templates.generate import employee_outputs, ready_templates
+from app.output_templates.labels import FIELD_LABELS as SOURCE_LABELS
 from app.pipeline.plan import name_matched_documents
 from app.profiles import write_profile
 from app.profiles.latin_names import needs_latin_repair
@@ -720,6 +730,34 @@ class DocumentRow:
 
 
 @dataclass(frozen=True, slots=True)
+class ReadyTemplateRow:
+    """15.2.1 — profilde seçilebilen hazır şablon (`ready`)."""
+
+    id: int
+    name: str
+    description: str | None
+    field_count: int
+
+
+@dataclass(frozen=True, slots=True)
+class OutputRow:
+    """15.2.2 — üretilen belge satırı; `missing` profilde boş kalan alanların etiketleridir (§8.7
+    `source` adının `N_` msgid'i, şablonda çevrilir)."""
+
+    id: int
+    template_id: int
+    template_name: str
+    file_name: str
+    generated_at: datetime
+    generated_by: str
+    map_version: int
+    missing: tuple[str, ...]
+    status: str
+    status_label: str
+    available: bool
+
+
+@dataclass(frozen=True, slots=True)
 class SourceLink:
     """Alan kaynağının bağlantısı; elle girilen alanın (10.5.6) bağlantısı yoktur (`url` boş)."""
 
@@ -847,6 +885,9 @@ class ProfileView:
     # 10.5.9: birleştirilmiş kaydın kalan kaydı (bildirim ve bağlantı); "Başka kayıtla birleştir"
     # bağlantısı birleştirilmişte yok.
     merged_into: MergedIntoView | None = None
+    # 15.2.1, 15.2.2: hazır şablonlar ve üretilen belgeler (kalıcı silinenler dışında).
+    ready_templates: list[ReadyTemplateRow] = field(default_factory=list)
+    outputs: list[OutputRow] = field(default_factory=list)
 
     @property
     def merged(self) -> bool:
@@ -859,6 +900,11 @@ class ProfileView:
     @property
     def can_upload(self) -> bool:
         # 10.5.3: profilden yükleme yalnız etkin çalışana (pasife 409).
+        return self.status == EmployeeStatus.ACTIVE.value
+
+    @property
+    def can_generate(self) -> bool:
+        # 15.2.1: "Çıktıya hazırla" yalnız etkin çalışanda (pasif ve birleştirilmişte yok).
         return self.status == EmployeeStatus.ACTIVE.value
 
     @property
@@ -1029,7 +1075,39 @@ def build_profile(
         deactivation=_deactivation(session, employee),
         records=_record_sections(employee_id, records, type_names, rows),
         merged_into=_merged_into(session, employee),
+        ready_templates=[
+            ReadyTemplateRow(
+                id=template.id,
+                name=template.name,
+                description=template.description,
+                field_count=field_count(template),
+            )
+            for template in ready_templates(session)
+        ],
+        outputs=_output_rows(session, layout, employee_id),
     )
+
+
+def _output_rows(session: Session, layout: DataLayout, employee_id: str) -> list[OutputRow]:
+    """15.2.2 — çalışanın üretilen belgeleri, en yenisi başta; dosyası yerinde olan açılır."""
+    return [
+        OutputRow(
+            id=output.id,
+            template_id=output.template_id,
+            template_name=output.template.name,
+            file_name=PurePosixPath(output.path).name if output.path else "—",
+            generated_at=output.generated_at,
+            generated_by=output.generated_by,
+            map_version=output.template_map.version,
+            missing=tuple(
+                SOURCE_LABELS.get(name, name) for name in output.missing_fields_json or ()
+            ),
+            status=output.status,
+            status_label=DOCUMENT_STATUS_LABELS.get(output.status, output.status),
+            available=_stored_file(layout, output.path) is not None,
+        )
+        for output in employee_outputs(session, employee_id)
+    ]
 
 
 def _status_action(employee: Employee) -> str | None:

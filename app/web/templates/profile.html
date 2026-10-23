@@ -10,7 +10,9 @@
    yazımlarını, belge numaralarını ve iletişim bilgilerini kaldırma, geri alma ve iletişim ekleme
    formlarıyla listeler. "Başka kayıtla birleştir" (10.5.9) ikinci kaydı arayan sayfaya gider;
    birleştirilmiş kayıtta üstte kalan kayda bağlantılı bildirim durur ve işlem formları yoktur.
-   Sayfa belge içeriğini değiştiren yol taşımaz. 10.1.8: salt okunur Kullanıcı'da (`user.can_write`
+   "Hazır şablonlar" ve "Üretilen belgeler" (15.2.1, 15.2.2): şablonun kopyasına profil değerleriyle
+   çıktı hazırlanır, üretilen belge açılır ve indirilir. Sayfa çalışan belgesinin içeriğini
+   değiştiren yol taşımaz. 10.1.8: salt okunur Kullanıcı'da (`user.can_write`
    yanlış) hiçbir yazma bağlantısı ve formu yoktur; erişim logu bağlantısı yalnız root'ta (10.1.9). #}
 {% from "_context_warning.html" import context_warning %}
 {% block title %}{{ profile.name if profile else _("Çalışan bulunamadı") }}{% endblock %}
@@ -308,6 +310,65 @@
   </table>
   {% else %}
   <p class="placeholder">{{ _("Henüz belge yok.") }}</p>
+  {% endif %}
+</section>
+
+{# 15.2.1: hazır şablonlar. "Çıktıya hazırla" şablonun kopyasına yalnız profil değerlerini yazar
+   (tek adım); düğme yazma yetkisinde ve yalnız etkin çalışanda vardır. Arşivdeki ya da haritası
+   onaylanmamış şablon listede yoktur. #}
+<section class="profile-templates" id="templates" aria-labelledby="templates-title">
+  <h2 id="templates-title">{{ _("Hazır şablonlar") }} <span class="count">{{ profile.ready_templates|length }}</span></h2>
+  {% if profile.ready_templates %}
+  <table class="outputs profile-template-list">
+    <thead><tr><th>{{ _("Şablon") }}</th><th>{{ _("Açıklama") }}</th><th class="num">{{ _("Alan") }}</th><th></th></tr></thead>
+    <tbody>
+      {% for template in profile.ready_templates %}
+      <tr>
+        <td><a href="/output-templates/{{ template.id }}" translate="no">{{ template.name }}</a></td>
+        <td translate="no">{{ template.description or "—" }}</td>
+        <td class="num">{{ template.field_count }}</td>
+        <td class="record-actions">{% if user.can_write and profile.can_generate %}
+          <form method="post" action="/employees/{{ profile.id }}/outputs" class="inline-form generate-output">
+            <input type="hidden" name="template_id" value="{{ template.id }}">
+            <button type="submit">{{ _("Çıktıya hazırla") }}</button>
+          </form>{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% if user.can_write and not profile.can_generate %}<p class="hint">{{ _("Pasif ya da birleştirilmiş çalışana çıktı hazırlanmaz.") }}</p>{% endif %}
+  {% else %}
+  <p class="placeholder">{% trans %}Hazır şablon yok. Şablonu <a href="/output-templates">Hazır Şablonlar</a>'da yükleyip alan haritasını onaylayın.{% endtrans %}</p>
+  {% endif %}
+</section>
+
+{# 15.2.2: üretilen belgeler (çalışan belgesi değildir; "Belgeler"de ve sayılarında yoktur). Belge
+   yeni sekmede açılır ve indirilir; ikisi de erişim loguna yazılır. Eksik alanlar profilde boş
+   olduğu için boş bırakılan alanların adlarıdır. #}
+<section class="profile-outputs" id="outputs" aria-labelledby="outputs-title">
+  <h2 id="outputs-title">{{ _("Üretilen belgeler") }} <span class="count">{{ profile.outputs|length }}</span></h2>
+  {% if profile.outputs %}
+  <table class="outputs generated-documents">
+    <thead>
+      <tr><th>{{ _("Şablon") }}</th><th>{{ _("Dosya") }}</th><th>{{ _("Tarih") }}</th><th>{{ _("Üreten") }}</th><th class="num">{{ _("Harita sürümü") }}</th><th>{{ _("Eksik alanlar") }}</th><th>{{ _("Durum") }}</th><th></th></tr>
+    </thead>
+    <tbody>
+      {% for output in profile.outputs %}
+      <tr id="output-{{ output.id }}"{% if output.status != "active" %} class="output-superseded"{% endif %}>
+        <td translate="no">{{ output.template_name }}</td>
+        <td>{% if output.available %}<a href="/employees/{{ profile.id }}/outputs/{{ output.id }}/file" target="_blank" rel="noopener" translate="no">{{ output.file_name }}</a>{% else %}<span translate="no">{{ output.file_name }}</span>{% endif %}</td>
+        <td class="cell-nowrap">{{ output.generated_at.strftime("%d.%m.%Y %H:%M") }}</td>
+        <td translate="no">{{ output.generated_by }}</td>
+        <td class="num">{{ output.map_version }}</td>
+        <td>{% if output.missing %}{% for label in output.missing %}{% if not loop.first %}, {% endif %}{{ translate(label) }}{% endfor %}{% else %}—{% endif %}</td>
+        <td>{{ translate(output.status_label) }}</td>
+        <td class="doc-actions">{% if output.available %}<a href="/employees/{{ profile.id }}/outputs/{{ output.id }}/download">{{ _("İndir") }}</a>{% else %}<span class="reason">{{ _("Dosya bulunamadı") }}</span>{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="placeholder">{{ _('Henüz üretilen belge yok. Yukarıdaki hazır şablonlardan birinde "Çıktıya hazırla" düğmesini kullanın.') }}</p>
   {% endif %}
 </section>
 

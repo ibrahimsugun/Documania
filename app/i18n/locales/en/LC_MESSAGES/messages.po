@@ -4,8 +4,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Documania panel\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-23 01:22+0000\n"
-"PO-Revision-Date: 2026-10-23 01:22+0000\n"
+"POT-Creation-Date: 2026-10-23 01:46+0000\n"
+"PO-Revision-Date: 2026-10-23 01:46+0000\n"
 "Last-Translator: Documania görev penceresi (gözden geçirilmeli)\n"
 "Language: en\n"
 "Language-Team: English\n"
@@ -460,9 +460,10 @@ msgstr "With AI decisions"
 msgid "AI kararı: `{slug}` ({basis}, model {model})"
 msgstr "AI decision: `{slug}` ({basis}, model {model})"
 
-#: app/catalog/prefill.py app/web/profile_form.py app/web/routers/catalog.py
-#: app/web/routers/employees.py app/web/routers/output_templates.py
-#: app/web/templates/catalog.html app/web/templates/catalog_type_fields.html
+#: app/catalog/prefill.py app/output_templates/labels.py
+#: app/web/profile_form.py app/web/routers/catalog.py
+#: app/web/routers/employees.py app/web/templates/catalog.html
+#: app/web/templates/catalog_type_fields.html
 #: app/web/templates/document_move.html
 #: app/web/templates/employee_merge_results.html
 #: app/web/templates/employees_results.html app/web/templates/group.html
@@ -472,7 +473,7 @@ msgstr "AI decision: `{slug}` ({basis}, model {model})"
 msgid "Ad"
 msgstr "Name"
 
-#: app/web/routers/output_templates.py
+#: app/output_templates/labels.py
 msgid "Ad soyad"
 msgstr "Full name"
 
@@ -600,7 +601,7 @@ msgstr "The candidate returns to the ones awaiting approval (11.5.7)."
 msgid "Adayı reddet"
 msgstr "Reject the candidate"
 
-#: app/web/routers/employees.py app/web/routers/output_templates.py
+#: app/output_templates/labels.py app/web/routers/employees.py
 msgid "Adres"
 msgstr "Address"
 
@@ -620,7 +621,7 @@ msgstr ""
 #: app/web/templates/employee_fields_step.html
 #: app/web/templates/employee_merge_step.html
 #: app/web/templates/output_template.html
-#: app/web/templates/output_templates.html
+#: app/web/templates/output_templates.html app/web/templates/profile.html
 msgid "Alan"
 msgstr "Field"
 
@@ -742,8 +743,8 @@ msgstr ""
 msgid "Analizi yapılamamış sayfalar: {pages}."
 msgstr "Pages that could not be analysed: {pages}."
 
-#: app/web/profile_form.py app/web/routers/employees.py
-#: app/web/routers/output_templates.py app/web/templates/profile.html
+#: app/output_templates/labels.py app/web/profile_form.py
+#: app/web/routers/employees.py app/web/templates/profile.html
 msgid "Anne adı"
 msgstr "Mother's name"
 
@@ -992,7 +993,7 @@ msgstr "Open — {met}/{total} required items"
 #: app/web/templates/catalog_candidate.html
 #: app/web/templates/catalog_type_fields.html app/web/templates/group.html
 #: app/web/templates/groups.html app/web/templates/output_template.html
-#: app/web/templates/output_templates.html
+#: app/web/templates/output_templates.html app/web/templates/profile.html
 msgid "Açıklama"
 msgstr "Description"
 
@@ -1078,8 +1079,8 @@ msgstr ""
 "When you open it and press «Start», the bot says «Linked»; then refresh "
 "this page."
 
-#: app/web/profile_form.py app/web/routers/employees.py
-#: app/web/routers/output_templates.py app/web/templates/profile.html
+#: app/output_templates/labels.py app/web/profile_form.py
+#: app/web/routers/employees.py app/web/templates/profile.html
 msgid "Baba adı"
 msgstr "Father's name"
 
@@ -1814,7 +1815,7 @@ msgstr "Corrupt origin record"
 msgid "Boş"
 msgstr "Blank"
 
-#: app/web/routers/output_templates.py
+#: app/output_templates/labels.py
 msgid "Boş bırak"
 msgstr "Leave empty"
 
@@ -2394,7 +2395,7 @@ msgstr ""
 "This template is a draft: it cannot be used to prepare output until its "
 "field map is approved."
 
-#: app/web/routers/output_templates.py
+#: app/output_templates/labels.py
 msgid "Bugünün tarihi"
 msgstr "Today's date"
 
@@ -2553,8 +2554,8 @@ msgstr "Direct document: {operation} cannot be done for this type."
 msgid "Diğer"
 msgstr "Other"
 
-#: app/web/profile_form.py app/web/routers/employees.py
-#: app/web/routers/output_templates.py app/web/templates/profile.html
+#: app/output_templates/labels.py app/web/profile_form.py
+#: app/web/routers/employees.py app/web/templates/profile.html
 msgid "Diğer isimler"
 msgstr "Other names"
 
@@ -2668,8 +2669,8 @@ msgstr "Verified"
 msgid "Doğrulanmış"
 msgstr "Verified"
 
-#: app/web/profile_form.py app/web/routers/employees.py
-#: app/web/routers/output_templates.py app/web/templates/profile.html
+#: app/output_templates/labels.py app/web/profile_form.py
+#: app/web/routers/employees.py app/web/templates/profile.html
 msgid "Doğum tarihi"
 msgstr "Date of birth"
 
@@ -2691,8 +2692,8 @@ msgstr "Date of birth: not recorded"
 msgid "Doğum tarihi: {date} ({age} yaşında)"
 msgstr "Date of birth: {date} ({age} years old)"
 
-#: app/web/profile_form.py app/web/routers/employees.py
-#: app/web/routers/output_templates.py app/web/templates/profile.html
+#: app/output_templates/labels.py app/web/profile_form.py
+#: app/web/routers/employees.py app/web/templates/profile.html
 msgid "Doğum yeri"
 msgstr "Place of birth"
 
@@ -2740,13 +2741,17 @@ msgstr "Edit"
 msgid "Düzenleme formunu yeniden açın"
 msgstr "Open the edit form again"
 
-#: app/web/routers/employees.py app/web/routers/output_templates.py
+#: app/output_templates/labels.py app/web/routers/employees.py
 msgid "E-posta"
 msgstr "Email"
 
 #: app/matching/records.py
 msgid "E-posta adresi ad@alan.uzantı biçiminde olmalı."
 msgstr "The email address must have the form name@domain.tld."
+
+#: app/web/templates/profile.html
+msgid "Eksik alanlar"
+msgstr "Missing fields"
 
 #: app/web/templates/profile.html
 msgid "Eksik belge"
@@ -3405,6 +3410,10 @@ msgstr ""
 msgid "Harita saklanamadı; tarama başlatılmadı."
 msgstr "The map could not be stored; the scan was not started."
 
+#: app/web/templates/profile.html
+msgid "Harita sürümü"
+msgstr "Map version"
+
 #: app/training/map_scan.py
 #, python-brace-format
 msgid "Harita taraması yapılamadı ({error}); denemeler tükendi"
@@ -3490,6 +3499,18 @@ msgstr "Ready"
 msgid "Hazır Şablonlar"
 msgstr "Templates"
 
+#: app/web/templates/profile.html
+msgid ""
+"Hazır şablon yok. Şablonu <a href=\"/output-templates\">Hazır "
+"Şablonlar</a>'da yükleyip alan haritasını onaylayın."
+msgstr ""
+"No ready templates. Upload a template under <a href=\"/output-"
+"templates\">Templates</a> and approve its field map."
+
+#: app/web/templates/profile.html
+msgid "Hazır şablonlar"
+msgstr "Ready templates"
+
 #: app/web/templates/upload_detail.html
 msgid "Hedef"
 msgstr "Target"
@@ -3543,6 +3564,14 @@ msgstr "No employees yet."
 #: app/web/templates/catalog_accepted_photos.html
 msgid "Henüz örnek olarak işaretlenen kabul edilmiş fotoğraf yok."
 msgstr "No accepted photo has been marked as an example yet."
+
+#: app/web/templates/profile.html
+msgid ""
+"Henüz üretilen belge yok. Yukarıdaki hazır şablonlardan birinde \"Çıktıya"
+" hazırla\" düğmesini kullanın."
+msgstr ""
+"No generated documents yet. Use \"Prepare output\" on one of the ready "
+"templates above."
 
 #: app/web/routers/catalog.py app/web/routers/employees.py
 msgid "Hepsi"
@@ -3998,8 +4027,8 @@ msgstr ""
 "No person identified: neither a name nor a document number was read on "
 "the document."
 
-#: app/web/profile_form.py app/web/routers/employees.py
-#: app/web/routers/output_templates.py app/web/templates/profile.html
+#: app/output_templates/labels.py app/web/profile_form.py
+#: app/web/routers/employees.py app/web/templates/profile.html
 msgid "Kişisel numara"
 msgstr "Personal number"
 
@@ -4475,8 +4504,8 @@ msgstr "Approved"
 msgid "Onayı yeniden başlatın"
 msgstr "Restart the confirmation"
 
-#: app/web/profile_form.py app/web/routers/employees.py
-#: app/web/routers/output_templates.py app/web/templates/document_move.html
+#: app/output_templates/labels.py app/web/profile_form.py
+#: app/web/routers/employees.py app/web/templates/document_move.html
 #: app/web/templates/employee_merge_results.html
 #: app/web/templates/employees_results.html app/web/templates/profile.html
 #: app/web/templates/queue_assign.html
@@ -4724,7 +4753,7 @@ msgstr ""
 "produced so far are not deleted. A batch that is still unfinished 10 "
 "minutes after it was received is cancelled automatically."
 
-#: app/web/routers/output_templates.py app/web/templates/profile.html
+#: app/output_templates/labels.py app/web/templates/profile.html
 msgid "Pasaport numarası"
 msgstr "Passport number"
 
@@ -4740,6 +4769,10 @@ msgid ""
 msgstr ""
 "No Telegram link is generated for an inactive user; reactivate the user "
 "first."
+
+#: app/web/templates/profile.html
+msgid "Pasif ya da birleştirilmiş çalışana çıktı hazırlanmaz."
+msgstr "Outputs are not prepared for an inactive or merged employee."
 
 #: app/web/templates/profile.html
 msgid "Pasif çalışan"
@@ -5256,8 +5289,8 @@ msgstr "Result type"
 msgid "Sonuçlar"
 msgstr "Results"
 
-#: app/web/profile_form.py app/web/routers/employees.py
-#: app/web/routers/output_templates.py app/web/templates/profile.html
+#: app/output_templates/labels.py app/web/profile_form.py
+#: app/web/routers/employees.py app/web/templates/profile.html
 msgid "Soyad"
 msgstr "Surname"
 
@@ -5450,7 +5483,7 @@ msgstr ""
 "previously uploaded file {original}; it is not processed again and "
 "produces no output."
 
-#: app/web/routers/employees.py app/web/routers/output_templates.py
+#: app/output_templates/labels.py app/web/routers/employees.py
 msgid "Telefon"
 msgstr "Phone"
 
@@ -5823,8 +5856,8 @@ msgstr "Nationality: {country}"
 msgid "Var olan şablonu aç"
 msgstr "Open the existing template"
 
-#: app/web/profile_form.py app/web/routers/employees.py
-#: app/web/routers/output_templates.py app/web/templates/profile.html
+#: app/output_templates/labels.py app/web/profile_form.py
+#: app/web/routers/employees.py app/web/templates/profile.html
 msgid "Vatandaşlık"
 msgstr "Nationality"
 
@@ -5904,6 +5937,14 @@ msgstr ""
 #: app/web/templates/groups.html
 msgid "Yalnız etkin grupları göster"
 msgstr "Show only active groups"
+
+#: app/web/routers/generated_documents.py
+msgid ""
+"Yalnız etkin çalışana çıktı hazırlanır; pasif ya da birleştirilmiş kayda "
+"hazırlanmaz."
+msgstr ""
+"Outputs are prepared only for active employees, not for an inactive or "
+"merged record."
 
 #: app/groups/packages.py
 msgid "Yalnız iptal edilmiş paket yeniden açılır."
@@ -7296,6 +7337,7 @@ msgstr "Employee"
 msgid "Çalışan ara"
 msgstr "Search employees"
 
+#: app/web/routers/generated_documents.py
 #: app/web/templates/access_log_employee.html app/web/templates/profile.html
 msgid "Çalışan bulunamadı"
 msgstr "Employee not found"
@@ -7457,6 +7499,40 @@ msgstr "Output format"
 msgid "Çıktı dosya adına girer: <code>Ad_Soyad-Etiket.pdf</code>."
 msgstr "Goes into the output file name: <code>Name_Surname-Label.pdf</code>."
 
+#: app/web/feedback.py
+#, python-brace-format
+msgid ""
+"Çıktı hazırlandı; kutusuna sığmayan alanlar kesilmeden yazıldı — taşan: "
+"{overflow}."
+msgstr ""
+"Output prepared; fields that did not fit their box were written in full —"
+" overflowing: {overflow}."
+
+#: app/web/feedback.py
+#, python-brace-format
+msgid ""
+"Çıktı hazırlandı; profilde boş olan alanlar boş bırakıldı — eksik: "
+"{fields}."
+msgstr ""
+"Output prepared; fields empty in the profile were left blank — missing: "
+"{fields}."
+
+#: app/web/feedback.py
+#, python-brace-format
+msgid ""
+"Çıktı hazırlandı; profilde boş olan alanlar boş bırakıldı — eksik: "
+"{fields}. Kutusuna sığmayan alanlar kesilmeden yazıldı — taşan: "
+"{overflow}."
+msgstr ""
+"Output prepared; fields empty in the profile were left blank — missing: "
+"{fields}. Fields that did not fit their box were written in full — "
+"overflowing: {overflow}."
+
+#: app/web/feedback.py
+#, python-brace-format
+msgid "Çıktı hazırlandı; {count} alan profilden dolduruldu."
+msgstr "Output prepared; {count} fields filled from the profile."
+
 #: app/web/templates/catalog_type_fields.html
 msgid ""
 "Çıktı tek kaynak dosyadan alınan ardışık sayfalardır; birleştirme ve "
@@ -7481,6 +7557,10 @@ msgstr "Outputs"
 #: app/web/templates/queue_assign.html app/web/templates/queue_new_profile.html
 msgid "Çıktının geçmişi"
 msgstr "The output's history"
+
+#: app/web/templates/profile.html
+msgid "Çıktıya hazırla"
+msgstr "Prepare output"
 
 #: app/web/templates/base.html
 msgid "Çıkış"
@@ -7783,6 +7863,22 @@ msgid ""
 msgstr ""
 "The citizenship or identity number of their country, as written (e.g. "
 "JMBG); spaces, hyphens and dots are ignored in search"
+
+#: app/web/templates/profile.html
+msgid "Üreten"
+msgstr "Generated by"
+
+#: app/web/routers/generated_documents.py
+msgid "Üretilen belge bulunamadı"
+msgstr "Generated document not found"
+
+#: app/web/templates/profile.html
+msgid "Üretilen belgeler"
+msgstr "Generated documents"
+
+#: app/web/routers/generated_documents.py
+msgid "Üretilen belgenin dosyası bulunamadı"
+msgstr "Generated document file not found"
 
 #: app/web/templates/training_results.html
 #, python-format
@@ -8162,6 +8258,10 @@ msgstr ""
 msgid "İşleniyor"
 msgstr "Processing"
 
+#: app/web/templates/profile.html
+msgid "Şablon"
+msgstr "Template"
+
 #: app/output_templates/service.py
 msgid "Şablon adı boş olamaz."
 msgstr "Template name cannot be empty."
@@ -8185,17 +8285,25 @@ msgstr ""
 "Template archived: it cannot be selected on profiles; documents already "
 "generated stay in place."
 
-#: app/web/routers/output_templates.py
+#: app/web/routers/generated_documents.py app/web/routers/output_templates.py
 msgid "Şablon bulunamadı"
 msgstr "Template not found"
 
-#: app/web/routers/output_templates.py
+#: app/web/routers/generated_documents.py app/web/routers/output_templates.py
 msgid "Şablon dosyası bulunamadı"
 msgstr "Template file not found"
 
 #: app/web/templates/output_templates.html
 msgid "Şablon durumu"
 msgstr "Template status"
+
+#: app/web/routers/generated_documents.py
+msgid ""
+"Şablon hazır değil: alan haritası onaylanmamış ya da şablon arşivde. Önce"
+" şablonu hazırlayın."
+msgstr ""
+"The template is not ready: its field map is not approved or the template "
+"is archived. Prepare the template first."
 
 #: app/web/templates/output_template.html
 msgid ""

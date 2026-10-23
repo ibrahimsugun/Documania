@@ -316,6 +316,8 @@ NOT_HTML = frozenset(
         "/output-templates/{template_id}/file",
         "/output-templates/{template_id}/download",
         "/output-templates/{template_id}/pages/{page_index}",
+        "/employees/{employee_id}/outputs/{generated_document_id}/file",
+        "/employees/{employee_id}/outputs/{generated_document_id}/download",
     }
 )
 
@@ -703,6 +705,8 @@ def test_every_registered_notice_speaks_the_chosen_language(language: str) -> No
     # 10.11.3: kayıttaki her bildirim (yer tutucular örnek değerle) seçili dilde biçimlenir.
     samples = {"count": 2, "skipped": 1, "version": 3, "previous": 2}
     samples |= {"employee_id": "E0001", "upload_id": "u_20990101_0001", "slug": PASSPORT}
+    # 15.2.1: alan adları gösterimde çevrilir (`app.web.feedback._shown`).
+    samples |= {"fields": "mother_name,place_of_birth", "overflow": "full_name"}
     failures = []
     with use_language(language):
         for key, feedback in REGISTRY.items():

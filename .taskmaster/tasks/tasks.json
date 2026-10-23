@@ -2708,14 +2708,14 @@
         "description": "PRD 15.2.1, 15.2.2 · FR-MOD-15 · Faz 1 · Must (v1). Sözleşme PLAN §D123 (d, f, g). İnsan isteği (2026-10-23): profilde \"çıktıya hazırla\" düğmesi; boş kısımlar çalışan bilgisinden dolar; hazırlanan belgeler profilde durur, görüntülenir/indirilir.",
         "details": "KAPSAM: PRD 15.2.1, 15.2.2, S29; PLAN §D123 d, f, g — önce oku. tm 184 ve tm 180 üzerine.\n\nNE YAPILACAK: (1) `app/templates_output/generate.py` (ad önerisi; yol üretimi `app/storage/`): onaylı harita + çalışan → şablon orijinalinin KOPYASI (orijinal SHA-256 değişmez, R2) PyMuPDF ile açılır; her `text`/`date` kutusuna `insert_textbox` (harita `font_size`, sığmazsa küçült, yine sığmazsa kesmeden yaz + `truncated_fields`); değer biçimleri §D123 d: `full_name`, Latin ad-soyad, `GG.AA.YYYY`, uyruk İngilizce CLDR adı, `today`, pasaport numarası `employee_identifiers`'tan, adres/telefon/e-posta `is_current` kayıttan; boş profil alanı boş kalır (uydurma yok) → `missing_fields`; `signature/stamp/logo/photo/decoration` kutularına hiçbir şey yazılmaz. (2) Dosya `Employees/<klasör>/Uretilen/<Ad_Soyad>-<Sablon-Etiketi>-<n>.pdf` (`app/storage` adlandırma; `n` şablon başına sıra), `generated_documents` satırı (`filled_fields_json`, `missing_fields_json` alan adları), olay `OUTPUT_GENERATED` (§8.3 verisi; değer yok), bildirim (eksik alan adları; 10.11.1 kaydı — alan adları çevrilir). (3) Profil (`profile.html`): \"Hazır şablonlar\" bölümü (ready şablonlar + \"Çıktıya hazırla\" — yazma yetkisi, pasif/birleşmiş çalışanda yok) ve \"Üretilen belgeler\" bölümü (şablon, tarih, üreten, harita sürümü, eksik alanlar, durum; yeni sekmede aç / indir → erişim kaydı `generated_document_id`). (4) Üretilen belge `documents`'a girmez; paket hesabı (14.2.2), eşleştirme, arama, bot (12.3) değişmez — testle kanıtla. (5) S29 senaryo testi `tests/test_scenario_s29.py` (ilk yarı: üretim; ikinci yarı tm 186). (6) Arayüz standardı, üç dil.\n\nGİRDİ: tm 180, 182–184 çıktıları, app/pipeline/execute.py (PyMuPDF/pypdf kullanım kalıbı), app/storage/naming.py, app/web/routers/employees.py, profile.html, app/countries (İngilizce ad), app/profiles/render.py.\n\nÇIKTI: üretim modülü, storage adlandırma, yönlendirici, profil şablonu, olay, bildirim, tests/templates_output, tests/web, tests/test_scenario_s29.py, PLAN, HANDOFF.\n\nTUZAKLAR: PDF'e metin yazmak için gömülü font — Latin dışı karakter (Kiril orijinal yazım) için PyMuPDF'in yerleşik fontlarına güven, `original_script_name` yazımı test edilsin; sayfa döndürmeli şablonlarda kutu koordinatı (`page.rect` ve rotation); üretim yapay zekâ çağırmaz (K9); değer hiçbir olaya/log'a yazılmaz.\n\nBU GÖREVİ BAĞLAYAN KİLİTLİ KURALLAR: PLAN §D123 (sözleşme — önce oku), R2/R11, K8 (adlandırma), K9/R10 (dondurulmuş harita), K15 (olay; kişisel değer yok), 10.1.8 (yetki), 10.10.3 (üç dil, `python -m app.i18n extract|update|compile|check`), 10.11.1 (bildirim kaydı), docs/ARAYUZ-STANDARDI.md (şablon ve stil; `tests/web/test_ui_standard.py`), MASTER-PROMPT yol kuralı (yol yalnız `app/storage/`), §8 (sütun ve olay adları).\n\nKAPANIŞ: PLAN satırları ✅ → K15.x (yeni blok `#### K15.1` / `K15.2` / `K15.3`), HANDOFF bloğu, Task Master done, commit mesajında `PRD 15.x — tm <id>`; CONVENTIONS §1 kapısı (tam paralel koşu uzun sürerse HANDOFF'a hangi klasörlerin koşulduğunu yaz).",
         "testStrategy": "tests/templates_output (kopya üretimi, orijinal SHA aynı, alan değerleri doğru koordinatta — PyMuPDF ile geri okuma, eksik alan boş + listede, taşma uyarısı, imza kutusu boş, Kiril yazım), tests/web (profil bölümleri, düğme yetkisi, pasif çalışanda yok, aç/indir + erişim kaydı, documents/paket değişmedi), tests/test_scenario_s29.py (ilk yarı); tam paralel kapı.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [
           "184",
           "180"
         ],
         "priority": "medium",
         "subtasks": [],
-        "updatedAt": "2026-10-22T22:35:37.000Z"
+        "updatedAt": "2026-10-23T02:16:47.909Z"
       },
       {
         "id": "186",
@@ -2734,9 +2734,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-23T01:32:19.726Z",
+      "lastModified": "2026-10-23T02:16:47.910Z",
       "taskCount": 187,
-      "completedCount": 185,
+      "completedCount": 186,
       "tags": [
         "master"
       ]

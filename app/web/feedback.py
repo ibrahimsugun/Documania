@@ -16,10 +16,11 @@ isteğin dilinde biçimlenir (10.11.3); taşıyıcıda metin değil anahtar duru
   görünüme bağlar.
 
 Parametreler yalnız kişisel olmayan değerlerdir (`PARAMETERS`): tam sayı, E numarası, parti kimliği,
-tür slug'ı. Ad-soyad, belge numarası, doğum tarihi parametre olamaz; kayıt kurulurken her yer
-tutucunun izinli adlardan biri olduğu denetlenir. Çerezden okunan bilinmeyen anahtar ya da izinsiz
-parametre sessizce yok sayılır: imza gerekmez, kullanıcı ancak kendine sahte bir bildirim
-gösterebilir.
+tür slug'ı ve profil alanı **adları** (§8.7 `source`, virgülle; gösterimde isteğin diline
+çevrilir, `app.output_templates.labels`). Ad-soyad, belge numarası, doğum tarihi parametre olamaz;
+kayıt kurulurken her yer tutucunun izinli adlardan biri olduğu denetlenir. Çerezden okunan
+bilinmeyen anahtar ya da izinsiz parametre sessizce yok sayılır: imza gerekmez, kullanıcı ancak
+kendine sahte bir bildirim gösterebilir.
 """
 
 from __future__ import annotations
@@ -36,6 +37,7 @@ from typing import Any
 from fastapi import Request, Response
 
 from app.i18n import N_, gettext
+from app.output_templates.labels import FIELD_LABELS, UNASSIGNED
 
 FLASH_COOKIE = "documania_flash"
 FLASH_MAX_AGE = 60
@@ -68,6 +70,7 @@ class ParamKind(Enum):
     EMPLOYEE_ID = "employee_id"
     UPLOAD_ID = "upload_id"
     SLUG = "slug"
+    FIELDS = "fields"
 
 
 _EMPLOYEE_ID = re.compile(r"E[0-9]{4,12}")
@@ -85,6 +88,9 @@ PARAMETERS: dict[str, ParamKind] = {
     "employee_id": ParamKind.EMPLOYEE_ID,
     "upload_id": ParamKind.UPLOAD_ID,
     "slug": ParamKind.SLUG,
+    # 15.2.1: eksik ve taşan alanların adları (değer değil); gösterimde çevrilir.
+    "fields": ParamKind.FIELDS,
+    "overflow": ParamKind.FIELDS,
 }
 
 
@@ -93,6 +99,9 @@ def _valid(kind: ParamKind, value: object) -> bool:
         return isinstance(value, int) and not isinstance(value, bool) and 0 <= value <= _MAX_INT
     if not isinstance(value, str):
         return False
+    if kind is ParamKind.FIELDS:
+        names = value.split(",")
+        return all(name in FIELD_LABELS and name != UNASSIGNED for name in names)
     pattern = {
         ParamKind.EMPLOYEE_ID: _EMPLOYEE_ID,
         ParamKind.UPLOAD_ID: _UPLOAD_ID,
@@ -331,6 +340,29 @@ TEMPLATE_MAP_NOTHING_BOUND = _register(
     "templates.map_nothing_bound",
     _ERR,
     N_("Harita onaylanmadı: en az bir kutu bir profil alanına bağlı olmalı."),
+)
+# 15.2.1: çıktıya hazırla. Eksik (profilde boş) ve taşan (kutuya sığmayıp kesilmeden yazılan)
+# alanlar adlarıyla söylenir; değer yazılmaz.
+OUTPUT_GENERATED = _register(
+    "employees.output_generated", _OK, N_("Çıktı hazırlandı; {count} alan profilden dolduruldu.")
+)
+OUTPUT_GENERATED_MISSING = _register(
+    "employees.output_generated_missing",
+    _WARN,
+    N_("Çıktı hazırlandı; profilde boş olan alanlar boş bırakıldı — eksik: {fields}."),
+)
+OUTPUT_GENERATED_OVERFLOW = _register(
+    "employees.output_generated_overflow",
+    _WARN,
+    N_("Çıktı hazırlandı; kutusuna sığmayan alanlar kesilmeden yazıldı — taşan: {overflow}."),
+)
+OUTPUT_GENERATED_MISSING_OVERFLOW = _register(
+    "employees.output_generated_missing_overflow",
+    _WARN,
+    N_(
+        "Çıktı hazırlandı; profilde boş olan alanlar boş bırakıldı — eksik: {fields}. Kutusuna "
+        "sığmayan alanlar kesilmeden yazıldı — taşan: {overflow}."
+    ),
 )
 
 # --- Çalışanlar (10.5) ---------------------------------------------------------------------------
@@ -711,11 +743,21 @@ def _feedback(key: str, params: dict[str, object]) -> Feedback:
     return feedback
 
 
+def _shown(params: dict[str, Any]) -> dict[str, Any]:
+    """Parametrelerin gösterim değeri: alan adı listesi isteğin dilinde etiketlere çevrilir."""
+    return {
+        name: ", ".join(gettext(FIELD_LABELS[field]) for field in value.split(","))
+        if PARAMETERS.get(name) is ParamKind.FIELDS
+        else value
+        for name, value in params.items()
+    }
+
+
 def render(key: str, **params: object) -> Toast:
     """Bildirimi bu isteğin dilinde biçimler (10.11.3); bilinmeyen anahtar ya da geçersiz
     parametre programlama hatasıdır."""
     feedback = _feedback(key, params)
-    return Toast(feedback.kind, gettext(feedback.template).format(**params))
+    return Toast(feedback.kind, gettext(feedback.template).format(**_shown(params)))
 
 
 def _encode(items: list[dict[str, Any]]) -> str:
@@ -785,7 +827,7 @@ def read_flash(request: Request) -> list[Toast]:
         feedback = REGISTRY.get(key) if isinstance(key, str) else None
         if feedback is None or not isinstance(params, dict) or not feedback.accepts(params):
             continue
-        toasts.append(Toast(feedback.kind, gettext(feedback.template).format(**params)))
+        toasts.append(Toast(feedback.kind, gettext(feedback.template).format(**_shown(params))))
     return toasts
 
 

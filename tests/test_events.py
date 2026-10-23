@@ -140,6 +140,7 @@ def test_all_prd_event_types_are_present() -> None:
         "TEMPLATE_MAP_APPROVED",
         "TEMPLATE_ARCHIVED",
         "TEMPLATE_RESTORED",
+        "OUTPUT_GENERATED",
     }
     assert {member.value for member in EventType} == expected
 

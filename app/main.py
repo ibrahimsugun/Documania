@@ -32,6 +32,7 @@ from app.web.routers import (
     catalog,
     documents,
     employees,
+    generated_documents,
     groups,
     output_templates,
     panel,
@@ -136,6 +137,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     # 10.5.13: kalıcı silinen çalışanın bütün adresleri "silindi" sayfasını (410) döner.
     application.include_router(
         employees.router,
+        dependencies=[*panel_writes, Depends(employees.reject_deleted_employee)],
+    )
+    # 15.2.1, 15.2.2: profilden çıktıya hazırla ve üretilen belgeler; aynı kapılar.
+    application.include_router(
+        generated_documents.router,
         dependencies=[*panel_writes, Depends(employees.reject_deleted_employee)],
     )
     application.include_router(documents.router, dependencies=panel_writes)

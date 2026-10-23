@@ -1107,7 +1107,8 @@ def test_panel_has_no_way_to_change_a_document(
     # (`tests/web/test_profile_records.py`). Birleştirme yolları (10.5.9) belgeleri kalan kayda K8
     # adıyla taşır; içerik bayt bayt aynı kalır (`tests/web/test_employee_merge.py`). Kalıcı silme
     # yolları (10.5.13) pasif çalışanın dosyalarını yalnız diskten kaldırır, içerik yazmaz
-    # (`tests/web/test_employee_delete.py`).
+    # (`tests/web/test_employee_delete.py`). Çıktıya hazırla (15.2.1) yalnız hazır şablonun
+    # kopyasını `Uretilen/`'e yazar; çalışan belgesine dokunmaz (`tests/web/test_outputs.py`).
     assert profile_paths == {
         "/employees/{employee_id}/delete": {"post"},
         "/employees/{employee_id}/delete/confirm": {"get"},
@@ -1133,6 +1134,9 @@ def test_panel_has_no_way_to_change_a_document(
         "/employees/{employee_id}/merge/confirm": {"get"},
         "/employees/{employee_id}/merge/prepare": {"post"},
         "/employees/{employee_id}/merge": {"post"},
+        "/employees/{employee_id}/outputs": {"post"},
+        "/employees/{employee_id}/outputs/{generated_document_id}/file": {"get"},
+        "/employees/{employee_id}/outputs/{generated_document_id}/download": {"get"},
     }
 
     urls = (

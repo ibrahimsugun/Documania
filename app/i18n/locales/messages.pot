@@ -4,7 +4,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Documania panel\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-23 01:22+0000\n"
+"POT-Creation-Date: 2026-10-23 01:46+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -420,9 +420,10 @@ msgstr ""
 msgid "AI kararı: `{slug}` ({basis}, model {model})"
 msgstr ""
 
-#: app/catalog/prefill.py app/web/profile_form.py app/web/routers/catalog.py
-#: app/web/routers/employees.py app/web/routers/output_templates.py
-#: app/web/templates/catalog.html app/web/templates/catalog_type_fields.html
+#: app/catalog/prefill.py app/output_templates/labels.py
+#: app/web/profile_form.py app/web/routers/catalog.py
+#: app/web/routers/employees.py app/web/templates/catalog.html
+#: app/web/templates/catalog_type_fields.html
 #: app/web/templates/document_move.html
 #: app/web/templates/employee_merge_results.html
 #: app/web/templates/employees_results.html app/web/templates/group.html
@@ -432,7 +433,7 @@ msgstr ""
 msgid "Ad"
 msgstr ""
 
-#: app/web/routers/output_templates.py
+#: app/output_templates/labels.py
 msgid "Ad soyad"
 msgstr ""
 
@@ -543,7 +544,7 @@ msgstr ""
 msgid "Adayı reddet"
 msgstr ""
 
-#: app/web/routers/employees.py app/web/routers/output_templates.py
+#: app/output_templates/labels.py app/web/routers/employees.py
 msgid "Adres"
 msgstr ""
 
@@ -561,7 +562,7 @@ msgstr ""
 #: app/web/templates/employee_fields_step.html
 #: app/web/templates/employee_merge_step.html
 #: app/web/templates/output_template.html
-#: app/web/templates/output_templates.html
+#: app/web/templates/output_templates.html app/web/templates/profile.html
 msgid "Alan"
 msgstr ""
 
@@ -664,8 +665,8 @@ msgstr ""
 msgid "Analizi yapılamamış sayfalar: {pages}."
 msgstr ""
 
-#: app/web/profile_form.py app/web/routers/employees.py
-#: app/web/routers/output_templates.py app/web/templates/profile.html
+#: app/output_templates/labels.py app/web/profile_form.py
+#: app/web/routers/employees.py app/web/templates/profile.html
 msgid "Anne adı"
 msgstr ""
 
@@ -884,7 +885,7 @@ msgstr ""
 #: app/web/templates/catalog_candidate.html
 #: app/web/templates/catalog_type_fields.html app/web/templates/group.html
 #: app/web/templates/groups.html app/web/templates/output_template.html
-#: app/web/templates/output_templates.html
+#: app/web/templates/output_templates.html app/web/templates/profile.html
 msgid "Açıklama"
 msgstr ""
 
@@ -953,8 +954,8 @@ msgstr ""
 msgid "Açıp «Başlat»a basınca bot «Bağlandı» der; sonra bu sayfayı yenileyin."
 msgstr ""
 
-#: app/web/profile_form.py app/web/routers/employees.py
-#: app/web/routers/output_templates.py app/web/templates/profile.html
+#: app/output_templates/labels.py app/web/profile_form.py
+#: app/web/routers/employees.py app/web/templates/profile.html
 msgid "Baba adı"
 msgstr ""
 
@@ -1586,7 +1587,7 @@ msgstr ""
 msgid "Boş"
 msgstr ""
 
-#: app/web/routers/output_templates.py
+#: app/output_templates/labels.py
 msgid "Boş bırak"
 msgstr ""
 
@@ -2073,7 +2074,7 @@ msgstr ""
 msgid "Bu şablon taslak: alan haritası onaylanmadan çıktıya hazırlanamaz."
 msgstr ""
 
-#: app/web/routers/output_templates.py
+#: app/output_templates/labels.py
 msgid "Bugünün tarihi"
 msgstr ""
 
@@ -2210,8 +2211,8 @@ msgstr ""
 msgid "Diğer"
 msgstr ""
 
-#: app/web/profile_form.py app/web/routers/employees.py
-#: app/web/routers/output_templates.py app/web/templates/profile.html
+#: app/output_templates/labels.py app/web/profile_form.py
+#: app/web/routers/employees.py app/web/templates/profile.html
 msgid "Diğer isimler"
 msgstr ""
 
@@ -2318,8 +2319,8 @@ msgstr ""
 msgid "Doğrulanmış"
 msgstr ""
 
-#: app/web/profile_form.py app/web/routers/employees.py
-#: app/web/routers/output_templates.py app/web/templates/profile.html
+#: app/output_templates/labels.py app/web/profile_form.py
+#: app/web/routers/employees.py app/web/templates/profile.html
 msgid "Doğum tarihi"
 msgstr ""
 
@@ -2339,8 +2340,8 @@ msgstr ""
 msgid "Doğum tarihi: {date} ({age} yaşında)"
 msgstr ""
 
-#: app/web/profile_form.py app/web/routers/employees.py
-#: app/web/routers/output_templates.py app/web/templates/profile.html
+#: app/output_templates/labels.py app/web/profile_form.py
+#: app/web/routers/employees.py app/web/templates/profile.html
 msgid "Doğum yeri"
 msgstr ""
 
@@ -2385,12 +2386,16 @@ msgstr ""
 msgid "Düzenleme formunu yeniden açın"
 msgstr ""
 
-#: app/web/routers/employees.py app/web/routers/output_templates.py
+#: app/output_templates/labels.py app/web/routers/employees.py
 msgid "E-posta"
 msgstr ""
 
 #: app/matching/records.py
 msgid "E-posta adresi ad@alan.uzantı biçiminde olmalı."
+msgstr ""
+
+#: app/web/templates/profile.html
+msgid "Eksik alanlar"
 msgstr ""
 
 #: app/web/templates/profile.html
@@ -3012,6 +3017,10 @@ msgstr ""
 msgid "Harita saklanamadı; tarama başlatılmadı."
 msgstr ""
 
+#: app/web/templates/profile.html
+msgid "Harita sürümü"
+msgstr ""
+
 #: app/training/map_scan.py
 #, python-brace-format
 msgid "Harita taraması yapılamadı ({error}); denemeler tükendi"
@@ -3095,6 +3104,16 @@ msgstr ""
 msgid "Hazır Şablonlar"
 msgstr ""
 
+#: app/web/templates/profile.html
+msgid ""
+"Hazır şablon yok. Şablonu <a href=\"/output-templates\">Hazır "
+"Şablonlar</a>'da yükleyip alan haritasını onaylayın."
+msgstr ""
+
+#: app/web/templates/profile.html
+msgid "Hazır şablonlar"
+msgstr ""
+
 #: app/web/templates/upload_detail.html
 msgid "Hedef"
 msgstr ""
@@ -3145,6 +3164,12 @@ msgstr ""
 
 #: app/web/templates/catalog_accepted_photos.html
 msgid "Henüz örnek olarak işaretlenen kabul edilmiş fotoğraf yok."
+msgstr ""
+
+#: app/web/templates/profile.html
+msgid ""
+"Henüz üretilen belge yok. Yukarıdaki hazır şablonlardan birinde \"Çıktıya"
+" hazırla\" düğmesini kullanın."
 msgstr ""
 
 #: app/web/routers/catalog.py app/web/routers/employees.py
@@ -3550,8 +3575,8 @@ msgstr ""
 msgid "Kişi tespit edilemedi: belgede ne ad-soyad ne belge numarası okundu."
 msgstr ""
 
-#: app/web/profile_form.py app/web/routers/employees.py
-#: app/web/routers/output_templates.py app/web/templates/profile.html
+#: app/output_templates/labels.py app/web/profile_form.py
+#: app/web/routers/employees.py app/web/templates/profile.html
 msgid "Kişisel numara"
 msgstr ""
 
@@ -3991,8 +4016,8 @@ msgstr ""
 msgid "Onayı yeniden başlatın"
 msgstr ""
 
-#: app/web/profile_form.py app/web/routers/employees.py
-#: app/web/routers/output_templates.py app/web/templates/document_move.html
+#: app/output_templates/labels.py app/web/profile_form.py
+#: app/web/routers/employees.py app/web/templates/document_move.html
 #: app/web/templates/employee_merge_results.html
 #: app/web/templates/employees_results.html app/web/templates/profile.html
 #: app/web/templates/queue_assign.html
@@ -4215,7 +4240,7 @@ msgid ""
 "bitmemiş parti kendiliğinden iptal edilir."
 msgstr ""
 
-#: app/web/routers/output_templates.py app/web/templates/profile.html
+#: app/output_templates/labels.py app/web/templates/profile.html
 msgid "Pasaport numarası"
 msgstr ""
 
@@ -4228,6 +4253,10 @@ msgstr ""
 msgid ""
 "Pasif kullanıcıya Telegram bağlantısı üretilmez; önce kullanıcıyı "
 "etkinleştirin."
+msgstr ""
+
+#: app/web/templates/profile.html
+msgid "Pasif ya da birleştirilmiş çalışana çıktı hazırlanmaz."
 msgstr ""
 
 #: app/web/templates/profile.html
@@ -4683,8 +4712,8 @@ msgstr ""
 msgid "Sonuçlar"
 msgstr ""
 
-#: app/web/profile_form.py app/web/routers/employees.py
-#: app/web/routers/output_templates.py app/web/templates/profile.html
+#: app/output_templates/labels.py app/web/profile_form.py
+#: app/web/routers/employees.py app/web/templates/profile.html
 msgid "Soyad"
 msgstr ""
 
@@ -4864,7 +4893,7 @@ msgid ""
 "{original} ile aynı içerikte; yeniden işlenmez, çıktı üretmez."
 msgstr ""
 
-#: app/web/routers/employees.py app/web/routers/output_templates.py
+#: app/output_templates/labels.py app/web/routers/employees.py
 msgid "Telefon"
 msgstr ""
 
@@ -5191,8 +5220,8 @@ msgstr ""
 msgid "Var olan şablonu aç"
 msgstr ""
 
-#: app/web/profile_form.py app/web/routers/employees.py
-#: app/web/routers/output_templates.py app/web/templates/profile.html
+#: app/output_templates/labels.py app/web/profile_form.py
+#: app/web/routers/employees.py app/web/templates/profile.html
 msgid "Vatandaşlık"
 msgstr ""
 
@@ -5259,6 +5288,12 @@ msgstr ""
 
 #: app/web/templates/groups.html
 msgid "Yalnız etkin grupları göster"
+msgstr ""
+
+#: app/web/routers/generated_documents.py
+msgid ""
+"Yalnız etkin çalışana çıktı hazırlanır; pasif ya da birleştirilmiş kayda "
+"hazırlanmaz."
 msgstr ""
 
 #: app/groups/packages.py
@@ -6586,6 +6621,7 @@ msgstr ""
 msgid "Çalışan ara"
 msgstr ""
 
+#: app/web/routers/generated_documents.py
 #: app/web/templates/access_log_employee.html app/web/templates/profile.html
 msgid "Çalışan bulunamadı"
 msgstr ""
@@ -6732,6 +6768,33 @@ msgstr ""
 msgid "Çıktı dosya adına girer: <code>Ad_Soyad-Etiket.pdf</code>."
 msgstr ""
 
+#: app/web/feedback.py
+#, python-brace-format
+msgid ""
+"Çıktı hazırlandı; kutusuna sığmayan alanlar kesilmeden yazıldı — taşan: "
+"{overflow}."
+msgstr ""
+
+#: app/web/feedback.py
+#, python-brace-format
+msgid ""
+"Çıktı hazırlandı; profilde boş olan alanlar boş bırakıldı — eksik: "
+"{fields}."
+msgstr ""
+
+#: app/web/feedback.py
+#, python-brace-format
+msgid ""
+"Çıktı hazırlandı; profilde boş olan alanlar boş bırakıldı — eksik: "
+"{fields}. Kutusuna sığmayan alanlar kesilmeden yazıldı — taşan: "
+"{overflow}."
+msgstr ""
+
+#: app/web/feedback.py
+#, python-brace-format
+msgid "Çıktı hazırlandı; {count} alan profilden dolduruldu."
+msgstr ""
+
 #: app/web/templates/catalog_type_fields.html
 msgid ""
 "Çıktı tek kaynak dosyadan alınan ardışık sayfalardır; birleştirme ve "
@@ -6751,6 +6814,10 @@ msgstr ""
 
 #: app/web/templates/queue_assign.html app/web/templates/queue_new_profile.html
 msgid "Çıktının geçmişi"
+msgstr ""
+
+#: app/web/templates/profile.html
+msgid "Çıktıya hazırla"
 msgstr ""
 
 #: app/web/templates/base.html
@@ -7021,6 +7088,22 @@ msgstr ""
 msgid ""
 "Ülkesinin vatandaşlık ya da kimlik numarası, olduğu gibi (ör. JMBG); "
 "boşluk, tire ve nokta farkı aramada yok sayılır"
+msgstr ""
+
+#: app/web/templates/profile.html
+msgid "Üreten"
+msgstr ""
+
+#: app/web/routers/generated_documents.py
+msgid "Üretilen belge bulunamadı"
+msgstr ""
+
+#: app/web/templates/profile.html
+msgid "Üretilen belgeler"
+msgstr ""
+
+#: app/web/routers/generated_documents.py
+msgid "Üretilen belgenin dosyası bulunamadı"
 msgstr ""
 
 #: app/web/templates/training_results.html
@@ -7374,6 +7457,10 @@ msgstr ""
 msgid "İşleniyor"
 msgstr ""
 
+#: app/web/templates/profile.html
+msgid "Şablon"
+msgstr ""
+
 #: app/output_templates/service.py
 msgid "Şablon adı boş olamaz."
 msgstr ""
@@ -7395,16 +7482,22 @@ msgstr ""
 msgid "Şablon arşivlendi: profilde seçilemez, üretilmiş belgeler yerinde kalır."
 msgstr ""
 
-#: app/web/routers/output_templates.py
+#: app/web/routers/generated_documents.py app/web/routers/output_templates.py
 msgid "Şablon bulunamadı"
 msgstr ""
 
-#: app/web/routers/output_templates.py
+#: app/web/routers/generated_documents.py app/web/routers/output_templates.py
 msgid "Şablon dosyası bulunamadı"
 msgstr ""
 
 #: app/web/templates/output_templates.html
 msgid "Şablon durumu"
+msgstr ""
+
+#: app/web/routers/generated_documents.py
+msgid ""
+"Şablon hazır değil: alan haritası onaylanmamış ya da şablon arşivde. Önce"
+" şablonu hazırlayın."
 msgstr ""
 
 #: app/web/templates/output_template.html
