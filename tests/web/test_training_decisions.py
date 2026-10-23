@@ -45,12 +45,12 @@ from tests.fixtures.gen import make_portrait_image_bytes
 from tests.training.invariants import assert_employee_data_untouched
 from tests.web.conftest import SESSION, SIGNED_IN, issue_token
 from tests.web.flash import flashed
+from tests.web.plan_record import plan_record
 from tests.web.test_confirm import PRD_OPERATIONS
 
 LIMIT = 1024 * 1024
 FROM_SLUG = "albanian_passport"
 TO_SLUG = "afghan_passport"
-PLAN = Path(__file__).resolve().parents[2] / "PLAN.md"
 ICON = f'aria-label="{MANUAL_CHECK_TEXT}"'
 
 
@@ -139,9 +139,7 @@ def _card(page: str, name: str) -> str:
 
 
 def _d58_texts() -> dict[str, tuple[str, str]]:
-    text = PLAN.read_text(encoding="utf-8")
-    block = text[text.index("- **D58 —") : text.index("- **D59 —")]
-    flat = " ".join(block.split())
+    flat = plan_record("D58")
     found = {}
     for title in ("Eğitim örneğini başka türe taşı", "Eğitim örneğini örneklerden çıkar"):
         match = re.search(rf"{title} — birinci: `([^`]+)` · ikinci: `([^`]+)`", flat)

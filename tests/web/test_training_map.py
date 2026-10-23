@@ -55,9 +55,9 @@ from tests.fixtures.gen import make_half_filled_image_bytes
 from tests.training.invariants import assert_employee_data_untouched
 from tests.web.conftest import SESSION, SIGNED_IN, issue_token
 from tests.web.flash import flashed
+from tests.web.plan_record import plan_record
 from tests.web.test_confirm import PRD_OPERATIONS
 
-PLAN = Path(__file__).resolve().parents[2] / "PLAN.md"
 PASSPORT = "turkish_passport"
 IN_PLACE = f"KnownDocuments/examples/{PASSPORT}"
 SETTINGS = Settings(_env_file=None, database_url="sqlite://")
@@ -166,8 +166,7 @@ def _start(client: TestClient, content: bytes, name: str = "harita.csv") -> Any:
 
 
 def test_the_map_confirmation_texts_are_plan_d58_verbatim() -> None:
-    text = PLAN.read_text(encoding="utf-8")
-    flat = " ".join(text[text.index("- **D58 —") : text.index("- **D59 —")].split())
+    flat = plan_record("D58")
     match = re.search(r"Toplu taramayı başlat — birinci: `([^`]+)` · ikinci: `([^`]+)`", flat)
 
     assert match is not None
