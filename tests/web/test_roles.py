@@ -96,7 +96,16 @@ WRITER_ONLY_PAGES = frozenset(
         "/queues/{queue_item_id}/close/confirm",
     }
 )
-ROOT_ONLY_PAGES = frozenset({"/access-log", "/access-log/employees/{employee_id}"})
+ROOT_ONLY_PAGES = frozenset(
+    {
+        "/access-log",
+        "/access-log/employees/{employee_id}",
+        "/ai-settings",
+        "/ai-settings/{rest:path}",
+    }
+)
+# Yalnız root'un yazan yolları (10.1.10): İK ve Kullanıcı için 403 değil, bilinmeyen yolla aynı 404.
+ROOT_ONLY_WRITES = frozenset({("POST", "/ai-settings"), ("POST", "/ai-settings/{rest:path}")})
 # Davranış taramasında yol parametreleri: sentetik dünyadaki gerçek kayıtlar (403 "kayıt yok"tan
 # değil kapıdan gelsin).
 WORLD_PARAMS = {
@@ -247,7 +256,7 @@ def test_write_only_pages_need_a_writer_and_the_access_log_needs_root() -> None:
         if "GET" in context.methods
     }
 
-    assert set(sweep.PAGES) >= WRITER_ONLY_PAGES | ROOT_ONLY_PAGES
+    assert set(sweep.PAGES) | sweep.NOT_HTML >= WRITER_ONLY_PAGES | ROOT_ONLY_PAGES
     for path, calls in pages.items():
         assert (require_writer in calls) is (path in WRITER_ONLY_PAGES), path
         assert (require_root in calls) is (path in ROOT_ONLY_PAGES), path
@@ -267,12 +276,18 @@ def test_a_read_only_user_gets_403_on_every_writing_route_and_nothing_changes(
     layout: DataLayout,
     world: dict[str, object],
 ) -> None:
+    unknown = client.post("/olmayan-bir-yol", data={"x": "1"}).json()
     _sign_in(app, READER)
     before = _snapshot(session_factory, layout)
     refused = []
 
     for method, path in sorted(_mutating(app)):
         if (method, path) in OPEN_WRITES:
+            continue
+        if (method, path) in ROOT_ONLY_WRITES:
+            address = path.replace("{rest:path}", "alt")
+            response = client.request(method, address, data={"x": "1"})
+            assert (response.status_code, response.json()) == (404, unknown), path
             continue
         response = client.request(method, _world_path(path, world), data={"x": "1"})
         assert response.status_code == 403, (method, path, response.status_code)

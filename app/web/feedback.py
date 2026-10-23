@@ -594,6 +594,16 @@ TELEGRAM_LINK_CREATED = _register(
     "users.telegram_link", _OK, N_("Bağlantı kodu oluşturuldu; ekrandaki adımları izleyin.")
 )
 
+# --- Yapay zekâ ayarları (10.1.10; yalnız root görür, PLAN.md §D124 e) --------------------------
+AI_SETTINGS_SAVED = _register(
+    "ai_settings.saved",
+    _OK,
+    N_("Yapay zekâ ayarı kaydedildi; bir sonraki yapay zekâ çağrısında geçerli olur."),
+)
+AI_SETTINGS_UNCHANGED = _register(
+    "ai_settings.unchanged", _INFO, N_("Değişiklik yok; ayar olduğu gibi kaldı.")
+)
+
 
 # --- Yol gösterme ipuçları (10.11.2; PLAN.md §D120 d) --------------------------------------------
 # Bekleyen bir kararın yanında duran tek cümlelik "ne yapmalı" metni. Bildirim değildir (taşıyıcısı

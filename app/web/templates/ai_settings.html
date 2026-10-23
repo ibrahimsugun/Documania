@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{# Yapay zekâ ayarları (10.1.10, PLAN.md §D124): yalnız root. Sağlayıcı başına kart; anahtarın
+   yalnız tanımlı/tanımsız durumu gösterilir, değeri hiçbir zaman. Alanlar sayfanın sonundaki tek
+   forma `form=` ile bağlıdır: kartlar `main.content`'in doğrudan çocuğu kalır, kaydet tek adımdır.
+   JavaScript yoktur: efor listesi kayıtlı modelindir, model değişince kaydetten sonra yenilenir. #}
+{% block title %}{{ _("Yapay zekâ ayarları") }}{% endblock %}
+{% block content %}
+<h1>{{ _("Yapay zekâ ayarları") }}</h1>
+<p class="lede">{% trans %}Analizlerin hangi sağlayıcıyla, hangi modelle ve hangi eforla yapılacağını seçin. Aynı anda tek sağlayıcı etkindir; değişiklik bir sonraki yapay zekâ çağrısında geçerli olur. API anahtarları yalnız sunucudaki .env dosyasındadır ve burada gösterilmez.{% endtrans %}</p>
+{% if not page.saved %}<p class="notice">{% trans %}Ayar henüz kaydedilmedi: .env değerleri gösteriliyor. İlk kayıtla bu sayfadaki seçim geçerli olur.{% endtrans %}</p>{% endif %}
+{% if error %}<p class="error" role="alert">{{ translate(error) }}</p>{% endif %}
+
+{% for card in page.cards %}
+<section class="ai-provider" aria-labelledby="ai-{{ card.name }}-title">
+  <h2 id="ai-{{ card.name }}-title" translate="no">{{ card.label }}</h2>
+  <dl class="meta">
+    <dt>{{ _("API anahtarı") }}</dt>
+    <dd>{% if card.key_defined %}<span class="status-badge status-active">{{ _("Tanımlı") }}</span>{% else %}<span class="status-badge status-passive">{{ _("Tanımsız") }}</span>{% endif %}</dd>
+    <dt>{{ _("Durum") }}</dt>
+    <dd>{% if card.active %}<span class="status-badge status-active">{{ _("Etkin") }}</span>{% else %}<span class="status-badge status-passive">{{ _("Pasif") }}</span>{% endif %}</dd>
+  </dl>
+  <div class="type-form">
+    <span class="label">{{ _("Kullanım") }}</span>
+    <div class="field">
+      <label class="choice"><input type="radio" name="provider" value="{{ card.name }}" form="ai-settings-form"{% if card.active %} checked{% endif %}{% if not card.key_defined %} disabled{% endif %}> {{ _("Bu sağlayıcıyı etkinleştir") }}</label>
+      {% if not card.key_defined %}<p class="hint">{% trans %}Anahtar tanımlı olmadığı için etkinleştirilemez. Anahtarı sunucudaki .env dosyasına yazın ve paneli yeniden başlatın.{% endtrans %}</p>{% endif %}
+    </div>
+    <label for="ai-{{ card.name }}-model">{{ _("Model") }}</label>
+    <div class="field">
+      <select id="ai-{{ card.name }}-model" name="{{ card.name }}_model" form="ai-settings-form">
+        {% for model in card.models %}
+        <option value="{{ model.model_id }}" translate="no"{% if model.model_id == card.model %} selected{% endif %}>{{ model.label }}</option>
+        {% endfor %}
+        {% if not card.model_listed %}<option value="{{ card.model }}" translate="no" selected>{{ card.model }}</option>{% endif %}
+      </select>
+      {% if not card.model_listed %}<p class="field-error">{% trans %}Bu model listede yok (.env'den geliyor): korunur, ama efor ve istek biçimi bu model için doğrulanmadı.{% endtrans %}</p>{% endif %}
+    </div>
+    <label for="ai-{{ card.name }}-effort">{{ _("Efor") }}</label>
+    <div class="field">
+      <select id="ai-{{ card.name }}-effort" name="{{ card.name }}_effort" form="ai-settings-form">
+        <option value=""{% if card.effort is none %} selected{% endif %}>{% if card.default_effort %}{{ _("Varsayılan (%(effort)s)", effort=card.default_effort) }}{% else %}{{ _("Varsayılan") }}{% endif %}</option>
+        {% for effort in card.efforts %}
+        <option value="{{ effort }}" translate="no"{% if effort == card.effort %} selected{% endif %}>{{ effort }}</option>
+        {% endfor %}
+      </select>
+      <p class="hint">{% trans %}Liste kayıtlı modelin eforlarıdır. Modeli değiştirdiyseniz önce kaydedin, sonra eforu seçin.{% endtrans %}</p>
+    </div>
+  </div>
+</section>
+{% endfor %}
+
+<form id="ai-settings-form" class="ai-settings" method="post" action="/ai-settings">
+  <div class="form-actions"><button type="submit">{{ _("Kaydet") }}</button></div>
+</form>
+{% endblock %}

@@ -535,6 +535,8 @@ REVIEWED_MUTATING_ROUTES: dict[tuple[str, str], str] = {
     ("POST", "/training/maps/start"): (
         "toplu tarama: eğitim öğeleri ve haritanın kopyası, çalışan verisi değil (11.9.5)"
     ),
+    ("POST", "/ai-settings"): "yapay zekâ sağlayıcı/model/efor ayarı, yalnız root (10.1.10)",
+    ("POST", "/ai-settings/{rest}"): "yazmaz: her alt yol bilinmeyen yolla aynı 404",
     ("POST", "/users"): "panel kullanıcısı açma (10.1.4)",
     ("POST", "/users/{user_id}/password"): "İK'nın parola sıfırlaması (10.1.4)",
     ("POST", "/users/{user_id}/role"): (

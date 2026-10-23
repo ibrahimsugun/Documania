@@ -64,7 +64,7 @@ testler, HTMX hedefleri ve betikler onları bulur. Şablonda kullanılan her sı
 gibi `panel.css`'te tanımlıdır ya da **bu listede** kayıtlıdır; ikisinde de olmayan sınıf testte
 kırmızıdır. Yeni hook eklerken buraya yaz (alfabetik):
 
-`accepted-photos`, `access-log`, `action-done`, `actions`, `archive-selection`, `archive-summary`,
+`accepted-photos`, `access-log`, `action-done`, `actions`, `ai-provider`, `ai-settings`, `archive-selection`, `archive-summary`,
 `archive-types`, `archived-types`, `brand-name`, `candidates`, `close-item`, `close-summary`,
 `current`, `document-archive-step`, `document-groups`, `document-unarchive`, `employee-fields-step`,
 `employee-merge`, `employee-merge-step`, `employee-status-step`, `employees`, `entry-summary`,
@@ -108,7 +108,7 @@ içinde yatay kayar; form ızgaraları tek sütun olur. Yeni bileşen bu kırıl
 
 **Dokunulmazlar.** Testlerin sabitlediği işaretler değişmez: `<header class="topbar">`,
 `<nav class="menu" aria-label=…>` içindeki çıplak `<a href="/…">Etiket</a>` (etkin: `class="active"
-aria-current="page"`), `<a class="tool-link" href="/access-log">`, `<form class="session" …
+aria-current="page"`), `<a class="tool-link" href="/access-log">` (yalnız root; ardından yine yalnız root için `href="/ai-settings"`), `<form class="session" …
 action="/logout">` + `<button type="submit">Çıkış</button>`, `<div class="page-tools">` içindeki
 `class="theme-toggle" data-theme-toggle aria-pressed="false"`, `<main class="content">`, bildirim
 `<div class="toast toast-<tür>" role=… data-kind=…><span class="toast-icon"…></span><p class="toast-text">`,

@@ -35,9 +35,11 @@
       <a href="{{ entry.path }}"{% if entry.key == active %} class="active" aria-current="page"{% endif %}>{{ _(entry.label) }}</a>
       {% endfor %}
     </nav>
-    {# 13.4.1: erişim logu da menü dışı araçtır; 10.1.9: yalnız root görür. #}
+    {# 13.4.1: erişim logu da menü dışı araçtır; 10.1.9: yalnız root görür. 10.1.10: yapay zekâ
+       ayarları da yalnız root'un gezinmesindedir; İK ve Kullanıcı'nın hiçbir sayfasında adres geçmez. #}
     {% if user.is_root %}
     <a class="tool-link{% if active == 'access_log' %} active{% endif %}" href="/access-log"{% if active == 'access_log' %} aria-current="page"{% endif %}>{{ _("Erişim logu") }}</a>
+    <a class="tool-link{% if active == 'ai_settings' %} active{% endif %}" href="/ai-settings"{% if active == 'ai_settings' %} aria-current="page"{% endif %}>{{ _("Yapay zekâ ayarları") }}</a>
     {% endif %}
     <form class="session" method="post" action="/logout">
       <span class="avatar" aria-hidden="true" translate="no">{{ user.username[:1]|upper }}</span>

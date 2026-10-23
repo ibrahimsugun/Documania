@@ -23,11 +23,13 @@ from app.web.auth import (
     panel_write_gate,
     require_api_user,
     require_panel_user,
+    require_root,
 )
 from app.web.code_watch import CodeWatch
 from app.web.feedback import READ_ONLY, add_toasts, flash, is_htmx, render, status_feedback
 from app.web.routers import (
     access_log,
+    ai_settings,
     auth,
     catalog,
     documents,
@@ -150,6 +152,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     application.include_router(output_templates.router, dependencies=panel_writes)
     application.include_router(queue.pages_router, dependencies=panel_writes)
     application.include_router(access_log.router, dependencies=panel_writes)
+    # 10.1.10 (PLAN.md §D124 e): root kapısı yazma kapısından önce — İK ve Kullanıcı'nın `POST`'u
+    # da 403 değil, bilinmeyen yolla aynı 404'tür. Yazma kapısı yine yoldadır (rota taraması).
+    application.include_router(
+        ai_settings.router,
+        dependencies=[*panel_page, Depends(require_root), Depends(panel_write_gate)],
+    )
     application.include_router(training.router, dependencies=panel_writes)
     application.include_router(users.router, dependencies=panel_writes)
     application.include_router(users.account_router, dependencies=panel_page)

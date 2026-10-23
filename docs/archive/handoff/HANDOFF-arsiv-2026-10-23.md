@@ -4,6 +4,13 @@ Kaynak: HANDOFF.md (canlı dosyadan taşındı, birebir). Blok sayısı: 1.
 
 <!-- bloklar (newest-first) -->
 
+## 183 — 15.1-b Şablon incelemesi (alan haritası) — done — 2026-10-23
+- Yapıldı: `TemplateFieldMap` §8.7 şeması (`app/ai/schemas.py`), talimat `template_map.md`, `examine_template` (Anthropic/OpenAI/kayıtlı yanıt), göç 0032 (`examine_requested_at` + boş-zaman sahiplenme alanları), `app/output_templates/examine.py` (kuyruk, `TemplateExaminationJob`, harita sürümü + `map_hash`, `examine_error` kodu, `TEMPLATE_EXAMINED`), yüklemede kuyruğa alma, "Yeniden incele" (`POST …/examine`), listede/sayfada sebep, üç dil.
+- Doğrulama: ruff check/format, compileall, temiz SQLite'ta `alembic upgrade head` (→0032), `import app.main`, `python -m app.i18n check`, `git diff --check` exit 0; tam paralel kapı (`-n 6 --cov`) 7115 geçti, 6 atlandı, kapsam %98,84 — 2 kırmızı (`…plan_d58_verbatim`, D58 bloğu PLAN'da yok) önceki görevlerdeki gibi bu görevle ilgisiz.
+- Varsayımlar: §D123 (l)'ye yazıldı — yanıt yalnız `fields`+`notes`, `text`/`date`'te `source`/`font_size`/`max_chars` zorunlu, `examine_error` kod, şema hatası yeniden sorulmaz, sağlayıcı ayarı panelde denetlenir, yeniden inceleme durumu değiştirmez, 0032 öncesi şablonlar kendiliğinden kuyruğa girmez.
+- Sonraki pencereye not: tm 184 son sürümü `template.maps[-1]` (`json["fields"]`) üzerinden önizler; onay `approved_at`/`approved_by` yazar ve `map_hash`'i yeniden hesaplamaz (sürüm değişmezse aynıdır), düzenleme `store_map` ile yeni sürüm açmalı. Yeni POST yolları `REVIEWED_MUTATING_ROUTES`'a eklenmeli; web testleri `provider_available`'ı override eder.
+
+
 ## 182 — 15.1-a Hazır şablon deposu — done — 2026-10-23
 - Yapıldı: göç 0031 (`output_templates`, boş `output_template_maps`, `generated_documents`; `access_log` `template_id`/`generated_document_id` + CHECK), `app/output_templates/` (yükleme PDF/JPEG/PNG img2pdf kayıpsız, Word/Excel 422, SHA-256 ve ad tekrarı 409, arşiv/geri al, `TEMPLATE_UPLOADED/ARCHIVED/RESTORED`), `_sablonlar/<id>/sablon.pdf` + `pages/`, `Uretilen/` çalışan klasöründe; `/output-templates` liste/süzgeç/şablon sayfası, orijinali aç/indir erişim kaydıyla, menü "Hazır Şablonlar" simgeli, üç dil.
 - Doğrulama: ruff check/format, compileall, temiz SQLite'ta `alembic upgrade head` (→0031), `import app.main`, `python -m app.i18n check`, `git diff --check` exit 0; tam paralel kapı (`-n 6 --cov`) 7085 geçti, 6 atlandı, kapsam %98,86 — 2 kırmızı (`…plan_d58_verbatim`) HEAD'de de kırmızı (D58 bloğu PLAN'da yok), bu görevle ilgisiz.

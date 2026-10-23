@@ -41,6 +41,7 @@ from argon2.exceptions import InvalidHashError, VerificationError
 from fastapi import Depends, HTTPException, Request, Response, status
 from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session, aliased
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.config import Settings
 from app.db.models import User, UserRole, UserSession, utcnow
@@ -583,9 +584,11 @@ WRITER_ONLY = [Depends(require_writer)]
 
 
 def require_root(user: Annotated[PanelUser, Depends(require_panel_user)]) -> PanelUser:
-    """10.1.9 erişim logu: yalnız root; İK ve Kullanıcı için yol yokmuş gibi 404."""
+    """10.1.9 erişim logu, 10.1.10 yapay zekâ ayarları: yalnız root; İK ve Kullanıcı için yol
+    yokmuş gibi 404. Hata Starlette'in bilinmeyen yol hatasıyla aynı sınıftandır: yanıt (gövde,
+    başlık, bildirim çerezi yokluğu) bilinmeyen adresinkiyle birebir aynı kalır."""
     if not user.is_root:
-        raise HTTPException(status.HTTP_404_NOT_FOUND)
+        raise StarletteHTTPException(status.HTTP_404_NOT_FOUND)
     return user
 
 

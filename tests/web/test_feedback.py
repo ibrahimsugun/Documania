@@ -483,9 +483,13 @@ def test_a_read_only_users_refused_write_is_an_error_notice(
 
 # Bildirim almayan yazma yolları (PLAN.md §D120): giriş/çıkış ve dil seçici (oturum ve dil akışı),
 # tür formunun ölçüt satırı ekle/kaldır ve örneklerden açıklama üretme (hiçbir şey kaydetmez;
-# sonuç formun kendisidir).
+# sonuç formun kendisidir). Yapay zekâ ayarları İK'ya (bu taramanın kullanıcısı) bilinmeyen yolla
+# aynı 404'tür, bildirim taşımaz (10.1.10); root'un başarısız kaydı bildirim alır
+# (`tests/web/test_ai_settings_page.py`).
 WITHOUT_FEEDBACK = frozenset(
     {
+        "/ai-settings",
+        "/ai-settings/{rest:path}",
         "/login",
         "/logout",
         "/language",

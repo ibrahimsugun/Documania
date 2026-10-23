@@ -4,8 +4,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Documania panel\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-23 02:30+0000\n"
-"PO-Revision-Date: 2026-10-23 02:30+0000\n"
+"POT-Creation-Date: 2026-10-23 15:54+0000\n"
+"PO-Revision-Date: 2026-10-23 15:54+0000\n"
 "Last-Translator: Documania görev penceresi (gözden geçirilmeli)\n"
 "Language: en\n"
 "Language-Team: English\n"
@@ -460,6 +460,10 @@ msgstr "With AI decisions"
 msgid "AI kararı: `{slug}` ({basis}, model {model})"
 msgstr "AI decision: `{slug}` ({basis}, model {model})"
 
+#: app/web/templates/ai_settings.html
+msgid "API anahtarı"
+msgstr "API key"
+
 #: app/catalog/prefill.py app/output_templates/labels.py
 #: app/web/profile_form.py app/web/routers/catalog.py
 #: app/web/routers/employees.py app/web/templates/catalog.html
@@ -684,6 +688,14 @@ msgstr "Received"
 msgid "Ana menü"
 msgstr "Main menu"
 
+#: app/web/templates/ai_settings.html
+msgid ""
+"Anahtar tanımlı olmadığı için etkinleştirilemez. Anahtarı sunucudaki .env"
+" dosyasına yazın ve paneli yeniden başlatın."
+msgstr ""
+"It cannot be enabled because the key is not defined. Add the key to the "
+".env file on the server and restart the panel."
+
 #: app/catalog/prefill.py app/web/routers/catalog.py
 #: app/web/templates/catalog.html app/web/templates/catalog_type_fields.html
 msgid "Analiz"
@@ -742,6 +754,17 @@ msgstr ""
 #, python-brace-format
 msgid "Analizi yapılamamış sayfalar: {pages}."
 msgstr "Pages that could not be analysed: {pages}."
+
+#: app/web/templates/ai_settings.html
+msgid ""
+"Analizlerin hangi sağlayıcıyla, hangi modelle ve hangi eforla "
+"yapılacağını seçin. Aynı anda tek sağlayıcı etkindir; değişiklik bir "
+"sonraki yapay zekâ çağrısında geçerli olur. API anahtarları yalnız "
+"sunucudaki .env dosyasındadır ve burada gösterilmez."
+msgstr ""
+"Choose which provider, model and effort the analyses use. Only one "
+"provider is active at a time; a change takes effect on the next AI call. "
+"API keys live only in the .env file on the server and are not shown here."
 
 #: app/output_templates/labels.py app/web/profile_form.py
 #: app/web/routers/employees.py app/web/templates/profile.html
@@ -926,6 +949,18 @@ msgstr "Skipped"
 #: app/web/routers/upload_page.py
 msgid "Atlandı"
 msgstr "Skipped"
+
+#: app/web/templates/ai_settings.html
+msgid ""
+"Ayar henüz kaydedilmedi: .env değerleri gösteriliyor. İlk kayıtla bu "
+"sayfadaki seçim geçerli olur."
+msgstr ""
+"The setting has not been saved yet: the .env values are shown. From the "
+"first save on, the choice on this page applies."
+
+#: app/web/routers/ai_settings.py
+msgid "Ayar kaydedilemedi."
+msgstr "The setting could not be saved."
 
 #: app/training/decisions.py
 #, python-brace-format
@@ -1678,6 +1713,10 @@ msgstr ""
 msgid "Bilinmeyen rol."
 msgstr "Unknown role."
 
+#: app/web/routers/ai_settings.py
+msgid "Bilinmeyen sağlayıcı."
+msgstr "Unknown provider."
+
 #: app/web/templates/training.html
 msgid ""
 "Bir CSV haritası yükleyin: satırlardaki türle (<code>slug</code>) ve "
@@ -2079,6 +2118,14 @@ msgstr ""
 msgid "Bu kullanıcıya bağlı böyle bir Telegram kimliği yok"
 msgstr "This user has no such linked Telegram ID"
 
+#: app/web/templates/ai_settings.html
+msgid ""
+"Bu model listede yok (.env'den geliyor): korunur, ama efor ve istek "
+"biçimi bu model için doğrulanmadı."
+msgstr ""
+"This model is not in the list (it comes from .env): it is kept, but "
+"effort and request format have not been verified for it."
+
 #: app/web/routers/upload_page.py
 #, python-brace-format
 msgid ""
@@ -2116,6 +2163,10 @@ msgstr "No items from this batch were queued."
 #: app/web/routers/upload_page.py
 msgid "Bu partiyi yeniden analiz etmek üzeresiniz. Emin misiniz?"
 msgstr "You are about to re-analyze this batch. Are you sure?"
+
+#: app/web/templates/ai_settings.html
+msgid "Bu sağlayıcıyı etkinleştir"
+msgstr "Use this provider"
 
 #: app/telegram/intent.py
 msgid "Bu seçim artık geçerli değil. İsteğinizi yeniden yazın."
@@ -2502,6 +2553,10 @@ msgstr ""
 msgid "Değişiklik yok."
 msgstr "No changes."
 
+#: app/web/feedback.py
+msgid "Değişiklik yok; ayar olduğu gibi kaldı."
+msgstr "Nothing changed; the setting stays as it was."
+
 #: app/web/templates/catalog.html
 msgid ""
 "Değişiklikler bir sonraki analizden itibaren geçerlidir. Tür silinmez: "
@@ -2703,7 +2758,8 @@ msgstr "Date of birth: {date} ({age} years old)"
 msgid "Doğum yeri"
 msgstr "Place of birth"
 
-#: app/web/templates/catalog.html app/web/templates/catalog_candidate.html
+#: app/web/templates/ai_settings.html app/web/templates/catalog.html
+#: app/web/templates/catalog_candidate.html
 #: app/web/templates/document_archive_step.html
 #: app/web/templates/document_delete_step.html
 #: app/web/templates/employee_delete_step.html
@@ -2754,6 +2810,10 @@ msgstr "Email"
 #: app/matching/records.py
 msgid "E-posta adresi ad@alan.uzantı biçiminde olmalı."
 msgstr "The email address must have the form name@domain.tld."
+
+#: app/web/templates/ai_settings.html
+msgid "Efor"
+msgstr "Effort"
 
 #: app/web/templates/profile.html
 msgid "Eksik alanlar"
@@ -2877,8 +2937,8 @@ msgid "Etiket"
 msgstr "Label"
 
 #: app/web/routers/output_templates.py app/web/routers/upload_page.py
-#: app/web/templates/catalog.html app/web/templates/groups.html
-#: app/web/templates/users.html
+#: app/web/templates/ai_settings.html app/web/templates/catalog.html
+#: app/web/templates/groups.html app/web/templates/users.html
 msgid "Etkin"
 msgstr "Active"
 
@@ -3866,7 +3926,8 @@ msgstr "Type to be added to the catalog:"
 msgid "Kaydedilmedi: işaretli alanları düzeltip yeniden gönderin."
 msgstr "Not saved: correct the marked fields and submit again."
 
-#: app/web/templates/catalog_form.html app/web/templates/group.html
+#: app/web/templates/ai_settings.html app/web/templates/catalog_form.html
+#: app/web/templates/group.html
 msgid "Kaydet"
 msgstr "Save"
 
@@ -4159,6 +4220,10 @@ msgstr "Accepted photos used:"
 msgid "Kullanılan örnek sayfalar:"
 msgstr "Sample pages used:"
 
+#: app/web/templates/ai_settings.html
+msgid "Kullanım"
+msgstr "Use"
+
 #: app/web/templates/catalog_photo_rules.html
 msgid "Kurallar kaydedilmedi: alanların altındaki uyarıları düzeltin."
 msgstr "The rules were not saved: correct the warnings under the fields."
@@ -4245,6 +4310,14 @@ msgstr "No Latin spelling on the document"
 #: app/web/templates/profile.html
 msgid "Latin yazım eksik"
 msgstr "Latin spelling missing"
+
+#: app/web/templates/ai_settings.html
+msgid ""
+"Liste kayıtlı modelin eforlarıdır. Modeli değiştirdiyseniz önce kaydedin,"
+" sonra eforu seçin."
+msgstr ""
+"The list shows the efforts of the saved model. If you changed the model, "
+"save first, then choose the effort."
 
 #: app/web/routers/output_templates.py
 msgid "Logo"
@@ -4339,7 +4412,7 @@ msgstr "Your message is too long. Briefly write whose document you want."
 msgid "Metin"
 msgstr "Text"
 
-#: app/web/templates/output_template.html
+#: app/web/templates/ai_settings.html app/web/templates/output_template.html
 msgid "Model"
 msgstr "Model"
 
@@ -4764,7 +4837,8 @@ msgid "Pasaport numarası"
 msgstr "Passport number"
 
 #: app/matching/status.py app/web/routers/employees.py
-#: app/web/templates/catalog.html app/web/templates/users.html
+#: app/web/templates/ai_settings.html app/web/templates/catalog.html
+#: app/web/templates/users.html
 msgid "Pasif"
 msgstr "Inactive"
 
@@ -5126,6 +5200,15 @@ msgstr ""
 "The selected \"AI decision\" examples were verified; the manual check "
 "icon is gone."
 
+#: app/web/routers/ai_settings.py
+#, python-brace-format
+msgid ""
+"Seçilen efor {provider} modelinde kullanılamaz. Modeli değiştirdiyseniz "
+"önce modeli kaydedin, sonra eforu seçin."
+msgstr ""
+"The chosen effort cannot be used with the {provider} model. If you "
+"changed the model, save the model first, then choose the effort."
+
 #: app/web/routers/training.py
 msgid "Seçilen tür bilinen türlerden biri değil; listeden seçin."
 msgstr "The chosen type is not one of the known types; choose it from the list."
@@ -5392,6 +5475,14 @@ msgstr "Even with the shortened descriptions, the text exceeds the budget."
 #: app/web/templates/profile.html
 msgid "Tanımlayan:"
 msgstr "Assigned by:"
+
+#: app/web/templates/ai_settings.html
+msgid "Tanımlı"
+msgstr "Defined"
+
+#: app/web/templates/ai_settings.html
+msgid "Tanımsız"
+msgstr "Not defined"
 
 #: app/catalog/photo_rules.py
 #, python-brace-format
@@ -5862,6 +5953,15 @@ msgstr "Nationality: {country}"
 msgid "Var olan şablonu aç"
 msgstr "Open the existing template"
 
+#: app/web/templates/ai_settings.html
+msgid "Varsayılan"
+msgstr "Default"
+
+#: app/web/templates/ai_settings.html
+#, python-format
+msgid "Varsayılan (%(effort)s)"
+msgstr "Default (%(effort)s)"
+
 #: app/output_templates/labels.py app/web/profile_form.py
 #: app/web/routers/employees.py app/web/templates/profile.html
 msgid "Vatandaşlık"
@@ -5995,9 +6095,19 @@ msgstr ""
 msgid "Yapay zekâ"
 msgstr "AI"
 
+#: app/web/templates/ai_settings.html app/web/templates/base.html
+msgid "Yapay zekâ ayarları"
+msgstr "AI settings"
+
 #: app/web/feedback.py
 msgid "Yapay zekâ ayarlı olmadığı için şablon incelenemedi."
 msgstr "The template could not be examined because AI is not configured."
+
+#: app/web/feedback.py
+msgid ""
+"Yapay zekâ ayarı kaydedildi; bir sonraki yapay zekâ çağrısında geçerli "
+"olur."
+msgstr "AI setting saved; it takes effect on the next AI call."
 
 #: app/web/templates/training_map.html
 msgid "Yapay zekâ gerekebilecek"
@@ -7282,6 +7392,20 @@ msgstr "{problem}, a clean document number is present"
 #, python-brace-format
 msgid "{problem}, temiz belge numarası yok"
 msgstr "{problem}, no clean document number"
+
+#: app/web/routers/ai_settings.py
+#, python-brace-format
+msgid "{provider} için seçilen model listede yok."
+msgstr "The model chosen for {provider} is not in the list."
+
+#: app/web/routers/ai_settings.py
+#, python-brace-format
+msgid ""
+"{provider} sağlayıcısının API anahtarı sunucunun .env dosyasında tanımlı "
+"değil; etkinleştirilemez."
+msgstr ""
+"The API key of {provider} is not defined in the server's .env file; it "
+"cannot be enabled."
 
 #: app/matching/match.py
 #, python-brace-format

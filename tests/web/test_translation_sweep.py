@@ -246,6 +246,7 @@ PAGES: dict[str, tuple[tuple[str, int], ...]] = {
     ),
     "/queues/{queue_item_id}/close/confirm": (("/queues/{unknown_item}/close/confirm", 200),),
     "/access-log": (("/access-log", 200),),
+    "/ai-settings": (("/ai-settings", 200),),
     "/access-log/employees/{employee_id}": (
         ("/access-log/employees/E0001", 200),
         ("/access-log/employees/E9999", 404),
@@ -307,6 +308,8 @@ NOT_HTML = frozenset(
     {
         "/",
         "/health",
+        # 10.1.10: alt yol yoktur, her biri bilinmeyen yolla aynı JSON 404.
+        "/ai-settings/{rest:path}",
         "/uploads/{upload_id}/pages/{page_id}/image",
         "/employees/{employee_id}/documents/{document_id}/file",
         "/employees/{employee_id}/documents/{document_id}/download",

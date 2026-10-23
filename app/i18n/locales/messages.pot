@@ -4,7 +4,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Documania panel\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-23 02:30+0000\n"
+"POT-Creation-Date: 2026-10-23 15:54+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -420,6 +420,10 @@ msgstr ""
 msgid "AI kararı: `{slug}` ({basis}, model {model})"
 msgstr ""
 
+#: app/web/templates/ai_settings.html
+msgid "API anahtarı"
+msgstr ""
+
 #: app/catalog/prefill.py app/output_templates/labels.py
 #: app/web/profile_form.py app/web/routers/catalog.py
 #: app/web/routers/employees.py app/web/templates/catalog.html
@@ -617,6 +621,12 @@ msgstr ""
 msgid "Ana menü"
 msgstr ""
 
+#: app/web/templates/ai_settings.html
+msgid ""
+"Anahtar tanımlı olmadığı için etkinleştirilemez. Anahtarı sunucudaki .env"
+" dosyasına yazın ve paneli yeniden başlatın."
+msgstr ""
+
 #: app/catalog/prefill.py app/web/routers/catalog.py
 #: app/web/templates/catalog.html app/web/templates/catalog_type_fields.html
 msgid "Analiz"
@@ -663,6 +673,14 @@ msgstr ""
 #: app/pipeline/group.py
 #, python-brace-format
 msgid "Analizi yapılamamış sayfalar: {pages}."
+msgstr ""
+
+#: app/web/templates/ai_settings.html
+msgid ""
+"Analizlerin hangi sağlayıcıyla, hangi modelle ve hangi eforla "
+"yapılacağını seçin. Aynı anda tek sağlayıcı etkindir; değişiklik bir "
+"sonraki yapay zekâ çağrısında geçerli olur. API anahtarları yalnız "
+"sunucudaki .env dosyasındadır ve burada gösterilmez."
 msgstr ""
 
 #: app/output_templates/labels.py app/web/profile_form.py
@@ -831,6 +849,16 @@ msgstr ""
 
 #: app/web/routers/upload_page.py
 msgid "Atlandı"
+msgstr ""
+
+#: app/web/templates/ai_settings.html
+msgid ""
+"Ayar henüz kaydedilmedi: .env değerleri gösteriliyor. İlk kayıtla bu "
+"sayfadaki seçim geçerli olur."
+msgstr ""
+
+#: app/web/routers/ai_settings.py
+msgid "Ayar kaydedilemedi."
 msgstr ""
 
 #: app/training/decisions.py
@@ -1477,6 +1505,10 @@ msgstr ""
 msgid "Bilinmeyen rol."
 msgstr ""
 
+#: app/web/routers/ai_settings.py
+msgid "Bilinmeyen sağlayıcı."
+msgstr ""
+
 #: app/web/templates/training.html
 msgid ""
 "Bir CSV haritası yükleyin: satırlardaki türle (<code>slug</code>) ve "
@@ -1809,6 +1841,12 @@ msgstr ""
 msgid "Bu kullanıcıya bağlı böyle bir Telegram kimliği yok"
 msgstr ""
 
+#: app/web/templates/ai_settings.html
+msgid ""
+"Bu model listede yok (.env'den geliyor): korunur, ama efor ve istek "
+"biçimi bu model için doğrulanmadı."
+msgstr ""
+
 #: app/web/routers/upload_page.py
 #, python-brace-format
 msgid ""
@@ -1843,6 +1881,10 @@ msgstr ""
 
 #: app/web/routers/upload_page.py
 msgid "Bu partiyi yeniden analiz etmek üzeresiniz. Emin misiniz?"
+msgstr ""
+
+#: app/web/templates/ai_settings.html
+msgid "Bu sağlayıcıyı etkinleştir"
 msgstr ""
 
 #: app/telegram/intent.py
@@ -2168,6 +2210,10 @@ msgstr ""
 msgid "Değişiklik yok."
 msgstr ""
 
+#: app/web/feedback.py
+msgid "Değişiklik yok; ayar olduğu gibi kaldı."
+msgstr ""
+
 #: app/web/templates/catalog.html
 msgid ""
 "Değişiklikler bir sonraki analizden itibaren geçerlidir. Tür silinmez: "
@@ -2351,7 +2397,8 @@ msgstr ""
 msgid "Doğum yeri"
 msgstr ""
 
-#: app/web/templates/catalog.html app/web/templates/catalog_candidate.html
+#: app/web/templates/ai_settings.html app/web/templates/catalog.html
+#: app/web/templates/catalog_candidate.html
 #: app/web/templates/document_archive_step.html
 #: app/web/templates/document_delete_step.html
 #: app/web/templates/employee_delete_step.html
@@ -2398,6 +2445,10 @@ msgstr ""
 
 #: app/matching/records.py
 msgid "E-posta adresi ad@alan.uzantı biçiminde olmalı."
+msgstr ""
+
+#: app/web/templates/ai_settings.html
+msgid "Efor"
 msgstr ""
 
 #: app/web/templates/profile.html
@@ -2513,8 +2564,8 @@ msgid "Etiket"
 msgstr ""
 
 #: app/web/routers/output_templates.py app/web/routers/upload_page.py
-#: app/web/templates/catalog.html app/web/templates/groups.html
-#: app/web/templates/users.html
+#: app/web/templates/ai_settings.html app/web/templates/catalog.html
+#: app/web/templates/groups.html app/web/templates/users.html
 msgid "Etkin"
 msgstr ""
 
@@ -3429,7 +3480,8 @@ msgstr ""
 msgid "Kaydedilmedi: işaretli alanları düzeltip yeniden gönderin."
 msgstr ""
 
-#: app/web/templates/catalog_form.html app/web/templates/group.html
+#: app/web/templates/ai_settings.html app/web/templates/catalog_form.html
+#: app/web/templates/group.html
 msgid "Kaydet"
 msgstr ""
 
@@ -3698,6 +3750,10 @@ msgstr ""
 msgid "Kullanılan örnek sayfalar:"
 msgstr ""
 
+#: app/web/templates/ai_settings.html
+msgid "Kullanım"
+msgstr ""
+
 #: app/web/templates/catalog_photo_rules.html
 msgid "Kurallar kaydedilmedi: alanların altındaki uyarıları düzeltin."
 msgstr ""
@@ -3779,6 +3835,12 @@ msgstr ""
 
 #: app/web/templates/profile.html
 msgid "Latin yazım eksik"
+msgstr ""
+
+#: app/web/templates/ai_settings.html
+msgid ""
+"Liste kayıtlı modelin eforlarıdır. Modeli değiştirdiyseniz önce kaydedin,"
+" sonra eforu seçin."
 msgstr ""
 
 #: app/web/routers/output_templates.py
@@ -3866,7 +3928,7 @@ msgstr ""
 msgid "Metin"
 msgstr ""
 
-#: app/web/templates/output_template.html
+#: app/web/templates/ai_settings.html app/web/templates/output_template.html
 msgid "Model"
 msgstr ""
 
@@ -4251,7 +4313,8 @@ msgid "Pasaport numarası"
 msgstr ""
 
 #: app/matching/status.py app/web/routers/employees.py
-#: app/web/templates/catalog.html app/web/templates/users.html
+#: app/web/templates/ai_settings.html app/web/templates/catalog.html
+#: app/web/templates/users.html
 msgid "Pasif"
 msgstr ""
 
@@ -4580,6 +4643,13 @@ msgstr ""
 msgid "Seçilen \"AI kararı\" örnekleri doğrulandı; elle kontrol ikonu kalktı."
 msgstr ""
 
+#: app/web/routers/ai_settings.py
+#, python-brace-format
+msgid ""
+"Seçilen efor {provider} modelinde kullanılamaz. Modeli değiştirdiyseniz "
+"önce modeli kaydedin, sonra eforu seçin."
+msgstr ""
+
 #: app/web/routers/training.py
 msgid "Seçilen tür bilinen türlerden biri değil; listeden seçin."
 msgstr ""
@@ -4812,6 +4882,14 @@ msgstr ""
 
 #: app/web/templates/profile.html
 msgid "Tanımlayan:"
+msgstr ""
+
+#: app/web/templates/ai_settings.html
+msgid "Tanımlı"
+msgstr ""
+
+#: app/web/templates/ai_settings.html
+msgid "Tanımsız"
 msgstr ""
 
 #: app/catalog/photo_rules.py
@@ -5226,6 +5304,15 @@ msgstr ""
 msgid "Var olan şablonu aç"
 msgstr ""
 
+#: app/web/templates/ai_settings.html
+msgid "Varsayılan"
+msgstr ""
+
+#: app/web/templates/ai_settings.html
+#, python-format
+msgid "Varsayılan (%(effort)s)"
+msgstr ""
+
 #: app/output_templates/labels.py app/web/profile_form.py
 #: app/web/routers/employees.py app/web/templates/profile.html
 msgid "Vatandaşlık"
@@ -5339,8 +5426,18 @@ msgstr ""
 msgid "Yapay zekâ"
 msgstr ""
 
+#: app/web/templates/ai_settings.html app/web/templates/base.html
+msgid "Yapay zekâ ayarları"
+msgstr ""
+
 #: app/web/feedback.py
 msgid "Yapay zekâ ayarlı olmadığı için şablon incelenemedi."
+msgstr ""
+
+#: app/web/feedback.py
+msgid ""
+"Yapay zekâ ayarı kaydedildi; bir sonraki yapay zekâ çağrısında geçerli "
+"olur."
 msgstr ""
 
 #: app/web/templates/training_map.html
@@ -6571,6 +6668,18 @@ msgstr ""
 #: app/matching/match.py
 #, python-brace-format
 msgid "{problem}, temiz belge numarası yok"
+msgstr ""
+
+#: app/web/routers/ai_settings.py
+#, python-brace-format
+msgid "{provider} için seçilen model listede yok."
+msgstr ""
+
+#: app/web/routers/ai_settings.py
+#, python-brace-format
+msgid ""
+"{provider} sağlayıcısının API anahtarı sunucunun .env dosyasında tanımlı "
+"değil; etkinleştirilemez."
 msgstr ""
 
 #: app/matching/match.py

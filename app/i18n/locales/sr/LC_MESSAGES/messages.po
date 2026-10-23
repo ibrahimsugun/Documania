@@ -4,8 +4,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Documania panel\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-23 02:30+0000\n"
-"PO-Revision-Date: 2026-10-23 02:30+0000\n"
+"POT-Creation-Date: 2026-10-23 15:54+0000\n"
+"PO-Revision-Date: 2026-10-23 15:54+0000\n"
 "Last-Translator: Documania görev penceresi (gözden geçirilmeli)\n"
 "Language: sr_Latn\n"
 "Language-Team: Srpski\n"
@@ -483,6 +483,10 @@ msgstr "Sa AI odlukama"
 msgid "AI kararı: `{slug}` ({basis}, model {model})"
 msgstr "Odluka AI: `{slug}` ({basis}, model {model})"
 
+#: app/web/templates/ai_settings.html
+msgid "API anahtarı"
+msgstr "API ključ"
+
 #: app/catalog/prefill.py app/output_templates/labels.py
 #: app/web/profile_form.py app/web/routers/catalog.py
 #: app/web/routers/employees.py app/web/templates/catalog.html
@@ -706,6 +710,14 @@ msgstr "Primljeno"
 msgid "Ana menü"
 msgstr "Glavni meni"
 
+#: app/web/templates/ai_settings.html
+msgid ""
+"Anahtar tanımlı olmadığı için etkinleştirilemez. Anahtarı sunucudaki .env"
+" dosyasına yazın ve paneli yeniden başlatın."
+msgstr ""
+"Ne može se aktivirati jer ključ nije definisan. Upišite ključ u .env "
+"datoteku na serveru i ponovo pokrenite panel."
+
 #: app/catalog/prefill.py app/web/routers/catalog.py
 #: app/web/templates/catalog.html app/web/templates/catalog_type_fields.html
 msgid "Analiz"
@@ -762,6 +774,18 @@ msgstr ""
 #, python-brace-format
 msgid "Analizi yapılamamış sayfalar: {pages}."
 msgstr "Stranice koje nisu mogle biti analizirane: {pages}."
+
+#: app/web/templates/ai_settings.html
+msgid ""
+"Analizlerin hangi sağlayıcıyla, hangi modelle ve hangi eforla "
+"yapılacağını seçin. Aynı anda tek sağlayıcı etkindir; değişiklik bir "
+"sonraki yapay zekâ çağrısında geçerli olur. API anahtarları yalnız "
+"sunucudaki .env dosyasındadır ve burada gösterilmez."
+msgstr ""
+"Izaberite dobavljača, model i nivo napora za analize. Istovremeno je "
+"aktivan samo jedan dobavljač; promena važi od sledećeg poziva veštačke "
+"inteligencije. API ključevi su samo u .env datoteci na serveru i ovde se "
+"ne prikazuju."
 
 #: app/output_templates/labels.py app/web/profile_form.py
 #: app/web/routers/employees.py app/web/templates/profile.html
@@ -946,6 +970,18 @@ msgstr "Preskočeno"
 #: app/web/routers/upload_page.py
 msgid "Atlandı"
 msgstr "Preskočeno"
+
+#: app/web/templates/ai_settings.html
+msgid ""
+"Ayar henüz kaydedilmedi: .env değerleri gösteriliyor. İlk kayıtla bu "
+"sayfadaki seçim geçerli olur."
+msgstr ""
+"Podešavanje još nije sačuvano: prikazane su vrednosti iz .env. Od prvog "
+"čuvanja važi izbor sa ove stranice."
+
+#: app/web/routers/ai_settings.py
+msgid "Ayar kaydedilemedi."
+msgstr "Podešavanje nije moguće sačuvati."
 
 #: app/training/decisions.py
 #, python-brace-format
@@ -1693,6 +1729,10 @@ msgstr ""
 msgid "Bilinmeyen rol."
 msgstr "Nepoznata uloga."
 
+#: app/web/routers/ai_settings.py
+msgid "Bilinmeyen sağlayıcı."
+msgstr "Nepoznat dobavljač."
+
 #: app/web/templates/training.html
 msgid ""
 "Bir CSV haritası yükleyin: satırlardaki türle (<code>slug</code>) ve "
@@ -2089,6 +2129,14 @@ msgstr ""
 msgid "Bu kullanıcıya bağlı böyle bir Telegram kimliği yok"
 msgstr "Ovaj korisnik nema takav povezani Telegram ID"
 
+#: app/web/templates/ai_settings.html
+msgid ""
+"Bu model listede yok (.env'den geliyor): korunur, ama efor ve istek "
+"biçimi bu model için doğrulanmadı."
+msgstr ""
+"Ovaj model nije na listi (dolazi iz .env): zadržava se, ali napor i "
+"format zahteva za njega nisu provereni."
+
 #: app/web/routers/upload_page.py
 #, python-brace-format
 msgid ""
@@ -2126,6 +2174,10 @@ msgstr "Nijedna stavka iz ove serije nije stavljena u red."
 #: app/web/routers/upload_page.py
 msgid "Bu partiyi yeniden analiz etmek üzeresiniz. Emin misiniz?"
 msgstr "Upravo ćete ponovo analizirati ovu seriju. Da li ste sigurni?"
+
+#: app/web/templates/ai_settings.html
+msgid "Bu sağlayıcıyı etkinleştir"
+msgstr "Koristi ovog dobavljača"
 
 #: app/telegram/intent.py
 msgid "Bu seçim artık geçerli değil. İsteğinizi yeniden yazın."
@@ -2511,6 +2563,10 @@ msgstr ""
 msgid "Değişiklik yok."
 msgstr "Nema promena."
 
+#: app/web/feedback.py
+msgid "Değişiklik yok; ayar olduğu gibi kaldı."
+msgstr "Nema promena; podešavanje je ostalo isto."
+
 #: app/web/templates/catalog.html
 msgid ""
 "Değişiklikler bir sonraki analizden itibaren geçerlidir. Tür silinmez: "
@@ -2716,7 +2772,8 @@ msgstr "Datum rođenja: {date} ({age} god.)"
 msgid "Doğum yeri"
 msgstr "Mesto rođenja"
 
-#: app/web/templates/catalog.html app/web/templates/catalog_candidate.html
+#: app/web/templates/ai_settings.html app/web/templates/catalog.html
+#: app/web/templates/catalog_candidate.html
 #: app/web/templates/document_archive_step.html
 #: app/web/templates/document_delete_step.html
 #: app/web/templates/employee_delete_step.html
@@ -2767,6 +2824,10 @@ msgstr "E-pošta"
 #: app/matching/records.py
 msgid "E-posta adresi ad@alan.uzantı biçiminde olmalı."
 msgstr "Adresa e-pošte mora biti u obliku ime@domen.nastavak."
+
+#: app/web/templates/ai_settings.html
+msgid "Efor"
+msgstr "Napor"
 
 #: app/web/templates/profile.html
 msgid "Eksik alanlar"
@@ -2891,8 +2952,8 @@ msgid "Etiket"
 msgstr "Oznaka"
 
 #: app/web/routers/output_templates.py app/web/routers/upload_page.py
-#: app/web/templates/catalog.html app/web/templates/groups.html
-#: app/web/templates/users.html
+#: app/web/templates/ai_settings.html app/web/templates/catalog.html
+#: app/web/templates/groups.html app/web/templates/users.html
 msgid "Etkin"
 msgstr "Aktivan"
 
@@ -3876,7 +3937,8 @@ msgstr "Tip koji će biti dodat u katalog:"
 msgid "Kaydedilmedi: işaretli alanları düzeltip yeniden gönderin."
 msgstr "Nije sačuvano: ispravite označena polja i pošaljite ponovo."
 
-#: app/web/templates/catalog_form.html app/web/templates/group.html
+#: app/web/templates/ai_settings.html app/web/templates/catalog_form.html
+#: app/web/templates/group.html
 msgid "Kaydet"
 msgstr "Sačuvaj"
 
@@ -4164,6 +4226,10 @@ msgstr "Korišćene prihvaćene fotografije:"
 msgid "Kullanılan örnek sayfalar:"
 msgstr "Korišćene strane primera:"
 
+#: app/web/templates/ai_settings.html
+msgid "Kullanım"
+msgstr "Upotreba"
+
 #: app/web/templates/catalog_photo_rules.html
 msgid "Kurallar kaydedilmedi: alanların altındaki uyarıları düzeltin."
 msgstr "Pravila nisu sačuvana: ispravite upozorenja ispod polja."
@@ -4250,6 +4316,14 @@ msgstr "Na dokumentu nema latiničnog zapisa"
 #: app/web/templates/profile.html
 msgid "Latin yazım eksik"
 msgstr "Nedostaje latinični zapis"
+
+#: app/web/templates/ai_settings.html
+msgid ""
+"Liste kayıtlı modelin eforlarıdır. Modeli değiştirdiyseniz önce kaydedin,"
+" sonra eforu seçin."
+msgstr ""
+"Lista prikazuje nivoe napora sačuvanog modela. Ako ste promenili model, "
+"prvo sačuvajte, pa izaberite napor."
 
 #: app/web/routers/output_templates.py
 msgid "Logo"
@@ -4344,7 +4418,7 @@ msgstr "Vaša poruka je predugačka. Ukratko napišite čiji dokument želite."
 msgid "Metin"
 msgstr "Tekst"
 
-#: app/web/templates/output_template.html
+#: app/web/templates/ai_settings.html app/web/templates/output_template.html
 msgid "Model"
 msgstr "Model"
 
@@ -4769,7 +4843,8 @@ msgid "Pasaport numarası"
 msgstr "Broj pasoša"
 
 #: app/matching/status.py app/web/routers/employees.py
-#: app/web/templates/catalog.html app/web/templates/users.html
+#: app/web/templates/ai_settings.html app/web/templates/catalog.html
+#: app/web/templates/users.html
 msgid "Pasif"
 msgstr "Neaktivan"
 
@@ -5131,6 +5206,15 @@ msgstr ""
 "Izabrani primeri „AI odluka“ su potvrđeni; ikona ručne provere je "
 "uklonjena."
 
+#: app/web/routers/ai_settings.py
+#, python-brace-format
+msgid ""
+"Seçilen efor {provider} modelinde kullanılamaz. Modeli değiştirdiyseniz "
+"önce modeli kaydedin, sonra eforu seçin."
+msgstr ""
+"Izabrani napor se ne može koristiti sa {provider} modelom. Ako ste "
+"promenili model, prvo sačuvajte model, pa izaberite napor."
+
 #: app/web/routers/training.py
 msgid "Seçilen tür bilinen türlerden biri değil; listeden seçin."
 msgstr "Izabrani tip nije među poznatim tipovima; izaberite ga sa liste."
@@ -5400,6 +5484,14 @@ msgstr "Iako su opisi skraćeni, tekst prelazi budžet."
 #: app/web/templates/profile.html
 msgid "Tanımlayan:"
 msgstr "Dodelio:"
+
+#: app/web/templates/ai_settings.html
+msgid "Tanımlı"
+msgstr "Definisan"
+
+#: app/web/templates/ai_settings.html
+msgid "Tanımsız"
+msgstr "Nije definisan"
 
 #: app/catalog/photo_rules.py
 #, python-brace-format
@@ -5862,6 +5954,15 @@ msgstr "Državljanstvo: {country}"
 msgid "Var olan şablonu aç"
 msgstr "Otvori postojeći šablon"
 
+#: app/web/templates/ai_settings.html
+msgid "Varsayılan"
+msgstr "Podrazumevano"
+
+#: app/web/templates/ai_settings.html
+#, python-format
+msgid "Varsayılan (%(effort)s)"
+msgstr "Podrazumevano (%(effort)s)"
+
 #: app/output_templates/labels.py app/web/profile_form.py
 #: app/web/routers/employees.py app/web/templates/profile.html
 msgid "Vatandaşlık"
@@ -5992,9 +6093,19 @@ msgstr ""
 msgid "Yapay zekâ"
 msgstr "Veštačka inteligencija"
 
+#: app/web/templates/ai_settings.html app/web/templates/base.html
+msgid "Yapay zekâ ayarları"
+msgstr "Podešavanja veštačke inteligencije"
+
 #: app/web/feedback.py
 msgid "Yapay zekâ ayarlı olmadığı için şablon incelenemedi."
 msgstr "Šablon nije mogao biti pregledan jer veštačka inteligencija nije podešena."
+
+#: app/web/feedback.py
+msgid ""
+"Yapay zekâ ayarı kaydedildi; bir sonraki yapay zekâ çağrısında geçerli "
+"olur."
+msgstr "Podešavanje veštačke inteligencije je sačuvano; važi od sledećeg poziva."
 
 #: app/web/templates/training_map.html
 msgid "Yapay zekâ gerekebilecek"
@@ -7291,6 +7402,20 @@ msgstr "{problem}, čist broj dokumenta postoji"
 #, python-brace-format
 msgid "{problem}, temiz belge numarası yok"
 msgstr "{problem}, nema čistog broja dokumenta"
+
+#: app/web/routers/ai_settings.py
+#, python-brace-format
+msgid "{provider} için seçilen model listede yok."
+msgstr "Model izabran za {provider} nije na listi."
+
+#: app/web/routers/ai_settings.py
+#, python-brace-format
+msgid ""
+"{provider} sağlayıcısının API anahtarı sunucunun .env dosyasında tanımlı "
+"değil; etkinleştirilemez."
+msgstr ""
+"API ključ dobavljača {provider} nije definisan u .env datoteci servera; "
+"ne može se aktivirati."
 
 #: app/matching/match.py
 #, python-brace-format

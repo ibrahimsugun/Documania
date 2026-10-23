@@ -122,6 +122,10 @@ class EventType(enum.StrEnum):
     # yeni durum.
     OUTPUT_ARCHIVED = "OUTPUT_ARCHIVED"
     OUTPUT_RESTORED = "OUTPUT_RESTORED"
+    # 03.8.1, 10.1.10 (PLAN.md §D124 f): root yapay zekâ ayarını değiştirdi; veri değişen
+    # `provider` / `*_model` / `*_effort` alanlarının `from`/`to` hâli — API anahtarı yok. Olay
+    # belgeye ya da çalışana bağlı değildir.
+    AI_SETTINGS_CHANGED = "AI_SETTINGS_CHANGED"
 
 
 # 10.5.13 (PLAN.md §D110 d, §D116 e): kalıcı silinen çalışanın olaylarının verisinden çıkarılan
