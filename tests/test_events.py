@@ -137,6 +137,7 @@ def test_all_prd_event_types_are_present() -> None:
         "EMPLOYEE_DELETED",
         "TEMPLATE_UPLOADED",
         "TEMPLATE_EXAMINED",
+        "TEMPLATE_MAP_APPROVED",
         "TEMPLATE_ARCHIVED",
         "TEMPLATE_RESTORED",
     }

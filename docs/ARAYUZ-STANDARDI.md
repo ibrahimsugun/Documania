@@ -54,6 +54,7 @@ anlam bildirir (`.employee-filter`), görünüm bildirmez (`.red`, `.mt-2` yok).
 | Sekme / süzgeç | `nav.tabs a(.active)`, `nav.states a(.active)`, `nav.pager` | `aria-current` seçili öğede |
 | Tablo | `table.<ad>` + `th.num/td.num`, `.cell-nowrap`, `.cell-break`, `.doc-actions`, `.record-actions`, `.reason-text` | Her tablo bir ad sınıfı taşır (test ve genişlik kuralları için) |
 | Kart ve bölüm | `section` (kart), `article.file`, `.thumbs/.thumb`, `.timeline/.event`, `dl.meta`, `dl.record-summary`, `.profile-card`, `.package-card` | `section` doğrudan `main.content` altında karttır, `h2` ile başlar |
+| Alan haritası önizlemesi | `.map-layout` > `figure.map-page` (`img` + `svg.map-boxes` > `a.map-box` + `.map-box-unassigned/.map-box-locked`) + `table.map-fields` | Kutular SVG'dir (`viewBox` = sayfa görüntüsünün ölçüsü), `style=` yok; kutu bağlantısı tablodaki satırına gider (`#map-row-<id>`), odakta kenar kalınlaşır; her `select`'in `label for`'u satırdadır (15.1.3) |
 | Kabuk | `.topbar`, `.brand`, `.menu`, `.tool-link`, `.session`, `.page-tools`, `.global-search`, `.theme-toggle`, `.language-selector`, `.toasts/.toast` | Yalnız `base.html` |
 
 ## 4. Anlam sınıfları (hook) — stil taşımaz, kayıtlıdır
@@ -77,7 +78,7 @@ kırmızıdır. Yeni hook eklerken buraya yaz (alfabetik):
 `record-warning`, `records`, `rejected-candidates`, `select-assignee`, `select-target`, `source`,
 `telegram-bot-missing`, `telegram-delete`, `telegram-delete-help`, `telegram-help`,
 `telegram-link-help`, `telegram-own-help`, `template-archive`, `template-details`, `template-map`,
-`template-pages`, `template-upload`, `training-form`, `training-results`, `training-runs`,
+`template-map-approve`, `template-pages`, `template-upload`, `training-form`, `training-results`, `training-runs`,
 `unregistered`, `user-role`.
 
 ## 5. Kurallar

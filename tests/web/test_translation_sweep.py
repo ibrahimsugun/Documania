@@ -26,6 +26,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
+from app.ai.schemas import TemplateField, TemplateFieldMap
 from app.catalog import import_catalog, load_seed_catalog
 from app.config import Settings
 from app.db.models import (
@@ -37,6 +38,7 @@ from app.db.models import (
     EmployeeContact,
     EmployeeIdentifier,
     KnownDocumentType,
+    OutputTemplate,
     QueueItem,
     Upload,
     UploadFile,
@@ -45,6 +47,7 @@ from app.groups import add_item, assign_package, create_group
 from app.i18n import LANGUAGE_COOKIE, ngettext, translate, use_language
 from app.i18n.tools import check
 from app.main import create_app
+from app.output_templates.examine import store_map
 from app.pipeline.orchestrate import process_upload
 from app.pipeline.plan import create_plan, read_plan
 from app.pipeline.queue_close import close_reason_label
@@ -81,6 +84,30 @@ LANGUAGES = ("en", "sr")
 PASSPORT = "russian_passport"
 FILE_NAME = "Dmitry_Vasiliev-Passport.pdf"
 EXAMPLE = "specimen.pdf"
+# 15.1.3: önizlemede bağlı, boş bırakılmış ve doldurulamaz kutu.
+TEMPLATE_FIELDS = (
+    TemplateField(
+        field_id="f1",
+        page=0,
+        box=(0.3, 0.1, 0.8, 0.15),
+        kind="text",
+        label_text="Ime i prezime",
+        source="full_name",
+        font_size=10,
+        max_chars=40,
+    ),
+    TemplateField(
+        field_id="f2",
+        page=0,
+        box=(0.3, 0.2, 0.6, 0.25),
+        kind="date",
+        label_text="Datum",
+        source="unassigned",
+        font_size=10,
+        max_chars=10,
+    ),
+    TemplateField(field_id="f3", page=0, box=(0.6, 0.8, 0.9, 0.9), kind="stamp"),
+)
 
 # `GET` yolu → (adres, beklenen durum) listesi. Adresler `world`'ün kimlikleriyle doldurulur.
 PAGES: dict[str, tuple[tuple[str, int], ...]] = {
@@ -505,6 +532,15 @@ def world(
         assert uploaded.status_code == 303, uploaded.text
         templates.append(int(uploaded.headers["location"].rsplit("/", 1)[1]))
     client.post(f"/output-templates/{templates[1]}/archive")
+    # 15.1.3: taslak şablonun onay bekleyen alan haritası (kutular, açılır listeler, onay düğmesi).
+    with session_factory() as session:
+        store_map(
+            session,
+            session.get_one(OutputTemplate, templates[0]),
+            TemplateFieldMap(fields=TEMPLATE_FIELDS, notes="One-page contract."),
+            model=MODEL,
+        )
+        session.commit()
 
     unknown_upload = _process(
         client,

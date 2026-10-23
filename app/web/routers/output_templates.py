@@ -15,6 +15,14 @@
 - `GET .../file` (açma) ve `.../download` (indirme) dosyayı olduğu gibi sunar ve önce erişim
   logunu `template_id` ile yazar (10.9.2); `GET .../pages/{n}` önizleme görüntüsüdür, kayda
   girmez (sayfa görüntülemek dosyayı açmak sayılmaz, §D123 f kararı).
+- Şablon sayfası alan haritasını önizler (15.1.3): her sayfa görüntüsünün üstünde haritanın kutuları
+  (SVG; koordinat normalize kutudan, sayfa görüntüsünün ölçüsüyle) ve kutu başına bir satır. İK son
+  sürümde `text`/`date` kutusunun bağlı alanını açılır listeden seçer ya da "boş bırak" yapar;
+  imza/kaşe/logo/fotoğraf/çerçeve kutusu seçimsizdir. `POST .../maps/{version}/approve` atamaları
+  doğrular (`app.output_templates.approve`: bilinmeyen atama 422; bağlı kutu yoksa 422 ve sayfa
+  seçimlerle yeniden çizilir; arada yeni sürüm gelmişse ya da şablon arşivdeyse 409), gerekirse yeni
+  sürüm yazar ve şablonu hazır yapar. Tek adımlıdır (§D61); JavaScript'siz düz form gönderimidir.
+  Kullanıcı yalnız onaylı haritayı salt okunur görür.
 
 Yazma yolları İK/root'tur (10.1.8: `app.main` yönlendiriciye yazma kapısını bağlar, yalnız yazmaya
 götüren `GET` sayfası `WRITER_ONLY` taşır); Kullanıcı listeyi, sayfayı ve önizlemeyi görür. Şablon
@@ -29,12 +37,14 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse, Response
+from PIL import Image, UnidentifiedImageError
 from sqlalchemy.orm import Session
 from starlette.datastructures import UploadFile as StarletteUploadFile
 
 from app.ai.provider import ProviderConfigError, create_provider
+from app.ai.schemas import FILLABLE_KINDS, TemplateFieldMapError
 from app.config import Settings, get_settings
-from app.db.models import AccessAction, OutputTemplate, OutputTemplateStatus
+from app.db.models import AccessAction, OutputTemplate, OutputTemplateMap, OutputTemplateStatus
 from app.db.session import get_session
 from app.i18n import N_
 from app.output_templates import (
@@ -51,6 +61,16 @@ from app.output_templates import (
     set_template_archived,
     status_counts,
 )
+from app.output_templates.approve import (
+    UNASSIGNED,
+    MapAssignmentError,
+    MapNotFoundError,
+    NothingBoundError,
+    StaleMapError,
+    approve_map,
+    approved_map,
+    field_map_of,
+)
 from app.output_templates.examine import (
     ExamineError,
     TemplateArchivedError,
@@ -65,9 +85,14 @@ from app.web.feedback import (
     TEMPLATE_DUPLICATE,
     TEMPLATE_EXAMINE_REQUESTED,
     TEMPLATE_EXAMINE_UNAVAILABLE,
+    TEMPLATE_MAP_APPROVED,
+    TEMPLATE_MAP_APPROVED_EDITED,
+    TEMPLATE_MAP_NOTHING_BOUND,
+    TEMPLATE_MAP_UNCHANGED,
     TEMPLATE_RESTORED,
     TEMPLATE_UPLOADED,
     TEMPLATE_UPLOADED_UNEXAMINED,
+    Toast,
     flash,
     render,
 )
@@ -115,6 +140,43 @@ PDF_MEDIA_TYPE = "application/pdf"
 JPEG_MEDIA_TYPE = "image/jpeg"
 FILE_HEADERS = {"X-Content-Type-Options": "nosniff", "Cache-Control": "private, no-store"}
 FORM_TEXT_LIMIT = 1000
+# 15.1.3: kutu başına atamanın form alanı `source-<field_id>`.
+SOURCE_PREFIX = "source-"
+MAP_NOT_FOUND = N_("Alan haritasının bu sürümü yok.")
+MAP_STALE = N_("Harita bu arada yeni bir sürüm aldı; son sürümü gözden geçirip yeniden onaylayın.")
+ARCHIVED_NOT_APPROVED = N_("Arşivdeki şablonun haritası onaylanmaz; önce arşivden geri alın.")
+MAP_ASSIGNMENT_INVALID = N_("Atama geçersiz: her doldurulacak kutu listedeki bir alana bağlanır.")
+# §8.7 `source` seçenekleri; açılır listenin sırası budur, "boş bırak" en sonda.
+SOURCE_LABELS = {
+    "given_names": N_("Ad"),
+    "surname": N_("Soyad"),
+    "full_name": N_("Ad soyad"),
+    "other_names": N_("Diğer isimler"),
+    "original_script_name": N_("Orijinal yazım"),
+    "date_of_birth": N_("Doğum tarihi"),
+    "place_of_birth": N_("Doğum yeri"),
+    "mother_name": N_("Anne adı"),
+    "father_name": N_("Baba adı"),
+    "personal_number": N_("Kişisel numara"),
+    "passport_number": N_("Pasaport numarası"),
+    "nationality": N_("Vatandaşlık"),
+    "address": N_("Adres"),
+    "phone": N_("Telefon"),
+    "email": N_("E-posta"),
+    "today": N_("Bugünün tarihi"),
+    UNASSIGNED: N_("Boş bırak"),
+}
+KIND_LABELS = {
+    "text": N_("Metin"),
+    "date": N_("Tarih"),
+    "signature": N_("İmza"),
+    "stamp": N_("Kaşe / mühür"),
+    "logo": N_("Logo"),
+    "photo": N_("Fotoğraf"),
+    "decoration": N_("Çerçeve"),
+}
+# Sayfa görüntüsü okunamazsa kutular A4 oranlı bir tuvale çizilir.
+FALLBACK_PAGE_SIZE = (1000, 1414)
 
 
 def provider_available(settings: Annotated[Settings, Depends(get_settings)]) -> bool:
@@ -154,6 +216,117 @@ class StateLink:
     href: str
     count: int
     current: bool
+
+
+@dataclass(frozen=True, slots=True)
+class MapBox:
+    """Önizlemede bir kutu ve satırı (15.1.3). Koordinatlar sayfa görüntüsünün pikselidir."""
+
+    number: int
+    field_id: str
+    kind: str
+    label_text: str | None
+    source: str | None
+    x: float
+    y: float
+    width: float
+    height: float
+
+    @property
+    def fillable(self) -> bool:
+        return self.kind in FILLABLE_KINDS
+
+    @property
+    def state(self) -> str:
+        """Kutunun görünüm sınıfı: bağlı, boş bırakılmış ya da doldurulamaz."""
+        if not self.fillable:
+            return "map-box-locked"
+        return "map-box-unassigned" if self.source == UNASSIGNED else "map-box-bound"
+
+
+@dataclass(frozen=True, slots=True)
+class MapPage:
+    """Kutusu olan bir sayfa; `width`/`height` önizleme görüntüsünün ölçüsü (SVG `viewBox`)."""
+
+    index: int
+    width: int
+    height: int
+    boxes: list[MapBox]
+
+    @property
+    def label_size(self) -> float:
+        return round(max(self.width, self.height) * 0.018, 1)
+
+
+@dataclass(frozen=True, slots=True)
+class MapView:
+    """Önizlenen sürüm: sayfalar ve düzenlenebilir mi."""
+
+    row: OutputTemplateMap
+    pages: list[MapPage]
+    editable: bool
+
+    @property
+    def boxes(self) -> list[MapBox]:
+        return [box for page in self.pages for box in page.boxes]
+
+    @property
+    def fillable_count(self) -> int:
+        return sum(1 for box in self.boxes if box.fillable)
+
+    @property
+    def bound_count(self) -> int:
+        return sum(1 for box in self.boxes if box.state == "map-box-bound")
+
+
+def _page_size(layout: DataLayout, template_id: int, index: int) -> tuple[int, int]:
+    # Pillow yalnız ölçer (MASTER-PROMPT §4); görüntü değişmez.
+    try:
+        with Image.open(layout.template_page_image_path(template_id, index)) as image:
+            return image.size
+    except (OSError, UnidentifiedImageError, ValueError):
+        return FALLBACK_PAGE_SIZE
+
+
+def _map_view(
+    layout: DataLayout,
+    template: OutputTemplate,
+    row: OutputTemplateMap | None,
+    *,
+    editable: bool,
+    assignments: dict[str, str] | None = None,
+) -> MapView | None:
+    """Sürümün önizlemesi; `assignments` reddedilen formun seçimleridir (yeniden çizim). Kutu
+    koordinatları haritadan değişmeden gelir, yalnız sayfa ölçüsüyle çarpılır."""
+    if row is None:
+        return None
+    try:
+        fields = field_map_of(row, page_count=template.page_count).fields
+    except TemplateFieldMapError:
+        return None
+    chosen = assignments or {}
+    pages: list[MapPage] = []
+    for index in range(template.page_count):
+        on_page = [(n, item) for n, item in enumerate(fields, start=1) if item.page == index]
+        if not on_page:
+            continue
+        width, height = _page_size(layout, template.id, index)
+        boxes = [
+            MapBox(
+                number=number,
+                field_id=item.field_id,
+                kind=item.kind,
+                label_text=item.label_text,
+                source=chosen.get(item.field_id, item.source) if item.source else None,
+                x=round(item.box[0] * width, 1),
+                y=round(item.box[1] * height, 1),
+                width=round((item.box[2] - item.box[0]) * width, 1),
+                height=round((item.box[3] - item.box[1]) * height, 1),
+            )
+            for number, item in on_page
+        ]
+        pages.append(MapPage(index, width, height, boxes))
+    return MapView(row, pages, editable)
 
 
 def _template_or_404(session: Session, template_id: int) -> OutputTemplate:
@@ -307,25 +480,52 @@ async def upload_template(
     return _template_redirect(template.id, key, count=template.page_count)
 
 
-@router.get(f"{LIST_PATH}/{{template_id}}", response_class=HTMLResponse)
-def template_page(
-    template_id: int, request: Request, user: CurrentUser, session: DbSession
+def _template_response(
+    request: Request,
+    user: PanelUser,
+    template: OutputTemplate,
+    layout: DataLayout,
+    *,
+    assignments: dict[str, str] | None = None,
+    feedback: Toast | None = None,
+    status_code: int = status.HTTP_200_OK,
 ) -> HTMLResponse:
-    template = _template_or_404(session, template_id)
-    response = render_page(
+    latest = template.maps[-1] if template.maps else None
+    approved = approved_map(template)
+    # İK son sürümü düzenler (arşivde salt okunur görür); Kullanıcı yalnız onaylı haritayı görür.
+    if user.can_write:
+        editable = template.status != OutputTemplateStatus.ARCHIVED.value
+        preview = _map_view(layout, template, latest, editable=editable, assignments=assignments)
+    else:
+        preview = _map_view(layout, template, approved, editable=False)
+    return render_page(
         request,
         "output_template.html",
         user=user,
         active=ACTIVE,
+        status_code=status_code,
+        feedback=feedback,
         template=template,
         field_count=field_count(template),
         status_labels=STATUS_LABELS,
         status_badges=STATUS_BADGES,
         pages=range(template.page_count),
-        latest_map=template.maps[-1] if template.maps else None,
+        latest_map=latest,
+        approved_map=approved,
+        preview=preview,
+        source_labels=SOURCE_LABELS,
+        kind_labels=KIND_LABELS,
         examining=is_examining(template),
         examine_error=examine_error_label(template.examine_error),
     )
+
+
+@router.get(f"{LIST_PATH}/{{template_id}}", response_class=HTMLResponse)
+def template_page(
+    template_id: int, request: Request, user: CurrentUser, session: DbSession, layout: Layout
+) -> HTMLResponse:
+    template = _template_or_404(session, template_id)
+    response = _template_response(request, user, template, layout)
     session.rollback()
     return response
 
@@ -444,3 +644,61 @@ def reexamine_template(
     session.commit()
     key = TEMPLATE_EXAMINE_REQUESTED if queued else TEMPLATE_EXAMINE_UNAVAILABLE
     return _template_redirect(template_id, key)
+
+
+@router.post(f"{LIST_PATH}/{{template_id}}/maps/{{version}}/approve", response_class=HTMLResponse)
+async def approve_template_map(
+    template_id: int,
+    version: int,
+    request: Request,
+    user: CurrentUser,
+    session: DbSession,
+    layout: Layout,
+) -> Response:
+    """15.1.3 — son sürümü formdaki atamalarla onaylar (tek adım); şablon hazır olur."""
+    async with request.form() as data:
+        assignments = {
+            key.removeprefix(SOURCE_PREFIX): value[:FORM_TEXT_LIMIT]
+            for key, value in data.multi_items()
+            if key.startswith(SOURCE_PREFIX) and isinstance(value, str)
+        }
+    template = _template_or_404(session, template_id)
+    try:
+        approval = approve_map(session, template, version, assignments, actor=user.username)
+    except MapNotFoundError:
+        session.rollback()
+        raise HTTPException(status.HTTP_404_NOT_FOUND, MAP_NOT_FOUND) from None
+    except TemplateArchivedError:
+        session.rollback()
+        raise HTTPException(status.HTTP_409_CONFLICT, ARCHIVED_NOT_APPROVED) from None
+    except StaleMapError:
+        session.rollback()
+        raise HTTPException(status.HTTP_409_CONFLICT, MAP_STALE) from None
+    except MapAssignmentError:
+        session.rollback()
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, MAP_ASSIGNMENT_INVALID) from None
+    except NothingBoundError:
+        session.rollback()
+        template = _template_or_404(session, template_id)
+        response = _template_response(
+            request,
+            user,
+            template,
+            layout,
+            assignments=assignments,
+            feedback=render(TEMPLATE_MAP_NOTHING_BOUND),
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+        )
+        session.rollback()
+        return response
+    session.commit()
+    if approval.already_approved:
+        return _template_redirect(template_id, TEMPLATE_MAP_UNCHANGED)
+    if approval.created:
+        return _template_redirect(
+            template_id,
+            TEMPLATE_MAP_APPROVED_EDITED,
+            count=approval.changed_count,
+            version=approval.map.version,
+        )
+    return _template_redirect(template_id, TEMPLATE_MAP_APPROVED, version=approval.map.version)

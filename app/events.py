@@ -111,6 +111,8 @@ class EventType(enum.StrEnum):
     TEMPLATE_UPLOADED = "TEMPLATE_UPLOADED"
     # 15.1.2: yapay zekâ incelemesi (`actor` system); veri şablon, model, boşluk sayısı, hata.
     TEMPLATE_EXAMINED = "TEMPLATE_EXAMINED"
+    # 15.1.3: İK alan haritasını onayladı; veri şablon, sürüm ve sayılar (atanan alan adı yok).
+    TEMPLATE_MAP_APPROVED = "TEMPLATE_MAP_APPROVED"
     TEMPLATE_ARCHIVED = "TEMPLATE_ARCHIVED"
     TEMPLATE_RESTORED = "TEMPLATE_RESTORED"
 

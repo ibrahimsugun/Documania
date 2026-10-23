@@ -4,8 +4,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Documania panel\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-23 01:01+0000\n"
-"PO-Revision-Date: 2026-10-23 01:01+0000\n"
+"POT-Creation-Date: 2026-10-23 01:22+0000\n"
+"PO-Revision-Date: 2026-10-23 01:22+0000\n"
 "Last-Translator: Documania görev penceresi (gözden geçirilmeli)\n"
 "Language: en\n"
 "Language-Team: English\n"
@@ -461,8 +461,8 @@ msgid "AI kararı: `{slug}` ({basis}, model {model})"
 msgstr "AI decision: `{slug}` ({basis}, model {model})"
 
 #: app/catalog/prefill.py app/web/profile_form.py app/web/routers/catalog.py
-#: app/web/routers/employees.py app/web/templates/catalog.html
-#: app/web/templates/catalog_type_fields.html
+#: app/web/routers/employees.py app/web/routers/output_templates.py
+#: app/web/templates/catalog.html app/web/templates/catalog_type_fields.html
 #: app/web/templates/document_move.html
 #: app/web/templates/employee_merge_results.html
 #: app/web/templates/employees_results.html app/web/templates/group.html
@@ -471,6 +471,10 @@ msgstr "AI decision: `{slug}` ({basis}, model {model})"
 #: app/web/templates/queue_assign.html
 msgid "Ad"
 msgstr "Name"
+
+#: app/web/routers/output_templates.py
+msgid "Ad soyad"
+msgstr "Full name"
 
 #: app/web/templates/employee_fields.html
 msgid ""
@@ -596,7 +600,7 @@ msgstr "The candidate returns to the ones awaiting approval (11.5.7)."
 msgid "Adayı reddet"
 msgstr "Reject the candidate"
 
-#: app/web/routers/employees.py
+#: app/web/routers/employees.py app/web/routers/output_templates.py
 msgid "Adres"
 msgstr "Address"
 
@@ -631,6 +635,15 @@ msgstr ""
 #: app/web/templates/output_template.html
 msgid "Alan haritası"
 msgstr "Field map"
+
+#: app/web/feedback.py
+#, python-brace-format
+msgid "Alan haritası onaylandı (sürüm {version}); şablon hazır."
+msgstr "Field map approved (version {version}); the template is ready."
+
+#: app/web/routers/output_templates.py
+msgid "Alan haritasının bu sürümü yok."
+msgstr "This version of the field map does not exist."
 
 #: app/web/templates/queue_item.html
 msgid ""
@@ -730,7 +743,7 @@ msgid "Analizi yapılamamış sayfalar: {pages}."
 msgstr "Pages that could not be analysed: {pages}."
 
 #: app/web/profile_form.py app/web/routers/employees.py
-#: app/web/templates/profile.html
+#: app/web/routers/output_templates.py app/web/templates/profile.html
 msgid "Anne adı"
 msgstr "Mother's name"
 
@@ -791,6 +804,12 @@ msgstr "A new package cannot be assigned from an archived group."
 #: app/web/routers/output_templates.py
 msgid "Arşivdeki şablon incelenmez; önce arşivden geri alın."
 msgstr "An archived template is not examined; restore it from the archive first."
+
+#: app/web/routers/output_templates.py
+msgid "Arşivdeki şablonun haritası onaylanmaz; önce arşivden geri alın."
+msgstr ""
+"The map of an archived template cannot be approved; restore it from the "
+"archive first."
 
 #: app/web/templates/groups.html
 msgid "Arşivdekiler de gösteriliyor."
@@ -868,6 +887,10 @@ msgstr "Archived group"
 #: app/catalog/photo_rules.py
 msgid "Asgari çözünürlük"
 msgstr "Minimum resolution"
+
+#: app/web/routers/output_templates.py
+msgid "Atama geçersiz: her doldurulacak kutu listedeki bir alana bağlanır."
+msgstr "Invalid assignment: every box to fill is linked to a field from the list."
 
 #: app/web/templates/queue_item.html
 msgid ""
@@ -1056,7 +1079,7 @@ msgstr ""
 "this page."
 
 #: app/web/profile_form.py app/web/routers/employees.py
-#: app/web/templates/profile.html
+#: app/web/routers/output_templates.py app/web/templates/profile.html
 msgid "Baba adı"
 msgstr "Father's name"
 
@@ -1102,6 +1125,10 @@ msgstr "Copy link"
 #: app/web/templates/account_telegram.html app/web/templates/users.html
 msgid "Bağlı Telegram kimliği yok."
 msgstr "No linked Telegram ID."
+
+#: app/web/templates/output_template.html
+msgid "Bağlı alan"
+msgstr "Linked field"
 
 #: app/catalog/photo_rules.py
 msgid ""
@@ -1787,6 +1814,10 @@ msgstr "Corrupt origin record"
 msgid "Boş"
 msgstr "Blank"
 
+#: app/web/routers/output_templates.py
+msgid "Boş bırak"
+msgstr "Leave empty"
+
 #: app/pipeline/plan_planner.py
 #, python-brace-format
 msgid "Boş sayfa ({pages}): atlanır; çıktıya ve kuyruğa girmez, hata sayılmaz."
@@ -1970,6 +2001,10 @@ msgstr ""
 msgid "Bu grupta henüz kalem yok. Aşağıdan dosya etiketiyle ya da türle ekleyin."
 msgstr "This group has no items yet. Add them below by file label or by type."
 
+#: app/web/templates/output_template.html
+msgid "Bu harita sürümünde kutu yok; şablonu yeniden inceletin."
+msgstr "This map version has no boxes; have the template examined again."
+
 #: app/telegram/handlers.py
 msgid "Bu hesapla belge gönderemezsiniz; belge isteyebilirsiniz."
 msgstr "You can't send documents with this account; you can ask for documents."
@@ -2084,6 +2119,10 @@ msgid "Bu slug'la bir tür zaten var; slug benzersiz olmalı ve sonradan değiş
 msgstr ""
 "A type with this slug already exists; the slug must be unique and cannot "
 "change later"
+
+#: app/web/feedback.py
+msgid "Bu sürüm zaten onaylı; değişiklik yok."
+msgstr "This version is already approved; nothing changed."
 
 #: app/web/templates/training_results.html
 msgid "Bu süzgece uyan dosya yok."
@@ -2355,6 +2394,10 @@ msgstr ""
 "This template is a draft: it cannot be used to prepare output until its "
 "field map is approved."
 
+#: app/web/routers/output_templates.py
+msgid "Bugünün tarihi"
+msgstr "Today's date"
+
 #: app/telegram/bot.py
 msgid "Bunu açamıyorum. Belgeyi dosya olarak gönderin ya da sorunuzu yazın."
 msgstr "I can't open this. Send the document as a file or write your question."
@@ -2440,6 +2483,15 @@ msgid "Değer en çok {limit} karakter olabilir."
 msgstr "The value can be at most {limit} characters long."
 
 #: app/web/feedback.py
+#, python-brace-format
+msgid ""
+"Değişen {count} atama yeni sürüm olarak kaydedildi ve onaylandı (sürüm "
+"{version}); şablon hazır."
+msgstr ""
+"Changed assignments: {count}; saved as a new version and approved "
+"(version {version}); the template is ready."
+
+#: app/web/feedback.py
 msgid "Değişiklik yok."
 msgstr "No changes."
 
@@ -2502,7 +2554,7 @@ msgid "Diğer"
 msgstr "Other"
 
 #: app/web/profile_form.py app/web/routers/employees.py
-#: app/web/templates/profile.html
+#: app/web/routers/output_templates.py app/web/templates/profile.html
 msgid "Diğer isimler"
 msgstr "Other names"
 
@@ -2517,6 +2569,10 @@ msgstr ""
 #: app/web/templates/output_template.html
 msgid "Doldurulacak boşluk"
 msgstr "Fields to fill"
+
+#: app/web/templates/output_template.html
+msgid "Doldurulmaz"
+msgstr "Not filled"
 
 #: app/web/templates/document_archive_step.html
 #: app/web/templates/document_delete_step.html
@@ -2613,7 +2669,7 @@ msgid "Doğrulanmış"
 msgstr "Verified"
 
 #: app/web/profile_form.py app/web/routers/employees.py
-#: app/web/templates/profile.html
+#: app/web/routers/output_templates.py app/web/templates/profile.html
 msgid "Doğum tarihi"
 msgstr "Date of birth"
 
@@ -2636,7 +2692,7 @@ msgid "Doğum tarihi: {date} ({age} yaşında)"
 msgstr "Date of birth: {date} ({age} years old)"
 
 #: app/web/profile_form.py app/web/routers/employees.py
-#: app/web/templates/profile.html
+#: app/web/routers/output_templates.py app/web/templates/profile.html
 msgid "Doğum yeri"
 msgstr "Place of birth"
 
@@ -2684,7 +2740,7 @@ msgstr "Edit"
 msgid "Düzenleme formunu yeniden açın"
 msgstr "Open the edit form again"
 
-#: app/web/routers/employees.py
+#: app/web/routers/employees.py app/web/routers/output_templates.py
 msgid "E-posta"
 msgstr "Email"
 
@@ -2804,6 +2860,7 @@ msgstr "Old version"
 msgid "Eski sürüm: işlem gerekmez."
 msgstr "Old version: no action needed."
 
+#: app/web/templates/output_template.html
 #: app/web/templates/training_results.html
 msgid "Etiket"
 msgstr "Label"
@@ -3101,6 +3158,10 @@ msgstr ""
 "description into the \"Description for the analyzer\" field; nothing is "
 "saved until you press Save."
 
+#: app/web/routers/output_templates.py
+msgid "Fotoğraf"
+msgstr "Photo"
+
 #: app/web/templates/catalog_photo_rules.html
 msgid "Fotoğraf kuralları"
 msgstr "Photo rules"
@@ -3317,6 +3378,14 @@ msgstr "The map could not be read as CSV (line {line})."
 msgid "Harita UTF-8 metin değil; CSV'yi UTF-8 olarak kaydedin."
 msgstr "The map is not UTF-8 text; save the CSV as UTF-8."
 
+#: app/web/routers/output_templates.py
+msgid ""
+"Harita bu arada yeni bir sürüm aldı; son sürümü gözden geçirip yeniden "
+"onaylayın."
+msgstr ""
+"The map got a new version in the meantime; review the latest version and "
+"approve again."
+
 #: app/web/templates/training.html
 msgid "Harita ile toplu tarama"
 msgstr "Bulk scan with a map"
@@ -3325,6 +3394,12 @@ msgstr "Bulk scan with a map"
 #, python-brace-format
 msgid "Harita ile toplu tarama başladı: {count} dosya."
 msgstr "Bulk scan with a map started: {count} files."
+
+#: app/web/feedback.py
+msgid "Harita onaylanmadı: en az bir kutu bir profil alanına bağlı olmalı."
+msgstr ""
+"The map was not approved: at least one box must be linked to a profile "
+"field."
 
 #: app/web/routers/training.py
 msgid "Harita saklanamadı; tarama başlatılmadı."
@@ -3390,6 +3465,10 @@ msgstr ""
 "The map has no path column: dest, output_relative_path, ornek_klasoru, "
 "source_collection_path or path is required."
 
+#: app/web/templates/output_template.html
+msgid "Haritayı onayla"
+msgstr "Approve the map"
+
 #: app/web/routers/uploads_list.py
 msgid "Hata"
 msgstr "Error"
@@ -3447,6 +3526,12 @@ msgstr "No templates yet; HR uploads templates."
 msgid "Henüz hiçbir belgeye bakılmadı."
 msgstr "No documents have been viewed yet."
 
+#: app/web/templates/output_template.html
+msgid "Henüz onaylı alan haritası yok; harita İK onayından sonra burada görünür."
+msgstr ""
+"There is no approved field map yet; the map appears here after HR "
+"approves it."
+
 #: app/web/templates/uploads_list.html
 msgid "Henüz yükleme yok."
 msgstr "No uploads yet."
@@ -3462,6 +3547,17 @@ msgstr "No accepted photo has been marked as an example yet."
 #: app/web/routers/catalog.py app/web/routers/employees.py
 msgid "Hepsi"
 msgstr "All"
+
+#: app/web/templates/output_template.html
+msgid ""
+"Her kutunun bağlı alanını listeden seçin ya da «Boş bırak» deyin. İmza, "
+"kaşe, logo, fotoğraf ve çerçeve kutuları doldurulmaz. Kutular taşınmaz; "
+"değişen atama onayda yeni sürüm olarak kaydedilir, eski sürüm silinmez."
+msgstr ""
+"Choose the linked field of each box from the list or pick «Leave empty». "
+"Signature, stamp, logo, photo and frame boxes are never filled. Boxes do "
+"not move; a changed assignment is saved as a new version on approval, the"
+" old version is not deleted."
 
 #: app/web/templates/uploads_list.html
 msgid ""
@@ -3838,6 +3934,10 @@ msgstr ""
 msgid "Kayıtsız örnek; kaydı register-examples ile tutuldu."
 msgstr "Unregistered example; its record was made with register-examples."
 
+#: app/web/routers/output_templates.py
+msgid "Kaşe / mühür"
+msgstr "Stamp / seal"
+
 #: app/web/auth.py
 msgid "Kendi hesabınızı pasife alamazsınız."
 msgstr "You cannot deactivate your own account."
@@ -3899,7 +3999,7 @@ msgstr ""
 "the document."
 
 #: app/web/profile_form.py app/web/routers/employees.py
-#: app/web/templates/profile.html
+#: app/web/routers/output_templates.py app/web/templates/profile.html
 msgid "Kişisel numara"
 msgstr "Personal number"
 
@@ -4111,6 +4211,10 @@ msgstr "No Latin spelling on the document"
 msgid "Latin yazım eksik"
 msgstr "Latin spelling missing"
 
+#: app/web/routers/output_templates.py
+msgid "Logo"
+msgstr "Logo"
+
 #: app/web/routers/uploads.py
 msgid "Lütfen dosyayı yeniden adlandırıp tekrar yükleyin."
 msgstr "Please rename the file and upload it again."
@@ -4196,6 +4300,10 @@ msgstr ""
 msgid "Mesajınız çok uzun. Kimin hangi belgesini istediğinizi kısaca yazın."
 msgstr "Your message is too long. Briefly write whose document you want."
 
+#: app/web/routers/output_templates.py
+msgid "Metin"
+msgstr "Text"
+
 #: app/web/templates/output_template.html
 msgid "Model"
 msgstr "Model"
@@ -4222,7 +4330,8 @@ msgstr "Reason:"
 
 #: app/web/templates/document_move.html
 #: app/web/templates/employee_merge_results.html
-#: app/web/templates/employees_results.html app/web/templates/queue.html
+#: app/web/templates/employees_results.html
+#: app/web/templates/output_template.html app/web/templates/queue.html
 #: app/web/templates/queue_assign.html app/web/templates/training_results.html
 msgid "No"
 msgstr "No."
@@ -4367,7 +4476,7 @@ msgid "Onayı yeniden başlatın"
 msgstr "Restart the confirmation"
 
 #: app/web/profile_form.py app/web/routers/employees.py
-#: app/web/templates/document_move.html
+#: app/web/routers/output_templates.py app/web/templates/document_move.html
 #: app/web/templates/employee_merge_results.html
 #: app/web/templates/employees_results.html app/web/templates/profile.html
 #: app/web/templates/queue_assign.html
@@ -4615,7 +4724,7 @@ msgstr ""
 "produced so far are not deleted. A batch that is still unfinished 10 "
 "minutes after it was received is cancelled automatically."
 
-#: app/web/templates/profile.html
+#: app/web/routers/output_templates.py app/web/templates/profile.html
 msgid "Pasaport numarası"
 msgstr "Passport number"
 
@@ -5148,7 +5257,7 @@ msgid "Sonuçlar"
 msgstr "Results"
 
 #: app/web/profile_form.py app/web/routers/employees.py
-#: app/web/templates/profile.html
+#: app/web/routers/output_templates.py app/web/templates/profile.html
 msgid "Soyad"
 msgstr "Surname"
 
@@ -5281,8 +5390,8 @@ msgstr "Files to scan"
 msgid "Taranamadı ({row}): {problem}"
 msgstr "Could not be scanned ({row}): {problem}"
 
-#: app/web/templates/profile.html app/web/templates/training_results.html
-#: app/web/templates/uploads_list.html
+#: app/web/routers/output_templates.py app/web/templates/profile.html
+#: app/web/templates/training_results.html app/web/templates/uploads_list.html
 msgid "Tarih"
 msgstr "Date"
 
@@ -5341,7 +5450,7 @@ msgstr ""
 "previously uploaded file {original}; it is not processed again and "
 "produces no output."
 
-#: app/web/routers/employees.py
+#: app/web/routers/employees.py app/web/routers/output_templates.py
 msgid "Telefon"
 msgstr "Phone"
 
@@ -5525,7 +5634,8 @@ msgstr "All"
 
 #: app/web/templates/document_archive_step.html
 #: app/web/templates/document_delete_step.html app/web/templates/history.html
-#: app/web/templates/profile.html app/web/templates/training_known.html
+#: app/web/templates/output_template.html app/web/templates/profile.html
+#: app/web/templates/training_known.html
 #: app/web/templates/training_results.html app/web/templates/upload_detail.html
 msgid "Tür"
 msgstr "Type"
@@ -5714,7 +5824,7 @@ msgid "Var olan şablonu aç"
 msgstr "Open the existing template"
 
 #: app/web/profile_form.py app/web/routers/employees.py
-#: app/web/templates/profile.html
+#: app/web/routers/output_templates.py app/web/templates/profile.html
 msgid "Vatandaşlık"
 msgstr "Nationality"
 
@@ -7309,6 +7419,10 @@ msgstr "Runs"
 msgid "Çelişki"
 msgstr "Conflict"
 
+#: app/web/routers/output_templates.py
+msgid "Çerçeve"
+msgstr "Frame"
+
 #: app/web/templates/queue.html app/web/templates/queue_item.html
 msgid "Çözüldü"
 msgstr "Resolved"
@@ -7350,6 +7464,15 @@ msgid ""
 msgstr ""
 "The output is consecutive pages taken from a single source file; no "
 "merging or format conversion is done — the conversion list must be empty."
+
+#: app/web/templates/output_template.html
+#, python-format
+msgid ""
+"Çıktı şu an onaylı %(version)d. sürümle hazırlanır; bu sürüm onaylanınca "
+"onun yerini alır."
+msgstr ""
+"Output is currently prepared with approved version %(version)d; this "
+"version replaces it once approved."
 
 #: app/web/templates/upload_detail.html
 msgid "Çıktılar"
@@ -7816,6 +7939,10 @@ msgstr "First page"
 #: app/web/templates/output_templates.html
 msgid "İlk şablonu yükleyin."
 msgstr "Upload the first template."
+
+#: app/web/routers/output_templates.py
+msgid "İmza"
+msgstr "Signature"
 
 #: app/web/templates/catalog_candidates.html
 msgid "İncele"

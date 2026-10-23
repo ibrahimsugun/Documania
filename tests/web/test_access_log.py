@@ -440,6 +440,9 @@ REVIEWED_MUTATING_ROUTES: dict[tuple[str, str], str] = {
     ("POST", "/output-templates/{template_id}/examine"): (
         "hazır şablon kaydı: yeniden inceleme, yeni harita sürümü (15.1.2)"
     ),
+    ("POST", "/output-templates/{template_id}/maps/{version}/approve"): (
+        "hazır şablon kaydı: alan haritası onayı, değişen atama yeni sürüm (15.1.3)"
+    ),
     ("POST", "/output-templates/{template_id}/archive"): (
         "hazır şablon kaydı: arşivleme, silme yok (15.1.4, R11)"
     ),

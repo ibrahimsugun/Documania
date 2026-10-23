@@ -20,6 +20,12 @@ Blok biçimi `CONVENTIONS.md` §3'te tanımlıdır:
 
 ## Task log (newest-first)
 
+## 184 — 15.1-c Alan haritası önizleme ve onay — done — 2026-10-23
+- Yapıldı: `app/output_templates/approve.py` (`approve_map`: son sürüme onay, atama doğrulama, değişen atama `store_map` ile yeni sürüm, `ready`, `TEMPLATE_MAP_APPROVED`; `approved_map`), şablon sayfasında SVG kutulu önizleme + atama tablosu (`select`/"Boş bırak", imza/kaşe seçimsiz), `POST /output-templates/{id}/maps/{version}/approve` düz form, Kullanıcı'ya yalnız onaylı harita salt okunur; `panel.css` + ARAYUZ-STANDARDI §3/§4, dört bildirim, üç dil.
+- Doğrulama: ruff check/format, compileall, temiz SQLite'ta `alembic upgrade head` (→0032, göç yok), `import app.main`, `python -m app.i18n check`, `git diff --check` exit 0; tam paralel kapı (`-n 6 --cov`) 7122 geçti, 6 atlandı, kapsam %98,83 — 2 kırmızı (`…plan_d58_verbatim`, D58 bloğu PLAN'da yok) tm 180–183'teki gibi bu görevle ilgisiz.
+- Varsayımlar: §D123 (m)'ye yazıldı — onay yalnız son sürüme (eski sürüm 409), atama değişmezse yerinde onay, değişirse yeni sürüm (`model` kutuları önerenin), zaten onaylıysa yazma yok; üretim onaylı en yüksek sürümü kullanır; kutular `style=` yasağı yüzünden SVG.
+- Sonraki pencereye not: tm 185 haritayı `app.output_templates.approve.approved_map(template)` ile alır (`json["fields"]`, `source` = `unassigned` boş kalır); `generated_documents.map_id` o satırın `id`'si. D58 testleri için ayrı küçük görev hâlâ gerekli.
+
 ## 183 — 15.1-b Şablon incelemesi (alan haritası) — done — 2026-10-23
 - Yapıldı: `TemplateFieldMap` §8.7 şeması (`app/ai/schemas.py`), talimat `template_map.md`, `examine_template` (Anthropic/OpenAI/kayıtlı yanıt), göç 0032 (`examine_requested_at` + boş-zaman sahiplenme alanları), `app/output_templates/examine.py` (kuyruk, `TemplateExaminationJob`, harita sürümü + `map_hash`, `examine_error` kodu, `TEMPLATE_EXAMINED`), yüklemede kuyruğa alma, "Yeniden incele" (`POST …/examine`), listede/sayfada sebep, üç dil.
 - Doğrulama: ruff check/format, compileall, temiz SQLite'ta `alembic upgrade head` (→0032), `import app.main`, `python -m app.i18n check`, `git diff --check` exit 0; tam paralel kapı (`-n 6 --cov`) 7115 geçti, 6 atlandı, kapsam %98,84 — 2 kırmızı (`…plan_d58_verbatim`, D58 bloğu PLAN'da yok) önceki görevlerdeki gibi bu görevle ilgisiz.

@@ -310,6 +310,28 @@ TEMPLATE_ARCHIVED = _register(
     N_("Şablon arşivlendi: profilde seçilemez, üretilmiş belgeler yerinde kalır."),
 )
 TEMPLATE_RESTORED = _register("templates.restored", _OK, N_("Şablon arşivden geri alındı."))
+# 15.1.3: alan haritası onayı.
+TEMPLATE_MAP_APPROVED = _register(
+    "templates.map_approved",
+    _OK,
+    N_("Alan haritası onaylandı (sürüm {version}); şablon hazır."),
+)
+TEMPLATE_MAP_APPROVED_EDITED = _register(
+    "templates.map_approved_edited",
+    _OK,
+    N_(
+        "Değişen {count} atama yeni sürüm olarak kaydedildi ve onaylandı (sürüm {version}); "
+        "şablon hazır."
+    ),
+)
+TEMPLATE_MAP_UNCHANGED = _register(
+    "templates.map_unchanged", _INFO, N_("Bu sürüm zaten onaylı; değişiklik yok.")
+)
+TEMPLATE_MAP_NOTHING_BOUND = _register(
+    "templates.map_nothing_bound",
+    _ERR,
+    N_("Harita onaylanmadı: en az bir kutu bir profil alanına bağlı olmalı."),
+)
 
 # --- Çalışanlar (10.5) ---------------------------------------------------------------------------
 PACKAGE_ASSIGNED = _register("employees.package_assigned", _OK, N_("Paket tanımlandı."))

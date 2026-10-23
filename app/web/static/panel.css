@@ -1250,6 +1250,24 @@ th.num, td.num { text-align: right; font-variant-numeric: tabular-nums; white-sp
 td .thumbs { grid-template-columns: repeat(auto-fill, minmax(6rem, 1fr)); gap: 0.5rem; min-width: 12rem; }
 td .thumb img { height: 7rem; }
 
+/* Alan haritası önizlemesi (15.1.3): sayfa görüntüsü + üstünde SVG kutular + yanında atama tablosu.
+   Kutunun rengi durumundan gelir (bağlı / boş bırakılmış / doldurulamaz); renk tek taşıyıcı değildir,
+   tablo aynı bilgiyi metinle verir. Kenar kalınlığı ekran pikselidir (`non-scaling-stroke`). */
+.map-layout { display: grid; grid-template-columns: minmax(16rem, 30rem) minmax(0, 1fr); gap: 1rem 1.5rem; align-items: start; margin: 0 0 1.25rem; }
+.map-page { position: relative; margin: 0; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-sm); overflow: hidden; }
+.map-page img { display: block; width: 100%; height: auto; }
+.map-boxes { position: absolute; inset: 0; width: 100%; height: 100%; }
+.map-box rect { fill: var(--accent-soft); fill-opacity: 0.45; stroke: var(--accent); stroke-width: 2; vector-effect: non-scaling-stroke; }
+.map-box text { fill: var(--accent-strong); font-family: var(--font-sans); font-weight: 700; }
+.map-box-unassigned rect { fill: var(--warning-soft); stroke: var(--warning); stroke-dasharray: 6 4; }
+.map-box-unassigned text { fill: var(--warning); }
+.map-box-locked rect { fill: var(--cancelled-soft); stroke: var(--cancelled); stroke-dasharray: 2 3; }
+.map-box-locked text { fill: var(--cancelled); }
+.map-box:hover rect, .map-box:focus-visible rect { fill-opacity: 0.8; stroke: var(--accent-strong); stroke-width: 4; }
+.map-fields select { min-width: 11rem; }
+.map-fields tr:target { background: var(--accent-soft); }
+@media (max-width: 64rem) { .map-layout { grid-template-columns: minmax(0, 1fr); } }
+
 /* Olay zaman çizelgesi (10.3.1). */
 .timeline { margin: 0; padding: 0 0 0 1.1rem; list-style: none; border-left: 2px solid var(--line); }
 .event { position: relative; display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.2rem 0.65rem; padding: 0.35rem 0 0.55rem; font-size: var(--text-sm); }

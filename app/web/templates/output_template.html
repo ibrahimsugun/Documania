@@ -1,7 +1,10 @@
 {% extends "base.html" %}
-{# Hazır şablon sayfası (15.1.1, 15.1.2, 15.1.4): `template` yoksa yükleme formu (ad, açıklama, tek dosya),
+{# Hazır şablon sayfası (15.1.1–15.1.4): `template` yoksa yükleme formu (ad, açıklama, tek dosya),
    varsa şablonun bilgileri, orijinali yeni sekmede açma/indirme (erişim kaydı), sayfa önizlemeleri, alan
-   haritasının son sürümü ve yeniden inceleme, arşivleme. Hepsi tek adımdır ve olay yazar; şablon silinmez (R11). Önizleme belge içeriğine dokunmaz
+   haritası ve yeniden inceleme, arşivleme. Harita önizlemesi (15.1.3): kutular sayfa görüntüsünün üstünde
+   SVG'dir (stil özniteliği yok; koordinat `viewBox` = görüntü ölçüsü), her kutunun satırı yanındaki
+   tablodadır; İK son sürümün atamalarını düz formla onaylar (JavaScript gerekmez), Kullanıcı yalnız
+   onaylı sürümü salt okunur görür. Hepsi tek adımdır ve olay yazar; şablon silinmez (R11). Önizleme belge içeriğine dokunmaz
    (K17). Form `action` yolları düz metin yazılır. #}
 {% macro errors(source, name) %}{% for message in source.get(name, []) %}<small class="field-error" role="alert">{{ translate(message) }}</small>{% endfor %}{% endmacro %}
 {% block title %}{{ template.name if template else _("Şablon yükle") }}{% endblock %}
@@ -53,17 +56,82 @@
   {% elif examine_error %}
   <p class="error" role="alert" id="template-examine-error">{{ translate(examine_error) }}</p>
   {% endif %}
-  {% if latest_map %}
+  {% set shown = preview.row if preview else (latest_map if user.can_write else None) %}
+  {% if shown %}
   <dl class="meta">
-    <dt>{{ _("Sürüm") }}</dt><dd>{{ latest_map.version }}{% if latest_map.approved_at %} · {{ _("onaylı") }}{% else %} · {{ _("onay bekliyor") }}{% endif %}</dd>
-    <dt>{{ _("Doldurulacak boşluk") }}</dt><dd>{{ field_count }}</dd>
-    <dt>{{ _("Tüm alanlar") }}</dt><dd>{{ latest_map.json.get("fields", [])|length }}</dd>
-    <dt>{{ _("Model") }}</dt><dd translate="no">{{ latest_map.model or "—" }}</dd>
-    <dt>{{ _("Oluşturulma") }}</dt><dd>{{ latest_map.created_at.strftime("%Y-%m-%d %H:%M") }} UTC</dd>
-    <dt>{{ _("Harita özeti") }}</dt><dd class="cell-break" translate="no">{{ latest_map.map_hash }}</dd>
+    <dt>{{ _("Sürüm") }}</dt><dd>{{ shown.version }}{% if shown.approved_at %} · {{ _("onaylı") }} ({{ shown.approved_by }}, {{ shown.approved_at.strftime("%Y-%m-%d %H:%M") }} UTC){% else %} · {{ _("onay bekliyor") }}{% endif %}</dd>
+    <dt>{{ _("Doldurulacak boşluk") }}</dt><dd>{{ preview.fillable_count if preview else field_count }}</dd>
+    {% if preview %}<dt>{{ _("Bağlı alan") }}</dt><dd>{{ preview.bound_count }}</dd>{% endif %}
+    <dt>{{ _("Tüm alanlar") }}</dt><dd>{{ shown.json.get("fields", [])|length }}</dd>
+    <dt>{{ _("Model") }}</dt><dd translate="no">{{ shown.model or "—" }}</dd>
+    <dt>{{ _("Oluşturulma") }}</dt><dd>{{ shown.created_at.strftime("%Y-%m-%d %H:%M") }} UTC</dd>
+    <dt>{{ _("Harita özeti") }}</dt><dd class="cell-break" translate="no">{{ shown.map_hash }}</dd>
   </dl>
+  {% elif not user.can_write %}
+  <p class="placeholder">{{ _("Henüz onaylı alan haritası yok; harita İK onayından sonra burada görünür.") }}</p>
   {% elif not examining %}
   <p class="placeholder">{{ _("Henüz alan haritası yok.") }}</p>
+  {% endif %}
+  {% if preview %}
+  {% if preview.editable %}
+  {% if approved_map and approved_map.version != preview.row.version %}
+  <p class="notice" role="status" id="template-map-pending">{{ _("Çıktı şu an onaylı %(version)d. sürümle hazırlanır; bu sürüm onaylanınca onun yerini alır.", version=approved_map.version) }}</p>
+  {% endif %}
+  <p class="hint">{{ _("Her kutunun bağlı alanını listeden seçin ya da «Boş bırak» deyin. İmza, kaşe, logo, fotoğraf ve çerçeve kutuları doldurulmaz. Kutular taşınmaz; değişen atama onayda yeni sürüm olarak kaydedilir, eski sürüm silinmez.") }}</p>
+  <form class="template-map-approve" method="post" action="/output-templates/{{ template.id }}/maps/{{ preview.row.version }}/approve">
+  {% endif %}
+  {% for page in preview.pages %}
+  <h3 id="map-page-{{ page.index }}">{{ _("Sayfa %(page)d", page=page.index + 1) }}</h3>
+  <div class="map-layout">
+    <figure class="map-page">
+      <img src="/output-templates/{{ template.id }}/pages/{{ page.index }}" alt="{{ _('Sayfa %(page)d', page=page.index + 1) }}">
+      <svg class="map-boxes" viewBox="0 0 {{ page.width }} {{ page.height }}" preserveAspectRatio="none" role="group" aria-labelledby="map-page-{{ page.index }}">
+        {% for box in page.boxes %}
+        <a class="map-box {{ box.state }}" href="#map-row-{{ box.field_id }}">
+          <title>{{ box.number }} · {{ translate(kind_labels[box.kind]) }}{% if box.fillable %} · {{ translate(source_labels[box.source]) }}{% endif %}</title>
+          <rect x="{{ box.x }}" y="{{ box.y }}" width="{{ box.width }}" height="{{ box.height }}"></rect>
+          <text x="{{ box.x }}" y="{{ box.y }}" dy="-0.25em" font-size="{{ page.label_size }}">{{ box.number }}</text>
+        </a>
+        {% endfor %}
+      </svg>
+    </figure>
+    <table class="map-fields">
+      <thead><tr><th class="num">{{ _("No") }}</th><th>{{ _("Etiket") }}</th><th>{{ _("Tür") }}</th><th>{{ _("Bağlı alan") }}</th></tr></thead>
+      <tbody>
+        {% for box in page.boxes %}
+        <tr id="map-row-{{ box.field_id }}">
+          <td class="num">{{ box.number }}</td>
+          <td>{% if box.fillable and preview.editable %}<label for="map-source-{{ box.field_id }}" translate="no">{{ box.label_text or "—" }}</label>{% else %}<span translate="no">{{ box.label_text or "—" }}</span>{% endif %}</td>
+          <td>{{ translate(kind_labels[box.kind]) }}</td>
+          <td>
+            {% if not box.fillable %}
+            <span class="badge badge-neutral">{{ _("Doldurulmaz") }}</span>
+            {% elif preview.editable %}
+            <select id="map-source-{{ box.field_id }}" name="source-{{ box.field_id }}">
+              {% for value, label in source_labels.items() %}
+              <option value="{{ value }}"{% if value == box.source %} selected{% endif %}>{{ translate(label) }}</option>
+              {% endfor %}
+            </select>
+            {% else %}
+            {{ translate(source_labels[box.source]) }}
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="placeholder">{{ _("Bu harita sürümünde kutu yok; şablonu yeniden inceletin.") }}</p>
+  {% endfor %}
+  {% if preview.editable %}
+  {% if preview.fillable_count %}
+  <div class="form-actions">
+    <button type="submit">{{ _("Haritayı onayla") }}</button>
+  </div>
+  {% endif %}
+  </form>
+  {% endif %}
   {% endif %}
   {% if user.can_write and template.status != "archived" %}
   <p class="hint">{{ _("Yeniden inceleme yeni bir harita sürümü açar; eski sürümler silinmez.") }}</p>

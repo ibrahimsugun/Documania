@@ -108,6 +108,7 @@ WORLD_PARAMS = {
     "candidate_id": "{candidate}",
     "group_id": "{group}",
     "template_id": "{template}",
+    "version": "1",
     "item_id": "1",
     "package_id": "1",
     "kind": "alias",

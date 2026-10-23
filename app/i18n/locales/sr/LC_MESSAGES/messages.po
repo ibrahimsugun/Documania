@@ -4,8 +4,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Documania panel\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-23 01:01+0000\n"
-"PO-Revision-Date: 2026-10-23 01:01+0000\n"
+"POT-Creation-Date: 2026-10-23 01:22+0000\n"
+"PO-Revision-Date: 2026-10-23 01:22+0000\n"
 "Last-Translator: Documania görev penceresi (gözden geçirilmeli)\n"
 "Language: sr_Latn\n"
 "Language-Team: Srpski\n"
@@ -484,8 +484,8 @@ msgid "AI kararı: `{slug}` ({basis}, model {model})"
 msgstr "Odluka AI: `{slug}` ({basis}, model {model})"
 
 #: app/catalog/prefill.py app/web/profile_form.py app/web/routers/catalog.py
-#: app/web/routers/employees.py app/web/templates/catalog.html
-#: app/web/templates/catalog_type_fields.html
+#: app/web/routers/employees.py app/web/routers/output_templates.py
+#: app/web/templates/catalog.html app/web/templates/catalog_type_fields.html
 #: app/web/templates/document_move.html
 #: app/web/templates/employee_merge_results.html
 #: app/web/templates/employees_results.html app/web/templates/group.html
@@ -494,6 +494,10 @@ msgstr "Odluka AI: `{slug}` ({basis}, model {model})"
 #: app/web/templates/queue_assign.html
 msgid "Ad"
 msgstr "Ime"
+
+#: app/web/routers/output_templates.py
+msgid "Ad soyad"
+msgstr "Ime i prezime"
 
 #: app/web/templates/employee_fields.html
 msgid ""
@@ -618,7 +622,7 @@ msgstr "Predlog se vraća među one koji čekaju odobrenje (11.5.7)."
 msgid "Adayı reddet"
 msgstr "Odbij predlog"
 
-#: app/web/routers/employees.py
+#: app/web/routers/employees.py app/web/routers/output_templates.py
 msgid "Adres"
 msgstr "Adresa"
 
@@ -653,6 +657,15 @@ msgstr ""
 #: app/web/templates/output_template.html
 msgid "Alan haritası"
 msgstr "Mapa polja"
+
+#: app/web/feedback.py
+#, python-brace-format
+msgid "Alan haritası onaylandı (sürüm {version}); şablon hazır."
+msgstr "Mapa polja je odobrena (verzija {version}); šablon je spreman."
+
+#: app/web/routers/output_templates.py
+msgid "Alan haritasının bu sürümü yok."
+msgstr "Ova verzija mape polja ne postoji."
 
 #: app/web/templates/queue_item.html
 msgid ""
@@ -750,7 +763,7 @@ msgid "Analizi yapılamamış sayfalar: {pages}."
 msgstr "Stranice koje nisu mogle biti analizirane: {pages}."
 
 #: app/web/profile_form.py app/web/routers/employees.py
-#: app/web/templates/profile.html
+#: app/web/routers/output_templates.py app/web/templates/profile.html
 msgid "Anne adı"
 msgstr "Ime majke"
 
@@ -811,6 +824,10 @@ msgstr "Iz arhivirane grupe ne može se dodeliti novi paket."
 #: app/web/routers/output_templates.py
 msgid "Arşivdeki şablon incelenmez; önce arşivden geri alın."
 msgstr "Šablon u arhivi se ne pregleda; prvo ga vratite iz arhive."
+
+#: app/web/routers/output_templates.py
+msgid "Arşivdeki şablonun haritası onaylanmaz; önce arşivden geri alın."
+msgstr "Mapa arhiviranog šablona se ne odobrava; prvo ga vratite iz arhive."
 
 #: app/web/templates/groups.html
 msgid "Arşivdekiler de gösteriliyor."
@@ -888,6 +905,12 @@ msgstr "Arhivirana grupa"
 #: app/catalog/photo_rules.py
 msgid "Asgari çözünürlük"
 msgstr "Minimalna rezolucija"
+
+#: app/web/routers/output_templates.py
+msgid "Atama geçersiz: her doldurulacak kutu listedeki bir alana bağlanır."
+msgstr ""
+"Nevažeća dodela: svako polje za popunjavanje se povezuje sa podatkom sa "
+"liste."
 
 #: app/web/templates/queue_item.html
 msgid ""
@@ -1075,7 +1098,7 @@ msgstr ""
 "osvežite ovu stranicu."
 
 #: app/web/profile_form.py app/web/routers/employees.py
-#: app/web/templates/profile.html
+#: app/web/routers/output_templates.py app/web/templates/profile.html
 msgid "Baba adı"
 msgstr "Ime oca"
 
@@ -1124,6 +1147,10 @@ msgstr "Kopiraj link"
 #: app/web/templates/account_telegram.html app/web/templates/users.html
 msgid "Bağlı Telegram kimliği yok."
 msgstr "Nema povezanog Telegram ID-ja."
+
+#: app/web/templates/output_template.html
+msgid "Bağlı alan"
+msgstr "Povezani podatak"
 
 #: app/catalog/photo_rules.py
 msgid ""
@@ -1800,6 +1827,10 @@ msgstr "Oštećen zapis o poreklu"
 msgid "Boş"
 msgstr "Prazna"
 
+#: app/web/routers/output_templates.py
+msgid "Boş bırak"
+msgstr "Ostavi prazno"
+
 #: app/pipeline/plan_planner.py
 #, python-brace-format
 msgid "Boş sayfa ({pages}): atlanır; çıktıya ve kuyruğa girmez, hata sayılmaz."
@@ -1980,6 +2011,10 @@ msgstr ""
 "Ova grupa još nema stavki. Dodajte ih ispod prema oznaci datoteke ili "
 "prema tipu."
 
+#: app/web/templates/output_template.html
+msgid "Bu harita sürümünde kutu yok; şablonu yeniden inceletin."
+msgstr "Ova verzija mape nema polja; pokrenite ponovni pregled šablona."
+
 #: app/telegram/handlers.py
 msgid "Bu hesapla belge gönderemezsiniz; belge isteyebilirsiniz."
 msgstr "Sa ovim nalogom ne možete slati dokumente; možete tražiti dokumente."
@@ -2094,6 +2129,10 @@ msgid "Bu slug'la bir tür zaten var; slug benzersiz olmalı ve sonradan değiş
 msgstr ""
 "Tip sa ovim slug-om već postoji; slug mora biti jedinstven i kasnije se "
 "ne menja"
+
+#: app/web/feedback.py
+msgid "Bu sürüm zaten onaylı; değişiklik yok."
+msgstr "Ova verzija je već odobrena; nema izmena."
 
 #: app/web/templates/training_results.html
 msgid "Bu süzgece uyan dosya yok."
@@ -2361,6 +2400,10 @@ msgstr ""
 "Ovaj šablon je nacrt: ne može se pripremiti za izlaz dok mapa polja ne "
 "bude odobrena."
 
+#: app/web/routers/output_templates.py
+msgid "Bugünün tarihi"
+msgstr "Današnji datum"
+
 #: app/telegram/bot.py
 msgid "Bunu açamıyorum. Belgeyi dosya olarak gönderin ya da sorunuzu yazın."
 msgstr "Ovo ne mogu da otvorim. Pošaljite dokument kao fajl ili napišite pitanje."
@@ -2449,6 +2492,15 @@ msgid "Değer en çok {limit} karakter olabilir."
 msgstr "Vrednost može imati najviše {limit} znakova."
 
 #: app/web/feedback.py
+#, python-brace-format
+msgid ""
+"Değişen {count} atama yeni sürüm olarak kaydedildi ve onaylandı (sürüm "
+"{version}); şablon hazır."
+msgstr ""
+"Promenjene dodele: {count}; sačuvane kao nova verzija i odobrene (verzija"
+" {version}); šablon je spreman."
+
+#: app/web/feedback.py
 msgid "Değişiklik yok."
 msgstr "Nema promena."
 
@@ -2511,7 +2563,7 @@ msgid "Diğer"
 msgstr "Drugo"
 
 #: app/web/profile_form.py app/web/routers/employees.py
-#: app/web/templates/profile.html
+#: app/web/routers/output_templates.py app/web/templates/profile.html
 msgid "Diğer isimler"
 msgstr "Druga imena"
 
@@ -2526,6 +2578,10 @@ msgstr ""
 #: app/web/templates/output_template.html
 msgid "Doldurulacak boşluk"
 msgstr "Polja za popunjavanje"
+
+#: app/web/templates/output_template.html
+msgid "Doldurulmaz"
+msgstr "Ne popunjava se"
 
 #: app/web/templates/document_archive_step.html
 #: app/web/templates/document_delete_step.html
@@ -2626,7 +2682,7 @@ msgid "Doğrulanmış"
 msgstr "Potvrđeni"
 
 #: app/web/profile_form.py app/web/routers/employees.py
-#: app/web/templates/profile.html
+#: app/web/routers/output_templates.py app/web/templates/profile.html
 msgid "Doğum tarihi"
 msgstr "Datum rođenja"
 
@@ -2649,7 +2705,7 @@ msgid "Doğum tarihi: {date} ({age} yaşında)"
 msgstr "Datum rođenja: {date} ({age} god.)"
 
 #: app/web/profile_form.py app/web/routers/employees.py
-#: app/web/templates/profile.html
+#: app/web/routers/output_templates.py app/web/templates/profile.html
 msgid "Doğum yeri"
 msgstr "Mesto rođenja"
 
@@ -2697,7 +2753,7 @@ msgstr "Uredi"
 msgid "Düzenleme formunu yeniden açın"
 msgstr "Ponovo otvorite obrazac za uređivanje"
 
-#: app/web/routers/employees.py
+#: app/web/routers/employees.py app/web/routers/output_templates.py
 msgid "E-posta"
 msgstr "E-pošta"
 
@@ -2818,6 +2874,7 @@ msgstr "Stara verzija"
 msgid "Eski sürüm: işlem gerekmez."
 msgstr "Stara verzija: nije potrebna radnja."
 
+#: app/web/templates/output_template.html
 #: app/web/templates/training_results.html
 msgid "Etiket"
 msgstr "Oznaka"
@@ -3112,6 +3169,10 @@ msgstr ""
 "prvih %(limit)s strana primera i upisuje generisani opis u polje „Opis za"
 " analizatora“; ništa se ne čuva dok ne pritisnete Sačuvaj."
 
+#: app/web/routers/output_templates.py
+msgid "Fotoğraf"
+msgstr "Fotografija"
+
 #: app/web/templates/catalog_photo_rules.html
 msgid "Fotoğraf kuralları"
 msgstr "Pravila za fotografiju"
@@ -3327,6 +3388,14 @@ msgstr "Mapa nije mogla da se pročita kao CSV (red {line})."
 msgid "Harita UTF-8 metin değil; CSV'yi UTF-8 olarak kaydedin."
 msgstr "Mapa nije UTF-8 tekst; sačuvajte CSV kao UTF-8."
 
+#: app/web/routers/output_templates.py
+msgid ""
+"Harita bu arada yeni bir sürüm aldı; son sürümü gözden geçirip yeniden "
+"onaylayın."
+msgstr ""
+"Mapa je u međuvremenu dobila novu verziju; pregledajte poslednju verziju "
+"i ponovo je odobrite."
+
 #: app/web/templates/training.html
 msgid "Harita ile toplu tarama"
 msgstr "Skeniranje odjednom pomoću mape"
@@ -3335,6 +3404,10 @@ msgstr "Skeniranje odjednom pomoću mape"
 #, python-brace-format
 msgid "Harita ile toplu tarama başladı: {count} dosya."
 msgstr "Masovno skeniranje sa mapom je pokrenuto, datoteka: {count}."
+
+#: app/web/feedback.py
+msgid "Harita onaylanmadı: en az bir kutu bir profil alanına bağlı olmalı."
+msgstr "Mapa nije odobrena: bar jedno polje mora biti povezano sa poljem profila."
 
 #: app/web/routers/training.py
 msgid "Harita saklanamadı; tarama başlatılmadı."
@@ -3402,6 +3475,10 @@ msgstr ""
 "Mapa nema kolonu putanje: potrebna je dest, output_relative_path, "
 "ornek_klasoru, source_collection_path ili path."
 
+#: app/web/templates/output_template.html
+msgid "Haritayı onayla"
+msgstr "Odobri mapu"
+
 #: app/web/routers/uploads_list.py
 msgid "Hata"
 msgstr "Greška"
@@ -3459,6 +3536,10 @@ msgstr "Još nema šablona; šablone otprema kadrovska služba."
 msgid "Henüz hiçbir belgeye bakılmadı."
 msgstr "Još nijedan dokument nije pregledan."
 
+#: app/web/templates/output_template.html
+msgid "Henüz onaylı alan haritası yok; harita İK onayından sonra burada görünür."
+msgstr "Još nema odobrene mape polja; mapa se ovde pojavljuje kada je HR odobri."
+
 #: app/web/templates/uploads_list.html
 msgid "Henüz yükleme yok."
 msgstr "Još nema otpremanja."
@@ -3474,6 +3555,17 @@ msgstr "Još nijedna prihvaćena fotografija nije označena kao primer."
 #: app/web/routers/catalog.py app/web/routers/employees.py
 msgid "Hepsi"
 msgstr "Svi"
+
+#: app/web/templates/output_template.html
+msgid ""
+"Her kutunun bağlı alanını listeden seçin ya da «Boş bırak» deyin. İmza, "
+"kaşe, logo, fotoğraf ve çerçeve kutuları doldurulmaz. Kutular taşınmaz; "
+"değişen atama onayda yeni sürüm olarak kaydedilir, eski sürüm silinmez."
+msgstr ""
+"Za svako polje izaberite povezani podatak sa liste ili «Ostavi prazno». "
+"Polja za potpis, pečat, logo, fotografiju i okvir se ne popunjavaju. "
+"Polja se ne pomeraju; promenjena dodela se pri odobravanju čuva kao nova "
+"verzija, stara verzija se ne briše."
 
 #: app/web/templates/uploads_list.html
 msgid ""
@@ -3852,6 +3944,10 @@ msgstr ""
 msgid "Kayıtsız örnek; kaydı register-examples ile tutuldu."
 msgstr "Neregistrovan primer; zapis je napravljen pomoću register-examples."
 
+#: app/web/routers/output_templates.py
+msgid "Kaşe / mühür"
+msgstr "Pečat / žig"
+
 #: app/web/auth.py
 msgid "Kendi hesabınızı pasife alamazsınız."
 msgstr "Ne možete deaktivirati sopstveni nalog."
@@ -3911,7 +4007,7 @@ msgid "Kişi tespit edilemedi: belgede ne ad-soyad ne belge numarası okundu."
 msgstr "Osoba nije utvrđena: na dokumentu nije pročitano ni ime ni broj dokumenta."
 
 #: app/web/profile_form.py app/web/routers/employees.py
-#: app/web/templates/profile.html
+#: app/web/routers/output_templates.py app/web/templates/profile.html
 msgid "Kişisel numara"
 msgstr "Lični broj"
 
@@ -4120,6 +4216,10 @@ msgstr "Na dokumentu nema latiničnog zapisa"
 msgid "Latin yazım eksik"
 msgstr "Nedostaje latinični zapis"
 
+#: app/web/routers/output_templates.py
+msgid "Logo"
+msgstr "Logotip"
+
 #: app/web/routers/uploads.py
 msgid "Lütfen dosyayı yeniden adlandırıp tekrar yükleyin."
 msgstr "Preimenujte datoteku i ponovo je otpremite."
@@ -4205,6 +4305,10 @@ msgstr ""
 msgid "Mesajınız çok uzun. Kimin hangi belgesini istediğinizi kısaca yazın."
 msgstr "Vaša poruka je predugačka. Ukratko napišite čiji dokument želite."
 
+#: app/web/routers/output_templates.py
+msgid "Metin"
+msgstr "Tekst"
+
 #: app/web/templates/output_template.html
 msgid "Model"
 msgstr "Model"
@@ -4231,7 +4335,8 @@ msgstr "Razlog:"
 
 #: app/web/templates/document_move.html
 #: app/web/templates/employee_merge_results.html
-#: app/web/templates/employees_results.html app/web/templates/queue.html
+#: app/web/templates/employees_results.html
+#: app/web/templates/output_template.html app/web/templates/queue.html
 #: app/web/templates/queue_assign.html app/web/templates/training_results.html
 msgid "No"
 msgstr "Br."
@@ -4377,7 +4482,7 @@ msgid "Onayı yeniden başlatın"
 msgstr "Ponovo pokrenite potvrdu"
 
 #: app/web/profile_form.py app/web/routers/employees.py
-#: app/web/templates/document_move.html
+#: app/web/routers/output_templates.py app/web/templates/document_move.html
 #: app/web/templates/employee_merge_results.html
 #: app/web/templates/employees_results.html app/web/templates/profile.html
 #: app/web/templates/queue_assign.html
@@ -4624,7 +4729,7 @@ msgstr ""
 "dokumenti nastali do sada se ne brišu. Serija koja ni 10 minuta posle "
 "prijema nije završena otkazuje se automatski."
 
-#: app/web/templates/profile.html
+#: app/web/routers/output_templates.py app/web/templates/profile.html
 msgid "Pasaport numarası"
 msgstr "Broj pasoša"
 
@@ -5158,7 +5263,7 @@ msgid "Sonuçlar"
 msgstr "Rezultati"
 
 #: app/web/profile_form.py app/web/routers/employees.py
-#: app/web/templates/profile.html
+#: app/web/routers/output_templates.py app/web/templates/profile.html
 msgid "Soyad"
 msgstr "Prezime"
 
@@ -5293,8 +5398,8 @@ msgstr "Datoteke za skeniranje"
 msgid "Taranamadı ({row}): {problem}"
 msgstr "Nije moglo biti skenirano ({row}): {problem}"
 
-#: app/web/templates/profile.html app/web/templates/training_results.html
-#: app/web/templates/uploads_list.html
+#: app/web/routers/output_templates.py app/web/templates/profile.html
+#: app/web/templates/training_results.html app/web/templates/uploads_list.html
 msgid "Tarih"
 msgstr "Datum"
 
@@ -5352,7 +5457,7 @@ msgstr ""
 "Ponovno otpremanje (01.4.1): datoteka {file} ima isti sadržaj kao ranije "
 "otpremljena datoteka {original}; ne obrađuje se ponovo i ne daje izlaz."
 
-#: app/web/routers/employees.py
+#: app/web/routers/employees.py app/web/routers/output_templates.py
 msgid "Telefon"
 msgstr "Telefon"
 
@@ -5537,7 +5642,8 @@ msgstr "Sve"
 
 #: app/web/templates/document_archive_step.html
 #: app/web/templates/document_delete_step.html app/web/templates/history.html
-#: app/web/templates/profile.html app/web/templates/training_known.html
+#: app/web/templates/output_template.html app/web/templates/profile.html
+#: app/web/templates/training_known.html
 #: app/web/templates/training_results.html app/web/templates/upload_detail.html
 msgid "Tür"
 msgstr "Tip"
@@ -5718,7 +5824,7 @@ msgid "Var olan şablonu aç"
 msgstr "Otvori postojeći šablon"
 
 #: app/web/profile_form.py app/web/routers/employees.py
-#: app/web/templates/profile.html
+#: app/web/routers/output_templates.py app/web/templates/profile.html
 msgid "Vatandaşlık"
 msgstr "Državljanstvo"
 
@@ -7319,6 +7425,10 @@ msgstr "Pokretanja"
 msgid "Çelişki"
 msgstr "Konflikt"
 
+#: app/web/routers/output_templates.py
+msgid "Çerçeve"
+msgstr "Okvir"
+
 #: app/web/templates/queue.html app/web/templates/queue_item.html
 msgid "Çözüldü"
 msgstr "Rešeno"
@@ -7360,6 +7470,15 @@ msgid ""
 msgstr ""
 "Izlaz su uzastopne strane uzete iz jedne izvorne datoteke; ne radi se "
 "spajanje ni konverzija formata — lista konverzija mora biti prazna."
+
+#: app/web/templates/output_template.html
+#, python-format
+msgid ""
+"Çıktı şu an onaylı %(version)d. sürümle hazırlanır; bu sürüm onaylanınca "
+"onun yerini alır."
+msgstr ""
+"Izlaz se trenutno priprema sa odobrenom verzijom %(version)d; ova verzija"
+" je zamenjuje kada se odobri."
 
 #: app/web/templates/upload_detail.html
 msgid "Çıktılar"
@@ -7825,6 +7944,10 @@ msgstr "Prva strana"
 #: app/web/templates/output_templates.html
 msgid "İlk şablonu yükleyin."
 msgstr "Otpremite prvi šablon."
+
+#: app/web/routers/output_templates.py
+msgid "İmza"
+msgstr "Potpis"
 
 #: app/web/templates/catalog_candidates.html
 msgid "İncele"
