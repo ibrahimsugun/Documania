@@ -35,6 +35,10 @@ x-app: &app
     # Konteynerin veritabanı: varsayılan SQLite; üretimde .env'deki APP_DATABASE_URL (db servisi).
     DATABASE_URL: ${APP_DATABASE_URL:-sqlite:////srv/data/belgeee.db}
     DATA_DIR: /srv/data
+    # Giriş kaydının IP'si (10.1.11): konteynere yalnız bu makine (Docker'ın ağ geçidi adresinden,
+    # ör. cloudflared) ve Compose servisleri (Caddy) bağlanır — app portu yalnız 127.0.0.1'de. Bu
+    # ağlardan gelen bağlantıda istemci adresi vekilin başlığından okunur.
+    TRUSTED_PROXIES: ${TRUSTED_PROXIES:-127.0.0.0/8,::1,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16}
   volumes:
     - data:/srv/data
 

@@ -10,10 +10,15 @@ c): dil çerezini, girişliyse hesabın tercihini yazar ve aynı sayfaya döner.
 Girişte dil (§D92 d): hesabın tercihi boşsa ve çerez geçerli bir dil taşıyorsa (giriş sayfasında
 seçilmiş) hesaba yazılır; hesabın tercihi doluysa çerez hesabın diliyle yenilenir — çıkıştan sonra
 giriş sayfası kullanıcının dilinde açılır, tercih cihazdan bağımsızdır.
+
+Giriş kaydı (10.1.11, PLAN.md §D125): başarılı giriş ve açık oturumun çıkışı aynı işlemde,
+başarısız deneme (nedeniyle) ayrı commit'le `login_log`'a yazılır; kayıt yazılamazsa giriş ve çıkış
+yine sonuçlanır. Giriş sayfasının hata metni ve 401'i nedenden bağımsızdır.
 """
 
 from __future__ import annotations
 
+import logging
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request, status
@@ -21,7 +26,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from sqlalchemy.orm import Session
 
 from app.config import Settings, get_settings
-from app.db.models import User
+from app.db.models import LoginOutcome, User
 from app.db.session import get_session
 from app.i18n import LANGUAGE_COOKIE, N_, gettext, is_supported
 from app.i18n.request import set_language_cookie
@@ -31,18 +36,21 @@ from app.web.auth import (
     LOGIN_PATH,
     SESSION_COOKIE,
     PanelUser,
-    authenticate,
+    check_login,
     clear_session_cookie,
     close_session,
     get_current_user,
     login_url,
     open_session,
+    record_login,
     safe_next_path,
+    session_owner,
     set_session_cookie,
     set_user_language,
 )
 from app.web.templating import LANGUAGE_PATH, render_page
 
+logger = logging.getLogger(__name__)
 router = APIRouter(tags=["auth"])
 
 # 10.10.1: giriş sayfası isteğin dilindedir; mesaj gösterim anında çevrilir.
@@ -80,8 +88,20 @@ def login(
     next_path: Annotated[str, Form(alias="next")] = "/",
 ) -> Response:
     target = safe_next_path(next_path)
-    user = authenticate(session, username, password)
+    attempt = check_login(session, username, password)
+    user = attempt.user
     if user is None:
+        # Başarısız yolda `check_login` hiçbir şey değiştirmez: commit yalnız kaydı yazar.
+        record_login(
+            session,
+            request,
+            settings,
+            username=username,
+            outcome=LoginOutcome.FAILED,
+            user_id=attempt.account.id if attempt.account is not None else None,
+            reason=attempt.reason,
+        )
+        _commit_quietly(session)
         return render_page(
             request,
             "login.html",
@@ -101,6 +121,14 @@ def login(
     if user.language is None and is_supported(cookie_language):
         set_user_language(session, user, cookie_language, via=LANGUAGE_VIA_LOGIN)
     token = open_session(session, user, max_age_seconds=settings.session_max_age_seconds)
+    record_login(
+        session,
+        request,
+        settings,
+        username=user.username,
+        outcome=LoginOutcome.SUCCESS,
+        user_id=user.id,
+    )
     language = user.language
     session.commit()
     response = RedirectResponse(target, status.HTTP_303_SEE_OTHER)
@@ -111,13 +139,36 @@ def login(
 
 
 @router.post("/logout")
-def logout(request: Request, session: Annotated[Session, Depends(get_session)]) -> Response:
+def logout(
+    request: Request,
+    session: Annotated[Session, Depends(get_session)],
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> Response:
     token = request.cookies.get(SESSION_COOKIE)
+    owner = session_owner(session, token) if token else None
     if token and close_session(session, token):
+        if owner is not None:
+            record_login(
+                session,
+                request,
+                settings,
+                username=owner.username,
+                outcome=LoginOutcome.LOGOUT,
+                user_id=owner.id,
+            )
         session.commit()
     response = RedirectResponse(LOGIN_PATH, status.HTTP_303_SEE_OTHER)
     clear_session_cookie(response)
     return response
+
+
+def _commit_quietly(session: Session) -> None:
+    """Başarısız denemenin kaydını commit'ler; commit hata verirse 401 yine döner (§D125 h)."""
+    try:
+        session.commit()
+    except Exception:  # noqa: BLE001 — giriş, günlüğe bağımlı kilitlenmez (10.1.11)
+        session.rollback()
+        logger.warning("başarısız giriş kaydı commit'lenemedi", exc_info=True)
 
 
 @router.post(LANGUAGE_PATH)

@@ -34,7 +34,7 @@ def _assert_schema_matches_models(database_url: str) -> None:
             assert tables == set(Base.metadata.tables) | {"alembic_version"}
             context = MigrationContext.configure(connection, opts={"compare_type": True})
             assert compare_metadata(context, Base.metadata) == []
-            assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "0033"
+            assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "0034"
     finally:
         engine.dispose()
 
@@ -1666,6 +1666,36 @@ def test_ai_settings_migration_creates_a_single_row_table_and_is_reversible(
         command.downgrade(config, "0032")
         with engine.connect() as connection:
             assert "ai_settings" not in inspect(connection).get_table_names()
+    finally:
+        engine.dispose()
+
+
+def test_login_log_migration_creates_the_table_with_its_rules_and_is_reversible(
+    sqlite_url: str,
+) -> None:
+    # 0034 (10.1.11): tablo boş açılır; neden yalnız `failed` satırında, sonuç üç değerden biri.
+    config = _alembic_config(sqlite_url)
+    command.upgrade(config, "0033")
+    command.upgrade(config, "head")
+    engine = create_engine(sqlite_url)
+    insert = (
+        "INSERT INTO login_log (ts, username, outcome, reason) "
+        "VALUES ('2026-10-26 00:00:00', 'zvz', '{outcome}', {reason})"
+    )
+    try:
+        with engine.begin() as connection:
+            assert connection.scalar(text("SELECT COUNT(*) FROM login_log")) == 0
+            connection.execute(text(insert.format(outcome="failed", reason="'inactive'")))
+            connection.execute(text(insert.format(outcome="success", reason="NULL")))
+            indexes = {index["name"] for index in inspect(connection).get_indexes("login_log")}
+            assert indexes == {"ix_login_log_ts", "ix_login_log_user_id"}
+        for outcome, reason in (("success", "'inactive'"), ("failed", "NULL"), ("kilit", "NULL")):
+            with pytest.raises(IntegrityError), engine.begin() as connection:
+                connection.execute(text(insert.format(outcome=outcome, reason=reason)))
+
+        command.downgrade(config, "0033")
+        with engine.connect() as connection:
+            assert "login_log" not in inspect(connection).get_table_names()
     finally:
         engine.dispose()
 

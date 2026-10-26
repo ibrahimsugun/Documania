@@ -38,6 +38,7 @@ from app.db.models import (
     EmployeeContact,
     EmployeeIdentifier,
     KnownDocumentType,
+    LoginLog,
     OutputTemplate,
     QueueItem,
     Upload,
@@ -246,6 +247,7 @@ PAGES: dict[str, tuple[tuple[str, int], ...]] = {
     ),
     "/queues/{queue_item_id}/close/confirm": (("/queues/{unknown_item}/close/confirm", 200),),
     "/access-log": (("/access-log", 200),),
+    "/access-log/logins": (("/access-log/logins", 200), ("/access-log/logins?outcome=failed", 200)),
     "/ai-settings": (("/ai-settings", 200),),
     "/access-log/employees/{employee_id}": (
         ("/access-log/employees/E0001", 200),
@@ -544,6 +546,18 @@ def world(
             session.get_one(OutputTemplate, templates[0]),
             TemplateFieldMap(fields=TEMPLATE_FIELDS, notes="One-page contract."),
             model=MODEL,
+        )
+        session.commit()
+    # 10.1.11: Girişler sekmesinin üç sonucu, neden ve bilinmeyen ad.
+    with session_factory() as session:
+        mine = {"username": SIGNED_IN.username, "user_id": SIGNED_IN.id}
+        session.add_all(
+            [
+                LoginLog(**mine, outcome="success", ip="203.0.113.7", user_agent="Mozilla/5.0"),
+                LoginLog(**mine, outcome="failed", reason="wrong_password"),
+                LoginLog(**mine, outcome="logout"),
+                LoginLog(username="ghost", outcome="failed", reason="unknown_user"),
+            ]
         )
         session.commit()
 

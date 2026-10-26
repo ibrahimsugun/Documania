@@ -1,0 +1,5 @@
+{# Erişim logunun iki görünümü (10.1.11): belge erişimleri · girişler. Yalnız root görür. #}
+<nav class="tabs" aria-label="{{ _('Erişim logu görünümleri') }}">
+  <a href="/access-log"{% if tab == "documents" %} class="active" aria-current="page"{% endif %}>{{ _("Belge erişimleri") }}</a>
+  <a href="/access-log/logins"{% if tab == "logins" %} class="active" aria-current="page"{% endif %}>{{ _("Girişler") }}</a>
+</nav>

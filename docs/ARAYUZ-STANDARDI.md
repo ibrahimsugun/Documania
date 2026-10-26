@@ -69,7 +69,7 @@ kırmızıdır. Yeni hook eklerken buraya yaz (alfabetik):
 `current`, `document-archive-step`, `document-groups`, `document-unarchive`, `employee-fields-step`,
 `employee-merge`, `employee-merge-step`, `employee-status-step`, `employees`, `entry-summary`,
 `examples`, `files`, `generate-output`, `generated-description`, `generated-documents`, `group-archive`, `group-items`, `group-items-table`,
-`group-meta`, `item-title`, `items`, `map-preview`, `map-skip-reasons`, `map-skip-rows`, `map-skipped`,
+`group-meta`, `item-title`, `items`, `login-log`, `login-summary`, `map-preview`, `map-skip-reasons`, `map-skip-rows`, `map-skipped`,
 `map-start`, `map-upload`, `merge-candidates`, `merge-search`, `move-example`, `output-templates`,
 `output-archive`, `output-restore`, `outputs`, `prefill`, `prefill-conflict`, `prefill-state`, `prefill-suggested`, `prefill-unfilled`,
 `profile-documents`, `profile-outputs`, `profile-packages`, `profile-record`, `profile-record-step`,

@@ -1197,6 +1197,56 @@ class UserSession(Base):
     user: Mapped[User] = relationship()
 
 
+class LoginOutcome(enum.StrEnum):
+    """Giriş kaydının sonucu (`login_log.outcome`, 10.1.11)."""
+
+    SUCCESS = "success"
+    FAILED = "failed"
+    LOGOUT = "logout"
+
+
+class LoginFailure(enum.StrEnum):
+    """Başarısız girişin nedeni (`login_log.reason`, 10.1.11): yalnız root görür; giriş sayfası
+    hangisi olduğunu söylemez (10.1.4)."""
+
+    UNKNOWN_USER = "unknown_user"
+    WRONG_PASSWORD = "wrong_password"
+    INACTIVE = "inactive"
+
+
+LOGIN_USERNAME_MAX_LENGTH = 64
+LOGIN_USER_AGENT_MAX_LENGTH = 255
+LOGIN_IP_MAX_LENGTH = 45  # IPv6'nın en uzun metin biçimi
+
+
+class LoginLog(Base):
+    """Panel girişleri ve çıkışları (10.1.11; PLAN.md §D125): her giriş denemesi ve açık oturumun
+    çıkışı bir satırdır. Satırı `app.web.auth.record_login` yazar; silinmez ve değiştirilmez.
+
+    `username` denenen addır (`strip` sonrası en çok 64 karakter); bilinmeyen adda `user_id`
+    boştur. `reason` yalnız `failed` satırında doludur. Parola, parola özeti ve oturum belirteci
+    sütunu yoktur."""
+
+    __tablename__ = "login_log"
+    __table_args__ = (
+        CheckConstraint(_one_of("outcome", LoginOutcome), name="outcome"),
+        CheckConstraint(
+            f"(outcome = 'failed' AND reason IS NOT NULL AND {_one_of('reason', LoginFailure)}) "
+            "OR (outcome != 'failed' AND reason IS NULL)",
+            name="reason",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    ts: Mapped[datetime] = mapped_column(UtcDateTime, default=utcnow, index=True)
+    username: Mapped[str] = mapped_column(String(LOGIN_USERNAME_MAX_LENGTH))
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), index=True)
+    outcome: Mapped[str] = mapped_column(String(16))
+    reason: Mapped[str | None] = mapped_column(String(32))
+    ip: Mapped[str | None] = mapped_column(String(LOGIN_IP_MAX_LENGTH))
+    user_agent: Mapped[str | None] = mapped_column(String(LOGIN_USER_AGENT_MAX_LENGTH))
+
+
 class ConfirmationToken(Base):
     """İki aşamalı onayın tek kullanımlık belirteci (10.8.1, PRD §20.6.1; PLAN.md §C54).
 

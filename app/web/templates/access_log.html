@@ -4,6 +4,7 @@
 {% block content %}
 <h1>{{ _("Erişim logu") }}</h1>
 <p class="placeholder">{% trans %}Belgelerine panelden bakılmış ya da bot üzerinden gönderilmiş çalışanlar. Kimin, ne zaman baktığı çalışana tıklayınca görünür. Zamanlar UTC'dir; kayıtlar silinmez.{% endtrans %}</p>
+{% with tab = "documents" %}{% include "_access_log_tabs.html" %}{% endwith %}
 
 {% if overview.rows %}
 <table class="access-log">

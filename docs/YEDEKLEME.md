@@ -21,6 +21,8 @@ ortamı gerekmez). PostgreSQL için ayrıca `pg_dump`, `pg_restore`, `psql` (`po
   da girer); anlık görüntü `PRAGMA integrity_check`'ten geçmezse yedek başarısız sayılır.
   PostgreSQL'de `pg_dump --format=custom`. Parola komut satırına değil `PGPASSWORD` ortamına
   konur (`ps` çıktısında görünmez).
+  Döküm bütün tabloları kapsar: erişim logu (`access_log`) ve giriş kaydı (`login_log`; IP ve
+  tarayıcı bilgisi taşır) da veritabanı yedeğiyle alınır.
 - **Veri dizini** (`DATA_DIR`): Inbox'taki orijinal yüklemeler, çalışan klasörleri (`Alinan`,
   `Hazir`, `Uretilen`), katalog, örnekler ve hazır şablonlar (`KnownDocuments/_sablonlar/`). SQLite dosyası veri dizininin içindeyse canlı dosya (ve `-wal`,
   `-shm`, `-journal`) arşive girmez; yerine tutarlı anlık görüntü girer.

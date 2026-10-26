@@ -7,6 +7,7 @@ yol/model adı bulunmaz — yeni ayara ihtiyaç duyan modül burada bir alan aç
 from __future__ import annotations
 
 from functools import lru_cache
+from ipaddress import IPv4Network, IPv6Network, ip_network
 from pathlib import Path
 from typing import Literal
 
@@ -100,6 +101,11 @@ class Settings(BaseSettings):
     # PRD 10.1.2 — panel oturumunun ömrü (saniye); süre dolunca yeniden giriş istenir. PRD süre
     # vermez, varsayılan bir iş günü (bkz. PLAN.md §C45).
     session_max_age_seconds: int = Field(default=12 * 60 * 60, gt=0)
+    # PRD 10.1.11 — giriş kaydının IP'si: doğrudan bağlantı bu ağlardan geliyorsa (yerel ters
+    # vekil: cloudflared, Caddy) istemci adresi vekilin başlığından (`CF-Connecting-IP`, sonra
+    # `X-Forwarded-For`'un ilk değeri) okunur; başka adresten gelen başlık yok sayılır. Varsayılan
+    # yalnız geri döngü; docker-compose.yml konteyner ağlarını kendisi ekler (PLAN.md §D125 e).
+    trusted_proxies: str = "127.0.0.0/8,::1"
     # PRD 10.10.1 — panelin açılış dili: girişsiz sayfalar (çerezde geçerli dil yoksa) ve dil
     # tercihi olmayan hesaplar bu dilde açılır. Desteklenenler `app.i18n.SUPPORTED_LANGUAGES`
     # (`en`, `tr`, `sr`); geçersiz değerle panel açılmaz. Tarayıcının dil ayarı kullanılmaz
@@ -146,6 +152,23 @@ class Settings(BaseSettings):
             supported = ", ".join(SUPPORTED_LANGUAGES)
             raise ValueError(f"desteklenmeyen arayüz dili {value!r}; geçerli değerler: {supported}")
         return value
+
+    @field_validator("trusted_proxies", mode="before")
+    @classmethod
+    def _proxy_networks(cls, value: object) -> object:
+        # `TRUSTED_PROXIES=` (boş) hiçbir vekile güvenmez; her parça bir ağ ya da adres olmalı.
+        if isinstance(value, str):
+            for part in filter(None, (item.strip() for item in value.split(","))):
+                try:
+                    ip_network(part, strict=False)
+                except ValueError as exc:
+                    raise ValueError(f"TRUSTED_PROXIES'te geçersiz ağ {part!r}") from exc
+        return value
+
+    @property
+    def trusted_proxy_networks(self) -> tuple[IPv4Network | IPv6Network, ...]:
+        parts = (item.strip() for item in self.trusted_proxies.split(","))
+        return tuple(ip_network(part, strict=False) for part in parts if part)
 
 
 def load_settings(**overrides: object) -> Settings:

@@ -274,10 +274,24 @@ def test_caddyfile_hard_codes_no_domain_and_never_turns_https_off(caddyfile: str
     assert not re.search(r"^\s*http://", code, re.MULTILINE)
 
 
+def test_login_log_ip_trusts_only_local_proxies_and_caddy_drops_a_client_cf_header(
+    services: dict[str, dict[str, Any]], caddyfile: str
+) -> None:
+    # 10.1.11 (PLAN.md §D125 e): konteynere cloudflared Docker ağ geçidinden, Caddy Compose ağından
+    # gelir; ikisi de güvenilen ağdadır. Caddy istemcinin CF-Connecting-IP'sini silmezse sahtelenir.
+    trusted = _env(services["app"])["TRUSTED_PROXIES"]
+    for network in ("127.0.0.0/8", "::1", "172.16.0.0/12"):
+        assert network in trusted
+    assert "header_up -CF-Connecting-IP" in caddyfile
+
+
 def test_caddyfile_proxies_the_panel_and_sets_transport_security_headers(
     services: dict[str, dict[str, Any]], caddyfile: str
 ) -> None:
-    assert re.search(r"handle\s*\{\s*reverse_proxy app:8000\s*\}", caddyfile)
+    assert re.search(
+        r"handle\s*\{\s*reverse_proxy app:8000\s*\{\s*header_up -CF-Connecting-IP\s*\}\s*\}",
+        caddyfile,
+    )
     assert "Strict-Transport-Security" in caddyfile
     assert 'X-Content-Type-Options "nosniff"' in caddyfile
     assert "-Server" in caddyfile

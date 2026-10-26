@@ -29,10 +29,13 @@ yollar yalnız giriş/çıkış, sağlık denetimi ve stil dosyasıdır.
 from __future__ import annotations
 
 import hashlib
+import logging
 import secrets
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from functools import lru_cache
+from ipaddress import IPv4Address, IPv4Network, IPv6Address, IPv6Network, ip_address
 from typing import Annotated, Any
 from urllib.parse import urlencode
 
@@ -44,10 +47,23 @@ from sqlalchemy.orm import Session, aliased
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.config import Settings
-from app.db.models import User, UserRole, UserSession, utcnow
+from app.db.models import (
+    LOGIN_IP_MAX_LENGTH,
+    LOGIN_USER_AGENT_MAX_LENGTH,
+    LOGIN_USERNAME_MAX_LENGTH,
+    LoginFailure,
+    LoginLog,
+    LoginOutcome,
+    User,
+    UserRole,
+    UserSession,
+    utcnow,
+)
 from app.db.session import get_session
 from app.events import EventType, record_event
 from app.i18n import N_, Translatable, is_supported
+
+logger = logging.getLogger(__name__)
 
 SESSION_COOKIE = "belgeee_session"
 LOGIN_PATH = "/login"
@@ -218,22 +234,113 @@ def _new_user(
     return user
 
 
-def authenticate(session: Session, username: str, password: str) -> User | None:
-    """Ad ve parola doğruysa ve kullanıcı etkinse kullanıcıyı döner, değilse `None`; hangisinin
-    yanlış olduğu, kullanıcının pasif olduğu söylenmez (10.1.4: pasif kullanıcı giriş yapamaz).
+@dataclass(frozen=True, slots=True)
+class LoginAttempt:
+    """`check_login`'in sonucu: giriş başarılıysa `user`, değilse `reason` (ve ad bir kullanıcıya
+    aitse `account`, kayıt için). Neden yalnız giriş kaydına yazılır, giriş sayfasına çıkmaz."""
 
-    Özet eski parametrelerle üretilmişse doğru parolayla yeniden özetlenir (commit çağırana aittir).
+    user: User | None
+    reason: LoginFailure | None = None
+    account: User | None = None
+
+
+def check_login(session: Session, username: str, password: str) -> LoginAttempt:
+    """Ad ve parola doğruysa ve kullanıcı etkinse kullanıcıyı, değilse nedeni döner (10.1.11).
+    Pasif kullanıcıda parola doğruysa `inactive`, yanlışsa `wrong_password` (PLAN.md §D125 c).
+
+    Özet eski parametrelerle üretilmişse yalnız başarılı girişte doğru parolayla yeniden özetlenir
+    (commit çağırana aittir); başarısız yolda oturum nesnesi değişmez.
     """
     user = session.scalar(select(User).where(User.username == username.strip()))
     if user is None:
         _verify_password(_dummy_hash(), password)
-        return None
+        return LoginAttempt(user=None, reason=LoginFailure.UNKNOWN_USER)
     # Pasif kullanıcıda da parola doğrulanır: yanıt süresi durumu ele vermesin.
-    if not _verify_password(user.password_hash, password) or not user.active:
-        return None
+    if not _verify_password(user.password_hash, password):
+        return LoginAttempt(user=None, reason=LoginFailure.WRONG_PASSWORD, account=user)
+    if not user.active:
+        return LoginAttempt(user=None, reason=LoginFailure.INACTIVE, account=user)
     if _hasher.check_needs_rehash(user.password_hash):
         user.password_hash = hash_password(password)
-    return user
+    return LoginAttempt(user=user, account=user)
+
+
+def authenticate(session: Session, username: str, password: str) -> User | None:
+    """Ad ve parola doğruysa ve kullanıcı etkinse kullanıcıyı döner, değilse `None`; hangisinin
+    yanlış olduğu, kullanıcının pasif olduğu söylenmez (10.1.4: pasif kullanıcı giriş yapamaz).
+    Nedeni isteyen `check_login`'i çağırır."""
+    return check_login(session, username, password).user
+
+
+# --- giriş kaydı (10.1.11; PLAN.md §D125) ---------------------------------------------------
+
+
+def _ip(value: str | None) -> IPv4Address | IPv6Address | None:
+    if not value:
+        return None
+    try:
+        address = ip_address(value.strip())
+    except ValueError:
+        return None
+    if isinstance(address, IPv6Address) and address.ipv4_mapped is not None:
+        return address.ipv4_mapped
+    return address
+
+
+def client_ip(request: Request, trusted: Sequence[IPv4Network | IPv6Network]) -> str | None:
+    """İstemcinin adresi: doğrudan bağlantı güvenilen bir vekilden (`TRUSTED_PROXIES`, varsayılan
+    geri döngü) geliyorsa `CF-Connecting-IP`, yoksa `X-Forwarded-For`'un ilk değeri; IP olarak
+    ayrıştırılamayan başlık yok sayılır. Aksi halde bağlantının kendi adresi — dışarıdan gelen
+    başlıkla adres sahtelenemez."""
+    peer = request.client.host if request.client else None
+    address = _ip(peer)
+    if address is not None and any(address in network for network in trusted):
+        forwarded = request.headers.get("x-forwarded-for", "").split(",", 1)[0]
+        for value in (request.headers.get("cf-connecting-ip"), forwarded):
+            proxied = _ip(value)
+            if proxied is not None:
+                return str(proxied)
+    return peer[:LOGIN_IP_MAX_LENGTH] if peer else None
+
+
+def record_login(
+    session: Session,
+    request: Request,
+    settings: Settings,
+    *,
+    username: str,
+    outcome: LoginOutcome,
+    user_id: int | None = None,
+    reason: LoginFailure | None = None,
+) -> None:
+    """Giriş kaydına bir satır ekler (savepoint içinde; commit çağırana aittir). Yazım hata
+    verirse satır düşer, çağıranın işlemi ve giriş sonucu değişmez; uygulama loguna kişisel değer
+    taşımayan bir uyarı yazılır (§D125 h). Parola ve belirteç buraya hiç gelmez."""
+    agent = request.headers.get("user-agent") or None
+    try:
+        with session.begin_nested():
+            session.add(
+                LoginLog(
+                    ts=utcnow(),
+                    username=username.strip()[:LOGIN_USERNAME_MAX_LENGTH],
+                    user_id=user_id,
+                    outcome=outcome.value,
+                    reason=reason.value if reason is not None else None,
+                    ip=client_ip(request, settings.trusted_proxy_networks),
+                    user_agent=agent[:LOGIN_USER_AGENT_MAX_LENGTH] if agent else None,
+                )
+            )
+    except Exception:  # noqa: BLE001 — giriş, günlüğe bağımlı kilitlenmez (10.1.11)
+        logger.warning("giriş kaydı yazılamadı (sonuç: %s)", outcome.value, exc_info=True)
+
+
+def session_owner(session: Session, token: str) -> User | None:
+    """Belirtecin açık oturumunun kullanıcısı (çıkış kaydı için); oturum yoksa `None`."""
+    return session.scalar(
+        select(User)
+        .join(UserSession, UserSession.user_id == User.id)
+        .where(UserSession.token_hash == _token_hash(token), UserSession.revoked_at.is_(None))
+    )
 
 
 # --- oturum -----------------------------------------------------------------------------------

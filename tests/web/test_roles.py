@@ -100,6 +100,7 @@ ROOT_ONLY_PAGES = frozenset(
     {
         "/access-log",
         "/access-log/employees/{employee_id}",
+        "/access-log/logins",
         "/ai-settings",
         "/ai-settings/{rest:path}",
     }
@@ -401,7 +402,13 @@ def test_the_access_log_is_a_404_without_a_link_for_hr_and_user(
     unknown = client.get("/olmayan-bir-yol").json()
     _sign_in(app, user)
 
-    for path in ("/access-log", "/access-log?page=0", "/access-log/employees/E0001"):
+    for path in (
+        "/access-log",
+        "/access-log?page=0",
+        "/access-log/employees/E0001",
+        "/access-log/logins",
+        "/access-log/logins?outcome=failed",
+    ):
         response = client.get(path)
         assert response.status_code == 404, path
         assert response.json() == unknown
@@ -418,6 +425,7 @@ def test_root_sees_the_access_log_its_links_and_its_own_root_label(
 
     assert client.get("/access-log").status_code == 200
     assert client.get("/access-log/employees/E0001").status_code == 200
+    assert client.get("/access-log/logins").status_code == 200
     profile = client.get("/employees/E0001").text
     assert 'href="/access-log/employees/E0001"' in profile
     assert 'class="tool-link" href="/access-log"' in profile

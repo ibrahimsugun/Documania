@@ -4,8 +4,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Documania panel\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-23 15:54+0000\n"
-"PO-Revision-Date: 2026-10-23 15:54+0000\n"
+"POT-Creation-Date: 2026-10-26 17:25+0000\n"
+"PO-Revision-Date: 2026-10-26 17:25+0000\n"
 "Last-Translator: Documania görev penceresi (gözden geçirilmeli)\n"
 "Language: en\n"
 "Language-Team: English\n"
@@ -169,6 +169,13 @@ msgid "%(num)d kalem"
 msgid_plural "%(num)d kalem"
 msgstr[0] "%(num)d item"
 msgstr[1] "%(num)d items"
+
+#: app/web/templates/access_log_logins.html
+#, python-format
+msgid "%(num)d kayıt"
+msgid_plural "%(num)d kayıt"
+msgstr[0] "%(num)d record"
+msgstr[1] "%(num)d records"
 
 #: app/web/templates/catalog.html
 #, python-format
@@ -1184,7 +1191,11 @@ msgstr ""
 msgid "Baş örtüsü yok"
 msgstr "No head covering"
 
-#: app/catalog/candidates.py
+#: app/web/routers/access_log.py
+msgid "Başarılı"
+msgstr "Successful"
+
+#: app/catalog/candidates.py app/web/routers/access_log.py
 msgid "Başarısız"
 msgstr "Failed"
 
@@ -1358,6 +1369,10 @@ msgstr ""
 #: app/web/routers/employees.py
 msgid "Belge dosyası bulunamadı."
 msgstr "Document file not found."
+
+#: app/web/templates/_access_log_tabs.html
+msgid "Belge erişimleri"
+msgstr "Document access"
 
 #: app/web/templates/history.html
 msgid "Belge geçmişi"
@@ -1680,6 +1695,10 @@ msgstr "Known documents"
 msgid "Bilinen tür bulunamadı."
 msgstr "Known type not found."
 
+#: app/web/templates/access_log_logins.html
+msgid "Bilinmeyen adlar"
+msgstr "Unknown names"
+
 #: app/pipeline/group.py
 #, python-brace-format
 msgid ""
@@ -1708,6 +1727,10 @@ msgstr ""
 "Unknown document type (04.6.1): the type of this candidate ({pages}) is "
 "not in the catalog; proposed candidate type: \"{name}\". The document is "
 "not forced into a catalog type."
+
+#: app/web/routers/access_log.py
+msgid "Bilinmeyen kullanıcı adı"
+msgstr "Unknown username"
 
 #: app/web/routers/users.py
 msgid "Bilinmeyen rol."
@@ -2194,6 +2217,10 @@ msgstr "No types match this filter."
 msgid "Bu süzgece uyan yükleme yok."
 msgstr "No uploads match this filter."
 
+#: app/web/templates/access_log_logins.html
+msgid "Bu süzgeçle giriş kaydı yok."
+msgstr "No sign-in records match this filter."
+
 #: app/web/templates/catalog.html
 msgid "Bu süzgeçte arşivlenen tür yok."
 msgstr "No archived types in this filter."
@@ -2489,6 +2516,10 @@ msgstr ""
 #: app/web/templates/catalog.html
 msgid "Bütün arşivlenen türleri göster"
 msgstr "Show all archived types"
+
+#: app/web/templates/access_log_logins.html
+msgid "Bütün girişler"
+msgstr "All sign-ins"
 
 #: app/web/templates/catalog.html
 msgid "Bütün türleri göster"
@@ -2915,9 +2946,14 @@ msgid "Erişim"
 msgstr "Accesses"
 
 #: app/web/templates/access_log.html app/web/templates/access_log_employee.html
-#: app/web/templates/base.html app/web/templates/profile.html
+#: app/web/templates/access_log_logins.html app/web/templates/base.html
+#: app/web/templates/profile.html
 msgid "Erişim logu"
 msgstr "Access log"
+
+#: app/web/templates/_access_log_tabs.html
+msgid "Erişim logu görünümleri"
+msgstr "Access log views"
 
 #: app/web/templates/access_log_employee.html
 msgid "Erişimler"
@@ -3295,9 +3331,18 @@ msgstr "History"
 msgid "Giriş"
 msgstr "Sign in"
 
+#: app/web/templates/access_log_logins.html
+msgid "Giriş sonucu"
+msgstr "Sign-in result"
+
 #: app/web/templates/login.html
 msgid "Giriş yap"
 msgstr "Sign in"
+
+#: app/web/templates/_access_log_tabs.html
+#: app/web/templates/access_log_logins.html
+msgid "Girişler"
+msgstr "Sign-ins"
 
 #: app/web/templates/uploads_list.html
 msgid "Gizle"
@@ -3601,6 +3646,10 @@ msgstr "No documents yet."
 msgid "Henüz eğitim yüklemesi yok."
 msgstr "No training uploads yet."
 
+#: app/web/templates/access_log_logins.html
+msgid "Henüz giriş kaydı yok."
+msgstr "No sign-ins recorded yet."
+
 #: app/web/templates/output_templates.html
 msgid "Henüz hazır şablon yok."
 msgstr "No templates yet."
@@ -3687,6 +3736,10 @@ msgstr "ICAO code (e.g. RUS, SRB, D)"
 #: app/matching/match.py
 msgid "ICAO uyruk kodu olmalı (1–3 büyük harf, ör. RUS, D)"
 msgstr "must be an ICAO nationality code (1–3 capital letters, e.g. RUS, D)"
+
+#: app/web/templates/access_log_logins.html
+msgid "IP adresi"
+msgstr "IP address"
 
 #: app/catalog/prefill.py app/web/routers/catalog.py
 #: app/web/templates/catalog_type_fields.html
@@ -4138,10 +4191,12 @@ msgid "Korunan türler arşivlenmez, atlanacak (%(num)d): %(names)s"
 msgstr "Protected types are not archived and will be skipped (%(num)d): %(names)s"
 
 #: app/web/routers/users.py app/web/templates/access_log_employee.html
+#: app/web/templates/access_log_logins.html
 msgid "Kullanıcı"
 msgstr "User"
 
-#: app/web/templates/login.html app/web/templates/users.html
+#: app/web/templates/access_log_logins.html app/web/templates/login.html
+#: app/web/templates/users.html
 msgid "Kullanıcı adı"
 msgstr "Username"
 
@@ -4199,6 +4254,10 @@ msgstr "The user was deactivated; their open sessions were closed."
 #: app/web/feedback.py
 msgid "Kullanıcı yeniden etkinleştirildi."
 msgstr "The user was reactivated."
+
+#: app/web/templates/access_log_logins.html
+msgid "Kullanıcı özeti"
+msgstr "Summary by user"
 
 #: app/web/templating.py
 msgid "Kullanıcılar"
@@ -4431,6 +4490,10 @@ msgstr ""
 "• “Ahmet Cakar's driving licence”\n"
 "• “How old is Ahmet Cakar?”\n"
 "• “Which documents is Ahmet Cakar missing for address registration?”"
+
+#: app/web/templates/access_log_logins.html
+msgid "Neden"
+msgstr "Reason"
 
 #: app/web/templates/profile.html
 msgid "Neden:"
@@ -4692,6 +4755,16 @@ msgstr ""
 "is no longer needed is deactivated; an inactive user cannot sign in and "
 "their open sessions are closed."
 
+#: app/web/templates/access_log_logins.html
+msgid ""
+"Panele her giriş denemesi ve çıkış: kim, ne zaman, hangi adresten ve "
+"tarayıcıdan. Başarısız denemenin nedeni yalnız burada görünür. Zamanlar "
+"UTC'dir; kayıtlar silinmez."
+msgstr ""
+"Every sign-in attempt and sign-out of the panel: who, when, from which "
+"address and browser. The reason for a failed attempt is shown only here. "
+"Times are in UTC; records are never deleted."
+
 #: app/web/templates/login.html app/web/templates/users.html
 msgid "Parola"
 msgstr "Password"
@@ -4841,6 +4914,10 @@ msgstr "Passport number"
 #: app/web/templates/users.html
 msgid "Pasif"
 msgstr "Inactive"
+
+#: app/web/routers/access_log.py
+msgid "Pasif kullanıcı"
+msgstr "Inactive user"
 
 #: app/telegram/link.py
 msgid ""
@@ -5122,6 +5199,7 @@ msgid "Sayfa %(page)s"
 msgstr "Page %(page)s"
 
 #: app/web/templates/access_log.html app/web/templates/access_log_employee.html
+#: app/web/templates/access_log_logins.html
 #: app/web/templates/employees_results.html app/web/templates/uploads_list.html
 #, python-format
 msgid "Sayfa %(page)s / %(count)s"
@@ -5144,6 +5222,7 @@ msgstr ""
 "prepared yet."
 
 #: app/web/templates/access_log.html app/web/templates/access_log_employee.html
+#: app/web/templates/access_log_logins.html
 #: app/web/templates/employees_results.html app/web/templates/queue.html
 #: app/web/templates/uploads_list.html
 msgid "Sayfalama"
@@ -5356,6 +5435,14 @@ msgstr ""
 msgid "Slug sonradan değişmez."
 msgstr "The slug cannot change later."
 
+#: app/web/templates/access_log_logins.html
+msgid "Son 24 saatte başarısız"
+msgstr "Failed in last 24 hours"
+
+#: app/web/templates/access_log_logins.html
+msgid "Son başarılı giriş"
+msgstr "Last successful sign-in"
+
 #: app/web/templates/access_log.html app/web/templates/access_log_employee.html
 msgid "Son erişim"
 msgstr "Last access"
@@ -5365,10 +5452,15 @@ msgid "Son etkin İK pasife alınamaz ve rolü düşürülemez."
 msgstr "The last active HR user can't be deactivated or demoted."
 
 #: app/web/templates/access_log.html app/web/templates/access_log_employee.html
+#: app/web/templates/access_log_logins.html
 #: app/web/templates/employees_results.html app/web/templates/queue.html
 #: app/web/templates/uploads_list.html
 msgid "Sonraki →"
 msgstr "Next →"
+
+#: app/web/templates/access_log_logins.html
+msgid "Sonuç"
+msgstr "Result"
 
 #: app/web/templates/training_results.html
 msgid "Sonuç türü"
@@ -5417,7 +5509,7 @@ msgstr "Running"
 msgid "Sütun"
 msgstr "Column"
 
-#: app/web/templates/uploads_list.html
+#: app/web/templates/access_log_logins.html app/web/templates/uploads_list.html
 msgid "Süz"
 msgstr "Filter"
 
@@ -5519,6 +5611,10 @@ msgstr "Files to scan"
 #, python-brace-format
 msgid "Taranamadı ({row}): {problem}"
 msgstr "Could not be scanned ({row}): {problem}"
+
+#: app/web/templates/access_log_logins.html
+msgid "Tarayıcı"
+msgstr "Browser"
 
 #: app/web/routers/output_templates.py app/web/templates/profile.html
 #: app/web/templates/training_results.html app/web/templates/uploads_list.html
@@ -5758,7 +5854,12 @@ msgstr "Inconsistent record"
 msgid "Tüm alanlar"
 msgstr "All areas"
 
-#: app/web/routers/training.py app/web/templates/uploads_list.html
+#: app/web/templates/access_log_logins.html
+msgid "Tüm kullanıcılar"
+msgstr "All users"
+
+#: app/web/routers/access_log.py app/web/routers/training.py
+#: app/web/templates/uploads_list.html
 msgid "Tümü"
 msgstr "All"
 
@@ -6090,6 +6191,10 @@ msgid ""
 msgstr ""
 "Chosen only for a type with a front and a back side, at least one. Two "
 "sides on one page are not split or cropped; the page is used as it is."
+
+#: app/web/routers/access_log.py
+msgid "Yanlış parola"
+msgstr "Wrong password"
 
 #: app/web/routers/training.py
 msgid "Yapay zekâ"
@@ -6472,6 +6577,7 @@ msgid "Yüzler dosyalar arasında otomatik eşleştirilmez."
 msgstr "Sides are not paired automatically across files."
 
 #: app/web/templates/access_log_employee.html
+#: app/web/templates/access_log_logins.html
 #: app/web/templates/output_template.html
 #: app/web/templates/output_templates.html
 msgid "Zaman"
@@ -6671,6 +6777,10 @@ msgstr ""
 #: app/web/templates/training_results.html app/web/templates/training_type.html
 msgid "bilinen tür (slug)"
 msgstr "known type (slug)"
+
+#: app/web/templates/access_log_logins.html
+msgid "bilinmeyen"
+msgstr "unknown"
 
 #: app/web/templates/training.html
 msgid "birden çok dosya seçilebilir"
@@ -7692,7 +7802,7 @@ msgstr "The output's history"
 msgid "Çıktıya hazırla"
 msgstr "Prepare output"
 
-#: app/web/templates/base.html
+#: app/web/routers/access_log.py app/web/templates/base.html
 msgid "Çıkış"
 msgstr "Sign out"
 
@@ -8659,6 +8769,7 @@ msgid "← Çalışanlar"
 msgstr "← Employees"
 
 #: app/web/templates/access_log.html app/web/templates/access_log_employee.html
+#: app/web/templates/access_log_logins.html
 #: app/web/templates/employees_results.html app/web/templates/queue.html
 #: app/web/templates/uploads_list.html
 msgid "← Önceki"

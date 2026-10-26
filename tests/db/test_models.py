@@ -67,6 +67,7 @@ SECTION_8_1_TABLES = {
     "users",
     "telegram_users",
     "ai_settings",  # 03.8.1, PLAN.md §D124
+    "login_log",  # 10.1.11, PLAN.md §D125
 }
 # §8.1 dışında, kilitli karardan doğan tablolar: panel oturumu (MASTER-PROMPT §4 "sunucu tarafı
 # oturum çerezi", 10.1.2; PLAN.md §C45, §D22), iki aşamalı onayın tek kullanımlık belirteci

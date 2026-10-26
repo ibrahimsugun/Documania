@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{# Erişim logu "Girişler" sekmesi (10.1.11): panel girişleri ve çıkışları. Yalnız root; sayfa yalnız
+   okur, kayıt silinmez ve düzenlenmez. Neden yalnız burada görünür, giriş sayfası söylemez. #}
+{% block title %}{{ _("Erişim logu") }} · {{ _("Girişler") }}{% endblock %}
+{% block content %}
+<h1>{{ _("Erişim logu") }}</h1>
+<p class="lede">{% trans %}Panele her giriş denemesi ve çıkış: kim, ne zaman, hangi adresten ve tarayıcıdan. Başarısız denemenin nedeni yalnız burada görünür. Zamanlar UTC'dir; kayıtlar silinmez.{% endtrans %}</p>
+{% with tab = "logins" %}{% include "_access_log_tabs.html" %}{% endwith %}
+<nav class="states" aria-label="{{ _('Giriş sonucu') }}">
+  {% for state in logins.states %}
+  <a href="{{ state.url }}"{% if state.active %} class="active" aria-current="true"{% endif %}>{{ translate(state.label) }}</a>
+  {% endfor %}
+</nav>
+<form class="search" method="get" action="/access-log/logins">
+  {% if logins.outcome %}<input type="hidden" name="outcome" value="{{ logins.outcome }}">{% endif %}
+  <label for="login-user">{{ _("Kullanıcı") }}</label>
+  <select id="login-user" name="user">
+    {% for option in logins.users %}
+    <option value="{{ option.value }}"{% if option.selected %} selected{% endif %}{% if option.label %} translate="no"{% endif %}>{% if option.label %}{{ option.label }}{% elif option.value %}{{ _("Bilinmeyen adlar") }}{% else %}{{ _("Tüm kullanıcılar") }}{% endif %}</option>
+    {% endfor %}
+  </select>
+  <button type="submit">{{ _("Süz") }}</button>
+</form>
+
+{% if logins.summary %}
+<section aria-labelledby="login-summary-title">
+  <h2 id="login-summary-title">{{ _("Kullanıcı özeti") }}</h2>
+  <table class="login-summary">
+    <thead>
+      <tr><th>{{ _("Kullanıcı") }}</th><th>{{ _("Son başarılı giriş") }}</th><th class="num">{{ _("Son 24 saatte başarısız") }}</th></tr>
+    </thead>
+    <tbody>
+      {% for row in logins.summary %}
+      <tr>
+        <td>{% if row.username %}<span translate="no">{{ row.username }}</span>{% else %}<span class="badge badge-missing">{{ _("Bilinmeyen adlar") }}</span>{% endif %}</td>
+        <td>{{ row.last_success or "—" }}</td>
+        <td class="num">{{ row.failed_recent }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endif %}
+
+{% if logins.entries %}
+<p class="count">{{ ngettext("%(num)d kayıt", "%(num)d kayıt", logins.total) }}</p>
+<table class="login-log">
+  <thead>
+    <tr>
+      <th>{{ _("Zaman") }}</th><th>{{ _("Kullanıcı adı") }}</th><th>{{ _("Sonuç") }}</th><th>{{ _("Neden") }}</th><th>{{ _("IP adresi") }}</th><th>{{ _("Tarayıcı") }}</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for entry in logins.entries %}
+    <tr>
+      <td class="cell-nowrap">{{ entry.ts }}</td>
+      <td class="cell-break"><span translate="no">{{ entry.username }}</span>{% if not entry.known %} <span class="badge badge-missing">{{ _("bilinmeyen") }}</span>{% endif %}</td>
+      <td>{% if entry.outcome == "success" %}<span class="status-badge status-active">{% elif entry.outcome == "failed" %}<span class="status-badge status-passive">{% else %}<span class="badge badge-neutral">{% endif %}{{ translate(entry.outcome_label) }}</span></td>
+      <td>{{ translate(entry.reason_label) if entry.reason_label else "—" }}</td>
+      <td class="cell-nowrap" translate="no">{{ entry.ip or "—" }}</td>
+      <td class="cell-break" translate="no"{% if entry.agent_full and entry.agent_full != entry.agent %} title="{{ entry.agent_full }}"{% endif %}>{{ entry.agent or "—" }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+<nav class="pager" aria-label="{{ _('Sayfalama') }}">
+  {% if logins.previous_url %}<a href="{{ logins.previous_url }}">{{ _("← Önceki") }}</a>{% endif %}
+  <span>{{ _("Sayfa %(page)s / %(count)s", page=logins.page, count=logins.page_count) }}</span>
+  {% if logins.next_url %}<a href="{{ logins.next_url }}">{{ _("Sonraki →") }}</a>{% endif %}
+</nav>
+{% else %}
+{% if logins.outcome or logins.user_filter %}
+<p class="placeholder">{{ _("Bu süzgeçle giriş kaydı yok.") }} <a href="/access-log/logins">{{ _("Bütün girişler") }}</a></p>
+{% else %}
+<p class="placeholder">{{ _("Henüz giriş kaydı yok.") }}</p>
+{% endif %}
+{% endif %}
+{% endblock %}

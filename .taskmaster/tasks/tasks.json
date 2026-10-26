@@ -2763,18 +2763,18 @@
         "description": "PRD 10.1.11 · FR-MOD-10 · Faz 1 · Should (v1). Sözleşme PLAN §D125. İnsan isteği (2026-10-26): \"Erişim logu sayfasında login loglarının olduğu bir yer de olsun.\"",
         "details": "KAPSAM: PRD 10.1.11; PLAN §D125 — önce oku.\n\nNE YAPILACAK: (1) Model + göç (head+1): `login_log` (PRD §8.1); `ts` ve `user_id` dizinli; SQLite ve PostgreSQL. (2) `app/web/auth.py`: `authenticate` nedeni çağırana iletecek biçimde genişler (yanıt süresi eşitliği ve tek hata metni korunur); giriş kaydı yardımcısı; IP çözümü §D125 e (geri döngüden gelen bağlantıda `CF-Connecting-IP` → `X-Forwarded-For` ilk değer → bağlantı adresi; ayrıştırılamayan değer yok sayılır); User-Agent 255 karakterle kesilir. (3) `app/web/routers/auth.py`: `login` başarıda ve başarısızlıkta (401 yolunda ayrı commit), `logout` açık oturum kapandığında yazar; kayıt hatası giriş sonucunu değiştirmez (§D125 h). (4) `app/web/routers/access_log.py`: `GET /access-log/logins` (sayfa 50, `outcome` ve `user` süzgeci, GET), kullanıcı özeti (son başarılı giriş, son 24 saatte başarısız sayısı; bilinmeyen adlar tek satır). (5) Şablonlar: `access_log.html` üstüne `nav.tabs` (Belge erişimleri / Girişler), yeni `access_log_logins.html`; ARAYUZ-STANDARDI sayfa anatomisi ve bileşen sözlüğü; gerekirse CSS standarda kayıtlı. (6) Üç dil (`python -m app.i18n extract|update|compile|check`). (7) Yedekleme belgesi yeni tabloyu kapsıyor mu doğrula (docs/YEDEKLEME.md, tests/scripts/test_backup_restore.py).\n\nGİRDİ: app/web/auth.py, app/web/routers/auth.py, app/web/routers/access_log.py, app/web/templates/access_log*.html, app/db/models.py (AccessLog, UserSession kalıbı), alembic/versions/ (son: 0033), docs/ARAYUZ-STANDARDI.md, tests/web/test_access_log.py, tests/web/test_access_log_view.py, tests/web/test_roles.py, tests/web/test_ui_standard.py.\n\nÇIKTI: göç, model, auth değişikliği, yönlendirici yolu, şablonlar, tests/web/test_login_log.py (+ test_migrations eki), i18n, PLAN, HANDOFF.\n\nTUZAKLAR: parola, parola özeti ve oturum belirteci hiçbir sütuna/loga girmez (sahte parolayla tarama testi); giriş sayfasının hata metni ve 401 davranışı değişmez, neden HTML'e sızmaz; bilinmeyen kullanıcıda sahte özet doğrulaması kalır (zamanlama); dışarıdan gelen `X-Forwarded-For` geri döngü dışı bağlantıda yok sayılır; 401 yolunda commit eklenirken `authenticate`'in yeniden özetleme yan etkisi başarısız yolda yoktur; `/access-log/logins` İK/Kullanıcı'ya 404 ve bağlantı görünmez; mevcut erişim logu testleri değişmeden geçer.\n\nKAPSAM SINIRI: hız sınırlama/hesap kilitleme, uyarı bildirimi, saklama süresi/silme, dışa aktarma, coğrafi IP, Telegram YOK.\n\nBU GÖREVİ BAĞLAYAN KİLİTLİ KURALLAR: PLAN §D125 (sözleşme — önce oku), 10.1.4 (pasif kullanıcı ve tek hata metni), 10.1.8/10.1.9 (root gizliliği), CONVENTIONS sır kuralı, 10.10.3 (üç dil), docs/ARAYUZ-STANDARDI.md (`tests/web/test_ui_standard.py`), §8 (sütun adları).\n\nKAPANIŞ: PLAN satırı ✅ → K10.1, HANDOFF bloğu, Task Master done, commit mesajında `PRD 10.1.11 — tm 190`; CONVENTIONS §1 kapısı.",
         "testStrategy": "1) Göç upgrade/downgrade. 2) Başarılı giriş → `success` + user_id; yanlış parola → `failed`/`wrong_password`; bilinmeyen ad → `failed`/`unknown_user`, user_id boş, ad 64 karakterle kesik; pasif → `inactive`; çıkış → `logout`. 3) Giriş sayfası yanıtı (metin, 401) öncekiyle aynı; neden HTML'de yok. 4) Parola ve belirteç hiçbir sütunda yok. 5) IP: geri döngüden gelen istekte CF-Connecting-IP / X-Forwarded-For kullanılır, başka adresten gelende yok sayılır, bozuk değer bağlantı adresine düşer. 6) Kayıt yazımı hata verince giriş yine başarılı. 7) `/access-log/logins` root'a açık; İK/Kullanıcı 404 (gövde bilinmeyen yolla aynı), bağlantı görünmez; süzgeç, sayfalama, özet doğru; sekmeler iki sayfada. 8) test_ui_standard, python -m app.i18n check. 9) DoD kapısı yeşil.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [],
         "priority": "medium",
         "subtasks": [],
-        "updatedAt": "2026-10-26T12:00:00.000Z"
+        "updatedAt": "2026-10-26T17:46:57.075Z"
       }
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-26T12:00:00.000Z",
+      "lastModified": "2026-10-26T17:46:57.076Z",
       "taskCount": 190,
-      "completedCount": 189,
+      "completedCount": 190,
       "tags": [
         "master"
       ]

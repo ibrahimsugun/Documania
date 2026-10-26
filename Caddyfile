@@ -26,8 +26,11 @@
 		reverse_proxy bot:8443
 	}
 
-	# Panel ve API.
+	# Panel ve API. İstemcinin yazdığı CF-Connecting-IP panele geçmez: giriş kaydı (10.1.11) IP'yi
+	# Caddy'nin kendisinin yazdığı X-Forwarded-For'dan okur (Caddy istemcinin gönderdiğini ezer).
 	handle {
-		reverse_proxy app:8000
+		reverse_proxy app:8000 {
+			header_up -CF-Connecting-IP
+		}
 	}
 }

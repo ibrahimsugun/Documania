@@ -396,4 +396,5 @@ def test_log_can_only_be_read_not_changed(app: FastAPI) -> None:
     assert operations == {
         ("GET", "/access-log"),
         ("GET", "/access-log/employees/{employee_id}"),
+        ("GET", "/access-log/logins"),  # 10.1.11: giriş kaydı da yalnız okunur
     }
