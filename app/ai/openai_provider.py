@@ -388,6 +388,11 @@ class OpenAIProvider(AnalysisProvider):
             raise ProviderConnectionError(f"OpenAI'ye ulaşılamadı: {type(exc).__name__}") from exc
         except openai.OpenAIError as exc:
             raise ProviderError(f"OpenAI isteği başarısız: {type(exc).__name__}") from exc
+        usage = response.usage
+        self.usage.add(
+            usage.input_tokens if usage is not None else None,
+            usage.output_tokens if usage is not None else None,
+        )
         return _tool_arguments(response, name, label, error)
 
 

@@ -386,6 +386,21 @@ class TemplateMapRequest:
         object.__setattr__(self, "images", images)
 
 
+@dataclass(slots=True)
+class UsageTotals:
+    """Sağlayıcı örneğinin başarıyla tamamlanan çağrılarında harcadığı belirteçler (maliyet
+    raporu için); yanıt `usage` taşımıyorsa çağrı sayılır, belirteç eklenmez."""
+
+    calls: int = 0
+    input_tokens: int = 0
+    output_tokens: int = 0
+
+    def add(self, input_tokens: int | None, output_tokens: int | None) -> None:
+        self.calls += 1
+        self.input_tokens += input_tokens or 0
+        self.output_tokens += output_tokens or 0
+
+
 class AnalysisProvider(abc.ABC):
     """Sayfa analizi sağlayıcısı. `name` `AI_PROVIDER` değeridir, `model` kullanılan modeldir.
 
@@ -404,6 +419,7 @@ class AnalysisProvider(abc.ABC):
             raise ValueError("model adı boş olamaz")
         self.model = model
         self.effort = effort
+        self.usage = UsageTotals()
         prescreen = (prescreen_model or "").strip() or None
         self.prescreen_model = None if prescreen == model else prescreen
 

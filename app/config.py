@@ -79,6 +79,10 @@ class Settings(BaseSettings):
     # `WORKER_POLL_SECONDS` aralıkla taranır (bkz. PLAN.md §D57).
     worker_lease_seconds: int = Field(default=120, ge=10)
     worker_max_attempts: int = Field(default=3, ge=1)
+    # PRD 11.9.3 — eğitim sınıflandırması iki sağlayıcıyla (Sonnet 5.5 + Sol, `low`) ayrı ayrı
+    # yapılır; ikisi aynı türü verirse etiket doğrudan "doğrulanmış" olur (PLAN.md §D128). İki
+    # anahtar da tanımlı değilse ya da bu kapalıysa eğitim tek sağlayıcıyla yürür.
+    training_auto_confirm: bool = True
     worker_poll_seconds: float = Field(default=5.0, gt=0)
     # PRD 10.3.7 — alındığı andan (`uploads.created_at`) bu kadar saniye içinde son duruma varamayan
     # parti kendiliğinden iptal edilir (`app.pipeline.cancel`; PLAN.md §D114 d). 600 yerleşik

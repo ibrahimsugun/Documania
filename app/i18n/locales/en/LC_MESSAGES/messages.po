@@ -4,8 +4,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Documania panel\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-26 19:05+0000\n"
-"PO-Revision-Date: 2026-10-26 19:05+0000\n"
+"POT-Creation-Date: 2026-10-26 22:54+0000\n"
+"PO-Revision-Date: 2026-10-26 22:54+0000\n"
 "Last-Translator: Documania görev penceresi (gözden geçirilmeli)\n"
 "Language: en\n"
 "Language-Team: English\n"
@@ -7712,6 +7712,11 @@ msgstr "Conflict"
 #: app/web/routers/output_templates.py
 msgid "Çerçeve"
 msgstr "Frame"
+
+#: app/training/pair.py
+#, python-brace-format
+msgid "Çift inceleme: {first} ve {second} aynı türü verdi; doğrulandı."
+msgstr "Double review: {first} and {second} returned the same type; verified."
 
 #: app/web/templates/queue.html app/web/templates/queue_item.html
 msgid "Çözüldü"

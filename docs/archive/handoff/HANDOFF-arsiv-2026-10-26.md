@@ -4,6 +4,13 @@ Kaynak: HANDOFF.md (canlı dosyadan taşındı, birebir). Blok sayısı: 1.
 
 <!-- bloklar (newest-first) -->
 
+## 188 — 03.8-a Çalışma zamanı yapay zekâ ayarı — done — 2026-10-23
+- Yapıldı: `ai_settings` tek satır (göç 0033, `id = 1` ve sağlayıcı CHECK), `app/ai/runtime.py` (`active_settings`, `save_ai_settings`: tek sağlayıcı, anahtarsız sağlayıcı/uyumsuz efor reddi, `from`/`to` değişiklik sözlüğü), `app/ai/model_list.py` (5 Claude + GPT-6 Luna, kaynak/tarih, efor kümesi, istek biçimi), Anthropic `output_config.effort` + modele göre zorlanmış araç ya da `auto` + katı araç, OpenAI `reasoning_effort`; panel (`ActiveAiSettings`), bot ve işçi (`Worker.current_provider`, iş başına) yeniden başlatmasız; olayda `effort`; `.env.example` + README notu.
+- Doğrulama: ruff check/format, compileall, temiz SQLite'ta `alembic upgrade head` (→0033), `import app.main`, `git diff --check` exit 0; tam paralel kapı (`-n 6 --cov`) 7172 geçti, 6 atlandı, kapsam %98,73, exit 0 (ilk koşudaki tek kırmızı `test_models` tablo listesi `ai_settings` eklenerek düzeltildi).
+- Varsayımlar: §D124 "uygulama kararları"na yazıldı — Luna'da "varsayılan" da `none` gönderir (Chat Completions işlevi yalnız onunla), Astra/Sol listede yok; sayfa analizi aracı katı değil (`fields` sözlüğü); `auto` biçiminde `max_tokens` ≥ 16000; olayda `effort` yalnız seçiliyken; `AI_SETTINGS_CHANGED` tm 189'a bırakıldı.
+- Sonraki pencereye not: tm 189 sayfası `current_choice` / `save_ai_settings(session, settings, AiChoice, actor=)` / `models_for` / `allowed_efforts` / `key_defined` ile kurulur, `AI_SETTINGS_CHANGED`'i dönen sözlükle yazar; `AiSettingsError` mesajları şimdilik çevrilmemiş Türkçe düz metin — sayfada gösterilecekse `N_` ile işaretlenmeli.
+
+
 ## 186 — 15.2-b Üretilen belge yaşam döngüsü — done — 2026-10-23
 - Yapıldı: yeniden üretim aynı şablonun etkin belgesini `superseded` yapar; `app/output_templates/lifecycle.py` arşivle/geri al (tek adım, `OUTPUT_ARCHIVED/RESTORED`, `POST …/outputs/{id}/archive|restore`, profilde katlanmış `details.archived-outputs`); 10.5.6 `Uretilen/` K8 yeniden adlandırma (`app/storage/rename.py`), 10.5.9 kalanın `Uretilen/`'ine taşıma (`app/storage/merge.py`), 10.5.13 dosya silme + `deleted` satır + `EMPLOYEE_DELETED.outputs`; `profil.md` "Üretilen belgeler"; üç dil; S29 tam.
 - Doğrulama: ruff check/format, compileall, temiz SQLite'ta `alembic upgrade head` (→0032, göç yok), `import app.main`, `python -m app.i18n check`, `git diff --check` exit 0; tam paralel kapı (`-n 6 --cov`) 7143 geçti, 6 atlandı, kapsam %98,77 — 2 kırmızı (`…plan_d58_verbatim`, D58 bloğu PLAN'da yok) tm 180–185'teki gibi ilgisiz.

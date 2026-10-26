@@ -60,13 +60,15 @@ from app.ai.training_classification import TrainingClassification
 from app.catalog.describe import page_images
 from app.catalog.sync import export_catalog
 from app.config import Settings
-from app.db.models import TrainingItem, TrainingItemStatus, TrainingMethod
+from app.db.models import ExampleFileRecord, TrainingItem, TrainingItemStatus, TrainingMethod
 from app.events import EventType, ai_call_event_data, record_event
 from app.i18n import N_, Translatable, join_text
 from app.i18n.recorded import english
 from app.storage import DataLayout, FileKind
+from app.training.decisions import verify_examples
 from app.training.known_types import KnownType, KnownTypes, build_known_types, load_known_types
 from app.training.mechanical import hint_label
+from app.training.pair import ReviewPair, build_review_pair, pair_event_data, pair_note
 from app.training.placement import (
     SYSTEM_ACTOR,
     ItemNotPlaceableError,
@@ -82,6 +84,9 @@ MAX_CLASSIFICATION_PAGES = 2
 
 AI_CHECK_KEY = "ai"
 """`training_items.checks_json`'da yapay zekâ sınıflandırmasının dökümünün anahtarı."""
+
+REVIEW_CHECK_KEY = "ai_review"
+"""`training_items.checks_json`'da çift incelemenin ikinci yanıtının dökümünün anahtarı."""
 
 NO_TYPE_REASON = Translatable(N_("yapay zekâ türü belirlemedi"))
 ERROR_NOTE = N_("Yapay zekâ incelemesi yapılamadı ({error}); denemeler tükendi")
@@ -156,6 +161,25 @@ def build_classification_prompt(file_kind: FileKind, page_count: int, images: in
     return "\n".join(lines)
 
 
+def build_request(
+    source: ClassificationSource,
+    settings: Settings,
+    *,
+    max_pages: int = MAX_CLASSIFICATION_PAGES,
+) -> TrainingClassificationRequest:
+    """Öğenin ilk sayfasını (PDF'te ilk `max_pages` sayfasını) bellekte render edip isteği kurar.
+    İki sağlayıcıya aynı istek gidebilsin diye render bir kez yapılır."""
+    rendered, page_count = page_images(source.content, source.file_kind, settings, max_pages)
+    images = tuple(PageImage(data) for data in rendered)
+    return TrainingClassificationRequest(
+        images=images,
+        instructions=source.instructions.text,
+        prompt=build_classification_prompt(source.file_kind, page_count, len(images)),
+        known_slugs=source.instructions.known_slugs,
+        doc_kinds=source.instructions.doc_kinds,
+    )
+
+
 def classify(
     source: ClassificationSource,
     settings: Settings,
@@ -169,16 +193,7 @@ def classify(
     Render hatası (`RenderError`, bozuk görüntüde `OSError`), sağlayıcı hataları (`ProviderError`)
     ve şemaya uymayan yanıt (`TrainingClassificationError`) olduğu gibi yükselir.
     """
-    rendered, page_count = page_images(source.content, source.file_kind, settings, max_pages)
-    images = tuple(PageImage(data) for data in rendered)
-    request = TrainingClassificationRequest(
-        images=images,
-        instructions=source.instructions.text,
-        prompt=build_classification_prompt(source.file_kind, page_count, len(images)),
-        known_slugs=source.instructions.known_slugs,
-        doc_kinds=source.instructions.doc_kinds,
-    )
-    return provider.classify_training_page(request)
+    return provider.classify_training_page(build_request(source, settings, max_pages=max_pages))
 
 
 # --- eşleme ----------------------------------------------------------------------------------
@@ -297,9 +312,14 @@ def apply_classification(
     *,
     provider: AnalysisProvider,
     known: KnownTypes | None = None,
+    second: tuple[AnalysisProvider, TrainingClassification] | None = None,
 ) -> ClassificationOutcome:
     """Yanıtı öğeye uygular (modül açıklaması); commit etmez. `known` verilmezse o anki katalog ∪
-    önerilen kayıttır. Öğe `ai_pending` değilse `ItemNotPlaceableError`."""
+    önerilen kayıttır. Öğe `ai_pending` değilse `ItemNotPlaceableError`.
+
+    `second` çift incelemenin ikinci yanıtıdır (`app.training.pair`). Öğe bilinen türe yerleştiyse
+    ve ikinci yanıt aynı türe eşleniyorsa örnek "AI kararı" yerine doğrudan "doğrulanmış" olur
+    (insan onayı beklemez); aksi halde bugünkü gibi "AI kararı" kalır."""
     if item.status != TrainingItemStatus.AI_PENDING:
         raise ItemNotPlaceableError(
             f"Öğe {item.id} yapay zekâ incelemesi beklemiyor: {item.status}"
@@ -373,7 +393,45 @@ def apply_classification(
         event_data=extra,
     )
     _record_check(item, provider, classification, resolution, placement.status)
+    if second is not None and placement.status == TrainingItemStatus.PLACED:
+        _confirm_with_second(session, known, item, placement.example, target.slug, provider, second)
     return ClassificationOutcome(placement.status, target.slug, placement.note)
+
+
+def _confirm_with_second(
+    session: Session,
+    known: KnownTypes,
+    item: TrainingItem,
+    example: ExampleFileRecord,
+    slug: str,
+    first: AnalysisProvider,
+    second: tuple[AnalysisProvider, TrainingClassification],
+) -> None:
+    """İkinci inceleyicinin yanıtını kaydeder; aynı türe eşleniyorsa örneği doğrular."""
+    second_provider, second_classification = second
+    second_resolution = resolve_classification(known, second_classification)
+    second_slug = second_resolution.known.slug if second_resolution.known is not None else None
+    agreed = second_slug == slug
+    item.checks_json = {
+        **(item.checks_json or {}),
+        REVIEW_CHECK_KEY: {
+            "provider": second_provider.name,
+            "model": second_provider.model,
+            "effort": second_provider.effort,
+            "response": second_classification.model_dump(mode="json"),
+            "slug": second_slug,
+            "agreed": agreed,
+        },
+    }
+    if not agreed:
+        return
+    verify_examples(
+        session,
+        [example],
+        actor=SYSTEM_ACTOR,
+        event_data=pair_event_data(first, second_provider),
+        note=pair_note(first, second_provider),
+    )
 
 
 def _record_check(
@@ -469,8 +527,20 @@ TRAINING_CLASSIFICATIONS = IdleTable(
 """Yapay zekâ incelemesi bekleyen (`ai_pending`) eğitim öğeleri; deneme tükenince `unplaced`."""
 
 
+@dataclass(frozen=True, slots=True)
+class Reviewed:
+    """Bir öğenin inceleme sonucu: yerleştiren yanıt ve (çift inceleme açıksa) ikinci yanıt."""
+
+    provider: AnalysisProvider
+    classification: TrainingClassification
+    second: tuple[AnalysisProvider, TrainingClassification] | None = None
+
+
 class TrainingClassificationJob:
-    """İşçinin boş-zaman işi: sıradaki `ai_pending` eğitim öğesini sınıflandırır (`IdleJob`)."""
+    """İşçinin boş-zaman işi: sıradaki `ai_pending` eğitim öğesini sınıflandırır (`IdleJob`).
+
+    Çift inceleme açıksa (`app.training.pair.build_review_pair`) öğe Sol ve Sonnet'e ayrı ayrı
+    sorulur; iki sağlayıcıdan biri hata verirse öğe bugünkü gibi yeniden denenir."""
 
     name = JOB_NAME
 
@@ -478,7 +548,7 @@ class TrainingClassificationJob:
         self._max_pages = max_pages
 
     def run_one(self, context: IdleContext) -> bool:
-        provider = context.provider
+        pair: ReviewPair | None = build_review_pair(context.settings)
 
         def read(session: Session, item: TrainingItem) -> ClassificationSource:
             return read_classification(
@@ -488,23 +558,38 @@ class TrainingClassificationJob:
                 catalog_token_budget=context.settings.catalog_token_budget,
             )
 
-        def call(
-            provider: AnalysisProvider, source: ClassificationSource
-        ) -> TrainingClassification:
-            return classify(source, context.settings, provider, max_pages=self._max_pages)
+        def call(provider: AnalysisProvider, source: ClassificationSource) -> Reviewed:
+            if pair is None:
+                return Reviewed(
+                    provider,
+                    classify(source, context.settings, provider, max_pages=self._max_pages),
+                )
+            request = build_request(source, context.settings, max_pages=self._max_pages)
+            first = pair.first.classify_training_page(request)
+            second = pair.second.classify_training_page(request)
+            return Reviewed(pair.first, first, (pair.second, second))
 
-        def write(
-            session: Session,
-            item: TrainingItem,
-            classification: TrainingClassification,
-        ) -> None:
-            apply_classification(session, context.layout, item, classification, provider=provider)
+        def write(session: Session, item: TrainingItem, reviewed: Reviewed) -> None:
+            apply_classification(
+                session,
+                context.layout,
+                item,
+                reviewed.classification,
+                provider=reviewed.provider,
+                second=reviewed.second,
+            )
 
         def failed(session: Session, item: TrainingItem, final: bool) -> None:
             # Çerçeve bu kancayı hatanın `except` bloğunda çağırır; yalnız türü yazılır.
             active = sys.exception()
             error = type(active).__name__ if active is not None else "Exception"
-            store_classification_error(session, item, error=error, final=final, provider=provider)
+            store_classification_error(
+                session,
+                item,
+                error=error,
+                final=final,
+                provider=pair.first if pair is not None else context.provider,
+            )
 
         return run_idle_unit(
             context,

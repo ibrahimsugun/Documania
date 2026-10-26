@@ -4,7 +4,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Documania panel\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-26 18:55+0000\n"
+"POT-Creation-Date: 2026-10-26 22:52+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -6962,6 +6962,11 @@ msgstr ""
 
 #: app/web/routers/output_templates.py
 msgid "Çerçeve"
+msgstr ""
+
+#: app/training/pair.py
+#, python-brace-format
+msgid "Çift inceleme: {first} ve {second} aynı türü verdi; doğrulandı."
 msgstr ""
 
 #: app/web/templates/queue.html app/web/templates/queue_item.html

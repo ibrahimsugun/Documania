@@ -2792,13 +2792,25 @@
         "priority": "medium",
         "subtasks": [],
         "updatedAt": "2026-10-26T20:00:00.000Z"
+      },
+      {
+        "id": "193",
+        "title": "11.9-g — Eğitimde çift inceleme: Sol + Sonnet 5.5 (low) aynı türü verirse örnek doğrudan \"doğrulanmış\"; \"AI kararı\" örneklerini yeniden inceleme komutu [OPUS-HIGH]",
+        "description": "PRD 11.9.3 · 11.9.4 · Faz 1. Sözleşme PLAN §D128. İnsan isteği (2026-10-27): \"Belge türlerinde 'AI kararı' olanları tekrar kontrol ettir. Sistem gerçekten eminse belge türünü kaydetsin, insan onayına göndermesin. Önce sistemi buna hazırla, ardından eğitime gönder.\" Eminlik: \"Sonnet 5.5 low ve gpt 6.1 sol low ayrı ayrı kontrol yapsın, ikisi aynıysa güvenilir kabul edilir.\" Kapsam: yalnız AI kararı örnekleri; her iki model için maliyet bilgisi.",
+        "details": "KAPSAM: app/training/pair.py (sabit çift, fiyat tablosu), app/training/classification.py (`build_request`, `apply_classification(second=)`, iş çifti çağırır), app/training/decisions.py (`verify_examples` olay verisi + not), app/training/recheck.py + __main__.py (`python -m app.training recheck`), app/ai/provider.py `UsageTotals` + iki sağlayıcıda belirteç sayımı, app/config.py `TRAINING_AUTO_CONFIRM`, .env.example, i18n (en, sr).",
+        "testStrategy": "tests/training/test_pair_review.py (çift kurulumu, anlaşma → doğrulanmış, anlaşmazlık → AI kararı, yeniden inceleme: doğrula/taşı/belirsiz/hata/kuru koşu); tests/training, tests/ai, tests/i18n, tests/worker, tests/test_config.py yeşil.",
+        "status": "done",
+        "dependencies": [],
+        "priority": "medium",
+        "subtasks": [],
+        "updatedAt": "2026-10-27T01:00:00.000Z"
       }
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-26T20:00:00.000Z",
-      "taskCount": 192,
-      "completedCount": 192,
+      "lastModified": "2026-10-27T01:00:00.000Z",
+      "taskCount": 193,
+      "completedCount": 193,
       "tags": [
         "master"
       ]

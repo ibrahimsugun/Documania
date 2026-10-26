@@ -372,6 +372,8 @@ class AnthropicProvider(AnalysisProvider):
             raise ProviderConnectionError(f"Anthropic'e ulaşılamadı: {type(exc).__name__}") from exc
         except anthropic.AnthropicError as exc:
             raise ProviderError(f"Anthropic isteği başarısız: {type(exc).__name__}") from exc
+        usage = getattr(response, "usage", None)
+        self.usage.add(getattr(usage, "input_tokens", None), getattr(usage, "output_tokens", None))
         return _tool_input(response, tool["name"], label, error)
 
     def _request_options(self, instructions: str, tool: ToolParam) -> dict[str, Any]:

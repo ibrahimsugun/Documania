@@ -27,7 +27,7 @@ Notlar Türkçe ve kişisel değersizdir.
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 
 from sqlalchemy import select
@@ -67,16 +67,27 @@ def moved_note(from_slug: str, to_slug: str) -> str:
 
 
 def verify_examples(
-    session: Session, examples: Iterable[ExampleFileRecord], *, actor: str
+    session: Session,
+    examples: Iterable[ExampleFileRecord],
+    *,
+    actor: str,
+    event_data: Mapping[str, object] | None = None,
+    note: str | None = None,
 ) -> list[ExampleFileRecord]:
     """Etkin "AI kararı" örneklerini doğrular (`verified`) ve her biri için
-    `TRAINING_LABEL_VERIFIED` yazar; doğrulananları döner. Öteki kayıtlar değişmez."""
+    `TRAINING_LABEL_VERIFIED` yazar; doğrulananları döner. Öteki kayıtlar değişmez. `event_data`
+    olay verisine eklenir; `note` verilirse örneğin (ve öğesinin) notuna eklenir (çift incelemede
+    doğrulamayı yapanın gerekçesi)."""
     _require_actor(actor)
     verified = []
     for example in examples:
         if example.removed_at is not None or example.label != ExampleLabel.AI_DECISION:
             continue
         example.label = ExampleLabel.VERIFIED.value
+        if note is not None:
+            example.note = append_text(session, example.note, note)
+            if example.training_item is not None:
+                example.training_item.note = append_text(session, example.training_item.note, note)
         session.flush()
         record_event(
             session,
@@ -91,7 +102,8 @@ def verify_examples(
                 "type_slug": example.type_slug,
                 "previous_label": ExampleLabel.AI_DECISION.value,
                 "label": ExampleLabel.VERIFIED.value,
-            },
+            }
+            | dict(event_data or {}),
         )
         verified.append(example)
     return verified
