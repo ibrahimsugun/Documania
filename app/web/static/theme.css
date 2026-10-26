@@ -9,7 +9,8 @@
   color-scheme: light;
   --ink: #111827;
   --ink-soft: #374151;
-  --muted-ink: #6b7280;
+  /* Soluk metin yumuşak zeminde de ≥ 5:1 (10.1.12; eskiden #6b7280). */
+  --muted-ink: #586170;
   --canvas: #f5f6f8;
   --surface: #ffffff;
   --surface-soft: #f3f4f6;
@@ -21,7 +22,8 @@
   --accent-soft: #e9efff;
   --accent-gradient: linear-gradient(135deg, #3b6ef0 0%, #2449b8 100%);
   --row-hover: #f6f8fd;
-  --focus: 0 0 0 3px rgb(47 95 224 / 25%);
+  --focus: 0 0 0 4px rgb(47 95 224 / 30%);
+  --focus-ring: #2449b8;
   --shadow-xs: 0 1px 2px rgb(17 24 39 / 5%);
   --shadow-sm: 0 1px 2px rgb(17 24 39 / 5%), 0 2px 8px -2px rgb(17 24 39 / 6%);
   --shadow-md: 0 4px 12px -2px rgb(17 24 39 / 10%), 0 2px 4px rgb(17 24 39 / 5%);
@@ -34,7 +36,7 @@ html[data-theme="dark"] {
   color-scheme: dark;
   --ink: #e5e7eb;
   --ink-soft: #c4c9d4;
-  --muted-ink: #8b93a3;
+  --muted-ink: #9aa3b4;
   --canvas: #0b0e14;
   --surface: #12161e;
   --surface-soft: #181d27;
@@ -46,7 +48,8 @@ html[data-theme="dark"] {
   --accent-soft: rgb(109 141 255 / 14%);
   --accent-gradient: linear-gradient(135deg, #6d8dff 0%, #3b5fd6 100%);
   --row-hover: rgb(109 141 255 / 6%);
-  --focus: 0 0 0 3px rgb(109 141 255 / 32%);
+  --focus: 0 0 0 4px rgb(109 141 255 / 38%);
+  --focus-ring: #a9bcff;
   --shadow-xs: 0 1px 2px rgb(0 0 0 / 35%);
   --shadow-sm: 0 1px 2px rgb(0 0 0 / 35%), 0 2px 8px -2px rgb(0 0 0 / 40%);
   --shadow-md: 0 4px 12px -2px rgb(0 0 0 / 45%), 0 2px 4px rgb(0 0 0 / 35%);

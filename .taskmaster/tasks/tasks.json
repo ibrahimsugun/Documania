@@ -2768,13 +2768,25 @@
         "priority": "medium",
         "subtasks": [],
         "updatedAt": "2026-10-26T17:46:57.075Z"
+      },
+      {
+        "id": "191",
+        "title": "10.1-k — Erişilebilirlik: yaşlı ve az gören kullanıcı (yazı ölçeği, 40 px hedef, kontrast, odak, \"Büyük yazı\", \"İçeriğe atla\") [FABLE-HIGH]",
+        "description": "PRD 10.1.12 · FR-MOD-10 · Faz 1 · Should (v1). Sözleşme PLAN §D126. İnsan isteği (2026-10-26): \"Paneli yaşlıların ve gözü iyi görmeyen insanların daha rahat kullanabilmesi için gerekli düzeltmeleri yapar mısın?\"",
+        "details": "KAPSAM: PRD 10.1.12; PLAN §D126. Yalnız panel.css, theme.css, theme-init.js, theme.js, base.html ve docs/ARAYUZ-STANDARDI.md; yerleşim, metin ve davranış değişmez.",
+        "testStrategy": "tests/web/test_theme.py 10.1.12 bölümü (düğme + etiket, skip link, ölçek/hedef/odak/kontrast sabitleri); test_ui_standard, test_language_preference, python -m app.i18n check yeşil.",
+        "status": "done",
+        "dependencies": [],
+        "priority": "medium",
+        "subtasks": [],
+        "updatedAt": "2026-10-26T18:58:55.000Z"
       }
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-26T17:46:57.076Z",
-      "taskCount": 190,
-      "completedCount": 190,
+      "lastModified": "2026-10-26T18:58:55.000Z",
+      "taskCount": 191,
+      "completedCount": 191,
       "tags": [
         "master"
       ]

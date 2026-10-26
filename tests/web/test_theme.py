@@ -73,3 +73,45 @@ def test_own_assets_carry_a_content_version_so_caches_refresh(client: TestClient
 
     assert all(versions.values()), versions
     assert len({match.group(1) for match in versions.values() if match}) == 1
+
+
+# --- 10.1.12: yaşlı ve az gören kullanıcı için okunabilirlik -----------------------------------
+
+PANEL_CSS = ROOT / "app" / "web" / "static" / "panel.css"
+
+
+def test_the_page_tools_have_a_labelled_large_text_toggle(client: TestClient) -> None:
+    page = client.get("/employees").text
+    tools = page[page.index('<div class="page-tools">') : page.index("<main")]
+
+    assert 'class="text-toggle" data-text-toggle aria-pressed="false"' in tools
+    assert 'aria-label="Büyük yazı"' in tools
+    # Seçim ilk boyamadan önce uygulanır; düğme theme.js'te okunur.
+    init = (ROOT / "app" / "web" / "static" / "theme-init.js").read_text(encoding="utf-8")
+    script = (ROOT / "app" / "web" / "static" / "theme.js").read_text(encoding="utf-8")
+    assert 'localStorage.getItem("documania-text")' in init
+    assert "data-text-toggle" in script
+
+
+def test_every_page_offers_a_skip_link_to_the_content(client: TestClient) -> None:
+    page = client.get("/employees").text
+
+    assert '<a class="skip-link" href="#content-start">İçeriğe atla</a>' in page
+    assert page.index('class="skip-link"') < page.index('<header class="topbar">')
+    assert '<span id="content-start" class="content-start" tabindex="-1"></span>' in page
+
+
+def test_the_styles_keep_text_and_targets_readable() -> None:
+    css = PANEL_CSS.read_text(encoding="utf-8")
+    root = css[css.index(":root {") : css.index("}", css.index(":root {"))]
+    sizes = dict(re.findall(r"(--text-[a-z]+):\s*([\d.]+)rem", root))
+
+    assert float(sizes["--text-base"]) >= 1.0  # gövde 16 px
+    assert float(sizes["--text-xs"]) >= 0.8125  # en küçük metin 13 px
+    assert 'html[data-text="large"] { font-size: 120%; }' in css
+    assert re.search(r"--target:\s*2\.5rem", root)  # tıklama hedefi 40 px
+    assert "prefers-contrast: more" in css
+    # Odak halkası düz ve kalın; yalnız gölgeye bırakılmaz.
+    assert "outline: 3px solid var(--focus-ring)" in css
+    theme = THEME.read_text(encoding="utf-8")
+    assert theme.count("--focus-ring:") == 2

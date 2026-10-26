@@ -26,6 +26,8 @@
   {% if code_is_stale(request) %}
   <div class="stale-process" role="alert">{% trans %}Sunucu eski sürümle çalışıyor — yeniden başlatın (<code>baslat.bat</code>).{% endtrans %}</div>
   {% endif %}
+  {# 10.1.12: klavye kullanıcısı gezinmeyi atlayıp içeriğe iner; bağlantı yalnız odakta görünür. #}
+  <a class="skip-link" href="#content-start">{{ _("İçeriğe atla") }}</a>
   {% if user %}
   <header class="topbar">
     <a class="brand" href="/"><span class="brand-mark" aria-hidden="true"></span><span class="brand-name">Documania</span></a>
@@ -59,6 +61,8 @@
       <input type="search" name="q" maxlength="100" placeholder="{{ _('Çalışan ara') }}" aria-label="{{ _('Çalışan ara') }}" autocomplete="off">
     </form>
     {% with back = language_return_path(request) %}{% include "_language_selector.html" %}{% endwith %}
+    {# 10.1.12: büyük yazı — html[data-text="large"], seçim tarayıcıda hatırlanır (theme.js). #}
+    <button type="button" class="text-toggle" data-text-toggle aria-pressed="false" aria-label="{{ _('Büyük yazı') }}" title="{{ _('Büyük yazı: yazıyı büyüt ya da küçült') }}"><span aria-hidden="true">Aa</span></button>
     <button type="button" class="theme-toggle" data-theme-toggle aria-pressed="false" aria-label="{{ _('Açık ya da koyu tema') }}" title="{{ _('Açık ya da koyu tema') }}"><span class="icon-light" aria-hidden="true">☾</span><span class="icon-dark" aria-hidden="true">☀</span></button>
   </div>
   {% endif %}
@@ -72,6 +76,7 @@
     {% endfor %}
   </div>
   <main class="content">
+    <span id="content-start" class="content-start" tabindex="-1"></span>
     {% block content %}{% endblock %}
   </main>
   {% block scripts %}{% endblock %}

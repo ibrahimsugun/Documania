@@ -4,7 +4,7 @@
 > stil (`app/web/static/panel.css`, `theme.css`) ya da panel betiği değiştiren her pencere önce
 > bunu okur. Sözleşmenin ölçülebilir maddelerini `tests/web/test_ui_standard.py` denetler:
 > standarda uymayan değişiklik DoD kapısında kırmızıdır (CONVENTIONS §1). Ölçülemeyen maddeler
-> gözden geçirme ölçütüdür. Sürüm: 2026-10-23 (§D122).
+> gözden geçirme ölçütüdür. Sürüm: 2026-10-26 (§D122; erişilebilirlik 10.1.12, §D126).
 
 ## 1. Katmanlar — kim neyi yapar
 
@@ -55,7 +55,7 @@ anlam bildirir (`.employee-filter`), görünüm bildirmez (`.red`, `.mt-2` yok).
 | Tablo | `table.<ad>` + `th.num/td.num`, `.cell-nowrap`, `.cell-break`, `.doc-actions`, `.record-actions`, `.reason-text` | Her tablo bir ad sınıfı taşır (test ve genişlik kuralları için) |
 | Kart ve bölüm | `section` (kart), `article.file`, `.thumbs/.thumb`, `.timeline/.event`, `dl.meta`, `dl.record-summary`, `.profile-card`, `.package-card` | `section` doğrudan `main.content` altında karttır, `h2` ile başlar |
 | Alan haritası önizlemesi | `.map-layout` > `figure.map-page` (`img` + `svg.map-boxes` > `a.map-box` + `.map-box-unassigned/.map-box-locked`) + `table.map-fields` | Kutular SVG'dir (`viewBox` = sayfa görüntüsünün ölçüsü), `style=` yok; kutu bağlantısı tablodaki satırına gider (`#map-row-<id>`), odakta kenar kalınlaşır; her `select`'in `label for`'u satırdadır (15.1.3) |
-| Kabuk | `.topbar`, `.brand`, `.menu`, `.tool-link`, `.session`, `.page-tools`, `.global-search`, `.theme-toggle`, `.language-selector`, `.toasts/.toast` | Yalnız `base.html` |
+| Kabuk | `.skip-link`, `.content-start`, `.topbar`, `.brand`, `.menu`, `.tool-link`, `.session`, `.page-tools`, `.global-search`, `.text-toggle`, `.theme-toggle`, `.language-selector`, `.toasts/.toast` | Yalnız `base.html` |
 
 ## 4. Anlam sınıfları (hook) — stil taşımaz, kayıtlıdır
 
@@ -101,7 +101,18 @@ Kalıcı silme kırmızıdır ve yalnız iki aşamalı onayın son adımındadı
 
 **Erişilebilirlik.** Her `input`'un `label for`'u, her simge düğmesinin `aria-label`'ı, her
 bölümün `aria-labelledby` ya da görünür başlığı vardır; seçili sekme `aria-current`; odak halkası
-(`--focus`) kapatılmaz; `prefers-reduced-motion`'da animasyon yoktur.
+(`--focus` gölgesi + `--focus-ring` kalın düz halka) kapatılmaz; `prefers-reduced-motion`'da animasyon yoktur.
+
+**Yaşlı ve az gören kullanıcı (PRD 10.1.12).** Gövde yazısı 16 px (`--text-base: 1rem`), en küçük
+metin 13 px (`--text-xs`); küçük büyük harfli (`uppercase`) etiket kullanılmaz. Her düğme, alan,
+sekme ve sayfalama bağlantısı en az 40 px yüksektir (`--target`; satır içi küçük form 36 px,
+`--target-sm`); onay kutusu ve radyo 20 px. Metin içindeki bağlantı altı çizilidir (renk tek
+taşıyıcı değildir). Soluk metin (`--muted-ink`) zeminine ≥ 5:1. Araç şeridindeki "Büyük yazı"
+düğmesi (`.text-toggle`, `data-text-toggle`) `html[data-text="large"]` ile kökü %120 büyütür;
+seçim tarayıcıda hatırlanır ve ilk boyamadan önce uygulanır. Kabuğun ilk odağı "İçeriğe atla"
+bağlantısıdır (`.skip-link` → `#content-start`). `prefers-contrast: more`'da cam zemin ve ince
+çizgi yerine düz zemin ve kalın kenar vardır. Tablo başlığı normal yazıdır, gövde zebra satırlıdır.
+Denetim: `tests/web/test_theme.py` (10.1.12 bölümü).
 
 **Duyarlılık.** Kabuk 64rem altında tek sütuna iner (gezinme üstte, yatay kayar); tablo kendi
 içinde yatay kayar; form ızgaraları tek sütun olur. Yeni bileşen bu kırılımda bozulmaz.
@@ -110,7 +121,7 @@ içinde yatay kayar; form ızgaraları tek sütun olur. Yeni bileşen bu kırıl
 `<nav class="menu" aria-label=…>` içindeki çıplak `<a href="/…">Etiket</a>` (etkin: `class="active"
 aria-current="page"`), `<a class="tool-link" href="/access-log">` (yalnız root; ardından yine yalnız root için `href="/ai-settings"`), `<form class="session" …
 action="/logout">` + `<button type="submit">Çıkış</button>`, `<div class="page-tools">` içindeki
-`class="theme-toggle" data-theme-toggle aria-pressed="false"`, `<main class="content">`, bildirim
+`class="text-toggle" data-text-toggle aria-pressed="false"` ve `class="theme-toggle" data-theme-toggle aria-pressed="false"`, `<main class="content">` + `<span id="content-start" class="content-start" tabindex="-1">`, bildirim
 `<div class="toast toast-<tür>" role=… data-kind=…><span class="toast-icon"…></span><p class="toast-text">`,
 `.catalog-types th:nth-child(n) { width: …%; }` on sütun = %100, `.status-active/.status-passive`
 rengi `var(--success|--danger)` + `-soft`. Menü sırası PRD 10.1.1'dir; simge `panel.css`'te

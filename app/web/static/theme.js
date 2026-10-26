@@ -30,6 +30,43 @@
   });
 })();
 
+// Büyük yazı düğmesi (PRD 10.1.12): `html[data-text="large"]` kökü %120 büyütür (panel.css);
+// seçim tarayıcıda hatırlanır, ilk boyamadan önce theme-init.js uygular.
+(function () {
+  "use strict";
+  var KEY = "documania-text";
+
+  function large() {
+    return document.documentElement.getAttribute("data-text") === "large";
+  }
+
+  function apply(on) {
+    if (on) {
+      document.documentElement.setAttribute("data-text", "large");
+    } else {
+      document.documentElement.removeAttribute("data-text");
+    }
+    var buttons = document.querySelectorAll("[data-text-toggle]");
+    for (var i = 0; i < buttons.length; i += 1) {
+      buttons[i].setAttribute("aria-pressed", on ? "true" : "false");
+    }
+  }
+
+  document.addEventListener("DOMContentLoaded", function () {
+    apply(large());
+    var buttons = document.querySelectorAll("[data-text-toggle]");
+    for (var i = 0; i < buttons.length; i += 1) {
+      buttons[i].addEventListener("click", function () {
+        var next = !large();
+        apply(next);
+        try {
+          if (next) { localStorage.setItem(KEY, "large"); } else { localStorage.removeItem(KEY); }
+        } catch (error) { /* gizli pencere */ }
+      });
+    }
+  });
+})();
+
 // Dil menüsü (`<details>` tabanlı, PRD 10.10.2): dışarı tıklanınca ya da Esc ile kapanır.
 (function () {
   "use strict";

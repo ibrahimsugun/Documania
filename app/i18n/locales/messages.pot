@@ -4,7 +4,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Documania panel\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-26 17:25+0000\n"
+"POT-Creation-Date: 2026-10-26 18:55+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -2184,6 +2184,14 @@ msgstr ""
 
 #: app/web/templates/catalog.html
 msgid "Bütün türleri göster"
+msgstr ""
+
+#: app/web/templates/base.html
+msgid "Büyük yazı"
+msgstr ""
+
+#: app/web/templates/base.html
+msgid "Büyük yazı: yazıyı büyüt ya da küçült"
 msgstr ""
 
 #: app/web/templates/catalog_accepted_photos.html
@@ -7620,6 +7628,10 @@ msgstr ""
 
 #: app/web/templates/account_telegram.html app/web/templates/users.html
 msgid "İzni kapat"
+msgstr ""
+
+#: app/web/templates/base.html
+msgid "İçeriğe atla"
 msgstr ""
 
 #: app/web/templates/group.html

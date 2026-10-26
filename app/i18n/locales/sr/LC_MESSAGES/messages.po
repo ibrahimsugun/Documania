@@ -4,8 +4,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Documania panel\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-26 17:25+0000\n"
-"PO-Revision-Date: 2026-10-26 17:25+0000\n"
+"POT-Creation-Date: 2026-10-26 19:05+0000\n"
+"PO-Revision-Date: 2026-10-26 19:05+0000\n"
 "Last-Translator: Documania görev penceresi (gözden geçirilmeli)\n"
 "Language: sr_Latn\n"
 "Language-Team: Srpski\n"
@@ -2532,6 +2532,14 @@ msgstr "Sve prijave"
 #: app/web/templates/catalog.html
 msgid "Bütün türleri göster"
 msgstr "Prikaži sve tipove"
+
+#: app/web/templates/base.html
+msgid "Büyük yazı"
+msgstr "Veliki tekst"
+
+#: app/web/templates/base.html
+msgid "Büyük yazı: yazıyı büyüt ya da küçült"
+msgstr "Veliki tekst: povećaj ili smanji tekst"
 
 #: app/web/templates/catalog_accepted_photos.html
 #, python-format
@@ -8438,6 +8446,10 @@ msgstr "Dozvoli"
 #: app/web/templates/account_telegram.html app/web/templates/users.html
 msgid "İzni kapat"
 msgstr "Blokiraj"
+
+#: app/web/templates/base.html
+msgid "İçeriğe atla"
+msgstr "Preskoči na sadržaj"
 
 #: app/web/templates/group.html
 msgid "İşaretsiz kalem isteğe bağlıdır: paketin tamamlanmasını beklemez."
