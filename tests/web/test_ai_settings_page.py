@@ -48,7 +48,7 @@ def _settings(**overrides: Any) -> Settings:
         "anthropic_api_key": ANTHROPIC_KEY,
         "anthropic_model": "claude-opus-5",
         "openai_api_key": OPENAI_KEY,
-        "openai_model": "gpt-6-luna",
+        "openai_model": "gpt-6.1-sol",
     }
     values.update(overrides)
     return load_settings(_env_file=None, **values)
@@ -65,7 +65,7 @@ def _form(**overrides: str) -> dict[str, str]:
         "provider": "openai",
         "anthropic_model": "claude-opus-5-5",
         "anthropic_effort": "xhigh",
-        "openai_model": "gpt-6-luna",
+        "openai_model": "gpt-6.1-sol",
         "openai_effort": "",
     }
     values.update(overrides)
@@ -160,10 +160,14 @@ def test_without_a_row_the_page_shows_the_env_values_and_a_not_saved_note(
     assert '<option value="claude-opus-5" translate="no" selected>' in anthropic
     assert "Tanımsız" in openai and "Pasif</span>" in openai
     assert 'value="openai" form="ai-settings-form" disabled>' in openai
-    # Efor: "varsayılan" + modelin kümesi; Luna'da yalnız `none`.
+    # Efor: "varsayılan" + modelin kümesi; Sol'da `low`–`max` (`none` yok).
     assert '<option value="" selected>Varsayılan (high)</option>' in anthropic
     assert re.findall(r'<option value="(\w+)" translate="no"', openai.split("effort")[-1]) == [
-        "none"
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max",
     ]
     _no_key(html)
 
@@ -247,10 +251,17 @@ def test_switching_back_is_one_step_too(
         (_form(anthropic_model="claude-yok"), "Anthropic için seçilen model listede yok."),
         (_form(openai_model="gpt-yok"), "OpenAI için seçilen model listede yok."),
         (_form(anthropic_effort="extreme"), "Seçilen efor Anthropic modelinde kullanılamaz."),
-        # Luna işlev çağrısını yalnız `none` ile destekler (§D124 c).
-        (_form(openai_effort="high"), "Seçilen efor OpenAI modelinde kullanılamaz."),
+        # Sol `none` eforunu 400 ile reddeder (§D127).
+        (_form(openai_effort="none"), "Seçilen efor OpenAI modelinde kullanılamaz."),
     ],
-    ids=["provider", "empty-provider", "anthropic-model", "openai-model", "effort", "luna-effort"],
+    ids=[
+        "provider",
+        "empty-provider",
+        "anthropic-model",
+        "openai-model",
+        "effort",
+        "sol-none-effort",
+    ],
 )
 def test_unknown_values_are_refused_with_422_and_nothing_changes(
     app: FastAPI,

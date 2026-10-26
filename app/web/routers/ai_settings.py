@@ -107,12 +107,12 @@ class AiSettingsPage:
 
 
 def _default_effort(provider: str, model_id: str) -> str | None:
-    """ "Varsayılan" seçeneğinde gerçekte kullanılan efor: OpenAI'de istekte giden değer,
-    Anthropic'te modelin varsayılanı; listede olmayan modelde bilinmez."""
+    """ "Varsayılan" seçeneğinde gerçekte kullanılan efor: modelin varsayılanı; listede olmayan
+    modelde bilinmez."""
     model = find_model(provider, model_id)
     if model is None:
         return None
-    return model.request_effort_default or model.default_effort
+    return model.default_effort
 
 
 def build_page(session: Session, settings: Settings) -> AiSettingsPage:

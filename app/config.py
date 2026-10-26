@@ -60,7 +60,7 @@ class Settings(BaseSettings):
     anthropic_prescreen_model: str | None = None
     # PRD 03.3.1 — ikincil sağlayıcı; anahtar yalnız `AI_PROVIDER=openai` iken zorunludur.
     openai_api_key: SecretStr | None = None
-    openai_model: str = Field(default="gpt-6-luna", min_length=1)
+    openai_model: str = Field(default="gpt-6.1-sol", min_length=1)
     openai_prescreen_model: str | None = None
     # PRD 03.8.2 — efor: Anthropic `output_config.effort`, OpenAI `reasoning_effort`. Boş
     # ("varsayılan") parametreyi göndermez; geçerli değerler modele göredir (`app.ai.model_list`,

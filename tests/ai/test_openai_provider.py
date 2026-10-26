@@ -57,6 +57,7 @@ from app.ai.openai_provider import (
     DESCRIPTION_TOOL_NAME,
     DOCUMENT_QUERY_TOOL,
     DOCUMENT_QUERY_TOOL_NAME,
+    MIN_OUTPUT_TOKENS,
     PHOTO_CHECK_TOOL,
     PHOTO_CHECK_TOOL_NAME,
     PROPOSAL_TOOL,
@@ -108,7 +109,7 @@ def settings(**overrides: Any) -> Settings:
 
 
 class FakeApi:
-    """Chat Completions API yerine geçer; her isteği saklar, sıradaki yanıtı döner."""
+    """Responses API yerine geçer; her isteği saklar, sıradaki yanıtı döner."""
 
     def __init__(self, *responses: httpx2.Response | Exception) -> None:
         self.responses = list(responses)
@@ -137,26 +138,50 @@ def completion(
     finish_reason: str = "tool_calls",
     content: str | None = None,
     refusal: str | None = None,
-    choices: int = 1,
 ) -> httpx2.Response:
-    message = {
-        "role": "assistant",
-        "content": content,
-        "refusal": refusal,
-        **({"tool_calls": tool_calls} if tool_calls is not None else {}),
-    }
+    """Responses API yanıtı. `finish_reason` eski adıyla kalır: `length` →
+    `incomplete/max_output_tokens`, `content_filter` → `incomplete/content_filter`."""
+    output: list[dict[str, Any]] = []
+    parts: list[dict[str, Any]] = []
+    if content is not None:
+        parts.append({"type": "output_text", "text": content, "annotations": []})
+    if refusal is not None:
+        parts.append({"type": "refusal", "refusal": refusal})
+    if parts:
+        output.append(
+            {
+                "id": "msg_1",
+                "type": "message",
+                "role": "assistant",
+                "status": "completed",
+                "content": parts,
+            }
+        )
+    output.extend(tool_calls or [])
+    incomplete = {"length": "max_output_tokens", "content_filter": "content_filter"}.get(
+        finish_reason
+    )
     return httpx2.Response(
         200,
         json={
-            "id": "chatcmpl-test",
-            "object": "chat.completion",
-            "created": 1_780_000_000,
+            "id": "resp_test",
+            "object": "response",
+            "created_at": 1_780_000_000,
             "model": "gpt-test",
-            "choices": [
-                {"index": index, "finish_reason": finish_reason, "message": message}
-                for index in range(choices)
-            ],
-            "usage": {"prompt_tokens": 1200, "completion_tokens": 300, "total_tokens": 1500},
+            "status": "completed" if incomplete is None else "incomplete",
+            "incomplete_details": None if incomplete is None else {"reason": incomplete},
+            "error": None,
+            "output": output,
+            "parallel_tool_calls": False,
+            "tool_choice": "required",
+            "tools": [],
+            "usage": {
+                "input_tokens": 1200,
+                "input_tokens_details": {"cached_tokens": 0},
+                "output_tokens": 300,
+                "output_tokens_details": {"reasoning_tokens": 0},
+                "total_tokens": 1500,
+            },
         },
     )
 
@@ -165,7 +190,14 @@ def function_call(
     arguments: object, *, name: str = TOOL_NAME, call_id: str = "call_1"
 ) -> dict[str, Any]:
     text = arguments if isinstance(arguments, str) else json.dumps(arguments)
-    return {"id": call_id, "type": "function", "function": {"name": name, "arguments": text}}
+    return {
+        "id": f"fc_{call_id}",
+        "type": "function_call",
+        "call_id": call_id,
+        "name": name,
+        "arguments": text,
+        "status": "completed",
+    }
 
 
 def api_error(
@@ -202,98 +234,61 @@ def test_request_sends_image_then_text_with_forced_analysis_function(
     assert len(api.requests) == 1
     sent = api.requests[0]
     assert sent.method == "POST"
-    assert sent.url.path == "/v1/chat/completions"
+    assert sent.url.path == "/v1/responses"
     assert sent.headers["authorization"] == "Bearer test-key"
     body = api.body()
     assert body["model"] == "gpt-test"
-    assert body["max_completion_tokens"] == 2048
-    assert "max_tokens" not in body
-    system, user = body["messages"]
-    assert len(body["messages"]) == 2
-    assert system == {"role": "system", "content": "Sistem talimatı: tahmin etme."}
+    # Ayar (2048) düşünme belirteçlerine yetmez: Responses'ta taban uygulanır.
+    assert body["max_output_tokens"] == MIN_OUTPUT_TOKENS
+    assert len(body["input"]) == 1
+    assert body["instructions"] == "Sistem talimatı: tahmin etme."
+    (user,) = body["input"]
     assert user["role"] == "user"
     image_part, text_part = user["content"]
-    assert image_part["type"] == "image_url"
+    assert image_part["type"] == "input_image"
     prefix = f"data:{media_type};base64,"
-    assert image_part["image_url"]["url"].startswith(prefix)
-    assert base64.b64decode(image_part["image_url"]["url"][len(prefix) :]) == image_bytes
-    assert image_part["image_url"]["detail"] == "high"
-    assert text_part == {"type": "text", "text": "Sayfa 1 / metin katmanı: yok"}
+    assert image_part["image_url"].startswith(prefix)
+    assert base64.b64decode(image_part["image_url"][len(prefix) :]) == image_bytes
+    assert image_part["detail"] == "high"
+    assert text_part == {"type": "input_text", "text": "Sayfa 1 / metin katmanı: yok"}
     assert body["tools"] == [
         {
             "type": "function",
-            "function": {
-                "name": TOOL_NAME,
-                "description": ANALYSIS_TOOL["function"]["description"],
-                "parameters": PageAnalysis.model_json_schema(),
-                "strict": False,
-            },
+            "name": TOOL_NAME,
+            "description": ANALYSIS_TOOL["description"],
+            "parameters": PageAnalysis.model_json_schema(),
+            "strict": False,
         }
     ]
-    assert body["tool_choice"] == {"type": "function", "function": {"name": TOOL_NAME}}
+    assert body["tool_choice"] == {"type": "function", "name": TOOL_NAME}
     assert body["parallel_tool_calls"] is False
     # Sayfa kimlik belgesi olabilir: sağlayıcı tarafında saklanması istenmez.
     assert body["store"] is False
-    assert "response_format" not in body
+    assert "response_format" not in body and "messages" not in body
+    assert "reasoning" not in body  # efor seçilmedi: parametre gitmez
 
 
-LIVE_REASONING_REFUSAL = (
-    "Function tools with reasoning_effort are not supported for gpt-5.6-luna in "
-    "/v1/chat/completions. To use function tools, use /v1/responses or set "
-    "reasoning_effort to 'none'."
-)
-
-
-def reasoning_rule_api(reply: httpx2.Response) -> Handler:
-    """Canlı API'nin (tm 96) kuralı: işlevli Chat Completions isteği `reasoning_effort: none`
-    olmadan 400 ile reddedilir; kural sağlanırsa `reply` döner."""
-
-    def handler(request: httpx2.Request) -> httpx2.Response:
-        body = json.loads(request.content)
-        if body.get("tools") and body.get("reasoning_effort") != "none":
-            return api_error(400, "invalid_request_error", None, LIVE_REASONING_REFUSAL)
-        return reply
-
-    return handler
-
-
-def provider_behind(handler: Handler) -> OpenAIProvider:
+def provider_behind(handler: Handler, **overrides: Any) -> OpenAIProvider:
     client = httpx2.Client(transport=httpx2.MockTransport(handler))
-    return OpenAIProvider.from_settings(settings(), http_client=client)
+    return OpenAIProvider.from_settings(settings(**overrides), http_client=client)
 
 
-def test_analysis_request_disables_reasoning_so_the_live_api_accepts_the_function() -> None:
-    api = reasoning_rule_api(completion(tool_calls=[function_call(analysis_payload())]))
+_CALLS: list[tuple[str, Callable[[OpenAIProvider], object]]] = [
+    ("analiz", lambda provider: provider.analyze_page(page_request())),
+    ("tur-aciklamasi", lambda provider: provider.describe_type(description_request())),
+    ("tur-taslagi", lambda provider: provider.propose_type(proposal_request())),
+    (
+        "egitim-siniflandirmasi",
+        lambda provider: provider.classify_training_page(training_request()),
+    ),
+    ("fotograf-kontrolu", lambda provider: provider.check_photo(photo_check_request())),
+    ("belge-istegi", lambda provider: provider.read_document_query(query_request())),
+]
 
-    analysis = provider_behind(api).analyze_page(page_request())
 
-    assert analysis == validate_page_analysis(analysis_payload(), known_slugs=SLUGS)
-
-
-@pytest.mark.parametrize(
-    "call",
-    [
-        pytest.param(
-            lambda provider: provider.describe_type(description_request()),
-            id="tur-aciklamasi",
-        ),
-        pytest.param(lambda provider: provider.propose_type(proposal_request()), id="tur-taslagi"),
-        pytest.param(
-            lambda provider: provider.classify_training_page(training_request()),
-            id="egitim-siniflandirmasi",
-        ),
-        pytest.param(
-            lambda provider: provider.check_photo(photo_check_request()), id="fotograf-kontrolu"
-        ),
-        pytest.param(
-            lambda provider: provider.read_document_query(query_request()), id="belge-istegi"
-        ),
-    ],
-)
-def test_every_function_request_carries_reasoning_none(
-    call: Callable[[OpenAIProvider], object],
-) -> None:
+def _sent_bodies(call: Callable[[OpenAIProvider], object], **overrides: Any) -> list[dict]:
     payloads = {
+        TOOL_NAME: analysis_payload(),
         DESCRIPTION_TOOL_NAME: description_payload(),
         PROPOSAL_TOOL_NAME: proposal_payload(),
         TRAINING_TOOL_NAME: training_payload(),
@@ -305,16 +300,40 @@ def test_every_function_request_carries_reasoning_none(
     def handler(request: httpx2.Request) -> httpx2.Response:
         body = json.loads(request.content)
         sent.append(body)
-        name = body["tool_choice"]["function"]["name"]
+        name = body["tool_choice"]["name"]
         return completion(tool_calls=[function_call(payloads[name], name=name)])
 
-    call(provider_behind(handler))
+    call(provider_behind(handler, **overrides))
+    return sent
 
-    assert [body["reasoning_effort"] for body in sent] == ["none"]
+
+@pytest.mark.parametrize("call", [c for _, c in _CALLS], ids=[i for i, _ in _CALLS])
+def test_every_function_request_sends_the_selected_reasoning_effort(
+    call: Callable[[OpenAIProvider], object],
+) -> None:
+    (body,) = _sent_bodies(call, openai_model="gpt-6.1-sol", openai_effort="high")
+
+    assert body["reasoning"] == {"effort": "high"}
+    assert body["store"] is False and body["parallel_tool_calls"] is False
+
+
+@pytest.mark.parametrize("call", [c for _, c in _CALLS], ids=[i for i, _ in _CALLS])
+def test_without_a_selected_effort_no_reasoning_parameter_is_sent(
+    call: Callable[[OpenAIProvider], object],
+) -> None:
+    (body,) = _sent_bodies(call, openai_model="gpt-6.1-sol")
+
+    assert "reasoning" not in body
+
+
+def test_output_token_setting_above_the_floor_is_kept() -> None:
+    (body,) = _sent_bodies(_CALLS[0][1], ai_max_output_tokens=MIN_OUTPUT_TOKENS + 1)
+
+    assert body["max_output_tokens"] == MIN_OUTPUT_TOKENS + 1
 
 
 def test_tool_schema_is_the_page_analysis_contract() -> None:
-    schema = ANALYSIS_TOOL["function"]["parameters"]
+    schema = ANALYSIS_TOOL["parameters"]
     defs = schema["$defs"]
 
     assert schema["type"] == "object"
@@ -329,13 +348,13 @@ def test_tool_schema_is_the_page_analysis_contract() -> None:
     fields = schema["properties"]["fields"]
     assert "properties" not in fields
     assert fields["patternProperties"] == {"^[a-z][a-z0-9_]*$": {"$ref": "#/$defs/FieldReading"}}
-    assert ANALYSIS_TOOL["function"]["strict"] is False
+    assert ANALYSIS_TOOL["strict"] is False
 
 
 def test_both_providers_send_the_same_contract() -> None:
     # Sağlayıcı değişince boru hattının gördüğü sözleşme değişmez: aynı araç adı, aynı şema.
     assert TOOL_NAME == anthropic_module.TOOL_NAME
-    assert ANALYSIS_TOOL["function"]["parameters"] == anthropic_module.ANALYSIS_TOOL["input_schema"]
+    assert ANALYSIS_TOOL["parameters"] == anthropic_module.ANALYSIS_TOOL["input_schema"]
 
 
 # --- Yanıt: yapılandırılmış çıktı → doğrulanmış PageAnalysis ----------------------------------
@@ -406,21 +425,21 @@ def test_arguments_that_are_not_a_json_object_are_rejected(arguments: str) -> No
     [
         (
             completion(tool_calls=[function_call('{"page_index": 0')], finish_reason="length"),
-            "finish_reason=length",
+            "reason=max_output_tokens",
         ),
         (
             completion(
                 tool_calls=[function_call(analysis_payload())], finish_reason="content_filter"
             ),
-            "finish_reason=content_filter",
+            "reason=content_filter",
         ),
         (
             completion(finish_reason="stop", refusal="Bu isteğe yardımcı olamam."),
-            "0 araç çağrısı, finish_reason=refusal",
+            "0 araç çağrısı, status=refusal",
         ),
         (
             completion(finish_reason="stop", content="Sayfa boş görünüyor."),
-            "0 araç çağrısı, finish_reason=stop",
+            "0 araç çağrısı, status=completed",
         ),
         (completion(tool_calls=[], finish_reason="stop"), "0 araç çağrısı"),
         (
@@ -440,16 +459,17 @@ def test_arguments_that_are_not_a_json_object_are_rejected(arguments: str) -> No
             completion(
                 tool_calls=[
                     {
-                        "id": "call_1",
-                        "type": "custom",
-                        "custom": {"name": TOOL_NAME, "input": json.dumps(analysis_payload())},
+                        "id": "ctc_1",
+                        "type": "custom_tool_call",
+                        "call_id": "call_1",
+                        "name": TOOL_NAME,
+                        "input": json.dumps(analysis_payload()),
                     }
                 ]
             ),
-            "1 araç çağrısı",
+            "0 araç çağrısı",
         ),
-        (completion(tool_calls=[function_call(analysis_payload())], choices=2), "2 seçenek"),
-        (completion(choices=0), "0 seçenek"),
+        (completion(content="yalnız metin"), "0 araç çağrısı"),
     ],
     ids=[
         "kesik",
@@ -460,8 +480,7 @@ def test_arguments_that_are_not_a_json_object_are_rejected(arguments: str) -> No
         "iki-cagri",
         "baska-islev",
         "ozel-arac",
-        "iki-secenek",
-        "secenek-yok",
+        "yalniz-metin",
     ],
 )
 def test_response_without_single_completed_function_call_is_rejected(
@@ -619,15 +638,12 @@ def test_transport_failures_map_to_connection_error_without_retry(error: Excepti
 
 
 def test_other_sdk_errors_map_to_provider_error() -> None:
-    class BrokenCompletions:
+    class BrokenResponses:
         def create(self, **_: object) -> object:
             raise openai.OpenAIError("beklenmeyen")
 
-    class BrokenChat:
-        completions = BrokenCompletions()
-
     class BrokenClient:
-        chat = BrokenChat()
+        responses = BrokenResponses()
 
     provider = OpenAIProvider(
         BrokenClient(),  # type: ignore[arg-type]
@@ -777,19 +793,19 @@ def test_description_request_sends_images_in_order_then_text_with_forced_functio
 
     assert description == validate_type_description(description_payload())
     body = api.body()
-    system, user = body["messages"]
-    assert system == {"role": "system", "content": "Tür talimatı"}
+    (user,) = body["input"]
+    assert body["instructions"] == "Tür talimatı"
     *image_parts, text_part = user["content"]
-    assert [part["type"] for part in image_parts] == ["image_url"] * 2
+    assert [part["type"] for part in image_parts] == ["input_image"] * 2
     for part, image in zip(image_parts, request.images, strict=True):
         prefix = f"data:{image.media_type};base64,"
-        assert part["image_url"]["url"].startswith(prefix)
-        assert base64.b64decode(part["image_url"]["url"].removeprefix(prefix)) == image.data
-        assert part["image_url"]["detail"] == "high"
-    assert text_part == {"type": "text", "text": "Tür metni"}
+        assert part["image_url"].startswith(prefix)
+        assert base64.b64decode(part["image_url"].removeprefix(prefix)) == image.data
+        assert part["detail"] == "high"
+    assert text_part == {"type": "input_text", "text": "Tür metni"}
     assert body["tools"] == [json.loads(json.dumps(DESCRIPTION_TOOL))]
-    assert body["tools"][0]["function"]["parameters"] == TypeDescription.model_json_schema()
-    assert body["tool_choice"] == {"type": "function", "function": {"name": DESCRIPTION_TOOL_NAME}}
+    assert body["tools"][0]["parameters"] == TypeDescription.model_json_schema()
+    assert body["tool_choice"] == {"type": "function", "name": DESCRIPTION_TOOL_NAME}
     assert body["parallel_tool_calls"] is False
     assert body["store"] is False
 
@@ -802,10 +818,10 @@ def test_description_request_sends_images_in_order_then_text_with_forced_functio
                 tool_calls=[function_call('{"layout": "Ka', name=DESCRIPTION_TOOL_NAME)],
                 finish_reason="length",
             ),
-            "tür açıklaması işlevi çağrısı tamamlanmadı (finish_reason=length)",
+            "tür açıklaması işlevi çağrısı tamamlanmadı (reason=max_output_tokens)",
         ),
         (completion(tool_calls=[function_call(description_payload())]), "1 araç çağrısı"),
-        (completion(finish_reason="stop", refusal="Yardımcı olamam."), "finish_reason=refusal"),
+        (completion(finish_reason="stop", refusal="Yardımcı olamam."), "status=refusal"),
     ],
     ids=["kesik", "analiz-islevi", "ret"],
 )
@@ -861,23 +877,23 @@ def test_proposal_request_sends_images_in_order_then_text_with_forced_function()
 
     assert proposal == validate_type_proposal(proposal_payload())
     body = api.body()
-    system, user = body["messages"]
-    assert system == {"role": "system", "content": "Taslak talimatı"}
+    (user,) = body["input"]
+    assert body["instructions"] == "Taslak talimatı"
     *image_parts, text_part = user["content"]
-    assert [part["type"] for part in image_parts] == ["image_url"] * 3
+    assert [part["type"] for part in image_parts] == ["input_image"] * 3
     for part, image in zip(image_parts, request.images, strict=True):
         prefix = f"data:{image.media_type};base64,"
-        assert part["image_url"]["url"].startswith(prefix)
-        assert base64.b64decode(part["image_url"]["url"].removeprefix(prefix)) == image.data
-        assert part["image_url"]["detail"] == "high"
-    assert text_part == {"type": "text", "text": "Aday metni"}
+        assert part["image_url"].startswith(prefix)
+        assert base64.b64decode(part["image_url"].removeprefix(prefix)) == image.data
+        assert part["detail"] == "high"
+    assert text_part == {"type": "input_text", "text": "Aday metni"}
     assert body["tools"] == [json.loads(json.dumps(PROPOSAL_TOOL))]
-    assert body["tools"][0]["function"]["parameters"] == TypeProposal.model_json_schema()
-    assert body["tools"][0]["function"]["strict"] is False
-    assert body["tool_choice"] == {"type": "function", "function": {"name": PROPOSAL_TOOL_NAME}}
+    assert body["tools"][0]["parameters"] == TypeProposal.model_json_schema()
+    assert body["tools"][0]["strict"] is False
+    assert body["tool_choice"] == {"type": "function", "name": PROPOSAL_TOOL_NAME}
     assert body["parallel_tool_calls"] is False
     assert body["store"] is False
-    assert body["reasoning_effort"] == "none"
+    assert "reasoning" not in body
 
 
 @pytest.mark.parametrize(
@@ -888,7 +904,7 @@ def test_proposal_request_sends_images_in_order_then_text_with_forced_function()
                 tool_calls=[function_call('{"name": "Mon', name=PROPOSAL_TOOL_NAME)],
                 finish_reason="length",
             ),
-            "tür taslağı işlevi çağrısı tamamlanmadı (finish_reason=length)",
+            "tür taslağı işlevi çağrısı tamamlanmadı (reason=max_output_tokens)",
         ),
         (
             completion(
@@ -896,7 +912,7 @@ def test_proposal_request_sends_images_in_order_then_text_with_forced_function()
             ),
             "1 araç çağrısı",
         ),
-        (completion(finish_reason="stop", refusal="Yardımcı olamam."), "finish_reason=refusal"),
+        (completion(finish_reason="stop", refusal="Yardımcı olamam."), "status=refusal"),
     ],
     ids=["kesik", "aciklama-islevi", "ret"],
 )
@@ -964,25 +980,23 @@ def test_training_request_sends_images_in_order_then_text_with_forced_function()
         training_payload(), known_slugs=SLUGS, doc_kinds=DOC_KINDS
     )
     body = api.body()
-    system, user = body["messages"]
-    assert system == {"role": "system", "content": "Eğitim talimatı"}
+    (user,) = body["input"]
+    assert body["instructions"] == "Eğitim talimatı"
     *image_parts, text_part = user["content"]
-    assert [part["type"] for part in image_parts] == ["image_url"] * 2
+    assert [part["type"] for part in image_parts] == ["input_image"] * 2
     for part, image in zip(image_parts, request.images, strict=True):
         prefix = f"data:{image.media_type};base64,"
-        assert part["image_url"]["url"].startswith(prefix)
-        assert base64.b64decode(part["image_url"]["url"].removeprefix(prefix)) == image.data
-        assert part["image_url"]["detail"] == "high"
-    assert text_part == {"type": "text", "text": "Öğe metni"}
+        assert part["image_url"].startswith(prefix)
+        assert base64.b64decode(part["image_url"].removeprefix(prefix)) == image.data
+        assert part["detail"] == "high"
+    assert text_part == {"type": "input_text", "text": "Öğe metni"}
     assert body["tools"] == [json.loads(json.dumps(TRAINING_TOOL))]
-    assert body["tools"][0]["function"]["parameters"] == (
-        TrainingClassification.model_json_schema()
-    )
-    assert body["tools"][0]["function"]["strict"] is False
-    assert body["tool_choice"] == {"type": "function", "function": {"name": TRAINING_TOOL_NAME}}
+    assert body["tools"][0]["parameters"] == (TrainingClassification.model_json_schema())
+    assert body["tools"][0]["strict"] is False
+    assert body["tool_choice"] == {"type": "function", "name": TRAINING_TOOL_NAME}
     assert body["parallel_tool_calls"] is False
     assert body["store"] is False
-    assert body["reasoning_effort"] == "none"
+    assert "reasoning" not in body
 
 
 @pytest.mark.parametrize(
@@ -993,13 +1007,13 @@ def test_training_request_sends_images_in_order_then_text_with_forced_function()
                 tool_calls=[function_call('{"catalog_slug": nu', name=TRAINING_TOOL_NAME)],
                 finish_reason="length",
             ),
-            "eğitim sınıflandırması işlevi çağrısı tamamlanmadı (finish_reason=length)",
+            "eğitim sınıflandırması işlevi çağrısı tamamlanmadı (reason=max_output_tokens)",
         ),
         (
             completion(tool_calls=[function_call(proposal_payload(), name=PROPOSAL_TOOL_NAME)]),
             "1 araç çağrısı",
         ),
-        (completion(finish_reason="stop", refusal="Yardımcı olamam."), "finish_reason=refusal"),
+        (completion(finish_reason="stop", refusal="Yardımcı olamam."), "status=refusal"),
     ],
     ids=["kesik", "taslak-islevi", "ret"],
 )
@@ -1073,17 +1087,17 @@ def test_photo_check_request_sends_image_then_rules_with_forced_function() -> No
 
     assert check == validate_photo_check(photo_check_payload(), rules=PHOTO_RULES)
     body = api.body()
-    system, user = body["messages"]
-    assert system == {"role": "system", "content": "Foto talimatı"}
+    (user,) = body["input"]
+    assert body["instructions"] == "Foto talimatı"
     image_part, text_part = user["content"]
     prefix = "data:image/jpeg;base64,"
-    url = image_part["image_url"]["url"]
+    url = image_part["image_url"]
     assert base64.b64decode(url.removeprefix(prefix)) == request.image.data
-    assert image_part["image_url"]["detail"] == "high"
-    assert text_part == {"type": "text", "text": "Kurallar"}
+    assert image_part["detail"] == "high"
+    assert text_part == {"type": "input_text", "text": "Kurallar"}
     assert body["tools"] == [json.loads(json.dumps(PHOTO_CHECK_TOOL))]
-    assert body["tools"][0]["function"]["parameters"] == PhotoCheck.model_json_schema()
-    assert body["tool_choice"] == {"type": "function", "function": {"name": PHOTO_CHECK_TOOL_NAME}}
+    assert body["tools"][0]["parameters"] == PhotoCheck.model_json_schema()
+    assert body["tool_choice"] == {"type": "function", "name": PHOTO_CHECK_TOOL_NAME}
     assert body["store"] is False
 
 
@@ -1095,7 +1109,7 @@ def test_photo_check_request_sends_image_then_rules_with_forced_function() -> No
                 tool_calls=[function_call('{"rules": [', name=PHOTO_CHECK_TOOL_NAME)],
                 finish_reason="length",
             ),
-            "fotoğraf kontrolü işlevi çağrısı tamamlanmadı (finish_reason=length)",
+            "fotoğraf kontrolü işlevi çağrısı tamamlanmadı (reason=max_output_tokens)",
         ),
         (completion(tool_calls=[function_call(photo_check_payload())]), "1 araç çağrısı"),
     ],
@@ -1138,16 +1152,13 @@ def test_document_query_request_sends_only_text_with_forced_function() -> None:
     assert query == validate_document_query(query_payload(), known_slugs=SLUGS)
     body = api.body()
     # Görüntü yok: kullanıcı mesajında yalnız metin.
-    assert body["messages"] == [
-        {"role": "system", "content": "İstek talimatı"},
-        {"role": "user", "content": [{"type": "text", "text": "Katalog ve mesaj"}]},
+    assert body["instructions"] == "İstek talimatı"
+    assert body["input"] == [
+        {"role": "user", "content": [{"type": "input_text", "text": "Katalog ve mesaj"}]},
     ]
     assert body["tools"] == [json.loads(json.dumps(DOCUMENT_QUERY_TOOL))]
-    assert body["tools"][0]["function"]["parameters"] == DocumentQuery.model_json_schema()
-    assert body["tool_choice"] == {
-        "type": "function",
-        "function": {"name": DOCUMENT_QUERY_TOOL_NAME},
-    }
+    assert body["tools"][0]["parameters"] == DocumentQuery.model_json_schema()
+    assert body["tool_choice"] == {"type": "function", "name": DOCUMENT_QUERY_TOOL_NAME}
     assert body["store"] is False
 
 
@@ -1159,7 +1170,7 @@ def test_document_query_request_sends_only_text_with_forced_function() -> None:
                 tool_calls=[function_call('{"intent": ', name=DOCUMENT_QUERY_TOOL_NAME)],
                 finish_reason="length",
             ),
-            "belge isteği işlevi çağrısı tamamlanmadı (finish_reason=length)",
+            "belge isteği işlevi çağrısı tamamlanmadı (reason=max_output_tokens)",
         ),
         (completion(content="Ornekova'nın ehliyeti", finish_reason="stop"), "0 araç çağrısı"),
         (completion(tool_calls=[function_call(query_payload())]), "1 araç çağrısı"),
@@ -1244,11 +1255,11 @@ def test_template_map_request_sends_every_page_then_text_with_forced_function() 
 
     assert field_map.fillable_count == 6
     body = api.body()
-    system, user = body["messages"]
-    assert system == {"role": "system", "content": "Şablon talimatı"}
+    (user,) = body["input"]
+    assert body["instructions"] == "Şablon talimatı"
     *image_parts, text_part = user["content"]
-    assert [part["type"] for part in image_parts] == ["image_url"] * 2
-    assert text_part == {"type": "text", "text": "Şablon metni"}
+    assert [part["type"] for part in image_parts] == ["input_image"] * 2
+    assert text_part == {"type": "input_text", "text": "Şablon metni"}
     assert body["tools"] == [json.loads(json.dumps(TEMPLATE_MAP_TOOL))]
-    assert body["tools"][0]["function"]["parameters"] == TemplateFieldMap.model_json_schema()
-    assert body["tool_choice"] == {"type": "function", "function": {"name": TEMPLATE_MAP_TOOL_NAME}}
+    assert body["tools"][0]["parameters"] == TemplateFieldMap.model_json_schema()
+    assert body["tool_choice"] == {"type": "function", "name": TEMPLATE_MAP_TOOL_NAME}

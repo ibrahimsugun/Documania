@@ -28,7 +28,7 @@ ENGLISH_RULES: dict[str, tuple[Callable[[], str], str]] = {
     "template_map": (load_template_map_instructions, "`notes` İngilizce yazılır"),
     "training_classification": (
         load_training_classification_template,
-        "kararının kısa gerekçesi, İngilizce, en çok 200 karakter",
+        "kararının kısa gerekçesi, İngilizce, en çok 250 karakter",
     ),
     "type_description": (
         load_type_description_instructions,

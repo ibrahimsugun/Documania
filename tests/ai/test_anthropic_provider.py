@@ -679,7 +679,7 @@ def test_training_client_errors_are_not_retried(no_sleep: list[float]) -> None:
 
 def test_both_providers_send_the_same_training_contract() -> None:
     assert TRAINING_TOOL_NAME == openai_module.TRAINING_TOOL_NAME
-    assert TRAINING_TOOL["input_schema"] == openai_module.TRAINING_TOOL["function"]["parameters"]
+    assert TRAINING_TOOL["input_schema"] == openai_module.TRAINING_TOOL["parameters"]
 
 
 # --- Fotoğraf kontrolü (11.7.1): tek görüntü + kurallar, zorlanmış kontrol aracı ----------------
@@ -840,7 +840,7 @@ def test_proposal_client_errors_are_not_retried(no_sleep: list[float]) -> None:
 
 def test_both_providers_send_the_same_proposal_contract() -> None:
     assert PROPOSAL_TOOL_NAME == openai_module.PROPOSAL_TOOL_NAME
-    assert PROPOSAL_TOOL["input_schema"] == openai_module.PROPOSAL_TOOL["function"]["parameters"]
+    assert PROPOSAL_TOOL["input_schema"] == openai_module.PROPOSAL_TOOL["parameters"]
 
 
 # --- Belge isteği (12.3.1): görüntüsüz metin, zorlanmış belge isteği aracı ----------------------

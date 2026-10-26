@@ -2780,13 +2780,25 @@
         "priority": "medium",
         "subtasks": [],
         "updatedAt": "2026-10-26T18:58:55.000Z"
+      },
+      {
+        "id": "192",
+        "title": "03.3-b — OpenAI sağlayıcısı Responses API'ye, GPT-6.1 Sol listede, GPT-6 Luna listeden çıktı, eğitim sınıflandırması `notes` sınırı 250 [OPUS-HIGH]",
+        "description": "PRD 03.3.1 · 03.8.2 · Faz 1. Sözleşme PLAN §D127. İnsan isteği (2026-10-26): Luna `none` eforu ölçümde kendinden emin yanlış verdi; Sol `low`/`medium` Sonnet 5.5 düzeyinde çıktı. \"Responses API ile çalışacak şekilde gerekli düzenlemeleri yap. Luna hiç gözükmese de olur. Claude modellerinin çalışmasını bozma. notes 200 yerine 250 olsun.\"",
+        "details": "KAPSAM: app/ai/openai_provider.py (Chat Completions → Responses API: düz işlev araçları, `instructions` + `input_image`/`input_text`, `reasoning.effort` yalnız seçilmişse, `max_output_tokens` ≥ 16000, `incomplete`/ret reddi), app/ai/model_list.py (Luna çıktı, `gpt-6.1-sol` low–max, `request_effort_default` kalktı), app/config.py + .env.example (varsayılan model), app/ai/training_classification.py + prompts/training_classification.md (`notes` 250). Anthropic sağlayıcısı ve istek biçimi değişmez.",
+        "testStrategy": "tests/ai/test_openai_provider.py Responses API sahte taşımasıyla; tests/ai (Anthropic testleri değişmeden), tests/web/test_ai_settings_page.py, tests/test_config.py, tests/test_events.py, tests/web/test_ui_standard.py, tests/db/test_migrations.py yeşil.",
+        "status": "done",
+        "dependencies": [],
+        "priority": "medium",
+        "subtasks": [],
+        "updatedAt": "2026-10-26T20:00:00.000Z"
       }
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-26T18:58:55.000Z",
-      "taskCount": 191,
-      "completedCount": 191,
+      "lastModified": "2026-10-26T20:00:00.000Z",
+      "taskCount": 192,
+      "completedCount": 192,
       "tags": [
         "master"
       ]

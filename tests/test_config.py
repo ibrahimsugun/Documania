@@ -128,7 +128,7 @@ def test_ai_settings_have_defaults_and_read_environment(monkeypatch: pytest.Monk
     assert (defaults.ai_provider, defaults.ai_max_output_tokens) == ("anthropic", 4096)
     assert defaults.ai_request_timeout_seconds == 120.0
     assert (defaults.anthropic_api_key, defaults.anthropic_model) == (None, "claude-sonnet-5-5")
-    assert (defaults.openai_api_key, defaults.openai_model) == (None, "gpt-6-luna")
+    assert (defaults.openai_api_key, defaults.openai_model) == (None, "gpt-6.1-sol")
     assert (configured.ai_provider, configured.ai_max_output_tokens) == ("openai", 1024)
     assert configured.ai_request_timeout_seconds == 30.5
     assert configured.anthropic_api_key is not None

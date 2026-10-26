@@ -52,7 +52,7 @@ Kullanıcı mesajında dosyanın türü, sayfa sayısı ve görüntülerin hangi
 - `side`: görüntülerde görülen yüz. `single`: tek yüzlü belge ya da belgenin tek sayfası; `front`:
   iki yüzlü bir kartın ön yüzü; `back`: arka yüzü; `front_and_back`: aynı kartın iki yüzü aynı
   sayfada ya da ilk iki sayfada ön ve arka yüz; `unknown`: çıkaramıyorsan.
-- `notes`: kararının kısa gerekçesi, İngilizce, en çok 200 karakter ("the heading shows the
+- `notes`: kararının kısa gerekçesi, İngilizce, en çok 250 karakter ("the heading shows the
   country name and 'PASAPORT'; MRZ document code P"). Kişisel değer yazma. Söyleyecek bir şey yoksa boş metin.
 
 ## Tür sözlüğü

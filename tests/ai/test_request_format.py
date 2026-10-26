@@ -2,7 +2,8 @@
 
 Sağlayıcılar `httpx2.MockTransport` arkasındadır (ağsız, 03.6.1): Anthropic'te zorlanmış araç +
 kapalı düşünme yalnız onu kabul eden model/efor bileşiminde gider, ötekilerde `tool_choice: auto` +
-katı araç (şema izin veriyorsa) + talimatta aracın adı; OpenAI'de `reasoning_effort`.
+katı araç (şema izin veriyorsa) + talimatta aracın adı; OpenAI'de (Responses API)
+`reasoning.effort`.
 """
 
 from __future__ import annotations
@@ -54,9 +55,12 @@ def test_model_list_carries_source_and_each_providers_effort_set() -> None:
     for model in MODELS:
         allowed = ANTHROPIC_EFFORTS if model.provider == "anthropic" else OPENAI_EFFORTS
         assert set(model.efforts) <= set(allowed) and model.default_effort in allowed
-    # GPT-6 Luna Chat Completions'ta işlevi yalnız `none` ile çağırır (OpenAI model dokümanı).
-    (luna,) = models_for("openai")
-    assert luna.efforts == ("none",) and luna.request_effort_default == "none"
+    # GPT-6.1 Sol Responses API'de `low`–`max` kabul eder, `none`/`minimal`i 400 ile reddeder;
+    # GPT-6 Luna listede yoktur (canlı yoklama 2026-10-26).
+    (sol,) = models_for("openai")
+    assert sol.model_id == "gpt-6.1-sol"
+    assert sol.efforts == ("low", "medium", "high", "xhigh", "max")
+    assert sol.default_effort == "medium"
 
 
 def test_opus_5_up_to_high_keeps_the_forced_tool_with_thinking_disabled() -> None:
@@ -126,24 +130,29 @@ def test_unlisted_and_default_models_keep_todays_request() -> None:
 def test_effort_outside_the_models_set_is_a_config_error() -> None:
     with pytest.raises(ProviderConfigError, match="none"):
         FakeApi().provider(anthropic_model="claude-opus-5-5", anthropic_effort="none")
-    with pytest.raises(ProviderConfigError, match="high"):
-        OpenAIFakeApi().provider(openai_model="gpt-6-luna", openai_effort="high")
+    with pytest.raises(ProviderConfigError, match="none"):
+        OpenAIFakeApi().provider(openai_model="gpt-6.1-sol", openai_effort="none")
 
 
 @pytest.mark.parametrize(
     ("model", "effort", "sent"),
-    [("gpt-6-luna", None, "none"), ("gpt-test", None, "none"), ("gpt-test", "high", "high")],
-    ids=["luna-default", "unlisted-default", "unlisted-high"],
+    [
+        ("gpt-6.1-sol", None, None),
+        ("gpt-6.1-sol", "low", "low"),
+        ("gpt-test", None, None),
+        ("gpt-test", "high", "high"),
+    ],
+    ids=["sol-default", "sol-low", "unlisted-default", "unlisted-high"],
 )
-def test_openai_sends_the_selected_or_function_compatible_reasoning_effort(
-    model: str, effort: str | None, sent: str
+def test_openai_sends_the_selected_reasoning_effort_or_none(
+    model: str, effort: str | None, sent: str | None
 ) -> None:
     api = OpenAIFakeApi(completion(tool_calls=[function_call(analysis_payload())]))
 
     provider = api.provider(openai_model=model, openai_effort=effort)
     provider.analyze_page(page_request())
 
-    assert api.body()["reasoning_effort"] == sent
+    assert api.body().get("reasoning", {}).get("effort") == sent
     assert provider.effort == effort
 
 

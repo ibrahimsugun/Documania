@@ -1,9 +1,10 @@
 """OpenAI sağlayıcısı — PRD 03.3.1.
 
 `AnalysisProvider`'ın ikinci somut uygulaması (`AI_PROVIDER=openai`); Anthropic ile aynı sözleşme
-ve aynı hata aileleri, yalnız API biçimi farklıdır. Chat Completions API'ye tek bir istek gider:
-`system` mesajında sistem talimatı, kullanıcı mesajında önce sayfa görüntüsü (base64 veri URL'si),
-sonra sayfaya özgü metin. İstek içeriği `PageAnalysisRequest`'ten olduğu gibi alınır, burada
+ve aynı hata aileleri, yalnız API biçimi farklıdır. Responses API'ye tek bir istek gider:
+`instructions`'ta sistem talimatı, kullanıcı girdisinde önce sayfa görüntüsü (base64 veri URL'si),
+sonra sayfaya özgü metin. (Chat Completions yerine Responses: GPT-6.1 Sol işlev çağrısını yalnız
+orada destekler; PLAN.md §D127.) İstek içeriği `PageAnalysisRequest`'ten olduğu gibi alınır, burada
 talimat yazılmaz (03.4).
 
 Yapılandırılmış çıktı Anthropic'teki gibi zorlanmış araç çağrısıyla alınır: tek işlev
@@ -40,12 +41,10 @@ SDK'nın kendi yeniden denemesi kapalıdır (`max_retries=0`): geri çekilmeli d
 iki katman üst üste denemesin. İstek `store=False` gider: sayfa görüntüsü kimlik belgesi olabilir,
 sağlayıcı tarafında saklanmasını istemiyoruz (CONVENTIONS §6).
 
-Efor (03.8.2; PLAN.md §D124): seçilmişse `reasoning_effort` o değerle gider. Seçilmemişse modelin
-işlev çağrısıyla uyumlu varsayılanı gider (`app.ai.model_list.openai_request_effort`): GPT-6 Luna
-Chat Completions'ta işlev çağrısını yalnız `reasoning_effort="none"` ile destekler (OpenAI model
-dokümanı), bu yüzden listede ona yalnız `none` seçilebilir ve "varsayılan"da da `none` gider;
-listede olmayan modelde de bugünkü gibi `none`. Yanıtın kabulü akıl yürütmeye dayanmaz: her yanıt
-`validate_*` şemasından geçer.
+Efor (03.8.2; PLAN.md §D124, §D127): seçilmişse `reasoning.effort` o değerle gider; seçilmemişse
+parametre gönderilmez ve modelin varsayılanı geçerlidir (`app.ai.model_list.openai_request_effort`).
+`max_output_tokens` düşünme belirteçlerini de kapsar; bu yüzden en az `MIN_OUTPUT_TOKENS`'tır.
+Yanıtın kabulü akıl yürütmeye dayanmaz: her yanıt `validate_*` şemasından geçer.
 """
 
 from __future__ import annotations
@@ -56,11 +55,7 @@ from typing import Any
 
 import httpx2
 import openai
-from openai.types.chat import (
-    ChatCompletion,
-    ChatCompletionFunctionToolParam,
-    ChatCompletionMessageParam,
-)
+from openai.types.responses import FunctionToolParam, Response, ResponseInputParam
 
 from app.ai.document_query import DocumentQuery, DocumentQueryError
 from app.ai.model_list import check_effort, openai_request_effort
@@ -96,116 +91,101 @@ from app.config import Settings
 
 TOOL_NAME = "record_page_analysis"
 
-ANALYSIS_TOOL: ChatCompletionFunctionToolParam = {
+ANALYSIS_TOOL: FunctionToolParam = {
     "type": "function",
-    "function": {
-        "name": TOOL_NAME,
-        "description": (
-            "Tek sayfanın analiz sonucunu kaydeder. Argümanlar, sayfa analizi şemasındaki her "
-            "anahtarı taşıyan tek bir nesnedir."
-        ),
-        "parameters": PageAnalysis.model_json_schema(),
-        "strict": False,
-    },
+    "name": TOOL_NAME,
+    "description": (
+        "Tek sayfanın analiz sonucunu kaydeder. Argümanlar, sayfa analizi şemasındaki her "
+        "anahtarı taşıyan tek bir nesnedir."
+    ),
+    "parameters": PageAnalysis.model_json_schema(),
+    "strict": False,
 }
 
 DESCRIPTION_TOOL_NAME = "record_type_description"
 
-DESCRIPTION_TOOL: ChatCompletionFunctionToolParam = {
+DESCRIPTION_TOOL: FunctionToolParam = {
     "type": "function",
-    "function": {
-        "name": DESCRIPTION_TOOL_NAME,
-        "description": (
-            "Belge türünün örneklerinden çıkarılan yapılandırılmış açıklamayı kaydeder. "
-            "Argümanlar, tür açıklaması şemasındaki her anahtarı taşıyan tek bir nesnedir."
-        ),
-        "parameters": TypeDescription.model_json_schema(),
-        "strict": False,
-    },
+    "name": DESCRIPTION_TOOL_NAME,
+    "description": (
+        "Belge türünün örneklerinden çıkarılan yapılandırılmış açıklamayı kaydeder. "
+        "Argümanlar, tür açıklaması şemasındaki her anahtarı taşıyan tek bir nesnedir."
+    ),
+    "parameters": TypeDescription.model_json_schema(),
+    "strict": False,
 }
 
 PROPOSAL_TOOL_NAME = "record_type_proposal"
 
-PROPOSAL_TOOL: ChatCompletionFunctionToolParam = {
+PROPOSAL_TOOL: FunctionToolParam = {
     "type": "function",
-    "function": {
-        "name": PROPOSAL_TOOL_NAME,
-        "description": (
-            "Katalog dışı belge türünün örneklerinden çıkarılan tam katalog kaydı taslağını "
-            "kaydeder. Argümanlar, tür taslağı şemasındaki her anahtarı taşıyan tek bir nesnedir."
-        ),
-        "parameters": TypeProposal.model_json_schema(),
-        "strict": False,
-    },
+    "name": PROPOSAL_TOOL_NAME,
+    "description": (
+        "Katalog dışı belge türünün örneklerinden çıkarılan tam katalog kaydı taslağını "
+        "kaydeder. Argümanlar, tür taslağı şemasındaki her anahtarı taşıyan tek bir nesnedir."
+    ),
+    "parameters": TypeProposal.model_json_schema(),
+    "strict": False,
 }
 
 TEMPLATE_MAP_TOOL_NAME = "record_template_field_map"
 
-TEMPLATE_MAP_TOOL: ChatCompletionFunctionToolParam = {
+TEMPLATE_MAP_TOOL: FunctionToolParam = {
     "type": "function",
-    "function": {
-        "name": TEMPLATE_MAP_TOOL_NAME,
-        "description": (
-            "Hazır şablonun alan haritasını kaydeder: doldurulacak boşluklar ve doldurulmayacak "
-            "imza, kaşe, logo, fotoğraf, çerçeve alanları. Argümanlar, alan haritası şemasındaki "
-            "her anahtarı taşıyan tek bir nesnedir."
-        ),
-        "parameters": TemplateFieldMap.model_json_schema(),
-        "strict": False,
-    },
+    "name": TEMPLATE_MAP_TOOL_NAME,
+    "description": (
+        "Hazır şablonun alan haritasını kaydeder: doldurulacak boşluklar ve doldurulmayacak "
+        "imza, kaşe, logo, fotoğraf, çerçeve alanları. Argümanlar, alan haritası şemasındaki "
+        "her anahtarı taşıyan tek bir nesnedir."
+    ),
+    "parameters": TemplateFieldMap.model_json_schema(),
+    "strict": False,
 }
 
 TRAINING_TOOL_NAME = "record_training_classification"
 
-TRAINING_TOOL: ChatCompletionFunctionToolParam = {
+TRAINING_TOOL: FunctionToolParam = {
     "type": "function",
-    "function": {
-        "name": TRAINING_TOOL_NAME,
-        "description": (
-            "Eğitim modundaki belgenin türünü kaydeder: katalog türü, ülke, tür, önerilen ad ve "
-            "yüz. Argümanlar, eğitim sınıflandırması şemasındaki her anahtarı taşıyan tek bir "
-            "nesnedir."
-        ),
-        "parameters": TrainingClassification.model_json_schema(),
-        "strict": False,
-    },
+    "name": TRAINING_TOOL_NAME,
+    "description": (
+        "Eğitim modundaki belgenin türünü kaydeder: katalog türü, ülke, tür, önerilen ad ve "
+        "yüz. Argümanlar, eğitim sınıflandırması şemasındaki her anahtarı taşıyan tek bir "
+        "nesnedir."
+    ),
+    "parameters": TrainingClassification.model_json_schema(),
+    "strict": False,
 }
 
 PHOTO_CHECK_TOOL_NAME = "record_photo_check"
 
-PHOTO_CHECK_TOOL: ChatCompletionFunctionToolParam = {
+PHOTO_CHECK_TOOL: FunctionToolParam = {
     "type": "function",
-    "function": {
-        "name": PHOTO_CHECK_TOOL_NAME,
-        "description": (
-            "Profil fotoğrafının kurallara göre değerlendirmesini kaydeder. Argümanlar, sorulan "
-            "her kural için bir satır taşıyan tek bir nesnedir."
-        ),
-        "parameters": PhotoCheck.model_json_schema(),
-        "strict": False,
-    },
+    "name": PHOTO_CHECK_TOOL_NAME,
+    "description": (
+        "Profil fotoğrafının kurallara göre değerlendirmesini kaydeder. Argümanlar, sorulan "
+        "her kural için bir satır taşıyan tek bir nesnedir."
+    ),
+    "parameters": PhotoCheck.model_json_schema(),
+    "strict": False,
 }
 
 DOCUMENT_QUERY_TOOL_NAME = "record_document_query"
 
-DOCUMENT_QUERY_TOOL: ChatCompletionFunctionToolParam = {
+DOCUMENT_QUERY_TOOL: FunctionToolParam = {
     "type": "function",
-    "function": {
-        "name": DOCUMENT_QUERY_TOOL_NAME,
-        "description": (
-            "İK'nın bota yazdığı mesajın okunmasını kaydeder: kimin hangi belgeleri, bilgisi "
-            "ya da eksik belgeleri istendi, mesaj hangi dilde ya da mesajın istek olmadığı. "
-            "Tek bir nesnedir; şemadaki her anahtarı taşır."
-        ),
-        "parameters": DocumentQuery.model_json_schema(),
-        "strict": False,
-    },
+    "name": DOCUMENT_QUERY_TOOL_NAME,
+    "description": (
+        "İK'nın bota yazdığı mesajın okunmasını kaydeder: kimin hangi belgeleri, bilgisi "
+        "ya da eksik belgeleri istendi, mesaj hangi dilde ya da mesajın istek olmadığı. "
+        "Tek bir nesnedir; şemadaki her anahtarı taşır."
+    ),
+    "parameters": DocumentQuery.model_json_schema(),
+    "strict": False,
 }
 
-_UNFINISHED_FINISH_REASONS = frozenset({"length", "content_filter"})
-"""`length` kesik argüman, `content_filter` süzülmüş çıktıdır — araç çağrısı varmış gibi görünse de
-kabul edilmez. (Zorlanmış işlev seçiminde `finish_reason` `tool_calls` yerine `stop` gelebilir; bu
-yüzden kabul ölçütü `finish_reason` değil, tek ve tam bir işlev çağrısıdır.)"""
+MIN_OUTPUT_TOKENS = 16000
+"""Responses API'de `max_output_tokens` düşünme belirteçlerini de sayar; ayar bundan küçükse bu
+değer gider (Anthropic `auto` biçimindeki taban ile aynı gerekçe)."""
 
 _PERMANENT_RATE_LIMIT_CODES = frozenset({"insufficient_quota"})
 """429 ile dönen ama beklemekle geçmeyen durumlar (kota/bakiye bitti): yeniden denenmez."""
@@ -213,17 +193,15 @@ _PERMANENT_RATE_LIMIT_CODES = frozenset({"insufficient_quota"})
 
 PROFILE_ANSWER_TOOL_NAME = "record_profile_answer"
 
-PROFILE_ANSWER_TOOL: ChatCompletionFunctionToolParam = {
+PROFILE_ANSWER_TOOL: FunctionToolParam = {
     "type": "function",
-    "function": {
-        "name": PROFILE_ANSWER_TOOL_NAME,
-        "description": (
-            "İK'nın çalışanlar hakkındaki sorusuna, yalnız verilen profillerden yazılmış kısa "
-            "yanıtı kaydeder."
-        ),
-        "parameters": ProfileAnswer.model_json_schema(),
-        "strict": False,
-    },
+    "name": PROFILE_ANSWER_TOOL_NAME,
+    "description": (
+        "İK'nın çalışanlar hakkındaki sorusuna, yalnız verilen profillerden yazılmış kısa "
+        "yanıtı kaydeder."
+    ),
+    "parameters": ProfileAnswer.model_json_schema(),
+    "strict": False,
 }
 
 
@@ -371,7 +349,7 @@ class OpenAIProvider(AnalysisProvider):
         instructions: str,
         images: Sequence[PageImage],
         prompt: str,
-        tool: ChatCompletionFunctionToolParam,
+        tool: FunctionToolParam,
         *,
         label: str,
         error: Callable[[list[str]], Exception],
@@ -379,34 +357,27 @@ class OpenAIProvider(AnalysisProvider):
         """Görüntüler (sırayla; olmayabilir) ve metinle tek istek; `tool` işlevi zorlanır,
         argümanları doğrulanmadan döner. Yanıtta tek ve tam bir `tool` çağrısı yoksa `error`
         (`label` mesajdaki işlev adıdır)."""
-        name = tool["function"]["name"]
-        messages: list[ChatCompletionMessageParam] = [
-            {"role": "system", "content": instructions},
-            {
-                "role": "user",
-                "content": [
-                    # Kimlik belgesindeki küçük yazıların okunması için en yüksek ayrıntı.
-                    *(
-                        {
-                            "type": "image_url",
-                            "image_url": {"url": _data_url(image), "detail": "high"},
-                        }
-                        for image in images
-                    ),
-                    {"type": "text", "text": prompt},
-                ],
-            },
+        name = tool["name"]
+        content: list[dict[str, str]] = [
+            # Kimlik belgesindeki küçük yazıların okunması için en yüksek ayrıntı.
+            *(
+                {"type": "input_image", "image_url": _data_url(image), "detail": "high"}
+                for image in images
+            ),
+            {"type": "input_text", "text": prompt},
         ]
-        # Efor: seçilen ya da modelin işlev çağrısıyla uyumlu varsayılanı (modül belgesi).
+        user_input: ResponseInputParam = [{"role": "user", "content": content}]  # type: ignore[list-item]
+        # Efor: yalnız seçilmişse gider (modül belgesi).
         effort = openai_request_effort(self.model, self.effort)
-        options: dict[str, Any] = {} if effort is None else {"reasoning_effort": effort}
+        options: dict[str, Any] = {} if effort is None else {"reasoning": {"effort": effort}}
         try:
-            response = self._client.chat.completions.create(
+            response = self._client.responses.create(
                 model=self.model,
-                max_completion_tokens=self._max_output_tokens,
-                messages=messages,
+                instructions=instructions,
+                input=user_input,
+                max_output_tokens=max(self._max_output_tokens, MIN_OUTPUT_TOKENS),
                 tools=[tool],
-                tool_choice={"type": "function", "function": {"name": name}},
+                tool_choice={"type": "function", "name": name},
                 parallel_tool_calls=False,
                 store=False,
                 **options,
@@ -444,23 +415,28 @@ def _error_detail(body: object) -> str:
 
 
 def _tool_arguments(
-    response: ChatCompletion, name: str, label: str, error: Callable[[list[str]], Exception]
+    response: Response, name: str, label: str, error: Callable[[list[str]], Exception]
 ) -> object:
-    """Yanıttaki tek `name` işlevi çağrısının argümanları; tamamlanmadıysa yanıt `error` ile
+    """Yanıttaki tek `name` işlevi çağrısının argümanları. `incomplete` yanıt (`max_output_tokens`
+    kesik argüman, `content_filter` süzülmüş çıktı) araç çağrısı varmış gibi görünse de `error` ile
     reddedilir."""
-    if len(response.choices) != 1:
-        raise error([f"yanıt: tek seçenek beklenir ({len(response.choices)} seçenek)"])
-    choice = response.choices[0]
-    if choice.finish_reason in _UNFINISHED_FINISH_REASONS:
-        raise error([f"yanıt: {label} çağrısı tamamlanmadı (finish_reason={choice.finish_reason})"])
-    calls = choice.message.tool_calls or []
-    if len(calls) != 1 or calls[0].type != "function" or calls[0].function.name != name:
-        # Ret (`refusal`) ve işlevsiz yanıt (`stop`) buraya düşer; ret metni mesaja alınmaz.
-        reason = "refusal" if choice.message.refusal else choice.finish_reason
+    if response.status == "incomplete":
+        reason = response.incomplete_details.reason if response.incomplete_details else None
+        raise error([f"yanıt: {label} çağrısı tamamlanmadı (reason={reason})"])
+    calls = [item for item in response.output if item.type == "function_call"]
+    if len(calls) != 1 or calls[0].name != name:
+        # Ret (`refusal`) ve işlevsiz yanıt buraya düşer; ret metni mesaja alınmaz.
+        refused = any(
+            part.type == "refusal"
+            for item in response.output
+            if item.type == "message"
+            for part in item.content
+        )
+        reason = "refusal" if refused else response.status
         raise error(
             [
                 f"yanıt: yalnız bir '{name}' çağrısı olmalı "
-                f"({len(calls)} araç çağrısı, finish_reason={reason})"
+                f"({len(calls)} araç çağrısı, status={reason})"
             ]
         )
-    return calls[0].function.arguments
+    return calls[0].arguments

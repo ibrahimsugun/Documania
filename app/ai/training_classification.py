@@ -36,7 +36,7 @@ from pydantic import BaseModel, ConfigDict, StringConstraints, ValidationError
 
 from app.ai.schemas import Side
 
-MAX_NOTES_LENGTH = 200
+MAX_NOTES_LENGTH = 250
 """`notes`'un en çok karakter sayısı."""
 
 MAX_PROPOSED_NAME_LENGTH = 80

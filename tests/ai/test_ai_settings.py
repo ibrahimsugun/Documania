@@ -60,7 +60,7 @@ def _choice(**overrides: Any) -> AiChoice:
         "provider": "openai",
         "anthropic_model": "claude-opus-5-5",
         "anthropic_effort": "xhigh",
-        "openai_model": "gpt-6-luna",
+        "openai_model": "gpt-6.1-sol",
         "openai_effort": None,
     }
     values.update(overrides)
@@ -123,11 +123,11 @@ def test_a_provider_without_a_key_cannot_be_activated(
     "choice",
     [
         _choice(provider="ikisi"),
-        _choice(openai_effort="high"),  # GPT-6 Luna işlevi yalnız `none` ile çağırır
+        _choice(openai_effort="none"),  # GPT-6.1 Sol `none` eforunu reddeder
         _choice(anthropic_effort="none"),
         _choice(anthropic_model=""),
     ],
-    ids=["unknown-provider", "luna-high", "anthropic-none", "empty-model"],
+    ids=["unknown-provider", "sol-none", "anthropic-none", "empty-model"],
 )
 def test_invalid_choices_are_rejected(
     session_factory: sessionmaker[Session], choice: AiChoice

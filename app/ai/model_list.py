@@ -9,15 +9,14 @@ Panelde seçilebilen modeller, her modelin efor kümesi ve istek biçimi bilgisi
   `high`. Zorlanmış araç seçimini (`tool_choice: tool`) Opus 5.5, Sonnet 5.5 ve Fable 5.1 400 ile
   reddeder; `thinking: disabled` Opus 5 ve Haiku 5.5'te yalnız `high` ve altında geçerlidir, öteki
   üç modelde hiç geçerli değildir.
-- OpenAI: OpenAI model dokümanı (developers.openai.com/api/docs/models, …/models/gpt-6-luna,
-  …/guides/reasoning). GPT-6 Luna `reasoning_effort` olarak `none`–`max` alır (varsayılan
-  `medium`), fakat "Chat Completions supports function calling only with `reasoning_effort` set to
-  `none`": işlev çağrısıyla uyumlu tek değer `none`'dır ve "varsayılan" seçiminde de o gönderilir.
-  GPT-6 Astra ve GPT-6.1 Sol Chat Completions'ta işlev çağrısını hiç desteklemez; Responses API'ye
-  geçiş ayrı insan kararıdır (§D124 c), bu yüzden listede değiller.
+- OpenAI: OpenAI model dokümanı ve canlı yoklama (2026-10-26). GPT-6.1 Sol Responses API'de işlev
+  çağrısını her eforla destekler; `reasoning.effort` olarak `low`–`max` kabul eder (`none` ve
+  `minimal` 400 ile reddedilir), varsayılan `medium`. Chat Completions'ta işlev çağrısı yoktur;
+  bu yüzden sağlayıcı Responses API kullanır (PLAN.md §D127). GPT-6 Luna listeden çıkarıldı:
+  14 belgelik eğitim sınıflandırması ölçümünde (`none` eforu) 3 kendinden emin yanlış verdi.
 
 Listede olmayan bir model (`.env`'den gelen) geçerli kalır: efor sağlayıcının bütün kümesinden
-seçilebilir, istek biçimi bugünkü (zorlanmış araç; OpenAI'de `none`) biçimdir.
+seçilebilir, istek biçimi bugünkü (Anthropic'te zorlanmış araç) biçimdir.
 """
 
 from __future__ import annotations
@@ -25,13 +24,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import StrEnum
 
-SOURCE_DATE = "2026-10-23"
+SOURCE_DATE = "2026-10-26"
 
 ANTHROPIC_EFFORTS: tuple[str, ...] = ("low", "medium", "high", "xhigh", "max")
 """Anthropic `output_config.effort` değerleri (düşükten yükseğe)."""
 
 OPENAI_EFFORTS: tuple[str, ...] = ("none", "minimal", "low", "medium", "high", "xhigh", "max")
-"""OpenAI `reasoning_effort` değerleri; desteklenen alt küme modele göredir."""
+"""OpenAI `reasoning.effort` değerleri; desteklenen alt küme modele göredir."""
 
 PROVIDER_EFFORTS: dict[str, tuple[str, ...]] = {
     "anthropic": ANTHROPIC_EFFORTS,
@@ -56,8 +55,7 @@ class AiModel:
     `efforts` panelde seçilebilen değerlerdir ("varsayılan" ayrıca her zaman seçilebilir).
     `default_effort` sağlayıcının parametre gönderilmediğindeki varsayılanıdır.
     `forced_tool_efforts` (Anthropic) zorlanmış araç + kapalı düşünmenin kabul edildiği efor
-    değerleridir; boşsa model bu biçimi hiç kabul etmez. `request_effort_default` (OpenAI) efor
-    seçilmemişken gönderilen değerdir (`None` ise parametre gönderilmez).
+    değerleridir; boşsa model bu biçimi hiç kabul etmez.
     """
 
     provider: str
@@ -66,7 +64,6 @@ class AiModel:
     efforts: tuple[str, ...]
     default_effort: str
     forced_tool_efforts: frozenset[str] = frozenset()
-    request_effort_default: str | None = None
 
 
 _UP_TO_HIGH = frozenset({"low", "medium", "high"})
@@ -85,12 +82,9 @@ MODELS: tuple[AiModel, ...] = (
     ),
     AiModel("anthropic", "claude-fable-5-1", "Claude Fable 5.1", ANTHROPIC_EFFORTS, "high"),
     AiModel(
-        "openai", "gpt-6-luna", "GPT-6 Luna", ("none",), "medium", request_effort_default="none"
+        "openai", "gpt-6.1-sol", "GPT-6.1 Sol", ("low", "medium", "high", "xhigh", "max"), "medium"
     ),
 )
-
-_UNLISTED_OPENAI_EFFORT = "none"
-"""Listede olmayan OpenAI modelinde efor seçilmemişken gönderilen değer (bugünkü davranış)."""
 
 
 def models_for(provider: str) -> tuple[AiModel, ...]:
@@ -141,11 +135,6 @@ def anthropic_request_format(model_id: str, effort: str | None) -> RequestFormat
 
 
 def openai_request_effort(model_id: str, effort: str | None) -> str | None:
-    """OpenAI isteğinde gönderilecek `reasoning_effort`: seçilmişse o; seçilmemişse modelin işlev
-    çağrısıyla uyumlu varsayılanı (listede olmayan modelde bugünkü `none`); `None` gönderilmez."""
-    if effort is not None:
-        return effort
-    model = find_model("openai", model_id)
-    if model is None:
-        return _UNLISTED_OPENAI_EFFORT
-    return model.request_effort_default
+    """OpenAI isteğinde gönderilecek `reasoning.effort`: seçilmişse o; seçilmemişse `None`
+    (parametre gönderilmez, modelin varsayılanı geçerlidir)."""
+    return effort
