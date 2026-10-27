@@ -2828,12 +2828,26 @@
         "priority": "medium",
         "subtasks": [],
         "updatedAt": "2026-10-27T14:00:00.000Z"
+      },
+      {
+        "id": "196",
+        "title": "11.9-i Önizleme ön yükleme: giriş sonrası küçükler, sayfaya girince o sayfanın büyükleri (arka planda, düşük öncelik) [OPUS-HIGH]",
+        "description": "PRD 11.9.8 · FR-MOD-11 · Faz 1 · Should (v1). Sözleşme PLAN §D131. İnsan isteği (2026-10-27): küçük önizlemeler giriş sonrası arka planda inip durur; bir sayfaya girilince yalnız o sayfanın belgelerinin büyük önizlemeleri lazy insin; kullanıcı beklemesin.",
+        "details": "KAPSAM: PRD 11.9.8; PLAN §D131 (ve §D130) — önce oku. Önce tm 195 bitmiş olmalı.\n\nNE YAPILACAK: (1) `GET /previews/thumbs?after=&limit=` (oturum şart, adres + sürüm dizgisi, imleç; sayfa başına 200, hız sınırı). (2) `app/web/static/preview-prefetch.js` (sürümlü, `base.html` defer): aşama 1 küçükler (boşta başlar, eşzamanlılık 2, ~150 ms ara, bitince `localStorage` sürüm dizgisi), aşama 2 sayfa büyükleri (`data-preview-large`, `IntersectionObserver` sırası), `fetch priority:low`, `AbortController` ile iptal (`pointerdown`, `htmx:beforeRequest`, `pagehide`), gizli sekme / saveData / 2g'de çalışmaz, 429/503'te `Retry-After` ile üstel geri çekilme. (3) Şablonlar: `training_type.html`, `catalog_examples.html`, yükleme sayfası (`/uploads/<id>`) belge öğelerine `data-preview-large`. (4) Sunucu: önizleme üretimi iş parçacığı havuzu + `Semaphore(2)`, aşımda `503 Retry-After: 2`, aynı önizleme için tek üretim (kilit). (5) Başlıklar: yükleme önizlemeleri `private, max-age=900` + ETag; çıkışta `Clear-Site-Data: \"cache\"`. (6) `docs/ARAYUZ-STANDARDI.md` hook kaydı (yeni betik/öznitelik); `tests/web/test_ui_standard.py` yeşil. (7) i18n gerekmez (kullanıcıya metin yok).\n\nKABUL: giriş sonrası boşta küçükler iner ve durur (ağ günlüğünde en çok 2 eşzamanlı istek); aynı sürümle ikinci açılışta liste ucu dışında istek yok; tür sayfasına girince yalnız o sayfanın büyükleri iner; kullanıcı tıklayınca bekleyen ön yükleme iptal olur; orijinal dosya adresine hiç istek gitmez; oturumsuz istek reddedilir; çıkış yanıtında `Clear-Site-Data` vardır; yoğunken 503 Retry-After döner ve istemci geri çekilir; web depolamada belge adı/içerik yok.",
+        "testStrategy": "tests/web (liste ucu: oturum, sayfalama, sürüm; başlıklar; Clear-Site-Data; 503 Retry-After; eşzamanlı istek tek üretim), tests/storage (kilit/eşzamanlılık sınırı), betik için tarayıcı doğrulaması (Playwright yoksa DOM ve ağ günlüğü ile preview_start akışı), tests/web/test_ui_standard.py.",
+        "status": "pending",
+        "dependencies": [
+          "195"
+        ],
+        "priority": "medium",
+        "subtasks": [],
+        "updatedAt": "2026-10-27T15:00:00.000Z"
       }
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-27T14:00:00.000Z",
-      "taskCount": 195,
+      "lastModified": "2026-10-27T15:00:00.000Z",
+      "taskCount": 196,
       "completedCount": 194,
       "tags": [
         "master"
