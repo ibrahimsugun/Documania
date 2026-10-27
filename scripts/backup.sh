@@ -71,8 +71,9 @@ final="$backup_dir/$name"
 [ ! -e "$final" ] || die "bu saniyeye ait yedek zaten var: $final"
 
 mkdir "$stage/db"
-excludes=()
-find_filters=()
+# Örnek önizlemeleri gösterim önbelleğidir, kaynaktan yeniden üretilir (11.9.7): arşive girmez.
+excludes=("--exclude=./cache/previews")
+find_filters=(-not -path "$data_dir/cache/previews/*")
 if [ "$include_material" = 1 ]; then
   material=included
 else

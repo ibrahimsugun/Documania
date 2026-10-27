@@ -779,7 +779,9 @@ def test_a_suggested_type_detail_lists_its_examples_with_the_icon_and_image(
     assert "Önerilen" in page.text
     assert "/document-types/albanian_passport" not in page.text  # katalogda değil
     url = "/training/known/albanian_passport/examples/arnavut.jpg"
-    assert f'<img src="{url}"' in page.text
+    # 11.9.7: liste orijinali değil önizlemeyi çeker; orijinal yalnız İndir bağlantısında.
+    assert '<img src="/training/known/albanian_passport/previews/small/arnavut.jpg?v=' in page.text
+    assert f'href="{url}" download>' in page.text
     assert "AI kararı" in page.text and ICON in page.text
     assert "AI kararı: `albanian_passport`" in page.text
 
@@ -798,7 +800,7 @@ def test_a_catalog_type_detail_links_its_type_page_and_shows_unlabeled_examples(
 
     assert 'href="/document-types/turkish_passport"' in page.text
     assert "pasaport.pdf" in page.text and "Mekanik" in page.text
-    assert '<span class="no-image">PDF</span>' in page.text
+    assert "/training/known/turkish_passport/previews/small/pasaport.pdf?v=" in page.text
     assert ICON not in page.text
 
 

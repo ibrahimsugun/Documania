@@ -36,8 +36,16 @@ from tests.web.flash import toasts
 SLUG = "sample_card"
 EXAMPLES_URL = f"/document-types/{SLUG}/examples"
 LIMIT = 1024 * 1024
-# Örnek listesindeki bağlantı dosyayı yeni sekmede açar.
+# Örnek listesindeki ad büyük önizlemeyi yeni sekmede açar; orijinal yalnız İndir ile (11.9.7).
 NEW_TAB = 'target="_blank" rel="noopener"'
+
+
+def _listed(page: str, name: str) -> bool:
+    preview = (
+        rf'<a href="/document-types/{SLUG}/previews/large/{re.escape(name)}\?v=[0-9a-f]+" {NEW_TAB}'
+    )
+    download = f'<a class="button-link button-small" href="{EXAMPLES_URL}/{name}" download>'
+    return re.search(preview, page) is not None and download in page
 
 
 def _type_data() -> dict[str, Any]:
@@ -119,7 +127,7 @@ def test_an_uploaded_example_is_stored_listed_and_served_unchanged(
         layout.root / "KnownDocuments" / "examples" / SLUG / "On-Yuz.png"
     ).read_bytes() == content
     listed = client.get(f"/document-types/{SLUG}")
-    assert f'<a href="{EXAMPLES_URL}/On-Yuz.png" {NEW_TAB}>On-Yuz.png</a>' in listed.text
+    assert _listed(listed.text, "On-Yuz.png")
     assert "Bu türe henüz örnek yüklenmedi." not in listed.text
     served = client.get(f"{EXAMPLES_URL}/On-Yuz.png")
     assert served.status_code == 200
@@ -215,7 +223,7 @@ def test_a_rejected_upload_still_shows_the_examples_already_stored(client: TestC
     response = _upload(client, ("kaynak.docx", make_docx_bytes()))
 
     assert response.status_code == 422
-    assert f'<a href="{EXAMPLES_URL}/var.png" {NEW_TAB}>var.png</a>' in response.text
+    assert _listed(response.text, "var.png")
 
 
 def test_examples_placed_by_hand_are_listed_and_a_rejected_edit_still_shows_them(
@@ -414,7 +422,7 @@ def test_sizes_are_shown_in_kb_and_mb(client: TestClient, layout: DataLayout) ->
 
 def _list_item(page: str, name: str) -> str:
     match = re.search(
-        rf'<li[^>]*>\s*<a href="[^"]*/examples/{re.escape(name)}".*?</li>', page, re.S
+        rf'<li[^>]*>\s*<a href="[^"]*/previews/large/{re.escape(name)}\?.*?</li>', page, re.S
     )
     assert match is not None, name
     return match.group(0)

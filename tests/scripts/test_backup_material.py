@@ -78,6 +78,23 @@ def test_manifest_file_count_matches_what_the_archive_holds(project: Project) ->
     assert int(manifest["data_files"]) == in_archive
 
 
+def test_preview_cache_is_never_archived(project: Project) -> None:
+    # 11.9.7: önizlemeler kaynaktan yeniden üretilir; malzeme arşive alınsa da girmez.
+    preview = project.data / "cache" / "previews" / "russian_passport" / "abc-small.jpg"
+    preview.parent.mkdir(parents=True)
+    preview.write_bytes(b"synthetic preview")
+    page = project.data / "cache" / "pages" / "7" / "0000.jpg"
+    page.parent.mkdir(parents=True)
+    page.write_bytes(b"synthetic page")
+
+    result = project.backup(BACKUP_INCLUDE_MATERIAL="1")
+
+    assert result.code == 0, result.text
+    names = _archive_names(project)
+    assert not [n for n in names if "/cache/previews" in n]
+    assert "data/cache/pages/7/0000.jpg" in names
+
+
 def test_include_flag_puts_the_material_back_into_the_archive(project: Project) -> None:
     _add_material(project)
 

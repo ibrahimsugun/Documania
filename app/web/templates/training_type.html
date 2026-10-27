@@ -1,6 +1,8 @@
 {% extends "base.html" %}
-{# Bilinen türün örnekleri (11.9.1): dosya, kaydı (yöntem, etiket, not) ve görüntüsü. Görüntü
-   yüklendiği baytlardır; küçültmeyi tarayıcı yapar (K11, K17). Silme ve düzenleme yolu yoktur.
+{# Bilinen türün örnekleri (11.9.1): dosya, kaydı (yöntem, etiket, not) ve görüntüsü. Liste
+   orijinali çekmez (11.9.7): küçük resim sunucunun bir kez ürettiği önizlemedir, ada ya da resme
+   tıklayınca büyük önizleme açılır; orijinal yalnız "İndir" ile iner. Önizleme gösterim
+   önbelleğidir, örnek değişmez (K11, K17). Silme ve düzenleme yolu yoktur.
    Kaydı olan örnekte etiket kararı (11.9.4): Doğrula (tek ya da toplu), Başka türe taşı ve
    Örneklerden çıkar (ikisi iki aşamalı onaylı; çıkarılan dosya eğitim arşivine taşınır). #}
 {% block title %}{{ known_type.name }} · {{ translate(entry.label) }}{% endblock %}
@@ -26,11 +28,12 @@
 <ul class="thumbs training-examples">
   {% for example in examples %}
   <li class="thumb{% if example.manual_check %} needs-check{% endif %}" id="example-{{ loop.index }}">
-    <a href="{{ example.url }}" target="_blank" rel="noopener">
-      {% if example.is_image %}<img src="{{ example.url }}" alt="{{ example.name }}" loading="lazy">{% else %}<span class="no-image">PDF</span>{% endif %}
+    <a href="{{ example.preview_url }}" target="_blank" rel="noopener" tabindex="-1" aria-hidden="true">
+      <img src="{{ example.thumb_url }}" alt="{{ example.name }}" width="320" height="320" loading="lazy" decoding="async">
     </a>
-    <span class="caption"><a href="{{ example.url }}" target="_blank" rel="noopener">{{ example.name }}</a></span>
+    <span class="caption"><a href="{{ example.preview_url }}" target="_blank" rel="noopener" title="{{ _('Büyük önizleme') }}">{{ example.name }}</a></span>
     <span class="reason">{{ example.size_label }}{% if example.method %} · {{ translate(example.method) }}{% endif %}</span>
+    <a class="button-link button-small" href="{{ example.url }}" download>{{ _("İndir") }}</a>
     <span class="badges">
       {% if example.label_text %}<span class="badge{% if not example.manual_check %} badge-neutral{% endif %}">{{ translate(example.label_text) }}</span>{% endif %}
       {% if example.manual_check %}{% include "_manual_check.html" %}{% endif %}

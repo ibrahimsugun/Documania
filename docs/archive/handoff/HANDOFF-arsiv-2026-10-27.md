@@ -4,6 +4,14 @@ Kaynak: HANDOFF.md (canlı dosyadan taşındı, birebir). Blok sayısı: 1.
 
 <!-- bloklar (newest-first) -->
 
+## 190 — 10.1-j Giriş kaydı ve "Girişler" sekmesi yalnız root — done — 2026-10-26
+- Yapıldı: `login_log` (göç 0034) + `check_login` (neden, tek hata metni/401 ve sahte özet aynı) + `record_login` (savepoint, hata girişi engellemez) + `client_ip` (güvenilen vekilde `CF-Connecting-IP` → `X-Forwarded-For`, `TRUSTED_PROXIES`), giriş başarı/başarısızlık ve çıkış yazılır; `/access-log/logins` (sonuç + kullanıcı süzgeci, 50'lik sayfa, kullanıcı özeti, bilinmeyen adlar tek satır), iki sayfada `nav.tabs`, üç dil, YEDEKLEME notu.
+- Doğrulama: ruff check/format, compileall, temiz SQLite'ta `alembic upgrade head` (→0034), `import app.main`, `python -m app.i18n check`, `docker compose config`, `git diff --check` exit 0; tam paralel kapı (`-n 6 --cov`) 7207 geçti, 6 atlandı, kapsam %98,73, 12 dk 36 sn, exit 0.
+- Varsayımlar: §D125 "uygulama kararları (tm 190)"na yazıldı — pasif + doğru parola `inactive`, yanlış `wrong_password`; canlıda app konteynerde olduğu için `docker-compose.yml` özel ağları güvenilen vekile ekler ve `Caddyfile` istemcinin `CF-Connecting-IP`'sini siler; tanınmayan süzgeç değeri "tümü"; önceki oturumun girişte kapanması çıkış sayılmaz.
+- Sonraki pencereye not: Faz 1'de açık satır kalmadı (96 ✅, 52/52 Must) — kapanış denetimi görevi açılabilir. YanPC'ye yeniden dağıtımda IP'nin gerçek istemci adresi göründüğü canlıda bir girişle doğrulanmalı (konteyner `TRUSTED_PROXIES`'i compose'dan alır).
+
+
+
 ## 189 — 10.1-i Yapay zekâ ayarları sayfası yalnız root — done — 2026-10-23
 - Yapıldı: `app/web/routers/ai_settings.py` + `ai_settings.html` (sağlayıcı başına kart: anahtar yalnız tanımlı/tanımsız, tek etkin radyo, model ve efor `select`, satır yokken `.env` + "henüz kaydedilmedi"), tek adımlı kayıt (bilinmeyen sağlayıcı/model/efor ve anahtarsız sağlayıcı 422, `N_` metinleri), `AI_SETTINGS_CHANGED`, iki bildirim, root gezinmesinde simgeli `tool-link`, üç dil.
 - Doğrulama: ruff check/format, compileall, temiz SQLite'ta `alembic upgrade head` (→0033, göç yok), `import app.main`, `python -m app.i18n check`, `git diff --check` exit 0; tam paralel kapı (`-n 6 --cov`) 7191 geçti, 6 atlandı, kapsam %98,73, exit 0.

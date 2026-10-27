@@ -888,6 +888,7 @@ form.inline { margin-left: 0.35rem; }
 .photo-rules .field-error { flex-basis: 100%; padding-left: 1.6rem; }
 .accepted-photo-list, .example-list { margin: 0 0 1rem; padding-left: 1.25rem; }
 .example-list li { margin-bottom: 0.4rem; }
+.example-list img { width: 4rem; height: 4rem; object-fit: contain; vertical-align: middle; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-sm); }
 .example-decisions { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 0.35rem 0.6rem; margin-left: 0.35rem; }
 
 /* Birleştirme ve kapatma seçimleri. */
@@ -1291,6 +1292,7 @@ th.num, td.num { text-align: right; font-variant-numeric: tabular-nums; white-sp
 .thumb { display: flex; flex-direction: column; align-items: center; gap: 0.3rem; text-align: center; font-size: var(--text-xs); }
 .thumb a { display: block; width: 100%; border-radius: var(--radius-sm); transition: transform 140ms var(--ease), box-shadow 140ms var(--ease); }
 .thumb a:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+.thumb a.button-link { width: auto; }
 .thumb img { display: block; width: 100%; height: 11rem; object-fit: contain; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-sm); }
 .no-image { display: flex; align-items: center; justify-content: center; width: 100%; height: 6rem; color: var(--muted-ink); background: var(--surface); border: 1px dashed var(--line-strong); border-radius: var(--radius-sm); font-size: var(--text-xs); }
 .caption { font-weight: 600; color: var(--ink-soft); overflow-wrap: anywhere; }

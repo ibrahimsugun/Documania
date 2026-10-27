@@ -4,8 +4,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Documania panel\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-26 22:54+0000\n"
-"PO-Revision-Date: 2026-10-26 22:54+0000\n"
+"POT-Creation-Date: 2026-10-27 14:41+0000\n"
+"PO-Revision-Date: 2026-10-27 14:41+0000\n"
 "Last-Translator: Documania görev penceresi (gözden geçirilmeli)\n"
 "Language: sr_Latn\n"
 "Language-Team: Srpski\n"
@@ -2540,6 +2540,10 @@ msgstr "Veliki tekst"
 #: app/web/templates/base.html
 msgid "Büyük yazı: yazıyı büyüt ya da küçült"
 msgstr "Veliki tekst: povećaj ili smanji tekst"
+
+#: app/web/templates/catalog_examples.html app/web/templates/training_type.html
+msgid "Büyük önizleme"
+msgstr "Veliki pregled"
 
 #: app/web/templates/catalog_accepted_photos.html
 #, python-format
@@ -8370,7 +8374,9 @@ msgstr "Pregleda se"
 msgid "İncelenmedi: yapay zekâ ayarlı değil"
 msgstr "Nije pregledano: veštačka inteligencija nije podešena"
 
+#: app/web/templates/catalog_examples.html
 #: app/web/templates/output_template.html app/web/templates/profile.html
+#: app/web/templates/training_type.html
 msgid "İndir"
 msgstr "Preuzmi"
 

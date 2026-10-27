@@ -3,7 +3,9 @@
    "AI kararı" etiketli örnek elle kontrol ikonuyla görünür; doğrulama eğitim sekmesindeki tür
    sayfasındadır. Kaydı olan örnek 11.9.4 akışına bağlanır: "Başka türe taşı" ve "Örneklerden
    çıkar" (ikisi iki aşamalı onaylı; çıkarılan dosya eğitim arşivine taşınır). Kaydı olmayan eski
-   dosya "kayıtsız" notuyla durur. Çalışan verisinden ayrıdır ve aramada görünmez. Yükleme
+   dosya "kayıtsız" notuyla durur. Liste orijinali çekmez (11.9.7): küçük resim sunucunun bir kez
+   ürettiği önizlemedir, ada tıklayınca büyük önizleme açılır, orijinal yalnız "İndir" ile iner.
+   Çalışan verisinden ayrıdır ve aramada görünmez. Yükleme
    JavaScript'siz düz form gönderimidir; içerik düzenleme yolu yoktur (K17). #}
 <section class="examples" id="examples">
   <h2>{{ _("Örnek belgeler") }}</h2>
@@ -31,8 +33,10 @@
   <ul class="example-list">
     {% for item in examples %}
     <li{% if item.manual_check %} class="needs-check"{% endif %}>
-      <a href="/document-types/{{ slug|urlencode }}/examples/{{ item.name|urlencode }}" target="_blank" rel="noopener">{{ item.name }}</a>
+      <a href="{{ item.preview_url }}" target="_blank" rel="noopener" tabindex="-1" aria-hidden="true"><img src="{{ item.thumb_url }}" alt="{{ item.name }}" width="64" height="64" loading="lazy" decoding="async"></a>
+      <a href="{{ item.preview_url }}" target="_blank" rel="noopener" title="{{ _('Büyük önizleme') }}">{{ item.name }}</a>
       <span class="count">({{ item.size_label }})</span>
+      <a class="button-link button-small" href="{{ item.url }}" download>{{ _("İndir") }}</a>
       {% if item.label_text %}<span class="badge{% if not item.manual_check %} badge-neutral{% endif %}">{{ translate(item.label_text) }}</span>{% endif %}
       {% if item.manual_check %}{% include "_manual_check.html" %} <a href="{{ training_type_url }}">{{ _("Eğitim modunda incele") }}</a>{% endif %}
       {% if item.record_id %}

@@ -1,6 +1,12 @@
-"""Eğitim komutları: "AI kararı" örneklerinin çift incelemesi (PRD 11.9.4; PLAN.md §D128).
+"""Eğitim komutları: "AI kararı" örneklerinin çift incelemesi (PRD 11.9.4; PLAN.md §D128) ve
+örnek önizlemelerinin toplu ısıtılması (PRD 11.9.7; PLAN.md §D130).
 
     python -m app.training recheck [--limit N] [--dry-run] [--again] [--report YOL]
+    python -m app.training previews
+
+`previews` bütün türlerin bütün örneklerinin küçük ve büyük önizlemesini `cache/previews/` altına
+üretir (`app.storage.previews.warm_previews`); var olanı atlar, durdurulursa yeniden çalıştırınca
+kaldığı yerden sürer, sonda üretilen/var olan/üretilemeyen sayılarını yazar. Yapay zekâ çağırmaz.
 
 Etkin "AI kararı" örneklerini GPT-6.1 Sol ve Claude Sonnet 5.5 (ikisi `low`) ile ayrı ayrı
 sınıflandırır (`app.training.recheck`): ikisi örneğin türünü verirse etiket "doğrulanmış" olur;
@@ -24,6 +30,7 @@ from app.config import get_settings
 from app.db.models import ExampleFileRecord
 from app.db.session import create_db_engine, create_session_factory
 from app.storage import DataLayout
+from app.storage.previews import warm_previews
 from app.training.known_types import load_known_types
 from app.training.pair import (
     PRICES_DATE,
@@ -60,7 +67,15 @@ def _parser() -> argparse.ArgumentParser:
         type=Path,
         help=f"JSON satırları raporu (varsayılan: veri dizini/{DEFAULT_REPORT})",
     )
+    commands.add_parser("previews", help="örnek önizlemelerini önceden üretir (toplu ısıtma)")
     return parser
+
+
+def _previews() -> int:
+    layout = DataLayout(get_settings().data_dir)
+    counts = warm_previews(layout)
+    print(json.dumps(counts, ensure_ascii=False))
+    return 0
 
 
 def _done_ids(report: Path) -> set[int]:
@@ -163,6 +178,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = _parser().parse_args(argv)
     if args.command == "recheck":
         return _recheck(args)
+    if args.command == "previews":
+        return _previews()
     return 2
 
 

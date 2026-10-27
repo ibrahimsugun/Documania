@@ -26,7 +26,10 @@ belgesi oluşturmaz (`app.training`).
   listesi, kaydı (yöntem, etiket, not) ve görüntüsü. Katalog dışı türün örneği
   `/document-types/{slug}/examples/...`'ten açılmadığı (orada yalnız katalog türleri var) için
   örnek dosyası `/training/known/{slug}/examples/{name}`'den verilir: tür bilinen türse ve ad türün
-  örnek listesinde varsa (`example_path`); yol istekteki addan kurulmaz. Yanıt `nosniff`'tir.
+  örnek listesinde varsa (`example_path`); yol istekteki addan kurulmaz. Yanıt `nosniff`'tir ve
+  yalnız indirmedir (`attachment`, 11.9.7). Liste orijinali çekmez: küçük resim ve ada tıklayınca
+  açılan büyük önizleme `/training/known/{slug}/previews/{small|large}/{name}?v=<anahtar>`'dan
+  gelir (`app.storage.previews`, `app.web.previews`; içeriğe bağlı adres, `private` uzun önbellek).
 - **Etiket kararı (11.9.4; PLAN.md §C86 "Etiket kararı", §D58).** Kaydı olan örnekte İK üç karardan
   birini verir (`app.training.decisions`): **Doğrula** (`POST /training/examples/verify`; tek ya da
   toplu seçim, tek adım) "AI kararı" etiketini `verified` yapar; **Başka türe taşı**
@@ -102,6 +105,7 @@ from app.i18n import N_, Translatable, gettext
 from app.i18n.recorded import localized, recall, recall_texts
 from app.storage import ContentMismatchError, DataLayout
 from app.storage.examples import example_path, list_examples
+from app.storage.previews import ensure_preview
 from app.training import (
     DISMISSABLE_STATUSES,
     PENDING_STATUSES,
@@ -161,6 +165,7 @@ from app.web.feedback import (
     TRAINING_VERIFY_NONE,
     flash,
 )
+from app.web.previews import download_response, preview_response, preview_url
 from app.web.routers.uploads import _validated_name, get_layout
 from app.web.templating import MENU_BY_KEY, render_page
 
@@ -299,8 +304,6 @@ PLACEMENT_FEEDBACK = {
     TrainingItemStatus.CONFLICT: TRAINING_CONFLICT,
 }
 
-_IMAGE_SUFFIXES = (".jpg", ".jpeg", ".png")
-
 
 def get_training_provider_problem(settings: ActiveAiSettings) -> str | None:
     """Yapay zekâ sağlayıcısı kurulamıyorsa nedeni (sekmede bilgi notu); kurulabiliyorsa `None`.
@@ -405,7 +408,8 @@ class ExampleRow:
     name: str
     size_label: str
     url: str
-    is_image: bool
+    thumb_url: str
+    preview_url: str
     method: str | None
     label: str | None
     label_text: str | None
@@ -1153,12 +1157,14 @@ def known_document(
     for example in list_examples(layout, slug):
         record = records.get(example.name)
         label = record.label if record is not None else None
+        source = layout.type_examples_dir(slug) / example.name
         examples.append(
             ExampleRow(
                 name=example.name,
                 size_label=_size_label(example.size),
                 url=f"{_known_url(slug)}/examples/{quote(example.name)}",
-                is_image=example.name.casefold().endswith(_IMAGE_SUFFIXES),
+                thumb_url=preview_url(_known_url(slug), source, "small"),
+                preview_url=preview_url(_known_url(slug), source, "large"),
                 method=METHOD_LABELS.get(record.method) if record is not None else None,
                 label=label,
                 label_text=LABEL_TEXTS.get(label) if label else None,
@@ -1188,13 +1194,27 @@ def known_document(
 
 @router.get(f"{KNOWN_PATH}/{{slug}}/examples/{{name}}")
 def known_example_file(slug: str, name: str, session: DbSession, layout: Layout) -> FileResponse:
-    """Bilinen türün (katalog dışı da olabilir) örnek dosyası, yüklendiği baytlar. Tür bilinen
-    türlerden değilse ya da ad türün örnek listesinde yoksa 404; yol istekteki addan kurulmaz."""
+    """Bilinen türün (katalog dışı da olabilir) örnek dosyası, yüklendiği baytlar; yalnız indirme
+    olarak (11.9.7). Tür bilinen türlerden değilse ya da ad türün örnek listesinde yoksa 404; yol
+    istekteki addan kurulmaz."""
     _known_type(session, slug)
     path = example_path(layout, slug, name)
     if path is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, EXAMPLE_NOT_FOUND)
-    return FileResponse(path, headers={"X-Content-Type-Options": "nosniff"})
+    return download_response(path)
+
+
+@router.get(f"{KNOWN_PATH}/{{slug}}/previews/{{size}}/{{name}}")
+def known_example_preview(
+    slug: str, size: str, name: str, request: Request, session: DbSession, layout: Layout
+) -> Response:
+    """Örneğin küçük (`small`) ya da büyük (`large`) önizlemesi (11.9.7); yoksa üretilir. Ad
+    listede yoksa ya da boyut tanımsızsa 404."""
+    _known_type(session, slug)
+    preview = ensure_preview(layout, slug, name, size)
+    if preview is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, EXAMPLE_NOT_FOUND)
+    return preview_response(request, preview, size)
 
 
 # --- etiket kararı (11.9.4) -------------------------------------------------------------------

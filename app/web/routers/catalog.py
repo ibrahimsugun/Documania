@@ -40,7 +40,10 @@
 
 **Örnek belgeler (11.2.1).** Türün düzenleme sayfasında (`GET /document-types/{slug}`) o türün
 örnekleri listelenir ve `POST /document-types/{slug}/examples` ile (çok dosyalı `files`) yenisi
-yüklenir; örnek `GET /document-types/{slug}/examples/{ad}` ile açılır. Örnekler
+yüklenir; örnek `GET /document-types/{slug}/examples/{ad}` ile yalnız indirilir (`attachment`,
+11.9.7). Listede küçük resim ve ada tıklayınca büyük önizleme
+`GET /document-types/{slug}/previews/{small|large}/{ad}?v=<anahtar>`'dan gelir
+(`app.storage.previews`; orijinal çekilmez). Örnekler
 `data/KnownDocuments/examples/<slug>/` altında dosya olarak durur (`app.storage.examples`):
 çalışan verisinden ayrıdır — yükleme, belge, olay kaydı açılmaz, `Inbox/` ve `Employees/`'a girmez —
 bu yüzden çalışan/belge aramasında görünmez ve gerçek bir yüklemeyi "tekrar" saymaz. Yükleme
@@ -250,6 +253,7 @@ from app.storage.examples import (
     list_examples,
     store_example,
 )
+from app.storage.previews import ensure_preview
 from app.training.cleanup import listed_hashes, record_uploaded_example, same_type_example
 from app.training.known_types import KnownTypes, load_known_types
 from app.web.ai_runtime import ActiveAiSettings
@@ -290,6 +294,7 @@ from app.web.feedback import (
     render,
 )
 from app.web.guidance import first_page
+from app.web.previews import download_response, preview_response, preview_url
 from app.web.routers.documents import _reference
 from app.web.routers.queue import QueueState, _payload_refs, _state_filter
 from app.web.routers.training import LABEL_TEXTS, MANUAL_CHECK_TEXT
@@ -742,14 +747,19 @@ def _examples_context(
     kimliğiyle (`record_id`) "Başka türe taşı" ve "Örneklerden çıkar" akışına bağlanır (11.9.6);
     kaydı olmayan dosyada `record_id` boştur."""
     records = _example_records(session, slug)
+    base = f"{LIST_PATH}/{quote(slug)}"
     examples = []
     for item in list_examples(layout, slug):
         record = records.get(item.name)
         label = record.label if record is not None else None
+        source = layout.type_examples_dir(slug) / item.name
         examples.append(
             {
                 "name": item.name,
                 "size_label": _size_label(item.size),
+                "url": f"{base}/examples/{quote(item.name)}",
+                "thumb_url": preview_url(base, source, "small"),
+                "preview_url": preview_url(base, source, "large"),
                 "label_text": LABEL_TEXTS.get(label or ""),
                 "manual_check": label == ExampleLabel.AI_DECISION,
                 "record_id": record.id if record is not None else None,
@@ -1609,13 +1619,28 @@ def _removed_only(session: Session, slug: str, name: str) -> bool:
 
 @router.get(f"{LIST_PATH}/{{slug}}/examples/{{name}}")
 def example_file(slug: str, name: str, session: DbSession, layout: Layout) -> FileResponse:
-    """Türün örnek dosyası (yüklendiği baytlar). Tür katalogda ya da dosya türün örnek dizininde
-    yoksa ya da adın kaydı örneklerden çıkarılmışsa (11.9.6) 404."""
+    """Türün örnek dosyası (yüklendiği baytlar), yalnız indirme olarak (11.9.7). Tür katalogda ya
+    da dosya türün örnek dizininde yoksa ya da adın kaydı örneklerden çıkarılmışsa (11.9.6) 404."""
     _known_type(session, slug)
     path = example_path(layout, slug, name)
     if path is None or _removed_only(session, slug, name):
         raise HTTPException(status.HTTP_404_NOT_FOUND, EXAMPLE_NOT_FOUND)
-    return FileResponse(path, headers={"X-Content-Type-Options": "nosniff"})
+    return download_response(path)
+
+
+@router.get(f"{LIST_PATH}/{{slug}}/previews/{{size}}/{{name}}")
+def example_preview(
+    slug: str, size: str, name: str, request: Request, session: DbSession, layout: Layout
+) -> Response:
+    """Örneğin küçük (`small`) ya da büyük (`large`) önizlemesi (11.9.7); yoksa üretilir. Ad
+    listede yoksa, kaydı örneklerden çıkarılmışsa ya da boyut tanımsızsa 404."""
+    _known_type(session, slug)
+    if _removed_only(session, slug, name):
+        raise HTTPException(status.HTTP_404_NOT_FOUND, EXAMPLE_NOT_FOUND)
+    preview = ensure_preview(layout, slug, name, size)
+    if preview is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, EXAMPLE_NOT_FOUND)
+    return preview_response(request, preview, size)
 
 
 def get_description_provider(

@@ -318,6 +318,8 @@ NOT_HTML = frozenset(
         "/employees/{employee_id}/photo",
         "/document-types/{slug}/examples/{name}",
         "/training/known/{slug}/examples/{name}",
+        "/document-types/{slug}/previews/{size}/{name}",
+        "/training/known/{slug}/previews/{size}/{name}",
         "/output-templates/{template_id}/file",
         "/output-templates/{template_id}/download",
         "/output-templates/{template_id}/pages/{page_index}",

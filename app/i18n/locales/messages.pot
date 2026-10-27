@@ -4,7 +4,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Documania panel\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-26 22:52+0000\n"
+"POT-Creation-Date: 2026-10-27 14:41+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -2192,6 +2192,10 @@ msgstr ""
 
 #: app/web/templates/base.html
 msgid "Büyük yazı: yazıyı büyüt ya da küçült"
+msgstr ""
+
+#: app/web/templates/catalog_examples.html app/web/templates/training_type.html
+msgid "Büyük önizleme"
 msgstr ""
 
 #: app/web/templates/catalog_accepted_photos.html
@@ -7556,7 +7560,9 @@ msgstr ""
 msgid "İncelenmedi: yapay zekâ ayarlı değil"
 msgstr ""
 
+#: app/web/templates/catalog_examples.html
 #: app/web/templates/output_template.html app/web/templates/profile.html
+#: app/web/templates/training_type.html
 msgid "İndir"
 msgstr ""
 

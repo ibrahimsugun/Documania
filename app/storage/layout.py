@@ -22,6 +22,8 @@ data/
       _sablonlar/<template_id>/       hazır şablonun orijinali (sablon.pdf, değişmez) ve
                                       pages/<sayfa>.jpg önizleme görüntüleri (15.1.1)
   cache/pages/<file_id>/          analiz için üretilmiş sayfa görüntüleri
+  cache/previews/<tur_slug>/      örneklerin gösterim önizlemeleri (<anahtar>-<boyut>.jpg; 11.9.7);
+                                  kaynaktan yeniden üretilir, yedeğe girmez
   telegram/bot.json               botun Telegram kullanıcı adı; bot açılışta yazar (12.1.4)
 ```
 
@@ -61,6 +63,7 @@ TEMPLATES = "_sablonlar"
 TEMPLATE_ORIGINAL_FILE = "sablon.pdf"
 CACHE = "cache"
 PAGES = "pages"
+PREVIEWS = "previews"
 PAGE_IMAGE_EXTENSION = "jpg"
 TELEGRAM = "telegram"
 TELEGRAM_BOT_INFO_FILE = "bot.json"
@@ -119,6 +122,12 @@ class DataLayout:
     @property
     def page_cache(self) -> Path:
         return self.root / CACHE / PAGES
+
+    @property
+    def preview_cache(self) -> Path:
+        """`cache/previews/` — örnek önizlemeleri (11.9.7). Belge değil gösterim önbelleğidir
+        (`cache/pages` gibi); dizin ilk önizleme yazılınca açılır."""
+        return self.root / CACHE / PREVIEWS
 
     @property
     def catalog_path(self) -> Path:
@@ -249,6 +258,15 @@ class DataLayout:
         if page_index < 0:
             raise ValueError(f"Geçersiz sayfa sırası: {page_index!r}")
         return self.page_cache_dir(file_id) / f"{page_index:04d}.{extension}"
+
+    def preview_dir(self, type_slug: str) -> Path:
+        return self.preview_cache / _segment(type_slug, "type_slug")
+
+    def preview_path(self, type_slug: str, key: str, size: str) -> Path:
+        """`cache/previews/<tur_slug>/<anahtar>-<boyut>.jpg` — anahtar örneğin adından, boyutundan
+        ve değişme zamanından türer (örnek değişirse yeni ad, 11.9.7)."""
+        name = f"{_segment(key, 'preview_key')}-{_segment(size, 'preview_size')}"
+        return self.preview_dir(type_slug) / f"{name}.{PAGE_IMAGE_EXTENSION}"
 
     # --- veritabanında saklanan göreli yollar -----------------------------------------------
 
