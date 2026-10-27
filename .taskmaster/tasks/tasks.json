@@ -2864,11 +2864,11 @@
         "description": "PRD 11.1.8 · FR-MOD-11 · Faz 1 · Should (v1). Sözleşme PLAN §D133. İnsan isteği (2026-10-27): Belge Türleri sayfasında Ülke süzgecinin yanına arama butonu.",
         "details": "KAPSAM: PRD 11.1.8; PLAN §D133 — önce oku.\n\nNE YAPILACAK: (1) `app/web/routers/catalog.py`: `q` sorgu parametresi (`Query(max_length=100)`), `_filter_types(types, country, query)` — ad, `file_label`, slug; casefold + aksan/Türkçe i-İ duyarsız alt dize; ülke ile AND; `_country_suffix` `q`'yu da taşır; arşiv görünümü dahil. (2) `app/web/templates/catalog.html`: `country-filter` formuna arama alanı (`type=search`, etiketli, `name=q`) + \"Ara\" düğmesi + doluyken \"Temizle\" bağlantısı; toplu işlem formlarına ve bağlantı soneklerine `q` gizli alanı; sonuç yoksa \"Eşleşen tür yok.\". (3) Mevcut htmx kalıbı (`hx-get`, `hx-select`, `hx-push-url`) bozulmaz. (4) `docs/ARAYUZ-STANDARDI.md` kalıplarına uyar; yeni sınıf yok. (5) i18n: `python -m app.i18n extract|update|compile|check` (Ara, Temizle, Eşleşen tür yok., alan etiketi).\n\nKABUL: \"geçiş\" yazınca adında/etiketinde/slug'ında geçen türler listelenir; \"I\"/\"ı\"/\"İ\" ve aksan farkı sonucu değiştirmez; ülke seçiliyken yalnız o ülke + genel türlerin içinde arar; `q` bağlantılarda, toplu işlemde ve yönlendirmede korunur; 101 karakter reddedilir; token göstergesi değişmez; arama hiçbir kayıt değiştirmez.",
         "testStrategy": "tests/web/test_catalog*.py (süzgeç: ad/etiket/slug, Türkçe i-İ, ülke ile birleşim, boş sonuç, q korunması, 101 karakter, arşiv), tests/web/test_ui_standard.py, tests/i18n.",
-        "status": "in-progress",
+        "status": "done",
         "dependencies": [],
         "priority": "medium",
         "subtasks": [],
-        "updatedAt": "2026-10-27T20:59:08.676Z"
+        "updatedAt": "2026-10-27T21:12:03.814Z"
       },
       {
         "id": "199",
@@ -2897,9 +2897,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-27T19:00:00.000Z",
+      "lastModified": "2026-10-27T21:12:03.814Z",
       "taskCount": 200,
-      "completedCount": 197,
+      "completedCount": 198,
       "tags": [
         "master"
       ]

@@ -7,7 +7,8 @@
    örnekler ayrı formdur. Belge içeriği formda yok (K17).
    Alanlar tek satırlık girdidir: şablonlarda çok satırlı metin alanı yoktur (10.9.1 kilidi), form
    `action` yolları düz metin yazılır. Listenin ülke süzgeci (11.1.5) geri bağlantılarda ve gizli
-   `list_country` alanında taşınır: kaydetme yönlendirmesi aynı süzgece döner (`country` türün alanı). #}
+   `list_country` alanında, araması (11.1.8) `list_q` alanında taşınır: kaydetme yönlendirmesi aynı
+   süzgece döner (`country` türün alanı). #}
 {% block title %}{{ _("Yeni belge türü") if is_new else _("Belge türünü düzenle") }}{% endblock %}
 {% block content %}
 <p class="back"><a href="/document-types{{ list_query }}">← {{ _("Belge Türleri") }}</a></p>
@@ -42,6 +43,7 @@
 <form class="type-form" method="post" action="/document-types/{{ slug|urlencode }}">
 {% endif %}
   {% if list_country != "all" %}<input type="hidden" name="list_country" value="{{ list_country }}">{% endif %}
+  {% if list_q %}<input type="hidden" name="list_q" value="{{ list_q }}">{% endif %}
   {% include "catalog_type_fields.html" %}
 
   <div class="form-actions">

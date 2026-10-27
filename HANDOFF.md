@@ -20,6 +20,12 @@ Blok biçimi `CONVENTIONS.md` §3'te tanımlıdır:
 
 ## Task log (newest-first)
 
+## 198 — 11.1-g Belge Türleri: ülke süzgecinin yanına arama kutusu ve Ara düğmesi — done — 2026-10-27
+- Yapıldı: `GET /document-types?q=` (≤100) türün adında, dosya etiketinde ve slug'ında harf büyüklüğü/aksan/Türkçe ı-İ duyarsız alt dize arar, ülke süzgeciyle AND birleşir, arşiv görünümünde de çalışır; ülke seçiminin yanında etiketli arama alanı + "Ara" (Enter da), sonuç satırında "Temizle", boş sonuçta "Eşleşen tür yok."; `q` bağlantılarda, toplu işlemde, tekil işlemlerde, arşiv adımlarında, tür formunda (`list_q`) ve yönlendirmelerde korunur.
+- Doğrulama: ruff check/format, compileall, `import app.main`, `git diff --check`, `python -m app.i18n check`, temiz SQLite'ta `alembic upgrade head` exit 0; tests/web + tests/i18n (-n 6) 1801 geçti, yeni `tests/web/test_catalog_search.py` 21 test. Tam kapı (`--cov`) koşulmadı (insan kuralı).
+- Varsayımlar: "Temizle" formda değil sonuç satırında (htmx yalnız `#catalog-results`'ı değiştirir; formda dursa arama sonrası güncellenmezdi). Yalnız noktalamadan oluşan arama süzmez. JS kapalıyken "Uygula" (noscript) yerinde kaldı; "Ara" her zaman görünür. Form `aria-label`'ı "Türleri ülkeye göre süz ve ara" oldu.
+- Sonraki pencereye not: YanPC'ye DAĞITILMADI. Faz 1'de açık: 11.1.9 (tm 199), 15.1.5 (tm 200).
+
 ## 197 — 11.9-j Tüm belgeler için genel önizleme katmanı — done — 2026-10-27
 - Yapıldı: her belge kaynağı (çalışan belgesi, profil fotoğrafı, yükleme/kuyruk/geçmiş/aday sayfası, üretilen belge, şablon sayfası) `PreviewSource` ile aynı 320/1280 px JPEG üretiminden geçer; listeler yalnız küçük JPEG (`loading=lazy decoding=async`), ada/küçük resme tıklayınca büyük önizleme (çok sayfalıda `…/preview` sayfası, sayfa sayfa ≤20), orijinal yalnız İndir; çalışan verisi kademe 2 (`private, max-age=900` + ETag/304), şablon kademe 1 (`immutable`, `?v=`); her uç kaynağın mevcut 404 kuralını kullanır.
 - Doğrulama: ruff check/format, compileall, `import app.main`, `python -m app.i18n check`, temiz SQLite'ta `alembic upgrade head` exit 0; tests/web + storage + scripts + i18n + training + pipeline (-n 6) 3596 geçti, 4 atlandı. Tam kapı (`--cov`) koşulmadı (insan kuralı).
@@ -43,10 +49,3 @@ Blok biçimi `CONVENTIONS.md` §3'te tanımlıdır:
 - Doğrulama: ruff check/format, `tests/scripts` + `tests/deploy` geçti (rsync'li 4 test geliştirme makinesinde rsync yok diye atlandı); tam kapı (`--cov`) koşulmadı (insan kuralı: 50 dk'lık kapıyı bekleme).
 - Varsayımlar: §D129 — `_referans` data hacminde kalır ama arşivden çıkar; `--delete` yok; `gelen` tekilleştirme kapsam dışı.
 - Sonraki pencereye not: YanPC'ye DAĞITILMADI. Geçiş (insan izni gerekir): uygulamayı durdur → imajı kur → `known_examples`/`known_training` hacimlerine kopyala (`cp -a`) → sayı/bayt doğrula → `data` hacmindeki eski `examples`/`_egitim`'i kaldır → `up -d`; sonra `BACKUP_MATERIAL_DIR` ve `MATERIAL_*_DIR` ile `backup-material.sh`'i bir kez çalıştır.
-
-## 193 — 11.9-g Eğitimde çift inceleme (Sol + Sonnet 5.5) ve "AI kararı" yeniden inceleme komutu — done — 2026-10-27
-- Yapıldı: iki anahtar tanımlıyken eğitim her belgeyi GPT-6.1 Sol ve Sonnet 5.5'e (`low`) ayrı sorar; ikisi aynı bilinen türü verirse örnek doğrudan `verified` (olay `review: pair`, aktör `system`), yoksa "AI kararı"; `python -m app.training recheck` mevcut "AI kararı" örneklerini aynı kuralla doğrular/taşır/bırakır ve model başına belirteç + tahmini maliyet yazar; `UsageTotals`, `TRAINING_AUTO_CONFIRM`, i18n (en, sr).
-- Doğrulama: ruff check/format, compileall, `import app.main`, `python -m app.i18n check` exit 0; tests/training + ai + i18n + worker + config + ui_standard 1543 geçti, 4 atlandı. Tam kapı (`--cov`) koşulmadı (insan kuralı). Yerel kuru koşu (5 örnek, gerçek sağlayıcılar): 4 doğrulanır, 1 belirsiz, ~0,25 $.
-- Varsayımlar: §D128 — aynı ama farklı türü veren iki model örneği o türe taşır (`move_example`); Yerleştirilemedi/Başarısız öğeler kapsam dışı; çift panelden seçilemez (sabit).
-- Sonraki pencereye not: kod YanPC'ye dağıtılmadı ve canlıdaki 405 "AI kararı" örneği henüz incelenmedi (dağıtım izni bekliyor). Dağıtımdan sonra sunucuda `docker compose exec app python -m app.training recheck --limit 10` ile pilot, sonra tamamı (yaklaşık 20 $).
-

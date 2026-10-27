@@ -32,6 +32,7 @@
     <input type="hidden" name="action" value="archive">{% else %}<form class="decision-form" method="post" action="/document-types/{{ slug|urlencode }}/archive">{% endif %}
     {% for item in selected %}<input type="hidden" name="slugs" value="{{ item }}">{% endfor %}
     {% if selected_country != "all" %}<input type="hidden" name="country" value="{{ selected_country }}">{% endif %}
+    {% if search_query %}<input type="hidden" name="q" value="{{ search_query }}">{% endif %}
     <input type="hidden" name="confirmation" value="{{ confirmation }}">
     <button type="submit">{{ _("Evet, arşivle") }}</button>
     <a href="{{ back_url }}">{{ _("Vazgeç") }}</a>
@@ -40,6 +41,7 @@
   {% if bulk %}<form class="decision-form" method="post" action="/document-types/bulk/prepare">{% else %}<form class="decision-form" method="post" action="/document-types/{{ slug|urlencode }}/archive/prepare">{% endif %}
     {% for item in selected %}<input type="hidden" name="slugs" value="{{ item }}">{% endfor %}
     {% if selected_country != "all" %}<input type="hidden" name="country" value="{{ selected_country }}">{% endif %}
+    {% if search_query %}<input type="hidden" name="q" value="{{ search_query }}">{% endif %}
     <button type="submit">{{ _("Evet, devam et") }}</button>
     <a href="{{ back_url }}">{{ _("Vazgeç") }}</a>
   </form>

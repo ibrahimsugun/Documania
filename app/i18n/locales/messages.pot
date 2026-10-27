@@ -4,7 +4,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Documania panel\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-27 19:53+0000\n"
+"POT-Creation-Date: 2026-10-27 21:06+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -459,6 +459,10 @@ msgstr ""
 msgid "Ad, alias, orijinal yazım, belge numarası veya belge türü"
 msgstr ""
 
+#: app/web/templates/catalog.html
+msgid "Ad, dosya etiketi ya da slug"
+msgstr ""
+
 #: app/web/templates/employee_merge.html
 msgid "Ad, isim yazımı, orijinal yazım, belge numarası veya belge türü"
 msgstr ""
@@ -695,8 +699,9 @@ msgstr ""
 msgid "Anne adı"
 msgstr ""
 
-#: app/web/templates/employee_merge.html app/web/templates/employees.html
-#: app/web/templates/history.html app/web/templates/queue_item.html
+#: app/web/templates/catalog.html app/web/templates/employee_merge.html
+#: app/web/templates/employees.html app/web/templates/history.html
+#: app/web/templates/queue_item.html
 msgid "Ara"
 msgstr ""
 
@@ -2862,6 +2867,10 @@ msgstr ""
 
 #: app/web/templates/training.html
 msgid "Eğitime yükle"
+msgstr ""
+
+#: app/web/templates/catalog.html
+msgid "Eşleşen tür yok."
 msgstr ""
 
 #: app/web/templates/catalog.html
@@ -5204,6 +5213,10 @@ msgstr ""
 msgid "Telegram'ım"
 msgstr ""
 
+#: app/web/templates/catalog.html
+msgid "Temizle"
+msgstr ""
+
 #: app/telegram/intent.py
 #, python-brace-format
 msgid "Toplam {total} belge var; kalanları panelden indirin."
@@ -5267,6 +5280,10 @@ msgstr ""
 msgid ""
 "Tür analiz talimatından ve listelerden kalkacak, var olan belgeler "
 "yerinde kalacaktır. Son kararınız mı?"
+msgstr ""
+
+#: app/web/templates/catalog.html
+msgid "Tür ara"
 msgstr ""
 
 #: app/web/feedback.py
@@ -5354,7 +5371,7 @@ msgid "Türleri süz"
 msgstr ""
 
 #: app/web/templates/catalog.html
-msgid "Türleri ülkeye göre süz"
+msgid "Türleri ülkeye göre süz ve ara"
 msgstr ""
 
 #: app/web/templates/catalog_archive_step.html

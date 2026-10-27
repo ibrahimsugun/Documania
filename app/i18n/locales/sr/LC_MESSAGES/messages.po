@@ -4,8 +4,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Documania panel\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-27 19:53+0000\n"
-"PO-Revision-Date: 2026-10-27 19:53+0000\n"
+"POT-Creation-Date: 2026-10-27 21:06+0000\n"
+"PO-Revision-Date: 2026-10-27 21:06+0000\n"
 "Last-Translator: Documania görev penceresi (gözden geçirilmeli)\n"
 "Language: sr_Latn\n"
 "Language-Team: Srpski\n"
@@ -525,6 +525,10 @@ msgstr ""
 msgid "Ad, alias, orijinal yazım, belge numarası veya belge türü"
 msgstr "Ime, alias, originalni zapis, broj dokumenta ili tip dokumenta"
 
+#: app/web/templates/catalog.html
+msgid "Ad, dosya etiketi ya da slug"
+msgstr "Naziv, oznaka fajla ili slug"
+
 #: app/web/templates/employee_merge.html
 msgid "Ad, isim yazımı, orijinal yazım, belge numarası veya belge türü"
 msgstr "Ime, zapis imena, originalni zapis, broj dokumenta ili tip dokumenta"
@@ -800,8 +804,9 @@ msgstr ""
 msgid "Anne adı"
 msgstr "Ime majke"
 
-#: app/web/templates/employee_merge.html app/web/templates/employees.html
-#: app/web/templates/history.html app/web/templates/queue_item.html
+#: app/web/templates/catalog.html app/web/templates/employee_merge.html
+#: app/web/templates/employees.html app/web/templates/history.html
+#: app/web/templates/queue_item.html
 msgid "Ara"
 msgstr "Pretraži"
 
@@ -3266,6 +3271,10 @@ msgstr "Stavljeno u fasciklu primera pre obuke; zapis je napravljen tokom obuke.
 #: app/web/templates/training.html
 msgid "Eğitime yükle"
 msgstr "Otpremi za obuku"
+
+#: app/web/templates/catalog.html
+msgid "Eşleşen tür yok."
+msgstr "Nema odgovarajućeg tipa."
 
 #: app/web/templates/catalog.html
 msgid "Eşleşen ülke yok."
@@ -5848,6 +5857,10 @@ msgstr ""
 msgid "Telegram'ım"
 msgstr "Moj Telegram"
 
+#: app/web/templates/catalog.html
+msgid "Temizle"
+msgstr "Obriši"
+
 #: app/telegram/intent.py
 #, python-brace-format
 msgid "Toplam {total} belge var; kalanları panelden indirin."
@@ -5916,6 +5929,10 @@ msgid ""
 msgstr ""
 "Tip će nestati iz uputstva za analizu i sa lista, a postojeći dokumenti "
 "ostaće na svom mestu. Da li je to vaša konačna odluka?"
+
+#: app/web/templates/catalog.html
+msgid "Tür ara"
+msgstr "Pretraži tipove"
 
 #: app/web/feedback.py
 #, python-brace-format
@@ -6008,8 +6025,8 @@ msgid "Türleri süz"
 msgstr "Filtriraj tipove"
 
 #: app/web/templates/catalog.html
-msgid "Türleri ülkeye göre süz"
-msgstr "Filtriraj tipove po zemlji"
+msgid "Türleri ülkeye göre süz ve ara"
+msgstr "Filtriraj tipove po zemlji i pretraži"
 
 #: app/web/templates/catalog_archive_step.html
 msgid "Türü arşivle"

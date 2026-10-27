@@ -4,6 +4,13 @@ Kaynak: HANDOFF.md (canlı dosyadan taşındı, birebir). Blok sayısı: 1.
 
 <!-- bloklar (newest-first) -->
 
+## 193 — 11.9-g Eğitimde çift inceleme (Sol + Sonnet 5.5) ve "AI kararı" yeniden inceleme komutu — done — 2026-10-27
+- Yapıldı: iki anahtar tanımlıyken eğitim her belgeyi GPT-6.1 Sol ve Sonnet 5.5'e (`low`) ayrı sorar; ikisi aynı bilinen türü verirse örnek doğrudan `verified` (olay `review: pair`, aktör `system`), yoksa "AI kararı"; `python -m app.training recheck` mevcut "AI kararı" örneklerini aynı kuralla doğrular/taşır/bırakır ve model başına belirteç + tahmini maliyet yazar; `UsageTotals`, `TRAINING_AUTO_CONFIRM`, i18n (en, sr).
+- Doğrulama: ruff check/format, compileall, `import app.main`, `python -m app.i18n check` exit 0; tests/training + ai + i18n + worker + config + ui_standard 1543 geçti, 4 atlandı. Tam kapı (`--cov`) koşulmadı (insan kuralı). Yerel kuru koşu (5 örnek, gerçek sağlayıcılar): 4 doğrulanır, 1 belirsiz, ~0,25 $.
+- Varsayımlar: §D128 — aynı ama farklı türü veren iki model örneği o türe taşır (`move_example`); Yerleştirilemedi/Başarısız öğeler kapsam dışı; çift panelden seçilemez (sabit).
+- Sonraki pencereye not: kod YanPC'ye dağıtılmadı ve canlıdaki 405 "AI kararı" örneği henüz incelenmedi (dağıtım izni bekliyor). Dağıtımdan sonra sunucuda `docker compose exec app python -m app.training recheck --limit 10` ile pilot, sonra tamamı (yaklaşık 20 $).
+
+
 ## 192 — 03.3-b OpenAI sağlayıcısı Responses API'ye, GPT-6.1 Sol — done — 2026-10-26
 - Yapıldı: `OpenAIProvider` Chat Completions yerine Responses API (`instructions`, `input_image`/`input_text`, düz işlev aracı, `reasoning.effort` yalnız seçilince, `max_output_tokens` ≥ 16000, `incomplete`/ret reddi); model listesinde `gpt-6.1-sol` (`low`–`max`, varsayılan `medium`), `gpt-6-luna` çıktı; varsayılan `OPENAI_MODEL=gpt-6.1-sol`; `TrainingClassification.notes` 250 karakter (istem dahil). Anthropic sağlayıcısı değişmedi.
 - Doğrulama: ruff check/format, compileall, `import app.main`, `python -m app.i18n check` exit 0; `tests/ai` + `tests/web/test_ai_settings_page.py` + `tests/test_config.py` + `tests/test_events.py` + `tests/web/test_ui_standard.py` + `tests/db/test_migrations.py` 962 geçti, 4 atlandı. Tam kapı (`--cov`) koşulmadı: değişiklik OpenAI sağlayıcısı ve model listesiyle sınırlı, göç yok (insan kuralı: uzun kapı beklenmez). Gerçek sağlayıcıyla sonda: Sol `low` 4 belge, Sonnet 5.5 (önceden `notes` > 200 ile reddedilen belge) geçti.

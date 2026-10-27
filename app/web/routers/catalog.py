@@ -14,10 +14,11 @@
   /document-types?archived=1` "Arşivlenen türler"dir ve `POST /document-types/{slug}/restore` tek
   adımda geri alır (`TYPE_RESTORED`). Korunan türler (`PROTECTED_SLUGS`) arşivlenemez (409).
 - **Toplu seçim (11.1.6).** Tablo satırlarının onay kutuları `POST /document-types/bulk`'a (`action`
-  ∈ activate|deactivate|archive, `slugs`, süzgeç `country`) gider. Pasifleştirme ve etkinleştirme
-  tek adımdır (tür başına olay, `bulk: true`). Arşiv iki aşamalıdır: belirteçsiz istek birinci metni
-  verir, `POST /document-types/bulk/prepare` sıralı slug kümesinin SHA-256'sına bağlı belirteci,
-  belirteçli istek arşivler; korunan türler atlanır ve sayılır. Seçim en çok `BULK_LIMIT` türdür.
+  ∈ activate|deactivate|archive, `slugs`, süzgeç `country`, arama `q`) gider. Pasifleştirme ve
+  etkinleştirme tek adımdır (tür başına olay, `bulk: true`). Arşiv iki aşamalıdır: belirteçsiz
+  istek birinci metni verir, `POST /document-types/bulk/prepare` sıralı slug kümesinin
+  SHA-256'sına bağlı belirteci, belirteçli istek arşivler; korunan türler atlanır ve sayılır.
+  Seçim en çok `BULK_LIMIT` türdür.
 - Form katalog sözleşmesinden geçer (`app.catalog.form`, 11.1.2): Direkt türde dönüşüm listesi
   boş, `front_back` türde en az bir kabul edilen düzen seçili ve sayfa aralığı düzenlerden
   hesaplanır (ayrı sayfalar 2, tek sayfa 1), tek yüzlü türde düzen yok, analiz edilmeyen türde
@@ -130,6 +131,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import unicodedata
 from collections import Counter
 from dataclasses import dataclass, replace
 from pathlib import PurePosixPath
@@ -478,29 +480,74 @@ def _country_options(types: list[TypeSummary]) -> tuple[CountryOption, ...]:
     return tuple(options)
 
 
-def _filter_types(types: list[TypeSummary], country: str) -> list[TypeSummary]:
+def _in_country(item: TypeSummary, country: str) -> bool:
     """Süzgeç kuralı (11.1.5): `general` yalnız ülkesiz türleri, bir ISO2 kod o ülkenin türlerini
-    **ve** ülkeden bağımsız türleri, `all` tümünü listeler."""
+    **ve** ülkeden bağımsız türleri, `all` tümünü kabul eder."""
     if country == "all":
-        return types
+        return True
     if country == "general":
-        return [item for item in types if _is_general(item.country)]
+        return _is_general(item.country)
+    return _is_general(item.country) or item.country.strip().upper() == country
+
+
+# --- 11.1.8: arama ------------------------------------------------------------------------------
+
+SEARCH_MAX_LENGTH = 100
+
+
+def _search_key(text: str) -> str:
+    """Aramanın karşılaştırma biçimi (11.1.8): Türkçe `ı`/`İ` → `i`, casefold, NFKD sonrası
+    birleşen işaretler atılır (`ş → s`, `é → e`), harf/rakam dışı her dizi tek boşluk olur
+    (`ise-giris` ile `ise giris` aynıdır)."""
+    folded = unicodedata.normalize("NFKD", text.replace("ı", "i").replace("İ", "i").casefold())
+    letters = "".join(char for char in folded if unicodedata.category(char) not in ("Mn", "Me"))
+    return " ".join("".join(char if char.isalnum() else " " for char in letters).split())
+
+
+def _normalize_search(value: str | None) -> str:
+    """Arama kutusunun değeri: baştaki/sondaki boşluk atılır; boş değer "arama yok"tur. Uzunluk
+    sınırı (`SEARCH_MAX_LENGTH`) `Query`/`Form` ile ayrı denetlenir."""
+    return (value or "").strip()
+
+
+def _matches(item: TypeSummary, needle: str) -> bool:
+    """Arama (11.1.8): anahtar türün adında, dosya etiketinde ya da slug'ında alt dizedir."""
+    return any(needle in _search_key(text) for text in (item.name, item.file_label, item.slug))
+
+
+def _filter_types(types: list[TypeSummary], country: str, query: str = "") -> list[TypeSummary]:
+    """Listede gösterilen türler: ülke süzgeci (11.1.5) **ve** arama (11.1.8). Anahtarı boş kalan
+    arama (yalnız noktalama) süzmez. Yalnız okur."""
+    needle = _search_key(query)
     return [
         item
         for item in types
-        if _is_general(item.country) or item.country.strip().upper() == country
+        if _in_country(item, country) and (not needle or _matches(item, needle))
     ]
 
 
-def _country_suffix(country: str) -> str:
-    """Satır bağlantılarının süzgeci taşıyan sorgu dizesi (11.1.5); `all` için boş."""
-    return "" if country == "all" else f"?{urlencode({'country': country})}"
+def _filter_params(country: str, query: str = "") -> dict[str, str]:
+    """Listenin süzgeç parametreleri: ülke (`all` yazılmaz) ve arama (boşsa yazılmaz)."""
+    params = {} if country == "all" else {"country": country}
+    if query:
+        params["q"] = query
+    return params
+
+
+def _country_suffix(country: str, query: str = "") -> str:
+    """Satır bağlantılarının süzgeci ve aramayı taşıyan sorgu dizesi (11.1.5, 11.1.8); ikisi de
+    yoksa boş."""
+    params = _filter_params(country, query)
+    return f"?{urlencode(params)}" if params else ""
 
 
 # Tür sayfası listenin süzgecini adresten (`?country=`) alır; tür formunda `country` türün kendi
 # alanı olduğundan süzgeç formda gizli `list_country` alanıyla taşınır (11.1.5).
 ListCountryQuery = Annotated[str | None, Query(alias="country", max_length=8)]
 ListCountryField = Annotated[str | None, Form(max_length=8)]
+# Arama (11.1.8) aynı yoldan taşınır: tür sayfasında `?q=`, tür formunda gizli `list_q`.
+ListSearchQuery = Annotated[str | None, Query(alias="q", max_length=SEARCH_MAX_LENGTH)]
+ListSearchField = Annotated[str | None, Form(max_length=SEARCH_MAX_LENGTH)]
 
 
 def catalog_budget_view(session: Session, settings: Settings) -> CatalogBudgetView | None:
@@ -677,14 +724,17 @@ def _form_page(
     generated: GeneratedDescription | None = None,
     description_error: str | None = None,
     list_country: str | None = None,
+    list_q: str | None = None,
     feedback: Toast | None = None,
 ) -> HTMLResponse:
     """Tür formunu çizer. `slug` düzenlenen türdür (yeni türde `None`); `examples` düzenleme
     sayfasının örnek belge bölümünün bağlamıdır (`_examples_context`), `photo` fotoğraf kuralları
     bölümünün (`_photo_context`, yalnız fotoğraf türlerinde dolu); `generated` örneklerden üretilen
     (kaydedilmemiş) tür açıklaması, `description_error` üretilemediyse nedeni; `list_country`
-    listenin ülke süzgeci — geri bağlantıları ve kaydetme yönlendirmesi ona döner (11.1.5)."""
+    listenin ülke süzgeci, `list_q` araması — geri bağlantıları ve kaydetme yönlendirmesi onlara
+    döner (11.1.5, 11.1.8)."""
     selected_country = _normalize_country(list_country)
+    search = _normalize_search(list_q)
     return render_page(
         request,
         "catalog_form.html",
@@ -703,7 +753,8 @@ def _form_page(
         max_description_pages=MAX_DESCRIPTION_PAGES,
         is_new=slug is None,
         list_country=selected_country,
-        list_query=_country_suffix(selected_country),
+        list_q=search,
+        list_query=_country_suffix(selected_country, search),
     )
 
 
@@ -853,20 +904,20 @@ def _fields_context(form: TypeForm, problems: dict[str, list[str]] | None) -> di
     }
 
 
-def _list_url(*, country: str | None = None, archived: bool = False, **params: str | int) -> str:
-    """Belge Türleri listesinin adresi: arşiv görünümü (`archived=1`), bildirim parametreleri ve
-    süzgeç (11.1.5; `all` yazılmaz)."""
+def _list_url(*, country: str | None = None, q: str | None = None, archived: bool = False) -> str:
+    """Belge Türleri listesinin adresi: arşiv görünümü (`archived=1`), süzgeç (11.1.5; `all`
+    yazılmaz) ve arama (11.1.8; boşsa yazılmaz)."""
     query: dict[str, str | int] = {"archived": 1} if archived else {}
-    query.update(params)
-    normalized = _normalize_country(country)
-    if normalized != "all":
-        query["country"] = normalized
+    query.update(_filter_params(_normalize_country(country), _normalize_search(q)))
     return f"{LIST_PATH}?{urlencode(query)}" if query else LIST_PATH
 
 
-def _redirect(key: str, *, country: str | None = None, **params: object) -> RedirectResponse:
-    """Listeye dönüş; işlemin bildirimi tek kullanımlık çerezde (10.11.1, PLAN.md §D120)."""
-    response = RedirectResponse(_list_url(country=country), status.HTTP_303_SEE_OTHER)
+def _redirect(
+    key: str, *, country: str | None = None, q: str | None = None, **params: object
+) -> RedirectResponse:
+    """Listeye dönüş, süzgeç ve aramayla; işlemin bildirimi tek kullanımlık çerezde (10.11.1,
+    PLAN.md §D120)."""
+    response = RedirectResponse(_list_url(country=country, q=q), status.HTTP_303_SEE_OTHER)
     flash(response, key, **params)
     return response
 
@@ -879,29 +930,34 @@ def catalog_page(
     settings: AppSettings,
     country: Annotated[str | None, Query(max_length=8)] = None,
     archived: Annotated[str | None, Query(max_length=1)] = None,
+    q: Annotated[str | None, Query(max_length=SEARCH_MAX_LENGTH)] = None,
 ) -> HTMLResponse:
     """Belge Türleri (11.1.1): arşivsiz türler; `archived=1` "Arşivlenen türler" görünümüdür
-    (11.1.6). Ülke süzgeci (11.1.5) iki görünümde de görünümün kendi türlerinden üretilir."""
+    (11.1.6). Ülke süzgeci (11.1.5) iki görünümde de görünümün kendi türlerinden üretilir; arama
+    (`q`, 11.1.8) süzgeçle birlikte uygulanır, seçeneklerin sayılarını değiştirmez."""
     every_type = list_types(session, include_archived=True)
     show_archived = archived == "1"
     types = [item for item in every_type if (item.archived_at is not None) == show_archived]
     selected_country = _normalize_country(country)
+    search = _normalize_search(q)
     return render_page(
         request,
         "catalog.html",
         user=user,
         active="document_types",
         entry=MENU_BY_KEY["document_types"],
-        types=_filter_types(types, selected_country),
+        types=_filter_types(types, selected_country, search),
         total_types=len(types),
         show_archived=show_archived,
         archived_total=sum(1 for item in every_type if item.archived_at is not None),
-        archived_url=_list_url(country=selected_country, archived=True),
-        list_url=_list_url(country=selected_country),
+        archived_url=_list_url(country=selected_country, q=search, archived=True),
+        list_url=_list_url(country=selected_country, q=search),
         bulk_limit=BULK_LIMIT,
         country_options=_country_options(types),
         selected_country=selected_country,
-        country_query=_country_suffix(selected_country),
+        search_query=search,
+        clear_search_url=_list_url(country=selected_country, archived=show_archived),
+        country_query=_country_suffix(selected_country, search),
         sides_labels=SIDES_LABELS,
         pending_candidates=count_pending_candidate_types(session),
         budget=catalog_budget_view(session, settings),
@@ -911,9 +967,14 @@ def catalog_page(
 
 @router.get(f"{LIST_PATH}/new", response_class=HTMLResponse, dependencies=WRITER_ONLY)
 def new_type_page(
-    request: Request, user: CurrentUser, list_country: ListCountryQuery = None
+    request: Request,
+    user: CurrentUser,
+    list_country: ListCountryQuery = None,
+    list_q: ListSearchQuery = None,
 ) -> HTMLResponse:
-    return _form_page(request, user, TypeForm(), slug=None, list_country=list_country)
+    return _form_page(
+        request, user, TypeForm(), slug=None, list_country=list_country, list_q=list_q
+    )
 
 
 # `/document-types/{slug}`'dan önce kayıtlı olmalı: yol tek parçadır.
@@ -961,6 +1022,7 @@ def create_type_endpoint(
     session: DbSession,
     form: SubmittedForm,
     list_country: ListCountryField = None,
+    list_q: ListSearchField = None,
 ) -> Response:
     try:
         entry = build_entry(form)
@@ -973,6 +1035,7 @@ def create_type_endpoint(
             problems=exc.problems,
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             list_country=list_country,
+            list_q=list_q,
         )
     try:
         create_type(session, entry)
@@ -987,14 +1050,16 @@ def create_type_endpoint(
             problems={"slug": [SLUG_TAKEN]},
             status_code=status.HTTP_409_CONFLICT,
             list_country=list_country,
+            list_q=list_q,
         )
-    return _redirect(TYPE_CREATED, country=list_country, slug=entry.slug)
+    return _redirect(TYPE_CREATED, country=list_country, q=list_q, slug=entry.slug)
 
 
 # --- 11.1.6: toplu seçim ------------------------------------------------------------------------
 # `POST /document-types/{slug}`'dan önce kayıtlı olmalı; `bulk` slug olamaz (`RESERVED_SLUGS`).
 
 CountryField = Annotated[str | None, Form(max_length=8)]
+SearchField = Annotated[str | None, Form(max_length=SEARCH_MAX_LENGTH)]
 BulkSlugs = Annotated[list[str] | None, Form()]
 
 
@@ -1063,6 +1128,7 @@ def _archive_page(
     status_code: int,
     *,
     country: str | None,
+    q: str | None = None,
     slug: str | None = None,
     type_name: str | None = None,
     plan: _BulkArchive | None = None,
@@ -1073,6 +1139,7 @@ def _archive_page(
     """Arşiv adımının sayfası (`catalog_archive_step.html`): tekil (`slug`) ya da toplu (`plan`)
     birinci onay (belirteçsiz), ikinci onay (belirteçle) ya da ret."""
     selected_country = _normalize_country(country)
+    search = _normalize_search(q)
     return render_page(
         request,
         "catalog_archive_step.html",
@@ -1087,7 +1154,8 @@ def _archive_page(
         archivable=[row.name for row in plan.archivable] if plan else [],
         protected=[row.name for row in plan.protected] if plan else [],
         selected_country=selected_country,
-        back_url=_list_url(country=selected_country),
+        search_query=search,
+        back_url=_list_url(country=selected_country, q=search),
         confirm_text=confirm_text,
         confirmation=confirmation,
         error=error,
@@ -1100,6 +1168,7 @@ def _archive_refused(
     session: Session,
     exc: Exception,
     country: str | None,
+    q: str | None = None,
     *,
     detail: bool = False,
 ) -> HTMLResponse:
@@ -1111,7 +1180,7 @@ def _archive_refused(
     else:  # ConfirmationRefusedError
         code = status.HTTP_400_BAD_REQUEST
         message = _reason(exc) if detail else CONFIRMATION_REFUSED
-    return _archive_page(request, user, code, country=country, error=message)
+    return _archive_page(request, user, code, country=country, q=q, error=message)
 
 
 @router.post(BULK_PATH, response_class=HTMLResponse)
@@ -1122,6 +1191,7 @@ def bulk_types(
     action: Annotated[str, Form(max_length=16)] = "",
     slugs: BulkSlugs = None,
     country: CountryField = None,
+    q: SearchField = None,
     confirmation: Annotated[str | None, Form()] = None,
 ) -> Response:
     """11.1.6 — seçilen türleri topluca pasifleştirir, etkinleştirir ya da arşivler.
@@ -1137,19 +1207,21 @@ def bulk_types(
             session,
             HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, BULK_UNKNOWN_ACTION),
             country,
+            q,
         )
     if not any(slug.strip() for slug in slugs or ()):
-        return _redirect(TYPE_NONE_SELECTED, country=country)
+        return _redirect(TYPE_NONE_SELECTED, country=country, q=q)
     if action == "archive" and confirmation is None:
         try:
             plan = _bulk_archive(session, slugs)
         except HTTPException as exc:
-            return _archive_refused(request, user, session, exc, country)
+            return _archive_refused(request, user, session, exc, country, q)
         response = _archive_page(
             request,
             user,
             status.HTTP_200_OK,
             country=country,
+            q=q,
             plan=plan,
             confirm_text=_archive_text(
                 Operation.TYPE_ARCHIVE_BULK, False, count=len(plan.archivable)
@@ -1181,10 +1253,11 @@ def bulk_types(
                 return _redirect(
                     TYPES_ARCHIVED_SKIPPED,
                     country=country,
+                    q=q,
                     count=archived,
                     skipped=len(plan.protected),
                 )
-            return _redirect(TYPES_ARCHIVED, country=country, count=archived)
+            return _redirect(TYPES_ARCHIVED, country=country, q=q, count=archived)
         selected, _ = _bulk_selection(session, slugs)
         active = action == "activate"
         changed = sum(
@@ -1192,10 +1265,10 @@ def bulk_types(
             for slug in selected
         )
     except (HTTPException, ConfirmationRefusedError) as exc:
-        return _archive_refused(request, user, session, exc, country)
+        return _archive_refused(request, user, session, exc, country, q)
     session.commit()
     return _redirect(
-        TYPES_ACTIVATED if active else TYPES_DEACTIVATED, country=country, count=changed
+        TYPES_ACTIVATED if active else TYPES_DEACTIVATED, country=country, q=q, count=changed
     )
 
 
@@ -1206,6 +1279,7 @@ def prepare_bulk_archive(
     session: DbSession,
     slugs: BulkSlugs = None,
     country: CountryField = None,
+    q: SearchField = None,
 ) -> HTMLResponse:
     """11.1.6 — toplu arşivin birinci onayından sonra ikinci metni ve sıralı slug kümesine bağlı tek
     kullanımlık belirteci verir (10.8.1)."""
@@ -1219,12 +1293,13 @@ def prepare_bulk_archive(
             bulk_archive_subject(plan.selected),
         )
     except (HTTPException, ConfirmationRefusedError) as exc:
-        return _archive_refused(request, user, session, exc, country, detail=True)
+        return _archive_refused(request, user, session, exc, country, q, detail=True)
     response = _archive_page(
         request,
         user,
         status.HTTP_200_OK,
         country=country,
+        q=q,
         plan=plan,
         confirm_text=_archive_text(Operation.TYPE_ARCHIVE_BULK, True),
         confirmation=issued.token,
@@ -1241,6 +1316,7 @@ def type_page(
     session: DbSession,
     layout: Layout,
     list_country: ListCountryQuery = None,
+    list_q: ListSearchQuery = None,
 ) -> HTMLResponse:
     try:
         record = load_record(session, slug)
@@ -1257,6 +1333,7 @@ def type_page(
         examples=_examples_context(session, layout, slug),
         photo=_photo_context(session, slug, record["photo_rules"]),
         list_country=list_country,
+        list_q=list_q,
     )
 
 
@@ -1269,6 +1346,7 @@ def update_type_endpoint(
     layout: Layout,
     form: SubmittedForm,
     list_country: ListCountryField = None,
+    list_q: ListSearchField = None,
 ) -> Response:
     # Slug adresten gelir, formdan değil: değişmez (belgeler ve çıktı adları ona bağlı).
     form = replace(form, slug=slug)
@@ -1289,6 +1367,7 @@ def update_type_endpoint(
             examples=_examples_context(session, layout, slug),
             photo=_photo_context(session, slug, record["photo_rules"]),
             list_country=list_country,
+            list_q=list_q,
         )
     try:
         update_type(session, entry)
@@ -1296,11 +1375,17 @@ def update_type_endpoint(
     except TypeNotFoundError:
         session.rollback()
         raise HTTPException(status.HTTP_404_NOT_FOUND, TYPE_NOT_FOUND) from None
-    return _redirect(TYPE_UPDATED, country=list_country, slug=slug)
+    return _redirect(TYPE_UPDATED, country=list_country, q=list_q, slug=slug)
 
 
 def _set_active(
-    session: Session, user: PanelUser, slug: str, active: bool, *, country: str | None
+    session: Session,
+    user: PanelUser,
+    slug: str,
+    active: bool,
+    *,
+    country: str | None,
+    q: str | None = None,
 ) -> RedirectResponse:
     """Tekil pasifleştirme/etkinleştirme: durum değiştiyse `TYPE_DEACTIVATED`/`TYPE_ACTIVATED`
     kullanıcı adıyla yazılır (11.1.6)."""
@@ -1310,21 +1395,31 @@ def _set_active(
     except TypeNotFoundError:
         session.rollback()
         raise HTTPException(status.HTTP_404_NOT_FOUND, TYPE_NOT_FOUND) from None
-    return _redirect(TYPE_ACTIVATED if active else TYPE_DEACTIVATED, country=country, slug=slug)
+    return _redirect(
+        TYPE_ACTIVATED if active else TYPE_DEACTIVATED, country=country, q=q, slug=slug
+    )
 
 
 @router.post(f"{LIST_PATH}/{{slug}}/deactivate")
 def deactivate_type(
-    slug: str, user: CurrentUser, session: DbSession, country: CountryField = None
+    slug: str,
+    user: CurrentUser,
+    session: DbSession,
+    country: CountryField = None,
+    q: SearchField = None,
 ) -> RedirectResponse:
-    return _set_active(session, user, slug, False, country=country)
+    return _set_active(session, user, slug, False, country=country, q=q)
 
 
 @router.post(f"{LIST_PATH}/{{slug}}/activate")
 def activate_type(
-    slug: str, user: CurrentUser, session: DbSession, country: CountryField = None
+    slug: str,
+    user: CurrentUser,
+    session: DbSession,
+    country: CountryField = None,
+    q: SearchField = None,
 ) -> RedirectResponse:
-    return _set_active(session, user, slug, True, country=country)
+    return _set_active(session, user, slug, True, country=country, q=q)
 
 
 # --- 11.1.6: tekil arşiv ve geri alma ------------------------------------------------------------
@@ -1353,18 +1448,20 @@ def archive_first_confirmation(
     user: CurrentUser,
     session: DbSession,
     list_country: ListCountryQuery = None,
+    list_q: ListSearchQuery = None,
 ) -> HTMLResponse:
     """11.1.6 "Arşivle" — türü denetler ve §C92'nin birinci onay metnini verir; hiçbir şey
     değişmez."""
     try:
         row = _archivable(session, slug)
     except HTTPException as exc:
-        return _archive_refused(request, user, session, exc, list_country)
+        return _archive_refused(request, user, session, exc, list_country, list_q)
     response = _archive_page(
         request,
         user,
         status.HTTP_200_OK,
         country=list_country,
+        q=list_q,
         slug=slug,
         type_name=row.name,
         confirm_text=_archive_text(Operation.TYPE_ARCHIVE, False, type_name=row.name),
@@ -1380,6 +1477,7 @@ def prepare_archive(
     user: CurrentUser,
     session: DbSession,
     country: CountryField = None,
+    q: SearchField = None,
 ) -> HTMLResponse:
     """11.1.6 — birinci onaydan sonra ikinci onay metnini ve türe bağlı tek kullanımlık belirteci
     verir (10.8.1)."""
@@ -1389,12 +1487,13 @@ def prepare_archive(
             session, request, user, Operation.TYPE_ARCHIVE, archive_subject(slug)
         )
     except (HTTPException, ConfirmationRefusedError) as exc:
-        return _archive_refused(request, user, session, exc, country, detail=True)
+        return _archive_refused(request, user, session, exc, country, q, detail=True)
     response = _archive_page(
         request,
         user,
         status.HTTP_200_OK,
         country=country,
+        q=q,
         slug=slug,
         type_name=row.name,
         confirm_text=_archive_text(Operation.TYPE_ARCHIVE, True),
@@ -1411,6 +1510,7 @@ def archive_selected_type(
     user: CurrentUser,
     session: DbSession,
     country: CountryField = None,
+    q: SearchField = None,
     confirmation: Annotated[str | None, Form()] = None,
 ) -> Response:
     """11.1.6 — ikinci onayın belirteciyle türü arşivler. Belirteçsiz ya da geçersiz belirteçte
@@ -1429,14 +1529,18 @@ def archive_selected_type(
         )
         archive_type(session, slug, actor=user.username)
     except (HTTPException, ConfirmationRefusedError) as exc:
-        return _archive_refused(request, user, session, exc, country)
+        return _archive_refused(request, user, session, exc, country, q)
     session.commit()
-    return _redirect(TYPE_ARCHIVED, country=country, slug=slug)
+    return _redirect(TYPE_ARCHIVED, country=country, q=q, slug=slug)
 
 
 @router.post(f"{LIST_PATH}/{{slug}}/restore")
 def restore_archived_type(
-    slug: str, user: CurrentUser, session: DbSession, country: CountryField = None
+    slug: str,
+    user: CurrentUser,
+    session: DbSession,
+    country: CountryField = None,
+    q: SearchField = None,
 ) -> RedirectResponse:
     """11.1.6 — arşivli türü tek adımda geri alır (§D61-b: salt durum çevirir); `TYPE_RESTORED`
     kullanıcı adıyla. Arşivde olmayan türde hiçbir şey yazılmaz."""
@@ -1446,7 +1550,7 @@ def restore_archived_type(
     except TypeNotFoundError:
         session.rollback()
         raise HTTPException(status.HTTP_404_NOT_FOUND, TYPE_NOT_FOUND) from None
-    return _redirect(TYPE_RESTORED, country=country, slug=slug)
+    return _redirect(TYPE_RESTORED, country=country, q=q, slug=slug)
 
 
 @router.post(f"{LIST_PATH}/{{slug}}/photo-rules", response_class=HTMLResponse)
@@ -1680,6 +1784,7 @@ def generate_description(
     form: SubmittedForm,
     provider: DescriptionProvider,
     list_country: ListCountryField = None,
+    list_q: ListSearchField = None,
 ) -> HTMLResponse:
     """11.3.1 — türün örneklerinden (fotoğraf türünde ayrıca kabul edilen fotoğraflardan, 11.8.1)
     yapılandırılmış açıklama üretir ve metnini formun `prompt_description` alanına yazarak formu
@@ -1719,6 +1824,7 @@ def generate_description(
             generated=generated,
             description_error=error,
             list_country=list_country,
+            list_q=list_q,
         )
 
     try:
