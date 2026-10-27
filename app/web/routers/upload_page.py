@@ -71,7 +71,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Form, HTTPException, Request, status
+from fastapi import APIRouter, Depends, Form, HTTPException, Request, Response, status
 from fastapi.responses import FileResponse, HTMLResponse
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
@@ -161,6 +161,7 @@ from app.web.feedback import (
     render,
 )
 from app.web.guidance import candidate_url, candidates_of, resolution_hint
+from app.web.previews import NOSNIFF, request_etags
 from app.web.routers.uploads import (
     CANCELLED_MESSAGE,
     DISMISSED_MESSAGE,
@@ -411,6 +412,8 @@ NOT_DISMISSED_MESSAGE = N_("Bu tarama yoksayılmamış; geri alınacak bir yoksa
 # 10.7.4 — gerekçeyle kapatılan kuyruk öğesinin çözümü.
 CLOSED_RESOLUTION = N_("kapatıldı")
 PAGE_IMAGE_NOT_FOUND = N_("Sayfa görüntüsü bulunamadı.")
+# Gerçek belge görüntüsü: tarayıcıda 15 dakika, paylaşılan önbellekte hiç (11.9.8; §D131 f3).
+PAGE_IMAGE_CACHE = "private, max-age=900"
 BUSY_MESSAGE = N_("Parti hâlâ işleniyor; işlem bittikten sonra yeniden çalıştırılabilir.")
 NO_PLAN_MESSAGE = N_(
     "Partinin planı yok; yeniden çalıştırılacak ya da yeniden analiz edilecek bir sürüm bulunmuyor."
@@ -1004,11 +1007,13 @@ def upload_detail(
 def upload_page_image(
     upload_id: str,
     page_id: int,
+    request: Request,
     layout: Annotated[DataLayout, Depends(get_layout)],
     session: Annotated[Session, Depends(get_session)],
-) -> FileResponse:
+) -> Response:
     """Sayfanın analiz görüntüsü (K10: orijinal değil, `cache/pages/` kopyası). Sayfa bu partiye
-    ait değilse ya da görüntüsü yoksa 404."""
+    ait değilse ya da görüntüsü yoksa 404. Gerçek belge görüntüsüdür: tarayıcıda yalnız kısa süre
+    önbelleklenir (`private, max-age=900`), `ETag` tutarsa 304 (11.9.8; PLAN.md §D131 f3)."""
     page = session.get(Page, page_id)
     image_path = page.image_path if page is not None and page.file.upload_id == upload_id else None
     session.rollback()
@@ -1020,7 +1025,12 @@ def upload_page_image(
         raise HTTPException(status.HTTP_404_NOT_FOUND, PAGE_IMAGE_NOT_FOUND) from None
     if not path.is_file():
         raise HTTPException(status.HTTP_404_NOT_FOUND, PAGE_IMAGE_NOT_FOUND)
-    return FileResponse(path, headers={"X-Content-Type-Options": "nosniff"})
+    stat = path.stat()
+    etag = f'"{page_id}-{stat.st_size:x}-{stat.st_mtime_ns:x}"'
+    headers = {**NOSNIFF, "Cache-Control": PAGE_IMAGE_CACHE, "ETag": etag}
+    if etag in request_etags(request.headers.get("if-none-match", "")):
+        return Response(status_code=status.HTTP_304_NOT_MODIFIED, headers=headers)
+    return FileResponse(path, headers=headers)
 
 
 def _actionable_upload(session: Session, upload_id: str) -> tuple[Upload, Plan]:

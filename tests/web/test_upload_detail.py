@@ -403,6 +403,16 @@ def test_page_image_is_the_analysis_copy_and_only_served_for_its_own_upload(
     assert image.headers["content-type"] == "image/jpeg"
     assert image.headers["x-content-type-options"] == "nosniff"
     assert image.content == stored
+    # 11.9.8: gerçek belge görüntüsü kısa süre ve yalnız tarayıcıda önbelleklenir; ETag tutarsa 304.
+    assert image.headers["cache-control"] == "private, max-age=900"
+    again = client.get(
+        f"/uploads/{upload_id}/pages/{page_id}/image",
+        headers={"If-None-Match": image.headers["etag"]},
+    )
+    assert again.status_code == 304 and not again.content
+    # Sayfa, belgenin görüntüsünü ön yükleme için işaretler (orijinal dosya değil).
+    detail = client.get(f"/uploads/{upload_id}").text
+    assert f'data-preview-large="/uploads/{upload_id}/pages/{page_id}/image"' in detail
     other = client.get(f"/uploads/u_baska/pages/{page_id}/image")
     assert other.status_code == 404
     assert client.get(f"/uploads/{upload_id}/pages/99999/image").status_code == 404

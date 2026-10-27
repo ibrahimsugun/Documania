@@ -253,7 +253,7 @@ from app.storage.examples import (
     list_examples,
     store_example,
 )
-from app.storage.previews import ensure_preview
+from app.storage.previews import PreviewBusy, ensure_preview
 from app.training.cleanup import listed_hashes, record_uploaded_example, same_type_example
 from app.training.known_types import KnownTypes, load_known_types
 from app.web.ai_runtime import ActiveAiSettings
@@ -294,7 +294,13 @@ from app.web.feedback import (
     render,
 )
 from app.web.guidance import first_page
-from app.web.previews import download_response, preview_response, preview_url
+from app.web.previews import (
+    busy_response,
+    download_response,
+    is_prefetch,
+    preview_response,
+    preview_url,
+)
 from app.web.routers.documents import _reference
 from app.web.routers.queue import QueueState, _payload_refs, _state_filter
 from app.web.routers.training import LABEL_TEXTS, MANUAL_CHECK_TEXT
@@ -1633,11 +1639,15 @@ def example_preview(
     slug: str, size: str, name: str, request: Request, session: DbSession, layout: Layout
 ) -> Response:
     """Örneğin küçük (`small`) ya da büyük (`large`) önizlemesi (11.9.7); yoksa üretilir. Ad
-    listede yoksa, kaydı örneklerden çıkarılmışsa ya da boyut tanımsızsa 404."""
+    listede yoksa, kaydı örneklerden çıkarılmışsa ya da boyut tanımsızsa 404. Ön yükleme üretim
+    yeri bulamazsa 503 (11.9.8)."""
     _known_type(session, slug)
     if _removed_only(session, slug, name):
         raise HTTPException(status.HTTP_404_NOT_FOUND, EXAMPLE_NOT_FOUND)
-    preview = ensure_preview(layout, slug, name, size)
+    try:
+        preview = ensure_preview(layout, slug, name, size, wait=not is_prefetch(request))
+    except PreviewBusy:
+        return busy_response()
     if preview is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, EXAMPLE_NOT_FOUND)
     return preview_response(request, preview, size)

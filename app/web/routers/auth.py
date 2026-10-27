@@ -159,6 +159,9 @@ def logout(
         session.commit()
     response = RedirectResponse(LOGIN_PATH, status.HTTP_303_SEE_OTHER)
     clear_session_cookie(response)
+    # 11.9.8 (PLAN.md §D131 f4): ortak bilgisayarda çıkıştan sonra önbellekte belge görüntüsü
+    # (ön yüklenen önizlemeler, sayfa görüntüleri) kalmaz.
+    response.headers["Clear-Site-Data"] = '"cache"'
     return response
 
 

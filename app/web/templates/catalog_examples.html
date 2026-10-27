@@ -33,7 +33,7 @@
   <ul class="example-list">
     {% for item in examples %}
     <li{% if item.manual_check %} class="needs-check"{% endif %}>
-      <a href="{{ item.preview_url }}" target="_blank" rel="noopener" tabindex="-1" aria-hidden="true"><img src="{{ item.thumb_url }}" alt="{{ item.name }}" width="64" height="64" loading="lazy" decoding="async"></a>
+      <a href="{{ item.preview_url }}" target="_blank" rel="noopener" tabindex="-1" aria-hidden="true" data-preview-large="{{ item.preview_url }}"><img src="{{ item.thumb_url }}" alt="{{ item.name }}" width="64" height="64" loading="lazy" decoding="async"></a>
       <a href="{{ item.preview_url }}" target="_blank" rel="noopener" title="{{ _('Büyük önizleme') }}">{{ item.name }}</a>
       <span class="count">({{ item.size_label }})</span>
       <a class="button-link button-small" href="{{ item.url }}" download>{{ _("İndir") }}</a>

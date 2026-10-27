@@ -13,6 +13,8 @@
   <script src="/static/theme.js?v={{ asset_version }}" defer></script>
   <script src="/static/toast.js?v={{ asset_version }}" defer></script>
   <script src="/static/htmx.min.js" defer></script>
+  {# 11.9.8: girişli sayfada önizlemeler boşta, düşük öncelikle önbelleğe iner (PLAN.md §D131). #}
+  {% if user %}<script src="/static/preview-prefetch.js?v={{ asset_version }}" defer></script>{% endif %}
   {# 10.11.1: JavaScript kapalıyken bildirim sayfanın başında kalıcı not olarak durur. #}
   <noscript><style>.toasts { position: static; width: auto; margin: 0.75rem 1rem; } .toast { animation: none; }</style></noscript>
 </head>

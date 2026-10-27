@@ -28,7 +28,7 @@
 <ul class="thumbs training-examples">
   {% for example in examples %}
   <li class="thumb{% if example.manual_check %} needs-check{% endif %}" id="example-{{ loop.index }}">
-    <a href="{{ example.preview_url }}" target="_blank" rel="noopener" tabindex="-1" aria-hidden="true">
+    <a href="{{ example.preview_url }}" target="_blank" rel="noopener" tabindex="-1" aria-hidden="true" data-preview-large="{{ example.preview_url }}">
       <img src="{{ example.thumb_url }}" alt="{{ example.name }}" width="320" height="320" loading="lazy" decoding="async">
     </a>
     <span class="caption"><a href="{{ example.preview_url }}" target="_blank" rel="noopener" title="{{ _('Büyük önizleme') }}">{{ example.name }}</a></span>

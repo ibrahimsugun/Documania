@@ -8,6 +8,9 @@ bayt aynı kalır; yazım atomiktir ve anahtar örnek değişince değişir. Ver
 from __future__ import annotations
 
 import os
+import threading
+import time
+from concurrent.futures import ThreadPoolExecutor
 from io import BytesIO
 from pathlib import Path
 
@@ -18,7 +21,13 @@ from app.storage import DataLayout, prepare_data_dir, sha256_file
 from app.storage import previews as previews_module
 from app.storage.examples import store_example
 from app.storage.filetype import FileKind
-from app.storage.previews import ensure_preview, placeholder_jpeg, preview_key, warm_previews
+from app.storage.previews import (
+    PreviewBusy,
+    ensure_preview,
+    placeholder_jpeg,
+    preview_key,
+    warm_previews,
+)
 from tests.fixtures.gen import make_half_filled_image_bytes, make_pdf_bytes
 
 SLUG = "sample_card"
@@ -180,3 +189,77 @@ def test_warm_previews_builds_every_preview_and_resumes(layout: DataLayout) -> N
 def test_placeholder_is_a_jpeg() -> None:
     with Image.open(BytesIO(placeholder_jpeg())) as image:
         assert image.format == "JPEG"
+
+
+# --- 11.9.8: sınırlı üretim ve tek üretim (PLAN.md §D131 e) ----------------------------------
+
+
+def _slow_render(monkeypatch: pytest.MonkeyPatch) -> dict[str, int]:
+    """`_render`'ı sayan ve aynı anda kaç üretim sürdüğünü ölçen yavaş sahte çizici."""
+    state = {"calls": 0, "active": 0, "peak": 0}
+    guard = threading.Lock()
+
+    def render(_source: Path, _long_edge: int, _quality: int) -> bytes:
+        with guard:
+            state["calls"] += 1
+            state["active"] += 1
+            state["peak"] = max(state["peak"], state["active"])
+        time.sleep(0.05)
+        with guard:
+            state["active"] -= 1
+        return placeholder_jpeg()
+
+    monkeypatch.setattr(previews_module, "_render", render)
+    return state
+
+
+def test_concurrent_requests_for_one_preview_share_a_single_render(
+    layout: DataLayout, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _store(layout, "kart.jpg", make_half_filled_image_bytes("JPEG", (400, 300)), FileKind.JPEG)
+    state = _slow_render(monkeypatch)
+
+    with ThreadPoolExecutor(max_workers=6) as pool:
+        results = list(
+            pool.map(lambda _: ensure_preview(layout, SLUG, "kart.jpg", "small"), range(6))
+        )
+
+    assert state["calls"] == 1
+    assert {result.path for result in results if result is not None} == {results[0].path}
+    assert previews_module._locks == {}  # kilit kaydı geride kalmaz
+
+
+def test_at_most_two_previews_render_at_once(
+    layout: DataLayout, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    names = [f"kart-{index}.jpg" for index in range(6)]
+    for index, name in enumerate(names):  # içerik farklı: aynı baytlar tek örnek olarak saklanır
+        content = make_half_filled_image_bytes("JPEG", (400 + index, 300))
+        _store(layout, name, content, FileKind.JPEG)
+    state = _slow_render(monkeypatch)
+
+    with ThreadPoolExecutor(max_workers=6) as pool:
+        list(pool.map(lambda name: ensure_preview(layout, SLUG, name, "small"), names))
+
+    assert state["calls"] == 6
+    assert state["peak"] == previews_module.RENDER_SLOTS == 2
+
+
+def test_prefetch_does_not_wait_for_a_busy_renderer(
+    layout: DataLayout, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _store(layout, "kart.jpg", make_half_filled_image_bytes("JPEG", (400, 300)), FileKind.JPEG)
+    monkeypatch.setattr(previews_module, "_slots", threading.BoundedSemaphore(1))
+    previews_module._slots.acquire()  # tek yer başka üretimde
+
+    with pytest.raises(PreviewBusy):
+        ensure_preview(layout, SLUG, "kart.jpg", "small", wait=False)
+
+    previews_module._slots.release()
+    created = ensure_preview(layout, SLUG, "kart.jpg", "small", wait=False)
+    assert created is not None and created.path is not None
+    # Var olan önizleme, yer doluyken bile beklemeden döner.
+    previews_module._slots.acquire()
+    again = ensure_preview(layout, SLUG, "kart.jpg", "small", wait=False)
+    assert again == created
+    assert previews_module._locks == {}

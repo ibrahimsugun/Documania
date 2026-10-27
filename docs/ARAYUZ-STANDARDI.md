@@ -14,7 +14,7 @@
 | Yerleşim + bileşenler | `static/panel.css` | Tasarım değişkenleri (boşluk, köşe, yazı, durum renkleri), kabuk yerleşimi, bütün bileşenler | Renk paleti (ink/surface/accent) — o theme.css'tedir |
 | Palet | `static/theme.css` | Açık (`:root`) ve koyu (`html[data-theme="dark"]`) renkler, gölgeler, odak halkası | Yerleşim, bileşen kuralı |
 | Sayfa | `templates/<sayfa>.html` | Yalnız anlam taşıyan HTML: başlık, açıklama, tablo, form, bölüm | Stil kararı (`style=`), yeni CSS dosyası, çevrilmemiş metin |
-| Betik | `static/*.js` | HTMX dışı davranış (bildirim, tema, bırakma alanı, ülke seçici) | Görünen dizge (metin sunucudan `data-*` ile gelir) |
+| Betik | `static/*.js` | HTMX dışı davranış (bildirim, tema, bırakma alanı, ülke seçici, önizleme ön yükleme) | Görünen dizge (metin sunucudan `data-*` ile gelir) |
 
 Tek stil dosyası kuralı (MASTER-PROMPT §4) korunur: yeni `.css` dosyası açılmaz, dış CSS/JS
 yüklenmez (CDN yok), satır içi `style=` yazılmaz.
@@ -80,6 +80,8 @@ kırmızıdır. Yeni hook eklerken buraya yaz (alfabetik):
 `telegram-link-help`, `telegram-own-help`, `template-archive`, `template-details`, `template-map`,
 `template-map-approve`, `template-pages`, `template-upload`, `training-form`, `training-results`, `training-runs`,
 `unregistered`, `user-role`.
+
+**Betik öznitelikleri (`data-*`).** Stil taşımaz, betiğin bulduğu işarettir: `data-preview-large="<adres>"` — sayfada gösterilen belgenin büyük önizleme adresi (`training_type.html`, `catalog_examples.html`, `upload_detail.html`); `preview-prefetch.js` (yalnız girişli sayfada, `base.html`'de ertelenmiş betik) bu adresleri görünüme yakın olandan başlayarak arka planda, düşük öncelikle önbelleğe indirir (11.9.8; PLAN.md §D131). Değer yalnız aynı kökenli önizleme adresidir; orijinal dosya adresi (İndir) bu özniteliğe yazılmaz.
 
 ## 5. Kurallar
 

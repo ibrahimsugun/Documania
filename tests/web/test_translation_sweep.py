@@ -320,6 +320,8 @@ NOT_HTML = frozenset(
         "/training/known/{slug}/examples/{name}",
         "/document-types/{slug}/previews/{size}/{name}",
         "/training/known/{slug}/previews/{size}/{name}",
+        # 11.9.8: ön yükleme listesi (JSON, görünen metin yok).
+        "/previews/thumbs",
         "/output-templates/{template_id}/file",
         "/output-templates/{template_id}/download",
         "/output-templates/{template_id}/pages/{page_index}",

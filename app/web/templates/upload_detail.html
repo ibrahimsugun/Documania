@@ -106,7 +106,7 @@
       {% for page in file.pages %}
       <li class="thumb">
         {% if page.has_image %}
-        <a href="/uploads/{{ detail.upload_id }}/pages/{{ page.id }}/image" target="_blank" rel="noopener">
+        <a href="/uploads/{{ detail.upload_id }}/pages/{{ page.id }}/image" target="_blank" rel="noopener" data-preview-large="/uploads/{{ detail.upload_id }}/pages/{{ page.id }}/image">
           <img src="/uploads/{{ detail.upload_id }}/pages/{{ page.id }}/image" loading="lazy"
                alt="{{ _("%(file)s — sayfa %(page)s", file=file.name, page=page.number) }}">
         </a>

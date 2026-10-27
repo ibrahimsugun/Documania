@@ -38,6 +38,7 @@ from app.web.routers import (
     groups,
     output_templates,
     panel,
+    previews,
     queue,
     training,
     upload_page,
@@ -159,6 +160,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         dependencies=[*panel_page, Depends(require_root), Depends(panel_write_gate)],
     )
     application.include_router(training.router, dependencies=panel_writes)
+    # 11.9.8: ön yükleme listesi — aynı oturum ve rol kapısı, yeni yetki yok.
+    application.include_router(previews.router, dependencies=panel_writes)
     application.include_router(users.router, dependencies=panel_writes)
     application.include_router(users.account_router, dependencies=panel_page)
     application.include_router(uploads.router, dependencies=api_writes)

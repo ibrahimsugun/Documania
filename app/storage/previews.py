@@ -13,15 +13,20 @@ JPEG olarak gösterir: liste küçük resmi (`small`, uzun kenar 320 px) ve ada 
   sıkıştırma bombası uyarısı hata sayılır. Çıktı yalnız yeniden kodlanmış JPEG'dir: EXIF, GPS ve
   ICC taşımaz (yalnız EXIF yönelimi fiziksel olarak uygulanır). Üretilemeyen örnekte önizleme yoktur
   (`Preview.path` boş): çağıran yer tutucu gösterir, İndir çalışmaya devam eder.
-- **Atomik yazım** (`replace_file`): okuyan her an ya tam önizlemeyi görür ya hiç görmez; aynı
-  önizlemeyi eşzamanlı üreten iki istek aynı baytları yazar.
+- **Atomik yazım** (`replace_file`): okuyan her an ya tam önizlemeyi görür ya hiç görmez.
+- **Sınırlı üretim** (11.9.8; PLAN.md §D131 e): aynı anda en çok `RENDER_SLOTS` önizleme üretilir;
+  aynı önizlemeyi isteyen eşzamanlı istekler tek üretimi paylaşır (önizleme başına kilit). Ön
+  yükleme beklemez (`wait=False`): yer ya da kilit doluysa `PreviewBusy` alır, uç `503` döner.
 """
 
 from __future__ import annotations
 
 import hashlib
 import os
+import threading
 import warnings
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from functools import lru_cache
 from io import BytesIO
@@ -42,10 +47,21 @@ PREVIEW_MAX_PIXELS = 50_000_000
 _PDF_DPI = 200
 _KEY_LENGTH = 20
 _PLACEHOLDER_SIDE = 320
+# Aynı anda üretilen önizleme sayısının üst sınırı (Pillow/PDF çizimi CPU ve bellek ister).
+RENDER_SLOTS = 2
+
+_slots = threading.BoundedSemaphore(RENDER_SLOTS)
+_locks_guard = threading.Lock()
+# Önizleme yolu → (kilit, bekleyen sayısı); son kullanan kaydı siler.
+_locks: dict[Path, tuple[threading.Lock, int]] = {}
 
 
 class PreviewError(ValueError):
     """Örneğin önizlemesi üretilemedi (bozuk, çok büyük ya da desteklenmeyen dosya)."""
+
+
+class PreviewBusy(RuntimeError):
+    """Üretim yerleri dolu ya da aynı önizleme şu an üretiliyor; bekleme istenmedi (ön yükleme)."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -64,9 +80,12 @@ def preview_key(path: Path) -> str:
     return hashlib.sha256(state.encode("utf-8")).hexdigest()[:_KEY_LENGTH]
 
 
-def ensure_preview(layout: DataLayout, type_slug: str, name: str, size: str) -> Preview | None:
+def ensure_preview(
+    layout: DataLayout, type_slug: str, name: str, size: str, *, wait: bool = True
+) -> Preview | None:
     """Örneğin `size` boyutlu önizlemesi; yoksa üretir. `name` türün örnek listesinde yoksa ya da
-    boyut tanımsızsa `None` (çağıran 404 döner)."""
+    boyut tanımsızsa `None` (çağıran 404 döner). `wait=False` iken üretim hemen başlayamıyorsa
+    `PreviewBusy` (var olan önizleme her zaman beklemeden döner)."""
     if size not in PREVIEW_SIZES:
         return None
     source = example_path(layout, type_slug, name)
@@ -76,14 +95,44 @@ def ensure_preview(layout: DataLayout, type_slug: str, name: str, size: str) -> 
     target = layout.preview_path(type_slug, key, size)
     if target.is_file():
         return Preview(key, target)
-    long_edge, quality = PREVIEW_SIZES[size]
-    try:
-        content = _render(source, long_edge, quality)
-    except PreviewError:
-        return Preview(key, None)
-    target.parent.mkdir(parents=True, exist_ok=True)
-    replace_file(target, content)
+    with _render_turn(target, wait=wait):
+        if target.is_file():  # beklerken başka istek üretti
+            return Preview(key, target)
+        long_edge, quality = PREVIEW_SIZES[size]
+        try:
+            content = _render(source, long_edge, quality)
+        except PreviewError:
+            return Preview(key, None)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        replace_file(target, content)
     return Preview(key, target)
+
+
+@contextmanager
+def _render_turn(target: Path, *, wait: bool) -> Iterator[None]:
+    """`target`'ın kilidi ve bir üretim yeri; `wait=False` iken biri boş değilse `PreviewBusy`."""
+    with _locks_guard:
+        lock, users = _locks.get(target, (threading.Lock(), 0))
+        _locks[target] = (lock, users + 1)
+    try:
+        if not lock.acquire(blocking=wait):
+            raise PreviewBusy(target.name)
+        try:
+            if not _slots.acquire(blocking=wait):
+                raise PreviewBusy(target.name)
+            try:
+                yield
+            finally:
+                _slots.release()
+        finally:
+            lock.release()
+    finally:
+        with _locks_guard:
+            lock, users = _locks[target]
+            if users == 1:
+                del _locks[target]
+            else:
+                _locks[target] = (lock, users - 1)
 
 
 def warm_previews(layout: DataLayout) -> dict[str, int]:
