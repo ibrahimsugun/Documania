@@ -2804,13 +2804,25 @@
         "priority": "medium",
         "subtasks": [],
         "updatedAt": "2026-10-27T01:00:00.000Z"
+      },
+      {
+        "id": "194",
+        "title": "13.4-b Eğitim malzemesi ayrı hacimlerde ve gece arşivinin dışında; artımlı malzeme yedeği [SONNET-XHIGH]",
+        "description": "PRD 13.4.2 · Faz 3. Sözleşme PLAN §D129. İnsan isteği (2026-10-27): eğitim modu malzemesi (örnekler, yüklenen kopyalar) yedekleri 5-10 GB şişiriyor; başka yerde tutulsun/sunulsun, gece yedeği küçük kalsın.",
+        "details": "KAPSAM: docker-compose.yml (known_examples + known_training hacimleri aynı yollara), Dockerfile (bağlama dizinleri uygulama kullanıcısına ait), scripts/backup.sh (examples/_egitim/_referans arşive girmez, MANIFEST material=, BACKUP_INCLUDE_MATERIAL), scripts/backup-material.sh (yeni; rsync, artımlı, --delete yok, --restore --ignore-existing), scripts/restore.sh (not), docs/YEDEKLEME.md, .env.example. Uygulama kodu ve veritabanı yolları değişmez.",
+        "testStrategy": "tests/scripts (gece yedeği malzemeyi dışlar/dâhil eder, manifest sayısı, restore notu; rsync'li dört senaryo rsync yoksa atlanır), tests/deploy (hacimler her uygulama servisinde).",
+        "status": "done",
+        "dependencies": [],
+        "priority": "medium",
+        "subtasks": [],
+        "updatedAt": "2026-10-27T12:00:00.000Z"
       }
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-27T01:00:00.000Z",
-      "taskCount": 193,
-      "completedCount": 193,
+      "lastModified": "2026-10-27T12:00:00.000Z",
+      "taskCount": 194,
+      "completedCount": 194,
       "tags": [
         "master"
       ]

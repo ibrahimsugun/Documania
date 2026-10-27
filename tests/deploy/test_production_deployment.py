@@ -219,6 +219,18 @@ def test_app_migrate_worker_and_bot_share_one_database_and_data_volume(
         assert _env(services[name])["APP_ENV"] == "${APP_ENV:-development}"
 
 
+def test_training_material_lives_on_its_own_volumes_at_the_same_paths_in_every_app_service(
+    compose: dict[str, Any], services: dict[str, dict[str, Any]]
+) -> None:
+    # Eğitim malzemesi (birkaç GB) `data` hacminden ayrıdır, gece yedeği küçük kalır (PLAN.md
+    # §D129); uygulama için yol aynıdır, veritabanındaki göreli yollar değişmez.
+    for name in ("app", "migrate", "worker", "bot"):
+        volumes = services[name]["volumes"]
+        assert "known_examples:/srv/data/KnownDocuments/examples" in volumes
+        assert "known_training:/srv/data/KnownDocuments/_egitim" in volumes
+    assert {"known_examples", "known_training"} <= set(compose["volumes"])
+
+
 def test_dev_env_file_settings_cannot_leak_a_host_database_path_into_containers(
     services: dict[str, dict[str, Any]],
 ) -> None:

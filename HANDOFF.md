@@ -20,6 +20,12 @@ Blok biçimi `CONVENTIONS.md` §3'te tanımlıdır:
 
 ## Task log (newest-first)
 
+## 194 — 13.4-b Eğitim malzemesi ayrı hacimlerde ve gece arşivinin dışında — done — 2026-10-27
+- Yapıldı: Compose `examples` ve `_egitim` için ayrı hacimler bağlar, `backup.sh` eğitim malzemesini gece arşivine almaz, yeni `scripts/backup-material.sh` onu rsync ile artımlı ve silmeden yedekler/geri koyar.
+- Doğrulama: ruff check/format, `tests/scripts` + `tests/deploy` geçti (rsync'li 4 test geliştirme makinesinde rsync yok diye atlandı); tam kapı (`--cov`) koşulmadı (insan kuralı: 50 dk'lık kapıyı bekleme).
+- Varsayımlar: §D129 — `_referans` data hacminde kalır ama arşivden çıkar; `--delete` yok; `gelen` tekilleştirme kapsam dışı.
+- Sonraki pencereye not: YanPC'ye DAĞITILMADI. Geçiş (insan izni gerekir): uygulamayı durdur → imajı kur → `known_examples`/`known_training` hacimlerine kopyala (`cp -a`) → sayı/bayt doğrula → `data` hacmindeki eski `examples`/`_egitim`'i kaldır → `up -d`; sonra `BACKUP_MATERIAL_DIR` ve `MATERIAL_*_DIR` ile `backup-material.sh`'i bir kez çalıştır.
+
 ## 193 — 11.9-g Eğitimde çift inceleme (Sol + Sonnet 5.5) ve "AI kararı" yeniden inceleme komutu — done — 2026-10-27
 - Yapıldı: iki anahtar tanımlıyken eğitim her belgeyi GPT-6.1 Sol ve Sonnet 5.5'e (`low`) ayrı sorar; ikisi aynı bilinen türü verirse örnek doğrudan `verified` (olay `review: pair`, aktör `system`), yoksa "AI kararı"; `python -m app.training recheck` mevcut "AI kararı" örneklerini aynı kuralla doğrular/taşır/bırakır ve model başına belirteç + tahmini maliyet yazar; `UsageTotals`, `TRAINING_AUTO_CONFIRM`, i18n (en, sr).
 - Doğrulama: ruff check/format, compileall, `import app.main`, `python -m app.i18n check` exit 0; tests/training + ai + i18n + worker + config + ui_standard 1543 geçti, 4 atlandı. Tam kapı (`--cov`) koşulmadı (insan kuralı). Yerel kuru koşu (5 örnek, gerçek sağlayıcılar): 4 doğrulanır, 1 belirsiz, ~0,25 $.
@@ -44,8 +50,3 @@ Blok biçimi `CONVENTIONS.md` §3'te tanımlıdır:
 - Varsayımlar: §D125 "uygulama kararları (tm 190)"na yazıldı — pasif + doğru parola `inactive`, yanlış `wrong_password`; canlıda app konteynerde olduğu için `docker-compose.yml` özel ağları güvenilen vekile ekler ve `Caddyfile` istemcinin `CF-Connecting-IP`'sini siler; tanınmayan süzgeç değeri "tümü"; önceki oturumun girişte kapanması çıkış sayılmaz.
 - Sonraki pencereye not: Faz 1'de açık satır kalmadı (96 ✅, 52/52 Must) — kapanış denetimi görevi açılabilir. YanPC'ye yeniden dağıtımda IP'nin gerçek istemci adresi göründüğü canlıda bir girişle doğrulanmalı (konteyner `TRUSTED_PROXIES`'i compose'dan alır).
 
-## 189 — 10.1-i Yapay zekâ ayarları sayfası yalnız root — done — 2026-10-23
-- Yapıldı: `app/web/routers/ai_settings.py` + `ai_settings.html` (sağlayıcı başına kart: anahtar yalnız tanımlı/tanımsız, tek etkin radyo, model ve efor `select`, satır yokken `.env` + "henüz kaydedilmedi"), tek adımlı kayıt (bilinmeyen sağlayıcı/model/efor ve anahtarsız sağlayıcı 422, `N_` metinleri), `AI_SETTINGS_CHANGED`, iki bildirim, root gezinmesinde simgeli `tool-link`, üç dil.
-- Doğrulama: ruff check/format, compileall, temiz SQLite'ta `alembic upgrade head` (→0033, göç yok), `import app.main`, `python -m app.i18n check`, `git diff --check` exit 0; tam paralel kapı (`-n 6 --cov`) 7191 geçti, 6 atlandı, kapsam %98,73, exit 0.
-- Varsayımlar: §D124 "uygulama kararları (tm 189)"na yazıldı — `require_root` artık Starlette 404'ü atar (bildirim çerezi yok, bilinmeyen yolla birebir), `app.main`'de root kapısı yazma kapısından önce (Kullanıcı'nın `POST`'u 404), `/ai-settings/{rest:path}` 404 yakalayıcısı (307 sızıntısı), değişiklik yoksa olay yok.
-- Sonraki pencereye not: Faz 1 52/52 Must; kapanış denetimi görevi açılabilir. Testleri dosya listesiyle elle koşarken `test_access_log_view.py` başka dosyalarla birlikte "fixture 'app' not found" verebiliyor (conftest içe aktarma sırası) — tek başına ve tam kapıda yeşil.

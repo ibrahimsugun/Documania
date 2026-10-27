@@ -158,3 +158,6 @@ esac
 
 log "geri yükleme tamam: $extracted dosya, veritabanı: $DB_KIND (yedek: $(manifest_value created_utc))"
 log "sıradaki adım: uygulama sürümü yedekten yeniyse 'alembic upgrade head', sonra uygulamayı başlatın"
+if [ "$(manifest_value material)" = excluded ]; then
+  log "NOT: bu yedekte eğitim malzemesi (examples, _egitim, _referans) yok; geri koymak için scripts/backup-material.sh --restore"
+fi

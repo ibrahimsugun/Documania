@@ -13,6 +13,10 @@
 #   BACKUP_KEEP_DAYS     bu günden eski yedekler silinir; 0 = silme (varsayılan: 14)
 #   BACKUP_COPY_DIR      sunucu dışı kopya için dizin (bağlı bir ağ paylaşımı, harici disk)
 #   BACKUP_SCP_TARGET    sunucu dışı kopya için `kullanıcı@sunucu:/dizin` (scp ile)
+#   BACKUP_INCLUDE_MATERIAL  1 ise eğitim malzemesi de arşive girer (varsayılan: girmez; aşağıya bak)
+# Eğitim malzemesi (`KnownDocuments/examples`, `_egitim`, `_referans`) gece arşivine GİRMEZ: birkaç GB
+# tutar, JPG/PDF/PNG sıkışmaz, kaynak koleksiyondan yeniden üretilebilir. Onun yedeği
+# `scripts/backup-material.sh` (artımlı, sıkıştırmasız). Geri alma: docs/YEDEKLEME.md.
 # Çıkış kodu 0: yedek alındı (sunucu dışı hedef tanımlıysa oraya da kopyalandı).
 #
 # Gece çalıştırma (sunucuda, uygulamanın depo kökünden): docs/YEDEKLEME.md'deki cron satırı.
@@ -37,6 +41,7 @@ keep_days="$(env_value BACKUP_KEEP_DAYS)"
 keep_days="${keep_days:-14}"
 copy_dir="$(env_value BACKUP_COPY_DIR)"
 scp_target="$(env_value BACKUP_SCP_TARGET)"
+include_material="$(env_value BACKUP_INCLUDE_MATERIAL)"
 
 case "$keep_days" in
   '' | *[!0-9]*) die "BACKUP_KEEP_DAYS negatif olmayan bir tam sayı olmalı: $keep_days" ;;
@@ -66,8 +71,18 @@ final="$backup_dir/$name"
 [ ! -e "$final" ] || die "bu saniyeye ait yedek zaten var: $final"
 
 mkdir "$stage/db"
-data_files="$(count_files "$data_dir")"
 excludes=()
+find_filters=()
+if [ "$include_material" = 1 ]; then
+  material=included
+else
+  material=excluded
+  for material_dir in examples _egitim _referans; do
+    excludes+=("--exclude=./KnownDocuments/$material_dir")
+    find_filters+=(-not -path "$data_dir/KnownDocuments/$material_dir/*")
+  done
+fi
+data_files="$(find "$data_dir" -type f "${find_filters[@]+"${find_filters[@]}"}" | wc -l | tr -d ' ')"
 case "$DB_KIND" in
   sqlite)
     log "SQLite anlık görüntüsü alınıyor"
@@ -99,6 +114,7 @@ db_kind=$DB_KIND
 db_file=$db_file
 db_sha256=$db_sha
 data_files=$data_files
+material=$material
 MANIFEST
 
 partial="$backup_dir/.$name.partial"

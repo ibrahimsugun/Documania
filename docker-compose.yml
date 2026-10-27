@@ -41,6 +41,12 @@ x-app: &app
     TRUSTED_PROXIES: ${TRUSTED_PROXIES:-127.0.0.0/8,::1,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16}
   volumes:
     - data:/srv/data
+    # Eğitim malzemesi (birkaç GB) çalışan verisinden ayrı hacimlerde: gece yedeği küçük kalır,
+    # malzeme `scripts/backup-material.sh` ile ayrıca yedeklenir (docs/YEDEKLEME.md). Uygulama için
+    # yol aynıdır (`KnownDocuments/examples`, `KnownDocuments/_egitim`); veritabanındaki göreli
+    # yollar değişmez.
+    - known_examples:/srv/data/KnownDocuments/examples
+    - known_training:/srv/data/KnownDocuments/_egitim
 
 services:
   # Şema göçü: uygulama şemayı kendisi kurmaz. Tek seferlik çalışır; app, worker ve bot bunun
@@ -187,6 +193,8 @@ services:
 
 volumes:
   data:
+  known_examples:
+  known_training:
   pgdata:
   caddy_data:
   caddy_config:

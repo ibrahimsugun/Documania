@@ -29,6 +29,8 @@ COPY alembic.ini ./
 COPY alembic ./alembic
 
 # Veri dizini (PRD §8.2) açılışta uygulama kullanıcısıyla kurulur; kök sahipliği burada verilir.
+# `examples` ve `_egitim` Compose'ta ayrı hacimlerin bağlama noktasıdır (eğitim malzemesi, 13.4.2):
+# dizinler görüntüde uygulama kullanıcısına ait açılır ki hacimler ilk bağlanışta aynı sahipliği alsın.
 RUN useradd --create-home --uid 10001 belgeee \
     && mkdir /srv/data \
     && chown belgeee:belgeee /srv/data

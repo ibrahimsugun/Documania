@@ -9,6 +9,7 @@ değiştirilmez, silinmez (K10, K11).
 |---|---|
 | `scripts/backup.sh` | Yedek alır: veritabanı + `DATA_DIR` → tek `belgeee-<UTC zaman>.tar.gz`, yanında `.sha256` |
 | `scripts/restore.sh` | Yedeği doğrular, boş bir hedefe (ya da `--force` ile mevcudun yerine) geri yükler |
+| `scripts/backup-material.sh` | Eğitim malzemesini (gece arşivinin dışında) artımlı ve sıkıştırmasız kopyalar; `--restore` ile geri koyar |
 | `scripts/backup-lib.sh` | İkisinin ortak işlevleri (kaynak alınır, tek başına çalıştırılmaz) |
 
 Gereken araçlar: `bash`, GNU `tar`, `find`, `python3` (yalnız standart kitaplık; uygulamanın sanal
@@ -24,8 +25,14 @@ ortamı gerekmez). PostgreSQL için ayrıca `pg_dump`, `pg_restore`, `psql` (`po
   Döküm bütün tabloları kapsar: erişim logu (`access_log`) ve giriş kaydı (`login_log`; IP ve
   tarayıcı bilgisi taşır) da veritabanı yedeğiyle alınır.
 - **Veri dizini** (`DATA_DIR`): Inbox'taki orijinal yüklemeler, çalışan klasörleri (`Alinan`,
-  `Hazir`, `Uretilen`), katalog, örnekler ve hazır şablonlar (`KnownDocuments/_sablonlar/`). SQLite dosyası veri dizininin içindeyse canlı dosya (ve `-wal`,
-  `-shm`, `-journal`) arşive girmez; yerine tutarlı anlık görüntü girer.
+  `Hazir`, `Uretilen`), katalog ve hazır şablonlar (`KnownDocuments/_sablonlar/`). SQLite dosyası
+  veri dizininin içindeyse canlı dosya (ve `-wal`, `-shm`, `-journal`) arşive girmez; yerine tutarlı
+  anlık görüntü girer.
+- **Eğitim malzemesi gece arşivine girmez** (`KnownDocuments/examples`, `_egitim`, `_referans`):
+  birkaç GB tutar (örnekler, eğitim modunda yüklenen dosyaların kopyası, referans görüntüler), JPG/PDF/PNG
+  sıkışmaz ve kaynak koleksiyondan yeniden üretilebilir. Bunun yedeği ayrıdır (aşağıda, "Eğitim
+  malzemesinin yedeği"). Arşivin `MANIFEST.txt`'inde `material=excluded` yazar; `BACKUP_INCLUDE_MATERIAL=1`
+  verilirse malzeme de arşive girer (`material=included`).
 - Arşivin içi: `MANIFEST.txt` (zaman, veritabanı türü, veritabanı dökümünün SHA-256'sı, dosya
   sayısı), `db/…`, `data/…`. Arşiv `umask 077` ile yazılır (yalnız sahibi okur) — kimlik belgesi
   içerir.
@@ -47,6 +54,9 @@ Ortam değişkeni ya da depo kökündeki `.env` (ortam değişkeni önceliklidir
 | `BACKUP_KEEP_DAYS` | Bu günden eski yedekler silinir; `0` = silme | `14` |
 | `BACKUP_COPY_DIR` | Sunucu dışı kopya için dizin (bağlı ağ paylaşımı, harici disk) | boş |
 | `BACKUP_SCP_TARGET` | Sunucu dışı kopya için `kullanıcı@sunucu:/dizin` (`scp` ile; anahtarla, parolasız) | boş |
+| `BACKUP_INCLUDE_MATERIAL` | `1` ise eğitim malzemesi de gece arşivine girer | boş (girmez) |
+| `BACKUP_MATERIAL_DIR` | `backup-material.sh` hedefi: yerel dizin ya da `kullanıcı@sunucu:/dizin` (`rsync` ile) | zorunlu (o betik için) |
+| `MATERIAL_EXAMPLES_DIR`, `MATERIAL_TRAINING_DIR`, `MATERIAL_REFERENCE_DIR` | `backup-material.sh` kaynakları (`examples`, `_egitim`, `_referans`) | `$DATA_DIR/KnownDocuments/…` |
 
 **Sunucu dışı kopya:** `BACKUP_COPY_DIR` ya da `BACKUP_SCP_TARGET` tanımlıysa yedek oraya da
 gider; kopya başarısız olursa betik **hata koduyla biter** (cron e-postası ya da izleme yakalasın).
@@ -72,6 +82,26 @@ sonraki geceye kalır.
 
 Yedeğin işe yaradığını **haftada bir** geri yükleme provasıyla doğrulayın (aşağıda).
 
+## Eğitim malzemesinin yedeği
+
+Malzeme gece arşivinde olmadığı için ayrı yedeklenir: `scripts/backup-material.sh` `rsync -a` ile
+`BACKUP_MATERIAL_DIR`'e kopyalar (yerel dizin, harici disk ya da `kullanıcı@sunucu:/dizin`).
+İlk koşu hepsini taşır, sonrakiler yalnız yeni ya da değişen dosyaları; **sıkıştırma yok**.
+Kasıtlı olarak `--delete` kullanmaz: ne kaynakta ne hedefte bir şey silinmez; kaynak dizin yok ya da
+boşsa (hacim bağlanmamış olabilir) atlanır ve hedefteki yedek yerinde kalır. Hedef kaynağın içinde olamaz.
+
+```cron
+30 3 * * 0 cd /srv/belgeee && ./scripts/backup-material.sh >> /var/log/belgeee-backup-material.log 2>&1
+```
+
+(Haftada bir yeterli: malzeme gece değişmez; eğitim koşusu yaptığınız gün elle de çalıştırılabilir.)
+
+**Geri alma:** `./scripts/backup-material.sh --restore` hedefteki dosyaları kaynağa koyar; var olan
+dosyanın üzerine **yazmaz** (`--ignore-existing`). Docker'da dosyalar uygulama kullanıcısına (uid
+10001) ait olmalıdır: `chown -R 10001:10001 <hacim yolu>`. Gece arşivinden geri yüklemeden sonra
+(`restore.sh` bunu hatırlatır) veritabanındaki örnek kayıtlarının dosyaları ancak bu adımla döner.
+Malzeme kaybolursa kaynak koleksiyon (toplayıcı aracın çıktısı) ikinci yoldur.
+
 ### Docker Compose üretim dağıtımında (13.5.1)
 
 `docker compose --profile production up -d --build` ile kurulan sunucuda uygulama ve PostgreSQL
@@ -85,6 +115,13 @@ konteynerdedir, betikler ise **sunucunun kendisinde** (konteyner dışında) ça
   `/var/lib/docker/volumes/belgeee_data/_data`; hacim adı Compose proje adından, yani depo
   klasörünün adından gelir). Dosyalar konteyner kullanıcısına (uid 10001) aittir; cron `root` ile
   koşmalıdır.
+- **Eğitim malzemesi ayrı hacimlerdedir:** `docker-compose.yml` `KnownDocuments/examples` ve
+  `KnownDocuments/_egitim` yollarına `known_examples` ve `known_training` hacimlerini bağlar (uygulama
+  için yol aynıdır; veritabanındaki göreli yollar değişmez). `DATA_DIR`'e verdiğiniz `data` hacmi bu
+  yüzden küçüktür ve gece yedeği yalnız onu alır. `backup-material.sh` için kaynak yolları:
+  `docker volume inspect belgeee_known_examples --format '{{ .Mountpoint }}'` (ve `…_known_training`)
+  çıktısı `MATERIAL_EXAMPLES_DIR` / `MATERIAL_TRAINING_DIR` olarak `.env`'e yazılır; `_referans`
+  `data` hacminde kalır (varsayılan yol yeter, uygulama onu kullanmaz).
 - **Geri yükleme:** önce `docker compose --profile production stop app bot caddy` (db çalışır
   kalır), betik, sonra `docker compose --profile production up -d`. Şemayı `migrate` adımı `up`'ta
   zaten `alembic upgrade head` ile günceller (aşağıdaki 4. adım ayrıca gerekmez).
