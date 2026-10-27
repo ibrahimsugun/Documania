@@ -590,8 +590,8 @@ başlığının başında birebir geçer.
 | 10.7-d | Kuyruk öğesini kapatma ve yeniden açma; yoksanan partiyi geri alma | 10.7.4, 10.3.5 | [OPUS-XHIGH] | 10.7-a, 10.3-c, 10.8 | 1 |
 | 11.1-d | Türü arşivleme, geri alma, toplu seçim, aktivasyon olayları; reddedilen adayı geri alma | 11.1.6, 11.5.7 | [OPUS-HIGH] | 11.1-c, 11.5, 11.9-d | 1 |
 | 11.9-g | Eğitim temizliği: öğeyi yoksay/geri al, çalıştırmayı arşivle, katalog örneklerinin kaydı ve çıkarılması | 11.9.6 | [OPUS-HIGH] | 11.9-e, 11.9-f | 1 |
-| 11.9-h | Örnek önizlemeleri: küçük türetilmiş önizleme (liste 320 px, büyük 1280 px), orijinal yalnız İndir düğmesiyle; `private` uzun önbellek | 11.9.7 | [OPUS-HIGH] | 11.9-d, 11.9-e | 1 |
-| 11.9-i | Önizleme ön yükleme: giriş sonrası küçükler, sayfaya girince o sayfanın büyükleri; düşük öncelik, sunucuda sınırlı eşzamanlılık, çıkışta önbellek temizliği | 11.9.8 | [OPUS-HIGH] | 11.9-h | 1 |
+| 11.9-h | Örnek önizlemeleri: küçük türetilmiş önizleme (liste 320 px, büyük 1280 px), orijinal yalnız İndir düğmesiyle; `private` uzun önbellek | 11.9.7 | [OPUS-MEDIUM] | 11.9-d, 11.9-e | 1 |
+| 11.9-i | Önizleme ön yükleme: giriş sonrası küçükler, sayfaya girince o sayfanın büyükleri; düşük öncelik, sunucuda sınırlı eşzamanlılık, çıkışta önbellek temizliği | 11.9.8 | [OPUS-MEDIUM] | 11.9-h | 1 |
 | 10.1-b | Kullanıcı yönetimi: liste, yeni kullanıcı, parola, pasife alma | 10.1.4 | [OPUS-HIGH] | 10.1 | 1 |
 | 12.1-b | Telegram beyaz listesini panelden yönetme | 12.1.3 | [OPUS-HIGH] | 10.1-b, 12.1 | 2 |
 | 00.6-b | Açılışta boş katalog tablosunu tohumdan yükleme: panel, işçi ve bot | 00.6.2, 00.6.3 | [OPUS-HIGH] | 00.6, 13.5-b | 0 |
