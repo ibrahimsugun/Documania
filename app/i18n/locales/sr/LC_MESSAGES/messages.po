@@ -4,8 +4,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Documania panel\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-27 22:20+0000\n"
-"PO-Revision-Date: 2026-10-27 22:20+0000\n"
+"POT-Creation-Date: 2026-10-27 22:30+0000\n"
+"PO-Revision-Date: 2026-10-27 22:30+0000\n"
 "Last-Translator: Documania görev penceresi (gözden geçirilmeli)\n"
 "Language: sr_Latn\n"
 "Language-Team: Srpski\n"
@@ -458,6 +458,10 @@ msgstr "Upravo ćete trajno obrisati predloženi tip <Tür adı>. Da li ste sigu
 msgid "<Tür adı> belge türünü arşivlemek üzeresiniz. Emin misiniz?"
 msgstr "Upravo ćete arhivirati tip dokumenta <Tür adı>. Da li ste sigurni?"
 
+#: app/web/routers/output_templates.py
+msgid "<Tür adı> şablonunu kalıcı olarak silmek üzeresiniz. Emin misiniz?"
+msgstr "Upravo ćete trajno obrisati šablon <Tür adı>. Da li ste sigurni?"
+
 #: app/web/templates/training_map.html
 #, python-format
 msgid "<strong>%(name)s</strong> haritası okundu."
@@ -507,6 +511,7 @@ msgstr "API ključ"
 #: app/web/templates/employee_merge_results.html
 #: app/web/templates/employees_results.html app/web/templates/group.html
 #: app/web/templates/groups.html app/web/templates/output_template.html
+#: app/web/templates/output_template_delete_step.html
 #: app/web/templates/output_templates.html app/web/templates/profile.html
 #: app/web/templates/queue_assign.html
 msgid "Ad"
@@ -677,6 +682,7 @@ msgstr ""
 #: app/web/templates/employee_fields_step.html
 #: app/web/templates/employee_merge_step.html
 #: app/web/templates/output_template.html
+#: app/web/templates/output_template_delete_step.html
 #: app/web/templates/output_templates.html app/web/templates/profile.html
 msgid "Alan"
 msgstr "Polje"
@@ -886,6 +892,10 @@ msgstr "Arhivirani generisani dokumenti (%(count)s)"
 msgid "Arşivdeki şablon incelenmez; önce arşivden geri alın."
 msgstr "Šablon u arhivi se ne pregleda; prvo ga vratite iz arhive."
 
+#: app/web/templates/output_template_delete_step.html
+msgid "Arşivdeki şablonlar"
+msgstr "Arhivirani šabloni"
+
 #: app/web/routers/output_templates.py
 msgid "Arşivdeki şablonun haritası onaylanmaz; önce arşivden geri alın."
 msgstr "Mapa arhiviranog šablona se ne odobrava; prvo ga vratite iz arhive."
@@ -955,6 +965,16 @@ msgstr "Nema arhiviranih pokretanja."
 #: app/web/templates/training_results.html
 msgid "Arşivlenen çalıştırmalar"
 msgstr "Arhivirana pokretanja"
+
+#: app/web/templates/output_template.html
+msgid ""
+"Arşivlenen şablon profilde seçilemez; üretilmiş belgeler yerinde kalır. "
+"Arşivden tek tıkla geri alınır; yalnız arşivdeki ve üretilmiş belgesi "
+"olmayan şablon kalıcı silinebilir."
+msgstr ""
+"Arhivirani šablon ne može se izabrati na profilu; već generisani "
+"dokumenti ostaju na mestu. Iz arhive se vraća jednim klikom; trajno se "
+"može obrisati samo arhivirani šablon bez generisanih dokumenata."
 
 #: app/web/templates/catalog.html app/web/templates/profile.html
 msgid "Arşivleyen"
@@ -2523,6 +2543,15 @@ msgstr ""
 "Ovaj šablon je nacrt: ne može se pripremiti za izlaz dok mapa polja ne "
 "bude odobrena."
 
+#: app/web/routers/output_templates.py
+#, python-brace-format
+msgid ""
+"Bu şablondan {count} üretilmiş belge var; şablon silinmez. Üretilmiş "
+"belgeler yerinde kalır."
+msgstr ""
+"Iz ovog šablona postoji generisanih dokumenata: {count}; šablon se ne "
+"briše. Generisani dokumenti ostaju na mestu."
+
 #: app/output_templates/labels.py
 msgid "Bugünün tarihi"
 msgstr "Današnji datum"
@@ -3082,6 +3111,7 @@ msgstr "Da, spoji"
 #: app/web/templates/employee_fields.html
 #: app/web/templates/employee_merge_step.html
 #: app/web/templates/employee_status_step.html
+#: app/web/templates/output_template_delete_step.html
 #: app/web/templates/profile_record_step.html
 #: app/web/templates/queue_assign.html app/web/templates/queue_close_step.html
 #: app/web/templates/queue_new_profile.html
@@ -3112,6 +3142,7 @@ msgid "Evet, kalıcı olarak sil"
 msgstr "Da, trajno obriši"
 
 #: app/web/templates/catalog_candidate_step.html
+#: app/web/templates/output_template_delete_step.html
 msgid "Evet, kalıcı sil"
 msgstr "Da, trajno obriši"
 
@@ -3936,7 +3967,7 @@ msgstr "Stavke"
 msgid "Kalıcı olarak silindi: %(at)s · %(user)s"
 msgstr "Trajno obrisano: %(at)s · %(user)s"
 
-#: app/web/templates/profile.html
+#: app/web/templates/output_template.html app/web/templates/profile.html
 msgid "Kalıcı sil"
 msgstr "Trajno obriši"
 
@@ -5252,6 +5283,7 @@ msgid "Satır"
 msgstr "Red"
 
 #: app/web/templates/output_template.html
+#: app/web/templates/output_template_delete_step.html
 #: app/web/templates/output_templates.html app/web/templates/upload_result.html
 #: app/web/templates/uploads_list.html
 msgid "Sayfa"
@@ -5420,6 +5452,7 @@ msgstr ""
 "menja."
 
 #: app/web/templates/catalog_candidates.html
+#: app/web/templates/output_templates.html
 msgid "Sil"
 msgstr "Obriši"
 
@@ -6162,6 +6195,7 @@ msgstr "Državljanstvo"
 #: app/web/templates/employee_merge_step.html
 #: app/web/templates/employee_status_step.html app/web/templates/group.html
 #: app/web/templates/output_template.html
+#: app/web/templates/output_template_delete_step.html
 #: app/web/templates/profile_record_step.html
 #: app/web/templates/queue_assign.html app/web/templates/queue_close_step.html
 #: app/web/templates/queue_new_profile.html
@@ -6197,6 +6231,10 @@ msgstr "mora biti datum u obliku GGGG-MM-DD"
 #, python-brace-format
 msgid "Yalnız arşivdeki belge geri alınır; bu belgenin durumu: {status}."
 msgstr "Vratiti se može samo arhivirani dokument; status ovog dokumenta: {status}."
+
+#: app/web/routers/output_templates.py
+msgid "Yalnız arşivdeki şablon silinir; önce şablonu arşivleyin."
+msgstr "Briše se samo arhivirani šablon; prvo arhivirajte šablon."
 
 #: app/web/routers/groups.py
 #, python-brace-format
@@ -8655,6 +8693,14 @@ msgstr "Šablon nije pronađen"
 msgid "Şablon dosyası bulunamadı"
 msgstr "Datoteka šablona nije pronađena"
 
+#: app/web/routers/output_templates.py
+msgid ""
+"Şablon dosyası, <N> sayfa önizlemesi ve alan haritası silinecek; bu işlem"
+" geri alınamaz. Son kararınız mı?"
+msgstr ""
+"Datoteka šablona, pregledi stranica (<N>) i mapa polja biće obrisani; ova"
+" radnja se ne može poništiti. Da li je to vaša konačna odluka?"
+
 #: app/web/templates/output_templates.html
 msgid "Şablon durumu"
 msgstr "Status šablona"
@@ -8667,13 +8713,11 @@ msgstr ""
 "Šablon nije spreman: mapa polja nije odobrena ili je šablon u arhivi. "
 "Prvo pripremite šablon."
 
-#: app/web/templates/output_template.html
+#: app/web/feedback.py
 msgid ""
-"Şablon silinmez. Arşivlenen şablon profilde seçilemez; üretilmiş belgeler"
-" yerinde kalır. Arşivden tek tıkla geri alınır."
-msgstr ""
-"Šablon se ne briše. Arhivirani šablon ne može se izabrati na profilu; već"
-" generisani dokumenti ostaju na mestu. Iz arhive se vraća jednim klikom."
+"Şablon kalıcı olarak silindi: dosyası, önizlemeleri ve alan haritası "
+"kaldırıldı."
+msgstr "Šablon je trajno obrisan: uklonjeni su datoteka, pregledi i mapa polja."
 
 #: app/web/templates/output_template.html
 #: app/web/templates/output_templates.html
@@ -8703,13 +8747,34 @@ msgstr ""
 msgid "Şablon yüklenmedi: alanların altındaki uyarıları düzeltin."
 msgstr "Šablon nije otpremljen: ispravite upozorenja ispod polja."
 
+#: app/web/templates/output_template_delete_step.html
+msgid "Şablona dön"
+msgstr "Nazad na šablon"
+
 #: app/web/templates/output_template.html
 msgid "Şablonu arşivle"
 msgstr "Arhiviraj šablon"
 
+#: app/web/templates/output_template_delete_step.html
+msgid "Şablonu kalıcı sil"
+msgstr "Trajno obriši šablon"
+
+#: app/web/templates/output_template_delete_step.html
+#, python-format
+msgid "Şablonu kalıcı sil: %(name)s"
+msgstr "Trajno obriši šablon: %(name)s"
+
 #: app/web/templates/output_template.html
 msgid "Şablonu yükle"
 msgstr "Otpremi šablon"
+
+#: app/web/routers/output_templates.py
+msgid ""
+"Şablonun dosyaları silinemedi; kayıt değişmedi. Biraz sonra yeniden "
+"deneyin."
+msgstr ""
+"Datoteke šablona nisu mogle da se obrišu; zapis se nije promenio. "
+"Pokušajte ponovo malo kasnije."
 
 #: app/web/templates/output_template.html
 msgid ""

@@ -324,6 +324,11 @@ TEMPLATE_ARCHIVED = _register(
     N_("Şablon arşivlendi: profilde seçilemez, üretilmiş belgeler yerinde kalır."),
 )
 TEMPLATE_RESTORED = _register("templates.restored", _OK, N_("Şablon arşivden geri alındı."))
+TEMPLATE_DELETED = _register(
+    "templates.deleted",
+    _OK,
+    N_("Şablon kalıcı olarak silindi: dosyası, önizlemeleri ve alan haritası kaldırıldı."),
+)
 # 15.1.3: alan haritası onayı.
 TEMPLATE_MAP_APPROVED = _register(
     "templates.map_approved",

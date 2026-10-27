@@ -95,6 +95,9 @@ class Operation(enum.StrEnum):
     # §20.6'nın dışında (PLAN.md §D134): reddedilen aday türü kalıcı sil (11.1.9); metinler
     # `app.web.routers.catalog`'dadır.
     CANDIDATE_DELETE = "candidate_delete"
+    # §20.6'nın dışında (PLAN.md §D134): arşivdeki hazır şablonu kalıcı sil (15.1.5); metinler
+    # `app.web.routers.output_templates`'tadır.
+    TEMPLATE_DELETE = "template_delete"
 
 
 @dataclass(frozen=True, slots=True)

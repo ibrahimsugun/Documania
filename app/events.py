@@ -118,6 +118,9 @@ class EventType(enum.StrEnum):
     TEMPLATE_MAP_APPROVED = "TEMPLATE_MAP_APPROVED"
     TEMPLATE_ARCHIVED = "TEMPLATE_ARCHIVED"
     TEMPLATE_RESTORED = "TEMPLATE_RESTORED"
+    # 15.1.5 (PLAN.md §D134 c, d): arşivdeki şablon kalıcı silindi; veri şablon kimliği, adı, sayfa,
+    # alan ve harita sürümü sayısı, silinen dosya sayısı — kişisel değer yok.
+    OUTPUT_TEMPLATE_DELETED = "OUTPUT_TEMPLATE_DELETED"
     # 15.2.1, 15.2.3: şablon kopyasından üretilen belge; veri şablon, harita sürümü, üretilen belge
     # ve alan **adları** (yazılan, eksik, taşan) — değer yok.
     OUTPUT_GENERATED = "OUTPUT_GENERATED"

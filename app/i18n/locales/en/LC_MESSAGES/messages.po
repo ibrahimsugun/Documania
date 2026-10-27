@@ -4,8 +4,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Documania panel\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-27 22:20+0000\n"
-"PO-Revision-Date: 2026-10-27 22:20+0000\n"
+"POT-Creation-Date: 2026-10-27 22:30+0000\n"
+"PO-Revision-Date: 2026-10-27 22:30+0000\n"
 "Last-Translator: Documania görev penceresi (gözden geçirilmeli)\n"
 "Language: en\n"
 "Language-Team: English\n"
@@ -436,6 +436,10 @@ msgstr ""
 msgid "<Tür adı> belge türünü arşivlemek üzeresiniz. Emin misiniz?"
 msgstr "You are about to archive the <Tür adı> document type. Are you sure?"
 
+#: app/web/routers/output_templates.py
+msgid "<Tür adı> şablonunu kalıcı olarak silmek üzeresiniz. Emin misiniz?"
+msgstr "You are about to permanently delete the template <Tür adı>. Are you sure?"
+
 #: app/web/templates/training_map.html
 #, python-format
 msgid "<strong>%(name)s</strong> haritası okundu."
@@ -485,6 +489,7 @@ msgstr "API key"
 #: app/web/templates/employee_merge_results.html
 #: app/web/templates/employees_results.html app/web/templates/group.html
 #: app/web/templates/groups.html app/web/templates/output_template.html
+#: app/web/templates/output_template_delete_step.html
 #: app/web/templates/output_templates.html app/web/templates/profile.html
 #: app/web/templates/queue_assign.html
 msgid "Ad"
@@ -656,6 +661,7 @@ msgstr ""
 #: app/web/templates/employee_fields_step.html
 #: app/web/templates/employee_merge_step.html
 #: app/web/templates/output_template.html
+#: app/web/templates/output_template_delete_step.html
 #: app/web/templates/output_templates.html app/web/templates/profile.html
 msgid "Alan"
 msgstr "Field"
@@ -866,6 +872,10 @@ msgstr "Archived generated documents (%(count)s)"
 msgid "Arşivdeki şablon incelenmez; önce arşivden geri alın."
 msgstr "An archived template is not examined; restore it from the archive first."
 
+#: app/web/templates/output_template_delete_step.html
+msgid "Arşivdeki şablonlar"
+msgstr "Archived templates"
+
 #: app/web/routers/output_templates.py
 msgid "Arşivdeki şablonun haritası onaylanmaz; önce arşivden geri alın."
 msgstr ""
@@ -937,6 +947,17 @@ msgstr "No archived runs."
 #: app/web/templates/training_results.html
 msgid "Arşivlenen çalıştırmalar"
 msgstr "Archived runs"
+
+#: app/web/templates/output_template.html
+msgid ""
+"Arşivlenen şablon profilde seçilemez; üretilmiş belgeler yerinde kalır. "
+"Arşivden tek tıkla geri alınır; yalnız arşivdeki ve üretilmiş belgesi "
+"olmayan şablon kalıcı silinebilir."
+msgstr ""
+"An archived template cannot be selected on profiles; documents already "
+"generated stay in place. It is restored from the archive with one click; "
+"only an archived template with no generated documents can be deleted "
+"permanently."
 
 #: app/web/templates/catalog.html app/web/templates/profile.html
 msgid "Arşivleyen"
@@ -2515,6 +2536,15 @@ msgstr ""
 "This template is a draft: it cannot be used to prepare output until its "
 "field map is approved."
 
+#: app/web/routers/output_templates.py
+#, python-brace-format
+msgid ""
+"Bu şablondan {count} üretilmiş belge var; şablon silinmez. Üretilmiş "
+"belgeler yerinde kalır."
+msgstr ""
+"There are {count} generated documents from this template; the template is"
+" not deleted. The generated documents stay in place."
+
 #: app/output_templates/labels.py
 msgid "Bugünün tarihi"
 msgstr "Today's date"
@@ -3066,6 +3096,7 @@ msgstr "Yes, merge"
 #: app/web/templates/employee_fields.html
 #: app/web/templates/employee_merge_step.html
 #: app/web/templates/employee_status_step.html
+#: app/web/templates/output_template_delete_step.html
 #: app/web/templates/profile_record_step.html
 #: app/web/templates/queue_assign.html app/web/templates/queue_close_step.html
 #: app/web/templates/queue_new_profile.html
@@ -3096,6 +3127,7 @@ msgid "Evet, kalıcı olarak sil"
 msgstr "Yes, delete permanently"
 
 #: app/web/templates/catalog_candidate_step.html
+#: app/web/templates/output_template_delete_step.html
 msgid "Evet, kalıcı sil"
 msgstr "Yes, delete permanently"
 
@@ -3923,7 +3955,7 @@ msgstr "Items"
 msgid "Kalıcı olarak silindi: %(at)s · %(user)s"
 msgstr "Permanently deleted: %(at)s · %(user)s"
 
-#: app/web/templates/profile.html
+#: app/web/templates/output_template.html app/web/templates/profile.html
 msgid "Kalıcı sil"
 msgstr "Delete permanently"
 
@@ -5245,6 +5277,7 @@ msgid "Satır"
 msgstr "Row"
 
 #: app/web/templates/output_template.html
+#: app/web/templates/output_template_delete_step.html
 #: app/web/templates/output_templates.html app/web/templates/upload_result.html
 #: app/web/templates/uploads_list.html
 msgid "Sayfa"
@@ -5413,6 +5446,7 @@ msgstr ""
 "never changed."
 
 #: app/web/templates/catalog_candidates.html
+#: app/web/templates/output_templates.html
 msgid "Sil"
 msgstr "Delete"
 
@@ -6160,6 +6194,7 @@ msgstr "Nationality"
 #: app/web/templates/employee_merge_step.html
 #: app/web/templates/employee_status_step.html app/web/templates/group.html
 #: app/web/templates/output_template.html
+#: app/web/templates/output_template_delete_step.html
 #: app/web/templates/profile_record_step.html
 #: app/web/templates/queue_assign.html app/web/templates/queue_close_step.html
 #: app/web/templates/queue_new_profile.html
@@ -6197,6 +6232,10 @@ msgid "Yalnız arşivdeki belge geri alınır; bu belgenin durumu: {status}."
 msgstr ""
 "Only an archived document can be restored; this document's status: "
 "{status}."
+
+#: app/web/routers/output_templates.py
+msgid "Yalnız arşivdeki şablon silinir; önce şablonu arşivleyin."
+msgstr "Only an archived template can be deleted; archive the template first."
 
 #: app/web/routers/groups.py
 #, python-brace-format
@@ -8649,6 +8688,14 @@ msgstr "Template not found"
 msgid "Şablon dosyası bulunamadı"
 msgstr "Template file not found"
 
+#: app/web/routers/output_templates.py
+msgid ""
+"Şablon dosyası, <N> sayfa önizlemesi ve alan haritası silinecek; bu işlem"
+" geri alınamaz. Son kararınız mı?"
+msgstr ""
+"The template file, its page previews (<N>) and its field map will be "
+"deleted; this action cannot be undone. Is this your final decision?"
+
 #: app/web/templates/output_templates.html
 msgid "Şablon durumu"
 msgstr "Template status"
@@ -8661,14 +8708,13 @@ msgstr ""
 "The template is not ready: its field map is not approved or the template "
 "is archived. Prepare the template first."
 
-#: app/web/templates/output_template.html
+#: app/web/feedback.py
 msgid ""
-"Şablon silinmez. Arşivlenen şablon profilde seçilemez; üretilmiş belgeler"
-" yerinde kalır. Arşivden tek tıkla geri alınır."
+"Şablon kalıcı olarak silindi: dosyası, önizlemeleri ve alan haritası "
+"kaldırıldı."
 msgstr ""
-"Templates are not deleted. An archived template cannot be selected on "
-"profiles; documents already generated stay in place. It is restored from "
-"the archive with one click."
+"The template was deleted permanently: its file, previews and field map "
+"were removed."
 
 #: app/web/templates/output_template.html
 #: app/web/templates/output_templates.html
@@ -8698,13 +8744,34 @@ msgstr ""
 msgid "Şablon yüklenmedi: alanların altındaki uyarıları düzeltin."
 msgstr "Template not uploaded: fix the warnings below the fields."
 
+#: app/web/templates/output_template_delete_step.html
+msgid "Şablona dön"
+msgstr "Back to the template"
+
 #: app/web/templates/output_template.html
 msgid "Şablonu arşivle"
 msgstr "Archive template"
 
+#: app/web/templates/output_template_delete_step.html
+msgid "Şablonu kalıcı sil"
+msgstr "Delete the template permanently"
+
+#: app/web/templates/output_template_delete_step.html
+#, python-format
+msgid "Şablonu kalıcı sil: %(name)s"
+msgstr "Delete the template permanently: %(name)s"
+
 #: app/web/templates/output_template.html
 msgid "Şablonu yükle"
 msgstr "Upload template"
+
+#: app/web/routers/output_templates.py
+msgid ""
+"Şablonun dosyaları silinemedi; kayıt değişmedi. Biraz sonra yeniden "
+"deneyin."
+msgstr ""
+"The template's files could not be deleted; the record did not change. Try"
+" again a little later."
 
 #: app/web/templates/output_template.html
 msgid ""

@@ -92,6 +92,7 @@ WRITER_ONLY_PAGES = frozenset(
         "/document-types/candidate-types/{candidate_id}/delete/confirm",
         "/document-groups/new",
         "/output-templates/new",
+        "/output-templates/{template_id}/delete/confirm",
         "/queues/{queue_item_id}/assign/employees",
         "/queues/{queue_item_id}/assign/confirm",
         "/queues/{queue_item_id}/close/confirm",

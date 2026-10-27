@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {# Hazır Şablonlar (15.1.1, 15.1.2, 15.1.4): İK'nın çalışanlar için çıktı alacağı belge kalıpları. Varsayılan
-   arşivdekiler dışındakiler; `?status=` duruma göre süzer. Şablon silinmez (R11) — arşivlenir ve geri
-   alınır. Durum hücresi incelemenin sürdüğünü ya da harita üretmeme sebebini (15.1.2) gösterir. Kullanıcı
+   arşivdekiler dışındakiler; `?status=` duruma göre süzer. Şablon arşivlenir ve geri alınır; yalnız
+   "Arşivde" görünümünde satırdaki "Sil" (15.1.5, iki aşamalı onay) arşivdekini kalıcı siler. Durum hücresi incelemenin sürdüğünü ya da harita üretmeme sebebini (15.1.2) gösterir. Kullanıcı
    (10.1.8) listeyi görür, yükleme bağlantısı yalnız İK/root'ta. #}
 {% block title %}{{ translate(entry.label) }}{% endblock %}
 {% block content %}
@@ -17,7 +17,7 @@
 <p class="count">{{ ngettext("%(num)d şablon", "%(num)d şablon", templates|length) }}</p>
 <table class="catalog output-templates">
   <thead>
-    <tr><th>{{ _("İlk sayfa") }}</th><th>{{ _("Ad") }}</th><th>{{ _("Açıklama") }}</th><th class="num">{{ _("Sayfa") }}</th><th class="num">{{ _("Alan") }}</th><th>{{ _("Durum") }}</th><th>{{ _("Yükleyen") }}</th><th>{{ _("Zaman") }}</th></tr>
+    <tr><th>{{ _("İlk sayfa") }}</th><th>{{ _("Ad") }}</th><th>{{ _("Açıklama") }}</th><th class="num">{{ _("Sayfa") }}</th><th class="num">{{ _("Alan") }}</th><th>{{ _("Durum") }}</th><th>{{ _("Yükleyen") }}</th><th>{{ _("Zaman") }}</th>{% if deletable %}<th></th>{% endif %}</tr>
   </thead>
   <tbody>
     {% for template in templates %}
@@ -37,6 +37,11 @@
       </td>
       <td translate="no">{{ template.uploaded_by }}</td>
       <td class="cell-nowrap">{{ template.created_at.strftime("%Y-%m-%d %H:%M") }} UTC</td>
+      {% if deletable %}<td class="doc-actions">
+        <form class="inline" method="get" action="/output-templates/{{ template.id }}/delete/confirm">
+          <button type="submit" class="danger">{{ _("Sil") }}</button>
+        </form>
+      </td>{% endif %}
     </tr>
     {% endfor %}
   </tbody>

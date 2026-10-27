@@ -13,9 +13,16 @@ formu). Çalışan belgesi değildir: yüklemesi parti açmaz, boru hattına, e�
   sarılır, 07.8.1) ikinci kez şablon olmaz — `DuplicateTemplateError`.
 - **Ad tekil.** `normalize_template_name` 00.4.2 sadeleştirmesidir (belge grubu adıyla aynı kural);
   `file_label` üretilen belgenin K8 etiketidir (`Is-Sozlesmesi`, 15.2.3).
-- **Silme yok (R11).** Şablon arşivlenir ve geri alınır; tek adımlıdır (§D61, K16) ve
+- **Arşiv (R11).** Şablon arşivlenir ve geri alınır; tek adımlıdır (§D61, K16) ve
   `TEMPLATE_ARCHIVED` / `TEMPLATE_RESTORED` olayını kullanıcı adıyla yazar. Olay verisi kişisel
   değer taşımaz (K15).
+- **Kalıcı silme (15.1.5, PLAN.md §D134 c).** Yalnız arşivdeki şablon silinir
+  (`TemplateNotArchivedError`); o şablondan üretilmiş belge varsa engellenir (`TemplateInUseError`,
+  üretilmiş belgelere dokunulmaz). Önce dosyalar (`_sablonlar/<id>/` ve sayfaların
+  `cache/previews` karşılığı), sonra kayıt: alan haritası sürümleri silinir, şablon satırı
+  `deleted` iskeleti olarak kalır (erişim logu ona bağlıdır; ad ve dosya yeniden yüklenebilsin diye
+  tekil alanlar `deleted:<id>` olur). Dosya silinemezse kayıt değişmez (`TemplateFilesError`).
+  Silinen şablon `get_template` için yoktur. İki aşamalı onay çağıranın işidir.
 - Hiçbir fonksiyon commit etmez; iş birimini çağıran kapatır. Dosyalar satır eklendikten sonra
   yazılır (dizin adı şablonun kimliğidir).
 """
@@ -25,14 +32,21 @@ from __future__ import annotations
 import shutil
 from dataclasses import dataclass, field
 from datetime import datetime
+from pathlib import Path
 
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.ai.schemas import FILLABLE_KINDS
 from app.config import Settings
-from app.db.models import OutputTemplate, OutputTemplateStatus, utcnow
+from app.db.models import (
+    GeneratedDocument,
+    OutputTemplate,
+    OutputTemplateMap,
+    OutputTemplateStatus,
+    utcnow,
+)
 from app.events import EventType, record_event
 from app.i18n import N_, Translatable
 from app.pipeline.execute_image_utils import _IMAGE_WRAP_ERRORS, _wrap_image_to_pdf
@@ -41,8 +55,11 @@ from app.storage import DataLayout, FileKind, UnsupportedFileTypeError, detect_f
 from app.storage.atomic import replace_file, sha256_bytes, write_file
 from app.storage.naming import LABEL_SLUG_MAX_LENGTH
 from app.storage.pdfinfo import count_pdf_pages
+from app.storage.previews import PREVIEW_SIZES, PreviewSource
 from app.storage.slug import SlugError, slugify
 
+# 11.9.9: şablon sayfası önizlemelerinin `cache/previews/` altındaki kaynak türü.
+TEMPLATE_PAGE_PREVIEW_KIND = "template-pages"
 NAME_MAX_LENGTH = 120
 DESCRIPTION_MAX_LENGTH = 200
 NORMALIZED_NAME_MAX_LENGTH = 255
@@ -69,6 +86,23 @@ _IMAGE_KINDS = frozenset({FileKind.JPEG, FileKind.PNG})
 
 class TemplateNotFoundError(LookupError):
     """Şablon yok."""
+
+
+class TemplateNotArchivedError(ValueError):
+    """Şablon arşivde değil; yalnız arşivdeki şablon kalıcı silinir (15.1.5)."""
+
+
+class TemplateInUseError(ValueError):
+    """Şablondan üretilmiş belge var; şablon silinmez (15.1.5). `generated` belge sayısıdır."""
+
+    def __init__(self, template_id: int, generated: int) -> None:
+        super().__init__(template_id, generated)
+        self.template_id = template_id
+        self.generated = generated
+
+
+class TemplateFilesError(OSError):
+    """Şablonun dosyaları silinemedi; kayıt değişmedi, silme yeniden denenebilir (15.1.5)."""
 
 
 class TemplateFormError(ValueError):
@@ -237,12 +271,17 @@ def field_count(template: OutputTemplate) -> int:
 
 
 def list_templates(session: Session, *, status: str | None = None) -> list[TemplateSummary]:
-    """Şablonlar, en yenisi başta. `status` verilmezse arşivdekiler dışındakiler (15.1.4)."""
+    """Şablonlar, en yenisi başta. `status` verilmezse arşivdekiler (ve silinmiş iskeletler)
+    dışındakiler (15.1.4)."""
     query = select(OutputTemplate).order_by(
         OutputTemplate.created_at.desc(), OutputTemplate.id.desc()
     )
     if status is None:
-        query = query.where(OutputTemplate.status != OutputTemplateStatus.ARCHIVED.value)
+        query = query.where(
+            OutputTemplate.status.not_in(
+                (OutputTemplateStatus.ARCHIVED.value, OutputTemplateStatus.DELETED.value)
+            )
+        )
     else:
         query = query.where(OutputTemplate.status == status)
     return [
@@ -274,7 +313,7 @@ def status_counts(session: Session) -> dict[str, int]:
 
 def get_template(session: Session, template_id: int) -> OutputTemplate:
     template = session.get(OutputTemplate, template_id)
-    if template is None:
+    if template is None or template.status == OutputTemplateStatus.DELETED.value:
         raise TemplateNotFoundError(template_id)
     return template
 
@@ -418,3 +457,127 @@ def set_template_archived(
         data={"template_id": template.id, "status": template.status},
     )
     return True
+
+
+# --- kalıcı silme (15.1.5) -----------------------------------------------------------------------
+
+
+@dataclass(frozen=True, slots=True)
+class TemplateDeletion:
+    """Silinecek şablonun onay sayfasındaki özeti: ad, sayfa, alan ve harita sürümü sayısı."""
+
+    template_id: int
+    name: str
+    page_count: int
+    field_count: int
+    map_count: int
+
+
+def generated_count(session: Session, template_id: int) -> int:
+    """Şablondan üretilmiş belge sayısı (her durumda: etkin, eski, arşivde, silinmiş iskelet)."""
+    return (
+        session.scalar(
+            select(func.count())
+            .select_from(GeneratedDocument)
+            .where(GeneratedDocument.template_id == template_id)
+        )
+        or 0
+    )
+
+
+def check_deletable(session: Session, template_id: int) -> TemplateDeletion:
+    """15.1.5 — şablon silinebilir mi; yazmaz. Yoksa `TemplateNotFoundError`, arşivde değilse
+    `TemplateNotArchivedError`, üretilmiş belgesi varsa `TemplateInUseError`."""
+    template = get_template(session, template_id)
+    if template.status != OutputTemplateStatus.ARCHIVED.value:
+        raise TemplateNotArchivedError(template_id)
+    generated = generated_count(session, template_id)
+    if generated:
+        raise TemplateInUseError(template_id, generated)
+    return TemplateDeletion(
+        template_id=template.id,
+        name=template.name,
+        page_count=template.page_count,
+        field_count=field_count(template),
+        map_count=len(template.maps),
+    )
+
+
+def _template_files(layout: DataLayout, template: OutputTemplate) -> list[Path]:
+    """Silinecek dosyalar: sayfaların `cache/previews` önizlemeleri (anahtar sayfa görüntüsünden
+    türediği için görüntü silinmeden hesaplanır), sonra şablon dizinindeki her dosya."""
+    files: list[Path] = []
+    for index in range(template.page_count):
+        source = PreviewSource(
+            TEMPLATE_PAGE_PREVIEW_KIND,
+            f"{template.id}-{index}",
+            layout.template_page_image_path(template.id, index),
+        )
+        try:
+            key = source.key()
+        except OSError:  # görüntü yok: önizlemesi de üretilmemiştir
+            continue
+        files += [
+            layout.source_preview_path(TEMPLATE_PAGE_PREVIEW_KIND, key, size)
+            for size in PREVIEW_SIZES
+        ]
+    directory = layout.template_dir(template.id)
+    if directory.is_dir():
+        files += sorted(path for path in directory.rglob("*") if path.is_file())
+    return files
+
+
+def _remove_files(layout: DataLayout, template: OutputTemplate) -> int:
+    """Önce dosyalar (§D134 c): önizlemeler, sonra `_sablonlar/<id>/`; silinen dosya sayısı.
+    Biri silinemezse `TemplateFilesError` — kayıt değişmez, silme yeniden denenebilir."""
+    removed = 0
+    try:
+        for path in _template_files(layout, template):
+            if path.exists():
+                path.unlink()
+                removed += 1
+        directory = layout.template_dir(template.id)
+        if directory.exists():
+            shutil.rmtree(directory)
+    except OSError as exc:
+        raise TemplateFilesError(str(exc)) from exc
+    return removed
+
+
+def delete_template(
+    session: Session, layout: DataLayout, template_id: int, *, actor: str
+) -> TemplateDeletion:
+    """15.1.5 — arşivdeki, üretilmiş belgesi olmayan şablonu kalıcı siler ve
+    `OUTPUT_TEMPLATE_DELETED`'ı kullanıcı adıyla yazar.
+
+    Kurallar `check_deletable`'dakidir. Önce dosyalar silinir (`TemplateFilesError`'da kayıt
+    değişmez), sonra alan haritası sürümleri; şablon satırı `deleted` iskeletine döner (erişim logu
+    satırları ona bağlı kalır). Üretilmiş belge dosyalarına dokunulmaz. Commit etmez.
+    """
+    summary = check_deletable(session, template_id)
+    template = get_template(session, template_id)
+    removed = _remove_files(layout, template)
+    session.execute(delete(OutputTemplateMap).where(OutputTemplateMap.template_id == template.id))
+    template.status = OutputTemplateStatus.DELETED.value
+    template.file_path = None
+    template.normalized_name = f"deleted:{template.id}"
+    template.sha256 = f"deleted:{template.id}"
+    template.examine_requested_at = None
+    template.deleted_at = utcnow()
+    template.deleted_by = actor
+    session.flush()
+    session.expire(template, ["maps"])
+    record_event(
+        session,
+        EventType.OUTPUT_TEMPLATE_DELETED,
+        actor=actor,
+        data={
+            "template_id": summary.template_id,
+            "name": summary.name,
+            "page_count": summary.page_count,
+            "field_count": summary.field_count,
+            "map_count": summary.map_count,
+            "files_deleted": removed,
+        },
+    )
+    return summary

@@ -4,6 +4,13 @@ Kaynak: HANDOFF.md (canlı dosyadan taşındı, birebir). Blok sayısı: 1.
 
 <!-- bloklar (newest-first) -->
 
+## 195 — 11.9-h Örnek önizlemeleri: küçük türetilmiş önizleme, orijinal yalnız İndir — done — 2026-10-27
+- Yapıldı: `app/storage/previews.py` örnekten bir kez 320/1280 px JPEG üretir (`cache/previews/<slug>/<anahtar>-<boyut>.jpg`; PDF'te ilk sayfa; EXIF/ICC yok; piksel sınırı/bomba/bozuk → yer tutucu); eğitim ve katalog sayfaları küçük resmi `…/previews/small/<ad>?v=<anahtar>` ile `loading=lazy decoding=async` alır, ad büyük önizlemeyi açar, orijinal yalnız "İndir" (`attachment`); önizleme `private, max-age=31536000, immutable` + ETag/304 + `nosniff`; `python -m app.training previews` toplu ısıtır; `backup.sh` `cache/previews`'ı hiç arşivlemez; YEDEKLEME, `.env.example`, i18n (en, sr).
+- Doğrulama: ruff check/format, compileall, `import app.main`, temiz SQLite'ta `alembic upgrade head`, `python -m app.i18n check` exit 0; tests/web + storage + scripts + i18n + training (-n 6) yeşil. Tam kapı (`--cov`) koşulmadı (insan kuralı: uzun kapı beklenmez).
+- Varsayımlar: anahtar içerik özeti yerine ad+boyut+mtime (§D130 izin verir; listeleme dosya okumaz); büyük önizleme yeni sekmede JPEG olarak açılır (iletişim kutusu/JS yok); sürümsüz ya da eski `?v=` isteği aynı baytları `private, no-cache` ile verir; eski anahtarlı önizleme dosyaları silinmez (önbellek, yedeğe girmez).
+- Sonraki pencereye not: YanPC'ye DAĞITILMADI. Dağıtımdan sonra `docker compose exec app python -m app.training previews` ile ~2.200 örneği önceden ısıtmak ilk açılış beklemesini önler. tm 196 (ön yükleme, §D131) bu uçların üzerine kurulur.
+
+
 ## 194 — 13.4-b Eğitim malzemesi ayrı hacimlerde ve gece arşivinin dışında — done — 2026-10-27
 - Yapıldı: Compose `examples` ve `_egitim` için ayrı hacimler bağlar, `backup.sh` eğitim malzemesini gece arşivine almaz, yeni `scripts/backup-material.sh` onu rsync ile artımlı ve silmeden yedekler/geri koyar.
 - Doğrulama: ruff check/format, `tests/scripts` + `tests/deploy` geçti (rsync'li 4 test geliştirme makinesinde rsync yok diye atlandı); tam kapı (`--cov`) koşulmadı (insan kuralı: 50 dk'lık kapıyı bekleme).

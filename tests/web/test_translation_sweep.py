@@ -231,6 +231,11 @@ PAGES: dict[str, tuple[tuple[str, int], ...]] = {
         ("/output-templates/{template}", 200),
         ("/output-templates/{archived_template}", 200),
     ),
+    # 15.1.5 (tm 200): yalnız arşivdeki şablon silinir; etkin şablon 409.
+    "/output-templates/{template_id}/delete/confirm": (
+        ("/output-templates/{archived_template}/delete/confirm", 200),
+        ("/output-templates/{template}/delete/confirm", 409),
+    ),
     "/queues": (
         ("/queues", 200),
         ("/queues?tab=unreadable", 200),
@@ -308,6 +313,7 @@ FLASH_PAGES: tuple[tuple[str, int, str, dict[str, object]], ...] = (
     ("/document-types/candidate-types?status=rejected", 200, "catalog.candidate_deleted", {}),
     ("/document-groups/{group}", 200, "groups.created", {}),
     ("/output-templates/{template}", 200, "templates.uploaded", {"count": 1}),
+    ("/output-templates?status=archived", 200, "templates.deleted", {}),
     ("/queues/{unresolved_item}", 200, "queue.reopened", {}),
     ("/training", 200, "training.uploaded", {}),
     ("/training/known/russian_passport", 200, "training.moved", {}),

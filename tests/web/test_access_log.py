@@ -442,6 +442,11 @@ REVIEWED_MUTATING_ROUTES: dict[tuple[str, str], str] = {
     ("POST", "/output-templates"): (
         "hazır şablon kaydı: yükleme, dosya değişmeden saklanır; parti açmaz (15.1.1)"
     ),
+    # 15.1.5 (tm 200, §D134): arşivdeki şablonun dosyaları ve haritası silinir, satır iskelet.
+    ("POST", "/output-templates/{template_id}/delete/prepare"): "onay belirteci",
+    ("POST", "/output-templates/{template_id}/delete"): (
+        "arşivdeki şablonu kalıcı silme: şablon dosyaları, harita; çalışan belgesi değil (15.1.5)"
+    ),
     ("POST", "/output-templates/{template_id}/examine"): (
         "hazır şablon kaydı: yeniden inceleme, yeni harita sürümü (15.1.2)"
     ),

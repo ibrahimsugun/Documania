@@ -8,6 +8,12 @@
   dosya (SHA-256) 409 ile form yeniden çizilir; tekrar dosya ayrıca uyarı bildirimi alır.
 - `GET /output-templates/{id}` şablonun sayfasıdır: bilgiler, sayfa önizlemeleri, orijinali yeni
   sekmede açma ve indirme, arşivleme ve geri alma (`POST .../archive`, `.../restore`).
+- **Kalıcı silme (15.1.5, PLAN.md §D134 c).** Arşivdeki şablonun sayfasında ve "Arşivde" listesinin
+  satırında "Sil" (yazma yetkisi) `GET .../{id}/delete/confirm`'e gider: ad, sayfa/alan sayısı ve
+  birinci metin ya da engel nedeni (üretilmiş belge var → "bu şablondan N üretilmiş belge var");
+  `POST .../delete/prepare` ikinci metni ("geri alınamaz") ve şablona bağlı belirteci verir,
+  `POST .../delete` belirteci tüketip siler (`USER_CONFIRMED` + `OUTPUT_TEMPLATE_DELETED`): önce
+  dosyalar, sonra kayıt (`app.output_templates.delete_template`). Arşivde olmayan şablon 409.
 - Yükleme şablonu yapay zekâ incelemesine koyar (15.1.2, `app.output_templates.examine`); işçi
   haritayı yeni sürüm olarak yazar. Sağlayıcı ayarlı değilse kuyruğa girmez, sebep listede ve
   sayfada görünür. `POST .../examine` ("yeniden incele") aynı isteği tekrarlar; sonuç yeni sürümdür,
@@ -39,7 +45,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request, status
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse, Response
 from PIL import Image, UnidentifiedImageError
 from sqlalchemy.orm import Session
@@ -50,15 +56,21 @@ from app.ai.schemas import FILLABLE_KINDS, TemplateFieldMapError
 from app.config import Settings, get_settings
 from app.db.models import AccessAction, OutputTemplate, OutputTemplateMap, OutputTemplateStatus
 from app.db.session import get_session
-from app.i18n import N_
+from app.i18n import N_, Translatable, gettext
 from app.output_templates import (
     DESCRIPTION_MAX_LENGTH,
     NAME_MAX_LENGTH,
+    TEMPLATE_PAGE_PREVIEW_KIND,
     DuplicateTemplateError,
+    TemplateFilesError,
     TemplateFormError,
+    TemplateInUseError,
     TemplateNameTakenError,
+    TemplateNotArchivedError,
     TemplateNotFoundError,
+    check_deletable,
     create_template,
+    delete_template,
     field_count,
     get_template,
     list_templates,
@@ -87,8 +99,17 @@ from app.storage.previews import PreviewSource
 from app.web.access import record_access
 from app.web.ai_runtime import ActiveAiSettings
 from app.web.auth import WRITER_ONLY, PanelUser, require_panel_user
+from app.web.confirm import (
+    CONFIRMATION_REFUSED,
+    ConfirmationRefusedError,
+    Operation,
+    confirm_operation,
+    fill,
+    issue_confirmation,
+)
 from app.web.feedback import (
     TEMPLATE_ARCHIVED,
+    TEMPLATE_DELETED,
     TEMPLATE_DUPLICATE,
     TEMPLATE_EXAMINE_REQUESTED,
     TEMPLATE_EXAMINE_UNAVAILABLE,
@@ -123,6 +144,19 @@ NAME_TAKEN_ARCHIVED = N_(
     "Bu adla arşivde bir şablon var; şablon adı benzersiz olmalı. Arşivdekini geri alabilirsiniz."
 )
 DUPLICATE_FILE = N_("Bu dosya zaten şablon olarak yüklenmiş.")
+# 15.1.5 (§20.6 dışı, PLAN.md §D134 a): kalıcı silmenin iki onay metni ve engelleri.
+TEMPLATE_DELETE_FIRST = N_("<Tür adı> şablonunu kalıcı olarak silmek üzeresiniz. Emin misiniz?")
+TEMPLATE_DELETE_SECOND = N_(
+    "Şablon dosyası, <N> sayfa önizlemesi ve alan haritası silinecek; bu işlem geri alınamaz. Son "
+    "kararınız mı?"
+)
+NOT_ARCHIVED_DELETE = N_("Yalnız arşivdeki şablon silinir; önce şablonu arşivleyin.")
+TEMPLATE_IN_USE = N_(
+    "Bu şablondan {count} üretilmiş belge var; şablon silinmez. Üretilmiş belgeler yerinde kalır."
+)
+TEMPLATE_FILES_NOT_DELETED = N_(
+    "Şablonun dosyaları silinemedi; kayıt değişmedi. Biraz sonra yeniden deneyin."
+)
 ARCHIVED_NOT_EXAMINED = N_("Arşivdeki şablon incelenmez; önce arşivden geri alın.")
 EXAMINING_LABEL = N_("İnceleniyor")
 # 15.1.2: inceleme haritası üretmediyse listede ve sayfada görünen sebep.
@@ -397,6 +431,7 @@ def templates_page(
         thumbs=thumbs,
         states=_state_links(session, selected),
         selected=selected,
+        deletable=selected == OutputTemplateStatus.ARCHIVED.value and user.can_write,
         status_labels=STATUS_LABELS,
         status_badges=STATUS_BADGES,
         examine_error_label=examine_error_label,
@@ -613,9 +648,6 @@ def template_page_image(
     return FileResponse(path, media_type=JPEG_MEDIA_TYPE, headers=FILE_HEADERS)
 
 
-TEMPLATE_PAGE_PREVIEW_KIND = "template-pages"
-
-
 @dataclass(frozen=True, slots=True)
 class TemplatePagePreview:
     index: int  # 0 tabanlı
@@ -680,6 +712,162 @@ def archive_template(template_id: int, user: CurrentUser, session: DbSession) ->
 @router.post(f"{LIST_PATH}/{{template_id}}/restore")
 def restore_template(template_id: int, user: CurrentUser, session: DbSession) -> RedirectResponse:
     return _set_archived(session, template_id, False, user)
+
+
+# --- 15.1.5: arşivdeki şablonu kalıcı sil -------------------------------------------------------
+
+
+def template_delete_subject(template_id: int) -> str:
+    """Silme belirtecinin hedefi: şablon."""
+    return f"output-templates:{template_id}:delete"
+
+
+def _deletion_refusal(exc: Exception) -> HTTPException:
+    """Çekirdeğin silme reddi → durum kodu ve gösterilecek neden."""
+    if isinstance(exc, TemplateNotFoundError):
+        return HTTPException(status.HTTP_404_NOT_FOUND, TEMPLATE_NOT_FOUND)
+    if isinstance(exc, TemplateInUseError):
+        return HTTPException(
+            status.HTTP_409_CONFLICT, Translatable(TEMPLATE_IN_USE, count=exc.generated)
+        )
+    if isinstance(exc, TemplateNotArchivedError):
+        return HTTPException(status.HTTP_409_CONFLICT, NOT_ARCHIVED_DELETE)
+    return HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, TEMPLATE_FILES_NOT_DELETED)
+
+
+_DELETION_ERRORS = (
+    TemplateNotFoundError,
+    TemplateInUseError,
+    TemplateNotArchivedError,
+    TemplateFilesError,
+)
+
+
+def _delete_page(
+    request: Request,
+    user: PanelUser,
+    session: Session,
+    template_id: int,
+    *,
+    second: bool = False,
+    confirmation: str | None = None,
+    error: Exception | None = None,
+    detail: bool = False,
+) -> HTMLResponse:
+    """Silme adımının sayfası (`output_template_delete_step.html`): birinci onay, ikinci onay
+    (belirteçle) ya da ret (hiçbir şey değişmedi). Engelde şablonun özeti nedenle birlikte görünür;
+    belirteç reddi tek genel metindir, hazırlıkta (`detail`) üretim hatasının nedeni yazılır."""
+    if error is not None:
+        session.rollback()
+        if isinstance(error, ConfirmationRefusedError):
+            refusal = HTTPException(
+                status.HTTP_400_BAD_REQUEST,
+                str(error) if detail else CONFIRMATION_REFUSED,
+            )
+        else:
+            refusal = _deletion_refusal(error)
+        template = session.get(OutputTemplate, template_id)
+        shown = (
+            template
+            if template is not None and template.status != OutputTemplateStatus.DELETED.value
+            else None
+        )
+        return render_page(
+            request,
+            "output_template_delete_step.html",
+            user=user,
+            active=ACTIVE,
+            status_code=refusal.status_code,
+            template_id=template_id,
+            summary=None,
+            template_name=shown.name if shown else None,
+            error=refusal.detail,
+        )
+    summary = check_deletable(session, template_id)
+    text = TEMPLATE_DELETE_SECOND if second else TEMPLATE_DELETE_FIRST
+    return render_page(
+        request,
+        "output_template_delete_step.html",
+        user=user,
+        active=ACTIVE,
+        template_id=template_id,
+        summary=summary,
+        template_name=summary.name,
+        delete_text=fill(gettext(text), type_name=summary.name, count=summary.page_count),
+        confirmation=confirmation,
+        error=None,
+    )
+
+
+@router.get(
+    f"{LIST_PATH}/{{template_id}}/delete/confirm",
+    response_class=HTMLResponse,
+    dependencies=WRITER_ONLY,
+)
+def template_delete_first_confirmation(
+    template_id: int, request: Request, user: CurrentUser, session: DbSession
+) -> HTMLResponse:
+    """15.1.5 "Sil" — şablonu denetler ve birinci onay metnini (ad, sayfa/alan sayısı) ya da engel
+    nedenini verir; hiçbir şey değişmez."""
+    try:
+        response = _delete_page(request, user, session, template_id)
+    except _DELETION_ERRORS as exc:
+        return _delete_page(request, user, session, template_id, error=exc)
+    session.rollback()
+    return response
+
+
+@router.post(f"{LIST_PATH}/{{template_id}}/delete/prepare", response_class=HTMLResponse)
+def prepare_template_delete(
+    template_id: int, request: Request, user: CurrentUser, session: DbSession
+) -> HTMLResponse:
+    """15.1.5 — birinci onaydan sonra ikinci onay metnini ve şablona bağlı tek kullanımlık
+    belirteci verir (10.8.1)."""
+    try:
+        check_deletable(session, template_id)
+        issued = issue_confirmation(
+            session, request, user, Operation.TEMPLATE_DELETE, template_delete_subject(template_id)
+        )
+        response = _delete_page(
+            request, user, session, template_id, second=True, confirmation=issued.token
+        )
+    except (*_DELETION_ERRORS, ConfirmationRefusedError) as exc:
+        return _delete_page(request, user, session, template_id, error=exc, detail=True)
+    session.commit()
+    return response
+
+
+@router.post(f"{LIST_PATH}/{{template_id}}/delete", response_class=HTMLResponse)
+def delete_archived_template(
+    template_id: int,
+    request: Request,
+    user: CurrentUser,
+    session: DbSession,
+    layout: Layout,
+    confirmation: Annotated[str | None, Form()] = None,
+) -> Response:
+    """15.1.5 — ikinci onayın belirteciyle arşivdeki şablonu kalıcı siler. Belirteçsiz ya da
+    geçersiz belirteçte hiçbir şey yapılmaz (400). Belirtecin tüketilmesi, `USER_CONFIRMED`, kaydın
+    silinmesi ve `OUTPUT_TEMPLATE_DELETED` tek işlemdedir; dosyalar ondan önce silinir (silinemezse
+    işlem geri alınır, kayıt kalır). Üretilmiş belgeler değişmez."""
+    try:
+        check_deletable(session, template_id)
+        confirm_operation(
+            session,
+            request,
+            user,
+            Operation.TEMPLATE_DELETE,
+            template_delete_subject(template_id),
+            confirmation,
+            event_target={"template_id": template_id},
+        )
+        delete_template(session, layout, template_id, actor=user.username)
+    except (*_DELETION_ERRORS, ConfirmationRefusedError) as exc:
+        return _delete_page(request, user, session, template_id, error=exc)
+    session.commit()
+    response = RedirectResponse(f"{LIST_PATH}?status=archived", status.HTTP_303_SEE_OTHER)
+    flash(response, TEMPLATE_DELETED)
+    return response
 
 
 @router.post(f"{LIST_PATH}/{{template_id}}/examine")

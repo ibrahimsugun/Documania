@@ -4,7 +4,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Documania panel\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-27 22:20+0000\n"
+"POT-Creation-Date: 2026-10-27 22:30+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -399,6 +399,10 @@ msgstr ""
 msgid "<Tür adı> belge türünü arşivlemek üzeresiniz. Emin misiniz?"
 msgstr ""
 
+#: app/web/routers/output_templates.py
+msgid "<Tür adı> şablonunu kalıcı olarak silmek üzeresiniz. Emin misiniz?"
+msgstr ""
+
 #: app/web/templates/training_map.html
 #, python-format
 msgid "<strong>%(name)s</strong> haritası okundu."
@@ -443,6 +447,7 @@ msgstr ""
 #: app/web/templates/employee_merge_results.html
 #: app/web/templates/employees_results.html app/web/templates/group.html
 #: app/web/templates/groups.html app/web/templates/output_template.html
+#: app/web/templates/output_template_delete_step.html
 #: app/web/templates/output_templates.html app/web/templates/profile.html
 #: app/web/templates/queue_assign.html
 msgid "Ad"
@@ -592,6 +597,7 @@ msgstr ""
 #: app/web/templates/employee_fields_step.html
 #: app/web/templates/employee_merge_step.html
 #: app/web/templates/output_template.html
+#: app/web/templates/output_template_delete_step.html
 #: app/web/templates/output_templates.html app/web/templates/profile.html
 msgid "Alan"
 msgstr ""
@@ -770,6 +776,10 @@ msgstr ""
 msgid "Arşivdeki şablon incelenmez; önce arşivden geri alın."
 msgstr ""
 
+#: app/web/templates/output_template_delete_step.html
+msgid "Arşivdeki şablonlar"
+msgstr ""
+
 #: app/web/routers/output_templates.py
 msgid "Arşivdeki şablonun haritası onaylanmaz; önce arşivden geri alın."
 msgstr ""
@@ -836,6 +846,13 @@ msgstr ""
 
 #: app/web/templates/training_results.html
 msgid "Arşivlenen çalıştırmalar"
+msgstr ""
+
+#: app/web/templates/output_template.html
+msgid ""
+"Arşivlenen şablon profilde seçilemez; üretilmiş belgeler yerinde kalır. "
+"Arşivden tek tıkla geri alınır; yalnız arşivdeki ve üretilmiş belgesi "
+"olmayan şablon kalıcı silinebilir."
 msgstr ""
 
 #: app/web/templates/catalog.html app/web/templates/profile.html
@@ -2178,6 +2195,13 @@ msgstr ""
 msgid "Bu şablon taslak: alan haritası onaylanmadan çıktıya hazırlanamaz."
 msgstr ""
 
+#: app/web/routers/output_templates.py
+#, python-brace-format
+msgid ""
+"Bu şablondan {count} üretilmiş belge var; şablon silinmez. Üretilmiş "
+"belgeler yerinde kalır."
+msgstr ""
+
 #: app/output_templates/labels.py
 msgid "Bugünün tarihi"
 msgstr ""
@@ -2686,6 +2710,7 @@ msgstr ""
 #: app/web/templates/employee_fields.html
 #: app/web/templates/employee_merge_step.html
 #: app/web/templates/employee_status_step.html
+#: app/web/templates/output_template_delete_step.html
 #: app/web/templates/profile_record_step.html
 #: app/web/templates/queue_assign.html app/web/templates/queue_close_step.html
 #: app/web/templates/queue_new_profile.html
@@ -2716,6 +2741,7 @@ msgid "Evet, kalıcı olarak sil"
 msgstr ""
 
 #: app/web/templates/catalog_candidate_step.html
+#: app/web/templates/output_template_delete_step.html
 msgid "Evet, kalıcı sil"
 msgstr ""
 
@@ -3493,7 +3519,7 @@ msgstr ""
 msgid "Kalıcı olarak silindi: %(at)s · %(user)s"
 msgstr ""
 
-#: app/web/templates/profile.html
+#: app/web/templates/output_template.html app/web/templates/profile.html
 msgid "Kalıcı sil"
 msgstr ""
 
@@ -4680,6 +4706,7 @@ msgid "Satır"
 msgstr ""
 
 #: app/web/templates/output_template.html
+#: app/web/templates/output_template_delete_step.html
 #: app/web/templates/output_templates.html app/web/templates/upload_result.html
 #: app/web/templates/uploads_list.html
 msgid "Sayfa"
@@ -4834,6 +4861,7 @@ msgid ""
 msgstr ""
 
 #: app/web/templates/catalog_candidates.html
+#: app/web/templates/output_templates.html
 msgid "Sil"
 msgstr ""
 
@@ -5499,6 +5527,7 @@ msgstr ""
 #: app/web/templates/employee_merge_step.html
 #: app/web/templates/employee_status_step.html app/web/templates/group.html
 #: app/web/templates/output_template.html
+#: app/web/templates/output_template_delete_step.html
 #: app/web/templates/profile_record_step.html
 #: app/web/templates/queue_assign.html app/web/templates/queue_close_step.html
 #: app/web/templates/queue_new_profile.html
@@ -5528,6 +5557,10 @@ msgstr ""
 #: app/web/routers/documents.py
 #, python-brace-format
 msgid "Yalnız arşivdeki belge geri alınır; bu belgenin durumu: {status}."
+msgstr ""
+
+#: app/web/routers/output_templates.py
+msgid "Yalnız arşivdeki şablon silinir; önce şablonu arşivleyin."
 msgstr ""
 
 #: app/web/routers/groups.py
@@ -7813,6 +7846,12 @@ msgstr ""
 msgid "Şablon dosyası bulunamadı"
 msgstr ""
 
+#: app/web/routers/output_templates.py
+msgid ""
+"Şablon dosyası, <N> sayfa önizlemesi ve alan haritası silinecek; bu işlem"
+" geri alınamaz. Son kararınız mı?"
+msgstr ""
+
 #: app/web/templates/output_templates.html
 msgid "Şablon durumu"
 msgstr ""
@@ -7823,10 +7862,10 @@ msgid ""
 " şablonu hazırlayın."
 msgstr ""
 
-#: app/web/templates/output_template.html
+#: app/web/feedback.py
 msgid ""
-"Şablon silinmez. Arşivlenen şablon profilde seçilemez; üretilmiş belgeler"
-" yerinde kalır. Arşivden tek tıkla geri alınır."
+"Şablon kalıcı olarak silindi: dosyası, önizlemeleri ve alan haritası "
+"kaldırıldı."
 msgstr ""
 
 #: app/web/templates/output_template.html
@@ -7852,12 +7891,31 @@ msgstr ""
 msgid "Şablon yüklenmedi: alanların altındaki uyarıları düzeltin."
 msgstr ""
 
+#: app/web/templates/output_template_delete_step.html
+msgid "Şablona dön"
+msgstr ""
+
 #: app/web/templates/output_template.html
 msgid "Şablonu arşivle"
 msgstr ""
 
+#: app/web/templates/output_template_delete_step.html
+msgid "Şablonu kalıcı sil"
+msgstr ""
+
+#: app/web/templates/output_template_delete_step.html
+#, python-format
+msgid "Şablonu kalıcı sil: %(name)s"
+msgstr ""
+
 #: app/web/templates/output_template.html
 msgid "Şablonu yükle"
+msgstr ""
+
+#: app/web/routers/output_templates.py
+msgid ""
+"Şablonun dosyaları silinemedi; kayıt değişmedi. Biraz sonra yeniden "
+"deneyin."
 msgstr ""
 
 #: app/web/templates/output_template.html

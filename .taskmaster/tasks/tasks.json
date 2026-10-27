@@ -2888,18 +2888,18 @@
         "description": "PRD 15.1.5 · FR-MOD-15 · Faz 1 · Should (v1). Sözleşme PLAN §D134. İnsan isteği (2026-10-27): arşivdekiler de silinebilsin (Hazır Şablonlar › Arşivde).",
         "details": "KAPSAM: PRD 15.1.5; PLAN §D134 — önce oku.\n\nNE YAPILACAK: (1) Olay türü `OUTPUT_TEMPLATE_DELETED` (`app/events.py`; ad, sayfa/alan sayısı, kullanıcı). (2) `app/output_templates/service.py`: `delete_template(session, layout, template)` — yalnız `archived`; üretilmiş belge (`generated_documents`.template_id) varsa `TemplateInUse` (neden: N belge); önce `_sablonlar/<id>/` (PDF + önizleme) ve `cache/previews` karşılığı silinir, sonra alan haritası ve şablon kaydı; dosya silinemezse kayıt kalır. (3) `app/web/routers/output_templates.py`: `GET .../{id}/delete/confirm` ve `POST .../{id}/delete` (yazma yetkisi, aksi 409/404). (4) `output_templates.html` Arşivde sekmesi satırına ve şablon sayfasına \"Sil\"; onay sayfası ad, sayfa/alan sayısı, engel nedeni ya da \"geri alınamaz\". (5) i18n.\n\nKABUL: yalnız arşivdeki şablon silinir; etkin/taslak/hazır 409; üretilmiş belgesi olan şablon silinmez ve neden gösterilir; üretilmiş belge dosyaları değişmez; dosyalar ve kayıt kalkar; olay yazılır; salt okunur kullanıcıda düğme yok.",
         "testStrategy": "tests/web (onay sayfası + POST, 409, yetki, olay), tests/web/test_confirm.py sözleşmesi, tests/web/test_ui_standard.py, tests/i18n.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [],
         "priority": "medium",
         "subtasks": [],
-        "updatedAt": "2026-10-27T19:00:00.000Z"
+        "updatedAt": "2026-10-27T22:36:31.127Z"
       }
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-27T22:26:27.218Z",
+      "lastModified": "2026-10-27T22:36:31.128Z",
       "taskCount": 200,
-      "completedCount": 199,
+      "completedCount": 200,
       "tags": [
         "master"
       ]

@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{# Arşivdeki hazır şablonu kalıcı silme (15.1.5; PLAN.md §D134 c): birinci onay, ikinci onay (belirteç
+   şablona bağlı) ya da engel/hata. Onay şablonun adını, sayfa ve alan sayısını ve "geri alınamaz"
+   uyarısını gösterir. Üretilmiş belgesi olan şablon silinmez; neden yazılır. Üretilmiş belgelere ve
+   çalışan belgelerine dokunulmaz. Form `action` yolları düz metin yazılır. #}
+{% block title %}{{ _("Şablonu kalıcı sil") }}{% if template_name %} · {{ template_name }}{% endif %}{% endblock %}
+{% block content %}
+<p class="back"><a href="/output-templates?status=archived">← {{ _("Arşivdeki şablonlar") }}</a></p>
+<h1>{% if template_name %}{{ _("Şablonu kalıcı sil: %(name)s", name=template_name) }}{% else %}{{ _("Şablonu kalıcı sil") }}{% endif %}</h1>
+{% if error %}
+<p class="error" role="alert">{{ translate(error) }}</p>
+{% if template_name %}<p><a href="/output-templates/{{ template_id }}">{{ _("Şablona dön") }}</a></p>{% endif %}
+{% else %}
+<dl class="meta entry-summary">
+  <dt>{{ _("Ad") }}</dt><dd translate="no">{{ summary.name }}</dd>
+  <dt>{{ _("Sayfa") }}</dt><dd>{{ summary.page_count }}</dd>
+  <dt>{{ _("Alan") }}</dt><dd>{{ summary.field_count }}</dd>
+</dl>
+{% if confirmation %}
+<form class="confirm" method="post" action="/output-templates/{{ template_id }}/delete">
+  <p class="confirm-text" role="alert">{{ delete_text }}</p>
+  <input type="hidden" name="confirmation" value="{{ confirmation }}">
+  <button type="submit" class="danger">{{ _("Evet, kalıcı sil") }}</button>
+  <a href="/output-templates/{{ template_id }}">{{ _("Vazgeç") }}</a>
+</form>
+{% else %}
+<form class="confirm" method="post" action="/output-templates/{{ template_id }}/delete/prepare">
+  <p class="confirm-text" role="alert">{{ delete_text }}</p>
+  <button type="submit">{{ _("Evet, devam et") }}</button>
+  <a href="/output-templates/{{ template_id }}">{{ _("Vazgeç") }}</a>
+</form>
+{% endif %}
+{% endif %}
+{% endblock %}

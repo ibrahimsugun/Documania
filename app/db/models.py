@@ -946,12 +946,15 @@ class OutputTemplateStatus(enum.StrEnum):
 
     Şablon `draft` yüklenir; alan haritası onaylanınca (15.1.3) `ready` olur. `archived` İK'nın
     arşividir: profilde seçilemez, üretilmiş belgeler yerinde kalır (15.1.4); geri alınınca onaylı
-    haritası varsa `ready`'ye, yoksa `draft`'a döner. Şablon silinmez (R11).
+    haritası varsa `ready`'ye, yoksa `draft`'a döner. `deleted` (15.1.5, PLAN.md §D134 c): yalnız
+    arşivdeki ve üretilmiş belgesi olmayan şablon İK'nın iki aşamalı onayıyla kalıcı silinir —
+    dosyaları ve alan haritası gider, satır iskelet olarak kalır (erişim logu ona bağlıdır, 10.9.2).
     """
 
     DRAFT = "draft"
     READY = "ready"
     ARCHIVED = "archived"
+    DELETED = "deleted"
 
 
 class GeneratedDocumentStatus(enum.StrEnum):
@@ -975,6 +978,8 @@ class OutputTemplate(IdleClaimMixin, Base):
     üretilen belgenin K8 etiketidir (15.2.3). `examine_error` yapay zekâ incelemesinin (15.1.2)
     başarısızlık sebebinin kodudur (`app.output_templates.examine.ExamineError`).
     `examine_requested_at` doluysa inceleme işçide bekler (boş-zaman işi, `IdleClaimMixin`).
+    Kalıcı silinen şablonun (15.1.5) iskeletinde `file_path` boştur, `normalized_name` ve `sha256`
+    `deleted:<id>` olur (ad ve dosya yeniden yüklenebilir), `deleted_at`/`deleted_by` dolar.
     """
 
     __tablename__ = "output_templates"
@@ -996,6 +1001,8 @@ class OutputTemplate(IdleClaimMixin, Base):
     created_at: Mapped[datetime] = mapped_column(UtcDateTime, default=utcnow)
     archived_at: Mapped[datetime | None] = mapped_column(UtcDateTime)
     archived_by: Mapped[str | None] = mapped_column(String(255))
+    deleted_at: Mapped[datetime | None] = mapped_column(UtcDateTime)
+    deleted_by: Mapped[str | None] = mapped_column(String(255))
 
     maps: Mapped[list[OutputTemplateMap]] = relationship(
         back_populates="template", order_by="OutputTemplateMap.version"

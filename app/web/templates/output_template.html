@@ -4,7 +4,7 @@
    haritası ve yeniden inceleme, arşivleme. Harita önizlemesi (15.1.3): kutular sayfa görüntüsünün üstünde
    SVG'dir (stil özniteliği yok; koordinat `viewBox` = görüntü ölçüsü), her kutunun satırı yanındaki
    tablodadır; İK son sürümün atamalarını düz formla onaylar (JavaScript gerekmez), Kullanıcı yalnız
-   onaylı sürümü salt okunur görür. Hepsi tek adımdır ve olay yazar; şablon silinmez (R11). Önizleme belge içeriğine dokunmaz
+   onaylı sürümü salt okunur görür. Hepsi tek adımdır ve olay yazar; arşivdeki şablon yalnız iki aşamalı onayla kalıcı silinir (15.1.5). Önizleme belge içeriğine dokunmaz
    (K17). Form `action` yolları düz metin yazılır. #}
 {% macro errors(source, name) %}{% for message in source.get(name, []) %}<small class="field-error" role="alert">{{ translate(message) }}</small>{% endfor %}{% endmacro %}
 {% block title %}{{ template.name if template else _("Şablon yükle") }}{% endblock %}
@@ -147,8 +147,11 @@
   <form class="inline" method="post" action="/output-templates/{{ template.id }}/restore">
     <button type="submit">{{ _("Arşivden geri al") }}</button>
   </form>
+  <form class="inline" method="get" action="/output-templates/{{ template.id }}/delete/confirm">
+    <button type="submit" class="danger">{{ _("Kalıcı sil") }}</button>
+  </form>
   {% else %}
-  <p class="hint">{{ _("Şablon silinmez. Arşivlenen şablon profilde seçilemez; üretilmiş belgeler yerinde kalır. Arşivden tek tıkla geri alınır.") }}</p>
+  <p class="hint">{{ _("Arşivlenen şablon profilde seçilemez; üretilmiş belgeler yerinde kalır. Arşivden tek tıkla geri alınır; yalnız arşivdeki ve üretilmiş belgesi olmayan şablon kalıcı silinebilir.") }}</p>
   <form class="inline" method="post" action="/output-templates/{{ template.id }}/archive">
     <button type="submit">{{ _("Şablonu arşivle") }}</button>
   </form>
