@@ -328,7 +328,8 @@ body.app {
 
 .global-search { flex: 1 1 auto; max-width: 24rem; margin-right: auto; position: relative; }
 
-.global-search input {
+/* Özgüllük: genel `input:not(…)` alan kuralını (sol iç boşluk dahil) geçmek için; ikon yazıyla çakışmasın. */
+.page-tools .global-search input[type="search"][name] {
   width: 100%;
   min-height: var(--target);
   padding: 0.35rem 0.75rem 0.35rem 2.2rem;
