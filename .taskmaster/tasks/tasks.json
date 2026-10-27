@@ -2857,12 +2857,24 @@
         "priority": "medium",
         "subtasks": [],
         "updatedAt": "2026-10-27T20:11:18.763Z"
+      },
+      {
+        "id": "198",
+        "title": "11.1-g Belge Türleri: ülke süzgecinin yanına arama kutusu ve Ara düğmesi [OPUS-MEDIUM]",
+        "description": "PRD 11.1.8 · FR-MOD-11 · Faz 1 · Should (v1). Sözleşme PLAN §D133. İnsan isteği (2026-10-27): Belge Türleri sayfasında Ülke süzgecinin yanına arama butonu.",
+        "details": "KAPSAM: PRD 11.1.8; PLAN §D133 — önce oku.\n\nNE YAPILACAK: (1) `app/web/routers/catalog.py`: `q` sorgu parametresi (`Query(max_length=100)`), `_filter_types(types, country, query)` — ad, `file_label`, slug; casefold + aksan/Türkçe i-İ duyarsız alt dize; ülke ile AND; `_country_suffix` `q`'yu da taşır; arşiv görünümü dahil. (2) `app/web/templates/catalog.html`: `country-filter` formuna arama alanı (`type=search`, etiketli, `name=q`) + \"Ara\" düğmesi + doluyken \"Temizle\" bağlantısı; toplu işlem formlarına ve bağlantı soneklerine `q` gizli alanı; sonuç yoksa \"Eşleşen tür yok.\". (3) Mevcut htmx kalıbı (`hx-get`, `hx-select`, `hx-push-url`) bozulmaz. (4) `docs/ARAYUZ-STANDARDI.md` kalıplarına uyar; yeni sınıf yok. (5) i18n: `python -m app.i18n extract|update|compile|check` (Ara, Temizle, Eşleşen tür yok., alan etiketi).\n\nKABUL: \"geçiş\" yazınca adında/etiketinde/slug'ında geçen türler listelenir; \"I\"/\"ı\"/\"İ\" ve aksan farkı sonucu değiştirmez; ülke seçiliyken yalnız o ülke + genel türlerin içinde arar; `q` bağlantılarda, toplu işlemde ve yönlendirmede korunur; 101 karakter reddedilir; token göstergesi değişmez; arama hiçbir kayıt değiştirmez.",
+        "testStrategy": "tests/web/test_catalog*.py (süzgeç: ad/etiket/slug, Türkçe i-İ, ülke ile birleşim, boş sonuç, q korunması, 101 karakter, arşiv), tests/web/test_ui_standard.py, tests/i18n.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "medium",
+        "subtasks": [],
+        "updatedAt": "2026-10-27T18:00:00.000Z"
       }
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-27T20:11:18.764Z",
-      "taskCount": 197,
+      "lastModified": "2026-10-27T18:00:00.000Z",
+      "taskCount": 198,
       "completedCount": 197,
       "tags": [
         "master"
