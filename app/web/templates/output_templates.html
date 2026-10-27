@@ -24,7 +24,7 @@
     <tr>
       <td>
         <ul class="thumbs">
-          <li class="thumb"><a href="/output-templates/{{ template.id }}"><img src="/output-templates/{{ template.id }}/pages/0" loading="lazy" alt="{{ _('%(name)s — sayfa 1', name=template.name) }}"></a></li>
+          <li class="thumb">{% if template.id in thumbs %}<a href="/output-templates/{{ template.id }}"><img src="{{ thumbs[template.id] }}" width="320" height="320" loading="lazy" decoding="async" alt="{{ _('%(name)s — sayfa 1', name=template.name) }}"></a>{% else %}<span class="no-image">{{ _("Görüntü yok") }}</span>{% endif %}</li>
         </ul>
       </td>
       <td><a href="/output-templates/{{ template.id }}" translate="no">{{ template.name }}</a></td>

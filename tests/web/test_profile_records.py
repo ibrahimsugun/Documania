@@ -227,7 +227,8 @@ def test_the_profile_lists_every_record_with_its_source_and_a_remove_link(
     passport = seeded["passport"]
     assert re.search(
         rf"<td>Rus Pasaportu</td><td>{NUMBER}</td><td><a href=\"/employees/E0001/documents/"
-        rf"{passport}/file\" target=\"_blank\" rel=\"noopener\">Ivan_Petrov-Passport.pdf</a></td>",
+        rf"{passport}/preview\" target=\"_blank\" rel=\"noopener\">"
+        rf"Ivan_Petrov-Passport.pdf</a></td>",
         records,
     )
     # İletişim: kaynak ve güncel/geçmiş.

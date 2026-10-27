@@ -14,9 +14,11 @@ Worker ayarları eksikse iş kuyrukta kalır; servis hatası worker loglarında 
 
 `GET /uploads/{upload_id}` yükleme detay sayfasıdır (10.3.1): partinin sayfa küçük resimleri, güncel
 planın öğeleri, çıktıları (belgeler ve kuyruğa alınanlar) ve olay zaman çizelgesi tek sayfada
-görünür. Sayfa görüntüsü `GET /uploads/{upload_id}/pages/{page_id}/image`'dan gelir: analiz
-kopyasıdır (`cache/pages/`), belgenin kendisi değil; küçültmeyi tarayıcı yapar, sunucu görüntüyü
-işlemez (K11, K17). Planın yalnız isimle eşleştirdiği öğe (§20.2.2 satır 5a, `matched_by: name`)
+görünür. Sayfa küçük resmi ve ona tıklayınca açılan büyük önizleme
+`GET /uploads/{upload_id}/pages/{page_id}/previews/{small|large}`'dan gelir (11.9.9): orijinalin o
+sayfasından bir kez üretilen gösterim JPEG'idir, belge değişmez (K11, K17). Analiz kopyası
+(`.../image`, `cache/pages/`) yerinde durur, sayfalar ona bağlanmaz. Planın yalnız isimle
+eşleştirdiği öğe (§20.2.2 satır 5a, `matched_by: name`)
 ve o öğenin çıktısı (`name_matched_documents`) "Yalnız isimle eşleşti" etiketi taşır (05.5.4):
 yanlışsa İK belgeyi başka çalışana taşır (10.8.1).
 
@@ -135,6 +137,7 @@ from app.pipeline.plan import (
 )
 from app.pipeline.queue_close import close_reason_label
 from app.storage import DataLayout
+from app.storage.previews import PreviewSource
 from app.web.ai_runtime import ActiveAiSettings
 from app.web.auth import WRITER_ONLY, PanelUser, require_panel_user
 from app.web.confirm import (
@@ -161,7 +164,7 @@ from app.web.feedback import (
     render,
 )
 from app.web.guidance import candidate_url, candidates_of, resolution_hint
-from app.web.previews import NOSNIFF, request_etags
+from app.web.previews import NOSNIFF, Tier, request_etags, source_preview_response
 from app.web.routers.uploads import (
     CANCELLED_MESSAGE,
     DISMISSED_MESSAGE,
@@ -1031,6 +1034,50 @@ def upload_page_image(
     if etag in request_etags(request.headers.get("if-none-match", "")):
         return Response(status_code=status.HTTP_304_NOT_MODIFIED, headers=headers)
     return FileResponse(path, headers=headers)
+
+
+UPLOAD_PAGE_PREVIEW_KIND = "upload-pages"
+
+
+def upload_page_preview_source(
+    session: Session, layout: DataLayout, upload_id: str, page_id: int
+) -> PreviewSource | None:
+    """Sayfanın önizleme kaynağı (11.9.9): yüklenen orijinal dosyanın o sayfası; orijinal
+    okunamıyorsa analiz görüntüsü (`cache/pages`, yalnız okunur). Sayfa bu partiye ait değilse ya
+    da ikisi de yoksa `None`."""
+    page = session.get(Page, page_id)
+    if page is None or page.file.upload_id != upload_id:
+        return None
+    candidates = [(page.file.stored_path, page.index), (page.image_path, 0)]
+    for relative, index in candidates:
+        if relative is None:
+            continue
+        try:
+            path = layout.resolve(relative)
+        except ValueError:
+            continue
+        if path.is_file():
+            return PreviewSource(UPLOAD_PAGE_PREVIEW_KIND, str(page.id), path, index)
+    return None
+
+
+@router.get("/uploads/{upload_id}/pages/{page_id}/previews/{size}")
+def upload_page_preview(
+    upload_id: str,
+    page_id: int,
+    size: str,
+    request: Request,
+    layout: Annotated[DataLayout, Depends(get_layout)],
+    session: Annotated[Session, Depends(get_session)],
+) -> Response:
+    """Sayfanın küçük (`small`) ya da büyük (`large`) önizlemesi (11.9.9); yükleme, kuyruk, geçmiş
+    ve aday örnekleri sayfaları bunu gösterir. Yetki ve 404 `.../image` ile aynıdır; gerçek belge
+    olduğu için kademe 2 önbellek (`private, max-age=900` + `ETag`)."""
+    source = upload_page_preview_source(session, layout, upload_id, page_id)
+    session.rollback()
+    return source_preview_response(
+        request, layout, source, size, tier=Tier.PERSONAL, not_found=PAGE_IMAGE_NOT_FOUND
+    )
 
 
 def _actionable_upload(session: Session, upload_id: str) -> tuple[Upload, Plan]:

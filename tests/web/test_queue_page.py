@@ -489,12 +489,15 @@ def test_item_detail_shows_reason_guess_sources_and_page_images_from_the_real_pi
     # Kaynak dosya ve sayfa: dosya bölümüne bağlanır, sayfa görüntüsü sayfada ve açılabilir.
     sources = _section(html, "sources")
     assert f'<a href="/uploads/{upload_id}#file-{file_id}">pasaport.pdf</a>' in sources
-    image_url = f"/uploads/{upload_id}/pages/{page_id}/image"
-    assert f'<a href="{image_url}" target="_blank" rel="noopener">' in sources
-    assert f'<img src="{image_url}"' in sources and "Sayfa 1" in sources
-    served = client.get(image_url)
+    # 11.9.9: küçük önizleme, tıklayınca büyük önizleme; analiz kopyasına bağlanılmaz.
+    base = f"/uploads/{upload_id}/pages/{page_id}"
+    assert f'<a href="{base}/previews/large" target="_blank" rel="noopener"' in sources
+    assert f'<img src="{base}/previews/small"' in sources and "Sayfa 1" in sources
+    assert f"{base}/image" not in sources
+    served = client.get(f"{base}/previews/small")
     assert served.status_code == 200
-    assert served.headers["content-type"].startswith("image/") and served.content
+    assert served.headers["content-type"] == "image/jpeg" and served.content
+    assert served.headers["cache-control"] == "private, max-age=900"
     # Kuyruğa alınma olayı öğenin izinde.
     timeline = _section(html, "timeline")
     assert EventType.QUEUED_UNREADABLE.value in timeline and "pasaport.pdf · s. 1" in timeline

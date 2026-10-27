@@ -116,7 +116,11 @@ def test_pdf_upload_stores_the_file_unchanged_with_previews_and_an_event(
 
     page = client.get(f"/output-templates/{template_id}")
     assert page.status_code == 200
-    assert f'src="/output-templates/{template_id}/pages/1"' in page.text
+    # 11.9.9: sayfalar küçük önizlemeyle görünür (kademe 1: içeriğe bağlı adres, uzun önbellek).
+    assert f'src="/output-templates/{template_id}/pages/1/previews/small?v=' in page.text
+    assert f'href="/output-templates/{template_id}/pages/1/previews/large?v=' in page.text
+    listed = client.get("/output-templates").text
+    assert f'src="/output-templates/{template_id}/pages/0/previews/small?v=' in listed
     image = client.get(f"/output-templates/{template_id}/pages/0")
     assert (image.status_code, image.headers["content-type"]) == (200, "image/jpeg")
     assert client.get(f"/output-templates/{template_id}/pages/2").status_code == 404

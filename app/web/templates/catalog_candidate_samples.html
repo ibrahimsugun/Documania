@@ -1,11 +1,11 @@
-{# Aday türün örnek sayfaları (11.5.1): her görülmenin ilk sayfası. Görüntü analiz kopyasıdır
-   (`cache/pages/`), belgenin kendisi değil; küçültmeyi tarayıcı yapar (K11, K17). #}
+{# Aday türün örnek sayfaları (11.5.1): her görülmenin ilk sayfası. Görüntü sayfanın küçük
+   önizlemesidir, tıklayınca büyüğü açılır (11.9.9); belgenin kendisi değil (K11, K17). #}
 <ul class="thumbs">
   {% for sample in samples %}
   <li class="thumb">
     {% if sample.has_image %}
-    <a href="/uploads/{{ sample.upload_id }}/pages/{{ sample.page_id }}/image" target="_blank" rel="noopener">
-      <img src="/uploads/{{ sample.upload_id }}/pages/{{ sample.page_id }}/image" loading="lazy"
+    <a href="/uploads/{{ sample.upload_id }}/pages/{{ sample.page_id }}/previews/large" target="_blank" rel="noopener" data-preview-large="/uploads/{{ sample.upload_id }}/pages/{{ sample.page_id }}/previews/large">
+      <img src="/uploads/{{ sample.upload_id }}/pages/{{ sample.page_id }}/previews/small" width="320" height="320" loading="lazy" decoding="async"
            alt="{{ _('%(file)s — sayfa %(page)d', file=sample.file_name, page=sample.page_index + 1) }}">
     </a>
     {% else %}

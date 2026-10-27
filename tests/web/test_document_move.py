@@ -376,7 +376,7 @@ def test_s16_two_confirmations_move_the_document_update_both_profiles_and_log_th
     owner_page = client.get(f"/employees/{OWNER}").text
     target_page = client.get(f"/employees/{TARGET}").text
     assert f"/documents/{moving.document_id}/" not in owner_page
-    assert f"/employees/{TARGET}/documents/{moving.document_id}/file" in target_page
+    assert f"/employees/{TARGET}/documents/{moving.document_id}/preview" in target_page
     html = response.text
     # 10.11.1: sonuç bildirimdir (kişisel değer yok, yalnız E numarası); parça yeni adı ve
     # bağlantıları taşır.

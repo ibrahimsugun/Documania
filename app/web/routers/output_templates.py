@@ -14,7 +14,11 @@
   eski sürüm silinmez. Arşivdeki şablon incelenmez (409).
 - `GET .../file` (açma) ve `.../download` (indirme) dosyayı olduğu gibi sunar ve önce erişim
   logunu `template_id` ile yazar (10.9.2); `GET .../pages/{n}` önizleme görüntüsüdür, kayda
-  girmez (sayfa görüntülemek dosyayı açmak sayılmaz, §D123 f kararı).
+  girmez (sayfa görüntülemek dosyayı açmak sayılmaz, §D123 f kararı). Liste ve sayfa onu
+  doğrudan değil, küçük/büyük önizlemesiyle gösterir (11.9.9): `GET .../pages/{n}/previews/
+  {small|large}?v=<anahtar>`; şablon çalışan verisi taşımaz, adres içeriğe bağlıdır, kademe 1
+  önbellek (`private, max-age=31536000, immutable`). Alan haritası önizlemesi tam sayfa görüntüsünü
+  kullanmaya devam eder (kutu koordinatları onun ölçüsündedir).
 - Şablon sayfası alan haritasını önizler (15.1.3): her sayfa görüntüsünün üstünde haritanın kutuları
   (SVG; koordinat normalize kutudan, sayfa görüntüsünün ölçüsüyle) ve kutu başına bir satır. İK son
   sürümde `text`/`date` kutusunun bağlı alanını açılır listeden seçer ya da "boş bırak" yapar;
@@ -79,6 +83,7 @@ from app.output_templates.examine import (
 )
 from app.output_templates.labels import FIELD_LABELS
 from app.storage import DataLayout
+from app.storage.previews import PreviewSource
 from app.web.access import record_access
 from app.web.ai_runtime import ActiveAiSettings
 from app.web.auth import WRITER_ONLY, PanelUser, require_panel_user
@@ -98,6 +103,7 @@ from app.web.feedback import (
     flash,
     render,
 )
+from app.web.previews import Tier, source_preview_response, source_preview_url
 from app.web.routers.uploads import get_layout
 from app.web.templating import MENU_BY_KEY, render_page
 
@@ -371,16 +377,24 @@ def templates_page(
     request: Request,
     user: CurrentUser,
     session: DbSession,
+    layout: Layout,
     template_status: Annotated[str | None, Query(alias="status", max_length=16)] = None,
 ) -> HTMLResponse:
     selected = template_status if template_status in STATUS_LABELS else None
+    templates = list_templates(session, status=selected)
+    thumbs = {
+        template.id: _page_preview_url(layout, template.id, 0, "small")
+        for template in templates
+        if template.page_count
+    }
     response = render_page(
         request,
         "output_templates.html",
         user=user,
         active=ACTIVE,
         entry=MENU_BY_KEY[ACTIVE],
-        templates=list_templates(session, status=selected),
+        templates=templates,
+        thumbs=thumbs,
         states=_state_links(session, selected),
         selected=selected,
         status_labels=STATUS_LABELS,
@@ -493,7 +507,14 @@ def _template_response(
         field_count=field_count(template),
         status_labels=STATUS_LABELS,
         status_badges=STATUS_BADGES,
-        pages=range(template.page_count),
+        pages=[
+            TemplatePagePreview(
+                index,
+                _page_preview_url(layout, template.id, index, "small"),
+                _page_preview_url(layout, template.id, index, "large"),
+            )
+            for index in range(template.page_count)
+        ],
         latest_map=latest,
         approved_map=approved,
         preview=preview,
@@ -590,6 +611,53 @@ def template_page_image(
     if not path.is_file():
         raise HTTPException(status.HTTP_404_NOT_FOUND, PAGE_NOT_FOUND)
     return FileResponse(path, media_type=JPEG_MEDIA_TYPE, headers=FILE_HEADERS)
+
+
+TEMPLATE_PAGE_PREVIEW_KIND = "template-pages"
+
+
+@dataclass(frozen=True, slots=True)
+class TemplatePagePreview:
+    index: int  # 0 tabanlı
+    thumb_url: str
+    preview_url: str
+
+
+def _page_preview_source(layout: DataLayout, template_id: int, page_index: int) -> PreviewSource:
+    """Şablon sayfasının önizleme kaynağı (11.9.9): sayfanın görüntüsü (`pages/<n>.jpg`)."""
+    return PreviewSource(
+        TEMPLATE_PAGE_PREVIEW_KIND,
+        f"{template_id}-{page_index}",
+        layout.template_page_image_path(template_id, page_index),
+    )
+
+
+def _page_preview_url(layout: DataLayout, template_id: int, page_index: int, size: str) -> str:
+    source = _page_preview_source(layout, template_id, page_index)
+    return source_preview_url(f"{LIST_PATH}/{template_id}/pages/{page_index}", source, size)
+
+
+@router.get(f"{LIST_PATH}/{{template_id}}/pages/{{page_index}}/previews/{{size}}")
+def template_page_preview(
+    template_id: int,
+    page_index: int,
+    size: str,
+    request: Request,
+    session: DbSession,
+    layout: Layout,
+) -> Response:
+    """11.9.9 — şablon sayfasının küçük ya da büyük önizlemesi; `.../pages/{n}` ile aynı 404
+    kuralı, erişim kaydı yazılmaz. Şablon çalışan verisi taşımaz: kademe 1 önbellek."""
+    template = _template_or_404(session, template_id)
+    session.rollback()
+    source = (
+        _page_preview_source(layout, template.id, page_index)
+        if 0 <= page_index < template.page_count
+        else None
+    )
+    return source_preview_response(
+        request, layout, source, size, tier=Tier.SPECIMEN, not_found=PAGE_NOT_FOUND
+    )
 
 
 def _set_archived(

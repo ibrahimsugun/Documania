@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {# Hazır şablon sayfası (15.1.1–15.1.4): `template` yoksa yükleme formu (ad, açıklama, tek dosya),
-   varsa şablonun bilgileri, orijinali yeni sekmede açma/indirme (erişim kaydı), sayfa önizlemeleri, alan
+   varsa şablonun bilgileri, orijinali indirme (erişim kaydı; satır içi açılmaz, 11.9.9), sayfa önizlemeleri, alan
    haritası ve yeniden inceleme, arşivleme. Harita önizlemesi (15.1.3): kutular sayfa görüntüsünün üstünde
    SVG'dir (stil özniteliği yok; koordinat `viewBox` = görüntü ölçüsü), her kutunun satırı yanındaki
    tablodadır; İK son sürümün atamalarını düz formla onaylar (JavaScript gerekmez), Kullanıcı yalnız
@@ -19,8 +19,7 @@
 <p class="notice" role="status" id="template-draft">{{ _("Bu şablon taslak: alan haritası onaylanmadan çıktıya hazırlanamaz.") }}</p>
 {% endif %}
 <p>
-  <a class="button-link" href="/output-templates/{{ template.id }}/file" target="_blank" rel="noopener">{{ _("Yeni sekmede aç") }}</a>
-  <a class="button-link button-secondary" href="/output-templates/{{ template.id }}/download">{{ _("İndir") }}</a>
+  <a class="button-link" href="/output-templates/{{ template.id }}/download">{{ _("İndir") }}</a>
 </p>
 
 <section class="template-details" aria-labelledby="template-details-title">
@@ -40,10 +39,10 @@
 <section class="template-pages" aria-labelledby="template-pages-title">
   <h2 id="template-pages-title">{{ _("Sayfalar") }} <span class="count">({{ template.page_count }})</span></h2>
   <ul class="thumbs">
-    {% for index in pages %}
+    {% for page in pages %}
     <li class="thumb">
-      <a href="/output-templates/{{ template.id }}/pages/{{ index }}" target="_blank" rel="noopener"><img src="/output-templates/{{ template.id }}/pages/{{ index }}" loading="lazy" alt="{{ _('Sayfa %(page)d', page=index + 1) }}"></a>
-      <span>{{ _("Sayfa %(page)d", page=index + 1) }}</span>
+      <a href="{{ page.preview_url }}" target="_blank" rel="noopener" title="{{ _('Büyük önizleme') }}" data-preview-large="{{ page.preview_url }}"><img src="{{ page.thumb_url }}" width="320" height="320" loading="lazy" decoding="async" alt="{{ _('Sayfa %(page)d', page=page.index + 1) }}"></a>
+      <span>{{ _("Sayfa %(page)d", page=page.index + 1) }}</span>
     </li>
     {% endfor %}
   </ul>

@@ -8,7 +8,8 @@ ve arşivden geri alma (PRD 08.4.1, 10.5.10).
 listesi dosyanın bütününü gösterir. İz tıklanarak yürünür:
 
 - kaynak dosyanın adı, dosyanın yükleme detay sayfasındaki bölümüne gider (`/uploads/{id}#file-N`);
-- her kaynak sayfa, sayfanın görüntüsünü açar (`/uploads/{id}/pages/{page_id}/image`, 10.3.1);
+- her kaynak sayfa küçük önizlemeyle görünür, tıklayınca büyük önizlemesi açılır
+  (`/uploads/{id}/pages/{page_id}/previews/{small|large}`, 10.3.1, 11.9.9);
 - planın öğesi ve partinin kendisi yükleme detay sayfasına bağlanır;
 - çıktının kendisi çalışanın profilindeki açma bağlantısıyla açılır (10.5.2).
 
@@ -150,7 +151,15 @@ DOCUMENT_NOT_FOUND = N_("Belge bulunamadı.")
 @dataclass(frozen=True, slots=True)
 class SourcePageView:
     number: int  # 1 tabanlı; köken kaydındaki sayfa sırası 0 tabanlıdır
-    image_url: str | None  # sayfa satırı ve görüntüsü kayıtlıysa
+    image_url: str | None  # küçük önizleme (11.9.9); sayfa satırı ve görüntüsü kayıtlıysa
+    preview_url: str | None  # büyük önizleme
+
+
+def _page_preview(upload_id: str, stored: dict[int, Page], index: int, size: str) -> str | None:
+    """Sayfanın önizleme adresi (11.9.9); sayfa satırı ya da analiz görüntüsü yoksa `None`."""
+    if index not in stored or stored[index].image_path is None:
+        return None
+    return f"/uploads/{upload_id}/pages/{stored[index].id}/previews/{size}"
 
 
 @dataclass(frozen=True, slots=True)
@@ -227,11 +236,8 @@ def _source_view(session: Session, ref: Any) -> SourceView:
     pages = [
         SourcePageView(
             number=index + 1,
-            image_url=(
-                f"/uploads/{upload_file.upload_id}/pages/{stored[index].id}/image"
-                if index in stored and stored[index].image_path is not None
-                else None
-            ),
+            image_url=_page_preview(upload_file.upload_id, stored, index, "small"),
+            preview_url=_page_preview(upload_file.upload_id, stored, index, "large"),
         )
         for index in wanted
     ]

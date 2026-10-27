@@ -217,6 +217,24 @@ def render_pdf_images(
         return images, document.page_count
 
 
+def render_pdf_page_image(
+    content: bytes, index: int, *, dpi: int, max_long_edge: int, jpeg_quality: int
+) -> tuple[bytes, int]:
+    """PDF'in `index` (0 tabanlı) sayfasının JPEG görüntüsü, bellekte, ve toplam sayfa sayısı;
+    önceki sayfalar çizilmez (önizleme, 11.9.9). PDF açılamazsa ya da sayfa yoksa `RenderError`."""
+    with _open_pdf(content) as document:
+        if not 0 <= index < document.page_count:
+            raise RenderError("PDF'te bu sayfa yok.")
+        pixmap = _rasterize(document[index], dpi, max_long_edge)[0]
+        return pixmap.tobytes("jpeg", jpg_quality=jpeg_quality), document.page_count
+
+
+def pdf_page_count(content: bytes) -> int:
+    """PDF'in sayfa sayısı (sayfa çizilmez). PDF açılamazsa `RenderError`."""
+    with _open_pdf(content) as document:
+        return document.page_count
+
+
 def extract_page_text(page: pymupdf.Page) -> str | None:
     """Sayfanın gömülü metin katmanını döner; katman yoksa (taranmış sayfa) `None`."""
     text = page.get_text()

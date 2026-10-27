@@ -69,8 +69,8 @@
       {% for page in source.pages %}
       <li class="thumb">
         {% if page.image_url %}
-        <a href="{{ page.image_url }}" target="_blank" rel="noopener">
-          <img src="{{ page.image_url }}" loading="lazy" alt="{{ _("%(file)s — sayfa %(page)s", file=source.file_name, page=page.number) }}">
+        <a href="{{ page.preview_url }}" target="_blank" rel="noopener" data-preview-large="{{ page.preview_url }}">
+          <img src="{{ page.image_url }}" width="320" height="320" loading="lazy" decoding="async" alt="{{ _("%(file)s — sayfa %(page)s", file=source.file_name, page=page.number) }}">
         </a>
         {% else %}
         <span class="no-image">{{ _("Görüntü yok") }}</span>

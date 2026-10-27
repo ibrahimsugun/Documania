@@ -48,7 +48,7 @@
 <section class="profile-card" aria-label="{{ _('Çalışan kartı') }}">
   <div class="profile-photo">
     {% if profile.photo_url %}
-    <img src="{{ profile.photo_url }}" alt="{{ _('%(name)s profil fotoğrafı', name=profile.name) }}">
+    <a href="{{ profile.photo_large_url }}" target="_blank" rel="noopener" title="{{ _('Büyük önizleme') }}" data-preview-large="{{ profile.photo_large_url }}"><img src="{{ profile.photo_url }}" width="320" height="400" decoding="async" alt="{{ _('%(name)s profil fotoğrafı', name=profile.name) }}"></a>
     {% else %}
     <div class="photo-placeholder" role="img" aria-label="{{ _('Profil fotoğrafı yok') }}">
       <span>{{ _("Fotoğraf yok") }}</span>
@@ -186,7 +186,7 @@
 </section>
 
 {# 14.2.1–14.2.3: belge paketleri. Tikler görüntülemede belgelerden hesaplanır; GET yazmaz. #}
-{% macro document_link(document) %}{% if document.id in profile.available_document_ids %}<a href="/employees/{{ profile.id }}/documents/{{ document.id }}/file" target="_blank" rel="noopener">{{ document.file_name }}</a>{% else %}<a href="/documents/{{ document.id }}/history">{{ document.file_name }}</a>{% endif %}{% endmacro %}
+{% macro document_link(document) %}{% if document.id in profile.available_document_ids %}<a href="/employees/{{ profile.id }}/documents/{{ document.id }}/preview" target="_blank" rel="noopener">{{ document.file_name }}</a>{% else %}<a href="/documents/{{ document.id }}/history">{{ document.file_name }}</a>{% endif %}{% endmacro %}
 <section class="profile-packages" id="packages" aria-labelledby="packages-title">
   <h2 id="packages-title">{{ _("Belge paketleri") }} <span class="count">{{ profile.live_packages|length }}</span></h2>
   {% if profile.live_packages %}
@@ -284,7 +284,7 @@
       {% for document in profile.documents %}
       <tr{% if document.status != "active" %} class="output-superseded"{% endif %}>
         <td>{{ document.type_name }}</td>
-        <td>{% if document.available %}<a href="/employees/{{ profile.id }}/documents/{{ document.id }}/file" target="_blank" rel="noopener">{{ document.file_name }}</a>{% else %}{{ document.file_name }}{% endif %}{% if document.name_only %} <span class="badge name-only" title="{{ _('Belge bu çalışana yalnız ad-soyadla yerleşti; belge numarası ya da doğum tarihi doğrulanmadı. Yanlışsa belgeyi taşıyın.') }}">{{ _("Yalnız isimle eşleşti") }}</span>{% endif %}</td>
+        <td>{% if document.available %}{% if document.thumb_url %}<a href="/employees/{{ profile.id }}/documents/{{ document.id }}/preview" target="_blank" rel="noopener" tabindex="-1" aria-hidden="true" data-preview-large="{{ document.large_url }}"><img class="doc-thumb" src="{{ document.thumb_url }}" width="48" height="48" loading="lazy" decoding="async" alt=""></a>{% endif %}<a href="/employees/{{ profile.id }}/documents/{{ document.id }}/preview" target="_blank" rel="noopener" title="{{ _('Büyük önizleme') }}">{{ document.file_name }}</a>{% else %}{{ document.file_name }}{% endif %}{% if document.name_only %} <span class="badge name-only" title="{{ _('Belge bu çalışana yalnız ad-soyadla yerleşti; belge numarası ya da doğum tarihi doğrulanmadı. Yanlışsa belgeyi taşıyın.') }}">{{ _("Yalnız isimle eşleşti") }}</span>{% endif %}</td>
         <td>{{ document.format }}</td>
         <td>{{ translate(document.status_label) }}</td>
         <td>{{ document.created_on.strftime("%d.%m.%Y") }}</td>
@@ -357,7 +357,7 @@
       {% for output in profile.outputs %}
       <tr id="output-{{ output.id }}"{% if output.status != "active" %} class="output-superseded"{% endif %}>
         <td translate="no">{{ output.template_name }}</td>
-        <td>{% if output.available %}<a href="/employees/{{ profile.id }}/outputs/{{ output.id }}/file" target="_blank" rel="noopener" translate="no">{{ output.file_name }}</a>{% else %}<span translate="no">{{ output.file_name }}</span>{% endif %}</td>
+        <td>{% if output.available %}{% if output.thumb_url %}<a href="/employees/{{ profile.id }}/outputs/{{ output.id }}/preview" target="_blank" rel="noopener" tabindex="-1" aria-hidden="true" data-preview-large="{{ output.large_url }}"><img class="doc-thumb" src="{{ output.thumb_url }}" width="48" height="48" loading="lazy" decoding="async" alt=""></a>{% endif %}<a href="/employees/{{ profile.id }}/outputs/{{ output.id }}/preview" target="_blank" rel="noopener" title="{{ _('Büyük önizleme') }}" translate="no">{{ output.file_name }}</a>{% else %}<span translate="no">{{ output.file_name }}</span>{% endif %}</td>
         <td class="cell-nowrap">{{ output.generated_at.strftime("%d.%m.%Y %H:%M") }}</td>
         <td translate="no">{{ output.generated_by }}</td>
         <td class="num">{{ output.map_version }}</td>
@@ -385,7 +385,7 @@
         {% for output in profile.archived_outputs %}
         <tr id="output-{{ output.id }}" class="output-superseded">
           <td translate="no">{{ output.template_name }}</td>
-          <td>{% if output.available %}<a href="/employees/{{ profile.id }}/outputs/{{ output.id }}/file" target="_blank" rel="noopener" translate="no">{{ output.file_name }}</a>{% else %}<span translate="no">{{ output.file_name }}</span>{% endif %}</td>
+          <td>{% if output.available %}{% if output.thumb_url %}<a href="/employees/{{ profile.id }}/outputs/{{ output.id }}/preview" target="_blank" rel="noopener" tabindex="-1" aria-hidden="true" data-preview-large="{{ output.large_url }}"><img class="doc-thumb" src="{{ output.thumb_url }}" width="48" height="48" loading="lazy" decoding="async" alt=""></a>{% endif %}<a href="/employees/{{ profile.id }}/outputs/{{ output.id }}/preview" target="_blank" rel="noopener" title="{{ _('Büyük önizleme') }}" translate="no">{{ output.file_name }}</a>{% else %}<span translate="no">{{ output.file_name }}</span>{% endif %}</td>
           <td class="cell-nowrap">{{ output.generated_at.strftime("%d.%m.%Y %H:%M") }}</td>
           <td translate="no">{{ output.archived_by or "—" }}</td>
           <td class="doc-actions">{% if output.available %}<a href="/employees/{{ profile.id }}/outputs/{{ output.id }}/download">{{ _("İndir") }}</a>{% else %}<span class="reason">{{ _("Dosya bulunamadı") }}</span>{% endif %}{% if user.can_write %}

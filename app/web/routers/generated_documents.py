@@ -11,6 +11,10 @@
   üretilen belgeyi olduğu gibi sunar ve önce erişim logunu `generated_document_id` ile yazar
   (10.9.2). Belge bu çalışanın değilse, kalıcı silinmişse ya da dosyası yoksa 404, kayıt düşmez.
   Eski sürüm (`superseded`) ve arşivdeki belge de açılır ve indirilir.
+- `GET .../outputs/{generated_document_id}/preview` (11.9.9) belgenin büyük önizlemesini sayfa sayfa
+  ve İndir düğmesini gösterir; açılışı `view` olarak yazılır (profil bağlantısı buraya gider).
+  `GET .../previews/{small|large}?page=<n>` sayfanın önizleme JPEG'idir (kademe 2 önbellek,
+  `private, max-age=900` + `ETag`); erişim kaydı yazmaz, 404 kuralı açma ucununkidir.
 - `POST .../outputs/{generated_document_id}/archive` ve `.../restore` üretilen belgeyi tek adımda
   arşivler ve geri alır (15.2.2; `app.output_templates.lifecycle`, `OUTPUT_ARCHIVED` /
   `OUTPUT_RESTORED`). Belge bu çalışanın değilse ya da kalıcı silinmişse 404.
@@ -29,8 +33,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Form, HTTPException, status
-from fastapi.responses import FileResponse, RedirectResponse
+from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request, Response, status
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -52,6 +56,7 @@ from app.output_templates.generate import (
 from app.output_templates.lifecycle import OutputNotFoundError, set_output_archived
 from app.profiles import write_profile
 from app.storage import DataLayout
+from app.storage.previews import PreviewSource
 from app.web.access import record_access
 from app.web.auth import PanelUser, require_panel_user
 from app.web.feedback import (
@@ -63,7 +68,9 @@ from app.web.feedback import (
     OUTPUT_RESTORED,
     flash,
 )
+from app.web.previews import Tier, document_preview, source_preview_response, source_preview_url
 from app.web.routers.uploads import get_layout
+from app.web.templating import MENU_BY_KEY, render_page
 
 router = APIRouter(tags=["generated-documents"])
 
@@ -200,6 +207,21 @@ def _stored_output(
 ) -> Path:
     """Üretilen belgeyi erişim logunu yazarak çözer; log sunmadan **önce** commit edilir (10.9.2).
     Belge bu çalışanın değilse, kalıcı silinmişse ya da dosyası yoksa 404 ve kayıt düşmez."""
+    document, path = _output_file(session, layout, employee_id, generated_document_id)
+    if document is None or path is None:
+        session.rollback()
+        detail = OUTPUT_NOT_FOUND if document is None else OUTPUT_FILE_NOT_FOUND
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail)
+    record_access(session, user_id=user.id, generated_document_id=document.id, action=action)
+    session.commit()
+    return path
+
+
+def _output_file(
+    session: Session, layout: DataLayout, employee_id: str, generated_document_id: int
+) -> tuple[GeneratedDocument | None, Path | None]:
+    """Üretilen belge ve dosyası (kayıt yazmadan); belge bu çalışanın değilse ya da kalıcı
+    silinmişse belge, dosyası yoksa yol boştur."""
     document = session.scalars(
         select(GeneratedDocument).where(
             GeneratedDocument.id == generated_document_id,
@@ -213,13 +235,19 @@ def _stored_output(
             path = layout.resolve(document.path)
         except ValueError:
             path = None
-    if document is None or path is None or not path.is_file():
-        session.rollback()
-        detail = OUTPUT_NOT_FOUND if document is None else OUTPUT_FILE_NOT_FOUND
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail)
-    record_access(session, user_id=user.id, generated_document_id=document.id, action=action)
-    session.commit()
-    return path
+    if path is not None and not path.is_file():
+        path = None
+    return document, path
+
+
+OUTPUT_PREVIEW_KIND = "generated-documents"
+
+
+def output_preview_url(employee_id: str, generated_document_id: int, path: Path, size: str) -> str:
+    """Üretilen belgenin ilk sayfa önizleme adresi (11.9.9; profil listesi)."""
+    source = PreviewSource(OUTPUT_PREVIEW_KIND, str(generated_document_id), path)
+    base = f"/employees/{employee_id}/outputs/{generated_document_id}"
+    return source_preview_url(base, source, size)
 
 
 def _serve(path: Path, disposition: str) -> FileResponse:
@@ -265,3 +293,66 @@ def download_output(
         action=AccessAction.DOWNLOAD,
     )
     return _serve(path, "attachment")
+
+
+@router.get("/employees/{employee_id}/outputs/{generated_document_id}/previews/{size}")
+def output_preview_image(
+    employee_id: str,
+    generated_document_id: int,
+    size: str,
+    request: Request,
+    session: DbSession,
+    layout: Layout,
+    page: Annotated[int, Query(ge=1)] = 1,
+) -> Response:
+    """11.9.9 — üretilen belgenin `page`. sayfasının küçük ya da büyük önizlemesi; kayıt yazılmaz,
+    404 kuralı açma ucununkidir, kademe 2 önbellek."""
+    document, path = _output_file(session, layout, employee_id, generated_document_id)
+    session.rollback()
+    source = (
+        PreviewSource(OUTPUT_PREVIEW_KIND, str(generated_document_id), path, page - 1)
+        if document is not None and path is not None
+        else None
+    )
+    return source_preview_response(
+        request, layout, source, size, tier=Tier.PERSONAL, not_found=OUTPUT_NOT_FOUND
+    )
+
+
+@router.get(
+    "/employees/{employee_id}/outputs/{generated_document_id}/preview",
+    response_class=HTMLResponse,
+)
+def preview_output(
+    employee_id: str,
+    generated_document_id: int,
+    request: Request,
+    user: CurrentUser,
+    session: DbSession,
+    layout: Layout,
+) -> HTMLResponse:
+    """11.9.9 — üretilen belgenin büyük önizlemesi sayfa sayfa ve İndir; `view` kaydı (10.9.2)."""
+    path = _stored_output(
+        session, layout, employee_id, generated_document_id, user=user, action=AccessAction.VIEW
+    )
+    employee = session.get(Employee, employee_id)
+    back_label = (
+        f"{employee.given_names} {employee.surname}" if employee is not None else employee_id
+    )
+    session.rollback()
+    base = f"/employees/{employee_id}/outputs/{generated_document_id}"
+    preview = document_preview(
+        PreviewSource(OUTPUT_PREVIEW_KIND, str(generated_document_id), path),
+        base,
+        file_name=path.name,
+        back_url=f"/employees/{employee_id}#outputs-title",
+        back_label=back_label,
+        download_url=f"{base}/download",
+    )
+    return render_page(
+        request,
+        "document_preview.html",
+        user=user,
+        active=MENU_BY_KEY["employees"].key,
+        preview=preview,
+    )

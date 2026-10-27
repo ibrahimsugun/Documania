@@ -344,7 +344,7 @@ def test_nationality_flag_keeps_the_field_source_and_the_different_value_warning
     cell = _field_html(page, "Vatandaşlık")
     assert cell.lstrip().startswith('<span class="country"><img src="/static/flags/ru.svg"')
     assert "Rusya</span> (RUS)" in cell
-    assert f'Kaynak: <a href="/employees/E0001/documents/{document_id}/file"' in cell
+    assert f'Kaynak: <a href="/employees/E0001/documents/{document_id}/preview"' in cell
     assert "Vatandaşlık: belgede farklı değer okundu: " in cell
     assert _fields(page)["Vatandaşlık"] == (
         "Rusya (RUS) Kaynak: Pasaport.pdf Farklı değer "
@@ -533,7 +533,7 @@ def test_each_field_links_to_the_document_it_was_filled_from(
 
     page = client.get("/employees/E0001").text
 
-    link = '<a href="/employees/E0001/documents/{}/file" target="_blank" rel="noopener">{}</a>'
+    link = '<a href="/employees/E0001/documents/{}/preview" target="_blank" rel="noopener">{}</a>'
     assert "Kaynak: " + link.format(ids[0], "Pasaport.pdf") in _field_html(page, "Doğum tarihi")
     assert "Kaynak: " + link.format(ids[1], "Kart.pdf") in _field_html(page, "Vatandaşlık")
     fields = _fields(page)
@@ -570,7 +570,7 @@ def test_a_different_value_read_in_a_document_is_warned_and_the_field_stays(
     assert '<span class="badge badge-missing">Farklı değer</span>' in birth
     assert "Doğum tarihi: belgede farklı değer okundu: " in birth
     for document_id in ids:
-        assert f'href="/employees/E0001/documents/{document_id}/file"' in birth
+        assert f'href="/employees/E0001/documents/{document_id}/preview"' in birth
     surname = _field_html(page, "Soyad")
     assert surname.startswith("Vasiliev")
     assert "Soyad: belgede farklı değer okundu: " in surname
@@ -631,7 +631,7 @@ def test_the_source_prefers_the_active_output_and_falls_back_to_history_or_the_u
     page = client.get("/employees/E0001").text
 
     birth = _field_html(page, "Doğum tarihi")
-    assert f'href="/employees/E0001/documents/{current_id}/file"' in birth
+    assert f'href="/employees/E0001/documents/{current_id}/preview"' in birth
     assert "Eski.pdf" not in birth and "Arsiv.pdf" not in birth
     nationality = _field_html(page, "Vatandaşlık")
     assert f'Kaynak: <a href="/documents/{gone_id}/history">Kayip.pdf</a>' in nationality
@@ -735,7 +735,14 @@ def test_card_shows_the_profile_picture_document(
     page = client.get("/employees/E0001").text
     photo = client.get("/employees/E0001/photo")
 
-    assert '<img src="/employees/E0001/photo"' in page
+    # 11.9.9: kart orijinali değil küçük önizlemeyi gösterir; tıklayınca büyüğü açılır.
+    small = re.search(r'<img src="(/employees/E0001/photo/previews/small\?v=\w+)"', page)
+    assert small is not None
+    assert 'href="/employees/E0001/photo/previews/large?v=' in page
+    preview = client.get(small.group(1))
+    assert preview.status_code == 200
+    assert preview.headers["content-type"] == "image/jpeg"
+    assert preview.headers["cache-control"] == "private, max-age=900"
     assert "Eksik belge" not in page
     assert "Fotoğraf yok" not in page
     assert photo.status_code == 200
@@ -846,8 +853,8 @@ def test_a_recorded_photo_that_cannot_be_shown_gets_the_placeholder_not_a_broken
 
     for employee_id in ("E0001", "E0002"):
         page = client.get(f"/employees/{employee_id}").text
-        # Dil seçicinin bayrakları (10.10.2) sayfanın içeriği değildir; içerikte görüntü yok.
-        content = page[page.index('<main class="content">') :]
+        # Kartta görüntü yok (belge listesinin küçük resimleri kartın dışındadır, 11.9.9).
+        content = page.split('<section class="profile-card"', 1)[1].split("</section>", 1)[0]
         assert "<img" not in content
         assert "Fotoğraf yok" in content
         assert client.get(f"/employees/{employee_id}/photo").status_code == 404
@@ -910,12 +917,13 @@ def test_document_list_shows_every_status_with_open_and_download_links(
     )
     assert "Anna_Zeta" not in section
     for document_id in ids:
-        # Belgeye tıklamak yeni sekmede açar; ayrıca indirme bağlantısı var.
+        # Belgeye tıklamak yeni sekmede büyük önizlemeyi açar (11.9.9); ayrıca indirme var.
         assert re.search(
-            rf'<a href="/employees/E0001/documents/{document_id}/file" target="_blank" '
-            rf'rel="noopener">',
+            rf'<a href="/employees/E0001/documents/{document_id}/preview" target="_blank" '
+            rf'rel="noopener"',
             section,
         )
+        assert f"/documents/{document_id}/file" not in section
         assert f'<a href="/employees/E0001/documents/{document_id}/download">İndir</a>' in section
     assert section.count("output-superseded") == 2  # eski sürüm ve arşivlenmiş sönük çizilir
 
@@ -937,6 +945,7 @@ def test_document_whose_file_is_gone_is_listed_without_links(
     assert "kayip.pdf" in section
     assert "Dosya bulunamadı" in section
     assert f"/documents/{document_id}/file" not in section
+    assert f"/documents/{document_id}/preview" not in section
     assert f"/documents/{document_id}/download" not in section
     # Geçmiş (10.6.1) dosyaya bağlı değildir: dosyası kaybolan belgenin de kökeni izlenir.
     assert f'<a href="/documents/{document_id}/history">Geçmiş</a>' in section
@@ -1118,7 +1127,10 @@ def test_panel_has_no_way_to_change_a_document(
         "/employees/{employee_id}/fields/prepare": {"post"},
         "/employees/{employee_id}": {"get"},
         "/employees/{employee_id}/photo": {"get"},
+        "/employees/{employee_id}/photo/previews/{size}": {"get"},
         "/employees/{employee_id}/documents/{document_id}/file": {"get"},
+        "/employees/{employee_id}/documents/{document_id}/preview": {"get"},
+        "/employees/{employee_id}/documents/{document_id}/previews/{size}": {"get"},
         "/employees/{employee_id}/documents/{document_id}/download": {"get"},
         "/employees/{employee_id}/packages": {"post"},
         "/employees/{employee_id}/packages/{package_id}/cancel": {"post"},
@@ -1137,6 +1149,8 @@ def test_panel_has_no_way_to_change_a_document(
         "/employees/{employee_id}/merge": {"post"},
         "/employees/{employee_id}/outputs": {"post"},
         "/employees/{employee_id}/outputs/{generated_document_id}/file": {"get"},
+        "/employees/{employee_id}/outputs/{generated_document_id}/preview": {"get"},
+        "/employees/{employee_id}/outputs/{generated_document_id}/previews/{size}": {"get"},
         "/employees/{employee_id}/outputs/{generated_document_id}/download": {"get"},
         "/employees/{employee_id}/outputs/{generated_document_id}/archive": {"post"},
         "/employees/{employee_id}/outputs/{generated_document_id}/restore": {"post"},

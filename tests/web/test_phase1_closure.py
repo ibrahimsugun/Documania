@@ -202,17 +202,21 @@ def test_hr_uploads_resolves_the_queue_sees_the_document_on_the_profile_and_open
     documents = documents.split("</section>", 1)[0]
     assert '<span class="count">1</span>' in documents
     link = re.search(
-        rf'<a href="(/employees/{employee.id}/documents/\d+/file)" target="_blank" '
-        rf'rel="noopener">{re.escape(file_name)}</a>',
+        rf'<a href="(/employees/{employee.id}/documents/\d+)/preview" target="_blank" '
+        rf'rel="noopener" title="[^"]*">{re.escape(file_name)}</a>',
         documents,
     )
     assert link is not None, documents
 
-    # 5) Yeni sekmede aç: dosya satır içi sunulur, baytları Hazir'daki dosyanın ve yüklenenin aynı.
-    opened = client.get(link.group(1))
+    # 5) Yeni sekmede aç: büyük önizleme sayfası (11.9.9); orijinal İndir ile iner ve baytları
+    # Hazir'daki dosyanın ve yüklenenin aynı.
+    preview = client.get(f"{link.group(1)}/preview")
+    assert preview.status_code == 200
+    assert f'href="{link.group(1)}/download"' in preview.text
+    opened = client.get(f"{link.group(1)}/download")
     assert opened.status_code == 200
     assert opened.headers["content-type"] == "application/pdf"
-    assert opened.headers["content-disposition"].startswith("inline")
+    assert opened.headers["content-disposition"].startswith("attachment")
     assert f'filename="{file_name}"' in opened.headers["content-disposition"]
     ready = layout.ready_dir(employee.folder_name) / file_name
     assert opened.content == ready.read_bytes()

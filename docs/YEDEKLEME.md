@@ -33,9 +33,11 @@ ortamı gerekmez). PostgreSQL için ayrıca `pg_dump`, `pg_restore`, `psql` (`po
   sıkışmaz ve kaynak koleksiyondan yeniden üretilebilir. Bunun yedeği ayrıdır (aşağıda, "Eğitim
   malzemesinin yedeği"). Arşivin `MANIFEST.txt`'inde `material=excluded` yazar; `BACKUP_INCLUDE_MATERIAL=1`
   verilirse malzeme de arşive girer (`material=included`).
-- **Örnek önizlemeleri arşive girmez** (`cache/previews`, 11.9.7): eğitim ve katalog sayfalarının
-  gösterdiği küçük JPEG'lerdir, örneklerden yeniden üretilir. Geri yüklemeden sonra ilk istekte
-  kendiliğinden üretilir; hepsini önceden üretmek için `python -m app.training previews`.
+- **Önizlemeler arşive girmez** (`cache/previews`, 11.9.7, 11.9.9): panelin her yerde gösterdiği
+  küçük/büyük JPEG'lerdir (örnekler, çalışan belgeleri, yükleme sayfaları, üretilen belgeler, şablon
+  sayfaları, profil fotoğrafı), kaynak dosyalardan yeniden üretilir. Geri yüklemeden sonra ilk
+  istekte kendiliğinden üretilir; örneklerinkini önceden üretmek için `python -m app.training
+  previews` (çalışan belgeleri yalnız görüntülendikçe üretilir).
 - Arşivin içi: `MANIFEST.txt` (zaman, veritabanı türü, veritabanı dökümünün SHA-256'sı, dosya
   sayısı), `db/…`, `data/…`. Arşiv `umask 077` ile yazılır (yalnız sahibi okur) — kimlik belgesi
   içerir.

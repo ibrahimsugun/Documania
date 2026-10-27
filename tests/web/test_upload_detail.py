@@ -189,7 +189,7 @@ def test_detail_page_shows_thumbnails_plan_outputs_and_timeline_on_one_page(
     with session_factory() as session:
         page_id = session.scalars(select(Page)).one().id
         item = session.scalars(select(Plan)).one().json["items"][0]
-    assert f'<img src="/uploads/{upload_id}/pages/{page_id}/image"' in page.text
+    assert f'<img src="/uploads/{upload_id}/pages/{page_id}/previews/small"' in page.text
     assert "Sayfa 1" in page.text
     assert "pasaport.pdf" in page.text
     # Plan öğesi: kimlik, tür, kaynak, işlem, hedef ad, çalışan, rota ve doğrulamalar.
@@ -412,7 +412,8 @@ def test_page_image_is_the_analysis_copy_and_only_served_for_its_own_upload(
     assert again.status_code == 304 and not again.content
     # Sayfa, belgenin görüntüsünü ön yükleme için işaretler (orijinal dosya değil).
     detail = client.get(f"/uploads/{upload_id}").text
-    assert f'data-preview-large="/uploads/{upload_id}/pages/{page_id}/image"' in detail
+    assert f'data-preview-large="/uploads/{upload_id}/pages/{page_id}/previews/large"' in detail
+    assert f"/pages/{page_id}/image" not in detail  # analiz kopyasına bağlanılmaz (11.9.9)
     other = client.get(f"/uploads/u_baska/pages/{page_id}/image")
     assert other.status_code == 404
     assert client.get(f"/uploads/{upload_id}/pages/99999/image").status_code == 404

@@ -413,12 +413,13 @@ def test_candidates_are_listed_with_their_name_seen_count_and_sample_pages(
         }
     uploads = {seen.first: pages[DIPLOMA_NAME][0], seen.second: pages[DIPLOMA_NAME][1]}
     for upload_id, page_id in uploads.items():
-        assert f'<img src="/uploads/{upload_id}/pages/{page_id}/image"' in html
-        image = client.get(f"/uploads/{upload_id}/pages/{page_id}/image")
+        assert f'<img src="/uploads/{upload_id}/pages/{page_id}/previews/small"' in html
+        image = client.get(f"/uploads/{upload_id}/pages/{page_id}/previews/small")
         assert image.status_code == 200
-        assert image.headers["content-type"].startswith("image/")
+        assert image.headers["content-type"] == "image/jpeg"
     assert "diploma-bir.pdf</a> · s. 1" in html
-    assert f'<img src="/uploads/{seen.permit_upload}/pages/{pages[PERMIT_NAME][0]}/image"' in html
+    permit_page = pages[PERMIT_NAME][0]
+    assert f'<img src="/uploads/{seen.permit_upload}/pages/{permit_page}/previews/small"' in html
     assert "Onaylanan, Unknown öğesi bekleyen adaylar" not in html
 
 

@@ -162,6 +162,10 @@ PAGES: dict[str, tuple[tuple[str, int], ...]] = {
     "/employees/{employee_id}/merge/confirm": (
         ("/employees/E0001/merge/confirm?other=E0002", 200),
     ),
+    # 11.9.9: büyük önizleme sayfası (ortak `document_preview.html`).
+    "/employees/{employee_id}/documents/{document_id}/preview": (
+        ("/employees/E0001/documents/{document}/preview", 200),
+    ),
     "/documents/{document_id}/history": (
         ("/documents/{document}/history", 200),
         ("/documents/{archived}/history", 200),
@@ -327,6 +331,15 @@ NOT_HTML = frozenset(
         "/output-templates/{template_id}/pages/{page_index}",
         "/employees/{employee_id}/outputs/{generated_document_id}/file",
         "/employees/{employee_id}/outputs/{generated_document_id}/download",
+        # 11.9.9: önizleme JPEG'leri.
+        "/uploads/{upload_id}/pages/{page_id}/previews/{size}",
+        "/employees/{employee_id}/documents/{document_id}/previews/{size}",
+        "/employees/{employee_id}/photo/previews/{size}",
+        "/employees/{employee_id}/outputs/{generated_document_id}/previews/{size}",
+        # HTML'dir ama şablonu (`document_preview.html`) belge önizlemesinde taranır; sentetik
+        # dünyada üretilen belge yoktur.
+        "/employees/{employee_id}/outputs/{generated_document_id}/preview",
+        "/output-templates/{template_id}/pages/{page_index}/previews/{size}",
     }
 )
 

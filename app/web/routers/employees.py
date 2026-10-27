@@ -49,14 +49,20 @@ başlayan belgesine (etkin olan, sonra en yeni) bağlanır — dosyası varsa ye
 geçmişine; belge bu çalışanda yoksa (henüz yürütülmedi, başka çalışana taşındı) parti sayfasına.
 Belge listesi çalışanın **tüm** belgelerini (etkin, eski sürüm, arşivlenmiş) gösterir — kalıcı
 silinen belge (10.5.12) listede yoktur, dosya adresi 404 döner; her belge yeni sekmede açılır
-(`.../file`) ve indirilir (`.../download`), ikisi de yalnız `GET`'tir — panelde belge içeriğini
-değiştiren yol yoktur (10.5.2, K17). Planın yalnız isimle yerleştirdiği belge
+ve indirilir (`.../download`), hepsi yalnız `GET`'tir — panelde belge içeriğini değiştiren yol
+yoktur (10.5.2, K17). Açma 11.9.9'dan beri önizlemedir: listede küçük JPEG
+(`.../previews/small`), ada ya da küçük resme tıklayınca sayfa sayfa büyük önizleme
+(`.../preview`, `.../previews/large?page=<n>`; `app.web.previews`); orijinali satır içi veren
+`.../file` yerinde durur ama arayüz ona bağlanmaz. Önizleme JPEG'leri kademe 2 önbelleklidir
+(`private, max-age=900` + `ETag`). Planın yalnız isimle yerleştirdiği belge
 (§20.2.2 satır 5a, `matched_by: name`; `app.pipeline.plan.name_matched_documents`) listede "Yalnız
 isimle eşleşti" etiketi taşır (05.5.4); yanlışsa İK belgeyi taşır (10.8.1). Fotoğraf ayrı bir
 adresten (`.../photo`)
-sunulur: profil sayfasını çizmek belgeyi "açmak" sayılmasın (10.9.2 açma ve indirmeyi loglar, sayfa
-görüntülemeyi değil): `.../file` `view`, `.../download` `download` olarak `access_log`'a kullanıcı
-ve zamanla yazılır (`app.web.access`), satır sunmadan önce commit edilir.
+sunulur (kart küçük önizlemesini `.../photo/previews/small`'dan alır): profil sayfasını çizmek
+belgeyi "açmak" sayılmasın (10.9.2 açma ve indirmeyi loglar, sayfa görüntülemeyi değil):
+`.../file` ve önizleme sayfası `.../preview` `view`, `.../download` `download` olarak `access_log`'a
+kullanıcı ve zamanla yazılır; küçük resimler ve sayfa JPEG'leri kayıt yazmaz (`app.web.access`),
+satır sunmadan önce commit edilir.
 Profil sayfası bağlam çalışanıyla yükleme formu taşır (10.5.3): form `POST /upload`'a çalışan
 kimliğini gizli alanla gönderir. Profilden yüklenip bu çalışana ait görünmeyen (kişi denetimi,
 10.5.5) ve kuyrukta çözülmemiş belge varsa sayfanın üstünde büyük kırmızı uyarı kutusu durur;
@@ -289,6 +295,7 @@ from app.storage import (
     plan_employee_deletion,
     remove_employee_files,
 )
+from app.storage.previews import PreviewSource
 from app.web.access import record_access
 from app.web.auth import WRITER_ONLY, PanelUser, require_panel_user
 from app.web.confirm import (
@@ -317,6 +324,7 @@ from app.web.feedback import (
     STATUS_INACTIVE,
     flash,
 )
+from app.web.previews import Tier, document_preview, source_preview_response, source_preview_url
 from app.web.profile_form import (
     INVALID_PROFILE,
     PROFILE_LABELS,
@@ -328,6 +336,7 @@ from app.web.profile_form import (
     profile_text,
     profile_values,
 )
+from app.web.routers.generated_documents import output_preview_url
 from app.web.routers.upload_page import DOCUMENT_STATUS_LABELS
 from app.web.routers.uploads import get_layout
 from app.web.templating import MENU_BY_KEY, render_page
@@ -728,6 +737,9 @@ class DocumentRow:
     available: bool
     # 05.5.4: planın yalnız isimle yerleştirdiği belge.
     name_only: bool = False
+    # 11.9.9: küçük ve büyük (ilk sayfa) önizleme adresi; önizlenemeyen biçimde boş.
+    thumb_url: str | None = None
+    large_url: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -760,6 +772,9 @@ class OutputRow:
     status_label: str
     available: bool
     archived_by: str | None = None
+    # 11.9.9: küçük ve büyük (ilk sayfa) önizleme adresi.
+    thumb_url: str | None = None
+    large_url: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -867,7 +882,8 @@ class ProfileView:
     personal_number_country: str | None
     passport_number: str | None
     identifiers: list[IdentifierRow]
-    photo_url: str | None
+    photo_url: str | None  # küçük önizleme (11.9.9)
+    photo_large_url: str | None
     photo_missing: bool
     documents: list[DocumentRow]
     latin_missing: bool = False
@@ -965,6 +981,39 @@ def _active_photo_document(session: Session, employee_id: str) -> Document | Non
     ).first()
 
 
+EMPLOYEE_DOCUMENT_PREVIEW_KIND = "employee-documents"
+
+
+def _document_preview_source(
+    stored: StoredDocument, document_id: int, page: int = 0
+) -> PreviewSource | None:
+    """Belgenin önizleme kaynağı (11.9.9); önizlenemeyen biçimde (Word/Excel) `None`."""
+    if stored.format not in MEDIA_TYPES:
+        return None
+    return PreviewSource(EMPLOYEE_DOCUMENT_PREVIEW_KIND, str(document_id), stored.path, page)
+
+
+def _document_preview_url(
+    employee_id: str, document_id: int, stored: StoredDocument | None, size: str
+) -> str | None:
+    source = _document_preview_source(stored, document_id) if stored is not None else None
+    if source is None:
+        return None
+    return source_preview_url(f"/employees/{employee_id}/documents/{document_id}", source, size)
+
+
+def _photo_preview_url(
+    employee_id: str, photo: Document | None, stored: StoredDocument | None, size: str
+) -> str | None:
+    """Profil fotoğrafının önizleme adresi; fotoğraf yoksa ya da görüntü değilse `None`."""
+    if photo is None or stored is None or stored.format not in IMAGE_FORMATS:
+        return None
+    source = _document_preview_source(stored, photo.id)
+    if source is None:
+        return None
+    return source_preview_url(f"/employees/{employee_id}/photo", source, size)
+
+
 def build_profile(
     session: Session, layout: DataLayout, employee_id: str, *, today: date | None = None
 ) -> ProfileView | None:
@@ -1015,27 +1064,30 @@ def build_profile(
     ).all()
 
     by_name = name_matched_documents(document for document, _ in documents)
-    rows = [
-        DocumentRow(
-            id=document.id,
-            type_name=type_name,
-            file_name=PurePosixPath(document.path).name,
-            format=document.format,
-            status=document.status,
-            status_label=DOCUMENT_STATUS_LABELS.get(document.status, document.status),
-            created_on=document.created_at.date(),
-            available=_stored_file(layout, document.path) is not None,
-            name_only=document.id in by_name,
+    rows = []
+    for document, type_name in documents:
+        stored = _stored_document(layout, document)
+        rows.append(
+            DocumentRow(
+                id=document.id,
+                type_name=type_name,
+                file_name=PurePosixPath(document.path).name,
+                format=document.format,
+                status=document.status,
+                status_label=DOCUMENT_STATUS_LABELS.get(document.status, document.status),
+                created_on=document.created_at.date(),
+                available=stored is not None,
+                name_only=document.id in by_name,
+                thumb_url=_document_preview_url(employee_id, document.id, stored, "small"),
+                large_url=_document_preview_url(employee_id, document.id, stored, "large"),
+            )
         )
-        for document, type_name in documents
-    ]
 
     field_sources = _field_sources(
         session, employee_id, [document for document, _ in documents], rows
     )
     photo = _active_photo_document(session, employee_id)
     photo_stored = _stored_document(layout, photo) if photo is not None else None
-    photo_shown = photo_stored is not None and photo_stored.format in IMAGE_FORMATS
     outputs = _output_rows(session, layout, employee_id)
     return ProfileView(
         id=employee.id,
@@ -1069,7 +1121,8 @@ def build_profile(
             IdentifierRow(label=type_names.get(item.kind, item.kind), value=item.value)
             for item in identifiers
         ],
-        photo_url=f"/employees/{employee.id}/photo" if photo_shown else None,
+        photo_url=_photo_preview_url(employee.id, photo, photo_stored, "small"),
+        photo_large_url=_photo_preview_url(employee.id, photo, photo_stored, "large"),
         photo_missing=photo is None,
         documents=rows,
         latin_missing=needs_latin_repair(employee),
@@ -1113,10 +1166,13 @@ def _output_rows(session: Session, layout: DataLayout, employee_id: str) -> list
             ),
             status=output.status,
             status_label=DOCUMENT_STATUS_LABELS.get(output.status, output.status),
-            available=_stored_file(layout, output.path) is not None,
+            available=path is not None,
             archived_by=output.archived_by,
+            thumb_url=output_preview_url(employee_id, output.id, path, "small") if path else None,
+            large_url=output_preview_url(employee_id, output.id, path, "large") if path else None,
         )
         for output in employee_outputs(session, employee_id)
+        for path in [_stored_file(layout, output.path)]
     ]
 
 
@@ -1172,7 +1228,7 @@ def _record_sections(
             label = Translatable(N_("Belge {id}"), id=document_id)
             return SourceLink(label=label, url=f"/documents/{document_id}/history")
         if row.available:
-            url = f"/employees/{employee_id}/documents/{row.id}/file"
+            url = f"/employees/{employee_id}/documents/{row.id}/preview"
             return SourceLink(label=row.file_name, url=url, new_tab=True)
         return SourceLink(label=row.file_name, url=f"/documents/{row.id}/history")
 
@@ -1277,7 +1333,7 @@ def _field_sources(
             return SourceLink(label=label, url=f"/uploads/{upload_id}")
         name = PurePosixPath(document.path).name
         if available.get(document.id, False):
-            url = f"/employees/{employee_id}/documents/{document.id}/file"
+            url = f"/employees/{employee_id}/documents/{document.id}/preview"
             return SourceLink(label=name, url=url, new_tab=True)
         return SourceLink(label=name, url=f"/documents/{document.id}/history")
 
@@ -3193,3 +3249,94 @@ def employee_photo(
     if stored is None or stored.format not in IMAGE_FORMATS:
         raise HTTPException(status.HTTP_404_NOT_FOUND, DOCUMENT_NOT_FOUND)
     return _file_response(stored, disposition="inline")
+
+
+@router.get("/employees/{employee_id}/photo/previews/{size}")
+def employee_photo_preview(
+    employee_id: str,
+    size: str,
+    request: Request,
+    session: Annotated[Session, Depends(get_session)],
+    layout: Annotated[DataLayout, Depends(get_layout)],
+) -> Response:
+    """11.9.9 — profil fotoğrafının küçük ya da büyük önizlemesi; `.../photo` ile aynı 404 kuralı,
+    erişim kaydı yazılmaz, kademe 2 önbellek."""
+    document = _active_photo_document(session, employee_id)
+    stored = _stored_document(layout, document) if document is not None else None
+    source = (
+        _document_preview_source(stored, document.id)
+        if document is not None and stored is not None and stored.format in IMAGE_FORMATS
+        else None
+    )
+    session.rollback()
+    return source_preview_response(
+        request, layout, source, size, tier=Tier.PERSONAL, not_found=DOCUMENT_NOT_FOUND
+    )
+
+
+@router.get("/employees/{employee_id}/documents/{document_id}/previews/{size}")
+def document_preview_image(
+    employee_id: str,
+    document_id: int,
+    size: str,
+    request: Request,
+    session: Annotated[Session, Depends(get_session)],
+    layout: Annotated[DataLayout, Depends(get_layout)],
+    page: Annotated[int, Query(ge=1)] = 1,
+) -> Response:
+    """11.9.9 — belgenin `page`. sayfasının küçük ya da büyük önizlemesi. Belge bu çalışana ait
+    değilse, kaydı ya da dosyası yoksa, kalıcı silinmişse ya da biçimi önizlenemiyorsa 404 (açma
+    ucunun kuralı). Liste küçük resmi ve sayfa görüntüsüdür: erişim kaydı yazılmaz ("görüntüleme"
+    önizleme sayfasının açılışıdır). Gerçek belge: kademe 2 önbellek."""
+    document = session.scalars(
+        select(Document).where(
+            Document.id == document_id,
+            Document.employee_id == employee_id,
+            Document.status != DocumentStatus.DELETED.value,
+        )
+    ).first()
+    stored = _stored_document(layout, document) if document is not None else None
+    source = _document_preview_source(stored, document_id, page - 1) if stored is not None else None
+    session.rollback()
+    return source_preview_response(
+        request, layout, source, size, tier=Tier.PERSONAL, not_found=DOCUMENT_NOT_FOUND
+    )
+
+
+@router.get("/employees/{employee_id}/documents/{document_id}/preview", response_class=HTMLResponse)
+def preview_document(
+    employee_id: str,
+    document_id: int,
+    request: Request,
+    user: CurrentUser,
+    session: Annotated[Session, Depends(get_session)],
+    layout: Annotated[DataLayout, Depends(get_layout)],
+) -> HTMLResponse:
+    """11.9.9 — belgenin büyük önizlemesi sayfa sayfa ve İndir düğmesi. Açış `access_log`'a `view`
+    olarak yazılır (10.9.2); 404 kuralı açma ucununkidir."""
+    stored = _employee_document(
+        session, layout, employee_id, document_id, user=user, action=AccessAction.VIEW
+    )
+    employee = session.get(Employee, employee_id)
+    back_label = (
+        f"{employee.given_names} {employee.surname}" if employee is not None else employee_id
+    )
+    session.rollback()
+    base = f"/employees/{employee_id}/documents/{document_id}"
+    source = _document_preview_source(stored, document_id)
+    preview = document_preview(
+        source or PreviewSource(EMPLOYEE_DOCUMENT_PREVIEW_KIND, str(document_id), stored.path),
+        base,
+        file_name=stored.name,
+        back_url=f"/employees/{employee_id}#documents",
+        back_label=back_label,
+        download_url=f"{base}/download",
+        previewable=source is not None,
+    )
+    return render_page(
+        request,
+        "document_preview.html",
+        user=user,
+        active=MENU_BY_KEY["employees"].key,
+        preview=preview,
+    )

@@ -12,6 +12,13 @@ indirilir (`Content-Disposition: attachment`); satır içi gösterilmez.
 koyar; üretim yeri doluysa ön yükleme beklemez, `503 Retry-After: 2` alır ve geri çekilir
 (`busy_response`). Kullanıcının kendi isteği sırasını bekler. Liste ucu (`/previews/thumbs`) oturum
 başına hız sınırlıdır (`ListRateLimit`).
+
+Genel önizleme katmanı (PRD 11.9.9; PLAN.md §D132 c): her belge kaynağı (`PreviewSource`) aynı
+yanıtı alır (`source_preview_response`), önbellek iki kademelidir. Kademe 1 (`Tier.SPECIMEN`: örnek,
+şablon — çalışan verisi yok) yukarıdaki gibi `immutable`; kademe 2 (`Tier.PERSONAL`: çalışan
+belgesi, yükleme/kuyruk/geçmiş sayfası, üretilen belge, fotoğraf) adres sürümünden bağımsız
+`private, max-age=900` + `ETag`/304 — çıkışta `Clear-Site-Data: "cache"` bunları da temizler.
+Görüntü uçları erişim logu yazmaz; "görüntüleme" kaydı önizleme sayfasındadır (çağıran uç).
 """
 
 from __future__ import annotations
@@ -20,20 +27,41 @@ import hashlib
 import threading
 import time
 from collections import deque
+from dataclasses import dataclass
+from enum import Enum
 from pathlib import Path
 from urllib.parse import quote
 
-from fastapi import Request, Response
+from fastapi import HTTPException, Request, Response, status
 from fastapi.responses import FileResponse
 
-from app.storage.previews import Preview, placeholder_jpeg, preview_key
+from app.storage.layout import DataLayout
+from app.storage.previews import (
+    PREVIEW_MAX_PAGES,
+    Preview,
+    PreviewBusy,
+    PreviewSource,
+    document_page_count,
+    ensure_source_preview,
+    placeholder_jpeg,
+    preview_key,
+)
 
 IMMUTABLE = "private, max-age=31536000, immutable"
 REVALIDATE = "private, no-cache"
+# Gerçek çalışan belgesi görüntüsü: tarayıcıda 15 dakika, paylaşılan önbellekte hiç (§D131 f3).
+PERSONAL = "private, max-age=900"
 NOSNIFF = {"X-Content-Type-Options": "nosniff"}
 # Ön yükleme isteğinin işareti (yalnız aynı kökenli `fetch`; içerik değiştirmez, yalnız beklemeyi).
 PREFETCH_HEADER = "x-preview-prefetch"
 BUSY_RETRY_AFTER = 2
+
+
+class Tier(Enum):
+    """Önbellek kademesi (11.9.9): çalışan verisi taşımayan örnek/şablon ya da gerçek belge."""
+
+    SPECIMEN = "specimen"
+    PERSONAL = "personal"
 
 
 def is_prefetch(request: Request) -> bool:
@@ -98,6 +126,96 @@ def preview_response(request: Request, preview: Preview, size: str) -> Response:
     etag = f'"{preview.key}-{size}"'
     cache = IMMUTABLE if request.query_params.get("v") == preview.key else REVALIDATE
     headers = {**NOSNIFF, "Cache-Control": cache, "ETag": etag}
+    if etag in request_etags(request.headers.get("if-none-match", "")):
+        return Response(status_code=304, headers=headers)
+    return FileResponse(preview.path, media_type="image/jpeg", headers=headers)
+
+
+def source_preview_url(base: str, source: PreviewSource, size: str) -> str:
+    """`<base>/previews/<boyut>?page=<n>&v=<anahtar>` — `base` kaynağın adresidir; `page` 1
+    tabanlıdır ve ilk sayfada yazılmaz. Dosya yoksa `v` boştur (uç 404 döner)."""
+    try:
+        version = source.key()
+    except OSError:
+        version = ""
+    page = f"page={source.page + 1}&" if source.page else ""
+    return f"{base}/previews/{size}?{page}v={version}"
+
+
+@dataclass(frozen=True, slots=True)
+class PreviewPage:
+    number: int  # 1 tabanlı
+    url: str  # büyük önizleme
+
+
+@dataclass(frozen=True, slots=True)
+class DocumentPreview:
+    """Önizleme sayfası (`document_preview.html`, 11.9.9): belgenin büyük önizlemeleri sayfa sayfa,
+    en çok `PREVIEW_MAX_PAGES`; `page_count` belgenin bütün sayfalarıdır (fazlası İndir ile)."""
+
+    file_name: str
+    back_url: str
+    back_label: str  # veri (çalışan ya da şablon adı); çevrilmez
+    download_url: str
+    pages: list[PreviewPage]
+    page_count: int
+
+
+def document_preview(
+    source: PreviewSource,
+    base: str,
+    *,
+    file_name: str,
+    back_url: str,
+    back_label: str,
+    download_url: str,
+    previewable: bool = True,
+) -> DocumentPreview:
+    """`source`'un (ilk sayfa) önizleme sayfası görünümü; `base` kaynağın önizleme adresinin
+    öncesidir (`source_preview_url`). Önizlenemeyen biçimde (Word/Excel) sayfa yoktur."""
+    count = document_page_count(source.path) if previewable else 0
+    pages = [
+        PreviewPage(
+            index + 1,
+            source_preview_url(
+                base, PreviewSource(source.kind, source.ident, source.path, index), "large"
+            ),
+        )
+        for index in range(min(count, PREVIEW_MAX_PAGES))
+    ]
+    return DocumentPreview(file_name, back_url, back_label, download_url, pages, count)
+
+
+def source_preview_response(
+    request: Request,
+    layout: DataLayout,
+    source: PreviewSource | None,
+    size: str,
+    *,
+    tier: Tier,
+    not_found: str,
+) -> Response:
+    """Kaynağın önizlemesi (11.9.9). `source` boşsa (yetkisiz, kayıt ya da dosya yok), boyut
+    tanımsızsa ya da sayfa sınır dışındaysa 404 (`not_found`) — belgenin varlığı sızmaz. Ön
+    yükleme üretim yeri bulamazsa 503."""
+    if source is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, not_found)
+    try:
+        preview = ensure_source_preview(layout, source, size, wait=not is_prefetch(request))
+    except PreviewBusy:
+        return busy_response()
+    if preview is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, not_found)
+    if tier is Tier.SPECIMEN:
+        return preview_response(request, preview, size)
+    if preview.path is None:
+        return Response(
+            placeholder_jpeg(),
+            media_type="image/jpeg",
+            headers={**NOSNIFF, "Cache-Control": "no-store"},
+        )
+    etag = f'"{preview.key}-{size}"'
+    headers = {**NOSNIFF, "Cache-Control": PERSONAL, "ETag": etag}
     if etag in request_etags(request.headers.get("if-none-match", "")):
         return Response(status_code=304, headers=headers)
     return FileResponse(preview.path, media_type="image/jpeg", headers=headers)

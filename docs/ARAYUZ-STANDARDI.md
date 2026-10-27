@@ -54,6 +54,7 @@ anlam bildirir (`.employee-filter`), görünüm bildirmez (`.red`, `.mt-2` yok).
 | Sekme / süzgeç | `nav.tabs a(.active)`, `nav.states a(.active)`, `nav.pager` | `aria-current` seçili öğede |
 | Tablo | `table.<ad>` + `th.num/td.num`, `.cell-nowrap`, `.cell-break`, `.doc-actions`, `.record-actions`, `.reason-text` | Her tablo bir ad sınıfı taşır (test ve genişlik kuralları için) |
 | Kart ve bölüm | `section` (kart), `article.file`, `.thumbs/.thumb`, `.timeline/.event`, `dl.meta`, `dl.record-summary`, `.profile-card`, `.package-card` | `section` doğrudan `main.content` altında karttır, `h2` ile başlar |
+| Belge önizlemesi | `img.doc-thumb` (tablo hücresinde küçük resim), `ol.preview-pages` > `figure.preview-page` (`img` + `figcaption`) | 11.9.9: listede yalnız küçük JPEG (`…/previews/small`, `loading=lazy decoding=async width height`); ada ya da küçük resme tıklayınca büyük önizleme (`…/previews/large` ya da çok sayfalıda `document_preview.html`, sayfa sayfa); orijinal yalnız ayrı "İndir" düğmesiyle |
 | Alan haritası önizlemesi | `.map-layout` > `figure.map-page` (`img` + `svg.map-boxes` > `a.map-box` + `.map-box-unassigned/.map-box-locked`) + `table.map-fields` | Kutular SVG'dir (`viewBox` = sayfa görüntüsünün ölçüsü), `style=` yok; kutu bağlantısı tablodaki satırına gider (`#map-row-<id>`), odakta kenar kalınlaşır; her `select`'in `label for`'u satırdadır (15.1.3) |
 | Kabuk | `.skip-link`, `.content-start`, `.topbar`, `.brand`, `.menu`, `.tool-link`, `.session`, `.page-tools`, `.global-search`, `.text-toggle`, `.theme-toggle`, `.language-selector`, `.toasts/.toast` | Yalnız `base.html` |
 
@@ -81,7 +82,7 @@ kırmızıdır. Yeni hook eklerken buraya yaz (alfabetik):
 `template-map-approve`, `template-pages`, `template-upload`, `training-form`, `training-results`, `training-runs`,
 `unregistered`, `user-role`.
 
-**Betik öznitelikleri (`data-*`).** Stil taşımaz, betiğin bulduğu işarettir: `data-preview-large="<adres>"` — sayfada gösterilen belgenin büyük önizleme adresi (`training_type.html`, `catalog_examples.html`, `upload_detail.html`); `preview-prefetch.js` (yalnız girişli sayfada, `base.html`'de ertelenmiş betik) bu adresleri görünüme yakın olandan başlayarak arka planda, düşük öncelikle önbelleğe indirir (11.9.8; PLAN.md §D131). Değer yalnız aynı kökenli önizleme adresidir; orijinal dosya adresi (İndir) bu özniteliğe yazılmaz.
+**Betik öznitelikleri (`data-*`).** Stil taşımaz, betiğin bulduğu işarettir: `data-preview-large="<adres>"` — sayfada gösterilen belgenin büyük önizleme adresi (`training_type.html`, `catalog_examples.html`, `upload_detail.html`, `queue_item.html`, `history.html`, `catalog_candidate_samples.html`, `output_template.html`, `profile.html`; 11.9.9); `preview-prefetch.js` (yalnız girişli sayfada, `base.html`'de ertelenmiş betik) bu adresleri görünüme yakın olandan başlayarak arka planda, düşük öncelikle önbelleğe indirir (11.9.8; PLAN.md §D131). Değer yalnız aynı kökenli önizleme adresidir; orijinal dosya adresi (İndir) bu özniteliğe yazılmaz.
 
 ## 5. Kurallar
 

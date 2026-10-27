@@ -4,6 +4,14 @@ Kaynak: HANDOFF.md (canlı dosyadan taşındı, birebir). Blok sayısı: 1.
 
 <!-- bloklar (newest-first) -->
 
+## 192 — 03.3-b OpenAI sağlayıcısı Responses API'ye, GPT-6.1 Sol — done — 2026-10-26
+- Yapıldı: `OpenAIProvider` Chat Completions yerine Responses API (`instructions`, `input_image`/`input_text`, düz işlev aracı, `reasoning.effort` yalnız seçilince, `max_output_tokens` ≥ 16000, `incomplete`/ret reddi); model listesinde `gpt-6.1-sol` (`low`–`max`, varsayılan `medium`), `gpt-6-luna` çıktı; varsayılan `OPENAI_MODEL=gpt-6.1-sol`; `TrainingClassification.notes` 250 karakter (istem dahil). Anthropic sağlayıcısı değişmedi.
+- Doğrulama: ruff check/format, compileall, `import app.main`, `python -m app.i18n check` exit 0; `tests/ai` + `tests/web/test_ai_settings_page.py` + `tests/test_config.py` + `tests/test_events.py` + `tests/web/test_ui_standard.py` + `tests/db/test_migrations.py` 962 geçti, 4 atlandı. Tam kapı (`--cov`) koşulmadı: değişiklik OpenAI sağlayıcısı ve model listesiyle sınırlı, göç yok (insan kuralı: uzun kapı beklenmez). Gerçek sağlayıcıyla sonda: Sol `low` 4 belge, Sonnet 5.5 (önceden `notes` > 200 ile reddedilen belge) geçti.
+- Varsayımlar: §D127'ye yazıldı — ölçüm 14 belge (Luna `none` 9/14 + 3 yanlış; Sonnet 5.5 ve Sol 11/14 + 0 yanlış); `.env`'de `gpt-6-luna` kalan kurulum listede olmayan model olarak çalışmaya devam eder; Terra/Astra eklenmedi.
+- Sonraki pencereye not: YanPC'de `ai_settings` satırı ya da `.env` hâlâ `gpt-6-luna` diyorsa kalıcı değişiklik için panelden `/ai-settings`ta OpenAI modelini Sol seçip kaydetmek gerekir (veritabanına dokunulmadı).
+
+
+
 ## 191 — 10.1-k Erişilebilirlik: yaşlı ve az gören kullanıcı — done — 2026-10-26
 - Yapıldı: yazı ölçeği 16/13 px ve satır yüksekliği 1,6; `--target` 40 px (düğme, alan, sekme, sayfalama, dil menüsü, araç düğmeleri) ve `--target-sm` 36 px (satır içi form); onay kutusu 20 px; `--muted-ink` ≥ 5:1, sekme/süzgeç metni `--ink-soft`; küçük büyük harfli etiketler normal yazı, `th` 2 px alt çizgi + zebra; metin bağlantıları altı çizili; `--focus-ring` 3 px düz halka; araç şeridinde "Büyük yazı" düğmesi (`html[data-text="large"]` %120, `documania-text`, ilk boyamadan önce); "İçeriğe atla" (`#content-start`); `prefers-contrast: more`; üç dil; standart §3/§5 güncel.
 - Doğrulama: ruff check/format, compileall, `import app.main`, `python -m app.i18n check`, `git diff --check` exit 0; `tests/web` + `tests/i18n` (-n 6) yeşil. Tam kapı (`--cov`) koşulmadı: yalnız stil/şablon/betik değişti (insan kuralı: uzun kapı beklenmez).

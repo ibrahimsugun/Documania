@@ -279,7 +279,7 @@ def test_items_tick_as_documents_arrive_and_link_the_meeting_document(
         ("item-missing", "○ Eksik: Serbian Residence Card zorunlu"),
     ]
     # Dosyası yerinde olan belge yeni sekmede açılır, olmayanın geçmişine gidilir.
-    assert f'href="/employees/{OWNER}/documents/{passport}/file" target="_blank"' in card
+    assert f'href="/employees/{OWNER}/documents/{passport}/preview" target="_blank"' in card
     assert f'href="/documents/{photo}/history"' in card
     assert "Açık — 2/3 zorunlu kalem" in _text(card)
     # GET olay ve durum yazmaz: tikler görüntülemede hesaplanır.

@@ -4,8 +4,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Documania panel\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-27 14:41+0000\n"
-"PO-Revision-Date: 2026-10-27 14:41+0000\n"
+"POT-Creation-Date: 2026-10-27 19:53+0000\n"
+"PO-Revision-Date: 2026-10-27 19:53+0000\n"
 "Last-Translator: Documania görev penceresi (gözden geçirilmeli)\n"
 "Language: en\n"
 "Language-Team: English\n"
@@ -61,7 +61,7 @@ msgid "%(done)d/%(total)d işlendi"
 msgstr "%(done)d/%(total)d processed"
 
 #: app/web/templates/catalog_candidate_samples.html
-#: app/web/templates/queue_item.html
+#: app/web/templates/document_preview.html app/web/templates/queue_item.html
 #, python-format
 msgid "%(file)s — sayfa %(page)d"
 msgstr "%(file)s — page %(page)d"
@@ -1296,6 +1296,13 @@ msgstr "Document"
 msgid "Belge %(id)s"
 msgstr "Document %(id)s"
 
+#: app/web/templates/document_preview.html
+#, python-format
+msgid "Belge %(total)d sayfa; ilk %(shown)d sayfa önizleniyor, tamamı için İndir."
+msgstr ""
+"The document has %(total)d pages; the first %(shown)d are previewed, use "
+"Download for all of them."
+
 #: app/web/templates/group.html app/web/templating.py
 msgid "Belge Grupları"
 msgstr "Document groups"
@@ -2035,6 +2042,10 @@ msgstr ""
 "This file is not a PDF, JPEG or PNG; templates can only be uploaded in "
 "these formats."
 
+#: app/web/templates/document_preview.html
+msgid "Bu dosya biçimi önizlenemez; orijinali İndir ile açın."
+msgstr "This file format cannot be previewed; open the original with Download."
+
 #: app/web/routers/documents.py
 msgid "Bu dosya daha önce yüklenmiş bir dosyanın tekrarı; sayfa görüntüsü yok."
 msgstr ""
@@ -2533,7 +2544,9 @@ msgstr "Large text"
 msgid "Büyük yazı: yazıyı büyüt ya da küçült"
 msgstr "Large text: make the text larger or smaller"
 
-#: app/web/templates/catalog_examples.html app/web/templates/training_type.html
+#: app/web/templates/catalog_examples.html
+#: app/web/templates/output_template.html app/web/templates/profile.html
+#: app/web/templates/training_type.html
 msgid "Büyük önizleme"
 msgstr "Large preview"
 
@@ -3447,8 +3460,8 @@ msgstr ""
 " as a PDF."
 
 #: app/web/templates/catalog_candidate_samples.html
-#: app/web/templates/history.html app/web/templates/queue_item.html
-#: app/web/templates/upload_detail.html
+#: app/web/templates/history.html app/web/templates/output_templates.html
+#: app/web/templates/queue_item.html app/web/templates/upload_detail.html
 msgid "Görüntü yok"
 msgstr "No image"
 
@@ -5195,6 +5208,7 @@ msgstr "Row"
 msgid "Sayfa"
 msgstr "Pages"
 
+#: app/web/templates/document_preview.html
 #: app/web/templates/output_template.html app/web/templates/queue_item.html
 #, python-format
 msgid "Sayfa %(page)d"
@@ -6329,10 +6343,6 @@ msgstr "New password (again)"
 #: app/web/routers/users.py
 msgid "Yeni parola ile tekrarı eşleşmiyor."
 msgstr "The new password and its repetition do not match."
-
-#: app/web/templates/output_template.html
-msgid "Yeni sekmede aç"
-msgstr "Open in new tab"
 
 #: app/web/templates/catalog_candidate_step.html
 msgid "Yeni sürüm"
@@ -7872,6 +7882,14 @@ msgstr "Review and approve the proposed profile."
 msgid "Önerilen profili onaylayın, öğeyi çalışana atayın ya da kapatın."
 msgstr "Approve the proposed profile, assign the item to an employee or close it."
 
+#: app/web/templates/document_preview.html
+msgid ""
+"Önizleme belgenin küçültülmüş görüntüsüdür; ince yazı okunmuyorsa "
+"orijinali indirin."
+msgstr ""
+"The preview is a reduced image of the document; if fine print is "
+"unreadable, download the original."
+
 #: app/web/templates/training_map.html
 msgid ""
 "Önizleme hiçbir şey yazmaz: örnek kaydı, kopya ya da çalıştırma oluşmaz. "
@@ -8368,6 +8386,7 @@ msgid "İncelenmedi: yapay zekâ ayarlı değil"
 msgstr "Not examined: AI is not configured"
 
 #: app/web/templates/catalog_examples.html
+#: app/web/templates/document_preview.html
 #: app/web/templates/output_template.html app/web/templates/profile.html
 #: app/web/templates/training_type.html
 msgid "İndir"

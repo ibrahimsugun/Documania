@@ -1299,6 +1299,14 @@ th.num, td.num { text-align: right; font-variant-numeric: tabular-nums; white-sp
 td .thumbs { grid-template-columns: repeat(auto-fill, minmax(6rem, 1fr)); gap: 0.5rem; min-width: 12rem; }
 td .thumb img { height: 7rem; }
 
+/* Genel önizleme (11.9.9): tablo satırındaki küçük resim ve önizleme sayfasında sayfa sayfa büyük
+   görüntü. Görüntüler sunucunun ürettiği JPEG'lerdir; orijinal yalnız İndir ile iner. */
+.doc-thumb { display: inline-block; width: 3rem; height: 3rem; margin-right: 0.5rem; vertical-align: middle; object-fit: cover; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-sm); }
+.preview-pages { display: flex; flex-direction: column; gap: 1.25rem; margin: 0; padding: 0; list-style: none; }
+.preview-page { display: flex; flex-direction: column; align-items: center; gap: 0.4rem; margin: 0; }
+.preview-page img { display: block; max-width: 100%; height: auto; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-sm); box-shadow: var(--shadow-md); }
+.preview-page figcaption { color: var(--muted-ink); font-size: var(--text-xs); }
+
 /* Alan haritası önizlemesi (15.1.3): sayfa görüntüsü + üstünde SVG kutular + yanında atama tablosu.
    Kutunun rengi durumundan gelir (bağlı / boş bırakılmış / doldurulamaz); renk tek taşıyıcı değildir,
    tablo aynı bilgiyi metinle verir. Kenar kalınlığı ekran pikselidir (`non-scaling-stroke`). */

@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{# Belgenin büyük önizlemesi (11.9.9; PLAN.md §D132 d): her sayfa ayrı JPEG, tembel yüklenir; en çok
+   ilk 20 sayfa, gerisi İndir ile. Önizleme belge değil gösterim önbelleğidir; orijinal yalnız
+   "İndir" düğmesiyle (`attachment`) iner. Sayfanın açılışı erişim loguna `view` yazılır (10.9.2). #}
+{% block title %}{{ preview.file_name }}{% endblock %}
+{% block content %}
+<p class="back"><a href="{{ preview.back_url }}">← <span translate="no">{{ preview.back_label }}</span></a></p>
+<h1 translate="no">{{ preview.file_name }}</h1>
+<p class="lede">{{ _("Önizleme belgenin küçültülmüş görüntüsüdür; ince yazı okunmuyorsa orijinali indirin.") }}</p>
+<p><a class="button-link" href="{{ preview.download_url }}">{{ _("İndir") }}</a></p>
+{% if preview.page_count > preview.pages|length %}
+<p class="hint">{{ _("Belge %(total)d sayfa; ilk %(shown)d sayfa önizleniyor, tamamı için İndir.", total=preview.page_count, shown=preview.pages|length) }}</p>
+{% endif %}
+{% if preview.pages %}
+<ol class="preview-pages">
+  {% for page in preview.pages %}
+  <li>
+    <figure class="preview-page">
+      <img src="{{ page.url }}" width="1280" height="1280" loading="lazy" decoding="async" alt="{{ _('%(file)s — sayfa %(page)d', file=preview.file_name, page=page.number) }}">
+      <figcaption>{{ _("Sayfa %(page)d", page=page.number) }}</figcaption>
+    </figure>
+  </li>
+  {% endfor %}
+</ol>
+{% else %}
+<p class="placeholder">{{ _("Bu dosya biçimi önizlenemez; orijinali İndir ile açın.") }}</p>
+{% endif %}
+{% endblock %}

@@ -24,6 +24,9 @@ data/
   cache/pages/<file_id>/          analiz için üretilmiş sayfa görüntüleri
   cache/previews/<tur_slug>/      örneklerin gösterim önizlemeleri (<anahtar>-<boyut>.jpg; 11.9.7);
                                   kaynaktan yeniden üretilir, yedeğe girmez
+  cache/previews/<kaynak-turu>/   diğer belge kaynaklarının önizlemeleri (çalışan belgesi, yükleme
+                                  sayfası, üretilen belge, şablon sayfası, fotoğraf; 11.9.9) —
+                                  kaynak türü adı tire taşır, tür slug'ıyla çakışmaz
   telegram/bot.json               botun Telegram kullanıcı adı; bot açılışta yazar (12.1.4)
 ```
 
@@ -267,6 +270,15 @@ class DataLayout:
         ve değişme zamanından türer (örnek değişirse yeni ad, 11.9.7)."""
         name = f"{_segment(key, 'preview_key')}-{_segment(size, 'preview_size')}"
         return self.preview_dir(type_slug) / f"{name}.{PAGE_IMAGE_EXTENSION}"
+
+    def source_preview_path(self, kind: str, key: str, size: str) -> Path:
+        """`cache/previews/<kaynak-turu>/<anahtar>-<boyut>.jpg` (11.9.9). Kaynak türü adı tire taşır
+        (`employee-documents`); tür slug'ı tire taşımadığı için örnek dizinleriyle çakışmaz."""
+        if "-" not in kind:
+            raise ValueError(f"Kaynak türü adı tire taşımalı: {kind!r}")
+        name = f"{_segment(key, 'preview_key')}-{_segment(size, 'preview_size')}"
+        directory = self.preview_cache / _segment(kind, "preview_kind")
+        return directory / f"{name}.{PAGE_IMAGE_EXTENSION}"
 
     # --- veritabanında saklanan göreli yollar -----------------------------------------------
 

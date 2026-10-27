@@ -106,8 +106,8 @@
       {% for page in file.pages %}
       <li class="thumb">
         {% if page.has_image %}
-        <a href="/uploads/{{ detail.upload_id }}/pages/{{ page.id }}/image" target="_blank" rel="noopener" data-preview-large="/uploads/{{ detail.upload_id }}/pages/{{ page.id }}/image">
-          <img src="/uploads/{{ detail.upload_id }}/pages/{{ page.id }}/image" loading="lazy"
+        <a href="/uploads/{{ detail.upload_id }}/pages/{{ page.id }}/previews/large" target="_blank" rel="noopener" data-preview-large="/uploads/{{ detail.upload_id }}/pages/{{ page.id }}/previews/large">
+          <img src="/uploads/{{ detail.upload_id }}/pages/{{ page.id }}/previews/small" width="320" height="320" loading="lazy" decoding="async"
                alt="{{ _("%(file)s — sayfa %(page)s", file=file.name, page=page.number) }}">
         </a>
         {% else %}

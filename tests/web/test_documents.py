@@ -209,9 +209,10 @@ def test_history_traces_the_output_back_to_its_source_file_and_page_by_clicking(
     sources = _section(html, "sources")
     assert f'<a href="/uploads/{upload_id}#file-{file_id}">pasaport.pdf</a>' in sources
     assert "s. 1" in sources
-    # Kaynak sayfa: sayfanın görüntüsünü açar.
-    image_url = f"/uploads/{upload_id}/pages/{page_id}/image"
-    assert f'<a href="{image_url}" target="_blank" rel="noopener">' in sources
+    # Kaynak sayfa: küçük önizleme, tıklayınca büyük önizleme (11.9.9).
+    image_url = f"/uploads/{upload_id}/pages/{page_id}/previews/large"
+    assert f'<a href="{image_url}" target="_blank" rel="noopener"' in sources
+    assert f'<img src="/uploads/{upload_id}/pages/{page_id}/previews/small"' in sources
     assert "Sayfa 1" in sources
     # Bağlantılar gerçekten çözülür: dosya bölümü, plan öğesi, sayfa görüntüsü, çıktı dosyası.
     detail = client.get(f"/uploads/{upload_id}")
@@ -275,9 +276,9 @@ def test_only_the_pages_the_output_took_are_traced_and_ranges_are_one_based(
     thumbs = _thumbs(sources)
     assert [re.search(r"Sayfa (\d+)", thumb).group(1) for thumb in thumbs] == ["1", "2", "3", "5"]  # type: ignore[union-attr]
     for thumb, index in zip(thumbs, (0, 1, 2, 4), strict=True):
-        assert f'href="/uploads/{UPLOAD_ID}/pages/{page_ids[index]}/image"' in thumb
-    assert f"/pages/{page_ids[3]}/image" not in sources  # alınmayan sayfa izde yok
-    assert f"/pages/{page_ids[5]}/image" not in sources
+        assert f'href="/uploads/{UPLOAD_ID}/pages/{page_ids[index]}/previews/large"' in thumb
+    assert f"/pages/{page_ids[3]}/" not in sources  # alınmayan sayfa izde yok
+    assert f"/pages/{page_ids[5]}/" not in sources
     assert "s. 1–3, 5" in sources
 
 
@@ -325,10 +326,10 @@ def test_output_from_several_sources_lists_each_in_order_with_its_own_pages(
     assert len(articles) == 2
     # Kaynaklar köken kaydının sırasıyla, her biri kendi dosyasına ve sayfalarına bağlı.
     assert f"#file-{ids['second']}" in articles[0] and "ikinci.pdf" in articles[0]
-    assert f"/pages/{second_pages[1]}/image" in articles[0]
+    assert f"/pages/{second_pages[1]}/previews/small" in articles[0]
     assert f"#file-{ids['first']}" in articles[1] and "birinci.pdf" in articles[1]
-    assert f"/pages/{first_pages[2]}/image" in articles[1]
-    assert f"/pages/{first_pages[3]}/image" in articles[1]
+    assert f"/pages/{first_pages[2]}/previews/small" in articles[1]
+    assert f"/pages/{first_pages[3]}/previews/small" in articles[1]
     assert "s. 3–4" in articles[1]
 
 

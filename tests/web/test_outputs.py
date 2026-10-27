@@ -121,7 +121,8 @@ def test_generating_notifies_the_missing_field_names_and_lists_the_output(
     assert toasts(page) == [
         "Çıktı hazırlandı; profilde boş olan alanlar boş bırakıldı — eksik: Anne adı."
     ]
-    assert f'href="/employees/E0001/outputs/{output.id}/file" target="_blank"' in page
+    assert f'href="/employees/E0001/outputs/{output.id}/preview" target="_blank"' in page
+    assert f"/outputs/{output.id}/file" not in page  # orijinal satır içi açılmaz (11.9.9)
     assert f'href="/employees/E0001/outputs/{output.id}/download"' in page
     assert "Ivan_Petrov-Work-contract.pdf" in page
     assert "<td>Anne adı</td>" in page
@@ -182,6 +183,44 @@ def test_opening_and_downloading_an_output_is_logged_and_foreign_ids_are_404(
             (output.id, None, "view"),
             (output.id, None, "download"),
         ]
+
+
+def test_output_preview_page_is_logged_once_and_its_images_are_not(
+    client: TestClient, session_factory: sessionmaker[Session], layout: DataLayout, template_id: int
+) -> None:
+    """11.9.9: profil ada ve küçük resme önizleme sayfasını bağlar; sayfa `view` yazar, küçük ve
+    büyük JPEG'ler yazmaz; kademe 2 önbellek; başka çalışanın adresi 404."""
+    _generate(client, template_id)
+    (output,) = _outputs(session_factory)
+    content = layout.resolve(output.path).read_bytes()
+    base = f"/employees/E0001/outputs/{output.id}"
+
+    profile = client.get("/employees/E0001").text
+    page = client.get(f"{base}/preview")
+    small = client.get(f"{base}/previews/small")
+    large = client.get(f"{base}/previews/large?page=1")
+
+    assert f'<img class="doc-thumb" src="{base}/previews/small?v=' in profile
+    assert page.status_code == 200
+    assert f'src="{base}/previews/large?v=' in page.text
+    assert f'href="{base}/download"' in page.text
+    for response in (small, large):
+        assert response.status_code == 200
+        assert response.headers["content-type"] == "image/jpeg"
+        assert response.headers["cache-control"] == "private, max-age=900"
+        assert response.content != content
+    assert client.get(f"{base}/previews/large?page=21").status_code == 404
+    with session_factory() as session:
+        session.add(
+            Employee(id="E0002", folder_name="Ana_Lic_E0002", given_names="Ana", surname="Lic")
+        )
+        session.commit()
+    assert client.get(f"/employees/E0002/outputs/{output.id}/preview").status_code == 404
+    assert client.get(f"/employees/E0002/outputs/{output.id}/previews/small").status_code == 404
+    with session_factory() as session:
+        rows = session.scalars(select(AccessLog)).all()
+        assert [(row.generated_document_id, row.action) for row in rows] == [(output.id, "view")]
+    assert layout.resolve(output.path).read_bytes() == content
 
 
 def test_regenerating_supersedes_and_archive_restore_are_single_steps(
