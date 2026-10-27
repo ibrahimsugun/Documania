@@ -2816,12 +2816,24 @@
         "priority": "medium",
         "subtasks": [],
         "updatedAt": "2026-10-27T12:00:00.000Z"
+      },
+      {
+        "id": "195",
+        "title": "11.9-h Örnek önizlemeleri: küçük türetilmiş önizleme, orijinal yalnız İndir düğmesiyle [OPUS-HIGH]",
+        "description": "PRD 11.9.7 · FR-MOD-11 · Faz 1 · Should (v1). Sözleşme PLAN §D130. İnsan isteği (2026-10-27): örnek belgeler sitede bazen görünüyor bazen görünmüyor; küçük önizleme, orijinal yalnız İndir ile.",
+        "details": "KAPSAM: PRD 11.9.7; PLAN §D130 — önce oku.\n\nNE YAPILACAK: (1) `app/storage/layout.py`: `cache/previews/<slug>/…` yolları (yalnız DataLayout). (2) `app/storage/previews.py` (yeni): `ensure_preview(layout, slug, name, size)` — Pillow ile aç (`MAX_IMAGE_PIXELS` sınırı, bomba hatası yakalanır), EXIF'i atarak 320 / 1280 px JPEG üret; PDF'de ilk sayfa `app/pipeline/render.py` çizicisiyle; atomik yaz; içerik özeti anahtarı. (3) `app/web/routers/training.py` ve `catalog.py`: önizleme uçları (oturum şart, ad listeden doğrulanır; başlıklar: nosniff, `private, max-age=31536000, immutable`, ETag, 304); orijinal uç yalnız `Content-Disposition: attachment` (indirme). (4) Şablonlar `training_type.html`, `catalog_examples.html`: küçük resim `loading=lazy decoding=async` + boyut öznitelikleri, ada tıklayınca büyük önizleme, ayrı \"İndir\" düğmesi; sınıflar `docs/ARAYUZ-STANDARDI.md`na uyar, `tests/web/test_ui_standard.py` yeşil. (5) `python -m app.training previews` (toplu ısıtma, durdurulursa sürer, rapor). (6) `scripts/backup.sh`: `cache/previews` arşive girmez. (7) `docs/YEDEKLEME.md` ve `.env.example` güncel. (8) i18n: yeni metinler `python -m app.i18n extract|update|compile|check`.\n\nKABUL: tür sayfası ilk açılışta yalnız küçük önizlemeleri çeker (toplam bayt orijinallerin ~%5'i altında); ikinci açılışta ağdan hiçbir şey inmez; ada tıklayınca orijinal değil büyük önizleme gelir; orijinal yalnız İndir ile iner; oturumsuz istek reddedilir; yol dışına çıkan ad 404; bozuk ya da çok büyük görüntüde yer tutucu ve İndir çalışır; EXIF içeren örnekte önizleme EXIF taşımaz; orijinal bayt bayt aynı kalır.",
+        "testStrategy": "tests/storage (önizleme üretimi, bomba ve bozuk dosya, EXIF, atomik yazım), tests/web (başlıklar, 304, oturum, indirme başlığı, 404), tests/web/test_ui_standard.py, tests/scripts (yedek hariç tutma), tests/i18n.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "medium",
+        "subtasks": [],
+        "updatedAt": "2026-10-27T14:00:00.000Z"
       }
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-27T12:00:00.000Z",
-      "taskCount": 194,
+      "lastModified": "2026-10-27T14:00:00.000Z",
+      "taskCount": 195,
       "completedCount": 194,
       "tags": [
         "master"
