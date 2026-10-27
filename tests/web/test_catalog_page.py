@@ -1095,7 +1095,9 @@ def test_there_is_no_way_to_delete_a_type(
     for method in ("DELETE", "PUT", "PATCH"):
         assert client.request(method, "/document-types/sample_card").status_code == 405
     paths = app.openapi()["paths"]
-    assert [path for path in paths if path.startswith("/document-types") and "delete" in path] == []
+    # 11.1.9 (§D134): yalnız reddedilen ADAY tür silinir; katalog türünün silme yolu yok.
+    deleting = [path for path in paths if path.startswith("/document-types") and "delete" in path]
+    assert all(path.startswith("/document-types/candidate-types/") for path in deleting)
     with session_factory() as session:
         assert session.scalar(select(func.count()).select_from(KnownDocumentType)) == 1
 

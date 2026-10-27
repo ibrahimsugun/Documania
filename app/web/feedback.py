@@ -268,6 +268,11 @@ CANDIDATE_REJECTED_ALONE = _register(
 CANDIDATE_RESTORED = _register(
     "catalog.candidate_restored", _OK, N_("Aday tür retten geri alındı; yeniden onay bekliyor.")
 )
+CANDIDATE_DELETED = _register(
+    "catalog.candidate_deleted",
+    _OK,
+    N_("Reddedilen aday tür kalıcı olarak silindi; sayfaları ve belgeleri yerinde kaldı."),
+)
 CANDIDATE_EXAMINED = _register("catalog.candidate_examined", _OK, N_("Aday yeniden incelendi."))
 CANDIDATE_REANALYZED = _register(
     "catalog.candidate_reanalyzed", _OK, N_("Yeniden analiz edilen parti: {count}.")

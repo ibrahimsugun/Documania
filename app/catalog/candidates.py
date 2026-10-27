@@ -27,6 +27,10 @@ Analizcinin önerdiği katalog dışı türler `candidate_document_types`'ta bir
   görünümde listelenir; `restore_candidate_type` reddedilen adayı tek adımda yeniden bekleyen yapar
   ve `CANDIDATE_TYPE_RESTORED`'ı kullanıcı adıyla yazar (§D61-b: salt durum çevirir, geri
   alınabilir).
+- **Reddedilen adayı silme (11.1.9, PLAN.md §D134 b).** `delete_candidate_type` yalnız reddedilen
+  adayın kaydını görülmeleriyle (`sample_page_ids`, `seen_count`) kalıcı siler ve
+  `CANDIDATE_TYPE_DELETED`'ı kullanıcı adıyla yazar; sayfalar, yüklemeler ve belgeler değişmez.
+  Aynı ad yeniden önerilirse yeni aday doğar. İki aşamalı onay çağıranın işidir.
 
 Karar yalnız bekleyen adayda verilir (`decide_candidate_type`); onay geri alınmaz, ret yalnız
 retten geri almayla açılır. Aynı anda gelen iki karardan biri geçer. Olay verisi kişisel değer
@@ -52,6 +56,7 @@ from app.db.models import (
     Page,
     UploadFile,
     decide_candidate_type,
+    delete_rejected_candidate_type,
     reopen_rejected_candidate_type,
 )
 from app.events import EventType, record_event
@@ -313,6 +318,30 @@ def restore_candidate_type(
     )
     session.refresh(candidate)
     return candidate
+
+
+def delete_candidate_type(session: Session, candidate_type_id: int, *, actor: str) -> int:
+    """11.1.9 — reddedilen adayı kalıcı siler ve `CANDIDATE_TYPE_DELETED`'ı kullanıcı adıyla
+    yazar (veri: aday kimliği, aday tür adı, görülme sayısı); silinen görülme sayısını döndürür.
+
+    Aday yoksa `CandidateNotFoundError`, reddedilmiş değilse (bekleyen ya da onaylanmış)
+    `CandidateNotRejectedError`; ikisinde de hiçbir şey yazılmaz. Katalog, sayfalar, yüklemeler ve
+    belgeler değişmez.
+    """
+    candidate = load_candidate_type(session, candidate_type_id)
+    candidate_id, name, seen = candidate.id, candidate.proposed_name, candidate.seen_count
+    if not delete_rejected_candidate_type(session, candidate_id):
+        current = session.get(CandidateDocumentType, candidate_id, populate_existing=True)
+        if current is None:  # eşzamanlı ikinci silme
+            raise CandidateNotFoundError(candidate_id)
+        raise CandidateNotRejectedError(candidate_id, current.status)
+    record_event(
+        session,
+        EventType.CANDIDATE_TYPE_DELETED,
+        actor=actor,
+        data={"candidate_type_id": candidate_id, "candidate_type_name": name, "seen_count": seen},
+    )
+    return seen
 
 
 def approved_type_slug(session: Session, candidate_type_id: int) -> str | None:

@@ -4,7 +4,7 @@
    Bekliyor). Reddedilen aday bekleyenler arasında listelenmez (11.5.4); onaylanmış ama ilişkili
    Unknown öğesi bekleyen aday toplu yeniden analiz için ayrıca görünür (11.5.3). "Reddedilenler"
    görünümü (`?status=rejected`, 11.5.7) reddedilen adayları tek adımlı "Geri al" düğmesiyle
-   listeler. #}
+   listeler; yanındaki "Sil" (11.1.9) iki aşamalı onayla reddedilen adayı kalıcı siler. #}
 {% block title %}{{ _("Aday türler") }}{% endblock %}
 {% block content %}
 <p class="back"><a href="/document-types">← {{ _("Belge Türleri") }}</a></p>
@@ -39,6 +39,9 @@
         {% if user.can_write %}
         <form class="inline" method="post" action="/document-types/candidate-types/{{ item.id }}/restore">
           <button type="submit">{{ _("Geri al") }}</button>
+        </form>
+        <form class="inline" method="get" action="/document-types/candidate-types/{{ item.id }}/delete/confirm">
+          <button type="submit" class="danger">{{ _("Sil") }}</button>
         </form>
         {% endif %}
       </td>

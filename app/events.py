@@ -93,6 +93,9 @@ class EventType(enum.StrEnum):
     TYPE_ARCHIVED = "TYPE_ARCHIVED"
     TYPE_RESTORED = "TYPE_RESTORED"
     CANDIDATE_TYPE_RESTORED = "CANDIDATE_TYPE_RESTORED"
+    # 11.1.9 (PLAN.md §D134 b, d): reddedilen aday kalıcı silindi; veri aday kimliği, aday tür adı
+    # (analizcinin tür adı) ve görülme sayısı — kişisel değer yok.
+    CANDIDATE_TYPE_DELETED = "CANDIDATE_TYPE_DELETED"
     TRAINING_ITEM_DISMISSED = "TRAINING_ITEM_DISMISSED"
     TRAINING_ITEM_RESTORED = "TRAINING_ITEM_RESTORED"
     TRAINING_RUN_ARCHIVED = "TRAINING_RUN_ARCHIVED"

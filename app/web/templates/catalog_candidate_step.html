@@ -1,7 +1,9 @@
 {% extends "base.html" %}
 {# Aday türün onay (11.5.2) ve toplu yeniden analiz (11.5.3) adımları: birinci ve ikinci onay (§20.6,
    metinler birebir; yeniden analizinkiler D30), sonuç ya da hata. Onayda form değerleri bir sonraki
-   adıma gizli alanla taşınır; sunucu her adımda yeniden doğrular, belirteç kaydın özetine bağlıdır. #}
+   adıma gizli alanla taşınır; sunucu her adımda yeniden doğrular, belirteç kaydın özetine bağlıdır.
+   Reddedilen adayı kalıcı silme (11.1.9, PLAN.md §D134): iki onay, aday adı ve görülme sayısı;
+   yalnız aday kaydı silinir, sayfalar ve belgeler değişmez. #}
 {% macro hidden_fields(form) -%}
 <input type="hidden" name="slug" value="{{ form.slug }}">
 <input type="hidden" name="name" value="{{ form.name }}">
@@ -52,6 +54,26 @@
   {{ hidden_fields(form) }}
   <button type="submit">{{ _("Evet, devam et") }}</button>
   <a href="/document-types/candidate-types/{{ candidate_id }}">{{ _("Vazgeç") }}</a>
+</form>
+{% endif %}
+{% elif step == "delete" %}
+<h1>{{ _("Aday türü kalıcı sil: %(name)s", name=candidate_name) }}</h1>
+<dl class="meta entry-summary">
+  <dt>{{ _("Aday tür") }}</dt><dd translate="no">{{ candidate_name }}</dd>
+  <dt>{{ _("Görülme") }}</dt><dd>{{ seen_count }}</dd>
+</dl>
+{% if confirmation %}
+<form class="confirm" method="post" action="/document-types/candidate-types/{{ candidate_id }}/delete">
+  <p class="confirm-text" role="alert">{{ delete_text }}</p>
+  <input type="hidden" name="confirmation" value="{{ confirmation }}">
+  <button type="submit" class="danger">{{ _("Evet, kalıcı sil") }}</button>
+  <a href="/document-types/candidate-types?status=rejected">{{ _("Vazgeç") }}</a>
+</form>
+{% else %}
+<form class="confirm" method="post" action="/document-types/candidate-types/{{ candidate_id }}/delete/prepare">
+  <p class="confirm-text" role="alert">{{ delete_text }}</p>
+  <button type="submit">{{ _("Evet, devam et") }}</button>
+  <a href="/document-types/candidate-types?status=rejected">{{ _("Vazgeç") }}</a>
 </form>
 {% endif %}
 {% elif step == "reanalyze" %}

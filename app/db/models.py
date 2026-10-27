@@ -35,6 +35,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
     cast,
+    delete,
     func,
     select,
     text,
@@ -1577,6 +1578,26 @@ def reopen_rejected_candidate_type(session: Session, candidate_type_id: int) -> 
         .values(status=CandidateTypeStatus.PENDING.value)
     )
     return reopened.rowcount == 1
+
+
+def delete_rejected_candidate_type(session: Session, candidate_type_id: int) -> bool:
+    """Reddedilmiş aday türün kaydını kalıcı siler (11.1.9, PLAN.md §D134 b); silindiyse `True`.
+
+    Yalnız `rejected` kayıt silinir — bekleyen ve onaylanmış aday silinmez. Koşullu silmedir
+    (`status = 'rejected'`): eşzamanlı geri alma ya da ikinci silmeyle yarışta biri geçer; kayıt
+    yoksa ya da reddedilmemişse `False`. Görülmeler (`sample_page_ids`, `seen_count`) kayıtla
+    gider; sayfalar, yüklemeler ve belgeler değişmez. Aynı ad yeniden önerilirse yeni kayıt açılır
+    (`record_candidate_type_sighting`). Oturum commit edilmez.
+    """
+    deleted = session.execute(
+        delete(CandidateDocumentType)
+        .where(
+            CandidateDocumentType.id == candidate_type_id,
+            CandidateDocumentType.status == CandidateTypeStatus.REJECTED.value,
+        )
+        .execution_options(synchronize_session="fetch")
+    )
+    return deleted.rowcount == 1
 
 
 # --- iletişim bilgisi birikimi (05.8.1, 05.8.2) ---------------------------------------------

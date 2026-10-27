@@ -209,6 +209,10 @@ PAGES: dict[str, tuple[tuple[str, int], ...]] = {
     "/document-types/candidate-types/{candidate_id}": (
         ("/document-types/candidate-types/{candidate}", 200),
     ),
+    # 11.1.9 (tm 199): yalnız reddedilen aday silinir; dünyadaki aday bekliyor → 409.
+    "/document-types/candidate-types/{candidate_id}/delete/confirm": (
+        ("/document-types/candidate-types/{candidate}/delete/confirm", 409),
+    ),
     "/document-groups": (
         ("/document-groups", 200),
         ("/document-groups?archived=1", 200),
@@ -301,6 +305,7 @@ FLASH_PAGES: tuple[tuple[str, int, str, dict[str, object]], ...] = (
     ),
     ("/document-types/profile_picture", 200, "catalog.photo_rules", {"slug": "profile_picture"}),
     ("/document-types/candidate-types/{candidate}", 200, "catalog.candidate_restored", {}),
+    ("/document-types/candidate-types?status=rejected", 200, "catalog.candidate_deleted", {}),
     ("/document-groups/{group}", 200, "groups.created", {}),
     ("/output-templates/{template}", 200, "templates.uploaded", {"count": 1}),
     ("/queues/{unresolved_item}", 200, "queue.reopened", {}),

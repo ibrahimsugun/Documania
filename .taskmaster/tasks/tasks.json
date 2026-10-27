@@ -2876,11 +2876,11 @@
         "description": "PRD 11.1.9 · FR-MOD-11 · Faz 1 · Should (v1). Sözleşme PLAN §D134. İnsan isteği (2026-10-27): reddedilenler listesinde Geri al yanında Sil düğmesi.",
         "details": "KAPSAM: PRD 11.1.9; PLAN §D134 — önce oku.\n\nNE YAPILACAK: (1) Olay türü `CANDIDATE_TYPE_DELETED` (`app/events.py`; ad, görülme sayısı, kullanıcı; kişisel değer yok). (2) `app/web/routers/catalog.py` (aday sayfaları): `GET /document-types/candidates/{id}/delete/confirm` ve `POST .../delete` — yalnız `rejected` aday, yalnız yazma yetkisi, aksi 409/404; aday kaydı ve ona ait `CandidateTypeSighting` kayıtları silinir, sayfalar/yüklemeler/belgeler değişmez. (3) `catalog_candidates.html` Reddedilenler sekmesi: \"Geri al\" yanında \"Sil\" (onay sayfasına gider); sayaç yenilenir. (4) Onay sayfası: aday adı, görülme sayısı, \"geri alınamaz\". (5) i18n: `python -m app.i18n extract|update|compile|check`.\n\nKABUL: yalnız reddedilen aday silinir; bekleyen ve onaylanmış aday 409; salt okunur Kullanıcı'da düğme yok ve POST reddedilir; silme olay günlüğüne yazılır; aday sayfası ve sekme sayacı güncellenir; ilgili yüklemeler ve belgeler değişmez.",
         "testStrategy": "tests/web (onay sayfası + POST, 409, yetki, olay), tests/web/test_confirm.py sözleşmesi, tests/web/test_ui_standard.py, tests/i18n.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [],
         "priority": "medium",
         "subtasks": [],
-        "updatedAt": "2026-10-27T19:00:00.000Z"
+        "updatedAt": "2026-10-27T22:26:27.218Z"
       },
       {
         "id": "200",
@@ -2897,9 +2897,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-27T21:12:03.814Z",
+      "lastModified": "2026-10-27T22:26:27.218Z",
       "taskCount": 200,
-      "completedCount": 198,
+      "completedCount": 199,
       "tags": [
         "master"
       ]

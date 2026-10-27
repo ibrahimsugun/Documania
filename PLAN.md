@@ -9,7 +9,7 @@
 | Faz | PRD | Genel durum | Must sayacı | Kapanış |
 | --- | --- | --- | --- | --- |
 | Faz 0 — MVP | §5.1 | 107 ✅ · 0 ◐ · 0 ⬜ · 0 🔒 | 101/101 Must | ✅ → KF0 |
-| Faz 1 — v1 | §5.2 | 101 ✅ · 0 ◐ · 2 ⬜ · 0 🔒 | 52/52 Must | AÇIK |
+| Faz 1 — v1 | §5.2 | 102 ✅ · 0 ◐ · 1 ⬜ · 0 🔒 | 52/52 Must | AÇIK |
 | Faz 2 — v2 | §5.3 | 30 ✅ · 0 ◐ · 0 ⬜ · 0 🔒 | 0/0 Must | ✅ → KF2 |
 | Faz 3 — Enterprise | §5.4 | 10 ✅ · 0 ◐ · 0 ⬜ · 0 🔒 | 0/0 Must | ✅ → KF3 |
 
@@ -297,7 +297,7 @@ panelde `plan-count-drift` bulgusu doğurur.
 | 11.1.6 | Türü arşivleme, geri alma ve toplu seçim | Should (v1) | ✅ → K11.1 |
 | 11.1.7 | Ülke süzgecinde ve tabloda bayrak ile ülke adı | Should (v1) | ✅ → K11.1 |
 | 11.1.8 | Belge Türleri'nde arama | Should (v1) | ✅ → K11.1 |
-| 11.1.9 | Reddedilen adayı silme | Should (v1) | ⬜ |
+| 11.1.9 | Reddedilen adayı silme | Should (v1) | ✅ → K11.1 |
 | 11.2.1 | Örnek belge yükleme | Should (v1) | ✅ → K11.2 |
 | 11.3.1 | Tür açıklaması üretimi | Should (v1) | ✅ → K11.3 |
 | 11.4.1 | Prompt derleyici | Must (v1) | ✅ → K11.4 |
@@ -931,6 +931,7 @@ _Önceki maddeler: docs/archive/plan-kanit/ (#### K10.9)_
 - ✅ 11.1.4/11.1.7 tablo yerleşimi (tm 145, §D83): `app/web/static/panel.css` Belge Türleri bloğu (oranlar, `.catalog.catalog-types` yazı ve iç boşluk, `.catalog-types .country` ve `.doc-actions` satır kırar), `app/web/templates/catalog.html` "Yüz" hücresinden `cell-nowrap` kalktı · test `tests/web/test_catalog_page.py` (+2: hücreler satır kırar, Yüz kırar/Durum kırmaz; sütun testi on sütun/%100 hâlâ yeşil) · ölçüm: 415 satır, 1280/1440 px taşma 0, çakışma 0, işlem bağlantısı alt satıra inmedi · `pytest -q -m "not live" --cov=app` sekiz paralel grupta 6337 geçti, 6 atlandı, 0 kırmızı, `coverage combine` + `report --fail-under=70` exit 0, birleşik kapsam %99 · tm 145
 
 - ✅ 11.1.8 Belge Türleri'nde arama (tm 198, §D133): `app/web/routers/catalog.py` (`q` ≤100, `_search_key` Türkçe ı/İ + casefold + aksan atma + noktalama boşluk, ad/dosya etiketi/slug alt dize, `_filter_types` ülke ile AND; `q` `_list_url`/`_redirect`/`_country_suffix`, toplu işlem, tekil etkinleştir/pasifleştir/arşiv/geri al ve tür formunda `list_q` ile taşınır), `catalog.html` (ülke seçiminin yanında etiketli `type=search` + "Ara", sonuç satırında "Temizle", "Eşleşen tür yok."; htmx kalıbı aynı), `catalog_archive_step.html`, `catalog_form.html`, en/sr çeviri · test `tests/web/test_catalog_search.py` (21) · tm 198
+- ✅ 11.1.9 reddedilen adayı kalıcı silme (tm 199, §D134): `app/db/models.py` `delete_rejected_candidate_type` (koşullu silme, yalnız `rejected`), `app/catalog/candidates.py` `delete_candidate_type` (`CANDIDATE_TYPE_DELETED` {aday, ad, görülme}), `app/web/routers/catalog.py` `…/delete/confirm|prepare|delete` (yazma yetkisi; belirteç aday + görülme sayısına bağlı, `Operation.CANDIDATE_DELETE`; bekleyen/onaylı 409), `catalog_candidates.html` Reddedilenler'de "Geri al" yanında `button.danger` "Sil", `catalog_candidate_step.html` onay adımı, en/sr · test `tests/web/test_candidate_delete.py` (6), `test_access_log.py`, `test_roles.py`, `test_translation_sweep.py`, `tests/test_events.py` · tm 199
 
 _Önceki maddeler: docs/archive/plan-kanit/ (#### K11.1)_
 #### K11.2 — 11.2.1 · Örnek belge yükleme

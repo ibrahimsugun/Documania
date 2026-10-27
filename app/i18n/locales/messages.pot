@@ -4,7 +4,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Documania panel\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-27 21:06+0000\n"
+"POT-Creation-Date: 2026-10-27 22:20+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -392,6 +392,10 @@ msgid "<N> belge türünü arşivlemek üzeresiniz. Emin misiniz?"
 msgstr ""
 
 #: app/web/routers/catalog.py
+msgid "<Tür adı> aday türünü kalıcı olarak silmek üzeresiniz. Emin misiniz?"
+msgstr ""
+
+#: app/web/routers/catalog.py
 msgid "<Tür adı> belge türünü arşivlemek üzeresiniz. Emin misiniz?"
 msgstr ""
 
@@ -473,6 +477,12 @@ msgid ""
 "belgede ve isim yazımlarında bulunamadı."
 msgstr ""
 
+#: app/web/routers/catalog.py
+msgid ""
+"Aday kaydı ve <N> görülme kaydı silinecek; sayfalar, yüklemeler ve "
+"belgeler değişmez. Bu işlem geri alınamaz. Son kararınız mı?"
+msgstr ""
+
 #: app/web/templates/catalog_candidate_step.html
 #: app/web/templates/catalog_candidates.html
 msgid "Aday tür"
@@ -541,6 +551,11 @@ msgstr ""
 #: app/web/templates/catalog.html app/web/templates/catalog_candidate.html
 #: app/web/templates/catalog_candidates.html
 msgid "Aday türler"
+msgstr ""
+
+#: app/web/templates/catalog_candidate_step.html
+#, python-format
+msgid "Aday türü kalıcı sil: %(name)s"
 msgstr ""
 
 #: app/web/feedback.py
@@ -2700,6 +2715,10 @@ msgstr ""
 msgid "Evet, kalıcı olarak sil"
 msgstr ""
 
+#: app/web/templates/catalog_candidate_step.html
+msgid "Evet, kalıcı sil"
+msgstr ""
+
 #: app/web/templates/queue_close_step.html
 msgid "Evet, kapat"
 msgstr ""
@@ -3060,6 +3079,7 @@ msgid "Görülen yazımlar (%(count)s)"
 msgstr ""
 
 #: app/web/templates/catalog_candidate.html
+#: app/web/templates/catalog_candidate_step.html
 #: app/web/templates/catalog_candidates.html
 msgid "Görülme"
 msgstr ""
@@ -4578,6 +4598,12 @@ msgid ""
 "değişmez. İlişkili belgeler Unknown kuyruğunda kalır."
 msgstr ""
 
+#: app/web/feedback.py
+msgid ""
+"Reddedilen aday tür kalıcı olarak silindi; sayfaları ve belgeleri yerinde"
+" kaldı."
+msgstr ""
+
 #: app/web/templates/catalog_candidates.html
 msgid "Reddedilen aday tür yok."
 msgstr ""
@@ -4805,6 +4831,10 @@ msgid ""
 "Seçtiğin dosyalar tek bir <strong>parti</strong> olarak gönderilir. "
 "Sistem her sayfayı okur, belgenin türünü ve sahibini bulmaya çalışır; "
 "emin olamadığını Kuyruklar'a bırakır. Belgelerin içeriği değiştirilmez."
+msgstr ""
+
+#: app/web/templates/catalog_candidates.html
+msgid "Sil"
 msgstr ""
 
 #: app/matching/status.py app/web/routers/upload_page.py
@@ -5545,6 +5575,12 @@ msgstr ""
 msgid ""
 "Yalnız pasif çalışan kalıcı silinir; önce çalışanı pasife alın. Bu "
 "çalışanın durumu: {status}."
+msgstr ""
+
+#: app/web/routers/catalog.py
+msgid ""
+"Yalnız reddedilen aday tür silinir; bu aday onay bekliyor ya da "
+"onaylanmış."
 msgstr ""
 
 #: app/web/templates/group.html

@@ -92,6 +92,9 @@ class Operation(enum.StrEnum):
     # (11.1.6); metinler `app.web.routers.catalog`'dadır.
     TYPE_ARCHIVE = "type_archive"
     TYPE_ARCHIVE_BULK = "type_archive_bulk"
+    # §20.6'nın dışında (PLAN.md §D134): reddedilen aday türü kalıcı sil (11.1.9); metinler
+    # `app.web.routers.catalog`'dadır.
+    CANDIDATE_DELETE = "candidate_delete"
 
 
 @dataclass(frozen=True, slots=True)

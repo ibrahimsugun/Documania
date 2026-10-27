@@ -117,6 +117,12 @@ durum tanımı) ve karar:
 - **Retten geri alma (11.5.7).** `GET /document-types/candidate-types?status=rejected`
   reddedilenleri ayrı görünümde listeler; `POST .../restore` adayı tek adımda yeniden bekleyen yapar
   (`CANDIDATE_TYPE_RESTORED`, kullanıcı adıyla).
+- **Reddedilen adayı silme (11.1.9, PLAN.md §D134).** Reddedilenler satırındaki "Sil"
+  `GET .../{id}/delete/confirm`'e gider (yazma yetkisi): birinci metin, aday adı ve görülme
+  sayısı; `POST .../delete/prepare` ikinci metni ve adaya ve görülme sayısına bağlı belirteci
+  verir; `POST .../delete` belirteci tüketip kaydı siler (`USER_CONFIRMED` +
+  `CANDIDATE_TYPE_DELETED`). Yalnız reddedilen aday silinir (aksi 409); sayfalar, yüklemeler ve
+  belgeler değişmez.
 - **Toplu yeniden analiz (11.5.3).** Onaylanmış adayın ilişkili Unknown öğelerinin partileri
   yeniden analiz edilir (06.6.2, K18: her partide yeni plan sürümü, eski çıktılar "eski sürüm").
   Yeniden analiz iki aşamalı onay ister (10.3.2): `POST .../reanalyze/prepare` ikinci metni ve
@@ -181,6 +187,7 @@ from app.catalog import (
     compile_catalog,
     count_pending_candidate_types,
     create_type,
+    delete_candidate_type,
     effective_token_budget,
     export_catalog,
     list_candidate_types,
@@ -273,6 +280,7 @@ from app.web.confirm import (
 from app.web.feedback import (
     CANDIDATE_APPROVED,
     CANDIDATE_APPROVED_ALONE,
+    CANDIDATE_DELETED,
     CANDIDATE_EXAMINED,
     CANDIDATE_REANALYZED,
     CANDIDATE_REJECTED,
@@ -622,6 +630,15 @@ DECIDED_NOTES = {
 }
 DECIDED_NOTE = N_("Bu aday tür karara bağlanmış; yeniden karara bağlanamaz.")
 NOT_REJECTED_NOTE = N_("Bu aday tür reddedilmiş değil; geri alınacak bir ret yok.")
+NOT_REJECTED_DELETE_NOTE = N_(
+    "Yalnız reddedilen aday tür silinir; bu aday onay bekliyor ya da onaylanmış."
+)
+# 11.1.9 (§20.6 dışı, PLAN.md §D134 a): reddedilen adayı kalıcı silmenin iki onay metni.
+CANDIDATE_DELETE_FIRST = N_("<Tür adı> aday türünü kalıcı olarak silmek üzeresiniz. Emin misiniz?")
+CANDIDATE_DELETE_SECOND = N_(
+    "Aday kaydı ve <N> görülme kaydı silinecek; sayfalar, yüklemeler ve belgeler değişmez. Bu "
+    "işlem geri alınamaz. Son kararınız mı?"
+)
 CANDIDATE_VIEWS = ("pending", "rejected")
 NO_REASON = N_("gerekçe yok")
 # 11.5.6: taslakla dolu onay formunun bandı ve "Yeniden incele".
@@ -2410,6 +2427,153 @@ def restore_candidate(
     session.commit()
     response = RedirectResponse(CANDIDATES_PATH, status.HTTP_303_SEE_OTHER)
     flash(response, CANDIDATE_RESTORED)
+    return response
+
+
+# --- 11.1.9: reddedilen adayı kalıcı sil ---------------------------------------------------------
+
+
+def candidate_delete_subject(candidate: CandidateDocumentType) -> str:
+    """Silme belirtecinin hedefi: aday ve onay anındaki görülme sayısı — arada yeni görülme
+    sayılırsa ikinci onaydaki sayı eskir ve belirteç tutmaz."""
+    return f"candidate-types:{candidate.id}:delete:{candidate.seen_count}"
+
+
+def _deletable_candidate(session: Session, candidate_id: int) -> CandidateDocumentType:
+    """Silinecek aday: yoksa 404, reddedilmiş değilse 409. Yazmaz."""
+    candidate = _candidate_or_404(session, candidate_id)
+    if candidate.status != CandidateTypeStatus.REJECTED.value:
+        raise HTTPException(status.HTTP_409_CONFLICT, NOT_REJECTED_DELETE_NOTE)
+    return candidate
+
+
+def _delete_step(
+    request: Request,
+    user: PanelUser,
+    session: Session,
+    candidate_id: int,
+    *,
+    second: bool = False,
+    confirmation: str | None = None,
+    error: Exception | None = None,
+    detail: bool = False,
+) -> HTMLResponse:
+    """Silme adımının sayfası: birinci onay, ikinci onay (belirteçle) ya da ret (hiçbir şey
+    yazılmadı). Belirteç reddi tek genel metindir; hazırlıkta (`detail`) üretim hatasının nedeni
+    yazılır."""
+    if error is not None:
+        session.rollback()
+        if isinstance(error, HTTPException):
+            code, message = error.status_code, error.detail
+        else:  # ConfirmationRefusedError
+            code = status.HTTP_400_BAD_REQUEST
+            message = _reason(error) if detail else CONFIRMATION_REFUSED
+        return _step_page(request, user, candidate_id, code, error=message)
+    candidate = session.get_one(CandidateDocumentType, candidate_id)
+    text = CANDIDATE_DELETE_SECOND if second else CANDIDATE_DELETE_FIRST
+    return _step_page(
+        request,
+        user,
+        candidate_id,
+        status.HTTP_200_OK,
+        step="delete",
+        candidate_name=candidate.proposed_name,
+        seen_count=candidate.seen_count,
+        delete_text=fill(
+            gettext(text), type_name=candidate.proposed_name, count=candidate.seen_count
+        ),
+        confirmation=confirmation,
+    )
+
+
+@router.get(
+    f"{CANDIDATES_PATH}/{{candidate_id}}/delete/confirm",
+    response_class=HTMLResponse,
+    dependencies=WRITER_ONLY,
+)
+def candidate_delete_first_confirmation(
+    candidate_id: int, request: Request, user: CurrentUser, session: DbSession
+) -> HTMLResponse:
+    """11.1.9 "Sil" — adayı denetler ve birinci onay metnini (aday adı, görülme sayısı) verir;
+    hiçbir şey değişmez."""
+    try:
+        _deletable_candidate(session, candidate_id)
+    except HTTPException as exc:
+        return _delete_step(request, user, session, candidate_id, error=exc)
+    response = _delete_step(request, user, session, candidate_id)
+    session.rollback()
+    return response
+
+
+@router.post(f"{CANDIDATES_PATH}/{{candidate_id}}/delete/prepare", response_class=HTMLResponse)
+def prepare_candidate_delete(
+    candidate_id: int, request: Request, user: CurrentUser, session: DbSession
+) -> HTMLResponse:
+    """11.1.9 — birinci onaydan sonra ikinci onay metnini ve adaya bağlı tek kullanımlık belirteci
+    verir (10.8.1)."""
+    try:
+        candidate = _deletable_candidate(session, candidate_id)
+        issued = issue_confirmation(
+            session,
+            request,
+            user,
+            Operation.CANDIDATE_DELETE,
+            candidate_delete_subject(candidate),
+        )
+    except (HTTPException, ConfirmationRefusedError) as exc:
+        return _delete_step(request, user, session, candidate_id, error=exc, detail=True)
+    response = _delete_step(
+        request, user, session, candidate_id, second=True, confirmation=issued.token
+    )
+    session.commit()
+    return response
+
+
+@router.post(f"{CANDIDATES_PATH}/{{candidate_id}}/delete", response_class=HTMLResponse)
+def delete_candidate(
+    candidate_id: int,
+    request: Request,
+    user: CurrentUser,
+    session: DbSession,
+    confirmation: Annotated[str | None, Form()] = None,
+) -> Response:
+    """11.1.9 — ikinci onayın belirteciyle reddedilen adayı kalıcı siler. Belirteçsiz ya da
+    geçersiz belirteçte hiçbir şey yapılmaz (400). Belirtecin tüketilmesi, `USER_CONFIRMED`,
+    kaydın silinmesi ve `CANDIDATE_TYPE_DELETED` tek işlemdedir. Sayfalar, yüklemeler ve belgeler
+    değişmez."""
+    try:
+        candidate = _deletable_candidate(session, candidate_id)
+        confirm_operation(
+            session,
+            request,
+            user,
+            Operation.CANDIDATE_DELETE,
+            candidate_delete_subject(candidate),
+            confirmation,
+            event_target={"candidate_type_id": candidate.id},
+        )
+        delete_candidate_type(session, candidate_id, actor=user.username)
+    except (HTTPException, ConfirmationRefusedError) as exc:
+        return _delete_step(request, user, session, candidate_id, error=exc)
+    except CandidateNotFoundError:
+        return _delete_step(
+            request,
+            user,
+            session,
+            candidate_id,
+            error=HTTPException(status.HTTP_404_NOT_FOUND, CANDIDATE_NOT_FOUND),
+        )
+    except CandidateNotRejectedError:
+        return _delete_step(
+            request,
+            user,
+            session,
+            candidate_id,
+            error=HTTPException(status.HTTP_409_CONFLICT, NOT_REJECTED_DELETE_NOTE),
+        )
+    session.commit()
+    response = RedirectResponse(f"{CANDIDATES_PATH}?status=rejected", status.HTTP_303_SEE_OTHER)
+    flash(response, CANDIDATE_DELETED)
     return response
 
 

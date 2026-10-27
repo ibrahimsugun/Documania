@@ -415,6 +415,11 @@ REVIEWED_MUTATING_ROUTES: dict[tuple[str, str], str] = {
     ("POST", "/document-types/candidate-types/{candidate_id}/restore"): (
         "aday türü retten geri alma (11.5.7)"
     ),
+    # 11.1.9 (tm 199, §D134): reddedilen aday kaydı silinir; sayfa, yükleme, belge değişmez.
+    ("POST", "/document-types/candidate-types/{candidate_id}/delete/prepare"): "onay belirteci",
+    ("POST", "/document-types/candidate-types/{candidate_id}/delete"): (
+        "reddedilen aday türü kalıcı silme: yalnız aday kaydı (11.1.9, §D134)"
+    ),
     ("POST", "/document-types/candidate-types/{candidate_id}/examine"): (
         "aday türün tür taslağı, kaydetmez ve onaylamaz (11.5.6)"
     ),

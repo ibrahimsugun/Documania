@@ -4,8 +4,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Documania panel\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-27 21:06+0000\n"
-"PO-Revision-Date: 2026-10-27 21:06+0000\n"
+"POT-Creation-Date: 2026-10-27 22:20+0000\n"
+"PO-Revision-Date: 2026-10-27 22:20+0000\n"
 "Last-Translator: Documania görev penceresi (gözden geçirilmeli)\n"
 "Language: sr_Latn\n"
 "Language-Team: Srpski\n"
@@ -451,6 +451,10 @@ msgid "<N> belge türünü arşivlemek üzeresiniz. Emin misiniz?"
 msgstr "Upravo ćete arhivirati <N> tipova dokumenata. Da li ste sigurni?"
 
 #: app/web/routers/catalog.py
+msgid "<Tür adı> aday türünü kalıcı olarak silmek üzeresiniz. Emin misiniz?"
+msgstr "Upravo ćete trajno obrisati predloženi tip <Tür adı>. Da li ste sigurni?"
+
+#: app/web/routers/catalog.py
 msgid "<Tür adı> belge türünü arşivlemek üzeresiniz. Emin misiniz?"
 msgstr "Upravo ćete arhivirati tip dokumenta <Tür adı>. Da li ste sigurni?"
 
@@ -541,6 +545,15 @@ msgstr ""
 "Ime, prezime ili druga imena sadrže slova koja nisu latinična; latinični "
 "zapis nije pronađen u dokumentu ni u zapisima imena."
 
+#: app/web/routers/catalog.py
+msgid ""
+"Aday kaydı ve <N> görülme kaydı silinecek; sayfalar, yüklemeler ve "
+"belgeler değişmez. Bu işlem geri alınamaz. Son kararınız mı?"
+msgstr ""
+"Zapis predloga i njegova viđenja (<N>) biće obrisani; stranice, "
+"otpremanja i dokumenti se ne menjaju. Ova radnja se ne može poništiti. Da"
+" li je to vaša konačna odluka?"
+
 #: app/web/templates/catalog_candidate_step.html
 #: app/web/templates/catalog_candidates.html
 msgid "Aday tür"
@@ -622,6 +635,11 @@ msgstr "Nazad na predloženi tip"
 #: app/web/templates/catalog_candidates.html
 msgid "Aday türler"
 msgstr "Predloženi tipovi"
+
+#: app/web/templates/catalog_candidate_step.html
+#, python-format
+msgid "Aday türü kalıcı sil: %(name)s"
+msgstr "Trajno obriši predloženi tip: %(name)s"
 
 #: app/web/feedback.py
 msgid "Aday türü onaylayın ya da öğeyi kapatın."
@@ -3093,6 +3111,10 @@ msgstr "Da, ukloni"
 msgid "Evet, kalıcı olarak sil"
 msgstr "Da, trajno obriši"
 
+#: app/web/templates/catalog_candidate_step.html
+msgid "Evet, kalıcı sil"
+msgstr "Da, trajno obriši"
+
 #: app/web/templates/queue_close_step.html
 msgid "Evet, kapat"
 msgstr "Da, zatvori"
@@ -3472,6 +3494,7 @@ msgid "Görülen yazımlar (%(count)s)"
 msgstr "Viđeni zapisi (%(count)s)"
 
 #: app/web/templates/catalog_candidate.html
+#: app/web/templates/catalog_candidate_step.html
 #: app/web/templates/catalog_candidates.html
 msgid "Görülme"
 msgstr "Viđenja"
@@ -5141,6 +5164,14 @@ msgstr ""
 "Odbijeni predlog se više ne pojavljuje na listi; zapis se ne briše, "
 "katalog se ne menja. Povezani dokumenti ostaju u redu Unknown."
 
+#: app/web/feedback.py
+msgid ""
+"Reddedilen aday tür kalıcı olarak silindi; sayfaları ve belgeleri yerinde"
+" kaldı."
+msgstr ""
+"Odbijeni predloženi tip je trajno obrisan; njegove stranice i dokumenti "
+"ostaju na mestu."
+
 #: app/web/templates/catalog_candidates.html
 msgid "Reddedilen aday tür yok."
 msgstr "Nema odbijenih predloženih tipova."
@@ -5387,6 +5418,10 @@ msgstr ""
 "Sistem čita svaku stranu i pokušava da odredi tip i vlasnika dokumenta; "
 "ono u šta nije siguran ostavlja u Redovima. Sadržaj dokumenata se ne "
 "menja."
+
+#: app/web/templates/catalog_candidates.html
+msgid "Sil"
+msgstr "Obriši"
 
 #: app/matching/status.py app/web/routers/upload_page.py
 msgid "Silindi"
@@ -6218,6 +6253,14 @@ msgid ""
 msgstr ""
 "Trajno se može obrisati samo neaktivan zaposleni; prvo deaktivirajte "
 "zaposlenog. Status ovog zaposlenog: {status}."
+
+#: app/web/routers/catalog.py
+msgid ""
+"Yalnız reddedilen aday tür silinir; bu aday onay bekliyor ya da "
+"onaylanmış."
+msgstr ""
+"Briše se samo odbijeni predloženi tip; ovaj predlog čeka odobrenje ili je"
+" odobren."
 
 #: app/web/templates/group.html
 msgid "Yalnız seçilen tür kalemi karşılar (örn. yalnız Sırbistan oturma izni)."

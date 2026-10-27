@@ -4,8 +4,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Documania panel\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-27 21:06+0000\n"
-"PO-Revision-Date: 2026-10-27 21:06+0000\n"
+"POT-Creation-Date: 2026-10-27 22:20+0000\n"
+"PO-Revision-Date: 2026-10-27 22:20+0000\n"
 "Last-Translator: Documania görev penceresi (gözden geçirilmeli)\n"
 "Language: en\n"
 "Language-Team: English\n"
@@ -427,6 +427,12 @@ msgid "<N> belge türünü arşivlemek üzeresiniz. Emin misiniz?"
 msgstr "You are about to archive <N> document types. Are you sure?"
 
 #: app/web/routers/catalog.py
+msgid "<Tür adı> aday türünü kalıcı olarak silmek üzeresiniz. Emin misiniz?"
+msgstr ""
+"You are about to permanently delete the candidate type <Tür adı>. Are you"
+" sure?"
+
+#: app/web/routers/catalog.py
 msgid "<Tür adı> belge türünü arşivlemek üzeresiniz. Emin misiniz?"
 msgstr "You are about to archive the <Tür adı> document type. Are you sure?"
 
@@ -518,6 +524,15 @@ msgstr ""
 "The given names, surname or other names contain non-Latin letters; no "
 "Latin spelling was found in the document or the name spellings."
 
+#: app/web/routers/catalog.py
+msgid ""
+"Aday kaydı ve <N> görülme kaydı silinecek; sayfalar, yüklemeler ve "
+"belgeler değişmez. Bu işlem geri alınamaz. Son kararınız mı?"
+msgstr ""
+"The candidate record and its sightings (<N>) will be deleted; pages, "
+"uploads and documents do not change. This action cannot be undone. Is "
+"this your final decision?"
+
 #: app/web/templates/catalog_candidate_step.html
 #: app/web/templates/catalog_candidates.html
 msgid "Aday tür"
@@ -599,6 +614,11 @@ msgstr "Back to the candidate type"
 #: app/web/templates/catalog_candidates.html
 msgid "Aday türler"
 msgstr "Candidate types"
+
+#: app/web/templates/catalog_candidate_step.html
+#, python-format
+msgid "Aday türü kalıcı sil: %(name)s"
+msgstr "Delete the candidate type permanently: %(name)s"
 
 #: app/web/feedback.py
 msgid "Aday türü onaylayın ya da öğeyi kapatın."
@@ -3075,6 +3095,10 @@ msgstr "Yes, remove"
 msgid "Evet, kalıcı olarak sil"
 msgstr "Yes, delete permanently"
 
+#: app/web/templates/catalog_candidate_step.html
+msgid "Evet, kalıcı sil"
+msgstr "Yes, delete permanently"
+
 #: app/web/templates/queue_close_step.html
 msgid "Evet, kapat"
 msgstr "Yes, close"
@@ -3458,6 +3482,7 @@ msgid "Görülen yazımlar (%(count)s)"
 msgstr "Seen spellings (%(count)s)"
 
 #: app/web/templates/catalog_candidate.html
+#: app/web/templates/catalog_candidate_step.html
 #: app/web/templates/catalog_candidates.html
 msgid "Görülme"
 msgstr "Sightings"
@@ -5132,6 +5157,14 @@ msgstr ""
 " deleted and the catalog does not change. The related documents stay in "
 "the Unknown queue."
 
+#: app/web/feedback.py
+msgid ""
+"Reddedilen aday tür kalıcı olarak silindi; sayfaları ve belgeleri yerinde"
+" kaldı."
+msgstr ""
+"The rejected candidate type was deleted permanently; its pages and "
+"documents stay in place."
+
 #: app/web/templates/catalog_candidates.html
 msgid "Reddedilen aday tür yok."
 msgstr "No rejected candidate types."
@@ -5378,6 +5411,10 @@ msgstr ""
 "system reads every page and tries to find the document type and owner; "
 "whatever it is not sure about goes to the Queues. Document contents are "
 "never changed."
+
+#: app/web/templates/catalog_candidates.html
+msgid "Sil"
+msgstr "Delete"
 
 #: app/matching/status.py app/web/routers/upload_page.py
 msgid "Silindi"
@@ -6216,6 +6253,14 @@ msgid ""
 msgstr ""
 "Only an inactive employee can be permanently deleted; deactivate the "
 "employee first. This employee's status: {status}."
+
+#: app/web/routers/catalog.py
+msgid ""
+"Yalnız reddedilen aday tür silinir; bu aday onay bekliyor ya da "
+"onaylanmış."
+msgstr ""
+"Only a rejected candidate type can be deleted; this candidate is awaiting"
+" approval or has been approved."
 
 #: app/web/templates/group.html
 msgid "Yalnız seçilen tür kalemi karşılar (örn. yalnız Sırbistan oturma izni)."
