@@ -2864,17 +2864,41 @@
         "description": "PRD 11.1.8 · FR-MOD-11 · Faz 1 · Should (v1). Sözleşme PLAN §D133. İnsan isteği (2026-10-27): Belge Türleri sayfasında Ülke süzgecinin yanına arama butonu.",
         "details": "KAPSAM: PRD 11.1.8; PLAN §D133 — önce oku.\n\nNE YAPILACAK: (1) `app/web/routers/catalog.py`: `q` sorgu parametresi (`Query(max_length=100)`), `_filter_types(types, country, query)` — ad, `file_label`, slug; casefold + aksan/Türkçe i-İ duyarsız alt dize; ülke ile AND; `_country_suffix` `q`'yu da taşır; arşiv görünümü dahil. (2) `app/web/templates/catalog.html`: `country-filter` formuna arama alanı (`type=search`, etiketli, `name=q`) + \"Ara\" düğmesi + doluyken \"Temizle\" bağlantısı; toplu işlem formlarına ve bağlantı soneklerine `q` gizli alanı; sonuç yoksa \"Eşleşen tür yok.\". (3) Mevcut htmx kalıbı (`hx-get`, `hx-select`, `hx-push-url`) bozulmaz. (4) `docs/ARAYUZ-STANDARDI.md` kalıplarına uyar; yeni sınıf yok. (5) i18n: `python -m app.i18n extract|update|compile|check` (Ara, Temizle, Eşleşen tür yok., alan etiketi).\n\nKABUL: \"geçiş\" yazınca adında/etiketinde/slug'ında geçen türler listelenir; \"I\"/\"ı\"/\"İ\" ve aksan farkı sonucu değiştirmez; ülke seçiliyken yalnız o ülke + genel türlerin içinde arar; `q` bağlantılarda, toplu işlemde ve yönlendirmede korunur; 101 karakter reddedilir; token göstergesi değişmez; arama hiçbir kayıt değiştirmez.",
         "testStrategy": "tests/web/test_catalog*.py (süzgeç: ad/etiket/slug, Türkçe i-İ, ülke ile birleşim, boş sonuç, q korunması, 101 karakter, arşiv), tests/web/test_ui_standard.py, tests/i18n.",
+        "status": "in-progress",
+        "dependencies": [],
+        "priority": "medium",
+        "subtasks": [],
+        "updatedAt": "2026-10-27T20:59:08.676Z"
+      },
+      {
+        "id": "199",
+        "title": "11.1-h Reddedilen aday türü kalıcı sil: iki aşamalı onay, olay kaydı [OPUS-MEDIUM]",
+        "description": "PRD 11.1.9 · FR-MOD-11 · Faz 1 · Should (v1). Sözleşme PLAN §D134. İnsan isteği (2026-10-27): reddedilenler listesinde Geri al yanında Sil düğmesi.",
+        "details": "KAPSAM: PRD 11.1.9; PLAN §D134 — önce oku.\n\nNE YAPILACAK: (1) Olay türü `CANDIDATE_TYPE_DELETED` (`app/events.py`; ad, görülme sayısı, kullanıcı; kişisel değer yok). (2) `app/web/routers/catalog.py` (aday sayfaları): `GET /document-types/candidates/{id}/delete/confirm` ve `POST .../delete` — yalnız `rejected` aday, yalnız yazma yetkisi, aksi 409/404; aday kaydı ve ona ait `CandidateTypeSighting` kayıtları silinir, sayfalar/yüklemeler/belgeler değişmez. (3) `catalog_candidates.html` Reddedilenler sekmesi: \"Geri al\" yanında \"Sil\" (onay sayfasına gider); sayaç yenilenir. (4) Onay sayfası: aday adı, görülme sayısı, \"geri alınamaz\". (5) i18n: `python -m app.i18n extract|update|compile|check`.\n\nKABUL: yalnız reddedilen aday silinir; bekleyen ve onaylanmış aday 409; salt okunur Kullanıcı'da düğme yok ve POST reddedilir; silme olay günlüğüne yazılır; aday sayfası ve sekme sayacı güncellenir; ilgili yüklemeler ve belgeler değişmez.",
+        "testStrategy": "tests/web (onay sayfası + POST, 409, yetki, olay), tests/web/test_confirm.py sözleşmesi, tests/web/test_ui_standard.py, tests/i18n.",
         "status": "pending",
         "dependencies": [],
         "priority": "medium",
         "subtasks": [],
-        "updatedAt": "2026-10-27T18:00:00.000Z"
+        "updatedAt": "2026-10-27T19:00:00.000Z"
+      },
+      {
+        "id": "200",
+        "title": "15.1-d Arşivdeki şablonu kalıcı sil: iki aşamalı onay, üretilmiş belge varsa engel [OPUS-MEDIUM]",
+        "description": "PRD 15.1.5 · FR-MOD-15 · Faz 1 · Should (v1). Sözleşme PLAN §D134. İnsan isteği (2026-10-27): arşivdekiler de silinebilsin (Hazır Şablonlar › Arşivde).",
+        "details": "KAPSAM: PRD 15.1.5; PLAN §D134 — önce oku.\n\nNE YAPILACAK: (1) Olay türü `OUTPUT_TEMPLATE_DELETED` (`app/events.py`; ad, sayfa/alan sayısı, kullanıcı). (2) `app/output_templates/service.py`: `delete_template(session, layout, template)` — yalnız `archived`; üretilmiş belge (`generated_documents`.template_id) varsa `TemplateInUse` (neden: N belge); önce `_sablonlar/<id>/` (PDF + önizleme) ve `cache/previews` karşılığı silinir, sonra alan haritası ve şablon kaydı; dosya silinemezse kayıt kalır. (3) `app/web/routers/output_templates.py`: `GET .../{id}/delete/confirm` ve `POST .../{id}/delete` (yazma yetkisi, aksi 409/404). (4) `output_templates.html` Arşivde sekmesi satırına ve şablon sayfasına \"Sil\"; onay sayfası ad, sayfa/alan sayısı, engel nedeni ya da \"geri alınamaz\". (5) i18n.\n\nKABUL: yalnız arşivdeki şablon silinir; etkin/taslak/hazır 409; üretilmiş belgesi olan şablon silinmez ve neden gösterilir; üretilmiş belge dosyaları değişmez; dosyalar ve kayıt kalkar; olay yazılır; salt okunur kullanıcıda düğme yok.",
+        "testStrategy": "tests/web (onay sayfası + POST, 409, yetki, olay), tests/web/test_confirm.py sözleşmesi, tests/web/test_ui_standard.py, tests/i18n.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "medium",
+        "subtasks": [],
+        "updatedAt": "2026-10-27T19:00:00.000Z"
       }
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-27T18:00:00.000Z",
-      "taskCount": 198,
+      "lastModified": "2026-10-27T19:00:00.000Z",
+      "taskCount": 200,
       "completedCount": 197,
       "tags": [
         "master"
