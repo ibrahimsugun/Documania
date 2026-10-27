@@ -2842,12 +2842,27 @@
         "priority": "medium",
         "subtasks": [],
         "updatedAt": "2026-10-27T15:11:16.727Z"
+      },
+      {
+        "id": "197",
+        "title": "11.9-j Tüm belgeler için genel önizleme katmanı: küçük/büyük JPEG, kaynak başına yetki ve önbellek kademesi [OPUS-MEDIUM]",
+        "description": "PRD 11.9.9 · FR-MOD-11 · Faz 1 · Should (v1). Sözleşme PLAN §D132. İnsan isteği (2026-10-27): önizleme (küçük/büyük JPEG) mantığı yalnız uploads değil sistemdeki bütün belgeler için olsun; her sayfada akıcı kullanım.",
+        "details": "KAPSAM: PRD 11.9.9; PLAN §D132 (ve §D130, §D131) — önce oku. tm 195 ve 196 tamam olmalı.\n\nNE YAPILACAK: (1) `app/storage/previews.py`: `PreviewSource` soyutlaması; mevcut örnek yolu aynı arayüzün bir uygulaması olur (davranış ve testler değişmez). Kaynaklar: çalışan belgesi, yükleme sayfası, kuyruk/geçmiş sayfası, katalog aday örneği, üretilen belge, şablon sayfası, profil fotoğrafı. (2) Her kaynak türü için önizleme ucu `.../previews/{small|large}` (çok sayfalı PDF'de `?page=`): `employees.py` (belgeler, üretilen belgeler, fotoğraf), `upload_page.py`, `queue`/`history` router'ları, `catalog.py` (aday örnekleri), `output_templates.py`; her uç kaynağın MEVCUT yetki kuralını kullanır, yeni izin yok, yetkisiz istek mevcut 404. (3) Önbellek kademeleri: kademe 1 `private, max-age=31536000, immutable` (+ `?v=`), kademe 2 `private, max-age=900` + ETag/304; çıkışta `Clear-Site-Data` zaten var. (4) Şablonlar: `profile.html` (belge listesi, üretilen belgeler, fotoğraf), `upload_detail.html`, `queue_item.html`, `history.html`, `catalog_candidate_samples.html`, `output_template(s).html` — küçük resim `loading=lazy decoding=async` + boyut, ada/küçük resme tıklayınca büyük önizleme, ayrı \"İndir\" düğmesi; satır içi orijinal bağlantıları kalkar. (5) `app/web/static/preview-prefetch.js`: `data-preview-large` yeni sayfalarda; `/previews/thumbs` yalnız kademe 1 (çalışan belgesi için toplu liste ucu EKLENMEZ). (6) Erişim logu: önizleme gösterimi \"görüntüleme\" kuralı mevcut erişim logu testleriyle sabitlenir; küçük resim listesi N satır yazmaz. (7) `docs/ARAYUZ-STANDARDI.md`, `docs/YEDEKLEME.md` (cache/previews zaten hariç), i18n (`python -m app.i18n extract|update|compile|check`).\n\nKABUL: her listede yalnız küçük JPEG'ler çekilir (orijinal/PDF çekilmez); ada tıklayınca büyük önizleme; orijinal yalnız İndir ile; yetkisiz kullanıcı başkasının belgesinin önizlemesini alamaz (404); çalışan belgesi önizlemesi `max-age=900`, örnek/şablon `immutable`; çıkışta `Clear-Site-Data`; `/previews/thumbs` çalışan belgesi adresi içermez; çok sayfalı PDF'de sayfa sayfa açılır; bozuk/çok büyük dosyada yer tutucu ve İndir çalışır; analiz hattı (`cache/pages`) ve orijinal dosyalar değişmez.",
+        "testStrategy": "tests/storage (kaynak soyutlaması, çok sayfalı PDF, bozuk dosya), tests/web (her uç: yetki 404, başlıklar, 304, indirme başlığı, çalışan belgesi için kademe 2), tests/web/test_ui_standard.py, erişim logu testleri, tests/web/test_preview_prefetch.py (liste ucu çalışan belgesi adresi içermez), tests/i18n.",
+        "status": "pending",
+        "dependencies": [
+          "195",
+          "196"
+        ],
+        "priority": "medium",
+        "subtasks": [],
+        "updatedAt": "2026-10-27T17:00:00.000Z"
       }
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-27T15:11:16.728Z",
-      "taskCount": 196,
+      "lastModified": "2026-10-27T17:00:00.000Z",
+      "taskCount": 197,
       "completedCount": 196,
       "tags": [
         "master"
