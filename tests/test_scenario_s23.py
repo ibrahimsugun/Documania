@@ -277,7 +277,10 @@ def test_s23_a_document_moved_by_hr_no_longer_carries_the_name_only_label(
     profile = client.get(f"/employees/{other_id}")
     assert profile.status_code == 200, profile.text
     listing = profile.text.split('<section class="profile-documents">', 1)[1]
-    assert f"/documents/{document_id}/file" in listing.split("</section>", 1)[0]
+    assert (
+        f"/employees/{other_id}/documents/{document_id}/preview"
+        in listing.split("</section>", 1)[0]
+    )
     assert label not in listing.split("</section>", 1)[0]
     detail = client.get(f"/uploads/{upload_id}")
     assert detail.status_code == 200, detail.text
