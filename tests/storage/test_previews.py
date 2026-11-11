@@ -19,7 +19,7 @@ from PIL import Image
 
 from app.storage import DataLayout, prepare_data_dir, sha256_file
 from app.storage import previews as previews_module
-from app.storage.examples import store_example
+from app.storage.examples import example_preview_key, store_example
 from app.storage.filetype import FileKind
 from app.storage.previews import (
     PreviewBusy,
@@ -67,8 +67,9 @@ def test_small_and_large_previews_are_jpegs_within_their_long_edge(layout: DataL
         assert image.format == "JPEG" and max(image.size) == 320
     with Image.open(large.path) as image:
         assert max(image.size) == 1280
-    assert small.path.parent == layout.preview_cache / SLUG
-    assert small.path.name == f"{preview_key(source)}-small.jpg"
+    # 11.9.10: kalıcı dizinde, anahtar içeriğin SHA-256'sından.
+    assert small.path.parent == layout.known_documents / "_onizlemeler" / SLUG
+    assert small.path.name == f"{example_preview_key(sha256_file(source))}-small.jpg"
 
 
 def test_preview_carries_no_exif_and_the_original_is_untouched(layout: DataLayout) -> None:
@@ -107,9 +108,7 @@ def test_corrupt_example_has_no_preview(layout: DataLayout) -> None:
     for name in ("bozuk.jpg", "bozuk.pdf"):
         preview = ensure_preview(layout, SLUG, name, "small")
         assert preview is not None and preview.path is None
-    assert not (layout.preview_cache / SLUG).exists() or not any(
-        (layout.preview_cache / SLUG).iterdir()
-    )
+    assert not layout.preview_dir(SLUG).exists() or not any(layout.preview_dir(SLUG).iterdir())
 
 
 def test_image_over_the_pixel_limit_has_no_preview(
@@ -150,13 +149,15 @@ def test_key_changes_when_the_example_changes(layout: DataLayout) -> None:
     source = _store(
         layout, "kart.jpg", make_half_filled_image_bytes("JPEG", (300, 200)), FileKind.JPEG
     )
-    first = preview_key(source)
+    first = ensure_preview(layout, SLUG, source.name, "small")
 
     source.write_bytes(make_half_filled_image_bytes("JPEG", (600, 200)))
     stat = source.stat()
     os.utime(source, ns=(stat.st_atime_ns, stat.st_mtime_ns + 1_000_000_000))
+    again = ensure_preview(layout, SLUG, source.name, "small")
 
-    assert preview_key(source) != first
+    assert first is not None and again is not None and again.key != first.key
+    assert preview_key(source) != first.key  # adres sürümü (dizinsiz) de içerikten bağımsız
 
 
 def test_existing_preview_is_reused_and_no_partial_file_is_left(layout: DataLayout) -> None:

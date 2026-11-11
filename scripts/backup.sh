@@ -17,6 +17,8 @@
 # Eğitim malzemesi (`KnownDocuments/examples`, `_egitim`, `_referans`) gece arşivine GİRMEZ: birkaç GB
 # tutar, JPG/PDF/PNG sıkışmaz, kaynak koleksiyondan yeniden üretilebilir. Onun yedeği
 # `scripts/backup-material.sh` (artımlı, sıkıştırmasız). Geri alma: docs/YEDEKLEME.md.
+# Örneklerin kalıcı önizlemeleri (`KnownDocuments/_onizlemeler`, 11.9.10) malzeme değildir, gece
+# arşivine HER ZAMAN girer: ham dosya silinince örneğin tek temsilidir, yeniden üretilemez.
 # Çıkış kodu 0: yedek alındı (sunucu dışı hedef tanımlıysa oraya da kopyalandı).
 #
 # Gece çalıştırma (sunucuda, uygulamanın depo kökünden): docs/YEDEKLEME.md'deki cron satırı.
@@ -71,7 +73,8 @@ final="$backup_dir/$name"
 [ ! -e "$final" ] || die "bu saniyeye ait yedek zaten var: $final"
 
 mkdir "$stage/db"
-# Örnek önizlemeleri gösterim önbelleğidir, kaynaktan yeniden üretilir (11.9.7): arşive girmez.
+# Belge önizlemeleri (`cache/previews`) gösterim önbelleğidir, kaynaktan yeniden üretilir (11.9.9):
+# arşive girmez. Örneklerin kalıcı önizlemeleri `KnownDocuments/_onizlemeler`'dedir ve girer.
 excludes=("--exclude=./cache/previews")
 find_filters=(-not -path "$data_dir/cache/previews/*")
 if [ "$include_material" = 1 ]; then

@@ -34,7 +34,7 @@ def _assert_schema_matches_models(database_url: str) -> None:
             assert tables == set(Base.metadata.tables) | {"alembic_version"}
             context = MigrationContext.configure(connection, opts={"compare_type": True})
             assert compare_metadata(context, Base.metadata) == []
-            assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "0035"
+            assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "0036"
     finally:
         engine.dispose()
 
@@ -1736,6 +1736,45 @@ def test_output_template_deletion_migration_accepts_deleted_and_is_reversible(
             columns = {c["name"] for c in inspect(connection).get_columns("output_templates")}
             assert "deleted_at" not in columns and "deleted_by" not in columns
             assert connection.scalar(text("SELECT status FROM output_templates")) == "archived"
+    finally:
+        engine.dispose()
+
+
+def test_example_index_migration_creates_the_table_with_its_rules_and_is_reversible(
+    sqlite_url: str,
+) -> None:
+    # 0036 (11.9.10): tablo boş açılır; ham durum iki değerden biri ve `removed_at` yalnız
+    # `removed`'da dolu; ad yalnız çıkarılmamış satırlarda tekil.
+    config = _alembic_config(sqlite_url)
+    command.upgrade(config, "0035")
+    command.upgrade(config, "0036")
+    engine = create_engine(sqlite_url)
+    insert = (
+        "INSERT INTO example_index (type_slug, name, size, sha256, file_kind, preview_key, "
+        "original_state, removed_at, archived_at, created_at) VALUES ('kart', '{name}', 1, 'abc', "
+        "'jpeg', 'abc', '{state}', {removed}, {archived}, '2026-11-11 12:00:00')"
+    )
+    row = {"name": "a.jpg", "state": "present", "removed": "NULL", "archived": "NULL"}
+    try:
+        with engine.begin() as connection:
+            assert connection.scalar(text("SELECT COUNT(*) FROM example_index")) == 0
+            connection.execute(text(insert.format(**row)))
+            archived = row | {"archived": "'2026-11-11 13:00:00'"}
+            connection.execute(text(insert.format(**archived)))
+            gone = {"name": "b.jpg", "state": "removed", "removed": "'2026-11-11 14:00:00'"}
+            connection.execute(text(insert.format(**(row | gone))))
+        for bad in (
+            row,  # aynı ad, çıkarılmamış
+            row | {"name": "c.jpg", "state": "removed"},  # removed_at yok
+            row | {"name": "d.jpg", "removed": "'2026-11-11 14:00:00'"},  # present + removed_at
+            row | {"name": "e.jpg", "state": "silindi"},
+        ):
+            with pytest.raises(IntegrityError), engine.begin() as connection:
+                connection.execute(text(insert.format(**bad)))
+
+        command.downgrade(config, "0035")
+        with engine.connect() as connection:
+            assert "example_index" not in inspect(connection).get_table_names()
     finally:
         engine.dispose()
 

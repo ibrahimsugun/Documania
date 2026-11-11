@@ -34,7 +34,6 @@ etmez; iş birimini çağıran kapatır.
 
 from __future__ import annotations
 
-import os
 from collections.abc import Callable
 from dataclasses import dataclass
 
@@ -54,7 +53,7 @@ from app.events import EventType, record_event
 from app.i18n import N_, Translatable
 from app.i18n.recorded import append_text, record_text
 from app.storage import DataLayout, sha256_file
-from app.storage.examples import StoredExample, list_examples
+from app.storage.examples import StoredExample, example_hashes, example_slugs, list_examples
 from app.training.placement import UNPLACED_STATUSES, refresh_run
 
 NOTE_MAX_LENGTH = 200
@@ -269,16 +268,10 @@ def same_type_example(
     return (listed or {}).get(sha256)
 
 
-def listed_hashes(layout: DataLayout, slug: str) -> dict[str, str]:
-    """Türün klasöründe listelenen örneklerin SHA-256 → ad dizini (aynı içerikte ilk ad)."""
-    directory = layout.type_examples_dir(slug)
-    hashes: dict[str, str] = {}
-    for example in list_examples(layout, slug):
-        try:
-            hashes.setdefault(sha256_file(directory / example.name), example.name)
-        except FileNotFoundError:  # listeleme ile okuma arasında kalktı
-            continue
-    return hashes
+def listed_hashes(layout: DataLayout, slug: str, session: Session | None = None) -> dict[str, str]:
+    """Türün örneklerinin SHA-256 → ad dizini (aynı içerikte ilk ad). Oturum verilirse kalıcı
+    örnek dizini okunur: ham dosyası silinmiş örnek de tanınır (11.9.10)."""
+    return example_hashes(layout, slug, session)
 
 
 def record_uploaded_example(
@@ -327,7 +320,7 @@ def register_examples(
             )
         ).tuples()
     )
-    slugs = _example_slugs(layout)
+    slugs = example_slugs(layout)
     listed = 0
     pending: list[tuple[str, str]] = []
     for slug in slugs:
@@ -359,23 +352,6 @@ def register_examples(
     return RegisterResult(
         types=len(slugs), listed=listed, recorded=listed - len(pending), registered=registered
     )
-
-
-def _example_slugs(layout: DataLayout) -> list[str]:
-    """`examples/` altındaki tür klasörleri (slug olabilen adlar, ad sırasıyla)."""
-    try:
-        with os.scandir(layout.examples) as scanned:
-            names = [entry.name for entry in scanned if entry.is_dir(follow_symlinks=False)]
-    except FileNotFoundError:
-        return []
-    slugs = []
-    for name in sorted(names):
-        try:
-            layout.type_examples_dir(name)
-        except ValueError:
-            continue
-        slugs.append(name)
-    return slugs
 
 
 def _require_actor(actor: str) -> None:

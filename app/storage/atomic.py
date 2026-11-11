@@ -25,7 +25,7 @@ import os
 import re
 import secrets
 import time
-from collections.abc import Iterable, Iterator
+from collections.abc import Collection, Iterable, Iterator
 from dataclasses import dataclass
 from datetime import timedelta
 from pathlib import Path, PurePath
@@ -180,7 +180,12 @@ def find_sequenced(
 
 
 def write_unique(
-    directory: Path, name: str, content: Content, *, expected_sha256: str | None = None
+    directory: Path,
+    name: str,
+    content: Content,
+    *,
+    expected_sha256: str | None = None,
+    reserved: Collection[str] = (),
 ) -> StoredFile:
     """`name` boşsa ona, doluysa ilk boş `gövde-2.uzantı`, `gövde-3.uzantı`… adına yazar.
 
@@ -190,7 +195,8 @@ def write_unique(
     karşılaştırması harf büyüklüğüne duyarsızdır. Seçilen ek `sequence_no` olarak döner.
 
     `expected_sha256` verilmişse yazılan içerik yayından önce onunla karşılaştırılır; tutmazsa
-    geçici dosya silinir, hiçbir şey yayınlanmaz: `ContentMismatchError`.
+    geçici dosya silinir, hiçbir şey yayınlanmaz: `ContentMismatchError`. `reserved` diskte
+    olmayan ama dolu sayılan adlardır (ham dosyası silinmiş örneğin adı, 11.9.10).
     """
     if not name or name in {".", ".."} or "/" in name or "\\" in name:
         raise ValueError(f"Geçersiz dosya adı: {name!r}")
@@ -199,7 +205,7 @@ def write_unique(
     temp, sha256, size = _write_temp(directory, content)
     try:
         _check_expected_sha256(sha256, expected_sha256)
-        taken = _names_in_use(directory)
+        taken = _names_in_use(directory) | {item.casefold() for item in reserved}
         sequence_no = 0
         while True:
             sequence_no += 1

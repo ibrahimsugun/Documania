@@ -4,8 +4,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Documania panel\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-27 22:30+0000\n"
-"PO-Revision-Date: 2026-10-27 22:30+0000\n"
+"POT-Creation-Date: 2026-11-11 22:03+0000\n"
+"PO-Revision-Date: 2026-11-11 22:03+0000\n"
 "Last-Translator: Documania görev penceresi (gözden geçirilmeli)\n"
 "Language: sr_Latn\n"
 "Language-Team: Srpski\n"
@@ -339,6 +339,11 @@ msgstr "Datoteka '{file}' nije pronađena."
 #, python-brace-format
 msgid "'{file}' dosyası {limit} MB sınırını aşıyor."
 msgstr "Datoteka '{file}' prelazi ograničenje od {limit} MB."
+
+#: app/catalog/describe.py
+#, python-brace-format
+msgid "'{file}' ham dosyası silindi ve önizlemesi yok."
+msgstr "Originalna datoteka '{file}' je obrisana i nema pregled."
 
 #: app/storage/examples.py
 #, python-brace-format
@@ -3574,6 +3579,10 @@ msgstr "Trenutna verzija plana"
 #: app/catalog/photo_rules.py
 msgid "Güneş gözlüğü yok"
 msgstr "Bez naočara za sunce"
+
+#: app/web/templates/catalog_examples.html app/web/templates/training_type.html
+msgid "Ham dosya silindi"
+msgstr "Originalna datoteka obrisana"
 
 #: app/web/routers/training.py
 msgid "Harita"

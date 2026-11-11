@@ -11,6 +11,9 @@ Daha önce tek yapay zekâyla yerleşmiş ve elle kontrol bekleyen ("AI kararı"
   "AI kararı" kalır, insan kontrolü bekler.
 - **Hata (`error`)** — bir çağrı ya da dosya okuma başarısız → örnek değişmez.
 
+Ham dosyası silinmiş örnekte (11.9.10; PLAN.md §D135 c) girdi örneğin kalıcı büyük önizlemesidir
+(PDF'te ilk sayfa); önizlemesi de yoksa sonuç `error`'dır.
+
 Kararı sistem verir (`system`); olaylar `review: pair` ve iki modelin adını taşır. Dosyaya
 dokunulmaz (taşıma dışında), kişisel değer okunmaz (istek eğitim sınıflandırmasıyla aynıdır).
 """
@@ -30,8 +33,9 @@ from app.catalog.sync import export_catalog
 from app.config import Settings
 from app.db.models import ExampleFileRecord, ExampleLabel
 from app.storage import DataLayout
-from app.storage.examples import example_path
+from app.storage.examples import example_path, removed_entry
 from app.storage.filetype import detect_file_kind
+from app.storage.previews import stored_large_preview
 from app.training.classification import (
     ClassificationSource,
     build_request,
@@ -107,6 +111,9 @@ def recheck_example(
     ya da çağrı hata verirse `error` döner ve örnek değişmez."""
     slug = example.type_slug
     path = example_path(layout, slug, example.name)
+    if path is None:
+        row = removed_entry(session, slug, example.name)
+        path = stored_large_preview(layout, slug, row.preview_key if row is not None else None)
     if path is None:
         return RecheckResult(example.id, slug, None, None, RecheckOutcome.ERROR, "FileNotFound")
     try:

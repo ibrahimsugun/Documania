@@ -843,6 +843,58 @@ class ExampleFileRecord(Base):
     training_item: Mapped[TrainingItem | None] = relationship()
 
 
+class OriginalState(enum.StrEnum):
+    """Örneğin ham dosyasının durumu (`example_index.original_state`, 11.9.10): klasörde duruyor
+    (`present`) ya da silindi (`removed`) — silinen örnek kaydı ve önizlemesiyle yaşar."""
+
+    PRESENT = "present"
+    REMOVED = "removed"
+
+
+class ExampleIndexEntry(Base):
+    """Kalıcı örnek dizini (§8.1 `example_index`, 11.9.10; PLAN.md §D135 a).
+
+    Her örnek dosyası (`KnownDocuments/examples/<type_slug>/<name>`) için ad, boyut, SHA-256, dosya
+    türü (`pdf`/`jpeg`/`png`), sayfa sayısı ve önizleme anahtarı. Ham dosya silinince örnek bu
+    satır ve kalıcı önizlemesiyle (`KnownDocuments/_onizlemeler/<type_slug>/`) yaşar:
+    `original_state` `removed`, `removed_at` dolu. Önizleme anahtarı SHA-256'dan türer (içerik
+    aynıysa anahtar aynıdır). Kayıtlı örnekte `example_files` (yöntem, etiket, not) değişmez; bu
+    satıra `(type_slug, name)` ile bağlıdır — kayıtsız elle yerleştirilmiş örnek de dizindedir.
+
+    Örneklerden çıkarılan (11.9.4) örneğin satırı silinmez, `archived_at` dolar ve örnek sayılmaz;
+    `(type_slug, name)` yalnız çıkarılmamış satırlarda tekildir.
+    """
+
+    __tablename__ = "example_index"
+    __table_args__ = (
+        Index(
+            "uq_example_index_active_name",
+            "type_slug",
+            "name",
+            unique=True,
+            sqlite_where=text("archived_at IS NULL"),
+            postgresql_where=text("archived_at IS NULL"),
+        ),
+        CheckConstraint(_one_of("original_state", OriginalState), name="original_state"),
+        CheckConstraint(
+            "(original_state = 'removed') = (removed_at IS NOT NULL)", name="removed_at"
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    type_slug: Mapped[str] = mapped_column(String(64))
+    name: Mapped[str] = mapped_column(String(255))
+    size: Mapped[int] = mapped_column(BigInteger)
+    sha256: Mapped[str] = mapped_column(String(64), index=True)
+    file_kind: Mapped[str] = mapped_column(String(16))
+    page_count: Mapped[int | None] = mapped_column(Integer)
+    preview_key: Mapped[str] = mapped_column(String(32))
+    original_state: Mapped[str] = mapped_column(String(16), default=OriginalState.PRESENT.value)
+    removed_at: Mapped[datetime | None] = mapped_column(UtcDateTime)
+    archived_at: Mapped[datetime | None] = mapped_column(UtcDateTime)
+    created_at: Mapped[datetime] = mapped_column(UtcDateTime, default=utcnow)
+
+
 # --- belge grupları (14.1) ve paketleri (14.2) -----------------------------------------------
 
 _GROUP_ITEM_TARGET = (

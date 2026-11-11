@@ -105,7 +105,6 @@ from app.i18n import N_, Translatable, gettext
 from app.i18n.recorded import localized, recall, recall_texts
 from app.storage import ContentMismatchError, DataLayout
 from app.storage.examples import example_path, list_examples
-from app.storage.previews import PreviewBusy, ensure_preview
 from app.training import (
     DISMISSABLE_STATUSES,
     PENDING_STATUSES,
@@ -166,10 +165,8 @@ from app.web.feedback import (
     flash,
 )
 from app.web.previews import (
-    busy_response,
     download_response,
-    is_prefetch,
-    preview_response,
+    example_preview_response,
     preview_url,
 )
 from app.web.routers.uploads import _validated_name, get_layout
@@ -423,6 +420,7 @@ class ExampleRow:
     note: str | None
     created_at: str | None
     record_id: int | None = None
+    present: bool = True  # ham dosya klasörde; değilse "Ham dosya silindi" (11.9.10)
 
 
 # --- yardımcılar ------------------------------------------------------------------------------
@@ -1085,6 +1083,13 @@ def known_documents(
     counts = _label_counts(session)
     session.rollback()
     selected = show if show in KNOWN_FILTER_KEYS else ""
+    try:
+        example_counts = {
+            known_type.slug: len(list_examples(layout, known_type.slug, session))
+            for known_type in known
+        }
+    finally:
+        session.rollback()
     rows = []
     for known_type in known:
         row = KnownRow(
@@ -1093,7 +1098,7 @@ def known_documents(
             source=_source_text(known_type),
             in_catalog=known_type.in_catalog,
             country=known_type.country_iso3 or known_type.country_iso2,
-            examples=len(list_examples(layout, known_type.slug)),
+            examples=example_counts[known_type.slug],
             ai_decision=counts.get((known_type.slug, ExampleLabel.AI_DECISION.value), 0),
             verified=counts.get((known_type.slug, ExampleLabel.VERIFIED.value), 0),
             url=_known_url(known_type.slug),
@@ -1158,19 +1163,20 @@ def known_document(
         )
     }
     recalled = recall_texts(session, (record.note for record in records.values()))
+    listed = list_examples(layout, slug, session)
     session.rollback()
+    directory = layout.type_examples_dir(slug)
     examples = []
-    for example in list_examples(layout, slug):
+    for example in listed:
         record = records.get(example.name)
         label = record.label if record is not None else None
-        source = layout.type_examples_dir(slug) / example.name
         examples.append(
             ExampleRow(
                 name=example.name,
                 size_label=_size_label(example.size),
                 url=f"{_known_url(slug)}/examples/{quote(example.name)}",
-                thumb_url=preview_url(_known_url(slug), source, "small"),
-                preview_url=preview_url(_known_url(slug), source, "large"),
+                thumb_url=preview_url(_known_url(slug), directory, example, "small"),
+                preview_url=preview_url(_known_url(slug), directory, example, "large"),
                 method=METHOD_LABELS.get(record.method) if record is not None else None,
                 label=label,
                 label_text=LABEL_TEXTS.get(label) if label else None,
@@ -1178,6 +1184,7 @@ def known_document(
                 note=localized(recalled, record.note) if record is not None else None,
                 created_at=_format_ts(record.created_at) if record is not None else None,
                 record_id=record.id if record is not None else None,
+                present=example.present,
             )
         )
     entry = MENU_BY_KEY["training"]
@@ -1201,8 +1208,8 @@ def known_document(
 @router.get(f"{KNOWN_PATH}/{{slug}}/examples/{{name}}")
 def known_example_file(slug: str, name: str, session: DbSession, layout: Layout) -> FileResponse:
     """Bilinen türün (katalog dışı da olabilir) örnek dosyası, yüklendiği baytlar; yalnız indirme
-    olarak (11.9.7). Tür bilinen türlerden değilse ya da ad türün örnek listesinde yoksa 404; yol
-    istekteki addan kurulmaz."""
+    olarak (11.9.7). Tür bilinen türlerden değilse, ad türün örnek listesinde yoksa ya da ham dosya
+    silinmişse (11.9.10; örnek önizlemesiyle yaşar) 404; yol istekteki addan kurulmaz."""
     _known_type(session, slug)
     path = example_path(layout, slug, name)
     if path is None:
@@ -1215,15 +1222,12 @@ def known_example_preview(
     slug: str, size: str, name: str, request: Request, session: DbSession, layout: Layout
 ) -> Response:
     """Örneğin küçük (`small`) ya da büyük (`large`) önizlemesi (11.9.7); yoksa üretilir. Ad
-    listede yoksa ya da boyut tanımsızsa 404. Ön yükleme üretim yeri bulamazsa 503 (11.9.8)."""
+    listede ya da kalıcı örnek dizininde yoksa ya da boyut tanımsızsa 404; ham dosyası silinmiş
+    örnekte kalıcı önizleme döner (11.9.10). Ön yükleme üretim yeri bulamazsa 503 (11.9.8)."""
     _known_type(session, slug)
-    try:
-        preview = ensure_preview(layout, slug, name, size, wait=not is_prefetch(request))
-    except PreviewBusy:
-        return busy_response()
-    if preview is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, EXAMPLE_NOT_FOUND)
-    return preview_response(request, preview, size)
+    return example_preview_response(
+        request, layout, session, slug, name, size, not_found=EXAMPLE_NOT_FOUND
+    )
 
 
 # --- etiket kararı (11.9.4) -------------------------------------------------------------------
@@ -1324,7 +1328,7 @@ def _decision(
         check_move(session, layout, known, example, target)
         values |= {"old_type": values["type"], "new_type": _type_name(known, target)}
     else:
-        check_remove(layout, example)
+        check_remove(session, layout, example)
     return _Decision(example, known, target, values)
 
 

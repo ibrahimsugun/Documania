@@ -24,6 +24,7 @@ from app.db.models import (
 from app.db.session import create_session_factory
 from app.events import EventType
 from app.storage import DataLayout, sha256_bytes
+from app.storage import examples as examples_module
 from app.storage.examples import check_example, list_examples, store_example
 from app.training import (
     DISMISSABLE_STATUSES,
@@ -436,6 +437,7 @@ def test_register_examples_skips_a_file_that_vanished_and_an_empty_tree(
         raise FileNotFoundError(path)
 
     monkeypatch.setattr(cleanup_module, "sha256_file", vanished)
+    monkeypatch.setattr(examples_module, "sha256_file", vanished)
     result = register_examples(session, layout)
     assert (result.listed, result.registered) == (1, 0)
     assert listed_hashes(layout, SLUG) == {}

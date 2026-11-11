@@ -1,7 +1,7 @@
 """Örnek önizlemesi ve indirme yanıtları (PRD 11.9.7; PLAN.md §D130) — eğitim ve katalog uçları
 ortak kullanır.
 
-Önizleme adresi içeriğe bağlıdır (`?v=<anahtar>`, `app.storage.previews.preview_key`): adresteki
+Önizleme adresi içeriğe bağlıdır (`?v=<anahtar>`, örneğin SHA-256'sından; 11.9.10): adresteki
 sürüm güncelse yanıt `private, max-age=31536000, immutable` ile uzun önbelleklenir — `private`
 paylaşılan ve uç önbelleğe (Cloudflare) girmesini engeller; yanıtlar oturumun arkasındadır. Sürüm
 yoksa ya da eskiyse aynı baytlar `no-cache` ile döner. `ETag` her yanıttadır, `If-None-Match`
@@ -27,6 +27,7 @@ import hashlib
 import threading
 import time
 from collections import deque
+from collections.abc import Collection
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
@@ -34,7 +35,9 @@ from urllib.parse import quote
 
 from fastapi import HTTPException, Request, Response, status
 from fastapi.responses import FileResponse
+from sqlalchemy.orm import Session
 
+from app.storage.examples import ExampleFile, example_path, index_example
 from app.storage.layout import DataLayout
 from app.storage.previews import (
     PREVIEW_MAX_PAGES,
@@ -42,6 +45,7 @@ from app.storage.previews import (
     PreviewBusy,
     PreviewSource,
     document_page_count,
+    ensure_preview,
     ensure_source_preview,
     placeholder_jpeg,
     preview_key,
@@ -111,12 +115,81 @@ class ListRateLimit:
             del self._hits[min(self._hits, key=lambda key: self._hits[key][-1])]
 
 
-def preview_url(base: str, source: Path, size: str) -> str:
-    """`<base>/previews/<boyut>/<ad>?v=<anahtar>` — `base` türün örnek yolunun öncesidir."""
-    return f"{base}/previews/{size}/{quote(source.name)}?v={preview_key(source)}"
+def preview_url(base: str, directory: Path, example: ExampleFile, size: str) -> str:
+    """`<base>/previews/<boyut>/<ad>?v=<anahtar>` — `base` türün örnek yolunun öncesidir,
+    `directory` türün örnek klasörü. Sürüm kalıcı örnek dizinindeki anahtardır (11.9.10); örnek
+    henüz dizinde değilse dosyanın adı/boyutu/zamanı (uç ilk istekte dizine yazar, sürüm tutmadığı
+    için yanıt yeniden doğrulanır)."""
+    version = example.preview_key
+    if version is None:
+        try:
+            version = preview_key(directory / example.name)
+        except FileNotFoundError:
+            version = ""
+    return f"{base}/previews/{size}/{quote(example.name)}?v={version}"
 
 
-def preview_response(request: Request, preview: Preview, size: str) -> Response:
+def indexed_example_preview(
+    layout: DataLayout,
+    session: Session,
+    type_slug: str,
+    name: str,
+    size: str,
+    *,
+    wait: bool,
+) -> Preview | None:
+    """Örneğin önizlemesi (11.9.7, 11.9.10): anahtar kalıcı örnek dizininden okunur — örnek dizinde
+    değilse bir kez yazılır ve hemen commit edilir — sonra önizleme işlem kapalıyken üretilir
+    (SQLite'ta yazma kilidi üretim boyunca tutulmaz). Örnek yoksa `None`; üretim yeri yoksa
+    `PreviewBusy`."""
+    try:
+        row = index_example(session, layout, type_slug, name)
+        key = row.preview_key if row is not None else None
+        session.commit()
+    except BaseException:
+        session.rollback()
+        raise
+    if key is None:
+        return None
+    return ensure_preview(layout, type_slug, name, size, key=key, wait=wait)
+
+
+def example_preview_response(
+    request: Request,
+    layout: DataLayout,
+    session: Session,
+    type_slug: str,
+    name: str,
+    size: str,
+    *,
+    not_found: str,
+) -> Response:
+    """Örnek önizleme ucunun yanıtı (eğitim ve katalog uçları ortak; 11.9.7, 11.9.10). Örnek yoksa
+    404 (`not_found`), ön yükleme üretim yeri bulamazsa 503. Adres sürümü dizindeki anahtardır;
+    ham dosyası klasörde duran örnekte dizinden önceki sürüm (ad/boyut/zaman, `preview_key`) de
+    günceldir — sayfa, örnek dizine girmeden önce o sürümle adres vermiş olabilir."""
+    try:
+        preview = indexed_example_preview(
+            layout, session, type_slug, name, size, wait=not is_prefetch(request)
+        )
+    except PreviewBusy:
+        return busy_response()
+    if preview is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, not_found)
+    versions: tuple[str, ...] = ()
+    source = example_path(layout, type_slug, name)
+    if source is not None:
+        try:
+            versions = (preview_key(source),)
+        except OSError:
+            versions = ()
+    return preview_response(request, preview, size, versions=versions)
+
+
+def preview_response(
+    request: Request, preview: Preview, size: str, *, versions: Collection[str] = ()
+) -> Response:
+    """Önizleme baytları; adresteki sürüm anahtar (ya da `versions`'tan biri) ise uzun önbellek."""
     if preview.path is None:
         return Response(
             placeholder_jpeg(),
@@ -124,7 +197,8 @@ def preview_response(request: Request, preview: Preview, size: str) -> Response:
             headers={**NOSNIFF, "Cache-Control": "no-store"},
         )
     etag = f'"{preview.key}-{size}"'
-    cache = IMMUTABLE if request.query_params.get("v") == preview.key else REVALIDATE
+    version = request.query_params.get("v")
+    cache = IMMUTABLE if version == preview.key or version in versions else REVALIDATE
     headers = {**NOSNIFF, "Cache-Control": cache, "ETag": etag}
     if etag in request_etags(request.headers.get("if-none-match", "")):
         return Response(status_code=304, headers=headers)

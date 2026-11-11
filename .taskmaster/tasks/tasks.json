@@ -2900,11 +2900,11 @@
         "description": "PRD 11.9.10 · FR-MOD-11 · Faz 1 · Should (v1). Sözleşme PLAN §D135 (a)(b)(c). İnsan isteği (2026-11-11): eğitim verisinin ham dosyaları silinsin, ad/bağlantı/önizleme kalsın.",
         "details": "KAPSAM: PRD 11.9.10; PLAN §D135 (a), (b), (c) — önce oku. Silme komutu BU GÖREVDE YOK (tm 202).\n\nNE YAPILACAK: (1) Alembic göçü: kalıcı örnek dizini tablosu (tür slug, ad, boyut, SHA-256, dosya türü, sayfa sayısı, önizleme anahtarı, ham durum present/removed, removed_at); `example_files` ile bağ. (2) `app/storage/examples.py`: dizine yazma (store/relocate/archive) ve `list_examples`'ın ham yoksa dizinden listelemesi; kayıtsız elle yerleştirilmiş örnekler için dizin eşitleme fonksiyonu. (3) `app/storage/layout.py`: kalıcı örnek önizleme dizini (cache dışı); `app/storage/previews.py`: örnek önizlemesi oraya, anahtar SHA-256'dan; `warm_previews` aynı yere; `scripts/backup.sh` bu dizini arşive alır. (4) Ham yokken: `app/catalog/describe.py` ve `app/training/recheck.py` büyük önizlemeyi girdi alır; SHA tekrar tespiti (`app/training/mechanical.py`/placement) dizinden; `app/training/decisions.py` taşı/çıkar dizin + önizleme taşır; `known_example_file` 404; şablonlarda İndir yerine \"Ham dosya silindi\"; `/previews/thumbs` dizinden. (5) i18n (en, sr).\n\nKABUL: sentetik örnekte ham dosya silindikten sonra tür sayfası ve eğitim sayfaları adı, önizlemeyi ve kaydı gösterir; İndir yerine etiket; tür açıklaması ve recheck önizlemeyle çalışır; aynı SHA'lı dosya yeniden yüklenince tekrar sayılır; taşı/çıkar kararı çalışır; ham dosya varken davranış değişmez; önizleme dizini yedek arşivinde.",
         "testStrategy": "tests/storage (dizin, liste, kalıcı önizleme, anahtar), tests/training (recheck/placement/decisions ham yokken), tests/catalog (describe önizlemeyle), tests/web (tür ve eğitim sayfaları, 404, thumbs), tests/scripts (backup.sh), tests/web/test_ui_standard.py, tests/i18n, alembic göç testi.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [],
         "priority": "medium",
         "subtasks": [],
-        "updatedAt": "2026-11-11T21:12:06.000Z"
+        "updatedAt": "2026-11-11T22:16:41.993Z"
       },
       {
         "id": "202",
@@ -2923,9 +2923,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-11-11T21:12:06.000Z",
+      "lastModified": "2026-11-11T22:16:41.997Z",
       "taskCount": 202,
-      "completedCount": 200,
+      "completedCount": 201,
       "tags": [
         "master"
       ]

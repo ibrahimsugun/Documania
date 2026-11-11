@@ -42,6 +42,7 @@ from app.catalog.describe import (
 from app.config import Settings
 from app.db.models import ExampleFileRecord, ExampleLabel, ExampleMethod, utcnow
 from app.storage import DataLayout, FileKind, detect_file_kind, prepare_data_dir, sha256_file
+from app.storage.examples import ExampleFile, list_examples
 from tests.ai.payloads import description_payload
 from tests.catalog.conftest import RecordFactory
 from tests.fixtures.gen import (
@@ -572,3 +573,25 @@ def test_when_every_example_is_excluded_nothing_is_requested_and_the_reason_is_g
 
     assert raised.value.skipped == (EXCLUDED_MESSAGE.format(count=1),)
     assert provider.descriptions == []
+
+
+def test_example_without_its_original_is_described_from_its_large_preview(
+    layout: DataLayout, settings: Settings
+) -> None:
+    # 11.9.10 (PLAN.md §D135 c): ham dosyası silinmiş örneğin girdisi kalıcı büyük önizlemesidir;
+    # önizlemesi de yoksa atlanır ve bildirilir.
+    _place(layout, "a-kalan.png", make_half_filled_image_bytes("PNG"))
+    preview = layout.preview_path(SLUG, "k" * 20, "large")
+    preview.parent.mkdir(parents=True)
+    preview.write_bytes(make_half_filled_image_bytes("JPEG"))
+    listed = [
+        *list_examples(layout, SLUG),
+        ExampleFile("b-silinen.pdf", 900, present=False, preview_key="k" * 20),
+        ExampleFile("c-onizlemesiz.pdf", 900, present=False, preview_key="z" * 20),
+    ]
+
+    collected = collect_example_pages(layout, settings, SLUG, examples=listed)
+
+    assert collected.pages == (ExamplePage("a-kalan.png", 1), ExamplePage("b-silinen.pdf", 1))
+    assert [image.media_type for image in collected.images] == ["image/png", "image/jpeg"]
+    assert collected.skipped == ("'c-onizlemesiz.pdf' ham dosyası silindi ve önizlemesi yok.",)

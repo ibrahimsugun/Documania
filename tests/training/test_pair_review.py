@@ -15,6 +15,8 @@ from app.config import Settings
 from app.db.models import Event, ExampleFileRecord
 from app.events import EventType
 from app.storage import DataLayout
+from app.storage.examples import list_examples, sync_example_index
+from app.storage.previews import ensure_preview
 from app.training import KnownTypes
 from app.training.classification import AI_CHECK_KEY, REVIEW_CHECK_KEY, apply_classification
 from app.training.pair import (
@@ -267,3 +269,41 @@ def test_dry_run_changes_nothing(session: Session, layout: DataLayout, known: Kn
     assert result.outcome is RecheckOutcome.VERIFIED
     assert example.label == "ai_decision"
     assert _verified_events(session) == []
+
+
+# --- 11.9.10: ham dosyası silinmiş örnek (PLAN.md §D135 c) --------------------------------------
+
+
+def _purge_original(session: Session, layout: DataLayout, example: ExampleFileRecord) -> None:
+    (layout.type_examples_dir(example.type_slug) / example.name).unlink()
+    sync_example_index(session, layout)
+
+
+def test_recheck_without_the_original_reads_the_large_preview_and_moves_it(
+    session: Session, layout: DataLayout, known: KnownTypes
+) -> None:
+    example = _ai_decision(session, layout, known)
+    ensure_preview(layout, example.type_slug, example.name, "large", session=session)
+    _purge_original(session, layout, example)
+    first = Named("sol-test", _answer(**OTHER))
+
+    result = _recheck(
+        session, layout, known, ReviewPair(first, Named("s", _answer(**OTHER))), example
+    )
+
+    assert result.outcome is RecheckOutcome.MOVED
+    assert first.requests[0].images[0].data[:3] == b"\xff\xd8\xff"  # büyük önizleme (JPEG)
+    assert example.type_slug == "russian_passport"
+    (listed,) = list_examples(layout, "russian_passport", session)
+    assert listed.name == example.name and not listed.present
+
+
+def test_recheck_without_original_or_preview_is_an_error(
+    session: Session, layout: DataLayout, known: KnownTypes
+) -> None:
+    example = _ai_decision(session, layout, known)
+    _purge_original(session, layout, example)
+
+    result = _recheck(session, layout, known, _pair(_answer(**OTHER), _answer(**OTHER)), example)
+
+    assert result.outcome is RecheckOutcome.ERROR and result.error == "FileNotFound"

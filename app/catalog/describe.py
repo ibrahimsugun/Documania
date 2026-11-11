@@ -10,7 +10,9 @@ analiz talimatına metin olarak girer (11.4): her analizde örnek görüntü gö
   görüntüsüyle aynı ölçekte JPEG'e render edilir, JPEG/PNG'nin EXIF yönelimi uygulanır — ikisi de
   bellekte yapılır, diske yazılmaz; örnek dosyası değişmez (K10, K11). Açılamayan örnek (elle
   konmuş bozuk dosya, sınırı aşan boyut) atlanır ve bildirilir. Hiç sayfa kalmazsa
-  `NoExamplePagesError`.
+  `NoExamplePagesError`. Ham dosyası silinmiş örneğin (11.9.10; çağıran kalıcı dizinli listeyi
+  `examples` ile verir) girdisi kalıcı büyük önizlemesidir (PDF'te ilk sayfa); önizlemesi de
+  yoksa atlanır ve bildirilir.
 - **İstek:** sistem talimatı `app.ai.prompts.type_description`; kullanıcı metni türün katalog
   bilgileri (ad, ülke, yüz yapısı, beklenen sayfa, zorunlu alanlar) ve görüntülerin hangi örneğin
   hangi sayfası olduğu. Örneklerin dosya adı isteğe konmaz, sıra numarasıyla anılır.
@@ -76,6 +78,7 @@ from app.storage.examples import (
     example_path,
     list_examples,
 )
+from app.storage.previews import stored_large_preview
 
 MAX_DESCRIPTION_PAGES = 8
 """Bir tür açıklaması isteğine giren en çok görüntü (örnek sayfa + kabul edilen fotoğraf)."""
@@ -302,16 +305,19 @@ def collect_example_pages(
     *,
     max_pages: int = MAX_DESCRIPTION_PAGES,
     exclude: Collection[str] = (),
+    examples: Sequence[ExampleFile] | None = None,
 ) -> ExamplePages:
     """Türün örneklerinden en çok `max_pages` sayfanın analiz görüntüsünü toplar (ad sırasıyla,
     sayfa sırasıyla). Adı `exclude`'da olan örnek alınmaz ve sayılır (11.9.4). Örnek dosyası
-    okunur, değiştirilmez; görüntüler bellektedir."""
+    okunur, değiştirilmez; görüntüler bellektedir. `examples` verilirse liste odur (kalıcı dizinli
+    liste: ham dosyası silinmiş örnek büyük önizlemesiyle girer, 11.9.10); verilmezse klasör."""
     pages: list[ExamplePage] = []
     images: list[PageImage] = []
     omitted = 0
     excluded = 0
     skipped: list[str] = []
-    for example in list_examples(layout, type_slug):
+    listed = list_examples(layout, type_slug) if examples is None else examples
+    for example in listed:
         if example.name in exclude:
             excluded += 1
             continue
@@ -339,7 +345,17 @@ def collect_example_pages(
 def _render(
     layout: DataLayout, settings: Settings, type_slug: str, example: ExampleFile, limit: int
 ) -> tuple[list[bytes], int]:
-    """Örneğin ilk `limit` sayfasının görüntüsü ve toplam sayfa sayısı."""
+    """Örneğin ilk `limit` sayfasının görüntüsü ve toplam sayfa sayısı. Ham dosyası silinmiş örnekte
+    kalıcı büyük önizlemesi (tek sayfa)."""
+    if not example.present:
+        preview = stored_large_preview(layout, type_slug, example.preview_key)
+        if preview is None:
+            raise ExampleRejectedError(
+                Translatable(
+                    N_("'{file}' ham dosyası silindi ve önizlemesi yok."), file=example.name
+                )
+            )
+        return page_images(preview.read_bytes(), FileKind.JPEG, settings, limit)[0], 1
     max_bytes = settings.max_upload_file_size_bytes
     if example.size > max_bytes:
         # Dosya belleğe alınmadan reddedilir; mesaj yüklemedekiyle aynıdır.
@@ -489,11 +505,13 @@ def describe_type(
     photos: Sequence[AcceptedPhoto] = (),
     max_pages: int = MAX_DESCRIPTION_PAGES,
     exclude: Collection[str] = (),
+    examples: Sequence[ExampleFile] | None = None,
 ) -> GeneratedDescription:
     """Türün örneklerinden — fotoğraf türünde ayrıca kabul edilen fotoğraflardan (`photos`,
     `accepted_photos`; 11.8.1) — yapılandırılmış açıklama ürettirir; hiçbir şey kaydetmez.
     Fotoğraf türü olmayan türde `photos` yok sayılır. Adı `exclude`'da olan örnek (doğrulanmamış
-    "AI kararı", `unverified_ai_examples`; 11.9.4) isteğe girmez.
+    "AI kararı", `unverified_ai_examples`; 11.9.4) isteğe girmez. `examples` türün kalıcı dizinli
+    örnek listesidir (11.9.10; `collect_example_pages`).
 
     Sağlayıcı hataları (`ProviderError`) ve şemaya uymayan yanıt (`TypeDescriptionError`) olduğu
     gibi yükselir.
@@ -505,7 +523,12 @@ def describe_type(
         photos = ()
     reserved = min(len(photos), max_pages // 2)
     collected = collect_example_pages(
-        layout, settings, entry.slug, max_pages=max_pages - reserved, exclude=exclude
+        layout,
+        settings,
+        entry.slug,
+        max_pages=max_pages - reserved,
+        exclude=exclude,
+        examples=examples,
     )
     taken = collect_photo_pages(
         layout, settings, photos, max_pages=max_pages - len(collected.images)

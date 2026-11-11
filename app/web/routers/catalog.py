@@ -256,13 +256,13 @@ from app.pipeline.orchestrate import (
 )
 from app.storage import DataLayout, sha256_bytes
 from app.storage.examples import (
+    ExampleFile,
     ExampleRejectedError,
     check_example,
     example_path,
     list_examples,
     store_example,
 )
-from app.storage.previews import PreviewBusy, ensure_preview
 from app.training.cleanup import listed_hashes, record_uploaded_example, same_type_example
 from app.training.known_types import KnownTypes, load_known_types
 from app.web.ai_runtime import ActiveAiSettings
@@ -305,10 +305,8 @@ from app.web.feedback import (
 )
 from app.web.guidance import first_page
 from app.web.previews import (
-    busy_response,
     download_response,
-    is_prefetch,
-    preview_response,
+    example_preview_response,
     preview_url,
 )
 from app.web.routers.documents import _reference
@@ -795,6 +793,14 @@ def _example_records(session: Session, slug: str) -> dict[str, ExampleFileRecord
         session.rollback()
 
 
+def _listed_examples(session: Session, layout: DataLayout, slug: str) -> list[ExampleFile]:
+    """Türün örnekleri (klasör ve kalıcı dizin, 11.9.10); okuma işlemi hemen bırakılır."""
+    try:
+        return list_examples(layout, slug, session)
+    finally:
+        session.rollback()
+
+
 def _move_targets(session: Session, slug: str) -> list[tuple[str, str]]:
     """ "Başka türe taşı"nın seçenekleri: bilinen türler (katalog ∪ önerilen, 11.9) bu tür hariç;
     kayıtlı katalog okunamazsa boş (form yine gönderilir, hedef onay adımında denetlenir)."""
@@ -819,21 +825,23 @@ def _examples_context(
     etiketini taşır; "AI kararı" etiketli örnek elle kontrol ikonuyla görünür ve eğitim
     sekmesindeki tür sayfasına bağlanır (doğrula orada, 11.9.4). Kaydı olan her örnek kaydın
     kimliğiyle (`record_id`) "Başka türe taşı" ve "Örneklerden çıkar" akışına bağlanır (11.9.6);
-    kaydı olmayan dosyada `record_id` boştur."""
+    kaydı olmayan dosyada `record_id` boştur. Ham dosyası silinmiş örnek (11.9.10) kalıcı dizinden
+    adı ve önizlemesiyle listelenir; "İndir" yerine "Ham dosya silindi" yazar (`present`)."""
     records = _example_records(session, slug)
     base = f"{LIST_PATH}/{quote(slug)}"
+    directory = layout.type_examples_dir(slug)
     examples = []
-    for item in list_examples(layout, slug):
+    for item in _listed_examples(session, layout, slug):
         record = records.get(item.name)
         label = record.label if record is not None else None
-        source = layout.type_examples_dir(slug) / item.name
         examples.append(
             {
                 "name": item.name,
                 "size_label": _size_label(item.size),
+                "present": item.present,
                 "url": f"{base}/examples/{quote(item.name)}",
-                "thumb_url": preview_url(base, source, "small"),
-                "preview_url": preview_url(base, source, "large"),
+                "thumb_url": preview_url(base, directory, item, "small"),
+                "preview_url": preview_url(base, directory, item, "large"),
                 "label_text": LABEL_TEXTS.get(label or ""),
                 "manual_check": label == ExampleLabel.AI_DECISION,
                 "record_id": record.id if record is not None else None,
@@ -1672,7 +1680,10 @@ async def upload_examples(
             examples=_examples_context(session, layout, slug, errors=errors),
             photo=_photo_context(session, slug, record["photo_rules"]),
         )
-    stored = [store_example(layout, slug, name, content, kind) for name, content, kind in checked]
+    stored = [
+        store_example(layout, slug, name, content, kind, session=session)
+        for name, content, kind in checked
+    ]
     try:
         for example in stored:
             if not example.duplicate:  # ön denetimden sonra başka bir yükleme yazdıysa
@@ -1710,8 +1721,9 @@ def _duplicate_examples(
     session: Session, layout: DataLayout, slug: str, checked: list[tuple[str, bytes, Any]]
 ) -> list[str]:
     """Aynı içerik bu türde zaten örnekse (etkin kaydı ya da klasördeki kayıtsız dosyası) ya da
-    aynı yüklemede tekrar ediyorsa dosya başına ret metni (11.9.2); hiçbir şey yazmaz."""
-    listed = listed_hashes(layout, slug)
+    aynı yüklemede tekrar ediyorsa dosya başına ret metni (11.9.2); hiçbir şey yazmaz. Ham dosyası
+    silinmiş örneğin içeriği kalıcı dizinden tanınır (11.9.10)."""
+    listed = listed_hashes(layout, slug, session)
     seen: dict[str, str] = {}
     problems: list[str] = []
     try:
@@ -1760,18 +1772,15 @@ def example_preview(
     slug: str, size: str, name: str, request: Request, session: DbSession, layout: Layout
 ) -> Response:
     """Örneğin küçük (`small`) ya da büyük (`large`) önizlemesi (11.9.7); yoksa üretilir. Ad
-    listede yoksa, kaydı örneklerden çıkarılmışsa ya da boyut tanımsızsa 404. Ön yükleme üretim
+    listede ya da kalıcı örnek dizininde yoksa, kaydı örneklerden çıkarılmışsa ya da boyut
+    tanımsızsa 404. Ham dosyası silinmiş örnekte kalıcı önizleme döner (11.9.10). Ön yükleme üretim
     yeri bulamazsa 503 (11.9.8)."""
     _known_type(session, slug)
     if _removed_only(session, slug, name):
         raise HTTPException(status.HTTP_404_NOT_FOUND, EXAMPLE_NOT_FOUND)
-    try:
-        preview = ensure_preview(layout, slug, name, size, wait=not is_prefetch(request))
-    except PreviewBusy:
-        return busy_response()
-    if preview is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, EXAMPLE_NOT_FOUND)
-    return preview_response(request, preview, size)
+    return example_preview_response(
+        request, layout, session, slug, name, size, not_found=EXAMPLE_NOT_FOUND
+    )
 
 
 def get_description_provider(
@@ -1858,7 +1867,15 @@ def generate_description(
             error=Translatable(DESCRIPTION_PROVIDER_UNAVAILABLE, detail=str(provider)),
         )
     try:
-        generated = describe_type(entry, layout, settings, provider, photos=photos, exclude=exclude)
+        generated = describe_type(
+            entry,
+            layout,
+            settings,
+            provider,
+            photos=photos,
+            exclude=exclude,
+            examples=_listed_examples(session, layout, entry.slug),
+        )
     except TypeNotAnalyzedError:
         return page(status.HTTP_422_UNPROCESSABLE_CONTENT, error=DESCRIPTION_NOT_ANALYZED)
     except NoExamplePagesError as exc:

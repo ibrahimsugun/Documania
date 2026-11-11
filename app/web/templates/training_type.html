@@ -33,7 +33,7 @@
     </a>
     <span class="caption"><a href="{{ example.preview_url }}" target="_blank" rel="noopener" title="{{ _('Büyük önizleme') }}">{{ example.name }}</a></span>
     <span class="reason">{{ example.size_label }}{% if example.method %} · {{ translate(example.method) }}{% endif %}</span>
-    <a class="button-link button-small" href="{{ example.url }}" download>{{ _("İndir") }}</a>
+    {% if example.present %}<a class="button-link button-small" href="{{ example.url }}" download>{{ _("İndir") }}</a>{% else %}<span class="badge badge-missing">{{ _("Ham dosya silindi") }}</span>{% endif %}
     <span class="badges">
       {% if example.label_text %}<span class="badge{% if not example.manual_check %} badge-neutral{% endif %}">{{ translate(example.label_text) }}</span>{% endif %}
       {% if example.manual_check %}{% include "_manual_check.html" %}{% endif %}

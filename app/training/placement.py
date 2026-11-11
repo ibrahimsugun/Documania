@@ -18,6 +18,8 @@ Eğitim modu yalnız bilinen belgelerin (`app.training.known_types`) örneklerin
   `conflict` ("başka türde örnek: <slug>"); iki durumda da dosya yazılmaz. Kaynak dosya zaten o
   türün örnek klasöründeyse kopyalanmaz, yerinde kaydedilir. Klasörde kayıtsız duran aynı içerik
   (eğitimden önce konmuş ya da el ile yüklenmiş) `legacy` olarak kaydedilir ve öğe `skipped` olur.
+  Yerleşen örnek kalıcı örnek dizinine de yazılır (`example_index`, 11.9.10); klasörde aynı içerik
+  dizinden de tanınır (ham dosyası silinmiş örnek dahil).
   Örneklerden çıkarılmış kayıt (11.9.4, `app.training.decisions`) tekrar sayılmaz: çıkarılan içerik
   yeniden yerleşebilir.
 - **Yerleşmeyen öğe (`leave_unplaced`).** Tanıma bir türe inmediyse (`unplaced`, "Yerleştirilemedi")
@@ -70,6 +72,7 @@ from app.storage.examples import (
     ExampleRejectedError,
     check_example,
     example_path,
+    record_example_index,
     store_example,
 )
 from app.storage.filetype import UnsupportedFileTypeError, detect_file_kind
@@ -280,13 +283,23 @@ def place_example(
     name = _in_place_name(layout, slug, path)
     copied = name is None
     if name is None:
-        stored = store_example(layout, slug, item.original_name, content, kind)
+        stored = store_example(layout, slug, item.original_name, content, kind, session=session)
         if stored.duplicate:
             legacy = _record_legacy(session, slug, stored.name, sha256)
             return _not_placed(
                 session, item, slug, method, note, actor, legacy, skipped=True, extra=extra
             )
         name = stored.name
+    else:
+        record_example_index(
+            session,
+            slug,
+            name,
+            size=len(content),
+            sha256=sha256,
+            kind=kind,
+            page_count=item.page_count,
+        )
 
     label = LABEL_BY_METHOD[method]
     example = ExampleFileRecord(

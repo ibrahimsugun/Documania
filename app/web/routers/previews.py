@@ -60,9 +60,9 @@ def preview_thumbs(
     response.headers["Cache-Control"] = "private, no-store"
     try:
         slugs = [known.slug for known in load_known_types(session)]
+        urls = list(_thumb_urls(session, layout, slugs))
     finally:
         session.rollback()
-    urls = list(_thumb_urls(layout, slugs))
     version = hashlib.sha256("\n".join(urls).encode("utf-8")).hexdigest()[:20]
     end = after + limit
     return {
@@ -72,17 +72,15 @@ def preview_thumbs(
     }
 
 
-def _thumb_urls(layout: DataLayout, slugs: list[str]) -> Iterator[str]:
-    """Türlerin örneklerinin küçük önizleme adresleri, tür ve ad sırasıyla (tür sayfasıyla aynı)."""
+def _thumb_urls(session: Session, layout: DataLayout, slugs: list[str]) -> Iterator[str]:
+    """Türlerin örneklerinin küçük önizleme adresleri, tür ve ad sırasıyla (tür sayfasıyla aynı);
+    ham dosyası silinmiş örnekler kalıcı dizinden gelir (11.9.10)."""
     for slug in slugs:
         try:
-            examples = list_examples(layout, slug)
+            examples = list_examples(layout, slug, session)
         except ValueError:  # yol parçası olamayan slug
             continue
         base = f"{KNOWN_PATH}/{quote(slug)}"
         directory = layout.type_examples_dir(slug)
         for example in examples:
-            try:
-                yield preview_url(base, directory / example.name, "small")
-            except FileNotFoundError:  # listelenip silindi
-                continue
+            yield preview_url(base, directory, example, "small")

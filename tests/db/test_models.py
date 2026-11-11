@@ -56,6 +56,7 @@ SECTION_8_1_TABLES = {
     "training_runs",
     "training_items",
     "example_files",
+    "example_index",  # 11.9.10, PLAN.md §D135
     "document_groups",
     "document_group_items",
     "employee_packages",

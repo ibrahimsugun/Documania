@@ -16,6 +16,11 @@ karardan birini verir:
   (`removed_at`, `removed_by`, `removed_path`). Çıkarılan örnek tekrar tespitine, sayımlara ve
   açıklama üretimine girmez. `TRAINING_EXAMPLE_REMOVED`.
 
+**Ham dosyası silinmiş örnek (11.9.10; PLAN.md §D135 c).** Örnek kalıcı örnek dizini
+(`example_index`) ve önizlemesiyle yaşar; taşıma ve çıkarma ham dosya yoksa dizin satırını ve
+önizleme dosyalarını taşır (`relocate_indexed_example`, `archive_indexed_example`), çıkarılan
+kaydın `removed_path`'i boş kalır (arşive taşınacak dosya yoktur).
+
 Taşıma ve çıkarma iki aşamalı onaylıdır; belirteci çağıran (panel) tüketir, bu modül yalnız işlemi
 yapar. Denetimlerin hepsi diske dokunmadan önce yapılır; reddedilen karar hiçbir şey yazmaz. Dosya
 kayıt güncellendikten sonra, en son taşınır: taşıma düşerse istisna çağırana geçer ve işlem geri
@@ -38,7 +43,13 @@ from app.events import EventType, record_event
 from app.i18n import N_, Translatable
 from app.i18n.recorded import append_text
 from app.storage import DataLayout
-from app.storage.examples import archive_example, example_path, find_example, relocate_example
+from app.storage.examples import (
+    archive_indexed_example,
+    example_path,
+    find_example,
+    relocate_indexed_example,
+    removed_entry,
+)
 from app.training.known_types import KnownTypes
 from app.training.placement import UnknownTypeError
 
@@ -120,7 +131,7 @@ def check_move(
     `ExampleDecisionError`. Hiçbir şey yazmaz."""
     if slug not in known:
         raise UnknownTypeError(f"Bilinmeyen tür: {slug!r}")
-    _check_active(layout, example)
+    _check_active(session, layout, example)
     if slug == example.type_slug:
         raise ExampleDecisionError(N_("Örnek zaten bu türde; başka bir tür seçin."))
     recorded = session.scalar(
@@ -130,7 +141,9 @@ def check_move(
             ExampleFileRecord.removed_at.is_(None),
         )
     )
-    listed = find_example(layout, slug, example.sha256) if recorded is None else None
+    listed = (
+        find_example(layout, slug, example.sha256, session=session) if recorded is None else None
+    )
     name = recorded.name if recorded is not None else listed.name if listed is not None else None
     if name is not None:
         raise ExampleDecisionError(
@@ -154,9 +167,11 @@ def move_example(
     check_move(session, layout, known, example, slug)
     from_slug, from_name, previous_label = example.type_slug, example.name, example.label
     note = moved_note(from_slug, slug)
-    stored = relocate_example(layout, from_slug, from_name, slug, expected_sha256=example.sha256)
+    moved = relocate_indexed_example(
+        session, layout, from_slug, from_name, slug, expected_sha256=example.sha256
+    )
     example.type_slug = slug
-    example.name = stored.path.name
+    example.name = moved.name
     example.label = ExampleLabel.VERIFIED.value
     example.note = append_text(session, example.note, note)
     item = example.training_item
@@ -185,9 +200,9 @@ def move_example(
     return MovedExample(example, from_slug, from_name, previous_label)
 
 
-def check_remove(layout: DataLayout, example: ExampleFileRecord) -> None:
+def check_remove(session: Session, layout: DataLayout, example: ExampleFileRecord) -> None:
     """Çıkarma yapılabilir mi; değilse `ExampleDecisionError`. Hiçbir şey yazmaz."""
-    _check_active(layout, example)
+    _check_active(session, layout, example)
 
 
 def remove_example(
@@ -196,13 +211,13 @@ def remove_example(
     """Örneği örneklerden çıkarır: dosya eğitim arşivine taşınır, kayıt işaretlenir (modül
     açıklaması); commit etmez."""
     _require_actor(actor)
-    check_remove(layout, example)
-    stored = archive_example(
-        layout, example.type_slug, example.name, expected_sha256=example.sha256
+    check_remove(session, layout, example)
+    stored = archive_indexed_example(
+        session, layout, example.type_slug, example.name, expected_sha256=example.sha256
     )
     example.removed_at = utcnow()
     example.removed_by = actor
-    example.removed_path = layout.relative(stored.path)
+    example.removed_path = layout.relative(stored.path) if stored is not None else None
     example.note = append_text(session, example.note, REMOVED_NOTE)
     item = example.training_item
     if item is not None:
@@ -226,10 +241,15 @@ def remove_example(
     return example
 
 
-def _check_active(layout: DataLayout, example: ExampleFileRecord) -> None:
+def _check_active(session: Session, layout: DataLayout, example: ExampleFileRecord) -> None:
+    """Örnek etkin ve yerinde mi: ham dosyası klasörde ya da ham dosyası silinmiş (`removed`)
+    olarak kalıcı dizinde."""
     if example.removed_at is not None:
         raise ExampleDecisionError(N_("Örnek zaten örneklerden çıkarılmış."))
-    if example_path(layout, example.type_slug, example.name) is None:
+    if (
+        example_path(layout, example.type_slug, example.name) is None
+        and removed_entry(session, example.type_slug, example.name) is None
+    ):
         raise ExampleDecisionError(
             N_("Örnek dosyası türün klasöründe bulunamadı; işlem yapılmadı.")
         )

@@ -1,14 +1,18 @@
-"""Belge önizlemeleri (PRD 11.9.7, 11.9.9; PLAN.md §D130, §D132) — `cache/previews/`.
+"""Belge önizlemeleri (PRD 11.9.7, 11.9.9, 11.9.10; PLAN.md §D130, §D132, §D135).
 
 Eğitim ve katalog sayfaları örneği orijinal dosya olarak değil, bir kez üretilip saklanan küçük
 JPEG olarak gösterir: liste küçük resmi (`small`, uzun kenar 320 px) ve ada tıklayınca açılan büyük
 önizleme (`large`, 1280 px; PDF'de ilk sayfa, `app.pipeline.render` çizicisiyle).
 
-- **Belge değil gösterim önbelleğidir** (`cache/pages` gibi): orijinal hiç yazılmaz, bayt bayt aynı
-  kalır (K10, K11). Önizleme kaynaktan yeniden üretilir; yedeğe girmez (`scripts/backup.sh`).
-- **Anahtar** örneğin adından, boyutundan ve değişme zamanından türer (`preview_key`): örnek
-  değişirse önizlemenin adı ve adresi de değişir, tarayıcı eskisini uzun önbellekte tutabilir.
-- **Yol istekteki addan kurulmaz:** ad önce türün örnek listesinde aranır (`example_path`).
+- **Örnek önizlemesi kalıcıdır** (11.9.10; §D135 b): `KnownDocuments/_onizlemeler/<tur_slug>/`'a
+  yazılır ve gece yedeğine girer — ham dosya silinince örneğin tek temsilidir, yeniden üretilemez.
+  Orijinal hiç yazılmaz, bayt bayt aynı kalır (K10, K11). Öteki kaynakların önizlemesi
+  `cache/previews/<kaynak-turu>/`'ndadır: gösterim önbelleğidir, yedeğe girmez.
+- **Anahtar** örneğin SHA-256'sından türer (`example_preview_key`; kalıcı örnek dizininde,
+  `example_index`): içerik değişirse önizlemenin adı ve adresi de değişir, tarayıcı eskisini uzun
+  önbellekte tutabilir. Ham dosyası silinmiş örneğin önizlemesi dizindeki anahtarla bulunur; yoksa
+  yer tutucu gösterilir.
+- **Yol istekteki addan kurulmaz:** ad önce türün örnek listesinde ya da dizininde aranır.
 - **Güvenlik:** görüntü Pillow ile açılır; piksel sınırı (`PREVIEW_MAX_PIXELS`) ve Pillow'un
   sıkıştırma bombası uyarısı hata sayılır. Çıktı yalnız yeniden kodlanmış JPEG'dir: EXIF, GPS ve
   ICC taşımaz (yalnız EXIF yönelimi fiziksel olarak uygulanır). Üretilemeyen örnekte önizleme yoktur
@@ -28,7 +32,6 @@ JPEG olarak gösterir: liste küçük resmi (`small`, uzun kenar 320 px) ve ada 
 from __future__ import annotations
 
 import hashlib
-import os
 import threading
 import warnings
 from collections.abc import Iterator
@@ -39,10 +42,18 @@ from io import BytesIO
 from pathlib import Path
 
 from PIL import Image, ImageOps
+from sqlalchemy.orm import Session
 
 from app.pipeline.render import RenderError, pdf_page_count, render_pdf_page_image
-from app.storage.atomic import replace_file
-from app.storage.examples import example_path, list_examples
+from app.storage.atomic import replace_file, sha256_file
+from app.storage.examples import (
+    example_path,
+    example_preview_key,
+    example_slugs,
+    index_example,
+    indexed_slugs,
+    list_examples,
+)
 from app.storage.layout import DataLayout
 
 # Boyut adı → (uzun kenar px, JPEG kalitesi).
@@ -83,7 +94,9 @@ class Preview:
 
 
 def preview_key(path: Path) -> str:
-    """Örneğin adı, boyutu ve değişme zamanından türeyen anahtar (içerik okunmaz)."""
+    """Dosyanın adı, boyutu ve değişme zamanından türeyen sürüm (içerik okunmaz). Örnek
+    önizlemesinin anahtarı değildir (o SHA-256'dan türer); henüz dizinde olmayan örneğin adres
+    sürümüdür."""
     stat = path.stat()
     state = f"{path.name}\0{stat.st_size}\0{stat.st_mtime_ns}"
     return hashlib.sha256(state.encode("utf-8")).hexdigest()[:_KEY_LENGTH]
@@ -140,18 +153,52 @@ def document_page_count(path: Path) -> int:
 
 
 def ensure_preview(
-    layout: DataLayout, type_slug: str, name: str, size: str, *, wait: bool = True
+    layout: DataLayout,
+    type_slug: str,
+    name: str,
+    size: str,
+    *,
+    session: Session | None = None,
+    key: str | None = None,
+    wait: bool = True,
 ) -> Preview | None:
-    """Örneğin `size` boyutlu önizlemesi; yoksa üretir. `name` türün örnek listesinde yoksa ya da
-    boyut tanımsızsa `None` (çağıran 404 döner). `wait=False` iken üretim hemen başlayamıyorsa
-    `PreviewBusy` (var olan önizleme her zaman beklemeden döner)."""
+    """Örneğin `size` boyutlu kalıcı önizlemesi; yoksa üretir. `name` türün örnek listesinde yoksa
+    ya da boyut tanımsızsa `None` (çağıran 404 döner). `wait=False` iken üretim hemen
+    başlayamıyorsa `PreviewBusy` (var olan önizleme her zaman beklemeden döner).
+
+    Oturum verilirse anahtar kalıcı örnek dizininden okunur (dizinde olmayan örnek bir kez okunup
+    yazılır; çağıran commit eder). Ham dosyası silinmiş örnekte önizleme yalnız dizindeki anahtarla
+    bulunur, üretilemez: yoksa `Preview.path` boştur (yer tutucu). `key` verilirse (çağıran dizinden
+    okuyup işlemini kapattıysa) dizin okunmaz: üretim sırasında veritabanı işlemi açık kalmaz.
+    Oturumsuz ve anahtarsız çağrıda anahtar için dosya her seferinde okunur."""
     if size not in PREVIEW_SIZES:
         return None
+    if key is None:
+        key = _example_key(layout, type_slug, name, session)
+    if key is None:
+        return None
+    target = layout.preview_path(type_slug, key, size)
+    source = example_path(layout, type_slug, name)
+    if source is None:
+        return Preview(key, target if target.is_file() else None)
+    return _ensure(source, 0, key, target, size, wait=wait)
+
+
+def _example_key(
+    layout: DataLayout, type_slug: str, name: str, session: Session | None
+) -> str | None:
+    """Örneğin önizleme anahtarı: oturumla dizinden, oturumsuz dosyanın SHA-256'sından; örnek
+    yoksa `None`."""
+    if session is not None:
+        row = index_example(session, layout, type_slug, name)
+        return row.preview_key if row is not None else None
     source = example_path(layout, type_slug, name)
     if source is None:
         return None
-    key = preview_key(source)
-    return _ensure(source, 0, key, layout.preview_path(type_slug, key, size), size, wait=wait)
+    try:
+        return example_preview_key(sha256_file(source))
+    except FileNotFoundError:
+        return None
 
 
 def ensure_source_preview(
@@ -218,31 +265,51 @@ def _render_turn(target: Path, *, wait: bool) -> Iterator[None]:
                 _locks[target] = (lock, users - 1)
 
 
-def warm_previews(layout: DataLayout) -> dict[str, int]:
-    """Bütün türlerin bütün örneklerinin iki önizlemesini üretir (toplu ısıtma). Var olan atlanır;
-    durdurulan koşu yeniden çalışınca kaldığı yerden sürer. Sonuç: `created`, `existing`,
-    `failed` sayıları."""
-    counts = {"created": 0, "existing": 0, "failed": 0}
+def warm_previews(layout: DataLayout, session: Session | None = None) -> dict[str, int]:
+    """Bütün türlerin bütün örneklerinin iki kalıcı önizlemesini üretir (toplu ısıtma). Var olan
+    atlanır; durdurulan koşu yeniden çalışınca kaldığı yerden sürer. Sonuç: `created`,
+    `existing`, `failed` sayıları.
+
+    Oturum verilirse liste ve anahtarlar kalıcı örnek dizininden okunur (önce
+    `sync_example_index` çalıştırılmalıdır), okuma bitince işlem bırakılır — üretim boyunca
+    veritabanı işlemi açık kalmaz (oturumda bekleyen yazma olmamalı). Ham dosyası silinmiş ve
+    önizlemesi olmayan örnek `failed` sayılır. Dizinde anahtarı olmayan dosyanın anahtarı
+    içeriğinden hesaplanır (dizine yazılmaz)."""
+    slugs = set(example_slugs(layout))
     try:
-        slugs = sorted(entry.name for entry in os.scandir(layout.examples) if entry.is_dir())
-    except FileNotFoundError:
-        return counts
-    for slug in slugs:
-        try:
-            examples = list_examples(layout, slug)
-        except ValueError:  # yol parçası olamayan dizin adı (elle açılmış)
-            continue
-        for example in examples:
-            for size in PREVIEW_SIZES:
-                source = example_path(layout, slug, example.name)
-                if source is None:
-                    continue
-                if layout.preview_path(slug, preview_key(source), size).is_file():
-                    counts["existing"] += 1
-                    continue
-                preview = ensure_preview(layout, slug, example.name, size)
-                counts["created" if preview is not None and preview.path else "failed"] += 1
+        if session is not None:
+            slugs |= set(indexed_slugs(session))
+        targets = [
+            (slug, example)
+            for slug in sorted(slugs)
+            for example in list_examples(layout, slug, session)
+        ]
+    finally:
+        if session is not None:
+            session.rollback()
+    counts = {"created": 0, "existing": 0, "failed": 0}
+    for slug, example in targets:
+        key = example.preview_key or _example_key(layout, slug, example.name, None)
+        for size in PREVIEW_SIZES:
+            if key is not None and layout.preview_path(slug, key, size).is_file():
+                counts["existing"] += 1
+                continue
+            preview = (
+                ensure_preview(layout, slug, example.name, size, key=key)
+                if key is not None and example.present
+                else None
+            )
+            counts["created" if preview is not None and preview.path else "failed"] += 1
     return counts
+
+
+def stored_large_preview(layout: DataLayout, type_slug: str, key: str | None) -> Path | None:
+    """Ham dosyası silinmiş örneğin yerine geçen girdi (tür açıklaması 11.3, yeniden kontrol;
+    11.9.10): örneğin kalıcı büyük önizlemesi. Anahtar boşsa ya da önizleme yoksa `None`."""
+    if key is None:
+        return None
+    path = layout.preview_path(type_slug, key, "large")
+    return path if path.is_file() else None
 
 
 @lru_cache(maxsize=1)

@@ -95,6 +95,24 @@ def test_preview_cache_is_never_archived(project: Project) -> None:
     assert "data/cache/pages/7/0000.jpg" in names
 
 
+def test_persistent_example_previews_are_in_the_nightly_archive(project: Project) -> None:
+    # 11.9.10 (PLAN.md §D135 b): ham dosya silinince önizleme örneğin tek temsilidir; malzeme
+    # arşivin dışında kalsa da kalıcı önizleme dizini gece arşivine girer.
+    _add_material(project)
+    preview = (
+        project.data / "KnownDocuments" / "_onizlemeler" / "russian_passport" / "abc-large.jpg"
+    )
+    preview.parent.mkdir(parents=True)
+    preview.write_bytes(b"synthetic preview")
+
+    result = project.backup()
+
+    assert result.code == 0, result.text
+    names = _archive_names(project)
+    assert "data/KnownDocuments/_onizlemeler/russian_passport/abc-large.jpg" in names
+    assert not [n for n in names if "/examples/" in n]
+
+
 def test_include_flag_puts_the_material_back_into_the_archive(project: Project) -> None:
     _add_material(project)
 

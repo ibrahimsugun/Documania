@@ -4,9 +4,12 @@
     python -m app.training recheck [--limit N] [--dry-run] [--again] [--report YOL]
     python -m app.training previews
 
-`previews` bütün türlerin bütün örneklerinin küçük ve büyük önizlemesini `cache/previews/` altına
-üretir (`app.storage.previews.warm_previews`); var olanı atlar, durdurulursa yeniden çalıştırınca
-kaldığı yerden sürer, sonda üretilen/var olan/üretilemeyen sayılarını yazar. Yapay zekâ çağırmaz.
+`previews` önce kalıcı örnek dizinini diskle eşitler (`app.storage.examples.sync_example_index`:
+klasörde olup dizinde olmayan örnekler okunup yazılır, ham dosyası kalkan satır `removed` olur;
+11.9.10), sonra bütün türlerin bütün örneklerinin küçük ve büyük kalıcı önizlemesini
+`KnownDocuments/_onizlemeler/` altına üretir (`app.storage.previews.warm_previews`); var olanı
+atlar, durdurulursa yeniden çalıştırınca kaldığı yerden sürer, sonda eşitleme ve üretilen/var
+olan/üretilemeyen sayılarını yazar. Yapay zekâ çağırmaz.
 
 Etkin "AI kararı" örneklerini GPT-6.1 Sol ve Claude Sonnet 5.5 (ikisi `low`) ile ayrı ayrı
 sınıflandırır (`app.training.recheck`): ikisi örneğin türünü verirse etiket "doğrulanmış" olur;
@@ -30,6 +33,7 @@ from app.config import get_settings
 from app.db.models import ExampleFileRecord
 from app.db.session import create_db_engine, create_session_factory
 from app.storage import DataLayout
+from app.storage.examples import sync_example_index
 from app.storage.previews import warm_previews
 from app.training.known_types import load_known_types
 from app.training.pair import (
@@ -71,10 +75,31 @@ def _parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _index_progress(done: int, total: int) -> None:
+    if done == total or done % 100 == 0:
+        print(f"Dizine yazılıyor: {done}/{total}", file=sys.stderr, flush=True)
+
+
 def _previews() -> int:
-    layout = DataLayout(get_settings().data_dir)
-    counts = warm_previews(layout)
-    print(json.dumps(counts, ensure_ascii=False))
+    settings = get_settings()
+    layout = DataLayout(settings.data_dir)
+    factory = create_session_factory(create_db_engine(settings.database_url))
+    with factory() as session:
+        synced = sync_example_index(session, layout, progress=_index_progress)
+        session.commit()
+    with factory() as session:
+        counts = warm_previews(layout, session)
+    print(
+        json.dumps(
+            {
+                "indexed": synced.indexed,
+                "removed": synced.removed,
+                "present": synced.present,
+                **counts,
+            },
+            ensure_ascii=False,
+        )
+    )
     return 0
 
 

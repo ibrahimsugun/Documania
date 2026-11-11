@@ -21,9 +21,11 @@ data/
       _egitim/cikarilan/<tur_slug>/   örneklerden çıkarılanlar; silinmez (11.9.4)
       _sablonlar/<template_id>/       hazır şablonun orijinali (sablon.pdf, değişmez) ve
                                       pages/<sayfa>.jpg önizleme görüntüleri (15.1.1)
+      _onizlemeler/<tur_slug>/        örneklerin kalıcı önizlemeleri (<anahtar>-<boyut>.jpg; 11.9.7,
+                                      11.9.10); ham dosya silinince örneğin tek temsilidir,
+                                      yedeğe girer (önbellek değil)
+      _onizlemeler/_cikarilan/<tur_slug>/  örneklerden çıkarılanların önizlemeleri (11.9.4)
   cache/pages/<file_id>/          analiz için üretilmiş sayfa görüntüleri
-  cache/previews/<tur_slug>/      örneklerin gösterim önizlemeleri (<anahtar>-<boyut>.jpg; 11.9.7);
-                                  kaynaktan yeniden üretilir, yedeğe girmez
   cache/previews/<kaynak-turu>/   diğer belge kaynaklarının önizlemeleri (çalışan belgesi, yükleme
                                   sayfası, üretilen belge, şablon sayfası, fotoğraf; 11.9.9) —
                                   kaynak türü adı tire taşır, tür slug'ıyla çakışmaz
@@ -64,6 +66,8 @@ TRAINING_MAPS = "haritalar"
 TRAINING_REMOVED = "cikarilan"
 TEMPLATES = "_sablonlar"
 TEMPLATE_ORIGINAL_FILE = "sablon.pdf"
+EXAMPLE_PREVIEWS = "_onizlemeler"
+ARCHIVED_EXAMPLE_PREVIEWS = "_cikarilan"
 CACHE = "cache"
 PAGES = "pages"
 PREVIEWS = "previews"
@@ -128,9 +132,16 @@ class DataLayout:
 
     @property
     def preview_cache(self) -> Path:
-        """`cache/previews/` — örnek önizlemeleri (11.9.7). Belge değil gösterim önbelleğidir
-        (`cache/pages` gibi); dizin ilk önizleme yazılınca açılır."""
+        """`cache/previews/` — örnek dışındaki belge kaynaklarının önizlemeleri (11.9.9). Belge
+        değil gösterim önbelleğidir (`cache/pages` gibi); dizin ilk önizleme yazılınca açılır."""
         return self.root / CACHE / PREVIEWS
+
+    @property
+    def example_previews(self) -> Path:
+        """`KnownDocuments/_onizlemeler/` — örneklerin kalıcı önizlemeleri (11.9.7, 11.9.10;
+        PLAN.md §D135 b). Önbellek değildir: ham dosya silinince örneğin tek temsilidir, yeniden
+        üretilemez ve gece yedeğine girer. Dizin ilk önizleme yazılınca açılır."""
+        return self.known_documents / EXAMPLE_PREVIEWS
 
     @property
     def catalog_path(self) -> Path:
@@ -263,11 +274,17 @@ class DataLayout:
         return self.page_cache_dir(file_id) / f"{page_index:04d}.{extension}"
 
     def preview_dir(self, type_slug: str) -> Path:
-        return self.preview_cache / _segment(type_slug, "type_slug")
+        """`KnownDocuments/_onizlemeler/<tur_slug>/` — türün örnek önizlemeleri (kalıcı)."""
+        return self.example_previews / _segment(type_slug, "type_slug")
+
+    def archived_preview_dir(self, type_slug: str) -> Path:
+        """`KnownDocuments/_onizlemeler/_cikarilan/<tur_slug>/` — örneklerden çıkarılanların
+        önizlemeleri (11.9.4). `_` ile başlayan ad tür slug'ıyla çakışmaz."""
+        return self.example_previews / ARCHIVED_EXAMPLE_PREVIEWS / _segment(type_slug, "type_slug")
 
     def preview_path(self, type_slug: str, key: str, size: str) -> Path:
-        """`cache/previews/<tur_slug>/<anahtar>-<boyut>.jpg` — anahtar örneğin adından, boyutundan
-        ve değişme zamanından türer (örnek değişirse yeni ad, 11.9.7)."""
+        """`KnownDocuments/_onizlemeler/<tur_slug>/<anahtar>-<boyut>.jpg` — anahtar örneğin
+        SHA-256'sından türer (içerik değişirse yeni ad; 11.9.7, 11.9.10)."""
         name = f"{_segment(key, 'preview_key')}-{_segment(size, 'preview_size')}"
         return self.preview_dir(type_slug) / f"{name}.{PAGE_IMAGE_EXTENSION}"
 

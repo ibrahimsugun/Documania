@@ -31,7 +31,9 @@ from app.storage.examples import (
     list_examples,
     relocate_example,
     store_example,
+    sync_example_index,
 )
+from app.storage.previews import ensure_preview
 from app.training import (
     ExampleDecisionError,
     KnownTypes,
@@ -413,3 +415,45 @@ def test_storage_moves_refuse_an_unlisted_name_and_keep_the_source_on_mismatch(
 
     assert moved.path == layout.type_examples_dir(TO_SLUG) / "a.pdf"
     assert _examples(layout, FROM_SLUG) == [] and moved.path.read_bytes() == content
+
+
+# --- 11.9.10: ham dosyası silinmiş örnek (PLAN.md §D135 c) --------------------------------------
+
+
+def _purge_original(session: Session, layout: DataLayout, example: ExampleFileRecord) -> None:
+    (layout.type_examples_dir(example.type_slug) / example.name).unlink()
+    sync_example_index(session, layout)
+
+
+def test_moving_and_removing_an_example_without_its_original(
+    session: Session, layout: DataLayout, known: KnownTypes
+) -> None:
+    moved = _placed(session, layout, known, _png(200))
+    ensure_preview(layout, FROM_SLUG, moved.name, "small", session=session)
+    removed = _placed(session, layout, known, _png(260), name="ikinci.png")
+    _purge_original(session, layout, moved)
+    _purge_original(session, layout, removed)
+
+    move_example(session, layout, known, moved, TO_SLUG, actor=ACTOR)
+    remove_example(session, layout, removed, actor=ACTOR)
+
+    assert (moved.type_slug, moved.label) == (TO_SLUG, "verified")
+    (listed,) = list_examples(layout, TO_SLUG, session)
+    assert listed.name == moved.name and not listed.present
+    assert any(layout.preview_dir(TO_SLUG).glob(f"{listed.preview_key}-small.jpg"))
+    assert removed.removed_at is not None and removed.removed_path is None
+    assert list_examples(layout, FROM_SLUG, session) == []
+
+
+def test_same_content_placed_again_after_the_original_is_removed_is_skipped(
+    session: Session, layout: DataLayout, known: KnownTypes
+) -> None:
+    content = _png(200)
+    example = _placed(session, layout, known, content)
+    _purge_original(session, layout, example)
+
+    item = stage_file(session, layout, _run(session), "tekrar.png", content, max_bytes=LIMIT)
+    placement = place_example(session, layout, known, item, FROM_SLUG, method=TrainingMethod.AI)
+
+    assert placement.status is TrainingItemStatus.SKIPPED
+    assert _examples(layout, FROM_SLUG) == []  # ham dosya yeniden yazılmadı

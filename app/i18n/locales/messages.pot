@@ -4,7 +4,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Documania panel\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-27 22:30+0000\n"
+"POT-Creation-Date: 2026-11-11 22:03+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -288,6 +288,11 @@ msgstr ""
 #: app/catalog/describe.py app/storage/examples.py
 #, python-brace-format
 msgid "'{file}' dosyası {limit} MB sınırını aşıyor."
+msgstr ""
+
+#: app/catalog/describe.py
+#, python-brace-format
+msgid "'{file}' ham dosyası silindi ve önizlemesi yok."
 msgstr ""
 
 #: app/storage/examples.py
@@ -3151,6 +3156,10 @@ msgstr ""
 
 #: app/catalog/photo_rules.py
 msgid "Güneş gözlüğü yok"
+msgstr ""
+
+#: app/web/templates/catalog_examples.html app/web/templates/training_type.html
+msgid "Ham dosya silindi"
 msgstr ""
 
 #: app/web/routers/training.py

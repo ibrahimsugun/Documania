@@ -4,8 +4,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Documania panel\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-27 22:30+0000\n"
-"PO-Revision-Date: 2026-10-27 22:30+0000\n"
+"POT-Creation-Date: 2026-11-11 22:03+0000\n"
+"PO-Revision-Date: 2026-11-11 22:03+0000\n"
 "Last-Translator: Documania görev penceresi (gözden geçirilmeli)\n"
 "Language: en\n"
 "Language-Team: English\n"
@@ -316,6 +316,11 @@ msgstr "The file '{file}' was not found."
 #, python-brace-format
 msgid "'{file}' dosyası {limit} MB sınırını aşıyor."
 msgstr "The file '{file}' exceeds the {limit} MB limit."
+
+#: app/catalog/describe.py
+#, python-brace-format
+msgid "'{file}' ham dosyası silindi ve önizlemesi yok."
+msgstr "The original file of '{file}' was deleted and it has no preview."
 
 #: app/storage/examples.py
 #, python-brace-format
@@ -3563,6 +3568,10 @@ msgstr "Current plan version"
 #: app/catalog/photo_rules.py
 msgid "Güneş gözlüğü yok"
 msgstr "No sunglasses"
+
+#: app/web/templates/catalog_examples.html app/web/templates/training_type.html
+msgid "Ham dosya silindi"
+msgstr "Original file deleted"
 
 #: app/web/routers/training.py
 msgid "Harita"
