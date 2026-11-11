@@ -39,7 +39,8 @@ ortamı gerekmez). PostgreSQL için ayrıca `pg_dump`, `pg_restore`, `psql` (`po
 - **Örneklerin önizlemeleri arşive HER ZAMAN girer** (`KnownDocuments/_onizlemeler`, 11.9.7,
   11.9.10): ham örnek dosyası silinince örneğin tek temsilidir ve yeniden üretilemez; malzeme arşiv
   dışında kalsa da bu dizin arşivdedir. Ham dosyası duran örneklerin önizlemelerini önceden üretmek
-  için `python -m app.training previews` (önce kalıcı örnek dizinini diskle eşitler).
+  için `python -m app.training previews` (önce kalıcı örnek dizinini diskle eşitler). Ham malzemeyi
+  kalıcı silmek için `python -m app.training purge-originals` (kuru; `--apply` siler; README).
 - Arşivin içi: `MANIFEST.txt` (zaman, veritabanı türü, veritabanı dökümünün SHA-256'sı, dosya
   sayısı), `db/…`, `data/…`. Arşiv `umask 077` ile yazılır (yalnız sahibi okur) — kimlik belgesi
   içerir.

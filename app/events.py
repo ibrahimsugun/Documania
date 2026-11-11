@@ -99,6 +99,10 @@ class EventType(enum.StrEnum):
     TRAINING_ITEM_DISMISSED = "TRAINING_ITEM_DISMISSED"
     TRAINING_ITEM_RESTORED = "TRAINING_ITEM_RESTORED"
     TRAINING_RUN_ARCHIVED = "TRAINING_RUN_ARCHIVED"
+    # 11.9.10 (PLAN.md §D135 d): `python -m app.training purge-originals --apply` ham eğitim
+    # verisini sildi; veri bölüm başına (`gelen`, `examples`, `cikarilan`, `_referans`) dosya ve
+    # bayt sayısı, atlanan önizlemesiz örnek ve işlemdeki çalıştırma sayısı — ad ya da içerik yok.
+    TRAINING_ORIGINALS_PURGED = "TRAINING_ORIGINALS_PURGED"
     USER_CREATED = "USER_CREATED"
     USER_DEACTIVATED = "USER_DEACTIVATED"
     USER_REACTIVATED = "USER_REACTIVATED"

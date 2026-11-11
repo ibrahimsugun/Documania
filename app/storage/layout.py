@@ -18,13 +18,14 @@ data/
       _ornek_envanteri.csv            örnek envanteri; harici toplayıcının ürünü (11.9.2)
       _egitim/gelen/<run>/            eğitim modunda yüklenen dosyaların kopyası (11.9)
       _egitim/haritalar/              yüklenen harita CSV'leri (11.9.5)
-      _egitim/cikarilan/<tur_slug>/   örneklerden çıkarılanlar; silinmez (11.9.4)
+      _egitim/cikarilan/<tur_slug>/   çıkarılanlar (11.9.4); yalnız boşaltma siler (11.9.10)
       _sablonlar/<template_id>/       hazır şablonun orijinali (sablon.pdf, değişmez) ve
                                       pages/<sayfa>.jpg önizleme görüntüleri (15.1.1)
       _onizlemeler/<tur_slug>/        örneklerin kalıcı önizlemeleri (<anahtar>-<boyut>.jpg; 11.9.7,
                                       11.9.10); ham dosya silinince örneğin tek temsilidir,
                                       yedeğe girer (önbellek değil)
       _onizlemeler/_cikarilan/<tur_slug>/  örneklerden çıkarılanların önizlemeleri (11.9.4)
+      _referans/                      harici toplayıcının referans çıktısı; sistem yazmaz
   cache/pages/<file_id>/          analiz için üretilmiş sayfa görüntüleri
   cache/previews/<kaynak-turu>/   diğer belge kaynaklarının önizlemeleri (çalışan belgesi, yükleme
                                   sayfası, üretilen belge, şablon sayfası, fotoğraf; 11.9.9) —
@@ -64,6 +65,7 @@ TRAINING = "_egitim"
 TRAINING_INCOMING = "gelen"
 TRAINING_MAPS = "haritalar"
 TRAINING_REMOVED = "cikarilan"
+REFERENCE = "_referans"
 TEMPLATES = "_sablonlar"
 TEMPLATE_ORIGINAL_FILE = "sablon.pdf"
 EXAMPLE_PREVIEWS = "_onizlemeler"
@@ -118,6 +120,33 @@ class DataLayout:
     @property
     def training_maps(self) -> Path:
         return self.training / TRAINING_MAPS
+
+    @property
+    def training_incoming(self) -> Path:
+        """`_egitim/gelen/` — eğitim çalıştırmalarının yükleme kopyalarının kökü (11.9)."""
+        return self.training / TRAINING_INCOMING
+
+    @property
+    def training_removed_roots(self) -> tuple[Path, ...]:
+        """`_egitim/cikarilan*` — örneklerden çıkarılanların dizinleri (`cikarilan` ve elle açılan
+        `cikarilan_<ek>` kardeşleri; 11.9.4). Ad sırasıyla; yoksa boş."""
+        try:
+            found = sorted(
+                entry
+                for entry in self.training.iterdir()
+                if entry.name.startswith(TRAINING_REMOVED)
+                and entry.is_dir()
+                and not entry.is_symlink()
+            )
+        except FileNotFoundError:
+            return ()
+        return tuple(found)
+
+    @property
+    def reference_dir(self) -> Path:
+        """`KnownDocuments/_referans/` — harici toplayıcının referans görüntüleri ve metinleri;
+        sistem yazmaz, okumaz. Eğitim malzemesidir (yedekte malzemeyle, docs/YEDEKLEME.md)."""
+        return self.known_documents / REFERENCE
 
     @property
     def templates_dir(self) -> Path:

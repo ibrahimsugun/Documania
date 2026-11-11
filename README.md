@@ -165,6 +165,22 @@ docker compose logs worker               # kuyruğun tüketildiğini/worker hata
 İmaj bağımlılıkları `uv.lock`'taki sürüm ve hash'lerle kurar; kilit `pyproject.toml` ile uyuşmazsa yapı
 durur (`uv lock` ile kilidi yenileyip commit edin). Her servisin konteyner logu en çok 5 × 10 MB tutulur
 (`docker-compose.yml` `x-logging`); daha eskisi kendiliğinden silinir.
+**Ham eğitim verisini boşaltma (11.9.10, isteğe bağlı, geri alınamaz):** eğitim ve katalog
+malzemesinin ham dosyaları (`_egitim/gelen`, `examples`, `_egitim/cikarilan*`, `_referans`) yer
+kaplar; örnekler kalıcı önizleme ve kayıtla yaşamaya devam eder. Önce kuru çalıştırmanın raporunu
+okuyun (hiçbir şey silmez; dizini eşitler, eksik önizlemeleri üretir, bölüm başına dosya/bayt ve
+önizlemesi üretilemeyen örnekleri yazar), sonra onaylayıp `--apply` verin:
+
+```bash
+docker compose exec app python -m app.training purge-originals            # kuru çalıştırma
+docker compose exec app python -m app.training purge-originals --apply    # kalıcı siler
+```
+
+Arşiv yapılmaz; çalışan verisi, `_egitim/haritalar`, `catalog.yaml` ve `_sablonlar` kalır, işlemdeki
+eğitim çalıştırması atlanır. Silinen hacimler `known_examples` / `known_training`'dir;
+`backup-material.sh` hedefindeki eski kopyaları komut silmez (`--delete` yok) — onları elle silin.
+Önizlemesi üretilemeyen örnekler yalnız `--include-unpreviewable` ile silinir (yer tutucuyla görünür).
+
 **Durdurma:** `docker compose --profile production down` — **`-v` vermeyin**: hacimler yüklenen
 belgeleri, veritabanını ve sertifikayı taşır (`-v` hepsini siler).
 

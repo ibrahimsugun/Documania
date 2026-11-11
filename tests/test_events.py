@@ -52,7 +52,8 @@ def test_all_prd_event_types_are_present() -> None:
     hazır şablon olayları (`TEMPLATE_UPLOADED`, `TEMPLATE_ARCHIVED`, `TEMPLATE_RESTORED`,
     15.1.1) tm 182'yle; yapay zekâ ayarı olayı (`AI_SETTINGS_CHANGED`, 10.1.10) tm 189'la;
     reddedilen adayı kalıcı silme olayı (`CANDIDATE_TYPE_DELETED`, 11.1.9) tm 199'la; arşivdeki
-    şablonu kalıcı silme olayı (`OUTPUT_TEMPLATE_DELETED`, 15.1.5) tm 200'le."""
+    şablonu kalıcı silme olayı (`OUTPUT_TEMPLATE_DELETED`, 15.1.5) tm 200'le; ham eğitim verisini
+    boşaltma olayı (`TRAINING_ORIGINALS_PURGED`, 11.9.10) tm 202'yle."""
     expected = {
         "FILE_UPLOADED",
         "FILE_DUPLICATE",
@@ -128,6 +129,7 @@ def test_all_prd_event_types_are_present() -> None:
         "TRAINING_ITEM_DISMISSED",
         "TRAINING_ITEM_RESTORED",
         "TRAINING_RUN_ARCHIVED",
+        "TRAINING_ORIGINALS_PURGED",
         "USER_CREATED",
         "USER_DEACTIVATED",
         "USER_REACTIVATED",

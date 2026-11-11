@@ -4,8 +4,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Documania panel\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-11-11 22:03+0000\n"
-"PO-Revision-Date: 2026-11-11 22:03+0000\n"
+"POT-Creation-Date: 2026-11-11 22:29+0000\n"
+"PO-Revision-Date: 2026-11-11 22:29+0000\n"
 "Last-Translator: Documania görev penceresi (gözden geçirilmeli)\n"
 "Language: sr_Latn\n"
 "Language-Team: Srpski\n"
@@ -3583,6 +3583,11 @@ msgstr "Bez naočara za sunce"
 #: app/web/templates/catalog_examples.html app/web/templates/training_type.html
 msgid "Ham dosya silindi"
 msgstr "Originalna datoteka obrisana"
+
+#: app/training/purge.py
+#, python-brace-format
+msgid "Ham eğitim verisi boşaltıldı: {files} dosya, {megabytes} MB."
+msgstr "Sirovi podaci za obuku su obrisani: {files} datoteka, {megabytes} MB."
 
 #: app/web/routers/training.py
 msgid "Harita"

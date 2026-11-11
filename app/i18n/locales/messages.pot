@@ -4,7 +4,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Documania panel\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-11-11 22:03+0000\n"
+"POT-Creation-Date: 2026-11-11 22:21+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -3160,6 +3160,11 @@ msgstr ""
 
 #: app/web/templates/catalog_examples.html app/web/templates/training_type.html
 msgid "Ham dosya silindi"
+msgstr ""
+
+#: app/training/purge.py
+#, python-brace-format
+msgid "Ham eğitim verisi boşaltıldı: {files} dosya, {megabytes} MB."
 msgstr ""
 
 #: app/web/routers/training.py

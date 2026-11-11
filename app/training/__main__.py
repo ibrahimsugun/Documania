@@ -3,6 +3,13 @@
 
     python -m app.training recheck [--limit N] [--dry-run] [--again] [--report YOL]
     python -m app.training previews
+    python -m app.training purge-originals [--apply] [--include-unpreviewable]
+
+`purge-originals` ham eğitim verisini boşaltır (PRD 11.9.10; PLAN.md §D135 d; `app.training.purge`):
+dizini eşitler, eksik önizlemeleri üretir ve bölüm bölüm (`gelen`, `examples`, `cikarilan`,
+`_referans`) silinecek dosya ve bayt sayısını, önizlemesi üretilemeyen örnekleri yazar.
+Varsayılan kuru çalışmadır, hiçbir ham dosya silinmez; `--apply` kalıcı siler (arşiv yok, geri
+dönüş yok). Çalışan verisi, `_egitim/haritalar`, `catalog.yaml` ve `_sablonlar` kalır.
 
 `previews` önce kalıcı örnek dizinini diskle eşitler (`app.storage.examples.sync_example_index`:
 klasörde olup dizinde olmayan örnekler okunup yazılır, ham dosyası kalkan satır `removed` olur;
@@ -42,6 +49,7 @@ from app.training.pair import (
     ReviewPair,
     build_review_pair,
 )
+from app.training.purge import purge_originals
 from app.training.recheck import (
     RecheckOutcome,
     RecheckResult,
@@ -72,6 +80,16 @@ def _parser() -> argparse.ArgumentParser:
         help=f"JSON satırları raporu (varsayılan: veri dizini/{DEFAULT_REPORT})",
     )
     commands.add_parser("previews", help="örnek önizlemelerini önceden üretir (toplu ısıtma)")
+    purge = commands.add_parser(
+        "purge-originals",
+        help="ham eğitim verisini boşaltır (varsayılan kuru çalıştırma; --apply kalıcı siler)",
+    )
+    purge.add_argument("--apply", action="store_true", help="dosyaları kalıcı sil (geri alınamaz)")
+    purge.add_argument(
+        "--include-unpreviewable",
+        action="store_true",
+        help="önizlemesi üretilemeyen örnekleri de sil (yer tutucuyla görünür)",
+    )
     return parser
 
 
@@ -100,6 +118,45 @@ def _previews() -> int:
             ensure_ascii=False,
         )
     )
+    return 0
+
+
+def _purge_progress(stage: str, done: int, total: int) -> None:
+    if done == total or done % 100 == 0:
+        label = "Dizine yazılıyor" if stage == "index" else "Önizleme"
+        print(f"{label}: {done}/{total}", file=sys.stderr, flush=True)
+
+
+def _megabytes(size: int) -> str:
+    return f"{size / (1024 * 1024):,.1f} MB"
+
+
+def _purge(args: argparse.Namespace) -> int:
+    settings = get_settings()
+    layout = DataLayout(settings.data_dir)
+    factory = create_session_factory(create_db_engine(settings.database_url))
+    report = purge_originals(
+        factory,
+        layout,
+        apply=args.apply,
+        include_unpreviewable=args.include_unpreviewable,
+        progress=_purge_progress,
+    )
+    totals = report.deleted if report.applied else report.planned
+    title = "Silinen" if report.applied else "Silinecek (kuru çalıştırma, hiçbir şey silinmedi)"
+    print(title)
+    for name, section in totals.items():
+        print(f"  {name}: {section.files} dosya, {_megabytes(section.bytes)}")
+    print(f"Önizlemesi üretilemeyen örnek: {len(report.unpreviewable)}")
+    for entry in report.unpreviewable[:50]:
+        print(f"  {entry}")
+    if report.skipped_runs:
+        print(f"İşlemdeki çalıştırma (atlandı): {', '.join(map(str, report.skipped_runs))}")
+    if report.unknown_dirs:
+        print(f"Kaydı olmayan gelen/ dizini (dokunulmadı): {', '.join(report.unknown_dirs)}")
+    if report.waiting_items:
+        print(f"İK kararını bekleyen öğe (dosyası silinir): {report.waiting_items}")
+    print(json.dumps(report.as_dict(), ensure_ascii=False))
     return 0
 
 
@@ -205,6 +262,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _recheck(args)
     if args.command == "previews":
         return _previews()
+    if args.command == "purge-originals":
+        return _purge(args)
     return 2
 
 

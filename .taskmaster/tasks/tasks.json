@@ -2912,20 +2912,20 @@
         "description": "PRD 11.9.10 · FR-MOD-11 · Faz 1 · Should (v1). Sözleşme PLAN §D135 (d)(e)(f). İnsan kararı (2026-11-11): arşiv yok, doğrudan kalıcı sil; gelen + examples ikisi de.",
         "details": "KAPSAM: PRD 11.9.10; PLAN §D135 (d), (e), (f) — önce oku. tm 201 bitmiş olmalı.\n\nNE YAPILACAK: (1) `app/training/__main__.py`: `purge-originals` alt komutu (varsayılan kuru; `--apply`; `--include-unpreviewable`). (2) Yeni modül (ör. `app/training/purge.py`): dizini diskle eşitle → eksik önizlemeleri üret → bölüm başına rapor (gelen, examples, cikarilan, _referans: dosya + bayt; önizlemesi üretilemeyenler) → `--apply` ile sil: examples hamı (dizin removed), yalnız done koşuların gelen/<run> dosyaları (`staged_path` NULL), `_egitim/cikarilan*`, `_referans`. Dokunulmayanlar: `_egitim/haritalar`, `catalog.yaml`, `_sablonlar`, çalışan verisi; izinli kök listesi sabit, yol `DataLayout`'tan. İdempotent; kesilirse yeniden çalışır. (3) `app/events.py`: `TRAINING_ORIGINALS_PURGED` (bölüm başına sayı/bayt). (4) Dağıtım belgesine sunucu notu (docker compose exec ...); sunucuda ÇALIŞTIRILMAZ. (5) Yerel `data/` üzerinde komut kuru çalıştırılıp rapor HANDOFF'a yazılır; `--apply`'ı insan çalıştırır.\n\nKABUL: kuru çalıştırma hiçbir dosyaya dokunmaz; `--apply` sonrası sentetik veride yalnız hedef dizinler boşalır, haritalar/şablon/çalışan verisi bayt bayt aynı; önizlemesi olmayan örnek bayraksız silinmez; işlemdeki koşu atlanır; ikinci çalıştırma 0 dosya siler; olay yazılır; panel sayfaları silme sonrası açılır (tm 201 davranışı).",
         "testStrategy": "tests/training (kuru/apply, atlananlar, idempotent, staged_path NULL, korunan dizinler), tests/web (silme sonrası tür ve eğitim sayfaları), olay testi. Gerçek data/ testte kullanılmaz.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [
           "201"
         ],
         "priority": "medium",
         "subtasks": [],
-        "updatedAt": "2026-11-11T21:12:06.000Z"
+        "updatedAt": "2026-11-11T22:30:08.042Z"
       }
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-11-11T22:16:41.997Z",
+      "lastModified": "2026-11-11T22:30:08.043Z",
       "taskCount": 202,
-      "completedCount": 201,
+      "completedCount": 202,
       "tags": [
         "master"
       ]
